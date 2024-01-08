@@ -75,6 +75,8 @@ mod play {
     impl PlayImpl of IPlay<ContractState> {
         fn initialize(self: @ContractState, world: IWorldDispatcher) {
             // [Check] Not already initialized
+            // TODO: Remove this check when we implement seasonal games
+            // TODO: Access control
             assert(!self.initialized.read(), errors::ALREADY_INITIALIZED);
 
             // [Setup] Datastore
@@ -84,6 +86,7 @@ mod play {
             let game_id = world.uuid();
             let game = GameImpl::new(game_id);
             store.set_game(game);
+        // TODO: Add starter tile
         }
 
         fn create(self: @ContractState, world: IWorldDispatcher, name: felt252, order: u8) {
@@ -95,6 +98,8 @@ mod play {
             let caller = get_caller_address();
             let builder = store.builder(game, caller);
             assert(builder.name.is_zero(), errors::BUILDER_ALREADY_EXISTS);
+
+            // TODO: Check order is valid
 
             // [Effect] Create a new builder
             let builder = BuilderImpl::new(game.id, caller.into(), name, order);
@@ -115,6 +120,7 @@ mod play {
             assert(builder.name != 0, errors::BUILDER_NOT_FOUND);
 
             // [Effect] Builder spawn a new tile
+            // Todo: use VRF
             let seed = get_tx_info().unbox().transaction_hash;
             let tile = builder.draw(seed.into());
 
