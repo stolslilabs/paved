@@ -10,7 +10,7 @@ const SOUTH: felt252 = 'SOUTH';
 const EAST: felt252 = 'EAST';
 const WEST: felt252 = 'WEST';
 
-#[derive(Copy, Drop, Serde, PartialEq, Introspection)]
+#[derive(Copy, Drop, Serde, PartialEq, Introspect)]
 enum Orientation {
     None,
     North,

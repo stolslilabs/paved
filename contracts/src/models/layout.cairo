@@ -4,45 +4,16 @@ use debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::constants::{MASK_8, TWO_POW_8};
+use stolsli::models::plan::{Plan, PlanImpl};
 use stolsli::models::orientation::Orientation;
 use stolsli::models::category::Category;
 
 // Constants
 
-const MAX_TILE_COUNT: u8 = 20;
+const MAX_LAYOUT_COUNT: u8 = 20;
 
 mod errors {
-    const UNPACK_FAILED: felt252 = 'Layout: Unpack failed';
-}
-
-// Center, NNW, N, NNE, ENE, E, ESE, SSE, S, SSW, WSW, W, WNW
-#[derive(Copy, Drop, Serde, Introspection)]
-enum LayoutType {
-    // Row #1
-    RFFFFRFFFFFRF,
-    RFRFFFFFFFFRF,
-    WFFFFFFFFFFRF,
-    WFRFFRFFFFFRF,
-    WFRFFRFFRFFRF,
-    RFRFFCCCCFFRF,
-    // Row #2
-    RFRFFFFFCFFRF,
-    RFRFFRFFCFFFF,
-    RFFFFRFFCFFRF,
-    RFRFFFFFCFFFF,
-    WFRFFRFFCFFRF,
-    CCCCCCFFFFFCC,
-    // Row #3
-    FFFFFFFFCFFFF,
-    FFCFFFFFCFFFF,
-    FFCFFFFFFFFCF,
-    FFCFFFFFCFFCF,
-    FFFFFCCCCFFFF,
-    CFFFFCFFFFFCF,
-    // Row #4
-    CCCCCCCCCCCCC,
-    CCCCCCFFRFFCC,
+    const UNPACK_FAILED: felt252 = 'Layout: unpack failed';
 }
 
 #[derive(Copy, Drop, Serde)]
@@ -60,75 +31,6 @@ struct Layout {
     west_southwest: Category,
     west: Category,
     west_northwest: Category,
-}
-
-impl IntoLayoutTypeFelt252 of Into<LayoutType, felt252> {
-    #[inline(always)]
-    fn into(self: LayoutType) -> felt252 {
-        match self {
-            LayoutType::RFFFFRFFFFFRF => 'RFFFFRFFFFFRF',
-            LayoutType::RFRFFFFFFFFRF => 'RFRFFFFFFFFRF',
-            LayoutType::WFFFFFFFFFFRF => 'WFFFFFFFFFFRF',
-            LayoutType::WFRFFRFFFFFRF => 'WFRFFRFFFFFRF',
-            LayoutType::WFRFFRFFRFFRF => 'WFRFFRFFRFFRF',
-            LayoutType::RFRFFCCCCFFRF => 'RFRFFCCCCFFRF',
-            LayoutType::RFRFFFFFCFFRF => 'RFRFFFFFCFFRF',
-            LayoutType::RFRFFRFFCFFFF => 'RFRFFRFFCFFFF',
-            LayoutType::RFFFFRFFCFFRF => 'RFFFFRFFCFFRF',
-            LayoutType::RFRFFFFFCFFFF => 'RFRFFFFFCFFFF',
-            LayoutType::WFRFFRFFCFFRF => 'WFRFFRFFCFFRF',
-            LayoutType::CCCCCCFFFFFCC => 'CCCCCCFFFFFCC',
-            LayoutType::FFFFFFFFCFFFF => 'FFFFFFFFCFFFF',
-            LayoutType::FFCFFFFFCFFFF => 'FFCFFFFFCFFFF',
-            LayoutType::FFCFFFFFFFFCF => 'FFCFFFFFFFFCF',
-            LayoutType::FFCFFFFFCFFCF => 'FFCFFFFFCFFCF',
-            LayoutType::FFFFFCCCCFFFF => 'FFFFFCCCCFFFF',
-            LayoutType::CFFFFCFFFFFCF => 'CFFFFCFFFFFCF',
-            LayoutType::CCCCCCCCCCCCC => 'CCCCCCCCCCCCC',
-            LayoutType::CCCCCCFFRFFCC => 'CCCCCCFFRFFCC',
-        }
-    }
-}
-
-impl LayoutTypePrint of PrintTrait<LayoutType> {
-    #[inline(always)]
-    fn print(self: LayoutType) {
-        let felt: felt252 = self.into();
-        felt.print();
-    }
-}
-
-impl LayoutTypePartialEq of PartialEq<LayoutType> {
-    #[inline(always)]
-    fn eq(lhs: @LayoutType, rhs: @LayoutType) -> bool {
-        let felt: felt252 = (*lhs).into();
-        felt == (*rhs).into()
-    }
-
-    #[inline(always)]
-    fn ne(lhs: @LayoutType, rhs: @LayoutType) -> bool {
-        let felt: felt252 = (*lhs).into();
-        felt != (*rhs).into()
-    }
-}
-
-#[generate_trait]
-impl LayoutTypeImpl of LayoutTypeTrait {
-    fn unpack(self: LayoutType) -> Array<Category> {
-        let mut categories: Array<Category> = ArrayTrait::new();
-        let packed: felt252 = self.into();
-        let mut keys: u256 = packed.into();
-        loop {
-            if keys == 0 {
-                break;
-            }
-            let key: felt252 = (keys & MASK_8.into()).try_into().unwrap();
-            let category: Category = key.into();
-            categories.append(category);
-            keys /= TWO_POW_8.into();
-        };
-        categories
-    }
 }
 
 #[generate_trait]
@@ -164,8 +66,8 @@ impl LayoutImpl of LayoutTrait {
             west_northwest: west_northwest,
         }
     }
-    fn from(layout_type: LayoutType, orientation: Orientation) -> Layout {
-        let mut categories = layout_type.unpack();
+    fn from(plan: Plan, orientation: Orientation) -> Layout {
+        let mut categories = plan.unpack();
 
         // [Check] Categories length
         assert(categories.len() == 13, errors::UNPACK_FAILED);
@@ -304,13 +206,13 @@ mod tests {
     // Local imports
 
     use super::{Layout, LayoutImpl};
-    use super::{LayoutType, Category, Orientation};
+    use super::{Plan, Category, Orientation};
 
     #[test]
     fn test_layout_from_north() {
         let orientation = Orientation::North;
-        let layout_type = LayoutType::RFRFFCCCCFFRF;
-        let layout: Layout = LayoutImpl::from(layout_type, orientation);
+        let plan = Plan::RFRFFCCCCFFRF;
+        let layout: Layout = LayoutImpl::from(plan, orientation);
         // Center
         assert(layout.center == Category::Road, 'Layout: wrong center');
         // North
@@ -334,8 +236,8 @@ mod tests {
     #[test]
     fn test_layout_from_east() {
         let orientation = Orientation::East;
-        let layout_type = LayoutType::RFRFFCCCCFFRF;
-        let layout: Layout = LayoutImpl::from(layout_type, orientation);
+        let plan = Plan::RFRFFCCCCFFRF;
+        let layout: Layout = LayoutImpl::from(plan, orientation);
         // Center
         assert(layout.center == Category::Road, 'Layout: wrong center');
         // North
@@ -359,8 +261,8 @@ mod tests {
     #[test]
     fn test_layout_from_south() {
         let orientation = Orientation::South;
-        let layout_type = LayoutType::RFRFFCCCCFFRF;
-        let layout: Layout = LayoutImpl::from(layout_type, orientation);
+        let plan = Plan::RFRFFCCCCFFRF;
+        let layout: Layout = LayoutImpl::from(plan, orientation);
         // Center
         assert(layout.center == Category::Road, 'Layout: wrong center');
         // North
@@ -384,8 +286,8 @@ mod tests {
     #[test]
     fn test_layout_from_west() {
         let orientation = Orientation::West;
-        let layout_type = LayoutType::RFRFFCCCCFFRF;
-        let layout: Layout = LayoutImpl::from(layout_type, orientation);
+        let plan = Plan::RFRFFCCCCFFRF;
+        let layout: Layout = LayoutImpl::from(plan, orientation);
         // Center
         assert(layout.center == Category::Road, 'Layout: wrong center');
         // North
@@ -408,18 +310,18 @@ mod tests {
 
     #[test]
     fn test_layout_is_compatible() {
-        let layout_type = LayoutType::RFRFFCCCCFFRF;
-        let layout: Layout = LayoutImpl::from(layout_type, Orientation::North);
-        let reference: Layout = LayoutImpl::from(layout_type, Orientation::South);
+        let plan = Plan::RFRFFCCCCFFRF;
+        let layout: Layout = LayoutImpl::from(plan, Orientation::North);
+        let reference: Layout = LayoutImpl::from(plan, Orientation::South);
         let compatibility = LayoutImpl::is_compatible(layout, reference, Orientation::North);
         assert(compatibility, 'Layout: wrong compatibility');
     }
 
     #[test]
     fn test_layout_is_not_compatible() {
-        let layout_type = LayoutType::RFRFFCCCCFFRF;
-        let layout: Layout = LayoutImpl::from(layout_type, Orientation::North);
-        let reference: Layout = LayoutImpl::from(layout_type, Orientation::East);
+        let plan = Plan::RFRFFCCCCFFRF;
+        let layout: Layout = LayoutImpl::from(plan, Orientation::North);
+        let reference: Layout = LayoutImpl::from(plan, Orientation::East);
         let compatibility = LayoutImpl::is_compatible(layout, reference, Orientation::North);
         assert(!compatibility, 'Layout: wrong compatibility');
     }

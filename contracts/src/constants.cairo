@@ -1,3 +1,8 @@
+// Characters
+
+const DEFAULT_TILES_COUNT: u8 = 10;
+const DEFAULT_CHARACTERS_COUNT: u8 = 6;
+
 // Packing / Unpacking
 
 const TWO_POW_8: u128 = 0x100;

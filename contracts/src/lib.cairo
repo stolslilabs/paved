@@ -1,15 +1,19 @@
 mod constants;
-
-mod systems {}
+mod store;
 
 mod models {
-    mod builder;
     mod game;
+    mod builder;
+    mod plan;
     mod category;
     mod layout;
     mod order;
     mod orientation;
     mod tile;
+}
+
+mod systems {
+    mod play;
 }
 
 mod tests {}

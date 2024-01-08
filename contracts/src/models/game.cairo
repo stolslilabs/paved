@@ -1,14 +1,15 @@
-#[derive(Clone, Copy, Drop)]
+#[derive(Model, Copy, Drop, Serde)]
 struct Game {
     #[key]
-    game_id: u64,
-    tile_count: u64,
+    id: u32,
+    piece_count: u32,
+    tile_count: u32,
 }
 
 #[generate_trait]
 impl GameImpl of GameTrait {
-    fn new(game_id: u64) -> Game {
-        Game { game_id, tile_count: 0, }
+    fn new(id: u32) -> Game {
+        Game { id, piece_count: 0, tile_count: 0, }
     }
 }
 
