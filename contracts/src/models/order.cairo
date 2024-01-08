@@ -4,6 +4,7 @@ use debug::PrintTrait;
 
 // Constants
 
+const NONE: felt252 = 0;
 const ANGER: felt252 = 'ANGER';
 const TITANS: felt252 = 'TITANS';
 const VITRIOL: felt252 = 'VITRIOL';
@@ -21,6 +22,7 @@ const TWINS: felt252 = 'TWINS';
 
 #[derive(Copy, Drop, Serde, PartialEq, Introspection)]
 enum Order {
+    None,
     Anger,
     Titans,
     Vitriol,
@@ -41,6 +43,7 @@ impl IntoOrderFelt252 of Into<Order, felt252> {
     #[inline(always)]
     fn into(self: Order) -> felt252 {
         match self {
+            Order::None => NONE,
             Order::Anger => ANGER,
             Order::Titans => TITANS,
             Order::Vitriol => VITRIOL,
@@ -63,94 +66,95 @@ impl IntoOrderU8 of Into<Order, u8> {
     #[inline(always)]
     fn into(self: Order) -> u8 {
         match self {
-            Order::Anger => 0,
-            Order::Titans => 1,
-            Order::Vitriol => 2,
-            Order::Brillance => 3,
-            Order::Detection => 4,
-            Order::Enlightenment => 5,
-            Order::Fury => 6,
-            Order::Giants => 7,
-            Order::Perfection => 8,
-            Order::Rage => 9,
-            Order::Reflection => 10,
-            Order::Skill => 11,
-            Order::Fox => 12,
-            Order::Twins => 13,
+            Order::None => 0,
+            Order::Anger => 1,
+            Order::Titans => 2,
+            Order::Vitriol => 3,
+            Order::Brillance => 4,
+            Order::Detection => 5,
+            Order::Enlightenment => 6,
+            Order::Fury => 7,
+            Order::Giants => 8,
+            Order::Perfection => 9,
+            Order::Rage => 10,
+            Order::Reflection => 11,
+            Order::Skill => 12,
+            Order::Fox => 13,
+            Order::Twins => 14,
         }
     }
 }
 
-impl TryIntoU8Order of TryInto<u8, Order> {
+impl IntoU8Order of Into<u8, Order> {
     #[inline(always)]
-    fn try_into(self: u8) -> Option<Order> {
-        if self == 0 {
-            Option::Some(Order::Anger)
-        } else if self == 1 {
-            Option::Some(Order::Titans)
+    fn into(self: u8) -> Order {
+        if self == 1 {
+            Order::Anger
         } else if self == 2 {
-            Option::Some(Order::Vitriol)
+            Order::Titans
         } else if self == 3 {
-            Option::Some(Order::Brillance)
+            Order::Vitriol
         } else if self == 4 {
-            Option::Some(Order::Detection)
+            Order::Brillance
         } else if self == 5 {
-            Option::Some(Order::Enlightenment)
+            Order::Detection
         } else if self == 6 {
-            Option::Some(Order::Fury)
+            Order::Enlightenment
         } else if self == 7 {
-            Option::Some(Order::Giants)
+            Order::Fury
         } else if self == 8 {
-            Option::Some(Order::Perfection)
+            Order::Giants
         } else if self == 9 {
-            Option::Some(Order::Rage)
+            Order::Perfection
         } else if self == 10 {
-            Option::Some(Order::Reflection)
+            Order::Rage
         } else if self == 11 {
-            Option::Some(Order::Skill)
+            Order::Reflection
         } else if self == 12 {
-            Option::Some(Order::Fox)
+            Order::Skill
         } else if self == 13 {
-            Option::Some(Order::Twins)
+            Order::Fox
+        } else if self == 14 {
+            Order::Twins
         } else {
-            Option::None
+            Order::None
         }
     }
 }
 
-impl TryIntoFelt252Order of TryInto<felt252, Order> {
+impl TryIntoFelt252Order of Into<felt252, Order> {
     #[inline(always)]
-    fn try_into(self: felt252) -> Option<Order> {
+    fn into(self: felt252) -> Order {
         if self == ANGER {
-            Option::Some(Order::Anger)
+            Order::Anger
         } else if self == TITANS {
-            Option::Some(Order::Titans)
+            Order::Titans
         } else if self == VITRIOL {
-            Option::Some(Order::Vitriol)
+            Order::Vitriol
         } else if self == BRILLANCE {
-            Option::Some(Order::Brillance)
+            Order::Brillance
         } else if self == DETECTION {
-            Option::Some(Order::Detection)
+            Order::Detection
         } else if self == ENLIGHTENMENT {
-            Option::Some(Order::Enlightenment)
+            Order::Enlightenment
         } else if self == FURY {
-            Option::Some(Order::Fury)
+            Order::Fury
         } else if self == GIANTS {
-            Option::Some(Order::Giants)
+            Order::Giants
         } else if self == PERFECTION {
-            Option::Some(Order::Perfection)
+            Order::Perfection
         } else if self == RAGE {
-            Option::Some(Order::Rage)
+            Order::Rage
         } else if self == REFLECTION {
-            Option::Some(Order::Reflection)
+            Order::Reflection
         } else if self == SKILL {
-            Option::Some(Order::Skill)
+            Order::Skill
         } else if self == FOX {
-            Option::Some(Order::Fox)
+            Order::Fox
         } else if self == TWINS {
-            Option::Some(Order::Twins)
+            Order::Twins
         } else {
-            Option::None
+            Order::None
         }
     }
 }
@@ -160,6 +164,111 @@ impl OrderPrint of PrintTrait<Order> {
     fn print(self: Order) {
         let felt: felt252 = self.into();
         felt.print();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Core imports
+
+    use debug::PrintTrait;
+
+    // Local imports
+
+    use super::{
+        Order, NONE, ANGER, TITANS, VITRIOL, BRILLANCE, DETECTION, ENLIGHTENMENT, FURY, GIANTS,
+        PERFECTION, RAGE, REFLECTION, SKILL, FOX, TWINS
+    };
+
+    // Constants
+
+    const UNKNOWN_FELT: felt252 = 'UNKNOWN';
+    const UNKNOWN_U8: u8 = 42;
+
+    #[test]
+    fn test_order_into_felt() {
+        assert(NONE == Order::None.into(), 'Order: wrong None');
+        assert(ANGER == Order::Anger.into(), 'Order: wrong Anger');
+        assert(TITANS == Order::Titans.into(), 'Order: wrong Titans');
+        assert(VITRIOL == Order::Vitriol.into(), 'Order: wrong Vitriol');
+        assert(BRILLANCE == Order::Brillance.into(), 'Order: wrong Brillance');
+        assert(DETECTION == Order::Detection.into(), 'Order: wrong Detection');
+        assert(ENLIGHTENMENT == Order::Enlightenment.into(), 'Order: wrong Enlightenment');
+        assert(FURY == Order::Fury.into(), 'Order: wrong Fury');
+        assert(GIANTS == Order::Giants.into(), 'Order: wrong Giants');
+        assert(PERFECTION == Order::Perfection.into(), 'Order: wrong Perfection');
+        assert(RAGE == Order::Rage.into(), 'Order: wrong Rage');
+        assert(REFLECTION == Order::Reflection.into(), 'Order: wrong Reflection');
+        assert(SKILL == Order::Skill.into(), 'Order: wrong Skill');
+        assert(FOX == Order::Fox.into(), 'Order: wrong Fox');
+        assert(TWINS == Order::Twins.into(), 'Order: wrong Twins');
+    }
+
+    #[test]
+    fn test_felt_into_order() {
+        assert(Order::None == NONE.into(), 'Order: wrong None');
+        assert(Order::Anger == ANGER.into(), 'Order: wrong Anger');
+        assert(Order::Titans == TITANS.into(), 'Order: wrong Titans');
+        assert(Order::Vitriol == VITRIOL.into(), 'Order: wrong Vitriol');
+        assert(Order::Brillance == BRILLANCE.into(), 'Order: wrong Brillance');
+        assert(Order::Detection == DETECTION.into(), 'Order: wrong Detection');
+        assert(Order::Enlightenment == ENLIGHTENMENT.into(), 'Order: wrong Enlightenment');
+        assert(Order::Fury == FURY.into(), 'Order: wrong Fury');
+        assert(Order::Giants == GIANTS.into(), 'Order: wrong Giants');
+        assert(Order::Perfection == PERFECTION.into(), 'Order: wrong Perfection');
+        assert(Order::Rage == RAGE.into(), 'Order: wrong Rage');
+        assert(Order::Reflection == REFLECTION.into(), 'Order: wrong Reflection');
+        assert(Order::Skill == SKILL.into(), 'Order: wrong Skill');
+        assert(Order::Fox == FOX.into(), 'Order: wrong Fox');
+        assert(Order::Twins == TWINS.into(), 'Order: wrong Twins');
+    }
+
+    #[test]
+    fn test_unknown_felt_into_order() {
+        assert(Order::None == UNKNOWN_FELT.into(), 'Order: wrong Unknown');
+    }
+
+    #[test]
+    fn test_order_into_u8() {
+        assert(0_u8 == Order::None.into(), 'Order: wrong None');
+        assert(1_u8 == Order::Anger.into(), 'Order: wrong Anger');
+        assert(2_u8 == Order::Titans.into(), 'Order: wrong Titans');
+        assert(3_u8 == Order::Vitriol.into(), 'Order: wrong Vitriol');
+        assert(4_u8 == Order::Brillance.into(), 'Order: wrong Brillance');
+        assert(5_u8 == Order::Detection.into(), 'Order: wrong Detection');
+        assert(6_u8 == Order::Enlightenment.into(), 'Order: wrong Enlightenment');
+        assert(7_u8 == Order::Fury.into(), 'Order: wrong Fury');
+        assert(8_u8 == Order::Giants.into(), 'Order: wrong Giants');
+        assert(9_u8 == Order::Perfection.into(), 'Order: wrong Perfection');
+        assert(10_u8 == Order::Rage.into(), 'Order: wrong Rage');
+        assert(11_u8 == Order::Reflection.into(), 'Order: wrong Reflection');
+        assert(12_u8 == Order::Skill.into(), 'Order: wrong Skill');
+        assert(13_u8 == Order::Fox.into(), 'Order: wrong Fox');
+        assert(14_u8 == Order::Twins.into(), 'Order: wrong Twins');
+    }
+
+    #[test]
+    fn test_u8_into_order() {
+        assert(Order::None == 0_u8.into(), 'Order: wrong None');
+        assert(Order::Anger == 1_u8.into(), 'Order: wrong Anger');
+        assert(Order::Titans == 2_u8.into(), 'Order: wrong Titans');
+        assert(Order::Vitriol == 3_u8.into(), 'Order: wrong Vitriol');
+        assert(Order::Brillance == 4_u8.into(), 'Order: wrong Brillance');
+        assert(Order::Detection == 5_u8.into(), 'Order: wrong Detection');
+        assert(Order::Enlightenment == 6_u8.into(), 'Order: wrong Enlightenment');
+        assert(Order::Fury == 7_u8.into(), 'Order: wrong Fury');
+        assert(Order::Giants == 8_u8.into(), 'Order: wrong Giants');
+        assert(Order::Perfection == 9_u8.into(), 'Order: wrong Perfection');
+        assert(Order::Rage == 10_u8.into(), 'Order: wrong Rage');
+        assert(Order::Reflection == 11_u8.into(), 'Order: wrong Reflection');
+        assert(Order::Skill == 12_u8.into(), 'Order: wrong Skill');
+        assert(Order::Fox == 13_u8.into(), 'Order: wrong Fox');
+        assert(Order::Twins == 14_u8.into(), 'Order: wrong Twins');
+    }
+
+    #[test]
+    fn test_unknown_u8_into_order() {
+        assert(Order::None == UNKNOWN_U8.into(), 'Order: wrong Unknown');
     }
 }
 

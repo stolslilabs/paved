@@ -6,7 +6,6 @@ mod models {
     mod builder;
     mod game;
     mod category;
-    mod edge;
     mod layout;
     mod order;
     mod orientation;

@@ -11,20 +11,22 @@ const WEST: felt252 = 'WEST';
 
 #[derive(Copy, Drop, Serde, PartialEq, Introspection)]
 enum Orientation {
-    north,
-    south,
-    east,
-    west
+    None,
+    North,
+    East,
+    South,
+    West
 }
 
 impl IntoOrientationU8 of Into<Orientation, u8> {
     #[inline(always)]
     fn into(self: Orientation) -> u8 {
         match self {
-            Orientation::north => 0,
-            Orientation::south => 1,
-            Orientation::east => 2,
-            Orientation::west => 3,
+            Orientation::None => 0,
+            Orientation::North => 1,
+            Orientation::East => 2,
+            Orientation::South => 3,
+            Orientation::West => 4,
         }
     }
 }
@@ -33,44 +35,45 @@ impl IntoOrientationFelt252 of Into<Orientation, felt252> {
     #[inline(always)]
     fn into(self: Orientation) -> felt252 {
         match self {
-            Orientation::north => NORTH,
-            Orientation::south => SOUTH,
-            Orientation::east => EAST,
-            Orientation::west => WEST,
+            Orientation::None => 0,
+            Orientation::North => NORTH,
+            Orientation::East => EAST,
+            Orientation::South => SOUTH,
+            Orientation::West => WEST,
         }
     }
 }
 
-impl TryIntoU8Orientation of TryInto<u8, Orientation> {
+impl IntoU8Orientation of Into<u8, Orientation> {
     #[inline(always)]
-    fn try_into(self: u8) -> Option<Orientation> {
-        if self == 0 {
-            Option::Some(Orientation::north)
-        } else if self == 1 {
-            Option::Some(Orientation::south)
+    fn into(self: u8) -> Orientation {
+        if self == 1 {
+            Orientation::North
         } else if self == 2 {
-            Option::Some(Orientation::east)
+            Orientation::East
         } else if self == 3 {
-            Option::Some(Orientation::west)
+            Orientation::South
+        } else if self == 4 {
+            Orientation::West
         } else {
-            Option::None
+            Orientation::None
         }
     }
 }
 
-impl TryIntoFelt252Orientation of TryInto<felt252, Orientation> {
+impl IntoFelt252Orientation of Into<felt252, Orientation> {
     #[inline(always)]
-    fn try_into(self: felt252) -> Option<Orientation> {
+    fn into(self: felt252) -> Orientation {
         if self == NORTH {
-            Option::Some(Orientation::north)
-        } else if self == SOUTH {
-            Option::Some(Orientation::south)
+            Orientation::North
         } else if self == EAST {
-            Option::Some(Orientation::east)
+            Orientation::East
+        } else if self == SOUTH {
+            Orientation::South
         } else if self == WEST {
-            Option::Some(Orientation::west)
+            Orientation::West
         } else {
-            Option::None
+            Orientation::None
         }
     }
 }
@@ -80,5 +83,76 @@ impl OrientationPrint of PrintTrait<Orientation> {
     fn print(self: Orientation) {
         let felt: felt252 = self.into();
         felt.print();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Core imports
+
+    use debug::PrintTrait;
+
+    // Local imports
+
+    use super::{Orientation, NORTH, SOUTH, EAST, WEST};
+
+    #[test]
+    fn test_orientation_into_felt() {
+        let none: Orientation = Orientation::None;
+        let north: Orientation = Orientation::North;
+        let east: Orientation = Orientation::East;
+        let south: Orientation = Orientation::South;
+        let west: Orientation = Orientation::West;
+
+        assert(0 == none.into(), 'Orientation: wrong None');
+        assert(NORTH == north.into(), 'Orientation: wrong North');
+        assert(EAST == east.into(), 'Orientation: wrong East');
+        assert(SOUTH == south.into(), 'Orientation: wrong South');
+        assert(WEST == west.into(), 'Orientation: wrong West');
+    }
+
+    #[test]
+    fn test_orientation_into_u8() {
+        let none: Orientation = Orientation::None;
+        let north: Orientation = Orientation::North;
+        let east: Orientation = Orientation::East;
+        let south: Orientation = Orientation::South;
+        let west: Orientation = Orientation::West;
+
+        assert(0_u8 == none.into(), 'Orientation: wrong None');
+        assert(1_u8 == north.into(), 'Orientation: wrong North');
+        assert(2_u8 == east.into(), 'Orientation: wrong East');
+        assert(3_u8 == south.into(), 'Orientation: wrong South');
+        assert(4_u8 == west.into(), 'Orientation: wrong West');
+    }
+
+    #[test]
+    fn test_u8_into_orientation() {
+        let none: Orientation = Orientation::None;
+        let north: Orientation = Orientation::North;
+        let east: Orientation = Orientation::East;
+        let south: Orientation = Orientation::South;
+        let west: Orientation = Orientation::West;
+
+        assert(none == 0_u8.into(), 'Orientation: wrong None');
+        assert(north == 1_u8.into(), 'Orientation: wrong North');
+        assert(east == 2_u8.into(), 'Orientation: wrong East');
+        assert(south == 3_u8.into(), 'Orientation: wrong South');
+        assert(west == 4_u8.into(), 'Orientation: wrong West');
+    }
+
+    #[test]
+    fn test_felt_into_orientation() {
+        let none: Orientation = Orientation::None;
+        let north: Orientation = Orientation::North;
+        let east: Orientation = Orientation::East;
+        let south: Orientation = Orientation::South;
+        let west: Orientation = Orientation::West;
+
+        assert(none == 0.into(), 'Orientation: wrong None');
+        assert(north == NORTH.into(), 'Orientation: wrong North');
+        assert(east == EAST.into(), 'Orientation: wrong East');
+        assert(south == SOUTH.into(), 'Orientation: wrong South');
+        assert(west == WEST.into(), 'Orientation: wrong West');
     }
 }
