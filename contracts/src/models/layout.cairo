@@ -10,7 +10,7 @@ use stolsli::models::category::Category;
 
 // Constants
 
-const MAX_TILE_COUNT: u8 = 3;
+const MAX_TILE_COUNT: u8 = 20;
 
 mod errors {
     const UNPACK_FAILED: felt252 = 'Layout: Unpack failed';
@@ -19,9 +19,30 @@ mod errors {
 // Center, NNW, N, NNE, ENE, E, ESE, SSE, S, SSW, WSW, W, WNW
 #[derive(Copy, Drop, Serde, Introspection)]
 enum LayoutType {
-    SCFRCFRCFRCFR,
-    RFFFFFFCFRCFR,
-    SCRFCFRFRRCFF,
+    // Row #1
+    RFFFFRFFFFFRF,
+    RFRFFFFFFFFRF,
+    WFFFFFFFFFFRF,
+    WFRFFRFFFFFRF,
+    WFRFFRFFRFFRF,
+    RFRFFCCCCFFRF,
+    // Row #2
+    RFRFFFFFCFFRF,
+    RFRFFRFFCFFFF,
+    RFFFFRFFCFFRF,
+    RFRFFFFFCFFFF,
+    WFRFFRFFCFFRF,
+    CCCCCCFFFFFCC,
+    // Row #3
+    FFFFFFFFCFFFF,
+    FFCFFFFFCFFFF,
+    FFCFFFFFFFFCF,
+    FFCFFFFFCFFCF,
+    FFFFFCCCCFFFF,
+    CFFFFCFFFFFCF,
+    // Row #4
+    CCCCCCCCCCCCC,
+    CCCCCCFFRFFCC,
 }
 
 #[derive(Copy, Drop, Serde)]
@@ -45,9 +66,26 @@ impl IntoLayoutTypeFelt252 of Into<LayoutType, felt252> {
     #[inline(always)]
     fn into(self: LayoutType) -> felt252 {
         match self {
-            LayoutType::SCFRCFRCFRCFR => 'SCFRCFRCFRCFR',
-            LayoutType::RFFFFFFCFRCFR => 'RFFFFFFCFRCFR',
-            LayoutType::SCRFCFRFRRCFF => 'SCRFCFRFRRCFF',
+            LayoutType::RFFFFRFFFFFRF => 'RFFFFRFFFFFRF',
+            LayoutType::RFRFFFFFFFFRF => 'RFRFFFFFFFFRF',
+            LayoutType::WFFFFFFFFFFRF => 'WFFFFFFFFFFRF',
+            LayoutType::WFRFFRFFFFFRF => 'WFRFFRFFFFFRF',
+            LayoutType::WFRFFRFFRFFRF => 'WFRFFRFFRFFRF',
+            LayoutType::RFRFFCCCCFFRF => 'RFRFFCCCCFFRF',
+            LayoutType::RFRFFFFFCFFRF => 'RFRFFFFFCFFRF',
+            LayoutType::RFRFFRFFCFFFF => 'RFRFFRFFCFFFF',
+            LayoutType::RFFFFRFFCFFRF => 'RFFFFRFFCFFRF',
+            LayoutType::RFRFFFFFCFFFF => 'RFRFFFFFCFFFF',
+            LayoutType::WFRFFRFFCFFRF => 'WFRFFRFFCFFRF',
+            LayoutType::CCCCCCFFFFFCC => 'CCCCCCFFFFFCC',
+            LayoutType::FFFFFFFFCFFFF => 'FFFFFFFFCFFFF',
+            LayoutType::FFCFFFFFCFFFF => 'FFCFFFFFCFFFF',
+            LayoutType::FFCFFFFFFFFCF => 'FFCFFFFFFFFCF',
+            LayoutType::FFCFFFFFCFFCF => 'FFCFFFFFCFFCF',
+            LayoutType::FFFFFCCCCFFFF => 'FFFFFCCCCFFFF',
+            LayoutType::CFFFFCFFFFFCF => 'CFFFFCFFFFFCF',
+            LayoutType::CCCCCCCCCCCCC => 'CCCCCCCCCCCCC',
+            LayoutType::CCCCCCFFRFFCC => 'CCCCCCFFRFFCC',
         }
     }
 }
@@ -271,106 +309,106 @@ mod tests {
     #[test]
     fn test_layout_from_north() {
         let orientation = Orientation::North;
-        let layout_type = LayoutType::RFFFFFFCFRCFR;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let layout: Layout = LayoutImpl::from(layout_type, orientation);
         // Center
         assert(layout.center == Category::Road, 'Layout: wrong center');
         // North
         assert(layout.north_northwest == Category::Farm, 'Layout: wrong NNW');
-        assert(layout.north == Category::Farm, 'Layout: wrong N');
+        assert(layout.north == Category::Road, 'Layout: wrong N');
         assert(layout.north_northeast == Category::Farm, 'Layout: wrong NNE');
         // East
         assert(layout.east_northeast == Category::Farm, 'Layout: wrong ENE');
-        assert(layout.east == Category::Farm, 'Layout: wrong E');
-        assert(layout.east_southeast == Category::Farm, 'Layout: wrong ESE');
+        assert(layout.east == Category::City, 'Layout: wrong E');
+        assert(layout.east_southeast == Category::City, 'Layout: wrong ESE');
         // South
         assert(layout.south_southeast == Category::City, 'Layout: wrong SSE');
-        assert(layout.south == Category::Farm, 'Layout: wrong S');
-        assert(layout.south_southwest == Category::Road, 'Layout: wrong SSW');
+        assert(layout.south == Category::City, 'Layout: wrong S');
+        assert(layout.south_southwest == Category::Farm, 'Layout: wrong SSW');
         // West
-        assert(layout.west_southwest == Category::City, 'Layout: wrong WSW');
-        assert(layout.west == Category::Farm, 'Layout: wrong W');
-        assert(layout.west_northwest == Category::Road, 'Layout: wrong WNW');
+        assert(layout.west_southwest == Category::Farm, 'Layout: wrong WSW');
+        assert(layout.west == Category::Road, 'Layout: wrong W');
+        assert(layout.west_northwest == Category::Farm, 'Layout: wrong WNW');
     }
 
     #[test]
     fn test_layout_from_east() {
         let orientation = Orientation::East;
-        let layout_type = LayoutType::RFFFFFFCFRCFR;
-        let layout: Layout = LayoutImpl::from(layout_type, orientation);
-        // Center
-        assert(layout.center == Category::Road, 'Layout: wrong center');
-        // North
-        assert(layout.north_northwest == Category::City, 'Layout: wrong NNW');
-        assert(layout.north == Category::Farm, 'Layout: wrong N');
-        assert(layout.north_northeast == Category::Road, 'Layout: wrong NNE');
-        // East
-        assert(layout.east_northeast == Category::Farm, 'Layout: wrong ENE');
-        assert(layout.east == Category::Farm, 'Layout: wrong E');
-        assert(layout.east_southeast == Category::Farm, 'Layout: wrong ESE');
-        // South
-        assert(layout.south_southeast == Category::Farm, 'Layout: wrong SSE');
-        assert(layout.south == Category::Farm, 'Layout: wrong S');
-        assert(layout.south_southwest == Category::Farm, 'Layout: wrong SSW');
-        // West
-        assert(layout.west_southwest == Category::City, 'Layout: wrong WSW');
-        assert(layout.west == Category::Farm, 'Layout: wrong W');
-        assert(layout.west_northwest == Category::Road, 'Layout: wrong WNW');
-    }
-
-    #[test]
-    fn test_layout_from_south() {
-        let orientation = Orientation::South;
-        let layout_type = LayoutType::RFFFFFFCFRCFR;
-        let layout: Layout = LayoutImpl::from(layout_type, orientation);
-        // Center
-        assert(layout.center == Category::Road, 'Layout: wrong center');
-        // North
-        assert(layout.north_northwest == Category::City, 'Layout: wrong NNW');
-        assert(layout.north == Category::Farm, 'Layout: wrong N');
-        assert(layout.north_northeast == Category::Road, 'Layout: wrong NNE');
-        // East
-        assert(layout.east_northeast == Category::City, 'Layout: wrong ENE');
-        assert(layout.east == Category::Farm, 'Layout: wrong E');
-        assert(layout.east_southeast == Category::Road, 'Layout: wrong ESE');
-        // South
-        assert(layout.south_southeast == Category::Farm, 'Layout: wrong SSE');
-        assert(layout.south == Category::Farm, 'Layout: wrong S');
-        assert(layout.south_southwest == Category::Farm, 'Layout: wrong SSW');
-        // West
-        assert(layout.west_southwest == Category::Farm, 'Layout: wrong WSW');
-        assert(layout.west == Category::Farm, 'Layout: wrong W');
-        assert(layout.west_northwest == Category::Farm, 'Layout: wrong WNW');
-    }
-
-    #[test]
-    fn test_layout_from_west() {
-        let orientation = Orientation::West;
-        let layout_type = LayoutType::RFFFFFFCFRCFR;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let layout: Layout = LayoutImpl::from(layout_type, orientation);
         // Center
         assert(layout.center == Category::Road, 'Layout: wrong center');
         // North
         assert(layout.north_northwest == Category::Farm, 'Layout: wrong NNW');
-        assert(layout.north == Category::Farm, 'Layout: wrong N');
+        assert(layout.north == Category::Road, 'Layout: wrong N');
         assert(layout.north_northeast == Category::Farm, 'Layout: wrong NNE');
         // East
-        assert(layout.east_northeast == Category::City, 'Layout: wrong ENE');
-        assert(layout.east == Category::Farm, 'Layout: wrong E');
-        assert(layout.east_southeast == Category::Road, 'Layout: wrong ESE');
+        assert(layout.east_northeast == Category::Farm, 'Layout: wrong ENE');
+        assert(layout.east == Category::Road, 'Layout: wrong E');
+        assert(layout.east_southeast == Category::Farm, 'Layout: wrong ESE');
         // South
-        assert(layout.south_southeast == Category::City, 'Layout: wrong SSE');
-        assert(layout.south == Category::Farm, 'Layout: wrong S');
-        assert(layout.south_southwest == Category::Road, 'Layout: wrong SSW');
+        assert(layout.south_southeast == Category::Farm, 'Layout: wrong SSE');
+        assert(layout.south == Category::City, 'Layout: wrong S');
+        assert(layout.south_southwest == Category::City, 'Layout: wrong SSW');
+        // West
+        assert(layout.west_southwest == Category::City, 'Layout: wrong WSW');
+        assert(layout.west == Category::City, 'Layout: wrong W');
+        assert(layout.west_northwest == Category::Farm, 'Layout: wrong WNW');
+    }
+
+    #[test]
+    fn test_layout_from_south() {
+        let orientation = Orientation::South;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
+        let layout: Layout = LayoutImpl::from(layout_type, orientation);
+        // Center
+        assert(layout.center == Category::Road, 'Layout: wrong center');
+        // North
+        assert(layout.north_northwest == Category::City, 'Layout: wrong NNW');
+        assert(layout.north == Category::City, 'Layout: wrong N');
+        assert(layout.north_northeast == Category::Farm, 'Layout: wrong NNE');
+        // East
+        assert(layout.east_northeast == Category::Farm, 'Layout: wrong ENE');
+        assert(layout.east == Category::Road, 'Layout: wrong E');
+        assert(layout.east_southeast == Category::Farm, 'Layout: wrong ESE');
+        // South
+        assert(layout.south_southeast == Category::Farm, 'Layout: wrong SSE');
+        assert(layout.south == Category::Road, 'Layout: wrong S');
+        assert(layout.south_southwest == Category::Farm, 'Layout: wrong SSW');
         // West
         assert(layout.west_southwest == Category::Farm, 'Layout: wrong WSW');
-        assert(layout.west == Category::Farm, 'Layout: wrong W');
+        assert(layout.west == Category::City, 'Layout: wrong W');
+        assert(layout.west_northwest == Category::City, 'Layout: wrong WNW');
+    }
+
+    #[test]
+    fn test_layout_from_west() {
+        let orientation = Orientation::West;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
+        let layout: Layout = LayoutImpl::from(layout_type, orientation);
+        // Center
+        assert(layout.center == Category::Road, 'Layout: wrong center');
+        // North
+        assert(layout.north_northwest == Category::Farm, 'Layout: wrong NNW');
+        assert(layout.north == Category::City, 'Layout: wrong N');
+        assert(layout.north_northeast == Category::City, 'Layout: wrong NNE');
+        // East
+        assert(layout.east_northeast == Category::City, 'Layout: wrong ENE');
+        assert(layout.east == Category::City, 'Layout: wrong E');
+        assert(layout.east_southeast == Category::Farm, 'Layout: wrong ESE');
+        // South
+        assert(layout.south_southeast == Category::Farm, 'Layout: wrong SSE');
+        assert(layout.south == Category::Road, 'Layout: wrong S');
+        assert(layout.south_southwest == Category::Farm, 'Layout: wrong SSW');
+        // West
+        assert(layout.west_southwest == Category::Farm, 'Layout: wrong WSW');
+        assert(layout.west == Category::Road, 'Layout: wrong W');
         assert(layout.west_northwest == Category::Farm, 'Layout: wrong WNW');
     }
 
     #[test]
     fn test_layout_is_compatible() {
-        let layout_type = LayoutType::SCRFCFRFRRCFF;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let layout: Layout = LayoutImpl::from(layout_type, Orientation::North);
         let reference: Layout = LayoutImpl::from(layout_type, Orientation::South);
         let compatibility = LayoutImpl::is_compatible(layout, reference, Orientation::North);
@@ -379,9 +417,9 @@ mod tests {
 
     #[test]
     fn test_layout_is_not_compatible() {
-        let layout_type = LayoutType::SCRFCFRFRRCFF;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let layout: Layout = LayoutImpl::from(layout_type, Orientation::North);
-        let reference: Layout = LayoutImpl::from(layout_type, Orientation::West);
+        let reference: Layout = LayoutImpl::from(layout_type, Orientation::East);
         let compatibility = LayoutImpl::is_compatible(layout, reference, Orientation::North);
         assert(!compatibility, 'Layout: wrong compatibility');
     }

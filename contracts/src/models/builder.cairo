@@ -12,7 +12,7 @@ struct Builder {
 #[generate_trait]
 impl BuilderImpl of BuilderTrait {
     fn new(game_id: u64, id: felt252, name: felt252, order: u8, score: u32,) -> Builder {
-        Builder { game_id, id, name, tile_count, score, order, }
+        Builder { game_id, id, name, order, score, }
     }
 }
 

@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn test_tile_new() {
-        let layout_type = LayoutType::SCFRCFRCFRCFR;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let orientation = Orientation::North;
         let tile = TileImpl::new(0, 0, 0, 0, layout_type, orientation);
         assert(tile.game_id == 0, 'Tile: game_id');
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_tile_layout() {
-        let layout_type = LayoutType::SCFRCFRCFRCFR;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let orientation = Orientation::North;
         let tile = TileImpl::new(0, 0, 0, 0, layout_type, orientation);
         let layout = tile.layout(); // Check that it runs
@@ -148,19 +148,19 @@ mod tests {
 
     #[test]
     fn test_tile_is_valid() {
-        let layout_type = LayoutType::SCRFCFRFRRCFF;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let tile = TileImpl::new(0, 0, 0, 0, layout_type, Orientation::North);
-        let north_tile = TileImpl::new(0, 0, 1, 0, layout_type, Orientation::North);
-        let east_tile = TileImpl::new(0, 1, 0, 0, layout_type, Orientation::North);
-        let south_tile = TileImpl::new(0, 0, -1, 0, layout_type, Orientation::North);
-        let west_tile = TileImpl::new(0, -1, 0, 0, layout_type, Orientation::North);
+        let north_tile = TileImpl::new(0, 0, 1, 0, layout_type, Orientation::South);
+        let east_tile = TileImpl::new(0, 1, 0, 0, layout_type, Orientation::East);
+        let south_tile = TileImpl::new(0, 0, -1, 0, layout_type, Orientation::South);
+        let west_tile = TileImpl::new(0, -1, 0, 0, layout_type, Orientation::East);
         let neighbors: Array<Tile> = array![north_tile, east_tile, south_tile, west_tile];
         assert(tile.is_valid(neighbors), 'Tile: valid neighbors');
     }
 
     #[test]
     fn test_tile_is_not_valid() {
-        let layout_type = LayoutType::SCRFCFRFRRCFF;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let tile = TileImpl::new(0, 0, 0, 0, layout_type, Orientation::North);
         let north_tile = TileImpl::new(0, 0, 1, 0, layout_type, Orientation::North);
         let east_tile = TileImpl::new(0, 1, 0, 0, layout_type, Orientation::North);
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     #[should_panic(expected: ('Tile: no neighbors',))]
     fn test_tile_is_valid_revert_no_neighbors() {
-        let layout_type = LayoutType::SCFRCFRCFRCFR;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let tile = TileImpl::new(0, 0, 0, 0, layout_type, Orientation::North);
         let neighbors: Array<Tile> = array![];
         tile.is_valid(neighbors);
@@ -182,7 +182,7 @@ mod tests {
     #[test]
     #[should_panic(expected: ('Tile: too much neighbors',))]
     fn test_tile_is_valid_revert_too_much_neighbors() {
-        let layout_type = LayoutType::SCFRCFRCFRCFR;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let tile = TileImpl::new(0, 0, 0, 0, layout_type, Orientation::North);
         let north_tile = TileImpl::new(0, 0, 1, 0, layout_type, Orientation::North);
         let east_tile = TileImpl::new(0, 1, 0, 0, layout_type, Orientation::North);
@@ -197,7 +197,7 @@ mod tests {
     #[test]
     #[should_panic(expected: ('Tile: invalid neighbor',))]
     fn test_tile_is_valid_revert_invalid_neighbors() {
-        let layout_type = LayoutType::SCFRCFRCFRCFR;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let tile = TileImpl::new(0, 0, 0, 0, layout_type, Orientation::North);
         let invalid_north_tile = TileImpl::new(0, 0, 2, 0, layout_type, Orientation::North);
         let east_tile = TileImpl::new(0, 1, 0, 0, layout_type, Orientation::North);
@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_is_neighbor() {
-        let layout_type = LayoutType::SCFRCFRCFRCFR;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let tile = TileImpl::new(0, 0, 0, 0, layout_type, Orientation::North);
         // North
         let neighbor = TileImpl::new(0, 0, 1, 0, layout_type, Orientation::North);
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_reference_direction() {
-        let layout_type = LayoutType::SCFRCFRCFRCFR;
+        let layout_type = LayoutType::RFRFFCCCCFFRF;
         let tile = TileImpl::new(0, 0, 0, 0, layout_type, Orientation::North);
         // North
         let north_tile = TileImpl::new(0, 0, 1, 0, layout_type, Orientation::North);
