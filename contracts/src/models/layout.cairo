@@ -8,6 +8,14 @@ use stolsli::constants::{MASK_8, TWO_POW_8};
 use stolsli::models::orientation::Orientation;
 use stolsli::models::category::Category;
 
+// Constants
+
+const MAX_TILE_COUNT: u8 = 3;
+
+mod errors {
+    const UNPACK_FAILED: felt252 = 'Layout: Unpack failed';
+}
+
 // Center, NNW, N, NNE, ENE, E, ESE, SSE, S, SSW, WSW, W, WNW
 #[derive(Copy, Drop, Serde, Introspection)]
 enum LayoutType {
@@ -33,10 +41,6 @@ struct Layout {
     west_northwest: Category,
 }
 
-mod errors {
-    const UNPACK_FAILED: felt252 = 'Layout: Unpack failed';
-}
-
 impl IntoLayoutTypeFelt252 of Into<LayoutType, felt252> {
     #[inline(always)]
     fn into(self: LayoutType) -> felt252 {
@@ -53,6 +57,20 @@ impl LayoutTypePrint of PrintTrait<LayoutType> {
     fn print(self: LayoutType) {
         let felt: felt252 = self.into();
         felt.print();
+    }
+}
+
+impl LayoutTypePartialEq of PartialEq<LayoutType> {
+    #[inline(always)]
+    fn eq(lhs: @LayoutType, rhs: @LayoutType) -> bool {
+        let felt: felt252 = (*lhs).into();
+        felt == (*rhs).into()
+    }
+
+    #[inline(always)]
+    fn ne(lhs: @LayoutType, rhs: @LayoutType) -> bool {
+        let felt: felt252 = (*lhs).into();
+        felt != (*rhs).into()
     }
 }
 
@@ -206,6 +224,16 @@ impl LayoutImpl of LayoutTrait {
             },
         }
     }
+
+    fn is_compatible(self: Layout, reference: Layout, direction: Orientation) -> bool {
+        match direction {
+            Orientation::None => { false },
+            Orientation::North => { self.north == reference.south },
+            Orientation::East => { self.east == reference.west },
+            Orientation::South => { self.south == reference.north },
+            Orientation::West => { self.west == reference.east },
+        }
+    }
 }
 
 impl DefaultLayoutImpl of Default<Layout> {
@@ -338,6 +366,24 @@ mod tests {
         assert(layout.west_southwest == Category::Farm, 'Layout: wrong WSW');
         assert(layout.west == Category::Farm, 'Layout: wrong W');
         assert(layout.west_northwest == Category::Farm, 'Layout: wrong WNW');
+    }
+
+    #[test]
+    fn test_layout_is_compatible() {
+        let layout_type = LayoutType::SCRFCFRFRRCFF;
+        let layout: Layout = LayoutImpl::from(layout_type, Orientation::North);
+        let reference: Layout = LayoutImpl::from(layout_type, Orientation::South);
+        let compatibility = LayoutImpl::is_compatible(layout, reference, Orientation::North);
+        assert(compatibility, 'Layout: wrong compatibility');
+    }
+
+    #[test]
+    fn test_layout_is_not_compatible() {
+        let layout_type = LayoutType::SCRFCFRFRRCFF;
+        let layout: Layout = LayoutImpl::from(layout_type, Orientation::North);
+        let reference: Layout = LayoutImpl::from(layout_type, Orientation::West);
+        let compatibility = LayoutImpl::is_compatible(layout, reference, Orientation::North);
+        assert(!compatibility, 'Layout: wrong compatibility');
     }
 }
 

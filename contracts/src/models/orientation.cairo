@@ -4,6 +4,7 @@ use debug::PrintTrait;
 
 // Constants
 
+const NONE: felt252 = 0;
 const NORTH: felt252 = 'NORTH';
 const SOUTH: felt252 = 'SOUTH';
 const EAST: felt252 = 'EAST';
@@ -35,7 +36,7 @@ impl IntoOrientationFelt252 of Into<Orientation, felt252> {
     #[inline(always)]
     fn into(self: Orientation) -> felt252 {
         match self {
-            Orientation::None => 0,
+            Orientation::None => NONE,
             Orientation::North => NORTH,
             Orientation::East => EAST,
             Orientation::South => SOUTH,
@@ -96,6 +97,11 @@ mod tests {
 
     use super::{Orientation, NORTH, SOUTH, EAST, WEST};
 
+    // Constants
+
+    const UNKNOWN_FELT: felt252 = 'UNKNOWN';
+    const UNKNOWN_U8: u8 = 42;
+
     #[test]
     fn test_orientation_into_felt() {
         let none: Orientation = Orientation::None;
@@ -104,41 +110,11 @@ mod tests {
         let south: Orientation = Orientation::South;
         let west: Orientation = Orientation::West;
 
-        assert(0 == none.into(), 'Orientation: wrong None');
-        assert(NORTH == north.into(), 'Orientation: wrong North');
-        assert(EAST == east.into(), 'Orientation: wrong East');
-        assert(SOUTH == south.into(), 'Orientation: wrong South');
-        assert(WEST == west.into(), 'Orientation: wrong West');
-    }
-
-    #[test]
-    fn test_orientation_into_u8() {
-        let none: Orientation = Orientation::None;
-        let north: Orientation = Orientation::North;
-        let east: Orientation = Orientation::East;
-        let south: Orientation = Orientation::South;
-        let west: Orientation = Orientation::West;
-
-        assert(0_u8 == none.into(), 'Orientation: wrong None');
-        assert(1_u8 == north.into(), 'Orientation: wrong North');
-        assert(2_u8 == east.into(), 'Orientation: wrong East');
-        assert(3_u8 == south.into(), 'Orientation: wrong South');
-        assert(4_u8 == west.into(), 'Orientation: wrong West');
-    }
-
-    #[test]
-    fn test_u8_into_orientation() {
-        let none: Orientation = Orientation::None;
-        let north: Orientation = Orientation::North;
-        let east: Orientation = Orientation::East;
-        let south: Orientation = Orientation::South;
-        let west: Orientation = Orientation::West;
-
-        assert(none == 0_u8.into(), 'Orientation: wrong None');
-        assert(north == 1_u8.into(), 'Orientation: wrong North');
-        assert(east == 2_u8.into(), 'Orientation: wrong East');
-        assert(south == 3_u8.into(), 'Orientation: wrong South');
-        assert(west == 4_u8.into(), 'Orientation: wrong West');
+        assert(0 == none.into(), 'Orientation: None');
+        assert(NORTH == north.into(), 'Orientation: North');
+        assert(EAST == east.into(), 'Orientation: East');
+        assert(SOUTH == south.into(), 'Orientation: South');
+        assert(WEST == west.into(), 'Orientation: West');
     }
 
     #[test]
@@ -149,10 +125,50 @@ mod tests {
         let south: Orientation = Orientation::South;
         let west: Orientation = Orientation::West;
 
-        assert(none == 0.into(), 'Orientation: wrong None');
-        assert(north == NORTH.into(), 'Orientation: wrong North');
-        assert(east == EAST.into(), 'Orientation: wrong East');
-        assert(south == SOUTH.into(), 'Orientation: wrong South');
-        assert(west == WEST.into(), 'Orientation: wrong West');
+        assert(none == 0.into(), 'Orientation: None');
+        assert(north == NORTH.into(), 'Orientation: North');
+        assert(east == EAST.into(), 'Orientation: East');
+        assert(south == SOUTH.into(), 'Orientation: South');
+        assert(west == WEST.into(), 'Orientation: West');
+    }
+
+    #[test]
+    fn test_unknown_felt_into_orientation() {
+        assert(Orientation::None == UNKNOWN_FELT.into(), 'Orientation: Unknown');
+    }
+
+    #[test]
+    fn test_orientation_into_u8() {
+        let none: Orientation = Orientation::None;
+        let north: Orientation = Orientation::North;
+        let east: Orientation = Orientation::East;
+        let south: Orientation = Orientation::South;
+        let west: Orientation = Orientation::West;
+
+        assert(0_u8 == none.into(), 'Orientation: None');
+        assert(1_u8 == north.into(), 'Orientation: North');
+        assert(2_u8 == east.into(), 'Orientation: East');
+        assert(3_u8 == south.into(), 'Orientation: South');
+        assert(4_u8 == west.into(), 'Orientation: West');
+    }
+
+    #[test]
+    fn test_u8_into_orientation() {
+        let none: Orientation = Orientation::None;
+        let north: Orientation = Orientation::North;
+        let east: Orientation = Orientation::East;
+        let south: Orientation = Orientation::South;
+        let west: Orientation = Orientation::West;
+
+        assert(none == 0_u8.into(), 'Orientation: None');
+        assert(north == 1_u8.into(), 'Orientation: North');
+        assert(east == 2_u8.into(), 'Orientation: East');
+        assert(south == 3_u8.into(), 'Orientation: South');
+        assert(west == 4_u8.into(), 'Orientation: West');
+    }
+
+    #[test]
+    fn test_unknown_u8_into_orientation() {
+        assert(Orientation::None == UNKNOWN_U8.into(), 'Orientation: Unknown');
     }
 }
