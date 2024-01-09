@@ -16,4 +16,10 @@ mod systems {
     mod play;
 }
 
-mod tests {}
+#[cfg(test)]
+mod tests {
+    mod setup;
+    mod create;
+    mod reveal;
+    mod build;
+}

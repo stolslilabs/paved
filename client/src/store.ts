@@ -16,3 +16,8 @@ export const useUIStore = create((set) => ({
     loggedIn: false,
     setLoggedIn: () => set(() => ({ loggedIn: true })),
 }));
+
+export const useGameIdStore = create((set) => ({
+    gameId: 0,
+    setGameId: (gameId: number) => set(() => ({ gameId })),
+}));

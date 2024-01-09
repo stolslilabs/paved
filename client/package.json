@@ -1,5 +1,5 @@
 {
-  "name": "stolsis",
+  "name": "stolsli",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -9,7 +9,7 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "codegen": "graphql-codegen",
-    "components": "npx @dojoengine/core ../dojo-starter/target/dev/manifest.json src/dojo/contractComponents.ts http://localhost:5050 0x33ac2f528bb97cc7b79148fd1756dc368be0e95d391d8c6d6473ecb60b4560e"
+    "components": "npx @dojoengine/core ../contracts/target/dev/manifest.json src/dojo/contractComponents.ts http://localhost:5050 0x371567546baf641eb440d7e2e0720bc45ede841d8f29124f844b7a728ce9aa8"
   },
   "dependencies": {
     "@dojoengine/core": "0.2.10",

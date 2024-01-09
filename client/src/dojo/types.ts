@@ -1,10 +1,27 @@
 import { Account } from "starknet";
-import { Direction } from "./utils";
 
 export interface SystemSigner {
     signer: Account;
 }
 
-export interface MoveSystemProps extends SystemSigner {
-    direction: Direction;
+export interface InitializeSystemProps extends SystemSigner {
+    setGameId: (gameId: number) => void
+}
+
+export interface CreateSystemProps extends SystemSigner {
+    game_id: number;
+    name: string;
+    order: number;
+}
+
+export interface RevealSystemProps extends SystemSigner {
+    game_id: number;
+}
+
+export interface BuildSystemProps extends SystemSigner {
+    game_id: number;
+    tile_id: number;
+    orientation: number;
+    x: number;
+    y: number;
 }

@@ -102,13 +102,12 @@ impl TileImpl of TileTrait {
     fn place(ref self: Tile, orientation: Orientation, x: u32, y: u32, ref neighbors: Array<Tile>) {
         // [Check] Tile is not already placed
         self.assert_not_placed();
-        // [Effect] Update tile orientation
+        // [Effect] Update tile orientation and position
         self.orientation = orientation;
-        // [Check] Tile is valid
-        self.assert_can_place(ref neighbors);
-        // [Effect] Update tile position
         self.x = x;
         self.y = y;
+        // [Check] Tile is valid
+        self.assert_can_place(ref neighbors);
     }
 }
 

@@ -1,5 +1,9 @@
 //! Store struct and component management methods.
 
+// Core imports
+
+use debug::PrintTrait;
+
 // Straknet imports
 
 use starknet::ContractAddress;
@@ -13,6 +17,7 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 use stolsli::models::game::{Game, GameImpl};
 use stolsli::models::builder::{Builder, BuilderImpl};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
+use stolsli::models::orientation::Orientation;
 
 
 /// Store struct.
@@ -30,9 +35,7 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn game(ref self: Store) -> Game {
-        // TODO: Manage it for seasonal games
-        let game_id: felt252 = 0.into();
+    fn game(ref self: Store, game_id: u32) -> Game {
         get!(self.world, game_id, (Game))
     }
 
@@ -87,8 +90,8 @@ impl StoreImpl of StoreTrait {
 
     #[inline(always)]
     fn set_tile(ref self: Store, tile: Tile) {
-        let position = tile.position();
-        if position.tile_id != 0 {
+        if tile.orientation != Orientation::None {
+            let position = tile.position();
             set!(self.world, (position))
         }
         set!(self.world, (tile))

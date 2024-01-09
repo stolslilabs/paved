@@ -3,39 +3,58 @@
 import { defineComponent, Type as RecsType, World } from "@dojoengine/recs";
 
 export function defineContractComponents(world: World) {
-    return {
-        Moves: (() => {
-            return defineComponent(
-                world,
-                {
-                    player: RecsType.BigInt,
-                    remaining: RecsType.Number,
-                    last_direction: RecsType.Number,
-                },
-                {
-                    metadata: {
-                        name: "Moves",
-                        types: ["contractaddress", "u8", "enum"],
-                        customTypes: ["Direction"],
-                    },
-                }
-            );
-        })(),
-        Position: (() => {
-            return defineComponent(
-                world,
-                {
-                    player: RecsType.BigInt,
-                    vec: { x: RecsType.Number, y: RecsType.Number },
-                },
-                {
-                    metadata: {
-                        name: "Position",
-                        types: ["contractaddress", "u32", "u32"],
-                        customTypes: ["Vec2"],
-                    },
-                }
-            );
-        })(),
-    };
+  return {
+	  Builder: (() => {
+	    return defineComponent(
+	      world,
+	      { game_id: RecsType.Number, id: RecsType.BigInt, name: RecsType.BigInt, order: RecsType.Number, score: RecsType.Number, tile_remaining: RecsType.Number, tile_id: RecsType.Number, character_remaining: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "Builder",
+	          types: ["u32","felt252","felt252","u8","u32","u8","u32","u8"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
+	  Game: (() => {
+	    return defineComponent(
+	      world,
+	      { id: RecsType.Number, tile_count: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "Game",
+	          types: ["u32","u32"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
+	  Tile: (() => {
+	    return defineComponent(
+	      world,
+	      { game_id: RecsType.Number, id: RecsType.Number, builder_id: RecsType.BigInt, plan: RecsType.Number, orientation: RecsType.Number, x: RecsType.Number, y: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "Tile",
+	          types: ["u32","u32","felt252","enum","enum","u32","u32"],
+	          customTypes: ["Plan","Orientation"],
+	        },
+	      }
+	    );
+	  })(),
+	  TilePosition: (() => {
+	    return defineComponent(
+	      world,
+	      { game_id: RecsType.Number, x: RecsType.Number, y: RecsType.Number, tile_id: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "TilePosition",
+	          types: ["u32","u32","u32","u32"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
+  };
 }

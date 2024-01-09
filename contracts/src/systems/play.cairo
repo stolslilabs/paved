@@ -12,8 +12,10 @@ use stolsli::models::orientation::Orientation;
 
 #[starknet::interface]
 trait IPlay<TContractState> {
-    fn initialize(self: @TContractState, world: IWorldDispatcher);
-    fn create(self: @TContractState, world: IWorldDispatcher, name: felt252, order: u8);
+    fn initialize(self: @TContractState, world: IWorldDispatcher) -> u32;
+    fn create(
+        self: @TContractState, world: IWorldDispatcher, game_id: u32, name: felt252, order: u8
+    );
     fn reveal(self: @TContractState, world: IWorldDispatcher, game_id: u32);
     fn build(
         self: @TContractState,
@@ -28,6 +30,10 @@ trait IPlay<TContractState> {
 
 #[starknet::contract]
 mod play {
+    // Core imports
+
+    use debug::PrintTrait;
+
     // Starknet imports
 
     use starknet::ContractAddress;
@@ -47,6 +53,7 @@ mod play {
     use stolsli::models::tile::{Tile, TilePosition, TileImpl};
     use stolsli::models::order::Order;
     use stolsli::models::orientation::Orientation;
+    use stolsli::models::plan::Plan;
 
     // Local imports
 
@@ -73,7 +80,7 @@ mod play {
 
     #[external(v0)]
     impl PlayImpl of IPlay<ContractState> {
-        fn initialize(self: @ContractState, world: IWorldDispatcher) {
+        fn initialize(self: @ContractState, world: IWorldDispatcher) -> u32 {
             // [Check] Not already initialized
             // TODO: Remove this check when we implement seasonal games
             // TODO: Access control
@@ -84,17 +91,30 @@ mod play {
 
             // [Effect] Create game
             let game_id = world.uuid();
-            let game = GameImpl::new(game_id);
+            let mut game = GameImpl::new(game_id);
+
+            // [Effect] Create starter tile
+            let tile_id = game.add_tile();
+            let mut tile = TileImpl::new(game_id, tile_id, 0, Plan::RFFFFRFFCFFRF);
+            tile.orientation = Orientation::South;
+
+            // [Effect] Store game
             store.set_game(game);
-        // TODO: Add starter tile
+
+            // [Effect] Store tile
+            store.set_tile(tile);
+
+            game_id
         }
 
-        fn create(self: @ContractState, world: IWorldDispatcher, name: felt252, order: u8) {
+        fn create(
+            self: @ContractState, world: IWorldDispatcher, game_id: u32, name: felt252, order: u8
+        ) {
             // [Setup] Datastore
             let mut store: Store = StoreImpl::new(world);
 
             // [Check] Builder not already exists
-            let game = store.game();
+            let game = store.game(game_id);
             let caller = get_caller_address();
             let builder = store.builder(game, caller);
             assert(builder.name.is_zero(), errors::BUILDER_ALREADY_EXISTS);
@@ -111,7 +131,7 @@ mod play {
             let mut store: Store = StoreImpl::new(world);
 
             // [Check] Game exists
-            let game = store.game();
+            let mut game = store.game(game_id);
             assert(game.id == game_id, errors::GAME_NOT_FOUND);
 
             // [Check] Builder exists
@@ -122,13 +142,17 @@ mod play {
             // [Effect] Builder spawn a new tile
             // Todo: use VRF
             let seed = get_tx_info().unbox().transaction_hash;
-            let tile = builder.draw(seed.into());
+            let tile_id = game.add_tile();
+            let tile = builder.draw(seed.into(), tile_id);
 
             // [Effect] Store tile
             store.set_tile(tile);
 
             // [Effect] Update builder
             store.set_builder(builder);
+
+            // [Effect] Update game
+            store.set_game(game);
         }
 
         fn build(
@@ -144,7 +168,7 @@ mod play {
             let mut store: Store = StoreImpl::new(world);
 
             // [Check] Game exists
-            let game = store.game();
+            let game = store.game(game_id);
             assert(game.id == game_id, errors::GAME_NOT_FOUND);
 
             // [Check] Builder exists

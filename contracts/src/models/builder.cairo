@@ -27,7 +27,6 @@ struct Builder {
     order: u8,
     score: u32,
     // Inventory
-    tile_count: u8,
     tile_remaining: u8,
     tile_id: u32,
     character_remaining: u8,
@@ -50,7 +49,6 @@ impl BuilderImpl of BuilderTrait {
             name,
             order,
             score: 0,
-            tile_count: 0,
             tile_remaining: constants::DEFAULT_TILES_COUNT,
             tile_id: 0,
             character_remaining: constants::DEFAULT_CHARACTERS_COUNT,
@@ -58,14 +56,13 @@ impl BuilderImpl of BuilderTrait {
     }
 
     #[inline(always)]
-    fn draw(ref self: Builder, seed: u256) -> Tile {
+    fn draw(ref self: Builder, seed: u256, tile_id: u32) -> Tile {
         // [Check] Can draw
         self.assert_can_draw();
         // [Effect] Remove tile from tile count
         self.tile_remaining -= 1;
-        // [Effect] Update tile_id, it starts at 1
-        self.tile_count += 1;
-        self.tile_id = self.tile_count.into();
+        // [Effect] Update tile_id
+        self.tile_id = tile_id;
         // [Return] New tile
         let random: u256 = seed % MAX_LAYOUT_COUNT.into();
         let layout_type: u8 = random.try_into().unwrap() + 1;

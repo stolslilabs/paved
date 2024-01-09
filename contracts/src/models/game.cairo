@@ -2,14 +2,18 @@
 struct Game {
     #[key]
     id: u32,
-    piece_count: u32,
     tile_count: u32,
 }
 
 #[generate_trait]
 impl GameImpl of GameTrait {
     fn new(id: u32) -> Game {
-        Game { id, piece_count: 0, tile_count: 0, }
+        Game { id, tile_count: 0, }
+    }
+
+    fn add_tile(ref self: Game) -> u32 {
+        self.tile_count += 1;
+        self.tile_count
     }
 }
 

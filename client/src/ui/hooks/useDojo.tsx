@@ -33,6 +33,6 @@ export const useDojo = () => {
             isDeploying,
         },
         systemCalls: networkLayer.systemCalls,
-        contractComponents: networkLayer.network.contractComponents,
+        components: networkLayer.network.contractComponents,
     };
 };

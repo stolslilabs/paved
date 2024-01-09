@@ -2,13 +2,16 @@ import { useDojo } from "./hooks/useDojo";
 import { Button } from "./button";
 import { useUIStore } from "../store";
 import { useEffect } from "react";
+import { useGameIdStore } from "../store";
 
-export const Spawn = () => {
+export const Initialize = () => {
     const setLoggedIn = useUIStore((state: any) => state.setLoggedIn);
+    const setGameId = useGameIdStore((state: any) => state.setGameId);
     const {
         account: { account, isDeploying },
-        systemCalls: { spawn },
+        systemCalls: { initialize },
     } = useDojo();
+
 
     useEffect(() => {
         if (isDeploying) {
@@ -29,14 +32,15 @@ export const Spawn = () => {
             <Button
                 variant={"default"}
                 onClick={async () => {
-                    await spawn({
+                    await initialize({
                         signer: account,
+                        setGameId,
                     });
 
                     setLoggedIn();
                 }}
             >
-                Spawn
+                Initialize
             </Button>
         </div>
     );

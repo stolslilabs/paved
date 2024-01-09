@@ -10,8 +10,6 @@ function App() {
     useEffect(() => {
         if (!networkLayer || !networkLayer.account) return;
 
-        console.log("Setting network layer");
-
         store.setState({ networkLayer });
     }, [networkLayer]);
 
