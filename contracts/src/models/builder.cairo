@@ -13,8 +13,10 @@ mod errors {
     const NO_CHARACTERS_LEFT: felt252 = 'Builder: No characters left';
     const NO_TILE_TO_PLACE: felt252 = 'Builder: No tile to place';
     const ALREADY_HAVE_TILE: felt252 = 'Builder: Already have a tile';
-    const CANNOT_BUILD: felt252 = 'Builder: Cannot build';
+    const CANNOT_BUY: felt252 = 'Builder: Cannot buy';
     const CANNOT_DRAW: felt252 = 'Builder: Cannot draw';
+    const CANNOT_DISCARD: felt252 = 'Builder: Cannot discard';
+    const CANNOT_BUILD: felt252 = 'Builder: Cannot build';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -56,10 +58,18 @@ impl BuilderImpl of BuilderTrait {
     }
 
     #[inline(always)]
+    fn buy(ref self: Builder) {
+        // [Check] Have a tile to place
+        self.assert_can_buy();
+        // [Effect] Add one to the tile count
+        self.tile_remaining += 1;
+    }
+
+    #[inline(always)]
     fn draw(ref self: Builder, seed: u256, tile_id: u32) -> Tile {
         // [Check] Can draw
         self.assert_can_draw();
-        // [Effect] Remove tile from tile count
+        // [Effect] Remove tile from the tile count
         self.tile_remaining -= 1;
         // [Effect] Update tile_id
         self.tile_id = tile_id;
@@ -67,6 +77,14 @@ impl BuilderImpl of BuilderTrait {
         let random: u256 = seed % MAX_LAYOUT_COUNT.into();
         let layout_type: u8 = random.try_into().unwrap() + 1;
         TileImpl::new(self.game_id, self.tile_id, self.id, layout_type.into())
+    }
+
+    #[inline(always)]
+    fn discard(ref self: Builder) {
+        // [Check] Have a tile to place
+        self.assert_can_discard();
+        // [Effect] Remove tile from tile count
+        self.tile_id = 0;
     }
 
     #[inline(always)]
@@ -90,13 +108,23 @@ impl BuilderImpl of BuilderTrait {
 #[generate_trait]
 impl AssertImpl of AssertTrait {
     #[inline(always)]
-    fn assert_can_build(self: Builder) {
-        assert(0 != self.tile_id.into(), errors::CANNOT_BUILD);
+    fn assert_can_buy(self: Builder) {
+        assert(constants::MAX_TILE_COUNT > self.tile_remaining.into(), errors::CANNOT_BUY);
     }
 
     #[inline(always)]
     fn assert_can_draw(self: Builder) {
         assert(0 == self.tile_id.into(), errors::CANNOT_DRAW);
         assert(0 != self.tile_remaining.into(), errors::NO_TILES_LEFT);
+    }
+
+    #[inline(always)]
+    fn assert_can_discard(self: Builder) {
+        assert(0 != self.tile_id.into(), errors::CANNOT_DISCARD);
+    }
+
+    #[inline(always)]
+    fn assert_can_build(self: Builder) {
+        assert(0 != self.tile_id.into(), errors::CANNOT_BUILD);
     }
 }

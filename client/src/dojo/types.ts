@@ -14,7 +14,15 @@ export interface CreateSystemProps extends SystemSigner {
     order: number;
 }
 
-export interface RevealSystemProps extends SystemSigner {
+export interface BuySystemProps extends SystemSigner {
+    game_id: number;
+}
+
+export interface DrawSystemProps extends SystemSigner {
+    game_id: number;
+}
+
+export interface DiscardSystemProps extends SystemSigner {
     game_id: number;
 }
 

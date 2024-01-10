@@ -1,7 +1,7 @@
 import { Account, Call, Event, InvokeTransactionReceiptResponse, events, shortString } from 'starknet';
 import { SetupNetworkResult } from "./setupNetwork";
 import { ClientComponents } from "./createClientComponents";
-import { InitializeSystemProps, CreateSystemProps, RevealSystemProps, BuildSystemProps } from "./types";
+import { InitializeSystemProps, CreateSystemProps, BuySystemProps, DrawSystemProps, DiscardSystemProps, BuildSystemProps } from "./types";
 
 export type SystemCalls = ReturnType<typeof createSystemCalls>;
 
@@ -34,9 +34,25 @@ export function createSystemCalls(
         }
     }
 
-    const reveal = async (props: RevealSystemProps) => {
+    const buy = async (props: BuySystemProps) => {
         try {
-            await execute(props.signer, "play", "reveal", [props.game_id]);
+            await execute(props.signer, "play", "buy", [props.game_id]);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    const draw = async (props: DrawSystemProps) => {
+        try {
+            await execute(props.signer, "play", "draw", [props.game_id]);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    const discard = async (props: DiscardSystemProps) => {
+        try {
+            await execute(props.signer, "play", "discard", [props.game_id]);
         } catch (e) {
             console.error(e);
         }
@@ -53,7 +69,9 @@ export function createSystemCalls(
     return {
         initialize,
         create,
-        reveal,
+        buy,
+        draw,
+        discard,
         build,
     };
 }

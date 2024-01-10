@@ -3,11 +3,11 @@ import { Button } from "./button";
 import { useEffect } from "react";
 import { useGameIdStore } from "../store";
 
-export const Reveal = () => {
+export const Discard = () => {
     const gameId = useGameIdStore((state: any) => state.gameId);
     const {
         account: { account, isDeploying },
-        systemCalls: { reveal },
+        systemCalls: { discard },
     } = useDojo();
 
     useEffect(() => {
@@ -27,13 +27,13 @@ export const Reveal = () => {
             <Button
                 variant={"default"}
                 onClick={async () => {
-                    await reveal({
+                    await discard({
                         signer: account,
                         game_id: gameId,
                     });
                 }}
             >
-                Reveal
+                Draw
             </Button>
         </div>
     );

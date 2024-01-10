@@ -35,28 +35,28 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn game(ref self: Store, game_id: u32) -> Game {
+    fn game(self: Store, game_id: u32) -> Game {
         get!(self.world, game_id, (Game))
     }
 
     #[inline(always)]
-    fn builder(ref self: Store, game: Game, address: ContractAddress) -> Builder {
+    fn builder(self: Store, game: Game, address: ContractAddress) -> Builder {
         let builder_id: felt252 = address.into();
         get!(self.world, (game.id, builder_id), (Builder))
     }
 
     #[inline(always)]
-    fn tile(ref self: Store, game: Game, tile_id: u32) -> Tile {
+    fn tile(self: Store, game: Game, tile_id: u32) -> Tile {
         get!(self.world, (game.id, tile_id), (Tile))
     }
 
     #[inline(always)]
-    fn position(ref self: Store, game: Game, x: u32, y: u32) -> TilePosition {
+    fn position(self: Store, game: Game, x: u32, y: u32) -> TilePosition {
         get!(self.world, (game.id, x, y), (TilePosition))
     }
 
     #[inline(always)]
-    fn neighbors(ref self: Store, game: Game, x: u32, y: u32) -> Array<Tile> {
+    fn neighbors(self: Store, game: Game, x: u32, y: u32) -> Array<Tile> {
         // Avoid loop for gas efficiency
         let mut neighbors: Array<Tile> = array![];
         let north = self.position(game, x, y + 1);
@@ -79,17 +79,17 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn set_game(ref self: Store, game: Game) {
+    fn set_game(self: Store, game: Game) {
         set!(self.world, (game))
     }
 
     #[inline(always)]
-    fn set_builder(ref self: Store, builder: Builder) {
+    fn set_builder(self: Store, builder: Builder) {
         set!(self.world, (builder))
     }
 
     #[inline(always)]
-    fn set_tile(ref self: Store, tile: Tile) {
+    fn set_tile(self: Store, tile: Tile) {
         if tile.orientation != Orientation::None {
             let position = tile.position();
             set!(self.world, (position))

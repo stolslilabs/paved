@@ -27,7 +27,7 @@ const BUILDER_NAME: felt252 = 'BUILDER';
 fn test_play_create() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game();
-    let mut store = StoreTrait::new(world);
+    let store = StoreTrait::new(world);
 
     // [Create]
     systems.play.create(world, context.game_id, BUILDER_NAME, Order::Anger.into());

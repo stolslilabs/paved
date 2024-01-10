@@ -1,3 +1,7 @@
+// Builders
+
+const MAX_TILE_COUNT: u8 = 42;
+
 // Characters
 
 const DEFAULT_TILES_COUNT: u8 = 10;

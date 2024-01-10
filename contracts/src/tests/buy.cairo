@@ -24,29 +24,21 @@ use stolsli::tests::setup::{setup, setup::{Systems, BUILDER, ANYONE}};
 const BUILDER_NAME: felt252 = 'BUILDER';
 
 #[test]
-fn test_play_reveal() {
+fn test_play_buy() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game();
-    let mut store = StoreTrait::new(world);
+    let store = StoreTrait::new(world);
 
     // [Create]
     systems.play.create(world, context.game_id, BUILDER_NAME, Order::Anger.into());
+    let game = store.game(context.game_id);
+    let builder = store.builder(game, BUILDER().into());
+    let tile_remaining = builder.tile_remaining;
 
-    // [Reveal]
-    systems.play.reveal(world, context.game_id);
-}
+    // [Buy]
+    systems.play.buy(world, context.game_id);
 
-#[test]
-#[should_panic(expected: ('Builder: Cannot draw', 'ENTRYPOINT_FAILED',))]
-fn test_play_reveal_twice_revert_cannot_draw() {
-    // [Setup]
-    let (world, systems, context) = setup::spawn_game();
-    let mut store = StoreTrait::new(world);
-
-    // [Create]
-    systems.play.create(world, context.game_id, BUILDER_NAME, Order::Anger.into());
-
-    // [Reveal]
-    systems.play.reveal(world, context.game_id);
-    systems.play.reveal(world, context.game_id);
+    // [Assert]
+    let builder = store.builder(game, BUILDER().into());
+    assert(builder.tile_remaining == tile_remaining + 1, 'Buy: tile_remaining');
 }

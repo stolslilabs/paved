@@ -1,7 +1,9 @@
 import { store } from "../store";
 import { CreateAccount } from "./CreateAccount";
 import { Create } from "./Create";
-import { Reveal } from "./Reveal";
+import { Buy } from "./Buy";
+import { Draw } from "./Draw";
+import { Discard } from "./Discard";
 import { Build } from "./Build";
 import { useDojo } from "./hooks/useDojo";
 import { useGameIdStore } from "../store";
@@ -29,7 +31,9 @@ export const UI = () => {
             <CreateAccount />
             <div className="flex flex-col">
                 <Create name={name} order={order} />
-                <Reveal />
+                <Buy />
+                <Draw />
+                <Discard />
                 <Build orientation={orientation} x={x} y={y} />
             </div>
         </div>

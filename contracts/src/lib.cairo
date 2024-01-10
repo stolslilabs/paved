@@ -23,6 +23,8 @@ mod systems {
 mod tests {
     mod setup;
     mod create;
-    mod reveal;
+    mod buy;
+    mod draw;
+    mod discard;
     mod build;
 }
