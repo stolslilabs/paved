@@ -3,10 +3,7 @@ import { Button } from "./button";
 import { useEffect } from "react";
 import { useGameIdStore } from "../store";
 
-interface TProps {
-}
-
-export const Reveal = (props: TProps) => {
+export const Reveal = () => {
     const gameId = useGameIdStore((state: any) => state.gameId);
     const {
         account: { account, isDeploying },

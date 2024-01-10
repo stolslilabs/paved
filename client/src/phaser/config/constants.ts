@@ -43,8 +43,8 @@ export enum Direction {
     Right,
 }
 
-export const TILE_HEIGHT = 183;
-export const TILE_WIDTH = 183;
+export const TILE_HEIGHT = 32;
+export const TILE_WIDTH = 32;
 
 // contract offset so we don't overflow
 export const ORIGIN_OFFSET = 100;

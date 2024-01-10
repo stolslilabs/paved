@@ -1,6 +1,6 @@
 import { store } from "../store";
 import { CreateAccount } from "./CreateAccount";
-import { Create } from './Create';
+import { Create } from "./Create";
 import { Reveal } from "./Reveal";
 import { Build } from "./Build";
 import { useDojo } from "./hooks/useDojo";
@@ -21,16 +21,16 @@ export const UI = () => {
     const order = 1;
     // TODO: must be provided by Phaser interface
     const orientation = 1;
-    const x = 0x7fffffff + 1;
-    const y = 0x7fffffff;
+    const x = 2;
+    const y = 2;
 
     return (
         <div className="absolute inset-0">
             <CreateAccount />
             <div className="flex flex-col">
-                <Create name={name} order={order}/>
+                <Create name={name} order={order} />
                 <Reveal />
-                <Build orientation={orientation} x={x} y={y}/>
+                <Build orientation={orientation} x={x} y={y} />
             </div>
         </div>
     );
