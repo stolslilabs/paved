@@ -16,8 +16,8 @@ use stolsli::store::{Store, StoreTrait};
 use stolsli::models::game::{Game, GameTrait};
 use stolsli::models::builder::{Builder, BuilderTrait};
 use stolsli::models::tile::{Tile, TileTrait, CENTER};
-use stolsli::models::order::Order;
-use stolsli::models::orientation::Orientation;
+use stolsli::types::order::Order;
+use stolsli::types::orientation::Orientation;
 use stolsli::systems::play::IPlayDispatcherTrait;
 use stolsli::tests::setup::{setup, setup::{Systems, BUILDER, ANYONE}};
 

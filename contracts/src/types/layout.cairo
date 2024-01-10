@@ -4,9 +4,9 @@ use debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::models::plan::{Plan, PlanImpl};
-use stolsli::models::orientation::Orientation;
-use stolsli::models::category::Category;
+use stolsli::types::plan::{Plan, PlanImpl};
+use stolsli::types::orientation::Orientation;
+use stolsli::types::category::Category;
 
 // Constants
 

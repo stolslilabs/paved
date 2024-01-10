@@ -6,9 +6,9 @@ use option::OptionTrait;
 
 // Internal imports
 
-use stolsli::models::orientation::Orientation;
-use stolsli::models::plan::Plan;
-use stolsli::models::layout::{Layout, LayoutImpl};
+use stolsli::types::orientation::Orientation;
+use stolsli::types::plan::Plan;
+use stolsli::types::layout::{Layout, LayoutImpl};
 
 // Constants
 

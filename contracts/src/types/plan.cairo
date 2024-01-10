@@ -5,7 +5,7 @@ use debug::PrintTrait;
 // Internal imports
 
 use stolsli::constants::{MASK_8, TWO_POW_8};
-use stolsli::models::category::Category;
+use stolsli::types::category::Category;
 
 // Constants
 

@@ -1,14 +1,17 @@
 mod constants;
 mod store;
 
-mod models {
-    mod game;
-    mod builder;
+mod types {
     mod plan;
     mod category;
     mod layout;
     mod order;
     mod orientation;
+}
+
+mod models {
+    mod game;
+    mod builder;
     mod tile;
 }
 

@@ -17,7 +17,7 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 use stolsli::models::game::{Game, GameImpl};
 use stolsli::models::builder::{Builder, BuilderImpl};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
-use stolsli::models::orientation::Orientation;
+use stolsli::types::orientation::Orientation;
 
 
 /// Store struct.

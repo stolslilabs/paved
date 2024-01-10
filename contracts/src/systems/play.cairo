@@ -8,7 +8,7 @@ use dojo::world::IWorldDispatcher;
 
 // Internal imports
 
-use stolsli::models::orientation::Orientation;
+use stolsli::types::orientation::Orientation;
 
 #[starknet::interface]
 trait IPlay<TContractState> {
@@ -51,9 +51,9 @@ mod play {
     use stolsli::models::game::{Game, GameImpl};
     use stolsli::models::builder::{Builder, BuilderImpl};
     use stolsli::models::tile::{Tile, TilePosition, TileImpl};
-    use stolsli::models::order::Order;
-    use stolsli::models::orientation::Orientation;
-    use stolsli::models::plan::Plan;
+    use stolsli::types::order::Order;
+    use stolsli::types::orientation::Orientation;
+    use stolsli::types::plan::Plan;
 
     // Local imports
 

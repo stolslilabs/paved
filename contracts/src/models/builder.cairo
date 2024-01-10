@@ -1,10 +1,10 @@
 // Internal imports
 
 use stolsli::constants;
-use stolsli::models::layout::{MAX_LAYOUT_COUNT};
+use stolsli::types::layout::{MAX_LAYOUT_COUNT};
+use stolsli::types::order::Order;
+use stolsli::types::orientation::Orientation;
 use stolsli::models::tile::{Tile, TileImpl};
-use stolsli::models::order::Order;
-use stolsli::models::orientation::Orientation;
 
 mod errors {
     const INVALID_NAME: felt252 = 'Builder: Invalid name';

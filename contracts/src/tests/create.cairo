@@ -15,7 +15,7 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 use stolsli::store::{Store, StoreTrait};
 use stolsli::models::game::{Game, GameTrait};
 use stolsli::models::builder::{Builder, BuilderTrait};
-use stolsli::models::order::Order;
+use stolsli::types::order::Order;
 use stolsli::systems::play::IPlayDispatcherTrait;
 use stolsli::tests::setup::{setup, setup::{Systems, BUILDER, ANYONE}};
 
