@@ -189,7 +189,13 @@ mod tests {
         #[inline(always)]
         fn from(plan: Plan, orientation: Orientation, x: u32, y: u32,) -> Tile {
             Tile {
-                game_id: 0, id: 0, builder_id: 0, plan: plan.into(), orientation: orientation.into(), x: x, y: y,
+                game_id: 0,
+                id: 0,
+                builder_id: 0,
+                plan: plan.into(),
+                orientation: orientation.into(),
+                x: x,
+                y: y,
             }
         }
     }
