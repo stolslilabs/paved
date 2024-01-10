@@ -23,35 +23,41 @@ export const placeTile = (layer: PhaserLayer) => {
     // system loops over entities and sets them on the map according to their values
 
     defineEnterSystem(world, [Has(Tile)], ({ entity }: any) => {
-        const tile = objectPool.get(entity.toString(), "Sprite");
-
-        const position = getComponentValueStrict(
+        const tileComponent = getComponentValueStrict(
             Tile,
             entity.toString() as Entity
         );
 
-        const animation = Object.values(Animations)[position ? position.plan : 0];
+        if (!tileComponent || tileComponent.orientation === 0) return;
+        console.log('defineEnterSystem', tileComponent);
 
+        const animation = Object.values(Animations)[tileComponent ? tileComponent.plan : 0];
+
+        const tile = objectPool.get(entity.toString(), "Sprite");
         tile.setComponent({
             id: "animation",
             once: (sprite: any) => {
-                console.log(sprite);
+                sprite.setOrigin(1, 1);
+                sprite.angle = (tileComponent.orientation - 1) * 90;
                 sprite.play(animation);
             },
         });
     });
 
     defineSystem(world, [Has(Tile)], ({ entity }: any) => {
-        console.log(entity);
-
-        const position = getComponentValueStrict(
+        const tileComponent = getComponentValueStrict(
             Tile,
             entity.toString() as Entity
         );
 
+        if (!tileComponent || tileComponent.orientation === 0) return;
+        console.log('defineSystem', tileComponent);
+
+        const animation = Object.values(Animations)[tileComponent ? tileComponent.plan : 0];
+
         // TODO: remove offset when we can store i32 on the SC side
         const offsetPosition = { x: -0x7fffffff, y: -0x7fffffff };
-        const fixedPosition = { x: position.x + offsetPosition.x, y: position.y + offsetPosition.y }
+        const fixedPosition = { x: tileComponent.x + offsetPosition.x, y: tileComponent.y + offsetPosition.y }
 
         const pixelPosition = tileCoordToPixelCoord(
             fixedPosition,
@@ -64,6 +70,9 @@ export const placeTile = (layer: PhaserLayer) => {
         player.setComponent({
             id: "position",
             once: (sprite: any) => {
+                sprite.setOrigin(1, 1);
+                sprite.angle = (tileComponent.orientation - 1) * 90;
+                sprite.play(animation);
                 sprite.setPosition(pixelPosition?.x, pixelPosition?.y);
                 camera.centerOn(pixelPosition?.x, pixelPosition?.y);
             },

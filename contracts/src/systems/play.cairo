@@ -228,6 +228,12 @@ mod play {
             let mut neighbors = store.neighbors(game, x, y);
             builder.build(ref tile, orientation, x, y, ref neighbors);
 
+            // [Effect] Update tile
+            store.set_tile(tile);
+
+            // [Effect] Update builder
+            store.set_builder(builder);
+
             // [Effect] Update game
             store.set_game(game);
         }

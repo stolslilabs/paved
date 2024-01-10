@@ -21,10 +21,6 @@ export const UI = () => {
     // TODO: must be read from a form
     const name = "OHAYO";
     const order = 1;
-    // TODO: must be provided by Phaser interface
-    const orientation = 1;
-    const x = 2;
-    const y = 2;
 
     return (
         <div className="absolute inset-0">
@@ -34,7 +30,7 @@ export const UI = () => {
                 <Buy />
                 <Draw />
                 <Discard />
-                <Build orientation={orientation} x={x} y={y} />
+                <Build />
             </div>
         </div>
     );
