@@ -90,7 +90,7 @@ impl StoreImpl of StoreTrait {
 
     #[inline(always)]
     fn set_tile(self: Store, tile: Tile) {
-        if tile.orientation != Orientation::None {
+        if tile.orientation != Orientation::None.into() {
             let position = tile.position();
             set!(self.world, (position))
         }

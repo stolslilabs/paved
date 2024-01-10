@@ -7,6 +7,7 @@ export enum Maps {
 }
 
 export enum Animations {
+    Zero = "Zero",
     One = "One",
     Two = "Two",
     Three = "Three",
@@ -32,6 +33,7 @@ export enum Animations {
 // image addresses
 
 export enum Sprites {
+    Zero,
     One,
     Two,
     Three,
@@ -55,6 +57,7 @@ export enum Sprites {
 }
 
 export const ImagePaths: { [key in Sprites]: string } = {
+    [Sprites.Zero]: "00.png",
     [Sprites.One]: "01.png",
     [Sprites.Two]: "02.png",
     [Sprites.Three]: "03.png",

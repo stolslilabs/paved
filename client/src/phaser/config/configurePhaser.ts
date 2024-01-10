@@ -22,7 +22,7 @@ const mainMap = defineMapConfig({
     chunkSize: TILE_WIDTH * 64, // tile size * tile amount
     tileWidth: TILE_WIDTH,
     tileHeight: TILE_HEIGHT,
-    backgroundTile: [Tileset.one],
+    backgroundTile: [Tileset.zero],
     animationInterval: ANIMATION_INTERVAL,
     tileAnimations: TileAnimations,
     layers: {
@@ -41,7 +41,7 @@ export const phaserConfig = {
                 [Assets.Tileset]: {
                     type: AssetType.Image,
                     key: Assets.Tileset,
-                    path: "assets/tilesets/land.png",
+                    path: "assets/tilesets/spritesheet32.png",
                 },
                 [Assets.MainAtlas]: {
                     type: AssetType.MultiAtlas,
@@ -62,38 +62,18 @@ export const phaserConfig = {
                     frame: "sprites/soldier/idle/0.png",
                 },
             },
-            animations: [
-                {
-                    key: Animations.One,
+            animations: ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "seventeen", "eighteen", "nineteen", "twenty"].map((value, index) => {
+                return {
+                    key: Object.values(Animations)[index],
                     assetKey: Assets.MainAtlas,
                     startFrame: 0,
                     endFrame: 0,
                     frameRate: 6,
                     repeat: -1,
-                    prefix: "sprites/one/",
+                    prefix: `sprites/${value}/`,
                     suffix: ".png",
-                },
-                {
-                    key: Animations.Two,
-                    assetKey: Assets.MainAtlas,
-                    startFrame: 0,
-                    endFrame: 0,
-                    frameRate: 6,
-                    repeat: -1,
-                    prefix: "sprites/two/",
-                    suffix: ".png",
-                },
-                {
-                    key: Animations.Three,
-                    assetKey: Assets.MainAtlas,
-                    startFrame: 0,
-                    endFrame: 0,
-                    frameRate: 6,
-                    repeat: -1,
-                    prefix: "sprites/three/",
-                    suffix: ".png",
-                },
-            ],
+                };
+            }),
             tilesets: {
                 Default: {
                     assetKey: Assets.Tileset,

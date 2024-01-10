@@ -30,13 +30,13 @@ export const placeTile = (layer: PhaserLayer) => {
             entity.toString() as Entity
         );
 
-        console.log(position);
+        const animation = Object.values(Animations)[position ? position.plan : 0];
 
         tile.setComponent({
             id: "animation",
             once: (sprite: any) => {
-                // console.log(sprite);
-                sprite.play(Animations.One);
+                console.log(sprite);
+                sprite.play(animation);
             },
         });
     });
@@ -49,10 +49,12 @@ export const placeTile = (layer: PhaserLayer) => {
             entity.toString() as Entity
         );
 
-        const offsetPosition = { x: 10, y: 10 };
+        // TODO: remove offset when we can store i32 on the SC side
+        const offsetPosition = { x: -0x7fffffff + 10, y: -0x7fffffff + 10 };
+        const fixedPosition = { x: position.x + offsetPosition.x, y: position.y + offsetPosition.y }
 
         const pixelPosition = tileCoordToPixelCoord(
-            offsetPosition,
+            fixedPosition,
             TILE_WIDTH,
             TILE_HEIGHT
         );

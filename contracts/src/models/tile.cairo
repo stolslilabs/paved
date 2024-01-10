@@ -31,8 +31,8 @@ struct Tile {
     #[key]
     id: u32,
     builder_id: felt252,
-    plan: Plan,
-    orientation: Orientation,
+    plan: u8,
+    orientation: u8,
     x: u32,
     y: u32,
 }
@@ -53,13 +53,19 @@ impl TileImpl of TileTrait {
     #[inline(always)]
     fn new(game_id: u32, id: u32, builder_id: felt252, plan: Plan,) -> Tile {
         Tile {
-            game_id, id, builder_id, plan, orientation: Orientation::None, x: CENTER, y: CENTER,
+            game_id,
+            id,
+            builder_id,
+            plan: plan.into(),
+            orientation: Orientation::None.into(),
+            x: CENTER,
+            y: CENTER,
         }
     }
 
     #[inline(always)]
     fn position(self: Tile) -> TilePosition {
-        let tile_id = if self.orientation == Orientation::None {
+        let tile_id = if Orientation::None == self.orientation.into() {
             0 // Not placed
         } else {
             self.id
@@ -70,7 +76,7 @@ impl TileImpl of TileTrait {
     #[inline(always)]
     fn get_layout(self: Tile) -> Layout {
         self.assert_is_placed();
-        LayoutImpl::from(self.plan, self.orientation)
+        LayoutImpl::from(self.plan.into(), self.orientation.into())
     }
 
     fn can_place(self: Tile, ref neighbors: Array<Tile>) -> bool {
@@ -103,7 +109,7 @@ impl TileImpl of TileTrait {
         // [Check] Tile is not already placed
         self.assert_not_placed();
         // [Effect] Update tile orientation and position
-        self.orientation = orientation;
+        self.orientation = orientation.into();
         self.x = x;
         self.y = y;
         // [Check] Tile is valid
@@ -115,12 +121,12 @@ impl TileImpl of TileTrait {
 impl AssertImpl of AssertTrait {
     #[inline(always)]
     fn assert_is_placed(self: Tile) {
-        assert(self.orientation != Orientation::None, errors::TILE_NOT_PLACED);
+        assert(Orientation::None != self.orientation.into(), errors::TILE_NOT_PLACED);
     }
 
     #[inline(always)]
     fn assert_not_placed(self: Tile) {
-        assert(self.orientation == Orientation::None, errors::TILE_ALREADY_PLACED);
+        assert(Orientation::None == self.orientation.into(), errors::TILE_ALREADY_PLACED);
     }
 
     #[inline(always)]
@@ -183,7 +189,7 @@ mod tests {
         #[inline(always)]
         fn from(plan: Plan, orientation: Orientation, x: u32, y: u32,) -> Tile {
             Tile {
-                game_id: 0, id: 0, builder_id: 0, plan: plan, orientation: orientation, x: x, y: y,
+                game_id: 0, id: 0, builder_id: 0, plan: plan.into(), orientation: orientation.into(), x: x, y: y,
             }
         }
     }
@@ -195,8 +201,8 @@ mod tests {
         assert(tile.game_id == 0, 'Tile: game_id');
         assert(tile.id == 1, 'Tile: id');
         assert(tile.builder_id == 2, 'Tile: builder_id');
-        assert(tile.plan == plan, 'Tile: plan');
-        assert(tile.orientation == Orientation::None, 'Tile: orientation');
+        assert(tile.plan == plan.into(), 'Tile: plan');
+        assert(tile.orientation == Orientation::None.into(), 'Tile: orientation');
         assert(tile.x == CENTER, 'Tile: x');
         assert(tile.y == CENTER, 'Tile: y');
     }
