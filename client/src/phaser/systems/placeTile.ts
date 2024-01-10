@@ -50,7 +50,7 @@ export const placeTile = (layer: PhaserLayer) => {
         );
 
         // TODO: remove offset when we can store i32 on the SC side
-        const offsetPosition = { x: -0x7fffffff + 10, y: -0x7fffffff + 10 };
+        const offsetPosition = { x: -0x7fffffff, y: -0x7fffffff };
         const fixedPosition = { x: position.x + offsetPosition.x, y: position.y + offsetPosition.y }
 
         const pixelPosition = tileCoordToPixelCoord(
