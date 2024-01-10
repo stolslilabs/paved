@@ -36,35 +36,35 @@ export const placeTile = (layer: PhaserLayer) => {
             id: "animation",
             once: (sprite: any) => {
                 // console.log(sprite);
-                sprite.play(Animations.RockIdle);
+                sprite.play(Animations.One);
             },
         });
     });
 
-    // defineSystem(world, [Has(Position)], ({ entity }: any) => {
-    //     console.log(entity);
+    defineSystem(world, [Has(Tile)], ({ entity }: any) => {
+        console.log(entity);
 
-    //     const position = getComponentValueStrict(
-    //         Position,
-    //         entity.toString() as Entity
-    //     );
+        const position = getComponentValueStrict(
+            Tile,
+            entity.toString() as Entity
+        );
 
-    //     const offsetPosition = { x: position?.vec.x, y: position?.vec.y };
+        const offsetPosition = { x: 10, y: 10 };
 
-    //     const pixelPosition = tileCoordToPixelCoord(
-    //         offsetPosition,
-    //         TILE_WIDTH,
-    //         TILE_HEIGHT
-    //     );
+        const pixelPosition = tileCoordToPixelCoord(
+            offsetPosition,
+            TILE_WIDTH,
+            TILE_HEIGHT
+        );
 
-    //     const player = objectPool.get(entity, "Sprite");
+        const player = objectPool.get(entity, "Sprite");
 
-    //     player.setComponent({
-    //         id: "position",
-    //         once: (sprite: any) => {
-    //             sprite.setPosition(pixelPosition?.x, pixelPosition?.y);
-    //             camera.centerOn(pixelPosition?.x, pixelPosition?.y);
-    //         },
-    //     });
-    // });
+        player.setComponent({
+            id: "position",
+            once: (sprite: any) => {
+                sprite.setPosition(pixelPosition?.x, pixelPosition?.y);
+                camera.centerOn(pixelPosition?.x, pixelPosition?.y);
+            },
+        });
+    });
 };

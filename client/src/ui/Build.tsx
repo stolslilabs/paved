@@ -20,18 +20,11 @@ export const Build = (props: TProps) => {
         systemCalls: { build },
     } = useDojo();
 
-    const builderId = getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]) as Entity;
+    const builderId = getEntityIdFromKeys([
+        BigInt(gameId),
+        BigInt(account.address),
+    ]) as Entity;
     const builder = useComponentValue(Builder, builderId);
-
-    useEffect(() => {
-        if (isDeploying) {
-            return;
-        }
-
-        if (account) {
-            return;
-        }
-    }, [account]);
 
     if (!account || !builder) return <></>;
 
