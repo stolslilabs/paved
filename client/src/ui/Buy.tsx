@@ -33,7 +33,7 @@ export const Buy = () => {
                     });
                 }}
             >
-                Draw
+                Buy
             </Button>
         </div>
     );

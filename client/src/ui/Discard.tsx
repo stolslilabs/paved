@@ -33,7 +33,7 @@ export const Discard = () => {
                     });
                 }}
             >
-                Draw
+                Discard
             </Button>
         </div>
     );
