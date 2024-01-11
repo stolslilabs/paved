@@ -57,7 +57,8 @@ export const placeTile = (layer: PhaserLayer) => {
 
         // TODO: remove offset when we can store i32 on the SC side
         const offsetPosition = { x: -0x7fffffff, y: -0x7fffffff };
-        const fixedPosition = { x: tileComponent.x + offsetPosition.x, y: tileComponent.y + offsetPosition.y }
+        // TODO: swap x and y since the phaser scene seems to be rotated
+        const fixedPosition = { y: tileComponent.x + offsetPosition.x, x: tileComponent.y + offsetPosition.y }
 
         const pixelPosition = tileCoordToPixelCoord(
             fixedPosition,

@@ -20,11 +20,11 @@ export function defineContractComponents(world: World) {
 	  Game: (() => {
 	    return defineComponent(
 	      world,
-	      { id: RecsType.Number, tile_count: RecsType.Number },
+	      { id: RecsType.Number, tiles: RecsType.BigInt, tile_count: RecsType.Number },
 	      {
 	        metadata: {
 	          name: "Game",
-	          types: ["u32","u32"],
+	          types: ["u32","u128","u32"],
 	          customTypes: [],
 	        },
 	      }

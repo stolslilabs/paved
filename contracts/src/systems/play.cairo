@@ -70,6 +70,7 @@ mod play {
         const BUILDER_NOT_FOUND: felt252 = 'Play: Builder not found';
         const TILE_NOT_FOUND: felt252 = 'Play: Tile not found';
         const INVALID_ORDER: felt252 = 'Play: Invalid order';
+        const POSITION_ALREADY_TAKEN: felt252 = 'Play: Position already taken';
     }
 
     // Storage
@@ -223,6 +224,10 @@ mod play {
             // [Check] Tile exists
             let mut tile = store.tile(game, tile_id);
             assert(tile.builder_id != 0, errors::TILE_NOT_FOUND);
+
+            // [Check] Position not already taken
+            let position = store.position(game, x, y);
+            assert(position.tile_id == 0, errors::POSITION_ALREADY_TAKEN);
 
             // [Effect] Build tile
             let mut neighbors = store.neighbors(game, x, y);
