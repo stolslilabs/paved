@@ -7,7 +7,8 @@ version = "0.0.0"
 sierra-replace-ids = true
 
 [dependencies]
-dojo = { git = "https://github.com/dojoengine/dojo", version = "0.4.4" }
+dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.4.4" }
+origami = { git = "https://github.com/notV4l/origami", branch = "erc20_components" }
 
 [[target.dojo]]
 

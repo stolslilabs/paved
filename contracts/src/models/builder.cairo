@@ -1,7 +1,7 @@
 // Internal imports
 
 use stolsli::constants;
-use stolsli::types::layout::{MAX_LAYOUT_COUNT};
+use stolsli::types::plan::Plan;
 use stolsli::types::order::Order;
 use stolsli::types::orientation::Orientation;
 use stolsli::models::tile::{Tile, TileImpl};
@@ -66,7 +66,7 @@ impl BuilderImpl of BuilderTrait {
     }
 
     #[inline(always)]
-    fn draw(ref self: Builder, seed: u256, tile_id: u32) -> Tile {
+    fn draw(ref self: Builder, tile_id: u32, plan: Plan) -> Tile {
         // [Check] Can draw
         self.assert_can_draw();
         // [Effect] Remove tile from the tile count
@@ -74,9 +74,7 @@ impl BuilderImpl of BuilderTrait {
         // [Effect] Update tile_id
         self.tile_id = tile_id;
         // [Return] New tile
-        let random: u256 = seed % MAX_LAYOUT_COUNT.into();
-        let layout_type: u8 = random.try_into().unwrap() + 1;
-        TileImpl::new(self.game_id, self.tile_id, self.id, layout_type.into())
+        TileImpl::new(self.game_id, self.tile_id, self.id, plan.into())
     }
 
     #[inline(always)]

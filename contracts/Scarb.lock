@@ -2,9 +2,14 @@
 version = 1
 
 [[package]]
+name = "cubit"
+version = "1.3.0"
+source = "git+https://github.com/akhercha/cubit.git?rev=d3869a3#d3869a3f0c47e5ed229bbbfe2fce3fc0510cbc8a"
+
+[[package]]
 name = "dojo"
 version = "0.4.4"
-source = "git+https://github.com/dojoengine/dojo#37f41d585f549013a73ca189034b0471f1e81731"
+source = "git+https://github.com/dojoengine/dojo?tag=v0.4.4#8afd8c903d71083b8487a5b4a0cfc9360dee0772"
 dependencies = [
  "dojo_plugin",
 ]
@@ -15,8 +20,18 @@ version = "0.3.11"
 source = "git+https://github.com/dojoengine/dojo?tag=v0.3.11#1e651b5d4d3b79b14a7d8aa29a92062fcb9e6659"
 
 [[package]]
+name = "origami"
+version = "0.0.0"
+source = "git+https://github.com/notV4l/origami?branch=erc20_components#79fddfdad8483c416bba78fa8d953ddd84e4ef4e"
+dependencies = [
+ "cubit",
+ "dojo",
+]
+
+[[package]]
 name = "stolsli"
 version = "0.0.0"
 dependencies = [
  "dojo",
+ "origami",
 ]

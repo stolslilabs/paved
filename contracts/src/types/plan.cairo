@@ -4,7 +4,7 @@ use debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::constants::{MASK_8, TWO_POW_8};
+use stolsli::constants::{MASK_8, TWO_POW_8, TOTAL_TILE_COUNT};
 use stolsli::types::category::Category;
 
 // Constants
@@ -24,21 +24,22 @@ enum Plan {
     RFFFFRFFFFFRF,
     RFRFFFFFFFFRF,
     WFFFFFFFFFFRF,
-    WFRFFRFFFFFRF,
-    WFRFFRFFRFFRF,
+    SFRFFRFFFFFRF,
+    SFRFFRFFRFFRF,
     RFRFFCCCCFFRF,
     // Row #2
     RFRFFFFFCFFRF,
     RFRFFRFFCFFFF,
     RFFFFRFFCFFRF, // Starter tile
     RFRFFFFFCFFFF,
-    WFRFFRFFCFFRF,
+    SFRFFRFFCFFRF,
     CCCCCCFFFFFCC,
     // Row #3
     FFFFFFFFCFFFF,
     FFCFFFFFCFFFF,
     FFCFFFFFFFFCF,
-    FFCFFFFFCFFCF,
+    // FFCFFFFFCFFCF, // Not in the original game
+    WFFFFFFFFFFFF, // Forgotten one
     FFFFFCCCCFFFF,
     CFFFFCFFFFFCF,
     // Row #4
@@ -54,19 +55,20 @@ impl IntoPlanFelt252 of Into<Plan, felt252> {
             Plan::RFFFFRFFFFFRF => 'RFFFFRFFFFFRF',
             Plan::RFRFFFFFFFFRF => 'RFRFFFFFFFFRF',
             Plan::WFFFFFFFFFFRF => 'WFFFFFFFFFFRF',
-            Plan::WFRFFRFFFFFRF => 'WFRFFRFFFFFRF',
-            Plan::WFRFFRFFRFFRF => 'WFRFFRFFRFFRF',
+            Plan::SFRFFRFFFFFRF => 'SFRFFRFFFFFRF',
+            Plan::SFRFFRFFRFFRF => 'SFRFFRFFRFFRF',
             Plan::RFRFFCCCCFFRF => 'RFRFFCCCCFFRF',
             Plan::RFRFFFFFCFFRF => 'RFRFFFFFCFFRF',
             Plan::RFRFFRFFCFFFF => 'RFRFFRFFCFFFF',
             Plan::RFFFFRFFCFFRF => 'RFFFFRFFCFFRF',
             Plan::RFRFFFFFCFFFF => 'RFRFFFFFCFFFF',
-            Plan::WFRFFRFFCFFRF => 'WFRFFRFFCFFRF',
+            Plan::SFRFFRFFCFFRF => 'SFRFFRFFCFFRF',
             Plan::CCCCCCFFFFFCC => 'CCCCCCFFFFFCC',
             Plan::FFFFFFFFCFFFF => 'FFFFFFFFCFFFF',
             Plan::FFCFFFFFCFFFF => 'FFCFFFFFCFFFF',
             Plan::FFCFFFFFFFFCF => 'FFCFFFFFFFFCF',
-            Plan::FFCFFFFFCFFCF => 'FFCFFFFFCFFCF',
+            // Plan::FFCFFFFFCFFCF => 'FFCFFFFFCFFCF',
+            Plan::WFFFFFFFFFFFF => 'WFFFFFFFFFFFF',
             Plan::FFFFFCCCCFFFF => 'FFFFFCCCCFFFF',
             Plan::CFFFFCFFFFFCF => 'CFFFFCFFFFFCF',
             Plan::CCCCCCCCCCCCC => 'CCCCCCCCCCCCC',
@@ -83,19 +85,20 @@ impl IntoPlanU8 of Into<Plan, u8> {
             Plan::RFFFFRFFFFFRF => 1,
             Plan::RFRFFFFFFFFRF => 2,
             Plan::WFFFFFFFFFFRF => 3,
-            Plan::WFRFFRFFFFFRF => 4,
-            Plan::WFRFFRFFRFFRF => 5,
+            Plan::SFRFFRFFFFFRF => 4,
+            Plan::SFRFFRFFRFFRF => 5,
             Plan::RFRFFCCCCFFRF => 6,
             Plan::RFRFFFFFCFFRF => 7,
             Plan::RFRFFRFFCFFFF => 8,
             Plan::RFFFFRFFCFFRF => 9,
             Plan::RFRFFFFFCFFFF => 10,
-            Plan::WFRFFRFFCFFRF => 11,
+            Plan::SFRFFRFFCFFRF => 11,
             Plan::CCCCCCFFFFFCC => 12,
             Plan::FFFFFFFFCFFFF => 13,
             Plan::FFCFFFFFCFFFF => 14,
             Plan::FFCFFFFFFFFCF => 15,
-            Plan::FFCFFFFFCFFCF => 16,
+            // Plan::FFCFFFFFCFFCF => 16,
+            Plan::WFFFFFFFFFFFF => 16,
             Plan::FFFFFCCCCFFFF => 17,
             Plan::CFFFFCFFFFFCF => 18,
             Plan::CCCCCCCCCCCCC => 19,
@@ -103,7 +106,6 @@ impl IntoPlanU8 of Into<Plan, u8> {
         }
     }
 }
-
 
 impl IntoU8Plan of Into<u8, Plan> {
     #[inline(always)]
@@ -115,9 +117,9 @@ impl IntoU8Plan of Into<u8, Plan> {
         } else if 3 == self.into() {
             Plan::WFFFFFFFFFFRF
         } else if 4 == self.into() {
-            Plan::WFRFFRFFFFFRF
+            Plan::SFRFFRFFFFFRF
         } else if 5 == self.into() {
-            Plan::WFRFFRFFRFFRF
+            Plan::SFRFFRFFRFFRF
         } else if 6 == self.into() {
             Plan::RFRFFCCCCFFRF
         } else if 7 == self.into() {
@@ -129,7 +131,7 @@ impl IntoU8Plan of Into<u8, Plan> {
         } else if 10 == self.into() {
             Plan::RFRFFFFFCFFFF
         } else if 11 == self.into() {
-            Plan::WFRFFRFFCFFRF
+            Plan::SFRFFRFFCFFRF
         } else if 12 == self.into() {
             Plan::CCCCCCFFFFFCC
         } else if 13 == self.into() {
@@ -139,7 +141,7 @@ impl IntoU8Plan of Into<u8, Plan> {
         } else if 15 == self.into() {
             Plan::FFCFFFFFFFFCF
         } else if 16 == self.into() {
-            Plan::FFCFFFFFCFFCF
+            Plan::WFFFFFFFFFFFF
         } else if 17 == self.into() {
             Plan::FFFFFCCCCFFFF
         } else if 18 == self.into() {
@@ -154,6 +156,53 @@ impl IntoU8Plan of Into<u8, Plan> {
     }
 }
 
+impl IntoU32Plan of Into<u32, Plan> {
+    #[inline(always)]
+    fn into(self: u32) -> Plan {
+        let id = self % TOTAL_TILE_COUNT.into();
+        if id < 2 {
+            Plan::WFFFFFFFFFFRF
+        } else if id < 6 {
+            Plan::WFFFFFFFFFFFF
+        } else if id < 7 {
+            Plan::CCCCCCCCCCCCC
+        } else if id < 11 {
+            Plan::RFFFFRFFCFFRF
+        } else if id < 16 {
+            Plan::FFFFFFFFCFFFF
+        } else if id < 19 {
+            Plan::CFFFFCFFFFFCF
+        } else if id < 22 {
+            Plan::FFCFFFFFCFFFF
+        } else if id < 24 {
+            Plan::FFCFFFFFFFFCF
+        } else if id < 27 {
+            Plan::RFRFFFFFCFFRF
+        } else if id < 30 {
+            Plan::RFRFFRFFCFFFF
+        } else if id < 33 {
+            Plan::SFRFFRFFCFFRF
+        } else if id < 38 {
+            Plan::FFFFFCCCCFFFF
+        } else if id < 43 {
+            Plan::RFRFFCCCCFFRF
+        } else if id < 47 {
+            Plan::CCCCCCFFFFFCC
+        } else if id < 50 {
+            Plan::CCCCCCFFRFFCC
+        } else if id < 58 {
+            Plan::RFFFFRFFFFFRF
+        } else if id < 67 {
+            Plan::RFRFFFFFFFFRF
+        } else if id < 71 {
+            Plan::SFRFFRFFFFFRF
+        } else if id < 72 {
+            Plan::SFRFFRFFRFFRF
+        } else {
+            Plan::None
+        }
+    }
+}
 
 impl PlanPrint of PrintTrait<Plan> {
     #[inline(always)]

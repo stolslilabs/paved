@@ -10,12 +10,14 @@ const ROAD: felt252 = 'ROAD';
 const CITY: felt252 = 'CITY';
 const STOP: felt252 = 'STOP';
 const WONDER: felt252 = 'WNDR';
+const BONUS: felt252 = 'BONS';
 
 const FARM_KEY: felt252 = 'F';
 const ROAD_KEY: felt252 = 'R';
 const CITY_KEY: felt252 = 'C';
 const STOP_KEY: felt252 = 'S';
 const WONDER_KEY: felt252 = 'W';
+const BONUS_KEY: felt252 = 'B';
 
 #[derive(Copy, Drop, Serde, PartialEq, Introspection)]
 enum Category {
@@ -25,6 +27,7 @@ enum Category {
     City,
     Stop,
     Wonder,
+    Bonus,
 }
 
 impl CategoryIntoFelt252 of Into<Category, felt252> {
@@ -37,6 +40,7 @@ impl CategoryIntoFelt252 of Into<Category, felt252> {
             Category::City => CITY,
             Category::Stop => STOP,
             Category::Wonder => WONDER,
+            Category::Bonus => BONUS,
         }
     }
 }
@@ -51,6 +55,7 @@ impl CategoryIntoU8 of Into<Category, u8> {
             Category::City => 3,
             Category::Stop => 4,
             Category::Wonder => 5,
+            Category::Bonus => 6,
         }
     }
 }
@@ -68,6 +73,8 @@ impl Felt252IntoCategory of Into<felt252, Category> {
             Category::Stop
         } else if self == WONDER || self == WONDER_KEY {
             Category::Wonder
+        } else if self == BONUS || self == BONUS_KEY {
+            Category::Bonus
         } else {
             Category::None
         }
@@ -87,6 +94,8 @@ impl U8IntoCategory of Into<u8, Category> {
             Category::Stop
         } else if self == 5 {
             Category::Wonder
+        } else if self == 6 {
+            Category::Bonus
         } else {
             Category::None
         }
@@ -110,8 +119,8 @@ mod tests {
     // Local imports
 
     use super::{
-        Category, NONE, FARM, ROAD, CITY, STOP, WONDER, FARM_KEY, ROAD_KEY, CITY_KEY, STOP_KEY,
-        WONDER_KEY
+        Category, NONE, FARM, ROAD, CITY, STOP, WONDER, BONUS, FARM_KEY, ROAD_KEY, CITY_KEY,
+        STOP_KEY, WONDER_KEY, BONUS_KEY,
     };
 
     // Constants
@@ -127,6 +136,7 @@ mod tests {
         assert(CITY == Category::City.into(), 'Category: wrong City');
         assert(STOP == Category::Stop.into(), 'Category: wrong Stop');
         assert(WONDER == Category::Wonder.into(), 'Category: wrong Wonder');
+        assert(BONUS == Category::Bonus.into(), 'Category: wrong Bonus');
     }
 
     #[test]
@@ -137,11 +147,13 @@ mod tests {
         assert(Category::City == CITY.into(), 'Category: wrong City');
         assert(Category::Stop == STOP.into(), 'Category: wrong Stop');
         assert(Category::Wonder == WONDER.into(), 'Category: wrong Wonder');
+        assert(Category::Bonus == BONUS.into(), 'Category: wrong Bonus');
         assert(Category::Farm == FARM_KEY.into(), 'Category: wrong Farm');
         assert(Category::Road == ROAD_KEY.into(), 'Category: wrong Road');
         assert(Category::City == CITY_KEY.into(), 'Category: wrong City');
         assert(Category::Stop == STOP_KEY.into(), 'Category: wrong Stop');
         assert(Category::Wonder == WONDER_KEY.into(), 'Category: wrong Wonder');
+        assert(Category::Bonus == BONUS_KEY.into(), 'Category: wrong Bonus');
     }
 
     #[test]
@@ -157,6 +169,7 @@ mod tests {
         assert(3_u8 == Category::City.into(), 'Category: wrong City');
         assert(4_u8 == Category::Stop.into(), 'Category: wrong Stop');
         assert(5_u8 == Category::Wonder.into(), 'Category: wrong Wonder');
+        assert(6_u8 == Category::Bonus.into(), 'Category: wrong Bonus');
     }
 
     #[test]
@@ -167,6 +180,7 @@ mod tests {
         assert(Category::City == 3_u8.into(), 'Category: wrong City');
         assert(Category::Stop == 4_u8.into(), 'Category: wrong Stop');
         assert(Category::Wonder == 5_u8.into(), 'Category: wrong Wonder');
+        assert(Category::Bonus == 6_u8.into(), 'Category: wrong Bonus');
     }
 
     #[test]

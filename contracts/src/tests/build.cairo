@@ -18,6 +18,7 @@ use stolsli::models::builder::{Builder, BuilderTrait};
 use stolsli::models::tile::{Tile, TileTrait, CENTER};
 use stolsli::types::order::Order;
 use stolsli::types::orientation::Orientation;
+use stolsli::types::plan::Plan;
 use stolsli::systems::play::IPlayDispatcherTrait;
 use stolsli::tests::setup::{setup, setup::{Systems, BUILDER, ANYONE}};
 
@@ -42,7 +43,7 @@ fn test_play_build() {
 
     // [Build]
     let orientation = Orientation::North;
-    let x = CENTER + 1;
-    let y = CENTER;
+    let x = CENTER;
+    let y = CENTER + 1;
     systems.play.build(world, context.game_id, tile.id, orientation, x, y);
 }

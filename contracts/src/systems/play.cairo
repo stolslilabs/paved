@@ -166,8 +166,8 @@ mod play {
             // [Effect] Builder spawn a new tile
             // Todo: use VRF
             let seed = get_tx_info().unbox().transaction_hash;
-            let tile_id = game.add_tile();
-            let tile = builder.draw(seed.into(), tile_id);
+            let (tile_id, plan) = game.draw_plan(seed.into());
+            let tile = builder.draw(tile_id, plan);
 
             // [Effect] Store tile
             store.set_tile(tile);
