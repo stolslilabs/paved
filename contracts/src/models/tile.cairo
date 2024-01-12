@@ -64,16 +64,6 @@ impl TileImpl of TileTrait {
     }
 
     #[inline(always)]
-    fn position(self: Tile) -> TilePosition {
-        let tile_id = if Orientation::None == self.orientation.into() {
-            0 // Not placed
-        } else {
-            self.id
-        };
-        TilePosition { game_id: self.game_id, x: self.x, y: self.y, tile_id: tile_id, }
-    }
-
-    #[inline(always)]
     fn get_layout(self: Tile) -> Layout {
         self.assert_is_placed();
         LayoutImpl::from(self.plan.into(), self.orientation.into())
@@ -114,6 +104,18 @@ impl TileImpl of TileTrait {
         self.y = y;
         // [Check] Tile is valid
         self.assert_can_place(ref neighbors);
+    }
+}
+
+impl TileIntoPosition of Into<Tile, TilePosition> {
+    #[inline(always)]
+    fn into(self: Tile) -> TilePosition {
+        let tile_id = if Orientation::None == self.orientation.into() {
+            0 // Not placed
+        } else {
+            self.id
+        };
+        TilePosition { game_id: self.game_id, x: self.x, y: self.y, tile_id: tile_id, }
     }
 }
 

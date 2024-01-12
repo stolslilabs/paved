@@ -7,12 +7,14 @@ mod types {
     mod layout;
     mod order;
     mod orientation;
+    mod role;
 }
 
 mod models {
     mod game;
     mod builder;
     mod tile;
+    mod character;
 }
 
 mod systems {
