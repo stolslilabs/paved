@@ -7,6 +7,7 @@ mod types {
     mod layout;
     mod order;
     mod orientation;
+    mod direction;
     mod role;
 }
 
