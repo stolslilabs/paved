@@ -36,9 +36,7 @@ struct CharacterPosition {
 #[generate_trait]
 impl CharacterImpl of CharacterTrait {
     #[inline(always)]
-    fn new(
-        game_id: u32, builder_id: felt252, index: u8, tile_id: u32, spot: Spot
-    ) -> Character {
+    fn new(game_id: u32, builder_id: felt252, index: u8, tile_id: u32, spot: Spot) -> Character {
         // [Check] Tile id is valid
         assert(0 != tile_id, errors::INVALID_TILE_ID);
         // [Check] Position is valid
