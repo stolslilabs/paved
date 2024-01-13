@@ -59,8 +59,9 @@ export function createSystemCalls(
     }
 
     const build = async (props: BuildSystemProps) => {
+        const { role = 0, spot = 0 } = props;
         try {
-            await execute(props.signer, "play", "build", [props.game_id, props.tile_id, props.orientation, props.x, props.y]);
+            await execute(props.signer, "play", "build", [props.game_id, props.tile_id, props.orientation, props.x, props.y, role, spot]);
         } catch (e) {
             console.error(e);
         }

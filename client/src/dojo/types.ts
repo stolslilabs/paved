@@ -32,4 +32,6 @@ export interface BuildSystemProps extends SystemSigner {
     orientation: number;
     x: number;
     y: number;
+    role?: number;
+    spot?: number;
 }
