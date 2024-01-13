@@ -35,3 +35,9 @@ export interface BuildSystemProps extends SystemSigner {
     role?: number;
     spot?: number;
 }
+
+export interface CollectSystemProps extends SystemSigner {
+    game_id: number;
+    tile_id: number;
+    spot: number;
+}
