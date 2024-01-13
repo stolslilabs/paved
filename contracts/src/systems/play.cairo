@@ -99,7 +99,7 @@ mod play {
 
             // [Effect] Create starter tile
             let tile_id = game.add_tile();
-            let mut tile = TileImpl::new(game_id, tile_id, 0, Plan::RFFFFRFFCFFRF);
+            let mut tile = TileImpl::new(game_id, tile_id, 0, Plan::RFFFRFCFR);
             tile.orientation = Orientation::South.into();
 
             // [Effect] Store game

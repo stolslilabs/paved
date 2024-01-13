@@ -296,25 +296,25 @@ mod tests {
         };
         // [Assert] Each plan has been drawn the right amount of time
         assert(counts.get(Plan::None.into()) == 0, 'Game: None count');
-        assert(counts.get(Plan::WFFFFFFFFFFRF.into()) == 2, 'Game: WFFFFFFFFFFRF count');
-        assert(counts.get(Plan::WFFFFFFFFFFFF.into()) == 4, 'Game: WFFFFFFFFFFFF count');
-        assert(counts.get(Plan::CCCCCCCCCCCCC.into()) == 1, 'Game: CCCCCCCCCCCCC count');
-        assert(counts.get(Plan::RFFFFRFFCFFRF.into()) == 4, 'Game: RFFFFRFFCFFRF count');
-        assert(counts.get(Plan::FFFFFFFFCFFFF.into()) == 5, 'Game: FFFFFFFFCFFFF count');
-        assert(counts.get(Plan::CFFFFCFFFFFCF.into()) == 3, 'Game: CFFFFCFFFFFCF count');
-        assert(counts.get(Plan::FFCFFFFFCFFFF.into()) == 3, 'Game: FFCFFFFFCFFFF count');
-        assert(counts.get(Plan::FFCFFFFFFFFCF.into()) == 2, 'Game: FFCFFFFFFFFCF count');
-        assert(counts.get(Plan::RFRFFFFFCFFRF.into()) == 3, 'Game: RFRFFFFFCFFRF count');
-        assert(counts.get(Plan::RFRFFRFFCFFFF.into()) == 3, 'Game: RFRFFRFFCFFFF count');
-        assert(counts.get(Plan::SFRFFRFFCFFRF.into()) == 3, 'Game: SFRFFRFFCFFRF count');
-        assert(counts.get(Plan::FFFFFCCCCFFFF.into()) == 5, 'Game: FFFFFCCCCFFFF count');
-        assert(counts.get(Plan::RFRFFCCCCFFRF.into()) == 5, 'Game: RFRFFCCCCFFRF count');
-        assert(counts.get(Plan::CCCCCCFFFFFCC.into()) == 4, 'Game: CCCCCCFFFFFCC count');
-        assert(counts.get(Plan::CCCCCCFFRFFCC.into()) == 3, 'Game: CCCCCCFFRFFCC count');
-        assert(counts.get(Plan::RFFFFRFFFFFRF.into()) == 8, 'Game: RFFFFRFFFFFRF count');
-        assert(counts.get(Plan::RFRFFFFFFFFRF.into()) == 9, 'Game: RFRFFFFFFFFRF count');
-        assert(counts.get(Plan::SFRFFRFFFFFRF.into()) == 4, 'Game: SFRFFRFFFFFRF count');
-        assert(counts.get(Plan::SFRFFRFFRFFRF.into()) == 1, 'Game: SFRFFRFFRFFRF count');
+        assert(counts.get(Plan::WFFFFFFFR.into()) == 2, 'Game: WFFFFFFFR count');
+        assert(counts.get(Plan::WFFFFFFFF.into()) == 4, 'Game: WFFFFFFFF count');
+        assert(counts.get(Plan::CCCCCCCCC.into()) == 1, 'Game: CCCCCCCCC count');
+        assert(counts.get(Plan::RFFFRFCFR.into()) == 4, 'Game: RFFFRFCFR count');
+        assert(counts.get(Plan::FFFFFFCFF.into()) == 5, 'Game: FFFFFFCFF count');
+        assert(counts.get(Plan::CFFFCFFFC.into()) == 3, 'Game: CFFFCFFFC count');
+        assert(counts.get(Plan::FFCFFFCFF.into()) == 3, 'Game: FFCFFFCFF count');
+        assert(counts.get(Plan::FFCFFFFFC.into()) == 2, 'Game: FFCFFFFFC count');
+        assert(counts.get(Plan::RFRFFFCFR.into()) == 3, 'Game: RFRFFFCFR count');
+        assert(counts.get(Plan::RFRFRFCFF.into()) == 3, 'Game: RFRFRFCFF count');
+        assert(counts.get(Plan::SFRFRFCFR.into()) == 3, 'Game: SFRFRFCFR count');
+        assert(counts.get(Plan::FFFFCCCFF.into()) == 5, 'Game: FFFFCCCFF count');
+        assert(counts.get(Plan::RFRFCCCFR.into()) == 5, 'Game: RFRFCCCFR count');
+        assert(counts.get(Plan::CCCCCFFFC.into()) == 4, 'Game: CCCCCFFFC count');
+        assert(counts.get(Plan::CCCCCFRFC.into()) == 3, 'Game: CCCCCFRFC count');
+        assert(counts.get(Plan::RFFFRFFFR.into()) == 8, 'Game: RFFFRFFFR count');
+        assert(counts.get(Plan::RFRFFFFFR.into()) == 9, 'Game: RFRFFFFFR count');
+        assert(counts.get(Plan::SFRFRFFFR.into()) == 4, 'Game: SFRFRFFFR count');
+        assert(counts.get(Plan::SFRFRFRFR.into()) == 1, 'Game: SFRFRFRFR count');
         // [Assert] Bitmap is empty
         assert(game.tiles == 0, 'Game: Invalid tiles');
     }
