@@ -20,11 +20,11 @@ export function defineContractComponents(world: World) {
 	  Character: (() => {
 	    return defineComponent(
 	      world,
-	      { game_id: RecsType.Number, builder_id: RecsType.BigInt, index: RecsType.Number, tile_id: RecsType.Number, spot: RecsType.Number, role: RecsType.Number },
+	      { game_id: RecsType.Number, builder_id: RecsType.BigInt, index: RecsType.Number, tile_id: RecsType.Number, spot: RecsType.Number },
 	      {
 	        metadata: {
 	          name: "Character",
-	          types: ["u32","felt252","u8","u32","u8","u8"],
+	          types: ["u32","felt252","u8","u32","u8"],
 	          customTypes: [],
 	        },
 	      }

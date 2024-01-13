@@ -115,7 +115,7 @@ impl BuilderImpl of BuilderTrait {
         let characters = Helpers::set_bit_at(self.characters.into(), index.into(), true);
         self.characters = characters.try_into().unwrap();
         // [Return] New character
-        CharacterImpl::new(self.game_id, self.id, index.into(), tile.id, spot, role)
+        CharacterImpl::new(self.game_id, self.id, index.into(), tile.id, spot)
     }
 
     #[inline(always)]

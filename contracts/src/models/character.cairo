@@ -1,13 +1,12 @@
 // Internal imports
 
 use stolsli::constants;
-use stolsli::types::role::Role;
 use stolsli::types::spot::Spot;
 
 mod errors {
     const ALREADY_REMOVED: felt252 = 'Character: Already removed';
     const INVALID_TILE_ID: felt252 = 'Character: Invalid tile id';
-    const INVALID_DIRECTION: felt252 = 'Character: Invalid direction';
+    const INVALID_SPOT: felt252 = 'Character: Invalid spot';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -20,7 +19,6 @@ struct Character {
     index: u8,
     tile_id: u32,
     spot: u8,
-    role: u8,
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -39,20 +37,18 @@ struct CharacterPosition {
 impl CharacterImpl of CharacterTrait {
     #[inline(always)]
     fn new(
-        game_id: u32, builder_id: felt252, index: u8, tile_id: u32, spot: Spot, role: Role
+        game_id: u32, builder_id: felt252, index: u8, tile_id: u32, spot: Spot
     ) -> Character {
         // [Check] Tile id is valid
         assert(0 != tile_id, errors::INVALID_TILE_ID);
         // [Check] Position is valid
-        assert(spot != Spot::None, errors::INVALID_DIRECTION);
-        // [Check] Role is valid
+        assert(spot != Spot::None, errors::INVALID_SPOT);
         Character {
             game_id: game_id,
             builder_id: builder_id,
             index: index,
             tile_id: tile_id,
             spot: spot.into(),
-            role: role.into(),
         }
     }
 
