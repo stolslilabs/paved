@@ -33,6 +33,9 @@ trait IPlay<TContractState> {
         role: Role,
         spot: Spot,
     );
+    fn collect(
+        self: @TContractState, world: IWorldDispatcher, game_id: u32, tile_id: u32, spot: Spot
+    );
 }
 
 #[starknet::contract]
@@ -72,7 +75,6 @@ mod play {
     // Errors
 
     mod errors {
-        const ALREADY_INITIALIZED: felt252 = 'Play: Already initialized';
         const BUILDER_ALREADY_EXISTS: felt252 = 'Play: Builder already exists';
         const GAME_NOT_FOUND: felt252 = 'Play: Game not found';
         const BUILDER_NOT_FOUND: felt252 = 'Play: Builder not found';
@@ -80,24 +82,21 @@ mod play {
         const INVALID_ORDER: felt252 = 'Play: Invalid order';
         const POSITION_ALREADY_TAKEN: felt252 = 'Play: Position already taken';
         const SPOT_ALREADY_TAKEN: felt252 = 'Play: Spot already taken';
+        const SPOT_EMPTY: felt252 = 'Play: Spot empty';
     }
 
     // Storage
 
     #[storage]
-    struct Storage {
-        initialized: bool,
-    }
+    struct Storage {}
 
     // Implemnentations
 
     #[external(v0)]
     impl PlayImpl of IPlay<ContractState> {
         fn initialize(self: @ContractState, world: IWorldDispatcher) -> u32 {
-            // [Check] Not already initialized
-            // TODO: Remove this check when we implement seasonal games
+            // [Check] Owner
             // TODO: Access control
-            assert(!self.initialized.read(), errors::ALREADY_INITIALIZED);
 
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -249,8 +248,12 @@ mod play {
                 // [Check] Character slot not already taken
                 let character_position = store.character_position(game, tile, spot);
                 assert(character_position.is_zero(), errors::SPOT_ALREADY_TAKEN);
+
                 // [Effect] Place character
-                builder.place(role, tile, spot);
+                let character = builder.place(role, tile, spot);
+
+                // [Effect] Update character
+                store.set_character(character);
             }
 
             // [Effect] Update tile
@@ -261,6 +264,38 @@ mod play {
 
             // [Effect] Update game
             store.set_game(game);
+        }
+
+        fn collect(
+            self: @ContractState, world: IWorldDispatcher, game_id: u32, tile_id: u32, spot: Spot
+        ) {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new(world);
+
+            // [Check] Game exists
+            let game = store.game(game_id);
+            assert(game.id == game_id, errors::GAME_NOT_FOUND);
+
+            // [Check] Builder exists
+            let caller = get_caller_address();
+            let mut builder = store.builder(game, caller);
+            assert(builder.name != 0, errors::BUILDER_NOT_FOUND);
+
+            // [Check] Tile exists
+            let mut tile = store.tile(game, tile_id);
+            assert(tile.builder_id != 0, errors::TILE_NOT_FOUND);
+
+            // [Check] Character exists
+            let character_position = store.character_position(game, tile, spot);
+            assert(character_position.is_non_zero(), errors::SPOT_EMPTY);
+
+            // [Effect] Collect character
+            let role: Role = character_position.index.into();
+            let character = store.character(game, builder, role);
+            builder.recover(character);
+
+            // [Effect] Update builder
+            store.set_builder(builder);
         }
     }
 }

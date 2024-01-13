@@ -32,4 +32,5 @@ mod tests {
     mod draw;
     mod discard;
     mod build;
+    mod collect;
 }
