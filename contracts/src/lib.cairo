@@ -1,5 +1,6 @@
 mod constants;
 mod store;
+mod helpers;
 
 mod types {
     mod plan;
@@ -9,6 +10,7 @@ mod types {
     mod orientation;
     mod direction;
     mod role;
+    mod spot;
 }
 
 mod models {

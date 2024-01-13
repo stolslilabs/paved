@@ -9,6 +9,9 @@ use dojo::world::IWorldDispatcher;
 // Internal imports
 
 use stolsli::types::orientation::Orientation;
+use stolsli::types::direction::Direction;
+use stolsli::types::role::Role;
+use stolsli::types::spot::Spot;
 
 #[starknet::interface]
 trait IPlay<TContractState> {
@@ -26,7 +29,9 @@ trait IPlay<TContractState> {
         tile_id: u32,
         orientation: Orientation,
         x: u32,
-        y: u32
+        y: u32,
+        role: Role,
+        spot: Spot,
     );
 }
 
@@ -55,6 +60,9 @@ mod play {
     use stolsli::models::tile::{Tile, TilePosition, TileImpl};
     use stolsli::types::order::Order;
     use stolsli::types::orientation::Orientation;
+    use stolsli::types::direction::Direction;
+    use stolsli::types::role::Role;
+    use stolsli::types::spot::Spot;
     use stolsli::types::plan::Plan;
 
     // Local imports
@@ -71,6 +79,7 @@ mod play {
         const TILE_NOT_FOUND: felt252 = 'Play: Tile not found';
         const INVALID_ORDER: felt252 = 'Play: Invalid order';
         const POSITION_ALREADY_TAKEN: felt252 = 'Play: Position already taken';
+        const SPOT_ALREADY_TAKEN: felt252 = 'Play: Spot already taken';
     }
 
     // Storage
@@ -207,7 +216,9 @@ mod play {
             tile_id: u32,
             orientation: Orientation,
             x: u32,
-            y: u32
+            y: u32,
+            role: Role,
+            spot: Spot,
         ) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -226,12 +237,21 @@ mod play {
             assert(tile.builder_id != 0, errors::TILE_NOT_FOUND);
 
             // [Check] Position not already taken
-            let position = store.position(game, x, y);
-            assert(position.tile_id == 0, errors::POSITION_ALREADY_TAKEN);
+            let tile_position = store.tile_position(game, x, y);
+            assert(tile_position.tile_id == 0, errors::POSITION_ALREADY_TAKEN);
 
             // [Effect] Build tile
             let mut neighbors = store.neighbors(game, x, y);
             builder.build(ref tile, orientation, x, y, ref neighbors);
+
+            // [Check] Character to place
+            if role != Role::None {
+                // [Check] Character slot not already taken
+                let character_position = store.character_position(game, tile, spot);
+                assert(character_position.is_zero(), errors::SPOT_ALREADY_TAKEN);
+                // [Effect] Place character
+                builder.place(role, tile, spot);
+            }
 
             // [Effect] Update tile
             store.set_tile(tile);

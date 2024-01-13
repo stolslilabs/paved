@@ -45,7 +45,7 @@ fn test_play_draw() {
 }
 
 #[test]
-#[should_panic(expected: ('Builder: Cannot draw', 'ENTRYPOINT_FAILED',))]
+#[should_panic(expected: ('Builder: Already has a tile', 'ENTRYPOINT_FAILED',))]
 fn test_play_draw_twice_revert_cannot_draw() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game();
