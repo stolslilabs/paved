@@ -7,6 +7,7 @@ use option::OptionTrait;
 // Internal imports
 
 use stolsli::types::orientation::Orientation;
+use stolsli::types::direction::Direction;
 use stolsli::types::plan::Plan;
 use stolsli::types::layout::{Layout, LayoutImpl};
 
@@ -64,16 +65,6 @@ impl TileImpl of TileTrait {
     }
 
     #[inline(always)]
-    fn position(self: Tile) -> TilePosition {
-        let tile_id = if Orientation::None == self.orientation.into() {
-            0 // Not placed
-        } else {
-            self.id
-        };
-        TilePosition { game_id: self.game_id, x: self.x, y: self.y, tile_id: tile_id, }
-    }
-
-    #[inline(always)]
     fn get_layout(self: Tile) -> Layout {
         self.assert_is_placed();
         LayoutImpl::from(self.plan.into(), self.orientation.into())
@@ -90,8 +81,8 @@ impl TileImpl of TileTrait {
             match neighbors.pop_front() {
                 Option::Some(neighbor) => {
                     // [Check] Neighbor is a neighbor and direction can be defined
-                    let direction: Orientation = self.reference_direction(neighbor);
-                    assert(direction != Orientation::None, errors::TILE_INVALID_NEIGHBOR);
+                    let direction: Direction = self.reference_direction(neighbor);
+                    assert(direction != Direction::None, errors::TILE_INVALID_NEIGHBOR);
                     // [Compute] Neighbor compatibility
                     if layout.is_compatible(neighbor.get_layout(), direction) {
                         continue;
@@ -117,6 +108,18 @@ impl TileImpl of TileTrait {
     }
 }
 
+impl TileIntoPosition of Into<Tile, TilePosition> {
+    #[inline(always)]
+    fn into(self: Tile) -> TilePosition {
+        let tile_id = if Orientation::None == self.orientation.into() {
+            0 // Not placed
+        } else {
+            self.id
+        };
+        TilePosition { game_id: self.game_id, x: self.x, y: self.y, tile_id: tile_id, }
+    }
+}
+
 #[generate_trait]
 impl AssertImpl of AssertTrait {
     #[inline(always)]
@@ -138,25 +141,25 @@ impl AssertImpl of AssertTrait {
 #[generate_trait]
 impl InternalImpl of InternalTrait {
     #[inline(always)]
-    fn reference_direction(self: Tile, reference: Tile) -> Orientation {
+    fn reference_direction(self: Tile, reference: Tile) -> Direction {
         if self.x == reference.x {
             if self.y + 1 == reference.y {
-                return Orientation::North;
+                return Direction::North;
             } else if self.y == reference.y + 1 {
-                return Orientation::South;
+                return Direction::South;
             } else {
-                return Orientation::None;
+                return Direction::None;
             }
         } else if self.y == reference.y {
             if self.x + 1 == reference.x {
-                return Orientation::East;
+                return Direction::East;
             } else if self.x == reference.x + 1 {
-                return Orientation::West;
+                return Direction::West;
             } else {
-                return Orientation::None;
+                return Direction::None;
             }
         } else {
-            return Orientation::None;
+            return Direction::None;
         }
     }
 
@@ -180,7 +183,7 @@ mod tests {
 
     // Local imports
 
-    use super::{Tile, TileImpl, AssertImpl, InternalImpl, Orientation, Plan, CENTER};
+    use super::{Tile, TileImpl, AssertImpl, InternalImpl, Orientation, Direction, Plan, CENTER};
 
     // Implemnentations
 
@@ -202,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_tile_new() {
-        let plan = Plan::RFRFFCCCCFFRF;
+        let plan = Plan::RFRFCCCFR;
         let tile = TileImpl::new(0, 1, 2, plan);
         assert(tile.game_id == 0, 'Tile: game_id');
         assert(tile.id == 1, 'Tile: id');
@@ -215,21 +218,21 @@ mod tests {
 
     #[test]
     fn test_tile_is_placed() {
-        let plan = Plan::RFFFFRFFCFFRF;
+        let plan = Plan::RFFFRFCFR;
         let tile = TileImpl::new(1, 2, 3, plan);
         tile.assert_not_placed();
     }
 
     #[test]
     fn test_tile_layout() {
-        let plan = Plan::RFRFFCCCCFFRF;
+        let plan = Plan::RFRFCCCFR;
         let tile = TestImpl::from(plan, Orientation::North, CENTER, CENTER);
         let layout = tile.get_layout(); // Check that it runs
     }
 
     #[test]
     fn test_tile_can_place() {
-        let plan = Plan::RFRFFCCCCFFRF;
+        let plan = Plan::RFRFCCCFR;
         let tile = TestImpl::from(plan, Orientation::North, CENTER, CENTER);
         let north_tile = TestImpl::from(plan, Orientation::South, tile.x, tile.y + 1);
         let east_tile = TestImpl::from(plan, Orientation::East, tile.x + 1, tile.y);
@@ -241,7 +244,7 @@ mod tests {
 
     #[test]
     fn test_tile_cannot_place() {
-        let plan = Plan::RFRFFCCCCFFRF;
+        let plan = Plan::RFRFCCCFR;
         let tile = TestImpl::from(plan, Orientation::North, CENTER, CENTER);
         let north_tile = TestImpl::from(plan, Orientation::North, tile.x, tile.y + 1);
         let east_tile = TestImpl::from(plan, Orientation::North, tile.x + 1, tile.y);
@@ -254,7 +257,7 @@ mod tests {
     #[test]
     #[should_panic(expected: ('Tile: no neighbors',))]
     fn test_tile_can_place_revert_no_neighbors() {
-        let plan = Plan::RFRFFCCCCFFRF;
+        let plan = Plan::RFRFCCCFR;
         let tile = TestImpl::from(plan, Orientation::North, CENTER, CENTER);
         let mut neighbors: Array<Tile> = array![];
         tile.can_place(ref neighbors);
@@ -263,7 +266,7 @@ mod tests {
     #[test]
     #[should_panic(expected: ('Tile: too much neighbors',))]
     fn test_tile_can_place_revert_too_much_neighbors() {
-        let plan = Plan::RFRFFCCCCFFRF;
+        let plan = Plan::RFRFCCCFR;
         let tile = TestImpl::from(plan, Orientation::North, CENTER, CENTER);
         let neighbor = TestImpl::from(plan, Orientation::North, tile.x, tile.y + 1);
         let mut neighbors: Array<Tile> = array![neighbor, neighbor, neighbor, neighbor, neighbor];
@@ -273,7 +276,7 @@ mod tests {
     #[test]
     #[should_panic(expected: ('Tile: invalid neighbor',))]
     fn test_tile_can_place_revert_invalid_neighbors() {
-        let plan = Plan::RFRFFCCCCFFRF;
+        let plan = Plan::RFRFCCCFR;
         let tile = TestImpl::from(plan, Orientation::North, CENTER, CENTER);
         let invalid_north_tile = TestImpl::from(plan, Orientation::South, tile.x, tile.y + 2);
         let east_tile = TestImpl::from(plan, Orientation::East, tile.x + 1, tile.y);
@@ -287,7 +290,7 @@ mod tests {
 
     #[test]
     fn test_is_neighbor() {
-        let plan = Plan::RFRFFCCCCFFRF;
+        let plan = Plan::RFRFCCCFR;
         let tile = TestImpl::from(plan, Orientation::North, CENTER, CENTER);
         // North
         let north_tile = TestImpl::from(plan, Orientation::South, tile.x, tile.y + 1);
@@ -308,36 +311,36 @@ mod tests {
 
     #[test]
     fn test_reference_direction() {
-        let plan = Plan::RFRFFCCCCFFRF;
+        let plan = Plan::RFRFCCCFR;
         let tile = TestImpl::from(plan, Orientation::North, CENTER, CENTER);
         // North
         let north_tile = TestImpl::from(plan, Orientation::South, tile.x, tile.y + 1);
         assert(
-            InternalImpl::reference_direction(tile, north_tile) == Orientation::North,
+            InternalImpl::reference_direction(tile, north_tile) == Direction::North,
             'Tile: north neighbor'
         );
         // East
         let east_tile = TestImpl::from(plan, Orientation::East, tile.x + 1, tile.y);
         assert(
-            InternalImpl::reference_direction(tile, east_tile) == Orientation::East,
+            InternalImpl::reference_direction(tile, east_tile) == Direction::East,
             'Tile: east neighbor'
         );
         // South
         let south_tile = TestImpl::from(plan, Orientation::North, tile.x, tile.y - 1);
         assert(
-            InternalImpl::reference_direction(tile, south_tile) == Orientation::South,
+            InternalImpl::reference_direction(tile, south_tile) == Direction::South,
             'Tile: south neighbor'
         );
         // West
         let west_tile = TestImpl::from(plan, Orientation::West, tile.x - 1, tile.y);
         assert(
-            InternalImpl::reference_direction(tile, west_tile) == Orientation::West,
+            InternalImpl::reference_direction(tile, west_tile) == Direction::West,
             'Tile: west neighbor'
         );
         // Not a neighbor
         let not_a_neighbor = TestImpl::from(plan, Orientation::North, tile.x + 1, tile.y + 1);
         assert(
-            InternalImpl::reference_direction(tile, not_a_neighbor) == Orientation::None,
+            InternalImpl::reference_direction(tile, not_a_neighbor) == Direction::None,
             'Tile: not a neighbor'
         );
     }

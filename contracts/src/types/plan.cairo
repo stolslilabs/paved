@@ -16,35 +16,35 @@ mod errors {
     const UNPACK_FAILED: felt252 = 'Layout: Unpack failed';
 }
 
-// Center, NNW, N, NNE, ENE, E, ESE, SSE, S, SSW, WSW, W, WNW
+// Center, NW, N, NE, E, SE, S, SW, W
 #[derive(Copy, Drop, Serde, Introspect)]
 enum Plan {
     None,
     // Row #1
-    RFFFFRFFFFFRF,
-    RFRFFFFFFFFRF,
-    WFFFFFFFFFFRF,
-    SFRFFRFFFFFRF,
-    SFRFFRFFRFFRF,
-    RFRFFCCCCFFRF,
+    RFFFRFFFR,
+    RFRFFFFFR,
+    WFFFFFFFR,
+    SFRFRFFFR,
+    SFRFRFRFR,
+    RFRFCCCFR,
     // Row #2
-    RFRFFFFFCFFRF,
-    RFRFFRFFCFFFF,
-    RFFFFRFFCFFRF, // Starter tile
-    RFRFFFFFCFFFF,
-    SFRFFRFFCFFRF,
-    CCCCCCFFFFFCC,
+    RFRFFFCFR,
+    RFRFRFCFF,
+    RFFFRFCFR, // Starter tile
+    RFRFFFCFF,
+    SFRFRFCFR,
+    CCCCCFFFC,
     // Row #3
-    FFFFFFFFCFFFF,
-    FFCFFFFFCFFFF,
-    FFCFFFFFFFFCF,
-    // FFCFFFFFCFFCF, // Not in the original game
-    WFFFFFFFFFFFF, // Forgotten one
-    FFFFFCCCCFFFF,
-    CFFFFCFFFFFCF,
+    FFFFFFCFF,
+    FFCFFFCFF,
+    FFCFFFFFC,
+    // FFCFFFCFC, // Not in the original game
+    WFFFFFFFF, // Forgotten one
+    FFFFCCCFF,
+    CFFFCFFFC,
     // Row #4
-    CCCCCCCCCCCCC,
-    CCCCCCFFRFFCC,
+    CCCCCCCCC,
+    CCCCCFRFC,
 }
 
 impl IntoPlanFelt252 of Into<Plan, felt252> {
@@ -52,27 +52,27 @@ impl IntoPlanFelt252 of Into<Plan, felt252> {
     fn into(self: Plan) -> felt252 {
         match self {
             Plan::None => NONE,
-            Plan::RFFFFRFFFFFRF => 'RFFFFRFFFFFRF',
-            Plan::RFRFFFFFFFFRF => 'RFRFFFFFFFFRF',
-            Plan::WFFFFFFFFFFRF => 'WFFFFFFFFFFRF',
-            Plan::SFRFFRFFFFFRF => 'SFRFFRFFFFFRF',
-            Plan::SFRFFRFFRFFRF => 'SFRFFRFFRFFRF',
-            Plan::RFRFFCCCCFFRF => 'RFRFFCCCCFFRF',
-            Plan::RFRFFFFFCFFRF => 'RFRFFFFFCFFRF',
-            Plan::RFRFFRFFCFFFF => 'RFRFFRFFCFFFF',
-            Plan::RFFFFRFFCFFRF => 'RFFFFRFFCFFRF',
-            Plan::RFRFFFFFCFFFF => 'RFRFFFFFCFFFF',
-            Plan::SFRFFRFFCFFRF => 'SFRFFRFFCFFRF',
-            Plan::CCCCCCFFFFFCC => 'CCCCCCFFFFFCC',
-            Plan::FFFFFFFFCFFFF => 'FFFFFFFFCFFFF',
-            Plan::FFCFFFFFCFFFF => 'FFCFFFFFCFFFF',
-            Plan::FFCFFFFFFFFCF => 'FFCFFFFFFFFCF',
-            // Plan::FFCFFFFFCFFCF => 'FFCFFFFFCFFCF',
-            Plan::WFFFFFFFFFFFF => 'WFFFFFFFFFFFF',
-            Plan::FFFFFCCCCFFFF => 'FFFFFCCCCFFFF',
-            Plan::CFFFFCFFFFFCF => 'CFFFFCFFFFFCF',
-            Plan::CCCCCCCCCCCCC => 'CCCCCCCCCCCCC',
-            Plan::CCCCCCFFRFFCC => 'CCCCCCFFRFFCC',
+            Plan::RFFFRFFFR => 'RFFFRFFFR',
+            Plan::RFRFFFFFR => 'RFRFFFFFR',
+            Plan::WFFFFFFFR => 'WFFFFFFFR',
+            Plan::SFRFRFFFR => 'SFRFRFFFR',
+            Plan::SFRFRFRFR => 'SFRFRFRFR',
+            Plan::RFRFCCCFR => 'RFRFCCCFR',
+            Plan::RFRFFFCFR => 'RFRFFFCFR',
+            Plan::RFRFRFCFF => 'RFRFRFCFF',
+            Plan::RFFFRFCFR => 'RFFFRFCFR',
+            Plan::RFRFFFCFF => 'RFRFFFCFF',
+            Plan::SFRFRFCFR => 'SFRFRFCFR',
+            Plan::CCCCCFFFC => 'CCCCCFFFC',
+            Plan::FFFFFFCFF => 'FFFFFFCFF',
+            Plan::FFCFFFCFF => 'FFCFFFCFF',
+            Plan::FFCFFFFFC => 'FFCFFFFFC',
+            // Plan::FFCFFFCFC => 'FFCFFFCFC',
+            Plan::WFFFFFFFF => 'WFFFFFFFF',
+            Plan::FFFFCCCFF => 'FFFFCCCFF',
+            Plan::CFFFCFFFC => 'CFFFCFFFC',
+            Plan::CCCCCCCCC => 'CCCCCCCCC',
+            Plan::CCCCCFRFC => 'CCCCCFRFC',
         }
     }
 }
@@ -82,27 +82,27 @@ impl IntoPlanU8 of Into<Plan, u8> {
     fn into(self: Plan) -> u8 {
         match self {
             Plan::None => 0,
-            Plan::RFFFFRFFFFFRF => 1,
-            Plan::RFRFFFFFFFFRF => 2,
-            Plan::WFFFFFFFFFFRF => 3,
-            Plan::SFRFFRFFFFFRF => 4,
-            Plan::SFRFFRFFRFFRF => 5,
-            Plan::RFRFFCCCCFFRF => 6,
-            Plan::RFRFFFFFCFFRF => 7,
-            Plan::RFRFFRFFCFFFF => 8,
-            Plan::RFFFFRFFCFFRF => 9,
-            Plan::RFRFFFFFCFFFF => 10,
-            Plan::SFRFFRFFCFFRF => 11,
-            Plan::CCCCCCFFFFFCC => 12,
-            Plan::FFFFFFFFCFFFF => 13,
-            Plan::FFCFFFFFCFFFF => 14,
-            Plan::FFCFFFFFFFFCF => 15,
-            // Plan::FFCFFFFFCFFCF => 16,
-            Plan::WFFFFFFFFFFFF => 16,
-            Plan::FFFFFCCCCFFFF => 17,
-            Plan::CFFFFCFFFFFCF => 18,
-            Plan::CCCCCCCCCCCCC => 19,
-            Plan::CCCCCCFFRFFCC => 20,
+            Plan::RFFFRFFFR => 1,
+            Plan::RFRFFFFFR => 2,
+            Plan::WFFFFFFFR => 3,
+            Plan::SFRFRFFFR => 4,
+            Plan::SFRFRFRFR => 5,
+            Plan::RFRFCCCFR => 6,
+            Plan::RFRFFFCFR => 7,
+            Plan::RFRFRFCFF => 8,
+            Plan::RFFFRFCFR => 9,
+            Plan::RFRFFFCFF => 10,
+            Plan::SFRFRFCFR => 11,
+            Plan::CCCCCFFFC => 12,
+            Plan::FFFFFFCFF => 13,
+            Plan::FFCFFFCFF => 14,
+            Plan::FFCFFFFFC => 15,
+            // Plan::FFCFFFCFC => 16,
+            Plan::WFFFFFFFF => 16,
+            Plan::FFFFCCCFF => 17,
+            Plan::CFFFCFFFC => 18,
+            Plan::CCCCCCCCC => 19,
+            Plan::CCCCCFRFC => 20,
         }
     }
 }
@@ -111,45 +111,45 @@ impl IntoU8Plan of Into<u8, Plan> {
     #[inline(always)]
     fn into(self: u8) -> Plan {
         if 1 == self.into() {
-            Plan::RFFFFRFFFFFRF
+            Plan::RFFFRFFFR
         } else if 2 == self.into() {
-            Plan::RFRFFFFFFFFRF
+            Plan::RFRFFFFFR
         } else if 3 == self.into() {
-            Plan::WFFFFFFFFFFRF
+            Plan::WFFFFFFFR
         } else if 4 == self.into() {
-            Plan::SFRFFRFFFFFRF
+            Plan::SFRFRFFFR
         } else if 5 == self.into() {
-            Plan::SFRFFRFFRFFRF
+            Plan::SFRFRFRFR
         } else if 6 == self.into() {
-            Plan::RFRFFCCCCFFRF
+            Plan::RFRFCCCFR
         } else if 7 == self.into() {
-            Plan::RFRFFFFFCFFRF
+            Plan::RFRFFFCFR
         } else if 8 == self.into() {
-            Plan::RFRFFRFFCFFFF
+            Plan::RFRFRFCFF
         } else if 9 == self.into() {
-            Plan::RFFFFRFFCFFRF
+            Plan::RFFFRFCFR
         } else if 10 == self.into() {
-            Plan::RFRFFFFFCFFFF
+            Plan::RFRFFFCFF
         } else if 11 == self.into() {
-            Plan::SFRFFRFFCFFRF
+            Plan::SFRFRFCFR
         } else if 12 == self.into() {
-            Plan::CCCCCCFFFFFCC
+            Plan::CCCCCFFFC
         } else if 13 == self.into() {
-            Plan::FFFFFFFFCFFFF
+            Plan::FFFFFFCFF
         } else if 14 == self.into() {
-            Plan::FFCFFFFFCFFFF
+            Plan::FFCFFFCFF
         } else if 15 == self.into() {
-            Plan::FFCFFFFFFFFCF
+            Plan::FFCFFFFFC
         } else if 16 == self.into() {
-            Plan::WFFFFFFFFFFFF
+            Plan::WFFFFFFFF
         } else if 17 == self.into() {
-            Plan::FFFFFCCCCFFFF
+            Plan::FFFFCCCFF
         } else if 18 == self.into() {
-            Plan::CFFFFCFFFFFCF
+            Plan::CFFFCFFFC
         } else if 19 == self.into() {
-            Plan::CCCCCCCCCCCCC
+            Plan::CCCCCCCCC
         } else if 20 == self.into() {
-            Plan::CCCCCCFFRFFCC
+            Plan::CCCCCFRFC
         } else {
             Plan::None
         }
@@ -161,43 +161,43 @@ impl IntoU32Plan of Into<u32, Plan> {
     fn into(self: u32) -> Plan {
         let id = self % TOTAL_TILE_COUNT.into();
         if id < 2 {
-            Plan::WFFFFFFFFFFRF
+            Plan::WFFFFFFFR
         } else if id < 6 {
-            Plan::WFFFFFFFFFFFF
+            Plan::WFFFFFFFF
         } else if id < 7 {
-            Plan::CCCCCCCCCCCCC
+            Plan::CCCCCCCCC
         } else if id < 11 {
-            Plan::RFFFFRFFCFFRF
+            Plan::RFFFRFCFR
         } else if id < 16 {
-            Plan::FFFFFFFFCFFFF
+            Plan::FFFFFFCFF
         } else if id < 19 {
-            Plan::CFFFFCFFFFFCF
+            Plan::CFFFCFFFC
         } else if id < 22 {
-            Plan::FFCFFFFFCFFFF
+            Plan::FFCFFFCFF
         } else if id < 24 {
-            Plan::FFCFFFFFFFFCF
+            Plan::FFCFFFFFC
         } else if id < 27 {
-            Plan::RFRFFFFFCFFRF
+            Plan::RFRFFFCFR
         } else if id < 30 {
-            Plan::RFRFFRFFCFFFF
+            Plan::RFRFRFCFF
         } else if id < 33 {
-            Plan::SFRFFRFFCFFRF
+            Plan::SFRFRFCFR
         } else if id < 38 {
-            Plan::FFFFFCCCCFFFF
+            Plan::FFFFCCCFF
         } else if id < 43 {
-            Plan::RFRFFCCCCFFRF
+            Plan::RFRFCCCFR
         } else if id < 47 {
-            Plan::CCCCCCFFFFFCC
+            Plan::CCCCCFFFC
         } else if id < 50 {
-            Plan::CCCCCCFFRFFCC
+            Plan::CCCCCFRFC
         } else if id < 58 {
-            Plan::RFFFFRFFFFFRF
+            Plan::RFFFRFFFR
         } else if id < 67 {
-            Plan::RFRFFFFFFFFRF
+            Plan::RFRFFFFFR
         } else if id < 71 {
-            Plan::SFRFFRFFFFFRF
+            Plan::SFRFRFFFR
         } else if id < 72 {
-            Plan::SFRFFRFFRFFRF
+            Plan::SFRFRFRFR
         } else {
             Plan::None
         }
@@ -261,18 +261,18 @@ mod tests {
 
     #[test]
     fn test_plan_into_felt() {
-        let plan: Plan = Plan::RFFFFRFFFFFRF;
-        assert('RFFFFRFFFFFRF' == Plan::RFFFFRFFFFFRF.into(), 'Plan: into felt RFFFFRFFFFFRF');
+        let plan: Plan = Plan::RFFFRFFFR;
+        assert('RFFFRFFFR' == Plan::RFFFRFFFR.into(), 'Plan: into felt RFFFRFFFR');
     }
 
     #[test]
     fn test_plan_into_u8() {
-        assert(1_u8 == Plan::RFFFFRFFFFFRF.into(), 'Plan: into u8 RFFFFRFFFFFRF');
+        assert(1_u8 == Plan::RFFFRFFFR.into(), 'Plan: into u8 RFFFRFFFR');
     }
 
     #[test]
     fn test_u8_into_plan() {
-        assert(Plan::RFFFFRFFFFFRF == 1_u8.into(), 'Plan: into plan RFFFFRFFFFFRF');
+        assert(Plan::RFFFRFFFR == 1_u8.into(), 'Plan: into plan RFFFRFFFR');
     }
 
     #[test]

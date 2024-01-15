@@ -17,8 +17,11 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 use stolsli::models::game::{Game, GameImpl};
 use stolsli::models::builder::{Builder, BuilderImpl};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
+use stolsli::models::character::{Character, CharacterPosition, CharacterImpl};
 use stolsli::types::orientation::Orientation;
-
+use stolsli::types::direction::Direction;
+use stolsli::types::role::Role;
+use stolsli::types::spot::Spot;
 
 /// Store struct.
 #[derive(Copy, Drop)]
@@ -51,7 +54,7 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn position(self: Store, game: Game, x: u32, y: u32) -> TilePosition {
+    fn tile_position(self: Store, game: Game, x: u32, y: u32) -> TilePosition {
         get!(self.world, (game.id, x, y), (TilePosition))
     }
 
@@ -59,23 +62,35 @@ impl StoreImpl of StoreTrait {
     fn neighbors(self: Store, game: Game, x: u32, y: u32) -> Array<Tile> {
         // Avoid loop for gas efficiency
         let mut neighbors: Array<Tile> = array![];
-        let north = self.position(game, x, y + 1);
+        let north = self.tile_position(game, x, y + 1);
         if north.tile_id != 0 {
             neighbors.append(self.tile(game, north.tile_id));
         }
-        let east = self.position(game, x + 1, y);
+        let east = self.tile_position(game, x + 1, y);
         if east.tile_id != 0 {
             neighbors.append(self.tile(game, east.tile_id));
         }
-        let south = self.position(game, x, y - 1);
+        let south = self.tile_position(game, x, y - 1);
         if south.tile_id != 0 {
             neighbors.append(self.tile(game, south.tile_id));
         }
-        let west = self.position(game, x - 1, y);
+        let west = self.tile_position(game, x - 1, y);
         if west.tile_id != 0 {
             neighbors.append(self.tile(game, west.tile_id));
         }
         neighbors
+    }
+
+    #[inline(always)]
+    fn character(self: Store, game: Game, builder: Builder, role: Role) -> Character {
+        let index: u8 = role.into();
+        get!(self.world, (game.id, builder.id, index), (Character))
+    }
+
+    #[inline(always)]
+    fn character_position(self: Store, game: Game, tile: Tile, spot: Spot) -> CharacterPosition {
+        let spot_u8: u8 = spot.into();
+        get!(self.world, (game.id, tile.id, spot_u8), (CharacterPosition))
     }
 
     #[inline(always)]
@@ -91,9 +106,18 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn set_tile(self: Store, tile: Tile) {
         if tile.orientation != Orientation::None.into() {
-            let position = tile.position();
+            let position: TilePosition = tile.into();
             set!(self.world, (position))
         }
         set!(self.world, (tile))
+    }
+
+    #[inline(always)]
+    fn set_character(self: Store, character: Character) {
+        if character.tile_id != 0 {
+            let position: CharacterPosition = character.into();
+            set!(self.world, (position))
+        }
+        set!(self.world, (character))
     }
 }

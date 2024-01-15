@@ -7,11 +7,37 @@ export function defineContractComponents(world: World) {
 	  Builder: (() => {
 	    return defineComponent(
 	      world,
-	      { game_id: RecsType.Number, id: RecsType.BigInt, name: RecsType.BigInt, order: RecsType.Number, score: RecsType.Number, tile_remaining: RecsType.Number, tile_id: RecsType.Number, character_remaining: RecsType.Number },
+	      { game_id: RecsType.Number, id: RecsType.BigInt, name: RecsType.BigInt, order: RecsType.Number, score: RecsType.Number, tile_remaining: RecsType.Number, tile_id: RecsType.Number, characters: RecsType.Number },
 	      {
 	        metadata: {
 	          name: "Builder",
 	          types: ["u32","felt252","felt252","u8","u32","u8","u32","u8"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
+	  Character: (() => {
+	    return defineComponent(
+	      world,
+	      { game_id: RecsType.Number, builder_id: RecsType.BigInt, index: RecsType.Number, tile_id: RecsType.Number, spot: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "Character",
+	          types: ["u32","felt252","u8","u32","u8"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
+	  CharacterPosition: (() => {
+	    return defineComponent(
+	      world,
+	      { game_id: RecsType.Number, tile_id: RecsType.Number, spot: RecsType.Number, builder_id: RecsType.BigInt, index: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "CharacterPosition",
+	          types: ["u32","u32","u8","felt252","u8"],
 	          customTypes: [],
 	        },
 	      }

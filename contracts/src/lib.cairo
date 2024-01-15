@@ -1,5 +1,6 @@
 mod constants;
 mod store;
+mod helpers;
 
 mod types {
     mod plan;
@@ -7,12 +8,16 @@ mod types {
     mod layout;
     mod order;
     mod orientation;
+    mod direction;
+    mod role;
+    mod spot;
 }
 
 mod models {
     mod game;
     mod builder;
     mod tile;
+    mod character;
 }
 
 mod systems {
@@ -27,4 +32,5 @@ mod tests {
     mod draw;
     mod discard;
     mod build;
+    mod collect;
 }
