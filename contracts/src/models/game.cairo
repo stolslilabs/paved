@@ -9,8 +9,17 @@ use origami::random::deck::{Deck, DeckTrait};
 // Internal imports
 
 use stolsli::constants;
+use stolsli::store::{Store, StoreImpl};
 use stolsli::helpers::Helpers;
 use stolsli::types::plan::Plan;
+use stolsli::types::spot::Spot;
+use stolsli::types::category::Category;
+use stolsli::types::layout::{Layout, LayoutImpl};
+use stolsli::types::direction::{Direction, DirectionImpl};
+use stolsli::types::orientation::Orientation;
+use stolsli::types::move::{Move, MoveImpl};
+use stolsli::models::character::Character;
+use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 
 mod errors {
     const INVALID_INDEX: felt252 = 'Game: Invalid index';
@@ -53,6 +62,50 @@ impl GameImpl of GameTrait {
                     Helpers::set_bit_at(self.tiles, index.into(), true)
                 };
         (self.tile_count, plan_id.into())
+    }
+
+    #[inline(always)]
+    fn count(self: Game, tile: Tile, character: Character, ref store: Store) -> u32 {
+        let start: Direction = Direction::None;
+        let at: Spot = character.spot.into();
+        let mut moves: Array<Move> = tile.moves(start, at);
+        self.count_loop(tile, 1, ref moves, ref store)
+    }
+}
+
+#[generate_trait]
+impl InternalImpl of InternalTrait {
+    fn count_loop(
+        self: Game, tile: Tile, mut points: u32, ref moves: Array<Move>, ref store: Store
+    ) -> u32 {
+        // [Check] There is no more moves, the structure is locally finished
+        let orientation: Orientation = tile.orientation.into();
+        loop {
+            match moves.pop_front() {
+                Option::Some(move) => {
+                    points = self.count_iter(tile, move, points, ref store);
+                    if 0 == points.into() {
+                        break 0;
+                    };
+                },
+                Option::None => { break points; },
+            }
+        }
+    }
+
+    fn count_iter(self: Game, tile: Tile, move: Move, points: u32, ref store: Store) -> u32 {
+        let (x, y) = tile.proxy_coordinates(move.direction);
+        let tile_position: TilePosition = store.tile_position(self, x, y);
+        // [Check] A tile exists at this position, otherwise the structure is not finished
+        if tile_position.is_zero() {
+            return 0;
+        }
+        // [Compute] Process the next moves
+        let neighbor = store.tile(self, tile_position.tile_id);
+        let from: Direction = move.direction.source();
+        let at: Spot = move.spot;
+        let mut moves: Array<Move> = neighbor.moves(from, at);
+        self.count_loop(neighbor, points + 1, ref moves, ref store)
     }
 }
 
