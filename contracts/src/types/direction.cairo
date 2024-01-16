@@ -2,6 +2,10 @@
 
 use debug::PrintTrait;
 
+// Internal imports
+
+use stolsli::types::orientation::Orientation;
+
 // Constants
 
 const NONE: felt252 = 0;
@@ -116,6 +120,83 @@ impl DirectionPrint of PrintTrait<Direction> {
     fn print(self: Direction) {
         let felt: felt252 = self.into();
         felt.print();
+    }
+}
+
+#[generate_trait]
+impl DirectionImpl of DirectionTrait {
+    #[inline(always)]
+    fn rotate(self: Direction, orientation: Orientation) -> Direction {
+        match orientation {
+            Orientation::None => Direction::None,
+            Orientation::North => self,
+            Orientation::East => {
+                match self {
+                    Direction::None => Direction::None,
+                    Direction::NorthWest => Direction::NorthEast,
+                    Direction::North => Direction::East,
+                    Direction::NorthEast => Direction::SouthEast,
+                    Direction::East => Direction::South,
+                    Direction::SouthEast => Direction::SouthWest,
+                    Direction::South => Direction::West,
+                    Direction::SouthWest => Direction::NorthWest,
+                    Direction::West => Direction::North,
+                }
+            },
+            Orientation::South => {
+                match self {
+                    Direction::None => Direction::None,
+                    Direction::NorthWest => Direction::SouthEast,
+                    Direction::North => Direction::South,
+                    Direction::NorthEast => Direction::SouthWest,
+                    Direction::East => Direction::West,
+                    Direction::SouthEast => Direction::NorthWest,
+                    Direction::South => Direction::North,
+                    Direction::SouthWest => Direction::NorthEast,
+                    Direction::West => Direction::East,
+                }
+            },
+            Orientation::West => {
+                match self {
+                    Direction::None => Direction::None,
+                    Direction::NorthWest => Direction::SouthWest,
+                    Direction::North => Direction::West,
+                    Direction::NorthEast => Direction::NorthWest,
+                    Direction::East => Direction::North,
+                    Direction::SouthEast => Direction::NorthEast,
+                    Direction::South => Direction::East,
+                    Direction::SouthWest => Direction::SouthEast,
+                    Direction::West => Direction::South,
+                }
+            },
+        }
+    }
+
+    #[inline(always)]
+    fn antirotate(self: Direction, orientation: Orientation) -> Direction {
+        let anti_orientation = match orientation {
+            Orientation::None => Orientation::None,
+            Orientation::North => Orientation::North,
+            Orientation::East => Orientation::West,
+            Orientation::South => Orientation::South,
+            Orientation::West => Orientation::East,
+        };
+        self.rotate(anti_orientation)
+    }
+
+    #[inline(always)]
+    fn source(self: Direction) -> Direction {
+        match self {
+            Direction::None => Direction::None,
+            Direction::NorthWest => Direction::SouthEast,
+            Direction::North => Direction::South,
+            Direction::NorthEast => Direction::SouthWest,
+            Direction::East => Direction::West,
+            Direction::SouthEast => Direction::NorthWest,
+            Direction::South => Direction::North,
+            Direction::SouthWest => Direction::NorthEast,
+            Direction::West => Direction::East,
+        }
     }
 }
 

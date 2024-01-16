@@ -30,7 +30,7 @@ use stolsli::tests::setup::{setup, setup::{Systems, BUILDER, ANYONE}};
 const BUILDER_NAME: felt252 = 'BUILDER';
 
 #[test]
-fn test_play_collect() {
+fn test_play_collect_incomplete_structure() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
@@ -54,4 +54,39 @@ fn test_play_collect() {
 
     // [Collect]
     systems.play.collect(world, context.game_id, tile.id, spot);
+
+    // [Assert]
+    let builder = store.builder(game, BUILDER());
+    assert(builder.score == 0, 'Collect: builder score');
+}
+
+#[test]
+fn test_play_collect_complet_structure() {
+    // [Setup]
+    let (world, systems, context) = setup::spawn_game();
+    let store = StoreTrait::new(world);
+    let game = store.game(context.game_id);
+
+    // [Create]
+    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+
+    // [Draw]
+    systems.play.draw(world, game.id);
+    let builder = store.builder(game, BUILDER());
+    let tile = store.tile(game, builder.tile_id);
+
+    // [Build]
+    let orientation = Orientation::North;
+    let x = CENTER;
+    let y = CENTER + 1;
+    let role = Role::Lord;
+    let spot = Spot::South;
+    systems.play.build(world, context.game_id, tile.id, orientation, x, y, role, spot);
+
+    // [Collect]
+    systems.play.collect(world, context.game_id, tile.id, spot);
+
+    // [Assert]
+    let builder = store.builder(game, BUILDER());
+    assert(builder.score == 2, 'Collect: builder score');
 }

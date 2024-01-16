@@ -7,9 +7,11 @@ use option::OptionTrait;
 // Internal imports
 
 use stolsli::types::orientation::Orientation;
-use stolsli::types::direction::Direction;
-use stolsli::types::plan::Plan;
+use stolsli::types::direction::{Direction, DirectionImpl};
+use stolsli::types::plan::{Plan, PlanImpl};
 use stolsli::types::layout::{Layout, LayoutImpl};
+use stolsli::types::spot::{Spot, SpotImpl};
+use stolsli::types::move::{Move, MoveImpl};
 
 // Constants
 
@@ -64,19 +66,13 @@ impl TileImpl of TileTrait {
         }
     }
 
-    #[inline(always)]
-    fn get_layout(self: Tile) -> Layout {
-        self.assert_is_placed();
-        LayoutImpl::from(self.plan.into(), self.orientation.into())
-    }
-
     fn can_place(self: Tile, ref neighbors: Array<Tile>) -> bool {
         // [Check] At least one neighbor
         assert(neighbors.len() > 0, errors::TILE_NO_NEIGHBORS);
         // [Check] No more than 4 neighbors
         assert(neighbors.len() <= 4, errors::TILE_TOO_MUCH_NEIGHBORS);
         // [Check] All neighbors are valid
-        let layout = self.get_layout();
+        let layout: Layout = self.into();
         loop {
             match neighbors.pop_front() {
                 Option::Some(neighbor) => {
@@ -84,7 +80,7 @@ impl TileImpl of TileTrait {
                     let direction: Direction = self.reference_direction(neighbor);
                     assert(direction != Direction::None, errors::TILE_INVALID_NEIGHBOR);
                     // [Compute] Neighbor compatibility
-                    if layout.is_compatible(neighbor.get_layout(), direction) {
+                    if layout.is_compatible(neighbor.into(), direction) {
                         continue;
                     } else {
                         break false;
@@ -106,6 +102,44 @@ impl TileImpl of TileTrait {
         // [Check] Tile is valid
         self.assert_can_place(ref neighbors);
     }
+
+    fn moves(self: Tile, from: Direction, at: Spot) -> Array<Move> {
+        // [Compute] Get Spot and Direction into north oriented systems
+        let orientation: Orientation = self.orientation.into();
+        let spot: Spot = at.antirotate(orientation);
+        let mut moves: Array<Move> = ArrayTrait::new();
+        let plan: Plan = self.plan.into();
+        let mut north_oriented_moves = plan.moves(spot);
+        // [Compute] Remove from direction and rotate to the right orientation
+        let mut moves: Array<Move> = ArrayTrait::new();
+        loop {
+            match north_oriented_moves.pop_front() {
+                Option::Some(north_oriented_move) => {
+                    let mut move = north_oriented_move.rotate(orientation);
+                    if move.direction != from {
+                        moves.append(move);
+                    }
+                },
+                Option::None => { break; },
+            }
+        };
+        moves
+    }
+
+    #[inline(always)]
+    fn proxy_coordinates(self: Tile, direction: Direction) -> (u32, u32) {
+        match direction {
+            Direction::None => (self.x, self.y),
+            Direction::NorthWest => (self.x - 1, self.y + 1),
+            Direction::North => (self.x, self.y + 1),
+            Direction::NorthEast => (self.x + 1, self.y + 1),
+            Direction::East => (self.x + 1, self.y),
+            Direction::SouthEast => (self.x + 1, self.y - 1),
+            Direction::South => (self.x, self.y - 1),
+            Direction::SouthWest => (self.x - 1, self.y - 1),
+            Direction::West => (self.x - 1, self.y),
+        }
+    }
 }
 
 impl TileIntoPosition of Into<Tile, TilePosition> {
@@ -117,6 +151,14 @@ impl TileIntoPosition of Into<Tile, TilePosition> {
             self.id
         };
         TilePosition { game_id: self.game_id, x: self.x, y: self.y, tile_id: tile_id, }
+    }
+}
+
+impl TileIntoLayout of Into<Tile, Layout> {
+    #[inline(always)]
+    fn into(self: Tile) -> Layout {
+        self.assert_is_placed();
+        LayoutImpl::from(self.plan.into(), self.orientation.into())
     }
 }
 
@@ -175,6 +217,40 @@ impl InternalImpl of InternalTrait {
     }
 }
 
+impl ZeroableTile of Zeroable<Tile> {
+    #[inline(always)]
+    fn zero() -> Tile {
+        Tile { game_id: 0, id: 0, builder_id: 0, plan: 0, orientation: 0, x: 0, y: 0, }
+    }
+
+    #[inline(always)]
+    fn is_zero(self: Tile) -> bool {
+        self.builder_id == 0
+    }
+
+    #[inline(always)]
+    fn is_non_zero(self: Tile) -> bool {
+        !self.is_zero()
+    }
+}
+
+impl ZeroableTilePosition of Zeroable<TilePosition> {
+    #[inline(always)]
+    fn zero() -> TilePosition {
+        TilePosition { game_id: 0, x: 0, y: 0, tile_id: 0, }
+    }
+
+    #[inline(always)]
+    fn is_zero(self: TilePosition) -> bool {
+        self.tile_id == 0
+    }
+
+    #[inline(always)]
+    fn is_non_zero(self: TilePosition) -> bool {
+        !self.is_zero()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Core imports
@@ -183,7 +259,9 @@ mod tests {
 
     // Local imports
 
-    use super::{Tile, TileImpl, AssertImpl, InternalImpl, Orientation, Direction, Plan, CENTER};
+    use super::{
+        Tile, TileImpl, AssertImpl, InternalImpl, Layout, Orientation, Direction, Plan, CENTER
+    };
 
     // Implemnentations
 
@@ -227,7 +305,7 @@ mod tests {
     fn test_tile_layout() {
         let plan = Plan::RFRFCCCFR;
         let tile = TestImpl::from(plan, Orientation::North, CENTER, CENTER);
-        let layout = tile.get_layout(); // Check that it runs
+        let layout: Layout = tile.into(); // Check that it runs
     }
 
     #[test]

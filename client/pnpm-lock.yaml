@@ -6,25 +6,28 @@ settings:
 
 dependencies:
   '@dojoengine/core':
-    specifier: 0.2.10
+    specifier: ^0.2.10
     version: 0.2.10(starknet@5.24.3)
   '@dojoengine/create-burner':
-    specifier: 0.2.10
+    specifier: ^0.2.10
     version: 0.2.10(react-dom@18.2.0)(react@18.2.0)(starknet@5.24.3)
   '@dojoengine/react':
-    specifier: 0.2.10
+    specifier: ^0.2.10
     version: 0.2.10(react@18.2.0)(starknet@5.24.3)(type-fest@2.19.0)(typescript@5.3.3)
   '@dojoengine/recs':
     specifier: 0.1.35
     version: 0.1.35(typescript@5.3.3)
+  '@dojoengine/state':
+    specifier: ^0.3.0
+    version: 0.3.3(starknet@5.24.3)(typescript@5.3.3)
   '@dojoengine/torii-client':
-    specifier: 0.2.10
+    specifier: ^0.2.10
     version: 0.2.10
   '@dojoengine/torii-wasm':
-    specifier: 0.2.10
+    specifier: ^0.2.10
     version: 0.2.10
   '@dojoengine/utils':
-    specifier: 0.2.10
+    specifier: ^0.2.10
     version: 0.2.10(starknet@5.24.3)(typescript@5.3.3)
   '@latticexyz/phaserx':
     specifier: ^2.0.0-next.14
@@ -75,7 +78,7 @@ dependencies:
     specifier: ^18.2.0
     version: 18.2.0(react@18.2.0)
   rxjs:
-    specifier: ^7.8.1
+    specifier: 7.8.1
     version: 7.8.1
   simplex-noise:
     specifier: ^4.0.1
@@ -860,6 +863,22 @@ packages:
       - zod
     dev: false
 
+  /@dojoengine/state@0.3.3(starknet@5.24.3)(typescript@5.3.3):
+    resolution: {integrity: sha512-glHYyrc6EwYwU/XDuc7rOsUjwjUgBzOPtA5uBFXJdY+cfaQutbwcFnd6WuUsxpn5hiPvaMyRFSJ/7kYLpTiopA==}
+    peerDependencies:
+      starknet: ^5.24.3
+    dependencies:
+      '@dojoengine/recs': 0.1.35(typescript@5.3.3)
+      '@dojoengine/torii-client': 0.3.3
+      '@latticexyz/utils': 2.0.0-snapshot-test-32d38619
+      starknet: 5.24.3
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+      - zod
+    dev: false
+
   /@dojoengine/torii-client@0.2.10:
     resolution: {integrity: sha512-BZuYzxV/Y1dGoPmgU9ue+wzxGwW+wIXk2zHDp7M7/fWpsUsGivsr5vA3jAabB6GzcKBFDKJf/4hY/2iewwfOlA==}
     dependencies:
@@ -867,8 +886,19 @@ packages:
       typescript: 5.3.3
     dev: false
 
+  /@dojoengine/torii-client@0.3.3:
+    resolution: {integrity: sha512-BmfA1fp9vZ+6jSUd6rWAspAP9CEmRSKqORu/RPU1o79HP5JEm5ft4VSZIGHPXQ3M+sH0l/sjNptStHrVLBiqzw==}
+    dependencies:
+      '@dojoengine/torii-wasm': 0.3.3
+      typescript: 5.3.3
+    dev: false
+
   /@dojoengine/torii-wasm@0.2.10:
     resolution: {integrity: sha512-YPLsddXBie+RK1f/EJlV5a9SR4oo4+7irtc2hmlUf7vHorh6JToQKRbbVhieJhhiNtzdntxeL0hIbABS06vjmw==}
+    dev: false
+
+  /@dojoengine/torii-wasm@0.3.3:
+    resolution: {integrity: sha512-XBhxaKhrOXI5P+oVkcqBJmd1Rp/R3x3Pf24gGuGWj5uvyfrvEGZDpMFdJOepKGmEWzPBwVNAaGUymZaK2BOfDg==}
     dev: false
 
   /@dojoengine/utils@0.2.10(starknet@5.24.3)(typescript@5.3.3):

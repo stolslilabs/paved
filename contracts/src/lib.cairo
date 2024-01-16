@@ -4,13 +4,20 @@ mod helpers;
 
 mod types {
     mod plan;
-    mod category;
     mod layout;
+    mod move;
+    mod category;
     mod order;
     mod orientation;
     mod direction;
     mod role;
     mod spot;
+}
+
+mod layouts {
+    mod interface;
+    mod rfffrfffr;
+    mod ffffffcff;
 }
 
 mod models {

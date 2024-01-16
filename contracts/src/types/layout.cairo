@@ -6,8 +6,10 @@ use debug::PrintTrait;
 
 use stolsli::types::plan::{Plan, PlanImpl};
 use stolsli::types::orientation::Orientation;
-use stolsli::types::direction::Direction;
+use stolsli::types::direction::{Direction, DirectionImpl};
 use stolsli::types::category::Category;
+use stolsli::types::spot::{Spot, SpotImpl};
+use stolsli::types::move::Move;
 
 // Constants
 
@@ -33,6 +35,7 @@ struct Layout {
 
 #[generate_trait]
 impl LayoutImpl of LayoutTrait {
+    #[inline(always)]
     fn new(
         center: Category,
         north_west: Category,
@@ -56,6 +59,8 @@ impl LayoutImpl of LayoutTrait {
             west: west,
         }
     }
+
+    #[inline(always)]
     fn from(plan: Plan, orientation: Orientation) -> Layout {
         let mut categories = plan.unpack();
 
@@ -131,6 +136,7 @@ impl LayoutImpl of LayoutTrait {
         }
     }
 
+    #[inline(always)]
     fn is_compatible(self: Layout, reference: Layout, direction: Direction) -> bool {
         match direction {
             Direction::None => { false },
@@ -142,6 +148,22 @@ impl LayoutImpl of LayoutTrait {
             Direction::South => { self.south == reference.north },
             Direction::SouthWest => { false },
             Direction::West => { self.west == reference.east },
+        }
+    }
+
+    #[inline(always)]
+    fn get_category(self: Layout, spot: Spot) -> Category {
+        match spot {
+            Spot::None => { Category::None },
+            Spot::Center => { self.center },
+            Spot::NorthWest => { self.north_west },
+            Spot::North => { self.north },
+            Spot::NorthEast => { self.north_east },
+            Spot::East => { self.east },
+            Spot::SouthEast => { self.south_east },
+            Spot::South => { self.south },
+            Spot::SouthWest => { self.south_west },
+            Spot::West => { self.west },
         }
     }
 }

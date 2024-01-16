@@ -6,6 +6,14 @@ use debug::PrintTrait;
 
 use stolsli::constants::{MASK_8, TWO_POW_8, TOTAL_TILE_COUNT};
 use stolsli::types::category::Category;
+use stolsli::types::spot::Spot;
+use stolsli::types::direction::{Direction, DirectionImpl};
+use stolsli::types::orientation::Orientation;
+use stolsli::types::move::Move;
+
+use stolsli::layouts::rfffrfffr::{LayoutImpl as RfffrfffrImpl};
+use stolsli::layouts::ffffffcff::{LayoutImpl as FfffffcffImpl};
+
 
 // Constants
 
@@ -242,6 +250,34 @@ impl PlanImpl of PlanTrait {
             keys /= TWO_POW_8.into();
         };
         categories
+    }
+
+    #[inline(always)]
+    fn moves(self: Plan, from: Spot) -> Array<Move> {
+        let mut moves: Array<Move> = ArrayTrait::new();
+        match self {
+            Plan::None => moves,
+            Plan::RFFFRFFFR => RfffrfffrImpl::moves(from),
+            Plan::RFRFFFFFR => moves,
+            Plan::WFFFFFFFR => moves,
+            Plan::SFRFRFFFR => moves,
+            Plan::SFRFRFRFR => moves,
+            Plan::RFRFCCCFR => moves,
+            Plan::RFRFFFCFR => moves,
+            Plan::RFRFRFCFF => moves,
+            Plan::RFFFRFCFR => moves,
+            Plan::RFRFFFCFF => moves,
+            Plan::SFRFRFCFR => moves,
+            Plan::CCCCCFFFC => moves,
+            Plan::FFFFFFCFF => FfffffcffImpl::moves(from),
+            Plan::FFCFFFCFF => moves,
+            Plan::FFCFFFFFC => moves,
+            Plan::WFFFFFFFF => moves,
+            Plan::FFFFCCCFF => moves,
+            Plan::CFFFCFFFC => moves,
+            Plan::CCCCCCCCC => moves,
+            Plan::CCCCCFRFC => moves,
+        }
     }
 }
 

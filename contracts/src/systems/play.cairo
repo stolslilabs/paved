@@ -270,7 +270,7 @@ mod play {
             self: @ContractState, world: IWorldDispatcher, game_id: u32, tile_id: u32, spot: Spot
         ) {
             // [Setup] Datastore
-            let store: Store = StoreImpl::new(world);
+            let mut store: Store = StoreImpl::new(world);
 
             // [Check] Game exists
             let game = store.game(game_id);
@@ -288,6 +288,11 @@ mod play {
             // [Check] Character exists
             let character_position = store.character_position(game, tile, spot);
             assert(character_position.is_non_zero(), errors::SPOT_EMPTY);
+
+            // [Effect] Count points
+            let character = store.character(game, builder, character_position.index.into());
+            let points = game.count(tile, character, ref store);
+            builder.score += points;
 
             // [Effect] Collect character
             let role: Role = character_position.index.into();

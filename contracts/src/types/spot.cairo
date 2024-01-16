@@ -2,6 +2,10 @@
 
 use debug::PrintTrait;
 
+// Internal imports
+
+use stolsli::types::orientation::Orientation;
+
 // Constants
 
 const NONE: felt252 = 0;
@@ -127,6 +131,71 @@ impl SpotPrint of PrintTrait<Spot> {
     }
 }
 
+#[generate_trait]
+impl SpotImpl of SpotTrait {
+    #[inline(always)]
+    fn rotate(self: Spot, orientation: Orientation) -> Spot {
+        match orientation {
+            Orientation::None => Spot::None,
+            Orientation::North => self,
+            Orientation::East => {
+                match self {
+                    Spot::None => Spot::None,
+                    Spot::Center => Spot::Center,
+                    Spot::NorthWest => Spot::NorthEast,
+                    Spot::North => Spot::East,
+                    Spot::NorthEast => Spot::SouthEast,
+                    Spot::East => Spot::South,
+                    Spot::SouthEast => Spot::SouthWest,
+                    Spot::South => Spot::West,
+                    Spot::SouthWest => Spot::NorthWest,
+                    Spot::West => Spot::North,
+                }
+            },
+            Orientation::South => {
+                match self {
+                    Spot::None => Spot::None,
+                    Spot::Center => Spot::Center,
+                    Spot::NorthWest => Spot::SouthEast,
+                    Spot::North => Spot::South,
+                    Spot::NorthEast => Spot::SouthWest,
+                    Spot::East => Spot::West,
+                    Spot::SouthEast => Spot::NorthWest,
+                    Spot::South => Spot::North,
+                    Spot::SouthWest => Spot::NorthEast,
+                    Spot::West => Spot::East,
+                }
+            },
+            Orientation::West => {
+                match self {
+                    Spot::None => Spot::None,
+                    Spot::Center => Spot::Center,
+                    Spot::NorthWest => Spot::SouthWest,
+                    Spot::North => Spot::West,
+                    Spot::NorthEast => Spot::NorthWest,
+                    Spot::East => Spot::North,
+                    Spot::SouthEast => Spot::NorthEast,
+                    Spot::South => Spot::East,
+                    Spot::SouthWest => Spot::SouthEast,
+                    Spot::West => Spot::South,
+                }
+            },
+        }
+    }
+
+    #[inline(always)]
+    fn antirotate(self: Spot, orientation: Orientation) -> Spot {
+        let anti_orientation = match orientation {
+            Orientation::None => Orientation::None,
+            Orientation::North => Orientation::North,
+            Orientation::East => Orientation::West,
+            Orientation::South => Orientation::South,
+            Orientation::West => Orientation::East,
+        };
+        self.rotate(anti_orientation)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     // Core imports
@@ -136,7 +205,8 @@ mod tests {
     // Local imports
 
     use super::{
-        Spot, CENTER, NORTH_WEST, NORTH, NORTH_EAST, EAST, SOUTH_EAST, SOUTH, SOUTH_WEST, WEST
+        Spot, SpotImpl, Orientation, CENTER, NORTH_WEST, NORTH, NORTH_EAST, EAST, SOUTH_EAST, SOUTH,
+        SOUTH_WEST, WEST
     };
 
     // Constants
@@ -208,5 +278,197 @@ mod tests {
     #[test]
     fn test_unknown_u8_into_spot() {
         assert(Spot::None == UNKNOWN_U8.into(), 'Spot: Unknown');
+    }
+
+    #[test]
+    fn test_rotate_from_north_to_north() {
+        let spot = Spot::North.rotate(Orientation::North);
+        assert(Spot::North == spot, 'Spot: Rotate to north');
+    }
+
+    #[test]
+    fn test_rotate_from_north_to_east() {
+        let spot = Spot::North.rotate(Orientation::East);
+        assert(Spot::East == spot, 'Spot: Rotate to east');
+    }
+
+    #[test]
+    fn test_rotate_from_north_to_south() {
+        let spot = Spot::North.rotate(Orientation::South);
+        assert(Spot::South == spot, 'Spot: Rotate to south');
+    }
+
+    #[test]
+    fn test_rotate_from_north_to_west() {
+        let spot = Spot::North.rotate(Orientation::West);
+        assert(Spot::West == spot, 'Spot: Rotate to west');
+    }
+
+    #[test]
+    fn test_rotate_from_east_to_north() {
+        let spot = Spot::East.rotate(Orientation::North);
+        assert(Spot::East == spot, 'Spot: Rotate to north');
+    }
+
+    #[test]
+    fn test_rotate_from_east_to_east() {
+        let spot = Spot::East.rotate(Orientation::East);
+        assert(Spot::South == spot, 'Spot: Rotate to east');
+    }
+
+    #[test]
+    fn test_rotate_from_east_to_south() {
+        let spot = Spot::East.rotate(Orientation::South);
+        assert(Spot::West == spot, 'Spot: Rotate to south');
+    }
+
+    #[test]
+    fn test_rotate_from_east_to_west() {
+        let spot = Spot::East.rotate(Orientation::West);
+        assert(Spot::North == spot, 'Spot: Rotate to west');
+    }
+
+    #[test]
+    fn test_rotate_from_south_to_north() {
+        let spot = Spot::South.rotate(Orientation::North);
+        assert(Spot::South == spot, 'Spot: Rotate to north');
+    }
+
+    #[test]
+    fn test_rotate_from_south_to_east() {
+        let spot = Spot::South.rotate(Orientation::East);
+        assert(Spot::West == spot, 'Spot: Rotate to east');
+    }
+
+    #[test]
+    fn test_rotate_from_south_to_south() {
+        let spot = Spot::South.rotate(Orientation::South);
+        assert(Spot::North == spot, 'Spot: Rotate to south');
+    }
+
+    #[test]
+    fn test_rotate_from_south_to_west() {
+        let spot = Spot::South.rotate(Orientation::West);
+        assert(Spot::East == spot, 'Spot: Rotate to west');
+    }
+
+    #[test]
+    fn test_rotate_from_west_to_north() {
+        let spot = Spot::West.rotate(Orientation::North);
+        assert(Spot::West == spot, 'Spot: Rotate to north');
+    }
+
+    #[test]
+    fn test_rotate_from_west_to_east() {
+        let spot = Spot::West.rotate(Orientation::East);
+        assert(Spot::North == spot, 'Spot: Rotate to east');
+    }
+
+    #[test]
+    fn test_rotate_from_west_to_south() {
+        let spot = Spot::West.rotate(Orientation::South);
+        assert(Spot::East == spot, 'Spot: Rotate to south');
+    }
+
+    #[test]
+    fn test_rotate_from_west_to_west() {
+        let spot = Spot::West.rotate(Orientation::West);
+        assert(Spot::South == spot, 'Spot: Rotate to west');
+    }
+
+    #[test]
+    fn test_antirotate_from_north_to_north() {
+        let spot = Spot::North.antirotate(Orientation::North);
+        assert(Spot::North == spot, 'Spot: Antirotate to north');
+    }
+
+    #[test]
+    fn test_antirotate_from_north_to_east() {
+        let spot = Spot::North.antirotate(Orientation::East);
+        assert(Spot::West == spot, 'Spot: Antirotate to east');
+    }
+
+    #[test]
+    fn test_antirotate_from_north_to_south() {
+        let spot = Spot::North.antirotate(Orientation::South);
+        assert(Spot::South == spot, 'Spot: Antirotate to south');
+    }
+
+    #[test]
+    fn test_antirotate_from_north_to_west() {
+        let spot = Spot::North.antirotate(Orientation::West);
+        assert(Spot::East == spot, 'Spot: Antirotate to west');
+    }
+
+    #[test]
+    fn test_antirotate_from_east_to_north() {
+        let spot = Spot::East.antirotate(Orientation::North);
+        assert(Spot::East == spot, 'Spot: Antirotate to north');
+    }
+
+    #[test]
+    fn test_antirotate_from_east_to_east() {
+        let spot = Spot::East.antirotate(Orientation::East);
+        assert(Spot::North == spot, 'Spot: Antirotate to east');
+    }
+
+    #[test]
+    fn test_antirotate_from_east_to_south() {
+        let spot = Spot::East.antirotate(Orientation::South);
+        assert(Spot::West == spot, 'Spot: Antirotate to south');
+    }
+
+    #[test]
+    fn test_antirotate_from_east_to_west() {
+        let spot = Spot::East.antirotate(Orientation::West);
+        assert(Spot::South == spot, 'Spot: Antirotate to west');
+    }
+
+    #[test]
+    fn test_antirotate_from_south_to_north() {
+        let spot = Spot::South.antirotate(Orientation::North);
+        assert(Spot::South == spot, 'Spot: Antirotate to north');
+    }
+
+    #[test]
+    fn test_antirotate_from_south_to_east() {
+        let spot = Spot::South.antirotate(Orientation::East);
+        assert(Spot::East == spot, 'Spot: Antirotate to east');
+    }
+
+    #[test]
+    fn test_antirotate_from_south_to_south() {
+        let spot = Spot::South.antirotate(Orientation::South);
+        assert(Spot::North == spot, 'Spot: Antirotate to south');
+    }
+
+    #[test]
+    fn test_antirotate_from_south_to_west() {
+        let spot = Spot::South.antirotate(Orientation::West);
+        assert(Spot::West == spot, 'Spot: Antirotate to west');
+    }
+
+    #[test]
+    fn test_antirotate_from_west_to_north() {
+        let spot = Spot::West.antirotate(Orientation::North);
+        assert(Spot::West == spot, 'Spot: Antirotate to north');
+    }
+
+    #[test]
+    fn test_antirotate_from_west_to_east() {
+        let spot = Spot::West.antirotate(Orientation::East);
+        assert(Spot::South == spot, 'Spot: Antirotate to east');
+    }
+
+    #[test]
+    fn test_antirotate_from_west_to_south() {
+        let spot = Spot::West.antirotate(Orientation::South);
+        assert(Spot::East == spot, 'Spot: Antirotate to south');
+    }
+
+    #[test]
+    fn test_antirotate_from_west_to_west() {
+        let spot = Spot::West.antirotate(Orientation::West);
+        assert(Spot::North == spot, 'Spot: Antirotate to west');
     }
 }

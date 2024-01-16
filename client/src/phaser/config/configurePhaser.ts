@@ -56,20 +56,15 @@ export const phaserConfig = {
             maps: {
                 [Maps.Main]: mainMap,
             },
-            sprites: {
-                [Sprites.One]: {
-                    assetKey: Assets.MainAtlas,
-                    frame: "sprites/soldier/idle/0.png",
-                },
-            },
-            animations: ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "seventeen", "eighteen", "nineteen", "twenty"].map((value, index) => {
+            sprites: {},
+            animations: ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty"].map((value, index) => {
                 return {
                     key: Object.values(Animations)[index],
                     assetKey: Assets.MainAtlas,
-                    startFrame: 0,
+                    startFrame: 1,
                     endFrame: 0,
-                    frameRate: 6,
-                    repeat: -1,
+                    frameRate: 1,
+                    repeat: 0,
                     prefix: `sprites/${value}/`,
                     suffix: ".png",
                 };
