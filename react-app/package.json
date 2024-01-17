@@ -33,6 +33,7 @@
     "graphql": "^16.7.1",
     "graphql-request": "^6.1.0",
     "js-cookie": "^3.0.5",
+    "lucide-react": "^0.311.0",
     "micro-starknet": "^0.2.3",
     "mobx": "^6.9.0",
     "postcss": "^8.4.33",

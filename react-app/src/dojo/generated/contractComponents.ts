@@ -2,237 +2,87 @@
 
 import { defineComponent, Type as RecsType, World } from "@dojoengine/recs";
 
+export type ContractComponents = ReturnType<typeof defineContractComponents>;
+
 export function defineContractComponents(world: World) {
   return {
-    Game: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          game_id_config: RecsType.BigInt,
-          players: RecsType.Number,
-          status: RecsType.Number,
-          start_time: RecsType.Number,
-          commit_length: RecsType.Number,
-          reveal_length: RecsType.Number,
-          resolve_length: RecsType.Number,
-          cycle_unit: RecsType.Number,
-        },
-        {
-          metadata: {
-            name: "Game",
-            types: [
-              "u32",
-              "felt252",
-              "u32",
-              "enum",
-              "u64",
-              "u64",
-              "u64",
-              "u64",
-              "u64",
-            ],
-            customTypes: ["GameStatus"],
-          },
-        }
-      );
-    })(),
-    GameCount: (() => {
-      return defineComponent(
-        world,
-        { game_count_config: RecsType.BigInt, count: RecsType.Number },
-        {
-          metadata: {
-            name: "GameCount",
-            types: ["felt252", "u32"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
-    GamePlayerId: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          game_id_config: RecsType.BigInt,
-          player: RecsType.BigInt,
-          id: RecsType.Number,
-        },
-        {
-          metadata: {
-            name: "GamePlayerId",
-            types: ["u32", "felt252", "contractaddress", "u32"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
-    Base: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          player: RecsType.BigInt,
-          x: RecsType.Number,
-          y: RecsType.Number,
-        },
-        {
-          metadata: {
-            name: "Base",
-            types: ["u32", "contractaddress", "u32", "u32"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
-    Position: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          player: RecsType.BigInt,
-          squad_id: RecsType.Number,
-          x: RecsType.Number,
-          y: RecsType.Number,
-        },
-        {
-          metadata: {
-            name: "Position",
-            types: ["u32", "contractaddress", "u32", "u32", "u32"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
-    PositionSquadCount: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          x: RecsType.Number,
-          y: RecsType.Number,
-          count: RecsType.Number,
-        },
-        {
-          metadata: {
-            name: "PositionSquadCount",
-            types: ["u32", "u32", "u32", "u8"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
-    PositionSquadEntityIdByIndex: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          x: RecsType.Number,
-          y: RecsType.Number,
-          squad_position_index: RecsType.Number,
-          squad__game_id: RecsType.Number,
-          squad__player_id: RecsType.BigInt,
-          squad__id: RecsType.Number,
-        },
-        {
-          metadata: {
-            name: "PositionSquadEntityIdByIndex",
-            types: ["u32", "u32", "u32", "u8", "u32", "contractaddress", "u32"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
-    PositionSquadIndexByEntityId: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          x: RecsType.Number,
-          y: RecsType.Number,
-          squad_entity_id: RecsType.BigInt,
-          squad_position_index: RecsType.Number,
-        },
-        {
-          metadata: {
-            name: "PositionSquadIndexByEntityId",
-            types: ["u32", "u32", "u32", "felt252", "u8"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
-    SquadCommitmentHash: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          player: RecsType.BigInt,
-          squad_id: RecsType.Number,
-          hash: RecsType.BigInt,
-        },
-        {
-          metadata: {
-            name: "SquadCommitmentHash",
-            types: ["u32", "contractaddress", "u32", "felt252"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
-    Allied: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          player: RecsType.BigInt,
-          ally: RecsType.BigInt,
-        },
-        {
-          metadata: {
-            name: "Allied",
-            types: ["u32", "contractaddress", "contractaddress"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
-    PlayerSquadCount: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          player: RecsType.BigInt,
-          count: RecsType.Number,
-        },
-        {
-          metadata: {
-            name: "PlayerSquadCount",
-            types: ["u32", "contractaddress", "u32"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
-    Squad: (() => {
-      return defineComponent(
-        world,
-        {
-          game_id: RecsType.Number,
-          player: RecsType.BigInt,
-          squad_id: RecsType.Number,
-          unit_qty: RecsType.Number,
-          owner: RecsType.BigInt,
-        },
-        {
-          metadata: {
-            name: "Squad",
-            types: ["u32", "contractaddress", "u32", "u32", "contractaddress"],
-            customTypes: [],
-          },
-        }
-      );
-    })(),
+	  Builder: (() => {
+	    return defineComponent(
+	      world,
+	      { game_id: RecsType.Number, id: RecsType.BigInt, name: RecsType.BigInt, order: RecsType.Number, score: RecsType.Number, tile_remaining: RecsType.Number, tile_id: RecsType.Number, characters: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "Builder",
+	          types: ["u32","felt252","felt252","u8","u32","u8","u32","u8"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
+	  Character: (() => {
+	    return defineComponent(
+	      world,
+	      { game_id: RecsType.Number, builder_id: RecsType.BigInt, index: RecsType.Number, tile_id: RecsType.Number, spot: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "Character",
+	          types: ["u32","felt252","u8","u32","u8"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
+	  CharacterPosition: (() => {
+	    return defineComponent(
+	      world,
+	      { game_id: RecsType.Number, tile_id: RecsType.Number, spot: RecsType.Number, builder_id: RecsType.BigInt, index: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "CharacterPosition",
+	          types: ["u32","u32","u8","felt252","u8"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
+	  Game: (() => {
+	    return defineComponent(
+	      world,
+	      { id: RecsType.Number, tiles: RecsType.BigInt, tile_count: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "Game",
+	          types: ["u32","u128","u32"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
+	  Tile: (() => {
+	    return defineComponent(
+	      world,
+	      { game_id: RecsType.Number, id: RecsType.Number, builder_id: RecsType.BigInt, plan: RecsType.Number, orientation: RecsType.Number, x: RecsType.Number, y: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "Tile",
+	          types: ["u32","u32","felt252","u8","u8","u32","u32"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
+	  TilePosition: (() => {
+	    return defineComponent(
+	      world,
+	      { game_id: RecsType.Number, x: RecsType.Number, y: RecsType.Number, tile_id: RecsType.Number },
+	      {
+	        metadata: {
+	          name: "TilePosition",
+	          types: ["u32","u32","u32","u32"],
+	          customTypes: [],
+	        },
+	      }
+	    );
+	  })(),
   };
 }

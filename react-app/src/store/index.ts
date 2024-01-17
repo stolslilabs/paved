@@ -20,6 +20,46 @@ interface Hex {
   qty: number;
 }
 
+export const useUIStore = create((set) => ({
+  loggedIn: false,
+  setLoggedIn: () => set(() => ({ loggedIn: true })),
+}));
+
+export const useGameIdStore = create((set) => ({
+  gameId: 0,
+  setGameId: (gameId: number) => set(() => ({ gameId })),
+}));
+
+export const useBuilderIdStore = create((set) => ({
+  builderId: 0,
+  setBuilderId: (builderId: number) => set(() => ({ builderId })),
+}));
+
+export const useOrientationStore = create((set) => ({
+  orientation: 1,
+  setOrientation: (orientation: number) => set(() => ({ orientation })),
+}));
+
+export const useOrderStore = create((set) => ({
+  order: 1,
+  setOrder: (order: number) => set(() => ({ order })),
+}));
+
+export const useCharacterStore = create((set) => ({
+  character: 0,
+  setCharacter: (character: number) => set(() => ({ character })),
+}));
+
+export const useXStore = create((set) => ({
+  x: 0,
+  setX: (x: number) => set(() => ({ x })),
+}));
+
+export const useYStore = create((set) => ({
+  y: 0,
+  setY: (y: number) => set(() => ({ y })),
+}));
+
 interface MoveState {
   moves: Record<number, Array<Move>>;
   setMoves: (moves: Record<number, Array<Move>>) => void;
@@ -36,7 +76,7 @@ interface MoveState {
   isSelectedHex: (hex: Hex) => boolean;
   setMove: (move: Move) => void;
   clearMove: () => void;
-}
+};
 
 export const useMoveStore = create<MoveState>()(
   persist(

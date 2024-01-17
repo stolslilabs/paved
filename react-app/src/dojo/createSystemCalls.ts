@@ -2,7 +2,6 @@ import { Account } from "starknet";
 import { Entity, getComponentValue } from "@dojoengine/recs";
 import { uuid } from "@latticexyz/utils";
 import { ClientComponents } from "./createClientComponents";
-import { Direction, updatePositionWithDirection } from "../utils";
 import {
   getEntityIdFromKeys,
   getEvents,
@@ -16,10 +15,10 @@ export type SystemCalls = ReturnType<typeof createSystemCalls>;
 export function createSystemCalls(
   { client }: { client: IWorld },
   contractComponents: ContractComponents,
-  { Position }: ClientComponents
+  { Game, Builder, Tile, TilePosition, Character, CharacterPosition }: ClientComponents
 ) {
   const create_game = async (account: Account) => {
-    return await client.game_lobby.create_game({ account });
+    return await client.play.initialize({ account });
   };
   return {
     create_game,
