@@ -11,7 +11,9 @@ export async function setupWorld(provider: DojoProvider) {
 
     const initialize = async ({ account }: { account: Account }) => {
       try {
-        return await provider.execute(account, contract_name, "initialize", []);
+        return await provider.execute(account, contract_name, "initialize", [
+          provider.getWorldAddress(),
+        ]);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -31,6 +33,7 @@ export async function setupWorld(provider: DojoProvider) {
     }) => {
       try {
         return await provider.execute(account, contract_name, "create", [
+          provider.getWorldAddress(),
           game_id,
           name,
           order,
@@ -48,7 +51,10 @@ export async function setupWorld(provider: DojoProvider) {
       game_id: number;
     }) => {
       try {
-        return await provider.execute(account, contract_name, "buy", [game_id]);
+        return await provider.execute(account, contract_name, "buy", [
+          provider.getWorldAddress(),
+          game_id,
+        ]);
       } catch (e) {
         console.error(e);
       }
@@ -63,6 +69,7 @@ export async function setupWorld(provider: DojoProvider) {
     }) => {
       try {
         return await provider.execute(account, contract_name, "draw", [
+          provider.getWorldAddress(),
           game_id,
         ]);
       } catch (e) {
@@ -79,6 +86,7 @@ export async function setupWorld(provider: DojoProvider) {
     }) => {
       try {
         return await provider.execute(account, contract_name, "discard", [
+          provider.getWorldAddress(),
           game_id,
         ]);
       } catch (e) {
@@ -107,6 +115,7 @@ export async function setupWorld(provider: DojoProvider) {
     }) => {
       try {
         return await provider.execute(account, contract_name, "build", [
+          provider.getWorldAddress(),
           game_id,
           tile_id,
           orientation,
@@ -133,6 +142,7 @@ export async function setupWorld(provider: DojoProvider) {
     }) => {
       try {
         return await provider.execute(account, contract_name, "collect", [
+          provider.getWorldAddress(),
           game_id,
           tile_id,
           spot,
