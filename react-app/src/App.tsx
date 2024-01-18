@@ -9,7 +9,7 @@ function App() {
         <Overlay />
         <div
           id="canvas-container"
-          className="left-0 relative top-0 overflow-hidden grow"
+          className="z-10 left-0 relative top-0 overflow-hidden grow"
         >
           <ThreeGrid />
         </div>

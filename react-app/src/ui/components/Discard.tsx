@@ -25,7 +25,7 @@ export const Discard = (props: TProps) => {
 
   return (
     <div
-      className="row-span-1 col-span-1 border-2 flex justify-center items-center bg-white cursor-pointer"
+      className="z-20 row-span-1 col-span-1 border-2 flex justify-center items-center bg-white cursor-pointer"
       onClick={handleClick}
     >
       <FontAwesomeIcon icon={faFire} />

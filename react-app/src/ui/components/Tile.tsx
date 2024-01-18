@@ -70,7 +70,7 @@ export const Tile = () => {
 
   return tile ? (
     <div
-      className="row-span-2 col-span-2 border-2 flex justify-center items-center bg-white"
+      className="z-20 row-span-2 col-span-2 border-2 flex justify-center items-center bg-white"
       style={{
         backgroundImage: `url(${backgroundImage})`,
         backgroundSize: "cover",
@@ -79,7 +79,7 @@ export const Tile = () => {
     />
   ) : (
     <div
-      className="row-span-2 col-span-2 border-2 flex justify-center items-center bg-white cursor-pointer"
+      className="z-20 row-span-2 col-span-2 border-2 flex justify-center items-center bg-white cursor-pointer"
       onClick={handleClick}
     >
       <FontAwesomeIcon icon={faEye} />

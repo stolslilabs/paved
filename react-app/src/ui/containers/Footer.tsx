@@ -4,7 +4,7 @@ import { Order } from "../components/Order";
 
 export const Footer = () => {
   return (
-    <footer className="flex justify-between items-center border-2 h-20 absolute bottom-0 bg-white w-full">
+    <footer className="z-20 flex justify-between items-center border-2 h-20 absolute bottom-0 bg-white w-full">
       <div className="flex justify-center items-center border-2 w-72 h-16">
         <Order />
         <Score />

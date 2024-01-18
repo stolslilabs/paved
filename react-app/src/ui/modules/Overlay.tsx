@@ -5,7 +5,7 @@ import { Footer } from "../containers/Footer";
 
 export const Overlay = () => {
   return (
-    <div className="z-10">
+    <div className="">
       <Header />
       <Actions />
       <Hand />
