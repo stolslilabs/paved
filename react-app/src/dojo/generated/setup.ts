@@ -29,7 +29,8 @@ export async function setup({ ...config }: Config) {
   await getSyncEntities(toriiClient, contractComponents as any);
 
   const client = await setupWorld(
-    new DojoProvider(config.manifest, config.rpcUrl)
+    new DojoProvider(config.manifest, config.rpcUrl),
+    config.manifest.world.address,
   );
 
   return {

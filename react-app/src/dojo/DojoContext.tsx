@@ -60,14 +60,7 @@ export const DojoProvider = ({
     }),
   });
 
-  // if (!isDeploying) {
-  //   try {
-  //     console.log('deploy');
-  //       create();
-  //   } catch (e) {
-  //       console.log(e);
-  //   }
-  // }
+  console.log(account);
 
   return (
     <DojoContext.Provider
@@ -80,7 +73,7 @@ export const DojoProvider = ({
           get,
           select,
           clear,
-          account: masterAccount,  // account ? account : masterAccount,
+          account: account ? account : masterAccount,
           isDeploying,
           copyToClipboard,
           applyFromClipboard,

@@ -5,7 +5,7 @@ import { DojoProvider } from "@dojoengine/core";
 
 export type IWorld = Awaited<ReturnType<typeof setupWorld>>;
 
-export async function setupWorld(provider: DojoProvider) {
+export async function setupWorld(provider: DojoProvider, world: string) {
   function play() {
     const contract_name = "play";
 
@@ -19,7 +19,7 @@ export async function setupWorld(provider: DojoProvider) {
           account,
           contract_name,
           "initialize",
-          []
+          [world]
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -39,7 +39,7 @@ export async function setupWorld(provider: DojoProvider) {
       order: number;
     }) => {
       try {
-          return await provider.execute(account, contract_name, "create", [game_id, name, order]);
+          return await provider.execute(account, contract_name, "create", [world, game_id, name, order]);
       } catch (e) {
           console.error(e);
       }
@@ -53,7 +53,7 @@ export async function setupWorld(provider: DojoProvider) {
     game_id: number;
   }) => {
       try {
-          return await provider.execute(account, contract_name, "buy", [game_id]);
+          return await provider.execute(account, contract_name, "buy", [world, game_id]);
       } catch (e) {
           console.error(e);
       }
@@ -67,7 +67,7 @@ export async function setupWorld(provider: DojoProvider) {
     game_id: number;
   }) => {
       try {
-          return await provider.execute(account, contract_name, "draw", [game_id]);
+          return await provider.execute(account, contract_name, "draw", [world, game_id]);
       } catch (e) {
           console.error(e);
       }
@@ -81,7 +81,7 @@ export async function setupWorld(provider: DojoProvider) {
     game_id: number;
   }) => {
       try {
-          return await provider.execute(account, contract_name, "discard", [game_id]);
+          return await provider.execute(account, contract_name, "discard", [world, game_id]);
       } catch (e) {
           console.error(e);
       }
@@ -108,7 +108,7 @@ export async function setupWorld(provider: DojoProvider) {
   }) => {
 
       try {
-          return await provider.execute(account, contract_name, "build", [game_id, tile_id, orientation, x, y, role || 0, spot || 0]);
+          return await provider.execute(account, contract_name, "build", [world, game_id, tile_id, orientation, x, y, role || 0, spot || 0]);
       } catch (e) {
           console.error(e);
       }
@@ -126,7 +126,7 @@ export async function setupWorld(provider: DojoProvider) {
     spot: number;
   }) => {
       try {
-          return await provider.execute(account, contract_name, "collect", [game_id, tile_id, spot]);
+          return await provider.execute(account, contract_name, "collect", [world, game_id, tile_id, spot]);
       } catch (e) {
           console.error(e);
       }
