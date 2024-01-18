@@ -28,7 +28,7 @@ export async function setupWorld(provider: DojoProvider) {
     }: {
       account: Account;
       game_id: number;
-      name: bigint;
+      name: string;
       order: number;
     }) => {
       try {

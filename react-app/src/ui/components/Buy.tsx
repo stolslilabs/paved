@@ -1,40 +1,34 @@
-import { useDojo } from "./hooks/useDojo";
-import { Button } from "./button";
-import { useEffect } from "react";
-import { useGameIdStore } from "../store";
+import { useDojo } from "../../dojo/useDojo";
+import { useGameStore } from "../../store";
+import { faCartPlus } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
-export const Buy = () => {
-    const gameId = useGameIdStore((state: any) => state.gameId);
-    const {
-        account: { account, isDeploying },
-        systemCalls: { buy },
-    } = useDojo();
+interface TProps {}
 
-    useEffect(() => {
-        if (isDeploying) {
-            return;
-        }
+export const Buy = (props: TProps) => {
+  const { gameId } = useGameStore();
+  const {
+    account,
+    setup: {
+      client: { play },
+    },
+  } = useDojo();
 
-        if (account) {
-            return;
-        }
-    }, [account]);
+  if (!account) return <></>;
 
-    if (!account) return <></>;
+  const handleClick = () => {
+    play.buy({
+      account: account.account,
+      game_id: gameId,
+    });
+  };
 
-    return (
-        <div className="flex space-x-3 justify-between p-2 flex-wrap">
-            <Button
-                variant={"default"}
-                onClick={async () => {
-                    await buy({
-                        signer: account,
-                        game_id: gameId,
-                    });
-                }}
-            >
-                Buy
-            </Button>
-        </div>
-    );
+  return (
+    <div
+      className="h-16 w-16 border-2 flex justify-center items-center bg-white cursor-pointer"
+      onClick={handleClick}
+    >
+      <FontAwesomeIcon icon={faCartPlus} />
+    </div>
+  );
 };

@@ -1,47 +1,38 @@
-import { useDojo } from "./hooks/useDojo";
-import { Button } from "./button";
-import { useEffect } from "react";
-import { useGameIdStore } from "../store";
+import { useDojo } from "../../dojo/useDojo";
+import { shortString } from "starknet";
+import { Button } from "@/components/ui/button";
+import { useGameStore } from "../../store";
 
-interface TProps {
-    name: string;
-    order: number;
-}
+interface TProps {}
 
 export const Create = (props: TProps) => {
-    const gameId = useGameIdStore((state: any) => state.gameId);
-    const {
-        account: { account, isDeploying },
-        systemCalls: { create },
-    } = useDojo();
+  const { gameId } = useGameStore();
+  const {
+    account,
+    setup: {
+      client: { play },
+    },
+  } = useDojo();
 
-    useEffect(() => {
-        if (isDeploying) {
-            return;
-        }
+  if (!account) return <></>;
 
-        if (account) {
-            return;
-        }
-    }, [account]);
+  const handleClick = () => {
+    play.create({
+      account: account.account,
+      game_id: gameId,
+      name: shortString.encodeShortString(name),
+      order: order,
+    });
+  };
 
-    if (!account) return <></>;
+  const name = "OHAYO";
+  const order = 1;
 
-    return (
-        <div className="flex space-x-3 justify-between p-2 flex-wrap">
-            <Button
-                variant={"default"}
-                onClick={async () => {
-                    await create({
-                        signer: account,
-                        game_id: gameId,
-                        name: props.name,
-                        order: props.order,
-                    });
-                }}
-            >
-                Create
-            </Button>
-        </div>
-    );
+  return (
+    <div className="flex space-x-3 justify-between p-2 flex-wrap">
+      <Button variant={"default"} onClick={handleClick}>
+        Create
+      </Button>
+    </div>
+  );
 };

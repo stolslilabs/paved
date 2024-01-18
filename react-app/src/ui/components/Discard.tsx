@@ -1,40 +1,34 @@
-import { useDojo } from "./hooks/useDojo";
-import { Button } from "./button";
-import { useEffect } from "react";
-import { useGameIdStore } from "../store";
+import { useDojo } from "../../dojo/useDojo";
+import { useGameStore } from "../../store";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faFire } from "@fortawesome/free-solid-svg-icons";
 
-export const Discard = () => {
-    const gameId = useGameIdStore((state: any) => state.gameId);
-    const {
-        account: { account, isDeploying },
-        systemCalls: { discard },
-    } = useDojo();
+interface TProps {}
 
-    useEffect(() => {
-        if (isDeploying) {
-            return;
-        }
+export const Discard = (props: TProps) => {
+  const { gameId } = useGameStore();
+  const {
+    account,
+    setup: {
+      client: { play },
+    },
+  } = useDojo();
 
-        if (account) {
-            return;
-        }
-    }, [account]);
+  if (!account) return <></>;
 
-    if (!account) return <></>;
+  const handleClick = () => {
+    play.discard({
+      account: account.account,
+      game_id: gameId,
+    });
+  };
 
-    return (
-        <div className="flex space-x-3 justify-between p-2 flex-wrap">
-            <Button
-                variant={"default"}
-                onClick={async () => {
-                    await discard({
-                        signer: account,
-                        game_id: gameId,
-                    });
-                }}
-            >
-                Discard
-            </Button>
-        </div>
-    );
+  return (
+    <div
+      className="row-span-1 col-span-1 border-2 flex justify-center items-center bg-white cursor-pointer"
+      onClick={handleClick}
+    >
+      <FontAwesomeIcon icon={faFire} />
+    </div>
+  );
 };

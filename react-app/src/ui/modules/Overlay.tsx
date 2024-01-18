@@ -1,17 +1,15 @@
-import { BottomLeft } from "../containers/BottomLeft";
-import { BottomRight } from "../containers/BottomRight";
-import { TopCenter } from "../containers/TopCenter";
-import { TopLeft } from "../containers/TopLeft";
-import { TopRight } from "../containers/TopRight";
+import { Actions } from "../containers/Actions";
+import { Hand } from "../containers/Hand";
+import { Header } from "../containers/Header";
+import { Footer } from "../containers/Footer";
 
 export const Overlay = () => {
   return (
     <div className="z-10">
-      {/* <TopLeft /> */}
-      <TopCenter />
-      {/* <TopRight /> */}
-      <BottomLeft />
-      <BottomRight />
+      <Header />
+      <Actions />
+      <Hand />
+      <Footer />
     </div>
   );
 };
