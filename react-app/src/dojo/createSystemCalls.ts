@@ -15,10 +15,18 @@ export type SystemCalls = ReturnType<typeof createSystemCalls>;
 export function createSystemCalls(
   { client }: { client: IWorld },
   contractComponents: ContractComponents,
-  { Game, Builder, Tile, TilePosition, Character, CharacterPosition }: ClientComponents
+  {
+    Game,
+    Builder,
+    Tile,
+    TilePosition,
+    Character,
+    CharacterPosition,
+  }: ClientComponents
 ) {
   const create_game = async (account: Account) => {
-    return await client.play.initialize({ account });
+    console.log(account);
+    // return await client.play.initialize({ account });
   };
   return {
     create_game,
