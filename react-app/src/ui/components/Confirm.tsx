@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 interface TProps {}
 
 export const Confirm = (props: TProps) => {
-  const { gameId, orientation, x, y, setX, setY, setOrientation } =
+  const { gameId, orientation, x, y, character, spot, setX, setY, setOrientation, setCharacter, setSpot } =
     useGameStore();
 
   const {
@@ -38,12 +38,16 @@ export const Confirm = (props: TProps) => {
         orientation: orientation,
         x: x,
         y: y,
+        role: character,
+        spot: spot,
       });
 
-      // Reset the orientation and position
+      // Reset the settings
       setOrientation(1);
       setX(0);
       setY(0);
+      setCharacter(0);
+      setSpot(0);
     }
   };
 

@@ -7,6 +7,7 @@ import { useGameStore } from "../../store";
 import { getImage } from "../../utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye } from "@fortawesome/free-solid-svg-icons";
+import { Spot } from "./Spot";
 
 export const Tile = () => {
   const [rotation, setRotation] = useState(0);
@@ -61,27 +62,36 @@ export const Tile = () => {
 
   if (!account || !builder) return <></>;
 
-  const handleClick = () => {
+  const handleDrawClick = () => {
     play.draw({
       account: account,
       game_id: gameId,
     });
   };
 
+  const spots = ['NW', 'W', 'SW', 'N', 'C', 'S', 'NE', 'E', 'SE']
+
   const className =
     "w-48 h-48 border-2 border-black bottom-0 right-0 absolute cursor-pointer bg-white";
 
   return tile ? (
     <div
-      className={className}
+      className={`${className} grid grid-rows-3 grid-flow-col gap-2 justify-items-center items-center`}
       style={{
         backgroundImage: `url(${backgroundImage})`,
         backgroundSize: "cover",
         transform: `rotate(${rotation}deg)`,
       }}
-    />
+    >
+      {spots.map((_spot, index) => (
+        <Spot
+          key={index}
+          index={index}
+        />
+      ))}
+    </div>
   ) : (
-    <div className={className} onClick={handleClick}>
+    <div className={className} onClick={handleDrawClick}>
       <FontAwesomeIcon icon={faEye} />
       Click to draw a tile
     </div>

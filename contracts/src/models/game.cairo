@@ -18,7 +18,7 @@ use stolsli::types::layout::{Layout, LayoutImpl};
 use stolsli::types::direction::{Direction, DirectionImpl};
 use stolsli::types::orientation::Orientation;
 use stolsli::types::move::{Move, MoveImpl};
-use stolsli::models::character::Character;
+use stolsli::models::character::{Character, CharacterImpl, AssertImpl as CharacterAssertImpl};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 
 mod errors {
@@ -66,6 +66,7 @@ impl GameImpl of GameTrait {
 
     #[inline(always)]
     fn count(self: Game, tile: Tile, character: Character, ref store: Store) -> u32 {
+        character.assert_placed();
         let start: Direction = Direction::None;
         let at: Spot = character.spot.into();
         let mut moves: Array<Move> = tile.moves(start, at);

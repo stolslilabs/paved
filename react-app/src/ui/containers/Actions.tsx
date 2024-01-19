@@ -8,13 +8,6 @@ import { Button } from "@/components/ui/button";
 export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(true);
 
-  const {
-    account: { account },
-    setup: {
-      clientComponents: { Builder, Tile, TilePosition },
-    },
-  } = useDojo();
-
   return (
     <div className="absolute left-4 bottom-24 z-20">
       <div className="flex justify-center items-end gap-4">

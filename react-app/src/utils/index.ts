@@ -105,3 +105,110 @@ export const getOrder = (builder: any) => {
       return "NONE";
   }
 };
+
+export const getSpotFromIndex = (index: number) => {
+  switch (index) {
+    case 0: // NW
+      return 2;
+    case 1: // W
+      return 9;
+    case 2: // SW
+      return 8;
+    case 3: // N
+      return 3;
+    case 4: // C
+      return 1;
+    case 5: // S
+      return 7;
+    case 6: // NE
+      return 4;
+    case 7: // E
+      return 5;
+    case 8: // SE
+      return 6;
+    default:
+      return 0;
+  }
+}
+
+export const getIndexFromSpot = (spot: number) => {
+  switch (spot) {
+    case 2: // NW
+      return 0;
+    case 9: // W
+      return 1;
+    case 8: // SW
+      return 2;
+    case 3: // N
+      return 3;
+    case 1: // C
+      return 4;
+    case 7: // S
+      return 5;
+    case 4: // NE
+      return 6;
+    case 5: // E
+      return 7;
+    case 6: // SE
+      return 8;
+    default:
+      return -1;
+  }
+}
+
+export const getRole = (index: number) => {
+  switch (index) {
+    case 0:
+      return "Lord";
+    case 1:
+      return "Lady";
+    case 2:
+      return "Adventurer";
+    case 3:
+      return "Paladin";
+    case 4:
+      return "Algrim";
+    case 5:
+      return "Woodsman";
+    default:
+      return "None";
+  }
+}
+
+export const getCharacterFromIndex = (index: number) => {
+  switch (index) {
+    case 0:
+      return 1;
+    case 1:
+      return 2;
+    case 2:
+      return 3;
+    case 3:
+      return 4;
+    case 4:
+      return 5;
+    case 5:
+      return 6;
+    default:
+      return 0;
+  }
+}
+
+export const getIndexFromCharacter = (character: number) => {
+  switch (character) {
+    case 1:
+      return 0;
+    case 2:
+      return 1;
+    case 3:
+      return 2;
+    case 4:
+      return 3;
+    case 5:
+      return 4;
+    case 6:
+      return 5;
+    default:
+      return -1;
+  }
+}

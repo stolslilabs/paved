@@ -91,6 +91,7 @@ export const TileBackground = ({
   };
 
   const handlePointerEnter = () => {
+    if (tile) return;
     if (activeTile && !tile) {
       setBackgroundImage(getImage(activeTile));
       setRotation(calculateRotation(orientation));

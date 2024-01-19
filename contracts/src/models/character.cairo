@@ -5,6 +5,7 @@ use stolsli::types::spot::Spot;
 
 mod errors {
     const ALREADY_REMOVED: felt252 = 'Character: Already removed';
+    const NOT_PLACED: felt252 = 'Character: Not placed';
     const INVALID_TILE_ID: felt252 = 'Character: Invalid tile id';
     const INVALID_SPOT: felt252 = 'Character: Invalid spot';
 }
@@ -77,6 +78,11 @@ impl AssertImpl of AssertTrait {
     #[inline(always)]
     fn assert_removeable(self: Character) {
         assert(0 != self.tile_id.into(), errors::ALREADY_REMOVED);
+    }
+    #[inline(always)]
+    fn assert_placed(self: Character) {
+        assert(0 != self.tile_id.into(), errors::NOT_PLACED);
+        assert(self.spot != Spot::None.into(), errors::NOT_PLACED);
     }
 }
 

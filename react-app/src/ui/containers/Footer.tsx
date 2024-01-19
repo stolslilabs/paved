@@ -1,8 +1,11 @@
 import { Count } from "../components/Count";
 import { Score } from "../components/Score";
 import { Order } from "../components/Order";
+import { Character } from "../components/Character";
 
 export const Footer = () => {
+  const characters = ["Lord", "Lady", "Adventurer", "Paladin", "Algrim", "Woodsman"];
+
   return (
     <footer className="z-20 flex justify-between items-center border-2 h-20 absolute bottom-0 bg-white w-full">
       <div className="flex justify-center items-center border-2 w-72 h-16">
@@ -10,24 +13,12 @@ export const Footer = () => {
         <Score />
       </div>
       <div className="flex justify-center items-center border-2 grow h-16 gap-8">
-        <div className="h-12 w-12 bg-white flex justify-center items-center border-2">
-          Lo
-        </div>
-        <div className="h-12 w-12 bg-white flex justify-center items-center border-2">
-          La
-        </div>
-        <div className="h-12 w-12 bg-white flex justify-center items-center border-2">
-          Ad
-        </div>
-        <div className="h-12 w-12 bg-white flex justify-center items-center border-2">
-          Pa
-        </div>
-        <div className="h-12 w-12 bg-white flex justify-center items-center border-2">
-          Al
-        </div>
-        <div className="h-12 w-12 bg-white flex justify-center items-center border-2">
-          Wo
-        </div>
+        {characters.map((_character, index) => (
+          <Character
+            key={index}
+            index={index}
+          />
+        ))}
       </div>
       <div className="flex justify-center items-center border-2 w-72 h-16">
         <div className="h-12 w-48 bg-white flex justify-center items-center border-2">

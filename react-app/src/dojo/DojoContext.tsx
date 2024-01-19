@@ -60,7 +60,9 @@ export const DojoProvider = ({
     }),
   });
 
-  console.log(account);
+  if (!account && !isDeploying) {
+    create();
+  }
 
   return (
     <DojoContext.Provider

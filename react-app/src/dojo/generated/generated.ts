@@ -110,8 +110,8 @@ export async function setupWorld(provider: DojoProvider) {
       orientation: number;
       x: number;
       y: number;
-      role?: number;
-      spot?: number;
+      role: number;
+      spot: number;
     }) => {
       try {
         return await provider.execute(account, contract_name, "build", [
@@ -121,8 +121,8 @@ export async function setupWorld(provider: DojoProvider) {
           orientation,
           x,
           y,
-          role || 0,
-          spot || 0,
+          role,
+          spot,
         ]);
       } catch (e) {
         console.error(e);
@@ -132,20 +132,17 @@ export async function setupWorld(provider: DojoProvider) {
     const collect = async ({
       account,
       game_id,
-      tile_id,
-      spot,
+      role,
     }: {
       account: Account;
       game_id: number;
-      tile_id: number;
-      spot: number;
+      role: number;
     }) => {
       try {
         return await provider.execute(account, contract_name, "collect", [
           provider.getWorldAddress(),
           game_id,
-          tile_id,
-          spot,
+          role,
         ]);
       } catch (e) {
         console.error(e);

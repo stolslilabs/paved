@@ -53,7 +53,7 @@ fn test_play_collect_incomplete_structure() {
     systems.play.build(world, context.game_id, tile.id, orientation, x, y, role, spot);
 
     // [Collect]
-    systems.play.collect(world, context.game_id, tile.id, spot);
+    systems.play.collect(world, context.game_id, role);
 
     // [Assert]
     let builder = store.builder(game, BUILDER());
@@ -84,7 +84,7 @@ fn test_play_collect_complet_structure() {
     systems.play.build(world, context.game_id, tile.id, orientation, x, y, role, spot);
 
     // [Collect]
-    systems.play.collect(world, context.game_id, tile.id, spot);
+    systems.play.collect(world, context.game_id, role);
 
     // [Assert]
     let builder = store.builder(game, BUILDER());

@@ -12,6 +12,8 @@ interface GameState {
   setOrder: (order: number) => void;
   character: number;
   setCharacter: (character: number) => void;
+  spot: number;
+  setSpot: (spot: number) => void;
   x: number;
   setX: (x: number) => void;
   y: number;
@@ -34,6 +36,8 @@ export const useGameStore = create<GameState>()(
       setOrder: (order) => set({ order }),
       character: 0,
       setCharacter: (character) => set({ character }),
+      spot: 0,
+      setSpot: (spot) => set({ spot }),
       x: 0,
       setX: (x) => {
         x = x + 0x7fffffff;
