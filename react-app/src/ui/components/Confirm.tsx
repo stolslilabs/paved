@@ -5,6 +5,7 @@ import { Entity } from "@dojoengine/recs";
 import { useGameStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSquareCheck } from "@fortawesome/free-solid-svg-icons";
+import { Button } from "@/components/ui/button";
 
 interface TProps {}
 
@@ -47,11 +48,8 @@ export const Confirm = (props: TProps) => {
   };
 
   return (
-    <div
-      className="z-20 row-span-1 col-span-1 border-2 flex justify-center items-center bg-white cursor-pointer"
-      onClick={handleClick}
-    >
+    <Button variant={"default"} onClick={handleClick}>
       <FontAwesomeIcon icon={faSquareCheck} />
-    </div>
+    </Button>
   );
 };

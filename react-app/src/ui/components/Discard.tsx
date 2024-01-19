@@ -2,6 +2,7 @@ import { useDojo } from "../../dojo/useDojo";
 import { useGameStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFire } from "@fortawesome/free-solid-svg-icons";
+import { Button } from "@/components/ui/button";
 
 interface TProps {}
 
@@ -14,21 +15,17 @@ export const Discard = (props: TProps) => {
     },
   } = useDojo();
 
-  if (!account) return <></>;
-
-  const handleClick = () => {
-    play.discard({
-      account: account.account,
-      game_id: gameId,
-    });
-  };
-
   return (
-    <div
-      className="z-20 row-span-1 col-span-1 border-2 flex justify-center items-center bg-white cursor-pointer"
-      onClick={handleClick}
+    <Button
+      variant={"default"}
+      onClick={() =>
+        play.discard({
+          account: account.account,
+          game_id: gameId,
+        })
+      }
     >
       <FontAwesomeIcon icon={faFire} />
-    </div>
+    </Button>
   );
 };

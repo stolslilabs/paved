@@ -68,9 +68,12 @@ export const Tile = () => {
     });
   };
 
+  const className =
+    "w-48 h-48 border-2 border-black bottom-0 right-0 absolute cursor-pointer bg-white";
+
   return tile ? (
     <div
-      className="z-20 row-span-2 col-span-2 border-2 flex justify-center items-center bg-white"
+      className={className}
       style={{
         backgroundImage: `url(${backgroundImage})`,
         backgroundSize: "cover",
@@ -78,11 +81,9 @@ export const Tile = () => {
       }}
     />
   ) : (
-    <div
-      className="z-20 row-span-2 col-span-2 border-2 flex justify-center items-center bg-white cursor-pointer"
-      onClick={handleClick}
-    >
+    <div className={className} onClick={handleClick}>
       <FontAwesomeIcon icon={faEye} />
+      Click to draw a tile
     </div>
   );
 };
