@@ -2,3 +2,4 @@ target
 .env
 .vscode
 node-modules
+.DS_Store
