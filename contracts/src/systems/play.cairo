@@ -33,9 +33,7 @@ trait IPlay<TContractState> {
         role: Role,
         spot: Spot,
     );
-    fn collect(
-        self: @TContractState, world: IWorldDispatcher, game_id: u32, tile_id: u32, spot: Spot
-    );
+    fn collect(self: @TContractState, world: IWorldDispatcher, game_id: u32, role: Role);
 }
 
 #[starknet::contract]
@@ -266,9 +264,7 @@ mod play {
             store.set_game(game);
         }
 
-        fn collect(
-            self: @ContractState, world: IWorldDispatcher, game_id: u32, tile_id: u32, spot: Spot
-        ) {
+        fn collect(self: @ContractState, world: IWorldDispatcher, game_id: u32, role: Role) {
             // [Setup] Datastore
             let mut store: Store = StoreImpl::new(world);
 
@@ -281,22 +277,13 @@ mod play {
             let mut builder = store.builder(game, caller);
             assert(builder.name != 0, errors::BUILDER_NOT_FOUND);
 
-            // [Check] Tile exists
-            let mut tile = store.tile(game, tile_id);
-            assert(tile.builder_id != 0, errors::TILE_NOT_FOUND);
-
-            // [Check] Character exists
-            let character_position = store.character_position(game, tile, spot);
-            assert(character_position.is_non_zero(), errors::SPOT_EMPTY);
-
             // [Effect] Count points
-            let character = store.character(game, builder, character_position.index.into());
+            let character = store.character(game, builder, role);
+            let tile = store.tile(game, character.tile_id);
             let points = game.count(tile, character, ref store);
             builder.score += points;
 
             // [Effect] Collect character
-            let role: Role = character_position.index.into();
-            let character = store.character(game, builder, role);
             builder.recover(character);
 
             // [Effect] Update builder

@@ -16,8 +16,30 @@ mod types {
 
 mod layouts {
     mod interface;
-    mod rfffrfffr;
+    mod ccccccccc;
+    mod cccccfffc;
+    mod cccccfrfc;
+    mod cfffcfffc;
+    mod cfffcfrfc;
+    mod ffcfffcfc;
+    mod ffcfffcff;
+    mod ffcfffffc;
+    mod ffffcccff;
     mod ffffffcff;
+    mod rfffrfcfr;
+    mod rfffrfffr;
+    mod rfrfcccfr;
+    mod rfrfffcff;
+    mod rfrfffcfr;
+    mod rfrfffffr;
+    mod rfrfrfcff;
+    mod sfffffffr;
+    mod sfrfrfcfr;
+    mod sfrfrfffr;
+    mod sfrfrfrfr;
+    mod wcccccccc;
+    mod wffffffff;
+    mod wfffffffr;
 }
 
 mod models {

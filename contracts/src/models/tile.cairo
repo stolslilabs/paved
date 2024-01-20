@@ -103,7 +103,7 @@ impl TileImpl of TileTrait {
         self.assert_can_place(ref neighbors);
     }
 
-    fn moves(self: Tile, from: Direction, at: Spot) -> Array<Move> {
+    fn moves(self: Tile, at: Spot) -> Array<Move> {
         // [Compute] Get Spot and Direction into north oriented systems
         let orientation: Orientation = self.orientation.into();
         let spot: Spot = at.antirotate(orientation);
@@ -115,10 +115,8 @@ impl TileImpl of TileTrait {
         loop {
             match north_oriented_moves.pop_front() {
                 Option::Some(north_oriented_move) => {
-                    let mut move = north_oriented_move.rotate(orientation);
-                    if move.direction != from {
-                        moves.append(move);
-                    }
+                    let move = north_oriented_move.rotate(orientation);
+                    moves.append(move);
                 },
                 Option::None => { break; },
             }
