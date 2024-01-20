@@ -20,6 +20,8 @@ mod layouts {
     mod cccccfffc;
     mod cccccfrfc;
     mod cfffcfffc;
+    mod cfffcfrfc;
+    mod ffcfffcfc;
     mod ffcfffcff;
     mod ffcfffffc;
     mod ffffcccff;
@@ -31,6 +33,7 @@ mod layouts {
     mod rfrfffcfr;
     mod rfrfffffr;
     mod rfrfrfcff;
+    mod sfffffffr;
     mod sfrfrfcfr;
     mod sfrfrfffr;
     mod sfrfrfrfr;
