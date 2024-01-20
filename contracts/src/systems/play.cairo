@@ -127,7 +127,7 @@ mod play {
             let game = store.game(game_id);
             let caller = get_caller_address();
             let builder = store.builder(game, caller);
-            assert(builder.name.is_zero(), errors::BUILDER_ALREADY_EXISTS);
+            assert(builder.is_zero(), errors::BUILDER_ALREADY_EXISTS);
 
             // [Check] Order is valid
             assert(Order::None != order.into(), errors::INVALID_ORDER);
@@ -148,7 +148,7 @@ mod play {
             // [Check] Builder exists
             let caller = get_caller_address();
             let mut builder = store.builder(game, caller);
-            assert(builder.name != 0, errors::BUILDER_NOT_FOUND);
+            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Effect] Builder buy a new tile
             builder.buy();
@@ -168,7 +168,7 @@ mod play {
             // [Check] Builder exists
             let caller = get_caller_address();
             let mut builder = store.builder(game, caller);
-            assert(builder.name != 0, errors::BUILDER_NOT_FOUND);
+            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Effect] Builder spawn a new tile
             // Todo: use VRF
@@ -197,7 +197,7 @@ mod play {
             // [Check] Builder exists
             let caller = get_caller_address();
             let mut builder = store.builder(game, caller);
-            assert(builder.name != 0, errors::BUILDER_NOT_FOUND);
+            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Effect] Builder discard a tile
             builder.discard();
@@ -227,15 +227,15 @@ mod play {
             // [Check] Builder exists
             let caller = get_caller_address();
             let mut builder = store.builder(game, caller);
-            assert(builder.name != 0, errors::BUILDER_NOT_FOUND);
+            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Check] Tile exists
             let mut tile = store.tile(game, tile_id);
-            assert(tile.builder_id != 0, errors::TILE_NOT_FOUND);
+            assert(tile.is_non_zero(), errors::TILE_NOT_FOUND);
 
             // [Check] Position not already taken
             let tile_position = store.tile_position(game, x, y);
-            assert(tile_position.tile_id == 0, errors::POSITION_ALREADY_TAKEN);
+            assert(tile_position.is_zero(), errors::POSITION_ALREADY_TAKEN);
 
             // [Effect] Build tile
             let mut neighbors = store.neighbors(game, x, y);
@@ -243,12 +243,11 @@ mod play {
 
             // [Check] Character to place
             if role != Role::None {
-                // [Check] Character slot not already taken
-                let character_position = store.character_position(game, tile, spot);
-                assert(character_position.is_zero(), errors::SPOT_ALREADY_TAKEN);
+                // [Check] Tile not already taken
+                assert(tile.is_empty(), errors::SPOT_ALREADY_TAKEN);
 
                 // [Effect] Place character
-                let character = builder.place(role, tile, spot);
+                let character = builder.place(role, ref tile, spot);
 
                 // [Effect] Update character
                 store.set_character(character);
@@ -275,16 +274,19 @@ mod play {
             // [Check] Builder exists
             let caller = get_caller_address();
             let mut builder = store.builder(game, caller);
-            assert(builder.name != 0, errors::BUILDER_NOT_FOUND);
+            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Effect] Count points
             let character = store.character(game, builder, role);
-            let tile = store.tile(game, character.tile_id);
+            let mut tile = store.tile(game, character.tile_id);
             let points = game.count(tile, character, ref store);
             builder.score += points;
 
             // [Effect] Collect character
-            builder.recover(character);
+            builder.recover(character, ref tile);
+
+            // [Effect] Update tile
+            store.set_tile(tile);
 
             // [Effect] Update builder
             store.set_builder(builder);

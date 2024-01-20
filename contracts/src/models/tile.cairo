@@ -24,7 +24,11 @@ mod errors {
     const TILE_NOT_PLACED: felt252 = 'Tile: not placed';
     const TILE_ALREADY_PLACED: felt252 = 'Tile: already placed';
     const TILE_CANNOT_PLACE: felt252 = 'Tile: cannot place';
+    const TILE_DOES_NOT_EXIST: felt252 = 'Tile: does not exist';
+    const TILE_ALREADY_EXISTS: felt252 = 'Tile: already exists';
     const INVALID_ORIENTATION: felt252 = 'Tile: invalid orientation';
+    const INVALID_SPOT: felt252 = 'Tile: invalid spot';
+    const TILE_ALREADY_EMPTY: felt252 = 'Tile: already empty';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -38,6 +42,7 @@ struct Tile {
     orientation: u8,
     x: u32,
     y: u32,
+    occupied_spot: u8,
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -63,7 +68,25 @@ impl TileImpl of TileTrait {
             orientation: Orientation::None.into(),
             x: CENTER,
             y: CENTER,
+            occupied_spot: Spot::None.into(),
         }
+    }
+
+    #[inline(always)]
+    fn is_empty(self: Tile) -> bool {
+        self.occupied_spot == Spot::None.into()
+    }
+
+    #[inline(always)]
+    fn occupe(ref self: Tile, spot: Spot) {
+        assert(spot != Spot::None, errors::INVALID_SPOT);
+        self.occupied_spot = spot.into();
+    }
+
+    #[inline(always)]
+    fn leave(ref self: Tile) {
+        assert(!self.is_empty(), errors::TILE_ALREADY_EMPTY);
+        self.occupied_spot = Spot::None.into();
     }
 
     fn can_place(self: Tile, ref neighbors: Array<Tile>) -> bool {
@@ -110,7 +133,7 @@ impl TileImpl of TileTrait {
         let mut moves: Array<Move> = ArrayTrait::new();
         let plan: Plan = self.plan.into();
         let mut north_oriented_moves = plan.moves(spot);
-        // [Compute] Remove from direction and rotate to the right orientation
+        // [Compute] Rotate to the right orientation
         let mut moves: Array<Move> = ArrayTrait::new();
         loop {
             match north_oriented_moves.pop_front() {
@@ -218,7 +241,9 @@ impl InternalImpl of InternalTrait {
 impl ZeroableTile of Zeroable<Tile> {
     #[inline(always)]
     fn zero() -> Tile {
-        Tile { game_id: 0, id: 0, builder_id: 0, plan: 0, orientation: 0, x: 0, y: 0, }
+        Tile {
+            game_id: 0, id: 0, builder_id: 0, plan: 0, orientation: 0, x: 0, y: 0, occupied_spot: 0
+        }
     }
 
     #[inline(always)]
@@ -275,6 +300,7 @@ mod tests {
                 orientation: orientation.into(),
                 x: x,
                 y: y,
+                occupied_spot: 0,
             }
         }
     }

@@ -8,6 +8,7 @@ use stolsli::layouts::interface::LayoutTrait;
 use stolsli::types::direction::Direction;
 use stolsli::types::spot::{Spot, SpotImpl};
 use stolsli::types::move::{Move, MoveImpl};
+use stolsli::types::area::Area;
 
 impl LayoutImpl of LayoutTrait {
     #[inline(always)]
@@ -68,6 +69,22 @@ impl LayoutImpl of LayoutTrait {
             Spot::West => { moves.append(Move { direction: Direction::West, spot: Spot::East }); },
         };
         moves
+    }
+
+    #[inline(always)]
+    fn area(from: Spot) -> Area {
+        match from {
+            Spot::None => Area::None,
+            Spot::Center => Area::Center,
+            Spot::NorthWest => Area::East,
+            Spot::North => Area::East,
+            Spot::NorthEast => Area::East,
+            Spot::East => Area::East,
+            Spot::SouthEast => Area::East,
+            Spot::South => Area::East,
+            Spot::SouthWest => Area::East,
+            Spot::West => Area::West,
+        }
     }
 }
 

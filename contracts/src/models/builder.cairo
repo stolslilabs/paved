@@ -107,25 +107,31 @@ impl BuilderImpl of BuilderTrait {
     }
 
     #[inline(always)]
-    fn place(ref self: Builder, role: Role, tile: Tile, spot: Spot) -> Character {
-        // [Check] Placeable
+    fn place(ref self: Builder, role: Role, ref tile: Tile, spot: Spot) -> Character {
+        // [Check] Available character
         let index: u8 = role.into();
-        self.assert_placeable(index);
+        self.assert_available(index);
+        // [Check] Placeable
+        // TODO: Recursive check that there is not character on the same structure
         // [Effect] Set character as placed
         let characters = Helpers::set_bit_at(self.characters.into(), index.into(), true);
         self.characters = characters.try_into().unwrap();
+        // [Effect] Update tile status
+        tile.occupe(spot);
         // [Return] New character
         CharacterImpl::new(self.game_id, self.id, index.into(), tile.id, spot)
     }
 
     #[inline(always)]
-    fn recover(ref self: Builder, character: Character) {
+    fn recover(ref self: Builder, character: Character, ref tile: Tile) {
         // [Check] Recoverable
         let index: u8 = character.index;
         self.assert_recoverable(index);
         // [Effect] Set character as not placed
         let characters = Helpers::set_bit_at(self.characters.into(), index.into(), false);
         self.characters = characters.try_into().unwrap();
+        // [Effect] Update tile status
+        tile.leave();
     }
 }
 
@@ -153,7 +159,7 @@ impl AssertImpl of AssertTrait {
     }
 
     #[inline(always)]
-    fn assert_placeable(self: Builder, index: u8) {
+    fn assert_available(self: Builder, index: u8) {
         let placed = Helpers::get_bit_at(self.characters.into(), index.into());
         assert(!placed, errors::ALREADY_PLACED);
     }
@@ -162,5 +168,31 @@ impl AssertImpl of AssertTrait {
     fn assert_recoverable(self: Builder, index: u8) {
         let placed = Helpers::get_bit_at(self.characters.into(), index.into());
         assert(placed, errors::CHARACTER_NOT_PLACED);
+    }
+}
+
+impl ZeroableBuilderImpl of Zeroable<Builder> {
+    #[inline(always)]
+    fn zero() -> Builder {
+        Builder {
+            game_id: 0,
+            id: 0,
+            name: 0,
+            order: 0,
+            score: 0,
+            tile_remaining: 0,
+            tile_id: 0,
+            characters: 0,
+        }
+    }
+
+    #[inline(always)]
+    fn is_zero(self: Builder) -> bool {
+        0 == self.name
+    }
+
+    #[inline(always)]
+    fn is_non_zero(self: Builder) -> bool {
+        0 != self.name
     }
 }
