@@ -71,27 +71,27 @@ export const Tile = () => {
 
   const spots = ['NW', 'W', 'SW', 'N', 'C', 'S', 'NE', 'E', 'SE']
 
-  const className =
-    "w-48 h-48 border-2 border-black bottom-0 right-0 absolute cursor-pointer bg-white";
-
   return tile ? (
-    <div
-      className={`${className} grid grid-rows-3 grid-flow-col gap-2 justify-items-center items-center`}
-      style={{
-        backgroundImage: `url(${backgroundImage})`,
-        backgroundSize: "cover",
-        transform: `rotate(${rotation}deg)`,
-      }}
-    >
-      {spots.map((_spot, index) => (
-        <Spot
-          key={index}
-          index={index}
-        />
-      ))}
+    <div className="w-48 h-48 border-2 border-black cursor-pointer bg-white bottom-0 right-0 absolute">
+      <div
+        className="w-full h-full absolute"
+        style={{
+          backgroundImage: `url(${backgroundImage})`,
+          backgroundSize: "cover",
+          transform: `rotate(${rotation}deg)`,
+        }}
+      />
+      <div className="w-full h-full absolute grid grid-rows-3 grid-flow-col gap-2 justify-items-center items-center">
+        {spots.map((_spot, index) => (
+          <Spot
+            key={index}
+            index={index}
+          />
+        ))}
+      </div>
     </div>
   ) : (
-    <div className={className} onClick={handleDrawClick}>
+    <div className="w-48 h-48 border-2 border-black bottom-0 right-0 absolute cursor-pointer bg-white" onClick={handleDrawClick}>
       <FontAwesomeIcon icon={faEye} />
       Click to draw a tile
     </div>

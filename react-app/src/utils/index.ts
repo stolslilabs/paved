@@ -1,71 +1,81 @@
 // Assets
 
 import zero from "/assets/tiles/00.png";
-import one from "/assets/tiles/01.png";
-import two from "/assets/tiles/02.png";
-import three from "/assets/tiles/03.png";
-import four from "/assets/tiles/04.png";
-import five from "/assets/tiles/05.png";
-import six from "/assets/tiles/06.png";
-import seven from "/assets/tiles/07.png";
-import eight from "/assets/tiles/08.png";
-import nine from "/assets/tiles/09.png";
-import ten from "/assets/tiles/10.png";
-import eleven from "/assets/tiles/11.png";
-import twelve from "/assets/tiles/12.png";
-import thirteen from "/assets/tiles/13.png";
-import fourteen from "/assets/tiles/14.png";
-import fifteen from "/assets/tiles/15.png";
-import sixteen from "/assets/tiles/16.png";
-import seventeen from "/assets/tiles/17.png";
-import eighteen from "/assets/tiles/18.png";
-import nineteen from "/assets/tiles/19.png";
-import twenty from "/assets/tiles/20.png";
+import ccccccccc from "/assets/tiles/ccccccccc.png";
+import cccccfffc from "/assets/tiles/cccccfffc.png";
+import cccccfrfc from "/assets/tiles/cccccfrfc.png";
+import cfffcfffc from "/assets/tiles/cfffcfffc.png";
+import cfffcfrfc from "/assets/tiles/cfffcfrfc.png";
+import ffcfffcfc from "/assets/tiles/ffcfffcfc.png";
+import ffcfffcff from "/assets/tiles/ffcfffcff.png";
+import ffcfffffc from "/assets/tiles/ffcfffffc.png";
+import ffffcccff from "/assets/tiles/ffffcccff.png";
+import ffffffcff from "/assets/tiles/ffffffcff.png";
+import rfffrfcfr from "/assets/tiles/rfffrfcfr.png";
+import rfffrfffr from "/assets/tiles/rfffrfffr.png";
+import rfrfcccfr from "/assets/tiles/rfrfcccfr.png";
+import rfrfffcff from "/assets/tiles/rfrfffcff.png";
+import rfrfffcfr from "/assets/tiles/rfrfffcfr.png";
+import rfrfffffr from "/assets/tiles/rfrfffffr.png";
+import rfrfrfcff from "/assets/tiles/rfrfrfcff.png";
+import sfffffffr from "/assets/tiles/sfffffffr.png";
+import sfrfrfcfr from "/assets/tiles/sfrfrfcfr.png";
+import sfrfrfffr from "/assets/tiles/sfrfrfffr.png";
+import sfrfrfrfr from "/assets/tiles/sfrfrfrfr.png";
+import wcccccccc from "/assets/tiles/wcccccccc.png";
+import wffffffff from "/assets/tiles/wffffffff.png";
+import wfffffffr from "/assets/tiles/wfffffffr.png";
 
 export const getImage = (tile: any) => {
   switch (tile?.plan) {
-    case 0:
-      return zero;
     case 1:
-      return one;
+      return ccccccccc;
     case 2:
-      return two;
+      return cccccfffc;
     case 3:
-      return three;
+      return cccccfrfc;
     case 4:
-      return four;
+      return cfffcfffc;
     case 5:
-      return five;
+      return cfffcfrfc;
     case 6:
-      return six;
+      return ffcfffcfc;
     case 7:
-      return seven;
+      return ffcfffcff;
     case 8:
-      return eight;
+      return ffcfffffc;
     case 9:
-      return nine;
+      return ffffcccff;
     case 10:
-      return ten;
+      return ffffffcff;
     case 11:
-      return eleven;
+      return rfffrfcfr;
     case 12:
-      return twelve;
+      return rfffrfffr;
     case 13:
-      return thirteen;
+      return rfrfcccfr;
     case 14:
-      return fourteen;
+      return rfrfffcff;
     case 15:
-      return fifteen;
+      return rfrfffcfr;
     case 16:
-      return sixteen;
+      return rfrfffffr;
     case 17:
-      return seventeen;
+      return rfrfrfcff;
     case 18:
-      return eighteen;
+      return sfffffffr;
     case 19:
-      return nineteen;
+      return sfrfrfcfr;
     case 20:
-      return twenty;
+      return sfrfrfffr;
+    case 21:
+      return sfrfrfrfr;
+    case 22:
+      return wcccccccc;
+    case 23:
+      return wffffffff;
+    case 24:
+      return wfffffffr;
     default:
       return zero;
   }
