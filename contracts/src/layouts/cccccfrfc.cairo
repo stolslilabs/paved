@@ -16,44 +16,41 @@ impl LayoutImpl of LayoutTrait {
         match from {
             Spot::None => {},
             Spot::Center => {
+                moves.append(Move { direction: Direction::North, spot: Spot::South });
                 moves.append(Move { direction: Direction::East, spot: Spot::West });
                 moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Spot::NorthWest => {
                 moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::East, spot: Spot::NorthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::NorthEast });
+                moves.append(Move { direction: Direction::East, spot: Spot::West });
+                moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Spot::North => {
                 moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::East, spot: Spot::NorthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::NorthEast });
+                moves.append(Move { direction: Direction::East, spot: Spot::West });
+                moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Spot::NorthEast => {
                 moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::East, spot: Spot::NorthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::NorthEast });
+                moves.append(Move { direction: Direction::East, spot: Spot::West });
+                moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Spot::East => {
+                moves.append(Move { direction: Direction::North, spot: Spot::South });
                 moves.append(Move { direction: Direction::East, spot: Spot::West });
                 moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Spot::SouthEast => {
-                moves.append(Move { direction: Direction::South, spot: Spot::North });
-                moves.append(Move { direction: Direction::East, spot: Spot::SouthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::SouthEast });
+                moves.append(Move { direction: Direction::South, spot: Spot::NorthEast });
             },
             Spot::South => {
                 moves.append(Move { direction: Direction::South, spot: Spot::North });
-                moves.append(Move { direction: Direction::East, spot: Spot::SouthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::SouthEast });
             },
             Spot::SouthWest => {
-                moves.append(Move { direction: Direction::South, spot: Spot::North });
-                moves.append(Move { direction: Direction::East, spot: Spot::SouthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::SouthEast });
+                moves.append(Move { direction: Direction::South, spot: Spot::NorthWest });
             },
             Spot::West => {
+                moves.append(Move { direction: Direction::North, spot: Spot::South });
                 moves.append(Move { direction: Direction::East, spot: Spot::West });
                 moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
@@ -83,12 +80,12 @@ mod tests {
         assert(move.spot == expected.spot, 'Layout: wrong move spot');
 
         let move = moves.pop_front().unwrap();
-        let expected = Move { direction: Direction::East, spot: Spot::NorthWest };
+        let expected = Move { direction: Direction::East, spot: Spot::West };
         assert(move.direction == expected.direction, 'Layout: wrong move direction');
         assert(move.spot == expected.spot, 'Layout: wrong move spot');
 
         let move = moves.pop_front().unwrap();
-        let expected = Move { direction: Direction::West, spot: Spot::NorthEast };
+        let expected = Move { direction: Direction::West, spot: Spot::East };
         assert(move.direction == expected.direction, 'Layout: wrong move direction');
         assert(move.spot == expected.spot, 'Layout: wrong move spot');
     }

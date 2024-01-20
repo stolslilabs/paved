@@ -1,6 +1,7 @@
 // Core imports
 
 use debug::PrintTrait;
+use dict::{Felt252Dict, Felt252DictTrait};
 
 // External imports
 
@@ -23,6 +24,7 @@ use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 
 mod errors {
     const INVALID_INDEX: felt252 = 'Game: Invalid index';
+    const INVALID_CHARACTER: felt252 = 'Game: Invalid character';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -66,35 +68,52 @@ impl GameImpl of GameTrait {
 
     #[inline(always)]
     fn count(self: Game, tile: Tile, character: Character, ref store: Store) -> u32 {
+        // [Check] The character is placed on the tile
         character.assert_placed();
-        let start: Direction = Direction::None;
+        assert(tile.id == character.tile_id, errors::INVALID_CHARACTER);
+        // [Compute] Setup recursion
+        let mut visited: Felt252Dict<bool> = Default::default();
+        visited.insert(tile.id.into(), true);
         let at: Spot = character.spot.into();
-        let mut moves: Array<Move> = tile.moves(start, at);
-        self.count_loop(tile, 1, ref moves, ref store)
+        let mut moves: Array<Move> = tile.moves(at);
+        self.count_loop(tile, 1, ref moves, ref visited, ref store)
     }
 }
 
 #[generate_trait]
 impl InternalImpl of InternalTrait {
     fn count_loop(
-        self: Game, tile: Tile, mut points: u32, ref moves: Array<Move>, ref store: Store
+        self: Game,
+        tile: Tile,
+        mut points: u32,
+        ref moves: Array<Move>,
+        ref visited: Felt252Dict<bool>,
+        ref store: Store
     ) -> u32 {
-        // [Check] There is no more moves, the structure is locally finished
-        let orientation: Orientation = tile.orientation.into();
         loop {
             match moves.pop_front() {
+                // [Compute] Process the current move
                 Option::Some(move) => {
-                    points = self.count_iter(tile, move, points, ref store);
+                    points = self.count_iter(tile, move, points, ref visited, ref store);
+                    // [Check] If the points are zero, the structure is not finished
                     if 0 == points.into() {
                         break 0;
                     };
                 },
+                // [Check] Otherwise returns the points
                 Option::None => { break points; },
             }
         }
     }
 
-    fn count_iter(self: Game, tile: Tile, move: Move, points: u32, ref store: Store) -> u32 {
+    fn count_iter(
+        self: Game,
+        tile: Tile,
+        move: Move,
+        points: u32,
+        ref visited: Felt252Dict<bool>,
+        ref store: Store
+    ) -> u32 {
         let (x, y) = tile.proxy_coordinates(move.direction);
         let tile_position: TilePosition = store.tile_position(self, x, y);
         // [Check] A tile exists at this position, otherwise the structure is not finished
@@ -103,10 +122,18 @@ impl InternalImpl of InternalTrait {
         }
         // [Compute] Process the next moves
         let neighbor = store.tile(self, tile_position.tile_id);
-        let from: Direction = move.direction.source();
+
+        // [Check] The neighbor is not already visited
+        let is_visited: bool = visited.get(tile_position.tile_id.into());
+        if (is_visited) {
+            return points;
+        };
+
+        // Otherwise add it as visited and process it
+        visited.insert(neighbor.id.into(), true);
         let at: Spot = move.spot;
-        let mut moves: Array<Move> = neighbor.moves(from, at);
-        self.count_loop(neighbor, points + 1, ref moves, ref store)
+        let mut moves: Array<Move> = neighbor.moves(at);
+        self.count_loop(neighbor, points + 1, ref moves, ref visited, ref store)
     }
 }
 

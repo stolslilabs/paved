@@ -11,8 +11,27 @@ use stolsli::types::direction::{Direction, DirectionImpl};
 use stolsli::types::orientation::Orientation;
 use stolsli::types::move::Move;
 
-use stolsli::layouts::rfffrfffr::{LayoutImpl as RfffrfffrImpl};
+use stolsli::layouts::ccccccccc::{LayoutImpl as CccccccccImpl};
+use stolsli::layouts::cccccfffc::{LayoutImpl as CccccfffcImpl};
+use stolsli::layouts::cccccfrfc::{LayoutImpl as CccccfrfcImpl};
+use stolsli::layouts::cfffcfffc::{LayoutImpl as CfffcfffcImpl};
+use stolsli::layouts::ffcfffcff::{LayoutImpl as FfcfffcffImpl};
+use stolsli::layouts::ffcfffffc::{LayoutImpl as FfcfffffcImpl};
+use stolsli::layouts::ffffcccff::{LayoutImpl as FfffcccffImpl};
 use stolsli::layouts::ffffffcff::{LayoutImpl as FfffffcffImpl};
+use stolsli::layouts::rfffrfcfr::{LayoutImpl as RfffrfcfrImpl};
+use stolsli::layouts::rfffrfffr::{LayoutImpl as RfffrfffrImpl};
+use stolsli::layouts::rfrfcccfr::{LayoutImpl as RfrfcccfrImpl};
+use stolsli::layouts::rfrfffcff::{LayoutImpl as RfrfffcffImpl};
+use stolsli::layouts::rfrfffcfr::{LayoutImpl as RfrfffcfrImpl};
+use stolsli::layouts::rfrfffffr::{LayoutImpl as RfrfffffrImpl};
+use stolsli::layouts::rfrfrfcff::{LayoutImpl as RfrfrfcffImpl};
+use stolsli::layouts::sfrfrfcfr::{LayoutImpl as SfrfrfcfrImpl};
+use stolsli::layouts::sfrfrfffr::{LayoutImpl as SfrfrfffrImpl};
+use stolsli::layouts::sfrfrfrfr::{LayoutImpl as SfrfrfrfrImpl};
+use stolsli::layouts::wcccccccc::{LayoutImpl as WccccccccImpl};
+use stolsli::layouts::wffffffff::{LayoutImpl as WffffffffImpl};
+use stolsli::layouts::wfffffffr::{LayoutImpl as WfffffffrImpl};
 
 
 // Constants
@@ -258,25 +277,25 @@ impl PlanImpl of PlanTrait {
         match self {
             Plan::None => moves,
             Plan::RFFFRFFFR => RfffrfffrImpl::moves(from),
-            Plan::RFRFFFFFR => moves,
-            Plan::WFFFFFFFR => moves,
-            Plan::SFRFRFFFR => moves,
-            Plan::SFRFRFRFR => moves,
-            Plan::RFRFCCCFR => moves,
-            Plan::RFRFFFCFR => moves,
-            Plan::RFRFRFCFF => moves,
-            Plan::RFFFRFCFR => moves,
-            Plan::RFRFFFCFF => moves,
-            Plan::SFRFRFCFR => moves,
-            Plan::CCCCCFFFC => moves,
+            Plan::RFRFFFFFR => RfrfffffrImpl::moves(from),
+            Plan::WFFFFFFFR => WfffffffrImpl::moves(from),
+            Plan::SFRFRFFFR => SfrfrfffrImpl::moves(from),
+            Plan::SFRFRFRFR => SfrfrfrfrImpl::moves(from),
+            Plan::RFRFCCCFR => RfrfcccfrImpl::moves(from),
+            Plan::RFRFFFCFR => RfrfffcfrImpl::moves(from),
+            Plan::RFRFRFCFF => RfrfrfcffImpl::moves(from),
+            Plan::RFFFRFCFR => RfffrfcfrImpl::moves(from),
+            Plan::RFRFFFCFF => RfrfffcffImpl::moves(from),
+            Plan::SFRFRFCFR => SfrfrfcfrImpl::moves(from),
+            Plan::CCCCCFFFC => CccccfffcImpl::moves(from),
             Plan::FFFFFFCFF => FfffffcffImpl::moves(from),
-            Plan::FFCFFFCFF => moves,
-            Plan::FFCFFFFFC => moves,
-            Plan::WFFFFFFFF => moves,
-            Plan::FFFFCCCFF => moves,
-            Plan::CFFFCFFFC => moves,
-            Plan::CCCCCCCCC => moves,
-            Plan::CCCCCFRFC => moves,
+            Plan::FFCFFFCFF => FfcfffcffImpl::moves(from),
+            Plan::FFCFFFFFC => FfcfffffcImpl::moves(from),
+            Plan::WFFFFFFFF => WffffffffImpl::moves(from),
+            Plan::FFFFCCCFF => FfffcccffImpl::moves(from),
+            Plan::CFFFCFFFC => CfffcfffcImpl::moves(from),
+            Plan::CCCCCCCCC => CccccccccImpl::moves(from),
+            Plan::CCCCCFRFC => CccccfrfcImpl::moves(from),
         }
     }
 }
