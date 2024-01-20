@@ -44,6 +44,11 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
+    fn exists(self: Game) -> bool {
+        0 != self.tile_count.into()
+    }
+
+    #[inline(always)]
     fn add_tile(ref self: Game) -> u32 {
         self.tile_count += 1;
         self.tile_count

@@ -3,6 +3,7 @@ mod store;
 mod helpers;
 
 mod types {
+    mod area;
     mod plan;
     mod layout;
     mod move;

@@ -57,6 +57,7 @@ impl CharacterImpl of CharacterTrait {
         self.assert_removeable();
         // [Effect] Update character
         self.tile_id = 0;
+        self.spot = Spot::None.into();
     }
 }
 
