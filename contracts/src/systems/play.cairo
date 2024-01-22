@@ -33,7 +33,6 @@ trait IPlay<TContractState> {
         role: Role,
         spot: Spot,
     );
-    fn collect(self: @TContractState, world: IWorldDispatcher, game_id: u32, role: Role);
 }
 
 #[starknet::contract]
@@ -56,7 +55,7 @@ mod play {
     // Internal imports
 
     use stolsli::store::{Store, StoreImpl};
-    use stolsli::models::game::{Game, GameImpl};
+    use stolsli::models::game::{Game, GameImpl, AssertImpl as GameAssertImpl};
     use stolsli::models::builder::{Builder, BuilderImpl};
     use stolsli::models::tile::{Tile, TilePosition, TileImpl};
     use stolsli::types::order::Order;
@@ -126,7 +125,7 @@ mod play {
             // [Check] Builder not already exists
             let game = store.game(game_id);
             let caller = get_caller_address();
-            let builder = store.builder(game, caller);
+            let builder = store.builder(game, caller.into());
             assert(builder.is_zero(), errors::BUILDER_ALREADY_EXISTS);
 
             // [Check] Order is valid
@@ -147,7 +146,7 @@ mod play {
 
             // [Check] Builder exists
             let caller = get_caller_address();
-            let mut builder = store.builder(game, caller);
+            let mut builder = store.builder(game, caller.into());
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Effect] Builder buy a new tile
@@ -167,7 +166,7 @@ mod play {
 
             // [Check] Builder exists
             let caller = get_caller_address();
-            let mut builder = store.builder(game, caller);
+            let mut builder = store.builder(game, caller.into());
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Effect] Builder spawn a new tile
@@ -196,7 +195,7 @@ mod play {
 
             // [Check] Builder exists
             let caller = get_caller_address();
-            let mut builder = store.builder(game, caller);
+            let mut builder = store.builder(game, caller.into());
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Effect] Builder discard a tile
@@ -218,7 +217,7 @@ mod play {
             spot: Spot,
         ) {
             // [Setup] Datastore
-            let store: Store = StoreImpl::new(world);
+            let mut store: Store = StoreImpl::new(world);
 
             // [Check] Game exists
             let game = store.game(game_id);
@@ -226,7 +225,7 @@ mod play {
 
             // [Check] Builder exists
             let caller = get_caller_address();
-            let mut builder = store.builder(game, caller);
+            let mut builder = store.builder(game, caller.into());
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Check] Tile exists
@@ -243,8 +242,8 @@ mod play {
 
             // [Check] Character to place
             if role != Role::None {
-                // [Check] Tile not already taken
-                assert(tile.is_empty(), errors::SPOT_ALREADY_TAKEN);
+                // [Check] Structure is idle
+                game.assert_structure_idle(tile, spot, ref store);
 
                 // [Effect] Place character
                 let character = builder.place(role, ref tile, spot);
@@ -261,35 +260,9 @@ mod play {
 
             // [Effect] Update game
             store.set_game(game);
-        }
 
-        fn collect(self: @ContractState, world: IWorldDispatcher, game_id: u32, role: Role) {
-            // [Setup] Datastore
-            let mut store: Store = StoreImpl::new(world);
-
-            // [Check] Game exists
-            let game = store.game(game_id);
-            assert(game.id == game_id, errors::GAME_NOT_FOUND);
-
-            // [Check] Builder exists
-            let caller = get_caller_address();
-            let mut builder = store.builder(game, caller);
-            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
-
-            // [Effect] Count points
-            let character = store.character(game, builder, role);
-            let mut tile = store.tile(game, character.tile_id);
-            let points = game.count(tile, character, ref store);
-            builder.score += points;
-
-            // [Effect] Collect character
-            builder.recover(character, ref tile);
-
-            // [Effect] Update tile
-            store.set_tile(tile);
-
-            // [Effect] Update builder
-            store.set_builder(builder);
+            // [Effect] Assessment
+            game.assess(tile, ref store);
         }
     }
 }

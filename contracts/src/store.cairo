@@ -43,8 +43,7 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn builder(self: Store, game: Game, address: ContractAddress) -> Builder {
-        let builder_id: felt252 = address.into();
+    fn builder(self: Store, game: Game, builder_id: felt252) -> Builder {
         get!(self.world, (game.id, builder_id), (Builder))
     }
 
@@ -82,9 +81,9 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn character(self: Store, game: Game, builder: Builder, role: Role) -> Character {
+    fn character(self: Store, game: Game, builder_id: felt252, role: Role) -> Character {
         let index: u8 = role.into();
-        get!(self.world, (game.id, builder.id, index), (Character))
+        get!(self.world, (game.id, builder_id, index), (Character))
     }
 
     #[inline(always)]

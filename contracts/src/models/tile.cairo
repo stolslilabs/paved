@@ -81,6 +81,15 @@ impl TileImpl of TileTrait {
     }
 
     #[inline(always)]
+    fn are_connected(self: Tile, from: Spot, to: Spot) -> bool {
+        let orientation: Orientation = self.orientation.into();
+        let from: Spot = from.antirotate(orientation);
+        let to: Spot = to.antirotate(orientation);
+        let plan: Plan = self.plan.into();
+        plan.area(from) == plan.area(to)
+    }
+
+    #[inline(always)]
     fn is_empty(self: Tile) -> bool {
         self.occupied_spot == Spot::None.into()
     }
@@ -135,10 +144,15 @@ impl TileImpl of TileTrait {
     }
 
     #[inline(always)]
+    fn north_oriented_starts(self: Tile) -> Array<Spot> {
+        let plan: Plan = self.plan.into();
+        plan.starts()
+    }
+
+    #[inline(always)]
     fn north_oriented_moves(self: Tile, at: Spot) -> Array<Move> {
         let orientation: Orientation = self.orientation.into();
         let spot: Spot = at.antirotate(orientation);
-        let mut moves: Array<Move> = ArrayTrait::new();
         let plan: Plan = self.plan.into();
         plan.moves(spot)
     }
