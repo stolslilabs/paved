@@ -10,6 +10,7 @@ use stolsli::types::spot::Spot;
 use stolsli::types::direction::{Direction, DirectionImpl};
 use stolsli::types::orientation::Orientation;
 use stolsli::types::move::Move;
+use stolsli::types::area::Area;
 
 use stolsli::layouts::ccccccccc::{LayoutImpl as CccccccccImpl};
 use stolsli::layouts::cccccfffc::{LayoutImpl as CccccfffcImpl};
@@ -315,6 +316,37 @@ impl PlanImpl of PlanTrait {
             Plan::WCCCCCCCC => WccccccccImpl::moves(from),
             Plan::WFFFFFFFF => WffffffffImpl::moves(from),
             Plan::WFFFFFFFR => WfffffffrImpl::moves(from),
+        }
+    }
+
+    #[inline(always)]
+    fn area(self: Plan, from: Spot) -> Area {
+        match self {
+            Plan::None => Area::None,
+            Plan::CCCCCCCCC => CccccccccImpl::area(from),
+            Plan::CCCCCFFFC => CccccfffcImpl::area(from),
+            Plan::CCCCCFRFC => CccccfrfcImpl::area(from),
+            Plan::CFFFCFFFC => CfffcfffcImpl::area(from),
+            Plan::CFFFCFRFC => CfffcfrfcImpl::area(from),
+            Plan::FFCFFFCFC => FfcfffcfcImpl::area(from),
+            Plan::FFCFFFCFF => FfcfffcffImpl::area(from),
+            Plan::FFCFFFFFC => FfcfffffcImpl::area(from),
+            Plan::FFFFCCCFF => FfffcccffImpl::area(from),
+            Plan::FFFFFFCFF => FfffffcffImpl::area(from),
+            Plan::RFFFRFCFR => RfffrfcfrImpl::area(from),
+            Plan::RFFFRFFFR => RfffrfffrImpl::area(from),
+            Plan::RFRFCCCFR => RfrfcccfrImpl::area(from),
+            Plan::RFRFFFCFF => RfrfffcffImpl::area(from),
+            Plan::RFRFFFCFR => RfrfffcfrImpl::area(from),
+            Plan::RFRFFFFFR => RfrfffffrImpl::area(from),
+            Plan::RFRFRFCFF => RfrfrfcffImpl::area(from),
+            Plan::SFFFFFFFR => SfffffffrImpl::area(from),
+            Plan::SFRFRFCFR => SfrfrfcfrImpl::area(from),
+            Plan::SFRFRFFFR => SfrfrfffrImpl::area(from),
+            Plan::SFRFRFRFR => SfrfrfrfrImpl::area(from),
+            Plan::WCCCCCCCC => WccccccccImpl::area(from),
+            Plan::WFFFFFFFF => WffffffffImpl::area(from),
+            Plan::WFFFFFFFR => WfffffffrImpl::area(from),
         }
     }
 }

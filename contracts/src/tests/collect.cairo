@@ -4,7 +4,7 @@ use debug::PrintTrait;
 
 // Starknet imports
 
-use starknet::testing::set_contract_address;
+use starknet::testing::{set_contract_address, set_transaction_hash};
 
 // Dojo imports
 
@@ -30,7 +30,7 @@ use stolsli::tests::setup::{setup, setup::{Systems, BUILDER, ANYONE}};
 const BUILDER_NAME: felt252 = 'BUILDER';
 
 #[test]
-fn test_play_collect_complet_structure() {
+fn test_play_collect_complete_castle() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
@@ -58,6 +58,197 @@ fn test_play_collect_complet_structure() {
     // [Assert]
     let builder = store.builder(game, BUILDER());
     assert(builder.score == 2, 'Collect: builder score');
+}
+
+#[test]
+fn test_play_collect_complete_forest_inside_roads() {
+    // [Setup]
+    let (world, systems, context) = setup::spawn_game();
+    let store = StoreTrait::new(world);
+    let game = store.game(context.game_id);
+    let none = Role::None;
+    let lord = Role::Lord;
+    let nowhere = Spot::None;
+    let northeast = Spot::NorthEast;
+
+    // [Create]
+    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+
+    // [Draw & Build]
+    set_transaction_hash(0x58);
+    systems.play.draw(world, game.id); // WFFFFFFFR
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::North;
+    let x = CENTER;
+    let y = CENTER - 1;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0x17);
+    systems.play.draw(world, game.id); // SFRFRFFFR
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::East;
+    let x = CENTER - 1;
+    let y = CENTER - 1;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0x9);
+    systems.play.draw(world, game.id); // RFFFRFFFR
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::East;
+    let x = CENTER + 1;
+    let y = CENTER - 1;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0xa);
+    systems.play.draw(world, game.id); // RFFFRFFFR
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::North;
+    let x = CENTER;
+    let y = CENTER - 2;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0x19);
+    systems.play.draw(world, game.id); // RFRFFFFFR
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::North;
+    let x = CENTER + 1;
+    let y = CENTER - 2;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0xe);
+    systems.play.draw(world, game.id); // RFRFFFFFR
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::East;
+    let x = CENTER - 1;
+    let y = CENTER - 2;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, lord, northeast);
+
+    // [Draw & Build]
+    set_transaction_hash(0x5);
+    systems.play.draw(world, game.id); // RFRFFFFFR
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::South;
+    let x = CENTER - 1;
+    let y = CENTER;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0x7);
+    systems.play.draw(world, game.id); // RFRFFFFFR
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::West;
+    let x = CENTER + 1;
+    let y = CENTER;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Collect]
+    systems.play.collect(world, context.game_id, lord);
+
+    // [Assert]
+    let builder = store.builder(game, BUILDER());
+    assert(builder.score == 9, 'Collect: builder score');
+}
+
+#[test]
+fn test_play_collect_complete_forest_inside_castles() {
+    // [Setup]
+    let (world, systems, context) = setup::spawn_game();
+    let store = StoreTrait::new(world);
+    let game = store.game(context.game_id);
+    let none = Role::None;
+    let lord = Role::Lord;
+    let nowhere = Spot::None;
+    let northeast = Spot::NorthEast;
+
+    // [Create]
+    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+
+    // [Draw & Build]
+    set_transaction_hash(0x2);
+    systems.play.draw(world, game.id); // CCCCCFRFC
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::West;
+    let x = CENTER - 1;
+    let y = CENTER;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, lord, northeast);
+
+    // [Draw & Build]
+    set_transaction_hash(0x6);
+    systems.play.draw(world, game.id); // CCCCCFFFC
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::South;
+    let x = CENTER;
+    let y = CENTER - 1;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0x5);
+    systems.play.draw(world, game.id); // RFRFCCCFR
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::North;
+    let x = CENTER + 1;
+    let y = CENTER;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0x24);
+    systems.play.draw(world, game.id); // WFFFFFFFR
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::West;
+    let x = CENTER + 1;
+    let y = CENTER + 1;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0x1);
+    systems.play.draw(world, game.id); // CCCCCFFFC
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::West;
+    let x = CENTER;
+    let y = CENTER + 1;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0xa);
+    systems.play.draw(world, game.id); // CCCCCFFFC
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::East;
+    let x = CENTER + 2;
+    let y = CENTER + 1;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // [Draw & Build]
+    set_transaction_hash(0x6);
+    systems.play.draw(world, game.id); // CFFFCFFFC
+    let builder = store.builder(game, BUILDER());
+    let orientation = Orientation::North;
+    let x = CENTER + 1;
+    let y = CENTER + 2;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+
+    // let mut seed: felt252 = 0;
+    // loop {
+    //     let mut game = store.game(context.game_id);
+    //     let (_, plan) = game.draw_plan(seed);
+    //     if plan == Plan::CFFFCFFFC {
+    //         seed.print();
+    //         break;
+    //     } else {
+    //         seed += 1;
+    //     }
+    // };
+
+    // [Collect]
+    systems.play.collect(world, context.game_id, lord);
+
+    // [Assert]
+    let builder = store.builder(game, BUILDER());
+    assert(builder.score == 8, 'Collect: builder score');
 }
 
 #[test]
