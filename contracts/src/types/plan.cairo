@@ -288,10 +288,40 @@ impl PlanImpl of PlanTrait {
     }
 
     #[inline(always)]
-    fn moves(self: Plan, from: Spot) -> Array<Move> {
-        let mut moves: Array<Move> = ArrayTrait::new();
+    fn starts(self: Plan) -> Array<Spot> {
         match self {
-            Plan::None => moves,
+            Plan::None => array![],
+            Plan::CCCCCCCCC => CccccccccImpl::starts(),
+            Plan::CCCCCFFFC => CccccfffcImpl::starts(),
+            Plan::CCCCCFRFC => CccccfrfcImpl::starts(),
+            Plan::CFFFCFFFC => CfffcfffcImpl::starts(),
+            Plan::CFFFCFRFC => CfffcfrfcImpl::starts(),
+            Plan::FFCFFFCFC => FfcfffcfcImpl::starts(),
+            Plan::FFCFFFCFF => FfcfffcffImpl::starts(),
+            Plan::FFCFFFFFC => FfcfffffcImpl::starts(),
+            Plan::FFFFCCCFF => FfffcccffImpl::starts(),
+            Plan::FFFFFFCFF => FfffffcffImpl::starts(),
+            Plan::RFFFRFCFR => RfffrfcfrImpl::starts(),
+            Plan::RFFFRFFFR => RfffrfffrImpl::starts(),
+            Plan::RFRFCCCFR => RfrfcccfrImpl::starts(),
+            Plan::RFRFFFCFF => RfrfffcffImpl::starts(),
+            Plan::RFRFFFCFR => RfrfffcfrImpl::starts(),
+            Plan::RFRFFFFFR => RfrfffffrImpl::starts(),
+            Plan::RFRFRFCFF => RfrfrfcffImpl::starts(),
+            Plan::SFFFFFFFR => SfffffffrImpl::starts(),
+            Plan::SFRFRFCFR => SfrfrfcfrImpl::starts(),
+            Plan::SFRFRFFFR => SfrfrfffrImpl::starts(),
+            Plan::SFRFRFRFR => SfrfrfrfrImpl::starts(),
+            Plan::WCCCCCCCC => WccccccccImpl::starts(),
+            Plan::WFFFFFFFF => WffffffffImpl::starts(),
+            Plan::WFFFFFFFR => WfffffffrImpl::starts(),
+        }
+    }
+
+    #[inline(always)]
+    fn moves(self: Plan, from: Spot) -> Array<Move> {
+        match self {
+            Plan::None => array![],
             Plan::CCCCCCCCC => CccccccccImpl::moves(from),
             Plan::CCCCCFFFC => CccccfffcImpl::moves(from),
             Plan::CCCCCFRFC => CccccfrfcImpl::moves(from),
@@ -347,6 +377,68 @@ impl PlanImpl of PlanTrait {
             Plan::WCCCCCCCC => WccccccccImpl::area(from),
             Plan::WFFFFFFFF => WffffffffImpl::area(from),
             Plan::WFFFFFFFR => WfffffffrImpl::area(from),
+        }
+    }
+
+    #[inline(always)]
+    fn adjacent_roads(self: Plan, from: Spot) -> Array<Spot> {
+        match self {
+            Plan::None => ArrayTrait::new(),
+            Plan::CCCCCCCCC => CccccccccImpl::adjacent_roads(from),
+            Plan::CCCCCFFFC => CccccfffcImpl::adjacent_roads(from),
+            Plan::CCCCCFRFC => CccccfrfcImpl::adjacent_roads(from),
+            Plan::CFFFCFFFC => CfffcfffcImpl::adjacent_roads(from),
+            Plan::CFFFCFRFC => CfffcfrfcImpl::adjacent_roads(from),
+            Plan::FFCFFFCFC => FfcfffcfcImpl::adjacent_roads(from),
+            Plan::FFCFFFCFF => FfcfffcffImpl::adjacent_roads(from),
+            Plan::FFCFFFFFC => FfcfffffcImpl::adjacent_roads(from),
+            Plan::FFFFCCCFF => FfffcccffImpl::adjacent_roads(from),
+            Plan::FFFFFFCFF => FfffffcffImpl::adjacent_roads(from),
+            Plan::RFFFRFCFR => RfffrfcfrImpl::adjacent_roads(from),
+            Plan::RFFFRFFFR => RfffrfffrImpl::adjacent_roads(from),
+            Plan::RFRFCCCFR => RfrfcccfrImpl::adjacent_roads(from),
+            Plan::RFRFFFCFF => RfrfffcffImpl::adjacent_roads(from),
+            Plan::RFRFFFCFR => RfrfffcfrImpl::adjacent_roads(from),
+            Plan::RFRFFFFFR => RfrfffffrImpl::adjacent_roads(from),
+            Plan::RFRFRFCFF => RfrfrfcffImpl::adjacent_roads(from),
+            Plan::SFFFFFFFR => SfffffffrImpl::adjacent_roads(from),
+            Plan::SFRFRFCFR => SfrfrfcfrImpl::adjacent_roads(from),
+            Plan::SFRFRFFFR => SfrfrfffrImpl::adjacent_roads(from),
+            Plan::SFRFRFRFR => SfrfrfrfrImpl::adjacent_roads(from),
+            Plan::WCCCCCCCC => WccccccccImpl::adjacent_roads(from),
+            Plan::WFFFFFFFF => WffffffffImpl::adjacent_roads(from),
+            Plan::WFFFFFFFR => WfffffffrImpl::adjacent_roads(from),
+        }
+    }
+
+    #[inline(always)]
+    fn adjacent_cities(self: Plan, from: Spot) -> Array<Spot> {
+        match self {
+            Plan::None => ArrayTrait::new(),
+            Plan::CCCCCCCCC => CccccccccImpl::adjacent_cities(from),
+            Plan::CCCCCFFFC => CccccfffcImpl::adjacent_cities(from),
+            Plan::CCCCCFRFC => CccccfrfcImpl::adjacent_cities(from),
+            Plan::CFFFCFFFC => CfffcfffcImpl::adjacent_cities(from),
+            Plan::CFFFCFRFC => CfffcfrfcImpl::adjacent_cities(from),
+            Plan::FFCFFFCFC => FfcfffcfcImpl::adjacent_cities(from),
+            Plan::FFCFFFCFF => FfcfffcffImpl::adjacent_cities(from),
+            Plan::FFCFFFFFC => FfcfffffcImpl::adjacent_cities(from),
+            Plan::FFFFCCCFF => FfffcccffImpl::adjacent_cities(from),
+            Plan::FFFFFFCFF => FfffffcffImpl::adjacent_cities(from),
+            Plan::RFFFRFCFR => RfffrfcfrImpl::adjacent_cities(from),
+            Plan::RFFFRFFFR => RfffrfffrImpl::adjacent_cities(from),
+            Plan::RFRFCCCFR => RfrfcccfrImpl::adjacent_cities(from),
+            Plan::RFRFFFCFF => RfrfffcffImpl::adjacent_cities(from),
+            Plan::RFRFFFCFR => RfrfffcfrImpl::adjacent_cities(from),
+            Plan::RFRFFFFFR => RfrfffffrImpl::adjacent_cities(from),
+            Plan::RFRFRFCFF => RfrfrfcffImpl::adjacent_cities(from),
+            Plan::SFFFFFFFR => SfffffffrImpl::adjacent_cities(from),
+            Plan::SFRFRFCFR => SfrfrfcfrImpl::adjacent_cities(from),
+            Plan::SFRFRFFFR => SfrfrfffrImpl::adjacent_cities(from),
+            Plan::SFRFRFRFR => SfrfrfrfrImpl::adjacent_cities(from),
+            Plan::WCCCCCCCC => WccccccccImpl::adjacent_cities(from),
+            Plan::WFFFFFFFF => WffffffffImpl::adjacent_cities(from),
+            Plan::WFFFFFFFR => WfffffffrImpl::adjacent_cities(from),
         }
     }
 }
