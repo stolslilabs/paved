@@ -6,7 +6,9 @@ use option::OptionTrait;
 
 // Internal imports
 
+use stolsli::constants;
 use stolsli::types::orientation::Orientation;
+use stolsli::types::area::{Area, AreaImpl};
 use stolsli::types::direction::{Direction, DirectionImpl};
 use stolsli::types::plan::{Plan, PlanImpl};
 use stolsli::types::layout::{Layout, LayoutImpl};
@@ -73,6 +75,12 @@ impl TileImpl of TileTrait {
     }
 
     #[inline(always)]
+    fn get_key(self: Tile, area: Area) -> felt252 {
+        let key: u128 = area.into() + self.id.into() * constants::TWO_POW_8;
+        key.into()
+    }
+
+    #[inline(always)]
     fn is_empty(self: Tile) -> bool {
         self.occupied_spot == Spot::None.into()
     }
@@ -126,25 +134,21 @@ impl TileImpl of TileTrait {
         self.assert_can_place(ref neighbors);
     }
 
-    fn moves(self: Tile, at: Spot) -> Array<Move> {
-        // [Compute] Get Spot and Direction into north oriented systems
+    #[inline(always)]
+    fn north_oriented_moves(self: Tile, at: Spot) -> Array<Move> {
         let orientation: Orientation = self.orientation.into();
         let spot: Spot = at.antirotate(orientation);
         let mut moves: Array<Move> = ArrayTrait::new();
         let plan: Plan = self.plan.into();
-        let mut north_oriented_moves = plan.moves(spot);
-        // [Compute] Rotate to the right orientation
-        let mut moves: Array<Move> = ArrayTrait::new();
-        loop {
-            match north_oriented_moves.pop_front() {
-                Option::Some(north_oriented_move) => {
-                    let move = north_oriented_move.rotate(orientation);
-                    moves.append(move);
-                },
-                Option::None => { break; },
-            }
-        };
-        moves
+        plan.moves(spot)
+    }
+
+    #[inline(always)]
+    fn area(self: Tile, at: Spot) -> Area {
+        let orientation: Orientation = self.orientation.into();
+        let spot: Spot = at.antirotate(orientation);
+        let plan: Plan = self.plan.into();
+        plan.area(spot)
     }
 
     #[inline(always)]

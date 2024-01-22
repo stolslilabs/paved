@@ -70,15 +70,15 @@ impl LayoutImpl of LayoutTrait {
     fn area(from: Spot) -> Area {
         match from {
             Spot::None => Area::None,
-            Spot::Center => Area::Center,
-            Spot::NorthWest => Area::NorthWest,
-            Spot::North => Area::Center,
-            Spot::NorthEast => Area::SouthEast,
-            Spot::East => Area::SouthEast,
-            Spot::SouthEast => Area::SouthEast,
-            Spot::South => Area::SouthEast,
-            Spot::SouthWest => Area::SouthEast,
-            Spot::West => Area::Center,
+            Spot::Center => Area::A,
+            Spot::NorthWest => Area::B,
+            Spot::North => Area::A,
+            Spot::NorthEast => Area::C,
+            Spot::East => Area::C,
+            Spot::SouthEast => Area::C,
+            Spot::South => Area::C,
+            Spot::SouthWest => Area::C,
+            Spot::West => Area::A,
         }
     }
 }

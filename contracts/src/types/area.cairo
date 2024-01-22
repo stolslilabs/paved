@@ -9,28 +9,28 @@ use stolsli::types::orientation::Orientation;
 // Constants
 
 const NONE: felt252 = 0;
-const CENTER: felt252 = 'CENTER';
-const NORTH: felt252 = 'NORTH';
-const NORTH_EAST: felt252 = 'NORTH_EAST';
-const NORTH_WEST: felt252 = 'NORTH_WEST';
-const SOUTH: felt252 = 'SOUTH';
-const SOUTH_EAST: felt252 = 'SOUTH_EAST';
-const SOUTH_WEST: felt252 = 'SOUTH_WEST';
-const EAST: felt252 = 'EAST';
-const WEST: felt252 = 'WEST';
+const A: felt252 = 'A';
+const B: felt252 = 'B';
+const C: felt252 = 'C';
+const D: felt252 = 'D';
+const E: felt252 = 'E';
+const F: felt252 = 'F';
+const G: felt252 = 'G';
+const H: felt252 = 'H';
+const I: felt252 = 'I';
 
 #[derive(Copy, Drop, Serde, PartialEq, Introspect)]
 enum Area {
     None,
-    Center,
-    NorthWest,
-    North,
-    NorthEast,
-    East,
-    SouthEast,
-    South,
-    SouthWest,
-    West,
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
 }
 
 impl IntoAreaU8 of Into<Area, u8> {
@@ -38,16 +38,24 @@ impl IntoAreaU8 of Into<Area, u8> {
     fn into(self: Area) -> u8 {
         match self {
             Area::None => 0,
-            Area::Center => 1,
-            Area::NorthWest => 2,
-            Area::North => 3,
-            Area::NorthEast => 4,
-            Area::East => 5,
-            Area::SouthEast => 6,
-            Area::South => 7,
-            Area::SouthWest => 8,
-            Area::West => 9,
+            Area::A => 1,
+            Area::B => 2,
+            Area::C => 3,
+            Area::D => 4,
+            Area::E => 5,
+            Area::F => 6,
+            Area::G => 7,
+            Area::H => 8,
+            Area::I => 9,
         }
+    }
+}
+
+impl IntoAreaU128 of Into<Area, u128> {
+    #[inline(always)]
+    fn into(self: Area) -> u128 {
+        let self_u8: u8 = self.into();
+        self_u8.into()
     }
 }
 
@@ -56,15 +64,15 @@ impl IntoAreaFelt252 of Into<Area, felt252> {
     fn into(self: Area) -> felt252 {
         match self {
             Area::None => NONE,
-            Area::Center => CENTER,
-            Area::NorthWest => NORTH_WEST,
-            Area::North => NORTH,
-            Area::NorthEast => NORTH_EAST,
-            Area::East => EAST,
-            Area::SouthEast => SOUTH_EAST,
-            Area::South => SOUTH,
-            Area::SouthWest => SOUTH_WEST,
-            Area::West => WEST,
+            Area::A => A,
+            Area::B => B,
+            Area::C => C,
+            Area::D => D,
+            Area::E => E,
+            Area::F => F,
+            Area::G => G,
+            Area::H => H,
+            Area::I => I,
         }
     }
 }
@@ -73,23 +81,23 @@ impl IntoU8Area of Into<u8, Area> {
     #[inline(always)]
     fn into(self: u8) -> Area {
         if self == 1 {
-            Area::Center
+            Area::A
         } else if self == 2 {
-            Area::NorthWest
+            Area::B
         } else if self == 3 {
-            Area::North
+            Area::C
         } else if self == 4 {
-            Area::NorthEast
+            Area::D
         } else if self == 5 {
-            Area::East
+            Area::E
         } else if self == 6 {
-            Area::SouthEast
+            Area::F
         } else if self == 7 {
-            Area::South
+            Area::G
         } else if self == 8 {
-            Area::SouthWest
+            Area::H
         } else if self == 9 {
-            Area::West
+            Area::I
         } else {
             Area::None
         }
@@ -99,24 +107,24 @@ impl IntoU8Area of Into<u8, Area> {
 impl IntoFelt252Area of Into<felt252, Area> {
     #[inline(always)]
     fn into(self: felt252) -> Area {
-        if self == CENTER {
-            Area::Center
-        } else if self == NORTH_WEST {
-            Area::NorthWest
-        } else if self == NORTH {
-            Area::North
-        } else if self == NORTH_EAST {
-            Area::NorthEast
-        } else if self == EAST {
-            Area::East
-        } else if self == SOUTH_EAST {
-            Area::SouthEast
-        } else if self == SOUTH {
-            Area::South
-        } else if self == SOUTH_WEST {
-            Area::SouthWest
-        } else if self == WEST {
-            Area::West
+        if self == A {
+            Area::A
+        } else if self == B {
+            Area::B
+        } else if self == C {
+            Area::C
+        } else if self == D {
+            Area::D
+        } else if self == E {
+            Area::E
+        } else if self == F {
+            Area::F
+        } else if self == G {
+            Area::G
+        } else if self == H {
+            Area::H
+        } else if self == I {
+            Area::I
         } else {
             Area::None
         }
@@ -141,43 +149,43 @@ impl AreaImpl of AreaTrait {
             Orientation::East => {
                 match self {
                     Area::None => Area::None,
-                    Area::Center => Area::Center,
-                    Area::NorthWest => Area::NorthEast,
-                    Area::North => Area::East,
-                    Area::NorthEast => Area::SouthEast,
-                    Area::East => Area::South,
-                    Area::SouthEast => Area::SouthWest,
-                    Area::South => Area::West,
-                    Area::SouthWest => Area::NorthWest,
-                    Area::West => Area::North,
+                    Area::A => Area::A,
+                    Area::B => Area::D,
+                    Area::C => Area::E,
+                    Area::D => Area::F,
+                    Area::E => Area::G,
+                    Area::F => Area::H,
+                    Area::G => Area::I,
+                    Area::H => Area::B,
+                    Area::I => Area::C,
                 }
             },
             Orientation::South => {
                 match self {
                     Area::None => Area::None,
-                    Area::Center => Area::Center,
-                    Area::NorthWest => Area::SouthEast,
-                    Area::North => Area::South,
-                    Area::NorthEast => Area::SouthWest,
-                    Area::East => Area::West,
-                    Area::SouthEast => Area::NorthWest,
-                    Area::South => Area::North,
-                    Area::SouthWest => Area::NorthEast,
-                    Area::West => Area::East,
+                    Area::A => Area::A,
+                    Area::B => Area::F,
+                    Area::C => Area::G,
+                    Area::D => Area::H,
+                    Area::E => Area::I,
+                    Area::F => Area::B,
+                    Area::G => Area::C,
+                    Area::H => Area::D,
+                    Area::I => Area::E,
                 }
             },
             Orientation::West => {
                 match self {
                     Area::None => Area::None,
-                    Area::Center => Area::Center,
-                    Area::NorthWest => Area::SouthWest,
-                    Area::North => Area::West,
-                    Area::NorthEast => Area::NorthWest,
-                    Area::East => Area::North,
-                    Area::SouthEast => Area::NorthEast,
-                    Area::South => Area::East,
-                    Area::SouthWest => Area::SouthEast,
-                    Area::West => Area::South,
+                    Area::A => Area::A,
+                    Area::B => Area::H,
+                    Area::C => Area::I,
+                    Area::D => Area::B,
+                    Area::E => Area::C,
+                    Area::F => Area::D,
+                    Area::G => Area::E,
+                    Area::H => Area::F,
+                    Area::I => Area::G,
                 }
             },
         }
@@ -204,10 +212,7 @@ mod tests {
 
     // Local imports
 
-    use super::{
-        Area, AreaImpl, Orientation, CENTER, NORTH_WEST, NORTH, NORTH_EAST, EAST, SOUTH_EAST, SOUTH,
-        SOUTH_WEST, WEST
-    };
+    use super::{Area, AreaImpl, Orientation, A, B, C, D, E, F, G, H, I};
 
     // Constants
 
@@ -217,29 +222,29 @@ mod tests {
     #[test]
     fn test_area_into_felt() {
         assert(0 == Area::None.into(), 'Area: None');
-        assert(CENTER == Area::Center.into(), 'Area: Center');
-        assert(NORTH_WEST == Area::NorthWest.into(), 'Area: NorthWest');
-        assert(NORTH == Area::North.into(), 'Area: North');
-        assert(NORTH_EAST == Area::NorthEast.into(), 'Area: NorthEast');
-        assert(EAST == Area::East.into(), 'Area: East');
-        assert(SOUTH_EAST == Area::SouthEast.into(), 'Area: SouthEast');
-        assert(SOUTH == Area::South.into(), 'Area: South');
-        assert(SOUTH_WEST == Area::SouthWest.into(), 'Area: SouthWest');
-        assert(WEST == Area::West.into(), 'Area: West');
+        assert(A == Area::A.into(), 'Area: A');
+        assert(B == Area::B.into(), 'Area: B');
+        assert(C == Area::C.into(), 'Area: C');
+        assert(D == Area::D.into(), 'Area: D');
+        assert(E == Area::E.into(), 'Area: E');
+        assert(F == Area::F.into(), 'Area: F');
+        assert(G == Area::G.into(), 'Area: G');
+        assert(H == Area::H.into(), 'Area: H');
+        assert(I == Area::I.into(), 'Area: I');
     }
 
     #[test]
     fn test_felt_into_area() {
         assert(Area::None == 0.into(), 'Area: None');
-        assert(Area::Center == CENTER.into(), 'Area: Center');
-        assert(Area::NorthWest == NORTH_WEST.into(), 'Area: NorthWest');
-        assert(Area::North == NORTH.into(), 'Area: North');
-        assert(Area::NorthEast == NORTH_EAST.into(), 'Area: NorthEast');
-        assert(Area::East == EAST.into(), 'Area: East');
-        assert(Area::SouthEast == SOUTH_EAST.into(), 'Area: SouthEast');
-        assert(Area::South == SOUTH.into(), 'Area: South');
-        assert(Area::SouthWest == SOUTH_WEST.into(), 'Area: SouthWest');
-        assert(Area::West == WEST.into(), 'Area: West');
+        assert(Area::A == A.into(), 'Area: A');
+        assert(Area::B == B.into(), 'Area: B');
+        assert(Area::C == C.into(), 'Area: C');
+        assert(Area::D == D.into(), 'Area: D');
+        assert(Area::E == E.into(), 'Area: E');
+        assert(Area::F == F.into(), 'Area: F');
+        assert(Area::G == G.into(), 'Area: G');
+        assert(Area::H == H.into(), 'Area: H');
+        assert(Area::I == I.into(), 'Area: I');
     }
 
     #[test]
@@ -250,29 +255,29 @@ mod tests {
     #[test]
     fn test_area_into_u8() {
         assert(0_u8 == Area::None.into(), 'Area: None');
-        assert(1_u8 == Area::Center.into(), 'Area: Center');
-        assert(2_u8 == Area::NorthWest.into(), 'Area: NorthWest');
-        assert(3_u8 == Area::North.into(), 'Area: North');
-        assert(4_u8 == Area::NorthEast.into(), 'Area: NorthEast');
-        assert(5_u8 == Area::East.into(), 'Area: East');
-        assert(6_u8 == Area::SouthEast.into(), 'Area: SouthEast');
-        assert(7_u8 == Area::South.into(), 'Area: South');
-        assert(8_u8 == Area::SouthWest.into(), 'Area: SouthWest');
-        assert(9_u8 == Area::West.into(), 'Area: West');
+        assert(1_u8 == Area::A.into(), 'Area: A');
+        assert(2_u8 == Area::B.into(), 'Area: B');
+        assert(3_u8 == Area::C.into(), 'Area: C');
+        assert(4_u8 == Area::D.into(), 'Area: D');
+        assert(5_u8 == Area::E.into(), 'Area: E');
+        assert(6_u8 == Area::F.into(), 'Area: F');
+        assert(7_u8 == Area::G.into(), 'Area: G');
+        assert(8_u8 == Area::H.into(), 'Area: H');
+        assert(9_u8 == Area::I.into(), 'Area: I');
     }
 
     #[test]
     fn test_u8_into_area() {
         assert(Area::None == 0_u8.into(), 'Area: None');
-        assert(Area::Center == 1_u8.into(), 'Area: Center');
-        assert(Area::NorthWest == 2_u8.into(), 'Area: NorthWest');
-        assert(Area::North == 3_u8.into(), 'Area: North');
-        assert(Area::NorthEast == 4_u8.into(), 'Area: NorthEast');
-        assert(Area::East == 5_u8.into(), 'Area: East');
-        assert(Area::SouthEast == 6_u8.into(), 'Area: SouthEast');
-        assert(Area::South == 7_u8.into(), 'Area: South');
-        assert(Area::SouthWest == 8_u8.into(), 'Area: SouthWest');
-        assert(Area::West == 9_u8.into(), 'Area: West');
+        assert(Area::A == 1_u8.into(), 'Area: A');
+        assert(Area::B == 2_u8.into(), 'Area: B');
+        assert(Area::C == 3_u8.into(), 'Area: C');
+        assert(Area::D == 4_u8.into(), 'Area: D');
+        assert(Area::E == 5_u8.into(), 'Area: E');
+        assert(Area::F == 6_u8.into(), 'Area: F');
+        assert(Area::G == 7_u8.into(), 'Area: G');
+        assert(Area::H == 8_u8.into(), 'Area: H');
+        assert(Area::I == 9_u8.into(), 'Area: I');
     }
 
     #[test]
@@ -282,193 +287,193 @@ mod tests {
 
     #[test]
     fn test_rotate_from_north_to_north() {
-        let area = Area::North.rotate(Orientation::North);
-        assert(Area::North == area, 'Area: Rotate to north');
+        let area = Area::C.rotate(Orientation::North);
+        assert(Area::C == area, 'Area: Rotate to north');
     }
 
     #[test]
     fn test_rotate_from_north_to_east() {
-        let area = Area::North.rotate(Orientation::East);
-        assert(Area::East == area, 'Area: Rotate to east');
+        let area = Area::C.rotate(Orientation::East);
+        assert(Area::E == area, 'Area: Rotate to east');
     }
 
     #[test]
     fn test_rotate_from_north_to_south() {
-        let area = Area::North.rotate(Orientation::South);
-        assert(Area::South == area, 'Area: Rotate to south');
+        let area = Area::C.rotate(Orientation::South);
+        assert(Area::G == area, 'Area: Rotate to south');
     }
 
     #[test]
     fn test_rotate_from_north_to_west() {
-        let area = Area::North.rotate(Orientation::West);
-        assert(Area::West == area, 'Area: Rotate to west');
+        let area = Area::C.rotate(Orientation::West);
+        assert(Area::I == area, 'Area: Rotate to west');
     }
 
     #[test]
     fn test_rotate_from_east_to_north() {
-        let area = Area::East.rotate(Orientation::North);
-        assert(Area::East == area, 'Area: Rotate to north');
+        let area = Area::E.rotate(Orientation::North);
+        assert(Area::E == area, 'Area: Rotate to north');
     }
 
     #[test]
     fn test_rotate_from_east_to_east() {
-        let area = Area::East.rotate(Orientation::East);
-        assert(Area::South == area, 'Area: Rotate to east');
+        let area = Area::E.rotate(Orientation::East);
+        assert(Area::G == area, 'Area: Rotate to east');
     }
 
     #[test]
     fn test_rotate_from_east_to_south() {
-        let area = Area::East.rotate(Orientation::South);
-        assert(Area::West == area, 'Area: Rotate to south');
+        let area = Area::E.rotate(Orientation::South);
+        assert(Area::I == area, 'Area: Rotate to south');
     }
 
     #[test]
     fn test_rotate_from_east_to_west() {
-        let area = Area::East.rotate(Orientation::West);
-        assert(Area::North == area, 'Area: Rotate to west');
+        let area = Area::E.rotate(Orientation::West);
+        assert(Area::C == area, 'Area: Rotate to west');
     }
 
     #[test]
     fn test_rotate_from_south_to_north() {
-        let area = Area::South.rotate(Orientation::North);
-        assert(Area::South == area, 'Area: Rotate to north');
+        let area = Area::G.rotate(Orientation::North);
+        assert(Area::G == area, 'Area: Rotate to north');
     }
 
     #[test]
     fn test_rotate_from_south_to_east() {
-        let area = Area::South.rotate(Orientation::East);
-        assert(Area::West == area, 'Area: Rotate to east');
+        let area = Area::G.rotate(Orientation::East);
+        assert(Area::I == area, 'Area: Rotate to east');
     }
 
     #[test]
     fn test_rotate_from_south_to_south() {
-        let area = Area::South.rotate(Orientation::South);
-        assert(Area::North == area, 'Area: Rotate to south');
+        let area = Area::G.rotate(Orientation::South);
+        assert(Area::C == area, 'Area: Rotate to south');
     }
 
     #[test]
     fn test_rotate_from_south_to_west() {
-        let area = Area::South.rotate(Orientation::West);
-        assert(Area::East == area, 'Area: Rotate to west');
+        let area = Area::G.rotate(Orientation::West);
+        assert(Area::E == area, 'Area: Rotate to west');
     }
 
     #[test]
     fn test_rotate_from_west_to_north() {
-        let area = Area::West.rotate(Orientation::North);
-        assert(Area::West == area, 'Area: Rotate to north');
+        let area = Area::I.rotate(Orientation::North);
+        assert(Area::I == area, 'Area: Rotate to north');
     }
 
     #[test]
     fn test_rotate_from_west_to_east() {
-        let area = Area::West.rotate(Orientation::East);
-        assert(Area::North == area, 'Area: Rotate to east');
+        let area = Area::I.rotate(Orientation::East);
+        assert(Area::C == area, 'Area: Rotate to east');
     }
 
     #[test]
     fn test_rotate_from_west_to_south() {
-        let area = Area::West.rotate(Orientation::South);
-        assert(Area::East == area, 'Area: Rotate to south');
+        let area = Area::I.rotate(Orientation::South);
+        assert(Area::E == area, 'Area: Rotate to south');
     }
 
     #[test]
     fn test_rotate_from_west_to_west() {
-        let area = Area::West.rotate(Orientation::West);
-        assert(Area::South == area, 'Area: Rotate to west');
+        let area = Area::I.rotate(Orientation::West);
+        assert(Area::G == area, 'Area: Rotate to west');
     }
 
     #[test]
     fn test_antirotate_from_north_to_north() {
-        let area = Area::North.antirotate(Orientation::North);
-        assert(Area::North == area, 'Area: Antirotate to north');
+        let area = Area::C.antirotate(Orientation::North);
+        assert(Area::C == area, 'Area: Antirotate to north');
     }
 
     #[test]
     fn test_antirotate_from_north_to_east() {
-        let area = Area::North.antirotate(Orientation::East);
-        assert(Area::West == area, 'Area: Antirotate to east');
+        let area = Area::C.antirotate(Orientation::East);
+        assert(Area::I == area, 'Area: Antirotate to east');
     }
 
     #[test]
     fn test_antirotate_from_north_to_south() {
-        let area = Area::North.antirotate(Orientation::South);
-        assert(Area::South == area, 'Area: Antirotate to south');
+        let area = Area::C.antirotate(Orientation::South);
+        assert(Area::G == area, 'Area: Antirotate to south');
     }
 
     #[test]
     fn test_antirotate_from_north_to_west() {
-        let area = Area::North.antirotate(Orientation::West);
-        assert(Area::East == area, 'Area: Antirotate to west');
+        let area = Area::C.antirotate(Orientation::West);
+        assert(Area::E == area, 'Area: Antirotate to west');
     }
 
     #[test]
     fn test_antirotate_from_east_to_north() {
-        let area = Area::East.antirotate(Orientation::North);
-        assert(Area::East == area, 'Area: Antirotate to north');
+        let area = Area::E.antirotate(Orientation::North);
+        assert(Area::E == area, 'Area: Antirotate to north');
     }
 
     #[test]
     fn test_antirotate_from_east_to_east() {
-        let area = Area::East.antirotate(Orientation::East);
-        assert(Area::North == area, 'Area: Antirotate to east');
+        let area = Area::E.antirotate(Orientation::East);
+        assert(Area::C == area, 'Area: Antirotate to east');
     }
 
     #[test]
     fn test_antirotate_from_east_to_south() {
-        let area = Area::East.antirotate(Orientation::South);
-        assert(Area::West == area, 'Area: Antirotate to south');
+        let area = Area::E.antirotate(Orientation::South);
+        assert(Area::I == area, 'Area: Antirotate to south');
     }
 
     #[test]
     fn test_antirotate_from_east_to_west() {
-        let area = Area::East.antirotate(Orientation::West);
-        assert(Area::South == area, 'Area: Antirotate to west');
+        let area = Area::E.antirotate(Orientation::West);
+        assert(Area::G == area, 'Area: Antirotate to west');
     }
 
     #[test]
     fn test_antirotate_from_south_to_north() {
-        let area = Area::South.antirotate(Orientation::North);
-        assert(Area::South == area, 'Area: Antirotate to north');
+        let area = Area::G.antirotate(Orientation::North);
+        assert(Area::G == area, 'Area: Antirotate to north');
     }
 
     #[test]
     fn test_antirotate_from_south_to_east() {
-        let area = Area::South.antirotate(Orientation::East);
-        assert(Area::East == area, 'Area: Antirotate to east');
+        let area = Area::G.antirotate(Orientation::East);
+        assert(Area::E == area, 'Area: Antirotate to east');
     }
 
     #[test]
     fn test_antirotate_from_south_to_south() {
-        let area = Area::South.antirotate(Orientation::South);
-        assert(Area::North == area, 'Area: Antirotate to south');
+        let area = Area::G.antirotate(Orientation::South);
+        assert(Area::C == area, 'Area: Antirotate to south');
     }
 
     #[test]
     fn test_antirotate_from_south_to_west() {
-        let area = Area::South.antirotate(Orientation::West);
-        assert(Area::West == area, 'Area: Antirotate to west');
+        let area = Area::G.antirotate(Orientation::West);
+        assert(Area::I == area, 'Area: Antirotate to west');
     }
 
     #[test]
     fn test_antirotate_from_west_to_north() {
-        let area = Area::West.antirotate(Orientation::North);
-        assert(Area::West == area, 'Area: Antirotate to north');
+        let area = Area::I.antirotate(Orientation::North);
+        assert(Area::I == area, 'Area: Antirotate to north');
     }
 
     #[test]
     fn test_antirotate_from_west_to_east() {
-        let area = Area::West.antirotate(Orientation::East);
-        assert(Area::South == area, 'Area: Antirotate to east');
+        let area = Area::I.antirotate(Orientation::East);
+        assert(Area::G == area, 'Area: Antirotate to east');
     }
 
     #[test]
     fn test_antirotate_from_west_to_south() {
-        let area = Area::West.antirotate(Orientation::South);
-        assert(Area::East == area, 'Area: Antirotate to south');
+        let area = Area::I.antirotate(Orientation::South);
+        assert(Area::E == area, 'Area: Antirotate to south');
     }
 
     #[test]
     fn test_antirotate_from_west_to_west() {
-        let area = Area::West.antirotate(Orientation::West);
-        assert(Area::North == area, 'Area: Antirotate to west');
+        let area = Area::I.antirotate(Orientation::West);
+        assert(Area::C == area, 'Area: Antirotate to west');
     }
 }

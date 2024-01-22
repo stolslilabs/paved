@@ -14,6 +14,7 @@ use stolsli::store::{Store, StoreImpl};
 use stolsli::helpers::Helpers;
 use stolsli::types::plan::Plan;
 use stolsli::types::spot::Spot;
+use stolsli::types::area::Area;
 use stolsli::types::category::Category;
 use stolsli::types::layout::{Layout, LayoutImpl};
 use stolsli::types::direction::{Direction, DirectionImpl};
@@ -78,12 +79,19 @@ impl GameImpl of GameTrait {
         character.assert_placed();
         assert(tile.id == character.tile_id, errors::INVALID_CHARACTER);
         // [Compute] Setup recursion
-        let mut visited: Felt252Dict<bool> = Default::default();
-        visited.insert(tile.id.into(), true);
+        let mut visited_tiles: Felt252Dict<bool> = Default::default();
+        visited_tiles.insert(tile.id.into(), true);
+        let mut visited_areas: Felt252Dict<bool> = Default::default();
         let at: Spot = character.spot.into();
-        let mut moves: Array<Move> = tile.moves(at);
+        let area: Area = tile.area(at);
+        let area_key = tile.get_key(area);
+        visited_areas.insert(area_key, true);
+        let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
         // [Compute] Recursively count the points
-        let score = self.count_loop(tile, 1, ref moves, ref visited, ref store);
+        let score = self
+            .count_loop(
+                tile, 1, ref north_oriented_moves, ref visited_tiles, ref visited_areas, ref store
+            );
         // [Check] The structure is finished
         assert(score > 0, errors::INVALID_STRUCTURE);
         score
@@ -96,15 +104,20 @@ impl InternalImpl of InternalTrait {
         self: Game,
         tile: Tile,
         mut points: u32,
-        ref moves: Array<Move>,
-        ref visited: Felt252Dict<bool>,
+        ref north_oriented_moves: Array<Move>,
+        ref visited_tiles: Felt252Dict<bool>,
+        ref visited_areas: Felt252Dict<bool>,
         ref store: Store
     ) -> u32 {
         loop {
-            match moves.pop_front() {
+            match north_oriented_moves.pop_front() {
                 // [Compute] Process the current move
-                Option::Some(move) => {
-                    points = self.count_iter(tile, move, points, ref visited, ref store);
+                Option::Some(north_oriented_move) => {
+                    let move = north_oriented_move.rotate(tile.orientation.into());
+                    points = self
+                        .count_iter(
+                            tile, move, points, ref visited_tiles, ref visited_areas, ref store
+                        );
                     // [Check] If the points are zero, the structure is not finished
                     if 0 == points.into() {
                         break 0;
@@ -121,29 +134,46 @@ impl InternalImpl of InternalTrait {
         tile: Tile,
         move: Move,
         points: u32,
-        ref visited: Felt252Dict<bool>,
+        ref visited_tiles: Felt252Dict<bool>,
+        ref visited_areas: Felt252Dict<bool>,
         ref store: Store
     ) -> u32 {
+        // [Check] A tile exists at this position, otherwise the structure is not finished
         let (x, y) = tile.proxy_coordinates(move.direction);
         let tile_position: TilePosition = store.tile_position(self, x, y);
-        // [Check] A tile exists at this position, otherwise the structure is not finished
         if tile_position.is_zero() {
             return 0;
         }
-        // [Compute] Process the next moves
         let neighbor = store.tile(self, tile_position.tile_id);
 
-        // [Check] The neighbor is not already visited
-        let is_visited: bool = visited.get(tile_position.tile_id.into());
+        // [Check] The neighbor area is already visited, then stop local recursion
+        let area: Area = neighbor.area(move.spot);
+        let visited_key = neighbor.get_key(area);
+        let is_visited: bool = visited_areas.get(visited_key);
         if (is_visited) {
             return points;
         };
-
         // Otherwise add it as visited and process it
-        visited.insert(neighbor.id.into(), true);
-        let at: Spot = move.spot;
-        let mut moves: Array<Move> = neighbor.moves(at);
-        self.count_loop(neighbor, points + 1, ref moves, ref visited, ref store)
+        visited_areas.insert(visited_key, true);
+
+        // [Check] The neighbor tile is already visited, then do not count it
+        let visited_key: felt252 = neighbor.id.into();
+        let add = if visited_tiles.get(visited_key) {
+            0
+        } else {
+            1
+        };
+        visited_tiles.insert(visited_key, true);
+        let mut north_oriented_moves: Array<Move> = neighbor.north_oriented_moves(move.spot);
+        self
+            .count_loop(
+                neighbor,
+                points + add,
+                ref north_oriented_moves,
+                ref visited_tiles,
+                ref visited_areas,
+                ref store
+            )
     }
 }
 
