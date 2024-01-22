@@ -3,15 +3,25 @@ use stolsli::types::move::Move;
 use stolsli::types::area::Area;
 
 trait LayoutTrait {
+    /// Return the start spots.
+    ///
+    /// # Returns
+    ///
+    /// The reference area.
+    fn starts() -> Array<Spot>;
     /// Return available moves.
+    /// 
+    /// # Arguments
     ///
     /// * `from` - The spot we stand on.
     ///
     /// # Returns
     ///
-    /// The array of available moves.
+    /// The array of start spots.
     fn moves(from: Spot) -> Array<Move>;
     /// Return reference Area.
+    /// 
+    /// # Arguments
     ///
     /// * `from` - The spot we stand on.
     ///
@@ -20,6 +30,8 @@ trait LayoutTrait {
     /// The reference area.
     fn area(from: Spot) -> Area;
     /// Return the adjacent roads.
+    /// 
+    /// # Arguments
     ///
     /// * `from` - The forest spot we stand on.
     ///
@@ -28,6 +40,8 @@ trait LayoutTrait {
     /// The array of road spots.
     fn adjacent_roads(from: Spot) -> Array<Spot>;
     /// Return the adjacent cities.
+    /// 
+    /// # Arguments
     ///
     /// * `from` - The forest spot we stand on.
     ///
