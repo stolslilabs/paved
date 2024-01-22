@@ -74,6 +74,42 @@ impl LayoutImpl of LayoutTrait {
             Spot::West => Area::A,
         }
     }
+
+    #[inline(always)]
+    fn adjacent_roads(from: Spot) -> Array<Spot> {
+        let mut roads: Array<Spot> = ArrayTrait::new();
+        match from {
+            Spot::None => {},
+            Spot::Center => {},
+            Spot::NorthWest => roads.append(Spot::Center),
+            Spot::North => {},
+            Spot::NorthEast => roads.append(Spot::Center),
+            Spot::East => roads.append(Spot::Center),
+            Spot::SouthEast => roads.append(Spot::Center),
+            Spot::South => {},
+            Spot::SouthWest => roads.append(Spot::Center),
+            Spot::West => {},
+        };
+        roads
+    }
+
+    #[inline(always)]
+    fn adjacent_cities(from: Spot) -> Array<Spot> {
+        let mut cities: Array<Spot> = ArrayTrait::new();
+        match from {
+            Spot::None => {},
+            Spot::Center => {},
+            Spot::NorthWest => {},
+            Spot::North => {},
+            Spot::NorthEast => cities.append(Spot::South),
+            Spot::East => cities.append(Spot::South),
+            Spot::SouthEast => cities.append(Spot::South),
+            Spot::South => {},
+            Spot::SouthWest => cities.append(Spot::South),
+            Spot::West => {},
+        };
+        cities
+    }
 }
 
 #[cfg(test)]

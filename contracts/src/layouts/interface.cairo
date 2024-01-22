@@ -19,4 +19,20 @@ trait LayoutTrait {
     ///
     /// The reference area.
     fn area(from: Spot) -> Area;
+    /// Return the adjacent roads.
+    ///
+    /// * `from` - The forest spot we stand on.
+    ///
+    /// # Returns
+    ///
+    /// The array of road spots.
+    fn adjacent_roads(from: Spot) -> Array<Spot>;
+    /// Return the adjacent cities.
+    ///
+    /// * `from` - The forest spot we stand on.
+    ///
+    /// # Returns
+    ///
+    /// The array of city spots.
+    fn adjacent_cities(from: Spot) -> Array<Spot>;
 }
