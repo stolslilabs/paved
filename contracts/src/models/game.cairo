@@ -13,20 +13,25 @@ use stolsli::constants;
 use stolsli::store::{Store, StoreImpl};
 use stolsli::helpers::Helpers;
 use stolsli::types::plan::Plan;
-use stolsli::types::spot::Spot;
+use stolsli::types::spot::{Spot, SpotImpl};
 use stolsli::types::area::Area;
+use stolsli::types::role::Role;
 use stolsli::types::category::Category;
 use stolsli::types::layout::{Layout, LayoutImpl};
 use stolsli::types::direction::{Direction, DirectionImpl};
 use stolsli::types::orientation::Orientation;
 use stolsli::types::move::{Move, MoveImpl};
-use stolsli::models::character::{Character, CharacterImpl, AssertImpl as CharacterAssertImpl};
+use stolsli::models::builder::{Builder, BuilderImpl};
+use stolsli::models::character::{
+    Character, CharacterPosition, CharacterImpl, AssertImpl as CharacterAssertImpl
+};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 
 mod errors {
     const INVALID_INDEX: felt252 = 'Game: Invalid index';
     const INVALID_CHARACTER: felt252 = 'Game: Invalid character';
     const INVALID_STRUCTURE: felt252 = 'Game: Invalid structure';
+    const STRUCTURE_NOT_IDLE: felt252 = 'Game: Structure not idle';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -73,25 +78,34 @@ impl GameImpl of GameTrait {
         (self.tile_count, plan_id.into())
     }
 
+    fn assess(self: Game, tile: Tile, ref store: Store) {
+        // [Compute] Setup recursion
+        let mut north_oriented_starts = tile.north_oriented_starts();
+        loop {
+            match north_oriented_starts.pop_front() {
+                // [Compute] Process the current spot
+                Option::Some(north_oriented_start) => {
+                    let start = north_oriented_start.rotate(tile.orientation.into());
+                    let (score, mut characters) = self.count_start(tile, start, ref store);
+
+                    // [Effect] Collect characters
+                    if characters.len() > 0 && score > 0 {
+                        self.collect_characters(score, ref characters, ref store);
+                    }
+                },
+                // [Check] Otherwise returns the characters
+                Option::None => { break; },
+            };
+        }
+    }
+
     #[inline(always)]
     fn count(self: Game, tile: Tile, character: Character, ref store: Store) -> u32 {
         // [Check] The character is placed on the tile
-        character.assert_placed();
         assert(tile.id == character.tile_id, errors::INVALID_CHARACTER);
-        // [Compute] Setup recursion
-        let mut visited_tiles: Felt252Dict<bool> = Default::default();
-        visited_tiles.insert(tile.id.into(), true);
-        let mut visited_areas: Felt252Dict<bool> = Default::default();
-        let at: Spot = character.spot.into();
-        let area: Area = tile.area(at);
-        let area_key = tile.get_key(area);
-        visited_areas.insert(area_key, true);
-        let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
         // [Compute] Recursively count the points
-        let score = self
-            .count_loop(
-                tile, 1, ref north_oriented_moves, ref visited_tiles, ref visited_areas, ref store
-            );
+        let at: Spot = character.spot.into();
+        let (score, _) = self.count_start(tile, at, ref store);
         // [Check] The structure is finished
         assert(score > 0, errors::INVALID_STRUCTURE);
         score
@@ -100,24 +114,47 @@ impl GameImpl of GameTrait {
 
 #[generate_trait]
 impl InternalImpl of InternalTrait {
+    #[inline(always)]
+    fn count_start(self: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Character>) {
+        // [Compute] Setup recursion
+        let mut characters: Array<Character> = ArrayTrait::new();
+        let mut visited_tiles: Felt252Dict<bool> = Default::default();
+        let mut visited_areas: Felt252Dict<bool> = Default::default();
+        // [Compute] Recursively count the points
+        let score = self
+            .count_loop(
+                tile, at, 0, ref visited_tiles, ref visited_areas, ref characters, ref store
+            );
+        (score, characters)
+    }
+
     fn count_loop(
         self: Game,
         tile: Tile,
+        at: Spot,
         mut points: u32,
-        ref north_oriented_moves: Array<Move>,
         ref visited_tiles: Felt252Dict<bool>,
         ref visited_areas: Felt252Dict<bool>,
+        ref characters: Array<Character>,
         ref store: Store
     ) -> u32 {
+        let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
         loop {
             match north_oriented_moves.pop_front() {
                 // [Compute] Process the current move
                 Option::Some(north_oriented_move) => {
-                    let move = north_oriented_move.rotate(tile.orientation.into());
+                    let mut move = north_oriented_move.rotate(tile.orientation.into());
                     points = self
                         .count_iter(
-                            tile, move, points, ref visited_tiles, ref visited_areas, ref store
+                            tile,
+                            move,
+                            points,
+                            ref visited_tiles,
+                            ref visited_areas,
+                            ref characters,
+                            ref store
                         );
+
                     // [Check] If the points are zero, the structure is not finished
                     if 0 == points.into() {
                         break 0;
@@ -136,6 +173,7 @@ impl InternalImpl of InternalTrait {
         points: u32,
         ref visited_tiles: Felt252Dict<bool>,
         ref visited_areas: Felt252Dict<bool>,
+        ref characters: Array<Character>,
         ref store: Store
     ) -> u32 {
         // [Check] A tile exists at this position, otherwise the structure is not finished
@@ -153,10 +191,19 @@ impl InternalImpl of InternalTrait {
         if (is_visited) {
             return points;
         };
-        // Otherwise add it as visited and process it
         visited_areas.insert(visited_key, true);
 
-        // [Check] The neighbor tile is already visited, then do not count it
+        // [Check] The neighbor handles a character
+        let spot: Spot = neighbor.occupied_spot.into();
+        if 0 != spot.into() && neighbor.are_connected(move.spot, spot) {
+            let character_position: CharacterPosition = store
+                .character_position(self, neighbor, neighbor.occupied_spot.into());
+            let character = store
+                .character(self, character_position.builder_id, character_position.index.into());
+            characters.append(character);
+        };
+
+        // [Check] The neighbor is already visited, then do not count it
         let visited_key: felt252 = neighbor.id.into();
         let add = if visited_tiles.get(visited_key) {
             0
@@ -164,18 +211,49 @@ impl InternalImpl of InternalTrait {
             1
         };
         visited_tiles.insert(visited_key, true);
-        let mut north_oriented_moves: Array<Move> = neighbor.north_oriented_moves(move.spot);
         self
             .count_loop(
                 neighbor,
+                move.spot,
                 points + add,
-                ref north_oriented_moves,
                 ref visited_tiles,
                 ref visited_areas,
+                ref characters,
                 ref store
             )
     }
+
+    fn collect_characters(
+        self: Game, score: u32, ref characters: Array<Character>, ref store: Store
+    ) {
+        loop {
+            match characters.pop_front() {
+                Option::Some(character) => {
+                    // [Effect] Collect the character's builder
+                    let mut tile = store.tile(self, character.tile_id);
+                    let mut builder = store.builder(self, character.builder_id);
+                    builder.recover(character, ref tile);
+                    // [Effect] Update the tile
+                    store.set_tile(tile);
+                    // [Effect] Add score and update the builder
+                    builder.score += score;
+                    store.set_builder(builder);
+                },
+                Option::None => { break; },
+            }
+        }
+    }
 }
+
+#[generate_trait]
+impl AssertImpl of AssertTrait {
+    #[inline(always)]
+    fn assert_structure_idle(self: Game, tile: Tile, at: Spot, ref store: Store) {
+        let (_, characters) = self.count_start(tile, at, ref store);
+        assert(0 == characters.len().into(), errors::STRUCTURE_NOT_IDLE);
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

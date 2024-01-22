@@ -111,8 +111,6 @@ impl BuilderImpl of BuilderTrait {
         // [Check] Available character
         let index: u8 = role.into();
         self.assert_available(index);
-        // [Check] Placeable
-        // TODO: Recursive check that there is not character on the same structure
         // [Effect] Set character as placed
         let characters = Helpers::set_bit_at(self.characters.into(), index.into(), true);
         self.characters = characters.try_into().unwrap();

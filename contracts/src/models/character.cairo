@@ -1,3 +1,7 @@
+// Core imports
+
+use debug::PrintTrait;
+
 // Internal imports
 
 use stolsli::constants;
@@ -79,6 +83,7 @@ impl AssertImpl of AssertTrait {
     #[inline(always)]
     fn assert_removeable(self: Character) {
         assert(0 != self.tile_id.into(), errors::ALREADY_REMOVED);
+        assert(self.spot != Spot::None.into(), errors::NOT_PLACED);
     }
     #[inline(always)]
     fn assert_placed(self: Character) {

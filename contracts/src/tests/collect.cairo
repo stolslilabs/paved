@@ -41,7 +41,7 @@ fn test_play_collect_complete_castle() {
 
     // [Draw]
     systems.play.draw(world, game.id);
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let tile = store.tile(game, builder.tile_id);
 
     // [Build]
@@ -56,7 +56,7 @@ fn test_play_collect_complete_castle() {
     systems.play.collect(world, context.game_id, role);
 
     // [Assert]
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     assert(builder.score == 2, 'Collect: builder score');
 }
 
@@ -77,7 +77,7 @@ fn test_play_collect_complete_forest_inside_roads() {
     // [Draw & Build]
     set_transaction_hash(0x58);
     systems.play.draw(world, game.id); // WFFFFFFFR
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER - 1;
@@ -86,7 +86,7 @@ fn test_play_collect_complete_forest_inside_roads() {
     // [Draw & Build]
     set_transaction_hash(0x17);
     systems.play.draw(world, game.id); // SFRFRFFFR
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::East;
     let x = CENTER - 1;
     let y = CENTER - 1;
@@ -95,7 +95,7 @@ fn test_play_collect_complete_forest_inside_roads() {
     // [Draw & Build]
     set_transaction_hash(0x9);
     systems.play.draw(world, game.id); // RFFFRFFFR
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::East;
     let x = CENTER + 1;
     let y = CENTER - 1;
@@ -104,7 +104,7 @@ fn test_play_collect_complete_forest_inside_roads() {
     // [Draw & Build]
     set_transaction_hash(0xa);
     systems.play.draw(world, game.id); // RFFFRFFFR
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER - 2;
@@ -113,7 +113,7 @@ fn test_play_collect_complete_forest_inside_roads() {
     // [Draw & Build]
     set_transaction_hash(0x19);
     systems.play.draw(world, game.id); // RFRFFFFFR
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::North;
     let x = CENTER + 1;
     let y = CENTER - 2;
@@ -122,7 +122,7 @@ fn test_play_collect_complete_forest_inside_roads() {
     // [Draw & Build]
     set_transaction_hash(0xe);
     systems.play.draw(world, game.id); // RFRFFFFFR
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::East;
     let x = CENTER - 1;
     let y = CENTER - 2;
@@ -131,7 +131,7 @@ fn test_play_collect_complete_forest_inside_roads() {
     // [Draw & Build]
     set_transaction_hash(0x5);
     systems.play.draw(world, game.id); // RFRFFFFFR
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::South;
     let x = CENTER - 1;
     let y = CENTER;
@@ -140,7 +140,7 @@ fn test_play_collect_complete_forest_inside_roads() {
     // [Draw & Build]
     set_transaction_hash(0x7);
     systems.play.draw(world, game.id); // RFRFFFFFR
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::West;
     let x = CENTER + 1;
     let y = CENTER;
@@ -150,7 +150,7 @@ fn test_play_collect_complete_forest_inside_roads() {
     systems.play.collect(world, context.game_id, lord);
 
     // [Assert]
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     assert(builder.score == 9, 'Collect: builder score');
 }
 
@@ -171,7 +171,7 @@ fn test_play_collect_complete_forest_inside_castles() {
     // [Draw & Build]
     set_transaction_hash(0x2);
     systems.play.draw(world, game.id); // CCCCCFRFC
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::West;
     let x = CENTER - 1;
     let y = CENTER;
@@ -180,7 +180,7 @@ fn test_play_collect_complete_forest_inside_castles() {
     // [Draw & Build]
     set_transaction_hash(0x6);
     systems.play.draw(world, game.id); // CCCCCFFFC
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::South;
     let x = CENTER;
     let y = CENTER - 1;
@@ -189,7 +189,7 @@ fn test_play_collect_complete_forest_inside_castles() {
     // [Draw & Build]
     set_transaction_hash(0x5);
     systems.play.draw(world, game.id); // RFRFCCCFR
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::North;
     let x = CENTER + 1;
     let y = CENTER;
@@ -198,7 +198,7 @@ fn test_play_collect_complete_forest_inside_castles() {
     // [Draw & Build]
     set_transaction_hash(0x24);
     systems.play.draw(world, game.id); // WFFFFFFFR
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::West;
     let x = CENTER + 1;
     let y = CENTER + 1;
@@ -207,7 +207,7 @@ fn test_play_collect_complete_forest_inside_castles() {
     // [Draw & Build]
     set_transaction_hash(0x1);
     systems.play.draw(world, game.id); // CCCCCFFFC
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::West;
     let x = CENTER;
     let y = CENTER + 1;
@@ -216,7 +216,7 @@ fn test_play_collect_complete_forest_inside_castles() {
     // [Draw & Build]
     set_transaction_hash(0xa);
     systems.play.draw(world, game.id); // CCCCCFFFC
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::East;
     let x = CENTER + 2;
     let y = CENTER + 1;
@@ -225,7 +225,7 @@ fn test_play_collect_complete_forest_inside_castles() {
     // [Draw & Build]
     set_transaction_hash(0x6);
     systems.play.draw(world, game.id); // CFFFCFFFC
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let orientation = Orientation::North;
     let x = CENTER + 1;
     let y = CENTER + 2;
@@ -247,7 +247,7 @@ fn test_play_collect_complete_forest_inside_castles() {
     systems.play.collect(world, context.game_id, lord);
 
     // [Assert]
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     assert(builder.score == 8, 'Collect: builder score');
 }
 
@@ -264,7 +264,7 @@ fn test_play_collect_incomplete_structure() {
 
     // [Draw]
     systems.play.draw(world, game.id);
-    let builder = store.builder(game, BUILDER());
+    let builder = store.builder(game, BUILDER().into());
     let tile = store.tile(game, builder.tile_id);
 
     // [Build]
