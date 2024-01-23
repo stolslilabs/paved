@@ -230,7 +230,7 @@ fn test_play_build_complete_forest_inside_roads() {
 
     // [Assert]
     let builder = store.builder(game, BUILDER().into());
-    assert(builder.score == 11, 'Build: builder score');
+    assert(builder.score == 2, 'Build: builder score');
 }
 
 #[test]
@@ -312,5 +312,5 @@ fn test_play_build_complete_forest_inside_castles() {
 
     // [Assert]
     let builder = store.builder(game, BUILDER().into());
-    assert(builder.score == 4, 'Build: builder score');
+    assert(builder.score == 1, 'Build: builder score');
 }

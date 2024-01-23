@@ -100,38 +100,14 @@ impl GameImpl of GameTrait {
                         Category::Wonder => GenericCount::starter(self, tile, start, ref store),
                     };
 
-                    // [Effect] Collect characters
-                    if characters.len() > 0 && score > 0 {
-                        self.collect_characters(score, ref characters, ref store);
+                    // [Effect] Solve and collect characters
+                    if 0 != score.into() && 0 != characters.len().into() {
+                        GenericCount::solve(self, score, ref characters, ref store);
                     }
                 },
                 // [Check] Otherwise returns the characters
                 Option::None => { break; },
             };
-        }
-    }
-}
-
-#[generate_trait]
-impl InternalImpl of InternalTrait {
-    fn collect_characters(
-        self: Game, score: u32, ref characters: Array<Character>, ref store: Store
-    ) {
-        loop {
-            match characters.pop_front() {
-                Option::Some(character) => {
-                    // [Effect] Collect the character's builder
-                    let mut tile = store.tile(self, character.tile_id);
-                    let mut builder = store.builder(self, character.builder_id);
-                    builder.recover(character, ref tile);
-                    // [Effect] Update the tile
-                    store.set_tile(tile);
-                    // [Effect] Add score and update the builder
-                    builder.score += score;
-                    store.set_builder(builder);
-                },
-                Option::None => { break; },
-            }
         }
     }
 }

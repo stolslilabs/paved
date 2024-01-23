@@ -121,13 +121,15 @@ impl BuilderImpl of BuilderTrait {
     }
 
     #[inline(always)]
-    fn recover(ref self: Builder, character: Character, ref tile: Tile) {
+    fn recover(ref self: Builder, ref character: Character, ref tile: Tile) {
         // [Check] Recoverable
         let index: u8 = character.index;
         self.assert_recoverable(index);
-        // [Effect] Set character as not placed
+        // [Effect] Collect character
         let characters = Bitmap::set_bit_at(self.characters.into(), index.into(), false);
         self.characters = characters.try_into().unwrap();
+        // [Effect] Update character
+        character.remove();
         // [Effect] Update tile status
         tile.leave();
     }
