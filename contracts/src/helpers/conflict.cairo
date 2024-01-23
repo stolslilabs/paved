@@ -75,3 +75,5 @@ impl Conflict of ConflictTrait {
         Conflict::looper(game, neighbor, move.spot, ref visited, ref store)
     }
 }
+
+

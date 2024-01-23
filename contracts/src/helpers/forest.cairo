@@ -23,8 +23,9 @@ impl ForestCount of ForestCountTrait {
         let mut characters: Array<Character> = ArrayTrait::new();
         let mut visited: Felt252Dict<bool> = Default::default();
         // [Compute] Recursively count the points
-        let mut score = 0;
+        let mut score = 1;
         ForestCount::looper(game, tile, at, ref score, ref visited, ref characters, ref store);
+        score = if 0 == score.into() { 0 } else { score - 1 };
         (score, characters)
     }
 
@@ -48,9 +49,9 @@ impl ForestCount of ForestCountTrait {
 
                     // [Check] If the area is not visited, then count it
                     if !visited.get(key) {
-                        visited.insert(key, true);
-                        let is_closed = RoadCount::starter(game, tile, spot, ref store) > 0;
-                        if is_closed {
+                        let mut road_score = 0;
+                        RoadCount::looper(game, tile, spot, ref road_score, ref visited, ref store);
+                        if road_score > 0 {
                             score += 1;
                         };
                     };

@@ -9,7 +9,8 @@ use stolsli::types::spot::Spot;
 use stolsli::types::area::Area;
 use stolsli::types::move::{Move, MoveImpl};
 use stolsli::models::game::Game;
-use stolsli::models::game::{Character, CharacterPosition};
+use stolsli::models::builder::{Builder, BuilderImpl};
+use stolsli::models::character::{Character, CharacterPosition};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 
 #[generate_trait]
@@ -101,5 +102,55 @@ impl GenericCount of GenericCountTrait {
         GenericCount::looper(
             game, neighbor, move.spot, ref score, ref visited, ref characters, ref store
         )
+    }
+
+    fn solve(self: Game, score: u32, ref characters: Array<Character>, ref store: Store) {
+        // [Compute] Find the winner
+        let mut winner_count: u32 = 0;
+        let mut winner: felt252 = 0;
+        let mut solved: bool = false;
+        let mut counter: Felt252Dict<u32> = Default::default();
+        loop {
+            match characters.pop_front() {
+                Option::Some(mut character) => {
+                    // [Compute] Update builder counter
+                    let builder_count = counter.get(character.builder_id) + 1;
+                    counter.insert(character.builder_id, builder_count);
+
+                    // [Effect] Collect the character's builder
+                    let mut tile = store.tile(self, character.tile_id);
+                    let mut builder = store.builder(self, character.builder_id);
+                    builder.recover(ref character, ref tile);
+                    
+                    // [Effect] Update the character
+                    store.set_character(character);
+                    
+                    // [Effect] Update the tile
+                    store.set_tile(tile);
+
+                    // [Effect] Update the builder
+                    store.set_builder(builder);
+
+                    // [Compute] Update winner if needed
+                    if builder.id != winner {
+                        if builder_count > winner_count {
+                            winner = builder.id;
+                            winner_count = builder_count;
+                            solved = true;
+                        } else if builder_count == winner_count {
+                            solved = false;
+                        };
+                    };
+                },
+                Option::None => { break; },
+            };
+        };
+        
+        // [Effect] Update the builder
+        if solved {
+            let mut builder = store.builder(self, winner);
+            builder.score += score;
+            store.set_builder(builder);
+        };
     }
 }
