@@ -78,6 +78,43 @@ fn test_play_build_with_character() {
 }
 
 #[test]
+#[should_panic(expected: ('Game: Structure not idle', 'ENTRYPOINT_FAILED',))]
+fn test_play_build_with_character_revert_not_idle() {
+    // [Setup]
+    let (world, systems, context) = setup::spawn_game();
+    let store = StoreTrait::new(world);
+    let game = store.game(context.game_id);
+    let lord = Role::Lord;
+    let lady = Role::Lady;
+    let spot = Spot::Center;
+
+    // [Create]
+    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+
+    // [Draw & Build]
+    set_transaction_hash(0x58);
+    systems.play.draw(world, game.id); // WFFFFFFFR
+    let builder = store.builder(game, BUILDER().into());
+    let orientation = Orientation::North;
+    let x = CENTER;
+    let y = CENTER - 1;
+    let role = Role::Lord;
+    let spot = Spot::West;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, role, spot);
+
+    // [Draw & Build]
+    set_transaction_hash(0x17);
+    systems.play.draw(world, game.id); // SFRFRFFFR
+    let builder = store.builder(game, BUILDER().into());
+    let orientation = Orientation::East;
+    let x = CENTER - 1;
+    let y = CENTER - 1;
+    let role = Role::Lady;
+    let spot = Spot::East;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, role, spot);
+}
+
+#[test]
 fn test_play_build_complete_castle() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game();
@@ -193,7 +230,7 @@ fn test_play_build_complete_forest_inside_roads() {
 
     // [Assert]
     let builder = store.builder(game, BUILDER().into());
-    assert(builder.score == 9, 'Build: builder score');
+    assert(builder.score == 11, 'Build: builder score');
 }
 
 #[test]
@@ -275,5 +312,5 @@ fn test_play_build_complete_forest_inside_castles() {
 
     // [Assert]
     let builder = store.builder(game, BUILDER().into());
-    assert(builder.score == 8, 'Build: builder score');
+    assert(builder.score == 4, 'Build: builder score');
 }

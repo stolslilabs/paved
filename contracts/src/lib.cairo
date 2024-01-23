@@ -1,6 +1,5 @@
 mod constants;
 mod store;
-mod helpers;
 
 mod types {
     mod area;
@@ -41,6 +40,14 @@ mod layouts {
     mod wcccccccc;
     mod wffffffff;
     mod wfffffffr;
+}
+
+mod helpers {
+    mod bitmap;
+    mod generic;
+    mod conflict;
+    mod road;
+    mod forest;
 }
 
 mod models {
