@@ -18,18 +18,22 @@ use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 #[generate_trait]
 impl ForestCount of ForestCountTrait {
     #[inline(always)]
-    fn starter(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Character>) {
+    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Character>) {
         // [Compute] Setup recursion
         let mut characters: Array<Character> = ArrayTrait::new();
         let mut visited: Felt252Dict<bool> = Default::default();
         // [Compute] Recursively count the points
         let mut score = 1;
-        ForestCount::looper(game, tile, at, ref score, ref visited, ref characters, ref store);
-        score = if 0 == score.into() { 0 } else { score - 1 };
+        ForestCount::over(game, tile, at, ref score, ref visited, ref characters, ref store);
+        score = if 0 == score.into() {
+            0
+        } else {
+            score - 1
+        };
         (score, characters)
     }
 
-    fn looper(
+    fn over(
         game: Game,
         tile: Tile,
         at: Spot,
@@ -50,7 +54,7 @@ impl ForestCount of ForestCountTrait {
                     // [Check] If the area is not visited, then count it
                     if !visited.get(key) {
                         let mut road_score = 0;
-                        RoadCount::looper(game, tile, spot, ref road_score, ref visited, ref store);
+                        RoadCount::over(game, tile, spot, ref road_score, ref visited, ref store);
                         if road_score > 0 {
                             score += 1;
                         };
@@ -66,7 +70,7 @@ impl ForestCount of ForestCountTrait {
                 // [Compute] Process the current move
                 Option::Some(north_oriented_move) => {
                     let mut move = north_oriented_move.rotate(tile.orientation.into());
-                    ForestCount::iterer(
+                    ForestCount::iter(
                         game, tile, move, ref score, ref visited, ref characters, ref store
                     );
                     // [Check] If the points are zero, the structure is not finished
@@ -80,7 +84,7 @@ impl ForestCount of ForestCountTrait {
         }
     }
 
-    fn iterer(
+    fn iter(
         game: Game,
         tile: Tile,
         move: Move,
@@ -118,7 +122,7 @@ impl ForestCount of ForestCountTrait {
         };
 
         // [Check] Continue recursion on the neighbor with the next move
-        ForestCount::looper(
+        ForestCount::over(
             game, neighbor, move.spot, ref score, ref visited, ref characters, ref store
         )
     }

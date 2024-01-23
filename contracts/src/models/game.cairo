@@ -93,11 +93,11 @@ impl GameImpl of GameTrait {
                     let category: Category = layout.get_category(start);
                     let (score, mut characters) = match category {
                         Category::None => (0, array![]),
-                        Category::Farm => ForestCount::starter(self, tile, start, ref store),
-                        Category::Road => GenericCount::starter(self, tile, start, ref store),
-                        Category::City => GenericCount::starter(self, tile, start, ref store),
+                        Category::Farm => ForestCount::start(self, tile, start, ref store),
+                        Category::Road => GenericCount::start(self, tile, start, ref store),
+                        Category::City => GenericCount::start(self, tile, start, ref store),
                         Category::Stop => (0, array![]),
-                        Category::Wonder => GenericCount::starter(self, tile, start, ref store),
+                        Category::Wonder => GenericCount::start(self, tile, start, ref store),
                     };
 
                     // [Effect] Solve and collect characters
@@ -116,7 +116,7 @@ impl GameImpl of GameTrait {
 impl AssertImpl of AssertTrait {
     #[inline(always)]
     fn assert_structure_idle(self: Game, tile: Tile, at: Spot, ref store: Store) {
-        let status = Conflict::starter(self, tile, at, ref store);
+        let status = Conflict::start(self, tile, at, ref store);
         assert(!status, errors::STRUCTURE_NOT_IDLE);
     }
 }

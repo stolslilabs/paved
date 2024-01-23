@@ -16,17 +16,17 @@ use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 #[generate_trait]
 impl GenericCount of GenericCountTrait {
     #[inline(always)]
-    fn starter(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Character>) {
+    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Character>) {
         // [Compute] Setup recursion
         let mut characters: Array<Character> = ArrayTrait::new();
         let mut visited: Felt252Dict<bool> = Default::default();
         // [Compute] Recursively count the points
         let mut score = 0;
-        GenericCount::looper(game, tile, at, ref score, ref visited, ref characters, ref store);
+        GenericCount::over(game, tile, at, ref score, ref visited, ref characters, ref store);
         (score, characters)
     }
 
-    fn looper(
+    fn over(
         game: Game,
         tile: Tile,
         at: Spot,
@@ -41,7 +41,7 @@ impl GenericCount of GenericCountTrait {
                 // [Compute] Process the current move
                 Option::Some(north_oriented_move) => {
                     let mut move = north_oriented_move.rotate(tile.orientation.into());
-                    GenericCount::iterer(
+                    GenericCount::iter(
                         game, tile, move, ref score, ref visited, ref characters, ref store
                     );
 
@@ -56,7 +56,7 @@ impl GenericCount of GenericCountTrait {
         }
     }
 
-    fn iterer(
+    fn iter(
         game: Game,
         tile: Tile,
         move: Move,
@@ -99,7 +99,7 @@ impl GenericCount of GenericCountTrait {
             score += 1;
         };
         visited.insert(visited_key, true);
-        GenericCount::looper(
+        GenericCount::over(
             game, neighbor, move.spot, ref score, ref visited, ref characters, ref store
         )
     }
@@ -121,10 +121,10 @@ impl GenericCount of GenericCountTrait {
                     let mut tile = store.tile(self, character.tile_id);
                     let mut builder = store.builder(self, character.builder_id);
                     builder.recover(ref character, ref tile);
-                    
+
                     // [Effect] Update the character
                     store.set_character(character);
-                    
+
                     // [Effect] Update the tile
                     store.set_tile(tile);
 
@@ -145,7 +145,7 @@ impl GenericCount of GenericCountTrait {
                 Option::None => { break; },
             };
         };
-        
+
         // [Effect] Update the builder
         if solved {
             let mut builder = store.builder(self, winner);
