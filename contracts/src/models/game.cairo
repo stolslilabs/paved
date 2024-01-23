@@ -11,7 +11,10 @@ use origami::random::deck::{Deck, DeckTrait};
 
 use stolsli::constants;
 use stolsli::store::{Store, StoreImpl};
-use stolsli::helpers::Helpers;
+use stolsli::helpers::bitmap::Bitmap;
+use stolsli::helpers::generic::GenericCount;
+use stolsli::helpers::conflict::Conflict;
+use stolsli::helpers::forest::ForestCount;
 use stolsli::types::plan::Plan;
 use stolsli::types::spot::{Spot, SpotImpl};
 use stolsli::types::area::Area;
@@ -73,20 +76,29 @@ impl GameImpl of GameTrait {
                     0
                 } else {
                     let index = plan_id - 1;
-                    Helpers::set_bit_at(self.tiles, index.into(), true)
+                    Bitmap::set_bit_at(self.tiles, index.into(), true)
                 };
         (self.tile_count, plan_id.into())
     }
 
     fn assess(self: Game, tile: Tile, ref store: Store) {
         // [Compute] Setup recursion
+        let layout: Layout = tile.into();
         let mut north_oriented_starts = tile.north_oriented_starts();
         loop {
             match north_oriented_starts.pop_front() {
                 // [Compute] Process the current spot
                 Option::Some(north_oriented_start) => {
                     let start = north_oriented_start.rotate(tile.orientation.into());
-                    let (score, mut characters) = self.count_start(tile, start, ref store);
+                    let category: Category = layout.get_category(start);
+                    let (score, mut characters) = match category {
+                        Category::None => (0, array![]),
+                        Category::Farm => ForestCount::starter(self, tile, start, ref store),
+                        Category::Road => GenericCount::starter(self, tile, start, ref store),
+                        Category::City => GenericCount::starter(self, tile, start, ref store),
+                        Category::Stop => (0, array![]),
+                        Category::Wonder => GenericCount::starter(self, tile, start, ref store),
+                    };
 
                     // [Effect] Collect characters
                     if characters.len() > 0 && score > 0 {
@@ -98,131 +110,10 @@ impl GameImpl of GameTrait {
             };
         }
     }
-
-    #[inline(always)]
-    fn count(self: Game, tile: Tile, character: Character, ref store: Store) -> u32 {
-        // [Check] The character is placed on the tile
-        assert(tile.id == character.tile_id, errors::INVALID_CHARACTER);
-        // [Compute] Recursively count the points
-        let at: Spot = character.spot.into();
-        let (score, _) = self.count_start(tile, at, ref store);
-        // [Check] The structure is finished
-        assert(score > 0, errors::INVALID_STRUCTURE);
-        score
-    }
 }
 
 #[generate_trait]
 impl InternalImpl of InternalTrait {
-    #[inline(always)]
-    fn count_start(self: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Character>) {
-        // [Compute] Setup recursion
-        let mut characters: Array<Character> = ArrayTrait::new();
-        let mut visited_tiles: Felt252Dict<bool> = Default::default();
-        let mut visited_areas: Felt252Dict<bool> = Default::default();
-        // [Compute] Recursively count the points
-        let score = self
-            .count_loop(
-                tile, at, 0, ref visited_tiles, ref visited_areas, ref characters, ref store
-            );
-        (score, characters)
-    }
-
-    fn count_loop(
-        self: Game,
-        tile: Tile,
-        at: Spot,
-        mut points: u32,
-        ref visited_tiles: Felt252Dict<bool>,
-        ref visited_areas: Felt252Dict<bool>,
-        ref characters: Array<Character>,
-        ref store: Store
-    ) -> u32 {
-        let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
-        loop {
-            match north_oriented_moves.pop_front() {
-                // [Compute] Process the current move
-                Option::Some(north_oriented_move) => {
-                    let mut move = north_oriented_move.rotate(tile.orientation.into());
-                    points = self
-                        .count_iter(
-                            tile,
-                            move,
-                            points,
-                            ref visited_tiles,
-                            ref visited_areas,
-                            ref characters,
-                            ref store
-                        );
-
-                    // [Check] If the points are zero, the structure is not finished
-                    if 0 == points.into() {
-                        break 0;
-                    };
-                },
-                // [Check] Otherwise returns the points
-                Option::None => { break points; },
-            }
-        }
-    }
-
-    fn count_iter(
-        self: Game,
-        tile: Tile,
-        move: Move,
-        points: u32,
-        ref visited_tiles: Felt252Dict<bool>,
-        ref visited_areas: Felt252Dict<bool>,
-        ref characters: Array<Character>,
-        ref store: Store
-    ) -> u32 {
-        // [Check] A tile exists at this position, otherwise the structure is not finished
-        let (x, y) = tile.proxy_coordinates(move.direction);
-        let tile_position: TilePosition = store.tile_position(self, x, y);
-        if tile_position.is_zero() {
-            return 0;
-        }
-        let neighbor = store.tile(self, tile_position.tile_id);
-
-        // [Check] The neighbor area is already visited, then stop local recursion
-        let area: Area = neighbor.area(move.spot);
-        let visited_key = neighbor.get_key(area);
-        let is_visited: bool = visited_areas.get(visited_key);
-        if (is_visited) {
-            return points;
-        };
-        visited_areas.insert(visited_key, true);
-
-        // [Check] The neighbor handles a character
-        let spot: Spot = neighbor.occupied_spot.into();
-        if 0 != spot.into() && neighbor.are_connected(move.spot, spot) {
-            let character_position: CharacterPosition = store
-                .character_position(self, neighbor, neighbor.occupied_spot.into());
-            let character = store
-                .character(self, character_position.builder_id, character_position.index.into());
-            characters.append(character);
-        };
-
-        // [Check] The neighbor is already visited, then do not count it
-        let visited_key: felt252 = neighbor.id.into();
-        let add = if visited_tiles.get(visited_key) {
-            0
-        } else {
-            1
-        };
-        visited_tiles.insert(visited_key, true);
-        self
-            .count_loop(
-                neighbor,
-                move.spot,
-                points + add,
-                ref visited_tiles,
-                ref visited_areas,
-                ref characters,
-                ref store
-            )
-    }
-
     fn collect_characters(
         self: Game, score: u32, ref characters: Array<Character>, ref store: Store
     ) {
@@ -249,8 +140,8 @@ impl InternalImpl of InternalTrait {
 impl AssertImpl of AssertTrait {
     #[inline(always)]
     fn assert_structure_idle(self: Game, tile: Tile, at: Spot, ref store: Store) {
-        let (_, characters) = self.count_start(tile, at, ref store);
-        assert(0 == characters.len().into(), errors::STRUCTURE_NOT_IDLE);
+        let status = Conflict::starter(self, tile, at, ref store);
+        assert(!status, errors::STRUCTURE_NOT_IDLE);
     }
 }
 

@@ -9,20 +9,20 @@ use stolsli::constants;
 // Errors
 
 mod errors {
-    const INVALID_INDEX: felt252 = 'Helpers: Invalid index';
+    const INVALID_INDEX: felt252 = 'Bitmap: Invalid index';
 }
 
 #[generate_trait]
-impl Helpers of HelpersTrait {
+impl Bitmap of BitmapTrait {
     #[inline(always)]
     fn get_bit_at(bitmap: u128, index: felt252) -> bool {
-        let mask = Helpers::two_pow(index);
+        let mask = Bitmap::two_pow(index);
         bitmap & mask == mask
     }
 
     #[inline(always)]
     fn set_bit_at(bitmap: u128, index: felt252, value: bool) -> u128 {
-        let mask = Helpers::two_pow(index);
+        let mask = Bitmap::two_pow(index);
         if value {
             bitmap | mask
         } else {
@@ -302,60 +302,60 @@ mod tests {
 
     // Local imports
 
-    use super::{Helpers};
+    use super::{Bitmap};
 
     #[test]
     fn test_helpers_get_bit_at_0() {
         let bitmap = 0;
-        let result = Helpers::get_bit_at(bitmap, 0);
-        assert(!result, 'Helpers: Invalid bit');
+        let result = Bitmap::get_bit_at(bitmap, 0);
+        assert(!result, 'Bitmap: Invalid bit');
     }
 
     #[test]
     fn test_helpers_get_bit_at_1() {
         let bitmap = 255;
-        let result = Helpers::get_bit_at(bitmap, 1);
-        assert(result, 'Helpers: Invalid bit');
+        let result = Bitmap::get_bit_at(bitmap, 1);
+        assert(result, 'Bitmap: Invalid bit');
     }
 
     #[test]
     fn test_helpers_get_bit_at_10() {
         let bitmap = 3071;
-        let result = Helpers::get_bit_at(bitmap, 10);
-        assert(!result, 'Helpers: Invalid bit');
+        let result = Bitmap::get_bit_at(bitmap, 10);
+        assert(!result, 'Bitmap: Invalid bit');
     }
 
     #[test]
     fn test_helpers_set_bit_at_0() {
         let bitmap = 0;
-        let result = Helpers::set_bit_at(bitmap, 0, true);
-        assert(result == 1, 'Helpers: Invalid bitmap');
-        let result = Helpers::set_bit_at(bitmap, 0, false);
-        assert(result == bitmap, 'Helpers: Invalid bitmap');
+        let result = Bitmap::set_bit_at(bitmap, 0, true);
+        assert(result == 1, 'Bitmap: Invalid bitmap');
+        let result = Bitmap::set_bit_at(bitmap, 0, false);
+        assert(result == bitmap, 'Bitmap: Invalid bitmap');
     }
 
     #[test]
     fn test_helpers_set_bit_at_1() {
         let bitmap = 1;
-        let result = Helpers::set_bit_at(bitmap, 1, true);
-        assert(result == 3, 'Helpers: Invalid bitmap');
-        let result = Helpers::set_bit_at(bitmap, 1, false);
-        assert(result == bitmap, 'Helpers: Invalid bitmap');
+        let result = Bitmap::set_bit_at(bitmap, 1, true);
+        assert(result == 3, 'Bitmap: Invalid bitmap');
+        let result = Bitmap::set_bit_at(bitmap, 1, false);
+        assert(result == bitmap, 'Bitmap: Invalid bitmap');
     }
 
     #[test]
     fn test_helpers_set_bit_at_10() {
         let bitmap = 3;
-        let result = Helpers::set_bit_at(bitmap, 10, true);
-        assert(result == 1027, 'Helpers: Invalid bitmap');
-        let result = Helpers::set_bit_at(bitmap, 10, false);
-        assert(result == bitmap, 'Helpers: Invalid bitmap');
+        let result = Bitmap::set_bit_at(bitmap, 10, true);
+        assert(result == 1027, 'Bitmap: Invalid bitmap');
+        let result = Bitmap::set_bit_at(bitmap, 10, false);
+        assert(result == bitmap, 'Bitmap: Invalid bitmap');
     }
 
     #[test]
-    #[should_panic(expected: ('Helpers: Invalid index',))]
+    #[should_panic(expected: ('Bitmap: Invalid index',))]
     fn test_helpers_set_bit_at_128() {
         let bitmap = 0;
-        let result = Helpers::set_bit_at(bitmap, 128, true);
+        let result = Bitmap::set_bit_at(bitmap, 128, true);
     }
 }

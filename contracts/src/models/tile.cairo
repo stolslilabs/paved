@@ -166,6 +166,22 @@ impl TileImpl of TileTrait {
     }
 
     #[inline(always)]
+    fn north_oriented_adjacent_roads(self: Tile, at: Spot) -> Array<Spot> {
+        let orientation: Orientation = self.orientation.into();
+        let spot: Spot = at.antirotate(orientation);
+        let plan: Plan = self.plan.into();
+        plan.adjacent_roads(spot)
+    }
+
+    #[inline(always)]
+    fn north_oriented_adjacent_cities(self: Tile, at: Spot) -> Array<Spot> {
+        let orientation: Orientation = self.orientation.into();
+        let spot: Spot = at.antirotate(orientation);
+        let plan: Plan = self.plan.into();
+        plan.adjacent_cities(spot)
+    }
+
+    #[inline(always)]
     fn proxy_coordinates(self: Tile, direction: Direction) -> (u32, u32) {
         match direction {
             Direction::None => (self.x, self.y),

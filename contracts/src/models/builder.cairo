@@ -1,7 +1,7 @@
 // Internal imports
 
 use stolsli::constants;
-use stolsli::helpers::Helpers;
+use stolsli::helpers::bitmap::Bitmap;
 use stolsli::types::plan::Plan;
 use stolsli::types::order::Order;
 use stolsli::types::orientation::Orientation;
@@ -112,7 +112,7 @@ impl BuilderImpl of BuilderTrait {
         let index: u8 = role.into();
         self.assert_available(index);
         // [Effect] Set character as placed
-        let characters = Helpers::set_bit_at(self.characters.into(), index.into(), true);
+        let characters = Bitmap::set_bit_at(self.characters.into(), index.into(), true);
         self.characters = characters.try_into().unwrap();
         // [Effect] Update tile status
         tile.occupe(spot);
@@ -126,7 +126,7 @@ impl BuilderImpl of BuilderTrait {
         let index: u8 = character.index;
         self.assert_recoverable(index);
         // [Effect] Set character as not placed
-        let characters = Helpers::set_bit_at(self.characters.into(), index.into(), false);
+        let characters = Bitmap::set_bit_at(self.characters.into(), index.into(), false);
         self.characters = characters.try_into().unwrap();
         // [Effect] Update tile status
         tile.leave();
@@ -158,13 +158,13 @@ impl AssertImpl of AssertTrait {
 
     #[inline(always)]
     fn assert_available(self: Builder, index: u8) {
-        let placed = Helpers::get_bit_at(self.characters.into(), index.into());
+        let placed = Bitmap::get_bit_at(self.characters.into(), index.into());
         assert(!placed, errors::ALREADY_PLACED);
     }
 
     #[inline(always)]
     fn assert_recoverable(self: Builder, index: u8) {
-        let placed = Helpers::get_bit_at(self.characters.into(), index.into());
+        let placed = Bitmap::get_bit_at(self.characters.into(), index.into());
         assert(placed, errors::CHARACTER_NOT_PLACED);
     }
 }
