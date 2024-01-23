@@ -16,16 +16,16 @@ use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 #[generate_trait]
 impl RoadCount of RoadCountTrait {
     #[inline(always)]
-    fn starter(game: Game, tile: Tile, at: Spot, ref store: Store) -> u32 {
+    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> u32 {
         // [Compute] Setup recursion
         let mut visited: Felt252Dict<bool> = Default::default();
         // [Compute] Recursively count the points
         let mut score = 0;
-        RoadCount::looper(game, tile, at, ref score, ref visited, ref store);
+        RoadCount::over(game, tile, at, ref score, ref visited, ref store);
         score
     }
 
-    fn looper(
+    fn over(
         game: Game,
         tile: Tile,
         at: Spot,
@@ -39,7 +39,7 @@ impl RoadCount of RoadCountTrait {
                 // [Compute] Process the current move
                 Option::Some(north_oriented_move) => {
                     let mut move = north_oriented_move.rotate(tile.orientation.into());
-                    RoadCount::iterer(game, tile, move, ref score, ref visited, ref store);
+                    RoadCount::iter(game, tile, move, ref score, ref visited, ref store);
                     // [Check] If the points are zero, the structure is not finished
                     if 0 == score.into() {
                         break;
@@ -51,7 +51,7 @@ impl RoadCount of RoadCountTrait {
         }
     }
 
-    fn iterer(
+    fn iter(
         game: Game,
         tile: Tile,
         move: Move,
@@ -83,6 +83,6 @@ impl RoadCount of RoadCountTrait {
             score += 1;
         };
         visited.insert(visited_key, true);
-        RoadCount::looper(game, neighbor, move.spot, ref score, ref visited, ref store)
+        RoadCount::over(game, neighbor, move.spot, ref score, ref visited, ref store)
     }
 }

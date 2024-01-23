@@ -14,17 +14,17 @@ use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 #[generate_trait]
 impl Conflict of ConflictTrait {
     #[inline(always)]
-    fn starter(game: Game, tile: Tile, at: Spot, ref store: Store) -> bool {
+    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> bool {
         // [Compute] Setup recursion
         let mut visited: Felt252Dict<bool> = Default::default();
         let area: Area = tile.area(at);
         let visited_key = tile.get_key(area);
         visited.insert(visited_key, true);
         // [Compute] Recursively check characters
-        Conflict::looper(game, tile, at, ref visited, ref store)
+        Conflict::over(game, tile, at, ref visited, ref store)
     }
 
-    fn looper(
+    fn over(
         game: Game, tile: Tile, at: Spot, ref visited: Felt252Dict<bool>, ref store: Store
     ) -> bool {
         let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
@@ -33,7 +33,7 @@ impl Conflict of ConflictTrait {
                 // [Compute] Process the current move
                 Option::Some(north_oriented_move) => {
                     let mut move = north_oriented_move.rotate(tile.orientation.into());
-                    let status = Conflict::iterer(game, tile, move, ref visited, ref store);
+                    let status = Conflict::iter(game, tile, move, ref visited, ref store);
                     // [Check] If a character has been met, then stop the recursion
                     if status {
                         break status;
@@ -45,7 +45,7 @@ impl Conflict of ConflictTrait {
         }
     }
 
-    fn iterer(
+    fn iter(
         game: Game, tile: Tile, move: Move, ref visited: Felt252Dict<bool>, ref store: Store
     ) -> bool {
         // [Check] A tile exists at this position, otherwise the structure is not finished
@@ -72,8 +72,7 @@ impl Conflict of ConflictTrait {
         }
 
         // [Check] The neighbor is already visited, then do not count it
-        Conflict::looper(game, neighbor, move.spot, ref visited, ref store)
+        Conflict::over(game, neighbor, move.spot, ref visited, ref store)
     }
 }
-
 
