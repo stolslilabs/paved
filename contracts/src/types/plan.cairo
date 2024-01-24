@@ -319,6 +319,37 @@ impl PlanImpl of PlanTrait {
     }
 
     #[inline(always)]
+    fn wonder(self: Plan) -> Spot {
+        match self {
+            Plan::None => Spot::None,
+            Plan::CCCCCCCCC => Spot::None,
+            Plan::CCCCCFFFC => Spot::None,
+            Plan::CCCCCFRFC => Spot::None,
+            Plan::CFFFCFFFC => Spot::None,
+            Plan::CFFFCFRFC => Spot::None,
+            Plan::FFCFFFCFC => Spot::None,
+            Plan::FFCFFFCFF => Spot::None,
+            Plan::FFCFFFFFC => Spot::None,
+            Plan::FFFFCCCFF => Spot::None,
+            Plan::FFFFFFCFF => Spot::None,
+            Plan::RFFFRFCFR => Spot::None,
+            Plan::RFFFRFFFR => Spot::None,
+            Plan::RFRFCCCFR => Spot::None,
+            Plan::RFRFFFCFF => Spot::None,
+            Plan::RFRFFFCFR => Spot::None,
+            Plan::RFRFFFFFR => Spot::None,
+            Plan::RFRFRFCFF => Spot::None,
+            Plan::SFFFFFFFR => Spot::None,
+            Plan::SFRFRFCFR => Spot::None,
+            Plan::SFRFRFFFR => Spot::None,
+            Plan::SFRFRFRFR => Spot::None,
+            Plan::WCCCCCCCC => Spot::Center,
+            Plan::WFFFFFFFF => Spot::Center,
+            Plan::WFFFFFFFR => Spot::Center,
+        }
+    }
+
+    #[inline(always)]
     fn moves(self: Plan, from: Spot) -> Array<Move> {
         match self {
             Plan::None => array![],

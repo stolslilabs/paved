@@ -150,6 +150,12 @@ impl TileImpl of TileTrait {
     }
 
     #[inline(always)]
+    fn north_oriented_wonder(self: Tile) -> Spot {
+        let plan: Plan = self.plan.into();
+        plan.wonder()
+    }
+
+    #[inline(always)]
     fn north_oriented_moves(self: Tile, at: Spot) -> Array<Move> {
         let orientation: Orientation = self.orientation.into();
         let spot: Spot = at.antirotate(orientation);

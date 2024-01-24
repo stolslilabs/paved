@@ -46,7 +46,7 @@ mod helpers {
     mod bitmap;
     mod generic;
     mod conflict;
-    mod road;
+    mod simple;
     mod forest;
 }
 

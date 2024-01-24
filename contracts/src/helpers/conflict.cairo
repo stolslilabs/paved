@@ -7,6 +7,7 @@ use debug::PrintTrait;
 use stolsli::store::{Store, StoreImpl};
 use stolsli::types::spot::Spot;
 use stolsli::types::area::Area;
+use stolsli::types::plan::Plan;
 use stolsli::types::move::{Move, MoveImpl};
 use stolsli::models::game::Game;
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
@@ -17,62 +18,63 @@ impl Conflict of ConflictTrait {
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> bool {
         // [Compute] Setup recursion
         let mut visited: Felt252Dict<bool> = Default::default();
-        let area: Area = tile.area(at);
-        let visited_key = tile.get_key(area);
-        visited.insert(visited_key, true);
         // [Compute] Recursively check characters
-        Conflict::over(game, tile, at, ref visited, ref store)
+        let mut status = false;
+        Conflict::iter(game, tile, at, ref status, ref visited, ref store);
+        status
     }
 
-    fn over(
-        game: Game, tile: Tile, at: Spot, ref visited: Felt252Dict<bool>, ref store: Store
-    ) -> bool {
+    fn iter(
+        game: Game,
+        tile: Tile,
+        at: Spot,
+        ref status: bool,
+        ref visited: Felt252Dict<bool>,
+        ref store: Store
+    ) {
+        // [Check] The tile area is already visited, then pass
+        let area: Area = tile.area(at);
+        let visited_key = tile.get_key(area);
+        let is_visited = visited.get(visited_key);
+        if visited.get(visited_key) {
+            return;
+        };
+        visited.insert(visited_key, true);
+
+        // [Check] The tile handles a character
+        let spot: Spot = tile.occupied_spot.into();
+        let plan: Plan = tile.plan.into();
+        if 0 != spot.into() && tile.are_connected(at, spot) {
+            status = true;
+            return;
+        }
+
+        // [Compute] Process next tiles if exist
         let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
         loop {
             match north_oriented_moves.pop_front() {
                 // [Compute] Process the current move
                 Option::Some(north_oriented_move) => {
                     let mut move = north_oriented_move.rotate(tile.orientation.into());
-                    let status = Conflict::iter(game, tile, move, ref visited, ref store);
+
+                    // [Check] A tile exists at this position, otherwise the structure is not finished
+                    let (x, y) = tile.proxy_coordinates(move.direction);
+                    let tile_position: TilePosition = store.tile_position(game, x, y);
+                    if tile_position.is_zero() {
+                        continue;
+                    }
+
                     // [Check] If a character has been met, then stop the recursion
+                    let neighbor = store.tile(game, tile_position.tile_id);
+                    Conflict::iter(game, neighbor, move.spot, ref status, ref visited, ref store);
                     if status {
-                        break status;
+                        break;
                     };
                 },
                 // [Check] Otherwise returns the points
-                Option::None => { break false; },
+                Option::None => { break; },
             }
         }
-    }
-
-    fn iter(
-        game: Game, tile: Tile, move: Move, ref visited: Felt252Dict<bool>, ref store: Store
-    ) -> bool {
-        // [Check] A tile exists at this position, otherwise the structure is not finished
-        let (x, y) = tile.proxy_coordinates(move.direction);
-        let tile_position: TilePosition = store.tile_position(game, x, y);
-        if tile_position.is_zero() {
-            return false;
-        }
-        let neighbor = store.tile(game, tile_position.tile_id);
-
-        // [Check] The neighbor area is already visited, then stop local recursion
-        let area: Area = neighbor.area(move.spot);
-        let visited_key = neighbor.get_key(area);
-        let is_visited: bool = visited.get(visited_key);
-        if (is_visited) {
-            return false;
-        };
-        visited.insert(visited_key, true);
-
-        // [Check] The neighbor handles a character
-        let spot: Spot = neighbor.occupied_spot.into();
-        if 0 != spot.into() && neighbor.are_connected(move.spot, spot) {
-            return true;
-        }
-
-        // [Check] The neighbor is already visited, then do not count it
-        Conflict::over(game, neighbor, move.spot, ref visited, ref store)
     }
 }
 
