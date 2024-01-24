@@ -5,8 +5,10 @@ use stolsli::helpers::bitmap::Bitmap;
 use stolsli::types::plan::Plan;
 use stolsli::types::order::Order;
 use stolsli::types::orientation::Orientation;
-use stolsli::types::role::Role;
+use stolsli::types::role::{Role, RoleImpl};
 use stolsli::types::spot::Spot;
+use stolsli::types::layout::{Layout, LayoutImpl};
+use stolsli::types::category::Category;
 use stolsli::models::tile::{Tile, TileImpl};
 use stolsli::models::character::{Character, CharacterImpl};
 
@@ -117,7 +119,10 @@ impl BuilderImpl of BuilderTrait {
         // [Effect] Update tile status
         tile.occupe(spot);
         // [Return] New character
-        CharacterImpl::new(self.game_id, self.id, index.into(), tile.id, spot)
+        let layout: Layout = tile.into();
+        let category: Category = layout.get_category(spot);
+        let weight: u8 = role.weight(category);
+        CharacterImpl::new(self.game_id, self.id, index.into(), tile.id, spot, weight)
     }
 
     #[inline(always)]

@@ -24,6 +24,7 @@ struct Character {
     index: u8,
     tile_id: u32,
     spot: u8,
+    weight: u8,
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -41,7 +42,9 @@ struct CharacterPosition {
 #[generate_trait]
 impl CharacterImpl of CharacterTrait {
     #[inline(always)]
-    fn new(game_id: u32, builder_id: felt252, index: u8, tile_id: u32, spot: Spot) -> Character {
+    fn new(
+        game_id: u32, builder_id: felt252, index: u8, tile_id: u32, spot: Spot, weight: u8
+    ) -> Character {
         // [Check] Tile id is valid
         assert(0 != tile_id, errors::INVALID_TILE_ID);
         // [Check] Position is valid
@@ -52,6 +55,7 @@ impl CharacterImpl of CharacterTrait {
             index: index,
             tile_id: tile_id,
             spot: spot.into(),
+            weight: weight,
         }
     }
 
@@ -62,6 +66,7 @@ impl CharacterImpl of CharacterTrait {
         // [Effect] Update character
         self.tile_id = 0;
         self.spot = Spot::None.into();
+        self.weight = 0;
     }
 }
 
