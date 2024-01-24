@@ -14,14 +14,14 @@ use stolsli::models::game::{Character, CharacterPosition};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 
 #[generate_trait]
-impl RoadCount of RoadCountTrait {
+impl SimpleCount of SimpleCountTrait {
     #[inline(always)]
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> u32 {
         // [Compute] Setup recursion
         let mut visited: Felt252Dict<bool> = Default::default();
         // [Compute] Recursively count the points
         let mut score = 0;
-        RoadCount::iter(game, tile, at, ref score, ref visited, ref store);
+        SimpleCount::iter(game, tile, at, ref score, ref visited, ref store);
         score
     }
 
@@ -66,7 +66,7 @@ impl RoadCount of RoadCountTrait {
 
                     // [Check] If the points are zero, the structure is not finished
                     let neighbor = store.tile(game, tile_position.tile_id);
-                    RoadCount::iter(game, neighbor, move.spot, ref score, ref visited, ref store);
+                    SimpleCount::iter(game, neighbor, move.spot, ref score, ref visited, ref store);
                     if 0 == score.into() {
                         break;
                     };

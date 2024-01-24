@@ -81,6 +81,29 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
+    fn neighborhood(self: Store, game: Game, x: u32, y: u32) -> Array<Tile> {
+        // Avoid loop for gas efficiency
+        let mut neighbors: Array<Tile> = self.neighbors(game, x, y);
+        let northwest = self.tile_position(game, x - 1, y + 1);
+        if northwest.tile_id != 0 {
+            neighbors.append(self.tile(game, northwest.tile_id));
+        }
+        let northeast = self.tile_position(game, x + 1, y + 1);
+        if northeast.tile_id != 0 {
+            neighbors.append(self.tile(game, northeast.tile_id));
+        }
+        let southeast = self.tile_position(game, x + 1, y - 1);
+        if southeast.tile_id != 0 {
+            neighbors.append(self.tile(game, southeast.tile_id));
+        }
+        let southwest = self.tile_position(game, x - 1, y - 1);
+        if southwest.tile_id != 0 {
+            neighbors.append(self.tile(game, southwest.tile_id));
+        }
+        neighbors
+    }
+
+    #[inline(always)]
     fn character(self: Store, game: Game, builder_id: felt252, role: Role) -> Character {
         let index: u8 = role.into();
         get!(self.world, (game.id, builder_id, index), (Character))

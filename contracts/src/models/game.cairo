@@ -91,23 +91,46 @@ impl GameImpl of GameTrait {
                 Option::Some(north_oriented_start) => {
                     let start = north_oriented_start.rotate(tile.orientation.into());
                     let category: Category = layout.get_category(start);
-                    let (score, mut characters) = match category {
-                        Category::None => (0, array![]),
-                        Category::Farm => ForestCount::start(self, tile, start, ref store),
-                        Category::Road => GenericCount::start(self, tile, start, ref store),
-                        Category::City => GenericCount::start(self, tile, start, ref store),
-                        Category::Stop => (0, array![]),
-                        Category::Wonder => GenericCount::start(self, tile, start, ref store),
-                    };
-
-                    // [Effect] Solve and collect characters
-                    if 0 != score.into() && 0 != characters.len().into() {
-                        GenericCount::solve(self, score, ref characters, ref store);
-                    }
+                    self.assess_at(tile, start, category, ref store);
                 },
                 // [Check] Otherwise returns the characters
                 Option::None => { break; },
             };
+        };
+
+        // [Compute] Assess wonders in the neighborhood
+        let mut neighbors = store.neighborhood(self, tile.x, tile.y);
+        loop {
+            match neighbors.pop_front() {
+                // [Compute] Process the current neighbor
+                Option::Some(neighbor) => {
+                    let start = neighbor.north_oriented_wonder();
+                    // [Check] Skip if there is no wonder
+                    if start != Spot::None {
+                        self.assess_at(neighbor, start, Category::Wonder, ref store);
+                    };
+                },
+                // [Check] Otherwise returns the characters
+                Option::None => { break; },
+            };
+        }
+    }
+
+    #[inline(always)]
+    fn assess_at(self: Game, tile: Tile, at: Spot, category: Category, ref store: Store) {
+        // [Compute] Assess the spot
+        let (score, mut characters) = match category {
+            Category::None => (0, array![]),
+            Category::Farm => ForestCount::start(self, tile, at, ref store),
+            Category::Road => GenericCount::start(self, tile, at, ref store),
+            Category::City => GenericCount::start(self, tile, at, ref store),
+            Category::Stop => (0, array![]),
+            Category::Wonder => GenericCount::start(self, tile, at, ref store),
+        };
+
+        // [Effect] Solve and collect characters
+        if 0 != score.into() && 0 != characters.len().into() {
+            GenericCount::solve(self, score, ref characters, ref store);
         }
     }
 }

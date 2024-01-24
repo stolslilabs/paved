@@ -5,7 +5,7 @@ use debug::PrintTrait;
 // Internal imports
 
 use stolsli::store::{Store, StoreImpl};
-use stolsli::helpers::road::RoadCount;
+use stolsli::helpers::simple::SimpleCount;
 use stolsli::types::spot::{Spot, SpotImpl};
 use stolsli::types::area::Area;
 use stolsli::types::plan::Plan;
@@ -72,7 +72,7 @@ impl ForestCount of ForestCountTrait {
                     // [Check] If the area is not visited, then count it
                     if !visited.get(key) {
                         let mut road_score = 0;
-                        RoadCount::iter(game, tile, spot, ref road_score, ref visited, ref store);
+                        SimpleCount::iter(game, tile, spot, ref road_score, ref visited, ref store);
                         if road_score > 0 {
                             score += 1;
                         };
