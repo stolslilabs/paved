@@ -127,6 +127,7 @@ impl StoreImpl of StoreTrait {
 
     #[inline(always)]
     fn set_tile(self: Store, tile: Tile) {
+        // [Info] Tile is created when draw then build later and cannot be removed.
         if tile.orientation != Orientation::None.into() {
             let position: TilePosition = tile.into();
             set!(self.world, (position))
@@ -136,10 +137,9 @@ impl StoreImpl of StoreTrait {
 
     #[inline(always)]
     fn set_character(self: Store, character: Character) {
-        if character.tile_id != 0 {
-            let position: CharacterPosition = character.into();
-            set!(self.world, (position))
-        }
+        // [Info] Character are created when placed and can be removed.
+        let position: CharacterPosition = character.into();
+        set!(self.world, (position));
         set!(self.world, (character))
     }
 }

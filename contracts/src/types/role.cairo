@@ -2,6 +2,10 @@
 
 use debug::PrintTrait;
 
+// Internal imports
+
+use stolsli::types::category::Category;
+
 // Constants
 
 const NONE: felt252 = 0;
@@ -21,6 +25,40 @@ enum Role {
     Paladin,
     Algrim,
     Woodsman,
+}
+
+#[generate_trait]
+impl RoleImpl of RoleTrait {
+    #[inline(always)]
+    fn weight(self: Role, category: Category) -> u8 {
+        match self {
+            Role::None => 0,
+            Role::Lord => 1,
+            Role::Lady => 1,
+            Role::Adventurer => {
+                match category {
+                    Category::None => 1,
+                    Category::Farm => 1,
+                    Category::Road => 2,
+                    Category::City => 1,
+                    Category::Stop => 1,
+                    Category::Wonder => 1,
+                }
+            },
+            Role::Paladin => {
+                match category {
+                    Category::None => 1,
+                    Category::Farm => 1,
+                    Category::Road => 1,
+                    Category::City => 2,
+                    Category::Stop => 1,
+                    Category::Wonder => 1,
+                }
+            },
+            Role::Algrim => 1,
+            Role::Woodsman => 1,
+        }
+    }
 }
 
 impl RoleIntoFelt252 of Into<Role, felt252> {
@@ -111,7 +149,7 @@ mod tests {
 
     // Local imports
 
-    use super::{Role, NONE, LORD, LADY, ADVENTURER, PALADIN, ALGRIM, WOODSMAN,};
+    use super::{Role, RoleImpl, Category, NONE, LORD, LADY, ADVENTURER, PALADIN, ALGRIM, WOODSMAN,};
 
     // Constants
 
@@ -170,5 +208,15 @@ mod tests {
     #[test]
     fn test_unknown_u8_into_role() {
         assert(Role::None == UNKNOWN_U8.into(), 'Role: wrong None');
+    }
+
+    #[test]
+    fn test_weight_paladin_city() {
+        assert(Role::Paladin.weight(Category::City) == 2, 'Role: wrong weight');
+    }
+
+    #[test]
+    fn test_weight_paladin_road() {
+        assert(Role::Paladin.weight(Category::Road) == 1, 'Role: wrong weight');
     }
 }

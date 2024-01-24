@@ -93,7 +93,7 @@ impl GenericCount of GenericCountTrait {
 
     fn solve(self: Game, score: u32, ref characters: Array<Character>, ref store: Store) {
         // [Compute] Find the winner
-        let mut winner_count: u32 = 0;
+        let mut winner_weight: u32 = 0;
         let mut winner: felt252 = 0;
         let mut solved: bool = false;
         let mut counter: Felt252Dict<u32> = Default::default();
@@ -101,8 +101,9 @@ impl GenericCount of GenericCountTrait {
             match characters.pop_front() {
                 Option::Some(mut character) => {
                     // [Compute] Update builder counter
-                    let builder_count = counter.get(character.builder_id) + 1;
-                    counter.insert(character.builder_id, builder_count);
+                    let weight: u32 = character.weight.into();
+                    let builder_weight = counter.get(character.builder_id) + weight;
+                    counter.insert(character.builder_id, builder_weight);
 
                     // [Effect] Collect the character's builder
                     let mut tile = store.tile(self, character.tile_id);
@@ -120,11 +121,11 @@ impl GenericCount of GenericCountTrait {
 
                     // [Compute] Update winner if needed
                     if builder.id != winner {
-                        if builder_count > winner_count {
+                        if builder_weight > winner_weight {
                             winner = builder.id;
-                            winner_count = builder_count;
+                            winner_weight = builder_weight;
                             solved = true;
-                        } else if builder_count == winner_count {
+                        } else if builder_weight == winner_weight {
                             solved = false;
                         };
                     };
