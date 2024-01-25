@@ -17,6 +17,10 @@ const ALGRIM: felt252 = 'ALGRIM';
 const WOODSMAN: felt252 = 'WOODSMAN';
 const HERDSMAN: felt252 = 'HERDSMAN';
 
+mod errors {
+    const ROLE_NOT_ALLOWED: felt252 = 'Role: not allowed';
+}
+
 #[derive(Copy, Drop, Serde, PartialEq, Introspection)]
 enum Role {
     None,
@@ -218,6 +222,14 @@ impl RoleImpl of RoleTrait {
                 Category::Wonder => false,
             },
         }
+    }
+}
+
+#[generate_trait]
+impl AssertImpl of AssertTrait {
+    #[inline(always)]
+    fn assert_is_allowed(self: Role, category: Category) {
+        assert(self.is_allowed(category), errors::ROLE_NOT_ALLOWED);
     }
 }
 

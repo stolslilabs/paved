@@ -4,6 +4,7 @@ use debug::PrintTrait;
 
 // Internal imports
 
+use stolsli::constants;
 use stolsli::store::{Store, StoreImpl};
 use stolsli::types::spot::Spot;
 use stolsli::types::area::Area;
@@ -91,12 +92,15 @@ impl GenericCount of GenericCountTrait {
         }
     }
 
-    fn solve(self: Game, score: u32, ref characters: Array<Character>, ref store: Store) {
+    fn solve(
+        self: Game, score: u32, base_points: u32, ref characters: Array<Character>, ref store: Store
+    ) {
         // [Compute] Find the winner
         let mut winner_weight: u32 = 0;
         let mut winner: felt252 = 0;
         let mut solved: bool = false;
         let mut counter: Felt252Dict<u32> = Default::default();
+        let mut powers: Felt252Dict<u32> = Default::default();
         loop {
             match characters.pop_front() {
                 Option::Some(mut character) => {
@@ -104,6 +108,13 @@ impl GenericCount of GenericCountTrait {
                     let weight: u32 = character.weight.into();
                     let builder_weight = counter.get(character.builder_id) + weight;
                     counter.insert(character.builder_id, builder_weight);
+
+                    // [Compute] Update builder power
+                    let power: u32 = character.power.into();
+                    let builder_power = powers.get(character.builder_id);
+                    if power > builder_power {
+                        powers.insert(character.builder_id, power);
+                    };
 
                     // [Effect] Collect the character's builder
                     let mut tile = store.tile(self, character.tile_id);
@@ -137,7 +148,8 @@ impl GenericCount of GenericCountTrait {
         // [Effect] Update the builder
         if solved {
             let mut builder = store.builder(self, winner);
-            builder.score += score;
+            let power = powers.get(winner);
+            builder.score += score * base_points * power;
             store.set_builder(builder);
         };
     }

@@ -45,9 +45,10 @@ mod layouts {
 mod helpers {
     mod bitmap;
     mod generic;
-    mod conflict;
     mod simple;
     mod forest;
+    mod wonder;
+    mod conflict;
 }
 
 mod models {

@@ -4,6 +4,7 @@ use debug::PrintTrait;
 
 // Internal imports
 
+use stolsli::constants;
 use stolsli::store::{Store, StoreImpl};
 use stolsli::helpers::simple::SimpleCount;
 use stolsli::types::spot::{Spot, SpotImpl};
@@ -13,7 +14,8 @@ use stolsli::types::role::Role;
 use stolsli::types::direction::Direction;
 use stolsli::types::move::{Move, MoveImpl};
 use stolsli::models::game::Game;
-use stolsli::models::game::{Character, CharacterPosition};
+use stolsli::models::builder::{Builder, BuilderImpl};
+use stolsli::models::character::{Character, CharacterPosition};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 
 #[generate_trait]
@@ -164,5 +166,33 @@ impl ForestCount of ForestCountTrait {
                 Option::None => { break; },
             }
         }
+    }
+
+    fn solve(
+        self: Game, score: u32, base_points: u32, ref characters: Array<Character>, ref store: Store
+    ) {
+        // [Compute] Find the winner
+        let length = characters.len();
+        loop {
+            match characters.pop_front() {
+                Option::Some(mut character) => {
+                    // [Effect] Collect the character's builder
+                    let mut tile = store.tile(self, character.tile_id);
+                    let mut builder = store.builder(self, character.builder_id);
+                    builder.recover(ref character, ref tile);
+                    builder.score += score * base_points / length;
+
+                    // [Effect] Update the character
+                    store.set_character(character);
+
+                    // [Effect] Update the tile
+                    store.set_tile(tile);
+
+                    // [Effect] Update the builder
+                    store.set_builder(builder);
+                },
+                Option::None => { break; },
+            };
+        };
     }
 }

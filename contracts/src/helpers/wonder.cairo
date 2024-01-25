@@ -5,23 +5,33 @@ use debug::PrintTrait;
 // Internal imports
 
 use stolsli::store::{Store, StoreImpl};
-use stolsli::helpers::generic::GenericCount;
 use stolsli::types::spot::Spot;
 use stolsli::types::area::Area;
 use stolsli::types::move::{Move, MoveImpl};
 use stolsli::models::game::Game;
+use stolsli::models::character::{Character, CharacterPosition};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 
 #[generate_trait]
-impl SimpleCount of SimpleCountTrait {
+impl WonderCount of WonderCountTrait {
     #[inline(always)]
-    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> u32 {
+    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Character) {
         // [Compute] Setup recursion
         let mut visited: Felt252Dict<bool> = Default::default();
+        // [Check] Starting spot is occupied, otherwise no need to process further
+        let spot: Spot = tile.occupied_spot.into();
+        if spot != at {
+            return (0, Zeroable::zero());
+        };
+        // [Compute] Extract the character
+        let character_position: CharacterPosition = store
+            .character_position(game, tile, spot.into());
+        let character = store
+            .character(game, character_position.builder_id, character_position.index.into());
         // [Compute] Recursively count the points
         let mut score = 0;
-        SimpleCount::iter(game, tile, at, ref score, ref visited, ref store);
-        score
+        WonderCount::iter(game, tile, at, ref score, ref visited, ref store);
+        (score, character)
     }
 
     fn iter(
@@ -65,7 +75,7 @@ impl SimpleCount of SimpleCountTrait {
 
                     // [Check] If the points are zero, the structure is not finished
                     let neighbor = store.tile(game, tile_position.tile_id);
-                    SimpleCount::iter(game, neighbor, move.spot, ref score, ref visited, ref store);
+                    WonderCount::iter(game, neighbor, move.spot, ref score, ref visited, ref store);
                     if 0 == score.into() {
                         break;
                     };
@@ -74,5 +84,13 @@ impl SimpleCount of SimpleCountTrait {
                 Option::None => { break; },
             }
         }
+    }
+
+    fn solve(self: Game, base_points: u32, ref character: Character, ref store: Store) {
+        // [Effect] Update the builder
+        let mut builder = store.builder(self, character.builder_id);
+        let power: u32 = character.power.into();
+        builder.score += base_points * power;
+        store.set_builder(builder);
     }
 }

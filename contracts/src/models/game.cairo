@@ -13,13 +13,14 @@ use stolsli::constants;
 use stolsli::store::{Store, StoreImpl};
 use stolsli::helpers::bitmap::Bitmap;
 use stolsli::helpers::generic::GenericCount;
-use stolsli::helpers::conflict::Conflict;
 use stolsli::helpers::forest::ForestCount;
+use stolsli::helpers::wonder::WonderCount;
+use stolsli::helpers::conflict::Conflict;
 use stolsli::types::plan::Plan;
 use stolsli::types::spot::{Spot, SpotImpl};
 use stolsli::types::area::Area;
 use stolsli::types::role::Role;
-use stolsli::types::category::Category;
+use stolsli::types::category::{Category, CategoryImpl};
 use stolsli::types::layout::{Layout, LayoutImpl};
 use stolsli::types::direction::{Direction, DirectionImpl};
 use stolsli::types::orientation::Orientation;
@@ -119,6 +120,7 @@ impl GameImpl of GameTrait {
     #[inline(always)]
     fn assess_at(self: Game, tile: Tile, at: Spot, category: Category, ref store: Store) {
         // [Compute] Assess the spot
+        let base = category.base_points();
         match category {
             Category::None => { return; },
             Category::Forest => {
@@ -128,32 +130,32 @@ impl GameImpl of GameTrait {
                 );
                 // [Effect] Solve and collect characters
                 if 0 != woodsman_score.into() && 0 != woodsmen.len().into() {
-                    GenericCount::solve(self, woodsman_score, ref woodsmen, ref store);
+                    GenericCount::solve(self, woodsman_score, base, ref woodsmen, ref store);
                 }
                 if 0 != herdsman_score.into() && 0 != herdsmen.len().into() {
-                    GenericCount::solve(self, herdsman_score, ref herdsmen, ref store);
+                    GenericCount::solve(self, herdsman_score, base, ref herdsmen, ref store);
                 }
             },
             Category::Road => {
                 let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters
                 if 0 != score.into() && 0 != characters.len().into() {
-                    GenericCount::solve(self, score, ref characters, ref store);
+                    GenericCount::solve(self, score, base, ref characters, ref store);
                 }
             },
             Category::City => {
                 let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters
                 if 0 != score.into() && 0 != characters.len().into() {
-                    GenericCount::solve(self, score, ref characters, ref store);
+                    GenericCount::solve(self, score, base, ref characters, ref store);
                 }
             },
             Category::Stop => { return; },
             Category::Wonder => {
-                let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
-                // [Effect] Solve and collect characters
-                if 0 != score.into() && 0 != characters.len().into() {
-                    GenericCount::solve(self, score, ref characters, ref store);
+                let (score, mut character) = WonderCount::start(self, tile, at, ref store);
+                // [Effect] Solve and collect the character
+                if 0 != score.into() {
+                    WonderCount::solve(self, base, ref character, ref store);
                 }
             },
         };

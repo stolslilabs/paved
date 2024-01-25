@@ -5,7 +5,7 @@ use stolsli::helpers::bitmap::Bitmap;
 use stolsli::types::plan::Plan;
 use stolsli::types::order::Order;
 use stolsli::types::orientation::Orientation;
-use stolsli::types::role::{Role, RoleImpl};
+use stolsli::types::role::{Role, RoleImpl, AssertImpl as CharacterAssertImpl};
 use stolsli::types::spot::Spot;
 use stolsli::types::layout::{Layout, LayoutImpl};
 use stolsli::types::category::Category;
@@ -113,16 +113,19 @@ impl BuilderImpl of BuilderTrait {
         // [Check] Available character
         let index: u8 = role.into();
         self.assert_available(index);
+        // [Check] Character compatibility
+        let layout: Layout = tile.into();
+        let category: Category = layout.get_category(spot);
+        role.assert_is_allowed(category);
         // [Effect] Set character as placed
         let characters = Bitmap::set_bit_at(self.characters.into(), index.into(), true);
         self.characters = characters.try_into().unwrap();
         // [Effect] Update tile status
         tile.occupe(spot);
         // [Return] New character
-        let layout: Layout = tile.into();
-        let category: Category = layout.get_category(spot);
         let weight: u8 = role.weight(category);
-        CharacterImpl::new(self.game_id, self.id, index.into(), tile.id, spot, weight)
+        let power: u8 = role.power(category);
+        CharacterImpl::new(self.game_id, self.id, index.into(), tile.id, spot, weight, power)
     }
 
     #[inline(always)]
