@@ -69,7 +69,7 @@ export const Tile = () => {
     });
   };
 
-  const spots = ['NW', 'W', 'SW', 'N', 'C', 'S', 'NE', 'E', 'SE']
+  const spots = ["NW", "W", "SW", "N", "C", "S", "NE", "E", "SE"];
 
   return tile ? (
     <div className="w-48 h-48 border-2 border-black cursor-pointer bg-white bottom-0 right-0 absolute">
@@ -83,17 +83,16 @@ export const Tile = () => {
       />
       <div className="w-full h-full absolute grid grid-rows-3 grid-flow-col gap-2 justify-items-center items-center">
         {spots.map((_spot, index) => (
-          <Spot
-            key={index}
-            index={index}
-          />
+          <Spot key={index} index={index} />
         ))}
       </div>
     </div>
   ) : (
-    <div className="w-48 h-48 border-2 border-black bottom-0 right-0 absolute cursor-pointer bg-white" onClick={handleDrawClick}>
-      <FontAwesomeIcon icon={faEye} />
-      Click to draw a tile
+    <div
+      className="w-48 h-48 border-2 border-black bottom-0 right-0 absolute cursor-pointer flex justify-center hover:bg-white/30"
+      onClick={handleDrawClick}
+    >
+      <FontAwesomeIcon className="self-center h-12" icon={faEye} />
     </div>
   );
 };

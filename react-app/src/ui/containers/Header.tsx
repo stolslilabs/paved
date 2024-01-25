@@ -1,18 +1,8 @@
-import { Initialize } from "../components/Initialize";
-import { Create } from "../components/Create";
-
 export const Header = () => {
   return (
-    <div className="z-20 flex justify-between items-center border-2 h-20 absolute top-0 w-full bg-white uppercase">
-      <div className="flex justify-center items-center border-2 w-72 h-16">
-        LINKS
-      </div>
-      <div className="flex justify-center items-center border-2 grow h-16">
-        GAMEPLAY INFO
-      </div>
-      <div className="flex justify-center items-center border-2 w-72 h-16">
-        <Initialize />
-        <Create />
+    <div className="z-20 flex justify-center items-center absolute top-0 w-full  uppercase px-4 text-white">
+      <div className="flex justify-center items-center text-3xl">
+        Tiledom v0.1.0
       </div>
     </div>
   );

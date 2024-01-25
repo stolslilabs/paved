@@ -6,7 +6,6 @@ import {
 import { ReactNode, createContext, useContext, useMemo } from "react";
 import { Account, RpcProvider } from "starknet";
 import { SetupResult } from "./generated/setup";
-import { is } from "@react-three/fiber/dist/declarations/src/core/utils";
 
 interface DojoContextType extends SetupResult {
   masterAccount: Account;
@@ -60,9 +59,11 @@ export const DojoProvider = ({
     }),
   });
 
-  if (!account && !isDeploying) {
-    create();
-  }
+  console.log(account);
+
+  // if (!account && !isDeploying) {
+  //   create();
+  // }
 
   return (
     <DojoContext.Provider

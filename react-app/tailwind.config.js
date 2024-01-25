@@ -17,6 +17,9 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        'body': ['Pixelify Sans', 'mono'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

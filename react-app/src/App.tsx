@@ -1,36 +1,23 @@
-import { ThreeGrid } from "./ui/components/Three";
-import { Overlay } from "./ui/modules/Overlay";
 import "./App.css";
-import { useMemo } from "react";
-import { KeyboardControlsEntry, KeyboardControls } from "@react-three/drei";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import GameScreen from "./ui/screens/GameScreen";
+import { GameLobby } from "./ui/screens/GameLobby";
+import { useQueryParams } from "./hooks/useQueryParams";
 
-export enum Controls {
-  clockwise = "clockwise",
-  counterClockwise = "counterClockwise",
-}
-
+export const CoreScreen = () => {
+  const { gameId } = useQueryParams();
+  return <>{gameId ? <GameScreen /> : <GameLobby />}</>;
+};
 function App() {
-  const map = useMemo<KeyboardControlsEntry<Controls>[]>(
-    () => [
-      { name: Controls.clockwise, keys: ["KeyW"] },
-      { name: Controls.counterClockwise, keys: ["KeyQ"] },
-    ],
-    []
-  );
+
   return (
-    <div className="relative w-screen h-screen flex flex-col">
-      <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
-        <Overlay />
-        <div
-          id="canvas-container"
-          className="z-10 left-0 relative top-0 overflow-hidden grow"
-        >
-          <KeyboardControls map={map}>
-            <ThreeGrid />
-          </KeyboardControls>
-        </div>
-      </main>
-    </div>
+    <>
+      <Router>
+        <Routes>
+          <Route path="/" element={<CoreScreen />} />
+        </Routes>
+      </Router>
+    </>
   );
 }
 

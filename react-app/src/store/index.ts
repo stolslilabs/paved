@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export interface Tile {
+  col: number;
+  row: number;
+}
+
 interface GameState {
   gameId: number;
   setGameId: (gameId: number) => void;
@@ -18,6 +23,8 @@ interface GameState {
   setX: (x: number) => void;
   y: number;
   setY: (y: number) => void;
+  selectedTile: Tile;
+  setSelectedTile: (tile: Tile) => void;
 }
 
 export const useGameStore = create<GameState>()(
@@ -48,6 +55,8 @@ export const useGameStore = create<GameState>()(
         y = y + 0x7fffffff;
         set({ y });
       },
+      selectedTile: { col: 0, row: 0 },
+      setSelectedTile: (tile) => set({ selectedTile: tile }),
     }),
     {
       name: "game-storage", // name of the item in the storage (must be unique)

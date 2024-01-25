@@ -139,7 +139,7 @@ export const getSpotFromIndex = (index: number) => {
     default:
       return 0;
   }
-}
+};
 
 export const getIndexFromSpot = (spot: number) => {
   switch (spot) {
@@ -164,7 +164,7 @@ export const getIndexFromSpot = (spot: number) => {
     default:
       return -1;
   }
-}
+};
 
 export const getRole = (index: number) => {
   switch (index) {
@@ -183,7 +183,7 @@ export const getRole = (index: number) => {
     default:
       return "None";
   }
-}
+};
 
 export const getCharacterFromIndex = (index: number) => {
   switch (index) {
@@ -202,7 +202,7 @@ export const getCharacterFromIndex = (index: number) => {
     default:
       return 0;
   }
-}
+};
 
 export const getIndexFromCharacter = (character: number) => {
   switch (character) {
@@ -221,4 +221,8 @@ export const getIndexFromCharacter = (character: number) => {
     default:
       return -1;
   }
-}
+};
+
+export const offset = 0x7fffffff;
+
+export const other_offset = Math.floor(30 / 2);

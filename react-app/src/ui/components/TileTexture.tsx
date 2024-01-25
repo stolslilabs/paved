@@ -1,17 +1,17 @@
 import * as THREE from "three";
 import { useDojo } from "@/dojo/useDojo";
 import { useGameStore } from "@/store";
-import { getImage } from "@/utils";
+import { getImage, offset, other_offset } from "@/utils";
 import { useComponentValue } from "@dojoengine/react";
 import { Entity } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { loader } from "./TileBackground";
 
 export const createSquareGeometry = (size: any) => {
   return new THREE.BoxGeometry(size, size, 0.1);
 };
 
-// we can replicate the position of the image, without having to loop through the tiles
 export const TileTexture = ({ entity, size }: any) => {
   const {
     account: { account },
@@ -19,53 +19,29 @@ export const TileTexture = ({ entity, size }: any) => {
       clientComponents: { Builder, Tile },
     },
   } = useDojo();
+  const meshRef = useRef<any>();
+  const [backgroundImage, setBackgroundImage] = useState(getImage(0));
+  const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
+  const [rotation, setRotation] = useState(1);
 
-  const { gameId, orientation } = useGameStore();
+  const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
 
   const tile = useComponentValue(Tile, entity);
 
-  const builder = useComponentValue(
-    Builder,
-    getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]) as Entity
-  );
-
-  const activeTile = useComponentValue(
-    Tile,
-    getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(builder ? builder.tile_id : 0),
-    ]) as Entity
-  );
-
-  const meshRef = useRef<any>();
-
-  const [backgroundImage, setBackgroundImage] = useState(getImage(0));
-  const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
-  const [opacity, setOpacity] = useState(1);
-  const [rotation, setRotation] = useState(1);
-
   useEffect(() => {
-    const loader = new THREE.TextureLoader();
     loader.load(backgroundImage, (loadedTexture) => {
       loadedTexture.center.set(0.5, 0.5);
       loadedTexture.rotation = rotation;
       setTexture(loadedTexture);
     });
-  }, [backgroundImage, rotation]);
+  }, [backgroundImage, rotation, tile]);
 
   useEffect(() => {
     if (tile) {
       setBackgroundImage(getImage(tile));
       setRotation((Math.PI / 2) * (1 - tile.orientation));
-      setOpacity(1);
     }
-  }, [tile, activeTile, orientation]);
-
-  const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
-
-  const offset = 0x7fffffff;
-
-  const other_offset = Math.floor(30 / 2);
+  }, [tile]);
 
   const position = useMemo(() => {
     return getSquarePosition({
@@ -79,16 +55,10 @@ export const TileTexture = ({ entity, size }: any) => {
     <>
       <mesh
         ref={meshRef}
-        position={[position.x, position.y, 0]}
+        position={[position.x, position.y, 0.01]}
         geometry={squareGeometry}
       >
-        {texture && (
-          <meshStandardMaterial
-            map={texture}
-            transparent={true}
-            opacity={opacity}
-          />
-        )}
+        <meshStandardMaterial map={texture} transparent={true} opacity={1} />
       </mesh>
     </>
   );
