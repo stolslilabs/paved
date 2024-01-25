@@ -1,6 +1,6 @@
 import { useDojo } from "@/dojo/useDojo";
 import { useEntityQuery } from "@dojoengine/react";
-import { Has } from "@dojoengine/recs";
+import { Has, NotValue } from "@dojoengine/recs";
 import { TileTexture } from "./TileTexture";
 
 export const TileTextures = ({ squareSize }: { squareSize: number }) => {
@@ -10,7 +10,12 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
     },
   } = useDojo();
 
-  const tileEntities = useEntityQuery([Has(Tile)]);
+  const tileEntities = useEntityQuery([
+    Has(Tile),
+    NotValue(Tile, { orientation: 0 }),
+  ]);
+
+  console.log(tileEntities);
 
   return (
     <>

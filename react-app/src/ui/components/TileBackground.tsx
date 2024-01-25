@@ -4,9 +4,11 @@ import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { useGameStore } from "../../store";
-import { getImage } from "../../utils";
+import { getImage, offset } from "../../utils";
 import { useDojo } from "@/dojo/useDojo";
 import { createSquareGeometry } from "./TileTexture";
+
+export const loader = new THREE.TextureLoader();
 
 export const TileBackground = ({
   position,
@@ -22,24 +24,24 @@ export const TileBackground = ({
       clientComponents: { Tile, TilePosition },
     },
   } = useDojo();
-
+  const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
   const meshRef = useRef<any>();
 
-  const [backgroundImage, setBackgroundImage] = useState(getImage(0));
+  const [backgroundImage, setBackgroundImage] = useState<null | string>(
+    getImage(0)
+  );
   const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
-  const [opacity, setOpacity] = useState(1);
+  const [opacity, setOpacity] = useState(0);
   const [rotation, setRotation] = useState(1);
 
-  const [zPosition, setZPosition] = useState(0);
-
-  const { gameId, orientation, x, y, setX, setY } = useGameStore();
+  const { gameId, orientation, setX, setY } = useGameStore();
 
   const tilePosition = useComponentValue(
     TilePosition,
     getEntityIdFromKeys([
       BigInt(gameId),
-      BigInt(col + 0x7fffffff),
-      BigInt(row + 0x7fffffff),
+      BigInt(col + offset),
+      BigInt(row + offset),
     ]) as Entity
   );
 
@@ -56,31 +58,25 @@ export const TileBackground = ({
   }, [selectedTile, col, row]);
 
   useEffect(() => {
-    const loader = new THREE.TextureLoader();
-    loader.load(backgroundImage, (loadedTexture) => {
-      loadedTexture.center.set(0.5, 0.5);
-      loadedTexture.rotation = rotation;
-      setTexture(loadedTexture);
-    });
-  }, [backgroundImage, rotation]);
+    if (backgroundImage) {
+      loader.load(backgroundImage, (loadedTexture) => {
+        loadedTexture.center.set(0.5, 0.5);
+        loadedTexture.rotation = rotation;
+        setTexture(loadedTexture);
+      });
+    }
+  }, [backgroundImage, rotation, isSelected]);
 
   useEffect(() => {
-    if (tile) {
-      setBackgroundImage(getImage(tile));
-      setRotation((Math.PI / 2) * (1 - tile.orientation));
-      setOpacity(1);
-    } else if (isSelected && activeTile) {
-      setBackgroundImage(getImage(activeTile));
-      setRotation((Math.PI / 2) * (1 - orientation));
-      setOpacity(0.8);
-    } else {
-      setBackgroundImage(getImage(0));
-      setRotation(0);
-      setOpacity(1);
+    if (!isSelected && !tile) {
+      setOpacity(0);
+      setBackgroundImage(null);
     }
-  }, [tile, isSelected, activeTile, orientation]);
+  }, [isSelected, tile]);
 
-  const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
+  useEffect(() => {
+    setRotation(calculateRotation(orientation));
+  }, [orientation]);
 
   const handleMeshClick = () => {
     onTileClick(col, row);
@@ -98,36 +94,28 @@ export const TileBackground = ({
     } else {
       setBackgroundImage(getImage(1));
     }
-    setOpacity(1);
-    setZPosition(0.01);
+    setOpacity(0.7);
   };
 
   const calculateRotation = (orientation: any) =>
     (Math.PI / 2) * (1 - orientation);
 
   const handlePointerLeave = () => {
-    let image, rotation;
+    let image;
 
     if (tile) {
-      image = getImage(tile);
-      rotation = calculateRotation(tile.orientation);
       setOpacity(1);
     } else if (isSelected && activeTile) {
       image = getImage(activeTile);
-      rotation = calculateRotation(orientation);
       setOpacity(1);
     } else {
-      rotation = 0;
-      setOpacity(1);
-      setBackgroundImage(getImage(0));
+      setOpacity(0);
+      setBackgroundImage(null);
     }
 
     if (image) {
       setBackgroundImage(image);
     }
-    setRotation(rotation);
-
-    setZPosition(0);
   };
 
   return (
@@ -137,27 +125,15 @@ export const TileBackground = ({
         onPointerLeave={handlePointerLeave}
         onClick={handleMeshClick}
         ref={meshRef}
-        position={[position[0], position[1], zPosition]}
+        position={[position[0], position[1], 0]}
         geometry={squareGeometry}
       >
-        {texture && (
-          <meshStandardMaterial
-            map={texture}
-            transparent={true}
-            opacity={opacity}
-          />
-        )}
+        <meshStandardMaterial
+          map={texture}
+          transparent={true}
+          opacity={opacity}
+        />
       </mesh>
-      <lineSegments
-        geometry={new THREE.EdgesGeometry(squareGeometry)}
-        material={
-          new THREE.LineBasicMaterial({
-            color: "gray",
-            linewidth: 1,
-          })
-        }
-        position={position}
-      />
     </>
   );
 };

@@ -1,25 +1,25 @@
 import * as THREE from "three";
 import { useEffect, useRef } from "react";
-import { Canvas, extend, useFrame } from "@react-three/fiber";
+import { Canvas, extend } from "@react-three/fiber";
 
 import {
   OrbitControls,
   PerspectiveCamera,
   MapControls,
-  Bounds,
   useKeyboardControls,
+  Bounds,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
 import { TileGrid } from "./TileGrid";
-import { Controls } from "@/App";
+import { Controls } from "@/ui/screens/GameScreen";
 import { useGameStore } from "@/store";
 extend({ OrbitControls });
 
 export const ThreeGrid = () => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
-
   return (
     <Canvas className="z-1" shadows>
+      <color attach="background" args={["#ADD8E6"]} />
       <Keyboard />
       <mesh>
         <PerspectiveCamera

@@ -1,8 +1,5 @@
 import { useDojo } from "../../dojo/useDojo";
-import { Event, InvokeTransactionReceiptResponse, shortString } from "starknet";
 import { Button } from "@/components/ui/button";
-import { useGameStore } from "../../store";
-import { getEntityComponents } from "@dojoengine/recs";
 
 export const Initialize = () => {
   const {

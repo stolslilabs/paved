@@ -4,24 +4,28 @@ import { Order } from "../components/Order";
 import { Character } from "../components/Character";
 
 export const Footer = () => {
-  const characters = ["Lord", "Lady", "Adventurer", "Paladin", "Algrim", "Woodsman"];
+  const characters = [
+    "Lord",
+    "Lady",
+    "Adventurer",
+    "Paladin",
+    "Algrim",
+    "Woodsman",
+  ];
 
   return (
-    <footer className="z-20 flex justify-between items-center border-2 h-20 absolute bottom-0 bg-white w-full">
-      <div className="flex justify-center items-center border-2 w-72 h-16">
+    <footer className="z-20 flex justify-between items-center  h-20 absolute bottom-0  w-full">
+      <div className="flex justify-center items-center ">
         <Order />
         <Score />
       </div>
-      <div className="flex justify-center items-center border-2 grow h-16 gap-8">
+      <div className="flex justify-center items-center  grow gap-8">
         {characters.map((_character, index) => (
-          <Character
-            key={index}
-            index={index}
-          />
+          <Character key={index} index={index} />
         ))}
       </div>
-      <div className="flex justify-center items-center border-2 w-72 h-16">
-        <div className="h-12 w-48 bg-white flex justify-center items-center border-2">
+      <div className="flex justify-center items-center ">
+        <div className="h-12 w-48 flex justify-center items-center ">
           COOLDOWN
         </div>
         <Count />

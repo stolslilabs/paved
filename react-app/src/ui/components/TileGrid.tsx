@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
@@ -7,20 +6,18 @@ import { useDojo } from "@/dojo/useDojo";
 import { TileBackground } from "./TileBackground";
 
 export const TileGrid = ({ rows, cols, squareSize }: any) => {
-  const [selectedTile, setSelectedTile] = useState({ col: 0, row: 0 });
-
-  const handleTileClick = (col: number, row: number) => {
-    setSelectedTile({ col, row });
-  };
-
-  const { gameId, orientation, x, y, setX, setY } = useGameStore();
-
   const {
     account: { account },
     setup: {
       clientComponents: { Builder, Tile },
     },
   } = useDojo();
+
+  const { gameId, selectedTile, setSelectedTile } = useGameStore();
+
+  const handleTileClick = (col: number, row: number) => {
+    setSelectedTile({ col, row });
+  };
 
   const builder = useComponentValue(
     Builder,

@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  @apply font-body;
+}
+
 
 @layer base {
   :root {

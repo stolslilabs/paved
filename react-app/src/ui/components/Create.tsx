@@ -3,9 +3,8 @@ import { shortString } from "starknet";
 import { Button } from "@/components/ui/button";
 import { useGameStore } from "../../store";
 
-interface TProps {}
 
-export const Create = (props: TProps) => {
+export const Create = () => {
   const { gameId } = useGameStore();
   const {
     account,
@@ -14,7 +13,6 @@ export const Create = (props: TProps) => {
     },
   } = useDojo();
 
-  if (!account) return <></>;
 
   const handleClick = () => {
     play.create({
