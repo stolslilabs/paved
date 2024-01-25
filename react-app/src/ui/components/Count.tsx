@@ -21,7 +21,7 @@ export const Count = () => {
   const builder = useComponentValue(Builder, builderId);
 
   return (
-    <div className="h-12 w-48 bg-white flex justify-center items-center border-2">
+    <div className=" flex justify-center items-center right-56 absolute bottom-0 text-4xl">
       {builder ? builder.tile_remaining : "NaN"}
     </div>
   );

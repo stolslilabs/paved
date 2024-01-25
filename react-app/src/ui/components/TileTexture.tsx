@@ -34,7 +34,7 @@ export const TileTexture = ({ entity, size }: any) => {
       loadedTexture.rotation = rotation;
       setTexture(loadedTexture);
     });
-  }, [backgroundImage, rotation, tile]);
+  }, [backgroundImage, rotation]);
 
   useEffect(() => {
     if (tile) {
@@ -49,7 +49,7 @@ export const TileTexture = ({ entity, size }: any) => {
       col: tile ? tile?.x - offset + other_offset : 0,
       squareSize: 3,
     });
-  }, []);
+  }, [tile]);
 
   return (
     <>

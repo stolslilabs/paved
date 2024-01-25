@@ -9,7 +9,7 @@ export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
-    <div className="absolute left-4 bottom-24 z-20">
+    <div className="absolute left-4 bottom-6 z-30">
       <div className="flex justify-center items-end gap-4">
         <div className="flex flex-col-reverse gap-4">
           <Button

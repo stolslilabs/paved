@@ -19,8 +19,8 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
 
   return (
     <>
-      {tileEntities.map((tile, index) => {
-        return <TileTexture key={index} entity={tile} size={squareSize} />;
+      {tileEntities.map((tile) => {
+        return <TileTexture key={tile} entity={tile} size={squareSize} />;
       })}
     </>
   );
