@@ -220,13 +220,13 @@ mod tests {
         let plan = Plan::RFRFCCCFR;
         let layout: Layout = LayoutImpl::from(plan, orientation);
         assert(layout.center == Category::Road, 'Layout: wrong center');
-        assert(layout.north_west == Category::Farm, 'Layout: wrong NNW');
+        assert(layout.north_west == Category::Forest, 'Layout: wrong NNW');
         assert(layout.north == Category::Road, 'Layout: wrong N');
-        assert(layout.north_east == Category::Farm, 'Layout: wrong NNE');
+        assert(layout.north_east == Category::Forest, 'Layout: wrong NNE');
         assert(layout.east == Category::City, 'Layout: wrong E');
         assert(layout.south_east == Category::City, 'Layout: wrong SSE');
         assert(layout.south == Category::City, 'Layout: wrong S');
-        assert(layout.south_west == Category::Farm, 'Layout: wrong SSW');
+        assert(layout.south_west == Category::Forest, 'Layout: wrong SSW');
         assert(layout.west == Category::Road, 'Layout: wrong W');
     }
 
@@ -236,11 +236,11 @@ mod tests {
         let plan = Plan::RFRFCCCFR;
         let layout: Layout = LayoutImpl::from(plan, orientation);
         assert(layout.center == Category::Road, 'Layout: wrong center');
-        assert(layout.north_west == Category::Farm, 'Layout: wrong NNW');
+        assert(layout.north_west == Category::Forest, 'Layout: wrong NNW');
         assert(layout.north == Category::Road, 'Layout: wrong N');
-        assert(layout.north_east == Category::Farm, 'Layout: wrong NNE');
+        assert(layout.north_east == Category::Forest, 'Layout: wrong NNE');
         assert(layout.east == Category::Road, 'Layout: wrong E');
-        assert(layout.south_east == Category::Farm, 'Layout: wrong SSE');
+        assert(layout.south_east == Category::Forest, 'Layout: wrong SSE');
         assert(layout.south == Category::City, 'Layout: wrong S');
         assert(layout.south_west == Category::City, 'Layout: wrong SSW');
         assert(layout.west == Category::City, 'Layout: wrong W');
@@ -254,11 +254,11 @@ mod tests {
         assert(layout.center == Category::Road, 'Layout: wrong center');
         assert(layout.north_west == Category::City, 'Layout: wrong NNW');
         assert(layout.north == Category::City, 'Layout: wrong N');
-        assert(layout.north_east == Category::Farm, 'Layout: wrong NNE');
+        assert(layout.north_east == Category::Forest, 'Layout: wrong NNE');
         assert(layout.east == Category::Road, 'Layout: wrong E');
-        assert(layout.south_east == Category::Farm, 'Layout: wrong SSE');
+        assert(layout.south_east == Category::Forest, 'Layout: wrong SSE');
         assert(layout.south == Category::Road, 'Layout: wrong S');
-        assert(layout.south_west == Category::Farm, 'Layout: wrong SSW');
+        assert(layout.south_west == Category::Forest, 'Layout: wrong SSW');
         assert(layout.west == Category::City, 'Layout: wrong W');
     }
 
@@ -268,13 +268,13 @@ mod tests {
         let plan = Plan::RFRFCCCFR;
         let layout: Layout = LayoutImpl::from(plan, orientation);
         assert(layout.center == Category::Road, 'Layout: wrong center');
-        assert(layout.north_west == Category::Farm, 'Layout: wrong NNW');
+        assert(layout.north_west == Category::Forest, 'Layout: wrong NNW');
         assert(layout.north == Category::City, 'Layout: wrong N');
         assert(layout.north_east == Category::City, 'Layout: wrong NNE');
         assert(layout.east == Category::City, 'Layout: wrong E');
-        assert(layout.south_east == Category::Farm, 'Layout: wrong SSE');
+        assert(layout.south_east == Category::Forest, 'Layout: wrong SSE');
         assert(layout.south == Category::Road, 'Layout: wrong S');
-        assert(layout.south_west == Category::Farm, 'Layout: wrong SSW');
+        assert(layout.south_west == Category::Forest, 'Layout: wrong SSW');
         assert(layout.west == Category::Road, 'Layout: wrong W');
     }
 

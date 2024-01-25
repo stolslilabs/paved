@@ -149,7 +149,7 @@ fn test_play_build_complete_forest_inside_roads() {
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
     let none = Role::None;
-    let lord = Role::Lord;
+    let woodsman = Role::Woodsman;
     let nowhere = Spot::None;
     let northeast = Spot::NorthEast;
 
@@ -208,7 +208,9 @@ fn test_play_build_complete_forest_inside_roads() {
     let orientation = Orientation::East;
     let x = CENTER - 1;
     let y = CENTER - 2;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, lord, northeast);
+    systems
+        .play
+        .build(world, context.game_id, builder.tile_id, orientation, x, y, woodsman, northeast);
 
     // [Draw & Build]
     set_transaction_hash(0x5);
@@ -240,7 +242,7 @@ fn test_play_build_complete_forest_inside_castles() {
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
     let none = Role::None;
-    let lord = Role::Lord;
+    let woodsman = Role::Woodsman;
     let nowhere = Spot::None;
     let northeast = Spot::NorthEast;
 
@@ -254,7 +256,9 @@ fn test_play_build_complete_forest_inside_castles() {
     let orientation = Orientation::West;
     let x = CENTER - 1;
     let y = CENTER;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, lord, northeast);
+    systems
+        .play
+        .build(world, context.game_id, builder.tile_id, orientation, x, y, woodsman, northeast);
 
     // [Draw & Build]
     set_transaction_hash(0x6);

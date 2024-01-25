@@ -5,13 +5,13 @@ use debug::PrintTrait;
 // Constants
 
 const NONE: felt252 = 0;
-const FARM: felt252 = 'FARM';
+const FOREST: felt252 = 'FOREST';
 const ROAD: felt252 = 'ROAD';
 const CITY: felt252 = 'CITY';
 const STOP: felt252 = 'STOP';
 const WONDER: felt252 = 'WNDR';
 
-const FARM_KEY: felt252 = 'F';
+const FOREST_KEY: felt252 = 'F';
 const ROAD_KEY: felt252 = 'R';
 const CITY_KEY: felt252 = 'C';
 const STOP_KEY: felt252 = 'S';
@@ -20,7 +20,7 @@ const WONDER_KEY: felt252 = 'W';
 #[derive(Copy, Drop, Serde, PartialEq, Introspection)]
 enum Category {
     None,
-    Farm,
+    Forest,
     Road,
     City,
     Stop,
@@ -32,7 +32,7 @@ impl CategoryIntoFelt252 of Into<Category, felt252> {
     fn into(self: Category) -> felt252 {
         match self {
             Category::None => NONE,
-            Category::Farm => FARM,
+            Category::Forest => FOREST,
             Category::Road => ROAD,
             Category::City => CITY,
             Category::Stop => STOP,
@@ -46,7 +46,7 @@ impl CategoryIntoU8 of Into<Category, u8> {
     fn into(self: Category) -> u8 {
         match self {
             Category::None => 0,
-            Category::Farm => 1,
+            Category::Forest => 1,
             Category::Road => 2,
             Category::City => 3,
             Category::Stop => 4,
@@ -58,8 +58,8 @@ impl CategoryIntoU8 of Into<Category, u8> {
 impl Felt252IntoCategory of Into<felt252, Category> {
     #[inline(always)]
     fn into(self: felt252) -> Category {
-        if self == FARM || self == FARM_KEY {
-            Category::Farm
+        if self == FOREST || self == FOREST_KEY {
+            Category::Forest
         } else if self == ROAD || self == ROAD_KEY {
             Category::Road
         } else if self == CITY || self == CITY_KEY {
@@ -78,7 +78,7 @@ impl U8IntoCategory of Into<u8, Category> {
     #[inline(always)]
     fn into(self: u8) -> Category {
         if self == 1 {
-            Category::Farm
+            Category::Forest
         } else if self == 2 {
             Category::Road
         } else if self == 3 {
@@ -110,7 +110,7 @@ mod tests {
     // Local imports
 
     use super::{
-        Category, NONE, FARM, ROAD, CITY, STOP, WONDER, FARM_KEY, ROAD_KEY, CITY_KEY, STOP_KEY,
+        Category, NONE, FOREST, ROAD, CITY, STOP, WONDER, FOREST_KEY, ROAD_KEY, CITY_KEY, STOP_KEY,
         WONDER_KEY,
     };
 
@@ -122,7 +122,7 @@ mod tests {
     #[test]
     fn test_category_into_felt() {
         assert(NONE == Category::None.into(), 'Category: wrong None');
-        assert(FARM == Category::Farm.into(), 'Category: wrong Farm');
+        assert(FOREST == Category::Forest.into(), 'Category: wrong Forest');
         assert(ROAD == Category::Road.into(), 'Category: wrong Road');
         assert(CITY == Category::City.into(), 'Category: wrong City');
         assert(STOP == Category::Stop.into(), 'Category: wrong Stop');
@@ -132,12 +132,12 @@ mod tests {
     #[test]
     fn test_felt_into_category() {
         assert(Category::None == NONE.into(), 'Category: wrong None');
-        assert(Category::Farm == FARM.into(), 'Category: wrong Farm');
+        assert(Category::Forest == FOREST.into(), 'Category: wrong Forest');
         assert(Category::Road == ROAD.into(), 'Category: wrong Road');
         assert(Category::City == CITY.into(), 'Category: wrong City');
         assert(Category::Stop == STOP.into(), 'Category: wrong Stop');
         assert(Category::Wonder == WONDER.into(), 'Category: wrong Wonder');
-        assert(Category::Farm == FARM_KEY.into(), 'Category: wrong Farm');
+        assert(Category::Forest == FOREST_KEY.into(), 'Category: wrong Forest');
         assert(Category::Road == ROAD_KEY.into(), 'Category: wrong Road');
         assert(Category::City == CITY_KEY.into(), 'Category: wrong City');
         assert(Category::Stop == STOP_KEY.into(), 'Category: wrong Stop');
@@ -152,7 +152,7 @@ mod tests {
     #[test]
     fn test_category_into_u8() {
         assert(0_u8 == Category::None.into(), 'Category: wrong None');
-        assert(1_u8 == Category::Farm.into(), 'Category: wrong Farm');
+        assert(1_u8 == Category::Forest.into(), 'Category: wrong Forest');
         assert(2_u8 == Category::Road.into(), 'Category: wrong Road');
         assert(3_u8 == Category::City.into(), 'Category: wrong City');
         assert(4_u8 == Category::Stop.into(), 'Category: wrong Stop');
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     fn test_u8_into_category() {
         assert(Category::None == 0_u8.into(), 'Category: wrong None');
-        assert(Category::Farm == 1_u8.into(), 'Category: wrong Farm');
+        assert(Category::Forest == 1_u8.into(), 'Category: wrong Forest');
         assert(Category::Road == 2_u8.into(), 'Category: wrong Road');
         assert(Category::City == 3_u8.into(), 'Category: wrong City');
         assert(Category::Stop == 4_u8.into(), 'Category: wrong Stop');
