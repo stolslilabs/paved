@@ -119,19 +119,44 @@ impl GameImpl of GameTrait {
     #[inline(always)]
     fn assess_at(self: Game, tile: Tile, at: Spot, category: Category, ref store: Store) {
         // [Compute] Assess the spot
-        let (score, mut characters) = match category {
-            Category::None => (0, array![]),
-            Category::Farm => ForestCount::start(self, tile, at, ref store),
-            Category::Road => GenericCount::start(self, tile, at, ref store),
-            Category::City => GenericCount::start(self, tile, at, ref store),
-            Category::Stop => (0, array![]),
-            Category::Wonder => GenericCount::start(self, tile, at, ref store),
+        match category {
+            Category::None => { return; },
+            Category::Forest => {
+                let (woodsman_score, herdsman_score, mut woodsmen, mut herdsmen) =
+                    ForestCount::start(
+                    self, tile, at, ref store
+                );
+                // [Effect] Solve and collect characters
+                if 0 != woodsman_score.into() && 0 != woodsmen.len().into() {
+                    GenericCount::solve(self, woodsman_score, ref woodsmen, ref store);
+                }
+                if 0 != herdsman_score.into() && 0 != herdsmen.len().into() {
+                    GenericCount::solve(self, herdsman_score, ref herdsmen, ref store);
+                }
+            },
+            Category::Road => {
+                let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
+                // [Effect] Solve and collect characters
+                if 0 != score.into() && 0 != characters.len().into() {
+                    GenericCount::solve(self, score, ref characters, ref store);
+                }
+            },
+            Category::City => {
+                let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
+                // [Effect] Solve and collect characters
+                if 0 != score.into() && 0 != characters.len().into() {
+                    GenericCount::solve(self, score, ref characters, ref store);
+                }
+            },
+            Category::Stop => { return; },
+            Category::Wonder => {
+                let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
+                // [Effect] Solve and collect characters
+                if 0 != score.into() && 0 != characters.len().into() {
+                    GenericCount::solve(self, score, ref characters, ref store);
+                }
+            },
         };
-
-        // [Effect] Solve and collect characters
-        if 0 != score.into() && 0 != characters.len().into() {
-            GenericCount::solve(self, score, ref characters, ref store);
-        }
     }
 }
 
