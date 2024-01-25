@@ -25,6 +25,7 @@ struct Character {
     tile_id: u32,
     spot: u8,
     weight: u8,
+    power: u8,
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -43,7 +44,13 @@ struct CharacterPosition {
 impl CharacterImpl of CharacterTrait {
     #[inline(always)]
     fn new(
-        game_id: u32, builder_id: felt252, index: u8, tile_id: u32, spot: Spot, weight: u8
+        game_id: u32,
+        builder_id: felt252,
+        index: u8,
+        tile_id: u32,
+        spot: Spot,
+        weight: u8,
+        power: u8
     ) -> Character {
         // [Check] Tile id is valid
         assert(0 != tile_id, errors::INVALID_TILE_ID);
@@ -56,6 +63,7 @@ impl CharacterImpl of CharacterTrait {
             tile_id: tile_id,
             spot: spot.into(),
             weight: weight,
+            power: power,
         }
     }
 
@@ -67,6 +75,7 @@ impl CharacterImpl of CharacterTrait {
         self.tile_id = 0;
         self.spot = Spot::None.into();
         self.weight = 0;
+        self.power = 0;
     }
 }
 
@@ -94,6 +103,23 @@ impl AssertImpl of AssertTrait {
     fn assert_placed(self: Character) {
         assert(0 != self.tile_id.into(), errors::NOT_PLACED);
         assert(self.spot != Spot::None.into(), errors::NOT_PLACED);
+    }
+}
+
+impl ZeroableCharacter of Zeroable<Character> {
+    #[inline(always)]
+    fn zero() -> Character {
+        Character { game_id: 0, builder_id: 0, index: 0, tile_id: 0, spot: 0, weight: 0, power: 0, }
+    }
+
+    #[inline(always)]
+    fn is_zero(self: Character) -> bool {
+        0 == self.tile_id.into()
+    }
+
+    #[inline(always)]
+    fn is_non_zero(self: Character) -> bool {
+        !self.is_zero()
     }
 }
 

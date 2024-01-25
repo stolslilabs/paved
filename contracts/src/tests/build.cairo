@@ -12,6 +12,7 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
 // Internal imports
 
+use stolsli::constants;
 use stolsli::store::{Store, StoreTrait};
 use stolsli::models::game::{Game, GameTrait};
 use stolsli::models::builder::{Builder, BuilderTrait};
@@ -64,7 +65,7 @@ fn test_play_build_with_character() {
     systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
 
     // [Draw]
-    systems.play.draw(world, game.id);
+    systems.play.draw(world, game.id); // FFCFFFCFF
     let builder = store.builder(game, BUILDER().into());
     let tile = store.tile(game, builder.tile_id);
 
@@ -73,7 +74,7 @@ fn test_play_build_with_character() {
     let x = CENTER;
     let y = CENTER + 1;
     let role = Role::Lord;
-    let spot = Spot::Center;
+    let spot = Spot::South;
     systems.play.build(world, context.game_id, tile.id, orientation, x, y, role, spot);
 }
 
@@ -139,7 +140,8 @@ fn test_play_build_complete_castle() {
 
     // [Assert]
     let builder = store.builder(game, BUILDER().into());
-    assert(builder.score == 2, 'Build: builder score');
+    let expected: u32 = 2 * constants::CITY_BASE_POINTS;
+    assert(builder.score == expected, 'Build: builder score');
 }
 
 #[test]
@@ -232,7 +234,8 @@ fn test_play_build_complete_forest_inside_roads() {
 
     // [Assert]
     let builder = store.builder(game, BUILDER().into());
-    assert(builder.score == 2, 'Build: builder score');
+    let expected: u32 = 2 * constants::FOREST_BASE_POINTS;
+    assert(builder.score == expected, 'Build: builder score');
 }
 
 #[test]
@@ -316,5 +319,6 @@ fn test_play_build_complete_forest_inside_castles() {
 
     // [Assert]
     let builder = store.builder(game, BUILDER().into());
-    assert(builder.score == 1, 'Build: builder score');
+    let expected: u32 = 1 * constants::FOREST_BASE_POINTS;
+    assert(builder.score == expected, 'Build: builder score');
 }

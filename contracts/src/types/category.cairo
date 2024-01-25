@@ -2,6 +2,10 @@
 
 use debug::PrintTrait;
 
+// Internal imports
+
+use stolsli::constants;
+
 // Constants
 
 const NONE: felt252 = 0;
@@ -25,6 +29,21 @@ enum Category {
     City,
     Stop,
     Wonder,
+}
+
+#[generate_trait]
+impl CategoryImpl of CategoryTrait {
+    #[inline(always)]
+    fn base_points(self: Category) -> u32 {
+        match self {
+            Category::None => 0,
+            Category::Forest => constants::FOREST_BASE_POINTS,
+            Category::Road => constants::ROAD_BASE_POINTS,
+            Category::City => constants::CITY_BASE_POINTS,
+            Category::Stop => 0,
+            Category::Wonder => constants::WONDER_BASE_POINTS,
+        }
+    }
 }
 
 impl CategoryIntoFelt252 of Into<Category, felt252> {
