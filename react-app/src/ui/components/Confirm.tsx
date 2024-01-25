@@ -7,11 +7,21 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSquareCheck } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
 
-interface TProps {}
-
-export const Confirm = (props: TProps) => {
-  const { gameId, orientation, x, y, character, spot, setX, setY, setOrientation, setCharacter, setSpot } =
-    useGameStore();
+export const Confirm = () => {
+  const {
+    gameId,
+    orientation,
+    x,
+    y,
+    character,
+    spot,
+    setX,
+    setY,
+    setOrientation,
+    setCharacter,
+    setSpot,
+    setSelectedTile,
+  } = useGameStore();
 
   const {
     account: { account },
@@ -31,23 +41,28 @@ export const Confirm = (props: TProps) => {
 
   const handleClick = () => {
     if (builder.tile_id) {
-      play.build({
-        account: account,
-        game_id: gameId,
-        tile_id: builder.tile_id,
-        orientation: orientation,
-        x: x,
-        y: y,
-        role: character,
-        spot: spot,
-      });
-
-      // Reset the settings
-      setOrientation(1);
-      setX(0);
-      setY(0);
-      setCharacter(0);
-      setSpot(0);
+      try {
+        play.build({
+          account: account,
+          game_id: gameId,
+          tile_id: builder.tile_id,
+          orientation: orientation,
+          x: x,
+          y: y,
+          role: character,
+          spot: spot,
+        });
+      } catch (e) {
+        console.log(e);
+      } finally {
+        // Reset the settings
+        setOrientation(1);
+        setX(0);
+        setY(0);
+        setCharacter(0);
+        setSpot(0);
+        setSelectedTile({ col: 0, row: 0 });
+      }
     }
   };
 

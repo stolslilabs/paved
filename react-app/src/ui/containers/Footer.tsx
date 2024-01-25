@@ -15,20 +15,14 @@ export const Footer = () => {
 
   return (
     <footer className="z-20 flex justify-between items-center  h-20 absolute bottom-0  w-full">
-      <div className="flex justify-center items-center ">
+      {/* <div className="flex justify-center items-center ">
         <Order />
         <Score />
-      </div>
+      </div> */}
       <div className="flex justify-center items-center  grow gap-8">
         {characters.map((_character, index) => (
           <Character key={index} index={index} />
         ))}
-      </div>
-      <div className="flex justify-center items-center ">
-        <div className="h-12 w-48 flex justify-center items-center ">
-          COOLDOWN
-        </div>
-        <Count />
       </div>
     </footer>
   );

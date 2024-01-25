@@ -75,8 +75,10 @@ export const TileBackground = ({
   }, [isSelected, tile]);
 
   useEffect(() => {
-    setRotation(calculateRotation(orientation));
-  }, [orientation]);
+    if (tile) {
+      setRotation(calculateRotation(orientation));
+    }
+  }, [orientation, tile]);
 
   const handleMeshClick = () => {
     onTileClick(col, row);
