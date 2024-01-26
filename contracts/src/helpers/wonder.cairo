@@ -9,6 +9,7 @@ use stolsli::types::spot::Spot;
 use stolsli::types::area::Area;
 use stolsli::types::move::{Move, MoveImpl};
 use stolsli::models::game::Game;
+use stolsli::models::builder::{Builder, BuilderImpl};
 use stolsli::models::character::{Character, CharacterPosition};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 
@@ -87,10 +88,20 @@ impl WonderCount of WonderCountTrait {
     }
 
     fn solve(self: Game, base_points: u32, ref character: Character, ref store: Store) {
-        // [Effect] Update the builder
+        // [Effect] Collect the character's builder
+        let mut tile = store.tile(self, character.tile_id);
         let mut builder = store.builder(self, character.builder_id);
         let power: u32 = character.power.into();
         builder.score += base_points * power;
+        builder.recover(ref character, ref tile);
+
+        // [Effect] Update the character
+        store.set_character(character);
+
+        // [Effect] Update the tile
+        store.set_tile(tile);
+
+        // [Effect] Update the builder
         store.set_builder(builder);
     }
 }
