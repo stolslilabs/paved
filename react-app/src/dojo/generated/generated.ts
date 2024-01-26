@@ -129,27 +129,7 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
-    const collect = async ({
-      account,
-      game_id,
-      role,
-    }: {
-      account: Account;
-      game_id: number;
-      role: number;
-    }) => {
-      try {
-        return await provider.execute(account, contract_name, "collect", [
-          provider.getWorldAddress(),
-          game_id,
-          role,
-        ]);
-      } catch (e) {
-        console.error(e);
-      }
-    };
-
-    return { initialize, create, buy, draw, discard, build, collect };
+    return { initialize, create, buy, draw, discard, build };
   }
   return {
     play: play(),
