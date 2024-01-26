@@ -130,10 +130,10 @@ impl GameImpl of GameTrait {
                 );
                 // [Effect] Solve and collect characters
                 if 0 != woodsman_score.into() && 0 != woodsmen.len().into() {
-                    GenericCount::solve(self, woodsman_score, base, ref woodsmen, ref store);
+                    ForestCount::solve(self, woodsman_score, base, ref woodsmen, ref store);
                 }
                 if 0 != herdsman_score.into() && 0 != herdsmen.len().into() {
-                    GenericCount::solve(self, herdsman_score, base, ref herdsmen, ref store);
+                    ForestCount::solve(self, herdsman_score, base, ref herdsmen, ref store);
                 }
             },
             Category::Road => {
