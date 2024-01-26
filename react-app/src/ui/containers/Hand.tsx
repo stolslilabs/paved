@@ -2,7 +2,6 @@ import { Tile } from "../components/Tile";
 import { Rotation } from "../components/Rotation";
 import { Discard } from "../components/Discard";
 import { Confirm } from "../components/Confirm";
-import { Collect } from "../components/Collect";
 import { Button } from "@/components/ui/button";
 
 export const Hand = () => {
@@ -12,7 +11,6 @@ export const Hand = () => {
         <Button variant={"default"}>X</Button>
         <Confirm />
         <Discard />
-        <Collect />
         <Rotation />
       </div>
       <Tile />
