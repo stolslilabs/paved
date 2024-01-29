@@ -3,7 +3,6 @@ import { shortString } from "starknet";
 import { Button } from "@/components/ui/button";
 import { useGameStore } from "../../store";
 
-
 export const Create = () => {
   const { gameId } = useGameStore();
   const {
@@ -12,7 +11,6 @@ export const Create = () => {
       client: { play },
     },
   } = useDojo();
-
 
   const handleClick = () => {
     play.create({

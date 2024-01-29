@@ -21,10 +21,13 @@ export const Spot = (props: TProps) => {
     } else {
       setSpot(getSpotFromIndex(index));
     }
-  }
+  };
 
   return (
-    <div className="h-6 w-6 bg-white flex justify-center items-center" onClick={handleClick}>
+    <div
+      className="h-6 w-6 bg-white flex justify-center items-center"
+      onClick={handleClick}
+    >
       {selected ? "X" : ""}
     </div>
   );
