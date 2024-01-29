@@ -1,70 +1,129 @@
 import * as THREE from "three";
 import { useDojo } from "@/dojo/useDojo";
-import { useGameStore } from "@/store";
 import { getImage, offset, other_offset } from "@/utils";
 import { useComponentValue } from "@dojoengine/react";
 import { Entity } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loader } from "./TileBackground";
+import { TileEmpty } from "./TileEmpty";
+
+export const loader = new THREE.TextureLoader();
 
 export const createSquareGeometry = (size: any) => {
   return new THREE.BoxGeometry(size, size, 0.1);
 };
 
-export const TileTexture = ({ entity, size }: any) => {
+export const TileTexture = ({
+  entity,
+  size,
+  tilePositionEntities,
+  onTileClick,
+  selectedTile,
+  activeTile,
+}: any) => {
   const {
-    account: { account },
     setup: {
-      clientComponents: { Builder, Tile },
+      clientComponents: { Tile },
     },
   } = useDojo();
   const meshRef = useRef<any>();
-  const [backgroundImage, setBackgroundImage] = useState(getImage(0));
   const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
-  const [rotation, setRotation] = useState(1);
 
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
 
   const tile = useComponentValue(Tile, entity);
 
   useEffect(() => {
-    loader.load(backgroundImage, (loadedTexture) => {
-      loadedTexture.center.set(0.5, 0.5);
-      loadedTexture.rotation = rotation;
-      setTexture(loadedTexture);
-    });
-  }, [backgroundImage, rotation]);
-
-  useEffect(() => {
     if (tile) {
-      setBackgroundImage(getImage(tile));
-      setRotation((Math.PI / 2) * (1 - tile.orientation));
+      const rotation = (Math.PI / 2) * (1 - tile.orientation);
+      const image = getImage(tile);
+      console.log("tile-txt", tile.id);
+      console.log("image-txt", image);
+      loader.load(image, (loadedTexture) => {
+        loadedTexture.center.set(0.5, 0.5);
+        loadedTexture.rotation = rotation;
+        setTexture(loadedTexture);
+      });
+    } else {
+      setTexture(undefined);
     }
   }, [tile]);
 
   const position = useMemo(() => {
-    return getSquarePosition({
+    const position = getSquarePosition({
       row: tile ? tile?.y - offset + other_offset : 0,
       col: tile ? tile?.x - offset + other_offset : 0,
       squareSize: 3,
     });
+    return position;
   }, [tile]);
+
+  const neighborsOffsets = [
+    { x: -1, y: 0 },
+    { x: 1, y: 0 },
+    { x: 0, y: -1 },
+    { x: 0, y: 1 },
+  ];
+
+  const extraPositions = useMemo(() => {
+    if (!tile) return [];
+
+    const positions: {
+      col: number;
+      row: number;
+    }[] = [];
+
+    neighborsOffsets.forEach((neighborOffset) => {
+      const neighborCol = tile.x + neighborOffset.x;
+      const neighborRow = tile.y + neighborOffset.y;
+      const neighborEntityId = getEntityIdFromKeys([
+        BigInt(tile.game_id),
+        BigInt(neighborCol),
+        BigInt(neighborRow),
+      ]) as Entity;
+
+      if (!tilePositionEntities.includes(neighborEntityId)) {
+        const position = {
+          col: neighborCol,
+          row: neighborRow,
+        };
+        positions.push(position);
+      }
+    });
+    return positions;
+  }, [tile, tilePositionEntities]);
+
+  console.log("extraPositions", tile?.id, extraPositions);
 
   return (
     <>
-      <mesh
-        ref={meshRef}
-        position={[position.x, position.y, 0.01]}
-        geometry={squareGeometry}
-      >
-        <meshStandardMaterial map={texture} transparent={true} opacity={1} />
-      </mesh>
+      {texture && (
+        <mesh
+          ref={meshRef}
+          position={[position.x, position.y, 0.01]}
+          geometry={squareGeometry}
+        >
+          <meshStandardMaterial map={texture} transparent={true} opacity={1} />
+        </mesh>
+      )}
+      {extraPositions.map((position) => {
+        return (
+          <TileEmpty
+            key={`empty-${position.col}-${position.row}`}
+            col={position.col}
+            row={position.row}
+            size={3}
+            onTileClick={onTileClick}
+            selectedTile={selectedTile}
+            activeTile={activeTile}
+          />
+        );
+      })}
     </>
   );
 };
 
-const getSquarePosition = ({
+export const getSquarePosition = ({
   row,
   col,
   squareSize,

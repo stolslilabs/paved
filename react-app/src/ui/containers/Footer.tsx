@@ -14,7 +14,7 @@ export const Footer = () => {
   ];
 
   return (
-    <footer className="z-20 flex justify-between items-center  h-20 absolute bottom-0  w-full">
+    <footer className="z-20 flex justify-between items-center h-20 absolute bottom-0 w-full">
       {/* <div className="flex justify-center items-center ">
         <Order />
         <Score />

@@ -10,7 +10,6 @@ import {
   Bounds,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
-import { TileGrid } from "./TileGrid";
 import { Controls } from "@/ui/screens/GameScreen";
 import { useGameStore } from "@/store";
 extend({ OrbitControls });
@@ -41,7 +40,6 @@ export const ThreeGrid = () => {
         <mesh rotation={[Math.PI / -2, 0, 0]}>
           <Bounds fit clip observe margin={1}>
             <TileTextures squareSize={3} />
-            <TileGrid rows={30} cols={30} squareSize={3} />
           </Bounds>
         </mesh>
       </mesh>

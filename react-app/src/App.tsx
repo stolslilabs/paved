@@ -9,7 +9,6 @@ export const CoreScreen = () => {
   return <>{gameId ? <GameScreen /> : <GameLobby />}</>;
 };
 function App() {
-
   return (
     <>
       <Router>

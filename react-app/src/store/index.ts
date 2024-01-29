@@ -46,15 +46,9 @@ export const useGameStore = create<GameState>()(
       spot: 0,
       setSpot: (spot) => set({ spot }),
       x: 0,
-      setX: (x) => {
-        x = x + 0x7fffffff;
-        set({ x });
-      },
+      setX: (x) => set({ x }),
       y: 0,
-      setY: (y) => {
-        y = y + 0x7fffffff;
-        set({ y });
-      },
+      setY: (y) => set({ y }),
       selectedTile: { col: 0, row: 0 },
       setSelectedTile: (tile) => set({ selectedTile: tile }),
     }),
