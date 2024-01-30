@@ -17,7 +17,6 @@ export function createSystemCalls(
   }: ClientComponents
 ) {
   const create_game = async (account: Account) => {
-    console.log(account);
     // return await client.play.initialize({ account });
   };
   return {
