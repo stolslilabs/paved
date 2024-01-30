@@ -4,7 +4,15 @@ import { Has, HasValue } from "@dojoengine/recs";
 import { CharTexture } from "./CharTexture";
 import { useQueryParams } from "../../hooks/useQueryParams";
 
-export const CharTextures = ({ radius, height, squareSize }: { radius: number, height: number, squareSize: number }) => {
+export const CharTextures = ({
+  radius,
+  height,
+  squareSize,
+}: {
+  radius: number;
+  height: number;
+  squareSize: number;
+}) => {
   const { gameId } = useQueryParams();
 
   const {

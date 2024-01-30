@@ -90,7 +90,7 @@ export const TileTexture = ({
     });
     return positions;
   }, [tile, tilePositionEntities]);
-  
+
   return (
     <>
       {texture && (
