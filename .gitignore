@@ -3,3 +3,4 @@ target
 .vscode
 node-modules
 .DS_Store
+*.log
