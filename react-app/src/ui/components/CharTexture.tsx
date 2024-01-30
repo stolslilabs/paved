@@ -13,12 +13,7 @@ export const createCylinderGeometry = (radius: number, height: number) => {
   return new THREE.CylinderGeometry(radius, radius, height, 32);
 };
 
-export const CharTexture = ({
-  entity,
-  radius,
-  height,
-  size,
-}: any) => {
+export const CharTexture = ({ entity, radius, height, size }: any) => {
   const {
     setup: {
       clientComponents: { Character, Tile },
@@ -26,7 +21,10 @@ export const CharTexture = ({
   } = useDojo();
   const meshRef = useRef<any>();
 
-  const cylinderGeometry = useMemo(() => createCylinderGeometry(radius, height), []);
+  const cylinderGeometry = useMemo(
+    () => createCylinderGeometry(radius, height),
+    []
+  );
 
   const character = useComponentValue(Character, entity);
 
@@ -101,7 +99,7 @@ export const getOffsetX = (spot: number, size: number) => {
     default:
       return 0;
   }
-}
+};
 
 export const getOffsetY = (spot: number, size: number) => {
   switch (spot) {
@@ -120,4 +118,4 @@ export const getOffsetY = (spot: number, size: number) => {
     default:
       return 0;
   }
-}
+};

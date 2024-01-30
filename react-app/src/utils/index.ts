@@ -169,7 +169,21 @@ export const getIndexFromSpot = (spot: number) => {
 };
 
 export const getCharacters = () => {
-  return Array.from({ length: CHARACTER_COUNT - 1 }, (_, index) => getRole(index));
+  return Array.from({ length: CHARACTER_COUNT - 1 }, (_, index) =>
+    getRole(index)
+  );
+};
+
+export const getAvailableCharacters = (packed: number) => {
+  const characters = getCharacters();
+  // Return Object of character and their corresponding status
+  // status = true if character is 0 at index, false otherwise
+  let value = (packed >>= 1); // Skip first bit
+  return characters.map((character) => {
+    const status = (value & 1) === 0;
+    value >>= 1;
+    return { character, status };
+  });
 };
 
 export const getRole = (index: number) => {
@@ -189,7 +203,7 @@ export const getRole = (index: number) => {
     case 6:
       return "Herdsman";
     default:
-      return "None";
+      return "";
   }
 };
 
@@ -238,23 +252,23 @@ export const getIndexFromCharacter = (character: number) => {
 export const getColorFromCharacter = (character: number) => {
   switch (character) {
     case 1:
-      return 'blue';
+      return "blue";
     case 2:
-      return 'pink';
+      return "pink";
     case 3:
-      return 'grey';
+      return "grey";
     case 4:
-      return 'red';
+      return "red";
     case 5:
-      return 'yellow';
+      return "yellow";
     case 6:
-      return 'green';
+      return "green";
     case 7:
-      return 'purple';
+      return "purple";
     default:
-      return 'black';
+      return "black";
   }
-}
+};
 
 export const offset = 0x7fffffff;
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   getCharacterFromIndex,
   getColorFromCharacter,
@@ -9,10 +9,11 @@ import { useGameStore } from "../../store";
 
 interface TProps {
   index: number;
+  enable: boolean;
 }
 
 export const Character = (props: TProps) => {
-  const { index } = props;
+  const { index, enable } = props;
   const [selected, setSelected] = useState(false);
   const { character, setCharacter } = useGameStore();
 
@@ -20,17 +21,20 @@ export const Character = (props: TProps) => {
     setSelected(index === getIndexFromCharacter(character));
   }, [character]);
 
+  const className = useMemo(() => {
+    return `h-12 w-12 flex justify-center items-center border-2
+    ${selected ? "bg-emerald-200" : "bg-white"}
+    ${enable ? "cursor-pointer" : "cursor-not-allowed opacity-25"}`;
+  }, [selected, enable]);
+
   const handleClick = () => {
+    if (!enable) return;
     if (index === getIndexFromCharacter(character)) {
       setCharacter(getCharacterFromIndex(-1));
     } else {
       setCharacter(getCharacterFromIndex(index));
     }
   };
-
-  const className = `h-12 w-12 flex justify-center items-center border-2 ${
-    selected ? "bg-emerald-200" : "bg-white"
-  }`;
 
   const borderStyle = {
     borderColor: getColorFromCharacter(getCharacterFromIndex(index)),
@@ -42,4 +46,3 @@ export const Character = (props: TProps) => {
     </div>
   );
 };
-
