@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { useDojo } from "../../dojo/useDojo";
-import { useGameStore } from "../../store";
 import { faCartPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
 export const Buy = () => {
-  const { gameId } = useGameStore();
+  const { gameId } = useQueryParams();
   const {
     account,
     setup: {
