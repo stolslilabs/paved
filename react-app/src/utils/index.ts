@@ -26,6 +26,8 @@ import wcccccccc from "/assets/tiles/wcccccccc.png";
 import wffffffff from "/assets/tiles/wffffffff.png";
 import wfffffffr from "/assets/tiles/wfffffffr.png";
 
+export const CHARACTER_COUNT = 8;
+
 export const getImage = (tile: any) => {
   switch (tile?.plan) {
     case 1:
@@ -166,6 +168,10 @@ export const getIndexFromSpot = (spot: number) => {
   }
 };
 
+export const getCharacters = () => {
+  return Array.from({ length: CHARACTER_COUNT - 1 }, (_, index) => getRole(index));
+};
+
 export const getRole = (index: number) => {
   switch (index) {
     case 0:
@@ -180,6 +186,8 @@ export const getRole = (index: number) => {
       return "Algrim";
     case 5:
       return "Woodsman";
+    case 6:
+      return "Herdsman";
     default:
       return "None";
   }
@@ -199,6 +207,8 @@ export const getCharacterFromIndex = (index: number) => {
       return 5;
     case 5:
       return 6;
+    case 6:
+      return 7;
     default:
       return 0;
   }
@@ -218,10 +228,33 @@ export const getIndexFromCharacter = (character: number) => {
       return 4;
     case 6:
       return 5;
+    case 7:
+      return 6;
     default:
       return -1;
   }
 };
+
+export const getColorFromCharacter = (character: number) => {
+  switch (character) {
+    case 1:
+      return 'blue';
+    case 2:
+      return 'pink';
+    case 3:
+      return 'grey';
+    case 4:
+      return 'red';
+    case 5:
+      return 'yellow';
+    case 6:
+      return 'green';
+    case 7:
+      return 'purple';
+    default:
+      return 'black';
+  }
+}
 
 export const offset = 0x7fffffff;
 

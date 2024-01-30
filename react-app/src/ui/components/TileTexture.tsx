@@ -53,7 +53,7 @@ export const TileTexture = ({
     const position = getSquarePosition({
       row: tile ? tile?.y - offset + other_offset : 0,
       col: tile ? tile?.x - offset + other_offset : 0,
-      squareSize: 3,
+      squareSize: size,
     });
     return position;
   }, [tile]);
@@ -94,6 +94,7 @@ export const TileTexture = ({
   }, [tile, tilePositionEntities]);
 
   console.log("extraPositions", tile?.id, extraPositions);
+
 
   return (
     <>

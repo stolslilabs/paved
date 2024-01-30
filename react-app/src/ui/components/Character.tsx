@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   getCharacterFromIndex,
+  getColorFromCharacter,
   getIndexFromCharacter,
   getRole,
 } from "../../utils";
@@ -31,9 +32,14 @@ export const Character = (props: TProps) => {
     selected ? "bg-emerald-200" : "bg-white"
   }`;
 
+  const borderStyle = {
+    borderColor: getColorFromCharacter(getCharacterFromIndex(index)),
+  };
+
   return (
-    <div className={className} onClick={handleClick}>
+    <div className={className} style={borderStyle} onClick={handleClick}>
       {getRole(index).slice(0, 2)}
     </div>
   );
 };
+

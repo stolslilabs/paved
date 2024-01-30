@@ -4,6 +4,7 @@ import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { useGameStore } from "../../store";
+import { useQueryParams } from "../../hooks/useQueryParams";
 import { getImage } from "../../utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye } from "@fortawesome/free-solid-svg-icons";
@@ -12,7 +13,8 @@ import { Spot } from "./Spot";
 export const Tile = () => {
   const [rotation, setRotation] = useState(0);
   const [backgroundImage, setBackgroundImage] = useState(getImage(0));
-  const { gameId, orientation } = useGameStore();
+  const { gameId } = useQueryParams();
+  const { orientation } = useGameStore();
 
   const {
     account: { account },
