@@ -59,8 +59,6 @@ export const DojoProvider = ({
     }),
   });
 
-  console.log(account);
-
   // if (!account && !isDeploying) {
   //   create();
   // }

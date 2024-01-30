@@ -37,8 +37,6 @@ export const TileTexture = ({
     if (tile) {
       const rotation = (Math.PI / 2) * (1 - tile.orientation);
       const image = getImage(tile);
-      console.log("tile-txt", tile.id);
-      console.log("image-txt", image);
       loader.load(image, (loadedTexture) => {
         loadedTexture.center.set(0.5, 0.5);
         loadedTexture.rotation = rotation;
@@ -92,10 +90,7 @@ export const TileTexture = ({
     });
     return positions;
   }, [tile, tilePositionEntities]);
-
-  console.log("extraPositions", tile?.id, extraPositions);
-
-
+  
   return (
     <>
       {texture && (

@@ -29,8 +29,6 @@ export const GameLobby = () => {
   const name = "OHAYO";
   const order = 1;
 
-  console.log(account);
-
   const games = useEntityQuery([Has(Game)]);
 
   return (

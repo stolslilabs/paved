@@ -57,7 +57,6 @@ export const TileEmpty = ({
   };
 
   const handlePointerEnter = () => {
-    console.log("activeTile", activeTile);
     if (activeTile) {
       setBackground(getImage(activeTile));
       setRotation(calculateRotation(orientation));
