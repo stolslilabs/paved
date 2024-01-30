@@ -2,10 +2,10 @@ import { useDojo } from "../../dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
-import { useGameStore } from "../../store";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
 export const Count = () => {
-  const { gameId } = useGameStore();
+  const { gameId } = useQueryParams();
 
   const {
     account: { account },

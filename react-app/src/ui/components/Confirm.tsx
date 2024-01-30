@@ -6,10 +6,11 @@ import { useGameStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSquareCheck } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
 export const Confirm = () => {
+  const { gameId } = useQueryParams();
   const {
-    gameId,
     orientation,
     x,
     y,

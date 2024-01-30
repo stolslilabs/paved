@@ -9,14 +9,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useDojo } from "@/dojo/useDojo";
-import { useGameStore } from "@/store";
+import { useQueryParams } from "@/hooks/useQueryParams";
 import { useComponentValue, useEntityQuery } from "@dojoengine/react";
 import { Entity, Has } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 import { shortString } from "starknet";
 
 export const GameLobby = () => {
-  const { gameId } = useGameStore();
+  const { gameId } = useQueryParams();
 
   const {
     account: { account },

@@ -1,10 +1,10 @@
 import { useDojo } from "../../dojo/useDojo";
 import { shortString } from "starknet";
 import { Button } from "@/components/ui/button";
-import { useGameStore } from "../../store";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
 export const Create = () => {
-  const { gameId } = useGameStore();
+  const { gameId } = useQueryParams();
   const {
     account,
     setup: {
