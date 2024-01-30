@@ -99,7 +99,7 @@ mod play {
             let store: Store = StoreImpl::new(world);
 
             // [Effect] Create game
-            let game_id = world.uuid();
+            let game_id = world.uuid() + 1;
             let mut game = GameImpl::new(game_id);
 
             // [Effect] Create starter tile
