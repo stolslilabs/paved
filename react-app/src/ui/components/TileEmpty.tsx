@@ -4,14 +4,7 @@ import { useGameStore } from "../../store";
 import { getImage, offset, other_offset } from "../../utils";
 import { createSquareGeometry, getSquarePosition, loader } from "./TileTexture";
 
-export const TileEmpty = ({
-  col,
-  row,
-  size,
-  onTileClick,
-  selectedTile,
-  activeTile,
-}: any) => {
+export const TileEmpty = ({ col, row, size, activeTile }: any) => {
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
   const meshRef = useRef<any>();
 
@@ -19,11 +12,12 @@ export const TileEmpty = ({
   const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
   const [rotation, setRotation] = useState(0);
 
-  const { orientation } = useGameStore();
+  const { orientation, selectedTile, setSelectedTile, setX, setY } =
+    useGameStore();
 
   const isSelected = useMemo(() => {
     return selectedTile && selectedTile.col === col && selectedTile.row === row;
-  }, [selectedTile, col, row]);
+  }, [selectedTile]);
 
   useEffect(() => {
     if (background) {
@@ -35,7 +29,7 @@ export const TileEmpty = ({
     } else {
       setTexture(undefined);
     }
-  }, [background, rotation, isSelected]);
+  }, [background, rotation]);
 
   useEffect(() => {
     if (activeTile && isSelected) {
@@ -53,7 +47,9 @@ export const TileEmpty = ({
   }, [isSelected, orientation]);
 
   const handleMeshClick = () => {
-    onTileClick(col, row);
+    setSelectedTile({ col, row });
+    setX(col);
+    setY(row);
   };
 
   const handlePointerEnter = () => {

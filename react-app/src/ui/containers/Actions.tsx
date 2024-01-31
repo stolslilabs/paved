@@ -1,12 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useDojo } from "../../dojo/useDojo";
 import { Buy } from "../components/Buy";
-import { faExpand, faCompress } from "@fortawesome/free-solid-svg-icons";
+import {
+  faExpand,
+  faCompress,
+  faHome,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Button } from "@/components/ui/button";
 
 export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(true);
+  const navigate = useNavigate();
 
   return (
     <div className="absolute left-4 bottom-6 z-30">
@@ -19,12 +25,16 @@ export const Actions = () => {
             <FontAwesomeIcon icon={isExpanded ? faCompress : faExpand} />
           </Button>
           {isExpanded && <Button variant={"default"}>SCR</Button>}
-          {isExpanded && <Button variant={"default"}>HME</Button>}
           {isExpanded && (
-            <div className="z-20">
-              <Buy />
-            </div>
+            <Button
+              variant={"default"}
+              onClick={() => navigate("", { replace: true })}
+            >
+              <FontAwesomeIcon icon={faHome} />
+            </Button>
           )}
+
+          {isExpanded && <Buy />}
         </div>
         {isExpanded && (
           <div className="flex gap-4">

@@ -85,7 +85,6 @@ export const GameLobby = () => {
             <TableRow>
               <TableHead className="w-[100px]">Game</TableHead>
               <TableHead>TileCount</TableHead>
-              <TableHead>Tiles</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -121,7 +120,6 @@ export const GameRow = (entity: any) => {
     <TableRow>
       <TableCell>{game?.id}</TableCell>
       <TableCell>{game?.tile_count}</TableCell>
-      <TableCell>{game?.tiles.toString()}</TableCell>
       <TableCell className="flex justify-end gap-4">
         <Button
           variant={"default"}
@@ -136,7 +134,10 @@ export const GameRow = (entity: any) => {
         >
           Spawn
         </Button>
-        <Button className="align-right" onClick={() => setGameQueryParam("1 ")}>
+        <Button
+          className="align-right"
+          onClick={() => setGameQueryParam(game?.id || 0)}
+        >
           go to game
         </Button>
         <Input
