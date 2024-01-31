@@ -5,7 +5,6 @@ mod types {
     mod area;
     mod plan;
     mod layout;
-    mod mode;
     mod move;
     mod category;
     mod order;
