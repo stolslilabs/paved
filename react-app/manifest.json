@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::play::play",
       "address": "0x7651b20b752fda65135e9fd86606e6cfead5759f6b5cac0667d4558e267ed82",
-      "class_hash": "0x32b356abe8f8bd7f8a613c7eba6d5295c8814bc8699f92f41f90660568d61f0",
+      "class_hash": "0x1bd10ca44292a654400b21b8c680fd1509491ff9cae98c83eef13f888e7bbd4",
       "abi": [
         {
           "type": "impl",
@@ -1082,11 +1082,23 @@
           "items": [
             {
               "type": "function",
-              "name": "initialize",
+              "name": "create",
               "inputs": [
                 {
                   "name": "world",
                   "type": "dojo::world::IWorldDispatcher"
+                },
+                {
+                  "name": "endtime",
+                  "type": "core::integer::u64"
+                },
+                {
+                  "name": "points_cap",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "tiles_cap",
+                  "type": "core::integer::u32"
                 }
               ],
               "outputs": [
@@ -1098,7 +1110,7 @@
             },
             {
               "type": "function",
-              "name": "create",
+              "name": "spawn",
               "inputs": [
                 {
                   "name": "world",
@@ -1841,9 +1853,29 @@
           "name": "tile_count",
           "type": "u32",
           "key": false
+        },
+        {
+          "name": "endtime",
+          "type": "u64",
+          "key": false
+        },
+        {
+          "name": "points_cap",
+          "type": "u32",
+          "key": false
+        },
+        {
+          "name": "tiles_cap",
+          "type": "u32",
+          "key": false
+        },
+        {
+          "name": "over",
+          "type": "bool",
+          "key": false
         }
       ],
-      "class_hash": "0x392c2b7921a49a1eacf9182bd4eed2242c849ccf9c30a94b8b554882e5ca41",
+      "class_hash": "0x4a6602d1326a275d505ba8157df5765c151b13c45a6ebb55e8428c3a7ca3fbf",
       "abi": [
         {
           "type": "function",
