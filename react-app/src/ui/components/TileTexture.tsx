@@ -17,8 +17,6 @@ export const TileTexture = ({
   entity,
   size,
   tilePositionEntities,
-  onTileClick,
-  selectedTile,
   activeTile,
 }: any) => {
   const {
@@ -109,8 +107,6 @@ export const TileTexture = ({
             col={position.col}
             row={position.row}
             size={3}
-            onTileClick={onTileClick}
-            selectedTile={selectedTile}
             activeTile={activeTile}
           />
         );

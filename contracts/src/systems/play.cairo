@@ -294,11 +294,11 @@ mod play {
             // [Effect] Update builder
             store.set_builder(builder);
 
-            // [Effect] Update game
-            store.set_game(game);
-
             // [Effect] Assessment
             game.assess(tile, ref store);
+
+            // [Effect] Update game
+            store.set_game(game);
         }
     }
 }

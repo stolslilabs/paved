@@ -9,7 +9,7 @@ import { useQueryParams } from "../../hooks/useQueryParams";
 
 export const TileTextures = ({ squareSize }: { squareSize: number }) => {
   const { gameId } = useQueryParams();
-  const { selectedTile, setSelectedTile, setX, setY } = useGameStore();
+  const { setX, setY } = useGameStore();
 
   const {
     account: { account },
@@ -17,12 +17,6 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
       clientComponents: { Tile, TilePosition, Builder },
     },
   } = useDojo();
-
-  const handleTileClick = (col: number, row: number) => {
-    setSelectedTile({ col, row });
-    setX(col);
-    setY(row);
-  };
 
   const builder = useComponentValue(
     Builder,
@@ -57,8 +51,6 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
             entity={tile}
             size={squareSize}
             tilePositionEntities={tilePositionEntities}
-            onTileClick={handleTileClick}
-            selectedTile={selectedTile}
             activeTile={activeTile}
           />
         );
