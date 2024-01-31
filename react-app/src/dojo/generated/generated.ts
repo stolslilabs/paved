@@ -9,10 +9,23 @@ export async function setupWorld(provider: DojoProvider) {
   function play() {
     const contract_name = "play";
 
-    const initialize = async ({ account }: { account: Account }) => {
+    const create = async ({
+      account,
+      endtime,
+      points_cap,
+      tiles_cap,
+    }: {
+      account: Account;
+      endtime: number;
+      points_cap: number;
+      tiles_cap: number;
+    }) => {
       try {
-        return await provider.execute(account, contract_name, "initialize", [
+        return await provider.execute(account, contract_name, "create", [
           provider.getWorldAddress(),
+          endtime,
+          points_cap,
+          tiles_cap,
         ]);
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -20,7 +33,7 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
-    const create = async ({
+    const spawn = async ({
       account,
       game_id,
       name,
@@ -32,7 +45,7 @@ export async function setupWorld(provider: DojoProvider) {
       order: number;
     }) => {
       try {
-        return await provider.execute(account, contract_name, "create", [
+        return await provider.execute(account, contract_name, "spawn", [
           provider.getWorldAddress(),
           game_id,
           name,
@@ -129,7 +142,7 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
-    return { initialize, create, buy, draw, discard, build };
+    return { create, spawn, buy, draw, discard, build };
   }
   return {
     play: play(),

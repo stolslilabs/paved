@@ -82,11 +82,15 @@ export function defineContractComponents(world: World) {
           id: RecsType.Number,
           tiles: RecsType.BigInt,
           tile_count: RecsType.Number,
+          endtime: RecsType.Number,
+          points_cap: RecsType.Number,
+          tiles_cap: RecsType.Number,
+          over: RecsType.Boolean,
         },
         {
           metadata: {
             name: "Game",
-            types: ["u32", "u128", "u32"],
+            types: ["u32", "u128", "u32", "u64", "u32", "u32", "bool"],
             customTypes: [],
           },
         }
