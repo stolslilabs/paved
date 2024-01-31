@@ -1,5 +1,5 @@
-// import manifest from "../contracts/target/dev/manifest.json";
-import manifest from "./manifest.json";
+import manifest from "../contracts/target/dev/manifest.json";
+// import manifest from "./manifest.json";
 
 const {
   VITE_PUBLIC_NODE_URL,

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -14,14 +15,25 @@ import { useComponentValue, useEntityQuery } from "@dojoengine/react";
 import { Has } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 import { shortString } from "starknet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+} from "@/components/ui/select";
+import { shortenHex } from "@dojoengine/utils";
 
 export const GameLobby = () => {
-  const [endtime, setEndtime] = useState(0);
-  const [pointsCap, setPointsCap] = useState(0);
-  const [tilesCap, setTilesCap] = useState(0);
+  const [endtime, setEndtime] = useState(60);
+  const [pointsCap, setPointsCap] = useState(100);
+  const [tilesCap, setTilesCap] = useState(100);
+
+  const [finishTimeFormat, setFinishTimeFormat] = useState<Date>();
 
   const {
-    account: { account, create, clear },
+    account: { account, create, clear, list, select },
     setup: {
       clientComponents: { Game },
       client: { play },
@@ -30,11 +42,45 @@ export const GameLobby = () => {
 
   const games = useEntityQuery([Has(Game)]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFinishTimeFormat(
+        new Date(endtime * 60 * 1000 + Math.floor(Date.now()))
+      );
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [endtime]);
+
   return (
     <div className="bg-yellow-100 h-screen w-screen flex">
       <div className="w-1/3 bg-blue-100 h-full p-10">
-        <h1>Game Lobby</h1>
-        <h2>{account.address.slice(0, 10)}</h2>
+        <h1>Paved in Order</h1>
+
+        <Select
+          onValueChange={(value) => select(value)}
+          defaultValue={account.address}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Addr" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {list().map((account, index) => {
+                return (
+                  <div key={index} className="flex">
+                    <SelectItem value={account.address}>
+                      {shortenHex(account.address)}
+                    </SelectItem>
+                    <Button size={"sm"} variant={"outline"} onClick={clear}>
+                      X
+                    </Button>
+                  </div>
+                );
+              })}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+
         <Button variant={"default"} onClick={() => create()}>
           Deploy
         </Button>
@@ -44,49 +90,65 @@ export const GameLobby = () => {
       </div>
       <div className="w-2/3 p-10">
         <h1>Create Game</h1>
-        <h2>Endtime (unix) - Points Cap - Tiles Cap</h2>
 
         <div className="flex gap-4">
+          <div className="grid items-center gap-1.5 self-end">
+            <Label htmlFor="email">End Time (From Now in Minutes)</Label>
+            <Input
+              type="number"
+              value={endtime}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setEndtime(parseInt(e.target.value));
+                } else {
+                  setEndtime(0);
+                }
+              }}
+            />
+            <div className="text-xs">
+              End at: {finishTimeFormat?.toLocaleString()}
+            </div>
+          </div>
+
+          <div className="grid items-center gap-1.5 self-start">
+            <Label htmlFor="email">Points Cap</Label>
+            <Input
+              className="w-20"
+              type="number"
+              value={pointsCap}
+              onChange={(e) => {
+                setPointsCap(parseInt(e.target.value));
+              }}
+            />
+          </div>
+          <div className="grid items-center gap-1.5 self-start">
+            <Label htmlFor="email">Tiles Cap</Label>
+            <Input
+              className="w-20"
+              type="number"
+              value={tilesCap}
+              onChange={(e) => {
+                setTilesCap(parseInt(e.target.value));
+              }}
+            />
+          </div>
           <Button
             variant={"default"}
+            className=" self-center"
             onClick={() =>
               play.create({
                 account,
-                endtime: endtime,
+                endtime: endtime * 60 + Math.floor(Date.now() / 1000),
                 points_cap: pointsCap,
                 tiles_cap: tilesCap,
               })
             }
           >
-            Create
+            Create game
           </Button>
-          <Input
-            className="w-20"
-            type="number"
-            value={endtime}
-            onChange={(e) => {
-              setEndtime(parseInt(e.target.value));
-            }}
-          />
-          <Input
-            className="w-20"
-            type="number"
-            value={pointsCap}
-            onChange={(e) => {
-              setPointsCap(parseInt(e.target.value));
-            }}
-          />
-          <Input
-            className="w-20"
-            type="number"
-            value={tilesCap}
-            onChange={(e) => {
-              setTilesCap(parseInt(e.target.value));
-            }}
-          />
         </div>
 
-        <h1>Games</h1>
+        <h4>Games</h4>
         <Table>
           <TableHeader>
             <TableRow>
@@ -128,6 +190,22 @@ export const GameRow = (entity: any) => {
       <TableCell>{game?.id}</TableCell>
       <TableCell>{game?.tile_count}</TableCell>
       <TableCell className="flex justify-end gap-4">
+        <Input
+          className="w-20"
+          type="text"
+          value={playerName}
+          onChange={(e) => {
+            setPlayerName(e.target.value);
+          }}
+        />
+        <Input
+          className="w-20"
+          type="number"
+          value={order}
+          onChange={(e) => {
+            setOrder(parseInt(e.target.value));
+          }}
+        />
         <Button
           variant={"default"}
           onClick={() =>
@@ -147,22 +225,6 @@ export const GameRow = (entity: any) => {
         >
           go to game
         </Button>
-        <Input
-          className="w-20"
-          type="text"
-          value={playerName}
-          onChange={(e) => {
-            setPlayerName(e.target.value);
-          }}
-        />
-        <Input
-          className="w-20"
-          type="number"
-          value={order}
-          onChange={(e) => {
-            setOrder(parseInt(e.target.value));
-          }}
-        />
       </TableCell>
     </TableRow>
   );
