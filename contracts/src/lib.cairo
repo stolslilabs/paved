@@ -5,6 +5,7 @@ mod types {
     mod area;
     mod plan;
     mod layout;
+    mod mode;
     mod move;
     mod category;
     mod order;
@@ -65,7 +66,7 @@ mod systems {
 #[cfg(test)]
 mod tests {
     mod setup;
-    mod create;
+    mod spawn;
     mod buy;
     mod draw;
     mod discard;

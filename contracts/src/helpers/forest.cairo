@@ -13,7 +13,7 @@ use stolsli::types::plan::Plan;
 use stolsli::types::role::Role;
 use stolsli::types::direction::Direction;
 use stolsli::types::move::{Move, MoveImpl};
-use stolsli::models::game::Game;
+use stolsli::models::game::{Game, GameImpl};
 use stolsli::models::builder::{Builder, BuilderImpl};
 use stolsli::models::character::{Character, CharacterPosition};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
@@ -23,18 +23,20 @@ impl ForestCount of ForestCountTrait {
     #[inline(always)]
     fn start(
         game: Game, tile: Tile, at: Spot, ref store: Store
-    ) -> (u32, u32, Array<Character>, Array<Character>) {
+    ) -> (u32, u32, u32, Array<Character>, Array<Character>) {
         // [Compute] Setup recursion
         let mut woodsmen: Array<Character> = ArrayTrait::new();
         let mut herdsmen: Array<Character> = ArrayTrait::new();
         let mut visited: Felt252Dict<bool> = Default::default();
         // [Compute] Recursively count the points
+        let mut count = 0;
         let mut woodsman_score = 1;
         let mut herdsman_score = 1;
         ForestCount::iter(
             game,
             tile,
             at,
+            ref count,
             ref woodsman_score,
             ref herdsman_score,
             ref woodsmen,
@@ -48,13 +50,14 @@ impl ForestCount of ForestCountTrait {
         if 0 != herdsman_score.into() {
             herdsman_score -= 1;
         };
-        (woodsman_score, herdsman_score, woodsmen, herdsmen)
+        (count, woodsman_score, herdsman_score, woodsmen, herdsmen)
     }
 
     fn iter(
         game: Game,
         tile: Tile,
         at: Spot,
+        ref count: u32,
         ref woodsman_score: u32,
         ref herdsman_score: u32,
         ref woodsmen: Array<Character>,
@@ -68,6 +71,7 @@ impl ForestCount of ForestCountTrait {
         if visited.get(visited_key) {
             return;
         };
+        count += 1;
         visited.insert(visited_key, true);
 
         // [Check] The tile handles a character
@@ -140,8 +144,7 @@ impl ForestCount of ForestCountTrait {
                     let (x, y) = tile.proxy_coordinates(move.direction);
                     let tile_position: TilePosition = store.tile_position(game, x, y);
                     if tile_position.is_zero() {
-                        woodsman_score = 0;
-                        herdsman_score = 0;
+                        count = 0;
                         break;
                     }
 
@@ -151,6 +154,7 @@ impl ForestCount of ForestCountTrait {
                         game,
                         neighbor,
                         move.spot,
+                        ref count,
                         ref woodsman_score,
                         ref herdsman_score,
                         ref woodsmen,
@@ -158,7 +162,7 @@ impl ForestCount of ForestCountTrait {
                         ref visited,
                         ref store
                     );
-                    if 0 == woodsman_score.into() || 0 == herdsman_score.into() {
+                    if 0 == count.into() {
                         break;
                     };
                 },
@@ -169,7 +173,11 @@ impl ForestCount of ForestCountTrait {
     }
 
     fn solve(
-        self: Game, score: u32, base_points: u32, ref characters: Array<Character>, ref store: Store
+        ref game: Game,
+        score: u32,
+        base_points: u32,
+        ref characters: Array<Character>,
+        ref store: Store
     ) {
         // [Compute] Find the winner
         let length = characters.len();
@@ -177,10 +185,10 @@ impl ForestCount of ForestCountTrait {
             match characters.pop_front() {
                 Option::Some(mut character) => {
                     // [Effect] Collect the character's builder
-                    let mut tile = store.tile(self, character.tile_id);
-                    let mut builder = store.builder(self, character.builder_id);
+                    let mut tile = store.tile(game, character.tile_id);
+                    let mut builder = store.builder(game, character.builder_id);
                     builder.recover(ref character, ref tile);
-                    builder.score += score * base_points / length;
+                    game.add_score(ref builder, score * base_points / length);
 
                     // [Effect] Update the character
                     store.set_character(character);

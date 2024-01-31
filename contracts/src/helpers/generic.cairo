@@ -9,7 +9,7 @@ use stolsli::store::{Store, StoreImpl};
 use stolsli::types::spot::Spot;
 use stolsli::types::area::Area;
 use stolsli::types::move::{Move, MoveImpl};
-use stolsli::models::game::Game;
+use stolsli::models::game::{Game, GameImpl};
 use stolsli::models::builder::{Builder, BuilderImpl};
 use stolsli::models::character::{Character, CharacterPosition};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
@@ -93,7 +93,11 @@ impl GenericCount of GenericCountTrait {
     }
 
     fn solve(
-        self: Game, score: u32, base_points: u32, ref characters: Array<Character>, ref store: Store
+        ref game: Game,
+        score: u32,
+        base_points: u32,
+        ref characters: Array<Character>,
+        ref store: Store
     ) {
         // [Compute] Find the winner
         let mut winner_weight: u32 = 0;
@@ -117,8 +121,8 @@ impl GenericCount of GenericCountTrait {
                     };
 
                     // [Effect] Collect the character's builder
-                    let mut tile = store.tile(self, character.tile_id);
-                    let mut builder = store.builder(self, character.builder_id);
+                    let mut tile = store.tile(game, character.tile_id);
+                    let mut builder = store.builder(game, character.builder_id);
                     builder.recover(ref character, ref tile);
 
                     // [Effect] Update the character
@@ -147,9 +151,9 @@ impl GenericCount of GenericCountTrait {
 
         // [Effect] Update the builder
         if solved {
-            let mut builder = store.builder(self, winner);
+            let mut builder = store.builder(game, winner);
             let power = powers.get(winner);
-            builder.score += score * base_points * power;
+            game.add_score(ref builder, score * base_points * power);
             store.set_builder(builder);
         };
     }

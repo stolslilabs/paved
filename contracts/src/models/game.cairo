@@ -35,7 +35,12 @@ mod errors {
     const INVALID_INDEX: felt252 = 'Game: Invalid index';
     const INVALID_CHARACTER: felt252 = 'Game: Invalid character';
     const INVALID_STRUCTURE: felt252 = 'Game: Invalid structure';
+    const INVALID_ENDTIME: felt252 = 'Game: Invalid endtime';
+    const INVALID_POINTS_CAP: felt252 = 'Game: Invalid points cap';
+    const INVALID_TILES_CAP: felt252 = 'Game: Invalid tiles cap';
+    const INVALID_GAME: felt252 = 'Game: does not exist';
     const STRUCTURE_NOT_IDLE: felt252 = 'Game: Structure not idle';
+    const GAME_IS_OVER: felt252 = 'Game: is over';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -44,13 +49,19 @@ struct Game {
     id: u32,
     tiles: u128,
     tile_count: u32,
+    endtime: u64,
+    points_cap: u32,
+    tiles_cap: u32,
+    over: bool,
 }
 
 #[generate_trait]
 impl GameImpl of GameTrait {
     #[inline(always)]
-    fn new(id: u32) -> Game {
-        Game { id, tiles: 0, tile_count: 0, }
+    fn new(id: u32, time: u64, endtime: u64, points_cap: u32, tiles_cap: u32) -> Game {
+        // [Check] Validate parameters
+        AssertImpl::assert_valid_endtime(time, endtime);
+        Game { id, tiles: 0, tile_count: 0, endtime, points_cap, tiles_cap, over: false }
     }
 
     #[inline(always)]
@@ -59,9 +70,24 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
+    fn is_over(self: Game, time: u64) -> bool {
+        let tile_condition = self.tiles_cap != 0 && self.tile_count >= self.tiles_cap.into();
+        let time_condition = self.endtime != 0 && time >= self.endtime;
+        self.over || tile_condition || time_condition
+    }
+
+    #[inline(always)]
     fn add_tile(ref self: Game) -> u32 {
         self.tile_count += 1;
         self.tile_count
+    }
+
+    #[inline(always)]
+    fn add_score(ref self: Game, ref builder: Builder, score: u32) {
+        builder.score += score;
+        if self.points_cap != 0 && builder.score >= self.points_cap {
+            self.over = true;
+        }
     }
 
     #[inline(always)]
@@ -82,7 +108,7 @@ impl GameImpl of GameTrait {
         (self.tile_count, plan_id.into())
     }
 
-    fn assess(self: Game, tile: Tile, ref store: Store) {
+    fn assess(ref self: Game, tile: Tile, ref store: Store) {
         // [Compute] Setup recursion
         let layout: Layout = tile.into();
         let mut north_oriented_starts = tile.north_oriented_starts();
@@ -118,36 +144,36 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
-    fn assess_at(self: Game, tile: Tile, at: Spot, category: Category, ref store: Store) {
+    fn assess_at(ref self: Game, tile: Tile, at: Spot, category: Category, ref store: Store) {
         // [Compute] Assess the spot
         let base = category.base_points();
         match category {
             Category::None => { return; },
             Category::Forest => {
-                let (woodsman_score, herdsman_score, mut woodsmen, mut herdsmen) =
+                let (count, woodsman_score, herdsman_score, mut woodsmen, mut herdsmen) =
                     ForestCount::start(
                     self, tile, at, ref store
                 );
                 // [Effect] Solve and collect characters
-                if 0 != woodsman_score.into() && 0 != woodsmen.len().into() {
-                    ForestCount::solve(self, woodsman_score, base, ref woodsmen, ref store);
+                if 0 != count.into() && 0 != woodsmen.len().into() {
+                    ForestCount::solve(ref self, woodsman_score, base, ref woodsmen, ref store);
                 }
-                if 0 != herdsman_score.into() && 0 != herdsmen.len().into() {
-                    ForestCount::solve(self, herdsman_score, base, ref herdsmen, ref store);
+                if 0 != count.into() && 0 != herdsmen.len().into() {
+                    ForestCount::solve(ref self, herdsman_score, base, ref herdsmen, ref store);
                 }
             },
             Category::Road => {
                 let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters
                 if 0 != score.into() && 0 != characters.len().into() {
-                    GenericCount::solve(self, score, base, ref characters, ref store);
+                    GenericCount::solve(ref self, score, base, ref characters, ref store);
                 }
             },
             Category::City => {
                 let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters
                 if 0 != score.into() && 0 != characters.len().into() {
-                    GenericCount::solve(self, score, base, ref characters, ref store);
+                    GenericCount::solve(ref self, score, base, ref characters, ref store);
                 }
             },
             Category::Stop => { return; },
@@ -155,7 +181,7 @@ impl GameImpl of GameTrait {
                 let (score, mut character) = WonderCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect the character
                 if 0 != score.into() {
-                    WonderCount::solve(self, base, ref character, ref store);
+                    WonderCount::solve(ref self, base, ref character, ref store);
                 }
             },
         };
@@ -165,9 +191,24 @@ impl GameImpl of GameTrait {
 #[generate_trait]
 impl AssertImpl of AssertTrait {
     #[inline(always)]
+    fn assert_exists(self: Game) {
+        assert(self.exists(), errors::INVALID_GAME);
+    }
+
+    #[inline(always)]
     fn assert_structure_idle(self: Game, tile: Tile, at: Spot, ref store: Store) {
         let status = Conflict::start(self, tile, at, ref store);
         assert(!status, errors::STRUCTURE_NOT_IDLE);
+    }
+
+    #[inline(always)]
+    fn assert_not_over(self: Game, time: u64) {
+        assert(!self.is_over(time), errors::GAME_IS_OVER);
+    }
+
+    #[inline(always)]
+    fn assert_valid_endtime(time: u64, endtime: u64) {
+        assert(endtime == 0 || endtime >= time, errors::INVALID_ENDTIME);
     }
 }
 
@@ -190,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_game_new() {
-        let game = GameImpl::new(GAME_ID);
+        let game = GameImpl::new(GAME_ID, 0, 0, 0, 0);
         assert(game.id == GAME_ID, 'Game: Invalid id');
         assert(game.tiles == 0, 'Game: Invalid tiles');
         assert(game.tile_count == 0, 'Game: Invalid tile_count');
@@ -198,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_game_add_tile() {
-        let mut game = GameImpl::new(GAME_ID);
+        let mut game = GameImpl::new(GAME_ID, 0, 0, 0, 0);
         let tile_count = game.tile_count;
         let tile_id = game.add_tile();
         assert(tile_id == GAME_ID, 'Game: Invalid tile_id');
@@ -207,7 +248,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_plan() {
-        let mut game = GameImpl::new(GAME_ID);
+        let mut game = GameImpl::new(GAME_ID, 0, 0, 0, 0);
         let (tile_count, plan_id) = game.draw_plan(SEED);
         assert(tile_count == 1, 'Game: Invalid tile_count');
         assert(plan_id.into() < constants::TOTAL_TILE_COUNT, 'Game: Invalid plan_id');
@@ -217,7 +258,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_planes() {
-        let mut game = GameImpl::new(GAME_ID);
+        let mut game = GameImpl::new(GAME_ID, 0, 0, 0, 0);
         let mut counts: Felt252Dict<u8> = Default::default();
         loop {
             if game.tile_count == constants::TOTAL_TILE_COUNT.into() {

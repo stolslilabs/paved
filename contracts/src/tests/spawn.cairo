@@ -24,11 +24,11 @@ use stolsli::tests::setup::{setup, setup::{Systems, BUILDER, ANYONE}};
 const BUILDER_NAME: felt252 = 'BUILDER';
 
 #[test]
-fn test_play_create() {
+fn test_play_spawn() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
 
-    // [Create]
-    systems.play.create(world, context.game_id, BUILDER_NAME, Order::Anger.into());
+    // [Spawn]
+    systems.play.spawn(world, context.game_id, BUILDER_NAME, Order::Anger.into());
 }

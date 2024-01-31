@@ -38,6 +38,9 @@ mod setup {
     #[derive(Drop)]
     struct Context {
         game_id: u32,
+        endtime: u64,
+        points_cap: u32,
+        tiles_cap: u32,
     }
 
     fn spawn_game() -> (IWorldDispatcher, Systems, Context) {
@@ -53,8 +56,11 @@ mod setup {
         let systems = Systems { play: IPlayDispatcher { contract_address: play_address }, };
 
         // [Setup] Contracts
-        let game_id = systems.play.initialize(world);
-        let context = Context { game_id: game_id, };
+        let game_id = systems.play.create(world, 0, 0, 0);
+        let endtime: u64 = 0;
+        let points_cap: u32 = 0;
+        let tiles_cap: u32 = 0;
+        let context = Context { game_id, endtime, points_cap, tiles_cap, };
 
         // [Return]
         set_contract_address(BUILDER());

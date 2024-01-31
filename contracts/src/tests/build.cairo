@@ -37,8 +37,8 @@ fn test_play_build_without_character() {
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
 
-    // [Create]
-    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+    // [Spawn]
+    systems.play.spawn(world, game.id, BUILDER_NAME, Order::Anger.into());
 
     // [Draw]
     systems.play.draw(world, game.id);
@@ -61,8 +61,8 @@ fn test_play_build_with_character() {
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
 
-    // [Create]
-    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+    // [Spawn]
+    systems.play.spawn(world, game.id, BUILDER_NAME, Order::Anger.into());
 
     // [Draw]
     systems.play.draw(world, game.id); // FFCFFFCFF
@@ -89,8 +89,8 @@ fn test_play_build_with_character_revert_not_idle() {
     let lady = Role::Lady;
     let spot = Spot::Center;
 
-    // [Create]
-    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+    // [Spawn]
+    systems.play.spawn(world, game.id, BUILDER_NAME, Order::Anger.into());
 
     // [Draw & Build]
     set_transaction_hash(0x58);
@@ -122,8 +122,8 @@ fn test_play_build_complete_castle() {
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
 
-    // [Create]
-    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+    // [Spawn]
+    systems.play.spawn(world, game.id, BUILDER_NAME, Order::Anger.into());
 
     // [Draw]
     systems.play.draw(world, game.id);
@@ -155,8 +155,8 @@ fn test_play_build_complete_forest_inside_roads() {
     let nowhere = Spot::None;
     let northeast = Spot::NorthEast;
 
-    // [Create]
-    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+    // [Spawn]
+    systems.play.spawn(world, game.id, BUILDER_NAME, Order::Anger.into());
 
     // [Draw & Build]
     set_transaction_hash(0x58);
@@ -249,8 +249,8 @@ fn test_play_build_complete_forest_inside_castles() {
     let nowhere = Spot::None;
     let northeast = Spot::NorthEast;
 
-    // [Create]
-    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+    // [Spawn]
+    systems.play.spawn(world, game.id, BUILDER_NAME, Order::Anger.into());
 
     // [Draw & Build]
     set_transaction_hash(0x2);
