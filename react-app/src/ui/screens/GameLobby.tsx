@@ -1,22 +1,24 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { useDojo } from "@/dojo/useDojo";
-import { useQueryParams } from "@/hooks/useQueryParams";
 import { useComponentValue, useEntityQuery } from "@dojoengine/react";
-import { Entity, Has } from "@dojoengine/recs";
+import { Has } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 import { shortString } from "starknet";
 
 export const GameLobby = () => {
-  const { gameId } = useQueryParams();
+  const [endtime, setEndtime] = useState(0);
+  const [pointsCap, setPointsCap] = useState(0);
+  const [tilesCap, setTilesCap] = useState(0);
 
   const {
     account: { account },
@@ -25,9 +27,6 @@ export const GameLobby = () => {
       client: { play },
     },
   } = useDojo();
-
-  const name = "OHAYO";
-  const order = 1;
 
   const games = useEntityQuery([Has(Game)]);
 
@@ -38,32 +37,46 @@ export const GameLobby = () => {
       </div>
       <div className="w-2/3 p-10">
         <h1>Create Game</h1>
+        <h2>Endtime (unix) - Points Cap - Tiles Cap</h2>
 
-        <div>
-          <Button
-            variant={"default"}
-            onClick={() =>
-              play.initialize({
-                account,
-              })
-            }
-          >
-            Initialize
-          </Button>
-
+        <div className="flex gap-4">
           <Button
             variant={"default"}
             onClick={() =>
               play.create({
                 account,
-                game_id: gameId,
-                name: shortString.encodeShortString(name),
-                order: order,
+                endtime: endtime,
+                points_cap: pointsCap,
+                tiles_cap: tilesCap,
               })
             }
           >
             Create
           </Button>
+          <Input
+            className="w-20"
+            type="number"
+            value={endtime}
+            onChange={(e) => {
+              setEndtime(parseInt(e.target.value));
+            }}
+          />
+          <Input
+            className="w-20"
+            type="number"
+            value={pointsCap}
+            onChange={(e) => {
+              setPointsCap(parseInt(e.target.value));
+            }}
+          />
+          <Input
+            className="w-20"
+            type="number"
+            value={tilesCap}
+            onChange={(e) => {
+              setTilesCap(parseInt(e.target.value));
+            }}
+          />
         </div>
 
         <h1>Games</h1>
@@ -88,6 +101,8 @@ export const GameLobby = () => {
 };
 
 export const GameRow = (entity: any) => {
+  const [playerName, setPlayerName] = useState("OHAYO");
+  const [order, setOrder] = useState(1);
   const {
     setup: {
       clientComponents: { Game },
@@ -107,23 +122,39 @@ export const GameRow = (entity: any) => {
       <TableCell>{game?.id}</TableCell>
       <TableCell>{game?.tile_count}</TableCell>
       <TableCell>{game?.tiles.toString()}</TableCell>
-      <TableCell>
+      <TableCell className="flex justify-end gap-4">
         <Button
           variant={"default"}
           onClick={() =>
-            play.create({
+            play.spawn({
               account,
               game_id: game?.id || 0,
-              name: shortString.encodeShortString("ohayo"),
-              order: 1,
+              name: shortString.encodeShortString(playerName),
+              order: order,
             })
           }
         >
-          Create
+          Spawn
         </Button>
         <Button className="align-right" onClick={() => setGameQueryParam("1 ")}>
           go to game
         </Button>
+        <Input
+          className="w-20"
+          type="text"
+          value={playerName}
+          onChange={(e) => {
+            setPlayerName(e.target.value);
+          }}
+        />
+        <Input
+          className="w-20"
+          type="number"
+          value={order}
+          onChange={(e) => {
+            setOrder(parseInt(e.target.value));
+          }}
+        />
       </TableCell>
     </TableRow>
   );

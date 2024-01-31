@@ -8,6 +8,7 @@ export const CoreScreen = () => {
   const { gameId } = useQueryParams();
   return <>{gameId ? <GameScreen /> : <GameLobby />}</>;
 };
+
 function App() {
   return (
     <>

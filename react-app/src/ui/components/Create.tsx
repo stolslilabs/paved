@@ -1,10 +1,7 @@
 import { useDojo } from "../../dojo/useDojo";
-import { shortString } from "starknet";
 import { Button } from "@/components/ui/button";
-import { useQueryParams } from "@/hooks/useQueryParams";
 
 export const Create = () => {
-  const { gameId } = useQueryParams();
   const {
     account,
     setup: {
@@ -15,14 +12,11 @@ export const Create = () => {
   const handleClick = () => {
     play.create({
       account: account.account,
-      game_id: gameId,
-      name: shortString.encodeShortString(name),
-      order: order,
+      endtime: 0,
+      points_cap: 0,
+      tiles_cap: 0,
     });
   };
-
-  const name = "OHAYO";
-  const order = 1;
 
   return (
     <div className="flex space-x-3 justify-between p-2 flex-wrap">
