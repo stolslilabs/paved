@@ -29,7 +29,7 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
     } else {
       setTexture(undefined);
     }
-  }, [background, rotation]);
+  }, [background, rotation, orientation]);
 
   useEffect(() => {
     if (activeTile && isSelected) {
@@ -38,7 +38,7 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
     } else {
       setBackground(null);
     }
-  }, [isSelected]);
+  }, [isSelected, orientation, activeTile]);
 
   useEffect(() => {
     if (isSelected) {
@@ -52,7 +52,14 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
     setY(row);
   };
 
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    document.body.style.cursor = hovered ? "pointer" : "auto";
+  }, [hovered]);
+
   const handlePointerEnter = () => {
+    setHovered(true);
     if (activeTile) {
       setBackground(getImage(activeTile));
       setRotation(calculateRotation(orientation));
@@ -62,6 +69,7 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
   };
 
   const handlePointerLeave = () => {
+    setHovered(false);
     if (isSelected && activeTile) {
       const image = getImage(activeTile);
       setBackground(image);
@@ -96,7 +104,7 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
           <meshStandardMaterial
             color={"#ADD8E6"}
             transparent={true}
-            opacity={1}
+            opacity={0.3}
           />
         )}
       </mesh>

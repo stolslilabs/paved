@@ -8,6 +8,8 @@ import { world } from "./world";
 import { Config } from "../../../dojoConfig";
 import { setupWorld } from "./generated";
 import { DojoProvider } from "@dojoengine/core";
+import { BurnerManager } from "@dojoengine/create-burner";
+import { Account, RpcProvider } from "starknet";
 
 export type SetupResult = Awaited<ReturnType<typeof setup>>;
 
@@ -32,6 +34,30 @@ export async function setup({ ...config }: Config) {
     new DojoProvider(config.manifest, config.rpcUrl)
   );
 
+  const rpcProvider = new RpcProvider({
+    nodeUrl: config.rpcUrl,
+  });
+
+  const burnerManager = new BurnerManager({
+    masterAccount: new Account(
+      rpcProvider,
+      config.masterAddress,
+      config.masterPrivateKey
+    ),
+    accountClassHash: config.accountClassHash,
+    rpcProvider,
+  });
+
+  if (burnerManager.list().length === 0) {
+    try {
+      await burnerManager.create();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  burnerManager.init();
+
   return {
     client,
     clientComponents,
@@ -42,5 +68,6 @@ export async function setup({ ...config }: Config) {
       clientComponents
     ),
     config,
+    burnerManager,
   };
 }
