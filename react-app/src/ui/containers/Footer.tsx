@@ -26,7 +26,7 @@ export const Footer = () => {
   ]) as Entity;
   const builder = useComponentValue(Builder, builderEntity);
   const characters = useMemo(
-    () => getAvailableCharacters(builder ? builder.characters : BigInt(0)),
+    () => getAvailableCharacters(builder ? builder.characters : 0),
     [builder]
   );
 

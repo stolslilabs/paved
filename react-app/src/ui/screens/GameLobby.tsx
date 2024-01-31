@@ -21,7 +21,7 @@ export const GameLobby = () => {
   const [tilesCap, setTilesCap] = useState(0);
 
   const {
-    account: { account },
+    account: { account, create, clear },
     setup: {
       clientComponents: { Game },
       client: { play },
@@ -34,6 +34,13 @@ export const GameLobby = () => {
     <div className="bg-yellow-100 h-screen w-screen flex">
       <div className="w-1/3 bg-blue-100 h-full p-10">
         <h1>Game Lobby</h1>
+        <h2>{account.address.slice(0, 10)}</h2>
+        <Button variant={"default"} onClick={() => create()}>
+          Deploy
+        </Button>
+        <Button variant={"default"} onClick={() => clear()}>
+          Clear
+        </Button>
       </div>
       <div className="w-2/3 p-10">
         <h1>Create Game</h1>
