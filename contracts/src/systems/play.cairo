@@ -15,8 +15,14 @@ use stolsli::types::spot::Spot;
 
 #[starknet::interface]
 trait IPlay<TContractState> {
-    fn initialize(self: @TContractState, world: IWorldDispatcher) -> u32;
     fn create(
+        self: @TContractState,
+        world: IWorldDispatcher,
+        endtime: u64,
+        points_cap: u32,
+        tiles_cap: u32
+    ) -> u32;
+    fn spawn(
         self: @TContractState, world: IWorldDispatcher, game_id: u32, name: felt252, order: u8
     );
     fn buy(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
@@ -91,7 +97,13 @@ mod play {
 
     #[external(v0)]
     impl PlayImpl of IPlay<ContractState> {
-        fn initialize(self: @ContractState, world: IWorldDispatcher) -> u32 {
+        fn create(
+            self: @ContractState,
+            world: IWorldDispatcher,
+            endtime: u64,
+            points_cap: u32,
+            tiles_cap: u32
+        ) -> u32 {
             // [Check] Owner
             // TODO: Access control
 
@@ -100,7 +112,8 @@ mod play {
 
             // [Effect] Create game
             let game_id = world.uuid() + 1;
-            let mut game = GameImpl::new(game_id);
+            let time = get_block_timestamp();
+            let mut game = GameImpl::new(game_id, time, endtime, points_cap, tiles_cap);
 
             // [Effect] Create starter tile
             let tile_id = game.add_tile();
@@ -116,14 +129,21 @@ mod play {
             game_id
         }
 
-        fn create(
+        fn spawn(
             self: @ContractState, world: IWorldDispatcher, game_id: u32, name: felt252, order: u8
         ) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
-            // [Check] Builder not already exists
+            // [Check] Game exists
             let game = store.game(game_id);
+            game.assert_exists();
+
+            // [Check] Game is not over
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
+
+            // [Check] Builder not already exists
             let caller = get_caller_address();
             let builder = store.builder(game, caller.into());
             assert(builder.is_zero(), errors::BUILDER_ALREADY_EXISTS);
@@ -142,7 +162,11 @@ mod play {
 
             // [Check] Game exists
             let game = store.game(game_id);
-            assert(game.id == game_id, errors::GAME_NOT_FOUND);
+            game.assert_exists();
+
+            // [Check] Game is not over
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
 
             // [Check] Builder exists
             let caller = get_caller_address();
@@ -162,7 +186,11 @@ mod play {
 
             // [Check] Game exists
             let mut game = store.game(game_id);
-            assert(game.id == game_id, errors::GAME_NOT_FOUND);
+            game.assert_exists();
+
+            // [Check] Game is not over
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
 
             // [Check] Builder exists
             let caller = get_caller_address();
@@ -170,7 +198,7 @@ mod play {
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Effect] Builder spawn a new tile
-            // Todo: use VRF
+            // TODO: use VRF
             let seed = get_tx_info().unbox().transaction_hash;
             let (tile_id, plan) = game.draw_plan(seed.into());
             let tile = builder.draw(tile_id, plan);
@@ -191,7 +219,11 @@ mod play {
 
             // [Check] Game exists
             let game = store.game(game_id);
-            assert(game.id == game_id, errors::GAME_NOT_FOUND);
+            game.assert_exists();
+
+            // [Check] Game is not over
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
 
             // [Check] Builder exists
             let caller = get_caller_address();
@@ -220,8 +252,12 @@ mod play {
             let mut store: Store = StoreImpl::new(world);
 
             // [Check] Game exists
-            let game = store.game(game_id);
-            assert(game.id == game_id, errors::GAME_NOT_FOUND);
+            let mut game = store.game(game_id);
+            game.assert_exists();
+
+            // [Check] Game is not over
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
 
             // [Check] Builder exists
             let caller = get_caller_address();

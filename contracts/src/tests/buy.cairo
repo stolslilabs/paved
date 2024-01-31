@@ -29,8 +29,8 @@ fn test_play_buy() {
     let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
 
-    // [Create]
-    systems.play.create(world, context.game_id, BUILDER_NAME, Order::Anger.into());
+    // [Spawn]
+    systems.play.spawn(world, context.game_id, BUILDER_NAME, Order::Anger.into());
     let game = store.game(context.game_id);
     let builder = store.builder(game, BUILDER().into());
     let tile_remaining = builder.tile_remaining;

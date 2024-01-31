@@ -38,11 +38,11 @@ fn test_cases_007() {
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
 
-    // [Create]
+    // [Spawn]
     set_contract_address(BUILDER());
-    systems.play.create(world, game.id, BUILDER_NAME, Order::Anger.into());
+    systems.play.spawn(world, game.id, BUILDER_NAME, Order::Anger.into());
     set_contract_address(ANYONE());
-    systems.play.create(world, game.id, ANYONE_NAME, Order::Fox.into());
+    systems.play.spawn(world, game.id, ANYONE_NAME, Order::Fox.into());
 
     // [Draw & Build]
     set_contract_address(BUILDER());
