@@ -251,27 +251,32 @@ export const GameRow = (entity: any) => {
         </Select>
 
         <Button
-          className={playerName && !builder ? "" : "opacity-50 cursor-not-allowed"}
+          className={
+            playerName && !builder ? "" : "opacity-50 cursor-not-allowed"
+          }
           variant={"default"}
           onClick={() => {
-            playerName && !builder && play.spawn({
-              account,
-              game_id: game?.id || 0,
-              name: shortString.encodeShortString(playerName),
-              order: order,
-            })
+            playerName &&
+              !builder &&
+              play.spawn({
+                account,
+                game_id: game?.id || 0,
+                name: shortString.encodeShortString(playerName),
+                order: order,
+              });
           }}
         >
           Spawn
         </Button>
 
         <Button
-          className={`align-right ${!builder && "opacity-50 cursor-not-allowed"}`}
+          className={`align-right ${
+            !builder && "opacity-50 cursor-not-allowed"
+          }`}
           onClick={() => builder && setGameQueryParam(game?.id || 0)}
         >
           <FontAwesomeIcon icon={faRightToBracket} />
         </Button>
-
       </TableCell>
     </TableRow>
   );
