@@ -26,11 +26,7 @@ export const Actions = () => {
           >
             <FontAwesomeIcon icon={isExpanded ? faCompress : faExpand} />
           </Button>
-          {isExpanded && (
-            <Button variant={"default"}>
-              <Leaderboard />
-            </Button>
-          )}
+          {isExpanded && <Leaderboard />}
           {isExpanded && (
             <Button
               variant={"default"}

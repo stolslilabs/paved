@@ -26,7 +26,8 @@ import wcccccccc from "/assets/tiles/wcccccccc.png";
 import wffffffff from "/assets/tiles/wffffffff.png";
 import wfffffffr from "/assets/tiles/wfffffffr.png";
 
-export const CHARACTER_COUNT = 8;
+export const CHARACTER_COUNT = 7;
+export const ORDER_COUNT = 14;
 
 export const getImage = (tile: any) => {
   switch (tile?.plan) {
@@ -83,8 +84,8 @@ export const getImage = (tile: any) => {
   }
 };
 
-export const getOrder = (builder: any) => {
-  switch (builder?.order) {
+export const getOrder = (order: number) => {
+  switch (order) {
     case 1:
       return "ANGER";
     case 2:
@@ -116,6 +117,47 @@ export const getOrder = (builder: any) => {
     default:
       return "NONE";
   }
+};
+
+export const getOrderFromName = (order: string) => {
+  switch (order) {
+    case "ANGER":
+      return 1;
+    case "TITANS":
+      return 2;
+    case "VITRIOL":
+      return 3;
+    case "BRILLIANCE":
+      return 4;
+    case "DETECTION":
+      return 5;
+    case "ENLIGHTENMENT":
+      return 6;
+    case "FURY":
+      return 7;
+    case "GIANTS":
+      return 8;
+    case "PERFECTION":
+      return 9;
+    case "RAGE":
+      return 10;
+    case "REFLECTION":
+      return 11;
+    case "SKILL":
+      return 12;
+    case "FOX":
+      return 13;
+    case "TWINS":
+      return 14;
+    default:
+      return 0;
+  }
+}
+
+export const getOrders = () => {
+  return Array.from({ length: ORDER_COUNT }, (_, index) =>
+    getOrder(index + 1)
+  );
 };
 
 export const getSpotFromIndex = (index: number) => {
@@ -169,7 +211,7 @@ export const getIndexFromSpot = (spot: number) => {
 };
 
 export const getCharacters = () => {
-  return Array.from({ length: CHARACTER_COUNT - 1 }, (_, index) =>
+  return Array.from({ length: CHARACTER_COUNT }, (_, index) =>
     getRole(index)
   );
 };

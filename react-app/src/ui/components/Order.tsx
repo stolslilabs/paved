@@ -23,7 +23,7 @@ export const Order = () => {
 
   return (
     <div className=" flex justify-center items-center ">
-      {getOrder(builder)}
+      {getOrder(builder?.order)}
     </div>
   );
 };
