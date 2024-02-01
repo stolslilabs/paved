@@ -152,12 +152,10 @@ export const getOrderFromName = (order: string) => {
     default:
       return 0;
   }
-}
+};
 
 export const getOrders = () => {
-  return Array.from({ length: ORDER_COUNT }, (_, index) =>
-    getOrder(index + 1)
-  );
+  return Array.from({ length: ORDER_COUNT }, (_, index) => getOrder(index + 1));
 };
 
 export const getSpotFromIndex = (index: number) => {
@@ -211,9 +209,7 @@ export const getIndexFromSpot = (spot: number) => {
 };
 
 export const getCharacters = () => {
-  return Array.from({ length: CHARACTER_COUNT }, (_, index) =>
-    getRole(index)
-  );
+  return Array.from({ length: CHARACTER_COUNT }, (_, index) => getRole(index));
 };
 
 export const getAvailableCharacters = (packed: number) => {
