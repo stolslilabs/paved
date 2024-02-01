@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy } from "@fortawesome/free-solid-svg-icons";
@@ -24,7 +25,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { useEntityQuery, useComponentValue } from "@dojoengine/react";
 import { shortString } from "starknet";
 import { getOrder } from "@/utils";
-import { Has, HasValue, NotValue } from "@dojoengine/recs";
+import { Has, HasValue } from "@dojoengine/recs";
 
 export const Leaderboard = () => {
   const { gameId } = useQueryParams();
@@ -52,7 +53,9 @@ export const Leaderboard = () => {
   return (
     <Dialog>
       <DialogTrigger>
-        <FontAwesomeIcon icon={faTrophy} />
+        <Button variant={"default"}>
+          <FontAwesomeIcon icon={faTrophy} />
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -83,7 +86,7 @@ export const Leaderboard = () => {
 
 export const Row = ({ builder, rank }: { builder: any; rank: number }) => {
   const name = shortString.decodeShortString(builder?.name || "");
-  const order = getOrder(builder);
+  const order = getOrder(builder?.order);
 
   return (
     <TableRow>

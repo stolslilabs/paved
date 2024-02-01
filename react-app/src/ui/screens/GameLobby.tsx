@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { useDojo } from "@/dojo/useDojo";
 import { useComponentValue, useEntityQuery } from "@dojoengine/react";
-import { Has } from "@dojoengine/recs";
+import { Entity, Has } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 import { shortString } from "starknet";
 import {
@@ -23,7 +23,10 @@ import {
   SelectValue,
   SelectGroup,
 } from "@/components/ui/select";
-import { shortenHex } from "@dojoengine/utils";
+import { getEntityIdFromKeys, shortenHex } from "@dojoengine/utils";
+import { getOrders, getOrderFromName } from "@/utils";
+import { faRightToBracket } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 export const GameLobby = () => {
   const [endtime, setEndtime] = useState(60);
@@ -172,18 +175,43 @@ export const GameLobby = () => {
 };
 
 export const GameRow = (entity: any) => {
-  const [playerName, setPlayerName] = useState("OHAYO");
+  const [playerName, setPlayerName] = useState("");
   const [order, setOrder] = useState(1);
   const {
     setup: {
-      clientComponents: { Game },
+      clientComponents: { Game, Builder },
       client: { play },
     },
     account: { account },
   } = useDojo();
 
   const game = useComponentValue(Game, entity.entity);
+
+  const builderEntity = useMemo(() => {
+    return getEntityIdFromKeys([
+      BigInt(game?.id),
+      BigInt(account.address),
+    ]) as Entity;
+  }, [game, account]);
+
+  const builder = useComponentValue(Builder, builderEntity);
+
+  const orders = useMemo(() => {
+    return getOrders();
+  }, []);
+
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (builder) {
+      setPlayerName(shortString.decodeShortString(builder.name));
+      setOrder(builder.order);
+    } else {
+      setPlayerName("");
+      setOrder(1);
+    }
+  }, [builder]);
+
   const setGameQueryParam = (id: string) => {
     navigate("?game=" + id, { replace: true });
   };
@@ -201,33 +229,49 @@ export const GameRow = (entity: any) => {
             setPlayerName(e.target.value);
           }}
         />
-        <Input
-          className="w-20"
-          type="number"
-          value={order}
-          onChange={(e) => {
-            setOrder(parseInt(e.target.value));
-          }}
-        />
+
+        <Select
+          onValueChange={(value) => setOrder(getOrderFromName(value))}
+          defaultValue={orders[0]}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select Order" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {orders.map((orderName, index) => {
+                return (
+                  <SelectItem key={index} value={orderName}>
+                    {orderName}
+                  </SelectItem>
+                );
+              })}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+
         <Button
+          className={playerName && !builder ? "" : "opacity-50 cursor-not-allowed"}
           variant={"default"}
-          onClick={() =>
-            play.spawn({
+          onClick={() => {
+            playerName && !builder && play.spawn({
               account,
               game_id: game?.id || 0,
               name: shortString.encodeShortString(playerName),
               order: order,
             })
-          }
+          }}
         >
           Spawn
         </Button>
+
         <Button
-          className="align-right"
-          onClick={() => setGameQueryParam(game?.id || 0)}
+          className={`align-right ${!builder && "opacity-50 cursor-not-allowed"}`}
+          onClick={() => builder && setGameQueryParam(game?.id || 0)}
         >
-          go to game
+          <FontAwesomeIcon icon={faRightToBracket} />
         </Button>
+
       </TableCell>
     </TableRow>
   );
