@@ -1,5 +1,6 @@
 contracts/target/CACHEDIR.TAG
 contracts/target/dev/*
+!contracts/target/dev/manifest.json
 .env
 .vscode
 node-modules
