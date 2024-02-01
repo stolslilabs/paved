@@ -138,7 +138,10 @@ export const GameLobby = () => {
             onClick={() =>
               play.create({
                 account,
-                endtime: endtime * 60 + Math.floor(Date.now() / 1000),
+                endtime:
+                  endtime === 0
+                    ? 0
+                    : endtime * 60 + Math.floor(Date.now() / 1000),
                 points_cap: pointsCap,
                 tiles_cap: tilesCap,
               })
