@@ -4,12 +4,10 @@ import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { Has, HasValue, NotValue } from "@dojoengine/recs";
 import { TileTexture } from "./TileTexture";
-import { useGameStore } from "@/store";
 import { useQueryParams } from "../../hooks/useQueryParams";
 
 export const TileTextures = ({ squareSize }: { squareSize: number }) => {
   const { gameId } = useQueryParams();
-  const { setX, setY } = useGameStore();
 
   const {
     account: { account },
