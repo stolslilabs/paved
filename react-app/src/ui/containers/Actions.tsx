@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDojo } from "../../dojo/useDojo";
 import { Buy } from "../components/Buy";
+import { Leaderboard } from "../components/Leaderboard";
 import {
   faExpand,
   faCompress,
   faHome,
+  faTrophy,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Button } from "@/components/ui/button";
@@ -24,7 +26,11 @@ export const Actions = () => {
           >
             <FontAwesomeIcon icon={isExpanded ? faCompress : faExpand} />
           </Button>
-          {isExpanded && <Button variant={"default"}>SCR</Button>}
+          {isExpanded && (
+            <Button variant={"default"}>
+              <Leaderboard />
+            </Button>
+          )}
           {isExpanded && (
             <Button
               variant={"default"}
