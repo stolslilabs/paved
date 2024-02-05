@@ -142,7 +142,41 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
-    return { create, spawn, buy, draw, discard, build };
+    const claim = async ({
+      account,
+      game_id,
+    }: {
+      account: Account;
+      game_id: number;
+    }) => {
+      try {
+        return await provider.execute(account, contract_name, "claim", [
+          provider.getWorldAddress(),
+          game_id,
+        ]);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    const finalize = async ({
+      account,
+      game_id,
+    }: {
+      account: Account;
+      game_id: number;
+    }) => {
+      try {
+        return await provider.execute(account, contract_name, "finalize", [
+          provider.getWorldAddress(),
+          game_id,
+        ]);
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    return { create, spawn, buy, draw, discard, build, claim, finalize };
   }
   return {
     play: play(),

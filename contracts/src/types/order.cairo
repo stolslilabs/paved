@@ -2,6 +2,10 @@
 
 use debug::PrintTrait;
 
+// Internal imports
+
+use stolsli::types::alliance::Alliance;
+
 // Constants
 
 const NONE: felt252 = 0;
@@ -37,6 +41,30 @@ enum Order {
     Skill,
     Fox,
     Twins,
+}
+
+#[generate_trait]
+impl OrderImpl of OrderTrait {
+    #[inline(always)]
+    fn get_alliance(self: Order) -> Alliance {
+        match self {
+            Order::None => Alliance::None,
+            Order::Anger => Alliance::Darkness,
+            Order::Titans => Alliance::Darkness,
+            Order::Vitriol => Alliance::Darkness,
+            Order::Brillance => Alliance::Light,
+            Order::Detection => Alliance::Darkness,
+            Order::Enlightenment => Alliance::Light,
+            Order::Fury => Alliance::Darkness,
+            Order::Giants => Alliance::Light,
+            Order::Perfection => Alliance::Light,
+            Order::Rage => Alliance::Darkness,
+            Order::Reflection => Alliance::Light,
+            Order::Skill => Alliance::Light,
+            Order::Fox => Alliance::Darkness,
+            Order::Twins => Alliance::Light,
+        }
+    }
 }
 
 impl IntoOrderFelt252 of Into<Order, felt252> {

@@ -30,6 +30,7 @@ use stolsli::models::character::{
     Character, CharacterPosition, CharacterImpl, AssertImpl as CharacterAssertImpl
 };
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
+use stolsli::models::team::{Team, TeamImpl};
 
 mod errors {
     const INVALID_INDEX: felt252 = 'Game: Invalid index';
@@ -41,6 +42,7 @@ mod errors {
     const INVALID_GAME: felt252 = 'Game: does not exist';
     const STRUCTURE_NOT_IDLE: felt252 = 'Game: Structure not idle';
     const GAME_IS_OVER: felt252 = 'Game: is over';
+    const GAME_NOT_OVER: felt252 = 'Game: not over';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -53,6 +55,7 @@ struct Game {
     points_cap: u32,
     tiles_cap: u32,
     over: bool,
+    prize: u256,
 }
 
 #[generate_trait]
@@ -61,12 +64,9 @@ impl GameImpl of GameTrait {
     fn new(id: u32, time: u64, endtime: u64, points_cap: u32, tiles_cap: u32) -> Game {
         // [Check] Validate parameters
         AssertImpl::assert_valid_endtime(time, endtime);
-        Game { id, tiles: 0, tile_count: 0, endtime, points_cap, tiles_cap, over: false }
-    }
-
-    #[inline(always)]
-    fn exists(self: Game) -> bool {
-        0 != self.tile_count.into()
+        // TODO: Hard coded prize pool until it comes from player fees
+        let prize = constants::PRIZE_POOL;
+        Game { id, tiles: 0, tile_count: 0, endtime, points_cap, tiles_cap, over: false, prize }
     }
 
     #[inline(always)]
@@ -77,13 +77,26 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
+    fn finalize(ref self: Game, time: u64) {
+        if self.over {
+            return;
+        }
+        let tile_condition = self.tiles_cap != 0 && self.tile_count >= self.tiles_cap.into();
+        let time_condition = self.endtime != 0 && time >= self.endtime;
+        if tile_condition || time_condition {
+            self.over = true;
+        }
+    }
+
+    #[inline(always)]
     fn add_tile(ref self: Game) -> u32 {
         self.tile_count += 1;
         self.tile_count
     }
 
     #[inline(always)]
-    fn add_score(ref self: Game, ref builder: Builder, score: u32) {
+    fn add_score(ref self: Game, ref builder: Builder, ref team: Team, score: u32) {
+        team.score += score;
         builder.score += score;
         if self.points_cap != 0 && builder.score >= self.points_cap {
             self.over = true;
@@ -188,11 +201,37 @@ impl GameImpl of GameTrait {
     }
 }
 
+impl ZeroableGame of Zeroable<Game> {
+    #[inline(always)]
+    fn zero() -> Game {
+        Game {
+            id: 0,
+            tiles: 0,
+            tile_count: 0,
+            endtime: 0,
+            points_cap: 0,
+            tiles_cap: 0,
+            over: false,
+            prize: 0
+        }
+    }
+
+    #[inline(always)]
+    fn is_zero(self: Game) -> bool {
+        0 == self.tile_count.into()
+    }
+
+    #[inline(always)]
+    fn is_non_zero(self: Game) -> bool {
+        !self.is_zero()
+    }
+}
+
 #[generate_trait]
 impl AssertImpl of AssertTrait {
     #[inline(always)]
     fn assert_exists(self: Game) {
-        assert(self.exists(), errors::INVALID_GAME);
+        assert(self.is_non_zero(), errors::INVALID_GAME);
     }
 
     #[inline(always)]
@@ -204,6 +243,11 @@ impl AssertImpl of AssertTrait {
     #[inline(always)]
     fn assert_not_over(self: Game, time: u64) {
         assert(!self.is_over(time), errors::GAME_IS_OVER);
+    }
+
+    #[inline(always)]
+    fn assert_over(self: Game, time: u64) {
+        assert(self.is_over(time), errors::GAME_NOT_OVER);
     }
 
     #[inline(always)]

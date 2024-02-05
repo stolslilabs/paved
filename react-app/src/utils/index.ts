@@ -158,6 +158,41 @@ export const getOrders = () => {
   return Array.from({ length: ORDER_COUNT }, (_, index) => getOrder(index + 1));
 };
 
+export const getAlliance = (order: number) => {
+  switch (order) {
+    case 1:
+      return "DARKNESS";
+    case 2:
+      return "DARKNESS";
+    case 3:
+      return "DARKNESS";
+    case 4:
+      return "LIGHT";
+    case 5:
+      return "DARKNESS";
+    case 6:
+      return "LIGHT";
+    case 7:
+      return "DARKNESS";
+    case 8:
+      return "LIGHT";
+    case 9:
+      return "LIGHT";
+    case 10:
+      return "DARKNESS";
+    case 11:
+      return "LIGHT";
+    case 12:
+      return "LIGHT";
+    case 13:
+      return "DARKNESS";
+    case 14:
+      return "LIGHT";
+    default:
+      return 0;
+  }
+};
+
 export const getSpotFromIndex = (index: number) => {
   switch (index) {
     case 0: // NW

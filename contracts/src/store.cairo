@@ -16,12 +16,14 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
 use stolsli::models::game::{Game, GameImpl};
 use stolsli::models::builder::{Builder, BuilderImpl};
+use stolsli::models::team::{Team, TeamImpl};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 use stolsli::models::character::{Character, CharacterPosition, CharacterImpl};
 use stolsli::types::orientation::Orientation;
 use stolsli::types::direction::Direction;
 use stolsli::types::role::Role;
 use stolsli::types::spot::Spot;
+use stolsli::types::order::Order;
 
 /// Store struct.
 #[derive(Copy, Drop)]
@@ -45,6 +47,12 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn builder(self: Store, game: Game, builder_id: felt252) -> Builder {
         get!(self.world, (game.id, builder_id), (Builder))
+    }
+
+    #[inline(always)]
+    fn team(self: Store, game: Game, order: Order) -> Team {
+        let order_key: u8 = order.into();
+        get!(self.world, (game.id, order_key), (Team))
     }
 
     #[inline(always)]
@@ -123,6 +131,11 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn set_builder(self: Store, builder: Builder) {
         set!(self.world, (builder))
+    }
+
+    #[inline(always)]
+    fn set_team(self: Store, team: Team) {
+        set!(self.world, (team))
     }
 
     #[inline(always)]

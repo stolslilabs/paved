@@ -2,6 +2,7 @@
 
 use stolsli::constants;
 use stolsli::helpers::bitmap::Bitmap;
+use stolsli::store::{Store, StoreImpl};
 use stolsli::types::plan::Plan;
 use stolsli::types::order::Order;
 use stolsli::types::orientation::Orientation;
@@ -9,6 +10,9 @@ use stolsli::types::role::{Role, RoleImpl, AssertImpl as CharacterAssertImpl};
 use stolsli::types::spot::Spot;
 use stolsli::types::layout::{Layout, LayoutImpl};
 use stolsli::types::category::Category;
+use stolsli::types::alliance::{Alliance, AllianceImpl, MULTIPLIER};
+use stolsli::models::game::{Game, GameImpl};
+use stolsli::models::team::{Team, TeamImpl};
 use stolsli::models::tile::{Tile, TileImpl};
 use stolsli::models::character::{Character, CharacterImpl};
 
@@ -23,6 +27,8 @@ mod errors {
     const CANNOT_BUY: felt252 = 'Builder: Cannot buy';
     const CANNOT_DISCARD: felt252 = 'Builder: Cannot discard';
     const CANNOT_BUILD: felt252 = 'Builder: Cannot build';
+    const NOTHING_TO_CLAIM: felt252 = 'Builder: Nothing to claim';
+    const ALREADY_CLAIMED: felt252 = 'Builder: Already claimed';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -38,6 +44,8 @@ struct Builder {
     tile_remaining: u8,
     tile_id: u32,
     characters: u8,
+    // Rewards
+    claimed: u256,
 }
 
 #[generate_trait]
@@ -60,6 +68,7 @@ impl BuilderImpl of BuilderTrait {
             tile_remaining: constants::DEFAULT_TILES_COUNT,
             tile_id: 0,
             characters: 0,
+            claimed: 0,
         }
     }
 
@@ -141,6 +150,26 @@ impl BuilderImpl of BuilderTrait {
         // [Effect] Update tile status
         tile.leave();
     }
+
+    #[inline(always)]
+    fn claim(ref self: Builder, game: Game, team: Team, ref store: Store) -> u256 {
+        // [Check] Rank is not null
+        let rank = team.rank(ref store);
+        assert(rank != 0, errors::NOTHING_TO_CLAIM);
+        // [Compute] Claimable rewards
+        let share = AllianceImpl::share(rank);
+        let claimable: u256 = game.prize
+            * self.score.into()
+            * share.into()
+            / team.score.into()
+            / MULTIPLIER.into();
+        // [Check] Remaning claimable rewards
+        assert(self.claimed < claimable, errors::ALREADY_CLAIMED);
+        let remaining = claimable - self.claimed;
+        self.claimed += remaining;
+        // [Return] Claimable rewards
+        remaining
+    }
 }
 
 #[generate_trait]
@@ -191,6 +220,7 @@ impl ZeroableBuilderImpl of Zeroable<Builder> {
             tile_remaining: 0,
             tile_id: 0,
             characters: 0,
+            claimed: 0,
         }
     }
 
