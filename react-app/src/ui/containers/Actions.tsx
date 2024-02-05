@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useDojo } from "../../dojo/useDojo";
 import { Buy } from "../components/Buy";
 import { Leaderboard } from "../components/Leaderboard";
+import { Claim } from "../components/Claim";
 import {
   faExpand,
   faCompress,
@@ -26,6 +27,7 @@ export const Actions = () => {
           >
             <FontAwesomeIcon icon={isExpanded ? faCompress : faExpand} />
           </Button>
+          {isExpanded && <Claim />}
           {isExpanded && <Leaderboard />}
           {isExpanded && (
             <Button

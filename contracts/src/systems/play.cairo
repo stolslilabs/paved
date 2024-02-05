@@ -39,6 +39,8 @@ trait IPlay<TContractState> {
         role: Role,
         spot: Spot,
     );
+    fn claim(self: @TContractState, world: IWorldDispatcher, game_id: u32);
+    fn finalize(self: @TContractState, world: IWorldDispatcher, game_id: u32);
 }
 
 #[starknet::contract]
@@ -62,9 +64,11 @@ mod play {
 
     use stolsli::store::{Store, StoreImpl};
     use stolsli::models::game::{Game, GameImpl, AssertImpl as GameAssertImpl};
+    use stolsli::models::team::{Team, TeamImpl};
     use stolsli::models::builder::{Builder, BuilderImpl};
     use stolsli::models::tile::{Tile, TilePosition, TileImpl};
-    use stolsli::types::order::Order;
+    use stolsli::types::alliance::{Alliance, AllianceImpl};
+    use stolsli::types::order::{Order, OrderImpl};
     use stolsli::types::orientation::Orientation;
     use stolsli::types::direction::Direction;
     use stolsli::types::role::Role;
@@ -86,6 +90,7 @@ mod play {
         const POSITION_ALREADY_TAKEN: felt252 = 'Play: Position already taken';
         const SPOT_ALREADY_TAKEN: felt252 = 'Play: Spot already taken';
         const SPOT_EMPTY: felt252 = 'Play: Spot empty';
+        const NOTHING_TO_CLAIM: felt252 = 'Play: Nothing to claim';
     }
 
     // Storage
@@ -154,6 +159,13 @@ mod play {
             // [Effect] Create a new builder
             let builder = BuilderImpl::new(game.id, caller.into(), name, order);
             store.set_builder(builder);
+
+            // [Effect] Create team if not already exists
+            let team = store.team(game, order.into());
+            if team.is_zero() {
+                let team = TeamImpl::new(game.id, order);
+                store.set_team(team);
+            }
         }
 
         fn buy(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
@@ -277,7 +289,7 @@ mod play {
             builder.build(ref tile, orientation, x, y, ref neighbors);
 
             // [Check] Character to place
-            if role != Role::None {
+            if role != Role::None && spot != Spot::None {
                 // [Check] Structure is idle
                 game.assert_structure_idle(tile, spot, ref store);
 
@@ -296,6 +308,56 @@ mod play {
 
             // [Effect] Assessment
             game.assess(tile, ref store);
+
+            // [Effect] Update game
+            store.set_game(game);
+        }
+
+        fn claim(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
+            // [Setup] Datastore
+            let mut store: Store = StoreImpl::new(world);
+
+            // [Check] Game exists
+            let mut game = store.game(game_id);
+            game.assert_exists();
+
+            // [Check] Game is over
+            let time = get_block_timestamp();
+            game.assert_over(time);
+
+            // [Check] Builder exists
+            let caller = get_caller_address();
+            let mut builder = store.builder(game, caller.into());
+            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
+
+            // [Check] Member of the winning alliance
+            let winner = AllianceImpl::winner(game, ref store);
+            let team = store.team(game, builder.order.into());
+            let alliance: Alliance = team.alliance.into();
+            assert(alliance == winner, errors::NOTHING_TO_CLAIM);
+
+            // [Effect] Claim points
+            let claimable = builder.claim(game, team, ref store);
+            // TODO: Process transfers
+
+            // [Effect] Update builder
+            store.set_builder(builder);
+        }
+
+        fn finalize(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
+            // [Setup] Datastore
+            let mut store: Store = StoreImpl::new(world);
+
+            // [Check] Game exists
+            let mut game = store.game(game_id);
+            game.assert_exists();
+
+            // [Check] Game is over
+            let time = get_block_timestamp();
+            game.assert_over(time);
+
+            // [Effect] Finalize game
+            game.finalize(time);
 
             // [Effect] Update game
             store.set_game(game);

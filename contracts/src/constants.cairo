@@ -14,6 +14,10 @@ const MAX_TILE_COUNT: u8 = 42;
 
 const DEFAULT_TILES_COUNT: u8 = 10;
 
+// Rewards
+
+const PRIZE_POOL: u256 = 1_000_000_000_000_000_000;
+
 // Packing / Unpacking
 
 const MASK_8: u128 = 0xff;

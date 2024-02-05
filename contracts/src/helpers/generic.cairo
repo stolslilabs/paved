@@ -149,12 +149,18 @@ impl GenericCount of GenericCountTrait {
             };
         };
 
-        // [Effect] Update the builder
         if solved {
+            // [Compute] Update the scores if a winner is determined
             let mut builder = store.builder(game, winner);
+            let mut team = store.team(game, builder.order.into());
             let power = powers.get(winner);
-            game.add_score(ref builder, score * base_points * power);
+            game.add_score(ref builder, ref team, score * base_points * power);
+
+            // [Effect] Update the builder
             store.set_builder(builder);
+
+            // [Effect] Update the team
+            store.set_team(team);
         };
     }
 }

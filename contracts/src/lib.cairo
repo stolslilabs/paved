@@ -2,6 +2,7 @@ mod constants;
 mod store;
 
 mod types {
+    mod alliance;
     mod area;
     mod plan;
     mod layout;
@@ -53,6 +54,7 @@ mod helpers {
 
 mod models {
     mod game;
+    mod team;
     mod builder;
     mod tile;
     mod character;

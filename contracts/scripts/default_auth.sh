@@ -3,6 +3,7 @@ set -euo pipefail
 pushd $(dirname "$0")/..
 
 export RPC_URL="http://localhost:5050";
+# export RPC_URL="https://api.cartridge.gg/x/paved/katana";
 
 export WORLD_ADDRESS=$(cat ./target/dev/manifest.json | jq -r '.world.address')
 
@@ -15,12 +16,12 @@ echo actions : $ACTIONS_ADDRESS
 echo "---------------------------------------------------------------------------"
 
 # enable system -> component authorizations
-COMPONENTS=("Game" "Builder" "Tile" "TilePosition" "Character" "CharacterPosition")
+COMPONENTS=("Game" "Builder" "Team" "Tile" "TilePosition" "Character" "CharacterPosition")
 
 for component in ${COMPONENTS[@]}; do
     sozo auth writer $component $ACTIONS_ADDRESS --world $WORLD_ADDRESS --rpc-url $RPC_URL
     # time out for 1 second to avoid rate limiting
-    sleep 1
+    sleep 5
 done
 
 echo "Default authorizations have been successfully set."

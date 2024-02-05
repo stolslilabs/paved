@@ -16,6 +16,7 @@ export function defineContractComponents(world: World) {
           tile_remaining: RecsType.Number,
           tile_id: RecsType.Number,
           characters: RecsType.Number,
+          claimed: RecsType.BigInt,
         },
         {
           metadata: {
@@ -29,6 +30,7 @@ export function defineContractComponents(world: World) {
               "u8",
               "u32",
               "u8",
+              "u256",
             ],
             customTypes: [],
           },
@@ -86,11 +88,30 @@ export function defineContractComponents(world: World) {
           points_cap: RecsType.Number,
           tiles_cap: RecsType.Number,
           over: RecsType.Boolean,
+          prize: RecsType.BigInt,
         },
         {
           metadata: {
             name: "Game",
-            types: ["u32", "u128", "u32", "u64", "u32", "u32", "bool"],
+            types: ["u32", "u128", "u32", "u64", "u32", "u32", "bool", "u256"],
+            customTypes: [],
+          },
+        }
+      );
+    })(),
+    Team: (() => {
+      return defineComponent(
+        world,
+        {
+          game_id: RecsType.Number,
+          order: RecsType.Number,
+          score: RecsType.Number,
+          alliance: RecsType.Number,
+        },
+        {
+          metadata: {
+            name: "Team",
+            types: ["u32", "u8", "u32", "u8"],
             customTypes: [],
           },
         }
