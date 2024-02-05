@@ -1,7 +1,7 @@
 {
   "world": {
     "name": "dojo::world::world",
-    "address": "0x464118e168ca17f54a0bc2d0209d3896915d9e624bef84d74b9ac72bc653e94",
+    "address": "0x4daffaec6ca974909b68f7868dd33a99151e11217751b27fef94753db48e9ec",
     "class_hash": "0x5ac623f0c96059936bd2d0904bdd31799e430fe08a0caff7a5f497260b16497",
     "abi": [
       {
@@ -948,8 +948,8 @@
   "contracts": [
     {
       "name": "stolsli::systems::play::play",
-      "address": "0x7651b20b752fda65135e9fd86606e6cfead5759f6b5cac0667d4558e267ed82",
-      "class_hash": "0x1bd10ca44292a654400b21b8c680fd1509491ff9cae98c83eef13f888e7bbd4",
+      "address": "0xbefdcf3140db4a425cb7f19db049ed6ec3cc4dc18d877b25a125bc00b1a391",
+      "class_hash": "0x1e638a94fe2b3221a144e31dec94074c7e737c5bd922a74d91cf48bc191a261",
       "abi": [
         {
           "type": "impl",
@@ -1219,6 +1219,38 @@
               ],
               "outputs": [],
               "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "claim",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "dojo::world::IWorldDispatcher"
+                },
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "finalize",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "dojo::world::IWorldDispatcher"
+                },
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
             }
           ]
         },
@@ -1277,9 +1309,14 @@
           "name": "characters",
           "type": "u8",
           "key": false
+        },
+        {
+          "name": "claimed",
+          "type": "u256",
+          "key": false
         }
       ],
-      "class_hash": "0x26d885317416c34dcbe1425bac1c96bf0cecb764b635136024706d1280d2329",
+      "class_hash": "0x3dd4185533aec004dce72ff7cb6ed75aec092249554c7d097c8d57d62a556f7",
       "abi": [
         {
           "type": "function",
@@ -1873,9 +1910,14 @@
           "name": "over",
           "type": "bool",
           "key": false
+        },
+        {
+          "name": "prize",
+          "type": "u256",
+          "key": false
         }
       ],
-      "class_hash": "0x4a6602d1326a275d505ba8157df5765c151b13c45a6ebb55e8428c3a7ca3fbf",
+      "class_hash": "0x651b1841e795134eaa4f2dbcea01d77fd82129b382b2a830da3315159ed91ca",
       "abi": [
         {
           "type": "function",
@@ -2033,6 +2075,193 @@
         {
           "type": "event",
           "name": "stolsli::models::game::game::Event",
+          "kind": "enum",
+          "variants": []
+        }
+      ]
+    },
+    {
+      "name": "stolsli::models::team::team",
+      "members": [
+        {
+          "name": "game_id",
+          "type": "u32",
+          "key": true
+        },
+        {
+          "name": "order",
+          "type": "u8",
+          "key": true
+        },
+        {
+          "name": "score",
+          "type": "u32",
+          "key": false
+        },
+        {
+          "name": "alliance",
+          "type": "u8",
+          "key": false
+        }
+      ],
+      "class_hash": "0x66aa6ce8bc843afc62d133aabbee3111791145cda6eb4b3b1cd2704db662296",
+      "abi": [
+        {
+          "type": "function",
+          "name": "name",
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "core::felt252"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "unpacked_size",
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "core::integer::u32"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "packed_size",
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "core::integer::u32"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "struct",
+          "name": "core::array::Span::<core::integer::u8>",
+          "members": [
+            {
+              "name": "snapshot",
+              "type": "@core::array::Array::<core::integer::u8>"
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "layout",
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "core::array::Span::<core::integer::u8>"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "struct",
+          "name": "core::array::Span::<core::felt252>",
+          "members": [
+            {
+              "name": "snapshot",
+              "type": "@core::array::Array::<core::felt252>"
+            }
+          ]
+        },
+        {
+          "type": "struct",
+          "name": "core::array::Span::<core::array::Span::<core::felt252>>",
+          "members": [
+            {
+              "name": "snapshot",
+              "type": "@core::array::Array::<core::array::Span::<core::felt252>>"
+            }
+          ]
+        },
+        {
+          "type": "struct",
+          "name": "dojo::database::introspect::Struct",
+          "members": [
+            {
+              "name": "name",
+              "type": "core::felt252"
+            },
+            {
+              "name": "attrs",
+              "type": "core::array::Span::<core::felt252>"
+            },
+            {
+              "name": "children",
+              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
+            }
+          ]
+        },
+        {
+          "type": "struct",
+          "name": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>",
+          "members": [
+            {
+              "name": "snapshot",
+              "type": "@core::array::Array::<(core::felt252, core::array::Span::<core::felt252>)>"
+            }
+          ]
+        },
+        {
+          "type": "struct",
+          "name": "dojo::database::introspect::Enum",
+          "members": [
+            {
+              "name": "name",
+              "type": "core::felt252"
+            },
+            {
+              "name": "attrs",
+              "type": "core::array::Span::<core::felt252>"
+            },
+            {
+              "name": "children",
+              "type": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>"
+            }
+          ]
+        },
+        {
+          "type": "enum",
+          "name": "dojo::database::introspect::Ty",
+          "variants": [
+            {
+              "name": "Primitive",
+              "type": "core::felt252"
+            },
+            {
+              "name": "Struct",
+              "type": "dojo::database::introspect::Struct"
+            },
+            {
+              "name": "Enum",
+              "type": "dojo::database::introspect::Enum"
+            },
+            {
+              "name": "Tuple",
+              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
+            }
+          ]
+        },
+        {
+          "type": "function",
+          "name": "schema",
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "dojo::database::introspect::Ty"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "event",
+          "name": "stolsli::models::team::team::Event",
           "kind": "enum",
           "variants": []
         }
