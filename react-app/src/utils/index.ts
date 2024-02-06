@@ -270,7 +270,7 @@ export const getRole = (index: number) => {
     case 3:
       return "Paladin";
     case 4:
-      return "Algrim";
+      return "Pilgrim";
     case 5:
       return "Woodsman";
     case 6:
@@ -341,6 +341,19 @@ export const getColorFromCharacter = (character: number) => {
     default:
       return "black";
   }
+};
+
+export const getColorFromAddress = (str: string) => {
+  let hash = 0;
+  str.split("").forEach((char) => {
+    hash = char.charCodeAt(0) + ((hash << 5) - hash);
+  });
+  let color = "#";
+  for (let i = 0; i < 3; i++) {
+    const value = (hash >> (i * 8)) & 0xff;
+    color += value.toString(16).padStart(2, "0");
+  }
+  return color;
 };
 
 export const offset = 0x7fffffff;

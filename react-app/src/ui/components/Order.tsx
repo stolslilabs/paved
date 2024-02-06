@@ -1,9 +1,10 @@
+import React, { useMemo } from "react";
 import { useDojo } from "../../dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { useQueryParams } from "../../hooks/useQueryParams";
-import { getOrder } from "../../utils";
+import { getOrder, getColorFromAddress } from "../../utils";
 
 export const Order = () => {
   const { gameId } = useQueryParams();
@@ -21,8 +22,12 @@ export const Order = () => {
   ]) as Entity;
   const builder = useComponentValue(Builder, builderId);
 
+  const color = useMemo(() => {
+    return getColorFromAddress(account.address);
+  }, [account]);
+
   return (
-    <div className=" flex justify-center items-center ">
+    <div className={`flex justify-center items-center`} style={{ color }}>
       {getOrder(builder?.order)}
     </div>
   );
