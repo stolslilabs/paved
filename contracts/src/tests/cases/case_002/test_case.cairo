@@ -158,19 +158,6 @@ fn test_cases_002() {
         .play
         .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
 
-    // [Draw & Build]
-    // let mut seed: felt252 = 0;
-    // loop {
-    //     let mut game = store.game(context.game_id);
-    //     let (_, plan) = game.draw_plan(seed);
-    //     if plan == Plan::RFRFFFFFR {
-    //         seed.print();
-    //         break;
-    //     } else {
-    //         seed += 1;
-    //     }
-    // };
-
     // [Assert]
     let builder = store.builder(game, BUILDER().into());
     let expected: u32 = 2 * constants::FOREST_BASE_POINTS / 2;

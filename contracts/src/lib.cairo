@@ -73,6 +73,9 @@ mod tests {
     mod discard;
     mod build;
     mod cases {
+        mod case_000 {
+            mod test_case;
+        }
         mod case_001 {
             mod test_case;
         }
