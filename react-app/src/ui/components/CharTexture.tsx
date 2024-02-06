@@ -5,12 +5,16 @@ import { useComponentValue } from "@dojoengine/react";
 import { Entity } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useMemo, useRef } from "react";
-import { getColorFromCharacter } from "../../utils";
+import { getColorFromCharacter, getColorFromAddress } from "../../utils";
 
 export const loader = new THREE.TextureLoader();
 
 export const createCylinderGeometry = (radius: number, height: number) => {
   return new THREE.CylinderGeometry(radius, radius, height, 32);
+};
+
+export const createSphereGeometry = (radius: number) => {
+  return new THREE.SphereGeometry(radius, 32, 32);
 };
 
 export const CharTexture = ({ entity, radius, height, size }: any) => {
@@ -25,6 +29,7 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
     () => createCylinderGeometry(radius, height),
     []
   );
+  const sphereGeometry = useMemo(() => createSphereGeometry(radius), []);
 
   const character = useComponentValue(Character, entity);
 
@@ -45,8 +50,12 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
     return position;
   }, [tile]);
 
-  const color = useMemo(() => {
+  const headColor = useMemo(() => {
     return getColorFromCharacter(character?.index);
+  }, [character]);
+
+  const bodyColor = useMemo(() => {
+    return getColorFromAddress(character?.builder_id?.toString() || "");
   }, [character]);
 
   if (!character || character.tile_id == 0) return;
@@ -59,7 +68,21 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
         geometry={cylinderGeometry}
         rotation={[Math.PI / 2, 0, 0]}
       >
-        <meshStandardMaterial color={color} />
+        <meshStandardMaterial color={bodyColor} />
+      </mesh>
+      <mesh
+        ref={meshRef}
+        position={[position.x, position.y, height]}
+        geometry={sphereGeometry}
+      >
+        <meshStandardMaterial color={bodyColor} />
+      </mesh>
+      <mesh
+        ref={meshRef}
+        position={[position.x, position.y, height + radius * 1.5]}
+        geometry={sphereGeometry}
+      >
+        <meshStandardMaterial color={headColor} />
       </mesh>
     </>
   );
