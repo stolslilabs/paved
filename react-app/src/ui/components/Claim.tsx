@@ -38,7 +38,6 @@ export const Claim = () => {
   };
   useEffect(() => {
     if (builder) {
-      console.log(builder.claimed, builder.claimed > 0n);
       setClaimed(builder.claimed > 0n);
     }
   }, [builder]);

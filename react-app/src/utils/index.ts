@@ -26,6 +26,14 @@ import wcccccccc from "/assets/tiles/wcccccccc.png";
 import wffffffff from "/assets/tiles/wffffffff.png";
 import wfffffffr from "/assets/tiles/wfffffffr.png";
 
+import lord from "/assets/characters/lord.png";
+import lady from "/assets/characters/lady.png";
+import adventurer from "/assets/characters/adventurer.png";
+import paladin from "/assets/characters/paladin.png";
+import pilgrim from "/assets/characters/pilgrim.png";
+import woodsman from "/assets/characters/woodsman.png";
+import herdsman from "/assets/characters/herdsman.png";
+
 export const CHARACTER_COUNT = 7;
 export const ORDER_COUNT = 14;
 
@@ -79,6 +87,27 @@ export const getImage = (tile: any) => {
       return wffffffff;
     case 24:
       return wfffffffr;
+    default:
+      return zero;
+  }
+};
+
+export const getCharacterImage = (index: number) => {
+  switch (index) {
+    case 1:
+      return lord;
+    case 2:
+      return lady;
+    case 3:
+      return adventurer;
+    case 4:
+      return paladin;
+    case 5:
+      return pilgrim;
+    case 6:
+      return woodsman;
+    case 7:
+      return herdsman;
     default:
       return zero;
   }

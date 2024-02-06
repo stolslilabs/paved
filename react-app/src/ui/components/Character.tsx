@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import {
+  getCharacterImage,
   getCharacterFromIndex,
-  getColorFromCharacter,
   getIndexFromCharacter,
   getRole,
 } from "../../utils";
@@ -21,9 +21,13 @@ export const Character = (props: TProps) => {
     setSelected(index === getIndexFromCharacter(character));
   }, [character]);
 
+  const image = useMemo(() => {
+    return getCharacterImage(index + 1);
+  }, [index]);
+
   const className = useMemo(() => {
     return `h-12 w-12 flex justify-center items-center border-2
-    ${selected ? "bg-emerald-200" : "bg-white"}
+    ${selected ? "bg-slate-400" : "bg-black"}
     ${enable ? "cursor-pointer" : "cursor-not-allowed opacity-25"}`;
   }, [selected, enable]);
 
@@ -36,13 +40,9 @@ export const Character = (props: TProps) => {
     }
   };
 
-  const borderStyle = {
-    borderColor: getColorFromCharacter(getCharacterFromIndex(index)),
-  };
-
   return (
-    <div className={className} style={borderStyle} onClick={handleClick}>
-      {getRole(index).slice(0, 2)}
+    <div className={className} onClick={handleClick}>
+      <img src={image} alt={getRole(index)} />
     </div>
   );
 };

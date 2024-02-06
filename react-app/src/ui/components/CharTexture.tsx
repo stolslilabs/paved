@@ -5,17 +5,14 @@ import { useComponentValue } from "@dojoengine/react";
 import { Entity } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useMemo, useRef } from "react";
-import { getColorFromCharacter, getColorFromAddress } from "../../utils";
+import { getCharacterImage, getColorFromAddress } from "../../utils";
+import { useFrame } from "@react-three/fiber";
+
+// Assets
+
+import lord from "/assets/characters/lord.png";
 
 export const loader = new THREE.TextureLoader();
-
-export const createCylinderGeometry = (radius: number, height: number) => {
-  return new THREE.CylinderGeometry(radius, radius, height, 32);
-};
-
-export const createSphereGeometry = (radius: number) => {
-  return new THREE.SphereGeometry(radius, 32, 32);
-};
 
 export const CharTexture = ({ entity, radius, height, size }: any) => {
   const {
@@ -24,12 +21,6 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
     },
   } = useDojo();
   const meshRef = useRef<any>();
-
-  const cylinderGeometry = useMemo(
-    () => createCylinderGeometry(radius, height),
-    []
-  );
-  const sphereGeometry = useMemo(() => createSphereGeometry(radius), []);
 
   const character = useComponentValue(Character, entity);
 
@@ -50,40 +41,60 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
     return position;
   }, [tile]);
 
-  const headColor = useMemo(() => {
-    return getColorFromCharacter(character?.index);
-  }, [character]);
-
-  const bodyColor = useMemo(() => {
+  const color = useMemo(() => {
     return getColorFromAddress(character?.builder_id?.toString() || "");
   }, [character]);
+
+  const image = useMemo(() => {
+    return getCharacterImage(character?.index);
+  }, [character]);
+
+  useFrame(({ camera }) => {
+    if (meshRef.current) {
+      const lookAtPoint = new THREE.Vector3(0, -10000, 0);
+      camera.localToWorld(lookAtPoint);
+      meshRef.current.lookAt(lookAtPoint);
+    }
+  });
 
   if (!character || character.tile_id == 0) return;
 
   return (
     <>
       <mesh
-        ref={meshRef}
-        position={[position.x, position.y, height / 2]}
-        geometry={cylinderGeometry}
+        position={[position.x, position.y, 0.1 / 3]}
         rotation={[Math.PI / 2, 0, 0]}
       >
-        <meshStandardMaterial color={bodyColor} />
+        <meshStandardMaterial color={0x000000} />
+        <cylinderGeometry args={[radius * 1.2, radius * 1.2, 0.1, 32]} />
       </mesh>
       <mesh
-        ref={meshRef}
+        position={[position.x, position.y, 0.1 / 2]}
+        rotation={[Math.PI / 2, 0, 0]}
+      >
+        <meshStandardMaterial color={color} />
+        <cylinderGeometry args={[radius, radius, 0.1, 32]} />
+      </mesh>
+      <mesh
         position={[position.x, position.y, height]}
-        geometry={sphereGeometry}
+        rotation={[Math.PI / 2, 0, 0]}
       >
-        <meshStandardMaterial color={bodyColor} />
+        <meshStandardMaterial color={0x000000} />
+        <cylinderGeometry args={[0.01, 0.01, height * 2, 32]} />
       </mesh>
-      <mesh
+      <group
+        position={[position.x, position.y, 2 * height + radius * 1.2]}
         ref={meshRef}
-        position={[position.x, position.y, height + radius * 1.5]}
-        geometry={sphereGeometry}
       >
-        <meshStandardMaterial color={headColor} />
-      </mesh>
+        <mesh>
+          <meshStandardMaterial color={color} />
+          <cylinderGeometry args={[radius * 1.2, radius * 1.2, 0.1, 32]} />
+        </mesh>
+        <mesh rotation={[0, Math.PI / 2, 0]}>
+          <meshStandardMaterial map={loader.load(image)} />
+          <cylinderGeometry args={[radius, radius, 0.11, 32]} />
+        </mesh>
+      </group>
     </>
   );
 };

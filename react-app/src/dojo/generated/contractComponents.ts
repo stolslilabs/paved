@@ -88,7 +88,7 @@ export function defineContractComponents(world: World) {
           points_cap: RecsType.Number,
           tiles_cap: RecsType.Number,
           over: RecsType.Boolean,
-          prize: RecsType.BigInt,
+          prize: RecsType.Number,
         },
         {
           metadata: {
