@@ -25,6 +25,8 @@ interface GameState {
   setY: (y: number) => void;
   selectedTile: Tile;
   setSelectedTile: (tile: Tile) => void;
+  hoveredTile: Tile;
+  setHoveredTile: (tile: Tile) => void;
 }
 
 export const useGameStore = create<GameState>()(
@@ -51,6 +53,8 @@ export const useGameStore = create<GameState>()(
       setY: (y) => set({ y }),
       selectedTile: { col: 0, row: 0 },
       setSelectedTile: (tile) => set({ selectedTile: tile }),
+      hoveredTile: { col: 0, row: 0 },
+      setHoveredTile: (tile) => set({ hoveredTile: tile }),
     }),
     {
       name: "game-storage", // name of the item in the storage (must be unique)
