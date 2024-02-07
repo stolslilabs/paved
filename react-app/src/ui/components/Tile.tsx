@@ -14,7 +14,7 @@ export const Tile = () => {
   const [rotation, setRotation] = useState(0);
   const [backgroundImage, setBackgroundImage] = useState(getImage(0));
   const { gameId } = useQueryParams();
-  const { orientation } = useGameStore();
+  const { orientation, setSelectedTile } = useGameStore();
 
   const {
     account: { account },
@@ -65,6 +65,7 @@ export const Tile = () => {
   if (!account || !builder) return <></>;
 
   const handleDrawClick = () => {
+    setSelectedTile({ col: 0, row: 0 });
     play.draw({
       account: account,
       game_id: gameId,
