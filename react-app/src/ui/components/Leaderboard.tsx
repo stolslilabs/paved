@@ -18,13 +18,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 
+import { useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy, faSun, faMoon } from "@fortawesome/free-solid-svg-icons";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useEntityQuery, useComponentValue } from "@dojoengine/react";
 import { shortString } from "starknet";
-import { getOrder, getAlliance } from "@/utils";
+import { getOrder, getAlliance, getColorFromAddress } from "@/utils";
 import { Has, HasValue } from "@dojoengine/recs";
 
 export const Leaderboard = () => {
@@ -57,7 +58,7 @@ export const Leaderboard = () => {
     return b?.score - a?.score;
   });
 
-  const topPlayers = sortedBuilders.slice(0, 10);
+  const topPlayers = sortedBuilders.slice(0, 16);
 
   const topTeams = teams.sort((a, b) => {
     return b?.score - a?.score;
@@ -80,11 +81,12 @@ export const Leaderboard = () => {
               </TabsList>
               <TabsContent value="player">
                 <Table>
-                  <TableCaption>Top 14 players</TableCaption>
+                  <TableCaption>Top 16 players</TableCaption>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[100px]">Rank</TableHead>
                       <TableHead>Name</TableHead>
+                      <TableHead>Color</TableHead>
                       <TableHead>Order</TableHead>
                       <TableHead className="text-right">Score</TableHead>
                     </TableRow>
@@ -139,11 +141,15 @@ export const PlayerRow = ({
 }) => {
   const name = shortString.decodeShortString(builder?.name || "");
   const order = getOrder(builder?.order);
+  const backgroundColor = getColorFromAddress(builder.id.toString());
 
   return (
     <TableRow>
       <TableCell className="font-medium">{rank}</TableCell>
       <TableCell>{name}</TableCell>
+      <TableCell>
+        <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
+      </TableCell>
       <TableCell>{order}</TableCell>
       <TableCell className="text-right">{builder?.score}</TableCell>
     </TableRow>
