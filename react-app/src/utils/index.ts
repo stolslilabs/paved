@@ -187,6 +187,22 @@ export const getOrders = () => {
   return Array.from({ length: ORDER_COUNT }, (_, index) => getOrder(index + 1));
 };
 
+export const getLightOrders = () => {
+  return [
+    "BRILLIANCE",
+    "ENLIGHTENMENT",
+    "GIANTS",
+    "PERFECTION",
+    "REFLECTION",
+    "SKILL",
+    "TWINS",
+  ];
+};
+
+export const getDarkOrders = () => {
+  return ["ANGER", "TITANS", "VITRIOL", "RAGE", "FOX", "DETECTION", "FURY"];
+};
+
 export const getAlliance = (order: number) => {
   switch (order) {
     case 1:
