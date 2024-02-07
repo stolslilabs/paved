@@ -6,6 +6,7 @@ use debug::PrintTrait;
 
 use stolsli::constants;
 use stolsli::store::{Store, StoreImpl};
+use stolsli::events::Scored;
 use stolsli::helpers::simple::SimpleCount;
 use stolsli::types::spot::{Spot, SpotImpl};
 use stolsli::types::area::Area;
@@ -177,6 +178,7 @@ impl ForestCount of ForestCountTrait {
         score: u32,
         base_points: u32,
         ref characters: Array<Character>,
+        ref events: Array<Scored>,
         ref store: Store
     ) {
         // [Compute] Find the winner
@@ -189,7 +191,7 @@ impl ForestCount of ForestCountTrait {
                     let mut builder = store.builder(game, character.builder_id);
                     let mut team = store.team(game, builder.order.into());
                     builder.recover(ref character, ref tile);
-                    game.add_score(ref builder, ref team, score * base_points / length);
+                    game.add_score(ref builder, ref team, score * base_points / length, ref events);
 
                     // [Effect] Update the character
                     store.set_character(character);

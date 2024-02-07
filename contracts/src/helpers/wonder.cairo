@@ -5,6 +5,7 @@ use debug::PrintTrait;
 // Internal imports
 
 use stolsli::store::{Store, StoreImpl};
+use stolsli::events::Scored;
 use stolsli::types::spot::Spot;
 use stolsli::types::area::Area;
 use stolsli::types::move::{Move, MoveImpl};
@@ -87,13 +88,19 @@ impl WonderCount of WonderCountTrait {
         }
     }
 
-    fn solve(ref game: Game, base_points: u32, ref character: Character, ref store: Store) {
+    fn solve(
+        ref game: Game,
+        base_points: u32,
+        ref character: Character,
+        ref events: Array<Scored>,
+        ref store: Store
+    ) {
         // [Effect] Collect the character's builder
         let mut tile = store.tile(game, character.tile_id);
         let mut builder = store.builder(game, character.builder_id);
         let mut team = store.team(game, builder.order.into());
         let power: u32 = character.power.into();
-        game.add_score(ref builder, ref team, base_points * power);
+        game.add_score(ref builder, ref team, base_points * power, ref events);
         builder.recover(ref character, ref tile);
 
         // [Effect] Update the character

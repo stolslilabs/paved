@@ -1,6 +1,7 @@
 import { getSyncEntities } from "@dojoengine/state";
 import * as torii from "@dojoengine/torii-client";
 import { createClientComponents } from "../createClientComponents";
+import { createCustomEvents } from "../createCustomEvents.ts";
 import { createSystemCalls } from "../createSystemCalls";
 
 import { defineContractComponents } from "./contractComponents";
@@ -26,6 +27,9 @@ export async function setup({ ...config }: Config) {
 
   // create client components
   const clientComponents = createClientComponents({ contractComponents });
+
+  // create event subscriptions
+  const contractEvents = await createCustomEvents(config.toriiUrl);
 
   // fetch all existing entities from torii
   await getSyncEntities(toriiClient, contractComponents as any);
@@ -62,6 +66,7 @@ export async function setup({ ...config }: Config) {
     client,
     clientComponents,
     contractComponents,
+    contractEvents,
     systemCalls: createSystemCalls(
       { client },
       contractComponents,

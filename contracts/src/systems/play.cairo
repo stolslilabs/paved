@@ -63,6 +63,7 @@ mod play {
     // Internal imports
 
     use stolsli::store::{Store, StoreImpl};
+    use stolsli::events::Scored;
     use stolsli::models::game::{Game, GameImpl, AssertImpl as GameAssertImpl};
     use stolsli::models::team::{Team, TeamImpl};
     use stolsli::models::builder::{Builder, BuilderImpl};
@@ -97,6 +98,14 @@ mod play {
 
     #[storage]
     struct Storage {}
+
+    // Events
+
+    #[event]
+    #[derive(Drop, starknet::Event)]
+    enum Event {
+        Scored: Scored,
+    }
 
     // Implemnentations
 
@@ -307,10 +316,18 @@ mod play {
             store.set_builder(builder);
 
             // [Effect] Assessment
-            game.assess(tile, ref store);
+            let mut events = game.assess(tile, ref store);
 
             // [Effect] Update game
             store.set_game(game);
+
+            // [Event] Emit events
+            loop {
+                match events.pop_front() {
+                    Option::Some(event) => emit!(world, event),
+                    Option::None => { break; }
+                }
+            }
         }
 
         fn claim(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
