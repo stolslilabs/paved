@@ -134,14 +134,18 @@ export const getOrder = (order: number) => {
     case 9:
       return "PERFECTION";
     case 10:
-      return "RAGE";
+      return "POWER";
     case 11:
-      return "REFLECTION";
+      return "PROTECTION";
     case 12:
-      return "SKILL";
+      return "RAGE";
     case 13:
-      return "FOX";
+      return "REFLECTION";
     case 14:
+      return "SKILL";
+    case 15:
+      return "FOX";
+    case 16:
       return "TWINS";
     default:
       return "NONE";
@@ -168,16 +172,20 @@ export const getOrderFromName = (order: string) => {
       return 8;
     case "PERFECTION":
       return 9;
-    case "RAGE":
+    case "POWER":
       return 10;
-    case "REFLECTION":
+    case "PROTECTION":
       return 11;
-    case "SKILL":
+    case "RAGE":
       return 12;
-    case "FOX":
+    case "REFLECTION":
       return 13;
-    case "TWINS":
+    case "SKILL":
       return 14;
+    case "FOX":
+      return 15;
+    case "TWINS":
+      return 16;
     default:
       return 0;
   }
@@ -193,6 +201,7 @@ export const getLightOrders = () => {
     "ENLIGHTENMENT",
     "GIANTS",
     "PERFECTION",
+    "PROTECTION",
     "REFLECTION",
     "SKILL",
     "TWINS",
@@ -200,7 +209,16 @@ export const getLightOrders = () => {
 };
 
 export const getDarkOrders = () => {
-  return ["ANGER", "TITANS", "VITRIOL", "RAGE", "FOX", "DETECTION", "FURY"];
+  return [
+    "ANGER",
+    "TITANS",
+    "VITRIOL",
+    "DETECTION",
+    "FURY",
+    "POWER",
+    "RAGE",
+    "FOX",
+  ];
 };
 
 export const getAlliance = (order: number) => {
@@ -228,10 +246,14 @@ export const getAlliance = (order: number) => {
     case 11:
       return "LIGHT";
     case 12:
-      return "LIGHT";
-    case 13:
       return "DARKNESS";
+    case 13:
+      return "LIGHT";
     case 14:
+      return "LIGHT";
+    case 15:
+      return "DARKNESS";
+    case 16:
       return "LIGHT";
     default:
       return 0;

@@ -8,11 +8,11 @@ const WONDER_BASE_POINTS: u32 = 800;
 
 // Builders
 
-const MAX_TILE_COUNT: u8 = 42;
+const MAX_TILE_COUNT: u8 = 255;
 
 // Characters
 
-const DEFAULT_TILES_COUNT: u8 = 10;
+const DEFAULT_TILES_COUNT: u8 = 250;
 
 // Rewards
 
