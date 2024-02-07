@@ -15,6 +15,13 @@ import { Controls } from "@/ui/screens/GameScreen";
 import { useGameStore } from "@/store";
 extend({ OrbitControls });
 
+export const cameraSettings = {
+  zoom: 2,
+  aspect: 1.77,
+  near: 3,
+  far: 3,
+};
+
 export const ThreeGrid = () => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   return (
@@ -26,10 +33,10 @@ export const ThreeGrid = () => {
           ref={cameraRef}
           makeDefault
           position={[0, 90, 0]}
-          zoom={2}
-          aspect={1.77}
-          near={3}
-          far={3}
+          zoom={cameraSettings.zoom}
+          aspect={cameraSettings.aspect}
+          near={cameraSettings.near}
+          far={cameraSettings.far}
         />
         <MapControls makeDefault target={[0, 0, 0]} />
         <ambientLight color={"white"} intensity={1} />
