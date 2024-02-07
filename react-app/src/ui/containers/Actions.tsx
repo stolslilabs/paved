@@ -4,6 +4,7 @@ import { useDojo } from "../../dojo/useDojo";
 import { Buy } from "../components/Buy";
 import { Leaderboard } from "../components/Leaderboard";
 import { Claim } from "../components/Claim";
+import { Log } from "../components/Log";
 import {
   faExpand,
   faCompress,
@@ -37,8 +38,8 @@ export const Actions = () => {
               <FontAwesomeIcon icon={faHome} />
             </Button>
           )}
-
           {isExpanded && <Buy />}
+          {isExpanded && <Log />}
         </div>
         {isExpanded && (
           <div className="flex gap-4">

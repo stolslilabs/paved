@@ -6,6 +6,7 @@ use debug::PrintTrait;
 
 use stolsli::constants;
 use stolsli::store::{Store, StoreImpl};
+use stolsli::events::Scored;
 use stolsli::types::spot::Spot;
 use stolsli::types::area::Area;
 use stolsli::types::move::{Move, MoveImpl};
@@ -97,6 +98,7 @@ impl GenericCount of GenericCountTrait {
         score: u32,
         base_points: u32,
         ref characters: Array<Character>,
+        ref events: Array<Scored>,
         ref store: Store
     ) {
         // [Compute] Find the winner
@@ -154,7 +156,7 @@ impl GenericCount of GenericCountTrait {
             let mut builder = store.builder(game, winner);
             let mut team = store.team(game, builder.order.into());
             let power = powers.get(winner);
-            game.add_score(ref builder, ref team, score * base_points * power);
+            game.add_score(ref builder, ref team, score * base_points * power, ref events);
 
             // [Effect] Update the builder
             store.set_builder(builder);

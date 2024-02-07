@@ -11,6 +11,7 @@ use origami::random::deck::{Deck, DeckTrait};
 
 use stolsli::constants;
 use stolsli::store::{Store, StoreImpl};
+use stolsli::events::Scored;
 use stolsli::helpers::bitmap::Bitmap;
 use stolsli::helpers::generic::GenericCount;
 use stolsli::helpers::forest::ForestCount;
@@ -95,12 +96,18 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
-    fn add_score(ref self: Game, ref builder: Builder, ref team: Team, score: u32) {
+    fn add_score(
+        ref self: Game, ref builder: Builder, ref team: Team, score: u32, ref events: Array<Scored>
+    ) {
         team.score += score;
         builder.score += score;
         if self.points_cap != 0 && builder.score >= self.points_cap {
             self.over = true;
         }
+        let event = Scored {
+            game_id: self.id, builder_id: builder.id, order_id: team.order, points: score,
+        };
+        events.append(event);
     }
 
     #[inline(always)]
@@ -121,8 +128,9 @@ impl GameImpl of GameTrait {
         (self.tile_count, plan_id.into())
     }
 
-    fn assess(ref self: Game, tile: Tile, ref store: Store) {
+    fn assess(ref self: Game, tile: Tile, ref store: Store) -> Array<Scored> {
         // [Compute] Setup recursion
+        let mut events: Array<Scored> = ArrayTrait::new();
         let layout: Layout = tile.into();
         let mut north_oriented_starts = tile.north_oriented_starts();
         loop {
@@ -131,7 +139,7 @@ impl GameImpl of GameTrait {
                 Option::Some(north_oriented_start) => {
                     let start = north_oriented_start.rotate(tile.orientation.into());
                     let category: Category = layout.get_category(start);
-                    self.assess_at(tile, start, category, ref store);
+                    self.assess_at(tile, start, category, ref events, ref store);
                 },
                 // [Check] Otherwise returns the characters
                 Option::None => { break; },
@@ -147,17 +155,25 @@ impl GameImpl of GameTrait {
                     let start = neighbor.north_oriented_wonder();
                     // [Check] Skip if there is no wonder
                     if start != Spot::None {
-                        self.assess_at(neighbor, start, Category::Wonder, ref store);
+                        self.assess_at(neighbor, start, Category::Wonder, ref events, ref store);
                     };
                 },
                 // [Check] Otherwise returns the characters
                 Option::None => { break; },
             };
-        }
+        };
+        events
     }
 
     #[inline(always)]
-    fn assess_at(ref self: Game, tile: Tile, at: Spot, category: Category, ref store: Store) {
+    fn assess_at(
+        ref self: Game,
+        tile: Tile,
+        at: Spot,
+        category: Category,
+        ref events: Array<Scored>,
+        ref store: Store
+    ) {
         // [Compute] Assess the spot
         let base = category.base_points();
         match category {
@@ -169,24 +185,32 @@ impl GameImpl of GameTrait {
                 );
                 // [Effect] Solve and collect characters
                 if 0 != count.into() && 0 != woodsmen.len().into() {
-                    ForestCount::solve(ref self, woodsman_score, base, ref woodsmen, ref store);
+                    ForestCount::solve(
+                        ref self, woodsman_score, base, ref woodsmen, ref events, ref store
+                    );
                 }
                 if 0 != count.into() && 0 != herdsmen.len().into() {
-                    ForestCount::solve(ref self, herdsman_score, base, ref herdsmen, ref store);
+                    ForestCount::solve(
+                        ref self, herdsman_score, base, ref herdsmen, ref events, ref store
+                    );
                 }
             },
             Category::Road => {
                 let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters
                 if 0 != score.into() && 0 != characters.len().into() {
-                    GenericCount::solve(ref self, score, base, ref characters, ref store);
+                    GenericCount::solve(
+                        ref self, score, base, ref characters, ref events, ref store
+                    );
                 }
             },
             Category::City => {
                 let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters
                 if 0 != score.into() && 0 != characters.len().into() {
-                    GenericCount::solve(ref self, score, base, ref characters, ref store);
+                    GenericCount::solve(
+                        ref self, score, base, ref characters, ref events, ref store
+                    );
                 }
             },
             Category::Stop => { return; },
@@ -194,7 +218,7 @@ impl GameImpl of GameTrait {
                 let (score, mut character) = WonderCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect the character
                 if 0 != score.into() {
-                    WonderCount::solve(ref self, base, ref character, ref store);
+                    WonderCount::solve(ref self, base, ref character, ref events, ref store);
                 }
             },
         };

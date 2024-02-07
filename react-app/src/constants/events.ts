@@ -1,0 +1,2 @@
+export const SCORED_EVENT =
+  "0x1f5f91de9e33f581e67e239e952691057fe8e45631568808fa00d0bda38cce9";
