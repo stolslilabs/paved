@@ -35,8 +35,21 @@ export const Log = () => {
         {logs &&
           logs.map((log, index) => (
             <div key={index} className="flex justify-between">
-              <p>{log.log}</p>
-              <p>{log.timestamp}</p>
+              <p>
+                <span className="text-slate-400">
+                  {`[${log.timestamp.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                  })}]`}
+                </span>
+                <strong style={{ color: log.color }}>
+                  {` ${log.builder}`}
+                </strong>
+                {log.category === "Scored"
+                  ? ` has scored ${log.log}`
+                  : " has built a tile"}
+              </p>
             </div>
           ))}
       </SheetContent>
