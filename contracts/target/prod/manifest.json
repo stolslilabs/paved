@@ -1,7 +1,7 @@
 {
   "world": {
     "name": "dojo::world::world",
-    "address": "0x4daffaec6ca974909b68f7868dd33a99151e11217751b27fef94753db48e9ec",
+    "address": "0x3b7f21e69127c28a69f4fa296384f1b6316a1f64d5861eb514c3e45dfb4c8e5",
     "class_hash": "0x5ac623f0c96059936bd2d0904bdd31799e430fe08a0caff7a5f497260b16497",
     "abi": [
       {
@@ -948,8 +948,8 @@
   "contracts": [
     {
       "name": "stolsli::systems::play::play",
-      "address": "0xbefdcf3140db4a425cb7f19db049ed6ec3cc4dc18d877b25a125bc00b1a391",
-      "class_hash": "0x1e638a94fe2b3221a144e31dec94074c7e737c5bd922a74d91cf48bc191a261",
+      "address": "0xb82ccd67f400bf595dfa3eca7b89e4f554e20bc304f9fbd6ff8eef57b7b99d",
+      "class_hash": "0x6add2c870c9257aa4d88443a634b50a525b828baa0c5c0b258aece8915161b0",
       "abi": [
         {
           "type": "impl",
@@ -1256,9 +1256,104 @@
         },
         {
           "type": "event",
+          "name": "stolsli::events::Built",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "tile_id",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "x",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "y",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "builder_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "builder_name",
+              "type": "core::felt252",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "stolsli::events::Scored",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "tile_id",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "x",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "y",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "builder_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "builder_name",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "order_id",
+              "type": "core::integer::u8",
+              "kind": "data"
+            },
+            {
+              "name": "points",
+              "type": "core::integer::u32",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
           "name": "stolsli::systems::play::play::Event",
           "kind": "enum",
-          "variants": []
+          "variants": [
+            {
+              "name": "Built",
+              "type": "stolsli::events::Built",
+              "kind": "nested"
+            },
+            {
+              "name": "Scored",
+              "type": "stolsli::events::Scored",
+              "kind": "nested"
+            }
+          ]
         }
       ],
       "reads": [],
