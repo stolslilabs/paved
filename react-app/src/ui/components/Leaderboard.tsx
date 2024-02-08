@@ -141,7 +141,8 @@ export const PlayerRow = ({
 }) => {
   const name = shortString.decodeShortString(builder?.name || "");
   const order = getOrder(builder?.order);
-  const backgroundColor = getColorFromAddress(builder.id.toString());
+  const address = `0x${builder.id.toString(16)}`;
+  const backgroundColor = getColorFromAddress(address);
 
   return (
     <TableRow>

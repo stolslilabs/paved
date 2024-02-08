@@ -2,10 +2,9 @@ import { request, gql } from "graphql-request";
 import { createClient } from "graphql-ws";
 import { BehaviorSubject, Observable } from "rxjs";
 import { SCORED_EVENT } from "@/constants/events";
-import * as torii from "@dojoengine/torii-client";
 
 export type Event = {
-  id: string[];
+  id: string;
   keys: string[];
   data: any;
   createdAt: string;
@@ -81,8 +80,8 @@ export async function createEventSubscription(
 
 export const createCustomEvents = async (url: string) => {
   return {
-    createScoredEvents: async () =>
-      createEventSubscription(url, [SCORED_EVENT]),
-    queryScoredEvents: async () => createEventBacklog(url, [SCORED_EVENT]),
+    createScoredEvents: async (keys: string[]) =>
+      createEventSubscription(url, keys),
+    queryScoredEvents: async (keys: string[]) => createEventBacklog(url, keys),
   };
 };

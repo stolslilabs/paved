@@ -63,7 +63,7 @@ mod play {
     // Internal imports
 
     use stolsli::store::{Store, StoreImpl};
-    use stolsli::events::Scored;
+    use stolsli::events::{Built, Scored};
     use stolsli::models::game::{Game, GameImpl, AssertImpl as GameAssertImpl};
     use stolsli::models::team::{Team, TeamImpl};
     use stolsli::models::builder::{Builder, BuilderImpl};
@@ -104,6 +104,7 @@ mod play {
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
+        Built: Built,
         Scored: Scored,
     }
 
@@ -316,15 +317,30 @@ mod play {
             store.set_builder(builder);
 
             // [Effect] Assessment
-            let mut events = game.assess(tile, ref store);
+            let mut scoreds = game.assess(tile, ref store);
 
             // [Effect] Update game
             store.set_game(game);
 
             // [Event] Emit events
+            let built = Built {
+                game_id: game_id,
+                tile_id: tile_id,
+                x: x,
+                y: y,
+                builder_id: builder.id,
+                builder_name: builder.name,
+            };
+            emit!(world, built);
             loop {
-                match events.pop_front() {
-                    Option::Some(event) => emit!(world, event),
+                match scoreds.pop_front() {
+                    Option::Some(scored) => {
+                        let mut event = scored;
+                        event.tile_id = tile_id;
+                        event.x = x;
+                        event.y = y;
+                        emit!(world, event)
+                    },
                     Option::None => { break; }
                 }
             }

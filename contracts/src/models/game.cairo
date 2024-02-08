@@ -105,7 +105,14 @@ impl GameImpl of GameTrait {
             self.over = true;
         }
         let event = Scored {
-            game_id: self.id, builder_id: builder.id, order_id: team.order, points: score,
+            game_id: self.id,
+            tile_id: 0,
+            x: 0,
+            y: 0,
+            builder_id: builder.id,
+            builder_name: builder.name,
+            order_id: team.order,
+            points: score
         };
         events.append(event);
     }

@@ -7,7 +7,6 @@ import { createSquareGeometry, getSquarePosition, loader } from "./TileTexture";
 export const TileEmpty = ({ col, row, size, activeTile }: any) => {
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
   const meshRef = useRef<any>();
-  const lightRef = useRef<THREE.DirectionalLight>();
 
   const [background, setBackground] = useState<null | string>(null);
   const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
