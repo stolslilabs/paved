@@ -28,12 +28,12 @@ export const Log = () => {
           <FontAwesomeIcon icon={faBook} />
         </Button>
       </SheetTrigger>
-      <SheetContent>
-        <ScrollArea className="h-full">
-          <SheetHeader>
-            <SheetTitle>Game logs</SheetTitle>
-            <SheetDescription>List of the game logs</SheetDescription>
-          </SheetHeader>
+      <SheetContent className="flex flex-col">
+        <SheetHeader>
+          <SheetTitle>Game logs</SheetTitle>
+          <SheetDescription>List of the game logs</SheetDescription>
+        </SheetHeader>
+        <ScrollArea className="grow">
           {logs &&
             logs.map((log, index) => (
               <div key={index} className="flex justify-between">

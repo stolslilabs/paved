@@ -1,12 +1,14 @@
 import { Actions } from "../containers/Actions";
 import { Hand } from "../containers/Hand";
-import { Header } from "../containers/Header";
+import { LeftHeader } from "../containers/LeftHeader";
+import { RightHeader } from "../containers/RightHeader";
 import { Footer } from "../containers/Footer";
 
 export const Overlay = () => {
   return (
     <div>
-      <Header />
+      <LeftHeader />
+      <RightHeader />
       <Actions />
       <Hand />
       <Footer />
