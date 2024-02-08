@@ -8,7 +8,7 @@ import { faSackDollar } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
 import { useQueryParams } from "@/hooks/useQueryParams";
 
-export const Claim = () => {
+export const Claim = ({ show }: { show: boolean }) => {
   const { gameId } = useQueryParams();
   const [enable, setEnable] = useState(false);
   const [claimed, setClaimed] = useState(false);
@@ -55,16 +55,20 @@ export const Claim = () => {
   }, [game]);
 
   const className = useMemo(() => {
-    return `${
-      enable && !claimed ? "cursor-pointer" : "cursor-not-allowed opacity-25"
-    }`;
+    return `${enable && !claimed ? "cursor-pointer" : "cursor-not-allowed "}`;
   }, [game, enable, claimed]);
 
   if (!account || !game || !builder) return <></>;
 
   return (
-    <Button className={className} variant={"default"} onClick={handleClick}>
-      <FontAwesomeIcon icon={faSackDollar} />
+    <Button
+      className={`${
+        show ? "opacity-100" : "opacity-0 -mb-12"
+      } transition-all duration-200 ${className}`}
+      variant={"default"}
+      onClick={handleClick}
+    >
+      <FontAwesomeIcon className="h-6" icon={faSackDollar} />
     </Button>
   );
 };
