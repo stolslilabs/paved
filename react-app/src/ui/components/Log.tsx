@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetContent,
@@ -28,30 +29,32 @@ export const Log = () => {
         </Button>
       </SheetTrigger>
       <SheetContent>
-        <SheetHeader>
-          <SheetTitle>Game logs</SheetTitle>
-          <SheetDescription>List of the game logs</SheetDescription>
-        </SheetHeader>
-        {logs &&
-          logs.map((log, index) => (
-            <div key={index} className="flex justify-between">
-              <p>
-                <span className="text-slate-400">
-                  {`[${log.timestamp.toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  })}]`}
-                </span>
-                <strong style={{ color: log.color }}>
-                  {` ${log.builder}`}
-                </strong>
-                {log.category === "Scored"
-                  ? ` has scored ${log.log}`
-                  : " has built a tile"}
-              </p>
-            </div>
-          ))}
+        <ScrollArea className="h-full">
+          <SheetHeader>
+            <SheetTitle>Game logs</SheetTitle>
+            <SheetDescription>List of the game logs</SheetDescription>
+          </SheetHeader>
+          {logs &&
+            logs.map((log, index) => (
+              <div key={index} className="flex justify-between">
+                <p>
+                  <span className="text-slate-400">
+                    {`[${log.timestamp.toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}]`}
+                  </span>
+                  <strong style={{ color: log.color }}>
+                    {` ${log.builder}`}
+                  </strong>
+                  {log.category === "Scored"
+                    ? ` has scored ${log.log}`
+                    : " has built a tile"}
+                </p>
+              </div>
+            ))}
+        </ScrollArea>
       </SheetContent>
     </Sheet>
   );
