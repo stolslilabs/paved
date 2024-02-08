@@ -39,7 +39,7 @@ export const GameLobby = () => {
     account: { account, create, clear, list, select },
     setup: {
       clientComponents: { Game },
-      client: { play },
+      systemCalls: { create_game },
     },
   } = useDojo();
 
@@ -139,7 +139,7 @@ export const GameLobby = () => {
             variant={"default"}
             className=" self-center"
             onClick={() =>
-              play.create({
+              create_game({
                 account,
                 endtime:
                   endtime === 0
