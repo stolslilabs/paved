@@ -1,26 +1,36 @@
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
   TableCaption,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { useEntityQuery, useComponentValue } from "@dojoengine/react";
+import { useComponentValue } from "@dojoengine/react";
 import { shortString } from "starknet";
 import { getColorFromAddress } from "@/utils";
-import { Has, HasValue, Entity } from "@dojoengine/recs";
+import {
+  Entity,
+  defineEnterSystem,
+  defineSystem,
+  Has,
+  HasValue,
+} from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 
 export const Scoreboard = () => {
   const { gameId } = useQueryParams();
+  const [builders, setBuilders] = useState<{ [key: number]: typeof Builder }>(
+    {}
+  );
+  const [topBuilders, setTopBuilders] = useState<any>([]);
+  const [rank, setRank] = useState<number>(0);
   const {
     account: { account },
     setup: {
+      world,
       clientComponents: { Builder },
     },
   } = useDojo();
@@ -31,36 +41,57 @@ export const Scoreboard = () => {
   ]) as Entity;
   const builder = useComponentValue(Builder, builderId);
 
-  const builderEntities = useEntityQuery([
-    Has(Builder),
-    HasValue(Builder, { game_id: gameId }),
-  ]);
+  useEffect(() => {
+    defineEnterSystem(
+      world,
+      [Has(Builder), HasValue(Builder, { game_id: gameId })],
+      function ({ value: [builder] }: any) {
+        setBuilders((prevTiles: any) => {
+          return { ...prevTiles, [builder.id]: builder };
+        });
+      }
+    );
+    defineSystem(
+      world,
+      [Has(Builder), HasValue(Builder, { game_id: gameId })],
+      function ({ value: [builder] }: any) {
+        setBuilders((prevTiles: any) => {
+          return { ...prevTiles, [builder.id]: builder };
+        });
+      }
+    );
+  }, []);
 
-  const builders = builderEntities.map((entity) => {
-    return useComponentValue(Builder, entity);
-  });
+  useEffect(() => {
+    if (!builders) return;
 
-  const sortedBuilders = builders.sort((a, b) => {
-    return b?.score - a?.score;
-  });
+    const topSortedBuilders: (typeof Builder)[] = Object.values(builders)
+      .sort((a, b) => {
+        return b?.score - a?.score;
+      })
+      .slice(0, 3);
 
-  const topPlayers = sortedBuilders.slice(0, 3);
-  const builderRank = sortedBuilders.findIndex((b) => b?.id === builder?.id);
+    const builderRank = topSortedBuilders.findIndex(
+      (b) => b?.id === builder?.id
+    );
+    setRank(builderRank + 1);
+    setTopBuilders(topSortedBuilders);
+  }, [builders, builder]);
 
   return (
     <div className="flex flex-col">
       <TableCaption className="text-left mb-2 ml-2">Leaderboard</TableCaption>
       <Table>
         <TableBody className="text-xs">
-          {topPlayers.map((player, index) => {
-            return <PlayerRow key={index} builder={player} rank={index + 1} />;
+          {topBuilders.map((builder: typeof Builder, index: number) => {
+            return <PlayerRow key={index} builder={builder} rank={index + 1} />;
           })}
-          {builder && builderRank > 2 && (
+          {builder && rank > 3 && (
             <>
               <TableRow>
                 <TableCell />
               </TableRow>
-              <PlayerRow builder={builder} rank={builderRank + 1} />
+              <PlayerRow builder={builder} rank={rank} />
             </>
           )}
         </TableBody>
