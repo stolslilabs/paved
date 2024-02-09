@@ -19,6 +19,7 @@ export const Buy = ({ show }: { show: boolean }) => {
         show ? "opacity-100" : "opacity-0 -mb-16"
       } transition-all duration-200`}
       variant={"default"}
+      size={"icon"}
       onClick={() =>
         play.buy({
           account: account.account,
@@ -26,7 +27,7 @@ export const Buy = ({ show }: { show: boolean }) => {
         })
       }
     >
-      <FontAwesomeIcon className="h-6" icon={faCartPlus} />
+      <FontAwesomeIcon icon={faCartPlus} />
     </Button>
   );
 };

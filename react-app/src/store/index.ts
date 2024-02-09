@@ -27,6 +27,8 @@ interface GameState {
   setSelectedTile: (tile: Tile) => void;
   hoveredTile: Tile;
   setHoveredTile: (tile: Tile) => void;
+  valid: boolean;
+  setValid: (valid: boolean) => void;
 }
 
 export const useGameStore = create<GameState>()(
@@ -55,6 +57,8 @@ export const useGameStore = create<GameState>()(
       setSelectedTile: (tile) => set({ selectedTile: tile }),
       hoveredTile: { col: 0, row: 0 },
       setHoveredTile: (tile) => set({ hoveredTile: tile }),
+      valid: false,
+      setValid: (valid) => set({ valid }),
     }),
     {
       name: "game-storage", // name of the item in the storage (must be unique)
