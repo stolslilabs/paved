@@ -1,0 +1,5 @@
+export const BUILT_EVENT =
+  "0x1d45258cfbc6a05a3a95aca416a9a9870a252afc3323a488c5e49221d6bad6f";
+
+export const SCORED_EVENT =
+  "0x1f5f91de9e33f581e67e239e952691057fe8e45631568808fa00d0bda38cce9";

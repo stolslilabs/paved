@@ -42,7 +42,8 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
   }, [tile]);
 
   const color = useMemo(() => {
-    return getColorFromAddress(character?.builder_id?.toString() || "");
+    const address = `0x${character?.builder_id?.toString(16)}`;
+    return getColorFromAddress(address);
   }, [character]);
 
   const image = useMemo(() => {

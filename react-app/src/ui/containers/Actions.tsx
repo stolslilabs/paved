@@ -4,6 +4,7 @@ import { useDojo } from "../../dojo/useDojo";
 import { Buy } from "../components/Buy";
 import { Leaderboard } from "../components/Leaderboard";
 import { Claim } from "../components/Claim";
+import { Log } from "../components/Log";
 import {
   faExpand,
   faCompress,
@@ -45,6 +46,7 @@ export const Actions = () => {
           </Button>
 
           <Buy show={isExpanded} />
+          <Log show={isExpanded} />
         </div>
 
         <div className="flex gap-4">

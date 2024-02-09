@@ -2,7 +2,7 @@ import { Order } from "../components/Order";
 import { Score } from "../components/Score";
 import { Claimed } from "../components/Claimed";
 
-export const Header = () => {
+export const LeftHeader = () => {
   return (
     <div className="z-20 flex justify-between items-center absolute top-0 w-full  uppercase px-4 text-white">
       <div className="flex flex-col items-start">

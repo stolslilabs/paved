@@ -18,6 +18,8 @@ const ENLIGHTENMENT: felt252 = 'ENLIGHTENMENT';
 const FURY: felt252 = 'FURY';
 const GIANTS: felt252 = 'GIANTS';
 const PERFECTION: felt252 = 'PERFECTION';
+const POWER: felt252 = 'POWER';
+const PROTECTION: felt252 = 'PROTECTION';
 const RAGE: felt252 = 'RAGE';
 const REFLECTION: felt252 = 'REFLECTION';
 const SKILL: felt252 = 'SKILL';
@@ -36,6 +38,8 @@ enum Order {
     Fury,
     Giants,
     Perfection,
+    Power,
+    Protection,
     Rage,
     Reflection,
     Skill,
@@ -58,6 +62,8 @@ impl OrderImpl of OrderTrait {
             Order::Fury => Alliance::Darkness,
             Order::Giants => Alliance::Light,
             Order::Perfection => Alliance::Light,
+            Order::Power => Alliance::Darkness,
+            Order::Protection => Alliance::Light,
             Order::Rage => Alliance::Darkness,
             Order::Reflection => Alliance::Light,
             Order::Skill => Alliance::Light,
@@ -81,6 +87,8 @@ impl IntoOrderFelt252 of Into<Order, felt252> {
             Order::Fury => FURY,
             Order::Giants => GIANTS,
             Order::Perfection => PERFECTION,
+            Order::Power => POWER,
+            Order::Protection => PROTECTION,
             Order::Rage => RAGE,
             Order::Reflection => REFLECTION,
             Order::Skill => SKILL,
@@ -104,11 +112,13 @@ impl IntoOrderU8 of Into<Order, u8> {
             Order::Fury => 7,
             Order::Giants => 8,
             Order::Perfection => 9,
-            Order::Rage => 10,
-            Order::Reflection => 11,
-            Order::Skill => 12,
-            Order::Fox => 13,
-            Order::Twins => 14,
+            Order::Power => 10,
+            Order::Protection => 11,
+            Order::Rage => 12,
+            Order::Reflection => 13,
+            Order::Skill => 14,
+            Order::Fox => 15,
+            Order::Twins => 16,
         }
     }
 }
@@ -135,14 +145,18 @@ impl IntoU8Order of Into<u8, Order> {
         } else if self == 9 {
             Order::Perfection
         } else if self == 10 {
-            Order::Rage
+            Order::Power
         } else if self == 11 {
-            Order::Reflection
+            Order::Protection
         } else if self == 12 {
-            Order::Skill
+            Order::Rage
         } else if self == 13 {
-            Order::Fox
+            Order::Reflection
         } else if self == 14 {
+            Order::Skill
+        } else if self == 15 {
+            Order::Fox
+        } else if self == 16 {
             Order::Twins
         } else {
             Order::None
@@ -171,6 +185,10 @@ impl TryIntoFelt252Order of Into<felt252, Order> {
             Order::Giants
         } else if self == PERFECTION {
             Order::Perfection
+        } else if self == POWER {
+            Order::Power
+        } else if self == PROTECTION {
+            Order::Protection
         } else if self == RAGE {
             Order::Rage
         } else if self == REFLECTION {
@@ -205,7 +223,7 @@ mod tests {
 
     use super::{
         Order, NONE, ANGER, TITANS, VITRIOL, BRILLANCE, DETECTION, ENLIGHTENMENT, FURY, GIANTS,
-        PERFECTION, RAGE, REFLECTION, SKILL, FOX, TWINS
+        PERFECTION, POWER, PROTECTION, RAGE, REFLECTION, SKILL, FOX, TWINS
     };
 
     // Constants
@@ -225,6 +243,8 @@ mod tests {
         assert(FURY == Order::Fury.into(), 'Order: wrong Fury');
         assert(GIANTS == Order::Giants.into(), 'Order: wrong Giants');
         assert(PERFECTION == Order::Perfection.into(), 'Order: wrong Perfection');
+        assert(POWER == Order::Power.into(), 'Order: wrong Power');
+        assert(PROTECTION == Order::Protection.into(), 'Order: wrong Protection');
         assert(RAGE == Order::Rage.into(), 'Order: wrong Rage');
         assert(REFLECTION == Order::Reflection.into(), 'Order: wrong Reflection');
         assert(SKILL == Order::Skill.into(), 'Order: wrong Skill');
@@ -244,6 +264,8 @@ mod tests {
         assert(Order::Fury == FURY.into(), 'Order: wrong Fury');
         assert(Order::Giants == GIANTS.into(), 'Order: wrong Giants');
         assert(Order::Perfection == PERFECTION.into(), 'Order: wrong Perfection');
+        assert(Order::Power == POWER.into(), 'Order: wrong Power');
+        assert(Order::Protection == PROTECTION.into(), 'Order: wrong Protection');
         assert(Order::Rage == RAGE.into(), 'Order: wrong Rage');
         assert(Order::Reflection == REFLECTION.into(), 'Order: wrong Reflection');
         assert(Order::Skill == SKILL.into(), 'Order: wrong Skill');
@@ -268,11 +290,13 @@ mod tests {
         assert(7_u8 == Order::Fury.into(), 'Order: wrong Fury');
         assert(8_u8 == Order::Giants.into(), 'Order: wrong Giants');
         assert(9_u8 == Order::Perfection.into(), 'Order: wrong Perfection');
-        assert(10_u8 == Order::Rage.into(), 'Order: wrong Rage');
-        assert(11_u8 == Order::Reflection.into(), 'Order: wrong Reflection');
-        assert(12_u8 == Order::Skill.into(), 'Order: wrong Skill');
-        assert(13_u8 == Order::Fox.into(), 'Order: wrong Fox');
-        assert(14_u8 == Order::Twins.into(), 'Order: wrong Twins');
+        assert(10_u8 == Order::Power.into(), 'Order: wrong Power');
+        assert(11_u8 == Order::Protection.into(), 'Order: wrong Protection');
+        assert(12_u8 == Order::Rage.into(), 'Order: wrong Rage');
+        assert(13_u8 == Order::Reflection.into(), 'Order: wrong Reflection');
+        assert(14_u8 == Order::Skill.into(), 'Order: wrong Skill');
+        assert(15_u8 == Order::Fox.into(), 'Order: wrong Fox');
+        assert(16_u8 == Order::Twins.into(), 'Order: wrong Twins');
     }
 
     #[test]
@@ -287,11 +311,13 @@ mod tests {
         assert(Order::Fury == 7_u8.into(), 'Order: wrong Fury');
         assert(Order::Giants == 8_u8.into(), 'Order: wrong Giants');
         assert(Order::Perfection == 9_u8.into(), 'Order: wrong Perfection');
-        assert(Order::Rage == 10_u8.into(), 'Order: wrong Rage');
-        assert(Order::Reflection == 11_u8.into(), 'Order: wrong Reflection');
-        assert(Order::Skill == 12_u8.into(), 'Order: wrong Skill');
-        assert(Order::Fox == 13_u8.into(), 'Order: wrong Fox');
-        assert(Order::Twins == 14_u8.into(), 'Order: wrong Twins');
+        assert(Order::Power == 10_u8.into(), 'Order: wrong Power');
+        assert(Order::Protection == 11_u8.into(), 'Order: wrong Protection');
+        assert(Order::Rage == 12_u8.into(), 'Order: wrong Rage');
+        assert(Order::Reflection == 13_u8.into(), 'Order: wrong Reflection');
+        assert(Order::Skill == 14_u8.into(), 'Order: wrong Skill');
+        assert(Order::Fox == 15_u8.into(), 'Order: wrong Fox');
+        assert(Order::Twins == 16_u8.into(), 'Order: wrong Twins');
     }
 
     #[test]

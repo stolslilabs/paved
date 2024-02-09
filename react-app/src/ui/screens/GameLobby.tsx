@@ -22,9 +22,15 @@ import {
   SelectTrigger,
   SelectValue,
   SelectGroup,
+  SelectLabel,
 } from "@/components/ui/select";
 import { getEntityIdFromKeys, shortenHex } from "@dojoengine/utils";
-import { getOrders, getOrderFromName } from "@/utils";
+import {
+  getLightOrders,
+  getDarkOrders,
+  getOrderFromName,
+  getOrder,
+} from "@/utils";
 import { faRightToBracket } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
@@ -176,6 +182,7 @@ export const GameLobby = () => {
 
 export const GameRow = (entity: any) => {
   const [playerName, setPlayerName] = useState("");
+  const [orderName, setOrderName] = useState("");
   const [order, setOrder] = useState(1);
   const {
     setup: {
@@ -196,8 +203,12 @@ export const GameRow = (entity: any) => {
 
   const builder = useComponentValue(Builder, builderEntity);
 
-  const orders = useMemo(() => {
-    return getOrders();
+  const lightOrders = useMemo(() => {
+    return getLightOrders();
+  }, []);
+
+  const darkOrders = useMemo(() => {
+    return getDarkOrders();
   }, []);
 
   const navigate = useNavigate();
@@ -205,12 +216,18 @@ export const GameRow = (entity: any) => {
   useEffect(() => {
     if (builder) {
       setPlayerName(shortString.decodeShortString(builder.name));
-      setOrder(builder.order);
+      setOrderName(getOrder(builder.order));
     } else {
       setPlayerName("");
-      setOrder(1);
+      setOrderName("");
     }
   }, [builder]);
+
+  useEffect(() => {
+    if (orderName) {
+      setOrder(getOrderFromName(orderName));
+    }
+  }, [orderName]);
 
   const setGameQueryParam = (id: string) => {
     navigate("?game=" + id, { replace: true });
@@ -222,7 +239,9 @@ export const GameRow = (entity: any) => {
       <TableCell>{game?.tile_count}</TableCell>
       <TableCell className="flex justify-end gap-4">
         <Input
-          className="w-20"
+          className="`w-20"
+          disabled={!!builder}
+          placeholder="Player Name"
           type="text"
           value={playerName}
           onChange={(e) => {
@@ -231,18 +250,27 @@ export const GameRow = (entity: any) => {
         />
 
         <Select
-          onValueChange={(value) => setOrder(getOrderFromName(value))}
-          defaultValue={orders[0]}
+          onValueChange={(value) => setOrderName(value)}
+          value={orderName}
         >
-          <SelectTrigger>
-            <SelectValue placeholder="Select Order" />
+          <SelectTrigger disabled={!!builder}>
+            <SelectValue placeholder="Select order" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              {orders.map((orderName, index) => {
+              <SelectLabel>Light Alliance</SelectLabel>
+              {lightOrders.map((name) => {
                 return (
-                  <SelectItem key={index} value={orderName}>
-                    {orderName}
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                );
+              })}
+              <SelectLabel>Dark Alliance</SelectLabel>
+              {darkOrders.map((name) => {
+                return (
+                  <SelectItem key={name} value={name}>
+                    {name}
                   </SelectItem>
                 );
               })}
@@ -251,13 +279,10 @@ export const GameRow = (entity: any) => {
         </Select>
 
         <Button
-          className={
-            playerName && !builder ? "" : "opacity-50 cursor-not-allowed"
-          }
+          disabled={!!builder || !playerName || !orderName}
           variant={"default"}
           onClick={() => {
-            playerName &&
-              !builder &&
+            !builder &&
               play.spawn({
                 account,
                 game_id: game?.id || 0,
@@ -270,9 +295,8 @@ export const GameRow = (entity: any) => {
         </Button>
 
         <Button
-          className={`align-right ${
-            !builder && "opacity-50 cursor-not-allowed"
-          }`}
+          className={`align-right}`}
+          disabled={!builder}
           onClick={() => builder && setGameQueryParam(game?.id || 0)}
         >
           <FontAwesomeIcon icon={faRightToBracket} />

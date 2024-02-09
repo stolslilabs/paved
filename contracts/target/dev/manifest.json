@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::play::play",
       "address": "0x54cecff4ea996878685a1d15e6e20e58f0560661bb9e6ae2f2b47a4a3acf2e4",
-      "class_hash": "0x1e638a94fe2b3221a144e31dec94074c7e737c5bd922a74d91cf48bc191a261",
+      "class_hash": "0x6add2c870c9257aa4d88443a634b50a525b828baa0c5c0b258aece8915161b0",
       "abi": [
         {
           "type": "impl",
@@ -1256,9 +1256,104 @@
         },
         {
           "type": "event",
+          "name": "stolsli::events::Built",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "tile_id",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "x",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "y",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "builder_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "builder_name",
+              "type": "core::felt252",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "stolsli::events::Scored",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "tile_id",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "x",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "y",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "builder_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "builder_name",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "order_id",
+              "type": "core::integer::u8",
+              "kind": "data"
+            },
+            {
+              "name": "points",
+              "type": "core::integer::u32",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
           "name": "stolsli::systems::play::play::Event",
           "kind": "enum",
-          "variants": []
+          "variants": [
+            {
+              "name": "Built",
+              "type": "stolsli::events::Built",
+              "kind": "nested"
+            },
+            {
+              "name": "Scored",
+              "type": "stolsli::events::Scored",
+              "kind": "nested"
+            }
+          ]
         }
       ],
       "reads": [],

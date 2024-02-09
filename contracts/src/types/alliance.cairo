@@ -55,6 +55,7 @@ impl AllianceImpl of AllianceTrait {
                     Order::Enlightenment,
                     Order::Giants,
                     Order::Perfection,
+                    Order::Protection,
                     Order::Reflection,
                     Order::Skill,
                     Order::Twins,
@@ -67,6 +68,7 @@ impl AllianceImpl of AllianceTrait {
                     Order::Vitriol,
                     Order::Detection,
                     Order::Fury,
+                    Order::Power,
                     Order::Rage,
                     Order::Fox,
                 ]
