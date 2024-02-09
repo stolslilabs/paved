@@ -72,8 +72,9 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
             show ? "opacity-100" : "opacity-0 -mb-16"
           } transition-all duration-200`}
           variant={"default"}
+          size={"icon"}
         >
-          <FontAwesomeIcon className="h-6" icon={faTrophy} />
+          <FontAwesomeIcon icon={faTrophy} />
         </Button>
       </DialogTrigger>
       <DialogContent>

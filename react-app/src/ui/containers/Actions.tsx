@@ -9,10 +9,13 @@ import {
   faExpand,
   faCompress,
   faHome,
-  faTrophy,
+  faBinoculars,
+  faCircleInfo,
+  faWallet,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Button } from "@/components/ui/button";
+import { Font } from "three-stdlib";
 
 export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -25,12 +28,10 @@ export const Actions = () => {
           <Button
             className={"z-10"}
             variant={"default"}
+            size={"icon"}
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            <FontAwesomeIcon
-              className="h-6"
-              icon={isExpanded ? faCompress : faExpand}
-            />
+            <FontAwesomeIcon icon={isExpanded ? faCompress : faExpand} />
           </Button>
           <Claim show={isExpanded} />
           <Leaderboard show={isExpanded} />
@@ -40,9 +41,10 @@ export const Actions = () => {
               isExpanded ? "opacity-100" : "opacity-0 -mb-16"
             } transition-all duration-200`}
             variant={"default"}
+            size={"icon"}
             onClick={() => navigate("", { replace: true })}
           >
-            <FontAwesomeIcon className="h-6" icon={faHome} />
+            <FontAwesomeIcon icon={faHome} />
           </Button>
 
           <Buy show={isExpanded} />
@@ -55,24 +57,27 @@ export const Actions = () => {
               isExpanded ? "opacity-100" : "opacity-0 -ml-16"
             } transition-all duration-200`}
             variant={"default"}
+            size={"icon"}
           >
-            VIW
+            <FontAwesomeIcon icon={faBinoculars} />
           </Button>
           <Button
             className={`${
               isExpanded ? "opacity-100" : "opacity-0 -ml-16"
             } transition-all duration-200`}
             variant={"default"}
+            size={"icon"}
           >
-            JMP
+            <FontAwesomeIcon icon={faWallet} />
           </Button>
           <Button
             className={`${
               isExpanded ? "opacity-100" : "opacity-0 -ml-32"
             } transition-all duration-200`}
             variant={"default"}
+            size={"icon"}
           >
-            HLP
+            <FontAwesomeIcon icon={faCircleInfo} />
           </Button>
         </div>
       </div>
