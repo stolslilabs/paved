@@ -16,10 +16,10 @@ import { useGameStore } from "@/store";
 extend({ OrbitControls });
 
 export const cameraSettings = {
-  zoom: 2,
+  zoom: 1,
   aspect: 1.77,
   near: 3,
-  far: 3,
+  far: 10,
 };
 
 export const ThreeGrid = () => {

@@ -267,7 +267,23 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
           ref={meshRef}
           args={[geom, config]}
           position={[position.x, position.y, 0]}
-        />
+          geometry={squareGeometry}
+        >
+          <meshStandardMaterial
+            color={"#ADD8E6"}
+            transparent={true}
+            opacity={0.3}
+          />
+        </mesh>
+        // @ts-ignore
+        // <water
+        //   onPointerEnter={handlePointerEnter}
+        //   onPointerLeave={handlePointerLeave}
+        //   onClick={handleMeshClick}
+        //   ref={meshRef}
+        //   args={[geom, config]}
+        //   position={[position.x, position.y, 0]}
+        // />
       )}
     </>
   );
