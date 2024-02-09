@@ -46,25 +46,22 @@ export const Claim = ({ show }: { show: boolean }) => {
     const interval = setInterval(() => {
       const now = Math.floor(Date.now()) / 1000;
       setEnable(
-        game?.over ||
+        (!claimed && game?.over) ||
           (game?.tiles_cap !== 0 && game?.tile_count >= game?.tiles_cap) ||
           (game?.endtime !== 0 && now >= game?.endtime)
       );
     }, 1000);
     return () => clearInterval(interval);
-  }, [game]);
-
-  const className = useMemo(() => {
-    return `${enable && !claimed ? "cursor-pointer" : "cursor-not-allowed "}`;
-  }, [game, enable, claimed]);
+  }, [game, claimed]);
 
   if (!account || !game || !builder) return <></>;
 
   return (
     <Button
+      disabled={show && !enable}
       className={`${
-        show ? "opacity-100" : "opacity-0 -mb-12"
-      } transition-all duration-200 ${className}`}
+        show ? "opacity-100" : "opacity-0 -mb-16"
+      } transition-all duration-200`}
       variant={"default"}
       onClick={handleClick}
     >
