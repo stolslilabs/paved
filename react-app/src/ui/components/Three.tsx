@@ -26,7 +26,7 @@ export const ThreeGrid = () => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   return (
     <Canvas className="z-1" shadows>
-      <color attach="background" args={["#ADD8E6"]} />
+      <color attach="background" args={["#E8DAE1"]} />
       <Keyboard />
       <mesh>
         <PerspectiveCamera

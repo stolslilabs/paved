@@ -1,8 +1,12 @@
 import * as THREE from "three";
 import { useMemo, useRef, useState, useEffect } from "react";
+import { extend, useLoader, useFrame } from "@react-three/fiber";
+import { Water } from "three-stdlib";
 import { useGameStore } from "../../store";
 import { getImage, offset, other_offset } from "../../utils";
 import { createSquareGeometry, getSquarePosition, loader } from "./TileTexture";
+
+extend({ Water });
 
 export const TileEmpty = ({ col, row, size, activeTile }: any) => {
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
@@ -104,6 +108,29 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
     return position;
   }, []);
 
+  const waterNormals = useLoader(THREE.TextureLoader, "/waternormals.jpeg");
+  waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
+  const geom = useMemo(() => new THREE.PlaneGeometry(3, 3), []);
+  const config = useMemo(
+    () => ({
+      textureWidth: 1024,
+      textureHeight: 1024,
+      waterNormals,
+      sunDirection: new THREE.Vector3(),
+      sunColor: 0xffffff,
+      waterColor: 0xffffff,
+      distortionScale: 1.5,
+      fog: true,
+    }),
+    [waterNormals]
+  );
+
+  useFrame((_state, delta) => {
+    if (meshRef.current?.material?.uniforms?.time) {
+      meshRef.current.material.uniforms.time.value += delta / 10; // speed
+    }
+  });
+
   return (
     <>
       {texture && (
@@ -123,20 +150,15 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
         </mesh>
       )}
       {!texture && (
-        <mesh
+        // @ts-ignore
+        <water
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
           onClick={handleMeshClick}
           ref={meshRef}
+          args={[geom, config]}
           position={[position.x, position.y, 0]}
-          geometry={squareGeometry}
-        >
-          <meshStandardMaterial
-            color={"#ADD8E6"}
-            transparent={true}
-            opacity={0.3}
-          />
-        </mesh>
+        />
       )}
     </>
   );
