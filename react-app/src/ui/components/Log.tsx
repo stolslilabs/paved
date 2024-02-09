@@ -19,12 +19,17 @@ export type LogType = {
   regionTo?: number;
 };
 
-export const Log = () => {
+export const Log = ({ show }: { show: boolean }) => {
   const { logs } = useLogs();
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant={"default"}>
+        <Button
+          className={`${
+            show ? "opacity-100" : "opacity-0 -mb-16"
+          } transition-all duration-200`}
+          variant={"default"}
+        >
           <FontAwesomeIcon icon={faBook} />
         </Button>
       </SheetTrigger>

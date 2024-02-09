@@ -28,7 +28,7 @@ import { shortString } from "starknet";
 import { getOrder, getAlliance, getColorFromAddress } from "@/utils";
 import { Has, HasValue } from "@dojoengine/recs";
 
-export const Leaderboard = () => {
+export const Leaderboard = ({ show }: { show: boolean }) => {
   const { gameId } = useQueryParams();
   const {
     setup: {
@@ -67,8 +67,13 @@ export const Leaderboard = () => {
   return (
     <Dialog>
       <DialogTrigger>
-        <Button variant={"default"}>
-          <FontAwesomeIcon icon={faTrophy} />
+        <Button
+          className={`${
+            show ? "opacity-100" : "opacity-0 -mb-16"
+          } transition-all duration-200`}
+          variant={"default"}
+        >
+          <FontAwesomeIcon className="h-6" icon={faTrophy} />
         </Button>
       </DialogTrigger>
       <DialogContent>

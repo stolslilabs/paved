@@ -2,6 +2,7 @@
 
 import { Account } from "starknet";
 import { DojoProvider } from "@dojoengine/core";
+import { CreateGame } from "./types";
 
 export type IWorld = Awaited<ReturnType<typeof setupWorld>>;
 
@@ -14,12 +15,7 @@ export async function setupWorld(provider: DojoProvider) {
       endtime,
       points_cap,
       tiles_cap,
-    }: {
-      account: Account;
-      endtime: number;
-      points_cap: number;
-      tiles_cap: number;
-    }) => {
+    }: CreateGame) => {
       try {
         return await provider.execute(account, contract_name, "create", [
           provider.getWorldAddress(),

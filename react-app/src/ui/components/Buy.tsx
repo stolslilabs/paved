@@ -4,7 +4,7 @@ import { faCartPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQueryParams } from "@/hooks/useQueryParams";
 
-export const Buy = () => {
+export const Buy = ({ show }: { show: boolean }) => {
   const { gameId } = useQueryParams();
   const {
     account,
@@ -15,6 +15,9 @@ export const Buy = () => {
 
   return (
     <Button
+      className={`${
+        show ? "opacity-100" : "opacity-0 -mb-16"
+      } transition-all duration-200`}
       variant={"default"}
       onClick={() =>
         play.buy({
@@ -23,7 +26,7 @@ export const Buy = () => {
         })
       }
     >
-      <FontAwesomeIcon icon={faCartPlus} />
+      <FontAwesomeIcon className="h-6" icon={faCartPlus} />
     </Button>
   );
 };

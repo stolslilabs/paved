@@ -23,31 +23,58 @@ export const Actions = () => {
       <div className="flex justify-center items-end gap-4">
         <div className="flex flex-col-reverse gap-4">
           <Button
+            className={"z-10"}
             variant={"default"}
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            <FontAwesomeIcon icon={isExpanded ? faCompress : faExpand} />
+            <FontAwesomeIcon
+              className="h-6"
+              icon={isExpanded ? faCompress : faExpand}
+            />
           </Button>
-          {isExpanded && <Claim />}
-          {isExpanded && <Leaderboard />}
-          {isExpanded && (
-            <Button
-              variant={"default"}
-              onClick={() => navigate("", { replace: true })}
-            >
-              <FontAwesomeIcon icon={faHome} />
-            </Button>
-          )}
-          {isExpanded && <Buy />}
-          {isExpanded && <Log />}
+          <Claim show={isExpanded} />
+          <Leaderboard show={isExpanded} />
+
+          <Button
+            className={`${
+              isExpanded ? "opacity-100" : "opacity-0 -mb-16"
+            } transition-all duration-200`}
+            variant={"default"}
+            onClick={() => navigate("", { replace: true })}
+          >
+            <FontAwesomeIcon className="h-6" icon={faHome} />
+          </Button>
+
+          <Buy show={isExpanded} />
+          <Log show={isExpanded} />
         </div>
-        {isExpanded && (
-          <div className="flex gap-4">
-            <Button variant={"default"}>VIW</Button>
-            <Button variant={"default"}>JMP</Button>
-            <Button variant={"default"}>HLP</Button>
-          </div>
-        )}
+
+        <div className="flex gap-4">
+          <Button
+            className={`${
+              isExpanded ? "opacity-100" : "opacity-0 -ml-16"
+            } transition-all duration-200`}
+            variant={"default"}
+          >
+            VIW
+          </Button>
+          <Button
+            className={`${
+              isExpanded ? "opacity-100" : "opacity-0 -ml-16"
+            } transition-all duration-200`}
+            variant={"default"}
+          >
+            JMP
+          </Button>
+          <Button
+            className={`${
+              isExpanded ? "opacity-100" : "opacity-0 -ml-32"
+            } transition-all duration-200`}
+            variant={"default"}
+          >
+            HLP
+          </Button>
+        </div>
       </div>
     </div>
   );

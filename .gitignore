@@ -6,3 +6,5 @@ contracts/target/dev/*
 node-modules
 .DS_Store
 *.log
+bun.lockb
+pnpm-lock.yaml
