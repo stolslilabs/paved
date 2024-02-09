@@ -22,6 +22,7 @@ export const Confirm = () => {
     setCharacter,
     setSpot,
     setSelectedTile,
+    valid,
   } = useGameStore();
 
   const {
@@ -68,7 +69,7 @@ export const Confirm = () => {
   };
 
   return (
-    <Button variant={"default"} onClick={handleClick}>
+    <Button disabled={!valid} variant={"default"} onClick={handleClick}>
       <FontAwesomeIcon icon={faSquareCheck} />
     </Button>
   );

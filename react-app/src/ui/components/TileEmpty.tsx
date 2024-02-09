@@ -38,6 +38,7 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
     setHoveredTile,
     setX,
     setY,
+    setValid,
   } = useGameStore();
 
   const northPosition = useComponentValue(
@@ -125,6 +126,7 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
   const isValid = useMemo(() => {
     return (
       activeTile &&
+      (hovered || isSelected) &&
       checkCompatibility(
         activeTile.plan,
         orientation,
@@ -134,7 +136,7 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
         westTile
       )
     );
-  }, [activeTile, orientation]);
+  }, [activeTile, orientation, hovered, isSelected]);
 
   useEffect(() => {
     if (background) {
@@ -172,6 +174,12 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
       handlePointerLeave();
     }
   }, [isHovered]);
+
+  useEffect(() => {
+    if (isSelected && activeTile) {
+      setValid(isValid);
+    }
+  }, [isSelected, isValid]);
 
   const handleMeshClick = () => {
     setSelectedTile({ col, row });
