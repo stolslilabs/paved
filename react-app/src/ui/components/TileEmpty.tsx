@@ -259,11 +259,13 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
         </mesh>
       )}
       {!texture && (
-        <mesh
+        // @ts-ignore
+        <water
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
           onClick={handleMeshClick}
           ref={meshRef}
+          args={[geom, config]}
           position={[position.x, position.y, 0]}
           geometry={squareGeometry}
         >
