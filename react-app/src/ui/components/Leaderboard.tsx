@@ -3,6 +3,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
@@ -17,100 +18,51 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy, faSun, faMoon } from "@fortawesome/free-solid-svg-icons";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import { useEntityQuery, useComponentValue } from "@dojoengine/react";
 import { shortString } from "starknet";
 import { getOrder, getAlliance, getColorFromAddress } from "@/utils";
-import {
-  defineEnterSystem,
-  defineSystem,
-  Has,
-  HasValue,
-} from "@dojoengine/recs";
+import { Has, HasValue } from "@dojoengine/recs";
 
 export const Leaderboard = ({ show }: { show: boolean }) => {
   const { gameId } = useQueryParams();
-  const [builders, setBuilders] = useState<{ [key: number]: typeof Builder }>(
-    {}
-  );
-  const [teams, setTeams] = useState<{ [key: number]: typeof Team }>({});
-  const [topBuilders, setTopBuilders] = useState<any>([]);
-  const [topTeams, setTopTeams] = useState<any>([]);
   const {
     setup: {
-      world,
       clientComponents: { Builder, Team },
     },
   } = useDojo();
 
-  useEffect(() => {
-    defineEnterSystem(
-      world,
-      [Has(Builder), HasValue(Builder, { game_id: gameId })],
-      function ({ value: [builder] }: any) {
-        setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.id]: builder };
-        });
-      }
-    );
-    defineSystem(
-      world,
-      [Has(Builder), HasValue(Builder, { game_id: gameId })],
-      function ({ value: [builder] }: any) {
-        setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.id]: builder };
-        });
-      }
-    );
-  }, []);
+  const builderEntities = useEntityQuery([
+    Has(Builder),
+    HasValue(Builder, { game_id: gameId }),
+  ]);
 
-  useEffect(() => {
-    defineEnterSystem(
-      world,
-      [Has(Team), HasValue(Team, { game_id: gameId })],
-      function ({ value: [team] }: any) {
-        setTeams((prevTiles: any) => {
-          return { ...prevTiles, [team.id]: team };
-        });
-      }
-    );
-    defineSystem(
-      world,
-      [Has(Team), HasValue(Team, { game_id: gameId })],
-      function ({ value: [team] }: any) {
-        setTeams((prevTiles: any) => {
-          return { ...prevTiles, [team.id]: team };
-        });
-      }
-    );
-  }, []);
+  const teamEntities = useEntityQuery([
+    Has(Team),
+    HasValue(Team, { game_id: gameId }),
+  ]);
 
-  useEffect(() => {
-    if (!builders) return;
+  const builders = builderEntities.map((entity) => {
+    return useComponentValue(Builder, entity);
+  });
 
-    const topSortedBuilders: (typeof Builder)[] = Object.values(builders)
-      .sort((a, b) => {
-        return b?.score - a?.score;
-      })
-      .slice(0, 16);
+  const teams = teamEntities.map((entity) => {
+    return useComponentValue(Team, entity);
+  });
 
-    setTopBuilders(topSortedBuilders);
-  }, [builders]);
+  const sortedBuilders = builders.sort((a, b) => {
+    return b?.score - a?.score;
+  });
 
-  useEffect(() => {
-    if (!teams) return;
+  const topPlayers = sortedBuilders.slice(0, 16);
 
-    const topSortedTeams: (typeof Team)[] = Object.values(teams).sort(
-      (a, b) => {
-        return b?.score - a?.score;
-      }
-    );
-
-    setTopTeams(topSortedTeams);
-  }, [teams]);
+  const topTeams = teams.sort((a, b) => {
+    return b?.score - a?.score;
+  });
 
   return (
     <Dialog>
@@ -120,9 +72,8 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
             show ? "opacity-100" : "opacity-0 -mb-16"
           } transition-all duration-200`}
           variant={"default"}
-          size={"icon"}
         >
-          <FontAwesomeIcon icon={faTrophy} />
+          <FontAwesomeIcon className="h-6" icon={faTrophy} />
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -146,17 +97,15 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {topBuilders.map(
-                      (builder: typeof Builder, index: number) => {
-                        return (
-                          <PlayerRow
-                            key={index}
-                            builder={builder}
-                            rank={index + 1}
-                          />
-                        );
-                      }
-                    )}
+                    {topPlayers.map((builder, index) => {
+                      return (
+                        <PlayerRow
+                          key={index}
+                          builder={builder}
+                          rank={index + 1}
+                        />
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TabsContent>
@@ -172,7 +121,7 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {topTeams.map((team: typeof Team, index: number) => {
+                    {topTeams.map((team, index) => {
                       return (
                         <OrderRow key={index} team={team} rank={index + 1} />
                       );

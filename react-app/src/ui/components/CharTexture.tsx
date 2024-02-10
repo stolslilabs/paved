@@ -62,7 +62,6 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
 
   return (
     <>
-      {/* Pedestal */}
       <mesh
         position={[position.x, position.y, 0.1 / 3]}
         rotation={[Math.PI / 2, 0, 0]}
@@ -77,7 +76,6 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
         <meshStandardMaterial color={color} />
         <cylinderGeometry args={[radius, radius, 0.1, 32]} />
       </mesh>
-      {/* Rod */}
       <mesh
         position={[position.x, position.y, height]}
         rotation={[Math.PI / 2, 0, 0]}
@@ -85,7 +83,6 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
         <meshStandardMaterial color={0x000000} />
         <cylinderGeometry args={[0.01, 0.01, height * 2, 32]} />
       </mesh>
-      {/* Character */}
       <group
         position={[position.x, position.y, 2 * height + radius * 1.2]}
         ref={meshRef}
@@ -96,7 +93,7 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
         </mesh>
         <mesh rotation={[0, Math.PI / 2, 0]}>
           <meshStandardMaterial map={loader.load(image)} />
-          <cylinderGeometry args={[radius, radius, 0.15, 32]} />
+          <cylinderGeometry args={[radius, radius, 0.11, 32]} />
         </mesh>
       </group>
     </>
