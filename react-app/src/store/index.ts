@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { Entity } from "@dojoengine/recs";
 
 export interface Tile {
   col: number;
@@ -25,8 +26,10 @@ interface GameState {
   setY: (y: number) => void;
   selectedTile: Tile;
   setSelectedTile: (tile: Tile) => void;
+  activeEntity: undefined | Entity;
+  setActiveEntity: (entity: Entity) => void;
   hoveredTile: Tile;
-  setHoveredTile: (tile: Tile) => void; 
+  setHoveredTile: (tile: Tile) => void;
   valid: boolean;
   setValid: (valid: boolean) => void;
 }
@@ -55,6 +58,8 @@ export const useGameStore = create<GameState>()(
       setY: (y) => set({ y }),
       selectedTile: { col: 0, row: 0 },
       setSelectedTile: (tile) => set({ selectedTile: tile }),
+      activeEntity: undefined,
+      setActiveEntity: (entity) => set({ activeEntity: entity }),
       hoveredTile: { col: 0, row: 0 },
       setHoveredTile: (tile) => set({ hoveredTile: tile }),
       valid: false,
