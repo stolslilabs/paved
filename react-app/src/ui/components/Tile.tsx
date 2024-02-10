@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useDojo } from "../../dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
@@ -14,7 +14,7 @@ export const Tile = () => {
   const [rotation, setRotation] = useState(0);
   const [backgroundImage, setBackgroundImage] = useState(getImage(0));
   const { gameId } = useQueryParams();
-  const { orientation, setSelectedTile } = useGameStore();
+  const { orientation, setSelectedTile, setActiveEntity } = useGameStore();
 
   const {
     account: { account },
@@ -24,22 +24,27 @@ export const Tile = () => {
     },
   } = useDojo();
 
-  const builderId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(account.address),
-  ]) as Entity;
-  const builder = useComponentValue(Builder, builderId);
+  const builderEntity = useMemo(() => {
+    return getEntityIdFromKeys([
+      BigInt(gameId),
+      BigInt(account.address),
+    ]) as Entity;
+  }, [gameId, account]);
+  const builder = useComponentValue(Builder, builderEntity);
 
-  const tileId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(builder ? builder.tile_id : 0),
-  ]) as Entity;
-  const tile = useComponentValue(Tile, tileId);
+  const tileEntity = useMemo(() => {
+    return getEntityIdFromKeys([
+      BigInt(gameId),
+      BigInt(builder ? builder.tile_id : 0),
+    ]) as Entity;
+  }, [gameId, builder]);
+  const tile = useComponentValue(Tile, tileEntity);
 
   useEffect(() => {
     if (tile) {
       const image = getImage(tile);
       setBackgroundImage(image);
+      setActiveEntity(tileEntity);
     }
   }, [tile]);
 
