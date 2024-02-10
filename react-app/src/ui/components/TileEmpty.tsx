@@ -131,7 +131,8 @@ export const TileEmpty = ({ col, row, size }: any) => {
     } else {
       setTexture(undefined);
     }
-  }, [background, rotation, orientation]);
+  }, [background, rotation, orientation, hovered]);
+
   useEffect(() => {
     if (activeTile && isSelected) {
       setBackground(getImage(activeTile));
@@ -140,14 +141,17 @@ export const TileEmpty = ({ col, row, size }: any) => {
       setBackground(null);
     }
   }, [isSelected, orientation, activeTile]);
+
   useEffect(() => {
     if (isSelected) {
       setRotation(calculateRotation(orientation));
     }
   }, [isSelected, orientation]);
+
   useEffect(() => {
     document.body.style.cursor = hovered ? "pointer" : "auto";
   }, [hovered]);
+
   useEffect(() => {
     if (!isHovered) {
       handlePointerLeave();
@@ -165,6 +169,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
     setX(col);
     setY(row);
   };
+
   const handlePointerEnter = () => {
     setHovered(true);
     setHoveredTile({ col, row });
@@ -175,6 +180,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
       setBackground(null);
     }
   };
+
   const handlePointerLeave = () => {
     setHovered(false);
     if (isSelected && activeTile) {
@@ -184,6 +190,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
       setBackground(null);
     }
   };
+
   const position = useMemo(() => {
     const position = getSquarePosition({
       row: row - offset + other_offset,
@@ -192,6 +199,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
     });
     return position;
   }, []);
+
   return (
     <>
       {texture && (
