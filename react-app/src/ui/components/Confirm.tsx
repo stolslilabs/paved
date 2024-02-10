@@ -29,7 +29,7 @@ export const Confirm = () => {
     account: { account },
     setup: {
       client: { play },
-      clientComponents: { Builder, Tile },
+      clientComponents: { Builder },
     },
   } = useDojo();
 
@@ -70,7 +70,7 @@ export const Confirm = () => {
 
   return (
     <Button
-      disabled={!valid}
+      disabled={!valid || !builder.tile_id}
       variant={"default"}
       size={"icon"}
       onClick={handleClick}
