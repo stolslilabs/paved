@@ -16,8 +16,14 @@ function GameScreen() {
     ],
     []
   );
+
+  const borderColor = useMemo(() => "#7D6669", []);
+
   return (
-    <div className="relative w-screen h-screen flex flex-col">
+    <div
+      className="relative w-screen h-screen flex flex-col border-8 rounded-lg"
+      style={{ borderColor }}
+    >
       <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
         <Overlay />
         <div
