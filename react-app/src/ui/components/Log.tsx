@@ -29,7 +29,6 @@ export const Log = ({ show }: { show: boolean }) => {
             show ? "opacity-100" : "opacity-0 -mb-16"
           } transition-all duration-200`}
           variant={"default"}
-          size={"icon"}
         >
           <FontAwesomeIcon icon={faBook} />
         </Button>

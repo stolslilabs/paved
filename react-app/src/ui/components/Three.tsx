@@ -16,17 +16,17 @@ import { useGameStore } from "@/store";
 extend({ OrbitControls });
 
 export const cameraSettings = {
-  zoom: 1,
+  zoom: 2,
   aspect: 1.77,
   near: 3,
-  far: 10,
+  far: 3,
 };
 
 export const ThreeGrid = () => {
   const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   return (
     <Canvas className="z-1" shadows>
-      <color attach="background" args={["#E8DAE1"]} />
+      <color attach="background" args={["#ADD8E6"]} />
       <Keyboard />
       <mesh>
         <PerspectiveCamera

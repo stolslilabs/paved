@@ -1,23 +1,10 @@
 import * as THREE from "three";
-import { useDojo } from "@/dojo/useDojo";
-import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
 import { useMemo, useRef, useState, useEffect } from "react";
-import { useGameStore } from "@/store";
-import { getImage, offset, other_offset } from "@/utils";
-import { checkCompatibility } from "@/utils/layout";
+import { useGameStore } from "../../store";
+import { getImage, offset, other_offset } from "../../utils";
 import { createSquareGeometry, getSquarePosition, loader } from "./TileTexture";
-import { useQueryParams } from "@/hooks/useQueryParams";
 
 export const TileEmpty = ({ col, row, size, activeTile }: any) => {
-  const { gameId } = useQueryParams();
-  const {
-    setup: {
-      clientComponents: { Tile, TilePosition },
-    },
-  } = useDojo();
-
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
   const meshRef = useRef<any>();
 
@@ -34,105 +21,15 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
     setHoveredTile,
     setX,
     setY,
-    setValid,
   } = useGameStore();
-
-  const northPosition = useComponentValue(
-    TilePosition,
-    getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(col),
-      BigInt(row + 1),
-    ]) as Entity
-  );
-
-  const northTile = useComponentValue(
-    Tile,
-    getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(northPosition?.tile_id || 0),
-    ]) as Entity
-  );
-
-  const eastPosition = useComponentValue(
-    TilePosition,
-    getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(col + 1),
-      BigInt(row),
-    ]) as Entity
-  );
-
-  const eastTile = useComponentValue(
-    Tile,
-    getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(eastPosition?.tile_id || 0),
-    ]) as Entity
-  );
-
-  const southPosition = useComponentValue(
-    TilePosition,
-    getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(col),
-      BigInt(row - 1),
-    ]) as Entity
-  );
-
-  const southTile = useComponentValue(
-    Tile,
-    getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(southPosition?.tile_id || 0),
-    ]) as Entity
-  );
-
-  const westPosition = useComponentValue(
-    TilePosition,
-    getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(col - 1),
-      BigInt(row),
-    ]) as Entity
-  );
-
-  const westTile = useComponentValue(
-    Tile,
-    getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(westPosition?.tile_id || 0),
-    ]) as Entity
-  );
 
   const isSelected = useMemo(() => {
     return selectedTile && selectedTile.col === col && selectedTile.row === row;
   }, [selectedTile]);
 
-  // This state is used to ensure hovered state is updated correctly
   const isHovered = useMemo(() => {
-    return (
-      hovered &&
-      hoveredTile &&
-      hoveredTile.col === col &&
-      hoveredTile.row === row
-    );
-  }, [hoveredTile, hovered]);
-
-  const isValid = useMemo(() => {
-    return (
-      activeTile &&
-      (hovered || isSelected) &&
-      checkCompatibility(
-        activeTile.plan,
-        orientation,
-        northTile,
-        eastTile,
-        southTile,
-        westTile
-      )
-    );
-  }, [activeTile, orientation, hovered, isSelected]);
+    return hoveredTile && hoveredTile.col === col && hoveredTile.row === row;
+  }, [hoveredTile]);
 
   useEffect(() => {
     if (background) {
@@ -170,12 +67,6 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
       handlePointerLeave();
     }
   }, [isHovered]);
-
-  useEffect(() => {
-    if (isSelected && activeTile) {
-      setValid(isValid);
-    }
-  }, [isSelected, isValid]);
 
   const handleMeshClick = () => {
     setSelectedTile({ col, row });
@@ -225,14 +116,13 @@ export const TileEmpty = ({ col, row, size, activeTile }: any) => {
           geometry={squareGeometry}
         >
           <meshStandardMaterial
-            emissive={isValid ? "green" : "red"}
-            emissiveIntensity={0.3}
+            emissive={"#FFFFFF"}
+            emissiveIntensity={0.1}
             map={texture}
           />
         </mesh>
       )}
       {!texture && (
-        // @ts-ignore
         <mesh
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}

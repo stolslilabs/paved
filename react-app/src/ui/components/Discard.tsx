@@ -18,7 +18,6 @@ export const Discard = (props: TProps) => {
   return (
     <Button
       variant={"default"}
-      size={"icon"}
       onClick={() =>
         play.discard({
           account: account.account,

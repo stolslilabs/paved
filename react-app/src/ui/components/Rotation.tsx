@@ -11,7 +11,7 @@ export const Rotation = () => {
   };
 
   return (
-    <Button variant={"default"} size={"icon"} onClick={handleClick}>
+    <Button variant={"default"} onClick={handleClick}>
       <FontAwesomeIcon icon={faRotateRight} />
     </Button>
   );
