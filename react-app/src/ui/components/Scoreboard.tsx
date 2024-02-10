@@ -94,7 +94,7 @@ export const Scoreboard = () => {
             </>
           )}
         </TableBody>
-        </Table>
+      </Table>
     </div>
   );
 };
