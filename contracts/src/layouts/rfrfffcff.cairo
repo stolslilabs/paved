@@ -109,7 +109,7 @@ impl LayoutImpl of LayoutTrait {
             Spot::East => cities.append(Spot::South),
             Spot::SouthEast => cities.append(Spot::South),
             Spot::South => {},
-            Spot::SouthWest => cities.append(Spot::SouthEast),
+            Spot::SouthWest => cities.append(Spot::South),
             Spot::West => cities.append(Spot::South),
         };
         cities

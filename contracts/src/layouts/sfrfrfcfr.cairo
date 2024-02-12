@@ -65,12 +65,12 @@ impl LayoutImpl of LayoutTrait {
             Spot::Center => Area::A,
             Spot::NorthWest => Area::B,
             Spot::North => Area::C,
-            Spot::NorthEast => Area::E,
-            Spot::East => Area::F,
-            Spot::SouthEast => Area::G,
-            Spot::South => Area::H,
-            Spot::SouthWest => Area::G,
-            Spot::West => Area::I,
+            Spot::NorthEast => Area::D,
+            Spot::East => Area::E,
+            Spot::SouthEast => Area::F,
+            Spot::South => Area::G,
+            Spot::SouthWest => Area::F,
+            Spot::West => Area::H,
         }
     }
 
