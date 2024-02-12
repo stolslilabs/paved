@@ -176,7 +176,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
     if (!isHovered) {
       handlePointerLeave();
     }
-  }, [isHovered]);
+  }, [isHovered, isSelected]);
 
   useEffect(() => {
     if (isSelected && activeTile) {
@@ -185,9 +185,11 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
   }, [isSelected, isValid, isIdle]);
 
   const handleMeshClick = () => {
-    setSelectedTile({ col, row });
-    setX(col);
-    setY(row);
+    if (isValid) {
+      setSelectedTile({ col, row });
+      setX(col);
+      setY(row);
+    }
   };
 
   const handlePointerEnter = () => {
@@ -232,7 +234,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
           geometry={squareGeometry}
         >
           <meshStandardMaterial
-            emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
+            emissive={isValid ? (isIdle ? "green" : "red") : "white"}
             emissiveIntensity={0.3}
             map={texture}
           />
