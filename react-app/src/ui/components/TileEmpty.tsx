@@ -11,6 +11,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { defineSystem, Has, HasValue } from "@dojoengine/recs";
 import { RawTile } from "@/utils/models/tile";
 import { checkFeatureIdle } from "@/utils/helpers/conflict";
+import { useMultiClick } from "@/hooks/useMultiClick";
 
 export const TileEmpty = ({ col, row, size, tiles }: any) => {
   const { gameId } = useQueryParams();
@@ -31,8 +32,10 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
   const [eastTile, setEastTile] = useState<Entity | undefined>();
   const [southTile, setSouthTile] = useState<Entity | undefined>();
   const [westTile, setWestTile] = useState<Entity | undefined>();
+
   const {
     orientation,
+    setOrientation,
     spot,
     selectedTile,
     setSelectedTile,
@@ -184,12 +187,10 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
     }
   }, [isSelected, isValid, isIdle]);
 
-  const handleMeshClick = () => {
-    if (isValid) {
-      setSelectedTile({ col, row });
-      setX(col);
-      setY(row);
-    }
+  const handleSimpleClick = () => {
+    setSelectedTile({ col, row });
+    setX(col);
+    setY(row);
   };
 
   const handlePointerEnter = () => {
@@ -228,13 +229,13 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
         <mesh
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
-          onClick={handleMeshClick}
+          onClick={handleSimpleClick}
           ref={meshRef}
           position={[position.x, position.y, 0]}
           geometry={squareGeometry}
         >
           <meshStandardMaterial
-            emissive={isValid ? (isIdle ? "green" : "red") : "white"}
+            emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
             emissiveIntensity={0.3}
             map={texture}
           />
@@ -244,7 +245,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
         <mesh
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
-          onClick={handleMeshClick}
+          onClick={handleSimpleClick}
           ref={meshRef}
           position={[position.x, position.y, 0]}
           geometry={squareGeometry}
