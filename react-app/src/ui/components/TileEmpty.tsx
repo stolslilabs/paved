@@ -9,8 +9,10 @@ import { checkCompatibility } from "@/utils/layout";
 import { createSquareGeometry, getSquarePosition, loader } from "./TileTexture";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { defineSystem, Has, HasValue } from "@dojoengine/recs";
+import { RawTile } from "@/utils/models/tile";
+import { checkFeatureIdle } from "@/utils/helpers/conflict";
 
-export const TileEmpty = ({ col, row, size }: any) => {
+export const TileEmpty = ({ col, row, size, tiles }: any) => {
   const { gameId } = useQueryParams();
   const {
     setup: {
@@ -31,6 +33,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
   const [westTile, setWestTile] = useState<Entity | undefined>();
   const {
     orientation,
+    spot,
     selectedTile,
     setSelectedTile,
     activeEntity,
@@ -112,14 +115,31 @@ export const TileEmpty = ({ col, row, size }: any) => {
     );
   }, [
     activeTile,
-    orientation,
     hovered,
     isSelected,
+    orientation,
     northTile,
     eastTile,
     southTile,
     westTile,
   ]);
+
+  const isIdle = useMemo(() => {
+    return (
+      activeTile &&
+      (hovered || isSelected) &&
+      orientation &&
+      checkFeatureIdle(
+        gameId,
+        activeTile as RawTile,
+        orientation,
+        col,
+        row,
+        spot,
+        tiles
+      )
+    );
+  }, [activeTile, hovered, isSelected, orientation, spot]);
 
   useEffect(() => {
     if (background) {
@@ -160,9 +180,9 @@ export const TileEmpty = ({ col, row, size }: any) => {
 
   useEffect(() => {
     if (isSelected && activeTile) {
-      setValid(isValid || false);
+      setValid((isValid && isIdle) || false);
     }
-  }, [isSelected, isValid]);
+  }, [isSelected, isValid, isIdle]);
 
   const handleMeshClick = () => {
     setSelectedTile({ col, row });
@@ -212,8 +232,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
           geometry={squareGeometry}
         >
           <meshStandardMaterial
-            emissive={isValid ? "green" : "red"}
-            // emissive={"white"}
+            emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
             emissiveIntensity={0.3}
             map={texture}
           />
