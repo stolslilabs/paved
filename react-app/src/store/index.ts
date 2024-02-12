@@ -43,7 +43,12 @@ export const useGameStore = create<GameState>()(
       setBuilderId: (builderId) => set({ builderId }),
       orientation: 1,
       setOrientation: (orientation) => {
-        orientation = ((orientation - 1) % 4) + 1;
+        // Keep orientation between 1 and 4
+        if (orientation < 1) {
+          orientation = 4;
+        } else {
+          orientation = ((orientation - 1) % 4) + 1;
+        }
         set({ orientation });
       },
       order: 1,
