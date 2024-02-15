@@ -1,15 +1,15 @@
+import { useMemo } from "react";
 import { useGameStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faRotateRight } from "@fortawesome/free-solid-svg-icons";
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
-import { useMemo } from "react";
+import { useQueryParams } from "@/hooks/useQueryParams";
+import { useDojo } from "../../dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
-import { useDojo } from "../../dojo/useDojo";
-import { useQueryParams } from "@/hooks/useQueryParams";
 
-export const Rotation = () => {
+export const Cancel = () => {
   const { gameId } = useQueryParams();
   const {
     account: { account },
@@ -18,7 +18,16 @@ export const Rotation = () => {
     },
   } = useDojo();
 
-  const { orientation, setOrientation } = useGameStore();
+  const {
+    resetX,
+    resetY,
+    resetOrientation,
+    resetCharacter,
+    resetSpot,
+    resetSelectedTile,
+    resetHoveredTile,
+    resetValid,
+  } = useGameStore();
 
   const builderId = getEntityIdFromKeys([
     BigInt(gameId),
@@ -27,7 +36,14 @@ export const Rotation = () => {
   const builder = useComponentValue(Builder, builderId);
 
   const handleClick = () => {
-    setOrientation(orientation + 1);
+    resetOrientation();
+    resetX();
+    resetY();
+    resetCharacter();
+    resetSpot();
+    resetSelectedTile();
+    resetHoveredTile();
+    resetValid();
   };
 
   const disabled = useMemo(() => {
@@ -41,7 +57,7 @@ export const Rotation = () => {
       size={"icon"}
       onClick={handleClick}
     >
-      <FontAwesomeIcon icon={faRotateRight} />
+      <FontAwesomeIcon icon={faXmark} />
     </Button>
   );
 };

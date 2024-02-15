@@ -35,7 +35,6 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
 
   const {
     orientation,
-    setOrientation,
     spot,
     selectedTile,
     setSelectedTile,
@@ -154,7 +153,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
     } else {
       setTexture(undefined);
     }
-  }, [background, rotation, orientation, hovered]);
+  }, [background, rotation]);
 
   useEffect(() => {
     if (activeTile && isSelected) {

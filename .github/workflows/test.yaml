@@ -3,8 +3,8 @@ name: Stolsis CI
 on: [push, pull_request]
 
 env:
-    DOJO_VERSION: v0.4.4
-    SCARB_VERSION: v2.4.0
+    DOJO_VERSION: v0.5.1
+    SCARB_VERSION: v2.5.3
     WORKING_DIRECTORY: ./contracts
 
 jobs:
