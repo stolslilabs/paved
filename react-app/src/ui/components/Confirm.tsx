@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useDojo } from "../../dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
@@ -16,12 +17,14 @@ export const Confirm = () => {
     y,
     character,
     spot,
-    setX,
-    setY,
-    setOrientation,
-    setCharacter,
-    setSpot,
-    setSelectedTile,
+    selectedTile,
+    resetX,
+    resetY,
+    resetOrientation,
+    resetCharacter,
+    resetSpot,
+    resetSelectedTile,
+    resetHoveredTile,
     valid,
   } = useGameStore();
 
@@ -58,19 +61,25 @@ export const Confirm = () => {
         console.log(e);
       } finally {
         // Reset the settings
-        setOrientation(1);
-        setX(0);
-        setY(0);
-        setCharacter(0);
-        setSpot(0);
-        setSelectedTile({ col: 0, row: 0 });
+        resetOrientation();
+        resetX();
+        resetY();
+        resetCharacter();
+        resetSpot();
+        resetSelectedTile();
+        resetHoveredTile();
       }
     }
   };
 
+  const disabled = useMemo(() => {
+    const selected = selectedTile.row !== 0 && selectedTile.col !== 0;
+    return !selected || !valid || !builder.tile_id;
+  }, [valid, builder, selectedTile]);
+
   return (
     <Button
-      disabled={!valid || !builder.tile_id}
+      disabled={disabled}
       variant={"default"}
       size={"icon"}
       onClick={handleClick}

@@ -33,7 +33,6 @@ export class Conflict {
   public start(tile: Tile, at: Spot, store: Store): boolean {
     const visited: VisitedType = {};
     this.status = false;
-    console.log("start", tile.id, at.value);
     this.iter(tile, at, visited, store);
     return this.status;
   }
@@ -45,11 +44,9 @@ export class Conflict {
       return;
     }
     visited[visitedKey] = true;
-    console.log("iter", tile.id, at.value);
 
     const spot = tile.occupiedSpot;
     if (spot.value !== SpotType.None && tile.areConnected(at, spot)) {
-      console.log("conflict", tile, at, spot);
       this.status = true;
       return;
     }
