@@ -42,10 +42,13 @@ export const Confirm = () => {
   ]) as Entity;
   const builder = useComponentValue(Builder, builderId);
 
-  if (!account || !builder) return <></>;
+  const disabled = useMemo(() => {
+    const selected = selectedTile.row !== 0 && selectedTile.col !== 0;
+    return !selected || !valid || !builder?.tile_id;
+  }, [valid, builder, selectedTile]);
 
   const handleClick = () => {
-    if (builder.tile_id) {
+    if (builder?.tile_id) {
       try {
         play.build({
           account: account,
@@ -71,11 +74,6 @@ export const Confirm = () => {
       }
     }
   };
-
-  const disabled = useMemo(() => {
-    const selected = selectedTile.row !== 0 && selectedTile.col !== 0;
-    return !selected || !valid || !builder.tile_id;
-  }, [valid, builder, selectedTile]);
 
   return (
     <Button

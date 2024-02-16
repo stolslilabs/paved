@@ -1,9 +1,8 @@
 import * as THREE from "three";
 import { useEffect, useRef } from "react";
 import { Canvas, extend } from "@react-three/fiber";
-
+import { useState } from "react";
 import {
-  OrbitControls,
   PerspectiveCamera,
   MapControls,
   useKeyboardControls,
@@ -12,33 +11,14 @@ import {
 import { TileTextures } from "./TileTextures";
 import { CharTextures } from "./CharTextures";
 import { Controls } from "@/ui/screens/GameScreen";
-import { useGameStore } from "@/store";
-extend({ OrbitControls });
-
-export const cameraSettings = {
-  zoom: 2,
-  aspect: 1.77,
-  near: 3,
-  far: 3,
-};
+import { useGameStore, useCameraStore } from "@/store";
 
 export const ThreeGrid = () => {
-  const cameraRef = useRef<THREE.PerspectiveCamera>(null);
   return (
     <Canvas className="z-1" shadows>
-      <color attach="background" args={["#E8DAE1"]} />
       <Keyboard />
       <mesh>
-        <PerspectiveCamera
-          ref={cameraRef}
-          makeDefault
-          position={[0, 90, 0]}
-          zoom={cameraSettings.zoom}
-          aspect={cameraSettings.aspect}
-          near={cameraSettings.near}
-          far={cameraSettings.far}
-        />
-        <MapControls makeDefault target={[0, 0, 0]} />
+        <Camera />
         <ambientLight color={"white"} intensity={1} />
         <pointLight
           rotation={[Math.PI / -2, 0, 0]}
@@ -84,4 +64,34 @@ function Keyboard() {
   }, [orientation]);
 
   return <></>;
+}
+
+function Camera() {
+  const { position, zoom, aspect, near, far, reset, resetAll } =
+    useCameraStore();
+  const camera = useRef<THREE.PerspectiveCamera>(null);
+  const constrols = useRef<any>(null);
+
+  useEffect(() => {
+    if (reset) {
+      constrols.current.reset();
+      resetAll();
+    } else if (camera.current) {
+      camera.current.position.set(...position);
+    }
+  }, [reset, position]);
+
+  return (
+    <>
+      <PerspectiveCamera
+        ref={camera}
+        makeDefault
+        zoom={zoom}
+        aspect={aspect}
+        near={near}
+        far={far}
+      />
+      <MapControls ref={constrols} makeDefault target={[0, 0, 0]} />
+    </>
+  );
 }

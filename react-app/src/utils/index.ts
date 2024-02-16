@@ -425,4 +425,4 @@ export const getColorFromAddress = (str: string) => {
 
 export const offset = 0x7fffffff;
 
-export const other_offset = Math.floor(30 / 2);
+export const other_offset = 0;
