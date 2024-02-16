@@ -2,9 +2,51 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Entity } from "@dojoengine/recs";
 
+const CAMERA_SETTINGS: {
+  position: [number, number, number];
+  rotation: [number, number, number];
+  zoom: number;
+  aspect: number;
+  near: number;
+  far: number;
+  reset: boolean;
+} = {
+  position: [0, 100, 0],
+  rotation: [-Math.PI / 2, 0, 0],
+  zoom: 5,
+  aspect: 1.77,
+  near: 3,
+  far: 3,
+  reset: false,
+};
+
 export interface Tile {
   col: number;
   row: number;
+}
+
+interface CameraState {
+  position: [number, number, number];
+  setPosition: (position: [number, number, number]) => void;
+  resetPosition: () => void;
+  rotation: [number, number, number];
+  setRotation: (rotation: [number, number, number]) => void;
+  resetRotation: () => void;
+  zoom: number;
+  setZoom: (zoom: number) => void;
+  resetZoom: () => void;
+  aspect: number;
+  setAspect: (aspect: number) => void;
+  resetAspect: () => void;
+  near: number;
+  setNear: (near: number) => void;
+  resetNear: () => void;
+  far: number;
+  setFar: (far: number) => void;
+  resetFar: () => void;
+  reset: boolean;
+  setReset: (reset: boolean) => void;
+  resetAll: () => void;
 }
 
 interface GameState {
@@ -42,6 +84,37 @@ interface GameState {
   setValid: (valid: boolean) => void;
   resetValid: () => void;
 }
+
+export const useCameraStore = create<CameraState>()(
+  persist(
+    (set, get) => ({
+      position: CAMERA_SETTINGS.position,
+      setPosition: (position) => set({ position }),
+      resetPosition: () => set({ position: CAMERA_SETTINGS.position }),
+      rotation: CAMERA_SETTINGS.rotation,
+      setRotation: (rotation) => set({ rotation }),
+      resetRotation: () => set({ rotation: CAMERA_SETTINGS.rotation }),
+      zoom: CAMERA_SETTINGS.zoom,
+      setZoom: (zoom) => set({ zoom }),
+      resetZoom: () => set({ zoom: CAMERA_SETTINGS.zoom }),
+      aspect: CAMERA_SETTINGS.aspect,
+      setAspect: (aspect) => set({ aspect }),
+      resetAspect: () => set({ aspect: CAMERA_SETTINGS.aspect }),
+      near: CAMERA_SETTINGS.near,
+      setNear: (near) => set({ near }),
+      resetNear: () => set({ near: CAMERA_SETTINGS.near }),
+      far: 3,
+      setFar: (far) => set({ far }),
+      resetFar: () => set({ far: CAMERA_SETTINGS.far }),
+      reset: CAMERA_SETTINGS.reset,
+      setReset: (reset) => set({ reset }),
+      resetAll: () => set({ ...CAMERA_SETTINGS }),
+    }),
+    {
+      name: "camera-storage", // name of the item in the storage (must be unique)
+    }
+  )
+);
 
 export const useGameStore = create<GameState>()(
   persist(

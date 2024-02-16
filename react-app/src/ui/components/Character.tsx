@@ -26,10 +26,13 @@ export const Character = (props: TProps) => {
   }, [index]);
 
   const className = useMemo(() => {
-    return `h-12 w-12 flex justify-center items-center border-2
-    ${selected ? "bg-slate-400" : "bg-black"}
+    return `h-12 w-12 flex justify-center items-center border-2 border-black
     ${enable ? "cursor-pointer" : "cursor-not-allowed opacity-25"}`;
   }, [selected, enable]);
+
+  const backgroundColor = useMemo(() => {
+    return selected ? "#BED0D2" : "#688080";
+  }, [selected]);
 
   const handleClick = () => {
     if (!enable) return;
@@ -41,7 +44,11 @@ export const Character = (props: TProps) => {
   };
 
   return (
-    <div className={className} onClick={handleClick}>
+    <div
+      className={className}
+      style={{ backgroundColor }}
+      onClick={handleClick}
+    >
       <img src={image} alt={getRole(index)} />
     </div>
   );
