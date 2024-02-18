@@ -12,7 +12,7 @@ const CAMERA_SETTINGS: {
   reset: boolean;
 } = {
   position: [0, 100, 0],
-  rotation: [-Math.PI / 2, 0, 0],
+  rotation: [0, 0, 0],
   zoom: 5,
   aspect: 1.77,
   near: 3,

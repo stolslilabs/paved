@@ -38,6 +38,7 @@ export const TileTexture = ({ tile, size }: any) => {
   return (
     <>
       {texture && (
+        // <Model ref={meshRef} position={[position.x, position.y, 0]} />
         <mesh
           ref={meshRef}
           position={[position.x, position.y, 0]}
@@ -49,6 +50,7 @@ export const TileTexture = ({ tile, size }: any) => {
     </>
   );
 };
+
 export const getSquarePosition = ({
   row,
   col,
