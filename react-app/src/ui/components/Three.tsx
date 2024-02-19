@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { useEffect, useRef } from "react";
-import { Canvas, extend } from "@react-three/fiber";
-import { useState } from "react";
+import { Canvas } from "@react-three/fiber";
 import {
   PerspectiveCamera,
   MapControls,
@@ -17,20 +16,19 @@ export const ThreeGrid = () => {
   return (
     <Canvas className="z-1" shadows>
       <Keyboard />
-      <mesh>
-        <Camera />
-        <ambientLight color={"white"} intensity={1} />
-        <pointLight
-          rotation={[Math.PI / -2, 0, 0]}
-          position={[10, 20, 10]}
-          intensity={20}
-        />
-        <mesh rotation={[Math.PI / -2, 0, 0]}>
-          <Bounds fit clip observe margin={1}>
-            <TileTextures squareSize={3} />
-            <CharTextures radius={0.3} height={1} squareSize={3} />
-          </Bounds>
-        </mesh>
+
+      <Camera />
+      <ambientLight color={"white"} intensity={1} />
+      <pointLight
+        rotation={[Math.PI / -2, 0, 0]}
+        position={[10, 20, 10]}
+        intensity={20}
+      />
+      <mesh rotation={[Math.PI / -2, 0, 0]}>
+        <Bounds fit clip observe margin={1}>
+          <TileTextures squareSize={3} />
+          <CharTextures radius={0.3} height={1} squareSize={3} />
+        </Bounds>
       </mesh>
     </Canvas>
   );

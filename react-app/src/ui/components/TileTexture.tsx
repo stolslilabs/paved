@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { getImage, offset, other_offset } from "@/utils";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Model } from "@/models/Cityroad";
 
 export const loader = new THREE.TextureLoader();
 
@@ -38,14 +39,18 @@ export const TileTexture = ({ tile, size }: any) => {
   return (
     <>
       {texture && (
-        // <Model ref={meshRef} position={[position.x, position.y, 0]} />
-        <mesh
+        <Model
           ref={meshRef}
-          position={[position.x, position.y, 0]}
-          geometry={squareGeometry}
-        >
-          <meshStandardMaterial map={texture} transparent={true} opacity={1} />
-        </mesh>
+          position={[position.x, position.y, -1]}
+          rotation={[Math.PI / 2, 0, 0]}
+        />
+        // <mesh
+        //   ref={meshRef}
+        //   position={[position.x, position.y, 0]}
+        //   geometry={squareGeometry}
+        // >
+        //   <meshStandardMaterial map={texture} transparent={true} opacity={1} />
+        // </mesh>
       )}
     </>
   );
