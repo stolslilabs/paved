@@ -1,3 +1,4 @@
+use stolsli::models::player::AssertTrait;
 // Core imports
 
 use debug::PrintTrait;
@@ -13,8 +14,9 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 // Internal imports
 
 use stolsli::store::{Store, StoreTrait};
-use stolsli::models::game::{Game, GameTrait};
-use stolsli::models::builder::{Builder, BuilderTrait};
+use stolsli::models::game::{Game, GameTrait, GameAssert};
+use stolsli::models::player::{Player, PlayerTrait, PlayerAssert};
+use stolsli::models::builder::{Builder, BuilderTrait, BuilderAssert};
 use stolsli::types::order::Order;
 use stolsli::systems::host::IHostDispatcherTrait;
 use stolsli::systems::manage::IManageDispatcherTrait;
@@ -26,41 +28,46 @@ use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 const BUILDER_NAME: felt252 = 'BUILDER';
 
 #[test]
-fn test_play_draw() {
+fn test_host_transfer() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
 
-    // [Spawn]
+    // [Join]
     let player = store.player(context.player_id);
     systems.host.join(world, context.game_id, player.order);
-    systems.host.start(world, context.game_id);
-    let tile_remaining = player.tile_remaining;
 
-    // [Draw]
-    systems.play.draw(world, context.game_id);
+    // [Join]
+    set_contract_address(ANYONE());
+    let anyone = store.player(context.anyone_id);
+    systems.host.join(world, context.game_id, anyone.order);
 
-    // [Assert]
-    let player = store.player(context.player_id);
-    assert(player.tile_remaining + 1 == tile_remaining, 'Draw: tile_remaining');
+    // [Transfer]
+    set_contract_address(PLAYER());
+    systems.host.transfer(world, context.game_id, anyone.id);
+
+    // [Assert] Anyone
+    let anyone = store.player(context.anyone_id);
     let game = store.game(context.game_id);
-    let builder = store.builder(game, player.id);
-    assert(builder.tile_id != 0, 'Draw: tile_id');
+    assert(game.host == anyone.id, 'Transfer: host');
 }
 
 #[test]
-#[should_panic(expected: ('Builder: Already has a tile', 'ENTRYPOINT_FAILED',))]
-fn test_play_draw_twice_revert_cannot_draw() {
+#[should_panic(expected: ('Game: player is not host', 'ENTRYPOINT_FAILED',))]
+fn test_host_transfer_revert_not_host() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
 
-    // [Spawn]
+    // [Join]
     let player = store.player(context.player_id);
     systems.host.join(world, context.game_id, player.order);
-    systems.host.start(world, context.game_id);
 
-    // [Draw]
-    systems.play.draw(world, context.game_id);
-    systems.play.draw(world, context.game_id);
+    // [Join]
+    set_contract_address(ANYONE());
+    let anyone = store.player(context.anyone_id);
+    systems.host.join(world, context.game_id, anyone.order);
+
+    // [Transfer]
+    systems.host.transfer(world, context.game_id, anyone.id);
 }

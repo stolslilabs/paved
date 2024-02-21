@@ -226,7 +226,7 @@ impl RoleImpl of RoleTrait {
 }
 
 #[generate_trait]
-impl AssertImpl of AssertTrait {
+impl RoleAssert of AssertTrait {
     #[inline(always)]
     fn assert_is_allowed(self: Role, category: Category) {
         assert(self.is_allowed(category), errors::ROLE_NOT_ALLOWED);

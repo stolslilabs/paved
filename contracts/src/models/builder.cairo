@@ -6,7 +6,7 @@ use stolsli::store::{Store, StoreImpl};
 use stolsli::types::plan::Plan;
 use stolsli::types::order::Order;
 use stolsli::types::orientation::Orientation;
-use stolsli::types::role::{Role, RoleImpl, AssertImpl as CharacterAssertImpl};
+use stolsli::types::role::{Role, RoleImpl, RoleAssert};
 use stolsli::types::spot::Spot;
 use stolsli::types::layout::{Layout, LayoutImpl};
 use stolsli::types::category::Category;
@@ -17,14 +17,12 @@ use stolsli::models::tile::{Tile, TileImpl};
 use stolsli::models::character::{Character, CharacterImpl};
 
 mod errors {
-    const INVALID_NAME: felt252 = 'Builder: Invalid name';
+    const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: Does not exist';
+    const BUILDER_ALREADY_EXIST: felt252 = 'Builder: Already exist';
     const INVALID_ORDER: felt252 = 'Builder: Invalid order';
-    const NO_TILES_LEFT: felt252 = 'Builder: No tiles left';
-    const NO_CHARACTERS_LEFT: felt252 = 'Builder: No characters left';
     const ALREADY_PLACED: felt252 = 'Builder: Already placed';
     const CHARACTER_NOT_PLACED: felt252 = 'Builder: Character not placed';
     const ALREADY_HAS_TILE: felt252 = 'Builder: Already has a tile';
-    const CANNOT_BUY: felt252 = 'Builder: Cannot buy';
     const CANNOT_DISCARD: felt252 = 'Builder: Cannot discard';
     const CANNOT_BUILD: felt252 = 'Builder: Cannot build';
     const NOTHING_TO_CLAIM: felt252 = 'Builder: Nothing to claim';
@@ -36,12 +34,10 @@ struct Builder {
     #[key]
     game_id: u32,
     #[key]
-    id: felt252,
-    name: felt252,
+    player_id: felt252,
     order: u8,
     score: u32,
     // Inventory
-    tile_remaining: u8,
     tile_id: u32,
     characters: u8,
     // Rewards
@@ -51,45 +47,28 @@ struct Builder {
 #[generate_trait]
 impl BuilderImpl of BuilderTrait {
     #[inline(always)]
-    fn new(game_id: u32, id: felt252, name: felt252, order: u8,) -> Builder {
-        // [Check] Name is valid
-        assert(name != 0, errors::INVALID_NAME);
-
+    fn new(game_id: u32, player_id: felt252, order: u8,) -> Builder {
         // [Check] Order is valid
         assert(Order::None != order.into(), errors::INVALID_ORDER);
 
         // [Return] Builder
-        Builder {
-            game_id,
-            id,
-            name,
-            order,
-            score: 0,
-            tile_remaining: constants::DEFAULT_TILES_COUNT,
-            tile_id: 0,
-            characters: 0,
-            claimed: 0,
-        }
+        Builder { game_id, player_id, order, score: 0, tile_id: 0, characters: 0, claimed: 0, }
     }
 
     #[inline(always)]
-    fn buy(ref self: Builder) {
-        // [Check] Have a tile to place
-        self.assert_buyable();
-        // [Effect] Add one to the tile count
-        self.tile_remaining += 1;
+    fn remove(ref self: Builder) {
+        // [Effect] Remove builder
+        self.order = 0;
     }
 
     #[inline(always)]
-    fn draw(ref self: Builder, tile_id: u32, plan: Plan) -> Tile {
-        // [Check] Can draw
-        self.assert_drawable();
-        // [Effect] Remove tile from the tile count
-        self.tile_remaining -= 1;
+    fn reveal(ref self: Builder, tile_id: u32, plan: Plan) -> Tile {
+        // [Check] Can reveal
+        self.assert_revealable();
         // [Effect] Update tile_id
         self.tile_id = tile_id;
         // [Return] New tile
-        TileImpl::new(self.game_id, self.tile_id, self.id, plan.into())
+        TileImpl::new(self.game_id, self.tile_id, self.player_id, plan.into())
     }
 
     #[inline(always)]
@@ -134,7 +113,7 @@ impl BuilderImpl of BuilderTrait {
         // [Return] New character
         let weight: u8 = role.weight(category);
         let power: u8 = role.power(category);
-        CharacterImpl::new(self.game_id, self.id, index.into(), tile.id, spot, weight, power)
+        CharacterImpl::new(self.game_id, self.player_id, index.into(), tile.id, spot, weight, power)
     }
 
     #[inline(always)]
@@ -152,17 +131,9 @@ impl BuilderImpl of BuilderTrait {
     }
 
     #[inline(always)]
-    fn claim(ref self: Builder, game: Game, team: Team, ref store: Store) -> u256 {
-        // [Check] Rank is not null
-        let rank = team.rank(ref store);
-        assert(rank != 0, errors::NOTHING_TO_CLAIM);
+    fn claim(ref self: Builder, game: Game, ref store: Store) -> u256 {
         // [Compute] Claimable rewards
-        let share = AllianceImpl::share(rank);
-        let claimable: u256 = game.prize
-            * self.score.into()
-            * share.into()
-            / team.score.into()
-            / MULTIPLIER.into();
+        let claimable: u256 = game.prize * self.score.into() / game.score.into();
         // [Check] Remaning claimable rewards
         assert(self.claimed < claimable, errors::ALREADY_CLAIMED);
         let remaining = claimable - self.claimed;
@@ -173,16 +144,20 @@ impl BuilderImpl of BuilderTrait {
 }
 
 #[generate_trait]
-impl AssertImpl of AssertTrait {
+impl BuilderAssert of AssertTrait {
     #[inline(always)]
-    fn assert_buyable(self: Builder) {
-        assert(constants::MAX_TILE_COUNT > self.tile_remaining.into(), errors::CANNOT_BUY);
+    fn assert_exists(self: Builder) {
+        assert(self.is_non_zero(), errors::BUILDER_DOES_NOT_EXIST);
     }
 
     #[inline(always)]
-    fn assert_drawable(self: Builder) {
+    fn assert_not_exists(self: Builder) {
+        assert(self.is_zero(), errors::BUILDER_ALREADY_EXIST);
+    }
+
+    #[inline(always)]
+    fn assert_revealable(self: Builder) {
         assert(0 == self.tile_id.into(), errors::ALREADY_HAS_TILE);
-        assert(0 != self.tile_remaining.into(), errors::NO_TILES_LEFT);
     }
 
     #[inline(always)]
@@ -212,25 +187,17 @@ impl ZeroableBuilderImpl of Zeroable<Builder> {
     #[inline(always)]
     fn zero() -> Builder {
         Builder {
-            game_id: 0,
-            id: 0,
-            name: 0,
-            order: 0,
-            score: 0,
-            tile_remaining: 0,
-            tile_id: 0,
-            characters: 0,
-            claimed: 0,
+            game_id: 0, player_id: 0, order: 0, score: 0, tile_id: 0, characters: 0, claimed: 0,
         }
     }
 
     #[inline(always)]
     fn is_zero(self: Builder) -> bool {
-        0 == self.name
+        0 == self.order.into()
     }
 
     #[inline(always)]
     fn is_non_zero(self: Builder) -> bool {
-        0 != self.name
+        !self.is_zero()
     }
 }

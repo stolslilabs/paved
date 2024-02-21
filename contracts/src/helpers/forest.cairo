@@ -81,7 +81,7 @@ impl ForestCount of ForestCountTrait {
             let character_position: CharacterPosition = store
                 .character_position(game, tile, spot.into());
             let character = store
-                .character(game, character_position.builder_id, character_position.index.into());
+                .character(game, character_position.player_id, character_position.index.into());
             if character.index == Role::Woodsman.into() {
                 woodsmen.append(character);
             } else if character.index == Role::Herdsman.into() {
@@ -188,10 +188,14 @@ impl ForestCount of ForestCountTrait {
                 Option::Some(mut character) => {
                     // [Effect] Collect the character's builder
                     let mut tile = store.tile(game, character.tile_id);
-                    let mut builder = store.builder(game, character.builder_id);
+                    let player = store.player(character.player_id);
+                    let mut builder = store.builder(game, player.id);
                     let mut team = store.team(game, builder.order.into());
                     builder.recover(ref character, ref tile);
-                    game.add_score(ref builder, ref team, score * base_points / length, ref events);
+                    game
+                        .add_score(
+                            ref builder, ref team, player, score * base_points / length, ref events
+                        );
 
                     // [Effect] Update the character
                     store.set_character(character);

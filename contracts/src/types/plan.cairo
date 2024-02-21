@@ -490,7 +490,6 @@ mod tests {
 
     #[test]
     fn test_plan_into_felt() {
-        let plan: Plan = Plan::RFFFRFFFR;
         assert('RFFFRFFFR' == Plan::RFFFRFFFR.into(), 'Plan: into felt RFFFRFFFR');
     }
 

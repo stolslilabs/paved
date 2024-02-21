@@ -55,6 +55,7 @@ mod helpers {
 
 mod models {
     mod game;
+    mod player;
     mod team;
     mod builder;
     mod tile;
@@ -62,50 +63,19 @@ mod models {
 }
 
 mod systems {
+    mod host;
+    mod manage;
     mod play;
 }
 
 #[cfg(test)]
 mod tests {
     mod setup;
-    mod spawn;
+    mod join;
+    mod transfer;
     mod buy;
     mod draw;
     mod discard;
     mod build;
-    mod cases {
-        mod case_000 {
-            mod test_case;
-        }
-        mod case_001 {
-            mod test_case;
-        }
-        mod case_002 {
-            mod test_case;
-        }
-        mod case_003 {
-            mod test_case;
-        }
-        mod case_004 {
-            mod test_case;
-        }
-        mod case_005 {
-            mod test_case;
-        }
-        mod case_006 {
-            mod test_case;
-        }
-        mod case_007 {
-            mod test_case;
-        }
-        mod case_008 {
-            mod test_case;
-        }
-        mod case_009 {
-            mod test_case;
-        }
-        mod case_010 {
-            mod test_case;
-        }
-    }
+// mod cases;
 }

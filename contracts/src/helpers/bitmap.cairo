@@ -356,6 +356,6 @@ mod tests {
     #[should_panic(expected: ('Bitmap: Invalid index',))]
     fn test_helpers_set_bit_at_128() {
         let bitmap = 0;
-        let result = Bitmap::set_bit_at(bitmap, 128, true);
+        Bitmap::set_bit_at(bitmap, 128, true);
     }
 }
