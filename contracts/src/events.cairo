@@ -7,8 +7,8 @@ struct Built {
     tile_id: u32,
     x: u32,
     y: u32,
-    builder_id: felt252,
-    builder_name: felt252,
+    player_id: felt252,
+    player_name: felt252,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -18,8 +18,8 @@ struct Scored {
     tile_id: u32,
     x: u32,
     y: u32,
-    builder_id: felt252,
-    builder_name: felt252,
+    player_id: felt252,
+    player_name: felt252,
     order_id: u8,
     points: u32,
 }

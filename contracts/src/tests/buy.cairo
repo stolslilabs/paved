@@ -16,11 +16,14 @@ use stolsli::store::{Store, StoreTrait};
 use stolsli::models::game::{Game, GameTrait};
 use stolsli::models::builder::{Builder, BuilderTrait};
 use stolsli::types::order::Order;
+use stolsli::systems::host::IHostDispatcherTrait;
+use stolsli::systems::manage::IManageDispatcherTrait;
 use stolsli::systems::play::IPlayDispatcherTrait;
-use stolsli::tests::setup::{setup, setup::{Systems, BUILDER, ANYONE}};
+use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
 // Constants
 
+const AMOUNT_ONE: u8 = 1;
 const BUILDER_NAME: felt252 = 'BUILDER';
 
 #[test]
@@ -30,15 +33,15 @@ fn test_play_buy() {
     let store = StoreTrait::new(world);
 
     // [Spawn]
-    systems.play.spawn(world, context.game_id, BUILDER_NAME, Order::Anger.into());
-    let game = store.game(context.game_id);
-    let builder = store.builder(game, BUILDER().into());
-    let tile_remaining = builder.tile_remaining;
+    let player = store.player(context.player_id);
+    systems.host.join(world, context.game_id, player.order);
+    systems.host.start(world, context.game_id);
+    let tile_remaining = player.tile_remaining;
 
     // [Buy]
-    systems.play.buy(world, context.game_id);
+    systems.manage.buy(world, AMOUNT_ONE);
 
     // [Assert]
-    let builder = store.builder(game, BUILDER().into());
-    assert(builder.tile_remaining == tile_remaining + 1, 'Buy: tile_remaining');
+    let player = store.player(context.player_id);
+    assert(player.tile_remaining == tile_remaining + AMOUNT_ONE, 'Buy: tile_remaining');
 }

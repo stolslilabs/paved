@@ -16,8 +16,10 @@ use stolsli::store::{Store, StoreTrait};
 use stolsli::models::game::{Game, GameTrait};
 use stolsli::models::builder::{Builder, BuilderTrait};
 use stolsli::types::order::Order;
+use stolsli::systems::host::IHostDispatcherTrait;
+use stolsli::systems::manage::IManageDispatcherTrait;
 use stolsli::systems::play::IPlayDispatcherTrait;
-use stolsli::tests::setup::{setup, setup::{Systems, BUILDER, ANYONE}};
+use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
 // Constants
 
@@ -30,7 +32,9 @@ fn test_play_discard() {
     let store = StoreTrait::new(world);
 
     // [Spawn]
-    systems.play.spawn(world, context.game_id, BUILDER_NAME, Order::Anger.into());
+    let player = store.player(context.player_id);
+    systems.host.join(world, context.game_id, player.order);
+    systems.host.start(world, context.game_id);
 
     // [Draw]
     systems.play.draw(world, context.game_id);
@@ -40,6 +44,6 @@ fn test_play_discard() {
 
     // [Assert]
     let game = store.game(context.game_id);
-    let builder = store.builder(game, BUILDER().into());
+    let builder = store.builder(game, player.id);
     assert(builder.tile_id == 0, 'Discard: tile_id');
 }

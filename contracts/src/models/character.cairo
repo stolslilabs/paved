@@ -19,7 +19,7 @@ struct Character {
     #[key]
     game_id: u32,
     #[key]
-    builder_id: felt252,
+    player_id: felt252,
     #[key]
     index: u8,
     tile_id: u32,
@@ -36,7 +36,7 @@ struct CharacterPosition {
     tile_id: u32,
     #[key]
     spot: u8,
-    builder_id: felt252,
+    player_id: felt252,
     index: u8,
 }
 
@@ -44,13 +44,7 @@ struct CharacterPosition {
 impl CharacterImpl of CharacterTrait {
     #[inline(always)]
     fn new(
-        game_id: u32,
-        builder_id: felt252,
-        index: u8,
-        tile_id: u32,
-        spot: Spot,
-        weight: u8,
-        power: u8
+        game_id: u32, player_id: felt252, index: u8, tile_id: u32, spot: Spot, weight: u8, power: u8
     ) -> Character {
         // [Check] Tile id is valid
         assert(0 != tile_id, errors::INVALID_TILE_ID);
@@ -58,7 +52,7 @@ impl CharacterImpl of CharacterTrait {
         assert(spot != Spot::None, errors::INVALID_SPOT);
         Character {
             game_id: game_id,
-            builder_id: builder_id,
+            player_id: player_id,
             index: index,
             tile_id: tile_id,
             spot: spot.into(),
@@ -86,14 +80,14 @@ impl CharacterIntoCharacterPosition of Into<Character, CharacterPosition> {
             game_id: self.game_id,
             tile_id: self.tile_id,
             spot: self.spot,
-            builder_id: self.builder_id,
+            player_id: self.player_id,
             index: self.index,
         }
     }
 }
 
 #[generate_trait]
-impl AssertImpl of AssertTrait {
+impl CharacterAssert of AssertTrait {
     #[inline(always)]
     fn assert_removeable(self: Character) {
         assert(0 != self.tile_id.into(), errors::ALREADY_REMOVED);
@@ -109,7 +103,7 @@ impl AssertImpl of AssertTrait {
 impl ZeroableCharacter of Zeroable<Character> {
     #[inline(always)]
     fn zero() -> Character {
-        Character { game_id: 0, builder_id: 0, index: 0, tile_id: 0, spot: 0, weight: 0, power: 0, }
+        Character { game_id: 0, player_id: 0, index: 0, tile_id: 0, spot: 0, weight: 0, power: 0, }
     }
 
     #[inline(always)]
@@ -126,12 +120,12 @@ impl ZeroableCharacter of Zeroable<Character> {
 impl ZeroableCharacterPosition of Zeroable<CharacterPosition> {
     #[inline(always)]
     fn zero() -> CharacterPosition {
-        CharacterPosition { game_id: 0, tile_id: 0, spot: 0, builder_id: 0, index: 0, }
+        CharacterPosition { game_id: 0, tile_id: 0, spot: 0, player_id: 0, index: 0, }
     }
 
     #[inline(always)]
     fn is_zero(self: CharacterPosition) -> bool {
-        0 == self.builder_id.into()
+        0 == self.player_id.into()
     }
 
     #[inline(always)]

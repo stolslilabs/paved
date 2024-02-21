@@ -15,6 +15,7 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 // Models imports
 
 use stolsli::models::game::{Game, GameImpl};
+use stolsli::models::player::{Player, PlayerImpl};
 use stolsli::models::builder::{Builder, BuilderImpl};
 use stolsli::models::team::{Team, TeamImpl};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
@@ -45,8 +46,13 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn builder(self: Store, game: Game, builder_id: felt252) -> Builder {
-        get!(self.world, (game.id, builder_id), (Builder))
+    fn player(self: Store, player_id: felt252) -> Player {
+        get!(self.world, player_id, (Player))
+    }
+
+    #[inline(always)]
+    fn builder(self: Store, game: Game, player_id: felt252) -> Builder {
+        get!(self.world, (game.id, player_id), (Builder))
     }
 
     #[inline(always)]
@@ -112,9 +118,9 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn character(self: Store, game: Game, builder_id: felt252, role: Role) -> Character {
+    fn character(self: Store, game: Game, player_id: felt252, role: Role) -> Character {
         let index: u8 = role.into();
-        get!(self.world, (game.id, builder_id, index), (Character))
+        get!(self.world, (game.id, player_id, index), (Character))
     }
 
     #[inline(always)]
@@ -126,6 +132,11 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn set_game(self: Store, game: Game) {
         set!(self.world, (game))
+    }
+
+    #[inline(always)]
+    fn set_player(self: Store, player: Player) {
+        set!(self.world, (player))
     }
 
     #[inline(always)]

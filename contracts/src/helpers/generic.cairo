@@ -51,7 +51,7 @@ impl GenericCount of GenericCountTrait {
             let character_position: CharacterPosition = store
                 .character_position(game, tile, spot.into());
             let character = store
-                .character(game, character_position.builder_id, character_position.index.into());
+                .character(game, character_position.player_id, character_position.index.into());
             characters.append(character);
         };
 
@@ -112,19 +112,19 @@ impl GenericCount of GenericCountTrait {
                 Option::Some(mut character) => {
                     // [Compute] Update builder counter
                     let weight: u32 = character.weight.into();
-                    let builder_weight = counter.get(character.builder_id) + weight;
-                    counter.insert(character.builder_id, builder_weight);
+                    let builder_weight = counter.get(character.player_id) + weight;
+                    counter.insert(character.player_id, builder_weight);
 
                     // [Compute] Update builder power
                     let power: u32 = character.power.into();
-                    let builder_power = powers.get(character.builder_id);
+                    let builder_power = powers.get(character.player_id);
                     if power > builder_power {
-                        powers.insert(character.builder_id, power);
+                        powers.insert(character.player_id, power);
                     };
 
                     // [Effect] Collect the character's builder
                     let mut tile = store.tile(game, character.tile_id);
-                    let mut builder = store.builder(game, character.builder_id);
+                    let mut builder = store.builder(game, character.player_id);
                     builder.recover(ref character, ref tile);
 
                     // [Effect] Update the character
@@ -137,9 +137,9 @@ impl GenericCount of GenericCountTrait {
                     store.set_builder(builder);
 
                     // [Compute] Update winner if needed
-                    if builder.id != winner {
+                    if builder.player_id != winner {
                         if builder_weight > winner_weight {
-                            winner = builder.id;
+                            winner = builder.player_id;
                             winner_weight = builder_weight;
                             solved = true;
                         } else if builder_weight == winner_weight {
@@ -153,10 +153,11 @@ impl GenericCount of GenericCountTrait {
 
         if solved {
             // [Compute] Update the scores if a winner is determined
-            let mut builder = store.builder(game, winner);
+            let player = store.player(winner);
+            let mut builder = store.builder(game, player.id);
             let mut team = store.team(game, builder.order.into());
             let power = powers.get(winner);
-            game.add_score(ref builder, ref team, score * base_points * power, ref events);
+            game.add_score(ref builder, ref team, player, score * base_points * power, ref events);
 
             // [Effect] Update the builder
             store.set_builder(builder);

@@ -39,7 +39,7 @@ struct Tile {
     game_id: u32,
     #[key]
     id: u32,
-    builder_id: felt252,
+    player_id: felt252,
     plan: u8,
     orientation: u8,
     x: u32,
@@ -61,11 +61,11 @@ struct TilePosition {
 #[generate_trait]
 impl TileImpl of TileTrait {
     #[inline(always)]
-    fn new(game_id: u32, id: u32, builder_id: felt252, plan: Plan,) -> Tile {
+    fn new(game_id: u32, id: u32, player_id: felt252, plan: Plan,) -> Tile {
         Tile {
             game_id,
             id,
-            builder_id,
+            player_id,
             plan: plan.into(),
             orientation: Orientation::None.into(),
             x: CENTER,
@@ -224,7 +224,7 @@ impl TileIntoLayout of Into<Tile, Layout> {
 }
 
 #[generate_trait]
-impl AssertImpl of AssertTrait {
+impl TileAssert of AssertTrait {
     #[inline(always)]
     fn assert_is_placed(self: Tile) {
         assert(Orientation::None != self.orientation.into(), errors::TILE_NOT_PLACED);
@@ -282,13 +282,13 @@ impl ZeroableTile of Zeroable<Tile> {
     #[inline(always)]
     fn zero() -> Tile {
         Tile {
-            game_id: 0, id: 0, builder_id: 0, plan: 0, orientation: 0, x: 0, y: 0, occupied_spot: 0
+            game_id: 0, id: 0, player_id: 0, plan: 0, orientation: 0, x: 0, y: 0, occupied_spot: 0
         }
     }
 
     #[inline(always)]
     fn is_zero(self: Tile) -> bool {
-        self.builder_id == 0
+        self.player_id == 0
     }
 
     #[inline(always)]
@@ -323,10 +323,10 @@ mod tests {
     // Local imports
 
     use super::{
-        Tile, TileImpl, AssertImpl, InternalImpl, Layout, Orientation, Direction, Plan, CENTER
+        Tile, TileImpl, TileAssert, InternalImpl, Layout, Orientation, Direction, Plan, CENTER
     };
 
-    // Implemnentations
+    // Implementations
 
     #[generate_trait]
     impl TestImpl of TestTrait {
@@ -335,7 +335,7 @@ mod tests {
             Tile {
                 game_id: 0,
                 id: 0,
-                builder_id: 0,
+                player_id: 0,
                 plan: plan.into(),
                 orientation: orientation.into(),
                 x: x,
@@ -351,7 +351,7 @@ mod tests {
         let tile = TileImpl::new(0, 1, 2, plan);
         assert(tile.game_id == 0, 'Tile: game_id');
         assert(tile.id == 1, 'Tile: id');
-        assert(tile.builder_id == 2, 'Tile: builder_id');
+        assert(tile.player_id == 2, 'Tile: player_id');
         assert(tile.plan == plan.into(), 'Tile: plan');
         assert(tile.orientation == Orientation::None.into(), 'Tile: orientation');
         assert(tile.x == CENTER, 'Tile: x');
@@ -369,7 +369,7 @@ mod tests {
     fn test_tile_layout() {
         let plan = Plan::RFRFCCCFR;
         let tile = TestImpl::from(plan, Orientation::North, CENTER, CENTER);
-        let layout: Layout = tile.into(); // Check that it runs
+        let _: Layout = tile.into(); // Check that it runs
     }
 
     #[test]

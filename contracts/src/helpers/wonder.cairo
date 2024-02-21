@@ -29,7 +29,7 @@ impl WonderCount of WonderCountTrait {
         let character_position: CharacterPosition = store
             .character_position(game, tile, spot.into());
         let character = store
-            .character(game, character_position.builder_id, character_position.index.into());
+            .character(game, character_position.player_id, character_position.index.into());
         // [Compute] Recursively count the points
         let mut score = 0;
         WonderCount::iter(game, tile, at, ref score, ref visited, ref store);
@@ -97,10 +97,11 @@ impl WonderCount of WonderCountTrait {
     ) {
         // [Effect] Collect the character's builder
         let mut tile = store.tile(game, character.tile_id);
-        let mut builder = store.builder(game, character.builder_id);
+        let player = store.player(character.player_id);
+        let mut builder = store.builder(game, player.id);
         let mut team = store.team(game, builder.order.into());
         let power: u32 = character.power.into();
-        game.add_score(ref builder, ref team, base_points * power, ref events);
+        game.add_score(ref builder, ref team, player, base_points * power, ref events);
         builder.recover(ref character, ref tile);
 
         // [Effect] Update the character

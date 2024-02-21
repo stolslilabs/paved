@@ -35,7 +35,6 @@ impl Conflict of ConflictTrait {
         // [Check] The tile area is already visited, then pass
         let area: Area = tile.area(at);
         let visited_key = tile.get_key(area);
-        let is_visited = visited.get(visited_key);
         if visited.get(visited_key) {
             return;
         };
@@ -43,7 +42,6 @@ impl Conflict of ConflictTrait {
 
         // [Check] The tile handles a character
         let spot: Spot = tile.occupied_spot.into();
-        let plan: Plan = tile.plan.into();
         if 0 != spot.into() && tile.are_connected(at, spot) {
             status = true;
             return;
