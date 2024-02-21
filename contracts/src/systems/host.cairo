@@ -17,7 +17,7 @@ use stolsli::types::spot::Spot;
 trait IHost<TContractState> {
     fn create(self: @TContractState, world: IWorldDispatcher, name: felt252, endtime: u64,) -> u32;
     fn rename(self: @TContractState, world: IWorldDispatcher, game_id: u32, name: felt252);
-    fn last(self: @TContractState, world: IWorldDispatcher, game_id: u32, endtime: u64);
+    fn update(self: @TContractState, world: IWorldDispatcher, game_id: u32, endtime: u64);
     fn join(self: @TContractState, world: IWorldDispatcher, game_id: u32, order: u8);
     fn transfer(self: @TContractState, world: IWorldDispatcher, game_id: u32, host_id: felt252);
     fn leave(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
@@ -133,7 +133,7 @@ mod host {
             store.set_game(game);
         }
 
-        fn last(self: @ContractState, world: IWorldDispatcher, game_id: u32, endtime: u64) {
+        fn update(self: @ContractState, world: IWorldDispatcher, game_id: u32, endtime: u64) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 

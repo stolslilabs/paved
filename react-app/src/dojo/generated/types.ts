@@ -5,7 +5,76 @@ export interface Signer {
 }
 
 export interface CreateGame extends Signer {
+  name: string;
   endtime: number;
-  points_cap: number;
-  tiles_cap: number;
+}
+
+export interface RenameGame extends Signer {
+  game_id: number;
+  name: string;
+}
+
+export interface UpdateGame extends Signer {
+  account: Account;
+  game_id: number;
+  endtime: number;
+}
+
+export interface JoinGame extends Signer {
+  game_id: number;
+  order: number;
+}
+
+export interface TransferGame extends Signer {
+  game_id: number;
+  host_id: string;
+}
+
+export interface LeaveGame extends Signer {
+  game_id: number;
+}
+
+export interface StartGame extends Signer {
+  game_id: number;
+}
+
+export interface CreatePlayer extends Signer {
+  name: string;
+  order: number;
+}
+
+export interface RenamePlayer extends Signer {
+  name: string;
+}
+
+export interface ReorderPlayer extends Signer {
+  order: number;
+}
+
+export interface Buy extends Signer {
+  amount: number;
+}
+
+export interface Claim extends Signer {
+  game_id: number;
+}
+
+export interface Draw extends Signer {
+  game_id: number;
+  player_id: number;
+  card: number;
+}
+
+export interface Discard extends Signer {
+  game_id: number;
+}
+
+export interface Build extends Signer {
+  game_id: number;
+  tile_id: number;
+  orientation: number;
+  x: number;
+  y: number;
+  role: number;
+  spot: number;
 }

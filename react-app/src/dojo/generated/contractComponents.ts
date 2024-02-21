@@ -9,11 +9,9 @@ export function defineContractComponents(world: World) {
         world,
         {
           game_id: RecsType.Number,
-          id: RecsType.BigInt,
-          name: RecsType.BigInt,
+          player_id: RecsType.BigInt,
           order: RecsType.Number,
           score: RecsType.Number,
-          tile_remaining: RecsType.Number,
           tile_id: RecsType.Number,
           characters: RecsType.Number,
           claimed: RecsType.BigInt,
@@ -21,17 +19,7 @@ export function defineContractComponents(world: World) {
         {
           metadata: {
             name: "Builder",
-            types: [
-              "u32",
-              "felt252",
-              "felt252",
-              "u8",
-              "u32",
-              "u8",
-              "u32",
-              "u8",
-              "u256",
-            ],
+            types: ["u32", "felt252", "u8", "u32", "u32", "u8", "u256"],
             customTypes: [],
           },
         }
@@ -42,7 +30,7 @@ export function defineContractComponents(world: World) {
         world,
         {
           game_id: RecsType.Number,
-          builder_id: RecsType.BigInt,
+          player_id: RecsType.BigInt,
           index: RecsType.Number,
           tile_id: RecsType.Number,
           spot: RecsType.Number,
@@ -65,7 +53,7 @@ export function defineContractComponents(world: World) {
           game_id: RecsType.Number,
           tile_id: RecsType.Number,
           spot: RecsType.Number,
-          builder_id: RecsType.BigInt,
+          player_id: RecsType.BigInt,
           index: RecsType.Number,
         },
         {
@@ -82,18 +70,45 @@ export function defineContractComponents(world: World) {
         world,
         {
           id: RecsType.Number,
+          name: RecsType.BigInt,
+          host: RecsType.BigInt,
           tiles: RecsType.BigInt,
           tile_count: RecsType.Number,
           endtime: RecsType.Number,
-          points_cap: RecsType.Number,
-          tiles_cap: RecsType.Number,
-          over: RecsType.Boolean,
-          prize: RecsType.Number,
+          prize: RecsType.BigInt,
+          score: RecsType.Number,
         },
         {
           metadata: {
             name: "Game",
-            types: ["u32", "u128", "u32", "u64", "u32", "u32", "bool", "u256"],
+            types: [
+              "u32",
+              "felt252",
+              "felt252",
+              "u128",
+              "u32",
+              "u64",
+              "u256",
+              "u32",
+            ],
+            customTypes: [],
+          },
+        }
+      );
+    })(),
+    Player: (() => {
+      return defineComponent(
+        world,
+        {
+          id: RecsType.BigInt,
+          name: RecsType.BigInt,
+          order: RecsType.Number,
+          tile_remaining: RecsType.Number,
+        },
+        {
+          metadata: {
+            name: "Player",
+            types: ["felt252", "felt252", "u8", "u8"],
             customTypes: [],
           },
         }
@@ -123,7 +138,7 @@ export function defineContractComponents(world: World) {
         {
           game_id: RecsType.Number,
           id: RecsType.Number,
-          builder_id: RecsType.BigInt,
+          player_id: RecsType.BigInt,
           plan: RecsType.Number,
           orientation: RecsType.Number,
           x: RecsType.Number,

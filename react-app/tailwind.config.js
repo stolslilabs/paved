@@ -18,7 +18,7 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        body: ["Pixelify Sans", "mono"],
+        body: ["Rubik Mono One", "mono"],
       },
       colors: {
         border: "hsl(var(--border))",
