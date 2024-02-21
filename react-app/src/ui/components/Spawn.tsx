@@ -1,34 +1,154 @@
 import { useDojo } from "../../dojo/useDojo";
 import { shortString } from "starknet";
+import { useState } from "react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+  SelectLabel,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { useQueryParams } from "@/hooks/useQueryParams";
+import { Input } from "@/components/ui/input";
+import { getEntityIdFromKeys } from "@dojoengine/utils";
+import { Entity } from "@dojoengine/recs";
+import { useComponentValue } from "@dojoengine/react";
+import { useMemo, useEffect } from "react";
+import {
+  getDarkOrders,
+  getLightOrders,
+  getOrder,
+  getOrderFromName,
+} from "@/utils";
 
 export const Spawn = () => {
-  const { gameId } = useQueryParams();
+  const [playerName, setPlayerName] = useState("");
+  const [orderName, setOrderName] = useState("");
+  const [order, setOrder] = useState(1);
+
   const {
-    account,
+    account: { account },
     setup: {
-      client: { play },
+      clientComponents: { Player },
+      systemCalls: { create_player },
     },
   } = useDojo();
 
+  const playerId = useMemo(
+    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
+    [account]
+  );
+  const player = useComponentValue(Player, playerId);
+
+  const lightOrders = useMemo(() => {
+    return getLightOrders();
+  }, []);
+
+  const darkOrders = useMemo(() => {
+    return getDarkOrders();
+  }, []);
+
+  useEffect(() => {
+    if (player) {
+      setPlayerName(shortString.decodeShortString(player.name));
+      setOrderName(getOrder(player.order));
+    } else {
+      setPlayerName("");
+      setOrderName("");
+    }
+  }, [player]);
+
+  useEffect(() => {
+    if (orderName) {
+      setOrder(getOrderFromName(orderName));
+    }
+  }, [orderName]);
+
   const handleClick = () => {
-    play.spawn({
-      account: account.account,
-      game_id: gameId,
-      name: shortString.encodeShortString(name),
+    create_player({
+      account: account,
+      name: shortString.encodeShortString(playerName),
       order: order,
     });
   };
 
-  const name = "OHAYO";
-  const order = 1;
-
   return (
-    <div className="flex space-x-3 justify-between p-2 flex-wrap">
-      <Button variant={"default"} onClick={handleClick}>
-        Spawn
-      </Button>
-    </div>
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button disabled={!!player} variant={"secondary"}>
+          Spawn
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create a player</DialogTitle>
+          <DialogDescription>
+            Choose a name and a default order.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Input
+          className="`w-20"
+          disabled={!!player}
+          placeholder="Player Name"
+          type="text"
+          value={playerName}
+          onChange={(e) => {
+            setPlayerName(e.target.value);
+          }}
+        />
+
+        <Select
+          onValueChange={(value) => setOrderName(value)}
+          value={orderName}
+        >
+          <SelectTrigger disabled={!!player}>
+            <SelectValue placeholder="Select order" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectLabel>Light Alliance</SelectLabel>
+              {lightOrders.map((name) => {
+                return (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                );
+              })}
+              <SelectLabel>Dark Alliance</SelectLabel>
+              {darkOrders.map((name) => {
+                return (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                );
+              })}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+
+        <DialogClose asChild>
+          <Button
+            disabled={!!player || !playerName || !orderName}
+            variant={"default"}
+            onClick={handleClick}
+          >
+            Spawn
+          </Button>
+        </DialogClose>
+      </DialogContent>
+    </Dialog>
   );
 };
