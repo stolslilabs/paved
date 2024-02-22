@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::host::host",
       "address": "0x5871c6387d2a0e0de6e99b1d043a57f5cce44630bf30c2e1afd9615995e8616",
-      "class_hash": "0x4674a2cfb9925263971d4df001a68b286963695a92d27a49bcf331a3c092a7c",
+      "class_hash": "0x191a7b059eee1050d05d8f7265501c2868add8acf0355fc420d5d674b69d87f",
       "abi": [
         {
           "type": "impl",
@@ -1016,7 +1016,7 @@
             },
             {
               "type": "function",
-              "name": "last",
+              "name": "update",
               "inputs": [
                 {
                   "name": "world",
