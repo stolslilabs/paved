@@ -119,6 +119,7 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
         if (difference < 0) {
           clearInterval(interval);
           setTimeLeft("00:00:00");
+          setDisplay(false);
         }
       }, 1000);
 
