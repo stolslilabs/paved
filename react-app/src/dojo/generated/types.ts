@@ -6,7 +6,7 @@ export interface Signer {
 
 export interface CreateGame extends Signer {
   name: string;
-  endtime: number;
+  duration: number;
 }
 
 export interface RenameGame extends Signer {
@@ -17,7 +17,7 @@ export interface RenameGame extends Signer {
 export interface UpdateGame extends Signer {
   account: Account;
   game_id: number;
-  endtime: number;
+  duration: number;
 }
 
 export interface JoinGame extends Signer {

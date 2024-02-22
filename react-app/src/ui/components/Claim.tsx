@@ -48,7 +48,7 @@ export const Claim = ({ show }: { show: boolean }) => {
       setEnable(
         (!claimed && game?.over) ||
           (game?.tiles_cap !== 0 && game?.tile_count >= game?.tiles_cap) ||
-          (game?.endtime !== 0 && now >= game?.endtime)
+          (game?.duration !== 0 && now >= game?.start_time + game?.duration)
       );
     }, 1000);
     return () => clearInterval(interval);

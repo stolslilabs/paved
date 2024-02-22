@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::host::host",
       "address": "0x5871c6387d2a0e0de6e99b1d043a57f5cce44630bf30c2e1afd9615995e8616",
-      "class_hash": "0x191a7b059eee1050d05d8f7265501c2868add8acf0355fc420d5d674b69d87f",
+      "class_hash": "0x2d795c66ddcce0fc9d2a0aebcb3108a900a1b5e160499d957518a6ef62b6ad",
       "abi": [
         {
           "type": "impl",
@@ -983,7 +983,7 @@
                   "type": "core::felt252"
                 },
                 {
-                  "name": "endtime",
+                  "name": "duration",
                   "type": "core::integer::u64"
                 }
               ],
@@ -1027,7 +1027,7 @@
                   "type": "core::integer::u32"
                 },
                 {
-                  "name": "endtime",
+                  "name": "duration",
                   "type": "core::integer::u64"
                 }
               ],
@@ -1217,7 +1217,7 @@
     {
       "name": "stolsli::systems::manage::manage",
       "address": "0x28b0f2a243fe99d27f9ade6828975304a792c91781523957920e1f5bad4ad64",
-      "class_hash": "0x5848aaf3653cae8e8a02c2a39cf64f92fea55315d30d0da0322972f28214625",
+      "class_hash": "0x5232880ffc6f0b22f78cab35bdfd2d02648928f52383520602ad4361738fb5",
       "abi": [
         {
           "type": "impl",
@@ -1338,7 +1338,7 @@
     {
       "name": "stolsli::systems::play::play",
       "address": "0x54cecff4ea996878685a1d15e6e20e58f0560661bb9e6ae2f2b47a4a3acf2e4",
-      "class_hash": "0x37e9e6b7fab496104cd9056d643e09d0f712f438838936523e0710b0abca7d9",
+      "class_hash": "0x7acb6f4c3a18110fa4d6d6756ab558c12cc0d50f87ef742d1a971ea353d5ea9",
       "abi": [
         {
           "type": "impl",
@@ -2486,7 +2486,12 @@
           "key": false
         },
         {
-          "name": "endtime",
+          "name": "start_time",
+          "type": "u64",
+          "key": false
+        },
+        {
+          "name": "duration",
           "type": "u64",
           "key": false
         },
@@ -2501,7 +2506,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x1a2781e3d705793077ac1b67bc468e868fd9cf4db596684d1f6271a89b105a7",
+      "class_hash": "0x31bc85e976bd61682274da6d6a0ad25851911ad7f246278aaa67a16f8c9f40",
       "abi": [
         {
           "type": "impl",
@@ -2711,7 +2716,11 @@
               "type": "core::integer::u32"
             },
             {
-              "name": "endtime",
+              "name": "start_time",
+              "type": "core::integer::u64"
+            },
+            {
+              "name": "duration",
               "type": "core::integer::u64"
             },
             {

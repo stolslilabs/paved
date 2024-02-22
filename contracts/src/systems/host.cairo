@@ -15,9 +15,9 @@ use stolsli::types::spot::Spot;
 
 #[starknet::interface]
 trait IHost<TContractState> {
-    fn create(self: @TContractState, world: IWorldDispatcher, name: felt252, endtime: u64,) -> u32;
+    fn create(self: @TContractState, world: IWorldDispatcher, name: felt252, duration: u64,) -> u32;
     fn rename(self: @TContractState, world: IWorldDispatcher, game_id: u32, name: felt252);
-    fn update(self: @TContractState, world: IWorldDispatcher, game_id: u32, endtime: u64);
+    fn update(self: @TContractState, world: IWorldDispatcher, game_id: u32, duration: u64);
     fn join(self: @TContractState, world: IWorldDispatcher, game_id: u32, order: u8);
     fn transfer(self: @TContractState, world: IWorldDispatcher, game_id: u32, host_id: felt252);
     fn leave(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
@@ -82,7 +82,7 @@ mod host {
     #[abi(embed_v0)]
     impl HostImpl of IHost<ContractState> {
         fn create(
-            self: @ContractState, world: IWorldDispatcher, name: felt252, endtime: u64,
+            self: @ContractState, world: IWorldDispatcher, name: felt252, duration: u64,
         ) -> u32 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -95,7 +95,7 @@ mod host {
             // [Effect] Create game
             let game_id = world.uuid() + 1;
             let time = get_block_timestamp();
-            let game = GameImpl::new(game_id, name, player.id, time, endtime);
+            let game = GameImpl::new(game_id, name, player.id, time, duration);
 
             // [Effect] Store game
             store.set_game(game);
@@ -126,14 +126,14 @@ mod host {
             // [Check] Player is the host
             game.assert_host(player.id);
 
-            // [Effect] Set endtime
+            // [Effect] Set name
             game.rename(name);
 
             // [Effect] Store game
             store.set_game(game);
         }
 
-        fn update(self: @ContractState, world: IWorldDispatcher, game_id: u32, endtime: u64) {
+        fn update(self: @ContractState, world: IWorldDispatcher, game_id: u32, duration: u64) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -156,8 +156,8 @@ mod host {
             // [Check] Player is the host
             game.assert_host(player.id);
 
-            // [Effect] Set endtime
-            game.update(time, endtime);
+            // [Effect] Set duration
+            game.update(time, duration);
 
             // [Effect] Store game
             store.set_game(game);
@@ -297,6 +297,7 @@ mod host {
             tile.orientation = Orientation::South.into();
 
             // [Effect] Store game
+            game.start(time);
             store.set_game(game);
 
             // [Effect] Store tile

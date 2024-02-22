@@ -29,12 +29,12 @@ export async function setupWorld(provider: DojoProvider) {
   function host() {
     const contract_name = "host";
 
-    const create = async ({ account, name, endtime }: CreateGame) => {
+    const create = async ({ account, name, duration }: CreateGame) => {
       try {
         return await provider.execute(account, contract_name, "create", [
           provider.getWorldAddress(),
           name,
-          endtime,
+          duration,
         ]);
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -55,12 +55,12 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
-    const update = async ({ account, game_id, endtime }: UpdateGame) => {
+    const update = async ({ account, game_id, duration }: UpdateGame) => {
       try {
         return await provider.execute(account, contract_name, "update", [
           provider.getWorldAddress(),
           game_id,
-          endtime,
+          duration,
         ]);
       } catch (error) {
         console.error("Error executing initialize:", error);

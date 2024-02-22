@@ -56,7 +56,7 @@ mod setup {
         anyone_order: u8,
         game_id: u32,
         game_name: felt252,
-        game_endtime: u64,
+        game_duration: u64,
     }
 
     fn spawn_game() -> (IWorldDispatcher, Systems, Context) {
@@ -84,8 +84,8 @@ mod setup {
         systems.manage.create(world, ANYONE_NAME, ORDER_ID);
         set_contract_address(PLAYER());
         systems.manage.create(world, PLAYER_NAME, ORDER_ID);
-        let endtime: u64 = 0;
-        let game_id = systems.host.create(world, GAME_NAME, endtime);
+        let duration: u64 = 0;
+        let game_id = systems.host.create(world, GAME_NAME, duration);
         let context = Context {
             player_id: PLAYER().into(),
             player_name: PLAYER_NAME,
@@ -95,7 +95,7 @@ mod setup {
             anyone_order: ORDER_ID,
             game_id: game_id,
             game_name: GAME_NAME,
-            game_endtime: endtime,
+            game_duration: duration,
         };
 
         // [Return]

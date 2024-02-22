@@ -33,7 +33,6 @@ use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 use stolsli::models::team::{Team, TeamImpl};
 
 mod errors {
-    const INVALID_ENDTIME: felt252 = 'Game: invalid endtime';
     const INVALID_NAME: felt252 = 'Game: invalid name';
     const INVALID_HOST: felt252 = 'Game: invalid host';
     const TRANSFER_SAME_HOST: felt252 = 'Game: transfer to same host';
@@ -55,7 +54,8 @@ struct Game {
     host: felt252,
     tiles: u128,
     tile_count: u32,
-    endtime: u64,
+    start_time: u64,
+    duration: u64,
     prize: u256,
     score: u32,
 }
@@ -63,13 +63,12 @@ struct Game {
 #[generate_trait]
 impl GameImpl of GameTrait {
     #[inline(always)]
-    fn new(id: u32, name: felt252, host: felt252, time: u64, endtime: u64) -> Game {
+    fn new(id: u32, name: felt252, host: felt252, time: u64, duration: u64) -> Game {
         // [Check] Validate parameters
         assert(host != 0, errors::INVALID_HOST);
-        GameAssert::assert_valid_endtime(time, endtime);
         // TODO: Hard coded prize pool until it comes from player fees
         let prize = constants::PRIZE_POOL;
-        Game { id, name, host, tiles: 0, tile_count: 0, endtime, prize, score: 0 }
+        Game { id, name, host, tiles: 0, tile_count: 0, start_time: 0, duration, prize, score: 0 }
     }
 
     #[inline(always)]
@@ -79,7 +78,8 @@ impl GameImpl of GameTrait {
         self.host = 0;
         self.tiles = 0;
         self.tile_count = 0;
-        self.endtime = 0;
+        self.start_time = 0;
+        self.duration = 0;
         self.prize = 0;
         self.score = 0;
     }
@@ -88,16 +88,14 @@ impl GameImpl of GameTrait {
     fn rename(ref self: Game, name: felt252) {
         // [Check] Validate parameters
         GameAssert::assert_valid_name(name);
-        // [Effect] Update endtime
+        // [Effect] Update name
         self.name = name;
     }
 
     #[inline(always)]
-    fn update(ref self: Game, time: u64, endtime: u64) {
-        // [Check] Validate parameters
-        GameAssert::assert_valid_endtime(time, endtime);
-        // [Effect] Update endtime
-        self.endtime = endtime;
+    fn update(ref self: Game, time: u64, duration: u64) {
+        // [Effect] Update duration
+        self.duration = duration;
     }
 
     #[inline(always)]
@@ -108,8 +106,14 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
+    fn start(ref self: Game, time: u64) {
+        self.start_time = time;
+    }
+
+    #[inline(always)]
     fn is_over(self: Game, time: u64) -> bool {
-        self.endtime != 0 && time >= self.endtime
+        let endtime = self.start_time + self.duration;
+        self.duration != 0 && time >= endtime
     }
 
     #[inline(always)]
@@ -261,7 +265,17 @@ impl GameImpl of GameTrait {
 impl ZeroableGame of Zeroable<Game> {
     #[inline(always)]
     fn zero() -> Game {
-        Game { id: 0, name: 0, host: 0, tiles: 0, tile_count: 0, endtime: 0, prize: 0, score: 0 }
+        Game {
+            id: 0,
+            name: 0,
+            host: 0,
+            tiles: 0,
+            tile_count: 0,
+            start_time: 0,
+            duration: 0,
+            prize: 0,
+            score: 0
+        }
     }
 
     #[inline(always)]
@@ -321,11 +335,6 @@ impl GameAssert of AssertTrait {
     #[inline(always)]
     fn assert_valid_name(name: felt252) {
         assert(name != 0, errors::INVALID_NAME);
-    }
-
-    #[inline(always)]
-    fn assert_valid_endtime(time: u64, endtime: u64) {
-        assert(endtime == 0 || endtime >= time, errors::INVALID_ENDTIME);
     }
 }
 
