@@ -52,13 +52,13 @@ export async function setup({ ...config }: Config) {
     rpcProvider,
   });
 
-  if (burnerManager.list().length === 0) {
-    try {
-      await burnerManager.create();
-    } catch (e) {
-      console.error(e);
-    }
-  }
+  // if (burnerManager.list().length === 0) {
+  //   try {
+  //     await burnerManager.create();
+  //   } catch (e) {
+  //     console.error(e);
+  //   }
+  // }
 
   burnerManager.init();
 

@@ -1,7 +1,4 @@
 import { useEffect, useState, useMemo } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -10,123 +7,45 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faRightToBracket } from "@fortawesome/free-solid-svg-icons";
+
 import { useDojo } from "@/dojo/useDojo";
 import { useComponentValue, useEntityQuery } from "@dojoengine/react";
-import { Entity, Has } from "@dojoengine/recs";
+import { Entity, Has, HasValue, NotValue } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
+
+import { CreateGame } from "@/ui/components/CreateGame";
 import { shortString } from "starknet";
-import { getEntityIdFromKeys, shortenHex } from "@dojoengine/utils";
-import {
-  getLightOrders,
-  getDarkOrders,
-  getOrderFromName,
-  getOrder,
-} from "@/utils";
-import { faRightToBracket } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 export const Games = () => {
-  const [endtime, setEndtime] = useState(60);
-  const [pointsCap, setPointsCap] = useState(100);
-  const [tilesCap, setTilesCap] = useState(100);
-
-  const [finishTimeFormat, setFinishTimeFormat] = useState<Date>();
-
   const {
-    account: { account, create, clear, list, select },
     setup: {
       clientComponents: { Game },
-      systemCalls: { create_game, create_player },
     },
   } = useDojo();
 
   const games = useEntityQuery([Has(Game)]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFinishTimeFormat(
-        new Date(endtime * 60 * 1000 + Math.floor(Date.now()))
-      );
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [endtime]);
-
   const backgroundColor = useMemo(() => "#FCF7E7", []);
 
   return (
-    <div
-      className="bg-yellow-100 h-screen w-2/3 flex"
-      style={{ backgroundColor }}
-    >
-      <div className="w-full p-10">
-        <h1>Create Game</h1>
-
-        <div className="flex gap-4">
-          <div className="grid items-center gap-1.5 self-end">
-            <Label htmlFor="email">End Time (From Now in Minutes)</Label>
-            <Input
-              type="number"
-              value={endtime}
-              onChange={(e) => {
-                if (e.target.value) {
-                  setEndtime(parseInt(e.target.value));
-                } else {
-                  setEndtime(0);
-                }
-              }}
-            />
-            <div className="text-xs">
-              End at: {finishTimeFormat?.toLocaleString()}
-            </div>
-          </div>
-
-          <div className="grid items-center gap-1.5 self-start">
-            <Label htmlFor="email">Points Cap</Label>
-            <Input
-              className="w-20"
-              type="number"
-              value={pointsCap}
-              onChange={(e) => {
-                setPointsCap(parseInt(e.target.value));
-              }}
-            />
-          </div>
-          <div className="grid items-center gap-1.5 self-start">
-            <Label htmlFor="email">Tiles Cap</Label>
-            <Input
-              className="w-20"
-              type="number"
-              value={tilesCap}
-              onChange={(e) => {
-                setTilesCap(parseInt(e.target.value));
-              }}
-            />
-          </div>
-          <Button
-            variant={"default"}
-            className=" self-center"
-            onClick={() =>
-              create_game({
-                account,
-                name: "Game " + Math.floor(Date.now() / 1000),
-                endtime:
-                  endtime === 0
-                    ? 0
-                    : endtime * 60 + Math.floor(Date.now() / 1000),
-              })
-            }
-          >
-            Create game
-          </Button>
-        </div>
+    <div className="bg-yellow-100 h-screen grow" style={{ backgroundColor }}>
+      <div className="flex flex-col gap-8 items-start w-full p-10">
+        <h1>Game lobby</h1>
+        <CreateGame />
 
         <h4>Games</h4>
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px]">Game</TableHead>
-              <TableHead>TileCount</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+            <TableRow className="text-sm">
+              <TableHead className="w-[100px]">#</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Current players</TableHead>
+              <TableHead>Endtime</TableHead>
+              <TableHead>Time left</TableHead>
+              <TableHead>Tiles played</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -140,64 +59,100 @@ export const Games = () => {
   );
 };
 
-export const GameRow = (entity: any) => {
-  const [playerName, setPlayerName] = useState("");
-  const [orderName, setOrderName] = useState("");
-  const [order, setOrder] = useState(1);
+export const GameRow = ({ entity }: { entity: Entity }) => {
+  const [gameId, setGameId] = useState<number>();
+  const [gameName, setGameName] = useState<string>();
+  const [playerCount, setPlayerCount] = useState<number>();
+  const [endtime, setEndtime] = useState<Date>();
+  const [timeLeft, setTimeLeft] = useState<string>();
+  const [tilesPlayed, setTilesPlayed] = useState<number>();
+  const [display, setDisplay] = useState<boolean>(true);
   const {
     setup: {
       clientComponents: { Game, Builder },
-      client: { play },
     },
-    account: { account },
   } = useDojo();
 
-  const game = useComponentValue(Game, entity.entity);
+  const game = useComponentValue(Game, entity);
+  const builders = useEntityQuery([
+    Has(Builder),
+    HasValue(Builder, { game_id: game?.id }),
+    NotValue(Builder, { order: 0 }),
+  ]);
 
-  const builderEntity = useMemo(() => {
-    return getEntityIdFromKeys([
-      BigInt(game?.id),
-      BigInt(account.address),
-    ]) as Entity;
-  }, [game, account]);
+  useEffect(() => {
+    if (game) {
+      if (game.endtime < Math.floor(Date.now() / 1000)) {
+        setDisplay(false);
+      } else {
+        setGameId(game.id);
+        setGameName(shortString.decodeShortString(game.name));
+        setEndtime(new Date(game.endtime * 1000));
+        setTilesPlayed(game.tile_count);
+      }
+    }
+    setPlayerCount(builders?.length || 0);
+  }, [game, builders]);
 
-  const builder = useComponentValue(Builder, builderEntity);
+  // Calculating time left
+  useEffect(() => {
+    if (endtime) {
+      const interval = setInterval(() => {
+        const now = new Date().getTime();
+        const difference = endtime.getTime() - now;
 
-  const lightOrders = useMemo(() => {
-    return getLightOrders();
-  }, []);
+        // Calculating hours, minutes, and seconds
+        const hours = Math.floor(
+          (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+        );
+        const minutes = Math.floor(
+          (difference % (1000 * 60 * 60)) / (1000 * 60)
+        );
+        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
-  const darkOrders = useMemo(() => {
-    return getDarkOrders();
-  }, []);
+        // Formatting HH:MM:SS
+        const formattedTime = `${hours.toString().padStart(2, "0")}:${minutes
+          .toString()
+          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+        setTimeLeft(formattedTime);
+
+        if (difference < 0) {
+          clearInterval(interval);
+          setTimeLeft("00:00:00");
+        }
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [endtime]);
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (builder) {
-      setPlayerName(shortString.decodeShortString(builder.name));
-      setOrderName(getOrder(builder.order));
-    } else {
-      setPlayerName("");
-      setOrderName("");
-    }
-  }, [builder]);
+  const setGameQueryParam = useMemo(() => {
+    return (id: string) => {
+      navigate("?game=" + id, { replace: true });
+    };
+  }, [navigate]);
 
-  useEffect(() => {
-    if (orderName) {
-      setOrder(getOrderFromName(orderName));
-    }
-  }, [orderName]);
-
-  const setGameQueryParam = (id: string) => {
-    navigate("?game=" + id, { replace: true });
-  };
+  if (!game || !display) return null;
 
   return (
-    <TableRow>
-      <TableCell>{game?.id}</TableCell>
-      <TableCell>{game?.name}</TableCell>
-      <TableCell>{game?.tile_count}</TableCell>
+    <TableRow className="text-xs">
+      <TableCell>{gameId}</TableCell>
+      <TableCell>{gameName}</TableCell>
+      <TableCell>{playerCount}</TableCell>
+      <TableCell>{endtime?.toLocaleString()}</TableCell>
+      <TableCell>{timeLeft}</TableCell>
+      <TableCell>{tilesPlayed}</TableCell>
+
+      <TableCell>
+        <Button
+          className={`align-right}`}
+          onClick={() => setGameQueryParam(game.id || 0)}
+        >
+          <FontAwesomeIcon icon={faRightToBracket} />
+        </Button>
+      </TableCell>
     </TableRow>
   );
 };

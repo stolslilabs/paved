@@ -75,7 +75,7 @@ export function defineContractComponents(world: World) {
           tiles: RecsType.BigInt,
           tile_count: RecsType.Number,
           endtime: RecsType.Number,
-          prize: RecsType.BigInt,
+          prize: RecsType.Number,
           score: RecsType.Number,
         },
         {
