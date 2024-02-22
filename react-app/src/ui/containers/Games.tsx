@@ -43,7 +43,7 @@ export const Games = () => {
               <TableHead className="w-[100px]">#</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Current players</TableHead>
-              <TableHead>Endtime</TableHead>
+              <TableHead>Duration</TableHead>
               <TableHead>Time left</TableHead>
               <TableHead>Tiles played</TableHead>
             </TableRow>
@@ -63,7 +63,9 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
   const [gameId, setGameId] = useState<number>();
   const [gameName, setGameName] = useState<string>();
   const [playerCount, setPlayerCount] = useState<number>();
-  const [endtime, setEndtime] = useState<Date>();
+  const [startTime, setStartTime] = useState<number>();
+  const [duration, setDuration] = useState<number>();
+  const [gameDuration, setGameDuration] = useState<string>();
   const [timeLeft, setTimeLeft] = useState<string>();
   const [tilesPlayed, setTilesPlayed] = useState<number>();
   const [display, setDisplay] = useState<boolean>(true);
@@ -82,50 +84,85 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
 
   useEffect(() => {
     if (game) {
-      if (game.endtime < Math.floor(Date.now() / 1000)) {
+      const endtime = game.start_time + game.duration;
+      if (
+        game.start_time != 0 &&
+        game.duration != 0 &&
+        endtime < Math.floor(Date.now() / 1000)
+      ) {
         setDisplay(false);
       } else {
         setGameId(game.id);
         setGameName(shortString.decodeShortString(game.name));
-        setEndtime(new Date(game.endtime * 1000));
+        setStartTime(game.start_time);
+        setDuration(game.duration);
         setTilesPlayed(game.tile_count);
       }
     }
     setPlayerCount(builders?.length || 0);
   }, [game, builders]);
 
+  // Calculating game duration
+  useEffect(() => {
+    if (duration) {
+      // Calculating hours, minutes, and seconds
+      const hours = Math.floor(duration / 3600);
+      const minutes = Math.floor((duration % 3600) / 60);
+      const seconds = duration % 60;
+
+      // Formatting HH:MM:SS
+      const formattedTime = `
+        ${hours.toString().padStart(2, "0")}:${minutes
+        .toString()
+        .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+      setGameDuration(formattedTime);
+    } else {
+      setGameDuration("∞");
+    }
+  }, [duration]);
+
   // Calculating time left
   useEffect(() => {
-    if (endtime) {
+    if (startTime && duration) {
       const interval = setInterval(() => {
-        const now = new Date().getTime();
-        const difference = endtime.getTime() - now;
+        // Remaining time in seconds
+        const dt = startTime + duration - Math.floor(Date.now() / 1000);
 
         // Calculating hours, minutes, and seconds
-        const hours = Math.floor(
-          (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-        );
-        const minutes = Math.floor(
-          (difference % (1000 * 60 * 60)) / (1000 * 60)
-        );
-        const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+        const hours = Math.floor(dt / 3600);
+        const minutes = Math.floor((dt % 3600) / 60);
+        const seconds = dt % 60;
 
         // Formatting HH:MM:SS
-        const formattedTime = `${hours.toString().padStart(2, "0")}:${minutes
+        const formattedTime = `
+          ${hours.toString().padStart(2, "0")}:${minutes
           .toString()
           .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
         setTimeLeft(formattedTime);
 
-        if (difference < 0) {
+        if (duration == 0) {
           clearInterval(interval);
           setTimeLeft("00:00:00");
           setDisplay(false);
         }
       }, 1000);
-
       return () => clearInterval(interval);
+    } else if (duration) {
+      // Calculating hours, minutes, and seconds
+      const hours = Math.floor(duration / 3600);
+      const minutes = Math.floor((duration % 3600) / 60);
+      const seconds = duration % 60;
+
+      // Formatting HH:MM:SS
+      const formattedTime = `
+        ${hours.toString().padStart(2, "0")}:${minutes
+        .toString()
+        .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+      setTimeLeft(formattedTime);
+    } else {
+      setTimeLeft("∞");
     }
-  }, [endtime]);
+  }, [startTime, duration]);
 
   const navigate = useNavigate();
 
@@ -142,7 +179,7 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
       <TableCell>{gameId}</TableCell>
       <TableCell>{gameName}</TableCell>
       <TableCell>{playerCount}</TableCell>
-      <TableCell>{endtime?.toLocaleString()}</TableCell>
+      <TableCell>{gameDuration}</TableCell>
       <TableCell>{timeLeft}</TableCell>
       <TableCell>{tilesPlayed}</TableCell>
 

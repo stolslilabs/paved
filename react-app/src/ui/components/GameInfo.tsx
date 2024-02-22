@@ -36,7 +36,8 @@ export const GameInfo = () => {
   useEffect(() => {
     if (game) {
       const interval = setInterval(() => {
-        const dt = game.endtime - Math.floor(Date.now() / 1000);
+        const dt =
+          game.start_time + game.duration - Math.floor(Date.now() / 1000);
         setTimeLeft(Math.max(0, dt));
       }, 1000);
       return () => clearInterval(interval);
@@ -50,7 +51,7 @@ export const GameInfo = () => {
         <TableBody className="text-right text-xs">
           <TableRow>
             <TableCell className="lowercase">
-              {game?.endtime ? `${timeLeft} s` : "∞"}
+              {game?.duration ? `${timeLeft} s` : "∞"}
             </TableCell>
             <TableCell>:</TableCell>
             <TableCell>Countdown</TableCell>

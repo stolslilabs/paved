@@ -22,8 +22,8 @@ import { useMemo, useEffect } from "react";
 
 export const CreateGame = () => {
   const [gameName, setGameName] = useState("");
-  const [endtime, setEndtime] = useState(30);
-  const [finishTimeFormat, setFinishTimeFormat] = useState<Date>();
+  const [duration, setDuration] = useState(30);
+  const [finishTimeFormat, setFinishTimeFormat] = useState<string>();
 
   const {
     account: { account },
@@ -40,19 +40,23 @@ export const CreateGame = () => {
   const player = useComponentValue(Player, playerId);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setFinishTimeFormat(
-        new Date(endtime * 60 * 1000 + Math.floor(Date.now()))
-      );
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [endtime]);
+    if (duration) {
+      const interval = setInterval(() => {
+        const date = new Date(duration * 60 * 1000 + Math.floor(Date.now()));
+        setFinishTimeFormat(date.toLocaleString());
+      }, 1000);
+      return () => clearInterval(interval);
+    } else {
+      setFinishTimeFormat("");
+    }
+  }, [duration]);
 
   const handleClick = () => {
+    console.log(duration * 60);
     create_game({
       account: account,
       name: shortString.encodeShortString(gameName),
-      endtime: endtime === 0 ? 0 : endtime * 60 + Math.floor(Date.now() / 1000),
+      duration: duration === 0 ? 0 : duration * 60,
     });
   };
 
@@ -84,23 +88,23 @@ export const CreateGame = () => {
         <Input
           disabled={!player}
           type="number"
-          value={endtime}
+          value={duration}
           onChange={(e) => {
             if (e.target.value) {
-              setEndtime(parseInt(e.target.value));
+              setDuration(parseInt(e.target.value));
             } else {
-              setEndtime(0);
+              setDuration(0);
             }
           }}
         />
 
-        <Label className="text-xs">
-          End at: {finishTimeFormat?.toLocaleString()}
-        </Label>
+        {!!finishTimeFormat && (
+          <Label className="text-xs">End at: {finishTimeFormat}</Label>
+        )}
 
         <DialogClose asChild>
           <Button
-            disabled={!player || !gameName || !endtime}
+            disabled={!player || !gameName}
             variant={"default"}
             onClick={handleClick}
           >
