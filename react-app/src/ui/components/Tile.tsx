@@ -19,8 +19,8 @@ export const Tile = () => {
   const {
     account: { account },
     setup: {
-      client: { play },
       clientComponents: { Builder, Tile },
+      systemCalls: { draw },
     },
   } = useDojo();
 
@@ -71,7 +71,7 @@ export const Tile = () => {
 
   const handleDrawClick = () => {
     setSelectedTile({ col: 0, row: 0 });
-    play.draw({
+    draw({
       account: account,
       game_id: gameId,
     });
