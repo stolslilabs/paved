@@ -61,8 +61,6 @@ export interface Claim extends Signer {
 
 export interface Draw extends Signer {
   game_id: number;
-  player_id: number;
-  card: number;
 }
 
 export interface Discard extends Signer {

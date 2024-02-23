@@ -2,14 +2,12 @@ import { Button } from "@/components/ui/button";
 import { useDojo } from "../../dojo/useDojo";
 import { faCartPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useQueryParams } from "@/hooks/useQueryParams";
 
 export const Buy = ({ show }: { show: boolean }) => {
-  const { gameId } = useQueryParams();
   const {
-    account,
+    account: { account },
     setup: {
-      client: { play },
+      systemCalls: { buy },
     },
   } = useDojo();
 
@@ -21,9 +19,9 @@ export const Buy = ({ show }: { show: boolean }) => {
       variant={"default"}
       size={"icon"}
       onClick={() =>
-        play.buy({
-          account: account.account,
-          game_id: gameId,
+        buy({
+          account: account,
+          amount: 1,
         })
       }
     >
