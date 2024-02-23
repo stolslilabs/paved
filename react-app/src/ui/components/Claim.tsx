@@ -16,8 +16,8 @@ export const Claim = ({ show }: { show: boolean }) => {
   const {
     account: { account },
     setup: {
-      client: { play },
       clientComponents: { Game, Builder },
+      systemCalls: { claim },
     },
   } = useDojo();
 
@@ -31,7 +31,7 @@ export const Claim = ({ show }: { show: boolean }) => {
   const builder = useComponentValue(Builder, builderId);
 
   const handleClick = () => {
-    play.claim({
+    claim({
       account: account,
       game_id: gameId,
     });

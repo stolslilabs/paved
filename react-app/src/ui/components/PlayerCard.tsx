@@ -13,51 +13,104 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { useDojo } from "@/dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys, shortenHex } from "@dojoengine/utils";
+import { shortenHex } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
+import {
+  defineEnterSystem,
+  defineSystem,
+  Has,
+  HasValue,
+} from "@dojoengine/recs";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
 import { shortString } from "starknet";
 
 import image from "/assets/loaf.svg";
 import adventurer from "/assets/characters/adventurer.png";
 
-export const PlayerCard = () => {
-  const [rank, setRank] = useState<number | undefined>();
-  const [score, setScore] = useState<number | undefined>();
-  const [games, setGames] = useState<number | undefined>();
-  const [won, setWon] = useState<number | undefined>();
-  const [paved, setPaved] = useState<number | undefined>(0);
-  const [bank, setBank] = useState<number | undefined>();
+export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
+  const { gameId } = useQueryParams();
+  const [builders, setBuilders] = useState<{ [key: string]: typeof Builder }>(
+    {}
+  );
+  const [players, setPlayers] = useState<{ [key: string]: typeof Player }>({});
+  const [rank, setRank] = useState<number>();
+  const [score, setScore] = useState<number>();
+  const [games, setGames] = useState<number>();
+  const [won, setWon] = useState<string>();
+  const [paved, setPaved] = useState<number>();
+  const [bank, setBank] = useState<number>();
   const [avatar, setAvatar] = useState<string>("");
   const [identifier, setIdentifier] = useState<string>("");
   const [playerName, setPlayerName] = useState<string>("Name");
 
   const {
-    account: { account },
     setup: {
-      clientComponents: { Player },
+      world,
+      clientComponents: { Player, Builder },
     },
   } = useDojo();
-
-  const playerId = useMemo(
-    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account]
-  );
   const player = useComponentValue(Player, playerId);
 
   useEffect(() => {
+    defineEnterSystem(
+      world,
+      [Has(Builder), HasValue(Builder, { player_id: player?.id })],
+      function ({ value: [builder] }: any) {
+        setBuilders((prev: any) => {
+          return {
+            ...prev,
+            [`${builder.game_id}-${builder.player_id}`]: builder,
+          };
+        });
+      }
+    );
+    defineSystem(
+      world,
+      [Has(Builder), HasValue(Builder, { player_id: player?.id })],
+      function ({ value: [builder] }: any) {
+        setBuilders((prev: any) => {
+          return {
+            ...prev,
+            [`${builder.game_id}-${builder.player_id}`]: builder,
+          };
+        });
+      }
+    );
+  }, [gameId, player]);
+
+  useEffect(() => {
+    defineEnterSystem(
+      world,
+      [Has(Player)],
+      function ({ value: [player] }: any) {
+        setPlayers((prev: any) => {
+          return { ...prev, [`${player.id}`]: player };
+        });
+      }
+    );
+    defineSystem(world, [Has(Player)], function ({ value: [player] }: any) {
+      setPlayers((prev: any) => {
+        return { ...prev, [`${player.id}`]: player };
+      });
+    });
+  }, []);
+
+  useEffect(() => {
     if (player) {
-      setRank(player.rank);
+      const totalClaimed = Object.values(builders).reduce(
+        (sum, builder) => sum + builder.claimed,
+        BigInt(0)
+      );
       setScore(player.score);
-      setGames(player.games);
-      setWon(player.won);
+      setGames(Object.values(builders).length);
+      setWon(parseFloat(`${Number(totalClaimed) / 1e18}`).toFixed(2));
       setPaved(player.paved);
-      setBank(player.tile_remaining);
+      setBank(player.bank);
       setAvatar(image);
       setIdentifier(shortenHex(`${player.id}`).replace("...", ""));
       setPlayerName(shortString.decodeShortString(player.name));
     } else {
-      setRank(undefined);
       setScore(undefined);
       setGames(undefined);
       setWon(undefined);
@@ -67,7 +120,20 @@ export const PlayerCard = () => {
       setIdentifier("");
       setPlayerName("");
     }
-  }, [player, account]);
+  }, [player, builders, players]);
+
+  useEffect(() => {
+    if (players && score !== undefined) {
+      setRank(
+        Object.values(players)
+          .map((p: any) => p.score)
+          .sort((a: any, b: any) => b - a)
+          .indexOf(score) + 1
+      );
+    } else {
+      setRank(undefined);
+    }
+  }, [players, score]);
 
   const borderColor = useMemo(() => "#B8D8D8", []);
   const backgroundColor = useMemo(() => "#EAEFEF", []);
@@ -135,27 +201,27 @@ const PlayerInfo = ({ rank, score, games, won, paved }: any) => {
           <p className="h-4">Paved:</p>
         </div>
         <div className="ml-2 text-left flex flex-col gap-4 w-3/5">
-          {rank ? (
+          {rank !== undefined ? (
             <p className="h-4">{rank}</p>
           ) : (
             <Skeleton className="h-4 w-16" />
           )}
-          {score ? (
+          {score !== undefined ? (
             <p className="h-4">{score}</p>
           ) : (
             <Skeleton className="h-4 w-28" />
           )}
-          {games ? (
+          {games !== undefined ? (
             <p className="h-4">{games}</p>
           ) : (
             <Skeleton className="h-4 w-20" />
           )}
-          {won ? (
-            <p className="h-4">{won}</p>
+          {won !== undefined ? (
+            <p className="h-4">{won}$</p>
           ) : (
             <Skeleton className="h-4 w-16" />
           )}
-          {paved ? (
+          {paved !== undefined ? (
             <p className="h-4">{paved}</p>
           ) : (
             <Skeleton className="h-4 w-28" />

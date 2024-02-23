@@ -8,12 +8,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faRightToBracket } from "@fortawesome/free-solid-svg-icons";
+import { faEye, faRightToBracket } from "@fortawesome/free-solid-svg-icons";
 
 import { useDojo } from "@/dojo/useDojo";
 import { useComponentValue, useEntityQuery } from "@dojoengine/react";
 import { Entity, Has, HasValue, NotValue } from "@dojoengine/recs";
+import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useNavigate } from "react-router-dom";
 
 import { CreateGame } from "@/ui/components/CreateGame";
@@ -32,28 +34,30 @@ export const Games = () => {
 
   return (
     <div className="bg-yellow-100 h-screen grow" style={{ backgroundColor }}>
-      <div className="flex flex-col gap-8 items-start w-full p-10">
+      <div className="flex flex-col gap-8 items-start w-full p-10 h-full">
         <h1>Game lobby</h1>
         <CreateGame />
 
         <h4>Games</h4>
-        <Table>
-          <TableHeader>
-            <TableRow className="text-sm">
-              <TableHead className="w-[100px]">#</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Current players</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Time left</TableHead>
-              <TableHead>Tiles played</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {games.map((game, index) => {
-              return <GameRow key={index} entity={game} />;
-            })}
-          </TableBody>
-        </Table>
+        <ScrollArea className="w-full">
+          <Table>
+            <TableHeader>
+              <TableRow className="text-sm">
+                <TableHead className="w-[100px]">#</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Current players</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Time left</TableHead>
+                <TableHead>Tiles played</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {games.map((game, index) => {
+                return <GameRow key={index} entity={game} />;
+              })}
+            </TableBody>
+          </Table>
+        </ScrollArea>
       </div>
     </div>
   );
@@ -70,8 +74,9 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
   const [tilesPlayed, setTilesPlayed] = useState<number>();
   const [display, setDisplay] = useState<boolean>(true);
   const {
+    account: { account },
     setup: {
-      clientComponents: { Game, Builder },
+      clientComponents: { Game, Player, Builder },
     },
   } = useDojo();
 
@@ -81,6 +86,16 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
     HasValue(Builder, { game_id: game?.id }),
     NotValue(Builder, { order: 0 }),
   ]);
+  const playerKey = useMemo(
+    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
+    [account]
+  );
+  const player = useComponentValue(Player, playerKey);
+  const builderKey = useMemo(() => {
+    if (!game || !player) return undefined;
+    return getEntityIdFromKeys([BigInt(game.id), BigInt(player.id)]) as Entity;
+  }, [game, player]);
+  const builder = useComponentValue(Builder, builderKey);
 
   useEffect(() => {
     if (game) {
@@ -90,13 +105,21 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
         game.duration != 0 &&
         endtime < Math.floor(Date.now() / 1000)
       ) {
-        setDisplay(false);
+        // TODO: Remove if we want to hide finished games
+        // setDisplay(true);
+        setGameId(game.id);
+        setGameName(shortString.decodeShortString(game.name));
+        setStartTime(game.start_time);
+        setDuration(game.duration);
+        setTilesPlayed(game.tile_count);
+        setDisplay(true);
       } else {
         setGameId(game.id);
         setGameName(shortString.decodeShortString(game.name));
         setStartTime(game.start_time);
         setDuration(game.duration);
         setTilesPlayed(game.tile_count);
+        setDisplay(true);
       }
     }
     setPlayerCount(builders?.length || 0);
@@ -140,10 +163,14 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
           .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
         setTimeLeft(formattedTime);
 
+        if (dt < 0) {
+          clearInterval(interval);
+          setTimeLeft("00:00:00");
+        }
+
         if (duration == 0) {
           clearInterval(interval);
           setTimeLeft("00:00:00");
-          setDisplay(false);
         }
       }, 1000);
       return () => clearInterval(interval);
@@ -186,9 +213,13 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
       <TableCell>
         <Button
           className={`align-right}`}
+          variant={"secondary"}
+          size={"icon"}
           onClick={() => setGameQueryParam(game.id || 0)}
         >
-          <FontAwesomeIcon icon={faRightToBracket} />
+          <FontAwesomeIcon
+            icon={builder || game.start_time === 0 ? faRightToBracket : faEye}
+          />
         </Button>
       </TableCell>
     </TableRow>

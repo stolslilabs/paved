@@ -19,20 +19,28 @@ import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { useComponentValue } from "@dojoengine/react";
 import { useMemo, useEffect } from "react";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
-export const CreateGame = () => {
+export const UpdateGame = () => {
+  const { gameId } = useQueryParams();
   const [gameName, setGameName] = useState("");
   const [duration, setDuration] = useState(30);
   const [finishTimeFormat, setFinishTimeFormat] = useState<string>();
+  const [disabled, setDisabled] = useState(true);
 
   const {
     account: { account },
     setup: {
-      clientComponents: { Player },
-      systemCalls: { create_game, join_game },
+      clientComponents: { Game, Player },
+      systemCalls: { rename_game, update_game },
     },
   } = useDojo();
 
+  const gameKey = useMemo(
+    () => getEntityIdFromKeys([BigInt(gameId)]),
+    [gameId]
+  );
+  const game = useComponentValue(Game, gameKey);
   const playerId = useMemo(
     () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
     [account]
@@ -51,24 +59,42 @@ export const CreateGame = () => {
     }
   }, [duration]);
 
+  useEffect(() => {
+    if (game && player) {
+      setGameName(shortString.decodeShortString(game.name));
+      setDuration(game.duration / 60);
+      setDisabled(game.host !== player.id);
+    }
+  }, [game, player]);
+
   const handleClick = () => {
-    create_game({
-      account: account,
-      name: shortString.encodeShortString(gameName),
-      duration: duration * 60,
-    });
+    const name = shortString.decodeShortString(game?.name);
+    if (name !== gameName) {
+      rename_game({
+        account: account,
+        game_id: gameId,
+        name: shortString.encodeShortString(gameName),
+      });
+    }
+    if (game && duration * 60 !== game.duration) {
+      update_game({
+        account: account,
+        game_id: gameId,
+        duration: duration * 60,
+      });
+    }
   };
 
   return (
     <Dialog>
       <DialogTrigger>
-        <Button disabled={!player} variant={"secondary"}>
-          Create
+        <Button disabled={disabled} variant={"secondary"}>
+          Update
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create a game</DialogTitle>
+          <DialogTitle>Update a game</DialogTitle>
           <DialogDescription>
             Choose a name and set the end time (from now in minutes).
           </DialogDescription>
@@ -107,7 +133,7 @@ export const CreateGame = () => {
             variant={"default"}
             onClick={handleClick}
           >
-            Create
+            Update
           </Button>
         </DialogClose>
       </DialogContent>

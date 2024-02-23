@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::host::host",
       "address": "0x5871c6387d2a0e0de6e99b1d043a57f5cce44630bf30c2e1afd9615995e8616",
-      "class_hash": "0x2d795c66ddcce0fc9d2a0aebcb3108a900a1b5e160499d957518a6ef62b6ad",
+      "class_hash": "0x7c4a3f69752d1234d9b4000aa63e9c6411d32e37a3f5e2d282fa9cfb17590ea",
       "abi": [
         {
           "type": "impl",
@@ -1217,7 +1217,7 @@
     {
       "name": "stolsli::systems::manage::manage",
       "address": "0x28b0f2a243fe99d27f9ade6828975304a792c91781523957920e1f5bad4ad64",
-      "class_hash": "0x5232880ffc6f0b22f78cab35bdfd2d02648928f52383520602ad4361738fb5",
+      "class_hash": "0x715cbfbfe375a7f155c1e0842dd3f72a5e3fca61625fc668ae9595d78169c49",
       "abi": [
         {
           "type": "impl",
@@ -1338,7 +1338,7 @@
     {
       "name": "stolsli::systems::play::play",
       "address": "0x54cecff4ea996878685a1d15e6e20e58f0560661bb9e6ae2f2b47a4a3acf2e4",
-      "class_hash": "0x7acb6f4c3a18110fa4d6d6756ab558c12cc0d50f87ef742d1a971ea353d5ea9",
+      "class_hash": "0x106d8b8f5746ed626ad73f30a48b74a190468c98ed194b1f1dd3af0c4f1e712",
       "abi": [
         {
           "type": "impl",
@@ -1686,11 +1686,11 @@
         },
         {
           "name": "claimed",
-          "type": "u256",
+          "type": "felt252",
           "key": false
         }
       ],
-      "class_hash": "0x4cfa771c80966fdeeea963966083eb83af04a1ee24e9e27d0e14e3be04e09e4",
+      "class_hash": "0x2303770b0dbb000f621326a06fc963c80d6a06a7f584579972368339dce054a",
       "abi": [
         {
           "type": "impl",
@@ -1863,20 +1863,6 @@
         },
         {
           "type": "struct",
-          "name": "core::integer::u256",
-          "members": [
-            {
-              "name": "low",
-              "type": "core::integer::u128"
-            },
-            {
-              "name": "high",
-              "type": "core::integer::u128"
-            }
-          ]
-        },
-        {
-          "type": "struct",
           "name": "stolsli::models::builder::Builder",
           "members": [
             {
@@ -1905,7 +1891,7 @@
             },
             {
               "name": "claimed",
-              "type": "core::integer::u256"
+              "type": "core::felt252"
             }
           ]
         },
@@ -2497,7 +2483,7 @@
         },
         {
           "name": "prize",
-          "type": "u256",
+          "type": "felt252",
           "key": false
         },
         {
@@ -2506,7 +2492,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x31bc85e976bd61682274da6d6a0ad25851911ad7f246278aaa67a16f8c9f40",
+      "class_hash": "0x7117110c835300d4b17fca8356de1b1cfd283bba5a4ba744810abd8f8a30b6a",
       "abi": [
         {
           "type": "impl",
@@ -2679,20 +2665,6 @@
         },
         {
           "type": "struct",
-          "name": "core::integer::u256",
-          "members": [
-            {
-              "name": "low",
-              "type": "core::integer::u128"
-            },
-            {
-              "name": "high",
-              "type": "core::integer::u128"
-            }
-          ]
-        },
-        {
-          "type": "struct",
           "name": "stolsli::models::game::Game",
           "members": [
             {
@@ -2725,7 +2697,7 @@
             },
             {
               "name": "prize",
-              "type": "core::integer::u256"
+              "type": "core::felt252"
             },
             {
               "name": "score",
@@ -2778,12 +2750,22 @@
           "key": false
         },
         {
-          "name": "tile_remaining",
+          "name": "bank",
           "type": "u8",
+          "key": false
+        },
+        {
+          "name": "score",
+          "type": "u32",
+          "key": false
+        },
+        {
+          "name": "paved",
+          "type": "u32",
           "key": false
         }
       ],
-      "class_hash": "0x34f3d4b8de139fc928811e64779ae7aa5990425b86b18f07bc5e1b3138cb653",
+      "class_hash": "0x2d27bb087d80e524b436dbbdb137f81f94e6682ffdf5679e4ecc06a17b2130a",
       "abi": [
         {
           "type": "impl",
@@ -2971,8 +2953,16 @@
               "type": "core::integer::u8"
             },
             {
-              "name": "tile_remaining",
+              "name": "bank",
               "type": "core::integer::u8"
+            },
+            {
+              "name": "score",
+              "type": "core::integer::u32"
+            },
+            {
+              "name": "paved",
+              "type": "core::integer::u32"
             }
           ]
         },

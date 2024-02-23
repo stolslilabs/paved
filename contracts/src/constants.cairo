@@ -16,7 +16,7 @@ const DEFAULT_TILES_COUNT: u8 = 250;
 
 // Rewards
 
-const PRIZE_POOL: u256 = 1_000_000_000_000_000_000;
+const PRIZE_POOL: felt252 = 1_000_000_000_000_000_000;
 
 // Packing / Unpacking
 

@@ -97,11 +97,11 @@ impl WonderCount of WonderCountTrait {
     ) {
         // [Effect] Collect the character's builder
         let mut tile = store.tile(game, character.tile_id);
-        let player = store.player(character.player_id);
+        let mut player = store.player(character.player_id);
         let mut builder = store.builder(game, player.id);
         let mut team = store.team(game, builder.order.into());
         let power: u32 = character.power.into();
-        game.add_score(ref builder, ref team, player, base_points * power, ref events);
+        game.add_score(ref builder, ref team, ref player, base_points * power, ref events);
         builder.recover(ref character, ref tile);
 
         // [Effect] Update the character
@@ -112,6 +112,9 @@ impl WonderCount of WonderCountTrait {
 
         // [Effect] Update the builder
         store.set_builder(builder);
+
+        // [Effect] Update the player
+        store.set_player(player);
 
         // [Effect] Update the team
         store.set_team(team);

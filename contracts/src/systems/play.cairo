@@ -200,7 +200,7 @@ mod play {
 
             // [Check] Player exists
             let caller = get_caller_address();
-            let player = store.player(caller.into());
+            let mut player = store.player(caller.into());
             player.assert_exists();
 
             // [Check] Builder exists
@@ -218,6 +218,7 @@ mod play {
             // [Effect] Build tile
             let mut neighbors = store.neighbors(game, x, y);
             builder.build(ref tile, orientation, x, y, ref neighbors);
+            player.pave();
 
             // [Check] Character to place
             if role != Role::None && spot != Spot::None {
@@ -236,6 +237,9 @@ mod play {
 
             // [Effect] Update builder
             store.set_builder(builder);
+
+            // [Effect] Update player
+            store.set_player(player);
 
             // [Effect] Assessment
             let mut scoreds = game.assess(tile, ref store);

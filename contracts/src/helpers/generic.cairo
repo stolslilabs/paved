@@ -153,14 +153,20 @@ impl GenericCount of GenericCountTrait {
 
         if solved {
             // [Compute] Update the scores if a winner is determined
-            let player = store.player(winner);
+            let mut player = store.player(winner);
             let mut builder = store.builder(game, player.id);
             let mut team = store.team(game, builder.order.into());
             let power = powers.get(winner);
-            game.add_score(ref builder, ref team, player, score * base_points * power, ref events);
+            game
+                .add_score(
+                    ref builder, ref team, ref player, score * base_points * power, ref events
+                );
 
             // [Effect] Update the builder
             store.set_builder(builder);
+
+            // [Effect] Update the player
+            store.set_player(player);
 
             // [Effect] Update the team
             store.set_team(team);

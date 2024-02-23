@@ -25,6 +25,12 @@ export interface Tile {
   row: number;
 }
 
+interface LobbyState {
+  playerEntity: Entity | null;
+  setPlayerEntity: (playerEntity: Entity) => void;
+  resetPlayerEntity: () => void;
+}
+
 interface CameraState {
   position: [number, number, number];
   setPosition: (position: [number, number, number]) => void;
@@ -84,6 +90,12 @@ interface GameState {
   setValid: (valid: boolean) => void;
   resetValid: () => void;
 }
+
+export const useLobbyStore = create<LobbyState>()((set, get) => ({
+  playerEntity: null,
+  setPlayerEntity: (playerEntity: Entity) => set({ playerEntity }),
+  resetPlayerEntity: () => set({ playerEntity: null }),
+}));
 
 export const useCameraStore = create<CameraState>()(
   persist(
