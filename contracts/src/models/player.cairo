@@ -18,7 +18,9 @@ struct Player {
     id: felt252,
     name: felt252,
     order: u8,
-    tile_remaining: u8,
+    bank: u8,
+    score: u32,
+    paved: u32,
 }
 
 #[generate_trait]
@@ -32,7 +34,7 @@ impl PlayerImpl of PlayerTrait {
         assert(Order::None != order.into(), errors::INVALID_ORDER);
 
         // [Return] Player
-        Player { id, name, order, tile_remaining: constants::DEFAULT_TILES_COUNT, }
+        Player { id, name, order, bank: constants::DEFAULT_TILES_COUNT, score: 0, paved: 0 }
     }
 
     #[inline(always)]
@@ -40,7 +42,7 @@ impl PlayerImpl of PlayerTrait {
         // [Check] Have a tile to place
         self.assert_buyable();
         // [Effect] Add one to the tile count
-        self.tile_remaining += amount;
+        self.bank += amount;
     }
 
     #[inline(always)]
@@ -64,7 +66,13 @@ impl PlayerImpl of PlayerTrait {
         // [Check] Can draw
         self.assert_drawable();
         // [Effect] Remove tile from the tile count
-        self.tile_remaining -= 1;
+        self.bank -= 1;
+    }
+
+    #[inline(always)]
+    fn pave(ref self: Player) {
+        // [Effect] Add to the paved count
+        self.paved += 1;
     }
 }
 
@@ -82,19 +90,19 @@ impl PlayerAssert of AssertTrait {
 
     #[inline(always)]
     fn assert_buyable(self: Player) {
-        assert(constants::MAX_TILE_COUNT > self.tile_remaining.into(), errors::TOO_MUCH_TILES);
+        assert(constants::MAX_TILE_COUNT > self.bank.into(), errors::TOO_MUCH_TILES);
     }
 
     #[inline(always)]
     fn assert_drawable(self: Player) {
-        assert(0 != self.tile_remaining.into(), errors::NO_TILES_LEFT);
+        assert(0 != self.bank.into(), errors::NO_TILES_LEFT);
     }
 }
 
 impl ZeroablePlayerImpl of Zeroable<Player> {
     #[inline(always)]
     fn zero() -> Player {
-        Player { id: 0, name: 0, order: 0, tile_remaining: 0, }
+        Player { id: 0, name: 0, order: 0, bank: 0, score: 0, paved: 0 }
     }
 
     #[inline(always)]

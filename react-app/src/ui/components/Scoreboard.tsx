@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -46,7 +46,7 @@ export const Scoreboard = () => {
       [Has(Builder), HasValue(Builder, { game_id: gameId })],
       function ({ value: [builder] }: any) {
         setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.id]: builder };
+          return { ...prevTiles, [builder.player_id]: builder };
         });
       }
     );
@@ -55,7 +55,7 @@ export const Scoreboard = () => {
       [Has(Builder), HasValue(Builder, { game_id: gameId })],
       function ({ value: [builder] }: any) {
         setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.id]: builder };
+          return { ...prevTiles, [builder.player_id]: builder };
         });
       }
     );
@@ -105,8 +105,20 @@ export const PlayerRow = ({
   builder: any;
   rank: number;
 }) => {
-  const name = shortString.decodeShortString(builder?.name || "");
-  const address = `0x${builder.id.toString(16)}`;
+  const {
+    setup: {
+      clientComponents: { Player },
+    },
+  } = useDojo();
+
+  const playerKey = useMemo(
+    () => getEntityIdFromKeys([builder.player_id]) as Entity,
+    [builder]
+  );
+  const player = useComponentValue(Player, playerKey);
+
+  const name = shortString.decodeShortString(player?.name || "");
+  const address = `0x${builder.player_id.toString(16)}`;
   const backgroundColor = getColorFromAddress(address);
   return (
     <TableRow>

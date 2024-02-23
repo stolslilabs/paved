@@ -17,12 +17,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy, faSun, faMoon } from "@fortawesome/free-solid-svg-icons";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { shortString } from "starknet";
+import { useComponentValue } from "@dojoengine/react";
+import { Entity } from "@dojoengine/recs";
+import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { getOrder, getAlliance, getColorFromAddress } from "@/utils";
 import {
   defineEnterSystem,
@@ -52,7 +55,7 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
       [Has(Builder), HasValue(Builder, { game_id: gameId })],
       function ({ value: [builder] }: any) {
         setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.id]: builder };
+          return { ...prevTiles, [builder.player_id]: builder };
         });
       }
     );
@@ -61,7 +64,7 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
       [Has(Builder), HasValue(Builder, { game_id: gameId })],
       function ({ value: [builder] }: any) {
         setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.id]: builder };
+          return { ...prevTiles, [builder.player_id]: builder };
         });
       }
     );
@@ -73,7 +76,7 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
       [Has(Team), HasValue(Team, { game_id: gameId })],
       function ({ value: [team] }: any) {
         setTeams((prevTiles: any) => {
-          return { ...prevTiles, [team.id]: team };
+          return { ...prevTiles, [team.order]: team };
         });
       }
     );
@@ -82,7 +85,7 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
       [Has(Team), HasValue(Team, { game_id: gameId })],
       function ({ value: [team] }: any) {
         setTeams((prevTiles: any) => {
-          return { ...prevTiles, [team.id]: team };
+          return { ...prevTiles, [team.order]: team };
         });
       }
     );
@@ -134,13 +137,12 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
                 <TabsTrigger value="order">Orders</TabsTrigger>
               </TabsList>
               <TabsContent value="player">
-                <Table>
+                <Table className="text-xs">
                   <TableCaption>Top 16 players</TableCaption>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[100px]">Rank</TableHead>
                       <TableHead>Name</TableHead>
-                      <TableHead>Color</TableHead>
                       <TableHead>Order</TableHead>
                       <TableHead className="text-right">Score</TableHead>
                     </TableRow>
@@ -161,12 +163,11 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
                 </Table>
               </TabsContent>
               <TabsContent value="order">
-                <Table>
+                <Table className="text-xs">
                   <TableCaption>Top orders</TableCaption>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-[100px]">Rank</TableHead>
-                      <TableHead>Alliance</TableHead>
                       <TableHead>Order</TableHead>
                       <TableHead className="text-right">Score</TableHead>
                     </TableRow>
@@ -194,31 +195,40 @@ export const PlayerRow = ({
   builder: any;
   rank: number;
 }) => {
-  const name = shortString.decodeShortString(builder?.name || "");
+  const {
+    account: { account },
+    setup: {
+      clientComponents: { Player },
+    },
+  } = useDojo();
+  const playerKey = useMemo(
+    () => getEntityIdFromKeys([BigInt(builder.player_id)]) as Entity,
+    [account]
+  );
+  const player = useComponentValue(Player, playerKey);
+
+  const name = shortString.decodeShortString(player?.name || "");
   const order = getOrder(builder?.order);
-  const address = `0x${builder.id.toString(16)}`;
+  const address = `0x${builder.player_id.toString(16)}`;
   const backgroundColor = getColorFromAddress(address);
   return (
     <TableRow>
       <TableCell className="font-medium">{rank}</TableCell>
-      <TableCell>{name}</TableCell>
-      <TableCell>
+      <TableCell className="flex gap-2">
         <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
+        {name}
       </TableCell>
       <TableCell>{order}</TableCell>
       <TableCell className="text-right">{builder?.score}</TableCell>
     </TableRow>
   );
 };
+
 export const OrderRow = ({ team, rank }: { team: any; rank: number }) => {
   const order = getOrder(team.order);
-  const alliance = getAlliance(team.order);
   return (
     <TableRow>
       <TableCell className="font-medium">{rank}</TableCell>
-      <TableCell>
-        <FontAwesomeIcon icon={alliance === "LIGHT" ? faSun : faMoon} />
-      </TableCell>
       <TableCell>{order}</TableCell>
       <TableCell className="text-right">{team?.score}</TableCell>
     </TableRow>

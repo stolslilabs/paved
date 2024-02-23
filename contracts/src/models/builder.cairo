@@ -27,6 +27,7 @@ mod errors {
     const CANNOT_BUILD: felt252 = 'Builder: Cannot build';
     const NOTHING_TO_CLAIM: felt252 = 'Builder: Nothing to claim';
     const ALREADY_CLAIMED: felt252 = 'Builder: Already claimed';
+    const CAST_U256_FELT: felt252 = 'Builder: Cast u256 to felt';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -41,7 +42,7 @@ struct Builder {
     tile_id: u32,
     characters: u8,
     // Rewards
-    claimed: u256,
+    claimed: felt252,
 }
 
 #[generate_trait]
@@ -133,11 +134,11 @@ impl BuilderImpl of BuilderTrait {
     #[inline(always)]
     fn claim(ref self: Builder, game: Game, ref store: Store) -> u256 {
         // [Compute] Claimable rewards
-        let claimable: u256 = game.prize * self.score.into() / game.score.into();
+        let claimable: u256 = game.prize.into() * self.score.into() / game.score.into();
         // [Check] Remaning claimable rewards
-        assert(self.claimed < claimable, errors::ALREADY_CLAIMED);
-        let remaining = claimable - self.claimed;
-        self.claimed += remaining;
+        assert(self.claimed.into() < claimable, errors::ALREADY_CLAIMED);
+        let remaining = claimable - self.claimed.into();
+        self.claimed += remaining.try_into().expect(errors::CAST_U256_FELT);
         // [Return] Claimable rewards
         remaining
     }

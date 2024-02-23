@@ -119,10 +119,6 @@ mod host {
             // [Check] Game has not yet started
             game.assert_not_started();
 
-            // [Check] Game is not over
-            let time = get_block_timestamp();
-            game.assert_not_over(time);
-
             // [Check] Player is the host
             game.assert_host(player.id);
 
@@ -149,14 +145,11 @@ mod host {
             // [Check] Game has not yet started
             game.assert_not_started();
 
-            // [Check] Game is not over
-            let time = get_block_timestamp();
-            game.assert_not_over(time);
-
             // [Check] Player is the host
             game.assert_host(player.id);
 
             // [Effect] Set duration
+            let time = get_block_timestamp();
             game.update(time, duration);
 
             // [Effect] Store game
@@ -178,10 +171,6 @@ mod host {
 
             // [Check] Game has not yet started
             game.assert_not_started();
-
-            // [Check] Game is not over
-            let time = get_block_timestamp();
-            game.assert_not_over(time);
 
             // [Check] Builder not already exists
             let builder = store.builder(game, player.id);
@@ -219,12 +208,12 @@ mod host {
             // [Check] Game has not yet started
             game.assert_not_started();
 
-            // [Check] Game is not over
-            let time = get_block_timestamp();
-            game.assert_not_over(time);
-
             // [Check] Player is the host
             game.assert_host(player.id);
+
+            // [Check] Builder exists
+            let builder = store.builder(game, player.id);
+            builder.assert_exists();
 
             // [Check] Host's builder exists
             let builder = store.builder(game, host.id);
@@ -251,12 +240,12 @@ mod host {
             // [Check] Game has not yet started
             game.assert_not_started();
 
-            // [Check] Game is not over
-            let time = get_block_timestamp();
-            game.assert_not_over(time);
-
             // [Check] Player is not the host
             game.assert_not_host(player.id);
+
+            // [Check] Builder exists
+            let builder = store.builder(game, player.id);
+            builder.assert_exists();
 
             // [Effect] Delete builder
             let mut builder = store.builder(game, player.id);
@@ -280,10 +269,6 @@ mod host {
             // [Check] Game has not yet started
             game.assert_not_started();
 
-            // [Check] Game is not over
-            let time = get_block_timestamp();
-            game.assert_not_over(time);
-
             // [Check] Player is the host
             game.assert_host(player.id);
 
@@ -297,6 +282,7 @@ mod host {
             tile.orientation = Orientation::South.into();
 
             // [Effect] Store game
+            let time = get_block_timestamp();
             game.start(time);
             store.set_game(game);
 

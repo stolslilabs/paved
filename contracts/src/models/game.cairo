@@ -56,7 +56,7 @@ struct Game {
     tile_count: u32,
     start_time: u64,
     duration: u64,
-    prize: u256,
+    prize: felt252,
     score: u32,
 }
 
@@ -127,12 +127,13 @@ impl GameImpl of GameTrait {
         ref self: Game,
         ref builder: Builder,
         ref team: Team,
-        player: Player,
+        ref player: Player,
         score: u32,
         ref events: Array<Scored>
     ) {
         self.score += score;
         team.score += score;
+        player.score += score;
         builder.score += score;
         let event = Scored {
             game_id: self.id,

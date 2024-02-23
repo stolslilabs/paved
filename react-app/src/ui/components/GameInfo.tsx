@@ -61,16 +61,6 @@ export const GameInfo = () => {
             <TableCell>:</TableCell>
             <TableCell>Tile count</TableCell>
           </TableRow>
-          <TableRow>
-            <TableCell>{game?.tiles_cap ? tileLeft : "∞"}</TableCell>
-            <TableCell>:</TableCell>
-            <TableCell>Tile left</TableCell>
-          </TableRow>
-          <TableRow>
-            <TableCell>{game?.points_cap ? game.points_cap : "∞"}</TableCell>
-            <TableCell>:</TableCell>
-            <TableCell>Points cap</TableCell>
-          </TableRow>
         </TableBody>
       </Table>
     </div>

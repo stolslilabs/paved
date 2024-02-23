@@ -36,12 +36,12 @@ fn test_play_buy() {
     let player = store.player(context.player_id);
     systems.host.join(world, context.game_id, player.order);
     systems.host.start(world, context.game_id);
-    let tile_remaining = player.tile_remaining;
+    let bank = player.bank;
 
     // [Buy]
     systems.manage.buy(world, AMOUNT_ONE);
 
     // [Assert]
     let player = store.player(context.player_id);
-    assert(player.tile_remaining == tile_remaining + AMOUNT_ONE, 'Buy: tile_remaining');
+    assert(player.bank == bank + AMOUNT_ONE, 'Buy: bank');
 }

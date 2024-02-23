@@ -188,13 +188,17 @@ impl ForestCount of ForestCountTrait {
                 Option::Some(mut character) => {
                     // [Effect] Collect the character's builder
                     let mut tile = store.tile(game, character.tile_id);
-                    let player = store.player(character.player_id);
+                    let mut player = store.player(character.player_id);
                     let mut builder = store.builder(game, player.id);
                     let mut team = store.team(game, builder.order.into());
                     builder.recover(ref character, ref tile);
                     game
                         .add_score(
-                            ref builder, ref team, player, score * base_points / length, ref events
+                            ref builder,
+                            ref team,
+                            ref player,
+                            score * base_points / length,
+                            ref events
                         );
 
                     // [Effect] Update the character
@@ -205,6 +209,9 @@ impl ForestCount of ForestCountTrait {
 
                     // [Effect] Update the builder
                     store.set_builder(builder);
+
+                    // [Effect] Update the player
+                    store.set_player(player);
 
                     // [Effect] Update the team
                     store.set_team(team);

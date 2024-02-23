@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
   SelectGroup,
-  SelectLabel,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +31,8 @@ import {
   getOrder,
   getOrderFromName,
 } from "@/utils";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faMoon, faSun } from "@fortawesome/free-solid-svg-icons";
 
 export const Spawn = () => {
   const [playerName, setPlayerName] = useState("");
@@ -119,18 +120,18 @@ export const Spawn = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectLabel>Light Alliance</SelectLabel>
               {lightOrders.map((name) => {
                 return (
                   <SelectItem key={name} value={name}>
+                    <FontAwesomeIcon className="pr-4" icon={faSun} />
                     {name}
                   </SelectItem>
                 );
               })}
-              <SelectLabel>Dark Alliance</SelectLabel>
               {darkOrders.map((name) => {
                 return (
                   <SelectItem key={name} value={name}>
+                    <FontAwesomeIcon className="pr-4" icon={faMoon} />
                     {name}
                   </SelectItem>
                 );

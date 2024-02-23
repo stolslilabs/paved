@@ -4,9 +4,25 @@ import banner from "/assets/banner.svg";
 import { Account } from "@/ui/components/Account";
 import { PlayerCard } from "@/ui/components/PlayerCard";
 import { Spawn } from "@/ui/components/Spawn";
+import { useDojo } from "@/dojo/useDojo";
+import { getEntityIdFromKeys } from "@dojoengine/utils";
+import { Entity } from "@dojoengine/recs";
+import { useLobbyStore } from "@/store";
 
 export const Player = () => {
   const backgroundColor = useMemo(() => "#FFF8F8", []);
+  const { playerEntity } = useLobbyStore();
+
+  const {
+    account: { account },
+  } = useDojo();
+
+  const playerId = useMemo(() => {
+    if (playerEntity) {
+      return playerEntity;
+    }
+    return getEntityIdFromKeys([BigInt(account.address)]) as Entity;
+  }, [account, playerEntity]);
 
   return (
     <div className="h-screen w-[600px] flex-col" style={{ backgroundColor }}>
@@ -25,7 +41,7 @@ export const Player = () => {
           </Button>
           <Spawn />
         </div>
-        <PlayerCard />
+        <PlayerCard playerId={playerId} />
       </div>
     </div>
   );
