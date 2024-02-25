@@ -10,14 +10,8 @@ import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useComponentValue } from "@dojoengine/react";
 import { shortString } from "starknet";
-import { getColorFromAddress } from "@/utils";
-import {
-  Entity,
-  defineEnterSystem,
-  defineSystem,
-  Has,
-  HasValue,
-} from "@dojoengine/recs";
+import { getColor } from "@/utils";
+import { Entity, defineSystem, Has, HasValue } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 
 export const Scoreboard = () => {
@@ -41,15 +35,6 @@ export const Scoreboard = () => {
   const builder = useComponentValue(Builder, builderId);
 
   useEffect(() => {
-    defineEnterSystem(
-      world,
-      [Has(Builder), HasValue(Builder, { game_id: gameId })],
-      function ({ value: [builder] }: any) {
-        setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.player_id]: builder };
-        });
-      }
-    );
     defineSystem(
       world,
       [Has(Builder), HasValue(Builder, { game_id: gameId })],
@@ -119,7 +104,7 @@ export const PlayerRow = ({
 
   const name = shortString.decodeShortString(player?.name || "");
   const address = `0x${builder.player_id.toString(16)}`;
-  const backgroundColor = getColorFromAddress(address);
+  const backgroundColor = getColor(address);
   return (
     <TableRow>
       <TableCell className="font-medium">{`#${rank}`}</TableCell>

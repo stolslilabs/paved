@@ -9,12 +9,20 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faRightToBracket } from "@fortawesome/free-solid-svg-icons";
 
 import { useDojo } from "@/dojo/useDojo";
 import { useComponentValue, useEntityQuery } from "@dojoengine/react";
-import { Entity, Has, HasValue, NotValue } from "@dojoengine/recs";
+import {
+  Entity,
+  Has,
+  HasValue,
+  NotValue,
+  defineSystem,
+} from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useNavigate } from "react-router-dom";
 
@@ -22,13 +30,36 @@ import { CreateGame } from "@/ui/components/CreateGame";
 import { shortString } from "starknet";
 
 export const Games = () => {
+  const [games, setGames] = useState<{ [key: number]: typeof Game }>({});
+  const [show, setShow] = useState<boolean>(false);
   const {
     setup: {
+      world,
       clientComponents: { Game },
     },
   } = useDojo();
 
-  const games = useEntityQuery([Has(Game)]);
+  useEffect(() => {
+    defineSystem(world, [Has(Game)], function ({ value: [game] }: any) {
+      setGames((prevTiles: any) => {
+        return { ...prevTiles, [game.id]: game };
+      });
+    });
+  }, []);
+
+  const filteredGames = useMemo(() => {
+    return Object.values(games).filter((game) => {
+      if (show) {
+        return true;
+      }
+      const endtime = game.start_time + game.duration;
+      return (
+        game.start_time == 0 ||
+        game.duration == 0 ||
+        endtime > Math.floor(Date.now() / 1000)
+      );
+    });
+  }, [games, show]);
 
   const backgroundColor = useMemo(() => "#FCF7E7", []);
 
@@ -38,7 +69,20 @@ export const Games = () => {
         <h1>Game lobby</h1>
         <CreateGame />
 
-        <h4>Games</h4>
+        <div className="flex justify-between w-full">
+          <h4>Games</h4>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="show-finished"
+              checked={show}
+              onCheckedChange={() => setShow(!show)}
+            />
+            <Label className="text-xs" htmlFor="show-finished">
+              Show finished Games
+            </Label>
+          </div>
+        </div>
+
         <ScrollArea className="w-full">
           <Table>
             <TableHeader>
@@ -52,8 +96,8 @@ export const Games = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {games.map((game, index) => {
-                return <GameRow key={index} entity={game} />;
+              {Object.values(filteredGames).map((game, index) => {
+                return <GameRow key={index} game={game} />;
               })}
             </TableBody>
           </Table>
@@ -63,7 +107,7 @@ export const Games = () => {
   );
 };
 
-export const GameRow = ({ entity }: { entity: Entity }) => {
+export const GameRow = ({ game }: { game: any }) => {
   const [gameId, setGameId] = useState<number>();
   const [gameName, setGameName] = useState<string>();
   const [playerCount, setPlayerCount] = useState<number>();
@@ -72,7 +116,7 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
   const [gameDuration, setGameDuration] = useState<string>();
   const [timeLeft, setTimeLeft] = useState<string>();
   const [tilesPlayed, setTilesPlayed] = useState<number>();
-  const [display, setDisplay] = useState<boolean>(true);
+  const [over, setOver] = useState<boolean>(false);
   const {
     account: { account },
     setup: {
@@ -80,7 +124,6 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
     },
   } = useDojo();
 
-  const game = useComponentValue(Game, entity);
   const builders = useEntityQuery([
     Has(Builder),
     HasValue(Builder, { game_id: game?.id }),
@@ -99,28 +142,16 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
 
   useEffect(() => {
     if (game) {
-      const endtime = game.start_time + game.duration;
-      if (
-        game.start_time != 0 &&
-        game.duration != 0 &&
-        endtime < Math.floor(Date.now() / 1000)
-      ) {
-        // TODO: Remove if we want to hide finished games
-        // setDisplay(true);
-        setGameId(game.id);
-        setGameName(shortString.decodeShortString(game.name));
-        setStartTime(game.start_time);
-        setDuration(game.duration);
-        setTilesPlayed(game.tile_count);
-        setDisplay(true);
-      } else {
-        setGameId(game.id);
-        setGameName(shortString.decodeShortString(game.name));
-        setStartTime(game.start_time);
-        setDuration(game.duration);
-        setTilesPlayed(game.tile_count);
-        setDisplay(true);
-      }
+      setGameId(game.id);
+      setGameName(shortString.decodeShortString(game.name));
+      setStartTime(game.start_time);
+      setDuration(game.duration);
+      setTilesPlayed(game.tile_count);
+      setOver(
+        game.start_time !== 0 &&
+          game.duration !== 0 &&
+          game.start_time + game.duration < Math.floor(Date.now() / 1000)
+      );
     }
     setPlayerCount(builders?.length || 0);
   }, [game, builders]);
@@ -199,7 +230,7 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
     };
   }, [navigate]);
 
-  if (!game || !display) return null;
+  if (!game) return null;
 
   return (
     <TableRow className="text-xs">
@@ -218,7 +249,11 @@ export const GameRow = ({ entity }: { entity: Entity }) => {
           onClick={() => setGameQueryParam(game.id || 0)}
         >
           <FontAwesomeIcon
-            icon={builder || game.start_time === 0 ? faRightToBracket : faEye}
+            icon={
+              (builder || game.start_time === 0) && !over
+                ? faRightToBracket
+                : faEye
+            }
           />
         </Button>
       </TableCell>

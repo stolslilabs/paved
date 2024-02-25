@@ -8,8 +8,8 @@ import { ResetCamera } from "../components/ResetCamera";
 
 export const Hand = () => {
   return (
-    <div className="absolute right-6 bottom-6 z-30 w-64 h-64">
-      <div className="flex top-3 right-0 absolute justify-between space-x-1">
+    <div className="absolute right-6 bottom-6 z-30 w-64 h-80">
+      <div className="flex top-0 right-0 absolute justify-between space-x-1">
         <ResetCamera />
         <Cancel />
         <Confirm />

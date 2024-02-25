@@ -31,8 +31,8 @@ export const Confirm = () => {
   const {
     account: { account },
     setup: {
-      client: { play },
       clientComponents: { Builder },
+      systemCalls: { build },
     },
   } = useDojo();
 
@@ -50,7 +50,7 @@ export const Confirm = () => {
   const handleClick = () => {
     if (builder?.tile_id) {
       try {
-        play.build({
+        build({
           account: account,
           game_id: gameId,
           tile_id: builder.tile_id,

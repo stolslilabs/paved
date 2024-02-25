@@ -410,7 +410,7 @@ export const getColorFromCharacter = (character: number) => {
   }
 };
 
-export const getColorFromAddress = (str: string) => {
+export const getColor = (str: string) => {
   let hash = 0;
   str.split("").forEach((char) => {
     hash = char.charCodeAt(0) + ((hash << 5) - hash);

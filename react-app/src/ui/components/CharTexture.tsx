@@ -5,30 +5,37 @@ import { useComponentValue } from "@dojoengine/react";
 import { Entity } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useMemo, useRef } from "react";
-import { getCharacterImage, getColorFromAddress } from "../../utils";
+import { getCharacterImage, getColor, getOrder } from "../../utils";
 import { useFrame } from "@react-three/fiber";
 
 // Assets
-
-import lord from "/assets/characters/lord.png";
 
 export const loader = new THREE.TextureLoader();
 
 export const CharTexture = ({ entity, radius, height, size }: any) => {
   const {
     setup: {
-      clientComponents: { Character, Tile },
+      clientComponents: { Character, Tile, Builder },
     },
   } = useDojo();
   const meshRef = useRef<any>();
 
   const character = useComponentValue(Character, entity);
 
-  const tileEntity = getEntityIdFromKeys([
-    BigInt(character?.game_id),
-    BigInt(character?.tile_id),
-  ]) as Entity;
+  const builderEntity = useMemo(() => {
+    return getEntityIdFromKeys([
+      BigInt(character?.game_id),
+      BigInt(character?.player_id),
+    ]) as Entity;
+  }, [character]);
+  const builder = useComponentValue(Builder, builderEntity);
 
+  const tileEntity = useMemo(() => {
+    return getEntityIdFromKeys([
+      BigInt(character?.game_id),
+      BigInt(character?.tile_id),
+    ]) as Entity;
+  }, [character]);
   const tile = useComponentValue(Tile, tileEntity);
 
   const position = useMemo(() => {
@@ -41,10 +48,14 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
     return position;
   }, [tile]);
 
-  const color = useMemo(() => {
-    const address = `0x${character?.builder_id?.toString(16)}`;
-    return getColorFromAddress(address);
+  const charColor = useMemo(() => {
+    const address = `0x${character?.player_id?.toString(16)}`;
+    return getColor(address);
   }, [character]);
+
+  const orderColor = useMemo(() => {
+    return getColor(`${getOrder(builder?.order)}`);
+  }, [builder]);
 
   const image = useMemo(() => {
     return getCharacterImage(character?.index);
@@ -74,7 +85,7 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
         position={[position.x, position.y, 0.1 / 2]}
         rotation={[Math.PI / 2, 0, 0]}
       >
-        <meshStandardMaterial color={color} />
+        <meshStandardMaterial color={charColor} />
         <cylinderGeometry args={[radius, radius, 0.1, 32]} />
       </mesh>
       {/* Rod */}
@@ -91,12 +102,16 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
         ref={meshRef}
       >
         <mesh>
-          <meshStandardMaterial color={color} />
-          <cylinderGeometry args={[radius * 1.2, radius * 1.2, 0.1, 32]} />
+          <meshStandardMaterial color={orderColor} />
+          <cylinderGeometry args={[radius * 1.4, radius * 1.4, 0.1, 32]} />
+        </mesh>
+        <mesh>
+          <meshStandardMaterial color={charColor} />
+          <cylinderGeometry args={[radius * 1.2, radius * 1.2, 0.2, 32]} />
         </mesh>
         <mesh rotation={[0, Math.PI / 2, 0]}>
           <meshStandardMaterial map={loader.load(image)} />
-          <cylinderGeometry args={[radius, radius, 0.15, 32]} />
+          <cylinderGeometry args={[radius, radius, 0.3, 32]} />
         </mesh>
       </group>
     </>
