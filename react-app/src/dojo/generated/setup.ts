@@ -69,8 +69,6 @@ export async function setup({ ...config }: Config) {
     contractEvents,
     systemCalls: createSystemCalls(
       { client },
-      contractComponents,
-      clientComponents
     ),
     config,
     world,
