@@ -12,7 +12,7 @@ import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useEntityQuery, useComponentValue } from "@dojoengine/react";
 import { shortString } from "starknet";
-import { getColorFromAddress } from "@/utils";
+import { getColor } from "@/utils";
 import { Has, HasValue, Entity } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useMemo, useState, useEffect } from "react";
@@ -76,7 +76,7 @@ export const PlayerRow = ({
 }) => {
   const name = shortString.decodeShortString(builder?.name || "");
   const address = `0x${builder.id.toString(16)}`;
-  const backgroundColor = getColorFromAddress(address);
+  const backgroundColor = getColor(address);
 
   return (
     <TableRow>

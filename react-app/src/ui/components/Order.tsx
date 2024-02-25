@@ -4,7 +4,7 @@ import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { useQueryParams } from "../../hooks/useQueryParams";
-import { getOrder, getColorFromAddress } from "../../utils";
+import { getOrder, getColor } from "../../utils";
 
 export const Order = () => {
   const { gameId } = useQueryParams();
@@ -23,7 +23,7 @@ export const Order = () => {
   const builder = useComponentValue(Builder, builderId);
 
   const color = useMemo(() => {
-    return getColorFromAddress(account.address);
+    return getColor(account.address);
   }, [account]);
 
   return (

@@ -15,8 +15,8 @@ export const Discard = (props: TProps) => {
   const {
     account: { account },
     setup: {
-      client: { play },
       clientComponents: { Builder },
+      systemCalls: { discard },
     },
   } = useDojo();
 
@@ -36,7 +36,7 @@ export const Discard = (props: TProps) => {
       variant={"default"}
       size={"icon"}
       onClick={() =>
-        play.discard({
+        discard({
           account: account,
           game_id: gameId,
         })

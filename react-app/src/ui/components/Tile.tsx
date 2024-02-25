@@ -80,7 +80,7 @@ export const Tile = () => {
   const spots = ["NW", "W", "SW", "N", "C", "S", "NE", "E", "SE"];
 
   return tile ? (
-    <div className="w-48 h-48 border-2 border-black cursor-pointer bg-white bottom-0 right-0 absolute">
+    <div className="w-48 h-48 border-2 border-black cursor-pointer bg-white bottom-16 right-0 absolute">
       <div
         className="w-full h-full absolute"
         style={{
@@ -97,7 +97,7 @@ export const Tile = () => {
     </div>
   ) : (
     <div
-      className="w-48 h-48 border-2 border-black bottom-0 right-0 absolute cursor-pointer flex justify-center hover:bg-white/30"
+      className="w-48 h-48 border-2 border-black bottom-16 right-0 absolute cursor-pointer flex justify-center hover:bg-white/30"
       onClick={handleDrawClick}
     >
       <FontAwesomeIcon className="self-center h-12" icon={faEye} />

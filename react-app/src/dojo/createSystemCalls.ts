@@ -7,18 +7,7 @@ import * as SystemTypes from "./generated/types";
 
 export type SystemCalls = ReturnType<typeof createSystemCalls>;
 
-export function createSystemCalls(
-  { client }: { client: IWorld },
-  contractComponents: any,
-  {
-    Game,
-    Builder,
-    Tile,
-    TilePosition,
-    Character,
-    CharacterPosition,
-  }: ClientComponents
-) {
+export function createSystemCalls({ client }: { client: IWorld }) {
   const extractedMessage = (message: string) => {
     return message.match(/\('([^']+)'\)/)?.[1];
   };

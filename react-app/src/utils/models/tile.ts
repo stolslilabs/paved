@@ -8,7 +8,7 @@ import { Move } from "../types/move";
 
 export type RawTile = {
   id: number;
-  builder_id: string;
+  player_id: string;
   plan: number;
   orientation: number;
   x: number;
@@ -46,7 +46,7 @@ export class Tile {
   public static from(tile: RawTile): Tile {
     return new Tile(
       tile.id,
-      tile.builder_id,
+      tile.player_id,
       tile.plan,
       tile.orientation,
       tile.x,

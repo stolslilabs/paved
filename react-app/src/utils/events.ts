@@ -1,6 +1,6 @@
 import { BuiltLog, ScoredLog, Log } from "@/hooks/useLogs";
 import { shortString } from "starknet";
-import { getColorFromAddress } from "@/utils";
+import { getColor } from "@/utils";
 
 export type Event = {
   id: string;
@@ -17,7 +17,7 @@ export const parseBuiltEvent = (event: Event): BuiltLog => {
   const tileY = parseInt(event.data[2]);
   const builderId = event.data[3];
   const builderName = shortString.decodeShortString(event.data[4]);
-  const builderColor = getColorFromAddress(builderId);
+  const builderColor = getColor(builderId);
   const timestamp = new Date(event.createdAt);
 
   return {
@@ -52,7 +52,7 @@ export const parseScoredEvent = (event: Event): ScoredLog => {
   const tileY = parseInt(event.data[2]);
   const builderId = event.data[3];
   const builderName = shortString.decodeShortString(event.data[4]);
-  const builderColor = getColorFromAddress(builderId);
+  const builderColor = getColor(builderId);
   const orderId = parseInt(event.data[5]);
   const score = parseInt(event.data[6]);
   const timestamp = new Date(event.createdAt);
