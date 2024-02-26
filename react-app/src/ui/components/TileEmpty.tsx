@@ -234,11 +234,17 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
           position={[position.x, position.y, 0]}
           geometry={squareGeometry}
         >
+          <meshStandardMaterial attach="material-0" color={"gray"} />
+          <meshStandardMaterial attach="material-1" color={"gray"} />
+          <meshStandardMaterial attach="material-2" color={"gray"} />
+          <meshStandardMaterial attach="material-3" color={"gray"} />
           <meshStandardMaterial
+            attach="material-4"
             emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
-            emissiveIntensity={isValid ? (isIdle ? 0.5 : 0.4) : 0.4}
+            emissiveIntensity={isValid ? (isIdle ? 0.5 : 0.2) : 0.4}
             map={texture}
           />
+          <meshStandardMaterial attach="material-5" color={"gray"} />
         </mesh>
       )}
       {!texture && (

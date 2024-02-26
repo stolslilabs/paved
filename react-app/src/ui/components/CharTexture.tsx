@@ -86,14 +86,14 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
         rotation={[Math.PI / 2, 0, 0]}
       >
         <meshStandardMaterial color={orderColor} />
-        <cylinderGeometry args={[radius, radius, 0.15, 32]} />
+        <cylinderGeometry args={[radius, radius, 0.12, 32]} />
       </mesh>
       <mesh
         position={[position.x, position.y, 0.1 / 2]}
         rotation={[Math.PI / 2, 0, 0]}
       >
         <meshStandardMaterial color={charColor} />
-        <cylinderGeometry args={[radius * 0.8, radius * 0.8, 0.2, 32]} />
+        <cylinderGeometry args={[radius * 0.8, radius * 0.8, 0.14, 32]} />
       </mesh>
       {/* Rod */}
       <mesh

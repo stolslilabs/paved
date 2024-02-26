@@ -38,12 +38,13 @@ export const TileTexture = ({ tile, size }: any) => {
   return (
     <>
       {texture && (
-        <mesh
-          ref={meshRef}
-          position={[position.x, position.y, 0]}
-          geometry={squareGeometry}
-        >
-          <meshStandardMaterial map={texture} />
+        <mesh position={[position.x, position.y, 0]} geometry={squareGeometry}>
+          <meshStandardMaterial attach="material-0" color={"gray"} />
+          <meshStandardMaterial attach="material-1" color={"gray"} />
+          <meshStandardMaterial attach="material-2" color={"gray"} />
+          <meshStandardMaterial attach="material-3" color={"gray"} />
+          <meshStandardMaterial attach="material-4" map={texture} />
+          <meshStandardMaterial attach="material-5" color={"gray"} />
         </mesh>
       )}
     </>
