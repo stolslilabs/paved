@@ -116,7 +116,7 @@ export const Spawn = () => {
           value={orderName}
         >
           <SelectTrigger disabled={!!player}>
-            <SelectValue placeholder="Select order" />
+            <SelectValue placeholder="Select default order" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>

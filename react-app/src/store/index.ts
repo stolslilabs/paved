@@ -115,7 +115,7 @@ export const useCameraStore = create<CameraState>()(
       near: CAMERA_SETTINGS.near,
       setNear: (near) => set({ near }),
       resetNear: () => set({ near: CAMERA_SETTINGS.near }),
-      far: 3,
+      far: 10,
       setFar: (far) => set({ far }),
       resetFar: () => set({ far: CAMERA_SETTINGS.far }),
       reset: CAMERA_SETTINGS.reset,
