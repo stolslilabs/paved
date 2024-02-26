@@ -6,12 +6,13 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import { useGameStore } from "@/store";
 import { getImage, offset, other_offset } from "@/utils";
 import { checkCompatibility } from "@/utils/layout";
-import { createSquareGeometry, getSquarePosition, loader } from "./TileTexture";
+import { createSquareGeometry, getSquarePosition } from "./TileTexture";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { defineSystem, Has, HasValue } from "@dojoengine/recs";
 import { RawTile } from "@/utils/models/tile";
 import { checkFeatureIdle } from "@/utils/helpers/conflict";
-import { useMultiClick } from "@/hooks/useMultiClick";
+
+const loader = new THREE.TextureLoader();
 
 export const TileEmpty = ({ col, row, size, tiles }: any) => {
   const { gameId } = useQueryParams();
@@ -235,7 +236,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
         >
           <meshStandardMaterial
             emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
-            emissiveIntensity={0.3}
+            emissiveIntensity={isValid ? (isIdle ? 0.5 : 0.4) : 0.4}
             map={texture}
           />
         </mesh>

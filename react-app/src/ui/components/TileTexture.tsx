@@ -43,7 +43,7 @@ export const TileTexture = ({ tile, size }: any) => {
           position={[position.x, position.y, 0]}
           geometry={squareGeometry}
         >
-          <meshStandardMaterial map={texture} transparent={true} opacity={1} />
+          <meshStandardMaterial map={texture} />
         </mesh>
       )}
     </>

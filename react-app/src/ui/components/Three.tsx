@@ -23,7 +23,7 @@ export const ThreeGrid = () => {
         <pointLight
           rotation={[Math.PI / -2, 0, 0]}
           position={[10, 20, 10]}
-          intensity={20}
+          intensity={500}
         />
         <mesh rotation={[Math.PI / -2, 0, 0]}>
           <Bounds fit clip observe margin={1}>
