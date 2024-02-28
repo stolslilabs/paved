@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useDojo } from "@/dojo/useDojo";
-import { defineSystem, Has, HasValue, NotValue } from "@dojoengine/recs";
+import {
+  defineEnterSystem,
+  defineSystem,
+  Has,
+  HasValue,
+  NotValue,
+} from "@dojoengine/recs";
 import { TileTexture } from "./TileTexture";
 import { TileEmpty } from "./TileEmpty";
 import { useQueryParams } from "../../hooks/useQueryParams";
@@ -43,6 +49,54 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
   );
 
   useEffect(() => {
+    defineEnterSystem(
+      world,
+      [
+        Has(Tile),
+        HasValue(Tile, { game_id: gameId }),
+        NotValue(Tile, { orientation: 0 }),
+      ],
+      ({ value: [tile] }: typeof Tile) => {
+        // Update the tiles
+        setTiles((prevTiles: typeof Tile) => {
+          const tileKey = `${tile.game_id}-${tile.id}`;
+          const positionKey = `${tile.game_id}-${tile.x}-${tile.y}`;
+          return { ...prevTiles, [tileKey]: tile, [positionKey]: tile };
+        });
+
+        // Create a new item for the tile
+        const key = `${tile.game_id}-${tile.x}-${tile.y}`;
+        const item: Item = { tile: tile, empty: false };
+        const newItems: Items = { [key]: item };
+
+        // Create new items for the surrounding tiles
+        offsets.forEach((offset) => {
+          const col = tile.x + offset.x;
+          const row = tile.y + offset.y;
+          const position: Position = { col: col, row: row };
+          const key = `${tile.game_id}-${col}-${row}`;
+
+          if (!Object.keys(items).includes(key)) {
+            const item: Item = { tile: position, empty: true };
+            newItems[key] = item;
+          }
+        });
+
+        // Merge the new items with the previous items with priority to not empty items
+        setItems((prevItems) => {
+          const updatedItems = { ...prevItems };
+          Object.keys(newItems).forEach((key) => {
+            if (
+              !Object.keys(updatedItems).includes(key) ||
+              !newItems[key].empty
+            ) {
+              updatedItems[key] = newItems[key];
+            }
+          });
+          return updatedItems;
+        });
+      }
+    );
     defineSystem(
       world,
       [

@@ -17,7 +17,12 @@ import { useDojo } from "@/dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
 import { shortenHex } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
-import { defineSystem, Has, HasValue } from "@dojoengine/recs";
+import {
+  defineEnterSystem,
+  defineSystem,
+  Has,
+  HasValue,
+} from "@dojoengine/recs";
 import { useQueryParams } from "@/hooks/useQueryParams";
 
 import { shortString } from "starknet";
@@ -55,6 +60,21 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   const { data } = useStarkProfile({ address });
 
   useEffect(() => {
+    defineEnterSystem(
+      world,
+      [Has(Builder), HasValue(Builder, { player_id: player?.id })],
+      function ({ value: [builder] }: any) {
+        setBuilders((prev: any) => {
+          const gameKey = builder.game_id;
+          const playerKey = builder.player_id;
+          if (prev[playerKey] === undefined) {
+            prev[playerKey] = {};
+          }
+          prev[playerKey][gameKey] = builder;
+          return { ...prev };
+        });
+      }
+    );
     defineSystem(
       world,
       [Has(Builder), HasValue(Builder, { player_id: player?.id })],
@@ -73,6 +93,15 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   }, [gameId, player]);
 
   useEffect(() => {
+    defineEnterSystem(
+      world,
+      [Has(Player)],
+      function ({ value: [player] }: any) {
+        setPlayers((prev: any) => {
+          return { ...prev, [`${player.id}`]: player };
+        });
+      }
+    );
     defineSystem(world, [Has(Player)], function ({ value: [player] }: any) {
       setPlayers((prev: any) => {
         return { ...prev, [`${player.id}`]: player };

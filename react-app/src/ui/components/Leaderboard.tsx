@@ -27,7 +27,12 @@ import { useComponentValue } from "@dojoengine/react";
 import { Entity } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { getOrder, getColor } from "@/utils";
-import { defineSystem, Has, HasValue } from "@dojoengine/recs";
+import {
+  defineEnterSystem,
+  defineSystem,
+  Has,
+  HasValue,
+} from "@dojoengine/recs";
 
 export const Leaderboard = ({ show }: { show: boolean }) => {
   const { gameId } = useQueryParams();
@@ -45,6 +50,15 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
   } = useDojo();
 
   useEffect(() => {
+    defineEnterSystem(
+      world,
+      [Has(Builder), HasValue(Builder, { game_id: gameId })],
+      function ({ value: [builder] }: any) {
+        setBuilders((prevTiles: any) => {
+          return { ...prevTiles, [builder.player_id]: builder };
+        });
+      }
+    );
     defineSystem(
       world,
       [Has(Builder), HasValue(Builder, { game_id: gameId })],
@@ -57,6 +71,15 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
   }, []);
 
   useEffect(() => {
+    defineEnterSystem(
+      world,
+      [Has(Team), HasValue(Team, { game_id: gameId })],
+      function ({ value: [team] }: any) {
+        setTeams((prevTiles: any) => {
+          return { ...prevTiles, [team.order]: team };
+        });
+      }
+    );
     defineSystem(
       world,
       [Has(Team), HasValue(Team, { game_id: gameId })],

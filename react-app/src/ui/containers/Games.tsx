@@ -21,6 +21,7 @@ import {
   Has,
   HasValue,
   NotValue,
+  defineEnterSystem,
   defineSystem,
 } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
@@ -40,6 +41,11 @@ export const Games = () => {
   } = useDojo();
 
   useEffect(() => {
+    defineEnterSystem(world, [Has(Game)], function ({ value: [game] }: any) {
+      setGames((prevTiles: any) => {
+        return { ...prevTiles, [game.id]: game };
+      });
+    });
     defineSystem(world, [Has(Game)], function ({ value: [game] }: any) {
       setGames((prevTiles: any) => {
         return { ...prevTiles, [game.id]: game };
