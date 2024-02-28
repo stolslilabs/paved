@@ -81,9 +81,9 @@ mod setup {
 
         // [Setup] Context
         set_contract_address(ANYONE());
-        systems.manage.create(world, ANYONE_NAME, ORDER_ID);
+        systems.manage.create(world, ANYONE_NAME, ORDER_ID, ANYONE());
         set_contract_address(PLAYER());
-        systems.manage.create(world, PLAYER_NAME, ORDER_ID);
+        systems.manage.create(world, PLAYER_NAME, ORDER_ID, PLAYER());
         let duration: u64 = 0;
         let game_id = systems.host.create(world, GAME_NAME, duration);
         let context = Context {

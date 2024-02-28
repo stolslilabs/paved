@@ -25,6 +25,7 @@ import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { useComponentValue } from "@dojoengine/react";
 import { useMemo, useEffect } from "react";
+import { useAccount } from "@starknet-react/core";
 import {
   getDarkOrders,
   getLightOrders,
@@ -35,6 +36,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMoon, faSun } from "@fortawesome/free-solid-svg-icons";
 
 export const Spawn = () => {
+  const { address } = useAccount();
   const [playerName, setPlayerName] = useState("");
   const [orderName, setOrderName] = useState("");
   const [order, setOrder] = useState(1);
@@ -78,17 +80,20 @@ export const Spawn = () => {
   }, [orderName]);
 
   const handleClick = () => {
-    create_player({
-      account: account,
-      name: shortString.encodeShortString(playerName),
-      order: order,
-    });
+    if (address && account) {
+      create_player({
+        account: account,
+        name: shortString.encodeShortString(playerName),
+        order: order,
+        master: address,
+      });
+    }
   };
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button disabled={!!player} variant={"secondary"}>
+        <Button disabled={!!player || !address} variant={"secondary"}>
           Spawn
         </Button>
       </DialogTrigger>

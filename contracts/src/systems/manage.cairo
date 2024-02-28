@@ -8,7 +8,13 @@ use dojo::world::IWorldDispatcher;
 
 #[starknet::interface]
 trait IManage<TContractState> {
-    fn create(self: @TContractState, world: IWorldDispatcher, name: felt252, order: u8);
+    fn create(
+        self: @TContractState,
+        world: IWorldDispatcher,
+        name: felt252,
+        order: u8,
+        master: ContractAddress
+    );
     fn rename(self: @TContractState, world: IWorldDispatcher, name: felt252);
     fn reorder(self: @TContractState, world: IWorldDispatcher, order: u8);
     fn buy(self: @TContractState, world: IWorldDispatcher, amount: u8);
@@ -50,7 +56,13 @@ mod manage {
 
     #[abi(embed_v0)]
     impl ManageImpl of IManage<ContractState> {
-        fn create(self: @ContractState, world: IWorldDispatcher, name: felt252, order: u8) {
+        fn create(
+            self: @ContractState,
+            world: IWorldDispatcher,
+            name: felt252,
+            order: u8,
+            master: ContractAddress
+        ) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -60,7 +72,7 @@ mod manage {
             player.assert_not_exists();
 
             // [Effect] Create a new player
-            let player = PlayerImpl::new(caller.into(), name, order);
+            let player = PlayerImpl::new(caller.into(), name, order, master.into());
             store.set_player(player);
         }
 
