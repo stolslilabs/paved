@@ -6,6 +6,7 @@ import {
   getRole,
 } from "../../utils";
 import { useGameStore } from "../../store";
+import { Button } from "@/components/ui/button";
 
 interface TProps {
   index: number;
@@ -26,13 +27,15 @@ export const Character = (props: TProps) => {
   }, [index]);
 
   const className = useMemo(() => {
-    return `h-12 w-12 flex justify-center items-center border-2 border-black
+    return `flex justify-center items-center border-2 rounded-xl
     ${enable ? "cursor-pointer" : "cursor-not-allowed opacity-25"}`;
   }, [selected, enable]);
 
   const backgroundColor = useMemo(() => {
-    return selected ? "#BED0D2" : "#688080";
+    return selected ? "#688080" : "#BFD1D5";
   }, [selected]);
+
+  const borderColor = useMemo(() => "#746064", []);
 
   const handleClick = () => {
     if (!enable) return;
@@ -44,12 +47,19 @@ export const Character = (props: TProps) => {
   };
 
   return (
-    <div
+    <Button
       className={className}
-      style={{ backgroundColor }}
+      variant={"secondary"}
+      size={"character"}
+      style={{ backgroundColor, borderColor }}
       onClick={handleClick}
     >
-      <img src={image} alt={getRole(index)} />
-    </div>
+      <img
+        draggable={false}
+        className="h-16"
+        src={image}
+        alt={getRole(index)}
+      />
+    </Button>
   );
 };
