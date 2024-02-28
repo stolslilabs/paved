@@ -11,8 +11,8 @@ export function Connection() {
   const { isConnected } = useAccount();
 
   const connectWallet = async () => {
-    // @ts-ignore
     const { starknetkitConnectModal } = useStarknetkitConnectModal({
+      // @ts-ignore
       connectors: connectors,
     });
     const { connector } = await starknetkitConnectModal();
