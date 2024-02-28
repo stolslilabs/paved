@@ -3,7 +3,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -37,7 +36,6 @@ export const Log = ({ show }: { show: boolean }) => {
       <SheetContent className="flex flex-col">
         <SheetHeader>
           <SheetTitle>Game logs</SheetTitle>
-          <SheetDescription>List of the game logs</SheetDescription>
         </SheetHeader>
         <ScrollArea className="grow">
           {logs &&
