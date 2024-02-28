@@ -28,11 +28,9 @@ import { getColor } from "@/utils";
 
 export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   const { gameId } = useQueryParams();
-  const { address } = useAccount();
-  const { data } = useStarkProfile({ address });
-  const [builders, setBuilders] = useState<{ [key: string]: typeof Builder }>(
-    {}
-  );
+  const [builders, setBuilders] = useState<{
+    [playerKey: string]: { [gameKey: string]: typeof Builder };
+  }>({});
   const [players, setPlayers] = useState<{ [key: string]: typeof Player }>({});
   const [rank, setRank] = useState<number>();
   const [score, setScore] = useState<number>();
@@ -53,16 +51,22 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   } = useDojo();
   const player = useComponentValue(Player, playerId);
 
+  const address = useMemo(() => `0x${player?.master.toString(16)}`, [player]);
+  const { data } = useStarkProfile({ address });
+
   useEffect(() => {
     defineSystem(
       world,
       [Has(Builder), HasValue(Builder, { player_id: player?.id })],
       function ({ value: [builder] }: any) {
         setBuilders((prev: any) => {
-          return {
-            ...prev,
-            [`${builder.game_id}-${builder.player_id}`]: builder,
-          };
+          const gameKey = builder.game_id;
+          const playerKey = builder.player_id;
+          if (prev[playerKey] === undefined) {
+            prev[playerKey] = {};
+          }
+          prev[playerKey][gameKey] = builder;
+          return { ...prev };
         });
       }
     );
@@ -78,12 +82,12 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
 
   useEffect(() => {
     if (address && account && player) {
-      const totalClaimed = Object.values(builders).reduce(
+      const totalClaimed = Object.values(builders[player.id] || {}).reduce(
         (sum, builder) => sum + builder.claimed,
         BigInt(0)
       );
       setScore(player.score);
-      setGames(Object.values(builders).length);
+      setGames(Object.values(builders[player.id] || {}).length);
       setWon(parseFloat(`${Number(totalClaimed) / 1e18}`).toFixed(2));
       setPaved(player.paved);
       setBank(player.bank);
@@ -107,7 +111,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
       const avatar = await getAvatar(data);
       setAvatar(avatar);
     })();
-  }, [data, account]);
+  }, [data, account, address]);
 
   useEffect(() => {
     if (players && score !== undefined) {
@@ -148,7 +152,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
         <CardHeader className="flex flex-col w-2/5 items-center justify-around gap-2">
           <PlayerAvatar
             avatar={identifier ? avatar : undefined}
-            address={account.address}
+            address={`0x${player?.id.toString(16)}`}
           />
           <PlayerId identifier={identifier} />
           <PlayerName playerName={playerName} />

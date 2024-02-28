@@ -4,12 +4,10 @@ import { Header } from "@/ui/containers/Header";
 
 export const GameLobby = () => {
   return (
-    <div className="flex flex-col h-screen">
+    <div className="h-screen flex grow">
       <Header />
-      <div className="flex grow">
-        <Player />
-        <Games />
-      </div>
+      <Player />
+      <Games />
     </div>
   );
 };

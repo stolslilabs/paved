@@ -41,6 +41,7 @@ export interface StartGame extends Signer {
 export interface CreatePlayer extends Signer {
   name: string;
   order: number;
+  master: string;
 }
 
 export interface RenamePlayer extends Signer {

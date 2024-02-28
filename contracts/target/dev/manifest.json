@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::host::host",
       "address": "0x5871c6387d2a0e0de6e99b1d043a57f5cce44630bf30c2e1afd9615995e8616",
-      "class_hash": "0x7c4a3f69752d1234d9b4000aa63e9c6411d32e37a3f5e2d282fa9cfb17590ea",
+      "class_hash": "0x41b3dae7f7b354503aad7d99f9e280c1d2847c6a07b361ca146c10efa55cf35",
       "abi": [
         {
           "type": "impl",
@@ -1217,7 +1217,7 @@
     {
       "name": "stolsli::systems::manage::manage",
       "address": "0x28b0f2a243fe99d27f9ade6828975304a792c91781523957920e1f5bad4ad64",
-      "class_hash": "0x715cbfbfe375a7f155c1e0842dd3f72a5e3fca61625fc668ae9595d78169c49",
+      "class_hash": "0x48275e9af4c81733881050310431d6c627cc227eeae272b0ce0b0cf1fdebe8c",
       "abi": [
         {
           "type": "impl",
@@ -1253,6 +1253,10 @@
                 {
                   "name": "order",
                   "type": "core::integer::u8"
+                },
+                {
+                  "name": "master",
+                  "type": "core::starknet::contract_address::ContractAddress"
                 }
               ],
               "outputs": [],
@@ -1338,7 +1342,7 @@
     {
       "name": "stolsli::systems::play::play",
       "address": "0x54cecff4ea996878685a1d15e6e20e58f0560661bb9e6ae2f2b47a4a3acf2e4",
-      "class_hash": "0x106d8b8f5746ed626ad73f30a48b74a190468c98ed194b1f1dd3af0c4f1e712",
+      "class_hash": "0x12abedf6fc1902a1e999f6ae84b778608e2fd93f37ad7cd05cd9b049381cc8a",
       "abi": [
         {
           "type": "impl",
@@ -2763,9 +2767,14 @@
           "name": "paved",
           "type": "u32",
           "key": false
+        },
+        {
+          "name": "master",
+          "type": "felt252",
+          "key": false
         }
       ],
-      "class_hash": "0x2d27bb087d80e524b436dbbdb137f81f94e6682ffdf5679e4ecc06a17b2130a",
+      "class_hash": "0x4e794dfea9af5fec7555f17d86c8f832a9df6349c82dfd0ab7ffcae6c6d1659",
       "abi": [
         {
           "type": "impl",
@@ -2963,6 +2972,10 @@
             {
               "name": "paved",
               "type": "core::integer::u32"
+            },
+            {
+              "name": "master",
+              "type": "core::felt252"
             }
           ]
         },

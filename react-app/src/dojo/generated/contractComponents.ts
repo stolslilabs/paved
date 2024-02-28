@@ -108,11 +108,12 @@ export function defineContractComponents(world: World) {
           bank: RecsType.Number,
           score: RecsType.Number,
           paved: RecsType.Number,
+          master: RecsType.BigInt,
         },
         {
           metadata: {
             name: "Player",
-            types: ["felt252", "felt252", "u8", "u8", "u32", "u32"],
+            types: ["felt252", "felt252", "u8", "u8", "u32", "u32", "felt252"],
             customTypes: [],
           },
         }

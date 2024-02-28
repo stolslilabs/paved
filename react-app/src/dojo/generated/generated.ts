@@ -124,12 +124,13 @@ export async function setupWorld(provider: DojoProvider) {
   function manage() {
     const contract_name = "manage";
 
-    const create = async ({ account, name, order }: CreatePlayer) => {
+    const create = async ({ account, name, order, master }: CreatePlayer) => {
       try {
         return await provider.execute(account, contract_name, "create", [
           provider.getWorldAddress(),
           name,
           order,
+          master,
         ]);
       } catch (error) {
         console.error("Error executing initialize:", error);
