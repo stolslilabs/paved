@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useAccount, useStarkProfile } from "@starknet-react/core";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -10,6 +11,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import BoringAvatar from "boring-avatars";
 
 import { useDojo } from "@/dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
@@ -20,11 +22,14 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 
 import { shortString } from "starknet";
 
-import image from "/assets/loaf.svg";
 import adventurer from "/assets/characters/adventurer.png";
+import { getAvatar } from "@/utils/avatar";
+import { getColor } from "@/utils";
 
 export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   const { gameId } = useQueryParams();
+  const { address } = useAccount();
+  const { data } = useStarkProfile({ address });
   const [builders, setBuilders] = useState<{ [key: string]: typeof Builder }>(
     {}
   );
@@ -35,11 +40,12 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   const [won, setWon] = useState<string>();
   const [paved, setPaved] = useState<number>();
   const [bank, setBank] = useState<number>();
-  const [avatar, setAvatar] = useState<string>("");
   const [identifier, setIdentifier] = useState<string>("");
   const [playerName, setPlayerName] = useState<string>("Name");
+  const [avatar, setAvatar] = useState<string | null | undefined>();
 
   const {
+    account: { account },
     setup: {
       world,
       clientComponents: { Player, Builder },
@@ -71,7 +77,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   }, []);
 
   useEffect(() => {
-    if (player) {
+    if (address && account && player) {
       const totalClaimed = Object.values(builders).reduce(
         (sum, builder) => sum + builder.claimed,
         BigInt(0)
@@ -81,7 +87,6 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
       setWon(parseFloat(`${Number(totalClaimed) / 1e18}`).toFixed(2));
       setPaved(player.paved);
       setBank(player.bank);
-      setAvatar(image);
       setIdentifier(shortenHex(`${player.id}`).replace("...", ""));
       setPlayerName(shortString.decodeShortString(player.name));
     } else {
@@ -90,11 +95,19 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
       setWon(undefined);
       setPaved(undefined);
       setBank(undefined);
-      setAvatar("");
       setIdentifier("");
       setPlayerName("");
+      setAvatar(undefined);
     }
-  }, [player, builders, players]);
+  }, [player, builders, players, account, address]);
+
+  useEffect(() => {
+    if (!account || !address) setAvatar(undefined);
+    (async () => {
+      const avatar = await getAvatar(data);
+      setAvatar(avatar);
+    })();
+  }, [data, account]);
 
   useEffect(() => {
     if (players && score !== undefined) {
@@ -133,7 +146,10 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
           </div>
         </CardHeader>
         <CardHeader className="flex flex-col w-2/5 items-center justify-around gap-2">
-          <PlayerAvatar avatar={avatar} />
+          <PlayerAvatar
+            avatar={identifier ? avatar : undefined}
+            address={account.address}
+          />
           <PlayerId identifier={identifier} />
           <PlayerName playerName={playerName} />
         </CardHeader>
@@ -222,12 +238,15 @@ const TileBank = ({ bank }: any) => {
   );
 };
 
-const PlayerAvatar = ({ avatar }: any) => {
+const PlayerAvatar = ({ avatar, address }: any) => {
+  const borderColor = getColor(address);
   return avatar ? (
-    <Avatar className="w-[140px] h-[140px] rounded-none">
+    <Avatar className="w-[140px] h-[140px] border-4" style={{ borderColor }}>
       <AvatarImage src={avatar} alt="avatar" />
-      <AvatarFallback>A</AvatarFallback>
+      <AvatarFallback> </AvatarFallback>
     </Avatar>
+  ) : avatar === null ? (
+    <BoringAvatar size={140} colors={[borderColor]} />
   ) : (
     <Skeleton className="w-[140px] h-[140px]" />
   );
