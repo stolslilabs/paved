@@ -1,12 +1,13 @@
 import * as THREE from "three";
 import { useEffect, useRef } from "react";
-import { Canvas, extend } from "@react-three/fiber";
-import { useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
-  PerspectiveCamera,
   MapControls,
   useKeyboardControls,
   Bounds,
+  OrthographicCamera,
+  SpotLight,
+  useDepthBuffer,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
 import { CharTextures } from "./CharTextures";
@@ -18,19 +19,16 @@ export const ThreeGrid = () => {
     <Canvas className="z-1" shadows>
       <Keyboard />
       <mesh>
-        <Camera />
-        <ambientLight color={"white"} intensity={1} />
-        <pointLight
-          rotation={[Math.PI / -2, 0, 0]}
-          position={[10, 20, 10]}
-          intensity={500}
-        />
-        <mesh rotation={[Math.PI / -2, 0, 0]}>
-          <Bounds fit clip observe margin={1}>
-            <TileTextures squareSize={3} />
-            <CharTextures radius={0.3} height={1} squareSize={3} />
-          </Bounds>
-        </mesh>
+        <Camera>
+          <ambientLight color={"white"} intensity={0.95} />
+          <Lighting />
+          <mesh rotation={[Math.PI / -2, 0, 0]}>
+            <Bounds fit clip observe margin={1}>
+              <TileTextures squareSize={3} />
+              <CharTextures radius={0.3} height={1} squareSize={3} />
+            </Bounds>
+          </mesh>
+        </Camera>
       </mesh>
     </Canvas>
   );
@@ -66,15 +64,15 @@ function Keyboard() {
   return <></>;
 }
 
-function Camera() {
-  const { position, zoom, aspect, near, far, reset, resetAll } =
+function Camera({ children }: { children?: React.ReactNode }) {
+  const { position, zoom, aspect, near, far, reset, resetAll, rotation } =
     useCameraStore();
   const camera = useRef<THREE.PerspectiveCamera>(null);
-  const constrols = useRef<any>(null);
+  const controls = useRef<any>(null);
 
   useEffect(() => {
     if (reset) {
-      constrols.current.reset();
+      controls.current.reset();
       resetAll();
     } else if (camera.current) {
       camera.current.position.set(...position);
@@ -83,15 +81,59 @@ function Camera() {
 
   return (
     <>
-      <PerspectiveCamera
-        ref={camera}
-        makeDefault
+      <OrthographicCamera
+        // makeDefault
         zoom={zoom}
-        aspect={aspect}
+        rotation={rotation}
+        // aspect={aspect}
         near={near}
         far={far}
-      />
-      <MapControls ref={constrols} makeDefault target={[0, 0, 0]} />
+      >
+        {children}
+      </OrthographicCamera>
+      <MapControls ref={controls} makeDefault target={[0, 0, 0]} />
     </>
+  );
+}
+
+function Lighting() {
+  const depthBuffer = useDepthBuffer({ frames: 1 });
+  return (
+    <>
+      <MovingSpot
+        depthBuffer={depthBuffer}
+        color="#fff"
+        position={[3, 10, 2]}
+      />
+    </>
+  );
+}
+
+function MovingSpot({ vec = new THREE.Vector3(), ...props }) {
+  const light = useRef<any>();
+  const viewport = useThree((state) => state.viewport);
+  useFrame((state) => {
+    light.current.target.position.lerp(
+      vec.set(
+        (state.mouse.x * viewport.width) / 2,
+        (state.mouse.y * viewport.height) / 2,
+        0
+      ),
+      1
+    );
+    light.current.target.updateMatrixWorld();
+  });
+  return (
+    <SpotLight
+      castShadow
+      ref={light}
+      penumbra={1}
+      distance={100}
+      angle={0.9}
+      attenuation={5}
+      anglePower={9}
+      intensity={200}
+      {...props}
+    />
   );
 }

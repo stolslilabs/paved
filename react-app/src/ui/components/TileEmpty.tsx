@@ -16,10 +16,15 @@ import {
 } from "@dojoengine/recs";
 import { RawTile } from "@/utils/models/tile";
 import { checkFeatureIdle } from "@/utils/helpers/conflict";
+import useSound from "use-sound";
+
+import Click from "../../../public/click.wav";
 
 const loader = new THREE.TextureLoader();
 
 export const TileEmpty = ({ col, row, size, tiles }: any) => {
+  const [play, { stop }] = useSound(Click);
+
   const { gameId } = useQueryParams();
   const {
     setup: {
@@ -229,6 +234,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
   }, [isSelected, isValid, isIdle]);
 
   const handleSimpleClick = () => {
+    play();
     setSelectedTile({ col, row });
     setX(col);
     setY(row);
