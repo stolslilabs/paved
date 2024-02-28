@@ -256,7 +256,7 @@ export function createSystemCalls({ client }: { client: IWorld }) {
       });
 
       notify(
-        "Drew.",
+        "Paved.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         })
