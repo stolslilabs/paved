@@ -64,17 +64,18 @@ export const Scoreboard = () => {
   useEffect(() => {
     if (!builders) return;
 
-    const topSortedBuilders: (typeof Builder)[] = Object.values(builders)
-      .sort((a, b) => {
+    const topSortedBuilders: (typeof Builder)[] = Object.values(builders).sort(
+      (a, b) => {
         return b?.score - a?.score;
-      })
-      .slice(0, 3);
+      }
+    );
 
     const builderRank = topSortedBuilders.findIndex(
-      (b) => b?.id === builder?.id
+      (b) => b?.player_id === builder?.player_id
     );
+
     setRank(builderRank + 1);
-    setTopBuilders(topSortedBuilders);
+    setTopBuilders(topSortedBuilders.slice(0, 3));
   }, [builders, builder]);
 
   return (
