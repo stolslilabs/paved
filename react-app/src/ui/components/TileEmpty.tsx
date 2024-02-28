@@ -8,7 +8,12 @@ import { getImage, offset, other_offset } from "@/utils";
 import { checkCompatibility } from "@/utils/layout";
 import { createSquareGeometry, getSquarePosition } from "./TileTexture";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { defineSystem, Has, HasValue } from "@dojoengine/recs";
+import {
+  defineEnterSystem,
+  defineSystem,
+  Has,
+  HasValue,
+} from "@dojoengine/recs";
 import { RawTile } from "@/utils/models/tile";
 import { checkFeatureIdle } from "@/utils/helpers/conflict";
 import useSound from "use-sound";
@@ -55,6 +60,15 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
   const activeTile = useComponentValue(Tile, activeEntity);
 
   useEffect(() => {
+    defineEnterSystem(
+      world,
+      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col, y: row + 1 })],
+      ({ value: [tile] }: any) => {
+        if (tile.orientation === 0 || tile.x !== col || tile.y !== row + 1)
+          return;
+        setNorthTile(tile);
+      }
+    );
     defineSystem(
       world,
       [Has(Tile), HasValue(Tile, { game_id: gameId, x: col, y: row + 1 })],
@@ -62,6 +76,15 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
         if (tile.orientation === 0 || tile.x !== col || tile.y !== row + 1)
           return;
         setNorthTile(tile);
+      }
+    );
+    defineEnterSystem(
+      world,
+      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col + 1, y: row })],
+      ({ value: [tile] }: any) => {
+        if (tile.orientation === 0 || tile.x !== col + 1 || tile.y !== row)
+          return;
+        setEastTile(tile);
       }
     );
     defineSystem(
@@ -73,6 +96,15 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
         setEastTile(tile);
       }
     );
+    defineEnterSystem(
+      world,
+      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col, y: row - 1 })],
+      ({ value: [tile] }: any) => {
+        if (tile.orientation === 0 || tile.x !== col || tile.y !== row - 1)
+          return;
+        setSouthTile(tile);
+      }
+    );
     defineSystem(
       world,
       [Has(Tile), HasValue(Tile, { game_id: gameId, x: col, y: row - 1 })],
@@ -80,6 +112,15 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
         if (tile.orientation === 0 || tile.x !== col || tile.y !== row - 1)
           return;
         setSouthTile(tile);
+      }
+    );
+    defineEnterSystem(
+      world,
+      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col - 1, y: row })],
+      ({ value: [tile] }: any) => {
+        if (tile.orientation === 0 || tile.x !== col - 1 || tile.y !== row)
+          return;
+        setWestTile(tile);
       }
     );
     defineSystem(
