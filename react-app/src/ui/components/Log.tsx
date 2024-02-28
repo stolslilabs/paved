@@ -43,7 +43,7 @@ export const Log = ({ show }: { show: boolean }) => {
           {logs &&
             logs.map((log, index) => (
               <div key={index} className="flex justify-between">
-                <p>
+                <p className="text-xs">
                   <span className="text-slate-400">
                     {`[${log.timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
@@ -54,9 +54,7 @@ export const Log = ({ show }: { show: boolean }) => {
                   <strong style={{ color: log.color }}>
                     {` ${log.builder}`}
                   </strong>
-                  {log.category === "Scored"
-                    ? ` has scored ${log.log}`
-                    : " has built a tile"}
+                  {log.category === "Scored" ? ` ✨ ${log.log}` : " ⚒️"}
                 </p>
               </div>
             ))}

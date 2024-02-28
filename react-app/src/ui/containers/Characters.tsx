@@ -33,7 +33,7 @@ export const Characters = () => {
   );
 
   return (
-    <footer className="z-20 flex justify-between items-center h-20 absolute bottom-0 w-full">
+    <footer className="z-20 flex justify-between items-center absolute bottom-4 w-full">
       <div className="flex justify-center items-center  grow gap-8">
         {characters.map(({ character, status }, index) => (
           <Character key={index} index={index} enable={status} />
