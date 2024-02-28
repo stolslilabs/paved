@@ -17,9 +17,9 @@ export type BuiltLog = {
   tileId: number;
   tileX: number;
   tileY: number;
-  builderId: string;
-  builderName: string;
-  builderColor: string;
+  playerId: string;
+  playerName: string;
+  playerColor: string;
   timestamp: Date;
 };
 
@@ -29,9 +29,9 @@ export type ScoredLog = {
   tileId: number;
   tileX: number;
   tileY: number;
-  builderId: string;
-  builderName: string;
-  builderColor: string;
+  playerId: string;
+  playerName: string;
+  playerColor: string;
   orderId: number;
   score: number;
   timestamp: Date;

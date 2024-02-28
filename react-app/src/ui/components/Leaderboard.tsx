@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrophy, faSun, faMoon } from "@fortawesome/free-solid-svg-icons";
+import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { shortString } from "starknet";
@@ -33,6 +33,8 @@ import {
   Has,
   HasValue,
 } from "@dojoengine/recs";
+import { useLogs } from "@/hooks/useLogs";
+import { log } from "console";
 
 export const Leaderboard = ({ show }: { show: boolean }) => {
   const { gameId } = useQueryParams();
@@ -42,6 +44,7 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
   const [teams, setTeams] = useState<{ [key: number]: typeof Team }>({});
   const [topBuilders, setTopBuilders] = useState<any>([]);
   const [topTeams, setTopTeams] = useState<any>([]);
+  const { logs } = useLogs();
   const {
     setup: {
       world,
@@ -145,6 +148,7 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
                       <TableHead>Name</TableHead>
                       <TableHead>Order</TableHead>
                       <TableHead className="text-right">Score</TableHead>
+                      <TableHead className="text-right">Paved</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -155,6 +159,9 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
                             key={index}
                             builder={builder}
                             rank={index + 1}
+                            logs={logs.filter(
+                              (log) => log.category === "Built"
+                            )}
                           />
                         );
                       }
@@ -191,9 +198,11 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
 export const PlayerRow = ({
   builder,
   rank,
+  logs,
 }: {
   builder: any;
   rank: number;
+  logs: any;
 }) => {
   const {
     account: { account },
@@ -211,6 +220,7 @@ export const PlayerRow = ({
   const order = getOrder(builder?.order);
   const address = `0x${builder.player_id.toString(16)}`;
   const backgroundColor = getColor(address);
+  const paved = logs.filter((log: any) => log.color === backgroundColor).length;
   return (
     <TableRow>
       <TableCell className="font-medium">{rank}</TableCell>
@@ -220,6 +230,7 @@ export const PlayerRow = ({
       </TableCell>
       <TableCell>{order}</TableCell>
       <TableCell className="text-right">{builder?.score}</TableCell>
+      <TableCell className="text-right">{paved}</TableCell>
     </TableRow>
   );
 };

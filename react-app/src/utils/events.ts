@@ -15,9 +15,9 @@ export const parseBuiltEvent = (event: Event): BuiltLog => {
   const tileId = parseInt(event.data[0]);
   const tileX = parseInt(event.data[1]);
   const tileY = parseInt(event.data[2]);
-  const builderId = event.data[3];
-  const builderName = shortString.decodeShortString(event.data[4]);
-  const builderColor = getColor(builderId);
+  const playerId = event.data[3];
+  const playerName = shortString.decodeShortString(event.data[4]);
+  const playerColor = getColor(playerId);
   const timestamp = new Date(event.createdAt);
 
   return {
@@ -26,9 +26,9 @@ export const parseBuiltEvent = (event: Event): BuiltLog => {
     tileId,
     tileX,
     tileY,
-    builderId,
-    builderName,
-    builderColor,
+    playerId,
+    playerName,
+    playerColor,
     timestamp,
   };
 };
@@ -38,8 +38,8 @@ export const createBuiltLog = (log: BuiltLog): Log => {
     id: log.id,
     timestamp: log.timestamp,
     category: "Built",
-    builder: log.builderName,
-    color: log.builderColor,
+    builder: log.playerName,
+    color: log.playerColor,
     log: ``,
   };
 };
@@ -50,9 +50,9 @@ export const parseScoredEvent = (event: Event): ScoredLog => {
   const tileId = parseInt(event.data[0]);
   const tileX = parseInt(event.data[1]);
   const tileY = parseInt(event.data[2]);
-  const builderId = event.data[3];
-  const builderName = shortString.decodeShortString(event.data[4]);
-  const builderColor = getColor(builderId);
+  const playerId = event.data[3];
+  const playerName = shortString.decodeShortString(event.data[4]);
+  const playerColor = getColor(playerId);
   const orderId = parseInt(event.data[5]);
   const score = parseInt(event.data[6]);
   const timestamp = new Date(event.createdAt);
@@ -63,9 +63,9 @@ export const parseScoredEvent = (event: Event): ScoredLog => {
     tileId,
     tileX,
     tileY,
-    builderId,
-    builderName,
-    builderColor,
+    playerId,
+    playerName,
+    playerColor,
     orderId,
     score,
     timestamp,
@@ -77,8 +77,8 @@ export const createScoredLog = (log: ScoredLog): Log => {
     id: log.id,
     timestamp: log.timestamp,
     category: "Scored",
-    builder: log.builderName,
-    color: log.builderColor,
+    builder: log.playerName,
+    color: log.playerColor,
     log: `+${log.score}`,
   };
 };

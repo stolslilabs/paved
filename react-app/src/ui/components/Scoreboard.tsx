@@ -11,6 +11,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { useComponentValue } from "@dojoengine/react";
 import { shortString } from "starknet";
 import { getColor } from "@/utils";
+import { useLogs } from "@/hooks/useLogs";
 import {
   Entity,
   defineEnterSystem,
@@ -22,6 +23,7 @@ import { getEntityIdFromKeys } from "@dojoengine/utils";
 
 export const Scoreboard = () => {
   const { gameId } = useQueryParams();
+  const { logs } = useLogs();
   const [builders, setBuilders] = useState<{ [key: number]: typeof Builder }>(
     {}
   );
@@ -84,14 +86,25 @@ export const Scoreboard = () => {
       <Table>
         <TableBody className="text-xs">
           {topBuilders.map((builder: typeof Builder, index: number) => {
-            return <PlayerRow key={index} builder={builder} rank={index + 1} />;
+            return (
+              <PlayerRow
+                key={index}
+                builder={builder}
+                rank={index + 1}
+                logs={logs.filter((log) => log.category === "Built")}
+              />
+            );
           })}
           {builder && rank > 3 && (
             <>
               <TableRow>
                 <TableCell />
               </TableRow>
-              <PlayerRow builder={builder} rank={rank} />
+              <PlayerRow
+                builder={builder}
+                rank={rank}
+                logs={logs.filter((log) => log.category === "Built")}
+              />
             </>
           )}
         </TableBody>
@@ -102,9 +115,11 @@ export const Scoreboard = () => {
 export const PlayerRow = ({
   builder,
   rank,
+  logs,
 }: {
   builder: any;
   rank: number;
+  logs: any;
 }) => {
   const {
     setup: {
@@ -121,6 +136,8 @@ export const PlayerRow = ({
   const name = shortString.decodeShortString(player?.name || "");
   const address = `0x${builder.player_id.toString(16)}`;
   const backgroundColor = getColor(address);
+  // Color is used to filter on builder since we don't have the player id in the event
+  const paved = logs.filter((log: any) => log.color === backgroundColor).length;
   return (
     <TableRow>
       <TableCell className="font-medium">{`#${rank}`}</TableCell>
@@ -128,7 +145,12 @@ export const PlayerRow = ({
       <TableCell>
         <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
       </TableCell>
-      <TableCell className="text-right">{builder?.score}</TableCell>
+      <TableCell className="text-right">
+        {`${builder?.score} ⚒️ ${paved}`}
+      </TableCell>
+      {/* <TableCell className="text-right">
+        <p className="border-4 border-black">{paved}</p>
+      </TableCell> */}
     </TableRow>
   );
 };
