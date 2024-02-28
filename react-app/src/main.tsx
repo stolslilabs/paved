@@ -5,6 +5,7 @@ import "./index.css";
 import { setup } from "./dojo/generated/setup.ts";
 import { DojoProvider } from "./dojo/DojoContext.tsx";
 import { dojoConfig } from "../dojoConfig.ts";
+import { StarknetProvider } from "./ui/components/Starknet.tsx";
 
 async function init() {
   const rootElement = document.getElementById("root");
@@ -15,9 +16,11 @@ async function init() {
 
   root.render(
     <React.StrictMode>
-      <DojoProvider value={setupResult}>
-        <App />
-      </DojoProvider>
+      <StarknetProvider>
+        <DojoProvider value={setupResult}>
+          <App />
+        </DojoProvider>
+      </StarknetProvider>
     </React.StrictMode>
   );
 }

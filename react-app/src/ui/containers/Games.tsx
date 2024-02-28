@@ -64,7 +64,7 @@ export const Games = () => {
   const backgroundColor = useMemo(() => "#FCF7E7", []);
 
   return (
-    <div className="bg-yellow-100 h-screen grow" style={{ backgroundColor }}>
+    <div className="bg-yellow-100 h-full grow" style={{ backgroundColor }}>
       <div className="flex flex-col gap-8 items-start w-full p-10 h-full">
         <h1>Game lobby</h1>
         <CreateGame />
