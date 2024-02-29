@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::host::host",
       "address": "0x5871c6387d2a0e0de6e99b1d043a57f5cce44630bf30c2e1afd9615995e8616",
-      "class_hash": "0x41b3dae7f7b354503aad7d99f9e280c1d2847c6a07b361ca146c10efa55cf35",
+      "class_hash": "0x405fd7d91031fec0bd9644207d18e02195146f4e7299a98583c2c1bf8f6bf35",
       "abi": [
         {
           "type": "impl",
@@ -1342,7 +1342,7 @@
     {
       "name": "stolsli::systems::play::play",
       "address": "0x54cecff4ea996878685a1d15e6e20e58f0560661bb9e6ae2f2b47a4a3acf2e4",
-      "class_hash": "0x12abedf6fc1902a1e999f6ae84b778608e2fd93f37ad7cd05cd9b049381cc8a",
+      "class_hash": "0x69e4e73e7c54f1d5f5a4acc0eda6f3ea32e216a6d3f5a796b613ae7a49a9372",
       "abi": [
         {
           "type": "impl",

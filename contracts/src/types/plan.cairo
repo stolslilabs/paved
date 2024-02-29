@@ -15,13 +15,24 @@ use stolsli::types::area::Area;
 use stolsli::layouts::ccccccccc::{LayoutImpl as CccccccccImpl};
 use stolsli::layouts::cccccfffc::{LayoutImpl as CccccfffcImpl};
 use stolsli::layouts::cccccfrfc::{LayoutImpl as CccccfrfcImpl};
+use stolsli::layouts::cfcfccccc::{LayoutImpl as CfcfcccccImpl};
+use stolsli::layouts::cfcfcfcfc::{LayoutImpl as CfcfcfcfcImpl};
+use stolsli::layouts::cfcfcfffc::{LayoutImpl as CfcfcfffcImpl};
+use stolsli::layouts::cffcfcffc::{LayoutImpl as CffcfcffcImpl};
 use stolsli::layouts::cfffcfffc::{LayoutImpl as CfffcfffcImpl};
 use stolsli::layouts::cfffcfrfc::{LayoutImpl as CfffcfrfcImpl};
+use stolsli::layouts::fccfcccfc::{LayoutImpl as FccfcccfcImpl};
+use stolsli::layouts::fccfcfcfc::{LayoutImpl as FccfcfcfcImpl};
+use stolsli::layouts::ffcfcccff::{LayoutImpl as FfcfcccffImpl};
+use stolsli::layouts::ffcfcfcfc::{LayoutImpl as FfcfcfcfcImpl};
+use stolsli::layouts::ffcfffccc::{LayoutImpl as FfcfffcccImpl};
 use stolsli::layouts::ffcfffcfc::{LayoutImpl as FfcfffcfcImpl};
 use stolsli::layouts::ffcfffcff::{LayoutImpl as FfcfffcffImpl};
 use stolsli::layouts::ffcfffffc::{LayoutImpl as FfcfffffcImpl};
 use stolsli::layouts::ffffcccff::{LayoutImpl as FfffcccffImpl};
 use stolsli::layouts::ffffffcff::{LayoutImpl as FfffffcffImpl};
+use stolsli::layouts::rfffffcfr::{LayoutImpl as RfffffcfrImpl};
+use stolsli::layouts::rfffrfcff::{LayoutImpl as RfffrfcffImpl};
 use stolsli::layouts::rfffrfcfr::{LayoutImpl as RfffrfcfrImpl};
 use stolsli::layouts::rfffrfffr::{LayoutImpl as RfffrfffrImpl};
 use stolsli::layouts::rfrfcccfr::{LayoutImpl as RfrfcccfrImpl};
@@ -50,27 +61,38 @@ mod errors {
 #[derive(Copy, Drop, Serde, Introspect)]
 enum Plan {
     None,
-    CCCCCCCCC, // 0 pieces
+    CCCCCCCCC, // 1 pieces update
     CCCCCFFFC, // 4 pieces
     CCCCCFRFC, // 3 pieces
+    CFCFCCCCC, // 1 pieces new
+    CFCFCFCFC, // 1 pieces new
+    CFCFCFFFC, // 1 pieces new
+    CFFCFCFFC, // 1 pieces new
     CFFFCFFFC, // 3 pieces
-    CFFFCFRFC, // 0 pieces
-    FFCFFFCFC, // 0 pieces
+    CFFFCFRFC, // 3 pieces update
+    FCCFCCCFC, // 1 pieces new
+    FCCFCFCFC, // 1 pieces new
+    FFCFCCCFF, // 1 pieces new
+    FFCFCFCFC, // 1 pieces new
+    FFCFFFCCC, // 1 pieces new
+    FFCFFFCFC, // 1 pieces update
     FFCFFFCFF, // 3 pieces
     FFCFFFFFC, // 2 pieces
     FFFFCCCFF, // 5 pieces
     FFFFFFCFF, // 5 pieces
+    RFFFFFCFR, // 2 pieces new
+    RFFFRFCFF, // 2 pieces new
     RFFFRFCFR, // 4 pieces
-    RFFFRFFFR, // 8 pieces
+    RFFFRFFFR, // 9 pieces update
     RFRFCCCFR, // 5 pieces
-    RFRFFFCFF, // 0 pieces
+    RFRFFFCFF, // 2 pieces update
     RFRFFFCFR, // 3 pieces
-    RFRFFFFFR, // 9 pieces
+    RFRFFFFFR, // 10 pieces update
     RFRFRFCFF, // 3 pieces
-    SFFFFFFFR, // 0 pieces
+    SFFFFFFFR, // 2 pieces update
     SFRFRFCFR, // 3 pieces
-    SFRFRFFFR, // 4 pieces
-    SFRFRFRFR, // 1 pieces
+    SFRFRFFFR, // 5 pieces update
+    SFRFRFRFR, // 2 pieces update
     WCCCCCCCC, // 1 pieces
     WFFFFFFFF, // 4 pieces
     WFFFFFFFR, // 2 pieces
@@ -84,13 +106,24 @@ impl IntoPlanFelt252 of Into<Plan, felt252> {
             Plan::CCCCCCCCC => 'CCCCCCCCC',
             Plan::CCCCCFFFC => 'CCCCCFFFC',
             Plan::CCCCCFRFC => 'CCCCCFRFC',
+            Plan::CFCFCCCCC => 'CFCFCCCCC',
+            Plan::CFCFCFCFC => 'CFCFCFCFC',
+            Plan::CFCFCFFFC => 'CFCFCFFFC',
+            Plan::CFFCFCFFC => 'CFFCFCFFC',
             Plan::CFFFCFFFC => 'CFFFCFFFC',
             Plan::CFFFCFRFC => 'CFFFCFRFC',
+            Plan::FCCFCCCFC => 'FCCFCCCFC',
+            Plan::FCCFCFCFC => 'FCCFCFCFC',
+            Plan::FFCFCCCFF => 'FFCFCCCFF',
+            Plan::FFCFCFCFC => 'FFCFCFCFC',
+            Plan::FFCFFFCCC => 'FFCFFFCCC',
             Plan::FFCFFFCFC => 'FFCFFFCFC',
             Plan::FFCFFFCFF => 'FFCFFFCFF',
             Plan::FFCFFFFFC => 'FFCFFFFFC',
             Plan::FFFFCCCFF => 'FFFFCCCFF',
             Plan::FFFFFFCFF => 'FFFFFFCFF',
+            Plan::RFFFFFCFR => 'RFFFFFCFR',
+            Plan::RFFFRFCFF => 'RFFFRFCFF',
             Plan::RFFFRFCFR => 'RFFFRFCFR',
             Plan::RFFFRFFFR => 'RFFFRFFFR',
             Plan::RFRFCCCFR => 'RFRFCCCFR',
@@ -117,27 +150,38 @@ impl IntoPlanU8 of Into<Plan, u8> {
             Plan::CCCCCCCCC => 1,
             Plan::CCCCCFFFC => 2,
             Plan::CCCCCFRFC => 3,
-            Plan::CFFFCFFFC => 4,
-            Plan::CFFFCFRFC => 5,
-            Plan::FFCFFFCFC => 6,
-            Plan::FFCFFFCFF => 7,
-            Plan::FFCFFFFFC => 8,
-            Plan::FFFFCCCFF => 9,
-            Plan::FFFFFFCFF => 10,
-            Plan::RFFFRFCFR => 11,
-            Plan::RFFFRFFFR => 12,
-            Plan::RFRFCCCFR => 13,
-            Plan::RFRFFFCFF => 14,
-            Plan::RFRFFFCFR => 15,
-            Plan::RFRFFFFFR => 16,
-            Plan::RFRFRFCFF => 17,
-            Plan::SFFFFFFFR => 18,
-            Plan::SFRFRFCFR => 19,
-            Plan::SFRFRFFFR => 20,
-            Plan::SFRFRFRFR => 21,
-            Plan::WCCCCCCCC => 22,
-            Plan::WFFFFFFFF => 23,
-            Plan::WFFFFFFFR => 24,
+            Plan::CFCFCCCCC => 4,
+            Plan::CFCFCFCFC => 5,
+            Plan::CFCFCFFFC => 6,
+            Plan::CFFCFCFFC => 7,
+            Plan::CFFFCFFFC => 8,
+            Plan::CFFFCFRFC => 9,
+            Plan::FCCFCCCFC => 10,
+            Plan::FCCFCFCFC => 11,
+            Plan::FFCFCCCFF => 12,
+            Plan::FFCFCFCFC => 13,
+            Plan::FFCFFFCCC => 14,
+            Plan::FFCFFFCFC => 15,
+            Plan::FFCFFFCFF => 16,
+            Plan::FFCFFFFFC => 17,
+            Plan::FFFFCCCFF => 18,
+            Plan::FFFFFFCFF => 19,
+            Plan::RFFFFFCFR => 20,
+            Plan::RFFFRFCFF => 21,
+            Plan::RFFFRFCFR => 22,
+            Plan::RFFFRFFFR => 23,
+            Plan::RFRFCCCFR => 24,
+            Plan::RFRFFFCFF => 25,
+            Plan::RFRFFFCFR => 26,
+            Plan::RFRFFFFFR => 27,
+            Plan::RFRFRFCFF => 28,
+            Plan::SFFFFFFFR => 29,
+            Plan::SFRFRFCFR => 30,
+            Plan::SFRFRFFFR => 31,
+            Plan::SFRFRFRFR => 32,
+            Plan::WCCCCCCCC => 33,
+            Plan::WFFFFFFFF => 34,
+            Plan::WFFFFFFFR => 35,
         }
     }
 }
@@ -145,56 +189,45 @@ impl IntoPlanU8 of Into<Plan, u8> {
 impl IntoU8Plan of Into<u8, Plan> {
     #[inline(always)]
     fn into(self: u8) -> Plan {
-        if 1 == self.into() {
-            Plan::CCCCCCCCC
-        } else if 2 == self.into() {
-            Plan::CCCCCFFFC
-        } else if 3 == self.into() {
-            Plan::CCCCCFRFC
-        } else if 4 == self.into() {
-            Plan::CFFFCFFFC
-        } else if 5 == self.into() {
-            Plan::CFFFCFRFC
-        } else if 6 == self.into() {
-            Plan::FFCFFFCFC
-        } else if 7 == self.into() {
-            Plan::FFCFFFCFF
-        } else if 8 == self.into() {
-            Plan::FFCFFFFFC
-        } else if 9 == self.into() {
-            Plan::FFFFCCCFF
-        } else if 10 == self.into() {
-            Plan::FFFFFFCFF
-        } else if 11 == self.into() {
-            Plan::RFFFRFCFR
-        } else if 12 == self.into() {
-            Plan::RFFFRFFFR
-        } else if 13 == self.into() {
-            Plan::RFRFCCCFR
-        } else if 14 == self.into() {
-            Plan::RFRFFFCFF
-        } else if 15 == self.into() {
-            Plan::RFRFFFCFR
-        } else if 16 == self.into() {
-            Plan::RFRFFFFFR
-        } else if 17 == self.into() {
-            Plan::RFRFRFCFF
-        } else if 18 == self.into() {
-            Plan::SFFFFFFFR
-        } else if 19 == self.into() {
-            Plan::SFRFRFCFR
-        } else if 20 == self.into() {
-            Plan::SFRFRFFFR
-        } else if 21 == self.into() {
-            Plan::SFRFRFRFR
-        } else if 22 == self.into() {
-            Plan::WCCCCCCCC
-        } else if 23 == self.into() {
-            Plan::WFFFFFFFF
-        } else if 24 == self.into() {
-            Plan::WFFFFFFFR
-        } else {
-            Plan::None
+        let plan: felt252 = self.into();
+        match plan {
+            0 => Plan::None,
+            1 => Plan::CCCCCCCCC,
+            2 => Plan::CCCCCFFFC,
+            3 => Plan::CCCCCFRFC,
+            4 => Plan::CFCFCCCCC,
+            5 => Plan::CFCFCFCFC,
+            6 => Plan::CFCFCFFFC,
+            7 => Plan::CFFCFCFFC,
+            8 => Plan::CFFFCFFFC,
+            9 => Plan::CFFFCFRFC,
+            10 => Plan::FCCFCCCFC,
+            11 => Plan::FCCFCFCFC,
+            12 => Plan::FFCFCCCFF,
+            13 => Plan::FFCFCFCFC,
+            14 => Plan::FFCFFFCCC,
+            15 => Plan::FFCFFFCFC,
+            16 => Plan::FFCFFFCFF,
+            17 => Plan::FFCFFFFFC,
+            18 => Plan::FFFFCCCFF,
+            19 => Plan::FFFFFFCFF,
+            20 => Plan::RFFFFFCFR,
+            21 => Plan::RFFFRFCFF,
+            22 => Plan::RFFFRFCFR,
+            23 => Plan::RFFFRFFFR,
+            24 => Plan::RFRFCCCFR,
+            25 => Plan::RFRFFFCFF,
+            26 => Plan::RFRFFFCFR,
+            27 => Plan::RFRFFFFFR,
+            28 => Plan::RFRFRFCFF,
+            29 => Plan::SFFFFFFFR,
+            30 => Plan::SFRFRFCFR,
+            31 => Plan::SFRFRFFFR,
+            32 => Plan::SFRFRFRFR,
+            33 => Plan::WCCCCCCCC,
+            34 => Plan::WFFFFFFFF,
+            35 => Plan::WFFFFFFFR,
+            _ => Plan::None,
         }
     }
 }
@@ -203,43 +236,75 @@ impl IntoU32Plan of Into<u32, Plan> {
     #[inline(always)]
     fn into(self: u32) -> Plan {
         let id = self % TOTAL_TILE_COUNT.into();
-        if id < 4 {
+        if id < 1 {
+            Plan::CCCCCCCCC
+        } else if id < 5 {
             Plan::CCCCCFFFC
-        } else if id < 7 {
+        } else if id < 8 {
             Plan::CCCCCFRFC
+        } else if id < 9 {
+            Plan::CFCFCCCCC
         } else if id < 10 {
-            Plan::CFFFCFFFC
-        } else if id < 13 {
-            Plan::FFCFFFCFF
+            Plan::CFCFCFCFC
+        } else if id < 11 {
+            Plan::CFCFCFFFC
+        } else if id < 12 {
+            Plan::CFFCFCFFC
         } else if id < 15 {
-            Plan::FFCFFFFFC
+            Plan::CFFFCFFFC
+        } else if id < 18 {
+            Plan::CFFFCFRFC
+        } else if id < 19 {
+            Plan::FCCFCCCFC
         } else if id < 20 {
-            Plan::FFFFCCCFF
-        } else if id < 25 {
-            Plan::FFFFFFCFF
+            Plan::FCCFCFCFC
+        } else if id < 21 {
+            Plan::FFCFCCCFF
+        } else if id < 22 {
+            Plan::FFCFCFCFC
+        } else if id < 23 {
+            Plan::FFCFFFCCC
+        } else if id < 24 {
+            Plan::FFCFFFCFC
+        } else if id < 27 {
+            Plan::FFCFFFCFF
         } else if id < 29 {
+            Plan::FFCFFFFFC
+        } else if id < 34 {
+            Plan::FFFFCCCFF
+        } else if id < 39 {
+            Plan::FFFFFFCFF
+        } else if id < 41 {
+            Plan::RFFFFFCFR
+        } else if id < 43 {
+            Plan::RFFFRFCFF
+        } else if id < 47 {
             Plan::RFFFRFCFR
-        } else if id < 37 {
+        } else if id < 56 {
             Plan::RFFFRFFFR
-        } else if id < 42 {
+        } else if id < 61 {
             Plan::RFRFCCCFR
-        } else if id < 45 {
-            Plan::RFRFFFCFR
-        } else if id < 54 {
-            Plan::RFRFFFFFR
-        } else if id < 57 {
-            Plan::RFRFRFCFF
-        } else if id < 60 {
-            Plan::SFRFRFCFR
-        } else if id < 64 {
-            Plan::SFRFRFFFR
-        } else if id < 65 {
-            Plan::SFRFRFRFR
+        } else if id < 63 {
+            Plan::RFRFFFCFF
         } else if id < 66 {
+            Plan::RFRFFFCFR
+        } else if id < 76 {
+            Plan::RFRFFFFFR
+        } else if id < 79 {
+            Plan::RFRFRFCFF
+        } else if id < 81 {
+            Plan::SFFFFFFFR
+        } else if id < 84 {
+            Plan::SFRFRFCFR
+        } else if id < 89 {
+            Plan::SFRFRFFFR
+        } else if id < 91 {
+            Plan::SFRFRFRFR
+        } else if id < 92 {
             Plan::WCCCCCCCC
-        } else if id < 70 {
+        } else if id < 96 {
             Plan::WFFFFFFFF
-        } else if id < 72 {
+        } else if id < 98 {
             Plan::WFFFFFFFR
         } else {
             Plan::None
@@ -294,13 +359,24 @@ impl PlanImpl of PlanTrait {
             Plan::CCCCCCCCC => CccccccccImpl::starts(),
             Plan::CCCCCFFFC => CccccfffcImpl::starts(),
             Plan::CCCCCFRFC => CccccfrfcImpl::starts(),
+            Plan::CFCFCCCCC => CfffcfffcImpl::starts(),
+            Plan::CFCFCFCFC => CfffcfffcImpl::starts(),
+            Plan::CFCFCFFFC => CfffcfffcImpl::starts(),
+            Plan::CFFCFCFFC => CfffcfffcImpl::starts(),
             Plan::CFFFCFFFC => CfffcfffcImpl::starts(),
             Plan::CFFFCFRFC => CfffcfrfcImpl::starts(),
+            Plan::FCCFCCCFC => FfffcccffImpl::starts(),
+            Plan::FCCFCFCFC => FfffcccffImpl::starts(),
+            Plan::FFCFCCCFF => FfffffcffImpl::starts(),
+            Plan::FFCFCFCFC => FfffffcffImpl::starts(),
+            Plan::FFCFFFCCC => FfffffcffImpl::starts(),
             Plan::FFCFFFCFC => FfcfffcfcImpl::starts(),
             Plan::FFCFFFCFF => FfcfffcffImpl::starts(),
             Plan::FFCFFFFFC => FfcfffffcImpl::starts(),
             Plan::FFFFCCCFF => FfffcccffImpl::starts(),
             Plan::FFFFFFCFF => FfffffcffImpl::starts(),
+            Plan::RFFFFFCFR => RfffffcfrImpl::starts(),
+            Plan::RFFFRFCFF => RfffrfcffImpl::starts(),
             Plan::RFFFRFCFR => RfffrfcfrImpl::starts(),
             Plan::RFFFRFFFR => RfffrfffrImpl::starts(),
             Plan::RFRFCCCFR => RfrfcccfrImpl::starts(),
@@ -325,13 +401,24 @@ impl PlanImpl of PlanTrait {
             Plan::CCCCCCCCC => Spot::None,
             Plan::CCCCCFFFC => Spot::None,
             Plan::CCCCCFRFC => Spot::None,
+            Plan::CFCFCCCCC => Spot::None,
+            Plan::CFCFCFCFC => Spot::None,
+            Plan::CFCFCFFFC => Spot::None,
+            Plan::CFFCFCFFC => Spot::None,
             Plan::CFFFCFFFC => Spot::None,
             Plan::CFFFCFRFC => Spot::None,
+            Plan::FCCFCCCFC => Spot::None,
+            Plan::FCCFCFCFC => Spot::None,
+            Plan::FFCFCCCFF => Spot::None,
+            Plan::FFCFCFCFC => Spot::None,
+            Plan::FFCFFFCCC => Spot::None,
             Plan::FFCFFFCFC => Spot::None,
             Plan::FFCFFFCFF => Spot::None,
             Plan::FFCFFFFFC => Spot::None,
             Plan::FFFFCCCFF => Spot::None,
             Plan::FFFFFFCFF => Spot::None,
+            Plan::RFFFFFCFR => Spot::None,
+            Plan::RFFFRFCFF => Spot::None,
             Plan::RFFFRFCFR => Spot::None,
             Plan::RFFFRFFFR => Spot::None,
             Plan::RFRFCCCFR => Spot::None,
@@ -356,13 +443,24 @@ impl PlanImpl of PlanTrait {
             Plan::CCCCCCCCC => CccccccccImpl::moves(from),
             Plan::CCCCCFFFC => CccccfffcImpl::moves(from),
             Plan::CCCCCFRFC => CccccfrfcImpl::moves(from),
+            Plan::CFCFCCCCC => CfffcfffcImpl::moves(from),
+            Plan::CFCFCFCFC => CfffcfffcImpl::moves(from),
+            Plan::CFCFCFFFC => CfffcfffcImpl::moves(from),
+            Plan::CFFCFCFFC => CfffcfffcImpl::moves(from),
             Plan::CFFFCFFFC => CfffcfffcImpl::moves(from),
             Plan::CFFFCFRFC => CfffcfrfcImpl::moves(from),
+            Plan::FCCFCCCFC => FfffcccffImpl::moves(from),
+            Plan::FCCFCFCFC => FfffcccffImpl::moves(from),
+            Plan::FFCFCCCFF => FfffffcffImpl::moves(from),
+            Plan::FFCFCFCFC => FfffffcffImpl::moves(from),
+            Plan::FFCFFFCCC => FfffffcffImpl::moves(from),
             Plan::FFCFFFCFC => FfcfffcfcImpl::moves(from),
             Plan::FFCFFFCFF => FfcfffcffImpl::moves(from),
             Plan::FFCFFFFFC => FfcfffffcImpl::moves(from),
             Plan::FFFFCCCFF => FfffcccffImpl::moves(from),
             Plan::FFFFFFCFF => FfffffcffImpl::moves(from),
+            Plan::RFFFFFCFR => RfffffcfrImpl::moves(from),
+            Plan::RFFFRFCFF => RfffrfcffImpl::moves(from),
             Plan::RFFFRFCFR => RfffrfcfrImpl::moves(from),
             Plan::RFFFRFFFR => RfffrfffrImpl::moves(from),
             Plan::RFRFCCCFR => RfrfcccfrImpl::moves(from),
@@ -387,13 +485,24 @@ impl PlanImpl of PlanTrait {
             Plan::CCCCCCCCC => CccccccccImpl::area(from),
             Plan::CCCCCFFFC => CccccfffcImpl::area(from),
             Plan::CCCCCFRFC => CccccfrfcImpl::area(from),
+            Plan::CFCFCCCCC => CfffcfffcImpl::area(from),
+            Plan::CFCFCFCFC => CfffcfffcImpl::area(from),
+            Plan::CFCFCFFFC => CfffcfffcImpl::area(from),
+            Plan::CFFCFCFFC => CfffcfffcImpl::area(from),
             Plan::CFFFCFFFC => CfffcfffcImpl::area(from),
             Plan::CFFFCFRFC => CfffcfrfcImpl::area(from),
+            Plan::FCCFCCCFC => FfffcccffImpl::area(from),
+            Plan::FCCFCFCFC => FfffcccffImpl::area(from),
+            Plan::FFCFCCCFF => FfffffcffImpl::area(from),
+            Plan::FFCFCFCFC => FfffffcffImpl::area(from),
+            Plan::FFCFFFCCC => FfffffcffImpl::area(from),
             Plan::FFCFFFCFC => FfcfffcfcImpl::area(from),
             Plan::FFCFFFCFF => FfcfffcffImpl::area(from),
             Plan::FFCFFFFFC => FfcfffffcImpl::area(from),
             Plan::FFFFCCCFF => FfffcccffImpl::area(from),
             Plan::FFFFFFCFF => FfffffcffImpl::area(from),
+            Plan::RFFFFFCFR => RfffffcfrImpl::area(from),
+            Plan::RFFFRFCFF => RfffrfcffImpl::area(from),
             Plan::RFFFRFCFR => RfffrfcfrImpl::area(from),
             Plan::RFFFRFFFR => RfffrfffrImpl::area(from),
             Plan::RFRFCCCFR => RfrfcccfrImpl::area(from),
@@ -418,13 +527,24 @@ impl PlanImpl of PlanTrait {
             Plan::CCCCCCCCC => CccccccccImpl::adjacent_roads(from),
             Plan::CCCCCFFFC => CccccfffcImpl::adjacent_roads(from),
             Plan::CCCCCFRFC => CccccfrfcImpl::adjacent_roads(from),
+            Plan::CFCFCCCCC => CfffcfffcImpl::adjacent_roads(from),
+            Plan::CFCFCFCFC => CfffcfffcImpl::adjacent_roads(from),
+            Plan::CFCFCFFFC => CfffcfffcImpl::adjacent_roads(from),
+            Plan::CFFCFCFFC => CfffcfffcImpl::adjacent_roads(from),
             Plan::CFFFCFFFC => CfffcfffcImpl::adjacent_roads(from),
             Plan::CFFFCFRFC => CfffcfrfcImpl::adjacent_roads(from),
+            Plan::FCCFCCCFC => FfffcccffImpl::adjacent_roads(from),
+            Plan::FCCFCFCFC => FfffcccffImpl::adjacent_roads(from),
+            Plan::FFCFCCCFF => FfffffcffImpl::adjacent_roads(from),
+            Plan::FFCFCFCFC => FfffffcffImpl::adjacent_roads(from),
+            Plan::FFCFFFCCC => FfffffcffImpl::adjacent_roads(from),
             Plan::FFCFFFCFC => FfcfffcfcImpl::adjacent_roads(from),
             Plan::FFCFFFCFF => FfcfffcffImpl::adjacent_roads(from),
             Plan::FFCFFFFFC => FfcfffffcImpl::adjacent_roads(from),
             Plan::FFFFCCCFF => FfffcccffImpl::adjacent_roads(from),
             Plan::FFFFFFCFF => FfffffcffImpl::adjacent_roads(from),
+            Plan::RFFFFFCFR => RfffffcfrImpl::adjacent_roads(from),
+            Plan::RFFFRFCFF => RfffrfcffImpl::adjacent_roads(from),
             Plan::RFFFRFCFR => RfffrfcfrImpl::adjacent_roads(from),
             Plan::RFFFRFFFR => RfffrfffrImpl::adjacent_roads(from),
             Plan::RFRFCCCFR => RfrfcccfrImpl::adjacent_roads(from),
@@ -449,13 +569,24 @@ impl PlanImpl of PlanTrait {
             Plan::CCCCCCCCC => CccccccccImpl::adjacent_cities(from),
             Plan::CCCCCFFFC => CccccfffcImpl::adjacent_cities(from),
             Plan::CCCCCFRFC => CccccfrfcImpl::adjacent_cities(from),
+            Plan::CFCFCCCCC => CfffcfffcImpl::adjacent_cities(from),
+            Plan::CFCFCFCFC => CfffcfffcImpl::adjacent_cities(from),
+            Plan::CFCFCFFFC => CfffcfffcImpl::adjacent_cities(from),
+            Plan::CFFCFCFFC => CfffcfffcImpl::adjacent_cities(from),
             Plan::CFFFCFFFC => CfffcfffcImpl::adjacent_cities(from),
             Plan::CFFFCFRFC => CfffcfrfcImpl::adjacent_cities(from),
+            Plan::FCCFCCCFC => FfffcccffImpl::adjacent_cities(from),
+            Plan::FCCFCFCFC => FfffcccffImpl::adjacent_cities(from),
+            Plan::FFCFCCCFF => FfffffcffImpl::adjacent_cities(from),
+            Plan::FFCFCFCFC => FfffffcffImpl::adjacent_cities(from),
+            Plan::FFCFFFCCC => FfffffcffImpl::adjacent_cities(from),
             Plan::FFCFFFCFC => FfcfffcfcImpl::adjacent_cities(from),
             Plan::FFCFFFCFF => FfcfffcffImpl::adjacent_cities(from),
             Plan::FFCFFFFFC => FfcfffffcImpl::adjacent_cities(from),
             Plan::FFFFCCCFF => FfffcccffImpl::adjacent_cities(from),
             Plan::FFFFFFCFF => FfffffcffImpl::adjacent_cities(from),
+            Plan::RFFFFFCFR => RfffffcfrImpl::adjacent_cities(from),
+            Plan::RFFFRFCFF => RfffrfcffImpl::adjacent_cities(from),
             Plan::RFFFRFCFR => RfffrfcfrImpl::adjacent_cities(from),
             Plan::RFFFRFFFR => RfffrfffrImpl::adjacent_cities(from),
             Plan::RFRFCCCFR => RfrfcccfrImpl::adjacent_cities(from),
