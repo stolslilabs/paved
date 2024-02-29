@@ -1,6 +1,5 @@
 // Game
 
-export const TOTAL_TILE_COUNT: number = 72;
 export const ROAD_BASE_POINTS: number = 100;
 export const FOREST_BASE_POINTS: number = 100;
 export const CITY_BASE_POINTS: number = 200;

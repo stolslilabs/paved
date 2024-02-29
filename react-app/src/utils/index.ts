@@ -4,13 +4,24 @@ import zero from "/assets/tiles/00.png";
 import ccccccccc from "/assets/tiles/ccccccccc.png";
 import cccccfffc from "/assets/tiles/cccccfffc.png";
 import cccccfrfc from "/assets/tiles/cccccfrfc.png";
+import cfcfccccc from "/assets/tiles/cfcfccccc.png";
+import cfcfcfcfc from "/assets/tiles/cfcfcfcfc.png";
+import cfcfcfffc from "/assets/tiles/cfcfcfffc.png";
+import cffcfcffc from "/assets/tiles/cffcfcffc.png";
 import cfffcfffc from "/assets/tiles/cfffcfffc.png";
 import cfffcfrfc from "/assets/tiles/cfffcfrfc.png";
+import fccfcccfc from "/assets/tiles/fccfcccfc.png";
+import fccfcfcfc from "/assets/tiles/fccfcfcfc.png";
+import ffcfcccff from "/assets/tiles/ffcfcccff.png";
+import ffcfcfcfc from "/assets/tiles/ffcfcfcfc.png";
+import ffcfffccc from "/assets/tiles/ffcfffccc.png";
 import ffcfffcfc from "/assets/tiles/ffcfffcfc.png";
 import ffcfffcff from "/assets/tiles/ffcfffcff.png";
 import ffcfffffc from "/assets/tiles/ffcfffffc.png";
 import ffffcccff from "/assets/tiles/ffffcccff.png";
 import ffffffcff from "/assets/tiles/ffffffcff.png";
+import rfffffcfr from "/assets/tiles/rfffffcfr.png";
+import rfffrfcff from "/assets/tiles/rfffrfcff.png";
 import rfffrfcfr from "/assets/tiles/rfffrfcfr.png";
 import rfffrfffr from "/assets/tiles/rfffrfffr.png";
 import rfrfcccfr from "/assets/tiles/rfrfcccfr.png";
@@ -46,46 +57,68 @@ export const getImage = (tile: any) => {
     case 3:
       return cccccfrfc;
     case 4:
-      return cfffcfffc;
+      return cfcfccccc;
     case 5:
-      return cfffcfrfc;
+      return cfcfcfcfc;
     case 6:
-      return ffcfffcfc;
+      return cfcfcfffc;
     case 7:
-      return ffcfffcff;
+      return cffcfcffc;
     case 8:
-      return ffcfffffc;
+      return cfffcfffc;
     case 9:
-      return ffffcccff;
+      return cfffcfrfc;
     case 10:
-      return ffffffcff;
+      return fccfcccfc;
     case 11:
-      return rfffrfcfr;
+      return fccfcfcfc;
     case 12:
-      return rfffrfffr;
+      return ffcfcccff;
     case 13:
-      return rfrfcccfr;
+      return ffcfcfcfc;
     case 14:
-      return rfrfffcff;
+      return ffcfffccc;
     case 15:
-      return rfrfffcfr;
+      return ffcfffcfc;
     case 16:
-      return rfrfffffr;
+      return ffcfffcff;
     case 17:
-      return rfrfrfcff;
+      return ffcfffffc;
     case 18:
-      return sfffffffr;
+      return ffffcccff;
     case 19:
-      return sfrfrfcfr;
+      return ffffffcff;
     case 20:
-      return sfrfrfffr;
+      return rfffffcfr;
     case 21:
-      return sfrfrfrfr;
+      return rfffrfcff;
     case 22:
-      return wcccccccc;
+      return rfffrfcfr;
     case 23:
-      return wffffffff;
+      return rfffrfffr;
     case 24:
+      return rfrfcccfr;
+    case 25:
+      return rfrfffcff;
+    case 26:
+      return rfrfffcfr;
+    case 27:
+      return rfrfffffr;
+    case 28:
+      return rfrfrfcff;
+    case 29:
+      return sfffffffr;
+    case 30:
+      return sfrfrfcfr;
+    case 31:
+      return sfrfrfffr;
+    case 32:
+      return sfrfrfrfr;
+    case 33:
+      return wcccccccc;
+    case 34:
+      return wffffffff;
+    case 35:
       return wfffffffr;
     default:
       return zero;
