@@ -98,7 +98,7 @@ fn test_play_build_with_character_revert_not_idle() {
     systems.host.start(world, game.id);
 
     // [Draw & Build]
-    set_transaction_hash(0x58);
+    set_transaction_hash(0xa9);
     systems.play.draw(world, game.id); // WFFFFFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::North;
@@ -109,7 +109,7 @@ fn test_play_build_with_character_revert_not_idle() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, role, spot);
 
     // [Draw & Build]
-    set_transaction_hash(0x17);
+    set_transaction_hash(0x4);
     systems.play.draw(world, game.id); // SFRFRFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::East;
@@ -168,7 +168,7 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.host.start(world, game.id);
 
     // [Draw & Build]
-    set_transaction_hash(0x58);
+    set_transaction_hash(0xa9);
     systems.play.draw(world, game.id); // WFFFFFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::North;
@@ -177,7 +177,7 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0x17);
+    set_transaction_hash(0x4);
     systems.play.draw(world, game.id); // SFRFRFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::East;
@@ -186,7 +186,7 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0x9);
+    set_transaction_hash(0x2);
     systems.play.draw(world, game.id); // RFFFRFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::East;
@@ -195,7 +195,7 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0xa);
+    set_transaction_hash(0x1);
     systems.play.draw(world, game.id); // RFFFRFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::North;
@@ -204,7 +204,7 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0x19);
+    set_transaction_hash(0xc);
     systems.play.draw(world, game.id); // RFRFFFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::North;
@@ -213,7 +213,7 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0xe);
+    set_transaction_hash(0x14);
     systems.play.draw(world, game.id); // RFRFFFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::East;
@@ -224,7 +224,7 @@ fn test_play_build_complete_forest_inside_roads() {
         .build(world, context.game_id, builder.tile_id, orientation, x, y, woodsman, northeast);
 
     // [Draw & Build]
-    set_transaction_hash(0x5);
+    set_transaction_hash(0xe);
     systems.play.draw(world, game.id); // RFRFFFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::South;
@@ -233,7 +233,7 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0x7);
+    set_transaction_hash(0x1b);
     systems.play.draw(world, game.id); // RFRFFFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::West;
@@ -264,7 +264,7 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.host.start(world, game.id);
 
     // [Draw & Build]
-    set_transaction_hash(0x2);
+    set_transaction_hash(0x52);
     systems.play.draw(world, game.id); // CCCCCFRFC
     let builder = store.builder(game, player.id);
     let orientation = Orientation::West;
@@ -275,7 +275,7 @@ fn test_play_build_complete_forest_inside_castles() {
         .build(world, context.game_id, builder.tile_id, orientation, x, y, woodsman, northeast);
 
     // [Draw & Build]
-    set_transaction_hash(0x6);
+    set_transaction_hash(0x1f);
     systems.play.draw(world, game.id); // CCCCCFFFC
     let builder = store.builder(game, player.id);
     let orientation = Orientation::South;
@@ -284,7 +284,7 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0x5);
+    set_transaction_hash(0x18);
     systems.play.draw(world, game.id); // RFRFCCCFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::North;
@@ -293,7 +293,7 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0x24);
+    set_transaction_hash(0x2);
     systems.play.draw(world, game.id); // WFFFFFFFR
     let builder = store.builder(game, player.id);
     let orientation = Orientation::West;
@@ -302,7 +302,7 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0x1);
+    set_transaction_hash(0x16);
     systems.play.draw(world, game.id); // CCCCCFFFC
     let builder = store.builder(game, player.id);
     let orientation = Orientation::West;
@@ -311,7 +311,7 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0xa);
+    set_transaction_hash(0xc);
     systems.play.draw(world, game.id); // CCCCCFFFC
     let builder = store.builder(game, player.id);
     let orientation = Orientation::East;
@@ -320,7 +320,7 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-    set_transaction_hash(0x6);
+    set_transaction_hash(0x3e);
     systems.play.draw(world, game.id); // CFFFCFFFC
     let builder = store.builder(game, player.id);
     let orientation = Orientation::North;
