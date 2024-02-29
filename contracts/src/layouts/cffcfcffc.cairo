@@ -30,7 +30,7 @@ impl LayoutImpl of LayoutTrait {
                 moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Spot::NorthWest => {
-                moves.append(Move { direction: Direction::West, spot: Spot::East });
+                moves.append(Move { direction: Direction::North, spot: Spot::South });
             },
             Spot::North => {
                 moves.append(Move { direction: Direction::North, spot: Spot::South });
@@ -46,7 +46,7 @@ impl LayoutImpl of LayoutTrait {
                 moves.append(Move { direction: Direction::South, spot: Spot::North });
             },
             Spot::SouthWest => {
-                moves.append(Move { direction: Direction::West, spot: Spot::East });
+                moves.append(Move { direction: Direction::South, spot: Spot::North });
             },
             Spot::West => { moves.append(Move { direction: Direction::West, spot: Spot::East }); },
         };
