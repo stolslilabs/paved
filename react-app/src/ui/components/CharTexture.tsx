@@ -138,7 +138,7 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
             ]}
           />
         </mesh>
-        <mesh rotation={[0, Math.PI / 2, 0]}>
+        <mesh rotation={[0, -Math.PI / 2, 0]}>
           <meshStandardMaterial map={loader.load(image)} />
           <cylinderGeometry args={[radius, radius, 0.2, 32]} />
         </mesh>
