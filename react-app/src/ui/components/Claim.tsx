@@ -4,11 +4,11 @@ import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSackDollar } from "@fortawesome/free-solid-svg-icons";
+import { faWallet } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
 import { useQueryParams } from "@/hooks/useQueryParams";
 
-export const Claim = ({ show }: { show: boolean }) => {
+export const Claim = () => {
   const { gameId } = useQueryParams();
   const [enable, setEnable] = useState(false);
   const [claimed, setClaimed] = useState(false);
@@ -31,10 +31,12 @@ export const Claim = ({ show }: { show: boolean }) => {
   const builder = useComponentValue(Builder, builderId);
 
   const handleClick = () => {
-    claim({
-      account: account,
-      game_id: gameId,
-    });
+    if (account) {
+      claim({
+        account: account,
+        game_id: gameId,
+      });
+    }
   };
   useEffect(() => {
     if (builder) {
@@ -54,19 +56,14 @@ export const Claim = ({ show }: { show: boolean }) => {
     return () => clearInterval(interval);
   }, [game, claimed]);
 
-  if (!account || !game || !builder) return <></>;
-
   return (
     <Button
-      disabled={show && !enable}
-      className={`${
-        show ? "opacity-100" : "opacity-0 -mb-16"
-      } transition-all duration-200`}
-      variant={"default"}
-      size={"icon"}
+      disabled={!enable}
+      variant={"command"}
+      size={"command"}
       onClick={handleClick}
     >
-      <FontAwesomeIcon icon={faSackDollar} />
+      <FontAwesomeIcon className="h-12" icon={faWallet} />
     </Button>
   );
 };

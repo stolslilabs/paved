@@ -3,35 +3,39 @@ import {
   TableBody,
   TableCaption,
   TableCell,
-  TableHead,
-  TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { useEntityQuery, useComponentValue } from "@dojoengine/react";
-import { shortString } from "starknet";
-import { getColor } from "@/utils";
-import { Has, HasValue, Entity } from "@dojoengine/recs";
+import { Entity } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
+import { useComponentValue } from "@dojoengine/react";
 import { useMemo, useState, useEffect } from "react";
 
 export const GameInfo = () => {
   const { gameId } = useQueryParams();
   const [timeLeft, setTimeLeft] = useState<number>();
   const {
+    account: { account },
     setup: {
-      clientComponents: { Game },
+      clientComponents: { Game, Player, Builder },
     },
   } = useDojo();
 
   const gameEntity = getEntityIdFromKeys([BigInt(gameId)]) as Entity;
   const game = useComponentValue(Game, gameEntity);
 
-  const tileLeft = useMemo(() => {
-    return game?.tiles_cap - game?.tile_count;
-  }, [game]);
+  const playerKey = useMemo(
+    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
+    [account]
+  );
+  const player = useComponentValue(Player, playerKey);
+  const builderKey = useMemo(
+    () =>
+      getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]) as Entity,
+    [gameId, account]
+  );
+  const builder = useComponentValue(Builder, builderKey);
 
   useEffect(() => {
     if (game) {
@@ -54,38 +58,20 @@ export const GameInfo = () => {
               {game?.duration ? `${timeLeft} s` : "∞"}
             </TableCell>
             <TableCell>:</TableCell>
-            <TableCell>Countdown</TableCell>
+            <TableCell>Countdown 🕐</TableCell>
           </TableRow>
           <TableRow>
             <TableCell>{game?.tile_count}</TableCell>
             <TableCell>:</TableCell>
-            <TableCell>Tile count</TableCell>
+            <TableCell>Tiles paved ⚒️</TableCell>
+          </TableRow>
+          <TableRow>
+            <TableCell>{builder ? player?.bank : "N/A"}</TableCell>
+            <TableCell>:</TableCell>
+            <TableCell>Tiles left 🧩</TableCell>
           </TableRow>
         </TableBody>
       </Table>
     </div>
-  );
-};
-
-export const PlayerRow = ({
-  builder,
-  rank,
-}: {
-  builder: any;
-  rank: number;
-}) => {
-  const name = shortString.decodeShortString(builder?.name || "");
-  const address = `0x${builder.id.toString(16)}`;
-  const backgroundColor = getColor(address);
-
-  return (
-    <TableRow>
-      <TableCell className="font-medium">{`#${rank}`}</TableCell>
-      <TableCell>{name}</TableCell>
-      <TableCell>
-        <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
-      </TableCell>
-      <TableCell className="text-right">{builder?.score}</TableCell>
-    </TableRow>
   );
 };

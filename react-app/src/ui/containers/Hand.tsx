@@ -3,21 +3,22 @@ import { Rotation } from "../components/Rotation";
 import { Discard } from "../components/Discard";
 import { Confirm } from "../components/Confirm";
 import { Cancel } from "../components/Cancel";
-import { Count } from "../components/Count";
-import { ResetCamera } from "../components/ResetCamera";
 
 export const Hand = () => {
   return (
-    <div className="absolute right-6 bottom-6 z-30 w-64 h-80">
-      <div className="flex top-0 right-0 absolute justify-between space-x-1">
-        <ResetCamera />
+    <div className="absolute right-4 bottom-4 z-30">
+      <div className="absolute top-0 left-[-50%]">
         <Cancel />
-        <Confirm />
+      </div>
+      <div className="absolute bottom-0 left-[-50%]">
         <Discard />
+      </div>
+      <div className="absolute top-[-50%] left-0">
+        <Confirm />
+      </div>
+      <div className="absolute top-[-50%] right-0">
         <Rotation />
       </div>
-
-      <Count />
       <Tile />
     </div>
   );

@@ -1,5 +1,3 @@
-import { Account } from "starknet";
-import { ClientComponents } from "./createClientComponents";
 import type { IWorld } from "./generated/generated";
 
 import { toast } from "sonner";
@@ -13,11 +11,11 @@ export function createSystemCalls({ client }: { client: IWorld }) {
   };
 
   const notify = (message: string, transaction: any) => {
-    toast(
-      transaction.execution_status != "REVERTED"
-        ? message
-        : extractedMessage(transaction.revert_reason)
-    );
+    if (transaction.execution_status != "REVERTED") {
+      toast.success(message);
+    } else {
+      toast.error(extractedMessage(transaction.revert_reason));
+    }
   };
 
   const create_game = async ({ account, ...props }: SystemTypes.CreateGame) => {
@@ -256,7 +254,7 @@ export function createSystemCalls({ client }: { client: IWorld }) {
       });
 
       notify(
-        "Paved.",
+        "Tile has been revealed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         })
@@ -274,7 +272,7 @@ export function createSystemCalls({ client }: { client: IWorld }) {
       });
 
       notify(
-        "Discarded.",
+        "Tile has been discarded.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         })
@@ -292,7 +290,7 @@ export function createSystemCalls({ client }: { client: IWorld }) {
       });
 
       notify(
-        "Built.",
+        "Tile has been paved.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         })

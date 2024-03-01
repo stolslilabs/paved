@@ -50,14 +50,16 @@ export const Cancel = () => {
     return !builder?.tile_id;
   }, [builder]);
 
+  if (!account || !builder) return <></>;
+
   return (
     <Button
       disabled={disabled}
-      variant={"default"}
-      size={"icon"}
+      variant={"command"}
+      size={"command"}
       onClick={handleClick}
     >
-      <FontAwesomeIcon icon={faXmark} />
+      <FontAwesomeIcon className="h-12" icon={faXmark} />
     </Button>
   );
 };

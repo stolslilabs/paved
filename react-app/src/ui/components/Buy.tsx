@@ -3,7 +3,7 @@ import { useDojo } from "../../dojo/useDojo";
 import { faCartPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
-export const Buy = ({ show }: { show: boolean }) => {
+export const Buy = () => {
   const {
     account: { account },
     setup: {
@@ -13,11 +13,8 @@ export const Buy = ({ show }: { show: boolean }) => {
 
   return (
     <Button
-      className={`${
-        show ? "opacity-100" : "opacity-0 -mb-16"
-      } transition-all duration-200`}
-      variant={"default"}
-      size={"icon"}
+      variant={"command"}
+      size={"command"}
       onClick={() =>
         buy({
           account: account,
@@ -25,7 +22,7 @@ export const Buy = ({ show }: { show: boolean }) => {
         })
       }
     >
-      <FontAwesomeIcon icon={faCartPlus} />
+      <FontAwesomeIcon className="h-12" icon={faCartPlus} />
     </Button>
   );
 };

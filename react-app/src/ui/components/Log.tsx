@@ -8,7 +8,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBook } from "@fortawesome/free-solid-svg-icons";
+import { faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import { useLogs } from "@/hooks/useLogs";
 
 export type LogType = {
@@ -18,19 +18,13 @@ export type LogType = {
   regionTo?: number;
 };
 
-export const Log = ({ show }: { show: boolean }) => {
+export const Log = () => {
   const { logs } = useLogs();
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button
-          className={`${
-            show ? "opacity-100" : "opacity-0 -mb-16"
-          } transition-all duration-200`}
-          variant={"default"}
-          size={"icon"}
-        >
-          <FontAwesomeIcon icon={faBook} />
+        <Button variant={"command"} size={"command"}>
+          <FontAwesomeIcon className="h-12" icon={faInfoCircle} />
         </Button>
       </SheetTrigger>
       <SheetContent className="flex flex-col">

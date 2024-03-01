@@ -21,7 +21,6 @@ import {
   Discard,
   Build,
 } from "./types";
-import { error } from "console";
 
 export type IWorld = Awaited<ReturnType<typeof setupWorld>>;
 
