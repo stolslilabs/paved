@@ -1342,7 +1342,7 @@
     {
       "name": "stolsli::systems::play::play",
       "address": "0x54cecff4ea996878685a1d15e6e20e58f0560661bb9e6ae2f2b47a4a3acf2e4",
-      "class_hash": "0x69e4e73e7c54f1d5f5a4acc0eda6f3ea32e216a6d3f5a796b613ae7a49a9372",
+      "class_hash": "0x42490aa351531eab36bfa49c7dc70fb596935994c96cb0314d0d2c4c1d0274a",
       "abi": [
         {
           "type": "impl",

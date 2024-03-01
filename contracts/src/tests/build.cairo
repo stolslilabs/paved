@@ -333,3 +333,43 @@ fn test_play_build_complete_forest_inside_castles() {
     let expected: u32 = 1 * constants::FOREST_BASE_POINTS;
     assert(builder.score == expected, 'Build: builder score');
 }
+
+#[test]
+fn test_play_build_single_forest_inside_castles() {
+    // [Setup]
+    let (world, systems, context) = setup::spawn_game();
+    let store = StoreTrait::new(world);
+    let game = store.game(context.game_id);
+    let herdsman = Role::Herdsman;
+    let spot = Spot::Center;
+
+    // [Spawn]
+    let player = store.player(context.player_id);
+    systems.host.join(world, context.game_id, player.order);
+    systems.host.start(world, game.id);
+
+    // [Draw & Build]
+    set_transaction_hash(0x47);
+    systems.play.draw(world, game.id); // CCCCCCCCC
+    let builder = store.builder(game, player.id);
+    let orientation = Orientation::North;
+    let x = CENTER;
+    let y = CENTER + 1;
+    systems
+        .play
+        .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
+
+    // [Draw & Build]
+    set_transaction_hash(0x64);
+    systems.play.draw(world, game.id); // FFCFCFCFC
+    let builder = store.builder(game, player.id);
+    let orientation = Orientation::North;
+    let x = CENTER + 1;
+    let y = CENTER + 1;
+    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, herdsman, spot);
+
+    // [Assert]
+    let builder = store.builder(game, player.id);
+    assert(builder.score == 0, 'Build: builder score');
+    assert(builder.characters == 0, 'Build: builder characters');
+}
