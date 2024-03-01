@@ -1,7 +1,7 @@
 {
   "world": {
     "name": "dojo::world::world",
-    "address": "0x2ec3ca06e60fad50ff451d46c13a6fd5c555b64f71e0c8665fa117e97564dec",
+    "address": "0x58627196c0e5308d885e1cad6764cac2c9c9c4754703b0e453d5c64fdca026c",
     "class_hash": "0x5ac623f0c96059936bd2d0904bdd31799e430fe08a0caff7a5f497260b16497",
     "abi": [
       {
@@ -948,8 +948,8 @@
   "contracts": [
     {
       "name": "stolsli::systems::host::host",
-      "address": "0x28f4d6ee6c48ea0a3d5b3ff07f4dff6e371824873a832ebaa64b344b18e5bf7",
-      "class_hash": "0x7c4a3f69752d1234d9b4000aa63e9c6411d32e37a3f5e2d282fa9cfb17590ea",
+      "address": "0x38d8b04ddb0921f38a5f5792f0f7287992746a099168ded04adc65dc7d10df",
+      "class_hash": "0x405fd7d91031fec0bd9644207d18e02195146f4e7299a98583c2c1bf8f6bf35",
       "abi": [
         {
           "type": "impl",
@@ -1216,8 +1216,8 @@
     },
     {
       "name": "stolsli::systems::manage::manage",
-      "address": "0x438206ff0ffc258c5328a4ec5d010a09d4db3bdddeab4a2f66f94560aad9cc4",
-      "class_hash": "0x715cbfbfe375a7f155c1e0842dd3f72a5e3fca61625fc668ae9595d78169c49",
+      "address": "0x5d4737687a1284138035dc5ac15fe7cef6ac101dc71fa4b0193a6ad969f2812",
+      "class_hash": "0x48275e9af4c81733881050310431d6c627cc227eeae272b0ce0b0cf1fdebe8c",
       "abi": [
         {
           "type": "impl",
@@ -1253,6 +1253,10 @@
                 {
                   "name": "order",
                   "type": "core::integer::u8"
+                },
+                {
+                  "name": "master",
+                  "type": "core::starknet::contract_address::ContractAddress"
                 }
               ],
               "outputs": [],
@@ -1337,8 +1341,8 @@
     },
     {
       "name": "stolsli::systems::play::play",
-      "address": "0x75cf4a85aae3066683bdac40c24cd72c657956a516a883515aa3deb53bef945",
-      "class_hash": "0x106d8b8f5746ed626ad73f30a48b74a190468c98ed194b1f1dd3af0c4f1e712",
+      "address": "0x33a4728c5ff0aa9b0de04c43faae19f6b61bc85d671c15302a4cf96be990cb1",
+      "class_hash": "0x42490aa351531eab36bfa49c7dc70fb596935994c96cb0314d0d2c4c1d0274a",
       "abi": [
         {
           "type": "impl",
@@ -2763,9 +2767,14 @@
           "name": "paved",
           "type": "u32",
           "key": false
+        },
+        {
+          "name": "master",
+          "type": "felt252",
+          "key": false
         }
       ],
-      "class_hash": "0x2d27bb087d80e524b436dbbdb137f81f94e6682ffdf5679e4ecc06a17b2130a",
+      "class_hash": "0x4e794dfea9af5fec7555f17d86c8f832a9df6349c82dfd0ab7ffcae6c6d1659",
       "abi": [
         {
           "type": "impl",
@@ -2963,6 +2972,10 @@
             {
               "name": "paved",
               "type": "core::integer::u32"
+            },
+            {
+              "name": "master",
+              "type": "core::felt252"
             }
           ]
         },
