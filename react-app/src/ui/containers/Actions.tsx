@@ -4,14 +4,8 @@ import { Buy } from "../components/Buy";
 import { Leaderboard } from "../components/Leaderboard";
 import { Claim } from "../components/Claim";
 import { Log } from "../components/Log";
-import {
-  faExpand,
-  faCompress,
-  faHome,
-  faBinoculars,
-  faCircleInfo,
-  faWallet,
-} from "@fortawesome/free-solid-svg-icons";
+import { ResetCamera } from "../components/ResetCamera";
+import { faHome, faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Button } from "@/components/ui/button";
 
@@ -21,62 +15,66 @@ export const Actions = () => {
 
   return (
     <div className="absolute left-4 bottom-6 z-30">
-      <div className="flex justify-center items-end gap-4">
-        <div className="flex flex-col-reverse gap-4">
+      <div className="relative">
+        <Button
+          className={"z-10"}
+          variant={"command"}
+          size={"command"}
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          <FontAwesomeIcon
+            className="h-12"
+            style={{ transform: `rotate(${isExpanded ? 180 : 0}deg)` }}
+            icon={faUpRightFromSquare}
+          />
+        </Button>
+        <div
+          className={`absolute left-0 transition-all duration-200 ${
+            isExpanded ? "opacity-100 top-[-120%]" : "opacity-0 top-[100%]"
+          }`}
+        >
+          <Buy />
+        </div>
+        <div
+          className={`absolute left-0 transition-all duration-200 ${
+            isExpanded ? "opacity-100 top-[-240%]" : "opacity-0 top-[100%]"
+          }`}
+        >
           <Button
-            className={"z-10"}
-            variant={"default"}
-            size={"icon"}
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            <FontAwesomeIcon icon={isExpanded ? faCompress : faExpand} />
-          </Button>
-          <Claim show={isExpanded} />
-          <Leaderboard show={isExpanded} />
-
-          <Button
-            className={`${
-              isExpanded ? "opacity-100" : "opacity-0 -mb-16"
-            } transition-all duration-200`}
-            variant={"default"}
-            size={"icon"}
+            variant={"command"}
+            size={"command"}
             onClick={() => navigate("", { replace: true })}
           >
-            <FontAwesomeIcon icon={faHome} />
+            <FontAwesomeIcon className="h-12" icon={faHome} />
           </Button>
-
-          <Buy show={isExpanded} />
-          <Log show={isExpanded} />
         </div>
-
-        <div className="flex gap-4">
-          <Button
-            className={`${
-              isExpanded ? "opacity-100" : "opacity-0 -ml-16"
-            } transition-all duration-200`}
-            variant={"default"}
-            size={"icon"}
-          >
-            <FontAwesomeIcon icon={faBinoculars} />
-          </Button>
-          <Button
-            className={`${
-              isExpanded ? "opacity-100" : "opacity-0 -ml-16"
-            } transition-all duration-200`}
-            variant={"default"}
-            size={"icon"}
-          >
-            <FontAwesomeIcon icon={faWallet} />
-          </Button>
-          <Button
-            className={`${
-              isExpanded ? "opacity-100" : "opacity-0 -ml-32"
-            } transition-all duration-200`}
-            variant={"default"}
-            size={"icon"}
-          >
-            <FontAwesomeIcon icon={faCircleInfo} />
-          </Button>
+        <div
+          className={`absolute left-0 transition-all duration-200 ${
+            isExpanded ? "opacity-100 top-[-360%]" : "opacity-0 top-[100%]"
+          }`}
+        >
+          <Leaderboard />
+        </div>
+        <div
+          className={`absolute bottom-0 transition-all duration-200 ${
+            isExpanded ? "opacity-100 right-[-120%]" : "opacity-0 right-[100%]"
+          }`}
+        >
+          <ResetCamera />
+        </div>
+        <div
+          className={`absolute bottom-0 transition-all duration-200 ${
+            isExpanded ? "opacity-100 right-[-240%]" : "opacity-0 right-[100%]"
+          }`}
+        >
+          <Claim />
+        </div>
+        <div
+          className={`absolute bottom-0 transition-all duration-200 ${
+            isExpanded ? "opacity-100 right-[-360%]" : "opacity-0 right-[100%]"
+          }`}
+        >
+          <Log />
         </div>
       </div>
     </div>

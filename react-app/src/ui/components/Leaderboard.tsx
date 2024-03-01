@@ -34,9 +34,8 @@ import {
   HasValue,
 } from "@dojoengine/recs";
 import { useLogs } from "@/hooks/useLogs";
-import { log } from "console";
 
-export const Leaderboard = ({ show }: { show: boolean }) => {
+export const Leaderboard = () => {
   const { gameId } = useQueryParams();
   const [builders, setBuilders] = useState<{ [key: number]: typeof Builder }>(
     {}
@@ -121,14 +120,8 @@ export const Leaderboard = ({ show }: { show: boolean }) => {
   return (
     <Dialog>
       <DialogTrigger>
-        <Button
-          className={`${
-            show ? "opacity-100" : "opacity-0 -mb-16"
-          } transition-all duration-200`}
-          variant={"default"}
-          size={"icon"}
-        >
-          <FontAwesomeIcon icon={faTrophy} />
+        <Button variant={"command"} size={"command"}>
+          <FontAwesomeIcon className="h-12" icon={faTrophy} />
         </Button>
       </DialogTrigger>
       <DialogContent>

@@ -25,10 +25,14 @@ export const Spot = (props: TProps) => {
 
   return (
     <div
-      className="h-6 w-6 bg-white flex justify-center items-center"
+      className="h-full w-full flex justify-center items-center"
       onClick={handleClick}
     >
-      {selected ? "X" : ""}
+      <div
+        className={`h-4 w-4 rounded-full ${
+          selected ? "bg-slate-600" : "bg-white"
+        }`}
+      />
     </div>
   );
 };

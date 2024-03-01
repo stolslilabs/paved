@@ -4,7 +4,7 @@ import { Header } from "@/ui/containers/Header";
 
 export const GameLobby = () => {
   return (
-    <div className="h-screen flex grow">
+    <div className="h-full flex grow">
       <Header />
       <Player />
       <Games />

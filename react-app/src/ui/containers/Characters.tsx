@@ -32,10 +32,12 @@ export const Characters = () => {
     [builder]
   );
 
+  if (!account || !builder) return <></>;
+
   return (
-    <footer className="z-20 flex justify-between items-center absolute bottom-4 w-full">
-      <div className="flex justify-center items-center  grow gap-8">
-        {characters.map(({ character, status }, index) => (
+    <footer className="z-20 flex justify-between items-center absolute bottom-6 left-1/2 transform -translate-x-1/2 max-width-1/2">
+      <div className="flex flex-wrap-reverse justify-center items-center grow gap-8">
+        {characters.map(({ status }, index) => (
           <Character key={index} index={index} enable={status} />
         ))}
       </div>

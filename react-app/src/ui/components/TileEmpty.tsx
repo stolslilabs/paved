@@ -225,7 +225,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
     if (!isHovered) {
       handlePointerLeave();
     }
-  }, [isHovered, isSelected]);
+  }, [isHovered, isSelected, activeTile]);
 
   useEffect(() => {
     if (isSelected && activeTile) {

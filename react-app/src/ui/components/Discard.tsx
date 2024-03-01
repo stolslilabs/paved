@@ -30,11 +30,13 @@ export const Discard = (props: TProps) => {
     return !builder?.tile_id;
   }, [builder]);
 
+  if (!account || !builder) return <></>;
+
   return (
     <Button
       disabled={disabled}
-      variant={"default"}
-      size={"icon"}
+      variant={"command"}
+      size={"command"}
       onClick={() =>
         discard({
           account: account,
@@ -42,7 +44,7 @@ export const Discard = (props: TProps) => {
         })
       }
     >
-      <FontAwesomeIcon icon={faFire} />
+      <FontAwesomeIcon className="h-12" icon={faFire} />
     </Button>
   );
 };

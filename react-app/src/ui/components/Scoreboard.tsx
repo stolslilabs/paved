@@ -148,9 +148,6 @@ export const PlayerRow = ({
       <TableCell className="text-right">
         {`${builder?.score} ⚒️ ${paved}`}
       </TableCell>
-      {/* <TableCell className="text-right">
-        <p className="border-4 border-black">{paved}</p>
-      </TableCell> */}
     </TableRow>
   );
 };

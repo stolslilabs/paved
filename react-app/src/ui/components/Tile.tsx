@@ -12,15 +12,14 @@ import { Spot } from "./Spot";
 
 export const Tile = () => {
   const [rotation, setRotation] = useState(0);
-  const [backgroundImage, setBackgroundImage] = useState(getImage(0));
+  const [backgroundImage, setBackgroundImage] = useState<string>();
   const { gameId } = useQueryParams();
-  const { orientation, setSelectedTile, setActiveEntity } = useGameStore();
+  const { orientation, setActiveEntity, resetActiveEntity } = useGameStore();
 
   const {
     account: { account },
     setup: {
       clientComponents: { Builder, Tile },
-      systemCalls: { draw },
     },
   } = useDojo();
 
@@ -45,6 +44,10 @@ export const Tile = () => {
       const image = getImage(tile);
       setBackgroundImage(image);
       setActiveEntity(tileEntity);
+    } else {
+      const image = getImage(1);
+      setBackgroundImage(image);
+      resetActiveEntity();
     }
   }, [tile]);
 
@@ -67,40 +70,93 @@ export const Tile = () => {
     }
   }, [orientation]);
 
+  const backgroundColor = useMemo(() => "#C2B0B7", []);
+
   if (!account || !builder) return <></>;
 
+  return (
+    <div
+      className="h-60 w-60 p-5 border-2 border-stone-500 flex justify-center items-center rounded-xl"
+      style={{ backgroundColor }}
+    >
+      {tile && backgroundImage ? (
+        <ActiveTile image={backgroundImage} rotation={rotation} />
+      ) : (
+        <HiddenTile />
+      )}
+    </div>
+  );
+};
+
+export const ActiveTile = ({
+  image,
+  rotation,
+}: {
+  image: string;
+  rotation: number;
+}) => {
+  const { character } = useGameStore();
+  const spots = useMemo(
+    () => ["NW", "W", "SW", "N", "C", "S", "NE", "E", "SE"],
+    []
+  );
+  const borderColor = useMemo(() => "#3B3B3B", []);
+  return (
+    <div
+      className="relative h-full w-full border-8 cursor-pointer"
+      style={{
+        backgroundImage: `url(${image})`,
+        backgroundSize: "cover",
+        transform: `rotate(${rotation}deg)`,
+        borderColor,
+      }}
+    >
+      {character !== 0 && (
+        <div className="w-full h-full absolute grid grid-rows-3 grid-flow-col justify-items-center items-center">
+          {spots.map((_spot, index) => (
+            <Spot key={index} index={index} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const HiddenTile = () => {
+  const { gameId } = useQueryParams();
+  const { resetSelectedTile } = useGameStore();
+
+  const {
+    account: { account },
+    setup: {
+      systemCalls: { draw },
+    },
+  } = useDojo();
+
   const handleDrawClick = () => {
-    setSelectedTile({ col: 0, row: 0 });
+    resetSelectedTile();
     draw({
       account: account,
       game_id: gameId,
     });
   };
 
-  const spots = ["NW", "W", "SW", "N", "C", "S", "NE", "E", "SE"];
+  const backgroundImage = useMemo(() => getImage({ plan: 22 }), []);
+  const borderColor = useMemo(() => "#3B3B3B", []);
 
-  return tile ? (
-    <div className="w-48 h-48 border-2 border-black cursor-pointer bg-white bottom-16 right-0 absolute">
-      <div
-        className="w-full h-full absolute"
-        style={{
-          backgroundImage: `url(${backgroundImage})`,
-          backgroundSize: "cover",
-          transform: `rotate(${rotation}deg)`,
-        }}
-      />
-      <div className="w-full h-full absolute grid grid-rows-3 grid-flow-col gap-2 justify-items-center items-center">
-        {spots.map((_spot, index) => (
-          <Spot key={index} index={index} />
-        ))}
-      </div>
-    </div>
-  ) : (
+  return (
     <div
-      className="w-48 h-48 border-2 border-black bottom-16 right-0 absolute cursor-pointer flex justify-center hover:bg-white/30"
+      className="h-full w-full border-8 cursor-pointer"
+      style={{
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: "cover",
+        borderColor,
+      }}
       onClick={handleDrawClick}
     >
-      <FontAwesomeIcon className="self-center h-12" icon={faEye} />
+      <div className="h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
+        <FontAwesomeIcon className="h-12" icon={faEye} />
+      </div>
     </div>
   );
 };

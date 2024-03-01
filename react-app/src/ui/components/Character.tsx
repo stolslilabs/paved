@@ -26,16 +26,10 @@ export const Character = (props: TProps) => {
     return getCharacterImage(index + 1);
   }, [index]);
 
-  const className = useMemo(() => {
-    return `flex justify-center items-center border-2 rounded-xl
-    ${enable ? "cursor-pointer" : "cursor-not-allowed opacity-25"}`;
-  }, [selected, enable]);
-
-  const backgroundColor = useMemo(() => {
-    return selected ? "#688080" : "#BFD1D5";
-  }, [selected]);
-
-  const borderColor = useMemo(() => "#746064", []);
+  const className = useMemo(
+    () => (enable ? "cursor-pointer" : "cursor-not-allowed opacity-25"),
+    [selected, enable]
+  );
 
   const handleClick = () => {
     if (!enable) return;
@@ -49,9 +43,8 @@ export const Character = (props: TProps) => {
   return (
     <Button
       className={className}
-      variant={"secondary"}
+      variant={selected ? "character_selected" : "character"}
       size={"character"}
-      style={{ backgroundColor, borderColor }}
       onClick={handleClick}
     >
       <img
