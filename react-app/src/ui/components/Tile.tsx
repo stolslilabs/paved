@@ -102,23 +102,26 @@ export const ActiveTile = ({
   );
   const borderColor = useMemo(() => "#3B3B3B", []);
   return (
-    <div
-      className="relative h-full w-full border-8 cursor-pointer"
-      style={{
-        backgroundImage: `url(${image})`,
-        backgroundSize: "cover",
-        transform: `rotate(${rotation}deg)`,
-        borderColor,
-      }}
-    >
-      {character !== 0 && (
-        <div className="w-full h-full absolute grid grid-rows-3 grid-flow-col justify-items-center items-center">
-          {spots.map((_spot, index) => (
-            <Spot key={index} index={index} />
-          ))}
-        </div>
-      )}
-    </div>
+    <>
+      <div
+        className="relative h-full w-full border-8 cursor-pointer"
+        style={{
+          backgroundImage: `url(${image})`,
+          backgroundSize: "cover",
+          transform: `rotate(${rotation}deg)`,
+          borderColor,
+        }}
+      />
+      <>
+        {character !== 0 && (
+          <div className="w-full h-full absolute grid grid-rows-3 grid-flow-col justify-items-center items-center">
+            {spots.map((_spot, index) => (
+              <Spot key={index} index={index} />
+            ))}
+          </div>
+        )}
+      </>
+    </>
   );
 };
 
