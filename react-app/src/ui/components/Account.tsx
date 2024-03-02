@@ -1,5 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useDojo } from "@/dojo/useDojo";
 import {
   Select,
@@ -20,14 +25,23 @@ export const Account = () => {
 
   return (
     <div className="flex gap-4">
-      <Button
-        className="w-12"
-        variant={"secondary"}
-        size={"icon"}
-        onClick={() => create()}
-      >
-        <FontAwesomeIcon icon={faRocket} />
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              className="w-12"
+              variant={"secondary"}
+              size={"icon"}
+              onClick={() => create()}
+            >
+              <FontAwesomeIcon icon={faRocket} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="select-none">Deploy a burner account</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <Select onValueChange={(value) => select(value)} value={account.address}>
         <SelectTrigger>
@@ -48,14 +62,23 @@ export const Account = () => {
         </SelectContent>
       </Select>
 
-      <Button
-        className="w-12"
-        variant={"secondary"}
-        size={"icon"}
-        onClick={() => clear()}
-      >
-        <FontAwesomeIcon icon={faTrash} />
-      </Button>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              className="w-12"
+              variant={"secondary"}
+              size={"icon"}
+              onClick={() => clear()}
+            >
+              <FontAwesomeIcon icon={faTrash} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="select-none">Clear all burner accounts</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 };

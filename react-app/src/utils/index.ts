@@ -380,6 +380,27 @@ export const getRole = (index: number) => {
   }
 };
 
+export const getRoleAllowedSpots = (index: number) => {
+  switch (index) {
+    case 0:
+      return ["C", "R", "W"];
+    case 1:
+      return ["C", "R", "W"];
+    case 2:
+      return ["R", "W"];
+    case 3:
+      return ["C", "W"];
+    case 4:
+      return ["C", "R", "W"];
+    case 5:
+      return ["F"];
+    case 6:
+      return ["F"];
+    default:
+      return [];
+  }
+};
+
 export const getCharacterFromIndex = (index: number) => {
   switch (index) {
     case 0:

@@ -9,6 +9,12 @@ import { getImage } from "../../utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye } from "@fortawesome/free-solid-svg-icons";
 import { Spot } from "./Spot";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export const Tile = () => {
   const [rotation, setRotation] = useState(0);
@@ -148,18 +154,27 @@ export const HiddenTile = () => {
   const borderColor = useMemo(() => "#3B3B3B", []);
 
   return (
-    <div
-      className="h-full w-full border-8 cursor-pointer"
-      style={{
-        backgroundImage: `url(${backgroundImage})`,
-        backgroundSize: "cover",
-        borderColor,
-      }}
-      onClick={handleDrawClick}
-    >
-      <div className="h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
-        <FontAwesomeIcon className="h-12" icon={faEye} />
-      </div>
-    </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className="h-full w-full border-8 cursor-pointer"
+            style={{
+              backgroundImage: `url(${backgroundImage})`,
+              backgroundSize: "cover",
+              borderColor,
+            }}
+            onClick={handleDrawClick}
+          >
+            <div className="h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
+              <FontAwesomeIcon className="h-12" icon={faEye} />
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="select-none">Draw a tile</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };

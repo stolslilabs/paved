@@ -7,6 +7,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 import { useLogs } from "@/hooks/useLogs";
@@ -23,9 +29,18 @@ export const Log = () => {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant={"command"} size={"command"}>
-          <FontAwesomeIcon className="h-12" icon={faInfoCircle} />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant={"command"} size={"command"}>
+                <FontAwesomeIcon className="h-12" icon={faInfoCircle} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="select-none">Game logs</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </SheetTrigger>
       <SheetContent className="flex flex-col">
         <SheetHeader>

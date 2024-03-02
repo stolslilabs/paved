@@ -1,33 +1,49 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Buy } from "../components/Buy";
 import { Leaderboard } from "../components/Leaderboard";
 import { Claim } from "../components/Claim";
 import { Log } from "../components/Log";
 import { ResetCamera } from "../components/ResetCamera";
-import { faHome, faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
+import { faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Home } from "../components/Home";
 
 export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(true);
-  const navigate = useNavigate();
 
   return (
     <div className="absolute left-4 bottom-6 z-30">
       <div className="relative">
-        <Button
-          className={"z-10"}
-          variant={"command"}
-          size={"command"}
-          onClick={() => setIsExpanded(!isExpanded)}
-        >
-          <FontAwesomeIcon
-            className="h-12"
-            style={{ transform: `rotate(${isExpanded ? 180 : 0}deg)` }}
-            icon={faUpRightFromSquare}
-          />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className={"z-10"}
+                variant={"command"}
+                size={"command"}
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                <FontAwesomeIcon
+                  className="h-12"
+                  style={{ transform: `rotate(${isExpanded ? 180 : 0}deg)` }}
+                  icon={faUpRightFromSquare}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="select-none">
+                {isExpanded ? "Collapse" : "Expand"}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <div
           className={`absolute left-0 transition-all duration-200 ${
             isExpanded ? "opacity-100 top-[-120%]" : "opacity-0 top-[100%]"
@@ -40,13 +56,7 @@ export const Actions = () => {
             isExpanded ? "opacity-100 top-[-240%]" : "opacity-0 top-[100%]"
           }`}
         >
-          <Button
-            variant={"command"}
-            size={"command"}
-            onClick={() => navigate("", { replace: true })}
-          >
-            <FontAwesomeIcon className="h-12" icon={faHome} />
-          </Button>
+          <Home />
         </div>
         <div
           className={`absolute left-0 transition-all duration-200 ${
