@@ -8,6 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,9 +33,20 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 
 import { shortString } from "starknet";
 
-import adventurer from "/assets/characters/adventurer.png";
 import { getAvatar } from "@/utils/avatar";
 import { getColor } from "@/utils";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faChessKnight,
+  faChessRook,
+  faDove,
+  faDragon,
+  faHammer,
+  faPlaceOfWorship,
+  faTrophy,
+  faUsers,
+  faUserSecret,
+} from "@fortawesome/free-solid-svg-icons";
 
 export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   const { gameId } = useQueryParams();
@@ -190,22 +207,107 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
       <CardContent className="flex flex-col">
         <h5>Achievements</h5>
         <ul className="flex gap-2">
-          <li className="flex flex-col items-center">
-            <img src={adventurer} alt="avatar" className="w-8" />
-            <Badge variant={"secondary"}>9</Badge>
-          </li>
-          <li className="flex flex-col items-center">
-            <img src={adventurer} alt="avatar" className="w-8" />
-            <Badge variant={"secondary"}>9</Badge>
-          </li>
-          <li className="flex flex-col items-center">
-            <img src={adventurer} alt="avatar" className="w-8" />
-            <Badge variant={"secondary"}>9</Badge>
-          </li>
-          <li className="flex flex-col items-center">
-            <img src={adventurer} alt="avatar" className="w-8" />
-            <Badge variant={"secondary"}>9</Badge>
-          </li>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <li className="flex flex-col items-center gap-2">
+                  <FontAwesomeIcon icon={faChessKnight} />
+                  <Badge variant={"secondary"}>0</Badge>
+                </li>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="select-none">Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <li className="flex flex-col items-center gap-2">
+                  <FontAwesomeIcon icon={faHammer} />
+                  <Badge variant={"secondary"}>0</Badge>
+                </li>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="select-none">Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <li className="flex flex-col items-center gap-2">
+                  <FontAwesomeIcon icon={faUserSecret} />
+                  <Badge variant={"secondary"}>0</Badge>
+                </li>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="select-none">Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <li className="flex flex-col items-center gap-2">
+                  <FontAwesomeIcon icon={faChessRook} />
+                  <Badge variant={"secondary"}>0</Badge>
+                </li>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="select-none">Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <li className="flex flex-col items-center gap-2">
+                  <FontAwesomeIcon icon={faDragon} />
+                  <Badge variant={"secondary"}>0</Badge>
+                </li>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="select-none">Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <li className="flex flex-col items-center gap-2">
+                  <FontAwesomeIcon icon={faPlaceOfWorship} />
+                  <Badge variant={"secondary"}>0</Badge>
+                </li>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="select-none">Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <li className="flex flex-col items-center gap-2">
+                  <FontAwesomeIcon icon={faTrophy} />
+                  <Badge variant={"secondary"}>0</Badge>
+                </li>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="select-none">Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <li className="flex flex-col items-center gap-2">
+                  <FontAwesomeIcon icon={faUsers} />
+                  <Badge variant={"secondary"}>0</Badge>
+                </li>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="select-none">Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <li className="flex flex-col items-center gap-2">
+                  <FontAwesomeIcon icon={faDove} />
+                  <Badge variant={"secondary"}>0</Badge>
+                </li>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="select-none">Coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </ul>
       </CardContent>
     </Card>
