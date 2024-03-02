@@ -14,7 +14,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faInfoCircle } from "@fortawesome/free-solid-svg-icons";
+import {
+  faHammer,
+  faInfoCircle,
+  faStar,
+} from "@fortawesome/free-solid-svg-icons";
 import { useLogs } from "@/hooks/useLogs";
 
 export type LogType = {
@@ -50,7 +54,7 @@ export const Log = () => {
           {logs &&
             logs.map((log, index) => (
               <div key={index} className="flex justify-between">
-                <p className="text-xs">
+                <div className="flex gap-2 text-xs">
                   <span className="text-slate-400">
                     {`[${log.timestamp.toLocaleTimeString([], {
                       hour: "2-digit",
@@ -61,8 +65,19 @@ export const Log = () => {
                   <strong style={{ color: log.color }}>
                     {` ${log.builder}`}
                   </strong>
-                  {log.category === "Scored" ? ` ✨ ${log.log}` : " ⚒️"}
-                </p>
+                  {log.category === "Scored" ? (
+                    <FontAwesomeIcon
+                      icon={faStar}
+                      className="text-yellow-500"
+                    />
+                  ) : (
+                    <FontAwesomeIcon
+                      icon={faHammer}
+                      className="text-slate-500"
+                    />
+                  )}
+                  <p>{log.log}</p>
+                </div>
               </div>
             ))}
         </ScrollArea>
