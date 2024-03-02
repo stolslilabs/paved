@@ -2,9 +2,7 @@ import * as THREE from "three";
 import { useEffect, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
-  MapControls,
   useKeyboardControls,
-  Bounds,
   OrthographicCamera,
   SpotLight,
   useDepthBuffer,
@@ -16,8 +14,14 @@ import { Controls } from "@/ui/screens/GameScreen";
 import { useGameStore, useCameraStore } from "@/store";
 
 export const ThreeGrid = () => {
+  const { resetHoveredTile } = useGameStore();
+
+  const handlePointerLeave = () => {
+    resetHoveredTile();
+  };
+
   return (
-    <Canvas className="z-1" shadows>
+    <Canvas onPointerLeave={handlePointerLeave} className="z-1" shadows>
       <Keyboard />
       <mesh>
         <Camera>
@@ -92,8 +96,8 @@ function Camera({ children }: { children?: React.ReactNode }) {
         <OrbitControls
           enableRotate={true}
           zoomToCursor
-          panSpeed={0.4}
-          rotateSpeed={0.2}
+          panSpeed={0.8}
+          rotateSpeed={0.3}
           enablePan={true}
           enableDamping
           ref={controls}

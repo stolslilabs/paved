@@ -35,9 +35,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
 
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
   const meshRef = useRef<any>();
-  const [background, setBackground] = useState<null | string>(null);
   const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
-  const [rotation, setRotation] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [northTile, setNorthTile] = useState<Entity | undefined>();
   const [eastTile, setEastTile] = useState<Entity | undefined>();
@@ -134,24 +132,17 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
     );
   }, []);
 
-  const isSelected = useMemo(() => {
-    return selectedTile && selectedTile.col === col && selectedTile.row === row;
-  }, [selectedTile]);
-
-  // This state is used to ensure hovered state is updated correctly
-  const isHovered = useMemo(() => {
-    return (
+  const isValid = useMemo(() => {
+    const isSelected =
+      selectedTile && selectedTile.col === col && selectedTile.row === row;
+    const isHovered =
       hovered &&
       hoveredTile &&
       hoveredTile.col === col &&
-      hoveredTile.row === row
-    );
-  }, [hoveredTile, hovered]);
-
-  const isValid = useMemo(() => {
+      hoveredTile.row === row;
     return (
       activeTile &&
-      (hovered || isSelected) &&
+      (isHovered || isSelected) &&
       orientation &&
       checkCompatibility(
         activeTile.plan,
@@ -164,19 +155,27 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
     );
   }, [
     activeTile,
-    hovered,
-    isSelected,
+    hoveredTile,
+    selectedTile,
     orientation,
     northTile,
     eastTile,
     southTile,
     westTile,
+    hovered,
   ]);
 
   const isIdle = useMemo(() => {
+    const isSelected =
+      selectedTile && selectedTile.col === col && selectedTile.row === row;
+    const isHovered =
+      hovered &&
+      hoveredTile &&
+      hoveredTile.col === col &&
+      hoveredTile.row === row;
     return (
       activeTile &&
-      (hovered || isSelected) &&
+      (isHovered || isSelected) &&
       orientation &&
       checkFeatureIdle(
         gameId,
@@ -188,9 +187,29 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
         tiles
       )
     );
-  }, [activeTile, hovered, isSelected, orientation, spot]);
+  }, [activeTile, hoveredTile, selectedTile, orientation, spot, hovered]);
 
   useEffect(() => {
+    let rotation = 0;
+    let background = null;
+
+    // Tile is has been selected or hovered, setup the texture and validity
+    const isSelected =
+      selectedTile && selectedTile.col === col && selectedTile.row === row;
+    const isHovered =
+      hovered &&
+      hoveredTile &&
+      hoveredTile.col === col &&
+      hoveredTile.row === row;
+    if (activeTile && (isSelected || isHovered)) {
+      background = getImage(activeTile);
+      rotation = calculateRotation(orientation);
+      if (activeTile && isSelected) {
+        setValid((isValid && isIdle) || false);
+      }
+    }
+
+    // Finally, update the texture
     if (background) {
       loader.load(background, (loadedTexture) => {
         loadedTexture.center.set(0.5, 0.5);
@@ -200,38 +219,21 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
     } else {
       setTexture(undefined);
     }
-  }, [background, rotation]);
+  }, [
+    selectedTile,
+    orientation,
+    activeTile,
+    isValid,
+    isIdle,
+    hoveredTile,
+    hovered,
+  ]);
 
   useEffect(() => {
-    if (activeTile && isSelected) {
-      setBackground(getImage(activeTile));
-      setRotation(calculateRotation(orientation));
-    } else {
-      setBackground(null);
-    }
-  }, [isSelected, orientation, activeTile]);
-
-  useEffect(() => {
-    if (isSelected) {
-      setRotation(calculateRotation(orientation));
-    }
-  }, [isSelected, orientation]);
-
-  useEffect(() => {
-    document.body.style.cursor = hovered ? "pointer" : "auto";
-  }, [hovered]);
-
-  useEffect(() => {
-    if (!isHovered) {
-      handlePointerLeave();
-    }
-  }, [isHovered, isSelected, activeTile]);
-
-  useEffect(() => {
-    if (isSelected && activeTile) {
-      setValid((isValid && isIdle) || false);
-    }
-  }, [isSelected, isValid, isIdle]);
+    const isHovered =
+      hoveredTile && hoveredTile.col === col && hoveredTile.row === row;
+    document.body.style.cursor = isHovered ? "pointer" : "auto";
+  }, [hoveredTile]);
 
   const handleSimpleClick = () => {
     play();
@@ -243,22 +245,10 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
   const handlePointerEnter = () => {
     setHovered(true);
     setHoveredTile({ col, row });
-    if (activeTile) {
-      setBackground(getImage(activeTile));
-      setRotation(calculateRotation(orientation));
-    } else {
-      setBackground(null);
-    }
   };
 
   const handlePointerLeave = () => {
     setHovered(false);
-    if (isSelected && activeTile) {
-      const image = getImage(activeTile);
-      setBackground(image);
-    } else {
-      setBackground(null);
-    }
   };
 
   const position = useMemo(() => {

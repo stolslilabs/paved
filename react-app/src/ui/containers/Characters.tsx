@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Character } from "../components/Character";
 import { getAvailableCharacters } from "../../utils";
 import { useMemo } from "react";
@@ -35,8 +34,8 @@ export const Characters = () => {
   if (!account || !builder) return <></>;
 
   return (
-    <footer className="z-20 flex justify-between items-center absolute bottom-6 left-1/2 transform -translate-x-1/2 max-width-1/2">
-      <div className="flex flex-wrap-reverse justify-center items-center grow gap-8">
+    <footer className="z-20 flex justify-between items-center absolute bottom-6 left-1/2 transform -translate-x-1/2 w-1/3 md:w-1/2">
+      <div className="flex flex-wrap justify-center items-center grow gap-8">
         {characters.map(({ status }, index) => (
           <Character key={index} index={index} enable={status} />
         ))}

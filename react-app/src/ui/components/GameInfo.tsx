@@ -1,7 +1,6 @@
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableRow,
 } from "@/components/ui/table";
@@ -11,6 +10,12 @@ import { Entity } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useComponentValue } from "@dojoengine/react";
 import { useMemo, useState, useEffect } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faClock,
+  faHammer,
+  faPiggyBank,
+} from "@fortawesome/free-solid-svg-icons";
 
 export const GameInfo = () => {
   const { gameId } = useQueryParams();
@@ -50,7 +55,7 @@ export const GameInfo = () => {
 
   return (
     <div className="flex flex-col">
-      <TableCaption className="text-right mb-2 mr-2">Info</TableCaption>
+      <p className="text-right text-sm text-slate-500 mt-4 mb-2 mr-2">Info</p>
       <Table>
         <TableBody className="text-right text-xs">
           <TableRow>
@@ -58,17 +63,29 @@ export const GameInfo = () => {
               {game?.duration ? `${timeLeft} s` : "∞"}
             </TableCell>
             <TableCell>:</TableCell>
-            <TableCell>Countdown 🕐</TableCell>
+            <TableCell>
+              Countdown
+              <FontAwesomeIcon className="text-lime-700 ml-2" icon={faClock} />
+            </TableCell>
           </TableRow>
           <TableRow>
             <TableCell>{game?.tile_count}</TableCell>
             <TableCell>:</TableCell>
-            <TableCell>Tiles paved ⚒️</TableCell>
+            <TableCell>
+              Tiles paved
+              <FontAwesomeIcon className="text-teal-700 ml-2" icon={faHammer} />
+            </TableCell>
           </TableRow>
           <TableRow>
             <TableCell>{builder ? player?.bank : "N/A"}</TableCell>
             <TableCell>:</TableCell>
-            <TableCell>Tiles left 🧩</TableCell>
+            <TableCell>
+              Tiles left
+              <FontAwesomeIcon
+                className="text-yellow-700 ml-2"
+                icon={faPiggyBank}
+              />
+            </TableCell>
           </TableRow>
         </TableBody>
       </Table>
