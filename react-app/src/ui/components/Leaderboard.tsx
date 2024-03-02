@@ -14,12 +14,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 
@@ -126,18 +120,9 @@ export const Leaderboard = () => {
   return (
     <Dialog>
       <DialogTrigger>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant={"command"} size={"command"}>
-                <FontAwesomeIcon className="h-12" icon={faTrophy} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">Leaderboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button variant={"command"} size={"command"}>
+          <FontAwesomeIcon className="h-12" icon={faTrophy} />
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

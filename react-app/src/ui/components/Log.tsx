@@ -28,7 +28,7 @@ export const Log = () => {
   const { logs } = useLogs();
   return (
     <Sheet>
-      <SheetTrigger asChild>
+      <SheetTrigger>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

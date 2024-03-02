@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableRow,
 } from "@/components/ui/table";
@@ -20,6 +19,8 @@ import {
   HasValue,
 } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faHammer } from "@fortawesome/free-solid-svg-icons";
 
 export const Scoreboard = () => {
   const { gameId } = useQueryParams();
@@ -82,7 +83,9 @@ export const Scoreboard = () => {
 
   return (
     <div className="flex flex-col">
-      <TableCaption className="text-left mb-2 ml-2">Leaderboard</TableCaption>
+      <p className="text-left text-sm text-slate-500 mt-4 mb-2 ml-2">
+        Leaderboard
+      </p>
       <Table>
         <TableBody className="text-xs">
           {topBuilders.map((builder: typeof Builder, index: number) => {
@@ -145,8 +148,10 @@ export const PlayerRow = ({
       <TableCell>
         <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
       </TableCell>
-      <TableCell className="text-right">
-        {`${builder?.score} ⚒️ ${paved}`}
+      <TableCell className="flex text-right">
+        <p>{builder?.score}</p>
+        <FontAwesomeIcon className="text-teal-700 mx-2" icon={faHammer} />
+        <p>{paved}</p>
       </TableCell>
     </TableRow>
   );
