@@ -1,6 +1,3 @@
-import { useCameraStore } from "../../store";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBinoculars } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -8,9 +5,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useNavigate } from "react-router-dom";
+import { faHome } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
-export const ResetCamera = () => {
-  const { setReset } = useCameraStore();
+export const Home = () => {
+  const navigate = useNavigate();
+
   return (
     <TooltipProvider>
       <Tooltip>
@@ -18,13 +19,13 @@ export const ResetCamera = () => {
           <Button
             variant={"command"}
             size={"command"}
-            onClick={() => setReset(true)}
+            onClick={() => navigate("", { replace: true })}
           >
-            <FontAwesomeIcon className="h-12" icon={faBinoculars} />
+            <FontAwesomeIcon className="h-12" icon={faHome} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p className="select-none">Reset view</p>
+          <p className="select-none">Home page</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

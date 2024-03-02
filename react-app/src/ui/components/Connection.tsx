@@ -1,4 +1,10 @@
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAccount, useConnect, useDisconnect } from "@starknet-react/core";
 import { useStarknetkitConnectModal } from "starknetkit";
 import { Address } from "./Address";
@@ -22,24 +28,33 @@ export function Connection() {
   return (
     <>
       {isConnected ? (
-        <div className="flex gap-4">
+        <div className="flex gap-4 mr-4">
           <Address />
-          <Button
-            variant={"secondary"}
-            size={"icon"}
-            onClick={() => disconnect()}
-          >
-            <FontAwesomeIcon icon={faSignOut} />
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={"secondary"}
+                  size={"icon"}
+                  onClick={() => disconnect()}
+                >
+                  <FontAwesomeIcon icon={faSignOut} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="select-none">Log out</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       ) : (
         <Button
-          className="px-4"
+          className="px-4 mr-4"
           variant={"secondary"}
           size={"sm"}
           onClick={connectWallet}
         >
-          Connect Wallet
+          Log in
         </Button>
       )}
     </>

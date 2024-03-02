@@ -6,6 +6,7 @@ import { setup } from "./dojo/generated/setup.ts";
 import { DojoProvider } from "./dojo/DojoContext.tsx";
 import { dojoConfig } from "../dojoConfig.ts";
 import { StarknetProvider } from "./ui/components/Starknet.tsx";
+import { TooltipProvider } from "./components/ui/tooltip.tsx";
 
 async function init() {
   const rootElement = document.getElementById("root");

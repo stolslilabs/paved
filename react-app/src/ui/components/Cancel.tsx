@@ -3,6 +3,12 @@ import { useGameStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useDojo } from "../../dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
@@ -53,13 +59,22 @@ export const Cancel = () => {
   if (!account || !builder) return <></>;
 
   return (
-    <Button
-      disabled={disabled}
-      variant={"command"}
-      size={"command"}
-      onClick={handleClick}
-    >
-      <FontAwesomeIcon className="h-12" icon={faXmark} />
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            disabled={disabled}
+            variant={"command"}
+            size={"command"}
+            onClick={handleClick}
+          >
+            <FontAwesomeIcon className="h-12" icon={faXmark} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="select-none">Cancel selection</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };

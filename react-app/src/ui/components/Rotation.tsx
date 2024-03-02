@@ -2,6 +2,12 @@ import { useGameStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRotateRight } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useMemo } from "react";
 import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
@@ -37,13 +43,22 @@ export const Rotation = () => {
   if (!account || !builder) return <></>;
 
   return (
-    <Button
-      disabled={disabled}
-      variant={"command"}
-      size={"command"}
-      onClick={handleClick}
-    >
-      <FontAwesomeIcon className="h-12" icon={faRotateRight} />
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            disabled={disabled}
+            variant={"command"}
+            size={"command"}
+            onClick={handleClick}
+          >
+            <FontAwesomeIcon className="h-12" icon={faRotateRight} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="select-none">Clockwise rotation</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };

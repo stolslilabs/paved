@@ -8,6 +8,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -248,20 +254,29 @@ export const GameRow = ({ game }: { game: any }) => {
       <TableCell>{tilesPlayed}</TableCell>
 
       <TableCell>
-        <Button
-          className={`align-right}`}
-          variant={"secondary"}
-          size={"icon"}
-          onClick={() => setGameQueryParam(game.id || 0)}
-        >
-          <FontAwesomeIcon
-            icon={
-              (builder || game.start_time === 0) && !over
-                ? faRightToBracket
-                : faEye
-            }
-          />
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className={`align-right}`}
+                variant={"secondary"}
+                size={"icon"}
+                onClick={() => setGameQueryParam(game.id || 0)}
+              >
+                <FontAwesomeIcon
+                  icon={
+                    (builder || game.start_time === 0) && !over
+                      ? faRightToBracket
+                      : faEye
+                  }
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="select-none">Join the lobby</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </TableCell>
     </TableRow>
   );
