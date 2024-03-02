@@ -11,5 +11,6 @@ export function createClientComponents({
   return {
     ...contractComponents,
     Tile: overridableComponent(contractComponents.Tile),
+    TilePosition: overridableComponent(contractComponents.TilePosition),
   };
 }

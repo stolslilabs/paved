@@ -301,7 +301,6 @@ export function createSystemCalls({
     ]) as Entity;
 
     const tileId = uuid();
-
     clientComponents.Tile.addOverride(tileId, {
       entity: entityId,
       value: {
@@ -311,6 +310,23 @@ export function createSystemCalls({
         orientation: props.orientation,
         x: props.x,
         y: props.y,
+        occupied_spot: props.spot,
+      },
+    });
+
+    const tilePositionId = uuid();
+
+    clientComponents.TilePosition.addOverride(tilePositionId, {
+      entity: getEntityIdFromKeys([
+        BigInt(props.game_id),
+        BigInt(props.x),
+        BigInt(props.y),
+      ]) as Entity,
+      value: {
+        game_id: props.game_id,
+        x: props.x,
+        y: props.y,
+        tile_id: props.tile_id,
       },
     });
 
@@ -329,8 +345,10 @@ export function createSystemCalls({
     } catch (error) {
       console.error("Error building:", error);
       clientComponents.Tile.removeOverride(tileId);
+      clientComponents.TilePosition.removeOverride(tilePositionId);
     } finally {
       clientComponents.Tile.removeOverride(tileId);
+      clientComponents.TilePosition.removeOverride(tilePositionId);
     }
   };
 
