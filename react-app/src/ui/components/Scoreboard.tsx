@@ -145,7 +145,7 @@ export const PlayerRow = ({
       </TableCell>
       <TableCell className="flex text-right">
         <p>{builder?.score}</p>
-        <FontAwesomeIcon className="text-teal-700 mx-2" icon={faHammer} />
+        <FontAwesomeIcon className="text-slate-500 mx-2" icon={faHammer} />
         <p>{paved}</p>
       </TableCell>
     </TableRow>

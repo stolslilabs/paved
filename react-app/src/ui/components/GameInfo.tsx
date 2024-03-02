@@ -68,7 +68,10 @@ export const GameInfo = () => {
             <TableCell>:</TableCell>
             <TableCell>
               Tiles paved
-              <FontAwesomeIcon className="text-teal-700 ml-2" icon={faHammer} />
+              <FontAwesomeIcon
+                className="text-slate-500 ml-2"
+                icon={faHammer}
+              />
             </TableCell>
           </TableRow>
           <TableRow>
