@@ -8,6 +8,7 @@ import {
   OrthographicCamera,
   SpotLight,
   useDepthBuffer,
+  OrbitControls,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
 import { CharTextures } from "./CharTextures";
@@ -20,13 +21,12 @@ export const ThreeGrid = () => {
       <Keyboard />
       <mesh>
         <Camera>
-          <ambientLight color={"white"} intensity={0.95} />
+          <ambientLight color={"white"} intensity={1} />
+          <ambientLight color={"white"} intensity={1} />
           <Lighting />
           <mesh rotation={[Math.PI / -2, 0, 0]}>
-            <Bounds fit clip observe margin={1}>
-              <TileTextures squareSize={3} />
-              <CharTextures radius={0.3} height={1} squareSize={3} />
-            </Bounds>
+            <TileTextures squareSize={3} />
+            <CharTextures radius={0.3} height={1} squareSize={3} />
           </mesh>
         </Camera>
       </mesh>
@@ -89,9 +89,21 @@ function Camera({ children }: { children?: React.ReactNode }) {
         near={near}
         far={far}
       >
+        <OrbitControls
+          enableRotate={true}
+          zoomToCursor
+          panSpeed={0.4}
+          rotateSpeed={0.2}
+          enablePan={true}
+          enableDamping
+          ref={controls}
+          makeDefault
+          target={[0, 0, 0]}
+          minAzimuthAngle={-Math.PI / 4}
+          maxAzimuthAngle={Math.PI / 4}
+        />
         {children}
       </OrthographicCamera>
-      <MapControls ref={controls} makeDefault target={[0, 0, 0]} />
     </>
   );
 }
@@ -132,7 +144,7 @@ function MovingSpot({ vec = new THREE.Vector3(), ...props }) {
       angle={0.9}
       attenuation={5}
       anglePower={9}
-      intensity={200}
+      intensity={110}
       {...props}
     />
   );
