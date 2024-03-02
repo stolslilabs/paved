@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   useKeyboardControls,
@@ -14,14 +14,8 @@ import { Controls } from "@/ui/screens/GameScreen";
 import { useGameStore, useCameraStore } from "@/store";
 
 export const ThreeGrid = () => {
-  const { resetHoveredTile } = useGameStore();
-
-  const handlePointerLeave = () => {
-    resetHoveredTile();
-  };
-
   return (
-    <Canvas onPointerLeave={handlePointerLeave} className="z-1" shadows>
+    <Canvas className="z-1" shadows>
       <Keyboard />
       <mesh>
         <Camera>
