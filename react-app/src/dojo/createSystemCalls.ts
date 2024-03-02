@@ -2,10 +2,20 @@ import type { IWorld } from "./generated/generated";
 
 import { toast } from "sonner";
 import * as SystemTypes from "./generated/types";
+import { ClientComponents } from "./createClientComponents";
+import { getEntityIdFromKeys } from "@dojoengine/utils";
+import { Entity } from "@dojoengine/recs";
+import { uuid } from "@latticexyz/utils";
 
 export type SystemCalls = ReturnType<typeof createSystemCalls>;
 
-export function createSystemCalls({ client }: { client: IWorld }) {
+export function createSystemCalls({
+  client,
+  clientComponents,
+}: {
+  client: IWorld;
+  clientComponents: ClientComponents;
+}) {
   const extractedMessage = (message: string) => {
     return message.match(/\('([^']+)'\)/)?.[1];
   };
@@ -283,6 +293,27 @@ export function createSystemCalls({ client }: { client: IWorld }) {
   };
 
   const build = async ({ account, ...props }: SystemTypes.Build) => {
+    console.log(props);
+
+    const entityId = getEntityIdFromKeys([
+      BigInt(props.game_id),
+      BigInt(props.tile_id),
+    ]) as Entity;
+
+    const tileId = uuid();
+
+    clientComponents.Tile.addOverride(tileId, {
+      entity: entityId,
+      value: {
+        game_id: props.game_id,
+        id: props.tile_id,
+        player_id: BigInt(account.address),
+        orientation: props.orientation,
+        x: props.x,
+        y: props.y,
+      },
+    });
+
     try {
       const { transaction_hash } = await client.play.build({
         account,
@@ -297,6 +328,9 @@ export function createSystemCalls({ client }: { client: IWorld }) {
       );
     } catch (error) {
       console.error("Error building:", error);
+      clientComponents.Tile.removeOverride(tileId);
+    } finally {
+      clientComponents.Tile.removeOverride(tileId);
     }
   };
 

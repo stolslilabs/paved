@@ -67,7 +67,7 @@ export async function setup({ ...config }: Config) {
     clientComponents,
     contractComponents,
     contractEvents,
-    systemCalls: createSystemCalls({ client }),
+    systemCalls: createSystemCalls({ client, clientComponents }),
     config,
     world,
     burnerManager,

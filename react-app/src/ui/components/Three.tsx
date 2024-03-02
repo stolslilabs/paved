@@ -19,17 +19,16 @@ export const ThreeGrid = () => {
   return (
     <Canvas className="z-1" shadows>
       <Keyboard />
-      <mesh>
-        <Camera>
-          <ambientLight color={"white"} intensity={1} />
-          <ambientLight color={"white"} intensity={1} />
-          <Lighting />
-          <mesh rotation={[Math.PI / -2, 0, 0]}>
-            <TileTextures squareSize={3} />
-            <CharTextures radius={0.3} height={1} squareSize={3} />
-          </mesh>
-        </Camera>
-      </mesh>
+
+      <Camera>
+        <ambientLight color={"white"} intensity={1} />
+        <ambientLight color={"white"} intensity={1} />
+        <Lighting />
+        <mesh rotation={[Math.PI / -2, 0, 0]}>
+          <TileTextures squareSize={3} />
+          <CharTextures radius={0.3} height={1} squareSize={3} />
+        </mesh>
+      </Camera>
     </Canvas>
   );
 };
@@ -81,16 +80,10 @@ function Camera({ children }: { children?: React.ReactNode }) {
 
   return (
     <>
-      <OrthographicCamera
-        // makeDefault
-        zoom={zoom}
-        rotation={rotation}
-        // aspect={aspect}
-        near={near}
-        far={far}
-      >
+      <OrthographicCamera zoom={zoom} rotation={rotation} near={near} far={far}>
         <OrbitControls
           enableRotate={true}
+          screenSpacePanning={true}
           zoomToCursor
           panSpeed={0.4}
           rotateSpeed={0.2}
