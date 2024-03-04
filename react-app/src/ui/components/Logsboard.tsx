@@ -26,9 +26,6 @@ export const LogRow = ({ log, index }: { log: any; index: number }) => {
   return (
     <TableRow>
       <TableCell>
-        <p>{`#${index}`}</p>
-      </TableCell>
-      <TableCell>
         <p style={{ color: log.color }}>{log.builder}</p>
       </TableCell>
       <TableCell>
