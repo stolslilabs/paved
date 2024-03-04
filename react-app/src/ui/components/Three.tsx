@@ -63,9 +63,17 @@ function Keyboard() {
 }
 
 function Camera({ children }: { children?: React.ReactNode }) {
-  const { position, zoom, aspect, near, far, reset, resetAll, rotation } =
-    useCameraStore();
-  const camera = useRef<THREE.PerspectiveCamera>(null);
+  const {
+    position,
+    zoom,
+    near,
+    far,
+    reset,
+    resetAll,
+    rotation,
+    resetButPosition,
+  } = useCameraStore();
+  const camera = useRef<any>(null);
   const controls = useRef<any>(null);
 
   useEffect(() => {
@@ -73,6 +81,8 @@ function Camera({ children }: { children?: React.ReactNode }) {
       controls.current.reset();
       resetAll();
     } else if (camera.current) {
+      controls.current.reset();
+      resetButPosition();
       camera.current.position.set(...position);
     }
   }, [reset, position]);
@@ -102,10 +112,10 @@ function Camera({ children }: { children?: React.ReactNode }) {
       />
       <OrthographicCamera
         // makeDefault
+        ref={camera}
         zoom={zoom}
         isOrthographicCamera
         rotation={rotation}
-        // aspect={aspect}
         near={near}
         far={far}
       >

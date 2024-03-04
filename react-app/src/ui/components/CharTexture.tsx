@@ -114,7 +114,7 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
             args={[
               radius * 1.2,
               radius * 1.2,
-              0.1,
+              0.01,
               32,
               1,
               false,
@@ -129,7 +129,7 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
             args={[
               radius * 1.2,
               radius * 1.2,
-              0.1,
+              0.01,
               32,
               1,
               false,
@@ -140,7 +140,7 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
         </mesh>
         <mesh rotation={[0, -Math.PI / 2, 0]}>
           <meshStandardMaterial map={loader.load(image)} />
-          <cylinderGeometry args={[radius, radius, 0.2, 32]} />
+          <cylinderGeometry args={[radius, radius, 0.02, 32]} />
         </mesh>
       </group>
     </>

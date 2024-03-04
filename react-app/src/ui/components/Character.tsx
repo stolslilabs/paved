@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
+  offset,
   getCharacterImage,
   getCharacterFromIndex,
   getIndexFromCharacter,
@@ -7,7 +8,7 @@ import {
   getRoleAllowedSpots,
   getBoost,
 } from "../../utils";
-import { useGameStore } from "../../store";
+import { useCameraStore, useGameStore } from "../../store";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -15,6 +16,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useQueryParams } from "@/hooks/useQueryParams";
+import { useDojo } from "@/dojo/useDojo";
+import { useComponentValue } from "@dojoengine/react";
+import { getEntityIdFromKeys } from "@dojoengine/utils";
+import { Entity } from "@dojoengine/recs";
 
 interface TProps {
   index: number;
@@ -22,9 +28,39 @@ interface TProps {
 }
 
 export const Character = (props: TProps) => {
+  const { gameId } = useQueryParams();
   const { index, enable } = props;
   const [selected, setSelected] = useState(false);
   const { character, setCharacter } = useGameStore();
+  const { setPosition } = useCameraStore();
+
+  const {
+    account: { account },
+    setup: {
+      clientComponents: { Tile, Character },
+    },
+  } = useDojo();
+
+  const characterKey = useMemo(
+    () =>
+      getEntityIdFromKeys([
+        BigInt(gameId),
+        BigInt(account.address),
+        BigInt(getCharacterFromIndex(index)),
+      ]) as Entity,
+    [gameId, account]
+  );
+  const characterModel = useComponentValue(Character, characterKey);
+
+  const tileKey = useMemo(
+    () =>
+      getEntityIdFromKeys([
+        BigInt(gameId),
+        BigInt(characterModel?.tile_id || 0),
+      ]) as Entity,
+    [gameId, account]
+  );
+  const tile = useComponentValue(Tile, tileKey);
 
   useEffect(() => {
     setSelected(index === getIndexFromCharacter(character));
@@ -48,11 +84,18 @@ export const Character = (props: TProps) => {
   }, [index]);
 
   const handleClick = () => {
-    if (!enable) return;
-    if (index === getIndexFromCharacter(character)) {
-      setCharacter(getCharacterFromIndex(-1));
+    if (enable) {
+      if (index === getIndexFromCharacter(character)) {
+        setCharacter(getCharacterFromIndex(-1));
+      } else {
+        setCharacter(getCharacterFromIndex(index));
+      }
     } else {
-      setCharacter(getCharacterFromIndex(index));
+      if (tile) {
+        const x = (tile.x - offset) * -3;
+        const y = (tile.y - offset) * -3;
+        setPosition([x, y, 0]);
+      }
     }
   };
 
