@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { useEffect, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
 import { offset, other_offset } from "@/utils";
 import { useComponentValue } from "@dojoengine/react";
@@ -7,6 +8,9 @@ import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useMemo, useRef } from "react";
 import { getCharacterImage, getColor, getOrder } from "../../utils";
 import { useFrame } from "@react-three/fiber";
+import { Text } from "@react-three/drei";
+import { shortString } from "starknet";
+import font from "/assets/fonts/RubikMonoOne-Regular.ttf";
 
 // Assets
 
@@ -15,10 +19,12 @@ export const loader = new THREE.TextureLoader();
 export const CharTexture = ({ entity, radius, height, size }: any) => {
   const {
     setup: {
-      clientComponents: { Character, Tile, Builder },
+      clientComponents: { Character, Tile, Player, Builder },
     },
   } = useDojo();
   const meshRef = useRef<any>();
+  const [hovered, setHovered] = useState(false);
+  const [name, setName] = useState("");
 
   const character = useComponentValue(Character, entity);
 
@@ -29,6 +35,12 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
     ]) as Entity;
   }, [character]);
   const builder = useComponentValue(Builder, builderEntity);
+
+  const playerKey = useMemo(
+    () => getEntityIdFromKeys([BigInt(character?.player_id)]) as Entity,
+    [character]
+  );
+  const player = useComponentValue(Player, playerKey);
 
   const tileEntity = useMemo(() => {
     return getEntityIdFromKeys([
@@ -69,6 +81,26 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
     }
   });
 
+  useEffect(() => {
+    if (player) {
+      const fullname = shortString.decodeShortString(player.name);
+      // Keep only the first 8 characters and if it cuts the name, add "..."
+      setName(
+        fullname.length > 8
+          ? `${fullname.slice(0, 8)}...`
+          : fullname.slice(0, 11)
+      );
+    }
+  }, [player]);
+
+  const handlePointerEnter = () => {
+    setHovered(true);
+  };
+
+  const handlePointerLeave = () => {
+    setHovered(false);
+  };
+
   if (!character || character.tile_id == 0) return;
 
   return (
@@ -107,9 +139,22 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
       <group
         position={[position.x, position.y, 2 * height + radius * 1.2]}
         ref={meshRef}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
       >
         <mesh>
           <meshStandardMaterial color={orderColor} />
+          <Text
+            position={[0, 0, -0.5]}
+            rotation={[-Math.PI / 2, Math.PI, 0]}
+            color={"black"}
+            font={font}
+            fontSize={0.3}
+            anchorX="center"
+            anchorY="bottom"
+          >
+            {hovered ? name : ""}
+          </Text>
           <cylinderGeometry
             args={[
               radius * 1.2,
