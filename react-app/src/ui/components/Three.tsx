@@ -94,6 +94,11 @@ function Camera({ children }: { children?: React.ReactNode }) {
         minPolarAngle={(501 * Math.PI) / 1000} // Allow looking directly down
         maxPolarAngle={Math.PI}
         zoomSpeed={0.8}
+        mouseButtons={{
+          LEFT: THREE.MOUSE.PAN,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.ROTATE,
+        }}
       />
       <OrthographicCamera
         // makeDefault
