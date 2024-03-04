@@ -23,30 +23,30 @@ use stolsli::types::direction::Direction;
 use stolsli::types::plan::Plan;
 use stolsli::types::role::Role;
 use stolsli::types::spot::Spot;
+use stolsli::systems::host::IHostDispatcherTrait;
 use stolsli::systems::play::IPlayDispatcherTrait;
-use stolsli::tests::setup::{setup, setup::{Systems, BUILDER, ANYONE}};
-
-// Constants
-
-const BUILDER_NAME: felt252 = 'BUILDER';
-const ANYONE_NAME: felt252 = 'ANYONE';
+use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
 #[test]
-fn test_cases_002() {
+fn test_case_002() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
 
     // [Spawn]
-    set_contract_address(BUILDER());
-    systems.play.spawn(world, game.id, BUILDER_NAME, Order::Anger.into());
     set_contract_address(ANYONE());
-    systems.play.spawn(world, game.id, ANYONE_NAME, Order::Fox.into());
+    let anyone = store.player(context.anyone_id);
+    systems.host.join(world, context.game_id, anyone.order);
+    set_contract_address(PLAYER());
+    let player = store.player(context.player_id);
+    systems.host.join(world, context.game_id, player.order);
+    systems.host.start(world, game.id);
 
     // [Draw & Build]
     set_contract_address(ANYONE());
-    set_transaction_hash(0x3);
+
+    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFFFFFR));
     systems.play.draw(world, game.id); // RFRFFFFFR
     let builder = store.builder(game, ANYONE().into());
     let orientation = Orientation::South;
@@ -67,7 +67,8 @@ fn test_cases_002() {
 
     // [Draw & Build]
     set_contract_address(ANYONE());
-    set_transaction_hash(0x17);
+
+    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::SFRFRFFFR));
     systems.play.draw(world, game.id); // SFRFRFFFR
     let builder = store.builder(game, ANYONE().into());
     let orientation = Orientation::East;
@@ -78,10 +79,11 @@ fn test_cases_002() {
         .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
-    set_contract_address(BUILDER());
-    set_transaction_hash(0x4);
+    set_contract_address(PLAYER());
+
+    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFFFFFR));
     systems.play.draw(world, game.id); // RFRFFFFFR
-    let builder = store.builder(game, BUILDER().into());
+    let builder = store.builder(game, PLAYER().into());
     let orientation = Orientation::East;
     let x = CENTER - 1;
     let y = CENTER - 2;
@@ -99,10 +101,11 @@ fn test_cases_002() {
         );
 
     // [Draw & Build]
-    set_contract_address(BUILDER());
-    set_transaction_hash(0x1);
+    set_contract_address(PLAYER());
+
+    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::WFFFFFFFR));
     systems.play.draw(world, game.id); // WFFFFFFFR
-    let builder = store.builder(game, BUILDER().into());
+    let builder = store.builder(game, PLAYER().into());
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER - 1;
@@ -111,10 +114,11 @@ fn test_cases_002() {
         .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
-    set_contract_address(BUILDER());
-    set_transaction_hash(0x0);
+    set_contract_address(PLAYER());
+
+    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFFFRFFFR));
     systems.play.draw(world, game.id); // RFFFRFFFR
-    let builder = store.builder(game, BUILDER().into());
+    let builder = store.builder(game, PLAYER().into());
     let orientation = Orientation::East;
     let x = CENTER + 1;
     let y = CENTER - 1;
@@ -123,10 +127,11 @@ fn test_cases_002() {
         .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
-    set_contract_address(BUILDER());
-    set_transaction_hash(0x0);
+    set_contract_address(PLAYER());
+
+    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFFFRFFFR));
     systems.play.draw(world, game.id); // RFFFRFFFR
-    let builder = store.builder(game, BUILDER().into());
+    let builder = store.builder(game, PLAYER().into());
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER - 2;
@@ -135,10 +140,11 @@ fn test_cases_002() {
         .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
-    set_contract_address(BUILDER());
-    set_transaction_hash(0x5);
+    set_contract_address(PLAYER());
+
+    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFFFFFR));
     systems.play.draw(world, game.id); // RFRFFFFFR
-    let builder = store.builder(game, BUILDER().into());
+    let builder = store.builder(game, PLAYER().into());
     let orientation = Orientation::West;
     let x = CENTER + 1;
     let y = CENTER;
@@ -147,10 +153,11 @@ fn test_cases_002() {
         .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
-    set_contract_address(BUILDER());
-    set_transaction_hash(0xf);
+    set_contract_address(PLAYER());
+
+    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFFFFFR));
     systems.play.draw(world, game.id); // RFRFFFFFR
-    let builder = store.builder(game, BUILDER().into());
+    let builder = store.builder(game, PLAYER().into());
     let orientation = Orientation::North;
     let x = CENTER + 1;
     let y = CENTER - 2;
@@ -159,7 +166,7 @@ fn test_cases_002() {
         .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
 
     // [Assert]
-    let builder = store.builder(game, BUILDER().into());
+    let builder = store.builder(game, PLAYER().into());
     let expected: u32 = 2 * constants::FOREST_BASE_POINTS / 2;
     assert(builder.score == expected, 'Build: builder score');
     let anyone = store.builder(game, ANYONE().into());

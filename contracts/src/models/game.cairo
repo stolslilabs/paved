@@ -422,7 +422,9 @@ mod tests {
         assert(counts.get(Plan::RFFFRFCFF.into()) == 2, 'Game: RFFFRFCFF count');
         assert(counts.get(Plan::RFFFRFCFR.into()) == 4, 'Game: RFFFRFCFR count');
         assert(counts.get(Plan::RFFFRFFFR.into()) == 9, 'Game: RFFFRFFFR count');
+        assert(counts.get(Plan::RFRFCCCFF.into()) == 2, 'Game: RFRFCCCFF count');
         assert(counts.get(Plan::RFRFCCCFR.into()) == 5, 'Game: RFRFCCCFR count');
+        assert(counts.get(Plan::RFRFFFCCC.into()) == 2, 'Game: RFRFFFCCC count');
         assert(counts.get(Plan::RFRFFFCFF.into()) == 2, 'Game: RFRFFFCFF count');
         assert(counts.get(Plan::RFRFFFCFR.into()) == 3, 'Game: RFRFFFCFR count');
         assert(counts.get(Plan::RFRFFFFFR.into()) == 10, 'Game: RFRFFFFFR count');
@@ -432,8 +434,8 @@ mod tests {
         assert(counts.get(Plan::SFRFRFFFR.into()) == 5, 'Game: SFRFRFFFR count');
         assert(counts.get(Plan::SFRFRFRFR.into()) == 2, 'Game: SFRFRFRFR count');
         assert(counts.get(Plan::WCCCCCCCC.into()) == 1, 'Game: WCCCCCCCC count');
-        assert(counts.get(Plan::WFFFFFFFF.into()) == 4, 'Game: WFFFFFFFF count');
-        assert(counts.get(Plan::WFFFFFFFR.into()) == 2, 'Game: WFFFFFFFR count');
+        assert(counts.get(Plan::WFFFFFFFF.into()) == 2, 'Game: WFFFFFFFF count');
+        assert(counts.get(Plan::WFFFFFFFR.into()) == 1, 'Game: WFFFFFFFR count');
 
         // [Assert] Bitmap is empty
         assert(game.tiles == 0, 'Game: Invalid tiles');

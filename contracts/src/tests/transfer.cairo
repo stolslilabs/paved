@@ -23,10 +23,6 @@ use stolsli::systems::manage::IManageDispatcherTrait;
 use stolsli::systems::play::IPlayDispatcherTrait;
 use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
-// Constants
-
-const BUILDER_NAME: felt252 = 'BUILDER';
-
 #[test]
 fn test_host_transfer() {
     // [Setup]

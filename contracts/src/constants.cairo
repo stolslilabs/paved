@@ -1,6 +1,6 @@
 // Game
 
-const TOTAL_TILE_COUNT: u8 = 98;
+const TOTAL_TILE_COUNT: u8 = 99;
 const ROAD_BASE_POINTS: u32 = 100;
 const FOREST_BASE_POINTS: u32 = 100;
 const CITY_BASE_POINTS: u32 = 200;
