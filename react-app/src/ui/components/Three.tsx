@@ -79,27 +79,31 @@ function Camera({ children }: { children?: React.ReactNode }) {
 
   return (
     <>
+      <OrbitControls
+        enableRotate={true}
+        zoomToCursor
+        panSpeed={0.8}
+        rotateSpeed={0.1}
+        enablePan={true}
+        enableDamping
+        ref={controls}
+        makeDefault
+        target={[0, 0, 0]}
+        minAzimuthAngle={0}
+        maxAzimuthAngle={0}
+        minPolarAngle={1.5} // Allow looking directly down
+        maxPolarAngle={Math.PI}
+        zoomSpeed={0.8}
+      />
       <OrthographicCamera
         // makeDefault
         zoom={zoom}
+        isOrthographicCamera
         rotation={rotation}
         // aspect={aspect}
         near={near}
         far={far}
       >
-        <OrbitControls
-          enableRotate={true}
-          zoomToCursor
-          panSpeed={0.8}
-          rotateSpeed={0.3}
-          enablePan={true}
-          enableDamping
-          ref={controls}
-          makeDefault
-          target={[0, 0, 0]}
-          minAzimuthAngle={-Math.PI / 4}
-          maxAzimuthAngle={Math.PI / 4}
-        />
         {children}
       </OrthographicCamera>
     </>
