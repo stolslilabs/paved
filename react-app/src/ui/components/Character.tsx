@@ -56,21 +56,6 @@ export const Character = (props: TProps) => {
     }
   };
 
-  const colors = (spot: string) => {
-    switch (spot) {
-      case "C":
-        return "bg-orange-700";
-      case "R":
-        return "bg-yellow-400";
-      case "F":
-        return "bg-lime-300";
-      case "W":
-        return "bg-stone-400";
-      default:
-        return "bg-white";
-    }
-  };
-
   return (
     <TooltipProvider>
       <Tooltip>
