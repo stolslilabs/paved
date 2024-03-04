@@ -29,9 +29,7 @@ export const MusicPlayer = () => {
           )}
         </Button>
 
-        <div className="self-center sm:w-48">
-          {trackName} <div className="text-xs opacity-70">Casey Wescott</div>{" "}
-        </div>
+        <div className="self-center sm:w-48">{trackName}</div>
 
         <Button
           onClick={() => next()}

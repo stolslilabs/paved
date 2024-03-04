@@ -8,7 +8,7 @@ type Track = {
 };
 
 // Your tracks list
-const tracks: Track[] = [{ name: "Rain Pool", url: "/RainPool.mp3" }];
+const tracks: Track[] = [{ name: "Paved", url: "/paved.m4a" }];
 
 export const useMusicPlayer = () => {
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
