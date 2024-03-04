@@ -1,12 +1,18 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useDojo } from "../../dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faWallet } from "@fortawesome/free-solid-svg-icons";
+import { faSackDollar } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/components/ui/button";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export const Claim = () => {
   const { gameId } = useQueryParams();
@@ -49,21 +55,31 @@ export const Claim = () => {
       const now = Math.floor(Date.now()) / 1000;
       setEnable(
         (!claimed && game?.over) ||
-          (game?.tiles_cap !== 0 && game?.tile_count >= game?.tiles_cap) ||
-          (game?.duration !== 0 && now >= game?.start_time + game?.duration)
+          (!claimed &&
+            game?.duration !== 0 &&
+            now >= game?.start_time + game?.duration)
       );
     }, 1000);
     return () => clearInterval(interval);
   }, [game, claimed]);
 
   return (
-    <Button
-      disabled={!enable}
-      variant={"command"}
-      size={"command"}
-      onClick={handleClick}
-    >
-      <FontAwesomeIcon className="h-12" icon={faWallet} />
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            disabled={!enable}
+            variant={"command"}
+            size={"icon"}
+            onClick={handleClick}
+          >
+            <FontAwesomeIcon className="h-4" icon={faSackDollar} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="select-none">Claim</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };

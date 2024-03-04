@@ -2,6 +2,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -40,6 +41,86 @@ import {
   HasValue,
 } from "@dojoengine/recs";
 import { useLogs } from "@/hooks/useLogs";
+import { Claim } from "./Claim";
+
+export const LeaderboardDialog = () => {
+  const { gameId } = useQueryParams();
+  const {
+    account: { account },
+    setup: {
+      clientComponents: { Game, Builder },
+    },
+  } = useDojo();
+
+  const gameEntity = useMemo(
+    () => getEntityIdFromKeys([BigInt(gameId)]) as Entity,
+    [gameId]
+  );
+  const game = useComponentValue(Game, gameEntity);
+
+  const builderId = getEntityIdFromKeys([
+    BigInt(gameId),
+    BigInt(account.address),
+  ]) as Entity;
+  const builder = useComponentValue(Builder, builderId);
+
+  const [open, setOpen] = useState(false);
+  const [over, setOver] = useState(false);
+
+  useEffect(() => {
+    if (game) {
+      const interval = setInterval(() => {
+        const now = Math.floor(Date.now()) / 1000;
+        if (
+          !over &&
+          game.duration !== 0 &&
+          now >= game.start_time + game.duration
+        ) {
+          setOpen(true);
+          setOver(true);
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [game, over]);
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant={"command"} size={"command"}>
+                <FontAwesomeIcon className="h-12" icon={faTrophy} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="select-none">Leaderboard</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </DialogTrigger>
+      <DialogContent className="px-10">
+        <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
+        {over && <Description claimable={!!builder} />}
+        <Leaderboard />
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export const Description = ({ claimable }: { claimable: boolean }) => {
+  return claimable ? (
+    <DialogDescription className="flex justify-center items-center gap-4 text-xs">
+      Game is over, claim your rewards!
+      <Claim />
+    </DialogDescription>
+  ) : (
+    <DialogDescription className="flex justify-center items-center gap-3 text-xs">
+      Game is over
+    </DialogDescription>
+  );
+};
 
 export const Leaderboard = () => {
   const { gameId } = useQueryParams();
@@ -124,85 +205,58 @@ export const Leaderboard = () => {
   }, [teams]);
 
   return (
-    <Dialog>
-      <DialogTrigger>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant={"command"} size={"command"}>
-                <FontAwesomeIcon className="h-12" icon={faTrophy} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">Leaderboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogDescription>
-            <Tabs defaultValue="player" className="w-[400px] m-auto">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="player">Players</TabsTrigger>
-                <TabsTrigger value="order">Orders</TabsTrigger>
-              </TabsList>
-              <TabsContent value="player">
-                <Table className="text-xs">
-                  <TableCaption>Top 16 players</TableCaption>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">Rank</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Order</TableHead>
-                      <TableHead className="text-right">Score</TableHead>
-                      <TableHead className="text-right">Paved</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {topBuilders.map(
-                      (builder: typeof Builder, index: number) => {
-                        return (
-                          <PlayerRow
-                            key={index}
-                            builder={builder}
-                            rank={index + 1}
-                            logs={logs.filter(
-                              (log) => log.category === "Built"
-                            )}
-                          />
-                        );
-                      }
-                    )}
-                  </TableBody>
-                </Table>
-              </TabsContent>
-              <TabsContent value="order">
-                <Table className="text-xs">
-                  <TableCaption>Top orders</TableCaption>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[100px]">Rank</TableHead>
-                      <TableHead>Order</TableHead>
-                      <TableHead className="text-right">Score</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {topTeams.map((team: typeof Team, index: number) => {
-                      return (
-                        <OrderRow key={index} team={team} rank={index + 1} />
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TabsContent>
-            </Tabs>
-          </DialogDescription>
-        </DialogHeader>
-      </DialogContent>
-    </Dialog>
+    <Tabs defaultValue="player" className="w-full m-auto">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="player">Players</TabsTrigger>
+        <TabsTrigger value="order">Orders</TabsTrigger>
+      </TabsList>
+      <TabsContent value="player">
+        <Table className="text-xs">
+          <TableCaption>Top 16 players</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[100px]">Rank</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Order</TableHead>
+              <TableHead className="text-right">Score</TableHead>
+              <TableHead className="text-right">Paved</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {topBuilders.map((builder: typeof Builder, index: number) => {
+              return (
+                <PlayerRow
+                  key={index}
+                  builder={builder}
+                  rank={index + 1}
+                  logs={logs.filter((log) => log.category === "Built")}
+                />
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TabsContent>
+      <TabsContent value="order">
+        <Table className="text-xs">
+          <TableCaption>Top orders</TableCaption>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[100px]">Rank</TableHead>
+              <TableHead>Order</TableHead>
+              <TableHead className="text-right">Score</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {topTeams.map((team: typeof Team, index: number) => {
+              return <OrderRow key={index} team={team} rank={index + 1} />;
+            })}
+          </TableBody>
+        </Table>
+      </TabsContent>
+    </Tabs>
   );
 };
+
 export const PlayerRow = ({
   builder,
   rank,

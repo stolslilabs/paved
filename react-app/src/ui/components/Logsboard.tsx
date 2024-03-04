@@ -10,7 +10,7 @@ export const Logsboard = () => {
       <p className="text-right text-sm text-slate-500 mt-4 mb-2 mr-2">Logs</p>
       <Table>
         <TableBody className="text-right text-xs">
-          {logs.slice(0, 5).map((log: any, index: number) => (
+          {logs.filter((log) => log.category === "Scored").slice(0, 5).map((log: any, index: number) => (
             <LogRow key={index} log={log} index={logs.length - index} />
           ))}
         </TableBody>
