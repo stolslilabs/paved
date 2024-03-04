@@ -386,6 +386,23 @@ export const getRole = (index: number) => {
   }
 };
 
+export const getBoost = (index: number) => {
+  switch (index) {
+    case 2:
+      return "R";
+    case 3:
+      return "C";
+    case 4:
+      return "W";
+    case 5:
+      return "F";
+    case 6:
+      return "F";
+    default:
+      return "";
+  }
+};
+
 export const getRoleAllowedSpots = (index: number) => {
   switch (index) {
     case 0:
