@@ -5,6 +5,7 @@ import {
   getIndexFromCharacter,
   getRole,
   getRoleAllowedSpots,
+  getBoost,
 } from "../../utils";
 import { useGameStore } from "../../store";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ export const Character = (props: TProps) => {
   }, [index]);
 
   const className = useMemo(
-    () => (enable ? "cursor-pointer" : "cursor-not-allowed opacity-25"),
+    () => (enable ? "cursor-pointer" : "cursor-zoom-in opacity-25"),
     [selected, enable]
   );
 
@@ -92,16 +93,60 @@ export const Character = (props: TProps) => {
           <div className="flex flex-col justify-center items-center gap-1">
             <div className="select-none">{role}</div>
             <div className="flex justify-center items-center gap-2">
-              {spots.map((spot, index) => (
-                <div
-                  key={index}
-                  className={`h-2 w-2 rounded-full ${colors(spot)}`}
-                />
+              {spots.map((spot, idx) => (
+                <Spot key={idx} spot={spot} index={index} />
               ))}
             </div>
           </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+};
+
+export const Spot = (props: { spot: string; index: number }) => {
+  const { spot, index } = props;
+
+  const color = useMemo(() => {
+    switch (spot) {
+      case "C":
+        return "bg-orange-700";
+      case "R":
+        return "bg-yellow-400";
+      case "F":
+        return "bg-lime-300";
+      case "W":
+        return "bg-stone-400";
+      default:
+        return "bg-white";
+    }
+  }, [spot]);
+
+  const ringColor = useMemo(() => {
+    switch (spot) {
+      case "F":
+        switch (index) {
+          case 5:
+            return "ring-yellow-400";
+          case 6:
+            return "ring-orange-700";
+          default:
+            return "border-white";
+        }
+      default:
+        return "ring-white";
+    }
+  }, [spot, index]);
+
+  const boosted = useMemo(() => {
+    return getBoost(index) === spot;
+  }, [index]);
+
+  return (
+    <div
+      className={`h-2 w-2 rounded-full ${color} ${ringColor} ${
+        boosted ? "ring-2" : "ring-0"
+      }`}
+    />
   );
 };
