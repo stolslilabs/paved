@@ -14,24 +14,29 @@ use stolsli::models::game::{Game, GameImpl};
 use stolsli::models::builder::{Builder, BuilderImpl};
 use stolsli::models::character::{Character, CharacterPosition};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
+use stolsli::helpers::multiplier::compute_multiplier;
 
 #[generate_trait]
 impl GenericCount of GenericCountTrait {
     #[inline(always)]
-    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Character>) {
+    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, u32, Array<Character>) {
         // [Compute] Setup recursion
         let mut characters: Array<Character> = ArrayTrait::new();
         let mut visited: Felt252Dict<bool> = Default::default();
         // [Compute] Recursively count the points
+        let mut count = 0;
         let mut score = 0;
-        GenericCount::iter(game, tile, at, ref score, ref visited, ref characters, ref store);
-        (score, characters)
+        GenericCount::iter(
+            game, tile, at, ref count, ref score, ref visited, ref characters, ref store
+        );
+        (count, score, characters)
     }
 
     fn iter(
         game: Game,
         tile: Tile,
         at: Spot,
+        ref count: u32,
         ref score: u32,
         ref visited: Felt252Dict<bool>,
         ref characters: Array<Character>,
@@ -44,6 +49,7 @@ impl GenericCount of GenericCountTrait {
             return;
         };
         visited.insert(visited_key, true);
+        count += 1;
 
         // [Check] The tile handles a character
         let spot: Spot = tile.occupied_spot.into();
@@ -81,7 +87,14 @@ impl GenericCount of GenericCountTrait {
                     // [Check] If the points are zero, the structure is not finished
                     let neighbor = store.tile(game, tile_position.tile_id);
                     GenericCount::iter(
-                        game, neighbor, move.spot, ref score, ref visited, ref characters, ref store
+                        game,
+                        neighbor,
+                        move.spot,
+                        ref count,
+                        ref score,
+                        ref visited,
+                        ref characters,
+                        ref store
                     );
                     if 0 == score.into() {
                         break;
@@ -95,6 +108,7 @@ impl GenericCount of GenericCountTrait {
 
     fn solve(
         ref game: Game,
+        count: u32,
         score: u32,
         base_points: u32,
         ref characters: Array<Character>,
@@ -157,10 +171,9 @@ impl GenericCount of GenericCountTrait {
             let mut builder = store.builder(game, player.id);
             let mut team = store.team(game, builder.order.into());
             let power = powers.get(winner);
-            game
-                .add_score(
-                    ref builder, ref team, ref player, score * base_points * power, ref events
-                );
+            let (num, den) = compute_multiplier(count);
+            let points = score * base_points * power * num / den;
+            game.add_score(ref builder, ref team, ref player, points, ref events);
 
             // [Effect] Update the builder
             store.set_builder(builder);

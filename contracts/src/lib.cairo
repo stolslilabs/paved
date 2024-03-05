@@ -59,6 +59,7 @@ mod layouts {
 
 mod helpers {
     mod bitmap;
+    mod multiplier;
     mod generic;
     mod simple;
     mod forest;

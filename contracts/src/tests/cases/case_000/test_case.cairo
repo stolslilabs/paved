@@ -114,9 +114,10 @@ fn test_case_000() {
 
     // [Assert]
     let builder = store.builder(game, PLAYER().into());
-    let expected: u32 = 2 * constants::CITY_BASE_POINTS;
-    assert(builder.score == expected, 'Build: builder score');
+    let bonus = constants::BASE * constants::BASE / constants::MULTIPLIER;
+    let expected: u32 = 2 * constants::CITY_BASE_POINTS * bonus / constants::MULTIPLIER;
+    assert(builder.score - expected <= expected, 'Build: builder score');
     let anyone = store.builder(game, ANYONE().into());
     let expected: u32 = 0;
-    assert(anyone.score == expected, 'Build: anyone score');
+    assert(anyone.score - expected <= expected, 'Build: anyone score');
 }

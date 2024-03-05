@@ -51,7 +51,7 @@ mod play {
     // Internal imports
 
     use stolsli::store::{Store, StoreImpl};
-    use stolsli::events::{Built, Scored};
+    use stolsli::events::{Built, Scored, Discarded};
     use stolsli::models::game::{Game, GameImpl, GameAssert};
     use stolsli::models::player::{Player, PlayerImpl, PlayerAssert};
     use stolsli::models::team::{Team, TeamImpl};
@@ -90,6 +90,7 @@ mod play {
     enum Event {
         Built: Built,
         Scored: Scored,
+        Discarded: Discarded,
     }
 
     // Implementations
@@ -147,7 +148,7 @@ mod play {
             let store: Store = StoreImpl::new(world);
 
             // [Check] Game exists
-            let game = store.game(game_id);
+            let mut game = store.game(game_id);
             game.assert_exists();
 
             // [Check] Game has started
@@ -159,7 +160,7 @@ mod play {
 
             // [Check] Player exists
             let caller = get_caller_address();
-            let player = store.player(caller.into());
+            let mut player = store.player(caller.into());
             player.assert_exists();
 
             // [Check] Builder exists
@@ -167,10 +168,31 @@ mod play {
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Effect] Builder discard a tile
-            builder.discard();
+            let mut team = store.team(game, builder.order.into());
+            let tile_id = builder.tile_id;
+            let malus = builder.discard(ref game, ref team, ref player);
 
             // [Effect] Update builder
             store.set_builder(builder);
+
+            // [Effect] Update player
+            store.set_player(player);
+
+            // [Effect] Update game
+            store.set_game(game);
+
+            // [Event] Emit events
+            emit!(
+                world,
+                Discarded {
+                    game_id: game.id,
+                    tile_id: tile_id,
+                    player_id: player.id,
+                    player_name: player.name,
+                    order_id: team.order,
+                    points: malus,
+                },
+            );
         }
 
         fn build(
