@@ -54,6 +54,9 @@ interface CameraState {
   setReset: (reset: boolean) => void;
   resetAll: () => void;
   resetButPosition: () => void;
+  compassRotation: number;
+  setCompassRotate: (compassRotation: number) => void;
+  resetCompassRotation: () => void;
 }
 
 interface GameState {
@@ -98,41 +101,37 @@ export const useLobbyStore = create<LobbyState>()((set, get) => ({
   resetPlayerEntity: () => set({ playerEntity: null }),
 }));
 
-export const useCameraStore = create<CameraState>()(
-  persist(
-    (set, get) => ({
-      position: CAMERA_SETTINGS.position,
-      setPosition: (position) => set({ position }),
-      resetPosition: () => set({ position: CAMERA_SETTINGS.position }),
+export const useCameraStore = create<CameraState>()((set, get) => ({
+  position: CAMERA_SETTINGS.position,
+  setPosition: (position) => set({ position }),
+  resetPosition: () => set({ position: CAMERA_SETTINGS.position }),
+  rotation: CAMERA_SETTINGS.rotation,
+  setRotation: (rotation) => set({ rotation }),
+  resetRotation: () => set({ rotation: CAMERA_SETTINGS.rotation }),
+  zoom: CAMERA_SETTINGS.zoom,
+  setZoom: (zoom) => set({ zoom }),
+  resetZoom: () => set({ zoom: CAMERA_SETTINGS.zoom }),
+  aspect: CAMERA_SETTINGS.aspect,
+  setAspect: (aspect) => set({ aspect }),
+  resetAspect: () => set({ aspect: CAMERA_SETTINGS.aspect }),
+  near: CAMERA_SETTINGS.near,
+  setNear: (near) => set({ near }),
+  resetNear: () => set({ near: CAMERA_SETTINGS.near }),
+  far: 10,
+  setFar: (far) => set({ far }),
+  resetFar: () => set({ far: CAMERA_SETTINGS.far }),
+  reset: CAMERA_SETTINGS.reset,
+  setReset: (reset) => set({ reset }),
+  resetAll: () => set({ ...CAMERA_SETTINGS }),
+  resetButPosition: () =>
+    set({
       rotation: CAMERA_SETTINGS.rotation,
-      setRotation: (rotation) => set({ rotation }),
-      resetRotation: () => set({ rotation: CAMERA_SETTINGS.rotation }),
       zoom: CAMERA_SETTINGS.zoom,
-      setZoom: (zoom) => set({ zoom }),
-      resetZoom: () => set({ zoom: CAMERA_SETTINGS.zoom }),
-      aspect: CAMERA_SETTINGS.aspect,
-      setAspect: (aspect) => set({ aspect }),
-      resetAspect: () => set({ aspect: CAMERA_SETTINGS.aspect }),
-      near: CAMERA_SETTINGS.near,
-      setNear: (near) => set({ near }),
-      resetNear: () => set({ near: CAMERA_SETTINGS.near }),
-      far: 10,
-      setFar: (far) => set({ far }),
-      resetFar: () => set({ far: CAMERA_SETTINGS.far }),
-      reset: CAMERA_SETTINGS.reset,
-      setReset: (reset) => set({ reset }),
-      resetAll: () => set({ ...CAMERA_SETTINGS }),
-      resetButPosition: () =>
-        set({
-          rotation: CAMERA_SETTINGS.rotation,
-          zoom: CAMERA_SETTINGS.zoom,
-        }),
     }),
-    {
-      name: "camera-storage", // name of the item in the storage (must be unique)
-    }
-  )
-);
+  compassRotation: 0,
+  setCompassRotate: (compassRotation) => set({ compassRotation }),
+  resetCompassRotation: () => set({ compassRotation: 0 }),
+}));
 
 export const useGameStore = create<GameState>()(
   persist(
