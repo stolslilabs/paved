@@ -104,6 +104,8 @@ export const useLogs = () => {
 
     // Check if already subscribed to prevent duplication due to HMR
     if (!subscribedRef.current) {
+      console.log("Subscribing to logs");
+      subscribedRef.current = true; // Mark as subscribed
       const subscriptions: Subscription[] = [];
 
       const subscribeToEvents = async () => {
@@ -138,7 +140,6 @@ export const useLogs = () => {
               setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)])
           )
         );
-        subscribedRef.current = true; // Mark as subscribed
       };
 
       subscribeToEvents();
@@ -146,6 +147,7 @@ export const useLogs = () => {
       // Cleanup function to unsubscribe
       return () => {
         subscriptions.forEach((sub) => sub.unsubscribe());
+        console.log("Unsubscribed from logs");
         subscribedRef.current = false;
       };
     }
