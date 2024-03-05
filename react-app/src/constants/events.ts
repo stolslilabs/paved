@@ -3,3 +3,6 @@ export const BUILT_EVENT =
 
 export const SCORED_EVENT =
   "0x1f5f91de9e33f581e67e239e952691057fe8e45631568808fa00d0bda38cce9";
+
+export const DISCARDED_EVENT =
+  "0x9e199bdedd47e8aab3606d9c16c4423368e1500697a07ac8e076f7a28419d0";

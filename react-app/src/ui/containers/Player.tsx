@@ -8,6 +8,7 @@ import { useDojo } from "@/dojo/useDojo";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { useLobbyStore } from "@/store";
+import { Buy } from "../components/Buy";
 
 export const Player = () => {
   const backgroundColor = useMemo(() => "#FFF8F8", []);
@@ -33,9 +34,7 @@ export const Player = () => {
         <h1 className="text-2xl text-left">Menu</h1>
         <Account />
         <div className="flex justify-between gap-4">
-          <Button disabled variant={"secondary"} onClick={() => {}}>
-            Shop
-          </Button>
+          <Buy buttonName={"Shop"} />
           <Button disabled variant={"secondary"} onClick={() => {}}>
             Guide
           </Button>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Buy } from "../components/Buy";
-import { Leaderboard } from "../components/Leaderboard";
+import { LeaderboardDialog } from "../components/Leaderboard";
 import { Claim } from "../components/Claim";
 import { Log } from "../components/Log";
 import { ResetCamera } from "../components/ResetCamera";
@@ -63,7 +63,7 @@ export const Actions = () => {
             isExpanded ? "opacity-100 top-[-360%]" : "opacity-0 top-[100%]"
           }`}
         >
-          <Leaderboard />
+          <LeaderboardDialog />
         </div>
         <div
           className={`absolute bottom-0 transition-all duration-200 ${
@@ -75,13 +75,6 @@ export const Actions = () => {
         <div
           className={`absolute bottom-0 transition-all duration-200 ${
             isExpanded ? "opacity-100 right-[-240%]" : "opacity-0 right-[100%]"
-          }`}
-        >
-          <Claim />
-        </div>
-        <div
-          className={`absolute bottom-0 transition-all duration-200 ${
-            isExpanded ? "opacity-100 right-[-360%]" : "opacity-0 right-[100%]"
           }`}
         >
           <Log />

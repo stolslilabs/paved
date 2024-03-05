@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+  faBurn,
   faHammer,
   faInfoCircle,
   faStar,
@@ -65,12 +66,19 @@ export const Log = () => {
                   <strong style={{ color: log.color }}>
                     {` ${log.builder}`}
                   </strong>
-                  {log.category === "Scored" ? (
+                  {log.category === "Scored" && (
                     <FontAwesomeIcon
                       icon={faStar}
                       className="text-yellow-500"
                     />
-                  ) : (
+                  )}
+                  {log.category === "Discarded" && (
+                    <FontAwesomeIcon
+                      icon={faBurn}
+                      className="text-orange-500"
+                    />
+                  )}
+                  {log.category === "Built" && (
                     <FontAwesomeIcon
                       icon={faHammer}
                       className="text-slate-500"

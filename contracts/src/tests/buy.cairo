@@ -24,7 +24,6 @@ use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 // Constants
 
 const AMOUNT_ONE: u8 = 1;
-const BUILDER_NAME: felt252 = 'BUILDER';
 
 #[test]
 fn test_play_buy() {

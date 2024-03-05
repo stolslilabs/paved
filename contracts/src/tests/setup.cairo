@@ -15,7 +15,7 @@ mod setup {
 
     // Internal imports
 
-    use stolsli::models::game::Game;
+    use stolsli::models::game::{Game, GameImpl};
     use stolsli::models::player::Player;
     use stolsli::models::builder::Builder;
     use stolsli::models::team::Team;
@@ -23,6 +23,7 @@ mod setup {
     use stolsli::systems::host::{host, IHostDispatcher, IHostDispatcherTrait};
     use stolsli::systems::manage::{manage, IManageDispatcher, IManageDispatcherTrait};
     use stolsli::systems::play::{play, IPlayDispatcher, IPlayDispatcherTrait};
+    use stolsli::types::plan::{Plan, PlanImpl};
 
     // Constants
 
@@ -59,6 +60,21 @@ mod setup {
         game_duration: u64,
     }
 
+    fn compute_tx_hash(game: Game, target: Plan) -> felt252 {
+        let mut seed: felt252 = 0;
+        loop {
+            let mut mut_game = game;
+            let (_, plan) = mut_game.draw_plan(seed);
+            if plan == target {
+                break;
+            } else {
+                seed += 1;
+            }
+        };
+        seed
+    }
+
+    #[inline(always)]
     fn spawn_game() -> (IWorldDispatcher, Systems, Context) {
         // [Setup] World
         let mut models = array::ArrayTrait::new();

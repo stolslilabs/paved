@@ -23,7 +23,9 @@ import { Configuration as RfffffcfrImpl } from "../layouts/rfffffcfr";
 import { Configuration as RfffrfcffImpl } from "../layouts/rfffrfcff";
 import { Configuration as RfffrfcfrImpl } from "../layouts/rfffrfcfr";
 import { Configuration as RfffrfffrImpl } from "../layouts/rfffrfffr";
+import { Configuration as RfrfcccffImpl } from "../layouts/rfrfcccff";
 import { Configuration as RfrfcccfrImpl } from "../layouts/rfrfcccfr";
+import { Configuration as RfrfffcccImpl } from "../layouts/rfrfffccc";
 import { Configuration as RfrfffcffImpl } from "../layouts/rfrfffcff";
 import { Configuration as RfrfffcfrImpl } from "../layouts/rfrfffcfr";
 import { Configuration as RfrfffffrImpl } from "../layouts/rfrfffffr";
@@ -65,7 +67,9 @@ export enum PlanType {
   RFFFRFCFF = "RFFFRFCFF",
   RFFFRFCFR = "RFFFRFCFR",
   RFFFRFFFR = "RFFFRFFFR",
+  RFRFCCCFF = "RFRFCCCFF",
   RFRFCCCFR = "RFRFCCCFR",
+  RFRFFFCCC = "RFRFFFCCC",
   RFRFFFCFF = "RFRFFFCFF",
   RFRFFFCFR = "RFRFFFCFR",
   RFRFFFFFR = "RFRFFFFFR",
@@ -149,8 +153,12 @@ export class Plan {
         return RfffrfcfrImpl.starts();
       case PlanType.RFFFRFFFR:
         return RfffrfffrImpl.starts();
+      case PlanType.RFRFCCCFF:
+        return RfrfcccffImpl.starts();
       case PlanType.RFRFCCCFR:
         return RfrfcccfrImpl.starts();
+      case PlanType.RFRFFFCCC:
+        return RfrfffcccImpl.starts();
       case PlanType.RFRFFFCFF:
         return RfrfffcffImpl.starts();
       case PlanType.RFRFFFCFR:
@@ -237,8 +245,12 @@ export class Plan {
         return RfffrfcfrImpl.moves(from);
       case PlanType.RFFFRFFFR:
         return RfffrfffrImpl.moves(from);
+      case PlanType.RFRFCCCFF:
+        return RfrfcccffImpl.moves(from);
       case PlanType.RFRFCCCFR:
         return RfrfcccfrImpl.moves(from);
+      case PlanType.RFRFFFCCC:
+        return RfrfffcccImpl.moves(from);
       case PlanType.RFRFFFCFF:
         return RfrfffcffImpl.moves(from);
       case PlanType.RFRFFFCFR:
@@ -314,8 +326,12 @@ export class Plan {
         return RfffrfcfrImpl.area(from);
       case PlanType.RFFFRFFFR:
         return RfffrfffrImpl.area(from);
+      case PlanType.RFRFCCCFF:
+        return RfrfcccffImpl.area(from);
       case PlanType.RFRFCCCFR:
         return RfrfcccfrImpl.area(from);
+      case PlanType.RFRFFFCCC:
+        return RfrfffcccImpl.area(from);
       case PlanType.RFRFFFCFF:
         return RfrfffcffImpl.area(from);
       case PlanType.RFRFFFCFR:
@@ -391,8 +407,12 @@ export class Plan {
         return RfffrfcfrImpl.adjacentRoads(from);
       case PlanType.RFFFRFFFR:
         return RfffrfffrImpl.adjacentRoads(from);
+      case PlanType.RFRFCCCFF:
+        return RfrfcccffImpl.adjacentRoads(from);
       case PlanType.RFRFCCCFR:
         return RfrfcccfrImpl.adjacentRoads(from);
+      case PlanType.RFRFFFCCC:
+        return RfrfffcccImpl.adjacentRoads(from);
       case PlanType.RFRFFFCFF:
         return RfrfffcffImpl.adjacentRoads(from);
       case PlanType.RFRFFFCFR:
@@ -468,8 +488,12 @@ export class Plan {
         return RfffrfcfrImpl.adjacentCities(from);
       case PlanType.RFFFRFFFR:
         return RfffrfffrImpl.adjacentCities(from);
+      case PlanType.RFRFCCCFF:
+        return RfrfcccffImpl.adjacentCities(from);
       case PlanType.RFRFCCCFR:
         return RfrfcccfrImpl.adjacentCities(from);
+      case PlanType.RFRFFFCCC:
+        return RfrfffcccImpl.adjacentCities(from);
       case PlanType.RFRFFFCFF:
         return RfrfffcffImpl.adjacentCities(from);
       case PlanType.RFRFFFCFR:

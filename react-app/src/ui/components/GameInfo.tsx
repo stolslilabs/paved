@@ -22,8 +22,11 @@ export const GameInfo = () => {
     },
   } = useDojo();
 
-  const gameEntity = getEntityIdFromKeys([BigInt(gameId)]) as Entity;
-  const game = useComponentValue(Game, gameEntity);
+  const gameKey = useMemo(
+    () => getEntityIdFromKeys([BigInt(gameId)]) as Entity,
+    [gameId]
+  );
+  const game = useComponentValue(Game, gameKey);
 
   const playerKey = useMemo(
     () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,

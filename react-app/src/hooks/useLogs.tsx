@@ -5,11 +5,13 @@ import {
   createBuiltLog,
   parseScoredEvent,
   createScoredLog,
+  createDiscardedLog,
+  parseDiscardedEvent,
 } from "@/utils/events";
 import { useEffect, useRef, useState } from "react";
 import { Subscription } from "rxjs";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { BUILT_EVENT, SCORED_EVENT } from "@/constants/events";
+import { BUILT_EVENT, SCORED_EVENT, DISCARDED_EVENT } from "@/constants/events";
 
 export type BuiltLog = {
   id: string;
@@ -37,6 +39,18 @@ export type ScoredLog = {
   timestamp: Date;
 };
 
+export type DiscardedLog = {
+  id: string;
+  gameId: number;
+  tileId: number;
+  playerId: string;
+  playerName: string;
+  playerColor: string;
+  orderId: number;
+  score: number;
+  timestamp: Date;
+};
+
 export type Log = {
   id: string;
   timestamp: Date;
@@ -48,9 +62,11 @@ export type Log = {
 
 const generateLogFromEvent = (event: Event): Log => {
   if (event.keys[0] === BUILT_EVENT) {
-    return createBuiltLog(parseScoredEvent(event));
+    return createBuiltLog(parseBuiltEvent(event));
   } else if (event.keys[0] === SCORED_EVENT) {
     return createScoredLog(parseScoredEvent(event));
+  } else if (event.keys[0] === DISCARDED_EVENT) {
+    return createDiscardedLog(parseDiscardedEvent(event));
   }
   throw new Error("Unknown event type");
 };
@@ -62,38 +78,39 @@ export const useLogs = () => {
 
   const {
     setup: {
-      contractEvents: { createScoredEvents, queryScoredEvents },
+      contractEvents: { createEvents, queryEvents },
     },
   } = useDojo();
 
   useEffect(() => {
     // Query all existing logs from the db
-    const queryEvents = async () => {
+    const query = async () => {
       let gameIdString = `0x${gameId.toString(16)}`;
-      const builtEvents = await queryScoredEvents([BUILT_EVENT, gameIdString]);
-      const scoredEvents = await queryScoredEvents([
-        SCORED_EVENT,
+      const builtEvents = await queryEvents([BUILT_EVENT, gameIdString]);
+      const scoredEvents = await queryEvents([SCORED_EVENT, gameIdString]);
+      const discardedEvents = await queryEvents([
+        DISCARDED_EVENT,
         gameIdString,
       ]);
       setLogs((prevLogs) => [
         ...prevLogs,
         ...builtEvents.map(generateLogFromEvent),
         ...scoredEvents.map(generateLogFromEvent),
+        ...discardedEvents.map(generateLogFromEvent),
       ]);
     };
 
-    queryEvents();
+    query();
 
     // Check if already subscribed to prevent duplication due to HMR
     if (!subscribedRef.current) {
+      console.log("Subscribing to logs");
+      subscribedRef.current = true; // Mark as subscribed
       const subscriptions: Subscription[] = [];
 
       const subscribeToEvents = async () => {
         let gameIdString = `0x${gameId.toString(16)}`;
-        const builtObservable = await createScoredEvents([
-          BUILT_EVENT,
-          gameIdString,
-        ]);
+        const builtObservable = await createEvents([BUILT_EVENT, gameIdString]);
         subscriptions.push(
           builtObservable.subscribe(
             (event) =>
@@ -101,7 +118,7 @@ export const useLogs = () => {
               setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)])
           )
         );
-        const scoredObservable = await createScoredEvents([
+        const scoredObservable = await createEvents([
           SCORED_EVENT,
           gameIdString,
         ]);
@@ -112,7 +129,17 @@ export const useLogs = () => {
               setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)])
           )
         );
-        subscribedRef.current = true; // Mark as subscribed
+        const discardedObservable = await createEvents([
+          DISCARDED_EVENT,
+          gameIdString,
+        ]);
+        subscriptions.push(
+          discardedObservable.subscribe(
+            (event) =>
+              event &&
+              setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)])
+          )
+        );
       };
 
       subscribeToEvents();
@@ -120,6 +147,7 @@ export const useLogs = () => {
       // Cleanup function to unsubscribe
       return () => {
         subscriptions.forEach((sub) => sub.unsubscribe());
+        console.log("Unsubscribed from logs");
         subscribedRef.current = false;
       };
     }

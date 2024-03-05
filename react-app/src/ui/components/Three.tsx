@@ -19,7 +19,6 @@ export const ThreeGrid = () => {
         <Camera>
           <ambientLight color={"white"} intensity={1} />
           <ambientLight color={"white"} intensity={1} />
-
           <mesh rotation={[Math.PI / -2, 0, 0]}>
             <TileTextures squareSize={3} />
             <CharTextures radius={0.3} height={1} squareSize={3} />
@@ -61,9 +60,17 @@ function Keyboard() {
 }
 
 function Camera({ children }: { children?: React.ReactNode }) {
-  const { position, zoom, aspect, near, far, reset, resetAll, rotation } =
-    useCameraStore();
-  const camera = useRef<THREE.PerspectiveCamera>(null);
+  const {
+    position,
+    zoom,
+    near,
+    far,
+    reset,
+    resetAll,
+    rotation,
+    resetButPosition,
+  } = useCameraStore();
+  const camera = useRef<any>(null);
   const controls = useRef<any>(null);
 
   useEffect(() => {
@@ -71,6 +78,8 @@ function Camera({ children }: { children?: React.ReactNode }) {
       controls.current.reset();
       resetAll();
     } else if (camera.current) {
+      controls.current.reset();
+      resetButPosition();
       camera.current.position.set(...position);
     }
   }, [reset, position]);
@@ -89,16 +98,21 @@ function Camera({ children }: { children?: React.ReactNode }) {
         target={[0, 0, 0]}
         minAzimuthAngle={0}
         maxAzimuthAngle={0}
-        minPolarAngle={1.5} // Allow looking directly down
+        minPolarAngle={(501 * Math.PI) / 1000} // Allow looking directly down
         maxPolarAngle={Math.PI}
         zoomSpeed={0.8}
+        mouseButtons={{
+          LEFT: THREE.MOUSE.PAN,
+          MIDDLE: THREE.MOUSE.DOLLY,
+          RIGHT: THREE.MOUSE.ROTATE,
+        }}
       />
       <OrthographicCamera
         // makeDefault
+        ref={camera}
         zoom={zoom}
         isOrthographicCamera
         rotation={rotation}
-        // aspect={aspect}
         near={near}
         far={far}
       >

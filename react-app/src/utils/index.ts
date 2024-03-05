@@ -24,7 +24,9 @@ import rfffffcfr from "/assets/tiles/rfffffcfr.png";
 import rfffrfcff from "/assets/tiles/rfffrfcff.png";
 import rfffrfcfr from "/assets/tiles/rfffrfcfr.png";
 import rfffrfffr from "/assets/tiles/rfffrfffr.png";
+import rfrfcccff from "/assets/tiles/rfrfcccff.png";
 import rfrfcccfr from "/assets/tiles/rfrfcccfr.png";
+import rfrfffccc from "/assets/tiles/rfrfffccc.png";
 import rfrfffcff from "/assets/tiles/rfrfffcff.png";
 import rfrfffcfr from "/assets/tiles/rfrfffcfr.png";
 import rfrfffffr from "/assets/tiles/rfrfffffr.png";
@@ -97,28 +99,32 @@ export const getImage = (tile: any) => {
     case 23:
       return rfffrfffr;
     case 24:
-      return rfrfcccfr;
+      return rfrfcccff;
     case 25:
-      return rfrfffcff;
+      return rfrfcccfr;
     case 26:
-      return rfrfffcfr;
+      return rfrfffccc;
     case 27:
-      return rfrfffffr;
+      return rfrfffcff;
     case 28:
-      return rfrfrfcff;
+      return rfrfffcfr;
     case 29:
-      return sfffffffr;
+      return rfrfffffr;
     case 30:
-      return sfrfrfcfr;
+      return rfrfrfcff;
     case 31:
-      return sfrfrfffr;
+      return sfffffffr;
     case 32:
-      return sfrfrfrfr;
+      return sfrfrfcfr;
     case 33:
-      return wcccccccc;
+      return sfrfrfffr;
     case 34:
-      return wffffffff;
+      return sfrfrfrfr;
     case 35:
+      return wcccccccc;
+    case 36:
+      return wffffffff;
+    case 37:
       return wfffffffr;
     default:
       return zero;
@@ -375,6 +381,23 @@ export const getRole = (index: number) => {
       return "Woodsman";
     case 6:
       return "Herdsman";
+    default:
+      return "";
+  }
+};
+
+export const getBoost = (index: number) => {
+  switch (index) {
+    case 2:
+      return "R";
+    case 3:
+      return "C";
+    case 4:
+      return "W";
+    case 5:
+      return "F";
+    case 6:
+      return "F";
     default:
       return "";
   }

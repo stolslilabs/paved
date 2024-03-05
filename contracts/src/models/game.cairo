@@ -11,7 +11,7 @@ use origami::random::deck::{Deck, DeckTrait};
 
 use stolsli::constants;
 use stolsli::store::{Store, StoreImpl};
-use stolsli::events::Scored;
+use stolsli::events::{Scored};
 use stolsli::helpers::bitmap::Bitmap;
 use stolsli::helpers::generic::GenericCount;
 use stolsli::helpers::forest::ForestCount;
@@ -149,6 +149,20 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
+    fn sub_score(
+        ref self: Game, ref builder: Builder, ref team: Team, ref player: Player, ref score: u32,
+    ) {
+        // [Check] Update score
+        if builder.score < score {
+            score = builder.score;
+        };
+        self.score -= score;
+        team.score -= score;
+        player.score -= score;
+        builder.score -= score;
+    }
+
+    #[inline(always)]
     fn draw_plan(ref self: Game, seed: felt252) -> (u32, Plan) {
         let number: u32 = constants::TOTAL_TILE_COUNT.into();
         let mut deck: Deck = DeckTrait::from_bitmap(seed, number, self.tiles);
@@ -224,30 +238,30 @@ impl GameImpl of GameTrait {
                 // [Effect] Solve and collect characters
                 if 0 != count.into() && 0 != woodsmen.len().into() {
                     ForestCount::solve(
-                        ref self, woodsman_score, base, ref woodsmen, ref events, ref store
+                        ref self, count, woodsman_score, base, ref woodsmen, ref events, ref store
                     );
                 }
                 if 0 != count.into() && 0 != herdsmen.len().into() {
                     ForestCount::solve(
-                        ref self, herdsman_score, base, ref herdsmen, ref events, ref store
+                        ref self, count, herdsman_score, base, ref herdsmen, ref events, ref store
                     );
                 }
             },
             Category::Road => {
-                let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
+                let (count, score, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters
                 if 0 != score.into() && 0 != characters.len().into() {
                     GenericCount::solve(
-                        ref self, score, base, ref characters, ref events, ref store
+                        ref self, count, score, base, ref characters, ref events, ref store
                     );
                 }
             },
             Category::City => {
-                let (score, mut characters) = GenericCount::start(self, tile, at, ref store);
+                let (count, score, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters
                 if 0 != score.into() && 0 != characters.len().into() {
                     GenericCount::solve(
-                        ref self, score, base, ref characters, ref events, ref store
+                        ref self, count, score, base, ref characters, ref events, ref store
                     );
                 }
             },
@@ -422,7 +436,9 @@ mod tests {
         assert(counts.get(Plan::RFFFRFCFF.into()) == 2, 'Game: RFFFRFCFF count');
         assert(counts.get(Plan::RFFFRFCFR.into()) == 4, 'Game: RFFFRFCFR count');
         assert(counts.get(Plan::RFFFRFFFR.into()) == 9, 'Game: RFFFRFFFR count');
+        assert(counts.get(Plan::RFRFCCCFF.into()) == 2, 'Game: RFRFCCCFF count');
         assert(counts.get(Plan::RFRFCCCFR.into()) == 5, 'Game: RFRFCCCFR count');
+        assert(counts.get(Plan::RFRFFFCCC.into()) == 2, 'Game: RFRFFFCCC count');
         assert(counts.get(Plan::RFRFFFCFF.into()) == 2, 'Game: RFRFFFCFF count');
         assert(counts.get(Plan::RFRFFFCFR.into()) == 3, 'Game: RFRFFFCFR count');
         assert(counts.get(Plan::RFRFFFFFR.into()) == 10, 'Game: RFRFFFFFR count');
@@ -432,8 +448,8 @@ mod tests {
         assert(counts.get(Plan::SFRFRFFFR.into()) == 5, 'Game: SFRFRFFFR count');
         assert(counts.get(Plan::SFRFRFRFR.into()) == 2, 'Game: SFRFRFRFR count');
         assert(counts.get(Plan::WCCCCCCCC.into()) == 1, 'Game: WCCCCCCCC count');
-        assert(counts.get(Plan::WFFFFFFFF.into()) == 4, 'Game: WFFFFFFFF count');
-        assert(counts.get(Plan::WFFFFFFFR.into()) == 2, 'Game: WFFFFFFFR count');
+        assert(counts.get(Plan::WFFFFFFFF.into()) == 2, 'Game: WFFFFFFFF count');
+        assert(counts.get(Plan::WFFFFFFFR.into()) == 1, 'Game: WFFFFFFFR count');
 
         // [Assert] Bitmap is empty
         assert(game.tiles == 0, 'Game: Invalid tiles');

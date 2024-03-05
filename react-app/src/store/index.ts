@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { Entity } from "@dojoengine/recs";
 
-const CAMERA_SETTINGS: {
+export const CAMERA_SETTINGS: {
   position: [number, number, number];
   rotation: [number, number, number];
   zoom: number;
@@ -11,7 +11,7 @@ const CAMERA_SETTINGS: {
   far: number;
   reset: boolean;
 } = {
-  position: [0, 100, 0],
+  position: [0, 0, 0],
   rotation: [Math.PI / 2, 0, 0],
   zoom: 5,
   aspect: 1.77,
@@ -53,6 +53,7 @@ interface CameraState {
   reset: boolean;
   setReset: (reset: boolean) => void;
   resetAll: () => void;
+  resetButPosition: () => void;
 }
 
 interface GameState {
@@ -121,6 +122,11 @@ export const useCameraStore = create<CameraState>()(
       reset: CAMERA_SETTINGS.reset,
       setReset: (reset) => set({ reset }),
       resetAll: () => set({ ...CAMERA_SETTINGS }),
+      resetButPosition: () =>
+        set({
+          rotation: CAMERA_SETTINGS.rotation,
+          zoom: CAMERA_SETTINGS.zoom,
+        }),
     }),
     {
       name: "camera-storage", // name of the item in the storage (must be unique)

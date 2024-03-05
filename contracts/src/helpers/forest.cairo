@@ -18,6 +18,7 @@ use stolsli::models::game::{Game, GameImpl};
 use stolsli::models::builder::{Builder, BuilderImpl};
 use stolsli::models::character::{Character, CharacterPosition};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
+use stolsli::helpers::multiplier::compute_multiplier;
 
 #[generate_trait]
 impl ForestCount of ForestCountTrait {
@@ -72,8 +73,8 @@ impl ForestCount of ForestCountTrait {
         if visited.get(visited_key) {
             return;
         };
-        count += 1;
         visited.insert(visited_key, true);
+        count += 1;
 
         // [Check] The tile handles a character
         let spot: Spot = tile.occupied_spot.into();
@@ -175,6 +176,7 @@ impl ForestCount of ForestCountTrait {
 
     fn solve(
         ref game: Game,
+        count: u32,
         score: u32,
         base_points: u32,
         ref characters: Array<Character>,
@@ -182,6 +184,7 @@ impl ForestCount of ForestCountTrait {
         ref store: Store
     ) {
         // [Compute] Find the winner
+        let (num, den) = compute_multiplier(count);
         let length = characters.len();
         loop {
             match characters.pop_front() {
@@ -191,15 +194,9 @@ impl ForestCount of ForestCountTrait {
                     let mut player = store.player(character.player_id);
                     let mut builder = store.builder(game, player.id);
                     let mut team = store.team(game, builder.order.into());
+                    let points = score * base_points * num / den / length;
                     builder.recover(ref character, ref tile);
-                    game
-                        .add_score(
-                            ref builder,
-                            ref team,
-                            ref player,
-                            score * base_points / length,
-                            ref events
-                        );
+                    game.add_score(ref builder, ref team, ref player, points, ref events);
 
                     // [Effect] Update the character
                     store.set_character(character);

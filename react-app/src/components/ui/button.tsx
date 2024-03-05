@@ -20,11 +20,11 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         command:
-          "bg-slate-300 border-2 border-stone-500 flex justify-center items-center rounded-xl cursor-pointer text-secondary-foreground shadow-sm",
+          "bg-slate-300 border-2 border-stone-500 flex justify-center items-center rounded-xl cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
         character:
-          "bg-slate-300 border-2 border-stone-500 flex justify-center items-center rounded-xl cursor-pointer text-secondary-foreground shadow-sm",
+          "bg-slate-300 border-2 border-stone-500 flex justify-center items-center rounded-xl cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
         character_selected:
-          "bg-gray-500 border-2 border-stone-500 flex justify-center items-center rounded-xl cursor-pointer text-secondary-foreground shadow-sm",
+          "bg-gray-500 border-2 border-stone-500 flex justify-center items-center rounded-xl cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
       },
       size: {
         default: "h-9 p-6",

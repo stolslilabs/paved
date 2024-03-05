@@ -41,7 +41,9 @@ mod layouts {
     mod rfffrfcff;
     mod rfffrfcfr;
     mod rfffrfffr;
+    mod rfrfcccff;
     mod rfrfcccfr;
+    mod rfrfffccc;
     mod rfrfffcff;
     mod rfrfffcfr;
     mod rfrfffffr;
@@ -57,6 +59,7 @@ mod layouts {
 
 mod helpers {
     mod bitmap;
+    mod multiplier;
     mod generic;
     mod simple;
     mod forest;
@@ -88,5 +91,5 @@ mod tests {
     mod draw;
     mod discard;
     mod build;
-// mod cases;
+    mod cases;
 }

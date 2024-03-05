@@ -1,7 +1,6 @@
 import { request, gql } from "graphql-request";
 import { createClient } from "graphql-ws";
 import { BehaviorSubject, Observable } from "rxjs";
-import { SCORED_EVENT } from "@/constants/events";
 
 export type Event = {
   id: string;
@@ -80,8 +79,7 @@ export async function createEventSubscription(
 
 export const createCustomEvents = async (url: string) => {
   return {
-    createScoredEvents: async (keys: string[]) =>
-      createEventSubscription(url, keys),
-    queryScoredEvents: async (keys: string[]) => createEventBacklog(url, keys),
+    createEvents: async (keys: string[]) => createEventSubscription(url, keys),
+    queryEvents: async (keys: string[]) => createEventBacklog(url, keys),
   };
 };
