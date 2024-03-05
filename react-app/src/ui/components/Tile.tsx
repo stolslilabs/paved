@@ -82,7 +82,7 @@ export const Tile = () => {
 
   return (
     <div
-      className="h-60 w-60 p-5 border-2 border-stone-500 flex justify-center items-center rounded-xl"
+      className="h-60 w-60 p-5 border-2 border-stone-500 flex justify-center items-center rounded-xl shadow-lg shadow-gray-400"
       style={{ backgroundColor }}
     >
       {tile && backgroundImage ? (
