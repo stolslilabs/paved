@@ -104,7 +104,7 @@ export const Character = (props: TProps) => {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            className={className}
+            className={`pointer-events-auto ${className}`}
             variant={selected ? "character_selected" : "character"}
             size={"character"}
             onClick={handleClick}
