@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Buy } from "../components/Buy";
 import { LeaderboardDialog } from "../components/Leaderboard";
-import { Claim } from "../components/Claim";
 import { Log } from "../components/Log";
+import { Compass } from "../components/Compass";
 import { ResetCamera } from "../components/ResetCamera";
 import { faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -75,6 +75,13 @@ export const Actions = () => {
         <div
           className={`absolute bottom-0 transition-all duration-200 ${
             isExpanded ? "opacity-100 right-[-240%]" : "opacity-0 right-[100%]"
+          }`}
+        >
+          <Compass />
+        </div>
+        <div
+          className={`absolute bottom-0 transition-all duration-200 ${
+            isExpanded ? "opacity-100 right-[-360%]" : "opacity-0 right-[100%]"
           }`}
         >
           <Log />

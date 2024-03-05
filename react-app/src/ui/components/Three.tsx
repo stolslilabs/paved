@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import {
   useKeyboardControls,
@@ -19,13 +19,21 @@ export const ThreeGrid = () => {
         <Camera>
           <ambientLight color={"white"} intensity={1} />
           <ambientLight color={"white"} intensity={1} />
-          <mesh rotation={[Math.PI / -2, 0, 0]}>
-            <TileTextures squareSize={3} />
-            <CharTextures radius={0.3} height={1} squareSize={3} />
-          </mesh>
+          <MainScene />
         </Camera>
       </mesh>
     </Canvas>
+  );
+};
+
+export const MainScene = () => {
+  const { compassRotation } = useCameraStore();
+
+  return (
+    <mesh rotation={[Math.PI / -2, 0, compassRotation]}>
+      <TileTextures squareSize={3} />
+      <CharTextures radius={0.3} height={1} squareSize={3} />
+    </mesh>
   );
 };
 
@@ -69,6 +77,7 @@ function Camera({ children }: { children?: React.ReactNode }) {
     resetAll,
     rotation,
     resetButPosition,
+    resetCompassRotation,
   } = useCameraStore();
   const camera = useRef<any>(null);
   const controls = useRef<any>(null);
@@ -77,9 +86,11 @@ function Camera({ children }: { children?: React.ReactNode }) {
     if (reset) {
       controls.current.reset();
       resetAll();
+      resetCompassRotation();
     } else if (camera.current) {
       controls.current.reset();
       resetButPosition();
+      resetCompassRotation();
       camera.current.position.set(...position);
     }
   }, [reset, position]);
