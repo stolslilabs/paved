@@ -48,7 +48,7 @@ export const Character = (props: TProps) => {
         BigInt(account.address),
         BigInt(getCharacterFromIndex(index)),
       ]) as Entity,
-    [gameId, account]
+    [gameId, account, index]
   );
   const characterModel = useComponentValue(Character, characterKey);
 
@@ -58,7 +58,7 @@ export const Character = (props: TProps) => {
         BigInt(gameId),
         BigInt(characterModel?.tile_id || 0),
       ]) as Entity,
-    [gameId, account]
+    [gameId, account, characterModel]
   );
   const tile = useComponentValue(Tile, tileKey);
 
@@ -83,21 +83,21 @@ export const Character = (props: TProps) => {
     return getRoleAllowedSpots(index);
   }, [index]);
 
-  const handleClick = () => {
-    if (enable) {
-      if (index === getIndexFromCharacter(character)) {
-        setCharacter(getCharacterFromIndex(-1));
-      } else {
-        setCharacter(getCharacterFromIndex(index));
-      }
-    } else {
-      if (tile) {
+  const handleClick = useMemo(() => {
+    return () => {
+      if (enable) {
+        if (index === getIndexFromCharacter(character)) {
+          setCharacter(getCharacterFromIndex(-1));
+        } else {
+          setCharacter(getCharacterFromIndex(index));
+        }
+      } else if (tile) {
         const x = (tile.x - offset) * -3;
         const y = (tile.y - offset) * -3;
         setPosition([x, y, 0]);
       }
-    }
-  };
+    };
+  }, [index, character, enable, tile]);
 
   return (
     <TooltipProvider>
