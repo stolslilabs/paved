@@ -25,7 +25,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 const MAX_TILES = 255;
 
-export const Buy = () => {
+export const Buy = ({ buttonName }: { buttonName?: string }) => {
   const [quantity, setQuantity] = useState(0);
   const [max, setMax] = useState(0);
   const {
@@ -59,8 +59,15 @@ export const Buy = () => {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant={"command"} size={"command"}>
-                <FontAwesomeIcon className="h-12" icon={faCartPlus} />
+              <Button
+                variant={buttonName ? "secondary" : "command"}
+                size={buttonName ? "default" : "command"}
+              >
+                {buttonName ? (
+                  <p>{buttonName}</p>
+                ) : (
+                  <FontAwesomeIcon className="h-12" icon={faCartPlus} />
+                )}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
