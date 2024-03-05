@@ -14,6 +14,7 @@ export const useMusicPlayer = () => {
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [trackName, setTrackName] = useState(tracks[0].name);
   const [isPlaying, setIsPlaying] = useState(false); // Added state to track if music is playing
+  const [volume, setVolume] = useState(0.2); // Added state to track volume
 
   const goToNextTrack = () => {
     setCurrentTrackIndex((prevIndex) => {
@@ -29,10 +30,11 @@ export const useMusicPlayer = () => {
   };
 
   const [play, { stop }] = useSound(tracks[currentTrackIndex].url, {
-    onplay: () => setIsPlaying(true), // Set isPlaying to true when the track starts playing
-    onstop: () => setIsPlaying(false), // Set isPlaying to false when the track stops
+    volume,
+    onplay: () => setIsPlaying(true),
+    onstop: () => setIsPlaying(false),
     onend: () => {
-      setIsPlaying(false); // Also set isPlaying to false when the track ends
+      setIsPlaying(false);
       goToNextTrack();
     },
   });
@@ -42,5 +44,5 @@ export const useMusicPlayer = () => {
     return () => stop();
   }, [currentTrackIndex, play, stop]);
 
-  return { play, stop, trackName, next, isPlaying }; // Include checkIsPlaying in the returned object
+  return { play, stop, trackName, next, isPlaying, volume, setVolume };
 };

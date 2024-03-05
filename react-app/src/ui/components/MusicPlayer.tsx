@@ -1,9 +1,11 @@
 import { useMusicPlayer } from "@/hooks/useMusic";
 import { Play, Pause, Forward } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 
 export const MusicPlayer = () => {
-  const { play, next, trackName, isPlaying, stop } = useMusicPlayer();
+  const { play, next, trackName, isPlaying, stop, volume, setVolume } =
+    useMusicPlayer();
 
   const handlePlay = () => {
     if (isPlaying) {
@@ -29,16 +31,12 @@ export const MusicPlayer = () => {
           )}
         </Button>
 
-        <div className="self-center sm:w-48">{trackName}</div>
-
-        <Button
-          onClick={() => next()}
-          variant={"ghost"}
-          className="self-center "
-          size={"sm"}
-        >
-          <Forward className="stroke-white" />
-        </Button>
+        <Slider
+          onValueChange={(value) => setVolume(value[0])}
+          defaultValue={[volume]}
+          max={1}
+          step={0.1}
+        />
       </div>
     </>
   );
