@@ -100,7 +100,7 @@ export const LeaderboardDialog = () => {
           </Tooltip>
         </TooltipProvider>
       </DialogTrigger>
-      <DialogContent className="px-10">
+      <DialogContent>
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
         {over && <Description claimable={!!builder} />}
         <Leaderboard />
@@ -286,7 +286,7 @@ export const PlayerRow = ({
   return (
     <TableRow>
       <TableCell className="font-medium">{rank}</TableCell>
-      <TableCell className="flex gap-2">
+      <TableCell className="flex gap-2 text-ellipsis">
         <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
         {name}
       </TableCell>
