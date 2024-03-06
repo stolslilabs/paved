@@ -102,8 +102,8 @@ fn test_case_000() {
     // [Draw & Build]
     set_contract_address(PLAYER());
 
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFCFFFFFC));
-    systems.play.draw(world, game.id); // FFCFFFFFC
+    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFFFCCCFF));
+    systems.play.draw(world, game.id); // FFFFCCCFF
     let builder = store.builder(game, PLAYER().into());
     let orientation = Orientation::West;
     let x = CENTER + 1;
@@ -114,8 +114,7 @@ fn test_case_000() {
 
     // [Assert]
     let builder = store.builder(game, PLAYER().into());
-    let bonus = constants::BASE * constants::BASE / constants::MULTIPLIER;
-    let expected: u32 = 2 * constants::CITY_BASE_POINTS * bonus / constants::MULTIPLIER;
+    let expected: u32 = 6 * 2 * constants::CITY_BASE_POINTS;
     assert(builder.score - expected <= expected, 'Build: builder score');
     let anyone = store.builder(game, ANYONE().into());
     let expected: u32 = 0;

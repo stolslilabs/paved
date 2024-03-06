@@ -151,14 +151,12 @@ impl GenericCount of GenericCountTrait {
                     store.set_builder(builder);
 
                     // [Compute] Update winner if needed
-                    if builder.player_id != winner {
-                        if builder_weight > winner_weight {
-                            winner = builder.player_id;
-                            winner_weight = builder_weight;
-                            solved = true;
-                        } else if builder_weight == winner_weight {
-                            solved = false;
-                        };
+                    if builder_weight > winner_weight {
+                        winner = builder.player_id;
+                        winner_weight = builder_weight;
+                        solved = true;
+                    } else if builder_weight == winner_weight {
+                        solved = false;
                     };
                 },
                 Option::None => { break; },
