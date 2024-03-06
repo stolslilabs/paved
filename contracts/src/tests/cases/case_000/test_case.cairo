@@ -105,7 +105,7 @@ fn test_case_000() {
     set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFFFCCCFF));
     systems.play.draw(world, game.id); // FFFFCCCFF
     let builder = store.builder(game, PLAYER().into());
-    let orientation = Orientation::West;
+    let orientation = Orientation::East;
     let x = CENTER + 1;
     let y = CENTER + 1;
     systems
