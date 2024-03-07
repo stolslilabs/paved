@@ -3,7 +3,7 @@ contracts/target/dev/*
 !contracts/target/dev/manifest.json
 .env
 .vscode
-node-modules
+node_modules
 .DS_Store
 *.log
 bun.lockb
