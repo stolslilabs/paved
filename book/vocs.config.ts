@@ -100,7 +100,7 @@ export default defineConfig({
   description: "Paved in order!",
   sponsors: [
     {
-      name: "Founded by",
+      name: "Funded by",
       height: 60,
       items: [
         [
