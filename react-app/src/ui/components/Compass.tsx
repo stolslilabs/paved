@@ -28,8 +28,10 @@ export const Compass = () => {
     setRotation(deg);
   }, [compassRotation]);
 
-  const className = useMemo(() => {
-    return `relative w-full h-full flex flex-col justify-center items-center rotate-[${rotation}deg]`;
+  const style = useMemo(() => {
+    return {
+      transform: `rotate(${rotation}deg)`,
+    };
   }, [rotation]);
 
   return (
@@ -41,7 +43,10 @@ export const Compass = () => {
             size={"command"}
             onClick={() => setRotate(true)}
           >
-            <div className={className}>
+            <div
+              className="relative w-full h-full flex flex-col justify-center items-center"
+              style={style}
+            >
               <p className="absolute top-1 left-1/2 -translate-x-1/2">N</p>
               <FontAwesomeIcon className="h-12 -rotate-45" icon={faCompass} />
             </div>
