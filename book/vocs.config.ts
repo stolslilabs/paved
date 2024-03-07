@@ -94,7 +94,7 @@ export default defineConfig({
   ],
   editLink: {
     pattern:
-      "https://github.com/stolslilabs/stolsli",
+      "https://github.com/stolslilabs/paved",
     text: "Edit on GitHub",
   },
   description: "Paved in order!",

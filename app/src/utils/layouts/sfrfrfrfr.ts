@@ -1,4 +1,4 @@
-// Source: https://github.com/stolslilabs/stolsli/blob/main/contracts/src/layouts/sfrfrfrfr.cairo
+// Source: https://github.com/stolslilabs/paved/blob/main/contracts/src/layouts/sfrfrfrfr.cairo
 
 import { AreaType } from "../types/area";
 import { Move } from "../types/move";

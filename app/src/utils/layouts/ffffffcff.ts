@@ -112,7 +112,7 @@
 //     }
 // }
 
-// Source: https://github.com/stolslilabs/stolsli/blob/main/contracts/src/layouts/ffffffcff.cairo
+// Source: https://github.com/stolslilabs/paved/blob/main/contracts/src/layouts/ffffffcff.cairo
 
 import { AreaType } from "../types/area";
 import { Move } from "../types/move";

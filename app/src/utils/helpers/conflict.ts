@@ -1,4 +1,4 @@
-// Source: https://github.com/stolslilabs/stolsli/blob/main/contracts/src/helpers/conflict.cairo
+// Source: https://github.com/stolslilabs/paved/blob/main/contracts/src/helpers/conflict.cairo
 
 import { Tile, RawTile } from "../models/tile";
 import { Spot, SpotType } from "../types/spot";
