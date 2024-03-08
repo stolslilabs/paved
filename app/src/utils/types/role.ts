@@ -115,7 +115,7 @@ export class Role {
           case CategoryType.Forest:
             return 1;
           case CategoryType.Road:
-            return 0;
+            return 1;
           case CategoryType.City:
             return 0;
           case CategoryType.Stop:
@@ -132,7 +132,7 @@ export class Role {
           case CategoryType.Road:
             return 0;
           case CategoryType.City:
-            return 0;
+            return 1;
           case CategoryType.Stop:
             return 0;
           case CategoryType.Wonder:
@@ -227,7 +227,7 @@ export class Role {
           case CategoryType.Forest:
             return 1;
           case CategoryType.Road:
-            return 0;
+            return 1;
           case CategoryType.City:
             return 0;
           case CategoryType.Stop:
@@ -244,7 +244,7 @@ export class Role {
           case CategoryType.Road:
             return 0;
           case CategoryType.City:
-            return 0;
+            return 1;
           case CategoryType.Stop:
             return 0;
           case CategoryType.Wonder:
@@ -339,7 +339,7 @@ export class Role {
           case CategoryType.Forest:
             return true;
           case CategoryType.Road:
-            return false;
+            return true;
           case CategoryType.City:
             return false;
           case CategoryType.Stop:
@@ -356,7 +356,7 @@ export class Role {
           case CategoryType.Road:
             return false;
           case CategoryType.City:
-            return false;
+            return true;
           case CategoryType.Stop:
             return false;
           case CategoryType.Wonder:

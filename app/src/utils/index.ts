@@ -416,9 +416,9 @@ export const getRoleAllowedSpots = (index: number) => {
     case 4:
       return ["C", "R", "W"];
     case 5:
-      return ["F"];
+      return ["R", "F"];
     case 6:
-      return ["F"];
+      return ["C", "F"];
     default:
       return [];
   }
