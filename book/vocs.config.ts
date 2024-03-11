@@ -96,8 +96,38 @@ export default defineConfig({
       collapsed: false,
       items: [
         {
+          text: "Aim",
+          link: "/aim",
+        },
+      ],
+    },
+    {
+          text: "Structures",
+          link: "/structures",
+        },
+      ],
+    },
+        {
+          text: "Deck",
+          link: "/deck",
+        },
+      ],
+    },
+        {
+          text: "Characters",
+          link: "/characters",
+        },
+      ],
+    },
+        {
           text: "Allegiance & Contesting",
           link: "/allegience",
+        },
+      ],
+    },
+        {
+          text: "Scoring",
+          link: "/scoring",
         },
       ],
     },
