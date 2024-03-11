@@ -82,7 +82,7 @@ export default defineConfig({
           link: "/character",
         },
         {
-          text: "Confirm",
+          text: "Pave",
           link: "/confirm",
         },
         {
