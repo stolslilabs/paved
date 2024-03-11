@@ -91,6 +91,16 @@ export default defineConfig({
         },
       ],
     },
+    {
+      text: "Rules",
+      collapsed: false,
+      items: [
+        {
+          text: "Allegiance & Contesting",
+          link: "/allegience",
+        },
+      ],
+    },
   ],
   editLink: {
     pattern:
