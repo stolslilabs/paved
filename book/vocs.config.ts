@@ -112,7 +112,7 @@ export default defineConfig({
           link: "/characters",
         },
         {
-          text: "Allegiance & Contesting",
+          text: "Allegiance",
           link: "/allegience",
         },
         {
