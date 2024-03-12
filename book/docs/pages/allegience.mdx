@@ -1,19 +1,31 @@
-# Create
+# Allegiance
 
-Create a game.
+Closed structures score points for the player who has the most **allegiance points** on (roads) or in them (cities, forests). 
 
-## Woodsman
+## Increasing Allegiance
 
-Click `Create`
+To increase allegiance points, characters must be added to structures. Certain characters have allegiance buffs for certain structures (**see `characters` rule section**). Once a structure has allegiance, no further characters can be placed directly on that structure. Instead they must be placed on a new structure, which can be subsequently `merged`.
 
-## Step two
+In the diagram their are `3` paved, open cities and `1` unpaved tile (bottom left). The blue player has placed a Paladin within one of the open cities on the right, giving them `2` allegience points for this city. The blue player has also placed a Lord within the open city on the top left, giving them `1` allegience point for this city. 
 
-Choose a game name which will be displayed on the lobby list
+<div align="center">
+    <img width="200" src="increasing-allegiance.png" alt="increasing-allegiance" />
+</div>
 
-## Step three
+When the new tile is paved in the bottom left, the two cities will merge. The allegiance points will subsequently stack, giving the blue player a total of `3` allegiance points for this now larger city.
 
-Choose a time frame for the game
+## Contesting Allegiance
 
-## Step four
+Contesting allegiance allows for aggressive takeover (and shrewd defence) of structures. Whichever player has the most allegiance points in/on a structure when it is closed scores the associated points. If allegiance points are equal when the structure is closed, no-one scores points as the structure is deemed neutral. As above, once a structure has allegiance, no further characters can be placed directly on that structure.
 
-Click `Create` to initiate the lobby
+In the diagram there are `2` open cities occupied by different players. The blue player has placed a Lord in the upper city, giving them `1` allegience point. The purple player has placed a Paladin in the lower city, giving them `2` allegience points.
+
+<div align="center">
+    <img width="200" src="contesting-allegiance.png" alt="contesting-allegiance" />
+</div>
+
+When the new tile is paved in the bottom right, the two cities will merge. In this example, paving this tile also closes the city. As the Purple player has more allegience points, they score the points for this closed structure. All the characters that were inside the city are then returned to their players. 
+
+:::note
+Remember: characters `cannot` be placed on structures that connect directly to a coordinating structure on an adjoining tile. When increasing and contesting allegiance, characters must be placed on separate strutures which can then be merged with subsequent tiles.
+:::
