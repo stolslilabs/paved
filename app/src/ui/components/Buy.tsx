@@ -51,15 +51,14 @@ export const Buy = ({ buttonName }: { buttonName?: string }) => {
     if (player) setQuantity(0);
   }, [player]);
 
-  if (!player) return null;
-
   return (
     <Dialog>
-      <DialogTrigger>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger disabled={!player}>
               <Button
+                disabled={!player}
                 variant={buttonName ? "secondary" : "command"}
                 size={buttonName ? "default" : "command"}
               >
@@ -69,13 +68,13 @@ export const Buy = ({ buttonName }: { buttonName?: string }) => {
                   <FontAwesomeIcon className="h-12" icon={faCartPlus} />
                 )}
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">Purchase menu</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </DialogTrigger>
+            </DialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="select-none">Purchase menu</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Purchase new tiles</DialogTitle>
@@ -110,7 +109,7 @@ export const Buy = ({ buttonName }: { buttonName?: string }) => {
             size={"icon"}
             className="w-14"
             onClick={() => {
-              setQuantity(MAX_TILES - player.bank);
+              setQuantity(MAX_TILES - player?.bank);
             }}
           >
             Max

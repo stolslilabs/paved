@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import banner from "/assets/banner.svg";
-import { Account } from "@/ui/components/Account";
 import { PlayerCard } from "@/ui/components/PlayerCard";
 import { Spawn } from "@/ui/components/Spawn";
 import { useDojo } from "@/dojo/useDojo";
@@ -32,7 +31,6 @@ export const Player = () => {
       </div>
       <div className="px-10 flex flex-col gap-4">
         <h1 className="text-2xl text-left">Menu</h1>
-        <Account />
         <div className="flex justify-between gap-4">
           <Buy buttonName={"Shop"} />
           <Button disabled variant={"secondary"} onClick={() => {}}>

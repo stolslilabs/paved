@@ -3,6 +3,12 @@ import { shortString } from "starknet";
 import { useState } from "react";
 
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -52,6 +58,7 @@ export const CreateMultiGame = () => {
   }, [duration]);
 
   const handleClick = () => {
+    if (!player) return;
     create_game({
       account: account,
       name: shortString.encodeShortString(gameName),
@@ -62,11 +69,20 @@ export const CreateMultiGame = () => {
 
   return (
     <Dialog>
-      <DialogTrigger>
-        <Button disabled={!player} variant={"secondary"}>
-          Multiplayer
-        </Button>
-      </DialogTrigger>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger disabled={!player}>
+              <Button disabled={!player} variant={"secondary"}>
+                Multiplayer
+              </Button>
+            </DialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="select-none">Create a multiplayer game</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create a game</DialogTitle>
