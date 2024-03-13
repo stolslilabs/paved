@@ -1,7 +1,7 @@
 {
   "world": {
     "name": "dojo::world::world",
-    "address": "0x1fc20c413c417b9004f34897d3cecd039fec0f46e4ae7fb61366bbe81da0629",
+    "address": "0x464118e168ca17f54a0bc2d0209d3896915d9e624bef84d74b9ac72bc653e94",
     "class_hash": "0x5ac623f0c96059936bd2d0904bdd31799e430fe08a0caff7a5f497260b16497",
     "abi": [
       {
@@ -948,7 +948,7 @@
   "contracts": [
     {
       "name": "stolsli::systems::host::host",
-      "address": "0x379306402fb7e938964e0cc13b9d22b5bf7b375a5cb0ab396bcef9b37110ea7",
+      "address": "0x361da5e1d5bf6f736c739dcbd0fc86b2f878d32eaf0d7359150b3eef4657dde",
       "class_hash": "0x405fd7d91031fec0bd9644207d18e02195146f4e7299a98583c2c1bf8f6bf35",
       "abi": [
         {
@@ -1216,7 +1216,7 @@
     },
     {
       "name": "stolsli::systems::manage::manage",
-      "address": "0x726891ddc0672bdc429283f08c933686d94351ab773f1f00e67d1a958a09da0",
+      "address": "0x6bccda7646fd853d9e657f3ad2f380a3e2d5d7143846a3985d93d6347cc55bb",
       "class_hash": "0x48275e9af4c81733881050310431d6c627cc227eeae272b0ce0b0cf1fdebe8c",
       "abi": [
         {
@@ -1341,7 +1341,7 @@
     },
     {
       "name": "stolsli::systems::play::play",
-      "address": "0x6197dfc0e0e5ca675c2820588478ebb3af20f8a9b56f6bc5c0f92c898ca80d4",
+      "address": "0x7651b20b752fda65135e9fd86606e6cfead5759f6b5cac0667d4558e267ed82",
       "class_hash": "0x65a8e6c8228ecf45d80b24087d17848619537e507be2a5ad52bacd6eff6d727",
       "abi": [
         {
