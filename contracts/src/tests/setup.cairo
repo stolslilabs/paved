@@ -24,6 +24,7 @@ mod setup {
     use stolsli::systems::manage::{manage, IManageDispatcher, IManageDispatcherTrait};
     use stolsli::systems::play::{play, IPlayDispatcher, IPlayDispatcherTrait};
     use stolsli::types::plan::{Plan, PlanImpl};
+    use stolsli::types::mode::Mode;
 
     // Constants
 
@@ -58,6 +59,7 @@ mod setup {
         game_id: u32,
         game_name: felt252,
         game_duration: u64,
+        mode: Mode,
     }
 
     fn compute_tx_hash(game: Game, target: Plan) -> felt252 {
@@ -75,7 +77,7 @@ mod setup {
     }
 
     #[inline(always)]
-    fn spawn_game() -> (IWorldDispatcher, Systems, Context) {
+    fn spawn_game(mode: Mode) -> (IWorldDispatcher, Systems, Context) {
         // [Setup] World
         let mut models = array::ArrayTrait::new();
         models.append(stolsli::models::game::game::TEST_CLASS_HASH);
@@ -101,7 +103,7 @@ mod setup {
         set_contract_address(PLAYER());
         systems.manage.create(world, PLAYER_NAME, ORDER_ID, PLAYER());
         let duration: u64 = 0;
-        let game_id = systems.host.create(world, GAME_NAME, duration);
+        let game_id = systems.host.create(world, GAME_NAME, duration, mode.into());
         let context = Context {
             player_id: PLAYER().into(),
             player_name: PLAYER_NAME,
@@ -112,6 +114,7 @@ mod setup {
             game_id: game_id,
             game_name: GAME_NAME,
             game_duration: duration,
+            mode: mode,
         };
 
         // [Return]

@@ -17,6 +17,7 @@ use stolsli::store::{Store, StoreTrait};
 use stolsli::models::game::{Game, GameTrait};
 use stolsli::models::builder::{Builder, BuilderTrait};
 use stolsli::models::tile::{Tile, TileTrait, CENTER};
+use stolsli::types::mode::Mode;
 use stolsli::types::order::Order;
 use stolsli::types::orientation::Orientation;
 use stolsli::types::direction::Direction;
@@ -30,7 +31,7 @@ use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 #[test]
 fn test_case_005() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
 
@@ -52,18 +53,7 @@ fn test_case_005() {
     let orientation = Orientation::South;
     let x = CENTER - 1;
     let y = CENTER;
-    systems
-        .play
-        .build(
-            world,
-            context.game_id,
-            builder.tile_id,
-            orientation,
-            x,
-            y,
-            Role::Woodsman,
-            Spot::SouthEast
-        );
+    systems.play.build(world, context.game_id, orientation, x, y, Role::Woodsman, Spot::SouthEast);
 
     // [Draw & Build]
     set_contract_address(ANYONE());
@@ -74,18 +64,7 @@ fn test_case_005() {
     let orientation = Orientation::East;
     let x = CENTER - 1;
     let y = CENTER - 1;
-    systems
-        .play
-        .build(
-            world,
-            context.game_id,
-            builder.tile_id,
-            orientation,
-            x,
-            y,
-            Role::Adventurer,
-            Spot::North
-        );
+    systems.play.build(world, context.game_id, orientation, x, y, Role::Adventurer, Spot::North);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
@@ -96,18 +75,7 @@ fn test_case_005() {
     let orientation = Orientation::East;
     let x = CENTER - 1;
     let y = CENTER - 2;
-    systems
-        .play
-        .build(
-            world,
-            context.game_id,
-            builder.tile_id,
-            orientation,
-            x,
-            y,
-            Role::Woodsman,
-            Spot::NorthEast
-        );
+    systems.play.build(world, context.game_id, orientation, x, y, Role::Woodsman, Spot::NorthEast);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
@@ -118,11 +86,7 @@ fn test_case_005() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER - 1;
-    systems
-        .play
-        .build(
-            world, context.game_id, builder.tile_id, orientation, x, y, Role::Algrim, Spot::Center
-        );
+    systems.play.build(world, context.game_id, orientation, x, y, Role::Algrim, Spot::Center);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
@@ -133,11 +97,7 @@ fn test_case_005() {
     let orientation = Orientation::East;
     let x = CENTER + 1;
     let y = CENTER - 1;
-    systems
-        .play
-        .build(
-            world, context.game_id, builder.tile_id, orientation, x, y, Role::Lord, Spot::Center
-        );
+    systems.play.build(world, context.game_id, orientation, x, y, Role::Lord, Spot::Center);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
@@ -148,9 +108,7 @@ fn test_case_005() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER - 2;
-    systems
-        .play
-        .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
+    systems.play.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
@@ -161,9 +119,7 @@ fn test_case_005() {
     let orientation = Orientation::West;
     let x = CENTER + 1;
     let y = CENTER;
-    systems
-        .play
-        .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
+    systems.play.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
@@ -174,9 +130,7 @@ fn test_case_005() {
     let orientation = Orientation::North;
     let x = CENTER + 1;
     let y = CENTER - 2;
-    systems
-        .play
-        .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
+    systems.play.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
 
     // [Assert]
     let builder = store.builder(game, PLAYER().into());

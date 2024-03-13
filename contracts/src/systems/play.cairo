@@ -21,7 +21,6 @@ trait IPlay<TContractState> {
         self: @TContractState,
         world: IWorldDispatcher,
         game_id: u32,
-        tile_id: u32,
         orientation: Orientation,
         x: u32,
         y: u32,
@@ -34,6 +33,7 @@ trait IPlay<TContractState> {
 mod play {
     // Core imports
 
+    use stolsli::models::game::GameTrait;
     use stolsli::models::game::AssertTrait;
     use debug::PrintTrait;
 
@@ -51,19 +51,21 @@ mod play {
     // Internal imports
 
     use stolsli::store::{Store, StoreImpl};
-    use stolsli::events::{Built, Scored, Discarded};
+    use stolsli::events::{Built, Scored, Discarded, GameOver};
     use stolsli::models::game::{Game, GameImpl, GameAssert};
     use stolsli::models::player::{Player, PlayerImpl, PlayerAssert};
     use stolsli::models::team::{Team, TeamImpl};
     use stolsli::models::builder::{Builder, BuilderImpl, BuilderAssert};
     use stolsli::models::tile::{Tile, TilePosition, TileImpl};
     use stolsli::types::alliance::{Alliance, AllianceImpl};
+    use stolsli::types::mode::Mode;
     use stolsli::types::order::{Order, OrderImpl};
     use stolsli::types::orientation::Orientation;
     use stolsli::types::direction::Direction;
     use stolsli::types::role::Role;
     use stolsli::types::spot::Spot;
     use stolsli::types::plan::Plan;
+    use stolsli::types::tournament::TournamentImpl;
 
     // Local imports
 
@@ -91,6 +93,7 @@ mod play {
         Built: Built,
         Scored: Scored,
         Discarded: Discarded,
+        GameOver: GameOver,
     }
 
     // Implementations
@@ -122,7 +125,8 @@ mod play {
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Effect] Player draw fron his deck
-            player.draw();
+            // TODO: Enable for the release
+            // player.draw();
 
             // [Effect] Builder spawn a new tile
             // TODO: use VRF
@@ -167,9 +171,12 @@ mod play {
             let mut builder = store.builder(game, caller.into());
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
+            // [Check] Tile exists
+            let tile = store.tile(game, builder.tile_id);
+            assert(tile.is_non_zero(), errors::TILE_NOT_FOUND);
+
             // [Effect] Builder discard a tile
             let mut team = store.team(game, builder.order.into());
-            let tile_id = builder.tile_id;
             let malus = builder.discard(ref game, ref team, ref player);
 
             // [Effect] Update builder
@@ -186,7 +193,7 @@ mod play {
                 world,
                 Discarded {
                     game_id: game.id,
-                    tile_id: tile_id,
+                    tile_id: tile.id,
                     player_id: player.id,
                     player_name: player.name,
                     order_id: team.order,
@@ -199,7 +206,6 @@ mod play {
             self: @ContractState,
             world: IWorldDispatcher,
             game_id: u32,
-            tile_id: u32,
             orientation: Orientation,
             x: u32,
             y: u32,
@@ -216,9 +222,11 @@ mod play {
             // [Check] Game has started
             game.assert_started();
 
-            // [Check] Game is not over
+            // [Check] Game is not over for not solo games
             let time = get_block_timestamp();
-            game.assert_not_over(time);
+            if Mode::Solo != game.mode.into() {
+                game.assert_not_over(time);
+            };
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -230,7 +238,7 @@ mod play {
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
             // [Check] Tile exists
-            let mut tile = store.tile(game, tile_id);
+            let mut tile = store.tile(game, builder.tile_id);
             assert(tile.is_non_zero(), errors::TILE_NOT_FOUND);
 
             // [Check] Position not already taken
@@ -273,8 +281,8 @@ mod play {
             emit!(
                 world,
                 Built {
-                    game_id: game_id,
-                    tile_id: tile_id,
+                    game_id: game.id,
+                    tile_id: tile.id,
                     x: x,
                     y: y,
                     player_id: player.id,
@@ -285,13 +293,29 @@ mod play {
                 match scoreds.pop_front() {
                     Option::Some(scored) => {
                         let mut event = scored;
-                        event.tile_id = tile_id;
+                        event.tile_id = tile.id;
                         event.x = x;
                         event.y = y;
                         emit!(world, event)
                     },
                     Option::None => { break; }
-                }
+                };
+            };
+
+            // [Event] Emit game over event for solo games if over
+            if Mode::Solo == game.mode.into() && game.is_over(time) {
+                let tournament_id = TournamentImpl::compute_id(time);
+                emit!(
+                    world,
+                    GameOver {
+                        game_id: game.id,
+                        tournament_id: tournament_id,
+                        game_score: game.score,
+                        player_id: player.id,
+                        player_name: player.name,
+                        player_master: player.master,
+                    }
+                );
             }
         }
     }
