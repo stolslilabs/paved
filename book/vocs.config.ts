@@ -2,8 +2,8 @@ import { defineConfig } from "vocs";
 
 export default defineConfig({
   title: "Paved",
-  iconUrl: "/logo.ico",
-  logoUrl: "/banner.svg",
+  iconUrl: "logo.ico",
+  logoUrl: "banner.svg",
   topNav: [
     { text: "App", link: "https://paved.gg" },
     { text: "Dojo", link: "https://dojoengine.org" },
@@ -127,7 +127,7 @@ export default defineConfig({
       "https://github.com/stolslilabs/paved",
     text: "Edit on GitHub",
   },
-  ogImageUrl: "https://vocs.dev/api/og?logo=%logo&title=%title&description=%description",
+  ogImageUrl: '%logo',
   description: "Paved in order!",
   sponsors: [
     {
