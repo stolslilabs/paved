@@ -7,6 +7,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -88,74 +90,84 @@ export const Games = () => {
     <div className="bg-yellow-100 h-full grow" style={{ backgroundColor }}>
       <div className="flex flex-col gap-8 items-start w-full p-10 h-full">
         <h1>Game lobby</h1>
-        <div className="flex gap-4">
-          <CreateSoloGame />
-          <CreateMultiGame />
-        </div>
 
-        <div className="flex justify-between w-full">
-          <h4>Single Player Games</h4>
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="show-finished"
-              checked={showSingle}
-              onCheckedChange={() => setShowSingle(!showSingle)}
-            />
-            <Label className="text-xs" htmlFor="show-finished">
-              Show finished Games
-            </Label>
-          </div>
-        </div>
+        <Tabs defaultValue="single" className="w-full">
+          <TabsList>
+            <TabsTrigger value="single">Solo</TabsTrigger>
+            <TabsTrigger value="multi">Multiplayer</TabsTrigger>
+          </TabsList>
+          <TabsContent value="single">
+            <div className="my-4">
+              <CreateSoloGame />{" "}
+            </div>
 
-        <ScrollArea className="h-1/2 w-full">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-sm">
-                <TableHead className="w-[100px]">#</TableHead>
-                <TableHead>Tiles played</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Object.values(filteredSingleGames).map((game, index) => {
-                return <GameSingleRow key={index} game={game} />;
-              })}
-            </TableBody>
-          </Table>
-        </ScrollArea>
-
-        <div className="flex justify-between w-full">
-          <h4>Multiplayer Player Games</h4>
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="show-finished"
-              checked={showMulti}
-              onCheckedChange={() => setShowMulti(!showMulti)}
-            />
-            <Label className="text-xs" htmlFor="show-finished">
-              Show finished Games
-            </Label>
-          </div>
-        </div>
-
-        <ScrollArea className="w-full h-1/2">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-sm">
-                <TableHead className="w-[100px]">#</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Current players</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Time left</TableHead>
-                <TableHead>Tiles played</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Object.values(filteredMultiGames).map((game, index) => {
-                return <GameMultiRow key={index} game={game} />;
-              })}
-            </TableBody>
-          </Table>
-        </ScrollArea>
+            <div className="flex justify-between w-full">
+              <h4>Games</h4>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-finished"
+                  checked={showSingle}
+                  onCheckedChange={() => setShowSingle(!showSingle)}
+                />
+                <Label className="text-xs" htmlFor="show-finished">
+                  Show finished Games
+                </Label>
+              </div>
+            </div>
+            <ScrollArea className="h-1/2 w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-sm">
+                    <TableHead className="w-[100px]">#</TableHead>
+                    <TableHead>Tiles played</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.values(filteredSingleGames).map((game, index) => {
+                    return <GameSingleRow key={index} game={game} />;
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </TabsContent>
+          <TabsContent value="multi">
+            <div className="my-4">
+              <CreateMultiGame />{" "}
+            </div>
+            <div className="flex justify-between w-full">
+              <h4>Games</h4>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-finished"
+                  checked={showMulti}
+                  onCheckedChange={() => setShowMulti(!showMulti)}
+                />
+                <Label className="text-xs" htmlFor="show-finished">
+                  Show finished Games
+                </Label>
+              </div>
+            </div>
+            <ScrollArea className="w-full h-1/2">
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-sm">
+                    <TableHead className="w-[100px]">#</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Current players</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Time left</TableHead>
+                    <TableHead>Tiles played</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.values(filteredMultiGames).map((game, index) => {
+                    return <GameMultiRow key={index} game={game} />;
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
