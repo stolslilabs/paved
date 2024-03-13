@@ -27,7 +27,7 @@ export default defineConfig({
     },
     {
       text: "Player setup",
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           text: "Wallet",
@@ -45,7 +45,7 @@ export default defineConfig({
     },
     {
       text: "Lobby",
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           text: "Create",
@@ -63,7 +63,7 @@ export default defineConfig({
     },
     {
       text: "Play",
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           text: "Reveal",
@@ -93,7 +93,7 @@ export default defineConfig({
     },
     {
       text: "Rules",
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           text: "Aim",
