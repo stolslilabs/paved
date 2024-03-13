@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::host::host",
       "address": "0x5871c6387d2a0e0de6e99b1d043a57f5cce44630bf30c2e1afd9615995e8616",
-      "class_hash": "0x5333c6372bf51a2f74b8cc804c6d97116167d86dd4d24cf22ca6bbd7613ce77",
+      "class_hash": "0x3363adb71d4335b4773ee976a346c1a038cdced4eda77d9d54e3473613c786",
       "abi": [
         {
           "type": "impl",
