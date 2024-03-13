@@ -127,7 +127,7 @@ export default defineConfig({
       "https://github.com/stolslilabs/paved",
     text: "Edit on GitHub",
   },
-  ogImageUrl: '%logo',
+  ogImageUrl: 'https://paved-doc.vercel.app/%logo',
   description: "Paved in order!",
   sponsors: [
     {
