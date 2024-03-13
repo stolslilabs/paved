@@ -74,7 +74,7 @@ export const CreateMultiGame = () => {
           <TooltipTrigger asChild>
             <DialogTrigger disabled={!player}>
               <Button disabled={!player} variant={"secondary"}>
-                Multiplayer
+                Create New Multiplayer Game
               </Button>
             </DialogTrigger>
           </TooltipTrigger>

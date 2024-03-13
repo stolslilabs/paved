@@ -30,15 +30,15 @@ export const Player = () => {
         <img src={banner} alt="banner" className="h-full" />
       </div>
       <div className="px-10 flex flex-col gap-4">
-        <h1 className="text-2xl text-left">Menu</h1>
         <div className="flex justify-between gap-4">
-          <Buy buttonName={"Shop"} />
-          <Button disabled variant={"secondary"} onClick={() => {}}>
-            Guide
-          </Button>
-          <Spawn />
+          {/* <Buy buttonName={"Shop"} /> */}
+
+          {/* <Spawn /> */}
         </div>
         <PlayerCard playerId={playerId} />
+        <Button disabled variant={"secondary"} onClick={() => {}}>
+          Guide
+        </Button>
       </div>
     </div>
   );

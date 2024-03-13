@@ -47,7 +47,7 @@ export const CreateSoloGame = () => {
             variant={"secondary"}
             onClick={handleClick}
           >
-            Single
+            Create New Solo Game
           </Button>
         </TooltipTrigger>
         <TooltipContent>

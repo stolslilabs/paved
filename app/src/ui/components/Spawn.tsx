@@ -91,70 +91,74 @@ export const Spawn = () => {
   };
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button disabled={!!player || !address} variant={"secondary"}>
-          Spawn
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create a player</DialogTitle>
-          <DialogDescription>
-            Choose a name and a default order.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      {!player && (
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button disabled={!!player || !address} variant={"secondary"}>
+              Spawn
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create a player</DialogTitle>
+              <DialogDescription>
+                Choose a name and a default order.
+              </DialogDescription>
+            </DialogHeader>
 
-        <Input
-          className="`w-20"
-          disabled={!!player}
-          placeholder="Player Name"
-          type="text"
-          value={playerName}
-          onChange={(e) => {
-            setPlayerName(e.target.value);
-          }}
-        />
+            <Input
+              className="`w-20"
+              disabled={!!player}
+              placeholder="Player Name"
+              type="text"
+              value={playerName}
+              onChange={(e) => {
+                setPlayerName(e.target.value);
+              }}
+            />
 
-        <Select
-          onValueChange={(value) => setOrderName(value)}
-          value={orderName}
-        >
-          <SelectTrigger disabled={!!player}>
-            <SelectValue placeholder="Select default order" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {lightOrders.map((name) => {
-                return (
-                  <SelectItem key={name} value={name}>
-                    <FontAwesomeIcon className="pr-4" icon={faSun} />
-                    {name}
-                  </SelectItem>
-                );
-              })}
-              {darkOrders.map((name) => {
-                return (
-                  <SelectItem key={name} value={name}>
-                    <FontAwesomeIcon className="pr-4" icon={faMoon} />
-                    {name}
-                  </SelectItem>
-                );
-              })}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+            <Select
+              onValueChange={(value) => setOrderName(value)}
+              value={orderName}
+            >
+              <SelectTrigger disabled={!!player}>
+                <SelectValue placeholder="Select default order" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {lightOrders.map((name) => {
+                    return (
+                      <SelectItem key={name} value={name}>
+                        <FontAwesomeIcon className="pr-4" icon={faSun} />
+                        {name}
+                      </SelectItem>
+                    );
+                  })}
+                  {darkOrders.map((name) => {
+                    return (
+                      <SelectItem key={name} value={name}>
+                        <FontAwesomeIcon className="pr-4" icon={faMoon} />
+                        {name}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
 
-        <DialogClose asChild>
-          <Button
-            disabled={!!player || !playerName || !orderName}
-            variant={"default"}
-            onClick={handleClick}
-          >
-            Spawn
-          </Button>
-        </DialogClose>
-      </DialogContent>
-    </Dialog>
+            <DialogClose asChild>
+              <Button
+                disabled={!!player || !playerName || !orderName}
+                variant={"default"}
+                onClick={handleClick}
+              >
+                Spawn
+              </Button>
+            </DialogClose>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 };

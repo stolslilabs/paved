@@ -35,13 +35,8 @@ const GameScene = () => {
     []
   );
 
-  const backgroundColor = useMemo(() => "#E8DAE1", []);
-
   return (
-    <div
-      className="relative w-full h-full flex flex-col"
-      style={{ backgroundColor }}
-    >
+    <div className="relative w-full h-full flex flex-col bg-[#E8DAE1]">
       <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
         <Banner />
         <Overlay />
