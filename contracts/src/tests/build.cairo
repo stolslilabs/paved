@@ -17,6 +17,7 @@ use stolsli::store::{Store, StoreTrait};
 use stolsli::models::game::{Game, GameTrait};
 use stolsli::models::builder::{Builder, BuilderTrait};
 use stolsli::models::tile::{Tile, TileTrait, CENTER};
+use stolsli::types::mode::Mode;
 use stolsli::types::order::Order;
 use stolsli::types::orientation::Orientation;
 use stolsli::types::direction::Direction;
@@ -35,7 +36,7 @@ const BUILDER_NAME: felt252 = 'PLAYER';
 #[test]
 fn test_play_build_without_character() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
 
@@ -48,7 +49,6 @@ fn test_play_build_without_character() {
     set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFCFFFCFF));
     systems.play.draw(world, game.id); // FFCFFFCFF
     let builder = store.builder(game, player.id);
-    let tile = store.tile(game, builder.tile_id);
 
     // [Build]
     let orientation = Orientation::North;
@@ -56,13 +56,13 @@ fn test_play_build_without_character() {
     let y = CENTER + 1;
     let role = Role::None;
     let spot = Spot::None;
-    systems.play.build(world, context.game_id, tile.id, orientation, x, y, role, spot);
+    systems.play.build(world, context.game_id, orientation, x, y, role, spot);
 }
 
 #[test]
 fn test_play_build_with_character() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
 
@@ -75,7 +75,6 @@ fn test_play_build_with_character() {
     set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFCFFFCFF));
     systems.play.draw(world, game.id); // FFCFFFCFF
     let builder = store.builder(game, player.id);
-    let tile = store.tile(game, builder.tile_id);
 
     // [Build]
     let orientation = Orientation::North;
@@ -83,14 +82,14 @@ fn test_play_build_with_character() {
     let y = CENTER + 1;
     let role = Role::Lord;
     let spot = Spot::South;
-    systems.play.build(world, context.game_id, tile.id, orientation, x, y, role, spot);
+    systems.play.build(world, context.game_id, orientation, x, y, role, spot);
 }
 
 #[test]
 #[should_panic(expected: ('Game: structure not idle', 'ENTRYPOINT_FAILED',))]
 fn test_play_build_with_character_revert_not_idle() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
 
@@ -108,7 +107,7 @@ fn test_play_build_with_character_revert_not_idle() {
     let y = CENTER - 1;
     let role = Role::Lord;
     let spot = Spot::West;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, role, spot);
+    systems.play.build(world, context.game_id, orientation, x, y, role, spot);
 
     // [Draw & Build]
     set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::SFRFRFFFR));
@@ -119,13 +118,13 @@ fn test_play_build_with_character_revert_not_idle() {
     let y = CENTER - 1;
     let role = Role::Lady;
     let spot = Spot::East;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, role, spot);
+    systems.play.build(world, context.game_id, orientation, x, y, role, spot);
 }
 
 #[test]
 fn test_play_build_complete_castle() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
 
@@ -146,7 +145,7 @@ fn test_play_build_complete_castle() {
     let y = CENTER + 1;
     let role = Role::Lord;
     let spot = Spot::South;
-    systems.play.build(world, context.game_id, tile.id, orientation, x, y, role, spot);
+    systems.play.build(world, context.game_id, orientation, x, y, role, spot);
 
     // [Assert]
     let builder = store.builder(game, player.id);
@@ -157,7 +156,7 @@ fn test_play_build_complete_castle() {
 #[test]
 fn test_play_build_complete_forest_inside_roads() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
     let none = Role::None;
@@ -178,7 +177,7 @@ fn test_play_build_complete_forest_inside_roads() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER - 1;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -188,7 +187,7 @@ fn test_play_build_complete_forest_inside_roads() {
     let orientation = Orientation::East;
     let x = CENTER - 1;
     let y = CENTER - 1;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -198,7 +197,7 @@ fn test_play_build_complete_forest_inside_roads() {
     let orientation = Orientation::East;
     let x = CENTER + 1;
     let y = CENTER - 1;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -208,7 +207,7 @@ fn test_play_build_complete_forest_inside_roads() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER - 2;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -218,7 +217,7 @@ fn test_play_build_complete_forest_inside_roads() {
     let orientation = Orientation::North;
     let x = CENTER + 1;
     let y = CENTER - 2;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -228,9 +227,7 @@ fn test_play_build_complete_forest_inside_roads() {
     let orientation = Orientation::East;
     let x = CENTER - 1;
     let y = CENTER - 2;
-    systems
-        .play
-        .build(world, context.game_id, builder.tile_id, orientation, x, y, woodsman, northeast);
+    systems.play.build(world, context.game_id, orientation, x, y, woodsman, northeast);
 
     // [Draw & Build]
 
@@ -240,7 +237,7 @@ fn test_play_build_complete_forest_inside_roads() {
     let orientation = Orientation::South;
     let x = CENTER - 1;
     let y = CENTER;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -250,7 +247,7 @@ fn test_play_build_complete_forest_inside_roads() {
     let orientation = Orientation::West;
     let x = CENTER + 1;
     let y = CENTER;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Assert]
     let builder = store.builder(game, player.id);
@@ -261,7 +258,7 @@ fn test_play_build_complete_forest_inside_roads() {
 #[test]
 fn test_play_build_complete_forest_inside_castles() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
     let none = Role::None;
@@ -282,9 +279,7 @@ fn test_play_build_complete_forest_inside_castles() {
     let orientation = Orientation::West;
     let x = CENTER - 1;
     let y = CENTER;
-    systems
-        .play
-        .build(world, context.game_id, builder.tile_id, orientation, x, y, woodsman, northeast);
+    systems.play.build(world, context.game_id, orientation, x, y, woodsman, northeast);
 
     // [Draw & Build]
 
@@ -294,7 +289,7 @@ fn test_play_build_complete_forest_inside_castles() {
     let orientation = Orientation::South;
     let x = CENTER;
     let y = CENTER - 1;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -304,7 +299,7 @@ fn test_play_build_complete_forest_inside_castles() {
     let orientation = Orientation::North;
     let x = CENTER + 1;
     let y = CENTER;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -314,7 +309,7 @@ fn test_play_build_complete_forest_inside_castles() {
     let orientation = Orientation::West;
     let x = CENTER + 1;
     let y = CENTER + 1;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -324,7 +319,7 @@ fn test_play_build_complete_forest_inside_castles() {
     let orientation = Orientation::West;
     let x = CENTER;
     let y = CENTER + 1;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -334,7 +329,7 @@ fn test_play_build_complete_forest_inside_castles() {
     let orientation = Orientation::East;
     let x = CENTER + 2;
     let y = CENTER + 1;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
 
@@ -344,7 +339,7 @@ fn test_play_build_complete_forest_inside_castles() {
     let orientation = Orientation::North;
     let x = CENTER + 1;
     let y = CENTER + 2;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, none, nowhere);
+    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Assert]
     let builder = store.builder(game, player.id);
@@ -355,7 +350,7 @@ fn test_play_build_complete_forest_inside_castles() {
 #[test]
 fn test_play_build_single_forest_inside_castles() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
     let herdsman = Role::Herdsman;
@@ -374,9 +369,7 @@ fn test_play_build_single_forest_inside_castles() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
-    systems
-        .play
-        .build(world, context.game_id, builder.tile_id, orientation, x, y, Role::None, Spot::None);
+    systems.play.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
 
@@ -386,7 +379,7 @@ fn test_play_build_single_forest_inside_castles() {
     let orientation = Orientation::North;
     let x = CENTER + 1;
     let y = CENTER + 1;
-    systems.play.build(world, context.game_id, builder.tile_id, orientation, x, y, herdsman, spot);
+    systems.play.build(world, context.game_id, orientation, x, y, herdsman, spot);
 
     // [Assert]
     let builder = store.builder(game, player.id);

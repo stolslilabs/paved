@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::host::host",
       "address": "0x5871c6387d2a0e0de6e99b1d043a57f5cce44630bf30c2e1afd9615995e8616",
-      "class_hash": "0x405fd7d91031fec0bd9644207d18e02195146f4e7299a98583c2c1bf8f6bf35",
+      "class_hash": "0x5333c6372bf51a2f74b8cc804c6d97116167d86dd4d24cf22ca6bbd7613ce77",
       "abi": [
         {
           "type": "impl",
@@ -985,6 +985,10 @@
                 {
                   "name": "duration",
                   "type": "core::integer::u64"
+                },
+                {
+                  "name": "mode",
+                  "type": "core::integer::u8"
                 }
               ],
               "outputs": [
@@ -1217,7 +1221,7 @@
     {
       "name": "stolsli::systems::manage::manage",
       "address": "0x28b0f2a243fe99d27f9ade6828975304a792c91781523957920e1f5bad4ad64",
-      "class_hash": "0x48275e9af4c81733881050310431d6c627cc227eeae272b0ce0b0cf1fdebe8c",
+      "class_hash": "0x438ccda917e4642cc3092813430b693878e92e53f78b6c4af7a1e5dac885137",
       "abi": [
         {
           "type": "impl",
@@ -1342,7 +1346,7 @@
     {
       "name": "stolsli::systems::play::play",
       "address": "0x54cecff4ea996878685a1d15e6e20e58f0560661bb9e6ae2f2b47a4a3acf2e4",
-      "class_hash": "0x47273a0c4baa405d0c30d363ed51d623be33aa9de307aba57b75935b8549b40",
+      "class_hash": "0x2d49b9ca61e64b949d5280bb110e70a6b8e1a0e5dfcb62538fe61d0ce26c024",
       "abi": [
         {
           "type": "impl",
@@ -1518,10 +1522,6 @@
                   "type": "core::integer::u32"
                 },
                 {
-                  "name": "tile_id",
-                  "type": "core::integer::u32"
-                },
-                {
                   "name": "orientation",
                   "type": "stolsli::types::orientation::Orientation"
                 },
@@ -1670,6 +1670,43 @@
         },
         {
           "type": "event",
+          "name": "stolsli::events::GameOver",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "tournament_id",
+              "type": "core::integer::u64",
+              "kind": "key"
+            },
+            {
+              "name": "game_score",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "player_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_name",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_master",
+              "type": "core::felt252",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
           "name": "stolsli::systems::play::play::Event",
           "kind": "enum",
           "variants": [
@@ -1686,6 +1723,11 @@
             {
               "name": "Discarded",
               "type": "stolsli::events::Discarded",
+              "kind": "nested"
+            },
+            {
+              "name": "GameOver",
+              "type": "stolsli::events::GameOver",
               "kind": "nested"
             }
           ]
@@ -2536,9 +2578,14 @@
           "name": "score",
           "type": "u32",
           "key": false
+        },
+        {
+          "name": "mode",
+          "type": "u8",
+          "key": false
         }
       ],
-      "class_hash": "0x7117110c835300d4b17fca8356de1b1cfd283bba5a4ba744810abd8f8a30b6a",
+      "class_hash": "0x1ab8281f082da4d36351dfd9f864314036313bf659cf17590ce30e86aa4f180",
       "abi": [
         {
           "type": "impl",
@@ -2748,6 +2795,10 @@
             {
               "name": "score",
               "type": "core::integer::u32"
+            },
+            {
+              "name": "mode",
+              "type": "core::integer::u8"
             }
           ]
         },

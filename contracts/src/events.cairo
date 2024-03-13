@@ -34,3 +34,15 @@ struct Discarded {
     order_id: u8,
     points: u32,
 }
+
+#[derive(Drop, starknet::Event)]
+struct GameOver {
+    #[key]
+    game_id: u32,
+    #[key]
+    tournament_id: u64,
+    game_score: u32,
+    player_id: felt252,
+    player_name: felt252,
+    player_master: felt252,
+}

@@ -51,6 +51,12 @@ impl PlayerImpl of PlayerTrait {
     }
 
     #[inline(always)]
+    fn pave(ref self: Player) {
+        // [Effect] Add to the paved count
+        self.paved += 1;
+    }
+
+    #[inline(always)]
     fn buy(ref self: Player, amount: u8) {
         // [Check] Have a tile to place
         self.assert_buyable();
@@ -80,12 +86,6 @@ impl PlayerImpl of PlayerTrait {
         self.assert_drawable();
         // [Effect] Remove tile from the tile count
         self.bank -= 1;
-    }
-
-    #[inline(always)]
-    fn pave(ref self: Player) {
-        // [Effect] Add to the paved count
-        self.paved += 1;
     }
 }
 
