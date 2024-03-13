@@ -10,11 +10,17 @@ import { useStarknetkitConnectModal } from "starknetkit";
 import { Address } from "./Address";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignOut } from "@fortawesome/free-solid-svg-icons";
+import { useDojo } from "@/dojo/useDojo";
 
 export function Connection() {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { isConnected } = useAccount();
+
+  const {
+    account: { account, create, clear },
+    masterAccount,
+  } = useDojo();
 
   const connectWallet = async () => {
     const { starknetkitConnectModal } = useStarknetkitConnectModal({
@@ -23,6 +29,25 @@ export function Connection() {
     });
     const { connector } = await starknetkitConnectModal();
     connect({ connector });
+
+    // Manage burner account
+    if (account !== masterAccount) {
+      // check if burner still valid
+      try {
+        await account?.getNonce();
+      } catch (e: any) {
+        console.log(e);
+
+        clear();
+        console.log("Burner cleared!");
+
+        create();
+        console.log("Burner created!");
+      }
+    } else {
+      // create burner account
+      create();
+    }
   };
 
   return (
