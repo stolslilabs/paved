@@ -39,7 +39,8 @@ import { shortString } from "starknet";
 
 export const Games = () => {
   const [games, setGames] = useState<{ [key: number]: typeof Game }>({});
-  const [show, setShow] = useState<boolean>(false);
+  const [showSingle, setShowSingle] = useState<boolean>(false);
+  const [showMulti, setShowMulti] = useState<boolean>(false);
   const {
     setup: {
       world,
@@ -60,11 +61,18 @@ export const Games = () => {
     });
   }, []);
 
-  const filteredGames = useMemo(() => {
+  const filteredSingleGames = useMemo(() => {
     return Object.values(games).filter((game) => {
-      if (show) {
-        return true;
-      }
+      if (game.mode !== 1) return false;
+      if (showSingle) return true;
+      return game.tile_count < 99;
+    });
+  }, [games, showSingle]);
+
+  const filteredMultiGames = useMemo(() => {
+    return Object.values(games).filter((game) => {
+      if (game.mode !== 2) return false;
+      if (showMulti) return true;
       const endtime = game.start_time + game.duration;
       return (
         game.start_time == 0 ||
@@ -72,7 +80,7 @@ export const Games = () => {
         endtime > Math.floor(Date.now() / 1000)
       );
     });
-  }, [games, show]);
+  }, [games, showMulti]);
 
   const backgroundColor = useMemo(() => "#FCF7E7", []);
 
@@ -86,12 +94,12 @@ export const Games = () => {
         </div>
 
         <div className="flex justify-between w-full">
-          <h4>Games</h4>
+          <h4>Single Player Games</h4>
           <div className="flex items-center space-x-2">
             <Switch
               id="show-finished"
-              checked={show}
-              onCheckedChange={() => setShow(!show)}
+              checked={showSingle}
+              onCheckedChange={() => setShowSingle(!showSingle)}
             />
             <Label className="text-xs" htmlFor="show-finished">
               Show finished Games
@@ -99,7 +107,37 @@ export const Games = () => {
           </div>
         </div>
 
-        <ScrollArea className="w-full">
+        <ScrollArea className="h-1/2 w-full">
+          <Table>
+            <TableHeader>
+              <TableRow className="text-sm">
+                <TableHead className="w-[100px]">#</TableHead>
+                <TableHead>Tiles played</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Object.values(filteredSingleGames).map((game, index) => {
+                return <GameSingleRow key={index} game={game} />;
+              })}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+
+        <div className="flex justify-between w-full">
+          <h4>Multiplayer Player Games</h4>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="show-finished"
+              checked={showMulti}
+              onCheckedChange={() => setShowMulti(!showMulti)}
+            />
+            <Label className="text-xs" htmlFor="show-finished">
+              Show finished Games
+            </Label>
+          </div>
+        </div>
+
+        <ScrollArea className="w-full h-1/2">
           <Table>
             <TableHeader>
               <TableRow className="text-sm">
@@ -112,8 +150,8 @@ export const Games = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Object.values(filteredGames).map((game, index) => {
-                return <GameRow key={index} game={game} />;
+              {Object.values(filteredMultiGames).map((game, index) => {
+                return <GameMultiRow key={index} game={game} />;
               })}
             </TableBody>
           </Table>
@@ -123,7 +161,56 @@ export const Games = () => {
   );
 };
 
-export const GameRow = ({ game }: { game: any }) => {
+export const GameSingleRow = ({ game }: { game: any }) => {
+  const [tilesPlayed, setTilesPlayed] = useState<number>();
+  const [over, setOver] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (game) {
+      setTilesPlayed(game.tile_count);
+      setOver(game.tile_count >= 99);
+    }
+  }, [game]);
+
+  const navigate = useNavigate();
+
+  const setGameQueryParam = useMemo(() => {
+    return (id: string) => {
+      navigate("?game=" + id, { replace: true });
+    };
+  }, [navigate]);
+
+  if (!game) return null;
+
+  return (
+    <TableRow className="text-xs">
+      <TableCell>{game.id}</TableCell>
+      <TableCell>{tilesPlayed}</TableCell>
+
+      <TableCell>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className={`align-right}`}
+                variant={"secondary"}
+                size={"icon"}
+                onClick={() => setGameQueryParam(game.id || 0)}
+              >
+                <FontAwesomeIcon icon={over ? faEye : faRightToBracket} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="select-none">Join the game</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </TableCell>
+    </TableRow>
+  );
+};
+
+export const GameMultiRow = ({ game }: { game: any }) => {
   const [gameId, setGameId] = useState<number>();
   const [gameName, setGameName] = useState<string>();
   const [playerCount, setPlayerCount] = useState<number>();
@@ -136,7 +223,7 @@ export const GameRow = ({ game }: { game: any }) => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Game, Player, Builder },
+      clientComponents: { Player, Builder },
     },
   } = useDojo();
 
@@ -277,7 +364,7 @@ export const GameRow = ({ game }: { game: any }) => {
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p className="select-none">Join the lobby</p>
+              <p className="select-none">Join the game</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
