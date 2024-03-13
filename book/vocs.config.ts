@@ -127,6 +127,7 @@ export default defineConfig({
       "https://github.com/stolslilabs/paved",
     text: "Edit on GitHub",
   },
+  ogImageUrl: "https://vocs.dev/api/og?logo=%logo&title=%title&description=%description",
   description: "Paved in order!",
   sponsors: [
     {
