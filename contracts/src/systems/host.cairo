@@ -102,13 +102,17 @@ mod host {
 
             // [Effect] Start the game if solo mode
             if Mode::Solo == game.mode.into() {
+                // [Effect] Create a new builder
+                let builder = BuilderImpl::new(game.id, player.id, player.order);
+                store.set_builder(builder);
+
                 // [Effect] Create starter tile
                 let tile_id = game.add_tile();
                 let mut tile = TileImpl::new(game_id, tile_id, 0, Plan::RFFFRFCFR);
                 tile.orientation = Orientation::South.into();
 
                 // [Effect] Start game
-                game.start(0);
+                game.start(time);
 
                 // [Effect] Store tile
                 store.set_tile(tile);

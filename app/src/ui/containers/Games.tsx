@@ -33,7 +33,8 @@ import {
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useNavigate } from "react-router-dom";
 
-import { CreateGame } from "@/ui/components/CreateGame";
+import { CreateSoloGame } from "@/ui/components/CreateSoloGame";
+import { CreateMultiGame } from "@/ui/components/CreateMultiGame";
 import { shortString } from "starknet";
 
 export const Games = () => {
@@ -79,7 +80,10 @@ export const Games = () => {
     <div className="bg-yellow-100 h-full grow" style={{ backgroundColor }}>
       <div className="flex flex-col gap-8 items-start w-full p-10 h-full">
         <h1>Game lobby</h1>
-        <CreateGame />
+        <div className="flex gap-4">
+          <CreateSoloGame />
+          <CreateMultiGame />
+        </div>
 
         <div className="flex justify-between w-full">
           <h4>Games</h4>

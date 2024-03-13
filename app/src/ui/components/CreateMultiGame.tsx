@@ -20,7 +20,7 @@ import { Entity } from "@dojoengine/recs";
 import { useComponentValue } from "@dojoengine/react";
 import { useMemo, useEffect } from "react";
 
-export const CreateGame = () => {
+export const CreateMultiGame = () => {
   const [gameName, setGameName] = useState("");
   const [duration, setDuration] = useState(30);
   const [finishTimeFormat, setFinishTimeFormat] = useState<string>();
@@ -29,7 +29,7 @@ export const CreateGame = () => {
     account: { account },
     setup: {
       clientComponents: { Player },
-      systemCalls: { create_game, join_game },
+      systemCalls: { create_game },
     },
   } = useDojo();
 
@@ -56,6 +56,7 @@ export const CreateGame = () => {
       account: account,
       name: shortString.encodeShortString(gameName),
       duration: duration * 60,
+      mode: 2,
     });
   };
 
@@ -63,7 +64,7 @@ export const CreateGame = () => {
     <Dialog>
       <DialogTrigger>
         <Button disabled={!player} variant={"secondary"}>
-          Create
+          Multiplayer
         </Button>
       </DialogTrigger>
       <DialogContent>
