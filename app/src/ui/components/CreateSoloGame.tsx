@@ -1,5 +1,11 @@
 import { useDojo } from "../../dojo/useDojo";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
@@ -23,7 +29,7 @@ export const CreateSoloGame = () => {
   const player = useComponentValue(Player, playerId);
 
   const handleClick = () => {
-    console.log("Create solo game");
+    if (!player) return;
     create_game({
       account: account,
       name: shortString.encodeShortString("Solo"),
@@ -33,8 +39,21 @@ export const CreateSoloGame = () => {
   };
 
   return (
-    <Button disabled={!player} variant={"secondary"} onClick={handleClick}>
-      Single
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            disabled={!player}
+            variant={"secondary"}
+            onClick={handleClick}
+          >
+            Single
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="select-none">Create a single player game</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
