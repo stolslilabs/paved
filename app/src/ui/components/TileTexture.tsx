@@ -23,7 +23,7 @@ export const TileTexture = ({ tile, size }: any) => {
     });
   }, [tile]);
 
-  useEffect(() => {
+  useMemo(() => {
     if (tile) {
       const rotation = (Math.PI / 2) * (1 - tile.orientation);
       const image = getImage(tile);

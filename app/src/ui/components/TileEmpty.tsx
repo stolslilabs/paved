@@ -57,7 +57,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
 
   const activeTile = useComponentValue(Tile, activeEntity);
 
-  useEffect(() => {
+  useMemo(() => {
     defineEnterSystem(
       world,
       [Has(Tile), HasValue(Tile, { game_id: gameId, x: col, y: row + 1 })],
@@ -229,7 +229,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
     hovered,
   ]);
 
-  useEffect(() => {
+  useMemo(() => {
     const isHovered =
       hoveredTile && hoveredTile.col === col && hoveredTile.row === row;
     document.body.style.cursor = isHovered ? "pointer" : "auto";
