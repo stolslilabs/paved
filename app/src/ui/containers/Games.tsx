@@ -125,6 +125,7 @@ export const Games = () => {
                   <TableRow className="text-sm">
                     <TableHead className="w-[100px]">#</TableHead>
                     <TableHead>Tiles played</TableHead>
+                    <TableHead>Score</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -180,11 +181,13 @@ export const Games = () => {
 
 export const GameSingleRow = ({ game }: { game: any }) => {
   const [tilesPlayed, setTilesPlayed] = useState<number>();
+  const [score, setScore] = useState<number>();
   const [over, setOver] = useState<boolean>(false);
 
   useEffect(() => {
     if (game) {
       setTilesPlayed(game.tile_count);
+      setScore(game.score);
       setOver(game.tile_count >= 99);
     }
   }, [game]);
@@ -203,13 +206,13 @@ export const GameSingleRow = ({ game }: { game: any }) => {
     <TableRow className="text-xs">
       <TableCell>{game.id}</TableCell>
       <TableCell>{tilesPlayed}</TableCell>
+      <TableCell>{score}</TableCell>
 
-      <TableCell>
+      <TableCell className="w-12">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className={`align-right}`}
                 variant={"secondary"}
                 size={"icon"}
                 onClick={() => setGameQueryParam(game.id || 0)}
@@ -361,7 +364,7 @@ export const GameMultiRow = ({ game }: { game: any }) => {
       <TableCell>{timeLeft}</TableCell>
       <TableCell>{tilesPlayed}</TableCell>
 
-      <TableCell>
+      <TableCell className="w-12">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
