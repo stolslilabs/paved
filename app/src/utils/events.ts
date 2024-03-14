@@ -2,6 +2,7 @@ import { BuiltLog, ScoredLog, DiscardedLog, Log } from "@/hooks/useLogs";
 import { GameOverEvent } from "@/hooks/useGames";
 import { shortString } from "starknet";
 import { getColor } from "@/utils";
+import { TOURNAMENT_ID_OFFSET } from "./constants";
 
 export type Event = {
   id: string;
@@ -121,12 +122,12 @@ export const createDiscardedLog = (log: DiscardedLog): Log => {
 
 export const parseGameOverEvent = (event: Event): GameOverEvent => {
   const id = event.id;
-  const gameId = parseInt(event.keys[2]);
-  const tournamentId = parseInt(event.data[0]);
-  const gameScore = parseInt(event.data[1]);
-  const playerId = event.data[2];
-  const playerName = shortString.decodeShortString(event.data[3]);
-  const playerMaster = event.data[4];
+  const gameId = parseInt(event.keys[1]);
+  const tournamentId = parseInt(event.keys[2]) - TOURNAMENT_ID_OFFSET;
+  const gameScore = parseInt(event.data[0]);
+  const playerId = event.data[1];
+  const playerName = shortString.decodeShortString(event.data[2]);
+  const playerMaster = event.data[3];
   const timestamp = new Date(event.createdAt);
 
   return {

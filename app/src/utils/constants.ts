@@ -16,3 +16,8 @@ export const DEFAULT_TILES_COUNT: number = 250;
 // Packing / Unpacking
 
 export const MASK_8: number = 0xff;
+
+// Tournaments
+
+export const TOURNAMENT_ID_OFFSET: number = 2827;
+export const TOURNAMENT_DURATION: number = 60 * 60 * 24 * 7;

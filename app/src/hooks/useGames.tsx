@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { GAME_OVER_EVENT } from "@/constants/events";
 import { parseGameOverEvent } from "@/utils/events";
+import { TOURNAMENT_ID_OFFSET } from "@/utils/constants";
 
 export type GameOverEvent = {
   id: string;
@@ -24,8 +25,8 @@ const parse = (event: Event): GameOverEvent => {
 };
 
 export const useGames = () => {
-  const { gameId } = useQueryParams();
   const [games, setGames] = useState<GameOverEvent[]>([]);
+  const [ids, setIds] = useState<number[]>([]);
 
   const {
     setup: {
@@ -35,19 +36,27 @@ export const useGames = () => {
 
   useEffect(() => {
     const query = async () => {
-      let gameIdString = `0x${gameId.toString(16)}`;
-      const events = await queryEvents([GAME_OVER_EVENT, gameIdString]);
-      setGames((prevGames) => [...prevGames, ...events.map(parse)]);
+      const events = await queryEvents([GAME_OVER_EVENT]);
+      setGames((prevGames) => {
+        const newGames = [...prevGames, ...events.map(parse)];
+        // Remove duplicates
+        const dedupedGames = newGames.filter(
+          (game, idx) => idx === newGames.findIndex((g) => g.id === game.id)
+        );
+        // Sort by score
+        const sortedGames = dedupedGames.sort(
+          (a, b) => b.gameScore - a.gameScore
+        );
+        // Extract all unique tournament ids
+        const uniqueIds = Array.from(
+          new Set(sortedGames.map((game) => game.tournamentId))
+        );
+        setIds(uniqueIds);
+        return sortedGames;
+      });
     };
     query();
   }, []);
 
-  // Remove duplicates
-  const dedupedLogs = games.filter(
-    (game, idx) => idx === games.findIndex((g) => g.id === game.id)
-  );
-  const sortedLogs = dedupedLogs.sort(
-    (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-  );
-  return { logs: sortedLogs };
+  return { games, ids };
 };

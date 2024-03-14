@@ -15,7 +15,7 @@ import {
 } from "@dojoengine/recs";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faHammer } from "@fortawesome/free-solid-svg-icons";
+import { faFire, faHammer } from "@fortawesome/free-solid-svg-icons";
 
 export const Scoreboard = () => {
   const { gameId } = useQueryParams();
@@ -89,7 +89,8 @@ export const Scoreboard = () => {
                 key={index}
                 builder={builder}
                 rank={index + 1}
-                logs={logs.filter((log) => log.category === "Built")}
+                builts={logs.filter((log) => log.category === "Built")}
+                discardeds={logs.filter((log) => log.category === "Discarded")}
               />
             );
           })}
@@ -101,7 +102,8 @@ export const Scoreboard = () => {
               <PlayerRow
                 builder={builder}
                 rank={rank}
-                logs={logs.filter((log) => log.category === "Built")}
+                builts={logs.filter((log) => log.category === "Built")}
+                discardeds={logs.filter((log) => log.category === "Discarded")}
               />
             </>
           )}
@@ -113,11 +115,13 @@ export const Scoreboard = () => {
 export const PlayerRow = ({
   builder,
   rank,
-  logs,
+  builts,
+  discardeds,
 }: {
   builder: any;
   rank: number;
-  logs: any;
+  builts: any;
+  discardeds: any;
 }) => {
   const {
     setup: {
@@ -135,7 +139,12 @@ export const PlayerRow = ({
   const address = `0x${builder.player_id.toString(16)}`;
   const backgroundColor = getColor(address);
   // Color is used to filter on builder since we don't have the player id in the event
-  const paved = logs.filter((log: any) => log.color === backgroundColor).length;
+  const paved = builts.filter(
+    (log: any) => log.color === backgroundColor
+  ).length;
+  const discarded = discardeds.filter(
+    (log: any) => log.color === backgroundColor
+  ).length;
   return (
     <TableRow>
       <TableCell className="font-medium">{`#${rank}`}</TableCell>
@@ -147,6 +156,8 @@ export const PlayerRow = ({
         <p>{builder?.score}</p>
         <FontAwesomeIcon className="text-slate-500 mx-2" icon={faHammer} />
         <p>{paved}</p>
+        <FontAwesomeIcon className="text-orange-500 mx-2" icon={faFire} />
+        <p>{discarded}</p>
       </TableCell>
     </TableRow>
   );

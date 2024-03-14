@@ -7,7 +7,7 @@ import { useGameStore } from "../../store";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { getImage } from "../../utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye } from "@fortawesome/free-solid-svg-icons";
+import { faEye, faLock } from "@fortawesome/free-solid-svg-icons";
 import { Spot } from "./Spot";
 import {
   Tooltip,
@@ -134,15 +134,31 @@ export const ActiveTile = ({
 export const HiddenTile = () => {
   const { gameId } = useQueryParams();
   const { resetSelectedTile } = useGameStore();
+  const [over, setOver] = useState<boolean>(false);
 
   const {
     account: { account },
     setup: {
+      contractComponents: { Game },
       systemCalls: { draw },
     },
   } = useDojo();
 
+  const game = useComponentValue(Game, getEntityIdFromKeys([BigInt(gameId)]));
+
+  useEffect(() => {
+    if (game) {
+      if (game.mode === 1) return setOver(game.tile_count >= 99);
+      setOver(
+        game.start_time !== 0 &&
+          game.duration !== 0 &&
+          game.start_time + game.duration < Math.floor(Date.now() / 1000)
+      );
+    }
+  }, [game]);
+
   const handleDrawClick = () => {
+    if (over) return;
     resetSelectedTile();
     draw({
       account: account,
@@ -158,7 +174,9 @@ export const HiddenTile = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <div
-            className="h-full w-full border-8 cursor-pointer"
+            className={`h-full w-full border-8 ${
+              !over ? "cursor-pointer" : ""
+            }`}
             style={{
               backgroundImage: `url(${backgroundImage})`,
               backgroundSize: "cover",
@@ -167,7 +185,7 @@ export const HiddenTile = () => {
             onClick={handleDrawClick}
           >
             <div className="h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
-              <FontAwesomeIcon className="h-12" icon={faEye} />
+              <FontAwesomeIcon className="h-12" icon={over ? faLock : faEye} />
             </div>
           </div>
         </TooltipTrigger>
