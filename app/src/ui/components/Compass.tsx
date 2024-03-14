@@ -18,7 +18,7 @@ export const Compass = () => {
 
   useEffect(() => {
     if (!rotate) return;
-    const rad = (compassRotation - Math.PI / 4) % (Math.PI * 2);
+    const rad = (compassRotation + Math.PI / 4) % (Math.PI * 2);
     setCompassRotate(rad);
     setRotate(false);
   }, [rotate]);
