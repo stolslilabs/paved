@@ -1,4 +1,5 @@
 import devManifest from "../contracts/target/dev/manifest.json";
+import preManifest from "../contracts/target/pre/manifest.json";
 import prodManifest from "../contracts/target/prod/manifest.json";
 
 const {
@@ -8,6 +9,7 @@ const {
   VITE_PUBLIC_MASTER_PRIVATE_KEY,
   VITE_PUBLIC_ACCOUNT_CLASS_HASH,
   VITE_PUBLIC_PRODUCTION,
+  VITE_PUBLIC_PREPRODUCTION,
 } = import.meta.env;
 
 export type Config = ReturnType<typeof dojoConfig>;
@@ -25,6 +27,6 @@ export function dojoConfig() {
     accountClassHash:
       VITE_PUBLIC_ACCOUNT_CLASS_HASH ||
       "0x05400e90f7e0ae78bd02c77cd75527280470e2fe19c54970dd79dc37a9d3645c",
-    manifest: VITE_PUBLIC_PRODUCTION ? prodManifest : devManifest,
+    manifest: VITE_PUBLIC_PRODUCTION ? prodManifest : VITE_PUBLIC_PREPRODUCTION ? preManifest : devManifest,
   };
 }
