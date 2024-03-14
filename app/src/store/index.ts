@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import { Entity } from "@dojoengine/recs";
 
 export const CAMERA_SETTINGS: {
@@ -133,53 +132,46 @@ export const useCameraStore = create<CameraState>()((set, get) => ({
   resetCompassRotation: () => set({ compassRotation: 0 }),
 }));
 
-export const useGameStore = create<GameState>()(
-  persist(
-    (set, get) => ({
-      gameId: 0,
-      setGameId: (gameId) => set({ gameId }),
-      builderId: 0,
-      setBuilderId: (builderId) => set({ builderId }),
-      orientation: 1,
-      setOrientation: (orientation) => {
-        // Keep orientation between 1 and 4
-        if (orientation < 1) {
-          orientation = 4;
-        } else {
-          orientation = ((orientation - 1) % 4) + 1;
-        }
-        set({ orientation });
-      },
-      resetOrientation: () => set({ orientation: 1 }),
-      order: 1,
-      setOrder: (order) => set({ order }),
-      character: 0,
-      setCharacter: (character) => set({ character }),
-      resetCharacter: () => set({ character: 0 }),
-      spot: 0,
-      setSpot: (spot) => set({ spot }),
-      resetSpot: () => set({ spot: 0 }),
-      x: 0,
-      setX: (x) => set({ x }),
-      resetX: () => set({ x: 0 }),
-      y: 0,
-      setY: (y) => set({ y }),
-      resetY: () => set({ y: 0 }),
-      selectedTile: { col: 0, row: 0 },
-      setSelectedTile: (tile) => set({ selectedTile: tile }),
-      resetSelectedTile: () => set({ selectedTile: { col: 0, row: 0 } }),
-      activeEntity: undefined,
-      setActiveEntity: (entity) => set({ activeEntity: entity }),
-      resetActiveEntity: () => set({ activeEntity: undefined }),
-      hoveredTile: { col: 0, row: 0 },
-      setHoveredTile: (tile) => set({ hoveredTile: tile }),
-      resetHoveredTile: () => set({ hoveredTile: { col: 0, row: 0 } }),
-      valid: false,
-      setValid: (valid) => set({ valid }),
-      resetValid: () => set({ valid: false }),
-    }),
-    {
-      name: "game-storage", // name of the item in the storage (must be unique)
+export const useGameStore = create<GameState>()((set, get) => ({
+  gameId: 0,
+  setGameId: (gameId) => set({ gameId }),
+  builderId: 0,
+  setBuilderId: (builderId) => set({ builderId }),
+  orientation: 1,
+  setOrientation: (orientation) => {
+    // Keep orientation between 1 and 4
+    if (orientation < 1) {
+      orientation = 4;
+    } else {
+      orientation = ((orientation - 1) % 4) + 1;
     }
-  )
-);
+    set({ orientation });
+  },
+  resetOrientation: () => set({ orientation: 1 }),
+  order: 1,
+  setOrder: (order) => set({ order }),
+  character: 0,
+  setCharacter: (character) => set({ character }),
+  resetCharacter: () => set({ character: 0 }),
+  spot: 0,
+  setSpot: (spot) => set({ spot }),
+  resetSpot: () => set({ spot: 0 }),
+  x: 0,
+  setX: (x) => set({ x }),
+  resetX: () => set({ x: 0 }),
+  y: 0,
+  setY: (y) => set({ y }),
+  resetY: () => set({ y: 0 }),
+  selectedTile: { col: 0, row: 0 },
+  setSelectedTile: (tile) => set({ selectedTile: tile }),
+  resetSelectedTile: () => set({ selectedTile: { col: 0, row: 0 } }),
+  activeEntity: undefined,
+  setActiveEntity: (entity) => set({ activeEntity: entity }),
+  resetActiveEntity: () => set({ activeEntity: undefined }),
+  hoveredTile: { col: 0, row: 0 },
+  setHoveredTile: (tile) => set({ hoveredTile: tile }),
+  resetHoveredTile: () => set({ hoveredTile: { col: 0, row: 0 } }),
+  valid: false,
+  setValid: (valid) => set({ valid }),
+  resetValid: () => set({ valid: false }),
+}));

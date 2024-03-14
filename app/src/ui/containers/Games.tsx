@@ -38,12 +38,14 @@ import { useNavigate } from "react-router-dom";
 import { CreateSoloGame } from "@/ui/components/CreateSoloGame";
 import { CreateMultiGame } from "@/ui/components/CreateMultiGame";
 import { shortString } from "starknet";
+import { TournamentDialog, TournamentHeader } from "../components/Tournament";
 
 export const Games = () => {
   const [games, setGames] = useState<{ [key: number]: typeof Game }>({});
   const [showSingle, setShowSingle] = useState<boolean>(false);
   const [showMulti, setShowMulti] = useState<boolean>(false);
   const {
+    account: { account },
     setup: {
       world,
       clientComponents: { Game },
@@ -65,11 +67,12 @@ export const Games = () => {
 
   const filteredSingleGames = useMemo(() => {
     return Object.values(games).filter((game) => {
+      if (game.host !== BigInt(account.address)) return false;
       if (game.mode !== 1) return false;
       if (showSingle) return true;
       return game.tile_count < 99;
     });
-  }, [games, showSingle]);
+  }, [games, showSingle, account]);
 
   const filteredMultiGames = useMemo(() => {
     return Object.values(games).filter((game) => {
@@ -97,8 +100,10 @@ export const Games = () => {
             <TabsTrigger value="multi">Multiplayer</TabsTrigger>
           </TabsList>
           <TabsContent value="single">
-            <div className="my-4">
-              <CreateSoloGame />{" "}
+            <div className="flex my-4 gap-4 items-center">
+              <CreateSoloGame />
+              <TournamentDialog />
+              <TournamentHeader />
             </div>
 
             <div className="flex justify-between w-full">
@@ -188,7 +193,7 @@ export const GameSingleRow = ({ game }: { game: any }) => {
 
   const setGameQueryParam = useMemo(() => {
     return (id: string) => {
-      navigate("?game=" + id, { replace: true });
+      navigate("?id=" + id, { replace: true });
     };
   }, [navigate]);
 
@@ -341,7 +346,7 @@ export const GameMultiRow = ({ game }: { game: any }) => {
 
   const setGameQueryParam = useMemo(() => {
     return (id: string) => {
-      navigate("?game=" + id, { replace: true });
+      navigate("?id=" + id, { replace: true });
     };
   }, [navigate]);
 
@@ -361,7 +366,7 @@ export const GameMultiRow = ({ game }: { game: any }) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className={`align-right}`}
+                className={"align-right"}
                 variant={"secondary"}
                 size={"icon"}
                 onClick={() => setGameQueryParam(game.id || 0)}
