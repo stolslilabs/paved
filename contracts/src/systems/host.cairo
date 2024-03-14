@@ -15,7 +15,9 @@ use stolsli::types::spot::Spot;
 
 #[starknet::interface]
 trait IHost<TContractState> {
-    fn create(self: @TContractState, world: IWorldDispatcher, name: felt252, duration: u64,) -> u32;
+    fn create(
+        self: @TContractState, world: IWorldDispatcher, name: felt252, duration: u64, mode: u8
+    ) -> u32;
     fn rename(self: @TContractState, world: IWorldDispatcher, game_id: u32, name: felt252);
     fn update(self: @TContractState, world: IWorldDispatcher, game_id: u32, duration: u64);
     fn join(self: @TContractState, world: IWorldDispatcher, game_id: u32, order: u8);
@@ -58,6 +60,7 @@ mod host {
     use stolsli::types::role::Role;
     use stolsli::types::spot::Spot;
     use stolsli::types::plan::Plan;
+    use stolsli::types::mode::Mode;
 
     // Local imports
 
@@ -82,7 +85,7 @@ mod host {
     #[abi(embed_v0)]
     impl HostImpl of IHost<ContractState> {
         fn create(
-            self: @ContractState, world: IWorldDispatcher, name: felt252, duration: u64,
+            self: @ContractState, world: IWorldDispatcher, name: felt252, duration: u64, mode: u8,
         ) -> u32 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -95,7 +98,25 @@ mod host {
             // [Effect] Create game
             let game_id = world.uuid() + 1;
             let time = get_block_timestamp();
-            let game = GameImpl::new(game_id, name, player.id, time, duration);
+            let mut game = GameImpl::new(game_id, name, player.id, time, duration, mode);
+
+            // [Effect] Start the game if solo mode
+            if Mode::Solo == game.mode.into() {
+                // [Effect] Create a new builder
+                let builder = BuilderImpl::new(game.id, player.id, player.order);
+                store.set_builder(builder);
+
+                // [Effect] Create starter tile
+                let tile_id = game.add_tile();
+                let mut tile = TileImpl::new(game_id, tile_id, 0, Plan::RFFFRFCFR);
+                tile.orientation = Orientation::South.into();
+
+                // [Effect] Start game
+                game.start(time);
+
+                // [Effect] Store tile
+                store.set_tile(tile);
+            }
 
             // [Effect] Store game
             store.set_game(game);

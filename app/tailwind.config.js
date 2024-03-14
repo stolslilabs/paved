@@ -21,6 +21,9 @@ module.exports = {
         body: ["Rubik Mono One", "mono"],
       },
       colors: {
+        "paved-yellow": "#FCF7E7",
+        "paved-pink": "#FCF7E7",
+        "paved-brown": "#7D6669",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

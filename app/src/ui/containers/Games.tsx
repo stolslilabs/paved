@@ -7,6 +7,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -33,13 +35,17 @@ import {
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useNavigate } from "react-router-dom";
 
-import { CreateGame } from "@/ui/components/CreateGame";
+import { CreateSoloGame } from "@/ui/components/CreateSoloGame";
+import { CreateMultiGame } from "@/ui/components/CreateMultiGame";
 import { shortString } from "starknet";
+import { TournamentDialog, TournamentHeader } from "../components/Tournament";
 
 export const Games = () => {
   const [games, setGames] = useState<{ [key: number]: typeof Game }>({});
-  const [show, setShow] = useState<boolean>(false);
+  const [showSingle, setShowSingle] = useState<boolean>(false);
+  const [showMulti, setShowMulti] = useState<boolean>(false);
   const {
+    account: { account },
     setup: {
       world,
       clientComponents: { Game },
@@ -59,11 +65,19 @@ export const Games = () => {
     });
   }, []);
 
-  const filteredGames = useMemo(() => {
+  const filteredSingleGames = useMemo(() => {
     return Object.values(games).filter((game) => {
-      if (show) {
-        return true;
-      }
+      if (game.host !== BigInt(account.address)) return false;
+      if (game.mode !== 1) return false;
+      if (showSingle) return true;
+      return game.tile_count < 99;
+    });
+  }, [games, showSingle, account]);
+
+  const filteredMultiGames = useMemo(() => {
+    return Object.values(games).filter((game) => {
+      if (game.mode !== 2) return false;
+      if (showMulti) return true;
       const endtime = game.start_time + game.duration;
       return (
         game.start_time == 0 ||
@@ -71,7 +85,7 @@ export const Games = () => {
         endtime > Math.floor(Date.now() / 1000)
       );
     });
-  }, [games, show]);
+  }, [games, showMulti]);
 
   const backgroundColor = useMemo(() => "#FCF7E7", []);
 
@@ -79,47 +93,141 @@ export const Games = () => {
     <div className="bg-yellow-100 h-full grow" style={{ backgroundColor }}>
       <div className="flex flex-col gap-8 items-start w-full p-10 h-full">
         <h1>Game lobby</h1>
-        <CreateGame />
 
-        <div className="flex justify-between w-full">
-          <h4>Games</h4>
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="show-finished"
-              checked={show}
-              onCheckedChange={() => setShow(!show)}
-            />
-            <Label className="text-xs" htmlFor="show-finished">
-              Show finished Games
-            </Label>
-          </div>
-        </div>
+        <Tabs defaultValue="single" className="w-full">
+          <TabsList>
+            <TabsTrigger value="single">Solo</TabsTrigger>
+            <TabsTrigger value="multi">Multiplayer</TabsTrigger>
+          </TabsList>
+          <TabsContent value="single">
+            <div className="flex my-4 gap-4 items-center">
+              <CreateSoloGame />
+              <TournamentDialog />
+              <TournamentHeader />
+            </div>
 
-        <ScrollArea className="w-full">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-sm">
-                <TableHead className="w-[100px]">#</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Current players</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Time left</TableHead>
-                <TableHead>Tiles played</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Object.values(filteredGames).map((game, index) => {
-                return <GameRow key={index} game={game} />;
-              })}
-            </TableBody>
-          </Table>
-        </ScrollArea>
+            <div className="flex justify-between w-full">
+              <h4>Games</h4>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-finished"
+                  checked={showSingle}
+                  onCheckedChange={() => setShowSingle(!showSingle)}
+                />
+                <Label className="text-xs" htmlFor="show-finished">
+                  Show finished Games
+                </Label>
+              </div>
+            </div>
+            <ScrollArea className="h-1/2 w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-sm">
+                    <TableHead className="w-[100px]">#</TableHead>
+                    <TableHead>Tiles played</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.values(filteredSingleGames).map((game, index) => {
+                    return <GameSingleRow key={index} game={game} />;
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </TabsContent>
+          <TabsContent value="multi">
+            <div className="my-4">
+              <CreateMultiGame />{" "}
+            </div>
+            <div className="flex justify-between w-full">
+              <h4>Games</h4>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-finished"
+                  checked={showMulti}
+                  onCheckedChange={() => setShowMulti(!showMulti)}
+                />
+                <Label className="text-xs" htmlFor="show-finished">
+                  Show finished Games
+                </Label>
+              </div>
+            </div>
+            <ScrollArea className="w-full h-1/2">
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-sm">
+                    <TableHead className="w-[100px]">#</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Current players</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Time left</TableHead>
+                    <TableHead>Tiles played</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.values(filteredMultiGames).map((game, index) => {
+                    return <GameMultiRow key={index} game={game} />;
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
 };
 
-export const GameRow = ({ game }: { game: any }) => {
+export const GameSingleRow = ({ game }: { game: any }) => {
+  const [tilesPlayed, setTilesPlayed] = useState<number>();
+  const [over, setOver] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (game) {
+      setTilesPlayed(game.tile_count);
+      setOver(game.tile_count >= 99);
+    }
+  }, [game]);
+
+  const navigate = useNavigate();
+
+  const setGameQueryParam = useMemo(() => {
+    return (id: string) => {
+      navigate("?id=" + id, { replace: true });
+    };
+  }, [navigate]);
+
+  if (!game) return null;
+
+  return (
+    <TableRow className="text-xs">
+      <TableCell>{game.id}</TableCell>
+      <TableCell>{tilesPlayed}</TableCell>
+
+      <TableCell>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                className={`align-right}`}
+                variant={"secondary"}
+                size={"icon"}
+                onClick={() => setGameQueryParam(game.id || 0)}
+              >
+                <FontAwesomeIcon icon={over ? faEye : faRightToBracket} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="select-none">Join the game</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </TableCell>
+    </TableRow>
+  );
+};
+
+export const GameMultiRow = ({ game }: { game: any }) => {
   const [gameId, setGameId] = useState<number>();
   const [gameName, setGameName] = useState<string>();
   const [playerCount, setPlayerCount] = useState<number>();
@@ -132,7 +240,7 @@ export const GameRow = ({ game }: { game: any }) => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Game, Player, Builder },
+      clientComponents: { Player, Builder },
     },
   } = useDojo();
 
@@ -238,7 +346,7 @@ export const GameRow = ({ game }: { game: any }) => {
 
   const setGameQueryParam = useMemo(() => {
     return (id: string) => {
-      navigate("?game=" + id, { replace: true });
+      navigate("?id=" + id, { replace: true });
     };
   }, [navigate]);
 
@@ -258,7 +366,7 @@ export const GameRow = ({ game }: { game: any }) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                className={`align-right}`}
+                className={"align-right"}
                 variant={"secondary"}
                 size={"icon"}
                 onClick={() => setGameQueryParam(game.id || 0)}
@@ -273,7 +381,7 @@ export const GameRow = ({ game }: { game: any }) => {
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p className="select-none">Join the lobby</p>
+              <p className="select-none">Join the game</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

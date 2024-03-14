@@ -7,6 +7,7 @@ export interface Signer {
 export interface CreateGame extends Signer {
   name: string;
   duration: number;
+  mode: number;
 }
 
 export interface RenameGame extends Signer {
@@ -70,7 +71,6 @@ export interface Discard extends Signer {
 
 export interface Build extends Signer {
   game_id: number;
-  tile_id: number;
   orientation: number;
   x: number;
   y: number;

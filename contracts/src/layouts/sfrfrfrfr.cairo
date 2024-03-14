@@ -30,7 +30,7 @@ impl LayoutImpl of LayoutTrait {
         let mut moves: Array<Move> = ArrayTrait::new();
         match from {
             Spot::None => {},
-            Spot::Center => {}, // TODO: Forbidden, should we panic?
+            Spot::Center => {},
             Spot::NorthWest => {
                 moves.append(Move { direction: Direction::North, spot: Spot::SouthWest });
                 moves.append(Move { direction: Direction::West, spot: Spot::NorthEast });

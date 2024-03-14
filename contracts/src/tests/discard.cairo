@@ -15,6 +15,7 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 use stolsli::store::{Store, StoreTrait};
 use stolsli::models::game::{Game, GameTrait};
 use stolsli::models::builder::{Builder, BuilderTrait};
+use stolsli::types::mode::Mode;
 use stolsli::types::order::Order;
 use stolsli::systems::host::IHostDispatcherTrait;
 use stolsli::systems::manage::IManageDispatcherTrait;
@@ -24,7 +25,7 @@ use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 #[test]
 fn test_play_discard() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
 
     // [Spawn]

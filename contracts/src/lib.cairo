@@ -7,6 +7,7 @@ mod types {
     mod area;
     mod plan;
     mod layout;
+    mod mode;
     mod move;
     mod category;
     mod order;
@@ -14,6 +15,7 @@ mod types {
     mod direction;
     mod role;
     mod spot;
+    mod tournament;
 }
 
 mod layouts {
@@ -85,6 +87,7 @@ mod systems {
 #[cfg(test)]
 mod tests {
     mod setup;
+    mod solo;
     mod join;
     mod transfer;
     mod buy;

@@ -43,6 +43,7 @@ export const Spawn = () => {
 
   const {
     account: { account },
+    masterAccount,
     setup: {
       clientComponents: { Player },
       systemCalls: { create_player },
@@ -62,6 +63,10 @@ export const Spawn = () => {
   const darkOrders = useMemo(() => {
     return getDarkOrders();
   }, []);
+
+  const disabled = useMemo(() => {
+    return !!player || !account || account === masterAccount;
+  }, [player, address, account, masterAccount]);
 
   useEffect(() => {
     if (player) {
@@ -93,7 +98,7 @@ export const Spawn = () => {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button disabled={!!player || !address} variant={"secondary"}>
+        <Button disabled={disabled} variant={"secondary"}>
           Spawn
         </Button>
       </DialogTrigger>

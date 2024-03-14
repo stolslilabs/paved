@@ -10,11 +10,17 @@ import { useStarknetkitConnectModal } from "starknetkit";
 import { Address } from "./Address";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignOut } from "@fortawesome/free-solid-svg-icons";
+import { useDojo } from "@/dojo/useDojo";
 
 export function Connection() {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { isConnected } = useAccount();
+
+  const {
+    account: { account, create, clear },
+    masterAccount,
+  } = useDojo();
 
   const connectWallet = async () => {
     const { starknetkitConnectModal } = useStarknetkitConnectModal({
@@ -23,12 +29,31 @@ export function Connection() {
     });
     const { connector } = await starknetkitConnectModal();
     connect({ connector });
+
+    // Manage burner account
+    if (account !== masterAccount) {
+      // check if burner still valid
+      try {
+        await account?.getNonce();
+      } catch (e: any) {
+        console.log(e);
+
+        clear();
+        console.log("Burner cleared!");
+
+        create();
+        console.log("Burner created!");
+      }
+    } else {
+      // create burner account
+      create();
+    }
   };
 
   return (
     <>
       {isConnected ? (
-        <div className="flex gap-4 mr-4">
+        <div className="flex gap-4 border-4 border-paved-brown p-2">
           <Address />
           <TooltipProvider>
             <Tooltip>
@@ -49,7 +74,7 @@ export function Connection() {
         </div>
       ) : (
         <Button
-          className="px-4 mr-4"
+          className="px-4 "
           variant={"secondary"}
           size={"sm"}
           onClick={connectWallet}

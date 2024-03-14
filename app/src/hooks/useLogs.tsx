@@ -7,11 +7,14 @@ import {
   createScoredLog,
   createDiscardedLog,
   parseDiscardedEvent,
+  parseGameOverEvent,
+  createGameOverLog,
 } from "@/utils/events";
 import { useEffect, useRef, useState } from "react";
 import { Subscription } from "rxjs";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { BUILT_EVENT, SCORED_EVENT, DISCARDED_EVENT } from "@/constants/events";
+import { ec } from "starknet";
 
 export type BuiltLog = {
   id: string;
@@ -67,6 +70,11 @@ const generateLogFromEvent = (event: Event): Log => {
     return createScoredLog(parseScoredEvent(event));
   } else if (event.keys[0] === DISCARDED_EVENT) {
     return createDiscardedLog(parseDiscardedEvent(event));
+  } else if (
+    event.keys[0] ===
+    ec.starkCurve.poseidonHashMany([BigInt("GameOver")]).toString()
+  ) {
+    return createGameOverLog(parseGameOverEvent(event));
   }
   throw new Error("Unknown event type");
 };
@@ -85,7 +93,7 @@ export const useLogs = () => {
   useEffect(() => {
     // Query all existing logs from the db
     const query = async () => {
-      let gameIdString = `0x${gameId.toString(16)}`;
+      const gameIdString = `0x${gameId.toString(16)}`;
       const builtEvents = await queryEvents([BUILT_EVENT, gameIdString]);
       const scoredEvents = await queryEvents([SCORED_EVENT, gameIdString]);
       const discardedEvents = await queryEvents([
@@ -109,7 +117,7 @@ export const useLogs = () => {
       const subscriptions: Subscription[] = [];
 
       const subscribeToEvents = async () => {
-        let gameIdString = `0x${gameId.toString(16)}`;
+        const gameIdString = `0x${gameId.toString(16)}`;
         const builtObservable = await createEvents([BUILT_EVENT, gameIdString]);
         subscriptions.push(
           builtObservable.subscribe(

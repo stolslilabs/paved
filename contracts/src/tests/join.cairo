@@ -17,6 +17,7 @@ use stolsli::store::{Store, StoreTrait};
 use stolsli::models::game::{Game, GameTrait, GameAssert};
 use stolsli::models::player::{Player, PlayerTrait, PlayerAssert};
 use stolsli::models::builder::{Builder, BuilderTrait, BuilderAssert};
+use stolsli::types::mode::Mode;
 use stolsli::types::order::Order;
 use stolsli::systems::host::IHostDispatcherTrait;
 use stolsli::systems::manage::IManageDispatcherTrait;
@@ -26,7 +27,7 @@ use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 #[test]
 fn test_host_join() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
 
     // [Assert] Game
@@ -56,7 +57,7 @@ fn test_host_join() {
 #[should_panic(expected: ('Game: already started', 'ENTRYPOINT_FAILED',))]
 fn test_host_join_revert_started() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
 
     // [Assert] Game

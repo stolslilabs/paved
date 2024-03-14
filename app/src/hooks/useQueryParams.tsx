@@ -8,7 +8,7 @@ export function useQueryParams() {
   const queryParams = useMemo(() => new URLSearchParams(search), [search]);
 
   return {
-    gameId: parseInt(queryParams.get("game") || "0"),
+    gameId: parseInt(queryParams.get("id") || "0"),
     clear: () => navigate(pathname),
   };
 }

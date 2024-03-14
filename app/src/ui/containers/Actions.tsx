@@ -44,23 +44,23 @@ export const Actions = () => {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <div
+        {/* <div
           className={`absolute left-0 transition-all duration-200 ${
             isExpanded ? "opacity-100 top-[-120%]" : "opacity-0 top-[100%]"
           }`}
         >
           <Buy />
-        </div>
+        </div> */}
         <div
           className={`absolute left-0 transition-all duration-200 ${
-            isExpanded ? "opacity-100 top-[-240%]" : "opacity-0 top-[100%]"
+            isExpanded ? "opacity-100 top-[-120%]" : "opacity-0 top-[100%]"
           }`}
         >
           <Home />
         </div>
         <div
           className={`absolute left-0 transition-all duration-200 ${
-            isExpanded ? "opacity-100 top-[-360%]" : "opacity-0 top-[100%]"
+            isExpanded ? "opacity-100 top-[-240%]" : "opacity-0 top-[100%]"
           }`}
         >
           <LeaderboardDialog />

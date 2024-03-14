@@ -20,3 +20,9 @@ initializer_class_hash = "0xbeef"
 rpc_url = "http://localhost:5050/"
 account_address = "0x6162896d1d7ab204c7ccac6dd5f8e9e7c25ecd5ae4fcb4ad32e57786bb46e03"
 private_key = "0x1800000000300000180000000000030000000000003006001800006600"
+
+# Slot
+# rpc_url = "https://api.cartridge.gg/x/stolsli/katana/"
+# account_address = "0x7ea9c4815788262b99c077348dec62143ef7c8152a65ecc72076244d1de5c8c"
+# private_key = "0x568dfed624a8b9c342a1d45e02b3b4b5f76a46e77560c89e294c1f8a242b45e"
+
