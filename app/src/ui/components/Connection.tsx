@@ -53,7 +53,7 @@ export function Connection() {
   return (
     <>
       {isConnected ? (
-        <div className="flex gap-4 mr-4">
+        <div className="flex gap-4 border-4 border-paved-brown p-2">
           <Address />
           <TooltipProvider>
             <Tooltip>
@@ -74,7 +74,7 @@ export function Connection() {
         </div>
       ) : (
         <Button
-          className="px-4 mr-4"
+          className="px-4 "
           variant={"secondary"}
           size={"sm"}
           onClick={connectWallet}

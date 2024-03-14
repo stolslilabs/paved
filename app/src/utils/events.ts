@@ -10,28 +10,6 @@ export type Event = {
   createdAt: string;
 };
 
-export const parseGameOverEvent = (event: Event): GameOverEvent => {
-  const id = event.id;
-  const gameId = parseInt(event.keys[2]);
-  const tournamentId = parseInt(event.data[0]);
-  const gameScore = parseInt(event.data[1]);
-  const playerId = event.data[2];
-  const playerName = shortString.decodeShortString(event.data[3]);
-  const playerMaster = event.data[4];
-  const timestamp = new Date(event.createdAt);
-
-  return {
-    id,
-    gameId,
-    tournamentId,
-    gameScore,
-    playerId,
-    playerName,
-    playerMaster,
-    timestamp,
-  };
-};
-
 export const parseBuiltEvent = (event: Event): BuiltLog => {
   const id = event.id;
   const gameId = parseInt(event.keys[2]);
@@ -138,5 +116,38 @@ export const createDiscardedLog = (log: DiscardedLog): Log => {
     builder: log.playerName,
     color: log.playerColor,
     log: `-${log.score}`,
+  };
+};
+
+export const parseGameOverEvent = (event: Event): GameOverEvent => {
+  const id = event.id;
+  const gameId = parseInt(event.keys[2]);
+  const tournamentId = parseInt(event.data[0]);
+  const gameScore = parseInt(event.data[1]);
+  const playerId = event.data[2];
+  const playerName = shortString.decodeShortString(event.data[3]);
+  const playerMaster = event.data[4];
+  const timestamp = new Date(event.createdAt);
+
+  return {
+    id,
+    gameId,
+    tournamentId,
+    gameScore,
+    playerId,
+    playerName,
+    playerMaster,
+    timestamp,
+  };
+};
+
+export const createGameOverLog = (log: GameOverEvent): Log => {
+  return {
+    id: log.id,
+    timestamp: log.timestamp,
+    category: "GameOver",
+    builder: log.playerName,
+    color: "black",
+    log: `Game Over! ${log.gameScore} points`,
   };
 };

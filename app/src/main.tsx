@@ -18,7 +18,7 @@ async function init() {
     <React.StrictMode>
       <StarknetProvider>
         <DojoProvider value={setupResult}>
-          <App />
+          {!setupResult ? <div>Loading...</div> : <App />}
         </DojoProvider>
       </StarknetProvider>
     </React.StrictMode>
