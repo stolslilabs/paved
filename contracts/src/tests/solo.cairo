@@ -30,7 +30,7 @@ const BUILDER_NAME: felt252 = 'PLAYER';
 #[test]
 fn test_play_solo_game_started() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Solo);
+    let (world, _, context) = setup::spawn_game(Mode::Solo);
     let store = StoreTrait::new(world);
 
     // [Assert] Game

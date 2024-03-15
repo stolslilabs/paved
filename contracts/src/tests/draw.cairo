@@ -28,11 +28,8 @@ fn test_play_draw() {
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
 
-    // [Spawn]
-    let player = store.player(context.player_id);
-    systems.host.join(world, context.game_id, player.order);
+    // [Start]
     systems.host.start(world, context.game_id);
-    let bank = player.bank;
 
     // [Draw]
     systems.play.draw(world, context.game_id);
@@ -51,11 +48,8 @@ fn test_play_draw() {
 fn test_play_draw_twice_revert_cannot_draw() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
-    let store = StoreTrait::new(world);
 
-    // [Spawn]
-    let player = store.player(context.player_id);
-    systems.host.join(world, context.game_id, player.order);
+    // [Start]
     systems.host.start(world, context.game_id);
 
     // [Draw]

@@ -176,8 +176,7 @@ mod play {
             assert(tile.is_non_zero(), errors::TILE_NOT_FOUND);
 
             // [Effect] Builder discard a tile
-            let mut team = store.team(game, builder.order.into());
-            let malus = builder.discard(ref game, ref team, ref player);
+            let malus = builder.discard(ref game, ref player);
 
             // [Effect] Update builder
             store.set_builder(builder);
@@ -196,7 +195,7 @@ mod play {
                     tile_id: tile.id,
                     player_id: player.id,
                     player_name: player.name,
-                    order_id: team.order,
+                    order_id: builder.order,
                     points: malus,
                 },
             );

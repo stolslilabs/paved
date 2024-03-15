@@ -32,10 +32,9 @@ fn test_play_buy() {
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
 
-    // [Spawn]
-    let player = store.player(context.player_id);
-    systems.host.join(world, context.game_id, player.order);
+    // [Start]
     systems.host.start(world, context.game_id);
+    let player = store.player(context.player_id);
     let bank = player.bank;
 
     // [Buy]
