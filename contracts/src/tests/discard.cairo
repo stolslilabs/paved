@@ -28,9 +28,7 @@ fn test_play_discard() {
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
 
-    // [Spawn]
-    let player = store.player(context.player_id);
-    systems.host.join(world, context.game_id, player.order);
+    // [Start]
     systems.host.start(world, context.game_id);
 
     // [Draw]
@@ -41,6 +39,7 @@ fn test_play_discard() {
 
     // [Assert]
     let game = store.game(context.game_id);
+    let player = store.player(context.player_id);
     let builder = store.builder(game, player.id);
     assert(builder.tile_id == 0, 'Discard: tile_id');
 }

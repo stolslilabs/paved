@@ -13,7 +13,6 @@ use stolsli::types::layout::{Layout, LayoutImpl};
 use stolsli::types::category::Category;
 use stolsli::types::alliance::{Alliance, AllianceImpl, MULTIPLIER};
 use stolsli::models::game::{Game, GameImpl};
-use stolsli::models::team::{Team, TeamImpl};
 use stolsli::models::player::{Player, PlayerImpl};
 use stolsli::models::tile::{Tile, TileImpl};
 use stolsli::models::character::{Character, CharacterImpl};
@@ -75,12 +74,12 @@ impl BuilderImpl of BuilderTrait {
     }
 
     #[inline(always)]
-    fn discard(ref self: Builder, ref game: Game, ref team: Team, ref player: Player) -> u32 {
+    fn discard(ref self: Builder, ref game: Game, ref player: Player) -> u32 {
         // [Check] Have a tile to place
         self.assert_discardable();
         // [Effect] Substract penalty
         let mut malus = constants::DISCARD_POINTS;
-        game.sub_score(ref self, ref team, ref player, ref malus,);
+        game.sub_score(ref self, ref player, ref malus,);
         // [Effect] Remove tile from tile count
         self.tile_id = 0;
         malus
