@@ -2,7 +2,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -42,6 +41,8 @@ import {
 } from "@dojoengine/recs";
 import { useLogs } from "@/hooks/useLogs";
 import { Claim } from "./Claim";
+import { TwitterShareButton } from "react-share";
+import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
@@ -71,11 +72,13 @@ export const LeaderboardDialog = () => {
     if (game) {
       const interval = setInterval(() => {
         const now = Math.floor(Date.now()) / 1000;
-        if (
+        const multiCondition =
           !over &&
+          game.mode !== 1 &&
           game.duration !== 0 &&
-          now >= game.start_time + game.duration
-        ) {
+          now >= game.start_time + game.duration;
+        const soloCondition = !over && game.mode === 1 && game.tile_count > 99;
+        if (multiCondition || soloCondition) {
           setOpen(true);
           setOver(true);
         }
@@ -83,6 +86,8 @@ export const LeaderboardDialog = () => {
       return () => clearInterval(interval);
     }
   }, [game, over]);
+
+  if (!game) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -102,23 +107,44 @@ export const LeaderboardDialog = () => {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
-        {over && <Description claimable={!!builder} />}
+        {over && <Description />}
         <Leaderboard />
+        {over && game.mode !== 1 && builder && <Reward />}
       </DialogContent>
     </Dialog>
   );
 };
 
-export const Description = ({ claimable }: { claimable: boolean }) => {
-  return claimable ? (
+export const Description = () => {
+  return (
+    <DialogDescription className="flex justify-center items-center gap-3 text-xs">
+      Game is over!
+      <Share />
+    </DialogDescription>
+  );
+};
+
+export const Reward = () => {
+  return (
     <DialogDescription className="flex justify-center items-center gap-4 text-xs">
-      Game is over, claim your rewards!
+      Claim your rewards!
       <Claim />
     </DialogDescription>
-  ) : (
-    <DialogDescription className="flex justify-center items-center gap-3 text-xs">
-      Game is over
-    </DialogDescription>
+  );
+};
+
+export const Share = () => {
+  return (
+    <TwitterShareButton url="https://paved.gg/" title={`🎉 I scored`}>
+      <Button
+        className="flex gap-2 w-auto p-2 text-xs"
+        variant={"default"}
+        size={"icon"}
+      >
+        <FontAwesomeIcon icon={faXTwitter} />
+        <p>Share</p>
+      </Button>
+    </TwitterShareButton>
   );
 };
 
@@ -127,18 +153,16 @@ export const Leaderboard = () => {
   const [builders, setBuilders] = useState<{ [key: number]: typeof Builder }>(
     {}
   );
-  const [teams, setTeams] = useState<{ [key: number]: typeof Team }>({});
   const [topBuilders, setTopBuilders] = useState<any>([]);
-  const [topTeams, setTopTeams] = useState<any>([]);
   const { logs } = useLogs();
   const {
     setup: {
       world,
-      clientComponents: { Builder, Team },
+      clientComponents: { Builder },
     },
   } = useDojo();
 
-  useEffect(() => {
+  useMemo(() => {
     defineEnterSystem(
       world,
       [Has(Builder), HasValue(Builder, { game_id: gameId })],
@@ -154,27 +178,6 @@ export const Leaderboard = () => {
       function ({ value: [builder] }: any) {
         setBuilders((prevTiles: any) => {
           return { ...prevTiles, [builder.player_id]: builder };
-        });
-      }
-    );
-  }, []);
-
-  useEffect(() => {
-    defineEnterSystem(
-      world,
-      [Has(Team), HasValue(Team, { game_id: gameId })],
-      function ({ value: [team] }: any) {
-        setTeams((prevTiles: any) => {
-          return { ...prevTiles, [team.order]: team };
-        });
-      }
-    );
-    defineSystem(
-      world,
-      [Has(Team), HasValue(Team, { game_id: gameId })],
-      function ({ value: [team] }: any) {
-        setTeams((prevTiles: any) => {
-          return { ...prevTiles, [team.order]: team };
         });
       }
     );
@@ -183,77 +186,39 @@ export const Leaderboard = () => {
   useEffect(() => {
     if (!builders) return;
 
-    const topSortedBuilders: (typeof Builder)[] = Object.values(builders)
-      .sort((a, b) => {
-        return b?.score - a?.score;
-      })
-      .slice(0, 16);
-
-    setTopBuilders(topSortedBuilders);
-  }, [builders]);
-
-  useEffect(() => {
-    if (!teams) return;
-
-    const topSortedTeams: (typeof Team)[] = Object.values(teams).sort(
+    const topSortedBuilders: (typeof Builder)[] = Object.values(builders).sort(
       (a, b) => {
         return b?.score - a?.score;
       }
     );
 
-    setTopTeams(topSortedTeams);
-  }, [teams]);
+    setTopBuilders(topSortedBuilders);
+  }, [builders]);
 
   return (
-    <Tabs defaultValue="player" className="w-full m-auto">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="player">Players</TabsTrigger>
-        <TabsTrigger value="order">Orders</TabsTrigger>
-      </TabsList>
-      <TabsContent value="player">
-        <Table className="text-xs">
-          <TableCaption>Top 16 players</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px]">Rank</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Order</TableHead>
-              <TableHead className="text-right">Score</TableHead>
-              <TableHead className="text-right">Paved</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {topBuilders.map((builder: typeof Builder, index: number) => {
-              return (
-                <PlayerRow
-                  key={index}
-                  builder={builder}
-                  rank={index + 1}
-                  logs={logs.filter((log) => log.category === "Built")}
-                />
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TabsContent>
-      <TabsContent value="order">
-        <Table className="text-xs">
-          <TableCaption>Top orders</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[100px]">Rank</TableHead>
-              <TableHead>Order</TableHead>
-              <TableHead className="text-right">Score</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {topTeams.map((team: typeof Team, index: number) => {
-              return <OrderRow key={index} team={team} rank={index + 1} />;
-            })}
-          </TableBody>
-        </Table>
-      </TabsContent>
-    </Tabs>
+    <Table className="text-xs">
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-[100px]">Rank</TableHead>
+          <TableHead>Name</TableHead>
+          <TableHead>Order</TableHead>
+          <TableHead className="text-right">Score</TableHead>
+          <TableHead className="text-right">Paved</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {topBuilders.map((builder: typeof Builder, index: number) => {
+          return (
+            <PlayerRow
+              key={index}
+              builder={builder}
+              rank={index + 1}
+              logs={logs.filter((log) => log.category === "Built")}
+            />
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 };
 

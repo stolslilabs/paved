@@ -69,11 +69,11 @@ export const Claim = () => {
         <TooltipTrigger asChild>
           <Button
             disabled={!enable}
-            variant={"command"}
+            variant={"default"}
             size={"icon"}
             onClick={handleClick}
           >
-            <FontAwesomeIcon className="h-4" icon={faSackDollar} />
+            <FontAwesomeIcon icon={faSackDollar} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>
