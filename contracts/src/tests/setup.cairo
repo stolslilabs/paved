@@ -103,7 +103,7 @@ mod setup {
         set_contract_address(PLAYER());
         systems.manage.create(world, PLAYER_NAME, ORDER_ID, PLAYER());
         let duration: u64 = 0;
-        let game_id = systems.host.create(world, GAME_NAME, duration, ORDER_ID, mode.into());
+        let game_id = systems.host.create(world, GAME_NAME, duration, mode.into());
         let context = Context {
             player_id: PLAYER().into(),
             player_name: PLAYER_NAME,

@@ -1,6 +1,5 @@
 import { useDojo } from "../../dojo/useDojo";
 import { shortString } from "starknet";
-import { useState } from "react";
 
 import {
   Tooltip,
@@ -24,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { useComponentValue } from "@dojoengine/react";
-import { useMemo, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 export const CreateMultiGame = () => {
   const [gameName, setGameName] = useState("");
@@ -87,7 +86,7 @@ export const CreateMultiGame = () => {
         <DialogHeader>
           <DialogTitle>Create a game</DialogTitle>
           <DialogDescription>
-            Choose a name and set the end time (from now in minutes).
+            Choose a name and set the duration (in minutes).
           </DialogDescription>
         </DialogHeader>
 

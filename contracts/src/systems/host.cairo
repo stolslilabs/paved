@@ -16,12 +16,7 @@ use stolsli::types::spot::Spot;
 #[starknet::interface]
 trait IHost<TContractState> {
     fn create(
-        self: @TContractState,
-        world: IWorldDispatcher,
-        name: felt252,
-        duration: u64,
-        player_order: u8,
-        mode: u8
+        self: @TContractState, world: IWorldDispatcher, name: felt252, duration: u64, mode: u8
     ) -> u32;
     fn rename(self: @TContractState, world: IWorldDispatcher, game_id: u32, name: felt252);
     fn update(self: @TContractState, world: IWorldDispatcher, game_id: u32, duration: u64);
@@ -91,12 +86,7 @@ mod host {
     #[abi(embed_v0)]
     impl HostImpl of IHost<ContractState> {
         fn create(
-            self: @ContractState,
-            world: IWorldDispatcher,
-            name: felt252,
-            duration: u64,
-            player_order: u8,
-            mode: u8,
+            self: @ContractState, world: IWorldDispatcher, name: felt252, duration: u64, mode: u8,
         ) -> u32 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -112,7 +102,7 @@ mod host {
             let mut game = GameImpl::new(game_id, name, player.id, time, duration, mode);
 
             // [Effect] Create a new builder
-            let builder = BuilderImpl::new(game.id, player.id, player_order);
+            let builder = BuilderImpl::new(game.id, player.id, player.order);
             store.set_builder(builder);
 
             // [Effect] Join the game

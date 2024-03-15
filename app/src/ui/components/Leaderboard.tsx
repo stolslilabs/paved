@@ -107,7 +107,7 @@ export const LeaderboardDialog = () => {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
-        {over && <Description />}
+        {over && <Description game={game} />}
         <Leaderboard />
         {over && game.mode !== 1 && builder && <Reward />}
       </DialogContent>
@@ -115,11 +115,11 @@ export const LeaderboardDialog = () => {
   );
 };
 
-export const Description = () => {
+export const Description = ({ game }: { game: any }) => {
   return (
     <DialogDescription className="flex justify-center items-center gap-3 text-xs">
       Game is over!
-      <Share />
+      {game.mode === 1 && <Share score={game.score} />}
     </DialogDescription>
   );
 };
@@ -133,9 +133,16 @@ export const Reward = () => {
   );
 };
 
-export const Share = () => {
+export const Share = ({ score }: { score: number }) => {
   return (
-    <TwitterShareButton url="https://paved.gg/" title={`🎉 I scored`}>
+    <TwitterShareButton
+      url="⚒️"
+      title={`I just PAVED a way in @pavedgame’s first ever solo tournament
+
+Score: ${score}
+
+Play onchain and think you can do better? Join the tournament at https://www.paved.gg/ and #paveyourwaytovictory #onetileatatime`}
+    >
       <Button
         className="flex gap-2 w-auto p-2 text-xs"
         variant={"default"}
@@ -258,17 +265,6 @@ export const PlayerRow = ({
       <TableCell>{order}</TableCell>
       <TableCell className="text-right">{builder?.score}</TableCell>
       <TableCell className="text-right">{paved}</TableCell>
-    </TableRow>
-  );
-};
-
-export const OrderRow = ({ team, rank }: { team: any; rank: number }) => {
-  const order = getOrder(team.order);
-  return (
-    <TableRow>
-      <TableCell className="font-medium">{rank}</TableCell>
-      <TableCell>{order}</TableCell>
-      <TableCell className="text-right">{team?.score}</TableCell>
     </TableRow>
   );
 };
