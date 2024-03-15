@@ -129,6 +129,24 @@ export function createSystemCalls({ client }: { client: IWorld }) {
     }
   };
 
+  const delete_game = async ({ account, ...props }: SystemTypes.DeleteGame) => {
+    try {
+      const { transaction_hash } = await client.host.remove({
+        account,
+        ...props,
+      });
+
+      notify(
+        "Game has been deleted.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        })
+      );
+    } catch (error) {
+      console.error("Error deleting game:", error);
+    }
+  };
+
   const start_game = async ({ account, ...props }: SystemTypes.StartGame) => {
     try {
       const { transaction_hash } = await client.host.start({
@@ -307,6 +325,7 @@ export function createSystemCalls({ client }: { client: IWorld }) {
     join_game,
     transfer_game,
     leave_game,
+    delete_game,
     start_game,
     create_player,
     rename_player,

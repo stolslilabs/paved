@@ -96,7 +96,7 @@ export const UpdateGame = () => {
         <DialogHeader>
           <DialogTitle>Update a game</DialogTitle>
           <DialogDescription>
-            Choose a name and set the end time (from now in minutes).
+            Choose a name and set the duration (in minutes).
           </DialogDescription>
         </DialogHeader>
 

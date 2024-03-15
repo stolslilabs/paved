@@ -39,8 +39,10 @@ import { CreateSoloGame } from "@/ui/components/CreateSoloGame";
 import { CreateMultiGame } from "@/ui/components/CreateMultiGame";
 import { shortString } from "starknet";
 import { TournamentDialog, TournamentHeader } from "../components/Tournament";
+import { useLobbyStore } from "@/store";
 
 export const Games = () => {
+  const { mode, setMode } = useLobbyStore();
   const [games, setGames] = useState<{ [key: number]: typeof Game }>({});
   const [showSingle, setShowSingle] = useState<boolean>(false);
   const [showMulti, setShowMulti] = useState<boolean>(false);
@@ -65,26 +67,36 @@ export const Games = () => {
     });
   }, []);
 
+  const toggleMode = () => {
+    console.log(mode);
+    setMode(mode === "single" ? "multi" : "single");
+  };
+
   const filteredSingleGames = useMemo(() => {
-    return Object.values(games).filter((game) => {
-      if (game.host !== BigInt(account.address)) return false;
-      if (game.mode !== 1) return false;
-      if (showSingle) return true;
-      return game.tile_count < 99;
-    });
+    return Object.values(games)
+      .filter((game) => {
+        if (game.host !== BigInt(account.address)) return false;
+        if (game.mode !== 1) return false;
+        if (showSingle) return true;
+        return game.tile_count < 99;
+      })
+      .sort((a, b) => b.id - a.id);
   }, [games, showSingle, account]);
 
   const filteredMultiGames = useMemo(() => {
-    return Object.values(games).filter((game) => {
-      if (game.mode !== 2) return false;
-      if (showMulti) return true;
-      const endtime = game.start_time + game.duration;
-      return (
-        game.start_time == 0 ||
-        game.duration == 0 ||
-        endtime > Math.floor(Date.now() / 1000)
-      );
-    });
+    return Object.values(games)
+      .filter((game) => {
+        if (game.player_count === 0) return false;
+        if (game.mode !== 2) return false;
+        if (showMulti) return true;
+        const endtime = game.start_time + game.duration;
+        return (
+          game.start_time == 0 ||
+          game.duration == 0 ||
+          endtime > Math.floor(Date.now() / 1000)
+        );
+      })
+      .sort((a, b) => b.id - a.id);
   }, [games, showMulti]);
 
   const backgroundColor = useMemo(() => "#FCF7E7", []);
@@ -94,7 +106,12 @@ export const Games = () => {
       <div className="flex flex-col gap-8 items-start w-full p-10 h-full">
         <h1>Game lobby</h1>
 
-        <Tabs defaultValue="single" className="w-full">
+        <Tabs
+          defaultValue={mode}
+          value={mode}
+          onValueChange={toggleMode}
+          className="w-full"
+        >
           <TabsList>
             <TabsTrigger value="single">Solo</TabsTrigger>
             <TabsTrigger value="multi">Multiplayer</TabsTrigger>

@@ -89,6 +89,21 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
+    fn nullify(ref self: Game) {
+        // [Effect] Nullify the game
+        self.name = 0;
+        self.host = 0;
+        self.player_count = 0;
+        self.tiles = 0;
+        self.tile_count = 0;
+        self.start_time = 0;
+        self.duration = 0;
+        self.prize = 0;
+        self.score = 0;
+        self.mode = 0;
+    }
+
+    #[inline(always)]
     fn rename(ref self: Game, name: felt252) {
         // [Check] Validate parameters
         GameAssert::assert_valid_name(name);
@@ -121,8 +136,7 @@ impl GameImpl of GameTrait {
 
     #[inline(always)]
     fn delete(ref self: Game) {
-        self.host = 0;
-        self.player_count = 0;
+        self.nullify();
     }
 
     #[inline(always)]

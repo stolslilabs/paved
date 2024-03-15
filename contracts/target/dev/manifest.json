@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::host::host",
       "address": "0x5871c6387d2a0e0de6e99b1d043a57f5cce44630bf30c2e1afd9615995e8616",
-      "class_hash": "0x3363adb71d4335b4773ee976a346c1a038cdced4eda77d9d54e3473613c786",
+      "class_hash": "0x672e2b01eba489b05bbe91168fae134035166dd6c6b0a69b69fa357b516f714",
       "abi": [
         {
           "type": "impl",
@@ -1096,6 +1096,22 @@
             },
             {
               "type": "function",
+              "name": "delete",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "dojo::world::IWorldDispatcher"
+                },
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
               "name": "start",
               "inputs": [
                 {
@@ -1221,7 +1237,7 @@
     {
       "name": "stolsli::systems::manage::manage",
       "address": "0x28b0f2a243fe99d27f9ade6828975304a792c91781523957920e1f5bad4ad64",
-      "class_hash": "0x438ccda917e4642cc3092813430b693878e92e53f78b6c4af7a1e5dac885137",
+      "class_hash": "0x55e84dffdf48cde2d5b8027e974ff325c80591445632433314be6ccdb05ca2c",
       "abi": [
         {
           "type": "impl",
@@ -1346,7 +1362,7 @@
     {
       "name": "stolsli::systems::play::play",
       "address": "0x54cecff4ea996878685a1d15e6e20e58f0560661bb9e6ae2f2b47a4a3acf2e4",
-      "class_hash": "0x2d49b9ca61e64b949d5280bb110e70a6b8e1a0e5dfcb62538fe61d0ce26c024",
+      "class_hash": "0x68585452fe4dc2413e562324eec9e7c75969e5188ac9eede12dcb2a95bb9356",
       "abi": [
         {
           "type": "impl",
@@ -2550,6 +2566,11 @@
           "key": false
         },
         {
+          "name": "player_count",
+          "type": "u32",
+          "key": false
+        },
+        {
           "name": "tiles",
           "type": "u128",
           "key": false
@@ -2585,7 +2606,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x1ab8281f082da4d36351dfd9f864314036313bf659cf17590ce30e86aa4f180",
+      "class_hash": "0x6fd29a8dcb4b0241f13d648e477fc5ab2bd48fafa92800daacafdc09b901d67",
       "abi": [
         {
           "type": "impl",
@@ -2773,6 +2794,10 @@
               "type": "core::felt252"
             },
             {
+              "name": "player_count",
+              "type": "core::integer::u32"
+            },
+            {
               "name": "tiles",
               "type": "core::integer::u128"
             },
@@ -2852,7 +2877,12 @@
           "key": false
         },
         {
-          "name": "score",
+          "name": "solo_score",
+          "type": "u32",
+          "key": false
+        },
+        {
+          "name": "multi_score",
           "type": "u32",
           "key": false
         },
@@ -2867,7 +2897,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x4e794dfea9af5fec7555f17d86c8f832a9df6349c82dfd0ab7ffcae6c6d1659",
+      "class_hash": "0x6978f8337b0eca8ac18bd6a658b9329ebc09703d2628855a104623b1c54df57",
       "abi": [
         {
           "type": "impl",
@@ -3059,7 +3089,11 @@
               "type": "core::integer::u8"
             },
             {
-              "name": "score",
+              "name": "solo_score",
+              "type": "core::integer::u32"
+            },
+            {
+              "name": "multi_score",
               "type": "core::integer::u32"
             },
             {

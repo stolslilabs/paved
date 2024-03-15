@@ -9,7 +9,6 @@ import { useDojo } from "@/dojo/useDojo";
 import { useComponentValue } from "@dojoengine/react";
 import { Player } from "@/ui/containers/Player";
 import { Room } from "@/ui/containers/Room";
-import { Header } from "@/ui/containers/Header";
 
 export enum Controls {
   clockwise = "clockwise",
@@ -18,8 +17,7 @@ export enum Controls {
 
 const GameRoom = () => {
   return (
-    <div className="relative flex">
-      <Header />
+    <div className="h-full relative flex">
       <Player />
       <Room />
     </div>

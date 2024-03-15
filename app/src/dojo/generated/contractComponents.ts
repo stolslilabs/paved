@@ -2,6 +2,10 @@
 
 import { defineComponent, Type as RecsType, World } from "@dojoengine/recs";
 
+export type ContractComponents = Awaited<
+  ReturnType<typeof defineContractComponents>
+>;
+
 export function defineContractComponents(world: World) {
   return {
     Builder: (() => {
@@ -72,6 +76,7 @@ export function defineContractComponents(world: World) {
           id: RecsType.Number,
           name: RecsType.BigInt,
           host: RecsType.BigInt,
+          player_count: RecsType.Number,
           tiles: RecsType.BigInt,
           tile_count: RecsType.Number,
           start_time: RecsType.Number,
@@ -87,6 +92,7 @@ export function defineContractComponents(world: World) {
               "u32",
               "felt252",
               "felt252",
+              "u32",
               "u128",
               "u32",
               "u64",
@@ -108,14 +114,24 @@ export function defineContractComponents(world: World) {
           name: RecsType.BigInt,
           order: RecsType.Number,
           bank: RecsType.Number,
-          score: RecsType.Number,
+          solo_score: RecsType.Number,
+          multi_score: RecsType.Number,
           paved: RecsType.Number,
           master: RecsType.BigInt,
         },
         {
           metadata: {
             name: "Player",
-            types: ["felt252", "felt252", "u8", "u8", "u32", "u32", "felt252"],
+            types: [
+              "felt252",
+              "felt252",
+              "u8",
+              "u8",
+              "u32",
+              "u32",
+              "u32",
+              "felt252",
+            ],
             customTypes: [],
           },
         }

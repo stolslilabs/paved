@@ -28,6 +28,9 @@ interface LobbyState {
   playerEntity: Entity | null;
   setPlayerEntity: (playerEntity: Entity) => void;
   resetPlayerEntity: () => void;
+  mode: "single" | "multi";
+  setMode: (mode: "single" | "multi") => void;
+  resetMode: () => void;
 }
 
 interface CameraState {
@@ -98,6 +101,9 @@ export const useLobbyStore = create<LobbyState>()((set, get) => ({
   playerEntity: null,
   setPlayerEntity: (playerEntity: Entity) => set({ playerEntity }),
   resetPlayerEntity: () => set({ playerEntity: null }),
+  mode: "single",
+  setMode: (mode) => set({ mode }),
+  resetMode: () => set({ mode: "single" }),
 }));
 
 export const useCameraStore = create<CameraState>()((set, get) => ({
