@@ -31,12 +31,12 @@ use stolsli::models::player::{Player, PlayerImpl};
 use stolsli::models::builder::{Builder, BuilderImpl};
 use stolsli::models::character::{Character, CharacterPosition, CharacterImpl, CharacterAssert,};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
-use stolsli::models::team::{Team, TeamImpl};
 
 mod errors {
     const INVALID_NAME: felt252 = 'Game: invalid name';
     const INVALID_HOST: felt252 = 'Game: invalid host';
     const INVALID_MODE: felt252 = 'Game: invalid mode';
+    const INVALID_PLAYER_COUNT: felt252 = 'Game: invalid player count';
     const TRANSFER_SAME_HOST: felt252 = 'Game: transfer to same host';
     const PLAYER_NOT_HOST: felt252 = 'Game: player is not host';
     const PLAYER_IS_HOST: felt252 = 'Game: player is host';
@@ -54,6 +54,7 @@ struct Game {
     id: u32,
     name: felt252,
     host: felt252,
+    player_count: u32,
     tiles: u128,
     tile_count: u32,
     start_time: u64,
@@ -76,6 +77,7 @@ impl GameImpl of GameTrait {
             id,
             name,
             host,
+            player_count: 0,
             tiles: 0,
             tile_count: 0,
             start_time: 0,
@@ -84,20 +86,6 @@ impl GameImpl of GameTrait {
             score: 0,
             mode: mode.into(),
         }
-    }
-
-    #[inline(always)]
-    fn nullify(ref self: Game) {
-        // [Effect] Nullify the game
-        self.name = 0;
-        self.host = 0;
-        self.tiles = 0;
-        self.tile_count = 0;
-        self.start_time = 0;
-        self.duration = 0;
-        self.prize = 0;
-        self.score = 0;
-        self.mode = Mode::None.into();
     }
 
     #[inline(always)]
@@ -119,6 +107,22 @@ impl GameImpl of GameTrait {
         assert(host != 0, errors::INVALID_HOST);
         assert(self.host != host, errors::TRANSFER_SAME_HOST);
         self.host = host;
+    }
+
+    #[inline(always)]
+    fn join(ref self: Game) {
+        self.player_count += 1;
+    }
+
+    #[inline(always)]
+    fn leave(ref self: Game) {
+        self.player_count -= 1;
+    }
+
+    #[inline(always)]
+    fn delete(ref self: Game) {
+        self.host = 0;
+        self.player_count = 0;
     }
 
     #[inline(always)]
@@ -148,14 +152,17 @@ impl GameImpl of GameTrait {
     fn add_score(
         ref self: Game,
         ref builder: Builder,
-        ref team: Team,
         ref player: Player,
         score: u32,
         ref events: Array<Scored>
     ) {
+        if Mode::Solo == self.mode.into() {
+            player.solo_score += score;
+        } else if Mode::Multi == self.mode.into() {
+            player.multi_score += score;
+        };
+
         self.score += score;
-        team.score += score;
-        player.score += score;
         builder.score += score;
         let event = Scored {
             game_id: self.id,
@@ -164,23 +171,24 @@ impl GameImpl of GameTrait {
             y: 0,
             player_id: player.id,
             player_name: player.name,
-            order_id: team.order,
+            order_id: builder.order,
             points: score
         };
         events.append(event);
     }
 
     #[inline(always)]
-    fn sub_score(
-        ref self: Game, ref builder: Builder, ref team: Team, ref player: Player, ref score: u32,
-    ) {
+    fn sub_score(ref self: Game, ref builder: Builder, ref player: Player, ref score: u32,) {
         // [Check] Update score
         if builder.score < score {
             score = builder.score;
         };
+        if Mode::Solo == self.mode.into() {
+            player.solo_score -= score;
+        } else if Mode::Multi == self.mode.into() {
+            player.multi_score -= score;
+        };
         self.score -= score;
-        team.score -= score;
-        player.score -= score;
         builder.score -= score;
     }
 
@@ -306,6 +314,7 @@ impl ZeroableGame of Zeroable<Game> {
             id: 0,
             name: 0,
             host: 0,
+            player_count: 0,
             tiles: 0,
             tile_count: 0,
             start_time: 0,
@@ -383,6 +392,11 @@ impl GameAssert of AssertTrait {
     #[inline(always)]
     fn assert_is_multi(self: Game) {
         assert(self.mode == Mode::Multi.into(), errors::INVALID_MODE);
+    }
+
+    #[inline(always)]
+    fn assert_deletable(self: Game) {
+        assert(self.player_count == 1, errors::INVALID_PLAYER_COUNT);
     }
 }
 

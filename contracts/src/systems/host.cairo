@@ -16,13 +16,19 @@ use stolsli::types::spot::Spot;
 #[starknet::interface]
 trait IHost<TContractState> {
     fn create(
-        self: @TContractState, world: IWorldDispatcher, name: felt252, duration: u64, mode: u8
+        self: @TContractState,
+        world: IWorldDispatcher,
+        name: felt252,
+        duration: u64,
+        player_order: u8,
+        mode: u8
     ) -> u32;
     fn rename(self: @TContractState, world: IWorldDispatcher, game_id: u32, name: felt252);
     fn update(self: @TContractState, world: IWorldDispatcher, game_id: u32, duration: u64);
     fn join(self: @TContractState, world: IWorldDispatcher, game_id: u32, order: u8);
     fn transfer(self: @TContractState, world: IWorldDispatcher, game_id: u32, host_id: felt252);
     fn leave(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
+    fn delete(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
     fn start(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
 }
 
@@ -85,7 +91,12 @@ mod host {
     #[abi(embed_v0)]
     impl HostImpl of IHost<ContractState> {
         fn create(
-            self: @ContractState, world: IWorldDispatcher, name: felt252, duration: u64, mode: u8,
+            self: @ContractState,
+            world: IWorldDispatcher,
+            name: felt252,
+            duration: u64,
+            player_order: u8,
+            mode: u8,
         ) -> u32 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -100,12 +111,15 @@ mod host {
             let time = get_block_timestamp();
             let mut game = GameImpl::new(game_id, name, player.id, time, duration, mode);
 
+            // [Effect] Create a new builder
+            let builder = BuilderImpl::new(game.id, player.id, player_order);
+            store.set_builder(builder);
+
+            // [Effect] Join the game
+            game.join();
+
             // [Effect] Start the game if solo mode
             if Mode::Solo == game.mode.into() {
-                // [Effect] Create a new builder
-                let builder = BuilderImpl::new(game.id, player.id, player.order);
-                store.set_builder(builder);
-
                 // [Effect] Create starter tile
                 let tile_id = game.add_tile();
                 let mut tile = TileImpl::new(game_id, tile_id, 0, Plan::RFFFRFCFR);
@@ -187,7 +201,7 @@ mod host {
             player.assert_exists();
 
             // [Check] Game exists
-            let game = store.game(game_id);
+            let mut game = store.game(game_id);
             game.assert_exists();
 
             // [Check] Game has not yet started
@@ -201,12 +215,9 @@ mod host {
             let builder = BuilderImpl::new(game.id, player.id, order);
             store.set_builder(builder);
 
-            // [Effect] Create team if not already exists
-            let team = store.team(game, order.into());
-            if team.is_zero() {
-                let team = TeamImpl::new(game.id, order);
-                store.set_team(team);
-            }
+            // [Effect] Join the game
+            game.join();
+            store.set_game(game);
         }
 
         fn transfer(self: @ContractState, world: IWorldDispatcher, game_id: u32, host_id: felt252) {
@@ -255,7 +266,7 @@ mod host {
             player.assert_exists();
 
             // [Check] Game exists
-            let game = store.game(game_id);
+            let mut game = store.game(game_id);
             game.assert_exists();
 
             // [Check] Game has not yet started
@@ -272,6 +283,46 @@ mod host {
             let mut builder = store.builder(game, player.id);
             builder.remove();
             store.set_builder(builder);
+
+            // [Effect] Leave the game
+            game.leave();
+            store.set_game(game);
+        }
+
+        fn delete(self: @ContractState, world: IWorldDispatcher, game_id: u32,) {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new(world);
+
+            // [Check] Player exists
+            let caller = get_caller_address();
+            let player = store.player(caller.into());
+            player.assert_exists();
+
+            // [Check] Game exists
+            let mut game = store.game(game_id);
+            game.assert_exists();
+
+            // [Check] Game has not yet started
+            game.assert_not_started();
+
+            // [Check] Player is the host
+            game.assert_host(player.id);
+
+            // [Check] Game is deletable
+            game.assert_deletable();
+
+            // [Check] Builder exists
+            let builder = store.builder(game, player.id);
+            builder.assert_exists();
+
+            // [Effect] Delete builder
+            let mut builder = store.builder(game, player.id);
+            builder.remove();
+            store.set_builder(builder);
+
+            // [Effect] Delete the game
+            game.delete();
+            store.set_game(game);
         }
 
         fn start(self: @ContractState, world: IWorldDispatcher, game_id: u32,) {

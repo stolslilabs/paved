@@ -20,7 +20,8 @@ struct Player {
     name: felt252,
     order: u8,
     bank: u8,
-    score: u32,
+    solo_score: u32,
+    multi_score: u32,
     paved: u32,
     master: felt252,
 }
@@ -44,7 +45,8 @@ impl PlayerImpl of PlayerTrait {
             name,
             order,
             bank: constants::DEFAULT_TILES_COUNT,
-            score: 0,
+            solo_score: 0,
+            multi_score: 0,
             paved: 0,
             master: master
         }
@@ -115,7 +117,9 @@ impl PlayerAssert of AssertTrait {
 impl ZeroablePlayerImpl of Zeroable<Player> {
     #[inline(always)]
     fn zero() -> Player {
-        Player { id: 0, name: 0, order: 0, bank: 0, score: 0, paved: 0, master: 0 }
+        Player {
+            id: 0, name: 0, order: 0, bank: 0, solo_score: 0, multi_score: 0, paved: 0, master: 0
+        }
     }
 
     #[inline(always)]

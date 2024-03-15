@@ -31,10 +31,6 @@ fn test_host_transfer() {
     let store = StoreTrait::new(world);
 
     // [Join]
-    let player = store.player(context.player_id);
-    systems.host.join(world, context.game_id, player.order);
-
-    // [Join]
     set_contract_address(ANYONE());
     let anyone = store.player(context.anyone_id);
     systems.host.join(world, context.game_id, anyone.order);
@@ -55,10 +51,6 @@ fn test_host_transfer_revert_not_host() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
-
-    // [Join]
-    let player = store.player(context.player_id);
-    systems.host.join(world, context.game_id, player.order);
 
     // [Join]
     set_contract_address(ANYONE());
