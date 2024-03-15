@@ -35,6 +35,10 @@ export interface LeaveGame extends Signer {
   game_id: number;
 }
 
+export interface DeleteGame extends Signer {
+  game_id: number;
+}
+
 export interface StartGame extends Signer {
   game_id: number;
 }

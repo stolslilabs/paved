@@ -44,6 +44,7 @@ import {
 
 import { StartGame } from "@/ui/components/StartGame";
 import { LeaveGame } from "@/ui/components/LeaveGame";
+import { DeleteGame } from "@/ui/components/DeleteGame";
 import { TransferGame } from "../components/TransferGame";
 import { UpdateGame } from "../components/UpdateGame";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
@@ -54,6 +55,7 @@ export const Room = () => {
   const [duration, setDuration] = useState<string>("");
   const { resetPlayerEntity } = useLobbyStore();
   const {
+    account: { account },
     setup: {
       clientComponents: { Game, Builder },
     },
@@ -64,6 +66,11 @@ export const Room = () => {
     [gameId]
   );
   const game = useComponentValue(Game, gameKey);
+  const builderKey = useMemo(
+    () => getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]),
+    [gameId, account]
+  );
+  const builder = useComponentValue(Builder, builderKey);
   const builders = useEntityQuery([
     Has(Builder),
     HasValue(Builder, { game_id: game?.id }),
@@ -102,7 +109,7 @@ export const Room = () => {
   };
 
   return (
-    <div className="bg-yellow-100 h-screen grow" style={{ backgroundColor }}>
+    <div className="bg-yellow-100 h-full grow" style={{ backgroundColor }}>
       <div className="flex flex-col gap-8 items-start w-full p-10">
         <h1>Waiting room</h1>
 
@@ -117,7 +124,8 @@ export const Room = () => {
           </Button>
 
           <StartGame />
-          <LeaveGame />
+          {game && builder && builder.player_id === game.host && <DeleteGame />}
+          {game && builder && builder.player_id !== game.host && <LeaveGame />}
           <TransferGame />
           <UpdateGame />
         </div>

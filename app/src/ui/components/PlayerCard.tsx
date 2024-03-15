@@ -132,7 +132,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
         (sum, builder) => sum + builder.claimed,
         BigInt(0)
       );
-      setScore(player.score);
+      setScore(player.solo_score);
       setGames(Object.values(builders[player.id] || {}).length);
       setWon(parseFloat(`${Number(totalClaimed) / 1e18}`).toFixed(2));
       setPaved(player.paved);
@@ -163,7 +163,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
     if (players && score !== undefined) {
       setRank(
         Object.values(players)
-          .map((p: any) => p.score)
+          .map((p: any) => p.solo_score)
           .sort((a: any, b: any) => b - a)
           .indexOf(score) + 1
       );
