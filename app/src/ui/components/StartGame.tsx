@@ -29,10 +29,11 @@ export const StartGame = () => {
   );
   const builder = useComponentValue(Builder, builderKey);
 
-  const disabled = useMemo(
-    () => !game || !builder || builder.index !== 0,
-    [game, builder]
-  );
+  const disabled = useMemo(() => {
+    const readiness =
+      game && game.players === BigInt(2 ** game.player_count - 1);
+    return !game || !builder || builder.index !== 0 || !readiness;
+  }, [game, builder]);
 
   const handleClick = () => {
     start_game({

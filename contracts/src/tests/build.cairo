@@ -38,14 +38,14 @@ fn test_play_build_without_character() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
-    let game = store.game(context.game_id);
 
     // [Start]
-    systems.host.ready(world, game.id, true);
-    systems.host.start(world, game.id);
+    systems.host.ready(world, context.game_id, true);
+    systems.host.start(world, context.game_id);
 
     // [Draw]
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFCFFFCFF));
+    let game = store.game(context.game_id);
+    set_transaction_hash(setup::compute_tx_hash(game, Plan::FFCFFFCFF));
     systems.play.draw(world, game.id); // FFCFFFCFF
 
     // [Build]

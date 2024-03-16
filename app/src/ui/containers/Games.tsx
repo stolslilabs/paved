@@ -40,6 +40,7 @@ import { CreateMultiGame } from "@/ui/components/CreateMultiGame";
 import { shortString } from "starknet";
 import { TournamentDialog, TournamentHeader } from "../components/Tournament";
 import { useLobbyStore } from "@/store";
+import { TOURNAMENT_TILE_CAP } from "@/utils/constants";
 
 export const Games = () => {
   const { mode, setMode } = useLobbyStore();
@@ -73,7 +74,11 @@ export const Games = () => {
 
   const filteredSingleGames = useMemo(() => {
     return Object.values(games)
-      .filter((game) => game.mode === 1 && (showSingle || game.tile_count < 99))
+      .filter(
+        (game) =>
+          game.mode === 1 &&
+          (showSingle || game.tile_count < TOURNAMENT_TILE_CAP)
+      )
       .sort((a, b) => b.id - a.id);
   }, [games, showSingle, account]);
 

@@ -211,7 +211,9 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
       }
       setPlayerId(shortenHex(`${player.id}`).replace("...", ""));
       setPlayerName(shortString.decodeShortString(player.name));
-      setReady(builder.status === game.status);
+      setReady(
+        game.players & (BigInt(1) << BigInt(builder.index)) ? true : false
+      );
       setIsHost(builder.index === 0);
       setIsSelf(player.id === BigInt(account.address));
       setDisplay(true);

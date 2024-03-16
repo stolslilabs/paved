@@ -124,7 +124,7 @@ mod play {
             let mut builder = store.builder(game, caller.into());
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
-            // [Effect] Player draw fron his deck
+            // [Effect] Player draw from his deck
             // TODO: Enable for the release
             // player.draw();
 

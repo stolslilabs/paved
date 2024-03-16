@@ -949,7 +949,7 @@
     {
       "name": "stolsli::systems::host::host",
       "address": "0x5871c6387d2a0e0de6e99b1d043a57f5cce44630bf30c2e1afd9615995e8616",
-      "class_hash": "0x76ecd969c641afcfe0f8a10da7d1ccbf38e1345a86f6c8fe3969a1bfab65db1",
+      "class_hash": "0x2c4c4c0e1df15ac53ae450a749463cbf3dacc0bac35b758efc9dd8f8e466509",
       "abi": [
         {
           "type": "impl",
@@ -1287,7 +1287,7 @@
     {
       "name": "stolsli::systems::manage::manage",
       "address": "0x28b0f2a243fe99d27f9ade6828975304a792c91781523957920e1f5bad4ad64",
-      "class_hash": "0x59acee856b5803ed3e706e25598cb44520f844a2c0425cbe0ac17a68340afc2",
+      "class_hash": "0x33d598d856952ecb6dbec65688f4ced93999997a2cfe9b3d8ac0253186f1961",
       "abi": [
         {
           "type": "impl",
@@ -1412,7 +1412,7 @@
     {
       "name": "stolsli::systems::play::play",
       "address": "0x54cecff4ea996878685a1d15e6e20e58f0560661bb9e6ae2f2b47a4a3acf2e4",
-      "class_hash": "0x22c06d4f0f4c59d888787f2cc1d68b0cb0270c1038a056d18e33c4bf65140bf",
+      "class_hash": "0x64feba8cf79f22563fe8022a6deff76439328cd6e963d4721e97be638bd8a85",
       "abi": [
         {
           "type": "impl",
@@ -1824,11 +1824,6 @@
           "key": false
         },
         {
-          "name": "status",
-          "type": "u8",
-          "key": false
-        },
-        {
           "name": "order",
           "type": "u8",
           "key": false
@@ -1854,7 +1849,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x6c7904274518a86f31fcfbe49cea13ac313f15faee06c862890044938076f72",
+      "class_hash": "0x1fa22873229719494dfaaa9404b10fb39fba77f1c72cbef382140e0df100809",
       "abi": [
         {
           "type": "impl",
@@ -2040,10 +2035,6 @@
             {
               "name": "index",
               "type": "core::integer::u32"
-            },
-            {
-              "name": "status",
-              "type": "core::integer::u8"
             },
             {
               "name": "order",
@@ -2863,13 +2854,13 @@
           "key": false
         },
         {
-          "name": "status",
-          "type": "u8",
+          "name": "over",
+          "type": "bool",
           "key": false
         },
         {
-          "name": "over",
-          "type": "bool",
+          "name": "players",
+          "type": "u128",
           "key": false
         },
         {
@@ -2913,7 +2904,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x7c268479b9650232f125a4de50b7bb749312a97429c5d3cb6720f29f398264b",
+      "class_hash": "0x1fbcdef8752caf372cce3959ffc7c3f7a72587ee480ae3b6cfc05b0a5d2ef20",
       "abi": [
         {
           "type": "impl",
@@ -3111,12 +3102,12 @@
               "type": "core::felt252"
             },
             {
-              "name": "status",
-              "type": "core::integer::u8"
-            },
-            {
               "name": "over",
               "type": "core::bool"
+            },
+            {
+              "name": "players",
+              "type": "core::integer::u128"
             },
             {
               "name": "player_count",
