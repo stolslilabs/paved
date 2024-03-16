@@ -150,6 +150,22 @@ export const Tournament = () => {
     setEndTime(end.toLocaleTimeString());
   }, [page]);
 
+  const filteredGames = useMemo(() => {
+    const highests: { [key: string]: GameOverEvent } = {};
+    games
+      .filter((game) => game.tournamentId === page)
+      .forEach((game: GameOverEvent) => {
+        if (!highests[game.playerId]) {
+          highests[game.playerId] = game;
+        } else if (game.gameScore > highests[game.playerId].gameScore) {
+          highests[game.playerId] = game;
+        }
+      });
+    return Object.values(highests)
+      .sort((a, b) => b.gameScore - a.gameScore)
+      .slice(0, 16);
+  }, [games, page]);
+
   return (
     <>
       <div className="flex justify-center text-xs">Seasons</div>
@@ -199,12 +215,9 @@ export const Tournament = () => {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {games
-            .filter((game) => game.tournamentId === page)
-            .slice(0, 16)
-            .map((game: GameOverEvent, index: number) => {
-              return <GameRow key={index} game={game} rank={index + 1} />;
-            })}
+          {filteredGames.map((game: GameOverEvent, index: number) => {
+            return <GameRow key={index} game={game} rank={index + 1} />;
+          })}
         </TableBody>
       </Table>
     </>
