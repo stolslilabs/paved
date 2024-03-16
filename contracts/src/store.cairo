@@ -16,7 +16,7 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
 use stolsli::models::game::{Game, GameImpl};
 use stolsli::models::player::{Player, PlayerImpl};
-use stolsli::models::builder::{Builder, BuilderImpl};
+use stolsli::models::builder::{Builder, BuilderPosition, BuilderImpl};
 use stolsli::models::team::{Team, TeamImpl};
 use stolsli::models::tile::{Tile, TilePosition, TileImpl};
 use stolsli::models::character::{Character, CharacterPosition, CharacterImpl};
@@ -53,6 +53,29 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn builder(self: Store, game: Game, player_id: felt252) -> Builder {
         get!(self.world, (game.id, player_id), (Builder))
+    }
+
+    #[inline(always)]
+    fn builder_position(self: Store, game: Game, index: u32) -> BuilderPosition {
+        get!(self.world, (game.id, index), (BuilderPosition))
+    }
+
+    fn builders(self: Store, game: Game) -> Array<Builder> {
+        let mut builders: Array<Builder> = array![];
+        let mut index = game.player_count;
+        loop {
+            if index == 0 {
+                break;
+            }
+            index -= 1;
+            let builder_position = self.builder_position(game, index);
+            let player_id = builder_position.player_id;
+            if player_id != 0 {
+                let builder = self.builder(game, player_id);
+                builders.append(builder);
+            };
+        };
+        builders
     }
 
     #[inline(always)]
@@ -141,7 +164,36 @@ impl StoreImpl of StoreTrait {
 
     #[inline(always)]
     fn set_builder(self: Store, builder: Builder) {
+        let position: BuilderPosition = builder.into();
+        set!(self.world, (position));
         set!(self.world, (builder))
+    }
+
+    #[inline(always)]
+    fn swap_builders(self: Store, ref lhs: Builder, ref rhs: Builder) {
+        let index = lhs.index;
+        lhs.index = rhs.index;
+        rhs.index = index;
+        let lhs_position: BuilderPosition = lhs.into();
+        let rhs_position: BuilderPosition = rhs.into();
+        set!(self.world, (lhs_position));
+        set!(self.world, (rhs_position));
+        set!(self.world, (lhs));
+        set!(self.world, (rhs))
+    }
+
+    #[inline(always)]
+    fn remove_builder(self: Store, game: Game, ref builder: Builder) {
+        let last_index = game.player_count - 1;
+        builder.remove();
+        // Skip if the last builder is removed
+        if builder.index == last_index {
+            set!(self.world, (builder));
+            return;
+        }
+        let mut last_position = self.builder_position(game, last_index);
+        let mut last_builder = self.builder(game, last_position.player_id);
+        self.swap_builders(ref builder, ref last_builder);
     }
 
     #[inline(always)]

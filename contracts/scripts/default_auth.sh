@@ -20,7 +20,7 @@ echo play : $PLAY_ADDRESS
 echo "---------------------------------------------------------------------------"
 
 # enable system -> component authorizations
-COMPONENTS=("Game" "Player" "Builder" "Team" "Tile" "TilePosition" "Character" "CharacterPosition")
+COMPONENTS=("Game" "Player" "Builder" "BuilderPosition" "Team" "Tile" "TilePosition" "Character" "CharacterPosition")
 ACTIONS=($HOST_ADDRESS $MANAGE_ADDRESS $PLAY_ADDRESS)
 
 for component in ${COMPONENTS[@]}; do

@@ -44,7 +44,7 @@ export const DeleteGame = () => {
       !builder ||
       !builder.order ||
       game.player_count !== 1 ||
-      game.host !== builder.player_id
+      builder.index !== 0
     );
   }, [game, builder]);
 

@@ -37,9 +37,10 @@ fn test_case_000() {
 
     // [Start]
     set_contract_address(ANYONE());
-    let anyone = store.player(context.anyone_id);
-    systems.host.join(world, context.game_id, anyone.order);
+    systems.host.join(world, game.id);
+    systems.host.ready(world, game.id, true);
     set_contract_address(PLAYER());
+    systems.host.ready(world, game.id, true);
     systems.host.start(world, game.id);
 
     // [Draw & Build]

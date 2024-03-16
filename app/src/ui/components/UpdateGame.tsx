@@ -26,12 +26,11 @@ export const UpdateGame = () => {
   const [gameName, setGameName] = useState("");
   const [duration, setDuration] = useState(30);
   const [finishTimeFormat, setFinishTimeFormat] = useState<string>();
-  const [disabled, setDisabled] = useState(true);
 
   const {
     account: { account },
     setup: {
-      clientComponents: { Game, Player },
+      clientComponents: { Game, Player, Builder },
       systemCalls: { rename_game, update_game },
     },
   } = useDojo();
@@ -46,6 +45,11 @@ export const UpdateGame = () => {
     [account]
   );
   const player = useComponentValue(Player, playerId);
+  const builderKey = useMemo(
+    () => getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]),
+    [gameId, account]
+  );
+  const builder = useComponentValue(Builder, builderKey);
 
   useEffect(() => {
     if (duration) {
@@ -59,11 +63,12 @@ export const UpdateGame = () => {
     }
   }, [duration]);
 
+  const disabled = useMemo(() => !builder || builder.index !== 0, [builder]);
+
   useEffect(() => {
     if (game && player) {
       setGameName(shortString.decodeShortString(game.name));
       setDuration(game.duration / 60);
-      setDisabled(game.host !== player.id);
     }
   }, [game, player]);
 

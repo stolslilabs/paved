@@ -1,66 +1,66 @@
 import { useDojo } from "../../dojo/useDojo";
-
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useComponentValue } from "@dojoengine/react";
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { useLobbyStore } from "@/store";
-import { Entity } from "@dojoengine/recs";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCrown, faStar } from "@fortawesome/free-solid-svg-icons";
 
-export const TransferGame = () => {
+export const TransferGame = ({ player }: { player: any }) => {
   const { gameId } = useQueryParams();
-  const { playerEntity } = useLobbyStore();
-  const [disabled, setDisabled] = useState(false);
 
   const {
     account: { account },
     setup: {
-      clientComponents: { Game, Player, Builder },
+      clientComponents: { Builder },
       systemCalls: { transfer_game },
     },
   } = useDojo();
 
-  const gameKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId)]),
-    [gameId]
-  );
-  const game = useComponentValue(Game, gameKey);
   const builderKey = useMemo(
     () => getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]),
     [gameId, account]
   );
   const builder = useComponentValue(Builder, builderKey);
-  const playerKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account]
-  );
-  const host = useComponentValue(Player, playerEntity || playerKey);
 
-  useEffect(() => {
-    setDisabled(
-      !game ||
-        !builder ||
-        !host ||
-        game.host !== builder.player_id ||
-        host.id === builder.player_id
-    );
-  }, [game, builder, playerEntity, host]);
+  const disabled = useMemo(
+    () => !player || builder?.index !== 0 || player.id === builder.player_id,
+    [builder, player]
+  );
 
   const handleClick = () => {
-    if (!host) return;
+    if (!player) return;
     transfer_game({
       account: account,
       game_id: gameId,
-      host_id: host.id,
+      player_id: player.id,
     });
   };
 
   return (
-    <Button disabled={disabled} variant={"secondary"} onClick={handleClick}>
-      Transfer
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            disabled={disabled}
+            variant={"secondary"}
+            size={"icon"}
+            onClick={handleClick}
+          >
+            <FontAwesomeIcon icon={faCrown} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="select-none">Transfer game host</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };

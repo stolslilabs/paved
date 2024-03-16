@@ -6,8 +6,10 @@ import {
   RenameGame,
   UpdateGame,
   JoinGame,
+  ReadyGame,
   TransferGame,
   LeaveGame,
+  KickGame,
   DeleteGame,
   StartGame,
 } from "./types";
@@ -68,12 +70,11 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
-    const join = async ({ account, game_id, order }: JoinGame) => {
+    const join = async ({ account, game_id }: JoinGame) => {
       try {
         return await provider.execute(account, contract_name, "join", [
           provider.getWorldAddress(),
           game_id,
-          order,
         ]);
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -81,12 +82,25 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
-    const transfer = async ({ account, game_id, host_id }: TransferGame) => {
+    const ready = async ({ account, game_id, status }: ReadyGame) => {
+      try {
+        return await provider.execute(account, contract_name, "ready", [
+          provider.getWorldAddress(),
+          game_id,
+          status,
+        ]);
+      } catch (error) {
+        console.error("Error executing initialize:", error);
+        throw error;
+      }
+    };
+
+    const transfer = async ({ account, game_id, player_id }: TransferGame) => {
       try {
         return await provider.execute(account, contract_name, "transfer", [
           provider.getWorldAddress(),
           game_id,
-          host_id,
+          player_id,
         ]);
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -99,6 +113,19 @@ export async function setupWorld(provider: DojoProvider) {
         return await provider.execute(account, contract_name, "leave", [
           provider.getWorldAddress(),
           game_id,
+        ]);
+      } catch (error) {
+        console.error("Error executing initialize:", error);
+        throw error;
+      }
+    };
+
+    const kick = async ({ account, game_id, player_id }: KickGame) => {
+      try {
+        return await provider.execute(account, contract_name, "kick", [
+          provider.getWorldAddress(),
+          game_id,
+          player_id,
         ]);
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -130,7 +157,18 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
-    return { create, rename, update, join, transfer, leave, remove, start };
+    return {
+      create,
+      rename,
+      update,
+      join,
+      ready,
+      transfer,
+      leave,
+      kick,
+      remove,
+      start,
+    };
   }
 
   function manage() {

@@ -90,6 +90,24 @@ export function createSystemCalls({ client }: { client: IWorld }) {
     }
   };
 
+  const ready_game = async ({ account, ...props }: SystemTypes.ReadyGame) => {
+    try {
+      const { transaction_hash } = await client.host.ready({
+        account,
+        ...props,
+      });
+
+      notify(
+        "Builder is ready.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        })
+      );
+    } catch (error) {
+      console.error("Error being ready:", error);
+    }
+  };
+
   const transfer_game = async ({
     account,
     ...props
@@ -126,6 +144,24 @@ export function createSystemCalls({ client }: { client: IWorld }) {
       );
     } catch (error) {
       console.error("Error leaving game:", error);
+    }
+  };
+
+  const kick_game = async ({ account, ...props }: SystemTypes.KickGame) => {
+    try {
+      const { transaction_hash } = await client.host.kick({
+        account,
+        ...props,
+      });
+
+      notify(
+        "Builder has been kicked.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        })
+      );
+    } catch (error) {
+      console.error("Error kicking builder:", error);
     }
   };
 
@@ -323,8 +359,10 @@ export function createSystemCalls({ client }: { client: IWorld }) {
     rename_game,
     update_game,
     join_game,
+    ready_game,
     transfer_game,
     leave_game,
+    kick_game,
     delete_game,
     start_game,
     create_player,

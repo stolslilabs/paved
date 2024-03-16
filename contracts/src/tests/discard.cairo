@@ -29,6 +29,7 @@ fn test_play_discard() {
     let store = StoreTrait::new(world);
 
     // [Start]
+    systems.host.ready(world, context.game_id, true);
     systems.host.start(world, context.game_id);
 
     // [Draw]

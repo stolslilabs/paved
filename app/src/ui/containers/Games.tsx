@@ -54,7 +54,7 @@ export const Games = () => {
     },
   } = useDojo();
 
-  useEffect(() => {
+  useMemo(() => {
     defineEnterSystem(world, [Has(Game)], function ({ value: [game] }: any) {
       setGames((prevTiles: any) => {
         return { ...prevTiles, [game.id]: game };
@@ -68,18 +68,12 @@ export const Games = () => {
   }, []);
 
   const toggleMode = () => {
-    console.log(mode);
     setMode(mode === "single" ? "multi" : "single");
   };
 
   const filteredSingleGames = useMemo(() => {
     return Object.values(games)
-      .filter((game) => {
-        if (game.host !== BigInt(account.address)) return false;
-        if (game.mode !== 1) return false;
-        if (showSingle) return true;
-        return game.tile_count < 99;
-      })
+      .filter((game) => game.mode === 1 && (showSingle || game.tile_count < 99))
       .sort((a, b) => b.id - a.id);
   }, [games, showSingle, account]);
 
@@ -200,14 +194,27 @@ export const GameSingleRow = ({ game }: { game: any }) => {
   const [tilesPlayed, setTilesPlayed] = useState<number>();
   const [score, setScore] = useState<number>();
   const [over, setOver] = useState<boolean>(false);
+  const {
+    account: { account },
+    setup: {
+      world,
+      clientComponents: { Builder },
+    },
+  } = useDojo();
+
+  const builderKey = useMemo(
+    () => getEntityIdFromKeys([BigInt(game.id), BigInt(account.address)]),
+    [game, account]
+  );
+  const builder = useComponentValue(Builder, builderKey);
 
   useEffect(() => {
-    if (game) {
+    if (game && builder) {
       setTilesPlayed(game.tile_count);
       setScore(game.score);
       setOver(game.tile_count >= 99);
     }
-  }, [game]);
+  }, [game, builder]);
 
   const navigate = useNavigate();
 
@@ -217,7 +224,7 @@ export const GameSingleRow = ({ game }: { game: any }) => {
     };
   }, [navigate]);
 
-  if (!game) return null;
+  if (!game || !builder) return null;
 
   return (
     <TableRow className="text-xs">
@@ -370,6 +377,11 @@ export const GameMultiRow = ({ game }: { game: any }) => {
     };
   }, [navigate]);
 
+  const handleClick = async () => {
+    if (!game) return;
+    setGameQueryParam(game.id);
+  };
+
   if (!game) return null;
 
   return (
@@ -389,7 +401,7 @@ export const GameMultiRow = ({ game }: { game: any }) => {
                 className={"align-right"}
                 variant={"secondary"}
                 size={"icon"}
-                onClick={() => setGameQueryParam(game.id || 0)}
+                onClick={handleClick}
               >
                 <FontAwesomeIcon
                   icon={
