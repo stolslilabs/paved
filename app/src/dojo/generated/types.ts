@@ -23,16 +23,25 @@ export interface UpdateGame extends Signer {
 
 export interface JoinGame extends Signer {
   game_id: number;
-  order: number;
+}
+
+export interface ReadyGame extends Signer {
+  game_id: number;
+  status: number;
 }
 
 export interface TransferGame extends Signer {
   game_id: number;
-  host_id: string;
+  player_id: string;
 }
 
 export interface LeaveGame extends Signer {
   game_id: number;
+}
+
+export interface KickGame extends Signer {
+  game_id: number;
+  player_id: string;
 }
 
 export interface DeleteGame extends Signer {

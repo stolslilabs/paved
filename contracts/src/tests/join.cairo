@@ -43,6 +43,7 @@ fn test_host_join() {
     builder.assert_exists();
 
     // [Start]
+    systems.host.ready(world, context.game_id, true);
     systems.host.start(world, context.game_id);
 
     // [Assert] Game
@@ -66,12 +67,12 @@ fn test_host_join_revert_started() {
     player.assert_exists();
 
     // [Start]
+    systems.host.ready(world, context.game_id, true);
     systems.host.start(world, context.game_id);
 
     // [Join]
     set_contract_address(ANYONE());
-    let anyone = store.player(context.player_id);
-    systems.host.join(world, context.game_id, anyone.order);
+    systems.host.join(world, context.game_id);
 
     // [Assert] Game
     let game = store.game(context.game_id);

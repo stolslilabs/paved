@@ -31,3 +31,6 @@ mod case_009 {
 mod case_010 {
     mod test_case;
 }
+mod case_011 {
+    mod test_case;
+}

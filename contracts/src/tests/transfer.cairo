@@ -33,20 +33,20 @@ fn test_host_transfer() {
     // [Join]
     set_contract_address(ANYONE());
     let anyone = store.player(context.anyone_id);
-    systems.host.join(world, context.game_id, anyone.order);
+    systems.host.join(world, context.game_id);
 
     // [Transfer]
     set_contract_address(PLAYER());
     systems.host.transfer(world, context.game_id, anyone.id);
 
     // [Assert] Anyone
-    let anyone = store.player(context.anyone_id);
     let game = store.game(context.game_id);
-    assert(game.host == anyone.id, 'Transfer: host');
+    let anyone = store.builder(game, context.anyone_id);
+    anyone.assert_host();
 }
 
 #[test]
-#[should_panic(expected: ('Game: player is not host', 'ENTRYPOINT_FAILED',))]
+#[should_panic(expected: ('Builder: is not host', 'ENTRYPOINT_FAILED',))]
 fn test_host_transfer_revert_not_host() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
@@ -55,7 +55,7 @@ fn test_host_transfer_revert_not_host() {
     // [Join]
     set_contract_address(ANYONE());
     let anyone = store.player(context.anyone_id);
-    systems.host.join(world, context.game_id, anyone.order);
+    systems.host.join(world, context.game_id);
 
     // [Transfer]
     systems.host.transfer(world, context.game_id, anyone.id);
