@@ -38,14 +38,13 @@ mod errors {
     const INVALID_MODE: felt252 = 'Game: invalid mode';
     const INVALID_PLAYER_COUNT: felt252 = 'Game: invalid player count';
     const TRANSFER_SAME_HOST: felt252 = 'Game: transfer to same host';
-    const PLAYER_NOT_HOST: felt252 = 'Game: player is not host';
-    const PLAYER_IS_HOST: felt252 = 'Game: player is host';
     const GAME_NOT_EXISTS: felt252 = 'Game: does not exist';
     const GAME_ALREADY_STARTED: felt252 = 'Game: already started';
     const GAME_NOT_STARTED: felt252 = 'Game: not yet started';
     const STRUCTURE_NOT_IDLE: felt252 = 'Game: structure not idle';
     const GAME_IS_OVER: felt252 = 'Game: is over';
     const GAME_NOT_OVER: felt252 = 'Game: not over';
+    const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -53,7 +52,8 @@ struct Game {
     #[key]
     id: u32,
     name: felt252,
-    host: felt252,
+    status: u8,
+    over: bool,
     player_count: u32,
     tiles: u128,
     tile_count: u32,
@@ -67,16 +67,16 @@ struct Game {
 #[generate_trait]
 impl GameImpl of GameTrait {
     #[inline(always)]
-    fn new(id: u32, name: felt252, host: felt252, time: u64, duration: u64, mode: u8) -> Game {
+    fn new(id: u32, name: felt252, time: u64, duration: u64, mode: u8) -> Game {
         // [Check] Validate parameters
-        assert(host != 0, errors::INVALID_HOST);
         assert(Mode::None != mode.into(), errors::INVALID_MODE);
         // TODO: Hard coded prize pool until it comes from player fees
         let prize = constants::PRIZE_POOL;
         Game {
             id,
             name,
-            host,
+            status: 1,
+            over: false,
             player_count: 0,
             tiles: 0,
             tile_count: 0,
@@ -92,7 +92,6 @@ impl GameImpl of GameTrait {
     fn nullify(ref self: Game) {
         // [Effect] Nullify the game
         self.name = 0;
-        self.host = 0;
         self.player_count = 0;
         self.tiles = 0;
         self.tile_count = 0;
@@ -109,24 +108,21 @@ impl GameImpl of GameTrait {
         GameAssert::assert_valid_name(name);
         // [Effect] Update name
         self.name = name;
+        self.status += 1;
     }
 
     #[inline(always)]
     fn update(ref self: Game, time: u64, duration: u64) {
         // [Effect] Update duration
         self.duration = duration;
+        self.status += 1;
     }
 
     #[inline(always)]
-    fn transfer(ref self: Game, host: felt252) {
-        assert(host != 0, errors::INVALID_HOST);
-        assert(self.host != host, errors::TRANSFER_SAME_HOST);
-        self.host = host;
-    }
-
-    #[inline(always)]
-    fn join(ref self: Game) {
+    fn join(ref self: Game) -> u32 {
+        let index = self.player_count;
         self.player_count += 1;
+        index
     }
 
     #[inline(always)]
@@ -146,14 +142,14 @@ impl GameImpl of GameTrait {
 
     #[inline(always)]
     fn is_over(self: Game, time: u64) -> bool {
-        if Mode::Solo == self.mode.into() {
-            return self.tile_count >= constants::TOTAL_TILE_COUNT.into();
-        }
-        if Mode::Multi == self.mode.into() {
-            let endtime = self.start_time + self.duration;
-            return self.duration != 0 && time >= endtime;
-        }
-        true
+        let endtime = self.start_time + self.duration;
+        return self.over || (self.duration != 0 && time >= endtime);
+    }
+
+    #[inline(always)]
+    fn assess_over(ref self: Game) {
+        self.over = Mode::Solo == self.mode.into()
+            && self.tile_count >= constants::TOTAL_TILE_COUNT.into();
     }
 
     #[inline(always)]
@@ -327,7 +323,8 @@ impl ZeroableGame of Zeroable<Game> {
         Game {
             id: 0,
             name: 0,
-            host: 0,
+            status: 0,
+            over: false,
             player_count: 0,
             tiles: 0,
             tile_count: 0,
@@ -341,7 +338,7 @@ impl ZeroableGame of Zeroable<Game> {
 
     #[inline(always)]
     fn is_zero(self: Game) -> bool {
-        0 == self.host.into()
+        0 == self.player_count.into()
     }
 
     #[inline(always)]
@@ -365,16 +362,6 @@ impl GameAssert of AssertTrait {
     #[inline(always)]
     fn assert_started(self: Game) {
         assert(0 != self.tile_count.into(), errors::GAME_NOT_STARTED);
-    }
-
-    #[inline(always)]
-    fn assert_host(self: Game, host: felt252) {
-        assert(self.host == host, errors::PLAYER_NOT_HOST);
-    }
-
-    #[inline(always)]
-    fn assert_not_host(self: Game, host: felt252) {
-        assert(self.host != host, errors::PLAYER_IS_HOST);
     }
 
     #[inline(always)]
@@ -412,6 +399,19 @@ impl GameAssert of AssertTrait {
     fn assert_deletable(self: Game) {
         assert(self.player_count == 1, errors::INVALID_PLAYER_COUNT);
     }
+
+    fn assert_startable(self: Game, ref builders: Array<Builder>) {
+        loop {
+            match builders.pop_front() {
+                // [Check] Otherwise returns the characters
+                Option::Some(builder) => {
+                    assert(builder.status == self.status, errors::BUILDERS_NOT_READY);
+                },
+                // [Check] Otherwise returns the characters
+                Option::None => { break; },
+            };
+        };
+    }
 }
 
 
@@ -430,12 +430,11 @@ mod tests {
 
     const GAME_ID: u32 = 1;
     const NAME: felt252 = 'NAME';
-    const HOST: felt252 = 'HOST';
     const SEED: felt252 = 'SEED';
 
     #[test]
     fn test_game_new() {
-        let game = GameImpl::new(GAME_ID, NAME, HOST, 0, 0, Mode::Multi.into());
+        let game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
         assert(game.id == GAME_ID, 'Game: Invalid id');
         assert(game.tiles == 0, 'Game: Invalid tiles');
         assert(game.tile_count == 0, 'Game: Invalid tile_count');
@@ -443,7 +442,7 @@ mod tests {
 
     #[test]
     fn test_game_add_tile() {
-        let mut game = GameImpl::new(GAME_ID, NAME, HOST, 0, 0, Mode::Multi.into());
+        let mut game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
         let tile_count = game.tile_count;
         let tile_id = game.add_tile();
         assert(tile_id == GAME_ID, 'Game: Invalid tile_id');
@@ -452,7 +451,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_plan() {
-        let mut game = GameImpl::new(GAME_ID, NAME, HOST, 0, 0, Mode::Multi.into());
+        let mut game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
         let (tile_count, plan_id) = game.draw_plan(SEED);
         assert(tile_count == 1, 'Game: Invalid tile_count');
         assert(plan_id.into() < constants::TOTAL_TILE_COUNT, 'Game: Invalid plan_id');
@@ -462,7 +461,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_planes() {
-        let mut game = GameImpl::new(GAME_ID, NAME, HOST, 0, 0, Mode::Multi.into());
+        let mut game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
         let mut counts: Felt252Dict<u8> = Default::default();
         loop {
             if game.tile_count == constants::TOTAL_TILE_COUNT.into() {

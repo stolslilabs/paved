@@ -41,6 +41,7 @@ fn test_play_build_without_character() {
     let game = store.game(context.game_id);
 
     // [Start]
+    systems.host.ready(world, game.id, true);
     systems.host.start(world, game.id);
 
     // [Draw]
@@ -64,6 +65,7 @@ fn test_play_build_with_character() {
     let game = store.game(context.game_id);
 
     // [Start]
+    systems.host.ready(world, game.id, true);
     systems.host.start(world, game.id);
 
     // [Draw]
@@ -88,6 +90,7 @@ fn test_play_build_with_character_revert_not_idle() {
     let game = store.game(context.game_id);
 
     // [Start]
+    systems.host.ready(world, game.id, true);
     systems.host.start(world, game.id);
 
     // [Draw & Build]
@@ -119,6 +122,7 @@ fn test_play_build_complete_castle() {
     let game = store.game(context.game_id);
 
     // [Start]
+    systems.host.ready(world, game.id, true);
     systems.host.start(world, game.id);
 
     // [Draw]
@@ -152,6 +156,7 @@ fn test_play_build_complete_forest_inside_roads() {
     let northeast = Spot::NorthEast;
 
     // [Start]
+    systems.host.ready(world, game.id, true);
     systems.host.start(world, game.id);
 
     // [Draw & Build]
@@ -245,6 +250,7 @@ fn test_play_build_complete_forest_inside_castles() {
     let northeast = Spot::NorthEast;
 
     // [Start]
+    systems.host.ready(world, game.id, true);
     systems.host.start(world, game.id);
 
     // [Draw & Build]
@@ -327,6 +333,7 @@ fn test_play_build_single_forest_inside_castles() {
     let spot = Spot::Center;
 
     // [Start]
+    systems.host.ready(world, game.id, true);
     systems.host.start(world, game.id);
 
     // [Draw & Build]

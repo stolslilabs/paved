@@ -33,6 +33,7 @@ fn test_play_buy() {
     let store = StoreTrait::new(world);
 
     // [Start]
+    systems.host.ready(world, context.game_id, true);
     systems.host.start(world, context.game_id);
     let player = store.player(context.player_id);
     let bank = player.bank;

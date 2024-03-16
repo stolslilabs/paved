@@ -18,17 +18,19 @@ use stolsli::models::tile::{Tile, TileImpl};
 use stolsli::models::character::{Character, CharacterImpl};
 
 mod errors {
-    const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: Does not exist';
-    const BUILDER_ALREADY_EXIST: felt252 = 'Builder: Already exist';
-    const INVALID_ORDER: felt252 = 'Builder: Invalid order';
-    const ALREADY_PLACED: felt252 = 'Builder: Already placed';
-    const CHARACTER_NOT_PLACED: felt252 = 'Builder: Character not placed';
-    const ALREADY_HAS_TILE: felt252 = 'Builder: Already has a tile';
-    const CANNOT_DISCARD: felt252 = 'Builder: Cannot discard';
-    const CANNOT_BUILD: felt252 = 'Builder: Cannot build';
-    const NOTHING_TO_CLAIM: felt252 = 'Builder: Nothing to claim';
-    const ALREADY_CLAIMED: felt252 = 'Builder: Already claimed';
-    const CAST_U256_FELT: felt252 = 'Builder: Cast u256 to felt';
+    const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: does not exist';
+    const BUILDER_ALREADY_EXIST: felt252 = 'Builder: already exist';
+    const BUILDER_NOT_HOST: felt252 = 'Builder: is not host';
+    const BUILDER_IS_HOST: felt252 = 'Builder: is host';
+    const INVALID_ORDER: felt252 = 'Builder: invalid order';
+    const ALREADY_PLACED: felt252 = 'Builder: already placed';
+    const CHARACTER_NOT_PLACED: felt252 = 'Builder: character not placed';
+    const ALREADY_HAS_TILE: felt252 = 'Builder: already has a tile';
+    const CANNOT_DISCARD: felt252 = 'Builder: cannot discard';
+    const CANNOT_BUILD: felt252 = 'Builder: cannot build';
+    const NOTHING_TO_CLAIM: felt252 = 'Builder: nothing to claim';
+    const ALREADY_CLAIMED: felt252 = 'Builder: already claimed';
+    const CAST_U256_FELT: felt252 = 'Builder: cast u256 to felt';
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -37,24 +39,65 @@ struct Builder {
     game_id: u32,
     #[key]
     player_id: felt252,
+    index: u32,
+    status: u8,
     order: u8,
     score: u32,
-    // Inventory
     tile_id: u32,
     characters: u8,
-    // Rewards
     claimed: felt252,
+}
+
+#[derive(Model, Copy, Drop, Serde)]
+struct BuilderPosition {
+    #[key]
+    game_id: u32,
+    #[key]
+    index: u32,
+    player_id: felt252,
 }
 
 #[generate_trait]
 impl BuilderImpl of BuilderTrait {
     #[inline(always)]
-    fn new(game_id: u32, player_id: felt252, order: u8,) -> Builder {
+    fn new(game_id: u32, player_id: felt252, index: u32, order: u8,) -> Builder {
         // [Check] Order is valid
         assert(Order::None != order.into(), errors::INVALID_ORDER);
 
         // [Return] Builder
-        Builder { game_id, player_id, order, score: 0, tile_id: 0, characters: 0, claimed: 0, }
+        Builder {
+            game_id,
+            player_id,
+            index,
+            status: 0,
+            order,
+            score: 0,
+            tile_id: 0,
+            characters: 0,
+            claimed: 0,
+        }
+    }
+
+    #[inline(always)]
+    fn nullify(ref self: Builder) {
+        // [Effect] Nullify builder
+        self.order = 0;
+        self.status = 0;
+        self.order = 0;
+        self.score = 0;
+        self.tile_id = 0;
+        self.characters = 0;
+        self.claimed = 0;
+    }
+
+    #[inline(always)]
+    fn ready(ref self: Builder, game: Game, status: bool) {
+        // [Effect] Update status
+        if status {
+            self.status = game.status;
+        } else {
+            self.status = 0;
+        }
     }
 
     #[inline(always)]
@@ -162,6 +205,16 @@ impl BuilderAssert of AssertTrait {
     }
 
     #[inline(always)]
+    fn assert_host(self: Builder) {
+        assert(self.index == 0, errors::BUILDER_NOT_HOST);
+    }
+
+    #[inline(always)]
+    fn assert_not_host(self: Builder) {
+        assert(self.index != 0, errors::BUILDER_IS_HOST);
+    }
+
+    #[inline(always)]
     fn assert_revealable(self: Builder) {
         assert(0 == self.tile_id.into(), errors::ALREADY_HAS_TILE);
     }
@@ -193,7 +246,15 @@ impl ZeroableBuilderImpl of Zeroable<Builder> {
     #[inline(always)]
     fn zero() -> Builder {
         Builder {
-            game_id: 0, player_id: 0, order: 0, score: 0, tile_id: 0, characters: 0, claimed: 0,
+            game_id: 0,
+            player_id: 0,
+            index: 0,
+            status: 0,
+            order: 0,
+            score: 0,
+            tile_id: 0,
+            characters: 0,
+            claimed: 0,
         }
     }
 
@@ -205,5 +266,12 @@ impl ZeroableBuilderImpl of Zeroable<Builder> {
     #[inline(always)]
     fn is_non_zero(self: Builder) -> bool {
         !self.is_zero()
+    }
+}
+
+impl TileIntoPosition of Into<Builder, BuilderPosition> {
+    #[inline(always)]
+    fn into(self: Builder) -> BuilderPosition {
+        BuilderPosition { game_id: self.game_id, index: self.index, player_id: self.player_id, }
     }
 }

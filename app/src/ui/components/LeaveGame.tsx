@@ -1,22 +1,15 @@
 import { useDojo } from "../../dojo/useDojo";
-
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
-
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { useComponentValue } from "@dojoengine/react";
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useNavigate } from "react-router-dom";
 
 export const LeaveGame = () => {
   const { gameId } = useQueryParams();
-  const [disabled, setDisabled] = useState(false);
 
   const {
     account: { account },
     setup: {
-      clientComponents: { Game, Builder },
       systemCalls: { leave_game },
     },
   } = useDojo();
@@ -29,23 +22,6 @@ export const LeaveGame = () => {
     };
   }, [navigate]);
 
-  const gameKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId)]),
-    [gameId]
-  );
-  const game = useComponentValue(Game, gameKey);
-  const builderKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]),
-    [gameId, account]
-  );
-  const builder = useComponentValue(Builder, builderKey);
-
-  useEffect(() => {
-    setDisabled(
-      !game || !builder || !builder.order || game.host === builder.player_id
-    );
-  }, [game, builder]);
-
   const handleClick = () => {
     leave_game({
       account: account,
@@ -55,7 +31,7 @@ export const LeaveGame = () => {
   };
 
   return (
-    <Button disabled={disabled} variant={"secondary"} onClick={handleClick}>
+    <Button variant={"secondary"} onClick={handleClick}>
       Leave
     </Button>
   );

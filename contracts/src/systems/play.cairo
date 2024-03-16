@@ -185,6 +185,7 @@ mod play {
             store.set_player(player);
 
             // [Effect] Update game
+            game.assess_over();
             store.set_game(game);
 
             // [Event] Emit events
@@ -199,6 +200,22 @@ mod play {
                     points: malus,
                 },
             );
+
+            // [Event] Emit game over event for solo games if over
+            if Mode::Solo == game.mode.into() && game.is_over(time) {
+                let tournament_id = TournamentImpl::compute_id(time);
+                emit!(
+                    world,
+                    GameOver {
+                        game_id: game.id,
+                        tournament_id: tournament_id,
+                        game_score: game.score,
+                        player_id: player.id,
+                        player_name: player.name,
+                        player_master: player.master,
+                    }
+                );
+            }
         }
 
         fn build(
@@ -221,11 +238,9 @@ mod play {
             // [Check] Game has started
             game.assert_started();
 
-            // [Check] Game is not over for not solo games
+            // [Check] Game is not over
             let time = get_block_timestamp();
-            if Mode::Solo != game.mode.into() {
-                game.assert_not_over(time);
-            };
+            game.assert_not_over(time);
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -274,6 +289,7 @@ mod play {
             let mut scoreds = game.assess(tile, ref store);
 
             // [Effect] Update game
+            game.assess_over();
             store.set_game(game);
 
             // [Event] Emit events

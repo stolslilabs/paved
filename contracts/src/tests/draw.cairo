@@ -29,6 +29,7 @@ fn test_play_draw() {
     let store = StoreTrait::new(world);
 
     // [Start]
+    systems.host.ready(world, context.game_id, true);
     systems.host.start(world, context.game_id);
 
     // [Draw]
@@ -44,12 +45,13 @@ fn test_play_draw() {
 }
 
 #[test]
-#[should_panic(expected: ('Builder: Already has a tile', 'ENTRYPOINT_FAILED',))]
+#[should_panic(expected: ('Builder: already has a tile', 'ENTRYPOINT_FAILED',))]
 fn test_play_draw_twice_revert_cannot_draw() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
 
     // [Start]
+    systems.host.ready(world, context.game_id, true);
     systems.host.start(world, context.game_id);
 
     // [Draw]
