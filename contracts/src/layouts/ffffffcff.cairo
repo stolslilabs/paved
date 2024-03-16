@@ -50,22 +50,22 @@ impl LayoutImpl of LayoutTrait {
                 moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Spot::SouthEast => {
-                moves.append(Move { direction: Direction::South, spot: Spot::NorthEast });
-                moves.append(Move { direction: Direction::East, spot: Spot::SouthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::SouthEast });
+                moves.append(Move { direction: Direction::North, spot: Spot::South });
+                moves.append(Move { direction: Direction::East, spot: Spot::West });
+                moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Spot::South => {
                 moves.append(Move { direction: Direction::South, spot: Spot::North });
             },
             Spot::SouthWest => {
-                moves.append(Move { direction: Direction::South, spot: Spot::NorthEast });
-                moves.append(Move { direction: Direction::East, spot: Spot::SouthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::SouthEast });
+                moves.append(Move { direction: Direction::North, spot: Spot::South });
+                moves.append(Move { direction: Direction::East, spot: Spot::West });
+                moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Spot::West => {
-                moves.append(Move { direction: Direction::South, spot: Spot::NorthEast });
-                moves.append(Move { direction: Direction::East, spot: Spot::SouthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::SouthEast });
+                moves.append(Move { direction: Direction::North, spot: Spot::South });
+                moves.append(Move { direction: Direction::East, spot: Spot::West });
+                moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
         };
         moves
