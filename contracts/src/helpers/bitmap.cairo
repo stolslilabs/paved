@@ -31,6 +31,14 @@ impl Bitmap of BitmapTrait {
     }
 
     #[inline(always)]
+    fn swap_bit_at(bitmap: u128, index1: felt252, index2: felt252) -> u128 {
+        let bit1 = Bitmap::get_bit_at(bitmap, index1);
+        let bit2 = Bitmap::get_bit_at(bitmap, index2);
+        let bitmap = Bitmap::set_bit_at(bitmap, index1, bit2);
+        Bitmap::set_bit_at(bitmap, index2, bit1)
+    }
+
+    #[inline(always)]
     fn two_pow(exponent: felt252) -> u128 {
         if exponent == 0 {
             return constants::TWO_POW_0;
@@ -357,5 +365,12 @@ mod tests {
     fn test_helpers_set_bit_at_128() {
         let bitmap = 0;
         Bitmap::set_bit_at(bitmap, 128, true);
+    }
+
+    #[test]
+    fn test_helpers_swap_bit_at() {
+        let bitmap = 3;
+        let result = Bitmap::swap_bit_at(bitmap, 10, 1);
+        assert(result == 1025, 'Bitmap: Invalid bitmap');
     }
 }

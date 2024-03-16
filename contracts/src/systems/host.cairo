@@ -242,8 +242,8 @@ mod host {
 
             // [Effect] Ready the builder
             let mut builder = store.builder(game, player.id);
-            builder.ready(game, status);
-            store.set_builder(builder);
+            game.ready(builder.index, status);
+            store.set_game(game);
         }
 
         fn transfer(
@@ -276,7 +276,8 @@ mod host {
             builder.assert_host();
 
             // [Effect] Swap builders
-            store.swap_builders(ref builder, ref host);
+            store.swap_builders(ref game, ref builder, ref host);
+            store.set_game(game);
         }
 
         fn leave(self: @ContractState, world: IWorldDispatcher, game_id: u32,) {
@@ -303,7 +304,7 @@ mod host {
             builder.assert_not_host();
 
             // [Effect] Delete builder
-            store.remove_builder(game, ref builder);
+            store.remove_builder(ref game, ref builder);
 
             // [Effect] Leave the game
             game.leave();
@@ -341,7 +342,7 @@ mod host {
             kicked.assert_not_host();
 
             // [Effect] Delete builder
-            store.remove_builder(game, ref kicked);
+            store.remove_builder(ref game, ref kicked);
 
             // [Effect] Leave the game
             game.leave();
@@ -408,8 +409,7 @@ mod host {
             builder.assert_host();
 
             // [Check] Game startable
-            let mut builders = store.builders(game);
-            game.assert_startable(ref builders);
+            game.assert_startable();
 
             // [Effect] Create starter tile
             let tile_id = game.add_tile();

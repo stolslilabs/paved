@@ -14,6 +14,7 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
 // Models imports
 
+use stolsli::helpers::bitmap::Bitmap;
 use stolsli::models::game::{Game, GameImpl};
 use stolsli::models::player::{Player, PlayerImpl};
 use stolsli::models::builder::{Builder, BuilderPosition, BuilderImpl};
@@ -58,24 +59,6 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn builder_position(self: Store, game: Game, index: u32) -> BuilderPosition {
         get!(self.world, (game.id, index), (BuilderPosition))
-    }
-
-    fn builders(self: Store, game: Game) -> Array<Builder> {
-        let mut builders: Array<Builder> = array![];
-        let mut index = game.player_count;
-        loop {
-            if index == 0 {
-                break;
-            }
-            index -= 1;
-            let builder_position = self.builder_position(game, index);
-            let player_id = builder_position.player_id;
-            if player_id != 0 {
-                let builder = self.builder(game, player_id);
-                builders.append(builder);
-            };
-        };
-        builders
     }
 
     #[inline(always)]
@@ -170,10 +153,11 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn swap_builders(self: Store, ref lhs: Builder, ref rhs: Builder) {
+    fn swap_builders(self: Store, ref game: Game, ref lhs: Builder, ref rhs: Builder) {
         let index = lhs.index;
         lhs.index = rhs.index;
         rhs.index = index;
+        game.players = Bitmap::swap_bit_at(game.players, lhs.index.into(), rhs.index.into());
         let lhs_position: BuilderPosition = lhs.into();
         let rhs_position: BuilderPosition = rhs.into();
         set!(self.world, (lhs_position));
@@ -183,7 +167,7 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn remove_builder(self: Store, game: Game, ref builder: Builder) {
+    fn remove_builder(self: Store, ref game: Game, ref builder: Builder) {
         let last_index = game.player_count - 1;
         builder.remove();
         // Skip if the last builder is removed
@@ -193,7 +177,7 @@ impl StoreImpl of StoreTrait {
         }
         let mut last_position = self.builder_position(game, last_index);
         let mut last_builder = self.builder(game, last_position.player_id);
-        self.swap_builders(ref builder, ref last_builder);
+        self.swap_builders(ref game, ref builder, ref last_builder);
     }
 
     #[inline(always)]
