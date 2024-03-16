@@ -40,7 +40,6 @@ struct Builder {
     #[key]
     player_id: felt252,
     index: u32,
-    status: u8,
     order: u8,
     score: u32,
     tile_id: u32,
@@ -66,38 +65,19 @@ impl BuilderImpl of BuilderTrait {
 
         // [Return] Builder
         Builder {
-            game_id,
-            player_id,
-            index,
-            status: 0,
-            order,
-            score: 0,
-            tile_id: 0,
-            characters: 0,
-            claimed: 0,
+            game_id, player_id, index, order, score: 0, tile_id: 0, characters: 0, claimed: 0,
         }
     }
 
     #[inline(always)]
     fn nullify(ref self: Builder) {
         // [Effect] Nullify builder
-        self.order = 0;
-        self.status = 0;
+        self.index = 0;
         self.order = 0;
         self.score = 0;
         self.tile_id = 0;
         self.characters = 0;
         self.claimed = 0;
-    }
-
-    #[inline(always)]
-    fn ready(ref self: Builder, game: Game, status: bool) {
-        // [Effect] Update status
-        if status {
-            self.status = game.status;
-        } else {
-            self.status = 0;
-        }
     }
 
     #[inline(always)]
@@ -249,7 +229,6 @@ impl ZeroableBuilderImpl of Zeroable<Builder> {
             game_id: 0,
             player_id: 0,
             index: 0,
-            status: 0,
             order: 0,
             score: 0,
             tile_id: 0,

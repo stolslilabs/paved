@@ -32,7 +32,9 @@ export const Ready = ({ builder }: { builder: any }) => {
   const game = useComponentValue(Game, gameKey);
 
   useEffect(() => {
-    setStatus(game?.status === builder?.status);
+    setStatus(
+      game?.players & (BigInt(1) << BigInt(builder.index)) ? true : false
+    );
   }, [game, builder]);
 
   const handleClick = () => {

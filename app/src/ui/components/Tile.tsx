@@ -15,6 +15,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { TOURNAMENT_TILE_CAP } from "@/utils/constants";
 
 export const Tile = () => {
   const [rotation, setRotation] = useState(0);
@@ -148,7 +149,8 @@ export const HiddenTile = () => {
 
   useEffect(() => {
     if (game) {
-      if (game.mode === 1) return setOver(game.tile_count >= 99);
+      if (game.mode === 1)
+        return setOver(game.tile_count >= TOURNAMENT_TILE_CAP);
       setOver(
         game.start_time !== 0 &&
           game.duration !== 0 &&

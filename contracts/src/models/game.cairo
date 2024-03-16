@@ -52,8 +52,8 @@ struct Game {
     #[key]
     id: u32,
     name: felt252,
-    status: u8,
     over: bool,
+    players: u128,
     player_count: u32,
     tiles: u128,
     tile_count: u32,
@@ -75,8 +75,8 @@ impl GameImpl of GameTrait {
         Game {
             id,
             name,
-            status: 1,
             over: false,
+            players: 0,
             player_count: 0,
             tiles: 0,
             tile_count: 0,
@@ -108,14 +108,14 @@ impl GameImpl of GameTrait {
         GameAssert::assert_valid_name(name);
         // [Effect] Update name
         self.name = name;
-        self.status += 1;
+        self.reset();
     }
 
     #[inline(always)]
     fn update(ref self: Game, time: u64, duration: u64) {
         // [Effect] Update duration
         self.duration = duration;
-        self.status += 1;
+        self.reset();
     }
 
     #[inline(always)]
@@ -131,8 +131,18 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
+    fn reset(ref self: Game) {
+        self.players = 0;
+    }
+
+    #[inline(always)]
     fn delete(ref self: Game) {
         self.nullify();
+    }
+
+    #[inline(always)]
+    fn ready(ref self: Game, index: u32, status: bool) {
+        self.players = Bitmap::set_bit_at(self.players, index.into(), status);
     }
 
     #[inline(always)]
@@ -149,7 +159,7 @@ impl GameImpl of GameTrait {
     #[inline(always)]
     fn assess_over(ref self: Game) {
         self.over = Mode::Solo == self.mode.into()
-            && self.tile_count >= constants::TOTAL_TILE_COUNT.into();
+            && self.tile_count >= constants::TOURNAMENT_TILE_CAP.into();
     }
 
     #[inline(always)]
@@ -323,8 +333,8 @@ impl ZeroableGame of Zeroable<Game> {
         Game {
             id: 0,
             name: 0,
-            status: 0,
             over: false,
+            players: 0,
             player_count: 0,
             tiles: 0,
             tile_count: 0,
@@ -400,17 +410,9 @@ impl GameAssert of AssertTrait {
         assert(self.player_count == 1, errors::INVALID_PLAYER_COUNT);
     }
 
-    fn assert_startable(self: Game, ref builders: Array<Builder>) {
-        loop {
-            match builders.pop_front() {
-                // [Check] Otherwise returns the characters
-                Option::Some(builder) => {
-                    assert(builder.status == self.status, errors::BUILDERS_NOT_READY);
-                },
-                // [Check] Otherwise returns the characters
-                Option::None => { break; },
-            };
-        };
+    fn assert_startable(self: Game) {
+        let readiness = Bitmap::two_pow(self.player_count.into()) - 1;
+        assert(self.players == readiness, errors::BUILDERS_NOT_READY);
     }
 }
 
