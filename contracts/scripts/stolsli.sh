@@ -2,14 +2,13 @@
 set -euo pipefail
 pushd $(dirname "$0")/..
 
-export RPC_URL="http://localhost:5050";
-# export RPC_URL="https://api.cartridge.gg/x/stolsli/katana";
+export RPC_URL="https://api.cartridge.gg/x/stolsli/katana";
 
-export WORLD_ADDRESS=$(cat ./target/dev/manifest.json | jq -r '.world.address')
+export WORLD_ADDRESS=$(cat ./target/pre/manifest.json | jq -r '.world.address')
 
-export HOST_ADDRESS=$(cat ./target/dev/manifest.json | jq -r '.contracts[] | select(.name == "stolsli::systems::host::host" ).address')
-export MANAGE_ADDRESS=$(cat ./target/dev/manifest.json | jq -r '.contracts[] | select(.name == "stolsli::systems::manage::manage" ).address')
-export PLAY_ADDRESS=$(cat ./target/dev/manifest.json | jq -r '.contracts[] | select(.name == "stolsli::systems::play::play" ).address')
+export HOST_ADDRESS=$(cat ./target/pre/manifest.json | jq -r '.contracts[] | select(.name == "stolsli::systems::host::host" ).address')
+export MANAGE_ADDRESS=$(cat ./target/pre/manifest.json | jq -r '.contracts[] | select(.name == "stolsli::systems::manage::manage" ).address')
+export PLAY_ADDRESS=$(cat ./target/pre/manifest.json | jq -r '.contracts[] | select(.name == "stolsli::systems::play::play" ).address')
 
 echo "---------------------------------------------------------------------------"
 echo world : $WORLD_ADDRESS 
@@ -27,7 +26,7 @@ for component in ${COMPONENTS[@]}; do
     for action in ${ACTIONS[@]}; do
         sozo auth writer $component $action --world $WORLD_ADDRESS --rpc-url $RPC_URL
         # time out for 1 second to avoid rate limiting
-        sleep 1
+        sleep 5
     done
 done
 
