@@ -1,7 +1,7 @@
 {
   "world": {
     "name": "dojo::world::world",
-    "address": "0x4daffaec6ca974909b68f7868dd33a99151e11217751b27fef94753db48e9ec",
+    "address": "0x3b7f21e69127c28a69f4fa296384f1b6316a1f64d5861eb514c3e45dfb4c8e5",
     "class_hash": "0x5ac623f0c96059936bd2d0904bdd31799e430fe08a0caff7a5f497260b16497",
     "abi": [
       {
@@ -948,8 +948,8 @@
   "contracts": [
     {
       "name": "stolsli::systems::host::host",
-      "address": "0x34606622b61d41ab3b34cc4588988a7ecaf984429056ad15c9283cdf05c7aa9",
-      "class_hash": "0x3363adb71d4335b4773ee976a346c1a038cdced4eda77d9d54e3473613c786",
+      "address": "0x45aebfd0cc66582ba07e6f483f5c1030fb24021c7bb7f6cb47dd1ff9926d200",
+      "class_hash": "0x2c4c4c0e1df15ac53ae450a749463cbf3dacc0bac35b758efc9dd8f8e466509",
       "abi": [
         {
           "type": "impl",
@@ -963,6 +963,20 @@
             {
               "name": "contract_address",
               "type": "core::starknet::contract_address::ContractAddress"
+            }
+          ]
+        },
+        {
+          "type": "enum",
+          "name": "core::bool",
+          "variants": [
+            {
+              "name": "False",
+              "type": "()"
+            },
+            {
+              "name": "True",
+              "type": "()"
             }
           ]
         },
@@ -1049,10 +1063,26 @@
                 {
                   "name": "game_id",
                   "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "ready",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "dojo::world::IWorldDispatcher"
                 },
                 {
-                  "name": "order",
-                  "type": "core::integer::u8"
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "status",
+                  "type": "core::bool"
                 }
               ],
               "outputs": [],
@@ -1071,7 +1101,7 @@
                   "type": "core::integer::u32"
                 },
                 {
-                  "name": "host_id",
+                  "name": "player_id",
                   "type": "core::felt252"
                 }
               ],
@@ -1081,6 +1111,42 @@
             {
               "type": "function",
               "name": "leave",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "dojo::world::IWorldDispatcher"
+                },
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "kick",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "dojo::world::IWorldDispatcher"
+                },
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "player_id",
+                  "type": "core::felt252"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "delete",
               "inputs": [
                 {
                   "name": "world",
@@ -1220,8 +1286,8 @@
     },
     {
       "name": "stolsli::systems::manage::manage",
-      "address": "0x42794dd4e172b020dbadf50871f5068c2b273f5f1f761a71703eff787ef8ef3",
-      "class_hash": "0x438ccda917e4642cc3092813430b693878e92e53f78b6c4af7a1e5dac885137",
+      "address": "0x76d16b5824e23eb9a9db6d8945bd5ebefc2a13a22d04b21d664470959971f1f",
+      "class_hash": "0x33d598d856952ecb6dbec65688f4ced93999997a2cfe9b3d8ac0253186f1961",
       "abi": [
         {
           "type": "impl",
@@ -1345,8 +1411,8 @@
     },
     {
       "name": "stolsli::systems::play::play",
-      "address": "0xbefdcf3140db4a425cb7f19db049ed6ec3cc4dc18d877b25a125bc00b1a391",
-      "class_hash": "0x2d49b9ca61e64b949d5280bb110e70a6b8e1a0e5dfcb62538fe61d0ce26c024",
+      "address": "0xb82ccd67f400bf595dfa3eca7b89e4f554e20bc304f9fbd6ff8eef57b7b99d",
+      "class_hash": "0x64feba8cf79f22563fe8022a6deff76439328cd6e963d4721e97be638bd8a85",
       "abi": [
         {
           "type": "impl",
@@ -1753,6 +1819,11 @@
           "key": true
         },
         {
+          "name": "index",
+          "type": "u32",
+          "key": false
+        },
+        {
           "name": "order",
           "type": "u8",
           "key": false
@@ -1778,7 +1849,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x2303770b0dbb000f621326a06fc963c80d6a06a7f584579972368339dce054a",
+      "class_hash": "0x1fa22873229719494dfaaa9404b10fb39fba77f1c72cbef382140e0df100809",
       "abi": [
         {
           "type": "impl",
@@ -1962,6 +2033,10 @@
               "type": "core::felt252"
             },
             {
+              "name": "index",
+              "type": "core::integer::u32"
+            },
+            {
               "name": "order",
               "type": "core::integer::u8"
             },
@@ -2004,6 +2079,240 @@
         {
           "type": "event",
           "name": "stolsli::models::builder::builder::Event",
+          "kind": "enum",
+          "variants": []
+        }
+      ]
+    },
+    {
+      "name": "stolsli::models::builder::builder_position",
+      "members": [
+        {
+          "name": "game_id",
+          "type": "u32",
+          "key": true
+        },
+        {
+          "name": "index",
+          "type": "u32",
+          "key": true
+        },
+        {
+          "name": "player_id",
+          "type": "felt252",
+          "key": false
+        }
+      ],
+      "class_hash": "0x5521161443f217a6781a11866bb47c347f18039130c530e85ba3542bb59b7b3",
+      "abi": [
+        {
+          "type": "impl",
+          "name": "DojoModelImpl",
+          "interface_name": "dojo::model::IDojoModel"
+        },
+        {
+          "type": "struct",
+          "name": "core::array::Span::<core::integer::u8>",
+          "members": [
+            {
+              "name": "snapshot",
+              "type": "@core::array::Array::<core::integer::u8>"
+            }
+          ]
+        },
+        {
+          "type": "struct",
+          "name": "core::array::Span::<core::felt252>",
+          "members": [
+            {
+              "name": "snapshot",
+              "type": "@core::array::Array::<core::felt252>"
+            }
+          ]
+        },
+        {
+          "type": "struct",
+          "name": "core::array::Span::<core::array::Span::<core::felt252>>",
+          "members": [
+            {
+              "name": "snapshot",
+              "type": "@core::array::Array::<core::array::Span::<core::felt252>>"
+            }
+          ]
+        },
+        {
+          "type": "struct",
+          "name": "dojo::database::introspect::Struct",
+          "members": [
+            {
+              "name": "name",
+              "type": "core::felt252"
+            },
+            {
+              "name": "attrs",
+              "type": "core::array::Span::<core::felt252>"
+            },
+            {
+              "name": "children",
+              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
+            }
+          ]
+        },
+        {
+          "type": "struct",
+          "name": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>",
+          "members": [
+            {
+              "name": "snapshot",
+              "type": "@core::array::Array::<(core::felt252, core::array::Span::<core::felt252>)>"
+            }
+          ]
+        },
+        {
+          "type": "struct",
+          "name": "dojo::database::introspect::Enum",
+          "members": [
+            {
+              "name": "name",
+              "type": "core::felt252"
+            },
+            {
+              "name": "attrs",
+              "type": "core::array::Span::<core::felt252>"
+            },
+            {
+              "name": "children",
+              "type": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>"
+            }
+          ]
+        },
+        {
+          "type": "enum",
+          "name": "dojo::database::introspect::Ty",
+          "variants": [
+            {
+              "name": "Primitive",
+              "type": "core::felt252"
+            },
+            {
+              "name": "Struct",
+              "type": "dojo::database::introspect::Struct"
+            },
+            {
+              "name": "Enum",
+              "type": "dojo::database::introspect::Enum"
+            },
+            {
+              "name": "Tuple",
+              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
+            }
+          ]
+        },
+        {
+          "type": "interface",
+          "name": "dojo::model::IDojoModel",
+          "items": [
+            {
+              "type": "function",
+              "name": "name",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::felt252"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "unpacked_size",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::integer::u32"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "packed_size",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::integer::u32"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "layout",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::array::Span::<core::integer::u8>"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "schema",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "dojo::database::introspect::Ty"
+                }
+              ],
+              "state_mutability": "view"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "builder_positionImpl",
+          "interface_name": "stolsli::models::builder::Ibuilder_position"
+        },
+        {
+          "type": "struct",
+          "name": "stolsli::models::builder::BuilderPosition",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32"
+            },
+            {
+              "name": "index",
+              "type": "core::integer::u32"
+            },
+            {
+              "name": "player_id",
+              "type": "core::felt252"
+            }
+          ]
+        },
+        {
+          "type": "interface",
+          "name": "stolsli::models::builder::Ibuilder_position",
+          "items": [
+            {
+              "type": "function",
+              "name": "ensure_abi",
+              "inputs": [
+                {
+                  "name": "model",
+                  "type": "stolsli::models::builder::BuilderPosition"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "stolsli::models::builder::builder_position::Event",
           "kind": "enum",
           "variants": []
         }
@@ -2545,8 +2854,18 @@
           "key": false
         },
         {
-          "name": "host",
-          "type": "felt252",
+          "name": "over",
+          "type": "bool",
+          "key": false
+        },
+        {
+          "name": "players",
+          "type": "u128",
+          "key": false
+        },
+        {
+          "name": "player_count",
+          "type": "u32",
           "key": false
         },
         {
@@ -2585,7 +2904,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x1ab8281f082da4d36351dfd9f864314036313bf659cf17590ce30e86aa4f180",
+      "class_hash": "0x1fbcdef8752caf372cce3959ffc7c3f7a72587ee480ae3b6cfc05b0a5d2ef20",
       "abi": [
         {
           "type": "impl",
@@ -2757,6 +3076,20 @@
           "interface_name": "stolsli::models::game::Igame"
         },
         {
+          "type": "enum",
+          "name": "core::bool",
+          "variants": [
+            {
+              "name": "False",
+              "type": "()"
+            },
+            {
+              "name": "True",
+              "type": "()"
+            }
+          ]
+        },
+        {
           "type": "struct",
           "name": "stolsli::models::game::Game",
           "members": [
@@ -2769,8 +3102,16 @@
               "type": "core::felt252"
             },
             {
-              "name": "host",
-              "type": "core::felt252"
+              "name": "over",
+              "type": "core::bool"
+            },
+            {
+              "name": "players",
+              "type": "core::integer::u128"
+            },
+            {
+              "name": "player_count",
+              "type": "core::integer::u32"
             },
             {
               "name": "tiles",
@@ -2852,7 +3193,12 @@
           "key": false
         },
         {
-          "name": "score",
+          "name": "solo_score",
+          "type": "u32",
+          "key": false
+        },
+        {
+          "name": "multi_score",
           "type": "u32",
           "key": false
         },
@@ -2867,7 +3213,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x4e794dfea9af5fec7555f17d86c8f832a9df6349c82dfd0ab7ffcae6c6d1659",
+      "class_hash": "0x6978f8337b0eca8ac18bd6a658b9329ebc09703d2628855a104623b1c54df57",
       "abi": [
         {
           "type": "impl",
@@ -3059,7 +3405,11 @@
               "type": "core::integer::u8"
             },
             {
-              "name": "score",
+              "name": "solo_score",
+              "type": "core::integer::u32"
+            },
+            {
+              "name": "multi_score",
               "type": "core::integer::u32"
             },
             {
