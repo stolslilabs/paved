@@ -143,7 +143,10 @@ export const Room = () => {
             <JoinGame />
           )}
           {game && builder && builder.index === 0 && <DeleteGame />}
-          {game && builder && builder.index !== 0 && <LeaveGame />}
+          {game &&
+            builder &&
+            builder.index !== 0 &&
+            builder.index < game.player_count && <LeaveGame />}
           {game && builder && builder.index === 0 && <UpdateGame />}
         </div>
 
@@ -205,7 +208,7 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
   const self = useComponentValue(Builder, selfKey);
 
   useEffect(() => {
-    if (game && player && builder && self) {
+    if (game && player && builder) {
       if (builder.order == 0 || builder.index >= game.player_count) {
         return setDisplay(false);
       }
@@ -218,7 +221,7 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
       setIsSelf(player.id === BigInt(account.address));
       setDisplay(true);
     }
-  }, [builder, player, game]);
+  }, [game, player, builder]);
 
   const handleClick = () => {
     setPlayerEntity(playerKey);
