@@ -69,13 +69,13 @@ export default defineConfig({
           text: "Reveal",
           link: "/reveal",
         },
+         {
+          text: "Place",
+          link: "/place",
+        },
         {
           text: "Rotate",
           link: "/rotate",
-        },
-        {
-          text: "Place",
-          link: "/place",
         },
         {
           text: "Character",
