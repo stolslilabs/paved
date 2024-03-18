@@ -79,7 +79,7 @@ export const LeaderboardDialog = () => {
           game.duration !== 0 &&
           now >= game.start_time + game.duration;
         const soloCondition =
-          !over && game.mode === 1 && game.tile_count > TOURNAMENT_TILE_CAP;
+          !over && game.mode === 1 && game.tile_count >= TOURNAMENT_TILE_CAP;
         if (multiCondition || soloCondition) {
           setOpen(true);
           setOver(true);
@@ -109,7 +109,7 @@ export const LeaderboardDialog = () => {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
-        {over && <Description game={game} />}
+        {over && builder && <Description game={game} />}
         <Leaderboard />
         {over && game.mode !== 1 && builder && <Reward />}
       </DialogContent>

@@ -29,7 +29,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "stolsli"
+name = "paved"
 version = "0.0.0"
 dependencies = [
  "dojo",
