@@ -1,10 +1,10 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::types::alliance::Alliance;
+use paved::types::alliance::Alliance;
 
 // Constants
 
@@ -73,7 +73,7 @@ impl OrderImpl of OrderTrait {
     }
 }
 
-impl IntoOrderFelt252 of Into<Order, felt252> {
+impl IntoOrderFelt252 of core::Into<Order, felt252> {
     #[inline(always)]
     fn into(self: Order) -> felt252 {
         match self {
@@ -98,7 +98,7 @@ impl IntoOrderFelt252 of Into<Order, felt252> {
     }
 }
 
-impl IntoOrderU8 of Into<Order, u8> {
+impl IntoOrderU8 of core::Into<Order, u8> {
     #[inline(always)]
     fn into(self: Order) -> u8 {
         match self {
@@ -123,7 +123,7 @@ impl IntoOrderU8 of Into<Order, u8> {
     }
 }
 
-impl IntoU8Order of Into<u8, Order> {
+impl IntoU8Order of core::Into<u8, Order> {
     #[inline(always)]
     fn into(self: u8) -> Order {
         if self == 1 {
@@ -164,7 +164,7 @@ impl IntoU8Order of Into<u8, Order> {
     }
 }
 
-impl TryIntoFelt252Order of Into<felt252, Order> {
+impl TryIntoFelt252Order of core::Into<felt252, Order> {
     #[inline(always)]
     fn into(self: felt252) -> Order {
         if self == ANGER {
@@ -217,7 +217,7 @@ impl OrderPrint of PrintTrait<Order> {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

@@ -1,29 +1,29 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::store::{Store, StoreImpl};
-use stolsli::events::Scored;
-use stolsli::types::spot::Spot;
-use stolsli::types::area::Area;
-use stolsli::types::move::{Move, MoveImpl};
-use stolsli::models::game::{Game, GameImpl};
-use stolsli::models::builder::{Builder, BuilderImpl};
-use stolsli::models::character::{Character, CharacterPosition};
-use stolsli::models::tile::{Tile, TilePosition, TileImpl};
+use paved::store::{Store, StoreImpl};
+use paved::events::Scored;
+use paved::types::spot::Spot;
+use paved::types::area::Area;
+use paved::types::move::{Move, MoveImpl};
+use paved::models::game::{Game, GameImpl};
+use paved::models::builder::{Builder, BuilderImpl};
+use paved::models::character::{Character, CharacterPosition};
+use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
 
 #[generate_trait]
 impl WonderCount of WonderCountTrait {
     #[inline(always)]
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Character) {
         // [Compute] Setup recursion
-        let mut visited: Felt252Dict<bool> = Default::default();
+        let mut visited: Felt252Dict<bool> = core::Default::default();
         // [Check] Starting spot is occupied, otherwise no need to process further
         let spot: Spot = tile.occupied_spot.into();
         if spot != at {
-            return (0, Zeroable::zero());
+            return (0, core::Zeroable::zero());
         };
         // [Compute] Extract the character
         let character_position: CharacterPosition = store

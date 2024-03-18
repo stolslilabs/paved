@@ -8,10 +8,10 @@ use dojo::world::IWorldDispatcher;
 
 // Internal imports
 
-use stolsli::types::orientation::Orientation;
-use stolsli::types::direction::Direction;
-use stolsli::types::role::Role;
-use stolsli::types::spot::Spot;
+use paved::types::orientation::Orientation;
+use paved::types::direction::Direction;
+use paved::types::role::Role;
+use paved::types::spot::Spot;
 
 #[starknet::interface]
 trait IPlay<TContractState> {
@@ -33,9 +33,9 @@ trait IPlay<TContractState> {
 mod play {
     // Core imports
 
-    use stolsli::models::game::GameTrait;
-    use stolsli::models::game::AssertTrait;
-    use debug::PrintTrait;
+    use paved::models::game::GameTrait;
+    use paved::models::game::AssertTrait;
+    use core::debug::PrintTrait;
 
     // Starknet imports
 
@@ -50,22 +50,22 @@ mod play {
 
     // Internal imports
 
-    use stolsli::store::{Store, StoreImpl};
-    use stolsli::events::{Built, Scored, Discarded, GameOver};
-    use stolsli::models::game::{Game, GameImpl, GameAssert};
-    use stolsli::models::player::{Player, PlayerImpl, PlayerAssert};
-    use stolsli::models::team::{Team, TeamImpl};
-    use stolsli::models::builder::{Builder, BuilderImpl, BuilderAssert};
-    use stolsli::models::tile::{Tile, TilePosition, TileImpl};
-    use stolsli::types::alliance::{Alliance, AllianceImpl};
-    use stolsli::types::mode::Mode;
-    use stolsli::types::order::{Order, OrderImpl};
-    use stolsli::types::orientation::Orientation;
-    use stolsli::types::direction::Direction;
-    use stolsli::types::role::Role;
-    use stolsli::types::spot::Spot;
-    use stolsli::types::plan::Plan;
-    use stolsli::types::tournament::TournamentImpl;
+    use paved::store::{Store, StoreImpl};
+    use paved::events::{Built, Scored, Discarded, GameOver};
+    use paved::models::game::{Game, GameImpl, GameAssert};
+    use paved::models::player::{Player, PlayerImpl, PlayerAssert};
+    use paved::models::team::{Team, TeamImpl};
+    use paved::models::builder::{Builder, BuilderImpl, ZeroableBuilderImpl, BuilderAssert};
+    use paved::models::tile::{Tile, TilePosition, TileImpl};
+    use paved::types::alliance::{Alliance, AllianceImpl};
+    use paved::types::mode::Mode;
+    use paved::types::order::{Order, OrderImpl};
+    use paved::types::orientation::Orientation;
+    use paved::types::direction::Direction;
+    use paved::types::role::Role;
+    use paved::types::spot::Spot;
+    use paved::types::plan::Plan;
+    use paved::types::tournament::TournamentImpl;
 
     // Local imports
 

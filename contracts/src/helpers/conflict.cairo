@@ -1,23 +1,23 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::store::{Store, StoreImpl};
-use stolsli::types::spot::Spot;
-use stolsli::types::area::Area;
-use stolsli::types::plan::Plan;
-use stolsli::types::move::{Move, MoveImpl};
-use stolsli::models::game::Game;
-use stolsli::models::tile::{Tile, TilePosition, TileImpl};
+use paved::store::{Store, StoreImpl};
+use paved::types::spot::Spot;
+use paved::types::area::Area;
+use paved::types::plan::Plan;
+use paved::types::move::{Move, MoveImpl};
+use paved::models::game::Game;
+use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
 
 #[generate_trait]
 impl Conflict of ConflictTrait {
     #[inline(always)]
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> bool {
         // [Compute] Setup recursion
-        let mut visited: Felt252Dict<bool> = Default::default();
+        let mut visited: Felt252Dict<bool> = core::Default::default();
         // [Compute] Recursively check characters
         let mut status = false;
         Conflict::iter(game, tile, at, ref status, ref visited, ref store);

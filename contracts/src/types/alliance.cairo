@@ -1,12 +1,12 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::store::{Store, StoreImpl};
-use stolsli::types::order::Order;
-use stolsli::models::game::Game;
+use paved::store::{Store, StoreImpl};
+use paved::types::order::Order;
+use paved::models::game::Game;
 
 // Constants
 
@@ -104,7 +104,7 @@ impl AllianceImpl of AllianceTrait {
     }
 }
 
-impl IntoAllianceFelt252 of Into<Alliance, felt252> {
+impl IntoAllianceFelt252 of core::Into<Alliance, felt252> {
     #[inline(always)]
     fn into(self: Alliance) -> felt252 {
         match self {
@@ -115,7 +115,7 @@ impl IntoAllianceFelt252 of Into<Alliance, felt252> {
     }
 }
 
-impl IntoAllianceU8 of Into<Alliance, u8> {
+impl IntoAllianceU8 of core::Into<Alliance, u8> {
     #[inline(always)]
     fn into(self: Alliance) -> u8 {
         match self {
@@ -126,7 +126,7 @@ impl IntoAllianceU8 of Into<Alliance, u8> {
     }
 }
 
-impl IntoU8Alliance of Into<u8, Alliance> {
+impl IntoU8Alliance of core::Into<u8, Alliance> {
     #[inline(always)]
     fn into(self: u8) -> Alliance {
         if self == 1 {
@@ -139,7 +139,7 @@ impl IntoU8Alliance of Into<u8, Alliance> {
     }
 }
 
-impl TryIntoFelt252Alliance of Into<felt252, Alliance> {
+impl TryIntoFelt252Alliance of core::Into<felt252, Alliance> {
     #[inline(always)]
     fn into(self: felt252) -> Alliance {
         if self == LIGHT {
@@ -164,7 +164,7 @@ impl AlliancePrint of PrintTrait<Alliance> {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

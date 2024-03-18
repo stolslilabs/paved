@@ -25,7 +25,7 @@ trait IManage<TContractState> {
 mod manage {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Starknet imports
 
@@ -38,10 +38,10 @@ mod manage {
 
     // Internal imports
 
-    use stolsli::store::{Store, StoreImpl};
-    use stolsli::models::game::{Game, GameImpl, GameAssert};
-    use stolsli::models::player::{Player, PlayerImpl, PlayerAssert};
-    use stolsli::models::builder::{Builder, BuilderImpl, BuilderAssert};
+    use paved::store::{Store, StoreImpl};
+    use paved::models::game::{Game, GameImpl, GameAssert};
+    use paved::models::player::{Player, PlayerImpl, PlayerAssert};
+    use paved::models::builder::{Builder, BuilderImpl, BuilderAssert};
 
     // Local imports
 

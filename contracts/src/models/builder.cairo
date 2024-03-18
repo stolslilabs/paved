@@ -1,21 +1,21 @@
-use stolsli::models::game::GameTrait;
+use paved::models::game::GameTrait;
 // Internal imports
 
-use stolsli::constants;
-use stolsli::helpers::bitmap::Bitmap;
-use stolsli::store::{Store, StoreImpl};
-use stolsli::types::plan::Plan;
-use stolsli::types::order::Order;
-use stolsli::types::orientation::Orientation;
-use stolsli::types::role::{Role, RoleImpl, RoleAssert};
-use stolsli::types::spot::Spot;
-use stolsli::types::layout::{Layout, LayoutImpl};
-use stolsli::types::category::Category;
-use stolsli::types::alliance::{Alliance, AllianceImpl, MULTIPLIER};
-use stolsli::models::game::{Game, GameImpl};
-use stolsli::models::player::{Player, PlayerImpl};
-use stolsli::models::tile::{Tile, TileImpl};
-use stolsli::models::character::{Character, CharacterImpl};
+use paved::constants;
+use paved::helpers::bitmap::Bitmap;
+use paved::store::{Store, StoreImpl};
+use paved::types::plan::Plan;
+use paved::types::order::Order;
+use paved::types::orientation::Orientation;
+use paved::types::role::{Role, RoleImpl, RoleAssert};
+use paved::types::spot::Spot;
+use paved::types::layout::{Layout, LayoutImpl};
+use paved::types::category::Category;
+use paved::types::alliance::{Alliance, AllianceImpl, MULTIPLIER};
+use paved::models::game::{Game, GameImpl};
+use paved::models::player::{Player, PlayerImpl};
+use paved::models::tile::{Tile, TileImpl};
+use paved::models::character::{Character, CharacterImpl};
 
 mod errors {
     const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: does not exist';
@@ -222,7 +222,7 @@ impl BuilderAssert of AssertTrait {
     }
 }
 
-impl ZeroableBuilderImpl of Zeroable<Builder> {
+impl ZeroableBuilderImpl of core::Zeroable<Builder> {
     #[inline(always)]
     fn zero() -> Builder {
         Builder {
@@ -248,7 +248,7 @@ impl ZeroableBuilderImpl of Zeroable<Builder> {
     }
 }
 
-impl TileIntoPosition of Into<Builder, BuilderPosition> {
+impl TileIntoPosition of core::Into<Builder, BuilderPosition> {
     #[inline(always)]
     fn into(self: Builder) -> BuilderPosition {
         BuilderPosition { game_id: self.game_id, index: self.index, player_id: self.player_id, }

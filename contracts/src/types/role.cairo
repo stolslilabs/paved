@@ -1,10 +1,10 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::types::category::Category;
+use paved::types::category::Category;
 
 // Constants
 
@@ -233,7 +233,7 @@ impl RoleAssert of AssertTrait {
     }
 }
 
-impl RoleIntoFelt252 of Into<Role, felt252> {
+impl RoleIntoFelt252 of core::Into<Role, felt252> {
     #[inline(always)]
     fn into(self: Role) -> felt252 {
         match self {
@@ -249,7 +249,7 @@ impl RoleIntoFelt252 of Into<Role, felt252> {
     }
 }
 
-impl RoleIntoU8 of Into<Role, u8> {
+impl RoleIntoU8 of core::Into<Role, u8> {
     #[inline(always)]
     fn into(self: Role) -> u8 {
         match self {
@@ -265,7 +265,7 @@ impl RoleIntoU8 of Into<Role, u8> {
     }
 }
 
-impl Felt252IntoRole of Into<felt252, Role> {
+impl Felt252IntoRole of core::Into<felt252, Role> {
     #[inline(always)]
     fn into(self: felt252) -> Role {
         if self == LORD {
@@ -288,7 +288,7 @@ impl Felt252IntoRole of Into<felt252, Role> {
     }
 }
 
-impl U8IntoRole of Into<u8, Role> {
+impl U8IntoRole of core::Into<u8, Role> {
     #[inline(always)]
     fn into(self: u8) -> Role {
         if self == 1 {
@@ -323,7 +323,7 @@ impl RolePrint of PrintTrait<Role> {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

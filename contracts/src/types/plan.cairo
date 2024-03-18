@@ -1,54 +1,54 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::constants::{MASK_8, TWO_POW_8, TOTAL_TILE_COUNT};
-use stolsli::types::category::Category;
-use stolsli::types::spot::Spot;
-use stolsli::types::direction::{Direction, DirectionImpl};
-use stolsli::types::orientation::Orientation;
-use stolsli::types::move::Move;
-use stolsli::types::area::Area;
+use paved::constants::{MASK_8, TWO_POW_8, TOTAL_TILE_COUNT};
+use paved::types::category::Category;
+use paved::types::spot::Spot;
+use paved::types::direction::{Direction, DirectionImpl};
+use paved::types::orientation::Orientation;
+use paved::types::move::Move;
+use paved::types::area::Area;
 
-use stolsli::layouts::ccccccccc::{LayoutImpl as CccccccccImpl};
-use stolsli::layouts::cccccfffc::{LayoutImpl as CccccfffcImpl};
-use stolsli::layouts::cccccfrfc::{LayoutImpl as CccccfrfcImpl};
-use stolsli::layouts::cfcfccccc::{LayoutImpl as CfcfcccccImpl};
-use stolsli::layouts::cfcfcfcfc::{LayoutImpl as CfcfcfcfcImpl};
-use stolsli::layouts::cfcfcfffc::{LayoutImpl as CfcfcfffcImpl};
-use stolsli::layouts::cffcfcffc::{LayoutImpl as CffcfcffcImpl};
-use stolsli::layouts::cfffcfffc::{LayoutImpl as CfffcfffcImpl};
-use stolsli::layouts::cfffcfrfc::{LayoutImpl as CfffcfrfcImpl};
-use stolsli::layouts::fccfcccfc::{LayoutImpl as FccfcccfcImpl};
-use stolsli::layouts::fccfcfcfc::{LayoutImpl as FccfcfcfcImpl};
-use stolsli::layouts::ffcfcccff::{LayoutImpl as FfcfcccffImpl};
-use stolsli::layouts::ffcfcfcfc::{LayoutImpl as FfcfcfcfcImpl};
-use stolsli::layouts::ffcfffccc::{LayoutImpl as FfcfffcccImpl};
-use stolsli::layouts::ffcfffcfc::{LayoutImpl as FfcfffcfcImpl};
-use stolsli::layouts::ffcfffcff::{LayoutImpl as FfcfffcffImpl};
-use stolsli::layouts::ffcfffffc::{LayoutImpl as FfcfffffcImpl};
-use stolsli::layouts::ffffcccff::{LayoutImpl as FfffcccffImpl};
-use stolsli::layouts::ffffffcff::{LayoutImpl as FfffffcffImpl};
-use stolsli::layouts::rfffffcfr::{LayoutImpl as RfffffcfrImpl};
-use stolsli::layouts::rfffrfcff::{LayoutImpl as RfffrfcffImpl};
-use stolsli::layouts::rfffrfcfr::{LayoutImpl as RfffrfcfrImpl};
-use stolsli::layouts::rfffrfffr::{LayoutImpl as RfffrfffrImpl};
-use stolsli::layouts::rfrfcccff::{LayoutImpl as RfrfcccffImpl};
-use stolsli::layouts::rfrfcccfr::{LayoutImpl as RfrfcccfrImpl};
-use stolsli::layouts::rfrfffccc::{LayoutImpl as RfrfffcccImpl};
-use stolsli::layouts::rfrfffcff::{LayoutImpl as RfrfffcffImpl};
-use stolsli::layouts::rfrfffcfr::{LayoutImpl as RfrfffcfrImpl};
-use stolsli::layouts::rfrfffffr::{LayoutImpl as RfrfffffrImpl};
-use stolsli::layouts::rfrfrfcff::{LayoutImpl as RfrfrfcffImpl};
-use stolsli::layouts::sfffffffr::{LayoutImpl as SfffffffrImpl};
-use stolsli::layouts::sfrfrfcfr::{LayoutImpl as SfrfrfcfrImpl};
-use stolsli::layouts::sfrfrfffr::{LayoutImpl as SfrfrfffrImpl};
-use stolsli::layouts::sfrfrfrfr::{LayoutImpl as SfrfrfrfrImpl};
-use stolsli::layouts::wcccccccc::{LayoutImpl as WccccccccImpl};
-use stolsli::layouts::wffffffff::{LayoutImpl as WffffffffImpl};
-use stolsli::layouts::wfffffffr::{LayoutImpl as WfffffffrImpl};
+use paved::layouts::ccccccccc::{LayoutImpl as CccccccccImpl};
+use paved::layouts::cccccfffc::{LayoutImpl as CccccfffcImpl};
+use paved::layouts::cccccfrfc::{LayoutImpl as CccccfrfcImpl};
+use paved::layouts::cfcfccccc::{LayoutImpl as CfcfcccccImpl};
+use paved::layouts::cfcfcfcfc::{LayoutImpl as CfcfcfcfcImpl};
+use paved::layouts::cfcfcfffc::{LayoutImpl as CfcfcfffcImpl};
+use paved::layouts::cffcfcffc::{LayoutImpl as CffcfcffcImpl};
+use paved::layouts::cfffcfffc::{LayoutImpl as CfffcfffcImpl};
+use paved::layouts::cfffcfrfc::{LayoutImpl as CfffcfrfcImpl};
+use paved::layouts::fccfcccfc::{LayoutImpl as FccfcccfcImpl};
+use paved::layouts::fccfcfcfc::{LayoutImpl as FccfcfcfcImpl};
+use paved::layouts::ffcfcccff::{LayoutImpl as FfcfcccffImpl};
+use paved::layouts::ffcfcfcfc::{LayoutImpl as FfcfcfcfcImpl};
+use paved::layouts::ffcfffccc::{LayoutImpl as FfcfffcccImpl};
+use paved::layouts::ffcfffcfc::{LayoutImpl as FfcfffcfcImpl};
+use paved::layouts::ffcfffcff::{LayoutImpl as FfcfffcffImpl};
+use paved::layouts::ffcfffffc::{LayoutImpl as FfcfffffcImpl};
+use paved::layouts::ffffcccff::{LayoutImpl as FfffcccffImpl};
+use paved::layouts::ffffffcff::{LayoutImpl as FfffffcffImpl};
+use paved::layouts::rfffffcfr::{LayoutImpl as RfffffcfrImpl};
+use paved::layouts::rfffrfcff::{LayoutImpl as RfffrfcffImpl};
+use paved::layouts::rfffrfcfr::{LayoutImpl as RfffrfcfrImpl};
+use paved::layouts::rfffrfffr::{LayoutImpl as RfffrfffrImpl};
+use paved::layouts::rfrfcccff::{LayoutImpl as RfrfcccffImpl};
+use paved::layouts::rfrfcccfr::{LayoutImpl as RfrfcccfrImpl};
+use paved::layouts::rfrfffccc::{LayoutImpl as RfrfffcccImpl};
+use paved::layouts::rfrfffcff::{LayoutImpl as RfrfffcffImpl};
+use paved::layouts::rfrfffcfr::{LayoutImpl as RfrfffcfrImpl};
+use paved::layouts::rfrfffffr::{LayoutImpl as RfrfffffrImpl};
+use paved::layouts::rfrfrfcff::{LayoutImpl as RfrfrfcffImpl};
+use paved::layouts::sfffffffr::{LayoutImpl as SfffffffrImpl};
+use paved::layouts::sfrfrfcfr::{LayoutImpl as SfrfrfcfrImpl};
+use paved::layouts::sfrfrfffr::{LayoutImpl as SfrfrfffrImpl};
+use paved::layouts::sfrfrfrfr::{LayoutImpl as SfrfrfrfrImpl};
+use paved::layouts::wcccccccc::{LayoutImpl as WccccccccImpl};
+use paved::layouts::wffffffff::{LayoutImpl as WffffffffImpl};
+use paved::layouts::wfffffffr::{LayoutImpl as WfffffffrImpl};
 
 // Constants
 
@@ -102,7 +102,7 @@ enum Plan {
     WFFFFFFFR, // 1 pieces update
 }
 
-impl IntoPlanFelt252 of Into<Plan, felt252> {
+impl IntoPlanFelt252 of core::Into<Plan, felt252> {
     #[inline(always)]
     fn into(self: Plan) -> felt252 {
         match self {
@@ -148,7 +148,7 @@ impl IntoPlanFelt252 of Into<Plan, felt252> {
     }
 }
 
-impl IntoPlanU8 of Into<Plan, u8> {
+impl IntoPlanU8 of core::Into<Plan, u8> {
     #[inline(always)]
     fn into(self: Plan) -> u8 {
         match self {
@@ -194,7 +194,7 @@ impl IntoPlanU8 of Into<Plan, u8> {
     }
 }
 
-impl IntoU8Plan of Into<u8, Plan> {
+impl IntoU8Plan of core::Into<u8, Plan> {
     #[inline(always)]
     fn into(self: u8) -> Plan {
         let plan: felt252 = self.into();
@@ -242,7 +242,7 @@ impl IntoU8Plan of Into<u8, Plan> {
     }
 }
 
-impl IntoU32Plan of Into<u32, Plan> {
+impl IntoU32Plan of core::Into<u32, Plan> {
     #[inline(always)]
     fn into(self: u32) -> Plan {
         let id = self % TOTAL_TILE_COUNT.into();
@@ -635,7 +635,7 @@ impl PlanImpl of PlanTrait {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

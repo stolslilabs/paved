@@ -1,6 +1,6 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Starknet imports
 
@@ -12,21 +12,21 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
 // Internal imports
 
-use stolsli::constants;
-use stolsli::store::{Store, StoreTrait};
-use stolsli::models::game::{Game, GameTrait};
-use stolsli::models::builder::{Builder, BuilderTrait};
-use stolsli::models::tile::{Tile, TileTrait, CENTER};
-use stolsli::types::mode::Mode;
-use stolsli::types::order::Order;
-use stolsli::types::orientation::Orientation;
-use stolsli::types::direction::Direction;
-use stolsli::types::plan::Plan;
-use stolsli::types::role::Role;
-use stolsli::types::spot::Spot;
-use stolsli::systems::host::IHostDispatcherTrait;
-use stolsli::systems::play::IPlayDispatcherTrait;
-use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
+use paved::constants;
+use paved::store::{Store, StoreTrait};
+use paved::models::game::{Game, GameTrait};
+use paved::models::builder::{Builder, BuilderTrait};
+use paved::models::tile::{Tile, TileTrait, CENTER};
+use paved::types::mode::Mode;
+use paved::types::order::Order;
+use paved::types::orientation::Orientation;
+use paved::types::direction::Direction;
+use paved::types::plan::Plan;
+use paved::types::role::Role;
+use paved::types::spot::Spot;
+use paved::systems::host::IHostDispatcherTrait;
+use paved::systems::play::IPlayDispatcherTrait;
+use paved::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
 #[test]
 fn test_case_002() {

@@ -8,10 +8,10 @@ use dojo::world::IWorldDispatcher;
 
 // Internal imports
 
-use stolsli::types::orientation::Orientation;
-use stolsli::types::direction::Direction;
-use stolsli::types::role::Role;
-use stolsli::types::spot::Spot;
+use paved::types::orientation::Orientation;
+use paved::types::direction::Direction;
+use paved::types::role::Role;
+use paved::types::spot::Spot;
 
 #[starknet::interface]
 trait IHost<TContractState> {
@@ -33,8 +33,8 @@ trait IHost<TContractState> {
 mod host {
     // Core imports
 
-    use stolsli::store::StoreTrait;
-    use debug::PrintTrait;
+    use paved::store::StoreTrait;
+    use core::debug::PrintTrait;
 
     // Starknet imports
 
@@ -49,21 +49,21 @@ mod host {
 
     // Internal imports
 
-    use stolsli::store::{Store, StoreImpl};
-    use stolsli::events::{Built, Scored};
-    use stolsli::models::game::{Game, GameImpl, GameAssert};
-    use stolsli::models::player::{Player, PlayerImpl, PlayerAssert};
-    use stolsli::models::team::{Team, TeamImpl};
-    use stolsli::models::builder::{Builder, BuilderImpl, BuilderAssert};
-    use stolsli::models::tile::{Tile, TilePosition, TileImpl};
-    use stolsli::types::alliance::{Alliance, AllianceImpl};
-    use stolsli::types::order::{Order, OrderImpl};
-    use stolsli::types::orientation::Orientation;
-    use stolsli::types::direction::Direction;
-    use stolsli::types::role::Role;
-    use stolsli::types::spot::Spot;
-    use stolsli::types::plan::Plan;
-    use stolsli::types::mode::Mode;
+    use paved::store::{Store, StoreImpl};
+    use paved::events::{Built, Scored};
+    use paved::models::game::{Game, GameImpl, GameAssert};
+    use paved::models::player::{Player, PlayerImpl, PlayerAssert};
+    use paved::models::team::{Team, TeamImpl};
+    use paved::models::builder::{Builder, BuilderImpl, BuilderAssert};
+    use paved::models::tile::{Tile, TilePosition, TileImpl};
+    use paved::types::alliance::{Alliance, AllianceImpl};
+    use paved::types::order::{Order, OrderImpl};
+    use paved::types::orientation::Orientation;
+    use paved::types::direction::Direction;
+    use paved::types::role::Role;
+    use paved::types::spot::Spot;
+    use paved::types::plan::Plan;
+    use paved::types::mode::Mode;
 
     // Local imports
 

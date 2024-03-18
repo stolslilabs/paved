@@ -1,10 +1,10 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::types::orientation::Orientation;
+use paved::types::orientation::Orientation;
 
 // Constants
 
@@ -31,7 +31,7 @@ enum Direction {
     West,
 }
 
-impl IntoDirectionU8 of Into<Direction, u8> {
+impl IntoDirectionU8 of core::Into<Direction, u8> {
     #[inline(always)]
     fn into(self: Direction) -> u8 {
         match self {
@@ -48,7 +48,7 @@ impl IntoDirectionU8 of Into<Direction, u8> {
     }
 }
 
-impl IntoDirectionFelt252 of Into<Direction, felt252> {
+impl IntoDirectionFelt252 of core::Into<Direction, felt252> {
     #[inline(always)]
     fn into(self: Direction) -> felt252 {
         match self {
@@ -65,7 +65,7 @@ impl IntoDirectionFelt252 of Into<Direction, felt252> {
     }
 }
 
-impl IntoU8Direction of Into<u8, Direction> {
+impl IntoU8Direction of core::Into<u8, Direction> {
     #[inline(always)]
     fn into(self: u8) -> Direction {
         if self == 1 {
@@ -90,7 +90,7 @@ impl IntoU8Direction of Into<u8, Direction> {
     }
 }
 
-impl IntoFelt252Direction of Into<felt252, Direction> {
+impl IntoFelt252Direction of core::Into<felt252, Direction> {
     #[inline(always)]
     fn into(self: felt252) -> Direction {
         if self == NORTH_WEST {
@@ -204,7 +204,7 @@ impl DirectionImpl of DirectionTrait {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

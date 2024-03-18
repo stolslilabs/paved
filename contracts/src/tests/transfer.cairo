@@ -1,7 +1,7 @@
-use stolsli::models::player::AssertTrait;
+use paved::models::player::AssertTrait;
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Starknet imports
 
@@ -13,16 +13,16 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
 // Internal imports
 
-use stolsli::store::{Store, StoreTrait};
-use stolsli::models::game::{Game, GameTrait, GameAssert};
-use stolsli::models::player::{Player, PlayerTrait, PlayerAssert};
-use stolsli::models::builder::{Builder, BuilderTrait, BuilderAssert};
-use stolsli::types::mode::Mode;
-use stolsli::types::order::Order;
-use stolsli::systems::host::IHostDispatcherTrait;
-use stolsli::systems::manage::IManageDispatcherTrait;
-use stolsli::systems::play::IPlayDispatcherTrait;
-use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
+use paved::store::{Store, StoreTrait};
+use paved::models::game::{Game, GameTrait, GameAssert};
+use paved::models::player::{Player, PlayerTrait, PlayerAssert};
+use paved::models::builder::{Builder, BuilderTrait, BuilderAssert};
+use paved::types::mode::Mode;
+use paved::types::order::Order;
+use paved::systems::host::IHostDispatcherTrait;
+use paved::systems::manage::IManageDispatcherTrait;
+use paved::systems::play::IPlayDispatcherTrait;
+use paved::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
 #[test]
 fn test_host_transfer() {

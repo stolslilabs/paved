@@ -1,9 +1,9 @@
 // Internal imports
 
-use stolsli::constants;
-use stolsli::store::{Store, StoreImpl};
-use stolsli::types::alliance::{Alliance, AllianceImpl};
-use stolsli::types::order::{Order, OrderImpl};
+use paved::constants;
+use paved::store::{Store, StoreImpl};
+use paved::types::alliance::{Alliance, AllianceImpl};
+use paved::types::order::{Order, OrderImpl};
 
 mod errors {
     const INVALID_ORDER: felt252 = 'Team: Invalid order';
@@ -57,7 +57,7 @@ impl TeamImpl of TeamTrait {
     }
 }
 
-impl ZeroableTeam of Zeroable<Team> {
+impl ZeroableTeam of core::Zeroable<Team> {
     #[inline(always)]
     fn zero() -> Team {
         Team { game_id: 0, order: 0, score: 0, alliance: 0 }

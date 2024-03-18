@@ -1,10 +1,10 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::constants;
+use paved::constants;
 
 // Constants
 
@@ -46,7 +46,7 @@ impl CategoryImpl of CategoryTrait {
     }
 }
 
-impl CategoryIntoFelt252 of Into<Category, felt252> {
+impl CategoryIntoFelt252 of core::Into<Category, felt252> {
     #[inline(always)]
     fn into(self: Category) -> felt252 {
         match self {
@@ -60,7 +60,7 @@ impl CategoryIntoFelt252 of Into<Category, felt252> {
     }
 }
 
-impl CategoryIntoU8 of Into<Category, u8> {
+impl CategoryIntoU8 of core::Into<Category, u8> {
     #[inline(always)]
     fn into(self: Category) -> u8 {
         match self {
@@ -74,7 +74,7 @@ impl CategoryIntoU8 of Into<Category, u8> {
     }
 }
 
-impl Felt252IntoCategory of Into<felt252, Category> {
+impl Felt252IntoCategory of core::Into<felt252, Category> {
     #[inline(always)]
     fn into(self: felt252) -> Category {
         if self == FOREST || self == FOREST_KEY {
@@ -93,7 +93,7 @@ impl Felt252IntoCategory of Into<felt252, Category> {
     }
 }
 
-impl U8IntoCategory of Into<u8, Category> {
+impl U8IntoCategory of core::Into<u8, Category> {
     #[inline(always)]
     fn into(self: u8) -> Category {
         if self == 1 {
@@ -124,7 +124,7 @@ impl CategoryPrint of PrintTrait<Category> {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

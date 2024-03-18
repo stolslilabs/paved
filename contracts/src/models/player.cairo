@@ -1,7 +1,7 @@
 // Internal imports
 
-use stolsli::constants;
-use stolsli::types::order::Order;
+use paved::constants;
+use paved::types::order::Order;
 
 mod errors {
     const PLAYER_NOT_EXIST: felt252 = 'Player: Does not exist';
@@ -114,7 +114,7 @@ impl PlayerAssert of AssertTrait {
     }
 }
 
-impl ZeroablePlayerImpl of Zeroable<Player> {
+impl ZeroablePlayerImpl of core::Zeroable<Player> {
     #[inline(always)]
     fn zero() -> Player {
         Player {

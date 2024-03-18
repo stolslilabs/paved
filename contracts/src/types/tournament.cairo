@@ -1,6 +1,6 @@
 // Internal imports
 
-use stolsli::constants;
+use paved::constants;
 
 #[generate_trait]
 impl TournamentImpl of TournamentTrait {

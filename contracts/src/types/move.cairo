@@ -1,12 +1,12 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::types::direction::{Direction, DirectionImpl};
-use stolsli::types::orientation::Orientation;
-use stolsli::types::spot::{Spot, SpotImpl};
+use paved::types::direction::{Direction, DirectionImpl};
+use paved::types::orientation::Orientation;
+use paved::types::spot::{Spot, SpotImpl};
 
 mod errors {
     const INVALID_DIRECTION: felt252 = 'Move: Invalid direction';
@@ -39,7 +39,7 @@ impl MoveImpl of MoveTrait {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

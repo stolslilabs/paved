@@ -1,15 +1,15 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::types::plan::{Plan, PlanImpl};
-use stolsli::types::orientation::Orientation;
-use stolsli::types::direction::{Direction, DirectionImpl};
-use stolsli::types::category::Category;
-use stolsli::types::spot::{Spot, SpotImpl};
-use stolsli::types::move::Move;
+use paved::types::plan::{Plan, PlanImpl};
+use paved::types::orientation::Orientation;
+use paved::types::direction::{Direction, DirectionImpl};
+use paved::types::category::Category;
+use paved::types::spot::{Spot, SpotImpl};
+use paved::types::move::Move;
 
 // Constants
 
@@ -80,7 +80,7 @@ impl LayoutImpl of LayoutTrait {
 
         // [Compute] Rotate Categories to match orientation
         match orientation {
-            Orientation::None => { Zeroable::zero() },
+            Orientation::None => { core::Zeroable::zero() },
             Orientation::North => {
                 Layout {
                     center: center,
@@ -168,7 +168,7 @@ impl LayoutImpl of LayoutTrait {
     }
 }
 
-impl ZeroableLayoutImpl of Zeroable<Layout> {
+impl ZeroableLayoutImpl of core::Zeroable<Layout> {
     #[inline(always)]
     fn zero() -> Layout {
         Layout {
@@ -207,7 +207,7 @@ impl ZeroableLayoutImpl of Zeroable<Layout> {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

@@ -1,7 +1,7 @@
 // Core imports
 
-use debug::PrintTrait;
-use dict::{Felt252Dict, Felt252DictTrait};
+use core::debug::PrintTrait;
+use core::dict::{Felt252Dict, Felt252DictTrait};
 
 // External imports
 
@@ -9,28 +9,28 @@ use origami::random::deck::{Deck, DeckTrait};
 
 // Internal imports
 
-use stolsli::constants;
-use stolsli::store::{Store, StoreImpl};
-use stolsli::events::{Scored};
-use stolsli::helpers::bitmap::Bitmap;
-use stolsli::helpers::generic::GenericCount;
-use stolsli::helpers::forest::ForestCount;
-use stolsli::helpers::wonder::WonderCount;
-use stolsli::helpers::conflict::Conflict;
-use stolsli::types::mode::Mode;
-use stolsli::types::plan::Plan;
-use stolsli::types::spot::{Spot, SpotImpl};
-use stolsli::types::area::Area;
-use stolsli::types::role::Role;
-use stolsli::types::category::{Category, CategoryImpl};
-use stolsli::types::layout::{Layout, LayoutImpl};
-use stolsli::types::direction::{Direction, DirectionImpl};
-use stolsli::types::orientation::Orientation;
-use stolsli::types::move::{Move, MoveImpl};
-use stolsli::models::player::{Player, PlayerImpl};
-use stolsli::models::builder::{Builder, BuilderImpl};
-use stolsli::models::character::{Character, CharacterPosition, CharacterImpl, CharacterAssert,};
-use stolsli::models::tile::{Tile, TilePosition, TileImpl};
+use paved::constants;
+use paved::store::{Store, StoreImpl};
+use paved::events::{Scored};
+use paved::helpers::bitmap::Bitmap;
+use paved::helpers::generic::GenericCount;
+use paved::helpers::forest::ForestCount;
+use paved::helpers::wonder::WonderCount;
+use paved::helpers::conflict::Conflict;
+use paved::types::mode::Mode;
+use paved::types::plan::Plan;
+use paved::types::spot::{Spot, SpotImpl};
+use paved::types::area::Area;
+use paved::types::role::Role;
+use paved::types::category::{Category, CategoryImpl};
+use paved::types::layout::{Layout, LayoutImpl};
+use paved::types::direction::{Direction, DirectionImpl};
+use paved::types::orientation::Orientation;
+use paved::types::move::{Move, MoveImpl};
+use paved::models::player::{Player, PlayerImpl};
+use paved::models::builder::{Builder, BuilderImpl};
+use paved::models::character::{Character, CharacterPosition, CharacterImpl, CharacterAssert,};
+use paved::models::tile::{Tile, TilePosition, TileImpl};
 
 mod errors {
     const INVALID_NAME: felt252 = 'Game: invalid name';
@@ -327,7 +327,7 @@ impl GameImpl of GameTrait {
     }
 }
 
-impl ZeroableGame of Zeroable<Game> {
+impl ZeroableGame of core::Zeroable<Game> {
     #[inline(always)]
     fn zero() -> Game {
         Game {
@@ -421,8 +421,8 @@ impl GameAssert of AssertTrait {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
-    use dict::{Felt252Dict, Felt252DictTrait};
+    use core::debug::PrintTrait;
+    use core::dict::{Felt252Dict, Felt252DictTrait};
 
     // Local imports
 
@@ -464,7 +464,7 @@ mod tests {
     #[test]
     fn test_game_draw_planes() {
         let mut game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
-        let mut counts: Felt252Dict<u8> = Default::default();
+        let mut counts: Felt252Dict<u8> = core::Default::default();
         loop {
             if game.tile_count == constants::TOTAL_TILE_COUNT.into() {
                 break;
