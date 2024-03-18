@@ -26,11 +26,11 @@ export default defineConfig({
         },],
     },
     {
-      text: "Player setup",
+      text: "Player Setup",
       collapsed: true,
       items: [
         {
-          text: "Wallet",
+          text: "Log In",
           link: "/wallet",
         },
         {
@@ -38,21 +38,21 @@ export default defineConfig({
           link: "/spawn",
         },
         {
-          text: "Purchase",
+          text: "Purchase - Coming Soon",
           link: "/purchase",
         },
       ],
     },
     {
-      text: "Lobby",
+      text: "Game Setup",
       collapsed: true,
       items: [
         {
-          text: "Create",
+          text: "Solo",
           link: "/create",
         },
         {
-          text: "Join",
+          text: "Multiplayer",
           link: "/join",
         },
         {
