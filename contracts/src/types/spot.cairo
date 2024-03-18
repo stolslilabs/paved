@@ -1,10 +1,10 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::types::orientation::Orientation;
+use paved::types::orientation::Orientation;
 
 // Constants
 
@@ -33,7 +33,7 @@ enum Spot {
     West,
 }
 
-impl IntoSpotU8 of Into<Spot, u8> {
+impl IntoSpotU8 of core::Into<Spot, u8> {
     #[inline(always)]
     fn into(self: Spot) -> u8 {
         match self {
@@ -51,7 +51,7 @@ impl IntoSpotU8 of Into<Spot, u8> {
     }
 }
 
-impl IntoSpotFelt252 of Into<Spot, felt252> {
+impl IntoSpotFelt252 of core::Into<Spot, felt252> {
     #[inline(always)]
     fn into(self: Spot) -> felt252 {
         match self {
@@ -69,7 +69,7 @@ impl IntoSpotFelt252 of Into<Spot, felt252> {
     }
 }
 
-impl IntoU8Spot of Into<u8, Spot> {
+impl IntoU8Spot of core::Into<u8, Spot> {
     #[inline(always)]
     fn into(self: u8) -> Spot {
         if self == 1 {
@@ -96,7 +96,7 @@ impl IntoU8Spot of Into<u8, Spot> {
     }
 }
 
-impl IntoFelt252Spot of Into<felt252, Spot> {
+impl IntoFelt252Spot of core::Into<felt252, Spot> {
     #[inline(always)]
     fn into(self: felt252) -> Spot {
         if self == CENTER {
@@ -200,7 +200,7 @@ impl SpotImpl of SpotTrait {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

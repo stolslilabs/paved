@@ -1,6 +1,6 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Constants
 
@@ -15,7 +15,7 @@ enum Mode {
     Multi,
 }
 
-impl IntoModeFelt252 of Into<Mode, felt252> {
+impl IntoModeFelt252 of core::Into<Mode, felt252> {
     #[inline(always)]
     fn into(self: Mode) -> felt252 {
         match self {
@@ -26,7 +26,7 @@ impl IntoModeFelt252 of Into<Mode, felt252> {
     }
 }
 
-impl IntoModeU8 of Into<Mode, u8> {
+impl IntoModeU8 of core::Into<Mode, u8> {
     #[inline(always)]
     fn into(self: Mode) -> u8 {
         match self {
@@ -37,7 +37,7 @@ impl IntoModeU8 of Into<Mode, u8> {
     }
 }
 
-impl IntoU8Mode of Into<u8, Mode> {
+impl IntoU8Mode of core::Into<u8, Mode> {
     #[inline(always)]
     fn into(self: u8) -> Mode {
         if self == 1 {
@@ -50,7 +50,7 @@ impl IntoU8Mode of Into<u8, Mode> {
     }
 }
 
-impl TryIntoFelt252Mode of Into<felt252, Mode> {
+impl TryIntoFelt252Mode of core::Into<felt252, Mode> {
     #[inline(always)]
     fn into(self: felt252) -> Mode {
         if self == SOLO {
@@ -75,7 +75,7 @@ impl ModePrint of PrintTrait<Mode> {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

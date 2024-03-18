@@ -1,6 +1,6 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Starknet imports
 
@@ -12,16 +12,16 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
 // Internal imports
 
-use stolsli::constants;
-use stolsli::store::{Store, StoreTrait};
-use stolsli::models::game::{Game, GameTrait, GameAssert};
-use stolsli::models::builder::{Builder, BuilderTrait};
-use stolsli::models::tile::{Tile, TileTrait, CENTER};
-use stolsli::types::mode::Mode;
-use stolsli::systems::host::IHostDispatcherTrait;
-use stolsli::systems::manage::IManageDispatcherTrait;
-use stolsli::systems::play::IPlayDispatcherTrait;
-use stolsli::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
+use paved::constants;
+use paved::store::{Store, StoreTrait};
+use paved::models::game::{Game, GameTrait, GameAssert};
+use paved::models::builder::{Builder, BuilderTrait};
+use paved::models::tile::{Tile, TileTrait, CENTER};
+use paved::types::mode::Mode;
+use paved::systems::host::IHostDispatcherTrait;
+use paved::systems::manage::IManageDispatcherTrait;
+use paved::systems::play::IPlayDispatcherTrait;
+use paved::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
 // Constants
 

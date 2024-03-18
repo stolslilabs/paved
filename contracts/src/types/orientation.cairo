@@ -1,6 +1,6 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Constants
 
@@ -19,7 +19,7 @@ enum Orientation {
     West
 }
 
-impl IntoOrientationU8 of Into<Orientation, u8> {
+impl IntoOrientationU8 of core::Into<Orientation, u8> {
     #[inline(always)]
     fn into(self: Orientation) -> u8 {
         match self {
@@ -32,7 +32,7 @@ impl IntoOrientationU8 of Into<Orientation, u8> {
     }
 }
 
-impl IntoOrientationFelt252 of Into<Orientation, felt252> {
+impl IntoOrientationFelt252 of core::Into<Orientation, felt252> {
     #[inline(always)]
     fn into(self: Orientation) -> felt252 {
         match self {
@@ -45,7 +45,7 @@ impl IntoOrientationFelt252 of Into<Orientation, felt252> {
     }
 }
 
-impl IntoU8Orientation of Into<u8, Orientation> {
+impl IntoU8Orientation of core::Into<u8, Orientation> {
     #[inline(always)]
     fn into(self: u8) -> Orientation {
         if self == 1 {
@@ -62,7 +62,7 @@ impl IntoU8Orientation of Into<u8, Orientation> {
     }
 }
 
-impl IntoFelt252Orientation of Into<felt252, Orientation> {
+impl IntoFelt252Orientation of core::Into<felt252, Orientation> {
     #[inline(always)]
     fn into(self: felt252) -> Orientation {
         if self == NORTH {
@@ -91,7 +91,7 @@ impl OrientationPrint of PrintTrait<Orientation> {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

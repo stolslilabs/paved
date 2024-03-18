@@ -1,10 +1,10 @@
 // Core imports
 
-use integer::BoundedInt;
+use core::integer::BoundedInt;
 
 // Internal imports
 
-use stolsli::constants;
+use paved::constants;
 
 // Errors
 
@@ -306,7 +306,7 @@ impl Bitmap of BitmapTrait {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

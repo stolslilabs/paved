@@ -1,19 +1,19 @@
 // Core imports
 
-use debug::PrintTrait;
-use traits::{Into, TryInto};
-use option::OptionTrait;
+use core::debug::PrintTrait;
+use core::traits::{Into, TryInto};
+use core::option::OptionTrait;
 
 // Internal imports
 
-use stolsli::constants;
-use stolsli::types::orientation::Orientation;
-use stolsli::types::area::{Area, AreaImpl};
-use stolsli::types::direction::{Direction, DirectionImpl};
-use stolsli::types::plan::{Plan, PlanImpl};
-use stolsli::types::layout::{Layout, LayoutImpl};
-use stolsli::types::spot::{Spot, SpotImpl};
-use stolsli::types::move::{Move, MoveImpl};
+use paved::constants;
+use paved::types::orientation::Orientation;
+use paved::types::area::{Area, AreaImpl};
+use paved::types::direction::{Direction, DirectionImpl};
+use paved::types::plan::{Plan, PlanImpl};
+use paved::types::layout::{Layout, LayoutImpl};
+use paved::types::spot::{Spot, SpotImpl};
+use paved::types::move::{Move, MoveImpl};
 
 // Constants
 
@@ -203,7 +203,7 @@ impl TileImpl of TileTrait {
     }
 }
 
-impl TileIntoPosition of Into<Tile, TilePosition> {
+impl TileIntoPosition of core::Into<Tile, TilePosition> {
     #[inline(always)]
     fn into(self: Tile) -> TilePosition {
         let tile_id = if Orientation::None == self.orientation.into() {
@@ -215,7 +215,7 @@ impl TileIntoPosition of Into<Tile, TilePosition> {
     }
 }
 
-impl TileIntoLayout of Into<Tile, Layout> {
+impl TileIntoLayout of core::Into<Tile, Layout> {
     #[inline(always)]
     fn into(self: Tile) -> Layout {
         self.assert_is_placed();
@@ -278,7 +278,7 @@ impl InternalImpl of InternalTrait {
     }
 }
 
-impl ZeroableTile of Zeroable<Tile> {
+impl ZeroableTile of core::Zeroable<Tile> {
     #[inline(always)]
     fn zero() -> Tile {
         Tile {
@@ -297,7 +297,7 @@ impl ZeroableTile of Zeroable<Tile> {
     }
 }
 
-impl ZeroableTilePosition of Zeroable<TilePosition> {
+impl ZeroableTilePosition of core::Zeroable<TilePosition> {
     #[inline(always)]
     fn zero() -> TilePosition {
         TilePosition { game_id: 0, x: 0, y: 0, tile_id: 0, }
@@ -318,7 +318,7 @@ impl ZeroableTilePosition of Zeroable<TilePosition> {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

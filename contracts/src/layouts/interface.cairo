@@ -1,6 +1,6 @@
-use stolsli::types::spot::Spot;
-use stolsli::types::move::Move;
-use stolsli::types::area::Area;
+use paved::types::spot::Spot;
+use paved::types::move::Move;
+use paved::types::area::Area;
 
 trait LayoutTrait {
     /// Return the start spots.

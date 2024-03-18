@@ -1,20 +1,20 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::constants;
-use stolsli::store::{Store, StoreImpl};
-use stolsli::events::Scored;
-use stolsli::types::spot::Spot;
-use stolsli::types::area::Area;
-use stolsli::types::move::{Move, MoveImpl};
-use stolsli::models::game::{Game, GameImpl};
-use stolsli::models::builder::{Builder, BuilderImpl};
-use stolsli::models::character::{Character, CharacterPosition};
-use stolsli::models::tile::{Tile, TilePosition, TileImpl};
-use stolsli::helpers::multiplier::compute_multiplier;
+use paved::constants;
+use paved::store::{Store, StoreImpl};
+use paved::events::Scored;
+use paved::types::spot::Spot;
+use paved::types::area::Area;
+use paved::types::move::{Move, MoveImpl};
+use paved::models::game::{Game, GameImpl};
+use paved::models::builder::{Builder, BuilderImpl};
+use paved::models::character::{Character, CharacterPosition};
+use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
+use paved::helpers::multiplier::compute_multiplier;
 
 #[generate_trait]
 impl GenericCount of GenericCountTrait {
@@ -22,7 +22,7 @@ impl GenericCount of GenericCountTrait {
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, u32, Array<Character>) {
         // [Compute] Setup recursion
         let mut characters: Array<Character> = ArrayTrait::new();
-        let mut visited: Felt252Dict<bool> = Default::default();
+        let mut visited: Felt252Dict<bool> = core::Default::default();
         // [Compute] Recursively count the points
         let mut count = 0;
         let mut score = 0;
@@ -119,8 +119,8 @@ impl GenericCount of GenericCountTrait {
         let mut winner_weight: u32 = 0;
         let mut winner: felt252 = 0;
         let mut solved: bool = false;
-        let mut counter: Felt252Dict<u32> = Default::default();
-        let mut powers: Felt252Dict<u32> = Default::default();
+        let mut counter: Felt252Dict<u32> = core::Default::default();
+        let mut powers: Felt252Dict<u32> = core::Default::default();
         loop {
             match characters.pop_front() {
                 Option::Some(mut character) => {

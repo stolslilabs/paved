@@ -1,7 +1,7 @@
 mod setup {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Starknet imports
 
@@ -15,16 +15,16 @@ mod setup {
 
     // Internal imports
 
-    use stolsli::models::game::{Game, GameImpl};
-    use stolsli::models::player::Player;
-    use stolsli::models::builder::Builder;
-    use stolsli::models::team::Team;
-    use stolsli::models::tile::Tile;
-    use stolsli::systems::host::{host, IHostDispatcher, IHostDispatcherTrait};
-    use stolsli::systems::manage::{manage, IManageDispatcher, IManageDispatcherTrait};
-    use stolsli::systems::play::{play, IPlayDispatcher, IPlayDispatcherTrait};
-    use stolsli::types::plan::{Plan, PlanImpl};
-    use stolsli::types::mode::Mode;
+    use paved::models::game::{Game, GameImpl};
+    use paved::models::player::Player;
+    use paved::models::builder::Builder;
+    use paved::models::team::Team;
+    use paved::models::tile::Tile;
+    use paved::systems::host::{host, IHostDispatcher, IHostDispatcherTrait};
+    use paved::systems::manage::{manage, IManageDispatcher, IManageDispatcherTrait};
+    use paved::systems::play::{play, IPlayDispatcher, IPlayDispatcherTrait};
+    use paved::types::plan::{Plan, PlanImpl};
+    use paved::types::mode::Mode;
 
     // Constants
 
@@ -79,12 +79,12 @@ mod setup {
     #[inline(always)]
     fn spawn_game(mode: Mode) -> (IWorldDispatcher, Systems, Context) {
         // [Setup] World
-        let mut models = array::ArrayTrait::new();
-        models.append(stolsli::models::game::game::TEST_CLASS_HASH);
-        models.append(stolsli::models::player::player::TEST_CLASS_HASH);
-        models.append(stolsli::models::builder::builder::TEST_CLASS_HASH);
-        models.append(stolsli::models::team::team::TEST_CLASS_HASH);
-        models.append(stolsli::models::tile::tile::TEST_CLASS_HASH);
+        let mut models = core::array::ArrayTrait::new();
+        models.append(paved::models::game::game::TEST_CLASS_HASH);
+        models.append(paved::models::player::player::TEST_CLASS_HASH);
+        models.append(paved::models::builder::builder::TEST_CLASS_HASH);
+        models.append(paved::models::team::team::TEST_CLASS_HASH);
+        models.append(paved::models::tile::tile::TEST_CLASS_HASH);
         let world = spawn_test_world(models);
 
         // [Setup] Systems

@@ -1,14 +1,14 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::layouts::interface::LayoutTrait;
-use stolsli::types::direction::Direction;
-use stolsli::types::spot::{Spot, SpotImpl};
-use stolsli::types::move::{Move, MoveImpl};
-use stolsli::types::area::Area;
+use paved::layouts::interface::LayoutTrait;
+use paved::types::direction::Direction;
+use paved::types::spot::{Spot, SpotImpl};
+use paved::types::move::{Move, MoveImpl};
+use paved::types::area::Area;
 
 impl LayoutImpl of LayoutTrait {
     #[inline(always)]
@@ -125,7 +125,7 @@ impl LayoutImpl of LayoutTrait {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

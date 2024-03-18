@@ -1,7 +1,7 @@
 {
   "world": {
     "name": "dojo::world::world",
-    "address": "0x371567546baf641eb440d7e2e0720bc45ede841d8f29124f844b7a728ce9aa8",
+    "address": "0x464118e168ca17f54a0bc2d0209d3896915d9e624bef84d74b9ac72bc653e94",
     "class_hash": "0x5ac623f0c96059936bd2d0904bdd31799e430fe08a0caff7a5f497260b16497",
     "abi": [
       {
@@ -947,14 +947,14 @@
   },
   "contracts": [
     {
-      "name": "stolsli::systems::host::host",
-      "address": "0x5871c6387d2a0e0de6e99b1d043a57f5cce44630bf30c2e1afd9615995e8616",
-      "class_hash": "0x2c4c4c0e1df15ac53ae450a749463cbf3dacc0bac35b758efc9dd8f8e466509",
+      "name": "paved::systems::host::host",
+      "address": "0x7341ea4851bdb23a9db5db933137deeac7061e03e28a4d62d591d59e2193a27",
+      "class_hash": "0x2092b17b54943c695ef7da5415e7e3069ebd48cd245eb7914d7a649b07be0a0",
       "abi": [
         {
           "type": "impl",
           "name": "HostImpl",
-          "interface_name": "stolsli::systems::host::IHost"
+          "interface_name": "paved::systems::host::IHost"
         },
         {
           "type": "struct",
@@ -982,7 +982,7 @@
         },
         {
           "type": "interface",
-          "name": "stolsli::systems::host::IHost",
+          "name": "paved::systems::host::IHost",
           "items": [
             {
               "type": "function",
@@ -1180,7 +1180,7 @@
         },
         {
           "type": "event",
-          "name": "stolsli::events::Built",
+          "name": "paved::events::Built",
           "kind": "struct",
           "members": [
             {
@@ -1217,7 +1217,7 @@
         },
         {
           "type": "event",
-          "name": "stolsli::events::Scored",
+          "name": "paved::events::Scored",
           "kind": "struct",
           "members": [
             {
@@ -1264,536 +1264,17 @@
         },
         {
           "type": "event",
-          "name": "stolsli::systems::host::host::Event",
+          "name": "paved::systems::host::host::Event",
           "kind": "enum",
           "variants": [
             {
               "name": "Built",
-              "type": "stolsli::events::Built",
+              "type": "paved::events::Built",
               "kind": "nested"
             },
             {
               "name": "Scored",
-              "type": "stolsli::events::Scored",
-              "kind": "nested"
-            }
-          ]
-        }
-      ],
-      "reads": [],
-      "writes": [],
-      "computed": []
-    },
-    {
-      "name": "stolsli::systems::manage::manage",
-      "address": "0x28b0f2a243fe99d27f9ade6828975304a792c91781523957920e1f5bad4ad64",
-      "class_hash": "0x33d598d856952ecb6dbec65688f4ced93999997a2cfe9b3d8ac0253186f1961",
-      "abi": [
-        {
-          "type": "impl",
-          "name": "ManageImpl",
-          "interface_name": "stolsli::systems::manage::IManage"
-        },
-        {
-          "type": "struct",
-          "name": "dojo::world::IWorldDispatcher",
-          "members": [
-            {
-              "name": "contract_address",
-              "type": "core::starknet::contract_address::ContractAddress"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "stolsli::systems::manage::IManage",
-          "items": [
-            {
-              "type": "function",
-              "name": "create",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "name",
-                  "type": "core::felt252"
-                },
-                {
-                  "name": "order",
-                  "type": "core::integer::u8"
-                },
-                {
-                  "name": "master",
-                  "type": "core::starknet::contract_address::ContractAddress"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "rename",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "name",
-                  "type": "core::felt252"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "reorder",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "order",
-                  "type": "core::integer::u8"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "buy",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "amount",
-                  "type": "core::integer::u8"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "claim",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "stolsli::systems::manage::manage::Event",
-          "kind": "enum",
-          "variants": []
-        }
-      ],
-      "reads": [],
-      "writes": [],
-      "computed": []
-    },
-    {
-      "name": "stolsli::systems::play::play",
-      "address": "0x54cecff4ea996878685a1d15e6e20e58f0560661bb9e6ae2f2b47a4a3acf2e4",
-      "class_hash": "0x64feba8cf79f22563fe8022a6deff76439328cd6e963d4721e97be638bd8a85",
-      "abi": [
-        {
-          "type": "impl",
-          "name": "PlayImpl",
-          "interface_name": "stolsli::systems::play::IPlay"
-        },
-        {
-          "type": "struct",
-          "name": "dojo::world::IWorldDispatcher",
-          "members": [
-            {
-              "name": "contract_address",
-              "type": "core::starknet::contract_address::ContractAddress"
-            }
-          ]
-        },
-        {
-          "type": "enum",
-          "name": "stolsli::types::orientation::Orientation",
-          "variants": [
-            {
-              "name": "None",
-              "type": "()"
-            },
-            {
-              "name": "North",
-              "type": "()"
-            },
-            {
-              "name": "East",
-              "type": "()"
-            },
-            {
-              "name": "South",
-              "type": "()"
-            },
-            {
-              "name": "West",
-              "type": "()"
-            }
-          ]
-        },
-        {
-          "type": "enum",
-          "name": "stolsli::types::role::Role",
-          "variants": [
-            {
-              "name": "None",
-              "type": "()"
-            },
-            {
-              "name": "Lord",
-              "type": "()"
-            },
-            {
-              "name": "Lady",
-              "type": "()"
-            },
-            {
-              "name": "Adventurer",
-              "type": "()"
-            },
-            {
-              "name": "Paladin",
-              "type": "()"
-            },
-            {
-              "name": "Algrim",
-              "type": "()"
-            },
-            {
-              "name": "Woodsman",
-              "type": "()"
-            },
-            {
-              "name": "Herdsman",
-              "type": "()"
-            }
-          ]
-        },
-        {
-          "type": "enum",
-          "name": "stolsli::types::spot::Spot",
-          "variants": [
-            {
-              "name": "None",
-              "type": "()"
-            },
-            {
-              "name": "Center",
-              "type": "()"
-            },
-            {
-              "name": "NorthWest",
-              "type": "()"
-            },
-            {
-              "name": "North",
-              "type": "()"
-            },
-            {
-              "name": "NorthEast",
-              "type": "()"
-            },
-            {
-              "name": "East",
-              "type": "()"
-            },
-            {
-              "name": "SouthEast",
-              "type": "()"
-            },
-            {
-              "name": "South",
-              "type": "()"
-            },
-            {
-              "name": "SouthWest",
-              "type": "()"
-            },
-            {
-              "name": "West",
-              "type": "()"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "stolsli::systems::play::IPlay",
-          "items": [
-            {
-              "type": "function",
-              "name": "draw",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "discard",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "build",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                },
-                {
-                  "name": "orientation",
-                  "type": "stolsli::types::orientation::Orientation"
-                },
-                {
-                  "name": "x",
-                  "type": "core::integer::u32"
-                },
-                {
-                  "name": "y",
-                  "type": "core::integer::u32"
-                },
-                {
-                  "name": "role",
-                  "type": "stolsli::types::role::Role"
-                },
-                {
-                  "name": "spot",
-                  "type": "stolsli::types::spot::Spot"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "stolsli::events::Built",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "x",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "y",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "stolsli::events::Scored",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "x",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "y",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "order_id",
-              "type": "core::integer::u8",
-              "kind": "data"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "stolsli::events::Discarded",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "order_id",
-              "type": "core::integer::u8",
-              "kind": "data"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "stolsli::events::GameOver",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tournament_id",
-              "type": "core::integer::u64",
-              "kind": "key"
-            },
-            {
-              "name": "game_score",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "stolsli::systems::play::play::Event",
-          "kind": "enum",
-          "variants": [
-            {
-              "name": "Built",
-              "type": "stolsli::events::Built",
-              "kind": "nested"
-            },
-            {
-              "name": "Scored",
-              "type": "stolsli::events::Scored",
-              "kind": "nested"
-            },
-            {
-              "name": "Discarded",
-              "type": "stolsli::events::Discarded",
-              "kind": "nested"
-            },
-            {
-              "name": "GameOver",
-              "type": "stolsli::events::GameOver",
+              "type": "paved::events::Scored",
               "kind": "nested"
             }
           ]
@@ -1806,7 +1287,7 @@
   ],
   "models": [
     {
-      "name": "stolsli::models::builder::builder",
+      "name": "paved::models::builder::builder",
       "members": [
         {
           "name": "game_id",
@@ -1849,7 +1330,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x1fa22873229719494dfaaa9404b10fb39fba77f1c72cbef382140e0df100809",
+      "class_hash": "0x40eac4ce031fc0ab6930a636f0448db76e74c2c80a965718fc577a5e96dd8c6",
       "abi": [
         {
           "type": "impl",
@@ -2018,11 +1499,11 @@
         {
           "type": "impl",
           "name": "builderImpl",
-          "interface_name": "stolsli::models::builder::Ibuilder"
+          "interface_name": "paved::models::builder::Ibuilder"
         },
         {
           "type": "struct",
-          "name": "stolsli::models::builder::Builder",
+          "name": "paved::models::builder::Builder",
           "members": [
             {
               "name": "game_id",
@@ -2060,7 +1541,7 @@
         },
         {
           "type": "interface",
-          "name": "stolsli::models::builder::Ibuilder",
+          "name": "paved::models::builder::Ibuilder",
           "items": [
             {
               "type": "function",
@@ -2068,7 +1549,7 @@
               "inputs": [
                 {
                   "name": "model",
-                  "type": "stolsli::models::builder::Builder"
+                  "type": "paved::models::builder::Builder"
                 }
               ],
               "outputs": [],
@@ -2078,14 +1559,14 @@
         },
         {
           "type": "event",
-          "name": "stolsli::models::builder::builder::Event",
+          "name": "paved::models::builder::builder::Event",
           "kind": "enum",
           "variants": []
         }
       ]
     },
     {
-      "name": "stolsli::models::builder::builder_position",
+      "name": "paved::models::builder::builder_position",
       "members": [
         {
           "name": "game_id",
@@ -2103,7 +1584,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x5521161443f217a6781a11866bb47c347f18039130c530e85ba3542bb59b7b3",
+      "class_hash": "0x171e433bf6e2d2c341134fe6804500013490bcd0966896ff6f12fbc832973d4",
       "abi": [
         {
           "type": "impl",
@@ -2272,11 +1753,11 @@
         {
           "type": "impl",
           "name": "builder_positionImpl",
-          "interface_name": "stolsli::models::builder::Ibuilder_position"
+          "interface_name": "paved::models::builder::Ibuilder_position"
         },
         {
           "type": "struct",
-          "name": "stolsli::models::builder::BuilderPosition",
+          "name": "paved::models::builder::BuilderPosition",
           "members": [
             {
               "name": "game_id",
@@ -2294,7 +1775,7 @@
         },
         {
           "type": "interface",
-          "name": "stolsli::models::builder::Ibuilder_position",
+          "name": "paved::models::builder::Ibuilder_position",
           "items": [
             {
               "type": "function",
@@ -2302,7 +1783,7 @@
               "inputs": [
                 {
                   "name": "model",
-                  "type": "stolsli::models::builder::BuilderPosition"
+                  "type": "paved::models::builder::BuilderPosition"
                 }
               ],
               "outputs": [],
@@ -2312,14 +1793,14 @@
         },
         {
           "type": "event",
-          "name": "stolsli::models::builder::builder_position::Event",
+          "name": "paved::models::builder::builder_position::Event",
           "kind": "enum",
           "variants": []
         }
       ]
     },
     {
-      "name": "stolsli::models::character::character",
+      "name": "paved::models::character::character",
       "members": [
         {
           "name": "game_id",
@@ -2357,7 +1838,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x3c746eaf5a4951d262eb16997326a1d2efd732af7bd1273fe95486bf32e6b81",
+      "class_hash": "0x7aca4765b5fe79b4ceab7b5954220be5a0c3626e6c84b7c24bb608132228e46",
       "abi": [
         {
           "type": "impl",
@@ -2526,11 +2007,11 @@
         {
           "type": "impl",
           "name": "characterImpl",
-          "interface_name": "stolsli::models::character::Icharacter"
+          "interface_name": "paved::models::character::Icharacter"
         },
         {
           "type": "struct",
-          "name": "stolsli::models::character::Character",
+          "name": "paved::models::character::Character",
           "members": [
             {
               "name": "game_id",
@@ -2564,7 +2045,7 @@
         },
         {
           "type": "interface",
-          "name": "stolsli::models::character::Icharacter",
+          "name": "paved::models::character::Icharacter",
           "items": [
             {
               "type": "function",
@@ -2572,7 +2053,7 @@
               "inputs": [
                 {
                   "name": "model",
-                  "type": "stolsli::models::character::Character"
+                  "type": "paved::models::character::Character"
                 }
               ],
               "outputs": [],
@@ -2582,14 +2063,14 @@
         },
         {
           "type": "event",
-          "name": "stolsli::models::character::character::Event",
+          "name": "paved::models::character::character::Event",
           "kind": "enum",
           "variants": []
         }
       ]
     },
     {
-      "name": "stolsli::models::character::character_position",
+      "name": "paved::models::character::character_position",
       "members": [
         {
           "name": "game_id",
@@ -2617,7 +2098,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x3131d225ddfd38834103ea9a7d2d198f7432d8debddbf7125290bdd66c7d940",
+      "class_hash": "0x1f8bcf61782c4a25304305b1b3df5dc404672db7d17e0431c2fbbf931a69b66",
       "abi": [
         {
           "type": "impl",
@@ -2786,11 +2267,11 @@
         {
           "type": "impl",
           "name": "character_positionImpl",
-          "interface_name": "stolsli::models::character::Icharacter_position"
+          "interface_name": "paved::models::character::Icharacter_position"
         },
         {
           "type": "struct",
-          "name": "stolsli::models::character::CharacterPosition",
+          "name": "paved::models::character::CharacterPosition",
           "members": [
             {
               "name": "game_id",
@@ -2816,7 +2297,7 @@
         },
         {
           "type": "interface",
-          "name": "stolsli::models::character::Icharacter_position",
+          "name": "paved::models::character::Icharacter_position",
           "items": [
             {
               "type": "function",
@@ -2824,7 +2305,7 @@
               "inputs": [
                 {
                   "name": "model",
-                  "type": "stolsli::models::character::CharacterPosition"
+                  "type": "paved::models::character::CharacterPosition"
                 }
               ],
               "outputs": [],
@@ -2834,14 +2315,14 @@
         },
         {
           "type": "event",
-          "name": "stolsli::models::character::character_position::Event",
+          "name": "paved::models::character::character_position::Event",
           "kind": "enum",
           "variants": []
         }
       ]
     },
     {
-      "name": "stolsli::models::game::game",
+      "name": "paved::models::game::game",
       "members": [
         {
           "name": "id",
@@ -2904,7 +2385,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x1fbcdef8752caf372cce3959ffc7c3f7a72587ee480ae3b6cfc05b0a5d2ef20",
+      "class_hash": "0xf27627816e62cba09dd6a319f3788fbe9a34778374cdc0fd03f4243c41b4e",
       "abi": [
         {
           "type": "impl",
@@ -3073,7 +2554,7 @@
         {
           "type": "impl",
           "name": "gameImpl",
-          "interface_name": "stolsli::models::game::Igame"
+          "interface_name": "paved::models::game::Igame"
         },
         {
           "type": "enum",
@@ -3091,7 +2572,7 @@
         },
         {
           "type": "struct",
-          "name": "stolsli::models::game::Game",
+          "name": "paved::models::game::Game",
           "members": [
             {
               "name": "id",
@@ -3145,7 +2626,7 @@
         },
         {
           "type": "interface",
-          "name": "stolsli::models::game::Igame",
+          "name": "paved::models::game::Igame",
           "items": [
             {
               "type": "function",
@@ -3153,7 +2634,7 @@
               "inputs": [
                 {
                   "name": "model",
-                  "type": "stolsli::models::game::Game"
+                  "type": "paved::models::game::Game"
                 }
               ],
               "outputs": [],
@@ -3163,14 +2644,14 @@
         },
         {
           "type": "event",
-          "name": "stolsli::models::game::game::Event",
+          "name": "paved::models::game::game::Event",
           "kind": "enum",
           "variants": []
         }
       ]
     },
     {
-      "name": "stolsli::models::player::player",
+      "name": "paved::models::player::player",
       "members": [
         {
           "name": "id",
@@ -3213,7 +2694,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x6978f8337b0eca8ac18bd6a658b9329ebc09703d2628855a104623b1c54df57",
+      "class_hash": "0x2692f4dff0b43b9180a86df084b8af41659eeaaf659940825ed00911fb93b5b",
       "abi": [
         {
           "type": "impl",
@@ -3382,11 +2863,11 @@
         {
           "type": "impl",
           "name": "playerImpl",
-          "interface_name": "stolsli::models::player::Iplayer"
+          "interface_name": "paved::models::player::Iplayer"
         },
         {
           "type": "struct",
-          "name": "stolsli::models::player::Player",
+          "name": "paved::models::player::Player",
           "members": [
             {
               "name": "id",
@@ -3424,7 +2905,7 @@
         },
         {
           "type": "interface",
-          "name": "stolsli::models::player::Iplayer",
+          "name": "paved::models::player::Iplayer",
           "items": [
             {
               "type": "function",
@@ -3432,7 +2913,7 @@
               "inputs": [
                 {
                   "name": "model",
-                  "type": "stolsli::models::player::Player"
+                  "type": "paved::models::player::Player"
                 }
               ],
               "outputs": [],
@@ -3442,14 +2923,14 @@
         },
         {
           "type": "event",
-          "name": "stolsli::models::player::player::Event",
+          "name": "paved::models::player::player::Event",
           "kind": "enum",
           "variants": []
         }
       ]
     },
     {
-      "name": "stolsli::models::team::team",
+      "name": "paved::models::team::team",
       "members": [
         {
           "name": "game_id",
@@ -3472,7 +2953,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x3fd958ffa5e1bae94218a0b6a04fe52a8bbc07d1e7eb561d1cba103ca5bdd29",
+      "class_hash": "0x7866f5b4f22b5ea36513e6ba4e0f450d743334d3449b96af602b10c3c63055",
       "abi": [
         {
           "type": "impl",
@@ -3641,11 +3122,11 @@
         {
           "type": "impl",
           "name": "teamImpl",
-          "interface_name": "stolsli::models::team::Iteam"
+          "interface_name": "paved::models::team::Iteam"
         },
         {
           "type": "struct",
-          "name": "stolsli::models::team::Team",
+          "name": "paved::models::team::Team",
           "members": [
             {
               "name": "game_id",
@@ -3667,7 +3148,7 @@
         },
         {
           "type": "interface",
-          "name": "stolsli::models::team::Iteam",
+          "name": "paved::models::team::Iteam",
           "items": [
             {
               "type": "function",
@@ -3675,7 +3156,7 @@
               "inputs": [
                 {
                   "name": "model",
-                  "type": "stolsli::models::team::Team"
+                  "type": "paved::models::team::Team"
                 }
               ],
               "outputs": [],
@@ -3685,14 +3166,14 @@
         },
         {
           "type": "event",
-          "name": "stolsli::models::team::team::Event",
+          "name": "paved::models::team::team::Event",
           "kind": "enum",
           "variants": []
         }
       ]
     },
     {
-      "name": "stolsli::models::tile::tile",
+      "name": "paved::models::tile::tile",
       "members": [
         {
           "name": "game_id",
@@ -3735,7 +3216,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x58171d262b342e0ff575ac116f58226f0fa3c3219fcb98714f8644a17313f63",
+      "class_hash": "0x273d3bef1a4db2ed79e1da019467d7fbadb0a2ecda2e4a1bedcca67bb628b37",
       "abi": [
         {
           "type": "impl",
@@ -3904,11 +3385,11 @@
         {
           "type": "impl",
           "name": "tileImpl",
-          "interface_name": "stolsli::models::tile::Itile"
+          "interface_name": "paved::models::tile::Itile"
         },
         {
           "type": "struct",
-          "name": "stolsli::models::tile::Tile",
+          "name": "paved::models::tile::Tile",
           "members": [
             {
               "name": "game_id",
@@ -3946,7 +3427,7 @@
         },
         {
           "type": "interface",
-          "name": "stolsli::models::tile::Itile",
+          "name": "paved::models::tile::Itile",
           "items": [
             {
               "type": "function",
@@ -3954,7 +3435,7 @@
               "inputs": [
                 {
                   "name": "model",
-                  "type": "stolsli::models::tile::Tile"
+                  "type": "paved::models::tile::Tile"
                 }
               ],
               "outputs": [],
@@ -3964,14 +3445,14 @@
         },
         {
           "type": "event",
-          "name": "stolsli::models::tile::tile::Event",
+          "name": "paved::models::tile::tile::Event",
           "kind": "enum",
           "variants": []
         }
       ]
     },
     {
-      "name": "stolsli::models::tile::tile_position",
+      "name": "paved::models::tile::tile_position",
       "members": [
         {
           "name": "game_id",
@@ -3994,7 +3475,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x757d14bff9da0783f9cd6be80026636987fe5d4a797b57057a5e15a7e319617",
+      "class_hash": "0x570bbb962fa4d1e36218b0da55ea94306e8e5b1734e4cbbb98fc0356f4c37e6",
       "abi": [
         {
           "type": "impl",
@@ -4163,11 +3644,11 @@
         {
           "type": "impl",
           "name": "tile_positionImpl",
-          "interface_name": "stolsli::models::tile::Itile_position"
+          "interface_name": "paved::models::tile::Itile_position"
         },
         {
           "type": "struct",
-          "name": "stolsli::models::tile::TilePosition",
+          "name": "paved::models::tile::TilePosition",
           "members": [
             {
               "name": "game_id",
@@ -4189,7 +3670,7 @@
         },
         {
           "type": "interface",
-          "name": "stolsli::models::tile::Itile_position",
+          "name": "paved::models::tile::Itile_position",
           "items": [
             {
               "type": "function",
@@ -4197,7 +3678,7 @@
               "inputs": [
                 {
                   "name": "model",
-                  "type": "stolsli::models::tile::TilePosition"
+                  "type": "paved::models::tile::TilePosition"
                 }
               ],
               "outputs": [],
@@ -4207,7 +3688,7 @@
         },
         {
           "type": "event",
-          "name": "stolsli::models::tile::tile_position::Event",
+          "name": "paved::models::tile::tile_position::Event",
           "kind": "enum",
           "variants": []
         }

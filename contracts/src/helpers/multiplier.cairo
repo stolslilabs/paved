@@ -1,6 +1,6 @@
 // Internal imports
 
-use stolsli::constants::{BASE, MULTIPLIER};
+use paved::constants::{BASE, MULTIPLIER};
 
 fn compute_multiplier(exp: u32) -> (u32, u32) {
     let num = pow_div(BASE, exp.into(), MULTIPLIER);
@@ -26,7 +26,7 @@ fn pow_div<T, +Sub<T>, +Mul<T>, +Div<T>, +Rem<T>, +PartialEq<T>, +Into<u8, T>, +
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 

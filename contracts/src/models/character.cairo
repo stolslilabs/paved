@@ -1,11 +1,11 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::constants;
-use stolsli::types::spot::Spot;
+use paved::constants;
+use paved::types::spot::Spot;
 
 mod errors {
     const ALREADY_REMOVED: felt252 = 'Character: Already removed';
@@ -73,7 +73,7 @@ impl CharacterImpl of CharacterTrait {
     }
 }
 
-impl CharacterIntoCharacterPosition of Into<Character, CharacterPosition> {
+impl CharacterIntoCharacterPosition of core::Into<Character, CharacterPosition> {
     #[inline(always)]
     fn into(self: Character) -> CharacterPosition {
         CharacterPosition {
@@ -100,7 +100,7 @@ impl CharacterAssert of AssertTrait {
     }
 }
 
-impl ZeroableCharacter of Zeroable<Character> {
+impl ZeroableCharacter of core::Zeroable<Character> {
     #[inline(always)]
     fn zero() -> Character {
         Character { game_id: 0, player_id: 0, index: 0, tile_id: 0, spot: 0, weight: 0, power: 0, }
@@ -117,7 +117,7 @@ impl ZeroableCharacter of Zeroable<Character> {
     }
 }
 
-impl ZeroableCharacterPosition of Zeroable<CharacterPosition> {
+impl ZeroableCharacterPosition of core::Zeroable<CharacterPosition> {
     #[inline(always)]
     fn zero() -> CharacterPosition {
         CharacterPosition { game_id: 0, tile_id: 0, spot: 0, player_id: 0, index: 0, }

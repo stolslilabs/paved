@@ -1,10 +1,10 @@
 // Core imports
 
-use debug::PrintTrait;
+use core::debug::PrintTrait;
 
 // Internal imports
 
-use stolsli::types::orientation::Orientation;
+use paved::types::orientation::Orientation;
 
 // Constants
 
@@ -33,7 +33,7 @@ enum Area {
     I,
 }
 
-impl IntoAreaU8 of Into<Area, u8> {
+impl IntoAreaU8 of core::Into<Area, u8> {
     #[inline(always)]
     fn into(self: Area) -> u8 {
         match self {
@@ -51,7 +51,7 @@ impl IntoAreaU8 of Into<Area, u8> {
     }
 }
 
-impl IntoAreaU128 of Into<Area, u128> {
+impl IntoAreaU128 of core::Into<Area, u128> {
     #[inline(always)]
     fn into(self: Area) -> u128 {
         let self_u8: u8 = self.into();
@@ -59,7 +59,7 @@ impl IntoAreaU128 of Into<Area, u128> {
     }
 }
 
-impl IntoAreaFelt252 of Into<Area, felt252> {
+impl IntoAreaFelt252 of core::Into<Area, felt252> {
     #[inline(always)]
     fn into(self: Area) -> felt252 {
         match self {
@@ -77,7 +77,7 @@ impl IntoAreaFelt252 of Into<Area, felt252> {
     }
 }
 
-impl IntoU8Area of Into<u8, Area> {
+impl IntoU8Area of core::Into<u8, Area> {
     #[inline(always)]
     fn into(self: u8) -> Area {
         if self == 1 {
@@ -104,7 +104,7 @@ impl IntoU8Area of Into<u8, Area> {
     }
 }
 
-impl IntoFelt252Area of Into<felt252, Area> {
+impl IntoFelt252Area of core::Into<felt252, Area> {
     #[inline(always)]
     fn into(self: felt252) -> Area {
         if self == A {
@@ -208,7 +208,7 @@ impl AreaImpl of AreaTrait {
 mod tests {
     // Core imports
 
-    use debug::PrintTrait;
+    use core::debug::PrintTrait;
 
     // Local imports
 
