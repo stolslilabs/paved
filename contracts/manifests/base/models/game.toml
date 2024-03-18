@@ -1,0 +1,68 @@
+kind = "DojoModel"
+class_hash = "0x3f7c82418ba57f082e27bf66e1cc3bf10b31ca64ab19583bf8f7c469a281da3"
+name = "paved::models::game::game"
+
+[[members]]
+name = "id"
+type = "u32"
+key = true
+
+[[members]]
+name = "name"
+type = "felt252"
+key = false
+
+[[members]]
+name = "over"
+type = "bool"
+key = false
+
+[[members]]
+name = "players"
+type = "u128"
+key = false
+
+[[members]]
+name = "player_count"
+type = "u32"
+key = false
+
+[[members]]
+name = "tiles"
+type = "u128"
+key = false
+
+[[members]]
+name = "tile_count"
+type = "u32"
+key = false
+
+[[members]]
+name = "start_time"
+type = "u64"
+key = false
+
+[[members]]
+name = "duration"
+type = "u64"
+key = false
+
+[[members]]
+name = "prize"
+type = "felt252"
+key = false
+
+[[members]]
+name = "score"
+type = "u32"
+key = false
+
+[[members]]
+name = "mode"
+type = "u8"
+key = false
+
+[[members]]
+name = "deck"
+type = "u8"
+key = false

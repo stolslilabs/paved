@@ -1,0 +1,18 @@
+kind = "DojoModel"
+class_hash = "0x109e5ba3a54ee5b7498f6a036f2a3df94216c0de3283d5a52bd88e940da9ad8"
+name = "paved::models::builder::builder_position"
+
+[[members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[members]]
+name = "index"
+type = "u32"
+key = true
+
+[[members]]
+name = "player_id"
+type = "felt252"
+key = false

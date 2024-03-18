@@ -5,7 +5,7 @@ use core::dict::{Felt252Dict, Felt252DictTrait};
 
 // External imports
 
-use origami::random::deck::{Deck, DeckTrait};
+use origami::random::deck::{Deck as OrigamiDeck, DeckTrait};
 
 // Internal imports
 
@@ -19,6 +19,7 @@ use paved::helpers::wonder::WonderCount;
 use paved::helpers::conflict::Conflict;
 use paved::types::mode::Mode;
 use paved::types::plan::Plan;
+use paved::types::deck::{Deck, DeckImpl};
 use paved::types::spot::{Spot, SpotImpl};
 use paved::types::area::Area;
 use paved::types::role::Role;
@@ -62,12 +63,13 @@ struct Game {
     prize: felt252,
     score: u32,
     mode: u8,
+    deck: u8,
 }
 
 #[generate_trait]
 impl GameImpl of GameTrait {
     #[inline(always)]
-    fn new(id: u32, name: felt252, time: u64, duration: u64, mode: u8) -> Game {
+    fn new(id: u32, name: felt252, time: u64, duration: u64, mode: u8, deck: Deck) -> Game {
         // [Check] Validate parameters
         assert(Mode::None != mode.into(), errors::INVALID_MODE);
         // TODO: Hard coded prize pool until it comes from player fees
@@ -85,6 +87,7 @@ impl GameImpl of GameTrait {
             prize,
             score: 0,
             mode: mode.into(),
+            deck: deck.into(),
         }
     }
 
@@ -108,7 +111,6 @@ impl GameImpl of GameTrait {
         GameAssert::assert_valid_name(name);
         // [Effect] Update name
         self.name = name;
-        self.reset();
     }
 
     #[inline(always)]
@@ -146,8 +148,23 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
-    fn start(ref self: Game, time: u64) {
+    fn start(ref self: Game, time: u64) -> Tile {
+        // [Effect] Create the starter tile
+        let tile_id = self.add_tile();
+        let mut tile = TileImpl::new(self.id, tile_id, 0, Plan::RFFFRFCFR);
+        tile.orientation = Orientation::South.into();
+
+        // [Effect] Remove the starter tile from the deck
+        let deck: Deck = self.deck.into();
+        let plan: Plan = tile.plan.into();
+        let mut indexes = deck.indexes(plan);
+        let index = indexes.pop_front().unwrap();
+        self.tiles = Bitmap::set_bit_at(self.tiles, index.into(), true);
+
+        // [Effect] Update game start time
         self.start_time = time;
+
+        tile
     }
 
     #[inline(always)]
@@ -158,8 +175,8 @@ impl GameImpl of GameTrait {
 
     #[inline(always)]
     fn assess_over(ref self: Game) {
-        self.over = Mode::Solo == self.mode.into()
-            && self.tile_count >= constants::TOURNAMENT_TILE_CAP.into();
+        let deck: Deck = self.deck.into();
+        self.over = Mode::Solo == self.mode.into() && self.tile_count >= deck.count().into();
     }
 
     #[inline(always)]
@@ -214,8 +231,9 @@ impl GameImpl of GameTrait {
 
     #[inline(always)]
     fn draw_plan(ref self: Game, seed: felt252) -> (u32, Plan) {
-        let number: u32 = constants::TOTAL_TILE_COUNT.into();
-        let mut deck: Deck = DeckTrait::from_bitmap(seed, number, self.tiles);
+        let deck: Deck = self.deck.into();
+        let number: u32 = deck.count().into();
+        let mut deck: OrigamiDeck = DeckTrait::from_bitmap(seed, number, self.tiles);
         let plan_id: u32 = deck.draw().into();
         self.tile_count += 1;
         // Update bitmap if deck is not empty, otherwise reset
@@ -227,7 +245,8 @@ impl GameImpl of GameTrait {
                     let index = plan_id - 1;
                     Bitmap::set_bit_at(self.tiles, index.into(), true)
                 };
-        (self.tile_count, plan_id.into())
+        let deck: Deck = self.deck.into();
+        (self.tile_count, deck.plan(plan_id))
     }
 
     fn assess(ref self: Game, tile: Tile, ref store: Store) -> Array<Scored> {
@@ -343,6 +362,7 @@ impl ZeroableGame of core::Zeroable<Game> {
             prize: 0,
             score: 0,
             mode: 0,
+            deck: 0,
         }
     }
 
@@ -426,7 +446,7 @@ mod tests {
 
     // Local imports
 
-    use super::{Game, GameTrait, GameImpl, constants, Plan, Mode};
+    use super::{Game, GameTrait, GameImpl, constants, Plan, Mode, Deck};
 
     // Constants
 
@@ -436,7 +456,7 @@ mod tests {
 
     #[test]
     fn test_game_new() {
-        let game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
+        let game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into(), Deck::Enhanced.into());
         assert(game.id == GAME_ID, 'Game: Invalid id');
         assert(game.tiles == 0, 'Game: Invalid tiles');
         assert(game.tile_count == 0, 'Game: Invalid tile_count');
@@ -444,7 +464,9 @@ mod tests {
 
     #[test]
     fn test_game_add_tile() {
-        let mut game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
+        let mut game = GameImpl::new(
+            GAME_ID, NAME, 0, 0, Mode::Multi.into(), Deck::Enhanced.into()
+        );
         let tile_count = game.tile_count;
         let tile_id = game.add_tile();
         assert(tile_id == GAME_ID, 'Game: Invalid tile_id');
@@ -453,7 +475,9 @@ mod tests {
 
     #[test]
     fn test_game_draw_plan() {
-        let mut game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
+        let mut game = GameImpl::new(
+            GAME_ID, NAME, 0, 0, Mode::Multi.into(), Deck::Enhanced.into()
+        );
         let (tile_count, plan_id) = game.draw_plan(SEED);
         assert(tile_count == 1, 'Game: Invalid tile_count');
         assert(plan_id.into() < constants::TOTAL_TILE_COUNT, 'Game: Invalid plan_id');
@@ -463,7 +487,9 @@ mod tests {
 
     #[test]
     fn test_game_draw_planes() {
-        let mut game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
+        let mut game = GameImpl::new(
+            GAME_ID, NAME, 0, 0, Mode::Multi.into(), Deck::Enhanced.into()
+        );
         let mut counts: Felt252Dict<u8> = core::Default::default();
         loop {
             if game.tile_count == constants::TOTAL_TILE_COUNT.into() {

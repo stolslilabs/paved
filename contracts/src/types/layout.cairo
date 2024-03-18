@@ -13,7 +13,6 @@ use paved::types::move::Move;
 
 // Constants
 
-const MAX_LAYOUT_COUNT: u8 = 20;
 const TILE_DATA_COUNT: u32 = 9;
 
 mod errors {

@@ -26,6 +26,13 @@ struct Player {
     master: felt252,
 }
 
+#[derive(Model, Copy, Drop, Serde)]
+struct PlayerName {
+    #[key]
+    name: felt252,
+    id: felt252,
+}
+
 #[generate_trait]
 impl PlayerImpl of PlayerTrait {
     #[inline(always)]
@@ -114,6 +121,13 @@ impl PlayerAssert of AssertTrait {
     }
 }
 
+impl PlayerIntoPlayerName of core::Into<Player, PlayerName> {
+    #[inline(always)]
+    fn into(self: Player) -> PlayerName {
+        PlayerName { name: self.name, id: self.id }
+    }
+}
+
 impl ZeroablePlayerImpl of core::Zeroable<Player> {
     #[inline(always)]
     fn zero() -> Player {
@@ -129,6 +143,6 @@ impl ZeroablePlayerImpl of core::Zeroable<Player> {
 
     #[inline(always)]
     fn is_non_zero(self: Player) -> bool {
-        0 != self.name
+        !self.is_zero()
     }
 }

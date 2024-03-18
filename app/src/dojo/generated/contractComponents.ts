@@ -112,6 +112,7 @@ export function defineContractComponents(world: World) {
           prize: RecsType.BigInt,
           score: RecsType.Number,
           mode: RecsType.Number,
+          deck: RecsType.Number,
         },
         {
           metadata: {
@@ -128,6 +129,7 @@ export function defineContractComponents(world: World) {
               "u64",
               "felt252",
               "u32",
+              "u8",
               "u8",
             ],
             customTypes: [],
@@ -161,6 +163,19 @@ export function defineContractComponents(world: World) {
               "u32",
               "felt252",
             ],
+            customTypes: [],
+          },
+        }
+      );
+    })(),
+    PlayerName: (() => {
+      return defineComponent(
+        world,
+        { name: RecsType.BigInt, id: RecsType.BigInt },
+        {
+          metadata: {
+            name: "PlayerName",
+            types: ["felt252", "felt252"],
             customTypes: [],
           },
         }

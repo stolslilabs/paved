@@ -4,7 +4,6 @@ import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useComponentValue } from "@dojoengine/react";
 import { useMemo } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { TOURNAMENT_TILE_CAP } from "@/utils/constants";
 
 export const JoinGame = () => {
   const { gameId } = useQueryParams();
@@ -33,9 +32,7 @@ export const JoinGame = () => {
   );
 
   const over = useMemo(() => {
-    if (game && game.mode === 1) {
-      return game.tile_count >= TOURNAMENT_TILE_CAP;
-    }
+    if (game && game.mode === 1) return game.over;
     if (game && game.mode === 2) {
       const endtime = game.start_time + game.duration;
       const now = Math.floor(Date.now() / 1000);

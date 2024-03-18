@@ -43,7 +43,6 @@ import { useLogs } from "@/hooks/useLogs";
 import { Claim } from "./Claim";
 import { TwitterShareButton } from "react-share";
 import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
-import { TOURNAMENT_TILE_CAP } from "@/utils/constants";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
@@ -78,8 +77,7 @@ export const LeaderboardDialog = () => {
           game.mode !== 1 &&
           game.duration !== 0 &&
           now >= game.start_time + game.duration;
-        const soloCondition =
-          !over && game.mode === 1 && game.tile_count >= TOURNAMENT_TILE_CAP;
+        const soloCondition = !over && game.mode === 1 && game.over;
         if (multiCondition || soloCondition) {
           setOpen(true);
           setOver(true);
