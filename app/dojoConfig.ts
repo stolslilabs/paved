@@ -1,6 +1,7 @@
 import devManifest from "../contracts/target/dev/manifest.json";
 import preManifest from "../contracts/target/pre/manifest.json";
 import prodManifest from "../contracts/target/prod/manifest.json";
+import realmsManifest from "../contracts/target/realms/manifest.json";
 
 const {
   VITE_PUBLIC_NODE_URL,
@@ -10,6 +11,7 @@ const {
   VITE_PUBLIC_ACCOUNT_CLASS_HASH,
   VITE_PUBLIC_PRODUCTION,
   VITE_PUBLIC_PREPRODUCTION,
+  VITE_PUBLIC_REALMS,
 } = import.meta.env;
 
 export type Config = ReturnType<typeof dojoConfig>;
@@ -31,6 +33,8 @@ export function dojoConfig() {
       ? prodManifest
       : VITE_PUBLIC_PREPRODUCTION
       ? preManifest
+      : VITE_PUBLIC_REALMS
+      ? realmsManifest
       : devManifest,
   };
 }
