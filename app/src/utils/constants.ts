@@ -21,4 +21,3 @@ export const MASK_8: number = 0xff;
 
 export const TOURNAMENT_ID_OFFSET: number = 2827;
 export const TOURNAMENT_DURATION: number = 60 * 60 * 24 * 7;
-export const TOURNAMENT_TILE_CAP: number = 50;

@@ -10,7 +10,6 @@ const DISCARD_POINTS: u32 = 50;
 // Tournament
 
 const TOURNAMENT_DURATION: u64 = 604800; // 1 week
-const TOURNAMENT_TILE_CAP: u8 = 50;
 
 // Bonus curve
 

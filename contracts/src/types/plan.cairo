@@ -53,7 +53,6 @@ use paved::layouts::wfffffffr::{LayoutImpl as WfffffffrImpl};
 // Constants
 
 const NONE: felt252 = 0;
-const MAX_LAYOUT_COUNT: u8 = 20;
 
 mod errors {
     const UNPACK_FAILED: felt252 = 'Layout: Unpack failed';
@@ -63,43 +62,43 @@ mod errors {
 #[derive(Copy, Drop, Serde, Introspect)]
 enum Plan {
     None,
-    CCCCCCCCC, // 1 pieces
-    CCCCCFFFC, // 4 piece
-    CCCCCFRFC, // 3 piece
-    CFCFCCCCC, // 1 pieces
-    CFCFCFCFC, // 1 pieces
-    CFCFCFFFC, // 1 pieces
-    CFFCFCFFC, // 1 pieces
-    CFFFCFFFC, // 3 piece
-    CFFFCFRFC, // 3 pieces
-    FCCFCCCFC, // 1 pieces
-    FCCFCFCFC, // 1 pieces
-    FFCFCCCFF, // 1 pieces
-    FFCFCFCFC, // 1 pieces
-    FFCFFFCCC, // 1 pieces
-    FFCFFFCFC, // 1 pieces
-    FFCFFFCFF, // 3 pieces
-    FFCFFFFFC, // 2 pieces
-    FFFFCCCFF, // 5 pieces
-    FFFFFFCFF, // 5 pieces
-    RFFFFFCFR, // 2 pieces
-    RFFFRFCFF, // 2 pieces
-    RFFFRFCFR, // 4 pieces
-    RFFFRFFFR, // 9 pieces
-    RFRFCCCFF, // 2 pieces new
-    RFRFCCCFR, // 5 pieces
-    RFRFFFCCC, // 2 pieces new
-    RFRFFFCFF, // 2 pieces
-    RFRFFFCFR, // 3 pieces
-    RFRFFFFFR, // 10 pieces
-    RFRFRFCFF, // 3 pieces
-    SFFFFFFFR, // 2 pieces
-    SFRFRFCFR, // 3 pieces
-    SFRFRFFFR, // 5 pieces
-    SFRFRFRFR, // 2 pieces
-    WCCCCCCCC, // 1 pieces
-    WFFFFFFFF, // 2 pieces update
-    WFFFFFFFR, // 1 pieces update
+    CCCCCCCCC,
+    CCCCCFFFC,
+    CCCCCFRFC,
+    CFCFCCCCC,
+    CFCFCFCFC,
+    CFCFCFFFC,
+    CFFCFCFFC,
+    CFFFCFFFC,
+    CFFFCFRFC,
+    FCCFCCCFC,
+    FCCFCFCFC,
+    FFCFCCCFF,
+    FFCFCFCFC,
+    FFCFFFCCC,
+    FFCFFFCFC,
+    FFCFFFCFF,
+    FFCFFFFFC,
+    FFFFCCCFF,
+    FFFFFFCFF,
+    RFFFFFCFR,
+    RFFFRFCFF,
+    RFFFRFCFR,
+    RFFFRFFFR,
+    RFRFCCCFF,
+    RFRFCCCFR,
+    RFRFFFCCC,
+    RFRFFFCFF,
+    RFRFFFCFR,
+    RFRFFFFFR,
+    RFRFRFCFF,
+    SFFFFFFFR,
+    SFRFRFCFR,
+    SFRFRFFFR,
+    SFRFRFRFR,
+    WCCCCCCCC,
+    WFFFFFFFF,
+    WFFFFFFFR,
 }
 
 impl IntoPlanFelt252 of core::Into<Plan, felt252> {
@@ -194,7 +193,7 @@ impl IntoPlanU8 of core::Into<Plan, u8> {
     }
 }
 
-impl IntoU8Plan of core::Into<u8, Plan> {
+impl IntoPlan of core::Into<u8, Plan> {
     #[inline(always)]
     fn into(self: u8) -> Plan {
         let plan: felt252 = self.into();
@@ -238,90 +237,6 @@ impl IntoU8Plan of core::Into<u8, Plan> {
             36 => Plan::WFFFFFFFF,
             37 => Plan::WFFFFFFFR,
             _ => Plan::None,
-        }
-    }
-}
-
-impl IntoU32Plan of core::Into<u32, Plan> {
-    #[inline(always)]
-    fn into(self: u32) -> Plan {
-        let id = self % TOTAL_TILE_COUNT.into();
-        if id < 1 {
-            Plan::CCCCCCCCC
-        } else if id < 5 {
-            Plan::CCCCCFFFC
-        } else if id < 8 {
-            Plan::CCCCCFRFC
-        } else if id < 9 {
-            Plan::CFCFCCCCC
-        } else if id < 10 {
-            Plan::CFCFCFCFC
-        } else if id < 11 {
-            Plan::CFCFCFFFC
-        } else if id < 12 {
-            Plan::CFFCFCFFC
-        } else if id < 15 {
-            Plan::CFFFCFFFC
-        } else if id < 18 {
-            Plan::CFFFCFRFC
-        } else if id < 19 {
-            Plan::FCCFCCCFC
-        } else if id < 20 {
-            Plan::FCCFCFCFC
-        } else if id < 21 {
-            Plan::FFCFCCCFF
-        } else if id < 22 {
-            Plan::FFCFCFCFC
-        } else if id < 23 {
-            Plan::FFCFFFCCC
-        } else if id < 24 {
-            Plan::FFCFFFCFC
-        } else if id < 27 {
-            Plan::FFCFFFCFF
-        } else if id < 29 {
-            Plan::FFCFFFFFC
-        } else if id < 34 {
-            Plan::FFFFCCCFF
-        } else if id < 39 {
-            Plan::FFFFFFCFF
-        } else if id < 41 {
-            Plan::RFFFFFCFR
-        } else if id < 43 {
-            Plan::RFFFRFCFF
-        } else if id < 47 {
-            Plan::RFFFRFCFR
-        } else if id < 56 {
-            Plan::RFFFRFFFR
-        } else if id < 58 {
-            Plan::RFRFCCCFF
-        } else if id < 63 {
-            Plan::RFRFCCCFR
-        } else if id < 65 {
-            Plan::RFRFFFCCC
-        } else if id < 67 {
-            Plan::RFRFFFCFF
-        } else if id < 70 {
-            Plan::RFRFFFCFR
-        } else if id < 80 {
-            Plan::RFRFFFFFR
-        } else if id < 83 {
-            Plan::RFRFRFCFF
-        } else if id < 85 {
-            Plan::SFFFFFFFR
-        } else if id < 88 {
-            Plan::SFRFRFCFR
-        } else if id < 93 {
-            Plan::SFRFRFFFR
-        } else if id < 95 {
-            Plan::SFRFRFRFR
-        } else if id < 96 {
-            Plan::WCCCCCCCC
-        } else if id < 98 {
-            Plan::WFFFFFFFF
-        } else if id < 99 {
-            Plan::WFFFFFFFR
-        } else {
-            Plan::None
         }
     }
 }

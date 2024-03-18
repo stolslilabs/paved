@@ -9,7 +9,7 @@
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "codegen": "graphql-codegen",
-    "create-components": "npx @dojoengine/core ../contracts/target/dev/manifest.json src/dojo/generated/contractComponents.ts http://localhost:5050 0x371567546baf641eb440d7e2e0720bc45ede841d8f29124f844b7a728ce9aa8",
+    "create-components": "npx @dojoengine/core ../contracts/target/dev/manifest.json src/dojo/generated/contractComponents.ts http://localhost:5050 0x65d5daf2ac5c3bcf4409b6a7861ae90c03c32869ade9b825e6a0e29beff249e",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

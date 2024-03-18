@@ -46,10 +46,15 @@ mod play {
 
     // Dojo imports
 
-    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
+    use dojo::world;
+    use dojo::world::IWorldDispatcher;
+    use dojo::world::IWorldDispatcherTrait;
+    use dojo::world::IWorldProvider;
+    use dojo::world::IDojoResourceProvider;
 
     // Internal imports
 
+    use paved::systems::WORLD;
     use paved::store::{Store, StoreImpl};
     use paved::events::{Built, Scored, Discarded, GameOver};
     use paved::models::game::{Game, GameImpl, GameAssert};
@@ -97,6 +102,20 @@ mod play {
     }
 
     // Implementations
+
+    #[abi(embed_v0)]
+    impl DojoResourceProviderImpl of IDojoResourceProvider<ContractState> {
+        fn dojo_resource(self: @ContractState) -> felt252 {
+            'play'
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl WorldProviderImpl of IWorldProvider<ContractState> {
+        fn world(self: @ContractState) -> IWorldDispatcher {
+            IWorldDispatcher { contract_address: WORLD() }
+        }
+    }
 
     #[abi(embed_v0)]
     impl PlayImpl of IPlay<ContractState> {
