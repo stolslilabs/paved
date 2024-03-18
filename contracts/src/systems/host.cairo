@@ -45,10 +45,15 @@ mod host {
 
     // Dojo imports
 
-    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
+    use dojo::world;
+    use dojo::world::IWorldDispatcher;
+    use dojo::world::IWorldDispatcherTrait;
+    use dojo::world::IWorldProvider;
+    use dojo::world::IDojoResourceProvider;
 
     // Internal imports
 
+    use paved::systems::WORLD;
     use paved::store::{Store, StoreImpl};
     use paved::events::{Built, Scored};
     use paved::models::game::{Game, GameImpl, GameAssert};
@@ -64,6 +69,7 @@ mod host {
     use paved::types::spot::Spot;
     use paved::types::plan::Plan;
     use paved::types::mode::Mode;
+    use paved::types::deck::Deck;
 
     // Local imports
 
@@ -86,6 +92,20 @@ mod host {
     // Implementations
 
     #[abi(embed_v0)]
+    impl DojoResourceProviderImpl of IDojoResourceProvider<ContractState> {
+        fn dojo_resource(self: @ContractState) -> felt252 {
+            'host'
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl WorldProviderImpl of IWorldProvider<ContractState> {
+        fn world(self: @ContractState) -> IWorldDispatcher {
+            IWorldDispatcher { contract_address: WORLD() }
+        }
+    }
+
+    #[abi(embed_v0)]
     impl HostImpl of IHost<ContractState> {
         fn create(
             self: @ContractState, world: IWorldDispatcher, name: felt252, duration: u64, mode: u8,
@@ -101,7 +121,12 @@ mod host {
             // [Effect] Create game
             let game_id = world.uuid() + 1;
             let time = get_block_timestamp();
-            let mut game = GameImpl::new(game_id, name, time, duration, mode);
+            let deck = if Mode::Solo == mode.into() {
+                Deck::Base
+            } else {
+                Deck::Enhanced
+            };
+            let mut game = GameImpl::new(game_id, name, time, duration, mode, deck);
 
             // [Effect] Join the game
             let builder_index = game.join();
@@ -112,13 +137,8 @@ mod host {
 
             // [Effect] Start the game if solo mode
             if Mode::Solo == game.mode.into() {
-                // [Effect] Create starter tile
-                let tile_id = game.add_tile();
-                let mut tile = TileImpl::new(game_id, tile_id, 0, Plan::RFFFRFCFR);
-                tile.orientation = Orientation::South.into();
-
                 // [Effect] Start game
-                game.start(time);
+                let tile = game.start(time);
 
                 // [Effect] Store tile
                 store.set_tile(tile);
@@ -411,14 +431,9 @@ mod host {
             // [Check] Game startable
             game.assert_startable();
 
-            // [Effect] Create starter tile
-            let tile_id = game.add_tile();
-            let mut tile = TileImpl::new(game_id, tile_id, 0, Plan::RFFFRFCFR);
-            tile.orientation = Orientation::South.into();
-
             // [Effect] Store game
             let time = get_block_timestamp();
-            game.start(time);
+            let tile = game.start(time);
             store.set_game(game);
 
             // [Effect] Store tile

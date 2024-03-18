@@ -1,0 +1,7 @@
+kind = "DojoContract"
+class_hash = "0x3ff59f98a3c011800d13b3d9a1c7446c414034d92638e38a28a1b8610554aa3"
+abi = "abis/base/contracts/manage.json"
+reads = []
+writes = []
+computed = []
+name = "paved::systems::manage::manage"

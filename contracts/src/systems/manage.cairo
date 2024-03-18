@@ -34,10 +34,15 @@ mod manage {
 
     // Dojo imports
 
-    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
+    use dojo::world;
+    use dojo::world::IWorldDispatcher;
+    use dojo::world::IWorldDispatcherTrait;
+    use dojo::world::IWorldProvider;
+    use dojo::world::IDojoResourceProvider;
 
     // Internal imports
 
+    use paved::systems::WORLD;
     use paved::store::{Store, StoreImpl};
     use paved::models::game::{Game, GameImpl, GameAssert};
     use paved::models::player::{Player, PlayerImpl, PlayerAssert};
@@ -55,6 +60,20 @@ mod manage {
     // Implementations
 
     #[abi(embed_v0)]
+    impl DojoResourceProviderImpl of IDojoResourceProvider<ContractState> {
+        fn dojo_resource(self: @ContractState) -> felt252 {
+            'manage'
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl WorldProviderImpl of IWorldProvider<ContractState> {
+        fn world(self: @ContractState) -> IWorldDispatcher {
+            IWorldDispatcher { contract_address: WORLD() }
+        }
+    }
+
+    #[abi(embed_v0)]
     impl ManageImpl of IManage<ContractState> {
         fn create(
             self: @ContractState,
@@ -69,6 +88,10 @@ mod manage {
             // [Check] Player not already exists
             let caller = get_caller_address();
             let player = store.player(caller.into());
+            player.assert_not_exists();
+
+            // [Check] Player name not already taken
+            let player = store.player_by_name(name);
             player.assert_not_exists();
 
             // [Effect] Create a new player
