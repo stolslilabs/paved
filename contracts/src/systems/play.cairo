@@ -55,7 +55,7 @@ mod play {
 
     // Internal imports
 
-    use paved::systems::WORLD;
+    use paved::constants::WORLD;
     use paved::store::{Store, StoreImpl};
     use paved::events::{Built, Scored, Discarded, GameOver};
     use paved::models::game::{Game, GameImpl, GameAssert};

@@ -1,7 +1,7 @@
 {
   "world": {
     "name": "dojo::world::world",
-    "address": "0x1e3b79a25df98dd5032e519c0637d0136f2e69f2cb1906d22dc336420a3ca16",
+    "address": "0x25e2adf0f61429abdc3e0f391f95ca811758e72a728d329e52a1de5b0ca37b",
     "class_hash": "0x5ad96ceea29160aa7305bb078d1ade41f73b487363ae12778dbea6393cc00b2",
     "abi": [
       {
@@ -968,8 +968,8 @@
   "contracts": [
     {
       "name": "paved::systems::host::host",
-      "address": "0x1e1237f8581f03277b34c9b8b6503535f121f3fe98a0d3f8a2f8b0a3badaf1e",
-      "class_hash": "0x1c64b4d285f56611fc356a07b211195c536b5888e5ee4bdff32feba8fd4ce0",
+      "address": "0x16d489f922af34854a84f3955ca1415974ae52417ed1d91797da57a148d3b7a",
+      "class_hash": "0x2e02b18ca3f181d742e28c2991bcb7376b3a79d43cb599b78899d23fd3f349f",
       "abi": [
         {
           "type": "impl",
@@ -1350,8 +1350,8 @@
     },
     {
       "name": "paved::systems::manage::manage",
-      "address": "0x2283a109ee8ab26bea1d9fd9ccd4c4a7d3e53aa3dfd2bc3310f28465d9f10ec",
-      "class_hash": "0x814b5e3f57751577ecb3f72bff331a880e546561f230983a1c31994282fe6d",
+      "address": "0x26f9f314172ba2d8c6b9c3f518c49ba2d12348aa592c85e4d01cdbdc05e7c1a",
+      "class_hash": "0x360926f7053e513372e6bb4f3d8a68bda5a87bdcaebde79dc3dcb7174470e77",
       "abi": [
         {
           "type": "impl",
@@ -1519,8 +1519,8 @@
     },
     {
       "name": "paved::systems::play::play",
-      "address": "0x6535a31308ca52afa2f011e08e8dc8bf4609e5c9dde4a07230f33f080b5050f",
-      "class_hash": "0x54df1fb3b45531b48fe8e609c9bf3bb40172b81fd2c71305a8296f602ec085f",
+      "address": "0x12f0b24bf1634f6b720d193a6dc1b005d37098170b6df20d61ac22112deef07",
+      "class_hash": "0xd5c4b3e039983f0120d767edd571880ed1670df0d7da148379dabf74b4e58f",
       "abi": [
         {
           "type": "impl",
@@ -1729,6 +1729,22 @@
             },
             {
               "type": "function",
+              "name": "surrender",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "dojo::world::IWorldDispatcher"
+                },
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
               "name": "build",
               "inputs": [
                 {
@@ -1904,6 +1920,16 @@
             {
               "name": "game_score",
               "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "game_start_time",
+              "type": "core::integer::u64",
+              "kind": "data"
+            },
+            {
+              "name": "game_end_time",
+              "type": "core::integer::u64",
               "kind": "data"
             },
             {

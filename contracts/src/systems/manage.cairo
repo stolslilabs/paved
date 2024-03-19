@@ -42,7 +42,7 @@ mod manage {
 
     // Internal imports
 
-    use paved::systems::WORLD;
+    use paved::constants::WORLD;
     use paved::store::{Store, StoreImpl};
     use paved::models::game::{Game, GameImpl, GameAssert};
     use paved::models::player::{Player, PlayerImpl, PlayerAssert};
