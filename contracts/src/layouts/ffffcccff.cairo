@@ -21,45 +21,18 @@ impl LayoutImpl of LayoutTrait {
 
     #[inline(always)]
     fn moves(from: Spot) -> Array<Move> {
+        let area: Area = LayoutImpl::area(from);
         let mut moves: Array<Move> = ArrayTrait::new();
-        match from {
-            Spot::None => {},
-            Spot::Center => {
+        match area {
+            Area::A => {
                 moves.append(Move { direction: Direction::North, spot: Spot::South });
                 moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
-            Spot::NorthWest => {
-                moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::West, spot: Spot::East });
-            },
-            Spot::North => {
-                moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::West, spot: Spot::East });
-            },
-            Spot::NorthEast => {
-                moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::West, spot: Spot::East });
-            },
-            Spot::East => {
+            Area::B => {
                 moves.append(Move { direction: Direction::East, spot: Spot::West });
                 moves.append(Move { direction: Direction::South, spot: Spot::North });
             },
-            Spot::SouthEast => {
-                moves.append(Move { direction: Direction::East, spot: Spot::West });
-                moves.append(Move { direction: Direction::South, spot: Spot::North });
-            },
-            Spot::South => {
-                moves.append(Move { direction: Direction::East, spot: Spot::West });
-                moves.append(Move { direction: Direction::South, spot: Spot::North });
-            },
-            Spot::SouthWest => {
-                moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::West, spot: Spot::East });
-            },
-            Spot::West => {
-                moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::West, spot: Spot::East });
-            },
+            _ => {},
         };
         moves
     }
