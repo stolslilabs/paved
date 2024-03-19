@@ -6,34 +6,30 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { useComponentValue } from "@dojoengine/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheck, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { useGame } from "@/hooks/useGame";
+import { ComponentValue } from "@dojoengine/recs";
 
-export const Ready = ({ builder }: { builder: any }) => {
+export const Ready = ({ builder }: { builder: ComponentValue }) => {
   const { gameId } = useQueryParams();
   const [status, setStatus] = useState<boolean>();
 
   const {
     account: { account },
     setup: {
-      clientComponents: { Game },
       systemCalls: { ready_game },
     },
   } = useDojo();
 
-  const gameKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId)]),
-    [gameId]
-  );
-  const game = useComponentValue(Game, gameKey);
+  const { game } = useGame({ gameId });
 
   useEffect(() => {
+    if (!game) return;
     setStatus(
-      game?.players & (BigInt(1) << BigInt(builder.index)) ? true : false
+      BigInt(game.players) & (BigInt(1) << BigInt(builder.index)) ? true : false
     );
   }, [game, builder]);
 

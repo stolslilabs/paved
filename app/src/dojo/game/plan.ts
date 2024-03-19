@@ -1,0 +1,53 @@
+export enum Plan {
+  None = "",
+  CCCCCCCCC = "CCCCCCCCC",
+  CCCCCFFFC = "CCCCCFFFC",
+  CCCCCFRFC = "CCCCCFRFC",
+  CFCFCCCCC = "CFCFCCCCC",
+  CFCFCFCFC = "CFCFCFCFC",
+  CFCFCFFFC = "CFCFCFFFC",
+  CFFCFCFFC = "CFFCFCFFC",
+  CFFFCFFFC = "CFFFCFFFC",
+  CFFFCFRFC = "CFFFCFRFC",
+  FCCFCCCFC = "FCCFCCCFC",
+  FCCFCFCFC = "FCCFCFCFC",
+  FFCFCCCFF = "FFCFCCCFF",
+  FFCFCFCFC = "FFCFCFCFC",
+  FFCFFFCCC = "FFCFFFCCC",
+  FFCFFFCFC = "FFCFFFCFC",
+  FFCFFFCFF = "FFCFFFCFF",
+  FFCFFFFFC = "FFCFFFFFC",
+  FFFFCCCFF = "FFFFCCCFF",
+  FFFFFFCFF = "FFFFFFCFF",
+  RFFFFFCFR = "RFFFFFCFR",
+  RFFFRFCFF = "RFFFRFCFF",
+  RFFFRFCFR = "RFFFRFCFR",
+  RFFFRFFFR = "RFFFRFFFR",
+  RFRFCCCFF = "RFRFCCCFF",
+  RFRFCCCFR = "RFRFCCCFR",
+  RFRFFFCCC = "RFRFFFCCC",
+  RFRFFFCFF = "RFRFFFCFF",
+  RFRFFFCFR = "RFRFFFCFR",
+  RFRFFFFFR = "RFRFFFFFR",
+  RFRFRFCFF = "RFRFRFCFF",
+  SFFFFFFFR = "SFFFFFFFR",
+  SFRFRFCFR = "SFRFRFCFR",
+  SFRFRFFFR = "SFRFRFFFR",
+  SFRFRFRFR = "SFRFRFRFR",
+  WCCCCCCCC = "WCCCCCCCC",
+  WFFFFFFFF = "WFFFFFFFF",
+  WFFFFFFFR = "WFFFFFFFR",
+}
+
+export const getPlan = (index: number): Plan => {
+  const plans = Object.values(Plan);
+  return plans[index];
+};
+
+export const getIndex = (plan: Plan): number => {
+  return Object.values(Plan).indexOf(plan);
+};
+
+export const getCategories = (plan: Plan): string[] => {
+  return plan.split("");
+};

@@ -11,17 +11,12 @@ import {
 } from "@/components/ui/tooltip";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useDojo } from "../../dojo/useDojo";
-import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const Cancel = () => {
   const { gameId } = useQueryParams();
   const {
     account: { account },
-    setup: {
-      clientComponents: { Builder },
-    },
   } = useDojo();
 
   const {
@@ -35,11 +30,7 @@ export const Cancel = () => {
     resetValid,
   } = useGameStore();
 
-  const builderId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(account.address),
-  ]) as Entity;
-  const builder = useComponentValue(Builder, builderId);
+  const { builder } = useBuilder({ gameId, playerId: account.address });
 
   const handleClick = () => {
     resetOrientation();

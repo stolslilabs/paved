@@ -1,30 +1,21 @@
 import { Character } from "../components/Character";
 import { getAvailableCharacters } from "../../utils";
 import { useMemo } from "react";
-import { useComponentValue } from "@dojoengine/react";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { useDojo } from "@/dojo/useDojo";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const Characters = () => {
   const { gameId } = useQueryParams();
 
   const {
     account: { account },
-    setup: {
-      clientComponents: { Builder },
-    },
   } = useDojo();
 
-  const builderEntity: Entity = useMemo(() => {
-    return getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(account.address),
-    ]) as Entity;
-  }, [gameId, account]);
-
-  const builder = useComponentValue(Builder, builderEntity);
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   const characters = useMemo(
     () => getAvailableCharacters(builder ? builder.characters : 0),

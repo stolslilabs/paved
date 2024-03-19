@@ -15,11 +15,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
-import { useComponentValue } from "@dojoengine/react";
 import { useMemo, useEffect } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import { useGame } from "@/hooks/useGame";
+import { usePlayer } from "@/hooks/usePlayer";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const UpdateGame = () => {
   const { gameId } = useQueryParams();
@@ -30,26 +30,16 @@ export const UpdateGame = () => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Game, Player, Builder },
       systemCalls: { rename_game, update_game },
     },
   } = useDojo();
 
-  const gameKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId)]),
-    [gameId]
-  );
-  const game = useComponentValue(Game, gameKey);
-  const playerId = useMemo(
-    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account]
-  );
-  const player = useComponentValue(Player, playerId);
-  const builderKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]),
-    [gameId, account]
-  );
-  const builder = useComponentValue(Builder, builderKey);
+  const { game } = useGame({ gameId });
+  const { player } = usePlayer({ playerId: account?.address });
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   useEffect(() => {
     if (duration) {
@@ -73,7 +63,8 @@ export const UpdateGame = () => {
   }, [game, player]);
 
   const handleClick = () => {
-    const name = shortString.decodeShortString(game?.name);
+    if (!game || !player) return;
+    const name = shortString.decodeShortString(game.name);
     if (name !== gameName) {
       rename_game({
         account: account,

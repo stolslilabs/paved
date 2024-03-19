@@ -18,9 +18,8 @@ import {
 } from "@/components/ui/tooltip";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useDojo } from "@/dojo/useDojo";
-import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
+import { useCharacter } from "@/hooks/useCharacter";
+import { useTile } from "@/hooks/useTile";
 
 interface TProps {
   index: number;
@@ -36,31 +35,14 @@ export const Character = (props: TProps) => {
 
   const {
     account: { account },
-    setup: {
-      clientComponents: { Tile, Character },
-    },
   } = useDojo();
 
-  const characterKey = useMemo(
-    () =>
-      getEntityIdFromKeys([
-        BigInt(gameId),
-        BigInt(account.address),
-        BigInt(getCharacterFromIndex(index)),
-      ]) as Entity,
-    [gameId, account, index]
-  );
-  const characterModel = useComponentValue(Character, characterKey);
-
-  const tileKey = useMemo(
-    () =>
-      getEntityIdFromKeys([
-        BigInt(gameId),
-        BigInt(characterModel?.tile_id || 0),
-      ]) as Entity,
-    [gameId, account, characterModel]
-  );
-  const tile = useComponentValue(Tile, tileKey);
+  const { characterModel } = useCharacter({
+    gameId,
+    playerId: account.address,
+    characterId: getCharacterFromIndex(index),
+  });
+  const { tile } = useTile({ gameId, tileId: characterModel?.tile_id || 0 });
 
   useEffect(() => {
     setSelected(index === getIndexFromCharacter(character));

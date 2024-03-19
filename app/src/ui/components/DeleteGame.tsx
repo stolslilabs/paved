@@ -2,11 +2,11 @@ import { useDojo } from "../../dojo/useDojo";
 
 import { Button } from "@/components/ui/button";
 
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { useComponentValue } from "@dojoengine/react";
 import { useMemo } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useNavigate } from "react-router-dom";
+import { useGame } from "@/hooks/useGame";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const DeleteGame = () => {
   const { gameId } = useQueryParams();
@@ -14,7 +14,6 @@ export const DeleteGame = () => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Game, Builder },
       systemCalls: { delete_game },
     },
   } = useDojo();
@@ -27,16 +26,11 @@ export const DeleteGame = () => {
     };
   }, [navigate]);
 
-  const gameKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId)]),
-    [gameId]
-  );
-  const game = useComponentValue(Game, gameKey);
-  const builderKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]),
-    [gameId, account]
-  );
-  const builder = useComponentValue(Builder, builderKey);
+  const { game } = useGame({ gameId });
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   const disabled = useMemo(() => {
     return (

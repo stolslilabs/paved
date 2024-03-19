@@ -3,14 +3,15 @@ import { useEffect, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
 import { offset, other_offset } from "@/utils";
 import { useComponentValue } from "@dojoengine/react";
-import { Entity } from "@dojoengine/recs";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useMemo, useRef } from "react";
 import { getCharacterImage, getColor, getOrder } from "../../utils";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import { shortString } from "starknet";
 import font from "/assets/fonts/RubikMonoOne-Regular.ttf";
+import { useBuilder } from "@/hooks/useBuilder";
+import { usePlayer } from "@/hooks/usePlayer";
+import { useTile } from "@/hooks/useTile";
 
 // Assets
 
@@ -19,7 +20,9 @@ export const loader = new THREE.TextureLoader();
 export const CharTexture = ({ entity, radius, height, size }: any) => {
   const {
     setup: {
-      clientComponents: { Character, Tile, Player, Builder },
+      clientModels: {
+        models: { Character },
+      },
     },
   } = useDojo();
   const meshRef = useRef<any>();
@@ -27,28 +30,15 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
   const [name, setName] = useState("");
 
   const character = useComponentValue(Character, entity);
-
-  const builderEntity = useMemo(() => {
-    return getEntityIdFromKeys([
-      BigInt(character?.game_id),
-      BigInt(character?.player_id),
-    ]) as Entity;
-  }, [character]);
-  const builder = useComponentValue(Builder, builderEntity);
-
-  const playerKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(character?.player_id)]) as Entity,
-    [character]
-  );
-  const player = useComponentValue(Player, playerKey);
-
-  const tileEntity = useMemo(() => {
-    return getEntityIdFromKeys([
-      BigInt(character?.game_id),
-      BigInt(character?.tile_id),
-    ]) as Entity;
-  }, [character]);
-  const tile = useComponentValue(Tile, tileEntity);
+  const { builder } = useBuilder({
+    gameId: character?.game_id,
+    playerId: character?.player_id,
+  });
+  const { player } = usePlayer({ playerId: character?.player_id });
+  const { tile } = useTile({
+    gameId: character?.game_id,
+    tileId: character?.tile_id,
+  });
 
   const position = useMemo(() => {
     const position = getCharacterPosition({

@@ -13,7 +13,9 @@ export const StartGame = () => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Game, Builder },
+      clientModels: {
+        models: { Game, Builder },
+      },
       systemCalls: { start_game },
     },
   } = useDojo();

@@ -1,8 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
 import { useDojo } from "../../dojo/useDojo";
-import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
 import { useGameStore } from "../../store";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { getImage } from "../../utils";
@@ -15,6 +12,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useGame } from "@/hooks/useGame";
+import { useBuilder } from "@/hooks/useBuilder";
+import { useTile } from "@/hooks/useTile";
 
 export const Tile = () => {
   const [rotation, setRotation] = useState(0);
@@ -24,37 +24,20 @@ export const Tile = () => {
 
   const {
     account: { account },
-    setup: {
-      clientComponents: { Game, Builder, Tile },
-    },
   } = useDojo();
 
-  const gameKey = useMemo(() => {
-    return getEntityIdFromKeys([BigInt(gameId)]) as Entity;
-  }, [gameId]);
-  const game = useComponentValue(Game, gameKey);
-
-  const builderEntity = useMemo(() => {
-    return getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(account.address),
-    ]) as Entity;
-  }, [gameId, account]);
-  const builder = useComponentValue(Builder, builderEntity);
-
-  const tileEntity = useMemo(() => {
-    return getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(builder ? builder.tile_id : 0),
-    ]) as Entity;
-  }, [gameId, builder]);
-  const tile = useComponentValue(Tile, tileEntity);
+  const { game } = useGame({ gameId });
+  const { builder } = useBuilder({ gameId, playerId: account?.address });
+  const { tileKey, model: tile } = useTile({
+    gameId,
+    tileId: builder?.tile_id || 0,
+  });
 
   useEffect(() => {
     if (tile) {
       const image = getImage(tile);
       setBackgroundImage(image);
-      setActiveEntity(tileEntity);
+      setActiveEntity(tileKey);
     } else {
       const image = getImage(1);
       setBackgroundImage(image);
@@ -83,24 +66,14 @@ export const Tile = () => {
 
   const backgroundColor = useMemo(() => "#C2B0B7", []);
 
-  const over = useMemo(() => {
-    if (!game) return false;
-    if (game.mode === 1) return game.over;
-    return (
-      game.start_time !== 0 &&
-      game.duration !== 0 &&
-      game.start_time + game.duration < Math.floor(Date.now() / 1000)
-    );
-  }, [game]);
-
-  if (!account || !builder) return <></>;
+  if (!account || !game || !builder) return <></>;
 
   return (
     <div
       className="h-60 w-60 p-5 border-2 border-stone-500 flex justify-center items-center rounded-xl shadow-lg shadow-gray-400"
       style={{ backgroundColor }}
     >
-      {tile && backgroundImage && !over ? (
+      {tile && backgroundImage && !game?.isOver() ? (
         <ActiveTile image={backgroundImage} rotation={rotation} />
       ) : (
         <HiddenTile />
@@ -154,25 +127,15 @@ export const HiddenTile = () => {
   const {
     account: { account },
     setup: {
-      contractComponents: { Game },
       systemCalls: { draw },
     },
   } = useDojo();
 
-  const gameKey = useMemo(() => {
-    return getEntityIdFromKeys([BigInt(gameId)]) as Entity;
-  }, [gameId]);
-  const game = useComponentValue(Game, gameKey);
+  const { game } = useGame({ gameId });
 
   useEffect(() => {
-    if (game) {
-      if (game.mode === 1) return setOver(game.over);
-      setOver(
-        game.start_time !== 0 &&
-          game.duration !== 0 &&
-          game.start_time + game.duration < Math.floor(Date.now() / 1000)
-      );
-    }
+    if (!game) return;
+    setOver(game.isOver());
   }, [game]);
 
   const handleDrawClick = () => {

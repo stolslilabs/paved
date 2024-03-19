@@ -19,9 +19,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import { useDojo } from "@/dojo/useDojo";
-import { useComponentValue } from "@dojoengine/react";
 import {
-  Entity,
   Has,
   HasValue,
   defineEnterSystem,
@@ -30,7 +28,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { shortString } from "starknet";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { getEntityIdFromKeys, shortenHex } from "@dojoengine/utils";
+import { shortenHex } from "@dojoengine/utils";
 import { useLobbyStore } from "@/store";
 
 import { StartGame } from "@/ui/components/StartGame";
@@ -42,6 +40,9 @@ import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { Ready } from "../components/Ready";
 import { Kick } from "../components/Kick";
 import { JoinGame } from "../components/JoinGame";
+import { useGame } from "@/hooks/useGame";
+import { usePlayer } from "@/hooks/usePlayer";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const Room = () => {
   const { gameId } = useQueryParams();
@@ -55,20 +56,17 @@ export const Room = () => {
     account: { account },
     setup: {
       world,
-      clientComponents: { Game, Builder },
+      clientModels: {
+        models: { Builder },
+      },
     },
   } = useDojo();
 
-  const gameKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId)]),
-    [gameId]
-  );
-  const game = useComponentValue(Game, gameKey);
-  const builderKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]),
-    [gameId, account]
-  );
-  const builder = useComponentValue(Builder, builderKey);
+  const { game } = useGame({ gameId });
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   useMemo(() => {
     defineEnterSystem(
@@ -185,27 +183,11 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
   const [isSelf, setIsSelf] = useState(false);
   const {
     account: { account },
-    setup: {
-      clientComponents: { Game, Player, Builder },
-    },
   } = useDojo();
 
-  const gameKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId)]),
-    [gameId]
-  );
-  const game = useComponentValue(Game, gameKey);
-  const playerKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(builder?.player_id)]) as Entity,
-    [builder]
-  );
-  const player = useComponentValue(Player, playerKey);
-  const selfKey = useMemo(
-    () =>
-      getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]) as Entity,
-    [account]
-  );
-  const self = useComponentValue(Builder, selfKey);
+  const { game } = useGame({ gameId });
+  const { player, playerKey } = usePlayer({ playerId: builder?.player_id });
+  const { player: self } = usePlayer({ playerId: account?.address });
 
   useEffect(() => {
     if (game && player && builder) {
@@ -215,7 +197,9 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
       setPlayerId(shortenHex(`${player.id}`).replace("...", ""));
       setPlayerName(shortString.decodeShortString(player.name));
       setReady(
-        game.players & (BigInt(1) << BigInt(builder.index)) ? true : false
+        BigInt(game.players) & (BigInt(1) << BigInt(builder.index))
+          ? true
+          : false
       );
       setIsHost(builder.index === 0);
       setIsSelf(player.id === BigInt(account.address));
@@ -224,6 +208,7 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
   }, [game, player, builder]);
 
   const handleClick = () => {
+    if (!playerKey) return;
     setPlayerEntity(playerKey);
   };
 

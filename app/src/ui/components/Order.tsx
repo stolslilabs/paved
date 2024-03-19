@@ -1,27 +1,20 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { useDojo } from "../../dojo/useDojo";
-import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { getOrder, getColor } from "../../utils";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const Order = () => {
   const { gameId } = useQueryParams();
 
   const {
     account: { account },
-    setup: {
-      clientComponents: { Builder },
-    },
   } = useDojo();
 
-  const builderId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(account.address),
-  ]) as Entity;
-  const builder = useComponentValue(Builder, builderId);
-
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
   const color = useMemo(() => {
     return getColor(account.address);
   }, [account]);
