@@ -6,6 +6,7 @@ import { Orientation } from "../types/orientation";
 import { Area } from "../types/area";
 import { Move } from "../types/move";
 import { ComponentValue } from "@dojoengine/recs";
+import { getImage } from "@/dojo/game";
 
 export class Tile {
   public gameId: number;
@@ -52,6 +53,11 @@ export class Tile {
     } else {
       return new Direction(DirectionType.None);
     }
+  }
+
+  public getImage(): string {
+    const index = this.plan.into();
+    return getImage({ plan: index });
   }
 
   public getLayout(): Layout {

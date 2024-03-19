@@ -1,6 +1,6 @@
-import { Tile, RawTile } from "./models/tile";
+import { Tile } from "./models/tile";
 
-export type Tiles = { [key: string]: RawTile };
+export type Tiles = { [key: string]: Tile };
 
 export class Store {
   gameId: number;
@@ -12,14 +12,10 @@ export class Store {
   }
 
   getTileById(tileId: number): Tile | undefined {
-    const raw: RawTile = this.tiles[`${this.gameId}-${tileId}`];
-    if (!raw) return undefined;
-    return Tile.from(raw);
+    return this.tiles[`${this.gameId}-${tileId}`];
   }
 
   getTileByPosition(x: number, y: number): Tile | undefined {
-    const raw: RawTile = this.tiles[`${this.gameId}-${x}-${y}`];
-    if (!raw) return undefined;
-    return Tile.from(raw);
+    return this.tiles[`${this.gameId}-${x}-${y}`];
   }
 }

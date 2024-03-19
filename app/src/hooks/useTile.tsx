@@ -11,6 +11,15 @@ export const useTile = ({
   gameId: number;
   tileId: number;
 }) => {
+  const tileKey = useMemo(
+    () => getEntityIdFromKeys([BigInt(gameId), BigInt(tileId)]) as Entity,
+    [gameId, tileId]
+  );
+
+  return useTileByKey({ tileKey });
+};
+
+export const useTileByKey = ({ tileKey }: { tileKey: Entity | undefined }) => {
   const {
     setup: {
       clientModels: {
@@ -20,10 +29,6 @@ export const useTile = ({
     },
   } = useDojo();
 
-  const tileKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId), BigInt(tileId)]) as Entity,
-    [gameId, tileId]
-  );
   const component = useComponentValue(Tile, tileKey);
   const tile = useMemo(() => {
     return component ? new TileClass(component) : null;

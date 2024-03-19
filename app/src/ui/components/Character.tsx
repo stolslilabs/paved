@@ -7,7 +7,7 @@ import {
   getRole,
   getRoleAllowedSpots,
   getBoost,
-} from "../../utils";
+} from "@/dojo/game";
 import { useCameraStore, useGameStore } from "../../store";
 import { Button } from "@/components/ui/button";
 import {

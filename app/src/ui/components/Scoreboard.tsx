@@ -4,7 +4,7 @@ import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useComponentValue } from "@dojoengine/react";
 import { shortString } from "starknet";
-import { getColor } from "@/utils";
+import { getColor } from "@/dojo/game";
 import { useLogs } from "@/hooks/useLogs";
 import {
   Entity,

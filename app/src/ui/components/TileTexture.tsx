@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { getImage, offset, other_offset } from "@/utils";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { offset, other_offset } from "@/dojo/game";
+import { useMemo, useRef, useState } from "react";
 import { useGameStore } from "@/store";
 
 export const loader = new THREE.TextureLoader();
@@ -25,8 +25,8 @@ export const TileTexture = ({ tile, size }: any) => {
 
   useMemo(() => {
     if (tile) {
-      const rotation = (Math.PI / 2) * (1 - tile.orientation);
-      const image = getImage(tile);
+      const rotation = (Math.PI / 2) * (1 - tile.orientation.into());
+      const image = tile.getImage();
       loader.load(image, (loadedTexture) => {
         loadedTexture.center.set(0.5, 0.5);
         loadedTexture.rotation = rotation;

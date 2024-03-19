@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useDojo } from "../../dojo/useDojo";
 import { useQueryParams } from "../../hooks/useQueryParams";
-import { getOrder, getColor } from "../../utils";
+import { getOrder, getColor } from "@/dojo/game";
 import { useBuilder } from "@/hooks/useBuilder";
 
 export const Order = () => {

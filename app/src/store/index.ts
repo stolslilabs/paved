@@ -87,7 +87,7 @@ interface GameState {
   setSelectedTile: (tile: Tile) => void;
   resetSelectedTile: () => void;
   activeEntity: undefined | Entity;
-  setActiveEntity: (entity: Entity) => void;
+  setActiveEntity: (entity: Entity | undefined) => void;
   resetActiveEntity: () => void;
   hoveredTile: Tile;
   setHoveredTile: (tile: Tile) => void;
