@@ -25,9 +25,14 @@ export const Tile = () => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Builder, Tile },
+      clientComponents: { Game, Builder, Tile },
     },
   } = useDojo();
+
+  const gameKey = useMemo(() => {
+    return getEntityIdFromKeys([BigInt(gameId)]) as Entity;
+  }, [gameId]);
+  const game = useComponentValue(Game, gameKey);
 
   const builderEntity = useMemo(() => {
     return getEntityIdFromKeys([
@@ -78,6 +83,16 @@ export const Tile = () => {
 
   const backgroundColor = useMemo(() => "#C2B0B7", []);
 
+  const over = useMemo(() => {
+    if (!game) return false;
+    if (game.mode === 1) return game.over;
+    return (
+      game.start_time !== 0 &&
+      game.duration !== 0 &&
+      game.start_time + game.duration < Math.floor(Date.now() / 1000)
+    );
+  }, [game]);
+
   if (!account || !builder) return <></>;
 
   return (
@@ -85,7 +100,7 @@ export const Tile = () => {
       className="h-60 w-60 p-5 border-2 border-stone-500 flex justify-center items-center rounded-xl shadow-lg shadow-gray-400"
       style={{ backgroundColor }}
     >
-      {tile && backgroundImage ? (
+      {tile && backgroundImage && !over ? (
         <ActiveTile image={backgroundImage} rotation={rotation} />
       ) : (
         <HiddenTile />
@@ -144,7 +159,10 @@ export const HiddenTile = () => {
     },
   } = useDojo();
 
-  const game = useComponentValue(Game, getEntityIdFromKeys([BigInt(gameId)]));
+  const gameKey = useMemo(() => {
+    return getEntityIdFromKeys([BigInt(gameId)]) as Entity;
+  }, [gameId]);
+  const game = useComponentValue(Game, gameKey);
 
   useEffect(() => {
     if (game) {

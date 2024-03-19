@@ -180,6 +180,12 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
+    fn surrender(ref self: Game) {
+        // [Comment] Only available for solo mode
+        self.over = Mode::Solo == self.mode.into();
+    }
+
+    #[inline(always)]
     fn add_tile(ref self: Game) -> u32 {
         self.tile_count += 1;
         self.tile_count
@@ -430,6 +436,7 @@ impl GameAssert of AssertTrait {
         assert(self.player_count == 1, errors::INVALID_PLAYER_COUNT);
     }
 
+    #[inline(always)]
     fn assert_startable(self: Game) {
         let readiness = Bitmap::two_pow(self.player_count.into()) - 1;
         assert(self.players == readiness, errors::BUILDERS_NOT_READY);
