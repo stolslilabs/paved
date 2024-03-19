@@ -23,29 +23,16 @@ impl LayoutImpl of LayoutTrait {
 
     #[inline(always)]
     fn moves(from: Spot) -> Array<Move> {
+        let area: Area = LayoutImpl::area(from);
         let mut moves: Array<Move> = ArrayTrait::new();
-        match from {
-            Spot::None => {},
-            Spot::Center => {},
-            Spot::NorthWest => {
+        match area {
+            Area::B => {
                 moves.append(Move { direction: Direction::North, spot: Spot::South });
                 moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
-            Spot::North => {
-                moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::West, spot: Spot::East });
-            },
-            Spot::NorthEast => {},
-            Spot::East => { moves.append(Move { direction: Direction::East, spot: Spot::West }); },
-            Spot::SouthEast => {},
-            Spot::South => {
-                moves.append(Move { direction: Direction::South, spot: Spot::North });
-            },
-            Spot::SouthWest => {},
-            Spot::West => {
-                moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::West, spot: Spot::East });
-            },
+            Area::C => { moves.append(Move { direction: Direction::East, spot: Spot::West }); },
+            Area::D => { moves.append(Move { direction: Direction::South, spot: Spot::North }); },
+            _ => {},
         };
         moves
     }
@@ -69,18 +56,6 @@ impl LayoutImpl of LayoutTrait {
     #[inline(always)]
     fn adjacent_roads(from: Spot) -> Array<Spot> {
         let mut roads: Array<Spot> = ArrayTrait::new();
-        match from {
-            Spot::None => {},
-            Spot::Center => {},
-            Spot::NorthWest => {},
-            Spot::North => {},
-            Spot::NorthEast => {},
-            Spot::East => {},
-            Spot::SouthEast => {},
-            Spot::South => {},
-            Spot::SouthWest => {},
-            Spot::West => {},
-        };
         roads
     }
 
