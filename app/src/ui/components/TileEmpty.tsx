@@ -1,11 +1,9 @@
 import * as THREE from "three";
 import { useDojo } from "@/dojo/useDojo";
-import { useComponentValue } from "@dojoengine/react";
-import { Entity } from "@dojoengine/recs";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { useGameStore } from "@/store";
-import { getImage, offset, other_offset } from "@/utils";
-import { checkCompatibility } from "@/utils/layout";
+import { offset, other_offset } from "@/dojo/game";
+import { checkCompatibility } from "@/dojo/game/types/layout";
 import { createSquareGeometry, getSquarePosition } from "./TileTexture";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import {
@@ -14,11 +12,11 @@ import {
   Has,
   HasValue,
 } from "@dojoengine/recs";
-import { RawTile } from "@/utils/models/tile";
-import { checkFeatureIdle } from "@/utils/helpers/conflict";
+import { checkFeatureIdle } from "@/dojo/game/helpers/conflict";
 import useSound from "use-sound";
 
 import Click from "/sounds/click.wav";
+import { useTileByKey } from "@/hooks/useTile";
 
 const loader = new THREE.TextureLoader();
 
@@ -31,6 +29,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       world,
       clientModels: {
         models: { Tile },
+        classes: { Tile: TileClass },
       },
     },
   } = useDojo();
@@ -39,10 +38,10 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
   const meshRef = useRef<any>();
   const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
-  const [northTile, setNorthTile] = useState<Entity | undefined>();
-  const [eastTile, setEastTile] = useState<Entity | undefined>();
-  const [southTile, setSouthTile] = useState<Entity | undefined>();
-  const [westTile, setWestTile] = useState<Entity | undefined>();
+  const [northTile, setNorthTile] = useState<any>();
+  const [eastTile, setEastTile] = useState<any>();
+  const [southTile, setSouthTile] = useState<any>();
+  const [westTile, setWestTile] = useState<any>();
 
   const {
     orientation,
@@ -57,7 +56,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
     setValid,
   } = useGameStore();
 
-  const activeTile = useComponentValue(Tile, activeEntity);
+  const { tile: activeTile } = useTileByKey({ tileKey: activeEntity });
 
   useMemo(() => {
     defineEnterSystem(
@@ -66,7 +65,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       ({ value: [tile] }: any) => {
         if (tile.orientation === 0 || tile.x !== col || tile.y !== row + 1)
           return;
-        setNorthTile(tile);
+        setNorthTile(new TileClass(tile));
       }
     );
     defineSystem(
@@ -75,7 +74,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       ({ value: [tile] }: any) => {
         if (tile.orientation === 0 || tile.x !== col || tile.y !== row + 1)
           return;
-        setNorthTile(tile);
+        setNorthTile(new TileClass(tile));
       }
     );
     defineEnterSystem(
@@ -84,7 +83,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       ({ value: [tile] }: any) => {
         if (tile.orientation === 0 || tile.x !== col + 1 || tile.y !== row)
           return;
-        setEastTile(tile);
+        setEastTile(new TileClass(tile));
       }
     );
     defineSystem(
@@ -93,7 +92,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       ({ value: [tile] }: any) => {
         if (tile.orientation === 0 || tile.x !== col + 1 || tile.y !== row)
           return;
-        setEastTile(tile);
+        setEastTile(new TileClass(tile));
       }
     );
     defineEnterSystem(
@@ -102,7 +101,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       ({ value: [tile] }: any) => {
         if (tile.orientation === 0 || tile.x !== col || tile.y !== row - 1)
           return;
-        setSouthTile(tile);
+        setSouthTile(new TileClass(tile));
       }
     );
     defineSystem(
@@ -111,7 +110,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       ({ value: [tile] }: any) => {
         if (tile.orientation === 0 || tile.x !== col || tile.y !== row - 1)
           return;
-        setSouthTile(tile);
+        setSouthTile(new TileClass(tile));
       }
     );
     defineEnterSystem(
@@ -120,7 +119,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       ({ value: [tile] }: any) => {
         if (tile.orientation === 0 || tile.x !== col - 1 || tile.y !== row)
           return;
-        setWestTile(tile);
+        setWestTile(new TileClass(tile));
       }
     );
     defineSystem(
@@ -129,7 +128,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       ({ value: [tile] }: any) => {
         if (tile.orientation === 0 || tile.x !== col - 1 || tile.y !== row)
           return;
-        setWestTile(tile);
+        setWestTile(new TileClass(tile));
       }
     );
   }, []);
@@ -147,7 +146,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       (isHovered || isSelected) &&
       orientation &&
       checkCompatibility(
-        activeTile.plan,
+        activeTile,
         orientation,
         northTile,
         eastTile,
@@ -179,15 +178,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       activeTile &&
       (isHovered || isSelected) &&
       orientation &&
-      checkFeatureIdle(
-        gameId,
-        activeTile as RawTile,
-        orientation,
-        col,
-        row,
-        spot,
-        tiles
-      )
+      checkFeatureIdle(gameId, activeTile, orientation, col, row, spot, tiles)
     );
   }, [activeTile, hoveredTile, selectedTile, orientation, spot, hovered]);
 
@@ -204,7 +195,7 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
       hoveredTile.col === col &&
       hoveredTile.row === row;
     if (activeTile && (isSelected || isHovered)) {
-      background = getImage(activeTile);
+      background = activeTile.getImage();
       rotation = calculateRotation(orientation);
       if (activeTile && isSelected) {
         setValid((isValid && isIdle) || false);

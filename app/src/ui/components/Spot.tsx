@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getSpotFromIndex, getIndexFromSpot } from "../../utils";
+import { getSpotFromIndex, getIndexFromSpot } from "@/dojo/game";
 import { useGameStore } from "../../store";
 
 interface TProps {

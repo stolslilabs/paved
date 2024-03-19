@@ -2,7 +2,7 @@ import { useDojo } from "@/dojo/useDojo";
 import { Event } from "@/dojo/events";
 import { useEffect, useState } from "react";
 import { GAME_OVER_EVENT } from "@/constants/events";
-import { parseGameOverEvent } from "@/utils/events";
+import { parseGameOverEvent } from "@/dojo/game/events";
 
 export type GameOverEvent = {
   id: string;

@@ -1,7 +1,7 @@
 import { BuiltLog, ScoredLog, DiscardedLog, Log } from "@/hooks/useLogs";
 import { GameOverEvent } from "@/hooks/useGames";
 import { shortString } from "starknet";
-import { getColor } from "@/utils";
+import { getColor } from "@/dojo/game";
 import { TOURNAMENT_ID_OFFSET } from "./constants";
 
 export type Event = {

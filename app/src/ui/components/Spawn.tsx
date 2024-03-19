@@ -31,7 +31,7 @@ import {
   getLightOrders,
   getOrder,
   getOrderFromName,
-} from "@/utils";
+} from "@/dojo/game";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMoon, faSun } from "@fortawesome/free-solid-svg-icons";
 

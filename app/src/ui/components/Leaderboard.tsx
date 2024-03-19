@@ -20,7 +20,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 
 import { useState, useEffect, useMemo } from "react";
@@ -29,7 +28,7 @@ import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { shortString } from "starknet";
-import { getOrder, getColor } from "@/utils";
+import { getOrder, getColor } from "@/dojo/game";
 import {
   defineEnterSystem,
   defineSystem,

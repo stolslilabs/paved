@@ -9,7 +9,7 @@ import {
   parseDiscardedEvent,
   parseGameOverEvent,
   createGameOverLog,
-} from "@/utils/events";
+} from "@/dojo/game/events";
 import { useEffect, useRef, useState } from "react";
 import { Subscription } from "rxjs";
 import { useQueryParams } from "@/hooks/useQueryParams";

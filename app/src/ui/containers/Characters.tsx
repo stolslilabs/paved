@@ -1,5 +1,5 @@
 import { Character } from "../components/Character";
-import { getAvailableCharacters } from "../../utils";
+import { getAvailableCharacters } from "@/dojo/game";
 import { useMemo } from "react";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { useDojo } from "@/dojo/useDojo";

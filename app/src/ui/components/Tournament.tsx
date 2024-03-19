@@ -38,7 +38,10 @@ import {
 import { GameOverEvent, useGames } from "@/hooks/useGames";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { TOURNAMENT_DURATION, TOURNAMENT_ID_OFFSET } from "@/utils/constants";
+import {
+  TOURNAMENT_DURATION,
+  TOURNAMENT_ID_OFFSET,
+} from "@/dojo/game/constants";
 
 export const TournamentHeader = () => {
   const [tournamentId, setTournamentId] = useState<number>();
