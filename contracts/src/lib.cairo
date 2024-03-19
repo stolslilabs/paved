@@ -85,12 +85,6 @@ mod models {
 }
 
 mod systems {
-    fn WORLD() -> starknet::ContractAddress {
-        starknet::contract_address_const::<
-            0x65d5daf2ac5c3bcf4409b6a7861ae90c03c32869ade9b825e6a0e29beff249e
-        >()
-    }
-
     mod host;
     mod manage;
     mod play;
