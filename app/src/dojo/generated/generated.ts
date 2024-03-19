@@ -21,6 +21,7 @@ import {
   Claim,
   Draw,
   Discard,
+  Surrender,
   Build,
 } from "./types";
 
@@ -266,6 +267,18 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
+    const surrender = async ({ account, game_id }: Surrender) => {
+      try {
+        return await provider.execute(account, contract_name, "surrender", [
+          provider.getWorldAddress(),
+          game_id,
+        ]);
+      } catch (error) {
+        console.error("Error executing initialize:", error);
+        throw error;
+      }
+    };
+
     const build = async ({
       account,
       game_id,
@@ -291,7 +304,7 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
-    return { draw, discard, build };
+    return { draw, discard, surrender, build };
   }
 
   return {

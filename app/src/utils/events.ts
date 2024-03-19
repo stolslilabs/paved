@@ -125,9 +125,11 @@ export const parseGameOverEvent = (event: Event): GameOverEvent => {
   const gameId = parseInt(event.keys[1]);
   const tournamentId = parseInt(event.keys[2]) - TOURNAMENT_ID_OFFSET;
   const gameScore = parseInt(event.data[0]);
-  const playerId = event.data[1];
-  const playerName = shortString.decodeShortString(event.data[2]);
-  const playerMaster = event.data[3];
+  const gameStartTime = new Date(parseInt(event.data[1], 16) * 1000);
+  const gameEndTime = new Date(parseInt(event.data[2], 16) * 1000);
+  const playerId = event.data[3];
+  const playerName = shortString.decodeShortString(event.data[4]);
+  const playerMaster = event.data[5];
   const timestamp = new Date(event.createdAt);
 
   return {
@@ -135,6 +137,8 @@ export const parseGameOverEvent = (event: Event): GameOverEvent => {
     gameId,
     tournamentId,
     gameScore,
+    gameStartTime,
+    gameEndTime,
     playerId,
     playerName,
     playerMaster,

@@ -336,6 +336,24 @@ export function createSystemCalls({ client }: { client: IWorld }) {
     }
   };
 
+  const surrender = async ({ account, ...props }: SystemTypes.Surrender) => {
+    try {
+      const { transaction_hash } = await client.play.surrender({
+        account,
+        ...props,
+      });
+
+      notify(
+        "Game has been abandoned.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        })
+      );
+    } catch (error) {
+      console.error("Error surrendering:", error);
+    }
+  };
+
   const build = async ({ account, ...props }: SystemTypes.Build) => {
     try {
       const { transaction_hash } = await client.play.build({
@@ -372,6 +390,7 @@ export function createSystemCalls({ client }: { client: IWorld }) {
     claim,
     draw,
     discard,
+    surrender,
     build,
   };
 }

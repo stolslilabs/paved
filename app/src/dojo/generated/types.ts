@@ -82,6 +82,10 @@ export interface Discard extends Signer {
   game_id: number;
 }
 
+export interface Surrender extends Signer {
+  game_id: number;
+}
+
 export interface Build extends Signer {
   game_id: number;
   orientation: number;

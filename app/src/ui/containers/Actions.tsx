@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Buy } from "../components/Buy";
 import { LeaderboardDialog } from "../components/Leaderboard";
+import { Surrender } from "../components/Surrender";
 import { Log } from "../components/Log";
 import { Compass } from "../components/Compass";
 import { ResetCamera } from "../components/ResetCamera";
@@ -64,6 +64,13 @@ export const Actions = () => {
           }`}
         >
           <LeaderboardDialog />
+        </div>
+        <div
+          className={`absolute left-0 transition-all duration-200 ${
+            isExpanded ? "opacity-100 top-[-360%]" : "opacity-0 top-[100%]"
+          }`}
+        >
+          <Surrender />
         </div>
         <div
           className={`absolute bottom-0 transition-all duration-200 ${

@@ -1,16 +1,16 @@
 import { useDojo } from "@/dojo/useDojo";
 import { Event } from "@/dojo/createCustomEvents";
 import { useEffect, useState } from "react";
-import { useQueryParams } from "@/hooks/useQueryParams";
 import { GAME_OVER_EVENT } from "@/constants/events";
 import { parseGameOverEvent } from "@/utils/events";
-import { TOURNAMENT_ID_OFFSET } from "@/utils/constants";
 
 export type GameOverEvent = {
   id: string;
   gameId: number;
   tournamentId: number;
   gameScore: number;
+  gameStartTime: Date;
+  gameEndTime: Date;
   playerId: string;
   playerName: string;
   playerMaster: string;
