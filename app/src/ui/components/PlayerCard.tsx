@@ -68,7 +68,9 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
     account: { account },
     setup: {
       world,
-      clientComponents: { Player, Builder },
+      clientModels: {
+        models: { Player, Builder },
+      },
     },
   } = useDojo();
   const player = useComponentValue(Player, playerId);

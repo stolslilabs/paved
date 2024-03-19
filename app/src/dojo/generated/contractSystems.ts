@@ -12,8 +12,6 @@ import {
   KickGame,
   DeleteGame,
   StartGame,
-} from "./types";
-import {
   CreatePlayer,
   RenamePlayer,
   ReorderPlayer,
@@ -23,7 +21,7 @@ import {
   Discard,
   Surrender,
   Build,
-} from "./types";
+} from "../types/systems";
 
 export type IWorld = Awaited<ReturnType<typeof setupWorld>>;
 

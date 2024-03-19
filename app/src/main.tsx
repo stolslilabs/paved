@@ -2,8 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { setup } from "./dojo/generated/setup.ts";
-import { DojoProvider } from "./dojo/DojoContext.tsx";
+import { setup } from "./dojo/setup.ts";
+import { DojoProvider } from "./dojo/context.tsx";
 import { dojoConfig } from "../dojoConfig.ts";
 import { StarknetProvider } from "./ui/components/Starknet.tsx";
 

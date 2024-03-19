@@ -34,7 +34,9 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
   const {
     setup: {
       world,
-      clientComponents: { Tile },
+      clientModels: {
+        models: { Tile },
+      },
     },
   } = useDojo();
 

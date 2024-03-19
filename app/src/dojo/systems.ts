@@ -1,11 +1,11 @@
-import type { IWorld } from "./generated/generated";
+import type { IWorld } from "./generated/contractSystems";
 
 import { toast } from "sonner";
-import * as SystemTypes from "./generated/types";
+import * as SystemTypes from "./types/systems";
 
-export type SystemCalls = ReturnType<typeof createSystemCalls>;
+export type SystemCalls = ReturnType<typeof systems>;
 
-export function createSystemCalls({ client }: { client: IWorld }) {
+export function systems({ client }: { client: IWorld }) {
   const extractedMessage = (message: string) => {
     return message.match(/\('([^']+)'\)/)?.[1];
   };

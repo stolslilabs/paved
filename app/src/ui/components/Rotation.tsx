@@ -14,23 +14,19 @@ import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { useDojo } from "../../dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const Rotation = () => {
   const { gameId } = useQueryParams();
   const {
     account: { account },
-    setup: {
-      clientComponents: { Builder },
-    },
   } = useDojo();
 
   const { orientation, setOrientation } = useGameStore();
-
-  const builderId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(account.address),
-  ]) as Entity;
-  const builder = useComponentValue(Builder, builderId);
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   const handleClick = () => {
     setOrientation(orientation + 1);

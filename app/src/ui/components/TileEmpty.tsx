@@ -18,7 +18,7 @@ import { RawTile } from "@/utils/models/tile";
 import { checkFeatureIdle } from "@/utils/helpers/conflict";
 import useSound from "use-sound";
 
-import Click from "../../../public/click.wav";
+import Click from "/sounds/click.wav";
 
 const loader = new THREE.TextureLoader();
 
@@ -29,7 +29,9 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
   const {
     setup: {
       world,
-      clientComponents: { Tile },
+      clientModels: {
+        models: { Tile },
+      },
     },
   } = useDojo();
 

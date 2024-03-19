@@ -1,7 +1,4 @@
 import { useMemo } from "react";
-import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
 import { useDojo } from "../../dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -13,24 +10,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useBuilder } from "@/hooks/useBuilder";
 
-interface TProps {}
-
-export const Discard = (props: TProps) => {
+export const Discard = () => {
   const { gameId } = useQueryParams();
   const {
     account: { account },
     setup: {
-      clientComponents: { Builder },
       systemCalls: { discard },
     },
   } = useDojo();
 
-  const builderId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(account.address),
-  ]) as Entity;
-  const builder = useComponentValue(Builder, builderId);
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   const disabled = useMemo(() => {
     return !builder?.tile_id;

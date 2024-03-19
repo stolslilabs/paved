@@ -45,7 +45,9 @@ export const Spawn = () => {
     account: { account },
     masterAccount,
     setup: {
-      clientComponents: { Player },
+      clientModels: {
+        models: { Player },
+      },
       systemCalls: { create_player },
     },
   } = useDojo();

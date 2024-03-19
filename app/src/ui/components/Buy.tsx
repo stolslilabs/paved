@@ -1,7 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
-import { Entity } from "@dojoengine/recs";
-import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,6 +19,7 @@ import {
 import { useDojo } from "../../dojo/useDojo";
 import { faCartPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { usePlayer } from "@/hooks/usePlayer";
 
 const MAX_TILES = 255;
 
@@ -31,16 +29,11 @@ export const Buy = ({ buttonName }: { buttonName?: string }) => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Player },
       systemCalls: { buy },
     },
   } = useDojo();
 
-  const playerKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account]
-  );
-  const player = useComponentValue(Player, playerKey);
+  const { player } = usePlayer({ playerId: account.address });
 
   useEffect(() => {
     if (player) setMax(MAX_TILES - player?.bank);

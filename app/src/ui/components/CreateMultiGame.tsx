@@ -19,11 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
-import { useComponentValue } from "@dojoengine/react";
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { usePlayer } from "@/hooks/usePlayer";
 
 export const CreateMultiGame = () => {
   const [gameName, setGameName] = useState("");
@@ -33,16 +30,11 @@ export const CreateMultiGame = () => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Player },
       systemCalls: { create_game },
     },
   } = useDojo();
 
-  const playerId = useMemo(
-    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account]
-  );
-  const player = useComponentValue(Player, playerId);
+  const { player } = usePlayer({ playerId: account?.address });
 
   useEffect(() => {
     if (duration) {

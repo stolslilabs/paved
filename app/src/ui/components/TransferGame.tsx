@@ -6,12 +6,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { useComponentValue } from "@dojoengine/react";
 import { useMemo } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCrown, faStar } from "@fortawesome/free-solid-svg-icons";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const TransferGame = ({ player }: { player: any }) => {
   const { gameId } = useQueryParams();
@@ -19,16 +18,14 @@ export const TransferGame = ({ player }: { player: any }) => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Builder },
       systemCalls: { transfer_game },
     },
   } = useDojo();
 
-  const builderKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]),
-    [gameId, account]
-  );
-  const builder = useComponentValue(Builder, builderKey);
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   const disabled = useMemo(
     () => !player || builder?.index !== 0 || player.id === builder.player_id,
