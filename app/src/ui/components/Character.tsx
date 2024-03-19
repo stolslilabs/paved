@@ -37,7 +37,7 @@ export const Character = (props: TProps) => {
     account: { account },
   } = useDojo();
 
-  const { characterModel } = useCharacter({
+  const { character: characterModel } = useCharacter({
     gameId,
     playerId: account.address,
     characterId: getCharacterFromIndex(index),
