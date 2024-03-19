@@ -29,7 +29,9 @@ export const Scoreboard = () => {
     account: { account },
     setup: {
       world,
-      clientComponents: { Builder },
+      clientModels: {
+        models: { Builder },
+      },
     },
   } = useDojo();
   const builderId = getEntityIdFromKeys([
@@ -125,7 +127,9 @@ export const PlayerRow = ({
 }) => {
   const {
     setup: {
-      clientComponents: { Player },
+      clientModels: {
+        models: { Player },
+      },
     },
   } = useDojo();
 

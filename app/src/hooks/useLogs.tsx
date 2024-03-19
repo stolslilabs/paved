@@ -1,5 +1,5 @@
 import { useDojo } from "@/dojo/useDojo";
-import { Event } from "@/dojo/createCustomEvents";
+import { Event } from "@/dojo/events";
 import {
   parseBuiltEvent,
   createBuiltLog,

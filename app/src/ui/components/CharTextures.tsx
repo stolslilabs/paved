@@ -17,7 +17,9 @@ export const CharTextures = ({
 
   const {
     setup: {
-      clientComponents: { Character },
+      clientModels: {
+        models: { Character },
+      },
     },
   } = useDojo();
 

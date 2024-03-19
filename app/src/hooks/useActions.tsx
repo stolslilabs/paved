@@ -1,12 +1,9 @@
 import { useMemo } from "react";
 
-import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
-
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useGameStore } from "@/store";
 import { useDojo } from "@/dojo/useDojo";
+import { useBuilder } from "./useBuilder";
 
 export const useActions = () => {
   const { gameId } = useQueryParams();
@@ -30,16 +27,11 @@ export const useActions = () => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Builder },
       systemCalls: { build },
     },
   } = useDojo();
 
-  const builderId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(account.address),
-  ]) as Entity;
-  const builder = useComponentValue(Builder, builderId);
+  const { builder } = useBuilder({ gameId, playerId: account.address });
 
   const disabled = useMemo(() => {
     const selected = selectedTile.row !== 0 && selectedTile.col !== 0;

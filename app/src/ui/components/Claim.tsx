@@ -13,6 +13,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useGame } from "@/hooks/useGame";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const Claim = () => {
   const { gameId } = useQueryParams();
@@ -22,19 +24,15 @@ export const Claim = () => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Game, Builder },
       systemCalls: { claim },
     },
   } = useDojo();
 
-  const gameEntity = getEntityIdFromKeys([BigInt(gameId)]) as Entity;
-  const game = useComponentValue(Game, gameEntity);
-
-  const builderId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(account.address),
-  ]) as Entity;
-  const builder = useComponentValue(Builder, builderId);
+  const { game } = useGame({ gameId });
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   const handleClick = () => {
     if (account) {
@@ -51,14 +49,9 @@ export const Claim = () => {
   }, [builder]);
 
   useEffect(() => {
+    if (!game) return;
     const interval = setInterval(() => {
-      const now = Math.floor(Date.now()) / 1000;
-      setEnable(
-        (!claimed && game?.over) ||
-          (!claimed &&
-            game?.duration !== 0 &&
-            now >= game?.start_time + game?.duration)
-      );
+      setEnable(!claimed && game.isOver());
     }, 1000);
     return () => clearInterval(interval);
   }, [game, claimed]);

@@ -8,24 +8,16 @@ import BoxRainScene from "../modules/BoxRain";
 import { useDojo } from "@/dojo/useDojo";
 import { useAccount } from "@starknet-react/core";
 import { useMemo } from "react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
-import { useComponentValue } from "@dojoengine/react";
+import { usePlayer } from "@/hooks/usePlayer";
+import { ComponentValue } from "@dojoengine/recs";
 
 export const Landing = () => {
   const { isConnected } = useAccount();
   const {
     account: { account },
-    setup: {
-      clientComponents: { Player },
-    },
   } = useDojo();
 
-  const playerId = useMemo(
-    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account]
-  );
-  const player = useComponentValue(Player, playerId);
+  const { player } = usePlayer({ playerId: account?.address });
 
   return (
     <BorderLayout>
@@ -43,7 +35,7 @@ export const Landing = () => {
 
           <div className="flex">
             {isConnected && !player && <Spawn />}
-            {isConnected && !!player && <Play />}
+            {isConnected && !!player && <Play player={player} />}
           </div>
         </div>
       </div>
@@ -51,22 +43,13 @@ export const Landing = () => {
   );
 };
 
-export const Play = () => {
+export const Play = ({ player }: { player: ComponentValue }) => {
   const navigate = useNavigate();
 
   const {
     account: { account },
     masterAccount,
-    setup: {
-      clientComponents: { Player },
-    },
   } = useDojo();
-
-  const playerId = useMemo(
-    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account]
-  );
-  const player = useComponentValue(Player, playerId);
 
   const disabled = useMemo(() => {
     return !account || account === masterAccount || !player;

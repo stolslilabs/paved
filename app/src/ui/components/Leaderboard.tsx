@@ -29,9 +29,6 @@ import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { shortString } from "starknet";
-import { useComponentValue } from "@dojoengine/react";
-import { Entity } from "@dojoengine/recs";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { getOrder, getColor } from "@/utils";
 import {
   defineEnterSystem,
@@ -43,27 +40,21 @@ import { useLogs } from "@/hooks/useLogs";
 import { Claim } from "./Claim";
 import { TwitterShareButton } from "react-share";
 import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
+import { useGame } from "@/hooks/useGame";
+import { useBuilder } from "@/hooks/useBuilder";
+import { usePlayer } from "@/hooks/usePlayer";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
   const {
     account: { account },
-    setup: {
-      clientComponents: { Game, Builder },
-    },
   } = useDojo();
 
-  const gameEntity = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId)]) as Entity,
-    [gameId]
-  );
-  const game = useComponentValue(Game, gameEntity);
-
-  const builderId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(account.address),
-  ]) as Entity;
-  const builder = useComponentValue(Builder, builderId);
+  const { game } = useGame({ gameId });
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   const [open, setOpen] = useState(false);
   const [over, setOver] = useState(false);
@@ -71,14 +62,7 @@ export const LeaderboardDialog = () => {
   useEffect(() => {
     if (game) {
       const interval = setInterval(() => {
-        const now = Math.floor(Date.now()) / 1000;
-        const multiCondition =
-          !over &&
-          game.mode !== 1 &&
-          game.duration !== 0 &&
-          now >= game.start_time + game.duration;
-        const soloCondition = !over && game.mode === 1 && game.over;
-        if (multiCondition || soloCondition) {
+        if (!over && game.isOver()) {
           setOpen(true);
           setOver(true);
         }
@@ -109,7 +93,7 @@ export const LeaderboardDialog = () => {
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
         {over && builder && <Description game={game} />}
         <Leaderboard />
-        {over && game.mode !== 1 && builder && <Reward />}
+        {over && !game.isSoloMode() && builder && <Reward />}
       </DialogContent>
     </Dialog>
   );
@@ -119,7 +103,7 @@ export const Description = ({ game }: { game: any }) => {
   return (
     <DialogDescription className="flex justify-center items-center gap-3 text-xs">
       Game is over!
-      {game.mode === 1 && <Share score={game.score} />}
+      {game.isSoloMode() && <Share score={game.score} />}
     </DialogDescription>
   );
 };
@@ -165,7 +149,9 @@ export const Leaderboard = () => {
   const {
     setup: {
       world,
-      clientComponents: { Builder },
+      clientModels: {
+        models: { Builder },
+      },
     },
   } = useDojo();
 
@@ -238,18 +224,7 @@ export const PlayerRow = ({
   rank: number;
   logs: any;
 }) => {
-  const {
-    account: { account },
-    setup: {
-      clientComponents: { Player },
-    },
-  } = useDojo();
-  const playerKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(builder.player_id)]) as Entity,
-    [account]
-  );
-  const player = useComponentValue(Player, playerKey);
-
+  const { player } = usePlayer({ playerId: builder.player_id });
   const name = shortString.decodeShortString(player?.name || "");
   const order = getOrder(builder?.order);
   const address = `0x${builder.player_id.toString(16)}`;

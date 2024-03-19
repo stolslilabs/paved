@@ -13,6 +13,9 @@ import {
   faPiggyBank,
 } from "@fortawesome/free-solid-svg-icons";
 import { useLogs } from "@/hooks/useLogs";
+import { useGame } from "@/hooks/useGame";
+import { usePlayer } from "@/hooks/usePlayer";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const GameInfo = () => {
   const { gameId } = useQueryParams();
@@ -20,28 +23,14 @@ export const GameInfo = () => {
   const [timeLeft, setTimeLeft] = useState<number>();
   const {
     account: { account },
-    setup: {
-      clientComponents: { Game, Player, Builder },
-    },
   } = useDojo();
 
-  const gameKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId)]) as Entity,
-    [gameId]
-  );
-  const game = useComponentValue(Game, gameKey);
-
-  const playerKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account]
-  );
-  const player = useComponentValue(Player, playerKey);
-  const builderKey = useMemo(
-    () =>
-      getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]) as Entity,
-    [gameId, account]
-  );
-  const builder = useComponentValue(Builder, builderKey);
+  const { game } = useGame({ gameId });
+  const { player } = usePlayer({ playerId: account?.address });
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   useEffect(() => {
     if (game) {
@@ -54,23 +43,21 @@ export const GameInfo = () => {
     }
   }, [game]);
 
-  if (!game || game.mode === 1) return null;
+  if (!game || game.isSoloMode()) return null;
 
   return (
     <div className="flex flex-col">
       <p className="text-right text-sm text-slate-500 mt-4 mb-2 mr-2">Info</p>
       <Table>
         <TableBody className="text-right text-xs">
-          {game?.mode !== 1 && (
-            <Cooldown time={game?.duration ? `${timeLeft} s` : "∞"} />
-          )}
+          <Cooldown time={game?.duration ? `${timeLeft} s` : "∞"} />
           <TilesPaved
             count={logs.filter((log) => log.category === "Built").length}
           />
           <TilesDiscarded
             count={logs.filter((log) => log.category === "Discarded").length}
           />
-          {game?.mode !== 1 && <Bank bank={builder ? player?.bank : "N/A"} />}
+          <Bank bank={builder ? player?.bank : "N/A"} />
         </TableBody>
       </Table>
     </div>

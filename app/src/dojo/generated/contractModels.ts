@@ -2,7 +2,7 @@
 
 import { defineComponent, Type as RecsType, World } from "@dojoengine/recs";
 
-export type ContractComponents = Awaited<
+export type ContractModels = Awaited<
   ReturnType<typeof defineContractComponents>
 >;
 
@@ -34,7 +34,6 @@ export function defineContractComponents(world: World) {
               "u8",
               "felt252",
             ],
-            customTypes: [],
           },
         }
       );
@@ -51,7 +50,6 @@ export function defineContractComponents(world: World) {
           metadata: {
             name: "BuilderPosition",
             types: ["u32", "u32", "felt252"],
-            customTypes: [],
           },
         }
       );
@@ -72,7 +70,6 @@ export function defineContractComponents(world: World) {
           metadata: {
             name: "Character",
             types: ["u32", "felt252", "u8", "u32", "u8", "u8", "u8"],
-            customTypes: [],
           },
         }
       );
@@ -91,7 +88,6 @@ export function defineContractComponents(world: World) {
           metadata: {
             name: "CharacterPosition",
             types: ["u32", "u32", "u8", "felt252", "u8"],
-            customTypes: [],
           },
         }
       );
@@ -132,7 +128,6 @@ export function defineContractComponents(world: World) {
               "u8",
               "u8",
             ],
-            customTypes: [],
           },
         }
       );
@@ -163,7 +158,6 @@ export function defineContractComponents(world: World) {
               "u32",
               "felt252",
             ],
-            customTypes: [],
           },
         }
       );
@@ -171,12 +165,14 @@ export function defineContractComponents(world: World) {
     PlayerName: (() => {
       return defineComponent(
         world,
-        { name: RecsType.BigInt, id: RecsType.BigInt },
+        {
+          name: RecsType.BigInt,
+          id: RecsType.BigInt,
+        },
         {
           metadata: {
             name: "PlayerName",
             types: ["felt252", "felt252"],
-            customTypes: [],
           },
         }
       );
@@ -194,7 +190,6 @@ export function defineContractComponents(world: World) {
           metadata: {
             name: "Team",
             types: ["u32", "u8", "u32", "u8"],
-            customTypes: [],
           },
         }
       );
@@ -216,7 +211,6 @@ export function defineContractComponents(world: World) {
           metadata: {
             name: "Tile",
             types: ["u32", "u32", "felt252", "u8", "u8", "u32", "u32", "u8"],
-            customTypes: [],
           },
         }
       );
@@ -234,7 +228,6 @@ export function defineContractComponents(world: World) {
           metadata: {
             name: "TilePosition",
             types: ["u32", "u32", "u32", "u32"],
-            customTypes: [],
           },
         }
       );

@@ -32,7 +32,9 @@ export const Surrender = (props: TProps) => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Game, Builder },
+      clientModels: {
+        models: { Game, Builder },
+      },
       systemCalls: { surrender },
     },
   } = useDojo();

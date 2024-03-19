@@ -1,13 +1,13 @@
 import { getSyncEntities } from "@dojoengine/state";
 import * as torii from "@dojoengine/torii-client";
-import { createClientComponents } from "../createClientComponents";
-import { createCustomEvents } from "../createCustomEvents.ts";
-import { createSystemCalls } from "../createSystemCalls";
+import { models } from "./models.ts";
+import { createCustomEvents } from "./events.ts";
+import { systems } from "./systems.ts";
 
-import { defineContractComponents } from "./contractComponents";
-import { world } from "./world";
-import { Config } from "../../../dojoConfig";
-import { setupWorld } from "./generated";
+import { defineContractComponents } from "./generated/contractModels";
+import { world } from "./world.ts";
+import { Config } from "../../dojoConfig.ts";
+import { setupWorld } from "./generated/contractSystems.ts";
 import { DojoProvider } from "@dojoengine/core";
 import { BurnerManager } from "@dojoengine/create-burner";
 import { Account, RpcProvider } from "starknet";
@@ -23,16 +23,16 @@ export async function setup({ ...config }: Config) {
   });
 
   // create contract components
-  const contractComponents = defineContractComponents(world);
+  const contractModels = defineContractComponents(world);
 
   // create client components
-  const clientComponents = createClientComponents({ contractComponents });
+  const clientModels = models({ contractModels });
 
   // create event subscriptions
   const contractEvents = await createCustomEvents(config.toriiUrl);
 
   // fetch all existing entities from torii
-  await getSyncEntities(toriiClient, contractComponents as any);
+  await getSyncEntities(toriiClient, contractModels as any);
 
   const client = await setupWorld(
     new DojoProvider(config.manifest, config.rpcUrl)
@@ -56,10 +56,10 @@ export async function setup({ ...config }: Config) {
 
   return {
     client,
-    clientComponents,
-    contractComponents,
+    clientModels,
+    contractComponents: contractModels,
     contractEvents,
-    systemCalls: createSystemCalls({ client }),
+    systemCalls: systems({ client }),
     config,
     world,
     burnerManager,

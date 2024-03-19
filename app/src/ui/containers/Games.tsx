@@ -23,16 +23,14 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faRightToBracket } from "@fortawesome/free-solid-svg-icons";
 
 import { useDojo } from "@/dojo/useDojo";
-import { useComponentValue, useEntityQuery } from "@dojoengine/react";
+import { useEntityQuery } from "@dojoengine/react";
 import {
-  Entity,
   Has,
   HasValue,
   NotValue,
   defineEnterSystem,
   defineSystem,
 } from "@dojoengine/recs";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useNavigate } from "react-router-dom";
 
 import { CreateSoloGame } from "@/ui/components/CreateSoloGame";
@@ -40,29 +38,33 @@ import { CreateMultiGame } from "@/ui/components/CreateMultiGame";
 import { shortString } from "starknet";
 import { TournamentDialog, TournamentHeader } from "../components/Tournament";
 import { useLobbyStore } from "@/store";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const Games = () => {
   const { mode, setMode } = useLobbyStore();
-  const [games, setGames] = useState<{ [key: number]: typeof Game }>({});
+  const [games, setGames] = useState<{ [key: number]: any }>({});
   const [showSingle, setShowSingle] = useState<boolean>(false);
   const [showMulti, setShowMulti] = useState<boolean>(false);
   const {
     account: { account },
     setup: {
       world,
-      clientComponents: { Game },
+      clientModels: {
+        models: { Game },
+        classes: { Game: GameClass },
+      },
     },
   } = useDojo();
 
   useMemo(() => {
     defineEnterSystem(world, [Has(Game)], function ({ value: [game] }: any) {
       setGames((prevTiles: any) => {
-        return { ...prevTiles, [game.id]: game };
+        return { ...prevTiles, [game.id]: new GameClass(game) };
       });
     });
     defineSystem(world, [Has(Game)], function ({ value: [game] }: any) {
       setGames((prevTiles: any) => {
-        return { ...prevTiles, [game.id]: game };
+        return { ...prevTiles, [game.id]: new GameClass(game) };
       });
     });
   }, []);
@@ -73,7 +75,7 @@ export const Games = () => {
 
   const filteredSingleGames = useMemo(() => {
     return Object.values(games)
-      .filter((game) => game.mode === 1 && (showSingle || !game.over))
+      .filter((game) => game.isSoloMode() && (showSingle || !game.isOver()))
       .sort((a, b) => b.id - a.id);
   }, [games, showSingle, account]);
 
@@ -81,14 +83,9 @@ export const Games = () => {
     return Object.values(games)
       .filter((game) => {
         if (game.player_count === 0) return false;
-        if (game.mode !== 2) return false;
+        if (!game.isMultiMode()) return false;
         if (showMulti) return true;
-        const endtime = game.start_time + game.duration;
-        return (
-          game.start_time == 0 ||
-          game.duration == 0 ||
-          endtime > Math.floor(Date.now() / 1000)
-        );
+        return !game.isOver();
       })
       .sort((a, b) => b.id - a.id);
   }, [games, showMulti]);
@@ -196,23 +193,15 @@ export const GameSingleRow = ({ game }: { game: any }) => {
   const [over, setOver] = useState<boolean>(false);
   const {
     account: { account },
-    setup: {
-      world,
-      clientComponents: { Builder },
-    },
   } = useDojo();
 
-  const builderKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(game.id), BigInt(account.address)]),
-    [game, account]
-  );
-  const builder = useComponentValue(Builder, builderKey);
+  const builder = useBuilder({ gameId: game?.id, playerId: account?.address });
 
   useEffect(() => {
     if (game && builder) {
       setTilesPlayed(game.tile_count);
       setScore(game.score);
-      setOver(game.tile_count >= 99);
+      setOver(game.isOver());
     }
   }, [game, builder]);
 
@@ -267,7 +256,9 @@ export const GameMultiRow = ({ game }: { game: any }) => {
   const {
     account: { account },
     setup: {
-      clientComponents: { Player, Builder },
+      clientModels: {
+        models: { Builder },
+      },
     },
   } = useDojo();
 
@@ -276,16 +267,7 @@ export const GameMultiRow = ({ game }: { game: any }) => {
     HasValue(Builder, { game_id: game?.id }),
     NotValue(Builder, { order: 0 }),
   ]);
-  const playerKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account]
-  );
-  const player = useComponentValue(Player, playerKey);
-  const builderKey = useMemo(() => {
-    if (!game || !player) return undefined;
-    return getEntityIdFromKeys([BigInt(game.id), BigInt(player.id)]) as Entity;
-  }, [game, player]);
-  const builder = useComponentValue(Builder, builderKey);
+  const builder = useBuilder({ gameId: game?.id, playerId: account?.address });
 
   useEffect(() => {
     if (game) {
@@ -294,11 +276,7 @@ export const GameMultiRow = ({ game }: { game: any }) => {
       setStartTime(game.start_time);
       setDuration(game.duration);
       setTilesPlayed(game.tile_count);
-      setOver(
-        game.start_time !== 0 &&
-          game.duration !== 0 &&
-          game.start_time + game.duration < Math.floor(Date.now() / 1000)
-      );
+      setOver(game.isOver());
     }
     setPlayerCount(builders?.length || 0);
   }, [game, builders]);

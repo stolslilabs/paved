@@ -1,26 +1,20 @@
 import { useDojo } from "../../dojo/useDojo";
-import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSackDollar } from "@fortawesome/free-solid-svg-icons";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const Claimed = () => {
   const { gameId } = useQueryParams();
 
   const {
     account: { account },
-    setup: {
-      clientComponents: { Builder },
-    },
   } = useDojo();
 
-  const builderId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(account.address),
-  ]) as Entity;
-  const builder = useComponentValue(Builder, builderId);
+  const { builder } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   return (
     <div className=" flex justify-center items-center text-l gap-2">
