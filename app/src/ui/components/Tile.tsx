@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useDojo } from "../../dojo/useDojo";
 import { useGameStore } from "../../store";
 import { useQueryParams } from "../../hooks/useQueryParams";
-import { getImage } from "../../utils";
+import { getImage } from "@/dojo/game";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faLock } from "@fortawesome/free-solid-svg-icons";
 import { Spot } from "./Spot";

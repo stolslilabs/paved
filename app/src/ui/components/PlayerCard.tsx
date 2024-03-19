@@ -34,7 +34,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { shortString } from "starknet";
 
 import { getAvatar } from "@/utils/avatar";
-import { getColor } from "@/utils";
+import { getColor } from "@/dojo/game";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faChessKnight,

@@ -2,9 +2,44 @@
 
 import { Category, CategoryType } from "./category";
 import { Plan } from "./plan";
-import { OrientationType } from "./orientation";
+import { Orientation, OrientationType } from "./orientation";
 import { SpotType } from "./spot";
 import { Direction, DirectionType } from "./direction";
+import { Tile } from "../models/tile";
+
+export const checkCompatibility = (
+  tile: Tile,
+  orientation: number,
+  northTile: Tile,
+  eastTile: Tile,
+  southTile: Tile,
+  westTile: Tile
+): boolean => {
+  tile.orientation = Orientation.from(orientation);
+  const layout = tile.getLayout();
+  let status = true;
+  if (northTile) {
+    const north = northTile.getLayout();
+    const direction = new Direction(DirectionType.North);
+    status = status && layout.isCompatible(north, direction);
+  }
+  if (eastTile) {
+    const east = eastTile.getLayout();
+    const direction = new Direction(DirectionType.East);
+    status = status && layout.isCompatible(east, direction);
+  }
+  if (southTile) {
+    const south = southTile.getLayout();
+    const direction = new Direction(DirectionType.South);
+    status = status && layout.isCompatible(south, direction);
+  }
+  if (westTile) {
+    const west = westTile.getLayout();
+    const direction = new Direction(DirectionType.West);
+    status = status && layout.isCompatible(west, direction);
+  }
+  return status;
+};
 
 export class Layout {
   center: Category;
@@ -108,13 +143,13 @@ export class Layout {
   public isCompatible(reference: Layout, direction: Direction): boolean {
     switch (direction.value) {
       case DirectionType.North:
-        return this.north === reference.south;
+        return this.north.value === reference.south.value;
       case DirectionType.East:
-        return this.east === reference.west;
+        return this.east.value === reference.west.value;
       case DirectionType.South:
-        return this.south === reference.north;
+        return this.south.value === reference.north.value;
       case DirectionType.West:
-        return this.west === reference.east;
+        return this.west.value === reference.east.value;
       default:
         return false;
     }

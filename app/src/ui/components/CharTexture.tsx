@@ -1,10 +1,15 @@
 import * as THREE from "three";
 import { useEffect, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
-import { offset, other_offset } from "@/utils";
+import {
+  offset,
+  other_offset,
+  getCharacterImage,
+  getColor,
+  getOrder,
+} from "@/dojo/game";
 import { useComponentValue } from "@dojoengine/react";
 import { useMemo, useRef } from "react";
-import { getCharacterImage, getColor, getOrder } from "../../utils";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import { shortString } from "starknet";
