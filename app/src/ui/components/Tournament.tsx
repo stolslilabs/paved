@@ -31,6 +31,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCalendar,
   faCalendarDays,
+  faClock,
   faEye,
   faTrophy,
 } from "@fortawesome/free-solid-svg-icons";
@@ -212,6 +213,8 @@ export const Tournament = () => {
             <TableHead className="w-[100px]">Rank</TableHead>
             <TableHead>Name</TableHead>
             <TableHead className="text-right">Score</TableHead>
+            <TableHead className="text-right">Duration</TableHead>
+            <TableHead></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -239,11 +242,24 @@ export const GameRow = ({
     };
   }, [navigate]);
 
+  const duration = useMemo(() => {
+    const startTime = game.gameStartTime;
+    const endTime = game.gameEndTime;
+    const dt = endTime.getTime() - startTime.getTime();
+    const hours = Math.floor(dt / 1000 / 60 / 60);
+    const minutes = Math.floor((dt / 1000 / 60) % 60);
+    const seconds = Math.floor((dt / 1000) % 60);
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  }, [game]);
+
   return (
     <TableRow>
       <TableCell className="font-medium">{`#${rank}`}</TableCell>
       <TableCell className="text-ellipsis">{game.playerName}</TableCell>
       <TableCell className="text-right">{game.gameScore}</TableCell>
+      <TableCell className="text-right">{duration}</TableCell>
       <TableCell className="text-right">
         <Button
           variant={"secondary"}

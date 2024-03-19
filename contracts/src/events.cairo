@@ -42,6 +42,8 @@ struct GameOver {
     #[key]
     tournament_id: u64,
     game_score: u32,
+    game_start_time: u64,
+    game_end_time: u64,
     player_id: felt252,
     player_name: felt252,
     player_master: felt252,

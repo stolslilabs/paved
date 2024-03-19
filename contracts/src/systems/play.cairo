@@ -17,6 +17,7 @@ use paved::types::spot::Spot;
 trait IPlay<TContractState> {
     fn draw(self: @TContractState, world: IWorldDispatcher, game_id: u32);
     fn discard(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
+    fn surrender(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
     fn build(
         self: @TContractState,
         world: IWorldDispatcher,
@@ -229,12 +230,62 @@ mod play {
                         game_id: game.id,
                         tournament_id: tournament_id,
                         game_score: game.score,
+                        game_start_time: game.start_time,
+                        game_end_time: time,
                         player_id: player.id,
                         player_name: player.name,
                         player_master: player.master,
                     }
                 );
             }
+        }
+
+        fn surrender(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new(world);
+
+            // [Check] Game exists
+            let mut game = store.game(game_id);
+            game.assert_exists();
+
+            // [Check] Game has started
+            game.assert_started();
+
+            // [Check] Game is not over
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
+
+            // [Check] Game is in solo mode
+            game.assert_is_solo();
+
+            // [Check] Player exists
+            let caller = get_caller_address();
+            let mut player = store.player(caller.into());
+            player.assert_exists();
+
+            // [Check] Builder exists
+            let mut builder = store.builder(game, caller.into());
+            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
+
+            // [Effect] Update game
+            game.surrender();
+            store.set_game(game);
+
+            // [Event] Emit game over event
+            let tournament_id = TournamentImpl::compute_id(time);
+            emit!(
+                world,
+                GameOver {
+                    game_id: game.id,
+                    tournament_id: tournament_id,
+                    game_score: game.score,
+                    game_start_time: game.start_time,
+                    game_end_time: time,
+                    player_id: player.id,
+                    player_name: player.name,
+                    player_master: player.master,
+                }
+            );
         }
 
         fn build(
@@ -345,6 +396,8 @@ mod play {
                         game_id: game.id,
                         tournament_id: tournament_id,
                         game_score: game.score,
+                        game_start_time: game.start_time,
+                        game_end_time: time,
                         player_id: player.id,
                         player_name: player.name,
                         player_master: player.master,
