@@ -75,7 +75,11 @@ export const Games = () => {
 
   const filteredSingleGames = useMemo(() => {
     return Object.values(games)
-      .filter((game) => game.isSoloMode() && (showSingle || !game.isOver()))
+      .filter((game) => {
+        if (!game.isSoloMode()) return false;
+        if (showSingle && game.score > 0) return true;
+        return !game.isOver();
+      })
       .sort((a, b) => b.id - a.id);
   }, [games, showSingle, account]);
 
@@ -84,7 +88,7 @@ export const Games = () => {
       .filter((game) => {
         if (game.player_count === 0) return false;
         if (!game.isMultiMode()) return false;
-        if (showMulti) return true;
+        if (showMulti && game.score > 0) return true;
         return !game.isOver();
       })
       .sort((a, b) => b.id - a.id);
@@ -101,7 +105,7 @@ export const Games = () => {
           defaultValue={mode}
           value={mode}
           onValueChange={toggleMode}
-          className="w-full"
+          className="w-full h-full"
         >
           <TabsList>
             <TabsTrigger value="single">Solo</TabsTrigger>
@@ -127,7 +131,7 @@ export const Games = () => {
                 </Label>
               </div>
             </div>
-            <ScrollArea className="h-1/2 w-full">
+            <ScrollArea className="h-[570px] w-full pr-4">
               <Table>
                 <TableHeader>
                   <TableRow className="text-sm">
@@ -161,7 +165,7 @@ export const Games = () => {
                 </Label>
               </div>
             </div>
-            <ScrollArea className="w-full h-1/2">
+            <ScrollArea className="h-[570px] w-full pr-4">
               <Table>
                 <TableHeader>
                   <TableRow className="text-sm">
@@ -195,7 +199,10 @@ export const GameSingleRow = ({ game }: { game: any }) => {
     account: { account },
   } = useDojo();
 
-  const builder = useBuilder({ gameId: game?.id, playerId: account?.address });
+  const { builder } = useBuilder({
+    gameId: game?.id,
+    playerId: account?.address,
+  });
 
   useEffect(() => {
     if (game && builder) {
