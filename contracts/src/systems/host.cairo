@@ -296,7 +296,8 @@ mod host {
             builder.assert_host();
 
             // [Effect] Swap builders
-            store.swap_builders(ref game, ref builder, ref host);
+            store.swap_builders(game, ref builder, ref host);
+            game.reset();
             store.set_game(game);
         }
 
@@ -324,7 +325,7 @@ mod host {
             builder.assert_not_host();
 
             // [Effect] Delete builder
-            store.remove_builder(ref game, ref builder);
+            store.remove_builder(game, ref builder);
 
             // [Effect] Leave the game
             game.leave();
@@ -362,7 +363,7 @@ mod host {
             kicked.assert_not_host();
 
             // [Effect] Delete builder
-            store.remove_builder(ref game, ref kicked);
+            store.remove_builder(game, ref kicked);
 
             // [Effect] Leave the game
             game.leave();

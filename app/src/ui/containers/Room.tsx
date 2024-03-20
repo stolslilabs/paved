@@ -187,7 +187,10 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
 
   const { game } = useGame({ gameId });
   const { player, playerKey } = usePlayer({ playerId: builder?.player_id });
-  const { player: self } = usePlayer({ playerId: account?.address });
+  const { builder: self } = useBuilder({
+    gameId: gameId,
+    playerId: account?.address,
+  });
 
   useEffect(() => {
     if (game && player && builder) {
@@ -211,6 +214,8 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
     if (!playerKey) return;
     setPlayerEntity(playerKey);
   };
+
+  console.log(isHost, isSelf);
 
   if (!player || !builder || !builder.order || !display) return null;
 

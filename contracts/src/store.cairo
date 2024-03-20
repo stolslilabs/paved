@@ -153,8 +153,6 @@ impl StoreImpl of StoreTrait {
 
     #[inline(always)]
     fn set_player(self: Store, player: Player) {
-        let player_name: PlayerName = player.into();
-        set!(self.world, (player_name));
         set!(self.world, (player))
     }
 
@@ -166,11 +164,10 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn swap_builders(self: Store, ref game: Game, ref lhs: Builder, ref rhs: Builder) {
+    fn swap_builders(self: Store, game: Game, ref lhs: Builder, ref rhs: Builder) {
         let index = lhs.index;
         lhs.index = rhs.index;
         rhs.index = index;
-        game.players = Bitmap::swap_bit_at(game.players, lhs.index.into(), rhs.index.into());
         let lhs_position: BuilderPosition = lhs.into();
         let rhs_position: BuilderPosition = rhs.into();
         set!(self.world, (lhs_position));
@@ -180,7 +177,7 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn remove_builder(self: Store, ref game: Game, ref builder: Builder) {
+    fn remove_builder(self: Store, game: Game, ref builder: Builder) {
         let last_index = game.player_count - 1;
         builder.remove();
         // Skip if the last builder is removed
@@ -190,7 +187,7 @@ impl StoreImpl of StoreTrait {
         }
         let mut last_position = self.builder_position(game, last_index);
         let mut last_builder = self.builder(game, last_position.player_id);
-        self.swap_builders(ref game, ref builder, ref last_builder);
+        self.swap_builders(game, ref builder, ref last_builder);
     }
 
     #[inline(always)]

@@ -130,6 +130,7 @@ impl GameImpl of GameTrait {
     #[inline(always)]
     fn leave(ref self: Game) {
         self.player_count -= 1;
+        self.reset();
     }
 
     #[inline(always)]
@@ -140,6 +141,7 @@ impl GameImpl of GameTrait {
     #[inline(always)]
     fn delete(ref self: Game) {
         self.nullify();
+        self.reset();
     }
 
     #[inline(always)]
