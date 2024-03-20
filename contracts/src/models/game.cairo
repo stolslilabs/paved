@@ -266,6 +266,8 @@ impl GameImpl of GameTrait {
             match north_oriented_starts.pop_front() {
                 // [Compute] Process the current spot
                 Option::Some(north_oriented_start) => {
+                    // Update the tile according to previous assessments to avoid characters to be counted twice
+                    let tile = store.tile(self, tile.id);
                     let start = north_oriented_start.rotate(tile.orientation.into());
                     let category: Category = layout.get_category(start);
                     self.assess_at(tile, start, category, ref events, ref store);
@@ -342,7 +344,6 @@ impl GameImpl of GameTrait {
                     );
                 }
             },
-            Category::Stop => { return; },
             Category::Wonder => {
                 let (score, mut character) = WonderCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect the character
@@ -350,6 +351,7 @@ impl GameImpl of GameTrait {
                     WonderCount::solve(ref self, base, ref character, ref events, ref store);
                 }
             },
+            _ => { return; },
         };
     }
 }
