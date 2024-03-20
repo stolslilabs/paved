@@ -1,4 +1,7 @@
-use paved::models::game::GameTrait;
+// Core imports
+
+use core::debug::PrintTrait;
+
 // Internal imports
 
 use paved::constants;

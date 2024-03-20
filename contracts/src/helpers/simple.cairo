@@ -41,7 +41,7 @@ impl SimpleCount of SimpleCountTrait {
         visited.insert(visited_key, true);
 
         // [Check] The neighbor is already visited, then do not count it
-        let visited_key: felt252 = tile.id.into();
+        let visited_key = tile.get_key(Area::None);
         if !visited.get(visited_key) {
             score += 1;
         };
