@@ -969,7 +969,7 @@
     {
       "name": "paved::systems::host::host",
       "address": "0x3fdd4d446fd4cd53db379444ce41bb6c9b97f9cf8464fae79511832a242621",
-      "class_hash": "0x3e398d66a29bda89a75f02376041b5a0bd8a4114df7bd6db6662932c2f494aa",
+      "class_hash": "0x3cfd0a81ac85a3b8b77dcb8e80bb5ad066c3485e209109ba44de7c511d138b1",
       "abi": [
         {
           "type": "impl",
@@ -1351,7 +1351,7 @@
     {
       "name": "paved::systems::manage::manage",
       "address": "0x579d2c5174a5306d660e2e7f82796e9e04e961cbddd7a47749749464f7c2dd4",
-      "class_hash": "0x814b5e3f57751577ecb3f72bff331a880e546561f230983a1c31994282fe6d",
+      "class_hash": "0x3a377331e7674bffb003f45954f52542c1b29d4362ea46631ef20ccf943a1b6",
       "abi": [
         {
           "type": "impl",
@@ -1520,7 +1520,7 @@
     {
       "name": "paved::systems::play::play",
       "address": "0x50dac423fbab9216301ec6c50c0917dd9d9c354d1c0bfdb5d67da1530345cb",
-      "class_hash": "0x68284be4e5bec4f65677d184aeef01f66c9ad160ca6490cf5079864d0d727c0",
+      "class_hash": "0x4ce3108b8bcb3c521c982c6047db5c99799c97ad748ba8b0f826e0a5f0c5ca8",
       "abi": [
         {
           "type": "impl",

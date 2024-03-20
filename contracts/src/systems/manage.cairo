@@ -90,10 +90,6 @@ mod manage {
             let player = store.player(caller.into());
             player.assert_not_exists();
 
-            // [Check] Player name not already taken
-            let player = store.player_by_name(name);
-            player.assert_not_exists();
-
             // [Effect] Create a new player
             let player = PlayerImpl::new(caller.into(), name, order, master.into());
             store.set_player(player);
