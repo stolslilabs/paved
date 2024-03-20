@@ -29,9 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-  faCalendar,
   faCalendarDays,
-  faClock,
   faEye,
   faTrophy,
 } from "@fortawesome/free-solid-svg-icons";
