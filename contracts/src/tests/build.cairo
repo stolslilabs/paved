@@ -138,8 +138,7 @@ fn test_play_build_complete_castle() {
     systems.play.build(world, context.game_id, orientation, x, y, role, spot);
 
     // [Assert]
-    let player = store.player(context.player_id);
-    let builder = store.builder(game, player.id);
+    let builder = store.builder(game, context.player_id);
     let expected: u32 = 2 * constants::CITY_BASE_POINTS;
     assert(builder.score - expected <= expected, 'Build: builder score');
 }
@@ -232,8 +231,7 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Assert]
-    let player = store.player(context.player_id);
-    let builder = store.builder(game, player.id);
+    let builder = store.builder(game, context.player_id);
     let expected: u32 = 2 * constants::FOREST_BASE_POINTS;
     assert(builder.score - expected <= expected, 'Build: builder score');
 }
@@ -317,8 +315,7 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Assert]
-    let player = store.player(context.player_id);
-    let builder = store.builder(game, player.id);
+    let builder = store.builder(game, context.player_id);
     let expected: u32 = 1 * constants::FOREST_BASE_POINTS;
     assert(builder.score - expected <= expected, 'Build: builder score');
 }
@@ -355,8 +352,7 @@ fn test_play_build_single_forest_inside_castles() {
     systems.play.build(world, context.game_id, orientation, x, y, herdsman, spot);
 
     // [Assert]
-    let player = store.player(context.player_id);
-    let builder = store.builder(game, player.id);
+    let builder = store.builder(game, context.player_id);
     assert(builder.score == 0, 'Build: builder score');
     assert(builder.characters == 0, 'Build: builder characters');
 }
