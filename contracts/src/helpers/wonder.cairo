@@ -31,16 +31,16 @@ impl WonderCount of WonderCountTrait {
         let character = store
             .character(game, character_position.player_id, character_position.index.into());
         // [Compute] Recursively count the points
-        let mut score = 0;
-        WonderCount::iter(game, tile, at, ref score, ref visited, ref store);
-        (score, character)
+        let mut count = 0;
+        WonderCount::iter(game, tile, at, ref count, ref visited, ref store);
+        (count, character)
     }
 
     fn iter(
         game: Game,
         tile: Tile,
         at: Spot,
-        ref score: u32,
+        ref count: u32,
         ref visited: Felt252Dict<bool>,
         ref store: Store
     ) {
@@ -51,13 +51,7 @@ impl WonderCount of WonderCountTrait {
             return;
         };
         visited.insert(visited_key, true);
-
-        // [Check] The neighbor is already visited, then do not count it
-        let visited_key = tile.get_key(Area::None);
-        if !visited.get(visited_key) {
-            score += 1;
-        };
-        visited.insert(visited_key, true);
+        count += 1;
 
         // [Compute] Process next tiles if exist
         let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
@@ -71,14 +65,14 @@ impl WonderCount of WonderCountTrait {
                     let (x, y) = tile.proxy_coordinates(move.direction);
                     let tile_position: TilePosition = store.tile_position(game, x, y);
                     if tile_position.is_zero() {
-                        score = 0;
+                        count = 0;
                         break;
                     }
 
                     // [Check] If the points are zero, the structure is not finished
                     let neighbor = store.tile(game, tile_position.tile_id);
-                    WonderCount::iter(game, neighbor, move.spot, ref score, ref visited, ref store);
-                    if 0 == score.into() {
+                    WonderCount::iter(game, neighbor, move.spot, ref count, ref visited, ref store);
+                    if 0 == count.into() {
                         break;
                     };
                 },

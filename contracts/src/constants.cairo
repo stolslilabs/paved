@@ -10,7 +10,7 @@ fn WORLD() -> starknet::ContractAddress {
 
 const TOTAL_TILE_COUNT: u8 = 99;
 const ROAD_BASE_POINTS: u32 = 100;
-const FOREST_BASE_POINTS: u32 = 100;
+const FOREST_BASE_POINTS: u32 = 300;
 const CITY_BASE_POINTS: u32 = 200;
 const WONDER_BASE_POINTS: u32 = 900;
 const DISCARD_POINTS: u32 = 50;

@@ -19,17 +19,14 @@ use paved::helpers::multiplier::compute_multiplier;
 #[generate_trait]
 impl GenericCount of GenericCountTrait {
     #[inline(always)]
-    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, u32, Array<Character>) {
+    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Character>) {
         // [Compute] Setup recursion
         let mut characters: Array<Character> = ArrayTrait::new();
         let mut visited: Felt252Dict<bool> = core::Default::default();
         // [Compute] Recursively count the points
         let mut count = 0;
-        let mut score = 0;
-        GenericCount::iter(
-            game, tile, at, ref count, ref score, ref visited, ref characters, ref store
-        );
-        (count, score, characters)
+        GenericCount::iter(game, tile, at, ref count, ref visited, ref characters, ref store);
+        (count, characters)
     }
 
     fn iter(
@@ -37,7 +34,6 @@ impl GenericCount of GenericCountTrait {
         tile: Tile,
         at: Spot,
         ref count: u32,
-        ref score: u32,
         ref visited: Felt252Dict<bool>,
         ref characters: Array<Character>,
         ref store: Store
@@ -61,13 +57,6 @@ impl GenericCount of GenericCountTrait {
             characters.append(character);
         };
 
-        // [Check] The tile is already visited, then do not count it
-        let visited_key = tile.get_key(Area::None);
-        if !visited.get(visited_key) {
-            score += 1;
-        };
-        visited.insert(visited_key, true);
-
         // [Compute] Process next tiles if exist
         let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
         loop {
@@ -80,23 +69,16 @@ impl GenericCount of GenericCountTrait {
                     let (x, y) = tile.proxy_coordinates(move.direction);
                     let tile_position: TilePosition = store.tile_position(game, x, y);
                     if tile_position.is_zero() {
-                        score = 0;
+                        count = 0;
                         break;
                     }
 
                     // [Check] If the points are zero, the structure is not finished
                     let neighbor = store.tile(game, tile_position.tile_id);
                     GenericCount::iter(
-                        game,
-                        neighbor,
-                        move.spot,
-                        ref count,
-                        ref score,
-                        ref visited,
-                        ref characters,
-                        ref store
+                        game, neighbor, move.spot, ref count, ref visited, ref characters, ref store
                     );
-                    if 0 == score.into() {
+                    if 0 == count.into() {
                         break;
                     };
                 },
@@ -109,7 +91,6 @@ impl GenericCount of GenericCountTrait {
     fn solve(
         ref game: Game,
         count: u32,
-        score: u32,
         base_points: u32,
         ref characters: Array<Character>,
         ref events: Array<Scored>,
@@ -169,7 +150,7 @@ impl GenericCount of GenericCountTrait {
             let mut builder = store.builder(game, player.id);
             let power = powers.get(winner);
             let (num, den) = compute_multiplier(count);
-            let points = score * base_points * power * num / den;
+            let points = count * base_points * power * num / den;
             game.add_score(ref builder, ref player, points, ref events);
 
             // [Effect] Update the builder

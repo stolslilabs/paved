@@ -327,27 +327,27 @@ impl GameImpl of GameTrait {
                 }
             },
             Category::Road => {
-                let (count, score, mut characters) = GenericCount::start(self, tile, at, ref store);
+                let (count, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters
-                if 0 != score.into() && 0 != characters.len().into() {
+                if 0 != count.into() && 0 != characters.len().into() {
                     GenericCount::solve(
-                        ref self, count, score, base, ref characters, ref events, ref store
+                        ref self, count, base, ref characters, ref events, ref store
                     );
                 }
             },
             Category::City => {
-                let (count, score, mut characters) = GenericCount::start(self, tile, at, ref store);
+                let (count, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters
-                if 0 != score.into() && 0 != characters.len().into() {
+                if 0 != count.into() && 0 != characters.len().into() {
                     GenericCount::solve(
-                        ref self, count, score, base, ref characters, ref events, ref store
+                        ref self, count, base, ref characters, ref events, ref store
                     );
                 }
             },
             Category::Wonder => {
-                let (score, mut character) = WonderCount::start(self, tile, at, ref store);
+                let (count, mut character) = WonderCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect the character
-                if 0 != score.into() {
+                if 0 != count.into() {
                     WonderCount::solve(ref self, base, ref character, ref events, ref store);
                 }
             },
