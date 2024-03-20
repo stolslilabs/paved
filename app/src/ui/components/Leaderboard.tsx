@@ -124,7 +124,9 @@ export const Share = ({ score }: { score: number }) => {
 
 Score: ${score}
 
-Join the fun at https://paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other 👀`}
+Join the fun at https://paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other 👀
+
+`}
     >
       <Button
         className="flex gap-2 w-auto p-2 text-xs"
