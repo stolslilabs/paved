@@ -30,7 +30,7 @@ export const Character = (props: TProps) => {
   const { gameId } = useQueryParams();
   const { index, enable } = props;
   const [selected, setSelected] = useState(false);
-  const { character, setCharacter } = useGameStore();
+  const { character, setCharacter, resetCharacter, resetSpot } = useGameStore();
   const { setPosition } = useCameraStore();
 
   const {
@@ -69,7 +69,8 @@ export const Character = (props: TProps) => {
     return () => {
       if (enable) {
         if (index === getIndexFromCharacter(character)) {
-          setCharacter(getCharacterFromIndex(-1));
+          resetCharacter();
+          resetSpot();
         } else {
           setCharacter(getCharacterFromIndex(index));
         }
