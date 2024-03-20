@@ -48,7 +48,7 @@ export default defineConfig({
       collapsed: true,
       items: [
         {
-          text: "Solo - Coming Soon",
+          text: "Solo",
           link: "/create",
         },
         {
