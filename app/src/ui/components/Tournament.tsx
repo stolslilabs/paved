@@ -165,7 +165,7 @@ export const Tournament = () => {
       });
     return Object.values(highests)
       .sort((a, b) => b.gameScore - a.gameScore)
-      .slice(0, 16);
+      .slice(0, 10);
   }, [games, page]);
 
   return (
@@ -208,7 +208,7 @@ export const Tournament = () => {
       </div>
 
       <Table className="text-xs">
-        <TableCaption>Top 16 players</TableCaption>
+        <TableCaption>Top 10 players</TableCaption>
         <TableHeader>
           <TableRow>
             <TableHead className="w-[100px]">Rank</TableHead>
