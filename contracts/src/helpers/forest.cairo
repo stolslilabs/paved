@@ -92,7 +92,7 @@ impl ForestCount of ForestCountTrait {
 
         // [Compute] Process adjacent roads if not already visited
         let mut north_oriented_spots: Array<Spot> = tile.north_oriented_adjacent_roads(at);
-        loop {
+        let stop = loop {
             match north_oriented_spots.pop_front() {
                 Option::Some(north_oriented_spot) => {
                     let spot = north_oriented_spot.rotate(tile.orientation.into());
@@ -103,13 +103,20 @@ impl ForestCount of ForestCountTrait {
                     if !visited.get(key) {
                         let mut road_score = 0;
                         SimpleCount::iter(game, tile, spot, ref road_score, ref visited, ref store);
-                        if road_score > 0 {
-                            woodsman_score += 1;
+                        // [Check] If an adjacent road is not closed, the forest cannot be closed
+                        if road_score == 0 {
+                            count = 0;
+                            break true;
                         };
+                        woodsman_score += 1;
                     };
                 },
-                Option::None => { break; },
+                Option::None => { break false; },
             };
+        };
+        // [Check] If stop criteria is met, then stop the recursion
+        if stop {
+            return;
         };
 
         // [Compute] Process adjacent cities if not already visited

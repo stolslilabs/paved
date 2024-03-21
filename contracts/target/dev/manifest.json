@@ -1520,7 +1520,7 @@
     {
       "name": "paved::systems::play::play",
       "address": "0x50dac423fbab9216301ec6c50c0917dd9d9c354d1c0bfdb5d67da1530345cb",
-      "class_hash": "0x48819ad297717a9ba71bf6b22bb235f73be416ac5c66b13b3841583db18411a",
+      "class_hash": "0x1516c169f4822b72e8a93b55987187851975fc37dc4fa423ebcec0c78552baa",
       "abi": [
         {
           "type": "impl",
