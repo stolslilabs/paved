@@ -34,7 +34,7 @@ export const Player = () => {
         <div className="flex justify-around gap-4">
           <a
             className="flex justify-center items-center hover:scale-125 duration-200"
-            href={"https://paved-doc.vercel.app/"}
+            href={"https://docs.paved.gg/"}
             target="_blank"
           >
             <FontAwesomeIcon icon={faBookBible} className="h-12" />
