@@ -1,28 +1,41 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { setup } from "./dojo/setup.ts";
+import { setup, SetupResult } from "./dojo/setup.ts";
 import { DojoProvider } from "./dojo/context.tsx";
 import { dojoConfig } from "../dojoConfig.ts";
 import { StarknetProvider } from "./ui/components/Starknet.tsx";
+import { GameLoading } from "./ui/screens/GameLoading.tsx";
 
-async function init() {
-  const rootElement = document.getElementById("root");
-  if (!rootElement) throw new Error("React root not found");
-  const root = ReactDOM.createRoot(rootElement as HTMLElement);
+const root = ReactDOM.createRoot(
+  document.getElementById("root") as HTMLElement
+);
 
-  const setupResult = await setup(dojoConfig());
+function Main() {
+  const [setupResult, setSetupResult] = useState<SetupResult | null>(null);
 
-  root.render(
+  useEffect(() => {
+    async function initialize() {
+      const result = await setup(dojoConfig());
+      setSetupResult(result);
+    }
+
+    initialize();
+  }, []);
+
+  if (!setupResult) return <GameLoading />;
+
+  return (
     <React.StrictMode>
       <StarknetProvider>
         <DojoProvider value={setupResult}>
-          {!setupResult ? <div>Loading...</div> : <App />}
+          {!setupResult && <GameLoading />}
+          {setupResult && <App />}
         </DojoProvider>
       </StarknetProvider>
     </React.StrictMode>
   );
 }
 
-init();
+root.render(<Main />);
