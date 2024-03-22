@@ -18,8 +18,10 @@ export function Connection() {
   const { isConnected } = useAccount();
 
   const {
+    setup: {
+      config: { masterAddress },
+    },
     account: { account, create, clear },
-    masterAccount,
   } = useDojo();
 
   const connectWallet = async () => {
@@ -31,7 +33,7 @@ export function Connection() {
     connect({ connector });
 
     // Manage burner account
-    if (account !== masterAccount) {
+    if (account.address !== masterAddress) {
       // check if burner still valid
       try {
         await account?.getNonce();

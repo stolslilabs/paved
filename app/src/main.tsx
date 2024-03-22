@@ -14,6 +14,7 @@ const root = ReactDOM.createRoot(
 
 function Main() {
   const [setupResult, setSetupResult] = useState<SetupResult | null>(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     async function initialize() {
@@ -22,9 +23,10 @@ function Main() {
     }
 
     initialize();
+    setTimeout(() => setReady(true), 5000);
   }, []);
 
-  if (!setupResult) return <GameLoading />;
+  if (!setupResult || !ready) return <GameLoading />;
 
   return (
     <React.StrictMode>
