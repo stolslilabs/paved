@@ -47,13 +47,15 @@ export const Play = ({ player }: { player: ComponentValue }) => {
   const navigate = useNavigate();
 
   const {
+    setup: {
+      config: { masterAddress },
+    },
     account: { account },
-    masterAccount,
   } = useDojo();
 
   const disabled = useMemo(() => {
-    return !account || account === masterAccount || !player;
-  }, [account, masterAccount]);
+    return !account || account.address === masterAddress || !player;
+  }, [account, masterAddress]);
 
   const handleClick = () => {
     if (disabled) return;

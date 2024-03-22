@@ -1,5 +1,5 @@
 import background from "/assets/placeholder.png";
-import banner from "/assets/banner.svg";
+import logo from "/assets/loading-logo.png";
 
 export const GameLoading = () => {
   return (
@@ -12,18 +12,11 @@ export const GameLoading = () => {
       {/* Loader */}
       <div className="absolute inset-0 flex justify-center items-center bg-black bg-opacity-50">
         {/* Logo */}
-        <div className="absolute top-40 left-0 flex justify-center items-center w-full h-40">
-          <div className="bg-white rounded-lg bg-opacity-20 m-4 md:h-full">
-            <img
-              src={banner}
-              alt="banner"
-              className="w-full h-full shadow-xl"
-            />
-          </div>
+        <div className="absolute top-1/4 left-0 flex justify-center items-center w-full h-20">
+          <img src={logo} alt="banner" className="h-40" />
         </div>
 
         <div className="text-white text-center">
-          <p>Loading the World</p>
           <div className="mt-4">
             <svg
               className="animate-spin h-12 w-12 text-white mx-auto"

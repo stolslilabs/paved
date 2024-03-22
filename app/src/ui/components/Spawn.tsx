@@ -43,8 +43,8 @@ export const Spawn = () => {
 
   const {
     account: { account },
-    masterAccount,
     setup: {
+      config: { masterAddress },
       clientModels: {
         models: { Player },
       },
@@ -67,8 +67,8 @@ export const Spawn = () => {
   }, []);
 
   const disabled = useMemo(() => {
-    return !!player || !account || account === masterAccount;
-  }, [player, address, account, masterAccount]);
+    return !!player || !account || account.address === masterAddress;
+  }, [player, address, account, masterAddress]);
 
   useEffect(() => {
     if (player) {

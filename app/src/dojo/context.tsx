@@ -4,7 +4,6 @@ import { Account, RpcProvider } from "starknet";
 import { SetupResult } from "./setup";
 
 interface DojoContextType extends SetupResult {
-  masterAccount: Account;
   account: BurnerAccount;
 }
 
@@ -21,7 +20,7 @@ export const DojoProvider = ({
   if (currentValue) throw new Error("DojoProvider can only be used once");
 
   const {
-    config: { rpcUrl, masterAddress, masterPrivateKey },
+    config: { rpcUrl, masterAddress, masterPrivateKey, feeToken },
     burnerManager,
   } = value;
 
@@ -54,7 +53,6 @@ export const DojoProvider = ({
     <DojoContext.Provider
       value={{
         ...value,
-        masterAccount,
         account: {
           create,
           list,
