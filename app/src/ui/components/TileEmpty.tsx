@@ -1,47 +1,28 @@
 import * as THREE from "three";
-import { useDojo } from "@/dojo/useDojo";
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useGameStore } from "@/store";
 import { offset, other_offset } from "@/dojo/game";
 import { checkCompatibility } from "@/dojo/game/types/layout";
 import { createSquareGeometry, getSquarePosition } from "./TileTexture";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import {
-  defineEnterSystem,
-  defineSystem,
-  Has,
-  HasValue,
-} from "@dojoengine/recs";
 import { checkFeatureIdle } from "@/dojo/game/helpers/conflict";
 import useSound from "use-sound";
 
 import Click from "/sounds/click.wav";
 import { useTileByKey } from "@/hooks/useTile";
+import { useTiles } from "@/hooks/useTiles";
 
 const loader = new THREE.TextureLoader();
 
-export const TileEmpty = ({ col, row, size, tiles }: any) => {
+export const TileEmpty = ({ col, row, size }: any) => {
   const [play, { stop }] = useSound(Click);
-
+  const { tiles } = useTiles();
   const { gameId } = useQueryParams();
-  const {
-    setup: {
-      world,
-      clientModels: {
-        models: { Tile },
-        classes: { Tile: TileClass },
-      },
-    },
-  } = useDojo();
 
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
   const meshRef = useRef<any>();
   const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
   const [hovered, setHovered] = useState(false);
-  const [northTile, setNorthTile] = useState<any>();
-  const [eastTile, setEastTile] = useState<any>();
-  const [southTile, setSouthTile] = useState<any>();
-  const [westTile, setWestTile] = useState<any>();
 
   const {
     orientation,
@@ -58,80 +39,14 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
 
   const { tile: activeTile } = useTileByKey({ tileKey: activeEntity });
 
-  useMemo(() => {
-    defineEnterSystem(
-      world,
-      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col, y: row + 1 })],
-      ({ value: [tile] }: any) => {
-        if (tile.orientation === 0 || tile.x !== col || tile.y !== row + 1)
-          return;
-        setNorthTile(new TileClass(tile));
-      }
-    );
-    defineSystem(
-      world,
-      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col, y: row + 1 })],
-      ({ value: [tile] }: any) => {
-        if (tile.orientation === 0 || tile.x !== col || tile.y !== row + 1)
-          return;
-        setNorthTile(new TileClass(tile));
-      }
-    );
-    defineEnterSystem(
-      world,
-      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col + 1, y: row })],
-      ({ value: [tile] }: any) => {
-        if (tile.orientation === 0 || tile.x !== col + 1 || tile.y !== row)
-          return;
-        setEastTile(new TileClass(tile));
-      }
-    );
-    defineSystem(
-      world,
-      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col + 1, y: row })],
-      ({ value: [tile] }: any) => {
-        if (tile.orientation === 0 || tile.x !== col + 1 || tile.y !== row)
-          return;
-        setEastTile(new TileClass(tile));
-      }
-    );
-    defineEnterSystem(
-      world,
-      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col, y: row - 1 })],
-      ({ value: [tile] }: any) => {
-        if (tile.orientation === 0 || tile.x !== col || tile.y !== row - 1)
-          return;
-        setSouthTile(new TileClass(tile));
-      }
-    );
-    defineSystem(
-      world,
-      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col, y: row - 1 })],
-      ({ value: [tile] }: any) => {
-        if (tile.orientation === 0 || tile.x !== col || tile.y !== row - 1)
-          return;
-        setSouthTile(new TileClass(tile));
-      }
-    );
-    defineEnterSystem(
-      world,
-      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col - 1, y: row })],
-      ({ value: [tile] }: any) => {
-        if (tile.orientation === 0 || tile.x !== col - 1 || tile.y !== row)
-          return;
-        setWestTile(new TileClass(tile));
-      }
-    );
-    defineSystem(
-      world,
-      [Has(Tile), HasValue(Tile, { game_id: gameId, x: col - 1, y: row })],
-      ({ value: [tile] }: any) => {
-        if (tile.orientation === 0 || tile.x !== col - 1 || tile.y !== row)
-          return;
-        setWestTile(new TileClass(tile));
-      }
-    );
-  }, []);
+  const { northTile, eastTile, southTile, westTile } = useMemo(() => {
+    return {
+      northTile: tiles[`${gameId}-${col}-${row + 1}`],
+      eastTile: tiles[`${gameId}-${col + 1}-${row}`],
+      southTile: tiles[`${gameId}-${col}-${row - 1}`],
+      westTile: tiles[`${gameId}-${col - 1}-${row}`],
+    };
+  }, [gameId, tiles]);
 
   const isValid = useMemo(() => {
     const isSelected =
@@ -228,21 +143,21 @@ export const TileEmpty = ({ col, row, size, tiles }: any) => {
     document.body.style.cursor = isHovered ? "pointer" : "auto";
   }, [hoveredTile]);
 
-  const handleSimpleClick = () => {
+  const handleSimpleClick = useCallback(() => {
     play();
     setSelectedTile({ col, row });
     setX(col);
     setY(row);
-  };
+  }, []);
 
-  const handlePointerEnter = () => {
+  const handlePointerEnter = useCallback(() => {
     setHovered(true);
     setHoveredTile({ col, row });
-  };
+  }, []);
 
-  const handlePointerLeave = () => {
+  const handlePointerLeave = useCallback(() => {
     setHovered(false);
-  };
+  }, []);
 
   const position = useMemo(() => {
     const position = getSquarePosition({
