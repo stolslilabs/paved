@@ -6,7 +6,8 @@ export const GameLoading = () => {
     <div className="relative h-screen">
       {/* Background */}
       <div
-        className={`absolute inset-0 bg-[url('${background}')] bg-cover bg-center`}
+        className={`absolute inset-0 bg-cover bg-center`}
+        style={{ backgroundImage: `url('${background}')` }}
       />
 
       {/* Loader */}
