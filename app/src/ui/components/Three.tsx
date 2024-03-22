@@ -40,7 +40,7 @@ export const MainScene = () => {
 function Keyboard() {
   const [sub] = useKeyboardControls<Controls>();
 
-  const { orientation, setOrientation } = useGameStore();
+  const { orientation, spot, setOrientation, rotateSpot } = useGameStore();
 
   useEffect(() => {
     return sub(
@@ -48,10 +48,11 @@ function Keyboard() {
       (pressed) => {
         if (pressed) {
           setOrientation(orientation + 1);
+          rotateSpot(spot, true);
         }
       }
     );
-  }, [orientation]);
+  }, [orientation, spot]);
 
   useEffect(() => {
     return sub(
@@ -59,10 +60,11 @@ function Keyboard() {
       (pressed) => {
         if (pressed) {
           setOrientation(orientation - 1);
+          rotateSpot(spot, false);
         }
       }
     );
-  }, [orientation]);
+  }, [orientation, spot]);
 
   return <></>;
 }
