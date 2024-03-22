@@ -9,9 +9,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useMemo } from "react";
-import { useComponentValue } from "@dojoengine/react";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
-import { Entity } from "@dojoengine/recs";
 import { useDojo } from "../../dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useBuilder } from "@/hooks/useBuilder";
@@ -22,7 +19,7 @@ export const Rotation = () => {
     account: { account },
   } = useDojo();
 
-  const { orientation, setOrientation } = useGameStore();
+  const { orientation, spot, setOrientation, rotateSpot } = useGameStore();
   const { builder } = useBuilder({
     gameId: gameId,
     playerId: account?.address,
@@ -30,6 +27,7 @@ export const Rotation = () => {
 
   const handleClick = () => {
     setOrientation(orientation + 1);
+    rotateSpot(spot, true);
   };
 
   const disabled = useMemo(() => {
