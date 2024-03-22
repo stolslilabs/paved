@@ -22,15 +22,10 @@ rpc_url = "http://localhost:5050/"
 account_address = "0x6162896d1d7ab204c7ccac6dd5f8e9e7c25ecd5ae4fcb4ad32e57786bb46e03"
 private_key = "0x1800000000300000180000000000030000000000003006001800006600"
 
-# Stolsli
+# Dev
 # rpc_url = "https://api.cartridge.gg/x/paved-dev/katana/"
-# account_address = "0x6cbf7aa2e57ef5227968c3e329169f9a6d4ca971e4d35bb9b9e927c62f797c4"
-# private_key = "0x4a315f78a6a75d7dcf11c247aaed8cd71bbeed1f41da00a473a4167ec235ec1"
-
-# Paved
-# rpc_url = "https://api.cartridge.gg/x/stolsli/katana/"
-# account_address = "0x7eb12e66efea8e9eef5a8ab17abce0780bcd011f5564ce664688f8b59671572"
-# private_key = "0x253d24eccd14f4e1b940ceb1cabe52b911a7cfcce86eb5cfabbe368a6d5949a"
+# account_address = "0x68d2fe2d7b67ef40d9567f96fdc6925eb6c8a103ecde715a17c108afc3652e5"
+# private_key = "0x69c450373bce35581f17586b7a4fdc9ad49ba30ea4340607df8f08864f36a8a"
 
 # Realms
 # rpc_url = "https://api.cartridge.gg/x/realms/katana/"
