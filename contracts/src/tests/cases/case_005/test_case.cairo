@@ -131,11 +131,17 @@ fn test_case_005() {
     let y = CENTER - 2;
     systems.play.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
 
-    // [Assert]
+    // [Assert] Builders
     let builder = store.builder(game, PLAYER().into());
     let expected: u32 = 2 * constants::WONDER_BASE_POINTS + 2 * constants::FOREST_BASE_POINTS / 2;
     assert(builder.score - expected <= expected, 'Build: builder score');
     let anyone = store.builder(game, ANYONE().into());
     let expected: u32 = 16 * constants::ROAD_BASE_POINTS + 2 * constants::FOREST_BASE_POINTS / 2;
     assert(anyone.score - expected <= expected, 'Build: anyone score');
+
+    // [Assert] Players
+    let player = store.player(context.player_id);
+    assert(player.order == context.player_order, 'Build: player order');
+    let anyone = store.player(context.anyone_id);
+    assert(anyone.order == context.anyone_order, 'Build: anyone order');
 }
