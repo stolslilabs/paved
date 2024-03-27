@@ -63,11 +63,12 @@ mod setup {
         mode: Mode,
     }
 
-    fn compute_tx_hash(game: Game, target: Plan) -> felt252 {
+    fn compute_seed(game: Game, target: Plan) -> felt252 {
         let mut seed: felt252 = 0;
         loop {
             let mut mut_game = game;
-            let (_, plan) = mut_game.draw_plan(seed);
+            mut_game.seed = seed;
+            let (_, plan) = mut_game.draw_plan();
             if plan == target {
                 break;
             } else {

@@ -39,7 +39,7 @@ fn test_play_discard() {
     systems.play.discard(world, context.game_id);
 
     // [Assert]
-    let game = store.game(context.game_id);
+    let mut game = store.game(context.game_id);
     let player = store.player(context.player_id);
     let builder = store.builder(game, player.id);
     assert(builder.tile_id == 0, 'Discard: tile_id');

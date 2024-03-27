@@ -39,7 +39,7 @@ fn test_play_draw() {
     let player = store.player(context.player_id);
     // TODO: Enable for the release
     // assert(player.bank + 1 == bank, 'Draw: bank');
-    let game = store.game(context.game_id);
+    let mut game = store.game(context.game_id);
     let builder = store.builder(game, player.id);
     assert(builder.tile_id != 0, 'Draw: tile_id');
 }

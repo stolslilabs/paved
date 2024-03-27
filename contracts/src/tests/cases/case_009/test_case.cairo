@@ -33,20 +33,20 @@ fn test_case_009() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
-    let game = store.game(context.game_id);
 
     // [Start]
     set_contract_address(ANYONE());
-    systems.host.join(world, game.id);
-    systems.host.ready(world, game.id, true);
+    systems.host.join(world, context.game_id);
+    systems.host.ready(world, context.game_id, true);
     set_contract_address(PLAYER());
-    systems.host.ready(world, game.id, true);
-    systems.host.start(world, game.id);
+    systems.host.ready(world, context.game_id, true);
+    systems.host.start(world, context.game_id);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFFFCFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFFFCFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFRFFFCFR
 
     let orientation = Orientation::South;
@@ -56,8 +56,9 @@ fn test_case_009() {
 
     // [Draw & Build]
     set_contract_address(ANYONE());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::CCCCCFRFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFRFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // CCCCCFRFC
 
     let orientation = Orientation::West;
@@ -67,8 +68,9 @@ fn test_case_009() {
 
     // [Draw & Build]
     set_contract_address(ANYONE());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFCFFFFFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::FFCFFFFFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // FFCFFFFFC
 
     let orientation = Orientation::South;
@@ -78,8 +80,9 @@ fn test_case_009() {
 
     // [Draw & Build]
     set_contract_address(PLAYER());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFRFCFF));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFRFCFF);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFRFRFCFF
 
     let orientation = Orientation::South;
@@ -89,8 +92,9 @@ fn test_case_009() {
 
     // [Draw & Build]
     set_contract_address(PLAYER());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::CCCCCFRFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFRFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // CCCCCFRFC
 
     let orientation = Orientation::East;
@@ -100,8 +104,9 @@ fn test_case_009() {
 
     // [Draw & Build]
     set_contract_address(PLAYER());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFCFFFFFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::FFCFFFFFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // FFCFFFFFC
 
     let orientation = Orientation::West;
@@ -111,8 +116,9 @@ fn test_case_009() {
 
     // [Draw & Build]
     set_contract_address(PLAYER());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::CFFFCFFFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::CFFFCFFFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // CFFFCFFFC
 
     let orientation = Orientation::North;
@@ -122,8 +128,9 @@ fn test_case_009() {
 
     // [Draw & Build]
     set_contract_address(PLAYER());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFFFRFCFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFCFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFFFRFCFR
 
     let orientation = Orientation::North;

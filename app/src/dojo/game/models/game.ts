@@ -15,6 +15,7 @@ export class Game {
   public score: number;
   public mode: Mode;
   public deck: number;
+  public seed: string;
 
   constructor(game: ComponentValue) {
     this.id = game.id;
@@ -30,6 +31,7 @@ export class Game {
     this.score = game.score;
     this.mode = Mode.from(game.mode);
     this.deck = game.deck;
+    this.seed = game.seed;
   }
 
   public isOver(): boolean {

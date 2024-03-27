@@ -44,8 +44,9 @@ fn test_play_build_without_character() {
     systems.host.start(world, context.game_id);
 
     // [Draw]
-    let game = store.game(context.game_id);
-    set_transaction_hash(setup::compute_tx_hash(game, Plan::FFCFFFCFF));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(game, Plan::FFCFFFCFF);
+    store.set_game(game);
     systems.play.draw(world, game.id); // FFCFFFCFF
 
     // [Build]
@@ -62,14 +63,15 @@ fn test_play_build_with_character() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
-    let game = store.game(context.game_id);
 
     // [Start]
-    systems.host.ready(world, game.id, true);
-    systems.host.start(world, game.id);
+    systems.host.ready(world, context.game_id, true);
+    systems.host.start(world, context.game_id);
 
     // [Draw]
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFCFFFCFF));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::FFCFFFCFF);
+    store.set_game(game);
     systems.play.draw(world, game.id); // FFCFFFCFF
 
     // [Build]
@@ -87,14 +89,15 @@ fn test_play_build_with_character_revert_not_idle() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
-    let game = store.game(context.game_id);
 
     // [Start]
-    systems.host.ready(world, game.id, true);
-    systems.host.start(world, game.id);
+    systems.host.ready(world, context.game_id, true);
+    systems.host.start(world, context.game_id);
 
     // [Draw & Build]
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::WFFFFFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::WFFFFFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // WFFFFFFFR
     let orientation = Orientation::North;
     let x = CENTER;
@@ -104,7 +107,9 @@ fn test_play_build_with_character_revert_not_idle() {
     systems.play.build(world, context.game_id, orientation, x, y, role, spot);
 
     // [Draw & Build]
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::SFRFRFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::SFRFRFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // SFRFRFFFR
     let orientation = Orientation::North;
     let x = CENTER - 1;
@@ -119,14 +124,15 @@ fn test_play_build_complete_castle() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
-    let game = store.game(context.game_id);
 
     // [Start]
-    systems.host.ready(world, game.id, true);
-    systems.host.start(world, game.id);
+    systems.host.ready(world, context.game_id, true);
+    systems.host.start(world, context.game_id);
 
     // [Draw]
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFCFFFCFF));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::FFCFFFCFF);
+    store.set_game(game);
     systems.play.draw(world, game.id); // FFCFFFCFF
 
     // [Build]
@@ -148,19 +154,19 @@ fn test_play_build_complete_forest_inside_roads() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
-    let game = store.game(context.game_id);
     let none = Role::None;
     let woodsman = Role::Woodsman;
     let nowhere = Spot::None;
     let northeast = Spot::NorthEast;
 
     // [Start]
-    systems.host.ready(world, game.id, true);
-    systems.host.start(world, game.id);
+    systems.host.ready(world, context.game_id, true);
+    systems.host.start(world, context.game_id);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::WFFFFFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::WFFFFFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // WFFFFFFFR
     let orientation = Orientation::North;
     let x = CENTER;
@@ -168,8 +174,9 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::SFRFRFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::SFRFRFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // SFRFRFFFR
     let orientation = Orientation::East;
     let x = CENTER - 1;
@@ -177,8 +184,9 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFFFRFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFFFRFFFR
     let orientation = Orientation::East;
     let x = CENTER + 1;
@@ -186,8 +194,9 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFFFRFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFFFRFFFR
     let orientation = Orientation::North;
     let x = CENTER;
@@ -195,8 +204,9 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFFFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFFFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFRFFFFFR
     let orientation = Orientation::North;
     let x = CENTER + 1;
@@ -204,8 +214,9 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFFFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFFFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFRFFFFFR
     let orientation = Orientation::East;
     let x = CENTER - 1;
@@ -213,8 +224,9 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, orientation, x, y, woodsman, northeast);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFFFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFFFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFRFFFFFR
     let orientation = Orientation::South;
     let x = CENTER - 1;
@@ -222,8 +234,9 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFFFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFFFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFRFFFFFR
     let orientation = Orientation::West;
     let x = CENTER + 1;
@@ -241,19 +254,19 @@ fn test_play_build_complete_forest_inside_castles() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
-    let game = store.game(context.game_id);
     let none = Role::None;
     let woodsman = Role::Woodsman;
     let nowhere = Spot::None;
     let northeast = Spot::NorthEast;
 
     // [Start]
-    systems.host.ready(world, game.id, true);
-    systems.host.start(world, game.id);
+    systems.host.ready(world, context.game_id, true);
+    systems.host.start(world, context.game_id);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::CCCCCFRFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFRFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // CCCCCFRFC
     let orientation = Orientation::West;
     let x = CENTER - 1;
@@ -261,8 +274,9 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, orientation, x, y, woodsman, northeast);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::CCCCCFFFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFFFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // CCCCCFFFC
     let orientation = Orientation::South;
     let x = CENTER;
@@ -270,8 +284,9 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFRFCCCFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFCCCFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFRFCCCFR
     let orientation = Orientation::North;
     let x = CENTER + 1;
@@ -279,8 +294,9 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::WFFFFFFFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::WFFFFFFFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // WFFFFFFFR
     let orientation = Orientation::West;
     let x = CENTER + 1;
@@ -288,8 +304,9 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::CCCCCFFFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFFFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // CCCCCFFFC
     let orientation = Orientation::West;
     let x = CENTER;
@@ -297,8 +314,9 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::CCCCCFFFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFFFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // CCCCCFFFC
     let orientation = Orientation::East;
     let x = CENTER + 2;
@@ -306,8 +324,9 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::CFFFCFFFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::CFFFCFFFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // CFFFCFFFC
     let orientation = Orientation::North;
     let x = CENTER + 1;
@@ -325,17 +344,17 @@ fn test_play_build_single_forest_inside_castles() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
-    let game = store.game(context.game_id);
     let herdsman = Role::Herdsman;
     let spot = Spot::Center;
 
     // [Start]
-    systems.host.ready(world, game.id, true);
-    systems.host.start(world, game.id);
+    systems.host.ready(world, context.game_id, true);
+    systems.host.start(world, context.game_id);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::CCCCCCCCC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCCCCC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // CCCCCCCCC
     let orientation = Orientation::North;
     let x = CENTER;
@@ -343,8 +362,9 @@ fn test_play_build_single_forest_inside_castles() {
     systems.play.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFCFCFCFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::FFCFCFCFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // FFCFCFCFC
     let orientation = Orientation::North;
     let x = CENTER + 1;

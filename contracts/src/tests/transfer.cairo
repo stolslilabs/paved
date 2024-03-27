@@ -40,7 +40,7 @@ fn test_host_transfer() {
     systems.host.transfer(world, context.game_id, anyone.id);
 
     // [Assert] Anyone
-    let game = store.game(context.game_id);
+    let mut game = store.game(context.game_id);
     let anyone = store.builder(game, context.anyone_id);
     anyone.assert_host();
 }

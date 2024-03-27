@@ -109,6 +109,7 @@ export function defineContractComponents(world: World) {
           score: RecsType.Number,
           mode: RecsType.Number,
           deck: RecsType.Number,
+          seed: RecsType.BigInt,
         },
         {
           metadata: {
@@ -127,6 +128,7 @@ export function defineContractComponents(world: World) {
               "u32",
               "u8",
               "u8",
+              "felt252",
             ],
           },
         },
