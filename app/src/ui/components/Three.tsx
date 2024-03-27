@@ -111,7 +111,7 @@ function Camera({ children }: { children?: React.ReactNode }) {
         target={[0, 0, 0]}
         minAzimuthAngle={0}
         maxAzimuthAngle={0}
-        minPolarAngle={(501 * Math.PI) / 1000} // Allow looking directly down
+        minPolarAngle={(101 * Math.PI) / 200} // Allow looking directly down
         maxPolarAngle={Math.PI}
         zoomSpeed={0.8}
         mouseButtons={{
