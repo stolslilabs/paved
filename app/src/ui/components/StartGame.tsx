@@ -22,12 +22,12 @@ export const StartGame = () => {
 
   const gameKey = useMemo(
     () => getEntityIdFromKeys([BigInt(gameId)]),
-    [gameId]
+    [gameId],
   );
   const game = useComponentValue(Game, gameKey);
   const builderKey = useMemo(
     () => getEntityIdFromKeys([BigInt(gameId), BigInt(account.address)]),
-    [gameId, account]
+    [gameId, account],
   );
   const builder = useComponentValue(Builder, builderKey);
 

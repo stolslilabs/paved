@@ -13,7 +13,7 @@ export const checkCompatibility = (
   northTile: Tile,
   eastTile: Tile,
   southTile: Tile,
-  westTile: Tile
+  westTile: Tile,
 ): boolean => {
   tile.orientation = Orientation.from(orientation);
   const layout = tile.getLayout();
@@ -61,7 +61,7 @@ export class Layout {
     southEast: Category,
     south: Category,
     southWest: Category,
-    west: Category
+    west: Category,
   ) {
     this.center = center;
     this.northWest = northWest;
@@ -97,7 +97,7 @@ export class Layout {
           southEast,
           south,
           southWest,
-          west
+          west,
         );
       case OrientationType.East:
         return new Layout(
@@ -109,7 +109,7 @@ export class Layout {
           northEast,
           east,
           southEast,
-          south
+          south,
         );
       case OrientationType.South:
         return new Layout(
@@ -121,7 +121,7 @@ export class Layout {
           northWest,
           north,
           northEast,
-          east
+          east,
         );
       case OrientationType.West:
         return new Layout(
@@ -133,7 +133,7 @@ export class Layout {
           southWest,
           west,
           northWest,
-          north
+          north,
         );
       default:
         throw new Error("Invalid orientation");

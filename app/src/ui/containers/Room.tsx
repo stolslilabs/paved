@@ -49,7 +49,7 @@ export const Room = () => {
   const [gameName, setGameName] = useState<string>("");
   const [duration, setDuration] = useState<string>("");
   const [builders, setBuilders] = useState<{ [key: number]: typeof Builder }>(
-    {}
+    {},
   );
   const { resetPlayerEntity } = useLobbyStore();
   const {
@@ -76,7 +76,7 @@ export const Room = () => {
         setBuilders((prev: any) => {
           return { ...prev, [builder.player_id]: builder };
         });
-      }
+      },
     );
     defineSystem(
       world,
@@ -85,7 +85,7 @@ export const Room = () => {
         setBuilders((prev: any) => {
           return { ...prev, [builder.player_id]: builder };
         });
-      }
+      },
     );
   }, []);
 
@@ -110,8 +110,8 @@ export const Room = () => {
       // Formatting HH:MM:SS
       const formattedTime = `
         ${hours.toString().padStart(2, "0")}:${minutes
-        .toString()
-        .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+          .toString()
+          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
       setDuration(formattedTime.trim());
     }
   }, [game]);
@@ -202,7 +202,7 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
       setReady(
         BigInt(game.players) & (BigInt(1) << BigInt(builder.index))
           ? true
-          : false
+          : false,
       );
       setIsHost(builder.index === 0);
       setIsSelf(player.id === BigInt(account.address));

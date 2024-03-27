@@ -143,7 +143,7 @@ Join the fun at https://paved.gg/ and #paveyourwaytovictory in an onchain strate
 export const Leaderboard = () => {
   const { gameId } = useQueryParams();
   const [builders, setBuilders] = useState<{ [key: number]: typeof Builder }>(
-    {}
+    {},
   );
   const [topBuilders, setTopBuilders] = useState<any>([]);
   const { logs } = useLogs();
@@ -164,7 +164,7 @@ export const Leaderboard = () => {
         setBuilders((prevTiles: any) => {
           return { ...prevTiles, [builder.player_id]: builder };
         });
-      }
+      },
     );
     defineSystem(
       world,
@@ -173,7 +173,7 @@ export const Leaderboard = () => {
         setBuilders((prevTiles: any) => {
           return { ...prevTiles, [builder.player_id]: builder };
         });
-      }
+      },
     );
   }, []);
 
@@ -183,7 +183,7 @@ export const Leaderboard = () => {
     const topSortedBuilders: (typeof Builder)[] = Object.values(builders).sort(
       (a, b) => {
         return b?.score - a?.score;
-      }
+      },
     );
 
     setTopBuilders(topSortedBuilders);

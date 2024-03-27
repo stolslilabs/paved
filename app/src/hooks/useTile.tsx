@@ -13,7 +13,7 @@ export const useTile = ({
 }) => {
   const tileKey = useMemo(
     () => getEntityIdFromKeys([BigInt(gameId), BigInt(tileId)]) as Entity,
-    [gameId, tileId]
+    [gameId, tileId],
   );
 
   return useTileByKey({ tileKey });

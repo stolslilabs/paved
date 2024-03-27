@@ -41,15 +41,15 @@ export const useGames = () => {
         const newGames = [...prevGames, ...events.map(parse)];
         // Remove duplicates
         const dedupedGames = newGames.filter(
-          (game, idx) => idx === newGames.findIndex((g) => g.id === game.id)
+          (game, idx) => idx === newGames.findIndex((g) => g.id === game.id),
         );
         // Sort by score
         const sortedGames = dedupedGames.sort(
-          (a, b) => b.gameScore - a.gameScore
+          (a, b) => b.gameScore - a.gameScore,
         );
         // Extract all unique tournament ids
         const uniqueIds = Array.from(
-          new Set(sortedGames.map((game) => game.tournamentId))
+          new Set(sortedGames.map((game) => game.tournamentId)),
         );
         setIds(uniqueIds);
         return sortedGames;

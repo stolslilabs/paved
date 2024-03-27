@@ -29,7 +29,9 @@ export const Ready = ({ builder }: { builder: ComponentValue }) => {
   useEffect(() => {
     if (!game) return;
     setStatus(
-      BigInt(game.players) & (BigInt(1) << BigInt(builder.index)) ? true : false
+      BigInt(game.players) & (BigInt(1) << BigInt(builder.index))
+        ? true
+        : false,
     );
   }, [game, builder]);
 

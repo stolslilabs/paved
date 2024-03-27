@@ -70,7 +70,7 @@ export const parseAllEvents = (receipt: GetTransactionReceiptResponse) => {
   }
 
   const flatEvents = parseEvents(
-    receipt as SuccessfulTransactionReceiptResponse
+    receipt as SuccessfulTransactionReceiptResponse,
   );
   return flatEvents;
 };

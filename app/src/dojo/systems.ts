@@ -29,7 +29,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error creating game:", error);
@@ -47,7 +47,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been renamed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error renaming game:", error);
@@ -65,7 +65,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been updated.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error updating game:", error);
@@ -83,7 +83,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been joined.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error joining game:", error);
@@ -101,7 +101,7 @@ export function systems({ client }: { client: IWorld }) {
         "Builder is ready.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error being ready:", error);
@@ -122,7 +122,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been transferred.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error transferring game:", error);
@@ -140,7 +140,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been left.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error leaving game:", error);
@@ -158,7 +158,7 @@ export function systems({ client }: { client: IWorld }) {
         "Builder has been kicked.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error kicking builder:", error);
@@ -176,7 +176,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been deleted.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error deleting game:", error);
@@ -194,7 +194,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been started.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error starting game:", error);
@@ -215,7 +215,7 @@ export function systems({ client }: { client: IWorld }) {
         "Player has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error creating player:", error);
@@ -236,7 +236,7 @@ export function systems({ client }: { client: IWorld }) {
         "Player has been renamed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error renaming player:", error);
@@ -257,7 +257,7 @@ export function systems({ client }: { client: IWorld }) {
         "Player has been reordered.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error reordering player:", error);
@@ -275,7 +275,7 @@ export function systems({ client }: { client: IWorld }) {
         "Bought.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error buying:", error);
@@ -293,7 +293,7 @@ export function systems({ client }: { client: IWorld }) {
         "Claimed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error claiming:", error);
@@ -311,7 +311,7 @@ export function systems({ client }: { client: IWorld }) {
         "Tile has been revealed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error drawing:", error);
@@ -329,7 +329,7 @@ export function systems({ client }: { client: IWorld }) {
         "Tile has been discarded.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error discarding:", error);
@@ -347,7 +347,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been abandoned.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error surrendering:", error);
@@ -365,7 +365,7 @@ export function systems({ client }: { client: IWorld }) {
         "Tile has been paved.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error building:", error);

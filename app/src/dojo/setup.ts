@@ -35,7 +35,7 @@ export async function setup({ ...config }: Config) {
   await getSyncEntities(toriiClient, contractModels as any);
 
   const client = await setupWorld(
-    new DojoProvider(config.manifest, config.rpcUrl)
+    new DojoProvider(config.manifest, config.rpcUrl),
   );
 
   const rpcProvider = new RpcProvider({
@@ -46,9 +46,11 @@ export async function setup({ ...config }: Config) {
     masterAccount: new Account(
       rpcProvider,
       config.masterAddress,
-      config.masterPrivateKey
+      config.masterPrivateKey,
     ),
+    feeTokenAddress: config.feeTokenAddress,
     accountClassHash: config.accountClassHash,
+
     rpcProvider,
   });
 

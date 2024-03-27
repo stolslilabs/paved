@@ -21,7 +21,7 @@ export const Scoreboard = () => {
   const { gameId } = useQueryParams();
   const { logs } = useLogs();
   const [builders, setBuilders] = useState<{ [key: number]: typeof Builder }>(
-    {}
+    {},
   );
   const [topBuilders, setTopBuilders] = useState<any>([]);
   const [rank, setRank] = useState<number>(0);
@@ -48,7 +48,7 @@ export const Scoreboard = () => {
         setBuilders((prevTiles: any) => {
           return { ...prevTiles, [builder.player_id]: builder };
         });
-      }
+      },
     );
     defineSystem(
       world,
@@ -57,7 +57,7 @@ export const Scoreboard = () => {
         setBuilders((prevTiles: any) => {
           return { ...prevTiles, [builder.player_id]: builder };
         });
-      }
+      },
     );
   }, []);
 
@@ -67,11 +67,11 @@ export const Scoreboard = () => {
     const topSortedBuilders: (typeof Builder)[] = Object.values(builders).sort(
       (a, b) => {
         return b?.score - a?.score;
-      }
+      },
     );
 
     const builderRank = topSortedBuilders.findIndex(
-      (b) => b?.player_id === builder?.player_id
+      (b) => b?.player_id === builder?.player_id,
     );
 
     setRank(builderRank + 1);
@@ -135,7 +135,7 @@ export const PlayerRow = ({
 
   const playerKey = useMemo(
     () => getEntityIdFromKeys([builder.player_id]) as Entity,
-    [builder]
+    [builder],
   );
   const player = useComponentValue(Player, playerKey);
 
@@ -144,10 +144,10 @@ export const PlayerRow = ({
   const backgroundColor = getColor(address);
   // Color is used to filter on builder since we don't have the player id in the event
   const paved = builts.filter(
-    (log: any) => log.color === backgroundColor
+    (log: any) => log.color === backgroundColor,
   ).length;
   const discarded = discardeds.filter(
-    (log: any) => log.color === backgroundColor
+    (log: any) => log.color === backgroundColor,
   ).length;
   return (
     <TableRow>

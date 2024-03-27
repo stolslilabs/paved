@@ -92,7 +92,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
           prev[playerKey][gameKey] = builder;
           return { ...prev };
         });
-      }
+      },
     );
     defineSystem(
       world,
@@ -107,7 +107,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
           prev[playerKey][gameKey] = builder;
           return { ...prev };
         });
-      }
+      },
     );
   }, [gameId, player]);
 
@@ -119,7 +119,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
         setPlayers((prev: any) => {
           return { ...prev, [`${player.id}`]: player };
         });
-      }
+      },
     );
     defineSystem(world, [Has(Player)], function ({ value: [player] }: any) {
       setPlayers((prev: any) => {
@@ -132,7 +132,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
     if (address && account && player) {
       const totalClaimed = Object.values(builders[player.id] || {}).reduce(
         (sum, builder) => sum + builder.claimed,
-        BigInt(0)
+        BigInt(0),
       );
       setScore(player.solo_score);
       setGames(Object.values(builders[player.id] || {}).length);
@@ -167,7 +167,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
         Object.values(players)
           .map((p: any) => p.solo_score)
           .sort((a: any, b: any) => b - a)
-          .indexOf(score) + 1
+          .indexOf(score) + 1,
       );
     } else {
       setRank(undefined);

@@ -35,7 +35,7 @@ export function defineContractComponents(world: World) {
               "felt252",
             ],
           },
-        }
+        },
       );
     })(),
     BuilderPosition: (() => {
@@ -51,7 +51,7 @@ export function defineContractComponents(world: World) {
             name: "BuilderPosition",
             types: ["u32", "u32", "felt252"],
           },
-        }
+        },
       );
     })(),
     Character: (() => {
@@ -71,7 +71,7 @@ export function defineContractComponents(world: World) {
             name: "Character",
             types: ["u32", "felt252", "u8", "u32", "u8", "u8", "u8"],
           },
-        }
+        },
       );
     })(),
     CharacterPosition: (() => {
@@ -89,7 +89,7 @@ export function defineContractComponents(world: World) {
             name: "CharacterPosition",
             types: ["u32", "u32", "u8", "felt252", "u8"],
           },
-        }
+        },
       );
     })(),
     Game: (() => {
@@ -129,7 +129,7 @@ export function defineContractComponents(world: World) {
               "u8",
             ],
           },
-        }
+        },
       );
     })(),
     Player: (() => {
@@ -159,7 +159,7 @@ export function defineContractComponents(world: World) {
               "felt252",
             ],
           },
-        }
+        },
       );
     })(),
     PlayerName: (() => {
@@ -174,7 +174,7 @@ export function defineContractComponents(world: World) {
             name: "PlayerName",
             types: ["felt252", "felt252"],
           },
-        }
+        },
       );
     })(),
     Team: (() => {
@@ -191,7 +191,7 @@ export function defineContractComponents(world: World) {
             name: "Team",
             types: ["u32", "u8", "u32", "u8"],
           },
-        }
+        },
       );
     })(),
     Tile: (() => {
@@ -212,7 +212,7 @@ export function defineContractComponents(world: World) {
             name: "Tile",
             types: ["u32", "u32", "felt252", "u8", "u8", "u32", "u32", "u8"],
           },
-        }
+        },
       );
     })(),
     TilePosition: (() => {
@@ -229,7 +229,7 @@ export function defineContractComponents(world: World) {
             name: "TilePosition",
             types: ["u32", "u32", "u32", "u32"],
           },
-        }
+        },
       );
     })(),
   };

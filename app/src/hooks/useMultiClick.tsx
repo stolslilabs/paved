@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 export const useMultiClick = (
   handleSimpleClick: () => void,
   handleDoubleClick: () => void,
-  { delay = 150 } = {}
+  { delay = 150 } = {},
 ) => {
   const [click, setClick] = useState(0);
 

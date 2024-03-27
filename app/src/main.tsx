@@ -9,7 +9,7 @@ import { StarknetProvider } from "./ui/components/Starknet.tsx";
 import { GameLoading } from "./ui/screens/GameLoading.tsx";
 
 const root = ReactDOM.createRoot(
-  document.getElementById("root") as HTMLElement
+  document.getElementById("root") as HTMLElement,
 );
 
 function Main() {

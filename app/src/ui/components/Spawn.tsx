@@ -54,7 +54,7 @@ export const Spawn = () => {
 
   const playerId = useMemo(
     () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account]
+    [account],
   );
   const player = useComponentValue(Player, playerId);
 

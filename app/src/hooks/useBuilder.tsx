@@ -21,7 +21,7 @@ export const useBuilder = ({
 
   const builderKey = useMemo(
     () => getEntityIdFromKeys([BigInt(gameId), BigInt(playerId)]) as Entity,
-    [gameId, playerId]
+    [gameId, playerId],
   );
   const builder = useComponentValue(Builder, builderKey);
 

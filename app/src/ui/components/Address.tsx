@@ -4,7 +4,7 @@ import { getAvatar } from "@/utils/avatar";
 
 export function minifyAddressOrStarknetId(
   address: string | undefined,
-  starknetId: string | undefined
+  starknetId: string | undefined,
 ) {
   const input = starknetId !== undefined ? starknetId : address;
   if (input === undefined) {
@@ -13,7 +13,7 @@ export function minifyAddressOrStarknetId(
   return input.length > 24
     ? `${input.substring(0, 5)} ... ${input.substring(
         input.length - 5,
-        input.length
+        input.length,
       )}`
     : input;
 }

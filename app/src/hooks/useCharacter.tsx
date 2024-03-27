@@ -28,7 +28,7 @@ export const useCharacter = ({
         BigInt(playerId),
         BigInt(characterId),
       ]) as Entity,
-    [gameId, playerId, characterId]
+    [gameId, playerId, characterId],
   );
   const character = useComponentValue(Character, characterKey);
 

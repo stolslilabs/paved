@@ -21,7 +21,7 @@ export const JoinGame = () => {
 
   const disabled = useMemo(
     () => !game || (!!builder && builder.index < game.player_count),
-    [game, builder]
+    [game, builder],
   );
 
   const handleClick = async () => {
