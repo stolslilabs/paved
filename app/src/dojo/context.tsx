@@ -20,7 +20,7 @@ export const DojoProvider = ({
   if (currentValue) throw new Error("DojoProvider can only be used once");
 
   const {
-    config: { rpcUrl, masterAddress, masterPrivateKey, feeToken },
+    config: { rpcUrl, masterAddress, masterPrivateKey },
     burnerManager,
   } = value;
 
