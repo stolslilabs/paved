@@ -1,6 +1,5 @@
 import devManifest from "../contracts/target/dev/manifest.json";
 import preManifest from "../contracts/target/pre/manifest.json";
-import prodManifest from "../contracts/target/prod/manifest.json";
 import realmsManifest from "../contracts/target/realms/manifest.json";
 
 const {
@@ -9,7 +8,6 @@ const {
   VITE_PUBLIC_MASTER_ADDRESS,
   VITE_PUBLIC_MASTER_PRIVATE_KEY,
   VITE_PUBLIC_ACCOUNT_CLASS_HASH,
-  VITE_PUBLIC_PRODUCTION,
   VITE_PUBLIC_PREPRODUCTION,
   VITE_PUBLIC_REALMS,
   VITE_PUBLIC_FEE_TOKEN_ADDRESS,
@@ -33,9 +31,7 @@ export function dojoConfig() {
     feeTokenAddress:
       VITE_PUBLIC_FEE_TOKEN_ADDRESS ||
       "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
-    manifest: VITE_PUBLIC_PRODUCTION
-      ? prodManifest
-      : VITE_PUBLIC_PREPRODUCTION
+    manifest: VITE_PUBLIC_PREPRODUCTION
         ? preManifest
         : VITE_PUBLIC_REALMS
           ? realmsManifest
