@@ -45,7 +45,7 @@ export const useTiles = () => {
       { x: 0, y: -1 },
       { x: 0, y: 1 },
     ],
-    []
+    [],
   );
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export const useTiles = () => {
           });
           return updatedItems;
         });
-      }
+      },
     );
     defineSystem(
       world,
@@ -147,7 +147,7 @@ export const useTiles = () => {
           });
           return updatedItems;
         });
-      }
+      },
     );
   }, []);
 

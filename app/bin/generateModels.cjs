@@ -43,7 +43,7 @@ console.log(
     isRecsVersion2
       ? "2 (bigint support, Entity as string)"
       : "1 (no bigint, EntityIndex as number)"
-  }`
+  }`,
 );
 
 const cairoToRecsType = {

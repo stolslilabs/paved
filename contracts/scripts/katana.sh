@@ -2,6 +2,7 @@
 set -euo pipefail
 pushd $(dirname "$0")/..
 
+# export STARKNET_RPC_URL="https://api.cartridge.gg/x/paved-dev/katana";
 export STARKNET_RPC_URL="http://localhost:5050";
 
 export DOJO_WORLD_ADDRESS=$(cat ./target/dev/manifest.json | jq -r '.world.address')

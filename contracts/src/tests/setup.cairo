@@ -38,7 +38,8 @@ mod setup {
 
     const PLAYER_NAME: felt252 = 'PLAYER';
     const ANYONE_NAME: felt252 = 'ANYONE';
-    const ORDER_ID: u8 = 1;
+    const PLAYER_ORDER_ID: u8 = 1;
+    const ANYONE_ORDER_ID: u8 = 14;
     const GAME_NAME: felt252 = 'GAME';
 
     #[derive(Drop)]
@@ -99,18 +100,18 @@ mod setup {
 
         // [Setup] Context
         set_contract_address(ANYONE());
-        systems.manage.create(world, ANYONE_NAME, ORDER_ID, ANYONE());
+        systems.manage.create(world, ANYONE_NAME, ANYONE_ORDER_ID, ANYONE());
         set_contract_address(PLAYER());
-        systems.manage.create(world, PLAYER_NAME, ORDER_ID, PLAYER());
+        systems.manage.create(world, PLAYER_NAME, PLAYER_ORDER_ID, PLAYER());
         let duration: u64 = 0;
         let game_id = systems.host.create(world, GAME_NAME, duration, mode.into());
         let context = Context {
             player_id: PLAYER().into(),
             player_name: PLAYER_NAME,
-            player_order: ORDER_ID,
+            player_order: PLAYER_ORDER_ID,
             anyone_id: ANYONE().into(),
             anyone_name: ANYONE_NAME,
-            anyone_order: ORDER_ID,
+            anyone_order: ANYONE_ORDER_ID,
             game_id: game_id,
             game_name: GAME_NAME,
             game_duration: duration,

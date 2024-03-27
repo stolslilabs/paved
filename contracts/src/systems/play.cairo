@@ -137,7 +137,7 @@ mod play {
 
             // [Check] Player exists
             let caller = get_caller_address();
-            let mut player = store.player(caller.into());
+            let player = store.player(caller.into());
             player.assert_exists();
 
             // [Check] Builder exists
@@ -161,7 +161,7 @@ mod play {
             store.set_builder(builder);
 
             // [Effect] Update player
-            store.set_player(player);
+            // store.set_player(player);
 
             // [Effect] Update game
             store.set_game(game);

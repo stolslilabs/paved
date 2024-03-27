@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useBuilder } from "@/hooks/useBuilder";
+import { Account } from "starknet";
 
 export const Discard = () => {
   const { gameId } = useQueryParams();
@@ -42,7 +43,7 @@ export const Discard = () => {
             size={"command"}
             onClick={() =>
               discard({
-                account: account,
+                account: account as Account,
                 game_id: gameId,
               })
             }

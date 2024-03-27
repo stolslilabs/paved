@@ -7,6 +7,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { useNavigate } from "react-router-dom";
 import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
+import { Account } from "starknet";
 
 export const DeleteGame = () => {
   const { gameId } = useQueryParams();
@@ -44,7 +45,7 @@ export const DeleteGame = () => {
 
   const handleClick = () => {
     delete_game({
-      account: account,
+      account: account as Account,
       game_id: gameId,
     });
     setGameQueryParam();

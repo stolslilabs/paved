@@ -12,7 +12,8 @@ export const Logsboard = () => {
         <TableBody className="text-right text-xs">
           {logs
             .filter(
-              (log) => log.category === "Scored" || log.category === "Discarded"
+              (log) =>
+                log.category === "Scored" || log.category === "Discarded",
             )
             .slice(0, 5)
             .map((log: any, index: number) => (

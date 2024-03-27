@@ -24,6 +24,7 @@ import { useDojo } from "../../dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFontAwesome } from "@fortawesome/free-solid-svg-icons";
+import { Account } from "starknet";
 
 interface TProps {}
 
@@ -89,7 +90,7 @@ export const Surrender = (props: TProps) => {
           <AlertDialogAction
             onClick={() => {
               surrender({
-                account: account,
+                account: account as Account,
                 game_id: gameId,
               });
             }}

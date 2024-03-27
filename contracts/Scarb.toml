@@ -29,8 +29,8 @@ private_key = "0x1800000000300000180000000000030000000000003006001800006600"
 
 # Realms
 # rpc_url = "https://api.cartridge.gg/x/realms/katana/"
-# account_address = "0x251a85f6f4aaf609c69adc2940c0977b67a5f50c57affdba6a8a0682bd543a4"
-# private_key = "0x46d907d74b2f91acbcb8f29e76ad844325edd66a3896ab18bbe42f8cb235591"
+# account_address = "0x379900b695d11ec52b13557de5ebd864eb2f36f14ff56560b028992585b7515"
+# private_key = "0x62bb13afe7963fd97e568db915e331956ddc4ba13dda9b787a6648a5b840626"
 
 # Sepolia
 # rpc_url = "https://starknet-sepolia.infura.io/v3/c28442cb88584a618a5dc751cd73f387"

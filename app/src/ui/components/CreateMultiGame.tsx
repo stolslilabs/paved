@@ -1,5 +1,5 @@
 import { useDojo } from "../../dojo/useDojo";
-import { shortString } from "starknet";
+import { Account, shortString } from "starknet";
 
 import {
   Tooltip,
@@ -51,7 +51,7 @@ export const CreateMultiGame = () => {
   const handleClick = () => {
     if (!player) return;
     create_game({
-      account: account,
+      account: account as Account,
       name: shortString.encodeShortString(gameName),
       duration: duration * 60,
       mode: 2,

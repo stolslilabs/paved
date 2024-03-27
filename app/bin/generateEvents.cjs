@@ -40,18 +40,18 @@ fs.readFile(jsonFilePath, "utf8", (err, jsonString) => {
 
     for (let contract of data.contracts) {
       const events = contract.abi.filter(
-        (i) => i.type === "event" && i.kind === "struct"
+        (i) => i.type === "event" && i.kind === "struct",
       );
 
       for (let event of events) {
         const shortName = event.name.substring(
-          event.name.lastIndexOf("::") + 2
+          event.name.lastIndexOf("::") + 2,
         );
         const selector =
           "0x" + starknet.hash.starknetKeccak(shortName).toString(16);
         const members = event.members.map((member) => {
           const cairoType = member.type.substring(
-            member.type.lastIndexOf("::") + 2
+            member.type.lastIndexOf("::") + 2,
           );
           return {
             name: member.name,

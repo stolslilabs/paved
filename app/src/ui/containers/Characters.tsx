@@ -19,7 +19,7 @@ export const Characters = () => {
 
   const characters = useMemo(
     () => getAvailableCharacters(builder ? builder.characters : 0),
-    [builder]
+    [builder],
   );
 
   if (!account || !builder) return <></>;

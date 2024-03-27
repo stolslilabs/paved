@@ -23,14 +23,14 @@ export class Configuration {
           new Move(new Direction(DirectionType.East), new Spot(SpotType.West)),
           new Move(
             new Direction(DirectionType.South),
-            new Spot(SpotType.North)
+            new Spot(SpotType.North),
           ),
         ];
       case SpotType.North:
         return [
           new Move(
             new Direction(DirectionType.North),
-            new Spot(SpotType.South)
+            new Spot(SpotType.South),
           ),
         ];
       case SpotType.West:

@@ -25,15 +25,15 @@ export class Configuration {
         return [
           new Move(
             new Direction(DirectionType.North),
-            new Spot(SpotType.South)
+            new Spot(SpotType.South),
           ),
           new Move(
             new Direction(DirectionType.East),
-            new Spot(SpotType.NorthWest)
+            new Spot(SpotType.NorthWest),
           ),
           new Move(
             new Direction(DirectionType.West),
-            new Spot(SpotType.NorthEast)
+            new Spot(SpotType.NorthEast),
           ),
         ];
       case SpotType.SouthEast:
@@ -42,15 +42,15 @@ export class Configuration {
         return [
           new Move(
             new Direction(DirectionType.East),
-            new Spot(SpotType.SouthWest)
+            new Spot(SpotType.SouthWest),
           ),
           new Move(
             new Direction(DirectionType.South),
-            new Spot(SpotType.North)
+            new Spot(SpotType.North),
           ),
           new Move(
             new Direction(DirectionType.West),
-            new Spot(SpotType.SouthEast)
+            new Spot(SpotType.SouthEast),
           ),
         ];
       default:

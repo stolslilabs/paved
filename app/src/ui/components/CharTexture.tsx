@@ -83,7 +83,7 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
       setName(
         fullname.length > 8
           ? `${fullname.slice(0, 8)}...`
-          : fullname.slice(0, 11)
+          : fullname.slice(0, 11),
       );
     }
   }, [player]);

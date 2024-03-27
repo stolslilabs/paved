@@ -14,7 +14,7 @@ export function checkFeatureIdle(
   x: number,
   y: number,
   at: number,
-  tiles: Tiles
+  tiles: Tiles,
 ): boolean {
   const spot: Spot = Spot.from(at);
   if (spot.value === SpotType.None) return true;

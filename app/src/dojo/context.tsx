@@ -20,7 +20,7 @@ export const DojoProvider = ({
   if (currentValue) throw new Error("DojoProvider can only be used once");
 
   const {
-    config: { rpcUrl, masterAddress, masterPrivateKey, feeToken },
+    config: { rpcUrl, masterAddress, masterPrivateKey },
     burnerManager,
   } = value;
 
@@ -29,12 +29,12 @@ export const DojoProvider = ({
       new RpcProvider({
         nodeUrl: rpcUrl,
       }),
-    [rpcUrl]
+    [rpcUrl],
   );
 
   const masterAccount = useMemo(
     () => new Account(rpcProvider, masterAddress, masterPrivateKey),
-    [rpcProvider, masterAddress, masterPrivateKey]
+    [rpcProvider, masterAddress, masterPrivateKey],
   );
 
   const {

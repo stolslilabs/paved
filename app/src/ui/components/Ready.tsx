@@ -12,6 +12,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheck, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { useGame } from "@/hooks/useGame";
 import { ComponentValue } from "@dojoengine/recs";
+import { Account } from "starknet";
 
 export const Ready = ({ builder }: { builder: ComponentValue }) => {
   const { gameId } = useQueryParams();
@@ -29,13 +30,15 @@ export const Ready = ({ builder }: { builder: ComponentValue }) => {
   useEffect(() => {
     if (!game) return;
     setStatus(
-      BigInt(game.players) & (BigInt(1) << BigInt(builder.index)) ? true : false
+      BigInt(game.players) & (BigInt(1) << BigInt(builder.index))
+        ? true
+        : false,
     );
   }, [game, builder]);
 
   const handleClick = () => {
     ready_game({
-      account: account,
+      account: account as Account,
       game_id: gameId,
       status: !status ? 1 : 0,
     });

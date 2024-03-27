@@ -6,6 +6,7 @@ import { useMemo } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
+import { Account } from "starknet";
 
 export const JoinGame = () => {
   const { gameId } = useQueryParams();
@@ -21,7 +22,7 @@ export const JoinGame = () => {
 
   const disabled = useMemo(
     () => !game || (!!builder && builder.index < game.player_count),
-    [game, builder]
+    [game, builder],
   );
 
   const handleClick = async () => {
@@ -32,7 +33,7 @@ export const JoinGame = () => {
       !game.over
     ) {
       await join_game({
-        account: account,
+        account: account as Account,
         game_id: game.id,
       });
     }

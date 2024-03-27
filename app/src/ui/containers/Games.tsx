@@ -299,8 +299,8 @@ export const GameMultiRow = ({ game }: { game: any }) => {
       // Formatting HH:MM:SS
       const formattedTime = `
         ${hours.toString().padStart(2, "0")}:${minutes
-        .toString()
-        .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+          .toString()
+          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
       setGameDuration(formattedTime);
     } else {
       setGameDuration("∞");
@@ -322,8 +322,8 @@ export const GameMultiRow = ({ game }: { game: any }) => {
         // Formatting HH:MM:SS
         const formattedTime = `
           ${hours.toString().padStart(2, "0")}:${minutes
-          .toString()
-          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+            .toString()
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
         setTimeLeft(formattedTime);
 
         if (dt < 0) {
@@ -346,8 +346,8 @@ export const GameMultiRow = ({ game }: { game: any }) => {
       // Formatting HH:MM:SS
       const formattedTime = `
         ${hours.toString().padStart(2, "0")}:${minutes
-        .toString()
-        .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+          .toString()
+          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
       setTimeLeft(formattedTime);
     } else {
       setTimeLeft("∞");

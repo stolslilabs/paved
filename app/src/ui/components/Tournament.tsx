@@ -65,10 +65,10 @@ export const TournamentHeader = () => {
       // Formatting DD - HH:MM:SS
       const formattedTime = `
         ${days.toString().padStart(2, "0")}d ${hours
-        .toString()
-        .padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
-        .toString()
-        .padStart(2, "0")}`;
+          .toString()
+          .padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
+          .toString()
+          .padStart(2, "0")}`;
       setTimeLeft(formattedTime);
 
       if (dt < 0) {

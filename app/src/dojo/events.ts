@@ -11,7 +11,7 @@ export type Event = {
 
 export async function createEventBacklog(
   url: string,
-  keys: string[]
+  keys: string[],
 ): Promise<Event[]> {
   const endpoint = `${url}/graphql`;
   const formattedKeys = keys.map((key) => `"${key}"`).join(",");
@@ -36,7 +36,7 @@ export async function createEventBacklog(
 
 export async function createEventSubscription(
   url: string,
-  keys: string[]
+  keys: string[],
 ): Promise<Observable<Event | null>> {
   const wsClient = createClient({
     url: `${url}/graphql/ws`.replace("http", "ws"),
@@ -72,7 +72,7 @@ export async function createEventSubscription(
       },
       error: (error) => console.log({ error }),
       complete: () => console.log("complete"),
-    }
+    },
   );
   return lastUpdate$;
 }

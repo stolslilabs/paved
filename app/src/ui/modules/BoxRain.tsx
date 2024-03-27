@@ -32,7 +32,7 @@ const BoxRainScene = () => {
     position: new Vector3(
       Math.random() * 20 - 10,
       Math.random() * 20 + 10,
-      Math.random() * 20 - 10
+      Math.random() * 20 - 10,
     ),
   }));
 

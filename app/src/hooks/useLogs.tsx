@@ -123,8 +123,8 @@ export const useLogs = () => {
           builtObservable.subscribe(
             (event) =>
               event &&
-              setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)])
-          )
+              setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)]),
+          ),
         );
         const scoredObservable = await createEvents([
           SCORED_EVENT,
@@ -134,8 +134,8 @@ export const useLogs = () => {
           scoredObservable.subscribe(
             (event) =>
               event &&
-              setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)])
-          )
+              setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)]),
+          ),
         );
         const discardedObservable = await createEvents([
           DISCARDED_EVENT,
@@ -145,8 +145,8 @@ export const useLogs = () => {
           discardedObservable.subscribe(
             (event) =>
               event &&
-              setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)])
-          )
+              setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)]),
+          ),
         );
       };
 
@@ -163,10 +163,10 @@ export const useLogs = () => {
 
   // Remove duplicates
   const dedupedLogs = logs.filter(
-    (log, idx) => idx === logs.findIndex((l) => l.id === log.id)
+    (log, idx) => idx === logs.findIndex((l) => l.id === log.id),
   );
   const sortedLogs = dedupedLogs.sort(
-    (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+    (a, b) => b.timestamp.getTime() - a.timestamp.getTime(),
   );
   return { logs: sortedLogs };
 };

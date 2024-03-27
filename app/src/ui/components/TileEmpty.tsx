@@ -66,7 +66,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
         northTile,
         eastTile,
         southTile,
-        westTile
+        westTile,
       )
     );
   }, [

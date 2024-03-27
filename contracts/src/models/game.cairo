@@ -201,12 +201,21 @@ impl GameImpl of GameTrait {
         score: u32,
         ref events: Array<Scored>
     ) {
-        if Mode::Solo == self.mode.into() {
-            player.solo_score += score;
-        } else if Mode::Multi == self.mode.into() {
-            player.multi_score += score;
+        // [Compute] Solo score to add
+        let mut solo_score = 0;
+        if self.mode == Mode::Solo.into() {
+            solo_score = score;
         };
 
+        // [Compute] Multi score to add
+        let mut multi_score = 0;
+        if self.mode == Mode::Multi.into() {
+            multi_score = score;
+        };
+
+        // [Effect] Update scores
+        player.solo_score += solo_score;
+        player.multi_score += multi_score;
         self.score += score;
         builder.score += score;
         let event = Scored {
