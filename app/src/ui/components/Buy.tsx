@@ -118,7 +118,9 @@ export const Buy = ({ buttonName }: { buttonName?: string }) => {
           <Button
             disabled={!quantity}
             variant={"default"}
-            onClick={() => buy({ account: account as Account, amount: quantity })}
+            onClick={() =>
+              buy({ account: account as Account, amount: quantity })
+            }
           >
             Confirm
           </Button>

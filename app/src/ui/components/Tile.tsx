@@ -166,8 +166,13 @@ export const HiddenTile = () => {
             }}
             onClick={handleDrawClick}
           >
-            <div className="h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
+            <div className="relative h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
               <FontAwesomeIcon className="h-12" icon={over ? faLock : faEye} />
+              {!over && game?.isSoloMode() && (
+                <div className="absolute bottom-1/4 left-1/2 translate-x-[-40%] translate-y-[+50%] select-none">
+                  {game?.tilesLeft()}
+                </div>
+              )}
             </div>
           </div>
         </TooltipTrigger>

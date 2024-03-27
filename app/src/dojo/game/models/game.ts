@@ -48,4 +48,8 @@ export class Game {
   public isMultiMode(): boolean {
     return this.mode.value === ModeType.Multi;
   }
+
+  public tilesLeft(): number {
+    return this.isSoloMode() ? 72 - this.tile_count : 0;
+  }
 }
