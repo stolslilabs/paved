@@ -1,5 +1,5 @@
 import { useDojo } from "../../dojo/useDojo";
-import { shortString } from "starknet";
+import { Account, shortString } from "starknet";
 import { useState } from "react";
 
 import {
@@ -67,14 +67,14 @@ export const UpdateGame = () => {
     const name = shortString.decodeShortString(game.name);
     if (name !== gameName) {
       rename_game({
-        account: account,
+        account: account as Account,
         game_id: gameId,
         name: shortString.encodeShortString(gameName),
       });
     }
     if (game && duration * 60 !== game.duration) {
       update_game({
-        account: account,
+        account: account as Account,
         game_id: gameId,
         duration: duration * 60,
       });

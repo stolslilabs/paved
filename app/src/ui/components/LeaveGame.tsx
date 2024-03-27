@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useMemo } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useNavigate } from "react-router-dom";
+import { Account } from "starknet";
 
 export const LeaveGame = () => {
   const { gameId } = useQueryParams();
@@ -24,7 +25,7 @@ export const LeaveGame = () => {
 
   const handleClick = () => {
     leave_game({
-      account: account,
+      account: account as Account,
       game_id: gameId,
     });
     setGameQueryParam();

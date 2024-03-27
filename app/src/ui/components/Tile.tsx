@@ -15,6 +15,7 @@ import {
 import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useTile } from "@/hooks/useTile";
+import { Account } from "starknet";
 
 export const Tile = () => {
   const [rotation, setRotation] = useState(0);
@@ -142,7 +143,7 @@ export const HiddenTile = () => {
     if (over) return;
     resetSelectedTile();
     draw({
-      account: account,
+      account: account as Account,
       game_id: gameId,
     });
   };

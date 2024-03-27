@@ -4,7 +4,7 @@ import {
   num,
   GetTransactionReceiptResponse,
   InvokeTransactionReceiptResponse,
-  SuccessfulTransactionReceiptResponse,
+  GetTransactionResponse,
   Contract,
 } from "starknet";
 
@@ -60,25 +60,6 @@ export interface GameOverData extends BaseEventData {
   player_name: string;
   player_master: string;
 }
-
-export const parseAllEvents = (receipt: GetTransactionReceiptResponse) => {
-  if (receipt.status === "REJECTED") {
-    throw new Error(`transaction REJECTED`);
-  }
-  if (receipt.status === "REVERTED") {
-    throw new Error(`transaction REVERTED`);
-  }
-
-  const flatEvents = parseEvents(
-    receipt as SuccessfulTransactionReceiptResponse,
-  );
-  return flatEvents;
-};
-
-export const parseEvents = (receipt: SuccessfulTransactionReceiptResponse) => {
-  const parsed = receipt.events.map((e) => parseEvent(e));
-  return parsed;
-};
 
 export type ParseEventResult = ReturnType<typeof parseEvent>;
 

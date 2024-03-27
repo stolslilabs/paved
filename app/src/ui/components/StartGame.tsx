@@ -6,6 +6,7 @@ import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useComponentValue } from "@dojoengine/react";
 import { useMemo } from "react";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import { Account } from "starknet";
 
 export const StartGame = () => {
   const { gameId } = useQueryParams();
@@ -39,7 +40,7 @@ export const StartGame = () => {
 
   const handleClick = () => {
     start_game({
-      account: account,
+      account: account as Account,
       game_id: gameId,
     });
   };

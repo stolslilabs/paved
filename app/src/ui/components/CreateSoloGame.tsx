@@ -6,7 +6,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { shortString } from "starknet";
+import { Account, shortString } from "starknet";
 import { usePlayer } from "@/hooks/usePlayer";
 
 export const CreateSoloGame = () => {
@@ -22,7 +22,7 @@ export const CreateSoloGame = () => {
   const handleClick = () => {
     if (!player) return;
     create_game({
-      account: account,
+      account: account as Account,
       name: shortString.encodeShortString("Solo"),
       duration: 0,
       mode: 1,

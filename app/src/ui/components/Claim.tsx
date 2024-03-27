@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
+import { Account } from "starknet";
 
 export const Claim = () => {
   const { gameId } = useQueryParams();
@@ -37,7 +38,7 @@ export const Claim = () => {
   const handleClick = () => {
     if (account) {
       claim({
-        account: account,
+        account: account as Account,
         game_id: gameId,
       });
     }

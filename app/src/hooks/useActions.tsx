@@ -4,6 +4,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { useGameStore } from "@/store";
 import { useDojo } from "@/dojo/useDojo";
 import { useBuilder } from "./useBuilder";
+import { Account } from "starknet";
 
 export const useActions = () => {
   const { gameId } = useQueryParams();
@@ -42,7 +43,7 @@ export const useActions = () => {
     if (builder?.tile_id) {
       try {
         build({
-          account: account,
+          account: account as Account,
           game_id: gameId,
           orientation: orientation,
           x: x,

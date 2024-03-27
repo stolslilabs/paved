@@ -9,6 +9,7 @@ import {
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUserXmark } from "@fortawesome/free-solid-svg-icons";
+import { Account } from "starknet";
 
 export const Kick = ({ player }: { player: any }) => {
   const { gameId } = useQueryParams();
@@ -23,7 +24,7 @@ export const Kick = ({ player }: { player: any }) => {
   const handleClick = () => {
     if (!player) return;
     kick_game({
-      account: account,
+      account: account as Account,
       game_id: gameId,
       player_id: player.id,
     });

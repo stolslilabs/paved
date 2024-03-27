@@ -1,5 +1,5 @@
 import { useDojo } from "../../dojo/useDojo";
-import { shortString } from "starknet";
+import { Account, shortString } from "starknet";
 import { useState } from "react";
 
 import {
@@ -89,7 +89,7 @@ export const Spawn = () => {
   const handleClick = () => {
     if (address && account) {
       create_player({
-        account: account,
+        account: account as Account,
         name: shortString.encodeShortString(playerName),
         order: order,
         master: address,

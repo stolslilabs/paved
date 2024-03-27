@@ -11,6 +11,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCrown, faStar } from "@fortawesome/free-solid-svg-icons";
 import { useBuilder } from "@/hooks/useBuilder";
+import { Account } from "starknet";
 
 export const TransferGame = ({ player }: { player: any }) => {
   const { gameId } = useQueryParams();
@@ -35,7 +36,7 @@ export const TransferGame = ({ player }: { player: any }) => {
   const handleClick = () => {
     if (!player) return;
     transfer_game({
-      account: account,
+      account: account as Account,
       game_id: gameId,
       player_id: player.id,
     });
