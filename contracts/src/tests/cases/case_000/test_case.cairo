@@ -33,20 +33,20 @@ fn test_case_000() {
     // [Setup]
     let (world, systems, context) = setup::spawn_game(Mode::Multi);
     let store = StoreTrait::new(world);
-    let game = store.game(context.game_id);
 
     // [Start]
     set_contract_address(ANYONE());
-    systems.host.join(world, game.id);
-    systems.host.ready(world, game.id, true);
+    systems.host.join(world, context.game_id);
+    systems.host.ready(world, context.game_id, true);
     set_contract_address(PLAYER());
-    systems.host.ready(world, game.id, true);
-    systems.host.start(world, game.id);
+    systems.host.ready(world, context.game_id, true);
+    systems.host.start(world, context.game_id);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFFFRFCFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFCFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFFFRFCFR
     let orientation = Orientation::South;
     let x = CENTER + 1;
@@ -55,8 +55,9 @@ fn test_case_000() {
 
     // [Draw & Build]
     set_contract_address(ANYONE());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::RFFFRFCFR));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFCFR);
+    store.set_game(game);
     systems.play.draw(world, game.id); // RFFFRFCFR
     let orientation = Orientation::South;
     let x = CENTER - 1;
@@ -65,8 +66,9 @@ fn test_case_000() {
 
     // [Draw & Build]
     set_contract_address(PLAYER());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::CCCCCFFFC));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFFFC);
+    store.set_game(game);
     systems.play.draw(world, game.id); // CCCCCFFFC
     let orientation = Orientation::South;
     let x = CENTER;
@@ -75,8 +77,9 @@ fn test_case_000() {
 
     // [Draw & Build]
     set_contract_address(PLAYER());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFFFCCCFF));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::FFFFCCCFF);
+    store.set_game(game);
     systems.play.draw(world, game.id); // FFFFCCCFF
     let orientation = Orientation::North;
     let x = CENTER - 1;
@@ -85,8 +88,9 @@ fn test_case_000() {
 
     // [Draw & Build]
     set_contract_address(PLAYER());
-
-    set_transaction_hash(setup::compute_tx_hash(store.game(game.id), Plan::FFFFCCCFF));
+    let mut game = store.game(context.game_id);
+    game.seed = setup::compute_seed(store.game(game.id), Plan::FFFFCCCFF);
+    store.set_game(game);
     systems.play.draw(world, game.id); // FFFFCCCFF
     let orientation = Orientation::East;
     let x = CENTER + 1;

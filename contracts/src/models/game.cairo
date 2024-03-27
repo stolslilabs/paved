@@ -2,6 +2,8 @@
 
 use core::debug::PrintTrait;
 use core::dict::{Felt252Dict, Felt252DictTrait};
+use core::poseidon::{PoseidonTrait, HashState};
+use core::hash::HashStateTrait;
 
 // External imports
 
@@ -64,6 +66,7 @@ struct Game {
     score: u32,
     mode: u8,
     deck: u8,
+    seed: felt252,
 }
 
 #[generate_trait]
@@ -88,6 +91,7 @@ impl GameImpl of GameTrait {
             score: 0,
             mode: mode.into(),
             deck: deck.into(),
+            seed: 0,
         }
     }
 
@@ -163,7 +167,11 @@ impl GameImpl of GameTrait {
         let index = indexes.pop_front().unwrap();
         self.tiles = Bitmap::set_bit_at(self.tiles, index.into(), true);
 
-        // [Effect] Update game start time
+        // [Effect] Update game start time and seed
+        let state: HashState = PoseidonTrait::new();
+        let state = state.update(self.seed);
+        let state = state.update(tile_id.into());
+        self.seed = state.finalize();
         self.start_time = time;
 
         tile
@@ -173,6 +181,15 @@ impl GameImpl of GameTrait {
     fn is_over(self: Game, time: u64) -> bool {
         let endtime = self.start_time + self.duration;
         return self.over || (self.duration != 0 && time >= endtime);
+    }
+
+    #[inline(always)]
+    fn reseed(ref self: Game, tile: Tile) {
+        let state: HashState = PoseidonTrait::new();
+        let state = state.update(self.seed);
+        let state = state.update(tile.x.into());
+        let state = state.update(tile.y.into());
+        self.seed = state.finalize();
     }
 
     #[inline(always)]
@@ -247,12 +264,17 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
-    fn draw_plan(ref self: Game, seed: felt252) -> (u32, Plan) {
+    fn draw_plan(ref self: Game) -> (u32, Plan) {
         let deck: Deck = self.deck.into();
         let number: u32 = deck.count().into();
-        let mut deck: OrigamiDeck = DeckTrait::from_bitmap(seed, number, self.tiles);
+        let mut deck: OrigamiDeck = DeckTrait::from_bitmap(self.seed, number, self.tiles);
         let plan_id: u32 = deck.draw().into();
         self.tile_count += 1;
+        // Update the seed after draw
+        let state = PoseidonTrait::new();
+        let state = state.update(self.seed);
+        let state = state.update(self.tile_count.into());
+        self.seed = state.finalize();
         // Update bitmap if deck is not empty, otherwise reset
         self
             .tiles =
@@ -382,6 +404,7 @@ impl ZeroableGame of core::Zeroable<Game> {
             score: 0,
             mode: 0,
             deck: 0,
+            seed: 0,
         }
     }
 
@@ -472,7 +495,6 @@ mod tests {
 
     const GAME_ID: u32 = 1;
     const NAME: felt252 = 'NAME';
-    const SEED: felt252 = 'SEED';
 
     #[test]
     fn test_game_new() {
@@ -498,7 +520,7 @@ mod tests {
         let mut game = GameImpl::new(
             GAME_ID, NAME, 0, 0, Mode::Multi.into(), Deck::Enhanced.into()
         );
-        let (tile_count, plan_id) = game.draw_plan(SEED);
+        let (tile_count, plan_id) = game.draw_plan();
         assert(tile_count == 1, 'Game: Invalid tile_count');
         assert(plan_id.into() < constants::TOTAL_TILE_COUNT, 'Game: Invalid plan_id');
         assert(game.tile_count == 1, 'Game: Invalid tile_count');
@@ -515,7 +537,7 @@ mod tests {
             if game.tile_count == constants::TOTAL_TILE_COUNT.into() {
                 break;
             }
-            let (_, plan) = game.draw_plan(SEED);
+            let (_, plan) = game.draw_plan();
             let key: felt252 = plan.into();
             counts.insert(key, counts.get(key) + 1)
         };

@@ -969,7 +969,7 @@
     {
       "name": "paved::systems::host::host",
       "address": "0x3fdd4d446fd4cd53db379444ce41bb6c9b97f9cf8464fae79511832a242621",
-      "class_hash": "0x3cfd0a81ac85a3b8b77dcb8e80bb5ad066c3485e209109ba44de7c511d138b1",
+      "class_hash": "0x40cbb11cc2efe369a54b246866c8d8e0c2d9f31f26b4ec0bdc2a7d03d3a1ce",
       "abi": [
         {
           "type": "impl",
@@ -1351,7 +1351,7 @@
     {
       "name": "paved::systems::manage::manage",
       "address": "0x579d2c5174a5306d660e2e7f82796e9e04e961cbddd7a47749749464f7c2dd4",
-      "class_hash": "0x3a377331e7674bffb003f45954f52542c1b29d4362ea46631ef20ccf943a1b6",
+      "class_hash": "0x3c283662d7eb79efa42401b652cff942af37c4e4c7f35cc4817382a468ae1e8",
       "abi": [
         {
           "type": "impl",
@@ -1520,7 +1520,7 @@
     {
       "name": "paved::systems::play::play",
       "address": "0x50dac423fbab9216301ec6c50c0917dd9d9c354d1c0bfdb5d67da1530345cb",
-      "class_hash": "0x3d72699eafdd1661c67f93218037c41734a465ed95c739cd6ef9cddeac08980",
+      "class_hash": "0x5452fedd47970b1db2444443e9ba791dfe150914dbc30e64556e57072264337",
       "abi": [
         {
           "type": "impl",
@@ -3101,9 +3101,14 @@
           "name": "deck",
           "type": "u8",
           "key": false
+        },
+        {
+          "name": "seed",
+          "type": "felt252",
+          "key": false
         }
       ],
-      "class_hash": "0x7269b80c7da02b3234e45496d5d92ab660873d907a3ccfd97d25c76d6143f08",
+      "class_hash": "0x390345303240942f311f5fdbb8e3771a62d4adb63759970bafb85f5942373c4",
       "abi": [
         {
           "type": "impl",
@@ -3347,6 +3352,10 @@
             {
               "name": "deck",
               "type": "core::integer::u8"
+            },
+            {
+              "name": "seed",
+              "type": "core::felt252"
             }
           ]
         },

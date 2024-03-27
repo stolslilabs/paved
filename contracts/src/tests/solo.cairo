@@ -34,6 +34,6 @@ fn test_play_solo_game_started() {
     let store = StoreTrait::new(world);
 
     // [Assert] Game
-    let game = store.game(context.game_id);
+    let mut game = store.game(context.game_id);
     game.assert_started();
 }

@@ -31,7 +31,7 @@ fn test_host_join() {
     let store = StoreTrait::new(world);
 
     // [Assert] Game
-    let game = store.game(context.game_id);
+    let mut game = store.game(context.game_id);
     game.assert_exists();
 
     // [Assert] Player
@@ -47,7 +47,7 @@ fn test_host_join() {
     systems.host.start(world, context.game_id);
 
     // [Assert] Game
-    let game = store.game(context.game_id);
+    let mut game = store.game(context.game_id);
     game.assert_started();
 }
 
@@ -59,7 +59,7 @@ fn test_host_join_revert_started() {
     let store = StoreTrait::new(world);
 
     // [Assert] Game
-    let game = store.game(context.game_id);
+    let mut game = store.game(context.game_id);
     game.assert_exists();
 
     // [Assert] Player
@@ -75,6 +75,6 @@ fn test_host_join_revert_started() {
     systems.host.join(world, context.game_id);
 
     // [Assert] Game
-    let game = store.game(context.game_id);
+    let mut game = store.game(context.game_id);
     game.assert_started();
 }

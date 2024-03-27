@@ -42,7 +42,7 @@ mod play {
 
     use starknet::ContractAddress;
     use starknet::info::{
-        get_block_timestamp, get_block_number, get_caller_address, get_contract_address, get_tx_info
+        get_block_timestamp, get_block_number, get_caller_address, get_contract_address
     };
 
     // Dojo imports
@@ -150,8 +150,7 @@ mod play {
 
             // [Effect] Builder spawn a new tile
             // TODO: use VRF
-            let seed = get_tx_info().unbox().transaction_hash;
-            let (tile_id, plan) = game.draw_plan(seed.into());
+            let (tile_id, plan) = game.draw_plan();
             let tile = builder.reveal(tile_id, plan);
 
             // [Effect] Store tile
@@ -223,7 +222,7 @@ mod play {
 
             // [Event] Emit game over event for solo games if over
             if Mode::Solo == game.mode.into() && game.is_over(time) {
-                let tournament_id = TournamentImpl::compute_id(time);
+                let tournament_id = TournamentImpl::compute_id(game.start_time);
                 emit!(
                     world,
                     GameOver {
@@ -272,7 +271,7 @@ mod play {
             store.set_game(game);
 
             // [Event] Emit game over event
-            let tournament_id = TournamentImpl::compute_id(time);
+            let tournament_id = TournamentImpl::compute_id(game.start_time);
             emit!(
                 world,
                 GameOver {
@@ -355,7 +354,8 @@ mod play {
             // [Effect] Update player
             store.set_player(player);
 
-            // [Effect] Assessment
+            // [Effect] Reseed and assessment
+            game.reseed(tile);
             let mut scoreds = game.assess(tile, ref store);
 
             // [Effect] Update game
