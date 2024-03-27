@@ -120,12 +120,15 @@ export const Share = ({ score }: { score: number }) => {
   return (
     <TwitterShareButton
       url="#gaming #onetileatatime"
-      title={`I just play tested @pavedgame’s solo mode ⚒️
+      title={`I just paved my way in @pavedgame’s first ever solo tournament ⚒️
 
 Score: ${score}
 
-Join the fun at https://paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other
+With 2500 $Lords up for grabs, will you #paveyourwaytovictory and be crowned... 
 
+Lord of The Board 👑
+
+Enter now 👇 https://paved.gg/
 `}
     >
       <Button
