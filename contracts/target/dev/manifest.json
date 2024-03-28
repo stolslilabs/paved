@@ -969,7 +969,7 @@
     {
       "name": "paved::systems::host::host",
       "address": "0x3fdd4d446fd4cd53db379444ce41bb6c9b97f9cf8464fae79511832a242621",
-      "class_hash": "0x40cbb11cc2efe369a54b246866c8d8e0c2d9f31f26b4ec0bdc2a7d03d3a1ce",
+      "class_hash": "0x45520178da1b5e595c72cf103165216b0820310fc15daf966560779171ea978",
       "abi": [
         {
           "type": "impl",

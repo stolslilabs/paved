@@ -3,6 +3,7 @@ import { Event } from "@/dojo/events";
 import { useEffect, useState } from "react";
 import { GAME_OVER_EVENT } from "@/constants/events";
 import { parseGameOverEvent } from "@/dojo/game/events";
+import data from "@/data";
 
 export type GameOverEvent = {
   id: string;
@@ -25,7 +26,7 @@ const parse = (event: Event): GameOverEvent => {
 };
 
 export const useGames = () => {
-  const [games, setGames] = useState<GameOverEvent[]>([]);
+  const [games, setGames] = useState<GameOverEvent[]>(data);
   const [ids, setIds] = useState<number[]>([]);
 
   const {
@@ -49,14 +50,18 @@ export const useGames = () => {
         );
         // Extract all unique tournament ids
         const uniqueIds = Array.from(
-          new Set(sortedGames.map((game) => game.tournamentId)),
+          new Set(
+            sortedGames.map((game) => {
+              return game.tournamentId;
+            }),
+          ),
         );
         setIds(uniqueIds);
         return sortedGames;
       });
     };
     query();
-  }, []);
+  }, [data]);
 
   return { games, ids };
 };
