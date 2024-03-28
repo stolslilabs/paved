@@ -19,5 +19,5 @@ export const MASK_8: number = 0xff;
 
 // Tournaments
 
-export const TOURNAMENT_ID_OFFSET: number = 2828;
+export const TOURNAMENT_ID_OFFSET: number = 2829;
 export const TOURNAMENT_DURATION: number = 60 * 60 * 24 * 7;
