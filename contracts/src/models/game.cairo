@@ -170,7 +170,8 @@ impl GameImpl of GameTrait {
         // [Effect] Update game start time and seed
         let state: HashState = PoseidonTrait::new();
         let state = state.update(self.seed);
-        let state = state.update(tile_id.into());
+        let state = state.update(self.id.into());
+        let state = state.update(time.into());
         self.seed = state.finalize();
         self.start_time = time;
 
