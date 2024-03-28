@@ -31,6 +31,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCalendarDays,
   faEye,
+  faLock,
   faTrophy,
 } from "@fortawesome/free-solid-svg-icons";
 import { GameOverEvent, useGames } from "@/hooks/useGames";
@@ -239,6 +240,7 @@ export const GameRow = ({
 
   const setGameQueryParam = useMemo(() => {
     return (id: string) => {
+      if (!id) return;
       navigate("?id=" + id, { replace: true });
     };
   }, [navigate]);
@@ -263,11 +265,15 @@ export const GameRow = ({
       <TableCell className="text-right">{duration}</TableCell>
       <TableCell className="text-right">
         <Button
+          disabled={!game.gameId}
           variant={"secondary"}
           size={"icon"}
-          onClick={() => setGameQueryParam(`${game.gameId}`)}
+          onClick={() => {
+            if (!game.gameId) return;
+            return setGameQueryParam(`${game.gameId}`);
+          }}
         >
-          <FontAwesomeIcon icon={faEye} />
+          <FontAwesomeIcon icon={game.gameId ? faEye : faLock} />
         </Button>
       </TableCell>
     </TableRow>
