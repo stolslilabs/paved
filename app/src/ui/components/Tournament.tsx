@@ -153,10 +153,17 @@ export const Tournament = () => {
     setEndTime(end.toLocaleTimeString());
   }, [page]);
 
+  const balckilist = useMemo(() => {
+    return [1, 2, 3, 6, 32, 33, 66, 67];
+  }, []);
+
   const filteredGames = useMemo(() => {
     const highests: { [key: string]: GameOverEvent } = {};
     games
-      .filter((game) => game.tournamentId === page)
+      .filter(
+        (game) =>
+          game.tournamentId === page && !balckilist.includes(game.gameId),
+      )
       .forEach((game: GameOverEvent) => {
         if (!highests[game.playerId]) {
           highests[game.playerId] = game;
@@ -167,7 +174,7 @@ export const Tournament = () => {
     return Object.values(highests)
       .sort((a, b) => b.gameScore - a.gameScore)
       .slice(0, 10);
-  }, [games, page]);
+  }, [games, page, balckilist]);
 
   return (
     <>
