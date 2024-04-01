@@ -26,6 +26,7 @@ import {
   PaginationItem,
   PaginationLink,
 } from "@/components/ui/pagination";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -154,27 +155,29 @@ export const Tournament = () => {
   }, [page]);
 
   const balckilist = useMemo(() => {
-    return [1, 2, 3, 6, 32, 33, 66, 67];
+    return [
+      "0x41aad5a7493b75f240f418cb5f052d1a68981af21e813ed0a35e96d3e83123b",
+    ];
   }, []);
 
   const filteredGames = useMemo(() => {
-    const highests: { [key: string]: GameOverEvent } = {};
-    games
+    return games
       .filter(
         (game) =>
-          game.tournamentId === page && !balckilist.includes(game.gameId),
+          game.tournamentId === page && !balckilist.includes(game.playerMaster),
       )
-      .forEach((game: GameOverEvent) => {
-        if (!highests[game.playerId]) {
-          highests[game.playerId] = game;
-        } else if (game.gameScore > highests[game.playerId].gameScore) {
-          highests[game.playerId] = game;
-        }
-      });
-    return Object.values(highests)
       .sort((a, b) => b.gameScore - a.gameScore)
-      .slice(0, 10);
+      .slice(0, 50);
   }, [games, page, balckilist]);
+
+  const indexOfQuickest = useMemo(() => {
+    const quickestGames = filteredGames.slice(0, 10).sort((a, b) => {
+      const dta = a.gameEndTime.getTime() - a.gameStartTime.getTime();
+      const dtb = b.gameEndTime.getTime() - b.gameStartTime.getTime();
+      return dta - dtb;
+    });
+    return filteredGames.indexOf(quickestGames[0]);
+  }, [filteredGames]);
 
   return (
     <>
@@ -216,21 +219,29 @@ export const Tournament = () => {
       </div>
 
       <Table className="text-xs">
-        <TableCaption>Top 10 players</TableCaption>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[100px]">Rank</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead className="text-right">Score</TableHead>
-            <TableHead className="text-right">Duration</TableHead>
-            <TableHead></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredGames.map((game: GameOverEvent, index: number) => {
-            return <GameRow key={index} game={game} rank={index + 1} />;
-          })}
-        </TableBody>
+        <ScrollArea className="h-[570px] w-full pr-2">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[100px]">Rank</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead className="text-right">Score</TableHead>
+              <TableHead className="text-right">Duration</TableHead>
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredGames.map((game: GameOverEvent, index: number) => {
+              return (
+                <GameRow
+                  key={index}
+                  game={game}
+                  rank={index + 1}
+                  quickest={indexOfQuickest === index}
+                />
+              );
+            })}
+          </TableBody>
+        </ScrollArea>
       </Table>
     </>
   );
@@ -239,9 +250,11 @@ export const Tournament = () => {
 export const GameRow = ({
   game,
   rank,
+  quickest,
 }: {
   game: GameOverEvent;
   rank: number;
+  quickest: boolean;
 }) => {
   const navigate = useNavigate();
 
@@ -264,9 +277,18 @@ export const GameRow = ({
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   }, [game]);
 
+  const formattedRank = useMemo(() => {
+    let value = `#${rank}`;
+    if (rank === 1) value = `${value} 🥇`;
+    if (rank === 2) value = `${value} 🥈`;
+    if (rank === 3) value = `${value} 🥉`;
+    if (quickest) value = `${value} ⏰`;
+    return value;
+  }, []);
+
   return (
     <TableRow>
-      <TableCell className="font-medium">{`#${rank}`}</TableCell>
+      <TableCell className="font-medium">{formattedRank}</TableCell>
       <TableCell className="text-ellipsis">{game.playerName}</TableCell>
       <TableCell className="text-right">{game.gameScore}</TableCell>
       <TableCell className="text-right">{duration}</TableCell>

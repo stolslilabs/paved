@@ -1,7 +1,7 @@
 {
   "world": {
     "name": "dojo::world::world",
-    "address": "0x13d96e69dc96864181bfe3c020eb2ba54467812522d71daa623b9954788836",
+    "address": "0x31934f248716b99191037e5f1e96740a70a9b5453c4522ce0e29727a18f2aa8",
     "class_hash": "0x5ad96ceea29160aa7305bb078d1ade41f73b487363ae12778dbea6393cc00b2",
     "abi": [
       {
@@ -968,7 +968,7 @@
   "contracts": [
     {
       "name": "paved::systems::host::host",
-      "address": "0x3fa914c6aaa144a16a2125debdafb6a296facac00f0762c06f3b989141f15a9",
+      "address": "0x4b9d07cfebf8d9986808fffa46d80187ad406fad2de85557ef9f9db6c5f1e29",
       "class_hash": "0x45520178da1b5e595c72cf103165216b0820310fc15daf966560779171ea978",
       "abi": [
         {
@@ -1350,7 +1350,7 @@
     },
     {
       "name": "paved::systems::manage::manage",
-      "address": "0x5b89ab4e954d0c05afe623c14c6f7a026d396a17821932329cb894472b83d78",
+      "address": "0x742d77ed61be155825412bb5900e400e6fe659b4f6f246fa3602194600e9970",
       "class_hash": "0x3c283662d7eb79efa42401b652cff942af37c4e4c7f35cc4817382a468ae1e8",
       "abi": [
         {
@@ -1519,7 +1519,7 @@
     },
     {
       "name": "paved::systems::play::play",
-      "address": "0x455e311dd7a6b9623beeba7871c0e0d22f7aee92f7aef38a0a9bc7ea4300fb5",
+      "address": "0x138e1e885363b102418d48a7d0419ac441be7f36e20ea07f78837cb6473c217",
       "class_hash": "0x5452fedd47970b1db2444443e9ba791dfe150914dbc30e64556e57072264337",
       "abi": [
         {
