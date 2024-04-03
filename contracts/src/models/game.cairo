@@ -1,3 +1,4 @@
+use core::traits::Into;
 // Core imports
 
 use core::debug::PrintTrait;
@@ -13,7 +14,7 @@ use origami::random::deck::{Deck as OrigamiDeck, DeckTrait};
 
 use paved::constants;
 use paved::store::{Store, StoreImpl};
-use paved::events::{Scored};
+use paved::events::{ScoredCity, ScoredRoad, ScoredForest, ScoredWonder};
 use paved::helpers::bitmap::Bitmap;
 use paved::helpers::generic::GenericCount;
 use paved::helpers::forest::ForestCount;
@@ -39,6 +40,7 @@ mod errors {
     const INVALID_NAME: felt252 = 'Game: invalid name';
     const INVALID_HOST: felt252 = 'Game: invalid host';
     const INVALID_MODE: felt252 = 'Game: invalid mode';
+    const INVALID_PRIZE: felt252 = 'Game: invalid prize';
     const INVALID_PLAYER_COUNT: felt252 = 'Game: invalid player count';
     const TRANSFER_SAME_HOST: felt252 = 'Game: transfer to same host';
     const GAME_NOT_EXISTS: felt252 = 'Game: does not exist';
@@ -62,6 +64,7 @@ struct Game {
     tile_count: u32,
     start_time: u64,
     duration: u64,
+    price: felt252,
     prize: felt252,
     score: u32,
     mode: u8,
@@ -72,11 +75,14 @@ struct Game {
 #[generate_trait]
 impl GameImpl of GameTrait {
     #[inline(always)]
-    fn new(id: u32, name: felt252, time: u64, duration: u64, mode: u8, deck: Deck) -> Game {
+    fn new(id: u32, name: felt252, time: u64, duration: u64, mode: u8) -> Game {
         // [Check] Validate parameters
         assert(Mode::None != mode.into(), errors::INVALID_MODE);
-        // TODO: Hard coded prize pool until it comes from player fees
-        let prize = constants::PRIZE_POOL;
+        let deck = if Mode::Ranked == mode.into() || Mode::Single == mode.into() {
+            Deck::Base
+        } else {
+            Deck::Enhanced
+        };
         Game {
             id,
             name,
@@ -87,12 +93,31 @@ impl GameImpl of GameTrait {
             tile_count: 0,
             start_time: 0,
             duration,
-            prize,
+            price: 0,
+            prize: 0,
             score: 0,
             mode: mode.into(),
             deck: deck.into(),
             seed: 0,
         }
+    }
+
+    #[inline(always)]
+    fn price(self: Game) -> felt252 {
+        if self.mode.into() == Mode::Ranked {
+            return constants::TOURNAMENT_PRICE;
+        }
+        if self.mode.into() == Mode::Multi {
+            return self.price;
+        }
+        0
+    }
+
+    #[inline(always)]
+    fn is_payable(self: Game) -> bool {
+        let mode: Mode = self.mode.into();
+        let price: u256 = self.price.into();
+        Mode::Ranked == mode || price > 0
     }
 
     #[inline(always)]
@@ -104,6 +129,7 @@ impl GameImpl of GameTrait {
         self.tile_count = 0;
         self.start_time = 0;
         self.duration = 0;
+        self.price = 0;
         self.prize = 0;
         self.score = 0;
         self.mode = 0;
@@ -175,6 +201,10 @@ impl GameImpl of GameTrait {
         self.seed = state.finalize();
         self.start_time = time;
 
+        // [Effect] Update prize pool
+        let prize: u256 = self.price.into() * self.player_count.into();
+        self.prize = prize.try_into().expect(errors::INVALID_PRIZE);
+
         tile
     }
 
@@ -182,6 +212,12 @@ impl GameImpl of GameTrait {
     fn is_over(self: Game, time: u64) -> bool {
         let endtime = self.start_time + self.duration;
         return self.over || (self.duration != 0 && time >= endtime);
+    }
+
+    #[inline(always)]
+    fn is_solo(self: Game) -> bool {
+        let mode: Mode = self.mode.into();
+        Mode::Ranked == mode || Mode::Single == mode
     }
 
     #[inline(always)]
@@ -196,13 +232,13 @@ impl GameImpl of GameTrait {
     #[inline(always)]
     fn assess_over(ref self: Game) {
         let deck: Deck = self.deck.into();
-        self.over = Mode::Solo == self.mode.into() && self.tile_count >= deck.count().into();
+        self.over = self.is_solo() && self.tile_count >= deck.count().into();
     }
 
     #[inline(always)]
     fn surrender(ref self: Game) {
         // [Comment] Only available for solo mode
-        self.over = Mode::Solo == self.mode.into();
+        self.over = self.is_solo();
     }
 
     #[inline(always)]
@@ -212,41 +248,17 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
-    fn add_score(
-        ref self: Game,
-        ref builder: Builder,
-        ref player: Player,
-        score: u32,
-        ref events: Array<Scored>
-    ) {
+    fn add_score(ref self: Game, ref builder: Builder, ref player: Player, score: u32,) {
         // [Compute] Solo score to add
         let mut solo_score = 0;
-        if self.mode == Mode::Solo.into() {
+        if self.is_solo() {
             solo_score = score;
         };
 
-        // [Compute] Multi score to add
-        let mut multi_score = 0;
-        if self.mode == Mode::Multi.into() {
-            multi_score = score;
-        };
-
         // [Effect] Update scores
-        player.solo_score += solo_score;
-        player.multi_score += multi_score;
+        player.score += solo_score;
         self.score += score;
         builder.score += score;
-        let event = Scored {
-            game_id: self.id,
-            tile_id: 0,
-            x: 0,
-            y: 0,
-            player_id: player.id,
-            player_name: player.name,
-            order_id: builder.order,
-            points: score
-        };
-        events.append(event);
     }
 
     #[inline(always)]
@@ -255,11 +267,13 @@ impl GameImpl of GameTrait {
         if builder.score < score {
             score = builder.score;
         };
-        if Mode::Solo == self.mode.into() {
-            player.solo_score -= score;
-        } else if Mode::Multi == self.mode.into() {
-            player.multi_score -= score;
-        };
+
+        let mut solo_score = 0;
+        if self.is_solo() {
+            solo_score = score;
+        }
+
+        player.score -= solo_score;
         self.score -= score;
         builder.score -= score;
     }
@@ -289,9 +303,14 @@ impl GameImpl of GameTrait {
         (self.tile_count, deck.plan(plan_id))
     }
 
-    fn assess(ref self: Game, tile: Tile, ref store: Store) -> Array<Scored> {
+    fn assess(
+        ref self: Game, tile: Tile, ref store: Store
+    ) -> (Array<ScoredCity>, Array<ScoredRoad>, Array<ScoredForest>, Array<ScoredWonder>) {
         // [Compute] Setup recursion
-        let mut events: Array<Scored> = ArrayTrait::new();
+        let mut scored_cities: Array<ScoredCity> = ArrayTrait::new();
+        let mut scored_roads: Array<ScoredRoad> = ArrayTrait::new();
+        let mut scored_forests: Array<ScoredForest> = ArrayTrait::new();
+        let mut scored_wonders: Array<ScoredWonder> = ArrayTrait::new();
         let layout: Layout = tile.into();
         let mut north_oriented_starts = tile.north_oriented_starts();
         loop {
@@ -302,7 +321,17 @@ impl GameImpl of GameTrait {
                     let tile = store.tile(self, tile.id);
                     let start = north_oriented_start.rotate(tile.orientation.into());
                     let category: Category = layout.get_category(start);
-                    self.assess_at(tile, start, category, ref events, ref store);
+                    self
+                        .assess_at(
+                            tile,
+                            start,
+                            category,
+                            ref scored_cities,
+                            ref scored_roads,
+                            ref scored_forests,
+                            ref scored_wonders,
+                            ref store
+                        );
                 },
                 // [Check] Otherwise returns the characters
                 Option::None => { break; },
@@ -318,14 +347,24 @@ impl GameImpl of GameTrait {
                     let start = neighbor.north_oriented_wonder();
                     // [Check] Skip if there is no wonder
                     if start != Spot::None {
-                        self.assess_at(neighbor, start, Category::Wonder, ref events, ref store);
+                        self
+                            .assess_at(
+                                neighbor,
+                                start,
+                                Category::Wonder,
+                                ref scored_cities,
+                                ref scored_roads,
+                                ref scored_forests,
+                                ref scored_wonders,
+                                ref store
+                            );
                     };
                 },
                 // [Check] Otherwise returns the characters
                 Option::None => { break; },
             };
         };
-        events
+        (scored_cities, scored_roads, scored_forests, scored_wonders)
     }
 
     #[inline(always)]
@@ -334,7 +373,10 @@ impl GameImpl of GameTrait {
         tile: Tile,
         at: Spot,
         category: Category,
-        ref events: Array<Scored>,
+        ref scored_cities: Array<ScoredCity>,
+        ref scored_roads: Array<ScoredRoad>,
+        ref scored_forests: Array<ScoredForest>,
+        ref scored_wonders: Array<ScoredWonder>,
         ref store: Store
     ) {
         // [Compute] Assess the spot
@@ -349,12 +391,26 @@ impl GameImpl of GameTrait {
                 // [Effect] Solve and collect characters
                 if 0 != count.into() && 0 != woodsmen.len().into() {
                     ForestCount::solve(
-                        ref self, count, woodsman_score, base, ref woodsmen, ref events, ref store
+                        ref self,
+                        Category::Road,
+                        count,
+                        woodsman_score,
+                        base,
+                        ref woodsmen,
+                        ref scored_forests,
+                        ref store
                     );
                 }
                 if 0 != count.into() && 0 != herdsmen.len().into() {
                     ForestCount::solve(
-                        ref self, count, herdsman_score, base, ref herdsmen, ref events, ref store
+                        ref self,
+                        Category::City,
+                        count,
+                        herdsman_score,
+                        base,
+                        ref herdsmen,
+                        ref scored_forests,
+                        ref store
                     );
                 }
             },
@@ -363,7 +419,14 @@ impl GameImpl of GameTrait {
                 // [Effect] Solve and collect characters
                 if 0 != count.into() && 0 != characters.len().into() {
                     GenericCount::solve(
-                        ref self, count, base, ref characters, ref events, ref store
+                        ref self,
+                        Category::Road,
+                        count,
+                        base,
+                        ref characters,
+                        ref scored_cities,
+                        ref scored_roads,
+                        ref store
                     );
                 }
             },
@@ -372,7 +435,14 @@ impl GameImpl of GameTrait {
                 // [Effect] Solve and collect characters
                 if 0 != count.into() && 0 != characters.len().into() {
                     GenericCount::solve(
-                        ref self, count, base, ref characters, ref events, ref store
+                        ref self,
+                        Category::City,
+                        count,
+                        base,
+                        ref characters,
+                        ref scored_cities,
+                        ref scored_roads,
+                        ref store
                     );
                 }
             },
@@ -380,7 +450,9 @@ impl GameImpl of GameTrait {
                 let (count, mut character) = WonderCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect the character
                 if 0 != count.into() {
-                    WonderCount::solve(ref self, base, ref character, ref events, ref store);
+                    WonderCount::solve(
+                        ref self, base, ref character, ref scored_wonders, ref store
+                    );
                 }
             },
             _ => { return; },
@@ -401,6 +473,7 @@ impl ZeroableGame of core::Zeroable<Game> {
             tile_count: 0,
             start_time: 0,
             duration: 0,
+            price: 0,
             prize: 0,
             score: 0,
             mode: 0,
@@ -449,7 +522,7 @@ impl GameAssert of AssertTrait {
     }
 
     #[inline(always)]
-    fn assert_over(self: Game, time: u64) {
+    fn assert_is_over(self: Game, time: u64) {
         assert(self.is_over(time), errors::GAME_NOT_OVER);
     }
 
@@ -460,12 +533,17 @@ impl GameAssert of AssertTrait {
 
     #[inline(always)]
     fn assert_is_solo(self: Game) {
-        assert(self.mode == Mode::Solo.into(), errors::INVALID_MODE);
+        assert(self.is_solo(), errors::INVALID_MODE);
+    }
+
+    #[inline(always)]
+    fn assert_is_ranked(self: Game) {
+        assert(self.mode.into() == Mode::Ranked, errors::INVALID_MODE);
     }
 
     #[inline(always)]
     fn assert_is_multi(self: Game) {
-        assert(self.mode == Mode::Multi.into(), errors::INVALID_MODE);
+        assert(!self.is_solo(), errors::INVALID_MODE);
     }
 
     #[inline(always)]
@@ -499,7 +577,7 @@ mod tests {
 
     #[test]
     fn test_game_new() {
-        let game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into(), Deck::Enhanced.into());
+        let game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
         assert(game.id == GAME_ID, 'Game: Invalid id');
         assert(game.tiles == 0, 'Game: Invalid tiles');
         assert(game.tile_count == 0, 'Game: Invalid tile_count');
@@ -507,9 +585,7 @@ mod tests {
 
     #[test]
     fn test_game_add_tile() {
-        let mut game = GameImpl::new(
-            GAME_ID, NAME, 0, 0, Mode::Multi.into(), Deck::Enhanced.into()
-        );
+        let mut game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
         let tile_count = game.tile_count;
         let tile_id = game.add_tile();
         assert(tile_id == GAME_ID, 'Game: Invalid tile_id');
@@ -518,9 +594,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_plan() {
-        let mut game = GameImpl::new(
-            GAME_ID, NAME, 0, 0, Mode::Multi.into(), Deck::Enhanced.into()
-        );
+        let mut game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
         let (tile_count, plan_id) = game.draw_plan();
         assert(tile_count == 1, 'Game: Invalid tile_count');
         assert(plan_id.into() < constants::TOTAL_TILE_COUNT, 'Game: Invalid plan_id');
@@ -530,9 +604,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_planes() {
-        let mut game = GameImpl::new(
-            GAME_ID, NAME, 0, 0, Mode::Multi.into(), Deck::Enhanced.into()
-        );
+        let mut game = GameImpl::new(GAME_ID, NAME, 0, 0, Mode::Multi.into());
         let mut counts: Felt252Dict<u8> = core::Default::default();
         loop {
             if game.tile_count == constants::TOTAL_TILE_COUNT.into() {

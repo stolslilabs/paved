@@ -6,6 +6,13 @@ fn WORLD() -> starknet::ContractAddress {
     >()
 }
 
+fn TOKEN_ADDRESS() -> starknet::ContractAddress {
+    starknet::contract_address_const::<
+        0x21d38979aa1388702436102d42e0db359d32760ee2d939bf96b3941fc606153
+    // 0x51205c5e6ac3ad5691c28c0c5ffcdd62c70bddb63612f75a4bac9b2a85b9449
+    >()
+}
+
 // Game
 
 const TOTAL_TILE_COUNT: u8 = 99;
@@ -17,6 +24,7 @@ const DISCARD_POINTS: u32 = 50;
 
 // Tournament
 
+const TOURNAMENT_PRICE: felt252 = 1_000_000_000_000_000_000;
 const TOURNAMENT_DURATION: u64 = 604800; // 1 week
 
 // Bonus curve
