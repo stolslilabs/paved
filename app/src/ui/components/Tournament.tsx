@@ -26,6 +26,7 @@ import {
   PaginationItem,
   PaginationLink,
 } from "@/components/ui/pagination";
+import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -42,6 +43,7 @@ import {
   TOURNAMENT_DURATION,
   TOURNAMENT_ID_OFFSET,
 } from "@/dojo/game/constants";
+import { set } from "mobx";
 
 export const TournamentHeader = () => {
   const [tournamentId, setTournamentId] = useState<number>();
@@ -123,6 +125,11 @@ export const Tournament = () => {
   const [startTime, setStartTime] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [endTime, setEndTime] = useState<string>("");
+  const [top1Index, setTop1Index] = useState<number>();
+  const [top2Index, setTop2Index] = useState<number>();
+  const [top3Index, setTop3Index] = useState<number>();
+  const [quickestIndex, setQuickestIndex] = useState<number | undefined>();
+  const [filtered, setFiltered] = useState<boolean>(true);
 
   useEffect(() => {
     if (!page) return setPage(ids.length);
@@ -160,7 +167,31 @@ export const Tournament = () => {
     ];
   }, []);
 
-  const filteredGames = useMemo(() => {
+  const topestGames = useMemo(() => {
+    const highests: { [key: string]: GameOverEvent } = {};
+    games
+      .filter(
+        (game) =>
+          game.tournamentId === page && !balckilist.includes(game.playerMaster),
+      )
+      .forEach((game: GameOverEvent) => {
+        const playerMaster =
+          game.playerMaster ===
+          "0x18d4756921d34b0026731f427c6b365687ce61ce060141bf26867f0920d2191"
+            ? "0x30c3f654ead1da0c9166d483d3dd436dcbb57ce8e1adaa129995103a8dcca4d"
+            : game.playerMaster;
+        if (!highests[playerMaster]) {
+          highests[playerMaster] = game;
+        } else if (game.gameScore > highests[playerMaster].gameScore) {
+          highests[playerMaster] = game;
+        }
+      });
+    return Object.values(highests)
+      .sort((a, b) => b.gameScore - a.gameScore)
+      .slice(0, 50);
+  }, [games, page, balckilist]);
+
+  const allGames = useMemo(() => {
     return games
       .filter(
         (game) =>
@@ -170,18 +201,50 @@ export const Tournament = () => {
       .slice(0, 50);
   }, [games, page, balckilist]);
 
-  const indexOfQuickest = useMemo(() => {
-    const quickestGames = filteredGames.slice(0, 10).sort((a, b) => {
+  const quickestGame = useMemo(() => {
+    return allGames.slice(0, 10).sort((a, b) => {
       const dta = a.gameEndTime.getTime() - a.gameStartTime.getTime();
       const dtb = b.gameEndTime.getTime() - b.gameStartTime.getTime();
       return dta - dtb;
-    });
-    return filteredGames.indexOf(quickestGames[0]);
-  }, [filteredGames]);
+    })[0];
+  }, [allGames]);
+
+  useEffect(() => {
+    if (filtered) {
+      setTop1Index(topestGames.indexOf(topestGames[0]));
+      setTop2Index(topestGames.indexOf(topestGames[1]));
+      setTop3Index(topestGames.indexOf(topestGames[2]));
+      const quickest = topestGames.indexOf(quickestGame);
+      setQuickestIndex(quickest === -1 ? undefined : quickest);
+    } else {
+      setTop1Index(allGames.indexOf(topestGames[0]));
+      setTop2Index(allGames.indexOf(topestGames[1]));
+      setTop3Index(allGames.indexOf(topestGames[2]));
+      setQuickestIndex(allGames.indexOf(quickestGame));
+    }
+  }, [topestGames, allGames, filtered]);
 
   return (
-    <>
+    <div className="relative flex flex-col gap-4">
       <div className="flex justify-center text-xs">Seasons</div>
+      <div className="absolute top-0 right-0">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <Switch
+                id="show-finished"
+                checked={filtered}
+                onCheckedChange={() => setFiltered(!filtered)}
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="select-none">
+                {filtered ? "Show unique games" : "Show unique players"}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
       <Pagination>
         <PaginationContent>
           <PaginationItem>
@@ -230,30 +293,41 @@ export const Tournament = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredGames.map((game: GameOverEvent, index: number) => {
-              return (
-                <GameRow
-                  key={index}
-                  game={game}
-                  rank={index + 1}
-                  quickest={indexOfQuickest === index}
-                />
-              );
-            })}
+            {(filtered ? topestGames : allGames).map(
+              (game: GameOverEvent, index: number) => {
+                return (
+                  <GameRow
+                    key={index}
+                    game={game}
+                    rank={index + 1}
+                    quickest={quickestIndex === index}
+                    top1={top1Index === index}
+                    top2={top2Index === index}
+                    top3={top3Index === index}
+                  />
+                );
+              },
+            )}
           </TableBody>
         </ScrollArea>
       </Table>
-    </>
+    </div>
   );
 };
 
 export const GameRow = ({
   game,
   rank,
+  top1,
+  top2,
+  top3,
   quickest,
 }: {
   game: GameOverEvent;
   rank: number;
+  top1: boolean;
+  top2: boolean;
+  top3: boolean;
   quickest: boolean;
 }) => {
   const navigate = useNavigate();
@@ -279,12 +353,12 @@ export const GameRow = ({
 
   const formattedRank = useMemo(() => {
     let value = `#${rank}`;
-    if (rank === 1) value = `${value} 🥇`;
-    if (rank === 2) value = `${value} 🥈`;
-    if (rank === 3) value = `${value} 🥉`;
+    if (top1) value = `${value} 🥇`;
+    if (top2) value = `${value} 🥈`;
+    if (top3) value = `${value} 🥉`;
     if (quickest) value = `${value} ⏰`;
     return value;
-  }, []);
+  }, [top1, top2, top3, quickest, rank]);
 
   return (
     <TableRow>
