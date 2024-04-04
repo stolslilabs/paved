@@ -120,13 +120,13 @@ export const Share = ({ score }: { score: number }) => {
   return (
     <TwitterShareButton
       url="https://paved.gg/"
-      title={`I just paved my way in @pavedgame’s first ever solo tournament ⚒️
+      title={`I just test played @pavedgame’s solo mode 👑
 
 Score: ${score}
 
-With 2500 $Lords up for grabs, will you #paveyourwaytovictory and be crowned... 
+Join the fun at https://paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other ⚒️ 
 
-Lord of The Board 👑
+#gaming #onetileatatime
 
 Enter now 👇
 `}
