@@ -128,7 +128,7 @@ Join the fun at https://paved.gg/ and #paveyourwaytovictory in an onchain strate
 
 #gaming #onetileatatime
 
-Enter now 👇
+Play now 👇
 `}
     >
       <Button
