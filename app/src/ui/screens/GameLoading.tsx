@@ -1,4 +1,4 @@
-import background from "/assets/placeholder.png";
+import background from "/assets/loading.png";
 import logo from "/assets/loading-logo.png";
 
 export const GameLoading = () => {
