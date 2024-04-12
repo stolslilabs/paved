@@ -1,0 +1,45 @@
+kind = "DojoModel"
+class_hash = "0x5048fe94fd3c42616b7baf2cf3e048502d8ccc1a528c2f59498c11c7892cbdf"
+original_class_hash = "0x5048fe94fd3c42616b7baf2cf3e048502d8ccc1a528c2f59498c11c7892cbdf"
+abi = "manifests/dev/abis/base/models/paved_models_tournament_tournament.json"
+name = "paved::models::tournament::tournament"
+
+[[members]]
+name = "id"
+type = "u64"
+key = true
+
+[[members]]
+name = "prize"
+type = "felt252"
+key = false
+
+[[members]]
+name = "top1_player_id"
+type = "felt252"
+key = false
+
+[[members]]
+name = "top2_player_id"
+type = "felt252"
+key = false
+
+[[members]]
+name = "top3_player_id"
+type = "felt252"
+key = false
+
+[[members]]
+name = "top1_score"
+type = "u32"
+key = false
+
+[[members]]
+name = "top2_score"
+type = "u32"
+key = false
+
+[[members]]
+name = "top3_score"
+type = "u32"
+key = false

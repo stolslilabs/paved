@@ -407,28 +407,28 @@ mod play {
 
             loop {
                 match cities.pop_front() {
-                    Option::Some(_event) => { emit!(world, _event) },
+                    Option::Some(_event) => { emit!(world, (_event,)) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match roads.pop_front() {
-                    Option::Some(_event) => { emit!(world, _event) },
+                    Option::Some(_event) => { emit!(world, (_event,)) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match forests.pop_front() {
-                    Option::Some(_event) => { emit!(world, _event) },
+                    Option::Some(_event) => { emit!(world, (_event,)) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match wonders.pop_front() {
-                    Option::Some(_event) => { emit!(world, _event) },
+                    Option::Some(_event) => { emit!(world, (_event,)) },
                     Option::None => { break; }
                 };
             };

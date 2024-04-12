@@ -11,6 +11,7 @@ export class Game {
   public tile_count: number;
   public start_time: number;
   public duration: number;
+  public price: string;
   public prize: string;
   public score: number;
   public mode: Mode;
@@ -27,6 +28,7 @@ export class Game {
     this.tile_count = game.tile_count;
     this.start_time = game.start_time;
     this.duration = game.duration;
+    this.price = game.price;
     this.prize = game.prize;
     this.score = game.score;
     this.mode = Mode.from(game.mode);

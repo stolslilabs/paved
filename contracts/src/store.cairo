@@ -16,7 +16,7 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
 use paved::helpers::bitmap::Bitmap;
 use paved::models::game::{Game, GameImpl};
-use paved::models::player::{Player, PlayerName, PlayerImpl};
+use paved::models::player::{Player, PlayerImpl};
 use paved::models::builder::{Builder, BuilderPosition, BuilderImpl};
 use paved::models::team::{Team, TeamImpl};
 use paved::models::tile::{Tile, TilePosition, TileImpl};
