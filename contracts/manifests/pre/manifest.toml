@@ -3,10 +3,10 @@ kind = "Contract"
 class_hash = "0x799bc4e9da10bfb3dd88e6f223c9cfbf7745435cd14f5d69675ea448e578cd"
 original_class_hash = "0x799bc4e9da10bfb3dd88e6f223c9cfbf7745435cd14f5d69675ea448e578cd"
 abi = "abis/deployments/dojo_world_world.json"
-address = "0x4db06fe91b0a68b79ca852bdc9333a0c509b69b17b239840b04acf3b1f57221"
-transaction_hash = "0x4d9258b16cfd49877b517e33c3cabf7348c370075c0579a296e34cff468c3bb"
-block_number = 1980
-seed = "v7"
+address = "0x7da33b5f9f052d95f3a7df0f6f883839769136fbd41f26a9293c339c121ed3e"
+transaction_hash = "0x5dddc5f7e077a1009d0e69543221a50e3a42dc0efd9cec25f3688575da159bf"
+block_number = 3
+seed = "v0"
 name = "dojo::world::world"
 
 [base]
@@ -17,7 +17,7 @@ name = "dojo::base::base"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x385d4df701eb7439e975d4b2b6825f0bc30d9556b68696e14474b6c0baf0f1e"
+address = "0x7d4bfd807b764c572a8258f14c62a53dbfc13fbb6faa06e718e1e517f63539a"
 class_hash = "0x7e900a1fa31b488e83ea505b49b66bca3f7dc73bbb566e020f66e28215468c2"
 original_class_hash = "0x7e900a1fa31b488e83ea505b49b66bca3f7dc73bbb566e020f66e28215468c2"
 base_class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"
@@ -29,7 +29,7 @@ name = "paved::systems::host::host"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x6ff04af02efbbde8908adac094577a34ca522c78718754fd29b4f251980520b"
+address = "0x7e60c3859de05a94109354b29405e74f5a71b4d113587c7ae3fc26fd65cfaf5"
 class_hash = "0x10ea2e084c3883cfbe2d21462e4cbffd117bf34d09c2f0fb38da0b0464bcb5a"
 original_class_hash = "0x10ea2e084c3883cfbe2d21462e4cbffd117bf34d09c2f0fb38da0b0464bcb5a"
 base_class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"
@@ -41,7 +41,7 @@ name = "paved::systems::manage::manage"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x2993aaf32a2e8e90084a29b1e21a161fb771ba5b19faf217eeaf2f1707a3c01"
+address = "0x3ec01a0f78da3786ea6e732a41f5c0f9b39b665430383ec1e56cc63cc45522c"
 class_hash = "0x62d30877959ae9874934095e00403c09678811d0b567660a80aa7d1c6f0e81"
 original_class_hash = "0x62d30877959ae9874934095e00403c09678811d0b567660a80aa7d1c6f0e81"
 base_class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"

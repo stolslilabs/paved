@@ -52,7 +52,6 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   const { data } = useStarkProfile({ address });
 
   useEffect(() => {
-    console.log(player);
     if (player) {
       setScore(player.score);
       setPaved(player.paved);
