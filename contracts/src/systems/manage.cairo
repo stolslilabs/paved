@@ -153,7 +153,7 @@ mod manage {
 
             // [Check] Game is over
             let time = get_block_timestamp();
-            game.assert_over(time);
+            game.assert_is_over(time);
 
             // [Check] Builder exists
             let caller = get_caller_address();

@@ -27,6 +27,15 @@ trait IHost<TContractState> {
     fn kick(self: @TContractState, world: IWorldDispatcher, game_id: u32, player_id: felt252);
     fn delete(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
     fn start(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
+    fn claim(self: @TContractState, world: IWorldDispatcher, tournament_id: u64,);
+}
+
+#[starknet::interface]
+trait IERC20<TContractState> {
+    fn transfer(ref self: TContractState, recipient: ContractAddress, amount: u256) -> bool;
+    fn transferFrom(
+        ref self: TContractState, sender: ContractAddress, recipient: ContractAddress, amount: u256
+    ) -> bool;
 }
 
 #[starknet::contract]
@@ -53,14 +62,14 @@ mod host {
 
     // Internal imports
 
-    use paved::constants::WORLD;
+    use paved::constants;
     use paved::store::{Store, StoreImpl};
-    use paved::events::{Built, Scored};
     use paved::models::game::{Game, GameImpl, GameAssert};
     use paved::models::player::{Player, PlayerImpl, PlayerAssert};
     use paved::models::team::{Team, TeamImpl};
     use paved::models::builder::{Builder, BuilderImpl, BuilderAssert};
     use paved::models::tile::{Tile, TilePosition, TileImpl};
+    use paved::models::tournament::{Tournament, TournamentImpl, TournamentAssert};
     use paved::types::alliance::{Alliance, AllianceImpl};
     use paved::types::order::{Order, OrderImpl};
     use paved::types::orientation::Orientation;
@@ -73,21 +82,20 @@ mod host {
 
     // Local imports
 
-    use super::IHost;
+    use super::{IHost, IERC20Dispatcher, IERC20DispatcherTrait};
+
+    // Errors
+
+    mod errors {
+        const ERC20_REWARD_FAILED: felt252 = 'ERC20: reward failed';
+        const ERC20_PAY_FAILED: felt252 = 'ERC20: pay failed';
+        const ERC20_REFUND_FAILED: felt252 = 'ERC20: refund failed';
+    }
 
     // Storage
 
     #[storage]
     struct Storage {}
-
-    // Events
-
-    #[event]
-    #[derive(Drop, starknet::Event)]
-    enum Event {
-        Built: Built,
-        Scored: Scored,
-    }
 
     // Implementations
 
@@ -101,7 +109,7 @@ mod host {
     #[abi(embed_v0)]
     impl WorldProviderImpl of IWorldProvider<ContractState> {
         fn world(self: @ContractState) -> IWorldDispatcher {
-            IWorldDispatcher { contract_address: WORLD() }
+            IWorldDispatcher { contract_address: constants::WORLD() }
         }
     }
 
@@ -121,12 +129,7 @@ mod host {
             // [Effect] Create game
             let game_id = world.uuid() + 1;
             let time = get_block_timestamp();
-            let deck = if Mode::Solo == mode.into() {
-                Deck::Base
-            } else {
-                Deck::Enhanced
-            };
-            let mut game = GameImpl::new(game_id, name, time, duration, mode, deck);
+            let mut game = GameImpl::new(game_id, name, time, duration, mode);
 
             // [Effect] Join the game
             let builder_index = game.join();
@@ -136,7 +139,7 @@ mod host {
             store.set_builder(builder);
 
             // [Effect] Start the game if solo mode
-            if Mode::Solo == game.mode.into() {
+            if game.is_solo() {
                 // [Effect] Start game
                 let tile = game.start(time);
 
@@ -144,8 +147,23 @@ mod host {
                 store.set_tile(tile);
             }
 
+            // [Effect] Update Tournament prize pool if ranked game
+            if Mode::Ranked == game.mode.into() {
+                // [Effect] Update tournament
+                let tournament_id = TournamentImpl::compute_id(time);
+                let mut tournament = store.tournament(tournament_id);
+                tournament.buyin(game.price());
+
+                // [Effect] Store tournament
+                store.set_tournament(tournament);
+            }
+
             // [Effect] Store game
             store.set_game(game);
+
+            // [Interaction] Pay entry price
+            let amount: u256 = game.price().into();
+            self._pay(world, caller, amount);
 
             game_id
         }
@@ -238,6 +256,10 @@ mod host {
             // [Effect] Create a new builder
             let builder = BuilderImpl::new(game.id, player.id, builder_index, player.order);
             store.set_builder(builder);
+
+            // [Interaction] Pay entry price
+            let amount: u256 = game.price().into();
+            self._pay(world, caller, amount);
         }
 
         fn ready(self: @ContractState, world: IWorldDispatcher, game_id: u32, status: bool) {
@@ -330,6 +352,10 @@ mod host {
             // [Effect] Leave the game
             game.leave();
             store.set_game(game);
+
+            // [Interaction] Refund entry price
+            let amount: u256 = game.price().into();
+            self._refund(world, caller, amount);
         }
 
         fn kick(self: @ContractState, world: IWorldDispatcher, game_id: u32, player_id: felt252) {
@@ -357,6 +383,7 @@ mod host {
 
             // [Check] Kicked's builder exists
             let mut kicked = store.builder(game, player_id);
+            let kicked_address: ContractAddress = player_id.try_into().unwrap();
             kicked.assert_exists();
 
             // [Check] Kicked is not the host
@@ -368,6 +395,10 @@ mod host {
             // [Effect] Leave the game
             game.leave();
             store.set_game(game);
+
+            // [Interaction] Refund entry price
+            let amount: u256 = game.price().into();
+            self._refund(world, kicked_address, amount);
         }
 
         fn delete(self: @ContractState, world: IWorldDispatcher, game_id: u32,) {
@@ -404,6 +435,10 @@ mod host {
             // [Effect] Delete the game
             game.delete();
             store.set_game(game);
+
+            // [Interaction] Refund entry price
+            let amount: u256 = game.price().into();
+            self._refund(world, caller, amount);
         }
 
         fn start(self: @ContractState, world: IWorldDispatcher, game_id: u32,) {
@@ -439,6 +474,65 @@ mod host {
 
             // [Effect] Store tile
             store.set_tile(tile);
+        }
+
+        fn claim(self: @ContractState, world: IWorldDispatcher, tournament_id: u64) {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new(world);
+
+            // [Check] Player exists
+            let caller = get_caller_address();
+            let mut player = store.player(caller.into());
+            player.assert_exists();
+
+            // [Check] Tournament exists
+            let mut tournament = store.tournament(tournament_id);
+            tournament.assert_exists();
+
+            // [Effect] Update claim
+            let time = get_block_timestamp();
+            let reward = tournament.claim(player.id, time);
+            store.set_tournament(tournament);
+
+            // [Interaction] Pay reward
+            self._refund(world, caller, reward);
+        }
+    }
+
+
+    #[generate_trait]
+    impl InternalImpl of InternalTrait {
+        fn _pay(
+            self: @ContractState, world: IWorldDispatcher, caller: ContractAddress, amount: u256
+        ) {
+            // [Check] Amount is not null, otherwise return
+            if amount == 0 {
+                return;
+            }
+
+            // [Interaction] Transfer
+            let contract = get_contract_address();
+            let erc20 = IERC20Dispatcher { contract_address: constants::TOKEN_ADDRESS() };
+            let status = erc20.transferFrom(caller, contract, amount);
+
+            // [Check] Status
+            assert(status, errors::ERC20_PAY_FAILED);
+        }
+
+        fn _refund(
+            self: @ContractState, world: IWorldDispatcher, recipient: ContractAddress, amount: u256
+        ) {
+            // [Check] Amount is not null, otherwise return
+            if amount == 0 {
+                return;
+            }
+
+            // [Interaction] Transfer
+            let erc20 = IERC20Dispatcher { contract_address: constants::TOKEN_ADDRESS() };
+            let status = erc20.transfer(recipient, amount);
+
+            // [Check] Status
+            assert(status, errors::ERC20_REFUND_FAILED);
         }
     }
 }

@@ -57,15 +57,14 @@ export const UpdateGame = () => {
 
   useEffect(() => {
     if (game && player) {
-      setGameName(shortString.decodeShortString(game.name));
+      setGameName(game.name);
       setDuration(game.duration / 60);
     }
   }, [game, player]);
 
   const handleClick = () => {
     if (!game || !player) return;
-    const name = shortString.decodeShortString(game.name);
-    if (name !== gameName) {
+    if (game.name !== gameName) {
       rename_game({
         account: account as Account,
         game_id: gameId,

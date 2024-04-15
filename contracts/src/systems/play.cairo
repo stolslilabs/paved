@@ -34,6 +34,7 @@ trait IPlay<TContractState> {
 mod play {
     // Core imports
 
+    use paved::store::StoreTrait;
     use paved::models::game::GameTrait;
     use paved::models::game::AssertTrait;
     use core::debug::PrintTrait;
@@ -57,12 +58,16 @@ mod play {
 
     use paved::constants::WORLD;
     use paved::store::{Store, StoreImpl};
-    use paved::events::{Built, Scored, Discarded, GameOver};
+    use paved::events::{
+        Built, Discarded, GameOver, ScoredCity, ScoredRoad, ScoredForest, ScoredWonder, ClosedCity,
+        ClosedRoad, ClosedForest, ClosedWonder
+    };
     use paved::models::game::{Game, GameImpl, GameAssert};
     use paved::models::player::{Player, PlayerImpl, PlayerAssert};
     use paved::models::team::{Team, TeamImpl};
     use paved::models::builder::{Builder, BuilderImpl, ZeroableBuilderImpl, BuilderAssert};
     use paved::models::tile::{Tile, TilePosition, TileImpl};
+    use paved::models::tournament::{Tournament, TournamentImpl, TournamentAssert};
     use paved::types::alliance::{Alliance, AllianceImpl};
     use paved::types::mode::Mode;
     use paved::types::order::{Order, OrderImpl};
@@ -71,7 +76,6 @@ mod play {
     use paved::types::role::Role;
     use paved::types::spot::Spot;
     use paved::types::plan::Plan;
-    use paved::types::tournament::TournamentImpl;
 
     // Local imports
 
@@ -97,9 +101,16 @@ mod play {
     #[derive(Drop, starknet::Event)]
     enum Event {
         Built: Built,
-        Scored: Scored,
         Discarded: Discarded,
         GameOver: GameOver,
+        ScoredCity: ScoredCity,
+        ScoredRoad: ScoredRoad,
+        ScoredForest: ScoredForest,
+        ScoredWonder: ScoredWonder,
+        ClosedCity: ClosedCity,
+        ClosedRoad: ClosedRoad,
+        ClosedForest: ClosedForest,
+        ClosedWonder: ClosedWonder,
     }
 
     // Implementations
@@ -195,7 +206,7 @@ mod play {
             assert(tile.is_non_zero(), errors::TILE_NOT_FOUND);
 
             // [Effect] Builder discard a tile
-            let malus = builder.discard(ref game, ref player);
+            let _malus = builder.discard(ref game, ref player);
 
             // [Effect] Update builder
             store.set_builder(builder);
@@ -208,34 +219,38 @@ mod play {
             store.set_game(game);
 
             // [Event] Emit events
-            emit!(
-                world,
-                Discarded {
+            let _event = Discarded {
+                game_id: game.id,
+                tile_id: tile.id,
+                player_id: player.id,
+                player_name: player.name,
+                order_id: builder.order,
+                points: _malus,
+            };
+            emit!(world, (Event::Discarded(_event)));
+
+            let tournament_id = TournamentImpl::compute_id(game.start_time);
+            let id_end = TournamentImpl::compute_id(time);
+            if tournament_id == id_end && game.is_solo() && game.is_over(time) {
+                // [Effect] Update tournament
+                if Mode::Ranked == game.mode.into() {
+                    let mut tournament = store.tournament(tournament_id);
+                    tournament.score(player.id, game.score);
+                    store.set_tournament(tournament);
+                }
+
+                // [Event] Emit game over event for solo games if over
+                let _event = GameOver {
                     game_id: game.id,
-                    tile_id: tile.id,
+                    tournament_id: tournament_id,
+                    game_score: game.score,
+                    game_start_time: game.start_time,
+                    game_end_time: time,
                     player_id: player.id,
                     player_name: player.name,
-                    order_id: builder.order,
-                    points: malus,
-                },
-            );
-
-            // [Event] Emit game over event for solo games if over
-            if Mode::Solo == game.mode.into() && game.is_over(time) {
-                let tournament_id = TournamentImpl::compute_id(game.start_time);
-                emit!(
-                    world,
-                    GameOver {
-                        game_id: game.id,
-                        tournament_id: tournament_id,
-                        game_score: game.score,
-                        game_start_time: game.start_time,
-                        game_end_time: time,
-                        player_id: player.id,
-                        player_name: player.name,
-                        player_master: player.master,
-                    }
-                );
+                    player_master: player.master,
+                };
+                emit!(world, (Event::GameOver(_event)));
             }
         }
 
@@ -272,9 +287,17 @@ mod play {
 
             // [Event] Emit game over event
             let tournament_id = TournamentImpl::compute_id(game.start_time);
-            emit!(
-                world,
-                GameOver {
+            let id_end = TournamentImpl::compute_id(time);
+            if tournament_id == id_end {
+                // [Effect] Update tournament
+                if Mode::Ranked == game.mode.into() {
+                    let mut tournament = store.tournament(tournament_id);
+                    tournament.score(player.id, game.score);
+                    store.set_tournament(tournament);
+                }
+
+                // [Event] Emit game over event for solo games if over
+                let _event = GameOver {
                     game_id: game.id,
                     tournament_id: tournament_id,
                     game_score: game.score,
@@ -283,8 +306,9 @@ mod play {
                     player_id: player.id,
                     player_name: player.name,
                     player_master: player.master,
-                }
-            );
+                };
+                emit!(world, (Event::GameOver(_event)));
+            }
         }
 
         fn build(
@@ -356,53 +380,74 @@ mod play {
 
             // [Effect] Reseed and assessment
             game.reseed(tile);
-            let mut scoreds = game.assess(tile, ref store);
+            let (mut cities, mut roads, mut forests, mut wonders) = game.assess(tile, ref store);
 
             // [Effect] Update game
             game.assess_over();
             store.set_game(game);
 
             // [Event] Emit events
-            emit!(
-                world,
-                Built {
-                    game_id: game.id,
-                    tile_id: tile.id,
-                    x: x,
-                    y: y,
-                    player_id: player.id,
-                    player_name: player.name,
-                }
-            );
+            let _event = Built {
+                game_id: game.id,
+                tile_id: tile.id,
+                x: x,
+                y: y,
+                player_id: player.id,
+                player_name: player.name,
+            };
+            emit!(world, (Event::Built(_event)));
+
             loop {
-                match scoreds.pop_front() {
-                    Option::Some(scored) => {
-                        let mut event = scored;
-                        event.tile_id = tile.id;
-                        event.x = x;
-                        event.y = y;
-                        emit!(world, event)
-                    },
+                match cities.pop_front() {
+                    Option::Some(_event) => { emit!(world, (Event::ScoredCity(_event))) },
+                    Option::None => { break; }
+                };
+            };
+
+            loop {
+                match roads.pop_front() {
+                    Option::Some(_event) => { emit!(world, (Event::ScoredRoad(_event))) },
+                    Option::None => { break; }
+                };
+            };
+
+            loop {
+                match forests.pop_front() {
+                    Option::Some(_event) => { emit!(world, (Event::ScoredForest(_event))) },
+                    Option::None => { break; }
+                };
+            };
+
+            loop {
+                match wonders.pop_front() {
+                    Option::Some(_event) => { emit!(world, (Event::ScoredWonder(_event))) },
                     Option::None => { break; }
                 };
             };
 
             // [Event] Emit game over event for solo games if over
-            if Mode::Solo == game.mode.into() && game.is_over(time) {
-                let tournament_id = TournamentImpl::compute_id(time);
-                emit!(
-                    world,
-                    GameOver {
-                        game_id: game.id,
-                        tournament_id: tournament_id,
-                        game_score: game.score,
-                        game_start_time: game.start_time,
-                        game_end_time: time,
-                        player_id: player.id,
-                        player_name: player.name,
-                        player_master: player.master,
-                    }
-                );
+            let tournament_id = TournamentImpl::compute_id(game.start_time);
+            let id_end = TournamentImpl::compute_id(time);
+            if tournament_id == id_end && game.is_solo() && game.is_over(time) {
+                // [Effect] Update tournament
+                if Mode::Ranked == game.mode.into() {
+                    let mut tournament = store.tournament(tournament_id);
+                    tournament.score(player.id, game.score);
+                    store.set_tournament(tournament);
+                }
+
+                // [Event] Emit game over event for solo games if over
+                let _event = GameOver {
+                    game_id: game.id,
+                    tournament_id: tournament_id,
+                    game_score: game.score,
+                    game_start_time: game.start_time,
+                    game_end_time: time,
+                    player_id: player.id,
+                    player_name: player.name,
+                    player_master: player.master,
+                };
+                emit!(world, (Event::GameOver(_event)));
             }
         }
     }

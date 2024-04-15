@@ -6,7 +6,7 @@ use core::debug::PrintTrait;
 
 use paved::constants;
 use paved::store::{Store, StoreImpl};
-use paved::events::Scored;
+use paved::events::ScoredForest;
 use paved::helpers::simple::SimpleCount;
 use paved::types::spot::{Spot, SpotImpl};
 use paved::types::area::Area;
@@ -14,6 +14,7 @@ use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::direction::Direction;
 use paved::types::move::{Move, MoveImpl};
+use paved::types::category::Category;
 use paved::models::game::{Game, GameImpl};
 use paved::models::builder::{Builder, BuilderImpl};
 use paved::models::character::{Character, CharacterPosition};
@@ -183,11 +184,12 @@ impl ForestCount of ForestCountTrait {
 
     fn solve(
         ref game: Game,
+        category: Category,
         count: u32,
         score: u32,
         base_points: u32,
         ref characters: Array<Character>,
-        ref events: Array<Scored>,
+        ref events: Array<ScoredForest>,
         ref store: Store
     ) {
         // [Compute] Find the winner
@@ -202,7 +204,27 @@ impl ForestCount of ForestCountTrait {
                     let mut builder = store.builder(game, player.id);
                     let points = score * base_points * num / den / length;
                     builder.recover(ref character, ref tile);
-                    game.add_score(ref builder, ref player, points, ref events);
+                    game.add_score(ref builder, ref player, points);
+
+                    // [Build] Events
+                    let mut event = ScoredForest {
+                        game_id: game.id,
+                        points: points,
+                        size: count,
+                        cities: 0,
+                        roads: 0,
+                        player_id: player.id,
+                        player_name: player.name,
+                        player_master: player.master,
+                        player_order_id: player.order,
+                    };
+                    if category == Category::City {
+                        event.cities = score;
+                    };
+                    if category == Category::Road {
+                        event.roads = score;
+                    };
+                    events.append(event);
 
                     // [Effect] Update the character
                     store.set_character(character);

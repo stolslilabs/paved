@@ -1,3 +1,4 @@
+import { shortString } from "starknet";
 import { Mode, ModeType } from "../types/mode";
 import { ComponentValue } from "@dojoengine/recs";
 
@@ -11,6 +12,7 @@ export class Game {
   public tile_count: number;
   public start_time: number;
   public duration: number;
+  public price: string;
   public prize: string;
   public score: number;
   public mode: Mode;
@@ -19,7 +21,7 @@ export class Game {
 
   constructor(game: ComponentValue) {
     this.id = game.id;
-    this.name = game.name;
+    this.name = shortString.decodeShortString(`0x${game.name.toString(16)}`);
     this.over = game.over;
     this.players = game.players;
     this.player_count = game.player_count;
@@ -27,6 +29,7 @@ export class Game {
     this.tile_count = game.tile_count;
     this.start_time = game.start_time;
     this.duration = game.duration;
+    this.price = game.price;
     this.prize = game.prize;
     this.score = game.score;
     this.mode = Mode.from(game.mode);
@@ -44,7 +47,7 @@ export class Game {
   }
 
   public isSoloMode(): boolean {
-    return this.mode.value === ModeType.Solo;
+    return this.mode.value === ModeType.Ranked;
   }
 
   public isMultiMode(): boolean {

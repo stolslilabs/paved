@@ -36,6 +36,7 @@ export async function setup({ ...config }: Config) {
 
   const client = await setupWorld(
     new DojoProvider(config.manifest, config.rpcUrl),
+    config,
   );
 
   const rpcProvider = new RpcProvider({

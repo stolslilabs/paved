@@ -279,7 +279,7 @@ export const GameMultiRow = ({ game }: { game: any }) => {
   useEffect(() => {
     if (game) {
       setGameId(game.id);
-      setGameName(shortString.decodeShortString(game.name));
+      setGameName(game.name);
       setStartTime(game.start_time);
       setDuration(game.duration);
       setTilesPlayed(game.tile_count);

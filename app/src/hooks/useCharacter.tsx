@@ -9,9 +9,9 @@ export const useCharacter = ({
   playerId,
   characterId,
 }: {
-  gameId: number;
-  playerId: string;
-  characterId: number;
+  gameId: number | undefined;
+  playerId: string | undefined;
+  characterId: number | undefined;
 }) => {
   const {
     setup: {
@@ -24,9 +24,9 @@ export const useCharacter = ({
   const characterKey = useMemo(
     () =>
       getEntityIdFromKeys([
-        BigInt(gameId),
-        BigInt(playerId),
-        BigInt(characterId),
+        BigInt(gameId || 0),
+        BigInt(playerId || 0),
+        BigInt(characterId || 0),
       ]) as Entity,
     [gameId, playerId, characterId],
   );

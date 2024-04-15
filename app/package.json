@@ -11,8 +11,8 @@
     "codegen": "graphql-codegen",
     "format": "prettier --write ./src",
     "gen:dojo": "pnpm gen:models && pnpm gen:events && pnpm format",
-    "gen:models": "npx create-models ../contracts/target/dev/manifest.json ./src/dojo/generated/contractModels.ts",
-    "gen:events": "npx create-events ../contracts/target/dev/manifest.json ./src/dojo/generated/contractEvents.ts",
+    "gen:models": "npx create-models ../contracts/manifests/dev/manifest.json ./src/dojo/generated/contractModels.ts",
+    "gen:events": "npx create-events ../contracts/manifests/dev/manifest.json ./src/dojo/generated/contractEvents.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },

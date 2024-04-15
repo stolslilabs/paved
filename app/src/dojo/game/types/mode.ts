@@ -2,7 +2,8 @@
 
 export enum ModeType {
   None = "None",
-  Solo = "SOLO",
+  Ranked = "Ranked",
+  Solo = "Solo",
   Multi = "Multi",
 }
 

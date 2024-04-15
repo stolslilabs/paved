@@ -5,7 +5,7 @@ use core::debug::PrintTrait;
 // Internal imports
 
 use paved::store::{Store, StoreImpl};
-use paved::events::Scored;
+use paved::events::ScoredWonder;
 use paved::types::spot::Spot;
 use paved::types::area::Area;
 use paved::types::move::{Move, MoveImpl};
@@ -86,7 +86,7 @@ impl WonderCount of WonderCountTrait {
         ref game: Game,
         base_points: u32,
         ref character: Character,
-        ref events: Array<Scored>,
+        ref events: Array<ScoredWonder>,
         ref store: Store
     ) {
         // [Effect] Collect the character's builder
@@ -94,8 +94,20 @@ impl WonderCount of WonderCountTrait {
         let mut player = store.player(character.player_id);
         let mut builder = store.builder(game, player.id);
         let power: u32 = character.power.into();
-        game.add_score(ref builder, ref player, base_points * power, ref events);
+        let points = base_points * power;
+        game.add_score(ref builder, ref player, points);
         builder.recover(ref character, ref tile);
+
+        // [Build] Events
+        let event = ScoredWonder {
+            game_id: game.id,
+            points: points,
+            player_id: player.id,
+            player_name: player.name,
+            player_master: player.master,
+            player_order_id: player.order,
+        };
+        events.append(event);
 
         // [Effect] Update the character
         store.set_character(character);

@@ -16,11 +16,12 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
 use paved::helpers::bitmap::Bitmap;
 use paved::models::game::{Game, GameImpl};
-use paved::models::player::{Player, PlayerName, PlayerImpl};
+use paved::models::player::{Player, PlayerImpl};
 use paved::models::builder::{Builder, BuilderPosition, BuilderImpl};
 use paved::models::team::{Team, TeamImpl};
 use paved::models::tile::{Tile, TilePosition, TileImpl};
 use paved::models::character::{Character, CharacterPosition, CharacterImpl};
+use paved::models::tournament::{Tournament, TournamentImpl};
 use paved::types::orientation::Orientation;
 use paved::types::direction::Direction;
 use paved::types::role::Role;
@@ -52,17 +53,6 @@ impl StoreImpl of StoreTrait {
     }
 
     #[inline(always)]
-    fn player_name(self: Store, player_name: felt252) -> PlayerName {
-        get!(self.world, player_name, (PlayerName))
-    }
-
-    #[inline(always)]
-    fn player_by_name(self: Store, player_name: felt252) -> Player {
-        let player_name = self.player_name(player_name);
-        get!(self.world, (player_name.id), (Player))
-    }
-
-    #[inline(always)]
     fn builder(self: Store, game: Game, player_id: felt252) -> Builder {
         get!(self.world, (game.id, player_id), (Builder))
     }
@@ -70,6 +60,11 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn builder_position(self: Store, game: Game, index: u32) -> BuilderPosition {
         get!(self.world, (game.id, index), (BuilderPosition))
+    }
+
+    #[inline(always)]
+    fn tournament(self: Store, tournament_id: u64) -> Tournament {
+        get!(self.world, tournament_id, (Tournament))
     }
 
     #[inline(always)]
@@ -211,5 +206,10 @@ impl StoreImpl of StoreTrait {
         let position: CharacterPosition = character.into();
         set!(self.world, (position));
         set!(self.world, (character))
+    }
+
+    #[inline(always)]
+    fn set_tournament(self: Store, tournament: Tournament) {
+        set!(self.world, (tournament))
     }
 }
