@@ -1,6 +1,16 @@
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useLogs } from "@/hooks/useLogs";
-import { faBurn, faHammer, faStar } from "@fortawesome/free-solid-svg-icons";
+import {
+  faBurn,
+  faChessRook,
+  faCity,
+  faHammer,
+  faPlaceOfWorship,
+  faRoad,
+  faStar,
+  faTree,
+  faTreeCity,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 export const Logsboard = () => {
@@ -13,7 +23,7 @@ export const Logsboard = () => {
           {logs
             .filter(
               (log) =>
-                log.category === "Scored" || log.category === "Discarded",
+                log.category.includes("Scored") || log.category === "Discarded",
             )
             .slice(0, 5)
             .map((log: any, index: number) => (
@@ -32,8 +42,20 @@ export const LogRow = ({ log, index }: { log: any; index: number }) => {
         <p style={{ color: log.color }}>{log.builder}</p>
       </TableCell>
       <TableCell>
-        {log.category === "Scored" && (
-          <FontAwesomeIcon icon={faStar} className="text-yellow-500" />
+        {log.category === "ScoredCity" && (
+          <FontAwesomeIcon icon={faCity} className="text-red-500" />
+        )}
+        {log.category === "ScoredRoad" && (
+          <FontAwesomeIcon icon={faRoad} className="text-yellow-600" />
+        )}
+        {log.category === "ScoredForestCity" && (
+          <FontAwesomeIcon icon={faTreeCity} className="text-yellow-900" />
+        )}
+        {log.category === "ScoredForestRoad" && (
+          <FontAwesomeIcon icon={faTree} className="text-green-500" />
+        )}
+        {log.category === "ScoredWonder" && (
+          <FontAwesomeIcon icon={faPlaceOfWorship} className="text-blue-500" />
         )}
         {log.category === "Discarded" && (
           <FontAwesomeIcon icon={faBurn} className="text-orange-500" />

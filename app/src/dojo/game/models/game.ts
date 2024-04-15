@@ -47,7 +47,7 @@ export class Game {
   }
 
   public isSoloMode(): boolean {
-    return this.mode.value === ModeType.Solo;
+    return this.mode.value === ModeType.Ranked;
   }
 
   public isMultiMode(): boolean {

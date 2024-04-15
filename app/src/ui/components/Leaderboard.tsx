@@ -8,7 +8,6 @@ import {
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -27,7 +26,6 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { shortString } from "starknet";
 import { getOrder, getColor } from "@/dojo/game";
 import {
   defineEnterSystem,
@@ -36,7 +34,6 @@ import {
   HasValue,
 } from "@dojoengine/recs";
 import { useLogs } from "@/hooks/useLogs";
-import { Claim } from "./Claim";
 import { TwitterShareButton } from "react-share";
 import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
 import { useGame } from "@/hooks/useGame";
@@ -93,7 +90,6 @@ export const LeaderboardDialog = () => {
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
         {over && builder && <Description game={game} />}
         <Leaderboard />
-        {over && !game.isSoloMode() && builder && <Reward />}
       </DialogContent>
     </Dialog>
   );
@@ -104,15 +100,6 @@ export const Description = ({ game }: { game: any }) => {
     <DialogDescription className="flex justify-center items-center gap-3 text-xs">
       Game is over!
       {game.isSoloMode() && <Share score={game.score} />}
-    </DialogDescription>
-  );
-};
-
-export const Reward = () => {
-  return (
-    <DialogDescription className="flex justify-center items-center gap-4 text-xs">
-      Claim your rewards!
-      <Claim />
     </DialogDescription>
   );
 };

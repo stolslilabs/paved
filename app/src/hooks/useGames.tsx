@@ -1,9 +1,9 @@
 import { useDojo } from "@/dojo/useDojo";
 import { Event } from "@/dojo/events";
 import { useEffect, useState } from "react";
-import { GAME_OVER_EVENT } from "@/constants/events";
 import { parseGameOverEvent } from "@/dojo/game/events";
 import data from "@/data";
+import { WorldEvents } from "@/dojo/generated/contractEvents";
 
 export type GameOverEvent = {
   id: string;
@@ -19,7 +19,7 @@ export type GameOverEvent = {
 };
 
 const parse = (event: Event): GameOverEvent => {
-  if (event.keys[0] === GAME_OVER_EVENT) {
+  if (event.keys[0] === WorldEvents.GameOver) {
     return parseGameOverEvent(event);
   }
   throw new Error("Unknown event type");
@@ -37,7 +37,7 @@ export const useGames = () => {
 
   useEffect(() => {
     const query = async () => {
-      const events = await queryEvents([GAME_OVER_EVENT]);
+      const events = await queryEvents([WorldEvents.GameOver]);
       setGames((prevGames) => {
         const newGames = [...prevGames, ...events.map(parse)];
         // Remove duplicates
