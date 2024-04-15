@@ -219,17 +219,15 @@ mod play {
             store.set_game(game);
 
             // [Event] Emit events
-            emit!(
-                world,
-                Discarded {
-                    game_id: game.id,
-                    tile_id: tile.id,
-                    player_id: player.id,
-                    player_name: player.name,
-                    order_id: builder.order,
-                    points: _malus,
-                },
-            );
+            let _event = Discarded {
+                game_id: game.id,
+                tile_id: tile.id,
+                player_id: player.id,
+                player_name: player.name,
+                order_id: builder.order,
+                points: _malus,
+            };
+            emit!(world, (Event::Discarded(_event)));
 
             let tournament_id = TournamentImpl::compute_id(game.start_time);
             let id_end = TournamentImpl::compute_id(time);
@@ -242,19 +240,17 @@ mod play {
                 }
 
                 // [Event] Emit game over event for solo games if over
-                emit!(
-                    world,
-                    GameOver {
-                        game_id: game.id,
-                        tournament_id: tournament_id,
-                        game_score: game.score,
-                        game_start_time: game.start_time,
-                        game_end_time: time,
-                        player_id: player.id,
-                        player_name: player.name,
-                        player_master: player.master,
-                    }
-                );
+                let _event = GameOver {
+                    game_id: game.id,
+                    tournament_id: tournament_id,
+                    game_score: game.score,
+                    game_start_time: game.start_time,
+                    game_end_time: time,
+                    player_id: player.id,
+                    player_name: player.name,
+                    player_master: player.master,
+                };
+                emit!(world, (Event::GameOver(_event)));
             }
         }
 
@@ -301,19 +297,17 @@ mod play {
                 }
 
                 // [Event] Emit game over event for solo games if over
-                emit!(
-                    world,
-                    GameOver {
-                        game_id: game.id,
-                        tournament_id: tournament_id,
-                        game_score: game.score,
-                        game_start_time: game.start_time,
-                        game_end_time: time,
-                        player_id: player.id,
-                        player_name: player.name,
-                        player_master: player.master,
-                    }
-                );
+                let _event = GameOver {
+                    game_id: game.id,
+                    tournament_id: tournament_id,
+                    game_score: game.score,
+                    game_start_time: game.start_time,
+                    game_end_time: time,
+                    player_id: player.id,
+                    player_name: player.name,
+                    player_master: player.master,
+                };
+                emit!(world, (Event::GameOver(_event)));
             }
         }
 
@@ -393,42 +387,40 @@ mod play {
             store.set_game(game);
 
             // [Event] Emit events
-            emit!(
-                world,
-                Built {
-                    game_id: game.id,
-                    tile_id: tile.id,
-                    x: x,
-                    y: y,
-                    player_id: player.id,
-                    player_name: player.name,
-                }
-            );
+            let _event = Built {
+                game_id: game.id,
+                tile_id: tile.id,
+                x: x,
+                y: y,
+                player_id: player.id,
+                player_name: player.name,
+            };
+            emit!(world, (Event::Built(_event)));
 
             loop {
                 match cities.pop_front() {
-                    Option::Some(_event) => { emit!(world, (_event,)) },
+                    Option::Some(_event) => { emit!(world, (Event::ScoredCity(_event))) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match roads.pop_front() {
-                    Option::Some(_event) => { emit!(world, (_event,)) },
+                    Option::Some(_event) => { emit!(world, (Event::ScoredRoad(_event))) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match forests.pop_front() {
-                    Option::Some(_event) => { emit!(world, (_event,)) },
+                    Option::Some(_event) => { emit!(world, (Event::ScoredForest(_event))) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match wonders.pop_front() {
-                    Option::Some(_event) => { emit!(world, (_event,)) },
+                    Option::Some(_event) => { emit!(world, (Event::ScoredWonder(_event))) },
                     Option::None => { break; }
                 };
             };
@@ -445,19 +437,17 @@ mod play {
                 }
 
                 // [Event] Emit game over event for solo games if over
-                emit!(
-                    world,
-                    GameOver {
-                        game_id: game.id,
-                        tournament_id: tournament_id,
-                        game_score: game.score,
-                        game_start_time: game.start_time,
-                        game_end_time: time,
-                        player_id: player.id,
-                        player_name: player.name,
-                        player_master: player.master,
-                    }
-                );
+                let _event = GameOver {
+                    game_id: game.id,
+                    tournament_id: tournament_id,
+                    game_score: game.score,
+                    game_start_time: game.start_time,
+                    game_end_time: time,
+                    player_id: player.id,
+                    player_name: player.name,
+                    player_master: player.master,
+                };
+                emit!(world, (Event::GameOver(_event)));
             }
         }
     }

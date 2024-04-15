@@ -1,15 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { useDojo } from "@/dojo/useDojo";
-import {
-  defineEnterSystem,
-  defineSystem,
-  Has,
-  HasValue,
-  NotValue,
-} from "@dojoengine/recs";
 import { TileTexture } from "./TileTexture";
 import { TileEmpty } from "./TileEmpty";
-import { useQueryParams } from "../../hooks/useQueryParams";
 import { useTiles } from "@/hooks/useTiles";
 
 type Position = {

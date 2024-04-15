@@ -13,6 +13,7 @@ import {
   KickGame,
   DeleteGame,
   StartGame,
+  ClaimTournament,
   CreatePlayer,
   RenamePlayer,
   ReorderPlayer,
@@ -163,6 +164,18 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       }
     };
 
+    const claim = async ({ account, tournament_id }: ClaimTournament) => {
+      try {
+        return await provider.execute(account, contract_name, "claim", [
+          provider.getWorldAddress(),
+          tournament_id,
+        ]);
+      } catch (error) {
+        console.error("Error executing initialize:", error);
+        throw error;
+      }
+    };
+
     return {
       address: contract.address,
       create,
@@ -175,6 +188,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       kick,
       remove,
       start,
+      claim,
     };
   }
 

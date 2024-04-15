@@ -34,15 +34,9 @@ struct Tournament {
     top1_score: u32,
     top2_score: u32,
     top3_score: u32,
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct TournamentClaim {
-    #[key]
-    tournament_id: u64,
-    #[key]
-    player_id: felt252,
-    claimed: bool,
+    top1_claimed: bool,
+    top2_claimed: bool,
+    top3_claimed: bool,
 }
 
 #[generate_trait]
@@ -128,23 +122,25 @@ impl TournamentImpl of TournamentTrait {
         // [Effect] Payout
         self.prize += amount;
     }
-}
 
-#[generate_trait]
-impl TournamentClaimImpl of TournamentClaimTrait {
     #[inline(always)]
-    fn claim(
-        ref self: TournamentClaim, tournament: Tournament, player_id: felt252, time: u64
-    ) -> u256 {
+    fn claim(ref self: Tournament, player_id: felt252, time: u64) -> u256 {
         // [Check] Tournament is over
-        tournament.assert_is_over(time);
+        self.assert_is_over(time);
         // [Check] Reward not already claimed
-        self.assert_not_claimed();
+        let rank = self.rank(player_id);
+        self.assert_not_claimed(rank);
         // [Check] Something to claim
-        let reward = tournament.reward(tournament.rank(player_id));
+        let reward = self.reward(rank);
         assert(reward != 0, errors::NOTHING_TO_CLAIM);
         // [Effect] Claim and return the corresponding reward
-        self.claimed = true;
+        if rank == 1 {
+            self.top1_claimed = true;
+        } else if rank == 2 {
+            self.top2_claimed = true;
+        } else if rank == 3 {
+            self.top3_claimed = true;
+        }
         reward
     }
 }
@@ -157,8 +153,15 @@ impl TournamentAssert of AssertTrait {
     }
 
     #[inline(always)]
-    fn assert_not_claimed(self: TournamentClaim) {
-        assert(!self.claimed, errors::REWARD_ALREADY_CLAIMED);
+    fn assert_not_claimed(self: Tournament, rank: u8) {
+        // assert(!self.claimed, errors::REWARD_ALREADY_CLAIMED);
+        if rank == 1 {
+            assert(!self.top1_claimed, errors::REWARD_ALREADY_CLAIMED);
+        } else if rank == 2 {
+            assert(!self.top2_claimed, errors::REWARD_ALREADY_CLAIMED);
+        } else if rank == 3 {
+            assert(!self.top3_claimed, errors::REWARD_ALREADY_CLAIMED);
+        }
     }
 
     #[inline(always)]
@@ -180,6 +183,9 @@ impl DefaultTournament of Default<Tournament> {
             top1_score: 0,
             top2_score: 0,
             top3_score: 0,
+            top1_claimed: false,
+            top2_claimed: false,
+            top3_claimed: false,
         }
     }
 }
@@ -196,6 +202,9 @@ impl ZeroableTournament of Zeroable<Tournament> {
             top1_score: 0,
             top2_score: 0,
             top3_score: 0,
+            top1_claimed: false,
+            top2_claimed: false,
+            top3_claimed: false,
         }
     }
 
@@ -210,31 +219,6 @@ impl ZeroableTournament of Zeroable<Tournament> {
     }
 }
 
-impl DefaultTournamentClaim of Default<TournamentClaim> {
-    #[inline(always)]
-    fn default() -> TournamentClaim {
-        TournamentClaim { tournament_id: 0, player_id: 0, claimed: false, }
-    }
-}
-
-impl ZeroableTournamentClaim of Zeroable<TournamentClaim> {
-    #[inline(always)]
-    fn zero() -> TournamentClaim {
-        TournamentClaim { tournament_id: 0, player_id: 0, claimed: false, }
-    }
-
-    #[inline(always)]
-    fn is_zero(self: TournamentClaim) -> bool {
-        !self.is_non_zero()
-    }
-
-    #[inline(always)]
-    fn is_non_zero(self: TournamentClaim) -> bool {
-        self.claimed
-    }
-}
-
-
 #[cfg(test)]
 mod tests {
     // Core imports
@@ -245,7 +229,6 @@ mod tests {
     // Local imports
 
     use super::{Tournament, TournamentImpl};
-    use super::{TournamentClaim, TournamentClaimImpl};
 
     // Constants
 
@@ -289,22 +272,19 @@ mod tests {
         tournament.score(3, 15);
 
         // First claims the reward
-        let mut claim: TournamentClaim = Default::default();
-        let reward = claim.claim(tournament, 2, TIME);
+        let reward = tournament.claim(2, TIME);
         assert(56 == reward, 'Tournament: wrong reward');
-        assert(claim.claimed, 'Tournament: not claimed');
+        assert(tournament.top1_claimed, 'Tournament: not claimed');
 
         // Second claims the reward
-        let mut claim: TournamentClaim = Default::default();
-        let reward = claim.claim(tournament, 3, TIME);
+        let reward = tournament.claim(3, TIME);
         assert(28 == reward, 'Tournament: wrong reward');
-        assert(claim.claimed, 'Tournament: not claimed');
+        assert(tournament.top2_claimed, 'Tournament: not claimed');
 
         // Third claims the reward
-        let mut claim: TournamentClaim = Default::default();
-        let reward = claim.claim(tournament, 1, TIME);
+        let reward = tournament.claim(1, TIME);
         assert(16 == reward, 'Tournament: wrong reward');
-        assert(claim.claimed, 'Tournament: not claimed');
+        assert(tournament.top3_claimed, 'Tournament: not claimed');
     }
 
     #[test]
@@ -315,16 +295,14 @@ mod tests {
         tournament.score(3, 15);
 
         // First claims the reward
-        let mut claim: TournamentClaim = Default::default();
-        let reward = claim.claim(tournament, 2, TIME);
+        let reward = tournament.claim(2, TIME);
         assert(67 == reward, 'Tournament: wrong reward');
-        assert(claim.claimed, 'Tournament: not claimed');
+        assert(tournament.top1_claimed, 'Tournament: not claimed');
 
         // Second claims the reward
-        let mut claim: TournamentClaim = Default::default();
-        let reward = claim.claim(tournament, 3, TIME);
+        let reward = tournament.claim(3, TIME);
         assert(33 == reward, 'Tournament: wrong reward');
-        assert(claim.claimed, 'Tournament: not claimed');
+        assert(tournament.top2_claimed, 'Tournament: not claimed');
     }
 
     #[test]
@@ -334,10 +312,9 @@ mod tests {
         tournament.score(2, 20);
 
         // First claims the reward
-        let mut claim: TournamentClaim = Default::default();
-        let reward = claim.claim(tournament, 2, TIME);
+        let reward = tournament.claim(2, TIME);
         assert(100 == reward, 'Tournament: wrong reward');
-        assert(claim.claimed, 'Tournament: not claimed');
+        assert(tournament.top1_claimed, 'Tournament: not claimed');
     }
 
     #[test]
@@ -350,8 +327,7 @@ mod tests {
         tournament.score(3, 15);
 
         // First claims the reward
-        let mut claim: TournamentClaim = Default::default();
-        claim.claim(tournament, 1, 0);
+        tournament.claim(1, 0);
     }
 
     #[test]
@@ -364,9 +340,8 @@ mod tests {
         tournament.score(3, 15);
 
         // First claims the reward
-        let mut claim: TournamentClaim = Default::default();
-        claim.claim(tournament, 1, TIME);
-        claim.claim(tournament, 1, TIME);
+        tournament.claim(1, TIME);
+        tournament.claim(1, TIME);
     }
 }
 

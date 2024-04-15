@@ -238,6 +238,9 @@ export function defineContractComponents(world: World) {
           top1_score: RecsType.Number,
           top2_score: RecsType.Number,
           top3_score: RecsType.Number,
+          top1_claimed: RecsType.Boolean,
+          top2_claimed: RecsType.Boolean,
+          top3_claimed: RecsType.Boolean,
         },
         {
           metadata: {
@@ -251,23 +254,10 @@ export function defineContractComponents(world: World) {
               "u32",
               "u32",
               "u32",
+              "bool",
+              "bool",
+              "bool",
             ],
-          },
-        },
-      );
-    })(),
-    TournamentClaim: (() => {
-      return defineComponent(
-        world,
-        {
-          tournament_id: RecsType.Number,
-          player_id: RecsType.BigInt,
-          claimed: RecsType.Boolean,
-        },
-        {
-          metadata: {
-            name: "TournamentClaim",
-            types: ["u64", "felt252", "bool"],
           },
         },
       );

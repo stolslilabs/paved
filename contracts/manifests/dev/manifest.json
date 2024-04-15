@@ -677,8 +677,8 @@
     {
       "kind": "DojoContract",
       "address": "0x3f9e17783dd8079fdbee827d8649f3f8133e01e66a9aefa2d0f1e8fe0e50034",
-      "class_hash": "0x2f3b980a60c4eea7865908e68a533e32f84e79c3e18daf21ea082f7a0286666",
-      "original_class_hash": "0x2f3b980a60c4eea7865908e68a533e32f84e79c3e18daf21ea082f7a0286666",
+      "class_hash": "0x7e900a1fa31b488e83ea505b49b66bca3f7dc73bbb566e020f66e28215468c2",
+      "original_class_hash": "0x7e900a1fa31b488e83ea505b49b66bca3f7dc73bbb566e020f66e28215468c2",
       "base_class_hash": "0x4861487b5a2c1fad2559e88ad1fa7e9a278ed5718adac7fdc89c7a716685d63",
       "abi": [
         {
@@ -1155,8 +1155,8 @@
     {
       "kind": "DojoContract",
       "address": "0x28b8b091c0a37381f19fee335daa14c5a84749b7adf3c801545893aa60b0c1c",
-      "class_hash": "0x797859d7b889afa6f51c23839b0c347518137b96ef533990188f97bd35b5b7b",
-      "original_class_hash": "0x797859d7b889afa6f51c23839b0c347518137b96ef533990188f97bd35b5b7b",
+      "class_hash": "0x62d30877959ae9874934095e00403c09678811d0b567660a80aa7d1c6f0e81",
+      "original_class_hash": "0x62d30877959ae9874934095e00403c09678811d0b567660a80aa7d1c6f0e81",
       "base_class_hash": "0x4861487b5a2c1fad2559e88ad1fa7e9a278ed5718adac7fdc89c7a716685d63",
       "abi": [
         {
@@ -4768,10 +4768,25 @@
           "name": "top3_score",
           "type": "u32",
           "key": false
+        },
+        {
+          "name": "top1_claimed",
+          "type": "bool",
+          "key": false
+        },
+        {
+          "name": "top2_claimed",
+          "type": "bool",
+          "key": false
+        },
+        {
+          "name": "top3_claimed",
+          "type": "bool",
+          "key": false
         }
       ],
-      "class_hash": "0x5048fe94fd3c42616b7baf2cf3e048502d8ccc1a528c2f59498c11c7892cbdf",
-      "original_class_hash": "0x5048fe94fd3c42616b7baf2cf3e048502d8ccc1a528c2f59498c11c7892cbdf",
+      "class_hash": "0x5b26b4c1d75f87f36f15a3ae911c47bf0340b62afde35e7c2ceb9ce637106d2",
+      "original_class_hash": "0x5b26b4c1d75f87f36f15a3ae911c47bf0340b62afde35e7c2ceb9ce637106d2",
       "abi": [
         {
           "type": "impl",
@@ -4947,6 +4962,20 @@
           "interface_name": "paved::models::tournament::Itournament"
         },
         {
+          "type": "enum",
+          "name": "core::bool",
+          "variants": [
+            {
+              "name": "False",
+              "type": "()"
+            },
+            {
+              "name": "True",
+              "type": "()"
+            }
+          ]
+        },
+        {
           "type": "struct",
           "name": "paved::models::tournament::Tournament",
           "members": [
@@ -4981,6 +5010,18 @@
             {
               "name": "top3_score",
               "type": "core::integer::u32"
+            },
+            {
+              "name": "top1_claimed",
+              "type": "core::bool"
+            },
+            {
+              "name": "top2_claimed",
+              "type": "core::bool"
+            },
+            {
+              "name": "top3_claimed",
+              "type": "core::bool"
             }
           ]
         },

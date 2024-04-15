@@ -44,7 +44,7 @@ export const Cancel = () => {
   };
 
   const disabled = useMemo(() => {
-    return !builder?.tile_id;
+    return !builder?.tileId;
   }, [builder]);
 
   if (!account || !builder) return <></>;

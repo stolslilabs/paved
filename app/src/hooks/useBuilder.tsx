@@ -8,22 +8,30 @@ export const useBuilder = ({
   gameId,
   playerId,
 }: {
-  gameId: number;
-  playerId: string;
+  gameId: number | undefined;
+  playerId: string | undefined;
 }) => {
   const {
     setup: {
       clientModels: {
         models: { Builder },
+        classes: { Builder: BuilderClass },
       },
     },
   } = useDojo();
 
   const builderKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId), BigInt(playerId)]) as Entity,
+    () =>
+      getEntityIdFromKeys([
+        BigInt(gameId || 0),
+        BigInt(playerId || 0),
+      ]) as Entity,
     [gameId, playerId],
   );
-  const builder = useComponentValue(Builder, builderKey);
+  const component = useComponentValue(Builder, builderKey);
+  const builder = useMemo(() => {
+    return component ? new BuilderClass(component) : null;
+  }, [component]);
 
   return { builder, builderKey };
 };

@@ -23,7 +23,7 @@ export const CreateSoloGame = () => {
     if (!player) return;
     create_game({
       account: account as Account,
-      name: shortString.encodeShortString("Solo"),
+      name: shortString.encodeShortString("Ranked"),
       duration: 0,
       mode: 1,
     });

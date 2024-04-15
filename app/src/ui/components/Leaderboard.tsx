@@ -42,6 +42,7 @@ import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
 import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
 import { usePlayer } from "@/hooks/usePlayer";
+import { Builder } from "@/dojo/game/models/builder";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
@@ -145,9 +146,7 @@ Play now 👇
 
 export const Leaderboard = () => {
   const { gameId } = useQueryParams();
-  const [builders, setBuilders] = useState<{ [key: number]: typeof Builder }>(
-    {},
-  );
+  const [builders, setBuilders] = useState<{ [key: number]: Builder }>({});
   const [topBuilders, setTopBuilders] = useState<any>([]);
   const { logs } = useLogs();
   const {
@@ -183,7 +182,7 @@ export const Leaderboard = () => {
   useEffect(() => {
     if (!builders) return;
 
-    const topSortedBuilders: (typeof Builder)[] = Object.values(builders).sort(
+    const topSortedBuilders: Builder[] = Object.values(builders).sort(
       (a, b) => {
         return b?.score - a?.score;
       },
@@ -229,7 +228,7 @@ export const PlayerRow = ({
   logs: any;
 }) => {
   const { player } = usePlayer({ playerId: builder.player_id });
-  const name = shortString.decodeShortString(player?.name || "");
+  const name = player?.name || "";
   const order = getOrder(builder?.order);
   const address = `0x${builder.player_id.toString(16)}`;
   const backgroundColor = getColor(address);

@@ -21,7 +21,7 @@ use paved::models::builder::{Builder, BuilderPosition, BuilderImpl};
 use paved::models::team::{Team, TeamImpl};
 use paved::models::tile::{Tile, TilePosition, TileImpl};
 use paved::models::character::{Character, CharacterPosition, CharacterImpl};
-use paved::models::tournament::{Tournament, TournamentClaim, TournamentImpl};
+use paved::models::tournament::{Tournament, TournamentImpl};
 use paved::types::orientation::Orientation;
 use paved::types::direction::Direction;
 use paved::types::role::Role;
@@ -65,11 +65,6 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn tournament(self: Store, tournament_id: u64) -> Tournament {
         get!(self.world, tournament_id, (Tournament))
-    }
-
-    #[inline(always)]
-    fn tournament_claim(self: Store, tournament_id: u64, player_id: felt252) -> TournamentClaim {
-        get!(self.world, (tournament_id, player_id), (TournamentClaim))
     }
 
     #[inline(always)]
@@ -216,10 +211,5 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn set_tournament(self: Store, tournament: Tournament) {
         set!(self.world, (tournament))
-    }
-
-    #[inline(always)]
-    fn set_tournament_claim(self: Store, claim: TournamentClaim) {
-        set!(self.world, (claim))
     }
 }

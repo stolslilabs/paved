@@ -57,7 +57,7 @@ export const GameInfo = () => {
           <TilesDiscarded
             count={logs.filter((log) => log.category === "Discarded").length}
           />
-          <Bank bank={builder ? player?.bank : "N/A"} />
+          <Bank bank={builder ? (player ? player.bank : 0) : 0} />
         </TableBody>
       </Table>
     </div>

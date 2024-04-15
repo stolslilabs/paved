@@ -69,9 +69,7 @@ mod host {
     use paved::models::team::{Team, TeamImpl};
     use paved::models::builder::{Builder, BuilderImpl, BuilderAssert};
     use paved::models::tile::{Tile, TilePosition, TileImpl};
-    use paved::models::tournament::{
-        Tournament, TournamentClaim, TournamentImpl, TournamentClaimImpl, TournamentAssert
-    };
+    use paved::models::tournament::{Tournament, TournamentImpl, TournamentAssert};
     use paved::types::alliance::{Alliance, AllianceImpl};
     use paved::types::order::{Order, OrderImpl};
     use paved::types::orientation::Orientation;
@@ -488,14 +486,13 @@ mod host {
             player.assert_exists();
 
             // [Check] Tournament exists
-            let tournament = store.tournament(tournament_id);
+            let mut tournament = store.tournament(tournament_id);
             tournament.assert_exists();
 
             // [Effect] Update claim
             let time = get_block_timestamp();
-            let mut claimer = store.tournament_claim(tournament_id, player.id);
-            let reward = claimer.claim(tournament, player.id, time);
-            store.set_tournament_claim(claimer);
+            let reward = tournament.claim(player.id, time);
+            store.set_tournament(tournament);
 
             // [Interaction] Pay reward
             self._refund(world, caller, reward);
