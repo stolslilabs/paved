@@ -8,8 +8,8 @@ edition = "2023_10"
 sierra-replace-ids = true
 
 [dependencies]
-dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.6.0-alpha.3" }
-origami = { git = "https://github.com/dojoengine/origami", tag = "v0.6.0-alpha.3" }
+dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.6.0" }
+origami = { git = "https://github.com/dojoengine/origami", tag = "v0.6.0" }
 
 [[target.dojo]]
 
@@ -18,14 +18,14 @@ initializer_class_hash = "0xbeef"
 
 [tool.dojo.env]
 # Katana
-rpc_url = "http://localhost:5050/"
-account_address = "0x6162896d1d7ab204c7ccac6dd5f8e9e7c25ecd5ae4fcb4ad32e57786bb46e03"
-private_key = "0x1800000000300000180000000000030000000000003006001800006600"
+# rpc_url = "http://localhost:5050/"
+# account_address = "0x6162896d1d7ab204c7ccac6dd5f8e9e7c25ecd5ae4fcb4ad32e57786bb46e03"
+# private_key = "0x1800000000300000180000000000030000000000003006001800006600"
 
 # Dev
-# rpc_url = "https://api.cartridge.gg/x/paved-dev/katana/"
-# account_address = "0x68d2fe2d7b67ef40d9567f96fdc6925eb6c8a103ecde715a17c108afc3652e5"
-# private_key = "0x69c450373bce35581f17586b7a4fdc9ad49ba30ea4340607df8f08864f36a8a"
+rpc_url = "https://api.cartridge.gg/x/paved-dev/katana/"
+account_address = "0x68d2fe2d7b67ef40d9567f96fdc6925eb6c8a103ecde715a17c108afc3652e5"
+private_key = "0x69c450373bce35581f17586b7a4fdc9ad49ba30ea4340607df8f08864f36a8a"
 
 # Realms
 # rpc_url = "https://api.cartridge.gg/x/realms/katana/"

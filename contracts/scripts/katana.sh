@@ -2,8 +2,8 @@
 set -euo pipefail
 pushd $(dirname "$0")/..
 
-# export STARKNET_RPC_URL="https://api.cartridge.gg/x/paved-dev/katana";
-export STARKNET_RPC_URL="http://localhost:5050";
+export STARKNET_RPC_URL="https://api.cartridge.gg/x/paved-dev/katana";
+# export STARKNET_RPC_URL="http://localhost:5050";
 
 export DOJO_WORLD_ADDRESS=$(cat ./manifests/dev/manifest.json | jq -r '.world.address')
 
@@ -20,7 +20,7 @@ echo play : $PLAY_ADDRESS
 echo "---------------------------------------------------------------------------"
 
 # enable system -> component authorizations
-MODELS=("Game" "Player" "Builder" "BuilderPosition" "Team" "Tile" "TilePosition" "Character" "CharacterPosition" "Tournament" "TournamentClaim")
+MODELS=("Game" "Player" "Builder" "BuilderPosition" "Team" "Tile" "TilePosition" "Character" "CharacterPosition" "Tournament")
 ACTIONS=($HOST_ADDRESS $MANAGE_ADDRESS $PLAY_ADDRESS)
 
 command="sozo auth grant --world $DOJO_WORLD_ADDRESS --wait writer "
