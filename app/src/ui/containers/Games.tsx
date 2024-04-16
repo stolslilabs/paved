@@ -120,47 +120,10 @@ export const Games = () => {
           className="w-full h-full"
         >
           <TabsList>
-            <TabsTrigger value="single">Single</TabsTrigger>
             <TabsTrigger value="ranked">Competitive</TabsTrigger>
+            <TabsTrigger value="single">Single</TabsTrigger>
             <TabsTrigger value="multi">Multi</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="single">
-            <div className="flex my-4 gap-4 items-center">
-              <CreateSingleGame />
-              <SingleLeaderboardDialog />
-            </div>
-
-            <div className="flex justify-between w-full">
-              <h4>Games</h4>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="show-finished"
-                  checked={showSingle}
-                  onCheckedChange={() => setShowSingle(!showSingle)}
-                />
-                <Label className="text-xs" htmlFor="show-finished">
-                  Show finished Games
-                </Label>
-              </div>
-            </div>
-            <ScrollArea className="h-[570px] w-full pr-4">
-              <Table>
-                <TableHeader>
-                  <TableRow className="text-sm">
-                    <TableHead className="w-[100px]">#</TableHead>
-                    <TableHead>Tiles played</TableHead>
-                    <TableHead>Score</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {Object.values(filteredSingleGames).map((game, index) => {
-                    return <GameSingleRow key={index} game={game} />;
-                  })}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </TabsContent>
 
           <TabsContent value="ranked">
             <div className="flex my-4 gap-4 items-center">
@@ -193,6 +156,43 @@ export const Games = () => {
                 </TableHeader>
                 <TableBody>
                   {Object.values(filteredRankedGames).map((game, index) => {
+                    return <GameSingleRow key={index} game={game} />;
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="single">
+            <div className="flex my-4 gap-4 items-center">
+              <CreateSingleGame />
+              <SingleLeaderboardDialog />
+            </div>
+
+            <div className="flex justify-between w-full">
+              <h4>Games</h4>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-finished"
+                  checked={showSingle}
+                  onCheckedChange={() => setShowSingle(!showSingle)}
+                />
+                <Label className="text-xs" htmlFor="show-finished">
+                  Show finished Games
+                </Label>
+              </div>
+            </div>
+            <ScrollArea className="h-[570px] w-full pr-4">
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-sm">
+                    <TableHead className="w-[100px]">#</TableHead>
+                    <TableHead>Tiles played</TableHead>
+                    <TableHead>Score</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.values(filteredSingleGames).map((game, index) => {
                     return <GameSingleRow key={index} game={game} />;
                   })}
                 </TableBody>

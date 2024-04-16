@@ -102,7 +102,7 @@ export const useLobbyStore = create<LobbyState>()((set, get) => ({
   playerEntity: null,
   setPlayerEntity: (playerEntity: Entity) => set({ playerEntity }),
   resetPlayerEntity: () => set({ playerEntity: null }),
-  mode: "single",
+  mode: "ranked",
   setMode: (mode) => set({ mode }),
   resetMode: () => set({ mode: "single" }),
 }));
