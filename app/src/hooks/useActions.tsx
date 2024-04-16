@@ -45,6 +45,7 @@ export const useActions = () => {
         build({
           account: account as Account,
           game_id: gameId,
+          tile_id: builder.tile_id,
           orientation: orientation,
           x: x,
           y: y,

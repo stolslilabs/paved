@@ -2,10 +2,20 @@ import type { IWorld } from "./generated/contractSystems";
 
 import { toast } from "sonner";
 import * as SystemTypes from "./types/systems";
+import { getEntityIdFromKeys } from "@dojoengine/utils";
+import { Entity } from "@dojoengine/recs";
+import { uuid } from "@latticexyz/utils";
+import { ClientComponents } from "./createClientComponents";
 
 export type SystemCalls = ReturnType<typeof systems>;
 
-export function systems({ client }: { client: IWorld }) {
+export function systems({
+  client,
+  clientComponents,
+}: {
+  client: IWorld;
+  clientComponents: ClientComponents;
+}) {
   const extractedMessage = (message: string) => {
     return message.match(/\('([^']+)'\)/)?.[1];
   };
@@ -29,7 +39,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error creating game:", error);
@@ -47,7 +57,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been renamed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error renaming game:", error);
@@ -65,7 +75,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been updated.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error updating game:", error);
@@ -83,7 +93,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been joined.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error joining game:", error);
@@ -101,7 +111,7 @@ export function systems({ client }: { client: IWorld }) {
         "Builder is ready.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error being ready:", error);
@@ -122,7 +132,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been transferred.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error transferring game:", error);
@@ -140,7 +150,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been left.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error leaving game:", error);
@@ -158,7 +168,7 @@ export function systems({ client }: { client: IWorld }) {
         "Builder has been kicked.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error kicking builder:", error);
@@ -176,7 +186,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been deleted.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error deleting game:", error);
@@ -194,7 +204,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been started.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error starting game:", error);
@@ -215,7 +225,7 @@ export function systems({ client }: { client: IWorld }) {
         "Player has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error creating player:", error);
@@ -236,7 +246,7 @@ export function systems({ client }: { client: IWorld }) {
         "Player has been renamed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error renaming player:", error);
@@ -257,7 +267,7 @@ export function systems({ client }: { client: IWorld }) {
         "Player has been reordered.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error reordering player:", error);
@@ -275,7 +285,7 @@ export function systems({ client }: { client: IWorld }) {
         "Bought.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error buying:", error);
@@ -293,7 +303,7 @@ export function systems({ client }: { client: IWorld }) {
         "Claimed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error claiming:", error);
@@ -311,7 +321,7 @@ export function systems({ client }: { client: IWorld }) {
         "Tile has been revealed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error drawing:", error);
@@ -329,7 +339,7 @@ export function systems({ client }: { client: IWorld }) {
         "Tile has been discarded.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error discarding:", error);
@@ -347,7 +357,7 @@ export function systems({ client }: { client: IWorld }) {
         "Game has been abandoned.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error surrendering:", error);
@@ -355,6 +365,46 @@ export function systems({ client }: { client: IWorld }) {
   };
 
   const build = async ({ account, ...props }: SystemTypes.Build) => {
+    console.log(props);
+
+    const entityId = getEntityIdFromKeys([
+      BigInt(props.game_id),
+      BigInt(props.tile_id),
+    ]) as Entity;
+
+    console.log(clientComponents.Tile);
+
+    const tileId = uuid();
+    clientComponents.Tile.addOverride(tileId, {
+      entity: entityId,
+      value: {
+        game_id: props.game_id,
+        id: props.tile_id,
+        player_id: BigInt(account.address),
+        plan: 0,
+        orientation: props.orientation,
+        x: props.x,
+        y: props.y,
+        occupied_spot: props.spot,
+      },
+    });
+
+    const tilePositionId = uuid();
+
+    clientComponents.TilePosition.addOverride(tilePositionId, {
+      entity: getEntityIdFromKeys([
+        BigInt(props.game_id),
+        BigInt(props.x),
+        BigInt(props.y),
+      ]) as Entity,
+      value: {
+        game_id: props.game_id,
+        x: props.x,
+        y: props.y,
+        tile_id: props.tile_id,
+      },
+    });
+
     try {
       const { transaction_hash } = await client.play.build({
         account,
@@ -365,10 +415,15 @@ export function systems({ client }: { client: IWorld }) {
         "Tile has been paved.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error building:", error);
+      clientComponents.Tile.removeOverride(tileId);
+      clientComponents.TilePosition.removeOverride(tilePositionId);
+    } finally {
+      clientComponents.Tile.removeOverride(tileId);
+      clientComponents.TilePosition.removeOverride(tilePositionId);
     }
   };
 

@@ -88,6 +88,7 @@ export interface Surrender extends Signer {
 
 export interface Build extends Signer {
   game_id: number;
+  tile_id: number;
   orientation: number;
   x: number;
   y: number;
