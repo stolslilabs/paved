@@ -20,7 +20,7 @@ use paved::helpers::generic::GenericCount;
 use paved::helpers::forest::ForestCount;
 use paved::helpers::wonder::WonderCount;
 use paved::helpers::conflict::Conflict;
-use paved::types::mode::Mode;
+use paved::types::mode::{Mode, ModeImpl};
 use paved::types::plan::Plan;
 use paved::types::deck::{Deck, DeckImpl};
 use paved::types::spot::{Spot, SpotImpl};
@@ -77,12 +77,9 @@ impl GameImpl of GameTrait {
     #[inline(always)]
     fn new(id: u32, name: felt252, time: u64, duration: u64, mode: u8) -> Game {
         // [Check] Validate parameters
-        assert(Mode::None != mode.into(), errors::INVALID_MODE);
-        let deck = if Mode::Ranked == mode.into() || Mode::Single == mode.into() {
-            Deck::Base
-        } else {
-            Deck::Enhanced
-        };
+        let mode: Mode = mode.into();
+        assert(Mode::None != mode, errors::INVALID_MODE);
+        let deck: Deck = mode.deck();
         Game {
             id,
             name,
@@ -216,8 +213,22 @@ impl GameImpl of GameTrait {
 
     #[inline(always)]
     fn is_solo(self: Game) -> bool {
-        let mode: Mode = self.mode.into();
-        Mode::Ranked == mode || Mode::Single == mode
+        self.is_ranked() || self.is_single()
+    }
+
+    #[inline(always)]
+    fn is_ranked(self: Game) -> bool {
+        Mode::Ranked == self.mode.into()
+    }
+
+    #[inline(always)]
+    fn is_single(self: Game) -> bool {
+        Mode::Single == self.mode.into()
+    }
+
+    #[inline(always)]
+    fn is_multi(self: Game) -> bool {
+        Mode::Multi == self.mode.into()
     }
 
     #[inline(always)]

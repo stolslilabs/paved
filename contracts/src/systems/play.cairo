@@ -229,8 +229,11 @@ mod play {
             };
             emit!(world, (Event::Discarded(_event)));
 
-            let tournament_id = TournamentImpl::compute_id(game.start_time);
-            let id_end = TournamentImpl::compute_id(time);
+            let (tournament_id, id_end) = if game.is_ranked() {
+                (TournamentImpl::compute_id(game.start_time), TournamentImpl::compute_id(time))
+            } else {
+                (0, 0)
+            };
             if tournament_id == id_end && game.is_solo() && game.is_over(time) {
                 // [Effect] Update tournament
                 if Mode::Ranked == game.mode.into() {
@@ -286,8 +289,11 @@ mod play {
             store.set_game(game);
 
             // [Event] Emit game over event
-            let tournament_id = TournamentImpl::compute_id(game.start_time);
-            let id_end = TournamentImpl::compute_id(time);
+            let (tournament_id, id_end) = if game.is_ranked() {
+                (TournamentImpl::compute_id(game.start_time), TournamentImpl::compute_id(time))
+            } else {
+                (0, 0)
+            };
             if tournament_id == id_end {
                 // [Effect] Update tournament
                 if Mode::Ranked == game.mode.into() {
@@ -426,8 +432,11 @@ mod play {
             };
 
             // [Event] Emit game over event for solo games if over
-            let tournament_id = TournamentImpl::compute_id(game.start_time);
-            let id_end = TournamentImpl::compute_id(time);
+            let (tournament_id, id_end) = if game.is_ranked() {
+                (TournamentImpl::compute_id(game.start_time), TournamentImpl::compute_id(time))
+            } else {
+                (0, 0)
+            };
             if tournament_id == id_end && game.is_solo() && game.is_over(time) {
                 // [Effect] Update tournament
                 if Mode::Ranked == game.mode.into() {

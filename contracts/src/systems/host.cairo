@@ -148,7 +148,7 @@ mod host {
             }
 
             // [Effect] Update Tournament prize pool if ranked game
-            if Mode::Ranked == game.mode.into() {
+            if game.is_ranked() {
                 // [Effect] Update tournament
                 let tournament_id = TournamentImpl::compute_id(time);
                 let mut tournament = store.tournament(tournament_id);

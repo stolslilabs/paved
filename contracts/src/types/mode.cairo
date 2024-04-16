@@ -2,6 +2,10 @@
 
 use core::debug::PrintTrait;
 
+// Internal imports
+
+use paved::types::deck::{Deck, DeckImpl};
+
 // Constants
 
 const NONE: felt252 = 0;
@@ -15,6 +19,19 @@ enum Mode {
     Ranked,
     Single,
     Multi,
+}
+
+#[generate_trait]
+impl ModeImpl of ModeTrait {
+    #[inline(always)]
+    fn deck(self: Mode) -> Deck {
+        match self {
+            Mode::Ranked => Deck::Base,
+            Mode::Single => Deck::Base,
+            Mode::Multi => Deck::Enhanced,
+            _ => Deck::None,
+        }
+    }
 }
 
 impl IntoModeFelt252 of core::Into<Mode, felt252> {
