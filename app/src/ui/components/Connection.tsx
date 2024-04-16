@@ -67,33 +67,6 @@ export function Connection() {
     }
   };
 
-  const approve = useCallback(async (account: AccountInterface) => {
-    // 5 seconds sleep
-    await new Promise((resolve) => setTimeout(resolve, 5000));
-    // Approve fee token
-    console.log("Approving fee token to", host.address);
-    const { transaction_hash } = await account.execute({
-      contractAddress: feeTokenAddress,
-      entrypoint: "approve",
-      calldata: CallData.compile([host.address, PREFUND_AMOUNT, "0x0"]),
-    });
-
-    const result = account.waitForTransaction(transaction_hash, {
-      retryInterval: 1000,
-      successStates: [TransactionFinalityStatus.ACCEPTED_ON_L2],
-    });
-
-    if (!result) {
-      throw new Error("Transaction did not complete successfully.");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (account.address !== masterAddress && isSetup && !isDeploying) {
-      approve(account);
-    }
-  }, [account, isSetup, isDeploying]);
-
   return (
     <>
       {isConnected ? (

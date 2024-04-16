@@ -27,6 +27,16 @@ import {
 
 export type IWorld = Awaited<ReturnType<typeof setupWorld>>;
 
+
+export const getContractByName = (manifest: any, name: string) => {
+  const contract = manifest.contracts.find((contract: any) => contract.name.includes("::" + name));
+  if (contract) {
+    return contract.address;
+  } else {
+    return "";
+  }
+};
+
 export async function setupWorld(provider: DojoProvider, config: Config) {
   function host() {
     const contract_name = "host";
@@ -38,13 +48,21 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     }
 
     const create = async ({ account, name, duration, mode }: CreateGame) => {
+      const contract_address = getContractByName(config.manifest, "host");
+      const calls = [
+        {
+          contractAddress: config.feeTokenAddress,
+          entrypoint: "approve",
+          calldata: [contract_address, `0x${1E18.toString(16)}`, "0x0"],
+        },
+        {
+          contractAddress: contract_address,
+          entrypoint: "create",
+          calldata: [provider.getWorldAddress(), name, duration, mode],
+        },
+      ];
       try {
-        return await provider.execute(account, contract_name, "create", [
-          provider.getWorldAddress(),
-          name,
-          duration,
-          mode,
-        ]);
+        return await provider.executeMulti(account, calls);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
