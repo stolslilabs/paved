@@ -223,7 +223,8 @@ export const createDiscardedLog = (log: DiscardedLog): Log => {
 export const parseGameOverEvent = (event: Event): GameOverEvent => {
   const id = event.id;
   const gameId = parseInt(event.keys[1], 16);
-  const tournamentId = parseInt(event.keys[2], 16) - TOURNAMENT_ID_OFFSET;
+  const tournamentId = parseInt(event.keys[2], 16);
+  const seasonId = tournamentId - TOURNAMENT_ID_OFFSET;
   const gameScore = parseInt(event.data[0]);
   const gameStartTime = new Date(parseInt(event.data[1], 16) * 1000);
   const gameEndTime = new Date(parseInt(event.data[2], 16) * 1000);
@@ -236,6 +237,7 @@ export const parseGameOverEvent = (event: Event): GameOverEvent => {
     id,
     gameId,
     tournamentId,
+    seasonId,
     gameScore,
     gameStartTime,
     gameEndTime,

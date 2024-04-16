@@ -3,10 +3,10 @@ kind = "Contract"
 class_hash = "0x799bc4e9da10bfb3dd88e6f223c9cfbf7745435cd14f5d69675ea448e578cd"
 original_class_hash = "0x799bc4e9da10bfb3dd88e6f223c9cfbf7745435cd14f5d69675ea448e578cd"
 abi = "abis/deployments/dojo_world_world.json"
-address = "0x7da33b5f9f052d95f3a7df0f6f883839769136fbd41f26a9293c339c121ed3e"
-transaction_hash = "0x5dddc5f7e077a1009d0e69543221a50e3a42dc0efd9cec25f3688575da159bf"
-block_number = 3
-seed = "v0"
+address = "0x7cac671eb25924a6c814116e410aaad577dab0e58ede687ae762f9df9830aca"
+transaction_hash = "0x54ec21edb345376a20832faf50f030a474ad31787c4e587c92e64449d879e48"
+block_number = 585
+seed = "v1"
 name = "dojo::world::world"
 
 [base]
@@ -17,9 +17,9 @@ name = "dojo::base::base"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x7d4bfd807b764c572a8258f14c62a53dbfc13fbb6faa06e718e1e517f63539a"
-class_hash = "0x7e900a1fa31b488e83ea505b49b66bca3f7dc73bbb566e020f66e28215468c2"
-original_class_hash = "0x7e900a1fa31b488e83ea505b49b66bca3f7dc73bbb566e020f66e28215468c2"
+address = "0xb2828ef15f5a3f69abb149745ee7b65855214a6ef1469a8543c2273f126712"
+class_hash = "0x6a907ca6face1093376ca16240d42e3bf6899db045ca2c11e602cebc418ad71"
+original_class_hash = "0x6a907ca6face1093376ca16240d42e3bf6899db045ca2c11e602cebc418ad71"
 base_class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"
 abi = "abis/deployments/contracts/paved_systems_host_host.json"
 reads = []
@@ -29,7 +29,7 @@ name = "paved::systems::host::host"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x7e60c3859de05a94109354b29405e74f5a71b4d113587c7ae3fc26fd65cfaf5"
+address = "0x54575c6d0b343038ed6447856407e9ca4678190d138ee5802a2d1c83ed6b20d"
 class_hash = "0x10ea2e084c3883cfbe2d21462e4cbffd117bf34d09c2f0fb38da0b0464bcb5a"
 original_class_hash = "0x10ea2e084c3883cfbe2d21462e4cbffd117bf34d09c2f0fb38da0b0464bcb5a"
 base_class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"
@@ -41,9 +41,9 @@ name = "paved::systems::manage::manage"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x3ec01a0f78da3786ea6e732a41f5c0f9b39b665430383ec1e56cc63cc45522c"
-class_hash = "0x62d30877959ae9874934095e00403c09678811d0b567660a80aa7d1c6f0e81"
-original_class_hash = "0x62d30877959ae9874934095e00403c09678811d0b567660a80aa7d1c6f0e81"
+address = "0x782ec1bfa320401e3283e65226a7661afa39d978a29beb4a9307b127fe27fcc"
+class_hash = "0x1500db0d768baa1d8c4b355cdb5f12b359cfbd48781e06256c6b43e43a24efd"
+original_class_hash = "0x1500db0d768baa1d8c4b355cdb5f12b359cfbd48781e06256c6b43e43a24efd"
 base_class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"
 abi = "abis/deployments/contracts/paved_systems_play_play.json"
 reads = []

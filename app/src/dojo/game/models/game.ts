@@ -47,6 +47,14 @@ export class Game {
   }
 
   public isSoloMode(): boolean {
+    return this.isSingleMode() || this.isRankedMode();
+  }
+
+  public isSingleMode(): boolean {
+    return this.mode.value === ModeType.Single;
+  }
+
+  public isRankedMode(): boolean {
     return this.mode.value === ModeType.Ranked;
   }
 

@@ -122,7 +122,7 @@ export const ActiveTile = ({
 
 export const HiddenTile = () => {
   const { gameId } = useQueryParams();
-  const { resetSelectedTile } = useGameStore();
+  const { resetOrientation, resetSelectedTile } = useGameStore();
   const [over, setOver] = useState<boolean>(false);
 
   const {
@@ -141,6 +141,8 @@ export const HiddenTile = () => {
 
   const handleDrawClick = () => {
     if (over) return;
+    // Reset the settings
+    resetOrientation();
     resetSelectedTile();
     draw({
       account: account as Account,

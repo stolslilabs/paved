@@ -9,7 +9,7 @@ import {
 import { Account, shortString } from "starknet";
 import { usePlayer } from "@/hooks/usePlayer";
 
-export const CreateSoloGame = () => {
+export const CreateSingleGame = () => {
   const {
     account: { account },
     setup: {
@@ -23,9 +23,9 @@ export const CreateSoloGame = () => {
     if (!player) return;
     create_game({
       account: account as Account,
-      name: shortString.encodeShortString("Ranked"),
+      name: shortString.encodeShortString("Single"),
       duration: 0,
-      mode: 1,
+      mode: 2,
     });
   };
 

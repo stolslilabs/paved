@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { parseGameOverEvent } from "@/dojo/game/events";
 import data from "@/data";
 import { WorldEvents } from "@/dojo/generated/contractEvents";
+import { ModeType } from "@/dojo/game/types/mode";
 
 export type GameOverEvent = {
   id: string;
   gameId: number;
   tournamentId: number;
+  seasonId: number;
   gameScore: number;
   gameStartTime: Date;
   gameEndTime: Date;
@@ -25,7 +27,7 @@ const parse = (event: Event): GameOverEvent => {
   throw new Error("Unknown event type");
 };
 
-export const useGames = () => {
+export const useGames = (mode: ModeType) => {
   const [games, setGames] = useState<GameOverEvent[]>(data);
   const [ids, setIds] = useState<number[]>([]);
 
@@ -63,5 +65,16 @@ export const useGames = () => {
     query();
   }, [data]);
 
-  return { games, ids };
+  return {
+    games: games.filter(
+      (game) =>
+        (mode == ModeType.Single && game.tournamentId == 0) ||
+        (mode == ModeType.Ranked && game.tournamentId > 0),
+    ),
+    ids: ids.filter(
+      (id) =>
+        (mode === ModeType.Single && id === 0) ||
+        (mode === ModeType.Ranked && id > 0),
+    ),
+  };
 };

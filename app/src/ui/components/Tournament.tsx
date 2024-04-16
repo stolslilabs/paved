@@ -47,6 +47,7 @@ import { Lords } from "./Lords";
 import { Tournament as TournamentClass } from "@/dojo/game/models/tournament";
 import { useDojo } from "@/dojo/useDojo";
 import { Account } from "starknet";
+import { ModeType } from "@/dojo/game/types/mode";
 
 export const TournamentHeader = () => {
   const [tournamentId, setTournamentId] = useState<number>();
@@ -121,7 +122,7 @@ export const TournamentDialog = () => {
 };
 
 export const Tournament = () => {
-  const { games, ids } = useGames();
+  const { games, ids } = useGames(ModeType.Ranked);
   const [page, setPage] = useState<number | undefined>();
   const [pages, setPages] = useState<number[]>([]);
   const [startDate, setStartDate] = useState<string>("");
@@ -167,7 +168,7 @@ export const Tournament = () => {
     return games
       .filter(
         (game) =>
-          game.tournamentId === page && !balckilist.includes(game.playerMaster),
+          game.seasonId === page && !balckilist.includes(game.playerMaster),
       )
       .sort((a, b) => b.gameScore - a.gameScore)
       .slice(0, 10);

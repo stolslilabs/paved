@@ -55,7 +55,6 @@ export const useActions = () => {
         console.log(e);
       } finally {
         // Reset the settings
-        resetOrientation();
         resetX();
         resetY();
         resetCharacter();

@@ -6,7 +6,8 @@ import { TOURNAMENT_ID_OFFSET } from "@/dojo/game/constants";
 const data: GameOverEvent[] = {
   ...tournaments,
 }.data.events.edges.map((edge) => {
-  const tournamentId = parseInt(edge.node.keys[2], 16) - TOURNAMENT_ID_OFFSET;
+  const tournamentId = parseInt(edge.node.keys[2], 16);
+  const seasonId = tournamentId - TOURNAMENT_ID_OFFSET;
   const gameScore = parseInt(edge.node.data[0], 16);
   const gameStartTime = new Date(parseInt(edge.node.data[1], 16) * 1000);
   const gameEndTime = new Date(parseInt(edge.node.data[2], 16) * 1000);
@@ -17,6 +18,7 @@ const data: GameOverEvent[] = {
     id: edge.node.id,
     gameId: 0,
     tournamentId,
+    seasonId,
     gameScore,
     gameStartTime,
     gameEndTime,

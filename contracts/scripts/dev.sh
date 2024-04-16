@@ -2,13 +2,13 @@
 set -euo pipefail
 pushd $(dirname "$0")/..
 
-export STARKNET_RPC_URL="http://localhost:5050";
+export STARKNET_RPC_URL="https://api.cartridge.gg/x/paved-dev/katana";
 
-export DOJO_WORLD_ADDRESS=$(cat ./manifests/dev/manifest.json | jq -r '.world.address')
+export DOJO_WORLD_ADDRESS=$(cat ./manifests/pre/manifest.json | jq -r '.world.address')
 
-export HOST_ADDRESS=$(cat ./manifests/dev/manifest.json | jq -r '.contracts[] | select(.name == "paved::systems::host::host" ).address')
-export MANAGE_ADDRESS=$(cat ./manifests/dev/manifest.json | jq -r '.contracts[] | select(.name == "paved::systems::manage::manage" ).address')
-export PLAY_ADDRESS=$(cat ./manifests/dev/manifest.json | jq -r '.contracts[] | select(.name == "paved::systems::play::play" ).address')
+export HOST_ADDRESS=$(cat ./manifests/pre/manifest.json | jq -r '.contracts[] | select(.name == "paved::systems::host::host" ).address')
+export MANAGE_ADDRESS=$(cat ./manifests/pre/manifest.json | jq -r '.contracts[] | select(.name == "paved::systems::manage::manage" ).address')
+export PLAY_ADDRESS=$(cat ./manifests/pre/manifest.json | jq -r '.contracts[] | select(.name == "paved::systems::play::play" ).address')
 
 echo "---------------------------------------------------------------------------"
 echo world : $DOJO_WORLD_ADDRESS 

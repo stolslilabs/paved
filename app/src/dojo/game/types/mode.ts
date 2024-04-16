@@ -3,7 +3,7 @@
 export enum ModeType {
   None = "None",
   Ranked = "Ranked",
-  Solo = "Solo",
+  Single = "Single",
   Multi = "Multi",
 }
 
