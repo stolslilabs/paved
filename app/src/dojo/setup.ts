@@ -67,5 +67,6 @@ export async function setup({ ...config }: Config) {
     config,
     world,
     burnerManager,
+    rpcProvider,
   };
 }

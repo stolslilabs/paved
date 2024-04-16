@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import BoringAvatar from "boring-avatars";
 
-import { useDojo } from "@/dojo/useDojo";
+import { useBalance } from "@/hooks/useBalance";
 import { shortenHex } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { getAvatar } from "@/utils/avatar";
@@ -37,6 +37,7 @@ import {
   faUserSecret,
 } from "@fortawesome/free-solid-svg-icons";
 import { usePlayerByKey } from "@/hooks/usePlayer";
+import { Lords } from "./Lords";
 
 export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   const [score, setScore] = useState<number>();
@@ -50,6 +51,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
 
   const address = useMemo(() => player?.master, [player]);
   const { data } = useStarkProfile({ address });
+  const { balance } = useBalance({ address: `0x${player?.id?.toString(16)}` });
 
   useEffect(() => {
     if (player) {
@@ -91,7 +93,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
             style={{ backgroundColor: borderColor }}
           />
           <div className="flex flex-col gap-8">
-            <PlayerInfo score={score} paved={paved} />
+            <PlayerInfo score={score} paved={paved} balance={balance} />
             <TileBank bank={bank} />
           </div>
         </CardHeader>
@@ -214,14 +216,15 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   );
 };
 
-const PlayerInfo = ({ score, paved }: any) => {
+const PlayerInfo = ({ score, paved, balance }: any) => {
   return (
     <CardDescription className="pt-2">
       <div className="flex justify-center">
-        <div className="text-right flex flex-col gap-4 w-2/5">
+        <div className="text-right flex flex-col gap-4 w-3/5">
           <p className="h-4">Rank:</p>
           <p className="h-4">Score:</p>
           <p className="h-4">Paved:</p>
+          <p className="h-4">Balance:</p>
         </div>
         <div className="ml-2 text-left flex flex-col gap-4 w-3/5">
           <Skeleton className="h-4 w-16" />
@@ -232,6 +235,14 @@ const PlayerInfo = ({ score, paved }: any) => {
           )}
           {paved !== undefined ? (
             <p className="h-4">{paved}</p>
+          ) : (
+            <Skeleton className="h-4 w-28" />
+          )}
+          {balance !== undefined ? (
+            <div className="flex justify-left items-center gap-2">
+              <p className="h-4">{`${balance}`.slice(0, 6)}</p>
+              <Lords fill="black" width={4} height={4} />
+            </div>
           ) : (
             <Skeleton className="h-4 w-28" />
           )}
