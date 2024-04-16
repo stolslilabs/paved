@@ -220,8 +220,8 @@ export const Tournament = () => {
             <TableRow>
               <TableHead>#</TableHead>
               <TableHead className="max-w-[100px]">Name</TableHead>
-              <TableHead>Score</TableHead>
-              <TableHead>Duration</TableHead>
+              <TableHead className="text-right">Score</TableHead>
+              <TableHead className="text-right">Duration</TableHead>
               <TableHead className="flex justify-center items-center">
                 <Lords fill={"black"} width={4} height={4} />
               </TableHead>
