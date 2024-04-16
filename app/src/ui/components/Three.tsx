@@ -5,15 +5,23 @@ import {
   useKeyboardControls,
   OrthographicCamera,
   OrbitControls,
+  Stats,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
 import { CharTextures } from "./CharTextures";
 import { Controls } from "@/ui/screens/GameScreen";
 import { useGameStore, useCameraStore } from "@/store";
+import { Perf } from "r3f-perf";
 
 export const ThreeGrid = () => {
   return (
-    <Canvas className="z-1" shadows>
+    <Canvas className="z-1" frameloop="demand">
+      {/* {import.meta.env.DEV && ( */}
+      <>
+        <Stats />
+        <Perf position="bottom-left" />
+      </>
+      {/* )} */}
       <Keyboard />
       <mesh>
         <Camera>
@@ -50,7 +58,7 @@ function Keyboard() {
           setOrientation(orientation + 1);
           rotateSpot(spot, true);
         }
-      },
+      }
     );
   }, [orientation, spot]);
 
@@ -62,7 +70,7 @@ function Keyboard() {
           setOrientation(orientation - 1);
           rotateSpot(spot, false);
         }
-      },
+      }
     );
   }, [orientation, spot]);
 
