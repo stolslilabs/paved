@@ -153,7 +153,7 @@ export const Leaderboard = () => {
         setBuilders((prevTiles: any) => {
           return { ...prevTiles, [builder.player_id]: builder };
         });
-      }
+      },
     );
     defineSystem(
       world,
@@ -162,7 +162,7 @@ export const Leaderboard = () => {
         setBuilders((prevTiles: any) => {
           return { ...prevTiles, [builder.player_id]: builder };
         });
-      }
+      },
     );
   }, []);
 
@@ -172,7 +172,7 @@ export const Leaderboard = () => {
     const topSortedBuilders: Builder[] = Object.values(builders).sort(
       (a, b) => {
         return b?.score - a?.score;
-      }
+      },
     );
 
     setTopBuilders(topSortedBuilders);
