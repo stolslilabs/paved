@@ -3,6 +3,7 @@ import { useDojo } from "@/dojo/useDojo";
 import { defineEnterSystem, Has, HasValue, NotValue } from "@dojoengine/recs";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { create } from "zustand";
+import { useEntityQuery } from "@dojoengine/react";
 
 type Position = {
   col: number;
@@ -87,6 +88,12 @@ export const useTiles = () => {
     setItems(newItems);
   };
 
+  const tileEntity = useEntityQuery([
+    Has(Tile),
+    HasValue(Tile, { game_id: gameId }),
+    NotValue(Tile, { orientation: 0 }),
+  ]);
+
   useEffect(() => {
     defineEnterSystem(
       world,
@@ -100,6 +107,7 @@ export const useTiles = () => {
         createTileAndSet(tile);
       }
     );
+    console.log("defineEnterSystem");
     // defineSystem(
     //   world,
     //   [
