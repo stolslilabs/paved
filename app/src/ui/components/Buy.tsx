@@ -38,10 +38,10 @@ export const Buy = ({ buttonName }: { buttonName?: string }) => {
 
   useEffect(() => {
     if (player) setMax(MAX_TILES - player?.bank);
-  }, [player, quantity]);
+  }, [player]);
 
   useEffect(() => {
-    // Reset quntity after buying
+    // Reset quantity after buying
     if (player) setQuantity(0);
   }, [player]);
 
@@ -103,7 +103,7 @@ export const Buy = ({ buttonName }: { buttonName?: string }) => {
             size={"icon"}
             className="w-14"
             onClick={() => {
-              setQuantity(MAX_TILES - player?.bank);
+              setQuantity(MAX_TILES - (player ? player.bank : 0));
             }}
           >
             Max

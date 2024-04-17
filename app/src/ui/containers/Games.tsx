@@ -33,17 +33,19 @@ import {
 } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 
-import { CreateSoloGame } from "@/ui/components/CreateSoloGame";
+import { CreateRankedGame } from "@/ui/components/CreateRankedGame";
+import { CreateSingleGame } from "@/ui/components/CreateSingleGame";
 import { CreateMultiGame } from "@/ui/components/CreateMultiGame";
-import { shortString } from "starknet";
 import { TournamentDialog, TournamentHeader } from "../components/Tournament";
 import { useLobbyStore } from "@/store";
 import { useBuilder } from "@/hooks/useBuilder";
+import { SingleLeaderboardDialog } from "../components/SingleLeaderboard";
 
 export const Games = () => {
   const { mode, setMode } = useLobbyStore();
   const [games, setGames] = useState<{ [key: number]: any }>({});
   const [showSingle, setShowSingle] = useState<boolean>(false);
+  const [showRanked, setShowRanked] = useState<boolean>(false);
   const [showMulti, setShowMulti] = useState<boolean>(false);
   const {
     account: { account },
@@ -69,19 +71,29 @@ export const Games = () => {
     });
   }, []);
 
-  const toggleMode = () => {
-    setMode(mode === "single" ? "multi" : "single");
+  const toggleMode = (event: string) => {
+    setMode(event);
   };
 
   const filteredSingleGames = useMemo(() => {
     return Object.values(games)
       .filter((game) => {
-        if (!game.isSoloMode()) return false;
+        if (!game.isSingleMode()) return false;
         if (showSingle && game.score > 0) return true;
         return !game.isOver();
       })
       .sort((a, b) => b.id - a.id);
   }, [games, showSingle, account]);
+
+  const filteredRankedGames = useMemo(() => {
+    return Object.values(games)
+      .filter((game) => {
+        if (!game.isRankedMode()) return false;
+        if (showRanked && game.score > 0) return true;
+        return !game.isOver();
+      })
+      .sort((a, b) => b.id - a.id);
+  }, [games, showRanked, account]);
 
   const filteredMultiGames = useMemo(() => {
     return Object.values(games)
@@ -108,14 +120,53 @@ export const Games = () => {
           className="w-full h-full"
         >
           <TabsList>
-            <TabsTrigger value="single">Solo</TabsTrigger>
-            <TabsTrigger value="multi">Multiplayer</TabsTrigger>
+            <TabsTrigger value="ranked">Competitive</TabsTrigger>
+            <TabsTrigger value="single">Single</TabsTrigger>
+            <TabsTrigger value="multi">Multi</TabsTrigger>
           </TabsList>
-          <TabsContent value="single">
+
+          <TabsContent value="ranked">
             <div className="flex my-4 gap-4 items-center">
-              <CreateSoloGame />
+              <CreateRankedGame />
               <TournamentDialog />
               <TournamentHeader />
+            </div>
+
+            <div className="flex justify-between w-full">
+              <h4>Games</h4>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-finished"
+                  checked={showRanked}
+                  onCheckedChange={() => setShowRanked(!showRanked)}
+                />
+                <Label className="text-xs" htmlFor="show-finished">
+                  Show finished Games
+                </Label>
+              </div>
+            </div>
+            <ScrollArea className="h-[570px] w-full pr-4">
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-sm">
+                    <TableHead className="w-[100px]">#</TableHead>
+                    <TableHead>Tiles played</TableHead>
+                    <TableHead>Score</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.values(filteredRankedGames).map((game, index) => {
+                    return <GameSingleRow key={index} game={game} />;
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="single">
+            <div className="flex my-4 gap-4 items-center">
+              <CreateSingleGame />
+              <SingleLeaderboardDialog />
             </div>
 
             <div className="flex justify-between w-full">
@@ -148,9 +199,10 @@ export const Games = () => {
               </Table>
             </ScrollArea>
           </TabsContent>
+
           <TabsContent value="multi">
             <div className="my-4">
-              <CreateMultiGame />{" "}
+              <CreateMultiGame />
             </div>
             <div className="flex justify-between w-full">
               <h4>Games</h4>
@@ -279,7 +331,7 @@ export const GameMultiRow = ({ game }: { game: any }) => {
   useEffect(() => {
     if (game) {
       setGameId(game.id);
-      setGameName(shortString.decodeShortString(game.name));
+      setGameName(game.name);
       setStartTime(game.start_time);
       setDuration(game.duration);
       setTilesPlayed(game.tile_count);

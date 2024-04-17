@@ -95,7 +95,7 @@ export const Room = () => {
 
   useEffect(() => {
     if (game) {
-      setGameName(shortString.decodeShortString(game.name));
+      setGameName(game.name);
       setDuration(game.duration.toString());
     }
   }, [game]);
@@ -198,7 +198,7 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
         return setDisplay(false);
       }
       setPlayerId(shortenHex(`${player.id}`).replace("...", ""));
-      setPlayerName(shortString.decodeShortString(player.name));
+      setPlayerName(player.name);
       setReady(
         BigInt(game.players) & (BigInt(1) << BigInt(builder.index))
           ? true
@@ -214,8 +214,6 @@ export const BuilderRow = ({ builder }: { builder: any }) => {
     if (!playerKey) return;
     setPlayerEntity(playerKey);
   };
-
-  console.log(isHost, isSelf);
 
   if (!player || !builder || !builder.order || !display) return null;
 

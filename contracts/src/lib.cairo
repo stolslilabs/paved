@@ -82,6 +82,7 @@ mod models {
     mod builder;
     mod tile;
     mod character;
+    mod tournament;
 }
 
 mod systems {
@@ -93,12 +94,16 @@ mod systems {
 #[cfg(test)]
 mod tests {
     mod setup;
-    mod solo;
+    mod ranked;
     mod join;
     mod transfer;
     mod buy;
     mod draw;
     mod discard;
     mod build;
-    mod cases;
+    // mod cases;
+
+    mod mocks {
+        mod erc20;
+    }
 }

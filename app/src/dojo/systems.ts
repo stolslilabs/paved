@@ -211,6 +211,27 @@ export function systems({
     }
   };
 
+  const claim_tournament = async ({
+    account,
+    ...props
+  }: SystemTypes.ClaimTournament) => {
+    try {
+      const { transaction_hash } = await client.host.claim({
+        account,
+        ...props,
+      });
+
+      notify(
+        "Tournament has been claimed.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+    } catch (error) {
+      console.error("Error claiming tournament:", error);
+    }
+  };
+
   const create_player = async ({
     account,
     ...props
@@ -438,6 +459,7 @@ export function systems({
     kick_game,
     delete_game,
     start_game,
+    claim_tournament,
     create_player,
     rename_player,
     reorder_player,

@@ -95,7 +95,7 @@ export const useTiles = () => {
         HasValue(Tile, { game_id: gameId }),
         NotValue(Tile, { orientation: 0 }),
       ],
-      ({ value: [raw] }: typeof Tile) => {
+      ({ value: [raw] }: any) => {
         const tile = new TileClass(raw);
         createTileAndSet(tile);
       }

@@ -19,7 +19,7 @@ echo play : $PLAY_ADDRESS
 echo "---------------------------------------------------------------------------"
 
 # enable system -> component authorizations
-MODELS=("Game" "Player" "PlayerName" "Builder" "BuilderPosition" "Team" "Tile" "TilePosition" "Character" "CharacterPosition")
+MODELS=("Game" "Player" "Builder" "BuilderPosition" "Team" "Tile" "TilePosition" "Character" "CharacterPosition" "Tournament")
 ACTIONS=($HOST_ADDRESS $MANAGE_ADDRESS $PLAY_ADDRESS)
 
 command="sozo auth grant writer "

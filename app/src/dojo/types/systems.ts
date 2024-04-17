@@ -52,6 +52,10 @@ export interface StartGame extends Signer {
   game_id: number;
 }
 
+export interface ClaimTournament extends Signer {
+  tournament_id: number;
+}
+
 export interface CreatePlayer extends Signer {
   name: string;
   order: number;

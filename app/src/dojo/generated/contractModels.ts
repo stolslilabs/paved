@@ -105,6 +105,7 @@ export function defineContractComponents(world: World) {
           tile_count: RecsType.Number,
           start_time: RecsType.Number,
           duration: RecsType.Number,
+          price: RecsType.BigInt,
           prize: RecsType.BigInt,
           score: RecsType.Number,
           mode: RecsType.Number,
@@ -125,6 +126,7 @@ export function defineContractComponents(world: World) {
               "u64",
               "u64",
               "felt252",
+              "felt252",
               "u32",
               "u8",
               "u8",
@@ -142,24 +144,14 @@ export function defineContractComponents(world: World) {
           name: RecsType.BigInt,
           order: RecsType.Number,
           bank: RecsType.Number,
-          solo_score: RecsType.Number,
-          multi_score: RecsType.Number,
+          score: RecsType.Number,
           paved: RecsType.Number,
           master: RecsType.BigInt,
         },
         {
           metadata: {
             name: "Player",
-            types: [
-              "felt252",
-              "felt252",
-              "u8",
-              "u8",
-              "u32",
-              "u32",
-              "u32",
-              "felt252",
-            ],
+            types: ["felt252", "felt252", "u8", "u8", "u32", "u32", "felt252"],
           },
         },
       );
@@ -230,6 +222,42 @@ export function defineContractComponents(world: World) {
           metadata: {
             name: "TilePosition",
             types: ["u32", "u32", "u32", "u32"],
+          },
+        },
+      );
+    })(),
+    Tournament: (() => {
+      return defineComponent(
+        world,
+        {
+          id: RecsType.Number,
+          prize: RecsType.BigInt,
+          top1_player_id: RecsType.BigInt,
+          top2_player_id: RecsType.BigInt,
+          top3_player_id: RecsType.BigInt,
+          top1_score: RecsType.Number,
+          top2_score: RecsType.Number,
+          top3_score: RecsType.Number,
+          top1_claimed: RecsType.Boolean,
+          top2_claimed: RecsType.Boolean,
+          top3_claimed: RecsType.Boolean,
+        },
+        {
+          metadata: {
+            name: "Tournament",
+            types: [
+              "u64",
+              "felt252",
+              "felt252",
+              "felt252",
+              "felt252",
+              "u32",
+              "u32",
+              "u32",
+              "bool",
+              "bool",
+              "bool",
+            ],
           },
         },
       );

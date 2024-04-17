@@ -34,6 +34,7 @@ import {
 } from "@/dojo/game";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMoon, faSun } from "@fortawesome/free-solid-svg-icons";
+import { usePlayer } from "@/hooks/usePlayer";
 
 export const Spawn = () => {
   const { address } = useAccount();
@@ -45,18 +46,11 @@ export const Spawn = () => {
     account: { account },
     setup: {
       config: { masterAddress },
-      clientModels: {
-        models: { Player },
-      },
       systemCalls: { create_player },
     },
   } = useDojo();
 
-  const playerId = useMemo(
-    () => getEntityIdFromKeys([BigInt(account.address)]) as Entity,
-    [account],
-  );
-  const player = useComponentValue(Player, playerId);
+  const { player } = usePlayer({ playerId: account.address });
 
   const lightOrders = useMemo(() => {
     return getLightOrders();
@@ -72,7 +66,7 @@ export const Spawn = () => {
 
   useEffect(() => {
     if (player) {
-      setPlayerName(shortString.decodeShortString(player.name));
+      setPlayerName(player.name);
       setOrderName(getOrder(player.order));
     } else {
       setPlayerName("");

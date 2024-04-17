@@ -1,5 +1,5 @@
-import devManifest from "../contracts/target/dev/manifest.json";
-import preManifest from "../contracts/target/pre/manifest.json";
+import devManifest from "../contracts/manifests/dev/manifest.json";
+import preManifest from "../contracts/manifests/pre/manifest.json";
 import realmsManifest from "../contracts/target/realms/manifest.json";
 
 const {

@@ -1,0 +1,80 @@
+kind = "DojoModel"
+class_hash = "0x74a64354e18269afad8f0cba9ca6c4cf08d1f9a73fe75e8fc0a231c44432893"
+original_class_hash = "0x74a64354e18269afad8f0cba9ca6c4cf08d1f9a73fe75e8fc0a231c44432893"
+abi = "manifests/dev/abis/base/models/paved_models_game_game.json"
+name = "paved::models::game::game"
+
+[[members]]
+name = "id"
+type = "u32"
+key = true
+
+[[members]]
+name = "name"
+type = "felt252"
+key = false
+
+[[members]]
+name = "over"
+type = "bool"
+key = false
+
+[[members]]
+name = "players"
+type = "u128"
+key = false
+
+[[members]]
+name = "player_count"
+type = "u32"
+key = false
+
+[[members]]
+name = "tiles"
+type = "u128"
+key = false
+
+[[members]]
+name = "tile_count"
+type = "u32"
+key = false
+
+[[members]]
+name = "start_time"
+type = "u64"
+key = false
+
+[[members]]
+name = "duration"
+type = "u64"
+key = false
+
+[[members]]
+name = "price"
+type = "felt252"
+key = false
+
+[[members]]
+name = "prize"
+type = "felt252"
+key = false
+
+[[members]]
+name = "score"
+type = "u32"
+key = false
+
+[[members]]
+name = "mode"
+type = "u8"
+key = false
+
+[[members]]
+name = "deck"
+type = "u8"
+key = false
+
+[[members]]
+name = "seed"
+type = "felt252"
+key = false

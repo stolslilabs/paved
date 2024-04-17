@@ -37,9 +37,9 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
   const character = useComponentValue(Character, entity);
   const { builder } = useBuilder({
     gameId: character?.game_id,
-    playerId: character?.player_id,
+    playerId: character?.player_id.toString(),
   });
-  const { player } = usePlayer({ playerId: character?.player_id });
+  const { player } = usePlayer({ playerId: character?.player_id.toString() });
   const { tile } = useTile({
     gameId: character?.game_id,
     tileId: character?.tile_id,
@@ -78,7 +78,7 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
 
   useEffect(() => {
     if (player) {
-      const fullname = shortString.decodeShortString(player.name);
+      const fullname = player.name;
       // Keep only the first 8 characters and if it cuts the name, add "..."
       setName(
         fullname.length > 8

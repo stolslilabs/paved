@@ -131,7 +131,7 @@ export const getImage = (tile: any) => {
   }
 };
 
-export const getCharacterImage = (index: number) => {
+export const getCharacterImage = (index: number | undefined) => {
   switch (index) {
     case 1:
       return lord;
@@ -152,7 +152,7 @@ export const getCharacterImage = (index: number) => {
   }
 };
 
-export const getOrder = (order: number) => {
+export const getOrder = (order: number | undefined) => {
   switch (order) {
     case 1:
       return "ANGER";
