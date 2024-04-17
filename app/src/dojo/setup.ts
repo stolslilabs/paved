@@ -61,7 +61,7 @@ export async function setup({ ...config }: Config) {
     rpcProvider,
   });
 
-  burnerManager.init();
+  await burnerManager.init();
 
   return {
     client,
