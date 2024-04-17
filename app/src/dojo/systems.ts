@@ -6,15 +6,16 @@ import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { uuid } from "@latticexyz/utils";
 import { ClientComponents } from "./createClientComponents";
+import { ClientModels } from "./models";
 
 export type SystemCalls = ReturnType<typeof systems>;
 
 export function systems({
   client,
-  clientComponents,
+  clientModels,
 }: {
   client: IWorld;
-  clientComponents: ClientComponents;
+  clientModels: ClientModels;
 }) {
   const extractedMessage = (message: string) => {
     return message.match(/\('([^']+)'\)/)?.[1];
@@ -39,7 +40,7 @@ export function systems({
         "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error creating game:", error);
@@ -47,6 +48,16 @@ export function systems({
   };
 
   const rename_game = async ({ account, ...props }: SystemTypes.RenameGame) => {
+    const entityId = getEntityIdFromKeys([BigInt(props.game_id)]) as Entity;
+
+    const tileId = uuid();
+    clientModels.models.Game.addOverride(tileId, {
+      entity: entityId,
+      value: {
+        name: BigInt(props.name),
+      },
+    });
+
     try {
       const { transaction_hash } = await client.host.rename({
         account,
@@ -57,10 +68,13 @@ export function systems({
         "Game has been renamed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
+      clientModels.models.Game.removeOverride(tileId);
       console.error("Error renaming game:", error);
+    } finally {
+      clientModels.models.Game.removeOverride(tileId);
     }
   };
 
@@ -75,7 +89,7 @@ export function systems({
         "Game has been updated.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error updating game:", error);
@@ -93,7 +107,7 @@ export function systems({
         "Game has been joined.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error joining game:", error);
@@ -111,7 +125,7 @@ export function systems({
         "Builder is ready.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error being ready:", error);
@@ -132,7 +146,7 @@ export function systems({
         "Game has been transferred.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error transferring game:", error);
@@ -150,7 +164,7 @@ export function systems({
         "Game has been left.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error leaving game:", error);
@@ -168,7 +182,7 @@ export function systems({
         "Builder has been kicked.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error kicking builder:", error);
@@ -186,7 +200,7 @@ export function systems({
         "Game has been deleted.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error deleting game:", error);
@@ -204,7 +218,7 @@ export function systems({
         "Game has been started.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error starting game:", error);
@@ -225,7 +239,7 @@ export function systems({
         "Tournament has been claimed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error claiming tournament:", error);
@@ -246,7 +260,7 @@ export function systems({
         "Player has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error creating player:", error);
@@ -267,7 +281,7 @@ export function systems({
         "Player has been renamed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error renaming player:", error);
@@ -288,7 +302,7 @@ export function systems({
         "Player has been reordered.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error reordering player:", error);
@@ -306,7 +320,7 @@ export function systems({
         "Bought.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error buying:", error);
@@ -324,7 +338,7 @@ export function systems({
         "Claimed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error claiming:", error);
@@ -342,7 +356,7 @@ export function systems({
         "Tile has been revealed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error drawing:", error);
@@ -360,7 +374,7 @@ export function systems({
         "Tile has been discarded.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error discarding:", error);
@@ -378,7 +392,7 @@ export function systems({
         "Game has been abandoned.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error surrendering:", error);
@@ -386,19 +400,19 @@ export function systems({
   };
 
   const build = async ({ account, ...props }: SystemTypes.Build) => {
+    console.log(props);
     const entityId = getEntityIdFromKeys([
       BigInt(props.game_id),
       BigInt(props.tile_id),
     ]) as Entity;
 
     const tileId = uuid();
-    clientComponents.Tile.addOverride(tileId, {
+    clientModels.models.Tile.addOverride(tileId, {
       entity: entityId,
       value: {
         game_id: props.game_id,
         id: props.tile_id,
         player_id: BigInt(account.address),
-        plan: 0,
         orientation: props.orientation,
         x: props.x,
         y: props.y,
@@ -408,7 +422,7 @@ export function systems({
 
     const tilePositionId = uuid();
 
-    clientComponents.TilePosition.addOverride(tilePositionId, {
+    clientModels.models.TilePosition.addOverride(tilePositionId, {
       entity: getEntityIdFromKeys([
         BigInt(props.game_id),
         BigInt(props.x),
@@ -432,15 +446,15 @@ export function systems({
         "Tile has been paved.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error building:", error);
-      clientComponents.Tile.removeOverride(tileId);
-      clientComponents.TilePosition.removeOverride(tilePositionId);
+      clientModels.models.Tile.removeOverride(tileId);
+      clientModels.models.TilePosition.removeOverride(tilePositionId);
     } finally {
-      clientComponents.Tile.removeOverride(tileId);
-      clientComponents.TilePosition.removeOverride(tilePositionId);
+      clientModels.models.Tile.removeOverride(tileId);
+      clientModels.models.TilePosition.removeOverride(tilePositionId);
     }
   };
 

@@ -11,7 +11,6 @@ import { setupWorld } from "./generated/contractSystems.ts";
 import { DojoProvider } from "@dojoengine/core";
 import { BurnerManager } from "@dojoengine/create-burner";
 import { Account, RpcProvider } from "starknet";
-import { createClientComponents } from "./createClientComponents.tsx";
 
 export type SetupResult = Awaited<ReturnType<typeof setup>>;
 
@@ -30,10 +29,6 @@ export async function setup({ ...config }: Config) {
   // create client components
   const clientModels = models({ contractModels });
 
-  const clientComponents = createClientComponents({
-    contractComponents: contractModels,
-  });
-
   // create event subscriptions
   const contractEvents = await createCustomEvents(config.toriiUrl);
 
@@ -42,7 +37,7 @@ export async function setup({ ...config }: Config) {
 
   const client = await setupWorld(
     new DojoProvider(config.manifest, config.rpcUrl),
-    config,
+    config
   );
 
   const rpcProvider = new RpcProvider({
@@ -53,7 +48,7 @@ export async function setup({ ...config }: Config) {
     masterAccount: new Account(
       rpcProvider,
       config.masterAddress,
-      config.masterPrivateKey,
+      config.masterPrivateKey
     ),
     feeTokenAddress: config.feeTokenAddress,
     accountClassHash: config.accountClassHash,
@@ -68,7 +63,7 @@ export async function setup({ ...config }: Config) {
     clientModels,
     contractComponents: contractModels,
     contractEvents,
-    systemCalls: systems({ client, clientComponents }),
+    systemCalls: systems({ client, clientModels }),
     config,
     world,
     burnerManager,

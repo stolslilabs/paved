@@ -58,7 +58,10 @@ export const Surrender = (props: TProps) => {
           <TooltipTrigger>
             <AlertDialogTrigger asChild>
               <Button disabled={disabled} variant={"command"} size={"command"}>
-                <FontAwesomeIcon className="h-12" icon={faFontAwesome} />
+                <FontAwesomeIcon
+                  className="sm:h-4 md:h-12"
+                  icon={faFontAwesome}
+                />
               </Button>
             </AlertDialogTrigger>
           </TooltipTrigger>

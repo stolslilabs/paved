@@ -31,15 +31,15 @@ const buttonVariants = cva(
         sm: "h-8 rounded-md text-xs",
         lg: "h-10 rounded-md p-8",
         icon: "h-9 w-9",
-        character: "h-24 w-24",
-        command: "h-24 w-24",
+        character: "sm:h-8 sm:w-8 md:h-24 md:w-24",
+        command: "sm:h-8 sm:w-8 md:h-24 md:w-24",
       },
     },
     defaultVariants: {
       variant: "default",
       size: "default",
     },
-  },
+  }
 );
 
 export interface ButtonProps
@@ -58,7 +58,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       />
     );
-  },
+  }
 );
 Button.displayName = "Button";
 

@@ -77,7 +77,7 @@ export const LeaderboardDialog = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant={"command"} size={"command"}>
-                <FontAwesomeIcon className="h-12" icon={faTrophy} />
+                <FontAwesomeIcon className="sm:h-4 md:h-12" icon={faTrophy} />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -153,7 +153,7 @@ export const Leaderboard = () => {
         setBuilders((prevTiles: any) => {
           return { ...prevTiles, [builder.player_id]: builder };
         });
-      },
+      }
     );
     defineSystem(
       world,
@@ -162,7 +162,7 @@ export const Leaderboard = () => {
         setBuilders((prevTiles: any) => {
           return { ...prevTiles, [builder.player_id]: builder };
         });
-      },
+      }
     );
   }, []);
 
@@ -172,7 +172,7 @@ export const Leaderboard = () => {
     const topSortedBuilders: Builder[] = Object.values(builders).sort(
       (a, b) => {
         return b?.score - a?.score;
-      },
+      }
     );
 
     setTopBuilders(topSortedBuilders);

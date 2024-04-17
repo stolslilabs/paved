@@ -21,7 +21,7 @@ export const Home = () => {
             size={"command"}
             onClick={() => navigate("", { replace: true })}
           >
-            <FontAwesomeIcon className="h-12" icon={faHome} />
+            <FontAwesomeIcon className="sm:h-4 md:h-12" icon={faHome} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>
