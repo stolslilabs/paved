@@ -29,7 +29,10 @@ export const Player = () => {
   }, [account, playerEntity]);
 
   return (
-    <div className="h-full w-[600px] flex flex-col" style={{ backgroundColor }}>
+    <div
+      className="h-full md:w-[600px]  flex-col hidden md:flex"
+      style={{ backgroundColor }}
+    >
       <div className="h-40 opacity-60">
         <img src={banner} alt="banner" className="h-full" />
       </div>

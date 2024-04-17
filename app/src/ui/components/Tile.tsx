@@ -71,7 +71,7 @@ export const Tile = () => {
 
   return (
     <div
-      className="h-60 w-60 p-5 border-2 border-stone-500 flex justify-center items-center rounded-xl shadow-lg shadow-gray-400"
+      className="h-24 w-24 md:h-60 md:w-60 p-1 md:p-5 md:border-2 border-stone-500 flex justify-center items-center rounded-xl shadow-lg shadow-gray-400"
       style={{ backgroundColor }}
     >
       {tile && backgroundImage && !game?.isOver() ? (
@@ -169,9 +169,12 @@ export const HiddenTile = () => {
             onClick={handleDrawClick}
           >
             <div className="relative h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
-              <FontAwesomeIcon className="h-12" icon={over ? faLock : faEye} />
+              <FontAwesomeIcon
+                className="h-6 md:h-12"
+                icon={over ? faLock : faEye}
+              />
               {!over && game?.isSoloMode() && (
-                <div className="absolute top-1/2 left-1/2 translate-x-[-50%] translate-y-[+100%] select-none text-3xl">
+                <div className="absolute md:top-1/2 left-1/2 translate-x-[-50%] translate-y-[+100%] select-none md:text-3xl">
                   {game?.tilesLeft()}
                 </div>
               )}

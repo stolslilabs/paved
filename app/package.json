@@ -14,7 +14,8 @@
     "gen:models": "npx create-models ../contracts/manifests/dev/manifest.json ./src/dojo/generated/contractModels.ts",
     "gen:events": "npx create-events ../contracts/manifests/dev/manifest.json ./src/dojo/generated/contractEvents.ts",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "generate-pwa-assets": "pwa-assets-generator"
   },
   "bin": {
     "create-models": "./bin/generateModels.cjs",
@@ -54,6 +55,7 @@
     "@starknet-react/core": "^2.5.0",
     "@storybook/builder-vite": "^8.0.5",
     "@types/three": "^0.162.0",
+    "@vite-pwa/assets-generator": "^0.2.4",
     "autoprefixer": "^10.4.19",
     "boring-avatars": "^1.10.1",
     "class-variance-authority": "^0.7.0",
@@ -70,6 +72,7 @@
     "next-themes": "^0.3.0",
     "postcss": "^8.4.38",
     "proxy-deep": "^4.0.1",
+    "r3f-perf": "^7.2.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.3",
@@ -110,6 +113,7 @@
     "eslint-plugin-storybook": "^0.8.0",
     "storybook": "^8.0.5",
     "typescript": "^5.4.3",
-    "vite": "^5.2.7"
+    "vite": "^5.2.7",
+    "vite-plugin-pwa": "^0.19.8"
   }
 }

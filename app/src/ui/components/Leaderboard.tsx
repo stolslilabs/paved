@@ -77,7 +77,7 @@ export const LeaderboardDialog = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant={"command"} size={"command"}>
-                <FontAwesomeIcon className="h-12" icon={faTrophy} />
+                <FontAwesomeIcon className="sm:h-4 md:h-12" icon={faTrophy} />
               </Button>
             </TooltipTrigger>
             <TooltipContent>

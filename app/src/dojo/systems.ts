@@ -2,10 +2,21 @@ import type { IWorld } from "./generated/contractSystems";
 
 import { toast } from "sonner";
 import * as SystemTypes from "./types/systems";
+import { getEntityIdFromKeys } from "@dojoengine/utils";
+import { Entity } from "@dojoengine/recs";
+import { uuid } from "@latticexyz/utils";
+import { ClientComponents } from "./createClientComponents";
+import { ClientModels } from "./models";
 
 export type SystemCalls = ReturnType<typeof systems>;
 
-export function systems({ client }: { client: IWorld }) {
+export function systems({
+  client,
+  clientModels,
+}: {
+  client: IWorld;
+  clientModels: ClientModels;
+}) {
   const extractedMessage = (message: string) => {
     return message.match(/\('([^']+)'\)/)?.[1];
   };
@@ -37,6 +48,16 @@ export function systems({ client }: { client: IWorld }) {
   };
 
   const rename_game = async ({ account, ...props }: SystemTypes.RenameGame) => {
+    const entityId = getEntityIdFromKeys([BigInt(props.game_id)]) as Entity;
+
+    const tileId = uuid();
+    clientModels.models.Game.addOverride(tileId, {
+      entity: entityId,
+      value: {
+        name: BigInt(props.name),
+      },
+    });
+
     try {
       const { transaction_hash } = await client.host.rename({
         account,
@@ -50,7 +71,10 @@ export function systems({ client }: { client: IWorld }) {
         }),
       );
     } catch (error) {
+      clientModels.models.Game.removeOverride(tileId);
       console.error("Error renaming game:", error);
+    } finally {
+      clientModels.models.Game.removeOverride(tileId);
     }
   };
 
@@ -376,6 +400,41 @@ export function systems({ client }: { client: IWorld }) {
   };
 
   const build = async ({ account, ...props }: SystemTypes.Build) => {
+    const entityId = getEntityIdFromKeys([
+      BigInt(props.game_id),
+      BigInt(props.tile_id),
+    ]) as Entity;
+
+    const tileId = uuid();
+    clientModels.models.Tile.addOverride(tileId, {
+      entity: entityId,
+      value: {
+        game_id: props.game_id,
+        id: props.tile_id,
+        player_id: BigInt(account.address),
+        orientation: props.orientation,
+        x: props.x,
+        y: props.y,
+        occupied_spot: props.spot,
+      },
+    });
+
+    const tilePositionId = uuid();
+
+    clientModels.models.TilePosition.addOverride(tilePositionId, {
+      entity: getEntityIdFromKeys([
+        BigInt(props.game_id),
+        BigInt(props.x),
+        BigInt(props.y),
+      ]) as Entity,
+      value: {
+        game_id: props.game_id,
+        x: props.x,
+        y: props.y,
+        tile_id: props.tile_id,
+      },
+    });
+
     try {
       const { transaction_hash } = await client.play.build({
         account,
@@ -390,6 +449,11 @@ export function systems({ client }: { client: IWorld }) {
       );
     } catch (error) {
       console.error("Error building:", error);
+      clientModels.models.Tile.removeOverride(tileId);
+      clientModels.models.TilePosition.removeOverride(tilePositionId);
+    } finally {
+      clientModels.models.Tile.removeOverride(tileId);
+      clientModels.models.TilePosition.removeOverride(tilePositionId);
     }
   };
 

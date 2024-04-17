@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
 import {
   defineEnterSystem,
@@ -8,6 +8,7 @@ import {
   NotValue,
 } from "@dojoengine/recs";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import { create } from "zustand";
 
 type Position = {
   col: number;
@@ -48,6 +49,44 @@ export const useTiles = () => {
     [],
   );
 
+  const createTileAndSet = (tile: any) => {
+    // Update the tiles
+    setTiles((prevTiles: typeof Tile) => {
+      const tileKey = `${tile.gameId}-${tile.id}`;
+      const positionKey = `${tile.gameId}-${tile.x}-${tile.y}`;
+      return { ...prevTiles, [tileKey]: tile, [positionKey]: tile };
+    });
+
+    // Create a new item for the tile
+    const key = `${tile.gameId}-${tile.x}-${tile.y}`;
+    const item: Item = { tile: tile, empty: false };
+    const newItems: Items = { [key]: item };
+
+    // Create new items for the surrounding tiles
+    offsets.forEach((offset) => {
+      const col = tile.x + offset.x;
+      const row = tile.y + offset.y;
+      const position: Position = { col: col, row: row };
+      const key = `${tile.gameId}-${col}-${row}`;
+
+      if (!Object.keys(items).includes(key)) {
+        const item: Item = { tile: position, empty: true };
+        newItems[key] = item;
+      }
+    });
+
+    // Merge the new items with the previous items with priority to not empty items
+    setItems((prevItems) => {
+      const updatedItems = { ...prevItems };
+      Object.keys(newItems).forEach((key) => {
+        if (!Object.keys(updatedItems).includes(key) || !newItems[key].empty) {
+          updatedItems[key] = newItems[key];
+        }
+      });
+      return updatedItems;
+    });
+  };
+
   useEffect(() => {
     defineEnterSystem(
       world,
@@ -58,95 +97,7 @@ export const useTiles = () => {
       ],
       ({ value: [raw] }: any) => {
         const tile = new TileClass(raw);
-
-        // Update the tiles
-        setTiles((prevTiles: typeof Tile) => {
-          const tileKey = `${tile.gameId}-${tile.id}`;
-          const positionKey = `${tile.gameId}-${tile.x}-${tile.y}`;
-          return { ...prevTiles, [tileKey]: tile, [positionKey]: tile };
-        });
-
-        // Create a new item for the tile
-        const key = `${tile.gameId}-${tile.x}-${tile.y}`;
-        const item: Item = { tile: tile, empty: false };
-        const newItems: Items = { [key]: item };
-
-        // Create new items for the surrounding tiles
-        offsets.forEach((offset) => {
-          const col = tile.x + offset.x;
-          const row = tile.y + offset.y;
-          const position: Position = { col: col, row: row };
-          const key = `${tile.gameId}-${col}-${row}`;
-
-          if (!Object.keys(items).includes(key)) {
-            const item: Item = { tile: position, empty: true };
-            newItems[key] = item;
-          }
-        });
-
-        // Merge the new items with the previous items with priority to not empty items
-        setItems((prevItems) => {
-          const updatedItems = { ...prevItems };
-          Object.keys(newItems).forEach((key) => {
-            if (
-              !Object.keys(updatedItems).includes(key) ||
-              !newItems[key].empty
-            ) {
-              updatedItems[key] = newItems[key];
-            }
-          });
-          return updatedItems;
-        });
-      },
-    );
-    defineSystem(
-      world,
-      [
-        Has(Tile),
-        HasValue(Tile, { game_id: gameId }),
-        NotValue(Tile, { orientation: 0 }),
-      ],
-      ({ value: [raw] }: any) => {
-        const tile = new TileClass(raw);
-
-        // Update the tiles
-        setTiles((prevTiles: typeof Tile) => {
-          const tileKey = `${tile.gameId}-${tile.id}`;
-          const positionKey = `${tile.gameId}-${tile.x}-${tile.y}`;
-          return { ...prevTiles, [tileKey]: tile, [positionKey]: tile };
-        });
-
-        // Create a new item for the tile
-        const key = `${tile.gameId}-${tile.x}-${tile.y}`;
-        const item: Item = { tile: tile, empty: false };
-        const newItems: Items = { [key]: item };
-
-        // Create new items for the surrounding tiles
-        offsets.forEach((offset) => {
-          const col = tile.x + offset.x;
-          const row = tile.y + offset.y;
-          const position: Position = { col: col, row: row };
-          const key = `${tile.gameId}-${col}-${row}`;
-
-          if (!Object.keys(items).includes(key)) {
-            const item: Item = { tile: position, empty: true };
-            newItems[key] = item;
-          }
-        });
-
-        // Merge the new items with the previous items with priority to not empty items
-        setItems((prevItems) => {
-          const updatedItems = { ...prevItems };
-          Object.keys(newItems).forEach((key) => {
-            if (
-              !Object.keys(updatedItems).includes(key) ||
-              !newItems[key].empty
-            ) {
-              updatedItems[key] = newItems[key];
-            }
-          });
-          return updatedItems;
-        });
+        createTileAndSet(tile);
       },
     );
   }, []);

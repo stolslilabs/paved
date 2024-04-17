@@ -14,7 +14,7 @@ export const GameLoading = () => {
       <div className="absolute inset-0 flex justify-center items-center bg-black bg-opacity-50">
         {/* Logo */}
         <div className="absolute top-1/4 left-0 flex justify-center items-center w-full h-20">
-          <img src={logo} alt="banner" className="h-40" />
+          <img src={logo} alt="banner" className="h-12 md:h-40" />
         </div>
 
         <div className="text-white text-center">

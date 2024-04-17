@@ -48,7 +48,7 @@ export const Discard = () => {
               })
             }
           >
-            <FontAwesomeIcon className="h-12" icon={faFire} />
+            <FontAwesomeIcon className="h-4 md:h-12" icon={faFire} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

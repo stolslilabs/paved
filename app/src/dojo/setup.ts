@@ -56,14 +56,14 @@ export async function setup({ ...config }: Config) {
     rpcProvider,
   });
 
-  burnerManager.init();
+  await burnerManager.init();
 
   return {
     client,
     clientModels,
     contractComponents: contractModels,
     contractEvents,
-    systemCalls: systems({ client }),
+    systemCalls: systems({ client, clientModels }),
     config,
     world,
     burnerManager,
