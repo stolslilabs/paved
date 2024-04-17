@@ -1,9 +1,0 @@
-kind = "DojoContract"
-class_hash = "0x2173c1a83ea3e89f036c735e7dc591a7f500c32a67e14695bc8d9192943d2ef"
-original_class_hash = "0x2173c1a83ea3e89f036c735e7dc591a7f500c32a67e14695bc8d9192943d2ef"
-base_class_hash = "0x0"
-abi = "manifests/dev/abis/base/contracts/paved_systems_play_play.json"
-reads = []
-writes = []
-computed = []
-name = "paved::systems::play::play"
