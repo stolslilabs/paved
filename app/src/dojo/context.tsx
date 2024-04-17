@@ -29,12 +29,12 @@ export const DojoProvider = ({
       new RpcProvider({
         nodeUrl: rpcUrl,
       }),
-    [rpcUrl]
+    [rpcUrl],
   );
 
   const masterAccount = useMemo(
     () => new Account(rpcProvider, masterAddress, masterPrivateKey),
-    [rpcProvider, masterAddress, masterPrivateKey]
+    [rpcProvider, masterAddress, masterPrivateKey],
   );
 
   const {

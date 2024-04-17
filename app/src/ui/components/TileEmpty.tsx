@@ -72,7 +72,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
         northTile,
         eastTile,
         southTile,
-        westTile
+        westTile,
       )
     );
   }, [
@@ -170,7 +170,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
         transparent: true,
         opacity: 0.3,
       }),
-    []
+    [],
   );
 
   const meshComponent = useMemo(
@@ -207,7 +207,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
       handlePointerEnter,
       handlePointerLeave,
       handleSimpleClick,
-    ]
+    ],
   );
 
   return (

@@ -39,7 +39,7 @@ export function systems({
         "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error creating game:", error);
@@ -57,7 +57,7 @@ export function systems({
         "Game has been renamed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error renaming game:", error);
@@ -75,7 +75,7 @@ export function systems({
         "Game has been updated.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error updating game:", error);
@@ -93,7 +93,7 @@ export function systems({
         "Game has been joined.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error joining game:", error);
@@ -111,7 +111,7 @@ export function systems({
         "Builder is ready.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error being ready:", error);
@@ -132,7 +132,7 @@ export function systems({
         "Game has been transferred.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error transferring game:", error);
@@ -150,7 +150,7 @@ export function systems({
         "Game has been left.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error leaving game:", error);
@@ -168,7 +168,7 @@ export function systems({
         "Builder has been kicked.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error kicking builder:", error);
@@ -186,7 +186,7 @@ export function systems({
         "Game has been deleted.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error deleting game:", error);
@@ -204,7 +204,7 @@ export function systems({
         "Game has been started.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error starting game:", error);
@@ -246,7 +246,7 @@ export function systems({
         "Player has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error creating player:", error);
@@ -267,7 +267,7 @@ export function systems({
         "Player has been renamed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error renaming player:", error);
@@ -288,7 +288,7 @@ export function systems({
         "Player has been reordered.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error reordering player:", error);
@@ -306,7 +306,7 @@ export function systems({
         "Bought.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error buying:", error);
@@ -324,7 +324,7 @@ export function systems({
         "Claimed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error claiming:", error);
@@ -342,7 +342,7 @@ export function systems({
         "Tile has been revealed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error drawing:", error);
@@ -360,7 +360,7 @@ export function systems({
         "Tile has been discarded.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error discarding:", error);
@@ -378,7 +378,7 @@ export function systems({
         "Game has been abandoned.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error surrendering:", error);
@@ -386,14 +386,10 @@ export function systems({
   };
 
   const build = async ({ account, ...props }: SystemTypes.Build) => {
-    console.log(props);
-
     const entityId = getEntityIdFromKeys([
       BigInt(props.game_id),
       BigInt(props.tile_id),
     ]) as Entity;
-
-    console.log(clientComponents.Tile);
 
     const tileId = uuid();
     clientComponents.Tile.addOverride(tileId, {
@@ -436,7 +432,7 @@ export function systems({
         "Tile has been paved.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error building:", error);
