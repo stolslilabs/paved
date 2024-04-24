@@ -183,7 +183,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       }
     };
 
-    const claim = async ({ account, tournament_id, rank, }: ClaimTournament) => {
+    const claim = async ({ account, tournament_id, rank }: ClaimTournament) => {
       try {
         return await provider.execute(account, contract_name, "claim", [
           provider.getWorldAddress(),

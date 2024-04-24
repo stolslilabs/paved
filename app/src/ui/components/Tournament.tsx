@@ -300,7 +300,6 @@ export const GameRow = ({
   }, [rank]);
 
   const isSelf = useMemo(() => {
-    console.log(game.playerId, account.address)
     return game.playerId === account.address;
   }, [game, account]);
 
@@ -314,7 +313,7 @@ export const GameRow = ({
       <TableCell className="text-right">
         {isSelf && tournament && tournament.isClaimable(rank) ? (
           <Claim tournament={tournament} rank={rank} />
-        ): (
+        ) : (
           <Spectate gameId={game.gameId} />
         )}
       </TableCell>
