@@ -256,6 +256,10 @@ export const GameRow = ({
   tournamentId: number;
   rank: number;
 }) => {
+  const {
+    account: { account },
+  } = useDojo();
+
   const { tournament } = useTournament({
     tournamentId: tournamentId + TOURNAMENT_ID_OFFSET,
   });
@@ -295,6 +299,11 @@ export const GameRow = ({
     return `#${rank}`;
   }, [rank]);
 
+  const isSelf = useMemo(() => {
+    console.log(game.playerId, account.address)
+    return game.playerId === account.address;
+  }, [game, account]);
+
   return (
     <TableRow>
       <TableCell className="font-medium">{playerRank}</TableCell>
@@ -303,10 +312,9 @@ export const GameRow = ({
       <TableCell className="text-right">{duration}</TableCell>
       <TableCell className="text-right">{rank > 3 ? "" : winnings}</TableCell>
       <TableCell className="text-right">
-        {tournament && tournament.isClaimable(rank) && (
+        {isSelf && tournament && tournament.isClaimable(rank) ? (
           <Claim tournament={tournament} rank={rank} />
-        )}
-        {(!tournament || !tournament.isClaimable(rank)) && (
+        ): (
           <Spectate gameId={game.gameId} />
         )}
       </TableCell>
@@ -396,6 +404,7 @@ export const Claim = ({
       claim_tournament({
         account: account as Account,
         tournament_id: tournament.id,
+        rank: rank,
       });
     }
   }, [account, tournament]);

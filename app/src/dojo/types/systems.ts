@@ -54,6 +54,7 @@ export interface StartGame extends Signer {
 
 export interface ClaimTournament extends Signer {
   tournament_id: number;
+  rank: number;
 }
 
 export interface CreatePlayer extends Signer {

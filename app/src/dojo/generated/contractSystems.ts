@@ -183,11 +183,12 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       }
     };
 
-    const claim = async ({ account, tournament_id }: ClaimTournament) => {
+    const claim = async ({ account, tournament_id, rank, }: ClaimTournament) => {
       try {
         return await provider.execute(account, contract_name, "claim", [
           provider.getWorldAddress(),
           tournament_id,
+          rank,
         ]);
       } catch (error) {
         console.error("Error executing initialize:", error);

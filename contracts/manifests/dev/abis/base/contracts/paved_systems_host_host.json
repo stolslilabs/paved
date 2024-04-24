@@ -279,6 +279,10 @@
           {
             "name": "tournament_id",
             "type": "core::integer::u64"
+          },
+          {
+            "name": "rank",
+            "type": "core::integer::u8"
           }
         ],
         "outputs": [],

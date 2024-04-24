@@ -7,6 +7,9 @@ edition = "2023_10"
 [cairo]
 sierra-replace-ids = true
 
+[scripts]
+migrate = "sozo build && sozo migrate plan && sozo migrate apply && ./scripts/katana.sh"
+
 [dependencies]
 dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.6.0" }
 origami = { git = "https://github.com/dojoengine/origami", tag = "v0.6.0" }
@@ -15,6 +18,18 @@ origami = { git = "https://github.com/dojoengine/origami", tag = "v0.6.0" }
 
 [tool.dojo]
 initializer_class_hash = "0xbeef"
+
+[tool.dojo.world]
+name = "Paved"
+description = "A strategic onchain tile laying game."
+cover_uri = "https://paved.gg/assets/placeholder.png"
+icon_uri = "https://paved.gg/assets/logo.png"
+website = "https://paved.gg"
+
+[tool.dojo.world.socials]
+x = "https://x.com/pavedgame"
+discord = "https://discord.com/invite/realmsworld"
+github = "https://github.com/stolslilabs/paved"
 
 [tool.dojo.env]
 # Katana
