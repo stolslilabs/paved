@@ -133,13 +133,12 @@ fn test_play_ranked_tournament_claim() {
     // [Claim]
     set_block_timestamp(constants::TOURNAMENT_DURATION);
     let tournament_id = TournamentImpl::compute_id(time);
-    systems.host.claim(world, tournament_id);
+    let rank = 1;
+    systems.host.claim(world, tournament_id, rank);
 
     // [Assert] Player balance
-    let player = store.player(PLAYER().into());
     let final_player = context.erc20.balance_of(PLAYER());
     let tournament = store.tournament(tournament_id);
-    let rank = tournament.rank(player.id);
     let reward = tournament.reward(rank);
     assert(
         final_player + constants::TOURNAMENT_PRICE.into() == player_balance + reward,
@@ -150,13 +149,12 @@ fn test_play_ranked_tournament_claim() {
     set_contract_address(ANYONE());
     set_block_timestamp(constants::TOURNAMENT_DURATION);
     let tournament_id = TournamentImpl::compute_id(time);
-    systems.host.claim(world, tournament_id);
+    let rank = 2;
+    systems.host.claim(world, tournament_id, rank);
 
     // [Assert] Anyone balance
-    let anyone = store.player(ANYONE().into());
     let final_anyone = context.erc20.balance_of(ANYONE());
     let tournament = store.tournament(tournament_id);
-    let rank = tournament.rank(anyone.id);
     let reward = tournament.reward(rank);
     assert(
         final_anyone + constants::TOURNAMENT_PRICE.into() == anyone_balance + reward,
@@ -167,13 +165,12 @@ fn test_play_ranked_tournament_claim() {
     set_contract_address(SOMEONE());
     set_block_timestamp(constants::TOURNAMENT_DURATION);
     let tournament_id = TournamentImpl::compute_id(time);
-    systems.host.claim(world, tournament_id);
+    let rank = 3;
+    systems.host.claim(world, tournament_id, rank);
 
     // [Assert] Someone balance
-    let someone = store.player(SOMEONE().into());
     let final_someone = context.erc20.balance_of(SOMEONE());
     let tournament = store.tournament(tournament_id);
-    let rank = tournament.rank(someone.id);
     let reward = tournament.reward(rank);
     assert(
         final_someone + constants::TOURNAMENT_PRICE.into() == someone_balance + reward,
@@ -195,12 +192,12 @@ fn test_play_ranked_tournament_claim_revert_not_over() {
 
     // [Claim]
     let tournament_id = TournamentImpl::compute_id(time);
-    systems.host.claim(world, tournament_id);
+    systems.host.claim(world, tournament_id, 1);
 }
 
 #[test]
-#[should_panic(expected: ('Tournament: nothing to claim', 'ENTRYPOINT_FAILED',))]
-fn test_play_ranked_tournament_claim_revert_nothing_to_claim() {
+#[should_panic(expected: ('Tournament: invalid player', 'ENTRYPOINT_FAILED',))]
+fn test_play_ranked_tournament_claim_revert_invalid_player() {
     // [Setup]
     let (world, systems, _) = setup::spawn_game(Mode::Ranked);
     let time = 0;
@@ -209,5 +206,5 @@ fn test_play_ranked_tournament_claim_revert_nothing_to_claim() {
     // [Claim]
     set_block_timestamp(constants::TOURNAMENT_DURATION);
     let tournament_id = TournamentImpl::compute_id(time);
-    systems.host.claim(world, tournament_id);
+    systems.host.claim(world, tournament_id, 1);
 }

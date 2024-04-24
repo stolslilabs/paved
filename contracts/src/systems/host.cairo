@@ -27,7 +27,7 @@ trait IHost<TContractState> {
     fn kick(self: @TContractState, world: IWorldDispatcher, game_id: u32, player_id: felt252);
     fn delete(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
     fn start(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
-    fn claim(self: @TContractState, world: IWorldDispatcher, tournament_id: u64,);
+    fn claim(self: @TContractState, world: IWorldDispatcher, tournament_id: u64, rank: u8,);
 }
 
 #[starknet::interface]
@@ -476,7 +476,7 @@ mod host {
             store.set_tile(tile);
         }
 
-        fn claim(self: @ContractState, world: IWorldDispatcher, tournament_id: u64) {
+        fn claim(self: @ContractState, world: IWorldDispatcher, tournament_id: u64, rank: u8) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -491,7 +491,7 @@ mod host {
 
             // [Effect] Update claim
             let time = get_block_timestamp();
-            let reward = tournament.claim(player.id, time);
+            let reward = tournament.claim(player.id, rank, time);
             store.set_tournament(tournament);
 
             // [Interaction] Pay reward
