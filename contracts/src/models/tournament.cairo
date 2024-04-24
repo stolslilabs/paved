@@ -319,7 +319,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected: ('Tournament: invalid_player',))]
+    #[should_panic(expected: ('Tournament: invalid player',))]
     fn test_claim_revert_invalid_player() {
         let mut tournament: Tournament = Default::default();
         tournament.prize = 100;
