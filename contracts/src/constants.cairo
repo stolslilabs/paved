@@ -25,7 +25,7 @@ const DISCARD_POINTS: u32 = 50;
 
 // Tournament
 
-const TOURNAMENT_PRICE: felt252 = 100_000_000_000_000;
+const TOURNAMENT_PRICE: felt252 = 1_000_000_000_000_000_000;
 const TOURNAMENT_DURATION: u64 = 604800; // 1 week
 
 // Bonus curve

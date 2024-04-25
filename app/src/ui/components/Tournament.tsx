@@ -277,8 +277,8 @@ export const GameRow = ({
   }, [game]);
 
   const winnings = useMemo(() => {
-    if (!tournament) return Number(0).toFixed(4);
-    const value = (tournament.reward(rank) / 1e18).toFixed(4);
+    if (!tournament) return Number(0).toFixed(2);
+    const value = (tournament.reward(rank) / 1e18).toFixed(2);
     if (value.length > 6) {
       return value.slice(0, 6);
     }
