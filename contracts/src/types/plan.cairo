@@ -4,7 +4,7 @@ use core::debug::PrintTrait;
 
 // Internal imports
 
-use paved::constants::{MASK_8, TWO_POW_8, TOTAL_TILE_COUNT};
+use paved::constants::MASK_8;
 use paved::types::category::Category;
 use paved::types::spot::Spot;
 use paved::types::direction::{Direction, DirectionImpl};
@@ -35,6 +35,7 @@ use paved::layouts::wfffffffr::{LayoutImpl as WfffffffrImpl};
 // Constants
 
 const NONE: felt252 = 0;
+const TWO_POW_8: u128 = 0x100;
 
 mod errors {
     const UNPACK_FAILED: felt252 = 'Layout: Unpack failed';

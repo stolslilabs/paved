@@ -2,14 +2,6 @@
 
 use core::debug::PrintTrait;
 
-// Constants
-
-const NONE: felt252 = 0;
-const NORTH: felt252 = 'NORTH';
-const SOUTH: felt252 = 'SOUTH';
-const EAST: felt252 = 'EAST';
-const WEST: felt252 = 'WEST';
-
 #[derive(Copy, Drop, Serde, PartialEq, Introspect)]
 enum Orientation {
     None,
@@ -32,19 +24,6 @@ impl IntoOrientationU8 of core::Into<Orientation, u8> {
     }
 }
 
-impl IntoOrientationFelt252 of core::Into<Orientation, felt252> {
-    #[inline(always)]
-    fn into(self: Orientation) -> felt252 {
-        match self {
-            Orientation::None => NONE,
-            Orientation::North => NORTH,
-            Orientation::East => EAST,
-            Orientation::South => SOUTH,
-            Orientation::West => WEST,
-        }
-    }
-}
-
 impl IntoU8Orientation of core::Into<u8, Orientation> {
     #[inline(always)]
     fn into(self: u8) -> Orientation {
@@ -62,31 +41,6 @@ impl IntoU8Orientation of core::Into<u8, Orientation> {
     }
 }
 
-impl IntoFelt252Orientation of core::Into<felt252, Orientation> {
-    #[inline(always)]
-    fn into(self: felt252) -> Orientation {
-        if self == NORTH {
-            Orientation::North
-        } else if self == EAST {
-            Orientation::East
-        } else if self == SOUTH {
-            Orientation::South
-        } else if self == WEST {
-            Orientation::West
-        } else {
-            Orientation::None
-        }
-    }
-}
-
-impl OrientationPrint of PrintTrait<Orientation> {
-    #[inline(always)]
-    fn print(self: Orientation) {
-        let felt: felt252 = self.into();
-        felt.print();
-    }
-}
-
 #[cfg(test)]
 mod tests {
     // Core imports
@@ -95,35 +49,12 @@ mod tests {
 
     // Local imports
 
-    use super::{Orientation, NORTH, SOUTH, EAST, WEST};
+    use super::Orientation;
 
     // Constants
 
     const UNKNOWN_FELT: felt252 = 'UNKNOWN';
     const UNKNOWN_U8: u8 = 42;
-
-    #[test]
-    fn test_orientation_into_felt() {
-        assert(0 == Orientation::None.into(), 'Orientation: None');
-        assert(NORTH == Orientation::North.into(), 'Orientation: North');
-        assert(EAST == Orientation::East.into(), 'Orientation: East');
-        assert(SOUTH == Orientation::South.into(), 'Orientation: South');
-        assert(WEST == Orientation::West.into(), 'Orientation: West');
-    }
-
-    #[test]
-    fn test_felt_into_orientation() {
-        assert(Orientation::None == 0.into(), 'Orientation: None');
-        assert(Orientation::North == NORTH.into(), 'Orientation: North');
-        assert(Orientation::East == EAST.into(), 'Orientation: East');
-        assert(Orientation::South == SOUTH.into(), 'Orientation: South');
-        assert(Orientation::West == WEST.into(), 'Orientation: West');
-    }
-
-    #[test]
-    fn test_unknown_felt_into_orientation() {
-        assert(Orientation::None == UNKNOWN_FELT.into(), 'Orientation: Unknown');
-    }
 
     #[test]
     fn test_orientation_into_u8() {

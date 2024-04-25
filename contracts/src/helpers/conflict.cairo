@@ -42,7 +42,7 @@ impl Conflict of ConflictTrait {
 
         // [Check] The tile handles a character
         let spot: Spot = tile.occupied_spot.into();
-        if 0 != spot.into() && tile.are_connected(at, spot) {
+        if 0_u8 != spot.into() && tile.are_connected(at, spot) {
             status = true;
             return;
         }

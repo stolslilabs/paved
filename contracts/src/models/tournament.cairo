@@ -172,25 +172,6 @@ impl TournamentAssert of AssertTrait {
     }
 }
 
-impl DefaultTournament of Default<Tournament> {
-    #[inline(always)]
-    fn default() -> Tournament {
-        Tournament {
-            id: 0,
-            prize: 0,
-            top1_player_id: 0,
-            top2_player_id: 0,
-            top3_player_id: 0,
-            top1_score: 0,
-            top2_score: 0,
-            top3_score: 0,
-            top1_claimed: false,
-            top2_claimed: false,
-            top3_claimed: false,
-        }
-    }
-}
-
 impl ZeroableTournament of Zeroable<Tournament> {
     #[inline(always)]
     fn zero() -> Tournament {
@@ -234,6 +215,27 @@ mod tests {
     // Constants
 
     const TIME: u64 = 1710347593;
+
+    // Implementations
+
+    impl DefaultTournament of Default<Tournament> {
+        #[inline(always)]
+        fn default() -> Tournament {
+            Tournament {
+                id: 0,
+                prize: 0,
+                top1_player_id: 0,
+                top2_player_id: 0,
+                top3_player_id: 0,
+                top1_score: 0,
+                top2_score: 0,
+                top3_score: 0,
+                top1_claimed: false,
+                top2_claimed: false,
+                top3_claimed: false,
+            }
+        }
+    }
 
     #[test]
     fn test_compute_id_zero() {

@@ -50,7 +50,7 @@ impl GenericCount of GenericCountTrait {
 
         // [Check] The tile handles a character
         let spot: Spot = tile.occupied_spot.into();
-        if 0 != spot.into() && tile.are_connected(at, spot) {
+        if 0_u8 != spot.into() && tile.are_connected(at, spot) {
             let character_position: CharacterPosition = store
                 .character_position(game, tile, spot.into());
             let character = store

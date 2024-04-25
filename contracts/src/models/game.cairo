@@ -166,7 +166,7 @@ impl GameImpl of GameTrait {
         let deck: Deck = Deck::Base;
         let number: u32 = deck.count().into();
         let mut deck: OrigamiDeck = DeckTrait::from_bitmap(self.seed, number, self.tiles);
-        let plan_id: u32 = deck.draw().into();
+        let plan_id: u8 = deck.draw().into();
         self.tile_count += 1;
         // Update the seed after draw
         let state = PoseidonTrait::new();
@@ -183,7 +183,7 @@ impl GameImpl of GameTrait {
                     Bitmap::set_bit_at(self.tiles, index.into(), true)
                 };
         let deck: Deck = Deck::Base;
-        (self.tile_count, deck.plan(plan_id))
+        (self.tile_count, deck.plan(plan_id.into()))
     }
 
     fn assess(
@@ -437,7 +437,7 @@ mod tests {
         let mut game = GameImpl::new(GAME_ID, 0);
         let (tile_count, plan_id) = game.draw_plan();
         assert(tile_count == 1, 'Game: Invalid tile_count');
-        assert(plan_id.into() < constants::TOTAL_TILE_COUNT, 'Game: Invalid plan_id');
+        assert(plan_id.into() < TOTAL_TILE_COUNT, 'Game: Invalid plan_id');
         assert(game.tile_count == 1, 'Game: Invalid tile_count');
         assert(game.tiles > 0, 'Game: Invalid tiles');
     }

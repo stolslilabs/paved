@@ -185,14 +185,6 @@
         "type": "core::felt252"
       },
       {
-        "name": "order",
-        "type": "core::integer::u8"
-      },
-      {
-        "name": "bank",
-        "type": "core::integer::u8"
-      },
-      {
         "name": "score",
         "type": "core::integer::u32"
       },

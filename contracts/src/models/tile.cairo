@@ -18,6 +18,7 @@ use paved::types::move::{Move, MoveImpl};
 // Constants
 
 const CENTER: u32 = 0x7fffffff;
+const TWO_POW_8: u128 = 0x100;
 
 mod errors {
     const TILE_INVALID_NEIGHBOR: felt252 = 'Tile: invalid neighbor';
@@ -76,7 +77,7 @@ impl TileImpl of TileTrait {
 
     #[inline(always)]
     fn get_key(self: Tile, area: Area) -> felt252 {
-        let key: u128 = area.into() + self.id.into() * constants::TWO_POW_8;
+        let key: u128 = area.into() + self.id.into() * TWO_POW_8;
         key.into()
     }
 

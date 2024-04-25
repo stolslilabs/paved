@@ -321,11 +321,6 @@
         "kind": "data"
       },
       {
-        "name": "order_id",
-        "type": "core::integer::u8",
-        "kind": "data"
-      },
-      {
         "name": "points",
         "type": "core::integer::u32",
         "kind": "data"
@@ -413,11 +408,6 @@
         "name": "player_master",
         "type": "core::felt252",
         "kind": "data"
-      },
-      {
-        "name": "player_order_id",
-        "type": "core::integer::u8",
-        "kind": "data"
       }
     ]
   },
@@ -454,11 +444,6 @@
       {
         "name": "player_master",
         "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_order_id",
-        "type": "core::integer::u8",
         "kind": "data"
       }
     ]
@@ -507,11 +492,6 @@
         "name": "player_master",
         "type": "core::felt252",
         "kind": "data"
-      },
-      {
-        "name": "player_order_id",
-        "type": "core::integer::u8",
-        "kind": "data"
       }
     ]
   },
@@ -543,244 +523,6 @@
       {
         "name": "player_master",
         "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_order_id",
-        "type": "core::integer::u8",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::events::ClosedCity",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "game_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      },
-      {
-        "name": "tile_id",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "tile_x",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "tile_y",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "points",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "size",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_name",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_master",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_order_id",
-        "type": "core::integer::u8",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::events::ClosedRoad",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "game_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      },
-      {
-        "name": "tile_id",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "tile_x",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "tile_y",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "points",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "size",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_name",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_master",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_order_id",
-        "type": "core::integer::u8",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::events::ClosedForest",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "game_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      },
-      {
-        "name": "tile_id",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "tile_x",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "tile_y",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "points",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "size",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "roads",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "cities",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_name",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_master",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_order_id",
-        "type": "core::integer::u8",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::events::ClosedWonder",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "game_id",
-        "type": "core::integer::u32",
-        "kind": "key"
-      },
-      {
-        "name": "tile_id",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "tile_x",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "tile_y",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "points",
-        "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_name",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_master",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "player_order_id",
-        "type": "core::integer::u8",
         "kind": "data"
       }
     ]
@@ -823,26 +565,6 @@
       {
         "name": "ScoredWonder",
         "type": "paved::events::ScoredWonder",
-        "kind": "nested"
-      },
-      {
-        "name": "ClosedCity",
-        "type": "paved::events::ClosedCity",
-        "kind": "nested"
-      },
-      {
-        "name": "ClosedRoad",
-        "type": "paved::events::ClosedRoad",
-        "kind": "nested"
-      },
-      {
-        "name": "ClosedForest",
-        "type": "paved::events::ClosedForest",
-        "kind": "nested"
-      },
-      {
-        "name": "ClosedWonder",
-        "type": "paved::events::ClosedWonder",
         "kind": "nested"
       }
     ]

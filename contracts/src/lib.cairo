@@ -45,6 +45,7 @@ mod decks {
 
 mod helpers {
     mod bitmap;
+    mod math;
     mod multiplier;
     mod generic;
     mod simple;

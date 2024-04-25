@@ -660,10 +660,10 @@
         ]
       }
     ],
-    "address": "0x1f26e2dbc7db010d32c21321678120167620aa9da7ddaa6df5f2d96affca8d0",
-    "transaction_hash": "0x2d62cf7dd1e211dbbe91e7cb5ce46ce99878367961c6d2bbb5546a16254971",
+    "address": "0x7da33b5f9f052d95f3a7df0f6f883839769136fbd41f26a9293c339c121ed3e",
+    "transaction_hash": "0x36ff0ec6874beac187e1ba6882e11c84ea3832e724a9b6e0516ece188857b53",
     "block_number": 3,
-    "seed": "paved",
+    "seed": "v0",
     "name": "dojo::world::world"
   },
   "base": {
@@ -676,9 +676,9 @@
   "contracts": [
     {
       "kind": "DojoContract",
-      "address": "0xccce716d3f5ead2b1476857d0793f1e75622a086cdcbd6576ae370c8870ee",
-      "class_hash": "0x2119d78ff90a2f2fde908379a50c03147082899b242758cc6a9f039d6027554",
-      "original_class_hash": "0x2119d78ff90a2f2fde908379a50c03147082899b242758cc6a9f039d6027554",
+      "address": "0x7d4bfd807b764c572a8258f14c62a53dbfc13fbb6faa06e718e1e517f63539a",
+      "class_hash": "0x1ee22fe2bdbf6b920a95128251059775ff2464719a4e622be26281ecd10b4d4",
+      "original_class_hash": "0x1ee22fe2bdbf6b920a95128251059775ff2464719a4e622be26281ecd10b4d4",
       "base_class_hash": "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76",
       "abi": [
         {
@@ -741,20 +741,6 @@
           "interface_name": "paved::systems::host::IHost"
         },
         {
-          "type": "enum",
-          "name": "core::bool",
-          "variants": [
-            {
-              "name": "False",
-              "type": "()"
-            },
-            {
-              "name": "True",
-              "type": "()"
-            }
-          ]
-        },
-        {
           "type": "interface",
           "name": "paved::systems::host::IHost",
           "items": [
@@ -765,18 +751,6 @@
                 {
                   "name": "world",
                   "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "name",
-                  "type": "core::felt252"
-                },
-                {
-                  "name": "duration",
-                  "type": "core::integer::u64"
-                },
-                {
-                  "name": "mode",
-                  "type": "core::integer::u8"
                 }
               ],
               "outputs": [
@@ -784,170 +758,6 @@
                   "type": "core::integer::u32"
                 }
               ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "rename",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                },
-                {
-                  "name": "name",
-                  "type": "core::felt252"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "update",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                },
-                {
-                  "name": "duration",
-                  "type": "core::integer::u64"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "join",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "ready",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                },
-                {
-                  "name": "status",
-                  "type": "core::bool"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "transfer",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                },
-                {
-                  "name": "player_id",
-                  "type": "core::felt252"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "leave",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "kick",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                },
-                {
-                  "name": "player_id",
-                  "type": "core::felt252"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "delete",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "start",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                }
-              ],
-              "outputs": [],
               "state_mutability": "view"
             },
             {
@@ -986,9 +796,9 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x6f08cb69d54a8311250b4b0fcd7c51da1bd9e6e15b45a1687dfac59d45ef49c",
-      "class_hash": "0x10ea2e084c3883cfbe2d21462e4cbffd117bf34d09c2f0fb38da0b0464bcb5a",
-      "original_class_hash": "0x10ea2e084c3883cfbe2d21462e4cbffd117bf34d09c2f0fb38da0b0464bcb5a",
+      "address": "0x7e60c3859de05a94109354b29405e74f5a71b4d113587c7ae3fc26fd65cfaf5",
+      "class_hash": "0x2de398ee648ef3bef47af3af6c1ef6de759c5da9716cd086b2c4908c5fc7ae2",
+      "original_class_hash": "0x2de398ee648ef3bef47af3af6c1ef6de759c5da9716cd086b2c4908c5fc7ae2",
       "base_class_hash": "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76",
       "abi": [
         {
@@ -1077,70 +887,6 @@
               ],
               "outputs": [],
               "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "rename",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "name",
-                  "type": "core::felt252"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "reorder",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "order",
-                  "type": "core::integer::u8"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "buy",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "amount",
-                  "type": "core::integer::u8"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "claim",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
             }
           ]
         },
@@ -1158,9 +904,9 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x11c67d0d01aa6de81549342b1b657c018909341a1815157a9ca778ac3f57b30",
-      "class_hash": "0x1500db0d768baa1d8c4b355cdb5f12b359cfbd48781e06256c6b43e43a24efd",
-      "original_class_hash": "0x1500db0d768baa1d8c4b355cdb5f12b359cfbd48781e06256c6b43e43a24efd",
+      "address": "0x3ec01a0f78da3786ea6e732a41f5c0f9b39b665430383ec1e56cc63cc45522c",
+      "class_hash": "0x10b1524836d23753bbd2d3ffd4c4efd9e751aff92ac0fe559eb5916585b4b1c",
+      "original_class_hash": "0x10b1524836d23753bbd2d3ffd4c4efd9e751aff92ac0fe559eb5916585b4b1c",
       "base_class_hash": "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76",
       "abi": [
         {
@@ -1485,11 +1231,6 @@
               "kind": "data"
             },
             {
-              "name": "order_id",
-              "type": "core::integer::u8",
-              "kind": "data"
-            },
-            {
               "name": "points",
               "type": "core::integer::u32",
               "kind": "data"
@@ -1577,11 +1318,6 @@
               "name": "player_master",
               "type": "core::felt252",
               "kind": "data"
-            },
-            {
-              "name": "player_order_id",
-              "type": "core::integer::u8",
-              "kind": "data"
             }
           ]
         },
@@ -1618,11 +1354,6 @@
             {
               "name": "player_master",
               "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_order_id",
-              "type": "core::integer::u8",
               "kind": "data"
             }
           ]
@@ -1671,11 +1402,6 @@
               "name": "player_master",
               "type": "core::felt252",
               "kind": "data"
-            },
-            {
-              "name": "player_order_id",
-              "type": "core::integer::u8",
-              "kind": "data"
             }
           ]
         },
@@ -1707,244 +1433,6 @@
             {
               "name": "player_master",
               "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_order_id",
-              "type": "core::integer::u8",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ClosedCity",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "tile_x",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "tile_y",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_order_id",
-              "type": "core::integer::u8",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ClosedRoad",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "tile_x",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "tile_y",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_order_id",
-              "type": "core::integer::u8",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ClosedForest",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "tile_x",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "tile_y",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "roads",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "cities",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_order_id",
-              "type": "core::integer::u8",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ClosedWonder",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "tile_x",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "tile_y",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_order_id",
-              "type": "core::integer::u8",
               "kind": "data"
             }
           ]
@@ -1988,26 +1476,6 @@
               "name": "ScoredWonder",
               "type": "paved::events::ScoredWonder",
               "kind": "nested"
-            },
-            {
-              "name": "ClosedCity",
-              "type": "paved::events::ClosedCity",
-              "kind": "nested"
-            },
-            {
-              "name": "ClosedRoad",
-              "type": "paved::events::ClosedRoad",
-              "kind": "nested"
-            },
-            {
-              "name": "ClosedForest",
-              "type": "paved::events::ClosedForest",
-              "kind": "nested"
-            },
-            {
-              "name": "ClosedWonder",
-              "type": "paved::events::ClosedWonder",
-              "kind": "nested"
             }
           ]
         }
@@ -2038,11 +1506,6 @@
           "key": false
         },
         {
-          "name": "order",
-          "type": "u8",
-          "key": false
-        },
-        {
           "name": "score",
           "type": "u32",
           "key": false
@@ -2056,15 +1519,10 @@
           "name": "characters",
           "type": "u8",
           "key": false
-        },
-        {
-          "name": "claimed",
-          "type": "felt252",
-          "key": false
         }
       ],
-      "class_hash": "0x88fa6e2c0ecc777bdd58aebaa29b4419c0688cef808e079d9b35928444dba7",
-      "original_class_hash": "0x88fa6e2c0ecc777bdd58aebaa29b4419c0688cef808e079d9b35928444dba7",
+      "class_hash": "0x44dbd6831a1181e62ea023021a36cbe4dca142d35a4fcd40784ed9734e3691",
+      "original_class_hash": "0x44dbd6831a1181e62ea023021a36cbe4dca142d35a4fcd40784ed9734e3691",
       "abi": [
         {
           "type": "impl",
@@ -2256,10 +1714,6 @@
               "type": "core::integer::u32"
             },
             {
-              "name": "order",
-              "type": "core::integer::u8"
-            },
-            {
               "name": "score",
               "type": "core::integer::u32"
             },
@@ -2270,10 +1724,6 @@
             {
               "name": "characters",
               "type": "core::integer::u8"
-            },
-            {
-              "name": "claimed",
-              "type": "core::felt252"
             }
           ]
         },
@@ -3087,23 +2537,8 @@
           "key": true
         },
         {
-          "name": "name",
-          "type": "felt252",
-          "key": false
-        },
-        {
           "name": "over",
           "type": "bool",
-          "key": false
-        },
-        {
-          "name": "players",
-          "type": "u128",
-          "key": false
-        },
-        {
-          "name": "player_count",
-          "type": "u32",
           "key": false
         },
         {
@@ -3122,33 +2557,8 @@
           "key": false
         },
         {
-          "name": "duration",
-          "type": "u64",
-          "key": false
-        },
-        {
-          "name": "price",
-          "type": "felt252",
-          "key": false
-        },
-        {
-          "name": "prize",
-          "type": "felt252",
-          "key": false
-        },
-        {
           "name": "score",
           "type": "u32",
-          "key": false
-        },
-        {
-          "name": "mode",
-          "type": "u8",
-          "key": false
-        },
-        {
-          "name": "deck",
-          "type": "u8",
           "key": false
         },
         {
@@ -3157,8 +2567,8 @@
           "key": false
         }
       ],
-      "class_hash": "0x74a64354e18269afad8f0cba9ca6c4cf08d1f9a73fe75e8fc0a231c44432893",
-      "original_class_hash": "0x74a64354e18269afad8f0cba9ca6c4cf08d1f9a73fe75e8fc0a231c44432893",
+      "class_hash": "0x54173378834f3dea20987963bfb726d699c47a318bcc21c13a02f62e8aeba64",
+      "original_class_hash": "0x54173378834f3dea20987963bfb726d699c47a318bcc21c13a02f62e8aeba64",
       "abi": [
         {
           "type": "impl",
@@ -3356,20 +2766,8 @@
               "type": "core::integer::u32"
             },
             {
-              "name": "name",
-              "type": "core::felt252"
-            },
-            {
               "name": "over",
               "type": "core::bool"
-            },
-            {
-              "name": "players",
-              "type": "core::integer::u128"
-            },
-            {
-              "name": "player_count",
-              "type": "core::integer::u32"
             },
             {
               "name": "tiles",
@@ -3384,28 +2782,8 @@
               "type": "core::integer::u64"
             },
             {
-              "name": "duration",
-              "type": "core::integer::u64"
-            },
-            {
-              "name": "price",
-              "type": "core::felt252"
-            },
-            {
-              "name": "prize",
-              "type": "core::felt252"
-            },
-            {
               "name": "score",
               "type": "core::integer::u32"
-            },
-            {
-              "name": "mode",
-              "type": "core::integer::u8"
-            },
-            {
-              "name": "deck",
-              "type": "core::integer::u8"
             },
             {
               "name": "seed",
@@ -3454,16 +2832,6 @@
           "key": false
         },
         {
-          "name": "order",
-          "type": "u8",
-          "key": false
-        },
-        {
-          "name": "bank",
-          "type": "u8",
-          "key": false
-        },
-        {
           "name": "score",
           "type": "u32",
           "key": false
@@ -3479,8 +2847,8 @@
           "key": false
         }
       ],
-      "class_hash": "0x67c98cf758f1df4ef6bd5c7e9e92c4891ce792050aea89e3169f864f7d857c2",
-      "original_class_hash": "0x67c98cf758f1df4ef6bd5c7e9e92c4891ce792050aea89e3169f864f7d857c2",
+      "class_hash": "0x28f8338bb79847902c80c9cda94191276986868452e8cb47c5ca7af0ecb99b",
+      "original_class_hash": "0x28f8338bb79847902c80c9cda94191276986868452e8cb47c5ca7af0ecb99b",
       "abi": [
         {
           "type": "impl",
@@ -3666,14 +3034,6 @@
             {
               "name": "name",
               "type": "core::felt252"
-            },
-            {
-              "name": "order",
-              "type": "core::integer::u8"
-            },
-            {
-              "name": "bank",
-              "type": "core::integer::u8"
             },
             {
               "name": "score",
