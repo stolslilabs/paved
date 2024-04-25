@@ -18,7 +18,6 @@ use paved::helpers::bitmap::Bitmap;
 use paved::models::game::{Game, GameImpl};
 use paved::models::player::{Player, PlayerImpl};
 use paved::models::builder::{Builder, BuilderPosition, BuilderImpl};
-use paved::models::team::{Team, TeamImpl};
 use paved::models::tile::{Tile, TilePosition, TileImpl};
 use paved::models::character::{Character, CharacterPosition, CharacterImpl};
 use paved::models::tournament::{Tournament, TournamentImpl};
@@ -26,7 +25,6 @@ use paved::types::orientation::Orientation;
 use paved::types::direction::Direction;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
-use paved::types::order::Order;
 
 /// Store struct.
 #[derive(Copy, Drop)]
@@ -65,12 +63,6 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn tournament(self: Store, tournament_id: u64) -> Tournament {
         get!(self.world, tournament_id, (Tournament))
-    }
-
-    #[inline(always)]
-    fn team(self: Store, game: Game, order: Order) -> Team {
-        let order_key: u8 = order.into();
-        get!(self.world, (game.id, order_key), (Team))
     }
 
     #[inline(always)]
@@ -156,38 +148,6 @@ impl StoreImpl of StoreTrait {
         let position: BuilderPosition = builder.into();
         set!(self.world, (position));
         set!(self.world, (builder))
-    }
-
-    #[inline(always)]
-    fn swap_builders(self: Store, game: Game, ref lhs: Builder, ref rhs: Builder) {
-        let index = lhs.index;
-        lhs.index = rhs.index;
-        rhs.index = index;
-        let lhs_position: BuilderPosition = lhs.into();
-        let rhs_position: BuilderPosition = rhs.into();
-        set!(self.world, (lhs_position));
-        set!(self.world, (rhs_position));
-        set!(self.world, (lhs));
-        set!(self.world, (rhs))
-    }
-
-    #[inline(always)]
-    fn remove_builder(self: Store, game: Game, ref builder: Builder) {
-        let last_index = game.player_count - 1;
-        builder.remove();
-        // Skip if the last builder is removed
-        if builder.index == last_index {
-            set!(self.world, (builder));
-            return;
-        }
-        let mut last_position = self.builder_position(game, last_index);
-        let mut last_builder = self.builder(game, last_position.player_id);
-        self.swap_builders(game, ref builder, ref last_builder);
-    }
-
-    #[inline(always)]
-    fn set_team(self: Store, team: Team) {
-        set!(self.world, (team))
     }
 
     #[inline(always)]

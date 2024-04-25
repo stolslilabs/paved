@@ -8,13 +8,11 @@ use paved::constants;
 use paved::helpers::bitmap::Bitmap;
 use paved::store::{Store, StoreImpl};
 use paved::types::plan::Plan;
-use paved::types::order::Order;
 use paved::types::orientation::Orientation;
 use paved::types::role::{Role, RoleImpl, RoleAssert};
 use paved::types::spot::Spot;
 use paved::types::layout::{Layout, LayoutImpl};
 use paved::types::category::Category;
-use paved::types::alliance::{Alliance, AllianceImpl, MULTIPLIER};
 use paved::models::game::{Game, GameImpl};
 use paved::models::player::{Player, PlayerImpl};
 use paved::models::tile::{Tile, TileImpl};
@@ -43,11 +41,9 @@ struct Builder {
     #[key]
     player_id: felt252,
     index: u32,
-    order: u8,
     score: u32,
     tile_id: u32,
     characters: u8,
-    claimed: felt252,
 }
 
 #[derive(Model, Copy, Drop, Serde)]
@@ -62,31 +58,18 @@ struct BuilderPosition {
 #[generate_trait]
 impl BuilderImpl of BuilderTrait {
     #[inline(always)]
-    fn new(game_id: u32, player_id: felt252, index: u32, order: u8,) -> Builder {
-        // [Check] Order is valid
-        assert(Order::None != order.into(), errors::INVALID_ORDER);
-
+    fn new(game_id: u32, player_id: felt252) -> Builder {
         // [Return] Builder
-        Builder {
-            game_id, player_id, index, order, score: 0, tile_id: 0, characters: 0, claimed: 0,
-        }
+        Builder { game_id, player_id, index: 1, score: 0, tile_id: 0, characters: 0, }
     }
 
     #[inline(always)]
     fn nullify(ref self: Builder) {
         // [Effect] Nullify builder
         self.index = 0;
-        self.order = 0;
         self.score = 0;
         self.tile_id = 0;
         self.characters = 0;
-        self.claimed = 0;
-    }
-
-    #[inline(always)]
-    fn remove(ref self: Builder) {
-        // [Effect] Remove builder
-        self.order = 0;
     }
 
     #[inline(always)]
@@ -161,18 +144,6 @@ impl BuilderImpl of BuilderTrait {
         // [Effect] Update tile status
         tile.leave();
     }
-
-    #[inline(always)]
-    fn claim(ref self: Builder, game: Game, ref store: Store) -> u256 {
-        // [Compute] Claimable rewards
-        let claimable: u256 = game.prize.into() * self.score.into() / game.score.into();
-        // [Check] Remaning claimable rewards
-        assert(self.claimed.into() < claimable, errors::ALREADY_CLAIMED);
-        let remaining = claimable - self.claimed.into();
-        self.claimed += remaining.try_into().expect(errors::CAST_U256_FELT);
-        // [Return] Claimable rewards
-        remaining
-    }
 }
 
 #[generate_trait]
@@ -228,21 +199,12 @@ impl BuilderAssert of AssertTrait {
 impl ZeroableBuilderImpl of core::Zeroable<Builder> {
     #[inline(always)]
     fn zero() -> Builder {
-        Builder {
-            game_id: 0,
-            player_id: 0,
-            index: 0,
-            order: 0,
-            score: 0,
-            tile_id: 0,
-            characters: 0,
-            claimed: 0,
-        }
+        Builder { game_id: 0, player_id: 0, index: 0, score: 0, tile_id: 0, characters: 0, }
     }
 
     #[inline(always)]
     fn is_zero(self: Builder) -> bool {
-        0 == self.order.into()
+        1 != self.index.into()
     }
 
     #[inline(always)]

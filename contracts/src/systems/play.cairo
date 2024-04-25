@@ -59,18 +59,13 @@ mod play {
     use paved::constants::WORLD;
     use paved::store::{Store, StoreImpl};
     use paved::events::{
-        Built, Discarded, GameOver, ScoredCity, ScoredRoad, ScoredForest, ScoredWonder, ClosedCity,
-        ClosedRoad, ClosedForest, ClosedWonder
+        Built, Discarded, GameOver, ScoredCity, ScoredRoad, ScoredForest, ScoredWonder
     };
     use paved::models::game::{Game, GameImpl, GameAssert};
     use paved::models::player::{Player, PlayerImpl, PlayerAssert};
-    use paved::models::team::{Team, TeamImpl};
     use paved::models::builder::{Builder, BuilderImpl, ZeroableBuilderImpl, BuilderAssert};
     use paved::models::tile::{Tile, TilePosition, TileImpl};
     use paved::models::tournament::{Tournament, TournamentImpl, TournamentAssert};
-    use paved::types::alliance::{Alliance, AllianceImpl};
-    use paved::types::mode::Mode;
-    use paved::types::order::{Order, OrderImpl};
     use paved::types::orientation::Orientation;
     use paved::types::direction::Direction;
     use paved::types::role::Role;
@@ -107,10 +102,6 @@ mod play {
         ScoredRoad: ScoredRoad,
         ScoredForest: ScoredForest,
         ScoredWonder: ScoredWonder,
-        ClosedCity: ClosedCity,
-        ClosedRoad: ClosedRoad,
-        ClosedForest: ClosedForest,
-        ClosedWonder: ClosedWonder,
     }
 
     // Implementations
@@ -143,8 +134,7 @@ mod play {
             game.assert_started();
 
             // [Check] Game is not over
-            let time = get_block_timestamp();
-            game.assert_not_over(time);
+            game.assert_not_over();
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -155,12 +145,7 @@ mod play {
             let mut builder = store.builder(game, caller.into());
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
-            // [Effect] Player draw from his deck
-            // TODO: Enable for the release
-            // player.draw();
-
             // [Effect] Builder spawn a new tile
-            // TODO: use VRF
             let (tile_id, plan) = game.draw_plan();
             let tile = builder.reveal(tile_id, plan);
 
@@ -169,9 +154,6 @@ mod play {
 
             // [Effect] Update builder
             store.set_builder(builder);
-
-            // [Effect] Update player
-            // store.set_player(player);
 
             // [Effect] Update game
             store.set_game(game);
@@ -189,8 +171,7 @@ mod play {
             game.assert_started();
 
             // [Check] Game is not over
-            let time = get_block_timestamp();
-            game.assert_not_over(time);
+            game.assert_not_over();
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -218,29 +199,25 @@ mod play {
             game.assess_over();
             store.set_game(game);
 
-            // [Event] Emit events
+            // [Event] Emit discard events
             let _event = Discarded {
                 game_id: game.id,
                 tile_id: tile.id,
                 player_id: player.id,
                 player_name: player.name,
-                order_id: builder.order,
                 points: _malus,
             };
             emit!(world, (Event::Discarded(_event)));
 
-            let (tournament_id, id_end) = if game.is_ranked() {
-                (TournamentImpl::compute_id(game.start_time), TournamentImpl::compute_id(time))
-            } else {
-                (0, 0)
-            };
-            if tournament_id == id_end && game.is_solo() && game.is_over(time) {
+            // [Event] Emit game over event
+            let time = get_block_timestamp();
+            let tournament_id = TournamentImpl::compute_id(game.start_time);
+            let id_end = TournamentImpl::compute_id(time);
+            if tournament_id == id_end && game.is_over() {
                 // [Effect] Update tournament
-                if Mode::Ranked == game.mode.into() {
-                    let mut tournament = store.tournament(tournament_id);
-                    tournament.score(player.id, game.score);
-                    store.set_tournament(tournament);
-                }
+                let mut tournament = store.tournament(tournament_id);
+                tournament.score(player.id, game.score);
+                store.set_tournament(tournament);
 
                 // [Event] Emit game over event for solo games if over
                 let _event = GameOver {
@@ -269,11 +246,7 @@ mod play {
             game.assert_started();
 
             // [Check] Game is not over
-            let time = get_block_timestamp();
-            game.assert_not_over(time);
-
-            // [Check] Game is in solo mode
-            game.assert_is_solo();
+            game.assert_not_over();
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -289,18 +262,14 @@ mod play {
             store.set_game(game);
 
             // [Event] Emit game over event
-            let (tournament_id, id_end) = if game.is_ranked() {
-                (TournamentImpl::compute_id(game.start_time), TournamentImpl::compute_id(time))
-            } else {
-                (0, 0)
-            };
-            if tournament_id == id_end {
+            let time = get_block_timestamp();
+            let tournament_id = TournamentImpl::compute_id(game.start_time);
+            let id_end = TournamentImpl::compute_id(time);
+            if tournament_id == id_end && game.is_over() {
                 // [Effect] Update tournament
-                if Mode::Ranked == game.mode.into() {
-                    let mut tournament = store.tournament(tournament_id);
-                    tournament.score(player.id, game.score);
-                    store.set_tournament(tournament);
-                }
+                let mut tournament = store.tournament(tournament_id);
+                tournament.score(player.id, game.score);
+                store.set_tournament(tournament);
 
                 // [Event] Emit game over event for solo games if over
                 let _event = GameOver {
@@ -338,8 +307,7 @@ mod play {
             game.assert_started();
 
             // [Check] Game is not over
-            let time = get_block_timestamp();
-            game.assert_not_over(time);
+            game.assert_not_over();
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -431,19 +399,15 @@ mod play {
                 };
             };
 
-            // [Event] Emit game over event for solo games if over
-            let (tournament_id, id_end) = if game.is_ranked() {
-                (TournamentImpl::compute_id(game.start_time), TournamentImpl::compute_id(time))
-            } else {
-                (0, 0)
-            };
-            if tournament_id == id_end && game.is_solo() && game.is_over(time) {
+            // [Event] Emit game over event
+            let time = get_block_timestamp();
+            let tournament_id = TournamentImpl::compute_id(game.start_time);
+            let id_end = TournamentImpl::compute_id(time);
+            if tournament_id == id_end && game.is_over() {
                 // [Effect] Update tournament
-                if Mode::Ranked == game.mode.into() {
-                    let mut tournament = store.tournament(tournament_id);
-                    tournament.score(player.id, game.score);
-                    store.set_tournament(tournament);
-                }
+                let mut tournament = store.tournament(tournament_id);
+                tournament.score(player.id, game.score);
+                store.set_tournament(tournament);
 
                 // [Event] Emit game over event for solo games if over
                 let _event = GameOver {

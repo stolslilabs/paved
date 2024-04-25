@@ -164,7 +164,6 @@ impl GenericCount of GenericCountTrait {
                     player_id: player.id,
                     player_name: player.name,
                     player_master: player.master,
-                    player_order_id: player.order,
                 };
                 scored_cities.append(event);
             };
@@ -176,12 +175,11 @@ impl GenericCount of GenericCountTrait {
                     player_id: player.id,
                     player_name: player.name,
                     player_master: player.master,
-                    player_order_id: player.order,
                 };
                 scored_roads.append(event);
             };
 
-            game.add_score(ref builder, ref player, points);
+            game.add_score(points);
 
             // [Effect] Update the builder
             store.set_builder(builder);

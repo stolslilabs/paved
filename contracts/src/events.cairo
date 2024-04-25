@@ -18,7 +18,6 @@ struct Discarded {
     tile_id: u32,
     player_id: felt252,
     player_name: felt252,
-    order_id: u8,
     points: u32,
 }
 
@@ -47,7 +46,6 @@ struct ScoredForest {
     player_id: felt252,
     player_name: felt252,
     player_master: felt252,
-    player_order_id: u8,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -59,7 +57,6 @@ struct ScoredCity {
     player_id: felt252,
     player_name: felt252,
     player_master: felt252,
-    player_order_id: u8,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -71,7 +68,6 @@ struct ScoredRoad {
     player_id: felt252,
     player_name: felt252,
     player_master: felt252,
-    player_order_id: u8,
 }
 
 #[derive(Drop, starknet::Event)]
@@ -82,66 +78,4 @@ struct ScoredWonder {
     player_id: felt252,
     player_name: felt252,
     player_master: felt252,
-    player_order_id: u8,
-}
-
-#[derive(Drop, starknet::Event)]
-struct ClosedForest {
-    #[key]
-    game_id: u32,
-    tile_id: u32,
-    tile_x: u32,
-    tile_y: u32,
-    points: u32,
-    size: u32,
-    roads: u32,
-    cities: u32,
-    player_id: felt252,
-    player_name: felt252,
-    player_master: felt252,
-    player_order_id: u8,
-}
-
-#[derive(Drop, starknet::Event)]
-struct ClosedCity {
-    #[key]
-    game_id: u32,
-    tile_id: u32,
-    tile_x: u32,
-    tile_y: u32,
-    points: u32,
-    size: u32,
-    player_id: felt252,
-    player_name: felt252,
-    player_master: felt252,
-    player_order_id: u8,
-}
-
-#[derive(Drop, starknet::Event)]
-struct ClosedRoad {
-    #[key]
-    game_id: u32,
-    tile_id: u32,
-    tile_x: u32,
-    tile_y: u32,
-    points: u32,
-    size: u32,
-    player_id: felt252,
-    player_name: felt252,
-    player_master: felt252,
-    player_order_id: u8,
-}
-
-#[derive(Drop, starknet::Event)]
-struct ClosedWonder {
-    #[key]
-    game_id: u32,
-    tile_id: u32,
-    tile_x: u32,
-    tile_y: u32,
-    points: u32,
-    player_id: felt252,
-    player_name: felt252,
-    player_master: felt252,
-    player_order_id: u8,
 }

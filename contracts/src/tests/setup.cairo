@@ -22,14 +22,12 @@ mod setup {
     use paved::models::game::{Game, GameImpl};
     use paved::models::player::Player;
     use paved::models::builder::Builder;
-    use paved::models::team::Team;
     use paved::models::tile::Tile;
     use paved::models::tournament::Tournament;
     use paved::systems::host::{host, IHostDispatcher, IHostDispatcherTrait};
     use paved::systems::manage::{manage, IManageDispatcher, IManageDispatcherTrait};
     use paved::systems::play::{play, IPlayDispatcher, IPlayDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
-    use paved::types::mode::Mode;
 
     // Constants
 
@@ -83,7 +81,6 @@ mod setup {
         game_id: u32,
         game_name: felt252,
         game_duration: u64,
-        mode: Mode,
         erc20: IERC20Dispatcher,
     }
 
@@ -114,13 +111,12 @@ mod setup {
     }
 
     #[inline(always)]
-    fn spawn_game(mode: Mode) -> (IWorldDispatcher, Systems, Context) {
+    fn spawn_game() -> (IWorldDispatcher, Systems, Context) {
         // [Setup] World
         let mut models = core::array::ArrayTrait::new();
         models.append(paved::models::game::game::TEST_CLASS_HASH);
         models.append(paved::models::player::player::TEST_CLASS_HASH);
         models.append(paved::models::builder::builder::TEST_CLASS_HASH);
-        models.append(paved::models::team::team::TEST_CLASS_HASH);
         models.append(paved::models::tile::tile::TEST_CLASS_HASH);
         models.append(paved::models::tournament::tournament::TEST_CLASS_HASH);
         let world = spawn_test_world(models);
@@ -157,11 +153,7 @@ mod setup {
         let duration: u64 = 0;
 
         // [Setup] Game if mode is set
-        let game_id = if mode == Mode::None {
-            0
-        } else {
-            systems.host.create(world, GAME_NAME, duration, mode.into())
-        };
+        let game_id = systems.host.create(world);
 
         let context = Context {
             player_id: PLAYER().into(),
@@ -179,7 +171,6 @@ mod setup {
             game_id: game_id,
             game_name: GAME_NAME,
             game_duration: duration,
-            mode: mode,
             erc20: erc20,
         };
 

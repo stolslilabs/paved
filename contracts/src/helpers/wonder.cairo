@@ -95,7 +95,7 @@ impl WonderCount of WonderCountTrait {
         let mut builder = store.builder(game, player.id);
         let power: u32 = character.power.into();
         let points = base_points * power;
-        game.add_score(ref builder, ref player, points);
+        game.add_score(points);
         builder.recover(ref character, ref tile);
 
         // [Build] Events
@@ -105,7 +105,6 @@ impl WonderCount of WonderCountTrait {
             player_id: player.id,
             player_name: player.name,
             player_master: player.master,
-            player_order_id: player.order,
         };
         events.append(event);
 

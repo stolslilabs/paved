@@ -204,7 +204,7 @@ impl ForestCount of ForestCountTrait {
                     let mut builder = store.builder(game, player.id);
                     let points = score * base_points * num / den / length;
                     builder.recover(ref character, ref tile);
-                    game.add_score(ref builder, ref player, points);
+                    game.add_score(points);
 
                     // [Build] Events
                     let mut event = ScoredForest {
@@ -216,7 +216,6 @@ impl ForestCount of ForestCountTrait {
                         player_id: player.id,
                         player_name: player.name,
                         player_master: player.master,
-                        player_order_id: player.order,
                     };
                     if category == Category::City {
                         event.cities = score;

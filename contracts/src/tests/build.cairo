@@ -17,8 +17,6 @@ use paved::store::{Store, StoreTrait};
 use paved::models::game::{Game, GameTrait};
 use paved::models::builder::{Builder, BuilderTrait};
 use paved::models::tile::{Tile, TileTrait, CENTER};
-use paved::types::mode::Mode;
-use paved::types::order::Order;
 use paved::types::orientation::Orientation;
 use paved::types::direction::Direction;
 use paved::types::plan::Plan;
@@ -36,12 +34,8 @@ const BUILDER_NAME: felt252 = 'PLAYER';
 #[test]
 fn test_play_build_without_character() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Multi);
+    let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
-
-    // [Start]
-    systems.host.ready(world, context.game_id, true);
-    systems.host.start(world, context.game_id);
 
     // [Draw]
     let mut game = store.game(context.game_id);
@@ -61,12 +55,8 @@ fn test_play_build_without_character() {
 #[test]
 fn test_play_build_with_character() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Multi);
+    let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
-
-    // [Start]
-    systems.host.ready(world, context.game_id, true);
-    systems.host.start(world, context.game_id);
 
     // [Draw]
     let mut game = store.game(context.game_id);
@@ -87,12 +77,8 @@ fn test_play_build_with_character() {
 #[should_panic(expected: ('Game: structure not idle', 'ENTRYPOINT_FAILED',))]
 fn test_play_build_with_character_revert_not_idle() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Multi);
+    let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
-
-    // [Start]
-    systems.host.ready(world, context.game_id, true);
-    systems.host.start(world, context.game_id);
 
     // [Draw & Build]
     let mut game = store.game(context.game_id);
@@ -122,12 +108,8 @@ fn test_play_build_with_character_revert_not_idle() {
 #[test]
 fn test_play_build_complete_castle() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Multi);
+    let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
-
-    // [Start]
-    systems.host.ready(world, context.game_id, true);
-    systems.host.start(world, context.game_id);
 
     // [Draw]
     let mut game = store.game(context.game_id);
@@ -144,24 +126,20 @@ fn test_play_build_complete_castle() {
     systems.play.build(world, context.game_id, orientation, x, y, role, spot);
 
     // [Assert]
-    let builder = store.builder(game, context.player_id);
+    let game = store.game(context.game_id);
     let expected: u32 = 2 * constants::CITY_BASE_POINTS;
-    assert(builder.score - expected <= expected, 'Build: builder score');
+    assert(game.score - expected <= expected, 'Build: game score');
 }
 
 #[test]
 fn test_play_build_complete_forest_inside_roads() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Multi);
+    let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
     let none = Role::None;
     let woodsman = Role::Woodsman;
     let nowhere = Spot::None;
     let northeast = Spot::NorthEast;
-
-    // [Start]
-    systems.host.ready(world, context.game_id, true);
-    systems.host.start(world, context.game_id);
 
     // [Draw & Build]
     let mut game = store.game(context.game_id);
@@ -244,24 +222,20 @@ fn test_play_build_complete_forest_inside_roads() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Assert]
-    let builder = store.builder(game, context.player_id);
+    let game = store.game(context.game_id);
     let expected: u32 = 2 * constants::FOREST_BASE_POINTS;
-    assert(builder.score - expected <= expected, 'Build: builder score');
+    assert(game.score - expected <= expected, 'Build: game score');
 }
 
 #[test]
 fn test_play_build_complete_forest_inside_castles() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Multi);
+    let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
     let none = Role::None;
     let woodsman = Role::Woodsman;
     let nowhere = Spot::None;
     let northeast = Spot::NorthEast;
-
-    // [Start]
-    systems.host.ready(world, context.game_id, true);
-    systems.host.start(world, context.game_id);
 
     // [Draw & Build]
     let mut game = store.game(context.game_id);
@@ -334,45 +308,7 @@ fn test_play_build_complete_forest_inside_castles() {
     systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
 
     // [Assert]
-    let builder = store.builder(game, context.player_id);
+    let game = store.game(context.game_id);
     let expected: u32 = 1 * constants::FOREST_BASE_POINTS;
-    assert(builder.score - expected <= expected, 'Build: builder score');
-}
-
-#[test]
-fn test_play_build_single_forest_inside_castles() {
-    // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Multi);
-    let store = StoreTrait::new(world);
-    let herdsman = Role::Herdsman;
-    let spot = Spot::Center;
-
-    // [Start]
-    systems.host.ready(world, context.game_id, true);
-    systems.host.start(world, context.game_id);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCCCCC);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // CCCCCCCCC
-    let orientation = Orientation::North;
-    let x = CENTER;
-    let y = CENTER + 1;
-    systems.play.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::FFCFCFCFC);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // FFCFCFCFC
-    let orientation = Orientation::North;
-    let x = CENTER + 1;
-    let y = CENTER + 1;
-    systems.play.build(world, context.game_id, orientation, x, y, herdsman, spot);
-
-    // [Assert]
-    let builder = store.builder(game, context.player_id);
-    assert(builder.score == 0, 'Build: builder score');
-    assert(builder.characters == 0, 'Build: builder characters');
+    assert(game.score - expected <= expected, 'Build: game score');
 }

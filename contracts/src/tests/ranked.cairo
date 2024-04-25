@@ -18,7 +18,6 @@ use paved::models::game::{Game, GameTrait, GameAssert};
 use paved::models::builder::{Builder, BuilderTrait};
 use paved::models::tile::{Tile, TileTrait, CENTER};
 use paved::models::tournament::{TournamentImpl};
-use paved::types::mode::Mode;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 use paved::types::plan::Plan;
@@ -33,7 +32,7 @@ use paved::tests::setup::{
 #[test]
 fn test_play_ranked_tournament_started() {
     // [Setup]
-    let (world, _, context) = setup::spawn_game(Mode::Ranked);
+    let (world, _, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
 
     // [Assert] Game
@@ -44,7 +43,7 @@ fn test_play_ranked_tournament_started() {
 #[test]
 fn test_play_ranked_tournament_claim() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::None);
+    let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
     let time = 0;
     set_block_timestamp(time);
@@ -52,7 +51,7 @@ fn test_play_ranked_tournament_claim() {
     // [Start]
     set_contract_address(ANYONE());
     let anyone_balance = context.erc20.balance_of(ANYONE());
-    let game_id = systems.host.create(world, context.game_name, 0, Mode::Ranked.into());
+    let game_id = systems.host.create(world);
 
     // [Draw & Build]
     let mut game = store.game(game_id);
@@ -69,7 +68,7 @@ fn test_play_ranked_tournament_claim() {
     // [Start]
     set_contract_address(SOMEONE());
     let someone_balance = context.erc20.balance_of(SOMEONE());
-    let game_id = systems.host.create(world, context.game_name, 0, Mode::Ranked.into());
+    let game_id = systems.host.create(world);
 
     // [Draw & Build]
     let mut game = store.game(game_id);
@@ -85,7 +84,7 @@ fn test_play_ranked_tournament_claim() {
 
     // [Start]
     set_contract_address(NOONE());
-    let game_id = systems.host.create(world, context.game_name, 0, Mode::Ranked.into());
+    let game_id = systems.host.create(world);
 
     // [Draw & Build]
     let mut game = store.game(game_id);
@@ -101,7 +100,7 @@ fn test_play_ranked_tournament_claim() {
     // [Start]
     set_contract_address(PLAYER());
     let player_balance = context.erc20.balance_of(PLAYER());
-    let game_id = systems.host.create(world, context.game_name, 0, Mode::Ranked.into());
+    let game_id = systems.host.create(world);
 
     // [Assert] Balance post creation
     let balance = context.erc20.balance_of(PLAYER());
@@ -122,7 +121,7 @@ fn test_play_ranked_tournament_claim() {
     // [Assert] Tournament
     let tournament_id = TournamentImpl::compute_id(time);
     let tournament = store.tournament(tournament_id);
-    assert(tournament.prize == constants::TOURNAMENT_PRICE * 4, 'Tournament prize');
+    assert(tournament.prize == constants::TOURNAMENT_PRICE * 5, 'Tournament prize');
     assert(tournament.top1_player_id == PLAYER().into(), 'Tournament top1_player_id');
     assert(tournament.top2_player_id == ANYONE().into(), 'Tournament top2_player_id');
     assert(tournament.top3_player_id == SOMEONE().into(), 'Tournament top3_player_id');
@@ -186,7 +185,7 @@ fn test_play_ranked_tournament_claim() {
 #[should_panic(expected: ('Tournament: not over', 'ENTRYPOINT_FAILED',))]
 fn test_play_ranked_tournament_claim_revert_not_over() {
     // [Setup]
-    let (world, systems, _) = setup::spawn_game(Mode::Ranked);
+    let (world, systems, _) = setup::spawn_game();
     let time = 0;
     set_block_timestamp(time);
 
@@ -199,7 +198,7 @@ fn test_play_ranked_tournament_claim_revert_not_over() {
 #[should_panic(expected: ('Tournament: invalid player', 'ENTRYPOINT_FAILED',))]
 fn test_play_ranked_tournament_claim_revert_invalid_player() {
     // [Setup]
-    let (world, systems, _) = setup::spawn_game(Mode::Ranked);
+    let (world, systems, _) = setup::spawn_game();
     let time = 0;
     set_block_timestamp(time);
 
