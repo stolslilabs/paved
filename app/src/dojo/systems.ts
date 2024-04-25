@@ -400,14 +400,14 @@ export function systems({
   };
 
   const build = async ({ account, ...props }: SystemTypes.Build) => {
-    const entityId = getEntityIdFromKeys([
+    const tileKey = getEntityIdFromKeys([
       BigInt(props.game_id),
       BigInt(props.tile_id),
     ]) as Entity;
 
     const tileId = uuid();
     clientModels.models.Tile.addOverride(tileId, {
-      entity: entityId,
+      entity: tileKey,
       value: {
         game_id: props.game_id,
         id: props.tile_id,
@@ -419,19 +419,21 @@ export function systems({
       },
     });
 
-    const tilePositionId = uuid();
+    const characterKey = getEntityIdFromKeys([
+      BigInt(props.game_id),
+      BigInt(props.tile_id),
+      BigInt(props.role),
+    ]) as Entity;
 
-    clientModels.models.TilePosition.addOverride(tilePositionId, {
-      entity: getEntityIdFromKeys([
-        BigInt(props.game_id),
-        BigInt(props.x),
-        BigInt(props.y),
-      ]) as Entity,
+    const characterId = uuid();
+    clientModels.models.Character.addOverride(characterId, {
+      entity: characterKey,
       value: {
         game_id: props.game_id,
-        x: props.x,
-        y: props.y,
+        player_id: BigInt(account.address),
+        index: props.role,
         tile_id: props.tile_id,
+        spot: props.spot,
       },
     });
 
@@ -450,10 +452,10 @@ export function systems({
     } catch (error) {
       console.error("Error building:", error);
       clientModels.models.Tile.removeOverride(tileId);
-      clientModels.models.TilePosition.removeOverride(tilePositionId);
+      clientModels.models.Tile.removeOverride(characterId);
     } finally {
       clientModels.models.Tile.removeOverride(tileId);
-      clientModels.models.TilePosition.removeOverride(tilePositionId);
+      clientModels.models.Tile.removeOverride(characterId);
     }
   };
 

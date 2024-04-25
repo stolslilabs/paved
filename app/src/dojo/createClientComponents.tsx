@@ -12,6 +12,10 @@ export function createClientComponents({
     ...contractComponents,
     Tile: overridableComponent(contractComponents.Tile),
     TilePosition: overridableComponent(contractComponents.TilePosition),
+    Character: overridableComponent(contractComponents.Character),
+    CharacterPosition: overridableComponent(
+      contractComponents.CharacterPosition,
+    ),
     Game: overridableComponent(contractComponents.Game),
   };
 }

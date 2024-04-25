@@ -1,8 +1,6 @@
-import { useDojo } from "@/dojo/useDojo";
-import { useEntityQuery } from "@dojoengine/react";
-import { Has, HasValue } from "@dojoengine/recs";
+import { useMemo } from "react";
 import { CharTexture } from "./CharTexture";
-import { useQueryParams } from "../../hooks/useQueryParams";
+import { useCharacters } from "@/hooks/useCharacters";
 
 export const CharTextures = ({
   radius,
@@ -13,34 +11,22 @@ export const CharTextures = ({
   height: number;
   squareSize: number;
 }) => {
-  const { gameId } = useQueryParams();
+  const { characters } = useCharacters();
 
-  const {
-    setup: {
-      clientModels: {
-        models: { Character },
-      },
-    },
-  } = useDojo();
+  const renderedItems = useMemo(() => {
+    return Object.keys(characters).map((key: string) => {
+      const character = characters[key];
+      return (
+        <CharTexture
+          key={key}
+          character={character}
+          radius={radius}
+          height={height}
+          size={squareSize}
+        />
+      );
+    });
+  }, [characters, radius, height, squareSize]);
 
-  const characterEntities = useEntityQuery([
-    Has(Character),
-    HasValue(Character, { game_id: gameId }),
-  ]);
-
-  return (
-    <>
-      {characterEntities.map((character) => {
-        return (
-          <CharTexture
-            key={character}
-            entity={character}
-            radius={radius}
-            height={height}
-            size={squareSize}
-          />
-        );
-      })}
-    </>
-  );
+  return <>{renderedItems}</>;
 };

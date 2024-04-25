@@ -8,7 +8,6 @@ import {
   NotValue,
 } from "@dojoengine/recs";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { create } from "zustand";
 
 type Position = {
   col: number;
