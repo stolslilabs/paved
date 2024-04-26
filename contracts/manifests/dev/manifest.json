@@ -660,10 +660,10 @@
         ]
       }
     ],
-    "address": "0x7da33b5f9f052d95f3a7df0f6f883839769136fbd41f26a9293c339c121ed3e",
-    "transaction_hash": "0x36ff0ec6874beac187e1ba6882e11c84ea3832e724a9b6e0516ece188857b53",
+    "address": "0x1f26e2dbc7db010d32c21321678120167620aa9da7ddaa6df5f2d96affca8d0",
+    "transaction_hash": "0x2d62cf7dd1e211dbbe91e7cb5ce46ce99878367961c6d2bbb5546a16254971",
     "block_number": 3,
-    "seed": "v0",
+    "seed": "paved",
     "name": "dojo::world::world"
   },
   "base": {
@@ -676,9 +676,9 @@
   "contracts": [
     {
       "kind": "DojoContract",
-      "address": "0x7d4bfd807b764c572a8258f14c62a53dbfc13fbb6faa06e718e1e517f63539a",
-      "class_hash": "0x1ee22fe2bdbf6b920a95128251059775ff2464719a4e622be26281ecd10b4d4",
-      "original_class_hash": "0x1ee22fe2bdbf6b920a95128251059775ff2464719a4e622be26281ecd10b4d4",
+      "address": "0xccce716d3f5ead2b1476857d0793f1e75622a086cdcbd6576ae370c8870ee",
+      "class_hash": "0x4422257ec271eb3f0e085115300388ec1e2f50781a71ff6c3a26c3494d0c25d",
+      "original_class_hash": "0x4422257ec271eb3f0e085115300388ec1e2f50781a71ff6c3a26c3494d0c25d",
       "base_class_hash": "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76",
       "abi": [
         {
@@ -746,6 +746,18 @@
           "items": [
             {
               "type": "function",
+              "name": "initialize",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "core::starknet::contract_address::ContractAddress"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
               "name": "create",
               "inputs": [
                 {
@@ -779,6 +791,22 @@
               ],
               "outputs": [],
               "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "sponsor",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "dojo::world::IWorldDispatcher"
+                },
+                {
+                  "name": "amount",
+                  "type": "core::felt252"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
             }
           ]
         },
@@ -796,9 +824,9 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x7e60c3859de05a94109354b29405e74f5a71b4d113587c7ae3fc26fd65cfaf5",
-      "class_hash": "0x2de398ee648ef3bef47af3af6c1ef6de759c5da9716cd086b2c4908c5fc7ae2",
-      "original_class_hash": "0x2de398ee648ef3bef47af3af6c1ef6de759c5da9716cd086b2c4908c5fc7ae2",
+      "address": "0x6f08cb69d54a8311250b4b0fcd7c51da1bd9e6e15b45a1687dfac59d45ef49c",
+      "class_hash": "0x3e673f059f703ed4aef23d373dc10360c9ad0cfb0b6371a1d9893674206330a",
+      "original_class_hash": "0x3e673f059f703ed4aef23d373dc10360c9ad0cfb0b6371a1d9893674206330a",
       "base_class_hash": "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76",
       "abi": [
         {
@@ -866,6 +894,18 @@
           "items": [
             {
               "type": "function",
+              "name": "initialize",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "core::starknet::contract_address::ContractAddress"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
               "name": "create",
               "inputs": [
                 {
@@ -875,10 +915,6 @@
                 {
                   "name": "name",
                   "type": "core::felt252"
-                },
-                {
-                  "name": "order",
-                  "type": "core::integer::u8"
                 },
                 {
                   "name": "master",
@@ -904,9 +940,9 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x3ec01a0f78da3786ea6e732a41f5c0f9b39b665430383ec1e56cc63cc45522c",
-      "class_hash": "0x10b1524836d23753bbd2d3ffd4c4efd9e751aff92ac0fe559eb5916585b4b1c",
-      "original_class_hash": "0x10b1524836d23753bbd2d3ffd4c4efd9e751aff92ac0fe559eb5916585b4b1c",
+      "address": "0x11c67d0d01aa6de81549342b1b657c018909341a1815157a9ca778ac3f57b30",
+      "class_hash": "0x11e8071e2e5f2eba42e164394b50738706a0c190d8cb696fddb3cf8e521e82d",
+      "original_class_hash": "0x11e8071e2e5f2eba42e164394b50738706a0c190d8cb696fddb3cf8e521e82d",
       "base_class_hash": "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76",
       "abi": [
         {
@@ -1082,6 +1118,18 @@
           "type": "interface",
           "name": "paved::systems::play::IPlay",
           "items": [
+            {
+              "type": "function",
+              "name": "initialize",
+              "inputs": [
+                {
+                  "name": "world",
+                  "type": "core::starknet::contract_address::ContractAddress"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
             {
               "type": "function",
               "name": "draw",
@@ -1753,246 +1801,6 @@
         }
       ],
       "name": "paved::models::builder::builder"
-    },
-    {
-      "kind": "DojoModel",
-      "members": [
-        {
-          "name": "game_id",
-          "type": "u32",
-          "key": true
-        },
-        {
-          "name": "index",
-          "type": "u32",
-          "key": true
-        },
-        {
-          "name": "player_id",
-          "type": "felt252",
-          "key": false
-        }
-      ],
-      "class_hash": "0x109e5ba3a54ee5b7498f6a036f2a3df94216c0de3283d5a52bd88e940da9ad8",
-      "original_class_hash": "0x109e5ba3a54ee5b7498f6a036f2a3df94216c0de3283d5a52bd88e940da9ad8",
-      "abi": [
-        {
-          "type": "impl",
-          "name": "DojoModelImpl",
-          "interface_name": "dojo::model::IDojoModel"
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::integer::u8>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::integer::u8>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::felt252>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::felt252>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::array::Span::<core::felt252>>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::array::Span::<core::felt252>>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "dojo::database::introspect::Struct",
-          "members": [
-            {
-              "name": "name",
-              "type": "core::felt252"
-            },
-            {
-              "name": "attrs",
-              "type": "core::array::Span::<core::felt252>"
-            },
-            {
-              "name": "children",
-              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<(core::felt252, core::array::Span::<core::felt252>)>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "dojo::database::introspect::Enum",
-          "members": [
-            {
-              "name": "name",
-              "type": "core::felt252"
-            },
-            {
-              "name": "attrs",
-              "type": "core::array::Span::<core::felt252>"
-            },
-            {
-              "name": "children",
-              "type": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>"
-            }
-          ]
-        },
-        {
-          "type": "enum",
-          "name": "dojo::database::introspect::Ty",
-          "variants": [
-            {
-              "name": "Primitive",
-              "type": "core::felt252"
-            },
-            {
-              "name": "Struct",
-              "type": "dojo::database::introspect::Struct"
-            },
-            {
-              "name": "Enum",
-              "type": "dojo::database::introspect::Enum"
-            },
-            {
-              "name": "Tuple",
-              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
-            },
-            {
-              "name": "Array",
-              "type": "core::integer::u32"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "dojo::model::IDojoModel",
-          "items": [
-            {
-              "type": "function",
-              "name": "name",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::felt252"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "unpacked_size",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::integer::u32"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "packed_size",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::integer::u32"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "layout",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::array::Span::<core::integer::u8>"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "schema",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "dojo::database::introspect::Ty"
-                }
-              ],
-              "state_mutability": "view"
-            }
-          ]
-        },
-        {
-          "type": "impl",
-          "name": "builder_positionImpl",
-          "interface_name": "paved::models::builder::Ibuilder_position"
-        },
-        {
-          "type": "struct",
-          "name": "paved::models::builder::BuilderPosition",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32"
-            },
-            {
-              "name": "index",
-              "type": "core::integer::u32"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "paved::models::builder::Ibuilder_position",
-          "items": [
-            {
-              "type": "function",
-              "name": "ensure_abi",
-              "inputs": [
-                {
-                  "name": "model",
-                  "type": "paved::models::builder::BuilderPosition"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::models::builder::builder_position::Event",
-          "kind": "enum",
-          "variants": []
-        }
-      ],
-      "name": "paved::models::builder::builder_position"
     },
     {
       "kind": "DojoModel",
@@ -3080,486 +2888,6 @@
       "kind": "DojoModel",
       "members": [
         {
-          "name": "name",
-          "type": "felt252",
-          "key": true
-        },
-        {
-          "name": "id",
-          "type": "felt252",
-          "key": false
-        }
-      ],
-      "class_hash": "0x7b2d2c81df5a6a2000cdb7634d9a4fe4e973bcb50816f53f6456eac6a883c07",
-      "original_class_hash": "0x7b2d2c81df5a6a2000cdb7634d9a4fe4e973bcb50816f53f6456eac6a883c07",
-      "abi": [
-        {
-          "type": "impl",
-          "name": "DojoModelImpl",
-          "interface_name": "dojo::model::IDojoModel"
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::integer::u8>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::integer::u8>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::felt252>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::felt252>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::array::Span::<core::felt252>>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::array::Span::<core::felt252>>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "dojo::database::introspect::Struct",
-          "members": [
-            {
-              "name": "name",
-              "type": "core::felt252"
-            },
-            {
-              "name": "attrs",
-              "type": "core::array::Span::<core::felt252>"
-            },
-            {
-              "name": "children",
-              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<(core::felt252, core::array::Span::<core::felt252>)>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "dojo::database::introspect::Enum",
-          "members": [
-            {
-              "name": "name",
-              "type": "core::felt252"
-            },
-            {
-              "name": "attrs",
-              "type": "core::array::Span::<core::felt252>"
-            },
-            {
-              "name": "children",
-              "type": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>"
-            }
-          ]
-        },
-        {
-          "type": "enum",
-          "name": "dojo::database::introspect::Ty",
-          "variants": [
-            {
-              "name": "Primitive",
-              "type": "core::felt252"
-            },
-            {
-              "name": "Struct",
-              "type": "dojo::database::introspect::Struct"
-            },
-            {
-              "name": "Enum",
-              "type": "dojo::database::introspect::Enum"
-            },
-            {
-              "name": "Tuple",
-              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
-            },
-            {
-              "name": "Array",
-              "type": "core::integer::u32"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "dojo::model::IDojoModel",
-          "items": [
-            {
-              "type": "function",
-              "name": "name",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::felt252"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "unpacked_size",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::integer::u32"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "packed_size",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::integer::u32"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "layout",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::array::Span::<core::integer::u8>"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "schema",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "dojo::database::introspect::Ty"
-                }
-              ],
-              "state_mutability": "view"
-            }
-          ]
-        },
-        {
-          "type": "impl",
-          "name": "player_nameImpl",
-          "interface_name": "paved::models::player::Iplayer_name"
-        },
-        {
-          "type": "struct",
-          "name": "paved::models::player::PlayerName",
-          "members": [
-            {
-              "name": "name",
-              "type": "core::felt252"
-            },
-            {
-              "name": "id",
-              "type": "core::felt252"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "paved::models::player::Iplayer_name",
-          "items": [
-            {
-              "type": "function",
-              "name": "ensure_abi",
-              "inputs": [
-                {
-                  "name": "model",
-                  "type": "paved::models::player::PlayerName"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::models::player::player_name::Event",
-          "kind": "enum",
-          "variants": []
-        }
-      ],
-      "name": "paved::models::player::player_name"
-    },
-    {
-      "kind": "DojoModel",
-      "members": [
-        {
-          "name": "game_id",
-          "type": "u32",
-          "key": true
-        },
-        {
-          "name": "order",
-          "type": "u8",
-          "key": true
-        },
-        {
-          "name": "score",
-          "type": "u32",
-          "key": false
-        },
-        {
-          "name": "alliance",
-          "type": "u8",
-          "key": false
-        }
-      ],
-      "class_hash": "0x6e4e84f7676611e3e99f521b6d91252566233f5920eca45e1aa4d76f2ae8fe5",
-      "original_class_hash": "0x6e4e84f7676611e3e99f521b6d91252566233f5920eca45e1aa4d76f2ae8fe5",
-      "abi": [
-        {
-          "type": "impl",
-          "name": "DojoModelImpl",
-          "interface_name": "dojo::model::IDojoModel"
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::integer::u8>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::integer::u8>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::felt252>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::felt252>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::array::Span::<core::felt252>>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::array::Span::<core::felt252>>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "dojo::database::introspect::Struct",
-          "members": [
-            {
-              "name": "name",
-              "type": "core::felt252"
-            },
-            {
-              "name": "attrs",
-              "type": "core::array::Span::<core::felt252>"
-            },
-            {
-              "name": "children",
-              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<(core::felt252, core::array::Span::<core::felt252>)>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "dojo::database::introspect::Enum",
-          "members": [
-            {
-              "name": "name",
-              "type": "core::felt252"
-            },
-            {
-              "name": "attrs",
-              "type": "core::array::Span::<core::felt252>"
-            },
-            {
-              "name": "children",
-              "type": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>"
-            }
-          ]
-        },
-        {
-          "type": "enum",
-          "name": "dojo::database::introspect::Ty",
-          "variants": [
-            {
-              "name": "Primitive",
-              "type": "core::felt252"
-            },
-            {
-              "name": "Struct",
-              "type": "dojo::database::introspect::Struct"
-            },
-            {
-              "name": "Enum",
-              "type": "dojo::database::introspect::Enum"
-            },
-            {
-              "name": "Tuple",
-              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
-            },
-            {
-              "name": "Array",
-              "type": "core::integer::u32"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "dojo::model::IDojoModel",
-          "items": [
-            {
-              "type": "function",
-              "name": "name",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::felt252"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "unpacked_size",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::integer::u32"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "packed_size",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::integer::u32"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "layout",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::array::Span::<core::integer::u8>"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "schema",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "dojo::database::introspect::Ty"
-                }
-              ],
-              "state_mutability": "view"
-            }
-          ]
-        },
-        {
-          "type": "impl",
-          "name": "teamImpl",
-          "interface_name": "paved::models::team::Iteam"
-        },
-        {
-          "type": "struct",
-          "name": "paved::models::team::Team",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32"
-            },
-            {
-              "name": "order",
-              "type": "core::integer::u8"
-            },
-            {
-              "name": "score",
-              "type": "core::integer::u32"
-            },
-            {
-              "name": "alliance",
-              "type": "core::integer::u8"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "paved::models::team::Iteam",
-          "items": [
-            {
-              "type": "function",
-              "name": "ensure_abi",
-              "inputs": [
-                {
-                  "name": "model",
-                  "type": "paved::models::team::Team"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::models::team::team::Event",
-          "kind": "enum",
-          "variants": []
-        }
-      ],
-      "name": "paved::models::team::team"
-    },
-    {
-      "kind": "DojoModel",
-      "members": [
-        {
           "name": "game_id",
           "type": "u32",
           "key": true
@@ -4415,260 +3743,6 @@
         }
       ],
       "name": "paved::models::tournament::tournament"
-    },
-    {
-      "kind": "DojoModel",
-      "members": [
-        {
-          "name": "tournament_id",
-          "type": "u64",
-          "key": true
-        },
-        {
-          "name": "player_id",
-          "type": "felt252",
-          "key": true
-        },
-        {
-          "name": "claimed",
-          "type": "bool",
-          "key": false
-        }
-      ],
-      "class_hash": "0x4cc335efa2fbea238e37711de7f0beedae2a75154e3b38b5fa986ea768d604e",
-      "original_class_hash": "0x4cc335efa2fbea238e37711de7f0beedae2a75154e3b38b5fa986ea768d604e",
-      "abi": [
-        {
-          "type": "impl",
-          "name": "DojoModelImpl",
-          "interface_name": "dojo::model::IDojoModel"
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::integer::u8>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::integer::u8>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::felt252>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::felt252>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<core::array::Span::<core::felt252>>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<core::array::Span::<core::felt252>>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "dojo::database::introspect::Struct",
-          "members": [
-            {
-              "name": "name",
-              "type": "core::felt252"
-            },
-            {
-              "name": "attrs",
-              "type": "core::array::Span::<core::felt252>"
-            },
-            {
-              "name": "children",
-              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>",
-          "members": [
-            {
-              "name": "snapshot",
-              "type": "@core::array::Array::<(core::felt252, core::array::Span::<core::felt252>)>"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "dojo::database::introspect::Enum",
-          "members": [
-            {
-              "name": "name",
-              "type": "core::felt252"
-            },
-            {
-              "name": "attrs",
-              "type": "core::array::Span::<core::felt252>"
-            },
-            {
-              "name": "children",
-              "type": "core::array::Span::<(core::felt252, core::array::Span::<core::felt252>)>"
-            }
-          ]
-        },
-        {
-          "type": "enum",
-          "name": "dojo::database::introspect::Ty",
-          "variants": [
-            {
-              "name": "Primitive",
-              "type": "core::felt252"
-            },
-            {
-              "name": "Struct",
-              "type": "dojo::database::introspect::Struct"
-            },
-            {
-              "name": "Enum",
-              "type": "dojo::database::introspect::Enum"
-            },
-            {
-              "name": "Tuple",
-              "type": "core::array::Span::<core::array::Span::<core::felt252>>"
-            },
-            {
-              "name": "Array",
-              "type": "core::integer::u32"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "dojo::model::IDojoModel",
-          "items": [
-            {
-              "type": "function",
-              "name": "name",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::felt252"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "unpacked_size",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::integer::u32"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "packed_size",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::integer::u32"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "layout",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::array::Span::<core::integer::u8>"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "schema",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "dojo::database::introspect::Ty"
-                }
-              ],
-              "state_mutability": "view"
-            }
-          ]
-        },
-        {
-          "type": "impl",
-          "name": "tournament_claimImpl",
-          "interface_name": "paved::models::tournament::Itournament_claim"
-        },
-        {
-          "type": "enum",
-          "name": "core::bool",
-          "variants": [
-            {
-              "name": "False",
-              "type": "()"
-            },
-            {
-              "name": "True",
-              "type": "()"
-            }
-          ]
-        },
-        {
-          "type": "struct",
-          "name": "paved::models::tournament::TournamentClaim",
-          "members": [
-            {
-              "name": "tournament_id",
-              "type": "core::integer::u64"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252"
-            },
-            {
-              "name": "claimed",
-              "type": "core::bool"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "paved::models::tournament::Itournament_claim",
-          "items": [
-            {
-              "type": "function",
-              "name": "ensure_abi",
-              "inputs": [
-                {
-                  "name": "model",
-                  "type": "paved::models::tournament::TournamentClaim"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::models::tournament::tournament_claim::Event",
-          "kind": "enum",
-          "variants": []
-        }
-      ],
-      "name": "paved::models::tournament::tournament_claim"
     }
   ]
 }

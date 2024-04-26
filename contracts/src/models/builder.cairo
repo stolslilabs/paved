@@ -46,15 +46,6 @@ struct Builder {
     characters: u8,
 }
 
-#[derive(Model, Copy, Drop, Serde)]
-struct BuilderPosition {
-    #[key]
-    game_id: u32,
-    #[key]
-    index: u32,
-    player_id: felt252,
-}
-
 #[generate_trait]
 impl BuilderImpl of BuilderTrait {
     #[inline(always)]
@@ -210,12 +201,5 @@ impl ZeroableBuilderImpl of core::Zeroable<Builder> {
     #[inline(always)]
     fn is_non_zero(self: Builder) -> bool {
         !self.is_zero()
-    }
-}
-
-impl TileIntoPosition of core::Into<Builder, BuilderPosition> {
-    #[inline(always)]
-    fn into(self: Builder) -> BuilderPosition {
-        BuilderPosition { game_id: self.game_id, index: self.index, player_id: self.player_id, }
     }
 }

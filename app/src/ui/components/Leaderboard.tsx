@@ -26,7 +26,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { getOrder, getColor } from "@/dojo/game";
+import { getColor } from "@/dojo/game";
 import {
   defineEnterSystem,
   defineSystem,
@@ -40,6 +40,7 @@ import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
 import { usePlayer } from "@/hooks/usePlayer";
 import { Builder } from "@/dojo/game/models/builder";
+import { Game as GameClass } from "@/dojo/game/models/game";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
@@ -95,11 +96,11 @@ export const LeaderboardDialog = () => {
   );
 };
 
-export const Description = ({ game }: { game: any }) => {
+export const Description = ({ game }: { game: GameClass }) => {
   return (
     <DialogDescription className="flex justify-center items-center gap-3 text-xs">
       Game is over!
-      {game.isSoloMode() && <Share score={game.score} />}
+      <Share score={game.score} />
     </DialogDescription>
   );
 };
@@ -184,7 +185,6 @@ export const Leaderboard = () => {
         <TableRow>
           <TableHead className="w-[100px]">Rank</TableHead>
           <TableHead>Name</TableHead>
-          <TableHead>Order</TableHead>
           <TableHead className="text-right">Score</TableHead>
           <TableHead className="text-right">Paved</TableHead>
         </TableRow>
@@ -216,7 +216,6 @@ export const PlayerRow = ({
 }) => {
   const { player } = usePlayer({ playerId: builder.player_id });
   const name = player?.name || "";
-  const order = getOrder(builder?.order);
   const address = `0x${builder.player_id.toString(16)}`;
   const backgroundColor = getColor(address);
   const paved = logs.filter((log: any) => log.color === backgroundColor).length;
@@ -227,7 +226,6 @@ export const PlayerRow = ({
         <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
         {name}
       </TableCell>
-      <TableCell>{order}</TableCell>
       <TableCell className="text-right">{builder?.score}</TableCell>
       <TableCell className="text-right">{paved}</TableCell>
     </TableRow>

@@ -8,12 +8,9 @@ use dojo::world::IWorldDispatcher;
 
 #[starknet::interface]
 trait IManage<TContractState> {
+    fn initialize(ref self: TContractState, world: ContractAddress);
     fn create(
-        self: @TContractState,
-        world: IWorldDispatcher,
-        name: felt252,
-        order: u8,
-        master: ContractAddress
+        self: @TContractState, world: IWorldDispatcher, name: felt252, master: ContractAddress
     );
 }
 
@@ -48,10 +45,19 @@ mod manage {
 
     use super::IManage;
 
+    // Errors
+
+    mod errors {
+        const CONTRACT_ALREADY_INITIALIZED: felt252 = 'Contract is already initialized';
+    }
+
     // Storage
 
     #[storage]
-    struct Storage {}
+    struct Storage {
+        initialized: bool,
+        world: IWorldDispatcher,
+    }
 
     // Implementations
 
@@ -65,18 +71,23 @@ mod manage {
     #[abi(embed_v0)]
     impl WorldProviderImpl of IWorldProvider<ContractState> {
         fn world(self: @ContractState) -> IWorldDispatcher {
-            IWorldDispatcher { contract_address: WORLD() }
+            self.world.read()
         }
     }
 
     #[abi(embed_v0)]
     impl ManageImpl of IManage<ContractState> {
+        fn initialize(ref self: ContractState, world: ContractAddress) {
+            // [Check] Contract is not initialized
+            assert(!self.initialized.read(), errors::CONTRACT_ALREADY_INITIALIZED);
+            // [Effect] Initialize contract
+            self.initialized.write(true);
+            // [Effect] Set world
+            self.world.write(IWorldDispatcher { contract_address: world });
+        }
+
         fn create(
-            self: @ContractState,
-            world: IWorldDispatcher,
-            name: felt252,
-            order: u8,
-            master: ContractAddress
+            self: @ContractState, world: IWorldDispatcher, name: felt252, master: ContractAddress
         ) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);

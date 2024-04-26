@@ -64,6 +64,18 @@
     "items": [
       {
         "type": "function",
+        "name": "initialize",
+        "inputs": [
+          {
+            "name": "world",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
         "name": "create",
         "inputs": [
           {
@@ -73,10 +85,6 @@
           {
             "name": "name",
             "type": "core::felt252"
-          },
-          {
-            "name": "order",
-            "type": "core::integer::u8"
           },
           {
             "name": "master",

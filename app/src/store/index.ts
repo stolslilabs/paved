@@ -69,8 +69,6 @@ interface GameState {
   orientation: number;
   setOrientation: (orientation: number) => void;
   resetOrientation: () => void;
-  order: number;
-  setOrder: (order: number) => void;
   character: number;
   setCharacter: (character: number) => void;
   resetCharacter: () => void;
@@ -102,9 +100,9 @@ export const useLobbyStore = create<LobbyState>()((set, get) => ({
   playerEntity: null,
   setPlayerEntity: (playerEntity: Entity) => set({ playerEntity }),
   resetPlayerEntity: () => set({ playerEntity: null }),
-  mode: "ranked",
+  mode: "weekly",
   setMode: (mode) => set({ mode }),
-  resetMode: () => set({ mode: "single" }),
+  resetMode: () => set({ mode: "weekly" }),
 }));
 
 export const useCameraStore = create<CameraState>()((set, get) => ({
@@ -155,8 +153,6 @@ export const useGameStore = create<GameState>()((set, get) => ({
     set({ orientation });
   },
   resetOrientation: () => set({ orientation: 1 }),
-  order: 1,
-  setOrder: (order) => set({ order }),
   character: 0,
   setCharacter: (character) => set({ character }),
   resetCharacter: () => set({ character: 0 }),

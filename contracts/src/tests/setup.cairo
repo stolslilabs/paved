@@ -51,10 +51,6 @@ mod setup {
     const ANYONE_NAME: felt252 = 'ANYONE';
     const SOMEONE_NAME: felt252 = 'SOMEONE';
     const NOONE_NAME: felt252 = 'NOONE';
-    const PLAYER_ORDER_ID: u8 = 1;
-    const ANYONE_ORDER_ID: u8 = 14;
-    const SOMEONE_ORDER_ID: u8 = 7;
-    const NOONE_ORDER_ID: u8 = 4;
     const GAME_NAME: felt252 = 'GAME';
 
     #[derive(Drop)]
@@ -68,16 +64,12 @@ mod setup {
     struct Context {
         player_id: felt252,
         player_name: felt252,
-        player_order: u8,
         anyone_id: felt252,
         anyone_name: felt252,
-        anyone_order: u8,
         someone_id: felt252,
         someone_name: felt252,
-        someone_order: u8,
         noone_id: felt252,
         noone_name: felt252,
-        noone_order: u8,
         game_id: u32,
         game_name: felt252,
         game_duration: u64,
@@ -137,19 +129,19 @@ mod setup {
         set_contract_address(ANYONE());
         faucet.mint();
         erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, ANYONE_NAME, ANYONE_ORDER_ID, ANYONE());
+        systems.manage.create(world, ANYONE_NAME, ANYONE());
         set_contract_address(SOMEONE());
         faucet.mint();
         erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, SOMEONE_NAME, SOMEONE_ORDER_ID, SOMEONE());
+        systems.manage.create(world, SOMEONE_NAME, SOMEONE());
         set_contract_address(NOONE());
         faucet.mint();
         erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, NOONE_NAME, NOONE_ORDER_ID, NOONE());
+        systems.manage.create(world, NOONE_NAME, NOONE());
         set_contract_address(PLAYER());
         faucet.mint();
         erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, PLAYER_NAME, PLAYER_ORDER_ID, PLAYER());
+        systems.manage.create(world, PLAYER_NAME, PLAYER());
         let duration: u64 = 0;
 
         // [Setup] Game if mode is set
@@ -158,16 +150,12 @@ mod setup {
         let context = Context {
             player_id: PLAYER().into(),
             player_name: PLAYER_NAME,
-            player_order: PLAYER_ORDER_ID,
             anyone_id: ANYONE().into(),
             anyone_name: ANYONE_NAME,
-            anyone_order: ANYONE_ORDER_ID,
             someone_id: SOMEONE().into(),
             someone_name: SOMEONE_NAME,
-            someone_order: SOMEONE_ORDER_ID,
             noone_id: NOONE().into(),
             noone_name: NOONE_NAME,
-            noone_order: NOONE_ORDER_ID,
             game_id: game_id,
             game_name: GAME_NAME,
             game_duration: duration,

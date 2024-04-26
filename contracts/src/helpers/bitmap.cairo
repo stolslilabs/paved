@@ -91,7 +91,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected: ('Bitmap: Invalid index',))]
+    #[should_panic(expected: ('too large to fit output type',))]
     fn test_helpers_set_bit_at_128() {
         let bitmap = 0;
         Bitmap::set_bit_at(bitmap, 128, true);

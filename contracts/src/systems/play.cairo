@@ -15,6 +15,7 @@ use paved::types::spot::Spot;
 
 #[starknet::interface]
 trait IPlay<TContractState> {
+    fn initialize(ref self: TContractState, world: ContractAddress);
     fn draw(self: @TContractState, world: IWorldDispatcher, game_id: u32);
     fn discard(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
     fn surrender(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
@@ -79,6 +80,7 @@ mod play {
     // Errors
 
     mod errors {
+        const CONTRACT_ALREADY_INITIALIZED: felt252 = 'Contract is already initialized';
         const BUILDER_NOT_FOUND: felt252 = 'Play: Builder not found';
         const TILE_NOT_FOUND: felt252 = 'Play: Tile not found';
         const POSITION_ALREADY_TAKEN: felt252 = 'Play: Position already taken';
@@ -88,7 +90,10 @@ mod play {
     // Storage
 
     #[storage]
-    struct Storage {}
+    struct Storage {
+        initialized: bool,
+        world: IWorldDispatcher,
+    }
 
     // Events
 
@@ -116,12 +121,21 @@ mod play {
     #[abi(embed_v0)]
     impl WorldProviderImpl of IWorldProvider<ContractState> {
         fn world(self: @ContractState) -> IWorldDispatcher {
-            IWorldDispatcher { contract_address: WORLD() }
+            self.world.read()
         }
     }
 
     #[abi(embed_v0)]
     impl PlayImpl of IPlay<ContractState> {
+        fn initialize(ref self: ContractState, world: ContractAddress) {
+            // [Check] Contract is not initialized
+            assert(!self.initialized.read(), errors::CONTRACT_ALREADY_INITIALIZED);
+            // [Effect] Initialize contract
+            self.initialized.write(true);
+            // [Effect] Set world
+            self.world.write(IWorldDispatcher { contract_address: world });
+        }
+
         fn draw(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);

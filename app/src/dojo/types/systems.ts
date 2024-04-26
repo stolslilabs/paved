@@ -4,79 +4,32 @@ export interface Signer {
   account: Account;
 }
 
-export interface CreateGame extends Signer {
-  name: string;
-  duration: number;
-  mode: number;
+export interface InitializeHost extends Signer {
+  world: string;
 }
 
-export interface RenameGame extends Signer {
-  game_id: number;
-  name: string;
-}
+export interface CreateGame extends Signer {}
 
-export interface UpdateGame extends Signer {
-  account: Account;
-  game_id: number;
-  duration: number;
-}
-
-export interface JoinGame extends Signer {
-  game_id: number;
-}
-
-export interface ReadyGame extends Signer {
-  game_id: number;
-  status: number;
-}
-
-export interface TransferGame extends Signer {
-  game_id: number;
-  player_id: string;
-}
-
-export interface LeaveGame extends Signer {
-  game_id: number;
-}
-
-export interface KickGame extends Signer {
-  game_id: number;
-  player_id: string;
-}
-
-export interface DeleteGame extends Signer {
-  game_id: number;
-}
-
-export interface StartGame extends Signer {
-  game_id: number;
-}
-
-export interface ClaimTournament extends Signer {
+export interface Claim extends Signer {
   tournament_id: number;
   rank: number;
 }
 
+export interface Sponsor extends Signer {
+  amount: string;
+}
+
+export interface InitializeManage extends Signer {
+  world: string;
+}
+
 export interface CreatePlayer extends Signer {
   name: string;
-  order: number;
   master: string;
 }
 
-export interface RenamePlayer extends Signer {
-  name: string;
-}
-
-export interface ReorderPlayer extends Signer {
-  order: number;
-}
-
-export interface Buy extends Signer {
-  amount: number;
-}
-
-export interface Claim extends Signer {
-  game_id: number;
+export interface InitializePlay extends Signer {
+  world: string;
 }
 
 export interface Draw extends Signer {

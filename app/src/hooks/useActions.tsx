@@ -17,7 +17,6 @@ export const useActions = () => {
     selectedTile,
     resetX,
     resetY,
-    resetOrientation,
     resetCharacter,
     resetSpot,
     resetSelectedTile,

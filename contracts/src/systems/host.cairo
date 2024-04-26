@@ -15,8 +15,10 @@ use paved::types::spot::Spot;
 
 #[starknet::interface]
 trait IHost<TContractState> {
+    fn initialize(ref self: TContractState, world: ContractAddress);
     fn create(self: @TContractState, world: IWorldDispatcher) -> u32;
     fn claim(self: @TContractState, world: IWorldDispatcher, tournament_id: u64, rank: u8,);
+    fn sponsor(self: @TContractState, world: IWorldDispatcher, amount: felt252);
 }
 
 #[starknet::interface]
@@ -72,6 +74,7 @@ mod host {
     // Errors
 
     mod errors {
+        const CONTRACT_ALREADY_INITIALIZED: felt252 = 'Contract is already initialized';
         const ERC20_REWARD_FAILED: felt252 = 'ERC20: reward failed';
         const ERC20_PAY_FAILED: felt252 = 'ERC20: pay failed';
         const ERC20_REFUND_FAILED: felt252 = 'ERC20: refund failed';
@@ -80,7 +83,10 @@ mod host {
     // Storage
 
     #[storage]
-    struct Storage {}
+    struct Storage {
+        initialized: bool,
+        world: IWorldDispatcher,
+    }
 
     // Implementations
 
@@ -94,12 +100,21 @@ mod host {
     #[abi(embed_v0)]
     impl WorldProviderImpl of IWorldProvider<ContractState> {
         fn world(self: @ContractState) -> IWorldDispatcher {
-            IWorldDispatcher { contract_address: constants::WORLD() }
+            self.world.read()
         }
     }
 
     #[abi(embed_v0)]
     impl HostImpl of IHost<ContractState> {
+        fn initialize(ref self: ContractState, world: ContractAddress) {
+            // [Check] Contract is not initialized
+            assert(!self.initialized.read(), errors::CONTRACT_ALREADY_INITIALIZED);
+            // [Effect] Initialize contract
+            self.initialized.write(true);
+            // [Effect] Set world
+            self.world.write(IWorldDispatcher { contract_address: world });
+        }
+
         fn create(self: @ContractState, world: IWorldDispatcher,) -> u32 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -162,6 +177,25 @@ mod host {
 
             // [Interaction] Pay reward
             self._refund(world, caller, reward);
+        }
+
+        fn sponsor(self: @ContractState, world: IWorldDispatcher, amount: felt252) {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new(world);
+
+            // [Check] Tournament exists
+            let time = get_block_timestamp();
+            let tournament_id = TournamentImpl::compute_id(time);
+            let mut tournament = store.tournament(tournament_id);
+            tournament.assert_exists();
+
+            // [Effect] Add amount to the current tournament prize pool
+            tournament.buyin(amount);
+            store.set_tournament(tournament);
+
+            // [Interaction] Transfer amount
+            let caller = get_caller_address();
+            self._pay(world, caller, amount.into());
         }
     }
 

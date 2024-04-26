@@ -17,7 +17,7 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 use paved::helpers::bitmap::Bitmap;
 use paved::models::game::{Game, GameImpl};
 use paved::models::player::{Player, PlayerImpl};
-use paved::models::builder::{Builder, BuilderPosition, BuilderImpl};
+use paved::models::builder::{Builder, BuilderImpl};
 use paved::models::tile::{Tile, TilePosition, TileImpl};
 use paved::models::character::{Character, CharacterPosition, CharacterImpl};
 use paved::models::tournament::{Tournament, TournamentImpl};
@@ -53,11 +53,6 @@ impl StoreImpl of StoreTrait {
     #[inline(always)]
     fn builder(self: Store, game: Game, player_id: felt252) -> Builder {
         get!(self.world, (game.id, player_id), (Builder))
-    }
-
-    #[inline(always)]
-    fn builder_position(self: Store, game: Game, index: u32) -> BuilderPosition {
-        get!(self.world, (game.id, index), (BuilderPosition))
     }
 
     #[inline(always)]
@@ -145,8 +140,6 @@ impl StoreImpl of StoreTrait {
 
     #[inline(always)]
     fn set_builder(self: Store, builder: Builder) {
-        let position: BuilderPosition = builder.into();
-        set!(self.world, (position));
         set!(self.world, (builder))
     }
 

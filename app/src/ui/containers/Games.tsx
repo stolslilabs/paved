@@ -23,30 +23,18 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faRightToBracket } from "@fortawesome/free-solid-svg-icons";
 
 import { useDojo } from "@/dojo/useDojo";
-import { useEntityQuery } from "@dojoengine/react";
-import {
-  Has,
-  HasValue,
-  NotValue,
-  defineEnterSystem,
-  defineSystem,
-} from "@dojoengine/recs";
+import { Has, defineEnterSystem, defineSystem } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 
-import { CreateRankedGame } from "@/ui/components/CreateRankedGame";
-import { CreateSingleGame } from "@/ui/components/CreateSingleGame";
-import { CreateMultiGame } from "@/ui/components/CreateMultiGame";
+import { CreateGame } from "@/ui/components/CreateGame";
 import { TournamentDialog, TournamentHeader } from "../components/Tournament";
 import { useLobbyStore } from "@/store";
 import { useBuilder } from "@/hooks/useBuilder";
-import { SingleLeaderboardDialog } from "../components/SingleLeaderboard";
 
 export const Games = () => {
   const { mode, setMode } = useLobbyStore();
   const [games, setGames] = useState<{ [key: number]: any }>({});
-  const [showSingle, setShowSingle] = useState<boolean>(false);
-  const [showRanked, setShowRanked] = useState<boolean>(false);
-  const [showMulti, setShowMulti] = useState<boolean>(false);
+  const [show, setShow] = useState<boolean>(false);
   const {
     account: { account },
     setup: {
@@ -75,44 +63,19 @@ export const Games = () => {
     setMode(event);
   };
 
-  const filteredSingleGames = useMemo(() => {
+  const filteredGames = useMemo(() => {
     return Object.values(games)
       .filter((game) => {
-        if (!game.isSingleMode()) return false;
-        if (showSingle && game.score > 0) return true;
+        if (show && game.score > 0) return true;
         return !game.isOver();
       })
       .sort((a, b) => b.id - a.id);
-  }, [games, showSingle, account]);
-
-  const filteredRankedGames = useMemo(() => {
-    return Object.values(games)
-      .filter((game) => {
-        if (!game.isRankedMode()) return false;
-        if (showRanked && game.score > 0) return true;
-        return !game.isOver();
-      })
-      .sort((a, b) => b.id - a.id);
-  }, [games, showRanked, account]);
-
-  const filteredMultiGames = useMemo(() => {
-    return Object.values(games)
-      .filter((game) => {
-        if (game.player_count === 0) return false;
-        if (!game.isMultiMode()) return false;
-        if (showMulti && game.score > 0) return true;
-        return !game.isOver();
-      })
-      .sort((a, b) => b.id - a.id);
-  }, [games, showMulti]);
+  }, [games, show, account]);
 
   const backgroundColor = useMemo(() => "#FCF7E7", []);
 
   return (
-    <div
-      className="bg-yellow-100 h-full grow overflow-scroll"
-      style={{ backgroundColor }}
-    >
+    <div className="bg-yellow-100 h-full grow" style={{ backgroundColor }}>
       <div className="flex flex-col gap-8 items-start w-full p-10 h-full">
         <h1>Game lobby</h1>
 
@@ -123,14 +86,15 @@ export const Games = () => {
           className="w-full h-full"
         >
           <TabsList>
-            <TabsTrigger value="ranked">Competitive</TabsTrigger>
-            <TabsTrigger value="single">Single</TabsTrigger>
-            <TabsTrigger value="multi">Multi</TabsTrigger>
+            <TabsTrigger disabled value="daily">
+              Daily
+            </TabsTrigger>
+            <TabsTrigger value="weekly">Weekly</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="ranked">
+          <TabsContent value="weekly">
             <div className="flex my-4 gap-4 items-center">
-              <CreateRankedGame />
+              <CreateGame />
               <TournamentDialog />
               <TournamentHeader />
             </div>
@@ -140,8 +104,8 @@ export const Games = () => {
               <div className="flex items-center space-x-2">
                 <Switch
                   id="show-finished"
-                  checked={showRanked}
-                  onCheckedChange={() => setShowRanked(!showRanked)}
+                  checked={show}
+                  onCheckedChange={() => setShow(!show)}
                 />
                 <Label className="text-xs" htmlFor="show-finished">
                   Show finished Games
@@ -158,83 +122,8 @@ export const Games = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {Object.values(filteredRankedGames).map((game, index) => {
+                  {Object.values(filteredGames).map((game, index) => {
                     return <GameSingleRow key={index} game={game} />;
-                  })}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="single">
-            <div className="flex my-4 gap-4 items-center">
-              <CreateSingleGame />
-              <SingleLeaderboardDialog />
-            </div>
-
-            <div className="flex justify-between w-full">
-              <h4>Games</h4>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="show-finished"
-                  checked={showSingle}
-                  onCheckedChange={() => setShowSingle(!showSingle)}
-                />
-                <Label className="text-xs" htmlFor="show-finished">
-                  Show finished Games
-                </Label>
-              </div>
-            </div>
-            <ScrollArea className="h-[570px] w-full pr-4">
-              <Table>
-                <TableHeader>
-                  <TableRow className="text-sm">
-                    <TableHead className="w-[100px]">#</TableHead>
-                    <TableHead>Tiles played</TableHead>
-                    <TableHead>Score</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {Object.values(filteredSingleGames).map((game, index) => {
-                    return <GameSingleRow key={index} game={game} />;
-                  })}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="multi">
-            <div className="my-4">
-              <CreateMultiGame />
-            </div>
-            <div className="flex justify-between w-full">
-              <h4>Games</h4>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="show-finished"
-                  checked={showMulti}
-                  onCheckedChange={() => setShowMulti(!showMulti)}
-                />
-                <Label className="text-xs" htmlFor="show-finished">
-                  Show finished Games
-                </Label>
-              </div>
-            </div>
-            <ScrollArea className="h-[570px] w-full pr-4">
-              <Table>
-                <TableHeader>
-                  <TableRow className="text-sm">
-                    <TableHead className="w-[100px]">#</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Current players</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Time left</TableHead>
-                    <TableHead>Tiles played</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {Object.values(filteredMultiGames).map((game, index) => {
-                    return <GameMultiRow key={index} game={game} />;
                   })}
                 </TableBody>
               </Table>
@@ -293,163 +182,6 @@ export const GameSingleRow = ({ game }: { game: any }) => {
                 onClick={() => setGameQueryParam(game.id || 0)}
               >
                 <FontAwesomeIcon icon={over ? faEye : faRightToBracket} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">Join the game</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </TableCell>
-    </TableRow>
-  );
-};
-
-export const GameMultiRow = ({ game }: { game: any }) => {
-  const [gameId, setGameId] = useState<number>();
-  const [gameName, setGameName] = useState<string>();
-  const [playerCount, setPlayerCount] = useState<number>();
-  const [startTime, setStartTime] = useState<number>();
-  const [duration, setDuration] = useState<number>();
-  const [gameDuration, setGameDuration] = useState<string>();
-  const [timeLeft, setTimeLeft] = useState<string>();
-  const [tilesPlayed, setTilesPlayed] = useState<number>();
-  const [over, setOver] = useState<boolean>(false);
-  const {
-    account: { account },
-    setup: {
-      clientModels: {
-        models: { Builder },
-      },
-    },
-  } = useDojo();
-
-  const builders = useEntityQuery([
-    Has(Builder),
-    HasValue(Builder, { game_id: game?.id }),
-    NotValue(Builder, { order: 0 }),
-  ]);
-  const builder = useBuilder({ gameId: game?.id, playerId: account?.address });
-
-  useEffect(() => {
-    if (game) {
-      setGameId(game.id);
-      setGameName(game.name);
-      setStartTime(game.start_time);
-      setDuration(game.duration);
-      setTilesPlayed(game.tile_count);
-      setOver(game.isOver());
-    }
-    setPlayerCount(builders?.length || 0);
-  }, [game, builders]);
-
-  // Calculating game duration
-  useEffect(() => {
-    if (duration) {
-      // Calculating hours, minutes, and seconds
-      const hours = Math.floor(duration / 3600);
-      const minutes = Math.floor((duration % 3600) / 60);
-      const seconds = duration % 60;
-
-      // Formatting HH:MM:SS
-      const formattedTime = `
-        ${hours.toString().padStart(2, "0")}:${minutes
-          .toString()
-          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-      setGameDuration(formattedTime);
-    } else {
-      setGameDuration("∞");
-    }
-  }, [duration]);
-
-  // Calculating time left
-  useEffect(() => {
-    if (startTime && duration) {
-      const interval = setInterval(() => {
-        // Remaining time in seconds
-        const dt = startTime + duration - Math.floor(Date.now() / 1000);
-
-        // Calculating hours, minutes, and seconds
-        const hours = Math.floor(dt / 3600);
-        const minutes = Math.floor((dt % 3600) / 60);
-        const seconds = dt % 60;
-
-        // Formatting HH:MM:SS
-        const formattedTime = `
-          ${hours.toString().padStart(2, "0")}:${minutes
-            .toString()
-            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-        setTimeLeft(formattedTime);
-
-        if (dt < 0) {
-          clearInterval(interval);
-          setTimeLeft("00:00:00");
-        }
-
-        if (duration == 0) {
-          clearInterval(interval);
-          setTimeLeft("00:00:00");
-        }
-      }, 1000);
-      return () => clearInterval(interval);
-    } else if (duration) {
-      // Calculating hours, minutes, and seconds
-      const hours = Math.floor(duration / 3600);
-      const minutes = Math.floor((duration % 3600) / 60);
-      const seconds = duration % 60;
-
-      // Formatting HH:MM:SS
-      const formattedTime = `
-        ${hours.toString().padStart(2, "0")}:${minutes
-          .toString()
-          .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-      setTimeLeft(formattedTime);
-    } else {
-      setTimeLeft("∞");
-    }
-  }, [startTime, duration]);
-
-  const navigate = useNavigate();
-
-  const setGameQueryParam = useMemo(() => {
-    return (id: string) => {
-      navigate("?id=" + id, { replace: true });
-    };
-  }, [navigate]);
-
-  const handleClick = async () => {
-    if (!game) return;
-    setGameQueryParam(game.id);
-  };
-
-  if (!game) return null;
-
-  return (
-    <TableRow className="text-xs">
-      <TableCell>{gameId}</TableCell>
-      <TableCell>{gameName}</TableCell>
-      <TableCell>{playerCount}</TableCell>
-      <TableCell>{gameDuration}</TableCell>
-      <TableCell>{timeLeft}</TableCell>
-      <TableCell>{tilesPlayed}</TableCell>
-
-      <TableCell className="w-12">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                className={"align-right"}
-                variant={"secondary"}
-                size={"icon"}
-                onClick={handleClick}
-              >
-                <FontAwesomeIcon
-                  icon={
-                    (builder || game.start_time === 0) && !over
-                      ? faRightToBracket
-                      : faEye
-                  }
-                />
               </Button>
             </TooltipTrigger>
             <TooltipContent>

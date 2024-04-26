@@ -40,9 +40,7 @@ import { usePlayerByKey } from "@/hooks/usePlayer";
 import { Lords } from "./Lords";
 
 export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
-  const [score, setScore] = useState<number>();
   const [paved, setPaved] = useState<number>();
-  const [bank, setBank] = useState<number>();
   const [identifier, setIdentifier] = useState<string>("");
   const [playerName, setPlayerName] = useState<string>("Name");
   const [avatar, setAvatar] = useState<string | null | undefined>();
@@ -55,17 +53,13 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
 
   useEffect(() => {
     if (player) {
-      setScore(player.score);
       setPaved(player.paved);
-      setBank(player.bank);
       setIdentifier(
         shortenHex(`0x${player.id.toString(16)}`).replace("...", ""),
       );
       setPlayerName(player.name);
     } else {
-      setScore(undefined);
       setPaved(undefined);
-      setBank(undefined);
       setIdentifier("");
       setPlayerName("");
       setAvatar(undefined);
@@ -93,8 +87,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
             style={{ backgroundColor: borderColor }}
           />
           <div className="flex flex-col gap-8">
-            <PlayerInfo score={score} paved={paved} balance={balance} />
-            <TileBank bank={bank} />
+            <PlayerInfo paved={paved} balance={balance} />
           </div>
         </CardHeader>
         <CardHeader className="flex flex-col w-2/5 items-center justify-around gap-2">
@@ -216,23 +209,15 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   );
 };
 
-const PlayerInfo = ({ score, paved, balance }: any) => {
+const PlayerInfo = ({ paved, balance }: any) => {
   return (
     <CardDescription className="pt-2">
       <div className="flex justify-center">
         <div className="text-right flex flex-col gap-4 w-3/5">
-          <p className="h-4">Rank:</p>
-          <p className="h-4">Score:</p>
           <p className="h-4">Paved:</p>
           <p className="h-4">Balance:</p>
         </div>
         <div className="ml-2 text-left flex flex-col gap-4 w-3/5">
-          <Skeleton className="h-4 w-16" />
-          {score !== undefined ? (
-            <p className="h-4">{score}</p>
-          ) : (
-            <Skeleton className="h-4 w-28" />
-          )}
           {paved !== undefined ? (
             <p className="h-4">{paved}</p>
           ) : (
@@ -249,22 +234,6 @@ const PlayerInfo = ({ score, paved, balance }: any) => {
         </div>
       </div>
     </CardDescription>
-  );
-};
-
-const TileBank = ({ bank }: any) => {
-  return (
-    <Badge
-      className="flex justify-center border-dashed border-slate-400 rounded-none"
-      variant={"secondary"}
-    >
-      <div className="text-right flex flex-col gap-4 w-2/3">
-        <p>Tile bank:</p>
-      </div>
-      <div className="ml-2 text-left flex flex-col gap-4 w-1/3">
-        {bank ? <p>{bank}</p> : <Skeleton className="h-4 w-12" />}
-      </div>
-    </Badge>
   );
 };
 

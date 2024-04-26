@@ -23,12 +23,9 @@ export function Connection() {
 
   const {
     setup: {
-      config: { masterAddress, feeTokenAddress },
+      config: { masterAddress },
     },
-    account: { account, create, clear, isDeploying },
-    setup: {
-      client: { host },
-    },
+    account: { account, create, clear },
   } = useDojo();
 
   const connectWallet = async () => {
@@ -63,7 +60,7 @@ export function Connection() {
 
   return (
     <>
-      {isConnected ? (
+      {isConnected && isSetup ? (
         <div className="flex gap-4 border-4 border-paved-brown p-2">
           <Address />
           <TooltipProvider>

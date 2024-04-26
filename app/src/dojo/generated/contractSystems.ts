@@ -3,22 +3,13 @@
 import { DojoProvider } from "@dojoengine/core";
 import { Config } from "../../../dojoConfig.ts";
 import {
+  InitializeHost,
   CreateGame,
-  RenameGame,
-  UpdateGame,
-  JoinGame,
-  ReadyGame,
-  TransferGame,
-  LeaveGame,
-  KickGame,
-  DeleteGame,
-  StartGame,
-  ClaimTournament,
-  CreatePlayer,
-  RenamePlayer,
-  ReorderPlayer,
-  Buy,
   Claim,
+  Sponsor,
+  InitializeManage,
+  CreatePlayer,
+  InitializePlay,
   Draw,
   Discard,
   Surrender,
@@ -48,7 +39,18 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
     }
 
-    const create = async ({ account, name, duration, mode }: CreateGame) => {
+    const initialize = async ({ account, world }: InitializeHost) => {
+      try {
+        return await provider.execute(account, contract_name, "initialize", [
+          world,
+        ]);
+      } catch (error) {
+        console.error("Error executing initialize:", error);
+        throw error;
+      }
+    };
+
+    const create = async ({ account }: CreateGame) => {
       const contract_address = getContractByName(config.manifest, "host");
       const calls = [
         {
@@ -59,7 +61,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
         {
           contractAddress: contract_address,
           entrypoint: "create",
-          calldata: [provider.getWorldAddress(), name, duration, mode],
+          calldata: [provider.getWorldAddress()],
         },
       ];
       try {
@@ -70,120 +72,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       }
     };
 
-    const rename = async ({ account, game_id, name }: RenameGame) => {
-      try {
-        return await provider.execute(account, contract_name, "rename", [
-          provider.getWorldAddress(),
-          game_id,
-          name,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const update = async ({ account, game_id, duration }: UpdateGame) => {
-      try {
-        return await provider.execute(account, contract_name, "update", [
-          provider.getWorldAddress(),
-          game_id,
-          duration,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const join = async ({ account, game_id }: JoinGame) => {
-      try {
-        return await provider.execute(account, contract_name, "join", [
-          provider.getWorldAddress(),
-          game_id,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const ready = async ({ account, game_id, status }: ReadyGame) => {
-      try {
-        return await provider.execute(account, contract_name, "ready", [
-          provider.getWorldAddress(),
-          game_id,
-          status,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const transfer = async ({ account, game_id, player_id }: TransferGame) => {
-      try {
-        return await provider.execute(account, contract_name, "transfer", [
-          provider.getWorldAddress(),
-          game_id,
-          player_id,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const leave = async ({ account, game_id }: LeaveGame) => {
-      try {
-        return await provider.execute(account, contract_name, "leave", [
-          provider.getWorldAddress(),
-          game_id,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const kick = async ({ account, game_id, player_id }: KickGame) => {
-      try {
-        return await provider.execute(account, contract_name, "kick", [
-          provider.getWorldAddress(),
-          game_id,
-          player_id,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const remove = async ({ account, game_id }: DeleteGame) => {
-      try {
-        return await provider.execute(account, contract_name, "delete", [
-          provider.getWorldAddress(),
-          game_id,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const start = async ({ account, game_id }: StartGame) => {
-      try {
-        return await provider.execute(account, contract_name, "start", [
-          provider.getWorldAddress(),
-          game_id,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const claim = async ({ account, tournament_id, rank }: ClaimTournament) => {
+    const claim = async ({ account, tournament_id, rank }: Claim) => {
       try {
         return await provider.execute(account, contract_name, "claim", [
           provider.getWorldAddress(),
@@ -196,19 +85,24 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       }
     };
 
+    const sponsor = async ({ account, amount }: Sponsor) => {
+      try {
+        return await provider.execute(account, contract_name, "sponsor", [
+          provider.getWorldAddress(),
+          amount,
+        ]);
+      } catch (error) {
+        console.error("Error executing initialize:", error);
+        throw error;
+      }
+    };
+
     return {
       address: contract.address,
+      initialize,
       create,
-      rename,
-      update,
-      join,
-      ready,
-      transfer,
-      leave,
-      kick,
-      remove,
-      start,
       claim,
+      sponsor,
     };
   }
 
@@ -221,12 +115,22 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
     }
 
-    const create = async ({ account, name, order, master }: CreatePlayer) => {
+    const initialize = async ({ account, world }: InitializeManage) => {
+      try {
+        return await provider.execute(account, contract_name, "initialize", [
+          world,
+        ]);
+      } catch (error) {
+        console.error("Error executing initialize:", error);
+        throw error;
+      }
+    };
+
+    const create = async ({ account, name, master }: CreatePlayer) => {
       try {
         return await provider.execute(account, contract_name, "create", [
           provider.getWorldAddress(),
           name,
-          order,
           master,
         ]);
       } catch (error) {
@@ -234,55 +138,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
         throw error;
       }
     };
-
-    const rename = async ({ account, name }: RenamePlayer) => {
-      try {
-        return await provider.execute(account, contract_name, "rename", [
-          provider.getWorldAddress(),
-          name,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const reorder = async ({ account, order }: ReorderPlayer) => {
-      try {
-        return await provider.execute(account, contract_name, "reorder", [
-          provider.getWorldAddress(),
-          order,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const buy = async ({ account, amount }: Buy) => {
-      try {
-        return await provider.execute(account, contract_name, "buy", [
-          provider.getWorldAddress(),
-          amount,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
-    const claim = async ({ account, game_id }: Claim) => {
-      try {
-        return await provider.execute(account, contract_name, "claim", [
-          provider.getWorldAddress(),
-          game_id,
-        ]);
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-    return { address: contract.address, create, rename, reorder, buy, claim };
+    return { address: contract.address, initialize, create };
   }
 
   function play() {
@@ -293,6 +149,17 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     if (!contract) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
     }
+
+    const initialize = async ({ account, world }: InitializePlay) => {
+      try {
+        return await provider.execute(account, contract_name, "initialize", [
+          world,
+        ]);
+      } catch (error) {
+        console.error("Error executing initialize:", error);
+        throw error;
+      }
+    };
 
     const draw = async ({ account, game_id }: Draw) => {
       try {
@@ -355,7 +222,14 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       }
     };
 
-    return { address: contract.address, draw, discard, surrender, build };
+    return {
+      address: contract.address,
+      initialize,
+      draw,
+      discard,
+      surrender,
+      build,
+    };
   }
 
   return {

@@ -49,7 +49,7 @@ export const Surrender = (props: TProps) => {
     return !!game?.over;
   }, [game]);
 
-  if (!account || !game || !builder || !game.isSoloMode()) return <></>;
+  if (!account || !game || !builder) return <></>;
 
   return (
     <AlertDialog>

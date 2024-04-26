@@ -3,7 +3,6 @@ import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useComponentValue } from "@dojoengine/react";
-import { shortString } from "starknet";
 import { getColor } from "@/dojo/game";
 import { useLogs } from "@/hooks/useLogs";
 import {
@@ -16,7 +15,7 @@ import {
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFire, faHammer } from "@fortawesome/free-solid-svg-icons";
-import { usePlayer, usePlayerByKey } from "@/hooks/usePlayer";
+import { usePlayer } from "@/hooks/usePlayer";
 
 export const Scoreboard = () => {
   const { gameId } = useQueryParams();

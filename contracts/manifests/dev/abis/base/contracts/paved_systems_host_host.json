@@ -64,6 +64,18 @@
     "items": [
       {
         "type": "function",
+        "name": "initialize",
+        "inputs": [
+          {
+            "name": "world",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
         "name": "create",
         "inputs": [
           {
@@ -93,6 +105,22 @@
           {
             "name": "rank",
             "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "sponsor",
+        "inputs": [
+          {
+            "name": "world",
+            "type": "dojo::world::IWorldDispatcher"
+          },
+          {
+            "name": "amount",
+            "type": "core::felt252"
           }
         ],
         "outputs": [],

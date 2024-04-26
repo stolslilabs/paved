@@ -6,11 +6,10 @@ import { GameLobby } from "./ui/screens/GameLobby";
 import { useQueryParams } from "./hooks/useQueryParams";
 import { Toaster } from "./components/ui/sonner";
 import { Landing } from "./ui/screens/Landing";
-import { BorderLayout } from "./ui/components/BorderLayout";
 
 export const CoreScreen = () => {
   const { gameId } = useQueryParams();
-  return <BorderLayout>{gameId ? <GameScreen /> : <GameLobby />}</BorderLayout>;
+  return gameId ? <GameScreen /> : <GameLobby />;
 };
 
 function App() {

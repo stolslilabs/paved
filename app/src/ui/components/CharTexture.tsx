@@ -1,12 +1,6 @@
 import * as THREE from "three";
 import { useEffect, useState } from "react";
-import {
-  offset,
-  other_offset,
-  getCharacterImage,
-  getColor,
-  getOrder,
-} from "@/dojo/game";
+import { offset, other_offset, getCharacterImage, getColor } from "@/dojo/game";
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
@@ -48,10 +42,6 @@ export const CharTexture = ({ character, radius, height, size }: any) => {
     const address = `0x${character?.player_id?.toString(16)}`;
     return getColor(address);
   }, [character]);
-
-  const orderColor = useMemo(() => {
-    return getColor(`${getOrder(builder?.order)}`);
-  }, [builder]);
 
   const image = useMemo(() => {
     return getCharacterImage(character?.index);
@@ -101,7 +91,7 @@ export const CharTexture = ({ character, radius, height, size }: any) => {
         position={[position.x, position.y, 0.1 / 2]}
         rotation={[Math.PI / 2, 0, 0]}
       >
-        <meshStandardMaterial color={orderColor} />
+        <meshStandardMaterial color={charColor} />
         <cylinderGeometry args={[radius, radius, 0.12, 32]} />
       </mesh>
       <mesh
@@ -127,7 +117,7 @@ export const CharTexture = ({ character, radius, height, size }: any) => {
         onPointerLeave={handlePointerLeave}
       >
         <mesh>
-          <meshStandardMaterial color={orderColor} />
+          <meshStandardMaterial color={charColor} />
           <Text
             position={[0, 0, -0.5]}
             rotation={[-Math.PI / 2, Math.PI, 0]}

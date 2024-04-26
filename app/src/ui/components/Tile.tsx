@@ -150,7 +150,7 @@ export const HiddenTile = () => {
     });
   };
 
-  const backgroundImage = useMemo(() => getImage({ plan: 22 }), []);
+  const backgroundImage = useMemo(() => getImage({ plan: 9 }), []);
   const borderColor = useMemo(() => "#3B3B3B", []);
 
   return (
@@ -173,7 +173,7 @@ export const HiddenTile = () => {
                 className="h-6 md:h-12"
                 icon={over ? faLock : faEye}
               />
-              {!over && game?.isSoloMode() && (
+              {!over && (
                 <div className="absolute md:top-1/2 left-1/2 translate-x-[-50%] translate-y-[+100%] select-none md:text-3xl">
                   {game?.tilesLeft()}
                 </div>

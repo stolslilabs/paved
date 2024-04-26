@@ -47,7 +47,6 @@ import { Lords } from "./Lords";
 import { Tournament as TournamentClass } from "@/dojo/game/models/tournament";
 import { useDojo } from "@/dojo/useDojo";
 import { Account } from "starknet";
-import { ModeType } from "@/dojo/game/types/mode";
 
 export const TournamentHeader = () => {
   const [tournamentId, setTournamentId] = useState<number>();
@@ -122,7 +121,7 @@ export const TournamentDialog = () => {
 };
 
 export const Tournament = () => {
-  const { games, ids } = useGames(ModeType.Ranked);
+  const { games, ids } = useGames();
   const [page, setPage] = useState<number | undefined>();
   const [pages, setPages] = useState<number[]>([]);
   const [startDate, setStartDate] = useState<string>("");
@@ -389,7 +388,7 @@ export const Claim = ({
   const {
     account: { account },
     setup: {
-      systemCalls: { claim_tournament },
+      systemCalls: { claim },
     },
   } = useDojo();
 
@@ -400,7 +399,7 @@ export const Claim = ({
 
   const handleClick = useCallback(() => {
     if (account) {
-      claim_tournament({
+      claim({
         account: account as Account,
         tournament_id: tournament.id,
         rank: rank,

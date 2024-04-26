@@ -8,8 +8,8 @@ fn WORLD() -> starknet::ContractAddress {
 
 fn TOKEN_ADDRESS() -> starknet::ContractAddress {
     starknet::contract_address_const::<
-        0x21d38979aa1388702436102d42e0db359d32760ee2d939bf96b3941fc606153
-    // 0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
+        // 0x21d38979aa1388702436102d42e0db359d32760ee2d939bf96b3941fc606153
+    0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
     // 0x51205c5e6ac3ad5691c28c0c5ffcdd62c70bddb63612f75a4bac9b2a85b9449
     >()
 }
