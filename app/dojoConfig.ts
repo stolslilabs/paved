@@ -1,5 +1,6 @@
 import devManifest from "../contracts/manifests/dev/manifest.json";
 import preManifest from "../contracts/manifests/pre/manifest.json";
+import sepolia from "../contracts/manifests/sepolia/manifest.json";
 import realmsManifest from "../contracts/target/realms/manifest.json";
 
 const {
@@ -10,6 +11,7 @@ const {
   VITE_PUBLIC_ACCOUNT_CLASS_HASH,
   VITE_PUBLIC_PREPRODUCTION,
   VITE_PUBLIC_REALMS,
+  VITE_PUBLIC_SEPOLIA,
   VITE_PUBLIC_FEE_TOKEN_ADDRESS,
 } = import.meta.env;
 
@@ -35,6 +37,8 @@ export function dojoConfig() {
       ? preManifest
       : VITE_PUBLIC_REALMS
         ? realmsManifest
-        : devManifest,
+        : VITE_PUBLIC_SEPOLIA
+          ? sepolia
+          : devManifest,
   };
 }
