@@ -1,7 +1,7 @@
-import devManifest from "../contracts/manifests/dev/manifest.json";
-import preManifest from "../contracts/manifests/pre/manifest.json";
+import local from "../contracts/manifests/dev/manifest.json";
+import dev from "../contracts/manifests/pre/manifest.json";
 import sepolia from "../contracts/manifests/sepolia/manifest.json";
-import realmsManifest from "../contracts/target/realms/manifest.json";
+import realms from "../contracts/target/realms/manifest.json";
 
 const {
   VITE_PUBLIC_NODE_URL,
@@ -34,11 +34,11 @@ export function dojoConfig() {
       VITE_PUBLIC_FEE_TOKEN_ADDRESS ||
       "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
     manifest: VITE_PUBLIC_PREPRODUCTION
-      ? preManifest
+      ? dev
       : VITE_PUBLIC_REALMS
-        ? realmsManifest
+        ? realms
         : VITE_PUBLIC_SEPOLIA
           ? sepolia
-          : devManifest,
+          : local,
   };
 }
