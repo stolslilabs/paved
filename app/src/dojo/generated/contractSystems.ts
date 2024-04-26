@@ -15,6 +15,7 @@ import {
   Surrender,
   Build,
 } from "../types/systems";
+import { InvocationsDetails } from "starknet";
 
 export type IWorld = Awaited<ReturnType<typeof setupWorld>>;
 
@@ -30,6 +31,8 @@ export const getContractByName = (manifest: any, name: string) => {
 };
 
 export async function setupWorld(provider: DojoProvider, config: Config) {
+  const details: InvocationsDetails = { maxFee: 1e18 };
+
   function host() {
     const contract_name = "host";
     const contract = config.manifest.contracts.find((c) =>
@@ -43,7 +46,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       try {
         return await provider.execute(account, contract_name, "initialize", [
           world,
-        ]);
+        ], details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -65,7 +68,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
         },
       ];
       try {
-        return await provider.executeMulti(account, calls);
+        return await provider.executeMulti(account, calls, details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -78,7 +81,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           provider.getWorldAddress(),
           tournament_id,
           rank,
-        ]);
+        ], details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -90,7 +93,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
         return await provider.execute(account, contract_name, "sponsor", [
           provider.getWorldAddress(),
           amount,
-        ]);
+        ], details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -119,7 +122,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       try {
         return await provider.execute(account, contract_name, "initialize", [
           world,
-        ]);
+        ], details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -132,7 +135,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           provider.getWorldAddress(),
           name,
           master,
-        ]);
+        ], details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -154,7 +157,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       try {
         return await provider.execute(account, contract_name, "initialize", [
           world,
-        ]);
+        ], details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -166,7 +169,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
         return await provider.execute(account, contract_name, "draw", [
           provider.getWorldAddress(),
           game_id,
-        ]);
+        ], details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -178,7 +181,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
         return await provider.execute(account, contract_name, "discard", [
           provider.getWorldAddress(),
           game_id,
-        ]);
+        ], details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -190,7 +193,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
         return await provider.execute(account, contract_name, "surrender", [
           provider.getWorldAddress(),
           game_id,
-        ]);
+        ], details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -215,7 +218,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           y,
           role,
           spot,
-        ]);
+        ], details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
