@@ -111,7 +111,7 @@ export const TournamentDialog = () => {
           </Tooltip>
         </TooltipProvider>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-screen overflow-scroll">
         <DialogHeader className="flex items-center">
           Tournament Leaderboard
         </DialogHeader>

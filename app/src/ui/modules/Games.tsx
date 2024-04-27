@@ -74,10 +74,10 @@ export const Games = () => {
   }, [games, show, account]);
 
   return (
-    <div className="bg-paved-yellow h-full">
-      <div className="flex flex-col gap-8 items-start w-full p-10 h-full">
-        <h2>Game lobby</h2>
-
+    <div className=" h-full">
+      <div className="flex flex-col gap-2 items-start w-full p-4  md:p-10 h-full">
+        <h2>Lobby</h2>
+        <TournamentHeader />
         <Tabs
           defaultValue={mode}
           value={mode}
@@ -95,7 +95,6 @@ export const Games = () => {
             <div className="flex my-4 gap-4 items-center">
               <CreateGame />
               <TournamentDialog />
-              <TournamentHeader />
             </div>
 
             <div className="flex justify-between w-full">

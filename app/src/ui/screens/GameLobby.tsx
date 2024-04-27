@@ -6,11 +6,11 @@ import { useState } from "react";
 import { Button } from "../elements/button";
 
 export const GameLobby = () => {
-  const [sideBar, setSidebar] = useState<boolean>(false);
+  const [sideBar, setSidebar] = useState<boolean>(true);
 
   return (
     <div className="h-screen flex w-full relative">
-      <div className="absolute top-4 z-[100] left-4 flex md:hidden">
+      <div className="absolute top-4 z-[100] right-4 flex md:hidden">
         <Button
           onClick={() => setSidebar(!sideBar)}
           variant={"default"}

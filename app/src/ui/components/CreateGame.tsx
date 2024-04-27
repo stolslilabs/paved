@@ -22,10 +22,6 @@ export const CreateGame = () => {
 
   const { player } = usePlayer({ playerId: account?.address });
 
-  const backgroundColor = useMemo(() => {
-    return "#111827";
-  }, []);
-
   const handleClick = () => {
     if (!player) return;
     create_game({
@@ -37,7 +33,7 @@ export const CreateGame = () => {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex justify-center items-center">
+          <div className="flex justify-center items-center space-x-3">
             <Button
               disabled={!player}
               variant={"secondary"}
@@ -45,10 +41,7 @@ export const CreateGame = () => {
             >
               New Game
             </Button>
-            <div
-              className="text-xs flex justify-center items-center gap-1 p-2 text-white rounded-r-lg"
-              style={{ backgroundColor }}
-            >
+            <div className="text-xs flex justify-center items-center gap-1 p-2rounded-r-lg bg-black p-2 text-white">
               <p>1</p>
               <Lords height={4} width={4} fill={"white"} />
             </div>
