@@ -36,15 +36,16 @@ export const useActions = () => {
 
   const disabled = useMemo(() => {
     const selected = selectedTile.row !== 0 && selectedTile.col !== 0;
-    return !selected || !valid || !builder?.tile_id;
+    return !selected || !valid || !builder?.tileId;
   }, [valid, builder, selectedTile]);
 
   const handleClick = () => {
-    if (builder?.tile_id) {
+    if (builder?.tileId) {
       try {
         build({
           account: account as Account,
           game_id: gameId,
+          tile_id: builder.tileId,
           orientation: orientation,
           x: x,
           y: y,
@@ -55,7 +56,6 @@ export const useActions = () => {
         console.log(e);
       } finally {
         // Reset the settings
-        resetOrientation();
         resetX();
         resetY();
         resetCharacter();

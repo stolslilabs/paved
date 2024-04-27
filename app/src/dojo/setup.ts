@@ -19,7 +19,8 @@ export async function setup({ ...config }: Config) {
   const toriiClient = await torii.createClient([], {
     rpcUrl: config.rpcUrl,
     toriiUrl: config.toriiUrl,
-    worldAddress: config.manifest.world.address,
+    relayUrl: "",
+    worldAddress: config.manifest.world.address || "",
   });
 
   // create contract components
@@ -36,6 +37,7 @@ export async function setup({ ...config }: Config) {
 
   const client = await setupWorld(
     new DojoProvider(config.manifest, config.rpcUrl),
+    config,
   );
 
   const rpcProvider = new RpcProvider({
@@ -54,16 +56,17 @@ export async function setup({ ...config }: Config) {
     rpcProvider,
   });
 
-  burnerManager.init();
+  await burnerManager.init();
 
   return {
     client,
     clientModels,
     contractComponents: contractModels,
     contractEvents,
-    systemCalls: systems({ client }),
+    systemCalls: systems({ client, clientModels }),
     config,
     world,
     burnerManager,
+    rpcProvider,
   };
 }

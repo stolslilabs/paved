@@ -25,6 +25,8 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFontAwesome } from "@fortawesome/free-solid-svg-icons";
 import { Account } from "starknet";
+import { useGame } from "@/hooks/useGame";
+import { useBuilder } from "@/hooks/useBuilder";
 
 interface TProps {}
 
@@ -40,24 +42,14 @@ export const Surrender = (props: TProps) => {
     },
   } = useDojo();
 
-  const gameKey = useMemo(() => {
-    return getEntityIdFromKeys([BigInt(gameId)]) as Entity;
-  }, [gameId]);
-  const game = useComponentValue(Game, gameKey);
-
-  const builderKey = useMemo(() => {
-    return getEntityIdFromKeys([
-      BigInt(gameId),
-      BigInt(account.address),
-    ]) as Entity;
-  }, [gameId, account]);
-  const builder = useComponentValue(Builder, builderKey);
+  const { game } = useGame({ gameId });
+  const { builder } = useBuilder({ gameId, playerId: account?.address });
 
   const disabled = useMemo(() => {
     return !!game?.over;
   }, [game]);
 
-  if (!account || !game || !builder || game.mode !== 1) return <></>;
+  if (!account || !game || !builder || !game.isSoloMode()) return <></>;
 
   return (
     <AlertDialog>
@@ -66,7 +58,10 @@ export const Surrender = (props: TProps) => {
           <TooltipTrigger>
             <AlertDialogTrigger asChild>
               <Button disabled={disabled} variant={"command"} size={"command"}>
-                <FontAwesomeIcon className="h-12" icon={faFontAwesome} />
+                <FontAwesomeIcon
+                  className="sm:h-4 md:h-12"
+                  icon={faFontAwesome}
+                />
               </Button>
             </AlertDialogTrigger>
           </TooltipTrigger>

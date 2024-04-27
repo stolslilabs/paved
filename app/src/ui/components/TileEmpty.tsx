@@ -10,13 +10,11 @@ import useSound from "use-sound";
 
 import Click from "/sounds/click.wav";
 import { useTileByKey } from "@/hooks/useTile";
-import { useTiles } from "@/hooks/useTiles";
 
 const loader = new THREE.TextureLoader();
 
-export const TileEmpty = ({ col, row, size }: any) => {
+export const TileEmpty = ({ tiles, col, row, size }: any) => {
   const [play, { stop }] = useSound(Click);
-  const { tiles } = useTiles();
   const { gameId } = useQueryParams();
 
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
@@ -48,14 +46,20 @@ export const TileEmpty = ({ col, row, size }: any) => {
     };
   }, [gameId, tiles]);
 
-  const isValid = useMemo(() => {
-    const isSelected =
-      selectedTile && selectedTile.col === col && selectedTile.row === row;
-    const isHovered =
+  const isSelected = useMemo(() => {
+    return selectedTile && selectedTile.col === col && selectedTile.row === row;
+  }, [selectedTile, col, row]);
+
+  const isHovered = useMemo(() => {
+    return (
       hovered &&
       hoveredTile &&
       hoveredTile.col === col &&
-      hoveredTile.row === row;
+      hoveredTile.row === row
+    );
+  }, [hovered, hoveredTile, col, row]);
+
+  const isValid = useMemo(() => {
     return (
       activeTile &&
       (isHovered || isSelected) &&
@@ -79,16 +83,11 @@ export const TileEmpty = ({ col, row, size }: any) => {
     southTile,
     westTile,
     hovered,
+    isHovered,
+    isSelected,
   ]);
 
   const isIdle = useMemo(() => {
-    const isSelected =
-      selectedTile && selectedTile.col === col && selectedTile.row === row;
-    const isHovered =
-      hovered &&
-      hoveredTile &&
-      hoveredTile.col === col &&
-      hoveredTile.row === row;
     return (
       activeTile &&
       (isHovered || isSelected) &&
@@ -97,35 +96,23 @@ export const TileEmpty = ({ col, row, size }: any) => {
     );
   }, [activeTile, hoveredTile, selectedTile, orientation, spot, hovered]);
 
-  useEffect(() => {
-    let rotation = 0;
-    let background = null;
+  const shouldUpdateTexture = useMemo(() => {
+    return activeTile && (isSelected || isHovered);
+  }, [activeTile, isSelected, isHovered]);
 
-    // Tile is has been selected or hovered, setup the texture and validity
-    const isSelected =
-      selectedTile && selectedTile.col === col && selectedTile.row === row;
-    const isHovered =
-      hovered &&
-      hoveredTile &&
-      hoveredTile.col === col &&
-      hoveredTile.row === row;
-    if (activeTile && (isSelected || isHovered)) {
-      background = activeTile.getImage();
-      rotation = calculateRotation(orientation);
-      if (activeTile && isSelected) {
-        setValid((isValid && isIdle) || false);
-      }
+  useEffect(() => {
+    if (!shouldUpdateTexture) {
+      setTexture(undefined);
+      return;
     }
 
-    // Finally, update the texture
-    if (background) {
-      loader.load(background, (loadedTexture) => {
-        loadedTexture.center.set(0.5, 0.5);
-        loadedTexture.rotation = rotation;
-        setTexture(loadedTexture);
-      });
-    } else {
-      setTexture(undefined);
+    const background = activeTile?.getImage();
+    const rotation = calculateRotation(orientation);
+
+    updateTexture(background, rotation);
+
+    if (isSelected) {
+      setValid((isValid && isIdle) || false);
     }
   }, [
     selectedTile,
@@ -137,11 +124,17 @@ export const TileEmpty = ({ col, row, size }: any) => {
     hovered,
   ]);
 
+  const updateTexture = (background: any, rotation: any) => {
+    loader.load(background, (loadedTexture) => {
+      loadedTexture.center.set(0.5, 0.5);
+      loadedTexture.rotation = rotation;
+      setTexture(loadedTexture);
+    });
+  };
+
   useMemo(() => {
-    const isHovered =
-      hoveredTile && hoveredTile.col === col && hoveredTile.row === row;
     document.body.style.cursor = isHovered ? "pointer" : "auto";
-  }, [hoveredTile]);
+  }, [hoveredTile, isHovered]);
 
   const handleSimpleClick = useCallback(() => {
     play();
@@ -168,46 +161,68 @@ export const TileEmpty = ({ col, row, size }: any) => {
     return position;
   }, []);
 
+  const mat = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#ADD8E6",
+        transparent: true,
+        opacity: 0.3,
+      }),
+    [],
+  );
+
+  const meshComponent = useMemo(
+    () => (
+      <mesh
+        visible={texture !== undefined}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        onClick={handleSimpleClick}
+        ref={meshRef}
+        position={[position.x, position.y, 0]}
+        geometry={squareGeometry}
+      >
+        <meshStandardMaterial attach="material-0" color={"#503A23"} />
+        <meshStandardMaterial attach="material-1" color={"#503A23"} />
+        <meshStandardMaterial attach="material-2" color={"#503A23"} />
+        <meshStandardMaterial attach="material-3" color={"#503A23"} />
+        <meshStandardMaterial
+          attach="material-4"
+          emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
+          emissiveIntensity={isValid ? (isIdle ? 0.5 : 0.2) : 0.4}
+          map={texture}
+        />
+        <meshStandardMaterial attach="material-5" color={"#503A23"} />
+      </mesh>
+    ),
+    [
+      texture,
+      isValid,
+      isIdle,
+      position.x,
+      position.y,
+      squareGeometry,
+      handlePointerEnter,
+      handlePointerLeave,
+      handleSimpleClick,
+    ],
+  );
+
   return (
     <>
-      {texture && (
-        <mesh
-          onPointerEnter={handlePointerEnter}
-          onPointerLeave={handlePointerLeave}
-          onClick={handleSimpleClick}
-          ref={meshRef}
-          position={[position.x, position.y, 0]}
-          geometry={squareGeometry}
-        >
-          <meshStandardMaterial attach="material-0" color={"#503A23"} />
-          <meshStandardMaterial attach="material-1" color={"#503A23"} />
-          <meshStandardMaterial attach="material-2" color={"#503A23"} />
-          <meshStandardMaterial attach="material-3" color={"#503A23"} />
-          <meshStandardMaterial
-            attach="material-4"
-            emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
-            emissiveIntensity={isValid ? (isIdle ? 0.5 : 0.2) : 0.4}
-            map={texture}
-          />
-          <meshStandardMaterial attach="material-5" color={"#503A23"} />
-        </mesh>
-      )}
-      {!texture && (
-        <mesh
-          onPointerEnter={handlePointerEnter}
-          onPointerLeave={handlePointerLeave}
-          onClick={handleSimpleClick}
-          ref={meshRef}
-          position={[position.x, position.y, 0]}
-          geometry={squareGeometry}
-        >
-          <meshStandardMaterial
-            color={"#ADD8E6"}
-            transparent={true}
-            opacity={0.3}
-          />
-        </mesh>
-      )}
+      {meshComponent}
+
+      <mesh
+        visible={!texture}
+        onPointerEnter={handlePointerEnter}
+        onPointerLeave={handlePointerLeave}
+        onClick={handleSimpleClick}
+        ref={meshRef}
+        position={[position.x, position.y, 0]}
+        geometry={squareGeometry}
+      >
+        <mesh material={mat} />
+      </mesh>
     </>
   );
 };

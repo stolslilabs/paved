@@ -43,11 +43,16 @@ export const DojoProvider = ({
     get,
     account,
     select,
+    deselect,
+    remove,
     isDeploying,
     clear,
+    count,
     copyToClipboard,
     applyFromClipboard,
-  } = useBurnerManager({ burnerManager });
+  } = useBurnerManager({
+    burnerManager,
+  });
 
   return (
     <DojoContext.Provider
@@ -58,7 +63,10 @@ export const DojoProvider = ({
           list,
           get,
           select,
+          deselect,
+          remove,
           clear,
+          count,
           account: account ? account : masterAccount,
           isDeploying,
           copyToClipboard,

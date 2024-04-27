@@ -20,7 +20,7 @@ export const ResetCamera = () => {
             size={"command"}
             onClick={() => setReset(true)}
           >
-            <FontAwesomeIcon className="h-12" icon={faBinoculars} />
+            <FontAwesomeIcon className="sm:h-4 md:h-12" icon={faBinoculars} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

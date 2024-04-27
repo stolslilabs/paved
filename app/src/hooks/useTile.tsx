@@ -8,11 +8,12 @@ export const useTile = ({
   gameId,
   tileId,
 }: {
-  gameId: number;
-  tileId: number;
+  gameId: number | undefined;
+  tileId: number | undefined;
 }) => {
   const tileKey = useMemo(
-    () => getEntityIdFromKeys([BigInt(gameId), BigInt(tileId)]) as Entity,
+    () =>
+      getEntityIdFromKeys([BigInt(gameId || 0), BigInt(tileId || 0)]) as Entity,
     [gameId, tileId],
   );
 

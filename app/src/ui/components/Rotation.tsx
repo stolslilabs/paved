@@ -31,7 +31,7 @@ export const Rotation = () => {
   };
 
   const disabled = useMemo(() => {
-    return !builder?.tile_id;
+    return !builder?.tileId;
   }, [builder]);
 
   if (!account || !builder) return <></>;
@@ -46,7 +46,7 @@ export const Rotation = () => {
             size={"command"}
             onClick={handleClick}
           >
-            <FontAwesomeIcon className="h-12" icon={faRotateRight} />
+            <FontAwesomeIcon className="h-4 md:h-12" icon={faRotateRight} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

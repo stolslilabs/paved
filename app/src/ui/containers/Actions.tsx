@@ -19,7 +19,7 @@ export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(true);
 
   return (
-    <div className="absolute left-4 bottom-6 z-30">
+    <div className="absolute left-2 bottom-2 md:left-4 md:bottom-6 z-30">
       <div className="relative">
         <TooltipProvider>
           <Tooltip>
@@ -31,7 +31,7 @@ export const Actions = () => {
                 onClick={() => setIsExpanded(!isExpanded)}
               >
                 <FontAwesomeIcon
-                  className="h-12"
+                  className="sm:h-4 md:h-12"
                   style={{ transform: `rotate(${isExpanded ? 180 : 0}deg)` }}
                   icon={faUpRightFromSquare}
                 />

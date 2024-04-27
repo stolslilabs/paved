@@ -2,17 +2,36 @@
 
 use core::debug::PrintTrait;
 
+// Internal imports
+
+use paved::types::deck::{Deck, DeckImpl};
+
 // Constants
 
 const NONE: felt252 = 0;
-const SOLO: felt252 = 'SOLO';
+const RANKED: felt252 = 'RANKED';
+const SINGLE: felt252 = 'SINGLE';
 const MULTI: felt252 = 'MULTI';
 
 #[derive(Copy, Drop, Serde, PartialEq)]
 enum Mode {
     None,
-    Solo,
+    Ranked,
+    Single,
     Multi,
+}
+
+#[generate_trait]
+impl ModeImpl of ModeTrait {
+    #[inline(always)]
+    fn deck(self: Mode) -> Deck {
+        match self {
+            Mode::Ranked => Deck::Base,
+            Mode::Single => Deck::Base,
+            Mode::Multi => Deck::Enhanced,
+            _ => Deck::None,
+        }
+    }
 }
 
 impl IntoModeFelt252 of core::Into<Mode, felt252> {
@@ -20,7 +39,8 @@ impl IntoModeFelt252 of core::Into<Mode, felt252> {
     fn into(self: Mode) -> felt252 {
         match self {
             Mode::None => NONE,
-            Mode::Solo => SOLO,
+            Mode::Ranked => RANKED,
+            Mode::Single => SINGLE,
             Mode::Multi => MULTI,
         }
     }
@@ -31,8 +51,9 @@ impl IntoModeU8 of core::Into<Mode, u8> {
     fn into(self: Mode) -> u8 {
         match self {
             Mode::None => 0,
-            Mode::Solo => 1,
-            Mode::Multi => 2,
+            Mode::Ranked => 1,
+            Mode::Single => 2,
+            Mode::Multi => 3,
         }
     }
 }
@@ -40,12 +61,12 @@ impl IntoModeU8 of core::Into<Mode, u8> {
 impl IntoU8Mode of core::Into<u8, Mode> {
     #[inline(always)]
     fn into(self: u8) -> Mode {
-        if self == 1 {
-            Mode::Solo
-        } else if self == 2 {
-            Mode::Multi
-        } else {
-            Mode::None
+        match self {
+            0 => Mode::None,
+            1 => Mode::Ranked,
+            2 => Mode::Single,
+            3 => Mode::Multi,
+            _ => Mode::None,
         }
     }
 }
@@ -53,8 +74,10 @@ impl IntoU8Mode of core::Into<u8, Mode> {
 impl TryIntoFelt252Mode of core::Into<felt252, Mode> {
     #[inline(always)]
     fn into(self: felt252) -> Mode {
-        if self == SOLO {
-            Mode::Solo
+        if self == RANKED {
+            Mode::Ranked
+        } else if self == SINGLE {
+            Mode::Single
         } else if self == MULTI {
             Mode::Multi
         } else {
@@ -79,7 +102,7 @@ mod tests {
 
     // Local imports
 
-    use super::{Mode, NONE, SOLO, MULTI,};
+    use super::{Mode, NONE, RANKED, SINGLE, MULTI,};
 
     // Constants
 
@@ -89,14 +112,16 @@ mod tests {
     #[test]
     fn test_mode_into_felt() {
         assert(NONE == Mode::None.into(), 'Mode: wrong None');
-        assert(SOLO == Mode::Solo.into(), 'Mode: wrong Solo');
+        assert(RANKED == Mode::Ranked.into(), 'Mode: wrong Ranked');
+        assert(SINGLE == Mode::Single.into(), 'Mode: wrong Single');
         assert(MULTI == Mode::Multi.into(), 'Mode: wrong Multi');
     }
 
     #[test]
     fn test_felt_into_mode() {
         assert(Mode::None == NONE.into(), 'Mode: wrong None');
-        assert(Mode::Solo == SOLO.into(), 'Mode: wrong Solo');
+        assert(Mode::Ranked == RANKED.into(), 'Mode: wrong Ranked');
+        assert(Mode::Single == SINGLE.into(), 'Mode: wrong Single');
         assert(Mode::Multi == MULTI.into(), 'Mode: wrong Multi');
     }
 
@@ -108,15 +133,17 @@ mod tests {
     #[test]
     fn test_mode_into_u8() {
         assert(0_u8 == Mode::None.into(), 'Mode: wrong None');
-        assert(1_u8 == Mode::Solo.into(), 'Mode: wrong Solo');
-        assert(2_u8 == Mode::Multi.into(), 'Mode: wrong Multi');
+        assert(1_u8 == Mode::Ranked.into(), 'Mode: wrong Ranked');
+        assert(2_u8 == Mode::Single.into(), 'Mode: wrong Single');
+        assert(3_u8 == Mode::Multi.into(), 'Mode: wrong Multi');
     }
 
     #[test]
     fn test_u8_into_mode() {
         assert(Mode::None == 0_u8.into(), 'Mode: wrong None');
-        assert(Mode::Solo == 1_u8.into(), 'Mode: wrong Solo');
-        assert(Mode::Multi == 2_u8.into(), 'Mode: wrong Multi');
+        assert(Mode::Ranked == 1_u8.into(), 'Mode: wrong Ranked');
+        assert(Mode::Single == 2_u8.into(), 'Mode: wrong Single');
+        assert(Mode::Multi == 3_u8.into(), 'Mode: wrong Multi');
     }
 
     #[test]

@@ -16,9 +16,14 @@ import {
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faBurn,
+  faCity,
   faHammer,
   faInfoCircle,
+  faPlaceOfWorship,
+  faRoad,
   faStar,
+  faTree,
+  faTreeCity,
 } from "@fortawesome/free-solid-svg-icons";
 import { useLogs } from "@/hooks/useLogs";
 
@@ -38,7 +43,10 @@ export const Log = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant={"command"} size={"command"}>
-                <FontAwesomeIcon className="h-12" icon={faInfoCircle} />
+                <FontAwesomeIcon
+                  className="sm:h-4 md:h-12 "
+                  icon={faInfoCircle}
+                />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -66,18 +74,82 @@ export const Log = () => {
                   <strong style={{ color: log.color }}>
                     {` ${log.builder}`}
                   </strong>
-                  {log.category === "Scored" && (
-                    <FontAwesomeIcon
-                      icon={faStar}
-                      className="text-yellow-500"
-                    />
+
+                  {log.category === "ScoredCity" && (
+                    <div className="flex gap-1">
+                      <FontAwesomeIcon
+                        icon={faStar}
+                        className="text-yellow-500"
+                      />
+                      <FontAwesomeIcon icon={faCity} className="text-red-500" />
+                    </div>
                   )}
+
+                  {log.category === "ScoredRoad" && (
+                    <div className="flex gap-1">
+                      <FontAwesomeIcon
+                        icon={faStar}
+                        className="text-yellow-500"
+                      />
+                      <FontAwesomeIcon
+                        icon={faRoad}
+                        className="text-yellow-600"
+                      />
+                    </div>
+                  )}
+
+                  {log.category === "ScoredForestCity" && (
+                    <div className="flex gap-1">
+                      <FontAwesomeIcon
+                        icon={faStar}
+                        className="text-yellow-500"
+                      />
+                      <FontAwesomeIcon
+                        icon={faTreeCity}
+                        className="text-yellow-900"
+                      />
+                    </div>
+                  )}
+
+                  {log.category === "ScoredForestRoad" && (
+                    <div className="flex gap-1">
+                      <FontAwesomeIcon
+                        icon={faStar}
+                        className="text-yellow-500"
+                      />
+                      <FontAwesomeIcon
+                        icon={faTree}
+                        className="text-green-500"
+                      />
+                    </div>
+                  )}
+
+                  {log.category === "ScoredWonder" && (
+                    <div className="flex gap-1">
+                      <FontAwesomeIcon
+                        icon={faStar}
+                        className="text-yellow-500"
+                      />
+                      <FontAwesomeIcon
+                        icon={faPlaceOfWorship}
+                        className="text-blue-500"
+                      />
+                    </div>
+                  )}
+
                   {log.category === "Discarded" && (
-                    <FontAwesomeIcon
-                      icon={faBurn}
-                      className="text-orange-500"
-                    />
+                    <div className="flex gap-1">
+                      <FontAwesomeIcon
+                        icon={faStar}
+                        className="text-yellow-500"
+                      />
+                      <FontAwesomeIcon
+                        icon={faBurn}
+                        className="text-orange-500"
+                      />
+                    </div>
                   )}
+
                   {log.category === "Built" && (
                     <FontAwesomeIcon
                       icon={faHammer}

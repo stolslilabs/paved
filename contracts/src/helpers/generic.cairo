@@ -6,10 +6,11 @@ use core::debug::PrintTrait;
 
 use paved::constants;
 use paved::store::{Store, StoreImpl};
-use paved::events::Scored;
+use paved::events::{ScoredCity, ScoredRoad};
 use paved::types::spot::Spot;
 use paved::types::area::Area;
 use paved::types::move::{Move, MoveImpl};
+use paved::types::category::Category;
 use paved::models::game::{Game, GameImpl};
 use paved::models::builder::{Builder, BuilderImpl};
 use paved::models::character::{Character, CharacterPosition};
@@ -90,10 +91,12 @@ impl GenericCount of GenericCountTrait {
 
     fn solve(
         ref game: Game,
+        category: Category,
         count: u32,
         base_points: u32,
         ref characters: Array<Character>,
-        ref events: Array<Scored>,
+        ref scored_cities: Array<ScoredCity>,
+        ref scored_roads: Array<ScoredRoad>,
         ref store: Store
     ) {
         // [Compute] Find the winner
@@ -151,7 +154,34 @@ impl GenericCount of GenericCountTrait {
             let power = powers.get(winner);
             let (num, den) = compute_multiplier(count);
             let points = count * base_points * power * num / den;
-            game.add_score(ref builder, ref player, points, ref events);
+
+            // [Build] Events
+            if category == Category::City {
+                let event = ScoredCity {
+                    game_id: game.id,
+                    points: points,
+                    size: count,
+                    player_id: player.id,
+                    player_name: player.name,
+                    player_master: player.master,
+                    player_order_id: player.order,
+                };
+                scored_cities.append(event);
+            };
+            if category == Category::Road {
+                let event = ScoredRoad {
+                    game_id: game.id,
+                    points: points,
+                    size: count,
+                    player_id: player.id,
+                    player_name: player.name,
+                    player_master: player.master,
+                    player_order_id: player.order,
+                };
+                scored_roads.append(event);
+            };
+
+            game.add_score(ref builder, ref player, points);
 
             // [Effect] Update the builder
             store.set_builder(builder);

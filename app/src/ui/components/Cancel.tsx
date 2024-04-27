@@ -44,7 +44,7 @@ export const Cancel = () => {
   };
 
   const disabled = useMemo(() => {
-    return !builder?.tile_id;
+    return !builder?.tileId;
   }, [builder]);
 
   if (!account || !builder) return <></>;
@@ -59,7 +59,7 @@ export const Cancel = () => {
             size={"command"}
             onClick={handleClick}
           >
-            <FontAwesomeIcon className="h-12" icon={faXmark} />
+            <FontAwesomeIcon className="h-4 md:h-12" icon={faXmark} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

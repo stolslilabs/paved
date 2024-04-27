@@ -1,14 +1,16 @@
 import { useDojo } from "@/dojo/useDojo";
 import { Event } from "@/dojo/events";
 import { useEffect, useState } from "react";
-import { GAME_OVER_EVENT } from "@/constants/events";
 import { parseGameOverEvent } from "@/dojo/game/events";
 import data from "@/data";
+import { WorldEvents } from "@/dojo/generated/contractEvents";
+import { ModeType } from "@/dojo/game/types/mode";
 
 export type GameOverEvent = {
   id: string;
   gameId: number;
   tournamentId: number;
+  seasonId: number;
   gameScore: number;
   gameStartTime: Date;
   gameEndTime: Date;
@@ -19,13 +21,13 @@ export type GameOverEvent = {
 };
 
 const parse = (event: Event): GameOverEvent => {
-  if (event.keys[0] === GAME_OVER_EVENT) {
+  if (event.keys[0] === WorldEvents.GameOver) {
     return parseGameOverEvent(event);
   }
   throw new Error("Unknown event type");
 };
 
-export const useGames = () => {
+export const useGames = (mode: ModeType) => {
   const [games, setGames] = useState<GameOverEvent[]>(data);
   const [ids, setIds] = useState<number[]>([]);
 
@@ -37,7 +39,7 @@ export const useGames = () => {
 
   useEffect(() => {
     const query = async () => {
-      const events = await queryEvents([GAME_OVER_EVENT]);
+      const events = await queryEvents([WorldEvents.GameOver]);
       setGames((prevGames) => {
         const newGames = [...prevGames, ...events.map(parse)];
         // Remove duplicates
@@ -63,5 +65,16 @@ export const useGames = () => {
     query();
   }, [data]);
 
-  return { games, ids };
+  return {
+    games: games.filter(
+      (game) =>
+        (mode == ModeType.Single && game.tournamentId == 0) ||
+        (mode == ModeType.Ranked && game.tournamentId > 0),
+    ),
+    ids: ids.filter(
+      (id) =>
+        (mode === ModeType.Single && id === 0) ||
+        (mode === ModeType.Ranked && id > 0),
+    ),
+  };
 };

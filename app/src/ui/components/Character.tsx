@@ -94,7 +94,7 @@ export const Character = (props: TProps) => {
           >
             <img
               draggable={false}
-              className="h-16"
+              className="h-6 md:h-16"
               src={image}
               alt={getRole(index)}
             />

@@ -28,7 +28,7 @@ export const Discard = () => {
   });
 
   const disabled = useMemo(() => {
-    return !builder?.tile_id;
+    return !builder?.tileId;
   }, [builder]);
 
   if (!account || !builder) return <></>;
@@ -48,7 +48,7 @@ export const Discard = () => {
               })
             }
           >
-            <FontAwesomeIcon className="h-12" icon={faFire} />
+            <FontAwesomeIcon className="h-4 md:h-12" icon={faFire} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

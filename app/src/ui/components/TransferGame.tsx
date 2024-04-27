@@ -29,7 +29,7 @@ export const TransferGame = ({ player }: { player: any }) => {
   });
 
   const disabled = useMemo(
-    () => !player || builder?.index !== 0 || player.id === builder.player_id,
+    () => !player || builder?.index !== 0 || player.id === builder.playerId,
     [builder, player],
   );
 

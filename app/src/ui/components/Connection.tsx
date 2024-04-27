@@ -5,6 +5,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useState } from "react";
 import { useAccount, useConnect, useDisconnect } from "@starknet-react/core";
 import { useStarknetkitConnectModal } from "starknetkit";
 import { Address } from "./Address";
@@ -12,16 +13,22 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignOut } from "@fortawesome/free-solid-svg-icons";
 import { useDojo } from "@/dojo/useDojo";
 
+export const PREFUND_AMOUNT = "0x3635C9ADC5DEA00000";
+
 export function Connection() {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { isConnected } = useAccount();
+  const [isSetup, setIsSetup] = useState(false);
 
   const {
     setup: {
-      config: { masterAddress },
+      config: { masterAddress, feeTokenAddress },
     },
-    account: { account, create, clear },
+    account: { account, create, clear, isDeploying },
+    setup: {
+      client: { host },
+    },
   } = useDojo();
 
   const connectWallet = async () => {
@@ -43,12 +50,14 @@ export function Connection() {
         clear();
         console.log("Burner cleared!");
 
-        create();
+        create({ prefundedAmount: PREFUND_AMOUNT });
         console.log("Burner created!");
+        setIsSetup(true);
       }
     } else {
       // create burner account
-      create();
+      create({ prefundedAmount: PREFUND_AMOUNT });
+      setIsSetup(true);
     }
   };
 

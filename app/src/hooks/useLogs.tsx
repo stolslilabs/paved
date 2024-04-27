@@ -4,17 +4,19 @@ import {
   parseBuiltEvent,
   createBuiltLog,
   parseScoredEvent,
-  createScoredLog,
+  createScoredCityLog,
+  createScoredRoadLog,
+  parseScoredForestEvent,
+  createScoredForestLog,
+  parseScoredWonderEvent,
+  createScoredWonderLog,
   createDiscardedLog,
   parseDiscardedEvent,
-  parseGameOverEvent,
-  createGameOverLog,
 } from "@/dojo/game/events";
 import { useEffect, useRef, useState } from "react";
 import { Subscription } from "rxjs";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { BUILT_EVENT, SCORED_EVENT, DISCARDED_EVENT } from "@/constants/events";
-import { ec } from "starknet";
+import { WorldEvents } from "@/dojo/generated/contractEvents";
 
 export type BuiltLog = {
   id: string;
@@ -31,14 +33,15 @@ export type BuiltLog = {
 export type ScoredLog = {
   id: string;
   gameId: number;
-  tileId: number;
-  tileX: number;
-  tileY: number;
+  points: number;
+  size: number;
+  cities: number;
+  roads: number;
   playerId: string;
   playerName: string;
   playerColor: string;
+  playerMaster: string;
   orderId: number;
-  score: number;
   timestamp: Date;
 };
 
@@ -64,19 +67,29 @@ export type Log = {
 };
 
 const generateLogFromEvent = (event: Event): Log => {
-  if (event.keys[0] === BUILT_EVENT) {
-    return createBuiltLog(parseBuiltEvent(event));
-  } else if (event.keys[0] === SCORED_EVENT) {
-    return createScoredLog(parseScoredEvent(event));
-  } else if (event.keys[0] === DISCARDED_EVENT) {
-    return createDiscardedLog(parseDiscardedEvent(event));
-  } else if (
-    event.keys[0] ===
-    ec.starkCurve.poseidonHashMany([BigInt("GameOver")]).toString()
-  ) {
-    return createGameOverLog(parseGameOverEvent(event));
+  switch (event.keys[0]) {
+    case WorldEvents.Built: {
+      return createBuiltLog(parseBuiltEvent(event));
+    }
+    case WorldEvents.ScoredCity: {
+      return createScoredCityLog(parseScoredEvent(event));
+    }
+    case WorldEvents.ScoredRoad: {
+      return createScoredRoadLog(parseScoredEvent(event));
+    }
+    case WorldEvents.ScoredForest: {
+      return createScoredForestLog(parseScoredForestEvent(event));
+    }
+    case WorldEvents.ScoredWonder: {
+      return createScoredWonderLog(parseScoredWonderEvent(event));
+    }
+    case WorldEvents.Discarded: {
+      return createDiscardedLog(parseDiscardedEvent(event));
+    }
+    default: {
+      throw new Error("Unknown event type");
+    }
   }
-  throw new Error("Unknown event type");
 };
 
 export const useLogs = () => {
@@ -94,16 +107,34 @@ export const useLogs = () => {
     // Query all existing logs from the db
     const query = async () => {
       const gameIdString = `0x${gameId.toString(16)}`;
-      const builtEvents = await queryEvents([BUILT_EVENT, gameIdString]);
-      const scoredEvents = await queryEvents([SCORED_EVENT, gameIdString]);
+      const builtEvents = await queryEvents([WorldEvents.Built, gameIdString]);
+      const scoredCityEvents = await queryEvents([
+        WorldEvents.ScoredCity,
+        gameIdString,
+      ]);
+      const scoredRoadEvents = await queryEvents([
+        WorldEvents.ScoredRoad,
+        gameIdString,
+      ]);
+      const scoredForestEvents = await queryEvents([
+        WorldEvents.ScoredForest,
+        gameIdString,
+      ]);
+      const scoredWonderEvents = await queryEvents([
+        WorldEvents.ScoredWonder,
+        gameIdString,
+      ]);
       const discardedEvents = await queryEvents([
-        DISCARDED_EVENT,
+        WorldEvents.Discarded,
         gameIdString,
       ]);
       setLogs((prevLogs) => [
         ...prevLogs,
         ...builtEvents.map(generateLogFromEvent),
-        ...scoredEvents.map(generateLogFromEvent),
+        ...scoredCityEvents.map(generateLogFromEvent),
+        ...scoredRoadEvents.map(generateLogFromEvent),
+        ...scoredForestEvents.map(generateLogFromEvent),
+        ...scoredWonderEvents.map(generateLogFromEvent),
         ...discardedEvents.map(generateLogFromEvent),
       ]);
     };
@@ -118,7 +149,10 @@ export const useLogs = () => {
 
       const subscribeToEvents = async () => {
         const gameIdString = `0x${gameId.toString(16)}`;
-        const builtObservable = await createEvents([BUILT_EVENT, gameIdString]);
+        const builtObservable = await createEvents([
+          WorldEvents.Built,
+          gameIdString,
+        ]);
         subscriptions.push(
           builtObservable.subscribe(
             (event) =>
@@ -126,19 +160,56 @@ export const useLogs = () => {
               setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)]),
           ),
         );
-        const scoredObservable = await createEvents([
-          SCORED_EVENT,
+        const scoredCityObservable = await createEvents([
+          WorldEvents.ScoredCity,
           gameIdString,
         ]);
         subscriptions.push(
-          scoredObservable.subscribe(
+          scoredCityObservable.subscribe(
             (event) =>
               event &&
               setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)]),
           ),
         );
+
+        const scoredRoadObservable = await createEvents([
+          WorldEvents.ScoredRoad,
+          gameIdString,
+        ]);
+        subscriptions.push(
+          scoredRoadObservable.subscribe(
+            (event) =>
+              event &&
+              setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)]),
+          ),
+        );
+
+        const scoredForestObservable = await createEvents([
+          WorldEvents.ScoredForest,
+          gameIdString,
+        ]);
+        subscriptions.push(
+          scoredForestObservable.subscribe(
+            (event) =>
+              event &&
+              setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)]),
+          ),
+        );
+
+        const scoredWonderObservable = await createEvents([
+          WorldEvents.ScoredWonder,
+          gameIdString,
+        ]);
+        subscriptions.push(
+          scoredWonderObservable.subscribe(
+            (event) =>
+              event &&
+              setLogs((prevLogs) => [...prevLogs, generateLogFromEvent(event)]),
+          ),
+        );
+
         const discardedObservable = await createEvents([
-          DISCARDED_EVENT,
+          WorldEvents.Discarded,
           gameIdString,
         ]);
         subscriptions.push(

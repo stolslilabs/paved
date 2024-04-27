@@ -16,13 +16,12 @@ import {
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFire, faHammer } from "@fortawesome/free-solid-svg-icons";
+import { usePlayer, usePlayerByKey } from "@/hooks/usePlayer";
 
 export const Scoreboard = () => {
   const { gameId } = useQueryParams();
   const { logs } = useLogs();
-  const [builders, setBuilders] = useState<{ [key: number]: typeof Builder }>(
-    {},
-  );
+  const [builders, setBuilders] = useState<{ [key: number]: any }>({});
   const [topBuilders, setTopBuilders] = useState<any>([]);
   const [rank, setRank] = useState<number>(0);
   const {
@@ -64,11 +63,9 @@ export const Scoreboard = () => {
   useEffect(() => {
     if (!builders) return;
 
-    const topSortedBuilders: (typeof Builder)[] = Object.values(builders).sort(
-      (a, b) => {
-        return b?.score - a?.score;
-      },
-    );
+    const topSortedBuilders: any[] = Object.values(builders).sort((a, b) => {
+      return b?.score - a?.score;
+    });
 
     const builderRank = topSortedBuilders.findIndex(
       (b) => b?.player_id === builder?.player_id,
@@ -125,23 +122,13 @@ export const PlayerRow = ({
   builts: any;
   discardeds: any;
 }) => {
-  const {
-    setup: {
-      clientModels: {
-        models: { Player },
-      },
-    },
-  } = useDojo();
+  const { player } = usePlayer({
+    playerId: `0x${builder.player_id.toString(16)}`,
+  });
 
-  const playerKey = useMemo(
-    () => getEntityIdFromKeys([builder.player_id]) as Entity,
-    [builder],
-  );
-  const player = useComponentValue(Player, playerKey);
-
-  const name = shortString.decodeShortString(player?.name || "");
   const address = `0x${builder.player_id.toString(16)}`;
   const backgroundColor = getColor(address);
+
   // Color is used to filter on builder since we don't have the player id in the event
   const paved = builts.filter(
     (log: any) => log.color === backgroundColor,
@@ -152,7 +139,7 @@ export const PlayerRow = ({
   return (
     <TableRow>
       <TableCell className="font-medium">{`#${rank}`}</TableCell>
-      <TableCell>{name}</TableCell>
+      <TableCell>{player?.name}</TableCell>
       <TableCell>
         <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
       </TableCell>

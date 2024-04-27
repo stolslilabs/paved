@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { useEffect, useState } from "react";
-import { useDojo } from "@/dojo/useDojo";
 import {
   offset,
   other_offset,
@@ -8,11 +7,9 @@ import {
   getColor,
   getOrder,
 } from "@/dojo/game";
-import { useComponentValue } from "@dojoengine/react";
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
-import { shortString } from "starknet";
 import font from "/assets/fonts/RubikMonoOne-Regular.ttf";
 import { useBuilder } from "@/hooks/useBuilder";
 import { usePlayer } from "@/hooks/usePlayer";
@@ -22,24 +19,16 @@ import { useTile } from "@/hooks/useTile";
 
 export const loader = new THREE.TextureLoader();
 
-export const CharTexture = ({ entity, radius, height, size }: any) => {
-  const {
-    setup: {
-      clientModels: {
-        models: { Character },
-      },
-    },
-  } = useDojo();
+export const CharTexture = ({ character, radius, height, size }: any) => {
   const meshRef = useRef<any>();
   const [hovered, setHovered] = useState(false);
   const [name, setName] = useState("");
 
-  const character = useComponentValue(Character, entity);
   const { builder } = useBuilder({
     gameId: character?.game_id,
-    playerId: character?.player_id,
+    playerId: character?.player_id.toString(),
   });
-  const { player } = usePlayer({ playerId: character?.player_id });
+  const { player } = usePlayer({ playerId: character?.player_id.toString() });
   const { tile } = useTile({
     gameId: character?.game_id,
     tileId: character?.tile_id,
@@ -78,7 +67,7 @@ export const CharTexture = ({ entity, radius, height, size }: any) => {
 
   useEffect(() => {
     if (player) {
-      const fullname = shortString.decodeShortString(player.name);
+      const fullname = player.name;
       // Keep only the first 8 characters and if it cuts the name, add "..."
       setName(
         fullname.length > 8

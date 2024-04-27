@@ -52,6 +52,11 @@ export interface StartGame extends Signer {
   game_id: number;
 }
 
+export interface ClaimTournament extends Signer {
+  tournament_id: number;
+  rank: number;
+}
+
 export interface CreatePlayer extends Signer {
   name: string;
   order: number;
@@ -88,6 +93,7 @@ export interface Surrender extends Signer {
 
 export interface Build extends Signer {
   game_id: number;
+  tile_id: number;
   orientation: number;
   x: number;
   y: number;

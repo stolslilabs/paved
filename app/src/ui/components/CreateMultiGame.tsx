@@ -54,7 +54,7 @@ export const CreateMultiGame = () => {
       account: account as Account,
       name: shortString.encodeShortString(gameName),
       duration: duration * 60,
-      mode: 2,
+      mode: 3,
     });
   };
 

@@ -2,10 +2,21 @@ import type { IWorld } from "./generated/contractSystems";
 
 import { toast } from "sonner";
 import * as SystemTypes from "./types/systems";
+import { getEntityIdFromKeys } from "@dojoengine/utils";
+import { Entity } from "@dojoengine/recs";
+import { uuid } from "@latticexyz/utils";
+import { ClientComponents } from "./createClientComponents";
+import { ClientModels } from "./models";
 
 export type SystemCalls = ReturnType<typeof systems>;
 
-export function systems({ client }: { client: IWorld }) {
+export function systems({
+  client,
+  clientModels,
+}: {
+  client: IWorld;
+  clientModels: ClientModels;
+}) {
   const extractedMessage = (message: string) => {
     return message.match(/\('([^']+)'\)/)?.[1];
   };
@@ -37,6 +48,16 @@ export function systems({ client }: { client: IWorld }) {
   };
 
   const rename_game = async ({ account, ...props }: SystemTypes.RenameGame) => {
+    const entityId = getEntityIdFromKeys([BigInt(props.game_id)]) as Entity;
+
+    const tileId = uuid();
+    clientModels.models.Game.addOverride(tileId, {
+      entity: entityId,
+      value: {
+        name: BigInt(props.name),
+      },
+    });
+
     try {
       const { transaction_hash } = await client.host.rename({
         account,
@@ -50,7 +71,10 @@ export function systems({ client }: { client: IWorld }) {
         }),
       );
     } catch (error) {
+      clientModels.models.Game.removeOverride(tileId);
       console.error("Error renaming game:", error);
+    } finally {
+      clientModels.models.Game.removeOverride(tileId);
     }
   };
 
@@ -198,6 +222,27 @@ export function systems({ client }: { client: IWorld }) {
       );
     } catch (error) {
       console.error("Error starting game:", error);
+    }
+  };
+
+  const claim_tournament = async ({
+    account,
+    ...props
+  }: SystemTypes.ClaimTournament) => {
+    try {
+      const { transaction_hash } = await client.host.claim({
+        account,
+        ...props,
+      });
+
+      notify(
+        "Tournament has been claimed.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+    } catch (error) {
+      console.error("Error claiming tournament:", error);
     }
   };
 
@@ -355,6 +400,43 @@ export function systems({ client }: { client: IWorld }) {
   };
 
   const build = async ({ account, ...props }: SystemTypes.Build) => {
+    // const tileKey = getEntityIdFromKeys([
+    //   BigInt(props.game_id),
+    //   BigInt(props.tile_id),
+    // ]) as Entity;
+
+    // const tileId = uuid();
+    // clientModels.models.Tile.addOverride(tileId, {
+    //   entity: tileKey,
+    //   value: {
+    //     game_id: props.game_id,
+    //     id: props.tile_id,
+    //     player_id: BigInt(account.address),
+    //     orientation: props.orientation,
+    //     x: props.x,
+    //     y: props.y,
+    //     occupied_spot: props.spot,
+    //   },
+    // });
+
+    // const characterKey = getEntityIdFromKeys([
+    //   BigInt(props.game_id),
+    //   BigInt(props.tile_id),
+    //   BigInt(props.role),
+    // ]) as Entity;
+
+    // const characterId = uuid();
+    // clientModels.models.Character.addOverride(characterId, {
+    //   entity: characterKey,
+    //   value: {
+    //     game_id: props.game_id,
+    //     player_id: BigInt(account.address),
+    //     index: props.role,
+    //     tile_id: props.tile_id,
+    //     spot: props.spot,
+    //   },
+    // });
+
     try {
       const { transaction_hash } = await client.play.build({
         account,
@@ -369,6 +451,11 @@ export function systems({ client }: { client: IWorld }) {
       );
     } catch (error) {
       console.error("Error building:", error);
+      // clientModels.models.Tile.removeOverride(tileId);
+      // clientModels.models.Tile.removeOverride(characterId);
+    } finally {
+      // clientModels.models.Tile.removeOverride(tileId);
+      // clientModels.models.Tile.removeOverride(characterId);
     }
   };
 
@@ -383,6 +470,7 @@ export function systems({ client }: { client: IWorld }) {
     kick_game,
     delete_game,
     start_game,
+    claim_tournament,
     create_player,
     rename_player,
     reorder_player,

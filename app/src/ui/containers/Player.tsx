@@ -7,7 +7,11 @@ import { Entity } from "@dojoengine/recs";
 import { useLobbyStore } from "@/store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBookBible } from "@fortawesome/free-solid-svg-icons";
-import { faDiscord, faXTwitter } from "@fortawesome/free-brands-svg-icons";
+import {
+  faDiscord,
+  faXTwitter,
+  faYoutube,
+} from "@fortawesome/free-brands-svg-icons";
 
 export const Player = () => {
   const backgroundColor = useMemo(() => "#FFF8F8", []);
@@ -25,7 +29,10 @@ export const Player = () => {
   }, [account, playerEntity]);
 
   return (
-    <div className="h-full w-[600px] flex flex-col" style={{ backgroundColor }}>
+    <div
+      className="h-full md:w-[600px]  flex-col hidden md:flex"
+      style={{ backgroundColor }}
+    >
       <div className="h-40 opacity-60">
         <img src={banner} alt="banner" className="h-full" />
       </div>
@@ -38,6 +45,13 @@ export const Player = () => {
             target="_blank"
           >
             <FontAwesomeIcon icon={faBookBible} className="h-12" />
+          </a>
+          <a
+            className="flex justify-center items-center hover:scale-125 duration-200"
+            href={"https://www.youtube.com/watch?v=_MgR12TISUY"}
+            target="_blank"
+          >
+            <FontAwesomeIcon icon={faYoutube} className="h-12" />
           </a>
           <a
             className="flex justify-center items-center hover:scale-125 duration-200"
