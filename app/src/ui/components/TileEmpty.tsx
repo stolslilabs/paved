@@ -10,12 +10,14 @@ import useSound from "use-sound";
 
 import Click from "/sounds/click.wav";
 import { useTileByKey } from "@/hooks/useTile";
+import { useActions } from "@/hooks/useActions";
 
 const loader = new THREE.TextureLoader();
 
 export const TileEmpty = ({ tiles, col, row, size }: any) => {
   const [play, { stop }] = useSound(Click);
   const { gameId } = useQueryParams();
+  const { enabled } = useActions();
 
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
   const meshRef = useRef<any>();
@@ -53,12 +55,13 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
 
   const isHovered = useMemo(() => {
     return (
+      enabled &&
       hovered &&
       hoveredTile &&
       hoveredTile.col === col &&
       hoveredTile.row === row
     );
-  }, [hovered, hoveredTile, col, row]);
+  }, [hovered, hoveredTile, col, row, enabled]);
 
   const isValid = useMemo(() => {
     return (
