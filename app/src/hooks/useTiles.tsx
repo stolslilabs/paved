@@ -1,12 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
-import {
-  defineEnterSystem,
-  defineSystem,
-  Has,
-  HasValue,
-  NotValue,
-} from "@dojoengine/recs";
+import { defineEnterSystem, Has, HasValue, NotValue } from "@dojoengine/recs";
 import { useQueryParams } from "@/hooks/useQueryParams";
 
 type Position = {

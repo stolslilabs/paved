@@ -1,0 +1,20 @@
+kind = "DojoModel"
+class_hash = "0x4cc335efa2fbea238e37711de7f0beedae2a75154e3b38b5fa986ea768d604e"
+original_class_hash = "0x4cc335efa2fbea238e37711de7f0beedae2a75154e3b38b5fa986ea768d604e"
+abi = "manifests/dev/abis/base/models/paved_models_tournament_tournament_claim.json"
+name = "paved::models::tournament::tournament_claim"
+
+[[members]]
+name = "tournament_id"
+type = "u64"
+key = true
+
+[[members]]
+name = "player_id"
+type = "felt252"
+key = true
+
+[[members]]
+name = "claimed"
+type = "bool"
+key = false

@@ -10,13 +10,11 @@ import useSound from "use-sound";
 
 import Click from "/sounds/click.wav";
 import { useTileByKey } from "@/hooks/useTile";
-import { useTiles } from "@/hooks/useTiles";
 
 const loader = new THREE.TextureLoader();
 
-export const TileEmpty = ({ col, row, size }: any) => {
+export const TileEmpty = ({ tiles, col, row, size }: any) => {
   const [play, { stop }] = useSound(Click);
-  const { tiles } = useTiles();
   const { gameId } = useQueryParams();
 
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);

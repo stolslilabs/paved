@@ -4,7 +4,7 @@ import { TileEmpty } from "./TileEmpty";
 import { useTiles } from "@/hooks/useTiles";
 
 export const TileTextures = ({ squareSize }: { squareSize: number }) => {
-  const { items } = useTiles();
+  const { tiles, items } = useTiles();
 
   const renderedItems = useMemo(() => {
     return Object.keys(items).map((key: string) => {
@@ -13,6 +13,7 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
         return (
           <TileEmpty
             key={key}
+            tiles={tiles}
             col={item.tile.col}
             row={item.tile.row}
             size={squareSize}

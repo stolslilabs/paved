@@ -42,6 +42,11 @@ private_key = "0x1800000000300000180000000000030000000000003006001800006600"
 # account_address = "0x52c755d7cf7375c10af11f22d899b46a1dc222fa0a30c78e5805584c0ed69d5"
 # private_key = "0x273039126a440372bb32361f17cbc98df3426480c50916ad68e28a82746d213"
 
+# Prod
+# rpc_url = "https://api.cartridge.gg/x/paved/katana/"
+# account_address = "0x7eabab390ce6c5fb2b3f260fd49eef0f8e92157fa5bc5bad1f6899a62cc4e60"
+# private_key = "0x40638fad6b6b29cdc3469caf944004dd68451a64c1aa5c1b25e010406c8d6f3"
+
 # Realms
 # rpc_url = "https://api.cartridge.gg/x/realms/katana/"
 # account_address = "0x379900b695d11ec52b13557de5ebd864eb2f36f14ff56560b028992585b7515"
