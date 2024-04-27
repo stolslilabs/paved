@@ -27,17 +27,15 @@ import { faFontAwesome } from "@fortawesome/free-solid-svg-icons";
 import { Account } from "starknet";
 import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
+import { useAccount } from "@starknet-react/core";
 
 interface TProps {}
 
 export const Surrender = (props: TProps) => {
   const { gameId } = useQueryParams();
+  const { account } = useAccount();
   const {
-    account: { account },
     setup: {
-      clientModels: {
-        models: { Game, Builder },
-      },
       systemCalls: { surrender },
     },
   } = useDojo();

@@ -12,20 +12,20 @@ import {
   faXTwitter,
   faYoutube,
 } from "@fortawesome/free-brands-svg-icons";
+import { useAccount } from "@starknet-react/core";
 
 export const Player = () => {
   const backgroundColor = useMemo(() => "#FFF8F8", []);
   const { playerEntity } = useLobbyStore();
-
-  const {
-    account: { account },
-  } = useDojo();
+  const { account } = useAccount();
 
   const playerId = useMemo(() => {
     if (playerEntity) {
       return playerEntity;
     }
-    return getEntityIdFromKeys([BigInt(account.address)]) as Entity;
+    return getEntityIdFromKeys([
+      BigInt(account ? account.address : 0),
+    ]) as Entity;
   }, [account, playerEntity]);
 
   return (

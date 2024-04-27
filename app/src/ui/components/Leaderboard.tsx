@@ -24,29 +24,19 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy } from "@fortawesome/free-solid-svg-icons";
-import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { getColor } from "@/dojo/game";
-import {
-  defineEnterSystem,
-  defineSystem,
-  Has,
-  HasValue,
-} from "@dojoengine/recs";
-import { useLogs } from "@/hooks/useLogs";
 import { TwitterShareButton } from "react-share";
 import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
 import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
 import { usePlayer } from "@/hooks/usePlayer";
-import { Builder } from "@/dojo/game/models/builder";
 import { Game as GameClass } from "@/dojo/game/models/game";
+import { useAccount } from "@starknet-react/core";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
-  const {
-    account: { account },
-  } = useDojo();
+  const { account } = useAccount();
 
   const { game } = useGame({ gameId });
   const { builder } = useBuilder({
@@ -134,100 +124,41 @@ Play now 👇
 
 export const Leaderboard = () => {
   const { gameId } = useQueryParams();
-  const [builders, setBuilders] = useState<{ [key: number]: Builder }>({});
-  const [topBuilders, setTopBuilders] = useState<any>([]);
-  const { logs } = useLogs();
-  const {
-    setup: {
-      world,
-      clientModels: {
-        models: { Builder },
-      },
-    },
-  } = useDojo();
-
-  useMemo(() => {
-    defineEnterSystem(
-      world,
-      [Has(Builder), HasValue(Builder, { game_id: gameId })],
-      function ({ value: [builder] }: any) {
-        setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.player_id]: builder };
-        });
-      },
-    );
-    defineSystem(
-      world,
-      [Has(Builder), HasValue(Builder, { game_id: gameId })],
-      function ({ value: [builder] }: any) {
-        setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.player_id]: builder };
-        });
-      },
-    );
-  }, []);
-
-  useEffect(() => {
-    if (!builders) return;
-
-    const topSortedBuilders: Builder[] = Object.values(builders).sort(
-      (a, b) => {
-        return b?.score - a?.score;
-      },
-    );
-
-    setTopBuilders(topSortedBuilders);
-  }, [builders]);
+  const { game } = useGame({ gameId });
 
   return (
     <Table className="text-xs">
       <TableHeader>
         <TableRow>
           <TableHead className="w-[100px]">Rank</TableHead>
+          <TableHead className="w-[100px]">Score</TableHead>
           <TableHead>Name</TableHead>
-          <TableHead className="text-right">Score</TableHead>
-          <TableHead className="text-right">Paved</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {topBuilders.map((builder: typeof Builder, index: number) => {
-          return (
-            <PlayerRow
-              key={index}
-              builder={builder}
-              rank={index + 1}
-              logs={logs.filter((log) => log.category === "Built")}
-            />
-          );
-        })}
+        <PlayerRow rank={1} score={game?.score || 0} />
       </TableBody>
     </Table>
   );
 };
 
-export const PlayerRow = ({
-  builder,
-  rank,
-  logs,
-}: {
-  builder: any;
-  rank: number;
-  logs: any;
-}) => {
-  const { player } = usePlayer({ playerId: builder.player_id });
+export const PlayerRow = ({ rank, score }: { rank: number; score: number }) => {
+  const { account } = useAccount();
+  const { player } = usePlayer({ playerId: account?.address });
   const name = player?.name || "";
-  const address = `0x${builder.player_id.toString(16)}`;
-  const backgroundColor = getColor(address);
-  const paved = logs.filter((log: any) => log.color === backgroundColor).length;
+  const backgroundColor = useMemo(
+    () => getColor(`${account?.address}`),
+    [account],
+  );
+
   return (
     <TableRow>
       <TableCell className="font-medium">{rank}</TableCell>
+      <TableCell>{score}</TableCell>
       <TableCell className="flex gap-2 text-ellipsis">
         <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
         {name}
       </TableCell>
-      <TableCell className="text-right">{builder?.score}</TableCell>
-      <TableCell className="text-right">{paved}</TableCell>
     </TableRow>
   );
 };

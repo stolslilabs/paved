@@ -88,7 +88,7 @@ fn test_case_004() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER - 1;
-    systems.play.build(world, context.game_id, orientation, x, y, Role::Algrim, Spot::Center);
+    systems.play.build(world, context.game_id, orientation, x, y, Role::Pilgrim, Spot::Center);
 
     // [Draw & Build]
     set_contract_address(PLAYER());

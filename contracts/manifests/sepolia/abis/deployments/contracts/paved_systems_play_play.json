@@ -109,15 +109,7 @@
         "type": "()"
       },
       {
-        "name": "Algrim",
-        "type": "()"
-      },
-      {
-        "name": "Woodsman",
-        "type": "()"
-      },
-      {
-        "name": "Herdsman",
+        "name": "Pilgrim",
         "type": "()"
       }
     ]
@@ -183,22 +175,6 @@
         ],
         "outputs": [],
         "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "draw",
-        "inputs": [
-          {
-            "name": "world",
-            "type": "dojo::world::IWorldDispatcher"
-          },
-          {
-            "name": "game_id",
-            "type": "core::integer::u32"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "view"
       },
       {
         "type": "function",

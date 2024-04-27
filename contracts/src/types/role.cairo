@@ -17,9 +17,7 @@ enum Role {
     Lady,
     Adventurer,
     Paladin,
-    Algrim,
-    Woodsman,
-    Herdsman,
+    Pilgrim,
 }
 
 #[generate_trait]
@@ -60,29 +58,13 @@ impl RoleImpl of RoleTrait {
                 Category::Stop => 0,
                 Category::Wonder => 1,
             },
-            Role::Algrim => match category {
+            Role::Pilgrim => match category {
                 Category::None => 0,
                 Category::Forest => 0,
                 Category::Road => 1,
                 Category::City => 1,
                 Category::Stop => 0,
                 Category::Wonder => 2,
-            },
-            Role::Woodsman => match category {
-                Category::None => 0,
-                Category::Forest => 1,
-                Category::Road => 1,
-                Category::City => 0,
-                Category::Stop => 0,
-                Category::Wonder => 0,
-            },
-            Role::Herdsman => match category {
-                Category::None => 0,
-                Category::Forest => 1,
-                Category::Road => 0,
-                Category::City => 1,
-                Category::Stop => 0,
-                Category::Wonder => 0,
             },
         }
     }
@@ -123,29 +105,13 @@ impl RoleImpl of RoleTrait {
                 Category::Stop => 0,
                 Category::Wonder => 1,
             },
-            Role::Algrim => match category {
+            Role::Pilgrim => match category {
                 Category::None => 0,
                 Category::Forest => 0,
                 Category::Road => 1,
                 Category::City => 1,
                 Category::Stop => 0,
                 Category::Wonder => 2,
-            },
-            Role::Woodsman => match category {
-                Category::None => 0,
-                Category::Forest => 1,
-                Category::Road => 1,
-                Category::City => 0,
-                Category::Stop => 0,
-                Category::Wonder => 0,
-            },
-            Role::Herdsman => match category {
-                Category::None => 0,
-                Category::Forest => 1,
-                Category::Road => 0,
-                Category::City => 1,
-                Category::Stop => 0,
-                Category::Wonder => 0,
             },
         }
     }
@@ -186,29 +152,13 @@ impl RoleImpl of RoleTrait {
                 Category::Stop => false,
                 Category::Wonder => true,
             },
-            Role::Algrim => match category {
+            Role::Pilgrim => match category {
                 Category::None => false,
                 Category::Forest => false,
                 Category::Road => true,
                 Category::City => true,
                 Category::Stop => false,
                 Category::Wonder => true,
-            },
-            Role::Woodsman => match category {
-                Category::None => false,
-                Category::Forest => true,
-                Category::Road => true,
-                Category::City => false,
-                Category::Stop => false,
-                Category::Wonder => false,
-            },
-            Role::Herdsman => match category {
-                Category::None => false,
-                Category::Forest => true,
-                Category::Road => false,
-                Category::City => true,
-                Category::Stop => false,
-                Category::Wonder => false,
             },
         }
     }
@@ -231,9 +181,9 @@ impl RoleIntoU8 of core::Into<Role, u8> {
             Role::Lady => 2,
             Role::Adventurer => 3,
             Role::Paladin => 4,
-            Role::Algrim => 5,
-            Role::Woodsman => 6,
-            Role::Herdsman => 7,
+            Role::Pilgrim => 5,
+        // Role::Woodsman => 6,
+        // Role::Herdsman => 7,
         }
     }
 }
@@ -250,11 +200,7 @@ impl U8IntoRole of core::Into<u8, Role> {
         } else if self == 4 {
             Role::Paladin
         } else if self == 5 {
-            Role::Algrim
-        } else if self == 6 {
-            Role::Woodsman
-        } else if self == 7 {
-            Role::Herdsman
+            Role::Pilgrim
         } else {
             Role::None
         }
@@ -283,9 +229,7 @@ mod tests {
         assert(2_u8 == Role::Lady.into(), 'Role: wrong Lady');
         assert(3_u8 == Role::Adventurer.into(), 'Role: wrong Adventurer');
         assert(4_u8 == Role::Paladin.into(), 'Role: wrong Paladin');
-        assert(5_u8 == Role::Algrim.into(), 'Role: wrong Algrim');
-        assert(6_u8 == Role::Woodsman.into(), 'Role: wrong Woodsman');
-        assert(7_u8 == Role::Herdsman.into(), 'Role: wrong Herdsman');
+        assert(5_u8 == Role::Pilgrim.into(), 'Role: wrong Pilgrim');
     }
 
     #[test]
@@ -295,9 +239,7 @@ mod tests {
         assert(Role::Lady == 2_u8.into(), 'Role: wrong Lady');
         assert(Role::Adventurer == 3_u8.into(), 'Role: wrong Adventurer');
         assert(Role::Paladin == 4_u8.into(), 'Role: wrong Paladin');
-        assert(Role::Algrim == 5_u8.into(), 'Role: wrong Algrim');
-        assert(Role::Woodsman == 6_u8.into(), 'Role: wrong Woodsman');
-        assert(Role::Herdsman == 7_u8.into(), 'Role: wrong Herdsman');
+        assert(Role::Pilgrim == 5_u8.into(), 'Role: wrong Pilgrim');
     }
 
     #[test]

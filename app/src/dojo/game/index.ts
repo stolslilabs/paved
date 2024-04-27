@@ -29,10 +29,8 @@ import lady from "/assets/characters/lady.png";
 import adventurer from "/assets/characters/adventurer.png";
 import paladin from "/assets/characters/paladin.png";
 import pilgrim from "/assets/characters/pilgrim.png";
-import woodsman from "/assets/characters/woodsman.png";
-import herdsman from "/assets/characters/herdsman.png";
 
-export const CHARACTER_COUNT = 7;
+export const CHARACTER_COUNT = 5;
 export const ORDER_COUNT = 14;
 
 export const getImage = (tile: any) => {
@@ -92,10 +90,6 @@ export const getCharacterImage = (index: number | undefined) => {
       return paladin;
     case 5:
       return pilgrim;
-    case 6:
-      return woodsman;
-    case 7:
-      return herdsman;
     default:
       return zero;
   }

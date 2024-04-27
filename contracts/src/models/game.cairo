@@ -17,7 +17,6 @@ use paved::store::{Store, StoreImpl};
 use paved::events::{ScoredCity, ScoredRoad, ScoredForest, ScoredWonder};
 use paved::helpers::bitmap::Bitmap;
 use paved::helpers::generic::GenericCount;
-use paved::helpers::forest::ForestCount;
 use paved::helpers::wonder::WonderCount;
 use paved::helpers::conflict::Conflict;
 use paved::types::plan::Plan;
@@ -153,7 +152,7 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
-    fn sub_score(ref self: Game, ref builder: Builder, ref player: Player, ref score: u32,) {
+    fn sub_score(ref self: Game, ref score: u32,) {
         // [Check] Update score
         if self.score < score {
             score = self.score;
@@ -266,37 +265,7 @@ impl GameImpl of GameTrait {
         let base = category.base_points();
         match category {
             Category::None => { return; },
-            Category::Forest => {
-                let (count, woodsman_score, herdsman_score, mut woodsmen, mut herdsmen) =
-                    ForestCount::start(
-                    self, tile, at, ref store
-                );
-                // [Effect] Solve and collect characters
-                if 0 != count.into() && 0 != woodsmen.len().into() {
-                    ForestCount::solve(
-                        ref self,
-                        Category::Road,
-                        count,
-                        woodsman_score,
-                        base,
-                        ref woodsmen,
-                        ref scored_forests,
-                        ref store
-                    );
-                }
-                if 0 != count.into() && 0 != herdsmen.len().into() {
-                    ForestCount::solve(
-                        ref self,
-                        Category::City,
-                        count,
-                        herdsman_score,
-                        base,
-                        ref herdsmen,
-                        ref scored_forests,
-                        ref store
-                    );
-                }
-            },
+            Category::Forest => { return; },
             Category::Road => {
                 let (count, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters

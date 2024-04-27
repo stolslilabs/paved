@@ -12,11 +12,14 @@ import {
 } from "@/components/ui/tooltip";
 import { useBuilder } from "@/hooks/useBuilder";
 import { Account } from "starknet";
+import { useAccount } from "@starknet-react/core";
+import { useActions } from "@/hooks/useActions";
 
 export const Discard = () => {
   const { gameId } = useQueryParams();
+  const { account } = useAccount();
+  const { enabled } = useActions();
   const {
-    account: { account },
     setup: {
       systemCalls: { discard },
     },
@@ -27,10 +30,6 @@ export const Discard = () => {
     playerId: account?.address,
   });
 
-  const disabled = useMemo(() => {
-    return !builder?.tileId;
-  }, [builder]);
-
   if (!account || !builder) return <></>;
 
   return (
@@ -38,7 +37,7 @@ export const Discard = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            disabled={disabled}
+            disabled={!enabled}
             variant={"command"}
             size={"command"}
             onClick={() =>

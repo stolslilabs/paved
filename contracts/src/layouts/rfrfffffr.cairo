@@ -15,8 +15,8 @@ impl LayoutImpl of LayoutTrait {
     fn starts() -> Array<Spot> {
         let mut starts: Array<Spot> = ArrayTrait::new();
         starts.append(Spot::Center);
-        starts.append(Spot::NorthWest);
-        starts.append(Spot::East);
+        // starts.append(Spot::NorthWest);
+        // starts.append(Spot::East);
         starts
     }
 

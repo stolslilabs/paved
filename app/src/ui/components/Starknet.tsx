@@ -5,15 +5,17 @@ import { ArgentMobileConnector } from "starknetkit/argentMobile";
 import { WebWalletConnector } from "starknetkit/webwallet";
 import {
   StarknetConfig,
-  publicProvider,
+  nethermindProvider,
   braavos,
   argent,
 } from "@starknet-react/core";
 import { mainnet } from "@starknet-react/chains";
 
+const { VITE_PUBLIC_API_KEY } = import.meta.env;
+
 export function StarknetProvider({ children }: { children: React.ReactNode }) {
   const chains = [mainnet];
-  const provider = publicProvider();
+  const provider = nethermindProvider({ apiKey: VITE_PUBLIC_API_KEY });
   const connectors = useMemo(() => {
     return [
       braavos(),

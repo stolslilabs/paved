@@ -54,10 +54,11 @@ fn test_play_ranked_tournament_claim() {
     let game_id = systems.host.create(world);
 
     // [Draw & Build]
-    let mut game = store.game(game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFCFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFFFRFCFR
+    let game = store.game(game_id);
+    let builder = store.builder(game, context.anyone_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::RFFFRFCFR.into();
+    store.set_tile(tile);
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
@@ -71,10 +72,11 @@ fn test_play_ranked_tournament_claim() {
     let game_id = systems.host.create(world);
 
     // [Draw & Build]
-    let mut game = store.game(game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFCFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFFFRFCFR
+    let game = store.game(game_id);
+    let builder = store.builder(game, context.someone_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::RFFFRFCFR.into();
+    store.set_tile(tile);
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
@@ -87,10 +89,11 @@ fn test_play_ranked_tournament_claim() {
     let game_id = systems.host.create(world);
 
     // [Draw & Build]
-    let mut game = store.game(game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFCFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFFFRFCFR
+    let game = store.game(game_id);
+    let builder = store.builder(game, context.noone_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::RFFFRFCFR.into();
+    store.set_tile(tile);
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
@@ -107,10 +110,11 @@ fn test_play_ranked_tournament_claim() {
     assert(balance + constants::TOURNAMENT_PRICE.into() == player_balance, 'Balance post creation');
 
     // [Draw & Build]
-    let mut game = store.game(game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFCFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFFFRFCFR
+    let game = store.game(game_id);
+    let builder = store.builder(game, context.player_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::RFFFRFCFR.into();
+    store.set_tile(tile);
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;

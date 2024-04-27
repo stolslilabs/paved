@@ -17,9 +17,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { useDojo } from "@/dojo/useDojo";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useTile } from "@/hooks/useTile";
+import { useAccount } from "@starknet-react/core";
 
 interface TProps {
   index: number;
@@ -32,14 +32,11 @@ export const Character = (props: TProps) => {
   const [selected, setSelected] = useState(false);
   const { character, setCharacter, resetCharacter, resetSpot } = useGameStore();
   const { setPosition } = useCameraStore();
-
-  const {
-    account: { account },
-  } = useDojo();
+  const { account } = useAccount();
 
   const { character: characterModel } = useCharacter({
     gameId,
-    playerId: account.address,
+    playerId: account?.address,
     characterId: getCharacterFromIndex(index),
   });
   const { tile } = useTile({ gameId, tileId: characterModel?.tile_id || 0 });

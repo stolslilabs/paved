@@ -1,10 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
-import { useDojo } from "../../dojo/useDojo";
 import { useGameStore } from "../../store";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { getImage } from "@/dojo/game";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye, faLock } from "@fortawesome/free-solid-svg-icons";
+import { faLock } from "@fortawesome/free-solid-svg-icons";
 import { Spot } from "./Spot";
 import {
   Tooltip,
@@ -15,23 +14,23 @@ import {
 import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useTile } from "@/hooks/useTile";
-import { Account } from "starknet";
+import { useAccount } from "@starknet-react/core";
+import { useActions } from "@/hooks/useActions";
+import { Loader } from "@/ui/components/Loader";
 
 export const Tile = () => {
   const [rotation, setRotation] = useState(0);
   const [backgroundImage, setBackgroundImage] = useState<string>();
+  const { enabled } = useActions();
   const { gameId } = useQueryParams();
   const { orientation, setActiveEntity, resetActiveEntity } = useGameStore();
-
-  const {
-    account: { account },
-  } = useDojo();
+  const { account } = useAccount();
 
   const { game } = useGame({ gameId });
   const { builder } = useBuilder({ gameId, playerId: account?.address });
   const { tileKey, model: tile } = useTile({
     gameId,
-    tileId: builder?.tileId || 0,
+    tileId: builder?.tile_id || 0,
   });
 
   useEffect(() => {
@@ -74,11 +73,13 @@ export const Tile = () => {
       className="h-24 w-24 md:h-60 md:w-60 p-1 md:p-5 md:border-2 border-stone-500 flex justify-center items-center rounded-xl shadow-lg shadow-gray-400"
       style={{ backgroundColor }}
     >
-      {tile && backgroundImage && !game?.isOver() ? (
+      {tile && backgroundImage && !game?.isOver() && enabled && (
         <ActiveTile image={backgroundImage} rotation={rotation} />
-      ) : (
-        <HiddenTile />
       )}
+      {tile && backgroundImage && !game?.isOver() && !enabled && (
+        <LoadingTile />
+      )}
+      {!tile && game?.isOver() && <LockedTile />}
     </div>
   );
 };
@@ -120,36 +121,7 @@ export const ActiveTile = ({
   );
 };
 
-export const HiddenTile = () => {
-  const { gameId } = useQueryParams();
-  const { resetOrientation, resetSelectedTile } = useGameStore();
-  const [over, setOver] = useState<boolean>(false);
-
-  const {
-    account: { account },
-    setup: {
-      systemCalls: { draw },
-    },
-  } = useDojo();
-
-  const { game } = useGame({ gameId });
-
-  useEffect(() => {
-    if (!game) return;
-    setOver(game.isOver());
-  }, [game]);
-
-  const handleDrawClick = () => {
-    if (over) return;
-    // Reset the settings
-    resetOrientation();
-    resetSelectedTile();
-    draw({
-      account: account as Account,
-      game_id: gameId,
-    });
-  };
-
+export const LoadingTile = () => {
   const backgroundImage = useMemo(() => getImage({ plan: 9 }), []);
   const borderColor = useMemo(() => "#3B3B3B", []);
 
@@ -158,31 +130,49 @@ export const HiddenTile = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <div
-            className={`h-full w-full border-8 ${
-              !over ? "cursor-pointer" : ""
-            }`}
+            className={`h-full w-full border-8`}
             style={{
               backgroundImage: `url(${backgroundImage})`,
               backgroundSize: "cover",
               borderColor,
             }}
-            onClick={handleDrawClick}
           >
             <div className="relative h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
-              <FontAwesomeIcon
-                className="h-6 md:h-12"
-                icon={over ? faLock : faEye}
-              />
-              {!over && (
-                <div className="absolute md:top-1/2 left-1/2 translate-x-[-50%] translate-y-[+100%] select-none md:text-3xl">
-                  {game?.tilesLeft()}
-                </div>
-              )}
+              <Loader color={"#000000"} />
             </div>
           </div>
         </TooltipTrigger>
         <TooltipContent>
-          <p className="select-none">Draw a tile</p>
+          <p className="select-none">Game is over</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
+export const LockedTile = () => {
+  const backgroundImage = useMemo(() => getImage({ plan: 9 }), []);
+  const borderColor = useMemo(() => "#3B3B3B", []);
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={`h-full w-full border-8`}
+            style={{
+              backgroundImage: `url(${backgroundImage})`,
+              backgroundSize: "cover",
+              borderColor,
+            }}
+          >
+            <div className="relative h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
+              <FontAwesomeIcon className="h-6 md:h-12" icon={faLock} />
+            </div>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="select-none">Game is over</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

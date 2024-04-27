@@ -47,6 +47,7 @@ import { Lords } from "./Lords";
 import { Tournament as TournamentClass } from "@/dojo/game/models/tournament";
 import { useDojo } from "@/dojo/useDojo";
 import { Account } from "starknet";
+import { useAccount } from "@starknet-react/core";
 
 export const TournamentHeader = () => {
   const [tournamentId, setTournamentId] = useState<number>();
@@ -255,9 +256,7 @@ export const GameRow = ({
   tournamentId: number;
   rank: number;
 }) => {
-  const {
-    account: { account },
-  } = useDojo();
+  const { account } = useAccount();
 
   const { tournament } = useTournament({
     tournamentId: tournamentId + TOURNAMENT_ID_OFFSET,
@@ -299,7 +298,7 @@ export const GameRow = ({
   }, [rank]);
 
   const isSelf = useMemo(() => {
-    return game.playerId === account.address;
+    return game.playerId === account?.address;
   }, [game, account]);
 
   return (
@@ -385,8 +384,8 @@ export const Claim = ({
   tournament: TournamentClass;
   rank: number;
 }) => {
+  const { account } = useAccount();
   const {
-    account: { account },
     setup: {
       systemCalls: { claim },
     },

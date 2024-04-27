@@ -10,10 +10,11 @@ import { Account } from "starknet";
 import { usePlayer } from "@/hooks/usePlayer";
 import { Lords } from "./Lords";
 import { useMemo } from "react";
+import { useAccount } from "@starknet-react/core";
 
 export const CreateGame = () => {
+  const { account } = useAccount();
   const {
-    account: { account },
     setup: {
       systemCalls: { create_game },
     },

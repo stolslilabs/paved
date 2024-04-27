@@ -129,12 +129,19 @@ mod host {
             let time = get_block_timestamp();
             let mut game = GameImpl::new(game_id, time);
 
-            // [Effect] Create a new builder
-            let builder = BuilderImpl::new(game.id, player.id);
-            store.set_builder(builder);
-
             // [Effect] Start game
             let tile = game.start(time);
+
+            // [Effect] Store tile
+            store.set_tile(tile);
+
+            // [Effect] Create a new builder
+            let mut builder = BuilderImpl::new(game.id, player.id);
+            let (tile_id, plan) = game.draw_plan();
+            let tile = builder.reveal(tile_id, plan);
+
+            // [Effect] Store builder
+            store.set_builder(builder);
 
             // [Effect] Store tile
             store.set_tile(tile);

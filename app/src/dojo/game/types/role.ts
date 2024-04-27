@@ -8,7 +8,7 @@ export enum RoleType {
   Lady = "Lady",
   Adventurer = "Adventurer",
   Paladin = "Paladin",
-  Algrim = "Algrim",
+  Pilgrim = "Pilgrim",
   Woodsman = "Woodsman",
   Herdsman = "Herdsman",
 }
@@ -93,7 +93,7 @@ export class Role {
           case CategoryType.Wonder:
             return 1;
         }
-      case RoleType.Algrim:
+      case RoleType.Pilgrim:
         switch (category) {
           case CategoryType.None:
             return 0;
@@ -205,7 +205,7 @@ export class Role {
           case CategoryType.Wonder:
             return 1;
         }
-      case RoleType.Algrim:
+      case RoleType.Pilgrim:
         switch (category) {
           case CategoryType.None:
             return 0;
@@ -317,7 +317,7 @@ export class Role {
           case CategoryType.Wonder:
             return true;
         }
-      case RoleType.Algrim:
+      case RoleType.Pilgrim:
         switch (category) {
           case CategoryType.None:
             return false;

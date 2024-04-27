@@ -40,8 +40,6 @@ struct Builder {
     game_id: u32,
     #[key]
     player_id: felt252,
-    index: u32,
-    score: u32,
     tile_id: u32,
     characters: u8,
 }
@@ -51,14 +49,12 @@ impl BuilderImpl of BuilderTrait {
     #[inline(always)]
     fn new(game_id: u32, player_id: felt252) -> Builder {
         // [Return] Builder
-        Builder { game_id, player_id, index: 1, score: 0, tile_id: 0, characters: 0, }
+        Builder { game_id, player_id, tile_id: 0, characters: 0, }
     }
 
     #[inline(always)]
     fn nullify(ref self: Builder) {
         // [Effect] Nullify builder
-        self.index = 0;
-        self.score = 0;
         self.tile_id = 0;
         self.characters = 0;
     }
@@ -74,12 +70,12 @@ impl BuilderImpl of BuilderTrait {
     }
 
     #[inline(always)]
-    fn discard(ref self: Builder, ref game: Game, ref player: Player) -> u32 {
+    fn discard(ref self: Builder, ref game: Game) -> u32 {
         // [Check] Have a tile to place
         self.assert_discardable();
         // [Effect] Substract penalty
         let mut malus = constants::DISCARD_POINTS;
-        game.sub_score(ref self, ref player, ref malus,);
+        game.sub_score(ref malus,);
         // [Effect] Remove tile from tile count
         self.tile_id = 0;
         malus
@@ -150,16 +146,6 @@ impl BuilderAssert of AssertTrait {
     }
 
     #[inline(always)]
-    fn assert_host(self: Builder) {
-        assert(self.index == 0, errors::BUILDER_NOT_HOST);
-    }
-
-    #[inline(always)]
-    fn assert_not_host(self: Builder) {
-        assert(self.index != 0, errors::BUILDER_IS_HOST);
-    }
-
-    #[inline(always)]
     fn assert_revealable(self: Builder) {
         assert(0 == self.tile_id.into(), errors::ALREADY_HAS_TILE);
     }
@@ -190,12 +176,12 @@ impl BuilderAssert of AssertTrait {
 impl ZeroableBuilderImpl of core::Zeroable<Builder> {
     #[inline(always)]
     fn zero() -> Builder {
-        Builder { game_id: 0, player_id: 0, index: 0, score: 0, tile_id: 0, characters: 0, }
+        Builder { game_id: 0, player_id: 0, tile_id: 0, characters: 0, }
     }
 
     #[inline(always)]
     fn is_zero(self: Builder) -> bool {
-        1 != self.index.into()
+        0 == self.tile_id.into()
     }
 
     #[inline(always)]

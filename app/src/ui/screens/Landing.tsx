@@ -13,9 +13,7 @@ import { ComponentValue } from "@dojoengine/recs";
 
 export const Landing = () => {
   const { isConnected } = useAccount();
-  const {
-    account: { account },
-  } = useDojo();
+  const { account } = useAccount();
 
   const { player } = usePlayer({ playerId: account?.address });
 
@@ -44,17 +42,17 @@ export const Landing = () => {
 };
 
 export const Play = ({ player }: { player: ComponentValue }) => {
+  const { account } = useAccount();
   const navigate = useNavigate();
 
   const {
     setup: {
       config: { masterAddress },
     },
-    account: { account },
   } = useDojo();
 
   const disabled = useMemo(() => {
-    return !account || account.address === masterAddress || !player;
+    return !account || !player;
   }, [account, masterAddress]);
 
   const handleClick = () => {

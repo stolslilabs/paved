@@ -660,10 +660,10 @@
         ]
       }
     ],
-    "address": "0x7cac671eb25924a6c814116e410aaad577dab0e58ede687ae762f9df9830aca",
-    "transaction_hash": "0x5c56f766f843d64c58d7c31872d768b08aa35592775eb5cdc64a83fceb26bba",
+    "address": "0x62ab43333e9c3f373fdbf5792a805314630eed0ce03f010d0895edb97dd6a13",
+    "transaction_hash": "0x6932b1e893c35663c8f40c7cd712608883b059b96c9ad7f1671da5030ad834f",
     "block_number": 3,
-    "seed": "v1",
+    "seed": "v3",
     "name": "dojo::world::world"
   },
   "base": {
@@ -676,9 +676,9 @@
   "contracts": [
     {
       "kind": "DojoContract",
-      "address": "0xb2828ef15f5a3f69abb149745ee7b65855214a6ef1469a8543c2273f126712",
-      "class_hash": "0x4422257ec271eb3f0e085115300388ec1e2f50781a71ff6c3a26c3494d0c25d",
-      "original_class_hash": "0x4422257ec271eb3f0e085115300388ec1e2f50781a71ff6c3a26c3494d0c25d",
+      "address": "0x21eb0302f882afaf157664fabf156d7e086d85f3eebfbc8301523e711b83d1c",
+      "class_hash": "0x50717829d7dbd215bfd815a0fbbf950d2daf5b960e49e12753fc897fd84dc75",
+      "original_class_hash": "0x50717829d7dbd215bfd815a0fbbf950d2daf5b960e49e12753fc897fd84dc75",
       "base_class_hash": "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76",
       "abi": [
         {
@@ -824,7 +824,7 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x54575c6d0b343038ed6447856407e9ca4678190d138ee5802a2d1c83ed6b20d",
+      "address": "0xecca957d70585d77de04c4e7086a5f5a86180749d3a25c2298301998326cb7",
       "class_hash": "0x3e673f059f703ed4aef23d373dc10360c9ad0cfb0b6371a1d9893674206330a",
       "original_class_hash": "0x3e673f059f703ed4aef23d373dc10360c9ad0cfb0b6371a1d9893674206330a",
       "base_class_hash": "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76",
@@ -940,9 +940,9 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x782ec1bfa320401e3283e65226a7661afa39d978a29beb4a9307b127fe27fcc",
-      "class_hash": "0x11e8071e2e5f2eba42e164394b50738706a0c190d8cb696fddb3cf8e521e82d",
-      "original_class_hash": "0x11e8071e2e5f2eba42e164394b50738706a0c190d8cb696fddb3cf8e521e82d",
+      "address": "0x451e4008c32d27ad52775dc9c974544c01bd91a1fcc470f911de82da449042f",
+      "class_hash": "0x4031044cc944573a489e298c094e5b299bf5163a9a60e48cb44fe4111952d90",
+      "original_class_hash": "0x4031044cc944573a489e298c094e5b299bf5163a9a60e48cb44fe4111952d90",
       "base_class_hash": "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76",
       "abi": [
         {
@@ -1055,15 +1055,7 @@
               "type": "()"
             },
             {
-              "name": "Algrim",
-              "type": "()"
-            },
-            {
-              "name": "Woodsman",
-              "type": "()"
-            },
-            {
-              "name": "Herdsman",
+              "name": "Pilgrim",
               "type": "()"
             }
           ]
@@ -1129,22 +1121,6 @@
               ],
               "outputs": [],
               "state_mutability": "external"
-            },
-            {
-              "type": "function",
-              "name": "draw",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "dojo::world::IWorldDispatcher"
-                },
-                {
-                  "name": "game_id",
-                  "type": "core::integer::u32"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
             },
             {
               "type": "function",
@@ -1549,16 +1525,6 @@
           "key": true
         },
         {
-          "name": "index",
-          "type": "u32",
-          "key": false
-        },
-        {
-          "name": "score",
-          "type": "u32",
-          "key": false
-        },
-        {
           "name": "tile_id",
           "type": "u32",
           "key": false
@@ -1569,8 +1535,8 @@
           "key": false
         }
       ],
-      "class_hash": "0x44dbd6831a1181e62ea023021a36cbe4dca142d35a4fcd40784ed9734e3691",
-      "original_class_hash": "0x44dbd6831a1181e62ea023021a36cbe4dca142d35a4fcd40784ed9734e3691",
+      "class_hash": "0x4bba0836f34c2f613721e51293acfa04cb0db9c4b4ce4aa7e25c5cf29548daa",
+      "original_class_hash": "0x4bba0836f34c2f613721e51293acfa04cb0db9c4b4ce4aa7e25c5cf29548daa",
       "abi": [
         {
           "type": "impl",
@@ -1756,14 +1722,6 @@
             {
               "name": "player_id",
               "type": "core::felt252"
-            },
-            {
-              "name": "index",
-              "type": "core::integer::u32"
-            },
-            {
-              "name": "score",
-              "type": "core::integer::u32"
             },
             {
               "name": "tile_id",

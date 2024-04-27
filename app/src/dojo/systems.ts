@@ -129,7 +129,18 @@ export function systems({
     account,
     ...props
   }: SystemTypes.CreatePlayer) => {
-    console.log("Creating player:", props);
+    const playerKey = getEntityIdFromKeys([BigInt(account.address)]) as Entity;
+
+    const playerId = uuid();
+    clientModels.models.Player.addOverride(playerId, {
+      entity: playerKey,
+      value: {
+        id: BigInt(account.address),
+        name: BigInt(props.name),
+        master: BigInt(props.master),
+      },
+    });
+
     try {
       const { transaction_hash } = await client.manage.create({
         account,
@@ -144,6 +155,9 @@ export function systems({
       );
     } catch (error) {
       console.error("Error creating player:", error);
+      clientModels.models.Player.removeOverride(playerId);
+    } finally {
+      clientModels.models.Player.removeOverride(playerId);
     }
   };
 
@@ -165,24 +179,6 @@ export function systems({
       );
     } catch (error) {
       console.error("Error initializing play:", error);
-    }
-  };
-
-  const draw = async ({ account, ...props }: SystemTypes.Draw) => {
-    try {
-      const { transaction_hash } = await client.play.draw({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Tile has been revealed.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error drawing:", error);
     }
   };
 
@@ -223,42 +219,57 @@ export function systems({
   };
 
   const build = async ({ account, ...props }: SystemTypes.Build) => {
-    const tileKey = getEntityIdFromKeys([
-      BigInt(props.game_id),
-      BigInt(props.tile_id),
-    ]) as Entity;
+    // const buidlerKey = getEntityIdFromKeys([
+    //   BigInt(props.game_id),
+    //   BigInt(props.tile_id),
+    // ]) as Entity;
 
-    const tileId = uuid();
-    clientModels.models.Tile.addOverride(tileId, {
-      entity: tileKey,
-      value: {
-        game_id: props.game_id,
-        id: props.tile_id,
-        player_id: BigInt(account.address),
-        orientation: props.orientation,
-        x: props.x,
-        y: props.y,
-        occupied_spot: props.spot,
-      },
-    });
+    // const builderId = uuid();
+    // clientModels.models.Builder.addOverride(builderId, {
+    //   entity: buidlerKey,
+    //   value: {
+    //     game_id: props.game_id,
+    //     player_id: BigInt(account.address),
+    //     tile_id: 0,
+    //   },
+    // });
 
-    const characterKey = getEntityIdFromKeys([
-      BigInt(props.game_id),
-      BigInt(props.tile_id),
-      BigInt(props.role),
-    ]) as Entity;
+    // const tileKey = getEntityIdFromKeys([
+    //   BigInt(props.game_id),
+    //   BigInt(props.tile_id),
+    // ]) as Entity;
 
-    const characterId = uuid();
-    clientModels.models.Character.addOverride(characterId, {
-      entity: characterKey,
-      value: {
-        game_id: props.game_id,
-        player_id: BigInt(account.address),
-        index: props.role,
-        tile_id: props.tile_id,
-        spot: props.spot,
-      },
-    });
+    // const tileId = uuid();
+    // clientModels.models.Tile.addOverride(tileId, {
+    //   entity: tileKey,
+    //   value: {
+    //     game_id: props.game_id,
+    //     id: props.tile_id,
+    //     player_id: BigInt(account.address),
+    //     orientation: props.orientation,
+    //     x: props.x,
+    //     y: props.y,
+    //     occupied_spot: props.spot,
+    //   },
+    // });
+
+    // const characterKey = getEntityIdFromKeys([
+    //   BigInt(props.game_id),
+    //   BigInt(props.tile_id),
+    //   BigInt(props.role),
+    // ]) as Entity;
+
+    // const characterId = uuid();
+    // clientModels.models.Character.addOverride(characterId, {
+    //   entity: characterKey,
+    //   value: {
+    //     game_id: props.game_id,
+    //     player_id: BigInt(account.address),
+    //     index: props.role,
+    //     tile_id: props.tile_id,
+    //     spot: props.spot,
+    //   },
+    // });
 
     try {
       const { transaction_hash } = await client.play.build({
@@ -274,11 +285,13 @@ export function systems({
       );
     } catch (error) {
       console.error("Error building:", error);
-      clientModels.models.Tile.removeOverride(tileId);
-      clientModels.models.Tile.removeOverride(characterId);
+      // clientModels.models.Tile.removeOverride(tileId);
+      // clientModels.models.Character.removeOverride(characterId);
+      // clientModels.models.Builder.removeOverride(builderId);
     } finally {
-      clientModels.models.Tile.removeOverride(tileId);
-      clientModels.models.Tile.removeOverride(characterId);
+      // clientModels.models.Tile.removeOverride(tileId);
+      // clientModels.models.Character.removeOverride(characterId);
+      // clientModels.models.Builder.removeOverride(builderId);
     }
   };
 
@@ -290,7 +303,6 @@ export function systems({
     initialize_manage,
     create_player,
     initialize_play,
-    draw,
     discard,
     surrender,
     build,

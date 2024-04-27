@@ -16,7 +16,6 @@ use paved::types::spot::Spot;
 #[starknet::interface]
 trait IPlay<TContractState> {
     fn initialize(ref self: TContractState, world: ContractAddress);
-    fn draw(self: @TContractState, world: IWorldDispatcher, game_id: u32);
     fn discard(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
     fn surrender(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
     fn build(
@@ -136,7 +135,7 @@ mod play {
             self.world.write(IWorldDispatcher { contract_address: world });
         }
 
-        fn draw(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
+        fn discard(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -159,58 +158,27 @@ mod play {
             let mut builder = store.builder(game, caller.into());
             assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
 
-            // [Effect] Builder spawn a new tile
-            let (tile_id, plan) = game.draw_plan();
-            let tile = builder.reveal(tile_id, plan);
-
-            // [Effect] Store tile
-            store.set_tile(tile);
-
-            // [Effect] Update builder
-            store.set_builder(builder);
-
-            // [Effect] Update game
-            store.set_game(game);
-        }
-
-        fn discard(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
-            // [Setup] Datastore
-            let store: Store = StoreImpl::new(world);
-
-            // [Check] Game exists
-            let mut game = store.game(game_id);
-            game.assert_exists();
-
-            // [Check] Game has started
-            game.assert_started();
-
-            // [Check] Game is not over
-            game.assert_not_over();
-
-            // [Check] Player exists
-            let caller = get_caller_address();
-            let mut player = store.player(caller.into());
-            player.assert_exists();
-
-            // [Check] Builder exists
-            let mut builder = store.builder(game, caller.into());
-            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
-
             // [Check] Tile exists
             let tile = store.tile(game, builder.tile_id);
             assert(tile.is_non_zero(), errors::TILE_NOT_FOUND);
 
             // [Effect] Builder discard a tile
-            let _malus = builder.discard(ref game, ref player);
+            let _malus = builder.discard(ref game);
+
+            // [Effect] Assess game over
+            game.assess_over();
+
+            // [Effect] Draw a new tile if relevant
+            if !game.is_over() {
+                let (tile_id, plan) = game.draw_plan();
+                let tile = builder.reveal(tile_id, plan);
+                store.set_tile(tile);
+            }
 
             // [Effect] Update builder
             store.set_builder(builder);
 
-            // [Effect] Update player
-            store.set_player(player);
-
             // [Effect] Update game
-            game.assess_over();
             store.set_game(game);
 
             // [Event] Emit discard events
@@ -325,7 +293,7 @@ mod play {
 
             // [Check] Player exists
             let caller = get_caller_address();
-            let mut player = store.player(caller.into());
+            let player = store.player(caller.into());
             player.assert_exists();
 
             // [Check] Builder exists
@@ -343,7 +311,6 @@ mod play {
             // [Effect] Build tile
             let mut neighbors = store.neighbors(game, x, y);
             builder.build(ref tile, orientation, x, y, ref neighbors);
-            player.pave();
 
             // [Check] Character to place
             if role != Role::None && spot != Spot::None {
@@ -360,18 +327,24 @@ mod play {
             // [Effect] Update tile
             store.set_tile(tile);
 
+            // [Effect] Assess game over
+            game.assess_over();
+
+            // [Effect] Draw a new tile if relevant
+            if !game.is_over() {
+                let (tile_id, plan) = game.draw_plan();
+                let new_tile = builder.reveal(tile_id, plan);
+                store.set_tile(new_tile);
+            }
+
             // [Effect] Update builder
             store.set_builder(builder);
-
-            // [Effect] Update player
-            store.set_player(player);
 
             // [Effect] Reseed and assessment
             game.reseed(tile);
             let (mut cities, mut roads, mut forests, mut wonders) = game.assess(tile, ref store);
 
             // [Effect] Update game
-            game.assess_over();
             store.set_game(game);
 
             // [Event] Emit events

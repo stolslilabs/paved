@@ -18,22 +18,23 @@ import { useAccount } from "@starknet-react/core";
 import { usePlayer } from "@/hooks/usePlayer";
 
 export const Spawn = () => {
-  const { address } = useAccount();
+  const { account } = useAccount();
   const [playerName, setPlayerName] = useState("");
 
   const {
-    account: { account },
     setup: {
       config: { masterAddress },
       systemCalls: { create_player },
     },
   } = useDojo();
 
-  const { player } = usePlayer({ playerId: account.address });
+  const { player } = usePlayer({ playerId: account?.address });
 
   const disabled = useMemo(() => {
-    return !!player || !account || account.address === masterAddress;
-  }, [player, address, account, masterAddress]);
+    // return !!player || !account || account.address === masterAddress;
+    return !!player || !account;
+    // }, [player, address, account, masterAddress]);
+  }, [player, account, masterAddress]);
 
   useEffect(() => {
     if (player) {
@@ -44,11 +45,11 @@ export const Spawn = () => {
   }, [player]);
 
   const handleClick = () => {
-    if (address && account) {
+    if (account) {
       create_player({
         account: account as Account,
         name: shortString.encodeShortString(playerName),
-        master: address,
+        master: account.address,
       });
     }
   };

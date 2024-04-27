@@ -4,6 +4,8 @@ import { Tile } from "../models/tile";
 import { Spot, SpotType } from "../types/spot";
 import { Orientation } from "../types/orientation";
 import { Store, Tiles } from "../store";
+import { Role } from "../types/role";
+import { Layout } from "../types/layout";
 
 export type VisitedType = { [key: string]: boolean };
 
@@ -13,11 +15,16 @@ export function checkFeatureIdle(
   orientation: number,
   x: number,
   y: number,
+  character: number,
   at: number,
   tiles: Tiles,
 ): boolean {
+  const role: Role = Role.from(character);
+  const layout: Layout = tile.getLayout();
   const spot: Spot = Spot.from(at);
+  const category = layout.getCategory(spot.value);
   if (spot.value === SpotType.None) return true;
+  if (!role.isAllowed(category.value)) return false;
   const conflict: Conflict = new Conflict();
   const store: Store = new Store(gameId, tiles);
   tile.orientation = Orientation.from(orientation);

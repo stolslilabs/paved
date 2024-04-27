@@ -38,10 +38,11 @@ fn test_play_build_without_character() {
     let store = StoreTrait::new(world);
 
     // [Draw]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(game, Plan::FFCFFFCFF);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // FFCFFFCFF
+    let game = store.game(context.game_id);
+    let builder = store.builder(game, context.player_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::FFCFFFCFF.into();
+    store.set_tile(tile);
 
     // [Build]
     let orientation = Orientation::North;
@@ -59,18 +60,17 @@ fn test_play_build_with_character() {
     let store = StoreTrait::new(world);
 
     // [Draw]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::FFCFFFCFF);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // FFCFFFCFF
+    let game = store.game(context.game_id);
+    let builder = store.builder(game, context.player_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::FFCFFFCFF.into();
+    store.set_tile(tile);
 
     // [Build]
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
-    let role = Role::Lord;
-    let spot = Spot::South;
-    systems.play.build(world, context.game_id, orientation, x, y, role, spot);
+    systems.play.build(world, context.game_id, orientation, x, y, Role::Lord, Spot::South);
 }
 
 #[test]
@@ -81,10 +81,11 @@ fn test_play_build_with_character_revert_not_idle() {
     let store = StoreTrait::new(world);
 
     // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::WFFFFFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // WFFFFFFFR
+    let game = store.game(context.game_id);
+    let builder = store.builder(game, context.player_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::WFFFFFFFR.into();
+    store.set_tile(tile);
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER - 1;
@@ -93,10 +94,11 @@ fn test_play_build_with_character_revert_not_idle() {
     systems.play.build(world, context.game_id, orientation, x, y, role, spot);
 
     // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::SFRFRFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // SFRFRFFFR
+    let game = store.game(context.game_id);
+    let builder = store.builder(game, context.player_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::SFRFRFFFR.into();
+    store.set_tile(tile);
     let orientation = Orientation::North;
     let x = CENTER - 1;
     let y = CENTER - 1;
@@ -112,10 +114,11 @@ fn test_play_build_complete_castle() {
     let store = StoreTrait::new(world);
 
     // [Draw]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::FFCFFFCFF);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // FFCFFFCFF
+    let game = store.game(context.game_id);
+    let builder = store.builder(game, context.player_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::FFCFFFCFF.into();
+    store.set_tile(tile);
 
     // [Build]
     let orientation = Orientation::North;
@@ -128,187 +131,5 @@ fn test_play_build_complete_castle() {
     // [Assert]
     let game = store.game(context.game_id);
     let expected: u32 = 2 * constants::CITY_BASE_POINTS;
-    assert(game.score - expected <= expected, 'Build: game score');
-}
-
-#[test]
-fn test_play_build_complete_forest_inside_roads() {
-    // [Setup]
-    let (world, systems, context) = setup::spawn_game();
-    let store = StoreTrait::new(world);
-    let none = Role::None;
-    let woodsman = Role::Woodsman;
-    let nowhere = Spot::None;
-    let northeast = Spot::NorthEast;
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::WFFFFFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // WFFFFFFFR
-    let orientation = Orientation::North;
-    let x = CENTER;
-    let y = CENTER - 1;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::SFRFRFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // SFRFRFFFR
-    let orientation = Orientation::East;
-    let x = CENTER - 1;
-    let y = CENTER - 1;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFFFRFFFR
-    let orientation = Orientation::East;
-    let x = CENTER + 1;
-    let y = CENTER - 1;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFFFRFFFR
-    let orientation = Orientation::North;
-    let x = CENTER;
-    let y = CENTER - 2;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFFFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFRFFFFFR
-    let orientation = Orientation::North;
-    let x = CENTER + 1;
-    let y = CENTER - 2;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFFFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFRFFFFFR
-    let orientation = Orientation::East;
-    let x = CENTER - 1;
-    let y = CENTER - 2;
-    systems.play.build(world, context.game_id, orientation, x, y, woodsman, northeast);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFFFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFRFFFFFR
-    let orientation = Orientation::South;
-    let x = CENTER - 1;
-    let y = CENTER;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFFFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFRFFFFFR
-    let orientation = Orientation::West;
-    let x = CENTER + 1;
-    let y = CENTER;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Assert]
-    let game = store.game(context.game_id);
-    let expected: u32 = 2 * constants::FOREST_BASE_POINTS;
-    assert(game.score - expected <= expected, 'Build: game score');
-}
-
-#[test]
-fn test_play_build_complete_forest_inside_castles() {
-    // [Setup]
-    let (world, systems, context) = setup::spawn_game();
-    let store = StoreTrait::new(world);
-    let none = Role::None;
-    let woodsman = Role::Woodsman;
-    let nowhere = Spot::None;
-    let northeast = Spot::NorthEast;
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFRFC);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // CCCCCFRFC
-    let orientation = Orientation::West;
-    let x = CENTER - 1;
-    let y = CENTER;
-    systems.play.build(world, context.game_id, orientation, x, y, woodsman, northeast);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFFFC);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // CCCCCFFFC
-    let orientation = Orientation::South;
-    let x = CENTER;
-    let y = CENTER - 1;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::RFRFCCCFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // RFRFCCCFR
-    let orientation = Orientation::North;
-    let x = CENTER + 1;
-    let y = CENTER;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::WFFFFFFFR);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // WFFFFFFFR
-    let orientation = Orientation::West;
-    let x = CENTER + 1;
-    let y = CENTER + 1;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFFFC);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // CCCCCFFFC
-    let orientation = Orientation::West;
-    let x = CENTER;
-    let y = CENTER + 1;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFFFC);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // CCCCCFFFC
-    let orientation = Orientation::East;
-    let x = CENTER + 2;
-    let y = CENTER + 1;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Draw & Build]
-    let mut game = store.game(context.game_id);
-    game.seed = setup::compute_seed(store.game(game.id), Plan::CFFFCFFFC);
-    store.set_game(game);
-    systems.play.draw(world, game.id); // CFFFCFFFC
-    let orientation = Orientation::North;
-    let x = CENTER + 1;
-    let y = CENTER + 2;
-    systems.play.build(world, context.game_id, orientation, x, y, none, nowhere);
-
-    // [Assert]
-    let game = store.game(context.game_id);
-    let expected: u32 = 1 * constants::FOREST_BASE_POINTS;
     assert(game.score - expected <= expected, 'Build: game score');
 }

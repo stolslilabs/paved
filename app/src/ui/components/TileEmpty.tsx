@@ -10,13 +10,11 @@ import useSound from "use-sound";
 
 import Click from "/sounds/click.wav";
 import { useTileByKey } from "@/hooks/useTile";
-import { useTiles } from "@/hooks/useTiles";
 
 const loader = new THREE.TextureLoader();
 
-export const TileEmpty = ({ col, row, size }: any) => {
+export const TileEmpty = ({ tiles, col, row, size }: any) => {
   const [play, { stop }] = useSound(Click);
-  const { tiles } = useTiles();
   const { gameId } = useQueryParams();
 
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
@@ -26,6 +24,7 @@ export const TileEmpty = ({ col, row, size }: any) => {
 
   const {
     orientation,
+    character,
     spot,
     selectedTile,
     setSelectedTile,
@@ -94,9 +93,26 @@ export const TileEmpty = ({ col, row, size }: any) => {
       activeTile &&
       (isHovered || isSelected) &&
       orientation &&
-      checkFeatureIdle(gameId, activeTile, orientation, col, row, spot, tiles)
+      checkFeatureIdle(
+        gameId,
+        activeTile,
+        orientation,
+        col,
+        row,
+        character,
+        spot,
+        tiles,
+      )
     );
-  }, [activeTile, hoveredTile, selectedTile, orientation, spot, hovered]);
+  }, [
+    activeTile,
+    hoveredTile,
+    selectedTile,
+    orientation,
+    character,
+    spot,
+    hovered,
+  ]);
 
   const shouldUpdateTexture = useMemo(() => {
     return activeTile && (isSelected || isHovered);
@@ -163,16 +179,6 @@ export const TileEmpty = ({ col, row, size }: any) => {
     return position;
   }, []);
 
-  const mat = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: "#ADD8E6",
-        transparent: true,
-        opacity: 0.3,
-      }),
-    [],
-  );
-
   const meshComponent = useMemo(
     () => (
       <mesh
@@ -223,7 +229,11 @@ export const TileEmpty = ({ col, row, size }: any) => {
         position={[position.x, position.y, 0]}
         geometry={squareGeometry}
       >
-        <mesh material={mat} />
+        <meshStandardMaterial
+          color={"#ADD8E6"}
+          transparent={true}
+          opacity={0.3}
+        />
       </mesh>
     </>
   );

@@ -91,7 +91,7 @@ impl WonderCount of WonderCountTrait {
     ) {
         // [Effect] Collect the character's builder
         let mut tile = store.tile(game, character.tile_id);
-        let mut player = store.player(character.player_id);
+        let player = store.player(character.player_id);
         let mut builder = store.builder(game, player.id);
         let power: u32 = character.power.into();
         let points = base_points * power;
@@ -116,8 +116,5 @@ impl WonderCount of WonderCountTrait {
 
         // [Effect] Update the builder
         store.set_builder(builder);
-
-        // [Effect] Update the player
-        store.set_player(player);
     }
 }

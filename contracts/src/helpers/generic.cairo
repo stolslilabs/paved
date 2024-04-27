@@ -149,7 +149,7 @@ impl GenericCount of GenericCountTrait {
 
         if solved {
             // [Compute] Update the scores if a winner is determined
-            let mut player = store.player(winner);
+            let player = store.player(winner);
             let mut builder = store.builder(game, player.id);
             let power = powers.get(winner);
             let (num, den) = compute_multiplier(count);
@@ -183,9 +183,6 @@ impl GenericCount of GenericCountTrait {
 
             // [Effect] Update the builder
             store.set_builder(builder);
-
-            // [Effect] Update the player
-            store.set_player(player);
         };
     }
 }

@@ -26,9 +26,6 @@ fn test_play_discard() {
     let (world, systems, context) = setup::spawn_game();
     let store = StoreTrait::new(world);
 
-    // [Draw]
-    systems.play.draw(world, context.game_id);
-
     // [Discard]
     systems.play.discard(world, context.game_id);
 
@@ -36,5 +33,5 @@ fn test_play_discard() {
     let mut game = store.game(context.game_id);
     let player = store.player(context.player_id);
     let builder = store.builder(game, player.id);
-    assert(builder.tile_id == 0, 'Discard: tile_id');
+    assert(builder.tile_id != 0, 'Discard: tile_id');
 }

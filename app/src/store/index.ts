@@ -24,6 +24,13 @@ export interface Tile {
   row: number;
 }
 
+interface ActionState {
+  enabled: boolean;
+  setEnabled: (enabled: boolean) => void;
+  disabled: boolean;
+  setDisabled: (disabled: boolean) => void;
+}
+
 interface LobbyState {
   playerEntity: Entity | null;
   setPlayerEntity: (playerEntity: Entity) => void;
@@ -95,6 +102,13 @@ interface GameState {
   setValid: (valid: boolean) => void;
   resetValid: () => void;
 }
+
+export const useActionsStore = create<ActionState>((set, get) => ({
+  enabled: true,
+  setEnabled: (enabled) => set({ enabled }),
+  disabled: false,
+  setDisabled: (disabled) => set({ disabled }),
+}));
 
 export const useLobbyStore = create<LobbyState>()((set, get) => ({
   playerEntity: null,

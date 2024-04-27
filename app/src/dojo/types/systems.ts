@@ -32,10 +32,6 @@ export interface InitializePlay extends Signer {
   world: string;
 }
 
-export interface Draw extends Signer {
-  game_id: number;
-}
-
 export interface Discard extends Signer {
   game_id: number;
 }

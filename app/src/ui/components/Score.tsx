@@ -1,13 +1,11 @@
+import { useAccount } from "@starknet-react/core";
 import { useDojo } from "../../dojo/useDojo";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { useBuilder } from "@/hooks/useBuilder";
 
 export const Score = () => {
   const { gameId } = useQueryParams();
-
-  const {
-    account: { account },
-  } = useDojo();
+  const { account } = useAccount();
 
   const { builder } = useBuilder({
     gameId: gameId,

@@ -14,15 +14,13 @@ export function defineContractComponents(world: World) {
         {
           game_id: RecsType.Number,
           player_id: RecsType.BigInt,
-          index: RecsType.Number,
-          score: RecsType.Number,
           tile_id: RecsType.Number,
           characters: RecsType.Number,
         },
         {
           metadata: {
             name: "Builder",
-            types: ["u32", "felt252", "u32", "u32", "u32", "u8"],
+            types: ["u32", "felt252", "u32", "u8"],
           },
         },
       );

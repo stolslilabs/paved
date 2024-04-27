@@ -8,31 +8,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useMemo } from "react";
-import { useDojo } from "../../dojo/useDojo";
-import { useQueryParams } from "@/hooks/useQueryParams";
-import { useBuilder } from "@/hooks/useBuilder";
+import { useAccount } from "@starknet-react/core";
+import { useActions } from "@/hooks/useActions";
 
 export const Rotation = () => {
-  const { gameId } = useQueryParams();
-  const {
-    account: { account },
-  } = useDojo();
+  const { account } = useAccount();
+  const { enabled, builder } = useActions();
 
   const { orientation, spot, setOrientation, rotateSpot } = useGameStore();
-  const { builder } = useBuilder({
-    gameId: gameId,
-    playerId: account?.address,
-  });
 
   const handleClick = () => {
     setOrientation(orientation + 1);
     rotateSpot(spot, true);
   };
-
-  const disabled = useMemo(() => {
-    return !builder?.tileId;
-  }, [builder]);
 
   if (!account || !builder) return <></>;
 
@@ -41,7 +29,7 @@ export const Rotation = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            disabled={disabled}
+            disabled={!enabled}
             variant={"command"}
             size={"command"}
             onClick={handleClick}

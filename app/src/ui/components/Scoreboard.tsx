@@ -1,78 +1,23 @@
-import { useState, useEffect, useMemo } from "react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { useComponentValue } from "@dojoengine/react";
 import { getColor } from "@/dojo/game";
 import { useLogs } from "@/hooks/useLogs";
-import {
-  Entity,
-  defineEnterSystem,
-  defineSystem,
-  Has,
-  HasValue,
-} from "@dojoengine/recs";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFire, faHammer } from "@fortawesome/free-solid-svg-icons";
 import { usePlayer } from "@/hooks/usePlayer";
+import { useAccount } from "@starknet-react/core";
+import { useBuilder } from "@/hooks/useBuilder";
+import { useGame } from "@/hooks/useGame";
 
 export const Scoreboard = () => {
   const { gameId } = useQueryParams();
   const { logs } = useLogs();
-  const [builders, setBuilders] = useState<{ [key: number]: any }>({});
-  const [topBuilders, setTopBuilders] = useState<any>([]);
-  const [rank, setRank] = useState<number>(0);
-  const {
-    account: { account },
-    setup: {
-      world,
-      clientModels: {
-        models: { Builder },
-      },
-    },
-  } = useDojo();
-  const builderId = getEntityIdFromKeys([
-    BigInt(gameId),
-    BigInt(account.address),
-  ]) as Entity;
-  const builder = useComponentValue(Builder, builderId);
+  const { account } = useAccount();
 
-  useEffect(() => {
-    defineEnterSystem(
-      world,
-      [Has(Builder), HasValue(Builder, { game_id: gameId })],
-      function ({ value: [builder] }: any) {
-        setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.player_id]: builder };
-        });
-      },
-    );
-    defineSystem(
-      world,
-      [Has(Builder), HasValue(Builder, { game_id: gameId })],
-      function ({ value: [builder] }: any) {
-        setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.player_id]: builder };
-        });
-      },
-    );
-  }, []);
+  const { game } = useGame({ gameId });
+  const { builder } = useBuilder({ gameId, playerId: account?.address });
 
-  useEffect(() => {
-    if (!builders) return;
-
-    const topSortedBuilders: any[] = Object.values(builders).sort((a, b) => {
-      return b?.score - a?.score;
-    });
-
-    const builderRank = topSortedBuilders.findIndex(
-      (b) => b?.player_id === builder?.player_id,
-    );
-
-    setRank(builderRank + 1);
-    setTopBuilders(topSortedBuilders.slice(0, 3));
-  }, [builders, builder]);
+  if (!game || !builder) return;
 
   return (
     <div className="flex flex-col">
@@ -81,30 +26,13 @@ export const Scoreboard = () => {
       </p>
       <Table>
         <TableBody className="text-xs">
-          {topBuilders.map((builder: typeof Builder, index: number) => {
-            return (
-              <PlayerRow
-                key={index}
-                builder={builder}
-                rank={index + 1}
-                builts={logs.filter((log) => log.category === "Built")}
-                discardeds={logs.filter((log) => log.category === "Discarded")}
-              />
-            );
-          })}
-          {builder && rank > 3 && (
-            <>
-              <TableRow>
-                <TableCell />
-              </TableRow>
-              <PlayerRow
-                builder={builder}
-                rank={rank}
-                builts={logs.filter((log) => log.category === "Built")}
-                discardeds={logs.filter((log) => log.category === "Discarded")}
-              />
-            </>
-          )}
+          <PlayerRow
+            builder={builder}
+            rank={1}
+            score={game?.score || 0}
+            builts={logs.filter((log) => log.category === "Built")}
+            discardeds={logs.filter((log) => log.category === "Discarded")}
+          />
         </TableBody>
       </Table>
     </div>
@@ -113,11 +41,13 @@ export const Scoreboard = () => {
 export const PlayerRow = ({
   builder,
   rank,
+  score,
   builts,
   discardeds,
 }: {
   builder: any;
   rank: number;
+  score: number;
   builts: any;
   discardeds: any;
 }) => {
@@ -143,9 +73,9 @@ export const PlayerRow = ({
         <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
       </TableCell>
       <TableCell className="flex text-right">
-        <p>{builder?.score}</p>
+        <p>{score}</p>
         <FontAwesomeIcon className="text-slate-500 mx-2" icon={faHammer} />
-        <p>{paved}</p>
+        <p>{`${paved}/71`}</p>
         <FontAwesomeIcon className="text-orange-500 mx-2" icon={faFire} />
         <p>{discarded}</p>
       </TableCell>

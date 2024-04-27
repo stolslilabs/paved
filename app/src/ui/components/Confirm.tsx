@@ -9,11 +9,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useActions } from "@/hooks/useActions";
+import { useAccount } from "@starknet-react/core";
 
 export const Confirm = () => {
-  const {
-    account: { account },
-  } = useDojo();
+  const { account } = useAccount();
 
   const { handleClick, disabled, builder } = useActions();
 
