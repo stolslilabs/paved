@@ -4,7 +4,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/ui/elements/dialog";
 import {
   Table,
   TableBody,
@@ -12,14 +12,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/ui/elements/table";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
+} from "@/ui/elements/tooltip";
+import { Button } from "@/ui/elements/button";
 
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -148,7 +148,7 @@ export const PlayerRow = ({ rank, score }: { rank: number; score: number }) => {
   const name = player?.name || "";
   const backgroundColor = useMemo(
     () => getColor(`${account?.address}`),
-    [account],
+    [account]
   );
 
   return (

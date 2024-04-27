@@ -9,13 +9,13 @@ import {
   getBoost,
 } from "@/dojo/game";
 import { useCameraStore, useGameStore } from "../../store";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useTile } from "@/hooks/useTile";
@@ -55,7 +55,7 @@ export const Character = (props: TProps) => {
 
   const className = useMemo(
     () => (enable ? "cursor-pointer" : "cursor-zoom-in opacity-25"),
-    [selected, enable],
+    [selected, enable]
   );
 
   const spots = useMemo(() => {

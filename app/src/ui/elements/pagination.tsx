@@ -5,8 +5,8 @@ import {
   DotsHorizontalIcon,
 } from "@radix-ui/react-icons";
 
-import { cn } from "@/lib/utils";
-import { ButtonProps, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/ui/utils";
+import { ButtonProps, buttonVariants } from "@/ui/elements/button";
 
 const Pagination = ({ className, ...props }: React.ComponentProps<"nav">) => (
   <nav
@@ -56,7 +56,7 @@ const PaginationLink = ({
         variant: isActive ? "outline" : "ghost",
         size,
       }),
-      className,
+      className
     )}
     {...props}
   />

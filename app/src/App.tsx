@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import GameScreen from "./ui/screens/GameScreen";
 import { GameLobby } from "./ui/screens/GameLobby";
 import { useQueryParams } from "./hooks/useQueryParams";
-import { Toaster } from "./components/ui/sonner";
+import { Toaster } from "./ui/elements/sonner";
 import { Landing } from "./ui/screens/Landing";
 
 export const CoreScreen = () => {

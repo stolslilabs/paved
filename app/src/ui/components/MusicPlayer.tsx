@@ -1,7 +1,7 @@
 import { useMusicPlayer } from "@/hooks/useMusic";
 import { Play, Pause, Forward } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
+import { Button } from "@/ui/elements/button";
+import { Slider } from "@/ui/elements/slider";
 
 export const MusicPlayer = () => {
   const { play, next, trackName, isPlaying, stop, volume, setVolume } =

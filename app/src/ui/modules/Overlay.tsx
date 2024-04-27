@@ -1,8 +1,8 @@
-import { Actions } from "../containers/Actions";
-import { Hand } from "../containers/Hand";
+import { Actions } from "./Actions";
+import { Hand } from "./Hand";
 import { LeftHeader } from "../containers/LeftHeader";
 import { RightHeader } from "../containers/RightHeader";
-import { Characters } from "../containers/Characters";
+import { Characters } from "./Characters";
 import { useGameStore } from "@/store";
 
 export const Overlay = () => {

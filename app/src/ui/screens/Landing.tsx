@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import { BorderLayout } from "../components/BorderLayout";
 import { Connection } from "../components/Connection";
 import { Spawn } from "../components/Spawn";

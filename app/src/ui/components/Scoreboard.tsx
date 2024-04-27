@@ -1,4 +1,4 @@
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow } from "@/ui/elements/table";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { getColor } from "@/dojo/game";
 import { useLogs } from "@/hooks/useLogs";
@@ -60,10 +60,10 @@ export const PlayerRow = ({
 
   // Color is used to filter on builder since we don't have the player id in the event
   const paved = builts.filter(
-    (log: any) => log.color === backgroundColor,
+    (log: any) => log.color === backgroundColor
   ).length;
   const discarded = discardeds.filter(
-    (log: any) => log.color === backgroundColor,
+    (log: any) => log.color === backgroundColor
   ).length;
   return (
     <TableRow>

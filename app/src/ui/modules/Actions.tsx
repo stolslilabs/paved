@@ -6,13 +6,13 @@ import { Compass } from "../components/Compass";
 import { ResetCamera } from "../components/ResetCamera";
 import { faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { Home } from "../components/Home";
 
 export const Actions = () => {

@@ -1,13 +1,13 @@
 import { useGameStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRotateRight } from "@fortawesome/free-solid-svg-icons";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
 

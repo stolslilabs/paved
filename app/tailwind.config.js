@@ -22,8 +22,10 @@ module.exports = {
       },
       colors: {
         "paved-yellow": "#FCF7E7",
-        "paved-pink": "#FCF7E7",
+        "paved-pink": "#FFF8F8",
         "paved-brown": "#7D6669",
+        "paved-dark-blue": "#B8D8D8",
+        "paved-light-blue": "#EAEFEF",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

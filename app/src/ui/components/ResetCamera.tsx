@@ -1,13 +1,13 @@
 import { useCameraStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faBinoculars } from "@fortawesome/free-solid-svg-icons";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 
 export const ResetCamera = () => {
   const { setReset } = useCameraStore();

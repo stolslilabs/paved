@@ -1,14 +1,14 @@
 import { useCameraStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCompass } from "@fortawesome/free-solid-svg-icons";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import { useMemo, useState } from "react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { useEffect } from "react";
 
 export const Compass = () => {

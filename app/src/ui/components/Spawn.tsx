@@ -10,9 +10,9 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogClose,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+} from "@/ui/elements/dialog";
+import { Button } from "@/ui/elements/button";
+import { Input } from "@/ui/elements/input";
 import { useMemo, useEffect } from "react";
 import { useAccount } from "@starknet-react/core";
 import { usePlayer } from "@/hooks/usePlayer";

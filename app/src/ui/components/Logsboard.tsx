@@ -1,4 +1,4 @@
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableRow } from "@/ui/elements/table";
 import { useLogs } from "@/hooks/useLogs";
 import {
   faBurn,
@@ -23,7 +23,7 @@ export const Logsboard = () => {
           {logs
             .filter(
               (log) =>
-                log.category.includes("Scored") || log.category === "Discarded",
+                log.category.includes("Scored") || log.category === "Discarded"
             )
             .slice(0, 5)
             .map((log: any, index: number) => (

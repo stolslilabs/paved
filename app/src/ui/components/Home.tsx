@@ -1,10 +1,10 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { useNavigate } from "react-router-dom";
 import { faHome } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";

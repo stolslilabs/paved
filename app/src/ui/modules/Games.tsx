@@ -6,19 +6,19 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "@/ui/elements/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/elements/tabs";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+} from "@/ui/elements/tooltip";
+import { ScrollArea } from "@/ui/elements/scroll-area";
+import { Label } from "@/ui/elements/label";
+import { Switch } from "@/ui/elements/switch";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faRightToBracket } from "@fortawesome/free-solid-svg-icons";
 
@@ -73,12 +73,10 @@ export const Games = () => {
       .sort((a, b) => b.id - a.id);
   }, [games, show, account]);
 
-  const backgroundColor = useMemo(() => "#FCF7E7", []);
-
   return (
-    <div className="bg-yellow-100 h-full grow" style={{ backgroundColor }}>
+    <div className="bg-paved-yellow h-full">
       <div className="flex flex-col gap-8 items-start w-full p-10 h-full">
-        <h1>Game lobby</h1>
+        <h2>Game lobby</h2>
 
         <Tabs
           defaultValue={mode}

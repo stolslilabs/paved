@@ -3,13 +3,13 @@ import { useDojo } from "../../dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFire } from "@fortawesome/free-solid-svg-icons";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { useBuilder } from "@/hooks/useBuilder";
 import { Account } from "starknet";
 import { useAccount } from "@starknet-react/core";

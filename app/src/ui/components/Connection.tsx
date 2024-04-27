@@ -1,10 +1,10 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { useAccount, useConnect, useDisconnect } from "@starknet-react/core";
 import { useStarknetkitConnectModal } from "starknetkit";
 import { Address } from "./Address";

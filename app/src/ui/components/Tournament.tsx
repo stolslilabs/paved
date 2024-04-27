@@ -3,7 +3,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/ui/elements/dialog";
 import {
   Table,
   TableBody,
@@ -11,22 +11,22 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/ui/elements/table";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
   PaginationItem,
   PaginationLink,
-} from "@/components/ui/pagination";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
+} from "@/ui/elements/pagination";
+import { ScrollArea } from "@/ui/elements/scroll-area";
+import { Button } from "@/ui/elements/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCalendarDays,
@@ -168,7 +168,7 @@ export const Tournament = () => {
     return games
       .filter(
         (game) =>
-          game.seasonId === page && !balckilist.includes(game.playerMaster),
+          game.seasonId === page && !balckilist.includes(game.playerMaster)
       )
       .sort((a, b) => b.gameScore - a.gameScore)
       .slice(0, 10);

@@ -1,22 +1,22 @@
 import { useEffect, useState, useMemo } from "react";
 import { useStarkProfile } from "@starknet-react/core";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/ui/elements/badge";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "@/ui/elements/card";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
+} from "@/ui/elements/tooltip";
+import { Avatar, AvatarFallback, AvatarImage } from "@/ui/elements/avatar";
+import { Separator } from "@/ui/elements/separator";
+import { Skeleton } from "@/ui/elements/skeleton";
 import BoringAvatar from "boring-avatars";
 
 import { useBalance } from "@/hooks/useBalance";
@@ -55,7 +55,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
     if (player) {
       setPaved(player.paved);
       setIdentifier(
-        shortenHex(`0x${player.id.toString(16)}`).replace("...", ""),
+        shortenHex(`0x${player.id.toString(16)}`).replace("...", "")
       );
       setPlayerName(player.name);
     } else {
@@ -74,18 +74,10 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
     })();
   }, [data, address]);
 
-  const borderColor = useMemo(() => "#B8D8D8", []);
-  const backgroundColor = useMemo(() => "#EAEFEF", []);
-
   return (
-    <Card className="border-4" style={{ backgroundColor, borderColor }}>
+    <Card className="border-4 bg-paved-light-blue border-paved-dark-blue">
       <div className="flex">
         <CardHeader className="flex flex-col w-3/5">
-          <CardTitle className="text-xl">User info</CardTitle>
-          <Separator
-            className="h-0.5"
-            style={{ backgroundColor: borderColor }}
-          />
           <div className="flex flex-col gap-8">
             <PlayerInfo paved={paved} balance={balance} />
           </div>
@@ -99,7 +91,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
           <PlayerName playerName={playerName} />
         </CardHeader>
       </div>
-      <CardContent className="flex flex-col">
+      {/* <CardContent className="flex flex-col">
         <h5>Achievements</h5>
         <ul className="flex gap-2">
           <TooltipProvider>
@@ -204,7 +196,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
             </Tooltip>
           </TooltipProvider>
         </ul>
-      </CardContent>
+      </CardContent> */}
     </Card>
   );
 };
@@ -213,24 +205,26 @@ const PlayerInfo = ({ paved, balance }: any) => {
   return (
     <CardDescription className="pt-2">
       <div className="flex justify-center">
-        <div className="text-right flex flex-col gap-4 w-3/5">
-          <p className="h-4">Paved:</p>
-          <p className="h-4">Balance:</p>
-        </div>
-        <div className="ml-2 text-left flex flex-col gap-4 w-3/5">
-          {paved !== undefined ? (
-            <p className="h-4">{paved}</p>
-          ) : (
-            <Skeleton className="h-4 w-28" />
-          )}
-          {balance !== undefined ? (
-            <div className="flex justify-left items-center gap-2">
-              <p className="h-4">{`${balance}`.slice(0, 6)}</p>
-              <Lords fill="black" width={4} height={4} />
-            </div>
-          ) : (
-            <Skeleton className="h-4 w-28" />
-          )}
+        <div className="text-left flex flex-col w-full space-y-2">
+          <div className=" flex justify-between">
+            Paved:{" "}
+            {paved !== undefined ? (
+              <p className="">{paved}</p>
+            ) : (
+              <Skeleton className="h-4 w-28" />
+            )}
+          </div>
+          <div className=" flex justify-between">
+            Balance:{" "}
+            {balance !== undefined ? (
+              <div className="flex justify-left items-center gap-2">
+                <p className="h-4">{`${balance}`.slice(0, 6)}</p>
+                <Lords fill="black" width={4} height={4} />
+              </div>
+            ) : (
+              <Skeleton className="h-4 w-28" />
+            )}
+          </div>
         </div>
       </div>
     </CardDescription>

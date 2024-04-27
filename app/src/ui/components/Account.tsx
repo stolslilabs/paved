@@ -1,10 +1,10 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { useDojo } from "@/dojo/useDojo";
 import {
   Select,
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
   SelectGroup,
-} from "@/components/ui/select";
+} from "@/ui/elements/select";
 import { shortenHex } from "@dojoengine/utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash, faRocket } from "@fortawesome/free-solid-svg-icons";

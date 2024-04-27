@@ -1,11 +1,11 @@
 import { useDojo } from "../../dojo/useDojo";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { Account } from "starknet";
 import { usePlayer } from "@/hooks/usePlayer";
 import { Lords } from "./Lords";
