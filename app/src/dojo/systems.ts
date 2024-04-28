@@ -258,7 +258,7 @@ export function systems({
       BigInt(props.tile_id),
       BigInt(props.role),
     ]) as Entity;
-    console.log(tileId);
+
     const characterId = uuid();
     clientModels.models.Character.addOverride(characterId, {
       entity: characterKey,
@@ -284,7 +284,6 @@ export function systems({
         })
       );
     } catch (error) {
-      console.log(tileId);
       clientModels.models.Tile.removeOverride(tileId);
       clientModels.models.Character.removeOverride(characterId);
       clientModels.models.Builder.removeOverride(builderId);
