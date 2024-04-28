@@ -28,7 +28,7 @@ export const Confirm = () => {
             size={"command"}
             onClick={handleClick}
           >
-            <FontAwesomeIcon className="h-4 md:h-12" icon={faSquareCheck} />
+            <FontAwesomeIcon className="h-4 md:h-8" icon={faSquareCheck} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

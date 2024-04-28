@@ -49,7 +49,7 @@ export const Compass = () => {
             >
               <p className="absolute top-1 left-1/2 -translate-x-1/2">N</p>
               <FontAwesomeIcon
-                className="sm:h-4 md:h-12 -rotate-45"
+                className="sm:h-4 md:h-8 -rotate-45"
                 icon={faCompass}
               />
             </div>
