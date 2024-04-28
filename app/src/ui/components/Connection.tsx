@@ -13,7 +13,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignOut } from "@fortawesome/free-solid-svg-icons";
 import { useDojo } from "@/dojo/useDojo";
 
-export const PREFUND_AMOUNT = "0x3635C9ADC5DEA00000";
+export const PREFUND_AMOUNT = "0x2B5E3AF16B1880000";
 
 export function Connection() {
   const { connect, connectors } = useConnect();
