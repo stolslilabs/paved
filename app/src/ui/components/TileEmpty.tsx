@@ -11,6 +11,7 @@ import useSound from "use-sound";
 import Click from "/sounds/click.wav";
 import { useTileByKey } from "@/hooks/useTile";
 import { useActions } from "@/hooks/useActions";
+import { getComponentValue } from "@dojoengine/recs";
 
 const loader = new THREE.TextureLoader();
 
@@ -39,6 +40,15 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
   } = useGameStore();
 
   const { tile: activeTile } = useTileByKey({ tileKey: activeEntity });
+
+  // const tile = useMemo(() => {
+  //   return {
+  //     north: getComponentValue(world, Tile),
+  //     east: getComponentValue(world, Tile),
+  //     south: getComponentValue(world, Tile),
+  //     west: getComponentValue(world, Tile),
+  //   };
+  // }, []);
 
   const { northTile, eastTile, southTile, westTile } = useMemo(() => {
     return {
@@ -74,7 +84,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
         northTile,
         eastTile,
         southTile,
-        westTile,
+        westTile
       )
     );
   }, [
@@ -104,7 +114,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
         row,
         character,
         spot,
-        tiles,
+        tiles
       )
     );
   }, [
@@ -216,7 +226,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
       handlePointerEnter,
       handlePointerLeave,
       handleSimpleClick,
-    ],
+    ]
   );
 
   return (

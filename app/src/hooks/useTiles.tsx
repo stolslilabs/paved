@@ -3,6 +3,8 @@ import { useDojo } from "@/dojo/useDojo";
 import {
   defineEnterSystem,
   defineSystem,
+  getComponentValue,
+  getEntitiesWithValue,
   Has,
   HasValue,
   NotValue,
@@ -45,7 +47,7 @@ export const useTiles = () => {
       { x: 0, y: -1 },
       { x: 0, y: 1 },
     ],
-    [],
+    []
   );
 
   const createTileAndSet = (tile: any) => {
@@ -86,19 +88,20 @@ export const useTiles = () => {
     });
   };
 
-  useEffect(() => {
-    defineEnterSystem(
-      world,
-      [
-        Has(Tile),
-        HasValue(Tile, { game_id: gameId }),
-        NotValue(Tile, { orientation: 0 }),
-      ],
-      ({ value: [raw] }: any) => {
-        const tile = new TileClass(raw);
-        createTileAndSet(tile);
-      },
-    );
+  useMemo(() => {
+    const entities = getEntitiesWithValue(Tile, { game_id: gameId });
+
+    entities.forEach((entity) => {
+      const tile = getComponentValue(Tile, entity);
+
+      if (!tile) {
+        return;
+      }
+      const tiles = new TileClass(tile);
+      createTileAndSet(tiles);
+    });
+
+    return entities;
   }, []);
 
   return { tiles, items };

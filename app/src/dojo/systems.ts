@@ -5,7 +5,6 @@ import * as SystemTypes from "./types/systems";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { uuid } from "@latticexyz/utils";
-import { ClientComponents } from "./createClientComponents";
 import { ClientModels } from "./models";
 
 export type SystemCalls = ReturnType<typeof systems>;
@@ -219,57 +218,58 @@ export function systems({
   };
 
   const build = async ({ account, ...props }: SystemTypes.Build) => {
-    // const buidlerKey = getEntityIdFromKeys([
-    //   BigInt(props.game_id),
-    //   BigInt(props.tile_id),
-    // ]) as Entity;
+    const buidlerKey = getEntityIdFromKeys([
+      BigInt(props.game_id),
+      BigInt(props.tile_id),
+    ]) as Entity;
 
-    // const builderId = uuid();
-    // clientModels.models.Builder.addOverride(builderId, {
-    //   entity: buidlerKey,
-    //   value: {
-    //     game_id: props.game_id,
-    //     player_id: BigInt(account.address),
-    //     tile_id: 0,
-    //   },
-    // });
+    const builderId = uuid();
 
-    // const tileKey = getEntityIdFromKeys([
-    //   BigInt(props.game_id),
-    //   BigInt(props.tile_id),
-    // ]) as Entity;
+    clientModels.models.Builder.addOverride(builderId, {
+      entity: buidlerKey,
+      value: {
+        game_id: props.game_id,
+        player_id: BigInt(account.address),
+        tile_id: 0,
+      },
+    });
 
-    // const tileId = uuid();
-    // clientModels.models.Tile.addOverride(tileId, {
-    //   entity: tileKey,
-    //   value: {
-    //     game_id: props.game_id,
-    //     id: props.tile_id,
-    //     player_id: BigInt(account.address),
-    //     orientation: props.orientation,
-    //     x: props.x,
-    //     y: props.y,
-    //     occupied_spot: props.spot,
-    //   },
-    // });
+    const tileKey = getEntityIdFromKeys([
+      BigInt(props.game_id),
+      BigInt(props.tile_id),
+    ]) as Entity;
 
-    // const characterKey = getEntityIdFromKeys([
-    //   BigInt(props.game_id),
-    //   BigInt(props.tile_id),
-    //   BigInt(props.role),
-    // ]) as Entity;
+    const tileId = uuid();
+    clientModels.models.Tile.addOverride(tileId, {
+      entity: tileKey,
+      value: {
+        game_id: props.game_id,
+        id: props.tile_id,
+        player_id: BigInt(account.address),
+        orientation: props.orientation,
+        x: props.x,
+        y: props.y,
+        occupied_spot: props.spot,
+      },
+    });
 
-    // const characterId = uuid();
-    // clientModels.models.Character.addOverride(characterId, {
-    //   entity: characterKey,
-    //   value: {
-    //     game_id: props.game_id,
-    //     player_id: BigInt(account.address),
-    //     index: props.role,
-    //     tile_id: props.tile_id,
-    //     spot: props.spot,
-    //   },
-    // });
+    const characterKey = getEntityIdFromKeys([
+      BigInt(props.game_id),
+      BigInt(props.tile_id),
+      BigInt(props.role),
+    ]) as Entity;
+    console.log(tileId);
+    const characterId = uuid();
+    clientModels.models.Character.addOverride(characterId, {
+      entity: characterKey,
+      value: {
+        game_id: props.game_id,
+        player_id: BigInt(account.address),
+        index: props.role,
+        tile_id: props.tile_id,
+        spot: props.spot,
+      },
+    });
 
     try {
       const { transaction_hash } = await client.play.build({
@@ -284,14 +284,15 @@ export function systems({
         })
       );
     } catch (error) {
+      console.log(tileId);
+      clientModels.models.Tile.removeOverride(tileId);
+      clientModels.models.Character.removeOverride(characterId);
+      clientModels.models.Builder.removeOverride(builderId);
       console.error("Error building:", error);
-      // clientModels.models.Tile.removeOverride(tileId);
-      // clientModels.models.Character.removeOverride(characterId);
-      // clientModels.models.Builder.removeOverride(builderId);
     } finally {
-      // clientModels.models.Tile.removeOverride(tileId);
-      // clientModels.models.Character.removeOverride(characterId);
-      // clientModels.models.Builder.removeOverride(builderId);
+      clientModels.models.Tile.removeOverride(tileId);
+      clientModels.models.Character.removeOverride(characterId);
+      clientModels.models.Builder.removeOverride(builderId);
     }
   };
 
