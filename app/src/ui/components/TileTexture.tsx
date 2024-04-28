@@ -3,6 +3,8 @@ import { offset, other_offset } from "@/dojo/game";
 import { useMemo, useRef, useState } from "react";
 import { useGameStore } from "@/store";
 
+import { Model } from "@/ui/components/models/cityroad";
+
 export const loader = new THREE.TextureLoader();
 
 export const createSquareGeometry = (size: any) => {
@@ -42,6 +44,11 @@ export const TileTexture = ({ tile, size }: any) => {
   };
 
   return (
+    // <Model
+    //   ref={meshRef}
+    //   position={[position.x, position.y, -1]}
+    //   rotation={[Math.PI / 2, 0, 0]}
+    // />
     <mesh
       visible={texture !== undefined}
       ref={meshRef}
