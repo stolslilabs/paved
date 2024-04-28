@@ -12,10 +12,11 @@ import { usePlayer } from "@/hooks/usePlayer";
 import { ComponentValue } from "@dojoengine/recs";
 
 export const Landing = () => {
-  const { isConnected } = useAccount();
-  const { account } = useAccount();
+  const { isConnected, account } = useAccount();
 
   const { player } = usePlayer({ playerId: account?.address });
+
+  console.log(account?.address, player);
 
   return (
     <BorderLayout>

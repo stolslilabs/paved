@@ -20,8 +20,8 @@ export function StarknetProvider({ children }: { children: React.ReactNode }) {
     return [
       braavos(),
       argent(),
-      new WebWalletConnector({ url: "https://web.argent.xyz" }),
-      new ArgentMobileConnector(),
+      // new WebWalletConnector({ url: "https://web.argent.xyz" }),
+      // new ArgentMobileConnector(),
     ];
   }, []);
 

@@ -7,7 +7,7 @@ import { Entity } from "@dojoengine/recs";
 export const usePlayer = ({ playerId }: { playerId: string | undefined }) => {
   const playerKey = useMemo(
     () => getEntityIdFromKeys([BigInt(playerId || 0)]) as Entity,
-    [playerId],
+    [playerId]
   );
 
   return usePlayerByKey({ playerKey });
@@ -28,6 +28,7 @@ export const usePlayerByKey = ({
   } = useDojo();
 
   const component = useComponentValue(Player, playerKey);
+
   const player = useMemo(() => {
     return component ? new PlayerClass(component) : null;
   }, [component]);
