@@ -75,10 +75,12 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   }, [data, address]);
 
   return (
-    <Card className="border-4 bg-paved-light-blue border-paved-dark-blue">
+    <Card className=" bg-paved-light-blue border ">
       <div className="flex">
         <CardHeader className="flex flex-col w-3/5">
-          <div className="flex flex-col gap-8">
+          <div className="flex gap-2 flex-col">
+            <PlayerName playerName={playerName} />
+            <PlayerId identifier={identifier} />
             <PlayerInfo paved={paved} balance={balance} />
           </div>
         </CardHeader>
@@ -87,8 +89,6 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
             avatar={identifier ? avatar : undefined}
             address={`0x${player?.id.toString(16)}`}
           />
-          <PlayerId identifier={identifier} />
-          <PlayerName playerName={playerName} />
         </CardHeader>
       </div>
       {/* <CardContent className="flex flex-col">
@@ -203,7 +203,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
 
 const PlayerInfo = ({ paved, balance }: any) => {
   return (
-    <CardDescription className="pt-2">
+    <CardDescription className="pt-2 ">
       <div className="flex justify-center">
         <div className="text-left flex flex-col w-full space-y-2">
           <div className=" flex justify-between">
@@ -247,17 +247,17 @@ const PlayerAvatar = ({ avatar, address }: any) => {
 
 const PlayerId = ({ identifier }: any) => {
   return (
-    <Badge className="w-full flex justify-center" variant={"secondary"}>
+    <div className="w-full flex justify-center text-sm">
       <p className="w-1/2">ID #</p>
       {identifier ? <p>{identifier}</p> : <Skeleton className="h-4 w-20" />}
-    </Badge>
+    </div>
   );
 };
 
 const PlayerName = ({ playerName }: any) => {
   return (
-    <Badge className="w-full flex justify-center" variant={"secondary"}>
-      {playerName ? <p>{playerName}</p> : <Skeleton className="h-4 w-24" />}
-    </Badge>
+    <div className="w-full flex justify-center">
+      {playerName ? <h4>{playerName}</h4> : <Skeleton className="h-4 w-24" />}
+    </div>
   );
 };

@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/ui/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border-2 border-black/30 transform hover:scale-105 transition-all duration-200",
+  "inline-flex items-center justify-center whitespace-nowrap  text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border-2 border-black/30 transform hover:scale-105 transition-all duration-200",
   {
     variants: {
       variant: {
@@ -20,16 +20,16 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         command:
-          "bg-slate-300 border-2 border-stone-500 flex justify-center items-center rounded-xl cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
+          " border-2 border-stone-500 flex justify-center items-center  cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
         character:
-          "bg-slate-300 border-2 border-stone-500 flex justify-center items-center rounded-xl cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
+          "border-2 border-stone-500 flex justify-center items-center  cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
         character_selected:
-          "bg-gray-500 border-2 border-stone-500 flex justify-center items-center rounded-xl cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
+          "bg-gray-500 border-2 border-stone-500 flex justify-center items-center cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
       },
       size: {
         default: "h-9 p-6",
-        sm: "h-8 rounded-md text-xs",
-        lg: "h-10 rounded-md p-8",
+        sm: "h-8 text-xs",
+        lg: "h-10  p-8",
         icon: "h-9 w-9",
         character: "sm:h-8 sm:w-8 md:h-24 md:w-24",
         command: "sm:h-8 sm:w-8 md:h-24 md:w-24",
@@ -53,6 +53,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button";
     return (
       <Comp
+        onClick={() => play()}
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}

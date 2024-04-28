@@ -20,10 +20,8 @@ export const Scoreboard = () => {
   if (!game || !builder) return;
 
   return (
-    <div className="flex flex-col">
-      <p className="text-left text-sm text-slate-500 mt-4 mb-2 ml-2">
-        Leaderboard
-      </p>
+    <div className="md:flex flex-col hidden">
+      <p className="text-left text-sm mt-4 mb-2 ml-2">Leaderboard</p>
       <Table>
         <TableBody className="text-xs">
           <PlayerRow
@@ -74,7 +72,7 @@ export const PlayerRow = ({
       </TableCell>
       <TableCell className="flex text-right">
         <p>{score}</p>
-        <FontAwesomeIcon className="text-slate-500 mx-2" icon={faHammer} />
+        <FontAwesomeIcon className="mx-2" icon={faHammer} />
         <p>{`${paved}/71`}</p>
         <FontAwesomeIcon className="text-orange-500 mx-2" icon={faFire} />
         <p>{discarded}</p>

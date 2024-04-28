@@ -40,6 +40,7 @@ export const Links = () => {
           target="_blank"
         >
           <FontAwesomeIcon
+            color="#c9c69c"
             icon={link.icon}
             className="h-8 fill-paved-brown stroke-paved-brown"
           />

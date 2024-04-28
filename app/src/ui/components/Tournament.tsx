@@ -102,7 +102,11 @@ export const TournamentDialog = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant={"secondary"} size={"default"}>
-                <FontAwesomeIcon className="h-6" icon={faTrophy} />
+                <FontAwesomeIcon
+                  color="white"
+                  className="h-6"
+                  icon={faTrophy}
+                />
               </Button>
             </TooltipTrigger>
             <TooltipContent>

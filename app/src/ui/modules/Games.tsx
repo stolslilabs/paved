@@ -75,7 +75,7 @@ export const Games = () => {
 
   return (
     <div className=" h-full">
-      <div className="flex flex-col gap-2 items-start w-full p-4  md:p-10 h-full">
+      <div className="flex flex-col gap-2 items-start w-full p-4  md:px-8 h-full">
         <h2>Lobby</h2>
         <TournamentHeader />
         <Tabs

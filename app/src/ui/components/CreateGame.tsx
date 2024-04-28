@@ -39,12 +39,12 @@ export const CreateGame = () => {
               variant={"secondary"}
               onClick={handleClick}
             >
-              New Game
+              New Game{" "}
+              <span className="flex space-x-2 ml-4">
+                [<p>1</p> <Lords height={4} width={4} fill={""} />]
+              </span>
             </Button>
-            <div className="text-xs flex justify-center items-center gap-1 p-2rounded-r-lg bg-black p-2 text-white">
-              <p>1</p>
-              <Lords height={4} width={4} fill={"white"} />
-            </div>
+            {/* <div className="text-xs flex justify-center items-center gap-1 p-2rounded-r-lg bg-black p-2 text-white"></div> */}
           </div>
         </TooltipTrigger>
         <TooltipContent>

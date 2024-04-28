@@ -17,21 +17,22 @@ export const MusicPlayer = () => {
 
   return (
     <>
-      <div className="flex space-x-3 rounded-md p-2 backdrop-blur-lg z-1 border  text-white">
+      <div className="flex space-x-3 rounded-md p-2  z-1  ">
         <Button
           onClick={() => handlePlay()}
-          variant={"link"}
+          // variant={"link"}
           className="self-center"
           size={"sm"}
         >
           {isPlaying ? (
-            <Pause className="fill-transparent stroke-white" />
+            <Pause className="fill-transparent " />
           ) : (
-            <Play className="fill-transparent stroke-white" />
+            <Play className="fill-transparent " />
           )}
         </Button>
 
         <Slider
+          className="w-12"
           onValueChange={(value) => setVolume(value[0])}
           defaultValue={[volume]}
           max={1}

@@ -17,7 +17,7 @@ export const Logsboard = () => {
   const { logs } = useLogs();
   return (
     <div className="flex flex-col">
-      <p className="text-right text-sm text-slate-500 mt-4 mb-2 mr-2">Logs</p>
+      <p className="text-right text-sm mt-4 mb-2 mr-2">Logs</p>
       <Table>
         <TableBody className="text-right text-xs">
           {logs

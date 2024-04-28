@@ -70,7 +70,7 @@ export const Tile = () => {
 
   return (
     <div
-      className="h-24 w-24 md:h-60 md:w-60 p-1 md:p-5 md:border-2 border-stone-500 flex justify-center items-center rounded-xl shadow-lg shadow-gray-400"
+      className="h-24 w-24 md:h-60 md:w-60  flex justify-center items-center  shadow-lg "
       style={{ backgroundColor }}
     >
       {tile && backgroundImage && !game?.isOver() && enabled && (
@@ -96,16 +96,14 @@ export const ActiveTile = ({
     () => ["NW", "W", "SW", "N", "C", "S", "NE", "E", "SE"],
     []
   );
-  const borderColor = useMemo(() => "#3B3B3B", []);
+
   return (
     <>
       <div
-        className="relative h-full w-full border-8 cursor-pointer"
+        className="relative h-full w-full  cursor-pointer bg-cover border-4"
         style={{
           backgroundImage: `url(${image})`,
-          backgroundSize: "cover",
           transform: `rotate(${rotation}deg)`,
-          borderColor,
         }}
       />
       <>
@@ -130,11 +128,10 @@ export const LoadingTile = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <div
-            className={`h-full w-full border-8`}
+            className={`h-full w-full `}
             style={{
               backgroundImage: `url(${backgroundImage})`,
               backgroundSize: "cover",
-              borderColor,
             }}
           >
             <div className="relative h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
