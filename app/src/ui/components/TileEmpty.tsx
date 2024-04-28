@@ -41,15 +41,6 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
 
   const { tile: activeTile } = useTileByKey({ tileKey: activeEntity });
 
-  // const tile = useMemo(() => {
-  //   return {
-  //     north: getComponentValue(world, Tile),
-  //     east: getComponentValue(world, Tile),
-  //     south: getComponentValue(world, Tile),
-  //     west: getComponentValue(world, Tile),
-  //   };
-  // }, []);
-
   const { northTile, eastTile, southTile, westTile } = useMemo(() => {
     return {
       northTile: tiles[`${gameId}-${col}-${row + 1}`],

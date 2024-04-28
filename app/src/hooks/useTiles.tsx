@@ -88,7 +88,7 @@ export const useTiles = () => {
     });
   };
 
-  useMemo(() => {
+  useEffect(() => {
     const entities = getEntitiesWithValue(Tile, { game_id: gameId });
 
     entities.forEach((entity) => {
@@ -97,11 +97,9 @@ export const useTiles = () => {
       if (!tile) {
         return;
       }
-      const tiles = new TileClass(tile);
-      createTileAndSet(tiles);
-    });
 
-    return entities;
+      createTileAndSet(new TileClass(tile));
+    });
   }, []);
 
   return { tiles, items };
