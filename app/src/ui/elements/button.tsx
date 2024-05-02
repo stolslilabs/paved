@@ -20,19 +20,19 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         command:
-          " border-2 border-stone-500 flex justify-center items-center  cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
+          " border-2 border-primary/20 flex justify-center items-center  cursor-pointer text-secondary-foreground  ",
         character:
-          "border-2 border-stone-500 flex justify-center items-center  cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
+          "border-2 border-primary/20 flex justify-center items-center  cursor-pointer text-secondary-foreground  ",
         character_selected:
-          "bg-gray-500 border-2 border-stone-500 flex justify-center items-center cursor-pointer text-secondary-foreground shadow-lg shadow-gray-400",
+          "bg-primary/20 border-2 border-primary flex justify-center items-center cursor-pointer text-secondary-foreground  ",
       },
       size: {
         default: "h-9 p-6",
         sm: "h-8 text-xs",
         lg: "h-10  p-8",
         icon: "h-9 w-9",
-        character: "sm:h-8 sm:w-8 md:h-24 md:w-24",
-        command: "sm:h-8 sm:w-8 md:h-24 md:w-24",
+        character: "sm:h-8 sm:w-8 md:h-16 md:w-16",
+        command: "sm:h-8 sm:w-8 md:h-16 md:w-16",
       },
     },
     defaultVariants: {
@@ -53,7 +53,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     const Comp = asChild ? Slot : "button";
     return (
       <Comp
-        onClick={() => play()}
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}

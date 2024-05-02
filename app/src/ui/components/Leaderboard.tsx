@@ -13,12 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/ui/elements/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/ui/elements/tooltip";
+
 import { Button } from "@/ui/elements/button";
 
 import { useState, useEffect, useMemo } from "react";
@@ -33,6 +28,7 @@ import { useBuilder } from "@/hooks/useBuilder";
 import { usePlayer } from "@/hooks/usePlayer";
 import { Game as GameClass } from "@/dojo/game/models/game";
 import { useAccount } from "@starknet-react/core";
+import { ToolTipButton } from "./ToolTipButton";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
@@ -64,18 +60,7 @@ export const LeaderboardDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant={"command"} size={"command"}>
-                <FontAwesomeIcon className="sm:h-4 md:h-12" icon={faTrophy} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">Leaderboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <ToolTipButton icon={faTrophy} toolTipText="Leaderboard" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>

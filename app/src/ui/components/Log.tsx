@@ -44,7 +44,7 @@ export const Log = () => {
             <TooltipTrigger asChild>
               <Button variant={"command"} size={"command"}>
                 <FontAwesomeIcon
-                  className="sm:h-4 md:h-12 "
+                  className="sm:h-4 md:h-8 "
                   icon={faInfoCircle}
                 />
               </Button>

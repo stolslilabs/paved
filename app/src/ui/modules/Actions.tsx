@@ -3,53 +3,37 @@ import { LeaderboardDialog } from "../components/Leaderboard";
 import { Surrender } from "../components/Surrender";
 import { Log } from "../components/Log";
 import { Compass } from "../components/Compass";
-import { ResetCamera } from "../components/ResetCamera";
-import { faUpRightFromSquare } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button } from "@/ui/elements/button";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/ui/elements/tooltip";
-import { Home } from "../components/Home";
+  faBinoculars,
+  faHome,
+  faUpRightFromSquare,
+} from "@fortawesome/free-solid-svg-icons";
+import { ToolTipButton } from "../components/ToolTipButton";
+import { useNavigate } from "react-router-dom";
+import { useCameraStore } from "@/store";
 
 export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(true);
-
+  const navigate = useNavigate();
+  const { setReset } = useCameraStore();
   return (
     <div className="absolute left-2 bottom-2 md:left-4 md:bottom-6 z-30">
       <div className="relative">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                className={"z-10"}
-                variant={"command"}
-                size={"command"}
-                onClick={() => setIsExpanded(!isExpanded)}
-              >
-                <FontAwesomeIcon
-                  className="sm:h-4 md:h-12"
-                  style={{ transform: `rotate(${isExpanded ? 180 : 0}deg)` }}
-                  icon={faUpRightFromSquare}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">
-                {isExpanded ? "Collapse" : "Expand"}
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <ToolTipButton
+          onClick={() => setIsExpanded(!isExpanded)}
+          icon={faUpRightFromSquare}
+          toolTipText={isExpanded ? "Collapse" : "Expand"}
+        />
         <div
           className={`absolute left-0 transition-all duration-200 ${
             isExpanded ? "opacity-100 top-[-120%]" : "opacity-0 top-[100%]"
           }`}
         >
-          <Home />
+          <ToolTipButton
+            onClick={() => navigate("", { replace: true })}
+            icon={faHome}
+            toolTipText="Home page"
+          />
         </div>
         <div
           className={`absolute left-0 transition-all duration-200 ${
@@ -70,7 +54,11 @@ export const Actions = () => {
             isExpanded ? "opacity-100 right-[-120%]" : "opacity-0 right-[100%]"
           }`}
         >
-          <ResetCamera />
+          <ToolTipButton
+            onClick={() => setReset(true)}
+            icon={faBinoculars}
+            toolTipText="Reset view"
+          />
         </div>
         <div
           className={`absolute bottom-0 transition-all duration-200 ${
