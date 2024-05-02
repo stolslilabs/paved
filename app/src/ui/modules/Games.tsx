@@ -110,7 +110,7 @@ export const Games = () => {
                 </Label>
               </div>
             </div>
-            <ScrollArea className="h-[570px] w-full pr-4">
+            <ScrollArea className="w-full pr-4">
               <Table>
                 <TableHeader>
                   <TableRow className="text-sm">
