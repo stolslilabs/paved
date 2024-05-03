@@ -6,6 +6,7 @@ use core::debug::PrintTrait;
 
 use paved::types::plan::Plan;
 use paved::decks::base::{DeckImpl as Base, TOTAL_TILE_COUNT as BASE_TILE_COUNT};
+use paved::decks::simple::{DeckImpl as Simple, TOTAL_TILE_COUNT as SIMPLE_TILE_COUNT};
 
 // Constants
 
@@ -15,6 +16,7 @@ const NONE: felt252 = 0;
 enum Deck {
     None,
     Base,
+    Simple,
 }
 
 impl IntoDeckFelt252 of core::Into<Deck, felt252> {
@@ -23,6 +25,7 @@ impl IntoDeckFelt252 of core::Into<Deck, felt252> {
         match self {
             Deck::None => NONE,
             Deck::Base => 'BASE',
+            Deck::Simple => 'SIMPLE',
         }
     }
 }
@@ -33,6 +36,7 @@ impl IntoDeckU8 of core::Into<Deck, u8> {
         match self {
             Deck::None => 0,
             Deck::Base => 1,
+            Deck::Simple => 2,
         }
     }
 }
@@ -44,6 +48,7 @@ impl IntoDeck of core::Into<u8, Deck> {
         match deck {
             0 => Deck::None,
             1 => Deck::Base,
+            2 => Deck::Simple,
             _ => Deck::None,
         }
     }
@@ -64,6 +69,7 @@ impl DeckImpl of DeckTrait {
         match self {
             Deck::None => 0,
             Deck::Base => Base::count(),
+            Deck::Simple => Simple::count(),
         }
     }
 
@@ -71,6 +77,7 @@ impl DeckImpl of DeckTrait {
         match self {
             Deck::None => Plan::None,
             Deck::Base => Base::plan(index),
+            Deck::Simple => Simple::plan(index),
         }
     }
 
@@ -78,6 +85,7 @@ impl DeckImpl of DeckTrait {
         match self {
             Deck::None => array![],
             Deck::Base => Base::indexes(plan),
+            Deck::Simple => Simple::indexes(plan),
         }
     }
 }

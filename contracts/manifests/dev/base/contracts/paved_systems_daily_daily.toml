@@ -1,0 +1,9 @@
+kind = "DojoContract"
+class_hash = "0x6e489a5304fbde1fd2b647da9dc4ec05041cccba63ed6c470da45810879d708"
+original_class_hash = "0x6e489a5304fbde1fd2b647da9dc4ec05041cccba63ed6c470da45810879d708"
+base_class_hash = "0x0"
+abi = "manifests/dev/abis/base/contracts/paved_systems_daily_daily.json"
+reads = []
+writes = []
+computed = []
+name = "paved::systems::daily::daily"
