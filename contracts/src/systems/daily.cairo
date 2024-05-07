@@ -54,6 +54,7 @@ mod daily {
 
     // Component imports
 
+    use paved::components::emitter::EmitterComponent;
     use paved::components::initializable::InitializableComponent;
     use paved::components::ownable::OwnableComponent;
     use paved::components::manageable::ManageableComponent;
@@ -73,6 +74,8 @@ mod daily {
 
     // Components
 
+    component!(path: EmitterComponent, storage: emitter, event: EmitterEvent);
+    impl EmitterImpl = EmitterComponent::EmitterImpl<ContractState>;
     component!(path: InitializableComponent, storage: initializable, event: InitializableEvent);
     #[abi(embed_v0)]
     impl WorldProviderImpl =
@@ -96,6 +99,8 @@ mod daily {
     #[storage]
     struct Storage {
         #[substorage(v0)]
+        emitter: EmitterComponent::Storage,
+        #[substorage(v0)]
         initializable: InitializableComponent::Storage,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
@@ -114,6 +119,8 @@ mod daily {
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
+        #[flat]
+        EmitterEvent: EmitterComponent::Event,
         #[flat]
         InitializableEvent: InitializableComponent::Event,
         #[flat]

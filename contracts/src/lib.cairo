@@ -64,6 +64,7 @@ mod models {
 }
 
 mod components {
+    mod emitter;
     mod initializable;
     mod ownable;
     mod manageable;

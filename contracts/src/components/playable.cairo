@@ -18,6 +18,7 @@ mod PlayableComponent {
     // Internal imports
 
     use paved::constants;
+    use paved::components::emitter::EmitterTrait;
     use paved::store::{Store, StoreImpl};
     use paved::events::{
         Built, Discarded, GameOver, ScoredCity, ScoredRoad, ScoredForest, ScoredWonder
@@ -28,10 +29,8 @@ mod PlayableComponent {
     use paved::models::tile::{Tile, TilePosition, TileImpl, TileAssert, TilePositionAssert};
     use paved::models::tournament::{Tournament, TournamentImpl, TournamentAssert};
     use paved::types::orientation::Orientation;
-    use paved::types::direction::Direction;
     use paved::types::role::Role;
     use paved::types::spot::Spot;
-    use paved::types::plan::Plan;
 
     // Storage
 
@@ -42,19 +41,11 @@ mod PlayableComponent {
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
-        Built: Built,
-        Discarded: Discarded,
-        GameOver: GameOver,
-        ScoredCity: ScoredCity,
-        ScoredRoad: ScoredRoad,
-        ScoredForest: ScoredForest,
-        ScoredWonder: ScoredWonder,
-    }
+    enum Event {}
 
     #[generate_trait]
     impl InternalImpl<
-        TContractState, +HasComponent<TContractState>
+        TContractState, +HasComponent<TContractState>, +EmitterTrait<TContractState>
     > of InternalTrait<TContractState> {
         fn _discard(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore
@@ -103,14 +94,14 @@ mod PlayableComponent {
             store.set_game(game);
 
             // [Event] Emit discard events
-            let _event = Discarded {
+            let event = Discarded {
                 game_id: game.id,
                 tile_id: tile.id,
                 player_id: player.id,
                 player_name: player.name,
                 points: _malus,
             };
-            emit!(world, (Event::Discarded(_event)));
+            self.get_contract().emit_discarded(world, event);
 
             // [Event] Emit game over event
             let time = get_block_timestamp();
@@ -123,7 +114,7 @@ mod PlayableComponent {
                 store.set_tournament(tournament);
 
                 // [Event] Emit game over event for solo games if over
-                let _event = GameOver {
+                let event = GameOver {
                     game_id: game.id,
                     tournament_id: tournament_id,
                     game_score: game.score,
@@ -133,7 +124,7 @@ mod PlayableComponent {
                     player_name: player.name,
                     player_master: player.master,
                 };
-                emit!(world, (Event::GameOver(_event)));
+                self.get_contract().emit_game_over(world, event);
             }
         }
 
@@ -177,7 +168,7 @@ mod PlayableComponent {
                 store.set_tournament(tournament);
 
                 // [Event] Emit game over event for solo games if over
-                let _event = GameOver {
+                let event = GameOver {
                     game_id: game.id,
                     tournament_id: tournament_id,
                     game_score: game.score,
@@ -187,7 +178,7 @@ mod PlayableComponent {
                     player_name: player.name,
                     player_master: player.master,
                 };
-                emit!(world, (Event::GameOver(_event)));
+                self.get_contract().emit_game_over(world, event);
             }
         }
 
@@ -271,7 +262,7 @@ mod PlayableComponent {
             store.set_game(game);
 
             // [Event] Emit events
-            let _event = Built {
+            let event = Built {
                 game_id: game.id,
                 tile_id: tile.id,
                 x: x,
@@ -279,32 +270,32 @@ mod PlayableComponent {
                 player_id: player.id,
                 player_name: player.name,
             };
-            emit!(world, (Event::Built(_event)));
+            self.get_contract().emit_built(world, event);
 
             loop {
                 match cities.pop_front() {
-                    Option::Some(_event) => { emit!(world, (Event::ScoredCity(_event))) },
+                    Option::Some(event) => { self.get_contract().emit_scored_city(world, event) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match roads.pop_front() {
-                    Option::Some(_event) => { emit!(world, (Event::ScoredRoad(_event))) },
+                    Option::Some(event) => { self.get_contract().emit_scored_road(world, event) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match forests.pop_front() {
-                    Option::Some(_event) => { emit!(world, (Event::ScoredForest(_event))) },
+                    Option::Some(event) => { self.get_contract().emit_scored_forest(world, event) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match wonders.pop_front() {
-                    Option::Some(_event) => { emit!(world, (Event::ScoredWonder(_event))) },
+                    Option::Some(event) => { self.get_contract().emit_scored_wonder(world, event) },
                     Option::None => { break; }
                 };
             };
@@ -320,7 +311,7 @@ mod PlayableComponent {
                 store.set_tournament(tournament);
 
                 // [Event] Emit game over event for solo games if over
-                let _event = GameOver {
+                let event = GameOver {
                     game_id: game.id,
                     tournament_id: tournament_id,
                     game_score: game.score,
@@ -330,7 +321,7 @@ mod PlayableComponent {
                     player_name: player.name,
                     player_master: player.master,
                 };
-                emit!(world, (Event::GameOver(_event)));
+                self.get_contract().emit_game_over(world, event);
             }
         }
     }
