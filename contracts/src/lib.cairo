@@ -41,6 +41,7 @@ mod layouts {
 
 mod decks {
     mod base;
+    mod simple;
 }
 
 mod helpers {
@@ -62,11 +63,22 @@ mod models {
     mod tournament;
 }
 
-mod systems {
-    mod host;
-    mod manage;
-    mod play;
+mod components {
+    mod emitter;
+    mod initializable;
+    mod ownable;
+    mod manageable;
+    mod hostable;
+    mod payable;
+    mod playable;
 }
+
+mod systems {
+    mod account;
+    mod daily;
+    mod weekly;
+}
+
 #[cfg(test)]
 mod tests {
     mod setup;

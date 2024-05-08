@@ -22,9 +22,8 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 use paved::types::plan::Plan;
 use paved::types::orientation::Orientation;
-use paved::systems::host::IHostDispatcherTrait;
-use paved::systems::manage::IManageDispatcherTrait;
-use paved::systems::play::IPlayDispatcherTrait;
+use paved::systems::daily::IDailyDispatcherTrait;
+use paved::systems::weekly::IWeeklyDispatcherTrait;
 use paved::tests::setup::{
     setup, setup::{Systems, PLAYER, ANYONE, SOMEONE, NOONE, IERC20DispatcherTrait}
 };
@@ -51,7 +50,7 @@ fn test_play_ranked_tournament_claim() {
     // [Start]
     set_contract_address(ANYONE());
     let anyone_balance = context.erc20.balance_of(ANYONE());
-    let game_id = systems.host.create(world);
+    let game_id = systems.weekly.spawn(world);
 
     // [Draw & Build]
     let game = store.game(game_id);
@@ -62,14 +61,14 @@ fn test_play_ranked_tournament_claim() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
-    systems.play.build(world, game_id, orientation, x, y, Role::Lord, Spot::South);
-    systems.play.surrender(world, game_id);
+    systems.weekly.build(world, game_id, orientation, x, y, Role::Lord, Spot::South);
+    systems.weekly.surrender(world, game_id);
     let top2_score = store.game(game_id).score;
 
     // [Start]
     set_contract_address(SOMEONE());
     let someone_balance = context.erc20.balance_of(SOMEONE());
-    let game_id = systems.host.create(world);
+    let game_id = systems.weekly.spawn(world);
 
     // [Draw & Build]
     let game = store.game(game_id);
@@ -80,13 +79,13 @@ fn test_play_ranked_tournament_claim() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
-    systems.play.build(world, game_id, orientation, x, y, Role::Lord, Spot::South);
-    systems.play.surrender(world, game_id);
+    systems.weekly.build(world, game_id, orientation, x, y, Role::Lord, Spot::South);
+    systems.weekly.surrender(world, game_id);
     let top3_score = store.game(game_id).score;
 
     // [Start]
     set_contract_address(NOONE());
-    let game_id = systems.host.create(world);
+    let game_id = systems.weekly.spawn(world);
 
     // [Draw & Build]
     let game = store.game(game_id);
@@ -97,13 +96,13 @@ fn test_play_ranked_tournament_claim() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
-    systems.play.build(world, game_id, orientation, x, y, Role::Lord, Spot::South);
-    systems.play.surrender(world, game_id);
+    systems.weekly.build(world, game_id, orientation, x, y, Role::Lord, Spot::South);
+    systems.weekly.surrender(world, game_id);
 
     // [Start]
     set_contract_address(PLAYER());
     let player_balance = context.erc20.balance_of(PLAYER());
-    let game_id = systems.host.create(world);
+    let game_id = systems.weekly.spawn(world);
 
     // [Assert] Balance post creation
     let balance = context.erc20.balance_of(PLAYER());
@@ -118,8 +117,8 @@ fn test_play_ranked_tournament_claim() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
-    systems.play.build(world, game_id, orientation, x, y, Role::Paladin, Spot::South);
-    systems.play.surrender(world, game_id);
+    systems.weekly.build(world, game_id, orientation, x, y, Role::Paladin, Spot::South);
+    systems.weekly.surrender(world, game_id);
     let top1_score = store.game(game_id).score;
 
     // [Assert] Tournament
@@ -137,7 +136,7 @@ fn test_play_ranked_tournament_claim() {
     set_block_timestamp(constants::TOURNAMENT_DURATION);
     let tournament_id = TournamentImpl::compute_id(time);
     let rank = 1;
-    systems.host.claim(world, tournament_id, rank);
+    systems.weekly.claim(world, tournament_id, rank);
 
     // [Assert] Player balance
     let final_player = context.erc20.balance_of(PLAYER());
@@ -153,7 +152,7 @@ fn test_play_ranked_tournament_claim() {
     set_block_timestamp(constants::TOURNAMENT_DURATION);
     let tournament_id = TournamentImpl::compute_id(time);
     let rank = 2;
-    systems.host.claim(world, tournament_id, rank);
+    systems.weekly.claim(world, tournament_id, rank);
 
     // [Assert] Anyone balance
     let final_anyone = context.erc20.balance_of(ANYONE());
@@ -169,7 +168,7 @@ fn test_play_ranked_tournament_claim() {
     set_block_timestamp(constants::TOURNAMENT_DURATION);
     let tournament_id = TournamentImpl::compute_id(time);
     let rank = 3;
-    systems.host.claim(world, tournament_id, rank);
+    systems.weekly.claim(world, tournament_id, rank);
 
     // [Assert] Someone balance
     let final_someone = context.erc20.balance_of(SOMEONE());
@@ -195,7 +194,7 @@ fn test_play_ranked_tournament_claim_revert_not_over() {
 
     // [Claim]
     let tournament_id = TournamentImpl::compute_id(time);
-    systems.host.claim(world, tournament_id, 1);
+    systems.weekly.claim(world, tournament_id, 1);
 }
 
 #[test]
@@ -209,5 +208,5 @@ fn test_play_ranked_tournament_claim_revert_invalid_player() {
     // [Claim]
     set_block_timestamp(constants::TOURNAMENT_DURATION);
     let tournament_id = TournamentImpl::compute_id(time);
-    systems.host.claim(world, tournament_id, 1);
+    systems.weekly.claim(world, tournament_id, 1);
 }

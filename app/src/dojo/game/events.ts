@@ -192,8 +192,7 @@ export const parseDiscardedEvent = (event: Event): DiscardedLog => {
   const playerId = event.data[1];
   const playerName = shortString.decodeShortString(event.data[2]);
   const playerColor = getColor(playerId);
-  const orderId = parseInt(event.data[3]);
-  const score = parseInt(event.data[4]);
+  const score = parseInt(event.data[3]);
   const timestamp = new Date(event.createdAt);
 
   return {
@@ -203,7 +202,6 @@ export const parseDiscardedEvent = (event: Event): DiscardedLog => {
     playerId,
     playerName,
     playerColor,
-    orderId,
     score,
     timestamp,
   };

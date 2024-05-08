@@ -24,9 +24,9 @@ mod setup {
     use paved::models::builder::Builder;
     use paved::models::tile::Tile;
     use paved::models::tournament::Tournament;
-    use paved::systems::host::{host, IHostDispatcher, IHostDispatcherTrait};
-    use paved::systems::manage::{manage, IManageDispatcher, IManageDispatcherTrait};
-    use paved::systems::play::{play, IPlayDispatcher, IPlayDispatcherTrait};
+    use paved::systems::account::{account, IAccountDispatcher, IAccountDispatcherTrait};
+    use paved::systems::daily::{daily, IDailyDispatcher, IDailyDispatcherTrait};
+    use paved::systems::weekly::{weekly, IWeeklyDispatcher, IWeeklyDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
 
     // Constants
@@ -55,9 +55,9 @@ mod setup {
 
     #[derive(Drop)]
     struct Systems {
-        host: IHostDispatcher,
-        manage: IManageDispatcher,
-        play: IPlayDispatcher,
+        account: IAccountDispatcher,
+        daily: IDailyDispatcher,
+        weekly: IWeeklyDispatcher,
     }
 
     #[derive(Drop)]
@@ -114,38 +114,42 @@ mod setup {
         let world = spawn_test_world(models);
         let erc20 = deploy_erc20();
 
-        // [Setup] Systems
-        let host_address = deploy_contract(host::TEST_CLASS_HASH, array![].span());
-        let manage_address = deploy_contract(manage::TEST_CLASS_HASH, array![].span());
-        let play_address = deploy_contract(play::TEST_CLASS_HASH, array![].span());
+        // [Setup] SystemsDrop
+        let account_address = deploy_contract(account::TEST_CLASS_HASH, array![].span());
+        let daily_address = deploy_contract(daily::TEST_CLASS_HASH, array![].span());
+        let weekly_address = deploy_contract(weekly::TEST_CLASS_HASH, array![].span());
         let systems = Systems {
-            host: IHostDispatcher { contract_address: host_address },
-            manage: IManageDispatcher { contract_address: manage_address },
-            play: IPlayDispatcher { contract_address: play_address },
+            account: IAccountDispatcher { contract_address: account_address },
+            daily: IDailyDispatcher { contract_address: daily_address },
+            weekly: IWeeklyDispatcher { contract_address: weekly_address },
         };
 
         // [Setup] Context
         let faucet = IERC20FaucetDispatcher { contract_address: erc20.contract_address };
         set_contract_address(ANYONE());
         faucet.mint();
-        erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, ANYONE_NAME, ANYONE());
+        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
+        systems.account.create(world, ANYONE_NAME, ANYONE());
         set_contract_address(SOMEONE());
         faucet.mint();
-        erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, SOMEONE_NAME, SOMEONE());
+        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
+        systems.account.create(world, SOMEONE_NAME, SOMEONE());
         set_contract_address(NOONE());
         faucet.mint();
-        erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, NOONE_NAME, NOONE());
+        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
+        systems.account.create(world, NOONE_NAME, NOONE());
         set_contract_address(PLAYER());
         faucet.mint();
-        erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, PLAYER_NAME, PLAYER());
+        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
+        systems.account.create(world, PLAYER_NAME, PLAYER());
         let duration: u64 = 0;
 
         // [Setup] Game if mode is set
-        let game_id = systems.host.create(world);
+        let game_id = systems.weekly.spawn(world);
 
         let context = Context {
             player_id: PLAYER().into(),

@@ -13,11 +13,15 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
+import { useDojo } from "@/dojo/useDojo";
 
 export const Cancel = () => {
   const { gameId } = useQueryParams();
-  const { account } = useAccount();
+  // const { account } = useAccount();
   const { enabled } = useActions();
+  const {
+    account: { account },
+  } = useDojo();
 
   const {
     resetX,

@@ -227,6 +227,11 @@ impl TileIntoLayout of core::Into<Tile, Layout> {
 #[generate_trait]
 impl TileAssert of AssertTrait {
     #[inline(always)]
+    fn assert_exists(self: Tile) {
+        assert(self.is_non_zero(), errors::TILE_DOES_NOT_EXIST);
+    }
+
+    #[inline(always)]
     fn assert_is_placed(self: Tile) {
         assert(Orientation::None != self.orientation.into(), errors::TILE_NOT_PLACED);
     }
@@ -239,6 +244,18 @@ impl TileAssert of AssertTrait {
     #[inline(always)]
     fn assert_can_place(self: Tile, ref neighbors: Array<Tile>) {
         assert(self.can_place(ref neighbors), errors::TILE_CANNOT_PLACE);
+    }
+}
+
+#[generate_trait]
+impl TilePositionAssert of AssertPositionTrait {
+    #[inline(always)]
+    fn assert_exists(self: TilePosition) {
+        assert(self.is_non_zero(), errors::TILE_DOES_NOT_EXIST);
+    }
+    #[inline(always)]
+    fn assert_not_exists(self: TilePosition) {
+        assert(self.is_zero(), errors::TILE_ALREADY_EXISTS);
     }
 }
 

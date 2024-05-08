@@ -7,9 +7,7 @@ body {
 }
 
 @layer base {
-
-
-  :root  {
+  :root {
     --background: 55 59% 95%;
     --foreground: 55 5% 0%;
     --card: 55 50% 90%;
@@ -31,7 +29,7 @@ body {
     --ring: 55 32.4% 60%;
     --radius: 0rem;
   }
-  .dark  {
+  .dark {
     --background: 55 50% 5%;
     --foreground: 55 5% 90%;
     --card: 55 50% 0%;
@@ -53,8 +51,6 @@ body {
     --ring: 55 32.4% 60%;
     --radius: 0rem;
   }
-  
-  
 }
 
 @layer base {

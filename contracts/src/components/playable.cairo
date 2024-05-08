@@ -1,50 +1,11 @@
-// Starknet imports
+// Component
 
-use starknet::ContractAddress;
-
-// Dojo imports
-
-use dojo::world::IWorldDispatcher;
-
-// Internal imports
-
-use paved::types::orientation::Orientation;
-use paved::types::direction::Direction;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
-
-#[starknet::interface]
-trait IPlay<TContractState> {
-    fn initialize(ref self: TContractState, world: ContractAddress);
-    fn discard(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
-    fn surrender(self: @TContractState, world: IWorldDispatcher, game_id: u32,);
-    fn build(
-        self: @TContractState,
-        world: IWorldDispatcher,
-        game_id: u32,
-        orientation: Orientation,
-        x: u32,
-        y: u32,
-        role: Role,
-        spot: Spot,
-    );
-}
-
-#[starknet::contract]
-mod play {
-    // Core imports
-
-    use paved::store::StoreTrait;
-    use paved::models::game::GameTrait;
-    use paved::models::game::AssertTrait;
-    use core::debug::PrintTrait;
-
+#[starknet::component]
+mod PlayableComponent {
     // Starknet imports
 
     use starknet::ContractAddress;
-    use starknet::info::{
-        get_block_timestamp, get_block_number, get_caller_address, get_contract_address
-    };
+    use starknet::info::{get_contract_address, get_caller_address, get_block_timestamp};
 
     // Dojo imports
 
@@ -56,7 +17,8 @@ mod play {
 
     // Internal imports
 
-    use paved::constants::WORLD;
+    use paved::constants;
+    use paved::components::emitter::EmitterTrait;
     use paved::store::{Store, StoreImpl};
     use paved::events::{
         Built, Discarded, GameOver, ScoredCity, ScoredRoad, ScoredForest, ScoredWonder
@@ -64,78 +26,28 @@ mod play {
     use paved::models::game::{Game, GameImpl, GameAssert};
     use paved::models::player::{Player, PlayerImpl, PlayerAssert};
     use paved::models::builder::{Builder, BuilderImpl, ZeroableBuilderImpl, BuilderAssert};
-    use paved::models::tile::{Tile, TilePosition, TileImpl};
+    use paved::models::tile::{Tile, TilePosition, TileImpl, TileAssert, TilePositionAssert};
     use paved::models::tournament::{Tournament, TournamentImpl, TournamentAssert};
     use paved::types::orientation::Orientation;
-    use paved::types::direction::Direction;
     use paved::types::role::Role;
     use paved::types::spot::Spot;
-    use paved::types::plan::Plan;
-
-    // Local imports
-
-    use super::IPlay;
-
-    // Errors
-
-    mod errors {
-        const CONTRACT_ALREADY_INITIALIZED: felt252 = 'Contract is already initialized';
-        const BUILDER_NOT_FOUND: felt252 = 'Play: Builder not found';
-        const TILE_NOT_FOUND: felt252 = 'Play: Tile not found';
-        const POSITION_ALREADY_TAKEN: felt252 = 'Play: Position already taken';
-        const NOTHING_TO_CLAIM: felt252 = 'Play: Nothing to claim';
-    }
 
     // Storage
 
     #[storage]
-    struct Storage {
-        initialized: bool,
-        world: IWorldDispatcher,
-    }
+    struct Storage {}
 
     // Events
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
-        Built: Built,
-        Discarded: Discarded,
-        GameOver: GameOver,
-        ScoredCity: ScoredCity,
-        ScoredRoad: ScoredRoad,
-        ScoredForest: ScoredForest,
-        ScoredWonder: ScoredWonder,
-    }
+    enum Event {}
 
-    // Implementations
-
-    #[abi(embed_v0)]
-    impl DojoResourceProviderImpl of IDojoResourceProvider<ContractState> {
-        fn dojo_resource(self: @ContractState) -> felt252 {
-            'play'
-        }
-    }
-
-    #[abi(embed_v0)]
-    impl WorldProviderImpl of IWorldProvider<ContractState> {
-        fn world(self: @ContractState) -> IWorldDispatcher {
-            self.world.read()
-        }
-    }
-
-    #[abi(embed_v0)]
-    impl PlayImpl of IPlay<ContractState> {
-        fn initialize(ref self: ContractState, world: ContractAddress) {
-            // [Check] Contract is not initialized
-            assert(!self.initialized.read(), errors::CONTRACT_ALREADY_INITIALIZED);
-            // [Effect] Initialize contract
-            self.initialized.write(true);
-            // [Effect] Set world
-            self.world.write(IWorldDispatcher { contract_address: world });
-        }
-
-        fn discard(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
+    #[generate_trait]
+    impl InternalImpl<
+        TContractState, +HasComponent<TContractState>, +EmitterTrait<TContractState>
+    > of InternalTrait<TContractState> {
+        fn _discard(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -156,11 +68,11 @@ mod play {
 
             // [Check] Builder exists
             let mut builder = store.builder(game, caller.into());
-            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
+            builder.assert_exists();
 
             // [Check] Tile exists
             let tile = store.tile(game, builder.tile_id);
-            assert(tile.is_non_zero(), errors::TILE_NOT_FOUND);
+            tile.assert_exists();
 
             // [Effect] Builder discard a tile
             let _malus = builder.discard(ref game);
@@ -182,14 +94,14 @@ mod play {
             store.set_game(game);
 
             // [Event] Emit discard events
-            let _event = Discarded {
+            let event = Discarded {
                 game_id: game.id,
                 tile_id: tile.id,
                 player_id: player.id,
                 player_name: player.name,
                 points: _malus,
             };
-            emit!(world, (Event::Discarded(_event)));
+            self.get_contract().emit_discarded(world, event);
 
             // [Event] Emit game over event
             let time = get_block_timestamp();
@@ -202,7 +114,7 @@ mod play {
                 store.set_tournament(tournament);
 
                 // [Event] Emit game over event for solo games if over
-                let _event = GameOver {
+                let event = GameOver {
                     game_id: game.id,
                     tournament_id: tournament_id,
                     game_score: game.score,
@@ -212,11 +124,13 @@ mod play {
                     player_name: player.name,
                     player_master: player.master,
                 };
-                emit!(world, (Event::GameOver(_event)));
+                self.get_contract().emit_game_over(world, event);
             }
         }
 
-        fn surrender(self: @ContractState, world: IWorldDispatcher, game_id: u32) {
+        fn _surrender(
+            self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32
+        ) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -237,7 +151,7 @@ mod play {
 
             // [Check] Builder exists
             let mut builder = store.builder(game, caller.into());
-            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
+            builder.assert_exists();
 
             // [Effect] Update game
             game.surrender();
@@ -254,7 +168,7 @@ mod play {
                 store.set_tournament(tournament);
 
                 // [Event] Emit game over event for solo games if over
-                let _event = GameOver {
+                let event = GameOver {
                     game_id: game.id,
                     tournament_id: tournament_id,
                     game_score: game.score,
@@ -264,12 +178,12 @@ mod play {
                     player_name: player.name,
                     player_master: player.master,
                 };
-                emit!(world, (Event::GameOver(_event)));
+                self.get_contract().emit_game_over(world, event);
             }
         }
 
-        fn build(
-            self: @ContractState,
+        fn _build(
+            self: @ComponentState<TContractState>,
             world: IWorldDispatcher,
             game_id: u32,
             orientation: Orientation,
@@ -298,15 +212,15 @@ mod play {
 
             // [Check] Builder exists
             let mut builder = store.builder(game, caller.into());
-            assert(builder.is_non_zero(), errors::BUILDER_NOT_FOUND);
+            builder.assert_exists();
 
             // [Check] Tile exists
             let mut tile = store.tile(game, builder.tile_id);
-            assert(tile.is_non_zero(), errors::TILE_NOT_FOUND);
+            tile.assert_exists();
 
             // [Check] Position not already taken
             let tile_position = store.tile_position(game, x, y);
-            assert(tile_position.is_zero(), errors::POSITION_ALREADY_TAKEN);
+            tile_position.assert_not_exists();
 
             // [Effect] Build tile
             let mut neighbors = store.neighbors(game, x, y);
@@ -348,7 +262,7 @@ mod play {
             store.set_game(game);
 
             // [Event] Emit events
-            let _event = Built {
+            let event = Built {
                 game_id: game.id,
                 tile_id: tile.id,
                 x: x,
@@ -356,32 +270,32 @@ mod play {
                 player_id: player.id,
                 player_name: player.name,
             };
-            emit!(world, (Event::Built(_event)));
+            self.get_contract().emit_built(world, event);
 
             loop {
                 match cities.pop_front() {
-                    Option::Some(_event) => { emit!(world, (Event::ScoredCity(_event))) },
+                    Option::Some(event) => { self.get_contract().emit_scored_city(world, event) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match roads.pop_front() {
-                    Option::Some(_event) => { emit!(world, (Event::ScoredRoad(_event))) },
+                    Option::Some(event) => { self.get_contract().emit_scored_road(world, event) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match forests.pop_front() {
-                    Option::Some(_event) => { emit!(world, (Event::ScoredForest(_event))) },
+                    Option::Some(event) => { self.get_contract().emit_scored_forest(world, event) },
                     Option::None => { break; }
                 };
             };
 
             loop {
                 match wonders.pop_front() {
-                    Option::Some(_event) => { emit!(world, (Event::ScoredWonder(_event))) },
+                    Option::Some(event) => { self.get_contract().emit_scored_wonder(world, event) },
                     Option::None => { break; }
                 };
             };
@@ -397,7 +311,7 @@ mod play {
                 store.set_tournament(tournament);
 
                 // [Event] Emit game over event for solo games if over
-                let _event = GameOver {
+                let event = GameOver {
                     game_id: game.id,
                     tournament_id: tournament_id,
                     game_score: game.score,
@@ -407,7 +321,7 @@ mod play {
                     player_name: player.name,
                     player_master: player.master,
                 };
-                emit!(world, (Event::GameOver(_event)));
+                self.get_contract().emit_game_over(world, event);
             }
         }
     }

@@ -75,7 +75,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
         northTile,
         eastTile,
         southTile,
-        westTile
+        westTile,
       )
     );
   }, [
@@ -105,7 +105,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
         row,
         character,
         spot,
-        tiles
+        tiles,
       )
     );
   }, [
@@ -217,7 +217,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
       handlePointerEnter,
       handlePointerLeave,
       handleSimpleClick,
-    ]
+    ],
   );
 
   return (

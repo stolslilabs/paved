@@ -15,9 +15,8 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 use paved::store::{Store, StoreTrait};
 use paved::models::game::{Game, GameTrait};
 use paved::models::builder::{Builder, BuilderTrait};
-use paved::systems::host::IHostDispatcherTrait;
-use paved::systems::manage::IManageDispatcherTrait;
-use paved::systems::play::IPlayDispatcherTrait;
+use paved::systems::daily::IDailyDispatcherTrait;
+use paved::systems::weekly::IWeeklyDispatcherTrait;
 use paved::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
 #[test]
@@ -27,7 +26,7 @@ fn test_play_discard() {
     let store = StoreTrait::new(world);
 
     // [Discard]
-    systems.play.discard(world, context.game_id);
+    systems.weekly.discard(world, context.game_id);
 
     // [Assert]
     let mut game = store.game(context.game_id);

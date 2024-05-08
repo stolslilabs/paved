@@ -13,8 +13,9 @@ import { useMemo } from "react";
 import { useAccount } from "@starknet-react/core";
 
 export const CreateGame = () => {
-  const { account } = useAccount();
+  // const { account } = useAccount();
   const {
+    account: { account },
     setup: {
       systemCalls: { create_game },
     },

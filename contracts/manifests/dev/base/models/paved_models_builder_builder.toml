@@ -1,6 +1,6 @@
 kind = "DojoModel"
-class_hash = "0x44dbd6831a1181e62ea023021a36cbe4dca142d35a4fcd40784ed9734e3691"
-original_class_hash = "0x44dbd6831a1181e62ea023021a36cbe4dca142d35a4fcd40784ed9734e3691"
+class_hash = "0x650cf776f8bb443f075de6d1fde65a75c8f83b75d94633d1e38c370993b49c1"
+original_class_hash = "0x650cf776f8bb443f075de6d1fde65a75c8f83b75d94633d1e38c370993b49c1"
 abi = "manifests/dev/abis/base/models/paved_models_builder_builder.json"
 name = "paved::models::builder::builder"
 
@@ -13,16 +13,6 @@ key = true
 name = "player_id"
 type = "felt252"
 key = true
-
-[[members]]
-name = "index"
-type = "u32"
-key = false
-
-[[members]]
-name = "score"
-type = "u32"
-key = false
 
 [[members]]
 name = "tile_id"

@@ -172,7 +172,7 @@ export const Tournament = () => {
     return games
       .filter(
         (game) =>
-          game.seasonId === page && !balckilist.includes(game.playerMaster)
+          game.seasonId === page && !balckilist.includes(game.playerMaster),
       )
       .sort((a, b) => b.gameScore - a.gameScore)
       .slice(0, 10);
@@ -260,7 +260,10 @@ export const GameRow = ({
   tournamentId: number;
   rank: number;
 }) => {
-  const { account } = useAccount();
+  // const { account } = useAccount();
+  const {
+    account: { account },
+  } = useDojo();
 
   const { tournament } = useTournament({
     tournamentId: tournamentId + TOURNAMENT_ID_OFFSET,
@@ -388,8 +391,9 @@ export const Claim = ({
   tournament: TournamentClass;
   rank: number;
 }) => {
-  const { account } = useAccount();
+  // const { account } = useAccount();
   const {
+    account: { account },
     setup: {
       systemCalls: { claim },
     },

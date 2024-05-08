@@ -12,7 +12,10 @@ import { useActions } from "@/hooks/useActions";
 import { useAccount } from "@starknet-react/core";
 
 export const Confirm = () => {
-  const { account } = useAccount();
+  // const { account } = useAccount();
+  const {
+    account: { account },
+  } = useDojo();
 
   const { handleClick, disabled, builder } = useActions();
 

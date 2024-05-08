@@ -10,9 +10,14 @@ import {
 } from "@/ui/elements/tooltip";
 import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
+import { useDojo } from "@/dojo/useDojo";
 
 export const Rotation = () => {
-  const { account } = useAccount();
+  // const { account } = useAccount();
+
+  const {
+    account: { account },
+  } = useDojo();
   const { enabled, builder } = useActions();
 
   const { orientation, spot, setOrientation, rotateSpot } = useGameStore();

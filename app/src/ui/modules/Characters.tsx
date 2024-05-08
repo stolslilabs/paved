@@ -8,9 +8,11 @@ import { useAccount } from "@starknet-react/core";
 
 export const Characters = () => {
   const { gameId } = useQueryParams();
-  const { account } = useAccount();
+  // const { account } = useAccount();
 
-  const {} = useDojo();
+  const {
+    account: { account },
+  } = useDojo();
 
   const { builder } = useBuilder({
     gameId: gameId,

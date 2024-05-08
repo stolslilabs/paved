@@ -41,12 +41,12 @@ const BoxRainScene = () => {
         position: new Vector3(
           Math.random() * 20 - 10,
           Math.random() * 20 + 10,
-          Math.random() * 20 - 10
+          Math.random() * 20 - 10,
         ),
         // Generate a random color for each box
         color: `#${Math.floor(Math.random() * 16777215).toString(16)}`,
       })),
-    []
+    [],
   );
 
   return (

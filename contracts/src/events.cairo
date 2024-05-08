@@ -1,6 +1,6 @@
 //! Events definition.
 
-#[derive(Drop, starknet::Event)]
+#[derive(Drop, Serde, starknet::Event)]
 struct Built {
     #[key]
     game_id: u32,
@@ -11,7 +11,7 @@ struct Built {
     player_name: felt252,
 }
 
-#[derive(Drop, starknet::Event)]
+#[derive(Drop, Serde, starknet::Event)]
 struct Discarded {
     #[key]
     game_id: u32,
@@ -21,7 +21,7 @@ struct Discarded {
     points: u32,
 }
 
-#[derive(Drop, starknet::Event)]
+#[derive(Drop, Serde, starknet::Event)]
 struct GameOver {
     #[key]
     game_id: u32,
@@ -35,7 +35,7 @@ struct GameOver {
     player_master: felt252,
 }
 
-#[derive(Drop, starknet::Event)]
+#[derive(Drop, Serde, starknet::Event)]
 struct ScoredForest {
     #[key]
     game_id: u32,
@@ -48,7 +48,7 @@ struct ScoredForest {
     player_master: felt252,
 }
 
-#[derive(Drop, starknet::Event)]
+#[derive(Drop, Serde, starknet::Event)]
 struct ScoredCity {
     #[key]
     game_id: u32,
@@ -59,7 +59,7 @@ struct ScoredCity {
     player_master: felt252,
 }
 
-#[derive(Drop, starknet::Event)]
+#[derive(Drop, Serde, starknet::Event)]
 struct ScoredRoad {
     #[key]
     game_id: u32,
@@ -70,7 +70,7 @@ struct ScoredRoad {
     player_master: felt252,
 }
 
-#[derive(Drop, starknet::Event)]
+#[derive(Drop, Serde, starknet::Event)]
 struct ScoredWonder {
     #[key]
     game_id: u32,

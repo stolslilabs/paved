@@ -1,5 +1,4 @@
 [package]
-cairo-version = "2.4.0"
 name = "paved"
 version = "0.0.0"
 edition = "2023_10"
@@ -8,11 +7,11 @@ edition = "2023_10"
 sierra-replace-ids = true
 
 [scripts]
-migrate = "sozo build && sozo migrate plan && sozo migrate apply && ./scripts/katana.sh"
+deploy = "sozo build && sozo migrate plan && sozo migrate apply && ./scripts/katana.sh"
 
 [dependencies]
-dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.6.0" }
-origami = { git = "https://github.com/dojoengine/origami", tag = "v0.6.0" }
+dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.7.0-alpha.1" }
+origami = { git = "https://github.com/Bal7hazar/origami", rev = "c63fcee" }
 
 [[target.dojo]]
 

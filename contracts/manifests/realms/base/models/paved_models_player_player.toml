@@ -1,0 +1,30 @@
+kind = "DojoModel"
+class_hash = "0x28f8338bb79847902c80c9cda94191276986868452e8cb47c5ca7af0ecb99b"
+original_class_hash = "0x28f8338bb79847902c80c9cda94191276986868452e8cb47c5ca7af0ecb99b"
+abi = "manifests/dev/abis/base/models/paved_models_player_player.json"
+name = "paved::models::player::player"
+
+[[members]]
+name = "id"
+type = "felt252"
+key = true
+
+[[members]]
+name = "name"
+type = "felt252"
+key = false
+
+[[members]]
+name = "score"
+type = "u32"
+key = false
+
+[[members]]
+name = "paved"
+type = "u32"
+key = false
+
+[[members]]
+name = "master"
+type = "felt252"
+key = false

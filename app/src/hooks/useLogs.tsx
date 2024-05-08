@@ -52,7 +52,6 @@ export type DiscardedLog = {
   playerId: string;
   playerName: string;
   playerColor: string;
-  orderId: number;
   score: number;
   timestamp: Date;
 };
