@@ -61,7 +61,7 @@ if (!self.define) {
       require,
     };
     registry[uri] = Promise.all(
-      depsNames.map((depName) => specialDeps[depName] || require(depName))
+      depsNames.map((depName) => specialDeps[depName] || require(depName)),
     ).then((deps) => {
       factory(...deps);
       return exports;
@@ -87,15 +87,15 @@ define(["./workbox-5199072c"], function (workbox) {
       },
       {
         url: "index.html",
-        revision: "0.clc2q1u97o8",
+        revision: "0.ej2h3jbenio",
       },
     ],
-    {}
+    {},
   );
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(
     new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
       allowlist: [/^\/$/],
-    })
+    }),
   );
 });

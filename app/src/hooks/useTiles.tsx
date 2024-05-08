@@ -10,6 +10,7 @@ import {
   NotValue,
 } from "@dojoengine/recs";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import { useEntityQuery } from "@dojoengine/react";
 
 type Position = {
   col: number;
@@ -88,19 +89,23 @@ export const useTiles = () => {
     });
   };
 
-  useEffect(() => {
-    const entities = getEntitiesWithValue(Tile, { game_id: gameId });
+  const tileKeys = useEntityQuery([
+    Has(Tile),
+    HasValue(Tile, { game_id: gameId }),
+    NotValue(Tile, { orientation: 0 }),
+  ]);
 
-    entities.forEach((entity) => {
+  useEffect(() => {
+    tileKeys.forEach((entity) => {
       const tile = getComponentValue(Tile, entity);
 
-      if (!tile) {
+      if (!tile || !tile.orientation) {
         return;
       }
 
       createTileAndSet(new TileClass(tile));
     });
-  }, []);
+  }, [tileKeys]);
 
   return { tiles, items };
 };

@@ -68,7 +68,7 @@ function Keyboard() {
           setOrientation(orientation + 1);
           rotateSpot(spot, true);
         }
-      }
+      },
     );
   }, [orientation, spot]);
 
@@ -80,7 +80,7 @@ function Keyboard() {
           setOrientation(orientation - 1);
           rotateSpot(spot, false);
         }
-      }
+      },
     );
   }, [orientation, spot]);
 
