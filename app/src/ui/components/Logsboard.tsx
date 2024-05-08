@@ -23,7 +23,7 @@ export const Logsboard = () => {
           {logs
             .filter(
               (log) =>
-                log.category.includes("Scored") || log.category === "Discarded"
+                log.category.includes("Scored") || log.category === "Discarded",
             )
             .slice(0, 5)
             .map((log: any, index: number) => (

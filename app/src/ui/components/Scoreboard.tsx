@@ -8,11 +8,15 @@ import { usePlayer } from "@/hooks/usePlayer";
 import { useAccount } from "@starknet-react/core";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useGame } from "@/hooks/useGame";
+import { useDojo } from "@/dojo/useDojo";
 
 export const Scoreboard = () => {
   const { gameId } = useQueryParams();
   const { logs } = useLogs();
-  const { account } = useAccount();
+  // const { account } = useAccount();
+  const {
+    account: { account },
+  } = useDojo();
 
   const { game } = useGame({ gameId });
   const { builder } = useBuilder({ gameId, playerId: account?.address });
@@ -58,10 +62,10 @@ export const PlayerRow = ({
 
   // Color is used to filter on builder since we don't have the player id in the event
   const paved = builts.filter(
-    (log: any) => log.color === backgroundColor
+    (log: any) => log.color === backgroundColor,
   ).length;
   const discarded = discardeds.filter(
-    (log: any) => log.color === backgroundColor
+    (log: any) => log.color === backgroundColor,
   ).length;
   return (
     <TableRow>

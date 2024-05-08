@@ -34,8 +34,9 @@ interface TProps {}
 
 export const Surrender = (props: TProps) => {
   const { gameId } = useQueryParams();
-  const { account } = useAccount();
+  // const { account } = useAccount();
   const {
+    account: { account },
     setup: {
       systemCalls: { surrender },
     },

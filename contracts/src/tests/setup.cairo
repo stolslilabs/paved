@@ -24,6 +24,7 @@ mod setup {
     use paved::models::builder::Builder;
     use paved::models::tile::Tile;
     use paved::models::tournament::Tournament;
+    use paved::systems::account::{account, IAccountDispatcher, IAccountDispatcherTrait};
     use paved::systems::daily::{daily, IDailyDispatcher, IDailyDispatcherTrait};
     use paved::systems::weekly::{weekly, IWeeklyDispatcher, IWeeklyDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
@@ -54,6 +55,7 @@ mod setup {
 
     #[derive(Drop)]
     struct Systems {
+        account: IAccountDispatcher,
         daily: IDailyDispatcher,
         weekly: IWeeklyDispatcher,
     }
@@ -113,9 +115,11 @@ mod setup {
         let erc20 = deploy_erc20();
 
         // [Setup] SystemsDrop
+        let account_address = deploy_contract(account::TEST_CLASS_HASH, array![].span());
         let daily_address = deploy_contract(daily::TEST_CLASS_HASH, array![].span());
         let weekly_address = deploy_contract(weekly::TEST_CLASS_HASH, array![].span());
         let systems = Systems {
+            account: IAccountDispatcher { contract_address: account_address },
             daily: IDailyDispatcher { contract_address: daily_address },
             weekly: IWeeklyDispatcher { contract_address: weekly_address },
         };
@@ -126,22 +130,22 @@ mod setup {
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
         erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
-        systems.weekly.create(world, ANYONE_NAME, ANYONE());
+        systems.account.create(world, ANYONE_NAME, ANYONE());
         set_contract_address(SOMEONE());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
         erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
-        systems.weekly.create(world, SOMEONE_NAME, SOMEONE());
+        systems.account.create(world, SOMEONE_NAME, SOMEONE());
         set_contract_address(NOONE());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
         erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
-        systems.weekly.create(world, NOONE_NAME, NOONE());
+        systems.account.create(world, NOONE_NAME, NOONE());
         set_contract_address(PLAYER());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
         erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
-        systems.weekly.create(world, PLAYER_NAME, PLAYER());
+        systems.account.create(world, PLAYER_NAME, PLAYER());
         let duration: u64 = 0;
 
         // [Setup] Game if mode is set

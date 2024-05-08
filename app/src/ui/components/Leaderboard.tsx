@@ -29,10 +29,14 @@ import { usePlayer } from "@/hooks/usePlayer";
 import { Game as GameClass } from "@/dojo/game/models/game";
 import { useAccount } from "@starknet-react/core";
 import { ToolTipButton } from "./ToolTipButton";
+import { useDojo } from "@/dojo/useDojo";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
-  const { account } = useAccount();
+  // const { account } = useAccount();
+  const {
+    account: { account },
+  } = useDojo();
 
   const { game } = useGame({ gameId });
   const { builder } = useBuilder({
@@ -128,12 +132,15 @@ export const Leaderboard = () => {
 };
 
 export const PlayerRow = ({ rank, score }: { rank: number; score: number }) => {
-  const { account } = useAccount();
+  // const { account } = useAccount();
+  const {
+    account: { account },
+  } = useDojo();
   const { player } = usePlayer({ playerId: account?.address });
   const name = player?.name || "";
   const backgroundColor = useMemo(
     () => getColor(`${account?.address}`),
-    [account]
+    [account],
   );
 
   return (

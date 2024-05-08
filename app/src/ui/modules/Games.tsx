@@ -36,8 +36,9 @@ export const Games = () => {
   const { mode, setMode } = useLobbyStore();
   const [games, setGames] = useState<{ [key: number]: any }>({});
   const [show, setShow] = useState<boolean>(false);
-  const { account } = useAccount();
+  // const { account } = useAccount();
   const {
+    account: { account },
     setup: {
       world,
       clientModels: {
@@ -137,8 +138,10 @@ export const GameSingleRow = ({ game }: { game: any }) => {
   const [tilesPlayed, setTilesPlayed] = useState<number>();
   const [score, setScore] = useState<number>();
   const [over, setOver] = useState<boolean>(false);
-  const { account } = useAccount();
-  const {} = useDojo();
+  // const { account } = useAccount();
+  const {
+    account: { account },
+  } = useDojo();
 
   const { builder } = useBuilder({
     gameId: game?.id,

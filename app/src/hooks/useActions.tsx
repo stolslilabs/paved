@@ -31,14 +31,16 @@ export const useActions = () => {
     resetSpot,
     resetSelectedTile,
     resetHoveredTile,
+    resetOrientation,
     valid,
   } = useGameStore();
-  const { account } = useAccount();
+  // const { account } = useAccount();
   const { game } = useGame({ gameId });
   const { disabled, setDisabled, enabled, setEnabled } = useActionsStore();
   const [isWaiting, setIsWaiting] = useState(false);
 
   const {
+    account: { account },
     setup: {
       systemCalls: { build },
     },
@@ -73,6 +75,7 @@ export const useActions = () => {
         resetSpot();
         resetSelectedTile();
         resetHoveredTile();
+        resetOrientation();
       } catch (e) {
         console.log(e);
       }

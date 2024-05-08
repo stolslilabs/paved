@@ -17,9 +17,10 @@ import { useActions } from "@/hooks/useActions";
 
 export const Discard = () => {
   const { gameId } = useQueryParams();
-  const { account } = useAccount();
+  // const { account } = useAccount();
   const { enabled } = useActions();
   const {
+    account: { account },
     setup: {
       systemCalls: { discard },
     },

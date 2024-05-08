@@ -23,7 +23,7 @@
   },
   {
     "type": "impl",
-    "name": "Dailympl",
+    "name": "DailyImpl",
     "interface_name": "paved::systems::daily::IDaily"
   },
   {
@@ -153,26 +153,6 @@
         ],
         "outputs": [],
         "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "create",
-        "inputs": [
-          {
-            "name": "world",
-            "type": "dojo::world::IWorldDispatcher"
-          },
-          {
-            "name": "name",
-            "type": "core::felt252"
-          },
-          {
-            "name": "master",
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "view"
       },
       {
         "type": "function",
@@ -358,81 +338,6 @@
         "state_mutability": "external"
       }
     ]
-  },
-  {
-    "type": "event",
-    "name": "paved::components::initializable::InitializableComponent::Event",
-    "kind": "enum",
-    "variants": []
-  },
-  {
-    "type": "event",
-    "name": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "previous_owner",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "key"
-      },
-      {
-        "name": "new_owner",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "key"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "previous_owner",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "key"
-      },
-      {
-        "name": "new_owner",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "key"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::components::ownable::OwnableComponent::Event",
-    "kind": "enum",
-    "variants": [
-      {
-        "name": "OwnershipTransferred",
-        "type": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
-        "kind": "nested"
-      },
-      {
-        "name": "OwnershipTransferStarted",
-        "type": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
-        "kind": "nested"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::components::manageable::ManageableComponent::Event",
-    "kind": "enum",
-    "variants": []
-  },
-  {
-    "type": "event",
-    "name": "paved::components::hostable::HostableComponent::Event",
-    "kind": "enum",
-    "variants": []
-  },
-  {
-    "type": "event",
-    "name": "paved::components::payable::PayableComponent::Event",
-    "kind": "enum",
-    "variants": []
   },
   {
     "type": "event",
@@ -705,7 +610,7 @@
   },
   {
     "type": "event",
-    "name": "paved::components::playable::PlayableComponent::Event",
+    "name": "paved::components::emitter::EmitterComponent::Event",
     "kind": "enum",
     "variants": [
       {
@@ -747,9 +652,89 @@
   },
   {
     "type": "event",
+    "name": "paved::components::initializable::InitializableComponent::Event",
+    "kind": "enum",
+    "variants": []
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "previous_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "new_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "previous_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "new_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "OwnershipTransferred",
+        "type": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+        "kind": "nested"
+      },
+      {
+        "name": "OwnershipTransferStarted",
+        "type": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::hostable::HostableComponent::Event",
+    "kind": "enum",
+    "variants": []
+  },
+  {
+    "type": "event",
+    "name": "paved::components::payable::PayableComponent::Event",
+    "kind": "enum",
+    "variants": []
+  },
+  {
+    "type": "event",
+    "name": "paved::components::playable::PlayableComponent::Event",
+    "kind": "enum",
+    "variants": []
+  },
+  {
+    "type": "event",
     "name": "paved::systems::daily::daily::Event",
     "kind": "enum",
     "variants": [
+      {
+        "name": "EmitterEvent",
+        "type": "paved::components::emitter::EmitterComponent::Event",
+        "kind": "flat"
+      },
       {
         "name": "InitializableEvent",
         "type": "paved::components::initializable::InitializableComponent::Event",
@@ -758,11 +743,6 @@
       {
         "name": "OwnableEvent",
         "type": "paved::components::ownable::OwnableComponent::Event",
-        "kind": "flat"
-      },
-      {
-        "name": "ManageableEvent",
-        "type": "paved::components::manageable::ManageableComponent::Event",
         "kind": "flat"
       },
       {

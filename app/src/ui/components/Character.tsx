@@ -20,6 +20,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useTile } from "@/hooks/useTile";
 import { useAccount } from "@starknet-react/core";
+import { useDojo } from "@/dojo/useDojo";
 
 interface TProps {
   index: number;
@@ -32,7 +33,10 @@ export const Character = (props: TProps) => {
   const [selected, setSelected] = useState(false);
   const { character, setCharacter, resetCharacter, resetSpot } = useGameStore();
   const { setPosition } = useCameraStore();
-  const { account } = useAccount();
+  // const { account } = useAccount();
+  const {
+    account: { account },
+  } = useDojo();
 
   const { character: characterModel } = useCharacter({
     gameId,
@@ -55,7 +59,7 @@ export const Character = (props: TProps) => {
 
   const className = useMemo(
     () => (enable ? "cursor-pointer" : "cursor-zoom-in opacity-25"),
-    [selected, enable]
+    [selected, enable],
   );
 
   const spots = useMemo(() => {

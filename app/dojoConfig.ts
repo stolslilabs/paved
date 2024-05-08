@@ -1,7 +1,7 @@
 import local from "../contracts/manifests/dev/manifest.json";
 import dev from "../contracts/manifests/pre/manifest.json";
+import realms from "../contracts/manifests/realms/manifest.json";
 import sepolia from "../contracts/manifests/sepolia/manifest.json";
-import realms from "../contracts/target/realms/manifest.json";
 
 const {
   VITE_PUBLIC_NODE_URL,

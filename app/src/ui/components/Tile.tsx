@@ -17,6 +17,7 @@ import { useTile } from "@/hooks/useTile";
 import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
 import { Loader } from "@/ui/components/Loader";
+import { useDojo } from "@/dojo/useDojo";
 
 export const Tile = () => {
   const [rotation, setRotation] = useState(0);
@@ -24,7 +25,10 @@ export const Tile = () => {
   const { enabled } = useActions();
   const { gameId } = useQueryParams();
   const { orientation, setActiveEntity, resetActiveEntity } = useGameStore();
-  const { account } = useAccount();
+  // const { account } = useAccount();
+  const {
+    account: { account },
+  } = useDojo();
 
   const { game } = useGame({ gameId });
   const { builder } = useBuilder({ gameId, playerId: account?.address });
@@ -94,7 +98,7 @@ export const ActiveTile = ({
   const { character } = useGameStore();
   const spots = useMemo(
     () => ["NW", "W", "SW", "N", "C", "S", "NE", "E", "SE"],
-    []
+    [],
   );
 
   return (

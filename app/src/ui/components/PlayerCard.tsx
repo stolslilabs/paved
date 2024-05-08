@@ -1,10 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useStarkProfile } from "@starknet-react/core";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-} from "@/ui/elements/card";
+import { Card, CardDescription, CardHeader } from "@/ui/elements/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/ui/elements/avatar";
 import { Skeleton } from "@/ui/elements/skeleton";
 import BoringAvatar from "boring-avatars";
@@ -31,7 +27,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   useEffect(() => {
     if (player) {
       setIdentifier(
-        shortenHex(`0x${player.id.toString(16)}`).replace("...", "")
+        shortenHex(`0x${player.id.toString(16)}`).replace("...", ""),
       );
       setPlayerName(player.name);
     } else {

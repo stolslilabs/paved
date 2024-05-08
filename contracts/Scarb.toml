@@ -1,5 +1,4 @@
 [package]
-cairo-version = "2.4.0"
 name = "paved"
 version = "0.0.0"
 edition = "2023_10"
@@ -11,8 +10,8 @@ sierra-replace-ids = true
 deploy = "sozo build && sozo migrate plan && sozo migrate apply && ./scripts/katana.sh"
 
 [dependencies]
-dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.6.0" }
-origami = { git = "https://github.com/dojoengine/origami", tag = "v0.6.0" }
+dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.7.0-alpha.1" }
+origami = { git = "https://github.com/Bal7hazar/origami", rev = "c63fcee" }
 
 [[target.dojo]]
 
@@ -33,9 +32,9 @@ github = "https://github.com/stolslilabs/paved"
 
 [tool.dojo.env]
 # Katana
-# rpc_url = "http://localhost:5050/"
-# account_address = "0x6162896d1d7ab204c7ccac6dd5f8e9e7c25ecd5ae4fcb4ad32e57786bb46e03"
-# private_key = "0x1800000000300000180000000000030000000000003006001800006600"
+rpc_url = "http://localhost:5050/"
+account_address = "0x6162896d1d7ab204c7ccac6dd5f8e9e7c25ecd5ae4fcb4ad32e57786bb46e03"
+private_key = "0x1800000000300000180000000000030000000000003006001800006600"
 
 # Dev
 # rpc_url = "https://api.cartridge.gg/x/paved-dev/katana/"
@@ -48,6 +47,6 @@ github = "https://github.com/stolslilabs/paved"
 # private_key = "0x62bb13afe7963fd97e568db915e331956ddc4ba13dda9b787a6648a5b840626"
 
 # Sepolia
-rpc_url = "https://rpc.nethermind.io/sepolia-juno/?apikey=IklrGtteSW0anXtAfnkQGBJuYpSmbLi0YJ5afM2aJsW8JsH1"
-account_address = "0x059b1a0c489b635d7c7f43594d187362ddd2dcea6c82db4eef2579fd185b3753"
-private_key = "0xaf7f0b88b7ee7faf8065517cd565d9f9dcd013dd2382a0f1e6b3559f0fe57a"
+# rpc_url = "https://rpc.nethermind.io/sepolia-juno/?apikey=IklrGtteSW0anXtAfnkQGBJuYpSmbLi0YJ5afM2aJsW8JsH1"
+# account_address = "0x059b1a0c489b635d7c7f43594d187362ddd2dcea6c82db4eef2579fd185b3753"
+# private_key = "0xaf7f0b88b7ee7faf8065517cd565d9f9dcd013dd2382a0f1e6b3559f0fe57a"

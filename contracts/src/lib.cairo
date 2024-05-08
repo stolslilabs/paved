@@ -74,6 +74,7 @@ mod components {
 }
 
 mod systems {
+    mod account;
     mod daily;
     mod weekly;
 }

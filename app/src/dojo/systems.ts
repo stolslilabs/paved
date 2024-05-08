@@ -33,7 +33,7 @@ export function systems({
     ...props
   }: SystemTypes.InitializeHost) => {
     try {
-      const { transaction_hash } = await client.host.initialize({
+      const { transaction_hash } = await client.weekly.initialize({
         account,
         ...props,
       });
@@ -42,7 +42,7 @@ export function systems({
         "Host has been initialized.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error initializing host:", error);
@@ -51,7 +51,7 @@ export function systems({
 
   const create_game = async ({ account, ...props }: SystemTypes.CreateGame) => {
     try {
-      const { transaction_hash } = await client.host.create({
+      const { transaction_hash } = await client.weekly.spawn({
         account,
         ...props,
       });
@@ -60,7 +60,7 @@ export function systems({
         "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error creating game:", error);
@@ -69,7 +69,7 @@ export function systems({
 
   const claim = async ({ account, ...props }: SystemTypes.Claim) => {
     try {
-      const { transaction_hash } = await client.host.claim({
+      const { transaction_hash } = await client.weekly.claim({
         account,
         ...props,
       });
@@ -78,7 +78,7 @@ export function systems({
         "Tournament has been claimed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error claiming tournament:", error);
@@ -87,7 +87,7 @@ export function systems({
 
   const sponsor = async ({ account, ...props }: SystemTypes.Sponsor) => {
     try {
-      const { transaction_hash } = await client.host.sponsor({
+      const { transaction_hash } = await client.weekly.sponsor({
         account,
         ...props,
       });
@@ -96,7 +96,7 @@ export function systems({
         "Tournament has been sponsored.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error sponsoring tournament:", error);
@@ -108,7 +108,7 @@ export function systems({
     ...props
   }: SystemTypes.InitializeManage) => {
     try {
-      const { transaction_hash } = await client.manage.initialize({
+      const { transaction_hash } = await client.weekly.initialize({
         account,
         ...props,
       });
@@ -117,7 +117,7 @@ export function systems({
         "Manage has been initialized.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error initializing manage:", error);
@@ -141,7 +141,7 @@ export function systems({
     });
 
     try {
-      const { transaction_hash } = await client.manage.create({
+      const { transaction_hash } = await client.account.create({
         account,
         ...props,
       });
@@ -150,7 +150,7 @@ export function systems({
         "Player has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error creating player:", error);
@@ -165,7 +165,7 @@ export function systems({
     ...props
   }: SystemTypes.InitializePlay) => {
     try {
-      const { transaction_hash } = await client.play.initialize({
+      const { transaction_hash } = await client.weekly.initialize({
         account,
         ...props,
       });
@@ -174,7 +174,7 @@ export function systems({
         "Play has been initialized.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error initializing play:", error);
@@ -183,7 +183,7 @@ export function systems({
 
   const discard = async ({ account, ...props }: SystemTypes.Discard) => {
     try {
-      const { transaction_hash } = await client.play.discard({
+      const { transaction_hash } = await client.weekly.discard({
         account,
         ...props,
       });
@@ -192,7 +192,7 @@ export function systems({
         "Tile has been discarded.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error discarding:", error);
@@ -201,7 +201,7 @@ export function systems({
 
   const surrender = async ({ account, ...props }: SystemTypes.Surrender) => {
     try {
-      const { transaction_hash } = await client.play.surrender({
+      const { transaction_hash } = await client.weekly.surrender({
         account,
         ...props,
       });
@@ -210,7 +210,7 @@ export function systems({
         "Game has been abandoned.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error surrendering:", error);
@@ -253,26 +253,28 @@ export function systems({
       },
     });
 
-    const characterKey = getEntityIdFromKeys([
-      BigInt(props.game_id),
-      BigInt(props.tile_id),
-      BigInt(props.role),
-    ]) as Entity;
-
     const characterId = uuid();
-    clientModels.models.Character.addOverride(characterId, {
-      entity: characterKey,
-      value: {
-        game_id: props.game_id,
-        player_id: BigInt(account.address),
-        index: props.role,
-        tile_id: props.tile_id,
-        spot: props.spot,
-      },
-    });
+    if (props.role) {
+      const characterKey = getEntityIdFromKeys([
+        BigInt(props.game_id),
+        BigInt(props.tile_id),
+        BigInt(props.role),
+      ]) as Entity;
+
+      clientModels.models.Character.addOverride(characterId, {
+        entity: characterKey,
+        value: {
+          game_id: props.game_id,
+          player_id: BigInt(account.address),
+          index: props.role,
+          tile_id: props.tile_id,
+          spot: props.spot,
+        },
+      });
+    }
 
     try {
-      const { transaction_hash } = await client.play.build({
+      const { transaction_hash } = await client.weekly.build({
         account,
         ...props,
       });
@@ -281,7 +283,7 @@ export function systems({
         "Tile has been paved.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       clientModels.models.Tile.removeOverride(tileId);

@@ -18,10 +18,11 @@ import { useAccount } from "@starknet-react/core";
 import { usePlayer } from "@/hooks/usePlayer";
 
 export const Spawn = () => {
-  const { account } = useAccount();
+  // const { account } = useAccount();
   const [playerName, setPlayerName] = useState("");
 
   const {
+    account: { account },
     setup: {
       config: { masterAddress },
       systemCalls: { create_player },

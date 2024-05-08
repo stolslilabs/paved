@@ -16,9 +16,6 @@ use paved::types::spot::Spot;
 #[starknet::interface]
 trait IWeekly<TContractState> {
     fn initialize(ref self: TContractState, world: ContractAddress);
-    fn create(
-        self: @TContractState, world: IWorldDispatcher, name: felt252, master: ContractAddress
-    );
     fn spawn(self: @TContractState, world: IWorldDispatcher) -> u32;
     fn claim(self: @TContractState, world: IWorldDispatcher, tournament_id: u64, rank: u8,);
     fn sponsor(self: @TContractState, world: IWorldDispatcher, amount: felt252);
@@ -57,7 +54,6 @@ mod weekly {
     use paved::components::emitter::EmitterComponent;
     use paved::components::initializable::InitializableComponent;
     use paved::components::ownable::OwnableComponent;
-    use paved::components::manageable::ManageableComponent;
     use paved::components::hostable::HostableComponent;
     use paved::components::payable::PayableComponent;
     use paved::components::playable::PlayableComponent;
@@ -85,8 +81,6 @@ mod weekly {
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
-    component!(path: ManageableComponent, storage: manageable, event: ManageableEvent);
-    impl ManageableInternalImpl = ManageableComponent::InternalImpl<ContractState>;
     component!(path: HostableComponent, storage: hostable, event: HostableEvent);
     impl HostableInternalImpl = HostableComponent::InternalImpl<ContractState>;
     component!(path: PayableComponent, storage: payable, event: PayableEvent);
@@ -104,8 +98,6 @@ mod weekly {
         initializable: InitializableComponent::Storage,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
-        #[substorage(v0)]
-        manageable: ManageableComponent::Storage,
         #[substorage(v0)]
         hostable: HostableComponent::Storage,
         #[substorage(v0)]
@@ -126,8 +118,6 @@ mod weekly {
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         #[flat]
-        ManageableEvent: ManageableComponent::Event,
-        #[flat]
         HostableEvent: HostableComponent::Event,
         #[flat]
         PayableEvent: PayableComponent::Event,
@@ -145,20 +135,13 @@ mod weekly {
     }
 
     #[abi(embed_v0)]
-    impl Weeklympl of IWeekly<ContractState> {
+    impl WeeklyImpl of IWeekly<ContractState> {
         fn initialize(ref self: ContractState, world: ContractAddress) {
             // [Effect] Initialize contract
             self.initializable._initialize(world);
             // [Effect] Initialize ownable
             let caller = get_caller_address();
             self.ownable.initializer(caller);
-        }
-
-        fn create(
-            self: @ContractState, world: IWorldDispatcher, name: felt252, master: ContractAddress
-        ) {
-            // [Effect] Create a player
-            self.manageable._create(world, name, master);
         }
 
         fn spawn(self: @ContractState, world: IWorldDispatcher) -> u32 {

@@ -47,7 +47,7 @@ export const useTiles = () => {
       { x: 0, y: -1 },
       { x: 0, y: 1 },
     ],
-    []
+    [],
   );
 
   const createTileAndSet = (tile: any) => {
