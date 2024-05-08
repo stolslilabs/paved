@@ -31,6 +31,7 @@ import { TournamentDialog, TournamentHeader } from "../components/Tournament";
 import { useLobbyStore } from "@/store";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useAccount } from "@starknet-react/core";
+import { Mode, ModeType } from "@/dojo/game/types/mode";
 
 export const Games = () => {
   const { mode, setMode } = useLobbyStore();
@@ -60,6 +61,16 @@ export const Games = () => {
       });
     });
   }, []);
+
+  const gameMode: Mode = useMemo(() => {
+    if (mode === "weekly") {
+      return new Mode(ModeType.Weekly);
+    } else if (mode === "daily") {
+      return new Mode(ModeType.Daily);
+    } else {
+      return new Mode(ModeType.None);
+    }
+  }, [mode]);
 
   const toggleMode = (event: string) => {
     setMode(event);
@@ -94,7 +105,7 @@ export const Games = () => {
 
           <TabsContent value="weekly">
             <div className="flex my-4 gap-4 items-center">
-              <CreateGame />
+              <CreateGame mode={gameMode} />
               <TournamentDialog />
             </div>
 

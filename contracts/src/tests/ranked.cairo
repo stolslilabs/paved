@@ -106,7 +106,10 @@ fn test_play_ranked_tournament_claim() {
 
     // [Assert] Balance post creation
     let balance = context.erc20.balance_of(PLAYER());
-    assert(balance + constants::TOURNAMENT_PRICE.into() == player_balance, 'Balance post creation');
+    assert(
+        balance + constants::WEEKLY_TOURNAMENT_PRICE.into() == player_balance,
+        'Balance post creation'
+    );
 
     // [Draw & Build]
     let game = store.game(game_id);
@@ -122,9 +125,9 @@ fn test_play_ranked_tournament_claim() {
     let top1_score = store.game(game_id).score;
 
     // [Assert] Tournament
-    let tournament_id = TournamentImpl::compute_id(time);
+    let tournament_id = TournamentImpl::compute_id(time, 604800);
     let tournament = store.tournament(tournament_id);
-    assert(tournament.prize == constants::TOURNAMENT_PRICE * 5, 'Tournament prize');
+    assert(tournament.prize == constants::WEEKLY_TOURNAMENT_PRICE * 5, 'Tournament prize');
     assert(tournament.top1_player_id == PLAYER().into(), 'Tournament top1_player_id');
     assert(tournament.top2_player_id == ANYONE().into(), 'Tournament top2_player_id');
     assert(tournament.top3_player_id == SOMEONE().into(), 'Tournament top3_player_id');
@@ -133,8 +136,8 @@ fn test_play_ranked_tournament_claim() {
     assert(tournament.top3_score == top3_score, 'Tournament top3_score');
 
     // [Claim]
-    set_block_timestamp(constants::TOURNAMENT_DURATION);
-    let tournament_id = TournamentImpl::compute_id(time);
+    set_block_timestamp(constants::WEEKLY_TOURNAMENT_DURATION);
+    let tournament_id = TournamentImpl::compute_id(time, 604800);
     let rank = 1;
     systems.weekly.claim(world, tournament_id, rank);
 
@@ -143,14 +146,14 @@ fn test_play_ranked_tournament_claim() {
     let tournament = store.tournament(tournament_id);
     let reward = tournament.reward(rank);
     assert(
-        final_player + constants::TOURNAMENT_PRICE.into() == player_balance + reward,
+        final_player + constants::WEEKLY_TOURNAMENT_PRICE.into() == player_balance + reward,
         'Player balance post claim'
     );
 
     // [Claim]
     set_contract_address(ANYONE());
-    set_block_timestamp(constants::TOURNAMENT_DURATION);
-    let tournament_id = TournamentImpl::compute_id(time);
+    set_block_timestamp(constants::WEEKLY_TOURNAMENT_DURATION);
+    let tournament_id = TournamentImpl::compute_id(time, 604800);
     let rank = 2;
     systems.weekly.claim(world, tournament_id, rank);
 
@@ -159,14 +162,14 @@ fn test_play_ranked_tournament_claim() {
     let tournament = store.tournament(tournament_id);
     let reward = tournament.reward(rank);
     assert(
-        final_anyone + constants::TOURNAMENT_PRICE.into() == anyone_balance + reward,
+        final_anyone + constants::WEEKLY_TOURNAMENT_PRICE.into() == anyone_balance + reward,
         'Anyone balance post claim'
     );
 
     // [Claim]
     set_contract_address(SOMEONE());
-    set_block_timestamp(constants::TOURNAMENT_DURATION);
-    let tournament_id = TournamentImpl::compute_id(time);
+    set_block_timestamp(constants::WEEKLY_TOURNAMENT_DURATION);
+    let tournament_id = TournamentImpl::compute_id(time, 604800);
     let rank = 3;
     systems.weekly.claim(world, tournament_id, rank);
 
@@ -175,7 +178,7 @@ fn test_play_ranked_tournament_claim() {
     let tournament = store.tournament(tournament_id);
     let reward = tournament.reward(rank);
     assert(
-        final_someone + constants::TOURNAMENT_PRICE.into() == someone_balance + reward,
+        final_someone + constants::WEEKLY_TOURNAMENT_PRICE.into() == someone_balance + reward,
         'Someone balance post claim'
     );
 
@@ -193,7 +196,7 @@ fn test_play_ranked_tournament_claim_revert_not_over() {
     set_block_timestamp(time);
 
     // [Claim]
-    let tournament_id = TournamentImpl::compute_id(time);
+    let tournament_id = TournamentImpl::compute_id(time, 604800);
     systems.weekly.claim(world, tournament_id, 1);
 }
 
@@ -206,7 +209,7 @@ fn test_play_ranked_tournament_claim_revert_invalid_player() {
     set_block_timestamp(time);
 
     // [Claim]
-    set_block_timestamp(constants::TOURNAMENT_DURATION);
-    let tournament_id = TournamentImpl::compute_id(time);
+    set_block_timestamp(constants::WEEKLY_TOURNAMENT_DURATION);
+    let tournament_id = TournamentImpl::compute_id(time, 604800);
     systems.weekly.claim(world, tournament_id, 1);
 }

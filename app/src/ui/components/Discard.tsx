@@ -14,6 +14,7 @@ import { useBuilder } from "@/hooks/useBuilder";
 import { Account } from "starknet";
 import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
+import { useGame } from "@/hooks/useGame";
 
 export const Discard = () => {
   const { gameId } = useQueryParams();
@@ -26,12 +27,14 @@ export const Discard = () => {
     },
   } = useDojo();
 
+  const { game } = useGame({ gameId });
+
   const { builder } = useBuilder({
     gameId: gameId,
     playerId: account?.address,
   });
 
-  if (!account || !builder) return <></>;
+  if (!account || !game || !builder) return <></>;
 
   return (
     <TooltipProvider>
@@ -44,6 +47,7 @@ export const Discard = () => {
             onClick={() =>
               discard({
                 account: account as Account,
+                mode: game.mode,
                 game_id: gameId,
               })
             }

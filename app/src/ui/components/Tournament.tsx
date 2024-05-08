@@ -48,6 +48,7 @@ import { Tournament as TournamentClass } from "@/dojo/game/models/tournament";
 import { useDojo } from "@/dojo/useDojo";
 import { Account } from "starknet";
 import { useAccount } from "@starknet-react/core";
+import { Mode, ModeType } from "@/dojo/game/types/mode";
 
 export const TournamentHeader = () => {
   const [tournamentId, setTournamentId] = useState<number>();
@@ -408,6 +409,7 @@ export const Claim = ({
     if (account) {
       claim({
         account: account as Account,
+        mode: new Mode(ModeType.Weekly),
         tournament_id: tournament.id,
         rank: rank,
       });

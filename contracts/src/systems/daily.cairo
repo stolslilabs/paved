@@ -63,6 +63,7 @@ mod daily {
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;
     use paved::types::spot::Spot;
+    use paved::types::mode::Mode;
 
     // Local imports
 
@@ -146,7 +147,7 @@ mod daily {
 
         fn spawn(self: @ContractState, world: IWorldDispatcher) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, amount) = self.hostable._spawn(world);
+            let (game_id, amount) = self.hostable._spawn(world, Mode::Weekly);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable._pay(caller, amount);
@@ -156,7 +157,7 @@ mod daily {
 
         fn claim(self: @ContractState, world: IWorldDispatcher, tournament_id: u64, rank: u8) {
             // [Effect] Create game
-            let reward = self.hostable._claim(world, tournament_id, rank);
+            let reward = self.hostable._claim(world, tournament_id, rank, Mode::Daily);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable._refund(caller, reward);
@@ -164,7 +165,7 @@ mod daily {
 
         fn sponsor(self: @ContractState, world: IWorldDispatcher, amount: felt252) {
             // [Effect] Create game
-            let amount = self.hostable._sponsor(world, amount);
+            let amount = self.hostable._sponsor(world, amount, Mode::Daily);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable._pay(caller, amount);

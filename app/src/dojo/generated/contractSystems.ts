@@ -3,13 +3,11 @@
 import { DojoProvider } from "@dojoengine/core";
 import { Config } from "../../../dojoConfig.ts";
 import {
-  InitializeHost,
+  Initialize,
   CreateGame,
   Claim,
   Sponsor,
-  InitializeManage,
   CreatePlayer,
-  InitializePlay,
   Discard,
   Surrender,
   Build,
@@ -66,7 +64,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
     }
 
-    const initialize = async ({ account, world }: InitializeHost) => {
+    const initialize = async ({ account, world }: Initialize) => {
       try {
         return await execute(
           account,
@@ -112,7 +110,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
     }
 
-    const initialize = async ({ account, world }: InitializeHost) => {
+    const initialize = async ({ account, world }: Initialize) => {
       try {
         return await execute(
           account,
@@ -253,7 +251,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
     }
 
-    const initialize = async ({ account, world }: InitializeHost) => {
+    const initialize = async ({ account, world }: Initialize) => {
       try {
         return await execute(
           account,

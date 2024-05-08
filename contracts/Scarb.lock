@@ -22,7 +22,7 @@ source = "git+https://github.com/dojoengine/dojo?tag=v0.3.11#1e651b5d4d3b79b14a7
 [[package]]
 name = "origami"
 version = "0.6.0"
-source = "git+https://github.com/Bal7hazar/origami?rev=c63fcee#c63fceeb5545e417dc4343e7aa621fddc64e72ee"
+source = "git+https://github.com/dojoengine/origami?rev=v0.7.0-alpha.1#0d0680ae4da07632f32130d4f26632f3b021ff51"
 dependencies = [
  "cubit",
  "dojo",

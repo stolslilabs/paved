@@ -11,8 +11,9 @@ import { usePlayer } from "@/hooks/usePlayer";
 import { Lords } from "./Lords";
 import { useMemo } from "react";
 import { useAccount } from "@starknet-react/core";
+import { Mode } from "@/dojo/game/types/mode";
 
-export const CreateGame = () => {
+export const CreateGame = ({ mode }: { mode: Mode }) => {
   // const { account } = useAccount();
   const {
     account: { account },
@@ -27,6 +28,7 @@ export const CreateGame = () => {
     if (!player) return;
     create_game({
       account: account as Account,
+      mode: mode,
     });
   };
 

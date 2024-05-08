@@ -6,6 +6,7 @@ import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { uuid } from "@latticexyz/utils";
 import { ClientModels } from "./models";
+import { Mode, ModeType } from "./game/types/mode";
 
 export type SystemCalls = ReturnType<typeof systems>;
 
@@ -28,118 +29,10 @@ export function systems({
     }
   };
 
-  const initialize_host = async ({
-    account,
-    ...props
-  }: SystemTypes.InitializeHost) => {
-    try {
-      const { transaction_hash } = await client.weekly.initialize({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Host has been initialized.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error initializing host:", error);
-    }
-  };
-
-  const create_game = async ({ account, ...props }: SystemTypes.CreateGame) => {
-    try {
-      const { transaction_hash } = await client.weekly.spawn({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Game has been created.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error creating game:", error);
-    }
-  };
-
-  const claim = async ({ account, ...props }: SystemTypes.Claim) => {
-    try {
-      const { transaction_hash } = await client.weekly.claim({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Tournament has been claimed.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error claiming tournament:", error);
-    }
-  };
-
-  const sponsor = async ({ account, ...props }: SystemTypes.Sponsor) => {
-    try {
-      const { transaction_hash } = await client.weekly.sponsor({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Tournament has been sponsored.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error sponsoring tournament:", error);
-    }
-  };
-
-  const initialize_manage = async ({
-    account,
-    ...props
-  }: SystemTypes.InitializeManage) => {
-    try {
-      const { transaction_hash } = await client.weekly.initialize({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Manage has been initialized.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error initializing manage:", error);
-    }
-  };
-
   const create_player = async ({
     account,
     ...props
   }: SystemTypes.CreatePlayer) => {
-    const playerKey = getEntityIdFromKeys([BigInt(account.address)]) as Entity;
-
-    const playerId = uuid();
-    clientModels.models.Player.addOverride(playerId, {
-      entity: playerKey,
-      value: {
-        id: BigInt(account.address),
-        name: BigInt(props.name),
-        master: BigInt(props.master),
-      },
-    });
-
     try {
       const { transaction_hash } = await client.account.create({
         account,
@@ -154,40 +47,78 @@ export function systems({
       );
     } catch (error) {
       console.error("Error creating player:", error);
-      clientModels.models.Player.removeOverride(playerId);
-    } finally {
-      clientModels.models.Player.removeOverride(playerId);
     }
   };
 
-  const initialize_play = async ({
+  const create_game = async ({
     account,
+    mode,
     ...props
-  }: SystemTypes.InitializePlay) => {
+  }: SystemTypes.CreateGame) => {
+    const contract =
+      mode?.value === ModeType.Daily ? client.daily : client.weekly;
     try {
-      const { transaction_hash } = await client.weekly.initialize({
+      const { transaction_hash } = await contract.spawn({
         account,
         ...props,
       });
-
       notify(
-        "Play has been initialized.",
+        "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         }),
       );
     } catch (error) {
-      console.error("Error initializing play:", error);
+      console.error("Error creating game:", error);
     }
   };
 
-  const discard = async ({ account, ...props }: SystemTypes.Discard) => {
+  const claim = async ({ account, mode, ...props }: SystemTypes.Claim) => {
     try {
-      const { transaction_hash } = await client.weekly.discard({
+      const contract =
+        mode?.value === ModeType.Daily ? client.daily : client.weekly;
+      const { transaction_hash } = await contract.claim({
         account,
         ...props,
       });
+      notify(
+        "Tournament has been claimed.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+    } catch (error) {
+      console.error("Error claiming tournament:", error);
+    }
+  };
 
+  const sponsor = async ({ account, mode, ...props }: SystemTypes.Sponsor) => {
+    try {
+      const contract =
+        mode?.value === ModeType.Daily ? client.daily : client.weekly;
+      const { transaction_hash } = await contract.sponsor({
+        account,
+        ...props,
+      });
+      notify(
+        "Tournament has been sponsored.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+    } catch (error) {
+      console.error("Error sponsoring tournament:", error);
+    }
+  };
+
+  const discard = async ({ account, mode, ...props }: SystemTypes.Discard) => {
+    try {
+      const contract =
+        mode?.value === ModeType.Daily ? client.daily : client.weekly;
+      const { transaction_hash } = await contract.discard({
+        account,
+        ...props,
+      });
       notify(
         "Tile has been discarded.",
         await account.waitForTransaction(transaction_hash, {
@@ -199,13 +130,18 @@ export function systems({
     }
   };
 
-  const surrender = async ({ account, ...props }: SystemTypes.Surrender) => {
+  const surrender = async ({
+    account,
+    mode,
+    ...props
+  }: SystemTypes.Surrender) => {
     try {
-      const { transaction_hash } = await client.weekly.surrender({
+      const contract =
+        mode?.value === ModeType.Daily ? client.daily : client.weekly;
+      const { transaction_hash } = await contract.surrender({
         account,
         ...props,
       });
-
       notify(
         "Game has been abandoned.",
         await account.waitForTransaction(transaction_hash, {
@@ -217,7 +153,7 @@ export function systems({
     }
   };
 
-  const build = async ({ account, ...props }: SystemTypes.Build) => {
+  const build = async ({ account, mode, ...props }: SystemTypes.Build) => {
     const buidlerKey = getEntityIdFromKeys([
       BigInt(props.game_id),
       BigInt(props.tile_id),
@@ -274,11 +210,12 @@ export function systems({
     }
 
     try {
-      const { transaction_hash } = await client.weekly.build({
+      const contract =
+        mode?.value === ModeType.Daily ? client.daily : client.weekly;
+      const { transaction_hash } = await contract.build({
         account,
         ...props,
       });
-
       notify(
         "Tile has been paved.",
         await account.waitForTransaction(transaction_hash, {
@@ -298,13 +235,10 @@ export function systems({
   };
 
   return {
-    initialize_host,
+    create_player,
     create_game,
     claim,
     sponsor,
-    initialize_manage,
-    create_player,
-    initialize_play,
     discard,
     surrender,
     build,

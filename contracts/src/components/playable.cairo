@@ -105,8 +105,8 @@ mod PlayableComponent {
 
             // [Event] Emit game over event
             let time = get_block_timestamp();
-            let tournament_id = TournamentImpl::compute_id(game.start_time);
-            let id_end = TournamentImpl::compute_id(time);
+            let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
+            let id_end = TournamentImpl::compute_id(time, game.duration());
             if tournament_id == id_end && game.is_over() {
                 // [Effect] Update tournament
                 let mut tournament = store.tournament(tournament_id);
@@ -159,8 +159,8 @@ mod PlayableComponent {
 
             // [Event] Emit game over event
             let time = get_block_timestamp();
-            let tournament_id = TournamentImpl::compute_id(game.start_time);
-            let id_end = TournamentImpl::compute_id(time);
+            let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
+            let id_end = TournamentImpl::compute_id(time, game.duration());
             if tournament_id == id_end && game.is_over() {
                 // [Effect] Update tournament
                 let mut tournament = store.tournament(tournament_id);
@@ -302,8 +302,8 @@ mod PlayableComponent {
 
             // [Event] Emit game over event
             let time = get_block_timestamp();
-            let tournament_id = TournamentImpl::compute_id(game.start_time);
-            let id_end = TournamentImpl::compute_id(time);
+            let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
+            let id_end = TournamentImpl::compute_id(time, game.duration());
             if tournament_id == id_end && game.is_over() {
                 // [Effect] Update tournament
                 let mut tournament = store.tournament(tournament_id);

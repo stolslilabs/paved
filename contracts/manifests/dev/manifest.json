@@ -1442,8 +1442,8 @@
     {
       "kind": "DojoContract",
       "address": "0x53dadbbc83bc0f94a85145579e13f33d6de9ffb589f7dc1d4f5cf4ea05cc507",
-      "class_hash": "0x6cd65367e1142dcce1e74d7df6232250120367c07c5ac824543bb00de7e53f6",
-      "original_class_hash": "0x6cd65367e1142dcce1e74d7df6232250120367c07c5ac824543bb00de7e53f6",
+      "class_hash": "0x287cc5270b1093fd065cb8cfb9dbd446bd0a589c2e60daa7c94dca89f546951",
+      "original_class_hash": "0x287cc5270b1093fd065cb8cfb9dbd446bd0a589c2e60daa7c94dca89f546951",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
@@ -2218,8 +2218,8 @@
     {
       "kind": "DojoContract",
       "address": "0x3f1fa7beb496b40ab822278d33c3b03a223b33f4b1dc080e58697100b388efb",
-      "class_hash": "0x29b46127b266f504c4ad4b25453eed31c648b44dbb7d25efa69b3ba61d67750",
-      "original_class_hash": "0x29b46127b266f504c4ad4b25453eed31c648b44dbb7d25efa69b3ba61d67750",
+      "class_hash": "0x20c111ef0073fc376498445dc305ba71f25c694195fb4a874d8638e908fea1",
+      "original_class_hash": "0x20c111ef0073fc376498445dc305ba71f25c694195fb4a874d8638e908fea1",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
@@ -3813,10 +3813,15 @@
           "name": "seed",
           "type": "felt252",
           "key": false
+        },
+        {
+          "name": "mode",
+          "type": "u8",
+          "key": false
         }
       ],
-      "class_hash": "0x6bfa359d3e5dadd5fc69ea56006ed05256c028ad44a36c3e59c83e5a93387e8",
-      "original_class_hash": "0x6bfa359d3e5dadd5fc69ea56006ed05256c028ad44a36c3e59c83e5a93387e8",
+      "class_hash": "0x3fb8b10eda1689b529d3237d481b4d7a9f018e0f07a2c9317e5b04429b36ef8",
+      "original_class_hash": "0x3fb8b10eda1689b529d3237d481b4d7a9f018e0f07a2c9317e5b04429b36ef8",
       "abi": [
         {
           "type": "impl",
@@ -4036,6 +4041,10 @@
             {
               "name": "seed",
               "type": "core::felt252"
+            },
+            {
+              "name": "mode",
+              "type": "core::integer::u8"
             }
           ]
         },
