@@ -6,29 +6,39 @@ import {
   OrthographicCamera,
   OrbitControls,
   Stats,
+  Sky,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
 import { CharTextures } from "./CharTextures";
 import { Controls } from "@/ui/screens/GameScreen";
 import { useGameStore, useCameraStore } from "@/store";
 import { Perf } from "r3f-perf";
+import {
+  Bloom,
+  DepthOfField,
+  EffectComposer,
+  Noise,
+  Vignette,
+  Outline,
+  ColorAverage,
+} from "@react-three/postprocessing";
+import { BlendFunction, Resizer, KernelSize } from "postprocessing";
 
 export const ThreeGrid = () => {
+  const mesh = useRef<THREE.Mesh>(null!);
   return (
     <Canvas className="z-1" frameloop="demand">
-      {/* {import.meta.env.DEV && ( */}
-      {/* <>
-        <Stats />
-        <Perf position="bottom-left" />
-      </> */}
-      {/* )} */}
       <Keyboard />
-      <mesh>
+      <mesh ref={mesh}>
         <Camera>
           <ambientLight color={"white"} intensity={1} />
-          <ambientLight color={"white"} intensity={1} />
+          <ambientLight color={"#FFD97D"} intensity={1} />
           <MainScene />
         </Camera>
+
+        <EffectComposer>
+          <Vignette eskil={false} offset={0.1} darkness={0.8} />
+        </EffectComposer>
       </mesh>
     </Canvas>
   );
@@ -58,7 +68,7 @@ function Keyboard() {
           setOrientation(orientation + 1);
           rotateSpot(spot, true);
         }
-      },
+      }
     );
   }, [orientation, spot]);
 
@@ -70,7 +80,7 @@ function Keyboard() {
           setOrientation(orientation - 1);
           rotateSpot(spot, false);
         }
-      },
+      }
     );
   }, [orientation, spot]);
 
