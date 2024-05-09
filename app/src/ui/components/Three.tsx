@@ -23,6 +23,7 @@ import {
   Noise,
   Vignette,
   Outline,
+  SSAO,
   Grid,
 } from "@react-three/postprocessing";
 import { BlendFunction, Resizer, KernelSize } from "postprocessing";
@@ -37,20 +38,19 @@ export const ThreeGrid = () => {
           <directionalLight
             color={"white"}
             intensity={3}
-            position={[0, 10, 0]}
+            position={[0, 5, 0]}
             castShadow
           />
           <directionalLight
-            color={"#FFD97D"}
+            color={"white"}
             intensity={3}
-            position={[10, 10, 10]}
+            position={[10, 5, 10]}
             castShadow
           />
-          <SoftShadows />
 
           <MainScene />
         </Camera>
-
+        <fog attach="fog" args={["#d0d0d0", 8, 35]} />
         <EffectComposer>
           <Vignette eskil={false} offset={0.1} darkness={0.8} />
           <Bloom mipmapBlur luminanceThreshold={3} />

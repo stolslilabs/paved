@@ -21,13 +21,13 @@ export const MusicPlayer = () => {
         <Button
           onClick={() => handlePlay()}
           // variant={"link"}
-          className="self-center"
+          className="self-center rounded-full"
           size={"sm"}
         >
           {isPlaying ? (
-            <Pause className="fill-transparent " />
+            <Pause className="fill-transparent w-4" />
           ) : (
-            <Play className="fill-transparent " />
+            <Play className="fill-transparent  w-4" />
           )}
         </Button>
 

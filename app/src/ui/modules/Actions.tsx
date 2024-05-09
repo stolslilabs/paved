@@ -11,6 +11,7 @@ import {
 import { ToolTipButton } from "../components/ToolTipButton";
 import { useNavigate } from "react-router-dom";
 import { useCameraStore } from "@/store";
+import { motion } from "framer-motion";
 
 export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(true);
