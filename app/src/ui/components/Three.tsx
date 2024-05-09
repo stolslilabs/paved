@@ -70,7 +70,7 @@ export const MainScene = () => {
   return (
     <mesh rotation={[Math.PI / -2, 0, compassRotation]}>
       <TileTextures squareSize={3} />
-      <CharTextures radius={0.3} height={1} squareSize={3} />
+      <CharTextures radius={0.3} height={1.5} squareSize={3} />
     </mesh>
   );
 };

@@ -5,7 +5,6 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Text } from "@react-three/drei";
 import font from "/assets/fonts/RubikMonoOne-Regular.ttf";
-import { useBuilder } from "@/hooks/useBuilder";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useTile } from "@/hooks/useTile";
 
@@ -18,10 +17,6 @@ export const CharTexture = ({ character, radius, height, size }: any) => {
   const [hovered, setHovered] = useState(false);
   const [name, setName] = useState("");
 
-  const { builder } = useBuilder({
-    gameId: character?.game_id,
-    playerId: character?.player_id.toString(),
-  });
   const { player } = usePlayer({ playerId: character?.player_id.toString() });
   const { tile } = useTile({
     gameId: character?.game_id,
