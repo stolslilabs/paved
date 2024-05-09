@@ -68,6 +68,11 @@ export const TileTexture = ({ tile, size }: any) => {
 
   const shadowedModel = useMemo(() => {
     const model = models[tile.plan.into() as keyof typeof models];
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    model.position.y = -center.y;
+    model.position.y += size.y * 0.5;
     model.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.castShadow = true;
@@ -77,15 +82,21 @@ export const TileTexture = ({ tile, size }: any) => {
     return model;
   }, []);
 
+  const scale = useMemo(() => {
+    if (!shadowedModel) return 1;
+    const box = new THREE.Box3().setFromObject(shadowedModel);
+    const dim = box.getSize(new THREE.Vector3());
+    return (2 * size) / (dim.x + dim.z);
+  }, [shadowedModel]);
+
   return (
     <group
       key={`tile-${tile.id}`}
-      scale={0.77}
+      scale={scale}
       rotation={[Math.PI / 2, 0, 0]}
-      position={[position.x + 0.03, position.y - 0.03, 0.4]}
+      position={[position.x, position.y, 0]}
     >
       <primitive
-        position={[0, 0, 0]}
         object={shadowedModel}
         rotation={[0, (Math.PI / 2) * (1 - tile.orientation.into()), 0]}
       />
