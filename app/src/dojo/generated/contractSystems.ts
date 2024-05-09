@@ -20,7 +20,7 @@ export type IWorld = Awaited<ReturnType<typeof setupWorld>>;
 
 export const getContractByName = (manifest: any, name: string) => {
   const contract = manifest.contracts.find((contract: any) =>
-    contract.name.includes("::" + name),
+    contract.name.includes("::" + name)
   );
   if (contract) {
     return contract.address;
@@ -37,14 +37,14 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     contractName: string,
     methodName: string,
     args: any[],
-    details: InvocationsDetails,
+    details: InvocationsDetails
   ) => {
     const { transaction_hash } = await provider.execute(
       account,
       contractName,
       methodName,
       args,
-      details,
+      details
     );
     const receipt = await account.waitForTransaction(transaction_hash, {
       retryInterval: 100,
@@ -60,7 +60,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
   function account() {
     const contract_name = "account";
     const contract = config.manifest.contracts.find((c) =>
-      c.name.includes(contract_name),
+      c.name.includes(contract_name)
     );
     if (!contract) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
@@ -73,7 +73,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "initialize",
           [world],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -88,7 +88,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "create",
           [provider.getWorldAddress(), name, master],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -106,7 +106,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
   function daily() {
     const contract_name = "daily";
     const contract = config.manifest.contracts.find((c) =>
-      c.name.includes(contract_name),
+      c.name.includes(contract_name)
     );
     if (!contract) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
@@ -119,7 +119,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "initialize",
           [world],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -156,7 +156,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "claim",
           [provider.getWorldAddress(), tournament_id, rank],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -171,7 +171,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "sponsor",
           [provider.getWorldAddress(), amount],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -186,7 +186,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "discard",
           [provider.getWorldAddress(), game_id],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -201,7 +201,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "surrender",
           [provider.getWorldAddress(), game_id],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -224,7 +224,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "build",
           [provider.getWorldAddress(), game_id, orientation, x, y, role, spot],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -247,7 +247,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
   function weekly() {
     const contract_name = "weekly";
     const contract = config.manifest.contracts.find((c) =>
-      c.name.includes(contract_name),
+      c.name.includes(contract_name)
     );
     if (!contract) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
@@ -260,7 +260,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "initialize",
           [world],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -297,7 +297,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "claim",
           [provider.getWorldAddress(), tournament_id, rank],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -312,7 +312,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "sponsor",
           [provider.getWorldAddress(), amount],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -327,7 +327,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "discard",
           [provider.getWorldAddress(), game_id],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -342,7 +342,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "surrender",
           [provider.getWorldAddress(), game_id],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -365,7 +365,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "build",
           [provider.getWorldAddress(), game_id, orientation, x, y, role, spot],
-          details,
+          details
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
