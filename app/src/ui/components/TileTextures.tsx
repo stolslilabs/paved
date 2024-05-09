@@ -6,13 +6,14 @@ import { useTiles } from "@/hooks/useTiles";
 export const TileTextures = ({ squareSize }: { squareSize: number }) => {
   const { tiles, items } = useTiles();
 
+  console.log;
   const renderedItems = useMemo(() => {
-    return Object.keys(items).map((key: string) => {
+    return Object.keys(items).map((key: string, index) => {
       const item = items[key];
       if (item.empty) {
         return (
           <TileEmpty
-            key={key}
+            key={index}
             tiles={tiles}
             col={item.tile.col}
             row={item.tile.row}
@@ -20,7 +21,7 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
           />
         );
       } else {
-        return <TileTexture key={key} tile={item.tile} size={squareSize} />;
+        return <TileTexture key={index} tile={item.tile} size={squareSize} />;
       }
     });
   }, [items, squareSize]);

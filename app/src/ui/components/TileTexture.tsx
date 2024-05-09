@@ -2,8 +2,6 @@ import * as THREE from "three";
 import { offset, other_offset } from "@/dojo/game";
 import { useMemo, useRef, useState } from "react";
 import { useGameStore } from "@/store";
-
-import { Model } from "@/ui/components/models/Road";
 import { useGLTF } from "@react-three/drei";
 
 export const loader = new THREE.TextureLoader();
@@ -44,36 +42,45 @@ export const TileTexture = ({ tile, size }: any) => {
     setHoveredTile({ col, row });
   };
 
-  const modelPath = useMemo(() => getModelPath(tile.plan.into()), [tile]);
-  const { scene } = useGLTF(modelPath) || {};
+  const models = useMemo(() => {
+    return {
+      1: useGLTF("/models/ccccccccc.glb").scene.clone(),
+      2: useGLTF("/models/cccccfffc.glb").scene.clone(),
+      3: useGLTF("/models/cccccfrfc.glb").scene.clone(),
+      4: useGLTF("/models/cfffcfffc.glb").scene.clone(),
+      5: useGLTF("/models/ffcfffcff.glb").scene.clone(),
+      6: useGLTF("/models/ffcfffffc.glb").scene.clone(),
+      7: useGLTF("/models/ffffcccff.glb").scene.clone(),
+      8: useGLTF("/models/ffffffcff.glb").scene.clone(),
+      9: useGLTF("/models/rfffrfcfr.glb").scene.clone(),
+      10: useGLTF("/models/rfffrfffr.glb").scene.clone(),
+      11: useGLTF("/models/rfrfcccfr.glb").scene.clone(),
+      12: useGLTF("/models/rfrfffcfr.glb").scene.clone(),
+      13: useGLTF("/models/rfrfffffr.glb").scene.clone(),
+      14: useGLTF("/models/rfrfrfcff.glb").scene.clone(),
+      15: useGLTF("/models/sfrfrfcfr.glb").scene.clone(),
+      16: useGLTF("/models/sfrfrfffr.glb").scene.clone(),
+      17: useGLTF("/models/sfrfrfrfr.glb").scene.clone(),
+      18: useGLTF("/models/wffffffff.glb").scene.clone(),
+      19: useGLTF("/models/wfffffffr.glb").scene.clone(),
+    };
+  }, []);
 
-  console.log(tile.plan.into(), modelPath);
+  console.log(tile.id);
+
   return (
     <group
+      key={`tile-${tile.id}`}
       scale={0.77}
       rotation={[Math.PI / 2, 0, 0]}
       position={[position.x + 0.03, position.y - 0.03, 0.4]}
     >
       <primitive
         position={[0, 0, 0]}
-        object={scene}
+        object={models[tile.plan.into() as keyof typeof models]}
         rotation={[0, (Math.PI / 2) * (1 - tile.orientation.into()), 0]}
       />
     </group>
-    // <mesh
-    //   visible={texture !== undefined}
-    //   ref={meshRef}
-    //   onPointerEnter={handlePointerEnter}
-    //   position={[position.x, position.y, 0]}
-    //   geometry={squareGeometry}
-    // >
-    //   <meshStandardMaterial attach="material-0" color={"#503A23"} />
-    //   <meshStandardMaterial attach="material-1" color={"#503A23"} />
-    //   <meshStandardMaterial attach="material-2" color={"#503A23"} />
-    //   <meshStandardMaterial attach="material-3" color={"#503A23"} />
-    //   <meshStandardMaterial attach="material-4" map={texture} />
-    //   <meshStandardMaterial attach="material-5" color={"#503A23"} />
-    // </mesh>
   );
 };
 
