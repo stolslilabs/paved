@@ -66,7 +66,16 @@ export const TileTexture = ({ tile, size }: any) => {
     };
   }, []);
 
-  console.log(tile.id);
+  const shadowedModel = useMemo(() => {
+    const model = models[tile.plan.into() as keyof typeof models];
+    model.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    return model;
+  }, []);
 
   return (
     <group
@@ -77,10 +86,25 @@ export const TileTexture = ({ tile, size }: any) => {
     >
       <primitive
         position={[0, 0, 0]}
-        object={models[tile.plan.into() as keyof typeof models]}
+        object={shadowedModel}
         rotation={[0, (Math.PI / 2) * (1 - tile.orientation.into()), 0]}
       />
     </group>
+
+    // <mesh
+    //   visible={texture !== undefined}
+    //   ref={meshRef}
+    //   onPointerEnter={handlePointerEnter}
+    //   position={[position.x, position.y, 0]}
+    //   geometry={squareGeometry}
+    // >
+    //   <meshStandardMaterial attach="material-0" color={"#503A23"} />
+    //   <meshStandardMaterial attach="material-1" color={"#503A23"} />
+    //   <meshStandardMaterial attach="material-2" color={"#503A23"} />
+    //   <meshStandardMaterial attach="material-3" color={"#503A23"} />
+    //   <meshStandardMaterial attach="material-4" map={texture} />
+    //   <meshStandardMaterial attach="material-5" color={"#503A23"} />
+    // </mesh>
   );
 };
 

@@ -7,6 +7,9 @@ import {
   OrbitControls,
   Stats,
   Sky,
+  Clouds,
+  Cloud,
+  SoftShadows,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
 import { CharTextures } from "./CharTextures";
@@ -20,7 +23,7 @@ import {
   Noise,
   Vignette,
   Outline,
-  ColorAverage,
+  Grid,
 } from "@react-three/postprocessing";
 import { BlendFunction, Resizer, KernelSize } from "postprocessing";
 
@@ -31,13 +34,30 @@ export const ThreeGrid = () => {
       <Keyboard />
       <mesh ref={mesh}>
         <Camera>
-          <ambientLight color={"white"} intensity={1} />
-          <ambientLight color={"#FFD97D"} intensity={1} />
+          <directionalLight
+            color={"white"}
+            intensity={3}
+            position={[0, 10, 0]}
+            castShadow
+          />
+          <directionalLight
+            color={"#FFD97D"}
+            intensity={3}
+            position={[10, 10, 10]}
+            castShadow
+          />
+          <SoftShadows />
+
           <MainScene />
         </Camera>
 
         <EffectComposer>
           <Vignette eskil={false} offset={0.1} darkness={0.8} />
+          <Bloom mipmapBlur luminanceThreshold={3} />
+          <Noise
+            premultiply // enables or disables noise premultiplication
+            blendFunction={BlendFunction.COLOR} // blend mode
+          />
         </EffectComposer>
       </mesh>
     </Canvas>
@@ -68,7 +88,7 @@ function Keyboard() {
           setOrientation(orientation + 1);
           rotateSpot(spot, true);
         }
-      },
+      }
     );
   }, [orientation, spot]);
 
@@ -80,7 +100,7 @@ function Keyboard() {
           setOrientation(orientation - 1);
           rotateSpot(spot, false);
         }
-      },
+      }
     );
   }, [orientation, spot]);
 
