@@ -1,10 +1,13 @@
 // Core imports
 
+use core::poseidon::{PoseidonTrait, HashState};
+use core::hash::HashStateTrait;
 use core::debug::PrintTrait;
 
 // Internal imports
 
 use paved::constants;
+use paved::models::tournament::TournamentTrait;
 use paved::types::deck::{Deck, DeckImpl};
 
 // Constants
@@ -36,6 +39,27 @@ impl ModeImpl of ModeTrait {
         match self {
             Mode::Daily => constants::DAILY_TOURNAMENT_DURATION,
             Mode::Weekly => constants::WEEKLY_TOURNAMENT_DURATION,
+            _ => 0,
+        }
+    }
+
+    #[inline(always)]
+    fn seed(self: Mode, time: u64, game_id: u32, salt: felt252) -> felt252 {
+        match self {
+            Mode::Daily => {
+                let tournament_id = TournamentTrait::compute_id(time, self.duration());
+                let state: HashState = PoseidonTrait::new();
+                let state = state.update(salt);
+                let state = state.update(tournament_id.into());
+                state.finalize()
+            },
+            Mode::Weekly => {
+                let state: HashState = PoseidonTrait::new();
+                let state = state.update(salt);
+                let state = state.update(game_id.into());
+                let state = state.update(time.into());
+                state.finalize()
+            },
             _ => 0,
         }
     }

@@ -130,11 +130,8 @@ impl GameImpl of GameTrait {
         self.tiles = Bitmap::set_bit_at(self.tiles, index.into(), true);
 
         // [Effect] Update game start time and seed
-        let state: HashState = PoseidonTrait::new();
-        let state = state.update(self.seed);
-        let state = state.update(self.id.into());
-        let state = state.update(time.into());
-        self.seed = state.finalize();
+        let mode: Mode = self.mode.into();
+        self.seed = mode.seed(time, self.id, self.seed);
         self.start_time = time;
 
         tile

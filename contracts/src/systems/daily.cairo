@@ -147,7 +147,7 @@ mod daily {
 
         fn spawn(self: @ContractState, world: IWorldDispatcher) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, amount) = self.hostable._spawn(world, Mode::Weekly);
+            let (game_id, amount) = self.hostable._spawn(world, Mode::Daily);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable._pay(caller, amount);

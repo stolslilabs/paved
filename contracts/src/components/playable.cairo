@@ -117,6 +117,7 @@ mod PlayableComponent {
                 let event = GameOver {
                     game_id: game.id,
                     tournament_id: tournament_id,
+                    game_mode: game.mode,
                     game_score: game.score,
                     game_start_time: game.start_time,
                     game_end_time: time,
@@ -171,6 +172,7 @@ mod PlayableComponent {
                 let event = GameOver {
                     game_id: game.id,
                     tournament_id: tournament_id,
+                    game_mode: game.mode,
                     game_score: game.score,
                     game_start_time: game.start_time,
                     game_end_time: time,
@@ -246,6 +248,7 @@ mod PlayableComponent {
 
             // [Effect] Draw a new tile if relevant
             if !game.is_over() {
+                game.reseed(tile);
                 let (tile_id, plan) = game.draw_plan();
                 let new_tile = builder.reveal(tile_id, plan);
                 store.set_tile(new_tile);
@@ -254,8 +257,7 @@ mod PlayableComponent {
             // [Effect] Update builder
             store.set_builder(builder);
 
-            // [Effect] Reseed and assessment
-            game.reseed(tile);
+            // [Effect] Assessment
             let (mut cities, mut roads, mut forests, mut wonders) = game.assess(tile, ref store);
 
             // [Effect] Update game
@@ -314,6 +316,7 @@ mod PlayableComponent {
                 let event = GameOver {
                     game_id: game.id,
                     tournament_id: tournament_id,
+                    game_mode: game.mode,
                     game_score: game.score,
                     game_start_time: game.start_time,
                     game_end_time: time,

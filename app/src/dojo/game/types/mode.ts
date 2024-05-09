@@ -35,6 +35,17 @@ export class Mode {
     }
   }
 
+  public offset(): number {
+    switch (this.value) {
+      case ModeType.Daily:
+        return 19851;
+      case ModeType.Weekly:
+        return 2835;
+      case ModeType.None:
+        return 0;
+    }
+  }
+
   public price(): bigint {
     switch (this.value) {
       case ModeType.Daily:
