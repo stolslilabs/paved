@@ -1,6 +1,6 @@
 kind = "DojoModel"
-class_hash = "0x6bfa359d3e5dadd5fc69ea56006ed05256c028ad44a36c3e59c83e5a93387e8"
-original_class_hash = "0x6bfa359d3e5dadd5fc69ea56006ed05256c028ad44a36c3e59c83e5a93387e8"
+class_hash = "0x3fb8b10eda1689b529d3237d481b4d7a9f018e0f07a2c9317e5b04429b36ef8"
+original_class_hash = "0x3fb8b10eda1689b529d3237d481b4d7a9f018e0f07a2c9317e5b04429b36ef8"
 abi = "manifests/dev/abis/base/models/paved_models_game_game.json"
 name = "paved::models::game::game"
 
@@ -37,4 +37,9 @@ key = false
 [[members]]
 name = "seed"
 type = "felt252"
+key = false
+
+[[members]]
+name = "mode"
+type = "u8"
 key = false

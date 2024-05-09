@@ -2,7 +2,7 @@
 
 import { defineComponent, Type as RecsType, World } from "@dojoengine/recs";
 
-export type ContractModels = Awaited<
+export type ContractComponents = Awaited<
   ReturnType<typeof defineContractComponents>
 >;
 
@@ -74,11 +74,21 @@ export function defineContractComponents(world: World) {
           start_time: RecsType.Number,
           score: RecsType.Number,
           seed: RecsType.BigInt,
+          mode: RecsType.Number,
         },
         {
           metadata: {
             name: "Game",
-            types: ["u32", "bool", "u128", "u32", "u64", "u32", "felt252"],
+            types: [
+              "u32",
+              "bool",
+              "u128",
+              "u32",
+              "u64",
+              "u32",
+              "felt252",
+              "u8",
+            ],
           },
         },
       );

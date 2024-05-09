@@ -1,4 +1,4 @@
-import { ContractModels } from "./generated/contractModels";
+import { ContractComponents } from "./generated/contractModels";
 import { Game } from "./game/models/game";
 import { Tile } from "./game/models/tile";
 import { Tournament } from "./game/models/tournament";
@@ -8,7 +8,11 @@ import { overridableComponent } from "@dojoengine/recs";
 
 export type ClientModels = ReturnType<typeof models>;
 
-export function models({ contractModels }: { contractModels: ContractModels }) {
+export function models({
+  contractModels,
+}: {
+  contractModels: ContractComponents;
+}) {
   return {
     models: {
       ...contractModels,

@@ -86,6 +86,7 @@ export const Surrender = (props: TProps) => {
             onClick={() => {
               surrender({
                 account: account as Account,
+                mode: game.mode,
                 game_id: gameId,
               });
             }}

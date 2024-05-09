@@ -108,7 +108,7 @@ const getModelPath = (id: number) => {
     case 7:
       return "/models/ffffcccff.glb";
     case 8:
-      return "/models/fffffcffc.glb";
+      return "/models/ffffffcff.glb";
     case 9:
       return "/models/rfffrfcfr.glb";
     case 10:

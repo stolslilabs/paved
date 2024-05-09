@@ -60,6 +60,7 @@ export const useActions = () => {
       try {
         await build({
           account: account as Account,
+          mode: game.mode,
           game_id: gameId,
           tile_id: builder.tile_id,
           orientation: orientation,

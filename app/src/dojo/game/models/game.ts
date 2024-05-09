@@ -1,4 +1,5 @@
 import { ComponentValue } from "@dojoengine/recs";
+import { Mode, ModeType } from "../types/mode";
 
 export class Game {
   public id: number;
@@ -8,6 +9,7 @@ export class Game {
   public start_time: number;
   public score: number;
   public seed: string;
+  public mode: Mode;
 
   constructor(game: ComponentValue) {
     this.id = game.id;
@@ -17,6 +19,7 @@ export class Game {
     this.start_time = game.start_time;
     this.score = game.score;
     this.seed = game.seed;
+    this.mode = Mode.from(game.mode);
   }
 
   public isOver(): boolean {
@@ -24,6 +27,6 @@ export class Game {
   }
 
   public tilesLeft(): number {
-    return 72 - this.tile_count;
+    return this.mode.count() - this.tile_count;
   }
 }

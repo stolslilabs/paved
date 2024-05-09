@@ -1,26 +1,27 @@
 import { Account } from "starknet";
+import { Mode } from "../game/types/mode";
 
 export interface Signer {
   account: Account;
 }
 
-export interface InitializeHost extends Signer {
+export interface Initialize extends Signer {
   world: string;
 }
 
-export interface CreateGame extends Signer {}
+export interface CreateGame extends Signer {
+  mode?: Mode;
+}
 
 export interface Claim extends Signer {
   tournament_id: number;
   rank: number;
+  mode?: Mode;
 }
 
 export interface Sponsor extends Signer {
+  mode?: Mode;
   amount: string;
-}
-
-export interface InitializeManage extends Signer {
-  world: string;
 }
 
 export interface CreatePlayer extends Signer {
@@ -28,16 +29,14 @@ export interface CreatePlayer extends Signer {
   master: string;
 }
 
-export interface InitializePlay extends Signer {
-  world: string;
-}
-
 export interface Discard extends Signer {
   game_id: number;
+  mode?: Mode;
 }
 
 export interface Surrender extends Signer {
   game_id: number;
+  mode?: Mode;
 }
 
 export interface Build extends Signer {
@@ -48,4 +47,5 @@ export interface Build extends Signer {
   y: number;
   role: number;
   spot: number;
+  mode?: Mode;
 }

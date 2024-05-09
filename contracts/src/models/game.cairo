@@ -1,4 +1,3 @@
-use core::traits::Into;
 // Core imports
 
 use core::debug::PrintTrait;
@@ -24,6 +23,7 @@ use paved::types::deck::{Deck, DeckImpl};
 use paved::types::spot::{Spot, SpotImpl};
 use paved::types::area::Area;
 use paved::types::role::Role;
+use paved::types::mode::{Mode, ModeTrait};
 use paved::types::category::{Category, CategoryImpl};
 use paved::types::layout::{Layout, LayoutImpl};
 use paved::types::direction::{Direction, DirectionImpl};
@@ -60,19 +60,44 @@ struct Game {
     start_time: u64,
     score: u32,
     seed: felt252,
+    mode: u8,
 }
 
 #[generate_trait]
 impl GameImpl of GameTrait {
     #[inline(always)]
-    fn new(id: u32, time: u64) -> Game {
+    fn new(id: u32, time: u64, mode: Mode) -> Game {
         // [Check] Validate parameters
-        Game { id, over: false, tiles: 0, tile_count: 0, start_time: 0, score: 0, seed: 0, }
+        let mode: Mode = mode.into();
+        assert(Mode::None != mode, errors::INVALID_MODE);
+        Game {
+            id,
+            over: false,
+            tiles: 0,
+            tile_count: 0,
+            start_time: 0,
+            score: 0,
+            seed: 0,
+            mode: mode.into(),
+        }
     }
 
     #[inline(always)]
     fn price(self: Game) -> felt252 {
-        constants::TOURNAMENT_PRICE
+        let mode: Mode = self.mode.into();
+        mode.price()
+    }
+
+    #[inline(always)]
+    fn duration(self: Game) -> u64 {
+        let mode: Mode = self.mode.into();
+        mode.duration()
+    }
+
+    #[inline(always)]
+    fn deck(self: Game) -> Deck {
+        let mode: Mode = self.mode.into();
+        mode.deck()
     }
 
     #[inline(always)]
@@ -315,7 +340,9 @@ impl GameImpl of GameTrait {
 impl ZeroableGame of core::Zeroable<Game> {
     #[inline(always)]
     fn zero() -> Game {
-        Game { id: 0, over: false, tiles: 0, tile_count: 0, start_time: 0, score: 0, seed: 0, }
+        Game {
+            id: 0, over: false, tiles: 0, tile_count: 0, start_time: 0, score: 0, seed: 0, mode: 0
+        }
     }
 
     #[inline(always)]
@@ -377,16 +404,17 @@ mod tests {
 
     // Local imports
 
-    use super::{Game, GameTrait, GameImpl, constants, Plan, Deck,};
+    use super::{Game, GameTrait, GameImpl, constants, Plan, Deck, Mode};
 
     // Constants
 
     const GAME_ID: u32 = 1;
     const NAME: felt252 = 'NAME';
+    const MODE: Mode = Mode::Weekly;
 
     #[test]
     fn test_game_new() {
-        let game = GameImpl::new(GAME_ID, 0);
+        let game = GameImpl::new(GAME_ID, 0, MODE);
         assert(game.id == GAME_ID, 'Game: Invalid id');
         assert(game.tiles == 0, 'Game: Invalid tiles');
         assert(game.tile_count == 0, 'Game: Invalid tile_count');
@@ -394,7 +422,7 @@ mod tests {
 
     #[test]
     fn test_game_add_tile() {
-        let mut game = GameImpl::new(GAME_ID, 0);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE);
         let tile_count = game.tile_count;
         let tile_id = game.add_tile();
         assert(tile_id == GAME_ID, 'Game: Invalid tile_id');
@@ -403,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_plan() {
-        let mut game = GameImpl::new(GAME_ID, 0);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE);
         let (tile_count, plan_id) = game.draw_plan();
         assert(tile_count == 1, 'Game: Invalid tile_count');
         assert(plan_id.into() < TOTAL_TILE_COUNT, 'Game: Invalid plan_id');
@@ -413,7 +441,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_planes() {
-        let mut game = GameImpl::new(GAME_ID, 0);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE);
         let mut counts: Felt252Dict<u8> = core::Default::default();
         loop {
             if game.tile_count == TOTAL_TILE_COUNT.into() {

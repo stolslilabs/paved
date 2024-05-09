@@ -7,13 +7,13 @@ mod types {
     mod deck;
     mod plan;
     mod layout;
+    mod mode;
     mod move;
     mod category;
     mod orientation;
     mod direction;
     mod role;
     mod spot;
-    mod tournament;
 }
 
 mod layouts {

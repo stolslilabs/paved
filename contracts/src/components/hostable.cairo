@@ -30,6 +30,7 @@ mod HostableComponent {
     use paved::models::tournament::{Tournament, TournamentImpl, TournamentAssert};
     use paved::types::orientation::Orientation;
     use paved::types::direction::Direction;
+    use paved::types::mode::{Mode, ModeTrait};
     use paved::types::role::Role;
     use paved::types::spot::Spot;
     use paved::types::plan::Plan;
@@ -50,7 +51,9 @@ mod HostableComponent {
     impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
-        fn _spawn(self: @ComponentState<TContractState>, world: IWorldDispatcher,) -> (u32, u256) {
+        fn _spawn(
+            self: @ComponentState<TContractState>, world: IWorldDispatcher, mode: Mode
+        ) -> (u32, u256) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -62,7 +65,7 @@ mod HostableComponent {
             // [Effect] Create game
             let game_id = world.uuid() + 1;
             let time = get_block_timestamp();
-            let mut game = GameImpl::new(game_id, time);
+            let mut game = GameImpl::new(game_id, time, mode);
 
             // [Effect] Start game
             let tile = game.start(time);
@@ -82,7 +85,7 @@ mod HostableComponent {
             store.set_tile(tile);
 
             // [Effect] Update tournament
-            let tournament_id = TournamentImpl::compute_id(time);
+            let tournament_id = TournamentImpl::compute_id(time, game.duration());
             let mut tournament = store.tournament(tournament_id);
             tournament.buyin(game.price());
 
@@ -101,7 +104,8 @@ mod HostableComponent {
             self: @ComponentState<TContractState>,
             world: IWorldDispatcher,
             tournament_id: u64,
-            rank: u8
+            rank: u8,
+            mode: Mode,
         ) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -117,7 +121,7 @@ mod HostableComponent {
 
             // [Effect] Update claim
             let time = get_block_timestamp();
-            let reward = tournament.claim(player.id, rank, time);
+            let reward = tournament.claim(player.id, rank, time, mode.duration());
             store.set_tournament(tournament);
 
             // [Return] Pay reward
@@ -125,14 +129,17 @@ mod HostableComponent {
         }
 
         fn _sponsor(
-            self: @ComponentState<TContractState>, world: IWorldDispatcher, amount: felt252
+            self: @ComponentState<TContractState>,
+            world: IWorldDispatcher,
+            amount: felt252,
+            mode: Mode
         ) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
             // [Check] Tournament exists
             let time = get_block_timestamp();
-            let tournament_id = TournamentImpl::compute_id(time);
+            let tournament_id = TournamentImpl::compute_id(time, mode.duration());
             let mut tournament = store.tournament(tournament_id);
             tournament.assert_exists();
 
