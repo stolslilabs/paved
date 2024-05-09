@@ -15,11 +15,11 @@ const GameScene = () => {
       { name: Controls.clockwise, keys: ["KeyW"] },
       { name: Controls.counterClockwise, keys: ["KeyQ"] },
     ],
-    [],
+    []
   );
 
   return (
-    <div className="relative w-full h-screen flex flex-col bg-[#E8DAE1]">
+    <div className="relative w-full h-screen flex flex-col bg-pink-100">
       <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
         <Banner />
         <Overlay />
