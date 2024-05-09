@@ -4,12 +4,14 @@ import { useEffect, useState } from "react";
 import { parseGameOverEvent } from "@/dojo/game/events";
 import data from "@/data";
 import { WorldEvents } from "@/dojo/generated/contractEvents";
+import { Mode } from "@/dojo/game/types/mode";
 
 export type GameOverEvent = {
   id: string;
   gameId: number;
   tournamentId: number;
   seasonId: number;
+  gameMode: Mode;
   gameScore: number;
   gameStartTime: Date;
   gameEndTime: Date;
@@ -26,7 +28,7 @@ const parse = (event: Event): GameOverEvent => {
   throw new Error("Unknown event type");
 };
 
-export const useGames = () => {
+export const useGames = ({ mode }: { mode: Mode }) => {
   const [games, setGames] = useState<GameOverEvent[]>(data);
   const [ids, setIds] = useState<number[]>([]);
 
@@ -41,9 +43,14 @@ export const useGames = () => {
       const events = await queryEvents([WorldEvents.GameOver]);
       setGames((prevGames) => {
         const newGames = [...prevGames, ...events.map(parse)];
+        // Filter by mode
+        const filteredGames = newGames.filter(
+          (game) => game.gameMode.value == mode.value,
+        );
         // Remove duplicates
-        const dedupedGames = newGames.filter(
-          (game, idx) => idx === newGames.findIndex((g) => g.id === game.id),
+        const dedupedGames = filteredGames.filter(
+          (game, idx) =>
+            idx === filteredGames.findIndex((g) => g.id === game.id),
         );
         // Sort by score
         const sortedGames = dedupedGames.sort(

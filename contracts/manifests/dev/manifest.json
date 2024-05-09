@@ -890,8 +890,8 @@
     {
       "kind": "DojoContract",
       "address": "0x256434b1637f6a8e11b508a382c2313ee6e39ffd95d8eb3cf978b3c35e296f2",
-      "class_hash": "0x3df7de48e92356552aae3d2fcffa5cab83947eabdb55f92c2f939ab801739e5",
-      "original_class_hash": "0x3df7de48e92356552aae3d2fcffa5cab83947eabdb55f92c2f939ab801739e5",
+      "class_hash": "0x65b6626318b7c5f8e24d7859ab92032de89ec9f19fe0bcd59b03165e8d519bd",
+      "original_class_hash": "0x65b6626318b7c5f8e24d7859ab92032de89ec9f19fe0bcd59b03165e8d519bd",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
@@ -1115,6 +1115,11 @@
               "name": "tournament_id",
               "type": "core::integer::u64",
               "kind": "key"
+            },
+            {
+              "name": "game_mode",
+              "type": "core::integer::u8",
+              "kind": "data"
             },
             {
               "name": "game_score",
@@ -1442,8 +1447,8 @@
     {
       "kind": "DojoContract",
       "address": "0x53dadbbc83bc0f94a85145579e13f33d6de9ffb589f7dc1d4f5cf4ea05cc507",
-      "class_hash": "0x287cc5270b1093fd065cb8cfb9dbd446bd0a589c2e60daa7c94dca89f546951",
-      "original_class_hash": "0x287cc5270b1093fd065cb8cfb9dbd446bd0a589c2e60daa7c94dca89f546951",
+      "class_hash": "0x4d2d3ecec1fb533dfca8a97b94a2014e9ed6af7cbb9eba1679130298a64b1",
+      "original_class_hash": "0x4d2d3ecec1fb533dfca8a97b94a2014e9ed6af7cbb9eba1679130298a64b1",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
@@ -1871,6 +1876,11 @@
               "kind": "key"
             },
             {
+              "name": "game_mode",
+              "type": "core::integer::u8",
+              "kind": "data"
+            },
+            {
               "name": "game_score",
               "type": "core::integer::u32",
               "kind": "data"
@@ -2218,8 +2228,8 @@
     {
       "kind": "DojoContract",
       "address": "0x3f1fa7beb496b40ab822278d33c3b03a223b33f4b1dc080e58697100b388efb",
-      "class_hash": "0x20c111ef0073fc376498445dc305ba71f25c694195fb4a874d8638e908fea1",
-      "original_class_hash": "0x20c111ef0073fc376498445dc305ba71f25c694195fb4a874d8638e908fea1",
+      "class_hash": "0x7e64522a52192df5e0905f8896f205582f2bc3591c2e0f5b6667f16a6672e94",
+      "original_class_hash": "0x7e64522a52192df5e0905f8896f205582f2bc3591c2e0f5b6667f16a6672e94",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
@@ -2645,6 +2655,11 @@
               "name": "tournament_id",
               "type": "core::integer::u64",
               "kind": "key"
+            },
+            {
+              "name": "game_mode",
+              "type": "core::integer::u8",
+              "kind": "data"
             },
             {
               "name": "game_score",

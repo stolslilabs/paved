@@ -39,27 +39,25 @@ import { GameOverEvent, useGames } from "@/hooks/useGames";
 import { useTournament } from "@/hooks/useTournament";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  TOURNAMENT_DURATION,
-  TOURNAMENT_ID_OFFSET,
-} from "@/dojo/game/constants";
 import { Lords } from "./Lords";
 import { Tournament as TournamentClass } from "@/dojo/game/models/tournament";
 import { useDojo } from "@/dojo/useDojo";
 import { Account } from "starknet";
 import { useAccount } from "@starknet-react/core";
 import { Mode, ModeType } from "@/dojo/game/types/mode";
+import { useLobbyStore } from "@/store";
 
-export const TournamentHeader = () => {
+export const TournamentHeader = ({ mode }: { mode: Mode }) => {
   const [tournamentId, setTournamentId] = useState<number>();
   const [timeLeft, setTimeLeft] = useState<string>();
 
   useEffect(() => {
+    if (!mode) return;
     const now = Math.floor(Date.now() / 1000);
-    const id = Math.floor(now / TOURNAMENT_DURATION);
-    const startTime = id * TOURNAMENT_DURATION;
-    const endTime = startTime + TOURNAMENT_DURATION;
-    setTournamentId(id - TOURNAMENT_ID_OFFSET);
+    const id = Math.floor(now / mode.duration());
+    const startTime = id * mode.duration();
+    const endTime = startTime + mode.duration();
+    setTournamentId(id - mode.offset());
 
     const interval = setInterval(() => {
       // Remaining time in seconds
@@ -86,7 +84,7 @@ export const TournamentHeader = () => {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [mode]);
 
   return (
     <div className="flex justify-between items-center">
@@ -95,7 +93,7 @@ export const TournamentHeader = () => {
   );
 };
 
-export const TournamentDialog = () => {
+export const TournamentDialog = ({ mode }: { mode: Mode }) => {
   return (
     <Dialog>
       <DialogTrigger>
@@ -120,14 +118,14 @@ export const TournamentDialog = () => {
         <DialogHeader className="flex items-center">
           Tournament Leaderboard
         </DialogHeader>
-        <Tournament />
+        <Tournament mode={mode} />
       </DialogContent>
     </Dialog>
   );
 };
 
-export const Tournament = () => {
-  const { games, ids } = useGames();
+export const Tournament = ({ mode }: { mode: Mode }) => {
+  const { games, ids } = useGames({ mode });
   const [page, setPage] = useState<number | undefined>();
   const [pages, setPages] = useState<number[]>([]);
   const [startDate, setStartDate] = useState<string>("");
@@ -136,7 +134,7 @@ export const Tournament = () => {
   const [endTime, setEndTime] = useState<string>("");
 
   useEffect(() => {
-    if (!page) return setPage(ids.length);
+    if (!page) return setPage(1);
     const pages = [page];
     if (page > 1) {
       pages.unshift(page - 1);
@@ -154,16 +152,16 @@ export const Tournament = () => {
   }, [page, ids]);
 
   useEffect(() => {
-    if (!page) return;
-    const startTime = (page + TOURNAMENT_ID_OFFSET) * TOURNAMENT_DURATION;
-    const endTime = startTime + TOURNAMENT_DURATION;
+    if (!page || !mode) return;
+    const startTime = (page + mode.offset()) * mode.duration();
+    const endTime = startTime + mode.duration();
     const start = new Date(startTime * 1000);
     const end = new Date(endTime * 1000);
     setStartDate(start.toLocaleDateString());
     setStartTime(start.toLocaleTimeString());
     setEndDate(end.toLocaleDateString());
     setEndTime(end.toLocaleTimeString());
-  }, [page]);
+  }, [page, mode]);
 
   const balckilist = useMemo(() => {
     return [""];
@@ -173,7 +171,8 @@ export const Tournament = () => {
     return games
       .filter(
         (game) =>
-          game.seasonId === page && !balckilist.includes(game.playerMaster),
+          game.seasonId - mode.offset() === page &&
+          !balckilist.includes(game.playerMaster),
       )
       .sort((a, b) => b.gameScore - a.gameScore)
       .slice(0, 10);
@@ -218,7 +217,7 @@ export const Tournament = () => {
         </div>
       </div>
 
-      {page && <Prize tournamentId={page} />}
+      {(page && <Prize tournamentId={page + mode.offset()} />) || null}
 
       <Table className="text-xs">
         <ScrollArea className="h-[570px] w-full pr-2">
@@ -240,7 +239,7 @@ export const Tournament = () => {
                 <GameRow
                   key={index}
                   game={game}
-                  tournamentId={page ? page : 0}
+                  tournamentId={(page ? page : 0) + mode.offset()}
                   rank={index + 1}
                 />
               );
@@ -267,7 +266,7 @@ export const GameRow = ({
   } = useDojo();
 
   const { tournament } = useTournament({
-    tournamentId: tournamentId + TOURNAMENT_ID_OFFSET,
+    tournamentId: tournamentId,
   });
 
   const duration = useMemo(() => {
@@ -330,7 +329,7 @@ export const GameRow = ({
 export const Prize = ({ tournamentId }: { tournamentId: number }) => {
   const [prize, setPrize] = useState<number>();
   const { tournament } = useTournament({
-    tournamentId: tournamentId + TOURNAMENT_ID_OFFSET,
+    tournamentId: tournamentId,
   });
 
   useEffect(() => {

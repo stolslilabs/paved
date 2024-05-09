@@ -79,17 +79,17 @@ export const Games = () => {
   const filteredGames = useMemo(() => {
     return Object.values(games)
       .filter((game) => {
+        if (game.mode.value !== gameMode.value) return false;
         if (show && game.score > 0) return true;
         return !game.isOver();
       })
       .sort((a, b) => b.id - a.id);
-  }, [games, show, account]);
+  }, [games, show, account, gameMode]);
 
   return (
     <div className=" h-full">
       <div className="flex flex-col gap-2 items-start w-full p-4  md:px-8 h-full">
         <h2>Lobby</h2>
-        <TournamentHeader />
         <Tabs
           defaultValue={mode}
           value={mode}
@@ -97,16 +97,53 @@ export const Games = () => {
           className="w-full h-full"
         >
           <TabsList>
-            <TabsTrigger disabled value="daily">
-              Daily
-            </TabsTrigger>
+            <TabsTrigger value="daily">Daily</TabsTrigger>
             <TabsTrigger value="weekly">Weekly</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="weekly">
+          <TabsContent value="daily">
+            <TournamentHeader mode={gameMode} />
             <div className="flex my-4 gap-4 items-center">
               <CreateGame mode={gameMode} />
-              <TournamentDialog />
+              <TournamentDialog mode={gameMode} />
+            </div>
+
+            <div className="flex justify-between w-full">
+              <h4>Games</h4>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="show-finished"
+                  checked={show}
+                  onCheckedChange={() => setShow(!show)}
+                />
+                <Label className="text-xs" htmlFor="show-finished">
+                  Show finished Games
+                </Label>
+              </div>
+            </div>
+            <ScrollArea className="w-full pr-4">
+              <Table>
+                <TableHeader>
+                  <TableRow className="text-sm">
+                    <TableHead className="w-[100px]">#</TableHead>
+                    <TableHead>Tiles played</TableHead>
+                    <TableHead>Score</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.values(filteredGames).map((game, index) => {
+                    return <GameSingleRow key={index} game={game} />;
+                  })}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="weekly">
+            <TournamentHeader mode={gameMode} />
+            <div className="flex my-4 gap-4 items-center">
+              <CreateGame mode={gameMode} />
+              <TournamentDialog mode={gameMode} />
             </div>
 
             <div className="flex justify-between w-full">
