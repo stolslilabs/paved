@@ -19,7 +19,7 @@ const GameScene = () => {
   );
 
   return (
-    <div className="relative w-full h-screen flex flex-col bg-pink-100">
+    <div className="relative w-full h-screen flex flex-col bg-blue-100">
       <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
         <Banner />
         <Overlay />

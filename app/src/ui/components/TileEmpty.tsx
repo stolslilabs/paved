@@ -236,7 +236,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
         <meshStandardMaterial
           color={"#ADD8E6"}
           transparent={true}
-          opacity={0.003}
+          opacity={0.004}
         />
       </mesh>
     </>
