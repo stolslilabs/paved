@@ -125,7 +125,8 @@ impl GameImpl of GameTrait {
 
         // [Effect] Remove the starter tile from the deck
         let plan: Plan = tile.plan.into();
-        let mut indexes = Deck::Base.indexes(plan);
+        let deck: Deck = self.deck();
+        let mut indexes = deck.indexes(plan);
         let index = indexes.pop_front().unwrap();
         self.tiles = Bitmap::set_bit_at(self.tiles, index.into(), true);
 
@@ -153,7 +154,8 @@ impl GameImpl of GameTrait {
 
     #[inline(always)]
     fn assess_over(ref self: Game) {
-        self.over = self.tile_count >= Deck::Base.count().into();
+        let deck: Deck = self.deck();
+        self.over = self.tile_count >= deck.count().into();
     }
 
     #[inline(always)]
@@ -184,8 +186,8 @@ impl GameImpl of GameTrait {
 
     #[inline(always)]
     fn draw_plan(ref self: Game) -> (u32, Plan) {
-        let deck: Deck = Deck::Base;
-        let number: u32 = deck.count().into();
+        let game_deck: Deck = self.deck();
+        let number: u32 = game_deck.count().into();
         let mut deck: OrigamiDeck = DeckTrait::from_bitmap(self.seed, number, self.tiles);
         let plan_id: u8 = deck.draw().into();
         self.tile_count += 1;
@@ -203,8 +205,7 @@ impl GameImpl of GameTrait {
                     let index = plan_id - 1;
                     Bitmap::set_bit_at(self.tiles, index.into(), true)
                 };
-        let deck: Deck = Deck::Base;
-        (self.tile_count, deck.plan(plan_id.into()))
+        (self.tile_count, game_deck.plan(plan_id.into()))
     }
 
     fn assess(

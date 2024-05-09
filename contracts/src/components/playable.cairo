@@ -82,6 +82,7 @@ mod PlayableComponent {
 
             // [Effect] Draw a new tile if relevant
             if !game.is_over() {
+                game.reseed(tile);
                 let (tile_id, plan) = game.draw_plan();
                 let tile = builder.reveal(tile_id, plan);
                 store.set_tile(tile);

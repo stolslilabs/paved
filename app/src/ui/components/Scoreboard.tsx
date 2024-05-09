@@ -29,6 +29,7 @@ export const Scoreboard = () => {
       <Table>
         <TableBody className="text-xs">
           <PlayerRow
+            game={game}
             builder={builder}
             rank={1}
             score={game?.score || 0}
@@ -41,12 +42,14 @@ export const Scoreboard = () => {
   );
 };
 export const PlayerRow = ({
+  game,
   builder,
   rank,
   score,
   builts,
   discardeds,
 }: {
+  game: any;
   builder: any;
   rank: number;
   score: number;
@@ -77,7 +80,7 @@ export const PlayerRow = ({
       <TableCell className="flex text-right">
         <p>{score}</p>
         <FontAwesomeIcon className="mx-2" icon={faHammer} />
-        <p>{`${paved}/71`}</p>
+        <p>{`${paved}/${game.mode.count() - 1}`}</p>
         <FontAwesomeIcon className="text-orange-500 mx-2" icon={faFire} />
         <p>{discarded}</p>
       </TableCell>
