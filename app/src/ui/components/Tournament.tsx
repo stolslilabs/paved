@@ -100,7 +100,7 @@ export const TournamentDialog = ({ mode }: { mode: Mode }) => {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant={"secondary"} size={"default"}>
+              <Button size={"default"}>
                 <FontAwesomeIcon
                   color="white"
                   className="h-6"
@@ -172,7 +172,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
       .filter(
         (game) =>
           game.seasonId - mode.offset() === page &&
-          !balckilist.includes(game.playerMaster),
+          !balckilist.includes(game.playerMaster)
       )
       .sort((a, b) => b.gameScore - a.gameScore)
       .slice(0, 10);
@@ -310,7 +310,7 @@ export const GameRow = ({
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{playerRank}</TableCell>
+      <TableCell className="">{playerRank}</TableCell>
       <TableCell className="text-left">{playerName}</TableCell>
       <TableCell className="text-right">{game.gameScore}</TableCell>
       <TableCell className="text-right">{duration}</TableCell>

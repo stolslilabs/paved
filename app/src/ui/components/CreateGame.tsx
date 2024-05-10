@@ -37,11 +37,7 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex justify-center items-center space-x-3">
-            <Button
-              disabled={!player}
-              variant={"secondary"}
-              onClick={handleClick}
-            >
+            <Button disabled={!player} onClick={handleClick}>
               New Game{" "}
               <span className="flex space-x-2 ml-4">
                 [<p>1</p> <Lords height={4} width={4} fill={""} />]

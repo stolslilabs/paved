@@ -27,7 +27,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   useEffect(() => {
     if (player) {
       setIdentifier(
-        shortenHex(`0x${player.id.toString(16)}`).replace("...", ""),
+        shortenHex(`0x${player.id.toString(16)}`).replace("...", "")
       );
       setPlayerName(player.name);
     } else {
@@ -46,7 +46,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   }, [data, address]);
 
   return (
-    <Card className="bg-paved-light-blue border">
+    <Card className="border rounded-3xl">
       <div className="flex">
         <CardHeader className="flex flex-col items-center w-full">
           <PlayerName playerName={playerName} />

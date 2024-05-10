@@ -29,7 +29,7 @@ export const ToolTipButton = ({
             size={"command"}
             onClick={onClick}
           >
-            <FontAwesomeIcon className="sm:h-4 md:h-8" icon={icon} />
+            <FontAwesomeIcon color="" className="sm:h-4 md:h-8" icon={icon} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

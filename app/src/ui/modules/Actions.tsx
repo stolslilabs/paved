@@ -12,6 +12,7 @@ import { ToolTipButton } from "../components/ToolTipButton";
 import { useNavigate } from "react-router-dom";
 import { useCameraStore } from "@/store";
 import { motion } from "framer-motion";
+import { SettingsDialog } from "../components/Settings";
 
 export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -74,6 +75,13 @@ export const Actions = () => {
           }`}
         >
           <Log />
+        </div>
+        <div
+          className={`absolute bottom-0 transition-all duration-200 ${
+            isExpanded ? "opacity-100 right-[-480%]" : "opacity-0 right-[100%]"
+          }`}
+        >
+          <SettingsDialog />
         </div>
       </div>
     </div>

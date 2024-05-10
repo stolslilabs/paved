@@ -140,12 +140,12 @@ export const PlayerRow = ({ rank, score }: { rank: number; score: number }) => {
   const name = player?.name || "";
   const backgroundColor = useMemo(
     () => getColor(`${account?.address}`),
-    [account],
+    [account]
   );
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{rank}</TableCell>
+      <TableCell className="">{rank}</TableCell>
       <TableCell>{score}</TableCell>
       <TableCell className="flex gap-2 text-ellipsis">
         <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />

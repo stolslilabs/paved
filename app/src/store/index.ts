@@ -101,6 +101,8 @@ interface GameState {
   valid: boolean;
   setValid: (valid: boolean) => void;
   resetValid: () => void;
+  strategyMode: boolean;
+  setStrategyMode: (strategyMode: boolean) => void;
 }
 
 export const useActionsStore = create<ActionState>((set, get) => ({
@@ -208,4 +210,6 @@ export const useGameStore = create<GameState>()((set, get) => ({
   valid: false,
   setValid: (valid) => set({ valid }),
   resetValid: () => set({ valid: false }),
+  strategyMode: false,
+  setStrategyMode: (strategyMode) => set({ strategyMode }),
 }));

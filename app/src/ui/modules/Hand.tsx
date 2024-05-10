@@ -6,19 +6,16 @@ import { Cancel } from "../components/Cancel";
 
 export const Hand = () => {
   return (
-    <div className="absolute right-2 md:right-4 bottom-2 md:bottom-4 z-30">
-      <div className="absolute top-0 left-[-40%]">
+    <div className="absolute right-2 md:right-4 bottom-2 md:bottom-4 z-30 flex">
+      <div className="pr-3 space-y-2">
+        {" "}
+        <Confirm />
+        <Rotation />
+        <hr />
         <Cancel />
-      </div>
-      <div className="absolute bottom-0 left-[-40%]">
         <Discard />
       </div>
-      <div className="absolute top-[-40%] left-0">
-        <Confirm />
-      </div>
-      <div className="absolute top-[-40%] right-0">
-        <Rotation />
-      </div>
+
       <Tile />
     </div>
   );
