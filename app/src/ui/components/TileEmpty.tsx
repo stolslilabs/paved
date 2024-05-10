@@ -188,24 +188,43 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
   const models = useMemo(() => {
     return {
       1: useGLTF("/models/ccccccccc.glb").scene.clone(),
-      2: useGLTF("/models/cccccfffc.glb").scene.clone(),
-      3: useGLTF("/models/cccccfrfc.glb").scene.clone(),
-      4: useGLTF("/models/cfffcfffc.glb").scene.clone(),
-      5: useGLTF("/models/ffcfffcff.glb").scene.clone(),
-      6: useGLTF("/models/ffcfffffc.glb").scene.clone(),
-      7: useGLTF("/models/ffffcccff.glb").scene.clone(),
-      8: useGLTF("/models/ffffffcff.glb").scene.clone(),
-      9: useGLTF("/models/rfffrfcfr.glb").scene.clone(),
-      10: useGLTF("/models/rfffrfffr.glb").scene.clone(),
-      11: useGLTF("/models/rfrfcccfr.glb").scene.clone(),
-      12: useGLTF("/models/rfrfffcfr.glb").scene.clone(),
-      13: useGLTF("/models/rfrfffffr.glb").scene.clone(),
-      14: useGLTF("/models/rfrfrfcff.glb").scene.clone(),
-      15: useGLTF("/models/sfrfrfcfr.glb").scene.clone(),
-      16: useGLTF("/models/sfrfrfffr.glb").scene.clone(),
-      17: useGLTF("/models/sfrfrfrfr.glb").scene.clone(),
-      18: useGLTF("/models/wffffffff.glb").scene.clone(),
-      19: useGLTF("/models/wfffffffr.glb").scene.clone(),
+      2: useGLTF("/models/ccccccccc.glb").scene.clone(),
+      3: useGLTF("/models/ccccccccc.glb").scene.clone(),
+      4: useGLTF("/models/ccccccccc.glb").scene.clone(),
+      5: useGLTF("/models/ccccccccc.glb").scene.clone(),
+      6: useGLTF("/models/ccccccccc.glb").scene.clone(),
+      7: useGLTF("/models/ffcfffcff.glb").scene.clone(),
+      8: useGLTF("/models/ffcfffcff.glb").scene.clone(),
+      9: useGLTF("/models/ffcfffcff.glb").scene.clone(),
+      10: useGLTF("/models/ffcfffcff.glb").scene.clone(),
+      11: useGLTF("/models/ffcfffcff.glb").scene.clone(),
+      12: useGLTF("/models/ffcfffffc.glb").scene.clone(),
+      13: useGLTF("/models/ffcfffffc.glb").scene.clone(),
+      14: useGLTF("/models/ffcfffffc.glb").scene.clone(),
+      15: useGLTF("/models/ffcfffffc.glb").scene.clone(),
+      16: useGLTF("/models/ffffffcff.glb").scene.clone(),
+      17: useGLTF("/models/ffffffcff.glb").scene.clone(),
+      18: useGLTF("/models/ffffffcff.glb").scene.clone(),
+      19: useGLTF("/models/ffffffcff.glb").scene.clone(),
+      // 1: useGLTF("/models/ccccccccc.glb").scene.clone(),
+      // 2: useGLTF("/models/cccccfffc.glb").scene.clone(),
+      // 3: useGLTF("/models/cccccfrfc.glb").scene.clone(),
+      // 4: useGLTF("/models/cfffcfffc.glb").scene.clone(),
+      // 5: useGLTF("/models/ffcfffcff.glb").scene.clone(),
+      // 6: useGLTF("/models/ffcfffffc.glb").scene.clone(),
+      // 7: useGLTF("/models/ffffcccff.glb").scene.clone(),
+      // 8: useGLTF("/models/ffffffcff.glb").scene.clone(),
+      // 9: useGLTF("/models/rfffrfcfr.glb").scene.clone(),
+      // 10: useGLTF("/models/rfffrfffr.glb").scene.clone(),
+      // 11: useGLTF("/models/rfrfcccfr.glb").scene.clone(),
+      // 12: useGLTF("/models/rfrfffcfr.glb").scene.clone(),
+      // 13: useGLTF("/models/rfrfffffr.glb").scene.clone(),
+      // 14: useGLTF("/models/rfrfrfcff.glb").scene.clone(),
+      // 15: useGLTF("/models/sfrfrfcfr.glb").scene.clone(),
+      // 16: useGLTF("/models/sfrfrfffr.glb").scene.clone(),
+      // 17: useGLTF("/models/sfrfrfrfr.glb").scene.clone(),
+      // 18: useGLTF("/models/wffffffff.glb").scene.clone(),
+      // 19: useGLTF("/models/wfffffffr.glb").scene.clone(),
     };
   }, []);
 
@@ -220,12 +239,14 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
   };
   // TODO: this is weird now
   const shadowedModel = useMemo(() => {
-    const model = models[activeTile?.plan.into() as keyof typeof models];
+    const model = models[activeTile?.plan.into() as keyof typeof models].clone();
     const box = new THREE.Box3().setFromObject(model);
     const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    // model.position.y = -center.y;
-    // model.position.y += size.y * 0.5;
+    const dim = box.getSize(new THREE.Vector3());
+    model.position.x -= center.x;
+    model.position.y -= center.y;
+    model.position.z -= center.z;
+    model.position.y += dim.y * 0.5;
     model.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.material = child.material.clone();
@@ -239,7 +260,6 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
           // Reset to default color or make transparent
           child.material.color.setHex(0xffffff); // Assuming white is the default
         }
-
         child.material.transparent = true;
         child.material.opacity = 0.8;
       }
@@ -248,13 +268,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
   }, [
     activeTile,
     isIdle,
-    orientation,
     isValid,
-    handlePointerEnter,
-    handlePointerLeave,
-    handleSimpleClick,
-    position.x,
-    position.y,
   ]);
 
   const scale = useMemo(() => {
@@ -262,7 +276,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
     const box = new THREE.Box3().setFromObject(shadowedModel);
     const dim = box.getSize(new THREE.Vector3());
     return (2 * size) / (dim.x + dim.z);
-  }, [models]);
+  }, [shadowedModel]);
 
   const meshComponent = useMemo(
     () => (
@@ -271,17 +285,12 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
           visible={texture !== undefined && !strategyMode}
           ref={meshRef}
           key={`tile-${activeTile?.id}`}
-          // scale={scale}
-          rotation={[Math.PI / 2, 0, 0]}
+          scale={scale}
+          rotation={[Math.PI / 2, (Math.PI / 2) * (1 - (activeTile?.orientation.into() || 1)), 0]}
           position={[position.x, position.y, 0]}
         >
           <primitive
             object={shadowedModel}
-            rotation={[
-              0,
-              (Math.PI / 2) * (1 - (activeTile?.orientation.into() || 1)),
-              0,
-            ]}
           />
         </group>
         <mesh
