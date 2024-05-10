@@ -271,7 +271,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
           visible={texture !== undefined && !strategyMode}
           ref={meshRef}
           key={`tile-${activeTile?.id}`}
-          scale={scale}
+          // scale={scale}
           rotation={[Math.PI / 2, 0, 0]}
           position={[position.x, position.y, 0]}
         >
