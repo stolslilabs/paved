@@ -24,7 +24,7 @@ export const Scoreboard = () => {
   if (!game || !builder) return;
 
   return (
-    <div className="md:flex flex-col hidden">
+    <div className="md:flex flex-col hidden text-primary-foreground">
       <p className="text-left text-sm mt-4 mb-2 ml-2">Leaderboard</p>
       <Table>
         <TableBody className="text-xs">
