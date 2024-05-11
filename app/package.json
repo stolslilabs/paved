@@ -49,6 +49,7 @@
     "@radix-ui/react-switch": "^1.0.3",
     "@radix-ui/react-tabs": "^1.0.4",
     "@radix-ui/react-tooltip": "^1.0.7",
+    "@react-spring/three": "^9.7.3",
     "@react-three/drei": "^9.103.0",
     "@react-three/fiber": "^8.16.1",
     "@react-three/postprocessing": "^2.16.2",

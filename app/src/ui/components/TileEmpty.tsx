@@ -17,7 +17,6 @@ import { useGLTF } from "@react-three/drei";
 const loader = new THREE.TextureLoader();
 
 export const TileEmpty = ({ tiles, col, row, size }: any) => {
-  const [play, { stop }] = useSound(Click);
   const { gameId } = useQueryParams();
   const { enabled } = useActions();
 
@@ -161,7 +160,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
   }, [hoveredTile, isHovered]);
 
   const handleSimpleClick = useCallback(() => {
-    play();
+    // play();
     setSelectedTile({ col, row });
     setX(col);
     setY(row);

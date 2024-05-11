@@ -11,10 +11,12 @@ import {
 import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
 import { useDojo } from "@/dojo/useDojo";
+import useSound from "use-sound";
+import RotationSound from "/sounds/rotation.wav";
 
 export const Rotation = () => {
   // const { account } = useAccount();
-
+  const [play, { stop }] = useSound(RotationSound);
   const {
     account: { account },
   } = useDojo();
@@ -23,6 +25,7 @@ export const Rotation = () => {
   const { orientation, spot, setOrientation, rotateSpot } = useGameStore();
 
   const handleClick = () => {
+    play();
     setOrientation(orientation + 1);
     rotateSpot(spot, true);
   };

@@ -21,6 +21,8 @@ import { useCharacter } from "@/hooks/useCharacter";
 import { useTile } from "@/hooks/useTile";
 import { useAccount } from "@starknet-react/core";
 import { useDojo } from "@/dojo/useDojo";
+import useSound from "use-sound";
+import onCharacterClick from "/sounds/onCharacterClick.wav";
 
 interface TProps {
   index: number;
@@ -28,6 +30,7 @@ interface TProps {
 }
 
 export const Character = (props: TProps) => {
+  const [play, { stop }] = useSound(onCharacterClick);
   const { gameId } = useQueryParams();
   const { index, enable } = props;
   const [selected, setSelected] = useState(false);
@@ -59,7 +62,7 @@ export const Character = (props: TProps) => {
 
   const className = useMemo(
     () => (enable ? "cursor-pointer" : "cursor-zoom-in opacity-25"),
-    [selected, enable],
+    [selected, enable]
   );
 
   const spots = useMemo(() => {
@@ -73,6 +76,7 @@ export const Character = (props: TProps) => {
           resetCharacter();
           resetSpot();
         } else {
+          play();
           setCharacter(getCharacterFromIndex(index));
         }
       } else if (tile) {

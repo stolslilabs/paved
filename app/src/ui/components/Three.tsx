@@ -27,6 +27,8 @@ import {
   Grid,
 } from "@react-three/postprocessing";
 import { BlendFunction, Resizer, KernelSize } from "postprocessing";
+import useSound from "use-sound";
+import RotationSound from "/sounds/rotation.wav";
 
 export const ThreeGrid = () => {
   const mesh = useRef<THREE.Mesh>(null!);
@@ -78,6 +80,8 @@ export const MainScene = () => {
 function Keyboard() {
   const [sub] = useKeyboardControls<Controls>();
 
+  const [play, { stop }] = useSound(RotationSound);
+
   const {
     orientation,
     spot,
@@ -92,6 +96,7 @@ function Keyboard() {
       (state) => state.clockwise,
       (pressed) => {
         if (pressed) {
+          play();
           setOrientation(orientation + 1);
           rotateSpot(spot, true);
         }
@@ -104,6 +109,7 @@ function Keyboard() {
       (state) => state.counterClockwise,
       (pressed) => {
         if (pressed) {
+          play();
           setOrientation(orientation - 1);
           rotateSpot(spot, false);
         }

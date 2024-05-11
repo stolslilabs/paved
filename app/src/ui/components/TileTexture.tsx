@@ -3,6 +3,7 @@ import { offset, other_offset } from "@/dojo/game";
 import { useMemo, useRef, useState } from "react";
 import { useGameStore } from "@/store";
 import { useGLTF } from "@react-three/drei";
+import { useSpring, animated } from "@react-spring/three";
 
 export const loader = new THREE.TextureLoader();
 
@@ -10,7 +11,7 @@ export const createSquareGeometry = (size: any) => {
   return new THREE.BoxGeometry(size, size, 0.1);
 };
 
-export const TileTexture = ({ tile, size }: any) => {
+export const TileTexture = ({ tile, size, length }: any) => {
   const meshRef = useRef<any>();
   const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
   const { setHoveredTile } = useGameStore();
@@ -35,6 +36,10 @@ export const TileTexture = ({ tile, size }: any) => {
       setTexture(undefined);
     }
   }, [tile]);
+
+  const isLast = useMemo(() => {
+    return tile.id == length;
+  }, [tile.id, length]);
 
   const handlePointerEnter = () => {
     const col = tile ? tile?.y - offset + other_offset : 0;

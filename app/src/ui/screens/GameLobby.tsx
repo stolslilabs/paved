@@ -21,7 +21,7 @@ export const GameLobby = () => {
       </div>
 
       <div
-        className={`${sideBar ? "w-screen" : "hidden"} z-10 md:w-1/3 border-r sticky bottom-0 h-screen px-8 shadow-2xl bg-gradient-to-r from-primary to-blue-100`}
+        className={`${sideBar ? "w-screen" : "hidden"} z-10 md:w-1/3 border-r sticky bottom-0 h-screen px-8 shadow-2xl bg-primary `}
       >
         <div className="h-16 flex justify-center my-3">
           <img src={banner} alt="banner" className="h-full " />

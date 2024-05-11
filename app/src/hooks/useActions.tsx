@@ -15,6 +15,8 @@ import { Account } from "starknet";
 import { useAccount } from "@starknet-react/core";
 import { useGame } from "./useGame";
 import { useActionsStore } from "@/store";
+import useSound from "use-sound";
+import Click from "/sounds/click.wav";
 
 export const useActions = () => {
   const { gameId } = useQueryParams();
@@ -34,6 +36,7 @@ export const useActions = () => {
     resetOrientation,
     valid,
   } = useGameStore();
+  const [play, { stop }] = useSound(Click);
   // const { account } = useAccount();
   const { game } = useGame({ gameId });
   const { disabled, setDisabled, enabled, setEnabled } = useActionsStore();
@@ -57,6 +60,7 @@ export const useActions = () => {
   const handleClick = useCallback(async () => {
     if (game && builder?.tile_id) {
       setIsWaiting(true);
+      play();
       try {
         await build({
           account: account as Account,
