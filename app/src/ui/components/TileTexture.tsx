@@ -45,43 +45,24 @@ export const TileTexture = ({ tile, size }: any) => {
   const models = useMemo(() => {
     return {
       1: useGLTF("/models/ccccccccc.glb").scene.clone(),
-      2: useGLTF("/models/ccccccccc.glb").scene.clone(),
-      3: useGLTF("/models/ccccccccc.glb").scene.clone(),
-      4: useGLTF("/models/ccccccccc.glb").scene.clone(),
-      5: useGLTF("/models/ccccccccc.glb").scene.clone(),
-      6: useGLTF("/models/ccccccccc.glb").scene.clone(),
-      7: useGLTF("/models/ffcfffcff.glb").scene.clone(),
-      8: useGLTF("/models/ffcfffcff.glb").scene.clone(),
-      9: useGLTF("/models/ffcfffcff.glb").scene.clone(),
-      10: useGLTF("/models/ffcfffcff.glb").scene.clone(),
-      11: useGLTF("/models/ffcfffcff.glb").scene.clone(),
-      12: useGLTF("/models/ffcfffffc.glb").scene.clone(),
-      13: useGLTF("/models/ffcfffffc.glb").scene.clone(),
-      14: useGLTF("/models/ffcfffffc.glb").scene.clone(),
-      15: useGLTF("/models/ffcfffffc.glb").scene.clone(),
-      16: useGLTF("/models/ffffffcff.glb").scene.clone(),
-      17: useGLTF("/models/ffffffcff.glb").scene.clone(),
-      18: useGLTF("/models/ffffffcff.glb").scene.clone(),
-      19: useGLTF("/models/ffffffcff.glb").scene.clone(),
-      // 1: useGLTF("/models/ccccccccc.glb").scene.clone(),
-      // 2: useGLTF("/models/cccccfffc.glb").scene.clone(),
-      // 3: useGLTF("/models/cccccfrfc.glb").scene.clone(),
-      // 4: useGLTF("/models/cfffcfffc.glb").scene.clone(),
-      // 5: useGLTF("/models/ffcfffcff.glb").scene.clone(),
-      // 6: useGLTF("/models/ffcfffffc.glb").scene.clone(),
-      // 7: useGLTF("/models/ffffcccff.glb").scene.clone(),
-      // 8: useGLTF("/models/ffffffcff.glb").scene.clone(),
-      // 9: useGLTF("/models/rfffrfcfr.glb").scene.clone(),
-      // 10: useGLTF("/models/rfffrfffr.glb").scene.clone(),
-      // 11: useGLTF("/models/rfrfcccfr.glb").scene.clone(),
-      // 12: useGLTF("/models/rfrfffcfr.glb").scene.clone(),
-      // 13: useGLTF("/models/rfrfffffr.glb").scene.clone(),
-      // 14: useGLTF("/models/rfrfrfcff.glb").scene.clone(),
-      // 15: useGLTF("/models/sfrfrfcfr.glb").scene.clone(),
-      // 16: useGLTF("/models/sfrfrfffr.glb").scene.clone(),
-      // 17: useGLTF("/models/sfrfrfrfr.glb").scene.clone(),
-      // 18: useGLTF("/models/wffffffff.glb").scene.clone(),
-      // 19: useGLTF("/models/wfffffffr.glb").scene.clone(),
+      2: useGLTF("/models/cccccfffc.glb").scene.clone(),
+      3: useGLTF("/models/cccccfrfc.glb").scene.clone(),
+      4: useGLTF("/models/cfffcfffc.glb").scene.clone(),
+      5: useGLTF("/models/ffcfffcff.glb").scene.clone(),
+      6: useGLTF("/models/ffcfffffc.glb").scene.clone(),
+      7: useGLTF("/models/ffffcccff.glb").scene.clone(),
+      8: useGLTF("/models/ffffffcff.glb").scene.clone(),
+      9: useGLTF("/models/rfffrfcfr.glb").scene.clone(),
+      10: useGLTF("/models/rfffrfffr.glb").scene.clone(),
+      11: useGLTF("/models/rfrfcccfr.glb").scene.clone(),
+      12: useGLTF("/models/rfrfffcfr.glb").scene.clone(),
+      13: useGLTF("/models/rfrfffffr.glb").scene.clone(),
+      14: useGLTF("/models/rfrfrfcff.glb").scene.clone(),
+      15: useGLTF("/models/sfrfrfcfr.glb").scene.clone(),
+      16: useGLTF("/models/sfrfrfffr.glb").scene.clone(),
+      17: useGLTF("/models/sfrfrfrfr.glb").scene.clone(),
+      18: useGLTF("/models/wffffffff.glb").scene.clone(),
+      19: useGLTF("/models/wfffffffr.glb").scene.clone(),
     };
   }, []);
 
@@ -118,12 +99,14 @@ export const TileTexture = ({ tile, size }: any) => {
         visible={!strategyMode}
         key={`tile-${tile.id}`}
         scale={scale}
-        rotation={[Math.PI / 2, (Math.PI / 2) * (1 - tile.orientation.into()), 0]}
+        rotation={[
+          Math.PI / 2,
+          (Math.PI / 2) * (1 - tile.orientation.into()),
+          0,
+        ]}
         position={[position.x, position.y, 0]}
       >
-        <primitive
-          object={shadowedModel}
-        />
+        <primitive object={shadowedModel} />
       </group>
 
       <mesh
