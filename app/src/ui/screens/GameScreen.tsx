@@ -7,6 +7,7 @@ import { KeyboardControlsEntry, KeyboardControls } from "@react-three/drei";
 export enum Controls {
   clockwise = "clockwise",
   counterClockwise = "counterClockwise",
+  strategyMode = "strategyMode",
 }
 
 const GameScene = () => {
@@ -14,8 +15,9 @@ const GameScene = () => {
     () => [
       { name: Controls.clockwise, keys: ["KeyW"] },
       { name: Controls.counterClockwise, keys: ["KeyQ"] },
+      { name: Controls.strategyMode, keys: ["KeyE"] },
     ],
-    [],
+    []
   );
 
   return (

@@ -78,7 +78,14 @@ export const MainScene = () => {
 function Keyboard() {
   const [sub] = useKeyboardControls<Controls>();
 
-  const { orientation, spot, setOrientation, rotateSpot } = useGameStore();
+  const {
+    orientation,
+    spot,
+    setOrientation,
+    rotateSpot,
+    strategyMode,
+    setStrategyMode,
+  } = useGameStore();
 
   useEffect(() => {
     return sub(
@@ -88,7 +95,7 @@ function Keyboard() {
           setOrientation(orientation + 1);
           rotateSpot(spot, true);
         }
-      },
+      }
     );
   }, [orientation, spot]);
 
@@ -100,9 +107,20 @@ function Keyboard() {
           setOrientation(orientation - 1);
           rotateSpot(spot, false);
         }
-      },
+      }
     );
   }, [orientation, spot]);
+
+  useEffect(() => {
+    return sub(
+      (state) => state.strategyMode,
+      (pressed) => {
+        if (pressed) {
+          setStrategyMode(!strategyMode);
+        }
+      }
+    );
+  }, [strategyMode]);
 
   return <></>;
 }

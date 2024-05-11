@@ -36,7 +36,7 @@ export const SettingsDialog = () => {
               onCheckedChange={() => setStrategyMode(!strategyMode)}
             />
             <Label className="text-xs" htmlFor="show-finished">
-              Strategy Mode (2D Tiles)
+              Strategy Mode (E)
             </Label>
           </div>
         </div>
