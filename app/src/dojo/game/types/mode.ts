@@ -38,7 +38,7 @@ export class Mode {
   public offset(): number {
     switch (this.value) {
       case ModeType.Daily:
-        return 19851;
+        return 19855;
       case ModeType.Weekly:
         return 2835;
       case ModeType.None:

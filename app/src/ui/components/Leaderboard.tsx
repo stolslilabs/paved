@@ -24,28 +24,28 @@ import { getColor } from "@/dojo/game";
 import { TwitterShareButton } from "react-share";
 import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
 import { useGame } from "@/hooks/useGame";
-import { useBuilder } from "@/hooks/useBuilder";
 import { usePlayer } from "@/hooks/usePlayer";
 import { Game as GameClass } from "@/dojo/game/models/game";
-import { useAccount } from "@starknet-react/core";
 import { ToolTipButton } from "./ToolTipButton";
+import { useBuilders } from "@/hooks/useBuilders";
 import { useDojo } from "@/dojo/useDojo";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
-  // const { account } = useAccount();
   const {
     account: { account },
   } = useDojo();
-
   const { game } = useGame({ gameId });
-  const { builder } = useBuilder({
-    gameId: gameId,
-    playerId: account?.address,
-  });
-
+  const { builders } = useBuilders({ gameId });
   const [open, setOpen] = useState(false);
   const [over, setOver] = useState(false);
+
+  const isSelf = useMemo(() => {
+    return (
+      account?.address ===
+      `0x${builders.length > 0 ? builders[0].player_id.toString(16) : 0}`
+    );
+  }, [account, builders]);
 
   useEffect(() => {
     if (game) {
@@ -59,7 +59,7 @@ export const LeaderboardDialog = () => {
     }
   }, [game, over]);
 
-  if (!game) return null;
+  if (!game || !builders || !builders.length) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -68,8 +68,8 @@ export const LeaderboardDialog = () => {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
-        {over && builder && <Description game={game} />}
-        <Leaderboard />
+        {over && isSelf && <Description game={game} />}
+        <Leaderboard game={game} builders={builders} />
       </DialogContent>
     </Dialog>
   );
@@ -111,10 +111,13 @@ Play now 👇
   );
 };
 
-export const Leaderboard = () => {
-  const { gameId } = useQueryParams();
-  const { game } = useGame({ gameId });
-
+export const Leaderboard = ({
+  game,
+  builders,
+}: {
+  game: any;
+  builders: any[];
+}) => {
   return (
     <Table className="text-xs">
       <TableHeader>
@@ -125,22 +128,26 @@ export const Leaderboard = () => {
         </TableRow>
       </TableHeader>
       <TableBody>
-        <PlayerRow rank={1} score={game?.score || 0} />
+        <PlayerRow rank={1} score={game?.score || 0} builder={builders[0]} />
       </TableBody>
     </Table>
   );
 };
 
-export const PlayerRow = ({ rank, score }: { rank: number; score: number }) => {
-  // const { account } = useAccount();
-  const {
-    account: { account },
-  } = useDojo();
-  const { player } = usePlayer({ playerId: account?.address });
+export const PlayerRow = ({
+  rank,
+  score,
+  builder,
+}: {
+  rank: number;
+  score: number;
+  builder: any;
+}) => {
+  const { player } = usePlayer({ playerId: builder.player_id });
   const name = player?.name || "";
   const backgroundColor = useMemo(
-    () => getColor(`${account?.address}`),
-    [account],
+    () => getColor(`0x${builder.player_id.toString(16)}`),
+    [builder],
   );
 
   return (
