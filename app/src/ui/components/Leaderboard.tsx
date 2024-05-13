@@ -140,7 +140,7 @@ export const PlayerRow = ({ rank, score }: { rank: number; score: number }) => {
   const name = player?.name || "";
   const backgroundColor = useMemo(
     () => getColor(`${account?.address}`),
-    [account]
+    [account],
   );
 
   return (

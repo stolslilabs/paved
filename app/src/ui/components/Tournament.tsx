@@ -172,7 +172,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
       .filter(
         (game) =>
           game.seasonId - mode.offset() === page &&
-          !balckilist.includes(game.playerMaster)
+          !balckilist.includes(game.playerMaster),
       )
       .sort((a, b) => b.gameScore - a.gameScore)
       .slice(0, 10);

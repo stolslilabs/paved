@@ -17,7 +17,7 @@ const GameScene = () => {
       { name: Controls.counterClockwise, keys: ["KeyQ"] },
       { name: Controls.strategyMode, keys: ["KeyE"] },
     ],
-    []
+    [],
   );
 
   return (

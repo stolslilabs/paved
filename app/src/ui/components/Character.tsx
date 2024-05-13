@@ -62,7 +62,7 @@ export const Character = (props: TProps) => {
 
   const className = useMemo(
     () => (enable ? "cursor-pointer" : "cursor-zoom-in opacity-25"),
-    [selected, enable]
+    [selected, enable],
   );
 
   const spots = useMemo(() => {

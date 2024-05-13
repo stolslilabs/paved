@@ -65,10 +65,10 @@ export const PlayerRow = ({
 
   // Color is used to filter on builder since we don't have the player id in the event
   const paved = builts.filter(
-    (log: any) => log.color === backgroundColor
+    (log: any) => log.color === backgroundColor,
   ).length;
   const discarded = discardeds.filter(
-    (log: any) => log.color === backgroundColor
+    (log: any) => log.color === backgroundColor,
   ).length;
   return (
     <TableRow>
