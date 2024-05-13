@@ -5,6 +5,7 @@ import {
   defineSystem,
   getComponentValue,
   getEntitiesWithValue,
+  Entity,
   Has,
   HasValue,
   NotValue,
@@ -30,6 +31,8 @@ export const useTiles = () => {
   const { gameId } = useQueryParams();
   const [items, setItems] = useState<Items>({});
   const [tiles, setTiles] = useState<any>({});
+  const [keys, setKeys] = useState<Entity[]>([]);
+  const [trigger, setTrigger] = useState(false);
 
   const {
     setup: {
@@ -96,6 +99,17 @@ export const useTiles = () => {
   ]);
 
   useEffect(() => {
+    console.log("tileKeys");
+    // If some keys has been removed, then reset the state
+    const oldKeys = keys.filter((key) => !tileKeys.includes(key));
+    if (oldKeys.length) {
+      setItems({});
+      setTiles({});
+      setKeys(tileKeys);
+      setTrigger(!trigger);
+      return;
+    }
+
     tileKeys.forEach((entity) => {
       const tile = getComponentValue(Tile, entity);
 
@@ -105,7 +119,8 @@ export const useTiles = () => {
 
       createTileAndSet(new TileClass(tile));
     });
-  }, [tileKeys]);
+    setKeys(tileKeys);
+  }, [tileKeys, trigger]);
 
   return { tiles, items };
 };

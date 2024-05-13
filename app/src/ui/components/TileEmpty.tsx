@@ -220,7 +220,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
   // TODO: this is weird now
   const shadowedModel = useMemo(() => {
     const model =
-      models[activeTile?.plan.into() as keyof typeof models].clone();
+      models[(activeTile?.plan.into() as keyof typeof models) || 1].clone();
     const box = new THREE.Box3().setFromObject(model);
     const center = box.getCenter(new THREE.Vector3());
     const dim = box.getSize(new THREE.Vector3());

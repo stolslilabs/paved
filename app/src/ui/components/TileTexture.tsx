@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { offset, other_offset } from "@/dojo/game";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useGameStore } from "@/store";
 import { useGLTF } from "@react-three/drei";
 import { useSpring, animated } from "@react-spring/three";
@@ -23,7 +23,7 @@ export const TileTexture = ({ tile, size, length }: any) => {
     return getSquarePosition({ row, col, squareSize: size });
   }, [tile, size]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (tile) {
       const rotation = (Math.PI / 2) * (1 - tile.orientation.into());
       const image = tile.getImage();

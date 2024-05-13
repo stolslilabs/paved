@@ -156,11 +156,10 @@ export function systems({
   const build = async ({ account, mode, ...props }: SystemTypes.Build) => {
     const buidlerKey = getEntityIdFromKeys([
       BigInt(props.game_id),
-      BigInt(props.tile_id),
+      BigInt(account.address),
     ]) as Entity;
 
     const builderId = uuid();
-
     clientModels.models.Builder.addOverride(builderId, {
       entity: buidlerKey,
       value: {
@@ -189,26 +188,6 @@ export function systems({
       },
     });
 
-    const characterId = uuid();
-    if (props.role) {
-      const characterKey = getEntityIdFromKeys([
-        BigInt(props.game_id),
-        BigInt(props.tile_id),
-        BigInt(props.role),
-      ]) as Entity;
-
-      clientModels.models.Character.addOverride(characterId, {
-        entity: characterKey,
-        value: {
-          game_id: props.game_id,
-          player_id: BigInt(account.address),
-          index: props.role,
-          tile_id: props.tile_id,
-          spot: props.spot,
-        },
-      });
-    }
-
     try {
       const contract =
         mode?.value === ModeType.Daily ? client.daily : client.weekly;
@@ -222,14 +201,14 @@ export function systems({
           retryInterval: 100,
         }),
       );
+      // Sleep 5 seconds for indexer to index
+      await new Promise((resolve) => setTimeout(resolve, 5000));
     } catch (error) {
       clientModels.models.Tile.removeOverride(tileId);
-      clientModels.models.Character.removeOverride(characterId);
       clientModels.models.Builder.removeOverride(builderId);
       console.error("Error building:", error);
     } finally {
       clientModels.models.Tile.removeOverride(tileId);
-      clientModels.models.Character.removeOverride(characterId);
       clientModels.models.Builder.removeOverride(builderId);
     }
   };

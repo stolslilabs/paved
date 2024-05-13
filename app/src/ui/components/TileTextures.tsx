@@ -17,8 +17,6 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
     return highestId;
   }
 
-  const highestId = findHighestId(tiles);
-
   const renderedItems = useMemo(() => {
     return Object.keys(items).map((key: string, index) => {
       const item = items[key];

@@ -25,7 +25,6 @@ export const Tile = () => {
   const { enabled } = useActions();
   const { gameId } = useQueryParams();
   const { orientation, setActiveEntity, resetActiveEntity } = useGameStore();
-  // const { account } = useAccount();
   const {
     account: { account },
   } = useDojo();
@@ -77,13 +76,13 @@ export const Tile = () => {
       className="h-24 w-24 md:h-60 md:w-60  flex justify-center items-center  shadow-lg "
       style={{ backgroundColor }}
     >
-      {tile && backgroundImage && !game?.isOver() && enabled && (
+      {(tile && backgroundImage && !game?.isOver() && enabled && (
         <ActiveTile image={backgroundImage} rotation={rotation} />
-      )}
-      {tile && backgroundImage && !game?.isOver() && !enabled && (
-        <LoadingTile />
-      )}
-      {!tile && game?.isOver() && <LockedTile />}
+      )) ||
+        null}
+      {(backgroundImage && !game?.isOver() && !enabled && <LoadingTile />) ||
+        null}
+      {(!tile && game?.isOver() && <LockedTile />) || null}
     </div>
   );
 };
@@ -125,14 +124,13 @@ export const ActiveTile = ({
 
 export const LoadingTile = () => {
   const backgroundImage = useMemo(() => getImage({ plan: 9 }), []);
-  const borderColor = useMemo(() => "#3B3B3B", []);
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <div
-            className={`h-full w-full `}
+            className={`h-full w-full  border-4`}
             style={{
               backgroundImage: `url(${backgroundImage})`,
               backgroundSize: "cover",
@@ -153,18 +151,16 @@ export const LoadingTile = () => {
 
 export const LockedTile = () => {
   const backgroundImage = useMemo(() => getImage({ plan: 9 }), []);
-  const borderColor = useMemo(() => "#3B3B3B", []);
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <div
-            className={`h-full w-full border-8`}
+            className={`h-full w-full border-4`}
             style={{
               backgroundImage: `url(${backgroundImage})`,
               backgroundSize: "cover",
-              borderColor,
             }}
           >
             <div className="relative h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
