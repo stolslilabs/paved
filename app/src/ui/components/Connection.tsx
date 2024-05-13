@@ -11,7 +11,7 @@ import { Address } from "./Address";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignOut } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
-import { useDojo } from "@/dojo/useDojo";
+// import { useDojo } from "@/dojo/useDojo";
 
 export const PREFUND_AMOUNT = "0x3635C9ADC5DEA00000";
 
@@ -19,14 +19,14 @@ export function Connection() {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const { isConnected } = useAccount();
-  const [isSetup, setIsSetup] = useState(false);
+  // const [isSetup, setIsSetup] = useState(false);
 
-  const {
-    setup: {
-      config: { masterAddress },
-    },
-    account: { account, create, clear },
-  } = useDojo();
+  // const {
+  //   setup: {
+  //     config: { masterAddress },
+  //   },
+  //   account: { account, create, clear },
+  // } = useDojo();
 
   const connectWallet = async () => {
     const { starknetkitConnectModal } = useStarknetkitConnectModal({
@@ -37,30 +37,30 @@ export function Connection() {
     connect({ connector });
 
     // Manage burner account
-    if (account.address !== masterAddress) {
-      // check if burner still valid
-      try {
-        await account?.getNonce();
-      } catch (e: any) {
-        console.log(e);
+    //   if (account.address !== masterAddress) {
+    //     // check if burner still valid
+    //     try {
+    //       await account?.getNonce();
+    //     } catch (e: any) {
+    //       console.log(e);
 
-        clear();
-        console.log("Burner cleared!");
+    //       clear();
+    //       console.log("Burner cleared!");
 
-        create({ prefundedAmount: PREFUND_AMOUNT });
-        console.log("Burner created!");
-        setIsSetup(true);
-      }
-    } else {
-      // create burner account
-      create({ prefundedAmount: PREFUND_AMOUNT });
-      setIsSetup(true);
-    }
+    //       create({ prefundedAmount: PREFUND_AMOUNT });
+    //       console.log("Burner created!");
+    //       setIsSetup(true);
+    //     }
+    //   } else {
+    //     // create burner account
+    //     create({ prefundedAmount: PREFUND_AMOUNT });
+    //     setIsSetup(true);
+    //   }
   };
 
   return (
     <>
-      {isConnected && isSetup ? (
+      {isConnected ? (
         <div className="flex gap-4 border-4 border-paved-brown p-2">
           <Address />
           <TooltipProvider>

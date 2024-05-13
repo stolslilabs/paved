@@ -80,14 +80,24 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     };
 
     const create = async ({ account, name, master }: CreatePlayer) => {
+      const contract_address = getContractByName(
+        config.manifest,
+        contract_name,
+      );
+      const calls = [
+        {
+          contractAddress: config.feeTokenAddress,
+          entrypoint: "mint",
+          calldata: [account.address, `0x${(1e21).toString(16)}`, "0x0"],
+        },
+        {
+          contractAddress: contract_address,
+          entrypoint: "create",
+          calldata: [provider.getWorldAddress(), name, master],
+        },
+      ];
       try {
-        return await provider.execute(
-          account,
-          contract_name,
-          "create",
-          [provider.getWorldAddress(), name, master],
-          details,
-        );
+        return await provider.executeMulti(account, calls, details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -126,7 +136,10 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     };
 
     const spawn = async ({ account }: CreateGame) => {
-      const contract_address = getContractByName(config.manifest, "daily");
+      const contract_address = getContractByName(
+        config.manifest,
+        contract_name,
+      );
       const calls = [
         {
           contractAddress: config.feeTokenAddress,
@@ -267,7 +280,10 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     };
 
     const spawn = async ({ account }: CreateGame) => {
-      const contract_address = getContractByName(config.manifest, "weekly");
+      const contract_address = getContractByName(
+        config.manifest,
+        contract_name,
+      );
       const calls = [
         {
           contractAddress: config.feeTokenAddress,
