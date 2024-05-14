@@ -182,8 +182,7 @@ impl RoleIntoU8 of core::Into<Role, u8> {
             Role::Adventurer => 3,
             Role::Paladin => 4,
             Role::Pilgrim => 5,
-        // Role::Woodsman => 6,
-        // Role::Herdsman => 7,
+            _ => 0,
         }
     }
 }
@@ -191,18 +190,14 @@ impl RoleIntoU8 of core::Into<Role, u8> {
 impl U8IntoRole of core::Into<u8, Role> {
     #[inline(always)]
     fn into(self: u8) -> Role {
-        if self == 1 {
-            Role::Lord
-        } else if self == 2 {
-            Role::Lady
-        } else if self == 3 {
-            Role::Adventurer
-        } else if self == 4 {
-            Role::Paladin
-        } else if self == 5 {
-            Role::Pilgrim
-        } else {
-            Role::None
+        match self {
+            0 => Role::None,
+            1 => Role::Lord,
+            2 => Role::Lady,
+            3 => Role::Adventurer,
+            4 => Role::Paladin,
+            5 => Role::Pilgrim,
+            _ => Role::None,
         }
     }
 }

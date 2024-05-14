@@ -41,26 +41,18 @@ impl IntoSpotU8 of core::Into<Spot, u8> {
 impl IntoU8Spot of core::Into<u8, Spot> {
     #[inline(always)]
     fn into(self: u8) -> Spot {
-        if self == 1 {
-            Spot::Center
-        } else if self == 2 {
-            Spot::NorthWest
-        } else if self == 3 {
-            Spot::North
-        } else if self == 4 {
-            Spot::NorthEast
-        } else if self == 5 {
-            Spot::East
-        } else if self == 6 {
-            Spot::SouthEast
-        } else if self == 7 {
-            Spot::South
-        } else if self == 8 {
-            Spot::SouthWest
-        } else if self == 9 {
-            Spot::West
-        } else {
-            Spot::None
+        match self {
+            0 => Spot::None,
+            1 => Spot::Center,
+            2 => Spot::NorthWest,
+            3 => Spot::North,
+            4 => Spot::NorthEast,
+            5 => Spot::East,
+            6 => Spot::SouthEast,
+            7 => Spot::South,
+            8 => Spot::SouthWest,
+            9 => Spot::West,
+            _ => Spot::None,
         }
     }
 }

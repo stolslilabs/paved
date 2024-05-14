@@ -40,47 +40,81 @@ impl DeckImpl of DeckTrait {
 
     #[inline(always)]
     fn plan(index: u32) -> Plan {
-        let id = index % TOTAL_TILE_COUNT.into();
-        if id < 1 {
-            Plan::CCCCCCCCC
-        } else if id < 5 {
-            Plan::CCCCCFFFC
-        } else if id < 8 {
-            Plan::CCCCCFRFC
-        } else if id < 11 {
-            Plan::CFFFCFFFC
-        } else if id < 14 {
-            Plan::FFCFFFCFF
-        } else if id < 16 {
-            Plan::FFCFFFFFC
-        } else if id < 21 {
-            Plan::FFFFCCCFF
-        } else if id < 26 {
-            Plan::FFFFFFCFF
-        } else if id < 30 {
-            Plan::RFFFRFCFR
-        } else if id < 38 {
-            Plan::RFFFRFFFR
-        } else if id < 43 {
-            Plan::RFRFCCCFR
-        } else if id < 46 {
-            Plan::RFRFFFCFR
-        } else if id < 55 {
-            Plan::RFRFFFFFR
-        } else if id < 58 {
-            Plan::RFRFRFCFF
-        } else if id < 61 {
-            Plan::SFRFRFCFR
-        } else if id < 65 {
-            Plan::SFRFRFFFR
-        } else if id < 66 {
-            Plan::SFRFRFRFR
-        } else if id < 70 {
-            Plan::WFFFFFFFF
-        } else if id < 72 {
-            Plan::WFFFFFFFR
-        } else {
-            Plan::None
+        let id: felt252 = (index % TOTAL_TILE_COUNT.into()).into();
+        match id {
+            0 => Plan::CCCCCCCCC,
+            1 => Plan::CCCCCFFFC,
+            2 => Plan::CCCCCFFFC,
+            3 => Plan::CCCCCFFFC,
+            4 => Plan::CCCCCFFFC,
+            5 => Plan::CCCCCFRFC,
+            6 => Plan::CCCCCFRFC,
+            7 => Plan::CCCCCFRFC,
+            8 => Plan::CFFFCFFFC,
+            9 => Plan::CFFFCFFFC,
+            10 => Plan::CFFFCFFFC,
+            11 => Plan::FFCFFFCFF,
+            12 => Plan::FFCFFFCFF,
+            13 => Plan::FFCFFFCFF,
+            14 => Plan::FFCFFFFFC,
+            15 => Plan::FFCFFFFFC,
+            16 => Plan::FFFFCCCFF,
+            17 => Plan::FFFFCCCFF,
+            18 => Plan::FFFFCCCFF,
+            19 => Plan::FFFFCCCFF,
+            20 => Plan::FFFFCCCFF,
+            21 => Plan::FFFFFFCFF,
+            22 => Plan::FFFFFFCFF,
+            23 => Plan::FFFFFFCFF,
+            24 => Plan::FFFFFFCFF,
+            25 => Plan::FFFFFFCFF,
+            26 => Plan::RFFFRFCFR,
+            27 => Plan::RFFFRFCFR,
+            28 => Plan::RFFFRFCFR,
+            29 => Plan::RFFFRFCFR,
+            30 => Plan::RFFFRFFFR,
+            31 => Plan::RFFFRFFFR,
+            32 => Plan::RFFFRFFFR,
+            33 => Plan::RFFFRFFFR,
+            34 => Plan::RFFFRFFFR,
+            35 => Plan::RFFFRFFFR,
+            36 => Plan::RFFFRFFFR,
+            37 => Plan::RFFFRFFFR,
+            38 => Plan::RFRFCCCFR,
+            39 => Plan::RFRFCCCFR,
+            40 => Plan::RFRFCCCFR,
+            41 => Plan::RFRFCCCFR,
+            42 => Plan::RFRFCCCFR,
+            43 => Plan::RFRFFFCFR,
+            44 => Plan::RFRFFFCFR,
+            45 => Plan::RFRFFFCFR,
+            46 => Plan::RFRFFFFFR,
+            47 => Plan::RFRFFFFFR,
+            48 => Plan::RFRFFFFFR,
+            49 => Plan::RFRFFFFFR,
+            50 => Plan::RFRFFFFFR,
+            51 => Plan::RFRFFFFFR,
+            52 => Plan::RFRFFFFFR,
+            53 => Plan::RFRFFFFFR,
+            54 => Plan::RFRFFFFFR,
+            55 => Plan::RFRFRFCFF,
+            56 => Plan::RFRFRFCFF,
+            57 => Plan::RFRFRFCFF,
+            58 => Plan::SFRFRFCFR,
+            59 => Plan::SFRFRFCFR,
+            60 => Plan::SFRFRFCFR,
+            61 => Plan::SFRFRFFFR,
+            62 => Plan::SFRFRFFFR,
+            63 => Plan::SFRFRFFFR,
+            64 => Plan::SFRFRFFFR,
+            65 => Plan::SFRFRFRFR,
+            66 => Plan::WFFFFFFFF,
+            67 => Plan::WFFFFFFFF,
+            68 => Plan::WFFFFFFFF,
+            69 => Plan::WFFFFFFFF,
+            70 => Plan::WFFFFFFFR,
+            71 => Plan::WFFFFFFFR,
+            _ => Plan::None,
         }
     }
 

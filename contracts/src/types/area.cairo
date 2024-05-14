@@ -38,6 +38,25 @@ impl IntoAreaU8 of core::Into<Area, u8> {
     }
 }
 
+impl IntoU8Area of core::Into<u8, Area> {
+    #[inline(always)]
+    fn into(self: u8) -> Area {
+        match self {
+            0 => Area::None,
+            1 => Area::A,
+            2 => Area::B,
+            3 => Area::C,
+            4 => Area::D,
+            5 => Area::E,
+            6 => Area::F,
+            7 => Area::G,
+            8 => Area::H,
+            9 => Area::I,
+            _ => Area::None,
+        }
+    }
+}
+
 impl IntoAreaU128 of core::Into<Area, u128> {
     #[inline(always)]
     fn into(self: Area) -> u128 {
@@ -46,30 +65,11 @@ impl IntoAreaU128 of core::Into<Area, u128> {
     }
 }
 
-impl IntoU8Area of core::Into<u8, Area> {
+impl IntoAreaFelt252 of core::Into<Area, felt252> {
     #[inline(always)]
-    fn into(self: u8) -> Area {
-        if self == 1 {
-            Area::A
-        } else if self == 2 {
-            Area::B
-        } else if self == 3 {
-            Area::C
-        } else if self == 4 {
-            Area::D
-        } else if self == 5 {
-            Area::E
-        } else if self == 6 {
-            Area::F
-        } else if self == 7 {
-            Area::G
-        } else if self == 8 {
-            Area::H
-        } else if self == 9 {
-            Area::I
-        } else {
-            Area::None
-        }
+    fn into(self: Area) -> felt252 {
+        let self_u8: u8 = self.into();
+        self_u8.into()
     }
 }
 
@@ -164,6 +164,34 @@ mod tests {
         assert(7_u8 == Area::G.into(), 'Area: G');
         assert(8_u8 == Area::H.into(), 'Area: H');
         assert(9_u8 == Area::I.into(), 'Area: I');
+    }
+
+    #[test]
+    fn test_area_into_felt252() {
+        assert(0 == Area::None.into(), 'Area: None');
+        assert(1 == Area::A.into(), 'Area: A');
+        assert(2 == Area::B.into(), 'Area: B');
+        assert(3 == Area::C.into(), 'Area: C');
+        assert(4 == Area::D.into(), 'Area: D');
+        assert(5 == Area::E.into(), 'Area: E');
+        assert(6 == Area::F.into(), 'Area: F');
+        assert(7 == Area::G.into(), 'Area: G');
+        assert(8 == Area::H.into(), 'Area: H');
+        assert(9 == Area::I.into(), 'Area: I');
+    }
+
+    #[test]
+    fn test_area_into_u128() {
+        assert(0_u128 == Area::None.into(), 'Area: None');
+        assert(1_u128 == Area::A.into(), 'Area: A');
+        assert(2_u128 == Area::B.into(), 'Area: B');
+        assert(3_u128 == Area::C.into(), 'Area: C');
+        assert(4_u128 == Area::D.into(), 'Area: D');
+        assert(5_u128 == Area::E.into(), 'Area: E');
+        assert(6_u128 == Area::F.into(), 'Area: F');
+        assert(7_u128 == Area::G.into(), 'Area: G');
+        assert(8_u128 == Area::H.into(), 'Area: H');
+        assert(9_u128 == Area::I.into(), 'Area: I');
     }
 
     #[test]

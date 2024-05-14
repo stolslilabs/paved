@@ -40,43 +40,47 @@ impl DeckImpl of DeckTrait {
 
     #[inline(always)]
     fn plan(index: u32) -> Plan {
-        let id = index % TOTAL_TILE_COUNT.into();
-        if id < 2 {
-            Plan::CCCCCFFFC
-        } else if id < 4 {
-            Plan::CCCCCFRFC
-        } else if id < 5 {
-            Plan::CFFFCFFFC
-        } else if id < 6 {
-            Plan::FFCFFFCFF
-        } else if id < 7 {
-            Plan::FFCFFFFFC
-        } else if id < 9 {
-            Plan::FFFFCCCFF
-        } else if id < 11 {
-            Plan::FFFFFFCFF
-        } else if id < 13 {
-            Plan::RFFFRFCFR
-        } else if id < 18 {
-            Plan::RFFFRFFFR
-        } else if id < 21 {
-            Plan::RFRFCCCFR
-        } else if id < 23 {
-            Plan::RFRFFFCFR
-        } else if id < 29 {
-            Plan::RFRFFFFFR
-        } else if id < 31 {
-            Plan::RFRFRFCFF
-        } else if id < 33 {
-            Plan::SFRFRFCFR
-        } else if id < 35 {
-            Plan::SFRFRFFFR
-        } else if id < 37 {
-            Plan::WFFFFFFFF
-        } else if id < 38 {
-            Plan::WFFFFFFFR
-        } else {
-            Plan::None
+        let id: felt252 = (index % TOTAL_TILE_COUNT.into()).into();
+        match id {
+            0 => Plan::CCCCCFFFC,
+            1 => Plan::CCCCCFFFC,
+            2 => Plan::CCCCCFRFC,
+            3 => Plan::CCCCCFRFC,
+            4 => Plan::CFFFCFFFC,
+            5 => Plan::FFCFFFCFF,
+            6 => Plan::FFCFFFFFC,
+            7 => Plan::FFFFCCCFF,
+            8 => Plan::FFFFCCCFF,
+            9 => Plan::FFFFFFCFF,
+            10 => Plan::FFFFFFCFF,
+            11 => Plan::RFFFRFCFR,
+            12 => Plan::RFFFRFCFR,
+            13 => Plan::RFFFRFFFR,
+            14 => Plan::RFFFRFFFR,
+            15 => Plan::RFFFRFFFR,
+            16 => Plan::RFFFRFFFR,
+            17 => Plan::RFFFRFFFR,
+            18 => Plan::RFRFCCCFR,
+            19 => Plan::RFRFCCCFR,
+            20 => Plan::RFRFCCCFR,
+            21 => Plan::RFRFFFCFR,
+            22 => Plan::RFRFFFCFR,
+            23 => Plan::RFRFFFFFR,
+            24 => Plan::RFRFFFFFR,
+            25 => Plan::RFRFFFFFR,
+            26 => Plan::RFRFFFFFR,
+            27 => Plan::RFRFFFFFR,
+            28 => Plan::RFRFFFFFR,
+            29 => Plan::RFRFRFCFF,
+            30 => Plan::RFRFRFCFF,
+            31 => Plan::SFRFRFCFR,
+            32 => Plan::SFRFRFCFR,
+            33 => Plan::SFRFRFFFR,
+            34 => Plan::SFRFRFFFR,
+            35 => Plan::WFFFFFFFF,
+            36 => Plan::WFFFFFFFF,
+            37 => Plan::WFFFFFFFR,
+            _ => Plan::None,
         }
     }
 
