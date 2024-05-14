@@ -176,14 +176,24 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     };
 
     const sponsor = async ({ account, amount }: Sponsor) => {
+      const contract_address = getContractByName(
+        config.manifest,
+        contract_name,
+      );
+      const calls = [
+        {
+          contractAddress: config.feeTokenAddress,
+          entrypoint: "approve",
+          calldata: [contract_address, amount, "0x0"],
+        },
+        {
+          contractAddress: contract_address,
+          entrypoint: "sponsor",
+          calldata: [provider.getWorldAddress(), amount],
+        },
+      ];
       try {
-        return await provider.execute(
-          account,
-          contract_name,
-          "sponsor",
-          [provider.getWorldAddress(), amount],
-          details,
-        );
+        return await provider.executeMulti(account, calls, details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -320,14 +330,24 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     };
 
     const sponsor = async ({ account, amount }: Sponsor) => {
+      const contract_address = getContractByName(
+        config.manifest,
+        contract_name,
+      );
+      const calls = [
+        {
+          contractAddress: config.feeTokenAddress,
+          entrypoint: "approve",
+          calldata: [contract_address, amount, "0x0"],
+        },
+        {
+          contractAddress: contract_address,
+          entrypoint: "sponsor",
+          calldata: [provider.getWorldAddress(), amount],
+        },
+      ];
       try {
-        return await provider.execute(
-          account,
-          contract_name,
-          "sponsor",
-          [provider.getWorldAddress(), amount],
-          details,
-        );
+        return await provider.executeMulti(account, calls, details);
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;

@@ -46,6 +46,7 @@ import { Account } from "starknet";
 import { useAccount } from "@starknet-react/core";
 import { Mode, ModeType } from "@/dojo/game/types/mode";
 import { useLobbyStore } from "@/store";
+import { Sponsor } from "@/ui/components/Sponsor";
 
 export const TournamentHeader = ({ mode }: { mode: Mode }) => {
   const [tournamentId, setTournamentId] = useState<number>();
@@ -126,7 +127,7 @@ export const TournamentDialog = ({ mode }: { mode: Mode }) => {
 
 export const Tournament = ({ mode }: { mode: Mode }) => {
   const { games, ids } = useGames({ mode });
-  const [page, setPage] = useState<number | undefined>();
+  const [page, setPage] = useState<number>(1);
   const [pages, setPages] = useState<number[]>([]);
   const [startDate, setStartDate] = useState<string>("");
   const [startTime, setStartTime] = useState<string>("");
@@ -134,7 +135,11 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
   const [endTime, setEndTime] = useState<string>("");
 
   useEffect(() => {
-    if (!page) return setPage(1);
+    setPage(ids.length);
+  }, [ids]);
+
+  useEffect(() => {
+    if (!games || !ids) return;
     const pages = [page];
     if (page > 1) {
       pages.unshift(page - 1);
@@ -217,7 +222,8 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
         </div>
       </div>
 
-      {(page && <Prize tournamentId={page + mode.offset()} />) || null}
+      {(page && <Sponsor tournamentId={page + mode.offset()} mode={mode} />) ||
+        null}
 
       <Table className="text-xs">
         <ScrollArea className="h-[570px] w-full pr-2">
@@ -241,6 +247,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
                   game={game}
                   tournamentId={(page ? page : 0) + mode.offset()}
                   rank={index + 1}
+                  mode={mode}
                 />
               );
             })}
@@ -255,10 +262,12 @@ export const GameRow = ({
   game,
   tournamentId,
   rank,
+  mode,
 }: {
   game: GameOverEvent;
   tournamentId: number;
   rank: number;
+  mode: Mode;
 }) => {
   // const { account } = useAccount();
   const {
@@ -316,46 +325,13 @@ export const GameRow = ({
       <TableCell className="text-right">{duration}</TableCell>
       <TableCell className="text-right">{rank > 3 ? "" : winnings}</TableCell>
       <TableCell className="text-right">
-        {isSelf && tournament && tournament.isClaimable(rank) ? (
-          <Claim tournament={tournament} rank={rank} />
+        {isSelf && tournament && tournament.isClaimable(rank, mode) ? (
+          <Claim tournament={tournament} rank={rank} mode={mode} />
         ) : (
           <Spectate gameId={game.gameId} />
         )}
       </TableCell>
     </TableRow>
-  );
-};
-
-export const Prize = ({ tournamentId }: { tournamentId: number }) => {
-  const [prize, setPrize] = useState<number>();
-  const { tournament } = useTournament({
-    tournamentId: tournamentId,
-  });
-
-  useEffect(() => {
-    if (tournament) {
-      setPrize(Number(tournament.prize) / 1e18);
-    } else {
-      setPrize(0);
-    }
-  }, [tournament]);
-
-  const backgroundColor = useMemo(() => {
-    return "#111827";
-  }, []);
-
-  return (
-    <div
-      className="flex justify-between items-center gap-4 text-white rounded-xl py-2 px-16"
-      style={{ backgroundColor }}
-    >
-      <Lords fill={"white"} />
-      <div className="flex flex-col justify-center items-center text-xl gap-1">
-        <p className="text-xs">Prize Pool</p>
-        <p className="text-xl">{`${prize}`}</p>
-      </div>
-      <Lords fill={"white"} />
-    </div>
   );
 };
 
@@ -387,9 +363,11 @@ export const Spectate = ({ gameId }: { gameId: number }) => {
 export const Claim = ({
   tournament,
   rank,
+  mode,
 }: {
   tournament: TournamentClass;
   rank: number;
+  mode: Mode;
 }) => {
   // const { account } = useAccount();
   const {
@@ -401,16 +379,16 @@ export const Claim = ({
 
   const disabled = useMemo(() => {
     if (!tournament) return true;
-    return !tournament.isOver() || tournament.isClaimed(rank);
+    return !tournament.isOver(mode) || tournament.isClaimed(rank);
   }, [tournament]);
 
   const handleClick = useCallback(() => {
     if (account) {
       claim({
         account: account as Account,
-        mode: new Mode(ModeType.Weekly),
+        mode,
         tournament_id: tournament.id,
-        rank: rank,
+        rank,
       });
     }
   }, [account, tournament]);

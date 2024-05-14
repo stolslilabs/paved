@@ -82,7 +82,7 @@ export const Tile = () => {
         null}
       {(backgroundImage && !game?.isOver() && !enabled && <LoadingTile />) ||
         null}
-      {(!tile && game?.isOver() && <LockedTile />) || null}
+      {(game?.isOver() && <LockedTile />) || null}
     </div>
   );
 };
