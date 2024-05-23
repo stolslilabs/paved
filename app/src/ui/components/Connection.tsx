@@ -18,7 +18,7 @@ export const PREFUND_AMOUNT = "0x3635C9ADC5DEA00000";
 export function Connection() {
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
   // const [isSetup, setIsSetup] = useState(false);
 
   // const {
@@ -28,7 +28,7 @@ export function Connection() {
   //   account: { account, create, clear },
   // } = useDojo();
 
-  console.log(isConnected);
+  console.log(address);
 
   const connectWallet = async () => {
     // const { starknetkitConnectModal } = useStarknetkitConnectModal({
