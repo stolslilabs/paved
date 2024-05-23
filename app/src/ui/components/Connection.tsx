@@ -28,13 +28,17 @@ export function Connection() {
   //   account: { account, create, clear },
   // } = useDojo();
 
+  console.log(isConnected);
+
   const connectWallet = async () => {
-    const { starknetkitConnectModal } = useStarknetkitConnectModal({
-      // @ts-ignore
-      connectors: connectors,
-    });
-    const { connector } = await starknetkitConnectModal();
-    connect({ connector });
+    // const { starknetkitConnectModal } = useStarknetkitConnectModal({
+    //   // @ts-ignore
+    //   connectors: connectors,
+    // });
+    // const { connector } = await starknetkitConnectModal();
+
+    console.log(connectors[0]);
+    connect({ connector: connectors[0] });
 
     // Manage burner account
     //   if (account.address !== masterAddress) {
