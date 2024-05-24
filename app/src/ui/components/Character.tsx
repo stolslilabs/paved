@@ -95,7 +95,7 @@ export const Character = (props: TProps) => {
     };
   }, [index, character, enable, tile]);
 
-  const characterIcons = {
+  const characterIcons: { [key: number]: JSX.Element } = {
     [Characters.Lord]: <Lord className="w-6 fill-primary" />,
     [Characters.Lady]: <Lady className="w-6 fill-primary" />,
     [Characters.Adventurer]: <Adventurer className="w-6 fill-primary" />,
