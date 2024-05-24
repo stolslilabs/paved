@@ -17,11 +17,11 @@ const GameScene = () => {
       { name: Controls.counterClockwise, keys: ["KeyQ"] },
       { name: Controls.strategyMode, keys: ["KeyE"] },
     ],
-    [],
+    []
   );
 
   return (
-    <div className="relative w-full h-screen flex flex-col bg-blue-100">
+    <div className="relative w-full h-screen flex flex-col bg-blue-100 loading-cursor">
       <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
         <Banner />
         <Overlay />

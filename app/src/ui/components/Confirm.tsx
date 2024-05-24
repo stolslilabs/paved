@@ -32,7 +32,7 @@ export const Confirm = () => {
             size={"command"}
             onClick={handleClick}
           >
-            <ConfirmIcon className="h-4 md:h-8 fill-primary" />
+            <ConfirmIcon className="h-4 lg:h-8 fill-primary" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

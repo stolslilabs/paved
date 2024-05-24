@@ -19,9 +19,9 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         command:
-          " border-transparent  flex justify-center items-center  cursor-pointer text-secondary-foreground  rounded-full",
+          " flex justify-center items-center  cursor-pointer text-secondary-foreground border-transparent bg-secondary/10 hover:bg-secondary/20",
         character:
-          "border-2 border-primary/20 flex justify-center items-center  cursor-pointer text-secondary-foreground rounded-full ",
+          "border-transparent bg-secondary/10 flex justify-center items-center cursor-pointer hover:bg-secondary/20",
         character_selected:
           "bg-primary/20 border-2 border-primary flex justify-center items-center cursor-pointer text-secondary-foreground  ",
       },
@@ -30,8 +30,8 @@ const buttonVariants = cva(
         sm: "h-8 text-xs",
         lg: "h-10  p-8",
         icon: "h-9 w-9",
-        character: "sm:h-8 sm:w-8 md:h-16 md:w-16",
-        command: "sm:h-8 sm:w-8 md:h-12 md:w-12",
+        character: "sm:h-8 sm:w-8 lg:h-16 lg:w-16",
+        command: "sm:h-8 sm:w-8 lg:h-12 lg:w-12",
       },
     },
     defaultVariants: {
