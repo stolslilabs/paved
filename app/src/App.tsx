@@ -27,11 +27,13 @@ function rpc(_chain: Chain) {
   };
 }
 
-console.log(import.meta.env.VITE_PUBLIC_ACCOUNT_CONTRACT);
-
 const connectors = [
   new CartridgeConnector(
     [
+      {
+        target: import.meta.env.VITE_PUBLIC_FEE_TOKEN_ADDRESS,
+        method: "approve",
+      },
       {
         target: import.meta.env.VITE_PUBLIC_ACCOUNT_CONTRACT,
         method: "initialize",

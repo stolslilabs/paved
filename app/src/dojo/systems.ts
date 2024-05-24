@@ -43,7 +43,7 @@ export function systems({
         "Player has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error creating player:", error);
@@ -66,7 +66,7 @@ export function systems({
         "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error creating game:", error);
@@ -85,7 +85,7 @@ export function systems({
         "Tournament has been claimed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error claiming tournament:", error);
@@ -104,7 +104,7 @@ export function systems({
         "Tournament has been sponsored.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error sponsoring tournament:", error);
@@ -123,7 +123,7 @@ export function systems({
         "Tile has been discarded.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error discarding:", error);
@@ -146,7 +146,7 @@ export function systems({
         "Game has been abandoned.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
     } catch (error) {
       console.error("Error surrendering:", error);
@@ -199,7 +199,7 @@ export function systems({
         "Tile has been paved.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        }),
+        })
       );
       // Sleep 5 seconds for indexer to index
       await new Promise((resolve) => setTimeout(resolve, 5000));

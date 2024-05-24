@@ -26,6 +26,7 @@ import {
   faTreeCity,
 } from "@fortawesome/free-solid-svg-icons";
 import { useLogs } from "@/hooks/useLogs";
+import Info from "@/ui/icons/INFO.svg?react";
 
 export type LogType = {
   timestamp: number;
@@ -43,10 +44,7 @@ export const Log = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant={"command"} size={"command"}>
-                <FontAwesomeIcon
-                  className="sm:h-4 md:h-8 "
-                  icon={faInfoCircle}
-                />
+                <Info className="sm:h-4 md:h-8 fill-primary" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>

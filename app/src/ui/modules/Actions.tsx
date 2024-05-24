@@ -13,6 +13,9 @@ import { useNavigate } from "react-router-dom";
 import { useCameraStore } from "@/store";
 import { motion } from "framer-motion";
 import { SettingsDialog } from "../components/Settings";
+import Expand from "@/ui/icons/EXPAND.svg?react";
+import Home from "@/ui/icons/HOME.svg?react";
+import Cancel from "@/ui/icons/CANCEL.svg?react";
 
 export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -23,7 +26,7 @@ export const Actions = () => {
       <div className="relative">
         <ToolTipButton
           onClick={() => setIsExpanded(!isExpanded)}
-          icon={faUpRightFromSquare}
+          icon={<Expand className="sm:h-4 md:h-8 fill-primary" />}
           toolTipText={isExpanded ? "Collapse" : "Expand"}
         />
         <div
@@ -33,7 +36,7 @@ export const Actions = () => {
         >
           <ToolTipButton
             onClick={() => navigate("", { replace: true })}
-            icon={faHome}
+            icon={<Home className="sm:h-4 md:h-8 fill-primary" />}
             toolTipText="Home page"
           />
         </div>
@@ -58,7 +61,7 @@ export const Actions = () => {
         >
           <ToolTipButton
             onClick={() => setReset(true)}
-            icon={faBinoculars}
+            icon={<Cancel className="w-7" />}
             toolTipText="Reset view"
           />
         </div>

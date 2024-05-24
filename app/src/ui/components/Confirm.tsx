@@ -10,6 +10,7 @@ import {
 } from "@/ui/elements/tooltip";
 import { useActions } from "@/hooks/useActions";
 import { useAccount } from "@starknet-react/core";
+import ConfirmIcon from "@/ui/icons/CONFIRM.svg?react";
 
 export const Confirm = () => {
   // const { account } = useAccount();
@@ -31,7 +32,7 @@ export const Confirm = () => {
             size={"command"}
             onClick={handleClick}
           >
-            <FontAwesomeIcon className="h-4 md:h-8" icon={faSquareCheck} />
+            <ConfirmIcon className="h-4 md:h-8 fill-primary" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

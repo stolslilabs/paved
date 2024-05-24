@@ -149,6 +149,16 @@ export const getCharacters = () => {
   return Array.from({ length: CHARACTER_COUNT }, (_, index) => getRole(index));
 };
 
+export enum Characters {
+  Lord,
+  Lady,
+  Adventurer,
+  Paladin,
+  Pilgrim,
+  Woodsman,
+  Herdsman,
+}
+
 export const getAvailableCharacters = (packed: number) => {
   const characters = getCharacters();
   // Return Object of character and their corresponding status
