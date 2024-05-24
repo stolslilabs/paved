@@ -47,6 +47,7 @@ import { useAccount } from "@starknet-react/core";
 import { Mode, ModeType } from "@/dojo/game/types/mode";
 import { useLobbyStore } from "@/store";
 import { Sponsor } from "@/ui/components/Sponsor";
+import Leaderboard from "@/ui/icons/LEADERBOARD.svg?react";
 
 export const TournamentHeader = ({ mode }: { mode: Mode }) => {
   const [tournamentId, setTournamentId] = useState<number>();
@@ -102,11 +103,7 @@ export const TournamentDialog = ({ mode }: { mode: Mode }) => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button size={"default"}>
-                <FontAwesomeIcon
-                  color="white"
-                  className="h-6"
-                  icon={faTrophy}
-                />
+                <Leaderboard className="w-8 fill-secondary-foreground" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -177,7 +174,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
       .filter(
         (game) =>
           game.seasonId - mode.offset() === page &&
-          !balckilist.includes(game.playerMaster),
+          !balckilist.includes(game.playerMaster)
       )
       .sort((a, b) => b.gameScore - a.gameScore)
       .slice(0, 10);

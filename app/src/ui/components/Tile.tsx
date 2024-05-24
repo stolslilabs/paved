@@ -73,7 +73,7 @@ export const Tile = () => {
 
   return (
     <div
-      className="h-24 w-24 md:h-60 md:w-60  flex justify-center items-center  shadow-lg "
+      className="h-12 w-12 md:h-24 md:w-24 lg:h-60 lg:w-60  flex lg:justify-center items-center  shadow-lg "
       style={{ backgroundColor }}
     >
       {(tile && backgroundImage && !game?.isOver() && enabled && (
@@ -97,7 +97,7 @@ export const ActiveTile = ({
   const { character } = useGameStore();
   const spots = useMemo(
     () => ["NW", "W", "SW", "N", "C", "S", "NE", "E", "SE"],
-    [],
+    []
   );
 
   return (
