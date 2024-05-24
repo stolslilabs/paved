@@ -29,6 +29,7 @@ import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useAccount } from "@starknet-react/core";
 import { ToolTipButton } from "./ToolTipButton";
+import SurrenderIcon from "@/ui/icons/SURRENDER.svg?react";
 
 interface TProps {}
 
@@ -58,10 +59,7 @@ export const Surrender = (props: TProps) => {
           <TooltipTrigger>
             <AlertDialogTrigger asChild>
               <Button disabled={disabled} variant={"command"} size={"command"}>
-                <FontAwesomeIcon
-                  className="sm:h-4 md:h-8"
-                  icon={faFontAwesome}
-                />
+                <SurrenderIcon className="sm:h-4 md:h-8 fill-primary" />
               </Button>
             </AlertDialogTrigger>
           </TooltipTrigger>

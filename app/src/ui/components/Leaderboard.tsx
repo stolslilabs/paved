@@ -29,6 +29,7 @@ import { Game as GameClass } from "@/dojo/game/models/game";
 import { ToolTipButton } from "./ToolTipButton";
 import { useBuilders } from "@/hooks/useBuilders";
 import { useDojo } from "@/dojo/useDojo";
+import LeaderboardIcon from "@/ui/icons/LEADERBOARD.svg?react";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
@@ -64,7 +65,10 @@ export const LeaderboardDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
-        <ToolTipButton icon={faTrophy} toolTipText="Leaderboard" />
+        <ToolTipButton
+          icon={<LeaderboardIcon className="sm:h-4 md:h-8  fill-primary" />}
+          toolTipText="Leaderboard"
+        />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
@@ -147,7 +151,7 @@ export const PlayerRow = ({
   const name = player?.name || "";
   const backgroundColor = useMemo(
     () => getColor(`0x${builder.player_id.toString(16)}`),
-    [builder],
+    [builder]
   );
 
   return (

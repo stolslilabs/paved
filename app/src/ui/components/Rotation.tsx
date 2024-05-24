@@ -13,6 +13,7 @@ import { useActions } from "@/hooks/useActions";
 import { useDojo } from "@/dojo/useDojo";
 import useSound from "use-sound";
 import RotationSound from "/sounds/rotation.wav";
+import Rotate from "@/ui/icons/ROTATE.svg?react";
 
 export const Rotation = () => {
   // const { account } = useAccount();
@@ -42,7 +43,7 @@ export const Rotation = () => {
             size={"command"}
             onClick={handleClick}
           >
-            <FontAwesomeIcon className="h-4 md:h-8" icon={faRotateRight} />
+            <Rotate className="h-4 md:h-8 fill-primary" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

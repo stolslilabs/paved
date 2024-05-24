@@ -7,6 +7,7 @@ import {
 } from "@/ui/elements/tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
+import { ReactElement } from "react";
 
 export const ToolTipButton = ({
   onClick = () => {},
@@ -15,7 +16,7 @@ export const ToolTipButton = ({
   disabled = false,
 }: {
   onClick?: () => void;
-  icon: IconDefinition;
+  icon: ReactElement;
   toolTipText: string;
   disabled?: boolean;
 }) => {
@@ -29,7 +30,9 @@ export const ToolTipButton = ({
             size={"command"}
             onClick={onClick}
           >
-            <FontAwesomeIcon color="" className="sm:h-4 md:h-8" icon={icon} />
+            {icon}
+
+            {/* <FontAwesomeIcon color="" className="sm:h-4 md:h-8" icon={icon} /> */}
           </Button>
         </TooltipTrigger>
         <TooltipContent>

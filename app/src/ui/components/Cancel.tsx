@@ -14,6 +14,7 @@ import { useBuilder } from "@/hooks/useBuilder";
 import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
 import { useDojo } from "@/dojo/useDojo";
+import CancelIcon from "@/ui/icons/CANCEL.svg?react";
 
 export const Cancel = () => {
   const { gameId } = useQueryParams();
@@ -59,7 +60,7 @@ export const Cancel = () => {
             size={"command"}
             onClick={handleClick}
           >
-            <FontAwesomeIcon className="h-4 md:h-8" icon={faXmark} />
+            <CancelIcon className="h-4 md:h-8 fill-primary" icon={faXmark} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

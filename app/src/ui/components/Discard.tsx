@@ -15,6 +15,7 @@ import { Account } from "starknet";
 import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
 import { useGame } from "@/hooks/useGame";
+import Burn from "@/ui/icons/BURN.svg?react";
 
 export const Discard = () => {
   const { gameId } = useQueryParams();
@@ -52,7 +53,7 @@ export const Discard = () => {
               })
             }
           >
-            <FontAwesomeIcon className="h-4 md:h-8" icon={faFire} />
+            <Burn className="h-4 md:h-8 fill-primary" icon={faFire} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

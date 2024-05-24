@@ -12,6 +12,7 @@ import { MusicPlayer } from "./MusicPlayer";
 import { useGameStore } from "@/store";
 import { Switch } from "../elements/switch";
 import { Label } from "../elements/label";
+import Logo from "@/ui/icons/VIEW.svg?react";
 
 export const SettingsDialog = () => {
   const [open, setOpen] = useState(false);
@@ -22,7 +23,7 @@ export const SettingsDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
-        <ToolTipButton icon={faCog} toolTipText="Settings" />
+        <ToolTipButton icon={<Logo className="w-7" />} toolTipText="Settings" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Settings</DialogHeader>

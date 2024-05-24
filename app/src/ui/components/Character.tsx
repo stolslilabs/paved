@@ -7,6 +7,7 @@ import {
   getRole,
   getRoleAllowedSpots,
   getBoost,
+  Characters,
 } from "@/dojo/game";
 import { useCameraStore, useGameStore } from "../../store";
 import { Button } from "@/ui/elements/button";
@@ -23,6 +24,13 @@ import { useAccount } from "@starknet-react/core";
 import { useDojo } from "@/dojo/useDojo";
 import useSound from "use-sound";
 import onCharacterClick from "/sounds/onCharacterClick.wav";
+import Pilgrim from "@/ui/icons/pilgrim.svg?react";
+import Lord from "@/ui/icons/lord.svg?react";
+import Lady from "@/ui/icons/lady.svg?react";
+import Adventurer from "@/ui/icons/adventurer.svg?react";
+import Paladin from "@/ui/icons/paladin.svg?react";
+import Woodsman from "@/ui/icons/woodsman.svg?react";
+import Herdsman from "@/ui/icons/herdsman.svg?react";
 
 interface TProps {
   index: number;
@@ -62,7 +70,7 @@ export const Character = (props: TProps) => {
 
   const className = useMemo(
     () => (enable ? "cursor-pointer" : "cursor-zoom-in opacity-25"),
-    [selected, enable],
+    [selected, enable]
   );
 
   const spots = useMemo(() => {
@@ -87,6 +95,16 @@ export const Character = (props: TProps) => {
     };
   }, [index, character, enable, tile]);
 
+  const characterIcons: { [key: number]: JSX.Element } = {
+    [Characters.Lord]: <Lord className="w-6 fill-primary" />,
+    [Characters.Lady]: <Lady className="w-6 fill-primary" />,
+    [Characters.Adventurer]: <Adventurer className="w-6 fill-primary" />,
+    [Characters.Paladin]: <Paladin className="w-6 fill-primary" />,
+    [Characters.Pilgrim]: <Pilgrim className="w-6 fill-primary" />,
+    [Characters.Woodsman]: <Woodsman className="w-6 fill-primary" />,
+    [Characters.Herdsman]: <Herdsman className="w-6 fill-primary" />,
+  };
+
   return (
     <TooltipProvider>
       <Tooltip>
@@ -97,12 +115,7 @@ export const Character = (props: TProps) => {
             size={"character"}
             onClick={handleClick}
           >
-            <img
-              draggable={false}
-              className="h-6 md:h-10"
-              src={image}
-              alt={getRole(index)}
-            />
+            {characterIcons[index]}
           </Button>
         </TooltipTrigger>
         <TooltipContent>

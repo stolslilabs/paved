@@ -19,9 +19,9 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         command:
-          " border-2 border-primary/20 flex justify-center items-center  cursor-pointer text-secondary-foreground  rounded-full bg-white",
+          " border-transparent  flex justify-center items-center  cursor-pointer text-secondary-foreground  rounded-full",
         character:
-          "border-2 border-primary/20 flex justify-center items-center  cursor-pointer text-secondary-foreground rounded-full bg-white",
+          "border-2 border-primary/20 flex justify-center items-center  cursor-pointer text-secondary-foreground rounded-full ",
         character_selected:
           "bg-primary/20 border-2 border-primary flex justify-center items-center cursor-pointer text-secondary-foreground  ",
       },
@@ -38,7 +38,7 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  },
+  }
 );
 
 export interface ButtonProps
@@ -57,7 +57,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       />
     );
-  },
+  }
 );
 Button.displayName = "Button";
 
