@@ -12,7 +12,7 @@ import { MusicPlayer } from "./MusicPlayer";
 import { useGameStore } from "@/store";
 import { Switch } from "../elements/switch";
 import { Label } from "../elements/label";
-import Logo from "@/ui/icons/view.svg?react";
+import Logo from "@/ui/icons/VIEW.svg?react";
 
 export const SettingsDialog = () => {
   const [open, setOpen] = useState(false);

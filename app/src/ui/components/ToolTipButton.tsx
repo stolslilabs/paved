@@ -7,7 +7,6 @@ import {
 } from "@/ui/elements/tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
-import Logo from "@/ui/icons/view.svg?react";
 import { ReactElement } from "react";
 
 export const ToolTipButton = ({
