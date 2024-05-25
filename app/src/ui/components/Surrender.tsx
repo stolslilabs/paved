@@ -59,7 +59,7 @@ export const Surrender = (props: TProps) => {
           <TooltipTrigger>
             <AlertDialogTrigger asChild>
               <Button disabled={disabled} variant={"command"} size={"command"}>
-                <SurrenderIcon className="sm:h-4 md:h-8 fill-primary" />
+                <SurrenderIcon className="sm:h-4 md:h-8 fill-current" />
               </Button>
             </AlertDialogTrigger>
           </TooltipTrigger>

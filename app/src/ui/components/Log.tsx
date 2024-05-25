@@ -44,7 +44,7 @@ export const Log = () => {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant={"command"} size={"command"}>
-                <Info className="sm:h-4 lg:h-8 fill-primary" />
+                <Info className="sm:h-4 md:h-7 fill-current" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>

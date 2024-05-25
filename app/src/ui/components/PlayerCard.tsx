@@ -12,6 +12,7 @@ import { getAvatar } from "@/utils/avatar";
 import { getColor } from "@/dojo/game";
 import { usePlayerByKey } from "@/hooks/usePlayer";
 import { Lords } from "./Lords";
+import Adventurer from "@/ui/icons/adventurer.svg?react";
 
 export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   const [identifier, setIdentifier] = useState<string>("");
@@ -27,7 +28,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   useEffect(() => {
     if (player) {
       setIdentifier(
-        shortenHex(`0x${player.id.toString(16)}`).replace("...", ""),
+        shortenHex(`0x${player.id.toString(16)}`).replace("...", "")
       );
       setPlayerName(player.name);
     } else {
@@ -46,16 +47,13 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   }, [data, address]);
 
   return (
-    <Card className="border rounded-3xl">
-      <div className="flex">
-        <CardHeader className="flex flex-col items-center w-full">
+    <Card className="border">
+      <div className="flex p-4">
+        <Adventurer className="h-24 fill-primary" />
+        <div>
           <PlayerName playerName={playerName} />
-          <PlayerAvatar
-            avatar={identifier ? avatar : undefined}
-            address={`0x${player?.id.toString(16)}`}
-          />
           <PlayerInfo balance={balance} />
-        </CardHeader>
+        </div>
       </div>
     </Card>
   );
@@ -64,11 +62,12 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
 const PlayerInfo = ({ balance }: any) => {
   return (
     <CardDescription className="pt-2 ">
-      <div className="flex items-center justify-center gap-2">
-        <p>Balance:</p>
-        {!!balance && <p>{`${balance}`.slice(0, 6)}</p>}
-        {!balance && <Skeleton className="h-4 w-12" />}
-        <Lords fill="black" width={4} height={4} />
+      <div className=" items-center justify-center gap-2 text-xl">
+        <div className="flex space-x-2">
+          {!!balance && <div>{`${balance}`.slice(0, 6)}</div>}
+          {!balance && <Skeleton className="h-4 w-12" />}
+          <Lords fill="black" width={4} height={4} />
+        </div>
       </div>
     </CardDescription>
   );

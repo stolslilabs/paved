@@ -18,11 +18,11 @@ export const GameLoading = () => {
           <img src={logo} alt="banner" className="h-12 md:h-40" />
         </div>
 
-        <div className="text-white text-center">
+        {/* <div className="text-white text-center">
           <div className="mt-4">
             <Loader />
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );
