@@ -65,7 +65,7 @@ export function Connection() {
   return (
     <>
       {isConnected ? (
-        <div className="flex gap-4 border-4 border-paved-brown p-2">
+        <div className="flex gap-4  p-2">
           <Address />
           <TooltipProvider>
             <Tooltip>

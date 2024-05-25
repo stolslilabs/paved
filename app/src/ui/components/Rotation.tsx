@@ -43,7 +43,7 @@ export const Rotation = () => {
             size={"command"}
             onClick={handleClick}
           >
-            <Rotate className="h-4 lg:h-8 fill-primary" />
+            <Rotate className="h-4 lg:h-8  fill-current" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

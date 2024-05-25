@@ -3,6 +3,7 @@ import { Banner } from "@/ui/components/Banner";
 import { Overlay } from "@/ui/modules/Overlay";
 import { useMemo } from "react";
 import { KeyboardControlsEntry, KeyboardControls } from "@react-three/drei";
+import { useUIStore } from "@/store";
 
 export enum Controls {
   clockwise = "clockwise",
@@ -20,8 +21,13 @@ const GameScene = () => {
     []
   );
 
+  const loading = useUIStore((state) => state.loading);
+  const setLoading = useUIStore((state) => state.setLoading);
+
   return (
-    <div className="relative w-full h-screen flex flex-col bg-blue-100 loading-cursor">
+    <div
+      className={`relative w-full h-screen flex flex-col bg-blue-100 ${loading ? "cursor-wait" : ""} `}
+    >
       <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
         <Banner />
         <Overlay />

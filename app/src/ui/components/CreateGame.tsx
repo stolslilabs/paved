@@ -9,7 +9,7 @@ import {
 import { Account } from "starknet";
 import { usePlayer } from "@/hooks/usePlayer";
 import { Lords } from "./Lords";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useAccount } from "@starknet-react/core";
 import { Mode } from "@/dojo/game/types/mode";
 
@@ -24,12 +24,16 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
 
   const { player } = usePlayer({ playerId: account?.address });
 
-  const handleClick = () => {
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const handleClick = async () => {
     if (!player) return;
-    create_game({
+    setLoading(true);
+    await create_game({
       account: account as Account,
       mode: mode,
     });
+    setLoading(false);
   };
 
   return (
@@ -37,7 +41,7 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
       <Tooltip>
         <TooltipTrigger asChild>
           <div className="flex justify-center items-center space-x-3">
-            <Button disabled={!player} onClick={handleClick}>
+            <Button loading={loading} disabled={!player} onClick={handleClick}>
               New Game{" "}
               <span className="flex space-x-2 ml-4">
                 [<p>1</p> <Lords height={4} width={4} fill={""} />]

@@ -66,7 +66,7 @@ export const LeaderboardDialog = () => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
         <ToolTipButton
-          icon={<LeaderboardIcon className="sm:h-4 md:h-8  fill-primary" />}
+          icon={<LeaderboardIcon className="sm:h-4 md:h-8  fill-current" />}
           toolTipText="Leaderboard"
         />
       </DialogTrigger>

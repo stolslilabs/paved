@@ -23,7 +23,10 @@ export const SettingsDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
-        <ToolTipButton icon={<Logo className="w-7" />} toolTipText="Settings" />
+        <ToolTipButton
+          icon={<Logo className="sm:h-4 md:h-8 fill-current" />}
+          toolTipText="Settings"
+        />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Settings</DialogHeader>

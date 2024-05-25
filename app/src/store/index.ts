@@ -213,3 +213,13 @@ export const useGameStore = create<GameState>()((set, get) => ({
   strategyMode: false,
   setStrategyMode: (strategyMode) => set({ strategyMode }),
 }));
+
+interface UIState {
+  loading: boolean;
+  setLoading: (value: boolean) => void;
+}
+
+export const useUIStore = create<UIState>((set, get) => ({
+  loading: false,
+  setLoading: (value) => set({ loading: value }),
+}));

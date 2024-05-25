@@ -31,7 +31,7 @@ export const Links = () => {
   ];
 
   return (
-    <div className="flex justify-center gap-4 mt-4">
+    <div className="flex justify-center gap-4 mt-10">
       {links.map((link, index) => (
         <a
           key={index}
@@ -39,11 +39,7 @@ export const Links = () => {
           href={link.url}
           target="_blank"
         >
-          <FontAwesomeIcon
-            color="#c9c69c"
-            icon={link.icon}
-            className="h-8 fill-paved-brown stroke-paved-brown"
-          />
+          <FontAwesomeIcon color="white" icon={link.icon} className="h-6" />
         </a>
       ))}
     </div>

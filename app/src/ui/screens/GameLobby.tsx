@@ -20,6 +20,9 @@ export const GameLobby = () => {
         </Button>
       </div>
 
+      <div className="w-full md:w-10/12 ">
+        <Games />
+      </div>
       <div
         className={`${sideBar ? "w-screen" : "hidden"} z-10 md:w-1/3 border-r sticky bottom-0 h-screen px-8 shadow-2xl bg-primary `}
       >
@@ -28,9 +31,6 @@ export const GameLobby = () => {
         </div>
         <Player />
         <Links />
-      </div>
-      <div className="w-full md:w-2/3 ">
-        <Games />
       </div>
     </div>
   );

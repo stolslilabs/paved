@@ -18,7 +18,7 @@ import Home from "@/ui/icons/HOME.svg?react";
 import Cancel from "@/ui/icons/CANCEL.svg?react";
 
 export const Actions = () => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
   const { setReset } = useCameraStore();
   return (
@@ -26,7 +26,11 @@ export const Actions = () => {
       <div className="relative">
         <ToolTipButton
           onClick={() => setIsExpanded(!isExpanded)}
-          icon={<Expand className="sm:h-4 md:h-8 fill-primary" />}
+          icon={
+            <Expand
+              className={`sm:h-4 md:h-8 fill-current duration-300  ${isExpanded ? "rotate-180" : ""}`}
+            />
+          }
           toolTipText={isExpanded ? "Collapse" : "Expand"}
         />
         <div
@@ -36,7 +40,7 @@ export const Actions = () => {
         >
           <ToolTipButton
             onClick={() => navigate("", { replace: true })}
-            icon={<Home className="sm:h-4 md:h-8 fill-primary" />}
+            icon={<Home className="sm:h-4 md:h-8 fill-current" />}
             toolTipText="Home page"
           />
         </div>
@@ -61,7 +65,7 @@ export const Actions = () => {
         >
           <ToolTipButton
             onClick={() => setReset(true)}
-            icon={<Cancel className="w-7" />}
+            icon={<Cancel className="sm:h-4 md:h-8 fill-current" />}
             toolTipText="Reset view"
           />
         </div>

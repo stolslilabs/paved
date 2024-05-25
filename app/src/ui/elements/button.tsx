@@ -3,6 +3,8 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/ui/utils";
+import useSound from "use-sound";
+import Hover from "/sounds/hover.wav";
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm  ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border-2 border-black/30 transform hover:scale-105 transition-all duration-200",
@@ -19,11 +21,11 @@ const buttonVariants = cva(
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
         command:
-          " flex justify-center items-center  cursor-pointer text-secondary-foreground border-transparent bg-secondary/10 hover:bg-secondary/20",
+          " flex justify-center items-center backdrop-blur-md  cursor-pointer text-secondary-foreground border-transparent  hover:bg-secondary/20 bg-white/20",
         character:
-          "border-transparent bg-secondary/10 flex justify-center items-center cursor-pointer hover:bg-secondary/20",
+          "border-transparent bg-white/20 flex justify-center items-center cursor-pointer hover:bg-secondary/20 backdrop-blur-md",
         character_selected:
-          "bg-primary/20 border-2 border-primary flex justify-center items-center cursor-pointer text-secondary-foreground  ",
+          "bg-primary/20 border-2 border-primary-foreground flex justify-center items-center cursor-pointer text-secondary-foreground  ",
       },
       size: {
         default: "h-9 p-6",
@@ -45,17 +47,21 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  loading?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, loading, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
+
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
-      />
+      >
+        {loading ? "loading..." : props.children}
+      </Comp>
     );
   }
 );

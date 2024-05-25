@@ -60,7 +60,7 @@ export const Cancel = () => {
             size={"command"}
             onClick={handleClick}
           >
-            <CancelIcon className="h-4 lg:h-8 fill-primary" icon={faXmark} />
+            <CancelIcon className="h-4 lg:h-8  fill-current" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

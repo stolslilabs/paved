@@ -53,7 +53,7 @@ export const Discard = () => {
               })
             }
           >
-            <Burn className="h-4 lg:h-8 fill-primary" icon={faFire} />
+            <Burn className="h-4 lg:h-8  fill-current" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

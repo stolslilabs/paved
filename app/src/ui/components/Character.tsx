@@ -96,13 +96,23 @@ export const Character = (props: TProps) => {
   }, [index, character, enable, tile]);
 
   const characterIcons: { [key: number]: JSX.Element } = {
-    [Characters.Lord]: <Lord className="w-4 lg:w-6 fill-primary" />,
-    [Characters.Lady]: <Lady className="w-4 lg:w-6 fill-primary" />,
-    [Characters.Adventurer]: <Adventurer className="w-4 lg:w-6 fill-primary" />,
-    [Characters.Paladin]: <Paladin className="w-4 lg:w-6 fill-primary" />,
-    [Characters.Pilgrim]: <Pilgrim className="w-4 lg:w-6 fill-primary" />,
-    [Characters.Woodsman]: <Woodsman className="w-4 lg:w-6 fill-primary" />,
-    [Characters.Herdsman]: <Herdsman className="w-4 lg:w-6 fill-primary" />,
+    [Characters.Lord]: <Lord className="w-4 lg:w-6 fill-primary-foreground" />,
+    [Characters.Lady]: <Lady className="w-4 lg:w-6 fill-primary-foreground" />,
+    [Characters.Adventurer]: (
+      <Adventurer className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Paladin]: (
+      <Paladin className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Pilgrim]: (
+      <Pilgrim className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Woodsman]: (
+      <Woodsman className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Herdsman]: (
+      <Herdsman className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
   };
 
   return (
