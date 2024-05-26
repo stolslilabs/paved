@@ -4,23 +4,13 @@ import { Button } from "@/ui/elements/button";
 import { Slider } from "@/ui/elements/slider";
 
 export const MusicPlayer = () => {
-  const { play, next, trackName, isPlaying, stop, volume, setVolume } =
-    useMusicPlayer();
-
-  const handlePlay = () => {
-    if (isPlaying) {
-      stop();
-    } else {
-      play();
-    }
-  };
+  const { isPlaying, volume, setIsPlaying, setVolume } = useMusicPlayer();
 
   return (
     <>
       <div className="flex space-x-3 rounded-md p-2  z-1  ">
         <Button
-          onClick={() => handlePlay()}
-          // variant={"link"}
+          onClick={() => setIsPlaying(!isPlaying)}
           className="self-center rounded-full"
           size={"sm"}
         >

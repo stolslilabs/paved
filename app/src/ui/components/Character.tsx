@@ -84,7 +84,7 @@ export const Character = (props: TProps) => {
           resetCharacter();
           resetSpot();
         } else {
-          play();
+          // play();
           setCharacter(getCharacterFromIndex(index));
         }
       } else if (tile) {
