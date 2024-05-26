@@ -103,7 +103,7 @@ export const ActiveTile = ({
   return (
     <>
       <div
-        className="relative h-full w-full  cursor-pointer bg-cover border-4"
+        className="relative h-full w-full  cursor-pointer bg-cover"
         style={{
           backgroundImage: `url(${image})`,
           transform: `rotate(${rotation}deg)`,

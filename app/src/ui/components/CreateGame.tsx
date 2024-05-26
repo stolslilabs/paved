@@ -51,7 +51,7 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
           </div>
         </TooltipTrigger>
         <TooltipContent>
-          <p className="select-none">Create a weekly player game</p>
+          <p className="select-none">Create a daily player game</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
