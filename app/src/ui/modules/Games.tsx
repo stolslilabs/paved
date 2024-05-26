@@ -8,7 +8,7 @@ import {
   TableRow,
 } from "@/ui/elements/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/elements/tabs";
-
+import banner from "/assets/banner.svg";
 import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
@@ -63,9 +63,9 @@ export const Games = () => {
   }, []);
 
   const gameMode: Mode = useMemo(() => {
-    if (mode === "weekly") {
+    if (mode === ModeType.Weekly) {
       return new Mode(ModeType.Weekly);
-    } else if (mode === "daily") {
+    } else if (mode === ModeType.Daily) {
       return new Mode(ModeType.Daily);
     } else {
       return new Mode(ModeType.None);
@@ -89,19 +89,21 @@ export const Games = () => {
   return (
     <div className=" h-full">
       <div className="flex flex-col gap-2 items-start w-full p-4  md:px-8 h-full">
-        <h2>Lobby</h2>
+        <div className="h-16 flex justify-center my-3">
+          <img src={banner} alt="banner" className="h-full " />
+        </div>
         <Tabs
           defaultValue={mode}
           value={mode}
           onValueChange={toggleMode}
           className="w-full h-full"
         >
-          <TabsList>
-            <TabsTrigger value="daily">Daily</TabsTrigger>
+          {/* <TabsList>
+            <TabsTrigger value={ModeType.Daily}>Daily</TabsTrigger>
             <TabsTrigger value="weekly">Weekly</TabsTrigger>
-          </TabsList>
+          </TabsList> */}
 
-          <TabsContent value="daily">
+          <TabsContent value={ModeType.Daily}>
             <TournamentHeader mode={gameMode} />
             <div className="flex my-4 gap-4 items-center">
               <CreateGame mode={gameMode} />

@@ -116,9 +116,9 @@ export const useLobbyStore = create<LobbyState>()((set, get) => ({
   playerEntity: null,
   setPlayerEntity: (playerEntity: Entity) => set({ playerEntity }),
   resetPlayerEntity: () => set({ playerEntity: null }),
-  mode: "weekly",
+  mode: "Daily",
   setMode: (mode) => set({ mode }),
-  resetMode: () => set({ mode: "weekly" }),
+  resetMode: () => set({ mode: "Daily" }),
 }));
 
 export const useCameraStore = create<CameraState>()((set, get) => ({
@@ -217,9 +217,21 @@ export const useGameStore = create<GameState>()((set, get) => ({
 interface UIState {
   loading: boolean;
   setLoading: (value: boolean) => void;
+  isPlaying: boolean;
+  setIsPlaying: (value: boolean) => void;
+  volume: number;
+  setVolume: (value: number) => void;
+  track: string;
+  setTrack: (value: string) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
   loading: false,
   setLoading: (value) => set({ loading: value }),
+  isPlaying: false,
+  setIsPlaying: (value) => set({ isPlaying: value }),
+  volume: 20,
+  setVolume: (value) => set({ volume: value }),
+  track: "",
+  setTrack: (value) => set({ track: value }),
 }));

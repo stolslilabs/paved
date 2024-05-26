@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LeaderboardDialog } from "../components/Leaderboard";
 import { Surrender } from "../components/Surrender";
 import { Log } from "../components/Log";
@@ -10,17 +10,44 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { ToolTipButton } from "../components/ToolTipButton";
 import { useNavigate } from "react-router-dom";
-import { useCameraStore } from "@/store";
+import { useCameraStore, useUIStore } from "@/store";
 import { motion } from "framer-motion";
 import { SettingsDialog } from "../components/Settings";
 import Expand from "@/ui/icons/EXPAND.svg?react";
 import Home from "@/ui/icons/HOME.svg?react";
 import Cancel from "@/ui/icons/CANCEL.svg?react";
+import useSound from "use-sound";
+import { tracks } from "@/hooks/useMusic";
 
 export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
   const { setReset } = useCameraStore();
+
+  const volume = useUIStore((state) => state.volume);
+  const isPlaying = useUIStore((state) => state.isPlaying);
+  const setIsPlaying = useUIStore((state) => state.setIsPlaying);
+
+  const [play, { stop }] = useSound(tracks[0].url, {
+    volume: volume / 100,
+    onplay: () => setIsPlaying(true),
+    onstop: () => setIsPlaying(false),
+    onend: () => {
+      setIsPlaying(false);
+      // goToNextTrack();
+    },
+  });
+
+  useMemo(() => {
+    if (isPlaying) {
+      play();
+    } else {
+      stop();
+    }
+
+    return () => stop();
+  }, [isPlaying]);
+
   return (
     <div className="absolute left-2 bottom-2 md:left-4 md:bottom-6 z-30">
       <div className="relative">
