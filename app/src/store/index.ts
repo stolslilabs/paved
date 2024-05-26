@@ -116,9 +116,9 @@ export const useLobbyStore = create<LobbyState>()((set, get) => ({
   playerEntity: null,
   setPlayerEntity: (playerEntity: Entity) => set({ playerEntity }),
   resetPlayerEntity: () => set({ playerEntity: null }),
-  mode: "weekly",
+  mode: "Daily",
   setMode: (mode) => set({ mode }),
-  resetMode: () => set({ mode: "weekly" }),
+  resetMode: () => set({ mode: "Daily" }),
 }));
 
 export const useCameraStore = create<CameraState>()((set, get) => ({

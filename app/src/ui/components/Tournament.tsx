@@ -90,7 +90,7 @@ export const TournamentHeader = ({ mode }: { mode: Mode }) => {
 
   return (
     <div className="flex justify-between items-center">
-      <div className="text-xs">{`Season ${tournamentId} - ${timeLeft}`}</div>
+      <div className="text-lg">{`Season ${tournamentId} - ${timeLeft}`}</div>
     </div>
   );
 };
