@@ -162,11 +162,12 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
   }, [hoveredTile, isHovered]);
 
   const handleSimpleClick = useCallback(() => {
-    play();
     setSelectedTile({ col, row });
     setX(col);
     setY(row);
-  }, []);
+
+    play();
+  }, [selectedTile]);
 
   const handlePointerEnter = useCallback(() => {
     setHovered(true);

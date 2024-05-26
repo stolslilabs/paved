@@ -1,6 +1,5 @@
 import background from "/assets/loading.png";
 import logo from "/assets/loading-logo.png";
-import { Loader } from "../components/Loader";
 
 export const GameLoading = () => {
   return (
@@ -18,11 +17,9 @@ export const GameLoading = () => {
           <img src={logo} alt="banner" className="h-12 md:h-40" />
         </div>
 
-        {/* <div className="text-white text-center">
-          <div className="mt-4">
-            <Loader />
-          </div>
-        </div> */}
+        <div className="text-white text-center">
+          <div className="mt-4">Loading...</div>
+        </div>
       </div>
     </div>
   );
