@@ -25,7 +25,7 @@ export const Links = () => {
     },
     {
       name: "Discord",
-      url: "https://discord.gg/DXz9xEm5",
+      url: "https://discord.gg/realmsworld",
       icon: faDiscord,
     },
   ];
