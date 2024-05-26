@@ -8,7 +8,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { checkFeatureIdle } from "@/dojo/game/helpers/conflict";
 import useSound from "use-sound";
 
-import Click from "/sounds/click.wav";
+import Place from "/sounds/p-place.m4a";
 import { useTileByKey } from "@/hooks/useTile";
 import { useActions } from "@/hooks/useActions";
 import { getComponentValue } from "@dojoengine/recs";
@@ -17,6 +17,8 @@ import { useGLTF } from "@react-three/drei";
 const loader = new THREE.TextureLoader();
 
 export const TileEmpty = ({ tiles, col, row, size }: any) => {
+  const [play, { stop }] = useSound(Place);
+
   const { gameId } = useQueryParams();
   const { enabled } = useActions();
 
@@ -76,7 +78,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
         northTile,
         eastTile,
         southTile,
-        westTile,
+        westTile
       )
     );
   }, [
@@ -106,7 +108,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
         row,
         character,
         spot,
-        tiles,
+        tiles
       )
     );
   }, [
@@ -160,7 +162,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
   }, [hoveredTile, isHovered]);
 
   const handleSimpleClick = useCallback(() => {
-    // play();
+    play();
     setSelectedTile({ col, row });
     setX(col);
     setY(row);
@@ -305,7 +307,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
       handlePointerEnter,
       handlePointerLeave,
       handleSimpleClick,
-    ],
+    ]
   );
 
   return (

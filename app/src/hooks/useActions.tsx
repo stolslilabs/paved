@@ -16,7 +16,7 @@ import { useAccount } from "@starknet-react/core";
 import { useGame } from "./useGame";
 import { useActionsStore } from "@/store";
 import useSound from "use-sound";
-import Click from "/sounds/click.wav";
+import Click from "/sounds/p-complete.m4a";
 import Points from "/sounds/points.wav";
 
 export const useActions = () => {
