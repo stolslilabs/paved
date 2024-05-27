@@ -32,6 +32,10 @@ const connectors = [
     [
       {
         target: import.meta.env.VITE_PUBLIC_FEE_TOKEN_ADDRESS,
+        method: "mint",
+      },
+      {
+        target: import.meta.env.VITE_PUBLIC_FEE_TOKEN_ADDRESS,
         method: "approve",
       },
       {

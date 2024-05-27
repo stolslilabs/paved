@@ -17,7 +17,13 @@ import { useMemo, useEffect } from "react";
 import { useAccount } from "@starknet-react/core";
 import { usePlayer } from "@/hooks/usePlayer";
 
-export const Spawn = () => {
+export const Spawn = ({
+  loading,
+  setLoading,
+}: {
+  loading: boolean;
+  setLoading: (value: boolean) => void;
+}) => {
   // const { account } = useAccount();
   const [playerName, setPlayerName] = useState("");
 
@@ -32,22 +38,22 @@ export const Spawn = () => {
   const { player } = usePlayer({ playerId: account?.address });
 
   const disabled = useMemo(() => {
-    // return !!player || !account || account.address === masterAddress;
-    return !!player || !account;
-    // }, [player, address, account, masterAddress]);
-  }, [player, account, masterAddress]);
+    return !!player || !account || loading;
+  }, [player, account, masterAddress, loading]);
 
   useEffect(() => {
     if (player) {
       setPlayerName(player.name);
+      setLoading(false);
     } else {
       setPlayerName("");
     }
-  }, [player]);
+  }, [player, loading, setLoading]);
 
-  const handleClick = () => {
+  const handleClick = async () => {
+    setLoading(true);
     if (account) {
-      create_player({
+      await create_player({
         account: account as Account,
         name: shortString.encodeShortString(playerName),
         master: account.address,
@@ -59,7 +65,7 @@ export const Spawn = () => {
     <Dialog>
       <DialogTrigger asChild>
         <Button disabled={disabled} variant={"secondary"}>
-          Spawn
+          {loading ? "Spawning..." : "Spawn"}
         </Button>
       </DialogTrigger>
       <DialogContent>
