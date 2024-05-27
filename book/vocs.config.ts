@@ -48,7 +48,7 @@ export default defineConfig({
       collapsed: true,
       items: [
         {
-          text: "Solo",
+          text: "Puzzle & Solo",
           link: "/create",
         },
         {
