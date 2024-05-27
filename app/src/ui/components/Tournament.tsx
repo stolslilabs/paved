@@ -49,17 +49,26 @@ import { useLobbyStore } from "@/store";
 import { Sponsor } from "@/ui/components/Sponsor";
 import Leaderboard from "@/ui/icons/LEADERBOARD.svg?react";
 
+const getSeason = (mode: Mode) => {
+  const now = Math.floor(Date.now() / 1000);
+  const id = Math.floor(now / mode.duration());
+  return id - mode.offset();
+};
+
 export const TournamentHeader = ({ mode }: { mode: Mode }) => {
   const [tournamentId, setTournamentId] = useState<number>();
   const [timeLeft, setTimeLeft] = useState<string>();
 
   useEffect(() => {
     if (!mode) return;
+
     const now = Math.floor(Date.now() / 1000);
     const id = Math.floor(now / mode.duration());
+
+    setTournamentId(getSeason(mode));
+
     const startTime = id * mode.duration();
     const endTime = startTime + mode.duration();
-    setTournamentId(id - mode.offset());
 
     const interval = setInterval(() => {
       // Remaining time in seconds
@@ -132,25 +141,18 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
   const [endTime, setEndTime] = useState<string>("");
 
   useEffect(() => {
+    console.log("ids", ids);
     setPage(ids.length);
   }, [ids]);
 
   useEffect(() => {
     if (!games || !ids) return;
-    const pages = [page];
-    if (page > 1) {
-      pages.unshift(page - 1);
-    }
-    if (page < ids.length) {
-      pages.push(page + 1);
-    }
-    if (page === 1 && ids.length > 2) {
-      pages.push(page + 2);
-    }
-    if (page === ids.length && ids.length > 2) {
-      pages.unshift(page - 2);
-    }
-    setPages(pages);
+
+    const currentSeason = getSeason(mode);
+    const allPages = Array.from({ length: currentSeason }, (_, i) => i + 1);
+    const latestPages = allPages.slice(-4); // Get only the latest 4 pages
+    setPages(latestPages);
+    console.log(latestPages);
   }, [page, ids]);
 
   useEffect(() => {

@@ -41,29 +41,32 @@ export const useGames = ({ mode }: { mode: Mode }) => {
   useEffect(() => {
     const query = async () => {
       const events = await queryEvents([WorldEvents.GameOver]);
+
+      console.log(...events.map(parse));
       setGames((prevGames) => {
         const newGames = [...prevGames, ...events.map(parse)];
         // Filter by mode
         const filteredGames = newGames.filter(
-          (game) => game.gameMode.value == mode.value,
+          (game) => game.gameMode.value == mode.value
         );
         // Remove duplicates
         const dedupedGames = filteredGames.filter(
           (game, idx) =>
-            idx === filteredGames.findIndex((g) => g.id === game.id),
+            idx === filteredGames.findIndex((g) => g.id === game.id)
         );
         // Sort by score
         const sortedGames = dedupedGames.sort(
-          (a, b) => b.gameScore - a.gameScore,
+          (a, b) => b.gameScore - a.gameScore
         );
         // Extract all unique tournament ids
         const uniqueIds = Array.from(
           new Set(
             sortedGames.map((game) => {
               return game.tournamentId;
-            }),
-          ),
+            })
+          )
         );
+
         setIds(uniqueIds);
         return sortedGames;
       });
