@@ -7,7 +7,7 @@ import banner from "/assets/banner.svg";
 import BoxRainScene from "../modules/BoxRain";
 import { useDojo } from "@/dojo/useDojo";
 import { useAccount } from "@starknet-react/core";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { usePlayer } from "@/hooks/usePlayer";
 import { ComponentValue } from "@dojoengine/recs";
 
@@ -19,6 +19,7 @@ export const Landing = () => {
 
   const { player } = usePlayer({ playerId: account?.address });
 
+  const [loading, setLoading] = useState(false);
   return (
     <BorderLayout>
       <div className="fixed h-full w-full z-0">
@@ -33,17 +34,28 @@ export const Landing = () => {
             <Connection />
           </div>
 
-          <div className="flex">
-            {isConnected && !player && <Spawn />}
-            {isConnected && !!player && <Play player={player} />}
-          </div>
+          {isConnected && (
+            <div className="flex">
+              {!player ? (
+                <Spawn setLoading={setLoading} loading={loading} />
+              ) : (
+                <Play loading={loading} player={player} />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </BorderLayout>
   );
 };
 
-export const Play = ({ player }: { player: ComponentValue }) => {
+export const Play = ({
+  player,
+  loading,
+}: {
+  player: ComponentValue;
+  loading: boolean;
+}) => {
   // const { account } = useAccount();
   const navigate = useNavigate();
 
@@ -64,8 +76,12 @@ export const Play = ({ player }: { player: ComponentValue }) => {
   };
 
   return (
-    <Button disabled={disabled} variant={"secondary"} onClick={handleClick}>
-      Play!
+    <Button
+      disabled={disabled || loading}
+      variant={"secondary"}
+      onClick={handleClick}
+    >
+      {loading ? "Loading..." : "Play"}
     </Button>
   );
 };
