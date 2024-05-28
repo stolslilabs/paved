@@ -65,10 +65,6 @@ export default defineConfig({
       text: "Play",
       collapsed: true,
       items: [
-        {
-          text: "Reveal",
-          link: "/reveal",
-        },
          {
           text: "Place",
           link: "/place",
