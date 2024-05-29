@@ -111,7 +111,7 @@ export const TileTexture = ({ tile, size, length }: any) => {
         ]}
         position={[position.x, position.y, 0]}
       >
-        <primitive object={shadowedModel} />
+        <primitive castShadow receiveShadow object={shadowedModel} />
       </group>
 
       <mesh

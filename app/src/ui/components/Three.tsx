@@ -10,6 +10,7 @@ import {
   Clouds,
   Cloud,
   SoftShadows,
+  PerspectiveCamera,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
 import { CharTextures } from "./CharTextures";
@@ -37,18 +38,31 @@ export const ThreeGrid = () => {
       <Keyboard />
       <mesh ref={mesh}>
         <Camera>
-          <directionalLight
-            color={"white"}
-            intensity={3}
-            position={[0, 5, 0]}
-            castShadow
+          <hemisphereLight
+            name="Default Ambient Light"
+            intensity={0.75}
+            color="#eaeaea"
           />
           <directionalLight
+            // color={"white"}
+            intensity={4}
+            position={[0, 300, 200]}
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
+            shadow-camera-near={-10000}
+            shadow-camera-far={100000}
+            shadow-camera-left={-1000}
+            shadow-camera-right={1000}
+            shadow-camera-top={1000}
+            shadow-camera-bottom={-1000}
+          />
+          {/* <directionalLight
             color={"white"}
             intensity={3}
             position={[10, 5, 10]}
             castShadow
-          />
+          /> */}
 
           <MainScene />
         </Camera>
@@ -100,7 +114,7 @@ function Keyboard() {
           setOrientation(orientation + 1);
           rotateSpot(spot, true);
         }
-      },
+      }
     );
   }, [orientation, spot]);
 
@@ -113,7 +127,7 @@ function Keyboard() {
           setOrientation(orientation - 1);
           rotateSpot(spot, false);
         }
-      },
+      }
     );
   }, [orientation, spot]);
 
@@ -124,7 +138,7 @@ function Keyboard() {
         if (pressed) {
           setStrategyMode(!strategyMode);
         }
-      },
+      }
     );
   }, [strategyMode]);
 
@@ -182,17 +196,17 @@ function Camera({ children }: { children?: React.ReactNode }) {
           RIGHT: THREE.MOUSE.ROTATE,
         }}
       />
-      <OrthographicCamera
+      <PerspectiveCamera
         // makeDefault
         ref={camera}
         zoom={zoom}
-        isOrthographicCamera
+        // isOrthographicCamera
         rotation={rotation}
         near={near}
         far={far}
       >
         {children}
-      </OrthographicCamera>
+      </PerspectiveCamera>
     </>
   );
 }

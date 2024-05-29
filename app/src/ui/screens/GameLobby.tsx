@@ -4,12 +4,20 @@ import banner from "/assets/banner.svg";
 import { Links } from "../components/Links";
 import { useState } from "react";
 import { Button } from "../elements/button";
+import { Tournament } from "../components/Tournament";
+import { useLobby } from "@/hooks/useLobby";
+import BoxRainScene from "../modules/BoxRain";
 
 export const GameLobby = () => {
   const [sideBar, setSidebar] = useState<boolean>(true);
 
+  const { gameMode } = useLobby();
+
   return (
     <div className="h-screen flex w-full relative">
+      <div className="absolute h-full w-full z-0">
+        <BoxRainScene />
+      </div>
       <div className="absolute top-4 z-[100] right-4 flex md:hidden">
         <Button
           onClick={() => setSidebar(!sideBar)}
@@ -20,15 +28,12 @@ export const GameLobby = () => {
         </Button>
       </div>
 
-      <div className="w-full md:w-10/12 ">
+      <div className="w-full md:w-10/12 bg-white/90 z-10">
+        {/* <div className=" w-full bg-primary text-white h-16 flex">
+          <div className="marquee self-center">Season</div>
+        </div> */}
         <Games />
-      </div>
-      <div
-        className={`${sideBar ? "w-screen" : "hidden"} z-10 md:w-1/3 border-r sticky bottom-0 h-screen p-8 shadow-2xl bg-primary `}
-      >
-        <Player />
-        <Links />
-        <div className="mt-4">
+        {/* <div className="mt-4">
           <iframe
             width="100%"
             height="315"
@@ -38,7 +43,18 @@ export const GameLobby = () => {
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           ></iframe>
+        </div> */}
+      </div>
+      <div
+        className={`${sideBar ? "w-screen" : "hidden"} z-10 md:w-1/3 border-r sticky bottom-0 h-screen p-8 shadow-2xl bg-primary `}
+      >
+        <Player />
+
+        <div className="my-4 py-4 border shadow bg-white/90">
+          {" "}
+          <Tournament mode={gameMode} />
         </div>
+        <Links />
       </div>
     </div>
   );

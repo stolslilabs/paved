@@ -31,7 +31,7 @@ export const Links = () => {
   ];
 
   return (
-    <div className="flex justify-center gap-4 mt-10">
+    <div className="flex justify-center gap-4 my-10">
       {links.map((link, index) => (
         <a
           key={index}

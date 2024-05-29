@@ -32,9 +32,13 @@ import { useLobbyStore } from "@/store";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useAccount } from "@starknet-react/core";
 import { Mode, ModeType } from "@/dojo/game/types/mode";
+import { Game } from "@/dojo/game/types/game";
+import { useLobby } from "@/hooks/useLobby";
 
 export const Games = () => {
   const { mode, setMode } = useLobbyStore();
+  const { gameMode } = useLobby();
+
   const [games, setGames] = useState<{ [key: number]: any }>({});
   const [show, setShow] = useState<boolean>(false);
   // const { account } = useAccount();
@@ -62,21 +66,11 @@ export const Games = () => {
     });
   }, []);
 
-  const gameMode: Mode = useMemo(() => {
-    if (mode === ModeType.Weekly) {
-      return new Mode(ModeType.Weekly);
-    } else if (mode === ModeType.Daily) {
-      return new Mode(ModeType.Daily);
-    } else {
-      return new Mode(ModeType.None);
-    }
-  }, [mode]);
-
   const toggleMode = (event: string) => {
     setMode(event);
   };
 
-  const filteredGames = useMemo(() => {
+  const filteredGames: Game[] = useMemo(() => {
     return Object.values(games)
       .filter((game) => {
         if (game.mode.value !== gameMode.value) return false;
@@ -89,8 +83,9 @@ export const Games = () => {
   return (
     <div className=" h-full">
       <div className="flex flex-col gap-2 items-start w-full p-4  md:px-8 h-full">
-        <div className="h-16 flex justify-center my-3">
+        <div className="h-24 flex justify-between w-full">
           <img src={banner} alt="banner" className="h-full " />
+          <TournamentHeader mode={gameMode} />
         </div>
         <Tabs
           defaultValue={mode}
@@ -104,10 +99,9 @@ export const Games = () => {
           </TabsList> */}
 
           <TabsContent value={ModeType.Daily}>
-            <TournamentHeader mode={gameMode} />
             <div className="flex my-4 gap-4 items-center">
               <CreateGame mode={gameMode} />
-              <TournamentDialog mode={gameMode} />
+              {/* <TournamentDialog mode={gameMode} /> */}
             </div>
 
             <div className="flex justify-between w-full">
@@ -123,7 +117,7 @@ export const Games = () => {
                 </Label>
               </div>
             </div>
-            <ScrollArea className="w-full pr-4">
+            <ScrollArea className="w-full pr-4 p-4 shadow">
               <Table>
                 <TableHeader>
                   <TableRow className="text-sm">
@@ -214,7 +208,11 @@ export const GameSingleRow = ({ game }: { game: any }) => {
     };
   }, [navigate]);
 
+  const date = new Date(game.start_time);
+
   if (!game || !builder) return null;
+
+  console.log(game);
 
   return (
     <TableRow className="text-xs">
@@ -222,21 +220,24 @@ export const GameSingleRow = ({ game }: { game: any }) => {
       <TableCell>{tilesPlayed}</TableCell>
       <TableCell>{score}</TableCell>
 
-      <TableCell className="w-12">
+      <TableCell className="flex justify-end">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant={"secondary"}
-                size={"icon"}
+                size={"sm"}
+                className="px-4 flex gap-3 self-end"
+                variant={"default"}
                 onClick={() => setGameQueryParam(game.id || 0)}
               >
-                <FontAwesomeIcon icon={over ? faEye : faRightToBracket} />
+                <span className="self-center">Join</span>
+
+                <FontAwesomeIcon
+                  className="self-center"
+                  icon={over ? faEye : faRightToBracket}
+                />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">Join the game</p>
-            </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </TableCell>

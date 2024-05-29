@@ -16,7 +16,7 @@ export const useGame = ({ gameId }: { gameId: number | undefined }) => {
 
   const gameKey = useMemo(
     () => getEntityIdFromKeys([BigInt(gameId || 0)]) as Entity,
-    [gameId],
+    [gameId]
   );
   const component = useComponentValue(Game, gameKey);
   const game = useMemo(() => {
