@@ -7,6 +7,7 @@ import { DojoProvider } from "./dojo/context.tsx";
 import { dojoConfig } from "../dojoConfig.ts";
 import { StarknetProvider } from "./ui/components/Starknet.tsx";
 import { GameLoading } from "./ui/screens/GameLoading.tsx";
+import { Analytics } from "@vercel/analytics/react";
 
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement
@@ -36,6 +37,7 @@ function Main() {
           {setupResult && <App />}
         </DojoProvider>
       </StarknetProvider>
+      <Analytics />
     </React.StrictMode>
   );
 }
