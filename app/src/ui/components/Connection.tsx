@@ -12,6 +12,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSignOut } from "@fortawesome/free-solid-svg-icons";
 import { useState } from "react";
 // import { useDojo } from "@/dojo/useDojo";
+import useClipboard from "react-use-clipboard";
 
 export const PREFUND_AMOUNT = "0x3635C9ADC5DEA00000";
 

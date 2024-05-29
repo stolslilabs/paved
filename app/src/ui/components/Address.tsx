@@ -1,10 +1,11 @@
 import { useAccount, useStarkProfile } from "@starknet-react/core";
 import { useEffect, useMemo, useState } from "react";
 import { getAvatar } from "@/utils/avatar";
+import useClipboard from "react-use-clipboard";
 
 export function minifyAddressOrStarknetId(
   address: string | undefined,
-  starknetId: string | undefined,
+  starknetId: string | undefined
 ) {
   const input = starknetId !== undefined ? starknetId : address;
   if (input === undefined) {
@@ -13,7 +14,7 @@ export function minifyAddressOrStarknetId(
   return input.length > 24
     ? `${input.substring(0, 5)} ... ${input.substring(
         input.length - 5,
-        input.length,
+        input.length
       )}`
     : input;
 }
@@ -22,6 +23,7 @@ export function Address() {
   const { address } = useAccount();
   const { data } = useStarkProfile({ address });
   const [avatar, setAvatar] = useState<string | undefined>();
+  const [isCopied, setCopied] = useClipboard(address || "");
 
   const starknetId = useMemo(() => {
     if (data !== undefined) {
@@ -42,7 +44,10 @@ export function Address() {
       {avatar && (
         <img className="w-8 h-8 mr-3 rounded-full" src={avatar} alt="PFP" />
       )}
-      {minifyAddressOrStarknetId(address, starknetId)}
+      <div onClick={() => setCopied()}>
+        {minifyAddressOrStarknetId(address, starknetId)}
+        {isCopied ? " (copied)" : ""}
+      </div>
     </div>
   );
 }
