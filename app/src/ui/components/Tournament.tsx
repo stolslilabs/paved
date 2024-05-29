@@ -49,7 +49,7 @@ import { useLobbyStore } from "@/store";
 import { Sponsor } from "@/ui/components/Sponsor";
 import Leaderboard from "@/ui/icons/LEADERBOARD.svg?react";
 
-const getSeason = (mode: Mode) => {
+export const getSeason = (mode: Mode) => {
   const now = Math.floor(Date.now() / 1000);
   const id = Math.floor(now / mode.duration());
   return id - mode.offset();
@@ -98,8 +98,9 @@ export const TournamentHeader = ({ mode }: { mode: Mode }) => {
   }, [mode]);
 
   return (
-    <div className="flex justify-between items-center">
-      <div className="text-lg">{`Season ${tournamentId} - ${timeLeft}`}</div>
+    <div className=" justify-between items-center self-center">
+      <div className="text-3xl">{`Season ${tournamentId}`}</div>
+      <div> {timeLeft}</div>
     </div>
   );
 };
@@ -142,7 +143,8 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
 
   useEffect(() => {
     console.log("ids", ids);
-    setPage(ids.length);
+    const currentSeason = getSeason(mode);
+    setPage(currentSeason);
   }, [ids]);
 
   useEffect(() => {
@@ -235,7 +237,6 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
               <TableHead className="flex justify-center items-center">
                 <Lords fill={"black"} width={4} height={4} />
               </TableHead>
-              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

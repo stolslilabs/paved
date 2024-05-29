@@ -15,11 +15,10 @@ const BoxRain = ({
 
   useFrame(() => {
     if (meshRef.current) {
-      meshRef.current.position.y -= 0.02;
-      // meshRef.current.rotation.x += 0.01;
-      // meshRef.current.rotation.y += 0.1;
+      meshRef.current.position.y -= 0.01;
 
-      if (meshRef.current.position.y < -10) {
+      // Adjust the threshold to a lower value to make the boxes fall further
+      if (meshRef.current.position.y < -20) {
         meshRef.current.position.y = 10;
         meshRef.current.position.x = Math.random() * 20 - 10;
         meshRef.current.position.z = Math.random() * 20 - 10;
@@ -61,11 +60,11 @@ const BoxRainScene = () => {
         position: new Vector3(
           Math.random() * 20 - 10,
           Math.random() * 20 + 10,
-          Math.random() * 20 - 10
+          Math.random() * 40 - 10
         ),
         // Select a random model for each box
         model: models[Math.floor(Math.random() * models.length)],
-        scale: 0.2,
+        scale: 0.1,
       })),
     [models]
   );
@@ -80,9 +79,11 @@ const BoxRainScene = () => {
         castShadow
       />
       <pointLight position={[10, 10, 10]} />
-      {boxes.map((box, index) => (
-        <BoxRain key={index} initPosition={box.position} model={box.model} />
-      ))}
+      <mesh scale={0.2}>
+        {boxes.map((box, index) => (
+          <BoxRain key={index} initPosition={box.position} model={box.model} />
+        ))}
+      </mesh>
     </Canvas>
   );
 };
