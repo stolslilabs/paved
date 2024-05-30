@@ -7,12 +7,13 @@ import { Button } from "../elements/button";
 import { Tournament } from "../components/Tournament";
 import { useLobby } from "@/hooks/useLobby";
 import BoxRainScene from "../modules/BoxRain";
-import { useAccount } from "@starknet-react/core";
+import { useAccount, useBalance } from "@starknet-react/core";
 import { Address } from "../components/Address";
 
 export const GameLobby = () => {
   const [sideBar, setSidebar] = useState<boolean>(true);
-  const { isConnected, account } = useAccount();
+  const { isConnected, address } = useAccount();
+
   const { gameMode } = useLobby();
 
   return (
@@ -48,7 +49,7 @@ export const GameLobby = () => {
         </div> */}
       </div>
       <div
-        className={`${sideBar ? "w-screen" : "hidden"} z-10 md:w-1/3 border-r sticky bottom-0 h-screen p-8 shadow-2xl bg-primary `}
+        className={`${sideBar ? "w-screen" : "hidden"} z-10 md:w-1/3 border-r sticky bottom-0 h-screen p-8 shadow-2xl bg-primary overflow-auto `}
       >
         <div className="mb-2">
           <Address />
