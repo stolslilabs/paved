@@ -212,8 +212,6 @@ export const GameSingleRow = ({ game }: { game: any }) => {
 
   if (!game || !builder) return null;
 
-  console.log(game);
-
   return (
     <TableRow className="text-xs">
       <TableCell>{game.id}</TableCell>

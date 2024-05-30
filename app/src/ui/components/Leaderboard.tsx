@@ -51,7 +51,7 @@ export const LeaderboardDialog = () => {
   useEffect(() => {
     if (game) {
       const interval = setInterval(() => {
-        if (!over && game.isOver()) {
+        if (!over && game.isOver() && isSelf) {
           setOpen(true);
           setOver(true);
         }

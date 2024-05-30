@@ -130,7 +130,7 @@ export const LoadingTile = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <div
-            className={`h-full w-full  border-4`}
+            className={`h-full w-full`}
             style={{
               backgroundImage: `url(${backgroundImage})`,
               backgroundSize: "cover",
@@ -141,9 +141,9 @@ export const LoadingTile = () => {
             </div>
           </div>
         </TooltipTrigger>
-        <TooltipContent>
+        {/* <TooltipContent>
           <p className="select-none">Game is over</p>
-        </TooltipContent>
+        </TooltipContent> */}
       </Tooltip>
     </TooltipProvider>
   );

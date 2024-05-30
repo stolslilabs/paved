@@ -22,7 +22,6 @@ const GameScene = () => {
   );
 
   const loading = useUIStore((state) => state.loading);
-  const setLoading = useUIStore((state) => state.setLoading);
 
   return (
     <div

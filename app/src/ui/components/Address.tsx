@@ -2,6 +2,7 @@ import { useAccount, useStarkProfile } from "@starknet-react/core";
 import { useEffect, useMemo, useState } from "react";
 import { getAvatar } from "@/utils/avatar";
 import useClipboard from "react-use-clipboard";
+import { Button } from "../elements/button";
 
 export function minifyAddressOrStarknetId(
   address: string | undefined,
@@ -40,14 +41,23 @@ export function Address() {
   }, [data]);
 
   return (
-    <div className="flex justify-center items-center">
+    <div className="flex justify-center items-center gap-3 text-xs">
       {avatar && (
         <img className="w-8 h-8 mr-3 rounded-full" src={avatar} alt="PFP" />
       )}
-      <div onClick={() => setCopied()}>
+      <Button className="px-4" size={"sm"} onClick={() => setCopied()}>
         {minifyAddressOrStarknetId(address, starknetId)}
         {isCopied ? " (copied)" : ""}
-      </div>
+      </Button>
+      <Button className="px-4" size={"sm"} variant={"default"}>
+        <a
+          target="_blank"
+          href="https://blastapi.io/faucets/starknet-sepolia-eth"
+        >
+          {" "}
+          Gas
+        </a>
+      </Button>
     </div>
   );
 }
