@@ -142,7 +142,6 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
   const [endTime, setEndTime] = useState<string>("");
 
   useEffect(() => {
-    console.log("ids", ids);
     const currentSeason = getSeason(mode);
     setPage(currentSeason);
   }, [ids]);

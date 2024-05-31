@@ -28,7 +28,7 @@ export const getContractByName = (manifest: any, name: string) => {
 };
 
 export async function setupWorld(provider: DojoProvider, config: Config) {
-  const details: InvocationsDetails = { maxFee: 1e15 };
+  const details: InvocationsDetails = { maxFee: 1e16 };
 
   const execute = async (
     account: Account,

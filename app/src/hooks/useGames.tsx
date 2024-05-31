@@ -42,7 +42,6 @@ export const useGames = ({ mode }: { mode: Mode }) => {
     const query = async () => {
       const events = await queryEvents([WorldEvents.GameOver]);
 
-      console.log(...events.map(parse));
       setGames((prevGames) => {
         const newGames = [...prevGames, ...events.map(parse)];
         // Filter by mode
