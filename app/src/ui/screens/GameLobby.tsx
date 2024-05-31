@@ -57,7 +57,7 @@ export const GameLobby = () => {
 
         <Player />
 
-        <div className="my-4 py-4 border shadow bg-white/90">
+        <div className="my-4 py-4 border shadow-sm bg-white/90">
           {" "}
           <Tournament mode={gameMode} />
         </div>
