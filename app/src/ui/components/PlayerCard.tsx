@@ -48,7 +48,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
 
   return (
     <Card className="border">
-      <div className="flex p-4">
+      <div className="flex p-4 justify-center gap-8">
         <Adventurer className="h-24 fill-primary" />
         <div>
           <PlayerName playerName={playerName} />
@@ -61,8 +61,8 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
 
 const PlayerInfo = ({ balance }: any) => {
   return (
-    <CardDescription className="pt-2 ">
-      <div className=" items-center justify-center gap-2 text-xl">
+    <CardDescription className="pt-2 w-full">
+      <div className=" items-center justify-center gap-2 text-xl flex w-full">
         <div className="flex space-x-2">
           {!!balance && <div>{`${balance}`.slice(0, 6)}</div>}
           {!balance && <Skeleton className="h-4 w-12" />}
