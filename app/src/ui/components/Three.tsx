@@ -39,7 +39,7 @@ import { useControls } from "leva";
 
 const Light = () => {
   const lightRef = useRef<THREE.DirectionalLight>(null!);
-  useHelper(lightRef, THREE.DirectionalLightHelper, 10, "hotpink");
+  useHelper(lightRef, THREE.DirectionalLightHelper, 0.25, "hotpink");
 
   const { ambientIntensity, intensity, position } = useControls("Light", {
     ambientIntensity: {
@@ -55,7 +55,7 @@ const Light = () => {
       step: 0.01,
     },
     position: {
-      value: [-1, 4, 1],
+      value: [-0.5, 2, 0.5],
       min: [-5, -5, -5],
       max: [5, 5, 5],
       step: 0.01,
