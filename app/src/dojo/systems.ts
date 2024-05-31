@@ -62,6 +62,12 @@ export function systems({
         account,
         ...props,
       });
+
+      console.log(
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        })
+      );
       notify(
         "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
