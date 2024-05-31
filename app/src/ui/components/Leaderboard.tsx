@@ -92,11 +92,11 @@ export const Description = ({ game }: { game: GameClass }) => {
 
   return (
     <DialogDescription className="flex justify-center items-center gap-3 text-xs flex-wrap">
-      <div className="w-full text-center text-3xl">Game Over!</div>
+      <div className="w-full text-center text-3xl">PUZZLE COMPLETE!</div>
       <div className="w-full text-center">
-        Copy your screenshot and <br /> paste into the twitter post to share.
-        <br />
-        Adjust the camera as required.
+        Well paved, adventurer ⚒️ <br />
+        Care to flex your score on X? <br /> Tip: paste your screenshot into the
+        post for maximum impact.
       </div>
 
       <Button
@@ -116,12 +116,12 @@ export const Description = ({ game }: { game: GameClass }) => {
 export const Share = ({ score }: { score: number }) => {
   return (
     <TwitterShareButton
-      url="https://paved.gg/"
-      title={`I just test played @pavedgame’s daily puzzle 👑
+      url="https://sepolia.paved.gg/"
+      title={`I just conquered today’s @pavedgame puzzle 🧩
 
 Score: ${score}
 
-Join the fun at https://sepolia.paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other ⚒️ 
+Think you can do better? Join the fun at https://sepolia.paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other ⚒️ 
 
 #gaming #onetileatatime
 
