@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { useEffect, useRef, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import {
   useKeyboardControls,
   OrthographicCamera,
@@ -11,11 +11,12 @@ import {
   Cloud,
   SoftShadows,
   PerspectiveCamera,
+  Box,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
 import { CharTextures } from "./CharTextures";
 import { Controls } from "@/ui/screens/GameScreen";
-import { useGameStore, useCameraStore } from "@/store";
+import { useGameStore, useCameraStore, useUIStore } from "@/store";
 import { Perf } from "r3f-perf";
 import {
   Bloom,
@@ -30,11 +31,21 @@ import {
 import { BlendFunction, Resizer, KernelSize } from "postprocessing";
 import useSound from "use-sound";
 import RotationSound from "/sounds/rotation.wav";
+import { Button } from "../elements/button";
 
 export const ThreeGrid = () => {
   const mesh = useRef<THREE.Mesh>(null!);
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   return (
-    <Canvas className="z-1" frameloop="demand">
+    <Canvas
+      onCreated={({ gl }) => {
+        gl.domElement.id = "canvas";
+      }}
+      className="z-1"
+      frameloop="demand"
+      ref={canvasRef}
+    >
       <Keyboard />
       <mesh ref={mesh}>
         <Camera>
@@ -43,6 +54,7 @@ export const ThreeGrid = () => {
             intensity={0.75}
             color="#eaeaea"
           />
+          <ScreenShotCube />
           <directionalLight
             // color={"white"}
             intensity={4}
@@ -78,6 +90,38 @@ export const ThreeGrid = () => {
       </mesh>
     </Canvas>
   );
+};
+
+export const ScreenShotCube = () => {
+  const mesh = useRef<THREE.Mesh>(null!);
+
+  const { gl, camera, scene } = useThree();
+
+  const setTakeScreenshot = useUIStore((state) => state.setTakeScreenshot);
+
+  const takeScreenshot = async () => {
+    gl.render(scene, camera);
+
+    const imgData = gl.domElement.toDataURL("image/png");
+    const imgBlob = await (await fetch(imgData)).blob();
+
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [imgBlob.type]: imgBlob,
+        }),
+      ]);
+      console.log("Image copied to clipboard");
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    setTakeScreenshot(takeScreenshot);
+  }, []);
+
+  return <mesh ref={mesh} onClick={() => takeScreenshot()}></mesh>;
 };
 
 export const MainScene = () => {

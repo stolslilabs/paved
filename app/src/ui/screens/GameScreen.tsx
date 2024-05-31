@@ -30,10 +30,7 @@ const GameScene = () => {
       <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
         <Banner />
         <Overlay />
-        <div
-          id="canvas-container"
-          className="z-10 left-0 relative top-0 overflow-hidden grow"
-        >
+        <div id="canvas-container" className="z-10 overflow-hidden grow">
           <KeyboardControls map={map}>
             <ThreeGrid />
           </KeyboardControls>

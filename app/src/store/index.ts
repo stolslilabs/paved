@@ -223,6 +223,8 @@ interface UIState {
   setVolume: (value: number) => void;
   track: string;
   setTrack: (value: string) => void;
+  takeScreenshot: (() => void) | null;
+  setTakeScreenshot: (fn: () => void) => void;
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -234,4 +236,6 @@ export const useUIStore = create<UIState>((set, get) => ({
   setVolume: (value) => set({ volume: value }),
   track: "",
   setTrack: (value) => set({ track: value }),
+  takeScreenshot: null,
+  setTakeScreenshot: (fn) => set({ takeScreenshot: fn }),
 }));
