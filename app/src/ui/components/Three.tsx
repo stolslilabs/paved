@@ -12,6 +12,7 @@ import {
   SoftShadows,
   PerspectiveCamera,
   Box,
+  useHelper,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
 import { CharTextures } from "./CharTextures";
@@ -34,7 +35,58 @@ import { BlendFunction, Resizer, KernelSize } from "postprocessing";
 import useSound from "use-sound";
 import RotationSound from "/sounds/rotation.wav";
 import { Button } from "../elements/button";
+import { useControls } from "leva";
 
+const Light = () => {
+  const lightRef = useRef<THREE.DirectionalLight>(null!);
+  useHelper(lightRef, THREE.DirectionalLightHelper, 10, "hotpink");
+
+  const { ambientIntensity, intensity, position } = useControls("Light", {
+    ambientIntensity: {
+      value: 1,
+      min: 0,
+      max: 2,
+      step: 0.01,
+    },
+    intensity: {
+      value: 1.5,
+      min: 0,
+      max: 2,
+      step: 0.01,
+    },
+    position: {
+      value: [-1, 4, 1],
+      min: [-5, -5, -5],
+      max: [5, 5, 5],
+      step: 0.01,
+    },
+  });
+  return (
+    <>
+      <ambientLight
+        name="Default Ambient Light"
+        intensity={ambientIntensity}
+        color="white"
+      />
+      <directionalLight
+        ref={lightRef}
+        color={"white"}
+        intensity={intensity}
+        position={position}
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-near={0}
+        shadow-camera-far={5}
+        shadow-camera-left={-5}
+        shadow-camera-right={5}
+        shadow-camera-top={5}
+        shadow-camera-bottom={-5}
+        shadow-bias={-0.01}
+      />
+    </>
+  );
+};
 export const ThreeGrid = () => {
   const mesh = useRef<THREE.Mesh>(null!);
 
@@ -45,10 +97,7 @@ export const ThreeGrid = () => {
         gl.domElement.id = "canvas";
       }}
       dpr={[0.5, 1]}
-      shadows={{
-        enabled: true,
-        type: 2,
-      }}
+      shadows
       className="z-1"
       frameloop="demand"
       ref={canvasRef}
@@ -56,27 +105,8 @@ export const ThreeGrid = () => {
       <Keyboard />
       <mesh ref={mesh}>
         <Camera>
-          <hemisphereLight
-            name="Default Ambient Light"
-            intensity={4}
-            color="#d9e7f1"
-          />
           <ScreenShotCube />
-          <directionalLight
-            color={"white"}
-            intensity={5}
-            position={[400, 300, 100]}
-            castShadow
-            shadow-mapSize-width={1024}
-            shadow-mapSize-height={1024}
-            shadow-camera-near={-10000}
-            shadow-camera-far={100000}
-            shadow-camera-left={-1000}
-            shadow-camera-right={1000}
-            shadow-camera-top={1000}
-            shadow-camera-bottom={-1000}
-          />
-
+          <Light />
           <MainScene />
         </Camera>
 
