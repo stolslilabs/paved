@@ -123,8 +123,6 @@ Score: ${score}
 
 Think you can do better? Join the fun at https://sepolia.paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other ⚒️ 
 
-#gaming #onetileatatime
-
 Play now 👇
 `}
     >
