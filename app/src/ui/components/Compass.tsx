@@ -44,7 +44,7 @@ export const Compass = () => {
             size={"command"}
             onClick={() => setRotate(true)}
           >
-            <Logo className="sm:h-4 md:h-8 fill-current" />
+            <Logo style={style} className="sm:h-4 md:h-8 fill-current" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

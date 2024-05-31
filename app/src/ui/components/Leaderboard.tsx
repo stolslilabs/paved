@@ -30,6 +30,7 @@ import { ToolTipButton } from "./ToolTipButton";
 import { useBuilders } from "@/hooks/useBuilders";
 import { useDojo } from "@/dojo/useDojo";
 import LeaderboardIcon from "@/ui/icons/LEADERBOARD.svg?react";
+import { useUIStore } from "@/store";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
@@ -44,9 +45,9 @@ export const LeaderboardDialog = () => {
   const isSelf = useMemo(() => {
     return (
       account?.address ===
-      `0x${builders.length > 0 ? builders[0].player_id.toString(16) : 0}`
+      `0x0${builders.length > 0 ? builders[0].player_id.toString(16) : 0}`
     );
-  }, [account, builders]);
+  }, [account, builders, over, game]);
 
   useEffect(() => {
     if (game) {
@@ -80,9 +81,33 @@ export const LeaderboardDialog = () => {
 };
 
 export const Description = ({ game }: { game: GameClass }) => {
+  const takeScreenshot = useUIStore((state) => state.takeScreenshot);
+  const [screenshotMessage, setScreenshotMessage] = useState("");
+
+  const handleScreenshot = () => {
+    takeScreenshot?.();
+    setScreenshotMessage("Shot taken!");
+    setTimeout(() => setScreenshotMessage(""), 5000);
+  };
+
   return (
-    <DialogDescription className="flex justify-center items-center gap-3 text-xs">
-      Game is over!
+    <DialogDescription className="flex justify-center items-center gap-3 text-xs flex-wrap">
+      <div className="w-full text-center text-3xl">Game Over!</div>
+      <div className="w-full text-center">
+        Copy your screenshot and <br /> paste into the twitter post to share.
+        <br />
+        Adjust the camera as required.
+      </div>
+
+      <Button
+        variant={"default"}
+        size={"icon"}
+        className="flex gap-2 w-auto p-2 text-xs"
+        onClick={handleScreenshot}
+      >
+        {screenshotMessage ? screenshotMessage : "Take Screenshot!"}
+      </Button>
+
       <Share score={game.score} />
     </DialogDescription>
   );
@@ -92,11 +117,11 @@ export const Share = ({ score }: { score: number }) => {
   return (
     <TwitterShareButton
       url="https://paved.gg/"
-      title={`I just test played @pavedgame’s solo mode 👑
+      title={`I just test played @pavedgame’s daily puzzle 👑
 
 Score: ${score}
 
-Join the fun at https://paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other ⚒️ 
+Join the fun at https://sepolia.paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other ⚒️ 
 
 #gaming #onetileatatime
 
