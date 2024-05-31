@@ -26,7 +26,9 @@ import {
   Vignette,
   Outline,
   SSAO,
+  ColorAverage,
   Grid,
+  HueSaturation,
 } from "@react-three/postprocessing";
 import { BlendFunction, Resizer, KernelSize } from "postprocessing";
 import useSound from "use-sound";
@@ -42,6 +44,11 @@ export const ThreeGrid = () => {
       onCreated={({ gl }) => {
         gl.domElement.id = "canvas";
       }}
+      dpr={[0.5, 1]}
+      shadows={{
+        enabled: true,
+        type: 2,
+      }}
       className="z-1"
       frameloop="demand"
       ref={canvasRef}
@@ -51,14 +58,14 @@ export const ThreeGrid = () => {
         <Camera>
           <hemisphereLight
             name="Default Ambient Light"
-            intensity={0.75}
-            color="#eaeaea"
+            intensity={4}
+            color="#d9e7f1"
           />
           <ScreenShotCube />
           <directionalLight
-            // color={"white"}
-            intensity={4}
-            position={[0, 300, 200]}
+            color={"white"}
+            intensity={5}
+            position={[400, 300, 100]}
             castShadow
             shadow-mapSize-width={1024}
             shadow-mapSize-height={1024}
@@ -69,16 +76,10 @@ export const ThreeGrid = () => {
             shadow-camera-top={1000}
             shadow-camera-bottom={-1000}
           />
-          {/* <directionalLight
-            color={"white"}
-            intensity={3}
-            position={[10, 5, 10]}
-            castShadow
-          /> */}
 
           <MainScene />
         </Camera>
-        <fog attach="fog" args={["#d0d0d0", 8, 35]} />
+
         <EffectComposer>
           <Vignette eskil={false} offset={0.1} darkness={0.8} />
           <Bloom mipmapBlur luminanceThreshold={3} />
@@ -86,6 +87,11 @@ export const ThreeGrid = () => {
             premultiply // enables or disables noise premultiplication
             blendFunction={BlendFunction.COLOR} // blend mode
           />
+          {/* <HueSaturation
+            blendFunction={BlendFunction.NORMAL} // blend mode
+            hue={50} // hue in radians
+            saturation={30} // saturation in radians
+          /> */}
         </EffectComposer>
       </mesh>
     </Canvas>

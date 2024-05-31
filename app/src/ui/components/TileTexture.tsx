@@ -83,7 +83,7 @@ export const TileTexture = ({ tile, size, length }: any) => {
     model.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.castShadow = true;
-        child.receiveShadow = true;
+        // child.receiveShadow = true;
       }
     });
     return model;
