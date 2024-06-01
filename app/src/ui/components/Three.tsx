@@ -37,11 +37,11 @@ import { BlendFunction, Resizer, KernelSize } from "postprocessing";
 import useSound from "use-sound";
 import RotationSound from "/sounds/rotation.wav";
 import { Button } from "../elements/button";
-import { useControls } from "leva";
+import { useControls, Leva } from "leva";
 
 const Light = () => {
   const lightRef = useRef<THREE.DirectionalLight>(null!);
-  useHelper(lightRef, THREE.DirectionalLightHelper, 0.25, "hotpink");
+  // useHelper(lightRef, THREE.DirectionalLightHelper, 0.25, "hotpink");
 
   const { ambientIntensity, intensity, position } = useControls("Light", {
     ambientIntensity: {
@@ -65,6 +65,13 @@ const Light = () => {
   });
   return (
     <>
+      <Leva
+        fill // default = false,  true makes the pane fill the parent dom node it's rendered in
+        flat // default = false,  true removes border radius and shadow
+        oneLineLabels // default = false, alternative layout for labels, with labels and fields on separate rows
+        collapsed // default = false, when true the GUI is collpased
+        hidden // default = false, when true the GUI is hidden
+      />
       <spotLight
         position={[10, 10, 10]}
         angle={0.15}
