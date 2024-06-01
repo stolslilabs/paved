@@ -30,6 +30,8 @@ import {
   ColorAverage,
   Grid,
   HueSaturation,
+  N8AO,
+  SMAA,
 } from "@react-three/postprocessing";
 import { BlendFunction, Resizer, KernelSize } from "postprocessing";
 import useSound from "use-sound";
@@ -43,19 +45,19 @@ const Light = () => {
 
   const { ambientIntensity, intensity, position } = useControls("Light", {
     ambientIntensity: {
-      value: 1,
+      value: 5,
       min: 0,
-      max: 2,
+      max: 20,
       step: 0.01,
     },
     intensity: {
-      value: 1.5,
+      value: 3,
       min: 0,
-      max: 2,
+      max: 20,
       step: 0.01,
     },
     position: {
-      value: [-0.5, 2, 0.5],
+      value: [-0.5, 13, 6.5],
       min: [-5, -5, -5],
       max: [5, 5, 5],
       step: 0.01,
@@ -63,6 +65,13 @@ const Light = () => {
   });
   return (
     <>
+      <spotLight
+        position={[10, 10, 10]}
+        angle={0.15}
+        penumbra={1}
+        intensity={1}
+        castShadow
+      />
       <ambientLight
         name="Default Ambient Light"
         intensity={ambientIntensity}
@@ -77,10 +86,10 @@ const Light = () => {
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-near={0}
-        shadow-camera-far={5}
-        shadow-camera-left={-5}
-        shadow-camera-right={5}
-        shadow-camera-top={5}
+        shadow-camera-far={12}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={12}
         shadow-camera-bottom={-5}
         shadow-bias={-0.01}
       />
@@ -109,22 +118,53 @@ export const ThreeGrid = () => {
           <Light />
           <MainScene />
         </Camera>
-
-        <EffectComposer>
-          <Vignette eskil={false} offset={0.1} darkness={0.8} />
-          <Bloom mipmapBlur luminanceThreshold={3} />
-          <Noise
-            premultiply // enables or disables noise premultiplication
-            blendFunction={BlendFunction.COLOR} // blend mode
-          />
-          {/* <HueSaturation
-            blendFunction={BlendFunction.NORMAL} // blend mode
-            hue={50} // hue in radians
-            saturation={30} // saturation in radians
-          /> */}
-        </EffectComposer>
+        <Effects />
       </mesh>
     </Canvas>
+  );
+};
+
+export const Effects = () => {
+  const { distanceFalloff, aoRadius, intensity } = useControls(
+    "Postprocessing",
+    {
+      distanceFalloff: {
+        value: 1,
+        min: 0,
+        max: 5,
+        step: 0.01,
+      },
+      aoRadius: {
+        value: 1,
+        min: 0,
+        max: 5,
+        step: 0.01,
+      },
+      intensity: {
+        value: 2,
+        min: 0,
+        max: 5,
+        step: 0.01,
+      },
+    }
+  );
+
+  return (
+    <EffectComposer multisampling={0}>
+      <Vignette eskil={false} offset={0.1} darkness={0.8} />
+      <Bloom mipmapBlur luminanceThreshold={3} />
+      {/* <SMAA /> */}
+      <N8AO distanceFalloff={2} aoRadius={2} intensity={2} quality="ultra" />
+      {/* <Noise
+        premultiply // enables or disables noise premultiplication
+        blendFunction={BlendFunction.SOFT_LIGHT} // blend mode
+      /> */}
+      {/* <HueSaturation
+        blendFunction={BlendFunction.NORMAL} // blend mode
+        hue={50} // hue in radians
+        saturation={30} // saturation in radians
+      /> */}
+    </EffectComposer>
   );
 };
 
