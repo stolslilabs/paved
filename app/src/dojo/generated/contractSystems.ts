@@ -12,13 +12,16 @@ import {
   Surrender,
   Build,
 } from "../types/systems";
-import { Account, InvocationsDetails } from "starknet";
+import { Account, Call, InvocationsDetails } from "starknet";
+import buildTypedData from "@/actions/buildTypesData.ts";
+import { GaslessOptions, SEPOLIA_BASE_URL } from "@avnu/gasless-sdk";
+import executeTransaction from "@/actions/executeTransaction.ts";
 
 export type IWorld = Awaited<ReturnType<typeof setupWorld>>;
 
 export const getContractByName = (manifest: any, name: string) => {
   const contract = manifest.contracts.find((contract: any) =>
-    contract.name.includes("::" + name)
+    contract.name.includes("::" + name),
   );
   if (contract) {
     return contract.address;
@@ -26,6 +29,8 @@ export const getContractByName = (manifest: any, name: string) => {
     return "";
   }
 };
+
+export const OPTIONS: GaslessOptions = { baseUrl: SEPOLIA_BASE_URL };
 
 export async function setupWorld(provider: DojoProvider, config: Config) {
   const details: InvocationsDetails = { maxFee: 2e16 };
@@ -35,14 +40,14 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     contractName: string,
     methodName: string,
     args: any[],
-    details: InvocationsDetails
+    details: InvocationsDetails,
   ) => {
     const { transaction_hash } = await provider.execute(
       account,
       contractName,
       methodName,
       args,
-      details
+      details,
     );
     const receipt = await account.waitForTransaction(transaction_hash, {
       retryInterval: 100,
@@ -58,7 +63,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
   function account() {
     const contract_name = "account";
     const contract = config.manifest.contracts.find((c) =>
-      c.name.includes(contract_name)
+      c.name.includes(contract_name),
     );
     if (!contract) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
@@ -66,12 +71,26 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
 
     const initialize = async ({ account, world }: Initialize) => {
       try {
-        return await execute(
-          account,
-          contract_name,
-          "initialize",
-          [world],
-          details
+        const calls: Call[] = [
+          {
+            contractAddress: contract.address,
+            entrypoint: "initialize",
+            calldata: [world],
+          },
+        ];
+        const typedData = await buildTypedData(
+          account.address,
+          calls,
+          undefined,
+          undefined,
+          OPTIONS,
+        );
+        const signature = await account.signMessage(typedData);
+        return await executeTransaction(
+          account.address,
+          JSON.stringify(typedData),
+          signature,
+          OPTIONS,
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -80,24 +99,33 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     };
 
     const create = async ({ account, name, master }: CreatePlayer) => {
-      const contract_address = getContractByName(
-        config.manifest,
-        contract_name
-      );
-      const calls = [
-        {
-          contractAddress: config.feeTokenAddress,
-          entrypoint: "mint",
-          calldata: [account.address, `0x${(1e21).toString(16)}`, "0x0"],
-        },
-        {
-          contractAddress: contract_address,
-          entrypoint: "create",
-          calldata: [provider.getWorldAddress(), name, master],
-        },
-      ];
       try {
-        return await provider.executeMulti(account, calls, details);
+        const calls: Call[] = [
+          {
+            contractAddress: config.feeTokenAddress,
+            entrypoint: "mint",
+            calldata: [account.address, `0x${(1e21).toString(16)}`, "0x0"],
+          },
+          {
+            contractAddress: contract.address,
+            entrypoint: "create",
+            calldata: [provider.getWorldAddress(), name, master],
+          },
+        ];
+        const typedData = await buildTypedData(
+          account.address,
+          calls,
+          undefined,
+          undefined,
+          OPTIONS,
+        );
+        const signature = await account.signMessage(typedData);
+        return await executeTransaction(
+          account.address,
+          JSON.stringify(typedData),
+          signature,
+          OPTIONS,
+        );
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -114,7 +142,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
   function daily() {
     const contract_name = "daily";
     const contract = config.manifest.contracts.find((c) =>
-      c.name.includes(contract_name)
+      c.name.includes(contract_name),
     );
     if (!contract) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
@@ -127,7 +155,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "initialize",
           [world],
-          details
+          details,
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -136,24 +164,48 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     };
 
     const spawn = async ({ account }: CreateGame) => {
-      const contract_address = getContractByName(
-        config.manifest,
-        contract_name
-      );
-      const calls = [
-        {
-          contractAddress: config.feeTokenAddress,
-          entrypoint: "approve",
-          calldata: [contract_address, `0x${(1e18).toString(16)}`, "0x0"],
-        },
-        {
-          contractAddress: contract_address,
-          entrypoint: "spawn",
-          calldata: [provider.getWorldAddress()],
-        },
-      ];
       try {
-        return await provider.executeMulti(account, calls, details);
+        const calls: Call[] = [
+          {
+            contractAddress: config.feeTokenAddress,
+            entrypoint: "approve",
+            calldata: [contract.address, `0x${(1e18).toString(16)}`, "0x0"],
+          },
+          {
+            contractAddress: contract.address,
+            entrypoint: "spawn",
+            calldata: [provider.getWorldAddress()],
+          },
+        ];
+        console.log(
+          "typedData",
+          account.address,
+          calls,
+          undefined,
+          undefined,
+          OPTIONS,
+        );
+        const typedData = await buildTypedData(
+          account.address,
+          calls,
+          undefined,
+          undefined,
+          OPTIONS,
+        );
+        const signature = await account.signMessage(typedData);
+        console.log(
+          "executeTransaction",
+          account.address,
+          JSON.stringify(typedData),
+          signature,
+          OPTIONS,
+        );
+        return await executeTransaction(
+          account.address,
+          JSON.stringify(typedData),
+          signature,
+          OPTIONS,
+        );
       } catch (error) {
         console.error("Error executing initialize:", error);
         throw error;
@@ -171,7 +223,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
             tournament_id.toString(),
             rank.toString(),
           ],
-          details
+          details,
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -182,7 +234,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     const sponsor = async ({ account, amount }: Sponsor) => {
       const contract_address = getContractByName(
         config.manifest,
-        contract_name
+        contract_name,
       );
       const calls = [
         {
@@ -211,7 +263,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "discard",
           [provider.getWorldAddress(), game_id.toString()],
-          details
+          details,
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -226,7 +278,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "surrender",
           [provider.getWorldAddress(), game_id.toString()],
-          details
+          details,
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -258,7 +310,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
             role.toString(),
             spot.toString(),
           ],
-          details
+          details,
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -281,7 +333,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
   function weekly() {
     const contract_name = "weekly";
     const contract = config.manifest.contracts.find((c) =>
-      c.name.includes(contract_name)
+      c.name.includes(contract_name),
     );
     if (!contract) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
@@ -294,7 +346,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "initialize",
           [world],
-          details
+          details,
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -305,7 +357,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     const spawn = async ({ account }: CreateGame) => {
       const contract_address = getContractByName(
         config.manifest,
-        contract_name
+        contract_name,
       );
       const calls = [
         {
@@ -338,7 +390,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
             tournament_id.toString(),
             rank.toString(),
           ],
-          details
+          details,
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -349,7 +401,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     const sponsor = async ({ account, amount }: Sponsor) => {
       const contract_address = getContractByName(
         config.manifest,
-        contract_name
+        contract_name,
       );
       const calls = [
         {
@@ -378,7 +430,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "discard",
           [provider.getWorldAddress(), game_id.toString()],
-          details
+          details,
         );
       } catch (error) {
         console.error("Error executing initialize:", error);
@@ -393,7 +445,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           contract_name,
           "surrender",
           [provider.getWorldAddress(), game_id.toString()],
-          details
+          details,
         );
       } catch (error) {
         console.error("Error executing initialize:", error);

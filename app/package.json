@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
@@ -22,6 +22,7 @@
     "create-events": "./bin/generateEvents.cjs"
   },
   "dependencies": {
+    "@avnu/gasless-sdk": "^0.1.2",
     "@cartridge/connector": "^0.3.23",
     "@dojoengine/core": "0.6.125",
     "@dojoengine/create-burner": "0.6.125",
@@ -37,7 +38,7 @@
     "@fortawesome/react-fontawesome": "^0.2.0",
     "@latticexyz/react": "2.0.1",
     "@latticexyz/utils": "2.0.1",
-    "@million/lint": "1.0.0-rc.13",
+    "@million/lint": "1.0.0-rc.21",
     "@radix-ui/react-alert-dialog": "^1.0.5",
     "@radix-ui/react-avatar": "^1.0.4",
     "@radix-ui/react-dialog": "^1.0.5",
@@ -65,7 +66,7 @@
     "boring-avatars": "^1.10.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
-    "ethers": "^6.11.1",
+    "ethers": "^6.13.0",
     "framer-motion": "^11.1.9",
     "get-starknet-core": "^3.3.0",
     "graphql": "^16.8.1",
@@ -82,14 +83,14 @@
     "postprocessing": "^6.35.4",
     "proxy-deep": "^4.0.1",
     "r3f-perf": "^7.2.1",
-    "react": "^18.2.0",
+    "react": "^18.3.1",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.3",
     "react-share": "^5.1.0",
     "react-use-clipboard": "^1.0.9",
     "rxjs": "^7.8.1",
     "sonner": "^1.4.41",
-    "starknet": "6.1.5",
+    "starknet": "6.8.0",
     "starknetkit": "1.1.4",
     "tailwind-merge": "^2.2.2",
     "tailwindcss": "^3.4.3",
@@ -126,6 +127,7 @@
     "storybook": "^8.0.5",
     "typescript": "^5.4.3",
     "vite": "^5.2.7",
+    "vite-plugin-mkcert": "^1.17.5",
     "vite-plugin-pwa": "^0.19.8"
   }
 }
