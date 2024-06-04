@@ -10,8 +10,8 @@ sierra-replace-ids = true
 deploy = "sozo build && sozo migrate plan && sozo migrate apply && ./scripts/katana.sh"
 
 [dependencies]
-dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.7.0-alpha.1" }
-origami = { git = "https://github.com/dojoengine/origami", rev = "v0.7.0-alpha.1" }
+dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.7.0-alpha.2" }
+origami = { git = "https://github.com/dojoengine/origami", tag = "v0.7.0-alpha.2"  }
 
 [[target.dojo]]
 
@@ -30,23 +30,27 @@ x = "https://x.com/pavedgame"
 discord = "https://discord.com/invite/realmsworld"
 github = "https://github.com/stolslilabs/paved"
 
-[tool.dojo.env]
-# Katana
+[profile.dev.tool.dojo.env]
 rpc_url = "http://localhost:5050/"
 account_address = "0x6162896d1d7ab204c7ccac6dd5f8e9e7c25ecd5ae4fcb4ad32e57786bb46e03"
 private_key = "0x1800000000300000180000000000030000000000003006001800006600"
 
-# Dev
-# rpc_url = "https://api.cartridge.gg/x/paved-dev/katana/"
-# account_address = "0x52c755d7cf7375c10af11f22d899b46a1dc222fa0a30c78e5805584c0ed69d5"
-# private_key = "0x273039126a440372bb32361f17cbc98df3426480c50916ad68e28a82746d213"
+[profile.slot.tool.dojo.env]
+rpc_url = "https://api.cartridge.gg/x/guild-era/katana"
+account_address = "0x643ee26c8024dd6772e8b70a507a3cba79e64e96ef63e0d11b0842d914268c0"
+private_key = "0x788eec0cb57a076de8529c23697ae456e70ae1a6a9810cd5e7ab01313007134"
 
-# Realms
-# rpc_url = "https://api.cartridge.gg/x/realms/katana/"
-# account_address = "0x379900b695d11ec52b13557de5ebd864eb2f36f14ff56560b028992585b7515"
-# private_key = "0x62bb13afe7963fd97e568db915e331956ddc4ba13dda9b787a6648a5b840626"
+[profile.realms.tool.dojo.env]
+rpc_url = "https://api.cartridge.gg/x/realms/katana/"
+account_address = "0x379900b695d11ec52b13557de5ebd864eb2f36f14ff56560b028992585b7515"
+private_key = "0x62bb13afe7963fd97e568db915e331956ddc4ba13dda9b787a6648a5b840626"
 
-# Sepolia
-# rpc_url = "https://rpc.nethermind.io/sepolia-juno/?apikey=IklrGtteSW0anXtAfnkQGBJuYpSmbLi0YJ5afM2aJsW8JsH1"
-# account_address = "0x059b1a0c489b635d7c7f43594d187362ddd2dcea6c82db4eef2579fd185b3753"
-# private_key = "0xaf7f0b88b7ee7faf8065517cd565d9f9dcd013dd2382a0f1e6b3559f0fe57a"
+[profile.sepolia.tool.dojo.env]
+rpc_url = "https://rpc.nethermind.io/sepolia-juno/?apikey=IklrGtteSW0anXtAfnkQGBJuYpSmbLi0YJ5afM2aJsW8JsH1"
+account_address = "0x059b1a0c489b635d7c7f43594d187362ddd2dcea6c82db4eef2579fd185b3753"
+private_key = "0xaf7f0b88b7ee7faf8065517cd565d9f9dcd013dd2382a0f1e6b3559f0fe57a"
+
+[profile.starknet.tool.dojo.env]
+rpc_url = "https://rpc.nethermind.io/mainnet-juno/?apikey=IklrGtteSW0anXtAfnkQGBJuYpSmbLi0YJ5afM2aJsW8JsH1"
+account_address = "0x041aad5a7493b75f240f418cb5f052d1a68981af21e813ed0a35e96d3e83123b"
+private_key = "0xaf7f0b88b7ee7faf8065517cd565d9f9dcd013dd2382a0f1e6b3559f0fe57a"
