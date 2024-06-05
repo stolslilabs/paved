@@ -15,8 +15,9 @@ use paved::types::layout::{Layout, LayoutImpl};
 use paved::types::category::Category;
 use paved::models::game::{Game, GameImpl};
 use paved::models::player::{Player, PlayerImpl};
-use paved::models::tile::{Tile, TileImpl};
+use paved::models::tile::{Tile, TileImpl, TileIntoLayout};
 use paved::models::character::{Character, CharacterImpl};
+use paved::models::index::Builder;
 
 mod errors {
     const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: does not exist';
@@ -32,16 +33,6 @@ mod errors {
     const NOTHING_TO_CLAIM: felt252 = 'Builder: nothing to claim';
     const ALREADY_CLAIMED: felt252 = 'Builder: already claimed';
     const CAST_U256_FELT: felt252 = 'Builder: cast u256 to felt';
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct Builder {
-    #[key]
-    game_id: u32,
-    #[key]
-    player_id: felt252,
-    tile_id: u32,
-    characters: u8,
 }
 
 #[generate_trait]

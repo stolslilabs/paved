@@ -23,7 +23,7 @@ impl LayoutImpl of LayoutTrait {
 
     #[inline(always)]
     fn moves(from: Spot) -> Array<Move> {
-        let area: Area = LayoutImpl::area(from);
+        let area: Area = Self::area(from);
         let mut moves: Array<Move> = ArrayTrait::new();
         match area {
             Area::A => {

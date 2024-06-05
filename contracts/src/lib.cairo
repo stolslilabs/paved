@@ -61,6 +61,7 @@ mod models {
     mod tile;
     mod character;
     mod tournament;
+    mod index;
 }
 
 mod components {

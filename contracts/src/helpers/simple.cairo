@@ -20,7 +20,7 @@ impl SimpleCount of SimpleCountTrait {
         let mut visited: Felt252Dict<bool> = core::Default::default();
         // [Compute] Recursively count the points
         let mut count = 0;
-        SimpleCount::iter(game, tile, at, ref count, ref visited, ref store);
+        Self::iter(game, tile, at, ref count, ref visited, ref store);
         count
     }
 
@@ -49,7 +49,8 @@ impl SimpleCount of SimpleCountTrait {
                 Option::Some(north_oriented_move) => {
                     let mut move = north_oriented_move.rotate(tile.orientation.into());
 
-                    // [Check] A tile exists at this position, otherwise the structure is not finished
+                    // [Check] A tile exists at this position, otherwise the structure is not
+                    // finished
                     let (x, y) = tile.proxy_coordinates(move.direction);
                     let tile_position: TilePosition = store.tile_position(game, x, y);
                     if tile_position.is_zero() {
@@ -59,7 +60,7 @@ impl SimpleCount of SimpleCountTrait {
 
                     // [Check] If the points are zero, the structure is not finished
                     let neighbor = store.tile(game, tile_position.tile_id);
-                    SimpleCount::iter(game, neighbor, move.spot, ref count, ref visited, ref store);
+                    Self::iter(game, neighbor, move.spot, ref count, ref visited, ref store);
                     if 0 == count.into() {
                         break;
                     };

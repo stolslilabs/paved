@@ -27,12 +27,13 @@ use paved::types::mode::{Mode, ModeTrait};
 use paved::types::category::{Category, CategoryImpl};
 use paved::types::layout::{Layout, LayoutImpl};
 use paved::types::direction::{Direction, DirectionImpl};
-use paved::types::orientation::Orientation;
+use paved::types::orientation::{Orientation, IntoOrientationU8, IntoU8Orientation};
 use paved::types::move::{Move, MoveImpl};
-use paved::models::player::{Player, PlayerImpl};
-use paved::models::builder::{Builder, BuilderImpl};
-use paved::models::character::{Character, CharacterPosition, CharacterImpl, CharacterAssert,};
-use paved::models::tile::{Tile, TilePosition, TileImpl};
+use paved::models::player::{Player, PlayerTrait};
+use paved::models::builder::{Builder, BuilderTrait};
+use paved::models::character::{Character, CharacterPosition, CharacterTrait, CharacterAssert};
+use paved::models::tile::{Tile, TileTrait, TileIntoLayout};
+use paved::models::index::Game;
 
 mod errors {
     const INVALID_NAME: felt252 = 'Game: invalid name';
@@ -48,19 +49,6 @@ mod errors {
     const GAME_IS_OVER: felt252 = 'Game: is over';
     const GAME_NOT_OVER: felt252 = 'Game: not over';
     const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct Game {
-    #[key]
-    id: u32,
-    over: bool,
-    tiles: u128,
-    tile_count: u32,
-    start_time: u64,
-    score: u32,
-    seed: felt252,
-    mode: u8,
 }
 
 #[generate_trait]
@@ -120,7 +108,7 @@ impl GameImpl of GameTrait {
     fn start(ref self: Game, time: u64) -> Tile {
         // [Effect] Create the starter tile
         let tile_id = self.add_tile();
-        let mut tile = TileImpl::new(self.id, tile_id, 0, Plan::RFFFRFCFR);
+        let mut tile = TileTrait::new(self.id, tile_id, 0, Plan::RFFFRFCFR);
         tile.orientation = Orientation::South.into();
 
         // [Effect] Remove the starter tile from the deck
@@ -222,7 +210,8 @@ impl GameImpl of GameTrait {
             match north_oriented_starts.pop_front() {
                 // [Compute] Process the current spot
                 Option::Some(north_oriented_start) => {
-                    // Update the tile according to previous assessments to avoid characters to be counted twice
+                    // Update the tile according to previous assessments to avoid characters to be
+                    // counted twice
                     let tile = store.tile(self, tile.id);
                     let start = north_oriented_start.rotate(tile.orientation.into());
                     let category: Category = layout.get_category(start);

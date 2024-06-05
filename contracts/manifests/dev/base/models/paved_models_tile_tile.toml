@@ -1,6 +1,6 @@
 kind = "DojoModel"
-class_hash = "0x4a65d46cf001be3a2c1ae49ae16aed4d20d1306bcf6ead81ba244247ca39587"
-original_class_hash = "0x4a65d46cf001be3a2c1ae49ae16aed4d20d1306bcf6ead81ba244247ca39587"
+class_hash = "0x40ebee472458315591a423c2dac4adab7b431b598334ae57cc79ac925fa5529"
+original_class_hash = "0x40ebee472458315591a423c2dac4adab7b431b598334ae57cc79ac925fa5529"
 abi = "manifests/dev/abis/base/models/paved_models_tile_tile.json"
 name = "paved::models::tile::tile"
 
