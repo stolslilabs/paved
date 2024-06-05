@@ -198,7 +198,8 @@ mod ERC20Component {
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
         /// Initializes the contract by setting the token name and symbol.
-        /// To prevent reinitialization, this should only be used inside of a contract's constructor.
+        /// To prevent reinitialization, this should only be used inside of a contract's
+        /// constructor.
         fn initializer(ref self: ComponentState<TContractState>, name: felt252, symbol: felt252) {
             self.ERC20_name.write(name);
             self.ERC20_symbol.write(symbol);

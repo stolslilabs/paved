@@ -12,6 +12,7 @@ use origami::random::deck::{Deck as OrigamiDeck, DeckTrait};
 // Internal imports
 
 use paved::constants;
+use paved::models::index::Tournament;
 
 // Errors
 
@@ -22,22 +23,6 @@ mod errors {
     const PRIZE_OVERFLOW: felt252 = 'Tournament: prize overflow';
     const TOURNAMENT_NOT_FOUND: felt252 = 'Tournament: not found';
     const NOTHING_TO_CLAIM: felt252 = 'Tournament: nothing to claim';
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct Tournament {
-    #[key]
-    id: u64,
-    prize: felt252,
-    top1_player_id: felt252,
-    top2_player_id: felt252,
-    top3_player_id: felt252,
-    top1_score: u32,
-    top2_score: u32,
-    top3_score: u32,
-    top1_claimed: bool,
-    top2_claimed: bool,
-    top3_claimed: bool,
 }
 
 #[generate_trait]

@@ -18,8 +18,10 @@ use paved::helpers::bitmap::Bitmap;
 use paved::models::game::{Game, GameImpl};
 use paved::models::player::{Player, PlayerImpl};
 use paved::models::builder::{Builder, BuilderImpl};
-use paved::models::tile::{Tile, TilePosition, TileImpl};
-use paved::models::character::{Character, CharacterPosition, CharacterImpl};
+use paved::models::tile::{Tile, TilePosition, TileImpl, TileIntoPosition};
+use paved::models::character::{
+    Character, CharacterPosition, CharacterImpl, CharacterIntoCharacterPosition
+};
 use paved::models::tournament::{Tournament, TournamentImpl};
 use paved::types::orientation::Orientation;
 use paved::types::direction::Direction;

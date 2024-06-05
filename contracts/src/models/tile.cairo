@@ -14,6 +14,7 @@ use paved::types::plan::{Plan, PlanImpl};
 use paved::types::layout::{Layout, LayoutImpl};
 use paved::types::spot::{Spot, SpotImpl};
 use paved::types::move::{Move, MoveImpl};
+use paved::models::index::{Tile, TilePosition};
 
 // Constants
 
@@ -32,31 +33,6 @@ mod errors {
     const INVALID_ORIENTATION: felt252 = 'Tile: invalid orientation';
     const INVALID_SPOT: felt252 = 'Tile: invalid spot';
     const TILE_ALREADY_EMPTY: felt252 = 'Tile: already empty';
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct Tile {
-    #[key]
-    game_id: u32,
-    #[key]
-    id: u32,
-    player_id: felt252,
-    plan: u8,
-    orientation: u8,
-    x: u32,
-    y: u32,
-    occupied_spot: u8,
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct TilePosition {
-    #[key]
-    game_id: u32,
-    #[key]
-    x: u32,
-    #[key]
-    y: u32,
-    tile_id: u32,
 }
 
 #[generate_trait]
@@ -341,7 +317,8 @@ mod tests {
     // Local imports
 
     use super::{
-        Tile, TileImpl, TileAssert, InternalImpl, Layout, Orientation, Direction, Plan, CENTER
+        Tile, TileImpl, TileAssert, TileIntoLayout, InternalImpl, Layout, Orientation, Direction,
+        Plan, CENTER
     };
 
     // Implementations

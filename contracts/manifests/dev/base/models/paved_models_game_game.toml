@@ -1,6 +1,6 @@
 kind = "DojoModel"
-class_hash = "0x3fb8b10eda1689b529d3237d481b4d7a9f018e0f07a2c9317e5b04429b36ef8"
-original_class_hash = "0x3fb8b10eda1689b529d3237d481b4d7a9f018e0f07a2c9317e5b04429b36ef8"
+class_hash = "0x155ececa30cb1a10a18347ec2e3ed41d902ec0e3596eab15bb8960c9c3ec4e"
+original_class_hash = "0x155ececa30cb1a10a18347ec2e3ed41d902ec0e3596eab15bb8960c9c3ec4e"
 abi = "manifests/dev/abis/base/models/paved_models_game_game.json"
 name = "paved::models::game::game"
 

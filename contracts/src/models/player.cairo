@@ -1,6 +1,7 @@
 // Internal imports
 
 use paved::constants;
+use paved::models::index::Player;
 
 mod errors {
     const PLAYER_NOT_EXIST: felt252 = 'Player: Does not exist';
@@ -10,16 +11,6 @@ mod errors {
     const INVALID_ORDER: felt252 = 'Player: Invalid order';
     const NO_TILES_LEFT: felt252 = 'Player: No tiles left';
     const TOO_MUCH_TILES: felt252 = 'Player: Too much tiles';
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct Player {
-    #[key]
-    id: felt252,
-    name: felt252,
-    score: u32,
-    paved: u32,
-    master: felt252,
 }
 
 #[generate_trait]

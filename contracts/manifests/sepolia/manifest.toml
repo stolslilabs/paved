@@ -1,0 +1,371 @@
+[world]
+kind = "WorldContract"
+class_hash = "0xf6f44afb3cacbcc01a371aff62c86ca9a45feba065424c99f7cd8637514d8f"
+original_class_hash = "0xf6f44afb3cacbcc01a371aff62c86ca9a45feba065424c99f7cd8637514d8f"
+abi = "manifests/sepolia/abis/deployments/dojo_world_world.json"
+address = "0x3e6bc2af5098365b78287d2835fc9632548b41966105c42f0cc84b9f04aed36"
+transaction_hash = "0x1d6338760d82e414c8950b2f4d24efb959dfa8cf0e993e86e4604a704c9edce"
+seed = "v11"
+name = "dojo::world::world"
+
+[world.metadata]
+profile_name = "sepolia"
+rpc_url = "https://starknet-sepolia.public.blastapi.io/rpc/v0_6"
+
+[base]
+kind = "Class"
+class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+original_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+name = "dojo::base::base"
+
+[[contracts]]
+kind = "DojoContract"
+class_hash = "0x2fb80f114f5062ddb9a9d42690e00c4601e0973181786948812af8e06a1182e"
+original_class_hash = "0x2fb80f114f5062ddb9a9d42690e00c4601e0973181786948812af8e06a1182e"
+base_class_hash = "0x0"
+abi = "manifests/sepolia/abis/deployments/contracts/paved_systems_account_account.json"
+reads = []
+writes = []
+computed = []
+init_calldata = []
+name = "paved::systems::account::account"
+
+[[contracts]]
+kind = "DojoContract"
+class_hash = "0x6904030646e9affe5400a3be5a27b3b748e56210b190fac1b79e857795381c"
+original_class_hash = "0x6904030646e9affe5400a3be5a27b3b748e56210b190fac1b79e857795381c"
+base_class_hash = "0x0"
+abi = "manifests/sepolia/abis/deployments/contracts/paved_systems_daily_daily.json"
+reads = []
+writes = []
+computed = []
+init_calldata = []
+name = "paved::systems::daily::daily"
+
+[[contracts]]
+kind = "DojoContract"
+class_hash = "0x78b559b3a1cc4905b2243f2ffcc488ad3329f2f7fb2bebf239031c07cd2b989"
+original_class_hash = "0x78b559b3a1cc4905b2243f2ffcc488ad3329f2f7fb2bebf239031c07cd2b989"
+base_class_hash = "0x0"
+abi = "manifests/sepolia/abis/deployments/contracts/paved_systems_weekly_weekly.json"
+reads = []
+writes = []
+computed = []
+init_calldata = []
+name = "paved::systems::weekly::weekly"
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x4d82dbbe7fee8760ff082d5c0db9c76297c68b5a377d26f83510eec73a2cf3d"
+original_class_hash = "0x4d82dbbe7fee8760ff082d5c0db9c76297c68b5a377d26f83510eec73a2cf3d"
+abi = "manifests/sepolia/abis/deployments/models/paved_models_index_builder.json"
+name = "paved::models::index::builder"
+
+[[models.members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "player_id"
+type = "felt252"
+key = true
+
+[[models.members]]
+name = "tile_id"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "characters"
+type = "u8"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0xaf036472f4a4716de4e3a159f2903425a949357ec091a0d9496522f1c829ff"
+original_class_hash = "0xaf036472f4a4716de4e3a159f2903425a949357ec091a0d9496522f1c829ff"
+abi = "manifests/sepolia/abis/deployments/models/paved_models_index_character.json"
+name = "paved::models::index::character"
+
+[[models.members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "player_id"
+type = "felt252"
+key = true
+
+[[models.members]]
+name = "index"
+type = "u8"
+key = true
+
+[[models.members]]
+name = "tile_id"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "spot"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "weight"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "power"
+type = "u8"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x710d20b596f1b1666cb717ffe3cf50db3f0f64640fb0417113cf9c983905fe4"
+original_class_hash = "0x710d20b596f1b1666cb717ffe3cf50db3f0f64640fb0417113cf9c983905fe4"
+abi = "manifests/sepolia/abis/deployments/models/paved_models_index_character_position.json"
+name = "paved::models::index::character_position"
+
+[[models.members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "tile_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "spot"
+type = "u8"
+key = true
+
+[[models.members]]
+name = "player_id"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "index"
+type = "u8"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0xb2bd4519986971b4ca124641887e7c6d2121622c52fa86dca224b19e327cd5"
+original_class_hash = "0xb2bd4519986971b4ca124641887e7c6d2121622c52fa86dca224b19e327cd5"
+abi = "manifests/sepolia/abis/deployments/models/paved_models_index_game.json"
+name = "paved::models::index::game"
+
+[[models.members]]
+name = "id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "over"
+type = "bool"
+key = false
+
+[[models.members]]
+name = "tiles"
+type = "u128"
+key = false
+
+[[models.members]]
+name = "tile_count"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "start_time"
+type = "u64"
+key = false
+
+[[models.members]]
+name = "score"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "seed"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "mode"
+type = "u8"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x17e45c9c4cd654c8b424ec087eb6d09953f6a7ad2a7737e54e17e0896e05786"
+original_class_hash = "0x17e45c9c4cd654c8b424ec087eb6d09953f6a7ad2a7737e54e17e0896e05786"
+abi = "manifests/sepolia/abis/deployments/models/paved_models_index_player.json"
+name = "paved::models::index::player"
+
+[[models.members]]
+name = "id"
+type = "felt252"
+key = true
+
+[[models.members]]
+name = "name"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "score"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "paved"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "master"
+type = "felt252"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x18fac425cbb97c5e605b3c41ea226c4c0bdf3029234f565e681792ca2df2c01"
+original_class_hash = "0x18fac425cbb97c5e605b3c41ea226c4c0bdf3029234f565e681792ca2df2c01"
+abi = "manifests/sepolia/abis/deployments/models/paved_models_index_tile.json"
+name = "paved::models::index::tile"
+
+[[models.members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "player_id"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "plan"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "orientation"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "x"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "y"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "occupied_spot"
+type = "u8"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x5901857908756661373045d3a1d8c9a13ca366cf50310b4025d21143b4bb29"
+original_class_hash = "0x5901857908756661373045d3a1d8c9a13ca366cf50310b4025d21143b4bb29"
+abi = "manifests/sepolia/abis/deployments/models/paved_models_index_tile_position.json"
+name = "paved::models::index::tile_position"
+
+[[models.members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "x"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "y"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "tile_id"
+type = "u32"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x6f212e189ebf03a128ad905ed2e8af085eaa58ba32faed7c26d242e561a93f"
+original_class_hash = "0x6f212e189ebf03a128ad905ed2e8af085eaa58ba32faed7c26d242e561a93f"
+abi = "manifests/sepolia/abis/deployments/models/paved_models_index_tournament.json"
+name = "paved::models::index::tournament"
+
+[[models.members]]
+name = "id"
+type = "u64"
+key = true
+
+[[models.members]]
+name = "prize"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "top1_player_id"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "top2_player_id"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "top3_player_id"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "top1_score"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "top2_score"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "top3_score"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "top1_claimed"
+type = "bool"
+key = false
+
+[[models.members]]
+name = "top2_claimed"
+type = "bool"
+key = false
+
+[[models.members]]
+name = "top3_claimed"
+type = "bool"
+key = false
