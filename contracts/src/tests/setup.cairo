@@ -26,7 +26,6 @@ mod setup {
     use paved::models::tournament::Tournament;
     use paved::systems::account::{account, IAccountDispatcher, IAccountDispatcherTrait};
     use paved::systems::daily::{daily, IDailyDispatcher, IDailyDispatcherTrait};
-    use paved::systems::weekly::{weekly, IWeeklyDispatcher, IWeeklyDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
 
     // Constants
@@ -57,7 +56,6 @@ mod setup {
     struct Systems {
         account: IAccountDispatcher,
         daily: IDailyDispatcher,
-        weekly: IWeeklyDispatcher,
     }
 
     #[derive(Drop)]
@@ -106,22 +104,20 @@ mod setup {
     fn spawn_game() -> (IWorldDispatcher, Systems, Context) {
         // [Setup] World
         let mut models = core::array::ArrayTrait::new();
-        models.append(paved::models::game::game::TEST_CLASS_HASH);
-        models.append(paved::models::player::player::TEST_CLASS_HASH);
-        models.append(paved::models::builder::builder::TEST_CLASS_HASH);
-        models.append(paved::models::tile::tile::TEST_CLASS_HASH);
-        models.append(paved::models::tournament::tournament::TEST_CLASS_HASH);
+        models.append(paved::models::index::game::TEST_CLASS_HASH);
+        models.append(paved::models::index::player::TEST_CLASS_HASH);
+        models.append(paved::models::index::builder::TEST_CLASS_HASH);
+        models.append(paved::models::index::tile::TEST_CLASS_HASH);
+        models.append(paved::models::index::tournament::TEST_CLASS_HASH);
         let world = spawn_test_world(models);
         let erc20 = deploy_erc20();
 
         // [Setup] SystemsDrop
         let account_address = deploy_contract(account::TEST_CLASS_HASH, array![].span());
         let daily_address = deploy_contract(daily::TEST_CLASS_HASH, array![].span());
-        let weekly_address = deploy_contract(weekly::TEST_CLASS_HASH, array![].span());
         let systems = Systems {
             account: IAccountDispatcher { contract_address: account_address },
             daily: IDailyDispatcher { contract_address: daily_address },
-            weekly: IWeeklyDispatcher { contract_address: weekly_address },
         };
 
         // [Setup] Context
@@ -129,27 +125,23 @@ mod setup {
         set_contract_address(ANYONE());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
-        erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
         systems.account.create(world, ANYONE_NAME, ANYONE());
         set_contract_address(SOMEONE());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
-        erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
         systems.account.create(world, SOMEONE_NAME, SOMEONE());
         set_contract_address(NOONE());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
-        erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
         systems.account.create(world, NOONE_NAME, NOONE());
         set_contract_address(PLAYER());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
-        erc20.approve(weekly_address, ERC20::FAUCET_AMOUNT);
         systems.account.create(world, PLAYER_NAME, PLAYER());
         let duration: u64 = 0;
 
         // [Setup] Game if mode is set
-        let game_id = systems.weekly.spawn(world);
+        let game_id = systems.daily.spawn(world);
 
         let context = Context {
             player_id: PLAYER().into(),

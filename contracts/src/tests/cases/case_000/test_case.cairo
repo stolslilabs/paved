@@ -25,7 +25,7 @@ use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 use paved::systems::daily::IDailyDispatcherTrait;
-use paved::systems::weekly::IWeeklyDispatcherTrait;
+
 use paved::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
 #[test]
@@ -36,66 +36,66 @@ fn test_case_000() {
 
     // [Start]
     set_contract_address(ANYONE());
-    systems.weekly.join(world, context.game_id);
-    systems.weekly.ready(world, context.game_id, true);
+    systems.daily.join(world, context.game_id);
+    systems.daily.ready(world, context.game_id, true);
     set_contract_address(PLAYER());
-    systems.weekly.ready(world, context.game_id, true);
-    systems.weekly.start(world, context.game_id);
+    systems.daily.ready(world, context.game_id, true);
+    systems.daily.start(world, context.game_id);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
     let mut game = store.game(context.game_id);
     game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFCFR);
     store.set_game(game);
-    systems.weekly.draw(world, game.id); // RFFFRFCFR
+    systems.daily.draw(world, game.id); // RFFFRFCFR
     let orientation = Orientation::South;
     let x = CENTER + 1;
     let y = CENTER;
-    systems.weekly.build(world, context.game_id, orientation, x, y, Role::Lady, Spot::North);
+    systems.daily.build(world, context.game_id, orientation, x, y, Role::Lady, Spot::North);
 
     // [Draw & Build]
     set_contract_address(ANYONE());
     let mut game = store.game(context.game_id);
     game.seed = setup::compute_seed(store.game(game.id), Plan::RFFFRFCFR);
     store.set_game(game);
-    systems.weekly.draw(world, game.id); // RFFFRFCFR
+    systems.daily.draw(world, game.id); // RFFFRFCFR
     let orientation = Orientation::South;
     let x = CENTER - 1;
     let y = CENTER;
-    systems.weekly.build(world, context.game_id, orientation, x, y, Role::Paladin, Spot::North);
+    systems.daily.build(world, context.game_id, orientation, x, y, Role::Paladin, Spot::North);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
     let mut game = store.game(context.game_id);
     game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFFFC);
     store.set_game(game);
-    systems.weekly.draw(world, game.id); // CCCCCFFFC
+    systems.daily.draw(world, game.id); // CCCCCFFFC
     let orientation = Orientation::South;
     let x = CENTER;
     let y = CENTER + 1;
-    systems.weekly.build(world, context.game_id, orientation, x, y, Role::Paladin, Spot::Center);
+    systems.daily.build(world, context.game_id, orientation, x, y, Role::Paladin, Spot::Center);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
     let mut game = store.game(context.game_id);
     game.seed = setup::compute_seed(store.game(game.id), Plan::FFFFCCCFF);
     store.set_game(game);
-    systems.weekly.draw(world, game.id); // FFFFCCCFF
+    systems.daily.draw(world, game.id); // FFFFCCCFF
     let orientation = Orientation::North;
     let x = CENTER - 1;
     let y = CENTER + 1;
-    systems.weekly.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
+    systems.daily.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
     set_contract_address(PLAYER());
     let mut game = store.game(context.game_id);
     game.seed = setup::compute_seed(store.game(game.id), Plan::FFFFCCCFF);
     store.set_game(game);
-    systems.weekly.draw(world, game.id); // FFFFCCCFF
+    systems.daily.draw(world, game.id); // FFFFCCCFF
     let orientation = Orientation::East;
     let x = CENTER + 1;
     let y = CENTER + 1;
-    systems.weekly.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
+    systems.daily.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
 
     // [Assert]
     let builder = store.builder(game, context.player_id);

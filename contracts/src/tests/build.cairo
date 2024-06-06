@@ -23,7 +23,7 @@ use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 use paved::systems::daily::IDailyDispatcherTrait;
-use paved::systems::weekly::IWeeklyDispatcherTrait;
+
 use paved::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
 // Constants
@@ -49,7 +49,7 @@ fn test_play_build_without_character() {
     let y = CENTER + 1;
     let role = Role::None;
     let spot = Spot::None;
-    systems.weekly.build(world, context.game_id, orientation, x, y, role, spot);
+    systems.daily.build(world, context.game_id, orientation, x, y, role, spot);
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn test_play_build_with_character() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
-    systems.weekly.build(world, context.game_id, orientation, x, y, Role::Lord, Spot::South);
+    systems.daily.build(world, context.game_id, orientation, x, y, Role::Lord, Spot::South);
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn test_play_build_with_character_revert_not_idle() {
     let y = CENTER - 1;
     let role = Role::Lord;
     let spot = Spot::West;
-    systems.weekly.build(world, context.game_id, orientation, x, y, role, spot);
+    systems.daily.build(world, context.game_id, orientation, x, y, role, spot);
 
     // [Draw & Build]
     let game = store.game(context.game_id);
@@ -103,7 +103,7 @@ fn test_play_build_with_character_revert_not_idle() {
     let y = CENTER - 1;
     let role = Role::Lady;
     let spot = Spot::East;
-    systems.weekly.build(world, context.game_id, orientation, x, y, role, spot);
+    systems.daily.build(world, context.game_id, orientation, x, y, role, spot);
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn test_play_build_complete_castle() {
     let y = CENTER + 1;
     let role = Role::Lord;
     let spot = Spot::South;
-    systems.weekly.build(world, context.game_id, orientation, x, y, role, spot);
+    systems.daily.build(world, context.game_id, orientation, x, y, role, spot);
 
     // [Assert]
     let game = store.game(context.game_id);
