@@ -25,7 +25,7 @@ use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 use paved::systems::daily::IDailyDispatcherTrait;
-use paved::systems::weekly::IWeeklyDispatcherTrait;
+
 use paved::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
 
 #[test]
@@ -35,39 +35,39 @@ fn test_case_011() {
     let store = StoreTrait::new(world);
 
     // [Start]
-    systems.weekly.ready(world, context.game_id, true);
-    systems.weekly.start(world, context.game_id);
+    systems.daily.ready(world, context.game_id, true);
+    systems.daily.start(world, context.game_id);
 
     // [Draw & Build]
     let mut game = store.game(context.game_id);
     game.seed = setup::compute_seed(store.game(game.id), Plan::CCCCCFFFC);
     store.set_game(game);
-    systems.weekly.draw(world, game.id);
+    systems.daily.draw(world, game.id);
 
     let orientation = Orientation::East;
     let x = CENTER;
     let y = CENTER + 1;
-    systems.weekly.build(world, context.game_id, orientation, x, y, Role::Paladin, Spot::Center);
+    systems.daily.build(world, context.game_id, orientation, x, y, Role::Paladin, Spot::Center);
 
     // [Draw & Build]
     let mut game = store.game(context.game_id);
     game.seed = setup::compute_seed(store.game(game.id), Plan::FFFFFFCFF);
     store.set_game(game);
-    systems.weekly.draw(world, game.id);
+    systems.daily.draw(world, game.id);
 
     let orientation = Orientation::East;
     let x = CENTER + 1;
     let y = CENTER + 1;
-    systems.weekly.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
+    systems.daily.build(world, context.game_id, orientation, x, y, Role::None, Spot::None);
 
     // [Draw & Build]
     let mut game = store.game(context.game_id);
     game.seed = setup::compute_seed(store.game(game.id), Plan::FFFFFFCFF);
     store.set_game(game);
-    systems.weekly.draw(world, game.id);
+    systems.daily.draw(world, game.id);
 
     let orientation = Orientation::East;
     let x = CENTER + 1;
     let y = CENTER + 2;
-    systems.weekly.build(world, context.game_id, orientation, x, y, Role::Herdsman, Spot::Center);
+    systems.daily.build(world, context.game_id, orientation, x, y, Role::Herdsman, Spot::Center);
 }
