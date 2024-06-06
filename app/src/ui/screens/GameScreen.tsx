@@ -18,7 +18,7 @@ const GameScene = () => {
       { name: Controls.counterClockwise, keys: ["KeyQ"] },
       { name: Controls.strategyMode, keys: ["KeyE"] },
     ],
-    []
+    [],
   );
 
   const loading = useUIStore((state) => state.loading);

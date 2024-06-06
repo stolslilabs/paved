@@ -13,7 +13,7 @@ import {
   starkscan,
   jsonRpcProvider,
 } from "@starknet-react/core";
-import { Chain, sepolia } from "@starknet-react/chains";
+import { Chain, sepolia, mainnet } from "@starknet-react/chains";
 import CartridgeConnector from "@cartridge/connector";
 
 export const CoreScreen = () => {
@@ -74,43 +74,15 @@ const connectors = [
         target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
         method: "build",
       },
-      {
-        target: import.meta.env.VITE_PUBLIC_WEEKLY_CONTRACT,
-        method: "initialize",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_WEEKLY_CONTRACT,
-        method: "spawn",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_WEEKLY_CONTRACT,
-        method: "claim",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_WEEKLY_CONTRACT,
-        method: "sponsor",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_WEEKLY_CONTRACT,
-        method: "discard",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_WEEKLY_CONTRACT,
-        method: "surrender",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_WEEKLY_CONTRACT,
-        method: "build",
-      },
     ],
-    {
-      theme: {
-        colors: {
-          primary: "#0ad3ff",
-          secondary: "#78ffd6",
-        },
-      },
-    }
+    // {
+    //   theme: {
+    //     colors: {
+    //       primary: "#0ad3ff",
+    //       secondary: "#78ffd6",
+    //     },
+    //   },
+    // },
   ) as never as Connector,
 ];
 
@@ -119,7 +91,7 @@ function App() {
     <>
       <StarknetConfig
         autoConnect
-        chains={[sepolia]}
+        chains={[import.meta.env.VITE_PUBLIC_STARKNET ? mainnet : sepolia]}
         connectors={connectors}
         explorer={starkscan}
         provider={jsonRpcProvider({ rpc })}

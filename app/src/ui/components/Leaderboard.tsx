@@ -174,7 +174,7 @@ export const PlayerRow = ({
   const name = player?.name || "";
   const backgroundColor = useMemo(
     () => getColor(`0x${builder.player_id.toString(16)}`),
-    [builder]
+    [builder],
   );
 
   return (

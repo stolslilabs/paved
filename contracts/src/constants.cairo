@@ -12,6 +12,7 @@ fn TOKEN_ADDRESS() -> starknet::ContractAddress {
     // 0x044e6bcc627e6201ce09f781d1aae44ea4c21c2fdef299e34fce55bef2d02210 // LORDS Sepolia
     // 0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
     // 0x51205c5e6ac3ad5691c28c0c5ffcdd62c70bddb63612f75a4bac9b2a85b9449
+    // 0x0124aeb495b947201f5fac96fd1138e326ad86195b98df6dec9009158a533b49 // LORDS Starknet
     >()
 }
 

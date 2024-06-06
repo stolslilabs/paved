@@ -60,13 +60,13 @@ const BoxRainScene = () => {
         position: new Vector3(
           Math.random() * 20 - 10,
           Math.random() * 20 + 10,
-          Math.random() * 40 - 10
+          Math.random() * 40 - 10,
         ),
         // Select a random model for each box
         model: models[Math.floor(Math.random() * models.length)],
         scale: 0.1,
       })),
-    [models]
+    [models],
   );
 
   return (

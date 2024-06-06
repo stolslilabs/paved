@@ -28,7 +28,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   useEffect(() => {
     if (player) {
       setIdentifier(
-        shortenHex(`0x${player.id.toString(16)}`).replace("...", "")
+        shortenHex(`0x${player.id.toString(16)}`).replace("...", ""),
       );
       setPlayerName(player.name);
     } else {

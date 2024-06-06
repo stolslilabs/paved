@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
@@ -126,6 +126,7 @@
     "storybook": "^8.0.5",
     "typescript": "^5.4.3",
     "vite": "^5.2.7",
+    "vite-plugin-mkcert": "^1.17.5",
     "vite-plugin-pwa": "^0.19.8"
   }
 }

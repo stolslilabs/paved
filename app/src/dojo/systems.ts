@@ -43,7 +43,7 @@ export function systems({
         "Player has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error creating player:", error);
@@ -56,7 +56,7 @@ export function systems({
     ...props
   }: SystemTypes.CreateGame) => {
     const contract =
-      mode?.value === ModeType.Daily ? client.daily : client.weekly;
+      mode?.value === ModeType.Daily ? client.daily : client.daily;
     try {
       const { transaction_hash } = await contract.spawn({
         account,
@@ -66,13 +66,13 @@ export function systems({
       console.log(
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
       notify(
         "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error creating game:", error);
@@ -82,7 +82,7 @@ export function systems({
   const claim = async ({ account, mode, ...props }: SystemTypes.Claim) => {
     try {
       const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.weekly;
+        mode?.value === ModeType.Daily ? client.daily : client.daily;
       const { transaction_hash } = await contract.claim({
         account,
         ...props,
@@ -91,7 +91,7 @@ export function systems({
         "Tournament has been claimed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error claiming tournament:", error);
@@ -101,7 +101,7 @@ export function systems({
   const sponsor = async ({ account, mode, ...props }: SystemTypes.Sponsor) => {
     try {
       const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.weekly;
+        mode?.value === ModeType.Daily ? client.daily : client.daily;
       const { transaction_hash } = await contract.sponsor({
         account,
         ...props,
@@ -110,7 +110,7 @@ export function systems({
         "Tournament has been sponsored.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error sponsoring tournament:", error);
@@ -120,7 +120,7 @@ export function systems({
   const discard = async ({ account, mode, ...props }: SystemTypes.Discard) => {
     try {
       const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.weekly;
+        mode?.value === ModeType.Daily ? client.daily : client.daily;
       const { transaction_hash } = await contract.discard({
         account,
         ...props,
@@ -129,7 +129,7 @@ export function systems({
         "Tile has been discarded.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error discarding:", error);
@@ -143,7 +143,7 @@ export function systems({
   }: SystemTypes.Surrender) => {
     try {
       const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.weekly;
+        mode?.value === ModeType.Daily ? client.daily : client.daily;
       const { transaction_hash } = await contract.surrender({
         account,
         ...props,
@@ -152,7 +152,7 @@ export function systems({
         "Game has been abandoned.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
     } catch (error) {
       console.error("Error surrendering:", error);
@@ -196,7 +196,7 @@ export function systems({
 
     try {
       const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.weekly;
+        mode?.value === ModeType.Daily ? client.daily : client.daily;
       const { transaction_hash } = await contract.build({
         account,
         ...props,
@@ -205,7 +205,7 @@ export function systems({
         "Tile has been paved.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
-        })
+        }),
       );
       // Sleep 5 seconds for indexer to index
       await new Promise((resolve) => setTimeout(resolve, 5000));

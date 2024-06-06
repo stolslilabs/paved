@@ -97,7 +97,7 @@ export const ActiveTile = ({
   const { character } = useGameStore();
   const spots = useMemo(
     () => ["NW", "W", "SW", "N", "C", "S", "NE", "E", "SE"],
-    []
+    [],
   );
 
   return (
