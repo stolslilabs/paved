@@ -49,6 +49,8 @@ mod account {
     #[abi(embed_v0)]
     impl WorldProviderImpl =
         InitializableComponent::WorldProviderImpl<ContractState>;
+    #[abi(embed_v0)]
+    impl DojoInitImpl = InitializableComponent::DojoInitImpl<ContractState>;
     impl InitializableInternalImpl = InitializableComponent::InternalImpl<ContractState>;
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     #[abi(embed_v0)]

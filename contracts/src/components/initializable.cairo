@@ -2,6 +2,13 @@
 
 use starknet::ContractAddress;
 
+// Interfaces
+
+#[starknet::interface]
+trait IDojoInit<ContractState> {
+    fn dojo_init(self: @ContractState);
+}
+
 // Component
 
 #[starknet::component]
@@ -21,6 +28,10 @@ mod InitializableComponent {
     // Internal imports
 
     use paved::constants;
+
+    // Local imports
+
+    use super::IDojoInit;
 
     // Errors
 
@@ -51,6 +62,13 @@ mod InitializableComponent {
         fn world(self: @ComponentState<TContractState>) -> IWorldDispatcher {
             self.world.read()
         }
+    }
+
+    #[embeddable_as(DojoInitImpl)]
+    impl DojoInit<
+        TContractState, +HasComponent<TContractState>
+    > of IDojoInit<ComponentState<TContractState>> {
+        fn dojo_init(self: @ComponentState<TContractState>) {}
     }
 
     #[generate_trait]
