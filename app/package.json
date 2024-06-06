@@ -22,7 +22,7 @@
     "create-events": "./bin/generateEvents.cjs"
   },
   "dependencies": {
-    "@cartridge/connector": "^0.3.23",
+    "@cartridge/connector": "^0.3.26",
     "@dojoengine/core": "0.6.125",
     "@dojoengine/create-burner": "0.6.125",
     "@dojoengine/react": "0.6.125",
