@@ -9,3 +9,4 @@ bun.lockb
 pnpm-lock.yaml
 account.json
 keystore.json
+target/

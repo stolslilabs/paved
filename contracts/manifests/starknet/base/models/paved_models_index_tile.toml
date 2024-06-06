@@ -1,7 +1,7 @@
 kind = "DojoModel"
 class_hash = "0x18fac425cbb97c5e605b3c41ea226c4c0bdf3029234f565e681792ca2df2c01"
 original_class_hash = "0x18fac425cbb97c5e605b3c41ea226c4c0bdf3029234f565e681792ca2df2c01"
-abi = "manifests/dev/abis/base/models/paved_models_index_tile.json"
+abi = "manifests/starknet/abis/base/models/paved_models_index_tile.json"
 name = "paved::models::index::tile"
 
 [[members]]

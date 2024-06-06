@@ -955,13 +955,13 @@
         ]
       }
     ],
-    "address": "0x3383b2583acd59a307915108a408a56a88c6834d415834c3915042a850b67f7",
-    "transaction_hash": "0x4f2f545aa7c6b74bfb932f064a55018121225225ada2ac1ae26464f29ae6276",
-    "block_number": 3,
-    "seed": "paved",
+    "address": "0x257a1022928524a859abcd08de74c90bdb05d8503eb394ef3e9c7f924fd1143",
+    "transaction_hash": "0x3d10d98b080c9c54a8dda09e42d6fd044ae4e63a41c5dd884813f66754c4a22",
+    "block_number": null,
+    "seed": "paved-v0",
     "metadata": {
-      "profile_name": "dev",
-      "rpc_url": "http://localhost:5050/"
+      "profile_name": "starknet",
+      "rpc_url": "https://free-rpc.nethermind.io/mainnet-juno/v0_6"
     },
     "name": "dojo::world::world"
   },
@@ -975,7 +975,7 @@
   "contracts": [
     {
       "kind": "DojoContract",
-      "address": "0x355784ad9445a493680fbeb1e569acb2363b3618311eca3bd40c6a5ba36fd08",
+      "address": "0x17a1c9ba504c18f99b4886c8fb3f116bc04879ae135ec33ca1e3642511d95a9",
       "class_hash": "0x3dfabb4a3088087a742119cc73f721f93359771fea191142896c0c066c6e333",
       "original_class_hash": "0x3dfabb4a3088087a742119cc73f721f93359771fea191142896c0c066c6e333",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
@@ -1560,7 +1560,7 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x5decacff1cb388f6b6c62d5b28134f0d12ff9de29e6d2d982cefc6a535936d5",
+      "address": "0x2c75b4c793b4b1ba70b990e32175322e8232c48045702d545a26493c5beb9bb",
       "class_hash": "0x2dc54700cc91e22a4c96acfd7d6e1f14fc65ffea7f3f2a73f5e1ac18274cc94",
       "original_class_hash": "0x2dc54700cc91e22a4c96acfd7d6e1f14fc65ffea7f3f2a73f5e1ac18274cc94",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",

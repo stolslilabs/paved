@@ -1,7 +1,7 @@
 kind = "DojoModel"
 class_hash = "0x6f212e189ebf03a128ad905ed2e8af085eaa58ba32faed7c26d242e561a93f"
 original_class_hash = "0x6f212e189ebf03a128ad905ed2e8af085eaa58ba32faed7c26d242e561a93f"
-abi = "manifests/dev/abis/base/models/paved_models_index_tournament.json"
+abi = "manifests/starknet/abis/base/models/paved_models_index_tournament.json"
 name = "paved::models::index::tournament"
 
 [[members]]

@@ -1,0 +1,5 @@
+computed = [  ]
+name = "paved::systems::daily::daily"
+reads = [  ]
+writes = [ "Game", "Builder", "Player", "Tile", "TilePosition", "Character", "CharacterPosition", "Tournament" ]
+init_calldata = []
