@@ -300,6 +300,24 @@
   },
   {
     "type": "impl",
+    "name": "DojoInitImpl",
+    "interface_name": "paved::components::initializable::IDojoInit"
+  },
+  {
+    "type": "interface",
+    "name": "paved::components::initializable::IDojoInit",
+    "items": [
+      {
+        "type": "function",
+        "name": "dojo_init",
+        "inputs": [],
+        "outputs": [],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
     "name": "OwnableImpl",
     "interface_name": "paved::components::ownable::IOwnable"
   },
