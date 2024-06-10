@@ -40,15 +40,7 @@ const connectors = [
       },
       {
         target: import.meta.env.VITE_PUBLIC_ACCOUNT_CONTRACT,
-        method: "initialize",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_ACCOUNT_CONTRACT,
         method: "create",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "initialize",
       },
       {
         target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
