@@ -26,42 +26,6 @@ export default defineConfig({
         },],
     },
     {
-      text: "Player Setup",
-      collapsed: true,
-      items: [
-        {
-          text: "Log In",
-          link: "/wallet",
-        },
-        {
-          text: "Spawn",
-          link: "/spawn",
-        },
-        {
-          text: "Purchase - Coming Soon",
-          link: "/purchase",
-        },
-      ],
-    },
-    {
-      text: "Game Setup",
-      collapsed: true,
-      items: [
-        {
-          text: "Puzzle & Solo",
-          link: "/create",
-        },
-        {
-          text: "Multiplayer",
-          link: "/join",
-        },
-        {
-          text: "Spectate",
-          link: "/spectate",
-        },
-      ],
-    },
-    {
       text: "Play",
       collapsed: true,
       items: [
