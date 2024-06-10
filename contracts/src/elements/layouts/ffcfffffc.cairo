@@ -4,7 +4,7 @@ use core::debug::PrintTrait;
 
 // Internal imports
 
-use paved::layouts::interface::LayoutTrait;
+use paved::elements::layouts::interface::LayoutTrait;
 use paved::types::direction::Direction;
 use paved::types::spot::{Spot, SpotImpl};
 use paved::types::move::{Move, MoveImpl};
@@ -14,11 +14,8 @@ impl LayoutImpl of LayoutTrait {
     #[inline(always)]
     fn starts() -> Array<Spot> {
         let mut starts: Array<Spot> = ArrayTrait::new();
-        // starts.append(Spot::NorthWest);
+        // starts.append(Spot::Center);
         starts.append(Spot::North);
-        // starts.append(Spot::NorthEast);
-        starts.append(Spot::East);
-        // starts.append(Spot::South);
         starts.append(Spot::West);
         starts
     }
@@ -28,22 +25,12 @@ impl LayoutImpl of LayoutTrait {
         let area: Area = Self::area(from);
         let mut moves: Array<Move> = ArrayTrait::new();
         match area {
-            Area::B => {
-                moves.append(Move { direction: Direction::North, spot: Spot::SouthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::NorthEast });
-            },
-            Area::C => { moves.append(Move { direction: Direction::North, spot: Spot::South }); },
-            Area::D => {
-                moves.append(Move { direction: Direction::North, spot: Spot::SouthEast });
-                moves.append(Move { direction: Direction::East, spot: Spot::NorthWest });
-            },
-            Area::E => { moves.append(Move { direction: Direction::East, spot: Spot::West }); },
-            Area::F => {
-                moves.append(Move { direction: Direction::East, spot: Spot::SouthWest });
+            Area::A => {
+                moves.append(Move { direction: Direction::East, spot: Spot::West });
                 moves.append(Move { direction: Direction::South, spot: Spot::North });
-                moves.append(Move { direction: Direction::West, spot: Spot::SouthEast });
             },
-            Area::G => { moves.append(Move { direction: Direction::West, spot: Spot::East }); },
+            Area::B => { moves.append(Move { direction: Direction::North, spot: Spot::South }); },
+            Area::C => { moves.append(Move { direction: Direction::West, spot: Spot::East }); },
             _ => {},
         };
         moves
@@ -54,53 +41,59 @@ impl LayoutImpl of LayoutTrait {
         match from {
             Spot::None => Area::None,
             Spot::Center => Area::A,
-            Spot::NorthWest => Area::B,
-            Spot::North => Area::C,
-            Spot::NorthEast => Area::D,
-            Spot::East => Area::E,
-            Spot::SouthEast => Area::F,
-            Spot::South => Area::F,
-            Spot::SouthWest => Area::F,
-            Spot::West => Area::G,
+            Spot::NorthWest => Area::A,
+            Spot::North => Area::B,
+            Spot::NorthEast => Area::A,
+            Spot::East => Area::A,
+            Spot::SouthEast => Area::A,
+            Spot::South => Area::A,
+            Spot::SouthWest => Area::A,
+            Spot::West => Area::C,
         }
     }
 
     #[inline(always)]
     fn adjacent_roads(from: Spot) -> Array<Spot> {
         let mut roads: Array<Spot> = ArrayTrait::new();
-        match from {
-            Spot::None => {},
-            Spot::Center => {},
-            Spot::NorthWest => {
-                roads.append(Spot::North);
-                roads.append(Spot::West);
-            },
-            Spot::North => {},
-            Spot::NorthEast => {
-                roads.append(Spot::North);
-                roads.append(Spot::East);
-            },
-            Spot::East => {},
-            Spot::SouthEast => {
-                roads.append(Spot::East);
-                roads.append(Spot::West);
-            },
-            Spot::South => {
-                roads.append(Spot::East);
-                roads.append(Spot::West);
-            },
-            Spot::SouthWest => {
-                roads.append(Spot::East);
-                roads.append(Spot::West);
-            },
-            Spot::West => {},
-        };
         roads
     }
 
     #[inline(always)]
     fn adjacent_cities(from: Spot) -> Array<Spot> {
         let mut cities: Array<Spot> = ArrayTrait::new();
+        match from {
+            Spot::None => {},
+            Spot::Center => {
+                cities.append(Spot::North);
+                cities.append(Spot::West);
+            },
+            Spot::NorthWest => {
+                cities.append(Spot::North);
+                cities.append(Spot::West);
+            },
+            Spot::North => {},
+            Spot::NorthEast => {
+                cities.append(Spot::North);
+                cities.append(Spot::West);
+            },
+            Spot::East => {
+                cities.append(Spot::North);
+                cities.append(Spot::West);
+            },
+            Spot::SouthEast => {
+                cities.append(Spot::North);
+                cities.append(Spot::West);
+            },
+            Spot::South => {
+                cities.append(Spot::North);
+                cities.append(Spot::West);
+            },
+            Spot::SouthWest => {
+                cities.append(Spot::North);
+                cities.append(Spot::West);
+            },
+            Spot::West => {},
+        };
         cities
     }
 }

@@ -976,8 +976,8 @@
     {
       "kind": "DojoContract",
       "address": "0x355784ad9445a493680fbeb1e569acb2363b3618311eca3bd40c6a5ba36fd08",
-      "class_hash": "0x3dfabb4a3088087a742119cc73f721f93359771fea191142896c0c066c6e333",
-      "original_class_hash": "0x3dfabb4a3088087a742119cc73f721f93359771fea191142896c0c066c6e333",
+      "class_hash": "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b",
+      "original_class_hash": "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
@@ -1021,18 +1021,6 @@
           "type": "interface",
           "name": "paved::systems::account::IAccount",
           "items": [
-            {
-              "type": "function",
-              "name": "initialize",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "core::starknet::contract_address::ContractAddress"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "external"
-            },
             {
               "type": "function",
               "name": "create",
@@ -1091,7 +1079,7 @@
               "name": "dojo_init",
               "inputs": [],
               "outputs": [],
-              "state_mutability": "view"
+              "state_mutability": "external"
             }
           ]
         },
@@ -1561,8 +1549,8 @@
     {
       "kind": "DojoContract",
       "address": "0x5decacff1cb388f6b6c62d5b28134f0d12ff9de29e6d2d982cefc6a535936d5",
-      "class_hash": "0x2dc54700cc91e22a4c96acfd7d6e1f14fc65ffea7f3f2a73f5e1ac18274cc94",
-      "original_class_hash": "0x2dc54700cc91e22a4c96acfd7d6e1f14fc65ffea7f3f2a73f5e1ac18274cc94",
+      "class_hash": "0x517c968ffa1095e9ee8c7301adef795b10883bda0f0462a3699f5be21136ac1",
+      "original_class_hash": "0x517c968ffa1095e9ee8c7301adef795b10883bda0f0462a3699f5be21136ac1",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
@@ -1708,18 +1696,6 @@
           "type": "interface",
           "name": "paved::systems::daily::IDaily",
           "items": [
-            {
-              "type": "function",
-              "name": "initialize",
-              "inputs": [
-                {
-                  "name": "world",
-                  "type": "core::starknet::contract_address::ContractAddress"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "external"
-            },
             {
               "type": "function",
               "name": "spawn",
@@ -1878,7 +1854,7 @@
               "name": "dojo_init",
               "inputs": [],
               "outputs": [],
-              "state_mutability": "view"
+              "state_mutability": "external"
             }
           ]
         },

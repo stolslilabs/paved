@@ -25,22 +25,25 @@ use core::debug::PrintTrait;
 
 // Internal imports
 
+use paved::elements::decks::interface::DeckTrait;
 use paved::types::plan::Plan;
 
 // Constants
 
-const TOTAL_TILE_COUNT: u8 = 72;
-
-#[generate_trait]
 impl DeckImpl of DeckTrait {
     #[inline(always)]
+    fn total_count() -> u8 {
+        72
+    }
+
+    #[inline(always)]
     fn count() -> u8 {
-        TOTAL_TILE_COUNT
+        72
     }
 
     #[inline(always)]
     fn plan(index: u32) -> Plan {
-        let id: felt252 = (index % TOTAL_TILE_COUNT.into()).into();
+        let id: felt252 = (index % Self::total_count().into()).into();
         match id {
             0 => Plan::CCCCCCCCC,
             1 => Plan::CCCCCFFFC,
@@ -119,8 +122,8 @@ impl DeckImpl of DeckTrait {
     }
 
     #[inline(always)]
-    fn indexes(self: Plan) -> Array<u8> {
-        match self {
+    fn indexes(plan: Plan) -> Array<u8> {
+        match plan {
             Plan::CCCCCCCCC => array![0],
             Plan::CCCCCFFFC => array![1, 2, 3, 4],
             Plan::CCCCCFRFC => array![5, 6, 7],
@@ -154,14 +157,14 @@ mod tests {
 
     // Local imports
 
-    use super::{DeckImpl, Plan, TOTAL_TILE_COUNT};
+    use super::{DeckImpl, Plan};
 
     #[test]
     fn test_deck_base() {
         let mut index: u32 = 0;
         let mut counts: Felt252Dict<u8> = core::Default::default();
         loop {
-            if index == TOTAL_TILE_COUNT.into() {
+            if index == DeckImpl::total_count().into() {
                 break;
             }
             let key: felt252 = DeckImpl::plan(index).into();

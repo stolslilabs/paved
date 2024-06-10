@@ -48,12 +48,8 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       retryInterval: 100,
     });
 
-    if (receipt.isReverted()) {
+    if (receipt.execution_status === "REVERTED") {
       throw new Error("Transaction reverted");
-    }
-
-    if (receipt.isRejected()) {
-      throw new Error("Transaction rejected");
     }
 
     return receipt;

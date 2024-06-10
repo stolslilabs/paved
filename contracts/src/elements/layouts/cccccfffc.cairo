@@ -4,7 +4,7 @@ use core::debug::PrintTrait;
 
 // Internal imports
 
-use paved::layouts::interface::LayoutTrait;
+use paved::elements::layouts::interface::LayoutTrait;
 use paved::types::direction::Direction;
 use paved::types::spot::{Spot, SpotImpl};
 use paved::types::move::{Move, MoveImpl};
@@ -14,8 +14,8 @@ impl LayoutImpl of LayoutTrait {
     #[inline(always)]
     fn starts() -> Array<Spot> {
         let mut starts: Array<Spot> = ArrayTrait::new();
-        // starts.append(Spot::Center);
-        starts.append(Spot::South);
+        starts.append(Spot::Center);
+        // starts.append(Spot::South);
         starts
     }
 
@@ -44,9 +44,9 @@ impl LayoutImpl of LayoutTrait {
             Spot::North => Area::A,
             Spot::NorthEast => Area::A,
             Spot::East => Area::A,
-            Spot::SouthEast => Area::A,
+            Spot::SouthEast => Area::B,
             Spot::South => Area::B,
-            Spot::SouthWest => Area::A,
+            Spot::SouthWest => Area::B,
             Spot::West => Area::A,
         }
     }
@@ -62,15 +62,15 @@ impl LayoutImpl of LayoutTrait {
         let mut cities: Array<Spot> = ArrayTrait::new();
         match from {
             Spot::None => {},
-            Spot::Center => cities.append(Spot::South),
-            Spot::NorthWest => cities.append(Spot::South),
-            Spot::North => cities.append(Spot::South),
-            Spot::NorthEast => cities.append(Spot::South),
-            Spot::East => cities.append(Spot::South),
-            Spot::SouthEast => cities.append(Spot::South),
-            Spot::South => {},
-            Spot::SouthWest => cities.append(Spot::South),
-            Spot::West => cities.append(Spot::South),
+            Spot::Center => {},
+            Spot::NorthWest => {},
+            Spot::North => {},
+            Spot::NorthEast => {},
+            Spot::East => {},
+            Spot::SouthEast => cities.append(Spot::Center),
+            Spot::South => cities.append(Spot::Center),
+            Spot::SouthWest => cities.append(Spot::Center),
+            Spot::West => {},
         };
         cities
     }

@@ -4,7 +4,7 @@ use core::debug::PrintTrait;
 
 // Internal imports
 
-use paved::layouts::interface::LayoutTrait;
+use paved::elements::layouts::interface::LayoutTrait;
 use paved::types::direction::Direction;
 use paved::types::spot::{Spot, SpotImpl};
 use paved::types::move::{Move, MoveImpl};
@@ -16,8 +16,8 @@ impl LayoutImpl of LayoutTrait {
         let mut starts: Array<Spot> = ArrayTrait::new();
         starts.append(Spot::Center);
         // starts.append(Spot::NorthWest);
-        // starts.append(Spot::East);
-        starts.append(Spot::South);
+        // starts.append(Spot::NorthEast);
+        starts.append(Spot::SouthEast);
         starts
     }
 
@@ -36,10 +36,12 @@ impl LayoutImpl of LayoutTrait {
             },
             Area::C => {
                 moves.append(Move { direction: Direction::North, spot: Spot::SouthEast });
-                moves.append(Move { direction: Direction::East, spot: Spot::West });
                 moves.append(Move { direction: Direction::West, spot: Spot::SouthEast });
             },
-            Area::D => { moves.append(Move { direction: Direction::South, spot: Spot::North }); },
+            Area::D => {
+                moves.append(Move { direction: Direction::East, spot: Spot::West });
+                moves.append(Move { direction: Direction::South, spot: Spot::North });
+            },
             _ => {},
         };
         moves
@@ -53,8 +55,8 @@ impl LayoutImpl of LayoutTrait {
             Spot::NorthWest => Area::B,
             Spot::North => Area::A,
             Spot::NorthEast => Area::C,
-            Spot::East => Area::C,
-            Spot::SouthEast => Area::C,
+            Spot::East => Area::D,
+            Spot::SouthEast => Area::D,
             Spot::South => Area::D,
             Spot::SouthWest => Area::C,
             Spot::West => Area::A,
@@ -70,8 +72,8 @@ impl LayoutImpl of LayoutTrait {
             Spot::NorthWest => roads.append(Spot::Center),
             Spot::North => {},
             Spot::NorthEast => roads.append(Spot::Center),
-            Spot::East => roads.append(Spot::Center),
-            Spot::SouthEast => roads.append(Spot::Center),
+            Spot::East => {},
+            Spot::SouthEast => {},
             Spot::South => {},
             Spot::SouthWest => roads.append(Spot::Center),
             Spot::West => {},
@@ -87,11 +89,11 @@ impl LayoutImpl of LayoutTrait {
             Spot::Center => {},
             Spot::NorthWest => {},
             Spot::North => {},
-            Spot::NorthEast => cities.append(Spot::South),
-            Spot::East => cities.append(Spot::South),
-            Spot::SouthEast => cities.append(Spot::South),
+            Spot::NorthEast => cities.append(Spot::SouthEast),
+            Spot::East => {},
+            Spot::SouthEast => {},
             Spot::South => {},
-            Spot::SouthWest => cities.append(Spot::South),
+            Spot::SouthWest => cities.append(Spot::SouthEast),
             Spot::West => {},
         };
         cities

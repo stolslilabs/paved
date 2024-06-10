@@ -2,11 +2,15 @@
 
 use starknet::ContractAddress;
 
+// Dojo imports
+
+use dojo::world::IWorldDispatcher;
+
 // Interfaces
 
 #[starknet::interface]
 trait IDojoInit<ContractState> {
-    fn dojo_init(self: @ContractState);
+    fn dojo_init(ref self: ContractState);
 }
 
 // Component
@@ -43,7 +47,6 @@ mod InitializableComponent {
 
     #[storage]
     struct Storage {
-        initialized: bool,
         world: IWorldDispatcher,
     }
 
@@ -68,20 +71,8 @@ mod InitializableComponent {
     impl DojoInit<
         TContractState, +HasComponent<TContractState>
     > of IDojoInit<ComponentState<TContractState>> {
-        fn dojo_init(self: @ComponentState<TContractState>) {}
-    }
-
-    #[generate_trait]
-    impl InternalImpl<
-        TContractState, +HasComponent<TContractState>
-    > of InternalTrait<TContractState> {
-        fn _initialize(ref self: ComponentState<TContractState>, world: ContractAddress) {
-            // [Check] Contract is not initialized
-            assert(!self.initialized.read(), errors::CONTRACT_ALREADY_INITIALIZED);
-            // [Effect] Initialize contract
-            self.initialized.write(true);
-            // [Effect] Set world
-            self.world.write(IWorldDispatcher { contract_address: world });
+        fn dojo_init(ref self: ComponentState<TContractState>) {
+            self.world.write(IWorldDispatcher { contract_address: core::Zeroable::zero() });
         }
     }
 }

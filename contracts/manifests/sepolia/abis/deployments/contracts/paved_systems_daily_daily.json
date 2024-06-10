@@ -144,18 +144,6 @@
     "items": [
       {
         "type": "function",
-        "name": "initialize",
-        "inputs": [
-          {
-            "name": "world",
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
         "name": "spawn",
         "inputs": [
           {
@@ -312,7 +300,7 @@
         "name": "dojo_init",
         "inputs": [],
         "outputs": [],
-        "state_mutability": "view"
+        "state_mutability": "external"
       }
     ]
   },

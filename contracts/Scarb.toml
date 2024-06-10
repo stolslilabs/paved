@@ -7,11 +7,12 @@ edition = "2023_10"
 sierra-replace-ids = true
 
 [scripts]
-deploy = "sozo build && sozo migrate plan && sozo migrate apply && ./scripts/katana.sh"
+deploy = "sozo build && sozo migrate plan && sozo migrate apply"
 
 [dependencies]
-dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.7.0-alpha.5" }
+alexandria_math = { git = "https://github.com/keep-starknet-strange/alexandria", rev = "78b0d51" }
 origami = { git = "https://github.com/dojoengine/origami", rev = "ebc3677"  }
+dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.7.0-alpha.5" }
 
 [[target.dojo]]
 

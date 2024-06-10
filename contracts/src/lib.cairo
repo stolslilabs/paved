@@ -16,32 +16,35 @@ mod types {
     mod spot;
 }
 
-mod layouts {
-    mod interface;
-    mod ccccccccc;
-    mod cccccfffc;
-    mod cccccfrfc;
-    mod cfffcfffc;
-    mod ffcfffcff;
-    mod ffcfffffc;
-    mod ffffcccff;
-    mod ffffffcff;
-    mod rfffrfcfr;
-    mod rfffrfffr;
-    mod rfrfcccfr;
-    mod rfrfffcfr;
-    mod rfrfffffr;
-    mod rfrfrfcff;
-    mod sfrfrfcfr;
-    mod sfrfrfffr;
-    mod sfrfrfrfr;
-    mod wffffffff;
-    mod wfffffffr;
-}
+mod elements {
+    mod decks {
+        mod interface;
+        mod base;
+        mod simple;
+    }
 
-mod decks {
-    mod base;
-    mod simple;
+    mod layouts {
+        mod interface;
+        mod ccccccccc;
+        mod cccccfffc;
+        mod cccccfrfc;
+        mod cfffcfffc;
+        mod ffcfffcff;
+        mod ffcfffffc;
+        mod ffffcccff;
+        mod ffffffcff;
+        mod rfffrfcfr;
+        mod rfffrfffr;
+        mod rfrfcccfr;
+        mod rfrfffcfr;
+        mod rfrfffffr;
+        mod rfrfrfcff;
+        mod sfrfrfcfr;
+        mod sfrfrfffr;
+        mod sfrfrfrfr;
+        mod wffffffff;
+        mod wfffffffr;
+    }
 }
 
 mod helpers {

@@ -15,7 +15,6 @@ use paved::types::spot::Spot;
 
 #[starknet::interface]
 trait IDaily<TContractState> {
-    fn initialize(ref self: TContractState, world: ContractAddress);
     fn spawn(self: @TContractState, world: IWorldDispatcher) -> u32;
     fn claim(self: @TContractState, world: IWorldDispatcher, tournament_id: u64, rank: u8,);
     fn sponsor(self: @TContractState, world: IWorldDispatcher, amount: felt252);
@@ -79,7 +78,6 @@ mod daily {
         InitializableComponent::WorldProviderImpl<ContractState>;
     #[abi(embed_v0)]
     impl DojoInitImpl = InitializableComponent::DojoInitImpl<ContractState>;
-    impl InitializableInternalImpl = InitializableComponent::InternalImpl<ContractState>;
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
@@ -139,14 +137,6 @@ mod daily {
 
     #[abi(embed_v0)]
     impl DailyImpl of IDaily<ContractState> {
-        fn initialize(ref self: ContractState, world: ContractAddress) {
-            // [Effect] Initialize contract
-            self.initializable._initialize(world);
-            // [Effect] Initialize ownable
-            let caller = get_caller_address();
-            self.ownable.initializer(caller);
-        }
-
         fn spawn(self: @ContractState, world: IWorldDispatcher) -> u32 {
             // [Effect] Spawn a game
             let (game_id, amount) = self.hostable._spawn(world, Mode::Daily);

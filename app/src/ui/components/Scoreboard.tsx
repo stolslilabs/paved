@@ -80,7 +80,7 @@ export const PlayerRow = ({
       <TableCell className="flex text-right">
         <p>{score}</p>
         <FontAwesomeIcon className="mx-2" icon={faHammer} />
-        <p>{`${paved}/${game.mode.count() - 1}`}</p>
+        <p>{`${paved + 1}/${game.mode.count()}`}</p>
         <FontAwesomeIcon className="text-orange-500 mx-2" icon={faFire} />
         <p>{discarded}</p>
       </TableCell>

@@ -3,9 +3,9 @@ kind = "WorldContract"
 class_hash = "0xf6f44afb3cacbcc01a371aff62c86ca9a45feba065424c99f7cd8637514d8f"
 original_class_hash = "0xf6f44afb3cacbcc01a371aff62c86ca9a45feba065424c99f7cd8637514d8f"
 abi = "manifests/sepolia/abis/deployments/dojo_world_world.json"
-address = "0x343a50044d215392d4ed19737c967a4015b85ec8936845ac2cc9eeae78fb7f0"
-transaction_hash = "0x1d6338760d82e414c8950b2f4d24efb959dfa8cf0e993e86e4604a704c9edce"
-seed = "paved-v1"
+address = "0x7140aa5c1aaf0d9275138f47e72d06c190e37fc6728a0716b066b4840ab8449"
+transaction_hash = "0x435917dadab93196b5a241095752fa3a3100272a67569dd902168c4b77492bd"
+seed = "paved-v7"
 name = "dojo::world::world"
 
 [world.metadata]
@@ -20,9 +20,9 @@ name = "dojo::base::base"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x7c1dc0785c2c5ef38257fec14cbdea68da99ac45b9d9ca3565d8cb743363fb9"
-class_hash = "0x3dfabb4a3088087a742119cc73f721f93359771fea191142896c0c066c6e333"
-original_class_hash = "0x3dfabb4a3088087a742119cc73f721f93359771fea191142896c0c066c6e333"
+address = "0x6b5d6073659a74658c1f2ee4e7b0f64306842bae835bb8d6370c15862d4f8c5"
+class_hash = "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b"
+original_class_hash = "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b"
 base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
 abi = "manifests/sepolia/abis/deployments/contracts/paved_systems_account_account.json"
 reads = []
@@ -33,9 +33,9 @@ name = "paved::systems::account::account"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x5664b5333e1c4d825bb712a1ad3a57c21dd6fa6f174127b4b6417273b31d7d5"
-class_hash = "0x74c62cdaa2e5241c1fbb0638b95b51825f0f314ff8e39f9e2e877d2648f5d08"
-original_class_hash = "0x74c62cdaa2e5241c1fbb0638b95b51825f0f314ff8e39f9e2e877d2648f5d08"
+address = "0x4962423a2701770b0584a46eff9c93474bb06d1a2def35b5c12537d51d67e23"
+class_hash = "0x1fe4e1cdce92ab1cbcf53bc031c8a9e37185ba138be6170aa3e8ccc7db8e15"
+original_class_hash = "0x1fe4e1cdce92ab1cbcf53bc031c8a9e37185ba138be6170aa3e8ccc7db8e15"
 base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
 abi = "manifests/sepolia/abis/deployments/contracts/paved_systems_daily_daily.json"
 reads = []

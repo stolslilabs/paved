@@ -8,7 +8,6 @@ use dojo::world::IWorldDispatcher;
 
 #[starknet::interface]
 trait IAccount<TContractState> {
-    fn initialize(ref self: TContractState, world: ContractAddress);
     fn create(
         self: @TContractState, world: IWorldDispatcher, name: felt252, master: ContractAddress
     );
@@ -51,7 +50,6 @@ mod account {
         InitializableComponent::WorldProviderImpl<ContractState>;
     #[abi(embed_v0)]
     impl DojoInitImpl = InitializableComponent::DojoInitImpl<ContractState>;
-    impl InitializableInternalImpl = InitializableComponent::InternalImpl<ContractState>;
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
@@ -99,14 +97,6 @@ mod account {
 
     #[abi(embed_v0)]
     impl AccountImpl of IAccount<ContractState> {
-        fn initialize(ref self: ContractState, world: ContractAddress) {
-            // [Effect] Initialize contract
-            self.initializable._initialize(world);
-            // [Effect] Initialize ownable
-            let caller = get_caller_address();
-            self.ownable.initializer(caller);
-        }
-
         fn create(
             self: @ContractState, world: IWorldDispatcher, name: felt252, master: ContractAddress
         ) {

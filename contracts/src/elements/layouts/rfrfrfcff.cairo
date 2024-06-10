@@ -4,7 +4,7 @@ use core::debug::PrintTrait;
 
 // Internal imports
 
-use paved::layouts::interface::LayoutTrait;
+use paved::elements::layouts::interface::LayoutTrait;
 use paved::types::direction::Direction;
 use paved::types::spot::{Spot, SpotImpl};
 use paved::types::move::{Move, MoveImpl};
@@ -14,9 +14,10 @@ impl LayoutImpl of LayoutTrait {
     #[inline(always)]
     fn starts() -> Array<Spot> {
         let mut starts: Array<Spot> = ArrayTrait::new();
-        // starts.append(Spot::North);
         starts.append(Spot::Center);
-        // starts.append(Spot::South);
+        // starts.append(Spot::NorthWest);
+        // starts.append(Spot::NorthEast);
+        starts.append(Spot::South);
         starts
     }
 
@@ -26,19 +27,19 @@ impl LayoutImpl of LayoutTrait {
         let mut moves: Array<Move> = ArrayTrait::new();
         match area {
             Area::A => {
+                moves.append(Move { direction: Direction::North, spot: Spot::South });
                 moves.append(Move { direction: Direction::East, spot: Spot::West });
-                moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Area::B => {
-                moves.append(Move { direction: Direction::North, spot: Spot::South });
-                moves.append(Move { direction: Direction::East, spot: Spot::NorthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::NorthEast });
+                moves.append(Move { direction: Direction::North, spot: Spot::SouthWest });
+                moves.append(Move { direction: Direction::East, spot: Spot::SouthWest });
+                moves.append(Move { direction: Direction::West, spot: Spot::East });
             },
             Area::C => {
-                moves.append(Move { direction: Direction::South, spot: Spot::North });
-                moves.append(Move { direction: Direction::East, spot: Spot::SouthWest });
-                moves.append(Move { direction: Direction::West, spot: Spot::SouthEast });
+                moves.append(Move { direction: Direction::North, spot: Spot::SouthEast });
+                moves.append(Move { direction: Direction::East, spot: Spot::NorthWest });
             },
+            Area::D => { moves.append(Move { direction: Direction::South, spot: Spot::North }); },
             _ => {},
         };
         moves
@@ -50,13 +51,13 @@ impl LayoutImpl of LayoutTrait {
             Spot::None => Area::None,
             Spot::Center => Area::A,
             Spot::NorthWest => Area::B,
-            Spot::North => Area::B,
-            Spot::NorthEast => Area::B,
+            Spot::North => Area::A,
+            Spot::NorthEast => Area::C,
             Spot::East => Area::A,
-            Spot::SouthEast => Area::C,
-            Spot::South => Area::C,
-            Spot::SouthWest => Area::C,
-            Spot::West => Area::A,
+            Spot::SouthEast => Area::B,
+            Spot::South => Area::D,
+            Spot::SouthWest => Area::B,
+            Spot::West => Area::B,
         }
     }
 
@@ -67,13 +68,13 @@ impl LayoutImpl of LayoutTrait {
             Spot::None => {},
             Spot::Center => {},
             Spot::NorthWest => roads.append(Spot::Center),
-            Spot::North => roads.append(Spot::Center),
+            Spot::North => {},
             Spot::NorthEast => roads.append(Spot::Center),
             Spot::East => {},
             Spot::SouthEast => roads.append(Spot::Center),
-            Spot::South => roads.append(Spot::Center),
+            Spot::South => {},
             Spot::SouthWest => roads.append(Spot::Center),
-            Spot::West => {},
+            Spot::West => roads.append(Spot::Center),
         };
         roads
     }
@@ -81,6 +82,18 @@ impl LayoutImpl of LayoutTrait {
     #[inline(always)]
     fn adjacent_cities(from: Spot) -> Array<Spot> {
         let mut cities: Array<Spot> = ArrayTrait::new();
+        match from {
+            Spot::None => {},
+            Spot::Center => {},
+            Spot::NorthWest => cities.append(Spot::South),
+            Spot::North => {},
+            Spot::NorthEast => {},
+            Spot::East => {},
+            Spot::SouthEast => cities.append(Spot::South),
+            Spot::South => {},
+            Spot::SouthWest => cities.append(Spot::South),
+            Spot::West => cities.append(Spot::South),
+        };
         cities
     }
 }
@@ -98,7 +111,7 @@ mod tests {
     #[test]
     fn test_layouts_moves_from_north() {
         let mut moves = LayoutImpl::moves(Spot::North);
-        assert(moves.len() == 3, 'Layout: wrong moves len');
+        assert(moves.len() == 2, 'Layout: wrong moves len');
 
         let move = moves.pop_front().unwrap();
         let expected = Move { direction: Direction::North, spot: Spot::South };
@@ -106,12 +119,7 @@ mod tests {
         assert(move.spot == expected.spot, 'Layout: wrong move spot');
 
         let move = moves.pop_front().unwrap();
-        let expected = Move { direction: Direction::East, spot: Spot::NorthWest };
-        assert(move.direction == expected.direction, 'Layout: wrong move direction');
-        assert(move.spot == expected.spot, 'Layout: wrong move spot');
-
-        let move = moves.pop_front().unwrap();
-        let expected = Move { direction: Direction::West, spot: Spot::NorthEast };
+        let expected = Move { direction: Direction::East, spot: Spot::West };
         assert(move.direction == expected.direction, 'Layout: wrong move direction');
         assert(move.spot == expected.spot, 'Layout: wrong move spot');
     }

@@ -58,6 +58,7 @@ impl GameImpl of GameTrait {
         // [Check] Validate parameters
         let mode: Mode = mode.into();
         assert(Mode::None != mode, errors::INVALID_MODE);
+        // [Effect] Create the game
         Game {
             id,
             over: false,
@@ -121,6 +122,7 @@ impl GameImpl of GameTrait {
         // [Effect] Update game start time and seed
         let mode: Mode = self.mode.into();
         self.seed = mode.seed(time, self.id, self.seed);
+        self.tiles = deck.tiles(self.tiles, self.seed);
         self.start_time = time;
 
         tile
@@ -175,7 +177,7 @@ impl GameImpl of GameTrait {
     #[inline(always)]
     fn draw_plan(ref self: Game) -> (u32, Plan) {
         let game_deck: Deck = self.deck();
-        let number: u32 = game_deck.count().into();
+        let number: u32 = game_deck.total_count().into();
         let mut deck: OrigamiDeck = DeckTrait::from_bitmap(self.seed, number, self.tiles);
         let plan_id: u8 = deck.draw().into();
         self.tile_count += 1;
@@ -385,13 +387,9 @@ mod tests {
     use core::debug::PrintTrait;
     use core::dict::{Felt252Dict, Felt252DictTrait};
 
-    // Internal imports
-
-    use paved::decks::base::TOTAL_TILE_COUNT;
-
     // Local imports
 
-    use super::{Game, GameTrait, GameImpl, constants, Plan, Deck, Mode};
+    use super::{Game, GameTrait, GameImpl, constants, Plan, Deck, DeckImpl, Mode};
 
     // Constants
 
@@ -420,8 +418,9 @@ mod tests {
     fn test_game_draw_plan() {
         let mut game = GameImpl::new(GAME_ID, 0, MODE);
         let (tile_count, plan_id) = game.draw_plan();
+        let deck: Deck = game.deck();
         assert(tile_count == 1, 'Game: Invalid tile_count');
-        assert(plan_id.into() < TOTAL_TILE_COUNT, 'Game: Invalid plan_id');
+        assert(plan_id.into() < deck.total_count(), 'Game: Invalid plan_id');
         assert(game.tile_count == 1, 'Game: Invalid tile_count');
         assert(game.tiles > 0, 'Game: Invalid tiles');
     }
@@ -430,8 +429,9 @@ mod tests {
     fn test_game_draw_planes() {
         let mut game = GameImpl::new(GAME_ID, 0, MODE);
         let mut counts: Felt252Dict<u8> = core::Default::default();
+        let deck: Deck = game.deck();
         loop {
-            if game.tile_count == TOTAL_TILE_COUNT.into() {
+            if game.tile_count == deck.total_count().into() {
                 break;
             }
             let (_, plan) = game.draw_plan();

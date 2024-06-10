@@ -12,25 +12,25 @@ use paved::types::orientation::Orientation;
 use paved::types::move::Move;
 use paved::types::area::Area;
 
-use paved::layouts::ccccccccc::{LayoutImpl as CccccccccImpl};
-use paved::layouts::cccccfffc::{LayoutImpl as CccccfffcImpl};
-use paved::layouts::cccccfrfc::{LayoutImpl as CccccfrfcImpl};
-use paved::layouts::cfffcfffc::{LayoutImpl as CfffcfffcImpl};
-use paved::layouts::ffcfffcff::{LayoutImpl as FfcfffcffImpl};
-use paved::layouts::ffcfffffc::{LayoutImpl as FfcfffffcImpl};
-use paved::layouts::ffffcccff::{LayoutImpl as FfffcccffImpl};
-use paved::layouts::ffffffcff::{LayoutImpl as FfffffcffImpl};
-use paved::layouts::rfffrfcfr::{LayoutImpl as RfffrfcfrImpl};
-use paved::layouts::rfffrfffr::{LayoutImpl as RfffrfffrImpl};
-use paved::layouts::rfrfcccfr::{LayoutImpl as RfrfcccfrImpl};
-use paved::layouts::rfrfffcfr::{LayoutImpl as RfrfffcfrImpl};
-use paved::layouts::rfrfffffr::{LayoutImpl as RfrfffffrImpl};
-use paved::layouts::rfrfrfcff::{LayoutImpl as RfrfrfcffImpl};
-use paved::layouts::sfrfrfcfr::{LayoutImpl as SfrfrfcfrImpl};
-use paved::layouts::sfrfrfffr::{LayoutImpl as SfrfrfffrImpl};
-use paved::layouts::sfrfrfrfr::{LayoutImpl as SfrfrfrfrImpl};
-use paved::layouts::wffffffff::{LayoutImpl as WffffffffImpl};
-use paved::layouts::wfffffffr::{LayoutImpl as WfffffffrImpl};
+use paved::elements::layouts::ccccccccc::{LayoutImpl as CccccccccImpl};
+use paved::elements::layouts::cccccfffc::{LayoutImpl as CccccfffcImpl};
+use paved::elements::layouts::cccccfrfc::{LayoutImpl as CccccfrfcImpl};
+use paved::elements::layouts::cfffcfffc::{LayoutImpl as CfffcfffcImpl};
+use paved::elements::layouts::ffcfffcff::{LayoutImpl as FfcfffcffImpl};
+use paved::elements::layouts::ffcfffffc::{LayoutImpl as FfcfffffcImpl};
+use paved::elements::layouts::ffffcccff::{LayoutImpl as FfffcccffImpl};
+use paved::elements::layouts::ffffffcff::{LayoutImpl as FfffffcffImpl};
+use paved::elements::layouts::rfffrfcfr::{LayoutImpl as RfffrfcfrImpl};
+use paved::elements::layouts::rfffrfffr::{LayoutImpl as RfffrfffrImpl};
+use paved::elements::layouts::rfrfcccfr::{LayoutImpl as RfrfcccfrImpl};
+use paved::elements::layouts::rfrfffcfr::{LayoutImpl as RfrfffcfrImpl};
+use paved::elements::layouts::rfrfffffr::{LayoutImpl as RfrfffffrImpl};
+use paved::elements::layouts::rfrfrfcff::{LayoutImpl as RfrfrfcffImpl};
+use paved::elements::layouts::sfrfrfcfr::{LayoutImpl as SfrfrfcfrImpl};
+use paved::elements::layouts::sfrfrfffr::{LayoutImpl as SfrfrfffrImpl};
+use paved::elements::layouts::sfrfrfrfr::{LayoutImpl as SfrfrfrfrImpl};
+use paved::elements::layouts::wffffffff::{LayoutImpl as WffffffffImpl};
+use paved::elements::layouts::wfffffffr::{LayoutImpl as WfffffffrImpl};
 
 // Constants
 
