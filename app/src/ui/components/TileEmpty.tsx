@@ -11,7 +11,6 @@ import useSound from "use-sound";
 import Place from "/sounds/p-place.m4a";
 import { useTileByKey } from "@/hooks/useTile";
 import { useActions } from "@/hooks/useActions";
-import { getComponentValue } from "@dojoengine/recs";
 import { useGLTF } from "@react-three/drei";
 
 const loader = new THREE.TextureLoader();
@@ -284,17 +283,28 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
           position={[position.x, position.y, 0]}
           geometry={squareGeometry}
         >
-          <meshStandardMaterial attach="material-0" color={"#503A23"} />
-          <meshStandardMaterial attach="material-1" color={"#503A23"} />
-          <meshStandardMaterial attach="material-2" color={"#503A23"} />
-          <meshStandardMaterial attach="material-3" color={"#503A23"} />
-          <meshStandardMaterial
+          <meshBasicMaterial attach="material-0" color={"#503A23"} />
+          <meshBasicMaterial attach="material-1" color={"#503A23"} />
+          <meshBasicMaterial attach="material-2" color={"#503A23"} />
+          <meshBasicMaterial attach="material-3" color={"#503A23"} />
+          <meshBasicMaterial
             attach="material-4"
-            emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
-            emissiveIntensity={isValid ? (isIdle ? 0.5 : 0.2) : 0.4}
+            // emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
+            // emissiveIntensity={isValid ? (isIdle ? 0.5 : 0.2) : 0.4}
             map={texture}
           />
-          <meshStandardMaterial attach="material-5" color={"#503A23"} />
+          <meshBasicMaterial attach="material-5" color={"#503A23"} />
+        </mesh>
+        <mesh
+          visible={texture !== undefined && strategyMode}
+          position={[position.x, position.y, 0]}
+          geometry={squareGeometry}
+        >
+          <meshBasicMaterial
+            color={isValid ? (isIdle ? "green" : "red") : "orange"}
+            transparent={true}
+            opacity={isValid ? (isIdle ? 0.5 : 0.2) : 0.4}
+          />
         </mesh>
       </>
     ),

@@ -3,7 +3,6 @@ import { offset, other_offset } from "@/dojo/game";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useGameStore } from "@/store";
 import { useGLTF } from "@react-three/drei";
-import { useSpring, animated } from "@react-spring/three";
 
 export const loader = new THREE.TextureLoader();
 
@@ -36,10 +35,6 @@ export const TileTexture = ({ tile, size, length }: any) => {
       setTexture(undefined);
     }
   }, [tile]);
-
-  const isLast = useMemo(() => {
-    return tile.id == length;
-  }, [tile.id, length]);
 
   const handlePointerEnter = () => {
     const col = tile ? tile?.y - offset + other_offset : 0;
@@ -121,12 +116,12 @@ export const TileTexture = ({ tile, size, length }: any) => {
         position={[position.x, position.y, 0]}
         geometry={squareGeometry}
       >
-        <meshStandardMaterial attach="material-0" color={"#503A23"} />
-        <meshStandardMaterial attach="material-1" color={"#503A23"} />
-        <meshStandardMaterial attach="material-2" color={"#503A23"} />
-        <meshStandardMaterial attach="material-3" color={"#503A23"} />
-        <meshStandardMaterial attach="material-4" map={texture} />
-        <meshStandardMaterial attach="material-5" color={"#503A23"} />
+        <meshBasicMaterial attach="material-0" color={"#503A23"} />
+        <meshBasicMaterial attach="material-1" color={"#503A23"} />
+        <meshBasicMaterial attach="material-2" color={"#503A23"} />
+        <meshBasicMaterial attach="material-3" color={"#503A23"} />
+        <meshBasicMaterial attach="material-4" map={texture} />
+        <meshBasicMaterial attach="material-5" color={"#503A23"} />
       </mesh>
     </>
   );
