@@ -72,10 +72,6 @@ export default defineConfig({
           link: "/characters",
         },
         {
-          text: "Allegiance",
-          link: "/allegience",
-        },
-        {
           text: "Scoring",
           link: "/scoring",
         },
