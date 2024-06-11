@@ -955,10 +955,10 @@
         ]
       }
     ],
-    "address": "0x7140aa5c1aaf0d9275138f47e72d06c190e37fc6728a0716b066b4840ab8449",
-    "transaction_hash": "0x435917dadab93196b5a241095752fa3a3100272a67569dd902168c4b77492bd",
+    "address": "0x12ca73448f9ea78a47d5fb8b34b92a6341dd8a95ea3f313ec2566915e30b317",
+    "transaction_hash": "0x3238e2ec74a3bafff7761e1817fd3cfcbf05fea4abe7308ba1f0b5d02a4da7a",
     "block_number": null,
-    "seed": "paved-v7",
+    "seed": "paved-v9",
     "metadata": {
       "profile_name": "sepolia",
       "rpc_url": "https://free-rpc.nethermind.io/sepolia-juno/v0_6"
@@ -975,7 +975,7 @@
   "contracts": [
     {
       "kind": "DojoContract",
-      "address": "0x6b5d6073659a74658c1f2ee4e7b0f64306842bae835bb8d6370c15862d4f8c5",
+      "address": "0x2c71f5c94c56ef8f907c4c27e3848eeea29a435e1ddc054c613bc2c9ae3e7d1",
       "class_hash": "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b",
       "original_class_hash": "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
@@ -1539,9 +1539,9 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x4962423a2701770b0584a46eff9c93474bb06d1a2def35b5c12537d51d67e23",
-      "class_hash": "0x1fe4e1cdce92ab1cbcf53bc031c8a9e37185ba138be6170aa3e8ccc7db8e15",
-      "original_class_hash": "0x1fe4e1cdce92ab1cbcf53bc031c8a9e37185ba138be6170aa3e8ccc7db8e15",
+      "address": "0x13f2d36c354cf679218c38753a0e7210c4b868452b57c42265f709b79c60650",
+      "class_hash": "0x691a9010efcc3576c9ea4ef772d01c54143d18098655e7653180c3a99efa293",
+      "original_class_hash": "0x691a9010efcc3576c9ea4ef772d01c54143d18098655e7653180c3a99efa293",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {

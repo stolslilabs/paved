@@ -116,9 +116,17 @@ impl DeckImpl of DeckTrait {
                 let mut to_removes = total_count - self.count().into();
                 let mut index: u8 = 0;
                 loop {
+                    // [Check] Stop if nothing else to remove
                     if to_removes == 0 {
                         break tiles;
                     }
+                    // [Check] Check if the tile is free, otherwise skip
+                    let value = Bitmap::get_bit_at(tiles, index);
+                    if value {
+                        index += 1;
+                        continue;
+                    }
+                    // [Check] Remove the tile from the deck with a dynamic probability
                     let state: HashState = PoseidonTrait::new();
                     let state = state.update(seed);
                     let state = state.update(index.into());
@@ -184,6 +192,14 @@ mod tests {
     #[test]
     fn test_unknown_u8_into_deck() {
         assert(Deck::None == UNKNOWN_U8.into(), 'Deck: into deck None');
+    }
+
+    #[test]
+    fn test_tiles() {
+        let deck: Deck = Deck::Simple;
+        let seed: felt252 = 0;
+        let tiles: u128 = deck.tiles(0, seed);
+        tiles.print();
     }
 }
 
