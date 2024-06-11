@@ -85,11 +85,11 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
         contract_name,
       );
       const calls = [
-        // {
-        //   contractAddress: config.feeTokenAddress,
-        //   entrypoint: "mint",
-        //   calldata: [account.address, `0x${(1e21).toString(16)}`, "0x0"],
-        // },
+        {
+          contractAddress: config.feeTokenAddress,
+          entrypoint: "mint",
+          calldata: [account.address, `0x${(1e21).toString(16)}`, "0x0"],
+        },
         {
           contractAddress: contract_address,
           entrypoint: "create",
