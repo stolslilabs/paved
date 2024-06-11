@@ -92,6 +92,25 @@ export const TileTexture = ({ tile, size, length }: any) => {
   }, [shadowedModel]);
 
   const strategyMode = useGameStore((state) => state.strategyMode);
+  const strategyMesh = useMemo(() => {
+    if (!texture) return null;
+    return (
+      <mesh
+        visible={strategyMode}
+        ref={meshRef}
+        onPointerEnter={handlePointerEnter}
+        position={[position.x, position.y, 0]}
+        geometry={squareGeometry}
+      >
+        <meshBasicMaterial attach="material-0" color={"#503A23"} />
+        <meshBasicMaterial attach="material-1" color={"#503A23"} />
+        <meshBasicMaterial attach="material-2" color={"#503A23"} />
+        <meshBasicMaterial attach="material-3" color={"#503A23"} />
+        <meshBasicMaterial attach="material-4" map={texture} />
+        <meshBasicMaterial attach="material-5" color={"#503A23"} />
+      </mesh>
+    );
+  }, [strategyMode, position, handlePointerEnter, squareGeometry, texture]);
 
   return (
     <>
@@ -109,20 +128,7 @@ export const TileTexture = ({ tile, size, length }: any) => {
         <primitive castShadow receiveShadow object={shadowedModel} />
       </group>
 
-      <mesh
-        visible={strategyMode}
-        ref={meshRef}
-        onPointerEnter={handlePointerEnter}
-        position={[position.x, position.y, 0]}
-        geometry={squareGeometry}
-      >
-        <meshBasicMaterial attach="material-0" color={"#503A23"} />
-        <meshBasicMaterial attach="material-1" color={"#503A23"} />
-        <meshBasicMaterial attach="material-2" color={"#503A23"} />
-        <meshBasicMaterial attach="material-3" color={"#503A23"} />
-        <meshBasicMaterial attach="material-4" map={texture} />
-        <meshBasicMaterial attach="material-5" color={"#503A23"} />
-      </mesh>
+      {strategyMesh}
     </>
   );
 };
