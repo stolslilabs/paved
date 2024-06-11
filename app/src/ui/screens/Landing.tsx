@@ -39,7 +39,7 @@ export const Landing = () => {
               {!player ? (
                 <Spawn setLoading={setLoading} loading={loading} />
               ) : (
-                <Play loading={loading} player={player} />
+                <Play player={player} />
               )}
             </div>
           )}
@@ -49,13 +49,7 @@ export const Landing = () => {
   );
 };
 
-export const Play = ({
-  player,
-  loading,
-}: {
-  player: ComponentValue;
-  loading: boolean;
-}) => {
+export const Play = ({ player }: { player: ComponentValue }) => {
   const navigate = useNavigate();
 
   const {
@@ -72,12 +66,8 @@ export const Play = ({
   };
 
   return (
-    <Button
-      disabled={disabled || loading}
-      variant={"secondary"}
-      onClick={handleClick}
-    >
-      {loading ? "Loading..." : "Play"}
+    <Button disabled={disabled} variant={"secondary"} onClick={handleClick}>
+      {disabled ? "Loading..." : "Play"}
     </Button>
   );
 };

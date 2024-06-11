@@ -48,7 +48,7 @@ export const Spawn = ({
     } else {
       setPlayerName("");
     }
-  }, [player, loading, setLoading]);
+  }, [player]);
 
   const handleClick = async () => {
     setLoading(true);
