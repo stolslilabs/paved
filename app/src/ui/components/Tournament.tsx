@@ -153,7 +153,6 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
     const allPages = Array.from({ length: currentSeason }, (_, i) => i + 1);
     const latestPages = allPages.slice(-4); // Get only the latest 4 pages
     setPages(latestPages);
-    console.log(latestPages);
   }, [page, ids]);
 
   useEffect(() => {

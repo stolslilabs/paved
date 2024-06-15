@@ -199,7 +199,7 @@ mod tests {
         let deck: Deck = Deck::Simple;
         let seed: felt252 = 0;
         let tiles: u128 = deck.tiles(0, seed);
-        tiles.print();
+        assert(tiles == 0x51cc75898dfe86a218, 'Deck: tiles');
     }
 }
 

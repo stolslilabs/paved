@@ -33,7 +33,7 @@ export async function setup({ ...config }: Config) {
   const contractEvents = await createCustomEvents(config.toriiUrl);
 
   // fetch all existing entities from torii
-  await getSyncEntities(toriiClient, contractModels as any, 5000);
+  await getSyncEntities(toriiClient, contractModels as any, [], 1000);
 
   const client = await setupWorld(
     new DojoProvider(config.manifest, config.rpcUrl),

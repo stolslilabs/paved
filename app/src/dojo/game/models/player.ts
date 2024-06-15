@@ -10,7 +10,7 @@ export class Player {
 
   constructor(player: ComponentValue) {
     this.id = player.id;
-    this.name = shortString.decodeShortString(`0x${player.name.toString(16)}`);
+    this.name = shortString.decodeShortString(player.name);
     this.score = player.score;
     this.paved = player.paved;
     this.master = `0x${player.master.toString(16)}`;

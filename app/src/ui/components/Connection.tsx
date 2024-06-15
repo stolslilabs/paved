@@ -29,8 +29,6 @@ export function Connection() {
   //   account: { account, create, clear },
   // } = useDojo();
 
-  console.log(address);
-
   const connectWallet = async () => {
     // const { starknetkitConnectModal } = useStarknetkitConnectModal({
     //   // @ts-ignore
@@ -38,7 +36,6 @@ export function Connection() {
     // });
     // const { connector } = await starknetkitConnectModal();
 
-    console.log(connectors[0]);
     connect({ connector: connectors[0] });
 
     // Manage burner account
