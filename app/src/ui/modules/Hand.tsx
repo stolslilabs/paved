@@ -3,6 +3,7 @@ import { Rotation } from "../components/Rotation";
 import { Discard } from "../components/Discard";
 import { Confirm } from "../components/Confirm";
 import { Cancel } from "../components/Cancel";
+import { Deck } from "../containers/Deck";
 
 export const Hand = () => {
   return (
@@ -12,7 +13,8 @@ export const Hand = () => {
         <Confirm />
         <Rotation />
         <hr className="hidden lg:block" />
-        <Cancel />
+        {/* <Cancel /> */}
+        <Deck />
         <Discard />
       </div>
 
