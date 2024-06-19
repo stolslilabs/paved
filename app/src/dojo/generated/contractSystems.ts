@@ -28,20 +28,21 @@ export const getContractByName = (manifest: any, name: string) => {
 };
 
 export async function setupWorld(provider: DojoProvider, config: Config) {
-  const details: InvocationsDetails = { maxFee: 2e16 };
+  const details: InvocationsDetails | undefined = undefined; // { maxFee: 2e16 };
 
   const execute = async (
     account: Account,
     contractName: string,
     methodName: string,
     args: any[],
-    details: InvocationsDetails,
+    details: InvocationsDetails | undefined,
   ) => {
     const { transaction_hash } = await provider.execute(
       account,
       contractName,
       methodName,
       args,
+      details,
     );
     const receipt = await account.waitForTransaction(transaction_hash, {
       retryInterval: 100,
