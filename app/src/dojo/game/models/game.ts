@@ -38,7 +38,7 @@ export class Game {
     let index = 0;
     while (index < Base.total_count()) {
       if ((tiles & 1n) === 0n) {
-        const plan = new Plan(Base.plan(index));
+        const plan = new Plan(Base.plan(index + 1));
         const planId: number = plan.into();
         plans[planId] = plans[planId] ? plans[planId] + 1 : 1;
       }
