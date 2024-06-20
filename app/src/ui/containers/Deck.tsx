@@ -22,7 +22,7 @@ export const Deck = () => {
   const { gameId } = useQueryParams();
   const { game } = useGame({ gameId });
   const isMdOrLarger = useMediaQuery({ query: "(min-width: 768px)" });
-  const items = useMemo(() => game?.getPlans() || [], []);
+  const items = useMemo(() => game?.getPlans() || [], [game]);
 
   if (!game) return null;
 
