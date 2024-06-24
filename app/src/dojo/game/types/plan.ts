@@ -1,5 +1,26 @@
 // Source: contracts/src/types/plan.cairo
+// Assets
 
+import zero from "/assets/tiles/00.png";
+import ccccccccc from "/assets/tiles/ccccccccc.png";
+import cccccfffc from "/assets/tiles/cccccfffc.png";
+import cccccfrfc from "/assets/tiles/cccccfrfc.png";
+import cfffcfffc from "/assets/tiles/cfffcfffc.png";
+import ffcfffcff from "/assets/tiles/ffcfffcff.png";
+import ffcfffffc from "/assets/tiles/ffcfffffc.png";
+import ffffcccff from "/assets/tiles/ffffcccff.png";
+import ffffffcff from "/assets/tiles/ffffffcff.png";
+import rfffrfcfr from "/assets/tiles/rfffrfcfr.png";
+import rfffrfffr from "/assets/tiles/rfffrfffr.png";
+import rfrfcccfr from "/assets/tiles/rfrfcccfr.png";
+import rfrfffcfr from "/assets/tiles/rfrfffcfr.png";
+import rfrfffffr from "/assets/tiles/rfrfffffr.png";
+import rfrfrfcff from "/assets/tiles/rfrfrfcff.png";
+import sfrfrfcfr from "/assets/tiles/sfrfrfcfr.png";
+import sfrfrfffr from "/assets/tiles/sfrfrfffr.png";
+import sfrfrfrfr from "/assets/tiles/sfrfrfrfr.png";
+import wffffffff from "/assets/tiles/wffffffff.png";
+import wfffffffr from "/assets/tiles/wfffffffr.png";
 import { Configuration as CccccccccImpl } from "../layouts/ccccccccc";
 import { Configuration as CccccfffcImpl } from "../layouts/cccccfffc";
 import { Configuration as CccccfrfcImpl } from "../layouts/cccccfrfc";
@@ -301,6 +322,51 @@ export class Plan {
         return WfffffffrImpl.adjacentCities(from);
       default:
         return [];
+    }
+  }
+
+  public getImage(): string {
+    switch (this.value) {
+      case PlanType.CCCCCCCCC:
+        return ccccccccc;
+      case PlanType.CCCCCFFFC:
+        return cccccfffc;
+      case PlanType.CCCCCFRFC:
+        return cccccfrfc;
+      case PlanType.CFFFCFFFC:
+        return cfffcfffc;
+      case PlanType.FFCFFFCFF:
+        return ffcfffcff;
+      case PlanType.FFCFFFFFC:
+        return ffcfffffc;
+      case PlanType.FFFFCCCFF:
+        return ffffcccff;
+      case PlanType.FFFFFFCFF:
+        return ffffffcff;
+      case PlanType.RFFFRFCFR:
+        return rfffrfcfr;
+      case PlanType.RFFFRFFFR:
+        return rfffrfffr;
+      case PlanType.RFRFCCCFR:
+        return rfrfcccfr;
+      case PlanType.RFRFFFCFR:
+        return rfrfffcfr;
+      case PlanType.RFRFFFFFR:
+        return rfrfffffr;
+      case PlanType.RFRFRFCFF:
+        return rfrfrfcff;
+      case PlanType.SFRFRFCFR:
+        return sfrfrfcfr;
+      case PlanType.SFRFRFFFR:
+        return sfrfrfffr;
+      case PlanType.SFRFRFRFR:
+        return sfrfrfrfr;
+      case PlanType.WFFFFFFFF:
+        return wffffffff;
+      case PlanType.WFFFFFFFR:
+        return wfffffffr;
+      default:
+        return zero;
     }
   }
 }
