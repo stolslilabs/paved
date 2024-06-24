@@ -1,3 +1,10 @@
+// Traits
+
+#[starknet::interface]
+trait IDojoInit {
+    fn dojo_init(token_address: starknet::ContractAddress);
+}
+
 mod setup {
     // Core imports
 
@@ -15,6 +22,7 @@ mod setup {
 
     // Internal imports
 
+    use paved::constants;
     use paved::tests::mocks::erc20::{
         IERC20Dispatcher, IERC20DispatcherTrait, IERC20FaucetDispatcher,
         IERC20FaucetDispatcherTrait, ERC20
@@ -27,6 +35,10 @@ mod setup {
     use paved::systems::account::{account, IAccountDispatcher, IAccountDispatcherTrait};
     use paved::systems::daily::{daily, IDailyDispatcher, IDailyDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
+
+    // Local imports
+
+    use super::{IDojoInitDispatcher};
 
     // Constants
 
@@ -109,7 +121,7 @@ mod setup {
         models.append(paved::models::index::builder::TEST_CLASS_HASH);
         models.append(paved::models::index::tile::TEST_CLASS_HASH);
         models.append(paved::models::index::tournament::TEST_CLASS_HASH);
-        let world = spawn_test_world(models);
+        let mut world = spawn_test_world(models);
         let erc20 = deploy_erc20();
 
         // [Setup] SystemsDrop
