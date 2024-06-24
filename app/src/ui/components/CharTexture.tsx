@@ -34,7 +34,7 @@ export const CharTexture = ({ character, radius, height, size }: any) => {
   }, [tile]);
 
   const charColor = useMemo(() => {
-    const address = `0x${character?.player_id?.toString(16)}`;
+    const address = character?.player_id?.toString(16);
     return getColor(address);
   }, [character]);
 

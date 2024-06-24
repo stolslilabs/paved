@@ -1,8 +1,4 @@
 import { useMemo } from "react";
-// @ts-ignore
-import { ArgentMobileConnector } from "starknetkit/argentMobile";
-// @ts-ignore
-import { WebWalletConnector } from "starknetkit/webwallet";
 import {
   StarknetConfig,
   nethermindProvider,
@@ -17,12 +13,7 @@ export function StarknetProvider({ children }: { children: React.ReactNode }) {
   const chains = [mainnet];
   const provider = nethermindProvider({ apiKey: VITE_PUBLIC_API_KEY });
   const connectors = useMemo(() => {
-    return [
-      braavos(),
-      argent(),
-      // new WebWalletConnector({ url: "https://web.argent.xyz" }),
-      // new ArgentMobileConnector(),
-    ];
+    return [braavos(), argent()];
   }, []);
 
   return (

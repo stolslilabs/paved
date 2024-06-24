@@ -10,7 +10,7 @@ import {
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import { useEffect } from "react";
-import Logo from "@/ui/icons/COMPASS.svg?react";
+import icon from "/assets/icons/COMPASS.svg";
 
 export const Compass = () => {
   const { compassRotation, setCompassRotate } = useCameraStore();
@@ -44,7 +44,11 @@ export const Compass = () => {
             size={"command"}
             onClick={() => setRotate(true)}
           >
-            <Logo style={style} className="sm:h-4 md:h-8 fill-current" />
+            <img
+              src={icon}
+              style={style}
+              className="sm:h-4 md:h-8 fill-current"
+            />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

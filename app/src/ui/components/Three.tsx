@@ -1,48 +1,27 @@
 import * as THREE from "three";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import {
   useKeyboardControls,
-  OrthographicCamera,
   OrbitControls,
-  Stats,
-  Sky,
-  Clouds,
-  Cloud,
-  SoftShadows,
   PerspectiveCamera,
-  Box,
-  useHelper,
 } from "@react-three/drei";
 import { TileTextures } from "./TileTextures";
 import { CharTextures } from "./CharTextures";
 import { Controls } from "@/ui/screens/GameScreen";
 import { useGameStore, useCameraStore, useUIStore } from "@/store";
-import { Perf } from "r3f-perf";
 import {
   Bloom,
-  DepthOfField,
   EffectComposer,
-  Noise,
   Vignette,
-  Outline,
-  SSAO,
-  ColorAverage,
-  Grid,
-  HueSaturation,
   N8AO,
-  SMAA,
 } from "@react-three/postprocessing";
-import { BlendFunction, Resizer, KernelSize } from "postprocessing";
 import useSound from "use-sound";
 import RotationSound from "/sounds/rotation.wav";
-import { Button } from "../elements/button";
 import { useControls, Leva } from "leva";
 
 const Light = () => {
   const lightRef = useRef<THREE.DirectionalLight>(null!);
-  // useHelper(lightRef, THREE.DirectionalLightHelper, 0.25, "hotpink");
-
   const { ambientIntensity, intensity, position } = useControls("Light", {
     ambientIntensity: {
       value: 5,
@@ -160,17 +139,7 @@ export const Effects = () => {
     <EffectComposer multisampling={0}>
       <Vignette eskil={false} offset={0.1} darkness={0.8} />
       <Bloom mipmapBlur luminanceThreshold={3} />
-      {/* <SMAA /> */}
       <N8AO distanceFalloff={2} aoRadius={2} intensity={2} quality="ultra" />
-      {/* <Noise
-        premultiply // enables or disables noise premultiplication
-        blendFunction={BlendFunction.SOFT_LIGHT} // blend mode
-      /> */}
-      {/* <HueSaturation
-        blendFunction={BlendFunction.NORMAL} // blend mode
-        hue={50} // hue in radians
-        saturation={30} // saturation in radians
-      /> */}
     </EffectComposer>
   );
 };
@@ -324,10 +293,8 @@ function Camera({ children }: { children?: React.ReactNode }) {
         }}
       />
       <PerspectiveCamera
-        // makeDefault
         ref={camera}
         zoom={zoom}
-        // isOrthographicCamera
         rotation={rotation}
         near={near}
         far={far}

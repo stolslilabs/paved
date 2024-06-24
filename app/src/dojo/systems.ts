@@ -1,12 +1,12 @@
 import type { IWorld } from "./generated/contractSystems";
 
 import { toast } from "sonner";
-import * as SystemTypes from "./types/systems";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
+import * as SystemTypes from "./generated/contractSystems";
+import { getEntityIdFromKeys, shortenHex } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { uuid } from "@latticexyz/utils";
 import { ClientModels } from "./models";
-import { Mode, ModeType } from "./game/types/mode";
+import { ModeType } from "./game/types/mode";
 
 export type SystemCalls = ReturnType<typeof systems>;
 
@@ -23,7 +23,16 @@ export function systems({
 
   const notify = (message: string, transaction: any) => {
     if (transaction.execution_status != "REVERTED") {
-      toast.success(message);
+      toast.success(message, {
+        description: shortenHex(transaction.transaction_hash),
+        action: {
+          label: "View",
+          onClick: () =>
+            window.open(
+              `https://worlds.dev/networks/slot/worlds/paved/txs/${transaction.transaction_hash}`,
+            ),
+        },
+      });
     } else {
       toast.error(extractedMessage(transaction.revert_reason));
     }
@@ -45,8 +54,8 @@ export function systems({
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error creating player:", error);
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
     }
   };
 
@@ -63,19 +72,15 @@ export function systems({
         ...props,
       });
 
-      console.log(
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
       notify(
         "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error creating game:", error);
+    } catch (error: any) {
+      console.log(error);
+      toast.error(extractedMessage(error.message));
     }
   };
 
@@ -93,8 +98,8 @@ export function systems({
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error claiming tournament:", error);
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
     }
   };
 
@@ -112,8 +117,8 @@ export function systems({
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error sponsoring tournament:", error);
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
     }
   };
 
@@ -131,8 +136,8 @@ export function systems({
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error discarding:", error);
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
     }
   };
 
@@ -154,15 +159,15 @@ export function systems({
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error surrendering:", error);
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
     }
   };
 
   const build = async ({ account, mode, ...props }: SystemTypes.Build) => {
     const buidlerKey = getEntityIdFromKeys([
       BigInt(props.game_id),
-      BigInt(account.address),
+      BigInt(account?.address),
     ]) as Entity;
 
     const builderId = uuid();
@@ -170,7 +175,7 @@ export function systems({
       entity: buidlerKey,
       value: {
         game_id: props.game_id,
-        player_id: BigInt(account.address),
+        player_id: BigInt(account?.address),
         tile_id: 0,
       },
     });
@@ -186,7 +191,7 @@ export function systems({
       value: {
         game_id: props.game_id,
         id: props.tile_id,
-        player_id: BigInt(account.address),
+        player_id: BigInt(account?.address),
         orientation: props.orientation,
         x: props.x,
         y: props.y,
@@ -209,10 +214,10 @@ export function systems({
       );
       // Sleep 5 seconds for indexer to index
       await new Promise((resolve) => setTimeout(resolve, 5000));
-    } catch (error) {
+    } catch (error: any) {
       clientModels.models.Tile.removeOverride(tileId);
       clientModels.models.Builder.removeOverride(builderId);
-      console.error("Error building:", error);
+      toast.error(extractedMessage(error.message));
     } finally {
       clientModels.models.Tile.removeOverride(tileId);
       clientModels.models.Builder.removeOverride(builderId);

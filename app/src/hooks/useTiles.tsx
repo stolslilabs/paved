@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
 import {
-  defineEnterSystem,
-  defineSystem,
   getComponentValue,
-  getEntitiesWithValue,
   Entity,
   Has,
   HasValue,
@@ -99,7 +96,6 @@ export const useTiles = () => {
   ]);
 
   useEffect(() => {
-    console.log("tileKeys");
     // If some keys has been removed, then reset the state
     const oldKeys = keys.filter((key) => !tileKeys.includes(key));
     if (oldKeys.length) {

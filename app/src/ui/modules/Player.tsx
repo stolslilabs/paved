@@ -18,7 +18,7 @@ export const Player = () => {
       return playerEntity;
     }
     return getEntityIdFromKeys([
-      BigInt(account ? account.address : 0),
+      BigInt(account ? account?.address : 0),
     ]) as Entity;
   }, [account, playerEntity]);
 

@@ -6,13 +6,12 @@ import {
 } from "@/ui/elements/dialog";
 
 import { useState } from "react";
-import { faCog } from "@fortawesome/free-solid-svg-icons";
 import { ToolTipButton } from "./ToolTipButton";
 import { MusicPlayer } from "./MusicPlayer";
 import { useGameStore } from "@/store";
 import { Switch } from "../elements/switch";
 import { Label } from "../elements/label";
-import Logo from "@/ui/icons/VIEW.svg?react";
+import icon from "/assets/icons/VIEW.svg";
 
 export const SettingsDialog = () => {
   const [open, setOpen] = useState(false);
@@ -24,7 +23,7 @@ export const SettingsDialog = () => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
         <ToolTipButton
-          icon={<Logo className="sm:h-4 md:h-8 fill-current" />}
+          icon={<img src={icon} className="sm:h-4 md:h-8 fill-current" />}
           toolTipText="Settings"
         />
       </DialogTrigger>

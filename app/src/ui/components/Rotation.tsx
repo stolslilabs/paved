@@ -13,7 +13,7 @@ import { useActions } from "@/hooks/useActions";
 import { useDojo } from "@/dojo/useDojo";
 import useSound from "use-sound";
 import RotationSound from "/sounds/rotation.wav";
-import Rotate from "@/ui/icons/ROTATE.svg?react";
+import icon from "/assets/icons/ROTATE.svg";
 
 export const Rotation = () => {
   // const { account } = useAccount();
@@ -43,7 +43,7 @@ export const Rotation = () => {
             size={"command"}
             onClick={handleClick}
           >
-            <Rotate className="h-4 lg:h-8  fill-current" />
+            <img src={icon} className="h-4 lg:h-8  fill-current" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

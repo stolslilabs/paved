@@ -16,7 +16,7 @@ import { useMediaQuery } from "react-responsive";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useGame } from "@/hooks/useGame";
 import { Plan } from "@/dojo/game/types/plan";
-import Info from "@/ui/icons/INFO.svg?react";
+import icon from "/assets/icons/INFO.svg";
 
 export const Deck = () => {
   const { gameId } = useQueryParams();
@@ -30,7 +30,7 @@ export const Deck = () => {
     <Drawer>
       <DrawerTrigger asChild>
         <Button variant="command" size="command">
-          <Info className="sm:h-4 md:h-7 fill-current" />
+          <img src={icon} className="sm:h-4 md:h-7 fill-current" />
         </Button>
       </DrawerTrigger>
       <DrawerContent>

@@ -24,13 +24,7 @@ impl PlayerImpl of PlayerTrait {
         assert(master != 0, errors::INVALID_MASTER);
 
         // [Return] Player
-        Player { id, name, score: 0, paved: 0, master: master }
-    }
-
-    #[inline(always)]
-    fn pave(ref self: Player) {
-        // [Effect] Add to the paved count
-        self.paved += 1;
+        Player { id, name, master: master }
     }
 
     #[inline(always)]
@@ -58,7 +52,7 @@ impl PlayerAssert of AssertTrait {
 impl ZeroablePlayerImpl of core::Zeroable<Player> {
     #[inline(always)]
     fn zero() -> Player {
-        Player { id: 0, name: 0, score: 0, paved: 0, master: 0 }
+        Player { id: 0, name: 0, master: 0 }
     }
 
     #[inline(always)]

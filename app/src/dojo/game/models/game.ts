@@ -6,22 +6,30 @@ import { Base } from "../elements/decks/base";
 export class Game {
   public id: number;
   public over: boolean;
+  public built: number;
+  public discarded: number;
   public tiles: bigint;
   public tile_count: number;
-  public start_time: number;
+  public start_time: Date;
+  public end_time: Date;
   public score: number;
   public seed: string;
   public mode: Mode;
+  public tournament_id: bigint;
 
   constructor(game: ComponentValue) {
     this.id = game.id;
     this.over = game.over;
-    this.tiles = game.tiles;
+    this.built = game.built;
+    this.discarded = game.discarded;
+    this.tiles = BigInt(game.tiles);
     this.tile_count = game.tile_count;
-    this.start_time = game.start_time;
+    this.start_time = new Date(game.start_time * 1000);
+    this.end_time = new Date(game.end_time * 1000);
     this.score = game.score;
-    this.seed = game.seed;
+    this.seed = game.seed.toString(16);
     this.mode = Mode.from(game.mode);
+    this.tournament_id = BigInt(game.tournament_id);
   }
 
   public isOver(): boolean {

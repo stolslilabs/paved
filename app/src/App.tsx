@@ -6,97 +6,33 @@ import { GameLobby } from "./ui/screens/GameLobby";
 import { useQueryParams } from "./hooks/useQueryParams";
 import { Toaster } from "./ui/elements/sonner";
 import { Landing } from "./ui/screens/Landing";
-
-import {
-  StarknetConfig,
-  Connector,
-  starkscan,
-  jsonRpcProvider,
-} from "@starknet-react/core";
-import { Chain, sepolia, mainnet } from "@starknet-react/chains";
-import CartridgeConnector from "@cartridge/connector";
+import { useDojo } from "./dojo/useDojo";
+import { usePlayer } from "./hooks/usePlayer";
 
 export const CoreScreen = () => {
   const { gameId } = useQueryParams();
-  return gameId ? <GameScreen /> : <GameLobby />;
+  const {
+    account: { account },
+  } = useDojo();
+
+  const { player } = usePlayer({ playerId: account?.address });
+  return (
+    <>
+      {!account && !player && <Landing />}
+      {!!account && !!player && !gameId && <GameLobby />}
+      {!!account && !!player && !!gameId && <GameScreen />}
+    </>
+  );
 };
-
-function rpc(_chain: Chain) {
-  return {
-    nodeUrl: import.meta.env.VITE_PUBLIC_NODE_URL,
-  };
-}
-
-const connectors = [
-  new CartridgeConnector(
-    [
-      {
-        target: import.meta.env.VITE_PUBLIC_FEE_TOKEN_ADDRESS,
-        method: "mint",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_FEE_TOKEN_ADDRESS,
-        method: "approve",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_ACCOUNT_CONTRACT,
-        method: "create",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "spawn",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "claim",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "sponsor",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "discard",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "surrender",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "build",
-      },
-    ],
-    // {
-    //   theme: {
-    //     colors: {
-    //       primary: "#0ad3ff",
-    //       secondary: "#78ffd6",
-    //     },
-    //   },
-    // },
-  ) as never as Connector,
-];
 
 function App() {
   return (
-    <>
-      <StarknetConfig
-        autoConnect
-        chains={[import.meta.env.VITE_PUBLIC_STARKNET ? mainnet : sepolia]}
-        connectors={connectors}
-        explorer={starkscan}
-        provider={jsonRpcProvider({ rpc })}
-      >
-        <Router>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/game" element={<CoreScreen />} />
-          </Routes>
-          <Toaster position="top-center" />
-        </Router>
-      </StarknetConfig>
-    </>
+    <Router>
+      <Routes>
+        <Route path="/" element={<CoreScreen />} />
+      </Routes>
+      <Toaster position="top-center" />
+    </Router>
   );
 }
 

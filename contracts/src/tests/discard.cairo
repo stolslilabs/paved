@@ -26,7 +26,7 @@ fn test_play_discard() {
     let store = StoreTrait::new(world);
 
     // [Discard]
-    systems.daily.discard(world, context.game_id);
+    systems.daily.discard(context.game_id);
 
     // [Assert]
     let mut game = store.game(context.game_id);

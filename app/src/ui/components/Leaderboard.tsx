@@ -29,7 +29,7 @@ import { Game as GameClass } from "@/dojo/game/models/game";
 import { ToolTipButton } from "./ToolTipButton";
 import { useBuilders } from "@/hooks/useBuilders";
 import { useDojo } from "@/dojo/useDojo";
-import LeaderboardIcon from "@/ui/icons/LEADERBOARD.svg?react";
+import leaderboard from "/assets/icons/LEADERBOARD.svg";
 import { useUIStore } from "@/store";
 
 export const LeaderboardDialog = () => {
@@ -44,8 +44,7 @@ export const LeaderboardDialog = () => {
 
   const isSelf = useMemo(() => {
     return (
-      account?.address ===
-      `0x0${builders.length > 0 ? builders[0].player_id.toString(16) : 0}`
+      account?.address === (builders.length > 0 ? builders[0].player_id : "0x0")
     );
   }, [account, builders, over, game]);
 
@@ -67,7 +66,9 @@ export const LeaderboardDialog = () => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
         <ToolTipButton
-          icon={<LeaderboardIcon className="sm:h-4 md:h-8  fill-current" />}
+          icon={
+            <img src={leaderboard} className="sm:h-4 md:h-8  fill-current" />
+          }
           toolTipText="Leaderboard"
         />
       </DialogTrigger>

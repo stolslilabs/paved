@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { CharTexture } from "./CharTexture";
 import { useCharacters } from "@/hooks/useCharacters";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
 export const CharTextures = ({
   radius,
@@ -11,14 +12,14 @@ export const CharTextures = ({
   height: number;
   squareSize: number;
 }) => {
-  const { characters } = useCharacters();
+  const { gameId } = useQueryParams();
+  const { characters } = useCharacters({ gameId });
 
   const renderedItems = useMemo(() => {
-    return Object.keys(characters).map((key: string) => {
-      const character = characters[key];
+    return characters.map((character, index) => {
       return (
         <CharTexture
-          key={key}
+          key={index}
           character={character}
           radius={radius}
           height={height}

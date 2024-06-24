@@ -33,9 +33,8 @@ import {
   faEye,
   faLock,
   faSackDollar,
-  faTrophy,
 } from "@fortawesome/free-solid-svg-icons";
-import { GameOverEvent, useGames } from "@/hooks/useGames";
+import { useGames } from "@/hooks/useGames";
 import { useTournament } from "@/hooks/useTournament";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -43,11 +42,13 @@ import { Lords } from "./Lords";
 import { Tournament as TournamentClass } from "@/dojo/game/models/tournament";
 import { useDojo } from "@/dojo/useDojo";
 import { Account } from "starknet";
-import { useAccount } from "@starknet-react/core";
-import { Mode, ModeType } from "@/dojo/game/types/mode";
-import { useLobbyStore } from "@/store";
+import { Mode } from "@/dojo/game/types/mode";
 import { Sponsor } from "@/ui/components/Sponsor";
-import Leaderboard from "@/ui/icons/LEADERBOARD.svg?react";
+import leaderboard from "/assets/icons/LEADERBOARD.svg";
+import { useTournaments } from "@/hooks/useTournaments";
+import { Game } from "@/dojo/game/models/game";
+import { usePlayer } from "@/hooks/usePlayer";
+import { useBuilders } from "@/hooks/useBuilders";
 
 export const getSeason = (mode: Mode) => {
   const now = Math.floor(Date.now() / 1000);
@@ -108,12 +109,15 @@ export const TournamentHeader = ({ mode }: { mode: Mode }) => {
 export const TournamentDialog = ({ mode }: { mode: Mode }) => {
   return (
     <Dialog>
-      <DialogTrigger>
+      <DialogTrigger asChild>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button size={"default"}>
-                <Leaderboard className="w-8 fill-secondary-foreground" />
+                <img
+                  src={leaderboard}
+                  className="w-8 fill-secondary-foreground"
+                />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -133,7 +137,8 @@ export const TournamentDialog = ({ mode }: { mode: Mode }) => {
 };
 
 export const Tournament = ({ mode }: { mode: Mode }) => {
-  const { games, ids } = useGames({ mode });
+  const { games } = useGames({ mode });
+  const { tournaments } = useTournaments();
   const [page, setPage] = useState<number>(1);
   const [pages, setPages] = useState<number[]>([]);
   const [startDate, setStartDate] = useState<string>("");
@@ -144,17 +149,14 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
   useEffect(() => {
     const currentSeason = getSeason(mode);
     setPage(currentSeason);
-  }, [ids]);
+  }, []);
 
   useEffect(() => {
-    if (!games || !ids) return;
-
     const currentSeason = getSeason(mode);
     const allPages = Array.from({ length: currentSeason }, (_, i) => i + 1);
     const latestPages = allPages.slice(-4); // Get only the latest 4 pages
     setPages(latestPages);
-    console.log(latestPages);
-  }, [page, ids]);
+  }, []);
 
   useEffect(() => {
     if (!page || !mode) return;
@@ -168,20 +170,13 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
     setEndTime(end.toLocaleTimeString());
   }, [page, mode]);
 
-  const balckilist = useMemo(() => {
-    return [""];
-  }, []);
-
   const allGames = useMemo(() => {
+    const offset = BigInt(mode.offset());
     return games
-      .filter(
-        (game) =>
-          game.seasonId - mode.offset() === page &&
-          !balckilist.includes(game.playerMaster),
-      )
-      .sort((a, b) => b.gameScore - a.gameScore)
+      .filter((game) => game.tournament_id - offset === BigInt(page))
+      .sort((a, b) => b.score - a.score)
       .slice(0, 10);
-  }, [games, page, balckilist]);
+  }, [games, page]);
 
   return (
     <div className="relative flex flex-col gap-4">
@@ -196,7 +191,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
               <PaginationItem key={index}>
                 <PaginationLink
                   href="#"
-                  isActive={id === (page ? page : ids.length)}
+                  isActive={id === (page ? page : tournaments.length)}
                   onClick={() => setPage(id)}
                 >
                   {id}
@@ -239,7 +234,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {allGames.map((game: GameOverEvent, index: number) => {
+            {allGames.map((game: Game, index: number) => {
               return (
                 <GameRow
                   key={index}
@@ -263,7 +258,7 @@ export const GameRow = ({
   rank,
   mode,
 }: {
-  game: GameOverEvent;
+  game: Game;
   tournamentId: number;
   rank: number;
   mode: Mode;
@@ -273,14 +268,15 @@ export const GameRow = ({
     account: { account },
   } = useDojo();
 
+  const { builders } = useBuilders({ gameId: game.id });
+  const { player } = usePlayer({ playerId: builders[0]?.player_id });
+
   const { tournament } = useTournament({
     tournamentId: tournamentId,
   });
 
   const duration = useMemo(() => {
-    const startTime = game.gameStartTime;
-    const endTime = game.gameEndTime;
-    const dt = endTime.getTime() - startTime.getTime();
+    const dt = game.end_time.getTime() - game.start_time.getTime();
     const hours = Math.floor(dt / 1000 / 60 / 60);
     const minutes = Math.floor((dt / 1000 / 60) % 60);
     const seconds = Math.floor((dt / 1000) % 60);
@@ -298,13 +294,6 @@ export const GameRow = ({
     return value;
   }, [tournament, rank]);
 
-  const playerName = useMemo(() => {
-    // Name on 10 characters max
-    return game.playerName.length > 8
-      ? game.playerName.slice(0, 8) + "…"
-      : game.playerName;
-  }, [game]);
-
   const playerRank = useMemo(() => {
     if (rank === 1) return "🥇";
     if (rank === 2) return "🥈";
@@ -313,21 +302,22 @@ export const GameRow = ({
   }, [rank]);
 
   const isSelf = useMemo(() => {
-    return game.playerId === account?.address;
-  }, [game, account]);
+    if (!player || !account) return false;
+    return player.id === account?.address;
+  }, [player, account]);
 
   return (
     <TableRow>
       <TableCell className="">{playerRank}</TableCell>
-      <TableCell className="text-left">{playerName}</TableCell>
-      <TableCell className="text-right">{game.gameScore}</TableCell>
+      <TableCell className="text-left">{player?.getShortName()}</TableCell>
+      <TableCell className="text-right">{game.score}</TableCell>
       <TableCell className="text-right">{duration}</TableCell>
       <TableCell className="text-right">{rank > 3 ? "" : winnings}</TableCell>
       <TableCell className="text-right">
         {isSelf && tournament && tournament.isClaimable(rank, mode) ? (
           <Claim tournament={tournament} rank={rank} mode={mode} />
         ) : (
-          <Spectate gameId={game.gameId} />
+          <Spectate gameId={game.id} />
         )}
       </TableCell>
     </TableRow>

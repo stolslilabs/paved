@@ -9,12 +9,10 @@ import {
 import { Account } from "starknet";
 import { usePlayer } from "@/hooks/usePlayer";
 import { Lords } from "./Lords";
-import { useMemo, useState } from "react";
-import { useAccount } from "@starknet-react/core";
+import { useState } from "react";
 import { Mode } from "@/dojo/game/types/mode";
 
 export const CreateGame = ({ mode }: { mode: Mode }) => {
-  // const { account } = useAccount();
   const {
     account: { account },
     setup: {

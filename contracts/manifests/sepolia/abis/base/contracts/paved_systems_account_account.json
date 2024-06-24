@@ -23,8 +23,8 @@
   },
   {
     "type": "impl",
-    "name": "AccountImpl",
-    "interface_name": "paved::systems::account::IAccount"
+    "name": "WorldProviderImpl",
+    "interface_name": "dojo::world::IWorldProvider"
   },
   {
     "type": "struct",
@@ -35,37 +35,6 @@
         "type": "core::starknet::contract_address::ContractAddress"
       }
     ]
-  },
-  {
-    "type": "interface",
-    "name": "paved::systems::account::IAccount",
-    "items": [
-      {
-        "type": "function",
-        "name": "create",
-        "inputs": [
-          {
-            "name": "world",
-            "type": "dojo::world::IWorldDispatcher"
-          },
-          {
-            "name": "name",
-            "type": "core::felt252"
-          },
-          {
-            "name": "master",
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "view"
-      }
-    ]
-  },
-  {
-    "type": "impl",
-    "name": "WorldProviderImpl",
-    "interface_name": "dojo::world::IWorldProvider"
   },
   {
     "type": "interface",
@@ -86,17 +55,67 @@
   },
   {
     "type": "impl",
-    "name": "DojoInitImpl",
-    "interface_name": "paved::components::initializable::IDojoInit"
+    "name": "IDojoInitImpl",
+    "interface_name": "paved::systems::account::account::IDojoInit"
   },
   {
     "type": "interface",
-    "name": "paved::components::initializable::IDojoInit",
+    "name": "paved::systems::account::account::IDojoInit",
     "items": [
       {
         "type": "function",
         "name": "dojo_init",
         "inputs": [],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "AccountImpl",
+    "interface_name": "paved::systems::account::IAccount"
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::account::IAccount",
+    "items": [
+      {
+        "type": "function",
+        "name": "create",
+        "inputs": [
+          {
+            "name": "name",
+            "type": "core::felt252"
+          },
+          {
+            "name": "master",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "UpgradableImpl",
+    "interface_name": "dojo::components::upgradeable::IUpgradeable"
+  },
+  {
+    "type": "interface",
+    "name": "dojo::components::upgradeable::IUpgradeable",
+    "items": [
+      {
+        "type": "function",
+        "name": "upgrade",
+        "inputs": [
+          {
+            "name": "new_class_hash",
+            "type": "core::starknet::class_hash::ClassHash"
+          }
+        ],
         "outputs": [],
         "state_mutability": "external"
       }
@@ -140,6 +159,30 @@
         "inputs": [],
         "outputs": [],
         "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "dojo::components::upgradeable::upgradeable::Upgraded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "class_hash",
+        "type": "core::starknet::class_hash::ClassHash",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "dojo::components::upgradeable::upgradeable::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "Upgraded",
+        "type": "dojo::components::upgradeable::upgradeable::Upgraded",
+        "kind": "nested"
       }
     ]
   },
@@ -461,12 +504,6 @@
   },
   {
     "type": "event",
-    "name": "paved::components::initializable::InitializableComponent::Event",
-    "kind": "enum",
-    "variants": []
-  },
-  {
-    "type": "event",
     "name": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
     "kind": "struct",
     "members": [
@@ -528,13 +565,13 @@
     "kind": "enum",
     "variants": [
       {
-        "name": "EmitterEvent",
-        "type": "paved::components::emitter::EmitterComponent::Event",
-        "kind": "flat"
+        "name": "UpgradeableEvent",
+        "type": "dojo::components::upgradeable::upgradeable::Event",
+        "kind": "nested"
       },
       {
-        "name": "InitializableEvent",
-        "type": "paved::components::initializable::InitializableComponent::Event",
+        "name": "EmitterEvent",
+        "type": "paved::components::emitter::EmitterComponent::Event",
         "kind": "flat"
       },
       {

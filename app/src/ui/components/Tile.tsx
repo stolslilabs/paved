@@ -14,7 +14,6 @@ import {
 import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useTile } from "@/hooks/useTile";
-import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
 import { Loader } from "@/ui/components/Loader";
 import { useDojo } from "@/dojo/useDojo";
@@ -76,13 +75,11 @@ export const Tile = () => {
       className="h-12 w-12 md:h-24 md:w-24 lg:h-60 lg:w-60  flex lg:justify-center items-center  shadow-lg "
       style={{ backgroundColor }}
     >
-      {(tile && backgroundImage && !game?.isOver() && enabled && (
+      {!!tile && backgroundImage && !game?.isOver() && enabled && (
         <ActiveTile image={backgroundImage} rotation={rotation} />
-      )) ||
-        null}
-      {(backgroundImage && !game?.isOver() && !enabled && <LoadingTile />) ||
-        null}
-      {(game?.isOver() && <LockedTile />) || null}
+      )}
+      {!!backgroundImage && !game?.isOver() && !enabled && <LoadingTile />}
+      {game?.isOver() && <LockedTile />}
     </div>
   );
 };
@@ -126,26 +123,17 @@ export const LoadingTile = () => {
   const backgroundImage = useMemo(() => getImage({ plan: 9 }), []);
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            className={`h-full w-full`}
-            style={{
-              backgroundImage: `url(${backgroundImage})`,
-              backgroundSize: "cover",
-            }}
-          >
-            <div className="relative h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
-              <Loader color={"#000000"} />
-            </div>
-          </div>
-        </TooltipTrigger>
-        {/* <TooltipContent>
-          <p className="select-none">Game is over</p>
-        </TooltipContent> */}
-      </Tooltip>
-    </TooltipProvider>
+    <div
+      className={`h-full w-full`}
+      style={{
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: "cover",
+      }}
+    >
+      <div className="relative h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
+        <Loader />
+      </div>
+    </div>
   );
 };
 

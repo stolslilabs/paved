@@ -13,7 +13,6 @@ use origami::random::deck::{Deck as OrigamiDeck, DeckTrait};
 
 use paved::constants;
 use paved::store::{Store, StoreImpl};
-use paved::events::{ScoredCity, ScoredRoad, ScoredForest, ScoredWonder};
 use paved::helpers::bitmap::Bitmap;
 use paved::helpers::generic::GenericCount;
 use paved::helpers::wonder::WonderCount;
@@ -62,12 +61,16 @@ impl GameImpl of GameTrait {
         Game {
             id,
             over: false,
+            discarded: 0,
+            built: 0,
             tiles: 0,
             tile_count: 0,
             start_time: 0,
+            end_time: 0,
             score: 0,
             seed: 0,
             mode: mode.into(),
+            tournament_id: 0,
         }
     }
 
@@ -198,14 +201,8 @@ impl GameImpl of GameTrait {
         (self.tile_count, game_deck.plan(plan_id.into()))
     }
 
-    fn assess(
-        ref self: Game, tile: Tile, ref store: Store
-    ) -> (Array<ScoredCity>, Array<ScoredRoad>, Array<ScoredForest>, Array<ScoredWonder>) {
+    fn assess(ref self: Game, tile: Tile, ref store: Store) {
         // [Compute] Setup recursion
-        let mut scored_cities: Array<ScoredCity> = ArrayTrait::new();
-        let mut scored_roads: Array<ScoredRoad> = ArrayTrait::new();
-        let mut scored_forests: Array<ScoredForest> = ArrayTrait::new();
-        let mut scored_wonders: Array<ScoredWonder> = ArrayTrait::new();
         let layout: Layout = tile.into();
         let mut north_oriented_starts = tile.north_oriented_starts();
         loop {
@@ -217,17 +214,7 @@ impl GameImpl of GameTrait {
                     let tile = store.tile(self, tile.id);
                     let start = north_oriented_start.rotate(tile.orientation.into());
                     let category: Category = layout.get_category(start);
-                    self
-                        .assess_at(
-                            tile,
-                            start,
-                            category,
-                            ref scored_cities,
-                            ref scored_roads,
-                            ref scored_forests,
-                            ref scored_wonders,
-                            ref store
-                        );
+                    self.assess_at(tile, start, category, ref store);
                 },
                 // [Check] Otherwise returns the characters
                 Option::None => { break; },
@@ -243,38 +230,17 @@ impl GameImpl of GameTrait {
                     let start = neighbor.north_oriented_wonder();
                     // [Check] Skip if there is no wonder
                     if start != Spot::None {
-                        self
-                            .assess_at(
-                                neighbor,
-                                start,
-                                Category::Wonder,
-                                ref scored_cities,
-                                ref scored_roads,
-                                ref scored_forests,
-                                ref scored_wonders,
-                                ref store
-                            );
+                        self.assess_at(neighbor, start, Category::Wonder, ref store);
                     };
                 },
                 // [Check] Otherwise returns the characters
                 Option::None => { break; },
             };
         };
-        (scored_cities, scored_roads, scored_forests, scored_wonders)
     }
 
     #[inline(always)]
-    fn assess_at(
-        ref self: Game,
-        tile: Tile,
-        at: Spot,
-        category: Category,
-        ref scored_cities: Array<ScoredCity>,
-        ref scored_roads: Array<ScoredRoad>,
-        ref scored_forests: Array<ScoredForest>,
-        ref scored_wonders: Array<ScoredWonder>,
-        ref store: Store
-    ) {
+    fn assess_at(ref self: Game, tile: Tile, at: Spot, category: Category, ref store: Store) {
         // [Compute] Assess the spot
         let base = category.base_points();
         match category {
@@ -285,14 +251,7 @@ impl GameImpl of GameTrait {
                 // [Effect] Solve and collect characters
                 if 0 != count.into() && 0 != characters.len().into() {
                     GenericCount::solve(
-                        ref self,
-                        Category::Road,
-                        count,
-                        base,
-                        ref characters,
-                        ref scored_cities,
-                        ref scored_roads,
-                        ref store
+                        ref self, Category::Road, count, base, ref characters, ref store
                     );
                 }
             },
@@ -301,14 +260,7 @@ impl GameImpl of GameTrait {
                 // [Effect] Solve and collect characters
                 if 0 != count.into() && 0 != characters.len().into() {
                     GenericCount::solve(
-                        ref self,
-                        Category::City,
-                        count,
-                        base,
-                        ref characters,
-                        ref scored_cities,
-                        ref scored_roads,
-                        ref store
+                        ref self, Category::City, count, base, ref characters, ref store
                     );
                 }
             },
@@ -316,9 +268,7 @@ impl GameImpl of GameTrait {
                 let (count, mut character) = WonderCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect the character
                 if 0 != count.into() {
-                    WonderCount::solve(
-                        ref self, base, ref character, ref scored_wonders, ref store
-                    );
+                    WonderCount::solve(ref self, base, ref character, ref store);
                 }
             },
             _ => { return; },
@@ -330,7 +280,18 @@ impl ZeroableGame of core::Zeroable<Game> {
     #[inline(always)]
     fn zero() -> Game {
         Game {
-            id: 0, over: false, tiles: 0, tile_count: 0, start_time: 0, score: 0, seed: 0, mode: 0
+            id: 0,
+            over: false,
+            discarded: 0,
+            built: 0,
+            tiles: 0,
+            tile_count: 0,
+            start_time: 0,
+            end_time: 0,
+            score: 0,
+            seed: 0,
+            mode: 0,
+            tournament_id: 0
         }
     }
 

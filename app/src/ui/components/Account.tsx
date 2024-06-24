@@ -43,7 +43,7 @@ export const Account = () => {
         </Tooltip>
       </TooltipProvider>
 
-      <Select onValueChange={(value) => select(value)} value={account.address}>
+      <Select onValueChange={(value) => select(value)} value={account?.address}>
         <SelectTrigger>
           <SelectValue placeholder="Select Addr" />
         </SelectTrigger>
@@ -52,8 +52,8 @@ export const Account = () => {
             {list().map((account, index) => {
               return (
                 <div key={index} className="flex">
-                  <SelectItem value={account.address}>
-                    {shortenHex(account.address)}
+                  <SelectItem value={account?.address}>
+                    {shortenHex(account?.address)}
                   </SelectItem>
                 </div>
               );
