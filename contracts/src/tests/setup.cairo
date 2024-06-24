@@ -1,10 +1,3 @@
-// Traits
-
-#[starknet::interface]
-trait IDojoInit {
-    fn dojo_init(token_address: starknet::ContractAddress);
-}
-
 mod setup {
     // Core imports
 
@@ -35,10 +28,6 @@ mod setup {
     use paved::systems::account::{account, IAccountDispatcher, IAccountDispatcherTrait};
     use paved::systems::daily::{daily, IDailyDispatcher, IDailyDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
-
-    // Local imports
-
-    use super::{IDojoInitDispatcher};
 
     // Constants
 
@@ -125,8 +114,16 @@ mod setup {
         let erc20 = deploy_erc20();
 
         // [Setup] SystemsDrop
-        let account_address = deploy_contract(account::TEST_CLASS_HASH, array![].span());
-        let daily_address = deploy_contract(daily::TEST_CLASS_HASH, array![].span());
+        let account_calldata: Array<felt252> = array![];
+        let account_address = world
+            .deploy_contract(
+                'account', account::TEST_CLASS_HASH.try_into().unwrap(), account_calldata.span()
+            );
+        let daily_calldata: Array<felt252> = array![constants::TOKEN_ADDRESS().into(),];
+        let daily_address = world
+            .deploy_contract(
+                'daily', daily::TEST_CLASS_HASH.try_into().unwrap(), daily_calldata.span()
+            );
         let systems = Systems {
             account: IAccountDispatcher { contract_address: account_address },
             daily: IDailyDispatcher { contract_address: daily_address },

@@ -84,10 +84,10 @@ mod systems {
 
 #[cfg(test)]
 mod tests {
-    // mod setup;
-    // mod ranked;
-    // mod discard;
-    // mod build;
+    mod setup;
+    mod ranked;
+    mod discard;
+    mod build;
     // mod cases;
 
     mod mocks {
