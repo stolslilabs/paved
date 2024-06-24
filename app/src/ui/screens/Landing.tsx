@@ -20,7 +20,7 @@ export const Landing = () => {
 
   const [loading, setLoading] = useState(false);
   return (
-    <>
+    <div className="h-screen w-screen">
       <div className="fixed h-full w-full z-0">
         <BoxRainScene />
       </div>
@@ -44,7 +44,7 @@ export const Landing = () => {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
@@ -61,7 +61,7 @@ export const Play = ({ player }: { player: ComponentValue }) => {
 
   const handleClick = () => {
     if (disabled) return;
-    navigate("/game", { replace: true });
+    navigate("/", { replace: true });
   };
 
   return (

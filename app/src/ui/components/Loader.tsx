@@ -1,4 +1,4 @@
-export const Loader = ({ color = "#FFFFFF" }: { color?: string }) => {
+export const Loader = () => {
   return (
     <svg
       width="58"
@@ -7,7 +7,7 @@ export const Loader = ({ color = "#FFFFFF" }: { color?: string }) => {
       xmlns="http://www.w3.org/2000/svg"
     >
       <g fill="none" fill-rule="evenodd">
-        <g transform="translate(2 1)" stroke="#FFF" stroke-width="1.5">
+        <g transform="translate(2 1)" stroke="#FFF" strokeWidth="1.5">
           <circle cx="42.601" cy="11.462" r="5" fill-opacity="1" fill="#fff">
             <animate
               attributeName="fill-opacity"

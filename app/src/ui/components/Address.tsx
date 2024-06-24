@@ -24,22 +24,21 @@ export function Address() {
   const {
     account: { account },
   } = useDojo();
-  const { data } = useStarkProfile({ address: account.address });
-  const [isCopied, setCopied] = useClipboard(account.address || "");
+
+  const { data } = useStarkProfile({ address: account?.address });
+  const [isCopied, setCopied] = useClipboard(account?.address || "");
 
   const starknetId = useMemo(() => {
     if (data !== undefined) {
       return data.name;
     }
-    return account.address;
+    return account?.address;
   }, [account, data]);
-
-  console.log("address", account.address);
 
   return (
     <div className="flex justify-center items-center gap-3 text-xs">
       <Button className="px-4" size={"sm"} onClick={() => setCopied()}>
-        {minifyAddressOrStarknetId(account.address, starknetId)}
+        {minifyAddressOrStarknetId(account?.address, starknetId)}
         {isCopied ? " (copied)" : ""}
       </Button>
       <Button className="px-4" size={"sm"} variant={"default"}>

@@ -1,6 +1,7 @@
 import { useContext } from "react";
 import { DojoContext } from "./context";
 import { useAccount } from "@starknet-react/core";
+import { Account } from "starknet";
 
 export const useDojo = () => {
   const { account } = useAccount();
@@ -10,6 +11,6 @@ export const useDojo = () => {
 
   return {
     setup: context,
-    account: context.account,
+    account: { account: account as Account }, // context.account,
   };
 };

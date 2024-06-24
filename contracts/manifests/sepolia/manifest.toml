@@ -1,16 +1,16 @@
 [world]
 kind = "WorldContract"
-class_hash = "0xf6f44afb3cacbcc01a371aff62c86ca9a45feba065424c99f7cd8637514d8f"
-original_class_hash = "0xf6f44afb3cacbcc01a371aff62c86ca9a45feba065424c99f7cd8637514d8f"
+class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
+original_class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
 abi = "manifests/sepolia/abis/deployments/dojo_world_world.json"
-address = "0x12ca73448f9ea78a47d5fb8b34b92a6341dd8a95ea3f313ec2566915e30b317"
-transaction_hash = "0x3238e2ec74a3bafff7761e1817fd3cfcbf05fea4abe7308ba1f0b5d02a4da7a"
-seed = "paved-v9"
+address = "0x1f2ef7f19611458fac12624483eef613d1ad2660e8aea5969a678ddc25df0c2"
+transaction_hash = "0x28d9795d592f117730a22fd628e226ce94683e8d572669a0f68e0878198e22f"
+seed = "paved-v10"
 name = "dojo::world::world"
 
 [world.metadata]
 profile_name = "sepolia"
-rpc_url = "https://free-rpc.nethermind.io/sepolia-juno/v0_6"
+rpc_url = "https://free-rpc.nethermind.io/sepolia-juno/v0_7"
 
 [base]
 kind = "Class"
@@ -20,28 +20,46 @@ name = "dojo::base::base"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x2c71f5c94c56ef8f907c4c27e3848eeea29a435e1ddc054c613bc2c9ae3e7d1"
-class_hash = "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b"
-original_class_hash = "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b"
+address = "0xb625f70cb5e562d33938cbb251b97c3758aad52f74b13bf9faec2861dae984"
+class_hash = "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6"
+original_class_hash = "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6"
 base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
 abi = "manifests/sepolia/abis/deployments/contracts/paved_systems_account_account.json"
 reads = []
-writes = []
+writes = [
+    "Game",
+    "Builder",
+    "Player",
+    "Tile",
+    "TilePosition",
+    "Character",
+    "CharacterPosition",
+    "Tournament",
+]
 computed = []
 init_calldata = []
 name = "paved::systems::account::account"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x13f2d36c354cf679218c38753a0e7210c4b868452b57c42265f709b79c60650"
-class_hash = "0x691a9010efcc3576c9ea4ef772d01c54143d18098655e7653180c3a99efa293"
-original_class_hash = "0x691a9010efcc3576c9ea4ef772d01c54143d18098655e7653180c3a99efa293"
+address = "0x3b470d8557918ad70a30f65baef814d322ab288813fb448c81a72f1efa7cbe4"
+class_hash = "0x3324295eca593cc31d97770523b9be5059736af54ca4eda08b9a8fa4aeccc86"
+original_class_hash = "0x3324295eca593cc31d97770523b9be5059736af54ca4eda08b9a8fa4aeccc86"
 base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
 abi = "manifests/sepolia/abis/deployments/contracts/paved_systems_daily_daily.json"
 reads = []
-writes = []
+writes = [
+    "Game",
+    "Builder",
+    "Player",
+    "Tile",
+    "TilePosition",
+    "Character",
+    "CharacterPosition",
+    "Tournament",
+]
 computed = []
-init_calldata = []
+init_calldata = ["0x044e6bcc627e6201ce09f781d1aae44ea4c21c2fdef299e34fce55bef2d02210"]
 name = "paved::systems::daily::daily"
 
 [[models]]
@@ -147,8 +165,8 @@ key = false
 
 [[models]]
 kind = "DojoModel"
-class_hash = "0xb2bd4519986971b4ca124641887e7c6d2121622c52fa86dca224b19e327cd5"
-original_class_hash = "0xb2bd4519986971b4ca124641887e7c6d2121622c52fa86dca224b19e327cd5"
+class_hash = "0x3c0fb77988190fac9807592f54b3d956457fa1af9e66f3257885c39a4946aa4"
+original_class_hash = "0x3c0fb77988190fac9807592f54b3d956457fa1af9e66f3257885c39a4946aa4"
 abi = "manifests/sepolia/abis/deployments/models/paved_models_index_game.json"
 name = "paved::models::index::game"
 
@@ -160,6 +178,16 @@ key = true
 [[models.members]]
 name = "over"
 type = "bool"
+key = false
+
+[[models.members]]
+name = "discarded"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "built"
+type = "u8"
 key = false
 
 [[models.members]]
@@ -178,6 +206,11 @@ type = "u64"
 key = false
 
 [[models.members]]
+name = "end_time"
+type = "u64"
+key = false
+
+[[models.members]]
 name = "score"
 type = "u32"
 key = false
@@ -192,10 +225,15 @@ name = "mode"
 type = "u8"
 key = false
 
+[[models.members]]
+name = "tournament_id"
+type = "u64"
+key = false
+
 [[models]]
 kind = "DojoModel"
-class_hash = "0x17e45c9c4cd654c8b424ec087eb6d09953f6a7ad2a7737e54e17e0896e05786"
-original_class_hash = "0x17e45c9c4cd654c8b424ec087eb6d09953f6a7ad2a7737e54e17e0896e05786"
+class_hash = "0x6d656d9758d04dd45de9bfdb839d88f85a6ee61f983f2a147abfbb5892e5bb7"
+original_class_hash = "0x6d656d9758d04dd45de9bfdb839d88f85a6ee61f983f2a147abfbb5892e5bb7"
 abi = "manifests/sepolia/abis/deployments/models/paved_models_index_player.json"
 name = "paved::models::index::player"
 
@@ -207,16 +245,6 @@ key = true
 [[models.members]]
 name = "name"
 type = "felt252"
-key = false
-
-[[models.members]]
-name = "score"
-type = "u32"
-key = false
-
-[[models.members]]
-name = "paved"
-type = "u32"
 key = false
 
 [[models.members]]

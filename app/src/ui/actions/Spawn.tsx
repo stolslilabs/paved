@@ -54,7 +54,7 @@ export const Spawn = ({
       await create_player({
         account: account as Account,
         name: playerName,
-        master: account.address,
+        master: account?.address,
       });
     }
   };

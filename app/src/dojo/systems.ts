@@ -167,7 +167,7 @@ export function systems({
   const build = async ({ account, mode, ...props }: SystemTypes.Build) => {
     const buidlerKey = getEntityIdFromKeys([
       BigInt(props.game_id),
-      BigInt(account.address),
+      BigInt(account?.address),
     ]) as Entity;
 
     const builderId = uuid();
@@ -175,7 +175,7 @@ export function systems({
       entity: buidlerKey,
       value: {
         game_id: props.game_id,
-        player_id: BigInt(account.address),
+        player_id: BigInt(account?.address),
         tile_id: 0,
       },
     });
@@ -191,7 +191,7 @@ export function systems({
       value: {
         game_id: props.game_id,
         id: props.tile_id,
-        player_id: BigInt(account.address),
+        player_id: BigInt(account?.address),
         orientation: props.orientation,
         x: props.x,
         y: props.y,

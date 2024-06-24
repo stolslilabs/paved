@@ -109,7 +109,7 @@ export const TournamentHeader = ({ mode }: { mode: Mode }) => {
 export const TournamentDialog = ({ mode }: { mode: Mode }) => {
   return (
     <Dialog>
-      <DialogTrigger>
+      <DialogTrigger asChild>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -303,7 +303,7 @@ export const GameRow = ({
 
   const isSelf = useMemo(() => {
     if (!player || !account) return false;
-    return player.id === account.address;
+    return player.id === account?.address;
   }, [player, account]);
 
   return (
