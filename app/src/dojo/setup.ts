@@ -1,7 +1,6 @@
 import { getSyncEntities } from "@dojoengine/state";
 import * as torii from "@dojoengine/torii-client";
 import { models } from "./models.ts";
-import { createCustomEvents } from "./events.ts";
 import { systems } from "./systems.ts";
 
 import { defineContractComponents } from "./generated/contractModels";
@@ -29,11 +28,13 @@ export async function setup({ ...config }: Config) {
   // create client components
   const clientModels = models({ contractModels });
 
-  // create event subscriptions
-  const contractEvents = await createCustomEvents(config.toriiUrl);
-
   // fetch all existing entities from torii
-  await getSyncEntities(toriiClient, contractModels as any, [], 1000);
+  const sync = await getSyncEntities(
+    toriiClient,
+    contractModels as any,
+    [],
+    1000,
+  );
 
   const client = await setupWorld(
     new DojoProvider(config.manifest, config.rpcUrl),
@@ -56,17 +57,24 @@ export async function setup({ ...config }: Config) {
     rpcProvider,
   });
 
-  await burnerManager.init();
+  try {
+    await burnerManager.init();
+    if (burnerManager.list().length === 0) {
+      await burnerManager.create();
+    }
+  } catch (e) {
+    console.error(e);
+  }
 
   return {
     client,
     clientModels,
     contractComponents: clientModels,
-    contractEvents,
     systemCalls: systems({ client, clientModels }),
     config,
     world,
     burnerManager,
     rpcProvider,
+    sync,
   };
 }

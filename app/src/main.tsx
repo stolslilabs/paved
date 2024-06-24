@@ -24,7 +24,7 @@ function Main() {
     }
 
     initialize();
-    setTimeout(() => setReady(true), 5000);
+    setTimeout(() => setReady(true), 1000);
   }, []);
 
   if (!setupResult || !ready) return <GameLoading />;

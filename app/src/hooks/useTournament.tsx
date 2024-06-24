@@ -3,12 +3,13 @@ import { useMemo } from "react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useComponentValue } from "@dojoengine/react";
 import { Entity } from "@dojoengine/recs";
+import { Tournament } from "@/dojo/game/models/tournament";
 
 export const useTournament = ({
   tournamentId,
 }: {
   tournamentId: number | undefined;
-}) => {
+}): { tournament: Tournament | null; tournamentKey: Entity } => {
   const {
     setup: {
       clientModels: {

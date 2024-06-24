@@ -1,21 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { LeaderboardDialog } from "../components/Leaderboard";
-import { Surrender } from "../components/Surrender";
-import { Log } from "../components/Log";
+import { Surrender } from "../actions/Surrender";
 import { Compass } from "../components/Compass";
-import {
-  faBinoculars,
-  faHome,
-  faUpRightFromSquare,
-} from "@fortawesome/free-solid-svg-icons";
 import { ToolTipButton } from "../components/ToolTipButton";
 import { useNavigate } from "react-router-dom";
 import { useCameraStore, useUIStore } from "@/store";
 import { motion } from "framer-motion";
 import { SettingsDialog } from "../components/Settings";
-import Expand from "@/ui/icons/EXPAND.svg?react";
-import Home from "@/ui/icons/HOME.svg?react";
-import Cancel from "@/ui/icons/CANCEL.svg?react";
+import expand from "/assets/icons/EXPAND.svg";
+import home from "/assets/icons/HOME.svg";
+import cancel from "/assets/icons/CANCEL.svg";
 import useSound from "use-sound";
 import { tracks } from "@/hooks/useMusic";
 
@@ -76,7 +70,7 @@ export const Actions = () => {
           >
             <ToolTipButton
               onClick={() => navigate("", { replace: true })}
-              icon={<Home className="sm:h-4 md:h-8 fill-current" />}
+              icon={<img src={home} className="sm:h-4 md:h-8 fill-current" />}
               toolTipText="Home page"
             />
           </motion.div>
@@ -94,7 +88,8 @@ export const Actions = () => {
             <ToolTipButton
               onClick={() => setIsExpanded(!isExpanded)}
               icon={
-                <Expand
+                <img
+                  src={expand}
                   className={`sm:h-4  md:h-8 fill-current duration-300  ${isExpanded ? "rotate-180" : ""}`}
                 />
               }
@@ -109,7 +104,7 @@ export const Actions = () => {
           >
             <ToolTipButton
               onClick={() => setReset(true)}
-              icon={<Cancel className="sm:h-4 md:h-8 fill-current" />}
+              icon={<img src={cancel} className="sm:h-4 md:h-8 fill-current" />}
               toolTipText="Reset view"
             />
           </motion.div>
@@ -120,20 +115,6 @@ export const Actions = () => {
           >
             <Compass />
           </motion.div>
-          <motion.div
-            initial={{ opacity: 0, x: -100 }}
-            animate={{ opacity: isExpanded ? 1 : 0, x: isExpanded ? 0 : -100 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Log />
-          </motion.div>
-          {/* <motion.div
-            initial={{ opacity: 0, x: -100 }}
-            animate={{ opacity: isExpanded ? 1 : 0, x: isExpanded ? 0 : -100 }}
-            transition={{ duration: 0.4 }}
-          >
-            <Log />
-          </motion.div> */}
         </div>
       </div>
     </div>

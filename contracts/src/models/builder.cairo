@@ -61,7 +61,7 @@ impl BuilderImpl of BuilderTrait {
     }
 
     #[inline(always)]
-    fn discard(ref self: Builder, ref game: Game) -> u32 {
+    fn discard(ref self: Builder, ref game: Game) {
         // [Check] Have a tile to place
         self.assert_discardable();
         // [Effect] Substract penalty
@@ -69,7 +69,6 @@ impl BuilderImpl of BuilderTrait {
         game.sub_score(ref malus,);
         // [Effect] Remove tile from tile count
         self.tile_id = 0;
-        malus
     }
 
     #[inline(always)]

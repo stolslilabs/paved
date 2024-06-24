@@ -1,18 +1,9 @@
-import {
-  useCallback,
-  useMemo,
-  useState,
-  createContext,
-  useContext,
-  useEffect,
-} from "react";
+import { useCallback, useEffect } from "react";
 
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useGameStore, useUIStore } from "@/store";
 import { useDojo } from "@/dojo/useDojo";
 import { useBuilder } from "./useBuilder";
-import { Account } from "starknet";
-import { useAccount } from "@starknet-react/core";
 import { useGame } from "./useGame";
 import { useActionsStore } from "@/store";
 import useSound from "use-sound";
@@ -38,13 +29,9 @@ export const useActions = () => {
     valid,
   } = useGameStore();
   const [play, { stop }] = useSound(Click);
-
   const [playPoints] = useSound(Points);
-
-  // const { account } = useAccount();
   const { game } = useGame({ gameId });
   const { disabled, setDisabled, enabled, setEnabled } = useActionsStore();
-  // const [isWaiting, setIsWaiting] = useState(false);
 
   const loading = useUIStore((state) => state.loading);
   const setLoading = useUIStore((state) => state.setLoading);
@@ -52,7 +39,7 @@ export const useActions = () => {
   const {
     account: { account },
     setup: {
-      systemCalls: { build },
+      systemCalls: { build, discard, surrender },
     },
   } = useDojo();
 
@@ -64,13 +51,13 @@ export const useActions = () => {
     setEnabled(!loading && !!builder?.tile_id);
   }, [game, builder, selectedTile, valid, loading]);
 
-  const handleClick = useCallback(async () => {
+  const handleConfirm = useCallback(async () => {
     if (game && builder?.tile_id) {
       setLoading(true);
       play();
       try {
         await build({
-          account: account as Account,
+          account: account,
           mode: game.mode,
           game_id: gameId,
           tile_id: builder.tile_id,
@@ -96,8 +83,37 @@ export const useActions = () => {
     }
   }, [game, builder, account, gameId, orientation, x, y, character, spot]);
 
+  const handleDiscard = useCallback(async () => {
+    if (game) {
+      setLoading(true);
+      play();
+      await discard({
+        account: account,
+        mode: game.mode,
+        game_id: game.id,
+      });
+      setLoading(false);
+      playPoints();
+    }
+  }, [game, account]);
+
+  const handleSurrender = useCallback(async () => {
+    if (game && account) {
+      setLoading(true);
+      play();
+      await surrender({
+        account: account,
+        mode: game.mode,
+        game_id: game.id,
+      });
+      setLoading(false);
+    }
+  }, [game, account]);
+
   return {
-    handleClick,
+    handleConfirm,
+    handleDiscard,
+    handleSurrender,
     disabled,
     enabled,
     builder,

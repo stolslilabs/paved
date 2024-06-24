@@ -4,12 +4,16 @@ struct Game {
     #[key]
     id: u32,
     over: bool,
+    discarded: u8,
+    built: u8,
     tiles: u128,
     tile_count: u32,
     start_time: u64,
+    end_time: u64,
     score: u32,
     seed: felt252,
     mode: u8,
+    tournament_id: u64,
 }
 
 #[dojo::model]
@@ -18,8 +22,6 @@ struct Player {
     #[key]
     id: felt252,
     name: felt252,
-    score: u32,
-    paved: u32,
     master: felt252,
 }
 

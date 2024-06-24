@@ -5,8 +5,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { IconDefinition } from "@fortawesome/free-solid-svg-icons";
 import { ReactElement } from "react";
 
 export const ToolTipButton = ({
@@ -31,8 +29,6 @@ export const ToolTipButton = ({
             onClick={onClick}
           >
             {icon}
-
-            {/* <FontAwesomeIcon color="" className="sm:h-4 md:h-8" icon={icon} /> */}
           </Button>
         </TooltipTrigger>
         <TooltipContent>

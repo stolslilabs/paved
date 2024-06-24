@@ -123,7 +123,7 @@ mod daily {
             let (game_id, amount) = self.hostable._spawn(world, Mode::Daily);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
-            self.payable._pay(caller, amount);
+            // self.payable._pay(caller, amount);
             // [Return] Game ID
             game_id
         }
@@ -133,7 +133,7 @@ mod daily {
             let reward = self.hostable._claim(world, tournament_id, rank, Mode::Daily);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
-            self.payable._refund(caller, reward);
+        // self.payable._refund(caller, reward);
         }
 
         fn sponsor(ref world: IWorldDispatcher, amount: felt252) {
@@ -141,7 +141,7 @@ mod daily {
             let amount = self.hostable._sponsor(world, amount, Mode::Daily);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
-            self.payable._pay(caller, amount);
+        // self.payable._pay(caller, amount);
         }
 
         fn discard(ref world: IWorldDispatcher, game_id: u32) {

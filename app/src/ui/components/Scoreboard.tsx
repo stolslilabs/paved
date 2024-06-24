@@ -1,7 +1,6 @@
 import { Table, TableBody, TableCell, TableRow } from "@/ui/elements/table";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { getColor } from "@/dojo/game";
-import { useLogs } from "@/hooks/useLogs";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFire, faHammer } from "@fortawesome/free-solid-svg-icons";
 import { usePlayer } from "@/hooks/usePlayer";
@@ -9,11 +8,11 @@ import { useAccount } from "@starknet-react/core";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useGame } from "@/hooks/useGame";
 import { useDojo } from "@/dojo/useDojo";
+import { Builder } from "@/dojo/game/models/builder";
+import { Game } from "@/dojo/game/models/game";
 
 export const Scoreboard = () => {
   const { gameId } = useQueryParams();
-  const { logs } = useLogs();
-  // const { account } = useAccount();
   const {
     account: { account },
   } = useDojo();
@@ -33,8 +32,8 @@ export const Scoreboard = () => {
             builder={builder}
             rank={1}
             score={game?.score || 0}
-            builts={logs.filter((log) => log.category === "Built")}
-            discardeds={logs.filter((log) => log.category === "Discarded")}
+            built={game?.built || 0}
+            discarded={game?.discarded || 0}
           />
         </TableBody>
       </Table>
@@ -46,30 +45,23 @@ export const PlayerRow = ({
   builder,
   rank,
   score,
-  builts,
-  discardeds,
+  built,
+  discarded,
 }: {
-  game: any;
-  builder: any;
+  game: Game;
+  builder: Builder;
   rank: number;
   score: number;
-  builts: any;
-  discardeds: any;
+  built: number;
+  discarded: number;
 }) => {
   const { player } = usePlayer({
-    playerId: `0x${builder.player_id.toString(16)}`,
+    playerId: builder.player_id,
   });
 
-  const address = `0x${builder.player_id.toString(16)}`;
+  const address = builder.player_id;
   const backgroundColor = getColor(address);
 
-  // Color is used to filter on builder since we don't have the player id in the event
-  const paved = builts.filter(
-    (log: any) => log.color === backgroundColor,
-  ).length;
-  const discarded = discardeds.filter(
-    (log: any) => log.color === backgroundColor,
-  ).length;
   return (
     <TableRow>
       <TableCell className="">{`#${rank}`}</TableCell>
@@ -80,7 +72,7 @@ export const PlayerRow = ({
       <TableCell className="flex text-right">
         <p>{score}</p>
         <FontAwesomeIcon className="mx-2" icon={faHammer} />
-        <p>{`${paved + 1}/${game.mode.count()}`}</p>
+        <p>{`${built + 1}/${game.mode.count()}`}</p>
         <FontAwesomeIcon className="text-orange-500 mx-2" icon={faFire} />
         <p>{discarded}</p>
       </TableCell>

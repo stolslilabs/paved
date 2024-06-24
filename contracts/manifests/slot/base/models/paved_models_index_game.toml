@@ -1,6 +1,6 @@
 kind = "DojoModel"
-class_hash = "0xb2bd4519986971b4ca124641887e7c6d2121622c52fa86dca224b19e327cd5"
-original_class_hash = "0xb2bd4519986971b4ca124641887e7c6d2121622c52fa86dca224b19e327cd5"
+class_hash = "0x3c0fb77988190fac9807592f54b3d956457fa1af9e66f3257885c39a4946aa4"
+original_class_hash = "0x3c0fb77988190fac9807592f54b3d956457fa1af9e66f3257885c39a4946aa4"
 abi = "manifests/slot/abis/base/models/paved_models_index_game.json"
 name = "paved::models::index::game"
 
@@ -12,6 +12,16 @@ key = true
 [[members]]
 name = "over"
 type = "bool"
+key = false
+
+[[members]]
+name = "discarded"
+type = "u8"
+key = false
+
+[[members]]
+name = "built"
+type = "u8"
 key = false
 
 [[members]]
@@ -30,6 +40,11 @@ type = "u64"
 key = false
 
 [[members]]
+name = "end_time"
+type = "u64"
+key = false
+
+[[members]]
 name = "score"
 type = "u32"
 key = false
@@ -42,4 +57,9 @@ key = false
 [[members]]
 name = "mode"
 type = "u8"
+key = false
+
+[[members]]
+name = "tournament_id"
+type = "u64"
 key = false

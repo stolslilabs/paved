@@ -8,7 +8,7 @@ export class Builder {
 
   constructor(builder: ComponentValue) {
     this.game_id = builder.game_id;
-    this.player_id = builder.player_id;
+    this.player_id = `0x${builder.player_id.toString(16).replace("0x", "")}`;
     this.tile_id = builder.tile_id;
     this.characters = builder.characters;
   }

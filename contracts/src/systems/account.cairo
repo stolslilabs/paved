@@ -4,9 +4,7 @@ use starknet::ContractAddress;
 
 #[dojo::interface]
 trait IAccount {
-    fn create(
-        ref world: IWorldDispatcher, name: felt252, master: ContractAddress
-    );
+    fn create(ref world: IWorldDispatcher, name: felt252, master: ContractAddress);
 }
 
 #[dojo::contract]
@@ -72,9 +70,7 @@ mod account {
 
     #[abi(embed_v0)]
     impl AccountImpl of IAccount<ContractState> {
-        fn create(
-            ref world: IWorldDispatcher, name: felt252, master: ContractAddress
-        ) {
+        fn create(ref world: IWorldDispatcher, name: felt252, master: ContractAddress) {
             // [Effect] Create a player
             self.manageable._create(world, name, master);
         }

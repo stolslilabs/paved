@@ -2,9 +2,14 @@ import { useEffect, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
 import { getComponentValue, Has, HasValue } from "@dojoengine/recs";
 import { useEntityQuery } from "@dojoengine/react";
+import { Builder } from "@/dojo/game/models/builder";
 
-export const useBuilders = ({ gameId }: { gameId: number }) => {
-  const [builders, setBuilders] = useState<any[]>([]);
+export const useBuilders = ({
+  gameId,
+}: {
+  gameId: number;
+}): { builders: Builder[] } => {
+  const [builders, setBuilders] = useState<any>({});
 
   const {
     setup: {
@@ -15,26 +20,31 @@ export const useBuilders = ({ gameId }: { gameId: number }) => {
     },
   } = useDojo();
 
-  const createBuilderAndSet = (builder: any) => {
-    // Update the builders
-    setBuilders([...builders, builder]);
-  };
-
   const builderKeys = useEntityQuery([
     Has(Builder),
     HasValue(Builder, { game_id: gameId }),
   ]);
 
   useEffect(() => {
-    builderKeys.forEach((entity) => {
-      const builder = getComponentValue(Builder, entity);
-
-      if (!builder) {
-        return;
+    const components = builderKeys.map((entity) => {
+      const component = getComponentValue(Builder, entity);
+      if (!component) {
+        return undefined;
       }
-
-      createBuilderAndSet(new BuilderClass(builder));
+      return new BuilderClass(component);
     });
+
+    const objectified = components.reduce(
+      (obj: any, builder: Builder | undefined) => {
+        if (builder) {
+          obj[builder.game_id] = builder;
+        }
+        return obj;
+      },
+      {},
+    );
+
+    setBuilders(objectified);
   }, [builderKeys]);
 
   return { builders: Object.values(builders) };

@@ -4,12 +4,9 @@ import { useMemo } from "react";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { useDojo } from "@/dojo/useDojo";
 import { useBuilder } from "@/hooks/useBuilder";
-import { useAccount } from "@starknet-react/core";
 
 export const Characters = () => {
   const { gameId } = useQueryParams();
-  // const { account } = useAccount();
-
   const {
     account: { account },
   } = useDojo();

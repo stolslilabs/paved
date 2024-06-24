@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   offset,
-  getCharacterImage,
   getCharacterFromIndex,
   getIndexFromCharacter,
   getRole,
@@ -20,17 +19,15 @@ import {
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useTile } from "@/hooks/useTile";
-import { useAccount } from "@starknet-react/core";
 import { useDojo } from "@/dojo/useDojo";
-import useSound from "use-sound";
-import onCharacterClick from "/sounds/onCharacterClick.wav";
-import Pilgrim from "@/ui/icons/pilgrim.svg?react";
-import Lord from "@/ui/icons/lord.svg?react";
-import Lady from "@/ui/icons/lady.svg?react";
-import Adventurer from "@/ui/icons/adventurer.svg?react";
-import Paladin from "@/ui/icons/paladin.svg?react";
-import Woodsman from "@/ui/icons/woodsman.svg?react";
-import Herdsman from "@/ui/icons/herdsman.svg?react";
+
+import pilgrim from "/assets/icons/pilgrim.svg";
+import lord from "/assets/icons/lord.svg";
+import lady from "/assets/icons/lady.svg";
+import adventurer from "/assets/icons/adventurer.svg";
+import paladin from "/assets/icons/paladin.svg";
+import woodsman from "/assets/icons/woodsman.svg";
+import herdsman from "/assets/icons/herdsman.svg";
 
 interface TProps {
   index: number;
@@ -38,13 +35,11 @@ interface TProps {
 }
 
 export const Character = (props: TProps) => {
-  const [play, { stop }] = useSound(onCharacterClick);
   const { gameId } = useQueryParams();
   const { index, enable } = props;
   const [selected, setSelected] = useState(false);
   const { character, setCharacter, resetCharacter, resetSpot } = useGameStore();
   const { setPosition } = useCameraStore();
-  // const { account } = useAccount();
   const {
     account: { account },
   } = useDojo();
@@ -59,10 +54,6 @@ export const Character = (props: TProps) => {
   useEffect(() => {
     setSelected(index === getIndexFromCharacter(character));
   }, [character]);
-
-  const image = useMemo(() => {
-    return getCharacterImage(index + 1);
-  }, [index]);
 
   const role = useMemo(() => {
     return getRole(index);
@@ -84,7 +75,6 @@ export const Character = (props: TProps) => {
           resetCharacter();
           resetSpot();
         } else {
-          // play();
           setCharacter(getCharacterFromIndex(index));
         }
       } else if (tile) {
@@ -96,22 +86,26 @@ export const Character = (props: TProps) => {
   }, [index, character, enable, tile]);
 
   const characterIcons: { [key: number]: JSX.Element } = {
-    [Characters.Lord]: <Lord className="w-4 lg:w-6 fill-primary-foreground" />,
-    [Characters.Lady]: <Lady className="w-4 lg:w-6 fill-primary-foreground" />,
+    [Characters.Lord]: (
+      <img src={lord} className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Lady]: (
+      <img src={lady} className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
     [Characters.Adventurer]: (
-      <Adventurer className="w-4 lg:w-6 fill-primary-foreground" />
+      <img src={adventurer} className="w-4 lg:w-6 fill-primary-foreground" />
     ),
     [Characters.Paladin]: (
-      <Paladin className="w-4 lg:w-6 fill-primary-foreground" />
+      <img src={paladin} className="w-4 lg:w-6 fill-primary-foreground" />
     ),
     [Characters.Pilgrim]: (
-      <Pilgrim className="w-4 lg:w-6 fill-primary-foreground" />
+      <img src={pilgrim} className="w-4 lg:w-6 fill-primary-foreground" />
     ),
     [Characters.Woodsman]: (
-      <Woodsman className="w-4 lg:w-6 fill-primary-foreground" />
+      <img src={woodsman} className="w-4 lg:w-6 fill-primary-foreground" />
     ),
     [Characters.Herdsman]: (
-      <Herdsman className="w-4 lg:w-6 fill-primary-foreground" />
+      <img src={herdsman} className="w-4 lg:w-6 fill-primary-foreground" />
     ),
   };
 

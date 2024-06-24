@@ -14,7 +14,6 @@ import {
 import { useGame } from "@/hooks/useGame";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useTile } from "@/hooks/useTile";
-import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
 import { Loader } from "@/ui/components/Loader";
 import { useDojo } from "@/dojo/useDojo";
@@ -141,9 +140,6 @@ export const LoadingTile = () => {
             </div>
           </div>
         </TooltipTrigger>
-        {/* <TooltipContent>
-          <p className="select-none">Game is over</p>
-        </TooltipContent> */}
       </Tooltip>
     </TooltipProvider>
   );

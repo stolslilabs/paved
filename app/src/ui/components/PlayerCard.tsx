@@ -12,7 +12,7 @@ import { getAvatar } from "@/utils/avatar";
 import { getColor } from "@/dojo/game";
 import { usePlayerByKey } from "@/hooks/usePlayer";
 import { Lords } from "./Lords";
-import Adventurer from "@/ui/icons/adventurer.svg?react";
+import adventurer from "/assets/icons/adventurer.svg";
 
 export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   const [identifier, setIdentifier] = useState<string>("");
@@ -23,13 +23,11 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
 
   const address = useMemo(() => player?.master, [player]);
   const { data } = useStarkProfile({ address });
-  const { balance } = useBalance({ address: `0x${player?.id?.toString(16)}` });
+  const { balance } = useBalance({ address: player?.id });
 
   useEffect(() => {
     if (player) {
-      setIdentifier(
-        shortenHex(`0x${player.id.toString(16)}`).replace("...", ""),
-      );
+      setIdentifier(shortenHex(player.id).replace("...", ""));
       setPlayerName(player.name);
     } else {
       setIdentifier("");
@@ -49,7 +47,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
   return (
     <Card className="border">
       <div className="flex p-4 justify-center gap-8">
-        <Adventurer className="h-24 fill-primary" />
+        <img src={adventurer} className="h-24 fill-primary" />
         <div>
           <PlayerName playerName={playerName} />
           <PlayerInfo balance={balance} />

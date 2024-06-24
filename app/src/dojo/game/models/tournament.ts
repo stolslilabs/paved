@@ -1,5 +1,4 @@
 import { ComponentValue } from "@dojoengine/recs";
-import { TOURNAMENT_DURATION } from "../constants";
 import { Mode } from "../types/mode";
 
 export class Tournament {
@@ -18,9 +17,9 @@ export class Tournament {
   constructor(tournament: ComponentValue) {
     this.id = tournament.id;
     this.prize = tournament.prize;
-    this.top1_player_id = tournament.top1_player_id;
-    this.top2_player_id = tournament.top2_player_id;
-    this.top3_player_id = tournament.top3_player_id;
+    this.top1_player_id = `0x${tournament.top1_player_id.toString(16).replace("0x", "")}`;
+    this.top2_player_id = `0x${tournament.top2_player_id.toString(16).replace("0x", "")}`;
+    this.top3_player_id = `0x${tournament.top3_player_id.toString(16).replace("0x", "")}`;
     this.top1_score = tournament.top1_score;
     this.top2_score = tournament.top2_score;
     this.top3_score = tournament.top3_score;

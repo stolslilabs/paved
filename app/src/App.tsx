@@ -25,9 +25,9 @@ const { connectors } = getConnectors();
 
 function App() {
   const rpc = useCallback((_chain: Chain) => {
-    return { nodeUrl: import.meta.env.VITE_PUBLIC_NODE_URL, };
+    return { nodeUrl: import.meta.env.VITE_PUBLIC_NODE_URL };
   }, []);
-  
+
   return (
     <>
       <StarknetConfig

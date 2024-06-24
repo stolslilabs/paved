@@ -125,23 +125,23 @@ mod setup {
         set_contract_address(ANYONE());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
-        systems.account.create(world, ANYONE_NAME, ANYONE());
+        systems.account.create(ANYONE_NAME, ANYONE());
         set_contract_address(SOMEONE());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
-        systems.account.create(world, SOMEONE_NAME, SOMEONE());
+        systems.account.create(SOMEONE_NAME, SOMEONE());
         set_contract_address(NOONE());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
-        systems.account.create(world, NOONE_NAME, NOONE());
+        systems.account.create(NOONE_NAME, NOONE());
         set_contract_address(PLAYER());
         faucet.mint();
         erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
-        systems.account.create(world, PLAYER_NAME, PLAYER());
+        systems.account.create(PLAYER_NAME, PLAYER());
         let duration: u64 = 0;
 
         // [Setup] Game if mode is set
-        let game_id = systems.daily.spawn(world);
+        let game_id = systems.daily.spawn();
 
         let context = Context {
             player_id: PLAYER().into(),

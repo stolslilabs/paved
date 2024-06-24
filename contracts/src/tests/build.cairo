@@ -49,7 +49,7 @@ fn test_play_build_without_character() {
     let y = CENTER + 1;
     let role = Role::None;
     let spot = Spot::None;
-    systems.daily.build(world, context.game_id, orientation, x, y, role, spot);
+    systems.daily.build(context.game_id, orientation, x, y, role, spot);
 }
 
 #[test]
@@ -69,7 +69,7 @@ fn test_play_build_with_character() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
-    systems.daily.build(world, context.game_id, orientation, x, y, Role::Lord, Spot::South);
+    systems.daily.build(context.game_id, orientation, x, y, Role::Lord, Spot::South);
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn test_play_build_with_character_revert_not_idle() {
     let y = CENTER - 1;
     let role = Role::Lord;
     let spot = Spot::West;
-    systems.daily.build(world, context.game_id, orientation, x, y, role, spot);
+    systems.daily.build(context.game_id, orientation, x, y, role, spot);
 
     // [Draw & Build]
     let game = store.game(context.game_id);
@@ -103,7 +103,7 @@ fn test_play_build_with_character_revert_not_idle() {
     let y = CENTER - 1;
     let role = Role::Lady;
     let spot = Spot::East;
-    systems.daily.build(world, context.game_id, orientation, x, y, role, spot);
+    systems.daily.build(context.game_id, orientation, x, y, role, spot);
 }
 
 #[test]
@@ -125,7 +125,7 @@ fn test_play_build_complete_castle() {
     let y = CENTER + 1;
     let role = Role::Lord;
     let spot = Spot::South;
-    systems.daily.build(world, context.game_id, orientation, x, y, role, spot);
+    systems.daily.build(context.game_id, orientation, x, y, role, spot);
 
     // [Assert]
     let game = store.game(context.game_id);

@@ -6,7 +6,6 @@ use core::debug::PrintTrait;
 
 use paved::constants;
 use paved::store::{Store, StoreImpl};
-use paved::events::{ScoredCity, ScoredRoad};
 use paved::types::spot::Spot;
 use paved::types::area::Area;
 use paved::types::move::{Move, MoveImpl};
@@ -96,8 +95,6 @@ impl GenericCount of GenericCountTrait {
         count: u32,
         base_points: u32,
         ref characters: Array<Character>,
-        ref scored_cities: Array<ScoredCity>,
-        ref scored_roads: Array<ScoredRoad>,
         ref store: Store
     ) {
         // [Compute] Find the winner
@@ -155,30 +152,6 @@ impl GenericCount of GenericCountTrait {
             let power = powers.get(winner);
             let (num, den) = compute_multiplier(count);
             let points = count * base_points * power * num / den;
-
-            // [Build] Events
-            if category == Category::City {
-                let event = ScoredCity {
-                    game_id: game.id,
-                    points: points,
-                    size: count,
-                    player_id: player.id,
-                    player_name: player.name,
-                    player_master: player.master,
-                };
-                scored_cities.append(event);
-            };
-            if category == Category::Road {
-                let event = ScoredRoad {
-                    game_id: game.id,
-                    points: points,
-                    size: count,
-                    player_id: player.id,
-                    player_name: player.name,
-                    player_master: player.master,
-                };
-                scored_roads.append(event);
-            };
 
             game.add_score(points);
 

@@ -14,7 +14,7 @@ import { useBuilder } from "@/hooks/useBuilder";
 import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
 import { useDojo } from "@/dojo/useDojo";
-import CancelIcon from "@/ui/icons/CANCEL.svg?react";
+import CancelIcon from "/assets/icons/CANCEL.svg?react";
 
 export const Cancel = () => {
   const { gameId } = useQueryParams();

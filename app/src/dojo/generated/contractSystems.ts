@@ -79,23 +79,6 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
     }
 
-    const initialize = async ({ account, world }: Initialize) => {
-      try {
-        return await provider.execute(
-          account,
-          {
-            contractName: contract_name,
-            entrypoint: "initialize",
-            calldata: [],
-          },
-          details,
-        );
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
-
     const create = async ({ account, name, master }: CreatePlayer) => {
       const contract_address = getContractByName(
         config.manifest,
@@ -103,11 +86,11 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       );
       const encoded_name = shortString.encodeShortString(name);
       const calls = [
-        {
-          contractAddress: config.feeTokenAddress,
-          entrypoint: "mint",
-          calldata: [account.address, `0x${(1e21).toString(16)}`, "0x0"],
-        },
+        // {
+        //   contractAddress: config.feeTokenAddress,
+        //   entrypoint: "mint",
+        //   calldata: [account.address, `0x${(1e21).toString(16)}`, "0x0"],
+        // },
         {
           contractAddress: contract_address,
           entrypoint: "create",
@@ -124,7 +107,6 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
 
     return {
       address: contract.address,
-      initialize,
       create,
     };
   }
@@ -137,23 +119,6 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     if (!contract) {
       throw new Error(`Contract ${contract_name} not found in manifest`);
     }
-
-    const initialize = async ({ account, world }: Initialize) => {
-      try {
-        return await provider.execute(
-          account,
-          {
-            contractName: contract_name,
-            entrypoint: "initialize",
-            calldata: [],
-          },
-          details,
-        );
-      } catch (error) {
-        console.error("Error executing initialize:", error);
-        throw error;
-      }
-    };
 
     const spawn = async ({ account }: CreateGame) => {
       const contract_address = getContractByName(
@@ -175,7 +140,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       try {
         return await provider.execute(account, calls, details);
       } catch (error) {
-        console.error("Error executing initialize:", error);
+        console.error("Error executing spawn:", error);
         throw error;
       }
     };
@@ -192,7 +157,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           details,
         );
       } catch (error) {
-        console.error("Error executing initialize:", error);
+        console.error("Error executing claim:", error);
         throw error;
       }
     };
@@ -217,7 +182,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       try {
         return await provider.execute(account, calls, details);
       } catch (error) {
-        console.error("Error executing initialize:", error);
+        console.error("Error executing sponsor:", error);
         throw error;
       }
     };
@@ -234,7 +199,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           details,
         );
       } catch (error) {
-        console.error("Error executing initialize:", error);
+        console.error("Error executing discard:", error);
         throw error;
       }
     };
@@ -251,7 +216,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           details,
         );
       } catch (error) {
-        console.error("Error executing initialize:", error);
+        console.error("Error executing surrender:", error);
         throw error;
       }
     };
@@ -271,26 +236,18 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
           {
             contractName: contract_name,
             entrypoint: "build",
-            calldata: [
-              game_id,
-              orientation,
-              x,
-              y,
-              role,
-              spot,
-            ],
+            calldata: [game_id, orientation, x, y, role, spot],
           },
           details,
         );
       } catch (error) {
-        console.error("Error executing initialize:", error);
+        console.error("Error executing build:", error);
         throw error;
       }
     };
 
     return {
       address: contract.address,
-      initialize,
       spawn,
       claim,
       sponsor,

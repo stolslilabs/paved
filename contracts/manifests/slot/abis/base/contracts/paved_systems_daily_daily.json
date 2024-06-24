@@ -690,12 +690,6 @@
   },
   {
     "type": "event",
-    "name": "paved::components::initializable::InitializableComponent::Event",
-    "kind": "enum",
-    "variants": []
-  },
-  {
-    "type": "event",
     "name": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
     "kind": "struct",
     "members": [
@@ -776,11 +770,6 @@
       {
         "name": "EmitterEvent",
         "type": "paved::components::emitter::EmitterComponent::Event",
-        "kind": "flat"
-      },
-      {
-        "name": "InitializableEvent",
-        "type": "paved::components::initializable::InitializableComponent::Event",
         "kind": "flat"
       },
       {

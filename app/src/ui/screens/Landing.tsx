@@ -1,7 +1,6 @@
 import { Button } from "@/ui/elements/button";
-import { BorderLayout } from "../components/BorderLayout";
 import { Connection } from "../components/Connection";
-import { Spawn } from "../components/Spawn";
+import { Spawn } from "../actions/Spawn";
 import { useNavigate } from "react-router-dom";
 import banner from "/assets/banner.svg";
 import BoxRainScene from "../modules/BoxRain";
@@ -21,7 +20,7 @@ export const Landing = () => {
 
   const [loading, setLoading] = useState(false);
   return (
-    <BorderLayout>
+    <>
       <div className="fixed h-full w-full z-0">
         <BoxRainScene />
       </div>
@@ -34,7 +33,7 @@ export const Landing = () => {
             <Connection />
           </div>
 
-          {isConnected && (
+          {(isConnected || !!account) && (
             <div className="flex">
               {!player ? (
                 <Spawn setLoading={setLoading} loading={loading} />
@@ -45,7 +44,7 @@ export const Landing = () => {
           )}
         </div>
       </div>
-    </BorderLayout>
+    </>
   );
 };
 

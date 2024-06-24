@@ -1,10 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
 import {
-  defineEnterSystem,
-  defineSystem,
   getComponentValue,
-  getEntitiesWithValue,
   Entity,
   Has,
   HasValue,

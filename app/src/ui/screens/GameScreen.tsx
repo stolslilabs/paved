@@ -29,7 +29,7 @@ const GameScene = () => {
       className={`relative w-full h-screen flex flex-col bg-blue-100 ${loading ? "cursor-wait" : ""} `}
     >
       <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
-        {/* <Header /> */}
+        <Header />
         <Banner />
         <Overlay />
         <div id="canvas-container" className="z-10 overflow-hidden grow">

@@ -10,6 +10,6 @@ export const useDojo = () => {
 
   return {
     setup: context,
-    account: { account }, //context.account,
+    account: context.account,
   };
 };
