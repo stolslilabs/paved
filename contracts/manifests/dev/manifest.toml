@@ -1,10 +1,10 @@
 [world]
 kind = "WorldContract"
-class_hash = "0xf6f44afb3cacbcc01a371aff62c86ca9a45feba065424c99f7cd8637514d8f"
-original_class_hash = "0xf6f44afb3cacbcc01a371aff62c86ca9a45feba065424c99f7cd8637514d8f"
+class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
+original_class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
 abi = "manifests/dev/abis/deployments/dojo_world_world.json"
-address = "0x3383b2583acd59a307915108a408a56a88c6834d415834c3915042a850b67f7"
-transaction_hash = "0x4f2f545aa7c6b74bfb932f064a55018121225225ada2ac1ae26464f29ae6276"
+address = "0x3901d98eba840e5b8d8187be1e1535d5a98555b6d5ecd8893277903e7b4e2c"
+transaction_hash = "0x617b68beaad579b75f4a99bac3e65f3c936ca2ce8a82ac91861cd5ef6f4e451"
 block_number = 3
 seed = "paved"
 name = "dojo::world::world"
@@ -21,7 +21,7 @@ name = "dojo::base::base"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x355784ad9445a493680fbeb1e569acb2363b3618311eca3bd40c6a5ba36fd08"
+address = "0x786679a305e04c6f3bf46de23cd802e9d4aef5a1c4b3c2c3a54205ca663593e"
 class_hash = "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b"
 original_class_hash = "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b"
 base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
@@ -43,9 +43,9 @@ name = "paved::systems::account::account"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x5decacff1cb388f6b6c62d5b28134f0d12ff9de29e6d2d982cefc6a535936d5"
-class_hash = "0x517c968ffa1095e9ee8c7301adef795b10883bda0f0462a3699f5be21136ac1"
-original_class_hash = "0x517c968ffa1095e9ee8c7301adef795b10883bda0f0462a3699f5be21136ac1"
+address = "0x42fb873d07fb1bd9da7c077b1cb449e49886c9cf203513901d01bef7e2d46d9"
+class_hash = "0x2ecd4d1635405c66abfeb52f8b6b4c20d6798042a8208aec99630db7c80619c"
+original_class_hash = "0x2ecd4d1635405c66abfeb52f8b6b4c20d6798042a8208aec99630db7c80619c"
 base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
 abi = "manifests/dev/abis/deployments/contracts/paved_systems_daily_daily.json"
 reads = []
@@ -60,7 +60,7 @@ writes = [
     "Tournament",
 ]
 computed = []
-init_calldata = []
+init_calldata = ["0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"]
 name = "paved::systems::daily::daily"
 
 [[models]]

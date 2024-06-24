@@ -2,18 +2,14 @@
 
 use starknet::ContractAddress;
 
-// Dojo imports
-
-use dojo::world::IWorldDispatcher;
-
-#[starknet::interface]
-trait IAccount<TContractState> {
+#[dojo::interface]
+trait IAccount {
     fn create(
-        self: @TContractState, world: IWorldDispatcher, name: felt252, master: ContractAddress
+        ref world: IWorldDispatcher, name: felt252, master: ContractAddress
     );
 }
 
-#[starknet::contract]
+#[dojo::contract]
 mod account {
     // Starknet imports
 
@@ -22,17 +18,9 @@ mod account {
         get_block_timestamp, get_block_number, get_caller_address, get_contract_address
     };
 
-    // Dojo imports
-
-    use dojo::world;
-    use dojo::world::IWorldDispatcher;
-    use dojo::world::IWorldDispatcherTrait;
-    use dojo::world::IDojoResourceProvider;
-
     // Component imports
 
     use paved::components::emitter::EmitterComponent;
-    use paved::components::initializable::InitializableComponent;
     use paved::components::ownable::OwnableComponent;
     use paved::components::manageable::ManageableComponent;
 
@@ -44,12 +32,6 @@ mod account {
 
     component!(path: EmitterComponent, storage: emitter, event: EmitterEvent);
     impl EmitterImpl = EmitterComponent::EmitterImpl<ContractState>;
-    component!(path: InitializableComponent, storage: initializable, event: InitializableEvent);
-    #[abi(embed_v0)]
-    impl WorldProviderImpl =
-        InitializableComponent::WorldProviderImpl<ContractState>;
-    #[abi(embed_v0)]
-    impl DojoInitImpl = InitializableComponent::DojoInitImpl<ContractState>;
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
@@ -64,8 +46,6 @@ mod account {
         #[substorage(v0)]
         emitter: EmitterComponent::Storage,
         #[substorage(v0)]
-        initializable: InitializableComponent::Storage,
-        #[substorage(v0)]
         ownable: OwnableComponent::Storage,
         #[substorage(v0)]
         manageable: ManageableComponent::Storage,
@@ -79,26 +59,21 @@ mod account {
         #[flat]
         EmitterEvent: EmitterComponent::Event,
         #[flat]
-        InitializableEvent: InitializableComponent::Event,
-        #[flat]
         OwnableEvent: OwnableComponent::Event,
         #[flat]
         ManageableEvent: ManageableComponent::Event,
     }
 
-    // Implementations
+    // Constructor
 
-    #[abi(embed_v0)]
-    impl DojoResourceProviderImpl of IDojoResourceProvider<ContractState> {
-        fn dojo_resource(self: @ContractState) -> felt252 {
-            'account'
-        }
-    }
+    fn dojo_init(ref world: IWorldDispatcher) {}
+
+    // Implementations
 
     #[abi(embed_v0)]
     impl AccountImpl of IAccount<ContractState> {
         fn create(
-            self: @ContractState, world: IWorldDispatcher, name: felt252, master: ContractAddress
+            ref world: IWorldDispatcher, name: felt252, master: ContractAddress
         ) {
             // [Effect] Create a player
             self.manageable._create(world, name, master);

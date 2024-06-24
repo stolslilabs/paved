@@ -6,7 +6,7 @@ import { systems } from "./systems.ts";
 
 import { defineContractComponents } from "./generated/contractModels";
 import { world } from "./world.ts";
-import { Config } from "../../dojoConfig.ts";
+import { Config } from "../../dojo.config.ts";
 import { setupWorld } from "./generated/contractSystems.ts";
 import { DojoProvider } from "@dojoengine/core";
 import { BurnerManager } from "@dojoengine/create-burner";

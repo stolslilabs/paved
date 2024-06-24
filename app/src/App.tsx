@@ -9,76 +9,25 @@ import { Landing } from "./ui/screens/Landing";
 
 import {
   StarknetConfig,
-  Connector,
   starkscan,
   jsonRpcProvider,
 } from "@starknet-react/core";
 import { Chain, sepolia, mainnet } from "@starknet-react/chains";
-import CartridgeConnector from "@cartridge/connector";
+import { getConnectors } from "./data/getConnectors";
+import { useCallback } from "react";
 
 export const CoreScreen = () => {
   const { gameId } = useQueryParams();
   return gameId ? <GameScreen /> : <GameLobby />;
 };
 
-function rpc(_chain: Chain) {
-  return {
-    nodeUrl: import.meta.env.VITE_PUBLIC_NODE_URL,
-  };
-}
-
-const connectors = [
-  new CartridgeConnector(
-    [
-      {
-        target: import.meta.env.VITE_PUBLIC_FEE_TOKEN_ADDRESS,
-        method: "mint",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_FEE_TOKEN_ADDRESS,
-        method: "approve",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_ACCOUNT_CONTRACT,
-        method: "create",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "spawn",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "claim",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "sponsor",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "discard",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "surrender",
-      },
-      {
-        target: import.meta.env.VITE_PUBLIC_DAILY_CONTRACT,
-        method: "build",
-      },
-    ],
-    // {
-    //   theme: {
-    //     colors: {
-    //       primary: "#0ad3ff",
-    //       secondary: "#78ffd6",
-    //     },
-    //   },
-    // },
-  ) as never as Connector,
-];
+const { connectors } = getConnectors();
 
 function App() {
+  const rpc = useCallback((_chain: Chain) => {
+    return { nodeUrl: import.meta.env.VITE_PUBLIC_NODE_URL, };
+  }, []);
+  
   return (
     <>
       <StarknetConfig

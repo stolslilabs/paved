@@ -22,7 +22,7 @@
     }
   },
 
-  "include": ["src", "dojoConfig.ts"],
+  "include": ["src", "dojo.config.ts"],
   "references": [
     {
       "path": "./tsconfig.node.json"

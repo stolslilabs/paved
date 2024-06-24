@@ -1,5 +1,6 @@
 import local from "../contracts/manifests/dev/manifest.json";
 import dev from "../contracts/manifests/pre/manifest.json";
+import slot from "../contracts/manifests/slot/manifest.json";
 import realms from "../contracts/manifests/realms/manifest.json";
 import sepolia from "../contracts/manifests/sepolia/manifest.json";
 import starknet from "../contracts/manifests/starknet/manifest.json";
@@ -12,6 +13,7 @@ const {
   VITE_PUBLIC_ACCOUNT_CLASS_HASH,
   VITE_PUBLIC_PREPRODUCTION,
   VITE_PUBLIC_REALMS,
+  VITE_PUBLIC_SLOT,
   VITE_PUBLIC_SEPOLIA,
   VITE_PUBLIC_STARKNET,
   VITE_PUBLIC_FEE_TOKEN_ADDRESS,
@@ -43,6 +45,8 @@ export function dojoConfig() {
           ? sepolia
           : VITE_PUBLIC_STARKNET
             ? starknet
-            : local,
+            : VITE_PUBLIC_SLOT
+              ? slot
+              : local,
   };
 }

@@ -40,7 +40,9 @@ mod PayableComponent {
     // Storage
 
     #[storage]
-    struct Storage {}
+    struct Storage {
+        token_address: ContractAddress,
+    }
 
     // Events
 
@@ -52,6 +54,11 @@ mod PayableComponent {
     impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
+        fn _initialize(ref self: ComponentState<TContractState>, token_address: ContractAddress) {
+            // [Storage] Set token address
+            self.token_address.write(token_address);
+        }
+
         fn _pay(self: @ComponentState<TContractState>, caller: ContractAddress, amount: u256) {
             // [Check] Amount is not null, otherwise return
             if amount == 0 {
@@ -60,7 +67,7 @@ mod PayableComponent {
 
             // [Interaction] Transfer
             let contract = get_contract_address();
-            let erc20 = IERC20Dispatcher { contract_address: constants::TOKEN_ADDRESS() };
+            let erc20 = IERC20Dispatcher { contract_address: self.token_address.read() };
             let status = erc20.transferFrom(caller, contract, amount);
 
             // [Check] Status
@@ -76,7 +83,7 @@ mod PayableComponent {
             }
 
             // [Interaction] Transfer
-            let erc20 = IERC20Dispatcher { contract_address: constants::TOKEN_ADDRESS() };
+            let erc20 = IERC20Dispatcher { contract_address: self.token_address.read() };
             let status = erc20.transfer(recipient, amount);
 
             // [Check] Status

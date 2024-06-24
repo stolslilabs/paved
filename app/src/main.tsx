@@ -4,7 +4,7 @@ import App from "./App.tsx";
 import "./index.css";
 import { setup, SetupResult } from "./dojo/setup.ts";
 import { DojoProvider } from "./dojo/context.tsx";
-import { dojoConfig } from "../dojoConfig.ts";
+import { dojoConfig } from "../dojo.config.ts";
 import { StarknetProvider } from "./ui/components/Starknet.tsx";
 import { GameLoading } from "./ui/screens/GameLoading.tsx";
 import { Analytics } from "@vercel/analytics/react";
