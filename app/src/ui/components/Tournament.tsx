@@ -109,7 +109,7 @@ export const TournamentHeader = ({ mode }: { mode: Mode }) => {
 export const TournamentDialog = ({ mode }: { mode: Mode }) => {
   return (
     <Dialog>
-      <DialogTrigger asChild>
+      <DialogTrigger>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
