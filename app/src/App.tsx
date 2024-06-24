@@ -18,7 +18,7 @@ export const CoreScreen = () => {
   const { player } = usePlayer({ playerId: account?.address });
   return (
     <>
-      {!account && !player && <Landing />}
+      {!player && <Landing />}
       {!!account && !!player && !gameId && <GameLobby />}
       {!!account && !!player && !!gameId && <GameScreen />}
     </>
