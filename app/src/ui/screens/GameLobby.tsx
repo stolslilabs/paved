@@ -3,7 +3,7 @@ import { Player } from "@/ui/modules/Player";
 import { Links } from "../components/Links";
 import { useState } from "react";
 import { Button } from "../elements/button";
-// import { Tournament } from "../components/Tournament";
+import { Tournament } from "../components/Tournament";
 import { useLobby } from "@/hooks/useLobby";
 import BoxRainScene from "../modules/BoxRain";
 import { Address } from "../components/Address";
@@ -41,8 +41,7 @@ export const GameLobby = () => {
         <Player />
 
         <div className="my-4 py-4 border shadow-sm bg-white/90">
-          {" "}
-          {/* <Tournament mode={gameMode} /> */}
+          <Tournament mode={gameMode} />
         </div>
         <Links />
       </div>

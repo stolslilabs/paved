@@ -7,12 +7,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/ui/elements/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/elements/tabs";
 import banner from "/assets/banner.svg";
 import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
-  TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
@@ -30,18 +28,15 @@ import { CreateGame } from "@/ui/components/CreateGame";
 import { TournamentDialog, TournamentHeader } from "../components/Tournament";
 import { useLobbyStore } from "@/store";
 import { useBuilder } from "@/hooks/useBuilder";
-import { useAccount } from "@starknet-react/core";
-import { Mode, ModeType } from "@/dojo/game/types/mode";
 import { Game } from "@/dojo/game/types/game";
 import { useLobby } from "@/hooks/useLobby";
 
 export const Games = () => {
-  const { mode, setMode } = useLobbyStore();
   const { gameMode } = useLobby();
 
   const [games, setGames] = useState<{ [key: number]: any }>({});
   const [show, setShow] = useState<boolean>(false);
-  // const { account } = useAccount();
+
   const {
     account: { account },
     setup: {
@@ -66,10 +61,6 @@ export const Games = () => {
     });
   }, []);
 
-  const toggleMode = (event: string) => {
-    setMode(event);
-  };
-
   const filteredGames: Game[] = useMemo(() => {
     return Object.values(games)
       .filter((game) => {
@@ -85,12 +76,10 @@ export const Games = () => {
       <div className="flex flex-col gap-2 items-start w-full p-4  md:px-8 h-full">
         <div className="h-24 flex justify-between w-full">
           <img src={banner} className="h-full " />
-          <TournamentHeader mode={gameMode} />
         </div>
 
         <div className="flex my-4 gap-4 items-center">
           <CreateGame mode={gameMode} />
-          <TournamentDialog mode={gameMode} />
         </div>
 
         <div className="flex justify-between w-full">
