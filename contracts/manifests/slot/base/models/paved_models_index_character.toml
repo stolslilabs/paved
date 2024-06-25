@@ -1,0 +1,40 @@
+kind = "DojoModel"
+class_hash = "0xaf036472f4a4716de4e3a159f2903425a949357ec091a0d9496522f1c829ff"
+original_class_hash = "0xaf036472f4a4716de4e3a159f2903425a949357ec091a0d9496522f1c829ff"
+abi = "manifests/slot/abis/base/models/paved_models_index_character.json"
+name = "paved::models::index::character"
+
+[[members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[members]]
+name = "player_id"
+type = "felt252"
+key = true
+
+[[members]]
+name = "index"
+type = "u8"
+key = true
+
+[[members]]
+name = "tile_id"
+type = "u32"
+key = false
+
+[[members]]
+name = "spot"
+type = "u8"
+key = false
+
+[[members]]
+name = "weight"
+type = "u8"
+key = false
+
+[[members]]
+name = "power"
+type = "u8"
+key = false

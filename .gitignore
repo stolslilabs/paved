@@ -7,3 +7,6 @@ node_modules
 *.log
 bun.lockb
 pnpm-lock.yaml
+account.json
+keystore.json
+target/

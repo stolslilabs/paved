@@ -1,65 +1,52 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
-import {
-  defineEnterSystem,
-  defineSystem,
-  Has,
-  HasValue,
-  NotValue,
-} from "@dojoengine/recs";
-import { useQueryParams } from "@/hooks/useQueryParams";
+import { getComponentValue, Has, HasValue, NotValue } from "@dojoengine/recs";
+import { useEntityQuery } from "@dojoengine/react";
+import { Character } from "@/dojo/game/models/character";
 
-export const useCharacters = () => {
-  const { gameId } = useQueryParams();
+export const useCharacters = ({
+  gameId,
+}: {
+  gameId: number;
+}): { characters: Character[] } => {
   const [characters, setCharacters] = useState<any>({});
 
   const {
     setup: {
-      world,
       clientModels: {
         models: { Character },
+        classes: { Character: CharacterClass },
       },
     },
   } = useDojo();
 
-  const createCharacterAndSet = (character: any) => {
-    // Update the characters
-    setCharacters((prevCharacters: any) => {
-      if (!character) return prevCharacters;
-      // Remove character from the list if it's tile_id is 0
-      const characterKey = `${character.gameId}-${character.player_id}-${character.index}`;
-      if (!character.tile_id && prevCharacters[characterKey]) {
-        delete prevCharacters[characterKey];
-        return { ...prevCharacters };
-      }
-      return { ...prevCharacters, [characterKey]: character };
-    });
-  };
+  const characterKeys = useEntityQuery([
+    Has(Character),
+    HasValue(Character, { game_id: gameId }),
+    NotValue(Character, { tile_id: 0 }),
+  ]);
 
   useEffect(() => {
-    defineEnterSystem(
-      world,
-      [
-        Has(Character),
-        HasValue(Character, { game_id: gameId }),
-        NotValue(Character, { tile_id: 0 }),
-      ],
-      ({ value: [character] }: any) => {
-        createCharacterAndSet(character);
-      },
-    );
-    defineSystem(
-      world,
-      [
-        Has(Character),
-        HasValue(Character, { game_id: gameId }),
-        NotValue(Character, { tile_id: 0 }),
-      ],
-      ({ value: [character] }: any) => {
-        createCharacterAndSet(character);
-      },
-    );
-  }, []);
+    const components = characterKeys.map((entity) => {
+      const component = getComponentValue(Character, entity);
+      if (!component) {
+        return undefined;
+      }
+      return new CharacterClass(component);
+    });
 
-  return { characters };
+    const objectified = components.reduce(
+      (obj: any, character: Character | undefined) => {
+        if (character) {
+          obj[character.index] = character;
+        }
+        return obj;
+      },
+      {},
+    );
+
+    setCharacters(objectified);
+  }, [characterKeys]);
+
+  return { characters: Object.values(characters) };
 };

@@ -28,6 +28,7 @@ export const usePlayerByKey = ({
   } = useDojo();
 
   const component = useComponentValue(Player, playerKey);
+
   const player = useMemo(() => {
     return component ? new PlayerClass(component) : null;
   }, [component]);

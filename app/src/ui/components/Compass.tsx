@@ -1,15 +1,16 @@
 import { useCameraStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCompass } from "@fortawesome/free-solid-svg-icons";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import { useMemo, useState } from "react";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { useEffect } from "react";
+import icon from "/assets/icons/COMPASS.svg";
 
 export const Compass = () => {
   const { compassRotation, setCompassRotate } = useCameraStore();
@@ -43,16 +44,11 @@ export const Compass = () => {
             size={"command"}
             onClick={() => setRotate(true)}
           >
-            <div
-              className="relative w-full h-full flex flex-col justify-center items-center"
+            <img
+              src={icon}
               style={style}
-            >
-              <p className="absolute top-1 left-1/2 -translate-x-1/2">N</p>
-              <FontAwesomeIcon
-                className="sm:h-4 md:h-12 -rotate-45"
-                icon={faCompass}
-              />
-            </div>
+              className="sm:h-4 md:h-8 fill-current"
+            />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

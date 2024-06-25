@@ -1,23 +1,15 @@
 import { ComponentValue } from "@dojoengine/recs";
 
 export class Builder {
-  public gameId: number;
-  public playerId: string;
-  public index: number;
-  public order: number;
-  public score: number;
-  public tileId: number;
+  public game_id: number;
+  public player_id: string;
+  public tile_id: number;
   public characters: number;
-  public claimed: bigint;
 
   constructor(builder: ComponentValue) {
-    this.gameId = builder.game_id;
-    this.playerId = builder.player_id;
-    this.index = builder.index;
-    this.order = builder.order;
-    this.score = builder.score;
-    this.tileId = builder.tile_id;
+    this.game_id = builder.game_id;
+    this.player_id = `0x${builder.player_id.toString(16).replace("0x", "")}`;
+    this.tile_id = builder.tile_id;
     this.characters = builder.characters;
-    this.claimed = builder.claimed;
   }
 }

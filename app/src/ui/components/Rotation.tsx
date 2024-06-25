@@ -1,38 +1,35 @@
 import { useGameStore } from "../../store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faRotateRight } from "@fortawesome/free-solid-svg-icons";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useMemo } from "react";
-import { useDojo } from "../../dojo/useDojo";
-import { useQueryParams } from "@/hooks/useQueryParams";
-import { useBuilder } from "@/hooks/useBuilder";
+} from "@/ui/elements/tooltip";
+import { useAccount } from "@starknet-react/core";
+import { useActions } from "@/hooks/useActions";
+import { useDojo } from "@/dojo/useDojo";
+import useSound from "use-sound";
+import RotationSound from "/sounds/rotation.wav";
+import icon from "/assets/icons/ROTATE.svg";
 
 export const Rotation = () => {
-  const { gameId } = useQueryParams();
+  // const { account } = useAccount();
+  const [play, { stop }] = useSound(RotationSound);
   const {
     account: { account },
   } = useDojo();
+  const { enabled, builder } = useActions();
 
   const { orientation, spot, setOrientation, rotateSpot } = useGameStore();
-  const { builder } = useBuilder({
-    gameId: gameId,
-    playerId: account?.address,
-  });
 
   const handleClick = () => {
+    play();
     setOrientation(orientation + 1);
     rotateSpot(spot, true);
   };
-
-  const disabled = useMemo(() => {
-    return !builder?.tileId;
-  }, [builder]);
 
   if (!account || !builder) return <></>;
 
@@ -41,12 +38,12 @@ export const Rotation = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            disabled={disabled}
+            disabled={!enabled}
             variant={"command"}
             size={"command"}
             onClick={handleClick}
           >
-            <FontAwesomeIcon className="h-4 md:h-12" icon={faRotateRight} />
+            <img src={icon} className="h-4 lg:h-8  fill-current" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>

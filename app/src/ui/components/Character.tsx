@@ -1,25 +1,33 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   offset,
-  getCharacterImage,
   getCharacterFromIndex,
   getIndexFromCharacter,
   getRole,
   getRoleAllowedSpots,
   getBoost,
+  Characters,
 } from "@/dojo/game";
 import { useCameraStore, useGameStore } from "../../store";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { useDojo } from "@/dojo/useDojo";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useTile } from "@/hooks/useTile";
+import { useDojo } from "@/dojo/useDojo";
+
+import pilgrim from "/assets/icons/pilgrim.svg";
+import lord from "/assets/icons/lord.svg";
+import lady from "/assets/icons/lady.svg";
+import adventurer from "/assets/icons/adventurer.svg";
+import paladin from "/assets/icons/paladin.svg";
+import woodsman from "/assets/icons/woodsman.svg";
+import herdsman from "/assets/icons/herdsman.svg";
 
 interface TProps {
   index: number;
@@ -32,14 +40,13 @@ export const Character = (props: TProps) => {
   const [selected, setSelected] = useState(false);
   const { character, setCharacter, resetCharacter, resetSpot } = useGameStore();
   const { setPosition } = useCameraStore();
-
   const {
     account: { account },
   } = useDojo();
 
   const { character: characterModel } = useCharacter({
     gameId,
-    playerId: account.address,
+    playerId: account?.address,
     characterId: getCharacterFromIndex(index),
   });
   const { tile } = useTile({ gameId, tileId: characterModel?.tile_id || 0 });
@@ -47,10 +54,6 @@ export const Character = (props: TProps) => {
   useEffect(() => {
     setSelected(index === getIndexFromCharacter(character));
   }, [character]);
-
-  const image = useMemo(() => {
-    return getCharacterImage(index + 1);
-  }, [index]);
 
   const role = useMemo(() => {
     return getRole(index);
@@ -82,6 +85,30 @@ export const Character = (props: TProps) => {
     };
   }, [index, character, enable, tile]);
 
+  const characterIcons: { [key: number]: JSX.Element } = {
+    [Characters.Lord]: (
+      <img src={lord} className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Lady]: (
+      <img src={lady} className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Adventurer]: (
+      <img src={adventurer} className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Paladin]: (
+      <img src={paladin} className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Pilgrim]: (
+      <img src={pilgrim} className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Woodsman]: (
+      <img src={woodsman} className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+    [Characters.Herdsman]: (
+      <img src={herdsman} className="w-4 lg:w-6 fill-primary-foreground" />
+    ),
+  };
+
   return (
     <TooltipProvider>
       <Tooltip>
@@ -92,12 +119,7 @@ export const Character = (props: TProps) => {
             size={"character"}
             onClick={handleClick}
           >
-            <img
-              draggable={false}
-              className="h-6 md:h-16"
-              src={image}
-              alt={getRole(index)}
-            />
+            {characterIcons[index]}
           </Button>
         </TooltipTrigger>
         <TooltipContent>

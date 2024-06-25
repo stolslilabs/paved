@@ -1,62 +1,74 @@
 [world]
-kind = "Contract"
-class_hash = "0x799bc4e9da10bfb3dd88e6f223c9cfbf7745435cd14f5d69675ea448e578cd"
-original_class_hash = "0x799bc4e9da10bfb3dd88e6f223c9cfbf7745435cd14f5d69675ea448e578cd"
-abi = "abis/deployments/dojo_world_world.json"
-address = "0x1f26e2dbc7db010d32c21321678120167620aa9da7ddaa6df5f2d96affca8d0"
-transaction_hash = "0x2d62cf7dd1e211dbbe91e7cb5ce46ce99878367961c6d2bbb5546a16254971"
+kind = "WorldContract"
+class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
+original_class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
+abi = "manifests/dev/abis/deployments/dojo_world_world.json"
+address = "0x3901d98eba840e5b8d8187be1e1535d5a98555b6d5ecd8893277903e7b4e2c"
+transaction_hash = "0x617b68beaad579b75f4a99bac3e65f3c936ca2ce8a82ac91861cd5ef6f4e451"
 block_number = 3
 seed = "paved"
 name = "dojo::world::world"
 
+[world.metadata]
+profile_name = "dev"
+rpc_url = "http://localhost:5050/"
+
 [base]
 kind = "Class"
-class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"
-original_class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"
+class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+original_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
 name = "dojo::base::base"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0xccce716d3f5ead2b1476857d0793f1e75622a086cdcbd6576ae370c8870ee"
-class_hash = "0x2119d78ff90a2f2fde908379a50c03147082899b242758cc6a9f039d6027554"
-original_class_hash = "0x2119d78ff90a2f2fde908379a50c03147082899b242758cc6a9f039d6027554"
-base_class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"
-abi = "abis/deployments/contracts/paved_systems_host_host.json"
+address = "0x786679a305e04c6f3bf46de23cd802e9d4aef5a1c4b3c2c3a54205ca663593e"
+class_hash = "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b"
+original_class_hash = "0x7458d6d7d9f9e273a41827f156806cb0f29e31cb9089a7c7ca3efb4a0bf947b"
+base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+abi = "manifests/dev/abis/deployments/contracts/paved_systems_account_account.json"
 reads = []
-writes = []
+writes = [
+    "Game",
+    "Builder",
+    "Player",
+    "Tile",
+    "TilePosition",
+    "Character",
+    "CharacterPosition",
+    "Tournament",
+]
 computed = []
-name = "paved::systems::host::host"
+init_calldata = []
+name = "paved::systems::account::account"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x6f08cb69d54a8311250b4b0fcd7c51da1bd9e6e15b45a1687dfac59d45ef49c"
-class_hash = "0x10ea2e084c3883cfbe2d21462e4cbffd117bf34d09c2f0fb38da0b0464bcb5a"
-original_class_hash = "0x10ea2e084c3883cfbe2d21462e4cbffd117bf34d09c2f0fb38da0b0464bcb5a"
-base_class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"
-abi = "abis/deployments/contracts/paved_systems_manage_manage.json"
+address = "0x42fb873d07fb1bd9da7c077b1cb449e49886c9cf203513901d01bef7e2d46d9"
+class_hash = "0x2ecd4d1635405c66abfeb52f8b6b4c20d6798042a8208aec99630db7c80619c"
+original_class_hash = "0x2ecd4d1635405c66abfeb52f8b6b4c20d6798042a8208aec99630db7c80619c"
+base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+abi = "manifests/dev/abis/deployments/contracts/paved_systems_daily_daily.json"
 reads = []
-writes = []
+writes = [
+    "Game",
+    "Builder",
+    "Player",
+    "Tile",
+    "TilePosition",
+    "Character",
+    "CharacterPosition",
+    "Tournament",
+]
 computed = []
-name = "paved::systems::manage::manage"
-
-[[contracts]]
-kind = "DojoContract"
-address = "0x11c67d0d01aa6de81549342b1b657c018909341a1815157a9ca778ac3f57b30"
-class_hash = "0x1500db0d768baa1d8c4b355cdb5f12b359cfbd48781e06256c6b43e43a24efd"
-original_class_hash = "0x1500db0d768baa1d8c4b355cdb5f12b359cfbd48781e06256c6b43e43a24efd"
-base_class_hash = "0x679177a2cb757694ac4f326d01052ff0963eac0bc2a17116a2b87badcdf6f76"
-abi = "abis/deployments/contracts/paved_systems_play_play.json"
-reads = []
-writes = []
-computed = []
-name = "paved::systems::play::play"
+init_calldata = ["0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"]
+name = "paved::systems::daily::daily"
 
 [[models]]
 kind = "DojoModel"
-class_hash = "0x88fa6e2c0ecc777bdd58aebaa29b4419c0688cef808e079d9b35928444dba7"
-original_class_hash = "0x88fa6e2c0ecc777bdd58aebaa29b4419c0688cef808e079d9b35928444dba7"
-abi = "abis/deployments/models/paved_models_builder_builder.json"
-name = "paved::models::builder::builder"
+class_hash = "0x4d82dbbe7fee8760ff082d5c0db9c76297c68b5a377d26f83510eec73a2cf3d"
+original_class_hash = "0x4d82dbbe7fee8760ff082d5c0db9c76297c68b5a377d26f83510eec73a2cf3d"
+abi = "manifests/dev/abis/deployments/models/paved_models_index_builder.json"
+name = "paved::models::index::builder"
 
 [[models.members]]
 name = "game_id"
@@ -67,21 +79,6 @@ key = true
 name = "player_id"
 type = "felt252"
 key = true
-
-[[models.members]]
-name = "index"
-type = "u32"
-key = false
-
-[[models.members]]
-name = "order"
-type = "u8"
-key = false
-
-[[models.members]]
-name = "score"
-type = "u32"
-key = false
 
 [[models.members]]
 name = "tile_id"
@@ -93,39 +90,12 @@ name = "characters"
 type = "u8"
 key = false
 
-[[models.members]]
-name = "claimed"
-type = "felt252"
-key = false
-
 [[models]]
 kind = "DojoModel"
-class_hash = "0x109e5ba3a54ee5b7498f6a036f2a3df94216c0de3283d5a52bd88e940da9ad8"
-original_class_hash = "0x109e5ba3a54ee5b7498f6a036f2a3df94216c0de3283d5a52bd88e940da9ad8"
-abi = "abis/deployments/models/paved_models_builder_builder_position.json"
-name = "paved::models::builder::builder_position"
-
-[[models.members]]
-name = "game_id"
-type = "u32"
-key = true
-
-[[models.members]]
-name = "index"
-type = "u32"
-key = true
-
-[[models.members]]
-name = "player_id"
-type = "felt252"
-key = false
-
-[[models]]
-kind = "DojoModel"
-class_hash = "0x4fcacc0ee6d3043635277a46e5dfa25f0c259c78bf75270d4e67f7683788169"
-original_class_hash = "0x4fcacc0ee6d3043635277a46e5dfa25f0c259c78bf75270d4e67f7683788169"
-abi = "abis/deployments/models/paved_models_character_character.json"
-name = "paved::models::character::character"
+class_hash = "0xaf036472f4a4716de4e3a159f2903425a949357ec091a0d9496522f1c829ff"
+original_class_hash = "0xaf036472f4a4716de4e3a159f2903425a949357ec091a0d9496522f1c829ff"
+abi = "manifests/dev/abis/deployments/models/paved_models_index_character.json"
+name = "paved::models::index::character"
 
 [[models.members]]
 name = "game_id"
@@ -164,10 +134,10 @@ key = false
 
 [[models]]
 kind = "DojoModel"
-class_hash = "0x7062c2bcdc48d60aa4a8b039a57ed4b668e24a6685282ee34ceeb913d6a8560"
-original_class_hash = "0x7062c2bcdc48d60aa4a8b039a57ed4b668e24a6685282ee34ceeb913d6a8560"
-abi = "abis/deployments/models/paved_models_character_character_position.json"
-name = "paved::models::character::character_position"
+class_hash = "0x710d20b596f1b1666cb717ffe3cf50db3f0f64640fb0417113cf9c983905fe4"
+original_class_hash = "0x710d20b596f1b1666cb717ffe3cf50db3f0f64640fb0417113cf9c983905fe4"
+abi = "manifests/dev/abis/deployments/models/paved_models_index_character_position.json"
+name = "paved::models::index::character_position"
 
 [[models.members]]
 name = "game_id"
@@ -196,10 +166,10 @@ key = false
 
 [[models]]
 kind = "DojoModel"
-class_hash = "0x74a64354e18269afad8f0cba9ca6c4cf08d1f9a73fe75e8fc0a231c44432893"
-original_class_hash = "0x74a64354e18269afad8f0cba9ca6c4cf08d1f9a73fe75e8fc0a231c44432893"
-abi = "abis/deployments/models/paved_models_game_game.json"
-name = "paved::models::game::game"
+class_hash = "0xb2bd4519986971b4ca124641887e7c6d2121622c52fa86dca224b19e327cd5"
+original_class_hash = "0xb2bd4519986971b4ca124641887e7c6d2121622c52fa86dca224b19e327cd5"
+abi = "manifests/dev/abis/deployments/models/paved_models_index_game.json"
+name = "paved::models::index::game"
 
 [[models.members]]
 name = "id"
@@ -207,23 +177,8 @@ type = "u32"
 key = true
 
 [[models.members]]
-name = "name"
-type = "felt252"
-key = false
-
-[[models.members]]
 name = "over"
 type = "bool"
-key = false
-
-[[models.members]]
-name = "players"
-type = "u128"
-key = false
-
-[[models.members]]
-name = "player_count"
-type = "u32"
 key = false
 
 [[models.members]]
@@ -242,33 +197,8 @@ type = "u64"
 key = false
 
 [[models.members]]
-name = "duration"
-type = "u64"
-key = false
-
-[[models.members]]
-name = "price"
-type = "felt252"
-key = false
-
-[[models.members]]
-name = "prize"
-type = "felt252"
-key = false
-
-[[models.members]]
 name = "score"
 type = "u32"
-key = false
-
-[[models.members]]
-name = "mode"
-type = "u8"
-key = false
-
-[[models.members]]
-name = "deck"
-type = "u8"
 key = false
 
 [[models.members]]
@@ -276,12 +206,17 @@ name = "seed"
 type = "felt252"
 key = false
 
+[[models.members]]
+name = "mode"
+type = "u8"
+key = false
+
 [[models]]
 kind = "DojoModel"
-class_hash = "0x67c98cf758f1df4ef6bd5c7e9e92c4891ce792050aea89e3169f864f7d857c2"
-original_class_hash = "0x67c98cf758f1df4ef6bd5c7e9e92c4891ce792050aea89e3169f864f7d857c2"
-abi = "abis/deployments/models/paved_models_player_player.json"
-name = "paved::models::player::player"
+class_hash = "0x17e45c9c4cd654c8b424ec087eb6d09953f6a7ad2a7737e54e17e0896e05786"
+original_class_hash = "0x17e45c9c4cd654c8b424ec087eb6d09953f6a7ad2a7737e54e17e0896e05786"
+abi = "manifests/dev/abis/deployments/models/paved_models_index_player.json"
+name = "paved::models::index::player"
 
 [[models.members]]
 name = "id"
@@ -291,16 +226,6 @@ key = true
 [[models.members]]
 name = "name"
 type = "felt252"
-key = false
-
-[[models.members]]
-name = "order"
-type = "u8"
-key = false
-
-[[models.members]]
-name = "bank"
-type = "u8"
 key = false
 
 [[models.members]]
@@ -320,54 +245,10 @@ key = false
 
 [[models]]
 kind = "DojoModel"
-class_hash = "0x7b2d2c81df5a6a2000cdb7634d9a4fe4e973bcb50816f53f6456eac6a883c07"
-original_class_hash = "0x7b2d2c81df5a6a2000cdb7634d9a4fe4e973bcb50816f53f6456eac6a883c07"
-abi = "abis/deployments/models/paved_models_player_player_name.json"
-name = "paved::models::player::player_name"
-
-[[models.members]]
-name = "name"
-type = "felt252"
-key = true
-
-[[models.members]]
-name = "id"
-type = "felt252"
-key = false
-
-[[models]]
-kind = "DojoModel"
-class_hash = "0x6e4e84f7676611e3e99f521b6d91252566233f5920eca45e1aa4d76f2ae8fe5"
-original_class_hash = "0x6e4e84f7676611e3e99f521b6d91252566233f5920eca45e1aa4d76f2ae8fe5"
-abi = "abis/deployments/models/paved_models_team_team.json"
-name = "paved::models::team::team"
-
-[[models.members]]
-name = "game_id"
-type = "u32"
-key = true
-
-[[models.members]]
-name = "order"
-type = "u8"
-key = true
-
-[[models.members]]
-name = "score"
-type = "u32"
-key = false
-
-[[models.members]]
-name = "alliance"
-type = "u8"
-key = false
-
-[[models]]
-kind = "DojoModel"
-class_hash = "0x1c31bf9bf19f9438ac1d2f77817e6788878b9ed89d89440ca3637f91838d9ed"
-original_class_hash = "0x1c31bf9bf19f9438ac1d2f77817e6788878b9ed89d89440ca3637f91838d9ed"
-abi = "abis/deployments/models/paved_models_tile_tile.json"
-name = "paved::models::tile::tile"
+class_hash = "0x18fac425cbb97c5e605b3c41ea226c4c0bdf3029234f565e681792ca2df2c01"
+original_class_hash = "0x18fac425cbb97c5e605b3c41ea226c4c0bdf3029234f565e681792ca2df2c01"
+abi = "manifests/dev/abis/deployments/models/paved_models_index_tile.json"
+name = "paved::models::index::tile"
 
 [[models.members]]
 name = "game_id"
@@ -411,10 +292,10 @@ key = false
 
 [[models]]
 kind = "DojoModel"
-class_hash = "0x7b911b42fbf87955c5bcc226d2741bc371756ec1d2e06ef1c52ad127a4f1bda"
-original_class_hash = "0x7b911b42fbf87955c5bcc226d2741bc371756ec1d2e06ef1c52ad127a4f1bda"
-abi = "abis/deployments/models/paved_models_tile_tile_position.json"
-name = "paved::models::tile::tile_position"
+class_hash = "0x5901857908756661373045d3a1d8c9a13ca366cf50310b4025d21143b4bb29"
+original_class_hash = "0x5901857908756661373045d3a1d8c9a13ca366cf50310b4025d21143b4bb29"
+abi = "manifests/dev/abis/deployments/models/paved_models_index_tile_position.json"
+name = "paved::models::index::tile_position"
 
 [[models.members]]
 name = "game_id"
@@ -438,10 +319,10 @@ key = false
 
 [[models]]
 kind = "DojoModel"
-class_hash = "0x5b26b4c1d75f87f36f15a3ae911c47bf0340b62afde35e7c2ceb9ce637106d2"
-original_class_hash = "0x5b26b4c1d75f87f36f15a3ae911c47bf0340b62afde35e7c2ceb9ce637106d2"
-abi = "abis/deployments/models/paved_models_tournament_tournament.json"
-name = "paved::models::tournament::tournament"
+class_hash = "0x6f212e189ebf03a128ad905ed2e8af085eaa58ba32faed7c26d242e561a93f"
+original_class_hash = "0x6f212e189ebf03a128ad905ed2e8af085eaa58ba32faed7c26d242e561a93f"
+abi = "manifests/dev/abis/deployments/models/paved_models_index_tournament.json"
+name = "paved::models::index::tournament"
 
 [[models.members]]
 name = "id"
@@ -495,27 +376,5 @@ key = false
 
 [[models.members]]
 name = "top3_claimed"
-type = "bool"
-key = false
-
-[[models]]
-kind = "DojoModel"
-class_hash = "0x4cc335efa2fbea238e37711de7f0beedae2a75154e3b38b5fa986ea768d604e"
-original_class_hash = "0x4cc335efa2fbea238e37711de7f0beedae2a75154e3b38b5fa986ea768d604e"
-abi = "abis/deployments/models/paved_models_tournament_tournament_claim.json"
-name = "paved::models::tournament::tournament_claim"
-
-[[models.members]]
-name = "tournament_id"
-type = "u64"
-key = true
-
-[[models.members]]
-name = "player_id"
-type = "felt252"
-key = true
-
-[[models.members]]
-name = "claimed"
 type = "bool"
 key = false

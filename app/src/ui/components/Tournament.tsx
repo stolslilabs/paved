@@ -3,7 +3,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/ui/elements/dialog";
 import {
   Table,
   TableBody,
@@ -11,54 +11,65 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/ui/elements/table";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import {
   Pagination,
   PaginationContent,
   PaginationEllipsis,
   PaginationItem,
   PaginationLink,
-} from "@/components/ui/pagination";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
+} from "@/ui/elements/pagination";
+import { ScrollArea } from "@/ui/elements/scroll-area";
+import { Button } from "@/ui/elements/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faCalendarDays,
   faEye,
   faLock,
   faSackDollar,
-  faTrophy,
 } from "@fortawesome/free-solid-svg-icons";
-import { GameOverEvent, useGames } from "@/hooks/useGames";
+import { useGames } from "@/hooks/useGames";
 import { useTournament } from "@/hooks/useTournament";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  TOURNAMENT_DURATION,
-  TOURNAMENT_ID_OFFSET,
-} from "@/dojo/game/constants";
 import { Lords } from "./Lords";
 import { Tournament as TournamentClass } from "@/dojo/game/models/tournament";
 import { useDojo } from "@/dojo/useDojo";
 import { Account } from "starknet";
-import { ModeType } from "@/dojo/game/types/mode";
+import { Mode } from "@/dojo/game/types/mode";
+import { Sponsor } from "@/ui/components/Sponsor";
+import leaderboard from "/assets/icons/LEADERBOARD.svg";
+import { useTournaments } from "@/hooks/useTournaments";
+import { Game } from "@/dojo/game/models/game";
+import { usePlayer } from "@/hooks/usePlayer";
+import { useBuilders } from "@/hooks/useBuilders";
 
-export const TournamentHeader = () => {
+export const getSeason = (mode: Mode) => {
+  const now = Math.floor(Date.now() / 1000);
+  const id = Math.floor(now / mode.duration());
+  return id - mode.offset();
+};
+
+export const TournamentHeader = ({ mode }: { mode: Mode }) => {
   const [tournamentId, setTournamentId] = useState<number>();
   const [timeLeft, setTimeLeft] = useState<string>();
 
   useEffect(() => {
+    if (!mode) return;
+
     const now = Math.floor(Date.now() / 1000);
-    const id = Math.floor(now / TOURNAMENT_DURATION);
-    const startTime = id * TOURNAMENT_DURATION;
-    const endTime = startTime + TOURNAMENT_DURATION;
-    setTournamentId(id - TOURNAMENT_ID_OFFSET);
+    const id = Math.floor(now / mode.duration());
+
+    setTournamentId(getSeason(mode));
+
+    const startTime = id * mode.duration();
+    const endTime = startTime + mode.duration();
 
     const interval = setInterval(() => {
       // Remaining time in seconds
@@ -85,24 +96,28 @@ export const TournamentHeader = () => {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [mode]);
 
   return (
-    <div className="flex justify-between items-center">
-      <div className="text-xs">{`Season ${tournamentId} - ${timeLeft}`}</div>
+    <div className=" justify-between items-center self-center">
+      <div className="text-3xl">{`Season ${tournamentId}`}</div>
+      <div> {timeLeft}</div>
     </div>
   );
 };
 
-export const TournamentDialog = () => {
+export const TournamentDialog = ({ mode }: { mode: Mode }) => {
   return (
     <Dialog>
       <DialogTrigger>
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant={"secondary"} size={"default"}>
-                <FontAwesomeIcon className="h-6" icon={faTrophy} />
+              <Button size={"default"}>
+                <img
+                  src={leaderboard}
+                  className="w-8 fill-secondary-foreground"
+                />
               </Button>
             </TooltipTrigger>
             <TooltipContent>
@@ -111,19 +126,20 @@ export const TournamentDialog = () => {
           </Tooltip>
         </TooltipProvider>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-screen overflow-scroll">
         <DialogHeader className="flex items-center">
           Tournament Leaderboard
         </DialogHeader>
-        <Tournament />
+        <Tournament mode={mode} />
       </DialogContent>
     </Dialog>
   );
 };
 
-export const Tournament = () => {
-  const { games, ids } = useGames(ModeType.Ranked);
-  const [page, setPage] = useState<number | undefined>();
+export const Tournament = ({ mode }: { mode: Mode }) => {
+  const { games } = useGames({ mode });
+  const { tournaments } = useTournaments();
+  const [page, setPage] = useState<number>(1);
   const [pages, setPages] = useState<number[]>([]);
   const [startDate, setStartDate] = useState<string>("");
   const [startTime, setStartTime] = useState<string>("");
@@ -131,48 +147,36 @@ export const Tournament = () => {
   const [endTime, setEndTime] = useState<string>("");
 
   useEffect(() => {
-    if (!page) return setPage(ids.length);
-    const pages = [page];
-    if (page > 1) {
-      pages.unshift(page - 1);
-    }
-    if (page < ids.length) {
-      pages.push(page + 1);
-    }
-    if (page === 1 && ids.length > 2) {
-      pages.push(page + 2);
-    }
-    if (page === ids.length && ids.length > 2) {
-      pages.unshift(page - 2);
-    }
-    setPages(pages);
-  }, [page, ids]);
+    const currentSeason = getSeason(mode);
+    setPage(currentSeason);
+  }, []);
 
   useEffect(() => {
-    if (!page) return;
-    const startTime = (page + TOURNAMENT_ID_OFFSET) * TOURNAMENT_DURATION;
-    const endTime = startTime + TOURNAMENT_DURATION;
+    const currentSeason = getSeason(mode);
+    const allPages = Array.from({ length: currentSeason }, (_, i) => i + 1);
+    const latestPages = allPages.slice(-4); // Get only the latest 4 pages
+    setPages(latestPages);
+  }, []);
+
+  useEffect(() => {
+    if (!page || !mode) return;
+    const startTime = (page + mode.offset()) * mode.duration();
+    const endTime = startTime + mode.duration();
     const start = new Date(startTime * 1000);
     const end = new Date(endTime * 1000);
     setStartDate(start.toLocaleDateString());
     setStartTime(start.toLocaleTimeString());
     setEndDate(end.toLocaleDateString());
     setEndTime(end.toLocaleTimeString());
-  }, [page]);
-
-  const balckilist = useMemo(() => {
-    return [""];
-  }, []);
+  }, [page, mode]);
 
   const allGames = useMemo(() => {
+    const offset = BigInt(mode.offset());
     return games
-      .filter(
-        (game) =>
-          game.seasonId === page && !balckilist.includes(game.playerMaster),
-      )
-      .sort((a, b) => b.gameScore - a.gameScore)
+      .filter((game) => game.tournament_id - offset === BigInt(page))
+      .sort((a, b) => b.score - a.score)
       .slice(0, 10);
-  }, [games, page, balckilist]);
+  }, [games, page]);
 
   return (
     <div className="relative flex flex-col gap-4">
@@ -187,7 +191,7 @@ export const Tournament = () => {
               <PaginationItem key={index}>
                 <PaginationLink
                   href="#"
-                  isActive={id === (page ? page : ids.length)}
+                  isActive={id === (page ? page : tournaments.length)}
                   onClick={() => setPage(id)}
                 >
                   {id}
@@ -213,7 +217,8 @@ export const Tournament = () => {
         </div>
       </div>
 
-      {page && <Prize tournamentId={page} />}
+      {(page && <Sponsor tournamentId={page + mode.offset()} mode={mode} />) ||
+        null}
 
       <Table className="text-xs">
         <ScrollArea className="h-[570px] w-full pr-2">
@@ -226,17 +231,17 @@ export const Tournament = () => {
               <TableHead className="flex justify-center items-center">
                 <Lords fill={"black"} width={4} height={4} />
               </TableHead>
-              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {allGames.map((game: GameOverEvent, index: number) => {
+            {allGames.map((game: Game, index: number) => {
               return (
                 <GameRow
                   key={index}
                   game={game}
-                  tournamentId={page ? page : 0}
+                  tournamentId={(page ? page : 0) + mode.offset()}
                   rank={index + 1}
+                  mode={mode}
                 />
               );
             })}
@@ -251,23 +256,27 @@ export const GameRow = ({
   game,
   tournamentId,
   rank,
+  mode,
 }: {
-  game: GameOverEvent;
+  game: Game;
   tournamentId: number;
   rank: number;
+  mode: Mode;
 }) => {
+  // const { account } = useAccount();
   const {
     account: { account },
   } = useDojo();
 
+  const { builders } = useBuilders({ gameId: game.id });
+  const { player } = usePlayer({ playerId: builders[0]?.player_id });
+
   const { tournament } = useTournament({
-    tournamentId: tournamentId + TOURNAMENT_ID_OFFSET,
+    tournamentId: tournamentId,
   });
 
   const duration = useMemo(() => {
-    const startTime = game.gameStartTime;
-    const endTime = game.gameEndTime;
-    const dt = endTime.getTime() - startTime.getTime();
+    const dt = game.end_time.getTime() - game.start_time.getTime();
     const hours = Math.floor(dt / 1000 / 60 / 60);
     const minutes = Math.floor((dt / 1000 / 60) % 60);
     const seconds = Math.floor((dt / 1000) % 60);
@@ -285,13 +294,6 @@ export const GameRow = ({
     return value;
   }, [tournament, rank]);
 
-  const playerName = useMemo(() => {
-    // Name on 10 characters max
-    return game.playerName.length > 8
-      ? game.playerName.slice(0, 8) + "…"
-      : game.playerName;
-  }, [game]);
-
   const playerRank = useMemo(() => {
     if (rank === 1) return "🥇";
     if (rank === 2) return "🥈";
@@ -300,57 +302,25 @@ export const GameRow = ({
   }, [rank]);
 
   const isSelf = useMemo(() => {
-    return game.playerId === account.address;
-  }, [game, account]);
+    if (!player || !account) return false;
+    return player.id === account?.address;
+  }, [player, account]);
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{playerRank}</TableCell>
-      <TableCell className="text-left">{playerName}</TableCell>
-      <TableCell className="text-right">{game.gameScore}</TableCell>
+      <TableCell className="">{playerRank}</TableCell>
+      <TableCell className="text-left">{player?.getShortName()}</TableCell>
+      <TableCell className="text-right">{game.score}</TableCell>
       <TableCell className="text-right">{duration}</TableCell>
       <TableCell className="text-right">{rank > 3 ? "" : winnings}</TableCell>
       <TableCell className="text-right">
-        {isSelf && tournament && tournament.isClaimable(rank) ? (
-          <Claim tournament={tournament} rank={rank} />
+        {isSelf && tournament && tournament.isClaimable(rank, mode) ? (
+          <Claim tournament={tournament} rank={rank} mode={mode} />
         ) : (
-          <Spectate gameId={game.gameId} />
+          <Spectate gameId={game.id} />
         )}
       </TableCell>
     </TableRow>
-  );
-};
-
-export const Prize = ({ tournamentId }: { tournamentId: number }) => {
-  const [prize, setPrize] = useState<number>();
-  const { tournament } = useTournament({
-    tournamentId: tournamentId + TOURNAMENT_ID_OFFSET,
-  });
-
-  useEffect(() => {
-    if (tournament) {
-      setPrize(Number(tournament.prize) / 1e18);
-    } else {
-      setPrize(0);
-    }
-  }, [tournament]);
-
-  const backgroundColor = useMemo(() => {
-    return "#111827";
-  }, []);
-
-  return (
-    <div
-      className="flex justify-between items-center gap-4 text-white rounded-xl py-2 px-16"
-      style={{ backgroundColor }}
-    >
-      <Lords fill={"white"} />
-      <div className="flex flex-col justify-center items-center text-xl gap-1">
-        <p className="text-xs">Prize Pool</p>
-        <p className="text-xl">{`${prize}`}</p>
-      </div>
-      <Lords fill={"white"} />
-    </div>
   );
 };
 
@@ -382,28 +352,32 @@ export const Spectate = ({ gameId }: { gameId: number }) => {
 export const Claim = ({
   tournament,
   rank,
+  mode,
 }: {
   tournament: TournamentClass;
   rank: number;
+  mode: Mode;
 }) => {
+  // const { account } = useAccount();
   const {
     account: { account },
     setup: {
-      systemCalls: { claim_tournament },
+      systemCalls: { claim },
     },
   } = useDojo();
 
   const disabled = useMemo(() => {
     if (!tournament) return true;
-    return !tournament.isOver() || tournament.isClaimed(rank);
+    return !tournament.isOver(mode) || tournament.isClaimed(rank);
   }, [tournament]);
 
   const handleClick = useCallback(() => {
     if (account) {
-      claim_tournament({
+      claim({
         account: account as Account,
+        mode,
         tournament_id: tournament.id,
-        rank: rank,
+        rank,
       });
     }
   }, [account, tournament]);

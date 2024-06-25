@@ -14,10 +14,12 @@ use paved::types::plan::{Plan, PlanImpl};
 use paved::types::layout::{Layout, LayoutImpl};
 use paved::types::spot::{Spot, SpotImpl};
 use paved::types::move::{Move, MoveImpl};
+use paved::models::index::{Tile, TilePosition};
 
 // Constants
 
 const CENTER: u32 = 0x7fffffff;
+const TWO_POW_8: u128 = 0x100;
 
 mod errors {
     const TILE_INVALID_NEIGHBOR: felt252 = 'Tile: invalid neighbor';
@@ -31,31 +33,6 @@ mod errors {
     const INVALID_ORIENTATION: felt252 = 'Tile: invalid orientation';
     const INVALID_SPOT: felt252 = 'Tile: invalid spot';
     const TILE_ALREADY_EMPTY: felt252 = 'Tile: already empty';
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct Tile {
-    #[key]
-    game_id: u32,
-    #[key]
-    id: u32,
-    player_id: felt252,
-    plan: u8,
-    orientation: u8,
-    x: u32,
-    y: u32,
-    occupied_spot: u8,
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct TilePosition {
-    #[key]
-    game_id: u32,
-    #[key]
-    x: u32,
-    #[key]
-    y: u32,
-    tile_id: u32,
 }
 
 #[generate_trait]
@@ -76,7 +53,7 @@ impl TileImpl of TileTrait {
 
     #[inline(always)]
     fn get_key(self: Tile, area: Area) -> felt252 {
-        let key: u128 = area.into() + self.id.into() * constants::TWO_POW_8;
+        let key: u128 = area.into() + self.id.into() * TWO_POW_8;
         key.into()
     }
 
@@ -226,6 +203,11 @@ impl TileIntoLayout of core::Into<Tile, Layout> {
 #[generate_trait]
 impl TileAssert of AssertTrait {
     #[inline(always)]
+    fn assert_exists(self: Tile) {
+        assert(self.is_non_zero(), errors::TILE_DOES_NOT_EXIST);
+    }
+
+    #[inline(always)]
     fn assert_is_placed(self: Tile) {
         assert(Orientation::None != self.orientation.into(), errors::TILE_NOT_PLACED);
     }
@@ -238,6 +220,18 @@ impl TileAssert of AssertTrait {
     #[inline(always)]
     fn assert_can_place(self: Tile, ref neighbors: Array<Tile>) {
         assert(self.can_place(ref neighbors), errors::TILE_CANNOT_PLACE);
+    }
+}
+
+#[generate_trait]
+impl TilePositionAssert of AssertPositionTrait {
+    #[inline(always)]
+    fn assert_exists(self: TilePosition) {
+        assert(self.is_non_zero(), errors::TILE_DOES_NOT_EXIST);
+    }
+    #[inline(always)]
+    fn assert_not_exists(self: TilePosition) {
+        assert(self.is_zero(), errors::TILE_ALREADY_EXISTS);
     }
 }
 
@@ -323,7 +317,8 @@ mod tests {
     // Local imports
 
     use super::{
-        Tile, TileImpl, TileAssert, InternalImpl, Layout, Orientation, Direction, Plan, CENTER
+        Tile, TileImpl, TileAssert, TileIntoLayout, InternalImpl, Layout, Orientation, Direction,
+        Plan, CENTER
     };
 
     // Implementations

@@ -12,6 +12,7 @@ use origami::random::deck::{Deck as OrigamiDeck, DeckTrait};
 // Internal imports
 
 use paved::constants;
+use paved::models::index::Tournament;
 
 // Errors
 
@@ -24,27 +25,11 @@ mod errors {
     const NOTHING_TO_CLAIM: felt252 = 'Tournament: nothing to claim';
 }
 
-#[derive(Model, Copy, Drop, Serde)]
-struct Tournament {
-    #[key]
-    id: u64,
-    prize: felt252,
-    top1_player_id: felt252,
-    top2_player_id: felt252,
-    top3_player_id: felt252,
-    top1_score: u32,
-    top2_score: u32,
-    top3_score: u32,
-    top1_claimed: bool,
-    top2_claimed: bool,
-    top3_claimed: bool,
-}
-
 #[generate_trait]
 impl TournamentImpl of TournamentTrait {
     #[inline(always)]
-    fn compute_id(time: u64) -> u64 {
-        time / constants::TOURNAMENT_DURATION
+    fn compute_id(time: u64, duration: u64) -> u64 {
+        time / duration
     }
 
     #[inline(always)]
@@ -123,9 +108,9 @@ impl TournamentImpl of TournamentTrait {
     }
 
     #[inline(always)]
-    fn claim(ref self: Tournament, player_id: felt252, rank: u8, time: u64) -> u256 {
+    fn claim(ref self: Tournament, player_id: felt252, rank: u8, time: u64, duration: u64) -> u256 {
         // [Check] Tournament is over
-        self.assert_is_over(time);
+        self.assert_is_over(time, duration);
         // [Check] Reward not already claimed
         self.assert_not_claimed(rank);
         // [Check] Player is caller
@@ -166,28 +151,9 @@ impl TournamentAssert of AssertTrait {
     }
 
     #[inline(always)]
-    fn assert_is_over(self: Tournament, time: u64) {
-        let id = TournamentImpl::compute_id(time);
+    fn assert_is_over(self: Tournament, time: u64, duration: u64) {
+        let id = TournamentImpl::compute_id(time, duration);
         assert(id > self.id, errors::TOURNAMENT_NOT_OVER);
-    }
-}
-
-impl DefaultTournament of Default<Tournament> {
-    #[inline(always)]
-    fn default() -> Tournament {
-        Tournament {
-            id: 0,
-            prize: 0,
-            top1_player_id: 0,
-            top2_player_id: 0,
-            top3_player_id: 0,
-            top1_score: 0,
-            top2_score: 0,
-            top3_score: 0,
-            top1_claimed: false,
-            top2_claimed: false,
-            top3_claimed: false,
-        }
     }
 }
 
@@ -235,16 +201,37 @@ mod tests {
 
     const TIME: u64 = 1710347593;
 
+    // Implementations
+
+    impl DefaultTournament of Default<Tournament> {
+        #[inline(always)]
+        fn default() -> Tournament {
+            Tournament {
+                id: 0,
+                prize: 0,
+                top1_player_id: 0,
+                top2_player_id: 0,
+                top3_player_id: 0,
+                top1_score: 0,
+                top2_score: 0,
+                top3_score: 0,
+                top1_claimed: false,
+                top2_claimed: false,
+                top3_claimed: false,
+            }
+        }
+    }
+
     #[test]
     fn test_compute_id_zero() {
-        let id = TournamentImpl::compute_id(0);
+        let id = TournamentImpl::compute_id(0, 604800);
         assert(0 == id, 'Tournament: wrong id');
     }
 
     #[test]
     fn test_compute_id_today() {
         let time = 1710347593;
-        let id = TournamentImpl::compute_id(time);
+        let id = TournamentImpl::compute_id(time, 604800);
         assert(2827 == id, 'Tournament: wrong id');
     }
 
@@ -273,17 +260,17 @@ mod tests {
         tournament.score(3, 15);
 
         // First claims the reward
-        let reward = tournament.claim(2, 1, TIME);
+        let reward = tournament.claim(2, 1, TIME, 604800);
         assert(56 == reward, 'Tournament: wrong reward');
         assert(tournament.top1_claimed, 'Tournament: not claimed');
 
         // Second claims the reward
-        let reward = tournament.claim(3, 2, TIME);
+        let reward = tournament.claim(3, 2, TIME, 604800);
         assert(28 == reward, 'Tournament: wrong reward');
         assert(tournament.top2_claimed, 'Tournament: not claimed');
 
         // Third claims the reward
-        let reward = tournament.claim(1, 3, TIME);
+        let reward = tournament.claim(1, 3, TIME, 604800);
         assert(16 == reward, 'Tournament: wrong reward');
         assert(tournament.top3_claimed, 'Tournament: not claimed');
     }
@@ -296,12 +283,12 @@ mod tests {
         tournament.score(3, 15);
 
         // First claims the reward
-        let reward = tournament.claim(2, 1, TIME);
+        let reward = tournament.claim(2, 1, TIME, 604800);
         assert(67 == reward, 'Tournament: wrong reward');
         assert(tournament.top1_claimed, 'Tournament: not claimed');
 
         // Second claims the reward
-        let reward = tournament.claim(3, 2, TIME);
+        let reward = tournament.claim(3, 2, TIME, 604800);
         assert(33 == reward, 'Tournament: wrong reward');
         assert(tournament.top2_claimed, 'Tournament: not claimed');
     }
@@ -313,7 +300,7 @@ mod tests {
         tournament.score(2, 20);
 
         // First claims the reward
-        let reward = tournament.claim(2, 1, TIME);
+        let reward = tournament.claim(2, 1, TIME, 604800);
         assert(100 == reward, 'Tournament: wrong reward');
         assert(tournament.top1_claimed, 'Tournament: not claimed');
     }
@@ -327,7 +314,7 @@ mod tests {
         tournament.score(3, 15);
 
         // First claims the reward
-        tournament.claim(3, 1, TIME);
+        tournament.claim(3, 1, TIME, 604800);
     }
 
     #[test]
@@ -340,7 +327,7 @@ mod tests {
         tournament.score(3, 15);
 
         // First claims the reward
-        tournament.claim(1, 3, 0);
+        tournament.claim(1, 3, 0, 604800);
     }
 
     #[test]
@@ -353,8 +340,8 @@ mod tests {
         tournament.score(3, 15);
 
         // First claims the reward
-        tournament.claim(1, 3, TIME);
-        tournament.claim(1, 3, TIME);
+        tournament.claim(1, 3, TIME, 604800);
+        tournament.claim(1, 3, TIME, 604800);
     }
 }
 

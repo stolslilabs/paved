@@ -4,26 +4,35 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import GameScreen from "./ui/screens/GameScreen";
 import { GameLobby } from "./ui/screens/GameLobby";
 import { useQueryParams } from "./hooks/useQueryParams";
-import { Toaster } from "./components/ui/sonner";
+import { Toaster } from "./ui/elements/sonner";
 import { Landing } from "./ui/screens/Landing";
-import { BorderLayout } from "./ui/components/BorderLayout";
+import { useDojo } from "./dojo/useDojo";
+import { usePlayer } from "./hooks/usePlayer";
 
 export const CoreScreen = () => {
   const { gameId } = useQueryParams();
-  return <BorderLayout>{gameId ? <GameScreen /> : <GameLobby />}</BorderLayout>;
+  const {
+    account: { account },
+  } = useDojo();
+
+  const { player } = usePlayer({ playerId: account?.address });
+  return (
+    <>
+      {!player && <Landing />}
+      {!!account && !!player && !gameId && <GameLobby />}
+      {!!account && !!player && !!gameId && <GameScreen />}
+    </>
+  );
 };
 
 function App() {
   return (
-    <>
-      <Router>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/game" element={<CoreScreen />} />
-        </Routes>
-        <Toaster position="top-center" />
-      </Router>
-    </>
+    <Router>
+      <Routes>
+        <Route path="/" element={<CoreScreen />} />
+      </Routes>
+      <Toaster position="top-center" />
+    </Router>
   );
 }
 

@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
-import { defineEnterSystem, Has, HasValue, NotValue } from "@dojoengine/recs";
+import {
+  getComponentValue,
+  Entity,
+  Has,
+  HasValue,
+  NotValue,
+} from "@dojoengine/recs";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import { useEntityQuery } from "@dojoengine/react";
 
 type Position = {
   col: number;
@@ -21,6 +28,8 @@ export const useTiles = () => {
   const { gameId } = useQueryParams();
   const [items, setItems] = useState<Items>({});
   const [tiles, setTiles] = useState<any>({});
+  const [keys, setKeys] = useState<Entity[]>([]);
+  const [trigger, setTrigger] = useState(false);
 
   const {
     setup: {
@@ -80,20 +89,34 @@ export const useTiles = () => {
     });
   };
 
+  const tileKeys = useEntityQuery([
+    Has(Tile),
+    HasValue(Tile, { game_id: gameId }),
+    NotValue(Tile, { orientation: 0 }),
+  ]);
+
   useEffect(() => {
-    defineEnterSystem(
-      world,
-      [
-        Has(Tile),
-        HasValue(Tile, { game_id: gameId }),
-        NotValue(Tile, { orientation: 0 }),
-      ],
-      ({ value: [raw] }: any) => {
-        const tile = new TileClass(raw);
-        createTileAndSet(tile);
-      },
-    );
-  }, []);
+    // If some keys has been removed, then reset the state
+    const oldKeys = keys.filter((key) => !tileKeys.includes(key));
+    if (oldKeys.length) {
+      setItems({});
+      setTiles({});
+      setKeys(tileKeys);
+      setTrigger(!trigger);
+      return;
+    }
+
+    tileKeys.forEach((entity) => {
+      const tile = getComponentValue(Tile, entity);
+
+      if (!tile || !tile.orientation) {
+        return;
+      }
+
+      createTileAndSet(new TileClass(tile));
+    });
+    setKeys(tileKeys);
+  }, [tileKeys, trigger]);
 
   return { tiles, items };
 };

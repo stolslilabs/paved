@@ -26,49 +26,9 @@ export default defineConfig({
         },],
     },
     {
-      text: "Player Setup",
-      collapsed: true,
-      items: [
-        {
-          text: "Log In",
-          link: "/wallet",
-        },
-        {
-          text: "Spawn",
-          link: "/spawn",
-        },
-        {
-          text: "Purchase - Coming Soon",
-          link: "/purchase",
-        },
-      ],
-    },
-    {
-      text: "Game Setup",
-      collapsed: true,
-      items: [
-        {
-          text: "Solo",
-          link: "/create",
-        },
-        {
-          text: "Multiplayer",
-          link: "/join",
-        },
-        {
-          text: "Spectate",
-          link: "/spectate",
-        },
-      ],
-    },
-    {
       text: "Play",
       collapsed: true,
       items: [
-        {
-          text: "Reveal",
-          link: "/reveal",
-        },
          {
           text: "Place",
           link: "/place",
@@ -110,10 +70,6 @@ export default defineConfig({
         {
           text: "Characters",
           link: "/characters",
-        },
-        {
-          text: "Allegiance",
-          link: "/allegience",
         },
         {
           text: "Scoring",

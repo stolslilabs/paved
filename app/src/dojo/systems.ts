@@ -1,12 +1,12 @@
 import type { IWorld } from "./generated/contractSystems";
 
 import { toast } from "sonner";
-import * as SystemTypes from "./types/systems";
-import { getEntityIdFromKeys } from "@dojoengine/utils";
+import * as SystemTypes from "./generated/contractSystems";
+import { getEntityIdFromKeys, shortenHex } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { uuid } from "@latticexyz/utils";
-import { ClientComponents } from "./createClientComponents";
 import { ClientModels } from "./models";
+import { ModeType } from "./game/types/mode";
 
 export type SystemCalls = ReturnType<typeof systems>;
 
@@ -23,226 +23,18 @@ export function systems({
 
   const notify = (message: string, transaction: any) => {
     if (transaction.execution_status != "REVERTED") {
-      toast.success(message);
+      toast.success(message, {
+        description: shortenHex(transaction.transaction_hash),
+        action: {
+          label: "View",
+          onClick: () =>
+            window.open(
+              `https://worlds.dev/networks/slot/worlds/paved/txs/${transaction.transaction_hash}`,
+            ),
+        },
+      });
     } else {
       toast.error(extractedMessage(transaction.revert_reason));
-    }
-  };
-
-  const create_game = async ({ account, ...props }: SystemTypes.CreateGame) => {
-    try {
-      const { transaction_hash } = await client.host.create({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Game has been created.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error creating game:", error);
-    }
-  };
-
-  const rename_game = async ({ account, ...props }: SystemTypes.RenameGame) => {
-    const entityId = getEntityIdFromKeys([BigInt(props.game_id)]) as Entity;
-
-    const tileId = uuid();
-    clientModels.models.Game.addOverride(tileId, {
-      entity: entityId,
-      value: {
-        name: BigInt(props.name),
-      },
-    });
-
-    try {
-      const { transaction_hash } = await client.host.rename({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Game has been renamed.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      clientModels.models.Game.removeOverride(tileId);
-      console.error("Error renaming game:", error);
-    } finally {
-      clientModels.models.Game.removeOverride(tileId);
-    }
-  };
-
-  const update_game = async ({ account, ...props }: SystemTypes.UpdateGame) => {
-    try {
-      const { transaction_hash } = await client.host.update({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Game has been updated.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error updating game:", error);
-    }
-  };
-
-  const join_game = async ({ account, ...props }: SystemTypes.JoinGame) => {
-    try {
-      const { transaction_hash } = await client.host.join({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Game has been joined.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error joining game:", error);
-    }
-  };
-
-  const ready_game = async ({ account, ...props }: SystemTypes.ReadyGame) => {
-    try {
-      const { transaction_hash } = await client.host.ready({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Builder is ready.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error being ready:", error);
-    }
-  };
-
-  const transfer_game = async ({
-    account,
-    ...props
-  }: SystemTypes.TransferGame) => {
-    try {
-      const { transaction_hash } = await client.host.transfer({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Game has been transferred.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error transferring game:", error);
-    }
-  };
-
-  const leave_game = async ({ account, ...props }: SystemTypes.LeaveGame) => {
-    try {
-      const { transaction_hash } = await client.host.leave({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Game has been left.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error leaving game:", error);
-    }
-  };
-
-  const kick_game = async ({ account, ...props }: SystemTypes.KickGame) => {
-    try {
-      const { transaction_hash } = await client.host.kick({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Builder has been kicked.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error kicking builder:", error);
-    }
-  };
-
-  const delete_game = async ({ account, ...props }: SystemTypes.DeleteGame) => {
-    try {
-      const { transaction_hash } = await client.host.remove({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Game has been deleted.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error deleting game:", error);
-    }
-  };
-
-  const start_game = async ({ account, ...props }: SystemTypes.StartGame) => {
-    try {
-      const { transaction_hash } = await client.host.start({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Game has been started.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error starting game:", error);
-    }
-  };
-
-  const claim_tournament = async ({
-    account,
-    ...props
-  }: SystemTypes.ClaimTournament) => {
-    try {
-      const { transaction_hash } = await client.host.claim({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Tournament has been claimed.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error claiming tournament:", error);
     }
   };
 
@@ -251,7 +43,7 @@ export function systems({
     ...props
   }: SystemTypes.CreatePlayer) => {
     try {
-      const { transaction_hash } = await client.manage.create({
+      const { transaction_hash } = await client.account.create({
         account,
         ...props,
       });
@@ -262,221 +54,181 @@ export function systems({
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error creating player:", error);
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
     }
   };
 
-  const rename_player = async ({
+  const create_game = async ({
     account,
+    mode,
     ...props
-  }: SystemTypes.RenamePlayer) => {
+  }: SystemTypes.CreateGame) => {
+    const contract =
+      mode?.value === ModeType.Daily ? client.daily : client.daily;
     try {
-      const { transaction_hash } = await client.manage.rename({
+      const { transaction_hash } = await contract.spawn({
         account,
         ...props,
       });
 
       notify(
-        "Player has been renamed.",
+        "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error renaming player:", error);
+    } catch (error: any) {
+      console.log(error);
+      toast.error(extractedMessage(error.message));
     }
   };
 
-  const reorder_player = async ({
-    account,
-    ...props
-  }: SystemTypes.ReorderPlayer) => {
+  const claim = async ({ account, mode, ...props }: SystemTypes.Claim) => {
     try {
-      const { transaction_hash } = await client.manage.reorder({
+      const contract =
+        mode?.value === ModeType.Daily ? client.daily : client.daily;
+      const { transaction_hash } = await contract.claim({
         account,
         ...props,
       });
-
       notify(
-        "Player has been reordered.",
+        "Tournament has been claimed.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error reordering player:", error);
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
     }
   };
 
-  const buy = async ({ account, ...props }: SystemTypes.Buy) => {
+  const sponsor = async ({ account, mode, ...props }: SystemTypes.Sponsor) => {
     try {
-      const { transaction_hash } = await client.manage.buy({
+      const contract =
+        mode?.value === ModeType.Daily ? client.daily : client.daily;
+      const { transaction_hash } = await contract.sponsor({
         account,
         ...props,
       });
-
       notify(
-        "Bought.",
+        "Tournament has been sponsored.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error buying:", error);
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
     }
   };
 
-  const claim = async ({ account, ...props }: SystemTypes.Claim) => {
+  const discard = async ({ account, mode, ...props }: SystemTypes.Discard) => {
     try {
-      const { transaction_hash } = await client.manage.claim({
+      const contract =
+        mode?.value === ModeType.Daily ? client.daily : client.daily;
+      const { transaction_hash } = await contract.discard({
         account,
         ...props,
       });
-
-      notify(
-        "Claimed.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error claiming:", error);
-    }
-  };
-
-  const draw = async ({ account, ...props }: SystemTypes.Draw) => {
-    try {
-      const { transaction_hash } = await client.play.draw({
-        account,
-        ...props,
-      });
-
-      notify(
-        "Tile has been revealed.",
-        await account.waitForTransaction(transaction_hash, {
-          retryInterval: 100,
-        }),
-      );
-    } catch (error) {
-      console.error("Error drawing:", error);
-    }
-  };
-
-  const discard = async ({ account, ...props }: SystemTypes.Discard) => {
-    try {
-      const { transaction_hash } = await client.play.discard({
-        account,
-        ...props,
-      });
-
       notify(
         "Tile has been discarded.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error discarding:", error);
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
     }
   };
 
-  const surrender = async ({ account, ...props }: SystemTypes.Surrender) => {
+  const surrender = async ({
+    account,
+    mode,
+    ...props
+  }: SystemTypes.Surrender) => {
     try {
-      const { transaction_hash } = await client.play.surrender({
+      const contract =
+        mode?.value === ModeType.Daily ? client.daily : client.daily;
+      const { transaction_hash } = await contract.surrender({
         account,
         ...props,
       });
-
       notify(
         "Game has been abandoned.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error surrendering:", error);
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
     }
   };
 
-  const build = async ({ account, ...props }: SystemTypes.Build) => {
-    // const tileKey = getEntityIdFromKeys([
-    //   BigInt(props.game_id),
-    //   BigInt(props.tile_id),
-    // ]) as Entity;
+  const build = async ({ account, mode, ...props }: SystemTypes.Build) => {
+    const buidlerKey = getEntityIdFromKeys([
+      BigInt(props.game_id),
+      BigInt(account?.address),
+    ]) as Entity;
 
-    // const tileId = uuid();
-    // clientModels.models.Tile.addOverride(tileId, {
-    //   entity: tileKey,
-    //   value: {
-    //     game_id: props.game_id,
-    //     id: props.tile_id,
-    //     player_id: BigInt(account.address),
-    //     orientation: props.orientation,
-    //     x: props.x,
-    //     y: props.y,
-    //     occupied_spot: props.spot,
-    //   },
-    // });
+    const builderId = uuid();
+    clientModels.models.Builder.addOverride(builderId, {
+      entity: buidlerKey,
+      value: {
+        game_id: props.game_id,
+        player_id: BigInt(account?.address),
+        tile_id: 0,
+      },
+    });
 
-    // const characterKey = getEntityIdFromKeys([
-    //   BigInt(props.game_id),
-    //   BigInt(props.tile_id),
-    //   BigInt(props.role),
-    // ]) as Entity;
+    const tileKey = getEntityIdFromKeys([
+      BigInt(props.game_id),
+      BigInt(props.tile_id),
+    ]) as Entity;
 
-    // const characterId = uuid();
-    // clientModels.models.Character.addOverride(characterId, {
-    //   entity: characterKey,
-    //   value: {
-    //     game_id: props.game_id,
-    //     player_id: BigInt(account.address),
-    //     index: props.role,
-    //     tile_id: props.tile_id,
-    //     spot: props.spot,
-    //   },
-    // });
+    const tileId = uuid();
+    clientModels.models.Tile.addOverride(tileId, {
+      entity: tileKey,
+      value: {
+        game_id: props.game_id,
+        id: props.tile_id,
+        player_id: BigInt(account?.address),
+        orientation: props.orientation,
+        x: props.x,
+        y: props.y,
+        occupied_spot: props.spot,
+      },
+    });
 
     try {
-      const { transaction_hash } = await client.play.build({
+      const contract =
+        mode?.value === ModeType.Daily ? client.daily : client.daily;
+      const { transaction_hash } = await contract.build({
         account,
         ...props,
       });
-
       notify(
         "Tile has been paved.",
         await account.waitForTransaction(transaction_hash, {
           retryInterval: 100,
         }),
       );
-    } catch (error) {
-      console.error("Error building:", error);
-      // clientModels.models.Tile.removeOverride(tileId);
-      // clientModels.models.Tile.removeOverride(characterId);
+      // Sleep 5 seconds for indexer to index
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    } catch (error: any) {
+      clientModels.models.Tile.removeOverride(tileId);
+      clientModels.models.Builder.removeOverride(builderId);
+      toast.error(extractedMessage(error.message));
     } finally {
-      // clientModels.models.Tile.removeOverride(tileId);
-      // clientModels.models.Tile.removeOverride(characterId);
+      clientModels.models.Tile.removeOverride(tileId);
+      clientModels.models.Builder.removeOverride(builderId);
     }
   };
 
   return {
-    create_game,
-    rename_game,
-    update_game,
-    join_game,
-    ready_game,
-    transfer_game,
-    leave_game,
-    kick_game,
-    delete_game,
-    start_game,
-    claim_tournament,
     create_player,
-    rename_player,
-    reorder_player,
-    buy,
+    create_game,
     claim,
-    draw,
+    sponsor,
     discard,
     surrender,
     build,

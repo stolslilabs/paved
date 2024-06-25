@@ -1,6 +1,8 @@
-import { useAccount, useStarkProfile } from "@starknet-react/core";
-import { useEffect, useMemo, useState } from "react";
-import { getAvatar } from "@/utils/avatar";
+import { useStarkProfile } from "@starknet-react/core";
+import { useMemo } from "react";
+import useClipboard from "react-use-clipboard";
+import { Button } from "../elements/button";
+import { useDojo } from "@/dojo/useDojo";
 
 export function minifyAddressOrStarknetId(
   address: string | undefined,
@@ -19,30 +21,35 @@ export function minifyAddressOrStarknetId(
 }
 
 export function Address() {
-  const { address } = useAccount();
-  const { data } = useStarkProfile({ address });
-  const [avatar, setAvatar] = useState<string | undefined>();
+  const {
+    account: { account },
+  } = useDojo();
+
+  const { data } = useStarkProfile({ address: account?.address });
+  const [isCopied, setCopied] = useClipboard(account?.address || "");
 
   const starknetId = useMemo(() => {
     if (data !== undefined) {
       return data.name;
     }
-    return address;
-  }, [address, data]);
-
-  useEffect(() => {
-    (async () => {
-      const avatar = await getAvatar(data);
-      setAvatar(avatar);
-    })();
-  }, [data]);
+    return account?.address;
+  }, [account, data]);
 
   return (
-    <div className="flex justify-center items-center">
-      {avatar && (
-        <img className="w-8 h-8 mr-3 rounded-full" src={avatar} alt="PFP" />
-      )}
-      {minifyAddressOrStarknetId(address, starknetId)}
+    <div className="flex justify-center items-center gap-3 text-xs">
+      <Button className="px-4" size={"sm"} onClick={() => setCopied()}>
+        {minifyAddressOrStarknetId(account?.address, starknetId)}
+        {isCopied ? " (copied)" : ""}
+      </Button>
+      <Button className="px-4" size={"sm"} variant={"default"}>
+        <a
+          target="_blank"
+          href="https://blastapi.io/faucets/starknet-sepolia-eth"
+        >
+          {" "}
+          Gas
+        </a>
+      </Button>
     </div>
   );
 }

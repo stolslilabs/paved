@@ -1,10 +1,10 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "@/ui/elements/tooltip";
 import { useDojo } from "@/dojo/useDojo";
 import {
   Select,
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
   SelectGroup,
-} from "@/components/ui/select";
+} from "@/ui/elements/select";
 import { shortenHex } from "@dojoengine/utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash, faRocket } from "@fortawesome/free-solid-svg-icons";
@@ -43,7 +43,7 @@ export const Account = () => {
         </Tooltip>
       </TooltipProvider>
 
-      <Select onValueChange={(value) => select(value)} value={account.address}>
+      <Select onValueChange={(value) => select(value)} value={account?.address}>
         <SelectTrigger>
           <SelectValue placeholder="Select Addr" />
         </SelectTrigger>
@@ -52,8 +52,8 @@ export const Account = () => {
             {list().map((account, index) => {
               return (
                 <div key={index} className="flex">
-                  <SelectItem value={account.address}>
-                    {shortenHex(account.address)}
+                  <SelectItem value={account?.address}>
+                    {shortenHex(account?.address)}
                   </SelectItem>
                 </div>
               );

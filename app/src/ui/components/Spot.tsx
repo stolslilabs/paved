@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { getSpotFromIndex, getIndexFromSpot } from "@/dojo/game";
 import { useGameStore } from "../../store";
+import useSound from "use-sound";
+import onCharacterPlace from "/sounds/onCharacterPlace.wav";
 
 interface TProps {
   index: number;
 }
 
 export const Spot = (props: TProps) => {
+  const [play, { stop }] = useSound(onCharacterPlace);
   const { index } = props;
   const [selected, setSelected] = useState(false);
   const { spot, setSpot } = useGameStore();
@@ -16,6 +19,7 @@ export const Spot = (props: TProps) => {
   }, [spot]);
 
   const handleClick = () => {
+    play();
     if (index === getIndexFromSpot(spot)) {
       setSpot(getSpotFromIndex(-1));
     } else {

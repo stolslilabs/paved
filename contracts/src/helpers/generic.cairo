@@ -6,7 +6,6 @@ use core::debug::PrintTrait;
 
 use paved::constants;
 use paved::store::{Store, StoreImpl};
-use paved::events::{ScoredCity, ScoredRoad};
 use paved::types::spot::Spot;
 use paved::types::area::Area;
 use paved::types::move::{Move, MoveImpl};
@@ -26,7 +25,7 @@ impl GenericCount of GenericCountTrait {
         let mut visited: Felt252Dict<bool> = core::Default::default();
         // [Compute] Recursively count the points
         let mut count = 0;
-        GenericCount::iter(game, tile, at, ref count, ref visited, ref characters, ref store);
+        Self::iter(game, tile, at, ref count, ref visited, ref characters, ref store);
         (count, characters)
     }
 
@@ -50,7 +49,7 @@ impl GenericCount of GenericCountTrait {
 
         // [Check] The tile handles a character
         let spot: Spot = tile.occupied_spot.into();
-        if 0 != spot.into() && tile.are_connected(at, spot) {
+        if 0_u8 != spot.into() && tile.are_connected(at, spot) {
             let character_position: CharacterPosition = store
                 .character_position(game, tile, spot.into());
             let character = store
@@ -66,7 +65,8 @@ impl GenericCount of GenericCountTrait {
                 Option::Some(north_oriented_move) => {
                     let mut move = north_oriented_move.rotate(tile.orientation.into());
 
-                    // [Check] A tile exists at this position, otherwise the structure is not finished
+                    // [Check] A tile exists at this position, otherwise the structure is not
+                    // finished
                     let (x, y) = tile.proxy_coordinates(move.direction);
                     let tile_position: TilePosition = store.tile_position(game, x, y);
                     if tile_position.is_zero() {
@@ -76,7 +76,7 @@ impl GenericCount of GenericCountTrait {
 
                     // [Check] If the points are zero, the structure is not finished
                     let neighbor = store.tile(game, tile_position.tile_id);
-                    GenericCount::iter(
+                    Self::iter(
                         game, neighbor, move.spot, ref count, ref visited, ref characters, ref store
                     );
                     if 0 == count.into() {
@@ -95,8 +95,6 @@ impl GenericCount of GenericCountTrait {
         count: u32,
         base_points: u32,
         ref characters: Array<Character>,
-        ref scored_cities: Array<ScoredCity>,
-        ref scored_roads: Array<ScoredRoad>,
         ref store: Store
     ) {
         // [Compute] Find the winner
@@ -149,45 +147,16 @@ impl GenericCount of GenericCountTrait {
 
         if solved {
             // [Compute] Update the scores if a winner is determined
-            let mut player = store.player(winner);
+            let player = store.player(winner);
             let mut builder = store.builder(game, player.id);
             let power = powers.get(winner);
             let (num, den) = compute_multiplier(count);
             let points = count * base_points * power * num / den;
 
-            // [Build] Events
-            if category == Category::City {
-                let event = ScoredCity {
-                    game_id: game.id,
-                    points: points,
-                    size: count,
-                    player_id: player.id,
-                    player_name: player.name,
-                    player_master: player.master,
-                    player_order_id: player.order,
-                };
-                scored_cities.append(event);
-            };
-            if category == Category::Road {
-                let event = ScoredRoad {
-                    game_id: game.id,
-                    points: points,
-                    size: count,
-                    player_id: player.id,
-                    player_name: player.name,
-                    player_master: player.master,
-                    player_order_id: player.order,
-                };
-                scored_roads.append(event);
-            };
-
-            game.add_score(ref builder, ref player, points);
+            game.add_score(points);
 
             // [Effect] Update the builder
             store.set_builder(builder);
-
-            // [Effect] Update the player
-            store.set_player(player);
         };
     }
 }

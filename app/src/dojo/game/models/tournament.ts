@@ -1,5 +1,5 @@
 import { ComponentValue } from "@dojoengine/recs";
-import { TOURNAMENT_DURATION } from "../constants";
+import { Mode } from "../types/mode";
 
 export class Tournament {
   public id: number;
@@ -17,9 +17,9 @@ export class Tournament {
   constructor(tournament: ComponentValue) {
     this.id = tournament.id;
     this.prize = tournament.prize;
-    this.top1_player_id = tournament.top1_player_id;
-    this.top2_player_id = tournament.top2_player_id;
-    this.top3_player_id = tournament.top3_player_id;
+    this.top1_player_id = `0x${tournament.top1_player_id.toString(16).replace("0x", "")}`;
+    this.top2_player_id = `0x${tournament.top2_player_id.toString(16).replace("0x", "")}`;
+    this.top3_player_id = `0x${tournament.top3_player_id.toString(16).replace("0x", "")}`;
     this.top1_score = tournament.top1_score;
     this.top2_score = tournament.top2_score;
     this.top3_score = tournament.top3_score;
@@ -28,9 +28,9 @@ export class Tournament {
     this.top3_claimed = tournament.top3_claimed;
   }
 
-  static computeId(): number {
+  static computeId(duration: number): number {
     const now = new Date();
-    return Math.floor(Math.floor(now.getTime() / 1000) / TOURNAMENT_DURATION);
+    return Math.floor(Math.floor(now.getTime() / 1000) / duration);
   }
 
   reward(rank: number): number {
@@ -74,12 +74,19 @@ export class Tournament {
     return false;
   }
 
-  isOver(): boolean {
-    const id = Tournament.computeId();
+  isOver(mode: Mode): boolean {
+    const duration = mode.duration();
+    const id = Tournament.computeId(duration);
     return id > this.id;
   }
 
-  isClaimable(rank: number): boolean {
-    return rank <= 3 && this.isOver() && !this.isClaimed(rank);
+  isCurrent(mode: Mode): boolean {
+    const duration = mode.duration();
+    const id = Tournament.computeId(duration);
+    return id === this.id;
+  }
+
+  isClaimable(rank: number, mode: Mode): boolean {
+    return rank <= 3 && this.isOver(mode) && !this.isClaimed(rank);
   }
 }

@@ -21,7 +21,7 @@ export class Tile {
   constructor(tile: ComponentValue) {
     this.gameId = tile.game_id;
     this.id = tile.id;
-    this.playerId = tile.player_id;
+    this.playerId = tile.player_id.toString(16);
     this.plan = Plan.from(tile.plan);
     this.orientation = Orientation.from(tile.orientation);
     this.x = tile.x;

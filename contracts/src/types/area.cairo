@@ -6,19 +6,6 @@ use core::debug::PrintTrait;
 
 use paved::types::orientation::Orientation;
 
-// Constants
-
-const NONE: felt252 = 0;
-const A: felt252 = 'A';
-const B: felt252 = 'B';
-const C: felt252 = 'C';
-const D: felt252 = 'D';
-const E: felt252 = 'E';
-const F: felt252 = 'F';
-const G: felt252 = 'G';
-const H: felt252 = 'H';
-const I: felt252 = 'I';
-
 #[derive(Copy, Drop, Serde, PartialEq, Introspect)]
 enum Area {
     None,
@@ -51,6 +38,25 @@ impl IntoAreaU8 of core::Into<Area, u8> {
     }
 }
 
+impl IntoU8Area of core::Into<u8, Area> {
+    #[inline(always)]
+    fn into(self: u8) -> Area {
+        match self {
+            0 => Area::None,
+            1 => Area::A,
+            2 => Area::B,
+            3 => Area::C,
+            4 => Area::D,
+            5 => Area::E,
+            6 => Area::F,
+            7 => Area::G,
+            8 => Area::H,
+            9 => Area::I,
+            _ => Area::None,
+        }
+    }
+}
+
 impl IntoAreaU128 of core::Into<Area, u128> {
     #[inline(always)]
     fn into(self: Area) -> u128 {
@@ -62,80 +68,8 @@ impl IntoAreaU128 of core::Into<Area, u128> {
 impl IntoAreaFelt252 of core::Into<Area, felt252> {
     #[inline(always)]
     fn into(self: Area) -> felt252 {
-        match self {
-            Area::None => NONE,
-            Area::A => A,
-            Area::B => B,
-            Area::C => C,
-            Area::D => D,
-            Area::E => E,
-            Area::F => F,
-            Area::G => G,
-            Area::H => H,
-            Area::I => I,
-        }
-    }
-}
-
-impl IntoU8Area of core::Into<u8, Area> {
-    #[inline(always)]
-    fn into(self: u8) -> Area {
-        if self == 1 {
-            Area::A
-        } else if self == 2 {
-            Area::B
-        } else if self == 3 {
-            Area::C
-        } else if self == 4 {
-            Area::D
-        } else if self == 5 {
-            Area::E
-        } else if self == 6 {
-            Area::F
-        } else if self == 7 {
-            Area::G
-        } else if self == 8 {
-            Area::H
-        } else if self == 9 {
-            Area::I
-        } else {
-            Area::None
-        }
-    }
-}
-
-impl IntoFelt252Area of core::Into<felt252, Area> {
-    #[inline(always)]
-    fn into(self: felt252) -> Area {
-        if self == A {
-            Area::A
-        } else if self == B {
-            Area::B
-        } else if self == C {
-            Area::C
-        } else if self == D {
-            Area::D
-        } else if self == E {
-            Area::E
-        } else if self == F {
-            Area::F
-        } else if self == G {
-            Area::G
-        } else if self == H {
-            Area::H
-        } else if self == I {
-            Area::I
-        } else {
-            Area::None
-        }
-    }
-}
-
-impl AreaPrint of PrintTrait<Area> {
-    #[inline(always)]
-    fn print(self: Area) {
-        let felt: felt252 = self.into();
-        felt.print();
+        let self_u8: u8 = self.into();
+        self_u8.into()
     }
 }
 
@@ -212,45 +146,11 @@ mod tests {
 
     // Local imports
 
-    use super::{Area, AreaImpl, Orientation, A, B, C, D, E, F, G, H, I};
+    use super::{Area, AreaImpl, Orientation};
 
     // Constants
 
-    const UNKNOWN_FELT: felt252 = 'UNKNOWN';
     const UNKNOWN_U8: u8 = 42;
-
-    #[test]
-    fn test_area_into_felt() {
-        assert(0 == Area::None.into(), 'Area: None');
-        assert(A == Area::A.into(), 'Area: A');
-        assert(B == Area::B.into(), 'Area: B');
-        assert(C == Area::C.into(), 'Area: C');
-        assert(D == Area::D.into(), 'Area: D');
-        assert(E == Area::E.into(), 'Area: E');
-        assert(F == Area::F.into(), 'Area: F');
-        assert(G == Area::G.into(), 'Area: G');
-        assert(H == Area::H.into(), 'Area: H');
-        assert(I == Area::I.into(), 'Area: I');
-    }
-
-    #[test]
-    fn test_felt_into_area() {
-        assert(Area::None == 0.into(), 'Area: None');
-        assert(Area::A == A.into(), 'Area: A');
-        assert(Area::B == B.into(), 'Area: B');
-        assert(Area::C == C.into(), 'Area: C');
-        assert(Area::D == D.into(), 'Area: D');
-        assert(Area::E == E.into(), 'Area: E');
-        assert(Area::F == F.into(), 'Area: F');
-        assert(Area::G == G.into(), 'Area: G');
-        assert(Area::H == H.into(), 'Area: H');
-        assert(Area::I == I.into(), 'Area: I');
-    }
-
-    #[test]
-    fn test_unknown_felt_into_area() {
-        assert(Area::None == UNKNOWN_FELT.into(), 'Area: Unknown');
-    }
 
     #[test]
     fn test_area_into_u8() {
@@ -264,6 +164,34 @@ mod tests {
         assert(7_u8 == Area::G.into(), 'Area: G');
         assert(8_u8 == Area::H.into(), 'Area: H');
         assert(9_u8 == Area::I.into(), 'Area: I');
+    }
+
+    #[test]
+    fn test_area_into_felt252() {
+        assert(0 == Area::None.into(), 'Area: None');
+        assert(1 == Area::A.into(), 'Area: A');
+        assert(2 == Area::B.into(), 'Area: B');
+        assert(3 == Area::C.into(), 'Area: C');
+        assert(4 == Area::D.into(), 'Area: D');
+        assert(5 == Area::E.into(), 'Area: E');
+        assert(6 == Area::F.into(), 'Area: F');
+        assert(7 == Area::G.into(), 'Area: G');
+        assert(8 == Area::H.into(), 'Area: H');
+        assert(9 == Area::I.into(), 'Area: I');
+    }
+
+    #[test]
+    fn test_area_into_u128() {
+        assert(0_u128 == Area::None.into(), 'Area: None');
+        assert(1_u128 == Area::A.into(), 'Area: A');
+        assert(2_u128 == Area::B.into(), 'Area: B');
+        assert(3_u128 == Area::C.into(), 'Area: C');
+        assert(4_u128 == Area::D.into(), 'Area: D');
+        assert(5_u128 == Area::E.into(), 'Area: E');
+        assert(6_u128 == Area::F.into(), 'Area: F');
+        assert(7_u128 == Area::G.into(), 'Area: G');
+        assert(8_u128 == Area::H.into(), 'Area: H');
+        assert(9_u128 == Area::I.into(), 'Area: I');
     }
 
     #[test]

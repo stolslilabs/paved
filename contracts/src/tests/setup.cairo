@@ -15,6 +15,7 @@ mod setup {
 
     // Internal imports
 
+    use paved::constants;
     use paved::tests::mocks::erc20::{
         IERC20Dispatcher, IERC20DispatcherTrait, IERC20FaucetDispatcher,
         IERC20FaucetDispatcherTrait, ERC20
@@ -22,14 +23,11 @@ mod setup {
     use paved::models::game::{Game, GameImpl};
     use paved::models::player::Player;
     use paved::models::builder::Builder;
-    use paved::models::team::Team;
     use paved::models::tile::Tile;
     use paved::models::tournament::Tournament;
-    use paved::systems::host::{host, IHostDispatcher, IHostDispatcherTrait};
-    use paved::systems::manage::{manage, IManageDispatcher, IManageDispatcherTrait};
-    use paved::systems::play::{play, IPlayDispatcher, IPlayDispatcherTrait};
+    use paved::systems::account::{account, IAccountDispatcher, IAccountDispatcherTrait};
+    use paved::systems::daily::{daily, IDailyDispatcher, IDailyDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
-    use paved::types::mode::Mode;
 
     // Constants
 
@@ -53,37 +51,27 @@ mod setup {
     const ANYONE_NAME: felt252 = 'ANYONE';
     const SOMEONE_NAME: felt252 = 'SOMEONE';
     const NOONE_NAME: felt252 = 'NOONE';
-    const PLAYER_ORDER_ID: u8 = 1;
-    const ANYONE_ORDER_ID: u8 = 14;
-    const SOMEONE_ORDER_ID: u8 = 7;
-    const NOONE_ORDER_ID: u8 = 4;
     const GAME_NAME: felt252 = 'GAME';
 
     #[derive(Drop)]
     struct Systems {
-        host: IHostDispatcher,
-        manage: IManageDispatcher,
-        play: IPlayDispatcher,
+        account: IAccountDispatcher,
+        daily: IDailyDispatcher,
     }
 
     #[derive(Drop)]
     struct Context {
         player_id: felt252,
         player_name: felt252,
-        player_order: u8,
         anyone_id: felt252,
         anyone_name: felt252,
-        anyone_order: u8,
         someone_id: felt252,
         someone_name: felt252,
-        someone_order: u8,
         noone_id: felt252,
         noone_name: felt252,
-        noone_order: u8,
         game_id: u32,
         game_name: felt252,
         game_duration: u64,
-        mode: Mode,
         erc20: IERC20Dispatcher,
     }
 
@@ -114,72 +102,68 @@ mod setup {
     }
 
     #[inline(always)]
-    fn spawn_game(mode: Mode) -> (IWorldDispatcher, Systems, Context) {
+    fn spawn_game() -> (IWorldDispatcher, Systems, Context) {
         // [Setup] World
         let mut models = core::array::ArrayTrait::new();
-        models.append(paved::models::game::game::TEST_CLASS_HASH);
-        models.append(paved::models::player::player::TEST_CLASS_HASH);
-        models.append(paved::models::builder::builder::TEST_CLASS_HASH);
-        models.append(paved::models::team::team::TEST_CLASS_HASH);
-        models.append(paved::models::tile::tile::TEST_CLASS_HASH);
-        models.append(paved::models::tournament::tournament::TEST_CLASS_HASH);
-        let world = spawn_test_world(models);
+        models.append(paved::models::index::game::TEST_CLASS_HASH);
+        models.append(paved::models::index::player::TEST_CLASS_HASH);
+        models.append(paved::models::index::builder::TEST_CLASS_HASH);
+        models.append(paved::models::index::tile::TEST_CLASS_HASH);
+        models.append(paved::models::index::tournament::TEST_CLASS_HASH);
+        let mut world = spawn_test_world(models);
         let erc20 = deploy_erc20();
 
-        // [Setup] Systems
-        let host_address = deploy_contract(host::TEST_CLASS_HASH, array![].span());
-        let manage_address = deploy_contract(manage::TEST_CLASS_HASH, array![].span());
-        let play_address = deploy_contract(play::TEST_CLASS_HASH, array![].span());
+        // [Setup] SystemsDrop
+        let account_calldata: Array<felt252> = array![];
+        let account_address = world
+            .deploy_contract(
+                'account', account::TEST_CLASS_HASH.try_into().unwrap(), account_calldata.span()
+            );
+        let daily_calldata: Array<felt252> = array![constants::TOKEN_ADDRESS().into(),];
+        let daily_address = world
+            .deploy_contract(
+                'daily', daily::TEST_CLASS_HASH.try_into().unwrap(), daily_calldata.span()
+            );
         let systems = Systems {
-            host: IHostDispatcher { contract_address: host_address },
-            manage: IManageDispatcher { contract_address: manage_address },
-            play: IPlayDispatcher { contract_address: play_address },
+            account: IAccountDispatcher { contract_address: account_address },
+            daily: IDailyDispatcher { contract_address: daily_address },
         };
 
         // [Setup] Context
         let faucet = IERC20FaucetDispatcher { contract_address: erc20.contract_address };
         set_contract_address(ANYONE());
         faucet.mint();
-        erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, ANYONE_NAME, ANYONE_ORDER_ID, ANYONE());
+        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        systems.account.create(ANYONE_NAME, ANYONE());
         set_contract_address(SOMEONE());
         faucet.mint();
-        erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, SOMEONE_NAME, SOMEONE_ORDER_ID, SOMEONE());
+        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        systems.account.create(SOMEONE_NAME, SOMEONE());
         set_contract_address(NOONE());
         faucet.mint();
-        erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, NOONE_NAME, NOONE_ORDER_ID, NOONE());
+        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        systems.account.create(NOONE_NAME, NOONE());
         set_contract_address(PLAYER());
         faucet.mint();
-        erc20.approve(host_address, ERC20::FAUCET_AMOUNT);
-        systems.manage.create(world, PLAYER_NAME, PLAYER_ORDER_ID, PLAYER());
+        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        systems.account.create(PLAYER_NAME, PLAYER());
         let duration: u64 = 0;
 
         // [Setup] Game if mode is set
-        let game_id = if mode == Mode::None {
-            0
-        } else {
-            systems.host.create(world, GAME_NAME, duration, mode.into())
-        };
+        let game_id = systems.daily.spawn();
 
         let context = Context {
             player_id: PLAYER().into(),
             player_name: PLAYER_NAME,
-            player_order: PLAYER_ORDER_ID,
             anyone_id: ANYONE().into(),
             anyone_name: ANYONE_NAME,
-            anyone_order: ANYONE_ORDER_ID,
             someone_id: SOMEONE().into(),
             someone_name: SOMEONE_NAME,
-            someone_order: SOMEONE_ORDER_ID,
             noone_id: NOONE().into(),
             noone_name: NOONE_NAME,
-            noone_order: NOONE_ORDER_ID,
             game_id: game_id,
             game_name: GAME_NAME,
             game_duration: duration,
-            mode: mode,
             erc20: erc20,
         };
 

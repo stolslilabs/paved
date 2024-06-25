@@ -1,0 +1,390 @@
+[world]
+kind = "WorldContract"
+class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
+original_class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
+abi = "manifests/slot/abis/deployments/dojo_world_world.json"
+address = "0x71d8da8f0b12752a42acc1df180c6f5842715e3f074acf1232a966e436195"
+transaction_hash = "0x8d84bce7a85683a24880f1a0e42d82758e745fc8da4c55dc3bc9e6ccc9466c"
+block_number = 107
+seed = "v5"
+name = "dojo::world::world"
+
+[world.metadata]
+profile_name = "slot"
+rpc_url = "https://api.cartridge.gg/x/paved-slot/katana"
+
+[base]
+kind = "Class"
+class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+original_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+name = "dojo::base::base"
+
+[[contracts]]
+kind = "DojoContract"
+address = "0x277f2e59c9b201fb45d4c67b1e971a1962a773eecc117bd2c470c9c7083aa12"
+class_hash = "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6"
+original_class_hash = "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6"
+base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+abi = "manifests/slot/abis/deployments/contracts/paved_systems_account_account.json"
+reads = []
+writes = [
+    "Game",
+    "Builder",
+    "Player",
+    "Tile",
+    "TilePosition",
+    "Character",
+    "CharacterPosition",
+    "Tournament",
+]
+computed = []
+init_calldata = []
+name = "paved::systems::account::account"
+
+[[contracts]]
+kind = "DojoContract"
+address = "0x308fae69db56a7c039ab77853c9d9adece3784bd256c9ef931ee658578396fe"
+class_hash = "0x68b373148ad17d54e1498754442cd4d97bfc406064a0176c1768875952626e7"
+original_class_hash = "0x68b373148ad17d54e1498754442cd4d97bfc406064a0176c1768875952626e7"
+base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+abi = "manifests/slot/abis/deployments/contracts/paved_systems_daily_daily.json"
+reads = []
+writes = [
+    "Game",
+    "Builder",
+    "Player",
+    "Tile",
+    "TilePosition",
+    "Character",
+    "CharacterPosition",
+    "Tournament",
+]
+computed = []
+init_calldata = ["0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"]
+name = "paved::systems::daily::daily"
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x4d82dbbe7fee8760ff082d5c0db9c76297c68b5a377d26f83510eec73a2cf3d"
+original_class_hash = "0x4d82dbbe7fee8760ff082d5c0db9c76297c68b5a377d26f83510eec73a2cf3d"
+abi = "manifests/slot/abis/deployments/models/paved_models_index_builder.json"
+name = "paved::models::index::builder"
+
+[[models.members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "player_id"
+type = "felt252"
+key = true
+
+[[models.members]]
+name = "tile_id"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "characters"
+type = "u8"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0xaf036472f4a4716de4e3a159f2903425a949357ec091a0d9496522f1c829ff"
+original_class_hash = "0xaf036472f4a4716de4e3a159f2903425a949357ec091a0d9496522f1c829ff"
+abi = "manifests/slot/abis/deployments/models/paved_models_index_character.json"
+name = "paved::models::index::character"
+
+[[models.members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "player_id"
+type = "felt252"
+key = true
+
+[[models.members]]
+name = "index"
+type = "u8"
+key = true
+
+[[models.members]]
+name = "tile_id"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "spot"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "weight"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "power"
+type = "u8"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x710d20b596f1b1666cb717ffe3cf50db3f0f64640fb0417113cf9c983905fe4"
+original_class_hash = "0x710d20b596f1b1666cb717ffe3cf50db3f0f64640fb0417113cf9c983905fe4"
+abi = "manifests/slot/abis/deployments/models/paved_models_index_character_position.json"
+name = "paved::models::index::character_position"
+
+[[models.members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "tile_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "spot"
+type = "u8"
+key = true
+
+[[models.members]]
+name = "player_id"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "index"
+type = "u8"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x3c0fb77988190fac9807592f54b3d956457fa1af9e66f3257885c39a4946aa4"
+original_class_hash = "0x3c0fb77988190fac9807592f54b3d956457fa1af9e66f3257885c39a4946aa4"
+abi = "manifests/slot/abis/deployments/models/paved_models_index_game.json"
+name = "paved::models::index::game"
+
+[[models.members]]
+name = "id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "over"
+type = "bool"
+key = false
+
+[[models.members]]
+name = "discarded"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "built"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "tiles"
+type = "u128"
+key = false
+
+[[models.members]]
+name = "tile_count"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "start_time"
+type = "u64"
+key = false
+
+[[models.members]]
+name = "end_time"
+type = "u64"
+key = false
+
+[[models.members]]
+name = "score"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "seed"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "mode"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "tournament_id"
+type = "u64"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x6d656d9758d04dd45de9bfdb839d88f85a6ee61f983f2a147abfbb5892e5bb7"
+original_class_hash = "0x6d656d9758d04dd45de9bfdb839d88f85a6ee61f983f2a147abfbb5892e5bb7"
+abi = "manifests/slot/abis/deployments/models/paved_models_index_player.json"
+name = "paved::models::index::player"
+
+[[models.members]]
+name = "id"
+type = "felt252"
+key = true
+
+[[models.members]]
+name = "name"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "master"
+type = "felt252"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x18fac425cbb97c5e605b3c41ea226c4c0bdf3029234f565e681792ca2df2c01"
+original_class_hash = "0x18fac425cbb97c5e605b3c41ea226c4c0bdf3029234f565e681792ca2df2c01"
+abi = "manifests/slot/abis/deployments/models/paved_models_index_tile.json"
+name = "paved::models::index::tile"
+
+[[models.members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "player_id"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "plan"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "orientation"
+type = "u8"
+key = false
+
+[[models.members]]
+name = "x"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "y"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "occupied_spot"
+type = "u8"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x5901857908756661373045d3a1d8c9a13ca366cf50310b4025d21143b4bb29"
+original_class_hash = "0x5901857908756661373045d3a1d8c9a13ca366cf50310b4025d21143b4bb29"
+abi = "manifests/slot/abis/deployments/models/paved_models_index_tile_position.json"
+name = "paved::models::index::tile_position"
+
+[[models.members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "x"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "y"
+type = "u32"
+key = true
+
+[[models.members]]
+name = "tile_id"
+type = "u32"
+key = false
+
+[[models]]
+kind = "DojoModel"
+class_hash = "0x6f212e189ebf03a128ad905ed2e8af085eaa58ba32faed7c26d242e561a93f"
+original_class_hash = "0x6f212e189ebf03a128ad905ed2e8af085eaa58ba32faed7c26d242e561a93f"
+abi = "manifests/slot/abis/deployments/models/paved_models_index_tournament.json"
+name = "paved::models::index::tournament"
+
+[[models.members]]
+name = "id"
+type = "u64"
+key = true
+
+[[models.members]]
+name = "prize"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "top1_player_id"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "top2_player_id"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "top3_player_id"
+type = "felt252"
+key = false
+
+[[models.members]]
+name = "top1_score"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "top2_score"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "top3_score"
+type = "u32"
+key = false
+
+[[models.members]]
+name = "top1_claimed"
+type = "bool"
+key = false
+
+[[models.members]]
+name = "top2_claimed"
+type = "bool"
+key = false
+
+[[models.members]]
+name = "top3_claimed"
+type = "bool"
+key = false

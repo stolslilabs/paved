@@ -10,7 +10,7 @@ use paved::types::area::Area;
 use paved::types::plan::Plan;
 use paved::types::move::{Move, MoveImpl};
 use paved::models::game::Game;
-use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
+use paved::models::tile::{Tile, TilePosition, TileTrait, ZeroableTilePosition};
 
 #[generate_trait]
 impl Conflict of ConflictTrait {
@@ -20,7 +20,7 @@ impl Conflict of ConflictTrait {
         let mut visited: Felt252Dict<bool> = core::Default::default();
         // [Compute] Recursively check characters
         let mut status = false;
-        Conflict::iter(game, tile, at, ref status, ref visited, ref store);
+        Self::iter(game, tile, at, ref status, ref visited, ref store);
         status
     }
 
@@ -42,7 +42,7 @@ impl Conflict of ConflictTrait {
 
         // [Check] The tile handles a character
         let spot: Spot = tile.occupied_spot.into();
-        if 0 != spot.into() && tile.are_connected(at, spot) {
+        if 0_u8 != spot.into() && tile.are_connected(at, spot) {
             status = true;
             return;
         }
@@ -55,7 +55,8 @@ impl Conflict of ConflictTrait {
                 Option::Some(north_oriented_move) => {
                     let mut move = north_oriented_move.rotate(tile.orientation.into());
 
-                    // [Check] A tile exists at this position, otherwise the structure is not finished
+                    // [Check] A tile exists at this position, otherwise the structure is not
+                    // finished
                     let (x, y) = tile.proxy_coordinates(move.direction);
                     let tile_position: TilePosition = store.tile_position(game, x, y);
                     if tile_position.is_zero() {
@@ -64,7 +65,7 @@ impl Conflict of ConflictTrait {
 
                     // [Check] If a character has been met, then stop the recursion
                     let neighbor = store.tile(game, tile_position.tile_id);
-                    Conflict::iter(game, neighbor, move.spot, ref status, ref visited, ref store);
+                    Self::iter(game, neighbor, move.spot, ref status, ref visited, ref store);
                     if status {
                         break;
                     };

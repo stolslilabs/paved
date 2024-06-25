@@ -79,7 +79,7 @@ impl LayoutImpl of LayoutTrait {
 
         // [Compute] Rotate Categories to match orientation
         match orientation {
-            Orientation::None => { core::Zeroable::zero() },
+            Orientation::None => { core::Default::default() },
             Orientation::North => {
                 Layout {
                     center: center,
@@ -167,9 +167,9 @@ impl LayoutImpl of LayoutTrait {
     }
 }
 
-impl ZeroableLayoutImpl of core::Zeroable<Layout> {
+impl DefaultLayoutImpl of core::Default<Layout> {
     #[inline(always)]
-    fn zero() -> Layout {
+    fn default() -> Layout {
         Layout {
             center: Category::None,
             north_west: Category::None,
@@ -181,24 +181,6 @@ impl ZeroableLayoutImpl of core::Zeroable<Layout> {
             south_west: Category::None,
             west: Category::None,
         }
-    }
-
-    #[inline(always)]
-    fn is_zero(self: Layout) -> bool {
-        self.center == Category::None
-            && self.north_west == Category::None
-            && self.north == Category::None
-            && self.north_east == Category::None
-            && self.east == Category::None
-            && self.south_east == Category::None
-            && self.south == Category::None
-            && self.south_west == Category::None
-            && self.west == Category::None
-    }
-
-    #[inline(always)]
-    fn is_non_zero(self: Layout) -> bool {
-        !self.is_zero()
     }
 }
 

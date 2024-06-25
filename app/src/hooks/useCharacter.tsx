@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useComponentValue } from "@dojoengine/react";
 import { Entity } from "@dojoengine/recs";
+import { Character } from "@/dojo/game/models/character";
 
 export const useCharacter = ({
   gameId,
@@ -12,11 +13,12 @@ export const useCharacter = ({
   gameId: number | undefined;
   playerId: string | undefined;
   characterId: number | undefined;
-}) => {
+}): { character: Character | null; characterKey: Entity } => {
   const {
     setup: {
       clientModels: {
         models: { Character },
+        classes: { Character: CharacterClass },
       },
     },
   } = useDojo();
@@ -30,7 +32,11 @@ export const useCharacter = ({
       ]) as Entity,
     [gameId, playerId, characterId],
   );
-  const character = useComponentValue(Character, characterKey);
+
+  const component = useComponentValue(Character, characterKey);
+  const character = useMemo(() => {
+    return component ? new CharacterClass(component) : null;
+  }, [component]);
 
   return { character, characterKey };
 };

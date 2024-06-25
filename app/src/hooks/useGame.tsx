@@ -3,8 +3,13 @@ import { useMemo } from "react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useComponentValue } from "@dojoengine/react";
 import { Entity } from "@dojoengine/recs";
+import { Game } from "@/dojo/game/models/game";
 
-export const useGame = ({ gameId }: { gameId: number | undefined }) => {
+export const useGame = ({
+  gameId,
+}: {
+  gameId: number | undefined;
+}): { game: Game | null; gameKey: Entity } => {
   const {
     setup: {
       clientModels: {

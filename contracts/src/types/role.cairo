@@ -6,17 +6,6 @@ use core::debug::PrintTrait;
 
 use paved::types::category::Category;
 
-// Constants
-
-const NONE: felt252 = 0;
-const LORD: felt252 = 'LORD';
-const LADY: felt252 = 'LADY';
-const ADVENTURER: felt252 = 'ADVENTURER';
-const PALADIN: felt252 = 'PALADIN';
-const ALGRIM: felt252 = 'ALGRIM';
-const WOODSMAN: felt252 = 'WOODSMAN';
-const HERDSMAN: felt252 = 'HERDSMAN';
-
 mod errors {
     const ROLE_NOT_ALLOWED: felt252 = 'Role: not allowed';
 }
@@ -28,9 +17,7 @@ enum Role {
     Lady,
     Adventurer,
     Paladin,
-    Algrim,
-    Woodsman,
-    Herdsman,
+    Pilgrim,
 }
 
 #[generate_trait]
@@ -71,29 +58,13 @@ impl RoleImpl of RoleTrait {
                 Category::Stop => 0,
                 Category::Wonder => 1,
             },
-            Role::Algrim => match category {
+            Role::Pilgrim => match category {
                 Category::None => 0,
                 Category::Forest => 0,
                 Category::Road => 1,
                 Category::City => 1,
                 Category::Stop => 0,
                 Category::Wonder => 2,
-            },
-            Role::Woodsman => match category {
-                Category::None => 0,
-                Category::Forest => 1,
-                Category::Road => 1,
-                Category::City => 0,
-                Category::Stop => 0,
-                Category::Wonder => 0,
-            },
-            Role::Herdsman => match category {
-                Category::None => 0,
-                Category::Forest => 1,
-                Category::Road => 0,
-                Category::City => 1,
-                Category::Stop => 0,
-                Category::Wonder => 0,
             },
         }
     }
@@ -134,29 +105,13 @@ impl RoleImpl of RoleTrait {
                 Category::Stop => 0,
                 Category::Wonder => 1,
             },
-            Role::Algrim => match category {
+            Role::Pilgrim => match category {
                 Category::None => 0,
                 Category::Forest => 0,
                 Category::Road => 1,
                 Category::City => 1,
                 Category::Stop => 0,
                 Category::Wonder => 2,
-            },
-            Role::Woodsman => match category {
-                Category::None => 0,
-                Category::Forest => 1,
-                Category::Road => 1,
-                Category::City => 0,
-                Category::Stop => 0,
-                Category::Wonder => 0,
-            },
-            Role::Herdsman => match category {
-                Category::None => 0,
-                Category::Forest => 1,
-                Category::Road => 0,
-                Category::City => 1,
-                Category::Stop => 0,
-                Category::Wonder => 0,
             },
         }
     }
@@ -197,29 +152,13 @@ impl RoleImpl of RoleTrait {
                 Category::Stop => false,
                 Category::Wonder => true,
             },
-            Role::Algrim => match category {
+            Role::Pilgrim => match category {
                 Category::None => false,
                 Category::Forest => false,
                 Category::Road => true,
                 Category::City => true,
                 Category::Stop => false,
                 Category::Wonder => true,
-            },
-            Role::Woodsman => match category {
-                Category::None => false,
-                Category::Forest => true,
-                Category::Road => true,
-                Category::City => false,
-                Category::Stop => false,
-                Category::Wonder => false,
-            },
-            Role::Herdsman => match category {
-                Category::None => false,
-                Category::Forest => true,
-                Category::Road => false,
-                Category::City => true,
-                Category::Stop => false,
-                Category::Wonder => false,
             },
         }
     }
@@ -233,22 +172,6 @@ impl RoleAssert of AssertTrait {
     }
 }
 
-impl RoleIntoFelt252 of core::Into<Role, felt252> {
-    #[inline(always)]
-    fn into(self: Role) -> felt252 {
-        match self {
-            Role::None => NONE,
-            Role::Lord => LORD,
-            Role::Lady => LADY,
-            Role::Adventurer => ADVENTURER,
-            Role::Paladin => PALADIN,
-            Role::Algrim => ALGRIM,
-            Role::Woodsman => WOODSMAN,
-            Role::Herdsman => HERDSMAN,
-        }
-    }
-}
-
 impl RoleIntoU8 of core::Into<Role, u8> {
     #[inline(always)]
     fn into(self: Role) -> u8 {
@@ -258,32 +181,8 @@ impl RoleIntoU8 of core::Into<Role, u8> {
             Role::Lady => 2,
             Role::Adventurer => 3,
             Role::Paladin => 4,
-            Role::Algrim => 5,
-            Role::Woodsman => 6,
-            Role::Herdsman => 7,
-        }
-    }
-}
-
-impl Felt252IntoRole of core::Into<felt252, Role> {
-    #[inline(always)]
-    fn into(self: felt252) -> Role {
-        if self == LORD {
-            Role::Lord
-        } else if self == LADY {
-            Role::Lady
-        } else if self == ADVENTURER {
-            Role::Adventurer
-        } else if self == PALADIN {
-            Role::Paladin
-        } else if self == ALGRIM {
-            Role::Algrim
-        } else if self == WOODSMAN {
-            Role::Woodsman
-        } else if self == HERDSMAN {
-            Role::Herdsman
-        } else {
-            Role::None
+            Role::Pilgrim => 5,
+            _ => 0,
         }
     }
 }
@@ -291,31 +190,15 @@ impl Felt252IntoRole of core::Into<felt252, Role> {
 impl U8IntoRole of core::Into<u8, Role> {
     #[inline(always)]
     fn into(self: u8) -> Role {
-        if self == 1 {
-            Role::Lord
-        } else if self == 2 {
-            Role::Lady
-        } else if self == 3 {
-            Role::Adventurer
-        } else if self == 4 {
-            Role::Paladin
-        } else if self == 5 {
-            Role::Algrim
-        } else if self == 6 {
-            Role::Woodsman
-        } else if self == 7 {
-            Role::Herdsman
-        } else {
-            Role::None
+        match self {
+            0 => Role::None,
+            1 => Role::Lord,
+            2 => Role::Lady,
+            3 => Role::Adventurer,
+            4 => Role::Paladin,
+            5 => Role::Pilgrim,
+            _ => Role::None,
         }
-    }
-}
-
-impl RolePrint of PrintTrait<Role> {
-    #[inline(always)]
-    fn print(self: Role) {
-        let felt: felt252 = self.into();
-        felt.print();
     }
 }
 
@@ -327,43 +210,12 @@ mod tests {
 
     // Local imports
 
-    use super::{
-        Role, RoleImpl, Category, NONE, LORD, LADY, ADVENTURER, PALADIN, ALGRIM, WOODSMAN, HERDSMAN
-    };
+    use super::{Role, RoleImpl, Category};
 
     // Constants
 
     const UNKNOWN_FELT: felt252 = 'UNKNOWN';
     const UNKNOWN_U8: u8 = 42;
-
-    #[test]
-    fn test_role_into_felt() {
-        assert(NONE == Role::None.into(), 'Role: wrong None');
-        assert(LORD == Role::Lord.into(), 'Role: wrong Lord');
-        assert(LADY == Role::Lady.into(), 'Role: wrong Lady');
-        assert(ADVENTURER == Role::Adventurer.into(), 'Role: wrong Adventurer');
-        assert(PALADIN == Role::Paladin.into(), 'Role: wrong Paladin');
-        assert(ALGRIM == Role::Algrim.into(), 'Role: wrong Algrim');
-        assert(WOODSMAN == Role::Woodsman.into(), 'Role: wrong Woodsman');
-        assert(HERDSMAN == Role::Herdsman.into(), 'Role: wrong Herdsman');
-    }
-
-    #[test]
-    fn test_felt_into_role() {
-        assert(Role::None == NONE.into(), 'Role: wrong None');
-        assert(Role::Lord == LORD.into(), 'Role: wrong Lord');
-        assert(Role::Lady == LADY.into(), 'Role: wrong Lady');
-        assert(Role::Adventurer == ADVENTURER.into(), 'Role: wrong Adventurer');
-        assert(Role::Paladin == PALADIN.into(), 'Role: wrong Paladin');
-        assert(Role::Algrim == ALGRIM.into(), 'Role: wrong Algrim');
-        assert(Role::Woodsman == WOODSMAN.into(), 'Role: wrong Woodsman');
-        assert(Role::Herdsman == HERDSMAN.into(), 'Role: wrong Herdsman');
-    }
-
-    #[test]
-    fn test_unknown_felt_into_role() {
-        assert(Role::None == 'X'.into(), 'Role: wrong None');
-    }
 
     #[test]
     fn test_role_into_u8() {
@@ -372,9 +224,7 @@ mod tests {
         assert(2_u8 == Role::Lady.into(), 'Role: wrong Lady');
         assert(3_u8 == Role::Adventurer.into(), 'Role: wrong Adventurer');
         assert(4_u8 == Role::Paladin.into(), 'Role: wrong Paladin');
-        assert(5_u8 == Role::Algrim.into(), 'Role: wrong Algrim');
-        assert(6_u8 == Role::Woodsman.into(), 'Role: wrong Woodsman');
-        assert(7_u8 == Role::Herdsman.into(), 'Role: wrong Herdsman');
+        assert(5_u8 == Role::Pilgrim.into(), 'Role: wrong Pilgrim');
     }
 
     #[test]
@@ -384,9 +234,7 @@ mod tests {
         assert(Role::Lady == 2_u8.into(), 'Role: wrong Lady');
         assert(Role::Adventurer == 3_u8.into(), 'Role: wrong Adventurer');
         assert(Role::Paladin == 4_u8.into(), 'Role: wrong Paladin');
-        assert(Role::Algrim == 5_u8.into(), 'Role: wrong Algrim');
-        assert(Role::Woodsman == 6_u8.into(), 'Role: wrong Woodsman');
-        assert(Role::Herdsman == 7_u8.into(), 'Role: wrong Herdsman');
+        assert(Role::Pilgrim == 5_u8.into(), 'Role: wrong Pilgrim');
     }
 
     #[test]

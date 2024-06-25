@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useComponentValue } from "@dojoengine/react";
 import { Entity } from "@dojoengine/recs";
+import { Builder } from "@/dojo/game/models/builder";
 
 export const useBuilder = ({
   gameId,
@@ -10,7 +11,7 @@ export const useBuilder = ({
 }: {
   gameId: number | undefined;
   playerId: string | undefined;
-}) => {
+}): { builder: Builder | null; builderKey: Entity } => {
   const {
     setup: {
       clientModels: {

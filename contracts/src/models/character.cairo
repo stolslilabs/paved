@@ -5,6 +5,7 @@ use core::debug::PrintTrait;
 // Internal imports
 
 use paved::constants;
+use paved::models::index::{Character, CharacterPosition};
 use paved::types::spot::Spot;
 
 mod errors {
@@ -12,32 +13,6 @@ mod errors {
     const NOT_PLACED: felt252 = 'Character: Not placed';
     const INVALID_TILE_ID: felt252 = 'Character: Invalid tile id';
     const INVALID_SPOT: felt252 = 'Character: Invalid spot';
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct Character {
-    #[key]
-    game_id: u32,
-    #[key]
-    player_id: felt252,
-    #[key]
-    index: u8,
-    tile_id: u32,
-    spot: u8,
-    weight: u8,
-    power: u8,
-}
-
-#[derive(Model, Copy, Drop, Serde)]
-struct CharacterPosition {
-    #[key]
-    game_id: u32,
-    #[key]
-    tile_id: u32,
-    #[key]
-    spot: u8,
-    player_id: felt252,
-    index: u8,
 }
 
 #[generate_trait]

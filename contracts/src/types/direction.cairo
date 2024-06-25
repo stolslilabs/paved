@@ -6,18 +6,6 @@ use core::debug::PrintTrait;
 
 use paved::types::orientation::Orientation;
 
-// Constants
-
-const NONE: felt252 = 0;
-const NORTH: felt252 = 'NORTH';
-const NORTH_EAST: felt252 = 'NORTH_EAST';
-const NORTH_WEST: felt252 = 'NORTH_WEST';
-const SOUTH: felt252 = 'SOUTH';
-const SOUTH_EAST: felt252 = 'SOUTH_EAST';
-const SOUTH_WEST: felt252 = 'SOUTH_WEST';
-const EAST: felt252 = 'EAST';
-const WEST: felt252 = 'WEST';
-
 #[derive(Copy, Drop, Serde, PartialEq, Introspect)]
 enum Direction {
     None,
@@ -48,78 +36,21 @@ impl IntoDirectionU8 of core::Into<Direction, u8> {
     }
 }
 
-impl IntoDirectionFelt252 of core::Into<Direction, felt252> {
-    #[inline(always)]
-    fn into(self: Direction) -> felt252 {
-        match self {
-            Direction::None => NONE,
-            Direction::NorthWest => NORTH_WEST,
-            Direction::North => NORTH,
-            Direction::NorthEast => NORTH_EAST,
-            Direction::East => EAST,
-            Direction::SouthEast => SOUTH_EAST,
-            Direction::South => SOUTH,
-            Direction::SouthWest => SOUTH_WEST,
-            Direction::West => WEST,
-        }
-    }
-}
-
 impl IntoU8Direction of core::Into<u8, Direction> {
     #[inline(always)]
     fn into(self: u8) -> Direction {
-        if self == 1 {
-            Direction::NorthWest
-        } else if self == 2 {
-            Direction::North
-        } else if self == 3 {
-            Direction::NorthEast
-        } else if self == 4 {
-            Direction::East
-        } else if self == 5 {
-            Direction::SouthEast
-        } else if self == 6 {
-            Direction::South
-        } else if self == 7 {
-            Direction::SouthWest
-        } else if self == 8 {
-            Direction::West
-        } else {
-            Direction::None
+        match self {
+            0 => Direction::None,
+            1 => Direction::NorthWest,
+            2 => Direction::North,
+            3 => Direction::NorthEast,
+            4 => Direction::East,
+            5 => Direction::SouthEast,
+            6 => Direction::South,
+            7 => Direction::SouthWest,
+            8 => Direction::West,
+            _ => Direction::None,
         }
-    }
-}
-
-impl IntoFelt252Direction of core::Into<felt252, Direction> {
-    #[inline(always)]
-    fn into(self: felt252) -> Direction {
-        if self == NORTH_WEST {
-            Direction::NorthWest
-        } else if self == NORTH {
-            Direction::North
-        } else if self == NORTH_EAST {
-            Direction::NorthEast
-        } else if self == EAST {
-            Direction::East
-        } else if self == SOUTH_EAST {
-            Direction::SouthEast
-        } else if self == SOUTH {
-            Direction::South
-        } else if self == SOUTH_WEST {
-            Direction::SouthWest
-        } else if self == WEST {
-            Direction::West
-        } else {
-            Direction::None
-        }
-    }
-}
-
-impl DirectionPrint of PrintTrait<Direction> {
-    #[inline(always)]
-    fn print(self: Direction) {
-        let felt: felt252 = self.into();
-        felt.print();
     }
 }
 
@@ -186,17 +117,7 @@ impl DirectionImpl of DirectionTrait {
 
     #[inline(always)]
     fn source(self: Direction) -> Direction {
-        match self {
-            Direction::None => Direction::None,
-            Direction::NorthWest => Direction::SouthEast,
-            Direction::North => Direction::South,
-            Direction::NorthEast => Direction::SouthWest,
-            Direction::East => Direction::West,
-            Direction::SouthEast => Direction::NorthWest,
-            Direction::South => Direction::North,
-            Direction::SouthWest => Direction::NorthEast,
-            Direction::West => Direction::East,
-        }
+        self.rotate(Orientation::South)
     }
 }
 
@@ -208,45 +129,12 @@ mod tests {
 
     // Local imports
 
-    use super::{
-        Direction, NORTH_WEST, NORTH, NORTH_EAST, EAST, SOUTH_EAST, SOUTH, SOUTH_WEST, WEST
-    };
+    use super::{Direction};
 
     // Constants
 
     const UNKNOWN_FELT: felt252 = 'UNKNOWN';
     const UNKNOWN_U8: u8 = 42;
-
-    #[test]
-    fn test_direction_into_felt() {
-        assert(0 == Direction::None.into(), 'Direction: None');
-        assert(NORTH_WEST == Direction::NorthWest.into(), 'Direction: NorthWest');
-        assert(NORTH == Direction::North.into(), 'Direction: North');
-        assert(NORTH_EAST == Direction::NorthEast.into(), 'Direction: NorthEast');
-        assert(EAST == Direction::East.into(), 'Direction: East');
-        assert(SOUTH_EAST == Direction::SouthEast.into(), 'Direction: SouthEast');
-        assert(SOUTH == Direction::South.into(), 'Direction: South');
-        assert(SOUTH_WEST == Direction::SouthWest.into(), 'Direction: SouthWest');
-        assert(WEST == Direction::West.into(), 'Direction: West');
-    }
-
-    #[test]
-    fn test_felt_into_direction() {
-        assert(Direction::None == 0.into(), 'Direction: None');
-        assert(Direction::NorthWest == NORTH_WEST.into(), 'Direction: NorthWest');
-        assert(Direction::North == NORTH.into(), 'Direction: North');
-        assert(Direction::NorthEast == NORTH_EAST.into(), 'Direction: NorthEast');
-        assert(Direction::East == EAST.into(), 'Direction: East');
-        assert(Direction::SouthEast == SOUTH_EAST.into(), 'Direction: SouthEast');
-        assert(Direction::South == SOUTH.into(), 'Direction: South');
-        assert(Direction::SouthWest == SOUTH_WEST.into(), 'Direction: SouthWest');
-        assert(Direction::West == WEST.into(), 'Direction: West');
-    }
-
-    #[test]
-    fn test_unknown_felt_into_direction() {
-        assert(Direction::None == UNKNOWN_FELT.into(), 'Direction: Unknown');
-    }
 
     #[test]
     fn test_direction_into_u8() {

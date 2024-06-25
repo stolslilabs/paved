@@ -4,38 +4,23 @@ import zero from "/assets/tiles/00.png";
 import ccccccccc from "/assets/tiles/ccccccccc.png";
 import cccccfffc from "/assets/tiles/cccccfffc.png";
 import cccccfrfc from "/assets/tiles/cccccfrfc.png";
-import cfcfccccc from "/assets/tiles/cfcfccccc.png";
-import cfcfcfcfc from "/assets/tiles/cfcfcfcfc.png";
-import cfcfcfffc from "/assets/tiles/cfcfcfffc.png";
-import cffcfcffc from "/assets/tiles/cffcfcffc.png";
 import cfffcfffc from "/assets/tiles/cfffcfffc.png";
-import cfffcfrfc from "/assets/tiles/cfffcfrfc.png";
-import fccfcccfc from "/assets/tiles/fccfcccfc.png";
-import fccfcfcfc from "/assets/tiles/fccfcfcfc.png";
-import ffcfcccff from "/assets/tiles/ffcfcccff.png";
-import ffcfcfcfc from "/assets/tiles/ffcfcfcfc.png";
-import ffcfffccc from "/assets/tiles/ffcfffccc.png";
-import ffcfffcfc from "/assets/tiles/ffcfffcfc.png";
+
 import ffcfffcff from "/assets/tiles/ffcfffcff.png";
 import ffcfffffc from "/assets/tiles/ffcfffffc.png";
 import ffffcccff from "/assets/tiles/ffffcccff.png";
 import ffffffcff from "/assets/tiles/ffffffcff.png";
-import rfffffcfr from "/assets/tiles/rfffffcfr.png";
-import rfffrfcff from "/assets/tiles/rfffrfcff.png";
+
 import rfffrfcfr from "/assets/tiles/rfffrfcfr.png";
 import rfffrfffr from "/assets/tiles/rfffrfffr.png";
-import rfrfcccff from "/assets/tiles/rfrfcccff.png";
 import rfrfcccfr from "/assets/tiles/rfrfcccfr.png";
-import rfrfffccc from "/assets/tiles/rfrfffccc.png";
-import rfrfffcff from "/assets/tiles/rfrfffcff.png";
 import rfrfffcfr from "/assets/tiles/rfrfffcfr.png";
 import rfrfffffr from "/assets/tiles/rfrfffffr.png";
 import rfrfrfcff from "/assets/tiles/rfrfrfcff.png";
-import sfffffffr from "/assets/tiles/sfffffffr.png";
+
 import sfrfrfcfr from "/assets/tiles/sfrfrfcfr.png";
 import sfrfrfffr from "/assets/tiles/sfrfrfffr.png";
 import sfrfrfrfr from "/assets/tiles/sfrfrfrfr.png";
-import wcccccccc from "/assets/tiles/wcccccccc.png";
 import wffffffff from "/assets/tiles/wffffffff.png";
 import wfffffffr from "/assets/tiles/wfffffffr.png";
 
@@ -44,10 +29,8 @@ import lady from "/assets/characters/lady.png";
 import adventurer from "/assets/characters/adventurer.png";
 import paladin from "/assets/characters/paladin.png";
 import pilgrim from "/assets/characters/pilgrim.png";
-import woodsman from "/assets/characters/woodsman.png";
-import herdsman from "/assets/characters/herdsman.png";
 
-export const CHARACTER_COUNT = 7;
+export const CHARACTER_COUNT = 5;
 export const ORDER_COUNT = 14;
 
 export const getImage = (tile: any) => {
@@ -59,72 +42,36 @@ export const getImage = (tile: any) => {
     case 3:
       return cccccfrfc;
     case 4:
-      return cfcfccccc;
-    case 5:
-      return cfcfcfcfc;
-    case 6:
-      return cfcfcfffc;
-    case 7:
-      return cffcfcffc;
-    case 8:
       return cfffcfffc;
-    case 9:
-      return cfffcfrfc;
-    case 10:
-      return fccfcccfc;
-    case 11:
-      return fccfcfcfc;
-    case 12:
-      return ffcfcccff;
-    case 13:
-      return ffcfcfcfc;
-    case 14:
-      return ffcfffccc;
-    case 15:
-      return ffcfffcfc;
-    case 16:
+    case 5:
       return ffcfffcff;
-    case 17:
+    case 6:
       return ffcfffffc;
-    case 18:
+    case 7:
       return ffffcccff;
-    case 19:
+    case 8:
       return ffffffcff;
-    case 20:
-      return rfffffcfr;
-    case 21:
-      return rfffrfcff;
-    case 22:
+    case 9:
       return rfffrfcfr;
-    case 23:
+    case 10:
       return rfffrfffr;
-    case 24:
-      return rfrfcccff;
-    case 25:
+    case 11:
       return rfrfcccfr;
-    case 26:
-      return rfrfffccc;
-    case 27:
-      return rfrfffcff;
-    case 28:
+    case 12:
       return rfrfffcfr;
-    case 29:
+    case 13:
       return rfrfffffr;
-    case 30:
+    case 14:
       return rfrfrfcff;
-    case 31:
-      return sfffffffr;
-    case 32:
+    case 15:
       return sfrfrfcfr;
-    case 33:
+    case 16:
       return sfrfrfffr;
-    case 34:
+    case 17:
       return sfrfrfrfr;
-    case 35:
-      return wcccccccc;
-    case 36:
+    case 18:
       return wffffffff;
-    case 37:
+    case 19:
       return wfffffffr;
     default:
       return zero;
@@ -143,159 +90,8 @@ export const getCharacterImage = (index: number | undefined) => {
       return paladin;
     case 5:
       return pilgrim;
-    case 6:
-      return woodsman;
-    case 7:
-      return herdsman;
     default:
       return zero;
-  }
-};
-
-export const getOrder = (order: number | undefined) => {
-  switch (order) {
-    case 1:
-      return "ANGER";
-    case 2:
-      return "TITANS";
-    case 3:
-      return "VITRIOL";
-    case 4:
-      return "BRILLIANCE";
-    case 5:
-      return "DETECTION";
-    case 6:
-      return "ENLIGHTENMENT";
-    case 7:
-      return "FURY";
-    case 8:
-      return "GIANTS";
-    case 9:
-      return "PERFECTION";
-    case 10:
-      return "POWER";
-    case 11:
-      return "PROTECTION";
-    case 12:
-      return "RAGE";
-    case 13:
-      return "REFLECTION";
-    case 14:
-      return "SKILL";
-    case 15:
-      return "FOX";
-    case 16:
-      return "TWINS";
-    default:
-      return "NONE";
-  }
-};
-
-export const getOrderFromName = (order: string) => {
-  switch (order) {
-    case "ANGER":
-      return 1;
-    case "TITANS":
-      return 2;
-    case "VITRIOL":
-      return 3;
-    case "BRILLIANCE":
-      return 4;
-    case "DETECTION":
-      return 5;
-    case "ENLIGHTENMENT":
-      return 6;
-    case "FURY":
-      return 7;
-    case "GIANTS":
-      return 8;
-    case "PERFECTION":
-      return 9;
-    case "POWER":
-      return 10;
-    case "PROTECTION":
-      return 11;
-    case "RAGE":
-      return 12;
-    case "REFLECTION":
-      return 13;
-    case "SKILL":
-      return 14;
-    case "FOX":
-      return 15;
-    case "TWINS":
-      return 16;
-    default:
-      return 0;
-  }
-};
-
-export const getOrders = () => {
-  return Array.from({ length: ORDER_COUNT }, (_, index) => getOrder(index + 1));
-};
-
-export const getLightOrders = () => {
-  return [
-    "BRILLIANCE",
-    "ENLIGHTENMENT",
-    "GIANTS",
-    "PERFECTION",
-    "PROTECTION",
-    "REFLECTION",
-    "SKILL",
-    "TWINS",
-  ];
-};
-
-export const getDarkOrders = () => {
-  return [
-    "ANGER",
-    "TITANS",
-    "VITRIOL",
-    "DETECTION",
-    "FURY",
-    "POWER",
-    "RAGE",
-    "FOX",
-  ];
-};
-
-export const getAlliance = (order: number) => {
-  switch (order) {
-    case 1:
-      return "DARKNESS";
-    case 2:
-      return "DARKNESS";
-    case 3:
-      return "DARKNESS";
-    case 4:
-      return "LIGHT";
-    case 5:
-      return "DARKNESS";
-    case 6:
-      return "LIGHT";
-    case 7:
-      return "DARKNESS";
-    case 8:
-      return "LIGHT";
-    case 9:
-      return "LIGHT";
-    case 10:
-      return "DARKNESS";
-    case 11:
-      return "LIGHT";
-    case 12:
-      return "DARKNESS";
-    case 13:
-      return "LIGHT";
-    case 14:
-      return "LIGHT";
-    case 15:
-      return "DARKNESS";
-    case 16:
-      return "LIGHT";
-    default:
-      return 0;
   }
 };
 
@@ -352,6 +148,16 @@ export const getIndexFromSpot = (spot: number) => {
 export const getCharacters = () => {
   return Array.from({ length: CHARACTER_COUNT }, (_, index) => getRole(index));
 };
+
+export enum Characters {
+  Lord,
+  Lady,
+  Adventurer,
+  Paladin,
+  Pilgrim,
+  Woodsman,
+  Herdsman,
+}
 
 export const getAvailableCharacters = (packed: number) => {
   const characters = getCharacters();

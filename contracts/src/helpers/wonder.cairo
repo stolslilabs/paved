@@ -5,13 +5,12 @@ use core::debug::PrintTrait;
 // Internal imports
 
 use paved::store::{Store, StoreImpl};
-use paved::events::ScoredWonder;
 use paved::types::spot::Spot;
 use paved::types::area::Area;
 use paved::types::move::{Move, MoveImpl};
 use paved::models::game::{Game, GameImpl};
 use paved::models::builder::{Builder, BuilderImpl};
-use paved::models::character::{Character, CharacterPosition};
+use paved::models::character::{Character, CharacterPosition, ZeroableCharacter};
 use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
 
 #[generate_trait]
@@ -32,7 +31,7 @@ impl WonderCount of WonderCountTrait {
             .character(game, character_position.player_id, character_position.index.into());
         // [Compute] Recursively count the points
         let mut count = 0;
-        WonderCount::iter(game, tile, at, ref count, ref visited, ref store);
+        Self::iter(game, tile, at, ref count, ref visited, ref store);
         (count, character)
     }
 
@@ -61,7 +60,8 @@ impl WonderCount of WonderCountTrait {
                 Option::Some(north_oriented_move) => {
                     let mut move = north_oriented_move.rotate(tile.orientation.into());
 
-                    // [Check] A tile exists at this position, otherwise the structure is not finished
+                    // [Check] A tile exists at this position, otherwise the structure is not
+                    // finished
                     let (x, y) = tile.proxy_coordinates(move.direction);
                     let tile_position: TilePosition = store.tile_position(game, x, y);
                     if tile_position.is_zero() {
@@ -71,7 +71,7 @@ impl WonderCount of WonderCountTrait {
 
                     // [Check] If the points are zero, the structure is not finished
                     let neighbor = store.tile(game, tile_position.tile_id);
-                    WonderCount::iter(game, neighbor, move.spot, ref count, ref visited, ref store);
+                    Self::iter(game, neighbor, move.spot, ref count, ref visited, ref store);
                     if 0 == count.into() {
                         break;
                     };
@@ -82,32 +82,15 @@ impl WonderCount of WonderCountTrait {
         }
     }
 
-    fn solve(
-        ref game: Game,
-        base_points: u32,
-        ref character: Character,
-        ref events: Array<ScoredWonder>,
-        ref store: Store
-    ) {
+    fn solve(ref game: Game, base_points: u32, ref character: Character, ref store: Store) {
         // [Effect] Collect the character's builder
         let mut tile = store.tile(game, character.tile_id);
-        let mut player = store.player(character.player_id);
+        let player = store.player(character.player_id);
         let mut builder = store.builder(game, player.id);
         let power: u32 = character.power.into();
         let points = base_points * power;
-        game.add_score(ref builder, ref player, points);
+        game.add_score(points);
         builder.recover(ref character, ref tile);
-
-        // [Build] Events
-        let event = ScoredWonder {
-            game_id: game.id,
-            points: points,
-            player_id: player.id,
-            player_name: player.name,
-            player_master: player.master,
-            player_order_id: player.order,
-        };
-        events.append(event);
 
         // [Effect] Update the character
         store.set_character(character);
@@ -117,8 +100,5 @@ impl WonderCount of WonderCountTrait {
 
         // [Effect] Update the builder
         store.set_builder(builder);
-
-        // [Effect] Update the player
-        store.set_player(player);
     }
 }

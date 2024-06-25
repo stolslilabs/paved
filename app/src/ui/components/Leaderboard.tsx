@@ -4,7 +4,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/ui/elements/dialog";
 import {
   Table,
   TableBody,
@@ -12,54 +12,46 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
+} from "@/ui/elements/table";
+
+import { Button } from "@/ui/elements/button";
 
 import { useState, useEffect, useMemo } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy } from "@fortawesome/free-solid-svg-icons";
-import { useDojo } from "@/dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
-import { getOrder, getColor } from "@/dojo/game";
-import {
-  defineEnterSystem,
-  defineSystem,
-  Has,
-  HasValue,
-} from "@dojoengine/recs";
-import { useLogs } from "@/hooks/useLogs";
+import { getColor } from "@/dojo/game";
 import { TwitterShareButton } from "react-share";
 import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
 import { useGame } from "@/hooks/useGame";
-import { useBuilder } from "@/hooks/useBuilder";
 import { usePlayer } from "@/hooks/usePlayer";
-import { Builder } from "@/dojo/game/models/builder";
+import { Game as GameClass } from "@/dojo/game/models/game";
+import { ToolTipButton } from "./ToolTipButton";
+import { useBuilders } from "@/hooks/useBuilders";
+import { useDojo } from "@/dojo/useDojo";
+import leaderboard from "/assets/icons/LEADERBOARD.svg";
+import { useUIStore } from "@/store";
 
 export const LeaderboardDialog = () => {
   const { gameId } = useQueryParams();
   const {
     account: { account },
   } = useDojo();
-
   const { game } = useGame({ gameId });
-  const { builder } = useBuilder({
-    gameId: gameId,
-    playerId: account?.address,
-  });
-
+  const { builders } = useBuilders({ gameId });
   const [open, setOpen] = useState(false);
   const [over, setOver] = useState(false);
+
+  const isSelf = useMemo(() => {
+    return (
+      account?.address === (builders.length > 0 ? builders[0].player_id : "0x0")
+    );
+  }, [account, builders, over, game]);
 
   useEffect(() => {
     if (game) {
       const interval = setInterval(() => {
-        if (!over && game.isOver()) {
+        if (!over && game.isOver() && isSelf) {
           setOpen(true);
           setOver(true);
         }
@@ -68,38 +60,56 @@ export const LeaderboardDialog = () => {
     }
   }, [game, over]);
 
-  if (!game) return null;
+  if (!game || !builders || !builders.length) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant={"command"} size={"command"}>
-                <FontAwesomeIcon className="sm:h-4 md:h-12" icon={faTrophy} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">Leaderboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <ToolTipButton
+          icon={
+            <img src={leaderboard} className="sm:h-4 md:h-8  fill-current" />
+          }
+          toolTipText="Leaderboard"
+        />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
-        {over && builder && <Description game={game} />}
-        <Leaderboard />
+        {over && isSelf && <Description game={game} />}
+        <Leaderboard game={game} builders={builders} />
       </DialogContent>
     </Dialog>
   );
 };
 
-export const Description = ({ game }: { game: any }) => {
+export const Description = ({ game }: { game: GameClass }) => {
+  const takeScreenshot = useUIStore((state) => state.takeScreenshot);
+  const [screenshotMessage, setScreenshotMessage] = useState("");
+
+  const handleScreenshot = () => {
+    takeScreenshot?.();
+    setScreenshotMessage("Shot taken!");
+    setTimeout(() => setScreenshotMessage(""), 5000);
+  };
+
   return (
-    <DialogDescription className="flex justify-center items-center gap-3 text-xs">
-      Game is over!
-      {game.isSoloMode() && <Share score={game.score} />}
+    <DialogDescription className="flex justify-center items-center gap-3 text-xs flex-wrap">
+      <div className="w-full text-center text-3xl">PUZZLE COMPLETE!</div>
+      <div className="w-full text-center">
+        Well paved, adventurer ⚒️ <br />
+        Care to flex your score on X? <br /> Tip: paste your screenshot into the
+        post for maximum impact.
+      </div>
+
+      <Button
+        variant={"default"}
+        size={"icon"}
+        className="flex gap-2 w-auto p-2 text-xs"
+        onClick={handleScreenshot}
+      >
+        {screenshotMessage ? screenshotMessage : "Take Screenshot!"}
+      </Button>
+
+      <Share score={game.score} />
     </DialogDescription>
   );
 };
@@ -107,14 +117,12 @@ export const Description = ({ game }: { game: any }) => {
 export const Share = ({ score }: { score: number }) => {
   return (
     <TwitterShareButton
-      url="https://paved.gg/"
-      title={`I just test played @pavedgame’s solo mode 👑
+      url="https://sepolia.paved.gg/"
+      title={`I just conquered today’s @pavedgame puzzle 🧩
 
 Score: ${score}
 
-Join the fun at https://paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other ⚒️ 
-
-#gaming #onetileatatime
+Think you can do better? Join the fun at https://sepolia.paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other ⚒️ 
 
 Play now 👇
 `}
@@ -131,105 +139,53 @@ Play now 👇
   );
 };
 
-export const Leaderboard = () => {
-  const { gameId } = useQueryParams();
-  const [builders, setBuilders] = useState<{ [key: number]: Builder }>({});
-  const [topBuilders, setTopBuilders] = useState<any>([]);
-  const { logs } = useLogs();
-  const {
-    setup: {
-      world,
-      clientModels: {
-        models: { Builder },
-      },
-    },
-  } = useDojo();
-
-  useMemo(() => {
-    defineEnterSystem(
-      world,
-      [Has(Builder), HasValue(Builder, { game_id: gameId })],
-      function ({ value: [builder] }: any) {
-        setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.player_id]: builder };
-        });
-      },
-    );
-    defineSystem(
-      world,
-      [Has(Builder), HasValue(Builder, { game_id: gameId })],
-      function ({ value: [builder] }: any) {
-        setBuilders((prevTiles: any) => {
-          return { ...prevTiles, [builder.player_id]: builder };
-        });
-      },
-    );
-  }, []);
-
-  useEffect(() => {
-    if (!builders) return;
-
-    const topSortedBuilders: Builder[] = Object.values(builders).sort(
-      (a, b) => {
-        return b?.score - a?.score;
-      },
-    );
-
-    setTopBuilders(topSortedBuilders);
-  }, [builders]);
-
+export const Leaderboard = ({
+  game,
+  builders,
+}: {
+  game: any;
+  builders: any[];
+}) => {
   return (
     <Table className="text-xs">
       <TableHeader>
         <TableRow>
           <TableHead className="w-[100px]">Rank</TableHead>
+          <TableHead className="w-[100px]">Score</TableHead>
           <TableHead>Name</TableHead>
-          <TableHead>Order</TableHead>
-          <TableHead className="text-right">Score</TableHead>
-          <TableHead className="text-right">Paved</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {topBuilders.map((builder: typeof Builder, index: number) => {
-          return (
-            <PlayerRow
-              key={index}
-              builder={builder}
-              rank={index + 1}
-              logs={logs.filter((log) => log.category === "Built")}
-            />
-          );
-        })}
+        <PlayerRow rank={1} score={game?.score || 0} builder={builders[0]} />
       </TableBody>
     </Table>
   );
 };
 
 export const PlayerRow = ({
-  builder,
   rank,
-  logs,
+  score,
+  builder,
 }: {
-  builder: any;
   rank: number;
-  logs: any;
+  score: number;
+  builder: any;
 }) => {
   const { player } = usePlayer({ playerId: builder.player_id });
   const name = player?.name || "";
-  const order = getOrder(builder?.order);
-  const address = `0x${builder.player_id.toString(16)}`;
-  const backgroundColor = getColor(address);
-  const paved = logs.filter((log: any) => log.color === backgroundColor).length;
+  const backgroundColor = useMemo(
+    () => getColor(`0x${builder.player_id.toString(16)}`),
+    [builder],
+  );
+
   return (
     <TableRow>
-      <TableCell className="font-medium">{rank}</TableCell>
+      <TableCell className="">{rank}</TableCell>
+      <TableCell>{score}</TableCell>
       <TableCell className="flex gap-2 text-ellipsis">
         <div className="rounded-full w-4 h-4" style={{ backgroundColor }} />
         {name}
       </TableCell>
-      <TableCell>{order}</TableCell>
-      <TableCell className="text-right">{builder?.score}</TableCell>
-      <TableCell className="text-right">{paved}</TableCell>
     </TableRow>
   );
 };

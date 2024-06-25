@@ -24,6 +24,13 @@ export interface Tile {
   row: number;
 }
 
+interface ActionState {
+  enabled: boolean;
+  setEnabled: (enabled: boolean) => void;
+  disabled: boolean;
+  setDisabled: (disabled: boolean) => void;
+}
+
 interface LobbyState {
   playerEntity: Entity | null;
   setPlayerEntity: (playerEntity: Entity) => void;
@@ -69,8 +76,6 @@ interface GameState {
   orientation: number;
   setOrientation: (orientation: number) => void;
   resetOrientation: () => void;
-  order: number;
-  setOrder: (order: number) => void;
   character: number;
   setCharacter: (character: number) => void;
   resetCharacter: () => void;
@@ -96,15 +101,24 @@ interface GameState {
   valid: boolean;
   setValid: (valid: boolean) => void;
   resetValid: () => void;
+  strategyMode: boolean;
+  setStrategyMode: (strategyMode: boolean) => void;
 }
+
+export const useActionsStore = create<ActionState>((set, get) => ({
+  enabled: true,
+  setEnabled: (enabled) => set({ enabled }),
+  disabled: false,
+  setDisabled: (disabled) => set({ disabled }),
+}));
 
 export const useLobbyStore = create<LobbyState>()((set, get) => ({
   playerEntity: null,
   setPlayerEntity: (playerEntity: Entity) => set({ playerEntity }),
   resetPlayerEntity: () => set({ playerEntity: null }),
-  mode: "ranked",
+  mode: "Daily",
   setMode: (mode) => set({ mode }),
-  resetMode: () => set({ mode: "single" }),
+  resetMode: () => set({ mode: "Daily" }),
 }));
 
 export const useCameraStore = create<CameraState>()((set, get) => ({
@@ -155,8 +169,6 @@ export const useGameStore = create<GameState>()((set, get) => ({
     set({ orientation });
   },
   resetOrientation: () => set({ orientation: 1 }),
-  order: 1,
-  setOrder: (order) => set({ order }),
   character: 0,
   setCharacter: (character) => set({ character }),
   resetCharacter: () => set({ character: 0 }),
@@ -198,4 +210,32 @@ export const useGameStore = create<GameState>()((set, get) => ({
   valid: false,
   setValid: (valid) => set({ valid }),
   resetValid: () => set({ valid: false }),
+  strategyMode: false,
+  setStrategyMode: (strategyMode) => set({ strategyMode }),
+}));
+
+interface UIState {
+  loading: boolean;
+  setLoading: (value: boolean) => void;
+  isPlaying: boolean;
+  setIsPlaying: (value: boolean) => void;
+  volume: number;
+  setVolume: (value: number) => void;
+  track: string;
+  setTrack: (value: string) => void;
+  takeScreenshot: (() => void) | null;
+  setTakeScreenshot: (fn: () => void) => void;
+}
+
+export const useUIStore = create<UIState>((set, get) => ({
+  loading: false,
+  setLoading: (value) => set({ loading: value }),
+  isPlaying: false,
+  setIsPlaying: (value) => set({ isPlaying: value }),
+  volume: 20,
+  setVolume: (value) => set({ volume: value }),
+  track: "",
+  setTrack: (value) => set({ track: value }),
+  takeScreenshot: null,
+  setTakeScreenshot: (fn) => set({ takeScreenshot: fn }),
 }));
