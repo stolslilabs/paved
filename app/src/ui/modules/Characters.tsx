@@ -24,8 +24,10 @@ export const Characters = () => {
   if (!account || !builder) return <></>;
 
   return (
-    <footer className="z-20 flex justify-between items-center absolute bottom-2 md:bottom-4 left-1/2 transform -translate-x-1/2 pointer-events-none">
-      <div className="flex flex-wrap justify-center items-center grow gap-4 lg:gap-8">
+    <footer className="z-20 flex flex-col-reverse items-start absolute bottom-2 left-2 pointer-events-none
+                   sm:flex-row sm:justify-between sm:items-center sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2">
+      <div className="flex flex-col-reverse items-start gap-4
+                  sm:flex-row sm:flex-wrap sm:justify-center sm:items-center sm:grow sm:gap-4 lg:gap-8">
         {characters.map(({ status }, index) => (
           <Character key={index} index={index} enable={status} />
         ))}
