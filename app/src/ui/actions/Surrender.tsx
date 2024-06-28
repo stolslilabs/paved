@@ -23,7 +23,7 @@ import { useGame } from "@/hooks/useGame";
 import icon from "/assets/icons/SURRENDER.svg";
 import { useActions } from "@/hooks/useActions";
 
-interface TProps {}
+interface TProps { }
 
 export const Surrender = (props: TProps) => {
   const { gameId } = useQueryParams();
@@ -51,7 +51,7 @@ export const Surrender = (props: TProps) => {
           <TooltipTrigger>
             <AlertDialogTrigger asChild>
               <Button disabled={disabled} variant={"command"} size={"command"}>
-                <img src={icon} className="sm:h-4 md:h-8 fill-current" />
+                <img src={icon} className="h-8 sm:h-4 md:h-8 fill-current" />
               </Button>
             </AlertDialogTrigger>
           </TooltipTrigger>

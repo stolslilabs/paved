@@ -4,7 +4,6 @@ import { getColor } from "@/dojo/game";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faFire, faHammer } from "@fortawesome/free-solid-svg-icons";
 import { usePlayer } from "@/hooks/usePlayer";
-import { useAccount } from "@starknet-react/core";
 import { useBuilder } from "@/hooks/useBuilder";
 import { useGame } from "@/hooks/useGame";
 import { useDojo } from "@/dojo/useDojo";
@@ -23,7 +22,7 @@ export const Scoreboard = () => {
   if (!game || !builder) return;
 
   return (
-    <div className="md:flex flex-col hidden text-primary-foreground">
+    <div className="md:flex flex-col text-primary-foreground self-center-start">
       <p className="text-left text-sm mt-4 mb-2 ml-2">Leaderboard</p>
       <Table>
         <TableBody className="text-xs">

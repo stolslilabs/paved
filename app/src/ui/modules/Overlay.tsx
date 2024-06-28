@@ -3,6 +3,8 @@ import { Hand } from "./Hand";
 import { LeftHeader } from "../containers/LeftHeader";
 import { Characters } from "./Characters";
 import { useGameStore } from "@/store";
+import { isMobile } from "react-device-detect"
+import { MobileActions } from "./MobileActions";
 
 export const Overlay = () => {
   // Reset hovered tile when mouse enters overlay
@@ -10,7 +12,7 @@ export const Overlay = () => {
   return (
     <div onMouseEnter={() => resetHoveredTile()}>
       <LeftHeader />
-      <Actions />
+      {isMobile ? <MobileActions /> : <Actions />}
       <Hand />
       <Characters />
     </div>

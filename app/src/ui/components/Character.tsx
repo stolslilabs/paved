@@ -114,7 +114,7 @@ export const Character = (props: TProps) => {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            className={`pointer-events-auto select-none ${className}`}
+            className={`pointer-events-auto select-none p-2 sm:p-0 ${className}`}
             variant={selected ? "character_selected" : "character"}
             size={"character"}
             onClick={handleClick}
@@ -177,9 +177,8 @@ export const Spot = (props: { spot: string; index: number }) => {
 
   return (
     <div
-      className={`h-2 w-2 rounded-full ${color} ${ringColor} ${
-        boosted ? "ring-2" : "ring-0"
-      }`}
+      className={`h-2 w-2 rounded-full ${color} ${ringColor} ${boosted ? "ring-2" : "ring-0"
+        }`}
     />
   );
 };

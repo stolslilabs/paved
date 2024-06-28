@@ -5,7 +5,7 @@ import {
   DialogTrigger,
 } from "@/ui/elements/dialog";
 
-import { useState } from "react";
+import { ReactNode, useState } from "react";
 import { ToolTipButton } from "./ToolTipButton";
 import { MusicPlayer } from "./MusicPlayer";
 import { useGameStore } from "@/store";
@@ -13,7 +13,7 @@ import { Switch } from "../elements/switch";
 import { Label } from "../elements/label";
 import icon from "/assets/icons/VIEW.svg";
 
-export const SettingsDialog = () => {
+export const SettingsDialog = ({ children }: { children?: ReactNode }) => {
   const [open, setOpen] = useState(false);
 
   const strategyMode = useGameStore((state) => state.strategyMode);
@@ -22,10 +22,12 @@ export const SettingsDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
-        <ToolTipButton
-          icon={<img src={icon} className="sm:h-4 md:h-8 fill-current" />}
-          toolTipText="Settings"
-        />
+        {children ?? (
+          <ToolTipButton
+            icon={<img src={icon} className="h-8 sm:h-4 md:h-8 fill-current" />}
+            toolTipText="Settings"
+          />
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Settings</DialogHeader>
