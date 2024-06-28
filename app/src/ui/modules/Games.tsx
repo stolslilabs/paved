@@ -25,11 +25,15 @@ import { Has, defineEnterSystem, defineSystem } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 
 import { CreateGame } from "@/ui/components/CreateGame";
-import { TournamentDialog, TournamentHeader } from "../components/Tournament";
-import { useLobbyStore } from "@/store";
+import { Tournament } from "../components/Tournament";
 import { useBuilder } from "@/hooks/useBuilder";
 import { Game } from "@/dojo/game/types/game";
 import { useLobby } from "@/hooks/useLobby";
+import { MobileView } from "react-device-detect";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../elements/sheet";
+import { Address } from "../components/Address";
+import { Player } from "./Player";
+import { Links } from "../components/Links";
 
 export const Games = () => {
   const { gameMode } = useLobby();
@@ -78,13 +82,39 @@ export const Games = () => {
           <img src={banner} className="h-full " />
         </div>
 
-        <div className="flex my-4 gap-4 items-center">
+        <div className="flex my-4 gap-1 items-center w-full">
           <CreateGame mode={gameMode} />
+          <MobileView className="w-full">
+            <Sheet>
+              <SheetTrigger className="w-full">
+                <Button className="text-xs w-full">
+                  View<br />Profile
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="w-full overflow-y-scroll bg-[#EFDEB9] pt-8">
+                <SheetHeader>
+                  <SheetTitle>
+                    <div className="mb-2">
+                      <Address />
+                    </div>
+
+                  </SheetTitle>
+                  <SheetDescription>
+                    <Player />
+                    <div className="my-4 py-4 border shadow-sm bg-white/90">
+                      <Tournament mode={gameMode} />
+                    </div>
+                    <Links />
+                  </SheetDescription>
+                </SheetHeader>
+              </SheetContent>
+            </Sheet>
+          </MobileView>
         </div>
 
         <div className="flex justify-between w-full">
           <h4>Games</h4>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 bg-gray-600 bg-opacity-10 px-2 rounded-full sm:bg-transparent sm:px-0">
             <Switch
               id="show-finished"
               checked={show}
