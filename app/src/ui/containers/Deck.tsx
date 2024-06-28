@@ -30,7 +30,7 @@ export const Deck = () => {
     <Drawer>
       <DrawerTrigger asChild>
         <Button variant="command" size="command">
-          <img src={icon} className="sm:h-4 md:h-7 fill-current" />
+          <img src={icon} className="h-4 sm:h-4 lg:h-7 fill-current" />
         </Button>
       </DrawerTrigger>
       <DrawerContent>
