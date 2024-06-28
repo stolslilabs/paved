@@ -72,7 +72,7 @@ export const Tile = () => {
 
   return (
     <div
-      className="h-12 w-12 md:h-24 md:w-24 lg:h-60 lg:w-60  flex lg:justify-center items-center  shadow-lg "
+      className="h-20 w-20 md:h-24 md:w-24 lg:h-60 lg:w-60  flex lg:justify-center items-center  shadow-lg "
       style={{ backgroundColor }}
     >
       {!!tile && backgroundImage && !game?.isOver() && enabled && (
@@ -100,21 +100,20 @@ export const ActiveTile = ({
   return (
     <>
       <div
-        className="relative h-full w-full  cursor-pointer bg-cover"
+        className="relative h-full w-full cursor-pointer bg-cover"
         style={{
           backgroundImage: `url(${image})`,
           transform: `rotate(${rotation}deg)`,
         }}
-      />
-      <>
+      >
         {character !== 0 && (
-          <div className="w-full h-full p-5 absolute grid grid-rows-3 grid-flow-col justify-items-center items-center">
+          <div className="w-full h-full p-0 sm:p-5 absolute grid grid-rows-3 grid-flow-col justify-items-center items-center">
             {spots.map((_spot, index) => (
               <Spot key={index} index={index} />
             ))}
           </div>
         )}
-      </>
+      </div>
     </>
   );
 };
