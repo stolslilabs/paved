@@ -1,6 +1,4 @@
 import { useCameraStore } from "../../store";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCompass } from "@fortawesome/free-solid-svg-icons";
 import { Button } from "@/ui/elements/button";
 import { useMemo, useState } from "react";
 import {
@@ -47,7 +45,7 @@ export const Compass = () => {
             <img
               src={icon}
               style={style}
-              className="sm:h-4 md:h-8 fill-current"
+              className="h-8 sm:h-4 md:h-8 fill-current"
             />
           </Button>
         </TooltipTrigger>
