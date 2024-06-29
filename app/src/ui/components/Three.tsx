@@ -290,7 +290,7 @@ function Camera({ children }: { children?: React.ReactNode }) {
         maxDistance={30}
         touches={{
           ONE: THREE.TOUCH.PAN,
-          TWO: THREE.TOUCH.ROTATE
+          TWO: THREE.TOUCH.DOLLY_PAN
         }}
         mouseButtons={{
           LEFT: THREE.MOUSE.PAN,
