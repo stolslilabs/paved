@@ -23,7 +23,7 @@ export const Scoreboard = () => {
   if (!game || !builder) return;
 
   return (
-    <div className="md:flex flex-col hidden text-primary-foreground">
+    <div className="md:flex flex-col text-primary-foreground self-center-start">
       <p className="text-left text-sm mt-4 mb-2 ml-2">Leaderboard</p>
       <Table>
         <TableBody className="text-xs">
