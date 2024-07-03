@@ -16,7 +16,7 @@ import {
 
 import { Button } from "@/ui/elements/button";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import { useQueryParams } from "@/hooks/useQueryParams";
@@ -32,7 +32,7 @@ import { useDojo } from "@/dojo/useDojo";
 import leaderboard from "/assets/icons/LEADERBOARD.svg";
 import { useUIStore } from "@/store";
 
-export const LeaderboardDialog = () => {
+export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
   const { gameId } = useQueryParams();
   const {
     account: { account },
@@ -65,12 +65,14 @@ export const LeaderboardDialog = () => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
-        <ToolTipButton
-          icon={
-            <img src={leaderboard} className="sm:h-4 md:h-8  fill-current" />
-          }
-          toolTipText="Leaderboard"
-        />
+        {children ?? (
+          <ToolTipButton
+            icon={
+              <img src={leaderboard} className="h-8 sm:h-4 md:h-8  fill-current" />
+            }
+            toolTipText="Leaderboard"
+          />
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
