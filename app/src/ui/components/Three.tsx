@@ -286,6 +286,12 @@ function Camera({ children }: { children?: React.ReactNode }) {
         minPolarAngle={(101 * Math.PI) / 200} // Allow looking directly down
         maxPolarAngle={Math.PI}
         zoomSpeed={0.8}
+        minDistance={5}
+        maxDistance={30}
+        touches={{
+          ONE: THREE.TOUCH.PAN,
+          TWO: THREE.TOUCH.DOLLY_PAN
+        }}
         mouseButtons={{
           LEFT: THREE.MOUSE.PAN,
           MIDDLE: THREE.MOUSE.DOLLY,
