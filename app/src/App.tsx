@@ -8,6 +8,8 @@ import { Toaster } from "./ui/elements/sonner";
 import { Landing } from "./ui/screens/Landing";
 import { useDojo } from "./dojo/useDojo";
 import { usePlayer } from "./hooks/usePlayer";
+import { useEffect } from "react";
+import { useMusicPlayer } from "./hooks/useMusicPlayer";
 
 export const CoreScreen = () => {
   const { gameId } = useQueryParams();
@@ -16,6 +18,17 @@ export const CoreScreen = () => {
   } = useDojo();
 
   const { player } = usePlayer({ playerId: account?.address });
+  const { play, muted } = useMusicPlayer()
+
+  useEffect(() => {
+    if (muted) return
+    if (gameId) {
+      play.ingame()
+    } else {
+      play.lobby()
+    }
+  }, [gameId, muted])
+
   return (
     <>
       {!player && <Landing />}
