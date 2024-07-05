@@ -196,7 +196,6 @@ function Keyboard() {
     orientation,
     spot,
     setOrientation,
-    rotateSpot,
     strategyMode,
     setStrategyMode,
   } = useGameStore();
@@ -208,7 +207,6 @@ function Keyboard() {
         if (pressed) {
           play();
           setOrientation(orientation + 1);
-          rotateSpot(spot, true);
         }
       },
     );
