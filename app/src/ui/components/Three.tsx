@@ -17,7 +17,7 @@ import {
   N8AO,
 } from "@react-three/postprocessing";
 import useSound from "use-sound";
-import RotationSound from "/sounds/rotation.wav";
+import RotationSound from "/sounds/effects/rotation.wav";
 import { useControls, Leva } from "leva";
 
 const Light = () => {
