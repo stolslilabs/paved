@@ -9,6 +9,7 @@ import { useAccount } from "@starknet-react/core";
 import { useMemo, useState } from "react";
 import { usePlayer } from "@/hooks/usePlayer";
 import { ComponentValue } from "@dojoengine/recs";
+import { MusicPlayer } from "../components/MusicPlayer";
 
 export const Landing = () => {
   const { isConnected } = useAccount();
@@ -25,6 +26,9 @@ export const Landing = () => {
         <BoxRainScene />
       </div>
       <div className="self-center justify-center flex h-full bg-blue-100">
+        <div className="absolute top-0 right-0">
+          <MusicPlayer />
+        </div>
         <div className="flex gap-4 self-center  p-10 flex-wrap justify-center bg-paved-pink z-10">
           <div className="">
             <img src={banner} alt="banner" className="w-96" />

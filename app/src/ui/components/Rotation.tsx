@@ -12,7 +12,7 @@ import { useAccount } from "@starknet-react/core";
 import { useActions } from "@/hooks/useActions";
 import { useDojo } from "@/dojo/useDojo";
 import useSound from "use-sound";
-import RotationSound from "/sounds/rotation.wav";
+import RotationSound from "/sounds/effects/rotation.wav";
 import icon from "/assets/icons/ROTATE.svg";
 
 export const Rotation = () => {

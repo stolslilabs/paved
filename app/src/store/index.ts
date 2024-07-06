@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { Entity } from "@dojoengine/recs";
+import { Howl } from "howler";
 
 export const CAMERA_SETTINGS: {
   position: [number, number, number];
@@ -199,25 +200,31 @@ export const useGameStore = create<GameState>()((set, get) => ({
 interface UIState {
   loading: boolean;
   setLoading: (value: boolean) => void;
-  isPlaying: boolean;
-  setIsPlaying: (value: boolean) => void;
-  volume: number;
-  setVolume: (value: number) => void;
-  track: string;
-  setTrack: (value: string) => void;
   takeScreenshot: (() => void) | null;
   setTakeScreenshot: (fn: () => void) => void;
 }
 
-export const useUIStore = create<UIState>((set, get) => ({
+export const useUIStore = create<UIState>((set) => ({
   loading: false,
   setLoading: (value) => set({ loading: value }),
-  isPlaying: false,
-  setIsPlaying: (value) => set({ isPlaying: value }),
-  volume: 20,
-  setVolume: (value) => set({ volume: value }),
-  track: "",
-  setTrack: (value) => set({ track: value }),
   takeScreenshot: null,
   setTakeScreenshot: (fn) => set({ takeScreenshot: fn }),
+}));
+
+type MusicState = {
+  volume: number;
+  setVolume: (value: number) => void;
+  track: Howl | null;
+  setTrack: (track: Howl | null) => void;
+  muted: boolean;
+  setMuted: (muted: boolean) => void;
+}
+
+export const useMusicStore = create<MusicState>((set) => ({
+  volume: 20,
+  setVolume: (volume) => set({ volume }),
+  track: null,
+  setTrack: (track) => set({ track }),
+  muted: false,
+  setMuted: (muted: boolean) => set({ muted }),
 }));

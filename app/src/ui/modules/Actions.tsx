@@ -1,46 +1,20 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { LeaderboardDialog } from "../components/Leaderboard";
 import { Surrender } from "../actions/Surrender";
 import { Compass } from "../components/Compass";
 import { ToolTipButton } from "../components/ToolTipButton";
 import { useNavigate } from "react-router-dom";
-import { useCameraStore, useUIStore } from "@/store";
+import { useCameraStore } from "@/store";
 import { motion } from "framer-motion";
 import { SettingsDialog } from "../components/Settings";
 import expand from "/assets/icons/EXPAND.svg";
 import home from "/assets/icons/HOME.svg";
 import cancel from "/assets/icons/CANCEL.svg";
-import useSound from "use-sound";
-import { tracks } from "@/hooks/useMusic";
 
 export const Actions = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const navigate = useNavigate();
   const { setReset } = useCameraStore();
-
-  const volume = useUIStore((state) => state.volume);
-  const isPlaying = useUIStore((state) => state.isPlaying);
-  const setIsPlaying = useUIStore((state) => state.setIsPlaying);
-
-  const [play, { stop }] = useSound(tracks[0].url, {
-    volume: volume / 100,
-    onplay: () => setIsPlaying(true),
-    onstop: () => setIsPlaying(false),
-    onend: () => {
-      setIsPlaying(false);
-      // goToNextTrack();
-    },
-  });
-
-  useMemo(() => {
-    if (isPlaying) {
-      play();
-    } else {
-      stop();
-    }
-
-    return () => stop();
-  }, [isPlaying]);
 
   return (
     <div className="absolute left-2 bottom-2 md:left-4 md:bottom-6 z-30">

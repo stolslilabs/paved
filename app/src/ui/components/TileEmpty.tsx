@@ -8,7 +8,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { checkFeatureIdle } from "@/dojo/game/helpers/conflict";
 import useSound from "use-sound";
 
-import Place from "/sounds/p-place.m4a";
+import Place from "/sounds/effects/p-place.m4a";
 import { useTileByKey } from "@/hooks/useTile";
 import { useActions } from "@/hooks/useActions";
 import { useGLTF } from "@react-three/drei";

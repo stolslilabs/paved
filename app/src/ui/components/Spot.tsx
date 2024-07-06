@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getSpotFromIndex, getIndexFromSpot } from "@/dojo/game";
 import { useGameStore } from "../../store";
 import useSound from "use-sound";
-import onCharacterPlace from "/sounds/onCharacterPlace.wav";
+import onCharacterPlace from "/sounds/effects/onCharacterPlace.wav";
 
 interface TProps {
   index: number;
@@ -33,9 +33,8 @@ export const Spot = (props: TProps) => {
       onClick={handleClick}
     >
       <div
-        className={`h-4 w-4 rounded-full ${
-          selected ? "bg-slate-600" : "bg-white"
-        }`}
+        className={`h-4 w-4 rounded-full ${selected ? "bg-slate-600" : "bg-white"
+          }`}
       />
     </div>
   );

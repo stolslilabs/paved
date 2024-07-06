@@ -7,8 +7,8 @@ import { useBuilder } from "./useBuilder";
 import { useGame } from "./useGame";
 import { useActionsStore } from "@/store";
 import useSound from "use-sound";
-import Click from "/sounds/p-complete.m4a";
-import Points from "/sounds/points.wav";
+import Click from "/sounds/effects/p-complete.m4a";
+import Points from "/sounds/effects/points.wav";
 
 export const useActions = () => {
   const { gameId } = useQueryParams();

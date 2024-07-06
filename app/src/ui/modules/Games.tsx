@@ -34,6 +34,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { Address } from "../components/Address";
 import { Player } from "./Player";
 import { Links } from "../components/Links";
+import { MusicPlayer } from "../components/MusicPlayer";
 
 export const Games = () => {
   const { gameMode } = useLobby();
@@ -80,6 +81,7 @@ export const Games = () => {
       <div className="flex flex-col gap-2 items-start w-full p-4  md:px-8 h-full">
         <div className="h-24 flex justify-between w-full">
           <img src={banner} className="h-full " />
+          <MusicPlayer />
         </div>
 
         <div className="flex my-4 gap-1 items-center w-full">
