@@ -81,7 +81,6 @@ interface GameState {
   resetCharacter: () => void;
   spot: number;
   setSpot: (spot: number) => void;
-  rotateSpot: (spot: number, clockwise: boolean) => void;
   resetSpot: () => void;
   x: number;
   setX: (x: number) => void;
@@ -174,23 +173,6 @@ export const useGameStore = create<GameState>()((set, get) => ({
   resetCharacter: () => set({ character: 0 }),
   spot: 0,
   setSpot: (spot) => set({ spot }),
-  rotateSpot: (spot, clockwise) => {
-    let newSpot = spot;
-    if (spot >= 2 && spot <= 7 && clockwise) {
-      newSpot += 2;
-    } else if (spot >= 4 && spot <= 9 && !clockwise) {
-      newSpot -= 2;
-    } else if (spot === 8 && clockwise) {
-      newSpot = 2;
-    } else if (spot === 2 && !clockwise) {
-      newSpot = 8;
-    } else if (spot === 9 && clockwise) {
-      newSpot = 3;
-    } else if (spot === 3 && !clockwise) {
-      newSpot = 9;
-    }
-    set({ spot: newSpot });
-  },
   resetSpot: () => set({ spot: 0 }),
   x: 0,
   setX: (x) => set({ x }),

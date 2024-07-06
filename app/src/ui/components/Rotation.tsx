@@ -23,12 +23,11 @@ export const Rotation = () => {
   } = useDojo();
   const { enabled, builder } = useActions();
 
-  const { orientation, spot, setOrientation, rotateSpot } = useGameStore();
+  const { orientation, spot, setOrientation } = useGameStore();
 
   const handleClick = () => {
     play();
     setOrientation(orientation + 1);
-    rotateSpot(spot, true);
   };
 
   if (!account || !builder) return <></>;
