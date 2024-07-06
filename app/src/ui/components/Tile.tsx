@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useGameStore } from "../../store";
 import { useQueryParams } from "../../hooks/useQueryParams";
 import { getImage } from "@/dojo/game";
@@ -76,7 +76,11 @@ export const Tile = () => {
       style={{ backgroundColor }}
     >
       {!!tile && backgroundImage && !game?.isOver() && enabled && (
-        <ActiveTile image={backgroundImage} rotation={rotation} />
+        <ActiveTile
+          image={backgroundImage}
+          rotation={rotation}
+          orientation={orientation}
+        />
       )}
       {!!backgroundImage && !game?.isOver() && !enabled && <LoadingTile />}
       {game?.isOver() && <LockedTile />}
@@ -87,14 +91,92 @@ export const Tile = () => {
 export const ActiveTile = ({
   image,
   rotation,
+  orientation,
 }: {
   image: string;
   rotation: number;
+  orientation: number;
 }) => {
   const { character } = useGameStore();
   const spots = useMemo(
     () => ["NW", "W", "SW", "N", "C", "S", "NE", "E", "SE"],
     [],
+  );
+
+  const getRotatedIndex = useCallback(
+    (index: number) => {
+      // Anti rotate the index accordingly to the orientation
+      switch (orientation) {
+        case 1:
+          return index;
+        case 2:
+          switch (index) {
+            case 0:
+              return 6;
+            case 1:
+              return 3;
+            case 2:
+              return 0;
+            case 3:
+              return 7;
+            case 5:
+              return 1;
+            case 6:
+              return 8;
+            case 7:
+              return 5;
+            case 8:
+              return 2;
+            default:
+              return index;
+          }
+        case 3:
+          switch (index) {
+            case 0:
+              return 8;
+            case 1:
+              return 7;
+            case 2:
+              return 6;
+            case 3:
+              return 5;
+            case 5:
+              return 3;
+            case 6:
+              return 2;
+            case 7:
+              return 1;
+            case 8:
+              return 0;
+            default:
+              return index;
+          }
+        case 4:
+          switch (index) {
+            case 0:
+              return 2;
+            case 1:
+              return 5;
+            case 2:
+              return 8;
+            case 3:
+              return 1;
+            case 5:
+              return 7;
+            case 6:
+              return 0;
+            case 7:
+              return 3;
+            case 8:
+              return 6;
+            default:
+              return index;
+          }
+        default:
+          return index;
+      }
+    },
+    [orientation],
   );
 
   return (
@@ -109,7 +191,7 @@ export const ActiveTile = ({
         {character !== 0 && (
           <div className="w-full h-full p-0 sm:p-5 absolute grid grid-rows-3 grid-flow-col justify-items-center items-center">
             {spots.map((_spot, index) => (
-              <Spot key={index} index={index} />
+              <Spot key={index} index={getRotatedIndex(index)} />
             ))}
           </div>
         )}
