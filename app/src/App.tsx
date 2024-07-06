@@ -18,16 +18,16 @@ export const CoreScreen = () => {
   } = useDojo();
 
   const { player } = usePlayer({ playerId: account?.address });
-  const { play, muted } = useMusicPlayer()
+  const { play, muted } = useMusicPlayer();
 
   useEffect(() => {
-    if (muted) return
+    if (muted) return;
     if (gameId) {
-      play.ingame()
+      play.ingame();
     } else {
-      play.lobby()
+      play.lobby();
     }
-  }, [gameId, muted])
+  }, [gameId, muted]);
 
   return (
     <>

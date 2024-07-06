@@ -23,7 +23,7 @@ import { useGame } from "@/hooks/useGame";
 import icon from "/assets/icons/SURRENDER.svg";
 import { useActions } from "@/hooks/useActions";
 
-interface TProps { }
+interface TProps {}
 
 export const Surrender = (props: TProps) => {
   const { gameId } = useQueryParams();

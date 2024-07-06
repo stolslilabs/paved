@@ -192,13 +192,8 @@ function Keyboard() {
 
   const [play, { stop }] = useSound(RotationSound);
 
-  const {
-    orientation,
-    spot,
-    setOrientation,
-    strategyMode,
-    setStrategyMode,
-  } = useGameStore();
+  const { orientation, spot, setOrientation, strategyMode, setStrategyMode } =
+    useGameStore();
 
   useEffect(() => {
     return sub(
@@ -288,7 +283,7 @@ function Camera({ children }: { children?: React.ReactNode }) {
         maxDistance={30}
         touches={{
           ONE: THREE.TOUCH.PAN,
-          TWO: THREE.TOUCH.DOLLY_PAN
+          TWO: THREE.TOUCH.DOLLY_PAN,
         }}
         mouseButtons={{
           LEFT: THREE.MOUSE.PAN,

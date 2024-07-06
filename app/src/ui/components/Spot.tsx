@@ -33,8 +33,9 @@ export const Spot = (props: TProps) => {
       onClick={handleClick}
     >
       <div
-        className={`h-4 w-4 rounded-full ${selected ? "bg-slate-600" : "bg-white"
-          }`}
+        className={`h-4 w-4 rounded-full ${
+          selected ? "bg-slate-600" : "bg-white"
+        }`}
       />
     </div>
   );

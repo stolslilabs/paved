@@ -68,7 +68,10 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
         {children ?? (
           <ToolTipButton
             icon={
-              <img src={leaderboard} className="h-8 sm:h-4 md:h-8  fill-current" />
+              <img
+                src={leaderboard}
+                className="h-8 sm:h-4 md:h-8  fill-current"
+              />
             }
             toolTipText="Leaderboard"
           />

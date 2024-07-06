@@ -30,7 +30,14 @@ import { useBuilder } from "@/hooks/useBuilder";
 import { Game } from "@/dojo/game/types/game";
 import { useLobby } from "@/hooks/useLobby";
 import { MobileView } from "react-device-detect";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "../elements/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "../elements/sheet";
 import { Address } from "../components/Address";
 import { Player } from "./Player";
 import { Links } from "../components/Links";
@@ -90,7 +97,9 @@ export const Games = () => {
             <Sheet>
               <SheetTrigger className="w-full">
                 <Button className="text-xs w-full">
-                  View<br />Profile
+                  View
+                  <br />
+                  Profile
                 </Button>
               </SheetTrigger>
               <SheetContent className="w-full overflow-y-scroll bg-[#EFDEB9] pt-8">
@@ -99,7 +108,6 @@ export const Games = () => {
                     <div className="mb-2">
                       <Address />
                     </div>
-
                   </SheetTitle>
                   <SheetDescription>
                     <Player />

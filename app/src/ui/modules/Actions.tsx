@@ -44,7 +44,9 @@ export const Actions = () => {
           >
             <ToolTipButton
               onClick={() => navigate("", { replace: true })}
-              icon={<img src={home} className="h-8 sm:h-4 md:h-8 fill-current" />}
+              icon={
+                <img src={home} className="h-8 sm:h-4 md:h-8 fill-current" />
+              }
               toolTipText="Home page"
             />
           </motion.div>
@@ -78,7 +80,9 @@ export const Actions = () => {
           >
             <ToolTipButton
               onClick={() => setReset(true)}
-              icon={<img src={cancel} className="h-8 sm:h-4 md:h-8 fill-current" />}
+              icon={
+                <img src={cancel} className="h-8 sm:h-4 md:h-8 fill-current" />
+              }
               toolTipText="Reset view"
             />
           </motion.div>

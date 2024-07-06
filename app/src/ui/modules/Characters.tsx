@@ -24,10 +24,14 @@ export const Characters = () => {
   if (!account || !builder) return <></>;
 
   return (
-    <footer className="z-20 flex flex-col-reverse items-start absolute bottom-2 left-2 pointer-events-none
-                   md:flex-row md:justify-between md:items-center md:bottom-4 md:left-1/2 md:-translate-x-1/2">
-      <div className="flex flex-col-reverse items-start gap-4
-                  md:flex-row md:flex-wrap md:justify-center md:items-center md:grow md:gap-4 lg:gap-8">
+    <footer
+      className="z-20 flex flex-col-reverse items-start absolute bottom-2 left-2 pointer-events-none
+                   md:flex-row md:justify-between md:items-center md:bottom-4 md:left-1/2 md:-translate-x-1/2"
+    >
+      <div
+        className="flex flex-col-reverse items-start gap-4
+                  md:flex-row md:flex-wrap md:justify-center md:items-center md:grow md:gap-4 lg:gap-8"
+      >
         {characters.map(({ status }, index) => (
           <Character key={index} index={index} enable={status} />
         ))}

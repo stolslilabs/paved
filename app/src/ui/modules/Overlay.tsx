@@ -4,7 +4,7 @@ import { LeftHeader } from "../containers/LeftHeader";
 import { Characters } from "./Characters";
 import { useGameStore } from "@/store";
 import { MobileActions } from "./MobileActions";
-import { isMobile } from "react-device-detect"
+import { isMobile } from "react-device-detect";
 
 export const Overlay = () => {
   // Reset hovered tile when mouse enters overlay

@@ -218,7 +218,7 @@ type MusicState = {
   setTrack: (track: Howl | null) => void;
   muted: boolean;
   setMuted: (muted: boolean) => void;
-}
+};
 
 export const useMusicStore = create<MusicState>((set) => ({
   volume: 20,

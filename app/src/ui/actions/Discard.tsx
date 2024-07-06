@@ -10,7 +10,16 @@ import {
 import { useActions } from "@/hooks/useActions";
 import { useGame } from "@/hooks/useGame";
 import icon from "/assets/icons/BURN.svg";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../elements/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../elements/dialog";
 import { isMobile } from "react-device-detect";
 import { ReactNode } from "react";
 
@@ -40,24 +49,22 @@ export const Discard = () => {
       >
         <img src={icon} className="h-4 lg:h-8 fill-current" />
       </Button>
-    </DiscardButton >
-  )
+    </DiscardButton>
+  );
 };
-
 
 const DialogButton = ({ children }: { children: ReactNode }) => {
   const { handleDiscard } = useActions();
 
   return (
     <Dialog>
-      <DialogTrigger className="flex">
-        {children}
-      </DialogTrigger>
+      <DialogTrigger className="flex">{children}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Are you absolutely sure?</DialogTitle>
           <DialogDescription>
-            This action cannot be undone. Discarding your tile will deduct 50 points and forfeit a move.
+            This action cannot be undone. Discarding your tile will deduct 50
+            points and forfeit a move.
             <br />
             <br />
             Are you sure?
@@ -77,20 +84,18 @@ const DialogButton = ({ children }: { children: ReactNode }) => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};
 
 const TooltipButton = ({ children }: { children: ReactNode }) => {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger asChild>
-          {children}
-        </TooltipTrigger>
+        <TooltipTrigger asChild>{children}</TooltipTrigger>
         <TooltipContent>
           <p className="select-none">Discard tile</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
-}
+  );
+};

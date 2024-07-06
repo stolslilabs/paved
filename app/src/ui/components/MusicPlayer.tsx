@@ -7,12 +7,12 @@ export const MusicPlayer = () => {
   const { volume, setVolume, setMuted, muted } = useMusicPlayer();
 
   const mute = () => {
-    setMuted(true)
-  }
+    setMuted(true);
+  };
 
   const unmute = () => {
-    setMuted(false)
-  }
+    setMuted(false);
+  };
 
   return (
     <>
