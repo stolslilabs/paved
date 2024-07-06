@@ -136,7 +136,7 @@ export const Effects = () => {
   );
 
   return (
-    <EffectComposer multisampling={0}>
+    <EffectComposer>
       <Vignette eskil={false} offset={0.1} darkness={0.8} />
       <Bloom mipmapBlur luminanceThreshold={3} />
       <N8AO distanceFalloff={2} aoRadius={2} intensity={2} quality="ultra" />
