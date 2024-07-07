@@ -1,5 +1,3 @@
-import "./App.css";
-
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import GameScreen from "./ui/screens/GameScreen";
 import { GameLobby } from "./ui/screens/GameLobby";
