@@ -189,7 +189,7 @@ export const ActiveTile = ({
         }}
       >
         {character !== 0 && (
-          <div className="w-full h-full p-0 sm:p-5 absolute grid grid-rows-3 grid-flow-col justify-items-center items-center">
+          <div className="w-full h-full p-0 absolute grid grid-rows-3 grid-flow-col justify-items-center items-center">
             {spots.map((_spot, index) => (
               <Spot key={index} index={getRotatedIndex(index)} />
             ))}
