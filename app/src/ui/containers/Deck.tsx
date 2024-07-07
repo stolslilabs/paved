@@ -11,7 +11,7 @@ import {
   DrawerTrigger,
 } from "@/ui/elements/drawer";
 import { Button } from "@/ui/elements/button";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useMediaQuery } from "react-responsive";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useGame } from "@/hooks/useGame";
@@ -30,7 +30,7 @@ export const Deck = () => {
     <Drawer>
       <DrawerTrigger asChild>
         <Button variant="command" size="command">
-          <img src={icon} className="h-4 sm:h-4 lg:h-7 fill-current" />
+          <img src={icon} className="h-3 sm:h-3 lg:h-7 fill-current" />
         </Button>
       </DrawerTrigger>
       <DrawerContent>
