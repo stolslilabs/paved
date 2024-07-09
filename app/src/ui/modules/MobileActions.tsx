@@ -21,6 +21,7 @@ import { Compass } from "../components/Compass";
 import { ToolTipButton } from "../components/ToolTipButton";
 import { useCameraStore } from "@/store";
 import cancelIcon from "/assets/icons/CANCEL.svg";
+import { FullscreenToggle } from "../components/FullscreenToggle";
 
 // TODO: Switch up this component in the refactor, preferably combining it with "Actions"
 export const MobileActions = () => {
@@ -69,6 +70,7 @@ export const MobileActions = () => {
                     Leaderboard
                   </Button>
                 </LeaderboardDialog>
+                <FullscreenToggle />
                 <DrawerClose>
                   <Button
                     variant="default"
