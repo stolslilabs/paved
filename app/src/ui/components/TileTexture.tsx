@@ -111,61 +111,6 @@ export const TileTexture = ({ tile, size, length }: any) => {
         lineSegments1.scale.set(1.0, 1.0, 1.0); // Adjust scale for thicker lines
         lineSegments1.position.z += 0.001; // Offset in the z-axis by 1 unit
         child.add(lineSegments1);
-
-        // Add second set of edge detection (toon shading)
-        const edges2 = new THREE.EdgesGeometry(child.geometry);
-        const lineMaterial2 = new THREE.LineBasicMaterial({
-          color: 0x000000,
-          linewidth: 2,
-        });
-        const lineSegments2 = new THREE.LineSegments(edges2, lineMaterial2);
-        lineSegments2.scale.set(1.0, 1.0, 1.0); // Adjust scale for thicker lines
-        lineSegments2.position.z -= -0.002; // Offset in the z-axis by -1 unit (opposite direction)
-        child.add(lineSegments2);
-
-        // Add third set of edge detection (toon shading)
-        const edges3 = new THREE.EdgesGeometry(child.geometry);
-        const lineMaterial3 = new THREE.LineBasicMaterial({
-          color: 0x000000,
-          linewidth: 2,
-        });
-        const lineSegments3 = new THREE.LineSegments(edges3, lineMaterial3);
-        lineSegments3.scale.set(1.0, 1.0, 1.0); // Adjust scale for thicker lines
-        lineSegments3.position.x -= -0.001; // Offset in the z-axis by -1 unit (opposite direction)
-        child.add(lineSegments3);
-
-        // Add fourth set of edge detection (toon shading)
-        const edges4 = new THREE.EdgesGeometry(child.geometry);
-        const lineMaterial4 = new THREE.LineBasicMaterial({
-          color: 0x000000,
-          linewidth: 2,
-        });
-        const lineSegments4 = new THREE.LineSegments(edges4, lineMaterial4);
-        lineSegments4.scale.set(1.0, 1.0, 1.0); // Adjust scale for thicker lines
-        lineSegments4.position.x += 0.001; // Offset in the z-axis by -1 unit (opposite direction)
-        child.add(lineSegments4);
-
-        // Add fifth set of edge detection (toon shading)
-        const edges5 = new THREE.EdgesGeometry(child.geometry);
-        const lineMaterial5 = new THREE.LineBasicMaterial({
-          color: 0x000000,
-          linewidth: 2,
-        });
-        const lineSegments5 = new THREE.LineSegments(edges5, lineMaterial5);
-        lineSegments5.scale.set(1.0, 1.0, 1.0); // Adjust scale for thicker lines
-        lineSegments5.position.y += 0.001; // Offset in the z-axis by -1 unit (opposite direction)
-        child.add(lineSegments5);
-
-        // Add sixth set of edge detection (toon shading)
-        const edges6 = new THREE.EdgesGeometry(child.geometry);
-        const lineMaterial6 = new THREE.LineBasicMaterial({
-          color: 0x000000,
-          linewidth: 2,
-        });
-        const lineSegments6 = new THREE.LineSegments(edges6, lineMaterial6);
-        lineSegments6.scale.set(1.0, 1.0, 1.0); // Adjust scale for thicker lines
-        lineSegments6.position.y -= -0.001; // Offset in the z-axis by -1 unit (opposite direction)
-        child.add(lineSegments6);
       }
     });
     return model;
