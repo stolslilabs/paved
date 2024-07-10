@@ -1,4 +1,4 @@
-import { Scoreboard } from "../components/Scoreboard";
+import * as VisuallyHidden from '@radix-ui/react-visually-hidden';
 import { Button } from "../elements/button";
 import {
   Drawer,
@@ -45,9 +45,7 @@ export const MobileActions = () => {
           </Button>
         </DrawerTrigger>
         <DrawerContent>
-          <DrawerHeader>
-            <Scoreboard />
-          </DrawerHeader>
+          <DrawerHeader>Actions</DrawerHeader>
           <DrawerFooter>
             <div className="flex flex-col gap-2 px-8">
               <DrawerClose>

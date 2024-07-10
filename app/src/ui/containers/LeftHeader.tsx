@@ -1,12 +1,10 @@
-import { Scoreboard } from "../components/Scoreboard";
 import { isMobile } from "react-device-detect";
+import { Scoreboard } from "../components/Scoreboard";
 
 export const LeftHeader = () => {
   return (
-    !isMobile && (
-      <div className="z-20 flex flex-col p-2 absolute top-0 uppercase px-4 ">
-        <Scoreboard />
-      </div>
-    )
+    <div className={`w-full z-20 flex flex-col p-2 absolute top-0 uppercase px-4 items-center ${!isMobile && "sm:items-start"}`}>
+      <Scoreboard />
+    </div>
   );
 };
