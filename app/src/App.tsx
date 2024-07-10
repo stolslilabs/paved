@@ -28,11 +28,11 @@ export const CoreScreen = () => {
   }, [gameId, muted]);
 
   return (
-    <>
+    <div className="h-full w-full">
       {!player && <Landing />}
       {!!account && !!player && !gameId && <GameLobby />}
       {!!account && !!player && !!gameId && <GameScreen />}
-    </>
+    </div>
   );
 };
 

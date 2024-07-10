@@ -21,7 +21,7 @@ export const Landing = () => {
 
   const [loading, setLoading] = useState(false);
   return (
-    <div className="h-screen w-screen">
+    <div className="h-dscreen w-screen">
       <div className="fixed h-full w-full z-0">
         <BoxRainScene />
       </div>

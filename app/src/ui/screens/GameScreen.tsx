@@ -26,7 +26,7 @@ const GameScene = () => {
 
   return (
     <div
-      className={`relative w-full h-screen flex flex-col bg-blue-100 ${loading ? "cursor-wait" : ""} `}
+      className={`relative w-full h-dscreen flex flex-col bg-blue-100 ${loading ? "cursor-wait" : ""} `}
     >
       <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
         <Header />

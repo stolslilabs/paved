@@ -15,7 +15,7 @@ export const GameLobby = () => {
   const { gameMode } = useLobby();
 
   return (
-    <div className="h-screen flex w-full relative">
+    <div className="h-dscreen flex w-full relative">
       <div className="absolute h-full w-full z-0">
         <BoxRainScene />
       </div>
@@ -36,7 +36,7 @@ export const GameLobby = () => {
       </div>
       {!isMobile && (
         <div
-          className={`${sideBar ? "w-screen" : "hidden"} z-10 md:w-1/3 border-r sticky bottom-0 h-screen p-8 shadow-2xl bg-primary overflow-auto `}
+          className={`${sideBar ? "w-screen" : "hidden"} z-10 md:w-1/3 border-r sticky bottom-0 h-dscreen p-8 shadow-2xl bg-primary overflow-auto `}
         >
           <div className="mb-2">
             <Address />
