@@ -20,6 +20,9 @@ module.exports = {
       fontFamily: {
         body: ["Rubik Mono One", "mono"],
       },
+      height: {
+        'dscreen': 'calc(100dvh)',
+      },
       colors: {
         // "paved-yellow": "#FCF7E7",
         // "paved-pink": "#FFF8F8",

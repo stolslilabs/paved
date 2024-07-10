@@ -86,8 +86,8 @@ export const TournamentHeader = ({ mode }: { mode: Mode }) => {
         ${days.toString().padStart(2, "0")}d ${hours
           .toString()
           .padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
-          .toString()
-          .padStart(2, "0")}`;
+            .toString()
+            .padStart(2, "0")}`;
       setTimeLeft(formattedTime);
 
       if (dt < 0) {
@@ -126,7 +126,7 @@ export const TournamentDialog = ({ mode }: { mode: Mode }) => {
           </Tooltip>
         </TooltipProvider>
       </DialogTrigger>
-      <DialogContent className="max-h-screen overflow-scroll">
+      <DialogContent className="max-h-dscreen overflow-scroll">
         <DialogHeader className="flex items-center">
           Tournament Leaderboard
         </DialogHeader>

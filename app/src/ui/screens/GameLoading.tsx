@@ -3,7 +3,7 @@ import logo from "/assets/loading-logo.png";
 
 export const GameLoading = () => {
   return (
-    <div className="relative h-screen overflow-clip">
+    <div className="relative h-dscreen overflow-clip">
       {/* Background */}
       <div
         className="absolute inset-0 bg-cover bg-center animate-[pulse_30s_ease-in-out_infinite]"
