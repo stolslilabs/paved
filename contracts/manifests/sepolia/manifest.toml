@@ -3,9 +3,9 @@ kind = "WorldContract"
 class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
 original_class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
 abi = "manifests/sepolia/abis/deployments/dojo_world_world.json"
-address = "0x1f2ef7f19611458fac12624483eef613d1ad2660e8aea5969a678ddc25df0c2"
-transaction_hash = "0x28d9795d592f117730a22fd628e226ce94683e8d572669a0f68e0878198e22f"
-seed = "paved-v10"
+address = "0xfa0ef672be8fffdd65cd852c239bf46edec43987a120ecf8beb94df82be2ca"
+transaction_hash = "0x5d5dae430596948a4bf20ce6e9f3e2d5c61e29b834f765f815266fac8641ce6"
+seed = "paved-v11"
 name = "dojo::world::world"
 
 [world.metadata]
@@ -20,7 +20,7 @@ name = "dojo::base::base"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0xb625f70cb5e562d33938cbb251b97c3758aad52f74b13bf9faec2861dae984"
+address = "0x13bbd1a705e0a2415f176c582746b185f4ca68cb95e5e29300cc161d5912594"
 class_hash = "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6"
 original_class_hash = "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6"
 base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
@@ -42,7 +42,7 @@ name = "paved::systems::account::account"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x3b470d8557918ad70a30f65baef814d322ab288813fb448c81a72f1efa7cbe4"
+address = "0x65f3a892c0e8040c0ba6f770511c723940ba0749fee0e3346cc572625bc5508"
 class_hash = "0x3324295eca593cc31d97770523b9be5059736af54ca4eda08b9a8fa4aeccc86"
 original_class_hash = "0x3324295eca593cc31d97770523b9be5059736af54ca4eda08b9a8fa4aeccc86"
 base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
