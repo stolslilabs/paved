@@ -212,8 +212,6 @@ export const useUIStore = create<UIState>((set) => ({
 }));
 
 type MusicState = {
-  volume: number;
-  setVolume: (value: number) => void;
   track: Howl | null;
   setTrack: (track: Howl | null) => void;
   muted: boolean;
@@ -221,8 +219,6 @@ type MusicState = {
 };
 
 export const useMusicStore = create<MusicState>((set) => ({
-  volume: 20,
-  setVolume: (volume) => set({ volume }),
   track: null,
   setTrack: (track) => set({ track }),
   muted: false,

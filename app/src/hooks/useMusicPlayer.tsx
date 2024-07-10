@@ -78,8 +78,6 @@ const getRandomLobbyValue = (): Howl => {
 };
 
 export const useMusicPlayer = () => {
-  const volume = useMusicStore((state) => state.volume);
-  const setVolume = useMusicStore((state) => state.setVolume);
   const track = useMusicStore((state) => state.track);
   const setTrack = useMusicStore((state) => state.setTrack);
   const muted = useMusicStore((state) => state.muted);
@@ -107,7 +105,6 @@ export const useMusicPlayer = () => {
       Howler.stop();
 
       howl.play();
-      console.log("playing");
     }, [setTrack, track, muted, setMuted]),
     ingame: useCallback(() => {
       const howl = tracks.ingame.get("paved");
@@ -115,7 +112,6 @@ export const useMusicPlayer = () => {
       Howler.stop();
 
       howl?.play();
-      console.log("playing");
     }, [setTrack]),
   };
 
@@ -136,8 +132,6 @@ export const useMusicPlayer = () => {
     play,
     stop,
     track,
-    volume,
-    setVolume,
     muted,
     setMuted,
   };

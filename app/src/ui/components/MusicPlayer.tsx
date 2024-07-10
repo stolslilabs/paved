@@ -4,7 +4,7 @@ import { Button } from "@/ui/elements/button";
 import { Slider } from "@/ui/elements/slider";
 
 export const MusicPlayer = () => {
-  const { volume, setVolume, setMuted, muted } = useMusicPlayer();
+  const { setMuted, muted } = useMusicPlayer();
 
   const mute = () => {
     setMuted(true);
@@ -30,9 +30,9 @@ export const MusicPlayer = () => {
         </Button>
 
         <Slider
-          className="w-12"
-          onValueChange={(value) => setVolume(value[0])}
-          defaultValue={[volume]}
+          className="w-20"
+          onValueChange={(value) => Howler.volume(value[0])}
+          defaultValue={[Howler.volume()]}
           max={1}
           step={0.1}
         />
