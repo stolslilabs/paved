@@ -10,6 +10,7 @@ import { useGame } from "@/hooks/useGame";
 import { useDojo } from "@/dojo/useDojo";
 import { Builder } from "@/dojo/game/models/builder";
 import { Game } from "@/dojo/game/models/game";
+import { isMobile } from "react-device-detect";
 
 export const Scoreboard = () => {
   const { gameId } = useQueryParams();
@@ -24,7 +25,7 @@ export const Scoreboard = () => {
 
   return (
     <div className="md:flex flex-col text-primary-foreground self-center-start">
-      <p className="text-left text-sm mt-4 mb-2 ml-2">Leaderboard</p>
+      {!isMobile && <p className="text-left text-sm mt-4 mb-2 ml-2">Leaderboard</p>}
       <Table>
         <TableBody className="text-xs">
           <PlayerRow
