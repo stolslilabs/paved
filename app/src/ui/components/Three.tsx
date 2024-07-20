@@ -51,33 +51,23 @@ const Light = () => {
         collapsed // default = false, when true the GUI is collpased
         hidden // default = false, when true the GUI is hidden
       />
-      <spotLight
-        position={[10, 10, 10]}
-        angle={0.15}
-        penumbra={1}
-        intensity={1}
-        castShadow
-      />
+
       <ambientLight
-        name="Default Ambient Light"
-        intensity={ambientIntensity}
-        color="white"
+        intensity={3}
       />
       <directionalLight
-        ref={lightRef}
-        color={"white"}
-        intensity={intensity}
-        position={position}
+        //ref={directionalLight}
+        intensity={4}
+        position={[10.5, 20.5, 10.5]} // Adjust the position to represent sunlight direction position
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-camera-near={0}
-        shadow-camera-far={12}
-        shadow-camera-left={-12}
-        shadow-camera-right={12}
-        shadow-camera-top={12}
-        shadow-camera-bottom={-5}
-        shadow-bias={-0.01}
+        shadow-mapSize-width={4096} // Increase the shadow map size for better quality shadows
+        shadow-mapSize-height={4096}
+        shadow-camera-near={1}
+        shadow-camera-far={30}
+        shadow-camera-left={-7.5} // Adjust the frustum parameters to increase the coverage area
+        shadow-camera-right={7.5}
+        shadow-camera-top={7.5}
+        shadow-camera-bottom={-7.5}
       />
     </>
   );
