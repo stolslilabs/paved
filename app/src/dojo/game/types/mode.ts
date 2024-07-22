@@ -6,6 +6,7 @@ export enum ModeType {
   None = "None",
   Daily = "Daily",
   Weekly = "Weekly",
+  Tutorial = "Tutorial",
 }
 
 export class Mode {
@@ -30,6 +31,8 @@ export class Mode {
         return 86400;
       case ModeType.Weekly:
         return 604800;
+      case ModeType.Tutorial:
+        return 1;
       case ModeType.None:
         return 0;
     }
@@ -41,6 +44,8 @@ export class Mode {
         return 19855;
       case ModeType.Weekly:
         return 2835;
+      case ModeType.Tutorial:
+        return 0;
       case ModeType.None:
         return 0;
     }
@@ -52,6 +57,8 @@ export class Mode {
         return BigInt(0);
       case ModeType.Weekly:
         return BigInt("1_000_000_000_000_000_000");
+      case ModeType.Tutorial:
+        return BigInt(0);
       case ModeType.None:
         return BigInt(0);
     }
@@ -63,6 +70,8 @@ export class Mode {
         return 38;
       case ModeType.Weekly:
         return 72;
+      case ModeType.Tutorial:
+        return 9;
       case ModeType.None:
         return 0;
     }

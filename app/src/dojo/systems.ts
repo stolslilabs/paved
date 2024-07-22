@@ -21,6 +21,17 @@ export function systems({
     return message.match(/\('([^']+)'\)/)?.[1];
   };
 
+  const getContract = (mode: ModeType): any => {
+    switch (mode) {
+      case ModeType.Daily:
+        return client.daily;
+      case ModeType.Tutorial:
+        return client.tutorial;
+      default:
+        return client.daily;
+    }
+  };
+
   const notify = (message: string, transaction: any) => {
     if (transaction.execution_status != "REVERTED") {
       toast.success(message, {
@@ -64,8 +75,7 @@ export function systems({
     mode,
     ...props
   }: SystemTypes.CreateGame) => {
-    const contract =
-      mode?.value === ModeType.Daily ? client.daily : client.daily;
+    const contract = getContract(mode?.value as ModeType);
     try {
       const { transaction_hash } = await contract.spawn({
         account,
@@ -86,8 +96,7 @@ export function systems({
 
   const claim = async ({ account, mode, ...props }: SystemTypes.Claim) => {
     try {
-      const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.daily;
+      const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.claim({
         account,
         ...props,
@@ -105,8 +114,7 @@ export function systems({
 
   const sponsor = async ({ account, mode, ...props }: SystemTypes.Sponsor) => {
     try {
-      const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.daily;
+      const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.sponsor({
         account,
         ...props,
@@ -124,8 +132,7 @@ export function systems({
 
   const discard = async ({ account, mode, ...props }: SystemTypes.Discard) => {
     try {
-      const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.daily;
+      const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.discard({
         account,
         ...props,
@@ -147,8 +154,7 @@ export function systems({
     ...props
   }: SystemTypes.Surrender) => {
     try {
-      const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.daily;
+      const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.surrender({
         account,
         ...props,
@@ -201,7 +207,7 @@ export function systems({
 
     try {
       const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.daily;
+        mode?.value === ModeType.Daily ? client.daily : client.tutorial;
       const { transaction_hash } = await contract.build({
         account,
         ...props,
