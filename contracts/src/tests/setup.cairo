@@ -27,7 +27,9 @@ mod setup {
     use paved::models::tournament::Tournament;
     use paved::systems::account::{account, IAccountDispatcher, IAccountDispatcherTrait};
     use paved::systems::daily::{daily, IDailyDispatcher, IDailyDispatcherTrait};
+    use paved::systems::tutorial::{tutorial, ITutorialDispatcher, ITutorialDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
+    use paved::types::mode::Mode;
 
     // Constants
 
@@ -57,6 +59,7 @@ mod setup {
     struct Systems {
         account: IAccountDispatcher,
         daily: IDailyDispatcher,
+        tutorial: ITutorialDispatcher,
     }
 
     #[derive(Drop)]
@@ -102,7 +105,7 @@ mod setup {
     }
 
     #[inline(always)]
-    fn spawn_game() -> (IWorldDispatcher, Systems, Context) {
+    fn spawn_game(mode: Mode) -> (IWorldDispatcher, Systems, Context) {
         // [Setup] World
         let mut models = core::array::ArrayTrait::new();
         models.append(paved::models::index::game::TEST_CLASS_HASH);
@@ -124,9 +127,15 @@ mod setup {
             .deploy_contract(
                 'daily', daily::TEST_CLASS_HASH.try_into().unwrap(), daily_calldata.span()
             );
+        let tutorial_calldata: Array<felt252> = array![];
+        let tutorial_address = world
+            .deploy_contract(
+                'tutorial', tutorial::TEST_CLASS_HASH.try_into().unwrap(), tutorial_calldata.span()
+            );
         let systems = Systems {
             account: IAccountDispatcher { contract_address: account_address },
             daily: IDailyDispatcher { contract_address: daily_address },
+            tutorial: ITutorialDispatcher { contract_address: tutorial_address },
         };
 
         // [Setup] Context
@@ -150,7 +159,11 @@ mod setup {
         let duration: u64 = 0;
 
         // [Setup] Game if mode is set
-        let game_id = systems.daily.spawn();
+        let game_id = match mode {
+            Mode::Daily => systems.daily.spawn(),
+            Mode::Tutorial => systems.tutorial.spawn(),
+            _ => 0,
+        };
 
         let context = Context {
             player_id: PLAYER().into(),

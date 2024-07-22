@@ -102,7 +102,7 @@ impl TournamentImpl of TournamentTrait {
         // [Check] Overflow
         let current: u256 = self.prize.into();
         let next: u256 = (self.prize + amount).into();
-        assert(next > current, errors::PRIZE_OVERFLOW);
+        assert(next >= current, errors::PRIZE_OVERFLOW);
         // [Effect] Payout
         self.prize += amount;
     }

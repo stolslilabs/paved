@@ -23,6 +23,7 @@ const FOREST_BASE_POINTS: u32 = 300;
 const CITY_BASE_POINTS: u32 = 200;
 const WONDER_BASE_POINTS: u32 = 900;
 const DISCARD_POINTS: u32 = 50;
+const CENTER: u32 = 0x7fffffff;
 
 // Tournament
 

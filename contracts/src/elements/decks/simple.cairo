@@ -25,9 +25,8 @@ use core::debug::PrintTrait;
 
 // Internal imports
 
-use paved::elements::decks::interface::DeckTrait;
+use paved::elements::decks::interface::{DeckTrait, Plan, Orientation, Role, Spot};
 use paved::elements::decks::base::{DeckImpl as BaseDeck};
-use paved::types::plan::Plan;
 
 impl DeckImpl of DeckTrait {
     #[inline(always)]
@@ -48,6 +47,11 @@ impl DeckImpl of DeckTrait {
     #[inline(always)]
     fn indexes(plan: Plan) -> Array<u8> {
         BaseDeck::indexes(plan)
+    }
+
+    #[inline]
+    fn parameters(index: u32) -> (Orientation, u32, u32, Role, Spot) {
+        BaseDeck::parameters(index)
     }
 }
 

@@ -21,6 +21,7 @@ mod elements {
         mod interface;
         mod base;
         mod simple;
+        mod tutorial;
     }
 
     mod layouts {
@@ -75,11 +76,13 @@ mod components {
     mod hostable;
     mod payable;
     mod playable;
+    mod tutoriable;
 }
 
 mod systems {
     mod account;
     mod daily;
+    mod tutorial;
 }
 
 #[cfg(test)]
@@ -88,6 +91,7 @@ mod tests {
     mod ranked;
     mod discard;
     mod build;
+    mod tutorial;
     // mod cases;
 
     mod mocks {

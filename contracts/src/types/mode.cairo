@@ -1,26 +1,38 @@
+use paved::types::deck::DeckTrait;
 // Core imports
 
 use core::poseidon::{PoseidonTrait, HashState};
 use core::hash::HashStateTrait;
 use core::debug::PrintTrait;
 
+// External imports
+
+use origami::random::deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
+use alexandria_math::bitmap::Bitmap;
+
 // Internal imports
 
 use paved::constants;
 use paved::models::tournament::TournamentTrait;
 use paved::types::deck::{Deck, DeckImpl};
+use paved::types::plan::{Plan, PlanImpl};
+use paved::types::orientation::Orientation;
+use paved::types::role::Role;
+use paved::types::spot::Spot;
 
 // Constants
 
 const NONE: felt252 = 0;
 const DAILY: felt252 = 'DAILY';
 const WEEKLY: felt252 = 'WEEKLY';
+const TUTORIAL: felt252 = 'TUTORIAL';
 
 #[derive(Copy, Drop, Serde, PartialEq)]
 enum Mode {
     None,
     Daily,
     Weekly,
+    Tutorial,
 }
 
 #[generate_trait]
@@ -30,6 +42,7 @@ impl ModeImpl of ModeTrait {
         match self {
             Mode::Daily => constants::DAILY_TOURNAMENT_PRICE,
             Mode::Weekly => constants::WEEKLY_TOURNAMENT_PRICE,
+            Mode::Tutorial => 0,
             _ => 0,
         }
     }
@@ -39,6 +52,7 @@ impl ModeImpl of ModeTrait {
         match self {
             Mode::Daily => constants::DAILY_TOURNAMENT_DURATION,
             Mode::Weekly => constants::WEEKLY_TOURNAMENT_DURATION,
+            Mode::Tutorial => 1,
             _ => 0,
         }
     }
@@ -60,6 +74,7 @@ impl ModeImpl of ModeTrait {
                 let state = state.update(time.into());
                 state.finalize()
             },
+            Mode::Tutorial => 0,
             _ => 0,
         }
     }
@@ -69,8 +84,54 @@ impl ModeImpl of ModeTrait {
         match self {
             Mode::Daily => Deck::Simple,
             Mode::Weekly => Deck::Base,
+            Mode::Tutorial => Deck::Tutorial,
             _ => Deck::None,
         }
+    }
+
+    #[inline]
+    fn draw(self: Mode, seed: felt252, tiles: u128) -> (Plan, u128) {
+        match self {
+            Mode::Daily => self._draw(seed, tiles),
+            Mode::Weekly => self._draw(seed, tiles),
+            Mode::Tutorial => {
+                let deck: Deck = self.deck();
+                if tiles == 0 {
+                    return (deck.plan(0), 1);
+                };
+                let index: u8 = 1 + Bitmap::most_significant_bit(tiles).unwrap();
+                let plan: Plan = deck.plan(index.into());
+                let tiles = Bitmap::set_bit_at(tiles, index.into(), true);
+                (plan, tiles)
+            },
+            _ => (Plan::None, tiles),
+        }
+    }
+
+    #[inline]
+    fn parameters(self: Mode, tiles: u128) -> (Orientation, u32, u32, Role, Spot) {
+        let deck: Deck = self.deck();
+        let index = Bitmap::most_significant_bit(tiles).unwrap();
+        deck.parameters(index.into())
+    }
+}
+
+#[generate_trait]
+impl Private of PrivateTrait {
+    #[inline]
+    fn _draw(self: Mode, seed: felt252, tiles: u128) -> (Plan, u128) {
+        let game_deck: Deck = self.deck();
+        let number: u32 = game_deck.total_count().into();
+        let mut deck: OrigamiDeck = OrigamiDeckTrait::from_bitmap(seed, number, tiles);
+        let plan_id: u8 = deck.draw().into();
+        // Update bitmap if deck is not empty, otherwise reset
+        let tiles = if deck.remaining == 0 {
+            0
+        } else {
+            let index = plan_id - 1;
+            Bitmap::set_bit_at(tiles, index.into(), true)
+        };
+        (game_deck.plan(plan_id.into()), tiles)
     }
 }
 
@@ -80,6 +141,7 @@ impl IntoModeFelt252 of core::Into<Mode, felt252> {
         match self {
             Mode::Daily => DAILY,
             Mode::Weekly => WEEKLY,
+            Mode::Tutorial => TUTORIAL,
             _ => NONE,
         }
     }
@@ -91,6 +153,7 @@ impl IntoModeU8 of core::Into<Mode, u8> {
         match self {
             Mode::Daily => 1,
             Mode::Weekly => 2,
+            Mode::Tutorial => 3,
             _ => 0,
         }
     }
@@ -103,20 +166,8 @@ impl IntoU8Mode of core::Into<u8, Mode> {
             0 => Mode::None,
             1 => Mode::Daily,
             2 => Mode::Weekly,
+            3 => Mode::Tutorial,
             _ => Mode::None,
-        }
-    }
-}
-
-impl TryIntoFelt252Mode of core::Into<felt252, Mode> {
-    #[inline(always)]
-    fn into(self: felt252) -> Mode {
-        if self == DAILY {
-            Mode::Daily
-        } else if self == WEEKLY {
-            Mode::Weekly
-        } else {
-            Mode::None
         }
     }
 }
@@ -137,7 +188,7 @@ mod tests {
 
     // Local imports
 
-    use super::{Mode, NONE, DAILY, WEEKLY,};
+    use super::{Mode, NONE, DAILY, WEEKLY, TUTORIAL,};
 
     // Constants
 
@@ -153,14 +204,10 @@ mod tests {
 
     #[test]
     fn test_felt_into_mode() {
-        assert(Mode::None == NONE.into(), 'Mode: wrong None');
-        assert(Mode::Daily == DAILY.into(), 'Mode: wrong Daily');
-        assert(Mode::Weekly == WEEKLY.into(), 'Mode: wrong Weekly');
-    }
-
-    #[test]
-    fn test_unknown_felt_into_mode() {
-        assert(Mode::None == UNKNOWN_FELT.into(), 'Mode: wrong Unknown');
+        assert(NONE == Mode::None.into(), 'Mode: wrong None');
+        assert(DAILY == Mode::Daily.into(), 'Mode: wrong Daily');
+        assert(WEEKLY == Mode::Weekly.into(), 'Mode: wrong Weekly');
+        assert(TUTORIAL == Mode::Tutorial.into(), 'Mode: wrong Tutorial');
     }
 
     #[test]

@@ -17,12 +17,12 @@ use paved::models::game::{Game, GameTrait};
 use paved::models::builder::{Builder, BuilderTrait};
 use paved::systems::daily::IDailyDispatcherTrait;
 
-use paved::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
+use paved::tests::setup::{setup, setup::{Mode, Systems, PLAYER, ANYONE}};
 
 #[test]
 fn test_play_discard() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Daily);
     let store = StoreTrait::new(world);
 
     // [Discard]

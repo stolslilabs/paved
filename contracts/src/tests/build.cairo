@@ -24,7 +24,7 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 use paved::systems::daily::IDailyDispatcherTrait;
 
-use paved::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
+use paved::tests::setup::{setup, setup::{Mode, Systems, PLAYER, ANYONE}};
 
 // Constants
 
@@ -33,7 +33,7 @@ const BUILDER_NAME: felt252 = 'PLAYER';
 #[test]
 fn test_play_build_without_character() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Daily);
     let store = StoreTrait::new(world);
 
     // [Draw]
@@ -55,7 +55,7 @@ fn test_play_build_without_character() {
 #[test]
 fn test_play_build_with_character() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Daily);
     let store = StoreTrait::new(world);
 
     // [Draw]
@@ -76,7 +76,7 @@ fn test_play_build_with_character() {
 #[should_panic(expected: ('Game: structure not idle', 'ENTRYPOINT_FAILED',))]
 fn test_play_build_with_character_revert_not_idle() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Daily);
     let store = StoreTrait::new(world);
 
     // [Draw & Build]
@@ -109,7 +109,7 @@ fn test_play_build_with_character_revert_not_idle() {
 #[test]
 fn test_play_build_complete_castle() {
     // [Setup]
-    let (world, systems, context) = setup::spawn_game();
+    let (world, systems, context) = setup::spawn_game(Mode::Daily);
     let store = StoreTrait::new(world);
 
     // [Draw]
