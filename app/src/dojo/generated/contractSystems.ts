@@ -53,7 +53,6 @@ export interface Build extends Signer {
   spot: number;
   mode?: Mode;
 }
-
 export type IWorld = Awaited<ReturnType<typeof setupWorld>>;
 
 export const getContractByName = (manifest: any, name: string) => {
@@ -257,8 +256,80 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     };
   }
 
+  function tutorial() {
+    const contract_name = "tutorial";
+    const contract = config.manifest.contracts.find((c) =>
+      c.name.includes(contract_name),
+    );
+    if (!contract) {
+      throw new Error(`Contract ${contract_name} not found in manifest`);
+    }
+
+    const spawn = async ({ account }: CreateGame) => {
+      const contract_address = getContractByName(
+        config.manifest,
+        contract_name,
+      );
+      const calls = [
+        {
+          contractAddress: contract_address,
+          entrypoint: "spawn",
+          calldata: [],
+        },
+      ];
+      try {
+        return await provider.execute(account, calls, details);
+      } catch (error) {
+        console.error("Error executing spawn:", error);
+        throw error;
+      }
+    };
+
+    const surrender = async ({ account, game_id }: Surrender) => {
+      try {
+        return await provider.execute(
+          account,
+          {
+            contractName: contract_name,
+            entrypoint: "surrender",
+            calldata: [game_id],
+          },
+          details,
+        );
+      } catch (error) {
+        console.error("Error executing surrender:", error);
+        throw error;
+      }
+    };
+
+    const build = async ({ account, game_id }: Build) => {
+      try {
+        return await provider.execute(
+          account,
+          {
+            contractName: contract_name,
+            entrypoint: "build",
+            calldata: [game_id],
+          },
+          details,
+        );
+      } catch (error) {
+        console.error("Error executing build:", error);
+        throw error;
+      }
+    };
+
+    return {
+      address: contract.address,
+      spawn,
+      surrender,
+      build,
+    };
+  }
+
   return {
     account: account(),
     daily: daily(),
+    tutorial: tutorial(),
   };
 }
