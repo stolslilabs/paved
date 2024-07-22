@@ -1,5 +1,16 @@
-computed = [  ]
+computed = []
 name = "paved::systems::daily::daily"
-reads = [  ]
-writes = [ "Game", "Builder", "Player", "Tile", "TilePosition", "Character", "CharacterPosition", "Tournament" ]
-init_calldata = ["0x044e6bcc627e6201ce09f781d1aae44ea4c21c2fdef299e34fce55bef2d02210"]
+reads = []
+writes = [
+    "Game",
+    "Builder",
+    "Player",
+    "Tile",
+    "TilePosition",
+    "Character",
+    "CharacterPosition",
+    "Tournament",
+]
+init_calldata = [
+    "0x044e6bcc627e6201ce09f781d1aae44ea4c21c2fdef299e34fce55bef2d02210",
+]

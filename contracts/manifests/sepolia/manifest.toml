@@ -3,14 +3,14 @@ kind = "WorldContract"
 class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
 original_class_hash = "0x3f63cecdc4964acafb921ba2934c6507d1b3c344edb64c2762cf08053169ab9"
 abi = "manifests/sepolia/abis/deployments/dojo_world_world.json"
-address = "0xfa0ef672be8fffdd65cd852c239bf46edec43987a120ecf8beb94df82be2ca"
-transaction_hash = "0x5d5dae430596948a4bf20ce6e9f3e2d5c61e29b834f765f815266fac8641ce6"
-seed = "paved-v11"
+address = "0x32072ba02e2131fb21ae6d6d37b302e42a9b17175d39c16f05c4ad5da946d8b"
+transaction_hash = "0x69cadef2f3bd03aae5872dea19ed3f738dbd241976658d550e778cc9adffda9"
+seed = "paved-v13"
 name = "dojo::world::world"
 
 [world.metadata]
 profile_name = "sepolia"
-rpc_url = "https://free-rpc.nethermind.io/sepolia-juno/v0_7"
+rpc_url = "https://starknet-sepolia.public.blastapi.io/rpc/v0_7"
 
 [base]
 kind = "Class"
@@ -20,7 +20,7 @@ name = "dojo::base::base"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x13bbd1a705e0a2415f176c582746b185f4ca68cb95e5e29300cc161d5912594"
+address = "0xbb66638d814dac739427ec567d146ee006833b1e5389c35e2ee99eb5cac36a"
 class_hash = "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6"
 original_class_hash = "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6"
 base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
@@ -42,9 +42,9 @@ name = "paved::systems::account::account"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x65f3a892c0e8040c0ba6f770511c723940ba0749fee0e3346cc572625bc5508"
-class_hash = "0x3324295eca593cc31d97770523b9be5059736af54ca4eda08b9a8fa4aeccc86"
-original_class_hash = "0x3324295eca593cc31d97770523b9be5059736af54ca4eda08b9a8fa4aeccc86"
+address = "0x769028ac7ecd461b37a13f15e3a157509d4aba16105bf709c9f805924dc47c3"
+class_hash = "0x69c8cc45765a031119400f8e8d1db848f6b2ee48ea2959b4b1d1020799915bf"
+original_class_hash = "0x69c8cc45765a031119400f8e8d1db848f6b2ee48ea2959b4b1d1020799915bf"
 base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
 abi = "manifests/sepolia/abis/deployments/contracts/paved_systems_daily_daily.json"
 reads = []
@@ -61,6 +61,28 @@ writes = [
 computed = []
 init_calldata = ["0x044e6bcc627e6201ce09f781d1aae44ea4c21c2fdef299e34fce55bef2d02210"]
 name = "paved::systems::daily::daily"
+
+[[contracts]]
+kind = "DojoContract"
+address = "0x28f1016b5ea30dae84633e33c90c0105cd061400c5ae068ebc4c2abec1081e1"
+class_hash = "0xf3b08ed51b02e5f84c880ad25549bb730ed8ddcf9e61f24e8e366050f5eae1"
+original_class_hash = "0xf3b08ed51b02e5f84c880ad25549bb730ed8ddcf9e61f24e8e366050f5eae1"
+base_class_hash = "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46"
+abi = "manifests/sepolia/abis/deployments/contracts/paved_systems_tutorial_tutorial.json"
+reads = []
+writes = [
+    "Game",
+    "Builder",
+    "Player",
+    "Tile",
+    "TilePosition",
+    "Character",
+    "CharacterPosition",
+    "Tournament",
+]
+computed = []
+init_calldata = []
+name = "paved::systems::tutorial::tutorial"
 
 [[models]]
 kind = "DojoModel"

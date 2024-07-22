@@ -1,5 +1,14 @@
-computed = [  ]
+computed = []
 name = "paved::systems::account::account"
-reads = [  ]
-writes = [ "Game", "Builder", "Player", "Tile", "TilePosition", "Character", "CharacterPosition", "Tournament" ]
+reads = []
+writes = [
+    "Game",
+    "Builder",
+    "Player",
+    "Tile",
+    "TilePosition",
+    "Character",
+    "CharacterPosition",
+    "Tournament",
+]
 init_calldata = []

@@ -12,7 +12,7 @@ slot = "sozo --profile slot clean && sozo --profile slot build && sozo --profile
 
 [dependencies]
 alexandria_math = { git = "https://github.com/keep-starknet-strange/alexandria", rev = "78b0d51" }
-origami = { git = "https://github.com/dojoengine/origami", rev = "v0.7.2"  }
+origami = { git = "https://github.com/dojoengine/origami", rev = "v0.7.2" }
 dojo = { git = "https://github.com/dojoengine/dojo", tag = "v0.7.2" }
 
 [[target.dojo]]
@@ -48,7 +48,7 @@ account_address = "0x379900b695d11ec52b13557de5ebd864eb2f36f14ff56560b028992585b
 private_key = "0x62bb13afe7963fd97e568db915e331956ddc4ba13dda9b787a6648a5b840626"
 
 [profile.sepolia.tool.dojo.env]
-rpc_url = "https://rpc.nethermind.io/sepolia-juno/?apikey=IklrGtteSW0anXtAfnkQGBJuYpSmbLi0YJ5afM2aJsW8JsH1"
+rpc_url = "https://starknet-sepolia.public.blastapi.io/rpc/v0_7"
 account_address = "0x059b1a0c489b635d7c7f43594d187362ddd2dcea6c82db4eef2579fd185b3753"
 private_key = "0xaf7f0b88b7ee7faf8065517cd565d9f9dcd013dd2382a0f1e6b3559f0fe57a"
 
