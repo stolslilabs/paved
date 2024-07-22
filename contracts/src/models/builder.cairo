@@ -2,10 +2,13 @@
 
 use core::debug::PrintTrait;
 
+// External imports
+
+use alexandria_math::bitmap::Bitmap;
+
 // Internal imports
 
 use paved::constants;
-use paved::helpers::bitmap::Bitmap;
 use paved::store::{Store, StoreImpl};
 use paved::types::plan::Plan;
 use paved::types::orientation::Orientation;
@@ -98,8 +101,7 @@ impl BuilderImpl of BuilderTrait {
         let category: Category = layout.get_category(spot);
         role.assert_is_allowed(category);
         // [Effect] Set character as placed
-        let characters = Bitmap::set_bit_at(self.characters.into(), index.into(), true);
-        self.characters = characters.try_into().unwrap();
+        self.characters = Bitmap::set_bit_at(self.characters, index.into(), true);
         // [Effect] Update tile status
         tile.occupe(spot);
         // [Return] New character
@@ -114,8 +116,7 @@ impl BuilderImpl of BuilderTrait {
         let index: u8 = character.index;
         self.assert_recoverable(index);
         // [Effect] Collect character
-        let characters = Bitmap::set_bit_at(self.characters.into(), index.into(), false);
-        self.characters = characters.try_into().unwrap();
+        self.characters = Bitmap::set_bit_at(self.characters, index.into(), false);
         // [Effect] Update character
         character.remove();
         // [Effect] Update tile status
@@ -152,13 +153,13 @@ impl BuilderAssert of AssertTrait {
 
     #[inline(always)]
     fn assert_available(self: Builder, index: u8) {
-        let placed = Bitmap::get_bit_at(self.characters.into(), index.into());
+        let placed = Bitmap::get_bit_at(self.characters, index.into());
         assert(!placed, errors::ALREADY_PLACED);
     }
 
     #[inline(always)]
     fn assert_recoverable(self: Builder, index: u8) {
-        let placed = Bitmap::get_bit_at(self.characters.into(), index.into());
+        let placed = Bitmap::get_bit_at(self.characters, index.into());
         assert(placed, errors::CHARACTER_NOT_PLACED);
     }
 }

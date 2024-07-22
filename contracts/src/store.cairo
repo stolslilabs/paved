@@ -14,7 +14,6 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
 // Models imports
 
-use paved::helpers::bitmap::Bitmap;
 use paved::models::game::{Game, GameImpl};
 use paved::models::player::{Player, PlayerImpl};
 use paved::models::builder::{Builder, BuilderImpl};

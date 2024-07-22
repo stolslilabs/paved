@@ -7,13 +7,12 @@ use core::hash::HashStateTrait;
 
 // External imports
 
-use origami::random::deck::{Deck as OrigamiDeck, DeckTrait};
+use alexandria_math::bitmap::Bitmap;
 
 // Internal imports
 
 use paved::constants;
 use paved::store::{Store, StoreImpl};
-use paved::helpers::bitmap::Bitmap;
 use paved::helpers::generic::GenericCount;
 use paved::helpers::wonder::WonderCount;
 use paved::helpers::conflict::Conflict;
