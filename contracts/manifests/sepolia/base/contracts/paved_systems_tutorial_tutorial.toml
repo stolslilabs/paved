@@ -1,0 +1,10 @@
+kind = "DojoContract"
+class_hash = "0xf3b08ed51b02e5f84c880ad25549bb730ed8ddcf9e61f24e8e366050f5eae1"
+original_class_hash = "0xf3b08ed51b02e5f84c880ad25549bb730ed8ddcf9e61f24e8e366050f5eae1"
+base_class_hash = "0x0"
+abi = "manifests/sepolia/abis/base/contracts/paved_systems_tutorial_tutorial.json"
+reads = []
+writes = []
+computed = []
+init_calldata = []
+name = "paved::systems::tutorial::tutorial"
