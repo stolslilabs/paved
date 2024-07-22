@@ -2,6 +2,14 @@
 
 use core::debug::PrintTrait;
 
+// Constants
+
+const NONE: felt252 = 0;
+const NORTH: felt252 = 'NORTH';
+const EAST: felt252 = 'EAST';
+const SOUTH: felt252 = 'SOUTH';
+const WEST: felt252 = 'WEST';
+
 #[derive(Copy, Drop, Serde, PartialEq, Introspect)]
 enum Orientation {
     None,
@@ -38,6 +46,27 @@ impl IntoU8Orientation of core::Into<u8, Orientation> {
         } else {
             Orientation::None
         }
+    }
+}
+
+impl IntoOrientationFelt252 of core::Into<Orientation, felt252> {
+    #[inline(always)]
+    fn into(self: Orientation) -> felt252 {
+        match self {
+            Orientation::North => NORTH,
+            Orientation::East => EAST,
+            Orientation::South => SOUTH,
+            Orientation::West => WEST,
+            _ => NONE,
+        }
+    }
+}
+
+impl OrientationPrint of PrintTrait<Orientation> {
+    #[inline(always)]
+    fn print(self: Orientation) {
+        let felt: felt252 = self.into();
+        felt.print();
     }
 }
 

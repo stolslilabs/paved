@@ -26,7 +26,7 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 use paved::systems::daily::IDailyDispatcherTrait;
 
-use paved::tests::setup::{setup, setup::{Systems, PLAYER, ANYONE}};
+use paved::tests::setup::{setup, setup::{Mode, Systems, PLAYER, ANYONE}};
 
 #[test]
 fn test_case_004() {

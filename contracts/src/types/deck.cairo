@@ -11,8 +11,12 @@ use alexandria_math::bitmap::Bitmap;
 // Internal imports
 
 use paved::types::plan::Plan;
+use paved::types::orientation::Orientation;
+use paved::types::role::Role;
+use paved::types::spot::Spot;
 use paved::elements::decks::base::{DeckImpl as Base};
 use paved::elements::decks::simple::{DeckImpl as Simple};
+use paved::elements::decks::tutorial::{DeckImpl as Tutorial};
 
 // Constants
 
@@ -24,6 +28,7 @@ enum Deck {
     None,
     Base,
     Simple,
+    Tutorial,
 }
 
 impl IntoDeckFelt252 of core::Into<Deck, felt252> {
@@ -33,6 +38,7 @@ impl IntoDeckFelt252 of core::Into<Deck, felt252> {
             Deck::None => NONE,
             Deck::Base => 'BASE',
             Deck::Simple => 'SIMPLE',
+            Deck::Tutorial => 'TUTORIAL',
         }
     }
 }
@@ -44,6 +50,7 @@ impl IntoDeckU8 of core::Into<Deck, u8> {
             Deck::None => 0,
             Deck::Base => 1,
             Deck::Simple => 2,
+            Deck::Tutorial => 3,
         }
     }
 }
@@ -56,6 +63,7 @@ impl IntoDeck of core::Into<u8, Deck> {
             0 => Deck::None,
             1 => Deck::Base,
             2 => Deck::Simple,
+            3 => Deck::Tutorial,
             _ => Deck::None,
         }
     }
@@ -77,6 +85,7 @@ impl DeckImpl of DeckTrait {
             Deck::None => 0,
             Deck::Base => Base::total_count(),
             Deck::Simple => Simple::total_count(),
+            Deck::Tutorial => Tutorial::total_count(),
         }
     }
 
@@ -86,6 +95,7 @@ impl DeckImpl of DeckTrait {
             Deck::None => 0,
             Deck::Base => Base::count(),
             Deck::Simple => Simple::count(),
+            Deck::Tutorial => Tutorial::count(),
         }
     }
 
@@ -95,6 +105,7 @@ impl DeckImpl of DeckTrait {
             Deck::None => Plan::None,
             Deck::Base => Base::plan(index),
             Deck::Simple => Simple::plan(index),
+            Deck::Tutorial => Tutorial::plan(index),
         }
     }
 
@@ -104,13 +115,22 @@ impl DeckImpl of DeckTrait {
             Deck::None => array![],
             Deck::Base => Base::indexes(plan),
             Deck::Simple => Simple::indexes(plan),
+            Deck::Tutorial => Tutorial::indexes(plan),
+        }
+    }
+
+    #[inline]
+    fn parameters(self: Deck, index: u32) -> (Orientation, u32, u32, Role, Spot) {
+        match self {
+            Deck::None => (Orientation::None, 0, 0, Role::None, Spot::None),
+            Deck::Base => Base::parameters(index),
+            Deck::Simple => Simple::parameters(index),
+            Deck::Tutorial => Tutorial::parameters(index),
         }
     }
 
     fn tiles(self: Deck, mut tiles: u128, seed: felt252) -> u128 {
         match self {
-            Deck::None => 0,
-            Deck::Base => 0,
             Deck::Simple => {
                 let total_count: u128 = self.total_count().into();
                 let mut to_removes = total_count - self.count().into();
@@ -142,6 +162,7 @@ impl DeckImpl of DeckTrait {
                     index += 1;
                 }
             },
+            _ => tiles,
         }
     }
 }

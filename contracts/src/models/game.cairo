@@ -179,26 +179,16 @@ impl GameImpl of GameTrait {
 
     #[inline(always)]
     fn draw_plan(ref self: Game) -> (u32, Plan) {
-        let game_deck: Deck = self.deck();
-        let number: u32 = game_deck.total_count().into();
-        let mut deck: OrigamiDeck = DeckTrait::from_bitmap(self.seed, number, self.tiles);
-        let plan_id: u8 = deck.draw().into();
+        let mode: Mode = self.mode.into();
+        let (plan, tiles) = mode.draw(self.seed, self.tiles);
+        self.tiles = tiles;
         self.tile_count += 1;
         // Update the seed after draw
         let state = PoseidonTrait::new();
         let state = state.update(self.seed);
         let state = state.update(self.tile_count.into());
         self.seed = state.finalize();
-        // Update bitmap if deck is not empty, otherwise reset
-        self
-            .tiles =
-                if deck.remaining == 0 {
-                    0
-                } else {
-                    let index = plan_id - 1;
-                    Bitmap::set_bit_at(self.tiles, index.into(), true)
-                };
-        (self.tile_count, game_deck.plan(plan_id.into()))
+        (self.tile_count, plan)
     }
 
     fn assess(ref self: Game, tile: Tile, ref store: Store) {

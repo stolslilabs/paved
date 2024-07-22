@@ -1,6 +1,6 @@
 kind = "DojoContract"
-class_hash = "0x5df817e85485642abbf8eb61b4b6043de92f8b7c5c0d4a7119451b7a9c90504"
-original_class_hash = "0x5df817e85485642abbf8eb61b4b6043de92f8b7c5c0d4a7119451b7a9c90504"
+class_hash = "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6"
+original_class_hash = "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6"
 base_class_hash = "0x0"
 abi = "manifests/dev/abis/base/contracts/paved_systems_account_account.json"
 reads = []

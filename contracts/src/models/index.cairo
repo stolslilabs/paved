@@ -1,5 +1,5 @@
-#[dojo::model]
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
+#[dojo::model]
 struct Game {
     #[key]
     id: u32,
@@ -16,8 +16,8 @@ struct Game {
     tournament_id: u64,
 }
 
-#[dojo::model]
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
+#[dojo::model]
 struct Player {
     #[key]
     id: felt252,
@@ -25,8 +25,8 @@ struct Player {
     master: felt252,
 }
 
-#[dojo::model]
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
+#[dojo::model]
 struct Builder {
     #[key]
     game_id: u32,
@@ -36,8 +36,8 @@ struct Builder {
     characters: u8,
 }
 
-#[dojo::model]
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
+#[dojo::model]
 struct Character {
     #[key]
     game_id: u32,
@@ -51,8 +51,8 @@ struct Character {
     power: u8,
 }
 
-#[dojo::model]
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
+#[dojo::model]
 struct CharacterPosition {
     #[key]
     game_id: u32,
@@ -64,8 +64,8 @@ struct CharacterPosition {
     index: u8,
 }
 
-#[dojo::model]
 #[derive(Model, Copy, Drop, Serde, IntrospectPacked)]
+#[dojo::model]
 struct Tile {
     #[key]
     game_id: u32,
@@ -79,8 +79,8 @@ struct Tile {
     occupied_spot: u8,
 }
 
-#[dojo::model]
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
+#[dojo::model]
 struct TilePosition {
     #[key]
     game_id: u32,
@@ -91,8 +91,8 @@ struct TilePosition {
     tile_id: u32,
 }
 
-#[dojo::model]
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
+#[dojo::model]
 struct Tournament {
     #[key]
     id: u64,

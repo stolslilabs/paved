@@ -6,7 +6,7 @@ use core::option::OptionTrait;
 
 // Internal imports
 
-use paved::constants;
+use paved::constants::CENTER;
 use paved::types::orientation::Orientation;
 use paved::types::area::{Area, AreaImpl};
 use paved::types::direction::{Direction, DirectionImpl};
@@ -18,7 +18,6 @@ use paved::models::index::{Tile, TilePosition};
 
 // Constants
 
-const CENTER: u32 = 0x7fffffff;
 const TWO_POW_8: u128 = 0x100;
 
 mod errors {
@@ -318,7 +317,7 @@ mod tests {
 
     use super::{
         Tile, TileImpl, TileAssert, TileIntoLayout, InternalImpl, Layout, Orientation, Direction,
-        Plan, CENTER
+        Plan, CENTER,
     };
 
     // Implementations
