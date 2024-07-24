@@ -221,32 +221,30 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
         null}
 
       <Table className="text-xs">
-        <ScrollArea className="h-[570px] w-full pr-2">
-          <TableHeader>
-            <TableRow>
-              <TableHead>#</TableHead>
-              <TableHead className="max-w-[100px]">Name</TableHead>
-              <TableHead className="text-right">Score</TableHead>
-              <TableHead className="text-right">Duration</TableHead>
-              <TableHead className="flex justify-center items-center">
-                <Lords fill={"black"} width={4} height={4} />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {allGames.map((game: Game, index: number) => {
-              return (
-                <GameRow
-                  key={index}
-                  game={game}
-                  tournamentId={(page ? page : 0) + mode.offset()}
-                  rank={index + 1}
-                  mode={mode}
-                />
-              );
-            })}
-          </TableBody>
-        </ScrollArea>
+        <TableHeader>
+          <TableRow>
+            <TableHead>#</TableHead>
+            <TableHead className="max-w-[100px]">Name</TableHead>
+            <TableHead className="text-right">Score</TableHead>
+            <TableHead className="text-right">Duration</TableHead>
+            <TableHead className="flex justify-center items-center">
+              <Lords fill={"black"} width={4} height={4} />
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {allGames.map((game: Game, index: number) => {
+            return (
+              <GameRow
+                key={index}
+                game={game}
+                tournamentId={(page ? page : 0) + mode.offset()}
+                rank={index + 1}
+                mode={mode}
+              />
+            );
+          })}
+        </TableBody>
       </Table>
     </div>
   );
