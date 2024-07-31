@@ -1,49 +1,46 @@
-import { ThreeGrid } from "@/ui/components/Three";
-import { Banner } from "@/ui/components/Banner";
-import { Overlay } from "@/ui/modules/Overlay";
-import { useMemo } from "react";
-import { KeyboardControlsEntry, KeyboardControls } from "@react-three/drei";
 import { useUIStore } from "@/store";
-import { Header } from "../containers/Header";
+import { Overlay } from "../components/dom/Overlay";
+import { GameCanvas } from "../components/canvas/GameCanvas";
+import { ScreenshotCube } from "../components/canvas/ScreenshotCube";
+import { Rig } from "../components/canvas/Rig";
+import { Lighting } from "../components/canvas/Lighting";
+import { Postprocessing } from "../components/canvas/Postprocessing";
+import { TileTextures } from "../components/TileTextures";
+import { CharTextures } from "../components/CharTextures";
+import { IngameStatus } from "../components/dom/IngameStatus";
+import { NavigationMenu } from "../components/dom/NavigationMenu/NavigationMenu";
+import { CharacterMenu } from "../components/dom/CharacterMenu";
+import { HandPanel } from "../components/dom/HandPanel";
 
-export enum Controls {
-  clockwise = "clockwise",
-  counterClockwise = "counterClockwise",
-  strategyMode = "strategyMode",
-}
-
-const GameScene = () => {
-  const map = useMemo<KeyboardControlsEntry<Controls>[]>(
-    () => [
-      { name: Controls.clockwise, keys: ["KeyW"] },
-      { name: Controls.counterClockwise, keys: ["KeyQ"] },
-      { name: Controls.strategyMode, keys: ["KeyE"] },
-    ],
-    [],
-  );
-
+const GameScreen = () => {
   const loading = useUIStore((state) => state.loading);
 
   return (
-    <div
-      className={`relative w-full h-dscreen flex flex-col bg-blue-100 ${loading ? "cursor-wait" : ""} `}
-    >
-      <main className="flex flex-col left-0 relative top-0 overflow-hidden grow">
-        <Header />
-        <Banner />
-        <Overlay />
-        <div id="canvas-container" className="z-10 overflow-hidden grow">
-          <KeyboardControls map={map}>
-            <ThreeGrid />
-          </KeyboardControls>
-        </div>
-      </main>
-    </div>
+    <main className={`relative w-full h-dscreen flex flex-col left-0 top-0 overflow-hidden grow bg-blue-100 ${loading && "cursor-wait"}`}>
+      <Overlay>
+        <Overlay.Header />
+        <Overlay.Banner />
+        <Overlay.Content>
+          <NavigationMenu />
+          <IngameStatus />
+          <CharacterMenu />
+          <HandPanel />
+        </Overlay.Content>
+      </Overlay>
+      <GameCanvas>
+        <ScreenshotCube />
+        <GameCanvas.Scene>
+          <TileTextures squareSize={3} />
+          <CharTextures radius={0.3} height={1.5} squareSize={3} />
+        </GameCanvas.Scene>
+        <GameCanvas.Setup>
+          <Rig />
+          <Lighting />
+          <Postprocessing />
+        </GameCanvas.Setup>
+      </GameCanvas>
+    </main>
   );
 };
-
-function GameScreen() {
-  return <GameScene />;
-}
 
 export default GameScreen;
