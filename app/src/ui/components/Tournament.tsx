@@ -44,7 +44,7 @@ import { useDojo } from "@/dojo/useDojo";
 import { Account } from "starknet";
 import { Mode } from "@/dojo/game/types/mode";
 import { Sponsor } from "@/ui/components/Sponsor";
-import leaderboard from "/assets/icons/LEADERBOARD.svg";
+import leaderboard from "/assets/icons/leaderboard.svg";
 import { useTournaments } from "@/hooks/useTournaments";
 import { Game } from "@/dojo/game/models/game";
 import { usePlayer } from "@/hooks/usePlayer";
@@ -238,7 +238,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
               <GameRow
                 key={index}
                 game={game}
-                tournamentId={(page ? page : 0) + mode.offset()}
+                tournamentId={(page ?? 0) + mode.offset()}
                 rank={index + 1}
                 mode={mode}
               />

@@ -18,7 +18,6 @@ import { Button } from "@/ui/elements/button";
 
 import { useState, useEffect, useMemo, ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { getColor } from "@/dojo/game";
 import { TwitterShareButton } from "react-share";

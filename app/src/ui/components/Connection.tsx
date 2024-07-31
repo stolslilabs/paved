@@ -2,8 +2,6 @@ import { useDojo } from "@/dojo/useDojo";
 import { Button } from "@/ui/elements/button";
 import { useAccount, useConnect } from "@starknet-react/core";
 
-export const PREFUND_AMOUNT = "0x3635C9ADC5DEA00000";
-
 export function Connection() {
   const {
     account: { account },

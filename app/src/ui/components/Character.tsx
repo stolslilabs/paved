@@ -177,9 +177,8 @@ export const Spot = (props: { spot: string; index: number }) => {
 
   return (
     <div
-      className={`h-2 w-2 rounded-full ${color} ${ringColor} ${
-        boosted ? "ring-2" : "ring-0"
-      }`}
+      className={`h-2 w-2 rounded-full ${color} ${ringColor} ${boosted ? "ring-2" : "ring-0"
+        }`}
     />
   );
 };
