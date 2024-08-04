@@ -31,6 +31,7 @@ type MenuItem = {
     children?: ReactElement
 }
 
+// TODO: Simplify this component - too big
 export const NavigationMenu = () => {
     const { gameId } = useQueryParams();
     const { game } = useGame({ gameId });
