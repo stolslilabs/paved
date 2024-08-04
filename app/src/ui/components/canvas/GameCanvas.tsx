@@ -2,6 +2,7 @@ import { KeyboardControls, KeyboardControlsEntry, useKeyboardControls } from "@r
 import { Canvas } from "@react-three/fiber";
 import { useMemo } from "react";
 import { useHand } from "@/hooks/useHand";
+import { useCameraStore } from "@/store";
 
 enum Controls {
     clockwise = "clockwise",
@@ -56,8 +57,10 @@ const Setup = ({ children }: { children: React.ReactNode }) => {
 }
 
 const Scene = ({ children }: { children: React.ReactNode }) => {
+    const { compassRotation } = useCameraStore(); // TODO: Fix this functionality to rotate camera instead
+
     return (
-        <group>
+        <group rotation={[0, 0, compassRotation]} position={[0, 0, 0]}>
             {children}
         </group>
     )
