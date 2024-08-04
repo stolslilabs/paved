@@ -8,9 +8,11 @@ import { Postprocessing } from "../components/canvas/Postprocessing";
 import { TileTextures } from "../components/TileTextures";
 import { CharTextures } from "../components/CharTextures";
 import { IngameStatus } from "../components/dom/IngameStatus";
-import { NavigationMenu } from "../components/dom/NavigationMenu/NavigationMenu";
+import { NavigationMenu } from "../components/dom/NavigationMenu";
 import { CharacterMenu } from "../components/dom/CharacterMenu";
 import { HandPanel } from "../components/dom/HandPanel";
+
+// TODO: Remove all TooltipProviders except for one in "main.tsx"
 
 const GameScreen = () => {
   const loading = useUIStore((state) => state.loading);
