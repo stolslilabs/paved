@@ -25,11 +25,11 @@ import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
 import { useGame } from "@/hooks/useGame";
 import { usePlayer } from "@/hooks/usePlayer";
 import { Game as GameClass } from "@/dojo/game/models/game";
-import { ToolTipButton } from "./ToolTipButton";
 import { useBuilders } from "@/hooks/useBuilders";
 import { useDojo } from "@/dojo/useDojo";
 import leaderboard from "/assets/icons/LEADERBOARD.svg";
 import { useUIStore } from "@/store";
+import { DialogTitle } from "@radix-ui/react-dialog";
 
 export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
   const { gameId } = useQueryParams();
@@ -65,19 +65,15 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger>
         {children ?? (
-          <ToolTipButton
-            icon={
-              <img
-                src={leaderboard}
-                className="h-8 sm:h-4 md:h-8  fill-current"
-              />
-            }
-            toolTipText="Leaderboard"
-          />
+          <Button className={"px-2 w-10 py-5 border-none bg-[#D2E2F1] bg-opacity-80 rounded-md"}>
+            <img src={leaderboard} className="w-6" />
+          </Button>
         )}
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="text-center text-xl">Leaderboard</DialogTitle>
+        </DialogHeader>
         {over && isSelf && <Description game={game} />}
         <Leaderboard game={game} builders={builders} />
       </DialogContent>
