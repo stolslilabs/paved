@@ -14,7 +14,7 @@ export const IngameStatus = () => {
 
 
     return game && builder && (
-        <div className="w-full  text-[#686868] flex justify-center items-start">
+        <div className="w-full text-[#686868] flex justify-center items-start">
             <StatusSlot data={game.score} />
             <StatusSlot iconData={{ def: faHammer, style: "mx-2" }} data={`${game.built + 1}/${game.mode.count()}`} />
             <StatusSlot iconData={{ def: faFire, style: "text-orange-500 mx-2" }} data={game.discarded} />
