@@ -16,7 +16,7 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
         const content = children ?? (
             <Button
                 ref={ref}
-                className={cn("px-2 w-10 py-5 border-none bg-[#D2E2F1] bg-opacity-80 rounded-md", className)}
+                className={cn("px-2 w-10 py-5 border-none bg-[#D2E2F1] bg-opacity-80 rounded-md pointer-events-auto", className)}
                 {...props}
             >
                 <img src={icon} className="w-6" />
@@ -39,4 +39,3 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
 )
 
 IngameButton.displayName = 'IngameButton'
-

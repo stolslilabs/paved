@@ -9,13 +9,6 @@ import {
   Characters,
 } from "@/dojo/game";
 import { useCameraStore, useGameStore } from "../../store";
-import { Button } from "@/ui/elements/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/ui/elements/tooltip";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useCharacter } from "@/hooks/useCharacter";
 import { useTile } from "@/hooks/useTile";
@@ -28,6 +21,7 @@ import adventurer from "/assets/icons/adventurer.svg";
 import paladin from "/assets/icons/paladin.svg";
 import woodsman from "/assets/icons/woodsman.svg";
 import herdsman from "/assets/icons/herdsman.svg";
+import { IngameButton } from "./dom/IngameButton";
 
 interface TProps {
   index: number;
@@ -85,55 +79,24 @@ export const Character = (props: TProps) => {
     };
   }, [index, character, enable, tile]);
 
-  const characterIcons: { [key: number]: JSX.Element } = {
-    [Characters.Lord]: (
-      <img src={lord} className="w-4 lg:w-6 fill-primary-foreground" />
-    ),
-    [Characters.Lady]: (
-      <img src={lady} className="w-4 lg:w-6 fill-primary-foreground" />
-    ),
-    [Characters.Adventurer]: (
-      <img src={adventurer} className="w-4 lg:w-6 fill-primary-foreground" />
-    ),
-    [Characters.Paladin]: (
-      <img src={paladin} className="w-4 lg:w-6 fill-primary-foreground" />
-    ),
-    [Characters.Pilgrim]: (
-      <img src={pilgrim} className="w-4 lg:w-6 fill-primary-foreground" />
-    ),
-    [Characters.Woodsman]: (
-      <img src={woodsman} className="w-4 lg:w-6 fill-primary-foreground" />
-    ),
-    [Characters.Herdsman]: (
-      <img src={herdsman} className="w-4 lg:w-6 fill-primary-foreground" />
-    ),
+  const characterIcons: { [key: number]: string } = {
+    [Characters.Lord]: lord,
+    [Characters.Lady]: lady,
+    [Characters.Adventurer]: adventurer,
+    [Characters.Paladin]: paladin,
+    [Characters.Pilgrim]: pilgrim,
+    [Characters.Woodsman]: woodsman,
+    [Characters.Herdsman]: herdsman,
   };
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            className={`pointer-events-auto select-none p-2 sm:p-0 ${className}`}
-            variant={selected ? "character_selected" : "character"}
-            size={"character"}
-            onClick={handleClick}
-          >
-            {characterIcons[index]}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <div className="flex flex-col justify-center items-center gap-1">
-            <div className="select-none">{role}</div>
-            <div className="flex justify-center items-center gap-2">
-              {spots.map((spot, idx) => (
-                <Spot key={idx} spot={spot} index={index} />
-              ))}
-            </div>
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <IngameButton
+      className={`pointer-events-auto aspect-square select-none p-2.5 ${className}`}
+      variant={selected ? "character_selected" : "character"}
+      name={role}
+      onClick={handleClick}
+      icon={characterIcons[index]}
+    />
   );
 };
 
