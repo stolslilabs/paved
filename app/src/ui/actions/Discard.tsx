@@ -3,7 +3,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { Button } from "@/ui/elements/button";
 import { useActions } from "@/hooks/useActions";
 import { useGame } from "@/hooks/useGame";
-import icon from "/assets/icons/BURN.svg";
+import icon from "/assets/icons/burn.svg";
 import {
   Dialog,
   DialogClose,

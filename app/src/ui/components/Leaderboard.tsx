@@ -27,7 +27,7 @@ import { usePlayer } from "@/hooks/usePlayer";
 import { Game as GameClass } from "@/dojo/game/models/game";
 import { useBuilders } from "@/hooks/useBuilders";
 import { useDojo } from "@/dojo/useDojo";
-import leaderboard from "/assets/icons/LEADERBOARD.svg";
+import leaderboard from "/assets/icons/leaderboard.svg";
 import { useUIStore } from "@/store";
 import { DialogTitle } from "@radix-ui/react-dialog";
 
@@ -63,9 +63,10 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
+      <DialogTrigger asChild>
         {children ?? (
-          <Button className={"px-2 w-10 py-5 border-none bg-[#D2E2F1] bg-opacity-80 rounded-md"}>
+          <Button
+            className="px-2 w-10 py-5 border-none bg-[#D2E2F1] bg-opacity-80 rounded-md">
             <img src={leaderboard} className="w-6" />
           </Button>
         )}
@@ -77,7 +78,7 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
         {over && isSelf && <Description game={game} />}
         <Leaderboard game={game} builders={builders} />
       </DialogContent>
-    </Dialog>
+    </Dialog >
   );
 };
 
