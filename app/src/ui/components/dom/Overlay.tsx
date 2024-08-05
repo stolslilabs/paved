@@ -2,6 +2,7 @@ import { useGameStore } from "@/store";
 import { Connection } from "../Connection";
 import banner from "/assets/banner.svg";
 import { ReactNode } from "react";
+import { useAccount } from "@starknet-react/core";
 
 type OverlayProps = { children: ReactNode };
 
@@ -16,7 +17,7 @@ export const Overlay = ({ children }: OverlayProps) => {
 };
 
 const Header = () => (
-  <div className="absolute right-0 h-12 flex justify-end gap-4 p-2">
+  <div className="absolute right-0 h-12 flex justify-center w-full gap-4 p-2">
     <Connection />
   </div>
 );
@@ -27,11 +28,30 @@ const Banner = () => (
   </div>
 );
 
-const Content = ({ children }: { children: ReactNode }) => (
-  <div className="w-full h-full grid grid-cols-3 grid-rows-4 absolute p-4 select-none">
-    {children}
-  </div>
-)
+const Content = ({ children }: { children: ReactNode }) => {
+  const { isConnected } = useAccount();
+
+  return isConnected && (
+    <div
+      className="
+      w-full
+      h-full
+      grid
+      absolute
+      p-4
+      select-none
+      grid-cols-4
+      grid-rows-8
+      sm:pr-safe-right
+      sm:pl-safe-left
+      sm:grid-cols-3
+      sm:grid-rows-4
+      md:p-4
+      ">
+      {children}
+    </div>
+  );
+}
 
 Overlay.Header = Header
 Overlay.Banner = Banner
