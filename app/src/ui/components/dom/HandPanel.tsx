@@ -21,7 +21,7 @@ export const HandPanel = () => {
     };
 
     return (
-        <div className="col-start-3 row-start-4 flex flex-row justify-end gap-2 pointer-events-auto">
+        <div className="col-start-4 row-start-8 sm:col-start-3 sm:row-start-4 flex flex-row justify-end gap-2 pointer-events-auto">
             <div className="flex flex-col gap-2 self-center">
                 <IngameButton name="Rotate" icon={rotateIcon} side="left" onClick={handleRotate} disabled={!enabled} />
                 <IngameButton name="Confirm" icon={confirmIcon} side="left" onClick={handleConfirm} disabled={disabled} />
