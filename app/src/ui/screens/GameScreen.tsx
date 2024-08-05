@@ -11,11 +11,13 @@ import { IngameStatus } from "../components/dom/IngameStatus";
 import { NavigationMenu } from "../components/dom/NavigationMenu";
 import { CharacterMenu } from "../components/dom/CharacterMenu";
 import { HandPanel } from "../components/dom/HandPanel";
+import { useState } from "react";
 
 // TODO: Remove all TooltipProviders except for one in "main.tsx"
 
 const GameScreen = () => {
   const loading = useUIStore((state) => state.loading);
+  const [hasOpenMenu, setHasOpenMenu] = useState<boolean>(false)
 
   return (
     <main className={`relative w-full h-dscreen flex flex-col left-0 top-0 overflow-hidden grow bg-blue-100 ${loading && "cursor-wait"}`}>
@@ -23,8 +25,8 @@ const GameScreen = () => {
         <Overlay.Header />
         <Overlay.Banner />
         <Overlay.Content>
-          <NavigationMenu />
-          <IngameStatus />
+          <NavigationMenu setHasOpenMenu={setHasOpenMenu} />
+          <IngameStatus hasOpenMenu={hasOpenMenu} />
           <CharacterMenu />
           <HandPanel />
         </Overlay.Content>

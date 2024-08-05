@@ -5,16 +5,15 @@ import { useBuilder } from "@/hooks/useBuilder";
 import { IconDefinition, faFire, faHammer } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
-export const IngameStatus = () => {
+export const IngameStatus = ({ hasOpenMenu }: { hasOpenMenu: boolean }) => {
     const { gameId } = useQueryParams()
     const { account: { account } } = useDojo()
 
     const { game } = useGame({ gameId })
     const { builder } = useBuilder({ gameId, playerId: account?.address })
 
-
     return game && builder && (
-        <div className="w-full text-[#686868] flex justify-center items-start">
+        <div className={`w-full text-[#686868] flex justify-center items-middle col-start-1 sm:col-start-1 row-start-1 absolute ${hasOpenMenu ? 'hidden sm:flex' : 'flex'}`}>
             <StatusSlot data={game.score} />
             <StatusSlot iconData={{ def: faHammer, style: "mx-2" }} data={`${game.built + 1}/${game.mode.count()}`} />
             <StatusSlot iconData={{ def: faFire, style: "text-orange-500 mx-2" }} data={game.discarded} />
