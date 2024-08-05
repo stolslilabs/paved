@@ -32,7 +32,7 @@ type MenuItem = {
 }
 
 // TODO: Simplify this component - too big
-export const NavigationMenu = () => {
+export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispatch<React.SetStateAction<boolean>> }) => {
     const { gameId } = useQueryParams();
     const { game } = useGame({ gameId });
     const items = useMemo(() => game?.getPlans() || [], [game]);
@@ -44,9 +44,8 @@ export const NavigationMenu = () => {
     const navigate = useNavigate();
     const { setMuted, muted } = useMusicPlayer();
 
-    const toggleMusic = () => setMuted(!muted)
-
     const [compositionOpen, setCompositionOpen] = useState<boolean>(false)
+    const toggleMusic = () => setMuted(!muted)
 
     const NavigationMenuItems: Array<MenuItem> = [
         {
@@ -89,14 +88,15 @@ export const NavigationMenu = () => {
     ]
 
     return !compositionOpen ? (
-        <div className="row-span-4 flex flex-col justify-between h-full">
+        <div className="col-span-4 sm:col-span-1 sm:row-span-8 flex sm:flex-col justify-between h-full gap-1">
             <Collapsible
-                className="pointer-events-auto"
+                className="pointer-events-none w-full justify-end"
+                onOpenChange={setHasOpenMenu}
             >
-                <CollapsibleTrigger className="mb-1">
+                <CollapsibleTrigger className="mb-1 right-4 absolute sm:relative sm:left-0">
                     <IngameButton icon={burgerMenuIcon} />
                 </CollapsibleTrigger>
-                <CollapsibleContent className="flex flex-col gap-1 absolute">
+                <CollapsibleContent className="flex flex-row sm:flex-col gap-1 absolute sm:relative top-4 sm:top-auto">
                     {NavigationMenuItems.map(({ name, icon, onClick, children }) => (
                         <IngameButton key={name} icon={icon} name={name} onClick={onClick}>
                             {children}
@@ -107,31 +107,32 @@ export const NavigationMenu = () => {
             <IngameButton
                 name="Deck Composition"
                 icon={infoIcon}
-                onClick={() => setCompositionOpen(true)}
-                className="pointer-events-auto"
+                onClick={() => { setCompositionOpen(true); setHasOpenMenu(true) }}
+                className="pointer-events-auto order-first sm:order-last"
             />
         </div>
     ) : (
-        <ScrollArea className="row-span-4 h-full pointer-events-auto w-28 bg-gray-300 rounded bg-opacity-80">
-            <div className="grid grid-cols-2 gap-3 p-2">
-                <div
-                    key={0}
-                    className="w-full aspect-square bg-cover bg-center relative"
-                    style={{ backgroundImage: `url('${items[0].plan.getImage()}')` }}
-                >
-                    <p className="absolute top-0 left-0 text-sm bg-black bg-opacity-50 text-white px-1">
-                        {items[0].count}
-                    </p>
-                </div>
-                <img src={cancelIcon} className="justify-self-end self-start h-4 w-4" onClick={() => setCompositionOpen(false)} />
-                {items.slice(1).map(
+        <ScrollArea className="
+        pointer-events-auto
+        bg-gray-300
+        rounded
+        bg-opacity-80
+        w-full
+        col-span-4
+        sm:col-span-1
+        sm:h-full
+        sm:row-span-4
+        sm:w-28">
+            <div className="
+                grid grid-cols-10 sm:grid-cols-2 gap-1.5 sm:gap-3 p-2 h-28 w-full">
+                {items.map(
                     (
                         { plan, count }: { plan: Plan; count: number },
                         index: number,
                     ) => (
                         <div
                             key={index}
-                            className="w-full aspect-square bg-cover bg-center relative"
+                            className="w-full sm:h-auto sm:w-full aspect-square bg-cover bg-center relative"
                             style={{ backgroundImage: `url('${plan.getImage()}')` }}
                         >
                             <p className="absolute top-0 left-0 text-sm bg-black bg-opacity-50 text-white px-1">
@@ -140,6 +141,11 @@ export const NavigationMenu = () => {
                         </div>
                     )
                 )}
+                <img
+                    src={cancelIcon}
+                    className="h-4 justify-self-end row-start-1 col-start-10 sm:row-start-1 sm:col-start-2"
+                    onClick={() => { setCompositionOpen(false); setHasOpenMenu(false) }}
+                />
             </div>
         </ScrollArea>
     )
