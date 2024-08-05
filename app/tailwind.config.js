@@ -20,6 +20,10 @@ module.exports = {
       fontFamily: {
         body: ["Rubik Mono One", "mono"],
       },
+      padding: {
+        'safe-right': 'env(safe-area-inset-right)',
+        'safe-left': 'env(safe-area-inset-left)',
+      },
       height: {
         'dscreen': 'calc(100dvh)',
       },
