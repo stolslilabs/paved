@@ -16,6 +16,7 @@ use paved::types::spot::Spot;
 #[dojo::interface]
 trait ITutorial {
     fn spawn(ref world: IWorldDispatcher) -> u32;
+    fn discard(ref world: IWorldDispatcher, game_id: u32,);
     fn surrender(ref world: IWorldDispatcher, game_id: u32,);
     fn build(ref world: IWorldDispatcher, game_id: u32,);
 }
@@ -102,6 +103,11 @@ mod tutorial {
             let (game_id, amount) = self.hostable._spawn(world, Mode::Tutorial);
             // [Return] Game ID
             game_id
+        }
+
+        fn discard(ref world: IWorldDispatcher, game_id: u32) {
+            // [Effect] Discard a tile
+            self.tutoriable._discard(world, game_id);
         }
 
         fn surrender(ref world: IWorldDispatcher, game_id: u32) {

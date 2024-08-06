@@ -10,6 +10,13 @@ const EAST: felt252 = 'EAST';
 const SOUTH: felt252 = 'SOUTH';
 const WEST: felt252 = 'WEST';
 
+// Errors
+
+mod errors {
+    const ORIENTATION_NOT_VALID: felt252 = 'Orientation: not valid';
+    const ORIENTATION_IS_VALID: felt252 = 'Orientation: is valid';
+}
+
 #[derive(Copy, Drop, Serde, PartialEq, Introspect)]
 enum Orientation {
     None,
@@ -17,6 +24,19 @@ enum Orientation {
     East,
     South,
     West
+}
+
+#[generate_trait]
+impl OrientationAssert of AssertTrait {
+    #[inline]
+    fn assert_is_valid(self: Orientation) {
+        assert(self != Orientation::None, errors::ORIENTATION_NOT_VALID);
+    }
+
+    #[inline]
+    fn assert_not_valid(self: Orientation) {
+        assert(self == Orientation::None, errors::ORIENTATION_IS_VALID);
+    }
 }
 
 impl IntoOrientationU8 of core::Into<Orientation, u8> {
