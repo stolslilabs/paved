@@ -70,21 +70,23 @@ const BoxRainScene = () => {
   );
 
   return (
-    <Canvas>
-      <ambientLight />
-      <directionalLight
-        color={"white"}
-        intensity={5}
-        position={[0, 10, 0]}
-        castShadow
-      />
-      <pointLight position={[10, 10, 10]} />
-      <mesh scale={0.2}>
-        {boxes.map((box, index) => (
-          <BoxRain key={index} initPosition={box.position} model={box.model} />
-        ))}
-      </mesh>
-    </Canvas>
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <Canvas style={{ width: '100%', height: '100%' }}>
+        <ambientLight />
+        <directionalLight
+          color={"white"}
+          intensity={5}
+          position={[0, 10, 0]}
+          castShadow
+        />
+        <pointLight position={[10, 10, 10]} />
+        <mesh scale={0.2}>
+          {boxes.map((box, index) => (
+            <BoxRain key={index} initPosition={box.position} model={box.model} />
+          ))}
+        </mesh>
+      </Canvas>
+    </div>
   );
 };
 
