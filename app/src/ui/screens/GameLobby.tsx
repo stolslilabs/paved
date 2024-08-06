@@ -1,55 +1,52 @@
-import { Games } from "@/ui/modules/Games";
-import { Player } from "@/ui/modules/Player";
-import { Links } from "../components/Links";
-import { useState } from "react";
-import { Button } from "../elements/button";
-import { Tournament } from "../components/Tournament";
 import { useLobby } from "@/hooks/useLobby";
 import BoxRainScene from "../modules/BoxRain";
-import { Address } from "../components/Address";
-import { isMobile } from "react-device-detect";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../elements/tabs";
+import { Tournament } from "../components/Tournament";
+import { Games } from "../modules/Games";
+import banner from "/assets/banner.svg";
+import { MusicPlayer } from "../components/MusicPlayer";
+
+const tabs = ["daily", "weekly", "1v1", "tutorial"];
+const disabledTabs = ["1v1", "tutorial"];
+
+const tabsStyles = {
+  trigger: "h-full bg-primary/50 data-[state=active]:bg-secondary/50 rounded-b-none border-primary border-t-[1px] border-x-[1px] border-b-[1px] data-[state=active]:border-b-transparent disabled:bg-primary/25 tracking-[0.25rem]",
+  content: "h-full bg-primary mt-0 bg-secondary/50 border-x-[1px] border-primary"
+}
 
 export const GameLobby = () => {
-  const [sideBar, setSidebar] = useState<boolean>(true);
-
   const { gameMode } = useLobby();
 
   return (
-    <div className="h-dscreen flex w-full relative">
-      <div className="absolute h-full w-full z-0">
-        <BoxRainScene />
-      </div>
-      {!isMobile && (
-        <div className="absolute top-4 z-[100] right-4 flex md:hidden">
-          <Button
-            onClick={() => setSidebar(!sideBar)}
-            variant={"default"}
-            size={"icon"}
-          >
-            x
-          </Button>
-        </div>
-      )}
-
-      <div className="w-full md:w-10/12 bg-white/90 z-10">
-        <Games />
-      </div>
-      {!isMobile && (
-        <div
-          className={`${sideBar ? "w-screen" : "hidden"} z-10 md:w-1/3 border-r sticky bottom-0 h-dscreen p-8 shadow-2xl bg-primary overflow-auto `}
-        >
-          <div className="mb-2">
-            <Address />
+    <div className="h-screen flex w-full relative bg-white/90">
+      <BoxRainScene />
+      <div className="flex w-full h-full gap-4">
+        <div className="w-2/3 z-0 flex flex-col overflow-hidden p-4">
+          <div className="h-24 flex justify-between w-full flex-shrink-0">
+            <img src={banner} className="h-full" />
+            <MusicPlayer />
           </div>
-
-          <Player />
-
-          <div className="my-4 py-4 border shadow-sm bg-white/90">
-            <Tournament mode={gameMode} />
+          <div className="flex-1 overflow-hidden">
+            <Tabs defaultValue="daily" className="w-full h-full flex flex-col p-0">
+              <TabsList className="flex-shrink-0 p-0 bg-transparent justify-start px-4">
+                {tabs.map((tab, index) => (
+                  <>
+                    <TabsTrigger key={index} disabled={disabledTabs.includes(tab)} value={tab} className={tabsStyles.trigger}>{tab}</TabsTrigger>
+                    <div className={`h-4 self-end border-b-[1px] border-primary ${index === (tabs.length - 1) ? "flex-grow" : "w-6"}`} />
+                  </>
+                ))}
+              </TabsList>
+              {tabs.map((tab) => <TabsContent key={tab} value={tab} className={tabsStyles.content}><Games /></TabsContent>)}
+              <div className="w-full flex justify-end h-20 border-x-[1px] border-b-[1px] border-primary bg-secondary/50 p-4">
+                {/* <CreateGame mode={gameMode}>Test</CreateGame> */}
+              </div>
+            </Tabs>
           </div>
-          <Links />
         </div>
-      )}
+        <div className="w-1/3 h-full bg-blue-500 overflow-hidden">
+          <Tournament mode={gameMode} />
+        </div>
+      </div>
     </div>
   );
 };
