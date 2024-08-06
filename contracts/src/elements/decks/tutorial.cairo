@@ -1,5 +1,5 @@
 //! Turotial game deck of the following pieces
-// CCCCCCCCC: 0 pieces
+// CCCCCCCCC: 1 pieces
 // CCCCCFFFC: 0 pieces
 // CCCCCFRFC: 0 pieces
 // CFFFCFFFC: 1 pieces
@@ -37,12 +37,12 @@ use paved::elements::decks::interface::{DeckTrait, Plan, Orientation, Role, Spot
 impl DeckImpl of DeckTrait {
     #[inline(always)]
     fn total_count() -> u8 {
-        9
+        10
     }
 
     #[inline(always)]
     fn count() -> u8 {
-        9
+        10
     }
 
     #[inline(always)]
@@ -57,7 +57,8 @@ impl DeckImpl of DeckTrait {
             5 => Plan::RFRFFFCFR,
             6 => Plan::RFRFFFFFR,
             7 => Plan::RFFFRFFFR,
-            8 => Plan::SFRFRFFFR,
+            8 => Plan::CCCCCCCCC,
+            9 => Plan::SFRFRFFFR,
             _ => Plan::None,
         }
     }
@@ -73,7 +74,8 @@ impl DeckImpl of DeckTrait {
             Plan::RFRFFFCFR => array![5],
             Plan::RFRFFFFFR => array![6],
             Plan::RFFFRFFFR => array![7],
-            Plan::SFRFRFFFR => array![8],
+            Plan::CCCCCCCCC => array![8],
+            Plan::SFRFRFFFR => array![9],
             _ => array![],
         }
     }
@@ -89,7 +91,8 @@ impl DeckImpl of DeckTrait {
             5 => (Orientation::East, CENTER, CENTER - 2, Role::Paladin, Spot::West),
             6 => (Orientation::North, CENTER + 1, CENTER - 2, Role::Lady, Spot::Center),
             7 => (Orientation::East, CENTER + 1, CENTER - 1, Role::None, Spot::None),
-            8 => (Orientation::West, CENTER + 1, CENTER, Role::None, Spot::None),
+            8 => (Orientation::None, 0, 0, Role::None, Spot::None), // Must be burned
+            9 => (Orientation::West, CENTER + 1, CENTER, Role::None, Spot::None),
             _ => (Orientation::None, 0, 0, Role::None, Spot::None),
         }
     }
