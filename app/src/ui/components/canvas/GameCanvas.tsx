@@ -1,6 +1,6 @@
 import { KeyboardControls, KeyboardControlsEntry, useKeyboardControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useHand } from "@/hooks/useHand";
 import { useCameraStore } from "@/store";
 
@@ -35,15 +35,29 @@ export const GameCanvas = ({ children }: CanvasProps) => {
 }
 
 const Keyboard = () => {
+    const [subscribeKeys] = useKeyboardControls<Controls>()
     const { rotateHand, counterRotateHand, toggleStrategyMode } = useHand()
 
-    const rotatePressed = useKeyboardControls<Controls>((state) => state.clockwise);
-    const counterRotatePressed = useKeyboardControls<Controls>((state) => state.counterClockwise);
-    const strategyModePressed = useKeyboardControls<Controls>((state) => state.strategyMode);
+    useEffect(() => {
+        const unsubscribeRotate = subscribeKeys(
+            (state) => state.clockwise,
+            (value) => value && rotateHand()
+        )
+        const unsubscribeCounterRotate = subscribeKeys(
+            (state) => state.counterClockwise,
+            (value) => value && counterRotateHand()
+        )
+        const unsubscribeStrategyMode = subscribeKeys(
+            (state) => state.strategyMode,
+            (value) => value && toggleStrategyMode()
+        )
 
-    if (rotatePressed) rotateHand();
-    if (counterRotatePressed) counterRotateHand();
-    if (strategyModePressed) toggleStrategyMode();
+        return () => {
+            unsubscribeRotate()
+            unsubscribeCounterRotate()
+            unsubscribeStrategyMode()
+        }
+    }, [counterRotateHand, rotateHand, subscribeKeys, toggleStrategyMode])
 
     return null
 }
