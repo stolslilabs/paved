@@ -20,10 +20,10 @@ import { useMemo } from "react";
 import { useDojo } from "../../dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useGame } from "@/hooks/useGame";
-import icon from "/assets/icons/SURRENDER.svg";
+import icon from "/assets/icons/surrender.svg";
 import { useActions } from "@/hooks/useActions";
 
-interface TProps {}
+interface TProps { }
 
 export const Surrender = (props: TProps) => {
   const { gameId } = useQueryParams();
