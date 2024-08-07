@@ -68,11 +68,14 @@ export const Tile = () => {
 
   const backgroundColor = useMemo(() => "#C2B0B7", []);
 
+  const isLoading = useMemo(() => !tile || !backgroundImage, [tile, backgroundImage]);
+  const isLocked = useMemo(() => game?.isOver(), [game]);
+
   if (!account || !game || !builder) return <></>;
 
   return (
     <div
-      className="h-20 w-20 md:h-24 md:w-24 lg:h-60 lg:w-60  flex lg:justify-center items-center  shadow-lg "
+      className="relative aspect-square h-full cursor-pointer bg-cover bg-center flex lg:justify-center items-center shadow-lg pointer-events-auto"
       style={{ backgroundColor }}
     >
       {!!tile && backgroundImage && !game?.isOver() && enabled && (
@@ -82,8 +85,8 @@ export const Tile = () => {
           orientation={orientation}
         />
       )}
-      {!!backgroundImage && !game?.isOver() && !enabled && <LoadingTile />}
-      {game?.isOver() && <LockedTile />}
+      {isLoading && <LoadingTile />}
+      {isLocked && <LockedTile />}
     </div>
   );
 };
@@ -180,23 +183,21 @@ export const ActiveTile = ({
   );
 
   return (
-    <>
-      <div
-        className="relative h-full w-full cursor-pointer bg-cover"
-        style={{
-          backgroundImage: `url(${image})`,
-          transform: `rotate(${rotation}deg)`,
-        }}
-      >
-        {character !== 0 && (
-          <div className="w-full h-full p-0 absolute grid grid-rows-3 grid-flow-col justify-items-center items-center">
-            {spots.map((_spot, index) => (
-              <Spot key={index} index={getRotatedIndex(index)} />
-            ))}
-          </div>
-        )}
-      </div>
-    </>
+    <div
+      className="relative h-full w-full cursor-pointer bg-cover"
+      style={{
+        backgroundImage: `url(${image})`,
+        transform: `rotate(${rotation}deg)`,
+      }}
+    >
+      {character !== 0 && (
+        <div className="w-full h-full p-0 absolute grid grid-rows-3 grid-flow-col justify-items-center items-center">
+          {spots.map((_spot, index) => (
+            <Spot key={index} index={getRotatedIndex(index)} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 };
 

@@ -1,17 +1,11 @@
 import { useCameraStore } from "../../store";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCompass } from "@fortawesome/free-solid-svg-icons";
-import { Button } from "@/ui/elements/button";
 import { useMemo, useState } from "react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/ui/elements/tooltip";
 import { useEffect } from "react";
-import icon from "/assets/icons/COMPASS.svg";
+import icon from "/assets/icons/compass.svg";
+import { Button } from "../elements/button";
+import { cn } from "../utils";
 
+// TODO: Remove redundant component (move correct functionality to camera instead, custom hook called from NavigationMenu instead etc.)
 export const Compass = () => {
   const { compassRotation, setCompassRotate } = useCameraStore();
   const [rotation, setRotation] = useState(0);
@@ -36,25 +30,11 @@ export const Compass = () => {
   }, [rotation]);
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={"command"}
-            size={"command"}
-            onClick={() => setRotate(true)}
-          >
-            <img
-              src={icon}
-              style={style}
-              className="h-8 sm:h-4 md:h-8 fill-current"
-            />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="select-none">Rotate view</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Button
+      className={"px-2 w-10 py-5 border-none bg-[#D2E2F1] bg-opacity-80 rounded-md"}
+      onClick={() => setRotate(true)}
+    >
+      <img src={icon} className="w-6" style={style} />
+    </Button>
   );
 };

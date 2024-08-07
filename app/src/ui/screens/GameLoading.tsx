@@ -17,9 +17,9 @@ export const GameLoading = () => {
           <img src={logo} alt="banner" className="h-12 md:h-40" />
         </div>
 
-        <div className="text-white text-center z-10">
-          <div className="mt-4 text-stroke">Loading...</div>
-        </div>
+        <p className="text-white text-center z-10 mt-4 sm:mt-12 text-stroke">
+          Loading...
+        </p>
       </div>
     </div>
   );
