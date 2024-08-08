@@ -349,6 +349,14 @@
         "type": "core::bool"
       },
       {
+        "name": "discarded",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "built",
+        "type": "core::integer::u8"
+      },
+      {
         "name": "tiles",
         "type": "core::integer::u128"
       },
@@ -358,6 +366,10 @@
       },
       {
         "name": "start_time",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "end_time",
         "type": "core::integer::u64"
       },
       {
@@ -371,6 +383,10 @@
       {
         "name": "mode",
         "type": "core::integer::u8"
+      },
+      {
+        "name": "tournament_id",
+        "type": "core::integer::u64"
       }
     ]
   },

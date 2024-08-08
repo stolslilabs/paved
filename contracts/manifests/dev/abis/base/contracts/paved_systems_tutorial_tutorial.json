@@ -102,11 +102,11 @@
   {
     "type": "impl",
     "name": "IDojoInitImpl",
-    "interface_name": "paved::systems::tutorial::tutoriable::IDojoInit"
+    "interface_name": "paved::systems::tutorial::tutorial::IDojoInit"
   },
   {
     "type": "interface",
-    "name": "paved::systems::tutorial::tutoriable::IDojoInit",
+    "name": "paved::systems::tutorial::tutorial::IDojoInit",
     "items": [
       {
         "type": "function",
@@ -586,7 +586,7 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::tutorial::tutoriable::Event",
+    "name": "paved::systems::tutorial::tutorial::Event",
     "kind": "enum",
     "variants": [
       {
