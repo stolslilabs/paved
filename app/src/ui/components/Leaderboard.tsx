@@ -30,6 +30,7 @@ import { useDojo } from "@/dojo/useDojo";
 import leaderboard from "/assets/icons/leaderboard.svg";
 import { useUIStore } from "@/store";
 import { DialogTitle } from "@radix-ui/react-dialog";
+import { IngameButton } from "./dom/IngameButton";
 
 export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
   const { gameId } = useQueryParams();
@@ -65,10 +66,7 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {children ?? (
-          <Button
-            className="px-2 w-10 py-5 border-none bg-[#D2E2F1] bg-opacity-80 rounded-md">
-            <img src={leaderboard} className="w-6" />
-          </Button>
+          <IngameButton icon={leaderboard} />
         )}
       </DialogTrigger>
       <DialogContent>
