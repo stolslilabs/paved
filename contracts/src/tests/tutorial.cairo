@@ -44,10 +44,11 @@ fn test_tutorial_build_all() {
     systems.tutorial.build(context.game_id);
     systems.tutorial.build(context.game_id);
     systems.tutorial.build(context.game_id);
+    systems.tutorial.discard(context.game_id);
     systems.tutorial.build(context.game_id);
 
     // [Assess] Game over and score
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Tutorial: game over');
-    assert(game.score == 5128, 'Tutorial: game score');
+    assert(game.score == 5078, 'Tutorial: game score');
 }

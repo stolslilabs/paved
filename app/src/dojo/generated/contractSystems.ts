@@ -285,6 +285,23 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
       }
     };
 
+    const discard = async ({ account, game_id }: Discard) => {
+      try {
+        return await provider.execute(
+          account,
+          {
+            contractName: contract_name,
+            entrypoint: "discard",
+            calldata: [game_id],
+          },
+          details,
+        );
+      } catch (error) {
+        console.error("Error executing discard:", error);
+        throw error;
+      }
+    };
+
     const surrender = async ({ account, game_id }: Surrender) => {
       try {
         return await provider.execute(
@@ -322,6 +339,7 @@ export async function setupWorld(provider: DojoProvider, config: Config) {
     return {
       address: contract.address,
       spawn,
+      discard,
       surrender,
       build,
     };

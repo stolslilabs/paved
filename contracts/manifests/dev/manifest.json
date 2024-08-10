@@ -1630,8 +1630,8 @@
     {
       "kind": "DojoContract",
       "address": "0x42fb873d07fb1bd9da7c077b1cb449e49886c9cf203513901d01bef7e2d46d9",
-      "class_hash": "0x69c8cc45765a031119400f8e8d1db848f6b2ee48ea2959b4b1d1020799915bf",
-      "original_class_hash": "0x69c8cc45765a031119400f8e8d1db848f6b2ee48ea2959b4b1d1020799915bf",
+      "class_hash": "0x73870689d74e27327d0358e907e0517634e88ae34ad9ecdb64c243e817ab65a",
+      "original_class_hash": "0x73870689d74e27327d0358e907e0517634e88ae34ad9ecdb64c243e817ab65a",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
@@ -2398,6 +2398,7 @@
           "kind": "enum",
           "variants": [
             {
+
               "name": "UpgradeableEvent",
               "type": "dojo::components::upgradeable::upgradeable::Event",
               "kind": "nested"
@@ -2450,8 +2451,8 @@
     {
       "kind": "DojoContract",
       "address": "0x6d4a1b789f0674023093494c1431cff248f4f0d1f8edfdc70b50fa35f8998e9",
-      "class_hash": "0xf3b08ed51b02e5f84c880ad25549bb730ed8ddcf9e61f24e8e366050f5eae1",
-      "original_class_hash": "0xf3b08ed51b02e5f84c880ad25549bb730ed8ddcf9e61f24e8e366050f5eae1",
+      "class_hash": "0x43377e4d6cb933ca5027cc7b42a0ff187d264a18aa341ec4520daf2754743de",
+      "original_class_hash": "0x43377e4d6cb933ca5027cc7b42a0ff187d264a18aa341ec4520daf2754743de",
       "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
@@ -2517,6 +2518,17 @@
           "type": "interface",
           "name": "paved::systems::tutorial::ITutorial",
           "items": [
+            {
+              "type": "function",
+              "name": "spawn",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::integer::u32"
+                }
+              ],
+              "state_mutability": "external"
+            },
             {
               "type": "function",
               "name": "spawn",
