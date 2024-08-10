@@ -59,7 +59,7 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
             children: <LeaderboardDialog />
         },
         {
-            name: muted ? "Toggle Music OFF" : "Toggle Music ON",
+            name: muted ? "Toggle Music ON" : "Toggle Music OFF",
             icon: muted ? soundOnIcon : soundOffIcon,
             onClick: () => toggleMusic(),
         },
@@ -93,7 +93,7 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
                 className="pointer-events-none w-full justify-end"
                 onOpenChange={setHasOpenMenu}
             >
-                <CollapsibleTrigger className="mb-1 right-4 absolute sm:relative sm:left-0">
+                <CollapsibleTrigger asChild className="mb-1 right-4 absolute sm:relative sm:left-0">
                     <IngameButton icon={burgerMenuIcon} />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-row sm:flex-col gap-1 absolute sm:relative top-4 sm:top-auto">
