@@ -18,7 +18,6 @@ import { Button } from "@/ui/elements/button";
 
 import { useState, useEffect, useMemo, ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrophy } from "@fortawesome/free-solid-svg-icons";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { getColor } from "@/dojo/game";
 import { TwitterShareButton } from "react-share";
@@ -26,11 +25,12 @@ import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
 import { useGame } from "@/hooks/useGame";
 import { usePlayer } from "@/hooks/usePlayer";
 import { Game as GameClass } from "@/dojo/game/models/game";
-import { ToolTipButton } from "./ToolTipButton";
 import { useBuilders } from "@/hooks/useBuilders";
 import { useDojo } from "@/dojo/useDojo";
-import leaderboard from "/assets/icons/LEADERBOARD.svg";
+import leaderboard from "/assets/icons/leaderboard.svg";
 import { useUIStore } from "@/store";
+import { DialogTitle } from "@radix-ui/react-dialog";
+import { IngameButton } from "./dom/IngameButton";
 
 export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
   const { gameId } = useQueryParams();
@@ -64,25 +64,19 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger>
+      <DialogTrigger asChild>
         {children ?? (
-          <ToolTipButton
-            icon={
-              <img
-                src={leaderboard}
-                className="h-8 sm:h-4 md:h-8  fill-current"
-              />
-            }
-            toolTipText="Leaderboard"
-          />
+          <IngameButton icon={leaderboard} />
         )}
       </DialogTrigger>
       <DialogContent>
-        <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
+        <DialogHeader>
+          <DialogTitle className="text-center text-xl">Leaderboard</DialogTitle>
+        </DialogHeader>
         {over && isSelf && <Description game={game} />}
         <Leaderboard game={game} builders={builders} />
       </DialogContent>
-    </Dialog>
+    </Dialog >
   );
 };
 

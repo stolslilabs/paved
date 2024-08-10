@@ -1,15 +1,9 @@
 import { useDojo } from "../../dojo/useDojo";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { Button } from "@/ui/elements/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/ui/elements/tooltip";
 import { useActions } from "@/hooks/useActions";
 import { useGame } from "@/hooks/useGame";
-import icon from "/assets/icons/BURN.svg";
+import icon from "/assets/icons/burn.svg";
 import {
   Dialog,
   DialogClose,
@@ -20,8 +14,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../elements/dialog";
-import { isMobile } from "react-device-detect";
-import { ReactNode } from "react";
 
 export const Discard = () => {
   const { gameId } = useQueryParams();
@@ -36,29 +28,16 @@ export const Discard = () => {
 
   if (!account || !game || !builder) return <></>;
 
-  const DiscardButton = isMobile ? DialogButton : TooltipButton;
-
-  return (
-    <DiscardButton>
-      <Button
-        disabled={!enabled}
-        variant={"command"}
-        size={"command"}
-        onClick={!isMobile ? handleDiscard : undefined}
-        className="w-full"
-      >
-        <img src={icon} className="h-4 lg:h-8 fill-current" />
-      </Button>
-    </DiscardButton>
-  );
-};
-
-const DialogButton = ({ children }: { children: ReactNode }) => {
-  const { handleDiscard } = useActions();
-
   return (
     <Dialog>
-      <DialogTrigger className="flex">{children}</DialogTrigger>
+      <DialogTrigger asChild>
+        <Button
+          disabled={!enabled}
+          className="px-2 w-10 py-5 border-none bg-[#D2E2F1] bg-opacity-80 rounded-md"
+        >
+          <img src={icon} className="w-6" />
+        </Button>
+      </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Are you absolutely sure?</DialogTitle>
@@ -72,30 +51,17 @@ const DialogButton = ({ children }: { children: ReactNode }) => {
         </DialogHeader>
         <DialogFooter className="gap-1">
           <DialogClose asChild>
-            <Button type="button" variant="secondary">
-              Close
+            <Button onClick={handleDiscard} type="button" variant="destructive">
+              Discard
             </Button>
           </DialogClose>
           <DialogClose asChild>
-            <Button onClick={handleDiscard} type="button" variant="default">
-              Discard
+            <Button type="button" variant="secondary">
+              Close
             </Button>
           </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-};
-
-const TooltipButton = ({ children }: { children: ReactNode }) => {
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>{children}</TooltipTrigger>
-        <TooltipContent>
-          <p className="select-none">Discard tile</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
   );
 };
