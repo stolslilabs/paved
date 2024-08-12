@@ -5,9 +5,10 @@ import { Tournament } from "../components/Tournament";
 import { Games } from "../modules/Games";
 import banner from "/assets/banner.svg";
 import { MusicPlayer } from "../components/MusicPlayer";
+import { CreateGame } from "../components/CreateGame";
 
 const tabs = ["daily", "weekly", "1v1", "tutorial"];
-const disabledTabs = ["1v1", "tutorial"];
+const disabledTabs = ["weekly", "1v1", "tutorial"];
 
 // TODO: Consider applying this to the tabs component directly
 const tabsStyles = {
@@ -21,7 +22,7 @@ export const GameLobby = () => {
   return (
     <div className="h-screen flex w-full relative">
       <BoxRainScene />
-      <div className="flex w-full h-full gap-4">
+      <div className="flex w-full h-full gap-8">
         <div className="absolute top-0 left-0 z-0 flex w-full h-full bg-white/90" />
         <div className="w-2/3 z-0 flex flex-col overflow-hidden p-4">
           <div className="h-24 flex justify-between w-full flex-shrink-0">
@@ -41,7 +42,7 @@ export const GameLobby = () => {
               </TabsList>
               {tabs.map((tab) => <TabsContent key={tab} value={tab} className={tabsStyles.content}><Games /></TabsContent>)}
               <div className="w-full flex justify-end h-20 border-x-[1px] border-b-[1px] border-primary bg-secondary/50 p-4">
-                {/* <CreateGame mode={gameMode}>Test</CreateGame> */}
+                <CreateGame mode={gameMode} />
               </div>
             </Tabs>
           </div>
