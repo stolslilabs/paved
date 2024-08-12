@@ -26,7 +26,7 @@ export const Landing = () => {
         <BoxRainScene />
       </div>
       <div className="self-center justify-center flex h-full bg-blue-100">
-        <div className="absolute top-0 right-0">
+        <div className="absolute top-4 right-4">
           <MusicPlayer />
         </div>
         <div className="flex gap-4 self-center  p-10 flex-wrap justify-center bg-paved-pink z-10">
