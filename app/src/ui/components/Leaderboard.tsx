@@ -77,7 +77,7 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
           />
         )}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="bg-primary">
         <DialogHeader className="flex items-center">Leaderboard</DialogHeader>
         {over && isSelf && <Description game={game} />}
         <Leaderboard game={game} builders={builders} />
