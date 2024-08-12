@@ -47,7 +47,7 @@ export const GameLobby = () => {
             </Tabs>
           </div>
         </div>
-        <div className="w-1/3 h-full bg-blue-500 overflow-hidden">
+        <div className="w-1/3 h-full bg-primary z-20 overflow-hidden">
           <Tournament mode={gameMode} />
         </div>
       </div>
