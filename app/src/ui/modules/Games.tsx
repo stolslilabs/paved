@@ -14,8 +14,6 @@ import {
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import { ScrollArea } from "@/ui/elements/scroll-area";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye, faRightToBracket } from "@fortawesome/free-solid-svg-icons";
 
 import { useDojo } from "@/dojo/useDojo";
 import { Has, defineEnterSystem, defineSystem } from "@dojoengine/recs";
@@ -24,12 +22,13 @@ import { useNavigate } from "react-router-dom";
 import { useBuilder } from "@/hooks/useBuilder";
 import { Game } from "@/dojo/game/types/game";
 import { useLobby } from "@/hooks/useLobby";
+import viewMapIcon from "/assets/icons/viewmap.svg";
 
 export const Games = () => {
   const { gameMode } = useLobby();
 
   const [games, setGames] = useState<{ [key: number]: any }>({});
-  const [show, setShow] = useState<boolean>(false);
+  const [show, setShow] = useState<boolean>(true);
 
   const {
     account: { account },
@@ -137,12 +136,11 @@ export const GameSingleRow = ({ game }: { game: any }) => {
             <TooltipTrigger asChild>
               <Button
                 size={"sm"}
-                className="px-4 flex gap-3 self-end"
-                variant={"default"}
+                className={`px-4 flex gap-3 self-end h-8 w-19 hover:bg-transparent ${over ? "border-none" : "border-2"}`}
+                variant={over ? "ghost" : "default"}
                 onClick={() => setGameQueryParam(game.id || 0)}
               >
-                Join
-                <FontAwesomeIcon icon={over ? faEye : faRightToBracket} />
+                {over ? <img className="h-6 w-10" src={viewMapIcon} /> : "Play"}
               </Button>
             </TooltipTrigger>
           </Tooltip>
