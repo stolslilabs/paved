@@ -281,7 +281,7 @@ export const GameRow = ({
   }, [player, account]);
 
   return (
-    <TableRow className="text-3xs lg:text-xs">
+    <TableRow className={`text-3xs lg:text-xs ${isSelf && '[&>*]:text-[#955142]'}`}>
       <TableCell className="text-background">{playerRank}</TableCell>
       <TableCell className="text-left text-background">{player?.getShortName()}</TableCell>
       <TableCell className="text-right text-background">{game.score}</TableCell>
