@@ -25,30 +25,23 @@ import {
   PaginationItem,
   PaginationLink,
 } from "@/ui/elements/pagination";
-import { ScrollArea } from "@/ui/elements/scroll-area";
 import { Button } from "@/ui/elements/button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-  faCalendarDays,
-  faEye,
-  faLock,
-  faSackDollar,
-} from "@fortawesome/free-solid-svg-icons";
+import viewmapIcon from "/assets/icons/viewmap.svg";
 import { useGames } from "@/hooks/useGames";
 import { useTournament } from "@/hooks/useTournament";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lords } from "./Lords";
 import { Tournament as TournamentClass } from "@/dojo/game/models/tournament";
 import { useDojo } from "@/dojo/useDojo";
 import { Account } from "starknet";
-import { Mode } from "@/dojo/game/types/mode";
-import { Sponsor } from "@/ui/components/Sponsor";
+import { Mode, ModeType } from "@/dojo/game/types/mode";
 import leaderboard from "/assets/icons/leaderboard.svg";
 import { useTournaments } from "@/hooks/useTournaments";
 import { Game } from "@/dojo/game/models/game";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useBuilders } from "@/hooks/useBuilders";
+import calendarIcon from "/assets/icons/calendar.svg";
 
 export const getSeason = (mode: Mode) => {
   const now = Math.floor(Date.now() / 1000);
@@ -178,9 +171,40 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
       .slice(0, 10);
   }, [games, page]);
 
+  const testAllGames: Game[] = [
+    new Game({
+      id: 1,
+      over: false,
+      built: 5,
+      discarded: 2,
+      tiles: BigInt(10),
+      tile_count: 10,
+      start_time: new Date(1679123100),
+      end_time: new Date(1679123200),
+      score: 100,
+      seed: "seed",
+      mode: new Mode(ModeType.Daily),
+      tournament_id: BigInt(1)
+    }),
+    new Game({
+      id: 2,
+      over: true,
+      built: 28,
+      discarded: 0,
+      tiles: BigInt(28),
+      tile_count: 28,
+      start_time: new Date(1679123200),
+      end_time: new Date(1679123200),
+      score: 1000,
+      seed: "seed",
+      mode: new Mode(ModeType.Daily),
+      tournament_id: BigInt(2)
+    })
+  ]
+
   return (
-    <div className="relative flex flex-col gap-4">
-      <div className="flex justify-center text-xs">Seasons</div>
+    <div className="relative flex flex-col gap-4 pt-2">
+      <div className="flex justify-center text-sm">{mode.value}</div>
       <Pagination>
         <PaginationContent>
           <PaginationItem>
@@ -205,45 +229,37 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
         </PaginationContent>
       </Pagination>
 
-      <div className="flex justify-center items-center text-xs gap-4">
+      <div className="flex justify-center items-center text-sm gap-4 tracking-widest">
         <div className="flex flex-col items-center">
           <p>{startDate}</p>
           <p>{startTime}</p>
         </div>
-        <FontAwesomeIcon className="mx-2 h-6" icon={faCalendarDays} />
+        <img className="mx-2 w-5" src={calendarIcon} />
         <div className="flex flex-col items-center">
           <p>{endDate}</p>
           <p>{endTime}</p>
         </div>
       </div>
 
-      {(page && <Sponsor tournamentId={page + mode.offset()} mode={mode} />) ||
-        null}
-
       <Table className="text-xs">
         <TableHeader>
-          <TableRow>
-            <TableHead>#</TableHead>
-            <TableHead className="max-w-[100px]">Name</TableHead>
-            <TableHead className="text-right">Score</TableHead>
-            <TableHead className="text-right">Duration</TableHead>
-            <TableHead className="flex justify-center items-center">
-              <Lords fill={"black"} width={4} height={4} />
-            </TableHead>
+          <TableRow className="text-xs">
+            <TableHead className="text-foreground">#</TableHead>
+            <TableHead className="max-w-[100px] text-foreground">Player</TableHead>
+            <TableHead className="text-right text-foreground">Score</TableHead>
+            <TableHead className="text-right text-foreground">Time</TableHead>
+            <TableHead className="text-right text-foreground">Tiles</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {allGames.map((game: Game, index: number) => {
-            return (
-              <GameRow
-                key={index}
-                game={game}
-                tournamentId={(page ?? 0) + mode.offset()}
-                rank={index + 1}
-                mode={mode}
-              />
-            );
-          })}
+          {testAllGames.map((game: Game, index: number) => (
+            <GameRow
+              key={index}
+              game={game}
+              tournamentId={(page ?? 0) + mode.offset()}
+              rank={index + 1}
+              mode={mode} />
+          ))}
         </TableBody>
       </Table>
     </div>
@@ -283,15 +299,6 @@ export const GameRow = ({
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   }, [game]);
 
-  const winnings = useMemo(() => {
-    if (!tournament) return Number(0).toFixed(2);
-    const value = (tournament.reward(rank) / 1e18).toFixed(2);
-    if (value.length > 6) {
-      return value.slice(0, 6);
-    }
-    return value;
-  }, [tournament, rank]);
-
   const playerRank = useMemo(() => {
     if (rank === 1) return "🥇";
     if (rank === 2) return "🥈";
@@ -305,13 +312,13 @@ export const GameRow = ({
   }, [player, account]);
 
   return (
-    <TableRow>
-      <TableCell className="">{playerRank}</TableCell>
-      <TableCell className="text-left">{player?.getShortName()}</TableCell>
-      <TableCell className="text-right">{game.score}</TableCell>
-      <TableCell className="text-right">{duration}</TableCell>
-      <TableCell className="text-right">{rank > 3 ? "" : winnings}</TableCell>
-      <TableCell className="text-right">
+    <TableRow className="text-2xs">
+      <TableCell className="text-background">{playerRank}</TableCell>
+      <TableCell className="text-left text-background">{player?.getShortName()}</TableCell>
+      <TableCell className="text-right text-background">{game.score}</TableCell>
+      <TableCell className="text-right text-background">{duration}</TableCell>
+      <TableCell className="text-right text-background">{game.tile_count}</TableCell>
+      <TableCell className="text-right text-background">
         {isSelf && tournament && tournament.isClaimable(rank, mode) ? (
           <Claim tournament={tournament} rank={rank} mode={mode} />
         ) : (
@@ -334,15 +341,12 @@ export const Spectate = ({ gameId }: { gameId: number }) => {
 
   return (
     <Button
-      disabled={!gameId}
-      variant={"secondary"}
-      size={"icon"}
-      onClick={() => {
-        if (!gameId) return;
-        return setGameQueryParam(`${gameId}`);
-      }}
+      size={"sm"}
+      className={"px-2 flex gap-3 self-end h-8 w-19 hover:bg-transparent border-none"}
+      variant={"ghost"}
+      onClick={() => gameId && setGameQueryParam(gameId.toString())}
     >
-      <FontAwesomeIcon icon={gameId ? faEye : faLock} />
+      <img className="w-6" src={viewmapIcon} />
     </Button>
   );
 };
