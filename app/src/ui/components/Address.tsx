@@ -37,7 +37,7 @@ export function Address() {
   }, [account, data]);
 
   return (
-    <div className="flex justify-end items-center gap-3 text-xs mb-8">
+    <div className="flex justify-end items-center gap-3 text-xs mb-4">
       <Button className="px-4 rounded-none" size={"sm"} onClick={() => setCopied()}>
         {minifyAddressOrStarknetId(account?.address, starknetId)}
         {isCopied ? " (copied)" : ""}
