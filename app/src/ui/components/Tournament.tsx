@@ -171,65 +171,34 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
       .slice(0, 10);
   }, [games, page]);
 
-  const testAllGames: Game[] = [
-    new Game({
-      id: 1,
-      over: false,
-      built: 5,
-      discarded: 2,
-      tiles: BigInt(10),
-      tile_count: 10,
-      start_time: new Date(1679123100),
-      end_time: new Date(1679123200),
-      score: 100,
-      seed: "seed",
-      mode: new Mode(ModeType.Daily),
-      tournament_id: BigInt(1)
-    }),
-    new Game({
-      id: 2,
-      over: true,
-      built: 28,
-      discarded: 0,
-      tiles: BigInt(28),
-      tile_count: 28,
-      start_time: new Date(1679123200),
-      end_time: new Date(1679123200),
-      score: 1000,
-      seed: "seed",
-      mode: new Mode(ModeType.Daily),
-      tournament_id: BigInt(2)
-    })
-  ]
 
   return (
-    <div className="relative flex flex-col gap-4 pt-2">
-      <div className="flex justify-center text-sm">{mode.value}</div>
+    <div className="relative flex flex-col gap-4 sm:gap-1 lg:gap-4 pt-2 lg:pt-4">
+      <div className="flex justify-center text-sm sm:text-xs lg:text-base">{mode.value}</div>
       <Pagination>
-        <PaginationContent>
+        <PaginationContent className="gap-1 sm:gap-2 lg:gap-4">
           <PaginationItem>
             <PaginationEllipsis />
           </PaginationItem>
-          {pages.map((id: number, index: number) => {
-            return (
-              <PaginationItem key={index}>
-                <PaginationLink
-                  href="#"
-                  isActive={id === (page ? page : tournaments.length)}
-                  onClick={() => setPage(id)}
-                >
-                  {id}
-                </PaginationLink>
-              </PaginationItem>
-            );
-          })}
+          {pages.map((id: number, index: number) => (
+            <PaginationItem key={index}>
+              <PaginationLink
+                href="#"
+                isActive={id === (page ? page : tournaments.length)}
+                onClick={() => setPage(id)}
+                className="size-6 text-xs lg:size-8"
+              >
+                {id}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
           <PaginationItem>
             <PaginationEllipsis />
           </PaginationItem>
         </PaginationContent>
       </Pagination>
 
-      <div className="flex justify-center items-center text-sm gap-4 tracking-widest">
+      <div className="flex justify-center items-center gap-4 tracking-widest text-sm sm:text-2xs lg:text-sm">
         <div className="flex flex-col items-center">
           <p>{startDate}</p>
           <p>{startTime}</p>
@@ -241,18 +210,18 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
         </div>
       </div>
 
-      <Table className="text-xs">
+      <Table>
         <TableHeader>
-          <TableRow className="text-xs">
-            <TableHead className="text-foreground">#</TableHead>
-            <TableHead className="max-w-[100px] text-foreground">Player</TableHead>
-            <TableHead className="text-right text-foreground">Score</TableHead>
-            <TableHead className="text-right text-foreground">Time</TableHead>
-            <TableHead className="text-right text-foreground">Tiles</TableHead>
+          <TableRow className="text-3xs lg: lg:text-xs sm:[&>*]:h-1 lg:[&>*]:h-10 [&>*]:text-foreground tracking-widest">
+            <TableHead>#</TableHead>
+            <TableHead className="max-w-[100px]">Player</TableHead>
+            <TableHead className="text-right">Score</TableHead>
+            <TableHead className="text-right">Time</TableHead>
+            <TableHead className="text-right">Tiles</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {testAllGames.map((game: Game, index: number) => (
+          {allGames.map((game: Game, index: number) => (
             <GameRow
               key={index}
               game={game}
@@ -312,7 +281,7 @@ export const GameRow = ({
   }, [player, account]);
 
   return (
-    <TableRow className="text-2xs">
+    <TableRow className="text-3xs lg:text-xs">
       <TableCell className="text-background">{playerRank}</TableCell>
       <TableCell className="text-left text-background">{player?.getShortName()}</TableCell>
       <TableCell className="text-right text-background">{game.score}</TableCell>
@@ -342,7 +311,7 @@ export const Spectate = ({ gameId }: { gameId: number }) => {
   return (
     <Button
       size={"sm"}
-      className={"px-2 flex gap-3 self-end h-8 w-19 hover:bg-transparent border-none"}
+      className={"px-2 sm:px-1 lg:px-2 flex gap-3 self-end h-8 w-19 hover:bg-transparent border-none"}
       variant={"ghost"}
       onClick={() => gameId && setGameQueryParam(gameId.toString())}
     >
