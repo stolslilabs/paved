@@ -44,7 +44,7 @@ export const GameLobby = () => {
 };
 
 const GameTablePanel = ({ children }: { children: ReactNode }) => (
-  <div className="w-full sm:w-3/5 z-0 flex flex-col p-4">
+  <div className="w-full sm:w-7/12 z-0 flex flex-col p-4">
     {children}
   </div>
 )
@@ -93,10 +93,10 @@ const CreateGameSliver = ({ gameMode }: { gameMode: Mode }) => (
   </div>
 )
 const InfoPanel = ({ gameMode }: { gameMode: Mode }) => (
-  <div className="w-2/5 h-full z-20 bottom-0 p-4 shadow-2xl bg-primary overflow-scroll hidden sm:block">
+  <div className="w-5/12 h-full z-20 bottom-0 p-4 shadow-2xl bg-primary hidden sm:flex sm:flex-col">
     <Address />
     <Player />
-    <div className="my-4 py-4 border shadow-sm bg-white/90">
+    <div className="flex-grow overflow-y-auto my-4 border shadow-sm bg-white/90">
       <Tournament mode={gameMode} />
     </div>
     <Links />
@@ -109,9 +109,9 @@ const ProfileSheet = () => {
   return (
     <Drawer direction="right">
       <DrawerTrigger asChild>
-        <img src={leaderboardIcon} className="sm:hidden h-full" />
+        <img src={leaderboardIcon} className="sm:hidden h-4/5 self-center" />
       </DrawerTrigger>
-      <DrawerContent className="bg-primary w-full h-full overflow-auto px-2 sm:px-0">
+      <DrawerContent className="bg-primary w-full h-full flex flex-col px-2 sm:px-0">
         <DrawerHeader className="px-0">
           <DrawerTitle>
             <Address />
@@ -121,7 +121,7 @@ const ProfileSheet = () => {
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="my-4 py-4 border shadow-sm bg-white/90">
+        <div className="flex-grow overflow-y-auto my-4 border shadow-sm bg-white/90">
           <Tournament mode={gameMode} />
         </div>
 
