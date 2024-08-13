@@ -3,8 +3,9 @@ import { useMemo } from "react";
 import useClipboard from "react-use-clipboard";
 import { Button } from "../elements/button";
 import { useDojo } from "@/dojo/useDojo";
+import purchaseLordsIcon from "/assets/icons/purchase-lords.svg";
 
-export function minifyAddressOrStarknetId(
+function minifyAddressOrStarknetId(
   address: string | undefined,
   starknetId: string | undefined,
 ) {
@@ -14,9 +15,9 @@ export function minifyAddressOrStarknetId(
   }
   return input.length > 24
     ? `${input.substring(0, 5)} ... ${input.substring(
-        input.length - 5,
-        input.length,
-      )}`
+      input.length - 5,
+      input.length,
+    )}`
     : input;
 }
 
@@ -36,20 +37,14 @@ export function Address() {
   }, [account, data]);
 
   return (
-    <div className="flex justify-center items-center gap-3 text-xs">
-      <Button className="px-4" size={"sm"} onClick={() => setCopied()}>
+    <div className="flex justify-end items-center gap-3 text-xs mb-8">
+      <Button className="px-4 rounded-none" size={"sm"} onClick={() => setCopied()}>
         {minifyAddressOrStarknetId(account?.address, starknetId)}
         {isCopied ? " (copied)" : ""}
       </Button>
-      <Button className="px-4" size={"sm"} variant={"default"}>
-        <a
-          target="_blank"
-          href="https://blastapi.io/faucets/starknet-sepolia-eth"
-        >
-          {" "}
-          Gas
-        </a>
-      </Button>
+      <a target="_blank" href="https://blastapi.io/faucets/starknet-sepolia-eth">
+        <img src={purchaseLordsIcon} className="size-10" />
+      </a>
     </div>
   );
 }
