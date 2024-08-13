@@ -3,7 +3,6 @@ import { PlayerCard } from "@/ui/components/PlayerCard";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { useLobbyStore } from "@/store";
-import { useAccount } from "@starknet-react/core";
 import { useDojo } from "@/dojo/useDojo";
 
 export const Player = () => {
