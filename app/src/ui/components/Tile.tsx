@@ -68,7 +68,7 @@ export const Tile = () => {
 
   const backgroundColor = useMemo(() => "#C2B0B7", []);
 
-  const isLoading = useMemo(() => !tile || !backgroundImage, [tile, backgroundImage]);
+  const isLoading = useMemo(() => (!tile || !backgroundImage) && !game?.isOver(), [tile, backgroundImage, game]);
   const isLocked = useMemo(() => game?.isOver(), [game]);
 
   if (!account || !game || !builder) return <></>;
