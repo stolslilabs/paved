@@ -13,7 +13,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
-import { ScrollArea } from "@/ui/elements/scroll-area";
+import { ScrollArea, ScrollBar } from "@/ui/elements/scroll-area";
 
 import { useDojo } from "@/dojo/useDojo";
 import { Has, defineEnterSystem, defineSystem } from "@dojoengine/recs";
@@ -66,24 +66,22 @@ export const Games = () => {
 
   return (
     <div className="flex flex-col gap-2 items-start w-full h-full">
-      <ScrollArea className="w-full">
-        <Table>
-          <TableHeader>
-            <TableRow className="text-sm">
-              <TableHead className="w-[100px] text-center uppercase">Game</TableHead>
-              <TableHead className="uppercase text-center">Rank</TableHead>
-              <TableHead className="uppercase text-center">Score</TableHead>
-              <TableHead className="uppercase text-center">Tiles</TableHead>
-              <TableHead className="uppercase text-center">Time</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {Object.values(filteredGames).map((game, index) => {
-              return <GameSingleRow key={index} game={game} />;
-            })}
-          </TableBody>
-        </Table>
-      </ScrollArea>
+      <Table className="mb-4">
+        <TableHeader>
+          <TableRow className="text-xs">
+            <TableHead className="w-[100px] text-center uppercase">Game</TableHead>
+            <TableHead className="uppercase text-center">Rank</TableHead>
+            <TableHead className="uppercase text-center">Score</TableHead>
+            <TableHead className="uppercase text-center">Tiles</TableHead>
+            <TableHead className="uppercase text-center">Time</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {Object.values(filteredGames).map((game, index) => {
+            return <GameSingleRow key={index} game={game} />;
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 };
@@ -123,12 +121,12 @@ export const GameSingleRow = ({ game }: { game: any }) => {
   if (!game || !builder) return null;
 
   return (
-    <TableRow className="text-xs text-center text-background">
+    <TableRow className="text-2xs text-center text-background">
       <TableCell>#{game.id}</TableCell>
       <TableCell>1</TableCell>
       <TableCell>{score}</TableCell>
       <TableCell>{tilesPlayed}</TableCell>
-      <TableCell>00:00:00</TableCell>
+      <TableCell>{formatTime(date) ?? "N/A"}</TableCell>
 
       <TableCell className="flex justify-end">
         <TooltipProvider>
@@ -149,3 +147,13 @@ export const GameSingleRow = ({ game }: { game: any }) => {
     </TableRow>
   );
 };
+
+function formatTime(date: Date) {
+  // Get hours, minutes, and seconds from the Date object
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const seconds = date.getSeconds().toString().padStart(2, '0');
+
+  // Format the time as hh:mm:ss
+  return `${hours}:${minutes}:${seconds}`;
+}
