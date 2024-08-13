@@ -65,24 +65,22 @@ export const Games = () => {
   }, [games, show, account, gameMode]);
 
   return (
-    <div className="flex flex-col gap-2 items-start w-full h-full">
-      <Table className="mb-4">
-        <TableHeader>
-          <TableRow className="text-xs">
-            <TableHead className="w-[100px] text-center uppercase">Game</TableHead>
-            <TableHead className="uppercase text-center">Rank</TableHead>
-            <TableHead className="uppercase text-center">Score</TableHead>
-            <TableHead className="uppercase text-center">Tiles</TableHead>
-            <TableHead className="uppercase text-center">Time</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {Object.values(filteredGames).map((game, index) => {
-            return <GameSingleRow key={index} game={game} />;
-          })}
-        </TableBody>
-      </Table>
-    </div>
+    <Table className="mb-4">
+      <TableHeader>
+        <TableRow className="text-xs sm:text-sm">
+          <TableHead className="w-[100px] text-center uppercase">Game</TableHead>
+          <TableHead className="uppercase text-center">Rank</TableHead>
+          <TableHead className="uppercase text-center">Score</TableHead>
+          <TableHead className="uppercase text-center">Tiles</TableHead>
+          <TableHead className="uppercase text-center">Time</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {Object.values(filteredGames).map((game, index) => (
+          <GameSingleRow key={index} game={game} />
+        ))}
+      </TableBody>
+    </Table>
   );
 };
 
@@ -121,7 +119,7 @@ export const GameSingleRow = ({ game }: { game: any }) => {
   if (!game || !builder) return null;
 
   return (
-    <TableRow className="text-2xs text-center text-background">
+    <TableRow className="text-2xs sm:text-xs text-center text-background">
       <TableCell>#{game.id}</TableCell>
       <TableCell>1</TableCell>
       <TableCell>{score}</TableCell>
@@ -134,11 +132,11 @@ export const GameSingleRow = ({ game }: { game: any }) => {
             <TooltipTrigger asChild>
               <Button
                 size={"sm"}
-                className={`px-4 flex gap-3 self-end h-8 w-19 hover:bg-transparent ${over ? "border-none" : "border-2"}`}
+                className={`px-1 sm:px-4 flex gap-3 self-end h-8 w-19 text-2xs sm:text-xs hover:bg-transparent ${over ? "border-none" : "border-2"}`}
                 variant={over ? "ghost" : "default"}
                 onClick={() => setGameQueryParam(game.id || 0)}
               >
-                {over ? <img className="h-6 w-10" src={viewMapIcon} /> : "Play"}
+                {over ? <img className="h-6 w-10 " src={viewMapIcon} /> : "Play"}
               </Button>
             </TooltipTrigger>
           </Tooltip>
