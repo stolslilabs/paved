@@ -17,6 +17,9 @@ module.exports = {
       },
     },
     extend: {
+      fontSize: {
+        '2xs': '.625rem',
+      },
       fontFamily: {
         body: ["Rubik Mono One", "mono"],
       },
