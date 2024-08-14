@@ -69,7 +69,7 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
           <IngameButton icon={leaderboard} />
         )}
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="bg-primary">
         <DialogHeader>
           <DialogTitle className="text-center text-xl">Leaderboard</DialogTitle>
         </DialogHeader>

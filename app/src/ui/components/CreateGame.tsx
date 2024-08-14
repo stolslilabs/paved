@@ -8,9 +8,9 @@ import {
 } from "@/ui/elements/tooltip";
 import { Account } from "starknet";
 import { usePlayer } from "@/hooks/usePlayer";
-import { Lords } from "./Lords";
 import { useState } from "react";
 import { Mode } from "@/dojo/game/types/mode";
+import { useLobby } from "@/hooks/useLobby";
 
 export const CreateGame = ({ mode }: { mode: Mode }) => {
   const {
@@ -19,6 +19,8 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
       systemCalls: { create_game },
     },
   } = useDojo();
+
+  const { gameMode } = useLobby();
 
   const { player } = usePlayer({ playerId: account?.address });
 
@@ -38,18 +40,12 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex justify-center items-center gap-0">
-            <Button loading={loading} disabled={!player} onClick={handleClick}>
-              New Game{" "}
-              <span className="flex space-x-2 ml-1 sm:ml-4">
-                [<p>1</p> <Lords height={4} width={4} fill={""} />]
-              </span>
-            </Button>
-            {/* <div className="text-xs flex justify-center items-center gap-1 p-2rounded-r-lg bg-black p-2 text-white"></div> */}
-          </div>
+          <Button className="tracking-[0.25rem] shadow-lg hover:bg-secondary" loading={loading} disabled={!player} onClick={handleClick}>
+            New Game
+          </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p className="select-none">Create a daily player game</p>
+          <p className="select-none">Create a {gameMode.value} player game</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

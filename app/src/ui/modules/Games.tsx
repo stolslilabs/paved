@@ -7,47 +7,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/ui/elements/table";
-import banner from "/assets/banner.svg";
 import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
-import { ScrollArea } from "@/ui/elements/scroll-area";
-import { Label } from "@/ui/elements/label";
-import { Switch } from "@/ui/elements/switch";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye, faRightToBracket } from "@fortawesome/free-solid-svg-icons";
+import { ScrollArea, ScrollBar } from "@/ui/elements/scroll-area";
 
 import { useDojo } from "@/dojo/useDojo";
 import { Has, defineEnterSystem, defineSystem } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 
-import { CreateGame } from "@/ui/components/CreateGame";
-import { Tournament } from "../components/Tournament";
 import { useBuilder } from "@/hooks/useBuilder";
 import { Game } from "@/dojo/game/types/game";
 import { useLobby } from "@/hooks/useLobby";
-import { MobileView } from "react-device-detect";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "../elements/sheet";
-import { Address } from "../components/Address";
-import { Player } from "./Player";
-import { Links } from "../components/Links";
-import { MusicPlayer } from "../components/MusicPlayer";
+import viewMapIcon from "/assets/icons/viewmap.svg";
 
 export const Games = () => {
   const { gameMode } = useLobby();
 
   const [games, setGames] = useState<{ [key: number]: any }>({});
-  const [show, setShow] = useState<boolean>(false);
+  const [show, setShow] = useState<boolean>(true);
 
   const {
     account: { account },
@@ -84,76 +65,22 @@ export const Games = () => {
   }, [games, show, account, gameMode]);
 
   return (
-    <div className=" h-full">
-      <div className="flex flex-col gap-2 items-start w-full p-4  md:px-8 h-full">
-        <div className="h-24 flex justify-between w-full">
-          <img src={banner} className="h-full " />
-          <MusicPlayer />
-        </div>
-
-        <div className="flex my-4 gap-1 items-center w-full">
-          <CreateGame mode={gameMode} />
-          <MobileView className="w-full">
-            <Sheet>
-              <SheetTrigger className="w-full">
-                <Button className="text-xs w-full">
-                  View
-                  <br />
-                  Profile
-                </Button>
-              </SheetTrigger>
-              <SheetContent className="w-full overflow-y-scroll bg-[#EFDEB9] pt-8">
-                <SheetHeader>
-                  <SheetTitle>
-                    <div className="mb-2">
-                      <Address />
-                    </div>
-                  </SheetTitle>
-                  <SheetDescription>
-                    <Player />
-                    <div className="my-4 py-4 border shadow-sm bg-white/90">
-                      <Tournament mode={gameMode} />
-                    </div>
-                    <Links />
-                  </SheetDescription>
-                </SheetHeader>
-              </SheetContent>
-            </Sheet>
-          </MobileView>
-        </div>
-
-        <div className="flex justify-between w-full">
-          <h4>Games</h4>
-          <div className="flex items-center space-x-2 bg-gray-600 bg-opacity-10 px-2 rounded-full sm:bg-transparent sm:px-0">
-            <Switch
-              id="show-finished"
-              checked={show}
-              onCheckedChange={() => setShow(!show)}
-            />
-            <Label className="text-xs" htmlFor="show-finished">
-              Show finished Games
-            </Label>
-          </div>
-        </div>
-
-        <ScrollArea className="w-full pr-4 p-4 shadow">
-          <Table>
-            <TableHeader>
-              <TableRow className="text-sm">
-                <TableHead className="w-[100px]">#</TableHead>
-                <TableHead>Tiles played</TableHead>
-                <TableHead>Score</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Object.values(filteredGames).map((game, index) => {
-                return <GameSingleRow key={index} game={game} />;
-              })}
-            </TableBody>
-          </Table>
-        </ScrollArea>
-      </div>
-    </div>
+    <Table className="mb-4">
+      <TableHeader>
+        <TableRow className="text-xs sm:text-sm">
+          <TableHead className="w-[100px] text-center uppercase">Game</TableHead>
+          <TableHead className="uppercase text-center">Rank</TableHead>
+          <TableHead className="uppercase text-center">Score</TableHead>
+          <TableHead className="uppercase text-center">Tiles</TableHead>
+          <TableHead className="uppercase text-center">Time</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {Object.values(filteredGames).map((game, index) => (
+          <GameSingleRow key={index} game={game} />
+        ))}
+      </TableBody>
+    </Table>
   );
 };
 
@@ -192,10 +119,12 @@ export const GameSingleRow = ({ game }: { game: any }) => {
   if (!game || !builder) return null;
 
   return (
-    <TableRow className="text-xs">
-      <TableCell>{game.id}</TableCell>
-      <TableCell>{tilesPlayed}</TableCell>
+    <TableRow className="text-2xs sm:text-xs text-center text-background">
+      <TableCell>#{game.id}</TableCell>
+      <TableCell>1</TableCell>
       <TableCell>{score}</TableCell>
+      <TableCell>{tilesPlayed}</TableCell>
+      <TableCell>{formatTime(date) ?? "N/A"}</TableCell>
 
       <TableCell className="flex justify-end">
         <TooltipProvider>
@@ -203,16 +132,11 @@ export const GameSingleRow = ({ game }: { game: any }) => {
             <TooltipTrigger asChild>
               <Button
                 size={"sm"}
-                className="px-4 flex gap-3 self-end"
-                variant={"default"}
+                className={`px-1 sm:px-4 flex gap-3 self-end h-8 w-19 text-2xs sm:text-xs hover:bg-transparent ${over ? "border-none" : "border-2"}`}
+                variant={over ? "ghost" : "default"}
                 onClick={() => setGameQueryParam(game.id || 0)}
               >
-                <span className="self-center">Join</span>
-
-                <FontAwesomeIcon
-                  className="self-center"
-                  icon={over ? faEye : faRightToBracket}
-                />
+                {over ? <img className="h-6 w-10 " src={viewMapIcon} /> : "Play"}
               </Button>
             </TooltipTrigger>
           </Tooltip>
@@ -221,3 +145,13 @@ export const GameSingleRow = ({ game }: { game: any }) => {
     </TableRow>
   );
 };
+
+function formatTime(date: Date) {
+  // Get hours, minutes, and seconds from the Date object
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const seconds = date.getSeconds().toString().padStart(2, '0');
+
+  // Format the time as hh:mm:ss
+  return `${hours}:${minutes}:${seconds}`;
+}

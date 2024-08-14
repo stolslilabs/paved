@@ -20,7 +20,7 @@ const GameScreen = () => {
   const [hasOpenMenu, setHasOpenMenu] = useState<boolean>(false)
 
   return (
-    <main className={`relative w-full h-dscreen flex flex-col left-0 top-0 overflow-hidden grow bg-blue-100 ${loading && "cursor-wait"}`}>
+    <main className={`relative w-full h-dscreen flex flex-col left-0 top-0 grow bg-blue-100 ${loading && "cursor-wait"}`}>
       <Overlay>
         <Overlay.Header />
         <Overlay.Banner />

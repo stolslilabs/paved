@@ -3,7 +3,7 @@ import { useLobbyStore } from "@/store";
 import { useMemo } from "react";
 
 export const useLobby = () => {
-  const { mode, setMode } = useLobbyStore();
+  const { mode } = useLobbyStore();
 
   const gameMode: Mode = useMemo(() => {
     if (mode === ModeType.Weekly) {
