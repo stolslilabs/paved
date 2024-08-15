@@ -10,6 +10,8 @@ export const useLobby = () => {
       return new Mode(ModeType.Weekly);
     } else if (mode === ModeType.Daily) {
       return new Mode(ModeType.Daily);
+    } else if (mode === ModeType.Tutorial) {
+      return new Mode(ModeType.Tutorial);
     } else {
       return new Mode(ModeType.None);
     }

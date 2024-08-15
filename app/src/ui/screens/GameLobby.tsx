@@ -15,7 +15,7 @@ import { Mode } from "@/dojo/game/types/mode";
 import { ReactNode } from "react";
 
 const tabs = ["daily", "weekly", "1v1", "tutorial"];
-const disabledTabs = ["weekly", "1v1", "tutorial"];
+const disabledTabs = ["weekly", "1v1"];
 
 // TODO: Consider applying this to the tabs component directly
 const tabsStyles = {
@@ -64,7 +64,7 @@ const PanelsContainerHeader = ({ children }: { children: ReactNode }) => (
 
 const GameTable = ({ gameMode }: { gameMode: Mode }) => (
   <div className="flex-1 flex flex-col overflow-hidden">
-    <Tabs defaultValue="daily" className="w-full h-full flex flex-col">
+    <Tabs defaultValue={gameMode.value.toLowerCase()} className="w-full h-full flex flex-col">
       <TabsList className="flex-shrink-0 p-0 bg-transparent justify-start">
         {tabs.map((tab, index) => (
           <>
