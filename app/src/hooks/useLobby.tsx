@@ -3,7 +3,7 @@ import { useLobbyStore } from "@/store";
 import { useMemo } from "react";
 
 export const useLobby = () => {
-  const { mode } = useLobbyStore();
+  const { mode, setMode: setStoreMode } = useLobbyStore();
 
   const gameMode: Mode = useMemo(() => {
     if (mode === ModeType.Weekly) {
@@ -17,7 +17,19 @@ export const useLobby = () => {
     }
   }, [mode]);
 
+  const setMode = (modeStr: string): Mode => {
+    const modeType = modeStr as ModeType;
+    if (Object.values(ModeType).includes(modeType)) {
+      const newMode = new Mode(modeType);
+      setStoreMode(modeType);
+      return newMode;
+    }
+    // Default to None if the string doesn't match any ModeType
+    return new Mode(ModeType.None);
+  };
+
   return {
     gameMode,
+    setMode,
   };
 };

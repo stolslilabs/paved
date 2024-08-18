@@ -13,7 +13,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
-import { ScrollArea, ScrollBar } from "@/ui/elements/scroll-area";
 
 import { useDojo } from "@/dojo/useDojo";
 import { Has, defineEnterSystem, defineSystem } from "@dojoengine/recs";
@@ -23,8 +22,11 @@ import { useBuilder } from "@/hooks/useBuilder";
 import { Game } from "@/dojo/game/types/game";
 import { useLobby } from "@/hooks/useLobby";
 import viewMapIcon from "/assets/icons/viewmap.svg";
+import { Mode, ModeType } from "@/dojo/game/types/mode";
+import blobert from "/assets/blobert.svg";
+import { CreateGame } from "../components/CreateGame";
 
-export const Games = () => {
+export const Games = ({ setIsDisplayingCreateGame }: { setIsDisplayingCreateGame: (value: boolean) => void }) => {
   const { gameMode } = useLobby();
 
   const [games, setGames] = useState<{ [key: number]: any }>({});
@@ -64,7 +66,13 @@ export const Games = () => {
       .sort((a, b) => b.id - a.id);
   }, [games, show, account, gameMode]);
 
-  return (
+  const isTutorialAndEmpty = useMemo(() => gameMode.value === ModeType.Tutorial && filteredGames.length === 0, [gameMode, filteredGames])
+
+  useEffect(() => {
+    setIsDisplayingCreateGame(!isTutorialAndEmpty)
+  }, [isTutorialAndEmpty])
+
+  return !isTutorialAndEmpty ? (
     <Table className="mb-4">
       <TableHeader>
         <TableRow className="text-xs sm:text-sm">
@@ -81,8 +89,19 @@ export const Games = () => {
         ))}
       </TableBody>
     </Table>
+  ) : (
+    <EmptyTutorialContent />
   );
 };
+
+const EmptyTutorialContent = () => {
+  return (
+    <div className="flex flex-col sm:flex-row md:flex-col items-center justify-center h-full gap-8 p-4">
+      <img src={blobert} className="width-full sm:w-1/2" />
+      <CreateGame mode={new Mode(ModeType.Tutorial)} />
+    </div>
+  )
+}
 
 export const GameSingleRow = ({ game }: { game: any }) => {
   const [tilesPlayed, setTilesPlayed] = useState<number>();

@@ -12,14 +12,14 @@ import { Address } from "../components/Address";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "../elements/drawer";
 import leaderboardIcon from "/assets/icons/leaderboard.svg";
 import { Mode } from "@/dojo/game/types/mode";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 
 const tabs = ["daily", "weekly", "1v1", "tutorial"];
 const disabledTabs = ["weekly", "1v1"];
 
 // TODO: Consider applying this to the tabs component directly
 const tabsStyles = {
-  trigger: "h-full bg-primary/50 data-[state=active]:bg-secondary/50 rounded-b-none border-primary border-[1px] data-[state=active]:border-b-transparent disabled:bg-primary/25 sm:tracking-[0.25rem]",
+  trigger: "h-full bg-primary/50 data-[state=active]:bg-secondary/50 truncate rounded-b-none border-primary border-[1px] data-[state=active]:border-b-transparent disabled:bg-primary/25 sm:tracking-[0.25rem]",
   content: "h-full bg-primary mt-0 bg-secondary/50 border-x-[1px] border-primary"
 }
 
@@ -62,34 +62,39 @@ const PanelsContainerHeader = ({ children }: { children: ReactNode }) => (
   </div>
 )
 
-const GameTable = ({ gameMode }: { gameMode: Mode }) => (
-  <div className="flex-1 flex flex-col overflow-hidden">
-    <Tabs defaultValue={gameMode.value.toLowerCase()} className="w-full h-full flex flex-col">
-      <TabsList className="flex-shrink-0 p-0 bg-transparent justify-start">
-        {tabs.map((tab, index) => (
-          <>
-            {index === 0 && <div className={`h-4 self-end border-b-[1px] border-primary w-6 hidden sm:block`} />}
-            <TabsTrigger key={index} disabled={disabledTabs.includes(tab)} value={tab} className={tabsStyles.trigger}>{tab}</TabsTrigger>
-            <div className={`h-4 self-end border-b-[1px] border-primary ${index === (tabs.length - 1) ? "flex-grow" : "w-1 sm:w-6"}`} />
-          </>
-        ))}
-      </TabsList>
-      <div className="flex-1 overflow-hidden">
-        {tabs.map((tab) => (
-          <TabsContent key={tab} value={tab} className={`${tabsStyles.content} h-full overflow-y-scroll`}>
-            <Games />
-          </TabsContent>
-        ))}
-      </div>
-      <CreateGameSliver gameMode={gameMode} />
-    </Tabs>
-  </div>
-)
+const GameTable = ({ gameMode }: { gameMode: Mode }) => {
+  const { setMode } = useLobby()
+  const [isDisplayingCreateGame, setIsDisplayingCreateGame] = useState(false)
 
-const CreateGameSliver = ({ gameMode }: { gameMode: Mode }) => (
-  <div className="w-full flex justify-between sm:justify-end h-20 border-x-[1px] border-b-[1px] border-primary bg-secondary/50 p-4">
-    <ProfileSheet />
-    <CreateGame mode={gameMode} />
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <Tabs defaultValue={gameMode.value.toLowerCase()} onValueChange={setMode} className="w-full h-full flex flex-col">
+        <TabsList className="flex-shrink-0 p-0 bg-transparent justify-start">
+          {tabs.map((tab, index) => (
+            <>
+              {index === 0 && <div className={`h-4 self-end border-b-[1px] border-primary w-6 hidden sm:block`} />}
+              <TabsTrigger key={index} disabled={disabledTabs.includes(tab)} value={tab} className={tabsStyles.trigger}>{tab}</TabsTrigger>
+              <div className={`h-4 self-end border-b-[1px] border-primary ${index === (tabs.length - 1) ? "flex-grow" : "w-1 sm:w-6"}`} />
+            </>
+          ))}
+        </TabsList>
+        <div className="flex-1 overflow-hidden">
+          {tabs.map((tab) => (
+            <TabsContent key={tab} value={tab} className={`${tabsStyles.content} h-full overflow-y-scroll`}>
+              <Games setIsDisplayingCreateGame={setIsDisplayingCreateGame} />
+            </TabsContent>
+          ))}
+        </div>
+        <CreateGameSliver isDisplayingCreateGame={isDisplayingCreateGame} gameMode={gameMode} />
+      </Tabs>
+    </div>
+  );
+}
+
+const CreateGameSliver = ({ gameMode, isDisplayingCreateGame }: { gameMode: Mode, isDisplayingCreateGame: boolean }) => (
+  <div className={"w-full flex justify-between sm:justify-end h-20 border-x-[1px] border-b-[1px] border-primary bg-secondary/50 p-4"}>
+    {isDisplayingCreateGame && <ProfileSheet />}
+    {isDisplayingCreateGame && <CreateGame mode={gameMode} />}
   </div>
 )
 const InfoPanel = ({ gameMode }: { gameMode: Mode }) => (
