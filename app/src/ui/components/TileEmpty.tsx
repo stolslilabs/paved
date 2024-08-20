@@ -11,7 +11,8 @@ import useSound from "use-sound";
 import Place from "/sounds/effects/p-place.m4a";
 import { useTileByKey } from "@/hooks/useTile";
 import { useActions } from "@/hooks/useActions";
-import { useGLTF } from "@react-three/drei";
+import { Edges, Html, Plane, useGLTF } from "@react-three/drei";
+import { useTutorial } from "@/hooks/useTutorial";
 
 const loader = new THREE.TextureLoader();
 
@@ -321,6 +322,8 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
     ],
   );
 
+  const { currentStepTile } = useTutorial()
+
   return (
     <>
       {meshComponent}
@@ -339,6 +342,24 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
           transparent={true}
           opacity={0.004}
         />
+        {(position.x === currentStepTile().x && position.y === currentStepTile().y) && (
+          <>
+            <Html position={[-6, 0, 0]} scale={0.1}>
+              <p className="text-xs w-80">
+                1. Click the highlighted <br /> square to locate the tile.
+              </p>
+            </Html>
+            <Plane args={[size, size, 1]} position={[0, 0, 0]} rotation={[0, 0, 0]}>
+              <meshStandardMaterial
+                transparent={true}
+              />
+              <Edges linewidth={3}
+                scale={.99}
+                threshold={15} // Display edges only when the angle between two faces exceeds this value (default=15 degrees)
+                color="lime" />
+            </Plane>
+          </>
+        )}
       </mesh>
     </>
   );
