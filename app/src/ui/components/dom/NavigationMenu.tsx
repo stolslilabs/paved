@@ -94,7 +94,7 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
                 onOpenChange={setHasOpenMenu}
             >
                 <CollapsibleTrigger asChild className="mb-1 right-4 absolute sm:relative sm:left-0">
-                    <IngameButton icon={burgerMenuIcon} />
+                    <IngameButton id="burger-menu" icon={burgerMenuIcon} />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-row sm:flex-col gap-1 absolute sm:relative top-4 sm:top-auto">
                     {NavigationMenuItems.map(({ name, icon, onClick, children }) => (
@@ -106,6 +106,7 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
             </Collapsible>
             <IngameButton
                 name="Deck Composition"
+                id="deck-composition"
                 icon={infoIcon}
                 onClick={() => { setCompositionOpen(true); setHasOpenMenu(true) }}
                 className="pointer-events-auto order-first sm:order-last"

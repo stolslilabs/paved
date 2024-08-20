@@ -6,6 +6,7 @@ import { useActions } from "@/hooks/useActions";
 import RotationSound from "/sounds/effects/rotation.wav";
 import { useGameStore } from "@/store";
 import useSound from "use-sound";
+import { useTutorial } from "@/hooks/useTutorial";
 
 export const HandPanel = () => {
     const [play] = useSound(RotationSound);
@@ -15,14 +16,16 @@ export const HandPanel = () => {
 
     const { orientation, setOrientation } = useGameStore();
 
+    const { getCurrentStep } = useTutorial();
+
     const handleRotate = () => {
         play();
         setOrientation(orientation + 1);
     };
 
     return (
-        <div className="col-start-4 row-start-8 sm:col-start-3 sm:row-start-4 flex flex-row justify-end gap-2 pointer-events-auto">
-            <div className="flex flex-col gap-2 self-center">
+        <div className="col-start-4 row-start-8 sm:col-start-3 sm:row-start-4 flex flex-row justify-end gap-2 pointer-events-none">
+            <div id="tile-controls" className="flex flex-col gap-2 self-center">
                 <IngameButton name="Rotate" icon={rotateIcon} side="left" onClick={handleRotate} disabled={!enabled} />
                 <IngameButton name="Confirm" icon={confirmIcon} side="left" onClick={handleConfirm} disabled={disabled} />
             </div>

@@ -75,6 +75,7 @@ export const Tile = () => {
 
   return (
     <div
+      id="tile-preview"
       className="relative aspect-square h-full cursor-pointer bg-cover bg-center flex lg:justify-center items-center shadow-lg pointer-events-auto"
       style={{ backgroundColor }}
     >
