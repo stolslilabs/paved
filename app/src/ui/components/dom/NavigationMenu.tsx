@@ -23,6 +23,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { Plan } from "@/dojo/game/types/plan";
 import { ScrollArea } from "@/ui/elements/scroll-area";
 import cancelIcon from "/assets/icons/cancel.svg";
+import { TutorialDialog } from "./TutorialDialog";
 
 type MenuItem = {
     name: string
@@ -104,13 +105,16 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
                     ))}
                 </CollapsibleContent>
             </Collapsible>
-            <IngameButton
-                name="Deck Composition"
-                id="deck-composition"
-                icon={infoIcon}
-                onClick={() => { setCompositionOpen(true); setHasOpenMenu(true) }}
-                className="pointer-events-auto order-first sm:order-last"
-            />
+            <div className="flex gap-4">
+                <IngameButton
+                    name="Deck Composition"
+                    id="deck-composition"
+                    icon={infoIcon}
+                    onClick={() => { setCompositionOpen(true); setHasOpenMenu(true) }}
+                    className="pointer-events-auto order-first sm:order-last"
+                />
+                <TutorialDialog />
+            </div>
         </div>
     ) : (
         <ScrollArea className="

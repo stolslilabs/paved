@@ -30,7 +30,6 @@ const GameScreen = () => {
           <IngameStatus hasOpenMenu={hasOpenMenu} />
           <CharacterMenu />
           <HandPanel />
-          <TutorialDialog />
         </Overlay.Content>
       </Overlay>
       <GameCanvas>
