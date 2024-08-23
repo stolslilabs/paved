@@ -1,60 +1,28 @@
-import { ModeType } from "@/dojo/game/types/mode";
-import { useLobby } from "./useLobby";
 import { useQueryParams } from "./useQueryParams";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
+import { useGame } from "./useGame";
+import { TUTORIAL_STAGES } from "@/dojo/game/types/tutorial-stage";
 
-
-const markedTiles = [
-    { x: -3, y: 0 },
-    { x: -3, y: -3 },
-    { x: -3, y: -6 },
-    { x: 0, y: -3 },
-    { x: 0, y: -6 },
-    { x: 3, y: -6 },
-    { x: 3, y: -3 },
-    { x: 3, y: 0 },
-]
-
-const firstStep = 0
-const maxSteps = 9
-
-// TODO: Clear on controller version bump 
 export const useTutorial = () => {
     const { gameId } = useQueryParams();
-    const { gameMode } = useLobby();
+    const { game } = useGame({ gameId });
 
-    const [step, setStep] = useState(firstStep)
+    const step = useMemo(() => (game?.built ?? 0) + (game?.discarded ?? 0), [game?.built, game?.discarded])
 
-    useEffect(() => {
-        const handleTutorialAdvance = (e: CustomEvent<number>) => {
-            setStep(e.detail)
-        }
-
-        window.addEventListener('tutorial-advance', handleTutorialAdvance as EventListener)
-
-        return () => {
-            window.removeEventListener('tutorial-advance', handleTutorialAdvance as EventListener)
-        }
-    }, [])
-
-
-    const getCurrentStep = () => localStorage.getItem(`tutorial-${gameId}`) ?? '0';
-
-    const currentStepTile = () => markedTiles[parseInt(getCurrentStep())]
-
-    const advanceStep = () => {
-        if (gameMode.value !== ModeType.Tutorial) return
-
-        localStorage.setItem(`tutorial-${gameId}`, step.toString())
-
-        dispatchEvent(new CustomEvent('tutorial-advance', { detail: step + 1 }));
-    }
+    const currentTutorialStage = () => TUTORIAL_STAGES[step]
 
     return {
-        getCurrentStep,
-        currentStepTile,
-        advanceStep,
-        firstStep,
-        maxSteps
+        currentTutorialStage,
+        step,
     }
+}
+
+export function comparePartials<T, U>(obj1: Partial<T>, obj2: U): boolean {
+    for (const key of Object.keys(obj1) as Array<keyof T & keyof U>) {
+        if (obj1[key] !== obj2[key]) {
+            console.log("Mismatch:", key, obj1[key], obj2[key])
+            return false;
+        }
+    }
+    return true;
 }
