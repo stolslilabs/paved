@@ -7,8 +7,10 @@ export const getConnectors = (): { connectors: Connector[] } => {
   const config = dojoConfig();
   const account = getContractByName(config.manifest, "account")?.address;
   const daily = getContractByName(config.manifest, "daily")?.address;
+  const tutorial = getContractByName(config.manifest, "tutorial")?.address
   const paymaster: any = { caller: "0x414e595f43414c4c4552" };
   const options: any = { theme: "paved", paymaster };
+
   const cartridge = new CartridgeConnector(
     [
       {
@@ -63,6 +65,35 @@ export const getConnectors = (): { connectors: Connector[] } => {
       },
       {
         target: daily,
+        method: "build",
+      },
+      // Tutorial
+      {
+        target: tutorial,
+        method: "initialize",
+      },
+      {
+        target: tutorial,
+        method: "spawn",
+      },
+      {
+        target: tutorial,
+        method: "claim",
+      },
+      {
+        target: tutorial,
+        method: "sponsor",
+      },
+      {
+        target: tutorial,
+        method: "discard",
+      },
+      {
+        target: tutorial,
+        method: "surrender",
+      },
+      {
+        target: tutorial,
         method: "build",
       },
     ],
