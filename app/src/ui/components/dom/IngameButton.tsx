@@ -1,3 +1,7 @@
+import { ModeType } from "@/dojo/game/types/mode"
+import { useGame } from "@/hooks/useGame"
+import { useQueryParams } from "@/hooks/useQueryParams"
+import { useTutorial } from "@/hooks/useTutorial"
 import { Button, ButtonProps } from "@/ui/elements/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/elements/tooltip"
 import { cn } from "@/ui/utils"
@@ -13,10 +17,18 @@ type IngameButtonProps = ButtonProps & React.RefAttributes<HTMLButtonElement> & 
 
 export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProps>(
     ({ icon, name, side = "right", children, className, ...props }, ref): JSX.Element => {
+        const { gameId } = useQueryParams();
+        const { game } = useGame({ gameId });
+        const { currentTutorialStage } = useTutorial();
+
+        const interactionText = currentTutorialStage().interactionText.get(props.id ?? "")
+        const tutorialOpen = props.id && game?.mode.value === ModeType.Tutorial && interactionText
+        const interactionIndex = tutorialOpen ? Array.from(currentTutorialStage().interactionText.keys()).indexOf(props.id ?? "") + 1 : -1;
+
         const content = children ?? (
             <Button
                 ref={ref}
-                className={cn("px-2 w-10 py-5 border-none bg-[#D2E2F1] bg-opacity-80 rounded-md pointer-events-auto", className)}
+                className={cn(`px-2 w-10 py-5 ${tutorialOpen ? "border-solid" : "border-none"} border-blue-500 border-2 bg-[#D2E2F1] bg-opacity-80 rounded-md pointer-events-auto`, className)}
                 {...props}
             >
                 <img src={icon} className="w-6" />
@@ -25,12 +37,12 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
 
         return (name && !isMobile) ? (
             <TooltipProvider>
-                <Tooltip>
+                <Tooltip open={!!tutorialOpen}>
                     <TooltipTrigger className="w-10 pointer-events-auto">
                         {content}
                     </TooltipTrigger>
                     <TooltipContent className="bg-transparent" side={side}>
-                        <p>{name}</p>
+                        <p>{tutorialOpen ? `${interactionIndex}.${interactionText}` : name}</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
