@@ -9,6 +9,9 @@ import { useActionsStore } from "@/store";
 import useSound from "use-sound";
 import Click from "/sounds/effects/p-complete.m4a";
 import Points from "/sounds/effects/points.wav";
+import { comparePartials, useTutorial } from "./useTutorial";
+import { ModeType } from "@/dojo/game/types/mode";
+import { toast } from "sonner";
 
 export const useActions = () => {
   const { gameId } = useQueryParams();
@@ -51,12 +54,14 @@ export const useActions = () => {
     setEnabled(!loading && !!builder?.tile_id);
   }, [game, builder, selectedTile, valid, loading]);
 
+  const { currentTutorialStage } = useTutorial()
+
   const handleConfirm = useCallback(async () => {
     if (game && builder?.tile_id) {
       setLoading(true);
       play();
       try {
-        await build({
+        const tx = {
           account: account,
           mode: game.mode,
           game_id: gameId,
@@ -66,7 +71,21 @@ export const useActions = () => {
           y: y,
           role: character,
           spot: spot,
-        });
+        }
+        if (game.mode.value === ModeType.Tutorial) {
+          if (!comparePartials(currentTutorialStage().presetTransaction, tx)) {
+            // Reset the settings
+            resetX();
+            resetY();
+            resetCharacter();
+            resetSpot();
+            resetSelectedTile();
+            resetHoveredTile();
+            setLoading(false);
+            return toast.error("Incorrect tile configuration, please correct and try again.")
+          }
+        }
+        await build(tx);
         // Reset the settings
         resetX();
         resetY();
