@@ -94,8 +94,7 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
     });
 
     defineSystem(world, [Has(Game)], function ({ value: [game] }: any) {
-      console.log(game.id)
-      if (gameMode.value === ModeType.Tutorial) navigate("?id=" + game.id, { replace: true });
+      if (game.mode === Object.values(ModeType).indexOf(ModeType.Tutorial)) navigate("?id=" + game.id, { replace: true });
     }, { runOnInit: false });
   }, []);
 
