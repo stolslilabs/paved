@@ -82,6 +82,13 @@ export function systems({
         ...props,
       });
 
+      if (mode?.value === ModeType.Tutorial) {
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        })
+        return
+      }
+
       notify(
         "Game has been created.",
         await account.waitForTransaction(transaction_hash, {
