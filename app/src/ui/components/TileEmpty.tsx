@@ -391,7 +391,6 @@ const TileHighlight = ({ size }: { size: number }) => {
           transparent={true}
         />
         <Edges linewidth={5}
-          scale={.98}
           threshold={15}
           color="lime" />
       </Plane>
