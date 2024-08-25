@@ -9,7 +9,7 @@ import {
 import { Account } from "starknet";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useState } from "react";
-import { Mode } from "@/dojo/game/types/mode";
+import { Mode, ModeType } from "@/dojo/game/types/mode";
 import { useLobby } from "@/hooks/useLobby";
 
 export const CreateGame = ({ mode }: { mode: Mode }) => {
@@ -40,8 +40,8 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button className="tracking-[0.25rem] shadow-lg hover:bg-secondary" loading={loading} disabled={!player} onClick={handleClick}>
-            New Game
+          <Button className="tracking-[0.25rem] shadow-lg hover:bg-secondary px-4 py-5 lg:p-6" loading={loading} disabled={!player} onClick={handleClick}>
+            {gameMode.value === ModeType.Tutorial ? "Start" : "New Game"}
           </Button>
         </TooltipTrigger>
         <TooltipContent>
