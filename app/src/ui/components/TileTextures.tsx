@@ -2,8 +2,13 @@ import { useMemo } from "react";
 import { TileTexture } from "./TileTexture";
 import { TileEmpty } from "./TileEmpty";
 import { useTiles } from "@/hooks/useTiles";
+import { useQueryParams } from "@/hooks/useQueryParams";
+import { useGame } from "@/hooks/useGame";
+import { ModeType } from "@/dojo/game/types/mode";
 
 export const TileTextures = ({ squareSize }: { squareSize: number }) => {
+  const gameId = useQueryParams()
+  const { game } = useGame(gameId);
   const { tiles, items } = useTiles();
 
   function findHighestId(obj: any) {
@@ -37,6 +42,7 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
             tile={item.tile}
             size={squareSize}
             length={findHighestId(tiles)}
+            isTutorial={game?.mode.value === ModeType.Tutorial}
           />
         );
       }
