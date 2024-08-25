@@ -15,7 +15,6 @@ import {
 } from "@/ui/elements/tooltip";
 
 import { useDojo } from "@/dojo/useDojo";
-import { Has, defineEnterSystem, defineSystem } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 
 import { useBuilder } from "@/hooks/useBuilder";
@@ -26,53 +25,21 @@ import { Mode, ModeType } from "@/dojo/game/types/mode";
 import blobert from "/assets/blobert.svg";
 import { CreateGame } from "../components/CreateGame";
 
-export const Games = ({ setIsDisplayingCreateGame }: { setIsDisplayingCreateGame: (value: boolean) => void }) => {
+export type GamesList = { [key: number]: any }
+
+export const Games = ({ games }: { games: GamesList }) => {
   const { gameMode } = useLobby();
 
-  const [games, setGames] = useState<{ [key: number]: any }>({});
-  const [show, setShow] = useState<boolean>(true);
-
-  const {
-    account: { account },
-    setup: {
-      world,
-      clientModels: {
-        models: { Game },
-        classes: { Game: GameClass },
-      },
-    },
-  } = useDojo();
-
-  useMemo(() => {
-    defineEnterSystem(world, [Has(Game)], function ({ value: [game] }: any) {
-      setGames((prevTiles: any) => {
-        return { ...prevTiles, [game.id]: new GameClass(game) };
-      });
-    });
-    defineSystem(world, [Has(Game)], function ({ value: [game] }: any) {
-      setGames((prevTiles: any) => {
-        return { ...prevTiles, [game.id]: new GameClass(game) };
-      });
-    });
-  }, []);
-
-  const filteredGames: Game[] = useMemo(() => {
-    return Object.values(games)
+  const filteredGames: Game[] = useMemo(() =>
+    Object.values(games)
       .filter((game) => {
         if (game.mode.value !== gameMode.value) return false;
-        if (show && game.score > 0) return true;
+        if (game.score > 0) return true;
         return !game.isOver();
       })
-      .sort((a, b) => b.id - a.id);
-  }, [games, show, account, gameMode]);
+      .sort((a, b) => b.id - a.id), [games, gameMode]);
 
-  const isTutorialAndEmpty = useMemo(() => gameMode.value === ModeType.Tutorial && filteredGames.length === 0, [gameMode, filteredGames])
-
-  useEffect(() => {
-    setIsDisplayingCreateGame(!isTutorialAndEmpty)
-  }, [isTutorialAndEmpty])
-
-  return !isTutorialAndEmpty ? (
+  return gameMode.value !== ModeType.Tutorial ? (
     <Table className="mb-4">
       <TableHeader>
         <TableRow className="text-xs sm:text-sm">
@@ -90,13 +57,13 @@ export const Games = ({ setIsDisplayingCreateGame }: { setIsDisplayingCreateGame
       </TableBody>
     </Table>
   ) : (
-    <EmptyTutorialContent />
+    <StartTutorialContent />
   );
 };
 
-const EmptyTutorialContent = () => {
+const StartTutorialContent = () => {
   return (
-    <div className="flex flex-col sm:flex-row md:flex-col items-center justify-center h-full gap-8 p-4">
+    <div className="flex flex-col sm:flex-row md:flex-col items-center justify-center h-full gap-8 sm:gap-4 lg:gap-8 p-4">
       <img src={blobert} className="width-full sm:w-1/2" />
       <CreateGame mode={new Mode(ModeType.Tutorial)} />
     </div>
