@@ -33,6 +33,7 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
             col={item.tile.col}
             row={item.tile.row}
             size={squareSize}
+            isTutorial={game?.mode.value === ModeType.Tutorial}
           />
         );
       } else {

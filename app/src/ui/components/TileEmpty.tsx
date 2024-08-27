@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { useMemo, useRef, useState, useEffect, useCallback, Suspense } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useGameStore } from "@/store";
 import { getImage, offset, other_offset } from "@/dojo/game";
 import { checkCompatibility } from "@/dojo/game/types/layout";
@@ -18,7 +18,7 @@ import { useBuilder } from "@/hooks/useBuilder";
 
 const loader = new THREE.TextureLoader();
 
-export const TileEmpty = ({ tiles, col, row, size }: any) => {
+export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
   const [play, { stop }] = useSound(Place);
 
   const { gameId } = useQueryParams();
@@ -260,11 +260,14 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
     return (2 * size) / (dim.x + dim.z);
   }, [shadowedModel]);
 
+  const visibilityCondition = isTutorial ? !strategyMode : strategyMode;
+
+
   const meshComponent = useMemo(
     () => (
       <>
         <group
-          visible={texture !== undefined && !strategyMode}
+          visible={texture !== undefined && !visibilityCondition}
           ref={meshRef}
           key={`tile-${activeTile?.id}`}
           scale={scale}
@@ -278,7 +281,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
           <primitive object={shadowedModel} />
         </group>
         <mesh
-          visible={texture !== undefined && strategyMode}
+          visible={texture !== undefined && visibilityCondition}
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
           onClick={handleSimpleClick}
@@ -346,7 +349,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
           />
 
         </mesh>
-        {(position?.x === currentTutorialStage().markedTile?.x && position?.y === currentTutorialStage().markedTile?.y) && <TileHighlight size={size} />}
+        {(position?.x === currentTutorialStage.markedTile?.x && position?.y === currentTutorialStage.markedTile?.y) && <TileHighlight size={size} />}
       </group>
     </>
   );
@@ -365,7 +368,7 @@ const TileHighlight = ({ size }: { size: number }) => {
   });
 
   const { currentTutorialStage } = useTutorial()
-  const orientation = currentTutorialStage()?.presetTransaction.orientation
+  const orientation = currentTutorialStage?.presetTransaction.orientation
 
   const imageUrl = useMemo(() => getImage(tile), [tile])
 
@@ -374,9 +377,9 @@ const TileHighlight = ({ size }: { size: number }) => {
   const horizontalTextOffset = 6
   const verticalTextOffset = 2
 
-  const textPositionVector = currentTutorialStage()?.markedTileTextPosition
-  const interactionText = currentTutorialStage()?.interactionText.get("tile-ingame")
-  const interactionIndex = Array.from(currentTutorialStage().interactionText.keys()).indexOf("tile-ingame") + 1
+  const textPositionVector = currentTutorialStage?.markedTileTextPosition
+  const interactionText = currentTutorialStage?.interactionText.get("tile-ingame")
+  const interactionIndex = Array.from(currentTutorialStage.interactionText.keys()).indexOf("tile-ingame") + 1
   return texture && (
     <>
       <Html position={[textPositionVector.x * horizontalTextOffset, textPositionVector.y * verticalTextOffset, 0]} scale={0.1}>
