@@ -32,6 +32,16 @@ export class TutorialStage {
         this.initialOrientation = initialOrientation;
         this.markedTileTextPosition = markedTileTextPosition;
     }
+
+    compareTransaction(transaction: Partial<PresetTransaction>): boolean {
+        for (const key of Object.keys(this.presetTransaction) as Array<keyof PresetTransaction>) {
+            if (key in transaction && this.presetTransaction[key] !== transaction[key]) {
+                console.log(key.toUpperCase(), "Error! Expected:", this.presetTransaction[key], "Received:", transaction[key]);
+                return false;
+            }
+        }
+        return true;
+    }
 }
 
 export const TUTORIAL_STAGES = [
