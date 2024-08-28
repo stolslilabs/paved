@@ -383,7 +383,7 @@ const TileHighlight = ({ size }: { size: number }) => {
   return texture && (
     <>
       <Html transform position={[textPositionVector.x * horizontalTextOffset, textPositionVector.y * verticalTextOffset, 0]} scale={0.75}>
-        <p className="text-xs w-80 bg-black/10 p-4 rounded">
+        <p className="text-xs w-80 p-4 rounded">
           {interactionIndex}.{interactionText}
         </p>
       </Html>
