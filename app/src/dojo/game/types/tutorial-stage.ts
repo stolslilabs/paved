@@ -62,6 +62,8 @@ export const TUTORIAL_STAGES = [
             ["confirm-button", "Click the Confirm button to place the tile"]
         ]),
         "FADED TILE AND HIGHLIGHTED AREAS FOR TUTORIAL PURPOSES ONLY. PLEASE FOLLOW INSTRUCTIONS TO MOVE TO THE NEXT STEPS.",
+        1,
+        new THREE.Vector2(-.85, 0)
     ),
     new TutorialStage(
         { x: -3, y: -3 },
@@ -81,7 +83,7 @@ export const TUTORIAL_STAGES = [
         ]),
         "CERTAIN CHARACTERS SCORE BONUSES FOR CERTAIN STRUCTURES, CHOOSE WISELY TO MAXIMISE YOUR SCORE.",
         2,
-        new THREE.Vector2(-.25, -1)
+        new THREE.Vector2(-.85, 0)
     ),
     new TutorialStage(
         { x: -3, y: -6 },
@@ -100,7 +102,7 @@ export const TUTORIAL_STAGES = [
         ]),
         "CHARACTERS WILL BE GREYED OUT WHEN IN USE AND A MARKER IS DISPLAYED ON THE GAME BOARD.",
         3,
-
+        new THREE.Vector2(-.85, 0)
     ),
     new TutorialStage(
         { x: 0, y: -3 },
@@ -120,7 +122,7 @@ export const TUTORIAL_STAGES = [
         ]),
         "BE SURE TO USE YOUR CHARACTERS WISELY, YOU MAY FIND YOU PLAY THEM TOO EARLY AND MISS OUT ON UPCOMING STRUCTURES.",
         4,
-        new THREE.Vector2(.35, 0)
+        new THREE.Vector2(.85, 0)
     ),
     new TutorialStage(
         { x: 0, y: -6 },
@@ -139,7 +141,9 @@ export const TUTORIAL_STAGES = [
             ["tile-preview", "Locate the Paladin within the city to the west"],
             ["confirm-button", "Confirm tile placement"]
         ]),
-        ""
+        "",
+        1,
+        new THREE.Vector2(.85, 0)
     ),
     new TutorialStage(
         { x: 3, y: -6 },
@@ -157,7 +161,9 @@ export const TUTORIAL_STAGES = [
             ["tile-preview", "Locate the Lady on the road north"],
             ["confirm-button", "Click the Confirm button to place the tile"]
         ]),
-        ""
+        "",
+        1,
+        new THREE.Vector2(.85, 0)
     ),
     new TutorialStage(
         { x: 3, y: -3 },
@@ -174,7 +180,9 @@ export const TUTORIAL_STAGES = [
             ["rotate-button", "Rotate the tile to match example placement"],
             ["confirm-button", "Click the Confirm button to place the tile"],
         ]),
-        ""
+        "",
+        1,
+        new THREE.Vector2(.85, 0)
     ),
     new TutorialStage(
         { x: 3, y: 0 },
@@ -191,6 +199,8 @@ export const TUTORIAL_STAGES = [
             ["rotate-button", "Rotate the tile to match example placement"],
             ["confirm-button", "Click the Confirm button to place the tile"],
         ]),
-        ""
+        "",
+        1,
+        new THREE.Vector2(.85, 0)
     )
 ]
