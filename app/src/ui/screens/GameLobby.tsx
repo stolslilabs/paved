@@ -12,7 +12,7 @@ import { Address } from "../components/Address";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "../elements/drawer";
 import leaderboardIcon from "/assets/icons/leaderboard.svg";
 import { Mode, ModeType } from "@/dojo/game/types/mode";
-import { ReactNode, useMemo, useState } from "react";
+import { Fragment, ReactNode, useMemo, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
 import { Has, defineEnterSystem, defineSystem } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
@@ -103,12 +103,12 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
       <Tabs defaultValue={gameMode.value.toLowerCase()} onValueChange={setMode} className="w-full h-full flex flex-col">
         <TabsList className="flex-shrink-0 p-0 bg-transparent justify-start">
           {tabs.map((tab, index) => (
-            <>
+            <Fragment key={index}>
               <div className={`h-4 self-end border-b-[1px] border-primary ${index === (tabs.length - 1) ? "flex-grow" : "w-1 sm:w-6"}`} />
-              <TabsTrigger key={index} disabled={disabledTabs.includes(tab)} value={tab} className={tabsStyles.trigger}>{tab}</TabsTrigger>
+              <TabsTrigger disabled={disabledTabs.includes(tab)} value={tab} className={tabsStyles.trigger}>{tab}</TabsTrigger>
               {index === (tabs.length - 1) && <div className={`h-4 self-end border-b-[1px] border-primary w-6 hidden sm:block`} />}
 
-            </>
+            </Fragment>
           ))}
         </TabsList>
         <div className="flex-1 overflow-hidden">
