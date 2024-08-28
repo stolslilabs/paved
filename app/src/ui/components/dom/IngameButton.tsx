@@ -5,8 +5,7 @@ import { useTutorial } from "@/hooks/useTutorial"
 import { Button, ButtonProps } from "@/ui/elements/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/ui/elements/tooltip"
 import { cn } from "@/ui/utils"
-import React, { ReactElement } from "react"
-import { isMobile } from "react-device-detect"
+import React, { ReactElement, useState } from "react"
 
 type IngameButtonProps = ButtonProps & React.RefAttributes<HTMLButtonElement> & {
     icon: string
@@ -25,6 +24,9 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
         const tutorialOpen = props.id && game?.mode.value === ModeType.Tutorial && interactionText
         const interactionIndex = tutorialOpen ? Array.from(currentTutorialStage.interactionText?.keys()).indexOf(props.id ?? "") + 1 : -1;
 
+        const [ephemeralOpen, setEphemeralOpen] = useState(!!tutorialOpen)
+
+
         const content = children ?? (
             <Button
                 ref={ref}
@@ -35,10 +37,10 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
             </Button>
         )
 
-        return (name && !isMobile) ? (
+        return name ? (
             <TooltipProvider>
-                <Tooltip open={!!tutorialOpen}>
-                    <TooltipTrigger className="w-10 pointer-events-auto">
+                <Tooltip open={ephemeralOpen || !!tutorialOpen} onOpenChange={setEphemeralOpen}>
+                    <TooltipTrigger className="w-10 pointer-events-auto hidden sm:block">
                         {content}
                     </TooltipTrigger>
                     <TooltipContent className="bg-transparent" side={side}>
