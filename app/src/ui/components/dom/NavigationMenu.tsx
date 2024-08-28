@@ -1,4 +1,3 @@
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IngameButton } from "./IngameButton";
 import burgerMenuIcon from "/assets/icons/menu.svg";
 import infoIcon from "/assets/icons/info.svg";
@@ -24,6 +23,7 @@ import { Plan } from "@/dojo/game/types/plan";
 import { ScrollArea } from "@/ui/elements/scroll-area";
 import cancelIcon from "/assets/icons/cancel.svg";
 import { TutorialDialog } from "./TutorialDialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/ui/elements/collapsible";
 
 type MenuItem = {
     name: string
