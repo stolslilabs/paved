@@ -23,7 +23,6 @@ export const useTutorial = () => {
     useEffect(() => {
         const normalizedX = (x - coordOffset) * sizeOffset
         const normalizedY = (y - coordOffset) * sizeOffset
-        console.log(normalizedX === currentTutorialStage?.markedTile?.x, normalizedY === currentTutorialStage?.markedTile?.y)
 
     }, [currentTutorialStage?.markedTile?.x, currentTutorialStage?.markedTile?.y, x, y])
 
