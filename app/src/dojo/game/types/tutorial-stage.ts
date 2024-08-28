@@ -49,14 +49,16 @@ export const TUTORIAL_STAGES = [
         { x: -3, y: 0 },
         {
             orientation: 1,
-            role: 0,
-            spot: 0,
+            role: 3,
+            spot: 5,
             tile_id: 2,
             x: 2147483646,
             y: 2147483647
         },
         new Map([
             ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["adventurer-button", "Select the Adventurer"],
+            ["tile-preview", "Locate the Adventurer on the road east"],
             ["confirm-button", "Click the Confirm button to place the tile"]
         ]),
         "FADED TILE AND HIGHLIGHTED AREAS FOR TUTORIAL PURPOSES ONLY. PLEASE FOLLOW INSTRUCTIONS TO MOVE TO THE NEXT STEPS.",
@@ -66,6 +68,7 @@ export const TUTORIAL_STAGES = [
         {
             orientation: 2,
             role: 4,
+            spot: 1,
             tile_id: 3,
             x: 2147483646,
             y: 2147483646
@@ -73,7 +76,7 @@ export const TUTORIAL_STAGES = [
         new Map([
             ["tile-ingame", "Click the highlighted square to locate the tile"],
             ["paladin-button", "Select the Paladin"],
-            ["tile-preview", "Locate the Paladin within the city"],
+            ["tile-preview", "Locate the Paladin within the center of the city"],
             ["confirm-button", "Confirm tile placement"]
         ]),
         "CERTAIN CHARACTERS SCORE BONUSES FOR CERTAIN STRUCTURES, CHOOSE WISELY TO MAXIMISE YOUR SCORE.",
@@ -104,6 +107,7 @@ export const TUTORIAL_STAGES = [
         {
             orientation: 4,
             role: 5,
+            spot: 1,
             tile_id: 5,
             x: 2147483647,
             y: 2147483646
@@ -122,38 +126,54 @@ export const TUTORIAL_STAGES = [
         { x: 0, y: -6 },
         {
             orientation: 2,
-            role: 0,
-            spot: 0,
+            role: 4,
+            spot: 9,
             tile_id: 6,
             x: 2147483647,
             y: 2147483645
         },
-        new Map(),
+        new Map([
+            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["rotate-button", "Rotate the tile to match example placement"],
+            ["paladin-button", "Select the Paladin"],
+            ["tile-preview", "Locate the Paladin within the city to the west"],
+            ["confirm-button", "Confirm tile placement"]
+        ]),
         ""
     ),
     new TutorialStage(
         { x: 3, y: -6 },
         {
             orientation: 1,
-            role: 0,
-            spot: 0,
+            role: 2,
+            spot: 3,
             tile_id: 7,
             x: 2147483648,
             y: 2147483645
         },
-        new Map(),
+        new Map([
+            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["lady-button", "Select the Lady"],
+            ["tile-preview", "Locate the Lady on the road north"],
+            ["confirm-button", "Click the Confirm button to place the tile"]
+        ]),
         ""
     ),
     new TutorialStage(
         { x: 3, y: -3 },
         {
+            orientation: 2,
             role: 0,
             spot: 0,
             tile_id: 8,
             x: 2147483648,
             y: 2147483646
         },
-        new Map(),
+        new Map([
+            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["rotate-button", "Rotate the tile to match example placement"],
+            ["confirm-button", "Click the Confirm button to place the tile"],
+        ]),
         ""
     ),
     new TutorialStage(
@@ -166,7 +186,11 @@ export const TUTORIAL_STAGES = [
             x: 2147483648,
             y: 2147483647
         },
-        new Map(),
+        new Map([
+            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["rotate-button", "Rotate the tile to match example placement"],
+            ["confirm-button", "Click the Confirm button to place the tile"],
+        ]),
         ""
     )
 ]
