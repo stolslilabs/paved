@@ -21,9 +21,9 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
         const { game } = useGame({ gameId });
         const { currentTutorialStage } = useTutorial();
 
-        const interactionText = currentTutorialStage.interactionText.get(props.id ?? "")
+        const interactionText = currentTutorialStage?.interactionText?.get(props.id ?? "")
         const tutorialOpen = props.id && game?.mode.value === ModeType.Tutorial && interactionText
-        const interactionIndex = tutorialOpen ? Array.from(currentTutorialStage.interactionText.keys()).indexOf(props.id ?? "") + 1 : -1;
+        const interactionIndex = tutorialOpen ? Array.from(currentTutorialStage.interactionText?.keys()).indexOf(props.id ?? "") + 1 : -1;
 
         const content = children ?? (
             <Button
@@ -42,7 +42,7 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
                         {content}
                     </TooltipTrigger>
                     <TooltipContent className="bg-transparent" side={side}>
-                        <p>{tutorialOpen ? `${interactionIndex}.${interactionText}` : name}</p>
+                        <p>{tutorialOpen ? `${interactionIndex}.${interactionText ?? ""}` : name}</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>

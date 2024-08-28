@@ -77,7 +77,7 @@ export const Tile = () => {
 
   const id = "tile-preview"
 
-  const interactionText = currentTutorialStage.interactionText.get(id)
+  const interactionText = currentTutorialStage?.interactionText?.get(id)
 
   const tutorialOpen = game?.mode.value === ModeType.Tutorial && interactionText
   const interactionIndex = tutorialOpen ? Array.from(currentTutorialStage.interactionText.keys()).indexOf(id ?? "") + 1 : -1;

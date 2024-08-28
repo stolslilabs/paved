@@ -349,7 +349,7 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
           />
 
         </mesh>
-        {(position?.x === currentTutorialStage.markedTile?.x && position?.y === currentTutorialStage.markedTile?.y) && <TileHighlight size={size} />}
+        {(position?.x === currentTutorialStage?.markedTile?.x && position?.y === currentTutorialStage?.markedTile?.y) && <TileHighlight size={size} />}
       </group>
     </>
   );
@@ -382,8 +382,8 @@ const TileHighlight = ({ size }: { size: number }) => {
   const interactionIndex = Array.from(currentTutorialStage.interactionText.keys()).indexOf("tile-ingame") + 1
   return texture && (
     <>
-      <Html position={[textPositionVector.x * horizontalTextOffset, textPositionVector.y * verticalTextOffset, 0]} scale={0.1}>
-        <p className="text-xs w-80">
+      <Html transform position={[textPositionVector.x * horizontalTextOffset, textPositionVector.y * verticalTextOffset, 0]} scale={0.75}>
+        <p className="text-xs w-80 bg-black/10 p-4 rounded">
           {interactionIndex}.{interactionText}
         </p>
       </Html>
