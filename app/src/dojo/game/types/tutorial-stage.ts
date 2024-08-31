@@ -56,10 +56,10 @@ export const TUTORIAL_STAGES = [
             y: 2147483647
         },
         new Map([
-            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["tile-ingame", "Click the highlighted square to place the tile"],
             ["adventurer-button", "Select the Adventurer"],
-            ["tile-preview", "Locate the Adventurer on the road east"],
-            ["confirm-button", "Click the Confirm button to place the tile"]
+            ["tile-preview", "Place the Adventurer on the road east"],
+            ["confirm-button", "Click the Confirm button to pave the tile"]
         ]),
         "FADED TILE AND HIGHLIGHTED AREAS FOR TUTORIAL PURPOSES ONLY. PLEASE FOLLOW INSTRUCTIONS TO MOVE TO THE NEXT STEPS.",
         1,
@@ -76,10 +76,10 @@ export const TUTORIAL_STAGES = [
             y: 2147483646
         },
         new Map([
-            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["tile-ingame", "Click the highlighted square to place the tile"],
             ["paladin-button", "Select the Paladin"],
-            ["tile-preview", "Locate the Paladin within the center of the city"],
-            ["confirm-button", "Confirm tile placement"]
+            ["tile-preview", "Place the Paladin within the center of the city"],
+            ["confirm-button", "Click the Confirm button to pave the tile"]
         ]),
         "CERTAIN CHARACTERS SCORE BONUSES FOR CERTAIN STRUCTURES, CHOOSE WISELY TO MAXIMISE YOUR SCORE.",
         2,
@@ -97,8 +97,8 @@ export const TUTORIAL_STAGES = [
         },
         new Map([
             ["rotate-button", "Rotate the tile to match example placement"],
-            ["tile-ingame", "Click the highlighted square to locate the tile"],
-            ["confirm-button", "Confirm tile placement to close the structure and score your Paladins points"],
+            ["tile-ingame", "Click the highlighted square to place the tile"],
+            ["confirm-button", "Confirm tile placement to close the structure and score your Paladin's points"],
         ]),
         "CHARACTERS WILL BE GREYED OUT WHEN IN USE AND A MARKER IS DISPLAYED ON THE GAME BOARD.",
         3,
@@ -115,10 +115,10 @@ export const TUTORIAL_STAGES = [
             y: 2147483646
         },
         new Map([
-            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["tile-ingame", "Click the highlighted square to place the tile"],
             ["pilgrim-button", "Select the Pilgrim"],
-            ["tile-preview", "Locate the Pilgrim within the wonder"],
-            ["confirm-button", "Confirm tile placement"]
+            ["tile-preview", "Place the Pilgrim within the wonder"],
+            ["confirm-button", "Click the Confirm button to pave the tile"]
         ]),
         "BE SURE TO USE YOUR CHARACTERS WISELY, YOU MAY FIND YOU PLAY THEM TOO EARLY AND MISS OUT ON UPCOMING STRUCTURES.",
         4,
@@ -136,10 +136,10 @@ export const TUTORIAL_STAGES = [
         },
         new Map([
             ["rotate-button", "Rotate the tile to match example placement"],
-            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["tile-ingame", "Click the highlighted square to place the tile"],
             ["paladin-button", "Select the Paladin"],
-            ["tile-preview", "Locate the Paladin within the city to the west"],
-            ["confirm-button", "Confirm tile placement"]
+            ["tile-preview", "Place the Paladin within the city to the west"],
+            ["confirm-button", "Click the Confirm button to pave the tile"]
         ]),
         "",
         1,
@@ -156,10 +156,10 @@ export const TUTORIAL_STAGES = [
             y: 2147483645
         },
         new Map([
-            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["tile-ingame", "Click the highlighted square to place the tile"],
             ["lady-button", "Select the Lady"],
-            ["tile-preview", "Locate the Lady on the road north"],
-            ["confirm-button", "Click the Confirm button to place the tile"]
+            ["tile-preview", "Place the Lady on the road north"],
+            ["confirm-button", "Click the Confirm button to pave the tile"]
         ]),
         "",
         1,
@@ -176,9 +176,9 @@ export const TUTORIAL_STAGES = [
             y: 2147483646
         },
         new Map([
-            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["tile-ingame", "Click the highlighted square to place the tile"],
             ["rotate-button", "Rotate the tile to match example placement"],
-            ["confirm-button", "Click the Confirm button to place the tile"],
+            ["confirm-button", "Click the Confirm button to pave the tile"],
         ]),
         "",
         1,
@@ -195,9 +195,9 @@ export const TUTORIAL_STAGES = [
             y: 2147483647
         },
         new Map([
-            ["tile-ingame", "Click the highlighted square to locate the tile"],
+            ["tile-ingame", "Click the highlighted square to place the tile"],
             ["rotate-button", "Rotate the tile to match example placement"],
-            ["confirm-button", "Click the Confirm button to place the tile"],
+            ["confirm-button", "Click the Confirm button to pave the tile"],
         ]),
         "",
         1,
