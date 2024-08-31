@@ -117,7 +117,7 @@ export const TUTORIAL_STAGES = [
         new Map([
             ["tile-ingame", "Click the highlighted square to locate the tile"],
             ["pilgrim-button", "Select the Pilgrim"],
-            ["tile-preview", "Locate the Pilgrim within the city"],
+            ["tile-preview", "Locate the Pilgrim within the wonder"],
             ["confirm-button", "Confirm tile placement"]
         ]),
         "BE SURE TO USE YOUR CHARACTERS WISELY, YOU MAY FIND YOU PLAY THEM TOO EARLY AND MISS OUT ON UPCOMING STRUCTURES.",
@@ -135,8 +135,8 @@ export const TUTORIAL_STAGES = [
             y: 2147483645
         },
         new Map([
-            ["tile-ingame", "Click the highlighted square to locate the tile"],
             ["rotate-button", "Rotate the tile to match example placement"],
+            ["tile-ingame", "Click the highlighted square to locate the tile"],
             ["paladin-button", "Select the Paladin"],
             ["tile-preview", "Locate the Paladin within the city to the west"],
             ["confirm-button", "Confirm tile placement"]
