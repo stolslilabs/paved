@@ -135,8 +135,8 @@ export const TUTORIAL_STAGES = [
             y: 2147483645
         },
         new Map([
-            ["rotate-button", "Rotate the tile to match example placement"],
             ["tile-ingame", "Click the highlighted square to place the tile"],
+            ["rotate-button", "Rotate the tile to match example placement"],
             ["paladin-button", "Select the Paladin"],
             ["tile-preview", "Place the Paladin within the city to the west"],
             ["confirm-button", "Click the Confirm button to pave the tile"]
