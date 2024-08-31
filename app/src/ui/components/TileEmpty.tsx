@@ -262,7 +262,6 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
 
   const visibilityCondition = isTutorial ? !strategyMode : strategyMode;
 
-
   const meshComponent = useMemo(
     () => (
       <>
@@ -349,7 +348,7 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
           />
 
         </mesh>
-        {(position?.x === currentTutorialStage?.markedTile?.x && position?.y === currentTutorialStage?.markedTile?.y) && <TileHighlight size={size} />}
+        {(position?.x === currentTutorialStage?.markedTile?.x && position?.y === currentTutorialStage?.markedTile?.y) && isTutorial && <TileHighlight size={size} />}
       </group>
     </>
   );
