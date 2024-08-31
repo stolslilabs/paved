@@ -12,10 +12,11 @@ import { Address } from "../components/Address";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "../elements/drawer";
 import leaderboardIcon from "/assets/icons/leaderboard.svg";
 import { Mode, ModeType } from "@/dojo/game/types/mode";
-import { Fragment, ReactNode, useMemo, useState } from "react";
+import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
-import { Has, defineEnterSystem, defineSystem } from "@dojoengine/recs";
+import { ComponentUpdate, ComponentValue, Has, Schema, defineEnterSystem, defineSystem } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
+import { useBuilder } from "@/hooks/useBuilder";
 
 const tabs = ["daily", "weekly", "1v1", "tutorial"];
 const disabledTabs = ["weekly", "1v1"];
@@ -69,9 +70,10 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
   const { setMode } = useLobby()
   const navigate = useNavigate();
 
-  const [games, setGames] = useState<{ [key: number]: any }>({});
+  const [games, setGames] = useState<{ [key: number]: ComponentValue<Schema, unknown> }>({});
 
   const {
+    account: { account },
     setup: {
       world,
       clientModels: {
@@ -81,20 +83,30 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
     },
   } = useDojo();
 
+  const [recentGame, setRecentGame] = useState<ComponentValue<Schema, unknown> | null>(null);
+  const { builder } = useBuilder({ gameId: recentGame?.id, playerId: account?.address })
+
+  useEffect(() => {
+    if (!builder!) return
+
+    if (builder.player_id === account?.address) {
+      navigate("?id=" + builder.game_id, { replace: true })
+    }
+  }, [account?.address, builder, navigate])
+
+
   useMemo(() => {
-    defineEnterSystem(world, [Has(Game)], function ({ value: [game] }: any) {
-      setGames((prevTiles: any) => {
-        return { ...prevTiles, [game.id]: new GameClass(game) };
-      });
+    defineEnterSystem(world, [Has(Game)], function ({ value: [game] }: ComponentUpdate) {
+      setGames((prevTiles: ComponentValue<Schema, unknown>) => game ? ({ ...prevTiles, [game.id]: new GameClass(game) }) : prevTiles);
     });
-    defineSystem(world, [Has(Game)], function ({ value: [game] }: any) {
-      setGames((prevTiles: any) => {
-        return { ...prevTiles, [game.id]: new GameClass(game) };
-      });
+    defineSystem(world, [Has(Game)], function ({ value: [game] }: ComponentUpdate) {
+      setGames((prevTiles: ComponentValue<Schema, unknown>) => game ? ({ ...prevTiles, [game.id]: new GameClass(game) }) : prevTiles);
     });
 
-    defineSystem(world, [Has(Game)], function ({ value: [game] }: any) {
-      if (game.mode === Object.values(ModeType).indexOf(ModeType.Tutorial)) navigate("?id=" + game.id, { replace: true });
+    defineSystem(world, [Has(Game)], function ({ value: [game] }: ComponentUpdate) {
+      if (game && game.mode === Object.values(ModeType).indexOf(ModeType.Tutorial)) {
+        setRecentGame(game)
+      }
     }, { runOnInit: false });
   }, []);
 
