@@ -14,7 +14,7 @@ use paved::models::tile::{Tile, TilePosition, TileTrait, ZeroableTilePosition};
 
 #[generate_trait]
 impl Conflict of ConflictTrait {
-    #[inline(always)]
+    #[inline]
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> bool {
         // [Compute] Setup recursion
         let mut visited: Felt252Dict<bool> = core::Default::default();

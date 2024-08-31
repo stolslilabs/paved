@@ -38,7 +38,7 @@ struct Builder {
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
-struct Character {
+struct Char {
     #[key]
     game_id: u32,
     #[key]
@@ -53,7 +53,7 @@ struct Character {
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
-struct CharacterPosition {
+struct CharPosition {
     #[key]
     game_id: u32,
     #[key]
@@ -64,7 +64,7 @@ struct CharacterPosition {
     index: u8,
 }
 
-#[derive(Model, Copy, Drop, Serde, IntrospectPacked)]
+#[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
 struct Tile {
     #[key]

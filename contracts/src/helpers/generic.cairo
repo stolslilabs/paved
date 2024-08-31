@@ -12,16 +12,16 @@ use paved::types::move::{Move, MoveImpl};
 use paved::types::category::Category;
 use paved::models::game::{Game, GameImpl};
 use paved::models::builder::{Builder, BuilderImpl};
-use paved::models::character::{Character, CharacterPosition};
+use paved::models::character::{Char, CharPosition};
 use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
 use paved::helpers::multiplier::compute_multiplier;
 
 #[generate_trait]
 impl GenericCount of GenericCountTrait {
-    #[inline(always)]
-    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Character>) {
+    #[inline]
+    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Char>) {
         // [Compute] Setup recursion
-        let mut characters: Array<Character> = ArrayTrait::new();
+        let mut characters: Array<Char> = ArrayTrait::new();
         let mut visited: Felt252Dict<bool> = core::Default::default();
         // [Compute] Recursively count the points
         let mut count = 0;
@@ -35,7 +35,7 @@ impl GenericCount of GenericCountTrait {
         at: Spot,
         ref count: u32,
         ref visited: Felt252Dict<bool>,
-        ref characters: Array<Character>,
+        ref characters: Array<Char>,
         ref store: Store
     ) {
         // [Check] The tile area is already visited, then pass
@@ -50,7 +50,7 @@ impl GenericCount of GenericCountTrait {
         // [Check] The tile handles a character
         let spot: Spot = tile.occupied_spot.into();
         if 0_u8 != spot.into() && tile.are_connected(at, spot) {
-            let character_position: CharacterPosition = store
+            let character_position: CharPosition = store
                 .character_position(game, tile, spot.into());
             let character = store
                 .character(game, character_position.player_id, character_position.index.into());
@@ -94,7 +94,7 @@ impl GenericCount of GenericCountTrait {
         category: Category,
         count: u32,
         base_points: u32,
-        ref characters: Array<Character>,
+        ref characters: Array<Char>,
         ref store: Store
     ) {
         // [Compute] Find the winner

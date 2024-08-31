@@ -10,7 +10,7 @@ mod errors {
     const ROLE_NOT_ALLOWED: felt252 = 'Role: not allowed';
 }
 
-#[derive(Copy, Drop, Serde, PartialEq, Introspection)]
+#[derive(Copy, Drop, Serde, PartialEq)]
 enum Role {
     None,
     Lord,
@@ -22,7 +22,7 @@ enum Role {
 
 #[generate_trait]
 impl RoleImpl of RoleTrait {
-    #[inline(always)]
+    #[inline]
     fn weight(self: Role, category: Category) -> u8 {
         match self {
             Role::None => 0,
@@ -69,7 +69,7 @@ impl RoleImpl of RoleTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn power(self: Role, category: Category) -> u8 {
         match self {
             Role::None => 0,
@@ -116,7 +116,7 @@ impl RoleImpl of RoleTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_allowed(self: Role, category: Category) -> bool {
         match self {
             Role::None => false,
@@ -166,14 +166,14 @@ impl RoleImpl of RoleTrait {
 
 #[generate_trait]
 impl RoleAssert of AssertTrait {
-    #[inline(always)]
+    #[inline]
     fn assert_is_allowed(self: Role, category: Category) {
         assert(self.is_allowed(category), errors::ROLE_NOT_ALLOWED);
     }
 }
 
 impl RoleIntoU8 of core::Into<Role, u8> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Role) -> u8 {
         match self {
             Role::None => 0,
@@ -188,7 +188,7 @@ impl RoleIntoU8 of core::Into<Role, u8> {
 }
 
 impl U8IntoRole of core::Into<u8, Role> {
-    #[inline(always)]
+    #[inline]
     fn into(self: u8) -> Role {
         match self {
             0 => Role::None,

@@ -1,0 +1,17 @@
+kind = "DojoContract"
+class_hash = "0x734d76f00b25689b34f987ced945103ae2b8a1841e32e16cb07a3e3a3ac1cf3"
+original_class_hash = "0x734d76f00b25689b34f987ced945103ae2b8a1841e32e16cb07a3e3a3ac1cf3"
+base_class_hash = "0x0"
+abi = "manifests/dev/base/abis/contracts/paved-daily-1f922ba9.json"
+reads = []
+writes = []
+init_calldata = []
+tag = "paved-daily"
+systems = [
+    "claim",
+    "sponsor",
+    "discard",
+    "surrender",
+    "build",
+]
+manifest_name = "paved-daily-1f922ba9"

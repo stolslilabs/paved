@@ -6,7 +6,7 @@ use core::debug::PrintTrait;
 
 use paved::types::orientation::Orientation;
 
-#[derive(Copy, Drop, Serde, PartialEq, Introspect)]
+#[derive(Copy, Drop, Serde, PartialEq)]
 enum Spot {
     None,
     Center,
@@ -21,7 +21,7 @@ enum Spot {
 }
 
 impl IntoSpotU8 of core::Into<Spot, u8> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Spot) -> u8 {
         match self {
             Spot::None => 0,
@@ -39,7 +39,7 @@ impl IntoSpotU8 of core::Into<Spot, u8> {
 }
 
 impl IntoU8Spot of core::Into<u8, Spot> {
-    #[inline(always)]
+    #[inline]
     fn into(self: u8) -> Spot {
         match self {
             0 => Spot::None,
@@ -59,7 +59,7 @@ impl IntoU8Spot of core::Into<u8, Spot> {
 
 #[generate_trait]
 impl SpotImpl of SpotTrait {
-    #[inline(always)]
+    #[inline]
     fn rotate(self: Spot, orientation: Orientation) -> Spot {
         match orientation {
             Orientation::None => Spot::None,
@@ -109,7 +109,7 @@ impl SpotImpl of SpotTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn antirotate(self: Spot, orientation: Orientation) -> Spot {
         let anti_orientation = match orientation {
             Orientation::None => Orientation::None,

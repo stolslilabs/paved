@@ -11,19 +11,20 @@
 /// for examples.
 #[starknet::component]
 mod ERC20Component {
-    use core::integer::BoundedInt;
+    use core::num::traits::Bounded;
     use core::Zeroable;
     use paved::tests::mocks::erc20::interface;
     use starknet::ContractAddress;
     use starknet::get_caller_address;
+    use starknet::storage::Map;
 
     #[storage]
     struct Storage {
         ERC20_name: felt252,
         ERC20_symbol: felt252,
         ERC20_total_supply: u256,
-        ERC20_balances: LegacyMap<ContractAddress, u256>,
-        ERC20_allowances: LegacyMap<(ContractAddress, ContractAddress), u256>,
+        ERC20_balances: Map<ContractAddress, u256>,
+        ERC20_allowances: Map<(ContractAddress, ContractAddress), u256>,
     }
 
     #[event]
@@ -294,7 +295,7 @@ mod ERC20Component {
             amount: u256
         ) {
             let current_allowance = self.ERC20_allowances.read((owner, spender));
-            if current_allowance != BoundedInt::max() {
+            if current_allowance != Bounded::MAX {
                 self._approve(owner, spender, current_allowance - amount);
             }
         }

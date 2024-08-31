@@ -10,13 +10,13 @@ use paved::types::area::Area;
 use paved::types::move::{Move, MoveImpl};
 use paved::models::game::{Game, GameImpl};
 use paved::models::builder::{Builder, BuilderImpl};
-use paved::models::character::{Character, CharacterPosition, ZeroableCharacter};
+use paved::models::character::{Char, CharPosition, ZeroableChar};
 use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
 
 #[generate_trait]
 impl WonderCount of WonderCountTrait {
-    #[inline(always)]
-    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Character) {
+    #[inline]
+    fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Char) {
         // [Compute] Setup recursion
         let mut visited: Felt252Dict<bool> = core::Default::default();
         // [Check] Starting spot is occupied, otherwise no need to process further
@@ -25,8 +25,7 @@ impl WonderCount of WonderCountTrait {
             return (0, core::Zeroable::zero());
         };
         // [Compute] Extract the character
-        let character_position: CharacterPosition = store
-            .character_position(game, tile, spot.into());
+        let character_position: CharPosition = store.character_position(game, tile, spot.into());
         let character = store
             .character(game, character_position.player_id, character_position.index.into());
         // [Compute] Recursively count the points
@@ -82,7 +81,7 @@ impl WonderCount of WonderCountTrait {
         }
     }
 
-    fn solve(ref game: Game, base_points: u32, ref character: Character, ref store: Store) {
+    fn solve(ref game: Game, base_points: u32, ref character: Char, ref store: Store) {
         // [Effect] Collect the character's builder
         let mut tile = store.tile(game, character.tile_id);
         let player = store.player(character.player_id);

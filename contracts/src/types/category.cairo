@@ -21,7 +21,7 @@ const CITY_KEY: felt252 = 'C';
 const STOP_KEY: felt252 = 'S';
 const WONDER_KEY: felt252 = 'W';
 
-#[derive(Copy, Drop, Serde, PartialEq, Introspection)]
+#[derive(Copy, Drop, Serde, PartialEq)]
 enum Category {
     None,
     Forest,
@@ -33,7 +33,7 @@ enum Category {
 
 #[generate_trait]
 impl CategoryImpl of CategoryTrait {
-    #[inline(always)]
+    #[inline]
     fn base_points(self: Category) -> u32 {
         match self {
             Category::None => 0,
@@ -47,7 +47,7 @@ impl CategoryImpl of CategoryTrait {
 }
 
 impl CategoryIntoFelt252 of core::Into<Category, felt252> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Category) -> felt252 {
         match self {
             Category::None => NONE,
@@ -61,7 +61,7 @@ impl CategoryIntoFelt252 of core::Into<Category, felt252> {
 }
 
 impl CategoryIntoU8 of core::Into<Category, u8> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Category) -> u8 {
         match self {
             Category::None => 0,
@@ -75,7 +75,7 @@ impl CategoryIntoU8 of core::Into<Category, u8> {
 }
 
 impl Felt252IntoCategory of core::Into<felt252, Category> {
-    #[inline(always)]
+    #[inline]
     fn into(self: felt252) -> Category {
         if self == FOREST || self == FOREST_KEY {
             Category::Forest
@@ -94,7 +94,7 @@ impl Felt252IntoCategory of core::Into<felt252, Category> {
 }
 
 impl U8IntoCategory of core::Into<u8, Category> {
-    #[inline(always)]
+    #[inline]
     fn into(self: u8) -> Category {
         if self == 1 {
             Category::Forest
@@ -113,7 +113,7 @@ impl U8IntoCategory of core::Into<u8, Category> {
 }
 
 impl CategoryPrint of PrintTrait<Category> {
-    #[inline(always)]
+    #[inline]
     fn print(self: Category) {
         let felt: felt252 = self.into();
         felt.print();

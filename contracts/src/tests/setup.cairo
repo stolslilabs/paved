@@ -11,20 +11,16 @@ mod setup {
     // Dojo imports
 
     use dojo::world::{IWorldDispatcherTrait, IWorldDispatcher};
-    use dojo::test_utils::{spawn_test_world, deploy_contract};
+    use dojo::utils::test::spawn_test_world;
 
     // Internal imports
 
-    use paved::constants;
     use paved::tests::mocks::erc20::{
         IERC20Dispatcher, IERC20DispatcherTrait, IERC20FaucetDispatcher,
         IERC20FaucetDispatcherTrait, ERC20
     };
+    use paved::models::index;
     use paved::models::game::{Game, GameImpl};
-    use paved::models::player::Player;
-    use paved::models::builder::Builder;
-    use paved::models::tile::Tile;
-    use paved::models::tournament::Tournament;
     use paved::systems::account::{account, IAccountDispatcher, IAccountDispatcherTrait};
     use paved::systems::daily::{daily, IDailyDispatcher, IDailyDispatcherTrait};
     use paved::systems::tutorial::{tutorial, ITutorialDispatcher, ITutorialDispatcherTrait};
@@ -93,6 +89,7 @@ mod setup {
         seed
     }
 
+    #[inline]
     fn deploy_erc20() -> IERC20Dispatcher {
         let (address, _) = starknet::deploy_syscall(
             ERC20::TEST_CLASS_HASH.try_into().expect('Class hash conversion failed'),
@@ -104,39 +101,50 @@ mod setup {
         IERC20Dispatcher { contract_address: address }
     }
 
-    #[inline(always)]
+    #[inline]
     fn spawn_game(mode: Mode) -> (IWorldDispatcher, Systems, Context) {
         // [Setup] World
-        let mut models = core::array::ArrayTrait::new();
-        models.append(paved::models::index::game::TEST_CLASS_HASH);
-        models.append(paved::models::index::player::TEST_CLASS_HASH);
-        models.append(paved::models::index::builder::TEST_CLASS_HASH);
-        models.append(paved::models::index::tile::TEST_CLASS_HASH);
-        models.append(paved::models::index::tournament::TEST_CLASS_HASH);
-        let mut world = spawn_test_world(models);
-        let erc20 = deploy_erc20();
+        let models = array![
+            index::player::TEST_CLASS_HASH,
+            index::game::TEST_CLASS_HASH,
+            index::builder::TEST_CLASS_HASH,
+            index::tile::TEST_CLASS_HASH,
+            index::tile_position::TEST_CLASS_HASH,
+            index::char::TEST_CLASS_HASH,
+            index::char_position::TEST_CLASS_HASH,
+            index::tournament::TEST_CLASS_HASH,
+        ];
+        let world = spawn_test_world(array!["paved"].span(), models.span());
 
-        // [Setup] SystemsDrop
-        let account_calldata: Array<felt252> = array![];
+        // [Setup] Systems
+        let erc20 = deploy_erc20();
         let account_address = world
-            .deploy_contract(
-                'account', account::TEST_CLASS_HASH.try_into().unwrap(), account_calldata.span()
-            );
-        let daily_calldata: Array<felt252> = array![constants::TOKEN_ADDRESS().into(),];
+            .deploy_contract('account', account::TEST_CLASS_HASH.try_into().unwrap());
         let daily_address = world
-            .deploy_contract(
-                'daily', daily::TEST_CLASS_HASH.try_into().unwrap(), daily_calldata.span()
-            );
-        let tutorial_calldata: Array<felt252> = array![];
+            .deploy_contract('daily', daily::TEST_CLASS_HASH.try_into().unwrap());
         let tutorial_address = world
-            .deploy_contract(
-                'tutorial', tutorial::TEST_CLASS_HASH.try_into().unwrap(), tutorial_calldata.span()
-            );
+            .deploy_contract('tutorial', tutorial::TEST_CLASS_HASH.try_into().unwrap());
         let systems = Systems {
             account: IAccountDispatcher { contract_address: account_address },
             daily: IDailyDispatcher { contract_address: daily_address },
             tutorial: ITutorialDispatcher { contract_address: tutorial_address },
         };
+
+        // [Setup] Permissions
+        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), account_address);
+        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), daily_address);
+        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), tutorial_address);
+        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), PLAYER());
+        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), ANYONE());
+        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), SOMEONE());
+        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), NOONE());
+
+        // [Setup] Initialize
+        let daily_calldata: Array<felt252> = array![erc20.contract_address.into(),];
+        world
+            .init_contract(
+                dojo::utils::selector_from_names(@"paved", @"daily"), daily_calldata.span()
+            );
 
         // [Setup] Context
         let faucet = IERC20FaucetDispatcher { contract_address: erc20.contract_address };

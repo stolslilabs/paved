@@ -31,7 +31,7 @@ mod ManageableComponent {
     impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
-        fn _create(
+        fn create(
             self: @ComponentState<TContractState>,
             world: IWorldDispatcher,
             name: felt252,

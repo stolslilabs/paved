@@ -49,6 +49,7 @@ mod elements {
 }
 
 mod helpers {
+    mod bitmap;
     mod math;
     mod multiplier;
     mod generic;
@@ -69,8 +70,6 @@ mod models {
 
 mod components {
     mod emitter;
-    mod initializable;
-    mod ownable;
     mod manageable;
     mod hostable;
     mod payable;

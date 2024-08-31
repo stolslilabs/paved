@@ -7,8 +7,7 @@ use core::debug::PrintTrait;
 
 // External imports
 
-use origami::random::deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
-use alexandria_math::bitmap::Bitmap;
+use origami_random::deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 
 // Internal imports
 
@@ -19,6 +18,7 @@ use paved::types::plan::{Plan, PlanImpl};
 use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
+use paved::helpers::bitmap::Bitmap;
 
 // Constants
 
@@ -37,7 +37,7 @@ enum Mode {
 
 #[generate_trait]
 impl ModeImpl of ModeTrait {
-    #[inline(always)]
+    #[inline]
     fn price(self: Mode) -> felt252 {
         match self {
             Mode::Daily => constants::DAILY_TOURNAMENT_PRICE,
@@ -47,7 +47,7 @@ impl ModeImpl of ModeTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn duration(self: Mode) -> u64 {
         match self {
             Mode::Daily => constants::DAILY_TOURNAMENT_DURATION,
@@ -57,7 +57,7 @@ impl ModeImpl of ModeTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn seed(self: Mode, time: u64, game_id: u32, salt: felt252) -> felt252 {
         match self {
             Mode::Daily => {
@@ -79,7 +79,7 @@ impl ModeImpl of ModeTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn deck(self: Mode) -> Deck {
         match self {
             Mode::Daily => Deck::Simple,
@@ -136,7 +136,7 @@ impl Private of PrivateTrait {
 }
 
 impl IntoModeFelt252 of core::Into<Mode, felt252> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Mode) -> felt252 {
         match self {
             Mode::Daily => DAILY,
@@ -148,7 +148,7 @@ impl IntoModeFelt252 of core::Into<Mode, felt252> {
 }
 
 impl IntoModeU8 of core::Into<Mode, u8> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Mode) -> u8 {
         match self {
             Mode::Daily => 1,
@@ -160,7 +160,7 @@ impl IntoModeU8 of core::Into<Mode, u8> {
 }
 
 impl IntoU8Mode of core::Into<u8, Mode> {
-    #[inline(always)]
+    #[inline]
     fn into(self: u8) -> Mode {
         match self {
             0 => Mode::None,
@@ -173,7 +173,7 @@ impl IntoU8Mode of core::Into<u8, Mode> {
 }
 
 impl ModePrint of PrintTrait<Mode> {
-    #[inline(always)]
+    #[inline]
     fn print(self: Mode) {
         let felt: felt252 = self.into();
         felt.print();
