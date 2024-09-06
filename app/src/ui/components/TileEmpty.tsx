@@ -366,7 +366,9 @@ const TileHighlight = ({ size }: { size: number }) => {
     tileId: builder?.tile_id || 0,
   });
 
+  const { selectedTile } = useGameStore();
   const { currentTutorialStage } = useTutorial()
+
   const orientation = currentTutorialStage?.presetTransaction.orientation
 
   const imageUrl = useMemo(() => getImage(tile), [tile])
@@ -382,7 +384,7 @@ const TileHighlight = ({ size }: { size: number }) => {
   return texture && (
     <>
       <Html transform position={[textPositionVector.x * horizontalTextOffset, textPositionVector.y * verticalTextOffset, 0]} scale={0.75}>
-        <p className="text-xs w-80 p-4 rounded">
+        <p className="text-xs w-80 p-4 rounded pointer-events-none select-none">
           {interactionIndex}.{interactionText}
         </p>
       </Html>
@@ -394,7 +396,7 @@ const TileHighlight = ({ size }: { size: number }) => {
         />
         <Edges linewidth={5}
           threshold={15}
-          color="lime" />
+          color={currentTutorialStage.presetTransaction.x === selectedTile.col && currentTutorialStage.presetTransaction.y === selectedTile.row ? "lime" : !selectedTile ? "blue" : "red"} />
       </Plane>
     </>
   )
