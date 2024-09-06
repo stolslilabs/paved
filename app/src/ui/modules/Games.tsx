@@ -46,7 +46,6 @@ export const Games = ({ games }: { games: GamesList }) => {
           <TableHead className="w-[100px] text-center uppercase">Game</TableHead>
           <TableHead className="uppercase text-center">Rank</TableHead>
           <TableHead className="uppercase text-center">Score</TableHead>
-          <TableHead className="uppercase text-center">Tiles</TableHead>
           <TableHead className="uppercase text-center">Time</TableHead>
         </TableRow>
       </TableHeader>
@@ -71,7 +70,6 @@ const StartTutorialContent = () => {
 }
 
 export const GameSingleRow = ({ game }: { game: any }) => {
-  const [tilesPlayed, setTilesPlayed] = useState<number>();
   const [score, setScore] = useState<number>();
   const [over, setOver] = useState<boolean>(false);
   // const { account } = useAccount();
@@ -86,7 +84,6 @@ export const GameSingleRow = ({ game }: { game: any }) => {
 
   useEffect(() => {
     if (game && builder) {
-      setTilesPlayed(game.tile_count);
       setScore(game.score);
       setOver(game.isOver());
     }
@@ -109,7 +106,6 @@ export const GameSingleRow = ({ game }: { game: any }) => {
       <TableCell>#{game.id}</TableCell>
       <TableCell>1</TableCell>
       <TableCell>{score}</TableCell>
-      <TableCell>{tilesPlayed}</TableCell>
       <TableCell>{formatTime(date) ?? "N/A"}</TableCell>
 
       <TableCell className="flex justify-end">
