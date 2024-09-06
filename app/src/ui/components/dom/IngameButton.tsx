@@ -26,21 +26,20 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
 
         const [ephemeralOpen, setEphemeralOpen] = useState(!!tutorialOpen)
 
-
         const content = children ?? (
             <Button
                 ref={ref}
-                className={cn(`px-2 w-10 py-5 ${tutorialOpen ? "border-solid" : "border-none"} border-blue-500 border-2 bg-[#D2E2F1] bg-opacity-80 rounded-md pointer-events-auto`, className)}
+                className={cn(`px-2 aspect-square size-10 xl:size-16 p-2 ${tutorialOpen ? "border-solid" : "border-none"} border-blue-500 border-2 bg-[#D2E2F1] bg-opacity-80 rounded-md pointer-events-auto flex items-center justify-center`, className)}
                 {...props}
             >
-                <img src={icon} className="w-6" />
+                <img src={icon} className="w-full h-full object-contain" />
             </Button>
         )
 
         return name ? (
             <TooltipProvider>
                 <Tooltip open={ephemeralOpen || !!tutorialOpen} onOpenChange={setEphemeralOpen}>
-                    <TooltipTrigger className="w-10 pointer-events-auto hidden sm:block">
+                    <TooltipTrigger asChild>
                         {content}
                     </TooltipTrigger>
                     <TooltipContent className="bg-transparent" side={side}>

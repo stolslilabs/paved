@@ -33,9 +33,9 @@ export const Discard = () => {
       <DialogTrigger asChild>
         <Button
           disabled={!enabled}
-          className="px-2 w-10 py-5 border-none bg-[#D2E2F1] bg-opacity-80 rounded-md"
+          className={`px-2 aspect-square size-10 xl:size-16 p-2 bg-[#D2E2F1] border-none bg-opacity-80 rounded-md pointer-events-auto flex items-center justify-center`}
         >
-          <img src={icon} className="w-6" />
+          <img src={icon} className="w-full h-full object-contain" />
         </Button>
       </DialogTrigger>
       <DialogContent>
