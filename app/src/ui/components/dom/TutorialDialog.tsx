@@ -10,7 +10,7 @@ export const TutorialDialog = () => {
     const { currentTutorialStage } = useTutorial()
 
     return currentTutorialStage?.textboxText && game?.mode.value === ModeType.Tutorial && (
-        <div id="tutorial-dialog" className="h-full w-full self-end bg-gray-300 rounded p-2 z-40 pointer-events-auto">
+        <div id="tutorial-dialog" className="h-full w-full self-end bg-gray-300 rounded p-2 z-40 pointer-events-auto hidden sm:block">
             {/* Add your tutorial content here */}
             <h4 className="font-bold text-sm m-0 mb-1">Tips</h4>
             <p className="text-xs tracking-tighter">{currentTutorialStage?.textboxText ?? ""}</p>
