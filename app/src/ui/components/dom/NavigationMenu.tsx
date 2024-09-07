@@ -111,7 +111,7 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
                     id="deck-composition"
                     icon={infoIcon}
                     onClick={() => { setCompositionOpen(true); setHasOpenMenu(true) }}
-                    className="pointer-events-auto order-first sm:order-last"
+                    className="pointer-events-auto"
                 />
                 <TutorialDialog />
             </div>
