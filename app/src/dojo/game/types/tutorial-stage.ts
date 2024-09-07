@@ -96,8 +96,8 @@ export const TUTORIAL_STAGES = [
             y: 2147483645
         },
         new Map([
-            ["rotate-button", "Rotate the tile to match example placement"],
             ["tile-ingame", "Click the highlighted square to place the tile"],
+            ["rotate-button", "Rotate the tile to match example placement"],
             ["confirm-button", "Confirm tile placement to close the structure and score your Paladin's points"],
         ]),
         "CHARACTERS WILL BE GREYED OUT WHEN IN USE AND A MARKER IS DISPLAYED ON THE GAME BOARD.",
@@ -138,7 +138,7 @@ export const TUTORIAL_STAGES = [
             ["tile-ingame", "Click the highlighted square to place the tile"],
             ["rotate-button", "Rotate the tile to match example placement"],
             ["paladin-button", "Select the Paladin"],
-            ["tile-preview", "Place the Paladin within the city to the west"],
+            ["tile-preview", "Place the Paladin on the road to the west"],
             ["confirm-button", "Click the Confirm button to pave the tile"]
         ]),
         "",
