@@ -24,7 +24,7 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
         const interactionText = currentTutorialStage?.interactionText?.get(props.id ?? "")
         const tutorialOpen = props.id && game?.mode.value === ModeType.Tutorial && interactionText
 
-        const [ephemeralOpen, setEphemeralOpen] = useState(!!tutorialOpen)
+        const [ephemeralOpen, setEphemeralOpen] = useState(!!tutorialOpen && tutorialCondition)
 
         const content = children ?? (
             <Button
@@ -42,7 +42,6 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
                     open={ephemeralOpen || (!!tutorialOpen && tutorialCondition)}
                     onOpenChange={(open) => {
                         if (!tutorialOpen && !tutorialCondition) {
-                            console.log(open)
                             setEphemeralOpen(open);
                         }
                     }}
@@ -51,7 +50,7 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
                         {content}
                     </TooltipTrigger>
                     <TooltipContent className="bg-transparent" side={side}>
-                        <p>{tutorialOpen && tutorialCondition ? `${interactionText ?? ""}` : name}</p>
+                        <p>{tutorialOpen && tutorialCondition ? `${interactionText ?? name}` : name}</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
