@@ -111,7 +111,7 @@ export const Character = (props: TProps) => {
   return (
     <IngameButton
       id={`${role.toLowerCase()}-button`}
-      className={`pointer-events-auto aspect-square select-none p-2.5 ${className}`}
+      className={`pointer-events-auto aspect-square select-none p-2.5 ${className} ${selected ? "bg-blue-500/30" : ""}`}
       variant={selected ? "character_selected" : "character"}
       name={role}
       onClick={handleClick}
