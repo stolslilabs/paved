@@ -99,7 +99,6 @@ export const Tile = () => {
   const interactionText = currentTutorialStage?.interactionText?.get(id)
 
   const tutorialOpen = game?.mode.value === ModeType.Tutorial && interactionText
-  const interactionIndex = tutorialOpen ? Array.from(currentTutorialStage.interactionText.keys()).indexOf(id ?? "") + 1 : -1;
 
   useEffect(() => {
     if (tutorialOpen) {
@@ -130,7 +129,7 @@ export const Tile = () => {
           </div>
         </TooltipTrigger>
         <TooltipContent asChild align="start" className="select-none bg-transparent">
-          <p>{`${interactionIndex}.${interactionText}`}</p>
+          <p>{interactionText}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
