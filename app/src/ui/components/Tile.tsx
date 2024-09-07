@@ -75,6 +75,25 @@ export const Tile = () => {
   const isLoading = useMemo(() => (!tile || !backgroundImage) && !game?.isOver(), [tile, backgroundImage, game]);
   const isLocked = useMemo(() => game?.isOver(), [game]);
 
+  const { x, y, spot, character } = useGameStore();
+
+  const shouldDisplayTutorialTooltip = useMemo(() => {
+    if (!currentTutorialStage) return false;
+
+    const { presetTransaction: {
+      x: presetX,
+      y: presetY,
+      role: presetRole,
+      spot: presetSpot
+    } } = currentTutorialStage;
+
+    const hasCoords = x === presetX && y === presetY;
+    const hasRole = character === presetRole;
+    const hasSpot = spot !== presetSpot;
+
+    return hasCoords && hasSpot && hasRole;
+  }, [currentTutorialStage, spot, x, y, character]);
+
   const id = "tile-preview"
 
   const interactionText = currentTutorialStage?.interactionText?.get(id)
@@ -92,7 +111,7 @@ export const Tile = () => {
 
   return (
     <TooltipProvider>
-      <Tooltip open={!!tutorialOpen}>
+      <Tooltip open={!!tutorialOpen && shouldDisplayTutorialTooltip}>
         <TooltipTrigger asChild>
           <div
             id={id}
