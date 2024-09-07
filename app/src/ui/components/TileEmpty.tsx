@@ -375,19 +375,9 @@ const TileHighlight = ({ size }: { size: number }) => {
 
   const texture = useTexture(imageUrl)
 
-  const horizontalTextOffset = 6
-  const verticalTextOffset = 2
-
-  const textPositionVector = currentTutorialStage?.markedTileTextPosition
-  const interactionText = currentTutorialStage?.interactionText.get("tile-ingame")
-  const interactionIndex = Array.from(currentTutorialStage.interactionText.keys()).indexOf("tile-ingame") + 1
   return texture && (
     <>
-      <Html transform position={[textPositionVector.x * horizontalTextOffset, textPositionVector.y * verticalTextOffset, 0]} scale={0.75}>
-        <p className="text-xs w-80 p-4 rounded pointer-events-none select-none">
-          {interactionIndex}.{interactionText}
-        </p>
-      </Html>
+      <TileHighlightTooltip />
       <Plane args={[size, size, 1]} position={[0, 0, 0.1]} rotation={[0, 0, calculateRotation(orientation ?? 1)]} visible={!!texture}>
         <meshBasicMaterial
           map={texture}
@@ -396,9 +386,42 @@ const TileHighlight = ({ size }: { size: number }) => {
         />
         <Edges linewidth={5}
           threshold={15}
-          color={currentTutorialStage.presetTransaction.x === selectedTile.col && currentTutorialStage.presetTransaction.y === selectedTile.row ? "lime" : !selectedTile ? "blue" : "red"} />
+          color={currentTutorialStage?.presetTransaction.x === selectedTile.col && currentTutorialStage?.presetTransaction.y === selectedTile.row ? "lime" : !selectedTile ? "blue" : "red"} />
       </Plane>
     </>
+  )
+}
+
+const TileHighlightTooltip = () => {
+  const { currentTutorialStage } = useTutorial()
+  const { x, y } = useGameStore();
+
+  const horizontalTextOffset = 6
+  const verticalTextOffset = 2
+
+  const textPositionVector = currentTutorialStage?.markedTileTextPosition
+  const interactionText = currentTutorialStage?.interactionText.get("tile-ingame")
+  const interactionIndex = Array.from(currentTutorialStage.interactionText.keys()).indexOf("tile-ingame") + 1
+
+  const shouldDisplayTutorialTooltip = useMemo(() => {
+    if (!currentTutorialStage) return false;
+
+    const { presetTransaction: {
+      x: presetX,
+      y: presetY,
+    } } = currentTutorialStage;
+
+    const hasCoords = x === presetX && y === presetY;
+
+    return !hasCoords
+  }, [currentTutorialStage, x, y]);
+
+  return shouldDisplayTutorialTooltip && (
+    <Html transform position={[textPositionVector.x * horizontalTextOffset, textPositionVector.y * verticalTextOffset, 0]} scale={0.75}>
+      <p className="text-xs w-80 p-4 rounded pointer-events-none select-none">
+        {interactionIndex}.{interactionText}
+      </p>
+    </Html>
   )
 }
 
