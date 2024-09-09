@@ -4,7 +4,7 @@ version = 1
 [[package]]
 name = "dojo"
 version = "1.0.0-alpha.4"
-source = "git+https://github.com/dojoengine/dojo?tag=v1.0.0-alpha.8#d31f81e6aeae01c6bbe7bd5879a5d33551082bcb"
+source = "git+https://github.com/dojoengine/dojo?tag=v1.0.0-alpha.11#fbff45b249e2b931f5007edf2d526beef7dc553f"
 dependencies = [
  "dojo_plugin",
 ]
@@ -16,8 +16,8 @@ source = "git+https://github.com/dojoengine/dojo?rev=f15def33#f15def330c0d099e79
 
 [[package]]
 name = "origami_random"
-version = "1.0.0-alpha.8"
-source = "git+https://github.com/dojoengine/origami?tag=v1.0.0-alpha.8#e0245ed621cdea70aa494bcd66cee290f1a54a5e"
+version = "1.0.0-alpha.11"
+source = "git+https://github.com/dojoengine/origami?tag=v1.0.0-alpha.11#8cbb96d7524b0a03dd1cb48066064a8f17857cf3"
 
 [[package]]
 name = "paved"
