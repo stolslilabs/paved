@@ -8,7 +8,7 @@ export const getConnectors = (): { connectors: Connector[] } => {
   const account = getContractByName(config.manifest, "account")?.address;
   const daily = getContractByName(config.manifest, "daily")?.address;
   const tutorial = getContractByName(config.manifest, "tutorial")?.address
-  const paymaster: any = { caller: "0x414e595f43414c4c4552" };
+  const paymaster = { caller: "0x414e595f43414c4c4552" };
   const theme: string = "paved";
   const policies = [
     {
