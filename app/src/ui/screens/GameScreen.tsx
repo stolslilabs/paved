@@ -12,6 +12,7 @@ import { NavigationMenu } from "../components/dom/NavigationMenu";
 import { CharacterMenu } from "../components/dom/CharacterMenu";
 import { HandPanel } from "../components/dom/HandPanel";
 import { useState } from "react";
+import { TutorialCompleteDialog } from "../components/dom/TutorialCompleteDialog";
 
 // TODO: Remove all TooltipProviders except for one in "main.tsx"
 
@@ -29,6 +30,7 @@ const GameScreen = () => {
           <IngameStatus hasOpenMenu={hasOpenMenu} />
           <CharacterMenu />
           <HandPanel />
+          <TutorialCompleteDialog />
         </Overlay.Content>
       </Overlay>
       <GameCanvas>
