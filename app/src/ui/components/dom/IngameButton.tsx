@@ -29,7 +29,7 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
         const content = children ?? (
             <Button
                 ref={ref}
-                className={cn(`px-2 aspect-square size-10 xl:size-16 p-2 ${tutorialOpen && tutorialCondition ? "border-solid" : "border-none"} border-blue-500 border-2 bg-[#D2E2F1] bg-opacity-80 rounded-md pointer-events-auto flex items-center justify-center`, className)}
+                className={cn(`px-2 aspect-square size-12 sm:size-10 xl:size-16 p-2 ${tutorialOpen && tutorialCondition ? "border-solid" : "border-none"} border-blue-500 border-2 bg-[#D2E2F1] bg-opacity-80 rounded-md pointer-events-auto flex items-center justify-center`, className)}
                 {...props}
             >
                 <img src={icon} className="w-full h-full object-contain" />
@@ -49,7 +49,7 @@ export const IngameButton = React.forwardRef<HTMLButtonElement, IngameButtonProp
                     <TooltipTrigger asChild>
                         {content}
                     </TooltipTrigger>
-                    <TooltipContent className="bg-transparent" side={side}>
+                    <TooltipContent className="sm:bg-transparent max-w-[200px] sm:max-w-full whitespace-normal text-center sm:text-start" side={side}>
                         <p>{tutorialOpen && tutorialCondition ? `${interactionText ?? name}` : name}</p>
                     </TooltipContent>
                 </Tooltip>

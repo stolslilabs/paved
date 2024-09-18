@@ -128,7 +128,7 @@ export const Tile = () => {
             {isLocked && <LockedTile />}
           </div>
         </TooltipTrigger>
-        <TooltipContent asChild align="start" className="select-none bg-transparent">
+        <TooltipContent asChild align="start" className="select-none sm:bg-transparent max-w-[200px] sm:max-w-full whitespace-normal text-center sm:text-start">
           <p>{interactionText}</p>
         </TooltipContent>
       </Tooltip>
