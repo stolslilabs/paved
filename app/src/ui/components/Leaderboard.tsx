@@ -31,6 +31,7 @@ import leaderboard from "/assets/icons/leaderboard.svg";
 import { useUIStore } from "@/store";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import { IngameButton } from "./dom/IngameButton";
+import { ModeType } from "@/dojo/game/types/mode";
 
 export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
   const { gameId } = useQueryParams();
@@ -49,7 +50,7 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
   }, [account, builders, over, game]);
 
   useEffect(() => {
-    if (game) {
+    if (game && game.mode.value !== ModeType.Tutorial) {
       const interval = setInterval(() => {
         if (!over && game.isOver() && isSelf) {
           setOpen(true);
