@@ -5,7 +5,9 @@
 ///
 /// The ERC20 contract offers basic functionality and provides a
 /// fixed-supply mechanism for token distribution. The fixed supply is
-/// set in the constructor.=
+/// set in the constructor.
+
+use paved::mocks::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
 #[starknet::interface]
 trait IERC20Faucet<TState> {
