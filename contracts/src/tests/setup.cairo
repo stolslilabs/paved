@@ -15,9 +15,9 @@ mod setup {
 
     // Internal imports
 
-    use paved::tests::mocks::erc20::{
+    use paved::mocks::token::{
         IERC20Dispatcher, IERC20DispatcherTrait, IERC20FaucetDispatcher,
-        IERC20FaucetDispatcherTrait, ERC20
+        IERC20FaucetDispatcherTrait, token
     };
     use paved::models::index;
     use paved::models::game::{Game, GameImpl};
@@ -92,7 +92,7 @@ mod setup {
     #[inline]
     fn deploy_erc20() -> IERC20Dispatcher {
         let (address, _) = starknet::deploy_syscall(
-            ERC20::TEST_CLASS_HASH.try_into().expect('Class hash conversion failed'),
+            token::TEST_CLASS_HASH.try_into().expect('Class hash conversion failed'),
             0,
             array![].span(),
             false
@@ -150,19 +150,19 @@ mod setup {
         let faucet = IERC20FaucetDispatcher { contract_address: erc20.contract_address };
         set_contract_address(ANYONE());
         faucet.mint();
-        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        erc20.approve(daily_address, token::FAUCET_AMOUNT);
         systems.account.create(ANYONE_NAME, ANYONE());
         set_contract_address(SOMEONE());
         faucet.mint();
-        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        erc20.approve(daily_address, token::FAUCET_AMOUNT);
         systems.account.create(SOMEONE_NAME, SOMEONE());
         set_contract_address(NOONE());
         faucet.mint();
-        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        erc20.approve(daily_address, token::FAUCET_AMOUNT);
         systems.account.create(NOONE_NAME, NOONE());
         set_contract_address(PLAYER());
         faucet.mint();
-        erc20.approve(daily_address, ERC20::FAUCET_AMOUNT);
+        erc20.approve(daily_address, token::FAUCET_AMOUNT);
         systems.account.create(PLAYER_NAME, PLAYER());
         let duration: u64 = 0;
 

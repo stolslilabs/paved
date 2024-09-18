@@ -1,0 +1,27 @@
+kind = "DojoModel"
+class_hash = "0x35d400c4de200ee037048d9d65b63911910f8f5ff7e0d6aa517490ee04a9326"
+original_class_hash = "0x35d400c4de200ee037048d9d65b63911910f8f5ff7e0d6aa517490ee04a9326"
+abi = "manifests/slot/base/abis/models/paved-TilePosition-d7021627.json"
+tag = "paved-TilePosition"
+qualified_path = "paved::models::index::tile_position"
+manifest_name = "paved-TilePosition-d7021627"
+
+[[members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[members]]
+name = "x"
+type = "u32"
+key = true
+
+[[members]]
+name = "y"
+type = "u32"
+key = true
+
+[[members]]
+name = "tile_id"
+type = "u32"
+key = false

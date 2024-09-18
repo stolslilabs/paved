@@ -83,6 +83,14 @@ mod systems {
     mod tutorial;
 }
 
+mod mocks {
+    mod token;
+    mod erc20 {
+        mod interface;
+        mod erc20;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     mod setup;
@@ -90,10 +98,5 @@ mod tests {
     mod discard;
     mod build;
     mod tutorial;
-    // mod cases;
-
-    mod mocks {
-        mod erc20;
-    }
 }
 

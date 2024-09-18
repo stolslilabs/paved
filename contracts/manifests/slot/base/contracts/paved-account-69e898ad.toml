@@ -1,0 +1,11 @@
+kind = "DojoContract"
+class_hash = "0x53920f25847d51325595e5229a628ab23bbdb84cfec9c91642470e2e7864612"
+original_class_hash = "0x53920f25847d51325595e5229a628ab23bbdb84cfec9c91642470e2e7864612"
+base_class_hash = "0x0"
+abi = "manifests/slot/base/abis/contracts/paved-account-69e898ad.json"
+reads = []
+writes = []
+init_calldata = []
+tag = "paved-account"
+systems = ["create"]
+manifest_name = "paved-account-69e898ad"
