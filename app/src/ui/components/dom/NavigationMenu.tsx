@@ -90,6 +90,16 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
 
     return !compositionOpen ? (
         <div className="col-span-4 sm:col-span-1 sm:row-span-8 flex sm:flex-col justify-between h-full gap-1">
+            <div className="flex gap-4 sm:order-last">
+                <IngameButton
+                    name="Deck Composition"
+                    id="deck-composition"
+                    icon={infoIcon}
+                    onClick={() => { setCompositionOpen(true); setHasOpenMenu(true) }}
+                    className="pointer-events-auto"
+                />
+                <TutorialDialog />
+            </div>
             <Collapsible
                 className="pointer-events-none w-full justify-end"
                 onOpenChange={setHasOpenMenu}
@@ -105,16 +115,6 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
                     ))}
                 </CollapsibleContent>
             </Collapsible>
-            <div className="flex gap-4">
-                <IngameButton
-                    name="Deck Composition"
-                    id="deck-composition"
-                    icon={infoIcon}
-                    onClick={() => { setCompositionOpen(true); setHasOpenMenu(true) }}
-                    className="pointer-events-auto"
-                />
-                <TutorialDialog />
-            </div>
         </div>
     ) : (
         <ScrollArea className="
