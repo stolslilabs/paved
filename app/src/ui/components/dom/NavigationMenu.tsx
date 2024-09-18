@@ -1,4 +1,3 @@
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { IngameButton } from "./IngameButton";
 import burgerMenuIcon from "/assets/icons/menu.svg";
 import infoIcon from "/assets/icons/info.svg";
@@ -23,6 +22,8 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { Plan } from "@/dojo/game/types/plan";
 import { ScrollArea } from "@/ui/elements/scroll-area";
 import cancelIcon from "/assets/icons/cancel.svg";
+import { TutorialDialog } from "./TutorialDialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/ui/elements/collapsible";
 
 type MenuItem = {
     name: string
@@ -89,12 +90,22 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
 
     return !compositionOpen ? (
         <div className="col-span-4 sm:col-span-1 sm:row-span-8 flex sm:flex-col justify-between h-full gap-1">
+            <div className="flex gap-4 sm:order-last">
+                <IngameButton
+                    name="Deck Composition"
+                    id="deck-composition"
+                    icon={infoIcon}
+                    onClick={() => { setCompositionOpen(true); setHasOpenMenu(true) }}
+                    className="pointer-events-auto"
+                />
+                <TutorialDialog />
+            </div>
             <Collapsible
                 className="pointer-events-none w-full justify-end"
                 onOpenChange={setHasOpenMenu}
             >
                 <CollapsibleTrigger asChild className="mb-1 right-4 absolute sm:relative sm:left-0">
-                    <IngameButton icon={burgerMenuIcon} />
+                    <IngameButton id="burger-menu" icon={burgerMenuIcon} />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-row sm:flex-col gap-1 absolute sm:relative top-4 sm:top-auto">
                     {NavigationMenuItems.map(({ name, icon, onClick, children }) => (
@@ -104,12 +115,6 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
                     ))}
                 </CollapsibleContent>
             </Collapsible>
-            <IngameButton
-                name="Deck Composition"
-                icon={infoIcon}
-                onClick={() => { setCompositionOpen(true); setHasOpenMenu(true) }}
-                className="pointer-events-auto order-first sm:order-last"
-            />
         </div>
     ) : (
         <ScrollArea className="

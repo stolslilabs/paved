@@ -17,13 +17,15 @@ import { useTile } from "@/hooks/useTile";
 import { useActions } from "@/hooks/useActions";
 import { Loader } from "@/ui/components/Loader";
 import { useDojo } from "@/dojo/useDojo";
+import { useTutorial } from "@/hooks/useTutorial";
+import { ModeType } from "@/dojo/game/types/mode";
 
 export const Tile = () => {
   const [rotation, setRotation] = useState(0);
   const [backgroundImage, setBackgroundImage] = useState<string>();
   const { enabled } = useActions();
   const { gameId } = useQueryParams();
-  const { orientation, setActiveEntity, resetActiveEntity } = useGameStore();
+  const { orientation, setOrientation, setActiveEntity, resetActiveEntity } = useGameStore();
   const {
     account: { account },
   } = useDojo();
@@ -34,6 +36,8 @@ export const Tile = () => {
     gameId,
     tileId: builder?.tile_id || 0,
   });
+
+  const { currentTutorialStage } = useTutorial();
 
   useEffect(() => {
     if (tile) {
@@ -71,23 +75,64 @@ export const Tile = () => {
   const isLoading = useMemo(() => (!tile || !backgroundImage) && !game?.isOver(), [tile, backgroundImage, game]);
   const isLocked = useMemo(() => game?.isOver(), [game]);
 
+  const { x, y, spot, character } = useGameStore();
+
+  const shouldDisplayTutorialTooltip = useMemo(() => {
+    if (!currentTutorialStage) return false;
+
+    const { presetTransaction: {
+      x: presetX,
+      y: presetY,
+      role: presetRole,
+      spot: presetSpot
+    } } = currentTutorialStage;
+
+    const hasCoords = x === presetX && y === presetY;
+    const hasRole = character === presetRole;
+    const hasSpot = spot !== presetSpot;
+
+    return hasCoords && hasSpot && hasRole;
+  }, [currentTutorialStage, spot, x, y, character]);
+
+  const id = "tile-preview"
+
+  const interactionText = currentTutorialStage?.interactionText?.get(id)
+
+  const tutorialOpen = game?.mode.value === ModeType.Tutorial && interactionText
+
+  useEffect(() => {
+    if (tutorialOpen) {
+      setOrientation(currentTutorialStage?.initialOrientation ?? 1)
+    }
+  }, [tile])
+
   if (!account || !game || !builder) return <></>;
 
   return (
-    <div
-      className="relative aspect-square h-full cursor-pointer bg-cover bg-center flex lg:justify-center items-center shadow-lg pointer-events-auto"
-      style={{ backgroundColor }}
-    >
-      {!!tile && backgroundImage && !game?.isOver() && enabled && (
-        <ActiveTile
-          image={backgroundImage}
-          rotation={rotation}
-          orientation={orientation}
-        />
-      )}
-      {isLoading && <LoadingTile />}
-      {isLocked && <LockedTile />}
-    </div>
+    <TooltipProvider>
+      <Tooltip open={!!tutorialOpen && shouldDisplayTutorialTooltip}>
+        <TooltipTrigger asChild>
+          <div
+            id={id}
+            className="relative aspect-square h-full cursor-pointer bg-cover bg-center flex lg:justify-center items-center shadow-lg pointer-events-auto"
+            style={{ backgroundColor }}
+          >
+            {!!tile && backgroundImage && !game?.isOver() && enabled && (
+              <ActiveTile
+                image={backgroundImage}
+                rotation={rotation}
+                orientation={orientation}
+              />
+            )}
+            {isLoading && <LoadingTile />}
+            {isLocked && <LockedTile />}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent asChild align="start" className="select-none sm:bg-transparent max-w-[200px] sm:max-w-full whitespace-normal text-center sm:text-start">
+          <p>{interactionText}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };
 
@@ -184,6 +229,7 @@ export const ActiveTile = ({
 
   return (
     <div
+      id="tile-preview"
       className="relative h-full w-full cursor-pointer bg-cover"
       style={{
         backgroundImage: `url(${image})`,

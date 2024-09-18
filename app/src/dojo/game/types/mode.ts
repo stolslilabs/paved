@@ -3,10 +3,10 @@
 import { CategoryType } from "./category";
 
 export enum ModeType {
-  None = "None",
-  Daily = "Daily",
-  Weekly = "Weekly",
-  Tutorial = "Tutorial",
+  None = "none",
+  Daily = "daily",
+  Weekly = "weekly",
+  Tutorial = "tutorial",
 }
 
 export class Mode {
