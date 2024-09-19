@@ -11,6 +11,7 @@ export const getConnectors = (): { connectors: Connector[] } => {
   const daily = getContractByName(config.manifest, theme, "daily")?.address;
   const tutorial = getContractByName(config.manifest, theme, "tutorial")?.address
   const paymaster = { caller: "0x414e595f43414c4c4552" };
+  const rpc = import.meta.env.VITE_PUBLIC_NODE_URL;
   const policies = [
     {
       target: config.feeTokenAddress,
@@ -98,6 +99,7 @@ export const getConnectors = (): { connectors: Connector[] } => {
   ];
 
   const cartridge = new CartridgeConnector({
+    rpc,
     policies,
     paymaster,
     theme
