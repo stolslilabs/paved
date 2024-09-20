@@ -2,8 +2,9 @@
 // Import the necessary types from the recs SDK
 // generate again with `sozo build --typescript` 
 import { Account, byteArray } from "starknet";
-import { DojoProvider } from "@dojoengine/core";
+import { DojoProvider, getContractByName } from "@dojoengine/core";
 import * as models from "./contractModels";
+import { dojoConfig } from "../../../dojo.config";
 
 export type IWorld = Awaited<ReturnType<typeof setupWorld>>;
 
@@ -11,7 +12,7 @@ export async function setupWorld(provider: DojoProvider) {
   // System definitions for `paved-account` contract
   function account() {
     const contract_name = "account";
-
+    const fee_token_name = "token";
 
     // Call the `world` system with the specified Account and calldata
     const world = async (props: { account: Account }) => {
@@ -38,12 +39,19 @@ export async function setupWorld(provider: DojoProvider) {
       try {
         return await provider.execute(
           props.account,
-          {
-            contractName: contract_name,
-            entrypoint: "create",
-            calldata: [props.name,
-            props.master],
-          },
+          [
+            {
+              contractName: fee_token_name,
+              entrypoint: "mint",
+              calldata: [],
+            },
+            {
+              contractName: contract_name,
+              entrypoint: "create",
+              calldata: [props.name,
+              props.master],
+            },
+          ],
           "paved"
         );
       } catch (error) {
@@ -60,7 +68,10 @@ export async function setupWorld(provider: DojoProvider) {
 
   // System definitions for `paved-daily` contract
   function daily() {
+    const config = dojoConfig();
     const contract_name = "daily";
+    const contract_address = getContractByName(config.manifest, 'paved', contract_name)?.address;
+    const fee_token_name = "token";
 
 
     // Call the `spawn` system with the specified Account and calldata
@@ -68,11 +79,18 @@ export async function setupWorld(provider: DojoProvider) {
       try {
         return await provider.execute(
           props.account,
-          {
-            contractName: contract_name,
-            entrypoint: "spawn",
-            calldata: [],
-          },
+          [
+            {
+              contractName: fee_token_name,
+              entrypoint: "approve",
+              calldata: [contract_address, `0x${(1e18).toString(16)}`, "0x0"],
+            },
+            {
+              contractName: contract_name,
+              entrypoint: "spawn",
+              calldata: [],
+            },
+          ],
           "paved"
         );
       } catch (error) {
@@ -109,11 +127,19 @@ export async function setupWorld(provider: DojoProvider) {
       try {
         return await provider.execute(
           props.account,
-          {
-            contractName: contract_name,
-            entrypoint: "sponsor",
-            calldata: [props.amount],
-          },
+
+          [
+            {
+              contractAddress: config.feeTokenAddress,
+              entrypoint: "approve",
+              calldata: [contract_address, props.amount, "0x0"],
+            },
+            {
+              contractName: contract_name,
+              entrypoint: "sponsor",
+              calldata: [props.amount],
+            },
+          ],
           "paved"
         );
       } catch (error) {
