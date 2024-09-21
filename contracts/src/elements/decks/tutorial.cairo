@@ -19,14 +19,6 @@
 // WFFFFFFFF: 0 pieces
 // WFFFFFFFR: 1 pieces
 
-// Core imports
-
-use core::debug::PrintTrait;
-
-// External imports
-
-use alexandria_math::bitmap::Bitmap;
-
 // Internal imports
 
 use paved::constants::CENTER;
@@ -35,17 +27,17 @@ use paved::elements::decks::interface::{DeckTrait, Plan, Orientation, Role, Spot
 // Constants
 
 impl DeckImpl of DeckTrait {
-    #[inline(always)]
+    #[inline]
     fn total_count() -> u8 {
         10
     }
 
-    #[inline(always)]
+    #[inline]
     fn count() -> u8 {
         10
     }
 
-    #[inline(always)]
+    #[inline]
     fn plan(index: u32) -> Plan {
         let id: felt252 = (index % Self::total_count().into()).into();
         match id {
@@ -63,7 +55,7 @@ impl DeckImpl of DeckTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn indexes(plan: Plan) -> Array<u8> {
         match plan {
             Plan::RFFFRFCFR => array![0],
@@ -101,16 +93,12 @@ impl DeckImpl of DeckTrait {
 
 #[cfg(test)]
 mod tests {
-    // Core imports
-
-    use core::debug::PrintTrait;
-
     // Local imports
 
     use super::{DeckImpl, Plan};
 
     #[test]
-    fn test_deck_base() {
+    fn test_deck_tutorial() {
         let mut index: u32 = 0;
         let mut counts: Felt252Dict<u8> = core::Default::default();
         loop {
@@ -123,6 +111,7 @@ mod tests {
         };
         // [Assert] Each plan has been drawn the right amount of time
         assert(counts.get(Plan::None.into()) == 0, 'Deck: None count');
+        assert(counts.get(Plan::CCCCCCCCC.into()) == 1, 'Deck: CCCCCCCCC count');
         assert(counts.get(Plan::CFFFCFFFC.into()) == 1, 'Deck: CFFFCFFFC count');
         assert(counts.get(Plan::FFCFFFFFC.into()) == 1, 'Deck: FFCFFFFFC count');
         assert(counts.get(Plan::RFFFRFCFR.into()) == 1, 'Deck: RFFFRFCFR count');

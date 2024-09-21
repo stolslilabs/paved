@@ -1,0 +1,21 @@
+[world]
+name = "Paved"
+description = "A strategic onchain tile laying game."
+cover_uri = "https://paved.gg/assets/placeholder.png"
+icon_uri = "https://paved.gg/assets/logo.png"
+website = "https://paved.gg"
+seed = "paved"
+
+[world.socials]
+x = "https://x.com/pavedgame"
+discord = "https://discord.com/invite/realmsworld"
+github = "https://github.com/stolslilabs/paved"
+telegram = "https://t.me/dojoengine"
+
+[namespace]
+default = "paved"
+
+[env]
+rpc_url = "https://api.cartridge.gg/x/paved/katana"
+account_address = "0x79e1341bc8e27b2ae2544fe902f0c9e723cfba8e37c47371d90385cc17265cc"
+private_key = "0x506a3b48830c89357283236d8724f68d014d681499b2256e7589c950a4198c5"

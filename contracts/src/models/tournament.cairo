@@ -7,7 +7,7 @@ use core::Zeroable;
 
 // External imports
 
-use origami::random::deck::{Deck as OrigamiDeck, DeckTrait};
+use origami_random::deck::{Deck as OrigamiDeck, DeckTrait};
 
 // Internal imports
 
@@ -27,12 +27,12 @@ mod errors {
 
 #[generate_trait]
 impl TournamentImpl of TournamentTrait {
-    #[inline(always)]
+    #[inline]
     fn compute_id(time: u64, duration: u64) -> u64 {
         time / duration
     }
 
-    #[inline(always)]
+    #[inline]
     fn player(self: Tournament, rank: u8) -> felt252 {
         match rank {
             0 => 0,
@@ -69,7 +69,7 @@ impl TournamentImpl of TournamentTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn score(ref self: Tournament, player_id: felt252, score: u32) {
         if score <= self.top3_score {
             return;
@@ -97,7 +97,7 @@ impl TournamentImpl of TournamentTrait {
         self.top1_player_id = player_id;
     }
 
-    #[inline(always)]
+    #[inline]
     fn buyin(ref self: Tournament, amount: felt252) {
         // [Check] Overflow
         let current: u256 = self.prize.into();
@@ -107,7 +107,7 @@ impl TournamentImpl of TournamentTrait {
         self.prize += amount;
     }
 
-    #[inline(always)]
+    #[inline]
     fn claim(ref self: Tournament, player_id: felt252, rank: u8, time: u64, duration: u64) -> u256 {
         // [Check] Tournament is over
         self.assert_is_over(time, duration);
@@ -133,12 +133,12 @@ impl TournamentImpl of TournamentTrait {
 
 #[generate_trait]
 impl TournamentAssert of AssertTrait {
-    #[inline(always)]
+    #[inline]
     fn assert_exists(self: Tournament) {
         assert(self.is_non_zero(), errors::TOURNAMENT_NOT_FOUND);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_not_claimed(self: Tournament, rank: u8) {
         // assert(!self.claimed, errors::REWARD_ALREADY_CLAIMED);
         if rank == 1 {
@@ -150,7 +150,7 @@ impl TournamentAssert of AssertTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_is_over(self: Tournament, time: u64, duration: u64) {
         let id = TournamentImpl::compute_id(time, duration);
         assert(id > self.id, errors::TOURNAMENT_NOT_OVER);
@@ -158,7 +158,7 @@ impl TournamentAssert of AssertTrait {
 }
 
 impl ZeroableTournament of Zeroable<Tournament> {
-    #[inline(always)]
+    #[inline]
     fn zero() -> Tournament {
         Tournament {
             id: 0,
@@ -175,12 +175,12 @@ impl ZeroableTournament of Zeroable<Tournament> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_zero(self: Tournament) -> bool {
         self.prize == 0
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_non_zero(self: Tournament) -> bool {
         !self.is_zero()
     }
@@ -204,7 +204,7 @@ mod tests {
     // Implementations
 
     impl DefaultTournament of Default<Tournament> {
-        #[inline(always)]
+        #[inline]
         fn default() -> Tournament {
             Tournament {
                 id: 0,

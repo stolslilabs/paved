@@ -17,7 +17,7 @@ mod errors {
     const ORIENTATION_IS_VALID: felt252 = 'Orientation: is valid';
 }
 
-#[derive(Copy, Drop, Serde, PartialEq, Introspect)]
+#[derive(Copy, Drop, Serde, PartialEq)]
 enum Orientation {
     None,
     North,
@@ -40,7 +40,7 @@ impl OrientationAssert of AssertTrait {
 }
 
 impl IntoOrientationU8 of core::Into<Orientation, u8> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Orientation) -> u8 {
         match self {
             Orientation::None => 0,
@@ -53,7 +53,7 @@ impl IntoOrientationU8 of core::Into<Orientation, u8> {
 }
 
 impl IntoU8Orientation of core::Into<u8, Orientation> {
-    #[inline(always)]
+    #[inline]
     fn into(self: u8) -> Orientation {
         if self == 1 {
             Orientation::North
@@ -70,7 +70,7 @@ impl IntoU8Orientation of core::Into<u8, Orientation> {
 }
 
 impl IntoOrientationFelt252 of core::Into<Orientation, felt252> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Orientation) -> felt252 {
         match self {
             Orientation::North => NORTH,
@@ -83,7 +83,7 @@ impl IntoOrientationFelt252 of core::Into<Orientation, felt252> {
 }
 
 impl OrientationPrint of PrintTrait<Orientation> {
-    #[inline(always)]
+    #[inline]
     fn print(self: Orientation) {
         let felt: felt252 = self.into();
         felt.print();

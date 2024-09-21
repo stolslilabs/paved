@@ -1,21 +1,3 @@
-// World
-
-fn WORLD() -> starknet::ContractAddress {
-    starknet::contract_address_const::<
-        0x1e3b79a25df98dd5032e519c0637d0136f2e69f2cb1906d22dc336420a3ca16
-    >()
-}
-
-fn TOKEN_ADDRESS() -> starknet::ContractAddress {
-    starknet::contract_address_const::<
-        0x21d38979aa1388702436102d42e0db359d32760ee2d939bf96b3941fc606153
-    // 0x044e6bcc627e6201ce09f781d1aae44ea4c21c2fdef299e34fce55bef2d02210 // LORDS Sepolia
-    // 0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7
-    // 0x51205c5e6ac3ad5691c28c0c5ffcdd62c70bddb63612f75a4bac9b2a85b9449
-    // 0x0124aeb495b947201f5fac96fd1138e326ad86195b98df6dec9009158a533b49 // LORDS Starknet
-    >()
-}
-
 // Game
 
 const ROAD_BASE_POINTS: u32 = 100;

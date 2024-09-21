@@ -1,0 +1,24 @@
+[world]
+name = "Paved"
+description = "A strategic onchain tile laying game."
+cover_uri = "https://paved.gg/assets/placeholder.png"
+icon_uri = "https://paved.gg/assets/logo.png"
+website = "https://paved.gg"
+seed = "paved-v102"
+
+[world.socials]
+x = "https://x.com/pavedgame"
+discord = "https://discord.com/invite/realmsworld"
+github = "https://github.com/stolslilabs/paved"
+telegram = "https://t.me/dojoengine"
+
+[namespace]
+default = "paved"
+
+[env]
+rpc_url = "https://api.cartridge.gg/x/starknet/sepolia"
+account_address = "0x059b1a0c489b635d7c7f43594d187362ddd2dcea6c82db4eef2579fd185b3753"
+private_key = "0xaf7f0b88b7ee7faf8065517cd565d9f9dcd013dd2382a0f1e6b3559f0fe57a"
+
+[migration]
+skip_contracts = ["paved::mocks::token::token"]

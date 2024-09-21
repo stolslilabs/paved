@@ -36,7 +36,7 @@ mod errors {
 
 #[generate_trait]
 impl TileImpl of TileTrait {
-    #[inline(always)]
+    #[inline]
     fn new(game_id: u32, id: u32, player_id: felt252, plan: Plan,) -> Tile {
         Tile {
             game_id,
@@ -50,13 +50,13 @@ impl TileImpl of TileTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn get_key(self: Tile, area: Area) -> felt252 {
         let key: u128 = area.into() + self.id.into() * TWO_POW_8;
         key.into()
     }
 
-    #[inline(always)]
+    #[inline]
     fn are_connected(self: Tile, from: Spot, to: Spot) -> bool {
         let orientation: Orientation = self.orientation.into();
         let from: Spot = from.antirotate(orientation);
@@ -65,18 +65,18 @@ impl TileImpl of TileTrait {
         plan.area(from) == plan.area(to)
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_empty(self: Tile) -> bool {
         self.occupied_spot == Spot::None.into()
     }
 
-    #[inline(always)]
+    #[inline]
     fn occupe(ref self: Tile, spot: Spot) {
         assert(spot != Spot::None, errors::INVALID_SPOT);
         self.occupied_spot = spot.into();
     }
 
-    #[inline(always)]
+    #[inline]
     fn leave(ref self: Tile) {
         assert(!self.is_empty(), errors::TILE_ALREADY_EMPTY);
         self.occupied_spot = Spot::None.into();
@@ -107,7 +107,7 @@ impl TileImpl of TileTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn place(ref self: Tile, orientation: Orientation, x: u32, y: u32, ref neighbors: Array<Tile>) {
         // [Check] Tile is not already placed
         self.assert_not_placed();
@@ -119,19 +119,19 @@ impl TileImpl of TileTrait {
         self.assert_can_place(ref neighbors);
     }
 
-    #[inline(always)]
+    #[inline]
     fn north_oriented_starts(self: Tile) -> Array<Spot> {
         let plan: Plan = self.plan.into();
         plan.starts()
     }
 
-    #[inline(always)]
+    #[inline]
     fn north_oriented_wonder(self: Tile) -> Spot {
         let plan: Plan = self.plan.into();
         plan.wonder()
     }
 
-    #[inline(always)]
+    #[inline]
     fn north_oriented_moves(self: Tile, at: Spot) -> Array<Move> {
         let orientation: Orientation = self.orientation.into();
         let spot: Spot = at.antirotate(orientation);
@@ -139,7 +139,7 @@ impl TileImpl of TileTrait {
         plan.moves(spot)
     }
 
-    #[inline(always)]
+    #[inline]
     fn area(self: Tile, at: Spot) -> Area {
         let orientation: Orientation = self.orientation.into();
         let spot: Spot = at.antirotate(orientation);
@@ -147,7 +147,7 @@ impl TileImpl of TileTrait {
         plan.area(spot)
     }
 
-    #[inline(always)]
+    #[inline]
     fn north_oriented_adjacent_roads(self: Tile, at: Spot) -> Array<Spot> {
         let orientation: Orientation = self.orientation.into();
         let spot: Spot = at.antirotate(orientation);
@@ -155,7 +155,7 @@ impl TileImpl of TileTrait {
         plan.adjacent_roads(spot)
     }
 
-    #[inline(always)]
+    #[inline]
     fn north_oriented_adjacent_cities(self: Tile, at: Spot) -> Array<Spot> {
         let orientation: Orientation = self.orientation.into();
         let spot: Spot = at.antirotate(orientation);
@@ -163,7 +163,7 @@ impl TileImpl of TileTrait {
         plan.adjacent_cities(spot)
     }
 
-    #[inline(always)]
+    #[inline]
     fn proxy_coordinates(self: Tile, direction: Direction) -> (u32, u32) {
         match direction {
             Direction::None => (self.x, self.y),
@@ -180,7 +180,7 @@ impl TileImpl of TileTrait {
 }
 
 impl TileIntoPosition of core::Into<Tile, TilePosition> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Tile) -> TilePosition {
         let tile_id = if Orientation::None == self.orientation.into() {
             0 // Not placed
@@ -192,7 +192,7 @@ impl TileIntoPosition of core::Into<Tile, TilePosition> {
 }
 
 impl TileIntoLayout of core::Into<Tile, Layout> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Tile) -> Layout {
         self.assert_is_placed();
         LayoutImpl::from(self.plan.into(), self.orientation.into())
@@ -201,22 +201,22 @@ impl TileIntoLayout of core::Into<Tile, Layout> {
 
 #[generate_trait]
 impl TileAssert of AssertTrait {
-    #[inline(always)]
+    #[inline]
     fn assert_exists(self: Tile) {
         assert(self.is_non_zero(), errors::TILE_DOES_NOT_EXIST);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_is_placed(self: Tile) {
         assert(Orientation::None != self.orientation.into(), errors::TILE_NOT_PLACED);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_not_placed(self: Tile) {
         assert(Orientation::None == self.orientation.into(), errors::TILE_ALREADY_PLACED);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_can_place(self: Tile, ref neighbors: Array<Tile>) {
         assert(self.can_place(ref neighbors), errors::TILE_CANNOT_PLACE);
     }
@@ -224,11 +224,11 @@ impl TileAssert of AssertTrait {
 
 #[generate_trait]
 impl TilePositionAssert of AssertPositionTrait {
-    #[inline(always)]
+    #[inline]
     fn assert_exists(self: TilePosition) {
         assert(self.is_non_zero(), errors::TILE_DOES_NOT_EXIST);
     }
-    #[inline(always)]
+    #[inline]
     fn assert_not_exists(self: TilePosition) {
         assert(self.is_zero(), errors::TILE_ALREADY_EXISTS);
     }
@@ -236,7 +236,7 @@ impl TilePositionAssert of AssertPositionTrait {
 
 #[generate_trait]
 impl InternalImpl of InternalTrait {
-    #[inline(always)]
+    #[inline]
     fn reference_direction(self: Tile, reference: Tile) -> Direction {
         if self.x == reference.x {
             if self.y + 1 == reference.y {
@@ -259,7 +259,7 @@ impl InternalImpl of InternalTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_neighbor(self: Tile, reference: Tile) -> bool {
         if self.x == reference.x {
             self.y + 1 == reference.y || self.y == reference.y + 1
@@ -272,36 +272,36 @@ impl InternalImpl of InternalTrait {
 }
 
 impl ZeroableTile of core::Zeroable<Tile> {
-    #[inline(always)]
+    #[inline]
     fn zero() -> Tile {
         Tile {
             game_id: 0, id: 0, player_id: 0, plan: 0, orientation: 0, x: 0, y: 0, occupied_spot: 0
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_zero(self: Tile) -> bool {
         self.player_id == 0
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_non_zero(self: Tile) -> bool {
         !self.is_zero()
     }
 }
 
 impl ZeroableTilePosition of core::Zeroable<TilePosition> {
-    #[inline(always)]
+    #[inline]
     fn zero() -> TilePosition {
         TilePosition { game_id: 0, x: 0, y: 0, tile_id: 0, }
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_zero(self: TilePosition) -> bool {
         self.tile_id == 0
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_non_zero(self: TilePosition) -> bool {
         !self.is_zero()
     }
@@ -324,7 +324,7 @@ mod tests {
 
     #[generate_trait]
     impl TestImpl of TestTrait {
-        #[inline(always)]
+        #[inline]
         fn from(plan: Plan, orientation: Orientation, x: u32, y: u32,) -> Tile {
             Tile {
                 game_id: 0,

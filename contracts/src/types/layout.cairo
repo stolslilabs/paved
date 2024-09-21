@@ -34,7 +34,7 @@ struct Layout {
 
 #[generate_trait]
 impl LayoutImpl of LayoutTrait {
-    #[inline(always)]
+    #[inline]
     fn new(
         center: Category,
         north_west: Category,
@@ -59,7 +59,7 @@ impl LayoutImpl of LayoutTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn from(plan: Plan, orientation: Orientation) -> Layout {
         let mut categories = plan.unpack();
 
@@ -135,7 +135,7 @@ impl LayoutImpl of LayoutTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_compatible(self: Layout, reference: Layout, direction: Direction) -> bool {
         match direction {
             Direction::None => { false },
@@ -150,7 +150,7 @@ impl LayoutImpl of LayoutTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn get_category(self: Layout, spot: Spot) -> Category {
         match spot {
             Spot::None => { Category::None },
@@ -168,7 +168,7 @@ impl LayoutImpl of LayoutTrait {
 }
 
 impl DefaultLayoutImpl of core::Default<Layout> {
-    #[inline(always)]
+    #[inline]
     fn default() -> Layout {
         Layout {
             center: Category::None,

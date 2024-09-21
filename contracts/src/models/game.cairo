@@ -5,10 +5,6 @@ use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::poseidon::{PoseidonTrait, HashState};
 use core::hash::HashStateTrait;
 
-// External imports
-
-use alexandria_math::bitmap::Bitmap;
-
 // Internal imports
 
 use paved::constants;
@@ -16,6 +12,7 @@ use paved::store::{Store, StoreImpl};
 use paved::helpers::generic::GenericCount;
 use paved::helpers::wonder::WonderCount;
 use paved::helpers::conflict::Conflict;
+use paved::helpers::bitmap::Bitmap;
 use paved::types::plan::Plan;
 use paved::types::deck::{Deck, DeckImpl};
 use paved::types::spot::{Spot, SpotImpl};
@@ -29,7 +26,7 @@ use paved::types::orientation::{Orientation, IntoOrientationU8, IntoU8Orientatio
 use paved::types::move::{Move, MoveImpl};
 use paved::models::player::{Player, PlayerTrait};
 use paved::models::builder::{Builder, BuilderTrait};
-use paved::models::character::{Character, CharacterPosition, CharacterTrait, CharacterAssert};
+use paved::models::character::{Char, CharPosition, CharTrait, CharAssert};
 use paved::models::tile::{Tile, TileTrait, TileIntoLayout};
 use paved::models::index::Game;
 
@@ -51,7 +48,7 @@ mod errors {
 
 #[generate_trait]
 impl GameImpl of GameTrait {
-    #[inline(always)]
+    #[inline]
     fn new(id: u32, time: u64, mode: Mode) -> Game {
         // [Check] Validate parameters
         let mode: Mode = mode.into();
@@ -73,30 +70,30 @@ impl GameImpl of GameTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn price(self: Game) -> felt252 {
         let mode: Mode = self.mode.into();
         mode.price()
     }
 
-    #[inline(always)]
+    #[inline]
     fn duration(self: Game) -> u64 {
         let mode: Mode = self.mode.into();
         mode.duration()
     }
 
-    #[inline(always)]
+    #[inline]
     fn deck(self: Game) -> Deck {
         let mode: Mode = self.mode.into();
         mode.deck()
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_payable(self: Game) -> bool {
         true
     }
 
-    #[inline(always)]
+    #[inline]
     fn nullify(ref self: Game) {
         // [Effect] Nullify the game
         self.over = false;
@@ -107,7 +104,7 @@ impl GameImpl of GameTrait {
         self.seed = 0;
     }
 
-    #[inline(always)]
+    #[inline]
     fn start(ref self: Game, time: u64) -> Tile {
         // [Effect] Create the starter tile
         let tile_id = self.add_tile();
@@ -130,12 +127,12 @@ impl GameImpl of GameTrait {
         tile
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_over(self: Game) -> bool {
         self.over
     }
 
-    #[inline(always)]
+    #[inline]
     fn reseed(ref self: Game, tile: Tile) {
         let state: HashState = PoseidonTrait::new();
         let state = state.update(self.seed);
@@ -144,30 +141,30 @@ impl GameImpl of GameTrait {
         self.seed = state.finalize();
     }
 
-    #[inline(always)]
+    #[inline]
     fn assess_over(ref self: Game) {
         let deck: Deck = self.deck();
         self.over = self.tile_count >= deck.count().into();
     }
 
-    #[inline(always)]
+    #[inline]
     fn surrender(ref self: Game) {
         // [Comment] Only available for solo mode
         self.over = true;
     }
 
-    #[inline(always)]
+    #[inline]
     fn add_tile(ref self: Game) -> u32 {
         self.tile_count += 1;
         self.tile_count
     }
 
-    #[inline(always)]
+    #[inline]
     fn add_score(ref self: Game, score: u32,) {
         self.score += score;
     }
 
-    #[inline(always)]
+    #[inline]
     fn sub_score(ref self: Game, ref score: u32,) {
         // [Check] Update score
         if self.score < score {
@@ -176,7 +173,7 @@ impl GameImpl of GameTrait {
         self.score -= score;
     }
 
-    #[inline(always)]
+    #[inline]
     fn draw_plan(ref self: Game) -> (u32, Plan) {
         let mode: Mode = self.mode.into();
         let (plan, tiles) = mode.draw(self.seed, self.tiles);
@@ -228,7 +225,7 @@ impl GameImpl of GameTrait {
         };
     }
 
-    #[inline(always)]
+    #[inline]
     fn assess_at(ref self: Game, tile: Tile, at: Spot, category: Category, ref store: Store) {
         // [Compute] Assess the spot
         let base = category.base_points();
@@ -266,7 +263,7 @@ impl GameImpl of GameTrait {
 }
 
 impl ZeroableGame of core::Zeroable<Game> {
-    #[inline(always)]
+    #[inline]
     fn zero() -> Game {
         Game {
             id: 0,
@@ -284,12 +281,12 @@ impl ZeroableGame of core::Zeroable<Game> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_zero(self: Game) -> bool {
         0 == self.tile_count.into()
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_non_zero(self: Game) -> bool {
         !self.is_zero()
     }
@@ -297,33 +294,33 @@ impl ZeroableGame of core::Zeroable<Game> {
 
 #[generate_trait]
 impl GameAssert of AssertTrait {
-    #[inline(always)]
+    #[inline]
     fn assert_exists(self: Game) {
         assert(self.is_non_zero(), errors::GAME_NOT_EXISTS);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_not_started(self: Game) {
         assert(0 == self.tile_count.into(), errors::GAME_ALREADY_STARTED);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_started(self: Game) {
         assert(0 != self.tile_count.into(), errors::GAME_NOT_STARTED);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_structure_idle(self: Game, tile: Tile, at: Spot, ref store: Store) {
         let status = Conflict::start(self, tile, at, ref store);
         assert(!status, errors::STRUCTURE_NOT_IDLE);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_not_over(self: Game) {
         assert(!self.is_over(), errors::GAME_IS_OVER);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_is_over(self: Game) {
         assert(self.is_over(), errors::GAME_NOT_OVER);
     }

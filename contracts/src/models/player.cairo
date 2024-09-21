@@ -15,7 +15,7 @@ mod errors {
 
 #[generate_trait]
 impl PlayerImpl of PlayerTrait {
-    #[inline(always)]
+    #[inline]
     fn new(id: felt252, name: felt252, master: felt252) -> Player {
         // [Check] Name is valid
         assert(name != 0, errors::INVALID_NAME);
@@ -27,7 +27,7 @@ impl PlayerImpl of PlayerTrait {
         Player { id, name, master: master }
     }
 
-    #[inline(always)]
+    #[inline]
     fn rename(ref self: Player, name: felt252) {
         // [Check] Name is valid
         assert(name != 0, errors::INVALID_NAME);
@@ -38,29 +38,29 @@ impl PlayerImpl of PlayerTrait {
 
 #[generate_trait]
 impl PlayerAssert of AssertTrait {
-    #[inline(always)]
+    #[inline]
     fn assert_exists(self: Player) {
         assert(self.is_non_zero(), errors::PLAYER_NOT_EXIST);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_not_exists(self: Player) {
         assert(self.is_zero(), errors::PLAYER_ALREADY_EXIST);
     }
 }
 
 impl ZeroablePlayerImpl of core::Zeroable<Player> {
-    #[inline(always)]
+    #[inline]
     fn zero() -> Player {
         Player { id: 0, name: 0, master: 0 }
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_zero(self: Player) -> bool {
         0 == self.name
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_non_zero(self: Player) -> bool {
         !self.is_zero()
     }

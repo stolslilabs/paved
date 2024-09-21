@@ -2,10 +2,6 @@
 
 use core::debug::PrintTrait;
 
-// External imports
-
-use alexandria_math::bitmap::Bitmap;
-
 // Internal imports
 
 use paved::constants;
@@ -19,8 +15,9 @@ use paved::types::category::Category;
 use paved::models::game::{Game, GameImpl};
 use paved::models::player::{Player, PlayerImpl};
 use paved::models::tile::{Tile, TileImpl, TileIntoLayout};
-use paved::models::character::{Character, CharacterImpl};
+use paved::models::character::{Char, CharImpl};
 use paved::models::index::Builder;
+use paved::helpers::bitmap::Bitmap;
 
 mod errors {
     const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: does not exist';
@@ -40,20 +37,20 @@ mod errors {
 
 #[generate_trait]
 impl BuilderImpl of BuilderTrait {
-    #[inline(always)]
+    #[inline]
     fn new(game_id: u32, player_id: felt252) -> Builder {
         // [Return] Builder
         Builder { game_id, player_id, tile_id: 0, characters: 0, }
     }
 
-    #[inline(always)]
+    #[inline]
     fn nullify(ref self: Builder) {
         // [Effect] Nullify builder
         self.tile_id = 0;
         self.characters = 0;
     }
 
-    #[inline(always)]
+    #[inline]
     fn reveal(ref self: Builder, tile_id: u32, plan: Plan) -> Tile {
         // [Check] Can reveal
         self.assert_revealable();
@@ -63,7 +60,7 @@ impl BuilderImpl of BuilderTrait {
         TileImpl::new(self.game_id, self.tile_id, self.player_id, plan.into())
     }
 
-    #[inline(always)]
+    #[inline]
     fn discard(ref self: Builder, ref game: Game) {
         // [Check] Have a tile to place
         self.assert_discardable();
@@ -74,7 +71,7 @@ impl BuilderImpl of BuilderTrait {
         self.tile_id = 0;
     }
 
-    #[inline(always)]
+    #[inline]
     fn build(
         ref self: Builder,
         ref tile: Tile,
@@ -91,12 +88,12 @@ impl BuilderImpl of BuilderTrait {
         self.tile_id = 0;
     }
 
-    #[inline(always)]
-    fn place(ref self: Builder, role: Role, ref tile: Tile, spot: Spot) -> Character {
+    #[inline]
+    fn place(ref self: Builder, role: Role, ref tile: Tile, spot: Spot) -> Char {
         // [Check] Available character
         let index: u8 = role.into();
         self.assert_available(index);
-        // [Check] Character compatibility
+        // [Check] Char compatibility
         let layout: Layout = tile.into();
         let category: Category = layout.get_category(spot);
         role.assert_is_allowed(category);
@@ -107,11 +104,11 @@ impl BuilderImpl of BuilderTrait {
         // [Return] New character
         let weight: u8 = role.weight(category);
         let power: u8 = role.power(category);
-        CharacterImpl::new(self.game_id, self.player_id, index.into(), tile.id, spot, weight, power)
+        CharImpl::new(self.game_id, self.player_id, index.into(), tile.id, spot, weight, power)
     }
 
-    #[inline(always)]
-    fn recover(ref self: Builder, ref character: Character, ref tile: Tile) {
+    #[inline]
+    fn recover(ref self: Builder, ref character: Char, ref tile: Tile) {
         // [Check] Recoverable
         let index: u8 = character.index;
         self.assert_recoverable(index);
@@ -126,38 +123,38 @@ impl BuilderImpl of BuilderTrait {
 
 #[generate_trait]
 impl BuilderAssert of AssertTrait {
-    #[inline(always)]
+    #[inline]
     fn assert_exists(self: Builder) {
         assert(self.is_non_zero(), errors::BUILDER_DOES_NOT_EXIST);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_not_exists(self: Builder) {
         assert(self.is_zero(), errors::BUILDER_ALREADY_EXIST);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_revealable(self: Builder) {
         assert(0 == self.tile_id.into(), errors::ALREADY_HAS_TILE);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_discardable(self: Builder) {
         assert(0 != self.tile_id.into(), errors::CANNOT_DISCARD);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_buildable(self: Builder) {
         assert(0 != self.tile_id.into(), errors::CANNOT_BUILD);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_available(self: Builder, index: u8) {
         let placed = Bitmap::get_bit_at(self.characters, index.into());
         assert(!placed, errors::ALREADY_PLACED);
     }
 
-    #[inline(always)]
+    #[inline]
     fn assert_recoverable(self: Builder, index: u8) {
         let placed = Bitmap::get_bit_at(self.characters, index.into());
         assert(placed, errors::CHARACTER_NOT_PLACED);
@@ -165,17 +162,17 @@ impl BuilderAssert of AssertTrait {
 }
 
 impl ZeroableBuilderImpl of core::Zeroable<Builder> {
-    #[inline(always)]
+    #[inline]
     fn zero() -> Builder {
         Builder { game_id: 0, player_id: 0, tile_id: 0, characters: 0, }
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_zero(self: Builder) -> bool {
         0 == self.tile_id.into()
     }
 
-    #[inline(always)]
+    #[inline]
     fn is_non_zero(self: Builder) -> bool {
         !self.is_zero()
     }

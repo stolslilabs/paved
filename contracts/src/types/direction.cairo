@@ -6,7 +6,7 @@ use core::debug::PrintTrait;
 
 use paved::types::orientation::Orientation;
 
-#[derive(Copy, Drop, Serde, PartialEq, Introspect)]
+#[derive(Copy, Drop, Serde, PartialEq)]
 enum Direction {
     None,
     NorthWest,
@@ -20,7 +20,7 @@ enum Direction {
 }
 
 impl IntoDirectionU8 of core::Into<Direction, u8> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Direction) -> u8 {
         match self {
             Direction::None => 0,
@@ -37,7 +37,7 @@ impl IntoDirectionU8 of core::Into<Direction, u8> {
 }
 
 impl IntoU8Direction of core::Into<u8, Direction> {
-    #[inline(always)]
+    #[inline]
     fn into(self: u8) -> Direction {
         match self {
             0 => Direction::None,
@@ -56,7 +56,7 @@ impl IntoU8Direction of core::Into<u8, Direction> {
 
 #[generate_trait]
 impl DirectionImpl of DirectionTrait {
-    #[inline(always)]
+    #[inline]
     fn rotate(self: Direction, orientation: Orientation) -> Direction {
         match orientation {
             Orientation::None => Direction::None,
@@ -103,7 +103,7 @@ impl DirectionImpl of DirectionTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn antirotate(self: Direction, orientation: Orientation) -> Direction {
         let anti_orientation = match orientation {
             Orientation::None => Orientation::None,
@@ -115,7 +115,7 @@ impl DirectionImpl of DirectionTrait {
         self.rotate(anti_orientation)
     }
 
-    #[inline(always)]
+    #[inline]
     fn source(self: Direction) -> Direction {
         self.rotate(Orientation::South)
     }

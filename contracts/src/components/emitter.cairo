@@ -64,49 +64,49 @@ mod EmitterComponent {
     impl Emitter<
         TContractState, +HasComponent<TContractState>
     > of EmitterTrait<ComponentState<TContractState>> {
-        #[inline(always)]
+        #[inline]
         fn emit_built(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: Built
         ) {
             emit!(world, (Event::Built(event)));
         }
 
-        #[inline(always)]
+        #[inline]
         fn emit_discarded(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: Discarded
         ) {
             emit!(world, (Event::Discarded(event)));
         }
 
-        #[inline(always)]
+        #[inline]
         fn emit_game_over(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: GameOver
         ) {
             emit!(world, (Event::GameOver(event)));
         }
 
-        #[inline(always)]
+        #[inline]
         fn emit_scored_city(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: ScoredCity
         ) {
             emit!(world, (Event::ScoredCity(event)));
         }
 
-        #[inline(always)]
+        #[inline]
         fn emit_scored_road(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: ScoredRoad
         ) {
             emit!(world, (Event::ScoredRoad(event)));
         }
 
-        #[inline(always)]
+        #[inline]
         fn emit_scored_forest(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: ScoredForest
         ) {
             emit!(world, (Event::ScoredForest(event)));
         }
 
-        #[inline(always)]
+        #[inline]
         fn emit_scored_wonder(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: ScoredWonder
         ) {

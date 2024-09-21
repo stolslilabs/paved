@@ -4,10 +4,6 @@ use core::debug::PrintTrait;
 use core::poseidon::{PoseidonTrait, HashState};
 use core::hash::HashStateTrait;
 
-// External imports
-
-use alexandria_math::bitmap::Bitmap;
-
 // Internal imports
 
 use paved::types::plan::Plan;
@@ -17,13 +13,14 @@ use paved::types::spot::Spot;
 use paved::elements::decks::base::{DeckImpl as Base};
 use paved::elements::decks::simple::{DeckImpl as Simple};
 use paved::elements::decks::tutorial::{DeckImpl as Tutorial};
+use paved::helpers::bitmap::Bitmap;
 
 // Constants
 
 const NONE: felt252 = 0;
 const MULTIPLIER: u128 = 10_000;
 
-#[derive(Copy, Drop, Serde, Introspect)]
+#[derive(Copy, Drop, Serde)]
 enum Deck {
     None,
     Base,
@@ -32,7 +29,7 @@ enum Deck {
 }
 
 impl IntoDeckFelt252 of core::Into<Deck, felt252> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Deck) -> felt252 {
         match self {
             Deck::None => NONE,
@@ -44,7 +41,7 @@ impl IntoDeckFelt252 of core::Into<Deck, felt252> {
 }
 
 impl IntoDeckU8 of core::Into<Deck, u8> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Deck) -> u8 {
         match self {
             Deck::None => 0,
@@ -56,7 +53,7 @@ impl IntoDeckU8 of core::Into<Deck, u8> {
 }
 
 impl IntoDeck of core::Into<u8, Deck> {
-    #[inline(always)]
+    #[inline]
     fn into(self: u8) -> Deck {
         let deck: felt252 = self.into();
         match deck {
@@ -70,7 +67,7 @@ impl IntoDeck of core::Into<u8, Deck> {
 }
 
 impl DeckPrint of PrintTrait<Deck> {
-    #[inline(always)]
+    #[inline]
     fn print(self: Deck) {
         let felt: felt252 = self.into();
         felt.print();
@@ -79,7 +76,7 @@ impl DeckPrint of PrintTrait<Deck> {
 
 #[generate_trait]
 impl DeckImpl of DeckTrait {
-    #[inline(always)]
+    #[inline]
     fn total_count(self: Deck) -> u8 {
         match self {
             Deck::None => 0,
@@ -89,7 +86,7 @@ impl DeckImpl of DeckTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn count(self: Deck) -> u8 {
         match self {
             Deck::None => 0,
@@ -99,7 +96,7 @@ impl DeckImpl of DeckTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn plan(self: Deck, index: u32) -> Plan {
         match self {
             Deck::None => Plan::None,
@@ -109,7 +106,7 @@ impl DeckImpl of DeckTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn indexes(self: Deck, plan: Plan) -> Array<u8> {
         match self {
             Deck::None => array![],
@@ -168,13 +165,13 @@ impl DeckImpl of DeckTrait {
 }
 
 impl DeckPartialEq of PartialEq<Deck> {
-    #[inline(always)]
+    #[inline]
     fn eq(lhs: @Deck, rhs: @Deck) -> bool {
         let felt: felt252 = (*lhs).into();
         felt == (*rhs).into()
     }
 
-    #[inline(always)]
+    #[inline]
     fn ne(lhs: @Deck, rhs: @Deck) -> bool {
         let felt: felt252 = (*lhs).into();
         felt != (*rhs).into()

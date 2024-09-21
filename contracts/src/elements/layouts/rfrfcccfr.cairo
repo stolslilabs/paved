@@ -11,7 +11,7 @@ use paved::types::move::{Move, MoveImpl};
 use paved::types::area::Area;
 
 impl LayoutImpl of LayoutTrait {
-    #[inline(always)]
+    #[inline]
     fn starts() -> Array<Spot> {
         let mut starts: Array<Spot> = ArrayTrait::new();
         starts.append(Spot::Center);
@@ -21,7 +21,7 @@ impl LayoutImpl of LayoutTrait {
         starts
     }
 
-    #[inline(always)]
+    #[inline]
     fn moves(from: Spot) -> Array<Move> {
         let area: Area = Self::area(from);
         let mut moves: Array<Move> = ArrayTrait::new();
@@ -47,7 +47,7 @@ impl LayoutImpl of LayoutTrait {
         moves
     }
 
-    #[inline(always)]
+    #[inline]
     fn area(from: Spot) -> Area {
         match from {
             Spot::None => Area::None,
@@ -63,7 +63,7 @@ impl LayoutImpl of LayoutTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn adjacent_roads(from: Spot) -> Array<Spot> {
         let mut roads: Array<Spot> = ArrayTrait::new();
         match from {
@@ -81,7 +81,7 @@ impl LayoutImpl of LayoutTrait {
         roads
     }
 
-    #[inline(always)]
+    #[inline]
     fn adjacent_cities(from: Spot) -> Array<Spot> {
         let mut cities: Array<Spot> = ArrayTrait::new();
         match from {

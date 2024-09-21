@@ -19,32 +19,28 @@
 // WFFFFFFFF: 6 pieces
 // WFFFFFFFR: 6 pieces
 
-// Core imports
-
-use core::debug::PrintTrait;
-
 // Internal imports
 
 use paved::elements::decks::interface::{DeckTrait, Plan, Orientation, Role, Spot};
 use paved::elements::decks::base::{DeckImpl as BaseDeck};
 
 impl DeckImpl of DeckTrait {
-    #[inline(always)]
+    #[inline]
     fn total_count() -> u8 {
         BaseDeck::total_count()
     }
 
-    #[inline(always)]
+    #[inline]
     fn count() -> u8 {
         38
     }
 
-    #[inline(always)]
+    #[inline]
     fn plan(index: u32) -> Plan {
         BaseDeck::plan(index)
     }
 
-    #[inline(always)]
+    #[inline]
     fn indexes(plan: Plan) -> Array<u8> {
         BaseDeck::indexes(plan)
     }
@@ -58,10 +54,6 @@ impl DeckImpl of DeckTrait {
 
 #[cfg(test)]
 mod tests {
-    // Core imports
-
-    use core::debug::PrintTrait;
-
     // Local imports
 
     use super::{DeckImpl, Plan};

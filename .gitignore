@@ -10,3 +10,4 @@ pnpm-lock.yaml
 account.json
 keystore.json
 target/
+bindings/

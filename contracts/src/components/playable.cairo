@@ -9,11 +9,8 @@ mod PlayableComponent {
 
     // Dojo imports
 
-    use dojo::world;
     use dojo::world::IWorldDispatcher;
     use dojo::world::IWorldDispatcherTrait;
-    use dojo::world::IWorldProvider;
-    use dojo::world::IDojoResourceProvider;
 
     // Internal imports
 
@@ -43,7 +40,7 @@ mod PlayableComponent {
     impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
-        fn _discard(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
+        fn discard(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -107,9 +104,7 @@ mod PlayableComponent {
             store.set_game(game);
         }
 
-        fn _surrender(
-            self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32
-        ) {
+        fn surrender(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -154,7 +149,7 @@ mod PlayableComponent {
             store.set_game(game);
         }
 
-        fn _build(
+        fn build(
             self: @ComponentState<TContractState>,
             world: IWorldDispatcher,
             game_id: u32,

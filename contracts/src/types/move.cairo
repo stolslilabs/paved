@@ -20,14 +20,14 @@ struct Move {
 
 #[generate_trait]
 impl MoveImpl of MoveTrait {
-    #[inline(always)]
+    #[inline]
     fn rotate(self: Move, orientation: Orientation) -> Move {
         let direction = self.direction.rotate(orientation);
         let spot = self.spot.rotate(orientation);
         Move { direction: direction, spot: spot }
     }
 
-    #[inline(always)]
+    #[inline]
     fn antirotate(self: Move, orientation: Orientation) -> Move {
         let direction = self.direction.antirotate(orientation);
         let spot = self.spot.antirotate(orientation);

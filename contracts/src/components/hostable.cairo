@@ -13,11 +13,8 @@ mod HostableComponent {
 
     // Dojo imports
 
-    use dojo::world;
     use dojo::world::IWorldDispatcher;
     use dojo::world::IWorldDispatcherTrait;
-    use dojo::world::IWorldProvider;
-    use dojo::world::IDojoResourceProvider;
 
     // Internal imports
 
@@ -51,7 +48,7 @@ mod HostableComponent {
     impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
-        fn _spawn(
+        fn spawn(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, mode: Mode
         ) -> (u32, u256) {
             // [Setup] Datastore
@@ -100,7 +97,7 @@ mod HostableComponent {
             (game_id, amount)
         }
 
-        fn _claim(
+        fn claim(
             self: @ComponentState<TContractState>,
             world: IWorldDispatcher,
             tournament_id: u64,
@@ -128,7 +125,7 @@ mod HostableComponent {
             reward
         }
 
-        fn _sponsor(
+        fn sponsor(
             self: @ComponentState<TContractState>,
             world: IWorldDispatcher,
             amount: felt252,

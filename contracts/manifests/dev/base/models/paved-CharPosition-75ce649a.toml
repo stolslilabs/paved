@@ -1,0 +1,32 @@
+kind = "DojoModel"
+class_hash = "0x54756f3032dab8940835f4804b9a7dc37f32cf08b7f2f5f91415406cf38dea2"
+original_class_hash = "0x54756f3032dab8940835f4804b9a7dc37f32cf08b7f2f5f91415406cf38dea2"
+abi = "manifests/dev/base/abis/models/paved-CharPosition-75ce649a.json"
+tag = "paved-CharPosition"
+qualified_path = "paved::models::index::char_position"
+manifest_name = "paved-CharPosition-75ce649a"
+
+[[members]]
+name = "game_id"
+type = "u32"
+key = true
+
+[[members]]
+name = "tile_id"
+type = "u32"
+key = true
+
+[[members]]
+name = "spot"
+type = "u8"
+key = true
+
+[[members]]
+name = "player_id"
+type = "felt252"
+key = false
+
+[[members]]
+name = "index"
+type = "u8"
+key = false

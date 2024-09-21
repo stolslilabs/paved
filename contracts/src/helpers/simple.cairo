@@ -14,7 +14,7 @@ use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
 
 #[generate_trait]
 impl SimpleCount of SimpleCountTrait {
-    #[inline(always)]
+    #[inline]
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> u32 {
         // [Compute] Setup recursion
         let mut visited: Felt252Dict<bool> = core::Default::default();

@@ -22,10 +22,12 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 use paved::types::plan::Plan;
 use paved::types::orientation::Orientation;
-use paved::systems::daily::IDailyDispatcherTrait;
 
 use paved::tests::setup::{
-    setup, setup::{Mode, Systems, PLAYER, ANYONE, SOMEONE, NOONE, IERC20DispatcherTrait}
+    setup,
+    setup::{
+        Mode, Systems, PLAYER, ANYONE, SOMEONE, NOONE, IERC20DispatcherTrait, IDailyDispatcherTrait
+    }
 };
 
 #[test]
@@ -191,7 +193,7 @@ fn test_play_ranked_tournament_claim() {
 #[should_panic(expected: ('Tournament: not over', 'ENTRYPOINT_FAILED',))]
 fn test_play_ranked_tournament_claim_revert_not_over() {
     // [Setup]
-    let (world, systems, _) = setup::spawn_game(Mode::Daily);
+    let (_, systems, _) = setup::spawn_game(Mode::Daily);
     let time = 0;
     set_block_timestamp(time);
 
@@ -204,7 +206,7 @@ fn test_play_ranked_tournament_claim_revert_not_over() {
 #[should_panic(expected: ('Tournament: invalid player', 'ENTRYPOINT_FAILED',))]
 fn test_play_ranked_tournament_claim_revert_invalid_player() {
     // [Setup]
-    let (world, systems, _) = setup::spawn_game(Mode::Daily);
+    let (_, systems, _) = setup::spawn_game(Mode::Daily);
     let time = 0;
     set_block_timestamp(time);
 

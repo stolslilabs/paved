@@ -30,17 +30,17 @@ use paved::elements::decks::interface::{DeckTrait, Plan, Orientation, Role, Spot
 // Constants
 
 impl DeckImpl of DeckTrait {
-    #[inline(always)]
+    #[inline]
     fn total_count() -> u8 {
         72
     }
 
-    #[inline(always)]
+    #[inline]
     fn count() -> u8 {
         72
     }
 
-    #[inline(always)]
+    #[inline]
     fn plan(index: u32) -> Plan {
         let id: felt252 = (index % Self::total_count().into()).into();
         match id {
@@ -120,7 +120,7 @@ impl DeckImpl of DeckTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn indexes(plan: Plan) -> Array<u8> {
         match plan {
             Plan::CCCCCCCCC => array![0],

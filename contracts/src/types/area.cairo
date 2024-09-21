@@ -6,7 +6,7 @@ use core::debug::PrintTrait;
 
 use paved::types::orientation::Orientation;
 
-#[derive(Copy, Drop, Serde, PartialEq, Introspect)]
+#[derive(Copy, Drop, Serde, PartialEq)]
 enum Area {
     None,
     A,
@@ -21,7 +21,7 @@ enum Area {
 }
 
 impl IntoAreaU8 of core::Into<Area, u8> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Area) -> u8 {
         match self {
             Area::None => 0,
@@ -39,7 +39,7 @@ impl IntoAreaU8 of core::Into<Area, u8> {
 }
 
 impl IntoU8Area of core::Into<u8, Area> {
-    #[inline(always)]
+    #[inline]
     fn into(self: u8) -> Area {
         match self {
             0 => Area::None,
@@ -58,7 +58,7 @@ impl IntoU8Area of core::Into<u8, Area> {
 }
 
 impl IntoAreaU128 of core::Into<Area, u128> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Area) -> u128 {
         let self_u8: u8 = self.into();
         self_u8.into()
@@ -66,7 +66,7 @@ impl IntoAreaU128 of core::Into<Area, u128> {
 }
 
 impl IntoAreaFelt252 of core::Into<Area, felt252> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Area) -> felt252 {
         let self_u8: u8 = self.into();
         self_u8.into()
@@ -75,7 +75,7 @@ impl IntoAreaFelt252 of core::Into<Area, felt252> {
 
 #[generate_trait]
 impl AreaImpl of AreaTrait {
-    #[inline(always)]
+    #[inline]
     fn rotate(self: Area, orientation: Orientation) -> Area {
         match orientation {
             Orientation::None => Area::None,
@@ -125,7 +125,7 @@ impl AreaImpl of AreaTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn antirotate(self: Area, orientation: Orientation) -> Area {
         let anti_orientation = match orientation {
             Orientation::None => Orientation::None,

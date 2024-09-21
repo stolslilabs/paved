@@ -42,7 +42,7 @@ mod errors {
 }
 
 // Center, NW, N, NE, E, SE, S, SW, W
-#[derive(Copy, Drop, Serde, Introspect)]
+#[derive(Copy, Drop, Serde)]
 enum Plan {
     None,
     CCCCCCCCC,
@@ -67,7 +67,7 @@ enum Plan {
 }
 
 impl IntoPlanFelt252 of core::Into<Plan, felt252> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Plan) -> felt252 {
         match self {
             Plan::None => NONE,
@@ -95,7 +95,7 @@ impl IntoPlanFelt252 of core::Into<Plan, felt252> {
 }
 
 impl IntoPlanU8 of core::Into<Plan, u8> {
-    #[inline(always)]
+    #[inline]
     fn into(self: Plan) -> u8 {
         match self {
             Plan::None => 0,
@@ -123,7 +123,7 @@ impl IntoPlanU8 of core::Into<Plan, u8> {
 }
 
 impl IntoPlan of core::Into<u8, Plan> {
-    #[inline(always)]
+    #[inline]
     fn into(self: u8) -> Plan {
         let plan: felt252 = self.into();
         match plan {
@@ -153,7 +153,7 @@ impl IntoPlan of core::Into<u8, Plan> {
 }
 
 impl PlanPrint of PrintTrait<Plan> {
-    #[inline(always)]
+    #[inline]
     fn print(self: Plan) {
         let felt: felt252 = self.into();
         felt.print();
@@ -161,13 +161,13 @@ impl PlanPrint of PrintTrait<Plan> {
 }
 
 impl PlanPartialEq of PartialEq<Plan> {
-    #[inline(always)]
+    #[inline]
     fn eq(lhs: @Plan, rhs: @Plan) -> bool {
         let felt: felt252 = (*lhs).into();
         felt == (*rhs).into()
     }
 
-    #[inline(always)]
+    #[inline]
     fn ne(lhs: @Plan, rhs: @Plan) -> bool {
         let felt: felt252 = (*lhs).into();
         felt != (*rhs).into()
@@ -192,7 +192,7 @@ impl PlanImpl of PlanTrait {
         categories
     }
 
-    #[inline(always)]
+    #[inline]
     fn starts(self: Plan) -> Array<Spot> {
         match self {
             Plan::None => array![],
@@ -218,7 +218,7 @@ impl PlanImpl of PlanTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn wonder(self: Plan) -> Spot {
         match self {
             Plan::None => Spot::None,
@@ -244,7 +244,7 @@ impl PlanImpl of PlanTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn moves(self: Plan, from: Spot) -> Array<Move> {
         match self {
             Plan::None => array![],
@@ -270,7 +270,7 @@ impl PlanImpl of PlanTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn area(self: Plan, from: Spot) -> Area {
         match self {
             Plan::None => Area::None,
@@ -296,7 +296,7 @@ impl PlanImpl of PlanTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn adjacent_roads(self: Plan, from: Spot) -> Array<Spot> {
         match self {
             Plan::None => ArrayTrait::new(),
@@ -322,7 +322,7 @@ impl PlanImpl of PlanTrait {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn adjacent_cities(self: Plan, from: Spot) -> Array<Spot> {
         match self {
             Plan::None => ArrayTrait::new(),

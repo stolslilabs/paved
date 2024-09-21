@@ -21,6 +21,10 @@ mod PayableComponent {
     use starknet::ContractAddress;
     use starknet::info::get_contract_address;
 
+    // Dojo imports
+
+    use dojo::world::IWorldDispatcher;
+
     // Internal imports
 
     use paved::constants;
@@ -54,12 +58,16 @@ mod PayableComponent {
     impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
-        fn _initialize(ref self: ComponentState<TContractState>, token_address: ContractAddress) {
+        fn initialize(
+            ref self: ComponentState<TContractState>,
+            world: IWorldDispatcher,
+            token_address: ContractAddress
+        ) {
             // [Storage] Set token address
             self.token_address.write(token_address);
         }
 
-        fn _pay(self: @ComponentState<TContractState>, caller: ContractAddress, amount: u256) {
+        fn pay(self: @ComponentState<TContractState>, caller: ContractAddress, amount: u256) {
             // [Check] Amount is not null, otherwise return
             if amount == 0 {
                 return;
@@ -74,9 +82,7 @@ mod PayableComponent {
             assert(status, errors::ERC20_PAY_FAILED);
         }
 
-        fn _refund(
-            self: @ComponentState<TContractState>, recipient: ContractAddress, amount: u256
-        ) {
+        fn refund(self: @ComponentState<TContractState>, recipient: ContractAddress, amount: u256) {
             // [Check] Amount is not null, otherwise return
             if amount == 0 {
                 return;
