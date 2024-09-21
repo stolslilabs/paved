@@ -54,10 +54,10 @@ export const useActions = () => {
     setEnabled(!loading && !!builder?.tile_id);
   }, [game, builder, selectedTile, valid, loading]);
 
-  const { currentTutorialStage } = useTutorial()
+  const { currentTutorialStage } = useTutorial();
 
   const handleConfirm = useCallback(async () => {
-    if (!game || !builder?.tile_id) return
+    if (!game || !builder?.tile_id) return;
 
     const resetAll = () => {
       // Reset the settings
@@ -68,7 +68,7 @@ export const useActions = () => {
       resetSelectedTile();
       resetHoveredTile();
       setLoading(false);
-    }
+    };
 
     const tx = {
       account: account,
@@ -80,11 +80,16 @@ export const useActions = () => {
       y: y,
       role: character,
       spot: spot,
-    }
+    };
 
-    if (game.mode.value === ModeType.Tutorial && !currentTutorialStage.compareTransaction(tx)) {
-      resetAll()
-      return toast.error("Incorrect tile configuration, please correct and try again.")
+    if (
+      game.mode.value === ModeType.Tutorial &&
+      !currentTutorialStage.compareTransaction(tx)
+    ) {
+      resetAll();
+      return toast.error(
+        "Incorrect tile configuration, please correct and try again.",
+      );
     }
 
     setLoading(true);
@@ -92,11 +97,14 @@ export const useActions = () => {
 
     await build(tx)
       .then(() => playPoints())
-      .catch(e => {
-        toast.error("Error building tile, please try again.")
-        console.error(e)
+      .catch((e) => {
+        toast.error("Error building tile, please try again.");
+        console.error(e);
       })
-      .finally(() => { resetAll(); resetOrientation(); })
+      .finally(() => {
+        resetAll();
+        resetOrientation();
+      });
   }, [game, builder, account, gameId, orientation, x, y, character, spot]);
 
   const handleDiscard = useCallback(async () => {

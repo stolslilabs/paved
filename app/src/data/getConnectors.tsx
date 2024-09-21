@@ -9,7 +9,11 @@ export const getConnectors = (): { connectors: Connector[] } => {
   const config = dojoConfig();
   const account = getContractByName(config.manifest, theme, "account")?.address;
   const daily = getContractByName(config.manifest, theme, "daily")?.address;
-  const tutorial = getContractByName(config.manifest, theme, "tutorial")?.address
+  const tutorial = getContractByName(
+    config.manifest,
+    theme,
+    "tutorial",
+  )?.address;
   const paymaster = { caller: "0x414e595f43414c4c4552" };
   const rpc = import.meta.env.VITE_PUBLIC_NODE_URL;
   const policies = [
@@ -102,7 +106,7 @@ export const getConnectors = (): { connectors: Connector[] } => {
     rpc,
     policies,
     paymaster,
-    theme
+    theme,
   }) as never as Connector;
 
   return { connectors: [cartridge] };

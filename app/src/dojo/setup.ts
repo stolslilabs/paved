@@ -3,10 +3,10 @@ import * as torii from "@dojoengine/torii-client";
 import { models } from "./models.ts";
 import { systems } from "./systems.ts";
 
-import { defineContractComponents } from "./generated/contractModels";
+import { defineContractComponents } from "./bindings/models.gen";
 import { world } from "./world.ts";
 import { Config } from "../../dojo.config.ts";
-import { setupWorld } from "./generated/contractSystems.ts";
+import { setupWorld } from "./bindings/contracts.gen";
 import { DojoProvider } from "@dojoengine/core";
 import { BurnerManager } from "@dojoengine/create-burner";
 import { Account, RpcProvider } from "starknet";

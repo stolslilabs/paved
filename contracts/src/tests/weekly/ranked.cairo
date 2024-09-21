@@ -51,7 +51,7 @@ fn test_play_ranked_tournament_claim() {
 
     // [Start]
     set_contract_address(ANYONE());
-    let anyone_balance = context.erc20.balance_of(ANYONE());
+    let anyone_balance = context.token.balance_of(ANYONE());
     let game_id = systems.weekly.spawn();
 
     // [Draw & Build]
@@ -69,7 +69,7 @@ fn test_play_ranked_tournament_claim() {
 
     // [Start]
     set_contract_address(SOMEONE());
-    let someone_balance = context.erc20.balance_of(SOMEONE());
+    let someone_balance = context.token.balance_of(SOMEONE());
     let game_id = systems.weekly.spawn();
 
     // [Draw & Build]
@@ -103,11 +103,11 @@ fn test_play_ranked_tournament_claim() {
 
     // [Start]
     set_contract_address(PLAYER());
-    let player_balance = context.erc20.balance_of(PLAYER());
+    let player_balance = context.token.balance_of(PLAYER());
     let game_id = systems.weekly.spawn();
 
     // [Assert] Balance post creation
-    let balance = context.erc20.balance_of(PLAYER());
+    let balance = context.token.balance_of(PLAYER());
     assert(
         balance + constants::WEEKLY_TOURNAMENT_PRICE.into() == player_balance,
         'Balance post creation'
@@ -144,7 +144,7 @@ fn test_play_ranked_tournament_claim() {
     systems.weekly.claim(tournament_id, rank);
 
     // [Assert] Player balance
-    let final_player = context.erc20.balance_of(PLAYER());
+    let final_player = context.token.balance_of(PLAYER());
     let tournament = store.tournament(tournament_id);
     let reward = tournament.reward(rank);
     assert(
@@ -160,7 +160,7 @@ fn test_play_ranked_tournament_claim() {
     systems.weekly.claim(tournament_id, rank);
 
     // [Assert] Anyone balance
-    let final_anyone = context.erc20.balance_of(ANYONE());
+    let final_anyone = context.token.balance_of(ANYONE());
     let tournament = store.tournament(tournament_id);
     let reward = tournament.reward(rank);
     assert(
@@ -176,7 +176,7 @@ fn test_play_ranked_tournament_claim() {
     systems.weekly.claim(tournament_id, rank);
 
     // [Assert] Someone balance
-    let final_someone = context.erc20.balance_of(SOMEONE());
+    let final_someone = context.token.balance_of(SOMEONE());
     let tournament = store.tournament(tournament_id);
     let reward = tournament.reward(rank);
     assert(
