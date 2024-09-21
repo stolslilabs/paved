@@ -21,7 +21,7 @@ export function models({
       Player: overridableComponent(contractModels.Player),
       Builder: overridableComponent(contractModels.Builder),
       Tile: overridableComponent(contractModels.Tile),
-      Character: overridableComponent(contractModels.Character),
+      Character: overridableComponent(contractModels.Char),
     },
     classes: {
       Game,
