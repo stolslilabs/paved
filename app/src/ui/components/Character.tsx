@@ -22,6 +22,7 @@ import paladin from "/assets/icons/paladin.svg";
 import woodsman from "/assets/icons/woodsman.svg";
 import herdsman from "/assets/icons/herdsman.svg";
 import { IngameButton } from "./dom/IngameButton";
+import { useTutorial } from "@/hooks/useTutorial";
 
 interface TProps {
   index: number;
@@ -89,13 +90,33 @@ export const Character = (props: TProps) => {
     [Characters.Herdsman]: herdsman,
   };
 
+  const { currentTutorialStage } = useTutorial()
+  const { x, y } = useGameStore();
+
+  const shouldDisplayTutorialTooltip = useMemo(() => {
+    if (!currentTutorialStage) return false;
+    const { presetTransaction: {
+      x: presetX,
+      y: presetY,
+      role: presetRole,
+    } } = currentTutorialStage;
+
+    const hasCoords = x === presetX && y === presetY;
+    const hasRole = index + 1 === presetRole;
+    const isSelected = character === presetRole;
+
+    return hasCoords && hasRole && !isSelected
+  }, [currentTutorialStage, x, y, index, character]);
+
   return (
     <IngameButton
-      className={`pointer-events-auto aspect-square select-none p-2.5 ${className}`}
+      id={`${role.toLowerCase()}-button`}
+      className={`pointer-events-auto aspect-square select-none p-2.5 ${className} ${selected ? "bg-blue-500/30" : ""}`}
       variant={selected ? "character_selected" : "character"}
       name={role}
       onClick={handleClick}
       icon={characterIcons[index]}
+      tutorialCondition={shouldDisplayTutorialTooltip}
     />
   );
 };

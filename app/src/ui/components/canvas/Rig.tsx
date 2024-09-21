@@ -56,6 +56,7 @@ export const Rig = () => {
                 minPolarAngle={(101 * Math.PI) / 200} // Allow looking directly down
                 maxPolarAngle={Math.PI}
                 zoomSpeed={0.8}
+                zoom0={0.6}
                 minDistance={5}
                 maxDistance={30}
                 touches={{

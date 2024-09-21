@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { useGameStore } from "@/store";
-import { offset, other_offset } from "@/dojo/game";
+import { getImage, offset, other_offset } from "@/dojo/game";
 import { checkCompatibility } from "@/dojo/game/types/layout";
 import { createSquareGeometry, getSquarePosition } from "./TileTexture";
 import { useQueryParams } from "@/hooks/useQueryParams";
@@ -9,13 +9,16 @@ import { checkFeatureIdle } from "@/dojo/game/helpers/conflict";
 import useSound from "use-sound";
 
 import Place from "/sounds/effects/p-place.m4a";
-import { useTileByKey } from "@/hooks/useTile";
+import { useTile, useTileByKey } from "@/hooks/useTile";
 import { useActions } from "@/hooks/useActions";
-import { useGLTF } from "@react-three/drei";
+import { Edges, Html, Plane, useGLTF, useTexture } from "@react-three/drei";
+import { useTutorial } from "@/hooks/useTutorial";
+import { useDojo } from "@/dojo/useDojo";
+import { useBuilder } from "@/hooks/useBuilder";
 
 const loader = new THREE.TextureLoader();
 
-export const TileEmpty = ({ tiles, col, row, size }: any) => {
+export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
   const [play, { stop }] = useSound(Place);
 
   const { gameId } = useQueryParams();
@@ -257,11 +260,13 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
     return (2 * size) / (dim.x + dim.z);
   }, [shadowedModel]);
 
+  const visibilityCondition = isTutorial ? !strategyMode : strategyMode;
+
   const meshComponent = useMemo(
     () => (
       <>
         <group
-          visible={texture !== undefined && !strategyMode}
+          visible={texture !== undefined && !visibilityCondition}
           ref={meshRef}
           key={`tile-${activeTile?.id}`}
           scale={scale}
@@ -275,7 +280,7 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
           <primitive object={shadowedModel} />
         </group>
         <mesh
-          visible={texture !== undefined && strategyMode}
+          visible={texture !== undefined && visibilityCondition}
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
           onClick={handleSimpleClick}
@@ -321,28 +326,126 @@ export const TileEmpty = ({ tiles, col, row, size }: any) => {
     ],
   );
 
+  const { currentTutorialStage } = useTutorial()
+
   return (
     <>
       {meshComponent}
 
-      <mesh
-        visible={!texture}
-        onPointerEnter={handlePointerEnter}
-        onPointerLeave={handlePointerLeave}
-        onClick={handleSimpleClick}
-        ref={meshRef}
-        position={[position.x, position.y, 0]}
-        geometry={squareGeometry}
-      >
-        <meshStandardMaterial
-          color={"#ADD8E6"}
-          transparent={true}
-          opacity={0.004}
-        />
-      </mesh>
+      <group position={[position.x, position.y, 0]}>
+        <mesh
+          visible={!texture}
+          onPointerEnter={handlePointerEnter}
+          onPointerLeave={handlePointerLeave}
+          onClick={handleSimpleClick}
+          ref={meshRef}
+          geometry={squareGeometry}
+        >
+          <meshStandardMaterial
+            color={"#ADD8E6"}
+            transparent={true}
+            opacity={0.004}
+          />
+
+        </mesh>
+        {(position?.x === currentTutorialStage?.markedTile?.x && position?.y === currentTutorialStage?.markedTile?.y) && isTutorial && <TileHighlight size={size} />}
+      </group>
     </>
   );
 };
 
-const calculateRotation = (orientation: any) =>
+const TileHighlight = ({ size }: { size: number }) => {
+  const { gameId } = useQueryParams();
+  const {
+    account: { account },
+  } = useDojo();
+
+  const { builder } = useBuilder({ gameId, playerId: account?.address });
+  const { model: tile } = useTile({
+    gameId,
+    tileId: builder?.tile_id || 0,
+  });
+
+  const { selectedTile } = useGameStore();
+  const { currentTutorialStage } = useTutorial()
+
+  const orientation = currentTutorialStage?.presetTransaction.orientation
+
+  const imageUrl = useMemo(() => getImage(tile), [tile])
+
+  const texture = useTexture(imageUrl)
+
+  return texture && (
+    <>
+      <TileHighlightTooltip />
+      <Plane args={[size, size, 1]} position={[0, 0, 0.1]} rotation={[0, 0, calculateRotation(orientation ?? 1)]} visible={!!texture}>
+        <meshBasicMaterial
+          map={texture}
+          opacity={0.55}
+          transparent={true}
+        />
+        <Edges linewidth={5}
+          threshold={15}
+          color={currentTutorialStage?.presetTransaction.x === selectedTile.col && currentTutorialStage?.presetTransaction.y === selectedTile.row ? "lime" : !selectedTile ? "blue" : "red"} />
+      </Plane>
+    </>
+  )
+}
+
+const TileHighlightTooltip = () => {
+  const { currentTutorialStage } = useTutorial()
+  const { x, y } = useGameStore();
+
+  const horizontalTextOffset = 6
+  const verticalTextOffset = 2
+
+  const textPositionVector = currentTutorialStage?.markedTileTextPosition
+  const interactionText = currentTutorialStage?.interactionText.get("tile-ingame")
+  const interactionIndex = Array.from(currentTutorialStage.interactionText.keys()).indexOf("tile-ingame") + 1
+
+  const shouldDisplayTutorialTooltip = useMemo(() => {
+    if (!currentTutorialStage) return false;
+
+    const { presetTransaction: {
+      x: presetX,
+      y: presetY,
+    } } = currentTutorialStage;
+
+    const hasCoords = x === presetX && y === presetY;
+
+    return !hasCoords
+  }, [currentTutorialStage, x, y]);
+
+  return shouldDisplayTutorialTooltip && (
+    <Html transform position={[textPositionVector.x * horizontalTextOffset, textPositionVector.y * verticalTextOffset, 0]} scale={0.75}>
+      <p className="text-xs w-80 p-4 rounded pointer-events-none select-none">
+        {interactionIndex}.{interactionText}
+      </p>
+    </Html>
+  )
+}
+
+const calculateRotation = (orientation: number) =>
   (Math.PI / 2) * (1 - orientation);
+
+useTexture.preload([
+  "/assets/tiles/ccccccccc.png",
+  "/assets/tiles/cccccfffc.png",
+  "/assets/tiles/cccccfrfc.png",
+  "/assets/tiles/cfffcfffc.png",
+  "/assets/tiles/ffcfffcff.png",
+  "/assets/tiles/ffcfffffc.png",
+  "/assets/tiles/ffffcccff.png",
+  "/assets/tiles/ffffffcff.png",
+  "/assets/tiles/rfffrfcfr.png",
+  "/assets/tiles/rfffrfffr.png",
+  "/assets/tiles/rfrfcccfr.png",
+  "/assets/tiles/rfrfffcfr.png",
+  "/assets/tiles/rfrfffffr.png",
+  "/assets/tiles/rfrfrfcff.png",
+  "/assets/tiles/sfrfrfcfr.png",
+  "/assets/tiles/sfrfrfffr.png",
+  "/assets/tiles/sfrfrfrfr.png",
+  "/assets/tiles/wffffffff.png",
+  "/assets/tiles/wfffffffr.png"
+])

@@ -10,7 +10,7 @@ export const createSquareGeometry = (size: any) => {
   return new THREE.BoxGeometry(size, size, 0.1);
 };
 
-export const TileTexture = ({ tile, size, length }: any) => {
+export const TileTexture = ({ tile, size, length, isTutorial }: any) => {
   const meshRef = useRef<any>();
   const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
   const { setHoveredTile } = useGameStore();
@@ -124,11 +124,13 @@ export const TileTexture = ({ tile, size, length }: any) => {
   }, [shadowedModel]);
 
   const strategyMode = useGameStore((state) => state.strategyMode);
+  const visibilityCondition = isTutorial ? !strategyMode : strategyMode;
+
   const strategyMesh = useMemo(() => {
     if (!texture) return null;
     return (
       <mesh
-        visible={strategyMode}
+        visible={visibilityCondition}
         ref={meshRef}
         onPointerEnter={handlePointerEnter}
         position={[position.x, position.y, 0]}
@@ -147,7 +149,7 @@ export const TileTexture = ({ tile, size, length }: any) => {
   return (
     <>
       <group
-        visible={!strategyMode}
+        visible={!visibilityCondition}
         key={`tile-${tile.id}`}
         scale={scale}
         rotation={[

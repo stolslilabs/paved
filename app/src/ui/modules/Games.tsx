@@ -13,65 +13,39 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
-import { ScrollArea, ScrollBar } from "@/ui/elements/scroll-area";
 
 import { useDojo } from "@/dojo/useDojo";
-import { Has, defineEnterSystem, defineSystem } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 
 import { useBuilder } from "@/hooks/useBuilder";
 import { Game } from "@/dojo/game/types/game";
 import { useLobby } from "@/hooks/useLobby";
 import viewMapIcon from "/assets/icons/viewmap.svg";
+import { Mode, ModeType } from "@/dojo/game/types/mode";
+import blobert from "/assets/blobert.svg";
+import { CreateGame } from "../components/CreateGame";
 
-export const Games = () => {
+export type GamesList = { [key: number]: any }
+
+export const Games = ({ games }: { games: GamesList }) => {
   const { gameMode } = useLobby();
 
-  const [games, setGames] = useState<{ [key: number]: any }>({});
-  const [show, setShow] = useState<boolean>(true);
-
-  const {
-    account: { account },
-    setup: {
-      world,
-      clientModels: {
-        models: { Game },
-        classes: { Game: GameClass },
-      },
-    },
-  } = useDojo();
-
-  useMemo(() => {
-    defineEnterSystem(world, [Has(Game)], function ({ value: [game] }: any) {
-      setGames((prevTiles: any) => {
-        return { ...prevTiles, [game.id]: new GameClass(game) };
-      });
-    });
-    defineSystem(world, [Has(Game)], function ({ value: [game] }: any) {
-      setGames((prevTiles: any) => {
-        return { ...prevTiles, [game.id]: new GameClass(game) };
-      });
-    });
-  }, []);
-
-  const filteredGames: Game[] = useMemo(() => {
-    return Object.values(games)
+  const filteredGames: Game[] = useMemo(() =>
+    Object.values(games)
       .filter((game) => {
         if (game.mode.value !== gameMode.value) return false;
-        if (show && game.score > 0) return true;
+        if (game.score > 0) return true;
         return !game.isOver();
       })
-      .sort((a, b) => b.id - a.id);
-  }, [games, show, account, gameMode]);
+      .sort((a, b) => b.id - a.id), [games, gameMode]);
 
-  return (
+  return gameMode.value !== ModeType.Tutorial ? (
     <Table className="mb-4">
       <TableHeader>
         <TableRow className="text-xs sm:text-sm">
           <TableHead className="w-[100px] text-center uppercase">Game</TableHead>
           <TableHead className="uppercase text-center">Rank</TableHead>
           <TableHead className="uppercase text-center">Score</TableHead>
-          <TableHead className="uppercase text-center">Tiles</TableHead>
           <TableHead className="uppercase text-center">Time</TableHead>
         </TableRow>
       </TableHeader>
@@ -81,11 +55,21 @@ export const Games = () => {
         ))}
       </TableBody>
     </Table>
+  ) : (
+    <StartTutorialContent />
   );
 };
 
+const StartTutorialContent = () => {
+  return (
+    <div className="flex flex-col sm:flex-row md:flex-col items-center justify-center h-full gap-8 sm:gap-4 lg:gap-8 p-4">
+      <img src={blobert} className="width-full sm:w-1/2" />
+      <CreateGame mode={new Mode(ModeType.Tutorial)} />
+    </div>
+  )
+}
+
 export const GameSingleRow = ({ game }: { game: any }) => {
-  const [tilesPlayed, setTilesPlayed] = useState<number>();
   const [score, setScore] = useState<number>();
   const [over, setOver] = useState<boolean>(false);
   // const { account } = useAccount();
@@ -100,7 +84,6 @@ export const GameSingleRow = ({ game }: { game: any }) => {
 
   useEffect(() => {
     if (game && builder) {
-      setTilesPlayed(game.tile_count);
       setScore(game.score);
       setOver(game.isOver());
     }
@@ -123,7 +106,6 @@ export const GameSingleRow = ({ game }: { game: any }) => {
       <TableCell>#{game.id}</TableCell>
       <TableCell>1</TableCell>
       <TableCell>{score}</TableCell>
-      <TableCell>{tilesPlayed}</TableCell>
       <TableCell>{formatTime(date) ?? "N/A"}</TableCell>
 
       <TableCell className="flex justify-end">

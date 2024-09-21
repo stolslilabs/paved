@@ -1234,8 +1234,8 @@
         ]
       }
     ],
-    "address": "0xd18bd22e51077ed30e9bb82afa28b13bdf0d8fc62baffca54c2b0dcfcad007",
-    "transaction_hash": "0x39868dfd04acd87e6193e1f5e0d7ef2eee82eeb18cddaf084e6b6c1d9ee5939",
+    "address": "0x3901d98eba840e5b8d8187be1e1535d5a98555b6d5ecd8893277903e7b4e2c",
+    "transaction_hash": "0x617b68beaad579b75f4a99bac3e65f3c936ca2ce8a82ac91861cd5ef6f4e451",
     "block_number": 3,
     "seed": "paved",
     "metadata": {
@@ -1255,10 +1255,10 @@
   "contracts": [
     {
       "kind": "DojoContract",
-      "address": "0x54e67d9bedee705528b64dc488a108d476569e80893d2a878cf4333982c8eb6",
-      "class_hash": "0x53920f25847d51325595e5229a628ab23bbdb84cfec9c91642470e2e7864612",
-      "original_class_hash": "0x53920f25847d51325595e5229a628ab23bbdb84cfec9c91642470e2e7864612",
-      "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
+      "address": "0x786679a305e04c6f3bf46de23cd802e9d4aef5a1c4b3c2c3a54205ca663593e",
+      "class_hash": "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6",
+      "original_class_hash": "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6",
+      "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
           "type": "impl",
@@ -1844,10 +1844,10 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x6ef79434670aff802863db6724e9e7082bf78f8385a2ff744743288a30cdacb",
-      "class_hash": "0x58cd90ba5402ff83faf0c6d8f25c0d137473e0524449d152e3397b5a1b5f8af",
-      "original_class_hash": "0x58cd90ba5402ff83faf0c6d8f25c0d137473e0524449d152e3397b5a1b5f8af",
-      "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
+      "address": "0x42fb873d07fb1bd9da7c077b1cb449e49886c9cf203513901d01bef7e2d46d9",
+      "class_hash": "0x73870689d74e27327d0358e907e0517634e88ae34ad9ecdb64c243e817ab65a",
+      "original_class_hash": "0x73870689d74e27327d0358e907e0517634e88ae34ad9ecdb64c243e817ab65a",
+      "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
           "type": "impl",
@@ -3829,7 +3829,659 @@
         "surrender",
         "build"
       ],
-      "manifest_name": "paved-tutorial-259085b2"
+      "name": "paved::systems::daily::daily"
+    },
+    {
+      "kind": "DojoContract",
+      "address": "0x6d4a1b789f0674023093494c1431cff248f4f0d1f8edfdc70b50fa35f8998e9",
+      "class_hash": "0x43377e4d6cb933ca5027cc7b42a0ff187d264a18aa341ec4520daf2754743de",
+      "original_class_hash": "0x43377e4d6cb933ca5027cc7b42a0ff187d264a18aa341ec4520daf2754743de",
+      "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
+      "abi": [
+        {
+          "type": "impl",
+          "name": "DojoResourceProviderImpl",
+          "interface_name": "dojo::world::IDojoResourceProvider"
+        },
+        {
+          "type": "interface",
+          "name": "dojo::world::IDojoResourceProvider",
+          "items": [
+            {
+              "type": "function",
+              "name": "dojo_resource",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::felt252"
+                }
+              ],
+              "state_mutability": "view"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "WorldProviderImpl",
+          "interface_name": "dojo::world::IWorldProvider"
+        },
+        {
+          "type": "struct",
+          "name": "dojo::world::IWorldDispatcher",
+          "members": [
+            {
+              "name": "contract_address",
+              "type": "core::starknet::contract_address::ContractAddress"
+            }
+          ]
+        },
+        {
+          "type": "interface",
+          "name": "dojo::world::IWorldProvider",
+          "items": [
+            {
+              "type": "function",
+              "name": "world",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "dojo::world::IWorldDispatcher"
+                }
+              ],
+              "state_mutability": "view"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "TutorialImpl",
+          "interface_name": "paved::systems::tutorial::ITutorial"
+        },
+        {
+          "type": "interface",
+          "name": "paved::systems::tutorial::ITutorial",
+          "items": [
+            {
+              "type": "function",
+              "name": "spawn",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::integer::u32"
+                }
+              ],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
+              "name": "discard",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
+              "name": "surrender",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
+              "name": "build",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "IDojoInitImpl",
+          "interface_name": "paved::systems::tutorial::tutorial::IDojoInit"
+        },
+        {
+          "type": "interface",
+          "name": "paved::systems::tutorial::tutorial::IDojoInit",
+          "items": [
+            {
+              "type": "function",
+              "name": "dojo_init",
+              "inputs": [],
+              "outputs": [],
+              "state_mutability": "view"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "UpgradableImpl",
+          "interface_name": "dojo::components::upgradeable::IUpgradeable"
+        },
+        {
+          "type": "interface",
+          "name": "dojo::components::upgradeable::IUpgradeable",
+          "items": [
+            {
+              "type": "function",
+              "name": "upgrade",
+              "inputs": [
+                {
+                  "name": "new_class_hash",
+                  "type": "core::starknet::class_hash::ClassHash"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "OwnableImpl",
+          "interface_name": "paved::components::ownable::IOwnable"
+        },
+        {
+          "type": "interface",
+          "name": "paved::components::ownable::IOwnable",
+          "items": [
+            {
+              "type": "function",
+              "name": "owner",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::starknet::contract_address::ContractAddress"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "transfer_ownership",
+              "inputs": [
+                {
+                  "name": "new_owner",
+                  "type": "core::starknet::contract_address::ContractAddress"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
+              "name": "renounce_ownership",
+              "inputs": [],
+              "outputs": [],
+              "state_mutability": "external"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "dojo::components::upgradeable::upgradeable::Upgraded",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "class_hash",
+              "type": "core::starknet::class_hash::ClassHash",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "dojo::components::upgradeable::upgradeable::Event",
+          "kind": "enum",
+          "variants": [
+            {
+              "name": "Upgraded",
+              "type": "dojo::components::upgradeable::upgradeable::Upgraded",
+              "kind": "nested"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::events::Built",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "tile_id",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "x",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "y",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "player_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_name",
+              "type": "core::felt252",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::events::Discarded",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "tile_id",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "player_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_name",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "points",
+              "type": "core::integer::u32",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::events::GameOver",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "tournament_id",
+              "type": "core::integer::u64",
+              "kind": "key"
+            },
+            {
+              "name": "game_mode",
+              "type": "core::integer::u8",
+              "kind": "data"
+            },
+            {
+              "name": "game_score",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "game_start_time",
+              "type": "core::integer::u64",
+              "kind": "data"
+            },
+            {
+              "name": "game_end_time",
+              "type": "core::integer::u64",
+              "kind": "data"
+            },
+            {
+              "name": "player_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_name",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_master",
+              "type": "core::felt252",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::events::ScoredCity",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "points",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "size",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "player_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_name",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_master",
+              "type": "core::felt252",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::events::ScoredRoad",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "points",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "size",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "player_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_name",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_master",
+              "type": "core::felt252",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::events::ScoredForest",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "points",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "size",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "cities",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "roads",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "player_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_name",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_master",
+              "type": "core::felt252",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::events::ScoredWonder",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32",
+              "kind": "key"
+            },
+            {
+              "name": "points",
+              "type": "core::integer::u32",
+              "kind": "data"
+            },
+            {
+              "name": "player_id",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_name",
+              "type": "core::felt252",
+              "kind": "data"
+            },
+            {
+              "name": "player_master",
+              "type": "core::felt252",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::components::emitter::EmitterComponent::Event",
+          "kind": "enum",
+          "variants": [
+            {
+              "name": "Built",
+              "type": "paved::events::Built",
+              "kind": "nested"
+            },
+            {
+              "name": "Discarded",
+              "type": "paved::events::Discarded",
+              "kind": "nested"
+            },
+            {
+              "name": "GameOver",
+              "type": "paved::events::GameOver",
+              "kind": "nested"
+            },
+            {
+              "name": "ScoredCity",
+              "type": "paved::events::ScoredCity",
+              "kind": "nested"
+            },
+            {
+              "name": "ScoredRoad",
+              "type": "paved::events::ScoredRoad",
+              "kind": "nested"
+            },
+            {
+              "name": "ScoredForest",
+              "type": "paved::events::ScoredForest",
+              "kind": "nested"
+            },
+            {
+              "name": "ScoredWonder",
+              "type": "paved::events::ScoredWonder",
+              "kind": "nested"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "previous_owner",
+              "type": "core::starknet::contract_address::ContractAddress",
+              "kind": "key"
+            },
+            {
+              "name": "new_owner",
+              "type": "core::starknet::contract_address::ContractAddress",
+              "kind": "key"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "previous_owner",
+              "type": "core::starknet::contract_address::ContractAddress",
+              "kind": "key"
+            },
+            {
+              "name": "new_owner",
+              "type": "core::starknet::contract_address::ContractAddress",
+              "kind": "key"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::components::ownable::OwnableComponent::Event",
+          "kind": "enum",
+          "variants": [
+            {
+              "name": "OwnershipTransferred",
+              "type": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+              "kind": "nested"
+            },
+            {
+              "name": "OwnershipTransferStarted",
+              "type": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+              "kind": "nested"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::components::hostable::HostableComponent::Event",
+          "kind": "enum",
+          "variants": []
+        },
+        {
+          "type": "event",
+          "name": "paved::components::tutoriable::TutoriableComponent::Event",
+          "kind": "enum",
+          "variants": []
+        },
+        {
+          "type": "event",
+          "name": "paved::systems::tutorial::tutorial::Event",
+          "kind": "enum",
+          "variants": [
+            {
+              "name": "UpgradeableEvent",
+              "type": "dojo::components::upgradeable::upgradeable::Event",
+              "kind": "nested"
+            },
+            {
+              "name": "EmitterEvent",
+              "type": "paved::components::emitter::EmitterComponent::Event",
+              "kind": "flat"
+            },
+            {
+              "name": "OwnableEvent",
+              "type": "paved::components::ownable::OwnableComponent::Event",
+              "kind": "flat"
+            },
+            {
+              "name": "HostableEvent",
+              "type": "paved::components::hostable::HostableComponent::Event",
+              "kind": "flat"
+            },
+            {
+              "name": "TutoriableEvent",
+              "type": "paved::components::tutoriable::TutoriableComponent::Event",
+              "kind": "flat"
+            }
+          ]
+        }
+      ],
+      "reads": [],
+      "writes": [
+        "Game",
+        "Builder",
+        "Player",
+        "Tile",
+        "TilePosition",
+        "Character",
+        "CharacterPosition",
+        "Tournament"
+      ],
+      "computed": [],
+      "init_calldata": [],
+      "name": "paved::systems::tutorial::tutorial"
     }
   ],
   "models": [

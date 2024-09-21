@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { Entity } from "@dojoengine/recs";
 import { Howl } from "howler";
+import { ModeType } from "@/dojo/game/types/mode";
 
 export const CAMERA_SETTINGS: {
   position: [number, number, number];
@@ -36,8 +37,8 @@ interface LobbyState {
   playerEntity: Entity | null;
   setPlayerEntity: (playerEntity: Entity) => void;
   resetPlayerEntity: () => void;
-  mode: string;
-  setMode: (mode: string) => void;
+  mode: ModeType;
+  setMode: (mode: ModeType) => void;
   resetMode: () => void;
 }
 
@@ -116,9 +117,9 @@ export const useLobbyStore = create<LobbyState>()((set, get) => ({
   playerEntity: null,
   setPlayerEntity: (playerEntity: Entity) => set({ playerEntity }),
   resetPlayerEntity: () => set({ playerEntity: null }),
-  mode: "Daily",
+  mode: ModeType.Daily,
   setMode: (mode) => set({ mode }),
-  resetMode: () => set({ mode: "Daily" }),
+  resetMode: () => set({ mode: ModeType.Daily }),
 }));
 
 export const useCameraStore = create<CameraState>()((set, get) => ({

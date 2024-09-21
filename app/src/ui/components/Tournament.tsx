@@ -35,7 +35,7 @@ import { useNavigate } from "react-router-dom";
 import { Tournament as TournamentClass } from "@/dojo/game/models/tournament";
 import { useDojo } from "@/dojo/useDojo";
 import { Account } from "starknet";
-import { Mode, ModeType } from "@/dojo/game/types/mode";
+import { Mode } from "@/dojo/game/types/mode";
 import leaderboard from "/assets/icons/leaderboard.svg";
 import { useTournaments } from "@/hooks/useTournaments";
 import { Game } from "@/dojo/game/models/game";
