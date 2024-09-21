@@ -52,7 +52,7 @@ export function systems({
   const create_player = async ({
     account,
     ...props
-  }: SystemTypes.CreatePlayer) => {
+  }: any) => {
     try {
       const { transaction_hash } = await client.account.create({
         account,
@@ -74,7 +74,7 @@ export function systems({
     account,
     mode,
     ...props
-  }: SystemTypes.CreateGame) => {
+  }: any) => {
     const contract = getContract(mode?.value as ModeType);
     try {
       const { transaction_hash } = await contract.spawn({
@@ -98,7 +98,7 @@ export function systems({
     }
   };
 
-  const claim = async ({ account, mode, ...props }: SystemTypes.Claim) => {
+  const claim = async ({ account, mode, ...props }: any) => {
     try {
       const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.claim({
@@ -116,7 +116,7 @@ export function systems({
     }
   };
 
-  const sponsor = async ({ account, mode, ...props }: SystemTypes.Sponsor) => {
+  const sponsor = async ({ account, mode, ...props }: any) => {
     try {
       const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.sponsor({
@@ -134,7 +134,7 @@ export function systems({
     }
   };
 
-  const discard = async ({ account, mode, ...props }: SystemTypes.Discard) => {
+  const discard = async ({ account, mode, ...props }: any) => {
     try {
       const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.discard({
@@ -156,7 +156,7 @@ export function systems({
     account,
     mode,
     ...props
-  }: SystemTypes.Surrender) => {
+  }: any) => {
     try {
       const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.surrender({
@@ -174,7 +174,7 @@ export function systems({
     }
   };
 
-  const build = async ({ account, mode, ...props }: SystemTypes.Build) => {
+  const build = async ({ account, mode, ...props }: any) => {
     const buidlerKey = getEntityIdFromKeys([
       BigInt(props.game_id),
       BigInt(account?.address),
