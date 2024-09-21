@@ -128,24 +128,55 @@
   },
   {
     "type": "impl",
-    "name": "AccountImpl",
-    "interface_name": "paved::systems::account::IAccount"
+    "name": "TutorialImpl",
+    "interface_name": "paved::systems::tutorial::ITutorial"
   },
   {
     "type": "interface",
-    "name": "paved::systems::account::IAccount",
+    "name": "paved::systems::tutorial::ITutorial",
     "items": [
       {
         "type": "function",
-        "name": "create",
+        "name": "spawn",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "discard",
         "inputs": [
           {
-            "name": "name",
-            "type": "core::felt252"
-          },
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "surrender",
+        "inputs": [
           {
-            "name": "master",
-            "type": "core::starknet::contract_address::ContractAddress"
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "build",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
           }
         ],
         "outputs": [],
@@ -156,11 +187,11 @@
   {
     "type": "impl",
     "name": "IDojoInitImpl",
-    "interface_name": "paved::systems::account::account::IDojoInit"
+    "interface_name": "paved::systems::tutorial::Tutorial::IDojoInit"
   },
   {
     "type": "interface",
-    "name": "paved::systems::account::account::IDojoInit",
+    "name": "paved::systems::tutorial::Tutorial::IDojoInit",
     "items": [
       {
         "type": "function",
@@ -536,13 +567,19 @@
   },
   {
     "type": "event",
-    "name": "paved::components::manageable::ManageableComponent::Event",
+    "name": "paved::components::hostable::HostableComponent::Event",
     "kind": "enum",
     "variants": []
   },
   {
     "type": "event",
-    "name": "paved::systems::account::account::Event",
+    "name": "paved::components::tutoriable::TutoriableComponent::Event",
+    "kind": "enum",
+    "variants": []
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::tutorial::Tutorial::Event",
     "kind": "enum",
     "variants": [
       {
@@ -556,8 +593,13 @@
         "kind": "flat"
       },
       {
-        "name": "ManageableEvent",
-        "type": "paved::components::manageable::ManageableComponent::Event",
+        "name": "HostableEvent",
+        "type": "paved::components::hostable::HostableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "TutoriableEvent",
+        "type": "paved::components::tutoriable::TutoriableComponent::Event",
         "kind": "flat"
       }
     ]

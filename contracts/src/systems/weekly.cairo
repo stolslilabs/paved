@@ -13,7 +13,7 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 
 #[starknet::interface]
-trait IDaily<TContractState> {
+trait IWeekly<TContractState> {
     fn spawn(self: @TContractState) -> u32;
     fn claim(self: @TContractState, tournament_id: u64, rank: u8,);
     fn sponsor(self: @TContractState, amount: felt252);
@@ -31,7 +31,7 @@ trait IDaily<TContractState> {
 }
 
 #[dojo::contract]
-mod Daily {
+mod Weekly {
     // Starknet imports
 
     use starknet::ContractAddress;
@@ -53,7 +53,7 @@ mod Daily {
 
     // Local imports
 
-    use super::IDaily;
+    use super::IWeekly;
 
     // Components
 
@@ -105,10 +105,10 @@ mod Daily {
     // Implementations
 
     #[abi(embed_v0)]
-    impl DailyImpl of IDaily<ContractState> {
+    impl WeeklyImpl of IWeekly<ContractState> {
         fn spawn(self: @ContractState) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, amount) = self.hostable.spawn(self.world(), Mode::Daily);
+            let (game_id, amount) = self.hostable.spawn(self.world(), Mode::Weekly);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.pay(caller, amount);
@@ -118,7 +118,7 @@ mod Daily {
 
         fn claim(self: @ContractState, tournament_id: u64, rank: u8) {
             // [Effect] Create game
-            let reward = self.hostable.claim(self.world(), tournament_id, rank, Mode::Daily);
+            let reward = self.hostable.claim(self.world(), tournament_id, rank, Mode::Weekly);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.refund(caller, reward);
@@ -126,7 +126,7 @@ mod Daily {
 
         fn sponsor(self: @ContractState, amount: felt252) {
             // [Effect] Create game
-            let amount = self.hostable.sponsor(self.world(), amount, Mode::Daily);
+            let amount = self.hostable.sponsor(self.world(), amount, Mode::Weekly);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.pay(caller, amount);
