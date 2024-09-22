@@ -25,6 +25,8 @@ export function systems({
     switch (mode) {
       case ModeType.Daily:
         return client.daily;
+      case ModeType.Weekly:
+        return client.weekly;
       case ModeType.Tutorial:
         return client.tutorial;
       default:
@@ -209,9 +211,14 @@ export function systems({
       },
     });
 
+    const contractMap = {
+      [ModeType.Daily]: client.daily,
+      [ModeType.Weekly]: client.weekly,
+      [ModeType.Tutorial]: client.tutorial,
+    };
+
     try {
-      const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.tutorial;
+      const contract = contractMap[mode?.value as keyof typeof contractMap] ?? client.daily;
       const { transaction_hash } = await contract.build({
         account,
         ...props,
