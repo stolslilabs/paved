@@ -1,4 +1,4 @@
-tag = "paved-Daily"
+tag = "paved-daily"
 writes = [
     "paved-Player",
     "paved-Game",

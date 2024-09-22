@@ -15,7 +15,7 @@ trait IERC20Faucet<TState> {
 }
 
 #[dojo::contract]
-mod Token {
+mod token {
     use paved::mocks::erc20::erc20::ERC20Component;
     use starknet::{ContractAddress, get_caller_address};
     const FAUCET_AMOUNT: u256 = 1_000_000_000_000_000_000_000_000; // 1E6 * 1E18

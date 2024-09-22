@@ -1,0 +1,15 @@
+kind = "DojoContract"
+class_hash = "0x7df072778d22bcf2a05426ab06df11cf0d7f4cc81d559e5c38fa31da2ac9b9d"
+original_class_hash = "0x7df072778d22bcf2a05426ab06df11cf0d7f4cc81d559e5c38fa31da2ac9b9d"
+base_class_hash = "0x0"
+abi = "manifests/dev/base/abis/contracts/paved-tutorial-259085b2.json"
+reads = []
+writes = []
+init_calldata = []
+tag = "paved-tutorial"
+systems = [
+    "discard",
+    "surrender",
+    "build",
+]
+manifest_name = "paved-tutorial-259085b2"

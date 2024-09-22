@@ -7,14 +7,9 @@ export const getConnectors = (): { connectors: Connector[] } => {
   const theme: string = "paved";
 
   const config = dojoConfig();
-  const account = getContractByName(config.manifest, theme, "Account")?.address;
-  const daily = getContractByName(config.manifest, theme, "Daily")?.address;
-  const weekly = getContractByName(config.manifest, theme, "Weekly")?.address;
-  const tutorial = getContractByName(
-    config.manifest,
-    theme,
-    "Tutorial",
-  )?.address;
+  const account = getContractByName(config.manifest, theme, "account")?.address;
+  const daily = getContractByName(config.manifest, theme, "daily")?.address;
+  const tutorial = getContractByName(config.manifest, theme, "tutorial")?.address
   const paymaster = { caller: "0x414e595f43414c4c4552" };
   const rpc = import.meta.env.VITE_PUBLIC_NODE_URL;
   const policies = [
@@ -42,35 +37,6 @@ export const getConnectors = (): { connectors: Connector[] } => {
     {
       target: account,
       method: "create",
-    },
-    // Tutorial
-    {
-      target: tutorial,
-      method: "initialize",
-    },
-    {
-      target: tutorial,
-      method: "spawn",
-    },
-    {
-      target: tutorial,
-      method: "claim",
-    },
-    {
-      target: tutorial,
-      method: "sponsor",
-    },
-    {
-      target: tutorial,
-      method: "discard",
-    },
-    {
-      target: tutorial,
-      method: "surrender",
-    },
-    {
-      target: tutorial,
-      method: "build",
     },
     // Daily
     {
@@ -101,33 +67,33 @@ export const getConnectors = (): { connectors: Connector[] } => {
       target: daily,
       method: "build",
     },
-    // Weekly
+    // Tutorial
     {
-      target: weekly,
+      target: tutorial,
       method: "initialize",
     },
     {
-      target: weekly,
+      target: tutorial,
       method: "spawn",
     },
     {
-      target: weekly,
+      target: tutorial,
       method: "claim",
     },
     {
-      target: weekly,
+      target: tutorial,
       method: "sponsor",
     },
     {
-      target: weekly,
+      target: tutorial,
       method: "discard",
     },
     {
-      target: weekly,
+      target: tutorial,
       method: "surrender",
     },
     {
-      target: weekly,
+      target: tutorial,
       method: "build",
     },
   ];
@@ -136,7 +102,7 @@ export const getConnectors = (): { connectors: Connector[] } => {
     rpc,
     policies,
     paymaster,
-    theme,
+    theme
   }) as never as Connector;
 
   return { connectors: [cartridge] };

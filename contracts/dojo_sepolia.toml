@@ -21,4 +21,4 @@ account_address = "0x059b1a0c489b635d7c7f43594d187362ddd2dcea6c82db4eef2579fd185
 private_key = "0xaf7f0b88b7ee7faf8065517cd565d9f9dcd013dd2382a0f1e6b3559f0fe57a"
 
 [migration]
-skip_contracts = ["paved::mocks::token::Token"]
+skip_contracts = ["paved::mocks::token::token"]

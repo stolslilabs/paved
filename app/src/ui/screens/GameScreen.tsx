@@ -18,12 +18,10 @@ import { TutorialCompleteDialog } from "../components/dom/TutorialCompleteDialog
 
 const GameScreen = () => {
   const loading = useUIStore((state) => state.loading);
-  const [hasOpenMenu, setHasOpenMenu] = useState<boolean>(false);
+  const [hasOpenMenu, setHasOpenMenu] = useState<boolean>(false)
 
   return (
-    <main
-      className={`relative w-full h-dscreen flex flex-col left-0 top-0 grow bg-blue-100 ${loading && "cursor-wait"}`}
-    >
+    <main className={`relative w-full h-dscreen flex flex-col left-0 top-0 grow bg-blue-100 ${loading && "cursor-wait"}`}>
       <Overlay>
         <Overlay.Header />
         <Overlay.Banner />
