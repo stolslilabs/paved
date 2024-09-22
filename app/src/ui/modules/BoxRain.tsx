@@ -71,7 +71,7 @@ const BoxRainScene = () => {
 
   return (
     <div className="absolute inset-0 pointer-events-none">
-      <Canvas style={{ width: "100%", height: "100%" }}>
+      <Canvas style={{ width: '100%', height: '100%' }}>
         <ambientLight />
         <directionalLight
           color={"white"}
@@ -82,11 +82,7 @@ const BoxRainScene = () => {
         <pointLight position={[10, 10, 10]} />
         <mesh scale={0.2}>
           {boxes.map((box, index) => (
-            <BoxRain
-              key={index}
-              initPosition={box.position}
-              model={box.model}
-            />
+            <BoxRain key={index} initPosition={box.position} model={box.model} />
           ))}
         </mesh>
       </Canvas>

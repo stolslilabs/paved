@@ -25,8 +25,7 @@ export const Tile = () => {
   const [backgroundImage, setBackgroundImage] = useState<string>();
   const { enabled } = useActions();
   const { gameId } = useQueryParams();
-  const { orientation, setOrientation, setActiveEntity, resetActiveEntity } =
-    useGameStore();
+  const { orientation, setOrientation, setActiveEntity, resetActiveEntity } = useGameStore();
   const {
     account: { account },
   } = useDojo();
@@ -73,10 +72,7 @@ export const Tile = () => {
 
   const backgroundColor = useMemo(() => "#C2B0B7", []);
 
-  const isLoading = useMemo(
-    () => (!tile || !backgroundImage) && !game?.isOver(),
-    [tile, backgroundImage, game],
-  );
+  const isLoading = useMemo(() => (!tile || !backgroundImage) && !game?.isOver(), [tile, backgroundImage, game]);
   const isLocked = useMemo(() => game?.isOver(), [game]);
 
   const { x, y, spot, character } = useGameStore();
@@ -84,14 +80,12 @@ export const Tile = () => {
   const shouldDisplayTutorialTooltip = useMemo(() => {
     if (!currentTutorialStage) return false;
 
-    const {
-      presetTransaction: {
-        x: presetX,
-        y: presetY,
-        role: presetRole,
-        spot: presetSpot,
-      },
-    } = currentTutorialStage;
+    const { presetTransaction: {
+      x: presetX,
+      y: presetY,
+      role: presetRole,
+      spot: presetSpot
+    } } = currentTutorialStage;
 
     const hasCoords = x === presetX && y === presetY;
     const hasRole = character === presetRole;
@@ -100,18 +94,17 @@ export const Tile = () => {
     return hasCoords && hasSpot && hasRole;
   }, [currentTutorialStage, spot, x, y, character]);
 
-  const id = "tile-preview";
+  const id = "tile-preview"
 
-  const interactionText = currentTutorialStage?.interactionText?.get(id);
+  const interactionText = currentTutorialStage?.interactionText?.get(id)
 
-  const tutorialOpen =
-    game?.mode.value === ModeType.Tutorial && interactionText;
+  const tutorialOpen = game?.mode.value === ModeType.Tutorial && interactionText
 
   useEffect(() => {
     if (tutorialOpen) {
-      setOrientation(currentTutorialStage?.initialOrientation ?? 1);
+      setOrientation(currentTutorialStage?.initialOrientation ?? 1)
     }
-  }, [tile]);
+  }, [tile])
 
   if (!account || !game || !builder) return <></>;
 
@@ -135,11 +128,7 @@ export const Tile = () => {
             {isLocked && <LockedTile />}
           </div>
         </TooltipTrigger>
-        <TooltipContent
-          asChild
-          align="start"
-          className="select-none sm:bg-transparent max-w-[200px] sm:max-w-full whitespace-normal text-center sm:text-start"
-        >
+        <TooltipContent asChild align="start" className="select-none sm:bg-transparent max-w-[200px] sm:max-w-full whitespace-normal text-center sm:text-start">
           <p>{interactionText}</p>
         </TooltipContent>
       </Tooltip>
