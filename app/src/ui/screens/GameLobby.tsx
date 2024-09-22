@@ -34,7 +34,7 @@ import { useNavigate } from "react-router-dom";
 import { useBuilder } from "@/hooks/useBuilder";
 
 const tabs = ["daily", "weekly", "1v1", "tutorial"];
-const disabledTabs = ["weekly", "1v1"];
+const disabledTabs = ["1v1"];
 
 // TODO: Consider applying this to the tabs component directly
 const tabsStyles = {
