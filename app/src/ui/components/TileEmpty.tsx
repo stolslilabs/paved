@@ -326,7 +326,7 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
     ],
   );
 
-  const { currentTutorialStage } = useTutorial()
+  const { currentTutorialStage } = useTutorial();
 
   return (
     <>
@@ -346,9 +346,10 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
             transparent={true}
             opacity={0.004}
           />
-
         </mesh>
-        {(position?.x === currentTutorialStage?.markedTile?.x && position?.y === currentTutorialStage?.markedTile?.y) && isTutorial && <TileHighlight size={size} />}
+        {position?.x === currentTutorialStage?.markedTile?.x &&
+          position?.y === currentTutorialStage?.markedTile?.y &&
+          isTutorial && <TileHighlight size={size} />}
       </group>
     </>
   );
@@ -367,63 +368,88 @@ const TileHighlight = ({ size }: { size: number }) => {
   });
 
   const { selectedTile } = useGameStore();
-  const { currentTutorialStage } = useTutorial()
+  const { currentTutorialStage } = useTutorial();
 
-  const orientation = currentTutorialStage?.presetTransaction.orientation
+  const orientation = currentTutorialStage?.presetTransaction.orientation;
 
-  const imageUrl = useMemo(() => getImage(tile), [tile])
+  const imageUrl = useMemo(() => getImage(tile), [tile]);
 
-  const texture = useTexture(imageUrl)
+  const texture = useTexture(imageUrl);
 
-  return texture && (
-    <>
-      <TileHighlightTooltip />
-      <Plane args={[size, size, 1]} position={[0, 0, 0.1]} rotation={[0, 0, calculateRotation(orientation ?? 1)]} visible={!!texture}>
-        <meshBasicMaterial
-          map={texture}
-          opacity={0.55}
-          transparent={true}
-        />
-        <Edges linewidth={5}
-          threshold={15}
-          color={currentTutorialStage?.presetTransaction.x === selectedTile.col && currentTutorialStage?.presetTransaction.y === selectedTile.row ? "lime" : !selectedTile ? "blue" : "red"} />
-      </Plane>
-    </>
-  )
-}
+  return (
+    texture && (
+      <>
+        <TileHighlightTooltip />
+        <Plane
+          args={[size, size, 1]}
+          position={[0, 0, 0.1]}
+          rotation={[0, 0, calculateRotation(orientation ?? 1)]}
+          visible={!!texture}
+        >
+          <meshBasicMaterial map={texture} opacity={0.55} transparent={true} />
+          <Edges
+            linewidth={5}
+            threshold={15}
+            color={
+              currentTutorialStage?.presetTransaction.x === selectedTile.col &&
+              currentTutorialStage?.presetTransaction.y === selectedTile.row
+                ? "lime"
+                : !selectedTile
+                  ? "blue"
+                  : "red"
+            }
+          />
+        </Plane>
+      </>
+    )
+  );
+};
 
 const TileHighlightTooltip = () => {
-  const { currentTutorialStage } = useTutorial()
+  const { currentTutorialStage } = useTutorial();
   const { x, y } = useGameStore();
 
-  const horizontalTextOffset = 6
-  const verticalTextOffset = 2
+  const horizontalTextOffset = 6;
+  const verticalTextOffset = 2;
 
-  const textPositionVector = currentTutorialStage?.markedTileTextPosition
-  const interactionText = currentTutorialStage?.interactionText.get("tile-ingame")
-  const interactionIndex = Array.from(currentTutorialStage.interactionText.keys()).indexOf("tile-ingame") + 1
+  const textPositionVector = currentTutorialStage?.markedTileTextPosition;
+  const interactionText =
+    currentTutorialStage?.interactionText.get("tile-ingame");
+  const interactionIndex =
+    Array.from(currentTutorialStage.interactionText.keys()).indexOf(
+      "tile-ingame",
+    ) + 1;
 
   const shouldDisplayTutorialTooltip = useMemo(() => {
     if (!currentTutorialStage) return false;
 
-    const { presetTransaction: {
-      x: presetX,
-      y: presetY,
-    } } = currentTutorialStage;
+    const {
+      presetTransaction: { x: presetX, y: presetY },
+    } = currentTutorialStage;
 
     const hasCoords = x === presetX && y === presetY;
 
-    return !hasCoords
+    return !hasCoords;
   }, [currentTutorialStage, x, y]);
 
-  return shouldDisplayTutorialTooltip && (
-    <Html transform position={[textPositionVector.x * horizontalTextOffset, textPositionVector.y * verticalTextOffset, 0]} scale={0.75}>
-      <p className="text-xs w-80 p-4 rounded pointer-events-none select-none">
-        {interactionIndex}.{interactionText}
-      </p>
-    </Html>
-  )
-}
+  return (
+    shouldDisplayTutorialTooltip && (
+      <Html
+        transform
+        position={[
+          textPositionVector.x * horizontalTextOffset,
+          textPositionVector.y * verticalTextOffset,
+          0,
+        ]}
+        scale={0.75}
+      >
+        <p className="text-xs w-80 p-4 rounded pointer-events-none select-none">
+          {interactionIndex}.{interactionText}
+        </p>
+      </Html>
+    )
+  );
+};
 
 const calculateRotation = (orientation: number) =>
   (Math.PI / 2) * (1 - orientation);
@@ -447,5 +473,5 @@ useTexture.preload([
   "/assets/tiles/sfrfrfffr.png",
   "/assets/tiles/sfrfrfrfr.png",
   "/assets/tiles/wffffffff.png",
-  "/assets/tiles/wfffffffr.png"
-])
+  "/assets/tiles/wfffffffr.png",
+]);

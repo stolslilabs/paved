@@ -18,18 +18,18 @@ module.exports = {
     },
     extend: {
       fontSize: {
-        '2xs': '.625rem',
-        '3xs': '.5rem',
+        "2xs": ".625rem",
+        "3xs": ".5rem",
       },
       fontFamily: {
         body: ["Rubik Mono One", "mono"],
       },
       padding: {
-        'safe-right': 'env(safe-area-inset-right)',
-        'safe-left': 'env(safe-area-inset-left)',
+        "safe-right": "env(safe-area-inset-right)",
+        "safe-left": "env(safe-area-inset-left)",
       },
       height: {
-        'dscreen': 'calc(100dvh)',
+        dscreen: "calc(100dvh)",
       },
       colors: {
         // "paved-yellow": "#FCF7E7",

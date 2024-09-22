@@ -1,7 +1,7 @@
-import type { IWorld } from "./generated/contractSystems";
+import type { IWorld } from "./bindings/contracts.gen";
 
 import { toast } from "sonner";
-import * as SystemTypes from "./generated/contractSystems";
+import * as SystemTypes from "./bindings/contracts.gen";
 import { getEntityIdFromKeys, shortenHex } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { uuid } from "@latticexyz/utils";
@@ -25,6 +25,8 @@ export function systems({
     switch (mode) {
       case ModeType.Daily:
         return client.daily;
+      case ModeType.Weekly:
+        return client.weekly;
       case ModeType.Tutorial:
         return client.tutorial;
       default:
@@ -52,7 +54,7 @@ export function systems({
   const create_player = async ({
     account,
     ...props
-  }: SystemTypes.CreatePlayer) => {
+  }: any) => {
     try {
       const { transaction_hash } = await client.account.create({
         account,
@@ -74,7 +76,7 @@ export function systems({
     account,
     mode,
     ...props
-  }: SystemTypes.CreateGame) => {
+  }: any) => {
     const contract = getContract(mode?.value as ModeType);
     try {
       const { transaction_hash } = await contract.spawn({
@@ -83,15 +85,22 @@ export function systems({
       });
 
       mode?.value === ModeType.Tutorial
-        ? await account.waitForTransaction(transaction_hash, { retryInterval: 100 })
-        : notify("Game has been created.", await account.waitForTransaction(transaction_hash, { retryInterval: 100 }));
+        ? await account.waitForTransaction(transaction_hash, {
+            retryInterval: 100,
+          })
+        : notify(
+            "Game has been created.",
+            await account.waitForTransaction(transaction_hash, {
+              retryInterval: 100,
+            }),
+          );
     } catch (error: any) {
       console.log(error);
       toast.error(extractedMessage(error.message));
     }
   };
 
-  const claim = async ({ account, mode, ...props }: SystemTypes.Claim) => {
+  const claim = async ({ account, mode, ...props }: any) => {
     try {
       const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.claim({
@@ -109,7 +118,7 @@ export function systems({
     }
   };
 
-  const sponsor = async ({ account, mode, ...props }: SystemTypes.Sponsor) => {
+  const sponsor = async ({ account, mode, ...props }: any) => {
     try {
       const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.sponsor({
@@ -127,7 +136,7 @@ export function systems({
     }
   };
 
-  const discard = async ({ account, mode, ...props }: SystemTypes.Discard) => {
+  const discard = async ({ account, mode, ...props }: any) => {
     try {
       const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.discard({
@@ -149,7 +158,7 @@ export function systems({
     account,
     mode,
     ...props
-  }: SystemTypes.Surrender) => {
+  }: any) => {
     try {
       const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.surrender({
@@ -167,7 +176,7 @@ export function systems({
     }
   };
 
-  const build = async ({ account, mode, ...props }: SystemTypes.Build) => {
+  const build = async ({ account, mode, ...props }: any) => {
     const buidlerKey = getEntityIdFromKeys([
       BigInt(props.game_id),
       BigInt(account?.address),
@@ -202,9 +211,14 @@ export function systems({
       },
     });
 
+    const contractMap = {
+      [ModeType.Daily]: client.daily,
+      [ModeType.Weekly]: client.weekly,
+      [ModeType.Tutorial]: client.tutorial,
+    };
+
     try {
-      const contract =
-        mode?.value === ModeType.Daily ? client.daily : client.tutorial;
+      const contract = contractMap[mode?.value as keyof typeof contractMap] ?? client.daily;
       const { transaction_hash } = await contract.build({
         account,
         ...props,

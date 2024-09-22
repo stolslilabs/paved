@@ -7,7 +7,7 @@ import { useGame } from "@/hooks/useGame";
 import { ModeType } from "@/dojo/game/types/mode";
 
 export const TileTextures = ({ squareSize }: { squareSize: number }) => {
-  const gameId = useQueryParams()
+  const gameId = useQueryParams();
   const { game } = useGame(gameId);
   const { tiles, items } = useTiles();
 

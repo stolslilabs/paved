@@ -66,9 +66,7 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {children ?? (
-          <IngameButton icon={leaderboard} />
-        )}
+        {children ?? <IngameButton icon={leaderboard} />}
       </DialogTrigger>
       <DialogContent className="bg-primary">
         <DialogHeader>
@@ -77,7 +75,7 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
         {over && isSelf && <Description game={game} />}
         <Leaderboard game={game} builders={builders} />
       </DialogContent>
-    </Dialog >
+    </Dialog>
   );
 };
 
