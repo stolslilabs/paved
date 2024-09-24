@@ -42,6 +42,7 @@ import { Game } from "@/dojo/game/models/game";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useBuilders } from "@/hooks/useBuilders";
 import calendarIcon from "/assets/icons/calendar.svg";
+import { faSackDollar } from "@fortawesome/free-solid-svg-icons";
 
 export const getSeason = (mode: Mode) => {
   const now = Math.floor(Date.now() / 1000);
