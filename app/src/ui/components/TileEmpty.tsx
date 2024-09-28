@@ -18,7 +18,7 @@ import { useBuilder } from "@/hooks/useBuilder";
 
 const loader = new THREE.TextureLoader();
 
-export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
+export const TileEmpty = ({ tiles, col, row, size }: any) => {
   const [play, { stop }] = useSound(Place);
 
   const { gameId } = useQueryParams();
@@ -260,13 +260,11 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
     return (2 * size) / (dim.x + dim.z);
   }, [shadowedModel]);
 
-  const visibilityCondition = isTutorial ? !strategyMode : strategyMode;
-
   const meshComponent = useMemo(
     () => (
       <>
         <group
-          visible={texture !== undefined && !visibilityCondition}
+          visible={texture !== undefined && !strategyMode}
           ref={meshRef}
           key={`tile-${activeTile?.id}`}
           scale={scale}
@@ -280,7 +278,7 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
           <primitive object={shadowedModel} />
         </group>
         <mesh
-          visible={texture !== undefined && visibilityCondition}
+          visible={texture !== undefined && strategyMode}
           onPointerEnter={handlePointerEnter}
           onPointerLeave={handlePointerLeave}
           onClick={handleSimpleClick}
@@ -348,7 +346,7 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
           />
 
         </mesh>
-        {(position?.x === currentTutorialStage?.markedTile?.x && position?.y === currentTutorialStage?.markedTile?.y) && isTutorial && <TileHighlight size={size} />}
+        {(position?.x === currentTutorialStage?.markedTile?.x && position?.y === currentTutorialStage?.markedTile?.y) && strategyMode && <TileHighlight size={size} />}
       </group>
     </>
   );
