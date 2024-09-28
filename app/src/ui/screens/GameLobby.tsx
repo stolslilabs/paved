@@ -104,7 +104,7 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
     });
 
     defineSystem(world, [Has(Game)], function ({ value: [game] }: ComponentUpdate) {
-      if (game && game.mode === Object.values(ModeType).indexOf(ModeType.Tutorial)) {
+      if (game) {
         setRecentGame(game)
       }
     }, { runOnInit: false });
