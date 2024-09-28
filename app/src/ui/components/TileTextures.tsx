@@ -4,7 +4,6 @@ import { TileEmpty } from "./TileEmpty";
 import { useTiles } from "@/hooks/useTiles";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useGame } from "@/hooks/useGame";
-import { ModeType } from "@/dojo/game/types/mode";
 
 export const TileTextures = ({ squareSize }: { squareSize: number }) => {
   const gameId = useQueryParams()
@@ -33,7 +32,6 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
             col={item.tile.col}
             row={item.tile.row}
             size={squareSize}
-            isTutorial={game?.mode.value === ModeType.Tutorial}
           />
         );
       } else {
@@ -43,7 +41,6 @@ export const TileTextures = ({ squareSize }: { squareSize: number }) => {
             tile={item.tile}
             size={squareSize}
             length={findHighestId(tiles)}
-            isTutorial={game?.mode.value === ModeType.Tutorial}
           />
         );
       }
