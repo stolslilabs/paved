@@ -87,8 +87,7 @@ export const TileTexture = ({ tile, size, length, isTutorial }: any) => {
         const standardMaterial = new THREE.MeshStandardMaterial({
           color: originalMaterial.color,
           map: originalMaterial.map, // Preserve texture map if available
-          roughness: 0.5, // Adjust roughness for realistic appearance
-          metalness: 0.2, // Adjust metalness for realistic appearance
+          roughness: 1, // Adjust roughness for realistic appearance
           emissive: originalMaterial.emissive, // Preserve emissive color if available
           emissiveIntensity: 1, // Adjust emissive intensity if emissive color is present
           side: THREE.FrontSide, // Ensure both sides of the material are visible

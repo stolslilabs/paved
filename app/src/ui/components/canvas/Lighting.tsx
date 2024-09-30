@@ -1,6 +1,9 @@
 import { Leva, useControls } from "leva";
+import { useEffect, useRef } from "react";
+import * as THREE from "three"
 
 export const Lighting = () => {
+  const lightRef = useRef<THREE.DirectionalLight>(null!);
   const { ambientIntensity, intensity, position } = useControls("Light", {
     ambientIntensity: {
       value: 5,
@@ -22,6 +25,15 @@ export const Lighting = () => {
     },
   });
 
+  useEffect(() => {
+    if (lightRef.current) {
+      const target = new THREE.Object3D();
+      target.position.set(-25.5, -40.5, 0);
+      lightRef.current.target = target
+    }
+  }, [])
+
+
   return (
     <>
       <Leva
@@ -31,32 +43,23 @@ export const Lighting = () => {
         collapsed // default = false, when true the GUI is collpased
         hidden // default = false, when true the GUI is hidden
       />
-      <spotLight
-        position={[10, 10, 10]}
-        angle={0.15}
-        penumbra={1}
-        intensity={1}
-        castShadow
-      />
+
       <ambientLight
-        name="Default Ambient Light"
-        intensity={ambientIntensity}
-        color="white"
+        intensity={4}
       />
       <directionalLight
-        color={"white"}
-        intensity={intensity}
-        position={position}
+        ref={lightRef}
+        intensity={10}
+        position={[35, 50, 65]} // Adjust the position to represent sunlight direction position
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
-        shadow-camera-near={0}
-        shadow-camera-far={12}
-        shadow-camera-left={-12}
-        shadow-camera-right={12}
-        shadow-camera-top={12}
-        shadow-camera-bottom={-5}
-        shadow-bias={-0.01}
+        shadow-mapSize-width={4096} // Increase the shadow map size for better quality shadows
+        shadow-mapSize-height={4096}
+        shadow-camera-near={1}
+        shadow-camera-far={100}
+        shadow-camera-left={-50} // Adjust the frustum parameters to increase the coverage area
+        shadow-camera-right={50}
+        shadow-camera-top={50}
+        shadow-camera-bottom={-50}
       />
     </>
   );
