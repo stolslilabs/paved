@@ -1,11 +1,9 @@
-import { useThree } from "@react-three/fiber";
 import { Leva, useControls } from "leva";
 import { useEffect, useRef } from "react";
 import * as THREE from "three"
 
 export const Lighting = () => {
   const lightRef = useRef<THREE.DirectionalLight>(null!);
-  const { scene } = useThree()
   const { ambientIntensity, intensity, position } = useControls("Light", {
     ambientIntensity: {
       value: 5,
@@ -35,17 +33,6 @@ export const Lighting = () => {
     }
   }, [])
 
-  useEffect(() => {
-    if (lightRef.current) {
-      const helper = new THREE.DirectionalLightHelper(lightRef.current, 5);
-      scene.add(helper);
-
-      return () => {
-        scene.remove(helper);
-        helper.dispose();
-      };
-    }
-  }, [scene]);
 
   return (
     <>
