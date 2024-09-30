@@ -51,10 +51,7 @@ export function systems({
     }
   };
 
-  const create_player = async ({
-    account,
-    ...props
-  }: any) => {
+  const create_player = async ({ account, ...props }: any) => {
     try {
       const { transaction_hash } = await client.account.create({
         account,
@@ -72,11 +69,7 @@ export function systems({
     }
   };
 
-  const create_game = async ({
-    account,
-    mode,
-    ...props
-  }: any) => {
+  const create_game = async ({ account, mode, ...props }: any) => {
     const contract = getContract(mode?.value as ModeType);
     try {
       const { transaction_hash } = await contract.spawn({
@@ -154,11 +147,7 @@ export function systems({
     }
   };
 
-  const surrender = async ({
-    account,
-    mode,
-    ...props
-  }: any) => {
+  const surrender = async ({ account, mode, ...props }: any) => {
     try {
       const contract = getContract(mode?.value as ModeType);
       const { transaction_hash } = await contract.surrender({
@@ -218,7 +207,8 @@ export function systems({
     };
 
     try {
-      const contract = contractMap[mode?.value as keyof typeof contractMap] ?? client.daily;
+      const contract =
+        contractMap[mode?.value as keyof typeof contractMap] ?? client.daily;
       const { transaction_hash } = await contract.build({
         account,
         ...props,
