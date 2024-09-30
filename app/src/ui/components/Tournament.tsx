@@ -42,6 +42,7 @@ import { Game } from "@/dojo/game/models/game";
 import { usePlayer } from "@/hooks/usePlayer";
 import { useBuilders } from "@/hooks/useBuilders";
 import calendarIcon from "/assets/icons/calendar.svg";
+import { faSackDollar } from "@fortawesome/free-solid-svg-icons";
 
 export const getSeason = (mode: Mode) => {
   const now = Math.floor(Date.now() / 1000);
@@ -79,8 +80,8 @@ export const TournamentHeader = ({ mode }: { mode: Mode }) => {
         ${days.toString().padStart(2, "0")}d ${hours
           .toString()
           .padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
-          .toString()
-          .padStart(2, "0")}`;
+            .toString()
+            .padStart(2, "0")}`;
       setTimeLeft(formattedTime);
 
       if (dt < 0) {
