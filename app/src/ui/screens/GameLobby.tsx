@@ -141,10 +141,7 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
       world,
       [Has(Game)],
       function ({ value: [game] }: ComponentUpdate) {
-        if (
-          game &&
-          game.mode === Object.values(ModeType).indexOf(ModeType.Tutorial)
-        ) {
+        if (game) {
           setRecentGame(game);
         }
       },
