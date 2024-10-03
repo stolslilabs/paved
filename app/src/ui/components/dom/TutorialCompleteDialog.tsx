@@ -28,13 +28,7 @@ export const GameCompletedDialog = () => {
   const { gameId } = useQueryParams();
   const { game } = useGame({ gameId });
 
-  return game?.mode.value === ModeType.Tutorial ? (
-    <TutorialDialog />
-  )
-    : (
-      <RegularDialog />
-    )
-
+  return game?.mode.value === ModeType.Tutorial ? <TutorialDialog /> : <RegularDialog />
 }
 
 const TutorialDialog = () => {
@@ -91,7 +85,7 @@ const RegularDialog = () => {
   );
 };
 
-export const Description = ({ game }: { game: GameClass }) => {
+const Description = ({ game }: { game: GameClass }) => {
   const takeScreenshot = useUIStore((state) => state.takeScreenshot);
   const [screenshotMessage, setScreenshotMessage] = useState("");
 
@@ -124,7 +118,7 @@ export const Description = ({ game }: { game: GameClass }) => {
   );
 };
 
-export const Share = ({ score }: { score: number }) => {
+const Share = ({ score }: { score: number }) => {
   return (
     <TwitterShareButton
       url="https://sepolia.paved.gg/"
