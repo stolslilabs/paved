@@ -59,7 +59,7 @@ export const NavigationMenu = ({
   const [compositionOpen, setCompositionOpen] = useState<boolean>(false);
   const toggleMusic = () => setMuted(!muted);
 
-  const fullscreen = useFullscreen()
+  const fullscreen = useFullscreen();
 
   const NavigationMenuItems: Array<MenuItem> = [
     {
@@ -103,8 +103,11 @@ export const NavigationMenu = ({
     {
       name: fullscreen ? "Exit Fullscreen" : "Enter Fullscreen",
       icon: fullscreen ? fullscreenOff : fullscreenOn,
-      onClick: () => fullscreen ? document.exitFullscreen() : document.body.requestFullscreen()
-    }
+      onClick: () =>
+        fullscreen
+          ? document.exitFullscreen()
+          : document.body.requestFullscreen(),
+    },
   ];
 
   return !compositionOpen ? (

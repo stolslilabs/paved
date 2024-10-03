@@ -1,6 +1,6 @@
 import { Leva, useControls } from "leva";
 import { useEffect, useRef } from "react";
-import * as THREE from "three"
+import * as THREE from "three";
 
 export const Lighting = () => {
   const lightRef = useRef<THREE.DirectionalLight>(null!);
@@ -29,10 +29,9 @@ export const Lighting = () => {
     if (lightRef.current) {
       const target = new THREE.Object3D();
       target.position.set(-25.5, -40.5, 0);
-      lightRef.current.target = target
+      lightRef.current.target = target;
     }
-  }, [])
-
+  }, []);
 
   return (
     <>
@@ -44,9 +43,7 @@ export const Lighting = () => {
         hidden // default = false, when true the GUI is hidden
       />
 
-      <ambientLight
-        intensity={4}
-      />
+      <ambientLight intensity={4} />
       <directionalLight
         ref={lightRef}
         intensity={10}

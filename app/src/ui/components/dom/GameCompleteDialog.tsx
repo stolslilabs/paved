@@ -21,15 +21,25 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Game as GameClass } from "@/dojo/game/models/game";
 import { TwitterShareButton } from "react-share";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/ui/elements/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/elements/dialog";
 import { Leaderboard } from "../Leaderboard";
 
 export const GameCompletedDialog = () => {
   const { gameId } = useQueryParams();
   const { game } = useGame({ gameId });
 
-  return game?.mode.value === ModeType.Tutorial ? <TutorialDialog /> : <RegularDialog />
-}
+  return game?.mode.value === ModeType.Tutorial ? (
+    <TutorialDialog />
+  ) : (
+    <RegularDialog />
+  );
+};
 
 const TutorialDialog = () => {
   const { step, maxSteps } = useTutorial();
@@ -68,7 +78,12 @@ const RegularDialog = () => {
   const { builders } = useBuilders({ gameId });
   const [open, setOpen] = useState(true);
 
-  const isSelf = useMemo(() => account?.address === (builders.length > 0 ? builders[0].player_id : "0x0"), [account, builders]);
+  const isSelf = useMemo(
+    () =>
+      account?.address ===
+      (builders.length > 0 ? builders[0].player_id : "0x0"),
+    [account, builders],
+  );
 
   if (!game || !builders || !builders.length) return null;
 
