@@ -12,7 +12,7 @@ import { NavigationMenu } from "../components/dom/NavigationMenu";
 import { CharacterMenu } from "../components/dom/CharacterMenu";
 import { HandPanel } from "../components/dom/HandPanel";
 import { useState } from "react";
-import { GameCompletedDialog } from "../components/dom/TutorialCompleteDialog";
+import { GameCompletedDialog } from "../components/dom/GameCompleteDialog";
 
 // TODO: Remove all TooltipProviders except for one in "main.tsx"
 
