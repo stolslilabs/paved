@@ -69,7 +69,7 @@ export const NavigationMenu = ({
     },
     {
       name: muted ? "Toggle Music ON" : "Toggle Music OFF",
-      icon: muted ? soundOnIcon : soundOffIcon,
+      icon: !muted ? soundOnIcon : soundOffIcon,
       onClick: () => toggleMusic(),
     },
     {
