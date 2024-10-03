@@ -80,8 +80,8 @@ export const TournamentHeader = ({ mode }: { mode: Mode }) => {
         ${days.toString().padStart(2, "0")}d ${hours
           .toString()
           .padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
-          .toString()
-          .padStart(2, "0")}`;
+            .toString()
+            .padStart(2, "0")}`;
       setTimeLeft(formattedTime);
 
       if (dt < 0) {
@@ -188,7 +188,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
                 href="#"
                 isActive={id === (page ? page : tournaments.length)}
                 onClick={() => setPage(id)}
-                className="size-6 text-xs lg:size-8"
+                className="size-6 text-3xs md:text-2xs lg:size-8"
               >
                 {id}
               </PaginationLink>
