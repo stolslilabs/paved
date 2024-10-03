@@ -28,6 +28,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/ui/elements/collapsible";
+import fullscreenOn from "/assets/icons/fullscreen-on.svg";
+import fullscreenOff from "/assets/icons/fullscreen-off.svg";
+import { useFullscreen } from "@/hooks/useFullscreen";
 
 type MenuItem = {
   name: string;
@@ -56,6 +59,8 @@ export const NavigationMenu = ({
   const [compositionOpen, setCompositionOpen] = useState<boolean>(false);
   const toggleMusic = () => setMuted(!muted);
 
+  const fullscreen = useFullscreen()
+
   const NavigationMenuItems: Array<MenuItem> = [
     {
       name: "Home",
@@ -69,7 +74,7 @@ export const NavigationMenu = ({
     },
     {
       name: muted ? "Toggle Music ON" : "Toggle Music OFF",
-      icon: muted ? soundOnIcon : soundOffIcon,
+      icon: !muted ? soundOnIcon : soundOffIcon,
       onClick: () => toggleMusic(),
     },
     {
@@ -95,6 +100,11 @@ export const NavigationMenu = ({
       icon: burnIcon,
       children: <Discard />,
     },
+    {
+      name: fullscreen ? "Exit Fullscreen" : "Enter Fullscreen",
+      icon: fullscreen ? fullscreenOff : fullscreenOn,
+      onClick: () => fullscreen ? document.exitFullscreen() : document.body.requestFullscreen()
+    }
   ];
 
   return !compositionOpen ? (
