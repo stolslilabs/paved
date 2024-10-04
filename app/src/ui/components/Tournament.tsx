@@ -143,14 +143,14 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
   useEffect(() => {
     const currentSeason = getSeason(mode);
     setPage(currentSeason);
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     const currentSeason = getSeason(mode);
     const allPages = Array.from({ length: currentSeason }, (_, i) => i + 1);
     const latestPages = allPages.slice(-4); // Get only the latest 4 pages
     setPages(latestPages);
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     if (!page || !mode) return;
