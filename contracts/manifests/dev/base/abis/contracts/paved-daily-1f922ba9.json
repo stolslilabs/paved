@@ -129,11 +129,11 @@
   {
     "type": "impl",
     "name": "IDojoInitImpl",
-    "interface_name": "paved::systems::weekly::Weekly::IDojoInit"
+    "interface_name": "paved::systems::daily::daily::IDojoInit"
   },
   {
     "type": "interface",
-    "name": "paved::systems::weekly::Weekly::IDojoInit",
+    "name": "paved::systems::daily::daily::IDojoInit",
     "items": [
       {
         "type": "function",
@@ -151,8 +151,8 @@
   },
   {
     "type": "impl",
-    "name": "WeeklyImpl",
-    "interface_name": "paved::systems::weekly::IWeekly"
+    "name": "DailyImpl",
+    "interface_name": "paved::systems::daily::IDaily"
   },
   {
     "type": "enum",
@@ -258,7 +258,7 @@
   },
   {
     "type": "interface",
-    "name": "paved::systems::weekly::IWeekly",
+    "name": "paved::systems::daily::IDaily",
     "items": [
       {
         "type": "function",
@@ -740,7 +740,7 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::weekly::Weekly::Event",
+    "name": "paved::systems::daily::daily::Event",
     "kind": "enum",
     "variants": [
       {

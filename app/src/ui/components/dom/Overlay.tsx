@@ -31,10 +31,9 @@ const Banner = () => (
 const Content = ({ children }: { children: ReactNode }) => {
   const { isConnected } = useAccount();
 
-  return (
-    isConnected && (
-      <div
-        className="
+  return isConnected && (
+    <div
+      className="
       w-full
       h-full
       grid
@@ -48,14 +47,12 @@ const Content = ({ children }: { children: ReactNode }) => {
       sm:grid-cols-3
       sm:grid-rows-4
       md:p-4
-      "
-      >
-        {children}
-      </div>
-    )
+      ">
+      {children}
+    </div>
   );
-};
+}
 
-Overlay.Header = Header;
-Overlay.Banner = Banner;
-Overlay.Content = Content;
+Overlay.Header = Header
+Overlay.Banner = Banner
+Overlay.Content = Content

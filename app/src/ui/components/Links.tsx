@@ -39,11 +39,7 @@ export const Links = () => {
           href={link.url}
           target="_blank"
         >
-          <FontAwesomeIcon
-            color="white"
-            icon={link.icon}
-            className="h-6 sm:h-5 lg:h-6"
-          />
+          <FontAwesomeIcon color="white" icon={link.icon} className="h-6 sm:h-5 lg:h-6" />
         </a>
       ))}
     </div>

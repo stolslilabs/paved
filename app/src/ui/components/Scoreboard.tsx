@@ -23,9 +23,7 @@ export const Scoreboard = () => {
 
   return (
     <div className="md:flex flex-col text-primary-foreground self-center-start">
-      <p className="text-left text-sm mt-4 mb-2 ml-2 hidden sm:block">
-        Leaderboard
-      </p>
+      <p className="text-left text-sm mt-4 mb-2 ml-2 hidden sm:block">Leaderboard</p>
       <Table>
         <TableBody className="text-xs">
           <PlayerRow

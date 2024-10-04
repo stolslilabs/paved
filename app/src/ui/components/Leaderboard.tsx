@@ -1,6 +1,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTrigger,
 } from "@/ui/elements/dialog";
@@ -13,35 +14,128 @@ import {
   TableRow,
 } from "@/ui/elements/table";
 
-import { useMemo, ReactNode } from "react";
+import { Button } from "@/ui/elements/button";
+
+import { useState, useEffect, useMemo, ReactNode } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { getColor } from "@/dojo/game";
+import { TwitterShareButton } from "react-share";
+import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
 import { useGame } from "@/hooks/useGame";
 import { usePlayer } from "@/hooks/usePlayer";
+import { Game as GameClass } from "@/dojo/game/models/game";
 import { useBuilders } from "@/hooks/useBuilders";
+import { useDojo } from "@/dojo/useDojo";
 import leaderboard from "/assets/icons/leaderboard.svg";
+import { useUIStore } from "@/store";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import { IngameButton } from "./dom/IngameButton";
+import { ModeType } from "@/dojo/game/types/mode";
 
 export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
   const { gameId } = useQueryParams();
+  const {
+    account: { account },
+  } = useDojo();
   const { game } = useGame({ gameId });
   const { builders } = useBuilders({ gameId });
+  const [open, setOpen] = useState(false);
+  const [over, setOver] = useState(false);
+
+  const isSelf = useMemo(() => {
+    return (
+      account?.address === (builders.length > 0 ? builders[0].player_id : "0x0")
+    );
+  }, [account, builders, over, game]);
+
+  useEffect(() => {
+    if (game && game.mode.value !== ModeType.Tutorial) {
+      const interval = setInterval(() => {
+        if (!over && game.isOver() && isSelf) {
+          setOpen(true);
+          setOver(true);
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [game, over]);
 
   if (!game || !builders || !builders.length) return null;
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {children ?? <IngameButton icon={leaderboard} />}
+        {children ?? (
+          <IngameButton icon={leaderboard} />
+        )}
       </DialogTrigger>
       <DialogContent className="bg-primary">
         <DialogHeader>
           <DialogTitle className="text-center text-xl">Leaderboard</DialogTitle>
         </DialogHeader>
+        {over && isSelf && <Description game={game} />}
         <Leaderboard game={game} builders={builders} />
       </DialogContent>
-    </Dialog>
+    </Dialog >
+  );
+};
+
+export const Description = ({ game }: { game: GameClass }) => {
+  const takeScreenshot = useUIStore((state) => state.takeScreenshot);
+  const [screenshotMessage, setScreenshotMessage] = useState("");
+
+  const handleScreenshot = () => {
+    takeScreenshot?.();
+    setScreenshotMessage("Shot taken!");
+    setTimeout(() => setScreenshotMessage(""), 5000);
+  };
+
+  return (
+    <DialogDescription className="flex justify-center items-center gap-3 text-xs flex-wrap">
+      <div className="w-full text-center text-3xl">PUZZLE COMPLETE!</div>
+      <div className="w-full text-center">
+        Well paved, adventurer ⚒️ <br />
+        Care to flex your score on X? <br /> Tip: paste your screenshot into the
+        post for maximum impact.
+      </div>
+
+      <Button
+        variant={"default"}
+        size={"icon"}
+        className="flex gap-2 w-auto p-2 text-xs"
+        onClick={handleScreenshot}
+      >
+        {screenshotMessage ? screenshotMessage : "Take Screenshot!"}
+      </Button>
+
+      <Share score={game.score} />
+    </DialogDescription>
+  );
+};
+
+export const Share = ({ score }: { score: number }) => {
+  return (
+    <TwitterShareButton
+      url="https://sepolia.paved.gg/"
+      title={`I just conquered today’s @pavedgame puzzle 🧩
+
+Score: ${score}
+
+Think you can do better? Join the fun at https://sepolia.paved.gg/ and #paveyourwaytovictory in an onchain strategy game like no other ⚒️ 
+
+Play now 👇
+`}
+    >
+      <Button
+        className="flex gap-2 w-auto p-2 text-xs"
+        variant={"default"}
+        size={"icon"}
+      >
+        <FontAwesomeIcon icon={faXTwitter} />
+        <p>Share</p>
+      </Button>
+    </TwitterShareButton>
   );
 };
 

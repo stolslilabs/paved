@@ -1234,13 +1234,13 @@
         ]
       }
     ],
-    "address": "0xd18bd22e51077ed30e9bb82afa28b13bdf0d8fc62baffca54c2b0dcfcad007",
-    "transaction_hash": "0x20e9a63297796c1de1ada3bbde0041167682362033893338288f546dca41e51",
+    "address": "0x3901d98eba840e5b8d8187be1e1535d5a98555b6d5ecd8893277903e7b4e2c",
+    "transaction_hash": "0x617b68beaad579b75f4a99bac3e65f3c936ca2ce8a82ac91861cd5ef6f4e451",
     "block_number": 3,
     "seed": "paved",
     "metadata": {
       "profile_name": "dev",
-      "rpc_url": "https://api.cartridge.gg/x/paved-dev/katana"
+      "rpc_url": "http://localhost:5050/"
     },
     "manifest_name": "dojo-world"
   },
@@ -1255,10 +1255,10 @@
   "contracts": [
     {
       "kind": "DojoContract",
-      "address": "0x56686268436caeaa3ff47c92da3f369670ae8d6d8ace695fe5e77c12ee1a8a3",
-      "class_hash": "0x6c07d56a81b940ef6333b0fb1bc423e626c8da8e9d9431a56b54b842e8a3357",
-      "original_class_hash": "0x6c07d56a81b940ef6333b0fb1bc423e626c8da8e9d9431a56b54b842e8a3357",
-      "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
+      "address": "0x786679a305e04c6f3bf46de23cd802e9d4aef5a1c4b3c2c3a54205ca663593e",
+      "class_hash": "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6",
+      "original_class_hash": "0x3efb67bdd2f204e6202dae32fdfd7cf42e1373747eaf595d4ff6e10341625d6",
+      "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
           "type": "impl",
@@ -1417,11 +1417,11 @@
         {
           "type": "impl",
           "name": "IDojoInitImpl",
-          "interface_name": "paved::systems::account::Account::IDojoInit"
+          "interface_name": "paved::systems::account::account::IDojoInit"
         },
         {
           "type": "interface",
-          "name": "paved::systems::account::Account::IDojoInit",
+          "name": "paved::systems::account::account::IDojoInit",
           "items": [
             {
               "type": "function",
@@ -1803,7 +1803,7 @@
         },
         {
           "type": "event",
-          "name": "paved::systems::account::Account::Event",
+          "name": "paved::systems::account::account::Event",
           "kind": "enum",
           "variants": [
             {
@@ -1836,18 +1836,18 @@
         "paved-Tournament"
       ],
       "init_calldata": [],
-      "tag": "paved-Account",
+      "tag": "paved-account",
       "systems": [
         "create"
       ],
-      "manifest_name": "paved-Account-32528a5a"
+      "manifest_name": "paved-account-69e898ad"
     },
     {
       "kind": "DojoContract",
-      "address": "0x30d8f5ec6cc752132f19777ad1b3c59f1e56f00f51602b8e29a41b6a17c8bd8",
-      "class_hash": "0x4eb3cbe87d52ac59a0c89a2565530f4f615d5fde2ed8ee60c326dc0ed667d0",
-      "original_class_hash": "0x4eb3cbe87d52ac59a0c89a2565530f4f615d5fde2ed8ee60c326dc0ed667d0",
-      "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
+      "address": "0x42fb873d07fb1bd9da7c077b1cb449e49886c9cf203513901d01bef7e2d46d9",
+      "class_hash": "0x73870689d74e27327d0358e907e0517634e88ae34ad9ecdb64c243e817ab65a",
+      "original_class_hash": "0x73870689d74e27327d0358e907e0517634e88ae34ad9ecdb64c243e817ab65a",
+      "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
           "type": "impl",
@@ -1979,11 +1979,11 @@
         {
           "type": "impl",
           "name": "IDojoInitImpl",
-          "interface_name": "paved::systems::daily::Daily::IDojoInit"
+          "interface_name": "paved::systems::daily::daily::IDojoInit"
         },
         {
           "type": "interface",
-          "name": "paved::systems::daily::Daily::IDojoInit",
+          "name": "paved::systems::daily::daily::IDojoInit",
           "items": [
             {
               "type": "function",
@@ -2590,7 +2590,7 @@
         },
         {
           "type": "event",
-          "name": "paved::systems::daily::Daily::Event",
+          "name": "paved::systems::daily::daily::Event",
           "kind": "enum",
           "variants": [
             {
@@ -2633,9 +2633,9 @@
         "paved-Tournament"
       ],
       "init_calldata": [
-        "$contract_address:paved-Token"
+        "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"
       ],
-      "tag": "paved-Daily",
+      "tag": "paved-daily",
       "systems": [
         "claim",
         "sponsor",
@@ -2643,13 +2643,13 @@
         "surrender",
         "build"
       ],
-      "manifest_name": "paved-Daily-190dcfe2"
+      "manifest_name": "paved-daily-1f922ba9"
     },
     {
       "kind": "DojoContract",
-      "address": "0x79c5351af449755935fc0c08079ac1b2149522a0bc41988e2fddadca5bcc71c",
-      "class_hash": "0x2885a4d4d4cfcae4d234b08b3163431cfc516433a3aa47bdf6e22ad719966af",
-      "original_class_hash": "0x2885a4d4d4cfcae4d234b08b3163431cfc516433a3aa47bdf6e22ad719966af",
+      "address": "0xdd4cf2915cba110d72de5439ece56fd049bd746b0f63eae3f8e2881fd703f3",
+      "class_hash": "0x1bdcdebd271e57b092a106a74038dc1a88412eee4825d3d592593fc1c8556f",
+      "original_class_hash": "0x1bdcdebd271e57b092a106a74038dc1a88412eee4825d3d592593fc1c8556f",
       "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
       "abi": [
         {
@@ -2782,11 +2782,11 @@
         {
           "type": "impl",
           "name": "IDojoInitImpl",
-          "interface_name": "paved::mocks::token::Token::IDojoInit"
+          "interface_name": "paved::mocks::token::token::IDojoInit"
         },
         {
           "type": "interface",
-          "name": "paved::mocks::token::Token::IDojoInit",
+          "name": "paved::mocks::token::token::IDojoInit",
           "items": [
             {
               "type": "function",
@@ -3175,7 +3175,7 @@
         },
         {
           "type": "event",
-          "name": "paved::mocks::token::Token::Event",
+          "name": "paved::mocks::token::token::Event",
           "kind": "enum",
           "variants": [
             {
@@ -3194,15 +3194,15 @@
       "reads": [],
       "writes": [],
       "init_calldata": [],
-      "tag": "paved-Token",
+      "tag": "paved-token",
       "systems": [],
-      "manifest_name": "paved-Token-176a6962"
+      "manifest_name": "paved-token-5d8a7360"
     },
     {
       "kind": "DojoContract",
-      "address": "0x1025bbc38bdb0c71921f4d08a2bbe1597990c72f13a4ea3f5d09aaa99e9045e",
-      "class_hash": "0x1f4bb22297bda89ec8eaa024cd333c3e3e561d6ee78617a8bcb2bc4b5cc817a",
-      "original_class_hash": "0x1f4bb22297bda89ec8eaa024cd333c3e3e561d6ee78617a8bcb2bc4b5cc817a",
+      "address": "0x7767277eb46c73946eb6ee400c6822663ab6d8603855bc238c9dbab213cdb0d",
+      "class_hash": "0x7df072778d22bcf2a05426ab06df11cf0d7f4cc81d559e5c38fa31da2ac9b9d",
+      "original_class_hash": "0x7df072778d22bcf2a05426ab06df11cf0d7f4cc81d559e5c38fa31da2ac9b9d",
       "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
       "abi": [
         {
@@ -3393,11 +3393,11 @@
         {
           "type": "impl",
           "name": "IDojoInitImpl",
-          "interface_name": "paved::systems::tutorial::Tutorial::IDojoInit"
+          "interface_name": "paved::systems::tutorial::tutorial::IDojoInit"
         },
         {
           "type": "interface",
-          "name": "paved::systems::tutorial::Tutorial::IDojoInit",
+          "name": "paved::systems::tutorial::tutorial::IDojoInit",
           "items": [
             {
               "type": "function",
@@ -3785,7 +3785,7 @@
         },
         {
           "type": "event",
-          "name": "paved::systems::tutorial::Tutorial::Event",
+          "name": "paved::systems::tutorial::tutorial::Event",
           "kind": "enum",
           "variants": [
             {
@@ -3823,106 +3823,33 @@
         "paved-Tournament"
       ],
       "init_calldata": [],
-      "tag": "paved-Tutorial",
+      "tag": "paved-tutorial",
       "systems": [
         "discard",
         "surrender",
         "build"
       ],
-      "manifest_name": "paved-Tutorial-242a6cba"
+      "name": "paved::systems::daily::daily"
     },
     {
       "kind": "DojoContract",
-      "address": "0x1604d62fe34d9082d1a4525f698688b0f8ffb2d4f1ae7ce722790ac31b3fec8",
-      "class_hash": "0x4773aa2c9852958306b8bc57f8b9175557f3beb039be45b5d5c47df730d93d8",
-      "original_class_hash": "0x4773aa2c9852958306b8bc57f8b9175557f3beb039be45b5d5c47df730d93d8",
-      "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
+      "address": "0x6d4a1b789f0674023093494c1431cff248f4f0d1f8edfdc70b50fa35f8998e9",
+      "class_hash": "0x43377e4d6cb933ca5027cc7b42a0ff187d264a18aa341ec4520daf2754743de",
+      "original_class_hash": "0x43377e4d6cb933ca5027cc7b42a0ff187d264a18aa341ec4520daf2754743de",
+      "base_class_hash": "0x22f3e55b61d86c2ac5239fa3b3b8761f26b9a5c0b5f61ddbd5d756ced498b46",
       "abi": [
         {
           "type": "impl",
-          "name": "ContractImpl",
-          "interface_name": "dojo::contract::contract::IContract"
-        },
-        {
-          "type": "struct",
-          "name": "core::byte_array::ByteArray",
-          "members": [
-            {
-              "name": "data",
-              "type": "core::array::Array::<core::bytes_31::bytes31>"
-            },
-            {
-              "name": "pending_word",
-              "type": "core::felt252"
-            },
-            {
-              "name": "pending_word_len",
-              "type": "core::integer::u32"
-            }
-          ]
+          "name": "DojoResourceProviderImpl",
+          "interface_name": "dojo::world::IDojoResourceProvider"
         },
         {
           "type": "interface",
-          "name": "dojo::contract::contract::IContract",
+          "name": "dojo::world::IDojoResourceProvider",
           "items": [
             {
               "type": "function",
-              "name": "contract_name",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::byte_array::ByteArray"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "namespace",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::byte_array::ByteArray"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "tag",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::byte_array::ByteArray"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "name_hash",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::felt252"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "namespace_hash",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::felt252"
-                }
-              ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "selector",
+              "name": "dojo_resource",
               "inputs": [],
               "outputs": [
                 {
@@ -3936,11 +3863,11 @@
         {
           "type": "impl",
           "name": "WorldProviderImpl",
-          "interface_name": "dojo::world::world_contract::IWorldProvider"
+          "interface_name": "dojo::world::IWorldProvider"
         },
         {
           "type": "struct",
-          "name": "dojo::world::world_contract::IWorldDispatcher",
+          "name": "dojo::world::IWorldDispatcher",
           "members": [
             {
               "name": "contract_address",
@@ -3950,7 +3877,7 @@
         },
         {
           "type": "interface",
-          "name": "dojo::world::world_contract::IWorldProvider",
+          "name": "dojo::world::IWorldProvider",
           "items": [
             {
               "type": "function",
@@ -3958,7 +3885,7 @@
               "inputs": [],
               "outputs": [
                 {
-                  "type": "dojo::world::world_contract::IWorldDispatcher"
+                  "type": "dojo::world::IWorldDispatcher"
                 }
               ],
               "state_mutability": "view"
@@ -3967,137 +3894,12 @@
         },
         {
           "type": "impl",
-          "name": "IDojoInitImpl",
-          "interface_name": "paved::systems::weekly::Weekly::IDojoInit"
+          "name": "TutorialImpl",
+          "interface_name": "paved::systems::tutorial::ITutorial"
         },
         {
           "type": "interface",
-          "name": "paved::systems::weekly::Weekly::IDojoInit",
-          "items": [
-            {
-              "type": "function",
-              "name": "dojo_init",
-              "inputs": [
-                {
-                  "name": "token_address",
-                  "type": "core::starknet::contract_address::ContractAddress"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "external"
-            }
-          ]
-        },
-        {
-          "type": "impl",
-          "name": "WeeklyImpl",
-          "interface_name": "paved::systems::weekly::IWeekly"
-        },
-        {
-          "type": "enum",
-          "name": "paved::types::orientation::Orientation",
-          "variants": [
-            {
-              "name": "None",
-              "type": "()"
-            },
-            {
-              "name": "North",
-              "type": "()"
-            },
-            {
-              "name": "East",
-              "type": "()"
-            },
-            {
-              "name": "South",
-              "type": "()"
-            },
-            {
-              "name": "West",
-              "type": "()"
-            }
-          ]
-        },
-        {
-          "type": "enum",
-          "name": "paved::types::role::Role",
-          "variants": [
-            {
-              "name": "None",
-              "type": "()"
-            },
-            {
-              "name": "Lord",
-              "type": "()"
-            },
-            {
-              "name": "Lady",
-              "type": "()"
-            },
-            {
-              "name": "Adventurer",
-              "type": "()"
-            },
-            {
-              "name": "Paladin",
-              "type": "()"
-            },
-            {
-              "name": "Pilgrim",
-              "type": "()"
-            }
-          ]
-        },
-        {
-          "type": "enum",
-          "name": "paved::types::spot::Spot",
-          "variants": [
-            {
-              "name": "None",
-              "type": "()"
-            },
-            {
-              "name": "Center",
-              "type": "()"
-            },
-            {
-              "name": "NorthWest",
-              "type": "()"
-            },
-            {
-              "name": "North",
-              "type": "()"
-            },
-            {
-              "name": "NorthEast",
-              "type": "()"
-            },
-            {
-              "name": "East",
-              "type": "()"
-            },
-            {
-              "name": "SouthEast",
-              "type": "()"
-            },
-            {
-              "name": "South",
-              "type": "()"
-            },
-            {
-              "name": "SouthWest",
-              "type": "()"
-            },
-            {
-              "name": "West",
-              "type": "()"
-            }
-          ]
-        },
-        {
-          "type": "interface",
-          "name": "paved::systems::weekly::IWeekly",
+          "name": "paved::systems::tutorial::ITutorial",
           "items": [
             {
               "type": "function",
@@ -4108,35 +3910,7 @@
                   "type": "core::integer::u32"
                 }
               ],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "claim",
-              "inputs": [
-                {
-                  "name": "tournament_id",
-                  "type": "core::integer::u64"
-                },
-                {
-                  "name": "rank",
-                  "type": "core::integer::u8"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
-            },
-            {
-              "type": "function",
-              "name": "sponsor",
-              "inputs": [
-                {
-                  "name": "amount",
-                  "type": "core::felt252"
-                }
-              ],
-              "outputs": [],
-              "state_mutability": "view"
+              "state_mutability": "external"
             },
             {
               "type": "function",
@@ -4148,7 +3922,7 @@
                 }
               ],
               "outputs": [],
-              "state_mutability": "view"
+              "state_mutability": "external"
             },
             {
               "type": "function",
@@ -4160,7 +3934,7 @@
                 }
               ],
               "outputs": [],
-              "state_mutability": "view"
+              "state_mutability": "external"
             },
             {
               "type": "function",
@@ -4169,28 +3943,26 @@
                 {
                   "name": "game_id",
                   "type": "core::integer::u32"
-                },
-                {
-                  "name": "orientation",
-                  "type": "paved::types::orientation::Orientation"
-                },
-                {
-                  "name": "x",
-                  "type": "core::integer::u32"
-                },
-                {
-                  "name": "y",
-                  "type": "core::integer::u32"
-                },
-                {
-                  "name": "role",
-                  "type": "paved::types::role::Role"
-                },
-                {
-                  "name": "spot",
-                  "type": "paved::types::spot::Spot"
                 }
               ],
+              "outputs": [],
+              "state_mutability": "external"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "IDojoInitImpl",
+          "interface_name": "paved::systems::tutorial::tutorial::IDojoInit"
+        },
+        {
+          "type": "interface",
+          "name": "paved::systems::tutorial::tutorial::IDojoInit",
+          "items": [
+            {
+              "type": "function",
+              "name": "dojo_init",
+              "inputs": [],
               "outputs": [],
               "state_mutability": "view"
             }
@@ -4199,11 +3971,11 @@
         {
           "type": "impl",
           "name": "UpgradableImpl",
-          "interface_name": "dojo::contract::upgradeable::IUpgradeable"
+          "interface_name": "dojo::components::upgradeable::IUpgradeable"
         },
         {
           "type": "interface",
-          "name": "dojo::contract::upgradeable::IUpgradeable",
+          "name": "dojo::components::upgradeable::IUpgradeable",
           "items": [
             {
               "type": "function",
@@ -4220,8 +3992,49 @@
           ]
         },
         {
+          "type": "impl",
+          "name": "OwnableImpl",
+          "interface_name": "paved::components::ownable::IOwnable"
+        },
+        {
+          "type": "interface",
+          "name": "paved::components::ownable::IOwnable",
+          "items": [
+            {
+              "type": "function",
+              "name": "owner",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::starknet::contract_address::ContractAddress"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "transfer_ownership",
+              "inputs": [
+                {
+                  "name": "new_owner",
+                  "type": "core::starknet::contract_address::ContractAddress"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
+              "name": "renounce_ownership",
+              "inputs": [],
+              "outputs": [],
+              "state_mutability": "external"
+            }
+          ]
+        },
+        {
           "type": "event",
-          "name": "dojo::contract::upgradeable::upgradeable::Upgraded",
+          "name": "dojo::components::upgradeable::upgradeable::Upgraded",
           "kind": "struct",
           "members": [
             {
@@ -4233,12 +4046,12 @@
         },
         {
           "type": "event",
-          "name": "dojo::contract::upgradeable::upgradeable::Event",
+          "name": "dojo::components::upgradeable::upgradeable::Event",
           "kind": "enum",
           "variants": [
             {
               "name": "Upgraded",
-              "type": "dojo::contract::upgradeable::upgradeable::Upgraded",
+              "type": "dojo::components::upgradeable::upgradeable::Upgraded",
               "kind": "nested"
             }
           ]
@@ -4561,30 +4374,75 @@
         },
         {
           "type": "event",
+          "name": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "previous_owner",
+              "type": "core::starknet::contract_address::ContractAddress",
+              "kind": "key"
+            },
+            {
+              "name": "new_owner",
+              "type": "core::starknet::contract_address::ContractAddress",
+              "kind": "key"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "previous_owner",
+              "type": "core::starknet::contract_address::ContractAddress",
+              "kind": "key"
+            },
+            {
+              "name": "new_owner",
+              "type": "core::starknet::contract_address::ContractAddress",
+              "kind": "key"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::components::ownable::OwnableComponent::Event",
+          "kind": "enum",
+          "variants": [
+            {
+              "name": "OwnershipTransferred",
+              "type": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+              "kind": "nested"
+            },
+            {
+              "name": "OwnershipTransferStarted",
+              "type": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+              "kind": "nested"
+            }
+          ]
+        },
+        {
+          "type": "event",
           "name": "paved::components::hostable::HostableComponent::Event",
           "kind": "enum",
           "variants": []
         },
         {
           "type": "event",
-          "name": "paved::components::payable::PayableComponent::Event",
+          "name": "paved::components::tutoriable::TutoriableComponent::Event",
           "kind": "enum",
           "variants": []
         },
         {
           "type": "event",
-          "name": "paved::components::playable::PlayableComponent::Event",
-          "kind": "enum",
-          "variants": []
-        },
-        {
-          "type": "event",
-          "name": "paved::systems::weekly::Weekly::Event",
+          "name": "paved::systems::tutorial::tutorial::Event",
           "kind": "enum",
           "variants": [
             {
               "name": "UpgradeableEvent",
-              "type": "dojo::contract::upgradeable::upgradeable::Event",
+              "type": "dojo::components::upgradeable::upgradeable::Event",
               "kind": "nested"
             },
             {
@@ -4593,18 +4451,18 @@
               "kind": "flat"
             },
             {
+              "name": "OwnableEvent",
+              "type": "paved::components::ownable::OwnableComponent::Event",
+              "kind": "flat"
+            },
+            {
               "name": "HostableEvent",
               "type": "paved::components::hostable::HostableComponent::Event",
               "kind": "flat"
             },
             {
-              "name": "PayableEvent",
-              "type": "paved::components::payable::PayableComponent::Event",
-              "kind": "flat"
-            },
-            {
-              "name": "PlayableEvent",
-              "type": "paved::components::playable::PlayableComponent::Event",
+              "name": "TutoriableEvent",
+              "type": "paved::components::tutoriable::TutoriableComponent::Event",
               "kind": "flat"
             }
           ]
@@ -4612,27 +4470,18 @@
       ],
       "reads": [],
       "writes": [
-        "paved-Player",
-        "paved-Game",
-        "paved-Builder",
-        "paved-Char",
-        "paved-CharPosition",
-        "paved-Tile",
-        "paved-TilePosition",
-        "paved-Tournament"
+        "Game",
+        "Builder",
+        "Player",
+        "Tile",
+        "TilePosition",
+        "Character",
+        "CharacterPosition",
+        "Tournament"
       ],
-      "init_calldata": [
-        "$contract_address:paved-Token"
-      ],
-      "tag": "paved-Weekly",
-      "systems": [
-        "claim",
-        "sponsor",
-        "discard",
-        "surrender",
-        "build"
-      ],
-      "manifest_name": "paved-Weekly-3f7fa769"
+      "computed": [],
+      "init_calldata": [],
+      "name": "paved::systems::tutorial::tutorial"
     }
   ],
   "models": [

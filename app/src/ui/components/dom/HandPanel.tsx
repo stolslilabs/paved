@@ -10,85 +10,65 @@ import { useMemo } from "react";
 import { useTutorial } from "@/hooks/useTutorial";
 
 export const HandPanel = () => {
-  const [play] = useSound(RotationSound);
-  const { enabled } = useActions();
-  const { x, y, spot, character } = useGameStore();
-  const { currentTutorialStage } = useTutorial();
+    const [play] = useSound(RotationSound);
+    const { enabled } = useActions();
+    const { x, y, spot, character } = useGameStore();
+    const { currentTutorialStage } = useTutorial();
 
-  const { handleConfirm, disabled } = useActions();
+    const { handleConfirm, disabled } = useActions();
 
-  const { orientation, setOrientation } = useGameStore();
+    const { orientation, setOrientation } = useGameStore();
 
-  const handleRotate = () => {
-    play();
-    setOrientation(orientation + 1);
-  };
+    const handleRotate = () => {
+        play();
+        setOrientation(orientation + 1);
+    };
 
-  const shouldDisplayConfirmTutorialTooltip = useMemo(() => {
-    if (!currentTutorialStage) return false;
+    const shouldDisplayConfirmTutorialTooltip = useMemo(() => {
+        if (!currentTutorialStage) return false;
 
-    const {
-      presetTransaction: {
-        x: presetX,
-        y: presetY,
-        role: presetRole,
-        spot: presetSpot,
-        orientation: presetOrientation,
-      },
-    } = currentTutorialStage;
+        const { presetTransaction: {
+            x: presetX,
+            y: presetY,
+            role: presetRole,
+            spot: presetSpot,
+            orientation: presetOrientation
+        } } = currentTutorialStage;
 
-    const hasCoords = x === presetX && y === presetY;
-    const hasRole = character === presetRole;
-    const hasSpot = spot === presetSpot;
-    const hasOrientation = orientation === presetOrientation;
+        const hasCoords = x === presetX && y === presetY;
+        const hasRole = character === presetRole;
+        const hasSpot = spot === presetSpot;
+        const hasOrientation = orientation === presetOrientation;
 
-    return hasCoords && hasSpot && hasRole && hasOrientation;
-  }, [currentTutorialStage, x, y, character, spot, orientation]);
+        return hasCoords && hasSpot && hasRole && hasOrientation;
+    }, [currentTutorialStage, x, y, character, spot, orientation]);
 
-  const shouldDisplayRotateTutorialTooltip = useMemo(() => {
-    if (!currentTutorialStage) return false;
+    const shouldDisplayRotateTutorialTooltip = useMemo(() => {
+        if (!currentTutorialStage) return false;
 
-    const {
-      presetTransaction: {
-        x: presetX,
-        y: presetY,
-        role: presetRole,
-        spot: presetSpot,
-        orientation: presetOrientation,
-      },
-    } = currentTutorialStage;
+        const { presetTransaction: {
+            x: presetX,
+            y: presetY,
+            role: presetRole,
+            spot: presetSpot,
+            orientation: presetOrientation
+        } } = currentTutorialStage;
 
-    const hasCoords = x === presetX && y === presetY;
-    const hasRole = character === presetRole;
-    const hasSpot = spot === presetSpot;
-    const hasOrientation = orientation === presetOrientation;
+        const hasCoords = x === presetX && y === presetY;
+        const hasRole = character === presetRole;
+        const hasSpot = spot === presetSpot;
+        const hasOrientation = orientation === presetOrientation;
 
-    return hasCoords && hasSpot && hasRole && !hasOrientation;
-  }, [currentTutorialStage, x, y, character, spot, orientation]);
+        return hasCoords && hasSpot && hasRole && !hasOrientation;
+    }, [currentTutorialStage, x, y, character, spot, orientation]);
 
-  return (
-    <div className="col-start-4 row-start-8 sm:col-start-3 sm:row-start-4 flex flex-row justify-end gap-2 pointer-events-none">
-      <div id="tile-controls" className="flex flex-col gap-2 self-center">
-        <IngameButton
-          id="rotate-button"
-          name="Rotate"
-          icon={rotateIcon}
-          side="left"
-          onClick={handleRotate}
-          disabled={!enabled}
-          tutorialCondition={shouldDisplayRotateTutorialTooltip}
-        />
-        <IngameButton
-          id="confirm-button"
-          name="Confirm"
-          icon={confirmIcon}
-          side="left"
-          onClick={handleConfirm}
-          disabled={disabled}
-          tutorialCondition={shouldDisplayConfirmTutorialTooltip}
-        />
-      </div>
-      <Tile />
-    </div>
-  );
-};
+    return (
+        <div className="col-start-4 row-start-8 sm:col-start-3 sm:row-start-4 flex flex-row justify-end gap-2 pointer-events-none">
+            <div id="tile-controls" className="flex flex-col gap-2 self-center">
+                <IngameButton id="rotate-button" name="Rotate" icon={rotateIcon} side="left" onClick={handleRotate} disabled={!enabled} tutorialCondition={shouldDisplayRotateTutorialTooltip} />
+                <IngameButton id="confirm-button" name="Confirm" icon={confirmIcon} side="left" onClick={handleConfirm} disabled={disabled} tutorialCondition={shouldDisplayConfirmTutorialTooltip} />
+            </div>
+            <Tile />
+        </div>
+    );
+}

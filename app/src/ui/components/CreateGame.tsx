@@ -33,7 +33,7 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
       account: account as Account,
       mode: mode,
     });
-    if (gameMode.value === ModeType.Tutorial) return;
+    if (gameMode.value === ModeType.Tutorial) return
     setLoading(false);
   };
 
@@ -41,12 +41,7 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            className="tracking-[0.25rem] shadow-lg hover:bg-secondary px-4 py-5 lg:p-6"
-            loading={loading}
-            disabled={!player || loading}
-            onClick={handleClick}
-          >
+          <Button className="tracking-[0.25rem] shadow-lg hover:bg-secondary px-4 py-5 lg:p-6" loading={loading} disabled={!player || loading} onClick={handleClick}>
             {gameMode.value === ModeType.Tutorial ? "Start" : "New Game"}
           </Button>
         </TooltipTrigger>

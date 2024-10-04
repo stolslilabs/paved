@@ -15,9 +15,9 @@ function minifyAddressOrStarknetId(
   }
   return input.length > 24
     ? `${input.substring(0, 5)} ... ${input.substring(
-        input.length - 5,
-        input.length,
-      )}`
+      input.length - 5,
+      input.length,
+    )}`
     : input;
 }
 
@@ -38,18 +38,11 @@ export function Address() {
 
   return (
     <div className="flex justify-end items-center gap-3 text-xs mb-4">
-      <Button
-        className="px-4 rounded-none"
-        size={"sm"}
-        onClick={() => setCopied()}
-      >
+      <Button className="px-4 rounded-none" size={"sm"} onClick={() => setCopied()}>
         {minifyAddressOrStarknetId(account?.address, starknetId)}
         {isCopied ? " (copied)" : ""}
       </Button>
-      <a
-        target="_blank"
-        href="https://blastapi.io/faucets/starknet-sepolia-eth"
-      >
+      <a target="_blank" href="https://blastapi.io/faucets/starknet-sepolia-eth">
         <img src={purchaseLordsIcon} className="size-10" />
       </a>
     </div>

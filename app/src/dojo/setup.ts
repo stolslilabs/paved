@@ -3,10 +3,10 @@ import * as torii from "@dojoengine/torii-client";
 import { models } from "./models.ts";
 import { systems } from "./systems.ts";
 
-import { defineContractComponents } from "./bindings/models.gen";
+import { defineContractComponents } from "./generated/contractModels";
 import { world } from "./world.ts";
 import { Config } from "../../dojo.config.ts";
-import { setupWorld } from "./bindings/contracts.gen";
+import { setupWorld } from "./generated/contractSystems.ts";
 import { DojoProvider } from "@dojoengine/core";
 import { BurnerManager } from "@dojoengine/create-burner";
 import { Account, RpcProvider } from "starknet";
@@ -38,6 +38,7 @@ export async function setup({ ...config }: Config) {
 
   const client = await setupWorld(
     new DojoProvider(config.manifest, config.rpcUrl),
+    config,
   );
 
   const rpcProvider = new RpcProvider({
