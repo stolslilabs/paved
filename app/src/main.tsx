@@ -11,6 +11,7 @@ import { StarknetConfig, jsonRpcProvider } from "@starknet-react/core";
 import { Chain, sepolia } from "@starknet-react/chains";
 import { useCallback } from "react";
 import { getConnectors } from "./data/getConnectors.tsx";
+import { GameMaintenance } from "./ui/screens/GameMaintenance.tsx";
 
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
@@ -37,20 +38,24 @@ function Main() {
 
   return (
     <React.StrictMode>
-      <StarknetConfig
-        chains={[sepolia]}
-        provider={jsonRpcProvider({ rpc })}
-        connectors={connectors}
-        autoConnect
-      >
-        {ready && setupResult ? (
-          <DojoProvider value={setupResult}>
-            <App />
-          </DojoProvider>
-        ) : (
-          <GameLoading />
+      {import.meta.env.VITE_PUBLIC_MAINTENANCE ?
+        (<GameMaintenance />)
+        : (
+          <StarknetConfig
+            chains={[sepolia]}
+            provider={jsonRpcProvider({ rpc })}
+            connectors={connectors}
+            autoConnect
+          >
+            {ready && setupResult ? (
+              <DojoProvider value={setupResult}>
+                <App />
+              </DojoProvider>
+            ) : (
+              <GameLoading />
+            )}
+          </StarknetConfig>
         )}
-      </StarknetConfig>
       <Analytics />
     </React.StrictMode>
   );
