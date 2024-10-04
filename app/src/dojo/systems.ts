@@ -1,7 +1,6 @@
 import type { IWorld } from "./bindings/contracts.gen";
 
 import { toast } from "sonner";
-import * as SystemTypes from "./bindings/contracts.gen";
 import { getEntityIdFromKeys, shortenHex } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { uuid } from "@latticexyz/utils";
@@ -79,14 +78,14 @@ export function systems({
 
       mode?.value === ModeType.Tutorial
         ? await account.waitForTransaction(transaction_hash, {
-            retryInterval: 100,
-          })
+          retryInterval: 100,
+        })
         : notify(
-            "Game has been created.",
-            await account.waitForTransaction(transaction_hash, {
-              retryInterval: 100,
-            }),
-          );
+          "Game has been created.",
+          await account.waitForTransaction(transaction_hash, {
+            retryInterval: 100,
+          }),
+        );
     } catch (error: any) {
       console.log(error);
       toast.error(extractedMessage(error.message));
