@@ -18,37 +18,32 @@ import { useDojo } from "@/dojo/useDojo";
 import { useNavigate } from "react-router-dom";
 
 import { useBuilder } from "@/hooks/useBuilder";
-import { Game } from "@/dojo/game/models/game";
+import { Game } from "@/dojo/game/types/game";
 import { useLobby } from "@/hooks/useLobby";
 import viewMapIcon from "/assets/icons/viewmap.svg";
 import { Mode, ModeType } from "@/dojo/game/types/mode";
 import blobert from "/assets/blobert.svg";
 import { CreateGame } from "../components/CreateGame";
 
-export type GamesList = { [key: number]: any };
+export type GamesList = { [key: number]: any }
 
 export const Games = ({ games }: { games: GamesList }) => {
   const { gameMode } = useLobby();
 
-  const filteredGames: Game[] = useMemo(
-    () =>
-      Object.values(games)
-        .filter((game) => {
-          if (game.mode.value !== gameMode.value) return false;
-          if (game.score > 0) return true;
-          return !game.isOver();
-        })
-        .sort((a, b) => b.id - a.id),
-    [games, gameMode],
-  );
+  const filteredGames: Game[] = useMemo(() =>
+    Object.values(games)
+      .filter((game) => {
+        if (game.mode.value !== gameMode.value) return false;
+        if (game.score > 0) return true;
+        return !game.isOver();
+      })
+      .sort((a, b) => b.id - a.id), [games, gameMode]);
 
   return gameMode.value !== ModeType.Tutorial ? (
     <Table className="mb-4">
       <TableHeader>
         <TableRow className="text-xs sm:text-sm">
-          <TableHead className="w-[100px] text-center uppercase">
-            Game
-          </TableHead>
+          <TableHead className="w-[100px] text-center uppercase">Game</TableHead>
           <TableHead className="uppercase text-center">Rank</TableHead>
           <TableHead className="uppercase text-center">Score</TableHead>
           <TableHead className="uppercase text-center">Time</TableHead>
@@ -71,8 +66,8 @@ const StartTutorialContent = () => {
       <img src={blobert} className="width-full sm:w-1/2" />
       <CreateGame mode={new Mode(ModeType.Tutorial)} />
     </div>
-  );
-};
+  )
+}
 
 export const GameSingleRow = ({ game }: { game: any }) => {
   const [score, setScore] = useState<number>();
@@ -123,11 +118,7 @@ export const GameSingleRow = ({ game }: { game: any }) => {
                 variant={over ? "ghost" : "default"}
                 onClick={() => setGameQueryParam(game.id || 0)}
               >
-                {over ? (
-                  <img className="h-6 w-10 " src={viewMapIcon} />
-                ) : (
-                  "Play"
-                )}
+                {over ? <img className="h-6 w-10 " src={viewMapIcon} /> : "Play"}
               </Button>
             </TooltipTrigger>
           </Tooltip>
@@ -139,9 +130,9 @@ export const GameSingleRow = ({ game }: { game: any }) => {
 
 function formatTime(date: Date) {
   // Get hours, minutes, and seconds from the Date object
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  const seconds = date.getSeconds().toString().padStart(2, "0");
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const seconds = date.getSeconds().toString().padStart(2, '0');
 
   // Format the time as hh:mm:ss
   return `${hours}:${minutes}:${seconds}`;

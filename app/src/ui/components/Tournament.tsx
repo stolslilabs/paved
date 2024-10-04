@@ -80,8 +80,8 @@ export const TournamentHeader = ({ mode }: { mode: Mode }) => {
         ${days.toString().padStart(2, "0")}d ${hours
           .toString()
           .padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
-          .toString()
-          .padStart(2, "0")}`;
+            .toString()
+            .padStart(2, "0")}`;
       setTimeLeft(formattedTime);
 
       if (dt < 0) {
@@ -172,11 +172,10 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
       .slice(0, 10);
   }, [games, page]);
 
+
   return (
     <div className="relative flex flex-col gap-4 sm:gap-1 lg:gap-4 pt-2 lg:pt-4">
-      <div className="flex justify-center text-sm sm:text-xs lg:text-base">
-        {mode.value}
-      </div>
+      <div className="flex justify-center text-sm sm:text-xs lg:text-base">{mode.value}</div>
       <Pagination>
         <PaginationContent className="gap-1 sm:gap-2 lg:gap-4">
           <PaginationItem>
@@ -188,7 +187,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
                 href="#"
                 isActive={id === (page ? page : tournaments.length)}
                 onClick={() => setPage(id)}
-                className="size-6 text-3xs md:text-2xs lg:size-8"
+                className="size-6 text-xs lg:size-8"
               >
                 {id}
               </PaginationLink>
@@ -229,8 +228,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
               game={game}
               tournamentId={(page ?? 0) + mode.offset()}
               rank={index + 1}
-              mode={mode}
-            />
+              mode={mode} />
           ))}
         </TableBody>
       </Table>
@@ -284,18 +282,12 @@ export const GameRow = ({
   }, [player, account]);
 
   return (
-    <TableRow
-      className={`text-3xs lg:text-xs ${isSelf && "[&>*]:text-[#955142]"}`}
-    >
+    <TableRow className={`text-3xs lg:text-xs ${isSelf && '[&>*]:text-[#955142]'}`}>
       <TableCell className="text-background">{playerRank}</TableCell>
-      <TableCell className="text-left text-background">
-        {player?.getShortName()}
-      </TableCell>
+      <TableCell className="text-left text-background">{player?.getShortName()}</TableCell>
       <TableCell className="text-right text-background">{game.score}</TableCell>
       <TableCell className="text-right text-background">{duration}</TableCell>
-      <TableCell className="text-right text-background">
-        {game.tile_count}
-      </TableCell>
+      <TableCell className="text-right text-background">{game.tile_count}</TableCell>
       <TableCell className="text-right text-background">
         {isSelf && tournament && tournament.isClaimable(rank, mode) ? (
           <Claim tournament={tournament} rank={rank} mode={mode} />
@@ -320,9 +312,7 @@ export const Spectate = ({ gameId }: { gameId: number }) => {
   return (
     <Button
       size={"sm"}
-      className={
-        "px-2 sm:px-1 lg:px-2 flex gap-3 self-end h-8 w-19 hover:bg-transparent border-none"
-      }
+      className={"px-2 sm:px-1 lg:px-2 flex gap-3 self-end h-8 w-19 hover:bg-transparent border-none"}
       variant={"ghost"}
       onClick={() => gameId && setGameQueryParam(gameId.toString())}
     >

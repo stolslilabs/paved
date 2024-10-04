@@ -10,9 +10,16 @@
     "preview": "vite preview",
     "codegen": "graphql-codegen",
     "format": "prettier --write ./src",
+    "gen:dojo": "pnpm gen:models && pnpm gen:events && pnpm format",
+    "gen:models": "npx create-models ../contracts/manifests/dev/manifest.json ./src/dojo/generated/contractModels.ts",
+    "gen:events": "npx create-events ../contracts/manifests/dev/manifest.json ./src/dojo/generated/contractEvents.ts",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "generate-pwa-assets": "pwa-assets-generator"
+  },
+  "bin": {
+    "create-models": "./bin/generateModels.cjs",
+    "create-events": "./bin/generateEvents.cjs"
   },
   "dependencies": {
     "@cartridge/connector": "0.3.44",

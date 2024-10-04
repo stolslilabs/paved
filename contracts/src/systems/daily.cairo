@@ -31,7 +31,7 @@ trait IDaily<TContractState> {
 }
 
 #[dojo::contract]
-mod Daily {
+mod daily {
     // Starknet imports
 
     use starknet::ContractAddress;

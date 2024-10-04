@@ -1,4 +1,4 @@
-import dev from "../contracts/manifests/dev/deployment/manifest.json";
+import local from "../contracts/manifests/dev/deployment/manifest.json";
 import slot from "../contracts/manifests/slot/deployment/manifest.json";
 
 const {
@@ -37,6 +37,6 @@ export function dojoConfig() {
         ? slot
         : VITE_PUBLIC_SLOT
           ? slot
-          : dev,
+          : local,
   };
 }
