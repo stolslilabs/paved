@@ -1,4 +1,4 @@
-tag = "paved-account"
+tag = "paved-Account"
 writes = [
     "paved-Player",
     "paved-Game",

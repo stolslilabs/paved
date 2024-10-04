@@ -129,11 +129,11 @@
   {
     "type": "impl",
     "name": "IDojoInitImpl",
-    "interface_name": "paved::mocks::token::token::IDojoInit"
+    "interface_name": "paved::mocks::token::Token::IDojoInit"
   },
   {
     "type": "interface",
-    "name": "paved::mocks::token::token::IDojoInit",
+    "name": "paved::mocks::token::Token::IDojoInit",
     "items": [
       {
         "type": "function",
@@ -522,7 +522,7 @@
   },
   {
     "type": "event",
-    "name": "paved::mocks::token::token::Event",
+    "name": "paved::mocks::token::Token::Event",
     "kind": "enum",
     "variants": [
       {
