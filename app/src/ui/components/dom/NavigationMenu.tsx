@@ -23,7 +23,14 @@ import { Plan } from "@/dojo/game/types/plan";
 import { ScrollArea } from "@/ui/elements/scroll-area";
 import cancelIcon from "/assets/icons/cancel.svg";
 import { TutorialDialog } from "./TutorialDialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/ui/elements/collapsible";
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from "@/ui/elements/collapsible";
+import fullscreenOn from "/assets/icons/fullscreen-on.svg";
+import fullscreenOff from "/assets/icons/fullscreen-off.svg";
+import { useFullscreen } from "@/hooks/useFullscreen";
 
 type MenuItem = {
     name: string
@@ -48,28 +55,31 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
     const [compositionOpen, setCompositionOpen] = useState<boolean>(false)
     const toggleMusic = () => setMuted(!muted)
 
+    const fullscreen = useFullscreen();
+
     const NavigationMenuItems: Array<MenuItem> = [
         {
             name: "Home",
             icon: homeIcon,
-            onClick: () => navigate("", { replace: true })
+            onClick: () => navigate("", { replace: true }),
         },
         {
             name: "Leaderboard",
             icon: leaderboardIcon,
-            children: <LeaderboardDialog />
+            children: <LeaderboardDialog />,
         },
         {
             name: muted ? "Toggle Music ON" : "Toggle Music OFF",
-            icon: muted ? soundOnIcon : soundOffIcon,
+            icon: !muted ? soundOnIcon : soundOffIcon,
             onClick: () => toggleMusic(),
         },
-        { // TODO: Add Help Guide
+        {
+            // TODO: Add Help Guide
             name: "Help Guide",
             icon: helpGuideIcon,
             onClick: () => {
-                console.log("Help Guide")
-            }
+                console.log("Help Guide");
+            },
         },
         {
             name: strategyMode ? "Voxel Mode" : "Strategy Mode",
@@ -79,14 +89,22 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
         {
             name: "Rotate View",
             icon: rotateIcon,
-            children: <Compass />
+            children: <Compass />,
         },
         {
             name: "Burn",
             icon: burnIcon,
-            children: <Discard />
-        }
-    ]
+            children: <Discard />,
+        },
+        {
+            name: fullscreen ? "Exit Fullscreen" : "Enter Fullscreen",
+            icon: fullscreen ? fullscreenOff : fullscreenOn,
+            onClick: () =>
+                fullscreen
+                    ? document.exitFullscreen()
+                    : document.body.requestFullscreen(),
+        },
+    ];
 
     return !compositionOpen ? (
         <div className="col-span-4 sm:col-span-1 sm:row-span-8 flex sm:flex-col justify-between h-full gap-1">

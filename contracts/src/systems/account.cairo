@@ -8,7 +8,7 @@ trait IAccount<TContractState> {
 }
 
 #[dojo::contract]
-mod account {
+mod Account {
     // Starknet imports
 
     use starknet::ContractAddress;

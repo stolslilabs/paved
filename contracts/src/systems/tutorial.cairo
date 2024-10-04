@@ -15,7 +15,7 @@ trait ITutorial<TContractState> {
 }
 
 #[dojo::contract]
-mod tutorial {
+mod Tutorial {
     // Core imports
 
     use core::debug::PrintTrait;

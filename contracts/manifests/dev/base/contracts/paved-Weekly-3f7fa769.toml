@@ -1,0 +1,17 @@
+kind = "DojoContract"
+class_hash = "0x4773aa2c9852958306b8bc57f8b9175557f3beb039be45b5d5c47df730d93d8"
+original_class_hash = "0x4773aa2c9852958306b8bc57f8b9175557f3beb039be45b5d5c47df730d93d8"
+base_class_hash = "0x0"
+abi = "manifests/dev/base/abis/contracts/paved-Weekly-3f7fa769.json"
+reads = []
+writes = []
+init_calldata = []
+tag = "paved-Weekly"
+systems = [
+    "claim",
+    "sponsor",
+    "discard",
+    "surrender",
+    "build",
+]
+manifest_name = "paved-Weekly-3f7fa769"

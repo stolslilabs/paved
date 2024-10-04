@@ -17,13 +17,14 @@ mod setup {
 
     use paved::mocks::token::{
         IERC20Dispatcher, IERC20DispatcherTrait, IERC20FaucetDispatcher,
-        IERC20FaucetDispatcherTrait, token
+        IERC20FaucetDispatcherTrait, Token
     };
     use paved::models::index;
     use paved::models::game::{Game, GameImpl};
-    use paved::systems::account::{account, IAccountDispatcher, IAccountDispatcherTrait};
-    use paved::systems::daily::{daily, IDailyDispatcher, IDailyDispatcherTrait};
-    use paved::systems::tutorial::{tutorial, ITutorialDispatcher, ITutorialDispatcherTrait};
+    use paved::systems::account::{Account, IAccountDispatcher, IAccountDispatcherTrait};
+    use paved::systems::daily::{Daily, IDailyDispatcher, IDailyDispatcherTrait};
+    use paved::systems::weekly::{Weekly, IWeeklyDispatcher, IWeeklyDispatcherTrait};
+    use paved::systems::tutorial::{Tutorial, ITutorialDispatcher, ITutorialDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
     use paved::types::mode::Mode;
 
@@ -54,8 +55,9 @@ mod setup {
     #[derive(Drop)]
     struct Systems {
         account: IAccountDispatcher,
-        daily: IDailyDispatcher,
         tutorial: ITutorialDispatcher,
+        daily: IDailyDispatcher,
+        weekly: IWeeklyDispatcher,
     }
 
     #[derive(Drop)]
@@ -71,7 +73,7 @@ mod setup {
         game_id: u32,
         game_name: felt252,
         game_duration: u64,
-        erc20: IERC20Dispatcher,
+        token: IERC20Dispatcher,
     }
 
     fn compute_seed(game: Game, target: Plan) -> felt252 {
@@ -90,18 +92,6 @@ mod setup {
     }
 
     #[inline]
-    fn deploy_erc20() -> IERC20Dispatcher {
-        let (address, _) = starknet::deploy_syscall(
-            token::TEST_CLASS_HASH.try_into().expect('Class hash conversion failed'),
-            0,
-            array![].span(),
-            false
-        )
-            .expect('ERC20 deploy failed');
-        IERC20Dispatcher { contract_address: address }
-    }
-
-    #[inline]
     fn spawn_game(mode: Mode) -> (IWorldDispatcher, Systems, Context) {
         // [Setup] World
         let models = array![
@@ -117,58 +107,74 @@ mod setup {
         let world = spawn_test_world(array!["paved"].span(), models.span());
 
         // [Setup] Systems
-        let erc20 = deploy_erc20();
+        let token_address = world
+            .deploy_contract('token', Token::TEST_CLASS_HASH.try_into().unwrap());
         let account_address = world
-            .deploy_contract('account', account::TEST_CLASS_HASH.try_into().unwrap());
-        let daily_address = world
-            .deploy_contract('daily', daily::TEST_CLASS_HASH.try_into().unwrap());
+            .deploy_contract('account', Account::TEST_CLASS_HASH.try_into().unwrap());
         let tutorial_address = world
-            .deploy_contract('tutorial', tutorial::TEST_CLASS_HASH.try_into().unwrap());
+            .deploy_contract('tutorial', Tutorial::TEST_CLASS_HASH.try_into().unwrap());
+        let daily_address = world
+            .deploy_contract('daily', Daily::TEST_CLASS_HASH.try_into().unwrap());
+        let weekly_address = world
+            .deploy_contract('weekly', Weekly::TEST_CLASS_HASH.try_into().unwrap());
         let systems = Systems {
             account: IAccountDispatcher { contract_address: account_address },
-            daily: IDailyDispatcher { contract_address: daily_address },
             tutorial: ITutorialDispatcher { contract_address: tutorial_address },
+            daily: IDailyDispatcher { contract_address: daily_address },
+            weekly: IWeeklyDispatcher { contract_address: weekly_address },
         };
 
         // [Setup] Permissions
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), account_address);
-        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), daily_address);
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), tutorial_address);
+        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), daily_address);
+        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), weekly_address);
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), PLAYER());
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), ANYONE());
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), SOMEONE());
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), NOONE());
 
         // [Setup] Initialize
-        let daily_calldata: Array<felt252> = array![erc20.contract_address.into(),];
+        let daily_calldata: Array<felt252> = array![token_address.into(),];
         world
             .init_contract(
-                dojo::utils::selector_from_names(@"paved", @"daily"), daily_calldata.span()
+                dojo::utils::selector_from_names(@"paved", @"Daily"), daily_calldata.span()
+            );
+        let weekly_calldata: Array<felt252> = array![token_address.into(),];
+        world
+            .init_contract(
+                dojo::utils::selector_from_names(@"paved", @"Weekly"), weekly_calldata.span()
             );
 
         // [Setup] Context
-        let faucet = IERC20FaucetDispatcher { contract_address: erc20.contract_address };
+        let token = IERC20Dispatcher { contract_address: token_address };
+        let faucet = IERC20FaucetDispatcher { contract_address: token_address };
         set_contract_address(ANYONE());
         faucet.mint();
-        erc20.approve(daily_address, token::FAUCET_AMOUNT);
+        token.approve(daily_address, Token::FAUCET_AMOUNT);
+        token.approve(weekly_address, Token::FAUCET_AMOUNT);
         systems.account.create(ANYONE_NAME, ANYONE());
         set_contract_address(SOMEONE());
         faucet.mint();
-        erc20.approve(daily_address, token::FAUCET_AMOUNT);
+        token.approve(daily_address, Token::FAUCET_AMOUNT);
+        token.approve(weekly_address, Token::FAUCET_AMOUNT);
         systems.account.create(SOMEONE_NAME, SOMEONE());
         set_contract_address(NOONE());
         faucet.mint();
-        erc20.approve(daily_address, token::FAUCET_AMOUNT);
+        token.approve(daily_address, Token::FAUCET_AMOUNT);
+        token.approve(weekly_address, Token::FAUCET_AMOUNT);
         systems.account.create(NOONE_NAME, NOONE());
         set_contract_address(PLAYER());
         faucet.mint();
-        erc20.approve(daily_address, token::FAUCET_AMOUNT);
+        token.approve(daily_address, Token::FAUCET_AMOUNT);
+        token.approve(weekly_address, Token::FAUCET_AMOUNT);
         systems.account.create(PLAYER_NAME, PLAYER());
         let duration: u64 = 0;
 
         // [Setup] Game if mode is set
         let game_id = match mode {
             Mode::Daily => systems.daily.spawn(),
+            Mode::Weekly => systems.weekly.spawn(),
             Mode::Tutorial => systems.tutorial.spawn(),
             _ => 0,
         };
@@ -185,7 +191,7 @@ mod setup {
             game_id: game_id,
             game_name: GAME_NAME,
             game_duration: duration,
-            erc20: erc20,
+            token,
         };
 
         // [Return]

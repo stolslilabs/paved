@@ -20,7 +20,7 @@ export const MusicPlayer = () => {
       className="self-center rounded-full p-0 size-auto bg-[#686868] hover:bg-[#686868] border-[#686868] cursor-pointer"
       asChild
     >
-      {!muted ? (
+      {muted ? (
         <img src={soundOffIcon} className="fill-transparent w-8" />
       ) : (
         <img src={soundOnIcon} className="fill-transparent w-8" />

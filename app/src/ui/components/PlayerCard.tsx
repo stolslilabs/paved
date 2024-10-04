@@ -29,8 +29,7 @@ const PlayerInfo = ({ balance }: { balance: number }) => {
   return (
     <div className="flex text-background items-center justify-center text-xl sm:text-base lg:text-xl w-full">
       {!!balance && <div>{`${balance}`.slice(0, 6)}</div>}
-      {!balance && <Skeleton className="h-4 w-12" />}
-      L
+      {!balance && <Skeleton className="h-4 w-12" />}L
     </div>
   );
 };
@@ -38,7 +37,13 @@ const PlayerInfo = ({ balance }: { balance: number }) => {
 const PlayerName = ({ playerName }: { playerName: string }) => {
   return (
     <div className="flex gap-2">
-      {playerName ? <h4 className="text-foreground leading-3 sm:leading-none lg:leading-3 sm:text-lg lg:text-xl my-2 sm:my-0 lg:my-2">{playerName}</h4> : <Skeleton className="h-4 w-24" />}
+      {playerName ? (
+        <h4 className="text-foreground leading-3 sm:leading-none lg:leading-3 sm:text-lg lg:text-xl my-2 sm:my-0 lg:my-2">
+          {playerName}
+        </h4>
+      ) : (
+        <Skeleton className="h-4 w-24" />
+      )}
     </div>
   );
 };

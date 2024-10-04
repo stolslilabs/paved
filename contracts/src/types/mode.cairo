@@ -200,6 +200,7 @@ mod tests {
         assert(NONE == Mode::None.into(), 'Mode: wrong None');
         assert(DAILY == Mode::Daily.into(), 'Mode: wrong Daily');
         assert(WEEKLY == Mode::Weekly.into(), 'Mode: wrong Weekly');
+        assert(TUTORIAL == Mode::Tutorial.into(), 'Mode: wrong Tutorial');
     }
 
     #[test]
@@ -215,6 +216,7 @@ mod tests {
         assert(0_u8 == Mode::None.into(), 'Mode: wrong None');
         assert(1_u8 == Mode::Daily.into(), 'Mode: wrong Daily');
         assert(2_u8 == Mode::Weekly.into(), 'Mode: wrong Weekly');
+        assert(3_u8 == Mode::Tutorial.into(), 'Mode: wrong Tutorial');
     }
 
     #[test]
@@ -222,6 +224,7 @@ mod tests {
         assert(Mode::None == 0_u8.into(), 'Mode: wrong None');
         assert(Mode::Daily == 1_u8.into(), 'Mode: wrong Daily');
         assert(Mode::Weekly == 2_u8.into(), 'Mode: wrong Weekly');
+        assert(Mode::Tutorial == 3_u8.into(), 'Mode: wrong Tutorial');
     }
 
     #[test]
