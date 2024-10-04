@@ -194,7 +194,7 @@ export const useGameStore = create<GameState>()((set, get) => ({
   valid: false,
   setValid: (valid) => set({ valid }),
   resetValid: () => set({ valid: false }),
-  strategyMode: false,
+  strategyMode: true,
   setStrategyMode: (strategyMode) => set({ strategyMode }),
 }));
 

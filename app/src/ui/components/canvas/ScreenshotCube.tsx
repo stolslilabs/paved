@@ -33,7 +33,5 @@ export const ScreenshotCube = () => {
     setTakeScreenshot(takeScreenshot);
   }, []);
 
-  return (
-    <mesh ref={mesh} onClick={takeScreenshot} />
-  )
+  return <mesh ref={mesh} onClick={takeScreenshot} />;
 };

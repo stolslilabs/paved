@@ -19,7 +19,7 @@ import { useNavigate } from "react-router-dom";
 import { useBuilder } from "@/hooks/useBuilder";
 
 const tabs = ["daily", "weekly", "1v1", "tutorial"];
-const disabledTabs = ["weekly", "1v1"];
+const disabledTabs = ["1v1"];
 
 // TODO: Consider applying this to the tabs component directly
 const tabsStyles = {
@@ -103,11 +103,16 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
       setGames((prevTiles: ComponentValue<Schema, unknown>) => game ? ({ ...prevTiles, [game.id]: new GameClass(game) }) : prevTiles);
     });
 
-    defineSystem(world, [Has(Game)], function ({ value: [game] }: ComponentUpdate) {
-      if (game && game.mode === Object.values(ModeType).indexOf(ModeType.Tutorial)) {
-        setRecentGame(game)
-      }
-    }, { runOnInit: false });
+    defineSystem(
+      world,
+      [Has(Game)],
+      function ({ value: [game] }: ComponentUpdate) {
+        if (game) {
+          setRecentGame(game);
+        }
+      },
+      { runOnInit: false },
+    );
   }, []);
 
   return (

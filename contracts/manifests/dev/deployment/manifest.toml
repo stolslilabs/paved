@@ -4,14 +4,14 @@ class_hash = "0x6f4515274ee23404789c3351a77107d0ec07508530119822046600ca6948d6e"
 original_class_hash = "0x6f4515274ee23404789c3351a77107d0ec07508530119822046600ca6948d6e"
 abi = "manifests/dev/deployment/abis/dojo-world.json"
 address = "0xd18bd22e51077ed30e9bb82afa28b13bdf0d8fc62baffca54c2b0dcfcad007"
-transaction_hash = "0x39868dfd04acd87e6193e1f5e0d7ef2eee82eeb18cddaf084e6b6c1d9ee5939"
+transaction_hash = "0x20e9a63297796c1de1ada3bbde0041167682362033893338288f546dca41e51"
 block_number = 3
 seed = "paved"
 manifest_name = "dojo-world"
 
 [world.metadata]
 profile_name = "dev"
-rpc_url = "http://localhost:5050/"
+rpc_url = "https://api.cartridge.gg/x/paved-dev/katana"
 
 [base]
 kind = "Class"
@@ -23,11 +23,11 @@ manifest_name = "dojo-base"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x54e67d9bedee705528b64dc488a108d476569e80893d2a878cf4333982c8eb6"
-class_hash = "0x53920f25847d51325595e5229a628ab23bbdb84cfec9c91642470e2e7864612"
-original_class_hash = "0x53920f25847d51325595e5229a628ab23bbdb84cfec9c91642470e2e7864612"
+address = "0x56686268436caeaa3ff47c92da3f369670ae8d6d8ace695fe5e77c12ee1a8a3"
+class_hash = "0x6c07d56a81b940ef6333b0fb1bc423e626c8da8e9d9431a56b54b842e8a3357"
+original_class_hash = "0x6c07d56a81b940ef6333b0fb1bc423e626c8da8e9d9431a56b54b842e8a3357"
 base_class_hash = "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2"
-abi = "manifests/dev/deployment/abis/contracts/paved-account-69e898ad.json"
+abi = "manifests/dev/deployment/abis/contracts/paved-Account-32528a5a.json"
 reads = []
 writes = [
     "paved-Player",
@@ -40,17 +40,17 @@ writes = [
     "paved-Tournament",
 ]
 init_calldata = []
-tag = "paved-account"
+tag = "paved-Account"
 systems = ["create"]
-manifest_name = "paved-account-69e898ad"
+manifest_name = "paved-Account-32528a5a"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x6ef79434670aff802863db6724e9e7082bf78f8385a2ff744743288a30cdacb"
-class_hash = "0x58cd90ba5402ff83faf0c6d8f25c0d137473e0524449d152e3397b5a1b5f8af"
-original_class_hash = "0x58cd90ba5402ff83faf0c6d8f25c0d137473e0524449d152e3397b5a1b5f8af"
+address = "0x30d8f5ec6cc752132f19777ad1b3c59f1e56f00f51602b8e29a41b6a17c8bd8"
+class_hash = "0x4eb3cbe87d52ac59a0c89a2565530f4f615d5fde2ed8ee60c326dc0ed667d0"
+original_class_hash = "0x4eb3cbe87d52ac59a0c89a2565530f4f615d5fde2ed8ee60c326dc0ed667d0"
 base_class_hash = "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2"
-abi = "manifests/dev/deployment/abis/contracts/paved-daily-1f922ba9.json"
+abi = "manifests/dev/deployment/abis/contracts/paved-Daily-190dcfe2.json"
 reads = []
 writes = [
     "paved-Player",
@@ -62,8 +62,8 @@ writes = [
     "paved-TilePosition",
     "paved-Tournament",
 ]
-init_calldata = ["0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"]
-tag = "paved-daily"
+init_calldata = ["$contract_address:paved-Token"]
+tag = "paved-Daily"
 systems = [
     "claim",
     "sponsor",
@@ -71,29 +71,29 @@ systems = [
     "surrender",
     "build",
 ]
-manifest_name = "paved-daily-1f922ba9"
+manifest_name = "paved-Daily-190dcfe2"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0xdd4cf2915cba110d72de5439ece56fd049bd746b0f63eae3f8e2881fd703f3"
-class_hash = "0x1bdcdebd271e57b092a106a74038dc1a88412eee4825d3d592593fc1c8556f"
-original_class_hash = "0x1bdcdebd271e57b092a106a74038dc1a88412eee4825d3d592593fc1c8556f"
+address = "0x79c5351af449755935fc0c08079ac1b2149522a0bc41988e2fddadca5bcc71c"
+class_hash = "0x2885a4d4d4cfcae4d234b08b3163431cfc516433a3aa47bdf6e22ad719966af"
+original_class_hash = "0x2885a4d4d4cfcae4d234b08b3163431cfc516433a3aa47bdf6e22ad719966af"
 base_class_hash = "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2"
-abi = "manifests/dev/deployment/abis/contracts/paved-token-5d8a7360.json"
+abi = "manifests/dev/deployment/abis/contracts/paved-Token-176a6962.json"
 reads = []
 writes = []
 init_calldata = []
-tag = "paved-token"
+tag = "paved-Token"
 systems = []
-manifest_name = "paved-token-5d8a7360"
+manifest_name = "paved-Token-176a6962"
 
 [[contracts]]
 kind = "DojoContract"
-address = "0x7767277eb46c73946eb6ee400c6822663ab6d8603855bc238c9dbab213cdb0d"
-class_hash = "0x7df072778d22bcf2a05426ab06df11cf0d7f4cc81d559e5c38fa31da2ac9b9d"
-original_class_hash = "0x7df072778d22bcf2a05426ab06df11cf0d7f4cc81d559e5c38fa31da2ac9b9d"
+address = "0x1025bbc38bdb0c71921f4d08a2bbe1597990c72f13a4ea3f5d09aaa99e9045e"
+class_hash = "0x1f4bb22297bda89ec8eaa024cd333c3e3e561d6ee78617a8bcb2bc4b5cc817a"
+original_class_hash = "0x1f4bb22297bda89ec8eaa024cd333c3e3e561d6ee78617a8bcb2bc4b5cc817a"
 base_class_hash = "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2"
-abi = "manifests/dev/deployment/abis/contracts/paved-tutorial-259085b2.json"
+abi = "manifests/dev/deployment/abis/contracts/paved-Tutorial-242a6cba.json"
 reads = []
 writes = [
     "paved-Player",
@@ -106,13 +106,42 @@ writes = [
     "paved-Tournament",
 ]
 init_calldata = []
-tag = "paved-tutorial"
+tag = "paved-Tutorial"
 systems = [
     "discard",
     "surrender",
     "build",
 ]
-manifest_name = "paved-tutorial-259085b2"
+manifest_name = "paved-Tutorial-242a6cba"
+
+[[contracts]]
+kind = "DojoContract"
+address = "0x1604d62fe34d9082d1a4525f698688b0f8ffb2d4f1ae7ce722790ac31b3fec8"
+class_hash = "0x4773aa2c9852958306b8bc57f8b9175557f3beb039be45b5d5c47df730d93d8"
+original_class_hash = "0x4773aa2c9852958306b8bc57f8b9175557f3beb039be45b5d5c47df730d93d8"
+base_class_hash = "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2"
+abi = "manifests/dev/deployment/abis/contracts/paved-Weekly-3f7fa769.json"
+reads = []
+writes = [
+    "paved-Player",
+    "paved-Game",
+    "paved-Builder",
+    "paved-Char",
+    "paved-CharPosition",
+    "paved-Tile",
+    "paved-TilePosition",
+    "paved-Tournament",
+]
+init_calldata = ["$contract_address:paved-Token"]
+tag = "paved-Weekly"
+systems = [
+    "claim",
+    "sponsor",
+    "discard",
+    "surrender",
+    "build",
+]
+manifest_name = "paved-Weekly-3f7fa769"
 
 [[models]]
 kind = "DojoModel"

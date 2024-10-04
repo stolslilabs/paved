@@ -1,4 +1,4 @@
-tag = "paved-daily"
+tag = "paved-Daily"
 writes = [
     "paved-Player",
     "paved-Game",
@@ -9,4 +9,4 @@ writes = [
     "paved-TilePosition",
     "paved-Tournament",
 ]
-init_calldata = ["$contract_address:paved-token"]
+init_calldata = ["$contract_address:paved-Token"]

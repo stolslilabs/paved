@@ -90,22 +90,20 @@ export const Character = (props: TProps) => {
     [Characters.Herdsman]: herdsman,
   };
 
-  const { currentTutorialStage } = useTutorial()
+  const { currentTutorialStage } = useTutorial();
   const { x, y } = useGameStore();
 
   const shouldDisplayTutorialTooltip = useMemo(() => {
     if (!currentTutorialStage) return false;
-    const { presetTransaction: {
-      x: presetX,
-      y: presetY,
-      role: presetRole,
-    } } = currentTutorialStage;
+    const {
+      presetTransaction: { x: presetX, y: presetY, role: presetRole },
+    } = currentTutorialStage;
 
     const hasCoords = x === presetX && y === presetY;
     const hasRole = index + 1 === presetRole;
     const isSelected = character === presetRole;
 
-    return hasCoords && hasRole && !isSelected
+    return hasCoords && hasRole && !isSelected;
   }, [currentTutorialStage, x, y, index, character]);
 
   return (
@@ -161,8 +159,9 @@ export const Spot = (props: { spot: string; index: number }) => {
 
   return (
     <div
-      className={`h-2 w-2 rounded-full ${color} ${ringColor} ${boosted ? "ring-2" : "ring-0"
-        }`}
+      className={`h-2 w-2 rounded-full ${color} ${ringColor} ${
+        boosted ? "ring-2" : "ring-0"
+      }`}
     />
   );
 };
