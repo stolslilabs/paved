@@ -80,8 +80,8 @@ export const TournamentHeader = ({ mode }: { mode: Mode }) => {
         ${days.toString().padStart(2, "0")}d ${hours
           .toString()
           .padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds
-          .toString()
-          .padStart(2, "0")}`;
+            .toString()
+            .padStart(2, "0")}`;
       setTimeLeft(formattedTime);
 
       if (dt < 0) {
@@ -170,7 +170,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
       .filter((game) => game.tournament_id - offset === BigInt(page))
       .sort((a, b) => b.score - a.score)
       .slice(0, 10);
-  }, [games, page]);
+  }, [games, page, mode]);
 
   return (
     <div className="relative flex flex-col gap-4 sm:gap-1 lg:gap-4 pt-2 lg:pt-4">

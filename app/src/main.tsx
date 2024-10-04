@@ -38,7 +38,7 @@ function Main() {
 
   return (
     <React.StrictMode>
-      {import.meta.env.VITE_PUBLIC_MAINTENANCE ?
+      {import.meta.env.VITE_PUBLIC_MAINTENANCE === "true" ?
         (<GameMaintenance />)
         : (
           <StarknetConfig
