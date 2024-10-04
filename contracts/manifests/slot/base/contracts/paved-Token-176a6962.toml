@@ -1,0 +1,11 @@
+kind = "DojoContract"
+class_hash = "0x2885a4d4d4cfcae4d234b08b3163431cfc516433a3aa47bdf6e22ad719966af"
+original_class_hash = "0x2885a4d4d4cfcae4d234b08b3163431cfc516433a3aa47bdf6e22ad719966af"
+base_class_hash = "0x0"
+abi = "manifests/slot/base/abis/contracts/paved-Token-176a6962.json"
+reads = []
+writes = []
+init_calldata = []
+tag = "paved-Token"
+systems = []
+manifest_name = "paved-Token-176a6962"
