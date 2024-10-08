@@ -26,7 +26,7 @@ use paved::elements::decks::interface::{DeckTrait, Plan, Orientation, Role, Spot
 
 // Constants
 
-impl DeckImpl of DeckTrait {
+impl Tutorial of DeckTrait {
     #[inline]
     fn total_count() -> u8 {
         10
@@ -95,17 +95,17 @@ impl DeckImpl of DeckTrait {
 mod tests {
     // Local imports
 
-    use super::{DeckImpl, Plan};
+    use super::{Tutorial, Plan};
 
     #[test]
     fn test_deck_tutorial() {
         let mut index: u32 = 0;
         let mut counts: Felt252Dict<u8> = core::Default::default();
         loop {
-            if index == DeckImpl::total_count().into() {
+            if index == Tutorial::total_count().into() {
                 break;
             }
-            let key: felt252 = DeckImpl::plan(index).into();
+            let key: felt252 = Tutorial::plan(index).into();
             counts.insert(key, counts.get(key) + 1);
             index += 1;
         };

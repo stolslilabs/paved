@@ -22,12 +22,12 @@
 // Internal imports
 
 use paved::elements::decks::interface::{DeckTrait, Plan, Orientation, Role, Spot};
-use paved::elements::decks::base::{DeckImpl as BaseDeck};
+use paved::elements::decks::base::Base;
 
-impl DeckImpl of DeckTrait {
+impl Simple of DeckTrait {
     #[inline]
     fn total_count() -> u8 {
-        BaseDeck::total_count()
+        Base::total_count()
     }
 
     #[inline]
@@ -37,17 +37,17 @@ impl DeckImpl of DeckTrait {
 
     #[inline]
     fn plan(index: u32) -> Plan {
-        BaseDeck::plan(index)
+        Base::plan(index)
     }
 
     #[inline]
     fn indexes(plan: Plan) -> Array<u8> {
-        BaseDeck::indexes(plan)
+        Base::indexes(plan)
     }
 
     #[inline]
     fn parameters(index: u32) -> (Orientation, u32, u32, Role, Spot) {
-        BaseDeck::parameters(index)
+        Base::parameters(index)
     }
 }
 
@@ -56,17 +56,17 @@ impl DeckImpl of DeckTrait {
 mod tests {
     // Local imports
 
-    use super::{DeckImpl, Plan};
+    use super::{Simple, Plan};
 
     #[test]
     fn test_deck_simple() {
         let mut index: u32 = 0;
         let mut counts: Felt252Dict<u8> = core::Default::default();
         loop {
-            if index == DeckImpl::total_count().into() {
+            if index == Simple::total_count().into() {
                 break;
             }
-            let key: felt252 = DeckImpl::plan(index).into();
+            let key: felt252 = Simple::plan(index).into();
             counts.insert(key, counts.get(key) + 1);
             index += 1;
         };
