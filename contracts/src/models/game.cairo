@@ -49,35 +49,53 @@ mod errors {
 #[generate_trait]
 impl GameImpl of GameTrait {
     #[inline]
-    fn new(id: u32, time: u64, mode: Mode) -> Game {
+    fn new(id: u32, time: u64, mode: Mode, name: felt252) -> Game {
         // [Check] Validate parameters
         let mode: Mode = mode.into();
         assert(Mode::None != mode, errors::INVALID_MODE);
+        // [Check] Validate name
+        GameAssert::assert_valid_name(name);
         // [Effect] Create the game
         Game {
             id,
             over: false,
-            discarded: 0,
-            built: 0,
-            tiles: 0,
+            mode: mode.into(),
             tile_count: 0,
+            player_count: 0,
+            tournament_id: 0,
             start_time: 0,
             end_time: 0,
-            score: 0,
+            duration: 0,
+            tiles: 0,
+            players: 0,
+            price: 0,
+            prize: 0,
+            name,
             seed: 0,
-            mode: mode.into(),
-            tournament_id: 0,
         }
     }
 
     #[inline]
     fn price(self: Game) -> felt252 {
+        // [Return] Game price if set, otherwise returns the mode price
+        if self.price != 0 {
+            return self.price;
+        }
         let mode: Mode = self.mode.into();
         mode.price()
     }
 
+    #[inline(always)]
+    fn is_payable(self: Game) -> bool {
+        self.price().into() > 0_u256
+    }
+
     #[inline]
     fn duration(self: Game) -> u64 {
+        // [Return] Game duration if set, otherwise returns the mode duration
+        if self.duration != 0 {
+            return self.duration;
+        }
         let mode: Mode = self.mode.into();
         mode.duration()
     }
@@ -89,19 +107,66 @@ impl GameImpl of GameTrait {
     }
 
     #[inline]
-    fn is_payable(self: Game) -> bool {
-        true
-    }
-
-    #[inline]
     fn nullify(ref self: Game) {
         // [Effect] Nullify the game
         self.over = false;
-        self.tiles = 0;
+        self.mode = 0;
         self.tile_count = 0;
+        self.player_count = 0;
+        self.tournament_id = 0;
         self.start_time = 0;
-        self.score = 0;
+        self.end_time = 0;
+        self.duration = 0;
+        self.tiles = 0;
+        self.players = 0;
+        self.price = 0;
+        self.prize = 0;
+        self.name = 0;
         self.seed = 0;
+    }
+
+    #[inline(always)]
+    fn rename(ref self: Game, name: felt252) {
+        // [Check] Validate parameters
+        GameAssert::assert_valid_name(name);
+        // [Effect] Update name
+        self.name = name;
+    }
+
+    #[inline(always)]
+    fn update(ref self: Game, time: u64, duration: u64) {
+        // [Effect] Update duration
+        self.duration = duration;
+        self.reset();
+    }
+
+    #[inline(always)]
+    fn join(ref self: Game) -> u32 {
+        let index = self.player_count;
+        self.player_count += 1;
+        index
+    }
+
+    #[inline(always)]
+    fn leave(ref self: Game) {
+        self.player_count -= 1;
+        self.reset();
+    }
+
+    #[inline(always)]
+    fn reset(ref self: Game) {
+        self.players = 0;
+    }
+
+    #[inline(always)]
+    fn delete(ref self: Game) {
+        self.nullify();
+        self.reset();
+    }
+
+    #[inline(always)]
+    fn ready(ref self: Game, index: u8, status: bool) {
+        self.players = Bitmap::set_bit_at(self.players, index, status);
     }
 
     #[inline]
@@ -124,12 +189,17 @@ impl GameImpl of GameTrait {
         self.tiles = deck.tiles(self.tiles, self.seed);
         self.start_time = time;
 
+        // [Effect] Update prize pool
+        let prize: u256 = self.price.into() * self.player_count.into();
+        self.prize = prize.try_into().expect(errors::INVALID_PRIZE);
+
         tile
     }
 
     #[inline]
-    fn is_over(self: Game) -> bool {
-        self.over
+    fn is_over(self: Game, time: u64) -> bool {
+        let endtime = self.start_time + self.duration;
+        return self.over || (self.duration != 0 && time >= endtime);
     }
 
     #[inline]
@@ -144,12 +214,14 @@ impl GameImpl of GameTrait {
     #[inline]
     fn assess_over(ref self: Game) {
         let deck: Deck = self.deck();
+        // TODO: Assess game over using the mode
         self.over = self.tile_count >= deck.count().into();
     }
 
     #[inline]
     fn surrender(ref self: Game) {
-        // [Comment] Only available for solo mode
+        // [Check] Only available for solo mode
+        // TODO: Check using the mode
         self.over = true;
     }
 
@@ -157,20 +229,6 @@ impl GameImpl of GameTrait {
     fn add_tile(ref self: Game) -> u32 {
         self.tile_count += 1;
         self.tile_count
-    }
-
-    #[inline]
-    fn add_score(ref self: Game, score: u32,) {
-        self.score += score;
-    }
-
-    #[inline]
-    fn sub_score(ref self: Game, ref score: u32,) {
-        // [Check] Update score
-        if self.score < score {
-            score = self.score;
-        };
-        self.score -= score;
     }
 
     #[inline]
@@ -268,16 +326,19 @@ impl ZeroableGame of core::Zeroable<Game> {
         Game {
             id: 0,
             over: false,
-            discarded: 0,
-            built: 0,
-            tiles: 0,
+            mode: 0,
             tile_count: 0,
+            player_count: 0,
+            tournament_id: 0,
             start_time: 0,
             end_time: 0,
-            score: 0,
+            duration: 0,
+            tiles: 0,
+            players: 0,
+            price: 0,
+            prize: 0,
+            name: 0,
             seed: 0,
-            mode: 0,
-            tournament_id: 0
         }
     }
 
@@ -300,6 +361,11 @@ impl GameAssert of AssertTrait {
     }
 
     #[inline]
+    fn assert_valid_name(name: felt252) {
+        assert(name != 0, errors::INVALID_NAME);
+    }
+
+    #[inline]
     fn assert_not_started(self: Game) {
         assert(0 == self.tile_count.into(), errors::GAME_ALREADY_STARTED);
     }
@@ -316,13 +382,13 @@ impl GameAssert of AssertTrait {
     }
 
     #[inline]
-    fn assert_not_over(self: Game) {
-        assert(!self.is_over(), errors::GAME_IS_OVER);
+    fn assert_not_over(self: Game, time: u64) {
+        assert(!self.is_over(time), errors::GAME_IS_OVER);
     }
 
     #[inline]
-    fn assert_is_over(self: Game) {
-        assert(self.is_over(), errors::GAME_NOT_OVER);
+    fn assert_is_over(self: Game, time: u64) {
+        assert(self.is_over(time), errors::GAME_NOT_OVER);
     }
 }
 
@@ -346,15 +412,16 @@ mod tests {
 
     #[test]
     fn test_game_new() {
-        let game = GameImpl::new(GAME_ID, 0, MODE);
+        let game = GameImpl::new(GAME_ID, 0, MODE, NAME);
         assert(game.id == GAME_ID, 'Game: Invalid id');
         assert(game.tiles == 0, 'Game: Invalid tiles');
         assert(game.tile_count == 0, 'Game: Invalid tile_count');
+        assert(game.name == NAME, 'Game: Invalid name');
     }
 
     #[test]
     fn test_game_add_tile() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME);
         let tile_count = game.tile_count;
         let tile_id = game.add_tile();
         assert(tile_id == GAME_ID, 'Game: Invalid tile_id');
@@ -363,7 +430,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_plan() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME);
         let (tile_count, plan_id) = game.draw_plan();
         let deck: Deck = game.deck();
         assert(tile_count == 1, 'Game: Invalid tile_count');
@@ -374,7 +441,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_planes() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME);
         let mut counts: Felt252Dict<u8> = core::Default::default();
         let deck: Deck = game.deck();
         loop {

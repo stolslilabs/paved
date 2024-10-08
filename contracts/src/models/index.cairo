@@ -5,12 +5,17 @@ struct Game {
     id: u32,
     over: bool,
     mode: u8,
+    tile_count: u32,
     player_count: u32,
     tournament_id: u64,
     start_time: u64,
     end_time: u64,
+    duration: u64,
     tiles: u128,
     players: u128,
+    price: felt252,
+    prize: felt252,
+    name: felt252,
     seed: felt252,
 }
 
