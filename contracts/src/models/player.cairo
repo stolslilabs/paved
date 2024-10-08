@@ -16,15 +16,12 @@ mod errors {
 #[generate_trait]
 impl PlayerImpl of PlayerTrait {
     #[inline]
-    fn new(id: felt252, name: felt252, master: felt252) -> Player {
+    fn new(id: felt252, name: felt252) -> Player {
         // [Check] Name is valid
         assert(name != 0, errors::INVALID_NAME);
 
-        // [Check] Master is valid
-        assert(master != 0, errors::INVALID_MASTER);
-
         // [Return] Player
-        Player { id, name, master: master }
+        Player { id, name }
     }
 
     #[inline]
@@ -52,7 +49,7 @@ impl PlayerAssert of AssertTrait {
 impl ZeroablePlayerImpl of core::Zeroable<Player> {
     #[inline]
     fn zero() -> Player {
-        Player { id: 0, name: 0, master: 0 }
+        Player { id: 0, name: 0 }
     }
 
     #[inline]
