@@ -224,17 +224,17 @@ mod tests {
 
     // Local imports
 
-    use super::{Base, Plan};
+    use super::{Extended, Plan};
 
     #[test]
     fn test_deck_base() {
         let mut index: u32 = 0;
         let mut counts: Felt252Dict<u8> = core::Default::default();
         loop {
-            if index == Base::total_count().into() {
+            if index == Extended::total_count().into() {
                 break;
             }
-            let key: felt252 = Base::plan(index).into();
+            let key: felt252 = Extended::plan(index).into();
             counts.insert(key, counts.get(key) + 1);
             index += 1;
         };
@@ -243,22 +243,40 @@ mod tests {
         assert(counts.get(Plan::CCCCCCCCC.into()) == 1, 'Deck: CCCCCCCCC count');
         assert(counts.get(Plan::CCCCCFFFC.into()) == 4, 'Deck: CCCCCFFFC count');
         assert(counts.get(Plan::CCCCCFRFC.into()) == 3, 'Deck: CCCCCFRFC count');
+        assert(counts.get(Plan::CFCFCCCCC.into()) == 1, 'Deck: CFCFCCCCC count');
+        assert(counts.get(Plan::CFCFCFCFC.into()) == 1, 'Deck: CFCFCFCFC count');
+        assert(counts.get(Plan::CFCFCFFFC.into()) == 1, 'Deck: CFCFCFFFC count');
+        assert(counts.get(Plan::CFFCFCFFC.into()) == 1, 'Deck: CFFCFCFFC count');
         assert(counts.get(Plan::CFFFCFFFC.into()) == 3, 'Deck: CFFFCFFFC count');
+        assert(counts.get(Plan::CFFFCFRFC.into()) == 3, 'Deck: CFFFCFRFC count');
+        assert(counts.get(Plan::FCCFCCCFC.into()) == 1, 'Deck: FCCFCCCFC count');
+        assert(counts.get(Plan::FCCFCFCFC.into()) == 1, 'Deck: FCCFCFCFC count');
+        assert(counts.get(Plan::FFCFCCCFF.into()) == 1, 'Deck: FFCFCCCFF count');
+        assert(counts.get(Plan::FFCFCFCFC.into()) == 1, 'Deck: FFCFCFCFC count');
+        assert(counts.get(Plan::FFCFFFCCC.into()) == 1, 'Deck: FFCFFFCCC count');
+        assert(counts.get(Plan::FFCFFFCFC.into()) == 1, 'Deck: FFCFFFCFC count');
         assert(counts.get(Plan::FFCFFFCFF.into()) == 3, 'Deck: FFCFFFCFF count');
         assert(counts.get(Plan::FFCFFFFFC.into()) == 2, 'Deck: FFCFFFFFC count');
         assert(counts.get(Plan::FFFFCCCFF.into()) == 5, 'Deck: FFFFCCCFF count');
         assert(counts.get(Plan::FFFFFFCFF.into()) == 5, 'Deck: FFFFFFCFF count');
+        assert(counts.get(Plan::RFFFFFCFR.into()) == 2, 'Deck: RFFFFFCFR count');
+        assert(counts.get(Plan::RFFFRFCFF.into()) == 2, 'Deck: RFFFRFCFF count');
         assert(counts.get(Plan::RFFFRFCFR.into()) == 4, 'Deck: RFFFRFCFR count');
-        assert(counts.get(Plan::RFFFRFFFR.into()) == 8, 'Deck: RFFFRFFFR count');
+        assert(counts.get(Plan::RFFFRFFFR.into()) == 9, 'Deck: RFFFRFFFR count');
+        assert(counts.get(Plan::RFRFCCCFF.into()) == 2, 'Deck: RFRFCCCFF count');
         assert(counts.get(Plan::RFRFCCCFR.into()) == 5, 'Deck: RFRFCCCFR count');
+        assert(counts.get(Plan::RFRFFFCCC.into()) == 2, 'Deck: RFRFFFCCC count');
+        assert(counts.get(Plan::RFRFFFCFF.into()) == 2, 'Deck: RFRFFFCFF count');
         assert(counts.get(Plan::RFRFFFCFR.into()) == 3, 'Deck: RFRFFFCFR count');
-        assert(counts.get(Plan::RFRFFFFFR.into()) == 9, 'Deck: RFRFFFFFR count');
+        assert(counts.get(Plan::RFRFFFFFR.into()) == 10, 'Deck: RFRFFFFFR count');
         assert(counts.get(Plan::RFRFRFCFF.into()) == 3, 'Deck: RFRFRFCFF count');
+        assert(counts.get(Plan::SFFFFFFFR.into()) == 2, 'Deck: SFFFFFFFR count');
         assert(counts.get(Plan::SFRFRFCFR.into()) == 3, 'Deck: SFRFRFCFR count');
-        assert(counts.get(Plan::SFRFRFFFR.into()) == 4, 'Deck: SFRFRFFFR count');
-        assert(counts.get(Plan::SFRFRFRFR.into()) == 1, 'Deck: SFRFRFRFR count');
-        assert(counts.get(Plan::WFFFFFFFF.into()) == 4, 'Deck: WFFFFFFFF count');
-        assert(counts.get(Plan::WFFFFFFFR.into()) == 2, 'Deck: WFFFFFFFR count');
+        assert(counts.get(Plan::SFRFRFFFR.into()) == 5, 'Deck: SFRFRFFFR count');
+        assert(counts.get(Plan::SFRFRFRFR.into()) == 2, 'Deck: SFRFRFRFR count');
+        assert(counts.get(Plan::WCCCCCCCC.into()) == 1, 'Deck: WCCCCCCCC count');
+        assert(counts.get(Plan::WFFFFFFFF.into()) == 2, 'Deck: WFFFFFFFF count');
+        assert(counts.get(Plan::WFFFFFFFR.into()) == 1, 'Deck: WFFFFFFFR count');
     }
 }
 
