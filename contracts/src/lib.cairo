@@ -96,15 +96,15 @@ mod mocks {
 mod tests {
     mod setup;
     mod tutorial;
-    // mod daily {
-    //     mod ranked;
-    //     mod discard;
-    //     mod build;
-    // }
-    // mod weekly {
-    //     mod ranked;
-    //     mod discard;
-    //     mod build;
-    // }
+    mod daily {
+        mod ranked;
+        mod discard;
+        mod build;
+    }
+    mod weekly {
+        mod ranked;
+        mod discard;
+        mod build;
+    }
 }
 

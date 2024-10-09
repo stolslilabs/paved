@@ -65,7 +65,7 @@ fn test_play_ranked_tournament_claim() {
     let y = CENTER + 1;
     systems.weekly.build(game_id, orientation, x, y, Role::Lord, Spot::South);
     systems.weekly.surrender(game_id);
-    let top2_score = store.game(game_id).score;
+    let top2_score = store.builder(game, context.anyone_id).score;
 
     // [Start]
     set_contract_address(SOMEONE());
@@ -83,7 +83,7 @@ fn test_play_ranked_tournament_claim() {
     let y = CENTER + 1;
     systems.weekly.build(game_id, orientation, x, y, Role::Lord, Spot::South);
     systems.weekly.surrender(game_id);
-    let top3_score = store.game(game_id).score;
+    let top3_score = store.builder(game, context.someone_id).score;
 
     // [Start]
     set_contract_address(NOONE());
@@ -124,7 +124,7 @@ fn test_play_ranked_tournament_claim() {
     let y = CENTER + 1;
     systems.weekly.build(game_id, orientation, x, y, Role::Paladin, Spot::South);
     systems.weekly.surrender(game_id);
-    let top1_score = store.game(game_id).score;
+    let top1_score = store.builder(game, context.player_id).score;
 
     // [Assert] Tournament
     let tournament_id = TournamentImpl::compute_id(time, 604800);
