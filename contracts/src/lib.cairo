@@ -22,7 +22,7 @@ mod elements {
         mod base;
         mod simple;
         mod tutorial;
-        mod extended;
+        // mod enhanced;
     }
 
     mod layouts {

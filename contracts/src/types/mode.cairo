@@ -96,7 +96,7 @@ impl ModeImpl of ModeTrait {
             Mode::Daily => Deck::Simple,
             Mode::Weekly => Deck::Base,
             Mode::Tutorial => Deck::Tutorial,
-            Mode::Duel => Deck::Extended,
+            Mode::Duel => Deck::Base,
             _ => Deck::None,
         }
     }

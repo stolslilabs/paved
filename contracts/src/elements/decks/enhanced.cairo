@@ -1,4 +1,4 @@
-//! Extended game deck of the following pieces
+//! Enhanced game deck of the following pieces
 //! CCCCCCCCC: 1 pieces
 //! CCCCCFFFC: 4 pieces
 //! CCCCCFRFC: 3 pieces
@@ -47,7 +47,7 @@ use paved::elements::decks::interface::{DeckTrait, Plan, Orientation, Role, Spot
 
 // Constants
 
-impl Extended of DeckTrait {
+impl Enhanced of DeckTrait {
     #[inline]
     fn total_count() -> u8 {
         99
@@ -224,17 +224,17 @@ mod tests {
 
     // Local imports
 
-    use super::{Extended, Plan};
+    use super::{Enhanced, Plan};
 
     #[test]
     fn test_deck_base() {
         let mut index: u32 = 0;
         let mut counts: Felt252Dict<u8> = core::Default::default();
         loop {
-            if index == Extended::total_count().into() {
+            if index == Enhanced::total_count().into() {
                 break;
             }
-            let key: felt252 = Extended::plan(index).into();
+            let key: felt252 = Enhanced::plan(index).into();
             counts.insert(key, counts.get(key) + 1);
             index += 1;
         };
