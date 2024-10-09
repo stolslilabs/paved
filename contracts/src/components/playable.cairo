@@ -24,6 +24,7 @@ mod PlayableComponent {
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;
     use paved::types::spot::Spot;
+    use paved::types::mode::{Mode, ModeTrait};
 
     // Storage
 
@@ -40,6 +41,55 @@ mod PlayableComponent {
     impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
+        fn spawn(
+            self: @ComponentState<TContractState>, world: IWorldDispatcher, mode: Mode
+        ) -> (u32, u256) {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new(world);
+
+            // [Check] Player exists
+            let caller = get_caller_address();
+            let player = store.player(caller.into());
+            player.assert_exists();
+
+            // [Effect] Create game
+            let game_id = world.uuid() + 1;
+            let time = get_block_timestamp();
+            let mut game = GameImpl::new(game_id, time, mode, mode.into());
+
+            // [Effect] Start game
+            let tile = game.start(time);
+
+            // [Effect] Store tile
+            store.set_tile(tile);
+
+            // [Effect] Create a new builder
+            let mut builder = BuilderImpl::new(game.id, player.id, 0);
+            let (tile_id, plan) = game.draw_plan();
+            let tile = builder.reveal(tile_id, plan);
+
+            // [Effect] Store builder
+            store.set_builder(builder);
+
+            // [Effect] Store tile
+            store.set_tile(tile);
+
+            // [Effect] Update tournament
+            let tournament_id = TournamentImpl::compute_id(time, game.duration());
+            let mut tournament = store.tournament(tournament_id);
+            tournament.buyin(game.price());
+
+            // [Effect] Store tournament
+            store.set_tournament(tournament);
+
+            // [Effect] Store game
+            store.set_game(game);
+
+            // [Return] Game ID and amount to pay
+            let amount: u256 = game.price().into();
+            (game_id, amount)
+        }
+
         fn discard(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -52,7 +102,8 @@ mod PlayableComponent {
             game.assert_started();
 
             // [Check] Game is not over
-            game.assert_not_over();
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -68,30 +119,27 @@ mod PlayableComponent {
             tile.assert_exists();
 
             // [Effect] Builder discard a tile
-            builder.discard(ref game);
+            builder.discard();
 
             // [Effect] Assess game over
             game.assess_over();
 
             // [Effect] Draw a new tile if relevant
-            if !game.is_over() {
+            let time = get_block_timestamp();
+            if !game.is_over(time) {
                 game.reseed(tile);
                 let (tile_id, plan) = game.draw_plan();
                 let tile = builder.reveal(tile_id, plan);
                 store.set_tile(tile);
             }
 
-            // [Effect] Update builder
-            store.set_builder(builder);
-
             // [Event] Update tournament on game over
-            let time = get_block_timestamp();
             let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
             let id_end = TournamentImpl::compute_id(time, game.duration());
-            if tournament_id == id_end && game.is_over() {
+            if tournament_id == id_end && game.is_over(time) {
                 // [Effect] Update tournament
                 let mut tournament = store.tournament(tournament_id);
-                tournament.score(player.id, game.score);
+                tournament.score(player.id, builder.score);
                 store.set_tournament(tournament);
 
                 // [Effect] Add tournament id to game
@@ -99,8 +147,11 @@ mod PlayableComponent {
                 game.end_time = time;
             }
 
+            // [Effect] Update builder
+            builder.discarded += 1;
+            store.set_builder(builder);
+
             // [Effect] Update game
-            game.discarded += 1;
             store.set_game(game);
         }
 
@@ -116,7 +167,8 @@ mod PlayableComponent {
             game.assert_started();
 
             // [Check] Game is not over
-            game.assert_not_over();
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -131,13 +183,12 @@ mod PlayableComponent {
             game.surrender();
 
             // [Event] Update tournament on game over
-            let time = get_block_timestamp();
             let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
             let id_end = TournamentImpl::compute_id(time, game.duration());
-            if tournament_id == id_end && game.is_over() {
+            if tournament_id == id_end && game.is_over(time) {
                 // [Effect] Update tournament
                 let mut tournament = store.tournament(tournament_id);
-                tournament.score(player.id, game.score);
+                tournament.score(player.id, builder.score);
                 store.set_tournament(tournament);
 
                 // [Effect] Add tournament id to game
@@ -170,7 +221,8 @@ mod PlayableComponent {
             game.assert_started();
 
             // [Check] Game is not over
-            game.assert_not_over();
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -212,7 +264,7 @@ mod PlayableComponent {
             game.assess_over();
 
             // [Effect] Draw a new tile if relevant
-            if !game.is_over() {
+            if !game.is_over(time) {
                 game.reseed(tile);
                 let (tile_id, plan) = game.draw_plan();
                 let new_tile = builder.reveal(tile_id, plan);
@@ -220,19 +272,19 @@ mod PlayableComponent {
             }
 
             // [Effect] Update builder
+            builder.built += 1;
             store.set_builder(builder);
 
             // [Effect] Assessment
             game.assess(tile, ref store);
 
             // [Event] Update tournament on game over
-            let time = get_block_timestamp();
             let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
             let id_end = TournamentImpl::compute_id(time, game.duration());
-            if tournament_id == id_end && game.is_over() {
+            if tournament_id == id_end && game.is_over(time) {
                 // [Effect] Update tournament
                 let mut tournament = store.tournament(tournament_id);
-                tournament.score(player.id, game.score);
+                tournament.score(player.id, builder.score);
                 store.set_tournament(tournament);
 
                 // [Effect] Add tournament id to game
@@ -241,8 +293,58 @@ mod PlayableComponent {
             }
 
             // [Effect] Update game
-            game.built += 1;
             store.set_game(game);
+        }
+
+        fn claim(
+            self: @ComponentState<TContractState>,
+            world: IWorldDispatcher,
+            tournament_id: u64,
+            rank: u8,
+            mode: Mode,
+        ) -> u256 {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new(world);
+
+            // [Check] Player exists
+            let caller = get_caller_address();
+            let mut player = store.player(caller.into());
+            player.assert_exists();
+
+            // [Check] Tournament exists
+            let mut tournament = store.tournament(tournament_id);
+            tournament.assert_exists();
+
+            // [Effect] Update claim
+            let time = get_block_timestamp();
+            let reward = tournament.claim(player.id, rank, time, mode.duration());
+            store.set_tournament(tournament);
+
+            // [Return] Pay reward
+            reward
+        }
+
+        fn sponsor(
+            self: @ComponentState<TContractState>,
+            world: IWorldDispatcher,
+            amount: felt252,
+            mode: Mode
+        ) -> u256 {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new(world);
+
+            // [Check] Tournament exists
+            let time = get_block_timestamp();
+            let tournament_id = TournamentImpl::compute_id(time, mode.duration());
+            let mut tournament = store.tournament(tournament_id);
+            tournament.assert_exists();
+
+            // [Effect] Add amount to the current tournament prize pool
+            tournament.buyin(amount);
+            store.set_tournament(tournament);
+
+            // [Return] Amount to pay
+            amount.into()
         }
     }
 }

@@ -6,7 +6,7 @@ struct Game {
     over: bool,
     mode: u8,
     tile_count: u32,
-    player_count: u32,
+    player_count: u8,
     tournament_id: u64,
     start_time: u64,
     end_time: u64,

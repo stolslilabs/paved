@@ -13,6 +13,7 @@ use paved::helpers::generic::GenericCount;
 use paved::helpers::wonder::WonderCount;
 use paved::helpers::conflict::Conflict;
 use paved::helpers::bitmap::Bitmap;
+use paved::helpers::math::Math;
 use paved::types::plan::Plan;
 use paved::types::deck::{Deck, DeckImpl};
 use paved::types::spot::{Spot, SpotImpl};
@@ -141,7 +142,7 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
-    fn join(ref self: Game) -> u32 {
+    fn join(ref self: Game) -> u8 {
         let index = self.player_count;
         self.player_count += 1;
         index
@@ -390,6 +391,17 @@ impl GameAssert of AssertTrait {
     fn assert_is_over(self: Game, time: u64) {
         assert(self.is_over(time), errors::GAME_NOT_OVER);
     }
+
+    #[inline(always)]
+    fn assert_deletable(self: Game) {
+        assert(self.player_count == 1, errors::INVALID_PLAYER_COUNT);
+    }
+
+    #[inline(always)]
+    fn assert_startable(self: Game) {
+        let readiness = Math::pow(2, self.player_count.into()) - 1;
+        assert(self.players == readiness, errors::BUILDERS_NOT_READY);
+    }
 }
 
 
@@ -408,7 +420,7 @@ mod tests {
 
     const GAME_ID: u32 = 1;
     const NAME: felt252 = 'NAME';
-    const MODE: Mode = Mode::Weekly;
+    const MODE: Mode = Mode::Duel;
 
     #[test]
     fn test_game_new() {

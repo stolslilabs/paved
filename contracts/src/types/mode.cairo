@@ -167,6 +167,7 @@ impl IntoModeFelt252 of core::Into<Mode, felt252> {
             Mode::Daily => DAILY,
             Mode::Weekly => WEEKLY,
             Mode::Tutorial => TUTORIAL,
+            Mode::Duel => DUEL,
             _ => NONE,
         }
     }
@@ -179,6 +180,7 @@ impl IntoModeU8 of core::Into<Mode, u8> {
             Mode::Daily => 1,
             Mode::Weekly => 2,
             Mode::Tutorial => 3,
+            Mode::Duel => 4,
             _ => 0,
         }
     }
@@ -192,6 +194,7 @@ impl IntoU8Mode of core::Into<u8, Mode> {
             1 => Mode::Daily,
             2 => Mode::Weekly,
             3 => Mode::Tutorial,
+            4 => Mode::Duel,
             _ => Mode::None,
         }
     }
@@ -213,7 +216,7 @@ mod tests {
 
     // Local imports
 
-    use super::{Mode, NONE, DAILY, WEEKLY, TUTORIAL,};
+    use super::{Mode, ModeTrait, NONE, DAILY, WEEKLY, TUTORIAL, Deck};
 
     // Constants
 
@@ -255,5 +258,11 @@ mod tests {
     #[test]
     fn test_unknown_u8_into_mode() {
         assert(Mode::None == UNKNOWN_U8.into(), 'Mode: wrong Unknown');
+    }
+
+    #[test]
+    fn test_mode_deck() {
+        let mode: Mode = Mode::Duel;
+        assert(Deck::Base == mode.deck(), 'Mode: wrong deck');
     }
 }

@@ -54,7 +54,6 @@ impl BuilderImpl of BuilderTrait {
     fn nullify(ref self: Builder) {
         // [Effect] Nullify builder
         self.claimed = false;
-        self.index = 0;
         self.characters = 0;
         self.discarded = 0;
         self.built = 0;
@@ -78,7 +77,7 @@ impl BuilderImpl of BuilderTrait {
         self.assert_discardable();
         // [Effect] Substract penalty
         let malus = constants::DISCARD_POINTS;
-        self.score -= core::cmp::max(self.score, malus);
+        self.score -= core::cmp::min(self.score, malus);
         // [Effect] Increment discarded count
         self.discarded += 1;
         // [Effect] Remove tile from tile count

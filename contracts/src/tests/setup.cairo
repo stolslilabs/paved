@@ -1,11 +1,13 @@
 mod setup {
     // Core imports
 
+    use starknet::SyscallResultTrait;
     use core::debug::PrintTrait;
 
     // Starknet imports
 
     use starknet::ContractAddress;
+    use starknet::deploy_syscall;
     use starknet::testing::{set_contract_address};
 
     // Dojo imports
@@ -105,10 +107,11 @@ mod setup {
             index::tournament::TEST_CLASS_HASH,
         ];
         let world = spawn_test_world(array!["paved"].span(), models.span());
-
         // [Setup] Systems
-        let token_address = world
-            .deploy_contract('token', Token::TEST_CLASS_HASH.try_into().unwrap());
+        let (token_address, _) = deploy_syscall(
+            Token::TEST_CLASS_HASH.try_into().unwrap(), 'token', array![].span(), true
+        )
+            .unwrap_syscall();
         let account_address = world
             .deploy_contract('account', Account::TEST_CLASS_HASH.try_into().unwrap());
         let tutorial_address = world
@@ -123,7 +126,6 @@ mod setup {
             daily: IDailyDispatcher { contract_address: daily_address },
             weekly: IWeeklyDispatcher { contract_address: weekly_address },
         };
-
         // [Setup] Permissions
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), account_address);
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), tutorial_address);
@@ -153,22 +155,22 @@ mod setup {
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
-        systems.account.create(ANYONE_NAME, ANYONE());
+        systems.account.create(ANYONE_NAME);
         set_contract_address(SOMEONE());
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
-        systems.account.create(SOMEONE_NAME, SOMEONE());
+        systems.account.create(SOMEONE_NAME);
         set_contract_address(NOONE());
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
-        systems.account.create(NOONE_NAME, NOONE());
+        systems.account.create(NOONE_NAME);
         set_contract_address(PLAYER());
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
-        systems.account.create(PLAYER_NAME, PLAYER());
+        systems.account.create(PLAYER_NAME);
         let duration: u64 = 0;
 
         // [Setup] Game if mode is set
