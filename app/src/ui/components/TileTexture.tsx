@@ -3,6 +3,9 @@ import { offset, other_offset } from "@/dojo/game";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useGameStore } from "@/store";
 import { useGLTF } from "@react-three/drei";
+import { Tile } from "@/dojo/game/models/tile";
+
+type TileTextureProps = { tile: Tile, size: number, isTutorial: boolean }
 
 export const loader = new THREE.TextureLoader();
 
@@ -10,11 +13,14 @@ export const createSquareGeometry = (size: any) => {
   return new THREE.BoxGeometry(size, size, 0.1);
 };
 
-export const TileTexture = ({ tile, size, length, isTutorial }: any) => {
+export const TileTexture = ({ tile, size, isTutorial }: TileTextureProps) => {
   const meshRef = useRef<any>();
   const [texture, setTexture] = useState<THREE.Texture | undefined>(undefined);
   const { setHoveredTile } = useGameStore();
 
+  const tileModelPath = useMemo(() => tile.getVarietyModelPath(), [tile])
+
+  const model = useGLTF(`/models/${tileModelPath}.glb`).scene.clone()
   const squareGeometry = useMemo(() => createSquareGeometry(size), [size]);
   const position = useMemo(() => {
     const row = tile ? tile.y - offset + other_offset : 0;
@@ -42,32 +48,7 @@ export const TileTexture = ({ tile, size, length, isTutorial }: any) => {
     setHoveredTile({ col, row });
   };
 
-  const models = useMemo(() => {
-    return {
-      1: useGLTF("/models/ccccccccc.glb").scene.clone(),
-      2: useGLTF("/models/cccccfffc.glb").scene.clone(),
-      3: useGLTF("/models/cccccfrfc.glb").scene.clone(),
-      4: useGLTF("/models/cfffcfffc.glb").scene.clone(),
-      5: useGLTF("/models/ffcfffcff.glb").scene.clone(),
-      6: useGLTF("/models/ffcfffffc.glb").scene.clone(),
-      7: useGLTF("/models/ffffcccff.glb").scene.clone(),
-      8: useGLTF("/models/ffffffcff.glb").scene.clone(),
-      9: useGLTF("/models/rfffrfcfr.glb").scene.clone(),
-      10: useGLTF("/models/rfffrfffr.glb").scene.clone(),
-      11: useGLTF("/models/rfrfcccfr.glb").scene.clone(),
-      12: useGLTF("/models/rfrfffcfr.glb").scene.clone(),
-      13: useGLTF("/models/rfrfffffr.glb").scene.clone(),
-      14: useGLTF("/models/rfrfrfcff.glb").scene.clone(),
-      15: useGLTF("/models/sfrfrfcfr.glb").scene.clone(),
-      16: useGLTF("/models/sfrfrfffr.glb").scene.clone(),
-      17: useGLTF("/models/sfrfrfrfr.glb").scene.clone(),
-      18: useGLTF("/models/wffffffff.glb").scene.clone(),
-      19: useGLTF("/models/wfffffffr.glb").scene.clone(),
-    };
-  }, []);
-
   const shadowedModel = useMemo(() => {
-    const model = models[tile.plan.into() as keyof typeof models].clone();
     const box = new THREE.Box3().setFromObject(model);
     const center = box.getCenter(new THREE.Vector3());
     const dim = box.getSize(new THREE.Vector3());
