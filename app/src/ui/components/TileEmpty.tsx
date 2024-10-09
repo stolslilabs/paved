@@ -11,15 +11,16 @@ import useSound from "use-sound";
 import Place from "/sounds/effects/p-place.m4a";
 import { useTile, useTileByKey } from "@/hooks/useTile";
 import { useActions } from "@/hooks/useActions";
-import { Edges, Html, Plane, useGLTF, useTexture } from "@react-three/drei";
+import { Edges, Html, Plane, useTexture } from "@react-three/drei";
 import { useTutorial } from "@/hooks/useTutorial";
 import { useDojo } from "@/dojo/useDojo";
 import { useBuilder } from "@/hooks/useBuilder";
+import { TileEmptyComponent } from "./TileEmptyComponent";
 
 const loader = new THREE.TextureLoader();
 
 export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
-  const [play, { stop }] = useSound(Place);
+  const [play] = useSound(Place);
 
   const { gameId } = useQueryParams();
   const { enabled } = useActions();
@@ -44,9 +45,6 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
   } = useGameStore();
 
   const { tile: activeTile } = useTileByKey({ tileKey: activeEntity });
-  const strategyMode = useGameStore((state) => state.strategyMode);
-
-  const model = useGLTF(`/models/${activeTile?.getVarietyModelPath()}.glb`).scene.clone()
 
   const { northTile, eastTile, southTile, westTile } = useMemo(() => {
     return {
@@ -191,123 +189,13 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
     return position;
   }, []);
 
-  const getColorBasedOnState = (isValid: boolean, isIdle: boolean) => {
-    if (!isValid) {
-      return "orange"; // Color for invalid state
-    }
-    if (isIdle) {
-      return null; // Color for idle state when valid
-    }
-    return null; // No color change when valid and not idle
-  };
-  // TODO: this is weird now
-  const shadowedModel = useMemo(() => {
-    const box = new THREE.Box3().setFromObject(model);
-    const center = box.getCenter(new THREE.Vector3());
-    const dim = box.getSize(new THREE.Vector3());
-    model.position.x -= center.x;
-    model.position.y -= center.y;
-    model.position.z -= center.z;
-    model.position.y += dim.y * 0.5;
-    model.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.material = child.material.clone();
-        child.castShadow = true;
-        child.receiveShadow = true;
-
-        const color = getColorBasedOnState(isValid || false, isIdle || false);
-        if (color) {
-          child.material.color.set(color);
-        } else {
-          // Reset to default color or make transparent
-          child.material.color.setHex(0xffffff); // Assuming white is the default
-        }
-        child.material.transparent = true;
-        child.material.opacity = 0.8;
-      }
-    });
-    return model;
-  }, [activeTile, isIdle, isValid]);
-
-  const scale = useMemo(() => {
-    if (!shadowedModel) return 1;
-    const box = new THREE.Box3().setFromObject(shadowedModel);
-    const dim = box.getSize(new THREE.Vector3());
-    return (2 * size) / (dim.x + dim.z);
-  }, [shadowedModel]);
-
-  const visibilityCondition = isTutorial ? !strategyMode : strategyMode;
-
-  const meshComponent = useMemo(
-    () => (
-      <>
-        <group
-          visible={texture !== undefined && !visibilityCondition}
-          ref={meshRef}
-          key={`tile-${activeTile?.id}`}
-          scale={scale}
-          rotation={[
-            Math.PI / 2,
-            (Math.PI / 2) * (1 - (activeTile?.orientation.into() || 1)),
-            0,
-          ]}
-          position={[position.x, position.y, 0]}
-        >
-          <primitive object={shadowedModel} />
-        </group>
-        <mesh
-          visible={texture !== undefined && visibilityCondition}
-          onPointerEnter={handlePointerEnter}
-          onPointerLeave={handlePointerLeave}
-          onClick={handleSimpleClick}
-          ref={meshRef}
-          position={[position.x, position.y, 0]}
-          geometry={squareGeometry}
-        >
-          <meshBasicMaterial attach="material-0" color={"#503A23"} />
-          <meshBasicMaterial attach="material-1" color={"#503A23"} />
-          <meshBasicMaterial attach="material-2" color={"#503A23"} />
-          <meshBasicMaterial attach="material-3" color={"#503A23"} />
-          <meshBasicMaterial
-            attach="material-4"
-            // emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
-            // emissiveIntensity={isValid ? (isIdle ? 0.5 : 0.2) : 0.4}
-            map={texture}
-          />
-          <meshBasicMaterial attach="material-5" color={"#503A23"} />
-        </mesh>
-        <mesh
-          visible={texture !== undefined && strategyMode}
-          position={[position.x, position.y, 0]}
-          geometry={squareGeometry}
-        >
-          <meshBasicMaterial
-            color={isValid ? (isIdle ? "green" : "red") : "orange"}
-            transparent={true}
-            opacity={isValid ? (isIdle ? 0.5 : 0.2) : 0.4}
-          />
-        </mesh>
-      </>
-    ),
-    [
-      texture,
-      isValid,
-      isIdle,
-      position.x,
-      position.y,
-      squareGeometry,
-      handlePointerEnter,
-      handlePointerLeave,
-      handleSimpleClick,
-    ],
-  );
-
   const { currentTutorialStage } = useTutorial();
+
+  const modelPath = useMemo(() => activeTile?.getVarietyModelPath(col, row), [activeTile, col, row])
 
   return (
     <>
-      {meshComponent}
-
+      {activeTile && <TileEmptyComponent modelPath={modelPath ?? ""} size={size} col={col} row={row} tiles={tiles} isTutorial={isTutorial} />}
       <group position={[position.x, position.y, 0]}>
         <mesh
           visible={!texture}
