@@ -79,7 +79,6 @@ export const getImage = (tile: any) => {
 };
 
 export const getModelVariations = (tile: any): number => {
-  console.log(tile)
   switch (tile?.plan) {
     case 1:
       return 1;
