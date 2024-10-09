@@ -74,8 +74,8 @@ export class Tile {
     return this.occupiedSpot.value === SpotType.None;
   }
 
-  getVarietyModelPath(): string {
-    const input = `${this.plan.value}${this.x}${this.y}${this.gameId}`;
+  getVarietyModelPath(x: number = this.x, y: number = this.y): string {
+    const input = `${this.plan.value}${x}${y}${this.gameId}`;
     let hash = 0;
     for (let i = 0; i < input.length; i++) {
       hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
