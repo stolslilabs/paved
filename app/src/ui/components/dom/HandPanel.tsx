@@ -13,7 +13,7 @@ export const HandPanel = () => {
   const [play] = useSound(RotationSound);
   const { enabled } = useActions();
   const { x, y, spot, character } = useGameStore();
-  const { currentTutorialStage } = useTutorial();
+  const { currentTutorialStage, step } = useTutorial();
 
   const { handleConfirm, disabled } = useActions();
 
@@ -66,6 +66,12 @@ export const HandPanel = () => {
     return hasCoords && hasSpot && hasRole && !hasOrientation;
   }, [currentTutorialStage, x, y, character, spot, orientation]);
 
+  const shouldDisableTutorialConfirm = useMemo(() => {
+    if (!currentTutorialStage) return false;
+
+    return step === 7
+  }, [currentTutorialStage, step]);
+
   return (
     <div className="col-start-4 row-start-8 sm:col-start-3 sm:row-start-4 flex flex-row justify-end gap-2 pointer-events-none">
       <div id="tile-controls" className="flex flex-col gap-2 self-center">
@@ -84,7 +90,7 @@ export const HandPanel = () => {
           icon={confirmIcon}
           side="left"
           onClick={handleConfirm}
-          disabled={disabled}
+          disabled={disabled || shouldDisableTutorialConfirm}
           tutorialCondition={shouldDisplayConfirmTutorialTooltip}
         />
       </div>
