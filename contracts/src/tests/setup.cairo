@@ -112,10 +112,8 @@ mod setup {
         ];
         let world = spawn_test_world(array!["paved"].span(), models.span());
         // [Setup] Systems
-        let (token_address, _) = deploy_syscall(
-            Token::TEST_CLASS_HASH.try_into().unwrap(), 'token', array![].span(), true
-        )
-            .unwrap_syscall();
+        let token_address = world
+            .deploy_contract('token', Token::TEST_CLASS_HASH.try_into().unwrap());
         let account_address = world
             .deploy_contract('account', Account::TEST_CLASS_HASH.try_into().unwrap());
         let tutorial_address = world

@@ -1,6 +1,6 @@
 kind = "DojoModel"
-class_hash = "0xe2e673bb8d03337fef42a2a07db4488276b705547c8d6e54d5ac37fb4abecc"
-original_class_hash = "0xe2e673bb8d03337fef42a2a07db4488276b705547c8d6e54d5ac37fb4abecc"
+class_hash = "0x531a5de086dff196f065b57147588d65563af4952a32b78ce0269df0d24408d"
+original_class_hash = "0x531a5de086dff196f065b57147588d65563af4952a32b78ce0269df0d24408d"
 abi = "manifests/dev/base/abis/models/paved-Builder-14d78ed3.json"
 tag = "paved-Builder"
 qualified_path = "paved::models::index::builder"
@@ -17,11 +17,31 @@ type = "felt252"
 key = true
 
 [[members]]
-name = "tile_id"
-type = "u32"
+name = "index"
+type = "u8"
 key = false
 
 [[members]]
 name = "characters"
 type = "u8"
+key = false
+
+[[members]]
+name = "discarded"
+type = "u8"
+key = false
+
+[[members]]
+name = "built"
+type = "u8"
+key = false
+
+[[members]]
+name = "score"
+type = "u32"
+key = false
+
+[[members]]
+name = "tile_id"
+type = "u32"
 key = false

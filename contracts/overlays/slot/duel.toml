@@ -1,0 +1,12 @@
+tag = "paved-Duel"
+writes = [
+    "paved-Player",
+    "paved-Game",
+    "paved-Builder",
+    "paved-Char",
+    "paved-CharPosition",
+    "paved-Tile",
+    "paved-TilePosition",
+    "paved-Tournament",
+]
+init_calldata = ["$contract_address:paved-Token"]

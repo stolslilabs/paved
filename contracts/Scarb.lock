@@ -12,18 +12,9 @@ version = "1.0.0-alpha.14"
 source = "git+https://github.com/dojoengine/origami?tag=v1.0.0-alpha.14#72cee5b869fece5475a3841c60af06e643c2d439"
 
 [[package]]
-name = "origami_token"
-version = "1.0.0-alpha.14"
-source = "git+https://github.com/dojoengine/origami?tag=v1.0.0-alpha.14#72cee5b869fece5475a3841c60af06e643c2d439"
-dependencies = [
- "dojo",
-]
-
-[[package]]
 name = "paved"
 version = "0.0.0"
 dependencies = [
  "dojo",
  "origami_random",
- "origami_token",
 ]

@@ -12,7 +12,6 @@ slot = "sozo --profile slot clean && sozo --profile slot build && sozo --profile
 
 [dependencies]
 origami_random = { git = "https://github.com/dojoengine/origami", tag = "v1.0.0-alpha.14" }
-origami_token = { git = "https://github.com/dojoengine/origami", tag = "v1.0.0-alpha.14" }
 dojo = { git = "https://github.com/dojoengine/dojo", tag = "v1.0.0-alpha.14" }
 
 [[target.dojo]]
