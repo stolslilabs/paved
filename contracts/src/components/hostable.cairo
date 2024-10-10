@@ -24,7 +24,7 @@ mod HostableComponent {
 
     use paved::constants;
     use paved::store::{Store, StoreImpl};
-    use paved::models::game::{Game, GameImpl, GameAssert};
+    use paved::models::game::{Game, GameTrait, GameAssert};
     use paved::models::player::{Player, PlayerImpl, PlayerAssert};
     use paved::models::builder::{Builder, BuilderImpl, BuilderAssert};
     use paved::models::tile::{Tile, TilePosition, TileImpl};
@@ -64,7 +64,8 @@ mod HostableComponent {
             ref self: ComponentState<TContractState>,
             world: IWorldDispatcher,
             mode: Mode,
-            name: felt252
+            name: felt252,
+            price: felt252
         ) -> (u32, u256) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -77,27 +78,15 @@ mod HostableComponent {
             // [Effect] Create game
             let game_id = world.uuid() + 1;
             let time = get_block_timestamp();
-            let mut game = GameImpl::new(game_id, time, mode, name);
+            let mut game = GameTrait::new(game_id, time, mode, name, price);
 
-            // [Effect] Start game
-            let tile = game.start(time);
-
-            // [Effect] Store tile
-            store.set_tile(tile);
-
-            // [Effect] Create a new builder
-            let mut builder = BuilderImpl::new(game.id, player.id, 0);
-            let (tile_id, plan) = game.draw_plan();
-            let tile = builder.reveal(tile_id, plan);
-
-            // [Effect] Store builder
+            // [Effect] Create and store new builder
+            let builder_index = game.join();
+            let builder = BuilderImpl::new(game.id, player.id, builder_index);
             self.builders.write((game.id, builder.index), builder.player_id);
             store.set_builder(builder);
 
-            // [Effect] Store tile
-            store.set_tile(tile);
-
-            // [Effect] Store game
+            // [Effect] Update game
             store.set_game(game);
 
             // [Return] Game ID and amount to pay
@@ -459,13 +448,30 @@ mod HostableComponent {
             // [Check] Game startable
             game.assert_startable();
 
-            // [Effect] Store game
+            // [Effect] Start game
             let time = get_block_timestamp();
             let tile = game.start(time);
-            store.set_game(game);
 
             // [Effect] Store tile
             store.set_tile(tile);
+
+            // [Effect] Create a new builder
+            let mut index = game.player_count;
+            while index > 0 {
+                // [Effect] Builder draw tile
+                index -= 1;
+                let player_id = self.builders.read((game.id, index));
+                let mut builder = store.builder(game, player_id);
+                let (tile_id, plan) = game.draw_plan();
+                let tile = builder.reveal(tile_id, plan);
+
+                // [Effect] Update entities
+                store.set_builder(builder);
+                store.set_tile(tile);
+            };
+
+            // [Effect] Update game
+            store.set_game(game);
         }
 
         fn claim(

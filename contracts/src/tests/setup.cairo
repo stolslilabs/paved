@@ -27,6 +27,7 @@ mod setup {
     use paved::systems::daily::{Daily, IDailyDispatcher, IDailyDispatcherTrait};
     use paved::systems::weekly::{Weekly, IWeeklyDispatcher, IWeeklyDispatcherTrait};
     use paved::systems::tutorial::{Tutorial, ITutorialDispatcher, ITutorialDispatcherTrait};
+    use paved::systems::duel::{Duel, IDuelDispatcher, IDuelDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
     use paved::types::mode::Mode;
 
@@ -53,6 +54,7 @@ mod setup {
     const SOMEONE_NAME: felt252 = 'SOMEONE';
     const NOONE_NAME: felt252 = 'NOONE';
     const GAME_NAME: felt252 = 'GAME';
+    const GAME_PRICE: felt252 = 100;
 
     #[derive(Drop)]
     struct Systems {
@@ -60,6 +62,7 @@ mod setup {
         tutorial: ITutorialDispatcher,
         daily: IDailyDispatcher,
         weekly: IWeeklyDispatcher,
+        duel: IDuelDispatcher,
     }
 
     #[derive(Drop)]
@@ -74,6 +77,7 @@ mod setup {
         noone_name: felt252,
         game_id: u32,
         game_name: felt252,
+        game_price: felt252,
         game_duration: u64,
         token: IERC20Dispatcher,
     }
@@ -120,17 +124,20 @@ mod setup {
             .deploy_contract('daily', Daily::TEST_CLASS_HASH.try_into().unwrap());
         let weekly_address = world
             .deploy_contract('weekly', Weekly::TEST_CLASS_HASH.try_into().unwrap());
+        let duel_address = world.deploy_contract('duel', Duel::TEST_CLASS_HASH.try_into().unwrap());
         let systems = Systems {
             account: IAccountDispatcher { contract_address: account_address },
             tutorial: ITutorialDispatcher { contract_address: tutorial_address },
             daily: IDailyDispatcher { contract_address: daily_address },
             weekly: IWeeklyDispatcher { contract_address: weekly_address },
+            duel: IDuelDispatcher { contract_address: duel_address },
         };
         // [Setup] Permissions
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), account_address);
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), tutorial_address);
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), daily_address);
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), weekly_address);
+        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), duel_address);
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), PLAYER());
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), ANYONE());
         world.grant_writer(dojo::utils::bytearray_hash(@"paved"), SOMEONE());
@@ -147,6 +154,11 @@ mod setup {
             .init_contract(
                 dojo::utils::selector_from_names(@"paved", @"Weekly"), weekly_calldata.span()
             );
+        let duel_calldata: Array<felt252> = array![token_address.into(),];
+        world
+            .init_contract(
+                dojo::utils::selector_from_names(@"paved", @"Duel"), duel_calldata.span()
+            );
 
         // [Setup] Context
         let token = IERC20Dispatcher { contract_address: token_address };
@@ -155,21 +167,25 @@ mod setup {
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
+        token.approve(duel_address, Token::FAUCET_AMOUNT);
         systems.account.create(ANYONE_NAME);
         set_contract_address(SOMEONE());
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
+        token.approve(duel_address, Token::FAUCET_AMOUNT);
         systems.account.create(SOMEONE_NAME);
         set_contract_address(NOONE());
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
+        token.approve(duel_address, Token::FAUCET_AMOUNT);
         systems.account.create(NOONE_NAME);
         set_contract_address(PLAYER());
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
+        token.approve(duel_address, Token::FAUCET_AMOUNT);
         systems.account.create(PLAYER_NAME);
         let duration: u64 = 0;
 
@@ -178,6 +194,7 @@ mod setup {
             Mode::Daily => systems.daily.spawn(),
             Mode::Weekly => systems.weekly.spawn(),
             Mode::Tutorial => systems.tutorial.spawn(),
+            Mode::Duel => systems.duel.spawn(GAME_NAME, GAME_PRICE),
             _ => 0,
         };
 
@@ -192,6 +209,7 @@ mod setup {
             noone_name: NOONE_NAME,
             game_id: game_id,
             game_name: GAME_NAME,
+            game_price: GAME_PRICE,
             game_duration: duration,
             token,
         };

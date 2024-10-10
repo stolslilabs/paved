@@ -16,8 +16,8 @@ mod PlayableComponent {
 
     use paved::constants;
     use paved::store::{Store, StoreImpl};
-    use paved::models::game::{Game, GameImpl, GameAssert};
-    use paved::models::player::{Player, PlayerImpl, PlayerAssert};
+    use paved::models::game::{Game, GameTrait, GameAssert};
+    use paved::models::player::{Player, PlayerTrait, PlayerAssert};
     use paved::models::builder::{Builder, BuilderImpl, ZeroableBuilderImpl, BuilderAssert};
     use paved::models::tile::{Tile, TilePosition, TileImpl, TileAssert, TilePositionAssert};
     use paved::models::tournament::{Tournament, TournamentImpl, TournamentAssert};
@@ -55,7 +55,7 @@ mod PlayableComponent {
             // [Effect] Create game
             let game_id = world.uuid() + 1;
             let time = get_block_timestamp();
-            let mut game = GameImpl::new(game_id, time, mode, mode.into());
+            let mut game = GameTrait::new(game_id, time, mode, mode.into(), 0);
 
             // [Effect] Start game
             let tile = game.start(time);
@@ -64,7 +64,8 @@ mod PlayableComponent {
             store.set_tile(tile);
 
             // [Effect] Create a new builder
-            let mut builder = BuilderImpl::new(game.id, player.id, 0);
+            let builder_index = game.join();
+            let mut builder = BuilderImpl::new(game.id, player.id, builder_index);
             let (tile_id, plan) = game.draw_plan();
             let tile = builder.reveal(tile_id, plan);
 

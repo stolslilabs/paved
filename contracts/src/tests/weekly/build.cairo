@@ -129,6 +129,6 @@ fn test_play_build_complete_castle() {
 
     // [Assert]
     let builder = store.builder(game, context.player_id);
-    let expected: u32 = 2 * constants::CITY_BASE_POINTS;
+    let expected: u32 = 2 * constants::CITY_BASE_POINTS + 1;
     assert(builder.score - expected <= expected, 'Build: game score');
 }

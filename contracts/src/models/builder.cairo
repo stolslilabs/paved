@@ -37,7 +37,7 @@ impl BuilderImpl of BuilderTrait {
     fn new(game_id: u32, player_id: felt252, index: u8) -> Builder {
         // [Return] Builder
         Builder {
-            game_id, player_id, index, characters: 0, discarded: 0, built: 0, score: 0, tile_id: 0,
+            game_id, player_id, index, characters: 0, discarded: 0, built: 0, score: 1, tile_id: 0,
         }
     }
 
@@ -191,7 +191,7 @@ impl ZeroableBuilderImpl of core::Zeroable<Builder> {
 
     #[inline]
     fn is_zero(self: Builder) -> bool {
-        0 == self.tile_id.into()
+        0 == self.score.into()
     }
 
     #[inline]

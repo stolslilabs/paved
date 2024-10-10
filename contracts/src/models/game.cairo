@@ -51,7 +51,7 @@ mod errors {
 #[generate_trait]
 impl GameImpl of GameTrait {
     #[inline]
-    fn new(id: u32, time: u64, mode: Mode, name: felt252) -> Game {
+    fn new(id: u32, time: u64, mode: Mode, name: felt252, price: felt252) -> Game {
         // [Check] Validate parameters
         let mode: Mode = mode.into();
         assert(Mode::None != mode, errors::INVALID_MODE);
@@ -71,7 +71,7 @@ impl GameImpl of GameTrait {
             duration: 0,
             tiles: 0,
             players: 0,
-            price: 0,
+            price,
             prize: 0,
             name,
             seed: 0,
@@ -358,7 +358,7 @@ impl ZeroableGame of core::Zeroable<Game> {
 
     #[inline]
     fn is_zero(self: Game) -> bool {
-        0 == self.tile_count.into()
+        0 == self.player_count.into()
     }
 
     #[inline]
@@ -439,10 +439,11 @@ mod tests {
     const GAME_ID: u32 = 1;
     const NAME: felt252 = 'NAME';
     const MODE: Mode = Mode::Duel;
+    const PRICE: felt252 = 0;
 
     #[test]
     fn test_game_new() {
-        let game = GameImpl::new(GAME_ID, 0, MODE, NAME);
+        let game = GameImpl::new(GAME_ID, 0, MODE, NAME, PRICE);
         assert(game.id == GAME_ID, 'Game: Invalid id');
         assert(game.tiles == 0, 'Game: Invalid tiles');
         assert(game.tile_count == 0, 'Game: Invalid tile_count');
@@ -451,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_game_add_tile() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME, PRICE);
         let tile_count = game.tile_count;
         let tile_id = game.add_tile();
         assert(tile_id == GAME_ID, 'Game: Invalid tile_id');
@@ -460,7 +461,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_plan() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME, PRICE);
         let (tile_count, plan_id) = game.draw_plan();
         let deck: Deck = game.deck();
         assert(tile_count == 1, 'Game: Invalid tile_count');
@@ -471,7 +472,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_planes() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME, PRICE);
         let mut counts: Felt252Dict<u8> = core::Default::default();
         let deck: Deck = game.deck();
         loop {

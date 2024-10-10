@@ -107,5 +107,10 @@ mod tests {
         mod discard;
         mod build;
     }
+    mod duel {
+        mod ranked;
+        mod discard;
+        mod build;
+    }
 }
 

@@ -53,5 +53,5 @@ fn test_tutorial_build_all() {
     assert(game.is_over(0), 'Tutorial: game over');
     let player_id: felt252 = get_contract_address().into();
     let builder = store.builder(game, player_id);
-    assert(builder.score == 5078, 'Tutorial: game score');
+    assert(builder.score == 5079, 'Tutorial: game score');
 }
