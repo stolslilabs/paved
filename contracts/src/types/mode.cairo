@@ -26,6 +26,7 @@ const NONE: felt252 = 0;
 const DAILY: felt252 = 'DAILY';
 const WEEKLY: felt252 = 'WEEKLY';
 const TUTORIAL: felt252 = 'TUTORIAL';
+const DUEL: felt252 = 'DUEL';
 
 #[derive(Copy, Drop, Serde, PartialEq)]
 enum Mode {
@@ -33,6 +34,7 @@ enum Mode {
     Daily,
     Weekly,
     Tutorial,
+    Duel,
 }
 
 #[generate_trait]
@@ -43,6 +45,7 @@ impl ModeImpl of ModeTrait {
             Mode::Daily => constants::DAILY_TOURNAMENT_PRICE,
             Mode::Weekly => constants::WEEKLY_TOURNAMENT_PRICE,
             Mode::Tutorial => 0,
+            Mode::Duel => 0,
             _ => 0,
         }
     }
@@ -53,6 +56,7 @@ impl ModeImpl of ModeTrait {
             Mode::Daily => constants::DAILY_TOURNAMENT_DURATION,
             Mode::Weekly => constants::WEEKLY_TOURNAMENT_DURATION,
             Mode::Tutorial => 1,
+            Mode::Duel => 1,
             _ => 0,
         }
     }
@@ -75,6 +79,13 @@ impl ModeImpl of ModeTrait {
                 state.finalize()
             },
             Mode::Tutorial => 0,
+            Mode::Duel => {
+                let state: HashState = PoseidonTrait::new();
+                let state = state.update(salt);
+                let state = state.update(game_id.into());
+                let state = state.update(time.into());
+                state.finalize()
+            },
             _ => 0,
         }
     }
@@ -85,6 +96,7 @@ impl ModeImpl of ModeTrait {
             Mode::Daily => Deck::Simple,
             Mode::Weekly => Deck::Base,
             Mode::Tutorial => Deck::Tutorial,
+            Mode::Duel => Deck::Base,
             _ => Deck::None,
         }
     }
@@ -92,8 +104,8 @@ impl ModeImpl of ModeTrait {
     #[inline]
     fn draw(self: Mode, seed: felt252, tiles: u128) -> (Plan, u128) {
         match self {
-            Mode::Daily => self._draw(seed, tiles),
-            Mode::Weekly => self._draw(seed, tiles),
+            Mode::Daily => self.standard_draw(seed, tiles),
+            Mode::Weekly => self.standard_draw(seed, tiles),
             Mode::Tutorial => {
                 let deck: Deck = self.deck();
                 if tiles == 0 {
@@ -104,6 +116,7 @@ impl ModeImpl of ModeTrait {
                 let tiles = Bitmap::set_bit_at(tiles, index.into(), true);
                 (plan, tiles)
             },
+            Mode::Duel => self.reset_draw(seed, tiles),
             _ => (Plan::None, tiles),
         }
     }
@@ -119,7 +132,19 @@ impl ModeImpl of ModeTrait {
 #[generate_trait]
 impl Private of PrivateTrait {
     #[inline]
-    fn _draw(self: Mode, seed: felt252, tiles: u128) -> (Plan, u128) {
+    fn standard_draw(self: Mode, seed: felt252, tiles: u128) -> (Plan, u128) {
+        let game_deck: Deck = self.deck();
+        let number: u32 = game_deck.total_count().into();
+        let mut deck: OrigamiDeck = OrigamiDeckTrait::from_bitmap(seed, number, tiles);
+        let plan_id: u8 = deck.draw().into();
+        // Update bitmap if deck is not empty, otherwise reset
+        let index = plan_id - 1;
+        let tiles = Bitmap::set_bit_at(tiles, index.into(), true);
+        (game_deck.plan(plan_id.into()), tiles)
+    }
+
+    #[inline]
+    fn reset_draw(self: Mode, seed: felt252, tiles: u128) -> (Plan, u128) {
         let game_deck: Deck = self.deck();
         let number: u32 = game_deck.total_count().into();
         let mut deck: OrigamiDeck = OrigamiDeckTrait::from_bitmap(seed, number, tiles);
@@ -142,6 +167,7 @@ impl IntoModeFelt252 of core::Into<Mode, felt252> {
             Mode::Daily => DAILY,
             Mode::Weekly => WEEKLY,
             Mode::Tutorial => TUTORIAL,
+            Mode::Duel => DUEL,
             _ => NONE,
         }
     }
@@ -154,6 +180,7 @@ impl IntoModeU8 of core::Into<Mode, u8> {
             Mode::Daily => 1,
             Mode::Weekly => 2,
             Mode::Tutorial => 3,
+            Mode::Duel => 4,
             _ => 0,
         }
     }
@@ -167,6 +194,7 @@ impl IntoU8Mode of core::Into<u8, Mode> {
             1 => Mode::Daily,
             2 => Mode::Weekly,
             3 => Mode::Tutorial,
+            4 => Mode::Duel,
             _ => Mode::None,
         }
     }
@@ -188,7 +216,7 @@ mod tests {
 
     // Local imports
 
-    use super::{Mode, NONE, DAILY, WEEKLY, TUTORIAL,};
+    use super::{Mode, ModeTrait, NONE, DAILY, WEEKLY, TUTORIAL, Deck};
 
     // Constants
 
@@ -230,5 +258,11 @@ mod tests {
     #[test]
     fn test_unknown_u8_into_mode() {
         assert(Mode::None == UNKNOWN_U8.into(), 'Mode: wrong Unknown');
+    }
+
+    #[test]
+    fn test_mode_deck() {
+        let mode: Mode = Mode::Duel;
+        assert(Deck::Base == mode.deck(), 'Mode: wrong deck');
     }
 }

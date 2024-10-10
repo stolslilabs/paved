@@ -22,7 +22,7 @@ use paved::types::direction::Direction;
 use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
-use paved::systems::daily::IDailyDispatcherTrait;
+use paved::systems::duel::IDuelDispatcherTrait;
 
 use paved::tests::setup::{setup, setup::{Mode, Systems, PLAYER, ANYONE}};
 
@@ -32,9 +32,20 @@ const BUILDER_NAME: felt252 = 'PLAYER';
 
 #[test]
 fn test_play_build_without_character() {
-    // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Daily);
+    let (world, systems, context) = setup::spawn_game(Mode::Duel);
     let store = StoreTrait::new(world);
+
+    // [Join]
+    set_contract_address(ANYONE());
+    systems.duel.join(context.game_id);
+
+    // [Ready]
+    systems.duel.ready(context.game_id, true);
+    set_contract_address(PLAYER());
+    systems.duel.ready(context.game_id, true);
+
+    // [Start]
+    systems.duel.start(context.game_id);
 
     // [Draw]
     let game = store.game(context.game_id);
@@ -49,14 +60,25 @@ fn test_play_build_without_character() {
     let y = CENTER + 1;
     let role = Role::None;
     let spot = Spot::None;
-    systems.daily.build(context.game_id, orientation, x, y, role, spot);
+    systems.duel.build(context.game_id, orientation, x, y, role, spot);
 }
 
 #[test]
 fn test_play_build_with_character() {
-    // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Daily);
+    let (world, systems, context) = setup::spawn_game(Mode::Duel);
     let store = StoreTrait::new(world);
+
+    // [Join]
+    set_contract_address(ANYONE());
+    systems.duel.join(context.game_id);
+
+    // [Ready]
+    systems.duel.ready(context.game_id, true);
+    set_contract_address(PLAYER());
+    systems.duel.ready(context.game_id, true);
+
+    // [Start]
+    systems.duel.start(context.game_id);
 
     // [Draw]
     let game = store.game(context.game_id);
@@ -69,15 +91,26 @@ fn test_play_build_with_character() {
     let orientation = Orientation::North;
     let x = CENTER;
     let y = CENTER + 1;
-    systems.daily.build(context.game_id, orientation, x, y, Role::Lord, Spot::South);
+    systems.duel.build(context.game_id, orientation, x, y, Role::Lord, Spot::South);
 }
 
 #[test]
 #[should_panic(expected: ('Game: structure not idle', 'ENTRYPOINT_FAILED',))]
 fn test_play_build_with_character_revert_not_idle() {
-    // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Daily);
+    let (world, systems, context) = setup::spawn_game(Mode::Duel);
     let store = StoreTrait::new(world);
+
+    // [Join]
+    set_contract_address(ANYONE());
+    systems.duel.join(context.game_id);
+
+    // [Ready]
+    systems.duel.ready(context.game_id, true);
+    set_contract_address(PLAYER());
+    systems.duel.ready(context.game_id, true);
+
+    // [Start]
+    systems.duel.start(context.game_id);
 
     // [Draw & Build]
     let game = store.game(context.game_id);
@@ -90,7 +123,7 @@ fn test_play_build_with_character_revert_not_idle() {
     let y = CENTER - 1;
     let role = Role::Lord;
     let spot = Spot::West;
-    systems.daily.build(context.game_id, orientation, x, y, role, spot);
+    systems.duel.build(context.game_id, orientation, x, y, role, spot);
 
     // [Draw & Build]
     let game = store.game(context.game_id);
@@ -103,14 +136,25 @@ fn test_play_build_with_character_revert_not_idle() {
     let y = CENTER - 1;
     let role = Role::Lady;
     let spot = Spot::East;
-    systems.daily.build(context.game_id, orientation, x, y, role, spot);
+    systems.duel.build(context.game_id, orientation, x, y, role, spot);
 }
 
 #[test]
 fn test_play_build_complete_castle() {
-    // [Setup]
-    let (world, systems, context) = setup::spawn_game(Mode::Daily);
+    let (world, systems, context) = setup::spawn_game(Mode::Duel);
     let store = StoreTrait::new(world);
+
+    // [Join]
+    set_contract_address(ANYONE());
+    systems.duel.join(context.game_id);
+
+    // [Ready]
+    systems.duel.ready(context.game_id, true);
+    set_contract_address(PLAYER());
+    systems.duel.ready(context.game_id, true);
+
+    // [Start]
+    systems.duel.start(context.game_id);
 
     // [Draw]
     let game = store.game(context.game_id);
@@ -125,7 +169,7 @@ fn test_play_build_complete_castle() {
     let y = CENTER + 1;
     let role = Role::Lord;
     let spot = Spot::South;
-    systems.daily.build(context.game_id, orientation, x, y, role, spot);
+    systems.duel.build(context.game_id, orientation, x, y, role, spot);
 
     // [Assert]
     let builder = store.builder(game, context.player_id);

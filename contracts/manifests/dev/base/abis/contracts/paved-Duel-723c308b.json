@@ -128,17 +128,22 @@
   },
   {
     "type": "impl",
-    "name": "Faucet",
-    "interface_name": "paved::mocks::token::IERC20Faucet"
+    "name": "IDojoInitImpl",
+    "interface_name": "paved::systems::duel::Duel::IDojoInit"
   },
   {
     "type": "interface",
-    "name": "paved::mocks::token::IERC20Faucet",
+    "name": "paved::systems::duel::Duel::IDojoInit",
     "items": [
       {
         "type": "function",
-        "name": "mint",
-        "inputs": [],
+        "name": "dojo_init",
+        "inputs": [
+          {
+            "name": "token_address",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
         "outputs": [],
         "state_mutability": "external"
       }
@@ -146,22 +151,8 @@
   },
   {
     "type": "impl",
-    "name": "ERC20",
-    "interface_name": "paved::mocks::erc20::interface::IERC20"
-  },
-  {
-    "type": "struct",
-    "name": "core::integer::u256",
-    "members": [
-      {
-        "name": "low",
-        "type": "core::integer::u128"
-      },
-      {
-        "name": "high",
-        "type": "core::integer::u128"
-      }
-    ]
+    "name": "DuelImpl",
+    "interface_name": "paved::systems::duel::IDuel"
   },
   {
     "type": "enum",
@@ -178,54 +169,189 @@
     ]
   },
   {
+    "type": "enum",
+    "name": "paved::types::orientation::Orientation",
+    "variants": [
+      {
+        "name": "None",
+        "type": "()"
+      },
+      {
+        "name": "North",
+        "type": "()"
+      },
+      {
+        "name": "East",
+        "type": "()"
+      },
+      {
+        "name": "South",
+        "type": "()"
+      },
+      {
+        "name": "West",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "enum",
+    "name": "paved::types::role::Role",
+    "variants": [
+      {
+        "name": "None",
+        "type": "()"
+      },
+      {
+        "name": "Lord",
+        "type": "()"
+      },
+      {
+        "name": "Lady",
+        "type": "()"
+      },
+      {
+        "name": "Adventurer",
+        "type": "()"
+      },
+      {
+        "name": "Paladin",
+        "type": "()"
+      },
+      {
+        "name": "Pilgrim",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "enum",
+    "name": "paved::types::spot::Spot",
+    "variants": [
+      {
+        "name": "None",
+        "type": "()"
+      },
+      {
+        "name": "Center",
+        "type": "()"
+      },
+      {
+        "name": "NorthWest",
+        "type": "()"
+      },
+      {
+        "name": "North",
+        "type": "()"
+      },
+      {
+        "name": "NorthEast",
+        "type": "()"
+      },
+      {
+        "name": "East",
+        "type": "()"
+      },
+      {
+        "name": "SouthEast",
+        "type": "()"
+      },
+      {
+        "name": "South",
+        "type": "()"
+      },
+      {
+        "name": "SouthWest",
+        "type": "()"
+      },
+      {
+        "name": "West",
+        "type": "()"
+      }
+    ]
+  },
+  {
     "type": "interface",
-    "name": "paved::mocks::erc20::interface::IERC20",
+    "name": "paved::systems::duel::IDuel",
     "items": [
       {
         "type": "function",
-        "name": "total_supply",
-        "inputs": [],
-        "outputs": [
-          {
-            "type": "core::integer::u256"
-          }
-        ],
-        "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "balance_of",
+        "name": "spawn",
         "inputs": [
           {
-            "name": "account",
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "outputs": [
-          {
-            "type": "core::integer::u256"
-          }
-        ],
-        "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "allowance",
-        "inputs": [
-          {
-            "name": "owner",
-            "type": "core::starknet::contract_address::ContractAddress"
+            "name": "name",
+            "type": "core::felt252"
           },
           {
-            "name": "spender",
-            "type": "core::starknet::contract_address::ContractAddress"
+            "name": "price",
+            "type": "core::felt252"
           }
         ],
         "outputs": [
           {
-            "type": "core::integer::u256"
+            "type": "core::integer::u32"
           }
         ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "rename",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "name",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "update",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "duration",
+            "type": "core::integer::u64"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "join",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "ready",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "status",
+            "type": "core::bool"
+          }
+        ],
+        "outputs": [],
         "state_mutability": "view"
       },
       {
@@ -233,175 +359,134 @@
         "name": "transfer",
         "inputs": [
           {
-            "name": "recipient",
-            "type": "core::starknet::contract_address::ContractAddress"
+            "name": "game_id",
+            "type": "core::integer::u32"
           },
           {
-            "name": "amount",
-            "type": "core::integer::u256"
+            "name": "player_id",
+            "type": "core::starknet::contract_address::ContractAddress"
           }
         ],
-        "outputs": [
-          {
-            "type": "core::bool"
-          }
-        ],
+        "outputs": [],
         "state_mutability": "external"
       },
       {
         "type": "function",
-        "name": "transfer_from",
+        "name": "leave",
         "inputs": [
           {
-            "name": "sender",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "recipient",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "amount",
-            "type": "core::integer::u256"
+            "name": "game_id",
+            "type": "core::integer::u32"
           }
         ],
-        "outputs": [
-          {
-            "type": "core::bool"
-          }
-        ],
+        "outputs": [],
         "state_mutability": "external"
       },
       {
         "type": "function",
-        "name": "approve",
+        "name": "kick",
         "inputs": [
           {
-            "name": "spender",
-            "type": "core::starknet::contract_address::ContractAddress"
+            "name": "game_id",
+            "type": "core::integer::u32"
           },
           {
-            "name": "amount",
-            "type": "core::integer::u256"
+            "name": "player_id",
+            "type": "core::starknet::contract_address::ContractAddress"
           }
         ],
-        "outputs": [
-          {
-            "type": "core::bool"
-          }
-        ],
+        "outputs": [],
         "state_mutability": "external"
-      }
-    ]
-  },
-  {
-    "type": "impl",
-    "name": "ERC20Metadata",
-    "interface_name": "paved::mocks::erc20::interface::IERC20Metadata"
-  },
-  {
-    "type": "interface",
-    "name": "paved::mocks::erc20::interface::IERC20Metadata",
-    "items": [
-      {
-        "type": "function",
-        "name": "symbol",
-        "inputs": [],
-        "outputs": [
-          {
-            "type": "core::felt252"
-          }
-        ],
-        "state_mutability": "view"
       },
       {
         "type": "function",
-        "name": "decimals",
-        "inputs": [],
-        "outputs": [
-          {
-            "type": "core::integer::u8"
-          }
-        ],
-        "state_mutability": "view"
-      }
-    ]
-  },
-  {
-    "type": "impl",
-    "name": "ERC20CamelOnly",
-    "interface_name": "paved::mocks::erc20::interface::IERC20CamelOnly"
-  },
-  {
-    "type": "interface",
-    "name": "paved::mocks::erc20::interface::IERC20CamelOnly",
-    "items": [
-      {
-        "type": "function",
-        "name": "totalSupply",
-        "inputs": [],
-        "outputs": [
-          {
-            "type": "core::integer::u256"
-          }
-        ],
-        "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "balanceOf",
+        "name": "delete",
         "inputs": [
           {
-            "name": "account",
-            "type": "core::starknet::contract_address::ContractAddress"
+            "name": "game_id",
+            "type": "core::integer::u32"
           }
         ],
-        "outputs": [
-          {
-            "type": "core::integer::u256"
-          }
-        ],
+        "outputs": [],
         "state_mutability": "view"
       },
       {
         "type": "function",
-        "name": "transferFrom",
+        "name": "start",
         "inputs": [
           {
-            "name": "sender",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "recipient",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "amount",
-            "type": "core::integer::u256"
+            "name": "game_id",
+            "type": "core::integer::u32"
           }
         ],
-        "outputs": [
-          {
-            "type": "core::bool"
-          }
-        ],
-        "state_mutability": "external"
-      }
-    ]
-  },
-  {
-    "type": "impl",
-    "name": "IDojoInitImpl",
-    "interface_name": "paved::mocks::token::Token::IDojoInit"
-  },
-  {
-    "type": "interface",
-    "name": "paved::mocks::token::Token::IDojoInit",
-    "items": [
+        "outputs": [],
+        "state_mutability": "view"
+      },
       {
         "type": "function",
-        "name": "dojo_init",
-        "inputs": [],
+        "name": "claim",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "discard",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "surrender",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "build",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "orientation",
+            "type": "paved::types::orientation::Orientation"
+          },
+          {
+            "name": "x",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "y",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "role",
+            "type": "paved::types::role::Role"
+          },
+          {
+            "name": "spot",
+            "type": "paved::types::spot::Spot"
+          }
+        ],
         "outputs": [],
         "state_mutability": "view"
       }
@@ -456,51 +541,25 @@
   },
   {
     "type": "event",
-    "name": "paved::mocks::token::Token::Transfer",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "from",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "key"
-      },
-      {
-        "name": "to",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "key"
-      },
-      {
-        "name": "value",
-        "type": "core::integer::u256",
-        "kind": "data"
-      }
-    ]
+    "name": "paved::components::hostable::HostableComponent::Event",
+    "kind": "enum",
+    "variants": []
   },
   {
     "type": "event",
-    "name": "paved::mocks::token::Token::Approval",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "owner",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "key"
-      },
-      {
-        "name": "spender",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "key"
-      },
-      {
-        "name": "value",
-        "type": "core::integer::u256",
-        "kind": "data"
-      }
-    ]
+    "name": "paved::components::payable::PayableComponent::Event",
+    "kind": "enum",
+    "variants": []
   },
   {
     "type": "event",
-    "name": "paved::mocks::token::Token::Event",
+    "name": "paved::components::playable::PlayableComponent::Event",
+    "kind": "enum",
+    "variants": []
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::duel::Duel::Event",
     "kind": "enum",
     "variants": [
       {
@@ -509,14 +568,19 @@
         "kind": "nested"
       },
       {
-        "name": "Transfer",
-        "type": "paved::mocks::token::Token::Transfer",
-        "kind": "nested"
+        "name": "HostableEvent",
+        "type": "paved::components::hostable::HostableComponent::Event",
+        "kind": "flat"
       },
       {
-        "name": "Approval",
-        "type": "paved::mocks::token::Token::Approval",
-        "kind": "nested"
+        "name": "PayableEvent",
+        "type": "paved::components::payable::PayableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "PlayableEvent",
+        "type": "paved::components::playable::PlayableComponent::Event",
+        "kind": "flat"
       }
     ]
   }

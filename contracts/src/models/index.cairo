@@ -4,16 +4,20 @@ struct Game {
     #[key]
     id: u32,
     over: bool,
-    discarded: u8,
-    built: u8,
-    tiles: u128,
+    claimed: bool,
+    mode: u8,
     tile_count: u32,
+    player_count: u8,
+    tournament_id: u64,
     start_time: u64,
     end_time: u64,
-    score: u32,
+    duration: u64,
+    tiles: u128,
+    players: u128,
+    price: felt252,
+    prize: felt252,
+    name: felt252,
     seed: felt252,
-    mode: u8,
-    tournament_id: u64,
 }
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
@@ -22,7 +26,6 @@ struct Player {
     #[key]
     id: felt252,
     name: felt252,
-    master: felt252,
 }
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
@@ -32,8 +35,12 @@ struct Builder {
     game_id: u32,
     #[key]
     player_id: felt252,
-    tile_id: u32,
+    index: u8,
     characters: u8,
+    discarded: u8,
+    built: u8,
+    score: u32,
+    tile_id: u32,
 }
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]

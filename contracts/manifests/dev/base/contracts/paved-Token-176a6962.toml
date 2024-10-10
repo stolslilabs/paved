@@ -1,11 +1,11 @@
 kind = "DojoContract"
-class_hash = "0x2885a4d4d4cfcae4d234b08b3163431cfc516433a3aa47bdf6e22ad719966af"
-original_class_hash = "0x2885a4d4d4cfcae4d234b08b3163431cfc516433a3aa47bdf6e22ad719966af"
+class_hash = "0x309ff4f51592008074e9aab1dcf52dc56fd4e2555e3551a8bff89a9931ec8f"
+original_class_hash = "0x309ff4f51592008074e9aab1dcf52dc56fd4e2555e3551a8bff89a9931ec8f"
 base_class_hash = "0x0"
 abi = "manifests/dev/base/abis/contracts/paved-Token-176a6962.json"
 reads = []
 writes = []
 init_calldata = []
 tag = "paved-Token"
-systems = []
+systems = ["mint"]
 manifest_name = "paved-Token-176a6962"

@@ -1,6 +1,6 @@
 kind = "DojoModel"
-class_hash = "0x6860a4353780e55f1fb943ce4e9228ec9cddfea5d2207da10599dfa8e8d4a16"
-original_class_hash = "0x6860a4353780e55f1fb943ce4e9228ec9cddfea5d2207da10599dfa8e8d4a16"
+class_hash = "0x17b956d534327c638abb6cfd7a7329c189308459a9562edd581c1349e3c4515"
+original_class_hash = "0x17b956d534327c638abb6cfd7a7329c189308459a9562edd581c1349e3c4515"
 abi = "manifests/dev/base/abis/models/paved-Player-6cc2d65b.json"
 tag = "paved-Player"
 qualified_path = "paved::models::index::player"
@@ -13,10 +13,5 @@ key = true
 
 [[members]]
 name = "name"
-type = "felt252"
-key = false
-
-[[members]]
-name = "master"
 type = "felt252"
 key = false
