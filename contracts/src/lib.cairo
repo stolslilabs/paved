@@ -82,6 +82,7 @@ mod systems {
     mod daily;
     mod weekly;
     mod tutorial;
+    mod duel;
 }
 
 mod mocks {

@@ -29,7 +29,6 @@ mod errors {
     const ALREADY_HAS_TILE: felt252 = 'Builder: already has a tile';
     const CANNOT_DISCARD: felt252 = 'Builder: cannot discard';
     const CANNOT_BUILD: felt252 = 'Builder: cannot build';
-    const ALREADY_CLAIMED: felt252 = 'Builder: already claimed';
 }
 
 #[generate_trait]
@@ -38,22 +37,13 @@ impl BuilderImpl of BuilderTrait {
     fn new(game_id: u32, player_id: felt252, index: u8) -> Builder {
         // [Return] Builder
         Builder {
-            game_id,
-            player_id,
-            claimed: false,
-            index,
-            characters: 0,
-            discarded: 0,
-            built: 0,
-            score: 0,
-            tile_id: 0,
+            game_id, player_id, index, characters: 0, discarded: 0, built: 0, score: 0, tile_id: 0,
         }
     }
 
     #[inline]
     fn nullify(ref self: Builder) {
         // [Effect] Nullify builder
-        self.claimed = false;
         self.characters = 0;
         self.discarded = 0;
         self.built = 0;
@@ -132,16 +122,6 @@ impl BuilderImpl of BuilderTrait {
         // [Effect] Update tile status
         tile.leave();
     }
-
-    #[inline(always)]
-    fn claim(ref self: Builder, game_score: u32, game_prize: felt252) -> u256 {
-        // [Check] Not claimed yet
-        self.assert_not_claimed();
-        // [Effect] Set as claimed
-        self.claimed = true;
-        // [Return] Claimable rewards
-        game_prize.into() * self.score.into() / game_score.into()
-    }
 }
 
 #[generate_trait]
@@ -192,11 +172,6 @@ impl BuilderAssert of AssertTrait {
         let placed = Bitmap::get_bit_at(self.characters, index.into());
         assert(placed, errors::CHARACTER_NOT_PLACED);
     }
-
-    #[inline]
-    fn assert_not_claimed(self: Builder) {
-        assert(!self.claimed, errors::ALREADY_CLAIMED);
-    }
 }
 
 impl ZeroableBuilderImpl of core::Zeroable<Builder> {
@@ -205,7 +180,6 @@ impl ZeroableBuilderImpl of core::Zeroable<Builder> {
         Builder {
             game_id: 0,
             player_id: 0,
-            claimed: false,
             index: 0,
             characters: 0,
             discarded: 0,

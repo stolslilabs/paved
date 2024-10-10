@@ -45,6 +45,7 @@ mod errors {
     const GAME_IS_OVER: felt252 = 'Game: is over';
     const GAME_NOT_OVER: felt252 = 'Game: not over';
     const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
+    const ALREADY_CLAIMED: felt252 = 'Builder: already claimed';
 }
 
 #[generate_trait]
@@ -60,6 +61,7 @@ impl GameImpl of GameTrait {
         Game {
             id,
             over: false,
+            claimed: false,
             mode: mode.into(),
             tile_count: 0,
             player_count: 0,
@@ -227,6 +229,16 @@ impl GameImpl of GameTrait {
     }
 
     #[inline]
+    fn claim(ref self: Game) -> u256 {
+        // [Check] Not claimed yet
+        self.assert_not_claimed();
+        // [Effect] Set as claimed
+        self.claimed = true;
+        // [Return] Claimable rewards
+        self.prize.into()
+    }
+
+    #[inline]
     fn add_tile(ref self: Game) -> u32 {
         self.tile_count += 1;
         self.tile_count
@@ -327,6 +339,7 @@ impl ZeroableGame of core::Zeroable<Game> {
         Game {
             id: 0,
             over: false,
+            claimed: false,
             mode: 0,
             tile_count: 0,
             player_count: 0,
@@ -401,6 +414,11 @@ impl GameAssert of AssertTrait {
     fn assert_startable(self: Game) {
         let readiness = Math::pow(2, self.player_count.into()) - 1;
         assert(self.players == readiness, errors::BUILDERS_NOT_READY);
+    }
+
+    #[inline]
+    fn assert_not_claimed(self: Game) {
+        assert(!self.claimed, errors::ALREADY_CLAIMED);
     }
 }
 

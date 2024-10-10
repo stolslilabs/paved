@@ -4,6 +4,7 @@ struct Game {
     #[key]
     id: u32,
     over: bool,
+    claimed: bool,
     mode: u8,
     tile_count: u32,
     player_count: u8,
@@ -34,7 +35,6 @@ struct Builder {
     game_id: u32,
     #[key]
     player_id: felt252,
-    claimed: bool,
     index: u8,
     characters: u8,
     discarded: u8,

@@ -37,6 +37,12 @@ mod HostableComponent {
     use paved::types::plan::Plan;
     use paved::types::deck::Deck;
 
+    // Errors
+
+    mod errors {
+        const INVALID_WINNER: felt252 = 'INVALID_WINNER';
+    }
+
     // Storage
 
     #[storage]
@@ -172,7 +178,7 @@ mod HostableComponent {
 
         fn join(
             ref self: ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32
-        ) -> (felt252, u256) {
+        ) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -201,9 +207,8 @@ mod HostableComponent {
             self.builders.write((game.id, builder.index), builder.player_id);
             store.set_builder(builder);
 
-            // [Interaction] Pay entry price
-            let amount: u256 = game.price().into();
-            (player.id, amount)
+            // [Return] Entry price
+            game.price().into()
         }
 
         fn ready(
@@ -285,7 +290,7 @@ mod HostableComponent {
 
         fn leave(
             ref self: ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32,
-        ) -> (felt252, u256) {
+        ) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -326,9 +331,8 @@ mod HostableComponent {
             game.leave();
             store.set_game(game);
 
-            // [Interaction] Refund entry price
-            let amount: u256 = game.price().into();
-            (player.id, amount)
+            // [Return] Refund Entry price
+            game.price().into()
         }
 
         fn kick(
@@ -336,7 +340,7 @@ mod HostableComponent {
             world: IWorldDispatcher,
             game_id: u32,
             player_id: felt252
-        ) -> (felt252, u256) {
+        ) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -384,14 +388,13 @@ mod HostableComponent {
             game.leave();
             store.set_game(game);
 
-            // [Interaction] Refund entry price
-            let amount: u256 = game.price().into();
-            (player_id, amount)
+            // [Return] Entry price
+            game.price().into()
         }
 
         fn delete(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32,
-        ) -> (felt252, u256) {
+        ) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -426,9 +429,8 @@ mod HostableComponent {
             game.delete();
             store.set_game(game);
 
-            // [Interaction] Refund entry price
-            let amount: u256 = game.price().into();
-            (player.id, amount)
+            // [Return] Entry price
+            game.price().into()
         }
 
         fn start(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32,) {
@@ -464,6 +466,60 @@ mod HostableComponent {
 
             // [Effect] Store tile
             store.set_tile(tile);
+        }
+
+        fn claim(
+            self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32
+        ) -> u256 {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new(world);
+
+            // [Check] Game exists
+            let mut game = store.game(game_id);
+            game.assert_exists();
+
+            // [Check] Player exists
+            let caller = get_caller_address();
+            let player = store.player(caller.into());
+            player.assert_exists();
+
+            // [Check] Builder exists
+            let builder = store.builder(game, player.id);
+            builder.assert_exists();
+
+            // [Check] Game has started
+            game.assert_started();
+
+            // [Check] Game is over
+            let time = get_block_timestamp();
+            game.assert_is_over(time);
+
+            // [Check] Prize not already claimed
+            game.assert_not_claimed();
+
+            // [Check] Top score builder is the player
+            let mut index = game.player_count - 1;
+            let player_id = self.builders.read((game.id, index));
+            let mut top = store.builder(game, player_id);
+            while index > 0 {
+                index -= 1;
+                let player_id = self.builders.read((game.id, index));
+                let current = store.builder(game, player_id);
+                if current.score > top.score {
+                    top = current;
+                    break;
+                }
+            };
+            assert(top.player_id == player.id, errors::INVALID_WINNER);
+
+            // [Effect] Claim the prize
+            let prize = game.claim();
+
+            // [Effect] Update game
+            store.set_game(game);
+
+            // [Return] Prize
+            prize
         }
     }
 }
