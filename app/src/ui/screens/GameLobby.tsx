@@ -17,6 +17,7 @@ import { useDojo } from "@/dojo/useDojo";
 import { ComponentUpdate, ComponentValue, Has, Schema, defineEnterSystem, defineSystem } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 import { useBuilder } from "@/hooks/useBuilder";
+import { OutdatedAlertDialog } from "../components/dom/OutdatedAlertDialog";
 
 const tabs = ["daily", "weekly", "1v1", "tutorial"];
 const disabledTabs = ["1v1"];
@@ -42,6 +43,7 @@ export const GameLobby = () => {
           <GameTable gameMode={gameMode} />
         </GameTablePanel>
         <InfoPanel gameMode={gameMode} />
+        <OutdatedAlertDialog />
       </PanelsContainer>
     </div>
   );
