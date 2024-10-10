@@ -171,7 +171,7 @@ export const TUTORIAL_STAGES = [
     {
       orientation: 1,
       role: 2,
-      spot: 3,
+      spot: 1,
       tile_id: 7,
       x: 2147483648,
       y: 2147483645,
@@ -179,7 +179,7 @@ export const TUTORIAL_STAGES = [
     new Map([
       ["tile-ingame", "Click the highlighted square to place the tile"],
       ["lady-button", "Select the Lady"],
-      ["tile-preview", "Place the Lady on the road north"],
+      ["tile-preview", "Place the Lady on the road in the center"],
       ["confirm-button", "Click the Confirm button to pave the tile"],
     ]),
     "",
