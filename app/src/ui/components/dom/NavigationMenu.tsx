@@ -31,6 +31,7 @@ import {
 import fullscreenOn from "/assets/icons/fullscreen-on.svg";
 import fullscreenOff from "/assets/icons/fullscreen-off.svg";
 import { useFullscreen } from "@/hooks/useFullscreen";
+import { useTutorial } from "@/hooks/useTutorial";
 
 type MenuItem = {
     name: string
@@ -53,11 +54,19 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
     const { setMuted, muted } = useMusicPlayer();
 
     const [compositionOpen, setCompositionOpen] = useState<boolean>(false)
+    const [burgerMenuOpen, setBurgerMenuOpen] = useState<boolean>(false)
     const toggleMusic = () => setMuted(!muted)
 
     const fullscreen = useFullscreen();
 
-    const NavigationMenuItems: Array<MenuItem> = [
+    const { currentTutorialStage, step } = useTutorial();
+
+    const handleOpenMenu = (isOpen: boolean) => {
+        setBurgerMenuOpen(isOpen)
+        setHasOpenMenu(isOpen)
+    }
+
+    const NavigationMenuItems: Array<MenuItem> = useMemo(() => [
         {
             name: "Home",
             icon: homeIcon,
@@ -104,7 +113,14 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
                     ? document.exitFullscreen()
                     : document.body.requestFullscreen(),
         },
-    ];
+    ], [fullscreen, muted, navigate, strategyMode, toggleMusic, toggleStrategyMode]);
+
+    const shouldDisplayNavigationMenuTutorialTooltip = useMemo(() => {
+        if (!currentTutorialStage) return false;
+
+        return !burgerMenuOpen && step === 7
+    }, [burgerMenuOpen, currentTutorialStage, step]);
+
 
     return !compositionOpen ? (
         <div className="col-span-4 sm:col-span-1 sm:row-span-8 flex sm:flex-col justify-between h-full gap-1">
@@ -120,14 +136,14 @@ export const NavigationMenu = ({ setHasOpenMenu }: { setHasOpenMenu: React.Dispa
             </div>
             <Collapsible
                 className="pointer-events-none w-full justify-end"
-                onOpenChange={setHasOpenMenu}
+                onOpenChange={handleOpenMenu}
             >
                 <CollapsibleTrigger asChild className="mb-1 right-4 absolute sm:relative sm:left-0">
-                    <IngameButton id="burger-menu" icon={burgerMenuIcon} />
+                    <IngameButton id="burger-menu" icon={burgerMenuIcon} tutorialCondition={shouldDisplayNavigationMenuTutorialTooltip} side="right" name=" " />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="flex flex-row sm:flex-col gap-1 absolute sm:relative top-4 sm:top-auto">
                     {NavigationMenuItems.map(({ name, icon, onClick, children }) => (
-                        <IngameButton key={name} icon={icon} name={name} onClick={onClick}>
+                        <IngameButton key={name} icon={icon} name={name} onClick={onClick} side="right">
                             {children}
                         </IngameButton>
                     ))}
