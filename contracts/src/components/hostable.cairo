@@ -65,6 +65,7 @@ mod HostableComponent {
             world: IWorldDispatcher,
             mode: Mode,
             name: felt252,
+            duration: u64,
             price: felt252
         ) -> (u32, u256) {
             // [Setup] Datastore
@@ -78,7 +79,7 @@ mod HostableComponent {
             // [Effect] Create game
             let game_id = world.uuid() + 1;
             let time = get_block_timestamp();
-            let mut game = GameTrait::new(game_id, time, mode, name, price);
+            let mut game = GameTrait::new(game_id, time, mode, name, duration, price);
 
             // [Effect] Create and store new builder
             let builder_index = game.join();
@@ -158,8 +159,7 @@ mod HostableComponent {
             builder.assert_host();
 
             // [Effect] Set duration
-            let time = get_block_timestamp();
-            game.update(time, duration);
+            game.update(duration);
 
             // [Effect] Store game
             store.set_game(game);
@@ -182,6 +182,9 @@ mod HostableComponent {
 
             // [Check] Game has not yet started
             game.assert_not_started();
+
+            // [Check] Game is not full
+            game.assert_not_full();
 
             // [Check] Builder not already exists
             let builder = store.builder(game, player.id);

@@ -54,6 +54,7 @@ mod setup {
     const SOMEONE_NAME: felt252 = 'SOMEONE';
     const NOONE_NAME: felt252 = 'NOONE';
     const GAME_NAME: felt252 = 'GAME';
+    const GAME_DURATION: u64 = 100;
     const GAME_PRICE: felt252 = 100;
 
     #[derive(Drop)]
@@ -185,14 +186,13 @@ mod setup {
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
         token.approve(duel_address, Token::FAUCET_AMOUNT);
         systems.account.create(PLAYER_NAME);
-        let duration: u64 = 0;
 
         // [Setup] Game if mode is set
         let game_id = match mode {
             Mode::Daily => systems.daily.spawn(),
             Mode::Weekly => systems.weekly.spawn(),
             Mode::Tutorial => systems.tutorial.spawn(),
-            Mode::Duel => systems.duel.spawn(GAME_NAME, GAME_PRICE),
+            Mode::Duel => systems.duel.spawn(GAME_NAME, GAME_DURATION, GAME_PRICE),
             _ => 0,
         };
 
@@ -208,7 +208,7 @@ mod setup {
             game_id: game_id,
             game_name: GAME_NAME,
             game_price: GAME_PRICE,
-            game_duration: duration,
+            game_duration: GAME_DURATION,
             token,
         };
 

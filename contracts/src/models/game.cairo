@@ -37,6 +37,7 @@ mod errors {
     const INVALID_MODE: felt252 = 'Game: invalid mode';
     const INVALID_PRIZE: felt252 = 'Game: invalid prize';
     const INVALID_PLAYER_COUNT: felt252 = 'Game: invalid player count';
+    const INVALID_GAME_MODE: felt252 = 'Game: invalid game mode';
     const TRANSFER_SAME_HOST: felt252 = 'Game: transfer to same host';
     const GAME_NOT_EXISTS: felt252 = 'Game: does not exist';
     const GAME_ALREADY_STARTED: felt252 = 'Game: already started';
@@ -51,7 +52,7 @@ mod errors {
 #[generate_trait]
 impl GameImpl of GameTrait {
     #[inline]
-    fn new(id: u32, time: u64, mode: Mode, name: felt252, price: felt252) -> Game {
+    fn new(id: u32, time: u64, mode: Mode, name: felt252, duration: u64, price: felt252) -> Game {
         // [Check] Validate parameters
         let mode: Mode = mode.into();
         assert(Mode::None != mode, errors::INVALID_MODE);
@@ -68,7 +69,7 @@ impl GameImpl of GameTrait {
             tournament_id: 0,
             start_time: 0,
             end_time: 0,
-            duration: 0,
+            duration,
             tiles: 0,
             players: 0,
             price,
@@ -137,7 +138,7 @@ impl GameImpl of GameTrait {
     }
 
     #[inline(always)]
-    fn update(ref self: Game, time: u64, duration: u64) {
+    fn update(ref self: Game, duration: u64) {
         // [Effect] Update duration
         self.duration = duration;
         self.reset();
@@ -223,9 +224,9 @@ impl GameImpl of GameTrait {
 
     #[inline]
     fn surrender(ref self: Game) {
-        // [Check] Only available for solo mode
-        // TODO: Check using the mode
-        self.over = true;
+        // [Effect] Set game over if mode is surrenderable
+        let mode: Mode = self.mode.into();
+        self.over = mode.is_surrenderable();
     }
 
     #[inline]
@@ -420,6 +421,24 @@ impl GameAssert of AssertTrait {
     fn assert_not_claimed(self: Game) {
         assert(!self.claimed, errors::ALREADY_CLAIMED);
     }
+
+    #[inline]
+    fn assert_not_full(self: Game) {
+        let mode: Mode = self.mode.into();
+        assert(self.player_count < mode.player_cap(), errors::INVALID_PLAYER_COUNT);
+    }
+
+    #[inline]
+    fn assert_is_full(self: Game) {
+        let mode: Mode = self.mode.into();
+        assert(self.player_count == mode.player_cap(), errors::INVALID_PLAYER_COUNT);
+    }
+
+    #[inline]
+    fn assert_valid_mode(self: Game, mode: Mode) {
+        let game_mode: Mode = self.mode.into();
+        assert(game_mode == mode, errors::INVALID_GAME_MODE);
+    }
 }
 
 
@@ -439,11 +458,12 @@ mod tests {
     const GAME_ID: u32 = 1;
     const NAME: felt252 = 'NAME';
     const MODE: Mode = Mode::Duel;
+    const DURATION: u64 = 100;
     const PRICE: felt252 = 0;
 
     #[test]
     fn test_game_new() {
-        let game = GameImpl::new(GAME_ID, 0, MODE, NAME, PRICE);
+        let game = GameImpl::new(GAME_ID, 0, MODE, NAME, DURATION, PRICE);
         assert(game.id == GAME_ID, 'Game: Invalid id');
         assert(game.tiles == 0, 'Game: Invalid tiles');
         assert(game.tile_count == 0, 'Game: Invalid tile_count');
@@ -452,7 +472,7 @@ mod tests {
 
     #[test]
     fn test_game_add_tile() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME, PRICE);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME, DURATION, PRICE);
         let tile_count = game.tile_count;
         let tile_id = game.add_tile();
         assert(tile_id == GAME_ID, 'Game: Invalid tile_id');
@@ -461,7 +481,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_plan() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME, PRICE);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME, DURATION, PRICE);
         let (tile_count, plan_id) = game.draw_plan();
         let deck: Deck = game.deck();
         assert(tile_count == 1, 'Game: Invalid tile_count');
@@ -472,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_game_draw_planes() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME, PRICE);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, NAME, DURATION, PRICE);
         let mut counts: Felt252Dict<u8> = core::Default::default();
         let deck: Deck = game.deck();
         loop {

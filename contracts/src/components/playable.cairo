@@ -55,7 +55,7 @@ mod PlayableComponent {
             // [Effect] Create game
             let game_id = world.uuid() + 1;
             let time = get_block_timestamp();
-            let mut game = GameTrait::new(game_id, time, mode, mode.into(), 0);
+            let mut game = GameTrait::new(game_id, time, mode, mode.into(), 0, 0);
 
             // [Effect] Start game
             let tile = game.start(time);

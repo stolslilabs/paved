@@ -47,8 +47,8 @@ manifest_name = "paved-Account-32528a5a"
 [[contracts]]
 kind = "DojoContract"
 address = "0xa3fd0009893ef813d823fe1f74aeeba60ca785d3b5ad1fabd68d65b3dc88b1"
-class_hash = "0x2967d666689f013c52e9e9a21d84243eab36c2c7ed03330bf6d776af8f4c326"
-original_class_hash = "0x2967d666689f013c52e9e9a21d84243eab36c2c7ed03330bf6d776af8f4c326"
+class_hash = "0x7c8fa08906a3c828eb9ad157a61c9997757d381b40f201e97b105deff24e84e"
+original_class_hash = "0x7c8fa08906a3c828eb9ad157a61c9997757d381b40f201e97b105deff24e84e"
 base_class_hash = "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2"
 abi = "manifests/dev/deployment/abis/contracts/paved-Daily-190dcfe2.json"
 reads = []
@@ -76,8 +76,8 @@ manifest_name = "paved-Daily-190dcfe2"
 [[contracts]]
 kind = "DojoContract"
 address = "0x438324fd2763b98515e7bf8667adea25c93bbbfd183f70425d19f3736b3bdc6"
-class_hash = "0x527075297dd7eb65e57bc93c495e008c73e72b4b230f5e096fafe34f1390472"
-original_class_hash = "0x527075297dd7eb65e57bc93c495e008c73e72b4b230f5e096fafe34f1390472"
+class_hash = "0x330297e6a9a71cdceca444d471055a74a1990216de3b73bd1e8e0b492060c66"
+original_class_hash = "0x330297e6a9a71cdceca444d471055a74a1990216de3b73bd1e8e0b492060c66"
 base_class_hash = "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2"
 abi = "manifests/dev/deployment/abis/contracts/paved-Duel-723c308b.json"
 reads = []
@@ -105,7 +105,6 @@ systems = [
     "start",
     "claim",
     "discard",
-    "surrender",
     "build",
 ]
 manifest_name = "paved-Duel-723c308b"
@@ -127,8 +126,8 @@ manifest_name = "paved-Token-176a6962"
 [[contracts]]
 kind = "DojoContract"
 address = "0x781505ded88b9464f15bae901be530845b269e5635e6e805daf304272ec25ed"
-class_hash = "0x1e43c58f80c47c78d7a4e4bf79902bca2cb6bf7c0ed4b5ccb245297d8b98186"
-original_class_hash = "0x1e43c58f80c47c78d7a4e4bf79902bca2cb6bf7c0ed4b5ccb245297d8b98186"
+class_hash = "0x281511c2898f8be49cdbcdbfa5c432e4c0031bc352ac675ec481df1af4044e3"
+original_class_hash = "0x281511c2898f8be49cdbcdbfa5c432e4c0031bc352ac675ec481df1af4044e3"
 base_class_hash = "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2"
 abi = "manifests/dev/deployment/abis/contracts/paved-Tutorial-242a6cba.json"
 reads = []
@@ -154,8 +153,8 @@ manifest_name = "paved-Tutorial-242a6cba"
 [[contracts]]
 kind = "DojoContract"
 address = "0x7d4b9a1a5a044e97fbf64b320c21f5d1a56f831c949b7e63faf9a8447505567"
-class_hash = "0x31ce9e6c425b7f345d2ee6c89059ceab8165142b70bc7417596d12f049fa1cd"
-original_class_hash = "0x31ce9e6c425b7f345d2ee6c89059ceab8165142b70bc7417596d12f049fa1cd"
+class_hash = "0x4be15412c057b4ec6d8671deecd30e1c64b1640131182e24898d982459eaae3"
+original_class_hash = "0x4be15412c057b4ec6d8671deecd30e1c64b1640131182e24898d982459eaae3"
 base_class_hash = "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2"
 abi = "manifests/dev/deployment/abis/contracts/paved-Weekly-3f7fa769.json"
 reads = []

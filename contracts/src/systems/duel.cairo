@@ -10,7 +10,7 @@ use paved::types::spot::Spot;
 
 #[starknet::interface]
 trait IDuel<TContractState> {
-    fn spawn(ref self: TContractState, name: felt252, price: felt252) -> u32;
+    fn spawn(ref self: TContractState, name: felt252, duration: u64, price: felt252) -> u32;
     fn rename(self: @TContractState, game_id: u32, name: felt252);
     fn update(self: @TContractState, game_id: u32, duration: u64);
     fn join(ref self: TContractState, game_id: u32);
@@ -22,7 +22,6 @@ trait IDuel<TContractState> {
     fn start(self: @TContractState, game_id: u32,);
     fn claim(self: @TContractState, game_id: u32,);
     fn discard(self: @TContractState, game_id: u32,);
-    fn surrender(self: @TContractState, game_id: u32,);
     fn build(
         self: @TContractState,
         game_id: u32,
@@ -103,9 +102,11 @@ mod Duel {
 
     #[abi(embed_v0)]
     impl DuelImpl of IDuel<ContractState> {
-        fn spawn(ref self: ContractState, name: felt252, price: felt252) -> u32 {
+        fn spawn(ref self: ContractState, name: felt252, duration: u64, price: felt252) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, amount) = self.hostable.spawn(self.world(), Mode::Duel, name, price);
+            let (game_id, amount) = self
+                .hostable
+                .spawn(self.world(), Mode::Duel, name, duration, price);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.pay(caller, amount);
@@ -180,11 +181,6 @@ mod Duel {
         fn discard(self: @ContractState, game_id: u32) {
             // [Effect] Discard tile
             self.playable.discard(self.world(), game_id);
-        }
-
-        fn surrender(self: @ContractState, game_id: u32) {
-            // [Effect] Surrender game
-            self.playable.surrender(self.world(), game_id);
         }
 
         fn build(

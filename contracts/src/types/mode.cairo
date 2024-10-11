@@ -40,6 +40,22 @@ enum Mode {
 #[generate_trait]
 impl ModeImpl of ModeTrait {
     #[inline]
+    fn is_surrenderable(self: Mode) -> bool {
+        self != Mode::Duel
+    }
+
+    #[inline]
+    fn player_cap(self: Mode) -> u8 {
+        match self {
+            Mode::Daily => 1,
+            Mode::Weekly => 1,
+            Mode::Tutorial => 1,
+            Mode::Duel => 2,
+            _ => 0,
+        }
+    }
+
+    #[inline]
     fn price(self: Mode) -> felt252 {
         match self {
             Mode::Daily => constants::DAILY_TOURNAMENT_PRICE,
@@ -55,8 +71,6 @@ impl ModeImpl of ModeTrait {
         match self {
             Mode::Daily => constants::DAILY_TOURNAMENT_DURATION,
             Mode::Weekly => constants::WEEKLY_TOURNAMENT_DURATION,
-            Mode::Tutorial => 1,
-            Mode::Duel => 1,
             _ => 0,
         }
     }

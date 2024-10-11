@@ -297,6 +297,7 @@ export async function setupWorld(provider: DojoProvider) {
     const spawn = async (props: {
       account: Account;
       name: bigint;
+      duration: number;
       price: bigint;
     }) => {
       try {
@@ -315,7 +316,7 @@ export async function setupWorld(provider: DojoProvider) {
             {
               contractName: contract_name,
               entrypoint: "spawn",
-              calldata: [props.name, props.price],
+              calldata: [props.name, props.duration, props.price],
             },
           ],
           "paved",
@@ -551,24 +552,6 @@ export async function setupWorld(provider: DojoProvider) {
       }
     };
 
-    // Call the `surrender` system with the specified Account and calldata
-    const surrender = async (props: { account: Account; game_id: number }) => {
-      try {
-        return await provider.execute(
-          props.account,
-          {
-            contractName: contract_name,
-            entrypoint: "surrender",
-            calldata: [props.game_id],
-          },
-          "paved",
-        );
-      } catch (error) {
-        console.error("Error executing surrender:", error);
-        throw error;
-      }
-    };
-
     // Call the `build` system with the specified Account and calldata
     const build = async (props: {
       account: Account;
@@ -651,7 +634,6 @@ export async function setupWorld(provider: DojoProvider) {
       start,
       claim,
       discard,
-      surrender,
       build,
       name,
       world,
