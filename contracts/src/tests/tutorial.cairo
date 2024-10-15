@@ -4,7 +4,8 @@ use core::debug::PrintTrait;
 
 // Starknet imports
 
-use starknet::testing::{set_contract_address, set_transaction_hash};
+use starknet::get_contract_address;
+use starknet::testing::{set_transaction_hash};
 
 // Dojo imports
 
@@ -49,6 +50,8 @@ fn test_tutorial_build_all() {
 
     // [Assess] Game over and score
     let game = store.game(context.game_id);
-    assert(game.is_over(), 'Tutorial: game over');
-    assert(game.score == 5078, 'Tutorial: game score');
+    assert(game.is_over(0), 'Tutorial: game over');
+    let player_id: felt252 = get_contract_address().into();
+    let builder = store.builder(game, player_id);
+    assert(builder.score == 5079, 'Tutorial: game score');
 }

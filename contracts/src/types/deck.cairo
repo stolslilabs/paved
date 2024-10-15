@@ -10,9 +10,10 @@ use paved::types::plan::Plan;
 use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
-use paved::elements::decks::base::{DeckImpl as Base};
-use paved::elements::decks::simple::{DeckImpl as Simple};
-use paved::elements::decks::tutorial::{DeckImpl as Tutorial};
+use paved::elements::decks::base::Base;
+use paved::elements::decks::simple::Simple;
+use paved::elements::decks::tutorial::Tutorial;
+// use paved::elements::decks::enhanced::Enhanced;
 use paved::helpers::bitmap::Bitmap;
 
 // Constants
@@ -26,6 +27,7 @@ enum Deck {
     Base,
     Simple,
     Tutorial,
+    // Enhanced,
 }
 
 impl IntoDeckFelt252 of core::Into<Deck, felt252> {
@@ -36,6 +38,7 @@ impl IntoDeckFelt252 of core::Into<Deck, felt252> {
             Deck::Base => 'BASE',
             Deck::Simple => 'SIMPLE',
             Deck::Tutorial => 'TUTORIAL',
+            // Deck::Enhanced => 'ENHANCED',
         }
     }
 }
@@ -48,6 +51,7 @@ impl IntoDeckU8 of core::Into<Deck, u8> {
             Deck::Base => 1,
             Deck::Simple => 2,
             Deck::Tutorial => 3,
+            // Deck::Enhanced => 4,
         }
     }
 }
@@ -61,6 +65,7 @@ impl IntoDeck of core::Into<u8, Deck> {
             1 => Deck::Base,
             2 => Deck::Simple,
             3 => Deck::Tutorial,
+            // 4 => Deck::Enhanced,
             _ => Deck::None,
         }
     }
@@ -83,6 +88,7 @@ impl DeckImpl of DeckTrait {
             Deck::Base => Base::total_count(),
             Deck::Simple => Simple::total_count(),
             Deck::Tutorial => Tutorial::total_count(),
+            // Deck::Enhanced => Enhanced::total_count(),
         }
     }
 
@@ -93,6 +99,7 @@ impl DeckImpl of DeckTrait {
             Deck::Base => Base::count(),
             Deck::Simple => Simple::count(),
             Deck::Tutorial => Tutorial::count(),
+            // Deck::Enhanced => Enhanced::count(),
         }
     }
 
@@ -103,6 +110,7 @@ impl DeckImpl of DeckTrait {
             Deck::Base => Base::plan(index),
             Deck::Simple => Simple::plan(index),
             Deck::Tutorial => Tutorial::plan(index),
+            // Deck::Enhanced => Enhanced::plan(index),
         }
     }
 
@@ -113,6 +121,7 @@ impl DeckImpl of DeckTrait {
             Deck::Base => Base::indexes(plan),
             Deck::Simple => Simple::indexes(plan),
             Deck::Tutorial => Tutorial::indexes(plan),
+            // Deck::Enhanced => Enhanced::indexes(plan),
         }
     }
 
@@ -123,9 +132,11 @@ impl DeckImpl of DeckTrait {
             Deck::Base => Base::parameters(index),
             Deck::Simple => Simple::parameters(index),
             Deck::Tutorial => Tutorial::parameters(index),
+            // Deck::Enhanced => Enhanced::parameters(index),
         }
     }
 
+    #[inline]
     fn tiles(self: Deck, mut tiles: u128, seed: felt252) -> u128 {
         match self {
             Deck::Simple => {

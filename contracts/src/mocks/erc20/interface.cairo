@@ -17,7 +17,6 @@ trait IERC20<TState> {
 
 #[starknet::interface]
 trait IERC20Metadata<TState> {
-    fn name(self: @TState) -> felt252;
     fn symbol(self: @TState) -> felt252;
     fn decimals(self: @TState) -> u8;
 }

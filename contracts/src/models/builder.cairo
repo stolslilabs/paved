@@ -24,30 +24,31 @@ mod errors {
     const BUILDER_ALREADY_EXIST: felt252 = 'Builder: already exist';
     const BUILDER_NOT_HOST: felt252 = 'Builder: is not host';
     const BUILDER_IS_HOST: felt252 = 'Builder: is host';
-    const INVALID_ORDER: felt252 = 'Builder: invalid order';
     const ALREADY_PLACED: felt252 = 'Builder: already placed';
     const CHARACTER_NOT_PLACED: felt252 = 'Builder: character not placed';
     const ALREADY_HAS_TILE: felt252 = 'Builder: already has a tile';
     const CANNOT_DISCARD: felt252 = 'Builder: cannot discard';
     const CANNOT_BUILD: felt252 = 'Builder: cannot build';
-    const NOTHING_TO_CLAIM: felt252 = 'Builder: nothing to claim';
-    const ALREADY_CLAIMED: felt252 = 'Builder: already claimed';
-    const CAST_U256_FELT: felt252 = 'Builder: cast u256 to felt';
 }
 
 #[generate_trait]
 impl BuilderImpl of BuilderTrait {
     #[inline]
-    fn new(game_id: u32, player_id: felt252) -> Builder {
+    fn new(game_id: u32, player_id: felt252, index: u8) -> Builder {
         // [Return] Builder
-        Builder { game_id, player_id, tile_id: 0, characters: 0, }
+        Builder {
+            game_id, player_id, index, characters: 0, discarded: 0, built: 0, score: 1, tile_id: 0,
+        }
     }
 
     #[inline]
     fn nullify(ref self: Builder) {
         // [Effect] Nullify builder
-        self.tile_id = 0;
         self.characters = 0;
+        self.discarded = 0;
+        self.built = 0;
+        self.score = 0;
+        self.tile_id = 0;
     }
 
     #[inline]
@@ -61,12 +62,14 @@ impl BuilderImpl of BuilderTrait {
     }
 
     #[inline]
-    fn discard(ref self: Builder, ref game: Game) {
+    fn discard(ref self: Builder) {
         // [Check] Have a tile to place
         self.assert_discardable();
         // [Effect] Substract penalty
-        let mut malus = constants::DISCARD_POINTS;
-        game.sub_score(ref malus,);
+        let malus = constants::DISCARD_POINTS;
+        self.score -= core::cmp::min(self.score, malus);
+        // [Effect] Increment discarded count
+        self.discarded += 1;
         // [Effect] Remove tile from tile count
         self.tile_id = 0;
     }
@@ -133,6 +136,16 @@ impl BuilderAssert of AssertTrait {
         assert(self.is_zero(), errors::BUILDER_ALREADY_EXIST);
     }
 
+    #[inline(always)]
+    fn assert_host(self: Builder) {
+        assert(self.index == 0, errors::BUILDER_NOT_HOST);
+    }
+
+    #[inline(always)]
+    fn assert_not_host(self: Builder) {
+        assert(self.index != 0, errors::BUILDER_IS_HOST);
+    }
+
     #[inline]
     fn assert_revealable(self: Builder) {
         assert(0 == self.tile_id.into(), errors::ALREADY_HAS_TILE);
@@ -164,12 +177,21 @@ impl BuilderAssert of AssertTrait {
 impl ZeroableBuilderImpl of core::Zeroable<Builder> {
     #[inline]
     fn zero() -> Builder {
-        Builder { game_id: 0, player_id: 0, tile_id: 0, characters: 0, }
+        Builder {
+            game_id: 0,
+            player_id: 0,
+            index: 0,
+            characters: 0,
+            discarded: 0,
+            built: 0,
+            score: 0,
+            tile_id: 0,
+        }
     }
 
     #[inline]
     fn is_zero(self: Builder) -> bool {
-        0 == self.tile_id.into()
+        0 == self.score.into()
     }
 
     #[inline]

@@ -151,11 +151,6 @@ mod ERC20Component {
     impl ERC20Metadata<
         TContractState, +HasComponent<TContractState>
     > of interface::IERC20Metadata<ComponentState<TContractState>> {
-        /// Returns the name of the token.
-        fn name(self: @ComponentState<TContractState>) -> felt252 {
-            'Lords'
-        }
-
         /// Returns the ticker symbol of the token, usually a shorter version of the name.
         fn symbol(self: @ComponentState<TContractState>) -> felt252 {
             'LORDS'

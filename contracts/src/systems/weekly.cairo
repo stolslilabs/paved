@@ -1,11 +1,3 @@
-// Starknet imports
-
-use starknet::ContractAddress;
-
-// Dojo imports
-
-use dojo::world::IWorldDispatcher;
-
 // Internal imports
 
 use paved::types::orientation::Orientation;
@@ -39,8 +31,6 @@ mod Weekly {
 
     // Component imports
 
-    use paved::components::emitter::EmitterComponent;
-    use paved::components::hostable::HostableComponent;
     use paved::components::payable::PayableComponent;
     use paved::components::playable::PlayableComponent;
 
@@ -57,10 +47,6 @@ mod Weekly {
 
     // Components
 
-    component!(path: EmitterComponent, storage: emitter, event: EmitterEvent);
-    impl EmitterImpl = EmitterComponent::EmitterImpl<ContractState>;
-    component!(path: HostableComponent, storage: hostable, event: HostableEvent);
-    impl HostableInternalImpl = HostableComponent::InternalImpl<ContractState>;
     component!(path: PayableComponent, storage: payable, event: PayableEvent);
     impl PayableInternalImpl = PayableComponent::InternalImpl<ContractState>;
     component!(path: PlayableComponent, storage: playable, event: PlayableEvent);
@@ -70,10 +56,6 @@ mod Weekly {
 
     #[storage]
     struct Storage {
-        #[substorage(v0)]
-        emitter: EmitterComponent::Storage,
-        #[substorage(v0)]
-        hostable: HostableComponent::Storage,
         #[substorage(v0)]
         payable: PayableComponent::Storage,
         #[substorage(v0)]
@@ -85,10 +67,6 @@ mod Weekly {
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
-        #[flat]
-        EmitterEvent: EmitterComponent::Event,
-        #[flat]
-        HostableEvent: HostableComponent::Event,
         #[flat]
         PayableEvent: PayableComponent::Event,
         #[flat]
@@ -108,7 +86,7 @@ mod Weekly {
     impl WeeklyImpl of IWeekly<ContractState> {
         fn spawn(self: @ContractState) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, amount) = self.hostable.spawn(self.world(), Mode::Weekly);
+            let (game_id, amount) = self.playable.spawn(self.world(), Mode::Weekly);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.pay(caller, amount);
@@ -118,7 +96,7 @@ mod Weekly {
 
         fn claim(self: @ContractState, tournament_id: u64, rank: u8) {
             // [Effect] Create game
-            let reward = self.hostable.claim(self.world(), tournament_id, rank, Mode::Weekly);
+            let reward = self.playable.claim(self.world(), tournament_id, rank, Mode::Weekly);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.refund(caller, reward);
@@ -126,7 +104,7 @@ mod Weekly {
 
         fn sponsor(self: @ContractState, amount: felt252) {
             // [Effect] Create game
-            let amount = self.hostable.sponsor(self.world(), amount, Mode::Weekly);
+            let amount = self.playable.sponsor(self.world(), amount, Mode::Weekly);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.pay(caller, amount);

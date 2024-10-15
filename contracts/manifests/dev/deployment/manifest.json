@@ -1,8 +1,8 @@
 {
   "world": {
     "kind": "WorldContract",
-    "class_hash": "0x6f4515274ee23404789c3351a77107d0ec07508530119822046600ca6948d6e",
-    "original_class_hash": "0x6f4515274ee23404789c3351a77107d0ec07508530119822046600ca6948d6e",
+    "class_hash": "0x6f38d5d9507c5d9546290e1a27e309efe5a9af3770b6cc1627db4a1b90a7dce",
+    "original_class_hash": "0x6f38d5d9507c5d9546290e1a27e309efe5a9af3770b6cc1627db4a1b90a7dce",
     "abi": [
       {
         "type": "impl",
@@ -1234,8 +1234,8 @@
         ]
       }
     ],
-    "address": "0xd18bd22e51077ed30e9bb82afa28b13bdf0d8fc62baffca54c2b0dcfcad007",
-    "transaction_hash": "0x20e9a63297796c1de1ada3bbde0041167682362033893338288f546dca41e51",
+    "address": "0xc43c124deaa35d813e0eaff065182f30b2a40a9a6102c7894ee9e95ee86321",
+    "transaction_hash": "0x6d3d44bb97a18aba9a2b5dd4f66a7ca14be5aad7b4483262ece9aafab8ddabf",
     "block_number": 3,
     "seed": "paved",
     "metadata": {
@@ -1255,9 +1255,9 @@
   "contracts": [
     {
       "kind": "DojoContract",
-      "address": "0x56686268436caeaa3ff47c92da3f369670ae8d6d8ace695fe5e77c12ee1a8a3",
-      "class_hash": "0x6c07d56a81b940ef6333b0fb1bc423e626c8da8e9d9431a56b54b842e8a3357",
-      "original_class_hash": "0x6c07d56a81b940ef6333b0fb1bc423e626c8da8e9d9431a56b54b842e8a3357",
+      "address": "0x6c3e98d5e018ebb0f1a1c9d98940e1953302aacad01b918dcfa351f560f0b04",
+      "class_hash": "0x18c64172c0b3df5c28c0ca78df3bbe8031de1ee014a7b752818c1675586fe5c",
+      "original_class_hash": "0x18c64172c0b3df5c28c0ca78df3bbe8031de1ee014a7b752818c1675586fe5c",
       "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
       "abi": [
         {
@@ -1289,7 +1289,7 @@
           "items": [
             {
               "type": "function",
-              "name": "contract_name",
+              "name": "name",
               "inputs": [],
               "outputs": [
                 {
@@ -1403,10 +1403,6 @@
                 {
                   "name": "name",
                   "type": "core::felt252"
-                },
-                {
-                  "name": "master",
-                  "type": "core::starknet::contract_address::ContractAddress"
                 }
               ],
               "outputs": [],
@@ -1481,322 +1477,6 @@
         },
         {
           "type": "event",
-          "name": "paved::events::Built",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "x",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "y",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::Discarded",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::GameOver",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tournament_id",
-              "type": "core::integer::u64",
-              "kind": "key"
-            },
-            {
-              "name": "game_mode",
-              "type": "core::integer::u8",
-              "kind": "data"
-            },
-            {
-              "name": "game_score",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "game_start_time",
-              "type": "core::integer::u64",
-              "kind": "data"
-            },
-            {
-              "name": "game_end_time",
-              "type": "core::integer::u64",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredCity",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredRoad",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredForest",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "cities",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "roads",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredWonder",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::components::emitter::EmitterComponent::Event",
-          "kind": "enum",
-          "variants": [
-            {
-              "name": "Built",
-              "type": "paved::events::Built",
-              "kind": "nested"
-            },
-            {
-              "name": "Discarded",
-              "type": "paved::events::Discarded",
-              "kind": "nested"
-            },
-            {
-              "name": "GameOver",
-              "type": "paved::events::GameOver",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredCity",
-              "type": "paved::events::ScoredCity",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredRoad",
-              "type": "paved::events::ScoredRoad",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredForest",
-              "type": "paved::events::ScoredForest",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredWonder",
-              "type": "paved::events::ScoredWonder",
-              "kind": "nested"
-            }
-          ]
-        },
-        {
-          "type": "event",
           "name": "paved::components::manageable::ManageableComponent::Event",
           "kind": "enum",
           "variants": []
@@ -1810,11 +1490,6 @@
               "name": "UpgradeableEvent",
               "type": "dojo::contract::upgradeable::upgradeable::Event",
               "kind": "nested"
-            },
-            {
-              "name": "EmitterEvent",
-              "type": "paved::components::emitter::EmitterComponent::Event",
-              "kind": "flat"
             },
             {
               "name": "ManageableEvent",
@@ -1844,9 +1519,9 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x30d8f5ec6cc752132f19777ad1b3c59f1e56f00f51602b8e29a41b6a17c8bd8",
-      "class_hash": "0x4eb3cbe87d52ac59a0c89a2565530f4f615d5fde2ed8ee60c326dc0ed667d0",
-      "original_class_hash": "0x4eb3cbe87d52ac59a0c89a2565530f4f615d5fde2ed8ee60c326dc0ed667d0",
+      "address": "0xa3fd0009893ef813d823fe1f74aeeba60ca785d3b5ad1fabd68d65b3dc88b1",
+      "class_hash": "0x7c8fa08906a3c828eb9ad157a61c9997757d381b40f201e97b105deff24e84e",
+      "original_class_hash": "0x7c8fa08906a3c828eb9ad157a61c9997757d381b40f201e97b105deff24e84e",
       "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
       "abi": [
         {
@@ -1878,7 +1553,7 @@
           "items": [
             {
               "type": "function",
-              "name": "contract_name",
+              "name": "name",
               "inputs": [],
               "outputs": [
                 {
@@ -2256,328 +1931,6 @@
         },
         {
           "type": "event",
-          "name": "paved::events::Built",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "x",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "y",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::Discarded",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::GameOver",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tournament_id",
-              "type": "core::integer::u64",
-              "kind": "key"
-            },
-            {
-              "name": "game_mode",
-              "type": "core::integer::u8",
-              "kind": "data"
-            },
-            {
-              "name": "game_score",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "game_start_time",
-              "type": "core::integer::u64",
-              "kind": "data"
-            },
-            {
-              "name": "game_end_time",
-              "type": "core::integer::u64",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredCity",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredRoad",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredForest",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "cities",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "roads",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredWonder",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::components::emitter::EmitterComponent::Event",
-          "kind": "enum",
-          "variants": [
-            {
-              "name": "Built",
-              "type": "paved::events::Built",
-              "kind": "nested"
-            },
-            {
-              "name": "Discarded",
-              "type": "paved::events::Discarded",
-              "kind": "nested"
-            },
-            {
-              "name": "GameOver",
-              "type": "paved::events::GameOver",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredCity",
-              "type": "paved::events::ScoredCity",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredRoad",
-              "type": "paved::events::ScoredRoad",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredForest",
-              "type": "paved::events::ScoredForest",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredWonder",
-              "type": "paved::events::ScoredWonder",
-              "kind": "nested"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::components::hostable::HostableComponent::Event",
-          "kind": "enum",
-          "variants": []
-        },
-        {
-          "type": "event",
           "name": "paved::components::payable::PayableComponent::Event",
           "kind": "enum",
           "variants": []
@@ -2597,16 +1950,6 @@
               "name": "UpgradeableEvent",
               "type": "dojo::contract::upgradeable::upgradeable::Event",
               "kind": "nested"
-            },
-            {
-              "name": "EmitterEvent",
-              "type": "paved::components::emitter::EmitterComponent::Event",
-              "kind": "flat"
-            },
-            {
-              "name": "HostableEvent",
-              "type": "paved::components::hostable::HostableComponent::Event",
-              "kind": "flat"
             },
             {
               "name": "PayableEvent",
@@ -2647,9 +1990,9 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x79c5351af449755935fc0c08079ac1b2149522a0bc41988e2fddadca5bcc71c",
-      "class_hash": "0x2885a4d4d4cfcae4d234b08b3163431cfc516433a3aa47bdf6e22ad719966af",
-      "original_class_hash": "0x2885a4d4d4cfcae4d234b08b3163431cfc516433a3aa47bdf6e22ad719966af",
+      "address": "0x438324fd2763b98515e7bf8667adea25c93bbbfd183f70425d19f3736b3bdc6",
+      "class_hash": "0x330297e6a9a71cdceca444d471055a74a1990216de3b73bd1e8e0b492060c66",
+      "original_class_hash": "0x330297e6a9a71cdceca444d471055a74a1990216de3b73bd1e8e0b492060c66",
       "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
       "abi": [
         {
@@ -2681,7 +2024,7 @@
           "items": [
             {
               "type": "function",
-              "name": "contract_name",
+              "name": "name",
               "inputs": [],
               "outputs": [
                 {
@@ -2782,16 +2125,356 @@
         {
           "type": "impl",
           "name": "IDojoInitImpl",
-          "interface_name": "paved::mocks::token::Token::IDojoInit"
+          "interface_name": "paved::systems::duel::Duel::IDojoInit"
         },
         {
           "type": "interface",
-          "name": "paved::mocks::token::Token::IDojoInit",
+          "name": "paved::systems::duel::Duel::IDojoInit",
           "items": [
             {
               "type": "function",
               "name": "dojo_init",
-              "inputs": [],
+              "inputs": [
+                {
+                  "name": "token_address",
+                  "type": "core::starknet::contract_address::ContractAddress"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "DuelImpl",
+          "interface_name": "paved::systems::duel::IDuel"
+        },
+        {
+          "type": "enum",
+          "name": "core::bool",
+          "variants": [
+            {
+              "name": "False",
+              "type": "()"
+            },
+            {
+              "name": "True",
+              "type": "()"
+            }
+          ]
+        },
+        {
+          "type": "enum",
+          "name": "paved::types::orientation::Orientation",
+          "variants": [
+            {
+              "name": "None",
+              "type": "()"
+            },
+            {
+              "name": "North",
+              "type": "()"
+            },
+            {
+              "name": "East",
+              "type": "()"
+            },
+            {
+              "name": "South",
+              "type": "()"
+            },
+            {
+              "name": "West",
+              "type": "()"
+            }
+          ]
+        },
+        {
+          "type": "enum",
+          "name": "paved::types::role::Role",
+          "variants": [
+            {
+              "name": "None",
+              "type": "()"
+            },
+            {
+              "name": "Lord",
+              "type": "()"
+            },
+            {
+              "name": "Lady",
+              "type": "()"
+            },
+            {
+              "name": "Adventurer",
+              "type": "()"
+            },
+            {
+              "name": "Paladin",
+              "type": "()"
+            },
+            {
+              "name": "Pilgrim",
+              "type": "()"
+            }
+          ]
+        },
+        {
+          "type": "enum",
+          "name": "paved::types::spot::Spot",
+          "variants": [
+            {
+              "name": "None",
+              "type": "()"
+            },
+            {
+              "name": "Center",
+              "type": "()"
+            },
+            {
+              "name": "NorthWest",
+              "type": "()"
+            },
+            {
+              "name": "North",
+              "type": "()"
+            },
+            {
+              "name": "NorthEast",
+              "type": "()"
+            },
+            {
+              "name": "East",
+              "type": "()"
+            },
+            {
+              "name": "SouthEast",
+              "type": "()"
+            },
+            {
+              "name": "South",
+              "type": "()"
+            },
+            {
+              "name": "SouthWest",
+              "type": "()"
+            },
+            {
+              "name": "West",
+              "type": "()"
+            }
+          ]
+        },
+        {
+          "type": "interface",
+          "name": "paved::systems::duel::IDuel",
+          "items": [
+            {
+              "type": "function",
+              "name": "spawn",
+              "inputs": [
+                {
+                  "name": "name",
+                  "type": "core::felt252"
+                },
+                {
+                  "name": "duration",
+                  "type": "core::integer::u64"
+                },
+                {
+                  "name": "price",
+                  "type": "core::felt252"
+                }
+              ],
+              "outputs": [
+                {
+                  "type": "core::integer::u32"
+                }
+              ],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
+              "name": "rename",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "name",
+                  "type": "core::felt252"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "update",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "duration",
+                  "type": "core::integer::u64"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "join",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
+              "name": "ready",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "status",
+                  "type": "core::bool"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "transfer",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "player_id",
+                  "type": "core::starknet::contract_address::ContractAddress"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
+              "name": "leave",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
+              "name": "kick",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "player_id",
+                  "type": "core::starknet::contract_address::ContractAddress"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            },
+            {
+              "type": "function",
+              "name": "delete",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "start",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "claim",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "discard",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "build",
+              "inputs": [
+                {
+                  "name": "game_id",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "orientation",
+                  "type": "paved::types::orientation::Orientation"
+                },
+                {
+                  "name": "x",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "y",
+                  "type": "core::integer::u32"
+                },
+                {
+                  "name": "role",
+                  "type": "paved::types::role::Role"
+                },
+                {
+                  "name": "spot",
+                  "type": "paved::types::spot::Spot"
+                }
+              ],
               "outputs": [],
               "state_mutability": "view"
             }
@@ -2821,8 +2504,261 @@
           ]
         },
         {
+          "type": "event",
+          "name": "dojo::contract::upgradeable::upgradeable::Upgraded",
+          "kind": "struct",
+          "members": [
+            {
+              "name": "class_hash",
+              "type": "core::starknet::class_hash::ClassHash",
+              "kind": "data"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "dojo::contract::upgradeable::upgradeable::Event",
+          "kind": "enum",
+          "variants": [
+            {
+              "name": "Upgraded",
+              "type": "dojo::contract::upgradeable::upgradeable::Upgraded",
+              "kind": "nested"
+            }
+          ]
+        },
+        {
+          "type": "event",
+          "name": "paved::components::hostable::HostableComponent::Event",
+          "kind": "enum",
+          "variants": []
+        },
+        {
+          "type": "event",
+          "name": "paved::components::payable::PayableComponent::Event",
+          "kind": "enum",
+          "variants": []
+        },
+        {
+          "type": "event",
+          "name": "paved::components::playable::PlayableComponent::Event",
+          "kind": "enum",
+          "variants": []
+        },
+        {
+          "type": "event",
+          "name": "paved::systems::duel::Duel::Event",
+          "kind": "enum",
+          "variants": [
+            {
+              "name": "UpgradeableEvent",
+              "type": "dojo::contract::upgradeable::upgradeable::Event",
+              "kind": "nested"
+            },
+            {
+              "name": "HostableEvent",
+              "type": "paved::components::hostable::HostableComponent::Event",
+              "kind": "flat"
+            },
+            {
+              "name": "PayableEvent",
+              "type": "paved::components::payable::PayableComponent::Event",
+              "kind": "flat"
+            },
+            {
+              "name": "PlayableEvent",
+              "type": "paved::components::playable::PlayableComponent::Event",
+              "kind": "flat"
+            }
+          ]
+        }
+      ],
+      "reads": [],
+      "writes": [
+        "paved-Player",
+        "paved-Game",
+        "paved-Builder",
+        "paved-Char",
+        "paved-CharPosition",
+        "paved-Tile",
+        "paved-TilePosition",
+        "paved-Tournament"
+      ],
+      "init_calldata": [
+        "$contract_address:paved-Token"
+      ],
+      "tag": "paved-Duel",
+      "systems": [
+        "rename",
+        "update",
+        "join",
+        "ready",
+        "transfer",
+        "leave",
+        "kick",
+        "delete",
+        "start",
+        "claim",
+        "discard",
+        "build"
+      ],
+      "manifest_name": "paved-Duel-723c308b"
+    },
+    {
+      "kind": "DojoContract",
+      "address": "0x31e704ae0558cd3e91d71eebaeb470acb47a6eebc91c2b50347a8dd23f8b6ee",
+      "class_hash": "0x309ff4f51592008074e9aab1dcf52dc56fd4e2555e3551a8bff89a9931ec8f",
+      "original_class_hash": "0x309ff4f51592008074e9aab1dcf52dc56fd4e2555e3551a8bff89a9931ec8f",
+      "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
+      "abi": [
+        {
           "type": "impl",
-          "name": "ERC20Impl",
+          "name": "ContractImpl",
+          "interface_name": "dojo::contract::contract::IContract"
+        },
+        {
+          "type": "struct",
+          "name": "core::byte_array::ByteArray",
+          "members": [
+            {
+              "name": "data",
+              "type": "core::array::Array::<core::bytes_31::bytes31>"
+            },
+            {
+              "name": "pending_word",
+              "type": "core::felt252"
+            },
+            {
+              "name": "pending_word_len",
+              "type": "core::integer::u32"
+            }
+          ]
+        },
+        {
+          "type": "interface",
+          "name": "dojo::contract::contract::IContract",
+          "items": [
+            {
+              "type": "function",
+              "name": "name",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::byte_array::ByteArray"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "namespace",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::byte_array::ByteArray"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "tag",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::byte_array::ByteArray"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "name_hash",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::felt252"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "namespace_hash",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::felt252"
+                }
+              ],
+              "state_mutability": "view"
+            },
+            {
+              "type": "function",
+              "name": "selector",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "core::felt252"
+                }
+              ],
+              "state_mutability": "view"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "WorldProviderImpl",
+          "interface_name": "dojo::world::world_contract::IWorldProvider"
+        },
+        {
+          "type": "struct",
+          "name": "dojo::world::world_contract::IWorldDispatcher",
+          "members": [
+            {
+              "name": "contract_address",
+              "type": "core::starknet::contract_address::ContractAddress"
+            }
+          ]
+        },
+        {
+          "type": "interface",
+          "name": "dojo::world::world_contract::IWorldProvider",
+          "items": [
+            {
+              "type": "function",
+              "name": "world",
+              "inputs": [],
+              "outputs": [
+                {
+                  "type": "dojo::world::world_contract::IWorldDispatcher"
+                }
+              ],
+              "state_mutability": "view"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "Faucet",
+          "interface_name": "paved::mocks::token::IERC20Faucet"
+        },
+        {
+          "type": "interface",
+          "name": "paved::mocks::token::IERC20Faucet",
+          "items": [
+            {
+              "type": "function",
+              "name": "mint",
+              "inputs": [],
+              "outputs": [],
+              "state_mutability": "external"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "ERC20",
           "interface_name": "paved::mocks::erc20::interface::IERC20"
         },
         {
@@ -2972,24 +2908,13 @@
         },
         {
           "type": "impl",
-          "name": "ERC20MetadataImpl",
+          "name": "ERC20Metadata",
           "interface_name": "paved::mocks::erc20::interface::IERC20Metadata"
         },
         {
           "type": "interface",
           "name": "paved::mocks::erc20::interface::IERC20Metadata",
           "items": [
-            {
-              "type": "function",
-              "name": "name",
-              "inputs": [],
-              "outputs": [
-                {
-                  "type": "core::felt252"
-                }
-              ],
-              "state_mutability": "view"
-            },
             {
               "type": "function",
               "name": "symbol",
@@ -3016,7 +2941,7 @@
         },
         {
           "type": "impl",
-          "name": "ERC20CamelOnlyImpl",
+          "name": "ERC20CamelOnly",
           "interface_name": "paved::mocks::erc20::interface::IERC20CamelOnly"
         },
         {
@@ -3077,16 +3002,45 @@
           ]
         },
         {
-          "type": "constructor",
-          "name": "constructor",
-          "inputs": []
+          "type": "impl",
+          "name": "IDojoInitImpl",
+          "interface_name": "paved::mocks::token::Token::IDojoInit"
         },
         {
-          "type": "function",
-          "name": "mint",
-          "inputs": [],
-          "outputs": [],
-          "state_mutability": "external"
+          "type": "interface",
+          "name": "paved::mocks::token::Token::IDojoInit",
+          "items": [
+            {
+              "type": "function",
+              "name": "dojo_init",
+              "inputs": [],
+              "outputs": [],
+              "state_mutability": "view"
+            }
+          ]
+        },
+        {
+          "type": "impl",
+          "name": "UpgradableImpl",
+          "interface_name": "dojo::contract::upgradeable::IUpgradeable"
+        },
+        {
+          "type": "interface",
+          "name": "dojo::contract::upgradeable::IUpgradeable",
+          "items": [
+            {
+              "type": "function",
+              "name": "upgrade",
+              "inputs": [
+                {
+                  "name": "new_class_hash",
+                  "type": "core::starknet::class_hash::ClassHash"
+                }
+              ],
+              "outputs": [],
+              "state_mutability": "external"
+            }
+          ]
         },
         {
           "type": "event",
@@ -3114,7 +3068,7 @@
         },
         {
           "type": "event",
-          "name": "paved::mocks::erc20::erc20::ERC20Component::Transfer",
+          "name": "paved::mocks::token::Token::Transfer",
           "kind": "struct",
           "members": [
             {
@@ -3136,7 +3090,7 @@
         },
         {
           "type": "event",
-          "name": "paved::mocks::erc20::erc20::ERC20Component::Approval",
+          "name": "paved::mocks::token::Token::Approval",
           "kind": "struct",
           "members": [
             {
@@ -3158,23 +3112,6 @@
         },
         {
           "type": "event",
-          "name": "paved::mocks::erc20::erc20::ERC20Component::Event",
-          "kind": "enum",
-          "variants": [
-            {
-              "name": "Transfer",
-              "type": "paved::mocks::erc20::erc20::ERC20Component::Transfer",
-              "kind": "nested"
-            },
-            {
-              "name": "Approval",
-              "type": "paved::mocks::erc20::erc20::ERC20Component::Approval",
-              "kind": "nested"
-            }
-          ]
-        },
-        {
-          "type": "event",
           "name": "paved::mocks::token::Token::Event",
           "kind": "enum",
           "variants": [
@@ -3184,9 +3121,14 @@
               "kind": "nested"
             },
             {
-              "name": "ERC20Event",
-              "type": "paved::mocks::erc20::erc20::ERC20Component::Event",
-              "kind": "flat"
+              "name": "Transfer",
+              "type": "paved::mocks::token::Token::Transfer",
+              "kind": "nested"
+            },
+            {
+              "name": "Approval",
+              "type": "paved::mocks::token::Token::Approval",
+              "kind": "nested"
             }
           ]
         }
@@ -3195,14 +3137,16 @@
       "writes": [],
       "init_calldata": [],
       "tag": "paved-Token",
-      "systems": [],
+      "systems": [
+        "mint"
+      ],
       "manifest_name": "paved-Token-176a6962"
     },
     {
       "kind": "DojoContract",
-      "address": "0x1025bbc38bdb0c71921f4d08a2bbe1597990c72f13a4ea3f5d09aaa99e9045e",
-      "class_hash": "0x1f4bb22297bda89ec8eaa024cd333c3e3e561d6ee78617a8bcb2bc4b5cc817a",
-      "original_class_hash": "0x1f4bb22297bda89ec8eaa024cd333c3e3e561d6ee78617a8bcb2bc4b5cc817a",
+      "address": "0x781505ded88b9464f15bae901be530845b269e5635e6e805daf304272ec25ed",
+      "class_hash": "0x281511c2898f8be49cdbcdbfa5c432e4c0031bc352ac675ec481df1af4044e3",
+      "original_class_hash": "0x281511c2898f8be49cdbcdbfa5c432e4c0031bc352ac675ec481df1af4044e3",
       "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
       "abi": [
         {
@@ -3234,7 +3178,7 @@
           "items": [
             {
               "type": "function",
-              "name": "contract_name",
+              "name": "name",
               "inputs": [],
               "outputs": [
                 {
@@ -3457,328 +3401,6 @@
         },
         {
           "type": "event",
-          "name": "paved::events::Built",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "x",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "y",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::Discarded",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::GameOver",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tournament_id",
-              "type": "core::integer::u64",
-              "kind": "key"
-            },
-            {
-              "name": "game_mode",
-              "type": "core::integer::u8",
-              "kind": "data"
-            },
-            {
-              "name": "game_score",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "game_start_time",
-              "type": "core::integer::u64",
-              "kind": "data"
-            },
-            {
-              "name": "game_end_time",
-              "type": "core::integer::u64",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredCity",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredRoad",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredForest",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "cities",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "roads",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredWonder",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::components::emitter::EmitterComponent::Event",
-          "kind": "enum",
-          "variants": [
-            {
-              "name": "Built",
-              "type": "paved::events::Built",
-              "kind": "nested"
-            },
-            {
-              "name": "Discarded",
-              "type": "paved::events::Discarded",
-              "kind": "nested"
-            },
-            {
-              "name": "GameOver",
-              "type": "paved::events::GameOver",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredCity",
-              "type": "paved::events::ScoredCity",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredRoad",
-              "type": "paved::events::ScoredRoad",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredForest",
-              "type": "paved::events::ScoredForest",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredWonder",
-              "type": "paved::events::ScoredWonder",
-              "kind": "nested"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::components::hostable::HostableComponent::Event",
-          "kind": "enum",
-          "variants": []
-        },
-        {
-          "type": "event",
           "name": "paved::components::tutoriable::TutoriableComponent::Event",
           "kind": "enum",
           "variants": []
@@ -3792,16 +3414,6 @@
               "name": "UpgradeableEvent",
               "type": "dojo::contract::upgradeable::upgradeable::Event",
               "kind": "nested"
-            },
-            {
-              "name": "EmitterEvent",
-              "type": "paved::components::emitter::EmitterComponent::Event",
-              "kind": "flat"
-            },
-            {
-              "name": "HostableEvent",
-              "type": "paved::components::hostable::HostableComponent::Event",
-              "kind": "flat"
             },
             {
               "name": "TutoriableEvent",
@@ -3833,9 +3445,9 @@
     },
     {
       "kind": "DojoContract",
-      "address": "0x1604d62fe34d9082d1a4525f698688b0f8ffb2d4f1ae7ce722790ac31b3fec8",
-      "class_hash": "0x4773aa2c9852958306b8bc57f8b9175557f3beb039be45b5d5c47df730d93d8",
-      "original_class_hash": "0x4773aa2c9852958306b8bc57f8b9175557f3beb039be45b5d5c47df730d93d8",
+      "address": "0x7d4b9a1a5a044e97fbf64b320c21f5d1a56f831c949b7e63faf9a8447505567",
+      "class_hash": "0x4be15412c057b4ec6d8671deecd30e1c64b1640131182e24898d982459eaae3",
+      "original_class_hash": "0x4be15412c057b4ec6d8671deecd30e1c64b1640131182e24898d982459eaae3",
       "base_class_hash": "0x2427dd10a58850ac9a5ca6ce04b7771b05330fd18f2e481831ad903b969e6b2",
       "abi": [
         {
@@ -3867,7 +3479,7 @@
           "items": [
             {
               "type": "function",
-              "name": "contract_name",
+              "name": "name",
               "inputs": [],
               "outputs": [
                 {
@@ -4245,328 +3857,6 @@
         },
         {
           "type": "event",
-          "name": "paved::events::Built",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "x",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "y",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::Discarded",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tile_id",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::GameOver",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "tournament_id",
-              "type": "core::integer::u64",
-              "kind": "key"
-            },
-            {
-              "name": "game_mode",
-              "type": "core::integer::u8",
-              "kind": "data"
-            },
-            {
-              "name": "game_score",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "game_start_time",
-              "type": "core::integer::u64",
-              "kind": "data"
-            },
-            {
-              "name": "game_end_time",
-              "type": "core::integer::u64",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredCity",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredRoad",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredForest",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "size",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "cities",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "roads",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::events::ScoredWonder",
-          "kind": "struct",
-          "members": [
-            {
-              "name": "game_id",
-              "type": "core::integer::u32",
-              "kind": "key"
-            },
-            {
-              "name": "points",
-              "type": "core::integer::u32",
-              "kind": "data"
-            },
-            {
-              "name": "player_id",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_name",
-              "type": "core::felt252",
-              "kind": "data"
-            },
-            {
-              "name": "player_master",
-              "type": "core::felt252",
-              "kind": "data"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::components::emitter::EmitterComponent::Event",
-          "kind": "enum",
-          "variants": [
-            {
-              "name": "Built",
-              "type": "paved::events::Built",
-              "kind": "nested"
-            },
-            {
-              "name": "Discarded",
-              "type": "paved::events::Discarded",
-              "kind": "nested"
-            },
-            {
-              "name": "GameOver",
-              "type": "paved::events::GameOver",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredCity",
-              "type": "paved::events::ScoredCity",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredRoad",
-              "type": "paved::events::ScoredRoad",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredForest",
-              "type": "paved::events::ScoredForest",
-              "kind": "nested"
-            },
-            {
-              "name": "ScoredWonder",
-              "type": "paved::events::ScoredWonder",
-              "kind": "nested"
-            }
-          ]
-        },
-        {
-          "type": "event",
-          "name": "paved::components::hostable::HostableComponent::Event",
-          "kind": "enum",
-          "variants": []
-        },
-        {
-          "type": "event",
           "name": "paved::components::payable::PayableComponent::Event",
           "kind": "enum",
           "variants": []
@@ -4586,16 +3876,6 @@
               "name": "UpgradeableEvent",
               "type": "dojo::contract::upgradeable::upgradeable::Event",
               "kind": "nested"
-            },
-            {
-              "name": "EmitterEvent",
-              "type": "paved::components::emitter::EmitterComponent::Event",
-              "kind": "flat"
-            },
-            {
-              "name": "HostableEvent",
-              "type": "paved::components::hostable::HostableComponent::Event",
-              "kind": "flat"
             },
             {
               "name": "PayableEvent",
@@ -4650,18 +3930,38 @@
           "key": true
         },
         {
-          "name": "tile_id",
-          "type": "u32",
+          "name": "index",
+          "type": "u8",
           "key": false
         },
         {
           "name": "characters",
           "type": "u8",
           "key": false
+        },
+        {
+          "name": "discarded",
+          "type": "u8",
+          "key": false
+        },
+        {
+          "name": "built",
+          "type": "u8",
+          "key": false
+        },
+        {
+          "name": "score",
+          "type": "u32",
+          "key": false
+        },
+        {
+          "name": "tile_id",
+          "type": "u32",
+          "key": false
         }
       ],
-      "class_hash": "0xe2e673bb8d03337fef42a2a07db4488276b705547c8d6e54d5ac37fb4abecc",
-      "original_class_hash": "0xe2e673bb8d03337fef42a2a07db4488276b705547c8d6e54d5ac37fb4abecc",
+      "class_hash": "0x531a5de086dff196f065b57147588d65563af4952a32b78ce0269df0d24408d",
+      "original_class_hash": "0x531a5de086dff196f065b57147588d65563af4952a32b78ce0269df0d24408d",
       "abi": [
         {
           "type": "impl",
@@ -5043,12 +4343,28 @@
               "type": "core::felt252"
             },
             {
-              "name": "tile_id",
-              "type": "core::integer::u32"
+              "name": "index",
+              "type": "core::integer::u8"
             },
             {
               "name": "characters",
               "type": "core::integer::u8"
+            },
+            {
+              "name": "discarded",
+              "type": "core::integer::u8"
+            },
+            {
+              "name": "built",
+              "type": "core::integer::u8"
+            },
+            {
+              "name": "score",
+              "type": "core::integer::u32"
+            },
+            {
+              "name": "tile_id",
+              "type": "core::integer::u32"
             }
           ]
         },
@@ -6021,23 +5337,28 @@
           "key": false
         },
         {
-          "name": "discarded",
-          "type": "u8",
+          "name": "claimed",
+          "type": "bool",
           "key": false
         },
         {
-          "name": "built",
+          "name": "mode",
           "type": "u8",
-          "key": false
-        },
-        {
-          "name": "tiles",
-          "type": "u128",
           "key": false
         },
         {
           "name": "tile_count",
           "type": "u32",
+          "key": false
+        },
+        {
+          "name": "player_count",
+          "type": "u8",
+          "key": false
+        },
+        {
+          "name": "tournament_id",
+          "type": "u64",
           "key": false
         },
         {
@@ -6051,28 +5372,43 @@
           "key": false
         },
         {
-          "name": "score",
-          "type": "u32",
+          "name": "duration",
+          "type": "u64",
+          "key": false
+        },
+        {
+          "name": "tiles",
+          "type": "u128",
+          "key": false
+        },
+        {
+          "name": "players",
+          "type": "u128",
+          "key": false
+        },
+        {
+          "name": "price",
+          "type": "felt252",
+          "key": false
+        },
+        {
+          "name": "prize",
+          "type": "felt252",
+          "key": false
+        },
+        {
+          "name": "name",
+          "type": "felt252",
           "key": false
         },
         {
           "name": "seed",
           "type": "felt252",
           "key": false
-        },
-        {
-          "name": "mode",
-          "type": "u8",
-          "key": false
-        },
-        {
-          "name": "tournament_id",
-          "type": "u64",
-          "key": false
         }
       ],
-      "class_hash": "0xb39f4d5ca29ba4f42bb3c942f3075a941174fcc41596d54ff0724f75550f17",
-      "original_class_hash": "0xb39f4d5ca29ba4f42bb3c942f3075a941174fcc41596d54ff0724f75550f17",
+      "class_hash": "0x4060c35b7a34092daea0bcf62155c98bd381a7cf71381a5afdf122a796ab4f7",
+      "original_class_hash": "0x4060c35b7a34092daea0bcf62155c98bd381a7cf71381a5afdf122a796ab4f7",
       "abi": [
         {
           "type": "impl",
@@ -6468,20 +5804,24 @@
               "type": "core::bool"
             },
             {
-              "name": "discarded",
-              "type": "core::integer::u8"
+              "name": "claimed",
+              "type": "core::bool"
             },
             {
-              "name": "built",
+              "name": "mode",
               "type": "core::integer::u8"
-            },
-            {
-              "name": "tiles",
-              "type": "core::integer::u128"
             },
             {
               "name": "tile_count",
               "type": "core::integer::u32"
+            },
+            {
+              "name": "player_count",
+              "type": "core::integer::u8"
+            },
+            {
+              "name": "tournament_id",
+              "type": "core::integer::u64"
             },
             {
               "name": "start_time",
@@ -6492,20 +5832,32 @@
               "type": "core::integer::u64"
             },
             {
-              "name": "score",
-              "type": "core::integer::u32"
+              "name": "duration",
+              "type": "core::integer::u64"
+            },
+            {
+              "name": "tiles",
+              "type": "core::integer::u128"
+            },
+            {
+              "name": "players",
+              "type": "core::integer::u128"
+            },
+            {
+              "name": "price",
+              "type": "core::felt252"
+            },
+            {
+              "name": "prize",
+              "type": "core::felt252"
+            },
+            {
+              "name": "name",
+              "type": "core::felt252"
             },
             {
               "name": "seed",
               "type": "core::felt252"
-            },
-            {
-              "name": "mode",
-              "type": "core::integer::u8"
-            },
-            {
-              "name": "tournament_id",
-              "type": "core::integer::u64"
             }
           ]
         },
@@ -6550,15 +5902,10 @@
           "name": "name",
           "type": "felt252",
           "key": false
-        },
-        {
-          "name": "master",
-          "type": "felt252",
-          "key": false
         }
       ],
-      "class_hash": "0x6860a4353780e55f1fb943ce4e9228ec9cddfea5d2207da10599dfa8e8d4a16",
-      "original_class_hash": "0x6860a4353780e55f1fb943ce4e9228ec9cddfea5d2207da10599dfa8e8d4a16",
+      "class_hash": "0x17b956d534327c638abb6cfd7a7329c189308459a9562edd581c1349e3c4515",
+      "original_class_hash": "0x17b956d534327c638abb6cfd7a7329c189308459a9562edd581c1349e3c4515",
       "abi": [
         {
           "type": "impl",
@@ -6937,10 +6284,6 @@
             },
             {
               "name": "name",
-              "type": "core::felt252"
-            },
-            {
-              "name": "master",
               "type": "core::felt252"
             }
           ]

@@ -88,7 +88,7 @@ impl WonderCount of WonderCountTrait {
         let mut builder = store.builder(game, player.id);
         let power: u32 = character.power.into();
         let points = base_points * power;
-        game.add_score(points);
+        builder.score += points;
         builder.recover(ref character, ref tile);
 
         // [Effect] Update the character

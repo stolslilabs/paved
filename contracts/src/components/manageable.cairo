@@ -31,12 +31,7 @@ mod ManageableComponent {
     impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
-        fn create(
-            self: @ComponentState<TContractState>,
-            world: IWorldDispatcher,
-            name: felt252,
-            master: ContractAddress
-        ) {
+        fn create(self: @ComponentState<TContractState>, world: IWorldDispatcher, name: felt252,) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
 
@@ -46,7 +41,7 @@ mod ManageableComponent {
             player.assert_not_exists();
 
             // [Effect] Create a new player
-            let player = PlayerImpl::new(caller.into(), name, master.into());
+            let player = PlayerImpl::new(caller.into(), name);
             store.set_player(player);
         }
     }
