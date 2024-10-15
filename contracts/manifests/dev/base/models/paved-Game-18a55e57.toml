@@ -1,6 +1,6 @@
 kind = "DojoModel"
-class_hash = "0xb39f4d5ca29ba4f42bb3c942f3075a941174fcc41596d54ff0724f75550f17"
-original_class_hash = "0xb39f4d5ca29ba4f42bb3c942f3075a941174fcc41596d54ff0724f75550f17"
+class_hash = "0x4060c35b7a34092daea0bcf62155c98bd381a7cf71381a5afdf122a796ab4f7"
+original_class_hash = "0x4060c35b7a34092daea0bcf62155c98bd381a7cf71381a5afdf122a796ab4f7"
 abi = "manifests/dev/base/abis/models/paved-Game-18a55e57.json"
 tag = "paved-Game"
 qualified_path = "paved::models::index::game"
@@ -17,23 +17,28 @@ type = "bool"
 key = false
 
 [[members]]
-name = "discarded"
-type = "u8"
+name = "claimed"
+type = "bool"
 key = false
 
 [[members]]
-name = "built"
+name = "mode"
 type = "u8"
-key = false
-
-[[members]]
-name = "tiles"
-type = "u128"
 key = false
 
 [[members]]
 name = "tile_count"
 type = "u32"
+key = false
+
+[[members]]
+name = "player_count"
+type = "u8"
+key = false
+
+[[members]]
+name = "tournament_id"
+type = "u64"
 key = false
 
 [[members]]
@@ -47,21 +52,36 @@ type = "u64"
 key = false
 
 [[members]]
-name = "score"
-type = "u32"
+name = "duration"
+type = "u64"
+key = false
+
+[[members]]
+name = "tiles"
+type = "u128"
+key = false
+
+[[members]]
+name = "players"
+type = "u128"
+key = false
+
+[[members]]
+name = "price"
+type = "felt252"
+key = false
+
+[[members]]
+name = "prize"
+type = "felt252"
+key = false
+
+[[members]]
+name = "name"
+type = "felt252"
 key = false
 
 [[members]]
 name = "seed"
 type = "felt252"
-key = false
-
-[[members]]
-name = "mode"
-type = "u8"
-key = false
-
-[[members]]
-name = "tournament_id"
-type = "u64"
 key = false

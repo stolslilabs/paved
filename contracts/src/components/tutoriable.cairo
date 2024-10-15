@@ -44,6 +44,47 @@ mod TutoriableComponent {
     impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
+        fn spawn(
+            self: @ComponentState<TContractState>, world: IWorldDispatcher, mode: Mode
+        ) -> u32 {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new(world);
+
+            // [Check] Player exists
+            let caller = get_caller_address();
+            let player = store.player(caller.into());
+            player.assert_exists();
+
+            // [Effect] Create game
+            let game_id = world.uuid() + 1;
+            let time = get_block_timestamp();
+            let mut game = GameImpl::new(game_id, time, mode, mode.into(), 0, 0);
+
+            // [Effect] Start game
+            let tile = game.start(time);
+
+            // [Effect] Store tile
+            store.set_tile(tile);
+
+            // [Effect] Create a new builder
+            let builder_index = game.join();
+            let mut builder = BuilderImpl::new(game.id, player.id, builder_index);
+            let (tile_id, plan) = game.draw_plan();
+            let tile = builder.reveal(tile_id, plan);
+
+            // [Effect] Store builder
+            store.set_builder(builder);
+
+            // [Effect] Store tile
+            store.set_tile(tile);
+
+            // [Effect] Store game
+            store.set_game(game);
+
+            // [Return] Game ID
+            game_id
+        }
+
         fn discard(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);
@@ -56,7 +97,8 @@ mod TutoriableComponent {
             game.assert_started();
 
             // [Check] Game is not over
-            game.assert_not_over();
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -77,13 +119,14 @@ mod TutoriableComponent {
             orientation.assert_not_valid();
 
             // [Effect] Builder discard a tile
-            builder.discard(ref game);
+            builder.discard();
 
             // [Effect] Assess game over
             game.assess_over();
 
             // [Effect] Draw a new tile if relevant
-            if !game.is_over() {
+            let time = get_block_timestamp();
+            if !game.is_over(time) {
                 game.reseed(tile);
                 let (tile_id, plan) = game.draw_plan();
                 let tile = builder.reveal(tile_id, plan);
@@ -94,7 +137,6 @@ mod TutoriableComponent {
             store.set_builder(builder);
 
             // [Effect] Update game
-            game.discarded += 1;
             store.set_game(game);
         }
 
@@ -110,7 +152,8 @@ mod TutoriableComponent {
             game.assert_started();
 
             // [Check] Game is not over
-            game.assert_not_over();
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -140,7 +183,8 @@ mod TutoriableComponent {
             game.assert_started();
 
             // [Check] Game is not over
-            game.assert_not_over();
+            let time = get_block_timestamp();
+            game.assert_not_over(time);
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -187,20 +231,19 @@ mod TutoriableComponent {
             game.assess_over();
 
             // [Effect] Draw a new tile if relevant
-            if !game.is_over() {
+            let time = get_block_timestamp();
+            if !game.is_over(time) {
                 let (tile_id, plan) = game.draw_plan();
                 let new_tile = builder.reveal(tile_id, plan);
                 store.set_tile(new_tile);
             }
 
             // [Effect] Update builder
+            builder.built += 1;
             store.set_builder(builder);
 
-            // [Effect] Assessment
-            game.assess(tile, ref store);
-
             // [Effect] Update game
-            game.built += 1;
+            game.assess(tile, ref store);
             store.set_game(game);
         }
     }

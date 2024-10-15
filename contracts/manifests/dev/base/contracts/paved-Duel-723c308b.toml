@@ -1,0 +1,24 @@
+kind = "DojoContract"
+class_hash = "0x330297e6a9a71cdceca444d471055a74a1990216de3b73bd1e8e0b492060c66"
+original_class_hash = "0x330297e6a9a71cdceca444d471055a74a1990216de3b73bd1e8e0b492060c66"
+base_class_hash = "0x0"
+abi = "manifests/dev/base/abis/contracts/paved-Duel-723c308b.json"
+reads = []
+writes = []
+init_calldata = []
+tag = "paved-Duel"
+systems = [
+    "rename",
+    "update",
+    "join",
+    "ready",
+    "transfer",
+    "leave",
+    "kick",
+    "delete",
+    "start",
+    "claim",
+    "discard",
+    "build",
+]
+manifest_name = "paved-Duel-723c308b"

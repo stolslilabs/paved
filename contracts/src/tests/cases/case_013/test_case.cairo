@@ -97,6 +97,6 @@ fn test_case_013() {
 
     // [Assert]
     let builder = store.builder(game, context.player_id);
-    let expected: u32 = 2 * constants::FOREST_BASE_POINTS;
+    let expected: u32 = 2 * constants::FOREST_BASE_POINTS + 1;
     assert(builder.score - expected <= expected, 'Build: builder score');
 }

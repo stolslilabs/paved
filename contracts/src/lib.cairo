@@ -22,6 +22,7 @@ mod elements {
         mod base;
         mod simple;
         mod tutorial;
+        // mod enhanced;
     }
 
     mod layouts {
@@ -69,7 +70,6 @@ mod models {
 }
 
 mod components {
-    mod emitter;
     mod manageable;
     mod hostable;
     mod payable;
@@ -82,6 +82,7 @@ mod systems {
     mod daily;
     mod weekly;
     mod tutorial;
+    mod duel;
 }
 
 mod mocks {
@@ -102,6 +103,11 @@ mod tests {
         mod build;
     }
     mod weekly {
+        mod ranked;
+        mod discard;
+        mod build;
+    }
+    mod duel {
         mod ranked;
         mod discard;
         mod build;
