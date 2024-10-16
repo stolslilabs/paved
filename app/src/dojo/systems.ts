@@ -23,13 +23,15 @@ export function systems({
   const getContract = (mode: ModeType): any => {
     switch (mode) {
       case ModeType.Daily:
-        return client.daily;
+        return client.Daily;
       case ModeType.Weekly:
-        return client.weekly;
+        return client.Weekly;
       case ModeType.Tutorial:
-        return client.tutorial;
+        return client.Tutorial;
+      case ModeType.Duel:
+        return client.Duel;
       default:
-        return client.daily;
+        return client.Daily;
     }
   };
 
@@ -52,7 +54,7 @@ export function systems({
 
   const create_player = async ({ account, ...props }: any) => {
     try {
-      const { transaction_hash } = await client.account.create({
+      const { transaction_hash } = await client.Account.create({
         account,
         ...props,
       });
@@ -200,14 +202,15 @@ export function systems({
     });
 
     const contractMap = {
-      [ModeType.Daily]: client.daily,
-      [ModeType.Weekly]: client.weekly,
-      [ModeType.Tutorial]: client.tutorial,
+      [ModeType.Daily]: client.Daily,
+      [ModeType.Weekly]: client.Weekly,
+      [ModeType.Tutorial]: client.Tutorial,
+      [ModeType.Duel]: client.Duel,
     };
 
     try {
       const contract =
-        contractMap[mode?.value as keyof typeof contractMap] ?? client.daily;
+        contractMap[mode?.value as keyof typeof contractMap] ?? client.Daily;
       const { transaction_hash } = await contract.build({
         account,
         ...props,
