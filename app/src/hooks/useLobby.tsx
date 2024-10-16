@@ -12,6 +12,8 @@ export const useLobby = () => {
       return new Mode(ModeType.Daily);
     } else if (mode === ModeType.Tutorial) {
       return new Mode(ModeType.Tutorial);
+    } else if (mode === ModeType.Duel) {
+      return new Mode(ModeType.Duel);
     } else {
       return new Mode(ModeType.None);
     }

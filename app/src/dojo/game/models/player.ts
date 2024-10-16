@@ -6,14 +6,12 @@ export class Player {
   public name: string;
   public score: number;
   public paved: number;
-  public master: string;
 
   constructor(player: ComponentValue) {
     this.id = `0x${player.id.toString(16).replace("0x", "")}`;
     this.name = shortString.decodeShortString(player.name);
     this.score = player.score;
     this.paved = player.paved;
-    this.master = `0x${player.master.toString(16).replace("0x", "")}`;
   }
 
   public getShortName(): string {
