@@ -1,5 +1,4 @@
 import { useDojo } from "../../dojo/useDojo";
-import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
@@ -11,6 +10,8 @@ import { usePlayer } from "@/hooks/usePlayer";
 import { useState } from "react";
 import { Mode, ModeType } from "@/dojo/game/types/mode";
 import { useLobby } from "@/hooks/useLobby";
+import { Button } from "../elements/button";
+import { DuelDialog } from "./dom/DuelDialog";
 
 export const CreateGame = ({ mode }: { mode: Mode }) => {
   const {
@@ -19,7 +20,6 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
       systemCalls: { create_game },
     },
   } = useDojo();
-
   const { gameMode } = useLobby();
 
   const { player } = usePlayer({ playerId: account?.address });
@@ -37,18 +37,22 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
     setLoading(false);
   };
 
-  return (
+  return player && (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            className="tracking-[0.25rem] shadow-lg hover:bg-secondary px-4 py-5 lg:p-6"
-            loading={loading}
-            disabled={!player || loading}
-            onClick={handleClick}
-          >
-            {gameMode.value === ModeType.Tutorial ? "Start" : "New Game"}
-          </Button>
+          {gameMode.value === ModeType.Duel ? (
+            <DuelDialog playerName={player?.name} />
+          ) : (
+            <Button
+              className="tracking-[0.25rem] shadow-lg hover:bg-secondary text-xs lg:text-sm px-4 py-4 self-end lg:p-6"
+              loading={loading}
+              disabled={!player || loading}
+              onClick={handleClick}
+            >
+              {gameMode.value === ModeType.Tutorial ? "Start" : "New Game"}
+            </Button>
+          )}
         </TooltipTrigger>
         <TooltipContent>
           <p className="select-none">Create a {gameMode.value} player game</p>
