@@ -19,8 +19,8 @@ import { useNavigate } from "react-router-dom";
 import { useBuilder } from "@/hooks/useBuilder";
 import { OutdatedAlertDialog } from "../components/dom/OutdatedAlertDialog";
 
-const tabs = ["daily", "weekly", "1v1", "tutorial"];
-const disabledTabs = ["1v1"];
+const tabs = ["daily", "weekly", "duel", "tutorial"];
+const disabledTabs = [""]; // Keep in case we need to temporarily disable tabs
 
 // TODO: Consider applying this to the tabs component directly
 const tabsStyles = {
@@ -96,7 +96,6 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
     }
   }, [account?.address, builder, navigate])
 
-
   useMemo(() => {
     defineEnterSystem(world, [Has(Game)], function ({ value: [game] }: ComponentUpdate) {
       setGames((prevTiles: ComponentValue<Schema, unknown>) => game ? ({ ...prevTiles, [game.id]: new GameClass(game) }) : prevTiles);
@@ -123,7 +122,7 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
         <TabsList className="flex-shrink-0 p-0 bg-transparent justify-start">
           {tabs.map((tab, index) => (
             <Fragment key={index}>
-              <div className={`h-4 self-end border-b-[1px] border-primary ${index === (tabs.length - 1) ? "flex-grow" : "w-1 sm:w-6"}`} />
+              <div className={`h-4 self-end border-b-[1px] border-primary ${index === (tabs.length - 1) ? "flex-grow" : "w-1 lg:w-6"}`} />
               <TabsTrigger disabled={disabledTabs.includes(tab)} value={tab} className={tabsStyles.trigger}>{tab}</TabsTrigger>
               {index === (tabs.length - 1) && <div className={`h-4 self-end border-b-[1px] border-primary w-6 hidden sm:block`} />}
 
@@ -144,7 +143,7 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
 }
 
 const CreateGameSliver = ({ gameMode }: { gameMode: Mode }) => (
-  <div className={"w-full flex justify-between sm:justify-end h-20 border-x-[1px] border-b-[1px] border-primary bg-secondary/50 p-4"}>
+  <div className={"w-full flex justify-between sm:justify-end h-20 border-x-[1px] border-b-[1px] border-primary bg-secondary/50 p-2 lg:p-4"}>
     <ProfileSheet />
     <CreateGame mode={gameMode} />
   </div>
