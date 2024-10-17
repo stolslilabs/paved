@@ -45,19 +45,20 @@ export const Games = ({ games }: { games: GamesList }) => {
   return gameMode.value !== ModeType.Tutorial ? (
     <Table className="mb-4">
       <TableHeader>
-        <TableRow className="text-xs sm:text-sm">
-          <TableHead className="w-[100px] text-center uppercase">
+        <TableRow className="text-xs lg:text-sm">
+          <TableHead className="w-[100px] text-center uppercase h-6 lg:h-10">
             Game
           </TableHead>
-          <TableHead className="uppercase text-center">Rank</TableHead>
-          <TableHead className="uppercase text-center">Score</TableHead>
-          <TableHead className="uppercase text-center">Time</TableHead>
+          <TableHead className="uppercase text-center h-6 lg:h-10">Rank</TableHead>
+          <TableHead className="uppercase text-center h-6 lg:h-10">Score</TableHead>
+          <TableHead className="uppercase text-center h-6 lg:h-10">Time</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {Object.values(filteredGames).map((game, index) => (
           <GameSingleRow key={index} game={game} />
         ))}
+        <DuelLobbyRow />
       </TableBody>
     </Table>
   ) : (
@@ -73,6 +74,25 @@ const StartTutorialContent = () => {
     </div>
   );
 };
+
+const DuelLobbyRow = () => {
+  return (
+    <TableRow className="text-2xs sm:text-xs text-center text-background">
+      <TableCell colSpan={1}>
+        <p className="text-start">TEST's GAME</p>
+      </TableCell>
+      <TableCell colSpan={1}>
+        <p className="text-start">TEST's GAME</p>
+      </TableCell>
+      <TableCell colSpan={1}>
+        <p className="text-start">TEST's GAME</p>
+      </TableCell>
+      <TableCell colSpan={1}>
+        <p className="text-start">TEST's GAME</p>
+      </TableCell>
+    </TableRow>
+  )
+}
 
 export const GameSingleRow = ({ game }: { game: any }) => {
   const [score, setScore] = useState<number>();
