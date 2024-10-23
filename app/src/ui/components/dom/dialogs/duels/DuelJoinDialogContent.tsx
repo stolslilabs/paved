@@ -4,7 +4,7 @@ import { useDojo } from "@/dojo/useDojo"
 import { Button } from "@/ui/elements/button"
 import { DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/ui/elements/dialog"
 import { ComponentValue, Schema } from "@dojoengine/recs"
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { toast } from "sonner"
 
 export const DuelJoinDialogContent = ({ game }: { game: ComponentValue<Schema, Game> }) => {
@@ -19,7 +19,7 @@ export const DuelJoinDialogContent = ({ game }: { game: ComponentValue<Schema, G
 
     const [loading, setLoading] = useState(false)
 
-    const handleJoin = async () => {
+    const handleJoin = useCallback(async () => {
         if (game.player_count === 2) return toast.error("Failed to join - room is full");
 
         setLoading(true)
@@ -30,7 +30,7 @@ export const DuelJoinDialogContent = ({ game }: { game: ComponentValue<Schema, G
             amount: Number(game.price) / 1e18
         }).catch((error) => console.error(error))
             .finally(() => setLoading(false))
-    }
+    }, [account, game.id, game.player_count, game.price, join_duel_lobby])
 
     return (
         <DialogContent>
