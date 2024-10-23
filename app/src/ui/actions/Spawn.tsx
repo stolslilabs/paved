@@ -66,7 +66,7 @@ export const Spawn = ({
           {loading ? "Spawning..." : "Spawn"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-primary">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Create a player</DialogTitle>
           <DialogDescription>Choose a player name.</DialogDescription>

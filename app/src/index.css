@@ -6,9 +6,14 @@ body {
   @apply font-body;
 }
 
+iframe {
+  pointer-events: auto;
+}
+
+
 @layer base {
   :root {
-    --background: 38 3% 53%;
+    --background: 44 61% 93%;
     --foreground: 43 19% 33%;
     --card: 41 50% 98%;
     --card-foreground: 41 5% 15%;
@@ -22,6 +27,7 @@ body {
     --muted-foreground: 41 5% 40%;
     --accent: 3 30% 90%;
     --accent-foreground: 41 5% 15%;
+    --constructive: 120 100% 50%;
     --destructive: 0 100% 50%;
     --destructive-foreground: 41 5% 98%;
     --border: 41 30% 82%;

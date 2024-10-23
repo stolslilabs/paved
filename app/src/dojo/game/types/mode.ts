@@ -7,6 +7,7 @@ export enum ModeType {
   Daily = "daily",
   Weekly = "weekly",
   Tutorial = "tutorial",
+  Duel = "duel",
 }
 
 export class Mode {

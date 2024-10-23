@@ -9,7 +9,7 @@ export const useBuilders = ({
 }: {
   gameId: number;
 }): { builders: Builder[] } => {
-  const [builders, setBuilders] = useState<any>({});
+  const [builders, setBuilders] = useState<Builder[]>([]);
 
   const {
     setup: {
@@ -26,26 +26,15 @@ export const useBuilders = ({
   ]);
 
   useEffect(() => {
-    const components = builderKeys.map((entity) => {
-      const component = getComponentValue(Builder, entity);
-      if (!component) {
-        return undefined;
-      }
-      return new BuilderClass(component);
-    });
+    const newBuilders = builderKeys
+      .map((entity) => {
+        const component = getComponentValue(Builder, entity);
+        return component ? new BuilderClass(component) : undefined;
+      })
+      .filter((builder): builder is Builder => builder !== undefined);
 
-    const objectified = components.reduce(
-      (obj: any, builder: Builder | undefined) => {
-        if (builder) {
-          obj[builder.game_id] = builder;
-        }
-        return obj;
-      },
-      {},
-    );
-
-    setBuilders(objectified);
+    setBuilders(newBuilders);
   }, [builderKeys]);
 
-  return { builders: Object.values(builders) };
+  return { builders };
 };

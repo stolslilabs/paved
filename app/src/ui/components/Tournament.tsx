@@ -43,6 +43,7 @@ import { usePlayer } from "@/hooks/usePlayer";
 import { useBuilders } from "@/hooks/useBuilders";
 import calendarIcon from "/assets/icons/calendar.svg";
 import { faSackDollar } from "@fortawesome/free-solid-svg-icons";
+import { Sponsor } from "./Sponsor";
 
 export const getSeason = (mode: Mode) => {
   const now = Math.floor(Date.now() / 1000);
@@ -165,10 +166,9 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
   }, [page, mode]);
 
   const allGames = useMemo(() => {
-    const offset = BigInt(mode.offset());
+    const offset = BigInt(mode?.offset() || 0);
     return games
       .filter((game) => game.tournament_id - offset === BigInt(page))
-      .sort((a, b) => b.score - a.score)
       .slice(0, 10);
   }, [games, page, mode]);
 
@@ -211,7 +211,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
           <p>{endTime}</p>
         </div>
       </div>
-
+      <Sponsor tournamentId={getSeason(mode)} mode={mode} />
       <Table>
         <TableHeader>
           <TableRow className="text-3xs lg: lg:text-xs sm:[&>*]:h-1 lg:[&>*]:h-10 [&>*]:text-foreground tracking-widest">

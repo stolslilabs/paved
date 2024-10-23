@@ -8,6 +8,11 @@ import {
   faHammer,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { ModeType } from "@/dojo/game/types/mode";
+import { useState } from "react";
+import { Game } from "@/dojo/game/models/game";
+import { formatTimeUntil } from "@/utils/time";
+import { set } from "zod";
 
 export const IngameStatus = ({ hasOpenMenu }: { hasOpenMenu: boolean }) => {
   const { gameId } = useQueryParams();
@@ -17,6 +22,12 @@ export const IngameStatus = ({ hasOpenMenu }: { hasOpenMenu: boolean }) => {
 
   const { game } = useGame({ gameId });
   const { builder } = useBuilder({ gameId, playerId: account?.address });
+
+  if (game?.mode.value === ModeType.Duel) {
+    return (
+      <DuelCountdown game={game} hasOpenMenu={hasOpenMenu} />
+    )
+  }
 
   return (
     game &&
@@ -37,6 +48,22 @@ export const IngameStatus = ({ hasOpenMenu }: { hasOpenMenu: boolean }) => {
     )
   );
 };
+
+const DuelCountdown = ({ game, hasOpenMenu }: { game: Game, hasOpenMenu: boolean }) => {
+  const [timeLeft, setTimeLeft] = useState(game.getEndDate());
+
+  setInterval(() => {
+    setTimeLeft(game.getEndDate());
+  }, 1000)
+
+  return (
+    <div
+      className={`w-full text-[#686868] flex justify-center items-middle col-start-1 sm:col-start-1 row-start-1 absolute ${hasOpenMenu ? "hidden sm:flex" : "flex"}`}
+    >
+      <p>{formatTimeUntil(new Date(timeLeft))}</p>
+    </div>
+  )
+}
 
 type IconData = {
   def: IconDefinition;
