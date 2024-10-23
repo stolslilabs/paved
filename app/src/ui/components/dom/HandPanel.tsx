@@ -6,7 +6,7 @@ import { useActions } from "@/hooks/useActions";
 import RotationSound from "/sounds/effects/rotation.wav";
 import { useGameStore } from "@/store";
 import useSound from "use-sound";
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { useTutorial } from "@/hooks/useTutorial";
 
 export const HandPanel = () => {
@@ -14,15 +14,17 @@ export const HandPanel = () => {
   const { enabled } = useActions();
   const { x, y, spot, character } = useGameStore();
   const { currentTutorialStage } = useTutorial();
-
+  const { orientation, setOrientation } = useGameStore();
   const { handleConfirm, disabled } = useActions();
 
-  const { orientation, setOrientation } = useGameStore();
-
-  const handleRotate = () => {
+  const handleRotate = useCallback(() => {
     play();
     setOrientation(orientation + 1);
-  };
+  }, [play, orientation, setOrientation]);
+
+  const handleConfirmCallback = useCallback(() => {
+    handleConfirm();
+  }, [handleConfirm]);
 
   const shouldDisplayConfirmTutorialTooltip = useMemo(() => {
     if (!currentTutorialStage) return false;
@@ -83,7 +85,7 @@ export const HandPanel = () => {
           name="Confirm"
           icon={confirmIcon}
           side="left"
-          onClick={handleConfirm}
+          onClick={handleConfirmCallback}
           disabled={disabled}
           tutorialCondition={shouldDisplayConfirmTutorialTooltip}
         />

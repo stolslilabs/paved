@@ -15,7 +15,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import {
@@ -105,21 +104,19 @@ export const TournamentDialog = ({ mode }: { mode: Mode }) => {
   return (
     <Dialog>
       <DialogTrigger>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size={"default"}>
-                <img
-                  src={leaderboard}
-                  className="w-8 fill-secondary-foreground"
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">Leaderboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size={"default"}>
+              <img
+                src={leaderboard}
+                className="w-8 fill-secondary-foreground"
+              />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="select-none">Leaderboard</p>
+          </TooltipContent>
+        </Tooltip>
       </DialogTrigger>
       <DialogContent className="max-h-dscreen overflow-scroll">
         <DialogHeader className="flex items-center">
@@ -287,16 +284,16 @@ export const GameRow = ({
     <TableRow
       className={`text-3xs lg:text-xs ${isSelf && "[&>*]:text-[#955142]"}`}
     >
-      <TableCell className="text-background">{playerRank}</TableCell>
-      <TableCell className="text-left text-background">
+      <TableCell>{playerRank}</TableCell>
+      <TableCell className="text-left">
         {player?.getShortName()}
       </TableCell>
-      <TableCell className="text-right text-background">{game.score}</TableCell>
-      <TableCell className="text-right text-background">{duration}</TableCell>
-      <TableCell className="text-right text-background">
+      <TableCell className="text-right">{game.score}</TableCell>
+      <TableCell className="text-right">{duration}</TableCell>
+      <TableCell className="text-right">
         {game.tile_count}
       </TableCell>
-      <TableCell className="text-right text-background">
+      <TableCell className="text-right">
         {isSelf && tournament && tournament.isClaimable(rank, mode) ? (
           <Claim tournament={tournament} rank={rank} mode={mode} />
         ) : (

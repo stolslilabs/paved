@@ -10,7 +10,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import { Input } from "@/ui/elements/input";
@@ -71,26 +70,24 @@ export const Sponsor = ({
   return (
     <Dialog>
       <DialogTrigger disabled={disabled}>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div
-                className="flex justify-between items-center gap-4 text-white py-2 px-16"
-                style={{ backgroundColor }}
-              >
-                <Lords fill={"white"} />
-                <div className="flex flex-col justify-center items-center text-xl gap-1">
-                  <p className="text-xs">Lords Pool</p>
-                  <p className="text-xl">{`${prize}`}</p>
-                </div>
-                <Lords fill={"white"} />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className="flex justify-between items-center gap-4 text-white py-2 px-16"
+              style={{ backgroundColor }}
+            >
+              <Lords fill={"white"} />
+              <div className="flex flex-col justify-center items-center text-xl gap-1">
+                <p className="text-xs">Lords Pool</p>
+                <p className="text-xl">{`${prize}`}</p>
               </div>
-            </TooltipTrigger>
-            <TooltipContent className={disabled ? "hidden" : ""}>
-              <p className="select-none">Sponsor</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+              <Lords fill={"white"} />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className={disabled ? "hidden" : ""}>
+            <p className="select-none">Sponsor</p>
+          </TooltipContent>
+        </Tooltip>
       </DialogTrigger>
       <DialogContent className="max-h-screen overflow-scroll">
         <DialogHeader>

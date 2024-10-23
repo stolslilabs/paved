@@ -94,8 +94,16 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
     defineEnterSystem(world, [Has(Game)], ({ value: [game] }: ComponentUpdate) => game && setGames(new GameClass(game)));
 
     defineSystem(world, [Has(Game)], ({ value: [game] }: ComponentUpdate) => game && setGames(new GameClass(game)));
+    defineSystem(world, [Has(Game)], ({ value: [game] }: ComponentUpdate) => {
+      if (!game) return
+
+      if (builder && builder.score === 1 && game.mode === 4 && game.start_time > 0) {
+        navigate("?id=" + game.id, { replace: true })
+      }
+    }, { runOnInit: false });
+
     defineSystem(world, [Has(Game)], ({ value: [game] }: ComponentUpdate) => game && setRecentGame(game), { runOnInit: false });
-  }, [Game, GameClass, setGames, world]);
+  }, [Game, GameClass, builder, navigate, setGames, world]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -134,7 +142,7 @@ const InfoPanel = ({ gameMode }: { gameMode: Mode }) => (
     <Address />
     <Player />
     <div className="flex-grow overflow-y-auto my-4 border shadow-sm bg-white/90">
-      <Tournament mode={gameMode.value === ModeType.Tutorial ? new Mode(ModeType.Daily) : gameMode} />
+      <Tournament mode={gameMode.value === ModeType.Tutorial || gameMode.value === ModeType.Duel ? new Mode(ModeType.Daily) : gameMode} />
     </div>
     <Links />
   </div>

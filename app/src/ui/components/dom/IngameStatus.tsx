@@ -34,14 +34,14 @@ export const IngameStatus = ({ hasOpenMenu }: { hasOpenMenu: boolean }) => {
       <div
         className={`w-full text-[#686868] flex justify-center items-middle col-start-1 sm:col-start-1 row-start-1 absolute ${hasOpenMenu ? "hidden sm:flex" : "flex"}`}
       >
-        <StatusSlot data={game.score} />
+        <StatusSlot data={builder.score} />
         <StatusSlot
           iconData={{ def: faHammer, style: "mx-2" }}
-          data={`${game.built + 1}/${game.mode.count()}`}
+          data={`${builder.built + 1}/${game.mode.count()}`}
         />
         <StatusSlot
           iconData={{ def: faFire, style: "text-orange-500 mx-2" }}
-          data={game.discarded}
+          data={builder.discarded}
         />
       </div>
     )

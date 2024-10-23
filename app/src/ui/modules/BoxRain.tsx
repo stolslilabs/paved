@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { memo, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Vector3 } from "three";
 import { useGLTF } from "@react-three/drei";
@@ -29,7 +29,7 @@ const BoxRain = ({
   return <primitive ref={meshRef} object={model} position={initPosition} />;
 };
 
-const BoxRainScene = () => {
+const BoxRainScene = memo(() => {
   const models = useMemo(() => {
     return [
       useGLTF("/models/ccccccccc_HF_1.glb").scene.clone(),
@@ -92,6 +92,6 @@ const BoxRainScene = () => {
       </Canvas>
     </div>
   );
-};
+});
 
 export default BoxRainScene;

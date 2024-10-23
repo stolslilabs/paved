@@ -22,6 +22,7 @@ import { useBuilders } from "@/hooks/useBuilders";
 import leaderboard from "/assets/icons/leaderboard.svg";
 import { DialogTitle } from "@radix-ui/react-dialog";
 import { IngameButton } from "./dom/IngameButton";
+import { Builder } from "@/dojo/game/models/builder";
 
 export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
   const { gameId } = useQueryParams();
@@ -39,19 +40,21 @@ export const LeaderboardDialog = ({ children }: { children?: ReactNode }) => {
         <DialogHeader>
           <DialogTitle className="text-center text-xl">Leaderboard</DialogTitle>
         </DialogHeader>
-        <Leaderboard game={game} builders={builders} />
+        <Leaderboard builders={builders} />
       </DialogContent>
     </Dialog>
   );
 };
 
 export const Leaderboard = ({
-  game,
   builders,
 }: {
-  game: any;
-  builders: any[];
+  builders: Array<Builder>;
 }) => {
+  const sortedBuilders = useMemo(() =>
+    [...builders].sort((a, b) => (b.score || 0) - (a.score || 0)),
+    [builders]
+  )
   return (
     <Table className="text-xs">
       <TableHeader>
@@ -62,7 +65,9 @@ export const Leaderboard = ({
         </TableRow>
       </TableHeader>
       <TableBody>
-        <PlayerRow rank={1} score={game?.score || 0} builder={builders[0]} />
+        {sortedBuilders.map((builder, index) => (
+          builder.score > 0 && <PlayerRow rank={index + 1} score={builder?.score || 0} builder={builder} />
+        ))}
       </TableBody>
     </Table>
   );
@@ -75,7 +80,7 @@ export const PlayerRow = ({
 }: {
   rank: number;
   score: number;
-  builder: any;
+  builder: Builder;
 }) => {
   const { player } = usePlayer({ playerId: builder.player_id });
   const name = player?.name || "";

@@ -13,6 +13,7 @@ import { useBuilder } from "@/hooks/useBuilder";
 import { faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { cn } from "@/ui/utils";
+import { Builder } from "@/dojo/game/models/builder";
 
 export const DuelLobbyDialogContent = ({ game, setOpen }: { game: ComponentValue<Schema, Game>, setOpen: React.Dispatch<React.SetStateAction<boolean>>, open: boolean }) => {
     const {
@@ -22,7 +23,8 @@ export const DuelLobbyDialogContent = ({ game, setOpen }: { game: ComponentValue
                 delete_duel_lobby,
                 leave_duel_lobby,
                 ready_duel_lobby,
-                start_duel_lobby
+                start_duel_lobby,
+                kick_duel_lobby
             },
         },
     } = useDojo();
@@ -78,6 +80,18 @@ export const DuelLobbyDialogContent = ({ game, setOpen }: { game: ComponentValue
             .finally(() => setLoading(false))
     }, [game.id, start_duel_lobby, account, setOpen])
 
+    const handleKick = useCallback(async (challenger: Builder) => {
+        setLoading(true)
+        await kick_duel_lobby({
+            account: account,
+            mode: new Mode(ModeType.Duel),
+            game_id: game.id,
+            player_id: challenger.player_id
+        })
+            .catch(error => console.error(error))
+            .finally(() => setLoading(false))
+    }, [kick_duel_lobby, account, game.id])
+
     const challengers = useMemo(() =>
         builders.filter(builder => builder.player_id !== account?.address && builder.score > 0),
         [account?.address, builders]
@@ -112,7 +126,7 @@ export const DuelLobbyDialogContent = ({ game, setOpen }: { game: ComponentValue
                             </span>
                         </div>
                     </div>
-                    <Button className="px-2 collapse" variant="destructive">
+                    <Button className={cn("px-2", isHost ? "collapse" : "hidden")} variant="destructive">
                         <FontAwesomeIcon className="justify-center self-center size-8" icon={faXmark} />
                     </Button>
                 </div>
@@ -128,7 +142,7 @@ export const DuelLobbyDialogContent = ({ game, setOpen }: { game: ComponentValue
                                     </span>
                                 </div>
                             </div>
-                            <Button className={cn("px-2", !isHost && "collapse")} variant="destructive">
+                            <Button className={cn("px-2", isHost ? "visible" : "hidden")} disabled={loading} onClick={() => handleKick(challenger)} variant="destructive">
                                 <FontAwesomeIcon className="justify-center self-center size-8" icon={faXmark} />
                             </Button>
                         </div>

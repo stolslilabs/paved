@@ -353,6 +353,25 @@ export function systems({
     }
   };
 
+  const kick_duel_lobby = async ({ account, mode, ...props }: any) => {
+    try {
+      const contract = getContract(mode?.value as ModeType);
+      const { transaction_hash } = await contract.kick({
+        account,
+        ...props,
+      });
+      notify(
+        "Player has been kicked.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+      return true
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
+    }
+  };
+
   return {
     create_player,
     create_game,
@@ -366,6 +385,7 @@ export function systems({
     join_duel_lobby,
     leave_duel_lobby,
     start_duel_lobby,
+    kick_duel_lobby,
     claim_duel_prize
   };
 }
