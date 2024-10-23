@@ -43,7 +43,7 @@ export const DuelCreateDialogContent = ({ playerName, setOpen }: { playerName: s
         resolver: zodResolver(formSchema),
         defaultValues: {
             name: `${playerName}'s Game`,
-            duration: 6000,
+            duration: 600,
             price: 1
         },
         mode: "onChange"
