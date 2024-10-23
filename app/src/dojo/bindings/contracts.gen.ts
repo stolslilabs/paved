@@ -372,7 +372,7 @@ export async function setupWorld(provider: DojoProvider) {
     };
 
     // Call the `join` system with the specified Account and calldata
-    const join = async (props: { account: Account; game_id: number }) => {
+    const join = async (props: { account: Account; game_id: number, amount: number }) => {
       try {
         return await provider.execute(
           props.account,
@@ -380,7 +380,7 @@ export async function setupWorld(provider: DojoProvider) {
             {
               contractName: fee_token_name,
               entrypoint: "approve",
-              calldata: [contract_address, `0x${(1e18).toString(16)}`, "0x0"],
+              calldata: [contract_address, `0x${(props.amount * 1e18).toString(16)}`, "0x0"],
             },
             {
               contractName: contract_name,
