@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -97,13 +97,15 @@ const DuelLobbyRow = ({ game }: { game: ComponentValue<Schema, Game> }) => {
     game.getEndDate() < now ? "Ended" :
       formatTimeUntil(game.getEndDate());
 
+  const lengthDate = new Date(Date.now() + Number(game.duration) * 1000);
+
   return (
     <TableRow className="text-2xs sm:text-sm text-center">
       <TableCell> {/* Name */}
         <p className="text-start">{game.name}</p>
       </TableCell>
       <TableCell> {/* Game Length */}
-        <p className="text-center">{`${Number(game.duration) / 60} Min.` || "N/A"}</p>
+        <p className="text-center">{`${formatTimeUntil(lengthDate)}` || "N/A"}</p>
       </TableCell>
       <TableCell> {/* Time Left */}
         <p className="text-center">{timeLeftText}</p>
@@ -138,7 +140,7 @@ const DuelLobbyRowButton = ({ game }: { game: ComponentValue<Schema, Game> }) =>
 
   const [loading, setLoading] = useState(false)
 
-  const handleClaim = async () => {
+  const handleClaim = useCallback(async () => {
     setLoading(true)
     await claim_duel_prize({
       account: account,
@@ -146,14 +148,33 @@ const DuelLobbyRowButton = ({ game }: { game: ComponentValue<Schema, Game> }) =>
       game_id: game.id
     }).catch((error) => console.error(error))
       .finally(() => setLoading(false))
-  }
+  }, [account, claim_duel_prize, game.id])
 
   const isLobby = useMemo(() => game.getState() === "lobby", [game])
   const isHost = useMemo(() => builder?.index === 0, [builder?.index])
   const isOver = useMemo(() => game.getState() === "over", [game])
   const isOngoing = useMemo(() => game.getState() === "started", [game])
   const isParticipating = useMemo(() => (builder?.score ?? 0) >= 1, [builder?.score])
-  const isFull = useMemo(() => builders.filter(builder => builder.score >= 1).length >= 2, [builders]); const isClaimable = useMemo(() => !game.claimed && isOver, [game.claimed, isOver])
+  const isFull = useMemo(() => builders.filter(builder => builder.score >= 1).length >= 2, [builders]);
+  const isClaimable = useMemo(() => !game.claimed && isOver, [game.claimed, isOver])
+  const isWinner = useMemo(() => {
+    if (!builder || !builders.length) return false;
+
+    // Find the highest score
+    const highestScore = Math.max(...builders.map(b => b.score));
+
+    // Check if the current builder has the highest score
+    if (builder.score === highestScore) {
+      // If scores are equal, check if the builder's index is not 0
+      if (builder.score === highestScore && builder.index !== 0) {
+        return true;
+      }
+      // If scores are equal and index is 0, check if it's the only highest score
+      return builders.filter(b => b.score === highestScore).length === 1;
+    }
+
+    return false;
+  }, [builder, builders]);
 
   if (isLobby && !isHost)
     return (
@@ -175,7 +196,7 @@ const DuelLobbyRowButton = ({ game }: { game: ComponentValue<Schema, Game> }) =>
     <p>Full</p>
   }
 
-  if (isOver && isParticipating && !isLobby) {
+  if (isOver && isParticipating && !isLobby && isWinner) {
     return isClaimable ? (
       <Button className="py-2 w-36" disabled={loading} loading={loading} onClick={handleClaim}>Claim</Button>
     ) : (
