@@ -9,10 +9,9 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { ModeType } from "@/dojo/game/types/mode";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Game } from "@/dojo/game/models/game";
 import { formatTimeUntil } from "@/utils/time";
-import { set } from "zod";
 
 export const IngameStatus = ({ hasOpenMenu }: { hasOpenMenu: boolean }) => {
   const { gameId } = useQueryParams();
@@ -52,9 +51,14 @@ export const IngameStatus = ({ hasOpenMenu }: { hasOpenMenu: boolean }) => {
 const DuelCountdown = ({ game, hasOpenMenu }: { game: Game, hasOpenMenu: boolean }) => {
   const [timeLeft, setTimeLeft] = useState(game.getEndDate());
 
-  setInterval(() => {
-    setTimeLeft(game.getEndDate());
-  }, 1000)
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setTimeLeft(game.getEndDate());
+    }, 1000);
+
+    // Clean up the interval when the component unmounts
+    return () => clearInterval(intervalId);
+  }, [game]); // Add game as a dependency
 
   return (
     <div
@@ -62,8 +66,8 @@ const DuelCountdown = ({ game, hasOpenMenu }: { game: Game, hasOpenMenu: boolean
     >
       <p>{formatTimeUntil(new Date(timeLeft))}</p>
     </div>
-  )
-}
+  );
+};
 
 type IconData = {
   def: IconDefinition;
