@@ -377,10 +377,6 @@
       {
         "name": "name",
         "type": "core::felt252"
-      },
-      {
-        "name": "master",
-        "type": "core::felt252"
       }
     ]
   },

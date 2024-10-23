@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { memo, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Vector3 } from "three";
 import { useGLTF } from "@react-three/drei";
@@ -29,28 +29,28 @@ const BoxRain = ({
   return <primitive ref={meshRef} object={model} position={initPosition} />;
 };
 
-const BoxRainScene = () => {
+const BoxRainScene = memo(() => {
   const models = useMemo(() => {
     return [
-      useGLTF("/models/ccccccccc.glb").scene.clone(),
-      useGLTF("/models/cccccfffc.glb").scene.clone(),
-      useGLTF("/models/cccccfrfc.glb").scene.clone(),
-      useGLTF("/models/cfffcfffc.glb").scene.clone(),
-      useGLTF("/models/ffcfffcff.glb").scene.clone(),
-      useGLTF("/models/ffcfffffc.glb").scene.clone(),
-      useGLTF("/models/ffffcccff.glb").scene.clone(),
-      useGLTF("/models/ffffffcff.glb").scene.clone(),
-      useGLTF("/models/rfffrfcfr.glb").scene.clone(),
-      useGLTF("/models/rfffrfffr.glb").scene.clone(),
-      useGLTF("/models/rfrfcccfr.glb").scene.clone(),
-      useGLTF("/models/rfrfffcfr.glb").scene.clone(),
-      useGLTF("/models/rfrfffffr.glb").scene.clone(),
-      useGLTF("/models/rfrfrfcff.glb").scene.clone(),
-      useGLTF("/models/sfrfrfcfr.glb").scene.clone(),
-      useGLTF("/models/sfrfrfffr.glb").scene.clone(),
-      useGLTF("/models/sfrfrfrfr.glb").scene.clone(),
-      useGLTF("/models/wffffffff.glb").scene.clone(),
-      useGLTF("/models/wfffffffr.glb").scene.clone(),
+      useGLTF("/models/ccccccccc_HF_1.glb").scene.clone(),
+      useGLTF("/models/cccccfffc_HF_1.glb").scene.clone(),
+      useGLTF("/models/cccccfrfc_HF_1.glb").scene.clone(),
+      useGLTF("/models/cfffcfffc_HF_1.glb").scene.clone(),
+      useGLTF("/models/ffcfffcff_HF_1.glb").scene.clone(),
+      useGLTF("/models/ffcfffffc_HF_1.glb").scene.clone(),
+      useGLTF("/models/ffffcccff_HF_1.glb").scene.clone(),
+      useGLTF("/models/ffffffcff_HF_1.glb").scene.clone(),
+      useGLTF("/models/rfffrfcfr_HF_1.glb").scene.clone(),
+      useGLTF("/models/rfffrfffr_HF_1.glb").scene.clone(),
+      useGLTF("/models/rfrfcccfr_HF_1.glb").scene.clone(),
+      useGLTF("/models/rfrfffcfr_HF_1.glb").scene.clone(),
+      useGLTF("/models/rfrfffffr_HF_1.glb").scene.clone(),
+      useGLTF("/models/rfrfrfcff_HF_1.glb").scene.clone(),
+      useGLTF("/models/sfrfrfcfr_HF_1.glb").scene.clone(),
+      useGLTF("/models/sfrfrfffr_HF_1.glb").scene.clone(),
+      useGLTF("/models/sfrfrfrfr_HF_1.glb").scene.clone(),
+      useGLTF("/models/wffffffff_HF_1.glb").scene.clone(),
+      useGLTF("/models/wfffffffr_HF_1.glb").scene.clone(),
     ];
   }, []);
 
@@ -92,6 +92,6 @@ const BoxRainScene = () => {
       </Canvas>
     </div>
   );
-};
+});
 
 export default BoxRainScene;

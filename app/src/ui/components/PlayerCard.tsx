@@ -27,7 +27,7 @@ export const PlayerCard = ({ playerId }: { playerId: Entity }) => {
 
 const PlayerInfo = ({ balance }: { balance: number }) => {
   return (
-    <div className="flex text-background items-center justify-center text-xl sm:text-base lg:text-xl w-full">
+    <div className="flex text-muted-foreground items-center justify-center text-xl sm:text-base lg:text-xl w-full">
       {!!balance && <div>{`${balance}`.slice(0, 6)}</div>}
       {!balance && <Skeleton className="h-4 w-12" />}L
     </div>

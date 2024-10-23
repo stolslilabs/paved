@@ -8,6 +8,7 @@ import { useDojo } from "./dojo/useDojo";
 import { usePlayer } from "./hooks/usePlayer";
 import { useEffect } from "react";
 import { useMusicPlayer } from "./hooks/useMusicPlayer";
+import { TooltipProvider } from "./ui/elements/tooltip";
 
 export const CoreScreen = () => {
   const { gameId } = useQueryParams();
@@ -28,11 +29,13 @@ export const CoreScreen = () => {
   }, [gameId, muted]);
 
   return (
-    <div className="h-full w-full">
-      {!player && <Landing />}
-      {!!account && !!player && !gameId && <GameLobby />}
-      {!!account && !!player && !!gameId && <GameScreen />}
-    </div>
+    <TooltipProvider>
+      <div className="h-full w-full">
+        {!player && <Landing />}
+        {!!account && !!player && !gameId && <GameLobby />}
+        {!!account && !!player && !!gameId && <GameScreen />}
+      </div>
+    </TooltipProvider>
   );
 };
 

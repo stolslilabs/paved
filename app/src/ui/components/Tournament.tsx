@@ -15,7 +15,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import {
@@ -43,6 +42,7 @@ import { usePlayer } from "@/hooks/usePlayer";
 import { useBuilders } from "@/hooks/useBuilders";
 import calendarIcon from "/assets/icons/calendar.svg";
 import { faSackDollar } from "@fortawesome/free-solid-svg-icons";
+import { Sponsor } from "./Sponsor";
 
 export const getSeason = (mode: Mode) => {
   const now = Math.floor(Date.now() / 1000);
@@ -104,21 +104,19 @@ export const TournamentDialog = ({ mode }: { mode: Mode }) => {
   return (
     <Dialog>
       <DialogTrigger>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size={"default"}>
-                <img
-                  src={leaderboard}
-                  className="w-8 fill-secondary-foreground"
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">Leaderboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size={"default"}>
+              <img
+                src={leaderboard}
+                className="w-8 fill-secondary-foreground"
+              />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="select-none">Leaderboard</p>
+          </TooltipContent>
+        </Tooltip>
       </DialogTrigger>
       <DialogContent className="max-h-dscreen overflow-scroll">
         <DialogHeader className="flex items-center">
@@ -165,10 +163,9 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
   }, [page, mode]);
 
   const allGames = useMemo(() => {
-    const offset = BigInt(mode.offset());
+    const offset = BigInt(mode?.offset() || 0);
     return games
       .filter((game) => game.tournament_id - offset === BigInt(page))
-      .sort((a, b) => b.score - a.score)
       .slice(0, 10);
   }, [games, page, mode]);
 
@@ -211,7 +208,7 @@ export const Tournament = ({ mode }: { mode: Mode }) => {
           <p>{endTime}</p>
         </div>
       </div>
-
+      <Sponsor tournamentId={getSeason(mode)} mode={mode} />
       <Table>
         <TableHeader>
           <TableRow className="text-3xs lg: lg:text-xs sm:[&>*]:h-1 lg:[&>*]:h-10 [&>*]:text-foreground tracking-widest">
@@ -287,16 +284,16 @@ export const GameRow = ({
     <TableRow
       className={`text-3xs lg:text-xs ${isSelf && "[&>*]:text-[#955142]"}`}
     >
-      <TableCell className="text-background">{playerRank}</TableCell>
-      <TableCell className="text-left text-background">
+      <TableCell>{playerRank}</TableCell>
+      <TableCell className="text-left">
         {player?.getShortName()}
       </TableCell>
-      <TableCell className="text-right text-background">{game.score}</TableCell>
-      <TableCell className="text-right text-background">{duration}</TableCell>
-      <TableCell className="text-right text-background">
+      <TableCell className="text-right">{game.score}</TableCell>
+      <TableCell className="text-right">{duration}</TableCell>
+      <TableCell className="text-right">
         {game.tile_count}
       </TableCell>
-      <TableCell className="text-right text-background">
+      <TableCell className="text-right">
         {isSelf && tournament && tournament.isClaimable(rank, mode) ? (
           <Claim tournament={tournament} rank={rank} mode={mode} />
         ) : (

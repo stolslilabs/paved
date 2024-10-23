@@ -11,15 +11,16 @@ import useSound from "use-sound";
 import Place from "/sounds/effects/p-place.m4a";
 import { useTile, useTileByKey } from "@/hooks/useTile";
 import { useActions } from "@/hooks/useActions";
-import { Edges, Html, Plane, useGLTF, useTexture } from "@react-three/drei";
+import { Edges, Html, Plane, useTexture } from "@react-three/drei";
 import { useTutorial } from "@/hooks/useTutorial";
 import { useDojo } from "@/dojo/useDojo";
 import { useBuilder } from "@/hooks/useBuilder";
+import { TileEmptyComponent } from "./TileEmptyComponent";
 
 const loader = new THREE.TextureLoader();
 
 export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
-  const [play, { stop }] = useSound(Place);
+  const [play] = useSound(Place);
 
   const { gameId } = useQueryParams();
   const { enabled } = useActions();
@@ -44,16 +45,11 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
   } = useGameStore();
 
   const { tile: activeTile } = useTileByKey({ tileKey: activeEntity });
-  const strategyMode = useGameStore((state) => state.strategyMode);
 
-  const { northTile, eastTile, southTile, westTile } = useMemo(() => {
-    return {
-      northTile: tiles[`${gameId}-${col}-${row + 1}`],
-      eastTile: tiles[`${gameId}-${col + 1}-${row}`],
-      southTile: tiles[`${gameId}-${col}-${row - 1}`],
-      westTile: tiles[`${gameId}-${col - 1}-${row}`],
-    };
-  }, [gameId, tiles]);
+  const northTile = useMemo(() => tiles[`${gameId}-${col}-${row + 1}`], [gameId, tiles, col, row]);
+  const eastTile = useMemo(() => tiles[`${gameId}-${col + 1}-${row}`], [gameId, tiles, col, row]);
+  const southTile = useMemo(() => tiles[`${gameId}-${col}-${row - 1}`], [gameId, tiles, col, row]);
+  const westTile = useMemo(() => tiles[`${gameId}-${col - 1}-${row}`], [gameId, tiles, col, row]);
 
   const isSelected = useMemo(() => {
     return selectedTile && selectedTile.col === col && selectedTile.row === row;
@@ -149,6 +145,7 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
     isIdle,
     hoveredTile,
     hovered,
+    shouldUpdateTexture,
   ]);
 
   const updateTexture = (background: any, rotation: any) => {
@@ -187,151 +184,15 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
       squareSize: 3,
     });
     return position;
-  }, []);
-
-  const models = useMemo(() => {
-    return {
-      1: useGLTF("/models/ccccccccc.glb").scene.clone(),
-      2: useGLTF("/models/cccccfffc.glb").scene.clone(),
-      3: useGLTF("/models/cccccfrfc.glb").scene.clone(),
-      4: useGLTF("/models/cfffcfffc.glb").scene.clone(),
-      5: useGLTF("/models/ffcfffcff.glb").scene.clone(),
-      6: useGLTF("/models/ffcfffffc.glb").scene.clone(),
-      7: useGLTF("/models/ffffcccff.glb").scene.clone(),
-      8: useGLTF("/models/ffffffcff.glb").scene.clone(),
-      9: useGLTF("/models/rfffrfcfr.glb").scene.clone(),
-      10: useGLTF("/models/rfffrfffr.glb").scene.clone(),
-      11: useGLTF("/models/rfrfcccfr.glb").scene.clone(),
-      12: useGLTF("/models/rfrfffcfr.glb").scene.clone(),
-      13: useGLTF("/models/rfrfffffr.glb").scene.clone(),
-      14: useGLTF("/models/rfrfrfcff.glb").scene.clone(),
-      15: useGLTF("/models/sfrfrfcfr.glb").scene.clone(),
-      16: useGLTF("/models/sfrfrfffr.glb").scene.clone(),
-      17: useGLTF("/models/sfrfrfrfr.glb").scene.clone(),
-      18: useGLTF("/models/wffffffff.glb").scene.clone(),
-      19: useGLTF("/models/wfffffffr.glb").scene.clone(),
-    };
-  }, []);
-
-  const getColorBasedOnState = (isValid: boolean, isIdle: boolean) => {
-    if (!isValid) {
-      return "orange"; // Color for invalid state
-    }
-    if (isIdle) {
-      return null; // Color for idle state when valid
-    }
-    return null; // No color change when valid and not idle
-  };
-  // TODO: this is weird now
-  const shadowedModel = useMemo(() => {
-    const model =
-      models[(activeTile?.plan.into() as keyof typeof models) || 1].clone();
-    const box = new THREE.Box3().setFromObject(model);
-    const center = box.getCenter(new THREE.Vector3());
-    const dim = box.getSize(new THREE.Vector3());
-    model.position.x -= center.x;
-    model.position.y -= center.y;
-    model.position.z -= center.z;
-    model.position.y += dim.y * 0.5;
-    model.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.material = child.material.clone();
-        child.castShadow = true;
-        child.receiveShadow = true;
-
-        const color = getColorBasedOnState(isValid || false, isIdle || false);
-        if (color) {
-          child.material.color.set(color);
-        } else {
-          // Reset to default color or make transparent
-          child.material.color.setHex(0xffffff); // Assuming white is the default
-        }
-        child.material.transparent = true;
-        child.material.opacity = 0.8;
-      }
-    });
-    return model;
-  }, [activeTile, isIdle, isValid]);
-
-  const scale = useMemo(() => {
-    if (!shadowedModel) return 1;
-    const box = new THREE.Box3().setFromObject(shadowedModel);
-    const dim = box.getSize(new THREE.Vector3());
-    return (2 * size) / (dim.x + dim.z);
-  }, [shadowedModel]);
-
-  const visibilityCondition = isTutorial ? !strategyMode : strategyMode;
-
-  const meshComponent = useMemo(
-    () => (
-      <>
-        <group
-          visible={texture !== undefined && !visibilityCondition}
-          ref={meshRef}
-          key={`tile-${activeTile?.id}`}
-          scale={scale}
-          rotation={[
-            Math.PI / 2,
-            (Math.PI / 2) * (1 - (activeTile?.orientation.into() || 1)),
-            0,
-          ]}
-          position={[position.x, position.y, 0]}
-        >
-          <primitive object={shadowedModel} />
-        </group>
-        <mesh
-          visible={texture !== undefined && visibilityCondition}
-          onPointerEnter={handlePointerEnter}
-          onPointerLeave={handlePointerLeave}
-          onClick={handleSimpleClick}
-          ref={meshRef}
-          position={[position.x, position.y, 0]}
-          geometry={squareGeometry}
-        >
-          <meshBasicMaterial attach="material-0" color={"#503A23"} />
-          <meshBasicMaterial attach="material-1" color={"#503A23"} />
-          <meshBasicMaterial attach="material-2" color={"#503A23"} />
-          <meshBasicMaterial attach="material-3" color={"#503A23"} />
-          <meshBasicMaterial
-            attach="material-4"
-            // emissive={isValid ? (isIdle ? "green" : "red") : "orange"}
-            // emissiveIntensity={isValid ? (isIdle ? 0.5 : 0.2) : 0.4}
-            map={texture}
-          />
-          <meshBasicMaterial attach="material-5" color={"#503A23"} />
-        </mesh>
-        <mesh
-          visible={texture !== undefined && strategyMode}
-          position={[position.x, position.y, 0]}
-          geometry={squareGeometry}
-        >
-          <meshBasicMaterial
-            color={isValid ? (isIdle ? "green" : "red") : "orange"}
-            transparent={true}
-            opacity={isValid ? (isIdle ? 0.5 : 0.2) : 0.4}
-          />
-        </mesh>
-      </>
-    ),
-    [
-      texture,
-      isValid,
-      isIdle,
-      position.x,
-      position.y,
-      squareGeometry,
-      handlePointerEnter,
-      handlePointerLeave,
-      handleSimpleClick,
-    ],
-  );
+  }, [row, col]);
 
   const { currentTutorialStage } = useTutorial();
 
+  const modelPath = useMemo(() => activeTile?.getVarietyModelPath(col, row), [activeTile, col, row]);
+
   return (
     <>
-      {meshComponent}
-
+      {activeTile && <TileEmptyComponent modelPath={modelPath ?? ""} size={size} col={col} row={row} tiles={tiles} isTutorial={isTutorial} />}
       <group position={[position.x, position.y, 0]}>
         <mesh
           visible={!texture}
@@ -392,7 +253,7 @@ const TileHighlight = ({ size }: { size: number }) => {
             threshold={15}
             color={
               currentTutorialStage?.presetTransaction.x === selectedTile.col &&
-              currentTutorialStage?.presetTransaction.y === selectedTile.row
+                currentTutorialStage?.presetTransaction.y === selectedTile.row
                 ? "lime"
                 : !selectedTile
                   ? "blue"

@@ -6,12 +6,12 @@ import banner from "/assets/banner.svg";
 import BoxRainScene from "../modules/BoxRain";
 import { useDojo } from "@/dojo/useDojo";
 import { useAccount } from "@starknet-react/core";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import { usePlayer } from "@/hooks/usePlayer";
 import { ComponentValue } from "@dojoengine/recs";
 import { MusicPlayer } from "../components/MusicPlayer";
 
-export const Landing = () => {
+export const Landing = memo(() => {
   const { isConnected } = useAccount();
   const {
     account: { account },
@@ -50,7 +50,7 @@ export const Landing = () => {
       </div>
     </div>
   );
-};
+});
 
 export const Play = ({ player }: { player: ComponentValue }) => {
   const navigate = useNavigate();

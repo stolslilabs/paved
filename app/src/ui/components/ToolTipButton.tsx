@@ -2,13 +2,12 @@ import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import { ReactElement } from "react";
 
 export const ToolTipButton = ({
-  onClick = () => {},
+  onClick = () => { },
   icon,
   toolTipText,
   disabled = false,
@@ -19,22 +18,20 @@ export const ToolTipButton = ({
   disabled?: boolean;
 }) => {
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            disabled={disabled}
-            variant={"command"}
-            size={"command"}
-            onClick={onClick}
-          >
-            {icon}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="select-none">{toolTipText}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          disabled={disabled}
+          variant={"command"}
+          size={"command"}
+          onClick={onClick}
+        >
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p className="select-none">{toolTipText}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 };

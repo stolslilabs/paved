@@ -1,17 +1,17 @@
 import { useDojo } from "@/dojo/useDojo";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { getEntityIdFromKeys } from "@dojoengine/utils";
 import { useComponentValue } from "@dojoengine/react";
-import { Entity } from "@dojoengine/recs";
+import { Entity, getComponentValue } from "@dojoengine/recs";
 import { Builder } from "@/dojo/game/models/builder";
 
 export const useBuilder = ({
   gameId,
   playerId,
 }: {
-  gameId: number | undefined;
-  playerId: string | undefined;
-}): { builder: Builder | null; builderKey: Entity } => {
+  gameId?: number | undefined;
+  playerId?: string | undefined;
+}): { builder: Builder | null; builderKey: Entity, getBuilder: (gameId: number | null, playerId: string | null) => Builder | null } => {
   const {
     setup: {
       clientModels: {
@@ -34,5 +34,16 @@ export const useBuilder = ({
     return component ? new BuilderClass(component) : null;
   }, [component]);
 
-  return { builder, builderKey };
+  const getBuilder = useCallback((gameId: number | null, playerId: string | null) => {
+    const builderKey = getEntityIdFromKeys([
+      BigInt(gameId || 0),
+      BigInt(playerId || 0),
+    ])
+
+    const component = getComponentValue(Builder, builderKey);
+
+    return component ? new BuilderClass(component) : null
+  }, [Builder, BuilderClass])
+
+  return { builder, builderKey, getBuilder };
 };

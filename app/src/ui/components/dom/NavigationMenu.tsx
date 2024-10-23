@@ -22,7 +22,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { Plan } from "@/dojo/game/types/plan";
 import { ScrollArea } from "@/ui/elements/scroll-area";
 import cancelIcon from "/assets/icons/cancel.svg";
-import { TutorialDialog } from "./TutorialDialog";
+import { TutorialDialog } from "./dialogs/TutorialDialog";
 import {
     Collapsible,
     CollapsibleContent,

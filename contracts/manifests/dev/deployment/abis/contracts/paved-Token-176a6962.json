@@ -28,7 +28,7 @@
     "items": [
       {
         "type": "function",
-        "name": "contract_name",
+        "name": "name",
         "inputs": [],
         "outputs": [
           {
@@ -128,40 +128,17 @@
   },
   {
     "type": "impl",
-    "name": "IDojoInitImpl",
-    "interface_name": "paved::mocks::token::Token::IDojoInit"
+    "name": "Faucet",
+    "interface_name": "paved::mocks::token::IERC20Faucet"
   },
   {
     "type": "interface",
-    "name": "paved::mocks::token::Token::IDojoInit",
+    "name": "paved::mocks::token::IERC20Faucet",
     "items": [
       {
         "type": "function",
-        "name": "dojo_init",
+        "name": "mint",
         "inputs": [],
-        "outputs": [],
-        "state_mutability": "view"
-      }
-    ]
-  },
-  {
-    "type": "impl",
-    "name": "UpgradableImpl",
-    "interface_name": "dojo::contract::upgradeable::IUpgradeable"
-  },
-  {
-    "type": "interface",
-    "name": "dojo::contract::upgradeable::IUpgradeable",
-    "items": [
-      {
-        "type": "function",
-        "name": "upgrade",
-        "inputs": [
-          {
-            "name": "new_class_hash",
-            "type": "core::starknet::class_hash::ClassHash"
-          }
-        ],
         "outputs": [],
         "state_mutability": "external"
       }
@@ -169,7 +146,7 @@
   },
   {
     "type": "impl",
-    "name": "ERC20Impl",
+    "name": "ERC20",
     "interface_name": "paved::mocks::erc20::interface::IERC20"
   },
   {
@@ -319,24 +296,13 @@
   },
   {
     "type": "impl",
-    "name": "ERC20MetadataImpl",
+    "name": "ERC20Metadata",
     "interface_name": "paved::mocks::erc20::interface::IERC20Metadata"
   },
   {
     "type": "interface",
     "name": "paved::mocks::erc20::interface::IERC20Metadata",
     "items": [
-      {
-        "type": "function",
-        "name": "name",
-        "inputs": [],
-        "outputs": [
-          {
-            "type": "core::felt252"
-          }
-        ],
-        "state_mutability": "view"
-      },
       {
         "type": "function",
         "name": "symbol",
@@ -363,7 +329,7 @@
   },
   {
     "type": "impl",
-    "name": "ERC20CamelOnlyImpl",
+    "name": "ERC20CamelOnly",
     "interface_name": "paved::mocks::erc20::interface::IERC20CamelOnly"
   },
   {
@@ -424,16 +390,45 @@
     ]
   },
   {
-    "type": "constructor",
-    "name": "constructor",
-    "inputs": []
+    "type": "impl",
+    "name": "IDojoInitImpl",
+    "interface_name": "paved::mocks::token::Token::IDojoInit"
   },
   {
-    "type": "function",
-    "name": "mint",
-    "inputs": [],
-    "outputs": [],
-    "state_mutability": "external"
+    "type": "interface",
+    "name": "paved::mocks::token::Token::IDojoInit",
+    "items": [
+      {
+        "type": "function",
+        "name": "dojo_init",
+        "inputs": [],
+        "outputs": [],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "UpgradableImpl",
+    "interface_name": "dojo::contract::upgradeable::IUpgradeable"
+  },
+  {
+    "type": "interface",
+    "name": "dojo::contract::upgradeable::IUpgradeable",
+    "items": [
+      {
+        "type": "function",
+        "name": "upgrade",
+        "inputs": [
+          {
+            "name": "new_class_hash",
+            "type": "core::starknet::class_hash::ClassHash"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
   },
   {
     "type": "event",
@@ -461,7 +456,7 @@
   },
   {
     "type": "event",
-    "name": "paved::mocks::erc20::erc20::ERC20Component::Transfer",
+    "name": "paved::mocks::token::Token::Transfer",
     "kind": "struct",
     "members": [
       {
@@ -483,7 +478,7 @@
   },
   {
     "type": "event",
-    "name": "paved::mocks::erc20::erc20::ERC20Component::Approval",
+    "name": "paved::mocks::token::Token::Approval",
     "kind": "struct",
     "members": [
       {
@@ -505,23 +500,6 @@
   },
   {
     "type": "event",
-    "name": "paved::mocks::erc20::erc20::ERC20Component::Event",
-    "kind": "enum",
-    "variants": [
-      {
-        "name": "Transfer",
-        "type": "paved::mocks::erc20::erc20::ERC20Component::Transfer",
-        "kind": "nested"
-      },
-      {
-        "name": "Approval",
-        "type": "paved::mocks::erc20::erc20::ERC20Component::Approval",
-        "kind": "nested"
-      }
-    ]
-  },
-  {
-    "type": "event",
     "name": "paved::mocks::token::Token::Event",
     "kind": "enum",
     "variants": [
@@ -531,9 +509,14 @@
         "kind": "nested"
       },
       {
-        "name": "ERC20Event",
-        "type": "paved::mocks::erc20::erc20::ERC20Component::Event",
-        "kind": "flat"
+        "name": "Transfer",
+        "type": "paved::mocks::token::Token::Transfer",
+        "kind": "nested"
+      },
+      {
+        "name": "Approval",
+        "type": "paved::mocks::token::Token::Approval",
+        "kind": "nested"
       }
     ]
   }

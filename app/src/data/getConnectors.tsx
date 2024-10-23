@@ -10,6 +10,7 @@ export const getConnectors = (): { connectors: Connector[] } => {
   const account = getContractByName(config.manifest, theme, "Account")?.address;
   const daily = getContractByName(config.manifest, theme, "Daily")?.address;
   const weekly = getContractByName(config.manifest, theme, "Weekly")?.address;
+  const duel = getContractByName(config.manifest, theme, "Duel")?.address;
   const tutorial = getContractByName(
     config.manifest,
     theme,
@@ -129,6 +130,63 @@ export const getConnectors = (): { connectors: Connector[] } => {
     {
       target: weekly,
       method: "build",
+    },
+    // Daily
+    {
+      target: duel,
+      method: "initialize",
+    },
+    {
+      target: duel,
+      method: "spawn",
+    },
+    {
+      target: duel,
+      method: "claim",
+    },
+    {
+      target: duel,
+      method: "sponsor",
+    },
+    {
+      target: duel,
+      method: "discard",
+    },
+    {
+      target: duel,
+      method: "surrender",
+    },
+    {
+      target: duel,
+      method: "build",
+    },
+    {
+      target: duel,
+      method: "claim"
+    },
+    {
+      target: duel,
+      method: "start"
+    },
+    {
+      target: duel,
+      method: "leave"
+    },
+    {
+      target: duel,
+      method: "kick"
+    },
+    {
+      target: duel,
+      method: "join"
+    },
+    {
+      target: duel,
+      method: "ready"
+    },
+    {
+      target: duel,
+      method: "delete"
     },
   ];
 

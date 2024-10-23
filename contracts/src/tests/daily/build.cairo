@@ -128,7 +128,7 @@ fn test_play_build_complete_castle() {
     systems.daily.build(context.game_id, orientation, x, y, role, spot);
 
     // [Assert]
-    let game = store.game(context.game_id);
-    let expected: u32 = 2 * constants::CITY_BASE_POINTS;
-    assert(game.score - expected <= expected, 'Build: game score');
+    let builder = store.builder(game, context.player_id);
+    let expected: u32 = 2 * constants::CITY_BASE_POINTS + 1;
+    assert(builder.score - expected <= expected, 'Build: game score');
 }

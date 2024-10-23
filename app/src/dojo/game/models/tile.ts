@@ -6,7 +6,7 @@ import { Orientation } from "../types/orientation";
 import { Area } from "../types/area";
 import { Move } from "../types/move";
 import { ComponentValue } from "@dojoengine/recs";
-import { getImage } from "@/dojo/game";
+import { getImage, getModelVariations } from "@/dojo/game";
 
 export class Tile {
   public gameId: number;
@@ -72,6 +72,22 @@ export class Tile {
 
   public isEmpty(): boolean {
     return this.occupiedSpot.value === SpotType.None;
+  }
+
+  getVarietyModelPath(x: number = this.x, y: number = this.y): string {
+    const input = `${this.plan.value}${x}${y}${this.gameId}`;
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+      hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
+      hash = (hash << 13) | (hash >>> 19);
+    }
+    const index = this.plan.into();
+
+    const name = this.plan.value.toLowerCase();
+    const density = Math.abs(hash) % 2 === 0 ? "LF" : "HF";
+    const variation = (Math.abs(hash) % getModelVariations({ plan: index })) + 1;
+
+    return `${name}_${density}_${variation}`;
   }
 
   public canPlace(neighbors: Array<Tile>): boolean {

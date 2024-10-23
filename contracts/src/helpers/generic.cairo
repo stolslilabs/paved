@@ -153,7 +153,7 @@ impl GenericCount of GenericCountTrait {
             let (num, den) = compute_multiplier(count);
             let points = count * base_points * power * num / den;
 
-            game.add_score(points);
+            builder.score += points;
 
             // [Effect] Update the builder
             store.set_builder(builder);

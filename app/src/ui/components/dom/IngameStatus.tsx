@@ -8,6 +8,10 @@ import {
   faHammer,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { ModeType } from "@/dojo/game/types/mode";
+import { useEffect, useState } from "react";
+import { Game } from "@/dojo/game/models/game";
+import { formatTimeUntil } from "@/utils/time";
 
 export const IngameStatus = ({ hasOpenMenu }: { hasOpenMenu: boolean }) => {
   const { gameId } = useQueryParams();
@@ -18,23 +22,50 @@ export const IngameStatus = ({ hasOpenMenu }: { hasOpenMenu: boolean }) => {
   const { game } = useGame({ gameId });
   const { builder } = useBuilder({ gameId, playerId: account?.address });
 
+  if (game?.mode.value === ModeType.Duel) {
+    return (
+      <DuelCountdown game={game} hasOpenMenu={hasOpenMenu} />
+    )
+  }
+
   return (
     game &&
     builder && (
       <div
         className={`w-full text-[#686868] flex justify-center items-middle col-start-1 sm:col-start-1 row-start-1 absolute ${hasOpenMenu ? "hidden sm:flex" : "flex"}`}
       >
-        <StatusSlot data={game.score} />
+        <StatusSlot data={builder.score} />
         <StatusSlot
           iconData={{ def: faHammer, style: "mx-2" }}
-          data={`${game.built + 1}/${game.mode.count()}`}
+          data={`${builder.built + 1}/${game.mode.count()}`}
         />
         <StatusSlot
           iconData={{ def: faFire, style: "text-orange-500 mx-2" }}
-          data={game.discarded}
+          data={builder.discarded}
         />
       </div>
     )
+  );
+};
+
+const DuelCountdown = ({ game, hasOpenMenu }: { game: Game, hasOpenMenu: boolean }) => {
+  const [timeLeft, setTimeLeft] = useState(game.getEndDate());
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setTimeLeft(game.getEndDate());
+    }, 1000);
+
+    // Clean up the interval when the component unmounts
+    return () => clearInterval(intervalId);
+  }, [game]); // Add game as a dependency
+
+  return (
+    <div
+      className={`w-full text-[#686868] flex justify-center items-middle col-start-1 sm:col-start-1 row-start-1 absolute ${hasOpenMenu ? "hidden sm:flex" : "flex"}`}
+    >
+      <p>{formatTimeUntil(new Date(timeLeft))}</p>
+    </div>
   );
 };
 
