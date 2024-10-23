@@ -2,6 +2,9 @@ import { ComponentValue } from "@dojoengine/recs";
 import { Mode } from "../types/mode";
 import { Plan } from "../types/plan";
 import { Base } from "../elements/decks/base";
+import { shortString } from "starknet";
+
+type GameState = "lobby" | "started" | "over"
 
 export class Game {
   public id: number;
@@ -36,7 +39,7 @@ export class Game {
     this.players = BigInt(game.players);
     this.price = BigInt(game.price);
     this.prize = BigInt(game.prize);
-    this.name = game.name.toString();
+    this.name = shortString.decodeShortString(game.name);
     this.player_count = game.player_count;
   }
 
@@ -44,9 +47,13 @@ export class Game {
     return this.over;
   }
 
+  public getEndDate = (): Date => new Date(this.start_time.getTime() + Number(this.duration) * 1000);
+
   public tilesLeft(): number {
     return this.mode.count() - this.tile_count;
   }
+
+  public getState = (): GameState => this.start_time.getTime() === 0 ? "lobby" : this.getEndDate() < new Date() ? "over" : "started"
 
   public getPlans(): { plan: Plan; count: number }[] {
     let tiles = this.tiles;
