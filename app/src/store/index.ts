@@ -1,7 +1,8 @@
 import { create } from "zustand";
-import { Entity } from "@dojoengine/recs";
+import { ComponentValue, Entity, Schema } from "@dojoengine/recs";
 import { Howl } from "howler";
 import { ModeType } from "@/dojo/game/types/mode";
+import { Game } from "@/dojo/bindings/models.gen";
 
 export const CAMERA_SETTINGS: {
   position: [number, number, number];
@@ -40,6 +41,9 @@ interface LobbyState {
   mode: ModeType;
   setMode: (mode: ModeType) => void;
   resetMode: () => void;
+  games: Array<ComponentValue<Schema, unknown>>;
+  setGames: (game: ComponentValue<Schema, unknown> | undefined) => void;
+
 }
 
 interface CameraState {
@@ -120,6 +124,12 @@ export const useLobbyStore = create<LobbyState>()((set, get) => ({
   mode: ModeType.Daily,
   setMode: (mode) => set({ mode }),
   resetMode: () => set({ mode: ModeType.Daily }),
+  games: [],
+  setGames: (game?: ComponentValue<Schema, unknown>) => set((state) => ({
+    games: game
+      ? { ...state.games, [game.id]: game }
+      : state.games
+  })),
 }));
 
 export const useCameraStore = create<CameraState>()((set, get) => ({
