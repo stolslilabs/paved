@@ -5,7 +5,8 @@ import { getEntityIdFromKeys, shortenHex } from "@dojoengine/utils";
 import { Entity } from "@dojoengine/recs";
 import { uuid } from "@latticexyz/utils";
 import { ClientModels } from "./models";
-import { ModeType } from "./game/types/mode";
+import { Mode, ModeType } from "./game/types/mode";
+import { Account } from "starknet";
 
 export type SystemCalls = ReturnType<typeof systems>;
 
@@ -70,7 +71,12 @@ export function systems({
     }
   };
 
-  const create_game = async ({ account, mode, ...props }: any) => {
+  type CreateGameProps = {
+    account: Account;
+    mode: Mode;
+  }
+
+  const create_game = async ({ account, mode, ...props }: CreateGameProps) => {
     const contract = getContract(mode?.value as ModeType);
     try {
       const { transaction_hash } = await contract.spawn({
@@ -233,6 +239,120 @@ export function systems({
     }
   };
 
+  const delete_duel_lobby = async ({ account, mode, ...props }: any) => {
+    try {
+      const contract = getContract(mode?.value as ModeType);
+      const { transaction_hash } = await contract.remove({
+        account,
+        ...props,
+      });
+      notify(
+        "Duel lobby has been quit.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+      return true
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
+    }
+  };
+
+  const ready_duel_lobby = async ({ account, mode, ...props }: any) => {
+    try {
+      const contract = getContract(mode?.value as ModeType);
+      const { transaction_hash } = await contract.ready({
+        account,
+        ...props,
+      });
+      notify(
+        props.status ? "You are readied." : "You are unreadied.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+      return true
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
+    }
+  };
+
+  const join_duel_lobby = async ({ account, mode, ...props }: any) => {
+    try {
+      const contract = getContract(mode?.value as ModeType);
+      const { transaction_hash } = await contract.join({
+        account,
+        ...props,
+      });
+      notify(
+        "You joined the lobby.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+      return true
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
+    }
+  };
+
+  const leave_duel_lobby = async ({ account, mode, ...props }: any) => {
+    try {
+      const contract = getContract(mode?.value as ModeType);
+      const { transaction_hash } = await contract.leave({
+        account,
+        ...props,
+      });
+      notify(
+        "You left the lobby.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+      return true
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
+    }
+  };
+
+  const start_duel_lobby = async ({ account, mode, ...props }: any) => {
+    try {
+      const contract = getContract(mode?.value as ModeType);
+      const { transaction_hash } = await contract.start({
+        account,
+        ...props,
+      });
+      notify(
+        "Duel has been started.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+      return true
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
+    }
+  };
+
+  const claim_duel_prize = async ({ account, mode, ...props }: any) => {
+    try {
+      const contract = getContract(mode?.value as ModeType);
+      const { transaction_hash } = await contract.claim({
+        account,
+        ...props,
+      });
+      notify(
+        "Prize has been claimed.",
+        await account.waitForTransaction(transaction_hash, {
+          retryInterval: 100,
+        }),
+      );
+      return true
+    } catch (error: any) {
+      toast.error(extractedMessage(error.message));
+    }
+  };
+
   return {
     create_player,
     create_game,
@@ -241,5 +361,11 @@ export function systems({
     discard,
     surrender,
     build,
+    delete_duel_lobby,
+    ready_duel_lobby,
+    join_duel_lobby,
+    leave_duel_lobby,
+    start_duel_lobby,
+    claim_duel_prize
   };
 }
