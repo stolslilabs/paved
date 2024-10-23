@@ -28,7 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/ui/elements/dialog";
-import { Leaderboard } from "../Leaderboard";
+import { Leaderboard } from "../../Leaderboard";
 
 export const GameCompletedDialog = () => {
   const { gameId } = useQueryParams();
