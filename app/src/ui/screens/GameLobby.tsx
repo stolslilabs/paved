@@ -12,12 +12,12 @@ import { Address } from "../components/Address";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "../elements/drawer";
 import leaderboardIcon from "/assets/icons/leaderboard.svg";
 import { Mode, ModeType } from "@/dojo/game/types/mode";
-import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
+import { Fragment, ReactNode, useMemo, useState } from "react";
 import { useDojo } from "@/dojo/useDojo";
 import { ComponentUpdate, ComponentValue, Has, Schema, defineEnterSystem, defineSystem } from "@dojoengine/recs";
 import { useNavigate } from "react-router-dom";
 import { useBuilder } from "@/hooks/useBuilder";
-import { OutdatedAlertDialog } from "../components/dom/OutdatedAlertDialog";
+import { OutdatedAlertDialog } from "../components/dom/dialogs/OutdatedAlertDialog";
 
 const tabs = ["daily", "weekly", "duel", "tutorial"];
 const disabledTabs = [""]; // Keep in case we need to temporarily disable tabs
@@ -69,10 +69,8 @@ const PanelsContainerHeader = ({ children }: { children: ReactNode }) => (
 )
 
 const GameTable = ({ gameMode }: { gameMode: Mode }) => {
-  const { setMode } = useLobby()
+  const { setMode, games, setGames } = useLobby()
   const navigate = useNavigate();
-
-  const [games, setGames] = useState<{ [key: number]: ComponentValue<Schema, unknown> }>({});
 
   const {
     account: { account },
@@ -88,33 +86,16 @@ const GameTable = ({ gameMode }: { gameMode: Mode }) => {
   const [recentGame, setRecentGame] = useState<ComponentValue<Schema, unknown> | null>(null);
   const { builder } = useBuilder({ gameId: recentGame?.id, playerId: account?.address })
 
-  useEffect(() => {
-    if (!builder!) return
+  const hasCreatedGame = useMemo(() => builder !== null && account !== null && builder.player_id === account.address && gameMode.value !== ModeType.Duel, [account, builder, gameMode.value])
 
-    if (builder.player_id === account?.address) {
-      navigate("?id=" + builder.game_id, { replace: true })
-    }
-  }, [account?.address, builder, navigate])
+  hasCreatedGame && navigate("?id=" + builder?.game_id, { replace: true })
 
   useMemo(() => {
-    defineEnterSystem(world, [Has(Game)], function ({ value: [game] }: ComponentUpdate) {
-      setGames((prevTiles: ComponentValue<Schema, unknown>) => game ? ({ ...prevTiles, [game.id]: new GameClass(game) }) : prevTiles);
-    });
-    defineSystem(world, [Has(Game)], function ({ value: [game] }: ComponentUpdate) {
-      setGames((prevTiles: ComponentValue<Schema, unknown>) => game ? ({ ...prevTiles, [game.id]: new GameClass(game) }) : prevTiles);
-    });
+    defineEnterSystem(world, [Has(Game)], ({ value: [game] }: ComponentUpdate) => game && setGames(new GameClass(game)));
 
-    defineSystem(
-      world,
-      [Has(Game)],
-      function ({ value: [game] }: ComponentUpdate) {
-        if (game) {
-          setRecentGame(game);
-        }
-      },
-      { runOnInit: false },
-    );
-  }, []);
+    defineSystem(world, [Has(Game)], ({ value: [game] }: ComponentUpdate) => game && setGames(new GameClass(game)));
+    defineSystem(world, [Has(Game)], ({ value: [game] }: ComponentUpdate) => game && setRecentGame(game), { runOnInit: false });
+  }, [Game, GameClass, setGames, world]);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
