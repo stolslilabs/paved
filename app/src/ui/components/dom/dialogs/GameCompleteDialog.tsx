@@ -17,7 +17,7 @@ import {
 import { Button } from "@/ui/elements/button";
 import { faXTwitter } from "@fortawesome/free-brands-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Game as GameClass } from "@/dojo/game/models/game";
 import { TwitterShareButton } from "react-share";
@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/ui/elements/dialog";
 import { Leaderboard } from "../../Leaderboard";
+import { useBuilder } from "@/hooks/useBuilder";
 
 export const GameCompletedDialog = () => {
   const { gameId } = useQueryParams();
@@ -77,6 +78,7 @@ const RegularDialog = () => {
   const { game } = useGame({ gameId });
   const { builders } = useBuilders({ gameId });
   const [open, setOpen] = useState(true);
+  const [duelOver, setDuelOver] = useState(false)
 
   const isSelf = useMemo(
     () =>
@@ -85,24 +87,43 @@ const RegularDialog = () => {
     [account, builders],
   );
 
+  useEffect(() => {
+    if (!game || game.mode.value !== ModeType.Duel) return;
+
+    const tick = setInterval(() => {
+      if (Date.now() > game.getEndDate().getTime()) {
+        setDuelOver(true)
+        clearInterval(tick)
+      }
+    }, 1000)
+
+    return () => clearInterval(tick)
+  }, [game])
+
   if (!game || !builders || !builders.length) return null;
 
   return (
-    <Dialog open={open && game.isOver() && isSelf} onOpenChange={setOpen}>
+    <Dialog open={open && ((game.isOver() && isSelf) || duelOver)} onOpenChange={setOpen}>
       <DialogContent className="bg-primary">
         <DialogHeader>
           <DialogTitle className="text-center text-xl">Leaderboard</DialogTitle>
         </DialogHeader>
         <Description game={game} />
-        <Leaderboard game={game} builders={builders} />
+        <Leaderboard builders={builders} />
       </DialogContent>
     </Dialog>
   );
 };
 
 const Description = ({ game }: { game: GameClass }) => {
+  const {
+    account: { account },
+  } = useDojo();
+
   const takeScreenshot = useUIStore((state) => state.takeScreenshot);
   const [screenshotMessage, setScreenshotMessage] = useState("");
+  const { builder } = useBuilder({ gameId: game.id, playerId: account?.address })
+  const navigate = useNavigate()
 
   const handleScreenshot = () => {
     takeScreenshot?.();
@@ -119,6 +140,7 @@ const Description = ({ game }: { game: GameClass }) => {
         post for maximum impact.
       </div>
 
+      <Button className="flex gap-2 w-auto p-2 text-xs" onClick={() => navigate("", { replace: true })}>Home</Button>
       <Button
         variant={"default"}
         size={"icon"}
@@ -128,7 +150,7 @@ const Description = ({ game }: { game: GameClass }) => {
         {screenshotMessage ? screenshotMessage : "Take Screenshot!"}
       </Button>
 
-      <Share score={game.score} />
+      <Share score={builder?.score ?? 0} />
     </DialogDescription>
   );
 };
