@@ -9,7 +9,7 @@ import {
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import { cn } from "@/ui/utils";
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, useCallback, useMemo, useState } from "react";
 
 type IngameButtonProps = ButtonProps &
   React.RefAttributes<HTMLButtonElement> & {
@@ -40,11 +40,10 @@ export const IngameButton = React.forwardRef<
     const { game } = useGame({ gameId });
     const { currentTutorialStage } = useTutorial();
 
-    const interactionText = currentTutorialStage?.interactionText?.get(
+    const interactionText = useMemo(() => currentTutorialStage?.interactionText?.get(
       props.id ?? "",
-    );
-    const tutorialOpen =
-      props.id && game?.mode.value === ModeType.Tutorial && interactionText;
+    ), [currentTutorialStage?.interactionText, props.id])
+    const tutorialOpen = useMemo(() => props.id && game?.mode.value === ModeType.Tutorial && interactionText, [game?.mode.value, interactionText, props.id])
 
     const [ephemeralOpen, setEphemeralOpen] = useState(
       !!tutorialOpen && tutorialCondition,
@@ -63,14 +62,17 @@ export const IngameButton = React.forwardRef<
       </Button>
     );
 
+    const memoizedOpen = useMemo(() => ephemeralOpen || (!!tutorialOpen && tutorialCondition), [ephemeralOpen, tutorialOpen, tutorialCondition])
+    const onOpenChangeCallback = useCallback((open: boolean) => {
+      if (!tutorialOpen && !tutorialCondition) {
+        setEphemeralOpen(open);
+      }
+    }, [tutorialOpen, tutorialCondition])
+
     return name ? (
       <Tooltip
-        open={ephemeralOpen || (!!tutorialOpen && tutorialCondition)}
-        onOpenChange={(open) => {
-          if (!tutorialOpen && !tutorialCondition) {
-            setEphemeralOpen(open);
-          }
-        }}
+        open={memoizedOpen}
+        onOpenChange={onOpenChangeCallback}
       >
         <TooltipTrigger asChild>{content}</TooltipTrigger>
         <TooltipContent

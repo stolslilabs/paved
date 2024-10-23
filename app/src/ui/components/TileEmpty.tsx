@@ -46,14 +46,10 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
 
   const { tile: activeTile } = useTileByKey({ tileKey: activeEntity });
 
-  const { northTile, eastTile, southTile, westTile } = useMemo(() => {
-    return {
-      northTile: tiles[`${gameId}-${col}-${row + 1}`],
-      eastTile: tiles[`${gameId}-${col + 1}-${row}`],
-      southTile: tiles[`${gameId}-${col}-${row - 1}`],
-      westTile: tiles[`${gameId}-${col - 1}-${row}`],
-    };
-  }, [gameId, tiles]);
+  const northTile = useMemo(() => tiles[`${gameId}-${col}-${row + 1}`], [gameId, tiles, col, row]);
+  const eastTile = useMemo(() => tiles[`${gameId}-${col + 1}-${row}`], [gameId, tiles, col, row]);
+  const southTile = useMemo(() => tiles[`${gameId}-${col}-${row - 1}`], [gameId, tiles, col, row]);
+  const westTile = useMemo(() => tiles[`${gameId}-${col - 1}-${row}`], [gameId, tiles, col, row]);
 
   const isSelected = useMemo(() => {
     return selectedTile && selectedTile.col === col && selectedTile.row === row;
@@ -149,6 +145,7 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
     isIdle,
     hoveredTile,
     hovered,
+    shouldUpdateTexture,
   ]);
 
   const updateTexture = (background: any, rotation: any) => {
@@ -187,11 +184,11 @@ export const TileEmpty = ({ tiles, col, row, size, isTutorial }: any) => {
       squareSize: 3,
     });
     return position;
-  }, []);
+  }, [row, col]);
 
   const { currentTutorialStage } = useTutorial();
 
-  const modelPath = useMemo(() => activeTile?.getVarietyModelPath(col, row), [activeTile, col, row])
+  const modelPath = useMemo(() => activeTile?.getVarietyModelPath(col, row), [activeTile, col, row]);
 
   return (
     <>
