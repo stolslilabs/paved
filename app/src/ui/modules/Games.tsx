@@ -24,13 +24,27 @@ import viewMapIcon from "/assets/icons/viewmap.svg";
 import { Mode, ModeType } from "@/dojo/game/types/mode";
 import blobert from "/assets/blobert.svg";
 import { CreateGame } from "../components/CreateGame";
+import { ComponentValue, Schema } from "@dojoengine/recs";
+import { Dialog, DialogTrigger } from "@radix-ui/react-dialog";
+import { DuelJoinDialogContent } from "../components/dom/dialogs/duels/DuelJoinDialogContent";
+import { formatTime, formatTimeUntil } from "@/utils/time";
+import { useBuilders } from "@/hooks/useBuilders";
+import { cn } from "../utils";
 
-export type GamesList = { [key: number]: any };
+export type GamesList = { [key: number]: ComponentValue<Schema, Game>; }
+
+const tableHeaders = {
+  [ModeType.None]: [],
+  [ModeType.Tutorial]: [],
+  [ModeType.Daily]: ["Game", "Rank", "Score", "Time Elapsed"],
+  [ModeType.Weekly]: ["Game", "Rank", "Score", "Time Elapsed"],
+  [ModeType.Duel]: ["Name", "Game Length", "Time Elapsed", "Tiles Played", "Buy-in"]
+}
 
 export const Games = ({ games }: { games: GamesList }) => {
   const { gameMode } = useLobby();
 
-  const filteredGames: Game[] = useMemo(
+  const filteredGames: ComponentValue<Schema, Game>[] = useMemo(
     () =>
       Object.values(games)
         .filter((game) => {
@@ -45,20 +59,21 @@ export const Games = ({ games }: { games: GamesList }) => {
   return gameMode.value !== ModeType.Tutorial ? (
     <Table className="mb-4">
       <TableHeader>
-        <TableRow className="text-xs lg:text-sm">
-          <TableHead className="w-[100px] text-center uppercase h-6 lg:h-10">
-            Game
-          </TableHead>
-          <TableHead className="uppercase text-center h-6 lg:h-10">Rank</TableHead>
-          <TableHead className="uppercase text-center h-6 lg:h-10">Score</TableHead>
-          <TableHead className="uppercase text-center h-6 lg:h-10">Time</TableHead>
+        <TableRow className="text-2xs lg:text-xs">
+          {tableHeaders[gameMode.value].map((header, index) => (
+            <TableHead className={cn("text-center uppercase h-6 lg:h-10 pt-8 pb-2", index === 0 && " text-start")} key={index}>
+              {header}
+            </TableHead>
+          ))}
+          <TableHead className="w-60" />
         </TableRow>
       </TableHeader>
       <TableBody>
-        {Object.values(filteredGames).map((game, index) => (
+        {Object.values(filteredGames).map((game, index) => gameMode.value === ModeType.Duel ? (
+          <DuelLobbyRow key={index} game={game} />
+        ) : (
           <GameSingleRow key={index} game={game} />
         ))}
-        <DuelLobbyRow />
       </TableBody>
     </Table>
   ) : (
@@ -75,26 +90,101 @@ const StartTutorialContent = () => {
   );
 };
 
-const DuelLobbyRow = () => {
+const DuelLobbyRow = ({ game }: { game: ComponentValue<Schema, Game> }) => {
+  const now = new Date();
+
+  const timeLeftText = !game.start_time.getTime() ? "Lobby" :
+    game.getEndDate() < now ? "Ended" :
+      formatTimeUntil(game.getEndDate());
+
   return (
-    <TableRow className="text-2xs sm:text-xs text-center text-background">
-      <TableCell colSpan={1}>
-        <p className="text-start">TEST's GAME</p>
+    <TableRow className="text-2xs sm:text-sm text-center">
+      <TableCell> {/* Name */}
+        <p className="text-start">{game.name}</p>
       </TableCell>
-      <TableCell colSpan={1}>
-        <p className="text-start">TEST's GAME</p>
+      <TableCell> {/* Game Length */}
+        <p className="text-center">{`${Number(game.duration) / 60} Min.` || "N/A"}</p>
       </TableCell>
-      <TableCell colSpan={1}>
-        <p className="text-start">TEST's GAME</p>
+      <TableCell> {/* Time Left */}
+        <p className="text-center">{timeLeftText}</p>
       </TableCell>
-      <TableCell colSpan={1}>
-        <p className="text-start">TEST's GAME</p>
+      <TableCell> {/* Played tiles */}
+        <p className="text-center">{game.tile_count || "N/A"}</p>
+      </TableCell>
+      <TableCell> {/* Buy-in */}
+        <p className="text-center">{`${Number(game.price) / 1e18 || "0"}`}</p>
+      </TableCell>
+      <TableCell> {/* Button */}
+        <DuelLobbyRowButton game={game} />
       </TableCell>
     </TableRow>
   )
 }
 
-export const GameSingleRow = ({ game }: { game: any }) => {
+const DuelLobbyRowButton = ({ game }: { game: ComponentValue<Schema, Game> }) => {
+  const {
+    account: { account },
+    setup: {
+      systemCalls: { claim_duel_prize },
+    },
+  } = useDojo();
+
+  const navigate = useNavigate();
+
+  const { builders } = useBuilders({ gameId: game.id })
+  const { builder } = useBuilder({ gameId: game.id, playerId: account?.address })
+
+  const handleResume = () => navigate("?id=" + game.id, { replace: true })
+
+  const [loading, setLoading] = useState(false)
+
+  const handleClaim = async () => {
+    setLoading(true)
+    await claim_duel_prize({
+      account: account,
+      mode: new Mode(ModeType.Duel),
+      game_id: game.id
+    }).catch((error) => console.error(error))
+      .finally(() => setLoading(false))
+  }
+
+  const isLobby = useMemo(() => game.getState() === "lobby", [game])
+  const isHost = useMemo(() => builder?.index === 0, [builder?.index])
+  const isOver = useMemo(() => game.getState() === "over", [game])
+  const isOngoing = useMemo(() => game.getState() === "started", [game])
+  const isParticipating = useMemo(() => (builder?.score ?? 0) >= 1, [builder?.score])
+  const isFull = useMemo(() => builders.filter(builder => builder.score >= 1).length >= 2, [builders]); const isClaimable = useMemo(() => !game.claimed && isOver, [game.claimed, isOver])
+
+  if (isLobby && !isHost)
+    return (
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button className="py-2 w-36">Join</Button>
+        </DialogTrigger>
+        <DuelJoinDialogContent game={game} />
+      </Dialog>
+    )
+
+  if (isOngoing && isParticipating) {
+    return (
+      <Button className="py-2 w-36" onClick={handleResume}>Resume</Button>
+    )
+  }
+
+  if (isFull && !isParticipating) {
+    <p>Full</p>
+  }
+
+  if (isOver && isParticipating && !isLobby) {
+    return isClaimable ? (
+      <Button className="py-2 w-36" disabled={loading} loading={loading} onClick={handleClaim}>Claim</Button>
+    ) : (
+      <Button className="py-2 w-36" disabled={true}>Claimed</Button>
+    )
+  }
+}
+
+export const GameSingleRow = ({ game }: { game: ComponentValue<Schema, Game> }) => {
   const [score, setScore] = useState<number>();
   const [over, setOver] = useState<boolean>(false);
   // const { account } = useAccount();
@@ -127,7 +217,7 @@ export const GameSingleRow = ({ game }: { game: any }) => {
   if (!game || !builder) return null;
 
   return (
-    <TableRow className="text-2xs sm:text-xs text-center text-background">
+    <TableRow className="text-2xs sm:text-xs text-center">
       <TableCell>#{game.id}</TableCell>
       <TableCell>1</TableCell>
       <TableCell>{score}</TableCell>
@@ -141,7 +231,7 @@ export const GameSingleRow = ({ game }: { game: any }) => {
                 size={"sm"}
                 className={`px-1 sm:px-4 flex gap-3 self-end h-8 w-19 text-2xs sm:text-xs hover:bg-transparent ${over ? "border-none" : "border-2"}`}
                 variant={over ? "ghost" : "default"}
-                onClick={() => setGameQueryParam(game.id || 0)}
+                onClick={() => setGameQueryParam(String(game.id || 0))}
               >
                 {over ? (
                   <img className="h-6 w-10 " src={viewMapIcon} />
@@ -156,13 +246,3 @@ export const GameSingleRow = ({ game }: { game: any }) => {
     </TableRow>
   );
 };
-
-function formatTime(date: Date) {
-  // Get hours, minutes, and seconds from the Date object
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  const seconds = date.getSeconds().toString().padStart(2, "0");
-
-  // Format the time as hh:mm:ss
-  return `${hours}:${minutes}:${seconds}`;
-}
