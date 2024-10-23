@@ -8,7 +8,6 @@ import { Spot } from "./Spot";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import { useGame } from "@/hooks/useGame";
@@ -116,34 +115,32 @@ export const Tile = () => {
   if (!account || !game || !builder) return <></>;
 
   return (
-    <TooltipProvider>
-      <Tooltip open={!!tutorialOpen && shouldDisplayTutorialTooltip}>
-        <TooltipTrigger asChild>
-          <div
-            id={id}
-            className="relative aspect-square h-full cursor-pointer bg-cover bg-center flex lg:justify-center items-center shadow-lg pointer-events-auto"
-            style={{ backgroundColor }}
-          >
-            {!!tile && backgroundImage && !game?.isOver() && enabled && (
-              <ActiveTile
-                image={backgroundImage}
-                rotation={rotation}
-                orientation={orientation}
-              />
-            )}
-            {isLoading && <LoadingTile />}
-            {isLocked && <LockedTile />}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent
-          asChild
-          align="start"
-          className="select-none sm:bg-transparent max-w-[200px] sm:max-w-full whitespace-normal text-center sm:text-start"
+    <Tooltip open={!!tutorialOpen && shouldDisplayTutorialTooltip}>
+      <TooltipTrigger asChild>
+        <div
+          id={id}
+          className="relative aspect-square h-full cursor-pointer bg-cover bg-center flex lg:justify-center items-center shadow-lg pointer-events-auto"
+          style={{ backgroundColor }}
         >
-          <p>{interactionText}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          {!!tile && backgroundImage && !game?.isOver() && enabled && (
+            <ActiveTile
+              image={backgroundImage}
+              rotation={rotation}
+              orientation={orientation}
+            />
+          )}
+          {isLoading && <LoadingTile />}
+          {isLocked && <LockedTile />}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent
+        asChild
+        align="start"
+        className="select-none sm:bg-transparent max-w-[200px] sm:max-w-full whitespace-normal text-center sm:text-start"
+      >
+        <p>{interactionText}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 };
 
@@ -280,25 +277,23 @@ export const LockedTile = () => {
   const backgroundImage = useMemo(() => getImage({ plan: 9 }), []);
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            className={`h-full w-full border-4`}
-            style={{
-              backgroundImage: `url(${backgroundImage})`,
-              backgroundSize: "cover",
-            }}
-          >
-            <div className="relative h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
-              <FontAwesomeIcon className="h-6 md:h-12" icon={faLock} />
-            </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className={`h-full w-full border-4`}
+          style={{
+            backgroundImage: `url(${backgroundImage})`,
+            backgroundSize: "cover",
+          }}
+        >
+          <div className="relative h-full w-full backdrop-blur-md bg-white/30 flex justify-center items-center ">
+            <FontAwesomeIcon className="h-6 md:h-12" icon={faLock} />
           </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="select-none">Game is over</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+        </div>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p className="select-none">Game is over</p>
+      </TooltipContent>
+    </Tooltip>
   );
 };

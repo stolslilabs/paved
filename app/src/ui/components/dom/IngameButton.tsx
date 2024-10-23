@@ -6,7 +6,6 @@ import { Button, ButtonProps } from "@/ui/elements/button";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import { cn } from "@/ui/utils";
@@ -65,28 +64,26 @@ export const IngameButton = React.forwardRef<
     );
 
     return name ? (
-      <TooltipProvider>
-        <Tooltip
-          open={ephemeralOpen || (!!tutorialOpen && tutorialCondition)}
-          onOpenChange={(open) => {
-            if (!tutorialOpen && !tutorialCondition) {
-              setEphemeralOpen(open);
-            }
-          }}
+      <Tooltip
+        open={ephemeralOpen || (!!tutorialOpen && tutorialCondition)}
+        onOpenChange={(open) => {
+          if (!tutorialOpen && !tutorialCondition) {
+            setEphemeralOpen(open);
+          }
+        }}
+      >
+        <TooltipTrigger asChild>{content}</TooltipTrigger>
+        <TooltipContent
+          className="sm:bg-transparent max-w-[200px] sm:max-w-full whitespace-normal text-center sm:text-start"
+          side={side}
         >
-          <TooltipTrigger asChild>{content}</TooltipTrigger>
-          <TooltipContent
-            className="sm:bg-transparent max-w-[200px] sm:max-w-full whitespace-normal text-center sm:text-start"
-            side={side}
-          >
-            <p>
-              {tutorialOpen && tutorialCondition
-                ? `${interactionText ?? name}`
-                : name}
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+          <p>
+            {tutorialOpen && tutorialCondition
+              ? `${interactionText ?? name}`
+              : name}
+          </p>
+        </TooltipContent>
+      </Tooltip>
     ) : (
       content
     );

@@ -15,7 +15,6 @@ import {
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import {
@@ -105,21 +104,19 @@ export const TournamentDialog = ({ mode }: { mode: Mode }) => {
   return (
     <Dialog>
       <DialogTrigger>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size={"default"}>
-                <img
-                  src={leaderboard}
-                  className="w-8 fill-secondary-foreground"
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p className="select-none">Leaderboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button size={"default"}>
+              <img
+                src={leaderboard}
+                className="w-8 fill-secondary-foreground"
+              />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="select-none">Leaderboard</p>
+          </TooltipContent>
+        </Tooltip>
       </DialogTrigger>
       <DialogContent className="max-h-dscreen overflow-scroll">
         <DialogHeader className="flex items-center">

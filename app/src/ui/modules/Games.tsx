@@ -10,7 +10,6 @@ import {
 import { Button } from "@/ui/elements/button";
 import {
   Tooltip,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 
@@ -245,24 +244,22 @@ export const GameSingleRow = ({ game }: { game: ComponentValue<Schema, Game> }) 
       <TableCell>{formatTime(date) ?? "N/A"}</TableCell>
 
       <TableCell className="flex justify-end">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size={"sm"}
-                className={`px-1 sm:px-4 flex gap-3 self-end h-8 w-19 text-2xs sm:text-xs hover:bg-transparent ${over ? "border-none" : "border-2"}`}
-                variant={over ? "ghost" : "default"}
-                onClick={() => setGameQueryParam(String(game.id || 0))}
-              >
-                {over ? (
-                  <img className="h-6 w-10 " src={viewMapIcon} />
-                ) : (
-                  "Play"
-                )}
-              </Button>
-            </TooltipTrigger>
-          </Tooltip>
-        </TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              size={"sm"}
+              className={`px-1 sm:px-4 flex gap-3 self-end h-8 w-19 text-2xs sm:text-xs hover:bg-transparent ${over ? "border-none" : "border-2"}`}
+              variant={over ? "ghost" : "default"}
+              onClick={() => setGameQueryParam(String(game.id || 0))}
+            >
+              {over ? (
+                <img className="h-6 w-10 " src={viewMapIcon} />
+              ) : (
+                "Play"
+              )}
+            </Button>
+          </TooltipTrigger>
+        </Tooltip>
       </TableCell>
     </TableRow>
   );

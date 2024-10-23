@@ -2,7 +2,6 @@ import { useDojo } from "../../dojo/useDojo";
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/ui/elements/tooltip";
 import { usePlayer } from "@/hooks/usePlayer";
@@ -37,26 +36,24 @@ export const CreateGame = ({ mode }: { mode: Mode }) => {
   };
 
   return player && (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          {gameMode.value === ModeType.Duel ? (
-            <DuelDialog playerName={player?.name} />
-          ) : (
-            <Button
-              className="tracking-[0.25rem] self-center shadow-lg hover:bg-secondary text-xs lg:text-sm px-4 py-4 lg:p-6"
-              loading={loading}
-              disabled={!player || loading}
-              onClick={handleClick}
-            >
-              {gameMode.value === ModeType.Tutorial ? "Start" : "New Game"}
-            </Button>
-          )}
-        </TooltipTrigger>
-        <TooltipContent>
-          <p className="select-none">Create a {gameMode.value} player game</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {gameMode.value === ModeType.Duel ? (
+          <DuelDialog playerName={player?.name} />
+        ) : (
+          <Button
+            className="tracking-[0.25rem] self-center shadow-lg hover:bg-secondary text-xs lg:text-sm px-4 py-4 lg:p-6"
+            loading={loading}
+            disabled={!player || loading}
+            onClick={handleClick}
+          >
+            {gameMode.value === ModeType.Tutorial ? "Start" : "New Game"}
+          </Button>
+        )}
+      </TooltipTrigger>
+      <TooltipContent>
+        <p className="select-none">Create a {gameMode.value} player game</p>
+      </TooltipContent>
+    </Tooltip>
   );
 };
