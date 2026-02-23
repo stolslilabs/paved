@@ -1,1 +1,0 @@
-{"version":3,"file":"HandPanel.d.ts","sourceRoot":"","sources":["../../src/overlays/HandPanel.tsx"],"names":[],"mappings":"AAGA,MAAM,WAAW,cAAc;IAC7B,QAAQ,CAAC,EAAE,MAAM,IAAI,CAAC;IACtB,SAAS,CAAC,EAAE,MAAM,IAAI,CAAC;IACvB,eAAe,CAAC,EAAE,OAAO,CAAC;CAC3B;AAED,wBAAgB,SAAS,CAAC,EACxB,QAAQ,EACR,SAAS,EACT,eAAuB,GACxB,EAAE,cAAc,2CAWhB"}

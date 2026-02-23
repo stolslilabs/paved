@@ -14,3 +14,8 @@ contracts/bindings/*
 contracts/.snfoundry_cache/
 contracts/snfoundry_trace/
 contracts/coverage/
+
+# Build artifacts
+dist/
+*.tsbuildinfo
+.turbo/

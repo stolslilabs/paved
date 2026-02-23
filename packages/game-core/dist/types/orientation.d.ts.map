@@ -1,1 +1,0 @@
-{"version":3,"file":"orientation.d.ts","sourceRoot":"","sources":["../../src/types/orientation.ts"],"names":[],"mappings":"AAEA,oBAAY,eAAe;IACzB,IAAI,SAAS;IACb,KAAK,UAAU;IACf,IAAI,SAAS;IACb,KAAK,UAAU;IACf,IAAI,SAAS;CACd;AAED,qBAAa,WAAW;IACtB,KAAK,EAAE,eAAe,CAAC;gBAEX,KAAK,EAAE,eAAe;IAI3B,IAAI,IAAI,MAAM;WAIP,IAAI,CAAC,KAAK,EAAE,MAAM,GAAG,WAAW;CAI/C"}
