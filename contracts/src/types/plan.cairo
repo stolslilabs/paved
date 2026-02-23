@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -34,16 +33,16 @@ use paved::elements::layouts::wfffffffr::{LayoutImpl as WfffffffrImpl};
 
 // Constants
 
-const NONE: felt252 = 0;
-const TWO_POW_8: u128 = 0x100;
+pub const NONE: felt252 = 0;
+pub const TWO_POW_8: u128 = 0x100;
 
-mod errors {
-    const UNPACK_FAILED: felt252 = 'Layout: Unpack failed';
+pub mod errors {
+    pub const UNPACK_FAILED: felt252 = 'Layout: Unpack failed';
 }
 
 // Center, NW, N, NE, E, SE, S, SW, W
 #[derive(Copy, Drop, Serde)]
-enum Plan {
+pub enum Plan {
     None,
     CCCCCCCCC,
     CCCCCFFFC,
@@ -66,7 +65,7 @@ enum Plan {
     WFFFFFFFR,
 }
 
-impl IntoPlanFelt252 of core::Into<Plan, felt252> {
+pub impl IntoPlanFelt252 of Into<Plan, felt252> {
     #[inline]
     fn into(self: Plan) -> felt252 {
         match self {
@@ -94,7 +93,7 @@ impl IntoPlanFelt252 of core::Into<Plan, felt252> {
     }
 }
 
-impl IntoPlanU8 of core::Into<Plan, u8> {
+pub impl IntoPlanU8 of Into<Plan, u8> {
     #[inline]
     fn into(self: Plan) -> u8 {
         match self {
@@ -122,7 +121,7 @@ impl IntoPlanU8 of core::Into<Plan, u8> {
     }
 }
 
-impl IntoPlan of core::Into<u8, Plan> {
+pub impl IntoPlan of Into<u8, Plan> {
     #[inline]
     fn into(self: u8) -> Plan {
         let plan: felt252 = self.into();
@@ -152,15 +151,7 @@ impl IntoPlan of core::Into<u8, Plan> {
     }
 }
 
-impl PlanPrint of PrintTrait<Plan> {
-    #[inline]
-    fn print(self: Plan) {
-        let felt: felt252 = self.into();
-        felt.print();
-    }
-}
-
-impl PlanPartialEq of PartialEq<Plan> {
+pub impl PlanPartialEq of PartialEq<Plan> {
     #[inline]
     fn eq(lhs: @Plan, rhs: @Plan) -> bool {
         let felt: felt252 = (*lhs).into();
@@ -175,7 +166,7 @@ impl PlanPartialEq of PartialEq<Plan> {
 }
 
 #[generate_trait]
-impl PlanImpl of PlanTrait {
+pub impl PlanImpl of PlanTrait {
     fn unpack(self: Plan) -> Array<Category> {
         let mut categories: Array<Category> = ArrayTrait::new();
         let packed: felt252 = self.into();
@@ -350,10 +341,9 @@ impl PlanImpl of PlanTrait {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -361,7 +351,7 @@ mod tests {
 
     // Constants
 
-    const UNKNOWN_U8: u8 = 42;
+    pub const UNKNOWN_U8: u8 = 42;
 
     #[test]
     fn test_plan_into_felt() {
@@ -383,4 +373,3 @@ mod tests {
         assert(Plan::None == UNKNOWN_U8.into(), 'Plan: into plan None');
     }
 }
-

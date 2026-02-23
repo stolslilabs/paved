@@ -3,16 +3,16 @@
 use starknet::ContractAddress;
 
 #[starknet::interface]
-trait IAccount<TContractState> {
+pub trait IAccount<TContractState> {
     fn create(self: @TContractState, name: felt252, master: ContractAddress);
 }
 
 #[dojo::contract]
-mod Account {
+pub mod Account {
     // Starknet imports
 
     use starknet::ContractAddress;
-    use starknet::info::{
+    use starknet::{
         get_block_timestamp, get_block_number, get_caller_address, get_contract_address
     };
 
@@ -59,7 +59,7 @@ mod Account {
     impl AccountImpl of IAccount<ContractState> {
         fn create(self: @ContractState, name: felt252, master: ContractAddress) {
             // [Effect] Create a player
-            self.manageable.create(self.world(), name, master);
+            self.manageable.create(self.world(@"paved").dispatcher, name, master);
         }
     }
 }

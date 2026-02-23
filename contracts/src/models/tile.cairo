@@ -1,12 +1,11 @@
 // Core imports
 
-use core::debug::PrintTrait;
 use core::traits::{Into, TryInto};
 use core::option::OptionTrait;
 
 // Internal imports
 
-use paved::constants::CENTER;
+pub use paved::constants::CENTER;
 use paved::types::orientation::Orientation;
 use paved::types::area::{Area, AreaImpl};
 use paved::types::direction::{Direction, DirectionImpl};
@@ -14,28 +13,28 @@ use paved::types::plan::{Plan, PlanImpl};
 use paved::types::layout::{Layout, LayoutImpl};
 use paved::types::spot::{Spot, SpotImpl};
 use paved::types::move::{Move, MoveImpl};
-use paved::models::index::{Tile, TilePosition};
+pub use paved::models::index::{Tile, TilePosition};
 
 // Constants
 
-const TWO_POW_8: u128 = 0x100;
+pub const TWO_POW_8: u128 = 0x100;
 
-mod errors {
-    const TILE_INVALID_NEIGHBOR: felt252 = 'Tile: invalid neighbor';
-    const TILE_NO_NEIGHBORS: felt252 = 'Tile: no neighbors';
-    const TILE_TOO_MUCH_NEIGHBORS: felt252 = 'Tile: too much neighbors';
-    const TILE_NOT_PLACED: felt252 = 'Tile: not placed';
-    const TILE_ALREADY_PLACED: felt252 = 'Tile: already placed';
-    const TILE_CANNOT_PLACE: felt252 = 'Tile: cannot place';
-    const TILE_DOES_NOT_EXIST: felt252 = 'Tile: does not exist';
-    const TILE_ALREADY_EXISTS: felt252 = 'Tile: already exists';
-    const INVALID_ORIENTATION: felt252 = 'Tile: invalid orientation';
-    const INVALID_SPOT: felt252 = 'Tile: invalid spot';
-    const TILE_ALREADY_EMPTY: felt252 = 'Tile: already empty';
+pub mod errors {
+    pub const TILE_INVALID_NEIGHBOR: felt252 = 'Tile: invalid neighbor';
+    pub const TILE_NO_NEIGHBORS: felt252 = 'Tile: no neighbors';
+    pub const TILE_TOO_MUCH_NEIGHBORS: felt252 = 'Tile: too much neighbors';
+    pub const TILE_NOT_PLACED: felt252 = 'Tile: not placed';
+    pub const TILE_ALREADY_PLACED: felt252 = 'Tile: already placed';
+    pub const TILE_CANNOT_PLACE: felt252 = 'Tile: cannot place';
+    pub const TILE_DOES_NOT_EXIST: felt252 = 'Tile: does not exist';
+    pub const TILE_ALREADY_EXISTS: felt252 = 'Tile: already exists';
+    pub const INVALID_ORIENTATION: felt252 = 'Tile: invalid orientation';
+    pub const INVALID_SPOT: felt252 = 'Tile: invalid spot';
+    pub const TILE_ALREADY_EMPTY: felt252 = 'Tile: already empty';
 }
 
 #[generate_trait]
-impl TileImpl of TileTrait {
+pub impl TileImpl of TileTrait {
     #[inline]
     fn new(game_id: u32, id: u32, player_id: felt252, plan: Plan,) -> Tile {
         Tile {
@@ -179,7 +178,7 @@ impl TileImpl of TileTrait {
     }
 }
 
-impl TileIntoPosition of core::Into<Tile, TilePosition> {
+pub impl TileIntoPosition of Into<Tile, TilePosition> {
     #[inline]
     fn into(self: Tile) -> TilePosition {
         let tile_id = if Orientation::None == self.orientation.into() {
@@ -191,7 +190,7 @@ impl TileIntoPosition of core::Into<Tile, TilePosition> {
     }
 }
 
-impl TileIntoLayout of core::Into<Tile, Layout> {
+pub impl TileIntoLayout of Into<Tile, Layout> {
     #[inline]
     fn into(self: Tile) -> Layout {
         self.assert_is_placed();
@@ -200,7 +199,7 @@ impl TileIntoLayout of core::Into<Tile, Layout> {
 }
 
 #[generate_trait]
-impl TileAssert of AssertTrait {
+pub impl TileAssert of AssertTrait {
     #[inline]
     fn assert_exists(self: Tile) {
         assert(self.is_non_zero(), errors::TILE_DOES_NOT_EXIST);
@@ -223,7 +222,7 @@ impl TileAssert of AssertTrait {
 }
 
 #[generate_trait]
-impl TilePositionAssert of AssertPositionTrait {
+pub impl TilePositionAssert of AssertPositionTrait {
     #[inline]
     fn assert_exists(self: TilePosition) {
         assert(self.is_non_zero(), errors::TILE_DOES_NOT_EXIST);
@@ -235,7 +234,7 @@ impl TilePositionAssert of AssertPositionTrait {
 }
 
 #[generate_trait]
-impl InternalImpl of InternalTrait {
+pub impl InternalImpl of InternalTrait {
     #[inline]
     fn reference_direction(self: Tile, reference: Tile) -> Direction {
         if self.x == reference.x {
@@ -271,7 +270,8 @@ impl InternalImpl of InternalTrait {
     }
 }
 
-impl ZeroableTile of core::Zeroable<Tile> {
+#[generate_trait]
+pub impl ZeroableTile of ZeroableTileTrait {
     #[inline]
     fn zero() -> Tile {
         Tile {
@@ -290,7 +290,8 @@ impl ZeroableTile of core::Zeroable<Tile> {
     }
 }
 
-impl ZeroableTilePosition of core::Zeroable<TilePosition> {
+#[generate_trait]
+pub impl ZeroableTilePosition of ZeroableTilePositionTrait {
     #[inline]
     fn zero() -> TilePosition {
         TilePosition { game_id: 0, x: 0, y: 0, tile_id: 0, }
@@ -308,10 +309,9 @@ impl ZeroableTilePosition of core::Zeroable<TilePosition> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 

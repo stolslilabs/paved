@@ -1,13 +1,12 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
 use paved::types::orientation::Orientation;
 
 #[derive(Copy, Drop, Serde, PartialEq)]
-enum Spot {
+pub enum Spot {
     None,
     Center,
     NorthWest,
@@ -20,7 +19,7 @@ enum Spot {
     West,
 }
 
-impl IntoSpotU8 of core::Into<Spot, u8> {
+pub impl IntoSpotU8 of Into<Spot, u8> {
     #[inline]
     fn into(self: Spot) -> u8 {
         match self {
@@ -38,7 +37,7 @@ impl IntoSpotU8 of core::Into<Spot, u8> {
     }
 }
 
-impl IntoU8Spot of core::Into<u8, Spot> {
+pub impl IntoU8Spot of Into<u8, Spot> {
     #[inline]
     fn into(self: u8) -> Spot {
         match self {
@@ -58,7 +57,7 @@ impl IntoU8Spot of core::Into<u8, Spot> {
 }
 
 #[generate_trait]
-impl SpotImpl of SpotTrait {
+pub impl SpotImpl of SpotTrait {
     #[inline]
     fn rotate(self: Spot, orientation: Orientation) -> Spot {
         match orientation {
@@ -123,10 +122,9 @@ impl SpotImpl of SpotTrait {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -134,8 +132,8 @@ mod tests {
 
     // Constants
 
-    const UNKNOWN_FELT: felt252 = 'UNKNOWN';
-    const UNKNOWN_U8: u8 = 42;
+    pub const UNKNOWN_FELT: felt252 = 'UNKNOWN';
+    pub const UNKNOWN_U8: u8 = 42;
 
     #[test]
     fn test_spot_into_u8() {

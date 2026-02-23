@@ -13,7 +13,7 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 
 #[starknet::interface]
-trait IWeekly<TContractState> {
+pub trait IWeekly<TContractState> {
     fn spawn(self: @TContractState) -> u32;
     fn claim(self: @TContractState, tournament_id: u64, rank: u8,);
     fn sponsor(self: @TContractState, amount: felt252);
@@ -31,11 +31,11 @@ trait IWeekly<TContractState> {
 }
 
 #[dojo::contract]
-mod Weekly {
+pub mod Weekly {
     // Starknet imports
 
     use starknet::ContractAddress;
-    use starknet::info::get_caller_address;
+    use starknet::get_caller_address;
 
     // Component imports
 
@@ -97,9 +97,9 @@ mod Weekly {
 
     // Constructor
 
-    fn dojo_init(ref world: IWorldDispatcher, token_address: ContractAddress,) {
+    fn dojo_init(ref self: ContractState, token_address: ContractAddress,) {
         // [Effect] Initialize components
-        self.payable.initialize(world, token_address);
+        self.payable.initialize(self.world(@"paved").dispatcher, token_address);
     }
 
     // Implementations
@@ -108,7 +108,7 @@ mod Weekly {
     impl WeeklyImpl of IWeekly<ContractState> {
         fn spawn(self: @ContractState) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, amount) = self.hostable.spawn(self.world(), Mode::Weekly);
+            let (game_id, amount) = self.hostable.spawn(self.world(@"paved").dispatcher, Mode::Weekly);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.pay(caller, amount);
@@ -118,7 +118,7 @@ mod Weekly {
 
         fn claim(self: @ContractState, tournament_id: u64, rank: u8) {
             // [Effect] Create game
-            let reward = self.hostable.claim(self.world(), tournament_id, rank, Mode::Weekly);
+            let reward = self.hostable.claim(self.world(@"paved").dispatcher, tournament_id, rank, Mode::Weekly);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.refund(caller, reward);
@@ -126,7 +126,7 @@ mod Weekly {
 
         fn sponsor(self: @ContractState, amount: felt252) {
             // [Effect] Create game
-            let amount = self.hostable.sponsor(self.world(), amount, Mode::Weekly);
+            let amount = self.hostable.sponsor(self.world(@"paved").dispatcher, amount, Mode::Weekly);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.pay(caller, amount);
@@ -134,12 +134,12 @@ mod Weekly {
 
         fn discard(self: @ContractState, game_id: u32) {
             // [Effect] Discard tile
-            self.playable.discard(self.world(), game_id);
+            self.playable.discard(self.world(@"paved").dispatcher, game_id);
         }
 
         fn surrender(self: @ContractState, game_id: u32) {
             // [Effect] Surrender game
-            self.playable.surrender(self.world(), game_id);
+            self.playable.surrender(self.world(@"paved").dispatcher, game_id);
         }
 
         fn build(
@@ -152,7 +152,7 @@ mod Weekly {
             spot: Spot,
         ) {
             // [Effect] Build a tile
-            self.playable.build(self.world(), game_id, orientation, x, y, role, spot);
+            self.playable.build(self.world(@"paved").dispatcher, game_id, orientation, x, y, role, spot);
         }
     }
 }

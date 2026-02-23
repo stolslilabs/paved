@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -13,27 +12,27 @@ use paved::types::move::Move;
 
 // Constants
 
-const TILE_DATA_COUNT: u32 = 9;
+pub const TILE_DATA_COUNT: u32 = 9;
 
-mod errors {
-    const UNPACK_FAILED: felt252 = 'Layout: unpack failed';
+pub mod errors {
+    pub const UNPACK_FAILED: felt252 = 'Layout: unpack failed';
 }
 
 #[derive(Copy, Drop, Serde)]
-struct Layout {
-    center: Category,
-    north_west: Category,
-    north: Category,
-    north_east: Category,
-    east: Category,
-    south_east: Category,
-    south: Category,
-    south_west: Category,
-    west: Category,
+pub struct Layout {
+    pub center: Category,
+    pub north_west: Category,
+    pub north: Category,
+    pub north_east: Category,
+    pub east: Category,
+    pub south_east: Category,
+    pub south: Category,
+    pub south_west: Category,
+    pub west: Category,
 }
 
 #[generate_trait]
-impl LayoutImpl of LayoutTrait {
+pub impl LayoutImpl of LayoutTrait {
     #[inline]
     fn new(
         center: Category,
@@ -79,7 +78,7 @@ impl LayoutImpl of LayoutTrait {
 
         // [Compute] Rotate Categories to match orientation
         match orientation {
-            Orientation::None => { core::Default::default() },
+            Orientation::None => { Default::default() },
             Orientation::North => {
                 Layout {
                     center: center,
@@ -167,7 +166,7 @@ impl LayoutImpl of LayoutTrait {
     }
 }
 
-impl DefaultLayoutImpl of core::Default<Layout> {
+pub impl DefaultLayoutImpl of Default<Layout> {
     #[inline]
     fn default() -> Layout {
         Layout {
@@ -185,10 +184,9 @@ impl DefaultLayoutImpl of core::Default<Layout> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -277,4 +275,3 @@ mod tests {
         assert(!compatibility, 'Layout: wrong compatibility');
     }
 }
-

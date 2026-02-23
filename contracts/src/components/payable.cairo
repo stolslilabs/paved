@@ -5,7 +5,7 @@ use starknet::ContractAddress;
 // Interfaces
 
 #[starknet::interface]
-trait IERC20<TContractState> {
+pub trait IERC20<TContractState> {
     fn transfer(ref self: TContractState, recipient: ContractAddress, amount: u256) -> bool;
     fn transferFrom(
         ref self: TContractState, sender: ContractAddress, recipient: ContractAddress, amount: u256
@@ -15,11 +15,11 @@ trait IERC20<TContractState> {
 // Component
 
 #[starknet::component]
-mod PayableComponent {
+pub mod PayableComponent {
     // Starknet imports
 
     use starknet::ContractAddress;
-    use starknet::info::get_contract_address;
+    use starknet::get_contract_address;
 
     // Dojo imports
 
@@ -36,9 +36,9 @@ mod PayableComponent {
     // Errors
 
     mod errors {
-        const ERC20_REWARD_FAILED: felt252 = 'ERC20: reward failed';
-        const ERC20_PAY_FAILED: felt252 = 'ERC20: pay failed';
-        const ERC20_REFUND_FAILED: felt252 = 'ERC20: refund failed';
+        pub const ERC20_REWARD_FAILED: felt252 = 'ERC20: reward failed';
+        pub const ERC20_PAY_FAILED: felt252 = 'ERC20: pay failed';
+        pub const ERC20_REFUND_FAILED: felt252 = 'ERC20: refund failed';
     }
 
     // Storage
@@ -52,10 +52,10 @@ mod PayableComponent {
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {}
+    pub enum Event {}
 
     #[generate_trait]
-    impl InternalImpl<
+    pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
         fn initialize(

@@ -1,17 +1,16 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
 use paved::types::category::Category;
 
-mod errors {
-    const ROLE_NOT_ALLOWED: felt252 = 'Role: not allowed';
+pub mod errors {
+    pub const ROLE_NOT_ALLOWED: felt252 = 'Role: not allowed';
 }
 
 #[derive(Copy, Drop, Serde, PartialEq)]
-enum Role {
+pub enum Role {
     None,
     Lord,
     Lady,
@@ -21,7 +20,7 @@ enum Role {
 }
 
 #[generate_trait]
-impl RoleImpl of RoleTrait {
+pub impl RoleImpl of RoleTrait {
     #[inline]
     fn weight(self: Role, category: Category) -> u8 {
         match self {
@@ -165,14 +164,14 @@ impl RoleImpl of RoleTrait {
 }
 
 #[generate_trait]
-impl RoleAssert of AssertTrait {
+pub impl RoleAssert of AssertTrait {
     #[inline]
     fn assert_is_allowed(self: Role, category: Category) {
         assert(self.is_allowed(category), errors::ROLE_NOT_ALLOWED);
     }
 }
 
-impl RoleIntoU8 of core::Into<Role, u8> {
+pub impl RoleIntoU8 of Into<Role, u8> {
     #[inline]
     fn into(self: Role) -> u8 {
         match self {
@@ -187,7 +186,7 @@ impl RoleIntoU8 of core::Into<Role, u8> {
     }
 }
 
-impl U8IntoRole of core::Into<u8, Role> {
+pub impl U8IntoRole of Into<u8, Role> {
     #[inline]
     fn into(self: u8) -> Role {
         match self {
@@ -203,10 +202,9 @@ impl U8IntoRole of core::Into<u8, Role> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -214,8 +212,8 @@ mod tests {
 
     // Constants
 
-    const UNKNOWN_FELT: felt252 = 'UNKNOWN';
-    const UNKNOWN_U8: u8 = 42;
+    pub const UNKNOWN_FELT: felt252 = 'UNKNOWN';
+    pub const UNKNOWN_U8: u8 = 42;
 
     #[test]
     fn test_role_into_u8() {

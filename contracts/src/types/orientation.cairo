@@ -1,24 +1,23 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Constants
 
-const NONE: felt252 = 0;
-const NORTH: felt252 = 'NORTH';
-const EAST: felt252 = 'EAST';
-const SOUTH: felt252 = 'SOUTH';
-const WEST: felt252 = 'WEST';
+pub const NONE: felt252 = 0;
+pub const NORTH: felt252 = 'NORTH';
+pub const EAST: felt252 = 'EAST';
+pub const SOUTH: felt252 = 'SOUTH';
+pub const WEST: felt252 = 'WEST';
 
 // Errors
 
-mod errors {
-    const ORIENTATION_NOT_VALID: felt252 = 'Orientation: not valid';
-    const ORIENTATION_IS_VALID: felt252 = 'Orientation: is valid';
+pub mod errors {
+    pub const ORIENTATION_NOT_VALID: felt252 = 'Orientation: not valid';
+    pub const ORIENTATION_IS_VALID: felt252 = 'Orientation: is valid';
 }
 
 #[derive(Copy, Drop, Serde, PartialEq)]
-enum Orientation {
+pub enum Orientation {
     None,
     North,
     East,
@@ -27,7 +26,7 @@ enum Orientation {
 }
 
 #[generate_trait]
-impl OrientationAssert of AssertTrait {
+pub impl OrientationAssert of AssertTrait {
     #[inline]
     fn assert_is_valid(self: Orientation) {
         assert(self != Orientation::None, errors::ORIENTATION_NOT_VALID);
@@ -39,7 +38,7 @@ impl OrientationAssert of AssertTrait {
     }
 }
 
-impl IntoOrientationU8 of core::Into<Orientation, u8> {
+pub impl IntoOrientationU8 of Into<Orientation, u8> {
     #[inline]
     fn into(self: Orientation) -> u8 {
         match self {
@@ -52,7 +51,7 @@ impl IntoOrientationU8 of core::Into<Orientation, u8> {
     }
 }
 
-impl IntoU8Orientation of core::Into<u8, Orientation> {
+pub impl IntoU8Orientation of Into<u8, Orientation> {
     #[inline]
     fn into(self: u8) -> Orientation {
         if self == 1 {
@@ -69,7 +68,7 @@ impl IntoU8Orientation of core::Into<u8, Orientation> {
     }
 }
 
-impl IntoOrientationFelt252 of core::Into<Orientation, felt252> {
+pub impl IntoOrientationFelt252 of Into<Orientation, felt252> {
     #[inline]
     fn into(self: Orientation) -> felt252 {
         match self {
@@ -82,19 +81,10 @@ impl IntoOrientationFelt252 of core::Into<Orientation, felt252> {
     }
 }
 
-impl OrientationPrint of PrintTrait<Orientation> {
-    #[inline]
-    fn print(self: Orientation) {
-        let felt: felt252 = self.into();
-        felt.print();
-    }
-}
-
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -102,8 +92,8 @@ mod tests {
 
     // Constants
 
-    const UNKNOWN_FELT: felt252 = 'UNKNOWN';
-    const UNKNOWN_U8: u8 = 42;
+    pub const UNKNOWN_FELT: felt252 = 'UNKNOWN';
+    pub const UNKNOWN_U8: u8 = 42;
 
     #[test]
     fn test_orientation_into_u8() {

@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Starknet imports
 

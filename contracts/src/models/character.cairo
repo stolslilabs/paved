@@ -1,22 +1,21 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
 use paved::constants;
-use paved::models::index::{Char, CharPosition};
+pub use paved::models::index::{Char, CharPosition};
 use paved::types::spot::Spot;
 
-mod errors {
-    const ALREADY_REMOVED: felt252 = 'Char: Already removed';
-    const NOT_PLACED: felt252 = 'Char: Not placed';
-    const INVALID_TILE_ID: felt252 = 'Char: Invalid tile id';
-    const INVALID_SPOT: felt252 = 'Char: Invalid spot';
+pub mod errors {
+    pub const ALREADY_REMOVED: felt252 = 'Char: Already removed';
+    pub const NOT_PLACED: felt252 = 'Char: Not placed';
+    pub const INVALID_TILE_ID: felt252 = 'Char: Invalid tile id';
+    pub const INVALID_SPOT: felt252 = 'Char: Invalid spot';
 }
 
 #[generate_trait]
-impl CharImpl of CharTrait {
+pub impl CharImpl of CharTrait {
     #[inline]
     fn new(
         game_id: u32, player_id: felt252, index: u8, tile_id: u32, spot: Spot, weight: u8, power: u8
@@ -48,7 +47,7 @@ impl CharImpl of CharTrait {
     }
 }
 
-impl CharIntoCharPosition of core::Into<Char, CharPosition> {
+pub impl CharIntoCharPosition of Into<Char, CharPosition> {
     #[inline]
     fn into(self: Char) -> CharPosition {
         CharPosition {
@@ -62,7 +61,7 @@ impl CharIntoCharPosition of core::Into<Char, CharPosition> {
 }
 
 #[generate_trait]
-impl CharAssert of AssertTrait {
+pub impl CharAssert of AssertTrait {
     #[inline]
     fn assert_removeable(self: Char) {
         assert(0 != self.tile_id.into(), errors::ALREADY_REMOVED);
@@ -75,7 +74,8 @@ impl CharAssert of AssertTrait {
     }
 }
 
-impl ZeroableChar of core::Zeroable<Char> {
+#[generate_trait]
+pub impl ZeroableChar of ZeroableCharTrait {
     #[inline]
     fn zero() -> Char {
         Char { game_id: 0, player_id: 0, index: 0, tile_id: 0, spot: 0, weight: 0, power: 0, }
@@ -92,7 +92,8 @@ impl ZeroableChar of core::Zeroable<Char> {
     }
 }
 
-impl ZeroableCharPosition of core::Zeroable<CharPosition> {
+#[generate_trait]
+pub impl ZeroableCharPosition of ZeroableCharPositionTrait {
     #[inline]
     fn zero() -> CharPosition {
         CharPosition { game_id: 0, tile_id: 0, spot: 0, player_id: 0, index: 0, }

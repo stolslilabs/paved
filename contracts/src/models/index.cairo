@@ -1,109 +1,109 @@
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
-struct Game {
+pub struct Game {
     #[key]
-    id: u32,
-    over: bool,
-    discarded: u8,
-    built: u8,
-    tiles: u128,
-    tile_count: u32,
-    start_time: u64,
-    end_time: u64,
-    score: u32,
-    seed: felt252,
-    mode: u8,
-    tournament_id: u64,
+    pub id: u32,
+    pub over: bool,
+    pub discarded: u8,
+    pub built: u8,
+    pub tiles: u128,
+    pub tile_count: u32,
+    pub start_time: u64,
+    pub end_time: u64,
+    pub score: u32,
+    pub seed: felt252,
+    pub mode: u8,
+    pub tournament_id: u64,
 }
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
-struct Player {
+pub struct Player {
     #[key]
-    id: felt252,
-    name: felt252,
-    master: felt252,
+    pub id: felt252,
+    pub name: felt252,
+    pub master: felt252,
 }
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
-struct Builder {
+pub struct Builder {
     #[key]
-    game_id: u32,
+    pub game_id: u32,
     #[key]
-    player_id: felt252,
-    tile_id: u32,
-    characters: u8,
+    pub player_id: felt252,
+    pub tile_id: u32,
+    pub characters: u8,
 }
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
-struct Char {
+pub struct Char {
     #[key]
-    game_id: u32,
+    pub game_id: u32,
     #[key]
-    player_id: felt252,
+    pub player_id: felt252,
     #[key]
-    index: u8,
-    tile_id: u32,
-    spot: u8,
-    weight: u8,
-    power: u8,
+    pub index: u8,
+    pub tile_id: u32,
+    pub spot: u8,
+    pub weight: u8,
+    pub power: u8,
 }
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
-struct CharPosition {
+pub struct CharPosition {
     #[key]
-    game_id: u32,
+    pub game_id: u32,
     #[key]
-    tile_id: u32,
+    pub tile_id: u32,
     #[key]
-    spot: u8,
-    player_id: felt252,
-    index: u8,
+    pub spot: u8,
+    pub player_id: felt252,
+    pub index: u8,
 }
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
-struct Tile {
+pub struct Tile {
     #[key]
-    game_id: u32,
+    pub game_id: u32,
     #[key]
-    id: u32,
-    player_id: felt252,
-    plan: u8,
-    orientation: u8,
-    x: u32,
-    y: u32,
-    occupied_spot: u8,
+    pub id: u32,
+    pub player_id: felt252,
+    pub plan: u8,
+    pub orientation: u8,
+    pub x: u32,
+    pub y: u32,
+    pub occupied_spot: u8,
 }
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
-struct TilePosition {
+pub struct TilePosition {
     #[key]
-    game_id: u32,
+    pub game_id: u32,
     #[key]
-    x: u32,
+    pub x: u32,
     #[key]
-    y: u32,
-    tile_id: u32,
+    pub y: u32,
+    pub tile_id: u32,
 }
 
 #[derive(Copy, Drop, Serde, IntrospectPacked)]
 #[dojo::model]
-struct Tournament {
+pub struct Tournament {
     #[key]
-    id: u64,
-    prize: felt252,
-    top1_player_id: felt252,
-    top2_player_id: felt252,
-    top3_player_id: felt252,
-    top1_score: u32,
-    top2_score: u32,
-    top3_score: u32,
-    top1_claimed: bool,
-    top2_claimed: bool,
-    top3_claimed: bool,
+    pub id: u64,
+    pub prize: felt252,
+    pub top1_player_id: felt252,
+    pub top2_player_id: felt252,
+    pub top3_player_id: felt252,
+    pub top1_score: u32,
+    pub top2_score: u32,
+    pub top3_score: u32,
+    pub top1_claimed: bool,
+    pub top2_claimed: bool,
+    pub top3_claimed: bool,
 }

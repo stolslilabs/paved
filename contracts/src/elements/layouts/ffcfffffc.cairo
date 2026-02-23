@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -10,7 +9,7 @@ use paved::types::spot::{Spot, SpotImpl};
 use paved::types::move::{Move, MoveImpl};
 use paved::types::area::Area;
 
-impl LayoutImpl of LayoutTrait {
+pub impl LayoutImpl of LayoutTrait {
     #[inline]
     fn starts() -> Array<Spot> {
         let mut starts: Array<Spot> = ArrayTrait::new();
@@ -99,10 +98,9 @@ impl LayoutImpl of LayoutTrait {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 

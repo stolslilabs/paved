@@ -1,82 +1,85 @@
-mod setup {
+pub mod setup {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Starknet imports
 
     use starknet::ContractAddress;
-    use starknet::testing::{set_contract_address};
 
     // Dojo imports
 
     use dojo::world::{IWorldDispatcherTrait, IWorldDispatcher};
-    use dojo::utils::test::spawn_test_world;
+    use dojo_cairo_test::{spawn_test_world, NamespaceDef, TestResource};
+    use snforge_std::{
+        declare, DeclareResultTrait, start_cheat_caller_address, stop_cheat_caller_address
+    };
 
     // Internal imports
 
     use paved::mocks::token::{
-        IERC20Dispatcher, IERC20DispatcherTrait, IERC20FaucetDispatcher,
+        IERC20Dispatcher, IERC20FaucetDispatcher,
         IERC20FaucetDispatcherTrait, Token
     };
-    use paved::models::index;
     use paved::models::game::{Game, GameImpl};
-    use paved::systems::account::{Account, IAccountDispatcher, IAccountDispatcherTrait};
-    use paved::systems::daily::{Daily, IDailyDispatcher, IDailyDispatcherTrait};
-    use paved::systems::weekly::{Weekly, IWeeklyDispatcher, IWeeklyDispatcherTrait};
-    use paved::systems::tutorial::{Tutorial, ITutorialDispatcher, ITutorialDispatcherTrait};
+    use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
+    use paved::systems::daily::{IDailyDispatcher};
+    use paved::systems::weekly::{IWeeklyDispatcher};
+    use paved::systems::tutorial::{ITutorialDispatcher, ITutorialDispatcherTrait};
     use paved::types::plan::{Plan, PlanImpl};
-    use paved::types::mode::Mode;
+    pub use paved::types::mode::Mode;
+    pub use paved::mocks::token::IERC20DispatcherTrait;
+    pub use paved::systems::daily::IDailyDispatcherTrait;
+    pub use paved::systems::weekly::IWeeklyDispatcherTrait;
 
     // Constants
 
-    fn PLAYER() -> ContractAddress {
+    pub fn PLAYER() -> ContractAddress {
         starknet::contract_address_const::<'PLAYER'>()
     }
 
-    fn ANYONE() -> ContractAddress {
+    pub fn ANYONE() -> ContractAddress {
         starknet::contract_address_const::<'ANYONE'>()
     }
 
-    fn SOMEONE() -> ContractAddress {
+    pub fn SOMEONE() -> ContractAddress {
         starknet::contract_address_const::<'SOMEONE'>()
     }
 
-    fn NOONE() -> ContractAddress {
+    pub fn NOONE() -> ContractAddress {
         starknet::contract_address_const::<'NOONE'>()
     }
 
-    const PLAYER_NAME: felt252 = 'PLAYER';
-    const ANYONE_NAME: felt252 = 'ANYONE';
-    const SOMEONE_NAME: felt252 = 'SOMEONE';
-    const NOONE_NAME: felt252 = 'NOONE';
-    const GAME_NAME: felt252 = 'GAME';
+    pub const PLAYER_NAME: felt252 = 'PLAYER';
+    pub const ANYONE_NAME: felt252 = 'ANYONE';
+    pub const SOMEONE_NAME: felt252 = 'SOMEONE';
+    pub const NOONE_NAME: felt252 = 'NOONE';
+    pub const GAME_NAME: felt252 = 'GAME';
 
     #[derive(Drop)]
-    struct Systems {
-        account: IAccountDispatcher,
-        tutorial: ITutorialDispatcher,
-        daily: IDailyDispatcher,
-        weekly: IWeeklyDispatcher,
+    pub struct Systems {
+        pub account: IAccountDispatcher,
+        pub tutorial: ITutorialDispatcher,
+        pub daily: IDailyDispatcher,
+        pub weekly: IWeeklyDispatcher,
     }
 
     #[derive(Drop)]
-    struct Context {
-        player_id: felt252,
-        player_name: felt252,
-        anyone_id: felt252,
-        anyone_name: felt252,
-        someone_id: felt252,
-        someone_name: felt252,
-        noone_id: felt252,
-        noone_name: felt252,
-        game_id: u32,
-        game_name: felt252,
-        game_duration: u64,
-        token: IERC20Dispatcher,
+    pub struct Context {
+        pub player_id: felt252,
+        pub player_name: felt252,
+        pub anyone_id: felt252,
+        pub anyone_name: felt252,
+        pub someone_id: felt252,
+        pub someone_name: felt252,
+        pub noone_id: felt252,
+        pub noone_name: felt252,
+        pub game_id: u32,
+        pub game_name: felt252,
+        pub game_duration: u64,
+        pub token: IERC20Dispatcher,
     }
 
-    fn compute_seed(game: Game, target: Plan) -> felt252 {
+    pub fn compute_seed(game: Game, target: Plan) -> felt252 {
         let mut seed: felt252 = 0;
         loop {
             let mut mut_game = game;
@@ -92,31 +95,54 @@ mod setup {
     }
 
     #[inline]
-    fn spawn_game(mode: Mode) -> (IWorldDispatcher, Systems, Context) {
+    fn declared_class_hash(name: ByteArray) -> starknet::ClassHash {
+        *declare(name).unwrap().contract_class().class_hash
+    }
+
+    #[inline]
+    pub fn spawn_game(mode: Mode) -> (IWorldDispatcher, Systems, Context) {
+        // [Setup] Declarations
+        let world_class_hash = declared_class_hash("world");
+        let model_player_class_hash = declared_class_hash("m_Player");
+        let model_game_class_hash = declared_class_hash("m_Game");
+        let model_builder_class_hash = declared_class_hash("m_Builder");
+        let model_tile_class_hash = declared_class_hash("m_Tile");
+        let model_tile_position_class_hash = declared_class_hash("m_TilePosition");
+        let model_char_class_hash = declared_class_hash("m_Char");
+        let model_char_position_class_hash = declared_class_hash("m_CharPosition");
+        let model_tournament_class_hash = declared_class_hash("m_Tournament");
+        let token_class_hash = declared_class_hash("Token");
+        let account_class_hash = declared_class_hash("Account");
+        let tutorial_class_hash = declared_class_hash("Tutorial");
+        let daily_class_hash = declared_class_hash("Daily");
+        let weekly_class_hash = declared_class_hash("Weekly");
+
         // [Setup] World
-        let models = array![
-            index::player::TEST_CLASS_HASH,
-            index::game::TEST_CLASS_HASH,
-            index::builder::TEST_CLASS_HASH,
-            index::tile::TEST_CLASS_HASH,
-            index::tile_position::TEST_CLASS_HASH,
-            index::char::TEST_CLASS_HASH,
-            index::char_position::TEST_CLASS_HASH,
-            index::tournament::TEST_CLASS_HASH,
+        let resources = array![
+            TestResource::Model(model_player_class_hash),
+            TestResource::Model(model_game_class_hash),
+            TestResource::Model(model_builder_class_hash),
+            TestResource::Model(model_tile_class_hash),
+            TestResource::Model(model_tile_position_class_hash),
+            TestResource::Model(model_char_class_hash),
+            TestResource::Model(model_char_position_class_hash),
+            TestResource::Model(model_tournament_class_hash),
         ];
-        let world = spawn_test_world(array!["paved"].span(), models.span());
+        let namespaces = array![
+            NamespaceDef { namespace: "paved", resources: resources.span() }
+        ];
+        let world = spawn_test_world(world_class_hash, namespaces.span());
+        let mut dispatcher = world.dispatcher;
 
         // [Setup] Systems
-        let token_address = world
-            .deploy_contract('token', Token::TEST_CLASS_HASH.try_into().unwrap());
-        let account_address = world
-            .deploy_contract('account', Account::TEST_CLASS_HASH.try_into().unwrap());
-        let tutorial_address = world
-            .deploy_contract('tutorial', Tutorial::TEST_CLASS_HASH.try_into().unwrap());
-        let daily_address = world
-            .deploy_contract('daily', Daily::TEST_CLASS_HASH.try_into().unwrap());
-        let weekly_address = world
-            .deploy_contract('weekly', Weekly::TEST_CLASS_HASH.try_into().unwrap());
+        let token_address = dispatcher.register_contract('token', "paved", token_class_hash);
+        let account_address = dispatcher
+            .register_contract('account', "paved", account_class_hash);
+        let tutorial_address = dispatcher
+            .register_contract('tutorial', "paved", tutorial_class_hash);
+        let daily_address = dispatcher.register_contract('daily', "paved", daily_class_hash);
+        let weekly_address = dispatcher
+            .register_contract('weekly', "paved", weekly_class_hash);
         let systems = Systems {
             account: IAccountDispatcher { contract_address: account_address },
             tutorial: ITutorialDispatcher { contract_address: tutorial_address },
@@ -125,23 +151,23 @@ mod setup {
         };
 
         // [Setup] Permissions
-        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), account_address);
-        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), tutorial_address);
-        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), daily_address);
-        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), weekly_address);
-        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), PLAYER());
-        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), ANYONE());
-        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), SOMEONE());
-        world.grant_writer(dojo::utils::bytearray_hash(@"paved"), NOONE());
+        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), account_address);
+        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), tutorial_address);
+        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), daily_address);
+        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), weekly_address);
+        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), PLAYER());
+        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), ANYONE());
+        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), SOMEONE());
+        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), NOONE());
 
         // [Setup] Initialize
         let daily_calldata: Array<felt252> = array![token_address.into(),];
-        world
+        dispatcher
             .init_contract(
                 dojo::utils::selector_from_names(@"paved", @"Daily"), daily_calldata.span()
             );
         let weekly_calldata: Array<felt252> = array![token_address.into(),];
-        world
+        dispatcher
             .init_contract(
                 dojo::utils::selector_from_names(@"paved", @"Weekly"), weekly_calldata.span()
             );
@@ -149,27 +175,47 @@ mod setup {
         // [Setup] Context
         let token = IERC20Dispatcher { contract_address: token_address };
         let faucet = IERC20FaucetDispatcher { contract_address: token_address };
-        set_contract_address(ANYONE());
+        start_cheat_caller_address(token_address, ANYONE());
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
+        stop_cheat_caller_address(token_address);
+        start_cheat_caller_address(account_address, ANYONE());
         systems.account.create(ANYONE_NAME, ANYONE());
-        set_contract_address(SOMEONE());
+        stop_cheat_caller_address(account_address);
+
+        start_cheat_caller_address(token_address, SOMEONE());
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
+        stop_cheat_caller_address(token_address);
+        start_cheat_caller_address(account_address, SOMEONE());
         systems.account.create(SOMEONE_NAME, SOMEONE());
-        set_contract_address(NOONE());
+        stop_cheat_caller_address(account_address);
+
+        start_cheat_caller_address(token_address, NOONE());
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
+        stop_cheat_caller_address(token_address);
+        start_cheat_caller_address(account_address, NOONE());
         systems.account.create(NOONE_NAME, NOONE());
-        set_contract_address(PLAYER());
+        stop_cheat_caller_address(account_address);
+
+        start_cheat_caller_address(token_address, PLAYER());
         faucet.mint();
         token.approve(daily_address, Token::FAUCET_AMOUNT);
         token.approve(weekly_address, Token::FAUCET_AMOUNT);
+        stop_cheat_caller_address(token_address);
+        start_cheat_caller_address(account_address, PLAYER());
         systems.account.create(PLAYER_NAME, PLAYER());
+        stop_cheat_caller_address(account_address);
         let duration: u64 = 0;
+
+        // [Setup] Keep player as caller for game interactions
+        start_cheat_caller_address(daily_address, PLAYER());
+        start_cheat_caller_address(weekly_address, PLAYER());
+        start_cheat_caller_address(tutorial_address, PLAYER());
 
         // [Setup] Game if mode is set
         let game_id = match mode {
@@ -195,6 +241,6 @@ mod setup {
         };
 
         // [Return]
-        (world, systems, context)
+        (dispatcher, systems, context)
     }
 }

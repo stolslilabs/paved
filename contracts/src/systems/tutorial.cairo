@@ -7,7 +7,7 @@ use starknet::ContractAddress;
 use dojo::world::IWorldDispatcher;
 
 #[starknet::interface]
-trait ITutorial<TContractState> {
+pub trait ITutorial<TContractState> {
     fn spawn(self: @TContractState) -> u32;
     fn discard(self: @TContractState, game_id: u32,);
     fn surrender(self: @TContractState, game_id: u32,);
@@ -15,15 +15,14 @@ trait ITutorial<TContractState> {
 }
 
 #[dojo::contract]
-mod Tutorial {
+pub mod Tutorial {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Starknet imports
 
     use starknet::ContractAddress;
-    use starknet::info::get_caller_address;
+    use starknet::get_caller_address;
 
     // Component imports
 
@@ -82,24 +81,24 @@ mod Tutorial {
     impl TutorialImpl of ITutorial<ContractState> {
         fn spawn(self: @ContractState) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, _) = self.hostable.spawn(self.world(), Mode::Tutorial);
+            let (game_id, _) = self.hostable.spawn(self.world(@"paved").dispatcher, Mode::Tutorial);
             // [Return] Game ID
             game_id
         }
 
         fn discard(self: @ContractState, game_id: u32) {
             // [Effect] Discard a tile
-            self.tutoriable.discard(self.world(), game_id);
+            self.tutoriable.discard(self.world(@"paved").dispatcher, game_id);
         }
 
         fn surrender(self: @ContractState, game_id: u32) {
             // [Effect] Surrender game
-            self.tutoriable.surrender(self.world(), game_id);
+            self.tutoriable.surrender(self.world(@"paved").dispatcher, game_id);
         }
 
         fn build(self: @ContractState, game_id: u32,) {
             // [Effect] Build a tile
-            self.tutoriable.build(self.world(), game_id);
+            self.tutoriable.build(self.world(@"paved").dispatcher, game_id);
         }
     }
 }

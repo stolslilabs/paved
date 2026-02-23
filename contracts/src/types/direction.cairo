@@ -1,13 +1,12 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
 use paved::types::orientation::Orientation;
 
 #[derive(Copy, Drop, Serde, PartialEq)]
-enum Direction {
+pub enum Direction {
     None,
     NorthWest,
     North,
@@ -19,7 +18,7 @@ enum Direction {
     West,
 }
 
-impl IntoDirectionU8 of core::Into<Direction, u8> {
+pub impl IntoDirectionU8 of Into<Direction, u8> {
     #[inline]
     fn into(self: Direction) -> u8 {
         match self {
@@ -36,7 +35,7 @@ impl IntoDirectionU8 of core::Into<Direction, u8> {
     }
 }
 
-impl IntoU8Direction of core::Into<u8, Direction> {
+pub impl IntoU8Direction of Into<u8, Direction> {
     #[inline]
     fn into(self: u8) -> Direction {
         match self {
@@ -55,7 +54,7 @@ impl IntoU8Direction of core::Into<u8, Direction> {
 }
 
 #[generate_trait]
-impl DirectionImpl of DirectionTrait {
+pub impl DirectionImpl of DirectionTrait {
     #[inline]
     fn rotate(self: Direction, orientation: Orientation) -> Direction {
         match orientation {
@@ -122,10 +121,9 @@ impl DirectionImpl of DirectionTrait {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -133,8 +131,8 @@ mod tests {
 
     // Constants
 
-    const UNKNOWN_FELT: felt252 = 'UNKNOWN';
-    const UNKNOWN_U8: u8 = 42;
+    pub const UNKNOWN_FELT: felt252 = 'UNKNOWN';
+    pub const UNKNOWN_U8: u8 = 42;
 
     #[test]
     fn test_direction_into_u8() {

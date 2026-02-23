@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -8,21 +7,21 @@ use paved::constants;
 
 // Constants
 
-const NONE: felt252 = 0;
-const FOREST: felt252 = 'FOREST';
-const ROAD: felt252 = 'ROAD';
-const CITY: felt252 = 'CITY';
-const STOP: felt252 = 'STOP';
-const WONDER: felt252 = 'WNDR';
+pub const NONE: felt252 = 0;
+pub const FOREST: felt252 = 'FOREST';
+pub const ROAD: felt252 = 'ROAD';
+pub const CITY: felt252 = 'CITY';
+pub const STOP: felt252 = 'STOP';
+pub const WONDER: felt252 = 'WNDR';
 
-const FOREST_KEY: felt252 = 'F';
-const ROAD_KEY: felt252 = 'R';
-const CITY_KEY: felt252 = 'C';
-const STOP_KEY: felt252 = 'S';
-const WONDER_KEY: felt252 = 'W';
+pub const FOREST_KEY: felt252 = 'F';
+pub const ROAD_KEY: felt252 = 'R';
+pub const CITY_KEY: felt252 = 'C';
+pub const STOP_KEY: felt252 = 'S';
+pub const WONDER_KEY: felt252 = 'W';
 
 #[derive(Copy, Drop, Serde, PartialEq)]
-enum Category {
+pub enum Category {
     None,
     Forest,
     Road,
@@ -32,7 +31,7 @@ enum Category {
 }
 
 #[generate_trait]
-impl CategoryImpl of CategoryTrait {
+pub impl CategoryImpl of CategoryTrait {
     #[inline]
     fn base_points(self: Category) -> u32 {
         match self {
@@ -46,7 +45,7 @@ impl CategoryImpl of CategoryTrait {
     }
 }
 
-impl CategoryIntoFelt252 of core::Into<Category, felt252> {
+pub impl CategoryIntoFelt252 of Into<Category, felt252> {
     #[inline]
     fn into(self: Category) -> felt252 {
         match self {
@@ -60,7 +59,7 @@ impl CategoryIntoFelt252 of core::Into<Category, felt252> {
     }
 }
 
-impl CategoryIntoU8 of core::Into<Category, u8> {
+pub impl CategoryIntoU8 of Into<Category, u8> {
     #[inline]
     fn into(self: Category) -> u8 {
         match self {
@@ -74,7 +73,7 @@ impl CategoryIntoU8 of core::Into<Category, u8> {
     }
 }
 
-impl Felt252IntoCategory of core::Into<felt252, Category> {
+pub impl Felt252IntoCategory of Into<felt252, Category> {
     #[inline]
     fn into(self: felt252) -> Category {
         if self == FOREST || self == FOREST_KEY {
@@ -93,7 +92,7 @@ impl Felt252IntoCategory of core::Into<felt252, Category> {
     }
 }
 
-impl U8IntoCategory of core::Into<u8, Category> {
+pub impl U8IntoCategory of Into<u8, Category> {
     #[inline]
     fn into(self: u8) -> Category {
         if self == 1 {
@@ -112,19 +111,10 @@ impl U8IntoCategory of core::Into<u8, Category> {
     }
 }
 
-impl CategoryPrint of PrintTrait<Category> {
-    #[inline]
-    fn print(self: Category) {
-        let felt: felt252 = self.into();
-        felt.print();
-    }
-}
-
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -135,8 +125,8 @@ mod tests {
 
     // Constants
 
-    const UNKNOWN_FELT: felt252 = 'UNKNOWN';
-    const UNKNOWN_U8: u8 = 42;
+    pub const UNKNOWN_FELT: felt252 = 'UNKNOWN';
+    pub const UNKNOWN_U8: u8 = 42;
 
     #[test]
     fn test_category_into_felt() {

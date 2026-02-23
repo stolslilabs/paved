@@ -11,3 +11,6 @@ account.json
 keystore.json
 target/
 contracts/bindings/*
+contracts/.snfoundry_cache/
+contracts/snfoundry_trace/
+contracts/coverage/

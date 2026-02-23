@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -17,12 +16,12 @@ use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
 use paved::helpers::multiplier::compute_multiplier;
 
 #[generate_trait]
-impl GenericCount of GenericCountTrait {
+pub impl GenericCount of GenericCountTrait {
     #[inline]
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Char>) {
         // [Compute] Setup recursion
         let mut characters: Array<Char> = ArrayTrait::new();
-        let mut visited: Felt252Dict<bool> = core::Default::default();
+        let mut visited: Felt252Dict<bool> = Default::default();
         // [Compute] Recursively count the points
         let mut count = 0;
         Self::iter(game, tile, at, ref count, ref visited, ref characters, ref store);
@@ -101,8 +100,8 @@ impl GenericCount of GenericCountTrait {
         let mut winner_weight: u32 = 0;
         let mut winner: felt252 = 0;
         let mut solved: bool = false;
-        let mut counter: Felt252Dict<u32> = core::Default::default();
-        let mut powers: Felt252Dict<u32> = core::Default::default();
+        let mut counter: Felt252Dict<u32> = Default::default();
+        let mut powers: Felt252Dict<u32> = Default::default();
         loop {
             match characters.pop_front() {
                 Option::Some(mut character) => {

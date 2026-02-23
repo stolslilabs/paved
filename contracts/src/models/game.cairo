@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::poseidon::{PoseidonTrait, HashState};
 use core::hash::HashStateTrait;
@@ -28,26 +27,26 @@ use paved::models::player::{Player, PlayerTrait};
 use paved::models::builder::{Builder, BuilderTrait};
 use paved::models::character::{Char, CharPosition, CharTrait, CharAssert};
 use paved::models::tile::{Tile, TileTrait, TileIntoLayout};
-use paved::models::index::Game;
+pub use paved::models::index::Game;
 
-mod errors {
-    const INVALID_NAME: felt252 = 'Game: invalid name';
-    const INVALID_HOST: felt252 = 'Game: invalid host';
-    const INVALID_MODE: felt252 = 'Game: invalid mode';
-    const INVALID_PRIZE: felt252 = 'Game: invalid prize';
-    const INVALID_PLAYER_COUNT: felt252 = 'Game: invalid player count';
-    const TRANSFER_SAME_HOST: felt252 = 'Game: transfer to same host';
-    const GAME_NOT_EXISTS: felt252 = 'Game: does not exist';
-    const GAME_ALREADY_STARTED: felt252 = 'Game: already started';
-    const GAME_NOT_STARTED: felt252 = 'Game: not yet started';
-    const STRUCTURE_NOT_IDLE: felt252 = 'Game: structure not idle';
-    const GAME_IS_OVER: felt252 = 'Game: is over';
-    const GAME_NOT_OVER: felt252 = 'Game: not over';
-    const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
+pub mod errors {
+    pub const INVALID_NAME: felt252 = 'Game: invalid name';
+    pub const INVALID_HOST: felt252 = 'Game: invalid host';
+    pub const INVALID_MODE: felt252 = 'Game: invalid mode';
+    pub const INVALID_PRIZE: felt252 = 'Game: invalid prize';
+    pub const INVALID_PLAYER_COUNT: felt252 = 'Game: invalid player count';
+    pub const TRANSFER_SAME_HOST: felt252 = 'Game: transfer to same host';
+    pub const GAME_NOT_EXISTS: felt252 = 'Game: does not exist';
+    pub const GAME_ALREADY_STARTED: felt252 = 'Game: already started';
+    pub const GAME_NOT_STARTED: felt252 = 'Game: not yet started';
+    pub const STRUCTURE_NOT_IDLE: felt252 = 'Game: structure not idle';
+    pub const GAME_IS_OVER: felt252 = 'Game: is over';
+    pub const GAME_NOT_OVER: felt252 = 'Game: not over';
+    pub const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
 }
 
 #[generate_trait]
-impl GameImpl of GameTrait {
+pub impl GameImpl of GameTrait {
     #[inline]
     fn new(id: u32, time: u64, mode: Mode) -> Game {
         // [Check] Validate parameters
@@ -262,7 +261,8 @@ impl GameImpl of GameTrait {
     }
 }
 
-impl ZeroableGame of core::Zeroable<Game> {
+#[generate_trait]
+pub impl ZeroableGame of ZeroableGameTrait {
     #[inline]
     fn zero() -> Game {
         Game {
@@ -293,7 +293,7 @@ impl ZeroableGame of core::Zeroable<Game> {
 }
 
 #[generate_trait]
-impl GameAssert of AssertTrait {
+pub impl GameAssert of AssertTrait {
     #[inline]
     fn assert_exists(self: Game) {
         assert(self.is_non_zero(), errors::GAME_NOT_EXISTS);
@@ -328,10 +328,9 @@ impl GameAssert of AssertTrait {
 
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
     use core::dict::{Felt252Dict, Felt252DictTrait};
 
     // Local imports
@@ -340,9 +339,9 @@ mod tests {
 
     // Constants
 
-    const GAME_ID: u32 = 1;
-    const NAME: felt252 = 'NAME';
-    const MODE: Mode = Mode::Weekly;
+    pub const GAME_ID: u32 = 1;
+    pub const NAME: felt252 = 'NAME';
+    pub const MODE: Mode = Mode::Weekly;
 
     #[test]
     fn test_game_new() {
@@ -375,7 +374,7 @@ mod tests {
     #[test]
     fn test_game_draw_planes() {
         let mut game = GameImpl::new(GAME_ID, 0, MODE);
-        let mut counts: Felt252Dict<u8> = core::Default::default();
+        let mut counts: Felt252Dict<u8> = Default::default();
         let deck: Deck = game.deck();
         loop {
             if game.tile_count == deck.total_count().into() {

@@ -3,35 +3,54 @@ version = 1
 
 [[package]]
 name = "dojo"
-version = "1.0.0-alpha.4"
-source = "git+https://github.com/dojoengine/dojo?tag=v1.0.0-alpha.12#b391948911356cbf8a91daa93314809c87411098"
+version = "1.8.0"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:a9c35305a81e68a49de85b8f07c1f8a93e27492c6b16c304d1f7961dcd5d350f"
 dependencies = [
- "dojo_plugin",
+ "dojo_cairo_macros",
 ]
 
 [[package]]
-name = "dojo_plugin"
-version = "1.0.0-alpha.4"
-source = "git+https://github.com/dojoengine/dojo?rev=f15def33#f15def330c0d099e79351d11c197f63e8cc1ff36"
+name = "dojo_cairo_macros"
+version = "1.8.0"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:c4aa04037a0c5029b05b78229dae22bf02269b9912e8a8c12f8af34aa6b72051"
 
 [[package]]
-name = "origami_random"
-version = "1.0.0-alpha.12"
-source = "git+https://github.com/dojoengine/origami?tag=v1.0.0-alpha.12#1bbf09c15f64a3037bd4bfd5838986912c3634eb"
-
-[[package]]
-name = "origami_token"
-version = "1.0.0-alpha.12"
-source = "git+https://github.com/dojoengine/origami?tag=v1.0.0-alpha.12#1bbf09c15f64a3037bd4bfd5838986912c3634eb"
+name = "dojo_cairo_test"
+version = "1.8.0"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:0cab4c86390b6ee9c3969b82d27f46ecd7f14e686b9868528506103944638465"
 dependencies = [
  "dojo",
 ]
+
+[[package]]
+name = "origami_random"
+version = "1.1.2"
+source = "git+https://github.com/dojoengine/origami?tag=v1.7.0#1ddafcb8c33fe9697c4a44e0557967026d4eeba8"
 
 [[package]]
 name = "paved"
 version = "0.0.0"
 dependencies = [
  "dojo",
+ "dojo_cairo_test",
  "origami_random",
- "origami_token",
+ "snforge_std",
+]
+
+[[package]]
+name = "snforge_scarb_plugin"
+version = "0.56.0"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:d5f2d878f7ae36c8149c517e2d618a95d7833598a76083cb12ea3f00da06a618"
+
+[[package]]
+name = "snforge_std"
+version = "0.56.0"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:87dfe06ffd5cf1d5a075b7a5c8dff442b66d0eeaf27921140cf446213eb29a68"
+dependencies = [
+ "snforge_scarb_plugin",
 ]

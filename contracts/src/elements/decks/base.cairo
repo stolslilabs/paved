@@ -21,7 +21,6 @@
 
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -29,7 +28,7 @@ use paved::elements::decks::interface::{DeckTrait, Plan, Orientation, Role, Spot
 
 // Constants
 
-impl DeckImpl of DeckTrait {
+pub impl DeckImpl of DeckTrait {
     #[inline]
     fn total_count() -> u8 {
         72
@@ -154,10 +153,9 @@ impl DeckImpl of DeckTrait {
 
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -166,7 +164,7 @@ mod tests {
     #[test]
     fn test_deck_base() {
         let mut index: u32 = 0;
-        let mut counts: Felt252Dict<u8> = core::Default::default();
+        let mut counts: Felt252Dict<u8> = Default::default();
         loop {
             if index == DeckImpl::total_count().into() {
                 break;

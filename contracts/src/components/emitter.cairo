@@ -1,7 +1,6 @@
 // Dojo imports
 
 use dojo::world::IWorldDispatcher;
-use dojo::world::IWorldDispatcherTrait;
 
 // Internal imports
 
@@ -10,7 +9,7 @@ use paved::events::{Built, Discarded, GameOver, ScoredCity, ScoredRoad, ScoredFo
 // Interface
 
 #[starknet::interface]
-trait EmitterTrait<TContractState> {
+pub trait EmitterTrait<TContractState> {
     fn emit_built(self: @TContractState, world: IWorldDispatcher, event: Built);
     fn emit_discarded(self: @TContractState, world: IWorldDispatcher, event: Discarded);
     fn emit_game_over(self: @TContractState, world: IWorldDispatcher, event: GameOver);
@@ -23,13 +22,8 @@ trait EmitterTrait<TContractState> {
 // Component
 
 #[starknet::component]
-mod EmitterComponent {
-    // Dojo imports
-
-    use dojo::world;
+pub mod EmitterComponent {
     use dojo::world::IWorldDispatcher;
-    use dojo::world::IWorldDispatcherTrait;
-    use dojo::world::IWorldProvider;
 
     // Internal imports
 
@@ -50,7 +44,7 @@ mod EmitterComponent {
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
+    pub enum Event {
         Built: Built,
         Discarded: Discarded,
         GameOver: GameOver,
@@ -61,56 +55,70 @@ mod EmitterComponent {
     }
 
     #[embeddable_as(EmitterImpl)]
-    impl Emitter<
+    pub impl Emitter<
         TContractState, +HasComponent<TContractState>
     > of EmitterTrait<ComponentState<TContractState>> {
         #[inline]
         fn emit_built(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: Built
         ) {
-            emit!(world, (Event::Built(event)));
+            let _ = self;
+            let _ = world;
+            let _ = event;
         }
 
         #[inline]
         fn emit_discarded(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: Discarded
         ) {
-            emit!(world, (Event::Discarded(event)));
+            let _ = self;
+            let _ = world;
+            let _ = event;
         }
 
         #[inline]
         fn emit_game_over(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: GameOver
         ) {
-            emit!(world, (Event::GameOver(event)));
+            let _ = self;
+            let _ = world;
+            let _ = event;
         }
 
         #[inline]
         fn emit_scored_city(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: ScoredCity
         ) {
-            emit!(world, (Event::ScoredCity(event)));
+            let _ = self;
+            let _ = world;
+            let _ = event;
         }
 
         #[inline]
         fn emit_scored_road(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: ScoredRoad
         ) {
-            emit!(world, (Event::ScoredRoad(event)));
+            let _ = self;
+            let _ = world;
+            let _ = event;
         }
 
         #[inline]
         fn emit_scored_forest(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: ScoredForest
         ) {
-            emit!(world, (Event::ScoredForest(event)));
+            let _ = self;
+            let _ = world;
+            let _ = event;
         }
 
         #[inline]
         fn emit_scored_wonder(
             self: @ComponentState<TContractState>, world: IWorldDispatcher, event: ScoredWonder
         ) {
-            emit!(world, (Event::ScoredWonder(event)));
+            let _ = self;
+            let _ = world;
+            let _ = event;
         }
     }
 }
