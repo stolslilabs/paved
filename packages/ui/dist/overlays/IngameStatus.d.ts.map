@@ -1,0 +1,1 @@
+{"version":3,"file":"IngameStatus.d.ts","sourceRoot":"","sources":["../../src/overlays/IngameStatus.tsx"],"names":[],"mappings":"AAEA,MAAM,WAAW,iBAAiB;IAChC,KAAK,EAAE,MAAM,CAAC;IACd,KAAK,EAAE,MAAM,CAAC;IACd,UAAU,EAAE,MAAM,CAAC;IACnB,SAAS,EAAE,MAAM,CAAC;CACnB;AAED,wBAAgB,YAAY,CAAC,EAC3B,KAAK,EACL,KAAK,EACL,UAAU,EACV,SAAS,GACV,EAAE,iBAAiB,2CAsBnB"}

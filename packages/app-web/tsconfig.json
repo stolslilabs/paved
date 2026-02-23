@@ -1,0 +1,25 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "paths": {
+      "@paved/game-core": ["../game-core/src"],
+      "@paved/chain": ["../chain/src"],
+      "@paved/renderer": ["../renderer/src"],
+      "@paved/renderer/react": ["../renderer/src/react"],
+      "@paved/ui": ["../ui/src"]
+    }
+  },
+  "references": [
+    { "path": "../game-core" },
+    { "path": "../chain" },
+    { "path": "../renderer" },
+    { "path": "../ui" }
+  ],
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["dist"]
+}

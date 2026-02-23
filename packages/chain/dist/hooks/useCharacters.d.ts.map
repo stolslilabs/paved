@@ -1,0 +1,1 @@
+{"version":3,"file":"useCharacters.d.ts","sourceRoot":"","sources":["../../src/hooks/useCharacters.ts"],"names":[],"mappings":"AACA,OAAO,EAAE,SAAS,EAAE,MAAM,kBAAkB,CAAC;AAC7C,OAAO,KAAK,EAAE,WAAW,EAAE,MAAM,WAAW,CAAC;AAG7C,wBAAgB,aAAa,CAC3B,MAAM,EAAE,WAAW,GAAG,IAAI,EAC1B,MAAM,EAAE,MAAM,GAAG,IAAI,EACrB,QAAQ,EAAE,MAAM,GAAG,IAAI;;EA6BxB"}

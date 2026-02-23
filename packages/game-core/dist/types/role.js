@@ -1,0 +1,368 @@
+// Source: contracts/src/types/role.cairo
+import { CategoryType } from "./category";
+export var RoleType;
+(function (RoleType) {
+    RoleType["None"] = "None";
+    RoleType["Lord"] = "Lord";
+    RoleType["Lady"] = "Lady";
+    RoleType["Adventurer"] = "Adventurer";
+    RoleType["Paladin"] = "Paladin";
+    RoleType["Pilgrim"] = "Pilgrim";
+    RoleType["Woodsman"] = "Woodsman";
+    RoleType["Herdsman"] = "Herdsman";
+})(RoleType || (RoleType = {}));
+export class Role {
+    value;
+    constructor(role) {
+        this.value = role;
+    }
+    into() {
+        return Object.values(RoleType).indexOf(this.value);
+    }
+    static from(index) {
+        const plan = Object.values(RoleType)[index];
+        return new Role(plan);
+    }
+    weight(category) {
+        switch (this.value) {
+            case RoleType.None:
+                return 0;
+            case RoleType.Lord:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 0;
+                    case CategoryType.Road:
+                        return 1;
+                    case CategoryType.City:
+                        return 1;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 1;
+                }
+            case RoleType.Lady:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 0;
+                    case CategoryType.Road:
+                        return 1;
+                    case CategoryType.City:
+                        return 1;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 1;
+                }
+            case RoleType.Adventurer:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 0;
+                    case CategoryType.Road:
+                        return 2;
+                    case CategoryType.City:
+                        return 0;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 1;
+                }
+            case RoleType.Paladin:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 0;
+                    case CategoryType.Road:
+                        return 0;
+                    case CategoryType.City:
+                        return 2;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 1;
+                }
+            case RoleType.Pilgrim:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 0;
+                    case CategoryType.Road:
+                        return 1;
+                    case CategoryType.City:
+                        return 1;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 2;
+                }
+            case RoleType.Woodsman:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 1;
+                    case CategoryType.Road:
+                        return 1;
+                    case CategoryType.City:
+                        return 0;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 0;
+                }
+            case RoleType.Herdsman:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 1;
+                    case CategoryType.Road:
+                        return 0;
+                    case CategoryType.City:
+                        return 1;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 0;
+                }
+        }
+    }
+    power(category) {
+        switch (this.value) {
+            case RoleType.None:
+                return 0;
+            case RoleType.Lord:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 0;
+                    case CategoryType.Road:
+                        return 1;
+                    case CategoryType.City:
+                        return 1;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 1;
+                }
+            case RoleType.Lady:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 0;
+                    case CategoryType.Road:
+                        return 1;
+                    case CategoryType.City:
+                        return 1;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 1;
+                }
+            case RoleType.Adventurer:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 0;
+                    case CategoryType.Road:
+                        return 2;
+                    case CategoryType.City:
+                        return 0;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 1;
+                }
+            case RoleType.Paladin:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 0;
+                    case CategoryType.Road:
+                        return 0;
+                    case CategoryType.City:
+                        return 2;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 1;
+                }
+            case RoleType.Pilgrim:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 0;
+                    case CategoryType.Road:
+                        return 1;
+                    case CategoryType.City:
+                        return 1;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 2;
+                }
+            case RoleType.Woodsman:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 1;
+                    case CategoryType.Road:
+                        return 1;
+                    case CategoryType.City:
+                        return 0;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 0;
+                }
+            case RoleType.Herdsman:
+                switch (category) {
+                    case CategoryType.None:
+                        return 0;
+                    case CategoryType.Forest:
+                        return 1;
+                    case CategoryType.Road:
+                        return 0;
+                    case CategoryType.City:
+                        return 1;
+                    case CategoryType.Stop:
+                        return 0;
+                    case CategoryType.Wonder:
+                        return 0;
+                }
+        }
+    }
+    isAllowed(category) {
+        switch (this.value) {
+            case RoleType.None:
+                return false;
+            case RoleType.Lord:
+                switch (category) {
+                    case CategoryType.None:
+                        return false;
+                    case CategoryType.Forest:
+                        return false;
+                    case CategoryType.Road:
+                        return true;
+                    case CategoryType.City:
+                        return true;
+                    case CategoryType.Stop:
+                        return false;
+                    case CategoryType.Wonder:
+                        return true;
+                }
+            case RoleType.Lady:
+                switch (category) {
+                    case CategoryType.None:
+                        return false;
+                    case CategoryType.Forest:
+                        return false;
+                    case CategoryType.Road:
+                        return true;
+                    case CategoryType.City:
+                        return true;
+                    case CategoryType.Stop:
+                        return false;
+                    case CategoryType.Wonder:
+                        return true;
+                }
+            case RoleType.Adventurer:
+                switch (category) {
+                    case CategoryType.None:
+                        return false;
+                    case CategoryType.Forest:
+                        return false;
+                    case CategoryType.Road:
+                        return true;
+                    case CategoryType.City:
+                        return false;
+                    case CategoryType.Stop:
+                        return false;
+                    case CategoryType.Wonder:
+                        return true;
+                }
+            case RoleType.Paladin:
+                switch (category) {
+                    case CategoryType.None:
+                        return false;
+                    case CategoryType.Forest:
+                        return false;
+                    case CategoryType.Road:
+                        return false;
+                    case CategoryType.City:
+                        return true;
+                    case CategoryType.Stop:
+                        return false;
+                    case CategoryType.Wonder:
+                        return true;
+                }
+            case RoleType.Pilgrim:
+                switch (category) {
+                    case CategoryType.None:
+                        return false;
+                    case CategoryType.Forest:
+                        return false;
+                    case CategoryType.Road:
+                        return true;
+                    case CategoryType.City:
+                        return true;
+                    case CategoryType.Stop:
+                        return false;
+                    case CategoryType.Wonder:
+                        return true;
+                }
+            case RoleType.Woodsman:
+                switch (category) {
+                    case CategoryType.None:
+                        return false;
+                    case CategoryType.Forest:
+                        return true;
+                    case CategoryType.Road:
+                        return true;
+                    case CategoryType.City:
+                        return false;
+                    case CategoryType.Stop:
+                        return false;
+                    case CategoryType.Wonder:
+                        return false;
+                }
+            case RoleType.Herdsman:
+                switch (category) {
+                    case CategoryType.None:
+                        return false;
+                    case CategoryType.Forest:
+                        return true;
+                    case CategoryType.Road:
+                        return false;
+                    case CategoryType.City:
+                        return true;
+                    case CategoryType.Stop:
+                        return false;
+                    case CategoryType.Wonder:
+                        return false;
+                }
+        }
+    }
+}
+export class AssertImpl {
+    constructor() { }
+    static assertIsAllowed(role, category) {
+        if (!role.isAllowed(category)) {
+            throw new Error("RoleType: not allowed");
+        }
+    }
+}
+//# sourceMappingURL=role.js.map
