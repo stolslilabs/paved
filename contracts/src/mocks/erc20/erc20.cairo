@@ -10,10 +10,9 @@
 /// See [the documentation](https://docs.openzeppelin.com/contracts-cairo/0.9.0/guides/erc20-supply)
 /// for examples.
 #[starknet::component]
-mod ERC20Component {
-    use core::num::traits::Bounded;
-    use core::Zeroable;
-    use paved::mocks::erc20::interface;
+pub mod ERC20Component {
+    use core::num::traits::{Bounded, Zero};
+        use paved::mocks::erc20::interface;
     use starknet::ContractAddress;
     use starknet::get_caller_address;
     use starknet::storage::Map;
@@ -29,7 +28,7 @@ mod ERC20Component {
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
+    pub enum Event {
         Transfer: Transfer,
         Approval: Approval,
     }
@@ -56,12 +55,12 @@ mod ERC20Component {
     }
 
     mod Errors {
-        const APPROVE_FROM_ZERO: felt252 = 'ERC20: approve from 0';
-        const APPROVE_TO_ZERO: felt252 = 'ERC20: approve to 0';
-        const TRANSFER_FROM_ZERO: felt252 = 'ERC20: transfer from 0';
-        const TRANSFER_TO_ZERO: felt252 = 'ERC20: transfer to 0';
-        const BURN_FROM_ZERO: felt252 = 'ERC20: burn from 0';
-        const MINT_TO_ZERO: felt252 = 'ERC20: mint to 0';
+        pub const APPROVE_FROM_ZERO: felt252 = 'ERC20: approve from 0';
+        pub const APPROVE_TO_ZERO: felt252 = 'ERC20: approve to 0';
+        pub const TRANSFER_FROM_ZERO: felt252 = 'ERC20: transfer from 0';
+        pub const TRANSFER_TO_ZERO: felt252 = 'ERC20: transfer to 0';
+        pub const BURN_FROM_ZERO: felt252 = 'ERC20: burn from 0';
+        pub const MINT_TO_ZERO: felt252 = 'ERC20: mint to 0';
     }
 
     //
@@ -195,7 +194,7 @@ mod ERC20Component {
     //
 
     #[generate_trait]
-    impl InternalImpl<
+    pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
         /// Internal method that moves an `amount` of tokens from `from` to `to`.
@@ -254,7 +253,7 @@ mod ERC20Component {
             assert(!recipient.is_zero(), Errors::MINT_TO_ZERO);
             self.ERC20_total_supply.write(self.ERC20_total_supply.read() + amount);
             self.ERC20_balances.write(recipient, self.ERC20_balances.read(recipient) + amount);
-            self.emit(Transfer { from: core::Zeroable::zero(), to: recipient, value: amount });
+            self.emit(Transfer { from: Zero::zero(), to: recipient, value: amount });
         }
 
         /// Destroys `amount` of tokens from `account`.
@@ -269,7 +268,7 @@ mod ERC20Component {
             assert(!account.is_zero(), Errors::BURN_FROM_ZERO);
             self.ERC20_total_supply.write(self.ERC20_total_supply.read() - amount);
             self.ERC20_balances.write(account, self.ERC20_balances.read(account) - amount);
-            self.emit(Transfer { from: account, to: core::Zeroable::zero(), value: amount });
+            self.emit(Transfer { from: account, to: Zero::zero(), value: amount });
         }
 
         /// Updates `owner`s allowance for `spender` based on spent `amount`.

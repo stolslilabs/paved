@@ -1,82 +1,82 @@
 //! Events definition.
 
 #[derive(Drop, Serde, starknet::Event)]
-struct Built {
+pub struct Built {
     #[key]
-    game_id: u32,
-    tile_id: u32,
-    x: u32,
-    y: u32,
-    player_id: felt252,
-    player_name: felt252,
+    pub game_id: u32,
+    pub tile_id: u32,
+    pub x: u32,
+    pub y: u32,
+    pub player_id: felt252,
+    pub player_name: felt252,
 }
 
 #[derive(Drop, Serde, starknet::Event)]
-struct Discarded {
+pub struct Discarded {
     #[key]
-    game_id: u32,
-    tile_id: u32,
-    player_id: felt252,
-    player_name: felt252,
-    points: u32,
+    pub game_id: u32,
+    pub tile_id: u32,
+    pub player_id: felt252,
+    pub player_name: felt252,
+    pub points: u32,
 }
 
 #[derive(Drop, Serde, starknet::Event)]
-struct GameOver {
+pub struct GameOver {
     #[key]
-    game_id: u32,
+    pub game_id: u32,
     #[key]
-    tournament_id: u64,
-    game_mode: u8,
-    game_score: u32,
-    game_start_time: u64,
-    game_end_time: u64,
-    player_id: felt252,
-    player_name: felt252,
-    player_master: felt252,
+    pub tournament_id: u64,
+    pub game_mode: u8,
+    pub game_score: u32,
+    pub game_start_time: u64,
+    pub game_end_time: u64,
+    pub player_id: felt252,
+    pub player_name: felt252,
+    pub player_master: felt252,
 }
 
 #[derive(Drop, Serde, starknet::Event)]
-struct ScoredForest {
+pub struct ScoredForest {
     #[key]
-    game_id: u32,
-    points: u32,
-    size: u32,
-    cities: u32,
-    roads: u32,
-    player_id: felt252,
-    player_name: felt252,
-    player_master: felt252,
+    pub game_id: u32,
+    pub points: u32,
+    pub size: u32,
+    pub cities: u32,
+    pub roads: u32,
+    pub player_id: felt252,
+    pub player_name: felt252,
+    pub player_master: felt252,
 }
 
 #[derive(Drop, Serde, starknet::Event)]
-struct ScoredCity {
+pub struct ScoredCity {
     #[key]
-    game_id: u32,
-    points: u32,
-    size: u32,
-    player_id: felt252,
-    player_name: felt252,
-    player_master: felt252,
+    pub game_id: u32,
+    pub points: u32,
+    pub size: u32,
+    pub player_id: felt252,
+    pub player_name: felt252,
+    pub player_master: felt252,
 }
 
 #[derive(Drop, Serde, starknet::Event)]
-struct ScoredRoad {
+pub struct ScoredRoad {
     #[key]
-    game_id: u32,
-    points: u32,
-    size: u32,
-    player_id: felt252,
-    player_name: felt252,
-    player_master: felt252,
+    pub game_id: u32,
+    pub points: u32,
+    pub size: u32,
+    pub player_id: felt252,
+    pub player_name: felt252,
+    pub player_master: felt252,
 }
 
 #[derive(Drop, Serde, starknet::Event)]
-struct ScoredWonder {
+pub struct ScoredWonder {
     #[key]
-    game_id: u32,
-    points: u32,
-    player_id: felt252,
-    player_name: felt252,
-    player_master: felt252,
+    pub game_id: u32,
+    pub points: u32,
+    pub player_id: felt252,
+    pub player_name: felt252,
+    pub player_master: felt252,
 }

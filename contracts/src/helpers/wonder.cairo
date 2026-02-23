@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -14,15 +13,15 @@ use paved::models::character::{Char, CharPosition, ZeroableChar};
 use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
 
 #[generate_trait]
-impl WonderCount of WonderCountTrait {
+pub impl WonderCount of WonderCountTrait {
     #[inline]
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Char) {
         // [Compute] Setup recursion
-        let mut visited: Felt252Dict<bool> = core::Default::default();
+        let mut visited: Felt252Dict<bool> = Default::default();
         // [Check] Starting spot is occupied, otherwise no need to process further
         let spot: Spot = tile.occupied_spot.into();
         if spot != at {
-            return (0, core::Zeroable::zero());
+            return (0, ZeroableChar::zero());
         };
         // [Compute] Extract the character
         let character_position: CharPosition = store.character_position(game, tile, spot.into());

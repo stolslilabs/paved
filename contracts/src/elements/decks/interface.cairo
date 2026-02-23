@@ -1,11 +1,11 @@
 // Internal imports
 
-use paved::types::plan::Plan;
-use paved::types::orientation::Orientation;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
+pub use paved::types::plan::Plan;
+pub use paved::types::orientation::Orientation;
+pub use paved::types::role::Role;
+pub use paved::types::spot::Spot;
 
-trait DeckTrait {
+pub trait DeckTrait {
     fn total_count() -> u8;
     fn count() -> u8;
     fn plan(index: u32) -> Plan;

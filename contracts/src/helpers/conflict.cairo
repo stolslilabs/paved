@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -13,11 +12,11 @@ use paved::models::game::Game;
 use paved::models::tile::{Tile, TilePosition, TileTrait, ZeroableTilePosition};
 
 #[generate_trait]
-impl Conflict of ConflictTrait {
+pub impl Conflict of ConflictTrait {
     #[inline]
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> bool {
         // [Compute] Setup recursion
-        let mut visited: Felt252Dict<bool> = core::Default::default();
+        let mut visited: Felt252Dict<bool> = Default::default();
         // [Compute] Recursively check characters
         let mut status = false;
         Self::iter(game, tile, at, ref status, ref visited, ref store);

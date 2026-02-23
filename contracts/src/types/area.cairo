@@ -1,13 +1,12 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
 use paved::types::orientation::Orientation;
 
 #[derive(Copy, Drop, Serde, PartialEq)]
-enum Area {
+pub enum Area {
     None,
     A,
     B,
@@ -20,7 +19,7 @@ enum Area {
     I,
 }
 
-impl IntoAreaU8 of core::Into<Area, u8> {
+pub impl IntoAreaU8 of Into<Area, u8> {
     #[inline]
     fn into(self: Area) -> u8 {
         match self {
@@ -38,7 +37,7 @@ impl IntoAreaU8 of core::Into<Area, u8> {
     }
 }
 
-impl IntoU8Area of core::Into<u8, Area> {
+pub impl IntoU8Area of Into<u8, Area> {
     #[inline]
     fn into(self: u8) -> Area {
         match self {
@@ -57,7 +56,7 @@ impl IntoU8Area of core::Into<u8, Area> {
     }
 }
 
-impl IntoAreaU128 of core::Into<Area, u128> {
+pub impl IntoAreaU128 of Into<Area, u128> {
     #[inline]
     fn into(self: Area) -> u128 {
         let self_u8: u8 = self.into();
@@ -65,7 +64,7 @@ impl IntoAreaU128 of core::Into<Area, u128> {
     }
 }
 
-impl IntoAreaFelt252 of core::Into<Area, felt252> {
+pub impl IntoAreaFelt252 of Into<Area, felt252> {
     #[inline]
     fn into(self: Area) -> felt252 {
         let self_u8: u8 = self.into();
@@ -74,7 +73,7 @@ impl IntoAreaFelt252 of core::Into<Area, felt252> {
 }
 
 #[generate_trait]
-impl AreaImpl of AreaTrait {
+pub impl AreaImpl of AreaTrait {
     #[inline]
     fn rotate(self: Area, orientation: Orientation) -> Area {
         match orientation {
@@ -139,10 +138,9 @@ impl AreaImpl of AreaTrait {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -150,7 +148,7 @@ mod tests {
 
     // Constants
 
-    const UNKNOWN_U8: u8 = 42;
+    pub const UNKNOWN_U8: u8 = 42;
 
     #[test]
     fn test_area_into_u8() {

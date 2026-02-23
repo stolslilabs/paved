@@ -3,7 +3,6 @@ use paved::types::deck::DeckTrait;
 
 use core::poseidon::{PoseidonTrait, HashState};
 use core::hash::HashStateTrait;
-use core::debug::PrintTrait;
 
 // External imports
 
@@ -22,13 +21,13 @@ use paved::helpers::bitmap::Bitmap;
 
 // Constants
 
-const NONE: felt252 = 0;
-const DAILY: felt252 = 'DAILY';
-const WEEKLY: felt252 = 'WEEKLY';
-const TUTORIAL: felt252 = 'TUTORIAL';
+pub const NONE: felt252 = 0;
+pub const DAILY: felt252 = 'DAILY';
+pub const WEEKLY: felt252 = 'WEEKLY';
+pub const TUTORIAL: felt252 = 'TUTORIAL';
 
 #[derive(Copy, Drop, Serde, PartialEq)]
-enum Mode {
+pub enum Mode {
     None,
     Daily,
     Weekly,
@@ -36,7 +35,7 @@ enum Mode {
 }
 
 #[generate_trait]
-impl ModeImpl of ModeTrait {
+pub impl ModeImpl of ModeTrait {
     #[inline]
     fn price(self: Mode) -> felt252 {
         match self {
@@ -117,7 +116,7 @@ impl ModeImpl of ModeTrait {
 }
 
 #[generate_trait]
-impl Private of PrivateTrait {
+pub impl Private of PrivateTrait {
     #[inline]
     fn _draw(self: Mode, seed: felt252, tiles: u128) -> (Plan, u128) {
         let game_deck: Deck = self.deck();
@@ -135,7 +134,7 @@ impl Private of PrivateTrait {
     }
 }
 
-impl IntoModeFelt252 of core::Into<Mode, felt252> {
+pub impl IntoModeFelt252 of Into<Mode, felt252> {
     #[inline]
     fn into(self: Mode) -> felt252 {
         match self {
@@ -147,7 +146,7 @@ impl IntoModeFelt252 of core::Into<Mode, felt252> {
     }
 }
 
-impl IntoModeU8 of core::Into<Mode, u8> {
+pub impl IntoModeU8 of Into<Mode, u8> {
     #[inline]
     fn into(self: Mode) -> u8 {
         match self {
@@ -159,7 +158,7 @@ impl IntoModeU8 of core::Into<Mode, u8> {
     }
 }
 
-impl IntoU8Mode of core::Into<u8, Mode> {
+pub impl IntoU8Mode of Into<u8, Mode> {
     #[inline]
     fn into(self: u8) -> Mode {
         match self {
@@ -172,19 +171,10 @@ impl IntoU8Mode of core::Into<u8, Mode> {
     }
 }
 
-impl ModePrint of PrintTrait<Mode> {
-    #[inline]
-    fn print(self: Mode) {
-        let felt: felt252 = self.into();
-        felt.print();
-    }
-}
-
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -192,8 +182,8 @@ mod tests {
 
     // Constants
 
-    const UNKNOWN_FELT: felt252 = 'UNKNOWN';
-    const UNKNOWN_U8: u8 = 42;
+    pub const UNKNOWN_FELT: felt252 = 'UNKNOWN';
+    pub const UNKNOWN_U8: u8 = 42;
 
     #[test]
     fn test_mode_into_felt() {

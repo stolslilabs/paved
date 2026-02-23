@@ -7,18 +7,18 @@
 /// fixed-supply mechanism for token distribution. The fixed supply is
 /// set in the constructor.
 
-use paved::mocks::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+pub use paved::mocks::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 
 #[starknet::interface]
-trait IERC20Faucet<TState> {
+pub trait IERC20Faucet<TState> {
     fn mint(ref self: TState);
 }
 
 #[dojo::contract]
-mod Token {
+pub mod Token {
     use paved::mocks::erc20::erc20::ERC20Component;
     use starknet::{ContractAddress, get_caller_address};
-    const FAUCET_AMOUNT: u256 = 1_000_000_000_000_000_000_000_000; // 1E6 * 1E18
+    pub const FAUCET_AMOUNT: u256 = 1_000_000_000_000_000_000_000_000; // 1E6 * 1E18
 
     component!(path: ERC20Component, storage: erc20, event: ERC20Event);
 
@@ -28,7 +28,7 @@ mod Token {
     impl ERC20MetadataImpl = ERC20Component::ERC20MetadataImpl<ContractState>;
     #[abi(embed_v0)]
     impl ERC20CamelOnlyImpl = ERC20Component::ERC20CamelOnlyImpl<ContractState>;
-    impl InternalImpl = ERC20Component::InternalImpl<ContractState>;
+    pub impl InternalImpl = ERC20Component::InternalImpl<ContractState>;
 
     #[storage]
     struct Storage {
@@ -38,7 +38,7 @@ mod Token {
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
+    pub enum Event {
         #[flat]
         ERC20Event: ERC20Component::Event
     }

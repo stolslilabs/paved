@@ -1,9 +1,6 @@
 use core::traits::TryInto;
 // Core imports
 
-use core::debug::PrintTrait;
-use core::Default;
-use core::Zeroable;
 
 // External imports
 
@@ -12,21 +9,21 @@ use origami_random::deck::{Deck as OrigamiDeck, DeckTrait};
 // Internal imports
 
 use paved::constants;
-use paved::models::index::Tournament;
+pub use paved::models::index::Tournament;
 
 // Errors
 
-mod errors {
-    const REWARD_ALREADY_CLAIMED: felt252 = 'Tournament: already claimed';
-    const INVALID_PLAYER: felt252 = 'Tournament: invalid player';
-    const TOURNAMENT_NOT_OVER: felt252 = 'Tournament: not over';
-    const PRIZE_OVERFLOW: felt252 = 'Tournament: prize overflow';
-    const TOURNAMENT_NOT_FOUND: felt252 = 'Tournament: not found';
-    const NOTHING_TO_CLAIM: felt252 = 'Tournament: nothing to claim';
+pub mod errors {
+    pub const REWARD_ALREADY_CLAIMED: felt252 = 'Tournament: already claimed';
+    pub const INVALID_PLAYER: felt252 = 'Tournament: invalid player';
+    pub const TOURNAMENT_NOT_OVER: felt252 = 'Tournament: not over';
+    pub const PRIZE_OVERFLOW: felt252 = 'Tournament: prize overflow';
+    pub const TOURNAMENT_NOT_FOUND: felt252 = 'Tournament: not found';
+    pub const NOTHING_TO_CLAIM: felt252 = 'Tournament: nothing to claim';
 }
 
 #[generate_trait]
-impl TournamentImpl of TournamentTrait {
+pub impl TournamentImpl of TournamentTrait {
     #[inline]
     fn compute_id(time: u64, duration: u64) -> u64 {
         time / duration
@@ -132,7 +129,7 @@ impl TournamentImpl of TournamentTrait {
 }
 
 #[generate_trait]
-impl TournamentAssert of AssertTrait {
+pub impl TournamentAssert of AssertTrait {
     #[inline]
     fn assert_exists(self: Tournament) {
         assert(self.is_non_zero(), errors::TOURNAMENT_NOT_FOUND);
@@ -157,7 +154,8 @@ impl TournamentAssert of AssertTrait {
     }
 }
 
-impl ZeroableTournament of Zeroable<Tournament> {
+#[generate_trait]
+pub impl ZeroableTournament of ZeroableTournamentTrait {
     #[inline]
     fn zero() -> Tournament {
         Tournament {
@@ -187,19 +185,17 @@ impl ZeroableTournament of Zeroable<Tournament> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
-    use core::Default;
-
+    
     // Local imports
 
     use super::{Tournament, TournamentImpl};
 
     // Constants
 
-    const TIME: u64 = 1710347593;
+    pub const TIME: u64 = 1710347593;
 
     // Implementations
 

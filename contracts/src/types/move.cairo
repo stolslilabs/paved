@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -8,18 +7,18 @@ use paved::types::direction::{Direction, DirectionImpl};
 use paved::types::orientation::Orientation;
 use paved::types::spot::{Spot, SpotImpl};
 
-mod errors {
-    const INVALID_DIRECTION: felt252 = 'Move: Invalid direction';
+pub mod errors {
+    pub const INVALID_DIRECTION: felt252 = 'Move: Invalid direction';
 }
 
 #[derive(Copy, Drop)]
-struct Move {
-    direction: Direction,
-    spot: Spot,
+pub struct Move {
+    pub direction: Direction,
+    pub spot: Spot,
 }
 
 #[generate_trait]
-impl MoveImpl of MoveTrait {
+pub impl MoveImpl of MoveTrait {
     #[inline]
     fn rotate(self: Move, orientation: Orientation) -> Move {
         let direction = self.direction.rotate(orientation);
@@ -36,10 +35,9 @@ impl MoveImpl of MoveTrait {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 

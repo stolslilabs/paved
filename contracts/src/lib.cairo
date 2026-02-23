@@ -1,110 +1,99 @@
-mod constants;
-mod store;
-mod events;
+pub mod constants;
+pub mod store;
+pub mod events;
 
-mod types {
-    mod area;
-    mod deck;
-    mod plan;
-    mod layout;
-    mod mode;
-    mod move;
-    mod category;
-    mod orientation;
-    mod direction;
-    mod role;
-    mod spot;
+pub mod types {
+    pub mod area;
+    pub mod deck;
+    pub mod plan;
+    pub mod layout;
+    pub mod mode;
+    pub mod move;
+    pub mod category;
+    pub mod orientation;
+    pub mod direction;
+    pub mod role;
+    pub mod spot;
 }
 
-mod elements {
-    mod decks {
-        mod interface;
-        mod base;
-        mod simple;
-        mod tutorial;
+pub mod elements {
+    pub mod decks {
+        pub mod interface;
+        pub mod base;
+        pub mod simple;
+        pub mod tutorial;
     }
 
-    mod layouts {
-        mod interface;
-        mod ccccccccc;
-        mod cccccfffc;
-        mod cccccfrfc;
-        mod cfffcfffc;
-        mod ffcfffcff;
-        mod ffcfffffc;
-        mod ffffcccff;
-        mod ffffffcff;
-        mod rfffrfcfr;
-        mod rfffrfffr;
-        mod rfrfcccfr;
-        mod rfrfffcfr;
-        mod rfrfffffr;
-        mod rfrfrfcff;
-        mod sfrfrfcfr;
-        mod sfrfrfffr;
-        mod sfrfrfrfr;
-        mod wffffffff;
-        mod wfffffffr;
+    pub mod layouts {
+        pub mod interface;
+        pub mod ccccccccc;
+        pub mod cccccfffc;
+        pub mod cccccfrfc;
+        pub mod cfffcfffc;
+        pub mod ffcfffcff;
+        pub mod ffcfffffc;
+        pub mod ffffcccff;
+        pub mod ffffffcff;
+        pub mod rfffrfcfr;
+        pub mod rfffrfffr;
+        pub mod rfrfcccfr;
+        pub mod rfrfffcfr;
+        pub mod rfrfffffr;
+        pub mod rfrfrfcff;
+        pub mod sfrfrfcfr;
+        pub mod sfrfrfffr;
+        pub mod sfrfrfrfr;
+        pub mod wffffffff;
+        pub mod wfffffffr;
     }
 }
 
-mod helpers {
-    mod bitmap;
-    mod math;
-    mod multiplier;
-    mod generic;
-    mod simple;
-    mod wonder;
-    mod conflict;
+pub mod helpers {
+    pub mod bitmap;
+    pub mod math;
+    pub mod multiplier;
+    pub mod generic;
+    pub mod simple;
+    pub mod wonder;
+    pub mod conflict;
 }
 
-mod models {
-    mod game;
-    mod player;
-    mod builder;
-    mod tile;
-    mod character;
-    mod tournament;
-    mod index;
+pub mod models {
+    pub mod game;
+    pub mod player;
+    pub mod builder;
+    pub mod tile;
+    pub mod character;
+    pub mod tournament;
+    pub mod index;
 }
 
-mod components {
-    mod emitter;
-    mod manageable;
-    mod hostable;
-    mod payable;
-    mod playable;
-    mod tutoriable;
+pub mod components {
+    pub mod emitter;
+    pub mod manageable;
+    pub mod hostable;
+    pub mod payable;
+    pub mod playable;
+    pub mod tutoriable;
 }
 
-mod systems {
-    mod account;
-    mod daily;
-    mod weekly;
-    mod tutorial;
+pub mod systems {
+    pub mod account;
+    pub mod daily;
+    pub mod weekly;
+    pub mod tutorial;
 }
 
-mod mocks {
-    mod token;
-    mod erc20 {
-        mod interface;
-        mod erc20;
+pub mod mocks {
+    pub mod token;
+    pub mod erc20 {
+        pub mod interface;
+        pub mod erc20;
     }
 }
 
 #[cfg(test)]
-mod tests {
-    mod setup;
-    mod tutorial;
-    mod daily {
-        mod ranked;
-        mod discard;
-        mod build;
-    }
-    mod weekly {
-        mod ranked;
-        mod discard;
-        mod build;
-    }
+pub mod tests {
+    pub mod setup;
+    pub mod e2e;
 }
-

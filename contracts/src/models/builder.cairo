@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -16,27 +15,27 @@ use paved::models::game::{Game, GameImpl};
 use paved::models::player::{Player, PlayerImpl};
 use paved::models::tile::{Tile, TileImpl, TileIntoLayout};
 use paved::models::character::{Char, CharImpl};
-use paved::models::index::Builder;
+pub use paved::models::index::Builder;
 use paved::helpers::bitmap::Bitmap;
 
-mod errors {
-    const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: does not exist';
-    const BUILDER_ALREADY_EXIST: felt252 = 'Builder: already exist';
-    const BUILDER_NOT_HOST: felt252 = 'Builder: is not host';
-    const BUILDER_IS_HOST: felt252 = 'Builder: is host';
-    const INVALID_ORDER: felt252 = 'Builder: invalid order';
-    const ALREADY_PLACED: felt252 = 'Builder: already placed';
-    const CHARACTER_NOT_PLACED: felt252 = 'Builder: character not placed';
-    const ALREADY_HAS_TILE: felt252 = 'Builder: already has a tile';
-    const CANNOT_DISCARD: felt252 = 'Builder: cannot discard';
-    const CANNOT_BUILD: felt252 = 'Builder: cannot build';
-    const NOTHING_TO_CLAIM: felt252 = 'Builder: nothing to claim';
-    const ALREADY_CLAIMED: felt252 = 'Builder: already claimed';
-    const CAST_U256_FELT: felt252 = 'Builder: cast u256 to felt';
+pub mod errors {
+    pub const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: does not exist';
+    pub const BUILDER_ALREADY_EXIST: felt252 = 'Builder: already exist';
+    pub const BUILDER_NOT_HOST: felt252 = 'Builder: is not host';
+    pub const BUILDER_IS_HOST: felt252 = 'Builder: is host';
+    pub const INVALID_ORDER: felt252 = 'Builder: invalid order';
+    pub const ALREADY_PLACED: felt252 = 'Builder: already placed';
+    pub const CHARACTER_NOT_PLACED: felt252 = 'Builder: character not placed';
+    pub const ALREADY_HAS_TILE: felt252 = 'Builder: already has a tile';
+    pub const CANNOT_DISCARD: felt252 = 'Builder: cannot discard';
+    pub const CANNOT_BUILD: felt252 = 'Builder: cannot build';
+    pub const NOTHING_TO_CLAIM: felt252 = 'Builder: nothing to claim';
+    pub const ALREADY_CLAIMED: felt252 = 'Builder: already claimed';
+    pub const CAST_U256_FELT: felt252 = 'Builder: cast u256 to felt';
 }
 
 #[generate_trait]
-impl BuilderImpl of BuilderTrait {
+pub impl BuilderImpl of BuilderTrait {
     #[inline]
     fn new(game_id: u32, player_id: felt252) -> Builder {
         // [Return] Builder
@@ -122,7 +121,7 @@ impl BuilderImpl of BuilderTrait {
 }
 
 #[generate_trait]
-impl BuilderAssert of AssertTrait {
+pub impl BuilderAssert of AssertTrait {
     #[inline]
     fn assert_exists(self: Builder) {
         assert(self.is_non_zero(), errors::BUILDER_DOES_NOT_EXIST);
@@ -161,7 +160,8 @@ impl BuilderAssert of AssertTrait {
     }
 }
 
-impl ZeroableBuilderImpl of core::Zeroable<Builder> {
+#[generate_trait]
+pub impl ZeroableBuilderImpl of ZeroableBuilderTrait {
     #[inline]
     fn zero() -> Builder {
         Builder { game_id: 0, player_id: 0, tile_id: 0, characters: 0, }

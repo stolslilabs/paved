@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 use core::poseidon::{PoseidonTrait, HashState};
 use core::hash::HashStateTrait;
 
@@ -17,18 +16,18 @@ use paved::helpers::bitmap::Bitmap;
 
 // Constants
 
-const NONE: felt252 = 0;
-const MULTIPLIER: u128 = 10_000;
+pub const NONE: felt252 = 0;
+pub const MULTIPLIER: u128 = 10_000;
 
 #[derive(Copy, Drop, Serde)]
-enum Deck {
+pub enum Deck {
     None,
     Base,
     Simple,
     Tutorial,
 }
 
-impl IntoDeckFelt252 of core::Into<Deck, felt252> {
+pub impl IntoDeckFelt252 of Into<Deck, felt252> {
     #[inline]
     fn into(self: Deck) -> felt252 {
         match self {
@@ -40,7 +39,7 @@ impl IntoDeckFelt252 of core::Into<Deck, felt252> {
     }
 }
 
-impl IntoDeckU8 of core::Into<Deck, u8> {
+pub impl IntoDeckU8 of Into<Deck, u8> {
     #[inline]
     fn into(self: Deck) -> u8 {
         match self {
@@ -52,7 +51,7 @@ impl IntoDeckU8 of core::Into<Deck, u8> {
     }
 }
 
-impl IntoDeck of core::Into<u8, Deck> {
+pub impl IntoDeck of Into<u8, Deck> {
     #[inline]
     fn into(self: u8) -> Deck {
         let deck: felt252 = self.into();
@@ -66,16 +65,8 @@ impl IntoDeck of core::Into<u8, Deck> {
     }
 }
 
-impl DeckPrint of PrintTrait<Deck> {
-    #[inline]
-    fn print(self: Deck) {
-        let felt: felt252 = self.into();
-        felt.print();
-    }
-}
-
 #[generate_trait]
-impl DeckImpl of DeckTrait {
+pub impl DeckImpl of DeckTrait {
     #[inline]
     fn total_count(self: Deck) -> u8 {
         match self {
@@ -164,7 +155,7 @@ impl DeckImpl of DeckTrait {
     }
 }
 
-impl DeckPartialEq of PartialEq<Deck> {
+pub impl DeckPartialEq of PartialEq<Deck> {
     #[inline]
     fn eq(lhs: @Deck, rhs: @Deck) -> bool {
         let felt: felt252 = (*lhs).into();
@@ -179,10 +170,9 @@ impl DeckPartialEq of PartialEq<Deck> {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
@@ -190,7 +180,7 @@ mod tests {
 
     // Constants
 
-    const UNKNOWN_U8: u8 = 255;
+    pub const UNKNOWN_U8: u8 = 255;
 
     #[test]
     fn test_deck_into_felt() {
@@ -220,4 +210,3 @@ mod tests {
         assert(tiles == 0x51cc75898dfe86a218, 'Deck: tiles');
     }
 }
-

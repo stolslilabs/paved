@@ -1,20 +1,20 @@
 // Internal imports
 
 use paved::constants;
-use paved::models::index::Player;
+pub use paved::models::index::Player;
 
-mod errors {
-    const PLAYER_NOT_EXIST: felt252 = 'Player: Does not exist';
-    const PLAYER_ALREADY_EXIST: felt252 = 'Player: Already exist';
-    const INVALID_NAME: felt252 = 'Player: Invalid name';
-    const INVALID_MASTER: felt252 = 'Player: Invalid master';
-    const INVALID_ORDER: felt252 = 'Player: Invalid order';
-    const NO_TILES_LEFT: felt252 = 'Player: No tiles left';
-    const TOO_MUCH_TILES: felt252 = 'Player: Too much tiles';
+pub mod errors {
+    pub const PLAYER_NOT_EXIST: felt252 = 'Player: Does not exist';
+    pub const PLAYER_ALREADY_EXIST: felt252 = 'Player: Already exist';
+    pub const INVALID_NAME: felt252 = 'Player: Invalid name';
+    pub const INVALID_MASTER: felt252 = 'Player: Invalid master';
+    pub const INVALID_ORDER: felt252 = 'Player: Invalid order';
+    pub const NO_TILES_LEFT: felt252 = 'Player: No tiles left';
+    pub const TOO_MUCH_TILES: felt252 = 'Player: Too much tiles';
 }
 
 #[generate_trait]
-impl PlayerImpl of PlayerTrait {
+pub impl PlayerImpl of PlayerTrait {
     #[inline]
     fn new(id: felt252, name: felt252, master: felt252) -> Player {
         // [Check] Name is valid
@@ -37,7 +37,7 @@ impl PlayerImpl of PlayerTrait {
 }
 
 #[generate_trait]
-impl PlayerAssert of AssertTrait {
+pub impl PlayerAssert of AssertTrait {
     #[inline]
     fn assert_exists(self: Player) {
         assert(self.is_non_zero(), errors::PLAYER_NOT_EXIST);
@@ -49,7 +49,8 @@ impl PlayerAssert of AssertTrait {
     }
 }
 
-impl ZeroablePlayerImpl of core::Zeroable<Player> {
+#[generate_trait]
+pub impl ZeroablePlayerImpl of ZeroablePlayerTrait {
     #[inline]
     fn zero() -> Player {
         Player { id: 0, name: 0, master: 0 }

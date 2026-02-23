@@ -1,7 +1,7 @@
 [package]
 name = "paved"
 version = "0.0.0"
-cairo-version = "=2.7.0"
+edition = "2023_11"
 
 [cairo]
 sierra-replace-ids = true
@@ -9,13 +9,28 @@ sierra-replace-ids = true
 [scripts]
 dev = "sozo --profile dev clean && sozo --profile dev build && sozo --profile dev migrate plan && sozo --profile dev migrate apply"
 slot = "sozo --profile slot clean && sozo --profile slot build && sozo --profile slot migrate plan && sozo --profile slot migrate apply"
+test_all = "sozo test && snforge test"
 
 [dependencies]
-origami_random = { git = "https://github.com/dojoengine/origami", tag = "v1.0.0-alpha.12" }
-origami_token = { git = "https://github.com/dojoengine/origami", tag = "v1.0.0-alpha.12" }
-dojo = { git = "https://github.com/dojoengine/dojo", tag = "v1.0.0-alpha.12" }
+dojo = "1.8.0"
+origami_random = { git = "https://github.com/dojoengine/origami", tag = "v1.7.0" }
+starknet = "2.13.1"
 
-[[target.dojo]]
+[[target.starknet-contract]]
+build-external-contracts = ["dojo::world::world_contract::world"]
+
+[tool.scarb]
+allow-prebuilt-plugins = ["dojo_cairo_macros"]
 
 [profile.slot]
 [profile.sepolia]
+
+[profile.dev.cairo]
+unstable-add-statements-functions-debug-info = true
+unstable-add-statements-code-locations-debug-info = true
+inlining-strategy = "avoid"
+
+[dev-dependencies]
+cairo_test = "2.13.1"
+dojo_cairo_test = "1.8.0"
+snforge_std = "0.56.0"

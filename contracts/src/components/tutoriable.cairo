@@ -1,15 +1,14 @@
 // Component
 
 #[starknet::component]
-mod TutoriableComponent {
+pub mod TutoriableComponent {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Starknet imports
 
     use starknet::ContractAddress;
-    use starknet::info::{get_contract_address, get_caller_address, get_block_timestamp};
+    use starknet::{get_contract_address, get_caller_address, get_block_timestamp};
 
     // Dojo imports
 
@@ -38,10 +37,10 @@ mod TutoriableComponent {
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {}
+    pub enum Event {}
 
     #[generate_trait]
-    impl InternalImpl<
+    pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>
     > of InternalTrait<TContractState> {
         fn discard(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {

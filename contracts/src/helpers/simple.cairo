@@ -1,6 +1,5 @@
 // Core imports
 
-use core::debug::PrintTrait;
 
 // Internal imports
 
@@ -13,11 +12,11 @@ use paved::models::game::Game;
 use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
 
 #[generate_trait]
-impl SimpleCount of SimpleCountTrait {
+pub impl SimpleCount of SimpleCountTrait {
     #[inline]
     fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> u32 {
         // [Compute] Setup recursion
-        let mut visited: Felt252Dict<bool> = core::Default::default();
+        let mut visited: Felt252Dict<bool> = Default::default();
         // [Compute] Recursively count the points
         let mut count = 0;
         Self::iter(game, tile, at, ref count, ref visited, ref store);

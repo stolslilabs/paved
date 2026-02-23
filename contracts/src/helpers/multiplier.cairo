@@ -2,7 +2,7 @@
 
 use paved::constants::{BASE, MULTIPLIER};
 
-fn compute_multiplier(exp: u32) -> (u32, u32) {
+pub fn compute_multiplier(exp: u32) -> (u32, u32) {
     let num = pow_div(BASE, exp.into(), MULTIPLIER);
     (num, MULTIPLIER)
 }
@@ -23,10 +23,9 @@ fn pow_div<T, +Sub<T>, +Mul<T>, +Div<T>, +Rem<T>, +PartialEq<T>, +Into<u8, T>, +
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     // Core imports
 
-    use core::debug::PrintTrait;
 
     // Local imports
 
