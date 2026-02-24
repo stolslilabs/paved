@@ -85,6 +85,9 @@ export {
   getColor,
   offset,
   other_offset,
+  getSpotOffset,
+  categoryToChar,
+  getValidSpotsForRole,
 } from "./utils";
 
 // Asset key helpers

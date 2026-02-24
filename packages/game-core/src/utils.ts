@@ -146,3 +146,72 @@ export const getColor = (str: string): string => {
 
 export const offset = 0x7fffffff;
 export const other_offset = 0;
+
+import { SpotType } from "./types/spot";
+import { CategoryType } from "./types/category";
+import { Layout } from "./types/layout";
+import { Plan } from "./types/plan";
+import { Orientation } from "./types/orientation";
+
+const SPOT_OFFSETS: Record<SpotType, { dx: number; dz: number }> = {
+  [SpotType.None]:      { dx: 0,      dz: 0 },
+  [SpotType.Center]:    { dx: 0,      dz: 0 },
+  [SpotType.NorthWest]: { dx: -1 / 3, dz: -1 / 3 },
+  [SpotType.North]:     { dx: 0,      dz: -1 / 3 },
+  [SpotType.NorthEast]: { dx: 1 / 3,  dz: -1 / 3 },
+  [SpotType.East]:      { dx: 1 / 3,  dz: 0 },
+  [SpotType.SouthEast]: { dx: 1 / 3,  dz: 1 / 3 },
+  [SpotType.South]:     { dx: 0,      dz: 1 / 3 },
+  [SpotType.SouthWest]: { dx: -1 / 3, dz: 1 / 3 },
+  [SpotType.West]:      { dx: -1 / 3, dz: 0 },
+};
+
+export const getSpotOffset = (spotType: SpotType): { dx: number; dz: number } => {
+  return SPOT_OFFSETS[spotType] ?? { dx: 0, dz: 0 };
+};
+
+export const categoryToChar = (category: CategoryType): string => {
+  switch (category) {
+    case CategoryType.City: return "C";
+    case CategoryType.Road: return "R";
+    case CategoryType.Forest: return "F";
+    case CategoryType.Wonder: return "W";
+    case CategoryType.Stop: return "S";
+    case CategoryType.None: return "";
+  }
+};
+
+const SPOT_TYPES_1_TO_9: SpotType[] = [
+  SpotType.Center,    // 1
+  SpotType.NorthWest, // 2
+  SpotType.North,     // 3
+  SpotType.NorthEast, // 4
+  SpotType.East,      // 5
+  SpotType.SouthEast, // 6
+  SpotType.South,     // 7
+  SpotType.SouthWest, // 8
+  SpotType.West,      // 9
+];
+
+export const getValidSpotsForRole = (
+  roleIndex: number,
+  tilePlan: number,
+  orientation: number,
+): number[] => {
+  const allowed = getRoleAllowedSpots(roleIndex);
+  if (allowed.length === 0) return [];
+
+  const plan = Plan.from(tilePlan);
+  const layout = Layout.from(plan, Orientation.from(orientation).value);
+
+  const valid: number[] = [];
+  for (let i = 0; i < SPOT_TYPES_1_TO_9.length; i++) {
+    const spotType = SPOT_TYPES_1_TO_9[i];
+    const category = layout.getCategory(spotType);
+    const ch = categoryToChar(category.value);
+    if (allowed.includes(ch)) {
+      valid.push(i + 1); // contract spot number (1-indexed)
+    }
+  }
+  return valid;
+};

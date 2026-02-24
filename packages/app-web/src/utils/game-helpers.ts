@@ -28,3 +28,29 @@ export function shouldPollUpdateBuilder(
   if (inFlightTileId === null) return true;
   return inFlightTileId !== pollTileId;
 }
+
+/** Whether the SpotSelector overlay should be visible */
+export function shouldShowSpotSelector(
+  character: number,
+  selectedTile: { col: number; row: number } | null,
+  hoverValid: boolean,
+): boolean {
+  return character > 0 && selectedTile !== null && hoverValid;
+}
+
+const KEY_TO_SPOT: Record<string, number> = {
+  "5": 1,  // Center
+  "7": 2,  // NW
+  "8": 3,  // N
+  "9": 4,  // NE
+  "6": 5,  // E
+  "3": 6,  // SE
+  "2": 7,  // S
+  "1": 8,  // SW
+  "4": 9,  // W
+};
+
+/** Map a numpad key to a spot number (1-9), or null if not a valid spot key */
+export function spotKeyToNumber(key: string): number | null {
+  return KEY_TO_SPOT[key] ?? null;
+}

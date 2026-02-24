@@ -41,10 +41,12 @@ export {
   CharacterMenu,
   HandPanel,
   GameCompleteDialog,
+  SpotSelector,
 } from "./overlays";
 export type {
   IngameStatusProps,
   CharacterMenuProps,
   HandPanelProps,
   GameCompleteDialogProps,
+  SpotSelectorProps,
 } from "./overlays";

@@ -6,9 +6,10 @@ import {
   HandPanel,
   GameCompleteDialog,
   CharacterMenu,
+  SpotSelector,
   useGameStore,
 } from "@paved/ui";
-import type { GameScene, TileRenderData } from "@paved/renderer";
+import type { GameScene, TileRenderData, CharacterRenderData } from "@paved/renderer";
 import { useDojo, useActions } from "@paved/chain";
 import {
   ModeType,
@@ -17,8 +18,15 @@ import {
   Orientation,
   Direction,
   DirectionType,
+  Spot,
+  SpotType,
+  getSpotOffset,
+  getIndexFromCharacter,
+  getColorFromCharacter,
+  getRole,
 } from "@paved/game-core";
-import { findNextTile, shouldPollUpdateBuilder } from "../utils/game-helpers";
+import { findNextTile, shouldPollUpdateBuilder, shouldShowSpotSelector, spotKeyToNumber } from "../utils/game-helpers";
+import { buildCharQuery, toRenderCharacters } from "../utils/char-helpers";
 import { toriiQuery, padAddress } from "../utils/torii";
 import { parseGameParams, modeToContractName } from "../utils/game-params";
 
@@ -138,6 +146,8 @@ export function GamePage() {
   const [builderState, setBuilderState] = useState<BuilderState | null>(null);
   const [toriiTiles, setToriiTiles] = useState<TileRenderData[]>([]);
   const [optimisticTiles, setOptimisticTiles] = useState<TileRenderData[]>([]);
+  const [characters, setCharacters] = useState<CharacterRenderData[]>([]);
+  const [optimisticCharacters, setOptimisticCharacters] = useState<CharacterRenderData[]>([]);
   const [spawning, setSpawning] = useState(false);
   const spawnAttempted = useRef(false);
   const tileRowsRef = useRef<any[]>([]); // raw Torii tile rows (includes unplaced tiles)
@@ -149,6 +159,13 @@ export function GamePage() {
     const pending = optimisticTiles.filter(t => !toriiIds.has(t.id));
     return [...toriiTiles, ...pending];
   }, [toriiTiles, optimisticTiles]);
+
+  // Merge Torii characters with optimistic characters
+  const mergedCharacters = useMemo(() => {
+    const toriiKeys = new Set(characters.map(c => `${c.gameId}-${c.playerId}-${c.index}`));
+    const pending = optimisticCharacters.filter(c => !toriiKeys.has(`${c.gameId}-${c.playerId}-${c.index}`));
+    return [...characters, ...pending];
+  }, [characters, optimisticCharacters]);
 
   // Load a specific game by ID, or auto-spawn a new game on mount
   useEffect(() => {
@@ -309,6 +326,16 @@ export function GamePage() {
         // Convert placed tiles to render data
         setToriiTiles(toRenderTiles(tileRows));
 
+        // Query characters for rendering
+        const charRows = await toriiQuery(url, buildCharQuery(gameId));
+        if (!cancelled) {
+          const tileMap = new Map<number, { worldX: number; worldZ: number }>();
+          for (const t of toRenderTiles(tileRows)) {
+            tileMap.set(t.id, { worldX: t.worldX, worldZ: t.worldZ });
+          }
+          setCharacters(toRenderCharacters(charRows, tileMap));
+        }
+
         // Query game state
         const games = await toriiQuery(url,
           `SELECT id, over, built, discarded, tile_count, score FROM [paved-Game] WHERE id = ${gameId}`
@@ -342,6 +369,7 @@ export function GamePage() {
     store.setX(gridX + CENTER);
     store.setY(CENTER - gridY);
     store.setSelectedTile({ col: gridX, row: gridY });
+    store.setSpot(0);
   }, []);
 
   const handleTileHover = useCallback((gridX: number, gridY: number) => {
@@ -403,8 +431,11 @@ export function GamePage() {
     }
   }, [hoverGrid, selectedTile, builderState, orientation, tiles, availableSlots]);
 
+  const showSpotSelector = shouldShowSpotSelector(character, selectedTile, hoverState?.valid ?? false);
+
   const handleRotate = useCallback(() => {
     setOrientation(orientation + 1);
+    useGameStore.getState().setSpot(0); // spot positions change with rotation
   }, [orientation, setOrientation]);
 
   const handleConfirm = useCallback(async () => {
@@ -425,7 +456,33 @@ export function GamePage() {
       pending: true,
     };
     setOptimisticTiles(prev => [...prev, optimistic]);
+
+    // Optimistic character placement
+    if (character > 0 && spot > 0) {
+      const spotType = spot > 0 ? Spot.from(spot).value : SpotType.None;
+      const offset = getSpotOffset(spotType);
+      const charWorldX = optimistic.worldX + offset.dx;
+      const charWorldZ = optimistic.worldZ + offset.dz;
+
+      const optimisticChar: CharacterRenderData = {
+        gameId: gameState.id,
+        playerId: account?.address ?? "0",
+        index: character,
+        tileId: builderState.tile_id,
+        spot,
+        weight: 1,
+        power: 1,
+        color: getColorFromCharacter(character),
+        name: getRole(getIndexFromCharacter(character)),
+        worldX: charWorldX,
+        worldZ: charWorldZ,
+      };
+      setOptimisticCharacters(prev => [...prev, optimisticChar]);
+    }
+
     useGameStore.getState().setSelectedTile(null);
+    useGameStore.getState().setCharacter(0);
+    useGameStore.getState().setSpot(0);
     // Keep hoverGrid so the ghost stays visible with the next tile
 
     // Mark in-flight so the poll doesn't overwrite our optimistic builderState
@@ -470,9 +527,9 @@ export function GamePage() {
   }, [discard, gameState]);
 
   // Stable refs for keyboard hotkeys — avoids re-registering listener on every state change
-  const hotkeys = useRef({ handleRotate, handleConfirm, handleDiscard, loading, builderState, gameState, hoverState });
+  const hotkeys = useRef({ handleRotate, handleConfirm, handleDiscard, loading, builderState, gameState, hoverState, character, selectedTile });
   useEffect(() => {
-    hotkeys.current = { handleRotate, handleConfirm, handleDiscard, loading, builderState, gameState, hoverState };
+    hotkeys.current = { handleRotate, handleConfirm, handleDiscard, loading, builderState, gameState, hoverState, character, selectedTile };
   });
 
   // Keyboard hotkeys: R=rotate, C=confirm, D=discard
@@ -490,6 +547,13 @@ export function GamePage() {
         case "d":
           if (!h.loading && h.gameState) h.handleDiscard();
           break;
+        default: {
+          const spotNum = spotKeyToNumber(e.key);
+          if (spotNum !== null && h.character > 0 && h.selectedTile && h.hoverState?.valid) {
+            useGameStore.getState().setSpot(spotNum);
+          }
+          break;
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -509,6 +573,7 @@ export function GamePage() {
       <GameCanvas
         basePath=""
         tiles={tiles}
+        characters={mergedCharacters}
         hover={gameParams.readonly ? null : hoverState}
         availableSlots={gameParams.readonly ? [] : availableSlots}
         strategyMode={strategyMode}
@@ -553,12 +618,25 @@ export function GamePage() {
           </div>
         )}
 
+        {!gameParams.readonly && showSpotSelector && builderState && (
+          <div style={{ pointerEvents: "auto", gridColumn: 1, gridRow: 2, alignSelf: "center" }}>
+            <SpotSelector
+              tilePlan={builderState.tile_plan}
+              orientation={orientation}
+              roleIndex={getIndexFromCharacter(character)}
+              selectedSpot={spot}
+              onSelectSpot={(s) => useGameStore.getState().setSpot(s)}
+              visible={true}
+            />
+          </div>
+        )}
+
         {!gameParams.readonly && (
           <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: 3, display: "flex", gap: 8, alignItems: "center" }}>
             <HandPanel
               onRotate={handleRotate}
               onConfirm={handleConfirm}
-              confirmDisabled={loading || !builderState || !hoverState?.valid}
+              confirmDisabled={loading || !builderState || !hoverState?.valid || (character > 0 && spot === 0)}
             />
             <button
               onClick={handleDiscard}

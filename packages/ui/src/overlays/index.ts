@@ -6,3 +6,5 @@ export { HandPanel } from "./HandPanel";
 export type { HandPanelProps } from "./HandPanel";
 export { GameCompleteDialog } from "./GameCompleteDialog";
 export type { GameCompleteDialogProps } from "./GameCompleteDialog";
+export { SpotSelector } from "./SpotSelector";
+export type { SpotSelectorProps } from "./SpotSelector";
