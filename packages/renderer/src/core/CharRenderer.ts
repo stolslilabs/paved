@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { TILE_SIZE } from "./types";
 import type { CharacterRenderData } from "./types";
 
 // Character pedestal dimensions (from CharTexture.tsx)
@@ -19,7 +20,7 @@ export class CharRenderer {
   private height: number;
   private squareSize: number;
 
-  constructor(radius = 0.3, height = 1.5, squareSize = 3) {
+  constructor(radius = 0.3, height = 1.5, squareSize = TILE_SIZE) {
     this.group = new THREE.Group();
     this.radius = radius;
     this.height = height;
@@ -132,15 +133,18 @@ export class CharRenderer {
     return charGroup;
   }
 
+  // Pre-allocated vectors to avoid GC pressure in render loop
+  private static _cameraPos = new THREE.Vector3();
+  private static _worldPos = new THREE.Vector3();
+
   /** Call each frame to make billboard discs face the camera */
   updateBillboards(camera: THREE.Camera): void {
-    const cameraPos = camera.position.clone();
+    const cameraPos = CharRenderer._cameraPos.copy(camera.position);
     for (const [, charGroup] of this.charMeshes) {
       charGroup.traverse((child) => {
         if (child.userData.isBillboard) {
-          const worldPos = new THREE.Vector3();
-          child.getWorldPosition(worldPos);
-          child.lookAt(cameraPos.x, worldPos.y, cameraPos.z);
+          child.getWorldPosition(CharRenderer._worldPos);
+          child.lookAt(cameraPos.x, CharRenderer._worldPos.y, cameraPos.z);
         }
       });
     }

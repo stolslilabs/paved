@@ -1,5 +1,8 @@
 import type { TileData, CharacterData } from "@paved/game-core";
 
+/** World units per grid cell — single source of truth */
+export const TILE_SIZE = 3;
+
 export interface RendererConfig {
   canvas: HTMLCanvasElement;
   basePath?: string;
@@ -11,6 +14,8 @@ export interface TileRenderData extends TileData {
   // Position in world space (converted from grid)
   worldX: number;
   worldZ: number;
+  // True for optimistic tiles awaiting tx confirmation
+  pending?: boolean;
 }
 
 export interface CharacterRenderData {

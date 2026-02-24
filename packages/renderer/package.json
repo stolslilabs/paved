@@ -17,6 +17,8 @@
   },
   "scripts": {
     "build": "tsc -b",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -27,7 +29,8 @@
     "@types/three": "^0.172.0",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
   },
   "peerDependencies": {
     "react": "^19.0.0"

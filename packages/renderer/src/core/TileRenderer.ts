@@ -1,9 +1,8 @@
 import * as THREE from "three";
 import { getPlanKey, Plan, PlanType, Orientation, OrientationType } from "@paved/game-core";
 import type { AssetLoader } from "./AssetLoader";
+import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
-
-const TILE_SIZE = 3;
 
 // Material constants from TileTexture
 const TILE_ROUGHNESS = 1;
@@ -26,10 +25,11 @@ export class TileRenderer {
   private tileGroup: THREE.Group; // placed tiles
   private emptyGroup: THREE.Group; // empty slots
   private previewGroup: THREE.Group; // hover preview
-  private tileMeshes: Map<string, THREE.Object3D> = new Map();
+  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean }> = new Map();
   private assets: AssetLoader;
   private strategyMode = false;
   private squareSize = TILE_SIZE;
+  private lastHover: { x: number; y: number; planIndex: number; orientation: number; valid: boolean } | null = null;
 
   constructor(assets: AssetLoader) {
     this.assets = assets;
@@ -51,28 +51,62 @@ export class TileRenderer {
       const key = `${tile.game_id}-${tile.id}`;
       currentKeys.add(key);
 
-      if (this.tileMeshes.has(key)) continue;
+      const existing = this.tileMeshes.get(key);
+      const pending = !!tile.pending;
+
+      // Skip if already rendered with same pending state
+      if (existing && existing.pending === pending) continue;
+
+      // Pending state changed — remove old mesh to recreate
+      if (existing) {
+        this.tileGroup.remove(existing.mesh);
+        this.disposeMesh(existing.mesh);
+        this.tileMeshes.delete(key);
+      }
 
       const mesh = this.strategyMode
         ? this.createStrategyTile(tile)
         : this.createVoxelTile(tile);
 
       if (mesh) {
+        // Apply pending loading style
+        if (pending) {
+          mesh.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              if (child.material instanceof THREE.MeshStandardMaterial) {
+                child.material = child.material.clone();
+                child.material.transparent = true;
+                child.material.opacity = 0.55;
+                child.material.emissive = new THREE.Color(0x4488ff);
+                child.material.emissiveIntensity = 0.5;
+              } else {
+                child.material = new THREE.MeshStandardMaterial({
+                  color: 0xaaaaaa,
+                  transparent: true,
+                  opacity: 0.55,
+                  emissive: new THREE.Color(0x4488ff),
+                  emissiveIntensity: 0.5,
+                });
+              }
+            }
+          });
+        }
+
         mesh.position.set(
           tile.worldX * this.squareSize,
           0,
           tile.worldZ * this.squareSize
         );
         this.tileGroup.add(mesh);
-        this.tileMeshes.set(key, mesh);
+        this.tileMeshes.set(key, { mesh, pending });
       }
     }
 
     // Remove tiles no longer present
-    for (const [key, mesh] of this.tileMeshes) {
+    for (const [key, entry] of this.tileMeshes) {
       if (!currentKeys.has(key)) {
-        this.tileGroup.remove(mesh);
-        this.disposeMesh(mesh);
+        this.tileGroup.remove(entry.mesh);
+        this.disposeMesh(entry.mesh);
         this.tileMeshes.delete(key);
       }
     }
@@ -117,7 +151,7 @@ export class TileRenderer {
         }
       });
 
-      // Center and scale model to fit tile size
+      // Scale model to fit tile size, then center at origin
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.z);
@@ -126,7 +160,15 @@ export class TileRenderer {
         model.scale.setScalar(scale);
       }
 
-      return model;
+      // Re-compute box after scaling, center XZ at origin, bottom at Y=0
+      const scaledBox = new THREE.Box3().setFromObject(model);
+      const center = scaledBox.getCenter(new THREE.Vector3());
+      model.position.set(-center.x, -scaledBox.min.y, -center.z);
+
+      // Wrap in container so grid positioning doesn't overwrite centering offset
+      const container = new THREE.Group();
+      container.add(model);
+      return container;
     } catch {
       return null;
     }
@@ -174,6 +216,16 @@ export class TileRenderer {
   }
 
   setHover(state: HoverState | null): void {
+    // Short-circuit if hover state unchanged
+    if (state && this.lastHover &&
+        state.x === this.lastHover.x &&
+        state.y === this.lastHover.y &&
+        state.planIndex === this.lastHover.planIndex &&
+        state.orientation === this.lastHover.orientation &&
+        state.valid === this.lastHover.valid) {
+      return;
+    }
+
     // Clear previous preview
     while (this.previewGroup.children.length > 0) {
       const child = this.previewGroup.children[0];
@@ -181,7 +233,12 @@ export class TileRenderer {
       this.disposeMesh(child);
     }
 
-    if (!state) return;
+    if (!state) {
+      this.lastHover = null;
+      return;
+    }
+
+    this.lastHover = { x: state.x, y: state.y, planIndex: state.planIndex, orientation: state.orientation, valid: state.valid };
 
     // Create preview mesh
     const plan = Plan.from(state.planIndex);
@@ -200,18 +257,29 @@ export class TileRenderer {
       };
       model.rotation.y = rotationMap[orientation.value] ?? 0;
 
-      // Make transparent for preview
+      // Tint preview: keep original materials visible with a green/red emissive glow
+      const tintColor = new THREE.Color(state.valid ? 0x00ff00 : 0xff0000);
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          child.material = new THREE.MeshStandardMaterial({
-            color: state.valid && state.idle ? 0x00ff00 : state.valid ? 0xff0000 : 0xffa500,
-            transparent: true,
-            opacity: state.valid && state.idle ? VALID_IDLE_OPACITY : state.valid ? VALID_OPACITY : INVALID_OPACITY,
-          });
+          if (child.material instanceof THREE.MeshStandardMaterial) {
+            child.material = child.material.clone();
+            child.material.transparent = true;
+            child.material.opacity = 0.75;
+            child.material.emissive = tintColor;
+            child.material.emissiveIntensity = 0.4;
+          } else {
+            child.material = new THREE.MeshStandardMaterial({
+              color: 0xffffff,
+              transparent: true,
+              opacity: 0.75,
+              emissive: tintColor,
+              emissiveIntensity: 0.4,
+            });
+          }
         }
       });
 
-      // Center and scale
+      // Scale to fit tile size, then center
       const box = new THREE.Box3().setFromObject(model);
       const size = box.getSize(new THREE.Vector3());
       const maxDim = Math.max(size.x, size.z);
@@ -220,14 +288,56 @@ export class TileRenderer {
         model.scale.setScalar(scale);
       }
 
-      model.position.set(
+      // Re-compute box after scaling, center XZ at origin, bottom at Y=0
+      const scaledBox = new THREE.Box3().setFromObject(model);
+      const center = scaledBox.getCenter(new THREE.Vector3());
+      model.position.set(-center.x, -scaledBox.min.y, -center.z);
+
+      // Wrap in container for grid positioning
+      const container = new THREE.Group();
+      container.add(model);
+      container.position.set(
         state.x * this.squareSize,
         0,
         state.y * this.squareSize
       );
-      this.previewGroup.add(model);
+      this.previewGroup.add(container);
     } catch {
       // Model not available
+    }
+  }
+
+  /** Show subtle ground indicators at valid placement positions */
+  setAvailableSlots(slots: Array<{ x: number; y: number }>): void {
+    // Clear previous indicators
+    while (this.emptyGroup.children.length > 0) {
+      const child = this.emptyGroup.children[0];
+      this.emptyGroup.remove(child);
+      this.disposeMesh(child);
+    }
+
+    if (slots.length === 0) return;
+
+    // Shared geometry and material for all indicators
+    const geo = new THREE.RingGeometry(0.8, 1.2, 4);
+    geo.rotateX(-Math.PI / 2); // lay flat on ground
+    geo.rotateY(Math.PI / 4); // rotate 45° so corners point N/S/E/W
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x44cc66,
+      transparent: true,
+      opacity: 0.45,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+
+    for (const slot of slots) {
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(
+        slot.x * this.squareSize,
+        0.05, // just above ground to avoid z-fighting
+        slot.y * this.squareSize,
+      );
+      this.emptyGroup.add(mesh);
     }
   }
 
@@ -236,9 +346,9 @@ export class TileRenderer {
     this.strategyMode = on;
     // Clear and re-render all tiles in new mode
     // Caller should call updateTiles() after this
-    for (const [key, mesh] of this.tileMeshes) {
-      this.tileGroup.remove(mesh);
-      this.disposeMesh(mesh);
+    for (const [, entry] of this.tileMeshes) {
+      this.tileGroup.remove(entry.mesh);
+      this.disposeMesh(entry.mesh);
     }
     this.tileMeshes.clear();
   }
@@ -257,8 +367,8 @@ export class TileRenderer {
   }
 
   dispose(): void {
-    for (const [, mesh] of this.tileMeshes) {
-      this.disposeMesh(mesh);
+    for (const [, entry] of this.tileMeshes) {
+      this.disposeMesh(entry.mesh);
     }
     this.tileMeshes.clear();
     while (this.previewGroup.children.length > 0) {
@@ -266,5 +376,11 @@ export class TileRenderer {
       this.previewGroup.remove(child);
       this.disposeMesh(child);
     }
+    while (this.emptyGroup.children.length > 0) {
+      const child = this.emptyGroup.children[0];
+      this.emptyGroup.remove(child);
+      this.disposeMesh(child);
+    }
+    this.lastHover = null;
   }
 }

@@ -4,14 +4,17 @@ import { TileRenderer } from "./TileRenderer";
 import { CharRenderer } from "./CharRenderer";
 import { CameraController } from "./CameraController";
 import { Effects } from "./Effects";
+import { screenToGrid, isClick, createThrottled } from "./interaction";
 import type { RendererConfig, TileRenderData, CharacterRenderData, HoverState } from "./types";
+
+const CLICK_THRESHOLD = 5;
 
 // Lighting constants from Lighting.tsx
 const AMBIENT_INTENSITY = 4;
 const DIRECTIONAL_INTENSITY = 10;
 const DIRECTIONAL_POSITION: [number, number, number] = [35, 50, 65];
 const DIRECTIONAL_TARGET: [number, number, number] = [-25.5, -40.5, 0];
-const SHADOW_MAP_SIZE = 4096;
+const SHADOW_MAP_SIZE = 2048;
 const SHADOW_NEAR = 1;
 const SHADOW_FAR = 100;
 const SHADOW_FRUSTUM = 50;
@@ -30,6 +33,17 @@ export class GameScene {
   private animationId: number | null = null;
   private needsRender = true;
   private isWebGPU = false;
+
+  private pointerDownPos: { x: number; y: number } | null = null;
+  private onTileClickCallback: ((gridX: number, gridY: number) => void) | null = null;
+  private onTileHoverCallback: ((gridX: number, gridY: number) => void) | null = null;
+  private onHoverLeaveCallback: (() => void) | null = null;
+  private boundPointerDown: ((e: PointerEvent) => void) | null = null;
+  private boundPointerUp: ((e: PointerEvent) => void) | null = null;
+  private boundPointerMove: ((e: PointerEvent) => void) | null = null;
+  private boundPointerLeave: (() => void) | null = null;
+  private interactionCanvas: HTMLCanvasElement | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor() {
     this.scene = new THREE.Scene();
@@ -95,7 +109,7 @@ export class GameScene {
     await this.assets.preloadAll();
 
     // Handle resize
-    const resizeObserver = new ResizeObserver(() => {
+    this.resizeObserver = new ResizeObserver(() => {
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       this.renderer.setSize(w, h);
@@ -103,7 +117,9 @@ export class GameScene {
       this.effects.resize(w, h);
       this.requestRender();
     });
-    resizeObserver.observe(canvas);
+    this.resizeObserver.observe(canvas);
+
+    this.setupInteraction(canvas);
   }
 
   private setupLighting(): void {
@@ -135,6 +151,72 @@ export class GameScene {
     this.scene.add(directional);
   }
 
+  private setupInteraction(canvas: HTMLCanvasElement): void {
+    this.interactionCanvas = canvas;
+
+    this.boundPointerDown = (e: PointerEvent) => {
+      if (e.button === 0) {
+        this.pointerDownPos = { x: e.clientX, y: e.clientY };
+      }
+    };
+
+    this.boundPointerUp = (e: PointerEvent) => {
+      if (e.button === 0 && this.pointerDownPos) {
+        const up = { x: e.clientX, y: e.clientY };
+        if (isClick(this.pointerDownPos, up, CLICK_THRESHOLD)) {
+          const rect = canvas.getBoundingClientRect();
+          const ndc = {
+            x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
+            y: -((e.clientY - rect.top) / rect.height) * 2 + 1,
+          };
+          // Ensure camera matrix is fresh (OrbitControls may have updated between frames)
+          this.camera.updateMatrixWorld();
+          const grid = screenToGrid(ndc, this.camera, this.sceneGroup.matrixWorld, 3);
+          if (grid && this.onTileClickCallback) {
+            this.onTileClickCallback(grid.x, grid.y);
+          }
+        }
+        this.pointerDownPos = null;
+      }
+    };
+
+    this.boundPointerMove = createThrottled((e: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const ndc = {
+        x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        y: -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      };
+      this.camera.updateMatrixWorld();
+      const grid = screenToGrid(ndc, this.camera, this.sceneGroup.matrixWorld, 3);
+      if (grid) {
+        this.onTileHoverCallback?.(grid.x, grid.y);
+      } else {
+        this.onHoverLeaveCallback?.();
+      }
+    }, 50); // ~20fps throttle
+
+    this.boundPointerLeave = () => {
+      this.onHoverLeaveCallback?.();
+    };
+
+    canvas.addEventListener("pointerdown", this.boundPointerDown);
+    canvas.addEventListener("pointerup", this.boundPointerUp);
+    canvas.addEventListener("pointermove", this.boundPointerMove);
+    canvas.addEventListener("pointerleave", this.boundPointerLeave);
+  }
+
+  onTileClick(cb: ((gridX: number, gridY: number) => void) | null): void {
+    this.onTileClickCallback = cb;
+  }
+
+  onTileHover(cb: ((gridX: number, gridY: number) => void) | null): void {
+    this.onTileHoverCallback = cb;
+  }
+
+  onHoverLeave(cb: (() => void) | null): void {
+    this.onHoverLeaveCallback = cb;
+  }
+
   /** Update placed tiles */
   updateTiles(tiles: TileRenderData[]): void {
     this.tiles.updateTiles(tiles);
@@ -150,6 +232,12 @@ export class GameScene {
   /** Set hover preview at grid position */
   setHoveredTile(state: HoverState | null): void {
     this.tiles.setHover(state);
+    this.requestRender();
+  }
+
+  /** Show available placement slots on the board */
+  setAvailableSlots(slots: Array<{ x: number; y: number }>): void {
+    this.tiles.setAvailableSlots(slots);
     this.requestRender();
   }
 
@@ -212,6 +300,20 @@ export class GameScene {
 
   /** Cleanup all resources */
   dispose(): void {
+    // Remove interaction listeners
+    if (this.interactionCanvas) {
+      if (this.boundPointerDown) this.interactionCanvas.removeEventListener("pointerdown", this.boundPointerDown);
+      if (this.boundPointerUp) this.interactionCanvas.removeEventListener("pointerup", this.boundPointerUp);
+      if (this.boundPointerMove) this.interactionCanvas.removeEventListener("pointermove", this.boundPointerMove);
+      if (this.boundPointerLeave) this.interactionCanvas.removeEventListener("pointerleave", this.boundPointerLeave);
+      this.interactionCanvas = null;
+    }
+
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+
     this.stop();
     this.tiles.dispose();
     this.characters.dispose();
