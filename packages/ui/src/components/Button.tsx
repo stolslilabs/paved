@@ -1,7 +1,7 @@
-import { styled, GetProps } from "tamagui";
-import { Stack, Text } from "tamagui";
+import { styled } from "tamagui";
+import { Text, YStack } from "tamagui";
 
-export const Button = styled(Stack, {
+export const Button = styled(YStack as any, {
   name: "Button",
   tag: "button",
   alignItems: "center",
@@ -66,7 +66,7 @@ export const Button = styled(Stack, {
     variant: "primary",
     size: "md",
   },
-});
+} as any) as any;
 
 export const ButtonText = styled(Text, {
   name: "ButtonText",
@@ -76,4 +76,4 @@ export const ButtonText = styled(Text, {
   fontFamily: "$body",
 });
 
-export type ButtonProps = GetProps<typeof Button>;
+export type ButtonProps = any;

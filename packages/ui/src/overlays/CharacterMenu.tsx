@@ -1,4 +1,5 @@
-import { Stack, Text } from "tamagui";
+import { Text, YStack } from "tamagui";
+const Stack = YStack as any;
 import { getAvailableCharacters, getRole, getColorFromCharacter, getCharacterFromIndex } from "@paved/game-core";
 import { Button } from "../components/Button";
 

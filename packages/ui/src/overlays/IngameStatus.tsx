@@ -1,4 +1,5 @@
-import { Stack, Text } from "tamagui";
+import { Text, YStack } from "tamagui";
+const Stack = YStack as any;
 
 export interface IngameStatusProps {
   score: number;
@@ -22,7 +23,7 @@ export function IngameStatus({
         <Stack flexDirection="row" alignItems="center" gap="$1">
           <Text color="$muted" fontSize="$1">Built</Text>
           <Text color="$color" fontSize="$2" fontWeight="700">
-            {built}/{totalTiles}
+            {`${built}/${totalTiles}`}
           </Text>
         </Stack>
         <Stack flexDirection="row" alignItems="center" gap="$1">

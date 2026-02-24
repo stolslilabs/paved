@@ -21,8 +21,8 @@
     "@dojoengine/create-burner": "^1.0.7",
     "@dojoengine/torii-client": "^1.0.7",
     "starknet": "^8.1.2",
-    "tamagui": "^1.118.0",
-    "@tamagui/core": "^1.118.0",
+    "tamagui": "2.0.0-rc.17",
+    "@tamagui/core": "2.0.0-rc.17",
     "react-native-web": "^0.19.0"
   },
   "devDependencies": {

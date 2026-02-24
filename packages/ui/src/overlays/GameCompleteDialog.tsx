@@ -1,4 +1,5 @@
-import { Stack, Text } from "tamagui";
+import { Text, YStack } from "tamagui";
+const Stack = YStack as any;
 import { DialogOverlay, DialogContent, DialogTitle, DialogDescription } from "../components/Dialog";
 import { Button, ButtonText } from "../components/Button";
 

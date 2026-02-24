@@ -1,4 +1,5 @@
-import { Stack, Text } from "tamagui";
+import { Text, YStack } from "tamagui";
+const Stack = YStack as any;
 
 export function GameLoadingScreen() {
   return (

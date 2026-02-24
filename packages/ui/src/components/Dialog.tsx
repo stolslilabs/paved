@@ -1,7 +1,7 @@
-import { styled, GetProps } from "tamagui";
-import { Stack, Text } from "tamagui";
+import { styled } from "tamagui";
+import { Text, YStack } from "tamagui";
 
-export const DialogOverlay = styled(Stack, {
+export const DialogOverlay = styled(YStack as any, {
   name: "DialogOverlay",
   position: "absolute",
   top: 0,
@@ -12,9 +12,9 @@ export const DialogOverlay = styled(Stack, {
   alignItems: "center",
   justifyContent: "center",
   zIndex: "$5",
-});
+} as any) as any;
 
-export const DialogContent = styled(Stack, {
+export const DialogContent = styled(YStack as any, {
   name: "DialogContent",
   backgroundColor: "$background",
   borderRadius: "$3",
@@ -24,7 +24,7 @@ export const DialogContent = styled(Stack, {
   maxWidth: 480,
   width: "90%",
   gap: "$4",
-});
+} as any) as any;
 
 export const DialogTitle = styled(Text, {
   name: "DialogTitle",
@@ -43,4 +43,4 @@ export const DialogDescription = styled(Text, {
   textAlign: "center",
 });
 
-export type DialogContentProps = GetProps<typeof DialogContent>;
+export type DialogContentProps = any;

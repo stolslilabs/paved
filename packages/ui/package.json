@@ -13,18 +13,24 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@paved/game-core": "workspace:*",
-    "zustand": "^5.0.0",
-    "@tamagui/core": "^1.118.0",
-    "tamagui": "^1.118.0"
+    "@tamagui/colors": "2.0.0-rc.17",
+    "@tamagui/config": "2.0.0-rc.17",
+    "@tamagui/core": "2.0.0-rc.17",
+    "@tamagui/themes": "2.0.0-rc.17",
+    "tamagui": "2.0.0-rc.17",
+    "zustand": "^5.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "react": "^19.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.18"
   },
   "peerDependencies": {
     "react": "^19.0.0"

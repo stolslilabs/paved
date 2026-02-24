@@ -16,7 +16,7 @@ const DEFAULT_CONFIG: Required<CameraConfig> = {
   near: 1,
   far: 2000,
   minDistance: 5,
-  maxDistance: 100,
+  maxDistance: 300,
 };
 
 export class CameraController {

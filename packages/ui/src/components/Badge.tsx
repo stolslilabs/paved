@@ -1,7 +1,7 @@
-import { styled, GetProps } from "tamagui";
-import { Stack, Text } from "tamagui";
+import { styled } from "tamagui";
+import { Text, YStack } from "tamagui";
 
-export const Badge = styled(Stack, {
+export const Badge = styled(YStack as any, {
   name: "Badge",
   paddingHorizontal: "$2",
   paddingVertical: "$1",
@@ -21,7 +21,7 @@ export const Badge = styled(Stack, {
   defaultVariants: {
     variant: "default",
   },
-});
+} as any) as any;
 
 export const BadgeText = styled(Text, {
   name: "BadgeText",
@@ -31,4 +31,4 @@ export const BadgeText = styled(Text, {
   fontFamily: "$body",
 });
 
-export type BadgeProps = GetProps<typeof Badge>;
+export type BadgeProps = any;

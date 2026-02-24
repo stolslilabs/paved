@@ -1,4 +1,5 @@
-import { Stack } from "tamagui";
+import { YStack } from "tamagui";
+const Stack = YStack as any;
 import { Button, ButtonText } from "../components/Button";
 
 export interface HandPanelProps {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import {
   IngameStatus,
@@ -19,6 +19,8 @@ import {
   DirectionType,
 } from "@paved/game-core";
 import { findNextTile, shouldPollUpdateBuilder } from "../utils/game-helpers";
+import { toriiQuery, padAddress } from "../utils/torii";
+import { parseGameParams, modeToContractName } from "../utils/game-params";
 
 /** Game board center coordinate (0x7FFFFFFF) */
 const CENTER = 2147483647;
@@ -36,18 +38,6 @@ interface BuilderState {
   tile_id: number;
   tile_plan: number;
   characters: number;
-}
-
-/** Query Torii SQL endpoint */
-async function toriiQuery(toriiUrl: string, sql: string): Promise<any[]> {
-  const res = await fetch(toriiUrl + "/sql", { method: "POST", body: sql });
-  return res.json();
-}
-
-/** Pad address to 66-char 0x-prefixed format (0x + 64 hex) to match Torii storage */
-function padAddress(address: string): string {
-  const hex = address.replace(/^0x/, "");
-  return "0x" + hex.padStart(64, "0");
 }
 
 let _debugOnce = true;
@@ -126,6 +116,11 @@ function toRenderTiles(rows: any[]): TileRenderData[] {
 
 export function GamePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const gameParams = parseGameParams(searchParams);
+  const modeType = gameParams.mode as ModeType;
+  const contractName = modeToContractName(gameParams.mode);
+
   const [scene, setScene] = useState<GameScene | null>(null);
   const { account, provider, client } = useDojo();
   const { spawn, build, discard, loading } = useActions(provider, account, client?.config?.manifest);
@@ -155,12 +150,59 @@ export function GamePage() {
     return [...toriiTiles, ...pending];
   }, [toriiTiles, optimisticTiles]);
 
-  // Auto-spawn a Daily game on mount
+  // Load a specific game by ID, or auto-spawn a new game on mount
   useEffect(() => {
     if (!account || !client || !provider || spawnAttempted.current) return;
     spawnAttempted.current = true;
 
+    const loadGameById = async (targetGameId: number) => {
+      const url = client.config.toriiUrl;
+      try {
+        const games = await toriiQuery(url,
+          `SELECT id, over, built, discarded, tile_count, score FROM [paved-Game] WHERE id = ${targetGameId}`
+        );
+        if (games.length > 0) {
+          setGameState({
+            id: Number(games[0].id),
+            over: Boolean(games[0].over),
+            built: Number(games[0].built),
+            discarded: Number(games[0].discarded),
+            tile_count: Number(games[0].tile_count),
+            score: Number(games[0].score),
+          });
+          const tileRows = await toriiQuery(url,
+            `SELECT * FROM [paved-Tile] WHERE game_id = ${targetGameId}`
+          );
+          setToriiTiles(toRenderTiles(tileRows));
+
+          // Only load builder state if not readonly
+          if (!gameParams.readonly) {
+            const builders = await toriiQuery(url,
+              `SELECT game_id, tile_id, characters FROM [paved-Builder] WHERE player_id = '${padAddress(account.address)}' AND game_id = ${targetGameId}`
+            );
+            if (builders.length > 0) {
+              const tileId = Number(builders[0].tile_id);
+              const currentTile = tileRows.find((t: any) => Number(t.id) === tileId);
+              setBuilderState({
+                tile_id: tileId,
+                tile_plan: currentTile ? Number(currentTile.plan) : 0,
+                characters: Number(builders[0].characters),
+              });
+            }
+          }
+        }
+      } catch {
+        // Torii not available yet
+      }
+    };
+
     const checkAndSpawn = async () => {
+      // If a specific game ID was provided, load it directly
+      if (gameParams.gameId !== null) {
+        await loadGameById(gameParams.gameId);
+        return;
+      }
+
       const url = client.config.toriiUrl;
       try {
         const builders = await toriiQuery(url,
@@ -203,8 +245,9 @@ export function GamePage() {
       // No active game found, spawn one
       setSpawning(true);
       try {
-        const contractAddr = client.config.manifest?.contracts?.find((c: any) => c.tag === "paved-Daily")?.address;
-        console.log("Spawning Daily game. Daily contract:", contractAddr);
+        const contractTag = `paved-${contractName}`;
+        const contractAddr = client.config.manifest?.contracts?.find((c: any) => c.tag === contractTag)?.address;
+        console.log(`Spawning ${contractName} game. ${contractName} contract:`, contractAddr);
         const result = await provider.execute(
           account as any,
           [
@@ -213,7 +256,7 @@ export function GamePage() {
               entrypoint: "approve",
               calldata: [contractAddr, `0x${(1e18).toString(16)}`],
             },
-            { contractName: "Daily", entrypoint: "spawn", calldata: [] },
+            { contractName, entrypoint: "spawn", calldata: [] },
           ],
           "paved",
         );
@@ -226,7 +269,7 @@ export function GamePage() {
     };
 
     checkAndSpawn();
-  }, [account, client, provider, spawn]);
+  }, [account, client, provider, spawn, gameParams.gameId, gameParams.readonly, contractName]);
 
   // Poll Torii for game + builder + tiles state
   useEffect(() => {
@@ -309,20 +352,6 @@ export function GamePage() {
     setHoverGrid(null);
   }, []);
 
-  const hoverState = useMemo(() => {
-    if (!builderState || builderState.tile_plan === 0) return null;
-    // If a tile position is locked (clicked), use it; otherwise follow the mouse
-    const grid = selectedTile ? { x: selectedTile.col, y: selectedTile.row } : hoverGrid;
-    if (!grid) return null;
-    try {
-      const valid = canPlaceTile(grid.x, grid.y, builderState.tile_plan, orientation, tiles);
-      return { x: grid.x, y: grid.y, valid, idle: true, planIndex: builderState.tile_plan, orientation };
-    } catch (e) {
-      console.error("canPlaceTile error:", e);
-      return { x: grid.x, y: grid.y, valid: false, idle: true, planIndex: builderState.tile_plan, orientation };
-    }
-  }, [hoverGrid, selectedTile, builderState, orientation, tiles]);
-
   // Compute all valid placement positions for the current tile + orientation
   const availableSlots = useMemo(() => {
     if (!builderState || builderState.tile_plan === 0 || tiles.length === 0) return [];
@@ -356,6 +385,23 @@ export function GamePage() {
     }
     return slots;
   }, [builderState, orientation, tiles]);
+
+  const hoverState = useMemo(() => {
+    if (!builderState || builderState.tile_plan === 0) return null;
+    // If a tile position is locked (clicked), use it; otherwise follow the mouse
+    const grid = selectedTile ? { x: selectedTile.col, y: selectedTile.row } : hoverGrid;
+    if (!grid) return null;
+    // Only show ghost tile at positions where placement is actually possible
+    const isSlot = availableSlots.some(s => s.x === grid.x && s.y === grid.y);
+    if (!isSlot) return null;
+    try {
+      const valid = canPlaceTile(grid.x, grid.y, builderState.tile_plan, orientation, tiles);
+      return { x: grid.x, y: grid.y, valid, idle: true, planIndex: builderState.tile_plan, orientation };
+    } catch (e) {
+      console.error("canPlaceTile error:", e);
+      return null;
+    }
+  }, [hoverGrid, selectedTile, builderState, orientation, tiles, availableSlots]);
 
   const handleRotate = useCallback(() => {
     setOrientation(orientation + 1);
@@ -397,7 +443,7 @@ export function GamePage() {
     }
 
     const result = await build({
-      mode: ModeType.Daily,
+      mode: modeType,
       gameId: gameState.id,
       tileId: builderState.tile_id,
       orientation,
@@ -419,7 +465,7 @@ export function GamePage() {
 
   const handleDiscard = useCallback(async () => {
     if (!gameState) return;
-    const result = await discard(ModeType.Daily, gameState.id);
+    const result = await discard(modeType, gameState.id);
     console.log("Discard result:", result);
   }, [discard, gameState]);
 
@@ -463,13 +509,13 @@ export function GamePage() {
       <GameCanvas
         basePath=""
         tiles={tiles}
-        hover={hoverState}
-        availableSlots={availableSlots}
+        hover={gameParams.readonly ? null : hoverState}
+        availableSlots={gameParams.readonly ? [] : availableSlots}
         strategyMode={strategyMode}
         onReady={handleReady}
-        onTileClick={handleTileClick}
-        onTileHover={handleTileHover}
-        onHoverLeave={handleHoverLeave}
+        onTileClick={gameParams.readonly ? undefined : handleTileClick}
+        onTileHover={gameParams.readonly ? undefined : handleTileHover}
+        onHoverLeave={gameParams.readonly ? undefined : handleHoverLeave}
         style={{ position: "absolute", inset: 0 }}
       />
 
@@ -497,38 +543,42 @@ export function GamePage() {
           />
         </div>
 
-        <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: "1 / -1", alignSelf: "center" }}>
-          <CharacterMenu
-            packedCharacters={builderState?.characters ?? 0}
-            selectedCharacter={character}
-            onSelectCharacter={(c) => useGameStore.getState().setCharacter(c)}
-          />
-        </div>
+        {!gameParams.readonly && (
+          <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: "1 / -1", alignSelf: "center" }}>
+            <CharacterMenu
+              packedCharacters={builderState?.characters ?? 0}
+              selectedCharacter={character}
+              onSelectCharacter={(c) => useGameStore.getState().setCharacter(c)}
+            />
+          </div>
+        )}
 
-        <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: 3, display: "flex", gap: 8, alignItems: "center" }}>
-          <HandPanel
-            onRotate={handleRotate}
-            onConfirm={handleConfirm}
-            confirmDisabled={loading || !builderState || !hoverState?.valid}
-          />
-          <button
-            onClick={handleDiscard}
-            disabled={loading || !gameState}
-            style={{
-              background: "transparent",
-              border: "1px solid #dc143c",
-              color: "#dc143c",
-              padding: "8px 16px",
-              borderRadius: 8,
-              cursor: loading ? "not-allowed" : "pointer",
-              fontFamily: "RubikMonoOne",
-              fontSize: 14,
-              opacity: loading ? 0.5 : 1,
-            }}
-          >
-            Discard
-          </button>
-        </div>
+        {!gameParams.readonly && (
+          <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: 3, display: "flex", gap: 8, alignItems: "center" }}>
+            <HandPanel
+              onRotate={handleRotate}
+              onConfirm={handleConfirm}
+              confirmDisabled={loading || !builderState || !hoverState?.valid}
+            />
+            <button
+              onClick={handleDiscard}
+              disabled={loading || !gameState}
+              style={{
+                background: "transparent",
+                border: "1px solid #dc143c",
+                color: "#dc143c",
+                padding: "8px 16px",
+                borderRadius: 8,
+                cursor: loading ? "not-allowed" : "pointer",
+                fontFamily: "RubikMonoOne",
+                fontSize: 14,
+                opacity: loading ? 0.5 : 1,
+              }}
+            >
+              Discard
+            </button>
+          </div>
+        )}
       </div>
 
       <GameCompleteDialog

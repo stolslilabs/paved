@@ -1,7 +1,7 @@
-import { styled, GetProps } from "tamagui";
-import { Stack, Text } from "tamagui";
+import { styled } from "tamagui";
+import { Text, YStack } from "tamagui";
 
-export const Card = styled(Stack, {
+export const Card = styled(YStack as any, {
   name: "Card",
   backgroundColor: "$backgroundHover",
   borderRadius: "$3",
@@ -22,7 +22,7 @@ export const Card = styled(Stack, {
       },
     },
   } as const,
-});
+} as any) as any;
 
 export const CardTitle = styled(Text, {
   name: "CardTitle",
@@ -40,4 +40,4 @@ export const CardDescription = styled(Text, {
   fontFamily: "$body",
 });
 
-export type CardProps = GetProps<typeof Card>;
+export type CardProps = any;
