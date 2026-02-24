@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import {
@@ -8,9 +8,17 @@ import {
   CharacterMenu,
   useGameStore,
 } from "@paved/ui";
-import type { GameScene, TileRenderData, HoverState } from "@paved/renderer";
+import type { GameScene, TileRenderData } from "@paved/renderer";
 import { useDojo, useActions } from "@paved/chain";
-import { ModeType } from "@paved/game-core";
+import {
+  ModeType,
+  Layout,
+  Plan,
+  Orientation,
+  Direction,
+  DirectionType,
+} from "@paved/game-core";
+import { findNextTile, shouldPollUpdateBuilder } from "../utils/game-helpers";
 
 /** Game board center coordinate (0x7FFFFFFF) */
 const CENTER = 2147483647;
@@ -42,6 +50,62 @@ function padAddress(address: string): string {
   return "0x" + hex.padStart(64, "0");
 }
 
+let _debugOnce = true;
+
+/** Validate placement: adjacent + all touching edges must match (Carcassonne rules) */
+function canPlaceTile(
+  gridX: number,
+  gridY: number,
+  tilePlan: number,
+  tileOrientation: number,
+  placedTiles: TileRenderData[],
+): boolean {
+  const absX = gridX + CENTER;
+  const absY = CENTER - gridY;
+
+  // Build position lookup (contract coordinates)
+  const byPos = new Map<string, TileRenderData>();
+  for (const t of placedTiles) byPos.set(`${t.x},${t.y}`, t);
+
+  if (byPos.has(`${absX},${absY}`)) return false; // occupied
+
+  // Find cardinal neighbors (y+1=North in contract coords)
+  const north = byPos.get(`${absX},${absY + 1}`);
+  const east = byPos.get(`${absX + 1},${absY}`);
+  const south = byPos.get(`${absX},${absY - 1}`);
+  const west = byPos.get(`${absX - 1},${absY}`);
+
+  if (!north && !east && !south && !west) return false; // must be adjacent
+
+  // Candidate tile's layout with orientation applied
+  const plan = Plan.from(tilePlan);
+  const layout = Layout.from(plan, Orientation.from(tileOrientation).value);
+
+  // Get neighbor layout directly (avoids Tile constructor which can throw on bad player_id)
+  const neighborLayout = (t: TileRenderData) =>
+    Layout.from(Plan.from(t.plan), Orientation.from(t.orientation).value);
+
+  if (_debugOnce) {
+    _debugOnce = false;
+    const dirs = { north, east, south, west };
+    const found = Object.entries(dirs).filter(([, v]) => v);
+    console.log("[canPlaceTile debug]", {
+      grid: { gridX, gridY }, contract: { absX, absY },
+      tilePlan, tileOrientation, tilesCount: placedTiles.length,
+      neighbors: found.map(([dir, t]) => ({ dir, plan: t!.plan, orientation: t!.orientation })),
+      candidateEdges: { N: layout.north.value, E: layout.east.value, S: layout.south.value, W: layout.west.value },
+    });
+  }
+
+  // Check edge compatibility with each neighbor
+  if (north && !layout.isCompatible(neighborLayout(north), new Direction(DirectionType.North))) return false;
+  if (east && !layout.isCompatible(neighborLayout(east), new Direction(DirectionType.East))) return false;
+  if (south && !layout.isCompatible(neighborLayout(south), new Direction(DirectionType.South))) return false;
+  if (west && !layout.isCompatible(neighborLayout(west), new Direction(DirectionType.West))) return false;
+
+  return true;
+}
+
 /** Convert Torii tile rows to TileRenderData (only placed tiles with orientation != 0) */
 function toRenderTiles(rows: any[]): TileRenderData[] {
   return rows
@@ -49,14 +113,14 @@ function toRenderTiles(rows: any[]): TileRenderData[] {
     .map((t: any) => ({
       game_id: Number(t.game_id),
       id: Number(t.id),
-      player_id: t.player_id ?? "",
+      player_id: t.player_id ?? "0",
       plan: Number(t.plan),
       orientation: Number(t.orientation),
       x: Number(t.x),
       y: Number(t.y),
       occupied_spot: Number(t.occupied_spot),
       worldX: Number(t.x) - CENTER,
-      worldZ: Number(t.y) - CENTER,
+      worldZ: CENTER - Number(t.y),
     }));
 }
 
@@ -72,12 +136,24 @@ export function GamePage() {
   const spot = useGameStore((s) => s.spot);
   const x = useGameStore((s) => s.x);
   const y = useGameStore((s) => s.y);
+  const selectedTile = useGameStore((s) => s.selectedTile);
 
+  const [hoverGrid, setHoverGrid] = useState<{ x: number; y: number } | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [builderState, setBuilderState] = useState<BuilderState | null>(null);
-  const [tiles, setTiles] = useState<TileRenderData[]>([]);
+  const [toriiTiles, setToriiTiles] = useState<TileRenderData[]>([]);
+  const [optimisticTiles, setOptimisticTiles] = useState<TileRenderData[]>([]);
   const [spawning, setSpawning] = useState(false);
   const spawnAttempted = useRef(false);
+  const tileRowsRef = useRef<any[]>([]); // raw Torii tile rows (includes unplaced tiles)
+  const inFlightTileRef = useRef<number | null>(null); // tile id being built (guards poll)
+
+  // Merge Torii tiles with optimistic tiles (optimistic removed once Torii catches up)
+  const tiles = useMemo(() => {
+    const toriiIds = new Set(toriiTiles.map(t => t.id));
+    const pending = optimisticTiles.filter(t => !toriiIds.has(t.id));
+    return [...toriiTiles, ...pending];
+  }, [toriiTiles, optimisticTiles]);
 
   // Auto-spawn a Daily game on mount
   useEffect(() => {
@@ -116,7 +192,7 @@ export function GamePage() {
               tile_plan: currentTile ? Number(currentTile.plan) : 0,
               characters: Number(builders[0].characters),
             });
-            setTiles(toRenderTiles(tileRows));
+            setToriiTiles(toRenderTiles(tileRows));
             return;
           }
         }
@@ -174,16 +250,21 @@ export function GamePage() {
         );
         if (cancelled) return;
 
-        // Find builder's current tile plan
-        const currentTile = tileRows.find((t: any) => Number(t.id) === tileId);
-        setBuilderState({
-          tile_id: tileId,
-          tile_plan: currentTile ? Number(currentTile.plan) : 0,
-          characters: Number(builders[0].characters),
-        });
+        // Store raw rows so handleConfirm can look up the next tile
+        tileRowsRef.current = tileRows;
+
+        // Only update builderState if no in-flight tx would be overwritten
+        if (shouldPollUpdateBuilder(inFlightTileRef.current, tileId)) {
+          const currentTile = tileRows.find((t: any) => Number(t.id) === tileId);
+          setBuilderState({
+            tile_id: tileId,
+            tile_plan: currentTile ? Number(currentTile.plan) : 0,
+            characters: Number(builders[0].characters),
+          });
+        }
 
         // Convert placed tiles to render data
-        setTiles(toRenderTiles(tileRows));
+        setToriiTiles(toRenderTiles(tileRows));
 
         // Query game state
         const games = await toriiQuery(url,
@@ -213,12 +294,108 @@ export function GamePage() {
     setScene(s);
   }, []);
 
+  const handleTileClick = useCallback((gridX: number, gridY: number) => {
+    const store = useGameStore.getState();
+    store.setX(gridX + CENTER);
+    store.setY(CENTER - gridY);
+    store.setSelectedTile({ col: gridX, row: gridY });
+  }, []);
+
+  const handleTileHover = useCallback((gridX: number, gridY: number) => {
+    setHoverGrid({ x: gridX, y: gridY });
+  }, []);
+
+  const handleHoverLeave = useCallback(() => {
+    setHoverGrid(null);
+  }, []);
+
+  const hoverState = useMemo(() => {
+    if (!builderState || builderState.tile_plan === 0) return null;
+    // If a tile position is locked (clicked), use it; otherwise follow the mouse
+    const grid = selectedTile ? { x: selectedTile.col, y: selectedTile.row } : hoverGrid;
+    if (!grid) return null;
+    try {
+      const valid = canPlaceTile(grid.x, grid.y, builderState.tile_plan, orientation, tiles);
+      return { x: grid.x, y: grid.y, valid, idle: true, planIndex: builderState.tile_plan, orientation };
+    } catch (e) {
+      console.error("canPlaceTile error:", e);
+      return { x: grid.x, y: grid.y, valid: false, idle: true, planIndex: builderState.tile_plan, orientation };
+    }
+  }, [hoverGrid, selectedTile, builderState, orientation, tiles]);
+
+  // Compute all valid placement positions for the current tile + orientation
+  const availableSlots = useMemo(() => {
+    if (!builderState || builderState.tile_plan === 0 || tiles.length === 0) return [];
+
+    // Collect all unoccupied positions adjacent to a placed tile
+    const occupied = new Set<string>();
+    const candidates = new Set<string>();
+    for (const t of tiles) {
+      occupied.add(`${t.worldX},${t.worldZ}`);
+    }
+    for (const t of tiles) {
+      const gx = t.worldX;
+      const gy = t.worldZ;
+      for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0]] as const) {
+        const key = `${gx + dx},${gy + dy}`;
+        if (!occupied.has(key)) candidates.add(key);
+      }
+    }
+
+    // Check which candidates are valid placements
+    const slots: Array<{ x: number; y: number }> = [];
+    try {
+      for (const key of candidates) {
+        const [sx, sy] = key.split(",").map(Number);
+        if (canPlaceTile(sx, sy, builderState.tile_plan, orientation, tiles)) {
+          slots.push({ x: sx, y: sy });
+        }
+      }
+    } catch {
+      // Validation error — return empty
+    }
+    return slots;
+  }, [builderState, orientation, tiles]);
+
   const handleRotate = useCallback(() => {
     setOrientation(orientation + 1);
   }, [orientation, setOrientation]);
 
   const handleConfirm = useCallback(async () => {
     if (!gameState || !builderState) return;
+
+    // Optimistically place tile on the board immediately (pending = loading state)
+    const optimistic: TileRenderData = {
+      game_id: gameState.id,
+      id: builderState.tile_id,
+      player_id: account?.address ?? "0",
+      plan: builderState.tile_plan,
+      orientation,
+      x,
+      y,
+      occupied_spot: spot,
+      worldX: x - CENTER,
+      worldZ: CENTER - y,
+      pending: true,
+    };
+    setOptimisticTiles(prev => [...prev, optimistic]);
+    useGameStore.getState().setSelectedTile(null);
+    // Keep hoverGrid so the ghost stays visible with the next tile
+
+    // Mark in-flight so the poll doesn't overwrite our optimistic builderState
+    inFlightTileRef.current = builderState.tile_id;
+
+    // Optimistically switch to the next tile in the deck
+    const next = findNextTile(tileRowsRef.current, builderState.tile_id);
+    if (next) {
+      setBuilderState({
+        tile_id: next.tile_id,
+        tile_plan: next.tile_plan,
+        characters: builderState.characters,
+      });
+      setOrientation(1); // reset rotation for new tile
+    }
+
     const result = await build({
       mode: ModeType.Daily,
       gameId: gameState.id,
@@ -230,13 +407,48 @@ export function GamePage() {
       spot,
     });
     console.log("Build result:", result);
-  }, [build, gameState, builderState, orientation, x, y, character, spot]);
+
+    // Tx resolved — clear in-flight guard so poll can update normally
+    inFlightTileRef.current = null;
+
+    // If tx failed, remove the optimistic tile and revert builderState
+    if (!result) {
+      setOptimisticTiles(prev => prev.filter(t => t.id !== builderState.tile_id));
+    }
+  }, [build, gameState, builderState, orientation, x, y, character, spot, account]);
 
   const handleDiscard = useCallback(async () => {
     if (!gameState) return;
     const result = await discard(ModeType.Daily, gameState.id);
     console.log("Discard result:", result);
   }, [discard, gameState]);
+
+  // Stable refs for keyboard hotkeys — avoids re-registering listener on every state change
+  const hotkeys = useRef({ handleRotate, handleConfirm, handleDiscard, loading, builderState, gameState, hoverState });
+  useEffect(() => {
+    hotkeys.current = { handleRotate, handleConfirm, handleDiscard, loading, builderState, gameState, hoverState };
+  });
+
+  // Keyboard hotkeys: R=rotate, C=confirm, D=discard
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      const h = hotkeys.current;
+      switch (e.key.toLowerCase()) {
+        case "r":
+          h.handleRotate();
+          break;
+        case "c":
+          if (!h.loading && h.builderState && h.hoverState?.valid) h.handleConfirm();
+          break;
+        case "d":
+          if (!h.loading && h.gameState) h.handleDiscard();
+          break;
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   if (spawning) {
     return (
@@ -251,8 +463,13 @@ export function GamePage() {
       <GameCanvas
         basePath=""
         tiles={tiles}
+        hover={hoverState}
+        availableSlots={availableSlots}
         strategyMode={strategyMode}
         onReady={handleReady}
+        onTileClick={handleTileClick}
+        onTileHover={handleTileHover}
+        onHoverLeave={handleHoverLeave}
         style={{ position: "absolute", inset: 0 }}
       />
 
@@ -292,7 +509,7 @@ export function GamePage() {
           <HandPanel
             onRotate={handleRotate}
             onConfirm={handleConfirm}
-            confirmDisabled={loading || !builderState}
+            confirmDisabled={loading || !builderState || !hoverState?.valid}
           />
           <button
             onClick={handleDiscard}

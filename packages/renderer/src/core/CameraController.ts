@@ -16,7 +16,7 @@ const DEFAULT_CONFIG: Required<CameraConfig> = {
   near: 1,
   far: 2000,
   minDistance: 5,
-  maxDistance: 30,
+  maxDistance: 100,
 };
 
 export class CameraController {
@@ -33,7 +33,8 @@ export class CameraController {
       cfg.near,
       cfg.far
     );
-    this.camera.position.set(0, cfg.maxDistance * 0.8, 0.1);
+    // Start straight top-down (tiny Z offset avoids gimbal lock)
+    this.camera.position.set(0, cfg.maxDistance * 0.8, 0.001);
     this.camera.zoom = cfg.zoom;
     this.camera.updateProjectionMatrix();
 
@@ -50,9 +51,9 @@ export class CameraController {
     this.controls.minAzimuthAngle = 0;
     this.controls.maxAzimuthAngle = 0;
 
-    // Polar angle: ~90° to 180° (nearly top-down to straight-down)
-    this.controls.minPolarAngle = (101 * Math.PI) / 200;
-    this.controls.maxPolarAngle = Math.PI;
+    // Polar angle: lock to straight-down, allow slight tilt
+    this.controls.minPolarAngle = 0;
+    this.controls.maxPolarAngle = Math.PI * 0.15; // max ~27° tilt
 
     this.controls.minDistance = cfg.minDistance;
     this.controls.maxDistance = cfg.maxDistance;
