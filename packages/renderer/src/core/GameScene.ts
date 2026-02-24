@@ -80,6 +80,11 @@ export class GameScene {
     this.controls = new CameraController(canvas);
     this.camera = this.controls.camera;
 
+    // Re-render when camera moves (orbit, pan, zoom)
+    this.controls.controls.addEventListener("change", () => {
+      this.requestRender();
+    });
+
     // Lighting
     this.setupLighting();
 
@@ -169,7 +174,12 @@ export class GameScene {
   start(): void {
     const animate = () => {
       this.animationId = requestAnimationFrame(animate);
-      this.controls.update();
+
+      // OrbitControls.update() returns true while damping is active
+      const controlsChanged = this.controls.update();
+      if (controlsChanged) {
+        this.needsRender = true;
+      }
 
       if (this.needsRender) {
         this.characters.updateBillboards(this.camera);

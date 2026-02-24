@@ -72,6 +72,7 @@ const tokens = createTokens({
     8: 40,
     9: 48,
     10: 64,
+    true: 16,
   },
   size: {
     0: 0,

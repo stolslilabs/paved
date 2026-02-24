@@ -5,7 +5,7 @@ base_class_hash = "0x0"
 abi = "manifests/dev/base/abis/contracts/paved-Weekly-3f7fa769.json"
 reads = []
 writes = []
-init_calldata = []
+init_calldata = ["$contract_address:paved-Token"]
 tag = "paved-Weekly"
 systems = [
     "claim",

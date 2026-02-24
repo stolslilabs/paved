@@ -1,5 +1,3 @@
-import { getSyncEntities } from "@dojoengine/state";
-import * as torii from "@dojoengine/torii-client";
 import { models } from "./models.ts";
 import { systems } from "./systems.ts";
 
@@ -14,27 +12,34 @@ import { Account, RpcProvider } from "starknet";
 export type SetupResult = Awaited<ReturnType<typeof setup>>;
 
 export async function setup({ ...config }: Config) {
-  // torii client
-  const toriiClient = await torii.createClient({
-    rpcUrl: config.rpcUrl,
-    toriiUrl: config.toriiUrl,
-    relayUrl: "",
-    worldAddress: config.manifest.world.address || "",
-  });
-
   // create contract components
   const contractModels = defineContractComponents(world);
 
   // create client components
   const clientModels = models({ contractModels });
 
-  // fetch all existing entities from torii
-  const sync = await getSyncEntities(
-    toriiClient,
-    contractModels as any,
-    [],
-    1000,
-  );
+  // Skip Torii gRPC sync for local dev (SDK version mismatch with Torii 1.8.x)
+  // Entity sync will not work, but contract interactions will
+  let toriiClient: any = null;
+  let sync: any = null;
+  try {
+    const torii = await import("@dojoengine/torii-client");
+    const { getSyncEntities } = await import("@dojoengine/state");
+    toriiClient = await torii.createClient({
+      rpcUrl: config.rpcUrl,
+      toriiUrl: config.toriiUrl,
+      relayUrl: "",
+      worldAddress: config.manifest.world.address || "",
+    });
+    sync = await getSyncEntities(
+      toriiClient,
+      contractModels as any,
+      [],
+      1000,
+    );
+  } catch (e) {
+    console.warn("Torii sync unavailable (version mismatch). Contract calls still work.", e);
+  }
 
   const client = await setupWorld(
     new DojoProvider(config.manifest, config.rpcUrl),
@@ -58,9 +63,6 @@ export async function setup({ ...config }: Config) {
 
   try {
     await burnerManager.init();
-    // if (burnerManager.list().length === 0) {
-    //   await burnerManager.create();
-    // }
   } catch (e) {
     console.error(e);
   }

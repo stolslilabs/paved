@@ -1,21 +1,33 @@
 import { useState, useEffect } from "react";
-import type { DojoConfig } from "../config";
+import { DojoProvider } from "@dojoengine/core";
 
-export function useBalance(config: DojoConfig, address: string | null) {
+export function useBalance(provider: DojoProvider | null, address: string | null) {
   const [balance, setBalance] = useState<bigint>(0n);
 
   useEffect(() => {
-    if (!address) return;
+    if (!provider || !address) return;
 
     let cancelled = false;
+
     const pollBalance = async () => {
       try {
-        // Placeholder: actual implementation calls ERC20 balanceOf on feeTokenAddress
-        // const provider = new RpcProvider({ nodeUrl: config.rpcUrl });
-        // const result = await provider.callContract({ ... });
-        if (!cancelled) setBalance(0n);
+        const result = await provider.call("paved", {
+          contractName: "Token",
+          entrypoint: "balanceOf",
+          calldata: [address],
+        });
+        if (!cancelled && result != null) {
+          // CallResult can be various shapes; extract the balance value
+          if (Array.isArray(result) && result.length > 0) {
+            setBalance(BigInt(String(result[0])));
+          } else if (typeof result === "bigint") {
+            setBalance(result);
+          } else if (typeof result === "string") {
+            setBalance(BigInt(result));
+          }
+        }
       } catch {
-        // Silent fail on balance poll
+        // Silent fail on balance poll -- token contract may not be deployed
       }
     };
 
@@ -26,7 +38,7 @@ export function useBalance(config: DojoConfig, address: string | null) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [config, address]);
+  }, [provider, address]);
 
   return { balance };
 }

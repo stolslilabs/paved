@@ -4,7 +4,7 @@ export type { DojoConfig } from "./config";
 
 // Client
 export { createChainClient } from "./client";
-export type { ChainClient, SyncOptions } from "./client";
+export type { ChainClient, SyncOptions, WorldClient, BurnerManagerLike } from "./client";
 
 // Contracts
 export { createSystems } from "./contracts";
@@ -38,6 +38,9 @@ export { useTournament } from "./hooks/useTournament";
 export { useActions } from "./hooks/useActions";
 export type { ActionState } from "./hooks/useActions";
 export { useBalance } from "./hooks/useBalance";
+
+// Provider
+export { DojoChainProvider, useDojo } from "./provider";
 
 // Auth
 export { createControllerConnector } from "./auth/controller";

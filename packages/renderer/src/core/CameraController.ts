@@ -71,8 +71,8 @@ export class CameraController {
     };
   }
 
-  update(): void {
-    this.controls.update();
+  update(): boolean {
+    return this.controls.update();
   }
 
   resize(width: number, height: number): void {
