@@ -1,0 +1,2 @@
+packages/ui:build:cd /Users/os/conductor/workspaces/paved/beijing-v3/packages/ui && npm run build
+packages/ui:tsc:cd /Users/os/conductor/workspaces/paved/beijing-v3/packages/ui && npx tsc --noEmit

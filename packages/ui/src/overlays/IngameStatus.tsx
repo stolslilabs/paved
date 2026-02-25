@@ -15,8 +15,16 @@ export function IngameStatus({
   discarded,
 }: IngameStatusProps) {
   return (
-    <Stack gap="$2" padding="$3">
-      <Text fontSize="$5" fontWeight="700" fontFamily="$heading" color="$primary">
+    <Stack
+      gap="$2"
+      padding="$3"
+      backgroundColor="rgba(0,0,0,0.75)"
+      borderRadius="$3"
+      borderWidth={1}
+      borderColor="$borderColor"
+    >
+      <Text color="$muted" fontSize="$1">Score</Text>
+      <Text fontSize="$7" fontWeight="700" fontFamily="$heading" color="$primary">
         {score.toLocaleString()}
       </Text>
       <Stack flexDirection="row" gap="$4">

@@ -1,4 +1,4 @@
-import { feltToString } from "./torii";
+import { feltToString, parseToriiBool } from "./torii";
 
 export interface PlayerGame {
   gameId: number;
@@ -35,7 +35,7 @@ export function parseGameRow(row: any): PlayerGame {
     score: Number(row.score),
     tilesPlaced: Number(row.built),
     totalTiles: Number(row.tile_count),
-    isOver: Boolean(row.over),
+    isOver: parseToriiBool(row.over),
     startTime: Number(row.start_time),
   };
 }

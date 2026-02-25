@@ -42,6 +42,8 @@ export {
   HandPanel,
   GameCompleteDialog,
   SpotSelector,
+  TilePreview,
+  ActionBar,
 } from "./overlays";
 export type {
   IngameStatusProps,
@@ -49,4 +51,6 @@ export type {
   HandPanelProps,
   GameCompleteDialogProps,
   SpotSelectorProps,
+  TilePreviewProps,
+  ActionBarProps,
 } from "./overlays";

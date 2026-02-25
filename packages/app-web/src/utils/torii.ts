@@ -15,6 +15,15 @@ export function feltToString(felt: string): string {
   return String.fromCharCode(...bytes);
 }
 
+/** Safely parse a Torii boolean field. Torii may return 0/1, "0"/"1", true/false, or "true"/"false".
+ *  Boolean("0") is true in JS, so we must handle this explicitly. */
+export function parseToriiBool(val: unknown): boolean {
+  if (typeof val === "boolean") return val;
+  if (typeof val === "number") return val !== 0;
+  if (typeof val === "string") return val !== "0" && val !== "false" && val !== "";
+  return Boolean(val);
+}
+
 /** Query Torii SQL endpoint */
 export async function toriiQuery(toriiUrl: string, sql: string): Promise<any[]> {
   try {

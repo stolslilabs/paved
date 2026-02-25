@@ -3,9 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import {
   IngameStatus,
-  HandPanel,
   GameCompleteDialog,
-  CharacterMenu,
+  ActionBar,
   SpotSelector,
   useGameStore,
 } from "@paved/ui";
@@ -27,7 +26,7 @@ import {
 } from "@paved/game-core";
 import { findNextTile, shouldPollUpdateBuilder, shouldShowSpotSelector, spotKeyToNumber } from "../utils/game-helpers";
 import { buildCharQuery, toRenderCharacters } from "../utils/char-helpers";
-import { toriiQuery, padAddress } from "../utils/torii";
+import { toriiQuery, padAddress, parseToriiBool } from "../utils/torii";
 import { parseGameParams, modeToContractName } from "../utils/game-params";
 
 /** Game board center coordinate (0x7FFFFFFF) */
@@ -41,6 +40,7 @@ interface GameState {
   tile_count: number;
   score: number;
 }
+
 
 interface BuilderState {
   tile_id: number;
@@ -150,8 +150,10 @@ export function GamePage() {
   const [optimisticCharacters, setOptimisticCharacters] = useState<CharacterRenderData[]>([]);
   const [spawning, setSpawning] = useState(false);
   const spawnAttempted = useRef(false);
+  const spawningRef = useRef(false); // mirror of spawning state for poll guard
   const tileRowsRef = useRef<any[]>([]); // raw Torii tile rows (includes unplaced tiles)
   const inFlightTileRef = useRef<number | null>(null); // tile id being built (guards poll)
+  const activeGameIdRef = useRef<number | null>(null); // tracks the game ID to poll for
 
   // Merge Torii tiles with optimistic tiles (optimistic removed once Torii catches up)
   const tiles = useMemo(() => {
@@ -179,9 +181,10 @@ export function GamePage() {
           `SELECT id, over, built, discarded, tile_count, score FROM [paved-Game] WHERE id = ${targetGameId}`
         );
         if (games.length > 0) {
+          console.log("[Score debug] loadGameById game row:", games[0]);
           setGameState({
             id: Number(games[0].id),
-            over: Boolean(games[0].over),
+            over: parseToriiBool(games[0].over),
             built: Number(games[0].built),
             discarded: Number(games[0].discarded),
             tile_count: Number(games[0].tile_count),
@@ -191,6 +194,7 @@ export function GamePage() {
             `SELECT * FROM [paved-Tile] WHERE game_id = ${targetGameId}`
           );
           setToriiTiles(toRenderTiles(tileRows));
+          activeGameIdRef.current = targetGameId;
 
           // Only load builder state if not readonly
           if (!gameParams.readonly) {
@@ -221,20 +225,22 @@ export function GamePage() {
       }
 
       const url = client.config.toriiUrl;
+      let oldGameId = 0;
       try {
         const builders = await toriiQuery(url,
           `SELECT game_id, tile_id, characters FROM [paved-Builder] WHERE player_id = '${padAddress(account.address)}' ORDER BY game_id DESC LIMIT 1`
         );
 
         if (builders.length > 0) {
-          const gameId = Number(builders[0].game_id);
+          oldGameId = Number(builders[0].game_id);
           const games = await toriiQuery(url,
-            `SELECT id, over, built, discarded, tile_count, score FROM [paved-Game] WHERE id = ${gameId}`
+            `SELECT id, over, built, discarded, tile_count, score FROM [paved-Game] WHERE id = ${oldGameId}`
           );
-          if (games.length > 0 && !games[0].over) {
+          if (games.length > 0 && !parseToriiBool(games[0].over)) {
+            activeGameIdRef.current = oldGameId;
             setGameState({
               id: Number(games[0].id),
-              over: Boolean(games[0].over),
+              over: parseToriiBool(games[0].over),
               built: Number(games[0].built),
               discarded: Number(games[0].discarded),
               tile_count: Number(games[0].tile_count),
@@ -243,7 +249,7 @@ export function GamePage() {
             // Get plan for builder's current tile
             const tileId = Number(builders[0].tile_id);
             const tileRows = await toriiQuery(url,
-              `SELECT * FROM [paved-Tile] WHERE game_id = ${gameId}`
+              `SELECT * FROM [paved-Tile] WHERE game_id = ${oldGameId}`
             );
             const currentTile = tileRows.find((t: any) => Number(t.id) === tileId);
             setBuilderState({
@@ -261,6 +267,7 @@ export function GamePage() {
 
       // No active game found, spawn one
       setSpawning(true);
+      spawningRef.current = true;
       try {
         const contractTag = `paved-${contractName}`;
         const contractAddr = client.config.manifest?.contracts?.find((c: any) => c.tag === contractTag)?.address;
@@ -278,9 +285,29 @@ export function GamePage() {
           "paved",
         );
         console.log("Game spawned:", result);
+
+        // Wait for Torii to index the new game before hiding "Spawning..." screen
+        for (let attempt = 0; attempt < 30; attempt++) {
+          await new Promise((r) => setTimeout(r, 1000));
+          try {
+            const newBuilders = await toriiQuery(url,
+              `SELECT game_id, tile_id, characters FROM [paved-Builder] WHERE player_id = '${padAddress(account.address)}' ORDER BY game_id DESC LIMIT 1`
+            );
+            if (newBuilders.length > 0) {
+              const newGameId = Number(newBuilders[0].game_id);
+              if (newGameId !== oldGameId) {
+                // New game is indexed - load it
+                await loadGameById(newGameId);
+                console.log("New game ready:", newGameId);
+                break;
+              }
+            }
+          } catch { /* keep polling */ }
+        }
       } catch (e: any) {
         console.error("Failed to spawn game:", e?.message || e);
       } finally {
+        spawningRef.current = false;
         setSpawning(false);
       }
     };
@@ -294,14 +321,19 @@ export function GamePage() {
     let cancelled = false;
 
     const poll = async () => {
+      // Don't update state while spawning a new game — old data would flash
+      if (spawningRef.current) return;
+      // Only poll once we know which game to track
+      const trackedGameId = activeGameIdRef.current;
+      if (trackedGameId === null) return;
       const url = client.config.toriiUrl;
       try {
         const builders = await toriiQuery(url,
-          `SELECT game_id, tile_id, characters FROM [paved-Builder] WHERE player_id = '${padAddress(account.address)}' ORDER BY game_id DESC LIMIT 1`
+          `SELECT game_id, tile_id, characters FROM [paved-Builder] WHERE player_id = '${padAddress(account.address)}' AND game_id = ${trackedGameId}`
         );
         if (cancelled || builders.length === 0) return;
 
-        const gameId = Number(builders[0].game_id);
+        const gameId = trackedGameId;
         const tileId = Number(builders[0].tile_id);
 
         // Query tiles for this game
@@ -341,15 +373,17 @@ export function GamePage() {
           `SELECT id, over, built, discarded, tile_count, score FROM [paved-Game] WHERE id = ${gameId}`
         );
         if (!cancelled && games.length > 0) {
+          console.log("[Score debug] poll game row:", games[0]);
           setGameState({
             id: Number(games[0].id),
-            over: Boolean(games[0].over),
+            over: parseToriiBool(games[0].over),
             built: Number(games[0].built),
             discarded: Number(games[0].discarded),
             tile_count: Number(games[0].tile_count),
             score: Number(games[0].score),
           });
         }
+
       } catch {
         // Torii not available
       }
@@ -608,16 +642,6 @@ export function GamePage() {
           />
         </div>
 
-        {!gameParams.readonly && (
-          <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: "1 / -1", alignSelf: "center" }}>
-            <CharacterMenu
-              packedCharacters={builderState?.characters ?? 0}
-              selectedCharacter={character}
-              onSelectCharacter={(c) => useGameStore.getState().setCharacter(c)}
-            />
-          </div>
-        )}
-
         {!gameParams.readonly && showSpotSelector && builderState && (
           <div style={{ pointerEvents: "auto", gridColumn: 1, gridRow: 2, alignSelf: "center" }}>
             <SpotSelector
@@ -632,29 +656,19 @@ export function GamePage() {
         )}
 
         {!gameParams.readonly && (
-          <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: 3, display: "flex", gap: 8, alignItems: "center" }}>
-            <HandPanel
+          <div style={{ pointerEvents: "auto", gridColumn: "1 / -1", gridRow: 3, alignSelf: "end" }}>
+            <ActionBar
+              tilePlan={builderState?.tile_plan ?? 0}
+              orientation={orientation}
               onRotate={handleRotate}
               onConfirm={handleConfirm}
+              onDiscard={handleDiscard}
               confirmDisabled={loading || !builderState || !hoverState?.valid || (character > 0 && spot === 0)}
+              discardDisabled={loading || !gameState}
+              packedCharacters={builderState?.characters ?? 0}
+              selectedCharacter={character}
+              onSelectCharacter={(c) => useGameStore.getState().setCharacter(c)}
             />
-            <button
-              onClick={handleDiscard}
-              disabled={loading || !gameState}
-              style={{
-                background: "transparent",
-                border: "1px solid #dc143c",
-                color: "#dc143c",
-                padding: "8px 16px",
-                borderRadius: 8,
-                cursor: loading ? "not-allowed" : "pointer",
-                fontFamily: "RubikMonoOne",
-                fontSize: 14,
-                opacity: loading ? 0.5 : 1,
-              }}
-            >
-              Discard
-            </button>
           </div>
         )}
       </div>
