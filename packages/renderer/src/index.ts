@@ -11,6 +11,9 @@ export { BoxRainScene } from "./core/BoxRainScene";
 
 // Types
 export type {
+  CameraMode,
+  RenderProfile,
+  BoardBounds,
   RendererConfig,
   TileRenderData,
   CharacterRenderData,

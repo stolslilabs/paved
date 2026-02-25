@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import type { CameraMode, BoardBounds } from "./types";
 
 export interface CameraConfig {
   position?: [number, number, number];
@@ -20,9 +21,13 @@ const DEFAULT_CONFIG: Required<CameraConfig> = {
 };
 
 export class CameraController {
+  private static readonly BOARD_MARGIN = 6;
+
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
   private compassRotation = 0;
+  private mode: CameraMode = "play";
+  private boardBounds: BoardBounds | null = null;
 
   constructor(canvas: HTMLCanvasElement, config: CameraConfig = {}) {
     const cfg = { ...DEFAULT_CONFIG, ...config };
@@ -43,26 +48,10 @@ export class CameraController {
     this.controls.enablePan = true;
     this.controls.enableDamping = true;
     this.controls.zoomToCursor = true;
-    this.controls.panSpeed = 0.8;
-    this.controls.rotateSpeed = 0.1;
     this.controls.zoomSpeed = 0.8;
-
-    // Lock azimuth (no horizontal orbit — top-down view)
-    this.controls.minAzimuthAngle = 0;
-    this.controls.maxAzimuthAngle = 0;
-
-    // Polar angle: lock to straight-down, allow slight tilt
-    this.controls.minPolarAngle = 0;
-    this.controls.maxPolarAngle = Math.PI * 0.15; // max ~27° tilt
 
     this.controls.minDistance = cfg.minDistance;
     this.controls.maxDistance = cfg.maxDistance;
-
-    // Touch mapping
-    this.controls.touches = {
-      ONE: THREE.TOUCH.PAN,
-      TWO: THREE.TOUCH.DOLLY_PAN,
-    };
 
     // Mouse mapping
     this.controls.mouseButtons = {
@@ -70,10 +59,31 @@ export class CameraController {
       MIDDLE: THREE.MOUSE.DOLLY,
       RIGHT: THREE.MOUSE.ROTATE,
     };
+
+    this.setMode("play");
   }
 
   update(): boolean {
-    return this.controls.update();
+    const changed = this.controls.update();
+    if (this.mode !== "play" || !this.boardBounds) {
+      return changed;
+    }
+
+    const minX = this.boardBounds.minX - CameraController.BOARD_MARGIN;
+    const maxX = this.boardBounds.maxX + CameraController.BOARD_MARGIN;
+    const minZ = this.boardBounds.minZ - CameraController.BOARD_MARGIN;
+    const maxZ = this.boardBounds.maxZ + CameraController.BOARD_MARGIN;
+
+    const nextX = THREE.MathUtils.clamp(this.controls.target.x, minX, maxX);
+    const nextZ = THREE.MathUtils.clamp(this.controls.target.z, minZ, maxZ);
+    const clamped = nextX !== this.controls.target.x || nextZ !== this.controls.target.z;
+
+    if (clamped) {
+      this.controls.target.x = nextX;
+      this.controls.target.z = nextZ;
+    }
+
+    return changed || clamped;
   }
 
   resize(width: number, height: number): void {
@@ -87,6 +97,61 @@ export class CameraController {
 
   getCompassRotation(): number {
     return this.compassRotation;
+  }
+
+  setMode(mode: CameraMode): void {
+    this.mode = mode;
+    if (mode === "play") {
+      this.controls.panSpeed = 0.8;
+      this.controls.rotateSpeed = 0.1;
+      this.controls.minAzimuthAngle = 0;
+      this.controls.maxAzimuthAngle = 0;
+      this.controls.minPolarAngle = 0;
+      this.controls.maxPolarAngle = Math.PI * 0.15;
+      this.controls.touches = {
+        ONE: THREE.TOUCH.PAN,
+        TWO: THREE.TOUCH.DOLLY_PAN,
+      };
+      return;
+    }
+
+    this.controls.panSpeed = 1;
+    this.controls.rotateSpeed = 0.35;
+    this.controls.minAzimuthAngle = -Infinity;
+    this.controls.maxAzimuthAngle = Infinity;
+    this.controls.minPolarAngle = 0;
+    this.controls.maxPolarAngle = Math.PI * 0.42;
+    this.controls.touches = {
+      ONE: THREE.TOUCH.ROTATE,
+      TWO: THREE.TOUCH.DOLLY_PAN,
+    };
+  }
+
+  getMode(): CameraMode {
+    return this.mode;
+  }
+
+  setBoardBounds(bounds: BoardBounds | null): void {
+    this.boardBounds = bounds;
+  }
+
+  focusBounds(bounds: BoardBounds | null): void {
+    this.setBoardBounds(bounds);
+    if (!bounds) {
+      this.controls.target.set(0, 0, 0);
+      return;
+    }
+
+    const centerX = (bounds.minX + bounds.maxX) / 2;
+    const centerZ = (bounds.minZ + bounds.maxZ) / 2;
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+    this.controls.target.set(centerX, 0, centerZ);
+    this.camera.position.set(
+      centerX + offset.x,
+      this.camera.position.y,
+      centerZ + offset.z
+    );
+    this.camera.lookAt(this.controls.target);
   }
 
   reset(): void {

@@ -15,6 +15,14 @@ function makeTopDownCamera(): THREE.PerspectiveCamera {
   return camera;
 }
 
+function makeAngledCamera(): THREE.PerspectiveCamera {
+  const camera = new THREE.PerspectiveCamera(50, 1, 1, 2000);
+  camera.position.set(12, 20, 12);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+  return camera;
+}
+
 describe("screenToGrid", () => {
   it("returns (0,0) when clicking the center of the board", () => {
     const camera = makeTopDownCamera();
@@ -131,6 +139,23 @@ describe("screenToGrid", () => {
     // The key test: it should NOT crash
     // It may return a point (the ray technically intersects at y=0), but it's a degenerate case
     expect(true).toBe(true); // no crash = pass
+  });
+
+  it("maps screen projections correctly with an angled camera", () => {
+    const camera = makeAngledCamera();
+    const identity = new THREE.Matrix4();
+
+    const center = screenToGrid({ x: 0, y: 0 }, camera, identity, TILE_SIZE);
+    expect(center).not.toBeNull();
+    expect(center!.x).toBe(0);
+    expect(center!.y).toBe(0);
+
+    const worldPoint = new THREE.Vector3(TILE_SIZE, 0, 0);
+    worldPoint.project(camera);
+    const right = screenToGrid({ x: worldPoint.x, y: worldPoint.y }, camera, identity, TILE_SIZE);
+    expect(right).not.toBeNull();
+    expect(right!.x).toBe(1);
+    expect(right!.y).toBe(0);
   });
 });
 

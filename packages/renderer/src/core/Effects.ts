@@ -3,6 +3,9 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
+import type { RenderProfile } from "./types";
+import { getEffectsProfile } from "./render-profiles";
 
 // Vignette shader (from postprocessing library, simplified)
 const VignetteShader = {
@@ -59,7 +62,12 @@ const DEFAULT_CONFIG: EffectsConfig = {
 
 export class Effects {
   private composer: EffectComposer | null = null;
+  private renderer: THREE.WebGLRenderer | null = null;
+  private scene: THREE.Scene | null = null;
+  private camera: THREE.Camera | null = null;
   private config: EffectsConfig;
+  private profile: RenderProfile = "play";
+  private ssaoPass: SSAOPass | null = null;
 
   constructor(config: EffectsConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -68,16 +76,52 @@ export class Effects {
   init(
     renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
-    camera: THREE.Camera
+    camera: THREE.Camera,
+    profile: RenderProfile = "play",
   ): void {
+    this.renderer = renderer;
+    this.scene = scene;
+    this.camera = camera;
+    this.profile = profile;
+    this.buildComposer();
+  }
+
+  setProfile(profile: RenderProfile): void {
+    this.profile = profile;
+    this.buildComposer();
+  }
+
+  private buildComposer(): void {
+    if (!this.renderer || !this.scene || !this.camera) return;
+
+    this.composer?.dispose();
+    this.ssaoPass = null;
+    const renderer = this.renderer;
+    const scene = this.scene;
+    const camera = this.camera;
     this.composer = new EffectComposer(renderer);
 
     // Render pass
     const renderPass = new RenderPass(scene, camera);
     this.composer.addPass(renderPass);
 
+    const profileConfig = getEffectsProfile(this.profile);
+
+    if (profileConfig.ssao.enabled) {
+      this.ssaoPass = new SSAOPass(
+        scene,
+        camera as THREE.PerspectiveCamera,
+        renderer.domElement.width,
+        renderer.domElement.height,
+      );
+      this.ssaoPass.kernelRadius = profileConfig.ssao.radius;
+      this.ssaoPass.minDistance = profileConfig.ssao.minDistance;
+      this.ssaoPass.maxDistance = profileConfig.ssao.maxDistance;
+      this.composer.addPass(this.ssaoPass);
+    }
+
     // Bloom
-    const bloomConfig = this.config.bloom ?? DEFAULT_CONFIG.bloom!;
+    const bloomConfig = profileConfig.bloom;
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(renderer.domElement.width, renderer.domElement.height),
       bloomConfig.strength ?? 0.5,
@@ -87,7 +131,7 @@ export class Effects {
     this.composer.addPass(bloomPass);
 
     // Vignette
-    const vignetteConfig = this.config.vignette ?? DEFAULT_CONFIG.vignette!;
+    const vignetteConfig = profileConfig.vignette;
     const vignettePass = new ShaderPass(VignetteShader);
     vignettePass.uniforms.offset.value = vignetteConfig.offset ?? 0.1;
     vignettePass.uniforms.darkness.value = vignetteConfig.darkness ?? 0.8;
@@ -100,6 +144,7 @@ export class Effects {
 
   resize(width: number, height: number): void {
     this.composer?.setSize(width, height);
+    this.ssaoPass?.setSize(width, height);
   }
 
   dispose(): void {

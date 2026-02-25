@@ -5,15 +5,25 @@ import { CharRenderer } from "./CharRenderer";
 import { CameraController } from "./CameraController";
 import { Effects } from "./Effects";
 import { screenToGrid, isClick, createThrottled } from "./interaction";
-import type { RendererConfig, TileRenderData, CharacterRenderData, HoverState } from "./types";
+import type {
+  RendererConfig,
+  TileRenderData,
+  CharacterRenderData,
+  HoverState,
+  CameraMode,
+  BoardBounds,
+  RenderProfile,
+} from "./types";
+import { TILE_SIZE } from "./types";
+import {
+  getLightingProfile,
+  getRenderProfileForCameraMode,
+} from "./render-profiles";
 
 const CLICK_THRESHOLD = 5;
 
-// Lighting constants from Lighting.tsx
-const AMBIENT_INTENSITY = 4;
-const DIRECTIONAL_INTENSITY = 10;
 const DIRECTIONAL_POSITION: [number, number, number] = [35, 50, 65];
-const DIRECTIONAL_TARGET: [number, number, number] = [-25.5, -40.5, 0];
+const DIRECTIONAL_TARGET: [number, number, number] = [0, 0, 0];
 const SHADOW_MAP_SIZE = 2048;
 const SHADOW_NEAR = 1;
 const SHADOW_FAR = 100;
@@ -33,6 +43,12 @@ export class GameScene {
   private animationId: number | null = null;
   private needsRender = true;
   private isWebGPU = false;
+  private latestTiles: TileRenderData[] = [];
+  private renderProfile: RenderProfile = "play";
+  private ambientLight: THREE.AmbientLight | null = null;
+  private hemisphereLight: THREE.HemisphereLight | null = null;
+  private directionalLight: THREE.DirectionalLight | null = null;
+  private directionalTargetObject: THREE.Object3D | null = null;
 
   private pointerDownPos: { x: number; y: number } | null = null;
   private onTileClickCallback: ((gridX: number, gridY: number) => void) | null = null;
@@ -84,6 +100,9 @@ export class GameScene {
     );
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1;
 
     if (shadows) {
       this.renderer.shadowMap.enabled = true;
@@ -103,7 +122,7 @@ export class GameScene {
     this.setupLighting();
 
     // Post-processing
-    this.effects.init(this.renderer, this.scene, this.camera);
+    this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile);
 
     // Preload assets
     await this.assets.preloadAll();
@@ -123,32 +142,55 @@ export class GameScene {
   }
 
   private setupLighting(): void {
-    // Ambient light
-    const ambient = new THREE.AmbientLight(0xffffff, AMBIENT_INTENSITY);
-    this.scene.add(ambient);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 1);
+    this.scene.add(this.ambientLight);
 
-    // Directional light (sun)
-    const directional = new THREE.DirectionalLight(0xffffff, DIRECTIONAL_INTENSITY);
-    directional.position.set(...DIRECTIONAL_POSITION);
-    directional.castShadow = true;
+    this.hemisphereLight = new THREE.HemisphereLight(0xbfd8ff, 0x24351f, 0.4);
+    this.scene.add(this.hemisphereLight);
 
-    // Shadow configuration
-    directional.shadow.mapSize.width = SHADOW_MAP_SIZE;
-    directional.shadow.mapSize.height = SHADOW_MAP_SIZE;
-    directional.shadow.camera.near = SHADOW_NEAR;
-    directional.shadow.camera.far = SHADOW_FAR;
-    directional.shadow.camera.left = -SHADOW_FRUSTUM;
-    directional.shadow.camera.right = SHADOW_FRUSTUM;
-    directional.shadow.camera.top = SHADOW_FRUSTUM;
-    directional.shadow.camera.bottom = -SHADOW_FRUSTUM;
+    this.directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    this.directionalLight.position.set(...DIRECTIONAL_POSITION);
+    this.directionalLight.castShadow = true;
+    this.directionalLight.shadow.mapSize.width = SHADOW_MAP_SIZE;
+    this.directionalLight.shadow.mapSize.height = SHADOW_MAP_SIZE;
+    this.directionalLight.shadow.camera.near = SHADOW_NEAR;
+    this.directionalLight.shadow.camera.far = SHADOW_FAR;
+    this.directionalLight.shadow.camera.left = -SHADOW_FRUSTUM;
+    this.directionalLight.shadow.camera.right = SHADOW_FRUSTUM;
+    this.directionalLight.shadow.camera.top = SHADOW_FRUSTUM;
+    this.directionalLight.shadow.camera.bottom = -SHADOW_FRUSTUM;
 
-    // Target
-    const target = new THREE.Object3D();
-    target.position.set(...DIRECTIONAL_TARGET);
-    this.scene.add(target);
-    directional.target = target;
+    this.directionalTargetObject = new THREE.Object3D();
+    this.directionalTargetObject.position.set(...DIRECTIONAL_TARGET);
+    this.scene.add(this.directionalTargetObject);
+    this.directionalLight.target = this.directionalTargetObject;
+    this.scene.add(this.directionalLight);
 
-    this.scene.add(directional);
+    this.applyLightingProfile(this.renderProfile);
+  }
+
+  private applyLightingProfile(profileName: RenderProfile): void {
+    const profile = getLightingProfile(profileName);
+    if (this.renderer) {
+      this.renderer.toneMappingExposure = profile.exposure;
+    }
+    this.scene.background = new THREE.Color(profile.backgroundColor);
+    this.scene.fog = new THREE.FogExp2(profile.fogColor, profile.fogDensity);
+
+    if (this.ambientLight) {
+      this.ambientLight.intensity = profile.ambientIntensity;
+    }
+    if (this.hemisphereLight) {
+      this.hemisphereLight.intensity = profile.hemisphereSkyIntensity;
+      this.hemisphereLight.groundColor.setRGB(
+        0.16 * profile.hemisphereGroundIntensity,
+        0.24 * profile.hemisphereGroundIntensity,
+        0.13 * profile.hemisphereGroundIntensity,
+      );
+    }
+    if (this.directionalLight) {
+      this.directionalLight.intensity = profile.directionalIntensity;
+    }
   }
 
   private setupInteraction(canvas: HTMLCanvasElement): void {
@@ -219,7 +261,11 @@ export class GameScene {
 
   /** Update placed tiles */
   updateTiles(tiles: TileRenderData[]): void {
+    this.latestTiles = tiles.slice();
     this.tiles.updateTiles(tiles);
+    if (this.controls) {
+      this.controls.setBoardBounds(this.computeBoardBounds());
+    }
     this.requestRender();
   }
 
@@ -244,6 +290,7 @@ export class GameScene {
   /** Switch between 3D voxel and 2D strategy rendering */
   setStrategyMode(on: boolean): void {
     this.tiles.setStrategyMode(on);
+    this.tiles.updateTiles(this.latestTiles);
     this.requestRender();
   }
 
@@ -251,6 +298,47 @@ export class GameScene {
   setCompassRotation(angle: number): void {
     this.sceneGroup.rotation.y = angle;
     this.requestRender();
+  }
+
+  /** Set camera mode profile (play/showcase) */
+  setCameraMode(mode: CameraMode): void {
+    if (!this.controls) return;
+    this.controls.setMode(mode);
+    this.setRenderProfile(getRenderProfileForCameraMode(mode));
+    this.requestRender();
+  }
+
+  setRenderProfile(profile: RenderProfile): void {
+    this.renderProfile = profile;
+    this.applyLightingProfile(profile);
+    this.effects.setProfile(profile);
+    this.requestRender();
+  }
+
+  focusBoard(): void {
+    if (!this.controls) return;
+    this.controls.focusBounds(this.computeBoardBounds());
+    this.requestRender();
+  }
+
+  private computeBoardBounds(): BoardBounds | null {
+    if (this.latestTiles.length === 0) return null;
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
+
+    for (const tile of this.latestTiles) {
+      const worldX = tile.worldX * TILE_SIZE;
+      const worldZ = tile.worldZ * TILE_SIZE;
+      minX = Math.min(minX, worldX);
+      maxX = Math.max(maxX, worldX);
+      minZ = Math.min(minZ, worldZ);
+      maxZ = Math.max(maxZ, worldZ);
+    }
+
+    return { minX, maxX, minZ, maxZ };
   }
 
   /** Request a re-render (demand mode — only renders when state changes) */

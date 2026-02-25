@@ -44,7 +44,18 @@ export class AssetLoader {
   getModel(key: string): THREE.Group {
     const model = this.models.get(key);
     if (!model) throw new Error(`Model not found: ${key}`);
-    return model.clone();
+    const clone = model.clone(true);
+    clone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry = child.geometry.clone();
+        if (Array.isArray(child.material)) {
+          child.material = child.material.map((m) => m.clone());
+        } else {
+          child.material = child.material.clone();
+        }
+      }
+    });
+    return clone;
   }
 
   getTexture(key: string): THREE.Texture {

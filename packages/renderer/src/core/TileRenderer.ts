@@ -5,8 +5,10 @@ import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 
 // Material constants from TileTexture
-const TILE_ROUGHNESS = 1;
-const TILE_ANISOTROPY = 160;
+const TILE_MIN_ROUGHNESS = 0.35;
+const TILE_MAX_ROUGHNESS = 0.95;
+const TILE_MIN_METALNESS = 0.02;
+const TILE_MAX_METALNESS = 0.45;
 const EDGE_COLOR = 0x000000;
 const STRATEGY_THICKNESS = 0.1;
 
@@ -29,7 +31,8 @@ export class TileRenderer {
   private assets: AssetLoader;
   private strategyMode = false;
   private squareSize = TILE_SIZE;
-  private lastHover: { x: number; y: number; planIndex: number; orientation: number; valid: boolean } | null = null;
+  private previewContainer: THREE.Group | null = null;
+  private previewKey: string | null = null;
 
   constructor(assets: AssetLoader) {
     this.assets = assets;
@@ -133,11 +136,26 @@ export class TileRenderer {
       // Process materials and add edges
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          // Preserve emissive, set roughness and anisotropy
-          if (child.material instanceof THREE.MeshStandardMaterial) {
+          child.geometry = child.geometry.clone();
+          if (Array.isArray(child.material)) {
+            child.material = child.material.map((m) => m.clone());
+          } else {
             child.material = child.material.clone();
-            child.material.roughness = TILE_ROUGHNESS;
-            // Note: anisotropy requires anisotrpoy extension support
+          }
+
+          // Preserve emissive, set roughness
+          if (child.material instanceof THREE.MeshStandardMaterial) {
+            child.material.roughness = THREE.MathUtils.clamp(
+              child.material.roughness,
+              TILE_MIN_ROUGHNESS,
+              TILE_MAX_ROUGHNESS,
+            );
+            child.material.metalness = THREE.MathUtils.clamp(
+              child.material.metalness,
+              TILE_MIN_METALNESS,
+              TILE_MAX_METALNESS,
+            );
+            child.material.envMapIntensity = Math.max(child.material.envMapIntensity, 0.65);
           }
           child.castShadow = true;
           child.receiveShadow = true;
@@ -216,37 +234,40 @@ export class TileRenderer {
   }
 
   setHover(state: HoverState | null): void {
-    // Short-circuit if hover state unchanged
-    if (state && this.lastHover &&
-        state.x === this.lastHover.x &&
-        state.y === this.lastHover.y &&
-        state.planIndex === this.lastHover.planIndex &&
-        state.orientation === this.lastHover.orientation &&
-        state.valid === this.lastHover.valid) {
-      return;
-    }
-
-    // Clear previous preview
-    while (this.previewGroup.children.length > 0) {
-      const child = this.previewGroup.children[0];
-      this.previewGroup.remove(child);
-      this.disposeMesh(child);
-    }
-
     if (!state) {
-      this.lastHover = null;
+      if (this.previewContainer) {
+        this.previewGroup.remove(this.previewContainer);
+        this.disposeMesh(this.previewContainer);
+        this.previewContainer = null;
+      }
+      this.previewKey = null;
       return;
     }
 
-    this.lastHover = { x: state.x, y: state.y, planIndex: state.planIndex, orientation: state.orientation, valid: state.valid };
+    const key = `${state.planIndex}-${state.orientation}-${state.valid ? 1 : 0}`;
+    if (this.previewContainer && this.previewKey === key) {
+      this.previewContainer.position.set(
+        state.x * this.squareSize,
+        0,
+        state.y * this.squareSize
+      );
+      return;
+    }
+
+    if (this.previewContainer) {
+      this.previewGroup.remove(this.previewContainer);
+      this.disposeMesh(this.previewContainer);
+      this.previewContainer = null;
+    }
+    this.previewKey = key;
 
     // Create preview mesh
     const plan = Plan.from(state.planIndex);
-    const key = getPlanKey(plan.value);
-    if (key === "00") return;
+    const planKey = getPlanKey(plan.value);
+    if (planKey === "00") return;
 
     try {
-      const model = this.assets.getModel(key);
+      const model = this.assets.getModel(planKey);
 
       const orientation = Orientation.from(state.orientation);
       const rotationMap: Record<string, number> = {
@@ -261,6 +282,7 @@ export class TileRenderer {
       const tintColor = new THREE.Color(state.valid ? 0x00ff00 : 0xff0000);
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
+          child.geometry = child.geometry.clone();
           if (child.material instanceof THREE.MeshStandardMaterial) {
             child.material = child.material.clone();
             child.material.transparent = true;
@@ -302,8 +324,10 @@ export class TileRenderer {
         state.y * this.squareSize
       );
       this.previewGroup.add(container);
+      this.previewContainer = container;
     } catch {
       // Model not available
+      this.previewKey = null;
     }
   }
 
@@ -362,6 +386,13 @@ export class TileRenderer {
         } else {
           child.material?.dispose();
         }
+      } else if (child instanceof THREE.LineSegments) {
+        child.geometry?.dispose();
+        if (Array.isArray(child.material)) {
+          child.material.forEach(m => m.dispose());
+        } else {
+          child.material?.dispose();
+        }
       }
     });
   }
@@ -381,6 +412,7 @@ export class TileRenderer {
       this.emptyGroup.remove(child);
       this.disposeMesh(child);
     }
-    this.lastHover = null;
+    this.previewContainer = null;
+    this.previewKey = null;
   }
 }

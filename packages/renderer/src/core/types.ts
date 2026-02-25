@@ -3,6 +3,16 @@ import type { TileData, CharacterData } from "@paved/game-core";
 /** World units per grid cell — single source of truth */
 export const TILE_SIZE = 3;
 
+export type CameraMode = "play" | "showcase";
+export type RenderProfile = "play" | "showcase" | "showcaseCinematic";
+
+export interface BoardBounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
 export interface RendererConfig {
   canvas: HTMLCanvasElement;
   basePath?: string;

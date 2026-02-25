@@ -1,6 +1,11 @@
 import { useRef, useEffect } from "react";
 import { GameScene } from "../core/GameScene";
-import type { TileRenderData, CharacterRenderData, HoverState } from "../core/types";
+import type {
+  TileRenderData,
+  CharacterRenderData,
+  HoverState,
+  CameraMode,
+} from "../core/types";
 
 export interface GameCanvasProps {
   tiles?: TileRenderData[];
@@ -9,6 +14,7 @@ export interface GameCanvasProps {
   availableSlots?: Array<{ x: number; y: number }>;
   strategyMode?: boolean;
   compassRotation?: number;
+  cameraMode?: CameraMode;
   basePath?: string;
   style?: React.CSSProperties;
   className?: string;
@@ -25,6 +31,7 @@ export function GameCanvas({
   availableSlots = [],
   strategyMode = false,
   compassRotation = 0,
+  cameraMode = "play",
   basePath = "",
   style,
   className,
@@ -88,6 +95,10 @@ export function GameCanvas({
   useEffect(() => {
     sceneRef.current?.setCompassRotation(compassRotation);
   }, [compassRotation]);
+
+  useEffect(() => {
+    sceneRef.current?.setCameraMode(cameraMode);
+  }, [cameraMode]);
 
   return (
     <canvas

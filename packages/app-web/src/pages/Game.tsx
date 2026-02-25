@@ -8,7 +8,7 @@ import {
   SpotSelector,
   useGameStore,
 } from "@paved/ui";
-import type { GameScene, TileRenderData, CharacterRenderData } from "@paved/renderer";
+import type { GameScene, TileRenderData, CharacterRenderData, CameraMode } from "@paved/renderer";
 import { useDojo, useActions } from "@paved/chain";
 import {
   ModeType,
@@ -25,6 +25,7 @@ import {
   getRole,
 } from "@paved/game-core";
 import { findNextTile, shouldPollUpdateBuilder, shouldShowSpotSelector, spotKeyToNumber } from "../utils/game-helpers";
+import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { buildCharQuery, toRenderCharacters } from "../utils/char-helpers";
 import { toriiQuery, padAddress, parseToriiBool } from "../utils/torii";
 import { parseGameParams, modeToContractName } from "../utils/game-params";
@@ -148,6 +149,7 @@ export function GamePage() {
   const [optimisticTiles, setOptimisticTiles] = useState<TileRenderData[]>([]);
   const [characters, setCharacters] = useState<CharacterRenderData[]>([]);
   const [optimisticCharacters, setOptimisticCharacters] = useState<CharacterRenderData[]>([]);
+  const [cameraMode, setCameraMode] = useState<CameraMode>("play");
   const [spawning, setSpawning] = useState(false);
   const spawnAttempted = useRef(false);
   const spawningRef = useRef(false); // mirror of spawning state for poll guard
@@ -414,6 +416,14 @@ export function GamePage() {
     setHoverGrid(null);
   }, []);
 
+  const handleToggleCameraMode = useCallback(() => {
+    setCameraMode((prev) => toggleCameraMode(prev));
+  }, []);
+
+  const handleRecenter = useCallback(() => {
+    scene?.focusBoard();
+  }, [scene]);
+
   // Compute all valid placement positions for the current tile + orientation
   const availableSlots = useMemo(() => {
     if (!builderState || builderState.tile_plan === 0 || tiles.length === 0) return [];
@@ -561,9 +571,33 @@ export function GamePage() {
   }, [discard, gameState]);
 
   // Stable refs for keyboard hotkeys — avoids re-registering listener on every state change
-  const hotkeys = useRef({ handleRotate, handleConfirm, handleDiscard, loading, builderState, gameState, hoverState, character, selectedTile });
+  const hotkeys = useRef({
+    handleRotate,
+    handleConfirm,
+    handleDiscard,
+    handleToggleCameraMode,
+    handleRecenter,
+    loading,
+    builderState,
+    gameState,
+    hoverState,
+    character,
+    selectedTile,
+  });
   useEffect(() => {
-    hotkeys.current = { handleRotate, handleConfirm, handleDiscard, loading, builderState, gameState, hoverState, character, selectedTile };
+    hotkeys.current = {
+      handleRotate,
+      handleConfirm,
+      handleDiscard,
+      handleToggleCameraMode,
+      handleRecenter,
+      loading,
+      builderState,
+      gameState,
+      hoverState,
+      character,
+      selectedTile,
+    };
   });
 
   // Keyboard hotkeys: R=rotate, C=confirm, D=discard
@@ -571,6 +605,15 @@ export function GamePage() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       const h = hotkeys.current;
+      const cameraAction = getCameraHotkeyAction(e.key);
+      if (cameraAction === "toggle-mode") {
+        h.handleToggleCameraMode();
+        return;
+      }
+      if (cameraAction === "recenter") {
+        h.handleRecenter();
+        return;
+      }
       switch (e.key.toLowerCase()) {
         case "r":
           h.handleRotate();
@@ -611,6 +654,7 @@ export function GamePage() {
         hover={gameParams.readonly ? null : hoverState}
         availableSlots={gameParams.readonly ? [] : availableSlots}
         strategyMode={strategyMode}
+        cameraMode={cameraMode}
         onReady={handleReady}
         onTileClick={gameParams.readonly ? undefined : handleTileClick}
         onTileHover={gameParams.readonly ? undefined : handleTileHover}
@@ -640,6 +684,49 @@ export function GamePage() {
             totalTiles={gameState?.tile_count ?? 72}
             discarded={gameState?.discarded ?? 0}
           />
+        </div>
+
+        <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: 1, justifySelf: "end" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              background: "rgba(0,0,0,0.75)",
+              border: "1px solid rgba(255,255,255,0.15)",
+              borderRadius: 10,
+              padding: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={handleToggleCameraMode}
+              style={{
+                border: "1px solid rgba(255,255,255,0.25)",
+                background: "rgba(255,255,255,0.08)",
+                color: "#fff",
+                borderRadius: 8,
+                padding: "6px 10px",
+                cursor: "pointer",
+              }}
+            >
+              Mode: {cameraMode === "play" ? "Play" : "Showcase"} (V)
+            </button>
+            <button
+              type="button"
+              onClick={handleRecenter}
+              style={{
+                border: "1px solid rgba(255,255,255,0.25)",
+                background: "rgba(255,255,255,0.08)",
+                color: "#fff",
+                borderRadius: 8,
+                padding: "6px 10px",
+                cursor: "pointer",
+              }}
+            >
+              Recenter (F)
+            </button>
+          </div>
         </div>
 
         {!gameParams.readonly && showSpotSelector && builderState && (

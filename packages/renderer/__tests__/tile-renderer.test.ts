@@ -50,7 +50,7 @@ describe("TileRenderer.setHover — position caching", () => {
     expect(getModelSpy).toHaveBeenCalledTimes(1);
   });
 
-  it("rebuilds mesh when grid position changes", () => {
+  it("reuses mesh when only grid position changes", () => {
     const assets = createMockAssetLoader();
     const getModelSpy = vi.spyOn(assets, "getModel");
     const tr = new TileRenderer(assets as any);
@@ -61,8 +61,8 @@ describe("TileRenderer.setHover — position caching", () => {
     tr.setHover(makeHoverState({ x: 1, y: 0 }));
     const callsAfterSecond = getModelSpy.mock.calls.length;
 
-    // Position changed — should have called getModel again
-    expect(callsAfterSecond).toBeGreaterThan(callsAfterFirst);
+    // Position-only change should reuse preview model
+    expect(callsAfterSecond).toBe(callsAfterFirst);
   });
 
   it("rebuilds mesh when planIndex changes at same position", () => {
