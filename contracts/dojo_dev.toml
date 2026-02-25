@@ -16,6 +16,10 @@ telegram = "https://t.me/dojoengine"
 default = "paved"
 
 [env]
-rpc_url = "https://api.cartridge.gg/x/paved-dev/katana"
-account_address = "0x79e1341bc8e27b2ae2544fe902f0c9e723cfba8e37c47371d90385cc17265cc"
-private_key = "0x506a3b48830c89357283236d8724f68d014d681499b2256e7589c950a4198c5"
+rpc_url = "http://localhost:5050"
+account_address = "0x127fd5f1fe78a71f8bcd1fec63e3fe2f0486b6ecd5c86a0466c3a21fa5cfcec"
+private_key = "0xc5b2fcab997346f3ea1c00b002ecf6f382c5f9c9659a3894eb783c5320f912"
+
+[init_call_args]
+"paved-Daily" = ["0x05309fbf0d08f321d07c74628bf58215d5fad5a082aaa9ea2425df98865d3781"]
+"paved-Weekly" = ["0x05309fbf0d08f321d07c74628bf58215d5fad5a082aaa9ea2425df98865d3781"]

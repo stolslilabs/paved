@@ -17,7 +17,8 @@ const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
 );
 
-const { connectors } = getConnectors();
+const isLocalDev = !import.meta.env.VITE_PUBLIC_NODE_URL || import.meta.env.VITE_PUBLIC_NODE_URL.includes("localhost");
+const connectors = isLocalDev ? [] : getConnectors().connectors;
 
 function Main() {
   const [setupResult, setSetupResult] = useState<SetupResult | null>(null);

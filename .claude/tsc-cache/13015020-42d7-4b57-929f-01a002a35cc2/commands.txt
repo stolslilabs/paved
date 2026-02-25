@@ -1,0 +1,2 @@
+packages/app-web:build:cd /Users/os/conductor/workspaces/paved/beijing-v3/packages/app-web && npm run build
+packages/app-web:tsc:cd /Users/os/conductor/workspaces/paved/beijing-v3/packages/app-web && npx tsc --noEmit

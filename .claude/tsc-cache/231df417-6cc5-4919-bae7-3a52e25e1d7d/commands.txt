@@ -1,0 +1,2 @@
+packages/renderer:build:cd /Users/os/conductor/workspaces/paved/beijing-v3/packages/renderer && npm run build
+packages/renderer:tsc:cd /Users/os/conductor/workspaces/paved/beijing-v3/packages/renderer && npx tsc --noEmit

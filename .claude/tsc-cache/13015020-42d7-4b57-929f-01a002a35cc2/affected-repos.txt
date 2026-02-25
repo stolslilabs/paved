@@ -1,0 +1,7 @@
+root
+packages/game-core
+packages/renderer
+packages/chain
+packages/ui
+packages/app-web
+app
