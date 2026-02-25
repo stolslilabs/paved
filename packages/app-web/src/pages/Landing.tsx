@@ -7,13 +7,18 @@ import {
 } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
 import { useDojo } from "@paved/chain";
-import { ModeType, Mode, Tournament } from "@paved/game-core";
+import { ModeType, Mode, Tournament, validateGameConfigInput } from "@paved/game-core";
 import { feltToString, padAddress, toriiQuery } from "../utils/torii";
 import { usePlayerGames } from "../hooks/usePlayerGames";
 import { useTournaments } from "../hooks/useTournaments";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 import { formatTimeRemaining, formatEntryFee } from "../utils/landing-helpers";
 import { buildGameRoute } from "../utils/mode-routing";
+import {
+  buildCreateGameRoute,
+  defaultConfigForMode,
+  type CreatePath,
+} from "../utils/create-options";
 
 const MODE_LIST: ModeType[] = [ModeType.Daily, ModeType.Weekly, ModeType.Tutorial];
 
@@ -38,9 +43,14 @@ function computeEndTime(mode: Mode): number {
 export function LandingPage() {
   const navigate = useNavigate();
   const { account, provider, isReady, client } = useDojo();
+  const advancedConfigEnabled = import.meta.env.VITE_CONFIG_CREATE_V1 === "true";
   const [playerName, setPlayerName] = useState<string | undefined>(undefined);
   const [creating, setCreating] = useState(false);
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
+  const [createPath, setCreatePath] = useState<CreatePath>("legacy");
+  const [templateId, setTemplateId] = useState("1");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [customConfig, setCustomConfig] = useState(() => defaultConfigForMode(ModeType.Daily));
 
   const toriiUrl = client?.config?.toriiUrl ?? null;
   const accountAddress = account?.address ?? null;
@@ -128,7 +138,31 @@ export function LandingPage() {
     if (activeGame) {
       navigate(buildGameRoute({ gameId: activeGame.gameId, mode: activeGame.mode }));
     } else {
-      navigate(`/game?mode=${selectedMode}`);
+      const mode = selectedMode as ModeType;
+      if (createPath === "template") {
+        const parsedTemplateId = Number(templateId);
+        if (!Number.isInteger(parsedTemplateId) || parsedTemplateId <= 0) {
+          setFieldErrors({ templateId: "Template id must be a positive integer." });
+          return;
+        }
+        navigate(buildCreateGameRoute(mode, "template", parsedTemplateId));
+      } else if (createPath === "custom") {
+        const errors = validateGameConfigInput(customConfig);
+        if (errors.length > 0) {
+          const mapped: Record<string, string> = {};
+          for (const error of errors) {
+            if (error.includes("durationSeconds")) mapped.durationSeconds = error;
+            else if (error.includes("tileLimit")) mapped.tileLimit = error;
+            else if (error.includes("accessRoot")) mapped.accessRoot = error;
+            else mapped.general = error;
+          }
+          setFieldErrors(mapped);
+          return;
+        }
+        navigate(buildCreateGameRoute(mode, "custom", undefined, customConfig));
+      } else {
+        navigate(buildCreateGameRoute(mode, "legacy"));
+      }
     }
     setSelectedMode(null);
   };
@@ -156,6 +190,14 @@ export function LandingPage() {
 
   // Find the selected mode card data for the dialog
   const selectedModeData = selectedMode ? gameModes.find((m) => m.mode === selectedMode) : null;
+
+  useEffect(() => {
+    if (!selectedMode) return;
+    setCreatePath("legacy");
+    setTemplateId("1");
+    setFieldErrors({});
+    setCustomConfig(defaultConfigForMode(selectedMode as ModeType));
+  }, [selectedMode]);
 
   return (
     <>
@@ -216,6 +258,110 @@ export function LandingPage() {
                   ))}
                 </div>
               )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                <label style={{ color: "#999", fontSize: 12 }}>Creation</label>
+                <select
+                  value={createPath}
+                  onChange={(e) => {
+                    const next = e.target.value as CreatePath;
+                    setCreatePath(next);
+                    setFieldErrors({});
+                  }}
+                  style={{
+                    background: "rgba(255,255,255,0.08)",
+                    color: "#f5f5f5",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                  }}
+                >
+                  <option value="legacy">Default</option>
+                  <option value="template">Template</option>
+                  {advancedConfigEnabled && <option value="custom">Custom (Advanced)</option>}
+                </select>
+                {createPath === "template" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <input
+                      value={templateId}
+                      onChange={(e) => {
+                        setTemplateId(e.target.value);
+                        setFieldErrors((prev) => ({ ...prev, templateId: "" }));
+                      }}
+                      placeholder="Template ID"
+                      style={{
+                        background: "rgba(255,255,255,0.08)",
+                        color: "#f5f5f5",
+                        border: "1px solid rgba(255,255,255,0.2)",
+                        borderRadius: 8,
+                        padding: "8px 10px",
+                      }}
+                    />
+                    {fieldErrors.templateId && (
+                      <span style={{ color: "#f87171", fontSize: 11 }}>{fieldErrors.templateId}</span>
+                    )}
+                  </div>
+                )}
+                {createPath === "custom" && advancedConfigEnabled && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                    <input
+                      value={String(customConfig.entryPrice)}
+                      onChange={(e) => setCustomConfig((prev) => ({ ...prev, entryPrice: e.target.value }))}
+                      placeholder="Entry Price"
+                      style={{ background: "rgba(255,255,255,0.08)", color: "#f5f5f5", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 10px" }}
+                    />
+                    <input
+                      value={String(customConfig.durationSeconds)}
+                      onChange={(e) => setCustomConfig((prev) => ({ ...prev, durationSeconds: Number(e.target.value) || 0 }))}
+                      placeholder="Duration (s)"
+                      style={{ background: "rgba(255,255,255,0.08)", color: "#f5f5f5", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 10px" }}
+                    />
+                    <input
+                      value={String(customConfig.tileLimit)}
+                      onChange={(e) => setCustomConfig((prev) => ({ ...prev, tileLimit: Number(e.target.value) || 0 }))}
+                      placeholder="Tile Limit"
+                      style={{ background: "rgba(255,255,255,0.08)", color: "#f5f5f5", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 10px" }}
+                    />
+                    <input
+                      value={String(customConfig.accessRoot)}
+                      onChange={(e) => setCustomConfig((prev) => ({ ...prev, accessRoot: e.target.value }))}
+                      placeholder="Access Root"
+                      style={{ background: "rgba(255,255,255,0.08)", color: "#f5f5f5", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "8px 10px" }}
+                    />
+                    <label style={{ color: "#f5f5f5", fontSize: 11 }}>
+                      <input
+                        type="checkbox"
+                        checked={customConfig.privateGame}
+                        onChange={(e) => setCustomConfig((prev) => ({ ...prev, privateGame: e.target.checked }))}
+                        style={{ marginRight: 6 }}
+                      />
+                      Private
+                    </label>
+                    <label style={{ color: "#f5f5f5", fontSize: 11 }}>
+                      <input
+                        type="checkbox"
+                        checked={customConfig.allowDiscard}
+                        onChange={(e) => setCustomConfig((prev) => ({ ...prev, allowDiscard: e.target.checked }))}
+                        style={{ marginRight: 6 }}
+                      />
+                      Allow Discard
+                    </label>
+                    <label style={{ color: "#f5f5f5", fontSize: 11 }}>
+                      <input
+                        type="checkbox"
+                        checked={customConfig.allowSurrender}
+                        onChange={(e) => setCustomConfig((prev) => ({ ...prev, allowSurrender: e.target.checked }))}
+                        style={{ marginRight: 6 }}
+                      />
+                      Allow Surrender
+                    </label>
+                    {(fieldErrors.durationSeconds || fieldErrors.tileLimit || fieldErrors.accessRoot || fieldErrors.general) && (
+                      <span style={{ gridColumn: "1 / -1", color: "#f87171", fontSize: 11 }}>
+                        {fieldErrors.durationSeconds || fieldErrors.tileLimit || fieldErrors.accessRoot || fieldErrors.general}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
               <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                 <button
                   onClick={handleModeConfirm}

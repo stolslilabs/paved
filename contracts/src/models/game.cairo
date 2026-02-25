@@ -3,11 +3,13 @@
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::poseidon::{PoseidonTrait, HashState};
 use core::hash::HashStateTrait;
+use origami_random::deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 
 // Internal imports
 
 use paved::constants;
 use paved::store::{Store, StoreImpl};
+use paved::helpers::economy_curve::FP;
 use paved::helpers::generic::GenericCount;
 use paved::helpers::wonder::WonderCount;
 use paved::helpers::conflict::Conflict;
@@ -43,6 +45,8 @@ pub mod errors {
     pub const GAME_IS_OVER: felt252 = 'Game: is over';
     pub const GAME_NOT_OVER: felt252 = 'Game: not over';
     pub const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
+    pub const DISCARD_DISABLED: felt252 = 'Game: discard disabled';
+    pub const SURRENDER_DISABLED: felt252 = 'Game: surrender disabled';
 }
 
 #[generate_trait]
@@ -66,25 +70,32 @@ pub impl GameImpl of GameTrait {
             seed: 0,
             mode: mode.into(),
             tournament_id: 0,
+            config_id: 0,
+            entry_price: mode.price(),
+            duration_seconds: mode.duration(),
+            deck_id: mode.deck().into(),
+            tile_limit: mode.deck().count().into(),
+            allow_discard: true,
+            allow_surrender: true,
+            entry_multiplier_fp: FP,
+            entry_supply_snapshot: 0,
+            entry_target_snapshot: 0,
         }
     }
 
     #[inline]
     fn price(self: Game) -> felt252 {
-        let mode: Mode = self.mode.into();
-        mode.price()
+        self.entry_price
     }
 
     #[inline]
     fn duration(self: Game) -> u64 {
-        let mode: Mode = self.mode.into();
-        mode.duration()
+        self.duration_seconds
     }
 
     #[inline]
     fn deck(self: Game) -> Deck {
-        let mode: Mode = self.mode.into();
-        mode.deck()
+        self.deck_id.into()
     }
 
     #[inline]
@@ -142,13 +153,13 @@ pub impl GameImpl of GameTrait {
 
     #[inline]
     fn assess_over(ref self: Game) {
-        let deck: Deck = self.deck();
-        self.over = self.tile_count >= deck.count().into();
+        self.over = self.tile_count >= self.tile_limit.into();
     }
 
     #[inline]
     fn surrender(ref self: Game) {
         // [Comment] Only available for solo mode
+        assert(self.allow_surrender, errors::SURRENDER_DISABLED);
         self.over = true;
     }
 
@@ -174,8 +185,30 @@ pub impl GameImpl of GameTrait {
 
     #[inline]
     fn draw_plan(ref self: Game) -> (u32, Plan) {
-        let mode: Mode = self.mode.into();
-        let (plan, tiles) = mode.draw(self.seed, self.tiles);
+        let deck: Deck = self.deck();
+        let (plan, tiles) = if deck == Deck::Tutorial {
+            if self.tiles == 0 {
+                (deck.plan(0), 1)
+            } else {
+                let index: u8 = 1 + Bitmap::most_significant_bit(self.tiles).unwrap();
+                let plan: Plan = deck.plan(index.into());
+                let tiles = Bitmap::set_bit_at(self.tiles, index.into(), true);
+                (plan, tiles)
+            }
+        } else {
+            let number: u32 = deck.total_count().into();
+            let mut random_deck: OrigamiDeck = OrigamiDeckTrait::from_bitmap(
+                self.seed, number, self.tiles
+            );
+            let plan_id: u8 = random_deck.draw().into();
+            let tiles = if random_deck.remaining == 0 {
+                0
+            } else {
+                let index = plan_id - 1;
+                Bitmap::set_bit_at(self.tiles, index.into(), true)
+            };
+            (deck.plan(plan_id.into()), tiles)
+        };
         self.tiles = tiles;
         self.tile_count += 1;
         // Update the seed after draw
@@ -277,7 +310,17 @@ pub impl ZeroableGame of ZeroableGameTrait {
             score: 0,
             seed: 0,
             mode: 0,
-            tournament_id: 0
+            tournament_id: 0,
+            config_id: 0,
+            entry_price: 0,
+            duration_seconds: 0,
+            deck_id: 0,
+            tile_limit: 0,
+            allow_discard: false,
+            allow_surrender: false,
+            entry_multiplier_fp: FP,
+            entry_supply_snapshot: 0,
+            entry_target_snapshot: 0,
         }
     }
 

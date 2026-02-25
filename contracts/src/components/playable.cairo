@@ -53,6 +53,7 @@ pub mod PlayableComponent {
 
             // [Check] Game is not over
             game.assert_not_over();
+            assert(game.allow_discard, 'Game: discard disabled');
 
             // [Check] Player exists
             let caller = get_caller_address();
@@ -91,7 +92,7 @@ pub mod PlayableComponent {
             if tournament_id == id_end && game.is_over() {
                 // [Effect] Update tournament
                 let mut tournament = store.tournament(tournament_id);
-                tournament.score(player.id, game.score);
+                tournament.score(player.id, game.score, game.id, game.entry_multiplier_fp);
                 store.set_tournament(tournament);
 
                 // [Effect] Add tournament id to game
@@ -137,7 +138,7 @@ pub mod PlayableComponent {
             if tournament_id == id_end && game.is_over() {
                 // [Effect] Update tournament
                 let mut tournament = store.tournament(tournament_id);
-                tournament.score(player.id, game.score);
+                tournament.score(player.id, game.score, game.id, game.entry_multiplier_fp);
                 store.set_tournament(tournament);
 
                 // [Effect] Add tournament id to game
@@ -232,7 +233,7 @@ pub mod PlayableComponent {
             if tournament_id == id_end && game.is_over() {
                 // [Effect] Update tournament
                 let mut tournament = store.tournament(tournament_id);
-                tournament.score(player.id, game.score);
+                tournament.score(player.id, game.score, game.id, game.entry_multiplier_fp);
                 store.set_tournament(tournament);
 
                 // [Effect] Add tournament id to game

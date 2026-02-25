@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { Account } from "starknet";
 import { DojoProvider } from "@dojoengine/core";
-import { ModeType } from "@paved/game-core";
+import type { GameCreateOptions, ModeType } from "@paved/game-core";
 import { createSystems } from "../contracts";
 
 export interface ActionState {
@@ -73,10 +73,10 @@ export function useActions(provider: DojoProvider | null, account: Account | nul
   );
 
   const spawn = useCallback(
-    async (mode: ModeType) => {
+    async (mode: ModeType, options?: GameCreateOptions) => {
       if (!account || !systems) return null;
       return withLoading(() =>
-        systems.createGame({ account, mode })
+        systems.createGame({ account, mode, ...options })
       );
     },
     [account, systems, withLoading]
@@ -92,12 +92,23 @@ export function useActions(provider: DojoProvider | null, account: Account | nul
     [account, systems, withLoading]
   );
 
+  const previewValidation = useCallback(
+    async (configInput: GameCreateOptions["configInput"]) => {
+      if (!systems || !configInput) return null;
+      return withLoading(() =>
+        systems.previewValidation({ configInput })
+      );
+    },
+    [systems, withLoading]
+  );
+
   return {
     build,
     discard,
     surrender,
     spawn,
     claim,
+    previewValidation,
     loading: state.loading,
     error: state.error,
   };

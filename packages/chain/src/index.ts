@@ -10,6 +10,9 @@ export type { ChainClient, SyncOptions, WorldClient, BurnerManagerLike } from ".
 export { createSystems } from "./contracts";
 export type {
   BuildParams,
+  ModeTypeValue,
+  CreateGameParams,
+  PreviewValidationParams,
   GameParams,
   ClaimParams,
   SponsorParams,

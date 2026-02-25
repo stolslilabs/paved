@@ -16,6 +16,9 @@ export class Game {
   public seed: string;
   public mode: Mode;
   public tournament_id: bigint;
+  public entry_multiplier_fp: number;
+  public entry_supply_snapshot: bigint;
+  public entry_target_snapshot: bigint;
 
   constructor(game: ComponentValue) {
     this.id = game.id;
@@ -30,6 +33,20 @@ export class Game {
     this.seed = game.seed.toString(16);
     this.mode = Mode.from(game.mode);
     this.tournament_id = BigInt(game.tournament_id);
+    this.entry_multiplier_fp =
+      typeof (game as any).entry_multiplier_fp === "number"
+        ? (game as any).entry_multiplier_fp
+        : 1_000_000;
+    this.entry_supply_snapshot = BigInt(
+      typeof (game as any).entry_supply_snapshot !== "undefined"
+        ? (game as any).entry_supply_snapshot
+        : 0,
+    );
+    this.entry_target_snapshot = BigInt(
+      typeof (game as any).entry_target_snapshot !== "undefined"
+        ? (game as any).entry_target_snapshot
+        : 0,
+    );
   }
 
   public isOver(): boolean {

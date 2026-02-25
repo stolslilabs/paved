@@ -2,11 +2,17 @@ tag = "paved-Tutorial"
 writes = [
     "paved-Player",
     "paved-Game",
+    "paved-GameConfigSnapshot",
+    "paved-GameConfigTemplate",
+    "paved-EntrySettlement",
     "paved-Builder",
     "paved-Char",
     "paved-CharPosition",
     "paved-Tile",
     "paved-TilePosition",
     "paved-Tournament",
+    "paved-ConfigPolicy",
+    "paved-EconomyConfig",
+    "paved-EconomyState",
 ]
 init_calldata = []

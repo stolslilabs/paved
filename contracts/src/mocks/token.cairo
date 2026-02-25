@@ -8,10 +8,13 @@
 /// set in the constructor.
 
 pub use paved::mocks::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
+use starknet::ContractAddress;
 
 #[starknet::interface]
 pub trait IERC20Faucet<TState> {
     fn mint(ref self: TState);
+    fn mint_to(ref self: TState, recipient: ContractAddress, amount: u256) -> bool;
+    fn burn(ref self: TState, amount: u256) -> bool;
 }
 
 #[dojo::contract]
@@ -51,5 +54,17 @@ pub mod Token {
     #[external(v0)]
     fn mint(ref self: ContractState) {
         self.erc20._mint(get_caller_address(), FAUCET_AMOUNT);
+    }
+
+    #[external(v0)]
+    fn mint_to(ref self: ContractState, recipient: ContractAddress, amount: u256) -> bool {
+        self.erc20._mint(recipient, amount);
+        true
+    }
+
+    #[external(v0)]
+    fn burn(ref self: ContractState, amount: u256) -> bool {
+        self.erc20._burn(get_caller_address(), amount);
+        true
     }
 }

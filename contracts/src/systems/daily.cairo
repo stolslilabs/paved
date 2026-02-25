@@ -108,25 +108,31 @@ pub mod Daily {
     impl DailyImpl of IDaily<ContractState> {
         fn spawn(self: @ContractState) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, amount) = self.hostable.spawn(self.world(@"paved").dispatcher, Mode::Daily);
-            // [Interaction] Pay entry price
+            let (game_id, amount, team_amount, burn_amount) = self
+                .hostable
+                .spawn(self.world(@"paved").dispatcher, Mode::Daily);
+            // [Interaction] Pay entry price with split settlement
             let caller = get_caller_address();
-            self.payable.pay(caller, amount);
+            self.payable.pay_split(caller, amount, team_amount, burn_amount);
             // [Return] Game ID
             game_id
         }
 
         fn claim(self: @ContractState, tournament_id: u64, rank: u8) {
             // [Effect] Create game
-            let reward = self.hostable.claim(self.world(@"paved").dispatcher, tournament_id, rank, Mode::Daily);
-            // [Interaction] Pay entry price
+            let reward = self
+                .hostable
+                .claim(self.world(@"paved").dispatcher, tournament_id, rank, Mode::Daily);
+            // [Interaction] Mint reward amount
             let caller = get_caller_address();
-            self.payable.refund(caller, reward);
+            self.payable.mint(caller, reward);
         }
 
         fn sponsor(self: @ContractState, amount: felt252) {
             // [Effect] Create game
-            let amount = self.hostable.sponsor(self.world(@"paved").dispatcher, amount, Mode::Daily);
+            let amount = self
+                .hostable
+                .sponsor(self.world(@"paved").dispatcher, amount, Mode::Daily);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.pay(caller, amount);
@@ -152,7 +158,9 @@ pub mod Daily {
             spot: Spot,
         ) {
             // [Effect] Build a tile
-            self.playable.build(self.world(@"paved").dispatcher, game_id, orientation, x, y, role, spot);
+            self
+                .playable
+                .build(self.world(@"paved").dispatcher, game_id, orientation, x, y, role, spot);
         }
     }
 }

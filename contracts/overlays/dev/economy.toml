@@ -1,0 +1,6 @@
+tag = "paved-Economy"
+writes = [
+    "paved-EconomyConfig",
+    "paved-EconomyState",
+]
+init_calldata = []

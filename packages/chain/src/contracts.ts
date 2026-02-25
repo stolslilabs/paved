@@ -1,11 +1,13 @@
 import type { Account } from "starknet";
 import { DojoProvider } from "@dojoengine/core";
-import { ModeType } from "@paved/game-core";
+import type { GameConfigInput } from "@paved/game-core";
 import { CairoCustomEnum } from "starknet";
+
+export type ModeTypeValue = "none" | "daily" | "weekly" | "tutorial";
 
 export interface BuildParams {
   account: Account;
-  mode: ModeType;
+  mode: ModeTypeValue;
   gameId: number;
   tileId: number;
   orientation: number;
@@ -15,14 +17,22 @@ export interface BuildParams {
   spot: number;
 }
 
-export interface GameParams {
+export interface CreateGameParams {
   account: Account;
-  mode: ModeType;
+  mode?: ModeTypeValue;
+  templateId?: number;
+  configInput?: GameConfigInput;
 }
+
+export interface PreviewValidationParams {
+  configInput: GameConfigInput;
+}
+
+export type GameParams = CreateGameParams;
 
 export interface ClaimParams {
   account: Account;
-  mode: ModeType;
+  mode: ModeTypeValue;
   tournamentId: number;
   rank: number;
 }
@@ -34,13 +44,13 @@ export interface SponsorParams {
 
 export interface DiscardParams {
   account: Account;
-  mode: ModeType;
+  mode: ModeTypeValue;
   gameId: number;
 }
 
 export interface SurrenderParams {
   account: Account;
-  mode: ModeType;
+  mode: ModeTypeValue;
   gameId: number;
 }
 
@@ -52,13 +62,41 @@ export interface CreatePlayerParams {
 
 type TxResult = { transaction_hash: string };
 
-function getContractName(mode: ModeType): string {
+function getContractName(mode: ModeTypeValue): string {
   switch (mode) {
-    case ModeType.Daily: return "Daily";
-    case ModeType.Weekly: return "Weekly";
-    case ModeType.Tutorial: return "Tutorial";
+    case "daily": return "Daily";
+    case "weekly": return "Weekly";
+    case "tutorial": return "Tutorial";
     default: return "Daily";
   }
+}
+
+function modeToU8(mode: ModeTypeValue): number {
+  switch (mode) {
+    case "daily": return 1;
+    case "weekly": return 2;
+    case "tutorial": return 3;
+    default: return 0;
+  }
+}
+
+function toBoolFelt(value: boolean): number {
+  return value ? 1 : 0;
+}
+
+function toConfigCalldata(config: GameConfigInput): Array<string | number | bigint> {
+  return [
+    modeToU8(config.mode),
+    config.deckId,
+    config.entryPrice,
+    config.durationSeconds,
+    config.tileLimit,
+    toBoolFelt(config.allowDiscard),
+    toBoolFelt(config.allowSurrender),
+    toBoolFelt(config.privateGame),
+    config.accessRoot,
+    config.metadataUriHash,
+  ];
 }
 
 function createOrientationEnum(value: number): CairoCustomEnum {
@@ -132,16 +170,51 @@ export function createSystems(provider: DojoProvider, manifest?: any) {
       ]);
     },
 
-    async createGame(params: GameParams): Promise<TxResult> {
-      const ns = getContractName(params.mode);
+    async createGame(params: CreateGameParams): Promise<TxResult> {
+      const configurableAddr = manifest
+        ? getContractAddress(manifest, "paved", "Configurable")
+        : undefined;
+
+      if (params.templateId !== undefined || params.configInput) {
+        const calls: Array<{ contractName: string; entrypoint: string; calldata: any[] }> = [];
+        if (configurableAddr) {
+          calls.push({
+            contractName: "Token",
+            entrypoint: "approve",
+            calldata: [configurableAddr, `0x${(1e18).toString(16)}`],
+          });
+        }
+
+        if (params.templateId !== undefined) {
+          calls.push({
+            contractName: "Configurable",
+            entrypoint: "create_with_template",
+            calldata: [params.templateId],
+          });
+          return calls.length === 1
+            ? execute(params.account, "Configurable", "create_with_template", [params.templateId])
+            : executeMulti(params.account, calls);
+        }
+
+        const calldata = toConfigCalldata(params.configInput!);
+        calls.push({
+          contractName: "Configurable",
+          entrypoint: "create_with_config",
+          calldata,
+        });
+        return calls.length === 1
+          ? execute(params.account, "Configurable", "create_with_config", calldata)
+          : executeMulti(params.account, calls);
+      }
+
+      const mode = params.mode ?? "daily";
+      const ns = getContractName(mode);
       const contractAddr = manifest ? getContractAddress(manifest, "paved", ns) : undefined;
 
-      // Tutorial mode is free, no approve needed
-      if (params.mode === ModeType.Tutorial || !contractAddr) {
+      if (mode === "tutorial" || !contractAddr) {
         return execute(params.account, ns, "spawn", []);
       }
 
-      // Multicall: Token.approve(contractAddr, 1e18) + spawn
       return executeMulti(params.account, [
         {
           contractName: "Token",
@@ -183,6 +256,19 @@ export function createSystems(provider: DojoProvider, manifest?: any) {
 
     async sponsor(params: SponsorParams): Promise<TxResult> {
       return execute(params.account, "Daily", "sponsor", [params.amount]);
+    },
+
+    async previewValidation(params: PreviewValidationParams): Promise<number> {
+      const result = await provider.call("paved", {
+        contractName: "Configurable",
+        entrypoint: "preview_validation",
+        calldata: toConfigCalldata(params.configInput),
+      });
+      if (Array.isArray(result) && result.length > 0) return Number(result[0]);
+      if (typeof result === "bigint") return Number(result);
+      if (typeof result === "string") return Number(result);
+      if (typeof result === "number") return result;
+      return 1;
     },
   };
 }

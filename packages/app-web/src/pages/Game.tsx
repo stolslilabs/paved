@@ -30,6 +30,7 @@ import { buildCharQuery, toRenderCharacters } from "../utils/char-helpers";
 import { toriiQuery, padAddress, parseToriiBool } from "../utils/torii";
 import { parseGameParams } from "../utils/game-params";
 import { modeTypeFromParam, resolveRuntimeMode } from "../utils/mode-routing";
+import { resolveCreateOptions } from "../utils/create-options";
 
 /** Game board center coordinate (0x7FFFFFFF) */
 const CENTER = 2147483647;
@@ -155,6 +156,7 @@ export function GamePage() {
   const [optimisticCharacters, setOptimisticCharacters] = useState<CharacterRenderData[]>([]);
   const [cameraMode, setCameraMode] = useState<CameraMode>("play");
   const [spawning, setSpawning] = useState(false);
+  const [spawnConfigError, setSpawnConfigError] = useState<string | null>(null);
   const spawnAttempted = useRef(false);
   const spawningRef = useRef(false); // mirror of spawning state for poll guard
   const tileRowsRef = useRef<any[]>([]); // raw Torii tile rows (includes unplaced tiles)
@@ -274,10 +276,21 @@ export function GamePage() {
       }
 
       // No active game found, spawn one
+      const createResolution = resolveCreateOptions(
+        resolvedMode,
+        searchParams,
+        import.meta.env.VITE_CONFIG_CREATE_V1 === "true",
+      );
+      if (Object.keys(createResolution.fieldErrors).length > 0) {
+        setSpawnConfigError(Object.values(createResolution.fieldErrors).filter(Boolean).join(" "));
+        return;
+      }
+      setSpawnConfigError(null);
+
       setSpawning(true);
       spawningRef.current = true;
       try {
-        const result = await spawn(resolvedMode);
+        const result = await spawn(resolvedMode, createResolution.options);
         console.log("Game spawned:", result);
 
         // Wait for Torii to index the new game before hiding "Spawning..." screen
@@ -307,7 +320,7 @@ export function GamePage() {
     };
 
     checkAndSpawn();
-  }, [account, client, provider, spawn, gameParams.gameId, gameParams.readonly, resolvedMode]);
+  }, [account, client, provider, spawn, gameParams.gameId, gameParams.readonly, resolvedMode, searchParams]);
 
   // Poll Torii for game + builder + tiles state
   useEffect(() => {
@@ -639,6 +652,26 @@ export function GamePage() {
 
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      {spawnConfigError && (
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 20,
+            background: "rgba(127,29,29,0.9)",
+            color: "#fee2e2",
+            border: "1px solid rgba(248,113,113,0.8)",
+            borderRadius: 8,
+            padding: "8px 12px",
+            fontSize: 12,
+            maxWidth: 520,
+          }}
+        >
+          {spawnConfigError}
+        </div>
+      )}
       <GameCanvas
         basePath=""
         tiles={tiles}
