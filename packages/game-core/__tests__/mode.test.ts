@@ -13,8 +13,8 @@ describe("Mode", () => {
       expect(daily.count()).toBe(38);
     });
 
-    it("price is 0", () => {
-      expect(daily.price()).toBe(BigInt(0));
+    it("price is 1e18", () => {
+      expect(daily.price()).toBe(BigInt("1000000000000000000"));
     });
   });
 
@@ -41,8 +41,8 @@ describe("Mode", () => {
       expect(tutorial.duration()).toBe(1);
     });
 
-    it("count is 9", () => {
-      expect(tutorial.count()).toBe(9);
+    it("count is 10", () => {
+      expect(tutorial.count()).toBe(10);
     });
 
     it("price is 0", () => {

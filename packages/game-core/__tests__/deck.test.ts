@@ -62,12 +62,12 @@ describe("Base deck", () => {
 
 describe("Tutorial deck", () => {
   it("has correct structure", () => {
-    expect(Tutorial.total_count()).toBe(9);
-    expect(Tutorial.count()).toBe(9);
+    expect(Tutorial.total_count()).toBe(10);
+    expect(Tutorial.count()).toBe(10);
   });
 
-  it("plan(i) returns valid PlanType for indices 0-8", () => {
-    for (let i = 0; i < 9; i++) {
+  it("plan(i) returns valid PlanType for indices 0-9", () => {
+    for (let i = 0; i < 10; i++) {
       const plan = Tutorial.plan(i);
       expect(Object.values(PlanType)).toContain(plan);
       expect(plan).not.toBe(PlanType.None);
@@ -75,16 +75,16 @@ describe("Tutorial deck", () => {
   });
 
   it("wraps with modulo", () => {
-    expect(Tutorial.plan(9)).toBe(Tutorial.plan(0));
-    expect(Tutorial.plan(10)).toBe(Tutorial.plan(1));
+    expect(Tutorial.plan(10)).toBe(Tutorial.plan(0));
+    expect(Tutorial.plan(11)).toBe(Tutorial.plan(1));
   });
 
   it("first plan is RFFFRFCFR", () => {
     expect(Tutorial.plan(0)).toBe(PlanType.RFFFRFCFR);
   });
 
-  it("parameters returns valid data for indices 1-8", () => {
-    for (let i = 1; i <= 8; i++) {
+  it("parameters returns valid data for indices 1-9", () => {
+    for (let i = 1; i <= 9; i++) {
       const params = Tutorial.parameters(i);
       expect(params).toHaveProperty("orientation");
       expect(params).toHaveProperty("x");
@@ -92,5 +92,9 @@ describe("Tutorial deck", () => {
       expect(params).toHaveProperty("role");
       expect(params).toHaveProperty("spot");
     }
+  });
+
+  it("includes CCCCCCCCC at index 8", () => {
+    expect(Tutorial.plan(8)).toBe(PlanType.CCCCCCCCC);
   });
 });

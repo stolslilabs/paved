@@ -13,6 +13,7 @@ import { usePlayerGames } from "../hooks/usePlayerGames";
 import { useTournaments } from "../hooks/useTournaments";
 import { useLeaderboard } from "../hooks/useLeaderboard";
 import { formatTimeRemaining, formatEntryFee } from "../utils/landing-helpers";
+import { buildGameRoute } from "../utils/mode-routing";
 
 const MODE_LIST: ModeType[] = [ModeType.Daily, ModeType.Weekly, ModeType.Tutorial];
 
@@ -125,7 +126,7 @@ export function LandingPage() {
     if (!selectedMode) return;
     const activeGame = activeGames.find((g) => g.mode === selectedMode);
     if (activeGame) {
-      navigate(`/game?id=${activeGame.gameId}`);
+      navigate(buildGameRoute({ gameId: activeGame.gameId, mode: activeGame.mode }));
     } else {
       navigate(`/game?mode=${selectedMode}`);
     }
@@ -140,7 +141,7 @@ export function LandingPage() {
     tilesPlaced: g.tilesPlaced,
     totalTiles: g.totalTiles,
     isOver: g.isOver,
-    onEnter: () => navigate(`/game?id=${g.gameId}`),
+    onEnter: () => navigate(buildGameRoute({ gameId: g.gameId, mode: g.mode })),
   }));
 
   const completedGameItems: GameListItemProps[] = completedGames.map((g) => ({
@@ -150,7 +151,7 @@ export function LandingPage() {
     tilesPlaced: g.tilesPlaced,
     totalTiles: g.totalTiles,
     isOver: g.isOver,
-    onEnter: () => navigate(`/game?id=${g.gameId}&readonly=true`),
+    onEnter: () => navigate(buildGameRoute({ gameId: g.gameId, mode: g.mode, readonly: true })),
   }));
 
   // Find the selected mode card data for the dialog

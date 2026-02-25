@@ -28,7 +28,8 @@ import { findNextTile, shouldPollUpdateBuilder, shouldShowSpotSelector, spotKeyT
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { buildCharQuery, toRenderCharacters } from "../utils/char-helpers";
 import { toriiQuery, padAddress, parseToriiBool } from "../utils/torii";
-import { parseGameParams, modeToContractName } from "../utils/game-params";
+import { parseGameParams } from "../utils/game-params";
+import { modeTypeFromParam, resolveRuntimeMode } from "../utils/mode-routing";
 
 /** Game board center coordinate (0x7FFFFFFF) */
 const CENTER = 2147483647;
@@ -127,8 +128,11 @@ export function GamePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const gameParams = parseGameParams(searchParams);
-  const modeType = gameParams.mode as ModeType;
-  const contractName = modeToContractName(gameParams.mode);
+  const [resolvedMode, setResolvedMode] = useState<ModeType>(() => modeTypeFromParam(gameParams.mode));
+
+  useEffect(() => {
+    setResolvedMode(modeTypeFromParam(gameParams.mode));
+  }, [gameParams.mode]);
 
   const [scene, setScene] = useState<GameScene | null>(null);
   const { account, provider, client } = useDojo();
@@ -180,7 +184,7 @@ export function GamePage() {
       const url = client.config.toriiUrl;
       try {
         const games = await toriiQuery(url,
-          `SELECT id, over, built, discarded, tile_count, score FROM [paved-Game] WHERE id = ${targetGameId}`
+          `SELECT id, over, built, discarded, tile_count, score, mode FROM [paved-Game] WHERE id = ${targetGameId}`
         );
         if (games.length > 0) {
           console.log("[Score debug] loadGameById game row:", games[0]);
@@ -192,6 +196,7 @@ export function GamePage() {
             tile_count: Number(games[0].tile_count),
             score: Number(games[0].score),
           });
+          setResolvedMode((prev) => resolveRuntimeMode(prev, games[0].mode));
           const tileRows = await toriiQuery(url,
             `SELECT * FROM [paved-Tile] WHERE game_id = ${targetGameId}`
           );
@@ -236,7 +241,7 @@ export function GamePage() {
         if (builders.length > 0) {
           oldGameId = Number(builders[0].game_id);
           const games = await toriiQuery(url,
-            `SELECT id, over, built, discarded, tile_count, score FROM [paved-Game] WHERE id = ${oldGameId}`
+            `SELECT id, over, built, discarded, tile_count, score, mode FROM [paved-Game] WHERE id = ${oldGameId}`
           );
           if (games.length > 0 && !parseToriiBool(games[0].over)) {
             activeGameIdRef.current = oldGameId;
@@ -248,6 +253,7 @@ export function GamePage() {
               tile_count: Number(games[0].tile_count),
               score: Number(games[0].score),
             });
+            setResolvedMode((prev) => resolveRuntimeMode(prev, games[0].mode));
             // Get plan for builder's current tile
             const tileId = Number(builders[0].tile_id);
             const tileRows = await toriiQuery(url,
@@ -271,21 +277,7 @@ export function GamePage() {
       setSpawning(true);
       spawningRef.current = true;
       try {
-        const contractTag = `paved-${contractName}`;
-        const contractAddr = client.config.manifest?.contracts?.find((c: any) => c.tag === contractTag)?.address;
-        console.log(`Spawning ${contractName} game. ${contractName} contract:`, contractAddr);
-        const result = await provider.execute(
-          account as any,
-          [
-            {
-              contractName: "Token",
-              entrypoint: "approve",
-              calldata: [contractAddr, `0x${(1e18).toString(16)}`],
-            },
-            { contractName, entrypoint: "spawn", calldata: [] },
-          ],
-          "paved",
-        );
+        const result = await spawn(resolvedMode);
         console.log("Game spawned:", result);
 
         // Wait for Torii to index the new game before hiding "Spawning..." screen
@@ -315,7 +307,7 @@ export function GamePage() {
     };
 
     checkAndSpawn();
-  }, [account, client, provider, spawn, gameParams.gameId, gameParams.readonly, contractName]);
+  }, [account, client, provider, spawn, gameParams.gameId, gameParams.readonly, resolvedMode]);
 
   // Poll Torii for game + builder + tiles state
   useEffect(() => {
@@ -544,7 +536,7 @@ export function GamePage() {
     }
 
     const result = await build({
-      mode: modeType,
+      mode: resolvedMode,
       gameId: gameState.id,
       tileId: builderState.tile_id,
       orientation,
@@ -562,13 +554,13 @@ export function GamePage() {
     if (!result) {
       setOptimisticTiles(prev => prev.filter(t => t.id !== builderState.tile_id));
     }
-  }, [build, gameState, builderState, orientation, x, y, character, spot, account]);
+  }, [build, gameState, builderState, orientation, x, y, character, spot, account, resolvedMode]);
 
   const handleDiscard = useCallback(async () => {
     if (!gameState) return;
-    const result = await discard(modeType, gameState.id);
+    const result = await discard(resolvedMode, gameState.id);
     console.log("Discard result:", result);
-  }, [discard, gameState]);
+  }, [discard, gameState, resolvedMode]);
 
   // Stable refs for keyboard hotkeys — avoids re-registering listener on every state change
   const hotkeys = useRef({

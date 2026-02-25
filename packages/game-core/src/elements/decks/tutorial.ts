@@ -5,11 +5,11 @@ import { OrientationType } from "../../types/orientation";
 
 export class Tutorial {
   public static total_count(): number {
-    return 9;
+    return 10;
   }
 
   public static count(): number {
-    return 9;
+    return 10;
   }
 
   public static plan(index: number): PlanType {
@@ -32,6 +32,8 @@ export class Tutorial {
       case 7:
         return PlanType.RFFFRFFFR;
       case 8:
+        return PlanType.CCCCCCCCC;
+      case 9:
         return PlanType.SFRFRFFFR;
       default:
         return PlanType.None;

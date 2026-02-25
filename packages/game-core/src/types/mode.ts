@@ -50,7 +50,7 @@ export class Mode {
   public price(): bigint {
     switch (this.value) {
       case ModeType.Daily:
-        return BigInt(0);
+        return BigInt("1000000000000000000");
       case ModeType.Weekly:
         return BigInt("1000000000000000000");
       case ModeType.Tutorial:
@@ -67,7 +67,7 @@ export class Mode {
       case ModeType.Weekly:
         return 72;
       case ModeType.Tutorial:
-        return 9;
+        return 10;
       case ModeType.None:
         return 0;
     }
