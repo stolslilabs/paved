@@ -1,9 +1,12 @@
 use paved::constants;
+use paved::mocks::token::{IERC20FaucetDispatcher, IERC20FaucetDispatcherTrait};
 use paved::store::{StoreTrait};
 use paved::models::tournament::{TournamentTrait};
 use paved::types::mode::Mode;
 use paved::tests::setup::{setup, setup::{IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER},};
-use snforge_std::start_cheat_block_timestamp_global;
+use snforge_std::{
+    start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address
+};
 
 #[test]
 fn test_economy_spawn_locks_snapshot_once() {
@@ -87,4 +90,22 @@ fn test_economy_oversupply_snapshot_zero_multiplier_results_in_zero_mint() {
     let balance_after = context.token.balance_of(PLAYER());
 
     assert(balance_after == balance_before, 'Economy: zero mint');
+}
+
+#[test]
+fn test_economy_faucet_mint_updates_supply_snapshot() {
+    let (world, _, context) = setup::spawn_game(Mode::None);
+    let store = StoreTrait::new(world);
+    let faucet = IERC20FaucetDispatcher { contract_address: context.token.contract_address };
+    let state_before = store.economy_state();
+
+    start_cheat_caller_address(context.token.contract_address, PLAYER());
+    faucet.mint();
+    stop_cheat_caller_address(context.token.contract_address);
+
+    let state_after = store.economy_state();
+    assert(state_after.last_supply != state_before.last_supply, 'Economy: faucet updates supply');
+    assert(
+        state_after.total_minted != state_before.total_minted, 'Economy: faucet tracks minted'
+    );
 }

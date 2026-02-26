@@ -19,6 +19,8 @@ pub trait IERC20Faucet<TState> {
 
 #[dojo::contract]
 pub mod Token {
+    use core::traits::TryInto;
+    use paved::store::{Store, StoreImpl};
     use paved::mocks::erc20::erc20::ERC20Component;
     use starknet::{ContractAddress, get_caller_address};
     pub const FAUCET_AMOUNT: u256 = 1_000_000_000_000_000_000_000_000; // 1E6 * 1E18
@@ -54,17 +56,50 @@ pub mod Token {
     #[external(v0)]
     fn mint(ref self: ContractState) {
         self.erc20._mint(get_caller_address(), FAUCET_AMOUNT);
+        self.record_mint(FAUCET_AMOUNT);
     }
 
     #[external(v0)]
     fn mint_to(ref self: ContractState, recipient: ContractAddress, amount: u256) -> bool {
         self.erc20._mint(recipient, amount);
+        self.record_mint(amount);
         true
     }
 
     #[external(v0)]
     fn burn(ref self: ContractState, amount: u256) -> bool {
         self.erc20._burn(get_caller_address(), amount);
+        self.record_burn(amount);
         true
+    }
+
+    #[generate_trait]
+    impl EconomyStateMirrorImpl of EconomyStateMirrorTrait {
+        fn record_mint(ref self: ContractState, amount: u256) {
+            let store: Store = StoreImpl::new(self.world(@"paved").dispatcher);
+            let mut state = store.economy_state();
+            let amount_felt: felt252 = amount.try_into().unwrap();
+            state.last_supply += amount_felt;
+            state.total_minted += amount_felt;
+            store.set_economy_state(state);
+        }
+
+        fn record_burn(ref self: ContractState, amount: u256) {
+            let store: Store = StoreImpl::new(self.world(@"paved").dispatcher);
+            let mut state = store.economy_state();
+
+            let amount_felt: felt252 = amount.try_into().unwrap();
+            state.total_burned += amount_felt;
+
+            let supply_u256: u256 = state.last_supply.try_into().unwrap();
+            let remaining = if amount > supply_u256 {
+                0_u256
+            } else {
+                supply_u256 - amount
+            };
+            state.last_supply = remaining.try_into().unwrap();
+
+            store.set_economy_state(state);
+        }
     }
 }

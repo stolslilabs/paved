@@ -1,4 +1,5 @@
 import { feltToString, parseToriiBool } from "./torii";
+import { buildRewardPreview } from "./economy-ui";
 
 export interface PlayerGame {
   gameId: number;
@@ -19,6 +20,12 @@ export interface LeaderboardEntry {
 export interface TournamentInfo {
   prizePool: string;
   topPlayers: { name: string; score: number }[];
+  rewardPreview: Array<{
+    rank: number;
+    baseLabel: string;
+    multiplierLabel: string;
+    adjustedLabel: string;
+  }>;
 }
 
 const MODE_MAP: Record<string, string> = {
@@ -79,9 +86,28 @@ export function parseTournamentRow(
     topPlayers.push({ name: playerNames[row.top3_player_id] || "Unknown", score: Number(row.top3_score) });
   }
 
+  const hasTop2 = BigInt(row.top2_player_id ?? 0) !== 0n;
+  const hasTop3 = BigInt(row.top3_player_id ?? 0) !== 0n;
+  const reward3 = hasTop3 ? prizeEth / 6 : 0;
+  const reward2 = hasTop2 ? (prizeEth - reward3) / 3 : 0;
+  const reward1 = prizeEth - reward2 - reward3;
+
+  const rewardPreview = [
+    { rank: 1, baseReward: reward1, multiplierFp: Number(row.top1_multiplier_fp ?? 1_000_000) },
+    { rank: 2, baseReward: reward2, multiplierFp: Number(row.top2_multiplier_fp ?? 1_000_000) },
+    { rank: 3, baseReward: reward3, multiplierFp: Number(row.top3_multiplier_fp ?? 1_000_000) },
+  ].map((entry) => ({
+    rank: entry.rank,
+    ...buildRewardPreview({
+      baseReward: entry.baseReward,
+      multiplierFp: entry.multiplierFp,
+    }),
+  }));
+
   return {
     prizePool: prizeEth % 1 === 0 ? String(prizeEth) : String(prizeEth),
     topPlayers,
+    rewardPreview,
   };
 }
 

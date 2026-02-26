@@ -95,4 +95,57 @@ describe("createSystems.createGame", () => {
       calldata: [1, 2, 1000n, 86400, 38, 1, 0, 0, 0, 123],
     });
   });
+
+  test("routes token mint through Token.mint", async () => {
+    const provider = createProvider();
+    const systems = createSystems(provider, manifest);
+
+    await systems.mintToken({ account: {} as any });
+
+    expect(provider.execute).toHaveBeenCalledTimes(1);
+    const [, call, namespace] = provider.execute.mock.calls[0];
+    expect(namespace).toBe("paved");
+    expect(call).toEqual({
+      contractName: "Token",
+      entrypoint: "mint",
+      calldata: [],
+    });
+  });
+
+  test("parses economy preview multiplier tuple from array-shaped call result", async () => {
+    const provider = createProvider();
+    provider.call = vi.fn(async () => ["420", "500", "1250000"]);
+    const systems = createSystems(provider, manifest);
+
+    const result = await systems.previewEconomyMultiplier({ time: 100 });
+
+    expect(provider.call).toHaveBeenCalledWith("paved", {
+      contractName: "Economy",
+      entrypoint: "preview_multiplier",
+      calldata: [100],
+    });
+    expect(result).toEqual({
+      supply: "420",
+      target: "500",
+      multiplierFp: 1250000,
+    });
+  });
+
+  test("parses economy preview multiplier tuple from object-shaped call result", async () => {
+    const provider = createProvider();
+    provider.call = vi.fn(async () => ({
+      supply: "700",
+      target: "900",
+      multiplier_fp: "800000",
+    }));
+    const systems = createSystems(provider, manifest);
+
+    const result = await systems.previewEconomyMultiplier({ time: 100 });
+
+    expect(result).toEqual({
+      supply: "700",
+      target: "900",
+      multiplierFp: 800000,
+    });
+  });
 });

@@ -16,6 +16,9 @@ function makeGameData(overrides: Partial<GameData> = {}): GameData {
     seed: 12345,
     mode: 1, // Daily
     tournament_id: 42,
+    entry_multiplier_fp: 1000000,
+    entry_supply_snapshot: 1000000000000000000n,
+    entry_target_snapshot: 2000000000000000000n,
     ...overrides,
   };
 }
@@ -52,6 +55,18 @@ describe("Game", () => {
     it("converts tiles to bigint", () => {
       const game = new Game(makeGameData({ tiles: "123456789" }));
       expect(game.tiles).toBe(123456789n);
+    });
+
+    it("stores entry economy snapshot fields", () => {
+      const game = new Game(makeGameData({
+        entry_multiplier_fp: 1250000,
+        entry_supply_snapshot: 4200000000000000000n,
+        entry_target_snapshot: 5000000000000000000n,
+      } as any));
+
+      expect((game as any).entry_multiplier_fp).toBe(1250000);
+      expect((game as any).entry_supply_snapshot).toBe("4200000000000000000");
+      expect((game as any).entry_target_snapshot).toBe("5000000000000000000");
     });
 
     it("mode is set from index", () => {

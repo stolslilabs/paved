@@ -99,3 +99,10 @@ export {
   getCharacterKey,
   getCharacterPath,
 } from "./asset-keys";
+
+// Economy helpers
+export {
+  FP_SCALE_DEFAULT,
+  fpToMultiplier,
+  computeAdjustedReward,
+} from "./economy";

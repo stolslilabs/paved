@@ -18,6 +18,7 @@ pub mod setup {
     use paved::mocks::token::{
         IERC20Dispatcher, IERC20FaucetDispatcher, IERC20FaucetDispatcherTrait, Token
     };
+    use paved::store::{StoreTrait};
     use paved::models::game::{Game, GameImpl};
     use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
     use paved::systems::economy::{IEconomyDispatcher, IEconomyDispatcherTrait};
@@ -171,6 +172,7 @@ pub mod setup {
         // [Setup] Permissions
         dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), account_address);
         dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), economy_address);
+        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), token_address);
         dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), configurable_address);
         dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), tutorial_address);
         dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), daily_address);
@@ -241,6 +243,16 @@ pub mod setup {
         systems.account.create(PLAYER_NAME, PLAYER());
         stop_cheat_caller_address(account_address);
         let duration: u64 = 0;
+
+        // Keep test fixtures deterministic: faucet pre-funding is for allowances only.
+        // Individual tests that need supply effects should mint explicitly.
+        let store = StoreTrait::new(dispatcher);
+        let mut economy_state = store.economy_state();
+        economy_state.last_supply = 0;
+        economy_state.total_minted = 0;
+        economy_state.total_burned = 0;
+        economy_state.total_team_alloc = 0;
+        store.set_economy_state(economy_state);
 
         // [Setup] Keep player as caller for game interactions
         start_cheat_caller_address(daily_address, PLAYER());

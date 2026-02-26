@@ -94,6 +94,9 @@ describe("parseTournamentRow", () => {
       top2_score: "600",
       top3_player_id: "0x3",
       top3_score: "400",
+      top1_multiplier_fp: "1250000",
+      top2_multiplier_fp: "1000000",
+      top3_multiplier_fp: "900000",
     };
     const playerNames: Record<string, string> = {
       "0x1": "Alice",
@@ -106,6 +109,11 @@ describe("parseTournamentRow", () => {
       { name: "Alice", score: 800 },
       { name: "Bob", score: 600 },
       { name: "Charlie", score: 400 },
+    ]);
+    expect(result.rewardPreview).toEqual([
+      { rank: 1, baseLabel: "2.78", multiplierLabel: "1.25x", adjustedLabel: "3.47" },
+      { rank: 2, baseLabel: "1.39", multiplierLabel: "1x", adjustedLabel: "1.39" },
+      { rank: 3, baseLabel: "0.83", multiplierLabel: "0.9x", adjustedLabel: "0.75" },
     ]);
   });
 });

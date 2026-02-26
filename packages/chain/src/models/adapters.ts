@@ -22,6 +22,9 @@ export function toGame(raw: Record<string, any>): Game {
     seed: raw.seed ?? 0n,
     mode: Number(raw.mode ?? 0),
     tournament_id: raw.tournament_id ?? 0n,
+    entry_multiplier_fp: Number(raw.entry_multiplier_fp ?? 0),
+    entry_supply_snapshot: raw.entry_supply_snapshot ?? 0n,
+    entry_target_snapshot: raw.entry_target_snapshot ?? 0n,
   };
   return new Game(data);
 }
@@ -84,8 +87,11 @@ export function toTournament(raw: Record<string, any>): Tournament {
     id: Number(raw.id ?? 0),
     prize: raw.prize ?? 0,
     top1_player_id: raw.top1_player_id ?? 0,
+    top1_multiplier_fp: Number(raw.top1_multiplier_fp ?? 1_000_000),
     top2_player_id: raw.top2_player_id ?? 0,
+    top2_multiplier_fp: Number(raw.top2_multiplier_fp ?? 1_000_000),
     top3_player_id: raw.top3_player_id ?? 0,
+    top3_multiplier_fp: Number(raw.top3_multiplier_fp ?? 1_000_000),
     top1_score: Number(raw.top1_score ?? 0),
     top2_score: Number(raw.top2_score ?? 0),
     top3_score: Number(raw.top3_score ?? 0),

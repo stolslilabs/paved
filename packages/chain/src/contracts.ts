@@ -60,7 +60,39 @@ export interface CreatePlayerParams {
   master: string;
 }
 
+export interface MintTokenParams {
+  account: Account;
+}
+
+export interface PreviewEconomyMultiplierParams {
+  time: number;
+}
+
+export interface EconomyPreviewResult {
+  supply: string;
+  target: string;
+  multiplierFp: number;
+}
+
 type TxResult = { transaction_hash: string };
+
+function toStringValue(value: any, fallback = "0"): string {
+  if (value == null) return fallback;
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return value;
+  return fallback;
+}
+
+function readTupleValue(result: any, index: number, keys: string[]): any {
+  if (Array.isArray(result)) return result[index];
+  if (result && typeof result === "object") {
+    for (const key of keys) {
+      if (key in result) return (result as any)[key];
+    }
+  }
+  return undefined;
+}
 
 function getContractName(mode: ModeTypeValue): string {
   switch (mode) {
@@ -258,6 +290,10 @@ export function createSystems(provider: DojoProvider, manifest?: any) {
       return execute(params.account, "Daily", "sponsor", [params.amount]);
     },
 
+    async mintToken(params: MintTokenParams): Promise<TxResult> {
+      return execute(params.account, "Token", "mint", []);
+    },
+
     async previewValidation(params: PreviewValidationParams): Promise<number> {
       const result = await provider.call("paved", {
         contractName: "Configurable",
@@ -269,6 +305,33 @@ export function createSystems(provider: DojoProvider, manifest?: any) {
       if (typeof result === "string") return Number(result);
       if (typeof result === "number") return result;
       return 1;
+    },
+
+    async previewEconomyMultiplier(
+      params: PreviewEconomyMultiplierParams,
+    ): Promise<EconomyPreviewResult> {
+      const result = await provider.call("paved", {
+        contractName: "Economy",
+        entrypoint: "preview_multiplier",
+        calldata: [params.time],
+      });
+
+      const supply = toStringValue(
+        readTupleValue(result, 0, ["supply", "last_supply"]),
+        "0",
+      );
+      const target = toStringValue(
+        readTupleValue(result, 1, ["target", "last_target"]),
+        "0",
+      );
+      const multiplierFp = Number(
+        toStringValue(
+          readTupleValue(result, 2, ["multiplier_fp", "last_multiplier_fp"]),
+          "0",
+        ),
+      );
+
+      return { supply, target, multiplierFp };
     },
   };
 }

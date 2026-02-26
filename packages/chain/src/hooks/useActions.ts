@@ -102,13 +102,28 @@ export function useActions(provider: DojoProvider | null, account: Account | nul
     [systems, withLoading]
   );
 
+  const mintToken = useCallback(async () => {
+    if (!account || !systems) return null;
+    return withLoading(() => systems.mintToken({ account }));
+  }, [account, systems, withLoading]);
+
+  const previewEconomyMultiplier = useCallback(
+    async (time: number) => {
+      if (!systems) return null;
+      return withLoading(() => systems.previewEconomyMultiplier({ time }));
+    },
+    [systems, withLoading],
+  );
+
   return {
     build,
     discard,
     surrender,
     spawn,
     claim,
+    mintToken,
     previewValidation,
+    previewEconomyMultiplier,
     loading: state.loading,
     error: state.error,
   };

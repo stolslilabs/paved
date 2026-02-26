@@ -4,9 +4,10 @@ import {
   LandingScreen,
   ModeDetailDialog,
   ModeDetailDialogStat,
+  TokenPanel,
 } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
-import { useDojo } from "@paved/chain";
+import { useActions, useBalance, useDojo, useEconomyConfig, useEconomyState } from "@paved/chain";
 import { ModeType, Mode, Tournament, validateGameConfigInput } from "@paved/game-core";
 import { feltToString, padAddress, toriiQuery } from "../utils/torii";
 import { usePlayerGames } from "../hooks/usePlayerGames";
@@ -19,6 +20,7 @@ import {
   defaultConfigForMode,
   type CreatePath,
 } from "../utils/create-options";
+import { formatTokenAmount, mapLandingTokenPanel } from "../utils/economy-ui";
 
 const MODE_LIST: ModeType[] = [ModeType.Daily, ModeType.Weekly, ModeType.Tutorial];
 
@@ -54,6 +56,17 @@ export function LandingPage() {
 
   const toriiUrl = client?.config?.toriiUrl ?? null;
   const accountAddress = account?.address ?? null;
+  const { mintToken, loading: mintLoading, error: mintError } = useActions(provider, account, client?.config?.manifest);
+  const { balance } = useBalance(provider, accountAddress);
+  const { config: economyConfig } = useEconomyConfig(provider);
+  const { state: economyState } = useEconomyState(provider);
+  const tokenPanel = mapLandingTokenPanel({
+    balance,
+    supportsMint: Boolean(client?.config?.supportsTokenMint),
+    mintLoading,
+    mintError,
+  });
+  const networkLabel = client?.config?.profileLabel ?? client?.config?.profile ?? "Local";
 
   // Poll Torii for player existence
   useEffect(() => {
@@ -86,14 +99,11 @@ export function LandingPage() {
     try {
       await provider.execute(
         account as any,
-        [
-          { contractName: "Token", entrypoint: "mint", calldata: [] },
-          {
-            contractName: "Account",
-            entrypoint: "create",
-            calldata: ["0x5061766564", account.address],
-          },
-        ],
+        [{
+          contractName: "Account",
+          entrypoint: "create",
+          calldata: ["0x5061766564", account.address],
+        }],
         "paved"
       );
       console.log("Player created");
@@ -107,6 +117,11 @@ export function LandingPage() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleMint = async () => {
+    if (!account) return;
+    await mintToken();
   };
 
   // Build game mode cards
@@ -190,6 +205,11 @@ export function LandingPage() {
 
   // Find the selected mode card data for the dialog
   const selectedModeData = selectedMode ? gameModes.find((m) => m.mode === selectedMode) : null;
+  const selectedTournament = selectedMode === ModeType.Daily
+    ? tournaments.daily
+    : selectedMode === ModeType.Weekly
+      ? tournaments.weekly
+      : null;
 
   useEffect(() => {
     if (!selectedMode) return;
@@ -201,6 +221,40 @@ export function LandingPage() {
 
   return (
     <>
+      <div style={{
+        position: "fixed",
+        right: 16,
+        top: 16,
+        zIndex: 30,
+        width: 320,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}>
+        <TokenPanel
+          networkLabel={networkLabel}
+          balanceLabel={tokenPanel.balanceLabel}
+          supportsMint={tokenPanel.supportsMint}
+          isMinting={tokenPanel.isMinting}
+          error={tokenPanel.error}
+          onMint={handleMint}
+        />
+        {(economyState || economyConfig) && (
+          <div style={{
+            background: "rgba(0, 0, 0, 0.7)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: 10,
+            padding: 10,
+            color: "#f5f5f5",
+            fontSize: 12,
+            lineHeight: 1.5,
+          }}>
+            <div>Economy scale: {economyConfig?.fp_scale ?? 1_000_000}</div>
+            <div>Last supply: {economyState ? formatTokenAmount(economyState.last_supply, 18, 4) : "-"}</div>
+            <div>Last target: {economyState ? formatTokenAmount(economyState.last_target, 18, 4) : "-"}</div>
+          </div>
+        )}
+      </div>
       <LandingScreen
         connected={isReady && !!account}
         playerName={playerName}
@@ -258,6 +312,16 @@ export function LandingPage() {
                   ))}
                 </div>
               )}
+              {selectedTournament?.rewardPreview?.length ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span style={{ color: "#999", fontSize: 12 }}>Payout Preview</span>
+                  {selectedTournament.rewardPreview.map((row) => (
+                    <span key={row.rank} style={{ color: "#f5f5f5", fontSize: 12 }}>
+                      #{row.rank}: {row.baseLabel} * {row.multiplierLabel} = {row.adjustedLabel} ETH
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
                 <label style={{ color: "#999", fontSize: 12 }}>Creation</label>
                 <select
