@@ -44,6 +44,9 @@ export interface Game {
 	seed: BigNumberish;
 	mode: BigNumberish;
 	tournament_id: BigNumberish;
+	entry_multiplier_fp: BigNumberish;
+	entry_supply_snapshot: BigNumberish;
+	entry_target_snapshot: BigNumberish;
 }
 
 // Type definition for `paved::models::index::Player` struct
@@ -78,14 +81,45 @@ export interface Tournament {
 	id: BigNumberish;
 	prize: BigNumberish;
 	top1_player_id: BigNumberish;
+	top1_multiplier_fp: BigNumberish;
 	top2_player_id: BigNumberish;
+	top2_multiplier_fp: BigNumberish;
 	top3_player_id: BigNumberish;
+	top3_multiplier_fp: BigNumberish;
 	top1_score: BigNumberish;
 	top2_score: BigNumberish;
 	top3_score: BigNumberish;
 	top1_claimed: boolean;
 	top2_claimed: boolean;
 	top3_claimed: boolean;
+}
+
+// Type definition for `paved::models::index::EconomyConfig` struct
+export interface EconomyConfig {
+	id: BigNumberish;
+	target_mode: BigNumberish;
+	target_fixed: BigNumberish;
+	target_a: BigNumberish;
+	target_b: BigNumberish;
+	target_t0: BigNumberish;
+	team_bps: BigNumberish;
+	burn_bps: BigNumberish;
+	max_multiplier_fp: BigNumberish;
+	fp_scale: BigNumberish;
+	manual_target_override: boolean;
+	target_override: BigNumberish;
+}
+
+// Type definition for `paved::models::index::EconomyState` struct
+export interface EconomyState {
+	id: BigNumberish;
+	last_snapshot_time: BigNumberish;
+	last_supply: BigNumberish;
+	last_target: BigNumberish;
+	last_multiplier_fp: BigNumberish;
+	total_minted: BigNumberish;
+	total_burned: BigNumberish;
+	total_team_alloc: BigNumberish;
 }
 
 // Type definition for `paved::events::Built` struct
@@ -224,6 +258,8 @@ export interface SchemaType extends ISchemaType {
 		Tile: Tile,
 		TilePosition: TilePosition,
 		Tournament: Tournament,
+		EconomyConfig: EconomyConfig,
+		EconomyState: EconomyState,
 		Built: Built,
 		Discarded: Discarded,
 		GameOver: GameOver,
@@ -272,6 +308,9 @@ export const schema: SchemaType = {
 			seed: 0,
 			mode: 0,
 			tournament_id: 0,
+			entry_multiplier_fp: 0,
+			entry_supply_snapshot: 0,
+			entry_target_snapshot: 0,
 		},
 		Player: {
 			id: 0,
@@ -298,14 +337,41 @@ export const schema: SchemaType = {
 			id: 0,
 			prize: 0,
 			top1_player_id: 0,
+			top1_multiplier_fp: 0,
 			top2_player_id: 0,
+			top2_multiplier_fp: 0,
 			top3_player_id: 0,
+			top3_multiplier_fp: 0,
 			top1_score: 0,
 			top2_score: 0,
 			top3_score: 0,
 			top1_claimed: false,
 			top2_claimed: false,
 			top3_claimed: false,
+		},
+		EconomyConfig: {
+			id: 0,
+			target_mode: 0,
+			target_fixed: 0,
+			target_a: 0,
+			target_b: 0,
+			target_t0: 0,
+			team_bps: 0,
+			burn_bps: 0,
+			max_multiplier_fp: 0,
+			fp_scale: 0,
+			manual_target_override: false,
+			target_override: 0,
+		},
+		EconomyState: {
+			id: 0,
+			last_snapshot_time: 0,
+			last_supply: 0,
+			last_target: 0,
+			last_multiplier_fp: 0,
+			total_minted: 0,
+			total_burned: 0,
+			total_team_alloc: 0,
 		},
 		Built: {
 			game_id: 0,
@@ -387,6 +453,8 @@ export enum ModelsMapping {
 	Tile = 'paved-Tile',
 	TilePosition = 'paved-TilePosition',
 	Tournament = 'paved-Tournament',
+	EconomyConfig = 'paved-EconomyConfig',
+	EconomyState = 'paved-EconomyState',
 	Built = 'paved-Built',
 	Discarded = 'paved-Discarded',
 	GameOver = 'paved-GameOver',

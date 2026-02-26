@@ -1,1 +1,27 @@
-# Purchase - Coming Soon 👀
+# Purchase
+
+Each `spawn` settles entry with an explicit split:
+
+- `team_bps` share: treasury allocation
+- `burn_bps` share: burned from the game contract balance
+
+## Economy Snapshot Lock
+
+At spawn time, the economy snapshot is locked on the session:
+
+- `entry_supply_snapshot`
+- `entry_target_snapshot`
+- `entry_multiplier_fp`
+
+This lock is immutable for that game and is later used when claim rewards are computed.
+
+## Settlement Models
+
+Each game stores an `EntrySettlement` record:
+
+- `entry_amount`
+- `team_amount`
+- `burn_amount`
+- `settled`
+
+This makes every entry split auditable and testable onchain.

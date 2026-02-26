@@ -1,22 +1,21 @@
-# Puzzle & Solo
+# Create Game
 
-Create a puzzle or solo game.
+PAVED supports three game creation paths from the mode dialog:
 
-::::steps
+1. `Default` uses mode defaults.
+2. `Template` uses a specific `templateId`.
+3. `Custom (Advanced)` uses an explicit config payload.
 
-### Step one
+`Custom (Advanced)` is only shown when `CONFIG_CREATE_V1` is enabled in the client environment.
 
-Select the `SOLO` toggle (ignore for puzzle)
+## Validation
 
-### Step two
+When creating with `Template` or `Custom (Advanced)`, invalid inputs are rejected before dispatch:
 
-Click `NEW GAME`
+1. Invalid template ids are blocked.
+2. Invalid custom fields (for example, `durationSeconds <= 0`) show field-level errors.
+3. Private custom games require a non-zero `accessRoot`.
 
-### Step three
+## Runtime Behavior
 
-Your game will appear at the top of the games list. Click `➡️` to play
-::::
-
-<div align="center">
-    <img width="550" src="p-setup-solo.gif" alt="p-setup-solo" />
-</div>
+On successful creation, the selected config is snapshotted on the game at spawn time so gameplay uses a stable config for the full session.

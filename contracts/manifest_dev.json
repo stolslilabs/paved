@@ -1,7 +1,7 @@
 {
   "world": {
     "class_hash": "0x2052d0e57d9072277ceecd0dbf19889f3500da0b4c323a6d636a5970e3f437f",
-    "address": "0x4d8a741b4c0680c3f3de05808173c3640428a841d75f9055f250d1f9cff3ad1",
+    "address": "0x04d8a741b4c0680c3f3de05808173c3640428a841d75f9055f250d1f9cff3ad1",
     "seed": "paved",
     "name": "Paved",
     "entrypoints": [
@@ -33,7 +33,7 @@
   },
   "contracts": [
     {
-      "address": "0x1a359aee2ba265d04b4951a3897937bc740ee5d60cf9a00f456d82359cbab7e",
+      "address": "0x01a359aee2ba265d04b4951a3897937bc740ee5d60cf9a00f456d82359cbab7e",
       "class_hash": "0x312d664bcfa32026de509356faa77181c378b12d010f932167cf5f8f8188a00",
       "init_calldata": [],
       "tag": "paved-Account",
@@ -43,11 +43,20 @@
       ]
     },
     {
-      "address": "0x12c749a0ceffccf1b6e9e5d5e860dde1006edf4d71f0593e81e67c507b6d1c5",
-      "class_hash": "0x3813e7417d46659847bb169b535d6f48efd141c5204b3a5af6569f23c048371",
-      "init_calldata": [
-        "0x05309fbf0d08f321d07c74628bf58215d5fad5a082aaa9ea2425df98865d3781"
-      ],
+      "address": "0x00807ce84b6deac32b19f77054c25dba7c268ed12baddb7317519fcecea22c5c",
+      "class_hash": "0x412f15c54120217d497fe8848aba2235d3330551eee1a2476f0290e895d8365",
+      "init_calldata": [],
+      "tag": "paved-Configurable",
+      "selector": "0x788655ac8ab34d3363a45fe867eac19f2dd4326547819ce0d165862515cfa98",
+      "systems": [
+        "dojo_init",
+        "upgrade"
+      ]
+    },
+    {
+      "address": "0x0228ca66d3a0c9a670da1c30ce5b6c1c5c430c689212a5d936b76ab5c77449a6",
+      "class_hash": "0x453bf1eaaecacfa1a10927579e3bddcc9e19a9b1f0bc3255383bd0a8e4af76e",
+      "init_calldata": [],
       "tag": "paved-Daily",
       "selector": "0x190dcfe202849c797389575a67873650f6b733810e58e67ef4e113157497c30",
       "systems": [
@@ -56,8 +65,18 @@
       ]
     },
     {
-      "address": "0x5309fbf0d08f321d07c74628bf58215d5fad5a082aaa9ea2425df98865d3781",
-      "class_hash": "0x57e42822b46cc36fadf28bcd8739f03d0a4a5787deba02aae330f91ee287ce8",
+      "address": "0x0246d2bd30a62f277e626fb7b893dc2965b62335b731839cd6134408148e7de4",
+      "class_hash": "0x1da8d8ba66aa87d38746b2d862d77783ebb7fee19a431c903a595988d75a767",
+      "init_calldata": [],
+      "tag": "paved-Economy",
+      "selector": "0x7de3df3cdb5f88ce9287e4da1234ad890574dc2c4d8d4d43f8c8fcbc4889ec1",
+      "systems": [
+        "upgrade"
+      ]
+    },
+    {
+      "address": "0x07847f28c7fce5095bd85edf129e8ce3d1ce94c0c768e26c60c264ecac7f7bd8",
+      "class_hash": "0x1a8efb99cb06313edb9888ef6bbe6da903079d83db4df80882cc0744bb38ba5",
       "init_calldata": [],
       "tag": "paved-Token",
       "selector": "0x176a69627f534b516181217d6bbfadc4e3b85bdf32346dcc5910be4d05184e6",
@@ -67,12 +86,14 @@
         "transfer_from",
         "approve",
         "transferFrom",
-        "mint"
+        "mint",
+        "mint_to",
+        "burn"
       ]
     },
     {
-      "address": "0x2c706170f8390811ab6866c2d7c4e98b5aac7e7669e696960f1074bc5b0c9fc",
-      "class_hash": "0x328a38581361f98b8543e90b356064c25f6ed8e551de1d53d80195579f8122",
+      "address": "0x027f440ad913d6f23d5b9ca1111240325f4bf242b0fbc9ac3221d38caf09c126",
+      "class_hash": "0x79b89fb49d51a0ab38684ffaed344180adfdcb6faad6c30cb3cbd6a31906192",
       "init_calldata": [],
       "tag": "paved-Tutorial",
       "selector": "0x242a6cbafd71ea032575dc3a0c2cddf603da49ad7f227a7618bf0efe00d6636",
@@ -81,11 +102,9 @@
       ]
     },
     {
-      "address": "0x6d0614a545d4a7fc787e048fe726dfb60a7ef53ccd696b020dfbd9fab56b1a5",
-      "class_hash": "0x6f21bd19891e9c0ba0b6dc7c30c1cbbb9d2b6ada1de83e4a564a8f4bf76723c",
-      "init_calldata": [
-        "0x05309fbf0d08f321d07c74628bf58215d5fad5a082aaa9ea2425df98865d3781"
-      ],
+      "address": "0x0348b47c99de19d2705955a24488ce4f9752cb82d7ae56526b63264b4861587f",
+      "class_hash": "0x4c865c3b0c35b8f173904f33a7c3000a7d26010d8c46cb674ec9a14a03bb753",
+      "init_calldata": [],
       "tag": "paved-Weekly",
       "selector": "0x3f7fa769ce27c2475ee2a04316a13b9b67042e21120cb3818b952f3df97f0e5",
       "systems": [
@@ -201,6 +220,194 @@
       "members": [
         {
           "name": "id",
+          "type": "core::integer::u8",
+          "key": true
+        },
+        {
+          "name": "min_duration",
+          "type": "core::integer::u64",
+          "key": false
+        },
+        {
+          "name": "max_duration",
+          "type": "core::integer::u64",
+          "key": false
+        },
+        {
+          "name": "max_entry_price",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "allow_custom_config",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "allow_private_games",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "admin",
+          "type": "core::felt252",
+          "key": false
+        }
+      ],
+      "class_hash": "0x5b605991d33900f4dec2938e10bf34545eb8ab3d93380e0b4a4721272d90c3d",
+      "tag": "paved-ConfigPolicy",
+      "selector": "0x49882b0e0d2cc3a731c071514aa7c54fa9812d0cb3adde78da6f987abb4d454"
+    },
+    {
+      "members": [
+        {
+          "name": "id",
+          "type": "core::integer::u8",
+          "key": true
+        },
+        {
+          "name": "target_mode",
+          "type": "core::integer::u8",
+          "key": false
+        },
+        {
+          "name": "target_fixed",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "target_a",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "target_b",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "target_t0",
+          "type": "core::integer::u64",
+          "key": false
+        },
+        {
+          "name": "team_bps",
+          "type": "core::integer::u16",
+          "key": false
+        },
+        {
+          "name": "burn_bps",
+          "type": "core::integer::u16",
+          "key": false
+        },
+        {
+          "name": "max_multiplier_fp",
+          "type": "core::integer::u32",
+          "key": false
+        },
+        {
+          "name": "fp_scale",
+          "type": "core::integer::u32",
+          "key": false
+        },
+        {
+          "name": "manual_target_override",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "target_override",
+          "type": "core::felt252",
+          "key": false
+        }
+      ],
+      "class_hash": "0x6ad2372d1ed6b694b994143c79483d242b3bed32710f6d37d6d43f6fd25b92d",
+      "tag": "paved-EconomyConfig",
+      "selector": "0x2258f764549b44848ef8f2dbfb61f800df673189b396cc93718ea183cbb3048"
+    },
+    {
+      "members": [
+        {
+          "name": "id",
+          "type": "core::integer::u8",
+          "key": true
+        },
+        {
+          "name": "last_snapshot_time",
+          "type": "core::integer::u64",
+          "key": false
+        },
+        {
+          "name": "last_supply",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "last_target",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "last_multiplier_fp",
+          "type": "core::integer::u32",
+          "key": false
+        },
+        {
+          "name": "total_minted",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "total_burned",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "total_team_alloc",
+          "type": "core::felt252",
+          "key": false
+        }
+      ],
+      "class_hash": "0xa95aa09c97df6aaa8baed99c24727729f915364a3c729a55e00ba51da57e94",
+      "tag": "paved-EconomyState",
+      "selector": "0x29d807b46de404d24681f41ae0b206d8fb539c2b16ff9294f423cf5c7d7dfee"
+    },
+    {
+      "members": [
+        {
+          "name": "game_id",
+          "type": "core::integer::u32",
+          "key": true
+        },
+        {
+          "name": "entry_amount",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "team_amount",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "burn_amount",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "settled",
+          "type": "core::bool",
+          "key": false
+        }
+      ],
+      "class_hash": "0x6e001e88b29fb2c123ac596fd189bda7fb8695f3105b8cbd367b980f65d1ab2",
+      "tag": "paved-EntrySettlement",
+      "selector": "0x7014d32ced628b110e3785b33304b3c6adc1413f4c5529b9598c4cce51a15ab"
+    },
+    {
+      "members": [
+        {
+          "name": "id",
           "type": "core::integer::u32",
           "key": true
         },
@@ -258,11 +465,240 @@
           "name": "tournament_id",
           "type": "core::integer::u64",
           "key": false
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64",
+          "key": false
+        },
+        {
+          "name": "entry_price",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "duration_seconds",
+          "type": "core::integer::u64",
+          "key": false
+        },
+        {
+          "name": "deck_id",
+          "type": "core::integer::u8",
+          "key": false
+        },
+        {
+          "name": "tile_limit",
+          "type": "core::integer::u16",
+          "key": false
+        },
+        {
+          "name": "allow_discard",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "allow_surrender",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "entry_multiplier_fp",
+          "type": "core::integer::u32",
+          "key": false
+        },
+        {
+          "name": "entry_supply_snapshot",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "entry_target_snapshot",
+          "type": "core::felt252",
+          "key": false
         }
       ],
-      "class_hash": "0x47cda0fd9285459bc58443849501924fb72683f7ce47b4a9536a876f8900bb9",
+      "class_hash": "0x72a14d091b634bea6ba3cba8eb48886efa2bd278e3d01334c46c0f093df60f1",
       "tag": "paved-Game",
       "selector": "0x18a55e57bc97032668eec543b8a1276805f1dd80009d10553aeecde4f7d1e34"
+    },
+    {
+      "members": [
+        {
+          "name": "game_id",
+          "type": "core::integer::u32",
+          "key": true
+        },
+        {
+          "name": "template_id",
+          "type": "core::integer::u32",
+          "key": false
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64",
+          "key": false
+        },
+        {
+          "name": "mode",
+          "type": "core::integer::u8",
+          "key": false
+        },
+        {
+          "name": "deck_id",
+          "type": "core::integer::u8",
+          "key": false
+        },
+        {
+          "name": "entry_price",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "duration_seconds",
+          "type": "core::integer::u64",
+          "key": false
+        },
+        {
+          "name": "tile_limit",
+          "type": "core::integer::u16",
+          "key": false
+        },
+        {
+          "name": "seed_policy",
+          "type": "core::integer::u8",
+          "key": false
+        },
+        {
+          "name": "scoring_profile_id",
+          "type": "core::integer::u16",
+          "key": false
+        },
+        {
+          "name": "character_profile_id",
+          "type": "core::integer::u16",
+          "key": false
+        },
+        {
+          "name": "allow_discard",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "allow_surrender",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "private_game",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "access_root",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "metadata_uri_hash",
+          "type": "core::felt252",
+          "key": false
+        }
+      ],
+      "class_hash": "0x47ead227ebbc9dcdd72edaa2e4aaa4227346bb7d07558c38a5fa595cf0df712",
+      "tag": "paved-GameConfigSnapshot",
+      "selector": "0x130142e9ef5a6103327724797871f9402e31cda570c01202e59a40f2c99f3cf"
+    },
+    {
+      "members": [
+        {
+          "name": "template_id",
+          "type": "core::integer::u32",
+          "key": true
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64",
+          "key": false
+        },
+        {
+          "name": "mode",
+          "type": "core::integer::u8",
+          "key": false
+        },
+        {
+          "name": "deck_id",
+          "type": "core::integer::u8",
+          "key": false
+        },
+        {
+          "name": "entry_price",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "duration_seconds",
+          "type": "core::integer::u64",
+          "key": false
+        },
+        {
+          "name": "tile_limit",
+          "type": "core::integer::u16",
+          "key": false
+        },
+        {
+          "name": "seed_policy",
+          "type": "core::integer::u8",
+          "key": false
+        },
+        {
+          "name": "scoring_profile_id",
+          "type": "core::integer::u16",
+          "key": false
+        },
+        {
+          "name": "character_profile_id",
+          "type": "core::integer::u16",
+          "key": false
+        },
+        {
+          "name": "allow_discard",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "allow_surrender",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "private_game",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "access_root",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "metadata_uri_hash",
+          "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "enabled",
+          "type": "core::bool",
+          "key": false
+        },
+        {
+          "name": "version",
+          "type": "core::integer::u16",
+          "key": false
+        }
+      ],
+      "class_hash": "0x67c630db5484f60c4a3893d7639d907d538f7cc964f738101a5706170ef0187",
+      "tag": "paved-GameConfigTemplate",
+      "selector": "0x5d50468b99caf54728b0533c4484036a2e456f8af3f4923ed68af085a74360d"
     },
     {
       "members": [
@@ -378,13 +814,43 @@
           "key": false
         },
         {
+          "name": "top1_game_id",
+          "type": "core::integer::u32",
+          "key": false
+        },
+        {
+          "name": "top1_multiplier_fp",
+          "type": "core::integer::u32",
+          "key": false
+        },
+        {
           "name": "top2_player_id",
           "type": "core::felt252",
           "key": false
         },
         {
+          "name": "top2_game_id",
+          "type": "core::integer::u32",
+          "key": false
+        },
+        {
+          "name": "top2_multiplier_fp",
+          "type": "core::integer::u32",
+          "key": false
+        },
+        {
           "name": "top3_player_id",
           "type": "core::felt252",
+          "key": false
+        },
+        {
+          "name": "top3_game_id",
+          "type": "core::integer::u32",
+          "key": false
+        },
+        {
+          "name": "top3_multiplier_fp",
+          "type": "core::integer::u32",
           "key": false
         },
         {
@@ -418,7 +884,7 @@
           "key": false
         }
       ],
-      "class_hash": "0x40c502c757344e3268fb65ee224c617a57dfcf1a7fd2c1d35241d9c9e8ac30b",
+      "class_hash": "0x401c5b1171f808daedfae318ec89c63a841e2b9ed58e5f89c2fd73584d8b120",
       "tag": "paved-Tournament",
       "selector": "0x98c47691a796be06fe4332e4451ea590035e9204733a8176ba7960a7b4b02"
     }
@@ -426,6 +892,22 @@
   "events": [],
   "external_contracts": [],
   "abis": [
+    {
+      "type": "function",
+      "name": "burn",
+      "inputs": [
+        {
+          "name": "amount",
+          "type": "core::integer::u256"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "core::bool"
+        }
+      ],
+      "state_mutability": "external"
+    },
     {
       "type": "constructor",
       "name": "constructor",
@@ -2264,6 +2746,26 @@
       "state_mutability": "external"
     },
     {
+      "type": "function",
+      "name": "mint_to",
+      "inputs": [
+        {
+          "name": "recipient",
+          "type": "core::starknet::contract_address::ContractAddress"
+        },
+        {
+          "name": "amount",
+          "type": "core::integer::u256"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "core::bool"
+        }
+      ],
+      "state_mutability": "external"
+    },
+    {
       "type": "event",
       "name": "paved::components::emitter::EmitterComponent::Event",
       "kind": "enum",
@@ -3039,6 +3541,294 @@
     },
     {
       "type": "struct",
+      "name": "paved::models::index::ConfigPolicy",
+      "members": [
+        {
+          "name": "id",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "min_duration",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "max_duration",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "max_entry_price",
+          "type": "core::felt252"
+        },
+        {
+          "name": "allow_custom_config",
+          "type": "core::bool"
+        },
+        {
+          "name": "allow_private_games",
+          "type": "core::bool"
+        },
+        {
+          "name": "admin",
+          "type": "core::felt252"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::ConfigPolicyValue",
+      "members": [
+        {
+          "name": "min_duration",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "max_duration",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "max_entry_price",
+          "type": "core::felt252"
+        },
+        {
+          "name": "allow_custom_config",
+          "type": "core::bool"
+        },
+        {
+          "name": "allow_private_games",
+          "type": "core::bool"
+        },
+        {
+          "name": "admin",
+          "type": "core::felt252"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::EconomyConfig",
+      "members": [
+        {
+          "name": "id",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "target_mode",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "target_fixed",
+          "type": "core::felt252"
+        },
+        {
+          "name": "target_a",
+          "type": "core::felt252"
+        },
+        {
+          "name": "target_b",
+          "type": "core::felt252"
+        },
+        {
+          "name": "target_t0",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "team_bps",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "burn_bps",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "max_multiplier_fp",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "fp_scale",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "manual_target_override",
+          "type": "core::bool"
+        },
+        {
+          "name": "target_override",
+          "type": "core::felt252"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::EconomyConfigValue",
+      "members": [
+        {
+          "name": "target_mode",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "target_fixed",
+          "type": "core::felt252"
+        },
+        {
+          "name": "target_a",
+          "type": "core::felt252"
+        },
+        {
+          "name": "target_b",
+          "type": "core::felt252"
+        },
+        {
+          "name": "target_t0",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "team_bps",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "burn_bps",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "max_multiplier_fp",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "fp_scale",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "manual_target_override",
+          "type": "core::bool"
+        },
+        {
+          "name": "target_override",
+          "type": "core::felt252"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::EconomyState",
+      "members": [
+        {
+          "name": "id",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "last_snapshot_time",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "last_supply",
+          "type": "core::felt252"
+        },
+        {
+          "name": "last_target",
+          "type": "core::felt252"
+        },
+        {
+          "name": "last_multiplier_fp",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "total_minted",
+          "type": "core::felt252"
+        },
+        {
+          "name": "total_burned",
+          "type": "core::felt252"
+        },
+        {
+          "name": "total_team_alloc",
+          "type": "core::felt252"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::EconomyStateValue",
+      "members": [
+        {
+          "name": "last_snapshot_time",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "last_supply",
+          "type": "core::felt252"
+        },
+        {
+          "name": "last_target",
+          "type": "core::felt252"
+        },
+        {
+          "name": "last_multiplier_fp",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "total_minted",
+          "type": "core::felt252"
+        },
+        {
+          "name": "total_burned",
+          "type": "core::felt252"
+        },
+        {
+          "name": "total_team_alloc",
+          "type": "core::felt252"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::EntrySettlement",
+      "members": [
+        {
+          "name": "game_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "entry_amount",
+          "type": "core::felt252"
+        },
+        {
+          "name": "team_amount",
+          "type": "core::felt252"
+        },
+        {
+          "name": "burn_amount",
+          "type": "core::felt252"
+        },
+        {
+          "name": "settled",
+          "type": "core::bool"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::EntrySettlementValue",
+      "members": [
+        {
+          "name": "entry_amount",
+          "type": "core::felt252"
+        },
+        {
+          "name": "team_amount",
+          "type": "core::felt252"
+        },
+        {
+          "name": "burn_amount",
+          "type": "core::felt252"
+        },
+        {
+          "name": "settled",
+          "type": "core::bool"
+        }
+      ]
+    },
+    {
+      "type": "struct",
       "name": "paved::models::index::Game",
       "members": [
         {
@@ -3088,6 +3878,326 @@
         {
           "name": "tournament_id",
           "type": "core::integer::u64"
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "entry_price",
+          "type": "core::felt252"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "deck_id",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "tile_limit",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "allow_discard",
+          "type": "core::bool"
+        },
+        {
+          "name": "allow_surrender",
+          "type": "core::bool"
+        },
+        {
+          "name": "entry_multiplier_fp",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "entry_supply_snapshot",
+          "type": "core::felt252"
+        },
+        {
+          "name": "entry_target_snapshot",
+          "type": "core::felt252"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::GameConfigSnapshot",
+      "members": [
+        {
+          "name": "game_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "template_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "mode",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "deck_id",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "entry_price",
+          "type": "core::felt252"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "tile_limit",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "seed_policy",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "scoring_profile_id",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "character_profile_id",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "allow_discard",
+          "type": "core::bool"
+        },
+        {
+          "name": "allow_surrender",
+          "type": "core::bool"
+        },
+        {
+          "name": "private_game",
+          "type": "core::bool"
+        },
+        {
+          "name": "access_root",
+          "type": "core::felt252"
+        },
+        {
+          "name": "metadata_uri_hash",
+          "type": "core::felt252"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::GameConfigSnapshotValue",
+      "members": [
+        {
+          "name": "template_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "mode",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "deck_id",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "entry_price",
+          "type": "core::felt252"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "tile_limit",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "seed_policy",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "scoring_profile_id",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "character_profile_id",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "allow_discard",
+          "type": "core::bool"
+        },
+        {
+          "name": "allow_surrender",
+          "type": "core::bool"
+        },
+        {
+          "name": "private_game",
+          "type": "core::bool"
+        },
+        {
+          "name": "access_root",
+          "type": "core::felt252"
+        },
+        {
+          "name": "metadata_uri_hash",
+          "type": "core::felt252"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::GameConfigTemplate",
+      "members": [
+        {
+          "name": "template_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "mode",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "deck_id",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "entry_price",
+          "type": "core::felt252"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "tile_limit",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "seed_policy",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "scoring_profile_id",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "character_profile_id",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "allow_discard",
+          "type": "core::bool"
+        },
+        {
+          "name": "allow_surrender",
+          "type": "core::bool"
+        },
+        {
+          "name": "private_game",
+          "type": "core::bool"
+        },
+        {
+          "name": "access_root",
+          "type": "core::felt252"
+        },
+        {
+          "name": "metadata_uri_hash",
+          "type": "core::felt252"
+        },
+        {
+          "name": "enabled",
+          "type": "core::bool"
+        },
+        {
+          "name": "version",
+          "type": "core::integer::u16"
+        }
+      ]
+    },
+    {
+      "type": "struct",
+      "name": "paved::models::index::GameConfigTemplateValue",
+      "members": [
+        {
+          "name": "config_id",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "mode",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "deck_id",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "entry_price",
+          "type": "core::felt252"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "tile_limit",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "seed_policy",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "scoring_profile_id",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "character_profile_id",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "allow_discard",
+          "type": "core::bool"
+        },
+        {
+          "name": "allow_surrender",
+          "type": "core::bool"
+        },
+        {
+          "name": "private_game",
+          "type": "core::bool"
+        },
+        {
+          "name": "access_root",
+          "type": "core::felt252"
+        },
+        {
+          "name": "metadata_uri_hash",
+          "type": "core::felt252"
+        },
+        {
+          "name": "enabled",
+          "type": "core::bool"
+        },
+        {
+          "name": "version",
+          "type": "core::integer::u16"
         }
       ]
     },
@@ -3138,6 +4248,46 @@
         {
           "name": "tournament_id",
           "type": "core::integer::u64"
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "entry_price",
+          "type": "core::felt252"
+        },
+        {
+          "name": "duration_seconds",
+          "type": "core::integer::u64"
+        },
+        {
+          "name": "deck_id",
+          "type": "core::integer::u8"
+        },
+        {
+          "name": "tile_limit",
+          "type": "core::integer::u16"
+        },
+        {
+          "name": "allow_discard",
+          "type": "core::bool"
+        },
+        {
+          "name": "allow_surrender",
+          "type": "core::bool"
+        },
+        {
+          "name": "entry_multiplier_fp",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "entry_supply_snapshot",
+          "type": "core::felt252"
+        },
+        {
+          "name": "entry_target_snapshot",
+          "type": "core::felt252"
         }
       ]
     },
@@ -3290,12 +4440,36 @@
           "type": "core::felt252"
         },
         {
+          "name": "top1_game_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "top1_multiplier_fp",
+          "type": "core::integer::u32"
+        },
+        {
           "name": "top2_player_id",
           "type": "core::felt252"
         },
         {
+          "name": "top2_game_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "top2_multiplier_fp",
+          "type": "core::integer::u32"
+        },
+        {
           "name": "top3_player_id",
           "type": "core::felt252"
+        },
+        {
+          "name": "top3_game_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "top3_multiplier_fp",
+          "type": "core::integer::u32"
         },
         {
           "name": "top1_score",
@@ -3336,12 +4510,36 @@
           "type": "core::felt252"
         },
         {
+          "name": "top1_game_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "top1_multiplier_fp",
+          "type": "core::integer::u32"
+        },
+        {
           "name": "top2_player_id",
           "type": "core::felt252"
         },
         {
+          "name": "top2_game_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "top2_multiplier_fp",
+          "type": "core::integer::u32"
+        },
+        {
           "name": "top3_player_id",
           "type": "core::felt252"
+        },
+        {
+          "name": "top3_game_id",
+          "type": "core::integer::u32"
+        },
+        {
+          "name": "top3_multiplier_fp",
+          "type": "core::integer::u32"
         },
         {
           "name": "top1_score",
@@ -3389,7 +4587,43 @@
     },
     {
       "type": "event",
+      "name": "paved::models::index::m_ConfigPolicy::Event",
+      "kind": "enum",
+      "variants": []
+    },
+    {
+      "type": "event",
+      "name": "paved::models::index::m_EconomyConfig::Event",
+      "kind": "enum",
+      "variants": []
+    },
+    {
+      "type": "event",
+      "name": "paved::models::index::m_EconomyState::Event",
+      "kind": "enum",
+      "variants": []
+    },
+    {
+      "type": "event",
+      "name": "paved::models::index::m_EntrySettlement::Event",
+      "kind": "enum",
+      "variants": []
+    },
+    {
+      "type": "event",
       "name": "paved::models::index::m_Game::Event",
+      "kind": "enum",
+      "variants": []
+    },
+    {
+      "type": "event",
+      "name": "paved::models::index::m_GameConfigSnapshot::Event",
+      "kind": "enum",
+      "variants": []
+    },
+    {
+      "type": "event",
+      "name": "paved::models::index::m_GameConfigTemplate::Event",
       "kind": "enum",
       "variants": []
     },
@@ -3459,6 +4693,445 @@
             {
               "name": "master",
               "type": "core::starknet::contract_address::ContractAddress"
+            }
+          ],
+          "outputs": [],
+          "state_mutability": "view"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "paved::systems::configurable::Configurable::ConfigValidationFailed",
+      "kind": "struct",
+      "members": [
+        {
+          "name": "creator",
+          "type": "core::felt252",
+          "kind": "key"
+        },
+        {
+          "name": "code",
+          "type": "core::integer::u16",
+          "kind": "data"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "paved::systems::configurable::Configurable::Event",
+      "kind": "enum",
+      "variants": [
+        {
+          "name": "UpgradeableEvent",
+          "type": "dojo::contract::components::upgradeable::upgradeable_cpt::Event",
+          "kind": "nested"
+        },
+        {
+          "name": "WorldProviderEvent",
+          "type": "dojo::contract::components::world_provider::world_provider_cpt::Event",
+          "kind": "nested"
+        },
+        {
+          "name": "TemplateRegistered",
+          "type": "paved::systems::configurable::Configurable::TemplateRegistered",
+          "kind": "nested"
+        },
+        {
+          "name": "TemplateStatusUpdated",
+          "type": "paved::systems::configurable::Configurable::TemplateStatusUpdated",
+          "kind": "nested"
+        },
+        {
+          "name": "GameCreatedWithTemplate",
+          "type": "paved::systems::configurable::Configurable::GameCreatedWithTemplate",
+          "kind": "nested"
+        },
+        {
+          "name": "GameCreatedWithConfig",
+          "type": "paved::systems::configurable::Configurable::GameCreatedWithConfig",
+          "kind": "nested"
+        },
+        {
+          "name": "GameConfigSnapshotted",
+          "type": "paved::systems::configurable::Configurable::GameConfigSnapshotted",
+          "kind": "nested"
+        },
+        {
+          "name": "ConfigValidationFailed",
+          "type": "paved::systems::configurable::Configurable::ConfigValidationFailed",
+          "kind": "nested"
+        },
+        {
+          "name": "EmitterEvent",
+          "type": "paved::components::emitter::EmitterComponent::Event",
+          "kind": "flat"
+        },
+        {
+          "name": "HostableEvent",
+          "type": "paved::components::hostable::HostableComponent::Event",
+          "kind": "flat"
+        },
+        {
+          "name": "PayableEvent",
+          "type": "paved::components::payable::PayableComponent::Event",
+          "kind": "flat"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "paved::systems::configurable::Configurable::GameConfigSnapshotted",
+      "kind": "struct",
+      "members": [
+        {
+          "name": "game_id",
+          "type": "core::integer::u32",
+          "kind": "key"
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64",
+          "kind": "data"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "paved::systems::configurable::Configurable::GameCreatedWithConfig",
+      "kind": "struct",
+      "members": [
+        {
+          "name": "game_id",
+          "type": "core::integer::u32",
+          "kind": "key"
+        },
+        {
+          "name": "creator",
+          "type": "core::felt252",
+          "kind": "data"
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64",
+          "kind": "data"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "paved::systems::configurable::Configurable::GameCreatedWithTemplate",
+      "kind": "struct",
+      "members": [
+        {
+          "name": "game_id",
+          "type": "core::integer::u32",
+          "kind": "key"
+        },
+        {
+          "name": "template_id",
+          "type": "core::integer::u32",
+          "kind": "data"
+        },
+        {
+          "name": "config_id",
+          "type": "core::integer::u64",
+          "kind": "data"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "paved::systems::configurable::Configurable::TemplateRegistered",
+      "kind": "struct",
+      "members": [
+        {
+          "name": "template_id",
+          "type": "core::integer::u32",
+          "kind": "key"
+        },
+        {
+          "name": "version",
+          "type": "core::integer::u16",
+          "kind": "data"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "paved::systems::configurable::Configurable::TemplateStatusUpdated",
+      "kind": "struct",
+      "members": [
+        {
+          "name": "template_id",
+          "type": "core::integer::u32",
+          "kind": "key"
+        },
+        {
+          "name": "enabled",
+          "type": "core::bool",
+          "kind": "data"
+        }
+      ]
+    },
+    {
+      "type": "interface",
+      "name": "paved::systems::configurable::IConfigurable",
+      "items": [
+        {
+          "type": "function",
+          "name": "register_default_template",
+          "inputs": [
+            {
+              "name": "mode",
+              "type": "core::integer::u8"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "core::integer::u32"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "register_template",
+          "inputs": [
+            {
+              "name": "mode",
+              "type": "core::integer::u8"
+            },
+            {
+              "name": "deck_id",
+              "type": "core::integer::u8"
+            },
+            {
+              "name": "entry_price",
+              "type": "core::felt252"
+            },
+            {
+              "name": "duration_seconds",
+              "type": "core::integer::u64"
+            },
+            {
+              "name": "tile_limit",
+              "type": "core::integer::u16"
+            },
+            {
+              "name": "allow_discard",
+              "type": "core::bool"
+            },
+            {
+              "name": "allow_surrender",
+              "type": "core::bool"
+            },
+            {
+              "name": "private_game",
+              "type": "core::bool"
+            },
+            {
+              "name": "access_root",
+              "type": "core::felt252"
+            },
+            {
+              "name": "metadata_uri_hash",
+              "type": "core::felt252"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "core::integer::u32"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "set_template_enabled",
+          "inputs": [
+            {
+              "name": "template_id",
+              "type": "core::integer::u32"
+            },
+            {
+              "name": "enabled",
+              "type": "core::bool"
+            }
+          ],
+          "outputs": [],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "create_with_template",
+          "inputs": [
+            {
+              "name": "template_id",
+              "type": "core::integer::u32"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "core::integer::u32"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "create_with_config",
+          "inputs": [
+            {
+              "name": "mode",
+              "type": "core::integer::u8"
+            },
+            {
+              "name": "deck_id",
+              "type": "core::integer::u8"
+            },
+            {
+              "name": "entry_price",
+              "type": "core::felt252"
+            },
+            {
+              "name": "duration_seconds",
+              "type": "core::integer::u64"
+            },
+            {
+              "name": "tile_limit",
+              "type": "core::integer::u16"
+            },
+            {
+              "name": "allow_discard",
+              "type": "core::bool"
+            },
+            {
+              "name": "allow_surrender",
+              "type": "core::bool"
+            },
+            {
+              "name": "private_game",
+              "type": "core::bool"
+            },
+            {
+              "name": "access_root",
+              "type": "core::felt252"
+            },
+            {
+              "name": "metadata_uri_hash",
+              "type": "core::felt252"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "core::integer::u32"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "preview_validation",
+          "inputs": [
+            {
+              "name": "mode",
+              "type": "core::integer::u8"
+            },
+            {
+              "name": "deck_id",
+              "type": "core::integer::u8"
+            },
+            {
+              "name": "entry_price",
+              "type": "core::felt252"
+            },
+            {
+              "name": "duration_seconds",
+              "type": "core::integer::u64"
+            },
+            {
+              "name": "tile_limit",
+              "type": "core::integer::u16"
+            },
+            {
+              "name": "allow_discard",
+              "type": "core::bool"
+            },
+            {
+              "name": "allow_surrender",
+              "type": "core::bool"
+            },
+            {
+              "name": "private_game",
+              "type": "core::bool"
+            },
+            {
+              "name": "access_root",
+              "type": "core::felt252"
+            },
+            {
+              "name": "metadata_uri_hash",
+              "type": "core::felt252"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "core::integer::u16"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "get_effective_config",
+          "inputs": [
+            {
+              "name": "game_id",
+              "type": "core::integer::u32"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "paved::models::index::GameConfigSnapshot"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "get_policy",
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "paved::models::index::ConfigPolicy"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "set_policy",
+          "inputs": [
+            {
+              "name": "min_duration",
+              "type": "core::integer::u64"
+            },
+            {
+              "name": "max_duration",
+              "type": "core::integer::u64"
+            },
+            {
+              "name": "max_entry_price",
+              "type": "core::felt252"
+            },
+            {
+              "name": "allow_custom_config",
+              "type": "core::bool"
+            },
+            {
+              "name": "allow_private_games",
+              "type": "core::bool"
             }
           ],
           "outputs": [],
@@ -3597,6 +5270,159 @@
             {
               "name": "spot",
               "type": "paved::types::spot::Spot"
+            }
+          ],
+          "outputs": [],
+          "state_mutability": "view"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "paved::systems::economy::Economy::Event",
+      "kind": "enum",
+      "variants": [
+        {
+          "name": "UpgradeableEvent",
+          "type": "dojo::contract::components::upgradeable::upgradeable_cpt::Event",
+          "kind": "nested"
+        },
+        {
+          "name": "WorldProviderEvent",
+          "type": "dojo::contract::components::world_provider::world_provider_cpt::Event",
+          "kind": "nested"
+        }
+      ]
+    },
+    {
+      "type": "interface",
+      "name": "paved::systems::economy::IEconomy",
+      "items": [
+        {
+          "type": "function",
+          "name": "configure",
+          "inputs": [
+            {
+              "name": "target_mode",
+              "type": "core::integer::u8"
+            },
+            {
+              "name": "target_fixed",
+              "type": "core::felt252"
+            },
+            {
+              "name": "target_a",
+              "type": "core::felt252"
+            },
+            {
+              "name": "target_b",
+              "type": "core::felt252"
+            },
+            {
+              "name": "target_t0",
+              "type": "core::integer::u64"
+            },
+            {
+              "name": "team_bps",
+              "type": "core::integer::u16"
+            },
+            {
+              "name": "burn_bps",
+              "type": "core::integer::u16"
+            },
+            {
+              "name": "max_multiplier_fp",
+              "type": "core::integer::u32"
+            },
+            {
+              "name": "fp_scale",
+              "type": "core::integer::u32"
+            },
+            {
+              "name": "manual_target_override",
+              "type": "core::bool"
+            },
+            {
+              "name": "target_override",
+              "type": "core::felt252"
+            }
+          ],
+          "outputs": [],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "get_config",
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "paved::models::index::EconomyConfig"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "get_state",
+          "inputs": [],
+          "outputs": [
+            {
+              "type": "paved::models::index::EconomyState"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "preview_multiplier",
+          "inputs": [
+            {
+              "name": "time",
+              "type": "core::integer::u64"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "(core::felt252, core::felt252, core::integer::u32)"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "snapshot_for_spawn",
+          "inputs": [
+            {
+              "name": "mode",
+              "type": "paved::types::mode::Mode"
+            }
+          ],
+          "outputs": [
+            {
+              "type": "(core::felt252, core::felt252, core::integer::u32)"
+            }
+          ],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "record_mint",
+          "inputs": [
+            {
+              "name": "amount",
+              "type": "core::felt252"
+            }
+          ],
+          "outputs": [],
+          "state_mutability": "view"
+        },
+        {
+          "type": "function",
+          "name": "record_burn",
+          "inputs": [
+            {
+              "name": "amount",
+              "type": "core::felt252"
             }
           ],
           "outputs": [],
@@ -3824,6 +5650,28 @@
           "name": "PlayableEvent",
           "type": "paved::components::playable::PlayableComponent::Event",
           "kind": "flat"
+        }
+      ]
+    },
+    {
+      "type": "enum",
+      "name": "paved::types::mode::Mode",
+      "variants": [
+        {
+          "name": "None",
+          "type": "()"
+        },
+        {
+          "name": "Daily",
+          "type": "()"
+        },
+        {
+          "name": "Weekly",
+          "type": "()"
+        },
+        {
+          "name": "Tutorial",
+          "type": "()"
         }
       ]
     },

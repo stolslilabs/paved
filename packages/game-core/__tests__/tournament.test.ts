@@ -11,6 +11,9 @@ function makeTournamentData(overrides: Partial<TournamentData> = {}): Tournament
     top1_score: 5000,
     top2_score: 4000,
     top3_score: 3000,
+    top1_multiplier_fp: 1000000,
+    top2_multiplier_fp: 1000000,
+    top3_multiplier_fp: 1000000,
     top1_claimed: false,
     top2_claimed: false,
     top3_claimed: false,
@@ -30,6 +33,9 @@ describe("Tournament", () => {
       expect(t.top1_score).toBe(5000);
       expect(t.top2_score).toBe(4000);
       expect(t.top3_score).toBe(3000);
+      expect((t as any).top1_multiplier_fp).toBe(1000000);
+      expect((t as any).top2_multiplier_fp).toBe(1000000);
+      expect((t as any).top3_multiplier_fp).toBe(1000000);
     });
   });
 
@@ -88,6 +94,17 @@ describe("Tournament", () => {
       expect(t.reward(1)).toBe(6000);
       expect(t.reward(2)).toBe(0);
       expect(t.reward(3)).toBe(0);
+    });
+  });
+
+  describe("rewardWithMultiplier()", () => {
+    it("applies rank multiplier to base rank reward", () => {
+      const t = new Tournament(makeTournamentData({
+        prize: 6000,
+        top1_multiplier_fp: 1250000,
+      } as any));
+
+      expect((t as any).rewardWithMultiplier(1)).toBeCloseTo(t.reward(1) * 1.25);
     });
   });
 

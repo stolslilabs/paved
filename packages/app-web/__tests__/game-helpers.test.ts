@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { findNextTile, shouldPollUpdateBuilder } from "../src/utils/game-helpers";
+import { findNextTile, resolveStatusTotalTiles, shouldPollUpdateBuilder } from "../src/utils/game-helpers";
 
 describe("findNextTile", () => {
   it("returns the next unplaced tile after the current tile", () => {
@@ -75,5 +75,20 @@ describe("shouldPollUpdateBuilder", () => {
   it("returns true when poll reports a different (any) tile than in-flight", () => {
     // Edge case: poll tile id doesn't match in-flight at all
     expect(shouldPollUpdateBuilder(5, 10)).toBe(true);
+  });
+});
+
+describe("resolveStatusTotalTiles", () => {
+  it("prefers tile_limit from game config", () => {
+    expect(resolveStatusTotalTiles(38, 15)).toBe(38);
+  });
+
+  it("falls back to current tile_count when tile_limit is unavailable", () => {
+    expect(resolveStatusTotalTiles(0, 15)).toBe(15);
+    expect(resolveStatusTotalTiles(undefined, 15)).toBe(15);
+  });
+
+  it("uses sane default when neither value is available", () => {
+    expect(resolveStatusTotalTiles(undefined, undefined)).toBe(72);
   });
 });

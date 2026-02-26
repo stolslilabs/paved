@@ -18,6 +18,11 @@ Cities and roads have an ever increasing multiplier bonus system according to th
     <img width="250" src="growth-curve.png" alt="growth-curve" />
 </div>
 
-## Rewards - Coming Soon
+## Rewards
 
-Coming soon...
+Tournament rank still determines base reward eligibility, then economy applies the locked session multiplier:
+
+- `reward_base = tournament.reward(rank)`
+- `reward_final = (reward_base * entry_multiplier_fp) / 1_000_000`
+
+Because the multiplier is locked at `spawn`, changing global supply after a game starts does not change that game's claim economics.

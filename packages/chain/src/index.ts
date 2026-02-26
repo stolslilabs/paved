@@ -1,6 +1,8 @@
 // Config
 export { createDojoConfig } from "./config";
 export type { DojoConfig } from "./config";
+export { resolveChainProfileConfig } from "./network";
+export type { ChainProfile, ChainProfileKey, ResolveChainProfileInput } from "./network";
 
 // Client
 export { createChainClient } from "./client";
@@ -10,12 +12,18 @@ export type { ChainClient, SyncOptions, WorldClient, BurnerManagerLike } from ".
 export { createSystems } from "./contracts";
 export type {
   BuildParams,
+  ModeTypeValue,
+  CreateGameParams,
+  PreviewValidationParams,
   GameParams,
   ClaimParams,
   SponsorParams,
   DiscardParams,
   SurrenderParams,
   CreatePlayerParams,
+  MintTokenParams,
+  PreviewEconomyMultiplierParams,
+  EconomyPreviewResult,
 } from "./contracts";
 
 // Model Adapters
@@ -38,6 +46,10 @@ export { useTournament } from "./hooks/useTournament";
 export { useActions } from "./hooks/useActions";
 export type { ActionState } from "./hooks/useActions";
 export { useBalance } from "./hooks/useBalance";
+export { useTokenSupply } from "./hooks/useTokenSupply";
+export { useEconomyConfig } from "./hooks/useEconomyConfig";
+export { useEconomyState } from "./hooks/useEconomyState";
+export { useGameEconomySnapshot } from "./hooks/useGameEconomySnapshot";
 
 // Provider
 export { DojoChainProvider, useDojo } from "./provider";

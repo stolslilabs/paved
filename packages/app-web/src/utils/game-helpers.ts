@@ -38,6 +38,16 @@ export function shouldShowSpotSelector(
   return character > 0 && selectedTile !== null && hoverValid;
 }
 
+/** Prefer configured game tile limit for UI denominator, then fallback to dynamic tile count. */
+export function resolveStatusTotalTiles(
+  tileLimit?: number,
+  tileCount?: number,
+): number {
+  if (tileLimit && tileLimit > 0) return tileLimit;
+  if (tileCount && tileCount > 0) return tileCount;
+  return 72;
+}
+
 const KEY_TO_SPOT: Record<string, number> = {
   "5": 1,  // Center
   "7": 2,  // NW

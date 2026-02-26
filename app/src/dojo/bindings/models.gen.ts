@@ -107,6 +107,9 @@ export interface Game {
   seed: BigInt;
   mode: Number;
   tournament_id: Number;
+  entry_multiplier_fp: Number;
+  entry_supply_snapshot: BigInt;
+  entry_target_snapshot: BigInt;
 }
 export const GameDefinition = {
   id: RecsType.Number,
@@ -121,6 +124,9 @@ export const GameDefinition = {
   seed: RecsType.BigInt,
   mode: RecsType.Number,
   tournament_id: RecsType.Number,
+  entry_multiplier_fp: RecsType.Number,
+  entry_supply_snapshot: RecsType.BigInt,
+  entry_target_snapshot: RecsType.BigInt,
 };
 
 // Type definition for `paved::models::index::Player` struct
@@ -176,8 +182,14 @@ export interface Tournament {
   id: Number;
   prize: BigInt;
   top1_player_id: BigInt;
+  top1_game_id: Number;
+  top1_multiplier_fp: Number;
   top2_player_id: BigInt;
+  top2_game_id: Number;
+  top2_multiplier_fp: Number;
   top3_player_id: BigInt;
+  top3_game_id: Number;
+  top3_multiplier_fp: Number;
   top1_score: Number;
   top2_score: Number;
   top3_score: Number;
@@ -189,8 +201,14 @@ export const TournamentDefinition = {
   id: RecsType.Number,
   prize: RecsType.BigInt,
   top1_player_id: RecsType.BigInt,
+  top1_game_id: RecsType.Number,
+  top1_multiplier_fp: RecsType.Number,
   top2_player_id: RecsType.BigInt,
+  top2_game_id: RecsType.Number,
+  top2_multiplier_fp: RecsType.Number,
   top3_player_id: RecsType.BigInt,
+  top3_game_id: RecsType.Number,
+  top3_multiplier_fp: RecsType.Number,
   top1_score: RecsType.Number,
   top2_score: RecsType.Number,
   top3_score: RecsType.Number,
@@ -285,6 +303,9 @@ export function defineContractComponents(world: World) {
           seed: RecsType.BigInt,
           mode: RecsType.Number,
           tournament_id: RecsType.Number,
+          entry_multiplier_fp: RecsType.Number,
+          entry_supply_snapshot: RecsType.BigInt,
+          entry_target_snapshot: RecsType.BigInt,
         },
         {
           metadata: {
@@ -303,6 +324,9 @@ export function defineContractComponents(world: World) {
               "felt252",
               "u8",
               "u64",
+              "u32",
+              "felt252",
+              "felt252",
             ],
             customTypes: [],
           },
@@ -384,8 +408,14 @@ export function defineContractComponents(world: World) {
           id: RecsType.Number,
           prize: RecsType.BigInt,
           top1_player_id: RecsType.BigInt,
+          top1_game_id: RecsType.Number,
+          top1_multiplier_fp: RecsType.Number,
           top2_player_id: RecsType.BigInt,
+          top2_game_id: RecsType.Number,
+          top2_multiplier_fp: RecsType.Number,
           top3_player_id: RecsType.BigInt,
+          top3_game_id: RecsType.Number,
+          top3_multiplier_fp: RecsType.Number,
           top1_score: RecsType.Number,
           top2_score: RecsType.Number,
           top3_score: RecsType.Number,
@@ -397,19 +427,7 @@ export function defineContractComponents(world: World) {
           metadata: {
             namespace: "paved",
             name: "Tournament",
-            types: [
-              "u64",
-              "felt252",
-              "felt252",
-              "felt252",
-              "felt252",
-              "u32",
-              "u32",
-              "u32",
-              "bool",
-              "bool",
-              "bool",
-            ],
+            types: ["u64", "felt252", "felt252", "u32", "u32", "felt252", "u32", "u32", "felt252", "u32", "u32", "u32", "u32", "u32", "bool", "bool", "bool"],
             customTypes: [],
           },
         },

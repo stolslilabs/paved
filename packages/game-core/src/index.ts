@@ -7,6 +7,8 @@ export { Move } from "./types/move";
 export { CategoryType, Category } from "./types/category";
 export { RoleType, Role } from "./types/role";
 export { ModeType, Mode } from "./types/mode";
+export type { FeltLike, GameConfigInput, GameCreateOptions } from "./types/game-config";
+export { validateGameConfigInput } from "./types/game-config";
 export { PlanType, Plan } from "./types/plan";
 export { Layout } from "./types/layout";
 export { TutorialStage, TUTORIAL_STAGES } from "./types/tutorial-stage";
@@ -97,3 +99,10 @@ export {
   getCharacterKey,
   getCharacterPath,
 } from "./asset-keys";
+
+// Economy helpers
+export {
+  FP_SCALE_DEFAULT,
+  fpToMultiplier,
+  computeAdjustedReward,
+} from "./economy";

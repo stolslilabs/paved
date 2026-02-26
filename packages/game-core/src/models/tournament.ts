@@ -1,11 +1,15 @@
 import { Mode } from "../types/mode";
+import { computeAdjustedReward, FP_SCALE_DEFAULT } from "../economy";
 
 export interface TournamentData {
   id: number;
   prize: number | bigint | string;
   top1_player_id: number | bigint | string;
+  top1_multiplier_fp?: number;
   top2_player_id: number | bigint | string;
+  top2_multiplier_fp?: number;
   top3_player_id: number | bigint | string;
+  top3_multiplier_fp?: number;
   top1_score: number;
   top2_score: number;
   top3_score: number;
@@ -18,8 +22,11 @@ export class Tournament {
   public id: number;
   public prize: string;
   public top1_player_id: string;
+  public top1_multiplier_fp: number;
   public top2_player_id: string;
+  public top2_multiplier_fp: number;
   public top3_player_id: string;
+  public top3_multiplier_fp: number;
   public top1_score: number;
   public top2_score: number;
   public top3_score: number;
@@ -31,14 +38,28 @@ export class Tournament {
     this.id = tournament.id;
     this.prize = tournament.prize.toString();
     this.top1_player_id = `0x${BigInt(tournament.top1_player_id).toString(16)}`;
+    this.top1_multiplier_fp = Number(tournament.top1_multiplier_fp ?? FP_SCALE_DEFAULT);
     this.top2_player_id = `0x${BigInt(tournament.top2_player_id).toString(16)}`;
+    this.top2_multiplier_fp = Number(tournament.top2_multiplier_fp ?? FP_SCALE_DEFAULT);
     this.top3_player_id = `0x${BigInt(tournament.top3_player_id).toString(16)}`;
+    this.top3_multiplier_fp = Number(tournament.top3_multiplier_fp ?? FP_SCALE_DEFAULT);
     this.top1_score = tournament.top1_score;
     this.top2_score = tournament.top2_score;
     this.top3_score = tournament.top3_score;
     this.top1_claimed = tournament.top1_claimed;
     this.top2_claimed = tournament.top2_claimed;
     this.top3_claimed = tournament.top3_claimed;
+  }
+
+  multiplierForRank(rank: number): number {
+    if (rank === 1) return this.top1_multiplier_fp;
+    if (rank === 2) return this.top2_multiplier_fp;
+    if (rank === 3) return this.top3_multiplier_fp;
+    return FP_SCALE_DEFAULT;
+  }
+
+  rewardWithMultiplier(rank: number, fpScale = FP_SCALE_DEFAULT): number {
+    return computeAdjustedReward(this.reward(rank), this.multiplierForRank(rank), fpScale);
   }
 
   static computeId(duration: number): number {

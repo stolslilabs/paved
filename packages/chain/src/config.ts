@@ -8,6 +8,9 @@ export interface DojoConfig {
   feeTokenAddress: string;
   worldAddress: string;
   manifest: any;
+  profile?: string;
+  profileLabel?: string;
+  supportsTokenMint?: boolean;
 }
 
 const DEFAULT_CONFIG: Partial<DojoConfig> = {

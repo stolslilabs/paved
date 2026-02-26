@@ -6,10 +6,11 @@ import {
   GameCompleteDialog,
   ActionBar,
   SpotSelector,
+  EconomySnapshotCard,
   useGameStore,
 } from "@paved/ui";
 import type { GameScene, TileRenderData, CharacterRenderData, CameraMode } from "@paved/renderer";
-import { useDojo, useActions } from "@paved/chain";
+import { useDojo, useActions, useTokenSupply } from "@paved/chain";
 import {
   ModeType,
   Layout,
@@ -24,12 +25,20 @@ import {
   getColorFromCharacter,
   getRole,
 } from "@paved/game-core";
-import { findNextTile, shouldPollUpdateBuilder, shouldShowSpotSelector, spotKeyToNumber } from "../utils/game-helpers";
+import {
+  findNextTile,
+  resolveStatusTotalTiles,
+  shouldPollUpdateBuilder,
+  shouldShowSpotSelector,
+  spotKeyToNumber,
+} from "../utils/game-helpers";
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { buildCharQuery, toRenderCharacters } from "../utils/char-helpers";
 import { toriiQuery, padAddress, parseToriiBool } from "../utils/torii";
 import { parseGameParams } from "../utils/game-params";
 import { modeTypeFromParam, resolveRuntimeMode } from "../utils/mode-routing";
+import { resolveCreateOptions } from "../utils/create-options";
+import { mapGameEconomySnapshot } from "../utils/economy-ui";
 
 /** Game board center coordinate (0x7FFFFFFF) */
 const CENTER = 2147483647;
@@ -40,7 +49,12 @@ interface GameState {
   built: number;
   discarded: number;
   tile_count: number;
+  tile_limit: number;
   score: number;
+  tournament_id: number;
+  entry_multiplier_fp: number;
+  entry_supply_snapshot: string;
+  entry_target_snapshot: string;
 }
 
 
@@ -137,6 +151,7 @@ export function GamePage() {
   const [scene, setScene] = useState<GameScene | null>(null);
   const { account, provider, client } = useDojo();
   const { spawn, build, discard, loading } = useActions(provider, account, client?.config?.manifest);
+  const { supply: tokenSupply } = useTokenSupply(provider);
   const orientation = useGameStore((s) => s.orientation);
   const setOrientation = useGameStore((s) => s.setOrientation);
   const strategyMode = useGameStore((s) => s.strategyMode);
@@ -155,6 +170,7 @@ export function GamePage() {
   const [optimisticCharacters, setOptimisticCharacters] = useState<CharacterRenderData[]>([]);
   const [cameraMode, setCameraMode] = useState<CameraMode>("play");
   const [spawning, setSpawning] = useState(false);
+  const [spawnConfigError, setSpawnConfigError] = useState<string | null>(null);
   const spawnAttempted = useRef(false);
   const spawningRef = useRef(false); // mirror of spawning state for poll guard
   const tileRowsRef = useRef<any[]>([]); // raw Torii tile rows (includes unplaced tiles)
@@ -184,7 +200,7 @@ export function GamePage() {
       const url = client.config.toriiUrl;
       try {
         const games = await toriiQuery(url,
-          `SELECT id, over, built, discarded, tile_count, score, mode FROM [paved-Game] WHERE id = ${targetGameId}`
+          `SELECT id, over, built, discarded, tile_count, tile_limit, score, mode, tournament_id, entry_multiplier_fp, entry_supply_snapshot, entry_target_snapshot FROM [paved-Game] WHERE id = ${targetGameId}`
         );
         if (games.length > 0) {
           console.log("[Score debug] loadGameById game row:", games[0]);
@@ -194,7 +210,12 @@ export function GamePage() {
             built: Number(games[0].built),
             discarded: Number(games[0].discarded),
             tile_count: Number(games[0].tile_count),
+            tile_limit: Number(games[0].tile_limit ?? 0),
             score: Number(games[0].score),
+            tournament_id: Number(games[0].tournament_id ?? 0),
+            entry_multiplier_fp: Number(games[0].entry_multiplier_fp ?? 0),
+            entry_supply_snapshot: String(games[0].entry_supply_snapshot ?? "0"),
+            entry_target_snapshot: String(games[0].entry_target_snapshot ?? "0"),
           });
           setResolvedMode((prev) => resolveRuntimeMode(prev, games[0].mode));
           const tileRows = await toriiQuery(url,
@@ -241,7 +262,7 @@ export function GamePage() {
         if (builders.length > 0) {
           oldGameId = Number(builders[0].game_id);
           const games = await toriiQuery(url,
-            `SELECT id, over, built, discarded, tile_count, score, mode FROM [paved-Game] WHERE id = ${oldGameId}`
+            `SELECT id, over, built, discarded, tile_count, tile_limit, score, mode, tournament_id, entry_multiplier_fp, entry_supply_snapshot, entry_target_snapshot FROM [paved-Game] WHERE id = ${oldGameId}`
           );
           if (games.length > 0 && !parseToriiBool(games[0].over)) {
             activeGameIdRef.current = oldGameId;
@@ -251,7 +272,12 @@ export function GamePage() {
               built: Number(games[0].built),
               discarded: Number(games[0].discarded),
               tile_count: Number(games[0].tile_count),
+              tile_limit: Number(games[0].tile_limit ?? 0),
               score: Number(games[0].score),
+              tournament_id: Number(games[0].tournament_id ?? 0),
+              entry_multiplier_fp: Number(games[0].entry_multiplier_fp ?? 0),
+              entry_supply_snapshot: String(games[0].entry_supply_snapshot ?? "0"),
+              entry_target_snapshot: String(games[0].entry_target_snapshot ?? "0"),
             });
             setResolvedMode((prev) => resolveRuntimeMode(prev, games[0].mode));
             // Get plan for builder's current tile
@@ -274,10 +300,21 @@ export function GamePage() {
       }
 
       // No active game found, spawn one
+      const createResolution = resolveCreateOptions(
+        resolvedMode,
+        searchParams,
+        import.meta.env.VITE_CONFIG_CREATE_V1 === "true",
+      );
+      if (Object.keys(createResolution.fieldErrors).length > 0) {
+        setSpawnConfigError(Object.values(createResolution.fieldErrors).filter(Boolean).join(" "));
+        return;
+      }
+      setSpawnConfigError(null);
+
       setSpawning(true);
       spawningRef.current = true;
       try {
-        const result = await spawn(resolvedMode);
+        const result = await spawn(resolvedMode, createResolution.options);
         console.log("Game spawned:", result);
 
         // Wait for Torii to index the new game before hiding "Spawning..." screen
@@ -307,7 +344,7 @@ export function GamePage() {
     };
 
     checkAndSpawn();
-  }, [account, client, provider, spawn, gameParams.gameId, gameParams.readonly, resolvedMode]);
+  }, [account, client, provider, spawn, gameParams.gameId, gameParams.readonly, resolvedMode, searchParams]);
 
   // Poll Torii for game + builder + tiles state
   useEffect(() => {
@@ -364,7 +401,7 @@ export function GamePage() {
 
         // Query game state
         const games = await toriiQuery(url,
-          `SELECT id, over, built, discarded, tile_count, score FROM [paved-Game] WHERE id = ${gameId}`
+          `SELECT id, over, built, discarded, tile_count, tile_limit, score, tournament_id, entry_multiplier_fp, entry_supply_snapshot, entry_target_snapshot FROM [paved-Game] WHERE id = ${gameId}`
         );
         if (!cancelled && games.length > 0) {
           console.log("[Score debug] poll game row:", games[0]);
@@ -374,7 +411,12 @@ export function GamePage() {
             built: Number(games[0].built),
             discarded: Number(games[0].discarded),
             tile_count: Number(games[0].tile_count),
+            tile_limit: Number(games[0].tile_limit ?? 0),
             score: Number(games[0].score),
+            tournament_id: Number(games[0].tournament_id ?? 0),
+            entry_multiplier_fp: Number(games[0].entry_multiplier_fp ?? 0),
+            entry_supply_snapshot: String(games[0].entry_supply_snapshot ?? "0"),
+            entry_target_snapshot: String(games[0].entry_target_snapshot ?? "0"),
           });
         }
 
@@ -637,8 +679,37 @@ export function GamePage() {
     );
   }
 
+  const economySnapshot = gameState
+    ? mapGameEconomySnapshot({
+      entry_multiplier_fp: gameState.entry_multiplier_fp,
+      entry_supply_snapshot: gameState.entry_supply_snapshot,
+      entry_target_snapshot: gameState.entry_target_snapshot,
+      observedTokenSupply: tokenSupply,
+    })
+    : null;
+
   return (
     <div style={{ width: "100%", height: "100%", position: "relative" }}>
+      {spawnConfigError && (
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 20,
+            background: "rgba(127,29,29,0.9)",
+            color: "#fee2e2",
+            border: "1px solid rgba(248,113,113,0.8)",
+            borderRadius: 8,
+            padding: "8px 12px",
+            fontSize: 12,
+            maxWidth: 520,
+          }}
+        >
+          {spawnConfigError}
+        </div>
+      )}
       <GameCanvas
         basePath=""
         tiles={tiles}
@@ -673,10 +744,21 @@ export function GamePage() {
           <IngameStatus
             score={gameState?.score ?? 0}
             built={gameState?.built ?? 0}
-            totalTiles={gameState?.tile_count ?? 72}
+            totalTiles={resolveStatusTotalTiles(gameState?.tile_limit, gameState?.tile_count)}
             discarded={gameState?.discarded ?? 0}
           />
         </div>
+
+        {economySnapshot && (
+          <div style={{ pointerEvents: "auto", gridColumn: 2, gridRow: 1, justifySelf: "center", width: 300 }}>
+            <EconomySnapshotCard
+              supplyLabel={economySnapshot.supplyLabel}
+              targetLabel={economySnapshot.targetLabel}
+              multiplierLabel={economySnapshot.multiplierLabel}
+              warning={economySnapshot.warning}
+            />
+          </div>
+        )}
 
         <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: 1, justifySelf: "end" }}>
           <div

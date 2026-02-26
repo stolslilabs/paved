@@ -13,6 +13,11 @@ use paved::models::builder::Builder;
 use paved::models::tile::{Tile, TilePosition, TileIntoPosition};
 use paved::models::character::{Char, CharPosition, CharIntoCharPosition};
 use paved::models::tournament::Tournament;
+use paved::models::economy::{
+    EconomyConfig, EconomyConfigTrait, EconomyState, EconomyStateTrait, EntrySettlement
+};
+use paved::models::index::{GameConfigTemplate, GameConfigSnapshot, ConfigPolicy};
+use paved::helpers::config_validation::{RuntimeGameConfigTrait};
 use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
@@ -44,6 +49,42 @@ pub impl StoreImpl of StoreTrait {
 
     fn tournament(self: Store, tournament_id: u64) -> Tournament {
         self.world.read_model(tournament_id)
+    }
+
+    fn economy_config(self: Store) -> EconomyConfig {
+        let config: EconomyConfig = self.world.read_model(1_u8);
+        if config.id == 0 || (config.team_bps == 0 && config.burn_bps == 0) {
+            return EconomyConfigTrait::default();
+        }
+        config
+    }
+
+    fn economy_state(self: Store) -> EconomyState {
+        let state: EconomyState = self.world.read_model(1_u8);
+        if state.id == 0 {
+            return EconomyStateTrait::zero();
+        }
+        state
+    }
+
+    fn entry_settlement(self: Store, game_id: u32) -> EntrySettlement {
+        self.world.read_model(game_id)
+    }
+
+    fn game_config_template(self: Store, template_id: u32) -> GameConfigTemplate {
+        self.world.read_model(template_id)
+    }
+
+    fn game_config_snapshot(self: Store, game_id: u32) -> GameConfigSnapshot {
+        self.world.read_model(game_id)
+    }
+
+    fn config_policy(self: Store) -> ConfigPolicy {
+        let policy: ConfigPolicy = self.world.read_model(1_u8);
+        if policy.max_duration == 0 {
+            return RuntimeGameConfigTrait::default_policy();
+        }
+        policy
     }
 
     fn tile(self: Store, game: Game, tile_id: u32) -> Tile {
@@ -144,5 +185,35 @@ pub impl StoreImpl of StoreTrait {
     fn set_tournament(self: Store, tournament: Tournament) {
         let mut world = self.world;
         world.write_model(@tournament);
+    }
+
+    fn set_economy_config(self: Store, config: EconomyConfig) {
+        let mut world = self.world;
+        world.write_model(@config);
+    }
+
+    fn set_economy_state(self: Store, state: EconomyState) {
+        let mut world = self.world;
+        world.write_model(@state);
+    }
+
+    fn set_entry_settlement(self: Store, settlement: EntrySettlement) {
+        let mut world = self.world;
+        world.write_model(@settlement);
+    }
+
+    fn set_game_config_template(self: Store, template: GameConfigTemplate) {
+        let mut world = self.world;
+        world.write_model(@template);
+    }
+
+    fn set_game_config_snapshot(self: Store, snapshot: GameConfigSnapshot) {
+        let mut world = self.world;
+        world.write_model(@snapshot);
+    }
+
+    fn set_config_policy(self: Store, policy: ConfigPolicy) {
+        let mut world = self.world;
+        world.write_model(@policy);
     }
 }
