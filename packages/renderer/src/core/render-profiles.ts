@@ -1,4 +1,4 @@
-import type { CameraMode, RenderProfile } from "./types";
+import type { CameraMode, RenderProfile, EffectsCapabilities } from "./types";
 
 export interface LightingProfile {
   backgroundColor: number;
@@ -90,4 +90,37 @@ export function getLightingProfile(profile: RenderProfile): LightingProfile {
 
 export function getEffectsProfile(profile: RenderProfile): EffectsProfile {
   return EFFECTS_PROFILES[profile];
+}
+
+export function resolveEffectsProfile(
+  profile: RenderProfile,
+  capabilities: EffectsCapabilities = {},
+): EffectsProfile {
+  const base = getEffectsProfile(profile);
+  const resolved: EffectsProfile = {
+    bloom: { ...base.bloom },
+    vignette: { ...base.vignette },
+    ssao: { ...base.ssao },
+  };
+
+  if (capabilities.supportsSSAO === false) {
+    resolved.ssao.enabled = false;
+  }
+  if (capabilities.supportsBloom === false) {
+    resolved.bloom.strength = 0;
+    resolved.bloom.radius = 0;
+  }
+  if (capabilities.supportsVignette === false) {
+    resolved.vignette.offset = 0;
+    resolved.vignette.darkness = 0;
+  }
+
+  if (capabilities.lowPowerDevice) {
+    resolved.ssao.enabled = false;
+    resolved.bloom.strength *= 0.45;
+    resolved.bloom.radius *= 0.6;
+    resolved.vignette.darkness *= 0.5;
+  }
+
+  return resolved;
 }

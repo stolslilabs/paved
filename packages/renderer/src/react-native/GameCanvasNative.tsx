@@ -1,14 +1,16 @@
-import { useRef, useEffect } from "react";
-import { GameScene } from "../core/GameScene";
-import { createWebSurfaceAdapter } from "../core/WebSurfaceAdapter";
+import { useEffect, useRef } from "react";
+import { GameScene, type GameSceneDependencies } from "../core/GameScene";
 import type {
   TileRenderData,
   CharacterRenderData,
   HoverState,
   CameraMode,
+  RenderSurfaceAdapter,
+  EffectsCapabilities,
 } from "../core/types";
 
-export interface GameCanvasProps {
+export interface GameCanvasNativeProps {
+  surface: RenderSurfaceAdapter;
   tiles?: TileRenderData[];
   characters?: CharacterRenderData[];
   hover?: HoverState | null;
@@ -17,15 +19,17 @@ export interface GameCanvasProps {
   compassRotation?: number;
   cameraMode?: CameraMode;
   basePath?: string;
-  style?: React.CSSProperties;
-  className?: string;
+  effectsCapabilities?: EffectsCapabilities;
+  createRenderer?: GameSceneDependencies["createRenderer"];
+  createCameraController?: GameSceneDependencies["createCameraController"];
   onReady?: (scene: GameScene) => void;
   onTileClick?: (gridX: number, gridY: number) => void;
   onTileHover?: (gridX: number, gridY: number) => void;
   onHoverLeave?: () => void;
 }
 
-export function GameCanvas({
+export function GameCanvasNative({
+  surface,
   tiles = [],
   characters = [],
   hover = null,
@@ -34,14 +38,14 @@ export function GameCanvas({
   compassRotation = 0,
   cameraMode = "play",
   basePath = "",
-  style,
-  className,
+  effectsCapabilities,
+  createRenderer,
+  createCameraController,
   onReady,
   onTileClick,
   onTileHover,
   onHoverLeave,
-}: GameCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+}: GameCanvasNativeProps) {
   const sceneRef = useRef<GameScene | null>(null);
 
   const onTileClickRef = useRef(onTileClick);
@@ -53,25 +57,22 @@ export function GameCanvas({
   useEffect(() => { onHoverLeaveRef.current = onHoverLeave; }, [onHoverLeave]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const scene = new GameScene({ createRenderer, createCameraController });
+    sceneRef.current = scene;
 
-    const gameScene = new GameScene();
-    sceneRef.current = gameScene;
-
-    gameScene.init({ surface: createWebSurfaceAdapter(canvas), basePath }).then(() => {
-      gameScene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
-      gameScene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
-      gameScene.onHoverLeave(() => onHoverLeaveRef.current?.());
-      gameScene.start();
-      onReady?.(gameScene);
+    scene.init({ surface, basePath, effectsCapabilities }).then(() => {
+      scene.onTileClick((gx, gy) => onTileClickRef.current?.(gx, gy));
+      scene.onTileHover((gx, gy) => onTileHoverRef.current?.(gx, gy));
+      scene.onHoverLeave(() => onHoverLeaveRef.current?.());
+      scene.start();
+      onReady?.(scene);
     });
 
     return () => {
-      gameScene.dispose();
+      scene.dispose();
       sceneRef.current = null;
     };
-  }, [basePath]);
+  }, [surface, basePath, createRenderer, createCameraController, effectsCapabilities]);
 
   useEffect(() => {
     sceneRef.current?.updateTiles(tiles);
@@ -101,11 +102,5 @@ export function GameCanvas({
     sceneRef.current?.setCameraMode(cameraMode);
   }, [cameraMode]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: "100%", height: "100%", ...style }}
-      className={className}
-    />
-  );
+  return null;
 }

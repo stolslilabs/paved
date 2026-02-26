@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { GameScene } from "../core/GameScene";
+import { createWebSurfaceAdapter } from "../core/WebSurfaceAdapter";
 import type { RendererConfig } from "../core/types";
 
 export function useScene(config?: Partial<RendererConfig>) {
@@ -14,7 +15,7 @@ export function useScene(config?: Partial<RendererConfig>) {
     const scene = new GameScene();
     sceneRef.current = scene;
 
-    scene.init({ canvas, ...config }).then(() => {
+    scene.init({ surface: createWebSurfaceAdapter(canvas), ...config }).then(() => {
       scene.start();
       setReady(true);
     });

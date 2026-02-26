@@ -11,6 +11,47 @@ export interface CameraConfig {
   maxDistance?: number;
 }
 
+export interface CameraViewport {
+  width: number;
+  height: number;
+  inputTarget?: unknown;
+}
+
+export interface CameraInputAdapter {
+  target: THREE.Vector3;
+  enableRotate: boolean;
+  enablePan: boolean;
+  enableDamping: boolean;
+  zoomToCursor: boolean;
+  zoomSpeed: number;
+  panSpeed: number;
+  rotateSpeed: number;
+  minAzimuthAngle: number;
+  maxAzimuthAngle: number;
+  minPolarAngle: number;
+  maxPolarAngle: number;
+  minDistance: number;
+  maxDistance: number;
+  touches: {
+    ONE: number;
+    TWO: number;
+  };
+  mouseButtons: {
+    LEFT: number;
+    MIDDLE: number;
+    RIGHT: number;
+  };
+  addEventListener(eventName: string, callback: () => void): void;
+  update(): boolean;
+  reset(): void;
+  dispose(): void;
+}
+
+export type CameraInputAdapterFactory = (
+  camera: THREE.PerspectiveCamera,
+  inputTarget: unknown,
+) => CameraInputAdapter;
+
 const DEFAULT_CONFIG: Required<CameraConfig> = {
   position: [0, 0, 0],
   zoom: 5,
@@ -20,21 +61,49 @@ const DEFAULT_CONFIG: Required<CameraConfig> = {
   maxDistance: 300,
 };
 
+function createOrbitCameraInputAdapter(
+  camera: THREE.PerspectiveCamera,
+  inputTarget: unknown,
+): CameraInputAdapter {
+  if (!inputTarget) {
+    throw new Error("Camera input target is required for OrbitControls");
+  }
+
+  return new OrbitControls(camera, inputTarget as HTMLElement) as unknown as CameraInputAdapter;
+}
+
+function normalizeViewport(input: CameraViewport | HTMLCanvasElement): CameraViewport {
+  if ("clientWidth" in input && "clientHeight" in input) {
+    return {
+      width: input.clientWidth,
+      height: input.clientHeight,
+      inputTarget: input,
+    };
+  }
+
+  return input;
+}
+
 export class CameraController {
   private static readonly BOARD_MARGIN = 6;
 
   camera: THREE.PerspectiveCamera;
-  controls: OrbitControls;
+  controls: CameraInputAdapter;
   private compassRotation = 0;
   private mode: CameraMode = "play";
   private boardBounds: BoardBounds | null = null;
 
-  constructor(canvas: HTMLCanvasElement, config: CameraConfig = {}) {
+  constructor(
+    viewportOrCanvas: CameraViewport | HTMLCanvasElement,
+    config: CameraConfig = {},
+    createInputAdapter: CameraInputAdapterFactory = createOrbitCameraInputAdapter,
+  ) {
     const cfg = { ...DEFAULT_CONFIG, ...config };
+    const viewport = normalizeViewport(viewportOrCanvas);
 
     this.camera = new THREE.PerspectiveCamera(
       50,
-      canvas.clientWidth / canvas.clientHeight,
+      viewport.width / viewport.height,
       cfg.near,
       cfg.far
     );
@@ -43,7 +112,7 @@ export class CameraController {
     this.camera.zoom = cfg.zoom;
     this.camera.updateProjectionMatrix();
 
-    this.controls = new OrbitControls(this.camera, canvas);
+    this.controls = createInputAdapter(this.camera, viewport.inputTarget);
     this.controls.enableRotate = true;
     this.controls.enablePan = true;
     this.controls.enableDamping = true;
