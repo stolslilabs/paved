@@ -4,8 +4,8 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { SSAOPass } from "three/addons/postprocessing/SSAOPass.js";
-import type { RenderProfile } from "./types";
-import { getEffectsProfile } from "./render-profiles";
+import type { RenderProfile, EffectsCapabilities } from "./types";
+import { resolveEffectsProfile } from "./render-profiles";
 
 // Vignette shader (from postprocessing library, simplified)
 const VignetteShader = {
@@ -68,6 +68,7 @@ export class Effects {
   private config: EffectsConfig;
   private profile: RenderProfile = "play";
   private ssaoPass: SSAOPass | null = null;
+  private capabilities: EffectsCapabilities = {};
 
   constructor(config: EffectsConfig = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -91,6 +92,11 @@ export class Effects {
     this.buildComposer();
   }
 
+  setCapabilities(capabilities: EffectsCapabilities): void {
+    this.capabilities = capabilities;
+    this.buildComposer();
+  }
+
   private buildComposer(): void {
     if (!this.renderer || !this.scene || !this.camera) return;
 
@@ -105,7 +111,7 @@ export class Effects {
     const renderPass = new RenderPass(scene, camera);
     this.composer.addPass(renderPass);
 
-    const profileConfig = getEffectsProfile(this.profile);
+    const profileConfig = resolveEffectsProfile(this.profile, this.capabilities);
 
     if (profileConfig.ssao.enabled) {
       this.ssaoPass = new SSAOPass(

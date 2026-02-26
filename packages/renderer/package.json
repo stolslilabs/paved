@@ -13,6 +13,10 @@
     "./react": {
       "import": "./dist/react/index.js",
       "types": "./dist/react/index.d.ts"
+    },
+    "./react-native": {
+      "import": "./dist/react-native/index.js",
+      "types": "./dist/react-native/index.d.ts"
     }
   },
   "scripts": {
