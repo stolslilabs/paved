@@ -13,6 +13,8 @@ import type {
   CameraMode,
   BoardBounds,
   RenderProfile,
+  RenderSurfaceAdapter,
+  SurfaceInputEvent,
 } from "./types";
 import { TILE_SIZE } from "./types";
 import {
@@ -29,6 +31,34 @@ const SHADOW_NEAR = 1;
 const SHADOW_FAR = 100;
 const SHADOW_FRUSTUM = 50;
 
+export interface GameSceneDependencies {
+  createRenderer?: (surface: RenderSurfaceAdapter) => THREE.WebGLRenderer;
+  createCameraController?: (surface: RenderSurfaceAdapter) => CameraController;
+}
+
+function createDefaultRenderer(surface: RenderSurfaceAdapter): THREE.WebGLRenderer {
+  const renderTarget = surface.getRenderTarget?.();
+  if (!renderTarget) {
+    throw new Error("Render surface does not expose a render target");
+  }
+
+  return new THREE.WebGLRenderer({
+    canvas: renderTarget as HTMLCanvasElement,
+    antialias: true,
+    alpha: false,
+  });
+}
+
+function createDefaultCameraController(surface: RenderSurfaceAdapter): CameraController {
+  const size = surface.getSize();
+
+  return new CameraController({
+    width: size.width,
+    height: size.height,
+    inputTarget: surface.getRenderTarget?.(),
+  });
+}
+
 export class GameScene {
   scene: THREE.Scene;
   camera!: THREE.PerspectiveCamera;
@@ -39,6 +69,7 @@ export class GameScene {
   assets: AssetLoader;
   effects: Effects;
 
+  private readonly dependencies: GameSceneDependencies;
   private sceneGroup: THREE.Group;
   private animationId: number | null = null;
   private needsRender = true;
@@ -54,14 +85,11 @@ export class GameScene {
   private onTileClickCallback: ((gridX: number, gridY: number) => void) | null = null;
   private onTileHoverCallback: ((gridX: number, gridY: number) => void) | null = null;
   private onHoverLeaveCallback: (() => void) | null = null;
-  private boundPointerDown: ((e: PointerEvent) => void) | null = null;
-  private boundPointerUp: ((e: PointerEvent) => void) | null = null;
-  private boundPointerMove: ((e: PointerEvent) => void) | null = null;
-  private boundPointerLeave: (() => void) | null = null;
-  private interactionCanvas: HTMLCanvasElement | null = null;
-  private resizeObserver: ResizeObserver | null = null;
+  private boundInputHandler: ((event: SurfaceInputEvent) => void) | null = null;
+  private surface: RenderSurfaceAdapter | null = null;
+  private unbindResize: (() => void) | null = null;
 
-  constructor() {
+  constructor(dependencies: GameSceneDependencies = {}) {
     this.scene = new THREE.Scene();
     this.sceneGroup = new THREE.Group();
     this.scene.add(this.sceneGroup);
@@ -72,10 +100,30 @@ export class GameScene {
 
     this.sceneGroup.add(this.tiles.getGroup());
     this.sceneGroup.add(this.characters.getGroup());
+
+    this.dependencies = dependencies;
   }
 
   async init(config: RendererConfig): Promise<void> {
-    const { canvas, basePath, pixelRatio = [0.5, 1], shadows = true } = config;
+    const {
+      surface,
+      basePath,
+      pixelRatio = [0.5, 1],
+      shadows = true,
+      effectsCapabilities = {},
+    } = config;
+
+    // If init is called again on the same instance, detach old listeners first.
+    if (this.surface) {
+      this.surface.unbindInput();
+      this.surface = null;
+    }
+    if (this.unbindResize) {
+      this.unbindResize();
+      this.unbindResize = null;
+    }
+
+    this.surface = surface;
 
     // Set asset base path
     if (basePath) {
@@ -87,19 +135,16 @@ export class GameScene {
       this.sceneGroup.add(this.characters.getGroup());
     }
 
-    // Create WebGL renderer (WebGPU support to be added when Three.js stabilizes the API)
-    this.renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: false,
-    });
+    const rendererFactory = this.dependencies.createRenderer ?? createDefaultRenderer;
+    this.renderer = rendererFactory(surface);
 
+    const size = surface.getSize();
     const dpr = Math.min(
-      Math.max(window.devicePixelRatio, pixelRatio[0]),
+      Math.max(surface.getDevicePixelRatio(), pixelRatio[0]),
       pixelRatio[1]
     );
     this.renderer.setPixelRatio(dpr);
-    this.renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+    this.renderer.setSize(size.width, size.height);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1;
@@ -110,7 +155,8 @@ export class GameScene {
     }
 
     // Camera
-    this.controls = new CameraController(canvas);
+    const cameraControllerFactory = this.dependencies.createCameraController ?? createDefaultCameraController;
+    this.controls = cameraControllerFactory(surface);
     this.camera = this.controls.camera;
 
     // Re-render when camera moves (orbit, pan, zoom)
@@ -123,22 +169,21 @@ export class GameScene {
 
     // Post-processing
     this.effects.init(this.renderer, this.scene, this.camera, this.renderProfile);
+    this.effects.setCapabilities(effectsCapabilities);
 
     // Preload assets
     await this.assets.preloadAll();
 
     // Handle resize
-    this.resizeObserver = new ResizeObserver(() => {
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      this.renderer.setSize(w, h);
-      this.controls.resize(w, h);
-      this.effects.resize(w, h);
+    this.unbindResize = surface.onResize(() => {
+      const nextSize = surface.getSize();
+      this.renderer.setSize(nextSize.width, nextSize.height);
+      this.controls.resize(nextSize.width, nextSize.height);
+      this.effects.resize(nextSize.width, nextSize.height);
       this.requestRender();
     });
-    this.resizeObserver.observe(canvas);
 
-    this.setupInteraction(canvas);
+    this.setupInteraction(surface);
   }
 
   private setupLighting(): void {
@@ -193,41 +238,23 @@ export class GameScene {
     }
   }
 
-  private setupInteraction(canvas: HTMLCanvasElement): void {
-    this.interactionCanvas = canvas;
-
-    this.boundPointerDown = (e: PointerEvent) => {
-      if (e.button === 0) {
-        this.pointerDownPos = { x: e.clientX, y: e.clientY };
+  private setupInteraction(surface: RenderSurfaceAdapter): void {
+    const toNdc = (event: SurfaceInputEvent): { x: number; y: number } | null => {
+      const size = surface.getSize();
+      if (size.width <= 0 || size.height <= 0) {
+        return null;
       }
-    };
 
-    this.boundPointerUp = (e: PointerEvent) => {
-      if (e.button === 0 && this.pointerDownPos) {
-        const up = { x: e.clientX, y: e.clientY };
-        if (isClick(this.pointerDownPos, up, CLICK_THRESHOLD)) {
-          const rect = canvas.getBoundingClientRect();
-          const ndc = {
-            x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
-            y: -((e.clientY - rect.top) / rect.height) * 2 + 1,
-          };
-          // Ensure camera matrix is fresh (OrbitControls may have updated between frames)
-          this.camera.updateMatrixWorld();
-          const grid = screenToGrid(ndc, this.camera, this.sceneGroup.matrixWorld, 3);
-          if (grid && this.onTileClickCallback) {
-            this.onTileClickCallback(grid.x, grid.y);
-          }
-        }
-        this.pointerDownPos = null;
-      }
-    };
-
-    this.boundPointerMove = createThrottled((e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      const ndc = {
-        x: ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        y: -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      return {
+        x: (event.x / size.width) * 2 - 1,
+        y: -(event.y / size.height) * 2 + 1,
       };
+    };
+
+    const handlePointerMove = createThrottled((event: SurfaceInputEvent) => {
+      const ndc = toNdc(event);
+      if (!ndc) return;
+
       this.camera.updateMatrixWorld();
       const grid = screenToGrid(ndc, this.camera, this.sceneGroup.matrixWorld, 3);
       if (grid) {
@@ -237,14 +264,47 @@ export class GameScene {
       }
     }, 50); // ~20fps throttle
 
-    this.boundPointerLeave = () => {
-      this.onHoverLeaveCallback?.();
+    this.boundInputHandler = (event: SurfaceInputEvent) => {
+      if (event.type === "pointerdown") {
+        if ((event.button ?? 0) === 0) {
+          this.pointerDownPos = { x: event.x, y: event.y };
+        }
+        return;
+      }
+
+      if (event.type === "pointerup") {
+        if ((event.button ?? 0) === 0 && this.pointerDownPos) {
+          const up = { x: event.x, y: event.y };
+          if (isClick(this.pointerDownPos, up, CLICK_THRESHOLD)) {
+            const ndc = toNdc(event);
+            if (!ndc) {
+              this.pointerDownPos = null;
+              return;
+            }
+
+            // Ensure camera matrix is fresh (controls may have updated between frames)
+            this.camera.updateMatrixWorld();
+            const grid = screenToGrid(ndc, this.camera, this.sceneGroup.matrixWorld, 3);
+            if (grid && this.onTileClickCallback) {
+              this.onTileClickCallback(grid.x, grid.y);
+            }
+          }
+          this.pointerDownPos = null;
+        }
+        return;
+      }
+
+      if (event.type === "pointermove") {
+        handlePointerMove(event);
+        return;
+      }
+
+      if (event.type === "pointerleave") {
+        this.onHoverLeaveCallback?.();
+      }
     };
 
-    canvas.addEventListener("pointerdown", this.boundPointerDown);
-    canvas.addEventListener("pointerup", this.boundPointerUp);
-    canvas.addEventListener("pointermove", this.boundPointerMove);
-    canvas.addEventListener("pointerleave", this.boundPointerLeave);
+    surface.bindInput(this.boundInputHandler);
   }
 
   onTileClick(cb: ((gridX: number, gridY: number) => void) | null): void {
@@ -351,7 +411,7 @@ export class GameScene {
     const animate = () => {
       this.animationId = requestAnimationFrame(animate);
 
-      // OrbitControls.update() returns true while damping is active
+      // controls.update() returns true while damping is active
       const controlsChanged = this.controls.update();
       if (controlsChanged) {
         this.needsRender = true;
@@ -388,18 +448,14 @@ export class GameScene {
 
   /** Cleanup all resources */
   dispose(): void {
-    // Remove interaction listeners
-    if (this.interactionCanvas) {
-      if (this.boundPointerDown) this.interactionCanvas.removeEventListener("pointerdown", this.boundPointerDown);
-      if (this.boundPointerUp) this.interactionCanvas.removeEventListener("pointerup", this.boundPointerUp);
-      if (this.boundPointerMove) this.interactionCanvas.removeEventListener("pointermove", this.boundPointerMove);
-      if (this.boundPointerLeave) this.interactionCanvas.removeEventListener("pointerleave", this.boundPointerLeave);
-      this.interactionCanvas = null;
+    if (this.surface) {
+      this.surface.unbindInput();
+      this.surface = null;
     }
 
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-      this.resizeObserver = null;
+    if (this.unbindResize) {
+      this.unbindResize();
+      this.unbindResize = null;
     }
 
     this.stop();

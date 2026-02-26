@@ -14,10 +14,45 @@ export interface BoardBounds {
 }
 
 export interface RendererConfig {
-  canvas: HTMLCanvasElement;
+  surface: RenderSurfaceAdapter;
   basePath?: string;
   pixelRatio?: [number, number];
   shadows?: boolean;
+  effectsCapabilities?: EffectsCapabilities;
+}
+
+export interface SurfaceSize {
+  width: number;
+  height: number;
+}
+
+export type SurfaceInputEventType =
+  | "pointerdown"
+  | "pointerup"
+  | "pointermove"
+  | "pointerleave";
+
+export interface SurfaceInputEvent {
+  type: SurfaceInputEventType;
+  x: number;
+  y: number;
+  button?: number;
+}
+
+export interface RenderSurfaceAdapter {
+  getSize(): SurfaceSize;
+  getDevicePixelRatio(): number;
+  onResize(cb: () => void): () => void;
+  bindInput(handler: (event: SurfaceInputEvent) => void): void;
+  unbindInput(): void;
+  getRenderTarget?(): unknown;
+}
+
+export interface EffectsCapabilities {
+  supportsBloom?: boolean;
+  supportsVignette?: boolean;
+  supportsSSAO?: boolean;
+  lowPowerDevice?: boolean;
 }
 
 export interface TileRenderData extends TileData {
