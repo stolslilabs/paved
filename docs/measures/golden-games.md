@@ -13,7 +13,7 @@ harness, not the data.
 
 ```
 cd contracts
-snforge test golden
+RAYON_NUM_THREADS=1 snforge test golden
 ```
 
 With the pinned toolchain (scarb 2.13.1, snforge 0.51.2). Peak memory measured for this command:
@@ -31,6 +31,22 @@ about 3.7 GB (`/usr/bin/time -v`).
 
 Forest: no role is allowed on a forest (`Role::is_allowed`), so no case places a character there.
 
+## Gas budget
+
+Each case carries `#[available_gas(l2_gas: N)]`: the test fails if the total L2 gas of its game
+(spawn included) exceeds N. N is the figure measured on 2026-10-06 plus 5 %.
+
+| Test | Measured L2 gas | Ceiling (+5 %) |
+| --- | --- | --- |
+| `daily_city5_game_over` | 668,628,756 | 702,060,194 |
+| `daily_road6` | 725,346,039 | 761,613,341 |
+| `daily_mixed_roles` | 690,986,201 | 725,535,512 |
+| `daily_real_deck_discards_to_game_over` | 600,946,448 | 630,993,771 |
+| `tutorial_full_sequence` | 1,262,087,468 | 1,325,191,842 |
+
+A gas improvement lowers the figures: lower the ceilings in the same PR. A rise above a ceiling is
+a regression, not a reason to raise it.
+
 ## Limits
 
 - The Daily moves with a role use forced plans (`forced: true`: the harness replaces the drawn tile,
@@ -44,6 +60,8 @@ Forest: no role is allowed on a forest (`Role::is_allowed`), so no case places a
   not from an independent computation.
 
 ## Rule
+
+Golden games are never edited to make a test pass.
 
 No pull request may change an expected value of these tests without saying so in its title (for
 example `... [golden: city5 score 2245 -> 2300]`). A change of a golden value is a change of the
