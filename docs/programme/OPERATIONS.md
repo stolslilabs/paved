@@ -27,9 +27,8 @@ repeats this rule.
 
 ## Domain rules
 
-- **Toolchain** is pinned in `.tool-versions` and in every `Scarb.toml`. Today: scarb 2.13.1 with
-  snforge 0.51.2, the pair that passes 218 of 219 tests. After P3: Scarb 2.20.1 / snforge 0.64
-  (organisation D-180).
+- **Toolchain** is pinned in `.tool-versions` and in every `Scarb.toml`. Today: scarb 2.20.1 with
+  snforge 0.64.0 (P3, organisation D-180).
 - A **toolchain bump is its own PR**.
 - Builds and measures run single-threaded (`RAYON_NUM_THREADS=1`).
 - **Every gameplay test carries a gas budget.**

@@ -18,7 +18,7 @@ What would reverse it:
   its Cartridge/Dojo ecosystem fit).
 - Madara shown to accept the class (not tried, see below), if a node closer to a real sequencer is wanted.
 - devnet failing on a Paved contract's size or gas needs (not tested: only the sample was run).
-- P3 keeps Scarb 2.13.1 until then: at 2.13.1 (Sierra 1.7.0) Katana 1.8.0-rc.9 does work (last row).
+- From P3 on (Scarb 2.20.1, Sierra 1.9.x) starknet-devnet 0.10.0 is the local node: Katana (1.7.1, 1.8.0-rc.9) cannot declare Paved's classes. Katana at 2.13.1 (Sierra 1.7.0) only worked up to P2 (last row).
 
 ## Sample
 
