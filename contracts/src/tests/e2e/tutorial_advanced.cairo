@@ -1,7 +1,7 @@
 use paved::models::game::GameTrait;
-use paved::tests::setup::setup::TestStoreTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::setup::setup;
+use paved::tests::setup::setup::TestStoreTrait;
 use paved::types::mode::Mode;
 
 #[test]

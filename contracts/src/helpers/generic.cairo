@@ -3,12 +3,12 @@
 // Internal imports
 
 use paved::constants;
+use paved::events::{Event, Scored};
 use paved::helpers::multiplier::compute_multiplier;
 use paved::models::builder::{Builder, BuilderImpl};
 use paved::models::character::{Char, CharPosition};
 use paved::models::game::{Game, GameImpl};
 use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
-use paved::events::{Event, Scored};
 use paved::store::{Store, StoreImpl};
 use paved::types::area::Area;
 use paved::types::category::Category;

@@ -2,13 +2,10 @@
 
 #[starknet::component]
 pub mod ManageableComponent {
-    // Starknet imports
-
-    use paved::models::player::{Player, PlayerAssert, PlayerImpl};
-
     // Internal imports
 
     use paved::events::{Event as PavedEvent, PlayerCreated};
+    use paved::models::player::{Player, PlayerAssert, PlayerImpl};
     use paved::store::{Store, StoreImpl};
     use starknet::{ContractAddress, get_caller_address};
 
@@ -27,11 +24,7 @@ pub mod ManageableComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
-        fn create(
-            self: @ComponentState<TContractState>,
-            name: felt252,
-            master: ContractAddress,
-        ) {
+        fn create(self: @ComponentState<TContractState>, name: felt252, master: ContractAddress) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 

@@ -2,18 +2,15 @@
 
 #[starknet::component]
 pub mod PlayableComponent {
-    // Starknet imports
-
-
     // Internal imports
 
     use paved::constants;
+    use paved::events::{Built, Discarded, Event as PavedEvent, game_over};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl, ZeroableBuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::player::{Player, PlayerAssert, PlayerImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
     use paved::models::tournament::{Tournament, TournamentAssert, TournamentImpl};
-    use paved::events::{Built, Discarded, Event as PavedEvent, game_over};
     use paved::store::{Store, StoreImpl};
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;

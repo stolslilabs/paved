@@ -5,6 +5,7 @@
 //! the calling contract. Maps are keyed by the fields that were the Dojo model keys, keys are not
 //! stored, and values are packed into whole felts (see `docs/architecture/native-storage.md`).
 
+use core::num::traits::Zero;
 use paved::events::Event;
 use paved::models::builder::Builder;
 use paved::models::character::{Char, CharIntoCharPosition, CharPosition};
@@ -20,7 +21,6 @@ use starknet::storage::{
     Map, Mutable, StorageAsPath, StorageBase, StoragePath, StoragePathEntry,
     StoragePointerReadAccess, StoragePointerWriteAccess,
 };
-use core::num::traits::Zero;
 use starknet::{ContractAddress, SyscallResultTrait};
 
 // Constants

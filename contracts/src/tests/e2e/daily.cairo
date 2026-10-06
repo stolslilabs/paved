@@ -2,9 +2,10 @@ use paved::constants;
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
 use paved::models::tournament::TournamentTrait;
-use paved::tests::setup::setup::TestStoreTrait;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER};
+use paved::tests::setup::setup::{
+    IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, TestStoreTrait,
+};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;

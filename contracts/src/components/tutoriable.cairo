@@ -2,19 +2,14 @@
 
 #[starknet::component]
 pub mod TutoriableComponent {
-    // Core imports
-
-    // Starknet imports
-
-
     // Internal imports
 
     use paved::constants;
+    use paved::events::{Built, Discarded, Event as PavedEvent, game_over};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl, ZeroableBuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::player::{Player, PlayerAssert, PlayerImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
-    use paved::events::{Built, Discarded, Event as PavedEvent, game_over};
     use paved::store::{Store, StoreImpl};
     use paved::types::mode::{Mode, ModeTrait};
     use paved::types::orientation::{Orientation, OrientationAssert};

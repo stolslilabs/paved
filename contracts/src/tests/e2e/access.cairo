@@ -14,8 +14,8 @@ use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 use snforge_std::{
-    DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
-    start_cheat_caller_address, stop_cheat_caller_address,
+    DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events, start_cheat_caller_address,
+    stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
 

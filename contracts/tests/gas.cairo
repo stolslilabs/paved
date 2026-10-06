@@ -47,12 +47,7 @@ struct Scenario {
 impl ScenarioImpl of ScenarioTrait {
     fn new() -> Scenario {
         let (store, systems, context) = setup::spawn_game(Mode::Daily);
-        Scenario {
-            systems,
-            store,
-            game_id: context.game_id,
-            player_id: context.player_id,
-        }
+        Scenario { systems, store, game_id: context.game_id, player_id: context.player_id }
     }
 
     /// Overwrites the plan of the tile held by the builder, then builds it. Returns the L2 gas

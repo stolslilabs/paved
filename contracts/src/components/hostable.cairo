@@ -7,17 +7,14 @@ use starknet::ContractAddress;
 
 #[starknet::component]
 pub mod HostableComponent {
-    // Starknet imports
+    // Internal imports
 
+    use paved::events::{Claimed, Event as PavedEvent, GameSpawned, Sponsored};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::player::{Player, PlayerAssert, PlayerImpl};
     use paved::models::tile::{Tile, TileImpl, TilePosition};
     use paved::models::tournament::{Tournament, TournamentAssert, TournamentImpl};
-
-    // Internal imports
-
-    use paved::events::{Claimed, Event as PavedEvent, GameSpawned, Sponsored};
     use paved::store::{Store, StoreImpl};
     use paved::types::mode::{Mode, ModeTrait};
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
@@ -35,9 +32,7 @@ pub mod HostableComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
-        fn spawn(
-            self: @ComponentState<TContractState>, mode: Mode,
-        ) -> (u32, u256) {
+        fn spawn(self: @ComponentState<TContractState>, mode: Mode) -> (u32, u256) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -100,10 +95,7 @@ pub mod HostableComponent {
         }
 
         fn claim(
-            self: @ComponentState<TContractState>,
-            tournament_id: u64,
-            rank: u8,
-            mode: Mode,
+            self: @ComponentState<TContractState>, tournament_id: u64, rank: u8, mode: Mode,
         ) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
@@ -123,17 +115,18 @@ pub mod HostableComponent {
             store.set_tournament(tournament);
 
             // [Event] Reward claimed
-            store.emit(PavedEvent::Claimed(Claimed { tournament_id, player_id: player.id, rank, reward }));
+            store
+                .emit(
+                    PavedEvent::Claimed(
+                        Claimed { tournament_id, player_id: player.id, rank, reward },
+                    ),
+                );
 
             // [Return] Reward to pay
             reward
         }
 
-        fn sponsor(
-            self: @ComponentState<TContractState>,
-            amount: felt252,
-            mode: Mode,
-        ) -> u256 {
+        fn sponsor(self: @ComponentState<TContractState>, amount: felt252, mode: Mode) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 

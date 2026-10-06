@@ -1,13 +1,13 @@
 use core::traits::TryInto;
+
+// Internal imports
+
+use paved::constants;
 // Core imports
 
 // External imports
 
 use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait};
-
-// Internal imports
-
-use paved::constants;
 pub use paved::models::index::Tournament;
 
 // Errors

@@ -68,7 +68,9 @@ pub mod Tutorial {
     // Constructor
 
     #[constructor]
-    fn constructor(ref self: ContractState, owner: ContractAddress, account_address: ContractAddress) {
+    fn constructor(
+        ref self: ContractState, owner: ContractAddress, account_address: ContractAddress,
+    ) {
         // [Effect] Initialize components
         self.ownable.initialize(owner);
         // [Effect] Players are read from the Account contract

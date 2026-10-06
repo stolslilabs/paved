@@ -5,10 +5,9 @@ use paved::mocks::erc20::interface::{
 };
 use paved::models::tile::CENTER;
 use paved::models::tournament::TournamentTrait;
-use paved::tests::setup::setup::TestStoreTrait;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE,
+    ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;

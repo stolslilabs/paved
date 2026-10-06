@@ -54,7 +54,9 @@ pub mod OwnableComponent {
             self.owner.read()
         }
 
-        fn transfer_ownership(ref self: ComponentState<TContractState>, new_owner: ContractAddress) {
+        fn transfer_ownership(
+            ref self: ComponentState<TContractState>, new_owner: ContractAddress,
+        ) {
             // [Check] Caller is the owner
             self.assert_only_owner();
             // [Effect] Hand the ownership over

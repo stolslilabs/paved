@@ -8,10 +8,9 @@
 use paved::models::game::{Game, GameTrait};
 use paved::models::tile::Tile;
 use paved::models::tournament::TournamentTrait;
-use paved::tests::setup::setup::{TestStore, TestStoreTrait};
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::IDailyDispatcherTrait;
+use paved::tests::setup::setup::{IDailyDispatcherTrait, TestStore, TestStoreTrait};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;

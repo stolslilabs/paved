@@ -3,14 +3,14 @@ use core::hash::HashStateTrait;
 
 use core::poseidon::{HashState, PoseidonTrait};
 
-// External imports
-
-use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
-
 // Internal imports
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
+
+// External imports
+
+use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 use paved::models::tournament::TournamentTrait;
 use paved::types::deck::{Deck, DeckImpl, DeckTrait};
 use paved::types::orientation::Orientation;
