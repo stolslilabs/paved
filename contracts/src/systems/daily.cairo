@@ -26,6 +26,7 @@ pub trait IDaily<TContractState> {
 pub mod Daily {
     // Component imports
 
+    use core::num::traits::Zero;
     use paved::components::hostable::HostableComponent;
     use paved::components::ownable::OwnableComponent;
     use paved::components::payable::PayableComponent;
@@ -48,6 +49,13 @@ pub mod Daily {
     // Local imports
 
     use super::IDaily;
+
+    // Errors
+
+    pub mod errors {
+        pub const ZERO_ACCOUNT_ADDRESS: felt252 = 'Daily: account is zero';
+        pub const ZERO_TOKEN_ADDRESS: felt252 = 'Daily: token is zero';
+    }
 
     // Components
 
@@ -102,6 +110,9 @@ pub mod Daily {
         account_address: ContractAddress,
         token_address: ContractAddress,
     ) {
+        // [Check] Addresses are set
+        assert(account_address.is_non_zero(), errors::ZERO_ACCOUNT_ADDRESS);
+        assert(token_address.is_non_zero(), errors::ZERO_TOKEN_ADDRESS);
         // [Effect] Initialize components
         self.ownable.initialize(owner);
         self.payable.initialize(token_address);

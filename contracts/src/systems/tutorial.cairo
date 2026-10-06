@@ -12,6 +12,7 @@ pub trait ITutorial<TContractState> {
 pub mod Tutorial {
     // Component imports
 
+    use core::num::traits::Zero;
     use paved::components::hostable::HostableComponent;
     use paved::components::ownable::OwnableComponent;
     use paved::components::tutoriable::TutoriableComponent;
@@ -27,6 +28,12 @@ pub mod Tutorial {
     // Local imports
 
     use super::ITutorial;
+
+    // Errors
+
+    pub mod errors {
+        pub const ZERO_ACCOUNT_ADDRESS: felt252 = 'Tutorial: account is zero';
+    }
 
     // Components
 
@@ -72,6 +79,8 @@ pub mod Tutorial {
     fn constructor(
         ref self: ContractState, owner: ContractAddress, account_address: ContractAddress,
     ) {
+        // [Check] Account address is set
+        assert(account_address.is_non_zero(), errors::ZERO_ACCOUNT_ADDRESS);
         // [Effect] Initialize components
         self.ownable.initialize(owner);
         // [Effect] Players are read from the Account contract

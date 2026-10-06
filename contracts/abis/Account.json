@@ -82,6 +82,17 @@
       },
       {
         "type": "function",
+        "name": "pending_owner",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
         "name": "transfer_ownership",
         "inputs": [
           {
@@ -89,6 +100,13 @@
             "type": "core::starknet::contract_address::ContractAddress"
           }
         ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "accept_ownership",
+        "inputs": [],
         "outputs": [],
         "state_mutability": "external"
       },
@@ -451,6 +469,23 @@
   },
   {
     "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "previous_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "new_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
     "kind": "struct",
     "members": [
@@ -483,6 +518,11 @@
     "name": "paved::components::ownable::OwnableComponent::Event",
     "kind": "enum",
     "variants": [
+      {
+        "name": "OwnershipTransferStarted",
+        "type": "paved::components::ownable::OwnableComponent::OwnershipTransferStarted",
+        "kind": "nested"
+      },
       {
         "name": "OwnershipTransferred",
         "type": "paved::components::ownable::OwnableComponent::OwnershipTransferred",

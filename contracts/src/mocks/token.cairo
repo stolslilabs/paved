@@ -1,3 +1,4 @@
+// TEST AND DEVNET ONLY: never deploy this contract on a public network. `mint` is open to anyone.
 // SPDX-License-Identifier: MIT
 // OpenZeppelin Contracts for Cairo v0.9.0 (presets/erc20.cairo)
 
