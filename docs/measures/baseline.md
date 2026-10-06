@@ -5,12 +5,12 @@ Taken before any change to the contracts, to judge P2 (remove Dojo) and P5 (gas 
 - Date: 2026-10-06
 - Commit: `76f8dd3` (branch `hp/paved-core/t-0001-p0-toolchain-pin-and-ci`, PR #185) plus the files of this PR
 - Toolchain: scarb 2.13.1 (cairo 2.13.1, sierra 1.7.0), snforge 0.51.2, dojo 1.8.0, `~/.asdf/installs/...` binaries
-- Reproduce: `scripts/measure.sh` (`gas`, `coverage` or `all`); it sets `RAYON_NUM_THREADS=1` as `docs/programme/OPERATIONS.md` requires. The figures above were taken before that rule, with the default thread count; a rerun of `scripts/measure.sh gas` with it gave identical gas figures (peak RSS 3.99 GB).
+- Reproduce: `scripts/measure.sh` (`gas`, `coverage`, `check-setup` or `all`); it sets `RAYON_NUM_THREADS=1` as `docs/programme/OPERATIONS.md` requires. The first figures were taken with the default thread count; a rerun of `scripts/measure.sh gas` with it gave identical gas figures (peak RSS 3.99 GB; with a0, 4.17 GB).
 
 ## L2 gas of one `Daily.build`
 
 Tests: `contracts/tests/gas.cairo` (snforge integration crate; `contracts/tests/setup.cairo` is a copy of
-`src/tests/setup.cairo`, because `paved::tests` is `#[cfg(test)]` and cannot be imported from `tests/`).
+`src/tests/setup.cairo` (header line names the source and commit; check with `scripts/measure.sh check-setup`, i.e. `diff <(tail -n +2 contracts/tests/setup.cairo) contracts/src/tests/setup.cairo`), because `paved::tests` is `#[cfg(test)]` and cannot be imported from `tests/`).
 
 Method: `core::testing::get_available_gas()` is read right before and right after the `build` call of the
 last move; the difference is the L2 (Sierra) gas of that call alone (setup, spawn and earlier moves are
@@ -21,8 +21,9 @@ identical figures. Each test asserts `gas <= ceiling`, ceiling = measured + 5 %,
 
 | | Scenario | Tiles in structure | L2 gas (delta) | Ceiling (+5 %) |
 | --- | --- | --- | --- | --- |
-| a | simple move, tile next to the start tile, no character | 2 (open) | 64,102,212 | 67,307,323 |
-| b | same move with a Lord placed on the new tile | 2 (open) | 72,155,500 | 75,763,275 |
+| a0 | open simple move: a road tile east of the start tile, closes nothing, no character | open | 53,633,322 | 56,314,989 |
+| a | simple move closing a 2-tile city (new tile's S cap meets the start tile's N cap), no character, nothing scored | 2 (closed) | 64,102,212 | 67,307,323 |
+| b | same move as a with a Lord placed on the new tile (city closed, scored, Lord recovered) | 2 (closed) | 72,155,500 | 75,763,275 |
 | c | last tile closes a 6-tile city that holds a character (scored, character recovered) | 6 | 112,722,643 | 118,358,776 |
 | d | worst case built: last tile of a 12-tile city tree, placed with a character | 12 | 247,082,185 | 259,436,295 |
 
@@ -45,7 +46,7 @@ Whole-test `--detailed-resources` of scenario a, for reference (includes setup):
 syscalls StorageRead 654, StorageWrite 322, CallContract 155, GetExecutionInfo 151, EmitEvent 82,
 Deploy 22, GetClassHashAt 1.
 
-Output excerpt (`snforge test test_gas_`):
+Output excerpt (`snforge test test_gas_`, 4 of the 5 lines shown):
 
 ```
 GAS a_simple_move: 64102212
@@ -53,7 +54,7 @@ GAS a_simple_move: 64102212
 GAS b_move_with_character: 72155500
 GAS c_close_large_city: 112722643
 GAS d_worst_case: 247082185
-Tests: 4 passed, 0 failed, 0 ignored, 219 filtered out
+Tests: 5 passed, 0 failed, 0 ignored, 219 filtered out
 ```
 
 ## Line coverage of `contracts/src`
@@ -71,7 +72,7 @@ memory allocation of 632 bytes failed
 ```
 
 Peak memory reached 7.9 GB under the 8 GiB cap, so it does not fit this VPS. The command is
-`scripts/measure.sh coverage`, to be run on the Mac. The overall and per-directory table (tests/ and mocks/
+`scripts/measure.sh coverage`, to be run on the Mac (the script uses `/usr/bin/time -l` and no cap on Darwin). The overall and per-directory table (tests/ and mocks/
 excluded) is computed by that script from `coverage/coverage.lcov`; its awk part has not been exercised yet.
 
 ## Commands and peak memory (VPS, under `prlimit --as=8589934592`)
@@ -80,6 +81,6 @@ excluded) is computed by that script from `coverage/coverage.lcov`; its awk part
 | --- | --- | --- |
 | `scarb fmt --check` | pass | n/a |
 | `scarb build` | pass | 2.65 GB |
-| `snforge test test_gas_` | 4 passed | 3.88 GB |
+| `snforge test test_gas_` | 5 passed | 4.17 GB (single-threaded) |
 | `snforge test` | `Tests: 222 passed, 0 failed, 1 ignored, 0 filtered out` | 5.53 GB |
 | `snforge test --coverage` | aborted in `cairo-coverage` | 7.90 GB |

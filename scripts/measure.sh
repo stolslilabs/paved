@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Reproduces the baseline measures of docs/measures/baseline.md:
-#   1. L2 gas of one `Daily.build` call on four scenarios (contracts/tests/gas.cairo);
+#   1. L2 gas of one `Daily.build` call on five scenarios (contracts/tests/gas.cairo);
 #   2. line coverage of contracts/src (snforge --coverage + cairo-coverage + lcov).
 #
-# Usage: scripts/measure.sh [gas|coverage|all]   (default: all)
+# Usage: scripts/measure.sh [gas|coverage|check-setup|all]   (default: all)
 #
 # Runs are single-threaded (RAYON_NUM_THREADS=1) and each is capped to 8 GiB of address space and reports its peak resident memory.
 # Toolchain: scarb 2.13.1 and snforge 0.51.2 (override with SCARB_BIN_DIR / SNFORGE_BIN_DIR);
@@ -23,20 +23,30 @@ export RAYON_NUM_THREADS=1
 mode="${1:-all}"
 
 run_capped() {
-  # Peak memory is printed by /usr/bin/time (Maximum resident set size, in kbytes).
-  prlimit --as="$MEM_CAP_BYTES" -- /usr/bin/time -f 'Maximum resident set size (kbytes): %M' "$@"
+  # Peak memory is printed by /usr/bin/time: kbytes on Linux (capped with prlimit), bytes on macOS
+  # (`time -l`; prlimit does not exist there, so no cap).
+  if [ "$(uname -s)" = Darwin ]; then
+    /usr/bin/time -l "$@"
+  else
+    prlimit --as="$MEM_CAP_BYTES" -- /usr/bin/time -f 'Maximum resident set size (kbytes): %M' "$@"
+  fi
+}
+
+# contracts/tests/setup.cairo is a copy of contracts/src/tests/setup.cairo (first line = header).
+check_setup() {
+  diff <(tail -n +2 tests/setup.cairo) src/tests/setup.cairo && echo "setup.cairo copy in sync"
 }
 
 gas() {
-  echo "== L2 gas of one build call, four scenarios"
+  echo "== L2 gas of one build call, scenarios"
   # Tests print `GAS <scenario>: <l2 gas>` and fail above their ceiling (5 % over the baseline).
-  run_capped snforge test test_gas_ 2>&1 | grep -E '^GAS |^\[(PASS|FAIL)\]|^Tests:|Maximum resident|panicked|Failure'
+  run_capped snforge test test_gas_ 2>&1 | grep -iE '^GAS |^\[(PASS|FAIL)\]|^Tests:|maximum resident|panicked|Failure'
 }
 
 coverage() {
   echo "== Line coverage of contracts/src"
   rm -rf coverage
-  run_capped snforge test --coverage 2>&1 | grep -E '^Tests:|Maximum resident|coverage'
+  run_capped snforge test --coverage 2>&1 | grep -iE '^Tests:|maximum resident|coverage'
   lcov="$(pwd)/coverage/coverage.lcov"
   test -s "$lcov" || { echo "no coverage.lcov produced"; exit 1; }
   # Per directory of contracts/src (tests/ and mocks/ excluded) and overall, from the lcov file.
@@ -54,6 +64,7 @@ coverage() {
 case "$mode" in
   gas) gas ;;
   coverage) coverage ;;
-  all) gas; coverage ;;
-  *) echo "usage: $0 [gas|coverage|all]"; exit 2 ;;
+  check-setup) check_setup ;;
+  all) check_setup; gas; coverage ;;
+  *) echo "usage: $0 [gas|coverage|check-setup|all]"; exit 2 ;;
 esac

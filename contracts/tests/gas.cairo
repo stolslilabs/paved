@@ -1,4 +1,4 @@
-//! Gas baseline of one `Daily.build` call on four scenarios (phase P0).
+//! Gas baseline of one `Daily.build` call on five scenarios (phase P0).
 //!
 //! Each test plays a deterministic sequence of moves and isolates the L2 (Sierra) gas of the LAST
 //! `build` call only: the gas available to the test is read right before and right after that
@@ -10,6 +10,7 @@
 //! composition of the deck: no plan is used more often than the Base deck contains it.
 //!
 //! Plans are written `Center, NW, N, NE, E, SE, S, SW, W` (see `types/plan.cairo`). Used below:
+//! - `RFFFRFFFR`: a straight W-E road.
 //! - `FFCFFFCFF`: two separate city caps, on the N and S edges.
 //! - `CFFFCFFFC`: a city corridor, W-E when facing North, N-S when facing East.
 //! - `FFFFCCCFF`: a city corner, E+S when facing North, S+W East, W+N South, N+E West.
@@ -29,6 +30,7 @@ use crate::setup::setup;
 use crate::setup::setup::{IDailyDispatcherTrait, Systems};
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
+pub const CEILING_OPEN: u128 = 56314989;
 pub const CEILING_SIMPLE: u128 = 67307323;
 pub const CEILING_CHARACTER: u128 = 75763275;
 pub const CEILING_CLOSE_LARGE: u128 = 118358776;
@@ -88,8 +90,17 @@ fn report(name: ByteArray, gas: u128, ceiling: u128) {
     assert(gas <= ceiling, 'Gas: above ceiling');
 }
 
-/// a. Simple move: a tile next to the starter tile (its N city meets the starter city), no
-/// character.
+/// a0. Open simple move: a road tile east of the starter tile; it closes nothing, no character.
+#[test]
+fn test_gas_a0_open_simple_move() {
+    let s = ScenarioTrait::new();
+    let gas = s
+        .build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);
+    report("a0_open_simple_move", gas, CEILING_OPEN);
+}
+
+/// a. Simple move that closes a 2-tile city: the new tile's S cap meets the starter's N cap (the
+/// city is scored only if a character is in it, none here), no character.
 #[test]
 fn test_gas_a_simple_move() {
     let s = ScenarioTrait::new();
