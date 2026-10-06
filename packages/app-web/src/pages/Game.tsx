@@ -80,12 +80,17 @@ const screenStyle = {
 };
 const screenText = { color: "#f59e0b", fontFamily: "RubikMonoOne", fontSize: 24 };
 
-function Screen({ text, onBack }: { text: string; onBack?: () => void }) {
+function Screen({ text, onBack, backDisabled }: { text: string; onBack?: () => void; backDisabled?: boolean }) {
   return (
     <div style={screenStyle}>
       <span style={screenText}>{text}</span>
       {onBack && (
-        <button type="button" onClick={onBack} style={{ background: "transparent", border: "1px solid #555", color: "#999", padding: "8px 16px", borderRadius: 8, cursor: "pointer" }}>
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={backDisabled}
+          style={{ background: "transparent", border: "1px solid #555", color: "#999", padding: "8px 16px", borderRadius: 8, cursor: backDisabled ? "default" : "pointer", opacity: backDisabled ? 0.5 : 1 }}
+        >
           Back
         </button>
       )}
@@ -97,8 +102,10 @@ function Screen({ text, onBack }: { text: string; onBack?: () => void }) {
  * `/game?mode=..&id=..` shows that game. A game is started only from the landing page's confirm,
  * which carries the player's consent in the history state (a link cannot set it): the page resumes
  * the player's active game of the mode (from its events) or spawns one, then replaces the URL with
- * the game's id. The consent is cleared before anything is sent, so a reload, Back or a refused
- * spawn never pays again. A malformed id is "Game not found"; no id and no consent spawns nothing.
+ * the game's id. The consent is cleared at mount, ready writer or not, and kept in a ref until the
+ * start uses it, so a reload, Back or a refused spawn never pays again and the page still knows
+ * that a start is wanted. While a start is in flight the page says so and Back is disabled. A
+ * malformed id is "Game not found"; no id and no consent spawns nothing.
  */
 export function GamePage() {
   const navigate = useNavigate();
@@ -107,19 +114,40 @@ export function GamePage() {
   const gameParams = parseGameParams(searchParams);
   const { status, client, writer, address } = usePaved();
   const [spawnError, setSpawnError] = useState<string | null>(null);
-  const intent = gameParams.gameId === null ? readStartIntent(location.state, gameParams.mode) : null;
-  const spawnAttempted = useRef(false);
+  // A consent was found at mount and is waiting for a writer, or its start is in flight.
+  const [wantsStart, setWantsStart] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const intentRef = useRef<{ confirmedAmount: bigint | undefined } | null>(null);
+  const consumed = useRef(false);
 
   useEffect(() => {
-    if (!intent || !client || !writer || !address || spawnAttempted.current) return;
-    spawnAttempted.current = true;
+    if (consumed.current || gameParams.gameId !== null) return;
+    const found = readStartIntent(location.state, gameParams.mode);
+    if (!found) return;
+    intentRef.current = found;
+    setWantsStart(true);
+    // The state is cleared before anything can be sent, whether or not the writer is ready.
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    // Mount only: the cleared state must not be read again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const intent = intentRef.current;
+    if (!intent || consumed.current || !client || !writer || !address) return;
+    consumed.current = true;
+    intentRef.current = null;
+    setStarting(true);
     startGame(intent, {
       listGames: () => client.events.playerGames(address, [gameParams.mode]),
       spawn: (confirmedAmount) => writer.spawn(gameParams.mode, { confirmedAmount }),
-      clearIntent: () => navigate(`${location.pathname}${location.search}`, { replace: true, state: null }),
+      clearIntent: () => {}, // already cleared at mount
       open: (gameId) => navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
-    }).catch((error) => setSpawnError(error instanceof Error ? error.message : String(error)));
-  }, [intent, client, writer, address, gameParams.mode, location.pathname, location.search, navigate]);
+    }).catch((error) => {
+      setSpawnError(error instanceof Error ? error.message : String(error));
+      setStarting(false);
+    });
+  }, [wantsStart, client, writer, address, gameParams.mode, navigate]);
 
   const key = useMemo<GameKey | null>(
     () => (gameParams.gameId === null ? null : { mode: gameParams.mode, gameId: gameParams.gameId }),
@@ -131,10 +159,13 @@ export function GamePage() {
   if (!key) {
     // The error of a refused or failed start stays on screen after the consent is cleared.
     if (spawnError) return <Screen text={`Cannot start a game: ${spawnError}`} onBack={() => navigate("/")} />;
+    // A paid start in flight: the consent is already cleared, so say what is happening, not "No game selected".
+    if (starting) return <Screen text="Spawning game..." onBack={() => navigate("/")} backDisabled />;
     // Only the landing page's confirm starts a game: a link, a reload or Back never pays an entry.
-    if (!intent) return <Screen text="No game selected" onBack={() => navigate("/")} />;
+    const consent = wantsStart || readStartIntent(location.state, gameParams.mode) !== null;
+    if (!consent) return <Screen text="No game selected" onBack={() => navigate("/")} />;
     if (status !== "ready") return <Screen text="Not connected: no playing account" onBack={() => navigate("/")} />;
-    return <Screen text="Spawning game..." />;
+    return <Screen text="Spawning game..." onBack={() => navigate("/")} backDisabled />;
   }
   return <GameBoard gameKey={key} forceReadonly={gameParams.readonly} />;
 }
