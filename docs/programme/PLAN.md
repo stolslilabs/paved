@@ -26,7 +26,7 @@ the running game, an indexer for the leaderboard), and the native app put to sle
 | Track | Delivers | Measured by |
 |---|---|---|
 | **CORE** (contracts) | P0 to P5: native contracts, Cairo 2.20, roles, optimised state | **L2 gas per move** (simple move, move with character, move that closes a large structure, worst case) by snforge and Sepolia receipts; goldens identical; **line coverage** (`cairo-coverage`) |
-| **CLIENT** | `packages/` client on the native contracts, without Torii | **p95 frame time** at 38 and 72 tiles (Mac, real browser), draw calls, time to interactive, latency from move to display |
+| **CLIENT** | `packages/` client on the native contracts, without Torii | **p95 frame time** at 38 and 72 tiles (Mac, real browser), draw calls, time to interactive, latency from move to display, click-to-display latency, long tasks and React commit time while polling |
 | **META** (single-player product and progression) | P6 to P7: daily, leaderboard, quests, achievements | gas per meta action; completeness of the e2e scenarios |
 | **ECO** (economy) | P8: token, paid entry, per-game settlement | profitability simulation (Monte-Carlo over score distributions), tested invariants (no mint outside the game system, real supply), audit |
 
@@ -40,4 +40,5 @@ These are **estimates**, to be fixed after P2's native measure:
 - Simple move **at most 10 M L2 gas** (against 64.5 M today).
 - No move with unbounded cost.
 - At least 90 % line coverage of the contracts.
-- p95 frame time at most 16.7 ms (60 fps) at 72 tiles on the Mac.
+- At 72 tiles on the Mac under CDP CPU throttling 4x and a 60 Hz cadence (P-7): p95 frame time at most
+  16.7 ms; draw calls and triangles below baseline B; time to interactive at most 0.5 s.

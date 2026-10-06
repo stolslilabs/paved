@@ -96,12 +96,18 @@ Raw per-frame data of every run: `client-baseline/run-<tiles>-<n>.json`; summary
 | Frames over 1.5 refresh intervals (%) | 0.0 | 0.0 |
 | CPU per frame p50 / p95 / p99 (ms) | 0.70 / 2.10 / 2.60 | 0.90 / 2.60 / 3.20 |
 | GPU per frame p50 / p95 (ms) | 2.60 / 4.47 | 3.31 / 5.02 |
-| Draw calls per frame (all passes) | 147 | 207 |
-| Triangles per frame (all passes) | 997,700 | 1,695,576 (1,681,492-1,695,576) |
+| Draw calls, median frame (all passes) | 147 | 207 |
+| Draw calls, p95 frame / min-max over frames | 158 / 95-158 | 258 / 128-258 |
+| Triangles, median frame (all passes) | 997,700 | 1,695,576 (1,681,492-1,695,576) |
+| Triangles, p95 frame / min-max over frames | 1,026,794 / 704,030-1,026,794 | 1,923,720 / 1,234,918-1,923,720 |
 | Time to interactive (ms) | 872 (863-878) | 1424 (1410-1432) |
 | JS heap at interactive (MB) | 83.4 (75.6-101.1) | 127.8 (125.2-134.4) |
 | JS heap at end of path (MB) | 77.9 (63.6-78.1) | 92.1 (92.0-92.3) |
 | three.js geometries / textures / programs | 107 / 30 / 13 | 175 / 33 / 13 |
+
+Draw calls and triangles vary with the camera path (what the frustum and the shadow camera hold):
+the "median frame" rows are the median frame of each run; the p95 and min-max rows are over the
+frames of all runs (recomputed from the committed raw runs, not re-measured).
 
 The frame interval is capped by the display: it sits at the 8.3 ms refresh interval whenever the
 frame fits, so p50, p95 and p99 only say that no frame missed a refresh. The headroom is in the CPU
@@ -146,7 +152,220 @@ top 30 functions by self and inclusive time) and the counters above. Observation
   compilation; the warm-up run absorbs it (a first, cold smoke run took 3.0 s to interactive).
 - One camera path in `play` mode: no `showcase` profile (more bloom, optional SSAO), no pointer
   input, no hover preview, no UI overlay, no polling, no live updates. Latency from move to display
-  is not measured (needs a live node).
+  is not measured (needs a live node). Part C below adds a throttled profile, pointer input and the
+  polling Game page.
 - The profile build differs from the measured build (see Method); only function names are meant to
   be read from it. One profile run hung once (Chrome idle for 11 minutes, probably a hidden or locked
   window); it was killed and rerun, and the driver now times out instead of waiting.
+
+# Throttled and in-play (P-7)
+
+Measured on 2026-10-06 on the same Mac, after the project manager's decision P-7
+(`docs/programme/DECISIONS.md`): the CLIENT targets are taken at 72 tiles under CDP CPU throttling 4x
+and a 60 Hz cadence, and two measures are added, click-to-display latency and the cost of polling in
+play. Track CLIENT, objective 1, part C. Observations only: nothing was optimised.
+
+## Result in one paragraph
+
+Throttled, the board still holds its 60 Hz cadence along the camera path (no frame over 1.5
+intervals at 38 or 72 tiles), but loading is the problem: **time to interactive is 6.2 s at 72
+tiles** against a target of 0.5 s, and draw calls and triangles are those of baseline B (the target
+asks for fewer; no renderer work has been done yet). A placement takes 37 ms (p50) from the click to
+the screen unthrottled and 86 ms throttled on the bench page, and **128 ms (p50) from the confirm key
+to the screen in the real Game page** throttled. Polling Torii every 2 s costs 3 React commits per
+poll and 5 ms (unthrottled) to 13 ms (throttled) of render time when nothing changed, and causes no
+long task by itself (one exception: a single 57 ms task in one quiet poll of the throttled session
+run at load 18.6, `play-throttled-3.json`); throttled, every placement brings two to three long
+tasks of 57-123 ms (the confirm, the build call, and the poll that brings the tile back), 17 per
+minute of play.
+
+## Profiles
+
+Each figure names its profile.
+
+- **unthrottled**: the machine as it is (120 Hz display, no throttling): baseline B's profile.
+- **throttled**: CDP `Emulation.setCPUThrottlingRate` 4 on the page (its main thread and workers;
+  the GPU process is not throttled), and a **60 Hz frame cadence** made by a frame-interval cap:
+  `scripts/bench/frame-cap.ts`, injected before any page script, holds requestAnimationFrame
+  callbacks until one interval (16.7 ms, minus 2 ms of vsync jitter) has passed since the last
+  delivered frame, so on the 120 Hz display every second vsync is delivered and a frame that
+  overruns waits for the next vsync after it. It caps every consumer alike (the game's render loop,
+  OrbitControls, the bench). Chosen over moving the window to one of the 60 Hz external displays
+  because it does not depend on what is plugged into the Mac and runs the same on any machine; the
+  idle interval measured by the page is 16.6-16.7 ms. What it does not model: a real 60 Hz panel's
+  scan-out (the presented frame reaches the glass up to one interval later on either).
+
+## Method
+
+- **Board, throttled**: baseline B's bench page, path and counters unchanged (see Method above),
+  under the throttled profile; 1 warm-up and 5 runs per board.
+- **Click-to-display** (`bench.html?bench=38|72&mode=click`, `src/bench/click-bench.ts`): the camera
+  holds a fixed top-down view of the whole board (distance 280, cells about 65 px wide). For each of
+  24 placements (`packages/game-core/bench/fixtures/placements-<size>.json`, a fixed legal sequence
+  that continues the board, generated by `generate-placements.ts` and checked by
+  `packages/app-web/__tests__/bench-placements.test.ts`) the driver moves the Playwright mouse onto
+  the cell's centre, waits 200 ms, and clicks. The canvas's own input path (GameScene pointerup ->
+  screenToGrid -> onTileClick) reaches the bench's click handler, which adds the tile to the React
+  state as Game.tsx adds its optimistic tile (`pending`, so with its cloned translucent material).
+  **Latency** runs from the `timeStamp` of the pointerup event (the click is recognised on
+  pointerup) to the **first presented frame that shows the tile**: the scene holds the tile mesh, the
+  render-loop tick that drew it has ended, and the next requestAnimationFrame callback has started
+  (read with performance.now() as it runs; the frame of that tick was handed to the compositor
+  before). Scan-out to the panel (up to one interval) is not in it. **The chain call is bypassed**:
+  this is the local cost alone; network, sequencer and indexer latency come on top. 1 warm-up and 5
+  runs of 24 placements per board and profile: 120 placements per cell of the table.
+- **In play** (`bench.html?mode=play`, `src/bench/play.tsx`): the **real Game page** (`App` at
+  `/game?mode=daily&id=1`, with the providers of `src/main.tsx`) on the 72-tile board, whose network
+  profile points at a **local mock** served by the driver (`scripts/bench/mock-chain.ts`, no network):
+  - *Torii SQL* (`POST /sql`): rows **generated** from the board fixture (nothing is deployed to
+    record from), in the shape of Torii's SQL endpoint: one JSON object per row, u8/u32 columns as
+    integers, felts and addresses as 0x-prefixed 64-digit hex strings, bool as 0/1, plus Torii's
+    `internal_*` columns. A query is matched on its table only (`[paved-Game]`, `[paved-Builder]`,
+    `[paved-Tile]`, `[paved-Char]`): 73 tile rows (72 placed and the tile in hand, orientation 0), 6
+    character rows, one builder and one game row. It answers at once.
+  - *RPC* (`POST /rpc`): fixed answers to what the page calls (chain id, spec version, nonce, fee
+    estimate, recent blocks for the tip estimate, account class, token supply). An invoke succeeds at
+    once and applies the next placement of the sequence (checked against the x and y of its
+    calldata), so the next poll returns it: a real Torii would return it a block later.
+  Game.tsx polls at its own cadence (4 queries every 2 s; the token supply every 10 s). One session
+  is 60 s: the camera path loops (20 s per lap), and at 5 s and then every 7 s (8 times) the driver
+  holds the camera on the fixed view, presses `R` until the tile in hand has the placement's
+  orientation, clicks the cell (Game.tsx selects it), and presses `C` (Game.tsx confirms: optimistic
+  tile and `build`). Recorded in the bench build only, read-only: long tasks > 50 ms
+  (PerformanceObserver `longtask`), React commits (a `<Profiler>` around the app; the in-play build
+  uses `react-dom/profiling`, without which Profiler reports nothing in production: `BENCH_PLAY=1`
+  in `vite.bench.config.ts`, a separate build so the board and click figures keep the plain
+  production React), every fetch (start, end, table or RPC method), the inputs, and the frame
+  counters (the scene is handed to the bench by a hook on `GameScene.prototype.start` in the bench
+  entry). A **poll cycle** starts at its `[paved-Builder]` query and ends at the next cycle or 1 s
+  after its `[paved-Game]` answer; a "quiet" poll has no input from 3 s before it to its end, so it
+  shows the cost of a poll that changes nothing. **Commit time** is the Profiler's `actualDuration`:
+  React's render work for the committed update; the effects that follow (scene updates) are not in
+  it but are in the long tasks. 1 warm-up and 3 sessions per profile.
+
+## Rerun
+
+```sh
+cd packages/app-web
+bun run bench:p7                         # all three below, about 30 minutes
+bun run bench --profiles throttled       # board, throttled: client-baseline/throttled/
+bun run bench --click                    # click-to-display, both profiles: client-baseline/click/
+bun run bench --play                     # in play, both profiles: client-baseline/play/ (own build)
+bun run bench --summarize-only [--click|--play|--out <dir>]   # tables again from the raw JSON
+```
+
+Same requirements as baseline B (Chrome installed, display awake, window visible). `--profiles
+unthrottled,throttled` applies to `--click` and `--play` (both by default); the board bench takes
+one profile per run (its own output folder), so the two board profiles are two invocations.
+`--sizes`, `--runs`, `--warmup` and `--duration` apply to each bench.
+
+## Machine and load
+
+The same Mac as baseline B: Mac14,6, Apple M2 Max, 64 GB, macOS 27.0.1 (26A434), AC power, Chrome
+154.0.8037.98, window 1440 x 900 on the built-in 120 Hz display (two 60 Hz external displays
+attached, not used). A desktop session in normal use. The 1-minute load average, recorded after
+every run (`driver.loadAvg` in each raw file, `machine.json` per folder): 3.5-5.3 for the throttled
+board, 2.7-4.3 for the clicks. In play, unthrottled: 3.0, 4.3 and 4.85 (`play-unthrottled-1/2/3.json`);
+throttled: 4.47 (`play-throttled-1.json`), 5.26 (`play-throttled-2.json`) and **18.58
+(`play-throttled-3.json`)**: something else ran on the Mac during that session. Its time to
+interactive is the slowest (7.2 s) and it holds the only quiet poll with a long task (below); its
+other figures are within the spread of the other two.
+
+## Figures, board throttled (`client-baseline/throttled/`)
+
+Median of 5 runs, min-max in brackets. Targets of P-7 (estimates) next to the 72-tile figures.
+
+| Figure | 38 tiles | 72 tiles | P-7 target (72 tiles) |
+|---|---|---|---|
+| Frame interval p50 (ms) | 16.70 (16.70-16.70) | 16.70 (16.70-16.70) | |
+| Frame interval p95 (ms) | 18.10 (17.50-18.30) | 17.50 (17.50-17.50) | <= 16.7: see below |
+| Frame interval p99 / max (ms) | 18.50 / 19.60 | 17.60 / 17.80 | |
+| Frames over 1.5 intervals (%) | 0.0 | 0.0 | |
+| CPU per frame p50 / p95 (ms) | 1.50 / 2.90 | 2.00 / 4.00 | |
+| GPU per frame p50 / p95 (ms) | 3.34 / 3.91 | 4.56 / 5.52 | |
+| Draw calls, median frame (p95, min-max over frames) | 147 (158, 95-158) | 207 (258, 128-258) | below 207: not met (= B) |
+| Triangles, median frame (p95) | 997,700 (1,026,794) | 1,681,492 (1,923,720) | below 1,695,576: not met in substance: -0.8 %, within the spread of B (1,681,492-1,695,576) |
+| Time to interactive (ms) | 3257 (3040-3313) | **6178 (5500-7133)** | <= 500: not met |
+| JS heap at interactive / end (MB) | 85.8 / 77.8 | 132.7 / 95.5 | |
+
+The p95 of 17.5 ms is a frame on every cadence tick: the intervals sit between 16.6 and 17.7 ms
+(requestAnimationFrame timestamps carry vsync jitter and a 0.1 ms clamp), and no frame missed one.
+Read literally, "p95 <= 16.7 ms" cannot be met by any page at a 60 Hz cadence; its intent (no missed
+frame) is met at both sizes. CPU throttling quadruples the main-thread cost of a frame (2.0 ms p50 at
+72 tiles, from 0.9 ms; 4.0 ms p95) but leaves it far below 16.7 ms. The GPU time also grows (4.6 ms
+from 3.3 ms, the GPU is not throttled; the main thread's slower submission is the likely cause, not
+measured). Time to interactive is where throttling hurts: 6.2 s at 72 tiles, 4.3 times baseline B's
+1.42 s, because building the tiles is main-thread work (`EdgesGeometry` and per-tile clones, see Top
+costs above).
+
+## Figures, click-to-display (`client-baseline/click/`)
+
+Pooled over 120 placements (5 runs of 24) per column; input = the pointerup of the click.
+
+| Figure | unthrottled, 38 | unthrottled, 72 | throttled, 38 | throttled, 72 |
+|---|---|---|---|---|
+| Input to presented frame p50 (ms) | 34.7 | 36.6 | 81.7 | 85.5 |
+| Input to presented frame p95 (ms) | 45.5 | 48.0 | 107.5 | 115.4 |
+| Input to presented frame max (ms) | 59.8 | 66.2 | 134.4 | 132.5 |
+| p95 of each run, median (min-max) (ms) | 45.5 (37.7-48.2) | 47.0 (43.9-52.9) | 105.2 (97.6-114.5) | 115.6 (97.7-122.0) |
+| Input to end of render, p50 / p95 (ms) | 34.4 / 45.2 | 36.3 / 47.6 | 79.3 / 106.5 | 82.4 / 111.5 |
+| Input to click handler, p50 / p95 (ms) | 0.9 / 1.5 | 0.9 / 1.5 | 1.3 / 2.1 | 1.2 / 2.5 |
+
+The handler runs within 1-2 ms of the input; nearly all the latency is between the React state
+update and the end of the render that shows the tile (building the tile mesh, cloning its material
+for the pending style, and the frame that draws it), four to five 120 Hz intervals unthrottled and
+five to seven 60 Hz intervals throttled. It barely depends on the size of the board (38 vs 72).
+
+## Figures, in play (`client-baseline/play/`)
+
+The real Game page on the 72-tile board, 60 s sessions, median of 3 sessions (min-max) unless pooled.
+
+| Figure | unthrottled | throttled |
+|---|---|---|
+| Placements applied / attempted, per session | 8/8, 8/8, 8/8 | 8/8, 8/8, 8/8 |
+| Time to interactive (ms) | 1461 (1458-1547) | 6173 (5995-7155) |
+| Frame interval p50 / p95 / p99 (ms) | 8.30 / 9.00 / 9.30 | 16.70 / 17.50 / 17.70 |
+| Frames over 1.5 intervals (%) | 0.4 (0.4-0.4) | 0.7 (0.7-0.7) |
+| **Long tasks > 50 ms per 60 s session** | **0** | **17 (17-18)** |
+| Long tasks, total per session (ms) | 0 | 1454 (1389-1577) |
+| Long task duration p95, pooled (ms) | n/a (none) | 113 (n=52, max 123) |
+| React commits per session | 146 (144-146) | 146 (146-146) |
+| **Commit render time p95, pooled (ms)** | **4.6** (n=436, max 12.8) | **8.2** (n=438, max 15.5) |
+| Poll cycles per session / Torii queries per poll | 30 / 4 | 30 / 4 |
+| Commits per quiet poll, median (max) | 3 (5) | 3 (4) |
+| Render time per quiet poll, p50 / p95 (ms) | 5.1 / 8.2 | 13.2 / 29.5 |
+| Quiet polls with a long task, per session | 0, 0, 0 (of 12, 12, 14) | 0, 0, 1 (of 10, 10, 12) |
+| Confirm (key `C`) to presented frame, p50 / p95, pooled (ms) | 50.2 / 66.1 (n=24) | 128.5 / 153.4 (n=24) |
+
+**What commits per poll.** Each poll runs four queries one after the other, and sets state after
+three of them (Game.tsx `poll`): builder and tiles together after the tile query, the characters
+after the character query, the game row after the game query. Every setter receives a new object or
+array even when nothing changed, so each of the three commits re-renders the whole Game page,
+recomputes the placement slots (the `tiles` array is new), and hands GameCanvas new props; React
+cannot skip any of them. That is 3 commits per poll, 90 per minute, before any input, and 5 ms
+(unthrottled) to 13 ms (throttled) of render work per poll.
+
+**Where the long tasks are.** Unthrottled there is none in play (one at load, about 1.2 s, the tile
+build). Throttled, 51 of the 52 long tasks of the three sessions follow a placement (attributed from
+the raw timestamps): the task of the confirm keydown itself, 72-123 ms (optimistic tile, render of the
+page, the new pending mesh), then one or two tasks of 57-113 ms within 1.5 s (the `build` call:
+signing and its RPC answers, not separated here), and the poll that brings the placed tile back from
+Torii (57-105 ms: the optimistic mesh is replaced by the confirmed one). The 52nd is a single 57 ms
+task in a quiet poll, 4.4 s into `play-throttled-3.json`, before its first placement, in the
+session run at load 18.6; every other quiet poll stays under 50 ms throttled. The load has 6-7 long tasks, the longest 5.0-6.2 s.
+
+## Limits of part C
+
+- The 60 Hz cadence is a cap on requestAnimationFrame, not a 60 Hz display; CPU throttling slows the
+  page's threads, not the GPU process or the compositor. It is an estimate of a slower machine, not
+  a phone.
+- The mock answers at once, from localhost: network and indexer latency are not in any figure, and
+  the confirmed tile comes back on the next poll instead of a block later. Its rows are generated in
+  Torii's shape, not recorded from a live Torii.
+- Playwright listens to the console; Game.tsx logs on every poll (`[Score debug]`), so each log is
+  serialised for the driver as it would be with DevTools open. Not measured apart.
+- The in-play figures use react-dom's profiling build (small overhead on every commit); the board
+  and click figures do not.
+- Commit time is React's render work only; what the effects then do in the scene shows in the long
+  tasks and the frame counters, not in that row.
+- Three sessions per profile; one throttled session ran with a load average of 18.6 (see Machine).

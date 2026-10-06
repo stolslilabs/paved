@@ -1,0 +1,246 @@
+{
+ "seed": 195936478,
+ "size": 72,
+ "placements": [
+  {
+   "game_id": 1,
+   "id": 73,
+   "player_id": "0x1234",
+   "plan": 4,
+   "orientation": 1,
+   "x": 2147483649,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 74,
+   "player_id": "0x1234",
+   "plan": 5,
+   "orientation": 2,
+   "x": 2147483649,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 75,
+   "player_id": "0x1234",
+   "plan": 8,
+   "orientation": 4,
+   "x": 2147483650,
+   "y": 2147483645,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 76,
+   "player_id": "0x1234",
+   "plan": 16,
+   "orientation": 3,
+   "x": 2147483652,
+   "y": 2147483645,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 77,
+   "player_id": "0x1234",
+   "plan": 16,
+   "orientation": 4,
+   "x": 2147483652,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 78,
+   "player_id": "0x1234",
+   "plan": 7,
+   "orientation": 2,
+   "x": 2147483650,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 79,
+   "player_id": "0x1234",
+   "plan": 5,
+   "orientation": 2,
+   "x": 2147483649,
+   "y": 2147483652,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 80,
+   "player_id": "0x1234",
+   "plan": 2,
+   "orientation": 1,
+   "x": 2147483650,
+   "y": 2147483652,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 81,
+   "player_id": "0x1234",
+   "plan": 3,
+   "orientation": 4,
+   "x": 2147483648,
+   "y": 2147483646,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 82,
+   "player_id": "0x1234",
+   "plan": 9,
+   "orientation": 2,
+   "x": 2147483650,
+   "y": 2147483647,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 83,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 4,
+   "x": 2147483649,
+   "y": 2147483649,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 84,
+   "player_id": "0x1234",
+   "plan": 10,
+   "orientation": 1,
+   "x": 2147483652,
+   "y": 2147483648,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 85,
+   "player_id": "0x1234",
+   "plan": 3,
+   "orientation": 1,
+   "x": 2147483651,
+   "y": 2147483652,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 86,
+   "player_id": "0x1234",
+   "plan": 5,
+   "orientation": 2,
+   "x": 2147483649,
+   "y": 2147483643,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 87,
+   "player_id": "0x1234",
+   "plan": 4,
+   "orientation": 1,
+   "x": 2147483650,
+   "y": 2147483643,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 88,
+   "player_id": "0x1234",
+   "plan": 7,
+   "orientation": 2,
+   "x": 2147483653,
+   "y": 2147483649,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 89,
+   "player_id": "0x1234",
+   "plan": 8,
+   "orientation": 2,
+   "x": 2147483645,
+   "y": 2147483648,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 90,
+   "player_id": "0x1234",
+   "plan": 11,
+   "orientation": 2,
+   "x": 2147483653,
+   "y": 2147483646,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 91,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 1,
+   "x": 2147483647,
+   "y": 2147483644,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 92,
+   "player_id": "0x1234",
+   "plan": 11,
+   "orientation": 3,
+   "x": 2147483652,
+   "y": 2147483652,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 93,
+   "player_id": "0x1234",
+   "plan": 9,
+   "orientation": 3,
+   "x": 2147483648,
+   "y": 2147483649,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 94,
+   "player_id": "0x1234",
+   "plan": 18,
+   "orientation": 1,
+   "x": 2147483649,
+   "y": 2147483653,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 95,
+   "player_id": "0x1234",
+   "plan": 12,
+   "orientation": 4,
+   "x": 2147483648,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 96,
+   "player_id": "0x1234",
+   "plan": 12,
+   "orientation": 4,
+   "x": 2147483644,
+   "y": 2147483648,
+   "occupied_spot": 0
+  }
+ ]
+}

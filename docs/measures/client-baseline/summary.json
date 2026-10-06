@@ -1,5 +1,10 @@
 {
  "when": "2026-10-06T13:45:31.539Z",
+ "profile": {
+  "name": "unthrottled",
+  "cpuRate": 1,
+  "fps": null
+ },
  "durationMs": 20000,
  "runs": 5,
  "warmup": 1,
@@ -55,7 +60,13 @@
      "gpuP50": 2.573875,
      "gpuP95": 4.359291,
      "calls": 147,
+     "callsP95": 158,
+     "callsMin": 95,
+     "callsMax": 158,
      "triangles": 997700,
+     "trianglesP95": 1026794,
+     "trianglesMin": 704030,
+     "trianglesMax": 1026794,
      "ttiMs": 872.3999999985099,
      "heapTtiMB": 101.14837074279785,
      "heapEndMB": 77.83226871490479,
@@ -76,7 +87,13 @@
      "gpuP50": 2.597875,
      "gpuP95": 4.600125,
      "calls": 147,
+     "callsP95": 158,
+     "callsMin": 95,
+     "callsMax": 158,
      "triangles": 997700,
+     "trianglesP95": 1026794,
+     "trianglesMin": 704030,
+     "trianglesMax": 1026794,
      "ttiMs": 872.3999999985099,
      "heapTtiMB": 82.66297721862793,
      "heapEndMB": 77.94198703765869,
@@ -97,7 +114,13 @@
      "gpuP50": 2.662833,
      "gpuP95": 4.671375,
      "calls": 147,
+     "callsP95": 158,
+     "callsMin": 95,
+     "callsMax": 158,
      "triangles": 997700,
+     "trianglesP95": 1026794,
+     "trianglesMin": 704030,
+     "trianglesMax": 1026794,
      "ttiMs": 863.3000000007451,
      "heapTtiMB": 83.400634765625,
      "heapEndMB": 77.90236473083496,
@@ -118,7 +141,13 @@
      "gpuP50": 2.615083,
      "gpuP95": 4.473458,
      "calls": 147,
+     "callsP95": 158,
+     "callsMin": 95,
+     "callsMax": 158,
      "triangles": 997700,
+     "trianglesP95": 1026794,
+     "trianglesMin": 704030,
+     "trianglesMax": 1026794,
      "ttiMs": 878.1999999992549,
      "heapTtiMB": 75.6057357788086,
      "heapEndMB": 78.05356407165527,
@@ -139,7 +168,13 @@
      "gpuP50": 2.580874,
      "gpuP95": 4.246458,
      "calls": 147,
+     "callsP95": 158,
+     "callsMin": 95,
+     "callsMax": 158,
      "triangles": 997700,
+     "trianglesP95": 1026794,
+     "trianglesMin": 704030,
+     "trianglesMax": 1026794,
      "ttiMs": 866.6999999992549,
      "heapTtiMB": 87.01011943817139,
      "heapEndMB": 63.64412021636963,
@@ -213,10 +248,40 @@
      "min": 147,
      "max": 147
     },
+    "callsP95": {
+     "median": 158,
+     "min": 158,
+     "max": 158
+    },
+    "callsMin": {
+     "median": 95,
+     "min": 95,
+     "max": 95
+    },
+    "callsMax": {
+     "median": 158,
+     "min": 158,
+     "max": 158
+    },
     "triangles": {
      "median": 997700,
      "min": 997700,
      "max": 997700
+    },
+    "trianglesP95": {
+     "median": 1026794,
+     "min": 1026794,
+     "max": 1026794
+    },
+    "trianglesMin": {
+     "median": 704030,
+     "min": 704030,
+     "max": 704030
+    },
+    "trianglesMax": {
+     "median": 1026794,
+     "min": 1026794,
+     "max": 1026794
     },
     "ttiMs": {
      "median": 872.3999999985099,
@@ -281,7 +346,13 @@
      "gpuP50": 3.346833,
      "gpuP95": 5.1495,
      "calls": 207,
+     "callsP95": 258,
+     "callsMin": 128,
+     "callsMax": 258,
      "triangles": 1695576,
+     "trianglesP95": 1923720,
+     "trianglesMin": 1234918,
+     "trianglesMax": 1923720,
      "ttiMs": 1431.5999999977648,
      "heapTtiMB": 127.79541683197021,
      "heapEndMB": 92.27597236633301,
@@ -302,7 +373,13 @@
      "gpuP50": 3.30675,
      "gpuP95": 5.083458,
      "calls": 207,
+     "callsP95": 258,
+     "callsMin": 128,
+     "callsMax": 258,
      "triangles": 1681492,
+     "trianglesP95": 1923720,
+     "trianglesMin": 1234918,
+     "trianglesMax": 1923720,
      "ttiMs": 1410.199999999255,
      "heapTtiMB": 125.24681377410889,
      "heapEndMB": 92.04739570617676,
@@ -323,7 +400,13 @@
      "gpuP50": 3.308999,
      "gpuP95": 5.015083,
      "calls": 207,
+     "callsP95": 258,
+     "callsMin": 128,
+     "callsMax": 258,
      "triangles": 1681492,
+     "trianglesP95": 1923720,
+     "trianglesMin": 1234918,
+     "trianglesMax": 1923720,
      "ttiMs": 1424.3999999985099,
      "heapTtiMB": 130.50228786468506,
      "heapEndMB": 92.0771656036377,
@@ -344,7 +427,13 @@
      "gpuP50": 3.258374,
      "gpuP95": 4.988374,
      "calls": 207,
+     "callsP95": 258,
+     "callsMin": 128,
+     "callsMax": 258,
      "triangles": 1695576,
+     "trianglesP95": 1923720,
+     "trianglesMin": 1234918,
+     "trianglesMax": 1923720,
      "ttiMs": 1429.5,
      "heapTtiMB": 125.74163722991943,
      "heapEndMB": 92.30484962463379,
@@ -365,7 +454,13 @@
      "gpuP50": 3.25825,
      "gpuP95": 4.922333,
      "calls": 207,
+     "callsP95": 258,
+     "callsMin": 128,
+     "callsMax": 258,
      "triangles": 1695576,
+     "trianglesP95": 1923720,
+     "trianglesMin": 1234918,
+     "trianglesMax": 1923720,
      "ttiMs": 1416.2999999970198,
      "heapTtiMB": 134.42187881469727,
      "heapEndMB": 92.08598899841309,
@@ -439,10 +534,40 @@
      "min": 207,
      "max": 207
     },
+    "callsP95": {
+     "median": 258,
+     "min": 258,
+     "max": 258
+    },
+    "callsMin": {
+     "median": 128,
+     "min": 128,
+     "max": 128
+    },
+    "callsMax": {
+     "median": 258,
+     "min": 258,
+     "max": 258
+    },
     "triangles": {
      "median": 1695576,
      "min": 1681492,
      "max": 1695576
+    },
+    "trianglesP95": {
+     "median": 1923720,
+     "min": 1923720,
+     "max": 1923720
+    },
+    "trianglesMin": {
+     "median": 1234918,
+     "min": 1234918,
+     "max": 1234918
+    },
+    "trianglesMax": {
+     "median": 1923720,
+     "min": 1923720,
+     "max": 1923720
     },
     "ttiMs": {
      "median": 1424.3999999985099,
