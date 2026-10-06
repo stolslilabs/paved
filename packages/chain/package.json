@@ -18,7 +18,8 @@
     "build": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test:devnet": "PAVED_DEVNET=1 vitest run test/devnet.test.ts"
   },
   "dependencies": {
     "@paved/game-core": "workspace:*",
