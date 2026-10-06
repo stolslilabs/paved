@@ -74,4 +74,3 @@ pub impl Conflict of ConflictTrait {
         }
     }
 }
-
