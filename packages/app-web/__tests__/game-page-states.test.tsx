@@ -116,8 +116,11 @@ describe("The D hotkey follows the discard button", () => {
     const discard = vi.fn(async () => ({ transactionHash: "0x1", events: [] }));
     open({ views: viewsWith(), writer: { discard } });
     await screen.findByText("Discard tile");
-    pressD();
-    await waitFor(() => expect(discard).toHaveBeenCalledTimes(1));
+    // The key handler reads the latest state through a ref refreshed in an effect: retry until it has.
+    await waitFor(() => {
+      pressD();
+      expect(discard).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("does nothing on a finished game or an empty hand", async () => {

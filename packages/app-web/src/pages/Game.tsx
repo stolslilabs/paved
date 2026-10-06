@@ -12,6 +12,9 @@ import { parseGameParams } from "../utils/game-params";
 import { buildGameRoute } from "../utils/mode-routing";
 import { readStartIntent, startGame } from "../utils/start-game";
 
+/** How long a start consent waits for a ready writer before it is dropped. */
+const START_CONSENT_MS = 30_000;
+
 let _debugOnce = true;
 
 /** Validate placement: adjacent + all touching edges must match (Carcassonne rules) */
@@ -117,8 +120,18 @@ export function GamePage() {
   // A consent was found at mount and is waiting for a writer, or its start is in flight.
   const [wantsStart, setWantsStart] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [expired, setExpired] = useState(false);
+  // False once the page is gone (the browser's Back during an in-flight start): no navigation then.
+  const alive = useRef(true);
   const intentRef = useRef<{ confirmedAmount: bigint | undefined } | null>(null);
   const consumed = useRef(false);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (consumed.current || gameParams.gameId !== null) return;
@@ -132,6 +145,18 @@ export function GamePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A consent that finds no ready writer within START_CONSENT_MS is dropped: the player confirms again.
+  useEffect(() => {
+    if (!wantsStart) return;
+    const timer = setTimeout(() => {
+      if (consumed.current) return;
+      intentRef.current = null;
+      setWantsStart(false);
+      setExpired(true);
+    }, START_CONSENT_MS);
+    return () => clearTimeout(timer);
+  }, [wantsStart]);
+
   useEffect(() => {
     const intent = intentRef.current;
     if (!intent || consumed.current || !client || !writer || !address) return;
@@ -142,7 +167,7 @@ export function GamePage() {
       listGames: () => client.events.playerGames(address, [gameParams.mode]),
       spawn: (confirmedAmount) => writer.spawn(gameParams.mode, { confirmedAmount }),
       clearIntent: () => {}, // already cleared at mount
-      open: (gameId) => navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
+      open: (gameId) => alive.current && navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
     }).catch((error) => {
       setSpawnError(error instanceof Error ? error.message : String(error));
       setStarting(false);
@@ -161,6 +186,7 @@ export function GamePage() {
     if (spawnError) return <Screen text={`Cannot start a game: ${spawnError}`} onBack={() => navigate("/")} />;
     // A paid start in flight: the consent is already cleared, so say what is happening, not "No game selected".
     if (starting) return <Screen text="Spawning game..." onBack={() => navigate("/")} backDisabled />;
+    if (expired) return <Screen text="Not connected: confirm again on the landing page" onBack={() => navigate("/")} />;
     // Only the landing page's confirm starts a game: a link, a reload or Back never pays an entry.
     const consent = wantsStart || readStartIntent(location.state, gameParams.mode) !== null;
     if (!consent) return <Screen text="No game selected" onBack={() => navigate("/")} />;

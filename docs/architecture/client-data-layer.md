@@ -82,6 +82,10 @@ client pays a Daily entry only for an amount the player saw and confirmed with a
   at mount of the game page, whether or not the writer is ready: the intent then lives in a ref
   until the start uses it. A reload, Back, a refused spawn or a failed one cannot pay again: the
   player confirms again. A Daily consent without a valid amount, or no state at all, starts nothing.
+- A consent held for a writer that is not ready (no account yet) expires after 30 s: the intent is
+  dropped and the page says "Not connected: confirm again on the landing page". A start that
+  finishes after the page was left (the browser's Back during the flight) does not navigate; the
+  game shows in "my games" anyway.
 - While the start is in flight the page says "Spawning game..." and its Back button is disabled
   (a local `starting` state; the consent being cleared, the history state no longer says that a
   start is wanted). A refused or failed start shows its error with Back enabled.
