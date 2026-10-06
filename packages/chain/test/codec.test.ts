@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { hash } from "starknet";
 import { ABIS, createCodecs } from "../src/abis";
-import { camelCase } from "../src/codec";
+import { AbiCodec, camelCase } from "../src/codec";
 import { VIEW_FIELDS, toViewError } from "../src/views";
 
 const codecs = createCodecs();
@@ -102,5 +102,23 @@ describe("toViewError", () => {
     // 'View: not the game player' as a felt, the way a node may quote it.
     expect(toViewError(new Error("revert 0x566965773a206e6f74207468652067616d6520706c61796572")).kind).toBe("not-player");
     expect(toViewError(new Error("fetch failed")).kind).toBe("rpc");
+  });
+});
+
+describe("tolerance to ABI growth (CORE's hardening adds entries and events)", () => {
+  test("unknown entries, functions and events neither break the codec nor the decoding of known ones", () => {
+    const grown = new AbiCodec([
+      ...ABIS.Daily,
+      { type: "l1_handler", name: "on_message", inputs: [{ name: "x", type: "core::some::Unknown" }] },
+      { type: "function", name: "new_view", inputs: [{ name: "x", type: "paved::new::Type" }], outputs: [{ type: "paved::new::Type" }] },
+      { type: "event", name: "paved::new::Paused", kind: "struct", members: [{ name: "by", type: "paved::new::Type", kind: "data" }] },
+      { type: "event", name: "paved::new::Event", kind: "enum", variants: [{ name: "Paused", type: "paved::new::Paused", kind: "nested" }] },
+    ]);
+    expect(grown.encodeCall("discard", [3])).toEqual(["0x3"]);
+    const paused = grown.decodeEvent({ keys: [hash.getSelectorFromName("Paused")], data: ["0x1"] });
+    // An event with a field type the codec does not know is skipped (null), not thrown.
+    expect(paused).toBeNull();
+    const selector = hash.getSelectorFromName("Discarded");
+    expect(grown.decodeEvent({ keys: [selector, "0x3"], data: ["0xabc", "0x4", "0x2", "0x0"] })?.fields).toMatchObject({ gameId: 3, tileId: 4 });
   });
 });

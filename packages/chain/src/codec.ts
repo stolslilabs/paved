@@ -134,7 +134,7 @@ export class AbiCodec {
     return this.decode(output.type, cursor);
   }
 
-  /** Decodes an emitted event, or returns null when it is not an event of this ABI. */
+  /** Decodes an emitted event, or returns null when it is not an event of this ABI or cannot be decoded. */
   decodeEvent(raw: RawEvent): DecodedEvent | null {
     if (raw.keys.length === 0) return null;
     const event = this.events.get(toHex(raw.keys[0]));
@@ -142,8 +142,14 @@ export class AbiCodec {
     const keys = { felts: raw.keys.slice(1).map((f) => BigInt(f)), at: 0 };
     const data = { felts: raw.data.map((f) => BigInt(f)), at: 0 };
     const fields: Record<string, Decoded> = {};
-    for (const member of event.members) {
-      fields[camelCase(member.name)] = this.decode(member.type, member.kind === "key" ? keys : data);
+    try {
+      for (const member of event.members) {
+        fields[camelCase(member.name)] = this.decode(member.type, member.kind === "key" ? keys : data);
+      }
+    } catch {
+      // A field type this codec does not know (an event added to the ABI later): skip the event
+      // rather than fail the whole receipt or event page.
+      return null;
     }
     return {
       name: event.name,
