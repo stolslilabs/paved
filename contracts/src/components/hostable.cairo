@@ -9,11 +9,9 @@ use starknet::ContractAddress;
 pub mod HostableComponent {
     // Starknet imports
 
-
     // Dojo imports
 
-    use dojo::world::IWorldDispatcher;
-    use dojo::world::IWorldDispatcherTrait;
+    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
     use paved::helpers::config_templates::ConfigTemplatesTrait;
     use paved::helpers::config_validation::{RuntimeGameConfig, RuntimeGameConfigTrait};
     use paved::helpers::economy_curve::compute_multiplier_fp;

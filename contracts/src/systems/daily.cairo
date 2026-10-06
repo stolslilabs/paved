@@ -1,6 +1,5 @@
 // Starknet imports
 
-
 // Dojo imports
 
 use dojo::world::IWorldDispatcher;
@@ -33,7 +32,6 @@ pub trait IDaily<TContractState> {
 #[dojo::contract]
 pub mod Daily {
     // Starknet imports
-
 
     // Component imports
 

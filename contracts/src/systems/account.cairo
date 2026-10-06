@@ -11,7 +11,6 @@ pub trait IAccount<TContractState> {
 pub mod Account {
     // Starknet imports
 
-
     // Component imports
 
     use paved::components::emitter::EmitterComponent;

@@ -3,7 +3,6 @@ pub mod setup {
 
     // Starknet imports
 
-
     // Dojo imports
 
     use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};

@@ -1,6 +1,5 @@
 // Starknet imports
 
-
 // Dojo imports
 
 use dojo::world::IWorldDispatcher;
@@ -19,7 +18,6 @@ pub mod Tutorial {
     // Core imports
 
     // Starknet imports
-
 
     // Component imports
 

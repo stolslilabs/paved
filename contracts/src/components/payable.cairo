@@ -20,7 +20,6 @@ pub trait IERC20<TContractState> {
 pub mod PayableComponent {
     // Starknet imports
 
-
     // Dojo imports
 
     use dojo::world::IWorldDispatcher;

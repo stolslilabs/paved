@@ -4,11 +4,9 @@
 pub mod PlayableComponent {
     // Starknet imports
 
-
     // Dojo imports
 
-    use dojo::world::IWorldDispatcher;
-    use dojo::world::IWorldDispatcherTrait;
+    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
     // Internal imports
 

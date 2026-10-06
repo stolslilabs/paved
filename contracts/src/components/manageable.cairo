@@ -4,7 +4,6 @@
 pub mod ManageableComponent {
     // Starknet imports
 
-
     // Dojo imports
 
     use dojo::world::IWorldDispatcher;
