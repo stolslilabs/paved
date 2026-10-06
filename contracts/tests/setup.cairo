@@ -1,4 +1,4 @@
-// Copy of src/tests/setup.cairo at 261873d; keep in sync: scripts/measure.sh check-setup
+// Copy of src/tests/setup.cairo at e4c3ea8; keep in sync: scripts/measure.sh check-setup
 pub mod setup {
     // Core imports
 
