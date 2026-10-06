@@ -1,0 +1,630 @@
+{
+ "when": "2026-10-06T17:41:33.748Z",
+ "profile": {
+  "name": "throttled",
+  "cpuRate": 4,
+  "fps": 60
+ },
+ "durationMs": 20000,
+ "runs": 5,
+ "warmup": 1,
+ "machine": {
+  "model": "Mac14,6",
+  "chip": "Apple M2 Max",
+  "cpuCores": 12,
+  "memoryGiB": 64,
+  "macOS": "27.0.1 (26A434)",
+  "chrome": "154.0.8037.98",
+  "power": "Now drawing from 'AC Power'",
+  "loadAvgAtStart": [
+   1.65,
+   3.4,
+   5.81
+  ],
+  "windowArg": "1440x900",
+  "profiles": [
+   {
+    "name": "throttled",
+    "cpuRate": 4,
+    "fps": 60
+   }
+  ],
+  "displays": [
+   {
+    "name": "Color LCD",
+    "type": "spdisplays_built-in-liquid-retina-xdr",
+    "pixels": "3456 x 2234",
+    "mode": "1728 x 1117 @ 120.00Hz",
+    "main": true
+   },
+   {
+    "name": "BenQ PD2725U",
+    "type": null,
+    "pixels": "3840 x 2160",
+    "mode": "1920 x 1080 @ 60.00Hz",
+    "main": false
+   },
+   {
+    "name": "BenQ PD2725U",
+    "type": null,
+    "pixels": "3840 x 2160",
+    "mode": "1920 x 1080 @ 60.00Hz",
+    "main": false
+   }
+  ]
+ },
+ "summaries": {
+  "38": {
+   "tileCount": 38,
+   "runs": 5,
+   "perRun": [
+    {
+     "refreshMs": 16.700000000000045,
+     "rafP50": 16.69999999999891,
+     "rafP95": 18,
+     "rafP99": 18.399999999999636,
+     "rafMax": 23,
+     "fps": 59.97630935780367,
+     "droppedPct": 0,
+     "cpuP50": 0.8999999985098839,
+     "cpuP95": 1.5,
+     "cpuP99": 1.8999999985098839,
+     "gpuP50": 2.496541,
+     "gpuP95": 3.524041,
+     "calls": 109,
+     "callsP95": 120,
+     "callsMin": 57,
+     "callsMax": 120,
+     "triangles": 486230,
+     "trianglesP95": 515324,
+     "trianglesMin": 192560,
+     "trianglesMax": 515324,
+     "ttiMs": 665.1000000014901,
+     "heapTtiMB": 59.109405517578125,
+     "heapEndMB": 28.530258178710938,
+     "rendered": 1200,
+     "raf": 1200
+    },
+    {
+     "refreshMs": 16.699999999999818,
+     "rafP50": 16.699999999999818,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000002183,
+     "rafMax": 142.39999999999964,
+     "fps": 59.610954824589896,
+     "droppedPct": 0.08382229673093043,
+     "cpuP50": 0.8000000044703484,
+     "cpuP95": 1.3999999985098839,
+     "cpuP99": 1.9000000059604645,
+     "gpuP50": 1.881,
+     "gpuP95": 3.154791,
+     "calls": 110,
+     "callsP95": 120,
+     "callsMin": 57,
+     "callsMax": 120,
+     "triangles": 487692,
+     "trianglesP95": 515324,
+     "trianglesMin": 192560,
+     "trianglesMax": 515324,
+     "ttiMs": 710.8000000044703,
+     "heapTtiMB": 45.38757133483887,
+     "heapEndMB": 27.286974906921387,
+     "rendered": 1193,
+     "raf": 1193
+    },
+    {
+     "refreshMs": 16.699999999999932,
+     "rafP50": 16.69999999999891,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000000364,
+     "rafMax": 17.700000000000728,
+     "fps": 59.99970000149999,
+     "droppedPct": 0,
+     "cpuP50": 1,
+     "cpuP95": 2,
+     "cpuP99": 3.399999998509884,
+     "gpuP50": 1.91025,
+     "gpuP95": 3.278999,
+     "calls": 109,
+     "callsP95": 120,
+     "callsMin": 57,
+     "callsMax": 120,
+     "triangles": 486230,
+     "trianglesP95": 515324,
+     "trianglesMin": 192560,
+     "trianglesMax": 515324,
+     "ttiMs": 683.2999999970198,
+     "heapTtiMB": 46.89620876312256,
+     "heapEndMB": 30.167420387268066,
+     "rendered": 1200,
+     "raf": 1200
+    },
+    {
+     "refreshMs": 16.700000000000045,
+     "rafP50": 16.699999999999818,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000000364,
+     "rafMax": 17.700000000000728,
+     "fps": 60.0022981729525,
+     "droppedPct": 0,
+     "cpuP50": 0.8999999985098839,
+     "cpuP95": 2.100000001490116,
+     "cpuP99": 2.7999999970197678,
+     "gpuP50": 1.907583,
+     "gpuP95": 3.280124,
+     "calls": 109,
+     "callsP95": 120,
+     "callsMin": 57,
+     "callsMax": 120,
+     "triangles": 487692,
+     "trianglesP95": 515324,
+     "trianglesMin": 192560,
+     "trianglesMax": 515324,
+     "ttiMs": 740.8000000044703,
+     "heapTtiMB": 58.29580497741699,
+     "heapEndMB": 30.26838493347168,
+     "rendered": 1201,
+     "raf": 1201
+    },
+    {
+     "refreshMs": 16.699999999999818,
+     "rafP50": 16.699999999999818,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000000364,
+     "rafMax": 17.80000000000109,
+     "fps": 59.998800023999515,
+     "droppedPct": 0,
+     "cpuP50": 0.9000000059604645,
+     "cpuP95": 2.100000001490116,
+     "cpuP99": 3,
+     "gpuP50": 1.901499,
+     "gpuP95": 3.231624,
+     "calls": 109,
+     "callsP95": 120,
+     "callsMin": 57,
+     "callsMax": 120,
+     "triangles": 486230,
+     "trianglesP95": 515324,
+     "trianglesMin": 192560,
+     "trianglesMax": 515324,
+     "ttiMs": 704.1999999955297,
+     "heapTtiMB": 56.68233108520508,
+     "heapEndMB": 27.648731231689453,
+     "rendered": 1200,
+     "raf": 1200
+    }
+   ],
+   "stats": {
+    "refreshMs": {
+     "median": 16.699999999999932,
+     "min": 16.699999999999818,
+     "max": 16.700000000000045
+    },
+    "rafP50": {
+     "median": 16.699999999999818,
+     "min": 16.69999999999891,
+     "max": 16.699999999999818
+    },
+    "rafP95": {
+     "median": 17.5,
+     "min": 17.5,
+     "max": 18
+    },
+    "rafP99": {
+     "median": 17.600000000000364,
+     "min": 17.600000000000364,
+     "max": 18.399999999999636
+    },
+    "rafMax": {
+     "median": 17.80000000000109,
+     "min": 17.700000000000728,
+     "max": 142.39999999999964
+    },
+    "fps": {
+     "median": 59.998800023999515,
+     "min": 59.610954824589896,
+     "max": 60.0022981729525
+    },
+    "droppedPct": {
+     "median": 0,
+     "min": 0,
+     "max": 0.08382229673093043
+    },
+    "cpuP50": {
+     "median": 0.8999999985098839,
+     "min": 0.8000000044703484,
+     "max": 1
+    },
+    "cpuP95": {
+     "median": 2,
+     "min": 1.3999999985098839,
+     "max": 2.100000001490116
+    },
+    "cpuP99": {
+     "median": 2.7999999970197678,
+     "min": 1.8999999985098839,
+     "max": 3.399999998509884
+    },
+    "gpuP50": {
+     "median": 1.907583,
+     "min": 1.881,
+     "max": 2.496541
+    },
+    "gpuP95": {
+     "median": 3.278999,
+     "min": 3.154791,
+     "max": 3.524041
+    },
+    "calls": {
+     "median": 109,
+     "min": 109,
+     "max": 110
+    },
+    "callsP95": {
+     "median": 120,
+     "min": 120,
+     "max": 120
+    },
+    "callsMin": {
+     "median": 57,
+     "min": 57,
+     "max": 57
+    },
+    "callsMax": {
+     "median": 120,
+     "min": 120,
+     "max": 120
+    },
+    "triangles": {
+     "median": 486230,
+     "min": 486230,
+     "max": 487692
+    },
+    "trianglesP95": {
+     "median": 515324,
+     "min": 515324,
+     "max": 515324
+    },
+    "trianglesMin": {
+     "median": 192560,
+     "min": 192560,
+     "max": 192560
+    },
+    "trianglesMax": {
+     "median": 515324,
+     "min": 515324,
+     "max": 515324
+    },
+    "ttiMs": {
+     "median": 704.1999999955297,
+     "min": 665.1000000014901,
+     "max": 740.8000000044703
+    },
+    "heapTtiMB": {
+     "median": 56.68233108520508,
+     "min": 45.38757133483887,
+     "max": 59.109405517578125
+    },
+    "heapEndMB": {
+     "median": 28.530258178710938,
+     "min": 27.286974906921387,
+     "max": 30.26838493347168
+    },
+    "rendered": {
+     "median": 1200,
+     "min": 1193,
+     "max": 1201
+    },
+    "raf": {
+     "median": 1200,
+     "min": 1193,
+     "max": 1201
+    }
+   },
+   "gl": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+   },
+   "page": {
+    "innerWidth": 1440,
+    "innerHeight": 813,
+    "devicePixelRatio": 2,
+    "canvasWidth": 1440,
+    "canvasHeight": 813,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+   },
+   "info": {
+    "geometries": 63,
+    "textures": 32,
+    "programs": 13
+   }
+  },
+  "72": {
+   "tileCount": 72,
+   "runs": 5,
+   "perRun": [
+    {
+     "refreshMs": 16.700000000000045,
+     "rafP50": 16.699999999999818,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000002183,
+     "rafMax": 17.800000000000182,
+     "fps": 59.9991000134998,
+     "droppedPct": 0,
+     "cpuP50": 1,
+     "cpuP95": 1.8000000044703484,
+     "cpuP99": 2.399999998509884,
+     "gpuP50": 2.410458,
+     "gpuP95": 4.239166,
+     "calls": 137,
+     "callsP95": 188,
+     "callsMin": 58,
+     "callsMax": 188,
+     "triangles": 735122,
+     "trianglesP95": 977350,
+     "trianglesMin": 288548,
+     "trianglesMax": 977350,
+     "ttiMs": 748.1000000014901,
+     "heapTtiMB": 47.5022087097168,
+     "heapEndMB": 27.568260192871094,
+     "rendered": 1200,
+     "raf": 1200
+    },
+    {
+     "refreshMs": 16.700000000000045,
+     "rafP50": 16.699999999999818,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000000364,
+     "rafMax": 17.700000000000728,
+     "fps": 60.00259794762138,
+     "droppedPct": 0,
+     "cpuP50": 1,
+     "cpuP95": 1.8000000044703484,
+     "cpuP99": 2.3000000044703484,
+     "gpuP50": 2.398124,
+     "gpuP95": 4.203541,
+     "calls": 138,
+     "callsP95": 188,
+     "callsMin": 58,
+     "callsMax": 188,
+     "triangles": 749206,
+     "trianglesP95": 977350,
+     "trianglesMin": 288548,
+     "trianglesMax": 977350,
+     "ttiMs": 742.1000000014901,
+     "heapTtiMB": 56.502532958984375,
+     "heapEndMB": 27.683076858520508,
+     "rendered": 1201,
+     "raf": 1201
+    },
+    {
+     "refreshMs": 16.700000000000045,
+     "rafP50": 16.699999999999818,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000000364,
+     "rafMax": 17.80000000000109,
+     "fps": 59.99940000599994,
+     "droppedPct": 0,
+     "cpuP50": 1,
+     "cpuP95": 1.7999999970197678,
+     "cpuP99": 2.399999998509884,
+     "gpuP50": 2.355041,
+     "gpuP95": 4.169416,
+     "calls": 137,
+     "callsP95": 188,
+     "callsMin": 58,
+     "callsMax": 188,
+     "triangles": 735122,
+     "trianglesP95": 977350,
+     "trianglesMin": 288548,
+     "trianglesMax": 977350,
+     "ttiMs": 730.7000000029802,
+     "heapTtiMB": 48.634666442871094,
+     "heapEndMB": 27.4953670501709,
+     "rendered": 1200,
+     "raf": 1200
+    },
+    {
+     "refreshMs": 16.700000000000045,
+     "rafP50": 16.69999999999891,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000000364,
+     "rafMax": 17.700000000000728,
+     "fps": 59.99670018149002,
+     "droppedPct": 0,
+     "cpuP50": 0.9000000059604645,
+     "cpuP95": 1.7999999970197678,
+     "cpuP99": 2.2000000029802322,
+     "gpuP50": 2.359166,
+     "gpuP95": 4.198791,
+     "calls": 137,
+     "callsP95": 188,
+     "callsMin": 58,
+     "callsMax": 188,
+     "triangles": 735122,
+     "trianglesP95": 977350,
+     "trianglesMin": 288548,
+     "trianglesMax": 977350,
+     "ttiMs": 729.6999999955297,
+     "heapTtiMB": 48.82136154174805,
+     "heapEndMB": 27.506336212158203,
+     "rendered": 1200,
+     "raf": 1200
+    },
+    {
+     "refreshMs": 16.699999999999932,
+     "rafP50": 16.699999999999818,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000000364,
+     "rafMax": 17.700000000000728,
+     "fps": 59.9970001499925,
+     "droppedPct": 0,
+     "cpuP50": 1,
+     "cpuP95": 1.7999999970197678,
+     "cpuP99": 2.3000000044703484,
+     "gpuP50": 2.394375,
+     "gpuP95": 4.270666,
+     "calls": 137,
+     "callsP95": 188,
+     "callsMin": 58,
+     "callsMax": 188,
+     "triangles": 735122,
+     "trianglesP95": 977350,
+     "trianglesMin": 288548,
+     "trianglesMax": 977350,
+     "ttiMs": 750.6000000014901,
+     "heapTtiMB": 62.83620834350586,
+     "heapEndMB": 27.447368621826172,
+     "rendered": 1200,
+     "raf": 1200
+    }
+   ],
+   "stats": {
+    "refreshMs": {
+     "median": 16.700000000000045,
+     "min": 16.699999999999932,
+     "max": 16.700000000000045
+    },
+    "rafP50": {
+     "median": 16.699999999999818,
+     "min": 16.69999999999891,
+     "max": 16.699999999999818
+    },
+    "rafP95": {
+     "median": 17.5,
+     "min": 17.5,
+     "max": 17.5
+    },
+    "rafP99": {
+     "median": 17.600000000000364,
+     "min": 17.600000000000364,
+     "max": 17.600000000002183
+    },
+    "rafMax": {
+     "median": 17.700000000000728,
+     "min": 17.700000000000728,
+     "max": 17.80000000000109
+    },
+    "fps": {
+     "median": 59.9991000134998,
+     "min": 59.99670018149002,
+     "max": 60.00259794762138
+    },
+    "droppedPct": {
+     "median": 0,
+     "min": 0,
+     "max": 0
+    },
+    "cpuP50": {
+     "median": 1,
+     "min": 0.9000000059604645,
+     "max": 1
+    },
+    "cpuP95": {
+     "median": 1.7999999970197678,
+     "min": 1.7999999970197678,
+     "max": 1.8000000044703484
+    },
+    "cpuP99": {
+     "median": 2.3000000044703484,
+     "min": 2.2000000029802322,
+     "max": 2.399999998509884
+    },
+    "gpuP50": {
+     "median": 2.394375,
+     "min": 2.355041,
+     "max": 2.410458
+    },
+    "gpuP95": {
+     "median": 4.203541,
+     "min": 4.169416,
+     "max": 4.270666
+    },
+    "calls": {
+     "median": 137,
+     "min": 137,
+     "max": 138
+    },
+    "callsP95": {
+     "median": 188,
+     "min": 188,
+     "max": 188
+    },
+    "callsMin": {
+     "median": 58,
+     "min": 58,
+     "max": 58
+    },
+    "callsMax": {
+     "median": 188,
+     "min": 188,
+     "max": 188
+    },
+    "triangles": {
+     "median": 735122,
+     "min": 735122,
+     "max": 749206
+    },
+    "trianglesP95": {
+     "median": 977350,
+     "min": 977350,
+     "max": 977350
+    },
+    "trianglesMin": {
+     "median": 288548,
+     "min": 288548,
+     "max": 288548
+    },
+    "trianglesMax": {
+     "median": 977350,
+     "min": 977350,
+     "max": 977350
+    },
+    "ttiMs": {
+     "median": 742.1000000014901,
+     "min": 729.6999999955297,
+     "max": 750.6000000014901
+    },
+    "heapTtiMB": {
+     "median": 48.82136154174805,
+     "min": 47.5022087097168,
+     "max": 62.83620834350586
+    },
+    "heapEndMB": {
+     "median": 27.506336212158203,
+     "min": 27.447368621826172,
+     "max": 27.683076858520508
+    },
+    "rendered": {
+     "median": 1200,
+     "min": 1200,
+     "max": 1201
+    },
+    "raf": {
+     "median": 1200,
+     "min": 1200,
+     "max": 1201
+    }
+   },
+   "gl": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+   },
+   "page": {
+    "innerWidth": 1440,
+    "innerHeight": 813,
+    "devicePixelRatio": 2,
+    "canvasWidth": 1440,
+    "canvasHeight": 813,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+   },
+   "info": {
+    "geometries": 69,
+    "textures": 35,
+    "programs": 13
+   }
+  }
+ }
+}
