@@ -13,6 +13,8 @@ export interface RunResult {
   gpuMs: number[] | null;
   rafFrames: number;
   renderedFrames: number;
+  /** What the driver knew of the run; absent in the raw runs of baseline B. */
+  driver?: { profile?: string; loadAvg?: number[] };
   heapBytes: { atTti: number | null; atEnd: number | null };
   info: { geometries: number; textures: number; programs: number };
   gl: { renderer: string; vendor: string; version: string };
@@ -477,8 +479,16 @@ export function playRunStats(r: PlayRun) {
 
 export type PlayStats = ReturnType<typeof playRunStats>;
 
+/**
+ * Before P-10 the page read its game from Torii's SQL endpoint, polling it: such a run has fetches of
+ * kind `sql` (and the polling cost the P-7 figures show). Since P-10 it reads the node's views.
+ */
+export type PlayEra = "torii" | "native";
+
+export const playEra = (r: PlayRun): PlayEra => (r.fetches.some((x) => x.kind === "sql" || x.what.includes("/sql")) ? "torii" : "native");
+
 export function summarizePlays(results: PlayRun[]) {
-  const groups = [...groupBy(results, (r) => r.profile).values()]
+  const groups = [...groupBy(results, (r) => `${r.profile}/${playEra(r)}`).values()]
     .map((rs) => {
       const perRun = rs.map(playRunStats);
       const stats = {} as Record<keyof PlayStats, Spread | null>;
@@ -492,6 +502,7 @@ export function summarizePlays(results: PlayRun[]) {
       const confirms = rs.flatMap((r) => r.confirms.map((s) => s.presentedMs));
       return {
         profile: rs[0].profile,
+        era: playEra(rs[0]),
         runs: rs.length,
         perRun,
         stats,
@@ -499,13 +510,14 @@ export function summarizePlays(results: PlayRun[]) {
         pooled: { longTaskMs: dist(tasks), commitMs: dist(commits), confirmMs: dist(confirms) },
       };
     })
-    .sort(byProfile);
+    .sort((a, b) => byProfile(a, b) || a.era.localeCompare(b.era));
   return { groups };
 }
 
 export function playsToMarkdown(summary: ReturnType<typeof summarizePlays>): string {
   type G = (typeof summary.groups)[number];
-  const cols = summary.groups.map((g) => `${g.profile} (${g.runs} runs)`);
+  const cols = summary.groups.map((g) => `${g.profile}${g.era === "torii" ? ", Torii era" : ""} (${g.runs} runs)`);
+  const torii = summary.groups.some((g) => g.era === "torii");
   const rows: Array<[string, (g: G) => string]> = [
     ["Session (s)", (g) => f(g.stats.sessionS, 1)],
     ["Placements applied / attempted (per run)", (g) => g.placements.join(", ")],
@@ -527,6 +539,9 @@ export function playsToMarkdown(summary: ReturnType<typeof summarizePlays>): str
   ];
   return (
     `Median of the measured runs, min–max in brackets, unless pooled.\n\n` +
+    (torii
+      ? `Torii era: the page polled Torii's SQL endpoint (before P-10). Its requests, commits and long tasks are not those of the native data layer: do not compare them with a native column.\n\n`
+      : "") +
     `| Figure | ${cols.join(" | ")} |\n|---|${cols.map(() => "---").join("|")}|\n` +
     rows.map(([name, fn]) => `| ${name} | ${summary.groups.map(fn).join(" | ")} |`).join("\n") +
     "\n"

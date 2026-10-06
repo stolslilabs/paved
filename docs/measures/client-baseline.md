@@ -45,8 +45,8 @@ not cover (see Limits).
   - *JS heap*: `performance.memory.usedJSHeapSize` (Chrome run with `--enable-precise-memory-info`);
   - *time to interactive*: navigation start to the end of the first rendered frame that holds every
     tile. Input is bound by `GameScene.init()`, which has finished by then.
-- **Driver** (`scripts/bench/run.ts`, Playwright on the installed Google Chrome, headed, not
-  headless): per board one warm-up run and 5 measured runs, each in a fresh browser context, served
+- **Driver** (`scripts/bench/run.ts`, Playwright on the installed Google Chrome, headed; see
+  "Where it runs" under Rerun for `--offscreen` and the headless smoke runs): per board one warm-up run and 5 measured runs, each in a fresh browser context, served
   from a local static server over the production build. The machine is kept awake with `caffeinate`.
   Percentiles are nearest-rank.
 - **CPU profile**: one extra 72-tile run with the CDP sampling profiler (200 us), on a build made for
@@ -69,6 +69,28 @@ Chrome installed and the display awake with the window visible (a hidden or lock
 requestAnimationFrame; the driver then fails after a timeout). Options: `--sizes 38,72 --runs 5
 --warmup 1 --duration 20000 --window 1440x900 --no-build --out <dir>`. `--profile-only` runs the profile
 alone. The unit tests of the pieces: `bun run test --filter @paved/game-core | @paved/renderer | @paved/app-web`.
+
+The driver is standalone for its own two packages only. Its in-play mock imports the codec of
+`packages/chain` and the addresses of `packages/app-web/src/bench/addresses.ts` (the one source of
+`BENCH_ADDRESSES`, also read by the page), so the root `bun install` comes first.
+
+### Where it runs
+
+- **On the Mac, in use by the owner**: `--offscreen`. Headed Chrome with its window at x = -10000: no
+  window shows, the GPU is kept, so GPU figures stay measures. Long runs only when the owner is away or
+  told.
+- **Smoke runs off the Mac** (the VPS, no display): `--headless [--chromium <path>]`. Software
+  rendering, no GPU: it checks that the bench works, and **its figures are not measures**. It writes
+  under the system temp dir by default, `summary.md` and `summary.json` say on their first line that it
+  is a headless smoke run (`machine.window`), and the driver **refuses** `--out` under `docs/measures/`.
+- **Checks that fail a run**: a duration too short to measure (board: under 5 s; play: under 17 s, fewer
+  than two placements), `--runs` under 1, and, for `--play`, any session in which no placement reached
+  the mock, in which the placements applied differ from the placements attempted, or in which the mock
+  recorded an unexpected call (below). A failed run writes no raw file. `--fail-placements` is the
+  self-test: the mock reverts every `build`, and the run must exit non-zero.
+- `--summarize-only` reads the profile, the path duration and the run counts from the raw runs
+  (`driver.profile`, `durationMs`), not from the arguments; the raw runs of baseline B, which predate
+  `driver`, take them from the `summary.json` next to them.
 
 ## Machine
 
@@ -214,9 +236,25 @@ Each figure names its profile.
   before). Scan-out to the panel (up to one interval) is not in it. **The chain call is bypassed**:
   this is the local cost alone; network, sequencer and indexer latency come on top. 1 warm-up and 5
   runs of 24 placements per board and profile: 120 placements per cell of the table.
-- **In play** (`bench.html?mode=play`, `src/bench/play.tsx`): the **real Game page** (`App` at
+- **In play, current mock** (since P-10; no figure of it is committed yet): the same page and
+  session as below, against `scripts/bench/mock-chain.ts` as the native contracts. It answers
+  `starknet_call` with the views (`game`, `tiles`, `builder`, `characters`, `tournament`,
+  `current_tournament_id`, `entry_price`) and the reads (`player`, `balance_of`) as felts laid out
+  by the ABIs of `contracts/abis/` (a test decodes every answer with them:
+  `packages/app-web/__tests__/bench-mock-chain.test.ts`), and `starknet_getEvents` with no event.
+  An invoke of `build` that is the next placement of the fixed sequence is applied; its receipt holds
+  `Built` and `Scored`, and `GameOver` after the last placement of the sequence. The mock is
+  **strict**: a view of another game or player, a view or RPC method it does not serve, a call that is
+  not a `build`, or a `build` that is not the next placement is recorded; the `build` is **reverted**
+  (receipt `REVERTED`, nothing applied, for the whole multicall), and the driver fails the session.
+  The page reads its views once and then only its own receipts: no polling, so the "requests with no
+  input" rows should be 0.
+- **In play, Torii era** (P-7, measured on 2026-10-06 before P-10; the three raw sessions per profile
+  under `client-baseline/play/` are of this kind, and `summary.md` labels them "Torii era"). The
+  **real Game page** (`bench.html?mode=play`, `src/bench/play.tsx`; `App` at
   `/game?mode=daily&id=1`, with the providers of `src/main.tsx`) on the 72-tile board, whose network
-  profile points at a **local mock** served by the driver (`scripts/bench/mock-chain.ts`, no network):
+  profile points at a **local mock** served by the driver (`scripts/bench/mock-chain.ts` of that
+  commit, no network):
   - *Torii SQL* (`POST /sql`): rows **generated** from the board fixture (nothing is deployed to
     record from), in the shape of Torii's SQL endpoint: one JSON object per row, u8/u32 columns as
     integers, felts and addresses as 0x-prefixed 64-digit hex strings, bool as 0/1, plus Torii's
@@ -278,13 +316,13 @@ Median of 5 runs, min-max in brackets. Targets of P-7 (estimates) next to the 72
 | Figure | 38 tiles | 72 tiles | P-7 target (72 tiles) |
 |---|---|---|---|
 | Frame interval p50 (ms) | 16.70 (16.70-16.70) | 16.70 (16.70-16.70) | |
-| Frame interval p95 (ms) | 18.10 (17.50-18.30) | 17.50 (17.50-17.50) | <= 16.7: see below |
+| Frame interval p95 (ms) | 18.10 (17.50-18.30) | 17.50 (17.50-17.50) | <= 16.7: not met to the letter (17.5 is one 60 Hz cadence tick, 0.8 ms over); no frame missed, see below |
 | Frame interval p99 / max (ms) | 18.50 / 19.60 | 17.60 / 17.80 | |
 | Frames over 1.5 intervals (%) | 0.0 | 0.0 | |
 | CPU per frame p50 / p95 (ms) | 1.50 / 2.90 | 2.00 / 4.00 | |
 | GPU per frame p50 / p95 (ms) | 3.34 / 3.91 | 4.56 / 5.52 | |
 | Draw calls, median frame (p95, min-max over frames) | 147 (158, 95-158) | 207 (258, 128-258) | below 207: not met (= B) |
-| Triangles, median frame (p95) | 997,700 (1,026,794) | 1,681,492 (1,923,720) | below 1,695,576: not met in substance: -0.8 %, within the spread of B (1,681,492-1,695,576) |
+| Triangles, median frame (p95) | 997,700 (1,026,794) | 1,681,492 (1,923,720) | below 1,695,576: 14,084 (0.8 %) below B's median, inside B's own spread (1,681,492-1,695,576): not a reduction |
 | Time to interactive (ms) | 3257 (3040-3313) | **6178 (5500-7133)** | <= 500: not met |
 | JS heap at interactive / end (MB) | 85.8 / 77.8 | 132.7 / 95.5 | |
 
@@ -359,9 +397,10 @@ session run at load 18.6; every other quiet poll stays under 50 ms throttled. Th
 - The 60 Hz cadence is a cap on requestAnimationFrame, not a 60 Hz display; CPU throttling slows the
   page's threads, not the GPU process or the compositor. It is an estimate of a slower machine, not
   a phone.
-- The mock answers at once, from localhost: network and indexer latency are not in any figure, and
-  the confirmed tile comes back on the next poll instead of a block later. Its rows are generated in
-  Torii's shape, not recorded from a live Torii.
+- The mock answers at once, from localhost: network and indexer latency are not in any figure. In the
+  Torii-era figures (the only in-play figures committed) the confirmed tile comes back on the next
+  poll instead of a block later, and the rows are generated in Torii's shape, not recorded from a live
+  Torii; the native mock gives the tile back from the receipt at once.
 - Playwright listens to the console; Game.tsx logs on every poll (`[Score debug]`), so each log is
   serialised for the driver as it would be with DevTools open. Not measured apart.
 - The in-play figures use react-dom's profiling build (small overhead on every commit); the board
