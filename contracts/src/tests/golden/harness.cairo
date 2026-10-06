@@ -7,6 +7,7 @@
 
 use paved::models::game::{Game, GameTrait};
 use paved::models::tile::Tile;
+use paved::models::tournament::TournamentTrait;
 use paved::store::{Store, StoreTrait};
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::setup::setup;
@@ -22,7 +23,9 @@ use starknet::ContractAddress;
 /// `orientation == Orientation::None` means that the drawn tile is discarded.
 #[derive(Copy, Drop)]
 pub struct GoldenMove {
-    /// Plan of the tile that the builder must hold before the move.
+    /// Plan that the real deck draws for the builder before the move.
+    pub drawn: Plan,
+    /// Plan played: the drawn one, or the one that replaces it in forced games.
     pub plan: Plan,
     pub orientation: Orientation,
     pub x: u32,
@@ -42,6 +45,10 @@ pub struct GoldenOutcome {
     /// Tile count, the starter tile included.
     pub tile_count: u32,
     pub over: bool,
+    /// Characters bitmap of the builder at the end (bit set = still placed).
+    pub characters: u8,
+    /// Top score written to the tournament of the game (0 if the game is not over).
+    pub top1_score: u32,
 }
 
 /// Seconds of the first tournament day used by the Daily golden games, plus a day offset.
@@ -49,24 +56,56 @@ pub fn day(index: u64) -> u64 {
     86400 * (1000 + index) + 3600
 }
 
+/// A move on a tile of the real deck.
 pub fn mv(
     plan: Plan, orientation: Orientation, x: u32, y: u32, role: Role, spot: Spot, score: u32,
 ) -> GoldenMove {
-    GoldenMove { plan, orientation, x, y, role, spot, score }
+    GoldenMove { drawn: plan, plan, orientation, x, y, role, spot, score }
+}
+
+/// A move on a forced tile: `drawn` is what the deck gives, `plan` what is played instead.
+pub fn forced(
+    drawn: Plan,
+    plan: Plan,
+    orientation: Orientation,
+    x: u32,
+    y: u32,
+    role: Role,
+    spot: Spot,
+    score: u32,
+) -> GoldenMove {
+    GoldenMove { drawn, plan, orientation, x, y, role, spot, score }
 }
 
 pub fn discard(plan: Plan, score: u32) -> GoldenMove {
     GoldenMove {
-        plan, orientation: Orientation::None, x: 0, y: 0, role: Role::None, spot: Spot::None, score,
+        drawn: plan,
+        plan,
+        orientation: Orientation::None,
+        x: 0,
+        y: 0,
+        role: Role::None,
+        spot: Spot::None,
+        score,
     }
 }
 
-pub fn assert_outcome(name: felt252, game: Game, outcome: GoldenOutcome) {
+pub fn assert_outcome(
+    store: Store, name: felt252, game: Game, player_id: felt252, outcome: GoldenOutcome,
+) {
     assert_eq!(game.score, outcome.score, "Golden {}: final score", name);
     assert_eq!(game.built, outcome.built, "Golden {}: built count", name);
     assert_eq!(game.discarded, outcome.discarded, "Golden {}: discard count", name);
     assert_eq!(game.tile_count, outcome.tile_count, "Golden {}: tile count", name);
     assert_eq!(game.is_over(), outcome.over, "Golden {}: game over", name);
+    let builder = store.builder(game, player_id);
+    assert_eq!(builder.characters, outcome.characters, "Golden {}: builder characters", name);
+    let tournament = store
+        .tournament(TournamentTrait::compute_id(game.start_time, game.duration()));
+    assert_eq!(tournament.top1_score, outcome.top1_score, "Golden {}: tournament top score", name);
+    if outcome.top1_score != 0 {
+        assert_eq!(tournament.top1_player_id, player_id, "Golden {}: tournament top player", name);
+    }
 }
 
 /// Set to true to print the observed values instead of asserting them (used to record a new case).
@@ -103,16 +142,16 @@ pub fn play_daily(
         let game = store.game(game_id);
         let builder = store.builder(game, caller.into());
         let mut tile: Tile = store.tile(game, builder.tile_id);
+        let before: u8 = tile.plan;
+        if RECORD {
+            println!("GOLDEN {} step={} plan_before={}", name, step, before);
+        } else {
+            let expected: u8 = (*golden.drawn).into();
+            assert_eq!(before, expected, "Golden {}: drawn plan at step {}", name, step);
+        }
         if forced {
             tile.plan = (*golden.plan).into();
             store.set_tile(tile);
-        } else if RECORD {
-            let before: u8 = tile.plan;
-            println!("GOLDEN {} step={} plan_before={}", name, step, before);
-        } else {
-            let drawn: u8 = tile.plan;
-            let expected: u8 = (*golden.plan).into();
-            assert_eq!(drawn, expected, "Golden {}: drawn plan at step {}", name, step);
         }
         if *golden.orientation == Orientation::None {
             systems.daily.discard(game_id);
@@ -147,8 +186,18 @@ pub fn play_daily(
             game.tile_count,
             game.is_over(),
         );
+        let builder = store.builder(game, caller.into());
+        let tournament = store
+            .tournament(TournamentTrait::compute_id(game.start_time, game.duration()));
+        println!(
+            "GOLDEN {} end characters={} top1_score={}",
+            name,
+            builder.characters,
+            tournament.top1_score,
+        );
+        assert(false, 'Golden: record run');
     } else {
-        assert_outcome(name, game, outcome);
+        assert_outcome(store, name, game, caller.into(), outcome);
     }
     game
 }
@@ -207,8 +256,18 @@ pub fn play_tutorial(name: felt252, steps: Span<TutorialStep>, outcome: GoldenOu
             game.tile_count,
             game.is_over(),
         );
+        let builder = store.builder(game, context.player_id);
+        let tournament = store
+            .tournament(TournamentTrait::compute_id(game.start_time, game.duration()));
+        println!(
+            "GOLDEN {} end characters={} top1_score={}",
+            name,
+            builder.characters,
+            tournament.top1_score,
+        );
+        assert(false, 'Golden: record run');
     } else {
-        assert_outcome(name, game, outcome);
+        assert_outcome(store, name, game, context.player_id, outcome);
     }
     game
 }

@@ -7,7 +7,7 @@
 //! to the north, road from west to east) lies.
 
 use paved::models::tile::CENTER;
-use paved::tests::golden::harness::{GoldenMove, GoldenOutcome, day, discard, mv, play_daily};
+use paved::tests::golden::harness::{GoldenMove, GoldenOutcome, day, discard, forced, play_daily};
 use paved::tests::setup::setup::{ANYONE, PLAYER, SOMEONE};
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -18,17 +18,54 @@ use paved::types::spot::Spot;
 /// Starter (city cap) + three vertical city corridors + a city cap.
 fn city5_moves() -> Array<GoldenMove> {
     array![
-        mv(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, Role::Paladin, Spot::Center, 0),
-        mv(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 2, Role::None, Spot::None, 0),
-        mv(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3, Role::None, Spot::None, 0),
-        mv(Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 4, Role::None, Spot::None, 2245),
+        forced(
+            Plan::SFRFRFFFR,
+            Plan::CFFFCFFFC,
+            Orientation::East,
+            CENTER,
+            CENTER + 1,
+            Role::Paladin,
+            Spot::Center,
+            0,
+        ),
+        forced(
+            Plan::FFFFCCCFF,
+            Plan::CFFFCFFFC,
+            Orientation::East,
+            CENTER,
+            CENTER + 2,
+            Role::None,
+            Spot::None,
+            0,
+        ),
+        forced(
+            Plan::FFCFFFFFC,
+            Plan::CFFFCFFFC,
+            Orientation::East,
+            CENTER,
+            CENTER + 3,
+            Role::None,
+            Spot::None,
+            0,
+        ),
+        forced(
+            Plan::RFRFFFFFR,
+            Plan::FFFFFFCFF,
+            Orientation::North,
+            CENTER,
+            CENTER + 4,
+            Role::None,
+            Spot::None,
+            2245,
+        ),
     ]
 }
 
 /// Road of 6 tiles closed on the last move: stop, starter, 3 straights, stop.
 fn road6_moves() -> Array<GoldenMove> {
     array![
-        mv(
+        forced(
+            Plan::FFFFFFCFF,
             Plan::RFFFRFFFR,
             Orientation::North,
             CENTER + 1,
@@ -37,10 +74,46 @@ fn road6_moves() -> Array<GoldenMove> {
             Spot::East,
             0,
         ),
-        mv(Plan::RFFFRFFFR, Orientation::North, CENTER + 2, CENTER, Role::None, Spot::None, 0),
-        mv(Plan::RFFFRFFFR, Orientation::North, CENTER + 3, CENTER, Role::None, Spot::None, 0),
-        mv(Plan::SFRFRFFFR, Orientation::North, CENTER + 4, CENTER, Role::None, Spot::None, 0),
-        mv(Plan::SFRFRFFFR, Orientation::North, CENTER - 1, CENTER, Role::None, Spot::None, 1379),
+        forced(
+            Plan::CCCCCFRFC,
+            Plan::RFFFRFFFR,
+            Orientation::North,
+            CENTER + 2,
+            CENTER,
+            Role::None,
+            Spot::None,
+            0,
+        ),
+        forced(
+            Plan::RFFFRFFFR,
+            Plan::RFFFRFFFR,
+            Orientation::North,
+            CENTER + 3,
+            CENTER,
+            Role::None,
+            Spot::None,
+            0,
+        ),
+        forced(
+            Plan::FFCFFFCFF,
+            Plan::SFRFRFFFR,
+            Orientation::North,
+            CENTER + 4,
+            CENTER,
+            Role::None,
+            Spot::None,
+            0,
+        ),
+        forced(
+            Plan::CCCCCFRFC,
+            Plan::SFRFRFFFR,
+            Orientation::North,
+            CENTER - 1,
+            CENTER,
+            Role::None,
+            Spot::None,
+            1379,
+        ),
     ]
 }
 
@@ -48,8 +121,18 @@ fn road6_moves() -> Array<GoldenMove> {
 /// right away, an adventurer on a road closed by the last move. No role is allowed on a forest.
 fn mixed_moves() -> Array<GoldenMove> {
     array![
-        mv(Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER, Role::Pilgrim, Spot::Center, 0),
-        mv(
+        forced(
+            Plan::SFRFRFCFR,
+            Plan::WFFFFFFFR,
+            Orientation::North,
+            CENTER + 1,
+            CENTER,
+            Role::Pilgrim,
+            Spot::Center,
+            0,
+        ),
+        forced(
+            Plan::RFRFCCCFR,
             Plan::FFFFFFCFF,
             Orientation::North,
             CENTER,
@@ -58,7 +141,8 @@ fn mixed_moves() -> Array<GoldenMove> {
             Spot::South,
             838,
         ),
-        mv(
+        forced(
+            Plan::CCCCCFFFC,
             Plan::RFFFRFFFR,
             Orientation::North,
             CENTER - 1,
@@ -67,12 +151,21 @@ fn mixed_moves() -> Array<GoldenMove> {
             Spot::East,
             838,
         ),
-        mv(Plan::SFRFRFFFR, Orientation::North, CENTER - 2, CENTER, Role::None, Spot::None, 1715),
+        forced(
+            Plan::WFFFFFFFF,
+            Plan::SFRFRFFFR,
+            Orientation::North,
+            CENTER - 2,
+            CENTER,
+            Role::None,
+            Spot::None,
+            1715,
+        ),
     ]
 }
 
 #[test]
-#[available_gas(l2_gas: 702060194)]
+#[available_gas(l2_gas: 710810288)]
 fn test_golden_daily_city5_game_over() {
     let moves = city5_moves();
     play_daily(
@@ -82,12 +175,20 @@ fn test_golden_daily_city5_game_over() {
         true,
         5,
         moves.span(),
-        GoldenOutcome { score: 2245, built: 4, discarded: 0, tile_count: 5, over: true },
+        GoldenOutcome {
+            score: 2245,
+            built: 4,
+            discarded: 0,
+            tile_count: 5,
+            over: true,
+            characters: 0,
+            top1_score: 2245,
+        },
     );
 }
 
 #[test]
-#[available_gas(l2_gas: 761613341)]
+#[available_gas(l2_gas: 770365032)]
 fn test_golden_daily_road6() {
     let moves = road6_moves();
     play_daily(
@@ -97,12 +198,20 @@ fn test_golden_daily_road6() {
         true,
         0,
         moves.span(),
-        GoldenOutcome { score: 1379, built: 5, discarded: 0, tile_count: 7, over: false },
+        GoldenOutcome {
+            score: 1379,
+            built: 5,
+            discarded: 0,
+            tile_count: 7,
+            over: false,
+            characters: 0,
+            top1_score: 0,
+        },
     );
 }
 
 #[test]
-#[available_gas(l2_gas: 725535512)]
+#[available_gas(l2_gas: 734284283)]
 fn test_golden_daily_mixed_roles() {
     let moves = mixed_moves();
     play_daily(
@@ -112,13 +221,21 @@ fn test_golden_daily_mixed_roles() {
         true,
         0,
         moves.span(),
-        GoldenOutcome { score: 1715, built: 4, discarded: 0, tile_count: 6, over: false },
+        GoldenOutcome {
+            score: 1715,
+            built: 4,
+            discarded: 0,
+            tile_count: 6,
+            over: false,
+            characters: 32,
+            top1_score: 0,
+        },
     );
 }
 
 /// Real deck, no forced plan: pins the draw order of the seed (tournament day 3) through discards.
 #[test]
-#[available_gas(l2_gas: 630993771)]
+#[available_gas(l2_gas: 639735276)]
 fn test_golden_daily_real_deck_discards_to_game_over() {
     let moves = array![
         discard(Plan::CCCCCFFFC, 0), discard(Plan::SFRFRFRFR, 0), discard(Plan::RFRFFFFFR, 0),
@@ -132,6 +249,14 @@ fn test_golden_daily_real_deck_discards_to_game_over() {
         false,
         8,
         moves.span(),
-        GoldenOutcome { score: 0, built: 0, discarded: 7, tile_count: 8, over: true },
+        GoldenOutcome {
+            score: 0,
+            built: 0,
+            discarded: 7,
+            tile_count: 8,
+            over: true,
+            characters: 0,
+            top1_score: 0,
+        },
     );
 }

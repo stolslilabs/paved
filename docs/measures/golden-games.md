@@ -34,15 +34,15 @@ Forest: no role is allowed on a forest (`Role::is_allowed`), so no case places a
 ## Gas budget
 
 Each case carries `#[available_gas(l2_gas: N)]`: the test fails if the total L2 gas of its game
-(spawn included) exceeds N. N is the figure measured on 2026-10-06 plus 5 %.
+(spawn included) exceeds N. N is the figure measured on 2026-10-06 (after the characters and tournament assertions were added) plus 5 %.
 
 | Test | Measured L2 gas | Ceiling (+5 %) |
 | --- | --- | --- |
-| `daily_city5_game_over` | 668,628,756 | 702,060,194 |
-| `daily_road6` | 725,346,039 | 761,613,341 |
-| `daily_mixed_roles` | 690,986,201 | 725,535,512 |
-| `daily_real_deck_discards_to_game_over` | 600,946,448 | 630,993,771 |
-| `tutorial_full_sequence` | 1,262,087,468 | 1,325,191,842 |
+| `daily_city5_game_over` | 676,962,179 | 710,810,288 |
+| `daily_road6` | 733,680,982 | 770,365,032 |
+| `daily_mixed_roles` | 699,318,364 | 734,284,283 |
+| `daily_real_deck_discards_to_game_over` | 609,271,691 | 639,735,276 |
+| `tutorial_full_sequence` | 1,270,407,901 | 1,333,928,297 |
 
 A gas improvement lowers the figures: lower the ceilings in the same PR. A rise above a ceiling is
 a regression, not a reason to raise it.
@@ -50,12 +50,14 @@ a regression, not a reason to raise it.
 ## Limits
 
 - The Daily moves with a role use forced plans (`forced: true`: the harness replaces the drawn tile,
-  as `e2e/daily*.cairo` do), so that a structure of known size can be built in a few moves. The deck
-  draw itself is pinned by the discard case. In forced cases the deck is not read.
-- A full Daily deck (38 tiles) does not fit in one test: a build costs about 100M L2 gas in the test
-  world and a test is capped around 1.3B. The "end of deck" case therefore cuts `tile_limit`
-  (fixture, `tile_limit` argument) to 5 and 8 tiles. The game-over rule (`tile_count >= tile_limit`)
-  is the real one.
+  as `e2e/daily*.cairo` do), so that a structure of known size can be built in a few moves. Before
+  each override the harness still asserts the plan that the real deck drew (`drawn`), so the draw
+  after every build (reseed included) is pinned too; the discard case pins 7 draws on its own.
+- A full Daily deck (38 tiles) is kept out of the suite: from the figures above, a spawn costs about
+  214M L2 gas and a build 100M to 120M in the test world (city5: 4 builds, 677M; road6: 5 builds,
+  734M), so 37 builds would cost about 4B and the 10-step tutorial already costs 1.27B. The
+  "end of deck" cases therefore cut `tile_limit` (fixture, `tile_limit` argument) to 5 and 8 tiles.
+  The game-over rule (`tile_count >= tile_limit`) is the real one.
 - Expected values come from running the code of the commit that introduced them (characterisation),
   not from an independent computation.
 
