@@ -15,6 +15,7 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["__tests__/**/*.test.ts"],
+    include: ["__tests__/**/*.test.ts", "__tests__/**/*.test.tsx"],
+    // Page tests (`*.test.tsx`) opt into jsdom with a docblock; the pure ones stay in node.
   },
 });
