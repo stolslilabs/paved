@@ -1,6 +1,9 @@
 name: Stolsis CI
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches: [main]
 
 env:
   WORKING_DIRECTORY: ./contracts
@@ -39,4 +42,16 @@ jobs:
       - name: Test
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: snforge test
+        shell: bash
+
+  ci:
+    runs-on: ubuntu-latest
+    name: ci
+    if: always()
+    needs: [check, build, test]
+    steps:
+      - name: Require every job to have succeeded or been skipped
+        run: |
+          echo '${{ toJSON(needs.*.result) }}'
+          if ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}; then exit 1; fi
         shell: bash
