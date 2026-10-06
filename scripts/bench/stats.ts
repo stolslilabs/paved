@@ -287,6 +287,8 @@ export interface DisplaySample {
 
 export interface ClickRun {
   mode: "click";
+  /** Raw file the run was read from. */
+  file?: string;
   profile: string;
   tileCount: number;
   refreshMs: number;
@@ -397,6 +399,8 @@ interface LongTask {
 
 export interface PlayRun {
   mode: "play";
+  /** Raw file the run was read from. */
+  file?: string;
   profile: string;
   tileCount: number;
   ttiMs: number;
@@ -455,6 +459,7 @@ export function playRunStats(r: PlayRun) {
   const quiet = cycles.filter((c) => !c.inputNearby);
   const minutes = (r.session.end - r.session.start) / 60000;
   return {
+    file: r.file ?? null,
     sessionS: (r.session.end - r.session.start) / 1000,
     ttiMs: r.ttiMs,
     refreshMs: r.refreshMs,

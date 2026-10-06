@@ -1,11 +1,12 @@
 # Client track status
 
-Dated 2026-10-06.
+Dated 2026-10-06. Track CLIENT of the programme Paved (the packages-based web client).
 
 2026-10-06: throttled (CPU 4x, 60 Hz) at 72 tiles, the cadence holds (no missed frame) but time to
 interactive is 6.2 s against 0.5 s; a click shows its tile in 37 ms (p50) unthrottled, 86 ms
-throttled; in the real Game page each Torii poll costs 3 React commits and no long task, while each
-placement brings two to three long tasks of 57-123 ms throttled. Track CLIENT of the programme Paved (the packages-based web client).
+throttled; in the real Game page each Torii poll costs 3 React commits and no long task (one
+exception, in a session run at load 18.6), while each
+placement brings two to three long tasks of 57-123 ms throttled.
 
 | Step | State |
 |---|---|

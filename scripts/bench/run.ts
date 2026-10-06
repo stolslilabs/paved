@@ -16,7 +16,7 @@
 //          --no-build  --profile  --profile-only  --summarize-only  --out <dir>  --window 1440x900
 import { spawnSync, spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SourceMapConsumer } from "source-map-js";
 import { chromium } from "playwright-core";
@@ -96,7 +96,10 @@ function build(script: string, extra: string[] = [], env: Record<string, string>
 }
 
 function serve(root: string, mock?: MockChain) {
+  const base = resolve(root);
   return Bun.serve({
+    // Loopback only: the bench page and the mock are for this machine's browser.
+    hostname: "127.0.0.1",
     port: 0,
     async fetch(req) {
       const url = new URL(req.url);
@@ -106,7 +109,9 @@ function serve(root: string, mock?: MockChain) {
       }
       if (url.pathname === "/favicon.ico") return new Response(null, { status: 204 });
       const path = url.pathname === "/" ? "/bench.html" : decodeURIComponent(url.pathname);
-      const file = Bun.file(join(root, path));
+      const full = resolve(base, "." + path);
+      if (full !== base && !full.startsWith(base + sep)) return new Response("forbidden", { status: 403 });
+      const file = Bun.file(full);
       if (!(await file.exists())) return new Response("not found", { status: 404 });
       return new Response(file, { headers: { "cache-control": "no-store" } });
     },
@@ -251,7 +256,7 @@ async function measureBoard() {
   const profile = profiles[0];
   if (profiles.length > 1) throw new Error("the board bench takes one profile per invocation (its own --out)");
   const server = serve(join(appWeb, "dist-bench"));
-  const base = `http://localhost:${server.port}`;
+  const base = `http://127.0.0.1:${server.port}`;
   const browser = await launch();
   const machine = machineInfo(browser.version());
   writeFileSync(join(outDir, "machine.json"), JSON.stringify(machine, null, 2) + "\n");
@@ -282,7 +287,7 @@ async function cpuProfile() {
   const browser = await launch();
   const big = Math.max(...sizes);
   console.log(`profile: board ${big}`);
-  const { load, path } = await runOnce(browser, `http://localhost:${server.port}`, big, profiles[0], true);
+  const { load, path } = await runOnce(browser, `http://127.0.0.1:${server.port}`, big, profiles[0], true);
   await browser.close();
   server.stop(true);
   const resolve = sourceResolver(join(root, "assets"));
@@ -328,7 +333,7 @@ async function clickOnce(browser: Browser, base: string, size: number, profile: 
 async function measureClick() {
   if (doBuild) build("build:bench");
   const server = serve(join(appWeb, "dist-bench"));
-  const base = `http://localhost:${server.port}`;
+  const base = `http://127.0.0.1:${server.port}`;
   const browser = await launch();
   const machine = machineInfo(browser.version());
   writeFileSync(join(outDir, "machine.json"), JSON.stringify(machine, null, 2) + "\n");
@@ -350,11 +355,17 @@ async function measureClick() {
   clickSummary(machine);
 }
 
-function clickSummary(machine: unknown) {
-  const results: ClickRun[] = readdirSync(outDir)
-    .filter((f) => /^click-.+\.json$/.test(f))
-    .map((f) => JSON.parse(readFileSync(join(outDir, f), "utf8")));
-  const summary = { when: new Date().toISOString(), machine, ...summarizeClicks(results) };
+/** Raw runs of a bench in file order (numeric: run 2 before run 10), each named by its file. */
+function readRuns<T>(pattern: RegExp): T[] {
+  return readdirSync(outDir)
+    .filter((f) => pattern.test(f))
+    .sort((a, b) => a.localeCompare(b, "en", { numeric: true }))
+    .map((f) => ({ ...JSON.parse(readFileSync(join(outDir, f), "utf8")), file: f }));
+}
+
+function clickSummary(machine: unknown, when = new Date().toISOString()) {
+  const results = readRuns<ClickRun>(/^click-.+\.json$/);
+  const summary = { when, machine, ...summarizeClicks(results) };
   writeFileSync(join(outDir, "summary.json"), JSON.stringify(summary, null, 1) + "\n");
   const md = clicksToMarkdown(summary);
   writeFileSync(join(outDir, "summary.md"), md);
@@ -419,9 +430,11 @@ async function playOnce(browser: Browser, base: string, profile: Profile, mock: 
 async function measurePlay() {
   const playRoot = join(appWeb, "dist-bench", "play");
   if (doBuild) build("build:bench", ["--outDir", "dist-bench/play"], { BENCH_PLAY: "1" });
+  // A later board or click build empties dist-bench, this build with it.
+  if (!existsSync(join(playRoot, "bench.html"))) throw new Error(`no in-play build in ${playRoot}: run without --no-build`);
   const mock = createMockChain(fixtures, 72);
   const server = serve(playRoot, mock);
-  const base = `http://localhost:${server.port}`;
+  const base = `http://127.0.0.1:${server.port}`;
   const browser = await launch();
   const machine = machineInfo(browser.version());
   writeFileSync(join(outDir, "machine.json"), JSON.stringify(machine, null, 2) + "\n");
@@ -441,11 +454,9 @@ async function measurePlay() {
   playSummary(machine);
 }
 
-function playSummary(machine: unknown) {
-  const results: PlayRun[] = readdirSync(outDir)
-    .filter((f) => /^play-.+\.json$/.test(f))
-    .map((f) => JSON.parse(readFileSync(join(outDir, f), "utf8")));
-  const summary = { when: new Date().toISOString(), machine, ...summarizePlays(results) };
+function playSummary(machine: unknown, when = new Date().toISOString()) {
+  const results = readRuns<PlayRun>(/^play-.+\.json$/);
+  const summary = { when, machine, ...summarizePlays(results) };
   writeFileSync(join(outDir, "summary.json"), JSON.stringify(summary, null, 1) + "\n");
   const md = playsToMarkdown(summary);
   writeFileSync(join(outDir, "summary.md"), md);
@@ -456,12 +467,11 @@ async function main() {
   mkdirSync(outDir, { recursive: true });
   if (summarizeOnly) {
     const machine = JSON.parse(readFileSync(join(outDir, "machine.json"), "utf8"));
-    if (kind === "click") clickSummary(machine);
-    else if (kind === "play") playSummary(machine);
-    else {
-      const old = existsSync(join(outDir, "summary.json")) ? JSON.parse(readFileSync(join(outDir, "summary.json"), "utf8")) : {};
-      boardSummary(machine, old.when);
-    }
+    // Keep the date of the measure, not of the recomputation.
+    const old = existsSync(join(outDir, "summary.json")) ? JSON.parse(readFileSync(join(outDir, "summary.json"), "utf8")) : {};
+    if (kind === "click") clickSummary(machine, old.when);
+    else if (kind === "play") playSummary(machine, old.when);
+    else boardSummary(machine, old.when);
     return;
   }
   // Keep the display awake: a sleeping display stops requestAnimationFrame.

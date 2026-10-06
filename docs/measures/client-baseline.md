@@ -174,8 +174,10 @@ asks for fewer; no renderer work has been done yet). A placement takes 37 ms (p5
 the screen unthrottled and 86 ms throttled on the bench page, and **128 ms (p50) from the confirm key
 to the screen in the real Game page** throttled. Polling Torii every 2 s costs 3 React commits per
 poll and 5 ms (unthrottled) to 13 ms (throttled) of render time when nothing changed, and causes no
-long task by itself; throttled, every placement brings two to three long tasks of 57-123 ms (the
-confirm, the build call, and the poll that brings the tile back), 17 per minute of play.
+long task by itself (one exception: a single 57 ms task in one quiet poll of the throttled session
+run at load 18.6, `play-throttled-3.json`); throttled, every placement brings two to three long
+tasks of 57-123 ms (the confirm, the build call, and the poll that brings the tile back), 17 per
+minute of play.
 
 ## Profiles
 
@@ -253,7 +255,9 @@ bun run bench --summarize-only [--click|--play|--out <dir>]   # tables again fro
 ```
 
 Same requirements as baseline B (Chrome installed, display awake, window visible). `--profiles
-unthrottled,throttled`, `--sizes`, `--runs`, `--warmup` and `--duration` apply to each bench.
+unthrottled,throttled` applies to `--click` and `--play` (both by default); the board bench takes
+one profile per run (its own output folder), so the two board profiles are two invocations.
+`--sizes`, `--runs`, `--warmup` and `--duration` apply to each bench.
 
 ## Machine and load
 
@@ -261,9 +265,11 @@ The same Mac as baseline B: Mac14,6, Apple M2 Max, 64 GB, macOS 27.0.1 (26A434),
 154.0.8037.98, window 1440 x 900 on the built-in 120 Hz display (two 60 Hz external displays
 attached, not used). A desktop session in normal use. The 1-minute load average, recorded after
 every run (`driver.loadAvg` in each raw file, `machine.json` per folder): 3.5-5.3 for the throttled
-board, 2.7-4.3 for the clicks, 3.0-4.9 in play except the third throttled session (18.6, something
-else ran on the Mac; its time to interactive is the slowest, 7.2 s, its other figures within the
-spread of the other two).
+board, 2.7-4.3 for the clicks. In play, unthrottled: 3.0, 4.3 and 4.85 (`play-unthrottled-1/2/3.json`);
+throttled: 4.47 (`play-throttled-1.json`), 5.26 (`play-throttled-2.json`) and **18.58
+(`play-throttled-3.json`)**: something else ran on the Mac during that session. Its time to
+interactive is the slowest (7.2 s) and it holds the only quiet poll with a long task (below); its
+other figures are within the spread of the other two.
 
 ## Figures, board throttled (`client-baseline/throttled/`)
 
@@ -278,7 +284,7 @@ Median of 5 runs, min-max in brackets. Targets of P-7 (estimates) next to the 72
 | CPU per frame p50 / p95 (ms) | 1.50 / 2.90 | 2.00 / 4.00 | |
 | GPU per frame p50 / p95 (ms) | 3.34 / 3.91 | 4.56 / 5.52 | |
 | Draw calls, median frame (p95, min-max over frames) | 147 (158, 95-158) | 207 (258, 128-258) | below 207: not met (= B) |
-| Triangles, median frame (p95) | 997,700 (1,026,794) | 1,681,492 (1,923,720) | below 1,695,576: not met (= B) |
+| Triangles, median frame (p95) | 997,700 (1,026,794) | 1,681,492 (1,923,720) | below 1,695,576: not met in substance: -0.8 %, within the spread of B (1,681,492-1,695,576) |
 | Time to interactive (ms) | 3257 (3040-3313) | **6178 (5500-7133)** | <= 500: not met |
 | JS heap at interactive / end (MB) | 85.8 / 77.8 | 132.7 / 95.5 | |
 
@@ -328,7 +334,7 @@ The real Game page on the 72-tile board, 60 s sessions, median of 3 sessions (mi
 | Poll cycles per session / Torii queries per poll | 30 / 4 | 30 / 4 |
 | Commits per quiet poll, median (max) | 3 (5) | 3 (4) |
 | Render time per quiet poll, p50 / p95 (ms) | 5.1 / 8.2 | 13.2 / 29.5 |
-| Quiet polls with a long task | 0 of 12 | 0 of 10 |
+| Quiet polls with a long task, per session | 0, 0, 0 (of 12, 12, 14) | 0, 0, 1 (of 10, 10, 12) |
 | Confirm (key `C`) to presented frame, p50 / p95, pooled (ms) | 50.2 / 66.1 (n=24) | 128.5 / 153.4 (n=24) |
 
 **What commits per poll.** Each poll runs four queries one after the other, and sets state after
@@ -340,12 +346,13 @@ cannot skip any of them. That is 3 commits per poll, 90 per minute, before any i
 (unthrottled) to 13 ms (throttled) of render work per poll.
 
 **Where the long tasks are.** Unthrottled there is none in play (one at load, about 1.2 s, the tile
-build). Throttled, all 52 long tasks of the three sessions follow a placement (attributed from the
-raw timestamps): the task of the confirm keydown itself, 72-123 ms (optimistic tile, render of the
+build). Throttled, 51 of the 52 long tasks of the three sessions follow a placement (attributed from
+the raw timestamps): the task of the confirm keydown itself, 72-123 ms (optimistic tile, render of the
 page, the new pending mesh), then one or two tasks of 57-113 ms within 1.5 s (the `build` call:
 signing and its RPC answers, not separated here), and the poll that brings the placed tile back from
-Torii (57-105 ms: the optimistic mesh is replaced by the confirmed one). Quiet polls stay under
-50 ms throttled. The load has 6-7 long tasks, the longest 5.0-6.2 s.
+Torii (57-105 ms: the optimistic mesh is replaced by the confirmed one). The 52nd is a single 57 ms
+task in a quiet poll, 4.4 s into `play-throttled-3.json`, before its first placement, in the
+session run at load 18.6; every other quiet poll stays under 50 ms throttled. The load has 6-7 long tasks, the longest 5.0-6.2 s.
 
 ## Limits of part C
 
