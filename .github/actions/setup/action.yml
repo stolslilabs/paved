@@ -15,11 +15,11 @@ runs:
         echo "scarb=$(awk '$1=="scarb"{print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
         echo "foundry=$(awk '$1=="starknet-foundry"{print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
 
-    - uses: software-mansion/setup-scarb@v1
+    - uses: software-mansion/setup-scarb@2a96b748888e3329ee44ac9ac073d930e692b3cd # v1.6.2
       with:
         scarb-version: ${{ steps.versions.outputs.scarb }}
 
-    - uses: foundry-rs/setup-snfoundry@v4
+    - uses: foundry-rs/setup-snfoundry@ee00ea3f026379008ca40a54448d4059233d06cc # v4.0.0
       if: ${{ inputs.foundry == 'true' }}
       with:
         starknet-foundry-version: ${{ steps.versions.outputs.foundry }}

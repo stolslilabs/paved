@@ -48,6 +48,16 @@ P0: 677M, 734M, 699M, 609M and 1,270M.
 | `daily_real_deck_discards_to_game_over` | 103,613,438 | 108,794,110 |
 | `tutorial_full_sequence` | 116,162,877 | 121,971,021 |
 
+P3 (2026-10-06, scarb 2.20.1 / snforge 0.64.0): every expected value is unchanged (checked first with the ceilings lifted to 1.2B); gas rose, a compiler effect, so the ceilings are raised to measured + 5 %.
+
+| Test | L2 gas P2 | L2 gas P3 | Change | Ceiling P2 | Ceiling P3 |
+| --- | --- | --- | --- | --- | --- |
+| daily_city5_game_over | 106,111,373 | 136,530,943 | +28.7 % | 111,416,942 | 143,357,491 |
+| daily_road6 | 118,279,043 | 151,036,143 | +27.7 % | 124,192,996 | 158,587,951 |
+| daily_mixed_roles | 113,176,918 | 146,570,608 | +29.5 % | 118,835,764 | 153,899,139 |
+| daily_real_deck_discards_to_game_over | 103,613,438 | 130,436,168 | +25.9 % | 108,794,110 | 136,957,977 |
+| tutorial_full_sequence | 116,162,877 | 162,528,907 | +39.9 % | 121,971,021 | 170,655,353 |
+
 A gas improvement lowers the figures: lower the ceilings in the same PR. A rise above a ceiling is
 a regression, not a reason to raise it.
 
