@@ -20,8 +20,8 @@ import { cellToClient, holdOverview } from "./screen";
 
 /**
  * In-play bench: the real Game page (App at /game, the same providers as src/main.tsx),
- * talking to the local mock of Torii's SQL endpoint and of the RPC served by the driver
- * (scripts/bench/mock-chain.ts), on the 72-tile board. Game.tsx polls it at its own cadence.
+ * talking to the local mock of the RPC served by the driver (scripts/bench/mock-chain.ts), on
+ * the 72-tile board. The page reads the views once, then only its own placements' receipts.
  *
  * Bench-only additions, all read-only: the probes of play-probes.ts (fetch, long tasks,
  * inputs), a React Profiler around the app (built with react-dom/profiling: see

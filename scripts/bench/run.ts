@@ -1,12 +1,12 @@
 // Client bench driver. Run on the Mac, from packages/app-web:  bun run bench
 //
 // Builds the bench page, serves it from a local static server, and drives headed Chrome
-// (real GPU, not headless) through Playwright. Three benches (method: docs/measures/client-baseline.md):
+// (real GPU, not headless; --headless for smoke runs only) through Playwright. Three benches (method: docs/measures/client-baseline.md):
 //
 //   bun run bench                         frame time along the camera path, unthrottled (baseline B)
 //   bun run bench --profiles throttled    the same under the throttled profile (P-7)
 //   bun run bench --click                 click-to-display latency, both profiles
-//   bun run bench --play                  the real Game page polling a local mock of Torii, both profiles
+//   bun run bench --play                  the real Game page against a local mock of the RPC, both profiles
 //
 // Profiles: `unthrottled` (the machine as it is) and `throttled` (CDP CPU throttling 4x and a
 // 60 Hz requestAnimationFrame cap, see frame-cap.ts). Each run is one fresh browser context;
@@ -15,9 +15,12 @@
 // Options: --profiles unthrottled,throttled  --sizes 38,72  --runs 5  --warmup 1  --duration <ms>
 //          --no-build  --profile  --profile-only  --summarize-only  --out <dir>  --window 1440x900
 //          --offscreen (headed, GPU kept, window at x = -10000: nothing shows while the Mac is in use)
+//          --headless [--chromium <path>] (smoke runs off the Mac, e.g. on the VPS: headless Chromium,
+//          no window, no GPU; figures not comparable; output under the system temp dir by default)
 import { spawnSync, spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
+import { loadavg, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { SourceMapConsumer } from "source-map-js";
 import { chromium } from "playwright-core";
@@ -74,18 +77,21 @@ const durationMs = Number(arg("duration", kind === "play" ? "60000" : "20000"));
 const [winW, winH] = (arg("window", "1440x900") as string).split("x").map(Number);
 const defaultOut =
   kind === "board" ? (profiles.length === 1 && profiles[0].name === "throttled" ? join(measures, "throttled") : measures) : join(measures, kind);
-const outDir = resolve(arg("out", defaultOut) as string);
 const doBuild = arg("no-build") === undefined;
 const offscreen = arg("offscreen") !== undefined;
+const headless = arg("headless") !== undefined;
+const chromiumPath = arg("chromium");
+// A headless smoke run never writes into docs/measures unless --out says so.
+const outDir = resolve(arg("out", headless ? join(tmpdir(), "paved-bench-headless", kind) : defaultOut) as string);
 const profileOnly = arg("profile-only") !== undefined;
 const doProfile = arg("profile") !== undefined || profileOnly;
 const summarizeOnly = arg("summarize-only") !== undefined;
 
 const sh = (cmd: string, args: string[]): string =>
-  spawnSync(cmd, args, { encoding: "utf8" }).stdout.trim();
+  (spawnSync(cmd, args, { encoding: "utf8" }).stdout ?? "").trim();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Load average (1, 5, 15 min) of the machine, recorded with every run. */
-const loadAvg = (): number[] => sh("sysctl", ["-n", "vm.loadavg"]).replace(/[{}]/g, "").trim().split(/\s+/).map(Number);
+const loadAvg = (): number[] => loadavg();
 
 function build(script: string, extra: string[] = [], env: Record<string, string> = {}): void {
   console.log(`build: bun run ${script} ${extra.join(" ")} ${Object.entries(env).map(([k, v]) => `${k}=${v}`).join(" ")}`);
@@ -147,7 +153,7 @@ function machineInfo(browserVersion: string) {
     power: sh("pmset", ["-g", "batt"]).split("\n")[0],
     loadAvgAtStart: loadAvg(),
     windowArg: `${winW}x${winH}`,
-    window: offscreen ? "off screen" : "on screen",
+    window: headless ? "headless (smoke, not comparable)" : offscreen ? "off screen" : "on screen",
     profiles,
     displays,
   };
@@ -164,7 +170,8 @@ function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
 
 /** A fresh context and page under a profile: CPU throttling through CDP, the frame cap before any page script. */
 async function openPage(browser: Browser, profile: Profile) {
-  const context = await browser.newContext({ viewport: null });
+  // Headed: the window's own size. Headless has no window: the same size as a viewport.
+  const context = await browser.newContext({ viewport: headless ? { width: winW, height: winH } : null });
   const page = await context.newPage();
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -231,11 +238,17 @@ function sourceResolver(assetsDir: string) {
 }
 
 const launch = () =>
-  chromium.launch({
-    channel: "chrome",
-    headless: false,
-    args: [`--window-size=${winW},${winH}`, offscreen ? "--window-position=-10000,0" : "--window-position=0,0", "--enable-precise-memory-info"],
-  });
+  headless
+    ? chromium.launch({
+        headless: true,
+        ...(chromiumPath ? { executablePath: chromiumPath } : {}),
+        args: [`--window-size=${winW},${winH}`, "--enable-precise-memory-info", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+      })
+    : chromium.launch({
+        channel: "chrome",
+        headless: false,
+        args: [`--window-size=${winW},${winH}`, offscreen ? "--window-position=-10000,0" : "--window-position=0,0", "--enable-precise-memory-info"],
+      });
 
 function boardSummary(machine: unknown, when = new Date().toISOString()) {
   const summaries: Record<string, ReturnType<typeof summarizeRuns>> = {};
@@ -375,7 +388,7 @@ function clickSummary(machine: unknown, when = new Date().toISOString()) {
   console.log("\n" + md);
 }
 
-// ---- Play: the real Game page polling the mock -----------------------------------------------
+// ---- Play: the real Game page against the mock ------------------------------------------------
 
 /** Seconds into the session at which a tile is placed: every 7 s from 5 s, ending 5 s before the end. */
 const placementTimes = (ms: number) => Array.from({ length: Math.floor((ms - 10_000) / 7000) + 1 }, (_, k) => 5000 + 7000 * k);
@@ -391,7 +404,13 @@ async function placeInGame(page: Page, mock: MockChain): Promise<boolean> {
     await sleep(100);
   }
   const t = await page.evaluate(([x, y]) => (window as any).__benchPlay.target(x, y), [next.x, next.y]);
-  if (!t) throw new Error(`cell (${next.x}, ${next.y}) is off screen`);
+  if (!t) {
+    const camera = await page.evaluate(() => {
+      const s = (window as any).__benchPlay.scene;
+      return { position: s.camera.position.toArray(), target: s.controls.controls.target.toArray(), canvas: [s.renderer.domElement.clientWidth, s.renderer.domElement.clientHeight] };
+    });
+    throw new Error(`cell (${next.x}, ${next.y}) is off screen; camera ${JSON.stringify(camera)}`);
+  }
   await page.mouse.move(t.x, t.y);
   await sleep(200);
   await page.mouse.click(t.x, t.y); // selects the cell (Game.tsx handleTileClick)
@@ -406,7 +425,20 @@ async function playOnce(browser: Browser, base: string, profile: Profile, mock: 
   mock.reset();
   const { context, page, errors } = await openPage(browser, profile);
   await page.goto(`${base}/bench.html?mode=play&tiles=72`, { waitUntil: "commit" });
-  await page.waitForFunction(() => (window as any).__benchPlay?.ready || (window as any).__benchError, null, { timeout: 240_000, polling: 250 });
+  try {
+    await page.waitForFunction(() => (window as any).__benchPlay?.ready || (window as any).__benchError, null, { timeout: Number(arg("ready-timeout", "240000")), polling: 250 });
+  } catch (error) {
+    const text = await page.evaluate(() => document.body?.innerText?.replace(/\s+/g, " ").slice(0, 120) ?? "").catch(() => "");
+    const state = await page
+      .evaluate(() => {
+        const b = (window as any).__benchPlay;
+        const groups = b?.scene?.tiles?.getGroup?.().children ?? [];
+        return b ? { scene: Boolean(b.scene), ttiMs: b.ttiMs, refreshMs: b.refreshMs, groups: groups.map((g: any) => `${g.name || g.type}:${g.children?.length}`), frames: b.cpuMs?.length ?? null } : null;
+      })
+      .catch(() => null);
+    console.warn(`  bench state at the timeout: ${JSON.stringify(state)}`);
+    throw new Error(`play: page not ready (${String(error).split("\n")[0]}); page shows "${text}"; page errors: ${errors.slice(0, 5).join(" | ") || "none"}`);
+  }
   const err = await benchError(page);
   if (err) throw new Error(err);
   await page.evaluate((d) => (window as any).__benchPlay.start(d), durationMs);
@@ -423,6 +455,10 @@ async function playOnce(browser: Browser, base: string, profile: Profile, mock: 
   const pageErrors = errors.filter((e) => !e.startsWith("Failed to load resource"));
   if (pageErrors.length) console.warn(`  page errors: ${pageErrors.slice(0, 5).join(" | ")}`);
   if (mock.unknown.size) console.warn(`  mock: unanswered RPC methods ${[...mock.unknown].join(", ")}`);
+  // A session where no placement reached the chain measures an idle page, not play: refuse it.
+  if (attempted > 0 && mock.placed === 0) {
+    throw new Error(`play: ${attempted} placements attempted, 0 applied by the mock (page errors: ${pageErrors.slice(0, 3).join(" | ") || "none"})`);
+  }
   return {
     ...result,
     profile: profile.name,
@@ -477,8 +513,9 @@ async function main() {
     else boardSummary(machine, old.when);
     return;
   }
-  // Keep the display awake: a sleeping display stops requestAnimationFrame.
-  const caffeinate = spawn("caffeinate", ["-d", "-i"], { stdio: "ignore" });
+  // Keep the display awake: a sleeping display stops requestAnimationFrame (macOS only; a headless
+  // run has no display).
+  const caffeinate = process.platform === "darwin" && !headless ? spawn("caffeinate", ["-d", "-i"], { stdio: "ignore" }) : null;
   try {
     if (kind === "click") await measureClick();
     else if (kind === "play") await measurePlay();
@@ -487,7 +524,7 @@ async function main() {
       if (doProfile) await cpuProfile();
     }
   } finally {
-    caffeinate.kill();
+    caffeinate?.kill();
   }
 }
 

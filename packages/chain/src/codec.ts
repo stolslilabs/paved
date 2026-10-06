@@ -81,6 +81,11 @@ export function shortName(path: string): string {
   return parts[parts.length - 1];
 }
 
+/** Selector of an entry point or event name (`starknet_keccak`), as 0x-hex. */
+export function selector(name: string): string {
+  return toHex(hash.getSelectorFromName(name));
+}
+
 /** Same address whatever the padding or case. */
 export function sameAddress(a: string | bigint, b: string | bigint): boolean {
   return BigInt(a) === BigInt(b);
