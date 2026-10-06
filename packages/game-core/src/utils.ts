@@ -1,4 +1,4 @@
-export const CHARACTER_COUNT = 5;
+export const CHARACTER_COUNT = 7;
 export const ORDER_COUNT = 14;
 
 export const getSpotFromIndex = (index: number): number => {

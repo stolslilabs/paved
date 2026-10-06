@@ -229,3 +229,20 @@ describe("nothing is built on a deployment that is not configured", () => {
     expect(createPavedClient(deployment)).toBeInstanceOf(PavedClient);
   });
 });
+
+describe("Woodsman (6) and Herdsman (7) of P4 are listed by the ABI", () => {
+  const character = (role: number, placed = 0) => [role, placed, placed ? 7 : 0, placed ? 3 : 0, placed ? 3 : 0, placed ? 1 : 0].map((n) => `0x${n.toString(16)}`);
+
+  test("seven characters decode, roles 6 and 7 as their codes", () => {
+    const felts = ["0x7", ...[1, 2, 3, 4, 5].flatMap((r) => character(r)), ...character(6, 1), ...character(7)];
+    const out = codecs.Daily.decodeResult("characters", felts) as Array<{ role: number; placed: boolean }>;
+    expect(out.map((c) => c.role)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(out[5].placed).toBe(true);
+  });
+
+  test("a build with either role encodes its code", () => {
+    // game_id, orientation, x, y, role, spot
+    expect(codecs.Daily.encodeCall("build", [1, 1, 5, 5, 6, 3])[4]).toBe("0x6");
+    expect(codecs.Daily.encodeCall("build", [1, 1, 5, 5, 7, 3])[4]).toBe("0x7");
+  });
+});

@@ -166,3 +166,35 @@ describe("ActionBar", () => {
     expect(typeof (mod as any).ActionBar).toBe("function");
   });
 });
+
+describe("ActionBar lists the seven roles (P4)", () => {
+  function images(node: any, out: Array<{ src: string; alt: string }> = []) {
+    if (!node || typeof node !== "object") return out;
+    if (Array.isArray(node)) {
+      node.forEach((n) => images(n, out));
+      return out;
+    }
+    if (node.type === "img") out.push({ src: node.props.src, alt: node.props.alt });
+    images(node.props?.children, out);
+    return out;
+  }
+
+  it("shows Woodsman and Herdsman after Pilgrim, with their art", async () => {
+    const mod = await import("../src/overlays/ActionBar");
+    const result = mod.ActionBar({
+      tilePlan: 11,
+      orientation: 1,
+      onRotate: () => {},
+      onConfirm: () => {},
+      onDiscard: () => {},
+      confirmDisabled: false,
+      discardDisabled: false,
+      packedCharacters: 0,
+      selectedCharacter: 0,
+      onSelectCharacter: () => {},
+    });
+    const roles = images(result);
+    expect(roles.map((r) => r.alt)).toEqual(["Lord", "Lady", "Adventurer", "Paladin", "Pilgrim", "Woodsman", "Herdsman"]);
+    expect(roles.slice(5).map((r) => r.src)).toEqual(["/assets/characters/woodsman.png", "/assets/characters/herdsman.png"]);
+  });
+});

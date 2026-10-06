@@ -149,6 +149,12 @@ describe("getAvailableCharacters()", () => {
     expect(result[2].status).toBe(false);
     expect(result[3].status).toBe(false);
     expect(result[4].status).toBe(false);
+    expect(result[5].status).toBe(true);
+  });
+
+  it("packed bit `role` marks that role as placed: Woodsman (6) and Herdsman (7)", () => {
+    const result = getAvailableCharacters((1 << 6) | (1 << 7));
+    expect(result.map((c) => c.status)).toEqual([true, true, true, true, true, false, false]);
   });
 });
 
@@ -165,6 +171,15 @@ describe("getCharacters()", () => {
     expect(chars[2]).toBe("Adventurer");
     expect(chars[3]).toBe("Paladin");
     expect(chars[4]).toBe("Pilgrim");
+    expect(chars[5]).toBe("Woodsman");
+    expect(chars[6]).toBe("Herdsman");
+  });
+
+  it("lists the seven roles of the contracts since P4", () => {
+    expect(CHARACTER_COUNT).toBe(7);
+    expect(getAvailableCharacters(0).map((c) => c.character)).toEqual([
+      "Lord", "Lady", "Adventurer", "Paladin", "Pilgrim", "Woodsman", "Herdsman",
+    ]);
   });
 });
 
