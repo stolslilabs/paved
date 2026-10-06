@@ -1,9 +1,9 @@
 /** Fixes from the review of #202 (P-10, part a), tested in part b. */
 import { describe, expect, test, vi } from "vitest";
 import { hash } from "starknet";
-import { createCodecs } from "../src/abis";
+import { ABIS, createCodecs } from "../src/abis";
 import { controllerPolicies } from "../src/auth/controller";
-import { AbiMismatchError, type DecodedEvent } from "../src/codec";
+import { AbiCodec, AbiMismatchError, type DecodedEvent } from "../src/codec";
 import { resolveDeployment } from "../src/deployment";
 import { EventReader } from "../src/events";
 import { PavedClient, createPavedClient, type PavedRpc } from "../src/paved-client";
@@ -50,6 +50,27 @@ describe("encodeCall checks integer ranges", () => {
     const P = (1n << 251n) + 17n * (1n << 192n) + 1n;
     expect(codecs.Daily.encodeCall("builder", [1, P - 1n])[1]).toBe("0x" + (P - 1n).toString(16));
     expect(() => codecs.Daily.encodeCall("builder", [1, P])).toThrow(RangeError);
+  });
+});
+
+describe("role codes added later (P4) do not break decoding", () => {
+  // CharacterView: role, placed, tile_id, x, y, spot; four roles added after Pilgrim.
+  const character = (role: number) => [role, 1, 7, 0x7fffffff, 0x7fffffff, 3].map((n) => `0x${n.toString(16)}`);
+
+  test("a character with an unknown role code decodes as its number", () => {
+    const felts = ["0x2", ...character(5), ...character(9)];
+    const out = codecs.Daily.decodeResult("characters", felts) as Array<{ role: number; placed: boolean }>;
+    expect(out.map((c) => c.role)).toEqual([5, 9]);
+    expect(out[1].placed).toBe(true);
+  });
+
+  test("an enum code the ABI does not list is kept as its number, not thrown", () => {
+    const grown = new AbiCodec([
+      ...ABIS.Daily,
+      { type: "function", name: "which_role", inputs: [], outputs: [{ type: "paved::types::role::Role" }] },
+    ]);
+    expect(grown.decodeResult("which_role", ["0x3"])).toBe(3);
+    expect(grown.decodeResult("which_role", ["0x63"])).toBe(99);
   });
 });
 

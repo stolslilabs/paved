@@ -265,7 +265,9 @@ export class AbiCodec {
     if (variants) {
       const index = Number(next());
       const variant = variants[index];
-      if (!variant) throw new Error(`${type} has no variant ${index}`);
+      // A code this ABI does not list (a variant added by a later contract version, e.g. a new role
+      // in P4): kept as its number, which the interface says to treat as "unknown".
+      if (!variant) return index;
       if (variant.type !== "()") throw new Error(`Cannot decode the payload of ${type}::${variant.name}`);
       return index;
     }

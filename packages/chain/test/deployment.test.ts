@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
 
@@ -72,5 +74,41 @@ describe("controllerPolicies", () => {
     expect(policies).toContainEqual({ target: "0x3", method: "spawn" });
     expect(policies).toContainEqual({ target: "0x4", method: "approve" });
     expect(policies.filter((p) => p.target === "0x3").map((p) => p.method)).not.toContain("claim");
+  });
+});
+
+describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
+  const real = JSON.parse(readFileSync(resolve(__dirname, "../../../contracts/deployments/devnet.json"), "utf8")) as DeploymentFile;
+
+  test("is read as it is: four addresses, rpc url, deployed block, decimals", () => {
+    const d = resolveDeployment({ network: "devnet", file: real });
+    expect(d.configured).toBe(true);
+    expect(d.missing).toEqual([]);
+    expect(d.rpcUrl).toBe(real.rpc_url);
+    expect(d.chainId).toBe(real.chain_id);
+    expect(d.deployedBlock).toBe(real.deployed_block);
+    expect(d.tokenDecimals).toBe(18);
+    for (const name of ["Account", "Daily", "Tutorial", "Token"] as const) {
+      expect(d.addresses[name]).toBe(real.contracts![name]!.address);
+    }
+    // The token is listed twice in the file (top level and under contracts): the same address.
+    expect(BigInt(real.token!.address!)).toBe(BigInt(real.contracts!.Token!.address!));
+  });
+
+  test("the env still overrides it", () => {
+    const d = resolveDeployment({
+      network: "devnet",
+      file: real,
+      env: { rpcUrl: "http://other:5050", deployedBlock: 99, addresses: { Daily: "0xdead" } },
+    });
+    expect(d.rpcUrl).toBe("http://other:5050");
+    expect(d.deployedBlock).toBe(99);
+    expect(d.addresses.Daily).toBe("0xdead");
+    expect(d.addresses.Account).toBe(real.contracts!.Account!.address);
+  });
+
+  test("the symbol is never read for display: the label stays $TILE (D-2)", () => {
+    expect(real.token?.symbol).toBe("LORDS");
+    expect(Object.keys(resolveDeployment({ network: "devnet", file: real }))).not.toContain("tokenSymbol");
   });
 });
