@@ -13,7 +13,7 @@ pub trait IERC20Faucet<TState> {
     fn mint(ref self: TState);
 }
 
-#[dojo::contract]
+#[starknet::contract]
 pub mod Token {
     use paved::mocks::erc20::erc20::ERC20Component;
     use starknet::get_caller_address;

@@ -6,9 +6,6 @@ pub mod TutoriableComponent {
 
     // Starknet imports
 
-    // Dojo imports
-
-    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
     // Internal imports
 
@@ -17,6 +14,7 @@ pub mod TutoriableComponent {
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::player::{Player, PlayerAssert, PlayerImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
+    use paved::events::{Built, Discarded, Event as PavedEvent, game_over};
     use paved::store::{Store, StoreImpl};
     use paved::types::mode::{Mode, ModeTrait};
     use paved::types::orientation::{Orientation, OrientationAssert};
@@ -39,9 +37,9 @@ pub mod TutoriableComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
-        fn discard(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
+        fn discard(self: @ComponentState<TContractState>, game_id: u32) {
             // [Setup] Datastore
-            let store: Store = StoreImpl::new(world);
+            let store: Store = StoreImpl::new();
 
             // [Check] Game exists
             let mut game = store.game(game_id);
@@ -72,7 +70,22 @@ pub mod TutoriableComponent {
             orientation.assert_not_valid();
 
             // [Effect] Builder discard a tile
+            let score = game.score;
             builder.discard(ref game);
+
+            // [Event] Tile discarded
+            store
+                .emit(
+                    PavedEvent::Discarded(
+                        Discarded {
+                            game_id,
+                            player_id: player.id,
+                            tile_id: tile.id,
+                            plan: tile.plan,
+                            points: score - game.score,
+                        },
+                    ),
+                );
 
             // [Effect] Assess game over
             game.assess_over();
@@ -91,11 +104,16 @@ pub mod TutoriableComponent {
             // [Effect] Update game
             game.discarded += 1;
             store.set_game(game);
+
+            // [Event] Game over
+            if game.is_over() {
+                store.emit(game_over(game, player.id));
+            }
         }
 
-        fn surrender(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
+        fn surrender(self: @ComponentState<TContractState>, game_id: u32) {
             // [Setup] Datastore
-            let store: Store = StoreImpl::new(world);
+            let store: Store = StoreImpl::new();
 
             // [Check] Game exists
             let mut game = store.game(game_id);
@@ -121,11 +139,16 @@ pub mod TutoriableComponent {
 
             // [Effect] Update game
             store.set_game(game);
+
+            // [Event] Game over
+            if game.is_over() {
+                store.emit(game_over(game, player.id));
+            }
         }
 
-        fn build(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
+        fn build(self: @ComponentState<TContractState>, game_id: u32) {
             // [Setup] Datastore
-            let mut store: Store = StoreImpl::new(world);
+            let mut store: Store = StoreImpl::new();
 
             // [Check] Game exists
             let mut game = store.game(game_id);
@@ -163,6 +186,24 @@ pub mod TutoriableComponent {
             let mut neighbors = store.neighbors(game, x, y);
             builder.build(ref tile, orientation, x, y, ref neighbors);
 
+            // [Event] Tile built
+            store
+                .emit(
+                    PavedEvent::Built(
+                        Built {
+                            game_id,
+                            player_id: player.id,
+                            tile_id: tile.id,
+                            plan: tile.plan,
+                            orientation: orientation.into(),
+                            x,
+                            y,
+                            role: role.into(),
+                            spot: spot.into(),
+                        },
+                    ),
+                );
+
             // [Check] Character to place
             if role != Role::None && spot != Spot::None {
                 // [Check] Structure is idle
@@ -197,6 +238,11 @@ pub mod TutoriableComponent {
             // [Effect] Update game
             game.built += 1;
             store.set_game(game);
+
+            // [Event] Game over
+            if game.is_over() {
+                store.emit(game_over(game, player.id));
+            }
         }
     }
 }

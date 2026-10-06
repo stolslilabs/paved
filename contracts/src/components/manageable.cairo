@@ -4,13 +4,11 @@
 pub mod ManageableComponent {
     // Starknet imports
 
-    // Dojo imports
-
-    use dojo::world::IWorldDispatcher;
     use paved::models::player::{Player, PlayerAssert, PlayerImpl};
 
     // Internal imports
 
+    use paved::events::{Event as PavedEvent, PlayerCreated};
     use paved::store::{Store, StoreImpl};
     use starknet::{ContractAddress, get_caller_address};
 
@@ -31,12 +29,11 @@ pub mod ManageableComponent {
     > of InternalTrait<TContractState> {
         fn create(
             self: @ComponentState<TContractState>,
-            world: IWorldDispatcher,
             name: felt252,
             master: ContractAddress,
         ) {
             // [Setup] Datastore
-            let store: Store = StoreImpl::new(world);
+            let store: Store = StoreImpl::new();
 
             // [Check] Player not already exists
             let caller = get_caller_address();
@@ -46,6 +43,14 @@ pub mod ManageableComponent {
             // [Effect] Create a new player
             let player = PlayerImpl::new(caller.into(), name, master.into());
             store.set_player(player);
+
+            // [Event] Player created
+            store
+                .emit(
+                    PavedEvent::PlayerCreated(
+                        PlayerCreated { player_id: player.id, name, master: player.master },
+                    ),
+                );
         }
     }
 }

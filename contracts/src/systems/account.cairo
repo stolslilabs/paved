@@ -1,24 +1,27 @@
 // Starknet imports
 
+use paved::models::player::Player;
 use starknet::ContractAddress;
 
 #[starknet::interface]
 pub trait IAccount<TContractState> {
-    fn create(self: @TContractState, name: felt252, master: ContractAddress);
+    fn create(ref self: TContractState, name: felt252, master: ContractAddress);
+    fn player(self: @TContractState, id: felt252) -> Player;
 }
 
-#[dojo::contract]
+#[starknet::contract]
 pub mod Account {
-    // Starknet imports
-
     // Component imports
 
-    use paved::components::emitter::EmitterComponent;
     use paved::components::manageable::ManageableComponent;
-    use starknet::{
-        ContractAddress, get_block_number, get_block_timestamp, get_caller_address,
-        get_contract_address,
-    };
+    use paved::components::ownable::OwnableComponent;
+
+    // Internal imports
+
+    use paved::events::Event as PavedEvent;
+    use paved::models::player::Player;
+    use paved::store::{StoreImpl, StoreTrait};
+    use starknet::ContractAddress;
 
     // Local imports
 
@@ -26,39 +29,56 @@ pub mod Account {
 
     // Components
 
-    component!(path: EmitterComponent, storage: emitter, event: EmitterEvent);
-    impl EmitterImpl = EmitterComponent::EmitterImpl<ContractState>;
     component!(path: ManageableComponent, storage: manageable, event: ManageableEvent);
     impl ManageableInternalImpl = ManageableComponent::InternalImpl<ContractState>;
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    #[abi(embed_v0)]
+    impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
 
     // Storage
 
     #[storage]
     struct Storage {
         #[substorage(v0)]
-        emitter: EmitterComponent::Storage,
-        #[substorage(v0)]
         manageable: ManageableComponent::Storage,
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
     }
 
     // Events
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
+    pub enum Event {
         #[flat]
-        EmitterEvent: EmitterComponent::Event,
+        PavedEvent: PavedEvent,
         #[flat]
         ManageableEvent: ManageableComponent::Event,
+        #[flat]
+        OwnableEvent: OwnableComponent::Event,
+    }
+
+    // Constructor
+
+    #[constructor]
+    fn constructor(ref self: ContractState, owner: ContractAddress) {
+        // [Effect] Initialize components
+        self.ownable.initialize(owner);
     }
 
     // Implementations
 
     #[abi(embed_v0)]
     impl AccountImpl of IAccount<ContractState> {
-        fn create(self: @ContractState, name: felt252, master: ContractAddress) {
+        fn create(ref self: ContractState, name: felt252, master: ContractAddress) {
             // [Effect] Create a player
-            self.manageable.create(self.world(@"paved").dispatcher, name, master);
+            self.manageable.create(name, master);
+        }
+
+        fn player(self: @ContractState, id: felt252) -> Player {
+            // [Return] Player, zero if not registered
+            StoreImpl::new().player(id)
         }
     }
 }

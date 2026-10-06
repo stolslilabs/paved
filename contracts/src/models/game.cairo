@@ -3,7 +3,7 @@
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::hash::HashStateTrait;
 use core::poseidon::{HashState, PoseidonTrait};
-use origami_random::deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
+use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 
 // Internal imports
 

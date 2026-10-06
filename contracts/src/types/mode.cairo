@@ -5,7 +5,7 @@ use core::poseidon::{HashState, PoseidonTrait};
 
 // External imports
 
-use origami_random::deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
+use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 
 // Internal imports
 

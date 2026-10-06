@@ -54,6 +54,7 @@ pub mod helpers {
     pub mod generic;
     pub mod math;
     pub mod multiplier;
+    pub mod random_deck;
     pub mod simple;
     pub mod wonder;
 }
@@ -69,9 +70,9 @@ pub mod models {
 }
 
 pub mod components {
-    pub mod emitter;
     pub mod hostable;
     pub mod manageable;
+    pub mod ownable;
     pub mod payable;
     pub mod playable;
     pub mod tutoriable;

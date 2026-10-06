@@ -3,7 +3,7 @@ use core::traits::TryInto;
 
 // External imports
 
-use origami_random::deck::{Deck as OrigamiDeck, DeckTrait};
+use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait};
 
 // Internal imports
 

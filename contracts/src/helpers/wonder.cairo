@@ -6,8 +6,10 @@ use paved::models::builder::{Builder, BuilderImpl};
 use paved::models::character::{Char, CharPosition, ZeroableChar};
 use paved::models::game::{Game, GameImpl};
 use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
+use paved::events::{Event, Scored};
 use paved::store::{Store, StoreImpl};
 use paved::types::area::Area;
+use paved::types::category::Category;
 use paved::types::move::{Move, MoveImpl};
 use paved::types::spot::Spot;
 
@@ -82,11 +84,24 @@ pub impl WonderCount of WonderCountTrait {
     fn solve(ref game: Game, base_points: u32, ref character: Char, ref store: Store) {
         // [Effect] Collect the character's builder
         let mut tile = store.tile(game, character.tile_id);
-        let player = store.player(character.player_id);
-        let mut builder = store.builder(game, player.id);
+        let mut builder = store.builder(game, character.player_id);
         let power: u32 = character.power.into();
         let points = base_points * power;
         game.add_score(points);
+
+        // [Event] Wonder scored (a wonder has no size)
+        store
+            .emit(
+                Event::Scored(
+                    Scored {
+                        game_id: game.id,
+                        player_id: character.player_id,
+                        category: Category::Wonder.into(),
+                        size: 0,
+                        points,
+                    },
+                ),
+            );
         builder.recover(ref character, ref tile);
 
         // [Effect] Update the character
