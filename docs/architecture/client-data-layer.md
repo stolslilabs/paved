@@ -77,8 +77,12 @@ client pays a Daily entry only for an amount the player saw and confirmed with a
   passes it to `spawn`, which reads the price again; if it differs, nothing is sent and the page says
   "The entry price changed: confirm again" (`EntryPriceChangedError`).
 - The state is cleared (`navigate(..., { replace: true, state: null })`) **before** anything is sent,
-  so a reload, Back, a refused spawn or a failed one cannot pay again: the player confirms again.
-  A Daily consent without a valid amount, or no state at all, starts nothing.
+  at mount of the game page, whether or not the writer is ready: the intent then lives in a ref
+  until the start uses it. A reload, Back, a refused spawn or a failed one cannot pay again: the
+  player confirms again. A Daily consent without a valid amount, or no state at all, starts nothing.
+- While the start is in flight the page says "Spawning game..." and its Back button is disabled
+  (a local `starting` state; the consent being cleared, the history state no longer says that a
+  start is wanted). A refused or failed start shows its error with Back enabled.
 
 What this guarantees is that the client never pays an amount the player did not see and confirm by
 a click; it does not make the price atomic with the spawn. The approve is built from a read made
