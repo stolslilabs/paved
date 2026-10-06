@@ -62,7 +62,41 @@ const median = (xs: number[]): number => {
 };
 
 /** Number of tile meshes in the scene (the first child group of TileRenderer is the placed tiles). */
-const drawnTiles = (scene: GameScene): number => scene.tiles.getGroup().children[0]?.children.length ?? 0;
+export const drawnTiles = (scene: GameScene): number => scene.tiles.getGroup().children[0]?.children.length ?? 0;
+
+/** Idle page: the median requestAnimationFrame interval is the display refresh interval (or the cap of the throttled profile). */
+export async function measureRefresh(): Promise<number> {
+  const idle: number[] = [];
+  let last = await nextFrame();
+  for (let i = 0; i < IDLE_FRAMES; i++) {
+    const ts = await nextFrame();
+    idle.push(ts - last);
+    last = ts;
+  }
+  return median(idle);
+}
+
+export function pageInfo(scene: GameScene): BenchResult["page"] {
+  const canvas = scene.renderer.domElement;
+  return {
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+    devicePixelRatio: window.devicePixelRatio,
+    canvasWidth: canvas.width,
+    canvasHeight: canvas.height,
+    userAgent: navigator.userAgent,
+  };
+}
+
+export function glInfo(scene: GameScene): BenchResult["gl"] {
+  const gl = scene.renderer.getContext();
+  const dbg = gl.getExtension("WEBGL_debug_renderer_info");
+  return {
+    renderer: String(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)),
+    vendor: String(dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR)),
+    version: String(gl.getParameter(gl.VERSION)),
+  };
+}
 
 /**
  * Wait for every tile to be drawn, then run the scripted camera path and collect the
@@ -109,14 +143,7 @@ export async function runBench(scene: GameScene, options: BenchOptions): Promise
   while (Number.isNaN(ttiMs)) await nextFrame();
 
   // Idle page: the rAF interval is the display refresh interval.
-  const idle: number[] = [];
-  let last = await nextFrame();
-  for (let i = 0; i < IDLE_FRAMES; i++) {
-    const ts = await nextFrame();
-    idle.push(ts - last);
-    last = ts;
-  }
-  const refreshMs = median(idle);
+  const refreshMs = await measureRefresh();
 
   // Scripted path.
   const rafDeltas: number[] = [];
@@ -157,8 +184,6 @@ export async function runBench(scene: GameScene, options: BenchOptions): Promise
   }
   scene.setFrameObserver(null);
 
-  const dbg = gl.getExtension("WEBGL_debug_renderer_info");
-  const canvas = renderer.domElement;
   return {
     tileCount: options.tileCount,
     durationMs: options.durationMs,
@@ -177,18 +202,7 @@ export async function runBench(scene: GameScene, options: BenchOptions): Promise
       textures: renderer.info.memory.textures,
       programs: renderer.info.programs?.length ?? 0,
     },
-    gl: {
-      renderer: String(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)),
-      vendor: String(dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR)),
-      version: String(gl.getParameter(gl.VERSION)),
-    },
-    page: {
-      innerWidth: window.innerWidth,
-      innerHeight: window.innerHeight,
-      devicePixelRatio: window.devicePixelRatio,
-      canvasWidth: canvas.width,
-      canvasHeight: canvas.height,
-      userAgent: navigator.userAgent,
-    },
+    gl: glInfo(scene),
+    page: pageInfo(scene),
   };
 }

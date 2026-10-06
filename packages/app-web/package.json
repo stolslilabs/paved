@@ -9,7 +9,8 @@
     "test": "vitest run",
     "preview": "vite preview",
     "build:bench": "vite build -c vite.bench.config.ts --outDir dist-bench",
-    "bench": "bun install --cwd ../../scripts/bench --frozen-lockfile && bun ../../scripts/bench/run.ts"
+    "bench": "bun install --cwd ../../scripts/bench --frozen-lockfile && bun ../../scripts/bench/run.ts",
+    "bench:p7": "bun run bench --profiles throttled && bun run bench --click --no-build && bun run bench --play"
   },
   "dependencies": {
     "@paved/game-core": "workspace:*",
