@@ -34,6 +34,18 @@ export class TileRenderer {
   private previewContainer: THREE.Group | null = null;
   private previewKey: string | null = null;
 
+  // Shared by every tile and owned here: tiles hold no geometry or material of their own.
+  // The model of each plan type, with its tuned materials (its geometry is the loader's).
+  private tileTypes: Map<string, THREE.Group> = new Map();
+  private pendingMaterials: Map<THREE.Material, THREE.Material> = new Map();
+  private pendingFallbackMaterial: THREE.Material | null = null;
+  private edgeMaterial = new THREE.LineBasicMaterial({ color: EDGE_COLOR });
+  private strategyGeometry: THREE.BoxGeometry | null = null;
+  private strategySideMaterial: THREE.Material | null = null;
+  private strategyTopMaterials: Map<string, THREE.MeshBasicMaterial> = new Map();
+  private slotGeometry: THREE.BufferGeometry | null = null;
+  private slotMaterial: THREE.Material | null = null;
+
   constructor(assets: AssetLoader) {
     this.assets = assets;
     this.group = new THREE.Group();
@@ -63,7 +75,7 @@ export class TileRenderer {
       // Pending state changed — remove old mesh to recreate
       if (existing) {
         this.tileGroup.remove(existing.mesh);
-        this.disposeMesh(existing.mesh);
+        this.disposeTile(existing.mesh);
         this.tileMeshes.delete(key);
       }
 
@@ -76,21 +88,7 @@ export class TileRenderer {
         if (pending) {
           mesh.traverse((child) => {
             if (child instanceof THREE.Mesh) {
-              if (child.material instanceof THREE.MeshStandardMaterial) {
-                child.material = child.material.clone();
-                child.material.transparent = true;
-                child.material.opacity = 0.55;
-                child.material.emissive = new THREE.Color(0x4488ff);
-                child.material.emissiveIntensity = 0.5;
-              } else {
-                child.material = new THREE.MeshStandardMaterial({
-                  color: 0xaaaaaa,
-                  transparent: true,
-                  opacity: 0.55,
-                  emissive: new THREE.Color(0x4488ff),
-                  emissiveIntensity: 0.5,
-                });
-              }
+              child.material = this.pendingMaterial(child.material);
             }
           });
         }
@@ -109,10 +107,65 @@ export class TileRenderer {
     for (const [key, entry] of this.tileMeshes) {
       if (!currentKeys.has(key)) {
         this.tileGroup.remove(entry.mesh);
-        this.disposeMesh(entry.mesh);
+        this.disposeTile(entry.mesh);
         this.tileMeshes.delete(key);
       }
     }
+  }
+
+  /** The pending (translucent, blue glow) variant of a tile material, one per source material. */
+  private pendingMaterial(material: THREE.Material | THREE.Material[]): THREE.Material {
+    if (material instanceof THREE.MeshStandardMaterial) {
+      let pending = this.pendingMaterials.get(material);
+      if (!pending) {
+        const clone = material.clone();
+        clone.transparent = true;
+        clone.opacity = 0.55;
+        clone.emissive = new THREE.Color(0x4488ff);
+        clone.emissiveIntensity = 0.5;
+        pending = clone;
+        this.pendingMaterials.set(material, pending);
+      }
+      return pending;
+    }
+    this.pendingFallbackMaterial ??= new THREE.MeshStandardMaterial({
+      color: 0xaaaaaa,
+      transparent: true,
+      opacity: 0.55,
+      emissive: new THREE.Color(0x4488ff),
+      emissiveIntensity: 0.5,
+    });
+    return this.pendingFallbackMaterial;
+  }
+
+  /** The model of a plan type, its materials tuned once; tiles are clones that share them. */
+  private tileType(key: string): THREE.Group {
+    let model = this.tileTypes.get(key);
+    if (model) return model;
+
+    model = this.assets.getModel(key);
+    model.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        // Preserve emissive, set roughness
+        if (child.material instanceof THREE.MeshStandardMaterial) {
+          child.material.roughness = THREE.MathUtils.clamp(
+            child.material.roughness,
+            TILE_MIN_ROUGHNESS,
+            TILE_MAX_ROUGHNESS,
+          );
+          child.material.metalness = THREE.MathUtils.clamp(
+            child.material.metalness,
+            TILE_MIN_METALNESS,
+            TILE_MAX_METALNESS,
+          );
+          child.material.envMapIntensity = Math.max(child.material.envMapIntensity, 0.65);
+        }
+        child.castShadow = true;
+        child.receiveShadow = true;
+      }
+    });
+    this.tileTypes.set(key, model);
+    return model;
   }
 
   private createVoxelTile(tile: TileRenderData): THREE.Object3D | null {
@@ -121,7 +174,8 @@ export class TileRenderer {
     if (key === "00") return null;
 
     try {
-      const model = this.assets.getModel(key);
+      // Shares the type's geometry and materials
+      const model = this.tileType(key).clone();
 
       // Apply rotation based on orientation
       const orientation = Orientation.from(tile.orientation);
@@ -133,37 +187,11 @@ export class TileRenderer {
       };
       model.rotation.y = rotationMap[orientation.value] ?? 0;
 
-      // Process materials and add edges
+      // Add edge outlines (toon-style)
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          child.geometry = child.geometry.clone();
-          if (Array.isArray(child.material)) {
-            child.material = child.material.map((m) => m.clone());
-          } else {
-            child.material = child.material.clone();
-          }
-
-          // Preserve emissive, set roughness
-          if (child.material instanceof THREE.MeshStandardMaterial) {
-            child.material.roughness = THREE.MathUtils.clamp(
-              child.material.roughness,
-              TILE_MIN_ROUGHNESS,
-              TILE_MAX_ROUGHNESS,
-            );
-            child.material.metalness = THREE.MathUtils.clamp(
-              child.material.metalness,
-              TILE_MIN_METALNESS,
-              TILE_MAX_METALNESS,
-            );
-            child.material.envMapIntensity = Math.max(child.material.envMapIntensity, 0.65);
-          }
-          child.castShadow = true;
-          child.receiveShadow = true;
-
-          // Add edge outlines (toon-style)
           const edges = new THREE.EdgesGeometry(child.geometry);
-          const lineMaterial = new THREE.LineBasicMaterial({ color: EDGE_COLOR });
-          const wireframe = new THREE.LineSegments(edges, lineMaterial);
+          const wireframe = new THREE.LineSegments(edges, this.edgeMaterial);
           wireframe.position.z += 0.001;
           child.add(wireframe);
         }
@@ -209,24 +237,32 @@ export class TileRenderer {
         [OrientationType.West]: Math.PI / 2,
       };
 
-      const clonedTexture = texture.clone();
-      clonedTexture.center.set(0.5, 0.5);
-      clonedTexture.rotation = rotationMap[orientation.value] ?? 0;
-      clonedTexture.needsUpdate = true;
+      // One top material per plan type and orientation, shared by its tiles
+      const topKey = `${key}-${orientation.value}`;
+      let top = this.strategyTopMaterials.get(topKey);
+      if (!top) {
+        const clonedTexture = texture.clone();
+        clonedTexture.center.set(0.5, 0.5);
+        clonedTexture.rotation = rotationMap[orientation.value] ?? 0;
+        clonedTexture.needsUpdate = true;
+        top = new THREE.MeshBasicMaterial({ map: clonedTexture });
+        this.strategyTopMaterials.set(topKey, top);
+      }
 
-      const geometry = new THREE.BoxGeometry(this.squareSize, STRATEGY_THICKNESS, this.squareSize);
+      this.strategyGeometry ??= new THREE.BoxGeometry(this.squareSize, STRATEGY_THICKNESS, this.squareSize);
+      const side = (this.strategySideMaterial ??= new THREE.MeshBasicMaterial({ color: 0x333333 }));
 
       // Top face has the tile texture, other faces are dark
       const materials = [
-        new THREE.MeshBasicMaterial({ color: 0x333333 }), // right
-        new THREE.MeshBasicMaterial({ color: 0x333333 }), // left
-        new THREE.MeshBasicMaterial({ map: clonedTexture }), // top
-        new THREE.MeshBasicMaterial({ color: 0x333333 }), // bottom
-        new THREE.MeshBasicMaterial({ color: 0x333333 }), // front
-        new THREE.MeshBasicMaterial({ color: 0x333333 }), // back
+        side, // right
+        side, // left
+        top, // top
+        side, // bottom
+        side, // front
+        side, // back
       ];
 
-      const mesh = new THREE.Mesh(geometry, materials);
+      const mesh = new THREE.Mesh(this.strategyGeometry, materials);
       return mesh;
     } catch {
       return null;
@@ -237,7 +273,7 @@ export class TileRenderer {
     if (!state) {
       if (this.previewContainer) {
         this.previewGroup.remove(this.previewContainer);
-        this.disposeMesh(this.previewContainer);
+        this.disposePreview(this.previewContainer);
         this.previewContainer = null;
       }
       this.previewKey = null;
@@ -256,7 +292,7 @@ export class TileRenderer {
 
     if (this.previewContainer) {
       this.previewGroup.remove(this.previewContainer);
-      this.disposeMesh(this.previewContainer);
+      this.disposePreview(this.previewContainer);
       this.previewContainer = null;
     }
     this.previewKey = key;
@@ -280,16 +316,16 @@ export class TileRenderer {
 
       // Tint preview: keep original materials visible with a green/red emissive glow
       const tintColor = new THREE.Color(state.valid ? 0x00ff00 : 0xff0000);
+      // The model's materials are its own copies (its geometry is shared, see AssetLoader)
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          child.geometry = child.geometry.clone();
           if (child.material instanceof THREE.MeshStandardMaterial) {
-            child.material = child.material.clone();
             child.material.transparent = true;
             child.material.opacity = 0.75;
             child.material.emissive = tintColor;
             child.material.emissiveIntensity = 0.4;
           } else {
+            disposeMaterials(child.material);
             child.material = new THREE.MeshStandardMaterial({
               color: 0xffffff,
               transparent: true,
@@ -334,19 +370,17 @@ export class TileRenderer {
   /** Show subtle ground indicators at valid placement positions */
   setAvailableSlots(slots: Array<{ x: number; y: number }>): void {
     // Clear previous indicators
-    while (this.emptyGroup.children.length > 0) {
-      const child = this.emptyGroup.children[0];
-      this.emptyGroup.remove(child);
-      this.disposeMesh(child);
-    }
+    this.emptyGroup.clear();
 
     if (slots.length === 0) return;
 
     // Shared geometry and material for all indicators
-    const geo = new THREE.RingGeometry(0.8, 1.2, 4);
-    geo.rotateX(-Math.PI / 2); // lay flat on ground
-    geo.rotateY(Math.PI / 4); // rotate 45° so corners point N/S/E/W
-    const mat = new THREE.MeshBasicMaterial({
+    if (!this.slotGeometry) {
+      this.slotGeometry = new THREE.RingGeometry(0.8, 1.2, 4);
+      this.slotGeometry.rotateX(-Math.PI / 2); // lay flat on ground
+      this.slotGeometry.rotateY(Math.PI / 4); // rotate 45° so corners point N/S/E/W
+    }
+    this.slotMaterial ??= new THREE.MeshBasicMaterial({
       color: 0x44cc66,
       transparent: true,
       opacity: 0.45,
@@ -355,7 +389,7 @@ export class TileRenderer {
     });
 
     for (const slot of slots) {
-      const mesh = new THREE.Mesh(geo, mat);
+      const mesh = new THREE.Mesh(this.slotGeometry, this.slotMaterial);
       mesh.position.set(
         slot.x * this.squareSize,
         0.05, // just above ground to avoid z-fighting
@@ -372,47 +406,74 @@ export class TileRenderer {
     // Caller should call updateTiles() after this
     for (const [, entry] of this.tileMeshes) {
       this.tileGroup.remove(entry.mesh);
-      this.disposeMesh(entry.mesh);
+      this.disposeTile(entry.mesh);
     }
     this.tileMeshes.clear();
   }
 
-  private disposeMesh(obj: THREE.Object3D): void {
+  /** A tile owns only its edge outlines; its geometry and materials are shared. */
+  private disposeTile(obj: THREE.Object3D): void {
+    obj.traverse((child) => {
+      if (child instanceof THREE.LineSegments) {
+        child.geometry?.dispose();
+      }
+    });
+  }
+
+  /** The preview owns its materials, not its geometry (the loader's). */
+  private disposePreview(obj: THREE.Object3D): void {
     obj.traverse((child) => {
       if (child instanceof THREE.Mesh) {
-        child.geometry?.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach(m => m.dispose());
-        } else {
-          child.material?.dispose();
-        }
-      } else if (child instanceof THREE.LineSegments) {
-        child.geometry?.dispose();
-        if (Array.isArray(child.material)) {
-          child.material.forEach(m => m.dispose());
-        } else {
-          child.material?.dispose();
-        }
+        disposeMaterials(child.material);
       }
     });
   }
 
   dispose(): void {
     for (const [, entry] of this.tileMeshes) {
-      this.disposeMesh(entry.mesh);
+      this.tileGroup.remove(entry.mesh);
+      this.disposeTile(entry.mesh);
     }
     this.tileMeshes.clear();
-    while (this.previewGroup.children.length > 0) {
-      const child = this.previewGroup.children[0];
-      this.previewGroup.remove(child);
-      this.disposeMesh(child);
+    if (this.previewContainer) {
+      this.disposePreview(this.previewContainer);
     }
-    while (this.emptyGroup.children.length > 0) {
-      const child = this.emptyGroup.children[0];
-      this.emptyGroup.remove(child);
-      this.disposeMesh(child);
-    }
+    this.previewGroup.clear();
+    this.emptyGroup.clear();
     this.previewContainer = null;
     this.previewKey = null;
+
+    for (const model of this.tileTypes.values()) {
+      model.traverse((child) => {
+        if (child instanceof THREE.Mesh) disposeMaterials(child.material);
+      });
+    }
+    this.tileTypes.clear();
+    this.pendingMaterials.forEach((material) => material.dispose());
+    this.pendingMaterials.clear();
+    this.pendingFallbackMaterial?.dispose();
+    this.pendingFallbackMaterial = null;
+    this.edgeMaterial.dispose();
+    this.strategyGeometry?.dispose();
+    this.strategyGeometry = null;
+    this.strategySideMaterial?.dispose();
+    this.strategySideMaterial = null;
+    this.strategyTopMaterials.forEach((material) => {
+      material.map?.dispose();
+      material.dispose();
+    });
+    this.strategyTopMaterials.clear();
+    this.slotGeometry?.dispose();
+    this.slotGeometry = null;
+    this.slotMaterial?.dispose();
+    this.slotMaterial = null;
+  }
+}
+
+function disposeMaterials(material: THREE.Material | THREE.Material[]): void {
+  if (Array.isArray(material)) {
+    material.forEach((m) => m.dispose());
+  } else {
+    material.dispose();
   }
 }

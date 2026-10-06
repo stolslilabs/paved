@@ -121,8 +121,8 @@ export class BoxRainScene {
     this.stop();
     this.boxes.forEach((box) => {
       box.traverse((child) => {
+        // Geometry is the loader's (disposed by assets.dispose()); materials are each box's own.
         if (child instanceof THREE.Mesh) {
-          child.geometry?.dispose();
           if (Array.isArray(child.material)) {
             child.material.forEach(m => m.dispose());
           } else {

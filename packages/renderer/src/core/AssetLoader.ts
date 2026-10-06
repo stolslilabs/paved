@@ -41,13 +41,16 @@ export class AssetLoader {
     await Promise.all([this.preloadModels(), this.preloadTextures()]);
   }
 
+  /**
+   * A copy of a model with its own materials. Its geometry is the loaded one, shared by every
+   * copy and owned by the loader: read it, do not change or dispose it.
+   */
   getModel(key: string): THREE.Group {
     const model = this.models.get(key);
     if (!model) throw new Error(`Model not found: ${key}`);
     const clone = model.clone(true);
     clone.traverse((child) => {
       if (child instanceof THREE.Mesh) {
-        child.geometry = child.geometry.clone();
         if (Array.isArray(child.material)) {
           child.material = child.material.map((m) => m.clone());
         } else {
