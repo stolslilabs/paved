@@ -14,6 +14,7 @@
 //
 // Options: --profiles unthrottled,throttled  --sizes 38,72  --runs 5  --warmup 1  --duration <ms>
 //          --no-build  --profile  --profile-only  --summarize-only  --out <dir>  --window 1440x900
+//          --offscreen (headed, GPU kept, window at x = -10000: nothing shows while the Mac is in use)
 import { spawnSync, spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
@@ -75,6 +76,7 @@ const defaultOut =
   kind === "board" ? (profiles.length === 1 && profiles[0].name === "throttled" ? join(measures, "throttled") : measures) : join(measures, kind);
 const outDir = resolve(arg("out", defaultOut) as string);
 const doBuild = arg("no-build") === undefined;
+const offscreen = arg("offscreen") !== undefined;
 const profileOnly = arg("profile-only") !== undefined;
 const doProfile = arg("profile") !== undefined || profileOnly;
 const summarizeOnly = arg("summarize-only") !== undefined;
@@ -145,6 +147,7 @@ function machineInfo(browserVersion: string) {
     power: sh("pmset", ["-g", "batt"]).split("\n")[0],
     loadAvgAtStart: loadAvg(),
     windowArg: `${winW}x${winH}`,
+    window: offscreen ? "off screen" : "on screen",
     profiles,
     displays,
   };
@@ -231,7 +234,7 @@ const launch = () =>
   chromium.launch({
     channel: "chrome",
     headless: false,
-    args: [`--window-size=${winW},${winH}`, "--window-position=0,0", "--enable-precise-memory-info"],
+    args: [`--window-size=${winW},${winH}`, offscreen ? "--window-position=-10000,0" : "--window-position=0,0", "--enable-precise-memory-info"],
   });
 
 function boardSummary(machine: unknown, when = new Date().toISOString()) {

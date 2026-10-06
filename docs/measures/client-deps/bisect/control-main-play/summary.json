@@ -1,0 +1,625 @@
+{
+ "when": "2026-10-06T18:12:45.358Z",
+ "machine": {
+  "model": "Mac14,6",
+  "chip": "Apple M2 Max",
+  "cpuCores": 12,
+  "memoryGiB": 64,
+  "macOS": "27.0.1 (26A434)",
+  "chrome": "154.0.8037.98",
+  "power": "Now drawing from 'AC Power'",
+  "loadAvgAtStart": [
+   4.62,
+   3.23,
+   3.03
+  ],
+  "windowArg": "1440x900",
+  "profiles": [
+   {
+    "name": "unthrottled",
+    "cpuRate": 1,
+    "fps": null
+   },
+   {
+    "name": "throttled",
+    "cpuRate": 4,
+    "fps": 60
+   }
+  ],
+  "displays": [
+   {
+    "name": "Color LCD",
+    "type": "spdisplays_built-in-liquid-retina-xdr",
+    "pixels": "3456 x 2234",
+    "mode": "1728 x 1117 @ 120.00Hz",
+    "main": true
+   },
+   {
+    "name": "BenQ PD2725U",
+    "type": null,
+    "pixels": "3840 x 2160",
+    "mode": "1920 x 1080 @ 60.00Hz",
+    "main": false
+   },
+   {
+    "name": "BenQ PD2725U",
+    "type": null,
+    "pixels": "3840 x 2160",
+    "mode": "1920 x 1080 @ 60.00Hz",
+    "main": false
+   }
+  ]
+ },
+ "groups": [
+  {
+   "profile": "unthrottled",
+   "runs": 3,
+   "perRun": [
+    {
+     "file": "play-unthrottled-1.json",
+     "sessionS": 60.00120000000298,
+     "ttiMs": 345.09999999403954,
+     "refreshMs": 8.300000000000011,
+     "rafP50": 8.30000000000291,
+     "rafP95": 9.099999999998545,
+     "rafP99": 9.30000000000291,
+     "droppedPct": 0.04170721534825525,
+     "cpuP95": 2.399999998509884,
+     "longTasks": 0,
+     "longTaskMs": 0,
+     "longTaskP95": null,
+     "longTaskMax": 0,
+     "longTasksPerMin": 0,
+     "loadLongTasks": 1,
+     "commits": 146,
+     "commitsPerMin": 145.9970800583916,
+     "commitP50": 1.5,
+     "commitP95": 5.199999995529652,
+     "commitMax": 5.9000000059604645,
+     "polls": 30,
+     "queriesPerPoll": 4,
+     "commitsPerPoll": 3,
+     "commitsPerPollMax": 5,
+     "renderMsPerPollP50": 5.399999991059303,
+     "renderMsPerPollP95": 10.599999994039536,
+     "pollsWithLongTask": 0,
+     "quietPolls": 10,
+     "confirmP50": 14.299999997019768,
+     "confirmP95": 41.5,
+     "placements": "8/8",
+     "loadAvg1": 3.17
+    },
+    {
+     "file": "play-unthrottled-2.json",
+     "sessionS": 60.00160000000149,
+     "ttiMs": 346.8999999985099,
+     "refreshMs": 8.300000000000011,
+     "rafP50": 8.30000000000291,
+     "rafP95": 9.199999999999818,
+     "rafP99": 9.30000000000291,
+     "droppedPct": 0.04169562195969423,
+     "cpuP95": 2.4000000059604645,
+     "longTasks": 0,
+     "longTaskMs": 0,
+     "longTaskP95": null,
+     "longTaskMax": 0,
+     "longTasksPerMin": 0,
+     "loadLongTasks": 1,
+     "commits": 146,
+     "commitsPerMin": 145.9961067704825,
+     "commitP50": 1.3999999985098839,
+     "commitP95": 5.299999997019768,
+     "commitMax": 5.899999998509884,
+     "polls": 30,
+     "queriesPerPoll": 4,
+     "commitsPerPoll": 3,
+     "commitsPerPollMax": 5,
+     "renderMsPerPollP50": 5.200000010430813,
+     "renderMsPerPollP95": 8.299999997019768,
+     "pollsWithLongTask": 0,
+     "quietPolls": 10,
+     "confirmP50": 14.600000001490116,
+     "confirmP95": 40.29999999701977,
+     "placements": "8/8",
+     "loadAvg1": 3.88
+    },
+    {
+     "file": "play-unthrottled-3.json",
+     "sessionS": 60.00189999999851,
+     "ttiMs": 348.8999999985099,
+     "refreshMs": 8.300000000000068,
+     "rafP50": 8.30000000000291,
+     "rafP95": 9.099999999998545,
+     "rafP99": 9.30000000000291,
+     "droppedPct": 0.04169562195969423,
+     "cpuP95": 2.5,
+     "longTasks": 0,
+     "longTaskMs": 0,
+     "longTaskP95": null,
+     "longTaskMax": 0,
+     "longTasksPerMin": 0,
+     "loadLongTasks": 1,
+     "commits": 146,
+     "commitsPerMin": 145.99537681307123,
+     "commitP50": 1.3999999985098839,
+     "commitP95": 5.200000002980232,
+     "commitMax": 6.5,
+     "polls": 30,
+     "queriesPerPoll": 4,
+     "commitsPerPoll": 3,
+     "commitsPerPollMax": 5,
+     "renderMsPerPollP50": 5.899999998509884,
+     "renderMsPerPollP95": 7.299999989569187,
+     "pollsWithLongTask": 0,
+     "quietPolls": 10,
+     "confirmP50": 13.299999997019768,
+     "confirmP95": 37.899999998509884,
+     "placements": "8/8",
+     "loadAvg1": 3.69
+    }
+   ],
+   "stats": {
+    "file": null,
+    "sessionS": {
+     "median": 60.00160000000149,
+     "min": 60.00120000000298,
+     "max": 60.00189999999851
+    },
+    "ttiMs": {
+     "median": 346.8999999985099,
+     "min": 345.09999999403954,
+     "max": 348.8999999985099
+    },
+    "refreshMs": {
+     "median": 8.300000000000011,
+     "min": 8.300000000000011,
+     "max": 8.300000000000068
+    },
+    "rafP50": {
+     "median": 8.30000000000291,
+     "min": 8.30000000000291,
+     "max": 8.30000000000291
+    },
+    "rafP95": {
+     "median": 9.099999999998545,
+     "min": 9.099999999998545,
+     "max": 9.199999999999818
+    },
+    "rafP99": {
+     "median": 9.30000000000291,
+     "min": 9.30000000000291,
+     "max": 9.30000000000291
+    },
+    "droppedPct": {
+     "median": 0.04169562195969423,
+     "min": 0.04169562195969423,
+     "max": 0.04170721534825525
+    },
+    "cpuP95": {
+     "median": 2.4000000059604645,
+     "min": 2.399999998509884,
+     "max": 2.5
+    },
+    "longTasks": {
+     "median": 0,
+     "min": 0,
+     "max": 0
+    },
+    "longTaskMs": {
+     "median": 0,
+     "min": 0,
+     "max": 0
+    },
+    "longTaskP95": null,
+    "longTaskMax": {
+     "median": 0,
+     "min": 0,
+     "max": 0
+    },
+    "longTasksPerMin": {
+     "median": 0,
+     "min": 0,
+     "max": 0
+    },
+    "loadLongTasks": {
+     "median": 1,
+     "min": 1,
+     "max": 1
+    },
+    "commits": {
+     "median": 146,
+     "min": 146,
+     "max": 146
+    },
+    "commitsPerMin": {
+     "median": 145.9961067704825,
+     "min": 145.99537681307123,
+     "max": 145.9970800583916
+    },
+    "commitP50": {
+     "median": 1.3999999985098839,
+     "min": 1.3999999985098839,
+     "max": 1.5
+    },
+    "commitP95": {
+     "median": 5.200000002980232,
+     "min": 5.199999995529652,
+     "max": 5.299999997019768
+    },
+    "commitMax": {
+     "median": 5.9000000059604645,
+     "min": 5.899999998509884,
+     "max": 6.5
+    },
+    "polls": {
+     "median": 30,
+     "min": 30,
+     "max": 30
+    },
+    "queriesPerPoll": {
+     "median": 4,
+     "min": 4,
+     "max": 4
+    },
+    "commitsPerPoll": {
+     "median": 3,
+     "min": 3,
+     "max": 3
+    },
+    "commitsPerPollMax": {
+     "median": 5,
+     "min": 5,
+     "max": 5
+    },
+    "renderMsPerPollP50": {
+     "median": 5.399999991059303,
+     "min": 5.200000010430813,
+     "max": 5.899999998509884
+    },
+    "renderMsPerPollP95": {
+     "median": 8.299999997019768,
+     "min": 7.299999989569187,
+     "max": 10.599999994039536
+    },
+    "pollsWithLongTask": {
+     "median": 0,
+     "min": 0,
+     "max": 0
+    },
+    "quietPolls": {
+     "median": 10,
+     "min": 10,
+     "max": 10
+    },
+    "confirmP50": {
+     "median": 14.299999997019768,
+     "min": 13.299999997019768,
+     "max": 14.600000001490116
+    },
+    "confirmP95": {
+     "median": 40.29999999701977,
+     "min": 37.899999998509884,
+     "max": 41.5
+    },
+    "placements": null,
+    "loadAvg1": {
+     "median": 3.69,
+     "min": 3.17,
+     "max": 3.88
+    }
+   },
+   "placements": [
+    "8/8",
+    "8/8",
+    "8/8"
+   ],
+   "pooled": {
+    "longTaskMs": {
+     "n": 0,
+     "p50": null,
+     "p95": null,
+     "max": null
+    },
+    "commitMs": {
+     "n": 438,
+     "p50": 1.3999999985098839,
+     "p95": 5.200000002980232,
+     "max": 6.5
+    },
+    "confirmMs": {
+     "n": 24,
+     "p50": 14.600000001490116,
+     "p95": 40.29999999701977,
+     "max": 41.5
+    }
+   }
+  },
+  {
+   "profile": "throttled",
+   "runs": 3,
+   "perRun": [
+    {
+     "file": "play-throttled-1.json",
+     "sessionS": 60.00220000000298,
+     "ttiMs": 1175,
+     "refreshMs": 16.700000000000045,
+     "rafP50": 16.69999999999709,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000002183,
+     "droppedPct": 0.027816411682892908,
+     "cpuP95": 3.6999999955296516,
+     "longTasks": 1,
+     "longTaskMs": 57,
+     "longTaskP95": 57,
+     "longTaskMax": 57,
+     "longTasksPerMin": 0.9999633346776787,
+     "loadLongTasks": 6,
+     "commits": 146,
+     "commitsPerMin": 145.9946468629411,
+     "commitP50": 3.2999999970197678,
+     "commitP95": 8.200000002980232,
+     "commitMax": 11.100000001490116,
+     "polls": 30,
+     "queriesPerPoll": 4,
+     "commitsPerPoll": 3,
+     "commitsPerPollMax": 5,
+     "renderMsPerPollP50": 12.899999998509884,
+     "renderMsPerPollP95": 22.5,
+     "pollsWithLongTask": 0,
+     "quietPolls": 12,
+     "confirmP50": 31.799999997019768,
+     "confirmP95": 49.100000001490116,
+     "placements": "8/8",
+     "loadAvg1": 2.74
+    },
+    {
+     "file": "play-throttled-2.json",
+     "sessionS": 60.00110000000149,
+     "ttiMs": 1296.6000000014901,
+     "refreshMs": 16.700000000000045,
+     "rafP50": 16.69999999999709,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000002183,
+     "droppedPct": 0.08344923504867872,
+     "cpuP95": 3.5,
+     "longTasks": 1,
+     "longTaskMs": 56,
+     "longTaskP95": 56,
+     "longTaskMax": 56,
+     "longTasksPerMin": 0.9999816670027468,
+     "loadLongTasks": 6,
+     "commits": 146,
+     "commitsPerMin": 145.99732338240105,
+     "commitP50": 2.899999998509884,
+     "commitP95": 7.600000001490116,
+     "commitMax": 9.899999998509884,
+     "polls": 30,
+     "queriesPerPoll": 4,
+     "commitsPerPoll": 3,
+     "commitsPerPollMax": 4,
+     "renderMsPerPollP50": 12.299999997019768,
+     "renderMsPerPollP95": 17,
+     "pollsWithLongTask": 0,
+     "quietPolls": 12,
+     "confirmP50": 26.69999999552965,
+     "confirmP95": 47.5,
+     "placements": "8/8",
+     "loadAvg1": 2.41
+    },
+    {
+     "file": "play-throttled-3.json",
+     "sessionS": 60.00229999999702,
+     "ttiMs": 1214.6000000014901,
+     "refreshMs": 16.699999999999818,
+     "rafP50": 16.69999999999709,
+     "rafP95": 17.5,
+     "rafP99": 17.600000000000364,
+     "droppedPct": 0.055632823365785816,
+     "cpuP95": 3.7999999970197678,
+     "longTasks": 1,
+     "longTaskMs": 63,
+     "longTaskP95": 63,
+     "longTaskMax": 63,
+     "longTasksPerMin": 0.9999616681361045,
+     "loadLongTasks": 6,
+     "commits": 146,
+     "commitsPerMin": 145.99440354787126,
+     "commitP50": 3.3000000044703484,
+     "commitP95": 8.899999998509884,
+     "commitMax": 10.100000001490116,
+     "polls": 30,
+     "queriesPerPoll": 4,
+     "commitsPerPoll": 3,
+     "commitsPerPollMax": 4,
+     "renderMsPerPollP50": 12.399999998509884,
+     "renderMsPerPollP95": 19.5,
+     "pollsWithLongTask": 0,
+     "quietPolls": 10,
+     "confirmP50": 26.100000001490116,
+     "confirmP95": 52,
+     "placements": "8/8",
+     "loadAvg1": 2.33
+    }
+   ],
+   "stats": {
+    "file": null,
+    "sessionS": {
+     "median": 60.00220000000298,
+     "min": 60.00110000000149,
+     "max": 60.00229999999702
+    },
+    "ttiMs": {
+     "median": 1214.6000000014901,
+     "min": 1175,
+     "max": 1296.6000000014901
+    },
+    "refreshMs": {
+     "median": 16.700000000000045,
+     "min": 16.699999999999818,
+     "max": 16.700000000000045
+    },
+    "rafP50": {
+     "median": 16.69999999999709,
+     "min": 16.69999999999709,
+     "max": 16.69999999999709
+    },
+    "rafP95": {
+     "median": 17.5,
+     "min": 17.5,
+     "max": 17.5
+    },
+    "rafP99": {
+     "median": 17.600000000002183,
+     "min": 17.600000000000364,
+     "max": 17.600000000002183
+    },
+    "droppedPct": {
+     "median": 0.055632823365785816,
+     "min": 0.027816411682892908,
+     "max": 0.08344923504867872
+    },
+    "cpuP95": {
+     "median": 3.6999999955296516,
+     "min": 3.5,
+     "max": 3.7999999970197678
+    },
+    "longTasks": {
+     "median": 1,
+     "min": 1,
+     "max": 1
+    },
+    "longTaskMs": {
+     "median": 57,
+     "min": 56,
+     "max": 63
+    },
+    "longTaskP95": {
+     "median": 57,
+     "min": 56,
+     "max": 63
+    },
+    "longTaskMax": {
+     "median": 57,
+     "min": 56,
+     "max": 63
+    },
+    "longTasksPerMin": {
+     "median": 0.9999633346776787,
+     "min": 0.9999616681361045,
+     "max": 0.9999816670027468
+    },
+    "loadLongTasks": {
+     "median": 6,
+     "min": 6,
+     "max": 6
+    },
+    "commits": {
+     "median": 146,
+     "min": 146,
+     "max": 146
+    },
+    "commitsPerMin": {
+     "median": 145.9946468629411,
+     "min": 145.99440354787126,
+     "max": 145.99732338240105
+    },
+    "commitP50": {
+     "median": 3.2999999970197678,
+     "min": 2.899999998509884,
+     "max": 3.3000000044703484
+    },
+    "commitP95": {
+     "median": 8.200000002980232,
+     "min": 7.600000001490116,
+     "max": 8.899999998509884
+    },
+    "commitMax": {
+     "median": 10.100000001490116,
+     "min": 9.899999998509884,
+     "max": 11.100000001490116
+    },
+    "polls": {
+     "median": 30,
+     "min": 30,
+     "max": 30
+    },
+    "queriesPerPoll": {
+     "median": 4,
+     "min": 4,
+     "max": 4
+    },
+    "commitsPerPoll": {
+     "median": 3,
+     "min": 3,
+     "max": 3
+    },
+    "commitsPerPollMax": {
+     "median": 4,
+     "min": 4,
+     "max": 5
+    },
+    "renderMsPerPollP50": {
+     "median": 12.399999998509884,
+     "min": 12.299999997019768,
+     "max": 12.899999998509884
+    },
+    "renderMsPerPollP95": {
+     "median": 19.5,
+     "min": 17,
+     "max": 22.5
+    },
+    "pollsWithLongTask": {
+     "median": 0,
+     "min": 0,
+     "max": 0
+    },
+    "quietPolls": {
+     "median": 12,
+     "min": 10,
+     "max": 12
+    },
+    "confirmP50": {
+     "median": 26.69999999552965,
+     "min": 26.100000001490116,
+     "max": 31.799999997019768
+    },
+    "confirmP95": {
+     "median": 49.100000001490116,
+     "min": 47.5,
+     "max": 52
+    },
+    "placements": null,
+    "loadAvg1": {
+     "median": 2.41,
+     "min": 2.33,
+     "max": 2.74
+    }
+   },
+   "placements": [
+    "8/8",
+    "8/8",
+    "8/8"
+   ],
+   "pooled": {
+    "longTaskMs": {
+     "n": 3,
+     "p50": 57,
+     "p95": 63,
+     "max": 63
+    },
+    "commitMs": {
+     "n": 438,
+     "p50": 3.100000001490116,
+     "p95": 8.299999997019768,
+     "max": 11.100000001490116
+    },
+    "confirmMs": {
+     "n": 24,
+     "p50": 26.899999998509884,
+     "p95": 49.100000001490116,
+     "max": 52
+    }
+   }
+  }
+ ]
+}
