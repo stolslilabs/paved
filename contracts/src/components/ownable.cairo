@@ -1,12 +1,15 @@
 //! Ownable component: an owner set at deployment, who may upgrade the contract class and hand the
-//! ownership over. The owner has no power over games, players, tournaments or funds.
+//! ownership over in two steps. `upgrade` replaces the class: the owner has full control of the
+//! contract and of the funds it holds.
 
 use starknet::{ClassHash, ContractAddress};
 
 #[starknet::interface]
 pub trait IOwnable<TContractState> {
     fn owner(self: @TContractState) -> ContractAddress;
+    fn pending_owner(self: @TContractState) -> ContractAddress;
     fn transfer_ownership(ref self: TContractState, new_owner: ContractAddress);
+    fn accept_ownership(ref self: TContractState);
     fn upgrade(ref self: TContractState, class_hash: ClassHash);
 }
 
@@ -19,6 +22,7 @@ pub mod OwnableComponent {
 
     pub mod errors {
         pub const NOT_OWNER: felt252 = 'Ownable: caller is not owner';
+        pub const NOT_PENDING_OWNER: felt252 = 'Ownable: caller not pending';
         pub const ZERO_OWNER: felt252 = 'Ownable: new owner is zero';
         pub const ZERO_CLASS_HASH: felt252 = 'Ownable: class hash is zero';
     }
@@ -26,13 +30,21 @@ pub mod OwnableComponent {
     #[storage]
     pub struct Storage {
         pub owner: ContractAddress,
+        pub pending_owner: ContractAddress,
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
+        OwnershipTransferStarted: OwnershipTransferStarted,
         OwnershipTransferred: OwnershipTransferred,
         Upgraded: Upgraded,
+    }
+
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct OwnershipTransferStarted {
+        pub previous_owner: ContractAddress,
+        pub new_owner: ContractAddress,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -54,13 +66,29 @@ pub mod OwnableComponent {
             self.owner.read()
         }
 
+        fn pending_owner(self: @ComponentState<TContractState>) -> ContractAddress {
+            self.pending_owner.read()
+        }
+
         fn transfer_ownership(
             ref self: ComponentState<TContractState>, new_owner: ContractAddress,
         ) {
             // [Check] Caller is the owner
             self.assert_only_owner();
-            // [Effect] Hand the ownership over
-            self.set_owner(new_owner);
+            // [Check] New owner is not zero
+            assert(new_owner.is_non_zero(), errors::ZERO_OWNER);
+            // [Effect] Propose the new owner, replacing any earlier proposal
+            self.pending_owner.write(new_owner);
+            self.emit(OwnershipTransferStarted { previous_owner: self.owner.read(), new_owner });
+        }
+
+        fn accept_ownership(ref self: ComponentState<TContractState>) {
+            // [Check] Caller is the pending owner
+            let caller = get_caller_address();
+            assert(caller == self.pending_owner.read(), errors::NOT_PENDING_OWNER);
+            // [Effect] Complete the handover
+            self.pending_owner.write(Zero::zero());
+            self.set_owner(caller);
         }
 
         fn upgrade(ref self: ComponentState<TContractState>, class_hash: ClassHash) {
