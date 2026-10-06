@@ -77,7 +77,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     { onVisible: true },
   );
 
-  const write = async (fn: () => Promise<unknown>, after: Array<() => void>) => {
+  // `after` refreshes run when the write went through; `settled` ones run whatever the outcome.
+  const write = async (fn: () => Promise<unknown>, after: Array<() => void>, settled: Array<() => void> = []) => {
     after = [...after, price.refresh]; // a write may change what the entry costs the player to see
     if (writing) return;
     setWriting(true);
@@ -89,6 +90,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
       setWriteError(error instanceof Error ? error.message : String(error));
     } finally {
       setWriting(false);
+      settled.forEach((refresh) => refresh());
     }
   };
 
@@ -104,7 +106,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   };
   // Both pay or receive tokens: the panel asks for a confirm and hands over what the player confirmed.
   const handleClaim = (c: Claimable, confirmedReward: bigint) =>
-    writer && write(() => writer.claim(c.tournamentId, c.rank, { confirmedReward }), [claimables.refresh, balance.refresh, tournament.refresh]);
+    // A refused claim (the reward changed, or the rank was claimed meanwhile) must not leave its stale row.
+    writer && write(() => writer.claim(c.tournamentId, c.rank, { confirmedReward }), [balance.refresh, tournament.refresh], [claimables.refresh]);
   const handleSponsor = (amount: bigint, confirmedAmount: bigint) =>
     writer && write(() => writer.sponsor(amount, { confirmedAmount }), [balance.refresh, tournament.refresh]);
   const readErrors = (

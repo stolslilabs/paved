@@ -2,7 +2,7 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, emptyTournament } from "@paved/chain";
+import { FakeGameViews, RewardChangedError, emptyTournament } from "@paved/chain";
 import type { Deployment } from "@paved/chain";
 import { LandingPage } from "../src/pages/Landing";
 import { configured, notConfigured, renderPage, PLAYER } from "./helpers/page-fixtures";
@@ -90,6 +90,17 @@ describe("Player name at account creation", () => {
     expect(createPlayer).not.toHaveBeenCalled();
   });
 
+  it("a name of 32 characters is refused before sending, and one of 31 is sent", async () => {
+    const createPlayer = setup();
+    fireEvent.change(await screen.findByLabelText("Player name"), { target: { value: "a".repeat(32) } });
+    await create();
+    expect((await screen.findByText("A name is 1 to 31 ASCII characters")).getAttribute("role")).toBe("alert");
+    expect(createPlayer).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("Player name"), { target: { value: "a".repeat(31) } });
+    await create();
+    await waitFor(() => expect(createPlayer).toHaveBeenCalledWith("a".repeat(31), { mintTestToken: false }));
+  });
+
   it("a valid name is sent as typed", async () => {
     const createPlayer = setup();
     fireEvent.change(await screen.findByLabelText("Player name"), { target: { value: "Zed Zed" } });
@@ -100,20 +111,19 @@ describe("Player name at account creation", () => {
 
 describe("Claiming a prize", () => {
   const finished = { mode: "daily", gameId: 1, startTime: 1, tournamentId: 5, over: true, score: 9, countedTournamentId: 5 };
-  const setup = (tournament = {}) => {
+  const setup = (tournament = {}, claim = vi.fn(async () => result)) => {
     const views = new FakeGameViews();
     views.tournaments.set(5, { ...emptyTournament(5), over: true, prize: 600n, top1PlayerId: PLAYER, top1Score: 9, top2PlayerId: "0x0", top3PlayerId: "0x0", ...tournament });
     views.setGame({ mode: "daily", gameId: 1 }, {
       game: { id: 1, playerId: PLAYER, mode: 1, seed: "0x1", score: 9, over: true, tileCount: 3, placedCount: 3, discardedCount: 0, tileId: 0, plan: 0, remainingCount: 0, deckSize: 38, startTime: 1, endTime: 2, tournamentId: 5 },
       tiles: [], builder: { gameId: 1, playerId: PLAYER, tileId: 0, plan: 0, placedCount: 0, availableCount: 7 }, characters: [],
     });
-    const claim = vi.fn(async () => result);
     land({ views, games: [finished], writer: { claim } });
-    return claim;
+    return { claim, views };
   };
 
   it("lists the claimable rank with its reward; one click only asks, Confirm sends the confirmed reward", async () => {
-    const claim = setup();
+    const { claim } = setup();
     await screen.findByText(/Tournament 5, rank 1: /);
     const claimButton = await screen.findByText("Claim");
     fireEvent.click(claimButton);
@@ -122,6 +132,18 @@ describe("Claiming a prize", () => {
     fireEvent.click(screen.getByText("Confirm claim"));
     await waitFor(() => expect(claim).toHaveBeenCalledTimes(1));
     expect(claim).toHaveBeenCalledWith(5, 1, { confirmedReward: 600n });
+  });
+
+  it("a refused claim re-reads the prizes: a rank claimed meanwhile leaves no stale row", async () => {
+    const refused = vi.fn(async () => {
+      views.tournaments.set(5, { ...views.tournaments.get(5)!, top1Claimed: true }); // claimed elsewhere
+      throw new RewardChangedError(600n, 700n);
+    });
+    const { views } = setup({}, refused);
+    fireEvent.click(await screen.findByText("Claim"));
+    fireEvent.click(screen.getByText("Confirm claim"));
+    await waitFor(() => expect(refused).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByText(/Tournament 5, rank 1: /)).toBeNull());
   });
 
   it("nothing to claim when the rank is already claimed", async () => {
