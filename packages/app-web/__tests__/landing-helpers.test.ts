@@ -83,8 +83,8 @@ describe("entryFee and canConfirmEntry (review of #209)", () => {
 describe("amounts, names and missing decimals (t-0028)", () => {
   it("missing decimals: a priced entry is unavailable, never shown with 18", () => {
     const priced = { data: { token: "0x4", amount: 5n }, error: null };
-    expect(entryFee(priced, TOKEN, null).kind).toBe("error");
-    expect(entryFee({ data: { token: "0x4", amount: 0n }, error: null }, TOKEN, null)).toEqual({ kind: "free" });
+    expect(entryFee(priced, "0x04", null).kind).toBe("error");
+    expect(entryFee({ data: { token: "0x4", amount: 0n }, error: null }, "0x04", null)).toEqual({ kind: "free" });
     expect(tokenLabel(5n, null)).toBe("—");
     expect(tokenLabel(10n ** 18n, 18)).toBe(`1 ${TOKEN_LABEL}`);
   });

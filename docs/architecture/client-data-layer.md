@@ -30,7 +30,8 @@ missing address, or a missing file with no env, gives a deployment with `configu
 connected" state and no write button while it is false.
 
 The token is labelled `$TILE` whatever its on-chain symbol (D-2); `decimals` comes from the file
-(18 by default).
+(no default: when the file does not say, `tokenDecimals` is `null` and the app shows no
+amount and offers no Daily confirm, claim or sponsor, rather than assume 18).
 
 ## Clients
 
@@ -44,12 +45,13 @@ client does not follow fails the tests. A result with felts left over, or too fe
 integers are range-checked before they are encoded; an event with a field type the codec does not
 know is skipped and logged, so ABI growth cannot break a receipt or an event page. A unit enum
 decodes to its variant index, and an index the bundled ABI does not list (a variant added by a later
-contract version, e.g. a role in P4) decodes to a **bare number**, for any unit enum: the consumer
-must handle a code it does not know (treat it as "unknown"), as `public-interface.md` says.
+contract version, e.g. a role in P4) decodes to a **bare number**, only for an enum whose listed variants are all unit variants (an
+unknown variant of an enum with a payload variant could carry felts of unknown length: the codec
+throws); the consumer must handle a code it does not know (treat it as "unknown"), as `public-interface.md` says.
 
 Writes go through a starknet.js `Account` (`client.writer(account, { tip })`, a `PavedWriter`): `create`, `spawn`
 (Daily: `approve` + `spawn` in one multicall), `build`, `discard`, `surrender`, `claim`, `sponsor`,
-`mint` (test token). Each write waits for its own receipt and returns its decoded events: the one
+`mint` (test token). The seven roles (Woodsman 6 and Herdsman 7 since P4) are listed in the role picker, with their art from `packages/app-web/public/assets` (copied from the 2024 client). Each write waits for its own receipt and returns its decoded events: the one
 request repeated while a transaction is pending, every 250 ms (`RECEIPT_POLL_MS`; starknet.js waits
 5 s by default), and only until that receipt arrives. The writer takes an explicit `tip` (0 on
 devnet: starknet.js 8.9's tip estimate wants 10 V3 transactions per block and stalls a fresh node).
@@ -96,6 +98,31 @@ old hard-coded Katana master key is gone), and the Cartridge controller placehol
 when it is not configured: no policy on an empty target). The controller is the only signing path
 outside devnet; until it is wired, other networks are read-only. Dropped:
 the Dojo burner manager (`@dojoengine/create-burner`).
+
+### Surrender, claim, sponsor, name (t-0028)
+
+- **Surrender**: a button on the game screen, enabled for the player's own unfinished game with no
+  write pending; it opens a confirm dialog with the score the game ends with, and only "Confirm
+  surrender" calls `GameSession.surrender` (the writer serialises it; a pending write disables the
+  button). A reverted surrender is the same `writeError` notice as any write.
+- **Claim a Daily prize** (landing): the claimable tournaments are found from **events and views**:
+  the `tournament_id` of the player's finished Daily games (`GameOver`, `countedTournamentIds`; 0
+  means the game did not count), newest 30, then one `Daily.tournament(id)` each. A rank is claimable
+  when the tournament is `over`, the player's id is the holder of rank 1, 2 or 3, that rank is not
+  `claimed` and its reward is above 0 (`claimableRanks`). The reward is computed from the view as the
+  contract does (`rewardOf`: third a sixth of the prize, second a third of the rest, first the
+  remainder). It is read on connect, on visibility and after a claim. No new event is needed.
+- **Sponsor** (landing): an amount field in the token's decimals (`parseTokenAmount`: positive, at
+  most `decimals` fraction digits); the button only opens the confirm, which shows the amount; the
+  confirm sends `approve` + `sponsor` of exactly that amount in one multicall.
+- **Paying and paid actions keep the Daily rule**: an explicit confirm, the amount shown, and the
+  amount re-checked at send. The panel reads the field again at the confirm click and hands the writer
+  the amount it confirmed: `sponsor(amount, { confirmedAmount })` refuses a difference
+  (`SponsorAmountChangedError`) and an amount of 0; `claim(id, rank, { confirmedReward })` reads the
+  tournament again and refuses a changed reward (`RewardChangedError`), a rank already claimed or a
+  tournament not over (`WriteError`), sending nothing. Both options are required.
+- **Player name**: a field on the landing page when "Create Account" is offered; 1 to 31 printable
+  ASCII characters (`playerNameError`), checked before anything is sent, and again by the writer.
 
 ## Views
 
@@ -168,7 +195,8 @@ can replace that later.
 `configured` and the account: `not-configured`, `read-only` (no account) or `ready`. `useRead` runs
 one read on its inputs, on `refresh` and, when asked, when the page becomes visible. The game page
 uses `GameSession` (`session.ts`) through `useGameSession`: it loads `game` + `tiles` (+ `builder` and
-`characters` for the game's player), and moves only on this client's writes, as above. A read that
+`characters` for the game's player), and moves only on this client's writes, as above. The scene draws the last tiles and characters it was given once its models are loaded, so the
+game page no longer re-sends the board on scene ready. A read that
 fails after a successful write is a `readError` ("Move applied; refresh failed"), not a write error.
 
 `/game?mode=..&id=..` shows a game. Only a consent in the history state, from the landing page's

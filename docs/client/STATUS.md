@@ -37,6 +37,12 @@ read. No Torii, no Dojo package and no timer: only a pending write asks for its 
 (`bun run test:devnet` in `packages/chain`) deploys the four contracts and plays through; browser
 figures of the new layer wait for the Mac.
 
+2026-10-07, game flows (t-0028): the game page says "Spawning game..." (Back disabled) while a paid start
+is in flight (#211); surrender with a confirm, claiming a Daily prize and sponsoring (each with an
+explicit confirm and the amount re-checked at send), a player-name field, the `D` hotkey following the
+discard button, Woodsman and Herdsman (P4) in the role picker, and the scene redrawing its last board
+after init (the app's workaround is gone). Page-level tests of the Game and Landing states.
+
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
 The baseline measures a recorded board, not a live deployment (decided 2026-10-06): the contracts
