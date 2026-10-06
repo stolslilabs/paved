@@ -33,6 +33,9 @@ const CHUNK_SIZE = 100;
 
 /** Reads the events of the native contracts from `deployed_block`, filtered by key on the node. */
 export class EventReader {
+  /** `GameSpawned` / `GameOver` of this client's own receipts, by contract: merged into the lists. */
+  private readonly own = new Map<ContractName, DecodedEvent[]>();
+
   constructor(
     private readonly provider: EventProvider,
     private readonly deployment: Deployment,
@@ -68,6 +71,25 @@ export class EventReader {
     return out;
   }
 
+  /**
+   * Keeps the list events of a receipt of this client, so a game it just spawned or ended is in
+   * the lists even when the node's `latest` block lags behind the receipt.
+   */
+  remember(contract: ContractName, events: DecodedEvent[]): void {
+    const kept = events.filter((e) => e.name === "GameSpawned" || e.name === "GameOver");
+    if (kept.length) this.own.set(contract, [...(this.own.get(contract) ?? []), ...kept]);
+  }
+
+  /** `read` plus the remembered events of this client that match, without duplicates. */
+  private async readWithOwn(contract: ContractName, name: string, playerId: string): Promise<DecodedEvent[]> {
+    const read = await this.read(contract, name, [null, playerId]);
+    const seen = new Set(read.map((e) => Number(e.fields.gameId)));
+    const own = (this.own.get(contract) ?? []).filter(
+      (e) => e.name === name && BigInt(e.fields.playerId as string) === BigInt(playerId) && !seen.has(Number(e.fields.gameId)),
+    );
+    return [...read, ...own];
+  }
+
   /** The games of a player on one or both game contracts, newest first. */
   async playerGames(playerId: string, modes: GameMode[] = ["daily", "tutorial"]): Promise<PlayerGame[]> {
     const lists = await Promise.all(
@@ -75,8 +97,8 @@ export class EventReader {
         const contract = gameContract(mode);
         // GameSpawned keys: game_id, player_id. GameOver keys: game_id, player_id, tournament_id.
         const [spawned, over] = await Promise.all([
-          this.read(contract, "GameSpawned", [null, playerId]),
-          this.read(contract, "GameOver", [null, playerId]),
+          this.readWithOwn(contract, "GameSpawned", playerId),
+          this.readWithOwn(contract, "GameOver", playerId),
         ]);
         const ended = new Map(over.map((e) => [Number(e.fields.gameId), e]));
         return spawned.map((e): PlayerGame => {

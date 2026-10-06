@@ -9,7 +9,20 @@ Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 | What | From | Override |
 |---|---|---|
 | ABIs of `Account`, `Daily`, `Tutorial`, `Token` | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
-| RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script) | env: `VITE_RPC_URL`, `VITE_<CONTRACT>_ADDRESS`, `VITE_DEPLOYED_BLOCK` |
+| RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script); `<network>` is `VITE_NETWORK`, default `devnet` | env, see below |
+| The playing account | env only: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account) | none; without both the app is read-only |
+
+The env variables of `packages/app-web` (`src/utils/network.ts`), each one set overriding the file:
+
+| Variable | Overrides |
+|---|---|
+| `VITE_RPC_URL` | `rpc_url` |
+| `VITE_DEPLOYED_BLOCK` | `deployed_block` |
+| `VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`, `VITE_TUTORIAL_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player) |
+| `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` only |
+
+The app reads every `contracts/deployments/*.json` at build time (`import.meta.glob`, which
+tolerates a missing folder) and picks `<network>.json`.
 
 `resolveDeployment` (`packages/chain/src/deployment.ts`) merges the file and the env, env first. A
 missing address, or a missing file with no env, gives a deployment with `configured: false`.
@@ -21,25 +34,36 @@ The token is labelled `$TILE` whatever its on-chain symbol (D-2); `decimals` com
 
 ## Clients
 
-`createPavedClient(provider, deployment)` gives one typed client per contract, built on starknet.js
-`RpcProvider` (`callContract`, `getEvents`, `waitForTransaction`). Calldata and results are encoded
+`createPavedClient(deployment)` gives a `PavedClient` on a starknet.js `RpcProvider` for the
+deployment's RPC URL (`callContract`, `getEvents`, `waitForTransaction`); it refuses a deployment
+that is not configured, so an empty URL never falls back to a public node. Calldata and results are encoded
 and decoded from the ABIs (`codec.ts`): structs, arrays, `u256`, enums by variant index. A unit test
 checks that the field lists of the TS view types match the ABI structs, so an ABI change that the
-client does not follow fails the tests.
+client does not follow fails the tests. A result with felts left over, or too few, is an
+`abi-mismatch` error (a contract upgraded with a grown struct fails rather than misaligns);
+integers are range-checked before they are encoded; an event with a field type the codec does not
+know is skipped and logged, so ABI growth cannot break a receipt or an event page.
 
-Writes go through a starknet.js `Account` (`createWriter(account, deployment)`): `create`, `spawn`
+Writes go through a starknet.js `Account` (`client.writer(account, { tip })`, a `PavedWriter`): `create`, `spawn`
 (Daily: `approve` + `spawn` in one multicall), `build`, `discard`, `surrender`, `claim`, `sponsor`,
 `mint` (test token). Each write waits for its own receipt and returns its decoded events: the one
 request repeated while a transaction is pending, every 250 ms (`RECEIPT_POLL_MS`; starknet.js waits
 5 s by default), and only until that receipt arrives. The writer takes an explicit `tip` (0 on
 devnet: starknet.js 8.9's tip estimate wants 10 V3 transactions per block and stalls a fresh node).
+A rejected write (fee estimation, a contract assert found by the simulation, a reverted receipt)
+is a `WriteError` with the reason. Writes are serialised in `PavedWriter`: while one is pending, a
+second is refused, so a double click on "confirm" never sends two transactions; `GameSession` also
+ignores a move while its own write is pending. The events of every receipt go to the event reader,
+which keeps the `GameSpawned` / `GameOver` of this client and merges them into the lists: a game
+just spawned is listed even when the node's `latest` block lags behind the receipt.
 The Daily entry price (`DAILY_PRICE`, 1 token) mirrors `DAILY_TOURNAMENT_PRICE` of
 `contracts/src/constants.cairo`: no view exposes it.
 
 Kept from the old code: the plain `Account` from an address and a private key (a devnet
 predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`; the old hard-coded
 Katana master key is gone), and the Cartridge controller placeholder
-(`auth/controller.ts`), whose policies are now built from the deployment's addresses. Dropped:
+(`auth/controller.ts`), whose policies are now built from the deployment's addresses (refused
+when it is not configured: no policy on an empty target). Dropped:
 the Dojo burner manager (`@dojoengine/create-burner`).
 
 ## Views
@@ -53,7 +77,7 @@ Every game read names its contract: game ids are counted per contract, so the cl
 
 Reverts are mapped to typed errors (`ViewError`), from the message as text or as the hex of its
 short string (devnet 0.10 gives only the hex): `Game: does not exist` gives `game-not-found`,
-`View: not the game player` gives `not-player`, anything else `rpc`. The game page shows "game not
+`View: not the game player` gives `not-player`, a layout the ABI does not describe `abi-mismatch`, anything else `rpc`. The game page shows "game not
 found" and "not your game: read only" for the first two.
 
 ## Events
