@@ -1,4 +1,4 @@
-import type { ConnectionStatus, PlayerRecord, ReadState } from "@paved/chain";
+import type { ConnectionStatus, PlayerRecord, PriceView, ReadState } from "@paved/chain";
 import type { TournamentView } from "@paved/chain";
 
 /**
@@ -54,4 +54,28 @@ export function podium(t: TournamentView): { name: string; score: number }[] {
   ]
     .filter(([id]) => BigInt(id as string) !== 0n)
     .map(([id, score]) => ({ name: shortAddress(id as string), score: score as number }));
+}
+
+/** What the Daily entry card can say: one state, used for the fee shown and for the confirm. */
+export type EntryFee =
+  | { kind: "loading" }
+  | { kind: "error"; message: string }
+  | { kind: "unknown-token" }
+  | { kind: "free" }
+  | { kind: "amount"; amount: bigint };
+
+/**
+ * The Daily entry as the player may see it. The amount is formatted with the decimals of the
+ * deployment's token only: another token (`price.token`) has unknown decimals, so no figure.
+ */
+export function entryFee(price: Pick<ReadState<PriceView>, "data" | "error">, deploymentToken: string): EntryFee {
+  if (price.error) return { kind: "error", message: price.error };
+  if (!price.data) return { kind: "loading" };
+  if (!deploymentToken || BigInt(price.data.token) !== BigInt(deploymentToken)) return { kind: "unknown-token" };
+  return price.data.amount === 0n ? { kind: "free" } : { kind: "amount", amount: price.data.amount };
+}
+
+/** The Daily confirm is allowed only when the fee is known; resuming a game costs nothing. */
+export function canConfirmEntry(fee: EntryFee, resuming: boolean): boolean {
+  return resuming || fee.kind === "free" || fee.kind === "amount";
 }

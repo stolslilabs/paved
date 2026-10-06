@@ -1,14 +1,14 @@
 /** Fixes from the review of #202 (P-10, part a), tested in part b. */
 import { describe, expect, test, vi } from "vitest";
 import { hash } from "starknet";
-import { createCodecs } from "../src/abis";
+import { ABIS, createCodecs } from "../src/abis";
 import { controllerPolicies } from "../src/auth/controller";
-import { AbiMismatchError, type DecodedEvent } from "../src/codec";
+import { AbiCodec, AbiMismatchError, type DecodedEvent } from "../src/codec";
 import { resolveDeployment } from "../src/deployment";
 import { EventReader } from "../src/events";
 import { PavedClient, createPavedClient, type PavedRpc } from "../src/paved-client";
-import { RpcGameViews, ViewError } from "../src/views";
-import { WriteError, type WriteAccount } from "../src/writer";
+import { FakeGameViews, RpcGameViews, ViewError } from "../src/views";
+import { EntryPriceChangedError, WriteError, type WriteAccount } from "../src/writer";
 
 const codecs = createCodecs();
 const deployment = resolveDeployment({
@@ -50,6 +50,27 @@ describe("encodeCall checks integer ranges", () => {
     const P = (1n << 251n) + 17n * (1n << 192n) + 1n;
     expect(codecs.Daily.encodeCall("builder", [1, P - 1n])[1]).toBe("0x" + (P - 1n).toString(16));
     expect(() => codecs.Daily.encodeCall("builder", [1, P])).toThrow(RangeError);
+  });
+});
+
+describe("role codes added later (P4) do not break decoding", () => {
+  // CharacterView: role, placed, tile_id, x, y, spot; four roles added after Pilgrim.
+  const character = (role: number) => [role, 1, 7, 0x7fffffff, 0x7fffffff, 3].map((n) => `0x${n.toString(16)}`);
+
+  test("a character with an unknown role code decodes as its number", () => {
+    const felts = ["0x2", ...character(5), ...character(9)];
+    const out = codecs.Daily.decodeResult("characters", felts) as Array<{ role: number; placed: boolean }>;
+    expect(out.map((c) => c.role)).toEqual([5, 9]);
+    expect(out[1].placed).toBe(true);
+  });
+
+  test("an enum code the ABI does not list is kept as its number, not thrown", () => {
+    const grown = new AbiCodec([
+      ...ABIS.Daily,
+      { type: "function", name: "which_role", inputs: [], outputs: [{ type: "paved::types::role::Role" }] },
+    ]);
+    expect(grown.decodeResult("which_role", ["0x3"])).toBe(3);
+    expect(grown.decodeResult("which_role", ["0x63"])).toBe(99);
   });
 });
 
@@ -105,6 +126,75 @@ describe("writer", () => {
     const writer = client().writer({ address: "0x5", execute: async () => ({ transaction_hash: "0x1" }) });
     await expect(writer.createPlayer("x".repeat(32))).rejects.toThrow(WriteError);
     await expect(writer.createPlayer("")).rejects.toThrow(WriteError);
+  });
+});
+
+describe("Daily spawn approves what entry_price names (O-23)", () => {
+  test("the view's token and amount, approve before spawn, in one multicall", async () => {
+    const views = new FakeGameViews();
+    views.price = { token: "0x4", amount: 5n };
+    const rpc = {
+      callContract: async () => [],
+      getEvents: async () => ({ events: [] }),
+      waitForTransaction: async () => ({
+        execution_status: "SUCCEEDED",
+        events: [{ from_address: "0x2", keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x5"], data: ["0x1", "0x0", "0x1", "0x5"] }],
+      }),
+    } as unknown as PavedRpc;
+    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+    const result = await new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily");
+    expect(result.gameId).toBe(9);
+    const calls = (execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>])[0];
+    expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([["0x4", "approve"], ["0x2", "spawn"]]);
+    expect(calls[0].calldata).toEqual(["0x2", "0x5", "0x0"]);
+  });
+
+  test("a free entry sends no approve; a failed price read sends nothing", async () => {
+    const views = new FakeGameViews();
+    views.price = { token: "0x4", amount: 0n };
+    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+    const rpc = { callContract: async () => [], getEvents: async () => ({ events: [] }), waitForTransaction: async () => ({ events: [] }) } as unknown as PavedRpc;
+    await new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily").catch(() => undefined);
+    expect((execute.mock.calls[0] as unknown as [Array<{ entrypoint: string }>])[0].map((c) => c.entrypoint)).toEqual(["spawn"]);
+
+    views.entryPrice = async () => { throw new Error("fetch failed"); };
+    execute.mockClear();
+    await expect(new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily")).rejects.toThrow(/entry price/);
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
+
+describe("a Daily spawn pays only what the player confirmed (review of #209)", () => {
+  const rpc = { callContract: async () => [], getEvents: async () => ({ events: [] }), waitForTransaction: async () => ({ events: [] }) } as unknown as PavedRpc;
+  const spawnWith = (price: { token: string; amount: bigint }, confirmedAmount?: bigint) => {
+    const views = new FakeGameViews();
+    views.price = price;
+    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+    const result = new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily", { confirmedAmount });
+    return { result, execute };
+  };
+
+  test("the price changed between confirm and spawn: refused, nothing sent", async () => {
+    const { result, execute } = spawnWith({ token: "0x4", amount: 2n * 10n ** 18n }, 10n ** 18n);
+    const error = await result.catch((e) => e);
+    expect(error).toBeInstanceOf(EntryPriceChangedError);
+    expect(error.message).toBe("The entry price changed: confirm again");
+    expect(error).toMatchObject({ confirmed: 10n ** 18n, current: 2n * 10n ** 18n });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("the same amount goes through, approving exactly it", async () => {
+    const { result, execute } = spawnWith({ token: "0x4", amount: 10n ** 18n }, 10n ** 18n);
+    await result.catch(() => undefined); // no GameSpawned in this receipt: the send is what counts
+    const calls = (execute.mock.calls[0] as unknown as [Array<{ entrypoint: string; calldata: string[] }>])[0];
+    expect(calls.map((c) => c.entrypoint)).toEqual(["approve", "spawn"]);
+    expect(calls[0].calldata[1]).toBe("0xde0b6b3a7640000");
+  });
+
+  test("a token other than the deployment's is refused, nothing sent", async () => {
+    const { result, execute } = spawnWith({ token: "0x77", amount: 1n }, 1n);
+    await expect(result).rejects.toThrow(/Unknown entry token/);
+    expect(execute).not.toHaveBeenCalled();
   });
 });
 

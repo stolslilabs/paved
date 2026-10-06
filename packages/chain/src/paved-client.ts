@@ -46,6 +46,7 @@ export class PavedClient {
       provider: this.provider,
       deployment: this.deployment,
       codecs: this.codecs,
+      entryPrice: () => this.views.entryPrice(),
       onEvents: (contract, events) => this.events.remember(contract, events),
       ...options,
     });

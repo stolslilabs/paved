@@ -3,7 +3,7 @@
 //
 // It plays the native contracts (packages/chain, docs/architecture/client-data-layer.md) on the
 // 72-tile board fixture: `starknet_call` answers the views (`game`, `tiles`, `builder`,
-// `characters`, `tournament`, `current_tournament_id`) and the reads (`player`, `balance_of`)
+// `characters`, `tournament`, `current_tournament_id`, `entry_price`) and the reads (`player`, `balance_of`)
 // with felts laid out as the ABIs of contracts/abis/ say; `starknet_getEvents` answers with no
 // event (one game, opened by id). An invoke of `build` that carries the next placement of the
 // fixed sequence applies it, and its receipt holds the `Built` event the client shows the tile
@@ -65,7 +65,7 @@ export function createMockChain(fixtures: string, size = 72) {
   const t0 = Date.parse("2026-10-06T08:00:00Z") / 1000;
 
   const SEL = Object.fromEntries(
-    ["game", "tiles", "builder", "characters", "tournament", "current_tournament_id", "player", "balance_of", "build", "Built"].map(
+    ["game", "tiles", "builder", "characters", "tournament", "current_tournament_id", "entry_price", "player", "balance_of", "build", "Built"].map(
       (name) => [name, BigInt(selector(name))],
     ),
   );
@@ -118,6 +118,7 @@ export function createMockChain(fixtures: string, size = 72) {
       const id = Number(args[0]);
       return [id, id * 86400, (id + 1) * 86400, 0, 10n ** 18n, 0, BENCH.player, 3 * onBoard().length, 0, 0, 0, 0, 0, 0, 0];
     }
+    if (to === BENCH.Daily && entry === SEL.entry_price) return [BENCH.Token, 10n ** 18n, 0]; // token, u256 amount
     if (to === BENCH.Account && entry === SEL.player) return [args[0], 0x5061766564, args[0]]; // 'Paved'
     if (to === BENCH.Token && entry === SEL.balance_of) return [10n ** 21n, 0];
     throw new Error(`mock-chain: no view ${hex(entry)} on ${hex(to)}`);

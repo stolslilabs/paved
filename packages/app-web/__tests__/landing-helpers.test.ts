@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyTournament } from "@paved/chain";
-import { canOfferCreate, formatTimeRemaining, formatTokenAmount, podium, shortAddress, TOKEN_LABEL } from "../src/utils/landing-helpers";
+import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, podium, shortAddress, TOKEN_LABEL } from "../src/utils/landing-helpers";
 
 describe("landing helpers", () => {
   it("labels the token $TILE (D-2)", () => {
@@ -43,5 +43,39 @@ describe("canOfferCreate", () => {
     expect(canOfferCreate("ready", { ...none, loading: true })).toBe(false);
     expect(canOfferCreate("ready", { ...none, loaded: false })).toBe(false);
     expect(canOfferCreate("ready", { ...none, loaded: false, error: "fetch failed" })).toBe(false);
+  });
+});
+
+describe("entryFee and canConfirmEntry (review of #209)", () => {
+  const TOKEN = "0x04";
+  const ok = { data: { token: "0x4", amount: 10n ** 18n }, error: null };
+
+  it("a known fee in the deployment's token", () => {
+    expect(entryFee(ok, TOKEN)).toEqual({ kind: "amount", amount: 10n ** 18n });
+    expect(entryFee({ data: { token: "0x4", amount: 0n }, error: null }, TOKEN)).toEqual({ kind: "free" });
+  });
+
+  it("another token has no figure and no confirm", () => {
+    const fee = entryFee({ data: { token: "0x77", amount: 5n }, error: null }, TOKEN);
+    expect(fee).toEqual({ kind: "unknown-token" });
+    expect(canConfirmEntry(fee, false)).toBe(false);
+  });
+
+  it("loading and failed reads cannot be confirmed", () => {
+    const loading = entryFee({ data: null, error: null }, TOKEN);
+    const failed = entryFee({ data: null, error: "fetch failed" }, TOKEN);
+    expect(loading).toEqual({ kind: "loading" });
+    expect(failed).toEqual({ kind: "error", message: "fetch failed" });
+    expect(canConfirmEntry(loading, false)).toBe(false);
+    expect(canConfirmEntry(failed, false)).toBe(false);
+  });
+
+  it("a stale figure does not outlive an error", () => {
+    expect(entryFee({ data: ok.data, error: "fetch failed" }, TOKEN).kind).toBe("error");
+  });
+
+  it("resuming a game costs nothing, so it is always allowed; a known fee is confirmable", () => {
+    expect(canConfirmEntry({ kind: "loading" }, true)).toBe(true);
+    expect(canConfirmEntry(entryFee(ok, TOKEN), false)).toBe(true);
   });
 });

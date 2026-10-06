@@ -20,7 +20,7 @@ export interface PlayerGame {
   mode: GameMode;
   gameId: number;
   startTime: number;
-  /** Tournament of the spawn (Daily); 0 for Tutorial. */
+  /** Tournament of the spawn (Daily); 0 for Tutorial (#205). */
   tournamentId: number;
   over: boolean;
   /** Final score; null while the game is active. */
@@ -109,9 +109,8 @@ export class EventReader {
             mode: gameMode,
             gameId,
             startTime: Number(e.fields.startTime),
-            // Tutorial's GameSpawned carries the spawn time as tournament_id (its game duration is
-            // 1 s in `TournamentImpl::compute_id`): no tournament, read as 0.
-            tournamentId: gameMode === "tutorial" ? 0 : Number(e.fields.tournamentId),
+            // 0 for Tutorial, which has no tournament (#205).
+            tournamentId: Number(e.fields.tournamentId),
             over: Boolean(end),
             score: end ? Number(end.fields.score) : null,
             countedTournamentId: end ? Number(end.fields.tournamentId) : null,

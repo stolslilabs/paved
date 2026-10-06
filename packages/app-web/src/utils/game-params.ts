@@ -7,11 +7,10 @@ export interface GameParams {
   gameId: number | null;
   /** An id was given but is not a positive integer: the page shows "Game not found". */
   invalidId: boolean;
-  /** Start a game: set by the landing page's confirm only (it pays the Daily entry). */
-  spawn: boolean;
   readonly: boolean;
 }
 
+/** Reads the URL: a game to show, never a consent to pay (that is the history state: `start-game.ts`). */
 export function parseGameParams(searchParams: URLSearchParams): GameParams {
   const mode = modeFromParam(searchParams.get("mode"));
   const idParam = searchParams.get("id");
@@ -20,7 +19,6 @@ export function parseGameParams(searchParams: URLSearchParams): GameParams {
     mode,
     gameId: valid ? Number(idParam) : null,
     invalidId: idParam !== null && !valid,
-    spawn: idParam === null && searchParams.get("spawn") === "1",
     readonly: searchParams.get("readonly") === "true",
   };
 }

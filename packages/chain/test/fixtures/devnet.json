@@ -25,6 +25,16 @@
       ]
     },
     {
+      "contractAddress": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
+      "entrypoint": "entry_price",
+      "calldata": [],
+      "result": [
+        "0x1c86221e09e4a65abef3ef46b6f9320333ff01cac10ce69c5f701996ac028c8",
+        "0xde0b6b3a7640000",
+        "0x0"
+      ]
+    },
+    {
       "contractAddress": "0x1c86221e09e4a65abef3ef46b6f9320333ff01cac10ce69c5f701996ac028c8",
       "entrypoint": "balance_of",
       "calldata": [
@@ -36,7 +46,7 @@
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -55,13 +65,13 @@
         "0xf",
         "0x8",
         "0xa",
-        "0x6ac566d6",
+        "0x6ac56cfd",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "tiles",
       "calldata": [
         "0x1",
@@ -85,7 +95,7 @@
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "builder",
       "calldata": [
         "0x1",
@@ -101,7 +111,7 @@
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "characters",
       "calldata": [
         "0x1",
@@ -142,7 +152,7 @@
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -161,13 +171,13 @@
         "0x4",
         "0x7",
         "0xa",
-        "0x6ac566d6",
+        "0x6ac56cfd",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -186,13 +196,13 @@
         "0x6",
         "0x6",
         "0xa",
-        "0x6ac566d6",
+        "0x6ac56cfd",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -211,13 +221,13 @@
         "0x13",
         "0x5",
         "0xa",
-        "0x6ac566d6",
+        "0x6ac56cfd",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -236,13 +246,13 @@
         "0xc",
         "0x4",
         "0xa",
-        "0x6ac566d6",
+        "0x6ac56cfd",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -261,13 +271,13 @@
         "0xd",
         "0x3",
         "0xa",
-        "0x6ac566d6",
+        "0x6ac56cfd",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -286,13 +296,13 @@
         "0xa",
         "0x2",
         "0xa",
-        "0x6ac566d6",
+        "0x6ac56cfd",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -311,13 +321,13 @@
         "0x1",
         "0x1",
         "0xa",
-        "0x6ac566d6",
+        "0x6ac56cfd",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -336,13 +346,13 @@
         "0x10",
         "0x0",
         "0xa",
-        "0x6ac566d6",
+        "0x6ac56cfd",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -361,13 +371,13 @@
         "0x0",
         "0x0",
         "0xa",
-        "0x6ac566d6",
+        "0x6ac56cfd",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "contractAddress": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "entrypoint": "tiles",
       "calldata": [
         "0x1",
@@ -439,7 +449,7 @@
       ]
     },
     {
-      "contractAddress": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+      "contractAddress": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
       "entrypoint": "current_tournament_id",
       "calldata": [],
       "result": [
@@ -447,7 +457,7 @@
       ]
     },
     {
-      "contractAddress": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+      "contractAddress": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
       "entrypoint": "tournament",
       "calldata": [
         "0x50fc"
@@ -471,7 +481,27 @@
       ]
     },
     {
-      "contractAddress": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+      "contractAddress": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
+      "entrypoint": "entry_price",
+      "calldata": [],
+      "result": [
+        "0x1c86221e09e4a65abef3ef46b6f9320333ff01cac10ce69c5f701996ac028c8",
+        "0xde0b6b3a7640000",
+        "0x0"
+      ]
+    },
+    {
+      "contractAddress": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
+      "entrypoint": "entry_price",
+      "calldata": [],
+      "result": [
+        "0x1c86221e09e4a65abef3ef46b6f9320333ff01cac10ce69c5f701996ac028c8",
+        "0xde0b6b3a7640000",
+        "0x0"
+      ]
+    },
+    {
+      "contractAddress": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
       "entrypoint": "tournament",
       "calldata": [
         "0x50fc"
@@ -495,7 +525,7 @@
       ]
     },
     {
-      "contractAddress": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+      "contractAddress": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -514,13 +544,13 @@
         "0x8",
         "0x24",
         "0x26",
-        "0x6ac566dc",
+        "0x6ac56d03",
         "0x0",
         "0x0"
       ]
     },
     {
-      "contractAddress": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+      "contractAddress": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
       "entrypoint": "game",
       "calldata": [
         "0x1"
@@ -539,13 +569,13 @@
         "0x0",
         "0x0",
         "0x26",
-        "0x6ac566dc",
-        "0x6ac566dd",
+        "0x6ac56d03",
+        "0x6ac56d04",
         "0x50fc"
       ]
     },
     {
-      "contractAddress": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+      "contractAddress": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
       "entrypoint": "tournament",
       "calldata": [
         "0xc22e45067289"
@@ -571,7 +601,7 @@
   ],
   "events": [
     {
-      "address": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+      "address": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
       "keys": [
         [
           "0x165460ded86991fa560a0d331810f83651da90c5df6d4b61357c3b3807ff41c"
@@ -583,7 +613,7 @@
       ],
       "events": [
         {
-          "from_address": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+          "from_address": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
           "keys": [
             "0x165460ded86991fa560a0d331810f83651da90c5df6d4b61357c3b3807ff41c",
             "0x1",
@@ -593,16 +623,16 @@
           "data": [
             "0x1",
             "0x0",
-            "0x6ac566dc",
-            "0x6ac566dd"
+            "0x6ac56d03",
+            "0x6ac56d04"
           ],
           "block_number": 22,
-          "transaction_hash": "0x2066cc9c4adf3b77ac93a1ce8d75906f210813d5e42c697746670aca20c7898"
+          "transaction_hash": "0x55b403ba089184c035d5474a887fff59cd1bc3706d46b097cd445266cb75539"
         }
       ]
     },
     {
-      "address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "address": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
       "keys": [
         [
           "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf"
@@ -614,37 +644,7 @@
       ],
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
-          "keys": [
-            "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf",
-            "0x1",
-            "0x64b48806902a367c8598f4f95c305e8c1a1acba5f082d294a43793113115691"
-          ],
-          "data": [
-            "0x3",
-            "0x6ac566d6",
-            "0x6ac566d6",
-            "0x0"
-          ],
-          "block_number": 10,
-          "transaction_hash": "0x5e84e09766e2fc667db434c4c5c68b3d17ad6d050fb0f137a67e46705602a85"
-        }
-      ]
-    },
-    {
-      "address": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
-      "keys": [
-        [
-          "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf"
-        ],
-        [],
-        [
-          "0x64b48806902a367c8598f4f95c305e8c1a1acba5f082d294a43793113115691"
-        ]
-      ],
-      "events": [
-        {
-          "from_address": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+          "from_address": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
           "keys": [
             "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf",
             "0x1",
@@ -653,16 +653,16 @@
           "data": [
             "0x1",
             "0x50fc",
-            "0x6ac566dc",
+            "0x6ac56d03",
             "0xde0b6b3a7640000"
           ],
           "block_number": 20,
-          "transaction_hash": "0x4af1f4c1cd81011ee1f18bddb403bbac27f20d0aa8980bb1c2a4dd36d3b1629"
+          "transaction_hash": "0x6ebbf13491b4e4fdac0ac3c0d6fe729f6c850d848bdb2c85eaf8a98c17dd19c"
         }
       ]
     },
     {
-      "address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "keys": [
         [
           "0x165460ded86991fa560a0d331810f83651da90c5df6d4b61357c3b3807ff41c"
@@ -674,7 +674,7 @@
       ],
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x165460ded86991fa560a0d331810f83651da90c5df6d4b61357c3b3807ff41c",
             "0x1",
@@ -684,16 +684,46 @@
           "data": [
             "0x3",
             "0x13d6",
-            "0x6ac566d6",
+            "0x6ac56cfd",
             "0x0"
           ],
           "block_number": 19,
-          "transaction_hash": "0x322cd800fd04a778088d3606a87db9cb888452078b0c86aca95457cb70f13df"
+          "transaction_hash": "0x52e97240d3142fd2a42026b035796001ea138d2096c2ee744ea5a898dbcae2d"
         }
       ]
     },
     {
-      "address": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+      "address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
+      "keys": [
+        [
+          "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf"
+        ],
+        [],
+        [
+          "0x64b48806902a367c8598f4f95c305e8c1a1acba5f082d294a43793113115691"
+        ]
+      ],
+      "events": [
+        {
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
+          "keys": [
+            "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf",
+            "0x1",
+            "0x64b48806902a367c8598f4f95c305e8c1a1acba5f082d294a43793113115691"
+          ],
+          "data": [
+            "0x3",
+            "0x0",
+            "0x6ac56cfd",
+            "0x0"
+          ],
+          "block_number": 10,
+          "transaction_hash": "0x54c3566bd6aad06677e72646f3ec2d6a063ef7be4c0a85761228e8322124514"
+        }
+      ]
+    },
+    {
+      "address": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
       "keys": [
         [
           "0x165460ded86991fa560a0d331810f83651da90c5df6d4b61357c3b3807ff41c"
@@ -706,7 +736,7 @@
       "events": []
     },
     {
-      "address": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+      "address": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
       "keys": [
         [
           "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf"
@@ -719,23 +749,23 @@
       "events": []
     },
     {
-      "address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+      "address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
+      "keys": [
+        [
+          "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf"
+        ],
+        [],
+        [
+          "0x78662e7352d062084b0010068b99288486c2d8b914f6e2a55ce945f8792c8b1"
+        ]
+      ],
+      "events": []
+    },
+    {
+      "address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
       "keys": [
         [
           "0x165460ded86991fa560a0d331810f83651da90c5df6d4b61357c3b3807ff41c"
-        ],
-        [],
-        [
-          "0x78662e7352d062084b0010068b99288486c2d8b914f6e2a55ce945f8792c8b1"
-        ]
-      ],
-      "events": []
-    },
-    {
-      "address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
-      "keys": [
-        [
-          "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf"
         ],
         [],
         [
@@ -747,16 +777,16 @@
   ],
   "receipts": {
     "create": "0x54d280d2c25236f587c06c92052649ddc7a675509fcf83d8120eb7b055d96df",
-    "spawnTutorial": "0x5e84e09766e2fc667db434c4c5c68b3d17ad6d050fb0f137a67e46705602a85",
-    "buildTutorial": "0x5c89028484dc712db5e495c016e26f2270ca4dbe4b50af99e957655226aaacf",
-    "lastBuildTutorial": "0x322cd800fd04a778088d3606a87db9cb888452078b0c86aca95457cb70f13df",
-    "spawnDaily": "0x4af1f4c1cd81011ee1f18bddb403bbac27f20d0aa8980bb1c2a4dd36d3b1629",
-    "discardDaily": "0x155a930b1a4b74747929e4d7ed564c70b6542673fe3d9c367a946b91348eca1",
-    "surrenderDaily": "0x2066cc9c4adf3b77ac93a1ce8d75906f210813d5e42c697746670aca20c7898"
+    "spawnTutorial": "0x54c3566bd6aad06677e72646f3ec2d6a063ef7be4c0a85761228e8322124514",
+    "buildTutorial": "0x216f8b7e984ac8b849f6659e3678999d407b4247cdde6a7470199ab91d3fe40",
+    "lastBuildTutorial": "0x52e97240d3142fd2a42026b035796001ea138d2096c2ee744ea5a898dbcae2d",
+    "spawnDaily": "0x6ebbf13491b4e4fdac0ac3c0d6fe729f6c850d848bdb2c85eaf8a98c17dd19c",
+    "discardDaily": "0x71e7ad134d43d71ee36dd86a46a8b5b7497b4fd16eaac466e55a1ae70a1b808",
+    "surrenderDaily": "0x55b403ba089184c035d5474a887fff59cd1bc3706d46b097cd445266cb75539"
   },
   "errors": {
-    "gameNotFound": "RPC: starknet_call with params {\n  \"request\": {\n    \"contract_address\": \"0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83\",\n    \"entry_point_selector\": \"0x1cd81e88676e5a74547a266e56c7475e1a7b2ea17f1c666f4da0c2e99d98e8d\",\n    \"calldata\": [\n      \"0x63\"\n    ]\n  },\n  \"block_id\": \"latest\"\n}\n\n      40: Contract error: {\"revert_error\":{\"contract_address\":\"0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83\",\"class_hash\":\"0xe551cf084a150b8f53549d5c13aaff0dbc75b73638532b538ad239f2da562\",\"selector\":\"0x1cd81e88676e5a74547a266e56c7475e1a7b2ea17f1c666f4da0c2e99d98e8d\",\"error\":\"[\\\"0x47616d653a20646f6573206e6f74206578697374\\\"]\"}}",
-    "notPlayer": "RPC: starknet_call with params {\n  \"request\": {\n    \"contract_address\": \"0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d\",\n    \"entry_point_selector\": \"0x2c30656051904e06bc0ef5fc0aa1a3334e6d6824b83fe5f4a7dd1b39218ba28\",\n    \"calldata\": [\n      \"0x1\",\n      \"0x78662e7352d062084b0010068b99288486c2d8b914f6e2a55ce945f8792c8b1\"\n    ]\n  },\n  \"block_id\": \"latest\"\n}\n\n      40: Contract error: {\"revert_error\":{\"contract_address\":\"0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d\",\"class_hash\":\"0x95490d1b08f7df078926dc11a288e5196a4f81d7b281767e423a8d3f81732e\",\"selector\":\"0x2c30656051904e06bc0ef5fc0aa1a3334e6d6824b83fe5f4a7dd1b39218ba28\",\"error\":\"[\\\"0x566965773a206e6f74207468652067616d6520706c61796572\\\"]\"}}"
+    "gameNotFound": "RPC: starknet_call with params {\n  \"request\": {\n    \"contract_address\": \"0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814\",\n    \"entry_point_selector\": \"0x1cd81e88676e5a74547a266e56c7475e1a7b2ea17f1c666f4da0c2e99d98e8d\",\n    \"calldata\": [\n      \"0x63\"\n    ]\n  },\n  \"block_id\": \"latest\"\n}\n\n      40: Contract error: {\"revert_error\":{\"contract_address\":\"0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814\",\"class_hash\":\"0x6b4d67b60f0fdaf4336344dc49bb6bf55f24319df8981735c5cbf31ce11ec48\",\"selector\":\"0x1cd81e88676e5a74547a266e56c7475e1a7b2ea17f1c666f4da0c2e99d98e8d\",\"error\":\"[\\\"0x47616d653a20646f6573206e6f74206578697374\\\"]\"}}",
+    "notPlayer": "RPC: starknet_call with params {\n  \"request\": {\n    \"contract_address\": \"0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8\",\n    \"entry_point_selector\": \"0x2c30656051904e06bc0ef5fc0aa1a3334e6d6824b83fe5f4a7dd1b39218ba28\",\n    \"calldata\": [\n      \"0x1\",\n      \"0x78662e7352d062084b0010068b99288486c2d8b914f6e2a55ce945f8792c8b1\"\n    ]\n  },\n  \"block_id\": \"latest\"\n}\n\n      40: Contract error: {\"revert_error\":{\"contract_address\":\"0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8\",\"class_hash\":\"0x6d5075d84902618634e23cd7a10824084c93ccc68a63ccc666dd53263912287\",\"selector\":\"0x2c30656051904e06bc0ef5fc0aa1a3334e6d6824b83fe5f4a7dd1b39218ba28\",\"error\":\"[\\\"0x566965773a206e6f74207468652067616d6520706c61796572\\\"]\"}}"
   },
   "raw": {
     "0x54d280d2c25236f587c06c92052649ddc7a675509fcf83d8120eb7b055d96df": {
@@ -799,11 +829,11 @@
         }
       ]
     },
-    "0x5e84e09766e2fc667db434c4c5c68b3d17ad6d050fb0f137a67e46705602a85": {
+    "0x54c3566bd6aad06677e72646f3ec2d6a063ef7be4c0a85761228e8322124514": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf",
             "0x1",
@@ -811,8 +841,8 @@
           ],
           "data": [
             "0x3",
-            "0x6ac566d6",
-            "0x6ac566d6",
+            "0x0",
+            "0x6ac56cfd",
             "0x0"
           ]
         },
@@ -830,11 +860,11 @@
         }
       ]
     },
-    "0x5c89028484dc712db5e495c016e26f2270ca4dbe4b50af99e957655226aaacf": {
+    "0x216f8b7e984ac8b849f6659e3678999d407b4247cdde6a7470199ab91d3fe40": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1d45258cfbc6a05a3a95aca416a9a9870a252afc3323a488c5e49221d6bad6f",
             "0x1"
@@ -864,11 +894,11 @@
         }
       ]
     },
-    "0x4771082e10918acf1d960c7a0cb014a09e391aa1382cb6e4bf212014b27b8d3": {
+    "0x33ba8957d674104b7347d824e59c2d2312fdfb1254a0d467a69c26290127910": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1d45258cfbc6a05a3a95aca416a9a9870a252afc3323a488c5e49221d6bad6f",
             "0x1"
@@ -898,11 +928,11 @@
         }
       ]
     },
-    "0x30d1f6a046194926d50d1a5f663ca5d4b680eebe4742eefaa3a54297ed26803": {
+    "0x1bf49af805ff93e3a24ad541a0d5a0bc19bb3ef667a0175988acfe43e9ebe9d": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1d45258cfbc6a05a3a95aca416a9a9870a252afc3323a488c5e49221d6bad6f",
             "0x1"
@@ -919,7 +949,7 @@
           ]
         },
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1f5f91de9e33f581e67e239e952691057fe8e45631568808fa00d0bda38cce9",
             "0x1"
@@ -945,11 +975,11 @@
         }
       ]
     },
-    "0x1f450c035b345525e37eb3f506e93c2a8978251f12843ac11fb9e93d139118a": {
+    "0x69845cb242cc2104945e4805ccc16539139d271ca4732c08ec6a5b11442d6ba": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1d45258cfbc6a05a3a95aca416a9a9870a252afc3323a488c5e49221d6bad6f",
             "0x1"
@@ -979,11 +1009,11 @@
         }
       ]
     },
-    "0x332ae787089079a53970a4548377d1bfd6179d938d545fa3339add20e33bd91": {
+    "0x56ab5015868658b7f6c9d9ecdcaf212649aa6aa5f0cc5d631e1742858e19dd": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1d45258cfbc6a05a3a95aca416a9a9870a252afc3323a488c5e49221d6bad6f",
             "0x1"
@@ -1000,7 +1030,7 @@
           ]
         },
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1f5f91de9e33f581e67e239e952691057fe8e45631568808fa00d0bda38cce9",
             "0x1"
@@ -1026,11 +1056,11 @@
         }
       ]
     },
-    "0x1b508f73313eefc501ec489236727b0a0ffecfa54f6257ecbd03d80fef73f20": {
+    "0x681bdaff01fd545b0d7e36890a698190bc8cf2fba404b24902a2915ed5b69ef": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1d45258cfbc6a05a3a95aca416a9a9870a252afc3323a488c5e49221d6bad6f",
             "0x1"
@@ -1060,11 +1090,11 @@
         }
       ]
     },
-    "0x7ef84da4bd2e9df2b57248d1914b907556860a348c02900a4a2b77017c40fc8": {
+    "0x34de77a13bfe9ef753f5c91944748b91500dd05731b12a225438beb74678a77": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1d45258cfbc6a05a3a95aca416a9a9870a252afc3323a488c5e49221d6bad6f",
             "0x1"
@@ -1094,11 +1124,11 @@
         }
       ]
     },
-    "0x59335589af4a44fb4f64e153df2bdf14c19a16448ff1e53059ed4f1e2fa055d": {
+    "0x22831b8ab917215f375c97ca894d1d2c9652e5458dbf9b59092a580404a6839": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x9e199bdedd47e8aab3606d9c16c4423368e1500697a07ac8e076f7a28419d0",
             "0x1"
@@ -1124,11 +1154,11 @@
         }
       ]
     },
-    "0x322cd800fd04a778088d3606a87db9cb888452078b0c86aca95457cb70f13df": {
+    "0x52e97240d3142fd2a42026b035796001ea138d2096c2ee744ea5a898dbcae2d": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1d45258cfbc6a05a3a95aca416a9a9870a252afc3323a488c5e49221d6bad6f",
             "0x1"
@@ -1145,7 +1175,7 @@
           ]
         },
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1f5f91de9e33f581e67e239e952691057fe8e45631568808fa00d0bda38cce9",
             "0x1"
@@ -1158,7 +1188,7 @@
           ]
         },
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1f5f91de9e33f581e67e239e952691057fe8e45631568808fa00d0bda38cce9",
             "0x1"
@@ -1171,7 +1201,7 @@
           ]
         },
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x1f5f91de9e33f581e67e239e952691057fe8e45631568808fa00d0bda38cce9",
             "0x1"
@@ -1184,7 +1214,7 @@
           ]
         },
         {
-          "from_address": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+          "from_address": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
           "keys": [
             "0x165460ded86991fa560a0d331810f83651da90c5df6d4b61357c3b3807ff41c",
             "0x1",
@@ -1194,7 +1224,7 @@
           "data": [
             "0x3",
             "0x13d6",
-            "0x6ac566d6",
+            "0x6ac56cfd",
             "0x0"
           ]
         },
@@ -1212,7 +1242,7 @@
         }
       ]
     },
-    "0x4af1f4c1cd81011ee1f18bddb403bbac27f20d0aa8980bb1c2a4dd36d3b1629": {
+    "0x6ebbf13491b4e4fdac0ac3c0d6fe729f6c850d848bdb2c85eaf8a98c17dd19c": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
@@ -1220,7 +1250,7 @@
           "keys": [
             "0x134692b230b9e1ffa39098904722134159652b09c5bc41d88d6698779d228ff",
             "0x64b48806902a367c8598f4f95c305e8c1a1acba5f082d294a43793113115691",
-            "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83"
+            "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814"
           ],
           "data": [
             "0xde0b6b3a7640000",
@@ -1228,7 +1258,7 @@
           ]
         },
         {
-          "from_address": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+          "from_address": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
           "keys": [
             "0x23aecab57d4c962ace7a4c241f4bc6bff759bf3033dd9e9cafbd6d52d037cbf",
             "0x1",
@@ -1237,7 +1267,7 @@
           "data": [
             "0x1",
             "0x50fc",
-            "0x6ac566dc",
+            "0x6ac56d03",
             "0xde0b6b3a7640000"
           ]
         },
@@ -1246,7 +1276,7 @@
           "keys": [
             "0x134692b230b9e1ffa39098904722134159652b09c5bc41d88d6698779d228ff",
             "0x64b48806902a367c8598f4f95c305e8c1a1acba5f082d294a43793113115691",
-            "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83"
+            "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814"
           ],
           "data": [
             "0x0",
@@ -1258,7 +1288,7 @@
           "keys": [
             "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
             "0x64b48806902a367c8598f4f95c305e8c1a1acba5f082d294a43793113115691",
-            "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83"
+            "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814"
           ],
           "data": [
             "0xde0b6b3a7640000",
@@ -1279,11 +1309,11 @@
         }
       ]
     },
-    "0x155a930b1a4b74747929e4d7ed564c70b6542673fe3d9c367a946b91348eca1": {
+    "0x71e7ad134d43d71ee36dd86a46a8b5b7497b4fd16eaac466e55a1ae70a1b808": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+          "from_address": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
           "keys": [
             "0x9e199bdedd47e8aab3606d9c16c4423368e1500697a07ac8e076f7a28419d0",
             "0x1"
@@ -1309,11 +1339,11 @@
         }
       ]
     },
-    "0x2066cc9c4adf3b77ac93a1ce8d75906f210813d5e42c697746670aca20c7898": {
+    "0x55b403ba089184c035d5474a887fff59cd1bc3706d46b097cd445266cb75539": {
       "execution_status": "SUCCEEDED",
       "events": [
         {
-          "from_address": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
+          "from_address": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
           "keys": [
             "0x165460ded86991fa560a0d331810f83651da90c5df6d4b61357c3b3807ff41c",
             "0x1",
@@ -1323,8 +1353,8 @@
           "data": [
             "0x1",
             "0x0",
-            "0x6ac566dc",
-            "0x6ac566dd"
+            "0x6ac56d03",
+            "0x6ac56d04"
           ]
         },
         {
@@ -1344,8 +1374,8 @@
   },
   "addresses": {
     "Account": "0x12b63168abbeca79691ca707817b31e4ad1c2d256b982401dce677e455c32cb",
-    "Daily": "0x346ecd8a8737d8700e206ab01a01f35f97c7b53c723e123b841f3cdc9e03a83",
-    "Tutorial": "0x4c264b27de9873ae8f120a11f19b193787e58b2616233b624379d4d0ecbcc6d",
+    "Daily": "0x453610931bfc0378e3e1cf9f848b521794609a19329cad97400800db9e56814",
+    "Tutorial": "0x69b5c7c2a342b537ddb8e97e37fa93677d97c32d461ddb525ac6bfabd2c6a8",
     "Token": "0x1c86221e09e4a65abef3ef46b6f9320333ff01cac10ce69c5f701996ac028c8"
   },
   "player": "0x64b48806902a367c8598f4f95c305e8c1a1acba5f082d294a43793113115691",
