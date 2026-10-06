@@ -10,9 +10,9 @@ pub impl Math of MathTrait {
         +TryInto<u256, T>,
         +PartialEq<T>,
         +Copy<T>,
-        +Drop<T>
+        +Drop<T>,
     >(
-        base: T, mut power: T
+        base: T, mut power: T,
     ) -> T {
         assert!(base != 0_u8.into(), "fast_power: invalid input");
 
@@ -28,7 +28,7 @@ pub impl Math of MathTrait {
                 break;
             }
             base *= base;
-        };
+        }
 
         result.try_into().expect('too large to fit output type')
     }

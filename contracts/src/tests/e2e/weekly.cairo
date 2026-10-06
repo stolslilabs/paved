@@ -1,13 +1,13 @@
-use paved::store::{StoreTrait};
-use paved::models::game::{GameTrait};
-use paved::models::tile::{CENTER};
+use paved::models::game::GameTrait;
+use paved::models::tile::CENTER;
+use paved::store::StoreTrait;
+use paved::tests::setup::setup;
+use paved::tests::setup::setup::IWeeklyDispatcherTrait;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
+use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
-use paved::types::plan::Plan;
-
-use paved::tests::setup::{setup, setup::{IWeeklyDispatcherTrait}};
 
 #[test]
 fn test_weekly_e2e_spawn_starts_game() {
@@ -31,14 +31,9 @@ fn test_weekly_e2e_build_increments_counter() {
     tile.plan = Plan::FFCFFFCFF.into();
     store.set_tile(tile);
 
-    systems.weekly.build(
-        context.game_id,
-        Orientation::North,
-        CENTER,
-        CENTER + 1,
-        Role::None,
-        Spot::None,
-    );
+    systems
+        .weekly
+        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
 
     let game = store.game(context.game_id);
     assert(game.built == 1, 'Weekly: build count');

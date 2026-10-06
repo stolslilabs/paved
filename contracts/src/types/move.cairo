@@ -1,6 +1,5 @@
 // Core imports
 
-
 // Internal imports
 
 use paved::types::direction::{Direction, DirectionImpl};
@@ -38,10 +37,9 @@ pub impl MoveImpl of MoveTrait {
 pub mod tests {
     // Core imports
 
-
     // Local imports
 
-    use super::{Move, MoveImpl, Direction, Spot, Orientation};
+    use super::{Direction, Move, MoveImpl, Orientation, Spot};
 
     #[test]
     fn test_move_rotate_from_north_at_north_west_to_north() {

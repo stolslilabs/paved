@@ -4,17 +4,15 @@
 pub mod ManageableComponent {
     // Starknet imports
 
-    use starknet::ContractAddress;
-    use starknet::get_caller_address;
-
     // Dojo imports
 
     use dojo::world::IWorldDispatcher;
+    use paved::models::player::{Player, PlayerAssert, PlayerImpl};
 
     // Internal imports
 
     use paved::store::{Store, StoreImpl};
-    use paved::models::player::{Player, PlayerImpl, PlayerAssert};
+    use starknet::{ContractAddress, get_caller_address};
 
     // Storage
 
@@ -29,13 +27,13 @@ pub mod ManageableComponent {
 
     #[generate_trait]
     pub impl InternalImpl<
-        TContractState, +HasComponent<TContractState>
+        TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
         fn create(
             self: @ComponentState<TContractState>,
             world: IWorldDispatcher,
             name: felt252,
-            master: ContractAddress
+            master: ContractAddress,
         ) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);

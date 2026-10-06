@@ -1,6 +1,5 @@
 // Core imports
 
-
 // Internal imports
 
 use paved::types::orientation::Orientation;
@@ -140,7 +139,6 @@ pub impl AreaImpl of AreaTrait {
 #[cfg(test)]
 pub mod tests {
     // Core imports
-
 
     // Local imports
 

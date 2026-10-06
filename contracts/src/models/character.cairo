@@ -1,6 +1,5 @@
 // Core imports
 
-
 // Internal imports
 
 use paved::constants;
@@ -18,7 +17,13 @@ pub mod errors {
 pub impl CharImpl of CharTrait {
     #[inline]
     fn new(
-        game_id: u32, player_id: felt252, index: u8, tile_id: u32, spot: Spot, weight: u8, power: u8
+        game_id: u32,
+        player_id: felt252,
+        index: u8,
+        tile_id: u32,
+        spot: Spot,
+        weight: u8,
+        power: u8,
     ) -> Char {
         // [Check] Tile id is valid
         assert(0 != tile_id, errors::INVALID_TILE_ID);
@@ -78,7 +83,7 @@ pub impl CharAssert of AssertTrait {
 pub impl ZeroableChar of ZeroableCharTrait {
     #[inline]
     fn zero() -> Char {
-        Char { game_id: 0, player_id: 0, index: 0, tile_id: 0, spot: 0, weight: 0, power: 0, }
+        Char { game_id: 0, player_id: 0, index: 0, tile_id: 0, spot: 0, weight: 0, power: 0 }
     }
 
     #[inline]
@@ -96,7 +101,7 @@ pub impl ZeroableChar of ZeroableCharTrait {
 pub impl ZeroableCharPosition of ZeroableCharPositionTrait {
     #[inline]
     fn zero() -> CharPosition {
-        CharPosition { game_id: 0, tile_id: 0, spot: 0, player_id: 0, index: 0, }
+        CharPosition { game_id: 0, tile_id: 0, spot: 0, player_id: 0, index: 0 }
     }
 
     #[inline]

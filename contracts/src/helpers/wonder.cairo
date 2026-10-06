@@ -1,16 +1,15 @@
 // Core imports
 
-
 // Internal imports
 
-use paved::store::{Store, StoreImpl};
-use paved::types::spot::Spot;
-use paved::types::area::Area;
-use paved::types::move::{Move, MoveImpl};
-use paved::models::game::{Game, GameImpl};
 use paved::models::builder::{Builder, BuilderImpl};
 use paved::models::character::{Char, CharPosition, ZeroableChar};
-use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
+use paved::models::game::{Game, GameImpl};
+use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
+use paved::store::{Store, StoreImpl};
+use paved::types::area::Area;
+use paved::types::move::{Move, MoveImpl};
+use paved::types::spot::Spot;
 
 #[generate_trait]
 pub impl WonderCount of WonderCountTrait {
@@ -22,7 +21,7 @@ pub impl WonderCount of WonderCountTrait {
         let spot: Spot = tile.occupied_spot.into();
         if spot != at {
             return (0, ZeroableChar::zero());
-        };
+        }
         // [Compute] Extract the character
         let character_position: CharPosition = store.character_position(game, tile, spot.into());
         let character = store
@@ -39,14 +38,14 @@ pub impl WonderCount of WonderCountTrait {
         at: Spot,
         ref count: u32,
         ref visited: Felt252Dict<bool>,
-        ref store: Store
+        ref store: Store,
     ) {
         // [Check] The tile area is already visited, then pass
         let area: Area = tile.area(at);
         let visited_key = tile.get_key(area);
         if visited.get(visited_key) {
             return;
-        };
+        }
         visited.insert(visited_key, true);
         count += 1;
 

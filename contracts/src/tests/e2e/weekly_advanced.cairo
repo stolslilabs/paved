@@ -1,18 +1,15 @@
 use paved::constants;
-use paved::store::{StoreTrait};
-use paved::models::game::{GameTrait};
-use paved::models::tournament::{TournamentTrait};
-use paved::models::tile::{CENTER};
+use paved::models::game::GameTrait;
+use paved::models::tile::CENTER;
+use paved::models::tournament::TournamentTrait;
+use paved::store::StoreTrait;
+use paved::tests::setup::setup;
+use paved::tests::setup::setup::{IERC20DispatcherTrait, IWeeklyDispatcherTrait, PLAYER};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
+use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
-use paved::types::plan::Plan;
-
-use paved::tests::setup::{
-    setup,
-    setup::{IWeeklyDispatcherTrait, IERC20DispatcherTrait, PLAYER},
-};
 use snforge_std::start_cheat_block_timestamp_global;
 
 #[test]
@@ -32,7 +29,9 @@ fn test_weekly_e2e_sponsor_updates_prize_and_balance() {
     let store = StoreTrait::new(world);
 
     let game = store.game(context.game_id);
-    let tournament_id = TournamentTrait::compute_id(game.start_time, constants::WEEKLY_TOURNAMENT_DURATION);
+    let tournament_id = TournamentTrait::compute_id(
+        game.start_time, constants::WEEKLY_TOURNAMENT_DURATION,
+    );
 
     let prize_before = store.tournament(tournament_id).prize;
     let balance_before = context.token.balance_of(PLAYER());
@@ -55,7 +54,9 @@ fn test_weekly_e2e_claim_rewards_top_player_after_tournament_end() {
     let store = StoreTrait::new(world);
 
     let game = store.game(context.game_id);
-    let tournament_id = TournamentTrait::compute_id(game.start_time, constants::WEEKLY_TOURNAMENT_DURATION);
+    let tournament_id = TournamentTrait::compute_id(
+        game.start_time, constants::WEEKLY_TOURNAMENT_DURATION,
+    );
 
     // Force a deterministic top-1 winner for this test.
     let mut tournament = store.tournament(tournament_id);
@@ -84,7 +85,9 @@ fn test_weekly_e2e_claim_reverts_before_tournament_end() {
     let store = StoreTrait::new(world);
 
     let game = store.game(context.game_id);
-    let tournament_id = TournamentTrait::compute_id(game.start_time, constants::WEEKLY_TOURNAMENT_DURATION);
+    let tournament_id = TournamentTrait::compute_id(
+        game.start_time, constants::WEEKLY_TOURNAMENT_DURATION,
+    );
 
     let mut tournament = store.tournament(tournament_id);
     tournament.top1_player_id = context.player_id;
@@ -105,14 +108,9 @@ fn test_weekly_e2e_build_then_discard_tracks_both_actions() {
     tile.plan = Plan::FFCFFFCFF.into();
     store.set_tile(tile);
 
-    systems.weekly.build(
-        context.game_id,
-        Orientation::North,
-        CENTER,
-        CENTER + 1,
-        Role::None,
-        Spot::None,
-    );
+    systems
+        .weekly
+        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
     systems.weekly.discard(context.game_id);
 
     let game = store.game(context.game_id);

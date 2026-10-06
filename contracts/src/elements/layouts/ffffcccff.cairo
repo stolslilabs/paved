@@ -1,13 +1,12 @@
 // Core imports
 
-
 // Internal imports
 
 use paved::elements::layouts::interface::LayoutTrait;
-use paved::types::direction::Direction;
-use paved::types::spot::{Spot, SpotImpl};
-use paved::types::move::{Move, MoveImpl};
 use paved::types::area::Area;
+use paved::types::direction::Direction;
+use paved::types::move::{Move, MoveImpl};
+use paved::types::spot::{Spot, SpotImpl};
 
 pub impl LayoutImpl of LayoutTrait {
     #[inline]
@@ -32,7 +31,7 @@ pub impl LayoutImpl of LayoutTrait {
                 moves.append(Move { direction: Direction::South, spot: Spot::North });
             },
             _ => {},
-        };
+        }
         moves
     }
 
@@ -72,7 +71,7 @@ pub impl LayoutImpl of LayoutTrait {
             Spot::South => {},
             Spot::SouthWest => cities.append(Spot::SouthEast),
             Spot::West => cities.append(Spot::SouthEast),
-        };
+        }
         cities
     }
 }
@@ -81,10 +80,9 @@ pub impl LayoutImpl of LayoutTrait {
 pub mod tests {
     // Core imports
 
-
     // Local imports
 
-    use super::{LayoutImpl, Direction, Spot, Move};
+    use super::{Direction, LayoutImpl, Move, Spot};
 
     #[test]
     fn test_layouts_moves_from_north() {

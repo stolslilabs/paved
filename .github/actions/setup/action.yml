@@ -1,15 +1,25 @@
 name: "Setup"
-description: "Setup tooling"
+description: "Install the Cairo toolchain pinned in .tool-versions (scarb and starknet-foundry)"
+inputs:
+  foundry:
+    description: "Also install starknet-foundry (snforge)"
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
-    - name: Install dojoup
-      run: curl -L https://install.dojoengine.org | bash
+    - name: Read pinned versions
+      id: versions
       shell: bash
-
-    - name: Install dojo
       run: |
-        /home/runner/.config/.dojo/bin/dojoup --version ${{ env.DOJO_VERSION }}
-        sudo mv /home/runner/.config/.dojo/bin/katana /usr/local/bin/
-        sudo mv /home/runner/.config/.dojo/bin/sozo /usr/local/bin/
-      shell: bash
+        echo "scarb=$(awk '$1=="scarb"{print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
+        echo "foundry=$(awk '$1=="starknet-foundry"{print $2}' .tool-versions)" >> "$GITHUB_OUTPUT"
+
+    - uses: software-mansion/setup-scarb@v1
+      with:
+        scarb-version: ${{ steps.versions.outputs.scarb }}
+
+    - uses: foundry-rs/setup-snfoundry@v4
+      if: ${{ inputs.foundry == 'true' }}
+      with:
+        starknet-foundry-version: ${{ steps.versions.outputs.foundry }}
