@@ -21,6 +21,7 @@ pub mod Tutorial {
     use paved::events::Event as PavedEvent;
     use paved::store::{StoreImpl, StoreTrait};
     use paved::types::mode::Mode;
+    use paved::views::{BuilderView, CharacterView, GameView, IGameView, TileView, ViewsImpl};
     use starknet::ContractAddress;
 
     // Local imports
@@ -101,6 +102,26 @@ pub mod Tutorial {
         fn build(ref self: ContractState, game_id: u32) {
             // [Effect] Build a tile
             self.tutoriable.build(game_id);
+        }
+    }
+    #[abi(embed_v0)]
+    impl GameViewImpl of IGameView<ContractState> {
+        fn game(self: @ContractState, game_id: u32) -> GameView {
+            ViewsImpl::game(StoreImpl::new(), game_id)
+        }
+
+        fn tiles(self: @ContractState, game_id: u32, from: u32, count: u32) -> Array<TileView> {
+            ViewsImpl::tiles(StoreImpl::new(), game_id, from, count)
+        }
+
+        fn builder(self: @ContractState, game_id: u32, player_id: felt252) -> BuilderView {
+            ViewsImpl::builder(StoreImpl::new(), game_id, player_id)
+        }
+
+        fn characters(
+            self: @ContractState, game_id: u32, player_id: felt252,
+        ) -> Array<CharacterView> {
+            ViewsImpl::characters(StoreImpl::new(), game_id, player_id)
         }
     }
 }
