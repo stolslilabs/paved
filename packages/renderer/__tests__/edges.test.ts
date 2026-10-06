@@ -48,5 +48,6 @@ describe("buildEdgesGeometry", () => {
     for (const file of files) {
       expectSameEdges(readTileGeometry(`${MODELS}/${file}`));
     }
-  });
+    // three's EdgesGeometry, the reference, takes about 0.6 s here and 5.7 s on the CI runner.
+  }, 60_000);
 });
