@@ -5,7 +5,7 @@ builds and its tests run, but it is not developed). `app/` is deprecated.
 
 ## Build and test
 
-Bun is pinned to **1.3.1** (`packageManager` in the root `package.json`, and in
+Bun is pinned to **1.4.2** (`packageManager` in the root `package.json`, and in
 `.github/workflows/client.yaml`). Turbo orchestrates the packages.
 
 ```sh
