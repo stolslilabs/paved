@@ -3,7 +3,8 @@ import type { Codecs, ContractName } from "./abis";
 import type { DecodedEvent, Encodable, RawEvent } from "./codec";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
-import { gameContract, type GameKey, type GameMode, type PriceView } from "./views";
+import { rewardOf, type Rank } from "./prize";
+import { gameContract, type GameKey, type GameMode, type PriceView, type TournamentView } from "./views";
 
 export interface Call {
   contractAddress: string;
@@ -43,6 +44,22 @@ export class EntryPriceChangedError extends Error {
   constructor(readonly confirmed: bigint, readonly current: bigint) {
     super("The entry price changed: confirm again");
     this.name = "EntryPriceChangedError";
+  }
+}
+
+/** The reward at send is not what the player confirmed: nothing was sent. */
+export class RewardChangedError extends Error {
+  constructor(readonly confirmed: bigint, readonly current: bigint) {
+    super("The reward changed: confirm again");
+    this.name = "RewardChangedError";
+  }
+}
+
+/** The sponsored amount at send is not the one the player confirmed: nothing was sent. */
+export class SponsorAmountChangedError extends Error {
+  constructor(readonly confirmed: bigint, readonly current: bigint) {
+    super("The sponsored amount changed: confirm again");
+    this.name = "SponsorAmountChangedError";
   }
 }
 
@@ -86,6 +103,8 @@ export class PavedWriter {
       receiptPollMs?: number;
       /** The Daily entry (`Daily.entry_price`), read before each Daily spawn. */
       entryPrice?: () => Promise<PriceView>;
+      /** `Daily.tournament`, read before each claim. */
+      tournament?: (id: number) => Promise<TournamentView>;
       /** Called with the decoded events of every successful write (the event reader keeps them). */
       onEvents?: (contract: ContractName, events: DecodedEvent[]) => void;
     },
@@ -161,12 +180,38 @@ export class PavedWriter {
     return this.send(contract, [this.call(contract, "surrender", [key.gameId])]);
   }
 
-  claim(tournamentId: number, rank: number): Promise<WriteResult> {
+  /**
+   * Claims a rank of a closed tournament; the contract pays the reward out of the prize pool. The
+   * tournament is read first: `confirmedReward` is what the player saw and confirmed, and a
+   * different reward, a rank already claimed or a tournament not over sends nothing.
+   */
+  async claim(tournamentId: number, rank: Rank, options: { confirmedReward: bigint }): Promise<WriteResult> {
+    if (!this.options.tournament) throw new WriteError("No tournament reader: cannot check the reward");
+    let tournament: TournamentView;
+    try {
+      tournament = await this.options.tournament(tournamentId);
+    } catch (error) {
+      throw new WriteError(`Cannot read the tournament: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!tournament.over) throw new WriteError("The tournament is not over");
+    if ([tournament.top1Claimed, tournament.top2Claimed, tournament.top3Claimed][rank - 1]) {
+      throw new WriteError("This reward was already claimed");
+    }
+    const reward = rewardOf(tournament, rank);
+    if (reward !== options.confirmedReward) throw new RewardChangedError(options.confirmedReward, reward);
     return this.send("Daily", [this.call("Daily", "claim", [tournamentId, rank])]);
   }
 
-  /** Adds `amount` to the current tournament's prize; approves it in the same transaction. */
-  sponsor(amount: bigint): Promise<WriteResult> {
+  /**
+   * Adds `amount` to the current tournament's prize; approves exactly it in the same transaction.
+   * `confirmedAmount` is what the player saw and confirmed: another amount sends nothing. An amount
+   * of 0 is refused.
+   */
+  sponsor(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult> {
+    if (amount <= 0n) return Promise.reject(new WriteError("A sponsored amount must be above 0"));
+    if (options.confirmedAmount !== amount) {
+      return Promise.reject(new SponsorAmountChangedError(options.confirmedAmount, amount));
+    }
     return this.send("Daily", [
       this.call("Token", "approve", [this.options.deployment.addresses.Daily, amount]),
       this.call("Daily", "sponsor", [amount]),

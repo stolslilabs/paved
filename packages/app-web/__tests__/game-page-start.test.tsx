@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import React from "react";
+import React, { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { PavedProvider } from "@paved/chain";
 import type { Deployment, PavedClient } from "@paved/chain";
 import { GamePage } from "../src/pages/Game";
@@ -25,7 +25,16 @@ function Where() {
   return <output data-testid="where">{`${l.pathname}${l.search}|${JSON.stringify(l.state)}`}</output>;
 }
 
-function setup(opts: { state?: unknown; url?: string; spawn?: () => Promise<{ gameId: number }>; account?: typeof account | null }) {
+function GoHome() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate("/")}>
+      browser back
+    </button>
+  );
+}
+
+function setup(opts: { state?: unknown; url?: string; spawn?: () => Promise<{ gameId: number }>; account?: typeof account | null; strict?: boolean }) {
   const spawn = vi.fn(opts.spawn ?? (async () => ({ gameId: 9 })));
   const playerGames = vi.fn(async () => []);
   const client = {
@@ -33,21 +42,30 @@ function setup(opts: { state?: unknown; url?: string; spawn?: () => Promise<{ ga
     events: { playerGames },
     writer: () => ({ spawn }),
   } as unknown as PavedClient;
-  render(
-    <PavedProvider deployment={deployment} account={opts.account === undefined ? account : opts.account} client={client}>
-      <MemoryRouter initialEntries={[{ pathname: "/game", search: opts.url ?? "?mode=daily", state: opts.state }]}>
-        <Where />
-        <Routes>
-          <Route path="/game" element={<GamePage />} />
-        </Routes>
-      </MemoryRouter>
-    </PavedProvider>,
-  );
-  return { spawn, playerGames };
+  const tree = (acc: typeof account | null) => {
+    const inner = (
+      <PavedProvider deployment={deployment} account={acc} client={client}>
+        <MemoryRouter initialEntries={[{ pathname: "/game", search: opts.url ?? "?mode=daily", state: opts.state }]}>
+          <Where />
+          <GoHome />
+          <Routes>
+            <Route path="/game" element={<GamePage />} />
+            <Route path="/" element={<span>landing</span>} />
+          </Routes>
+        </MemoryRouter>
+      </PavedProvider>
+    );
+    return opts.strict ? <StrictMode>{inner}</StrictMode> : inner;
+  };
+  const utils = render(tree(opts.account === undefined ? account : opts.account));
+  return { spawn, playerGames, rerenderWith: (acc: typeof account | null) => utils.rerender(tree(acc)) };
 }
 
 const consent = { start: true, confirmedAmount: "10" };
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe("GamePage start", () => {
   it("says 'Spawning game...' with Back disabled while a paid start is in flight, never 'No game selected'", async () => {
@@ -86,5 +104,50 @@ describe("GamePage start", () => {
     const { spawn } = setup({ state: null });
     expect(screen.getByText("No game selected")).toBeTruthy();
     expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it("a writer that becomes ready later spawns exactly once, then opens the game", async () => {
+    const { spawn, rerenderWith } = setup({ state: consent, account: null });
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/\|null$/));
+    expect(spawn).not.toHaveBeenCalled();
+    rerenderWith(account);
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/id=9/));
+    expect(spawn).toHaveBeenCalledTimes(1);
+  });
+
+  it("under StrictMode with a ready writer, spawn is called once", async () => {
+    const { spawn } = setup({ state: consent, strict: true });
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/id=9/));
+    expect(spawn).toHaveBeenCalledTimes(1);
+  });
+
+  it("a consent that finds no ready writer within 30 s is dropped: the player confirms again", async () => {
+    vi.useFakeTimers();
+    const { spawn, rerenderWith } = setup({ state: consent, account: null });
+    expect(screen.getByText("Not connected: no playing account")).toBeTruthy();
+    act(() => {
+      vi.advanceTimersByTime(29_000);
+    });
+    expect(screen.getByText("Not connected: no playing account")).toBeTruthy();
+    act(() => {
+      vi.advanceTimersByTime(1_500);
+    });
+    expect(screen.getByText("Not connected: confirm again on the landing page")).toBeTruthy();
+    // A writer arriving afterwards finds no intent.
+    rerenderWith(account);
+    expect(spawn).not.toHaveBeenCalled();
+  });
+
+  it("a start that finishes after the page was left does not navigate", async () => {
+    let finish!: (v: { gameId: number }) => void;
+    const { spawn } = setup({ state: consent, spawn: () => new Promise((r) => (finish = r)) });
+    await waitFor(() => expect(spawn).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByText("browser back"));
+    expect(screen.getByText("landing")).toBeTruthy();
+    await act(async () => {
+      finish({ gameId: 9 });
+    });
+    expect(screen.getByTestId("where").textContent).toMatch(/^\/\|/);
+    expect(screen.getByText("landing")).toBeTruthy();
   });
 });

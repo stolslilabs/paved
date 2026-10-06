@@ -266,8 +266,13 @@ export class AbiCodec {
       const index = Number(next());
       const variant = variants[index];
       // A code this ABI does not list (a variant added by a later contract version, e.g. a new role
-      // in P4): kept as its number, which the interface says to treat as "unknown".
-      if (!variant) return index;
+      // in P4): kept as its number, which the interface says to treat as "unknown", but only for an
+      // enum whose listed variants all are unit variants. Otherwise the unknown variant may carry a
+      // payload of unknown length, and the felts that follow would be misread: refuse.
+      if (!variant) {
+        if (variants.every((v) => v.type === "()")) return index;
+        throw new Error(`Cannot decode ${type}: variant ${index} is unknown and the enum has variants with a payload`);
+      }
       if (variant.type !== "()") throw new Error(`Cannot decode the payload of ${type}::${variant.name}`);
       return index;
     }

@@ -22,7 +22,7 @@ export interface BoardTile {
 }
 
 export interface BoardCharacter {
-  /** Role code, 1 Lord to 5 Pilgrim. */
+  /** Role code, 1 Lord to 7 Herdsman (6 and 7 since P4). */
   role: number;
   tileId: number;
   x: number;

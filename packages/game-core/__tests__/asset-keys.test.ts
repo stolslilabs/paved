@@ -69,8 +69,15 @@ describe("getCharacterKey()", () => {
     expect(getCharacterKey(0)).toBe("00");
   });
 
-  it("index 6 returns '00' (out of range)", () => {
-    expect(getCharacterKey(6)).toBe("00");
+  it("indexes 6 and 7 return the P4 roles", () => {
+    expect(getCharacterKey(6)).toBe("woodsman");
+    expect(getCharacterKey(7)).toBe("herdsman");
+    expect(getCharacterPath(6)).toBe("/assets/characters/woodsman.png");
+    expect(getCharacterPath(7)).toBe("/assets/characters/herdsman.png");
+  });
+
+  it("index 8 returns '00' (out of range)", () => {
+    expect(getCharacterKey(8)).toBe("00");
   });
 });
 

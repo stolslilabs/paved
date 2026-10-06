@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
-import { usePaved, useRead } from "@paved/chain";
+import { claimableRanks, countedTournamentIds, usePaved, useRead } from "@paved/chain";
 import type { GameMode, GameView, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
-import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, podium, TOKEN_LABEL } from "../utils/landing-helpers";
+import { PrizePanel } from "../components/PrizePanel";
+import type { Claimable } from "../components/PrizePanel";
+import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, playerNameError, podium, TOKEN_LABEL, tokenLabel } from "../utils/landing-helpers";
 
 interface ModeInfo {
   mode: GameMode;
@@ -37,12 +39,24 @@ async function listGames(client: PavedClient, address: string): Promise<ListedGa
   return Promise.all(shown.map(async (g) => ({ ...g, view: await client.views.game({ mode: g.mode, gameId: g.gameId }) })));
 }
 
+/** Tournaments read for prizes: the newest ones the player's finished games counted for. */
+const CLAIM_TOURNAMENTS_READ = 30;
+
+/** What the player may claim, from their counted tournaments (events) and one `tournament` view each. */
+async function listClaimables(client: PavedClient, address: string, playerId: string): Promise<Claimable[]> {
+  const ids = countedTournamentIds(await client.events.playerGames(address, ["daily"])).slice(0, CLAIM_TOURNAMENTS_READ);
+  const tournaments = await Promise.all(ids.map((id) => client.views.tournament(id)));
+  return tournaments.flatMap((t) => claimableRanks(t, playerId).map(({ rank, reward }) => ({ tournamentId: t.id, rank, reward })));
+}
+
 export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }) {
   const navigate = useNavigate();
   const { status, writer, address, deployment } = usePaved();
   const [selected, setSelected] = useState<GameMode | null>(null);
   const [writing, setWriting] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [nameError, setNameError] = useState<string | null>(null);
 
   // Reads happen on connect, after this client's writes (refresh), and when the page becomes visible.
   const player = useRead((c) => (address ? c.player(address) : Promise.resolve(null)), [address]);
@@ -53,6 +67,13 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const tournament = useRead<TournamentView>(
     async (c) => c.views.tournament(await c.views.currentTournamentId()),
     [],
+    { onVisible: true },
+  );
+
+  const playerId = player.data?.id ?? null;
+  const claimables = useRead(
+    (c) => (address && playerId ? listClaimables(c, address, playerId) : Promise.resolve([])),
+    [address, playerId],
     { onVisible: true },
   );
 
@@ -74,8 +95,18 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   // "Create Account" only once a read has answered that this address has no player: with the RPC
   // down or the read in flight, a registered player must not be offered a create that reverts.
   const canCreate = canOfferCreate(status, player);
-  const handleCreate = () =>
-    canCreate && writer && write(() => writer.createPlayer("Paved", { mintTestToken: supportsMint }), [player.refresh, balance.refresh]);
+  const handleCreate = () => {
+    if (!canCreate || !writer) return;
+    const invalid = playerNameError(name);
+    setNameError(invalid);
+    if (invalid) return;
+    return write(() => writer.createPlayer(name, { mintTestToken: supportsMint }), [player.refresh, balance.refresh]);
+  };
+  // Both pay or receive tokens: the panel asks for a confirm and hands over what the player confirmed.
+  const handleClaim = (c: Claimable, confirmedReward: bigint) =>
+    writer && write(() => writer.claim(c.tournamentId, c.rank, { confirmedReward }), [claimables.refresh, balance.refresh, tournament.refresh]);
+  const handleSponsor = (amount: bigint, confirmedAmount: bigint) =>
+    writer && write(() => writer.sponsor(amount, { confirmedAmount }), [balance.refresh, tournament.refresh]);
   const readErrors = (
     [
       ["player", player.error],
@@ -83,6 +114,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
       ["games", games.error],
       ["tournament", tournament.error],
       ["entry price", price.error],
+      ["prizes", claimables.error],
     ] as const
   ).filter(([, error]) => error);
   const handleMint = () => writer && write(() => writer.mint(), [balance.refresh]);
@@ -92,10 +124,10 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const completed = allGames.filter((g) => g.over);
   const daily = tournament.data;
 
-  const fee = entryFee(price, deployment.addresses.Token);
+  const fee = entryFee(price, deployment.addresses.Token, deployment.tokenDecimals);
   const feeLabel =
     fee.kind === "amount"
-      ? `${formatTokenAmount(fee.amount, deployment.tokenDecimals)} ${TOKEN_LABEL}`
+      ? tokenLabel(fee.amount, deployment.tokenDecimals)
       : fee.kind === "free"
         ? "Free"
         : fee.kind === "unknown-token"
@@ -111,7 +143,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     tileCount: m.tiles,
     duration: m.duration,
     entryFee: !m.paid ? "Free" : feeLabel,
-    prizePool: m.mode === "daily" && daily ? formatTokenAmount(daily.prize, deployment.tokenDecimals) : undefined,
+    prizePool: m.mode === "daily" && daily && deployment.tokenDecimals !== null ? formatTokenAmount(daily.prize, deployment.tokenDecimals) : undefined,
     topPlayers: m.mode === "daily" && daily ? podium(daily) : undefined,
     timeRemaining: m.mode === "daily" && daily ? formatTimeRemaining(daily.endTime) : undefined,
     hasActiveGame: active.some((g) => g.mode === m.mode),
@@ -151,12 +183,40 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
       <div style={{ position: "fixed", right: 16, top: 16, zIndex: 30, width: 320 }}>
         <TokenPanel
           networkLabel={deployment.network}
-          balanceLabel={`${formatTokenAmount(balance.data ?? 0n, deployment.tokenDecimals)} ${TOKEN_LABEL}`}
+          balanceLabel={tokenLabel(balance.data ?? 0n, deployment.tokenDecimals)}
           supportsMint={supportsMint && status === "ready"}
           isMinting={writing}
           error={writeError}
           onMint={handleMint}
         />
+        {canCreate && (
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+            <input
+              aria-label="Player name"
+              placeholder="Player name (1 to 31 characters)"
+              maxLength={31}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameError(null);
+              }}
+              style={{ background: "#111", color: "#fff", border: "1px solid #555", borderRadius: 6, padding: "6px 8px" }}
+            />
+            {nameError && <span role="alert" style={{ color: "#fecaca", fontSize: 12 }}>{nameError}</span>}
+          </div>
+        )}
+        {status === "ready" && player.data && (
+          <div style={{ marginTop: 8 }}>
+            <PrizePanel
+              decimals={deployment.tokenDecimals}
+              claimables={claimables.data ?? []}
+              busy={writing}
+              error={null /* write errors show in the token panel above */}
+              onClaim={handleClaim}
+              onSponsor={handleSponsor}
+            />
+          </div>
+        )}
       </div>
       {readErrors.length > 0 && (
         <div role="alert" style={{ background: "#7f1d1d", color: "#fff", padding: "8px 12px", fontSize: 14 }}>
@@ -164,7 +224,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
           {readErrors.map(([what, error]) => `${what} (${error})`).join("; ")}
           <button
             type="button"
-            onClick={() => [player, balance, games, tournament, price].forEach((r) => r.refresh())}
+            onClick={() => [player, balance, games, tournament, price, claimables].forEach((r) => r.refresh())}
             style={{ marginLeft: 12, background: "transparent", border: "1px solid #fff", color: "#fff", borderRadius: 6, cursor: "pointer" }}
           >
             Retry

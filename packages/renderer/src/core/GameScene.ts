@@ -89,6 +89,7 @@ export class GameScene {
   private shadowsDirty = true;
   private isWebGPU = false;
   private latestTiles: TileRenderData[] = [];
+  private latestCharacters: CharacterRenderData[] = [];
   private renderProfile: RenderProfile = "play";
   private ambientLight: THREE.AmbientLight | null = null;
   private hemisphereLight: THREE.HemisphereLight | null = null;
@@ -201,6 +202,11 @@ export class GameScene {
     });
 
     this.setupInteraction(surface);
+
+    // Tiles and characters handed over while the models were loading were drawn from nothing:
+    // draw the last ones given now that they can be.
+    this.updateTiles(this.latestTiles);
+    this.updateCharacters(this.latestCharacters);
   }
 
   private setupLighting(): void {
@@ -349,6 +355,7 @@ export class GameScene {
 
   /** Update character meshes */
   updateCharacters(chars: CharacterRenderData[]): void {
+    this.latestCharacters = chars.slice();
     this.characters.updateCharacters(chars);
     this.requestRender();
   }

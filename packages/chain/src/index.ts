@@ -36,7 +36,16 @@ export { EventReader, receiptEvents } from "./events";
 export type { PlayerGame } from "./events";
 export { placementOutcome } from "./placement";
 export type { PlacementOutcome } from "./placement";
-export { EntryPriceChangedError, RECEIPT_POLL_MS, PavedWriter, WriteError } from "./writer";
+export { claimableRanks, countedTournamentIds, rewardOf } from "./prize";
+export type { Rank } from "./prize";
+export {
+  EntryPriceChangedError,
+  RECEIPT_POLL_MS,
+  PavedWriter,
+  RewardChangedError,
+  SponsorAmountChangedError,
+  WriteError,
+} from "./writer";
 export type { BuildMove, WriteAccount, WriteResult } from "./writer";
 export { PavedClient, createPavedClient } from "./paved-client";
 export type { PavedRpc, PlayerRecord } from "./paved-client";

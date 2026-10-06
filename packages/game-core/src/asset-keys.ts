@@ -31,7 +31,7 @@ export function getTilePath(plan: PlanType, basePath = "/assets/tiles"): string 
   return `${basePath}/${getPlanKey(plan)}.png`;
 }
 
-const CHARACTER_KEYS = ["lord", "lady", "adventurer", "paladin", "pilgrim"] as const;
+const CHARACTER_KEYS = ["lord", "lady", "adventurer", "paladin", "pilgrim", "woodsman", "herdsman"] as const;
 
 export function getCharacterKey(index: number): string {
   return CHARACTER_KEYS[index - 1] ?? "00";

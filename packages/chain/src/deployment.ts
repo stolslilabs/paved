@@ -24,7 +24,8 @@ export interface Deployment {
   chainId: string;
   /** First block to read events from. */
   deployedBlock: number;
-  tokenDecimals: number;
+  /** From the deployment file only; null when it is missing or not an integer 0..77: amounts are then not shown. */
+  tokenDecimals: number | null;
   /** Addresses of the four contracts; an empty string when unknown. */
   addresses: Record<ContractName, string>;
   /** True when the RPC URL and the four addresses are known: the only case where writes are offered. */
@@ -34,7 +35,6 @@ export interface Deployment {
 }
 
 const NAMES: ContractName[] = ["Account", "Daily", "Tutorial", "Token"];
-const DEFAULT_DECIMALS = 18;
 
 function isAddress(value: string | undefined): value is string {
   if (!value) return false;
@@ -76,7 +76,7 @@ export function resolveDeployment(input: {
     rpcUrl,
     chainId: file.chain_id ?? "",
     deployedBlock,
-    tokenDecimals: file.token?.decimals ?? DEFAULT_DECIMALS,
+    tokenDecimals: Number.isInteger(file.token?.decimals) && file.token!.decimals! >= 0 && file.token!.decimals! <= 77 ? file.token!.decimals! : null,
     addresses,
     configured: missing.length === 0,
     missing,

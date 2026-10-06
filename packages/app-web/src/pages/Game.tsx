@@ -12,6 +12,9 @@ import { parseGameParams } from "../utils/game-params";
 import { buildGameRoute } from "../utils/mode-routing";
 import { readStartIntent, startGame } from "../utils/start-game";
 
+/** How long a start consent waits for a ready writer before it is dropped. */
+const START_CONSENT_MS = 30_000;
+
 let _debugOnce = true;
 
 /** Validate placement: adjacent + all touching edges must match (Carcassonne rules) */
@@ -117,8 +120,18 @@ export function GamePage() {
   // A consent was found at mount and is waiting for a writer, or its start is in flight.
   const [wantsStart, setWantsStart] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [expired, setExpired] = useState(false);
+  // False once the page is gone (the browser's Back during an in-flight start): no navigation then.
+  const alive = useRef(true);
   const intentRef = useRef<{ confirmedAmount: bigint | undefined } | null>(null);
   const consumed = useRef(false);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (consumed.current || gameParams.gameId !== null) return;
@@ -132,6 +145,18 @@ export function GamePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A consent that finds no ready writer within START_CONSENT_MS is dropped: the player confirms again.
+  useEffect(() => {
+    if (!wantsStart) return;
+    const timer = setTimeout(() => {
+      if (consumed.current) return;
+      intentRef.current = null;
+      setWantsStart(false);
+      setExpired(true);
+    }, START_CONSENT_MS);
+    return () => clearTimeout(timer);
+  }, [wantsStart]);
+
   useEffect(() => {
     const intent = intentRef.current;
     if (!intent || consumed.current || !client || !writer || !address) return;
@@ -142,7 +167,7 @@ export function GamePage() {
       listGames: () => client.events.playerGames(address, [gameParams.mode]),
       spawn: (confirmedAmount) => writer.spawn(gameParams.mode, { confirmedAmount }),
       clearIntent: () => {}, // already cleared at mount
-      open: (gameId) => navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
+      open: (gameId) => alive.current && navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
     }).catch((error) => {
       setSpawnError(error instanceof Error ? error.message : String(error));
       setStarting(false);
@@ -161,6 +186,7 @@ export function GamePage() {
     if (spawnError) return <Screen text={`Cannot start a game: ${spawnError}`} onBack={() => navigate("/")} />;
     // A paid start in flight: the consent is already cleared, so say what is happening, not "No game selected".
     if (starting) return <Screen text="Spawning game..." onBack={() => navigate("/")} backDisabled />;
+    if (expired) return <Screen text="Not connected: confirm again on the landing page" onBack={() => navigate("/")} />;
     // Only the landing page's confirm starts a game: a link, a reload or Back never pays an entry.
     const consent = wantsStart || readStartIntent(location.state, gameParams.mode) !== null;
     if (!consent) return <Screen text="No game selected" onBack={() => navigate("/")} />;
@@ -192,13 +218,9 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
   const hand = state?.hand ?? null;
   const game = state?.game ?? null;
 
-  // `scene` is a dependency on purpose: GameCanvas hands `tiles` to the renderer in an effect that
-  // runs before the scene has loaded its models, and again only when `tiles` changes. With no
-  // polling, the board read once before the scene was ready must be handed over again once it is.
   const { tiles, characters } = useMemo(
     () => (state ? toRenderBoard(state, game?.playerId ?? "0x0") : { tiles: [] as TileRenderData[], characters: [] }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state, game?.playerId, scene],
+    [state, game?.playerId],
   );
 
   const handleReady = useCallback((s: GameScene) => {
@@ -301,6 +323,15 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
     await session.discard(() => writer.discard(gameKey));
   }, [session, writer, readonly, gameKey]);
 
+  const [confirmingSurrender, setConfirmingSurrender] = useState(false);
+  // Surrender ends the game with its score so far; it asks first and is serialised by the writer.
+  const handleSurrender = useCallback(async () => {
+    setConfirmingSurrender(false);
+    if (!session || !writer || readonly) return;
+    await session.surrender(() => writer.surrender(gameKey));
+  }, [session, writer, readonly, gameKey]);
+  const canSurrender = !readonly && !loading && game !== null && !game.over;
+
   // Stable refs for keyboard hotkeys — avoids re-registering listener on every state change
   const hotkeys = useRef({
     handleRotate,
@@ -353,7 +384,8 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
           if (!h.loading && h.hand && h.hoverState?.valid) h.handleConfirm();
           break;
         case "d":
-          if (!h.loading && h.game) h.handleDiscard();
+          // The button's own condition: nothing to discard on a finished game or with an empty hand.
+          if (!h.loading && h.hand) h.handleDiscard();
           break;
         default: {
           const spotNum = spotKeyToNumber(e.key);
@@ -484,6 +516,24 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
             >
               Recenter (F)
             </button>
+            {!readonly && (
+              <button
+                type="button"
+                onClick={() => setConfirmingSurrender(true)}
+                disabled={!canSurrender}
+                style={{
+                  border: "1px solid rgba(248,113,113,0.6)",
+                  background: "rgba(127,29,29,0.4)",
+                  color: "#fecaca",
+                  borderRadius: 8,
+                  padding: "6px 10px",
+                  cursor: canSurrender ? "pointer" : "default",
+                  opacity: canSurrender ? 1 : 0.5,
+                }}
+              >
+                {loading ? "Working..." : "Surrender"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -517,6 +567,26 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
           </div>
         )}
       </div>
+
+      {confirmingSurrender && (
+        <div
+          role="dialog"
+          aria-label="Surrender"
+          style={{ position: "absolute", inset: 0, zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)" }}
+        >
+          <div style={{ background: "#171717", border: "1px solid #555", borderRadius: 12, padding: 24, display: "flex", flexDirection: "column", gap: 16, maxWidth: 360, color: "#f5f5f5" }}>
+            <span>Surrender this game? It ends now with your current score of {game?.score ?? 0}. This cannot be undone.</span>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button type="button" onClick={handleSurrender} disabled={!canSurrender} style={{ flex: 1, background: "#b91c1c", border: "none", color: "#fff", padding: "10px 16px", borderRadius: 8, cursor: "pointer" }}>
+                Confirm surrender
+              </button>
+              <button type="button" onClick={() => setConfirmingSurrender(false)} style={{ background: "transparent", border: "1px solid #555", color: "#999", padding: "10px 16px", borderRadius: 8, cursor: "pointer" }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <GameCompleteDialog score={game?.score ?? 0} visible={game?.over === true} onClose={() => navigate("/")} />
     </div>
