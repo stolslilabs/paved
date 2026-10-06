@@ -22,11 +22,11 @@
   },
   "dependencies": {
     "@paved/game-core": "workspace:*",
-    "@tamagui/colors": "2.0.0-rc.17",
-    "@tamagui/config": "2.0.0-rc.17",
-    "@tamagui/core": "2.0.0-rc.17",
-    "@tamagui/themes": "2.0.0-rc.17",
-    "tamagui": "2.0.0-rc.17",
+    "@tamagui/colors": "2.7.7",
+    "@tamagui/config": "2.7.7",
+    "@tamagui/core": "2.7.7",
+    "@tamagui/themes": "2.7.7",
+    "tamagui": "2.7.7",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
