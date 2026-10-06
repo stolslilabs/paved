@@ -104,7 +104,7 @@ pub impl TournamentImpl of TournamentTrait {
 
     #[inline]
     fn score(
-        ref self: Tournament, player_id: felt252, score: u32, game_id: u32, multiplier_fp: u32
+        ref self: Tournament, player_id: felt252, score: u32, game_id: u32, multiplier_fp: u32,
     ) {
         if score <= self.top3_score {
             return;
@@ -248,7 +248,7 @@ pub mod tests {
 
     // Local imports
 
-    use super::{Tournament, TournamentImpl, FP};
+    use super::{FP, Tournament, TournamentImpl};
 
     // Constants
 

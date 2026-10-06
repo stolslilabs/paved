@@ -1,10 +1,9 @@
-use paved::types::mode::Mode;
-use paved::store::{StoreTrait};
-use paved::tests::setup::{
-    setup,
-    setup::{IConfigurableDispatcherTrait, Mode as SetupMode},
+use paved::store::StoreTrait;
+use paved::tests::setup::setup;
+use paved::tests::setup::setup::{
+    IConfigurableDispatcherTrait, IDailyDispatcherTrait, Mode as SetupMode,
 };
-use paved::tests::setup::setup::{IDailyDispatcherTrait};
+use paved::types::mode::Mode;
 use snforge_std::start_cheat_caller_address;
 
 #[test]
@@ -29,16 +28,7 @@ fn test_configurable_create_with_config_rejects_private_without_access_root() {
     let _ = systems
         .configurable
         .create_with_config(
-            Mode::Daily.into(),
-            2,
-            1_000_000_000_000_000_000,
-            86_400,
-            38,
-            true,
-            true,
-            true,
-            0,
-            0,
+            Mode::Daily.into(), 2, 1_000_000_000_000_000_000, 86_400, 38, true, true, true, 0, 0,
         );
 }
 

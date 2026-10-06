@@ -1,35 +1,35 @@
 // Core imports
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
-use core::poseidon::{PoseidonTrait, HashState};
 use core::hash::HashStateTrait;
+use core::poseidon::{HashState, PoseidonTrait};
 use origami_random::deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 
 // Internal imports
 
 use paved::constants;
-use paved::store::{Store, StoreImpl};
+use paved::helpers::bitmap::Bitmap;
+use paved::helpers::conflict::Conflict;
 use paved::helpers::economy_curve::FP;
 use paved::helpers::generic::GenericCount;
 use paved::helpers::wonder::WonderCount;
-use paved::helpers::conflict::Conflict;
-use paved::helpers::bitmap::Bitmap;
-use paved::types::plan::Plan;
-use paved::types::deck::{Deck, DeckImpl};
-use paved::types::spot::{Spot, SpotImpl};
-use paved::types::area::Area;
-use paved::types::role::Role;
-use paved::types::mode::{Mode, ModeTrait};
-use paved::types::category::{Category, CategoryImpl};
-use paved::types::layout::{Layout, LayoutImpl};
-use paved::types::direction::{Direction, DirectionImpl};
-use paved::types::orientation::{Orientation, IntoOrientationU8, IntoU8Orientation};
-use paved::types::move::{Move, MoveImpl};
-use paved::models::player::{Player, PlayerTrait};
 use paved::models::builder::{Builder, BuilderTrait};
-use paved::models::character::{Char, CharPosition, CharTrait, CharAssert};
-use paved::models::tile::{Tile, TileTrait, TileIntoLayout};
+use paved::models::character::{Char, CharAssert, CharPosition, CharTrait};
 pub use paved::models::index::Game;
+use paved::models::player::{Player, PlayerTrait};
+use paved::models::tile::{Tile, TileIntoLayout, TileTrait};
+use paved::store::{Store, StoreImpl};
+use paved::types::area::Area;
+use paved::types::category::{Category, CategoryImpl};
+use paved::types::deck::{Deck, DeckImpl};
+use paved::types::direction::{Direction, DirectionImpl};
+use paved::types::layout::{Layout, LayoutImpl};
+use paved::types::mode::{Mode, ModeTrait};
+use paved::types::move::{Move, MoveImpl};
+use paved::types::orientation::{IntoOrientationU8, IntoU8Orientation, Orientation};
+use paved::types::plan::Plan;
+use paved::types::role::Role;
+use paved::types::spot::{Spot, SpotImpl};
 
 pub mod errors {
     pub const INVALID_NAME: felt252 = 'Game: invalid name';
@@ -170,16 +170,16 @@ pub impl GameImpl of GameTrait {
     }
 
     #[inline]
-    fn add_score(ref self: Game, score: u32,) {
+    fn add_score(ref self: Game, score: u32) {
         self.score += score;
     }
 
     #[inline]
-    fn sub_score(ref self: Game, ref score: u32,) {
+    fn sub_score(ref self: Game, ref score: u32) {
         // [Check] Update score
         if self.score < score {
             score = self.score;
-        };
+        }
         self.score -= score;
     }
 
@@ -198,7 +198,7 @@ pub impl GameImpl of GameTrait {
         } else {
             let number: u32 = deck.total_count().into();
             let mut random_deck: OrigamiDeck = OrigamiDeckTrait::from_bitmap(
-                self.seed, number, self.tiles
+                self.seed, number, self.tiles,
             );
             let plan_id: u8 = random_deck.draw().into();
             let tiles = if random_deck.remaining == 0 {
@@ -237,7 +237,7 @@ pub impl GameImpl of GameTrait {
                 // [Check] Otherwise returns the characters
                 Option::None => { break; },
             };
-        };
+        }
 
         // [Compute] Assess wonders in the neighborhood
         let mut neighbors = store.neighborhood(self, tile.x, tile.y);
@@ -269,7 +269,7 @@ pub impl GameImpl of GameTrait {
                 // [Effect] Solve and collect characters
                 if 0 != count.into() && 0 != characters.len().into() {
                     GenericCount::solve(
-                        ref self, Category::Road, count, base, ref characters, ref store
+                        ref self, Category::Road, count, base, ref characters, ref store,
                     );
                 }
             },
@@ -278,7 +278,7 @@ pub impl GameImpl of GameTrait {
                 // [Effect] Solve and collect characters
                 if 0 != count.into() && 0 != characters.len().into() {
                     GenericCount::solve(
-                        ref self, Category::City, count, base, ref characters, ref store
+                        ref self, Category::City, count, base, ref characters, ref store,
                     );
                 }
             },
@@ -378,7 +378,7 @@ pub mod tests {
 
     // Local imports
 
-    use super::{Game, GameTrait, GameImpl, constants, Plan, Deck, DeckImpl, Mode};
+    use super::{Deck, DeckImpl, Game, GameImpl, GameTrait, Mode, Plan, constants};
 
     // Constants
 
@@ -426,7 +426,7 @@ pub mod tests {
             let (_, plan) = game.draw_plan();
             let key: felt252 = plan.into();
             counts.insert(key, counts.get(key) + 1)
-        };
+        }
         // [Assert] Each plan has been drawn the right amount of time
         assert(counts.get(Plan::None.into()) == 0, 'Game: None count');
         assert(counts.get(Plan::CCCCCCCCC.into()) == 1, 'Game: CCCCCCCCC count');

@@ -20,8 +20,8 @@ pub trait IERC20Faucet<TState> {
 #[dojo::contract]
 pub mod Token {
     use core::traits::TryInto;
-    use paved::store::{Store, StoreImpl};
     use paved::mocks::erc20::erc20::ERC20Component;
+    use paved::store::{Store, StoreImpl};
     use starknet::{ContractAddress, get_caller_address};
     pub const FAUCET_AMOUNT: u256 = 1_000_000_000_000_000_000_000_000; // 1E6 * 1E18
 
@@ -38,14 +38,14 @@ pub mod Token {
     #[storage]
     struct Storage {
         #[substorage(v0)]
-        erc20: ERC20Component::Storage
+        erc20: ERC20Component::Storage,
     }
 
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         #[flat]
-        ERC20Event: ERC20Component::Event
+        ERC20Event: ERC20Component::Event,
     }
 
     /// Sets the token `name` and `symbol`.

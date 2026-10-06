@@ -3,35 +3,35 @@ pub mod setup {
 
     // Starknet imports
 
-    use starknet::ContractAddress;
 
     // Dojo imports
 
-    use dojo::world::{IWorldDispatcherTrait, IWorldDispatcher};
-    use dojo_cairo_test::{spawn_test_world, NamespaceDef, TestResource};
-    use snforge_std::{
-        declare, DeclareResultTrait, start_cheat_caller_address, stop_cheat_caller_address
-    };
+    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
+    use dojo_cairo_test::{NamespaceDef, TestResource, spawn_test_world};
+    pub use paved::mocks::token::IERC20DispatcherTrait;
 
     // Internal imports
 
     use paved::mocks::token::{
-        IERC20Dispatcher, IERC20FaucetDispatcher, IERC20FaucetDispatcherTrait, Token
+        IERC20Dispatcher, IERC20FaucetDispatcher, IERC20FaucetDispatcherTrait, Token,
     };
-    use paved::store::{StoreTrait};
     use paved::models::game::{Game, GameImpl};
+    use paved::store::StoreTrait;
     use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
-    use paved::systems::economy::{IEconomyDispatcher, IEconomyDispatcherTrait};
-    use paved::systems::configurable::{IConfigurableDispatcher};
-    use paved::systems::daily::{IDailyDispatcher};
-    use paved::systems::weekly::{IWeeklyDispatcher};
-    use paved::systems::tutorial::{ITutorialDispatcher, ITutorialDispatcherTrait};
-    use paved::types::plan::{Plan, PlanImpl};
-    pub use paved::types::mode::Mode;
-    pub use paved::mocks::token::IERC20DispatcherTrait;
-    pub use paved::systems::daily::IDailyDispatcherTrait;
-    pub use paved::systems::weekly::IWeeklyDispatcherTrait;
+    use paved::systems::configurable::IConfigurableDispatcher;
     pub use paved::systems::configurable::IConfigurableDispatcherTrait;
+    use paved::systems::daily::IDailyDispatcher;
+    pub use paved::systems::daily::IDailyDispatcherTrait;
+    use paved::systems::economy::{IEconomyDispatcher, IEconomyDispatcherTrait};
+    use paved::systems::tutorial::{ITutorialDispatcher, ITutorialDispatcherTrait};
+    use paved::systems::weekly::IWeeklyDispatcher;
+    pub use paved::systems::weekly::IWeeklyDispatcherTrait;
+    pub use paved::types::mode::Mode;
+    use paved::types::plan::{Plan, PlanImpl};
+    use snforge_std::{
+        DeclareResultTrait, declare, start_cheat_caller_address, stop_cheat_caller_address,
+    };
+    use starknet::ContractAddress;
 
     // Constants
 
@@ -94,7 +94,7 @@ pub mod setup {
             } else {
                 seed += 1;
             }
-        };
+        }
         seed
     }
 
@@ -183,21 +183,21 @@ pub mod setup {
         dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), NOONE());
 
         // [Setup] Initialize
-        let daily_calldata: Array<felt252> = array![token_address.into(),];
+        let daily_calldata: Array<felt252> = array![token_address.into()];
         dispatcher
             .init_contract(
-                dojo::utils::selector_from_names(@"paved", @"Daily"), daily_calldata.span()
+                dojo::utils::selector_from_names(@"paved", @"Daily"), daily_calldata.span(),
             );
-        let weekly_calldata: Array<felt252> = array![token_address.into(),];
+        let weekly_calldata: Array<felt252> = array![token_address.into()];
         dispatcher
             .init_contract(
-                dojo::utils::selector_from_names(@"paved", @"Weekly"), weekly_calldata.span()
+                dojo::utils::selector_from_names(@"paved", @"Weekly"), weekly_calldata.span(),
             );
-        let configurable_calldata: Array<felt252> = array![token_address.into(),];
+        let configurable_calldata: Array<felt252> = array![token_address.into()];
         dispatcher
             .init_contract(
                 dojo::utils::selector_from_names(@"paved", @"Configurable"),
-                configurable_calldata.span()
+                configurable_calldata.span(),
             );
 
         // [Setup] Context

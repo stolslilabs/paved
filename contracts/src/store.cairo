@@ -4,20 +4,20 @@
 
 use dojo::model::ModelStorage;
 use dojo::world::{IWorldDispatcher, WorldStorage, WorldStorageTrait};
+use paved::helpers::config_validation::RuntimeGameConfigTrait;
+use paved::models::builder::Builder;
+use paved::models::character::{Char, CharIntoCharPosition, CharPosition};
+use paved::models::economy::{
+    EconomyConfig, EconomyConfigTrait, EconomyState, EconomyStateTrait, EntrySettlement,
+};
 
 // Models imports
 
 use paved::models::game::Game;
+use paved::models::index::{ConfigPolicy, GameConfigSnapshot, GameConfigTemplate};
 use paved::models::player::Player;
-use paved::models::builder::Builder;
-use paved::models::tile::{Tile, TilePosition, TileIntoPosition};
-use paved::models::character::{Char, CharPosition, CharIntoCharPosition};
+use paved::models::tile::{Tile, TileIntoPosition, TilePosition};
 use paved::models::tournament::Tournament;
-use paved::models::economy::{
-    EconomyConfig, EconomyConfigTrait, EconomyState, EconomyStateTrait, EntrySettlement
-};
-use paved::models::index::{GameConfigTemplate, GameConfigSnapshot, ConfigPolicy};
-use paved::helpers::config_validation::{RuntimeGameConfigTrait};
 use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;

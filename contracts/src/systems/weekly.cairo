@@ -1,6 +1,5 @@
 // Starknet imports
 
-use starknet::ContractAddress;
 
 // Dojo imports
 
@@ -11,14 +10,15 @@ use dojo::world::IWorldDispatcher;
 use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
+use starknet::ContractAddress;
 
 #[starknet::interface]
 pub trait IWeekly<TContractState> {
     fn spawn(self: @TContractState) -> u32;
-    fn claim(self: @TContractState, tournament_id: u64, rank: u8,);
+    fn claim(self: @TContractState, tournament_id: u64, rank: u8);
     fn sponsor(self: @TContractState, amount: felt252);
-    fn discard(self: @TContractState, game_id: u32,);
-    fn surrender(self: @TContractState, game_id: u32,);
+    fn discard(self: @TContractState, game_id: u32);
+    fn surrender(self: @TContractState, game_id: u32);
     fn build(
         self: @TContractState,
         game_id: u32,
@@ -34,8 +34,6 @@ pub trait IWeekly<TContractState> {
 pub mod Weekly {
     // Starknet imports
 
-    use starknet::ContractAddress;
-    use starknet::get_caller_address;
 
     // Component imports
 
@@ -43,13 +41,14 @@ pub mod Weekly {
     use paved::components::hostable::HostableComponent;
     use paved::components::payable::PayableComponent;
     use paved::components::playable::PlayableComponent;
+    use paved::types::mode::Mode;
 
     // Internal imports
 
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;
     use paved::types::spot::Spot;
-    use paved::types::mode::Mode;
+    use starknet::{ContractAddress, get_caller_address};
 
     // Local imports
 
@@ -97,7 +96,7 @@ pub mod Weekly {
 
     // Constructor
 
-    fn dojo_init(ref self: ContractState, token_address: ContractAddress,) {
+    fn dojo_init(ref self: ContractState, token_address: ContractAddress) {
         // [Effect] Initialize components
         self.payable.initialize(self.world(@"paved").dispatcher, token_address);
     }

@@ -1,6 +1,6 @@
-use paved::types::spot::Spot;
-use paved::types::move::Move;
 use paved::types::area::Area;
+use paved::types::move::Move;
+use paved::types::spot::Spot;
 
 pub trait LayoutTrait {
     /// Return the start spots.

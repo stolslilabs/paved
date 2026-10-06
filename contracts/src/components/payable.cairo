@@ -8,7 +8,7 @@ use starknet::ContractAddress;
 pub trait IERC20<TContractState> {
     fn transfer(ref self: TContractState, recipient: ContractAddress, amount: u256) -> bool;
     fn transferFrom(
-        ref self: TContractState, sender: ContractAddress, recipient: ContractAddress, amount: u256
+        ref self: TContractState, sender: ContractAddress, recipient: ContractAddress, amount: u256,
     ) -> bool;
     fn burn(ref self: TContractState, amount: u256) -> bool;
     fn mint_to(ref self: TContractState, recipient: ContractAddress, amount: u256) -> bool;
@@ -20,12 +20,11 @@ pub trait IERC20<TContractState> {
 pub mod PayableComponent {
     // Starknet imports
 
-    use starknet::ContractAddress;
-    use starknet::get_contract_address;
 
     // Dojo imports
 
     use dojo::world::IWorldDispatcher;
+    use starknet::{ContractAddress, get_contract_address};
 
     // Internal imports
 
@@ -57,12 +56,12 @@ pub mod PayableComponent {
 
     #[generate_trait]
     pub impl InternalImpl<
-        TContractState, +HasComponent<TContractState>
+        TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
         fn initialize(
             ref self: ComponentState<TContractState>,
             world: IWorldDispatcher,
-            token_address: ContractAddress
+            token_address: ContractAddress,
         ) {
             // [Storage] Set token address
             self.token_address.write(token_address);

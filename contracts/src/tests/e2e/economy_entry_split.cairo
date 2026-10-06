@@ -1,7 +1,8 @@
 use paved::constants;
-use paved::store::{StoreTrait};
+use paved::store::StoreTrait;
+use paved::tests::setup::setup;
+use paved::tests::setup::setup::IDailyDispatcherTrait;
 use paved::types::mode::Mode;
-use paved::tests::setup::{setup, setup::{IDailyDispatcherTrait}};
 
 #[test]
 fn test_economy_entry_split_accounting_for_team_and_burn_amounts() {

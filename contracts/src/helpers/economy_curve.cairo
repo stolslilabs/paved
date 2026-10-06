@@ -40,7 +40,7 @@ pub fn compute_multiplier_fp(supply: u256, target: u256) -> u32 {
 
 #[cfg(test)]
 pub mod tests {
-    use super::{compute_multiplier_fp, FP};
+    use super::{FP, compute_multiplier_fp};
 
     #[test]
     fn test_multiplier_equals_2x_when_supply_zero_and_target_positive() {

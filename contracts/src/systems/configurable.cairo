@@ -58,19 +58,16 @@ pub trait IConfigurable<TContractState> {
 
 #[dojo::contract]
 pub mod Configurable {
-    use starknet::get_caller_address;
-    use starknet::ContractAddress;
     use dojo::world::IWorldDispatcherTrait;
-
     use paved::components::emitter::EmitterComponent;
     use paved::components::hostable::HostableComponent;
     use paved::components::payable::PayableComponent;
     use paved::helpers::config_templates::ConfigTemplatesTrait;
     use paved::helpers::config_validation::{RuntimeGameConfig, RuntimeGameConfigTrait};
+    use paved::models::index::{ConfigPolicy, GameConfigSnapshot};
     use paved::store::{Store, StoreImpl};
     use paved::types::mode::Mode;
-    use paved::models::index::{ConfigPolicy, GameConfigSnapshot};
-
+    use starknet::{ContractAddress, get_caller_address};
     use super::IConfigurable;
 
     pub mod errors {
@@ -158,7 +155,7 @@ pub mod Configurable {
         PayableEvent: PayableComponent::Event,
     }
 
-    fn dojo_init(ref self: ContractState, token_address: ContractAddress,) {
+    fn dojo_init(ref self: ContractState, token_address: ContractAddress) {
         self.payable.initialize(self.world(@"paved").dispatcher, token_address);
     }
 
@@ -218,7 +215,11 @@ pub mod Configurable {
             let runtime = RuntimeGameConfigTrait::default_for_mode(mode_enum);
             let template_id = ConfigTemplatesTrait::default_template_id(mode_enum);
             let existing = store.game_config_template(template_id);
-            let version = if existing.config_id == 0 { 1 } else { existing.version + 1 };
+            let version = if existing.config_id == 0 {
+                1
+            } else {
+                existing.version + 1
+            };
             let template = runtime.to_template(template_id, version, true);
             store.set_game_config_template(template);
             template_id
@@ -281,11 +282,7 @@ pub mod Configurable {
             let (game_id, amount, team_amount, burn_amount) = self
                 .hostable
                 .spawn_with_runtime(
-                    self.world(@"paved").dispatcher,
-                    mode,
-                    runtime,
-                    template.config_id,
-                    template_id,
+                    self.world(@"paved").dispatcher, mode, runtime, template.config_id, template_id,
                 );
             let caller = get_caller_address();
             self.payable.pay_split(caller, amount, team_amount, burn_amount);
@@ -327,13 +324,7 @@ pub mod Configurable {
             let config_id = runtime.config_id();
             let (game_id, amount, team_amount, burn_amount) = self
                 .hostable
-                .spawn_with_runtime(
-                    self.world(@"paved").dispatcher,
-                    mode,
-                    runtime,
-                    config_id,
-                    0,
-                );
+                .spawn_with_runtime(self.world(@"paved").dispatcher, mode, runtime, config_id, 0);
             let caller = get_caller_address();
             self.payable.pay_split(caller, amount, team_amount, burn_amount);
             game_id
@@ -399,7 +390,7 @@ pub mod Configurable {
                         allow_custom_config,
                         allow_private_games,
                         admin: current.admin,
-                    }
+                    },
                 );
         }
     }

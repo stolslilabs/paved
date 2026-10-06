@@ -11,15 +11,15 @@ pub trait IAccount<TContractState> {
 pub mod Account {
     // Starknet imports
 
-    use starknet::ContractAddress;
-    use starknet::{
-        get_block_timestamp, get_block_number, get_caller_address, get_contract_address
-    };
 
     // Component imports
 
     use paved::components::emitter::EmitterComponent;
     use paved::components::manageable::ManageableComponent;
+    use starknet::{
+        ContractAddress, get_block_number, get_block_timestamp, get_caller_address,
+        get_contract_address,
+    };
 
     // Local imports
 

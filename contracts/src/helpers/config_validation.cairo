@@ -1,10 +1,9 @@
-use core::traits::TryInto;
-use core::poseidon::{HashState, PoseidonTrait};
 use core::hash::HashStateTrait;
-
+use core::poseidon::{HashState, PoseidonTrait};
+use core::traits::TryInto;
+use paved::models::index::{ConfigPolicy, GameConfigSnapshot, GameConfigTemplate};
 use paved::types::deck::{Deck, DeckTrait};
 use paved::types::mode::{Mode, ModeTrait};
-use paved::models::index::{ConfigPolicy, GameConfigSnapshot, GameConfigTemplate};
 
 pub mod errors {
     pub const INVALID_MODE: felt252 = 'Config: invalid mode';
@@ -108,7 +107,8 @@ pub impl RuntimeGameConfigImpl of RuntimeGameConfigTrait {
             return ValidationResult { ok: false, code: codes::INVALID_DECK };
         }
 
-        if self.duration_seconds < policy.min_duration || self.duration_seconds > policy.max_duration {
+        if self.duration_seconds < policy.min_duration
+            || self.duration_seconds > policy.max_duration {
             return ValidationResult { ok: false, code: codes::INVALID_DURATION };
         }
 
@@ -170,9 +170,21 @@ pub impl RuntimeGameConfigImpl of RuntimeGameConfigTrait {
         let state = state.update(self.seed_policy.into());
         let state = state.update(self.scoring_profile_id.into());
         let state = state.update(self.character_profile_id.into());
-        let state = state.update(if self.allow_discard { 1 } else { 0 });
-        let state = state.update(if self.allow_surrender { 1 } else { 0 });
-        let state = state.update(if self.private_game { 1 } else { 0 });
+        let state = state.update(if self.allow_discard {
+            1
+        } else {
+            0
+        });
+        let state = state.update(if self.allow_surrender {
+            1
+        } else {
+            0
+        });
+        let state = state.update(if self.private_game {
+            1
+        } else {
+            0
+        });
         let state = state.update(self.access_root);
         let hash = state.update(self.metadata_uri_hash).finalize();
         let hash_u256: u256 = hash.into();
@@ -181,7 +193,7 @@ pub impl RuntimeGameConfigImpl of RuntimeGameConfigTrait {
     }
 
     fn to_template(
-        self: RuntimeGameConfig, template_id: u32, version: u16, enabled: bool
+        self: RuntimeGameConfig, template_id: u32, version: u16, enabled: bool,
     ) -> GameConfigTemplate {
         GameConfigTemplate {
             template_id,
@@ -223,7 +235,7 @@ pub impl RuntimeGameConfigImpl of RuntimeGameConfigTrait {
     }
 
     fn to_snapshot(
-        self: RuntimeGameConfig, game_id: u32, template_id: u32, config_id: u64
+        self: RuntimeGameConfig, game_id: u32, template_id: u32, config_id: u64,
     ) -> GameConfigSnapshot {
         GameConfigSnapshot {
             game_id,

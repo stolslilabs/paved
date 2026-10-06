@@ -1,6 +1,5 @@
 // Core imports
 
-
 // Internal imports
 
 use paved::constants;
@@ -115,11 +114,10 @@ pub impl U8IntoCategory of Into<u8, Category> {
 pub mod tests {
     // Core imports
 
-
     // Local imports
 
     use super::{
-        Category, NONE, FOREST, ROAD, CITY, STOP, WONDER, FOREST_KEY, ROAD_KEY, CITY_KEY, STOP_KEY,
+        CITY, CITY_KEY, Category, FOREST, FOREST_KEY, NONE, ROAD, ROAD_KEY, STOP, STOP_KEY, WONDER,
         WONDER_KEY,
     };
 
