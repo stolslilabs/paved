@@ -73,10 +73,9 @@ export class TileRenderer {
       // Skip if already rendered with same pending state
       if (existing && existing.pending === pending) continue;
 
-      // Pending state changed — remove old mesh to recreate
+      // Pending state changed — remove old mesh to recreate (a tile owns no geometry or material)
       if (existing) {
         this.tileGroup.remove(existing.mesh);
-        this.disposeTile(existing.mesh);
         this.tileMeshes.delete(key);
       }
 
@@ -108,7 +107,6 @@ export class TileRenderer {
     for (const [key, entry] of this.tileMeshes) {
       if (!currentKeys.has(key)) {
         this.tileGroup.remove(entry.mesh);
-        this.disposeTile(entry.mesh);
         this.tileMeshes.delete(key);
       }
     }
@@ -163,6 +161,15 @@ export class TileRenderer {
         }
         child.castShadow = true;
         child.receiveShadow = true;
+
+        // Add edge outlines (toon-style), built once per type
+        const edges = new THREE.EdgesGeometry(child.geometry);
+        const wireframe = new THREE.LineSegments(edges, this.edgeMaterial);
+        wireframe.position.z += 0.001;
+        // After the tile faces: lines and faces meet at equal depth, and the line must win.
+        // (Per-tile line materials used to be drawn right after their tile's material.)
+        wireframe.renderOrder = EDGE_RENDER_ORDER;
+        child.add(wireframe);
       }
     });
     this.tileTypes.set(key, model);
@@ -175,7 +182,7 @@ export class TileRenderer {
     if (key === "00") return null;
 
     try {
-      // Shares the type's geometry and materials
+      // Shares the type's geometry, materials and edge outlines
       const model = this.tileType(key).clone();
 
       // Apply rotation based on orientation
@@ -187,19 +194,6 @@ export class TileRenderer {
         [OrientationType.West]: Math.PI / 2,
       };
       model.rotation.y = rotationMap[orientation.value] ?? 0;
-
-      // Add edge outlines (toon-style)
-      model.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          const edges = new THREE.EdgesGeometry(child.geometry);
-          const wireframe = new THREE.LineSegments(edges, this.edgeMaterial);
-          wireframe.position.z += 0.001;
-          // After the tile faces: lines and faces meet at equal depth, and the line must win.
-          // (Per-tile line materials used to be drawn right after their tile's material.)
-          wireframe.renderOrder = EDGE_RENDER_ORDER;
-          child.add(wireframe);
-        }
-      });
 
       // Scale model to fit tile size, then center at origin
       const box = new THREE.Box3().setFromObject(model);
@@ -410,18 +404,8 @@ export class TileRenderer {
     // Caller should call updateTiles() after this
     for (const [, entry] of this.tileMeshes) {
       this.tileGroup.remove(entry.mesh);
-      this.disposeTile(entry.mesh);
     }
     this.tileMeshes.clear();
-  }
-
-  /** A tile owns only its edge outlines; its geometry and materials are shared. */
-  private disposeTile(obj: THREE.Object3D): void {
-    obj.traverse((child) => {
-      if (child instanceof THREE.LineSegments) {
-        child.geometry?.dispose();
-      }
-    });
   }
 
   /** The preview owns its materials, not its geometry (the loader's). */
@@ -436,7 +420,6 @@ export class TileRenderer {
   dispose(): void {
     for (const [, entry] of this.tileMeshes) {
       this.tileGroup.remove(entry.mesh);
-      this.disposeTile(entry.mesh);
     }
     this.tileMeshes.clear();
     if (this.previewContainer) {
@@ -450,6 +433,7 @@ export class TileRenderer {
     for (const model of this.tileTypes.values()) {
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) disposeMaterials(child.material);
+        else if (child instanceof THREE.LineSegments) child.geometry.dispose();
       });
     }
     this.tileTypes.clear();

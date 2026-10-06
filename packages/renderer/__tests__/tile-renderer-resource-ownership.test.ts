@@ -51,7 +51,7 @@ describe("TileRenderer resource ownership", () => {
     expect(geometryDisposeSpy).not.toHaveBeenCalled();
   });
 
-  it("disposes a tile's edge geometry, not the shared materials, when the tile is removed", () => {
+  it("keeps the shared edge outlines when a tile is removed, and disposes them with the renderer", () => {
     const assets = createSharedAssetLoader();
     const renderer = new TileRenderer(assets as any);
 
@@ -69,15 +69,12 @@ describe("TileRenderer resource ownership", () => {
 
     renderer.updateTiles([]);
 
-    for (const spy of edgeGeoDisposeSpies) {
-      expect(spy).toHaveBeenCalled();
-    }
-    for (const spy of edgeMatDisposeSpies) {
+    for (const spy of [...edgeGeoDisposeSpies, ...edgeMatDisposeSpies]) {
       expect(spy).not.toHaveBeenCalled();
     }
 
     renderer.dispose();
-    for (const spy of edgeMatDisposeSpies) {
+    for (const spy of [...edgeGeoDisposeSpies, ...edgeMatDisposeSpies]) {
       expect(spy).toHaveBeenCalled();
     }
   });
@@ -97,5 +94,12 @@ describe("TileRenderer resource ownership", () => {
     expect(meshes[0].geometry).toBe(assets.geometry);
     expect(meshes[1].geometry).toBe(assets.geometry);
     expect(meshes[0].material).toBe(meshes[1].material);
+
+    const edges: THREE.LineSegments[] = [];
+    renderer.getGroup().traverse((obj) => {
+      if (obj instanceof THREE.LineSegments) edges.push(obj);
+    });
+    expect(edges).toHaveLength(2);
+    expect(edges[0].geometry).toBe(edges[1].geometry);
   });
 });
