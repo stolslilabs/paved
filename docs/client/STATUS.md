@@ -11,15 +11,22 @@ placement brings two to three long tasks of 57-123 ms throttled.
 2026-10-06, renderer step (P-7b): at 72 tiles throttled, time to interactive is 0.85 s (from 6.2 s;
 0.24 s unthrottled), a click shows its tile in 34 ms p95 (from 115 ms), draw calls per median frame
 137 (from 207) and triangles 0.74 M (from 1.7 M), with identical screenshots but for a few edge pixels on
-tile borders. Every P-7b target is met but one: one long task (56-58 ms) per play session remains, the
+tile borders. Every P-7b target is met but two: one long task (56-58 ms) per play session remains, the
 first transaction signature (chain layer); and 0.1 % of in-play frames run over 1.5 intervals.
+
+2026-10-06, dependencies (P-8, PR #195): `packages/*` moved to current majors on Node 24 (bun 1.4.2,
+TypeScript 7, Vite 8, vitest 5, React 19.3, three 0.186, Tamagui 2.7.7; starknet 8 and `@dojoengine/*`
+1.x stay, Dojo peers starknet ^8). At 72 tiles throttled, time to interactive goes from 848 to 742 ms
+and CPU + GPU per frame p95 from 6.31 to 5.60 ms; a cold install from 12.9 GB to 0.21 GB. P-7b holds as
+before, met but two. Tamagui 2.7.7 adds about +0.5 ms CPU per frame in play; the off-screen bisect is a
+follow-up for when the Mac is back (P-9).
 
 | Step | State |
 |---|---|
 | A. The packages build and their tests run | Done, #188 (CI job `client`) |
 | B. Frame-time baseline at 38 and 72 tiles | Done, #190: method and figures in `docs/measures/client-baseline.md` |
 | C. Throttled baseline, click-to-display latency, polling cost in play (P-7) | Done, #192: section "Throttled and in-play (P-7)" of `docs/measures/client-baseline.md` |
-| Renderer: shared geometry and materials, no per-tile edge geometry (P-7b) | In this PR (`renderer: shared geometry and materials, no per-tile edges (P-7b)`): `docs/measures/client-renderer.md`. Instancing measured and dropped |
+| Renderer: shared geometry and materials, no per-tile edge geometry (P-7b) | Done, #194: `docs/measures/client-renderer.md`. Instancing measured and dropped |
 | Data layer: drop Torii and polling, view calls and events | From P2, with `paved-core` |
 
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.

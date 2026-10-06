@@ -6,8 +6,8 @@ import base from "./vite.config";
 //   vite build -c vite.bench.config.ts --outDir dist-bench
 //
 // BENCH_PROFILE=1 builds the variant used for the CPU profile: not minified, and without the
-// wasm / top-level-await plugins (the bench page has no use for them, and their transform
-// renames identifiers and breaks the sourcemap that the profile needs to show readable names).
+// wasm plugin (the bench page has no use for it). The top-level-await plugin, whose transform
+// renamed identifiers and broke the profile's sourcemap, is gone since Vite 8.
 //
 // BENCH_PLAY=1 builds the variant of the in-play bench (bench.html?mode=play): the same page
 // with react-dom's profiling build, without which the React Profiler reports nothing in a

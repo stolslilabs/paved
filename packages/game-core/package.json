@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -18,7 +21,7 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
-    "vitest": "^3.0.0",
-    "typescript": "^5.7.0"
+    "vitest": "^5.0.3",
+    "typescript": "^7.0.2"
   }
 }

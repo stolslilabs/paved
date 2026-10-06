@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -27,14 +30,14 @@
   },
   "dependencies": {
     "@paved/game-core": "workspace:*",
-    "three": "^0.172.0"
+    "three": "^0.186.1"
   },
   "devDependencies": {
-    "@types/three": "^0.172.0",
-    "@types/react": "^19.0.0",
-    "react": "^19.0.0",
-    "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "@types/three": "^0.186.0",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
   },
   "peerDependencies": {
     "react": "^19.0.0"

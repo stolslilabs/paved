@@ -26,7 +26,7 @@ the running game, an indexer for the leaderboard), and the native app put to sle
 | Track | Delivers | Measured by |
 |---|---|---|
 | **CORE** (contracts) | P0 to P5: native contracts, Cairo 2.20, roles, optimised state | **L2 gas per move** (simple move, move with character, move that closes a large structure, worst case) by snforge and Sepolia receipts; goldens identical; **line coverage** (`cairo-coverage`) |
-| **CLIENT** | `packages/` client on the native contracts, without Torii | **p95 frame time** at 38 and 72 tiles (Mac, real browser), draw calls, time to interactive, latency from move to display, click-to-display latency, long tasks and React commit time while polling |
+| **CLIENT** | `packages/` client on the native contracts, without Torii, on Node 24 and the current majors of its dependencies (P-8); the site moves to `packages/app-web` once it plays on the native contracts (P-8) | **p95 frame time** at 38 and 72 tiles (Mac, real browser), draw calls, time to interactive, latency from move to display, click-to-display latency, long tasks and React commit time while polling |
 | **META** (single-player product and progression) | P6 to P7: daily, leaderboard, quests, achievements | gas per meta action; completeness of the e2e scenarios |
 | **ECO** (economy) | P8: token, paid entry, per-game settlement | profitability simulation (Monte-Carlo over score distributions), tested invariants (no mint outside the game system, real supply), audit |
 
