@@ -6,12 +6,25 @@
 // `characters`, `tournament`, `current_tournament_id`, `entry_price`) and the reads (`player`, `balance_of`)
 // with felts laid out as the ABIs of contracts/abis/ say; `starknet_getEvents` answers with no
 // event (one game, opened by id). An invoke of `build` that carries the next placement of the
-// fixed sequence applies it, and its receipt holds the `Built` event the client shows the tile
-// from; the rest (chain id, nonce, fee estimate, account class, blocks for starknet.js's tip
-// estimate) are fixed values.
+// fixed sequence applies it, and its receipt holds the events the client shows the move from
+// (`Built`, `Scored`, and `GameOver` with the last placement of the sequence); the rest (chain
+// id, nonce, fee estimate, account class, blocks for starknet.js's tip estimate) are fixed values.
+//
+// Strict: anything the bench does not expect is recorded in `violations` (a view of another game
+// or player, a view the mock does not serve, an RPC method it does not know, a call in an invoke
+// that is not `build`, a `build` that is not the next placement). A mismatched `build` is
+// REVERTED, as the contract would revert a move it refuses, and nothing in its transaction is
+// applied. The driver (run.ts) fails a session that recorded any.
+//
+// This file is not a standalone: like the page, it depends on the client workspace. It imports
+// the codec of packages/chain and the addresses of packages/app-web/src/bench (relative paths),
+// which need the workspace's `bun install` (starknet.js). The ABIs of contracts/abis/ are the
+// layout it answers with: packages/app-web/__tests__/bench-mock-chain.test.ts decodes every
+// answer with them.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { selector } from "../../packages/chain/src/codec";
+import { BENCH_ADDRESSES } from "../../packages/app-web/src/bench/addresses";
 
 interface TileRow {
   game_id: number;
@@ -29,20 +42,31 @@ interface CharRow {
   spot: number;
 }
 
-/**
- * The chain of packages/app-web/src/bench/play.tsx (BENCH_ADDRESSES): the four contracts and
- * the playing account.
- */
+/** The chain of the page (BENCH_ADDRESSES, one source): the four contracts and the playing account. */
 export const BENCH = {
-  Account: 0x1an,
-  Daily: 0x2an,
-  Tutorial: 0x3an,
-  Token: 0x4an,
-  player: 0x5an,
+  Account: BigInt(BENCH_ADDRESSES.VITE_ACCOUNT_ADDRESS),
+  Daily: BigInt(BENCH_ADDRESSES.VITE_DAILY_ADDRESS),
+  Tutorial: BigInt(BENCH_ADDRESSES.VITE_TUTORIAL_ADDRESS),
+  Token: BigInt(BENCH_ADDRESSES.VITE_TOKEN_ADDRESS),
+  player: BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS),
 };
 const hex = (n: number | bigint) => "0x" + BigInt(n).toString(16);
 /** Deck size the mock reports: the 72-tile board and its placements fit. */
 const DECK = 100;
+
+export type ViolationKind =
+  | "other-game"
+  | "other-player"
+  | "unknown-view"
+  | "unknown-method"
+  | "non-build-call"
+  | "build-mismatch";
+
+/** A call the bench does not expect from the page. */
+export interface Violation {
+  kind: ViolationKind;
+  detail: string;
+}
 
 export interface MockCall {
   at: number;
@@ -51,7 +75,12 @@ export interface MockCall {
   bytes: number;
 }
 
-export function createMockChain(fixtures: string, size = 72) {
+export interface MockOptions {
+  /** Self-test of the driver's checks: revert every `build`, as a contract that refuses all moves. */
+  revertBuilds?: boolean;
+}
+
+export function createMockChain(fixtures: string, size = 72, options: MockOptions = {}) {
   const board = JSON.parse(readFileSync(join(fixtures, `board-${size}.json`), "utf8"));
   const sequence: TileRow[] = JSON.parse(readFileSync(join(fixtures, `placements-${size}.json`), "utf8")).placements;
   const gameId: number = board.tiles[0].game_id;
@@ -60,18 +89,25 @@ export function createMockChain(fixtures: string, size = 72) {
   let nonce = 0;
   const calls: MockCall[] = [];
   const unknown = new Set<string>();
+  const violations: Violation[] = [];
+  const violate = (kind: ViolationKind, detail: string) => {
+    violations.push({ kind, detail });
+    console.warn(`mock-chain: ${kind}: ${detail}`);
+  };
   /** Receipts by transaction hash. */
   const receipts = new Map<string, unknown>();
   const t0 = Date.parse("2026-10-06T08:00:00Z") / 1000;
 
   const SEL = Object.fromEntries(
-    ["game", "tiles", "builder", "characters", "tournament", "current_tournament_id", "entry_price", "player", "balance_of", "build", "Built"].map(
+    ["game", "tiles", "builder", "characters", "tournament", "current_tournament_id", "entry_price", "player", "balance_of", "build", "Built", "Scored", "GameOver"].map(
       (name) => [name, BigInt(selector(name))],
     ),
   );
 
   const onBoard = (): TileRow[] => [...board.tiles, ...sequence.slice(0, placed)];
   const inHand = (): TileRow | null => sequence[placed] ?? null;
+  /** The game ends with the last placement of the sequence (a tournament_id of 0: it does not count). */
+  const isOver = () => placed >= sequence.length;
 
   // ---- Views, encoded as the ABIs lay them out (structs flat, arrays length-prefixed) ----
 
@@ -80,7 +116,7 @@ export function createMockChain(fixtures: string, size = 72) {
     const count = onBoard().length;
     // id, player_id, mode, seed, score, over, tile_count, placed_count, discarded_count, tile_id,
     // plan, remaining_count, deck_size, start_time, end_time, tournament_id
-    return [gameId, BENCH.player, 1, 0x5eed, 3 * count, 0, count + (hand ? 1 : 0), count, 0, hand?.id ?? 0, hand?.plan ?? 0, DECK - count - 1, DECK, t0, 0, 0];
+    return [gameId, BENCH.player, 1, 0x5eed, 3 * count, isOver() ? 1 : 0, count + (hand ? 1 : 0), count, 0, hand?.id ?? 0, hand?.plan ?? 0, DECK - count - 1, DECK, t0, isOver() ? t0 + placed : 0, 0];
   };
 
   const tilesView = (from: number, count: number) => {
@@ -108,53 +144,102 @@ export function createMockChain(fixtures: string, size = 72) {
     return [gameId, BENCH.player, hand?.id ?? 0, hand?.plan ?? 0, placedChars, 5 - placedChars];
   };
 
+  /** The view as the page asked it, after the checks of what the bench expects: this game, this player. */
   const call = (to: bigint, entry: bigint, args: bigint[]): Array<number | bigint> => {
-    if (to === BENCH.Daily && entry === SEL.game) return gameView();
-    if (to === BENCH.Daily && entry === SEL.tiles) return tilesView(Number(args[1]), Number(args[2]));
-    if (to === BENCH.Daily && entry === SEL.builder) return builderView();
-    if (to === BENCH.Daily && entry === SEL.characters) return charactersView();
-    if (to === BENCH.Daily && entry === SEL.current_tournament_id) return [Math.floor(t0 / 86400)];
-    if (to === BENCH.Daily && entry === SEL.tournament) {
+    const daily = to === BENCH.Daily;
+    const what = `${hex(entry)}(${args.map(hex).join(", ")}) on ${hex(to)}`;
+    if (daily && [SEL.game, SEL.tiles, SEL.builder, SEL.characters].includes(entry) && args[0] !== BigInt(gameId)) {
+      violate("other-game", `${what}, the game is ${gameId}`);
+    }
+    if (daily && [SEL.builder, SEL.characters].includes(entry) && args[1] !== BENCH.player) {
+      violate("other-player", `${what}, the player is ${hex(BENCH.player)}`);
+    }
+    if (to === BENCH.Account && entry === SEL.player && args[0] !== BENCH.player) violate("other-player", `player(${hex(args[0])})`);
+    if (to === BENCH.Token && entry === SEL.balance_of && args[0] !== BENCH.player) violate("other-player", `balance_of(${hex(args[0])})`);
+
+    if (daily && entry === SEL.game) return gameView();
+    if (daily && entry === SEL.tiles) return tilesView(Number(args[1]), Number(args[2]));
+    if (daily && entry === SEL.builder) return builderView();
+    if (daily && entry === SEL.characters) return charactersView();
+    if (daily && entry === SEL.current_tournament_id) return [Math.floor(t0 / 86400)];
+    if (daily && entry === SEL.tournament) {
       const id = Number(args[0]);
       return [id, id * 86400, (id + 1) * 86400, 0, 10n ** 18n, 0, BENCH.player, 3 * onBoard().length, 0, 0, 0, 0, 0, 0, 0];
     }
-    if (to === BENCH.Daily && entry === SEL.entry_price) return [BENCH.Token, 10n ** 18n, 0]; // token, u256 amount
+    if (daily && entry === SEL.entry_price) return [BENCH.Token, 10n ** 18n, 0]; // token, u256 amount
     if (to === BENCH.Account && entry === SEL.player) return [args[0], 0x5061766564, args[0]]; // 'Paved'
     if (to === BENCH.Token && entry === SEL.balance_of) return [10n ** 21n, 0];
-    throw new Error(`mock-chain: no view ${hex(entry)} on ${hex(to)}`);
+    const message = `no view ${hex(entry)} on ${hex(to)}`;
+    violate("unknown-view", message);
+    throw new Error(`mock-chain: ${message}`);
   };
 
   // ---- Writes: the account's multicall, [n, (to, selector, len, ...calldata)*] ----
 
+  type Event = { from_address: string; keys: string[]; data: string[] };
+
+  /**
+   * Runs a multicall. Every call must be a `build` that is the next placement in turn; one that is
+   * not is recorded, and the whole transaction is reverted (nothing applied, no event).
+   */
   const invoke = (calldata: bigint[]): string => {
     nonce++;
     const hash = hex(0xbeef00 + nonce);
-    const events: Array<{ from_address: string; keys: string[]; data: string[] }> = [];
+    const events: Event[] = [];
+    const accepted: Array<{ tile: TileRow; role: number; spot: number }> = [];
+    let reverted: string | null = null;
+    const count = Number(calldata[0] ?? 0n);
+    if (count === 0) {
+      violate("non-build-call", "empty multicall");
+      reverted = "no call";
+    }
     let at = 1;
-    for (let k = 0; k < Number(calldata[0] ?? 0n); k++) {
+    for (let k = 0; k < count; k++) {
       const [to, entry, len] = [calldata[at], calldata[at + 1], Number(calldata[at + 2])];
       const args = calldata.slice(at + 3, at + 3 + len);
       at += 3 + len;
-      if (to !== BENCH.Daily || entry !== SEL.build) continue;
+      if (to !== BENCH.Daily || entry !== SEL.build) {
+        violate("non-build-call", `${hex(to)}.${hex(entry)}`);
+        reverted ??= `not a build: ${hex(to)}.${hex(entry)}`;
+        continue;
+      }
       const [game, orientation, x, y, role, spot] = args.map(Number);
-      const next = inHand();
-      // Apply the build only if it is the expected next placement.
+      const next = sequence[placed + accepted.length];
       if (next && game === gameId && x === next.x && y === next.y && orientation === next.orientation) {
-        placed++;
-        events.push({
-          from_address: hex(BENCH.Daily),
-          keys: [hex(SEL.Built), hex(gameId)],
-          data: [BENCH.player, next.id, next.plan, orientation, x, y, role, spot].map(hex),
-        });
+        accepted.push({ tile: next, role, spot });
       } else {
-        console.warn(`mock-chain: build does not match placement ${placed} (${next?.x}, ${next?.y}, orientation ${next?.orientation})`);
+        const want = next ? `(${next.x}, ${next.y}, orientation ${next.orientation})` : "none, the sequence is over";
+        violate("build-mismatch", `game ${game} at (${x}, ${y}) orientation ${orientation}; placement ${placed + accepted.length} is ${want} of game ${gameId}`);
+        reverted ??= "Game: move does not match";
+      }
+    }
+    if (options.revertBuilds) reverted ??= "bench self-test: every build is refused";
+    if (!reverted) {
+      for (const { tile, role, spot } of accepted) {
+        placed++;
+        const from_address = hex(BENCH.Daily);
+        events.push({
+          from_address,
+          keys: [hex(SEL.Built), hex(gameId)],
+          data: [BENCH.player, tile.id, tile.plan, tile.orientation, tile.x, tile.y, role, spot].map(hex),
+        });
+        // category, size, points: the mock scores 3 points per tile, as its game view says.
+        events.push({ from_address, keys: [hex(SEL.Scored), hex(gameId)], data: [BENCH.player, 1, 1, 3].map(hex) });
+        if (isOver()) {
+          events.push({
+            from_address,
+            keys: [hex(SEL.GameOver), hex(gameId), hex(BENCH.player), hex(0)],
+            data: [1, 3 * onBoard().length, t0, t0 + placed].map(hex),
+          });
+        }
       }
     }
     receipts.set(hash, {
       type: "INVOKE",
       transaction_hash: hash,
       actual_fee: { amount: "0x1", unit: "FRI" },
-      execution_status: "SUCCEEDED",
+      execution_status: reverted ? "REVERTED" : "SUCCEEDED",
+      ...(reverted ? { revert_reason: reverted } : {}),
       finality_status: "ACCEPTED_ON_L2",
       block_hash: hex(1000 + nonce),
       block_number: 1000 + nonce,
@@ -243,7 +328,8 @@ export function createMockChain(fixtures: string, size = 72) {
       case "starknet_getTransactionStatus": {
         const hash = msg.params?.transaction_hash ?? msg.params?.[0];
         if (!receipts.has(hash)) return { jsonrpc: "2.0", id: msg.id, error: { code: 29, message: "Transaction hash not found" } };
-        return result(msg.id, { finality_status: "ACCEPTED_ON_L2", execution_status: "SUCCEEDED" });
+        const { execution_status, revert_reason } = receipts.get(hash) as { execution_status: string; revert_reason?: string };
+        return result(msg.id, { finality_status: "ACCEPTED_ON_L2", execution_status, ...(revert_reason ? { revert_reason } : {}) });
       }
       case "starknet_getTransactionReceipt": {
         const hash = msg.params?.transaction_hash ?? msg.params?.[0];
@@ -253,6 +339,7 @@ export function createMockChain(fixtures: string, size = 72) {
       }
       default:
         unknown.add(msg.method);
+        violate("unknown-method", msg.method);
         return { jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `mock-chain: no ${msg.method}` } };
     }
   }
@@ -279,6 +366,7 @@ export function createMockChain(fixtures: string, size = 72) {
       nonce = 0;
       calls.length = 0;
       unknown.clear();
+      violations.length = 0;
       receipts.clear();
     },
     /** The next placement of the sequence (contract coordinates), or null at its end. */
@@ -286,8 +374,12 @@ export function createMockChain(fixtures: string, size = 72) {
     get placed() {
       return placed;
     },
+    /** The id of the one game the mock serves. */
+    gameId,
     calls,
     unknown,
+    /** Every unexpected call since the last `reset` (see the head of this file). */
+    violations,
   };
 }
 

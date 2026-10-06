@@ -16,7 +16,14 @@
 //          --no-build  --profile  --profile-only  --summarize-only  --out <dir>  --window 1440x900
 //          --offscreen (headed, GPU kept, window at x = -10000: nothing shows while the Mac is in use)
 //          --headless [--chromium <path>] (smoke runs off the Mac, e.g. on the VPS: headless Chromium,
-//          no window, no GPU; figures not comparable; output under the system temp dir by default)
+//          no window, no GPU; figures not comparable; output under the system temp dir by default;
+//          marked as a smoke run in summary.md and summary.json, and refused with --out under
+//          docs/measures/)
+//          --fail-placements (--play self-test of the run's checks: the mock reverts every build,
+//          the run must fail)
+//
+// The bench is not standalone: it imports the mock's codec and addresses from the client workspace
+// (packages/chain, packages/app-web/src/bench), so `bun install` at the repository root comes first.
 import { spawnSync, spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
@@ -74,9 +81,12 @@ const sizes = (arg("sizes", "38,72") as string).split(",").map(Number);
 const runs = Number(arg("runs", kind === "play" ? "3" : "5"));
 const warmup = Number(arg("warmup", "1"));
 const durationMs = Number(arg("duration", kind === "play" ? "60000" : "20000"));
+/** Below these a run measures too little: a path of a few frames, a session with fewer than two placements. */
+const MIN_DURATION_MS = { board: 5000, click: 0, play: 17_000 };
 const [winW, winH] = (arg("window", "1440x900") as string).split("x").map(Number);
 const defaultOut =
   kind === "board" ? (profiles.length === 1 && profiles[0].name === "throttled" ? join(measures, "throttled") : measures) : join(measures, kind);
+const failPlacements = arg("fail-placements") !== undefined;
 const doBuild = arg("no-build") === undefined;
 const offscreen = arg("offscreen") !== undefined;
 const headless = arg("headless") !== undefined;
@@ -87,11 +97,36 @@ const profileOnly = arg("profile-only") !== undefined;
 const doProfile = arg("profile") !== undefined || profileOnly;
 const summarizeOnly = arg("summarize-only") !== undefined;
 
+/** Refuses the arguments that would make a run measure nothing. */
+function checkArguments(): void {
+  const bad = (what: string): never => {
+    throw new Error(`${what}`);
+  };
+  if (!Number.isFinite(durationMs)) bad(`--duration ${arg("duration")} is not a number of milliseconds`);
+  if (kind !== "click" && durationMs < MIN_DURATION_MS[kind]) {
+    bad(`--duration ${durationMs} ms is too short for the ${kind} bench (minimum ${MIN_DURATION_MS[kind]} ms${kind === "play" ? ": at least two placements" : ""})`);
+  }
+  if (!Number.isInteger(runs) || runs < 1) bad(`--runs ${arg("runs")}: at least one measured run`);
+  if (!Number.isInteger(warmup) || warmup < 0) bad(`--warmup ${arg("warmup")}: a count, 0 or more`);
+  if (sizes.length === 0 || sizes.some((n) => !Number.isInteger(n) || n <= 0)) bad(`--sizes ${arg("sizes")}: tile counts such as 38,72`);
+  if (failPlacements && kind !== "play") bad("--fail-placements applies to --play");
+  // A smoke run is not a measure: it never lands where the measures are committed.
+  const measuresRoot = join(repo, "docs/measures");
+  if (headless && (outDir === measuresRoot || outDir.startsWith(measuresRoot + sep))) {
+    bad(`--headless is for smoke runs: figures are not comparable, so --out ${outDir} (under docs/measures/) is refused`);
+  }
+}
+
 const sh = (cmd: string, args: string[]): string =>
   (spawnSync(cmd, args, { encoding: "utf8" }).stdout ?? "").trim();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Load average (1, 5, 15 min) of the machine, recorded with every run. */
 const loadAvg = (): number[] => loadavg();
+
+/** A smoke run says so on top of its table, wherever the table goes. */
+const isSmoke = (machine: unknown): boolean => String((machine as { window?: string } | null)?.window ?? "").startsWith("headless");
+const SMOKE_BANNER = "> **Headless smoke run: not a measure.** Software rendering, no GPU, another machine: the figures are not comparable with any committed one and are never committed.\n\n";
+const withBanner = (md: string, machine: unknown) => (isSmoke(machine) ? SMOKE_BANNER : "") + md;
 
 function build(script: string, extra: string[] = [], env: Record<string, string> = {}): void {
   console.log(`build: bun run ${script} ${extra.join(" ")} ${Object.entries(env).map(([k, v]) => `${k}=${v}`).join(" ")}`);
@@ -250,19 +285,38 @@ const launch = () =>
         args: [`--window-size=${winW},${winH}`, offscreen ? "--window-position=-10000,0" : "--window-position=0,0", "--enable-precise-memory-info"],
       });
 
-function boardSummary(machine: unknown, when = new Date().toISOString()) {
+/** The profile the raw runs were measured under: they say it (`driver.profile`); an older raw folder is read from its summary. */
+function profileOfRuns(runs: RunResult[], old: { profile?: Profile }): Profile {
+  const names = new Set(runs.map((r) => r.driver?.profile).filter((p): p is string => Boolean(p)));
+  if (names.size > 1) throw new Error(`raw runs in ${outDir} were measured under different profiles: ${[...names].join(", ")}`);
+  const name = [...names][0];
+  if (name) {
+    if (!PROFILES[name]) throw new Error(`raw runs name an unknown profile ${name}`);
+    return PROFILES[name];
+  }
+  // Raw files from before the driver recorded it: the summary written with them, else the arguments.
+  return old.profile ?? profiles[0];
+}
+
+function boardSummary(machine: unknown, when = new Date().toISOString(), old: { profile?: Profile; warmup?: number } = {}) {
   const summaries: Record<string, ReturnType<typeof summarizeRuns>> = {};
   const files = readdirSync(outDir).filter((f) => /^run-\d+-\d+\.json$/.test(f));
   const bySize = new Map<number, RunResult[]>();
+  const all: RunResult[] = [];
   for (const f of files.sort((a, b) => a.localeCompare(b, "en", { numeric: true }))) {
     const r: RunResult = JSON.parse(readFileSync(join(outDir, f), "utf8"));
+    all.push(r);
     bySize.set(r.tileCount, [...(bySize.get(r.tileCount) ?? []), r]);
   }
+  if (all.length === 0) throw new Error(`no raw run-<tiles>-<n>.json in ${outDir}`);
   for (const [size, rs] of [...bySize].sort((a, b) => a[0] - b[0])) summaries[size] = summarizeRuns(rs);
   const n = Math.max(...[...bySize.values()].map((rs) => rs.length));
-  const summary = { when, profile: profiles[0], durationMs, runs: n, warmup, machine, summaries };
+  // The path length of the raw runs, not of this invocation's --duration.
+  const durations = new Set(all.map((r) => r.durationMs));
+  if (durations.size > 1) throw new Error(`raw runs in ${outDir} have different path durations: ${[...durations].join(", ")} ms`);
+  const summary = { when, profile: profileOfRuns(all, old), durationMs: [...durations][0], runs: n, warmup: old.warmup ?? warmup, machine, summaries };
   writeFileSync(join(outDir, "summary.json"), JSON.stringify(summary, null, 1) + "\n");
-  const md = toMarkdown(summary as any);
+  const md = withBanner(toMarkdown(summary as any), machine);
   writeFileSync(join(outDir, "summary.md"), md);
   console.log("\n" + md);
 }
@@ -383,7 +437,7 @@ function clickSummary(machine: unknown, when = new Date().toISOString()) {
   const results = readRuns<ClickRun>(/^click-.+\.json$/);
   const summary = { when, machine, ...summarizeClicks(results) };
   writeFileSync(join(outDir, "summary.json"), JSON.stringify(summary, null, 1) + "\n");
-  const md = clicksToMarkdown(summary);
+  const md = withBanner(clicksToMarkdown(summary), machine);
   writeFileSync(join(outDir, "summary.md"), md);
   console.log("\n" + md);
 }
@@ -424,6 +478,14 @@ async function placeInGame(page: Page, mock: MockChain): Promise<boolean> {
 async function playOnce(browser: Browser, base: string, profile: Profile, mock: MockChain, shotPath?: string): Promise<PlayRun> {
   mock.reset();
   const { context, page, errors } = await openPage(browser, profile);
+  try {
+    return await playSession(page, errors, base, profile, mock, shotPath);
+  } finally {
+    await context.close();
+  }
+}
+
+async function playSession(page: Page, errors: string[], base: string, profile: Profile, mock: MockChain, shotPath?: string): Promise<PlayRun> {
   await page.goto(`${base}/bench.html?mode=play&tiles=72`, { waitUntil: "commit" });
   try {
     await page.waitForFunction(() => (window as any).__benchPlay?.ready || (window as any).__benchError, null, { timeout: Number(arg("ready-timeout", "240000")), polling: 250 });
@@ -451,18 +513,26 @@ async function playOnce(browser: Browser, base: string, profile: Profile, mock: 
   await sleep(Math.max(0, t0 + durationMs - Date.now()));
   const result = await page.evaluate(() => (window as any).__benchPlay.stop());
   if (shotPath) await page.screenshot({ path: shotPath, type: "jpeg", quality: 80 });
-  await context.close();
   const pageErrors = errors.filter((e) => !e.startsWith("Failed to load resource"));
   if (pageErrors.length) console.warn(`  page errors: ${pageErrors.slice(0, 5).join(" | ")}`);
   if (mock.unknown.size) console.warn(`  mock: unanswered RPC methods ${[...mock.unknown].join(", ")}`);
-  // A session where no placement reached the chain measures an idle page, not play: refuse it.
-  if (attempted > 0 && mock.placed === 0) {
-    throw new Error(`play: ${attempted} placements attempted, 0 applied by the mock (page errors: ${pageErrors.slice(0, 3).join(" | ") || "none"})`);
+  const applied = mock.placed;
+  const fail = (why: string) => {
+    throw new Error(`play: ${why} (${attempted} placements attempted, ${applied} applied; page errors: ${pageErrors.slice(0, 3).join(" | ") || "none"})`);
+  };
+  // A session that is not play, or that the mock did not follow, measures something else: refuse it.
+  if (mock.violations.length) {
+    const kinds = new Map<string, number>();
+    for (const v of mock.violations) kinds.set(v.kind, (kinds.get(v.kind) ?? 0) + 1);
+    const first = mock.violations[0];
+    fail(`the mock recorded ${mock.violations.length} unexpected calls (${[...kinds].map(([k, n]) => `${k} x${n}`).join(", ")}; first: ${first.kind}: ${first.detail})`);
   }
+  if (applied === 0) fail("no placement reached the chain: an idle page, not play");
+  if (applied !== attempted) fail("the placements applied differ from the placements attempted");
   return {
     ...result,
     profile: profile.name,
-    driver: { loadAvg: loadAvg(), attempted, applied: mock.placed, mockCalls: mock.calls.slice(), pageErrors },
+    driver: { loadAvg: loadAvg(), attempted, applied, mockCalls: mock.calls.slice(), pageErrors },
   };
 }
 
@@ -471,7 +541,7 @@ async function measurePlay() {
   if (doBuild) build("build:bench", ["--outDir", "dist-bench/play"], { BENCH_PLAY: "1" });
   // A later board or click build empties dist-bench, this build with it.
   if (!existsSync(join(playRoot, "bench.html"))) throw new Error(`no in-play build in ${playRoot}: run without --no-build`);
-  const mock = createMockChain(fixtures, 72);
+  const mock = createMockChain(fixtures, 72, { revertBuilds: failPlacements });
   const server = serve(playRoot, mock);
   const base = `http://127.0.0.1:${server.port}`;
   const browser = await launch();
@@ -497,12 +567,13 @@ function playSummary(machine: unknown, when = new Date().toISOString()) {
   const results = readRuns<PlayRun>(/^play-.+\.json$/);
   const summary = { when, machine, ...summarizePlays(results) };
   writeFileSync(join(outDir, "summary.json"), JSON.stringify(summary, null, 1) + "\n");
-  const md = playsToMarkdown(summary);
+  const md = withBanner(playsToMarkdown(summary), machine);
   writeFileSync(join(outDir, "summary.md"), md);
   console.log("\n" + md);
 }
 
 async function main() {
+  checkArguments();
   mkdirSync(outDir, { recursive: true });
   if (summarizeOnly) {
     const machine = JSON.parse(readFileSync(join(outDir, "machine.json"), "utf8"));
@@ -510,7 +581,7 @@ async function main() {
     const old = existsSync(join(outDir, "summary.json")) ? JSON.parse(readFileSync(join(outDir, "summary.json"), "utf8")) : {};
     if (kind === "click") clickSummary(machine, old.when);
     else if (kind === "play") playSummary(machine, old.when);
-    else boardSummary(machine, old.when);
+    else boardSummary(machine, old.when, old);
     return;
   }
   // Keep the display awake: a sleeping display stops requestAnimationFrame (macOS only; a headless

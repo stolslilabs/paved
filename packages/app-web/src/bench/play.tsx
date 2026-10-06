@@ -8,6 +8,7 @@ import { PavedProvider } from "@paved/chain";
 import { GameScene } from "@paved/renderer";
 import { App } from "../App";
 import { resolveAppNetwork, resolvePlayerAccount } from "../utils/network";
+import { BENCH_ADDRESSES } from "./addresses";
 import { loadBoard } from "./board";
 import { cameraPose } from "./camera-path";
 import { CLICK_DISTANCE } from "./click-bench";
@@ -190,16 +191,6 @@ class PlayBench {
   }
 }
 
-
-/** The chain the mock of scripts/bench/mock-chain.ts serves: contract addresses and the playing account. */
-export const BENCH_ADDRESSES = {
-  VITE_ACCOUNT_ADDRESS: "0x1a",
-  VITE_DAILY_ADDRESS: "0x2a",
-  VITE_TUTORIAL_ADDRESS: "0x3a",
-  VITE_TOKEN_ADDRESS: "0x4a",
-  VITE_PLAYER_ADDRESS: "0x5a",
-  VITE_PLAYER_PRIVATE_KEY: "0x1",
-};
 
 export function mountPlay(): void {
   const params = new URLSearchParams(window.location.search);

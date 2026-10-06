@@ -2,7 +2,7 @@
   "name": "paved-bench",
   "private": true,
   "type": "module",
-  "description": "Frame-time bench driver. Standalone: not a workspace of the root, so the client's frozen lockfile is untouched.",
+  "description": "Frame-time bench driver. Its own two dependencies are installed apart (not a workspace of the root, so the client's frozen lockfile is untouched), but the in-play mock imports packages/chain and packages/app-web/src/bench: run the root bun install first.",
   "dependencies": {
     "playwright-core": "1.49.1",
     "source-map-js": "1.2.1"
