@@ -5,7 +5,7 @@
 #
 # Usage: scripts/measure.sh [gas|coverage|all]   (default: all)
 #
-# Each run is capped to 8 GiB of address space and reports its peak resident memory.
+# Runs are single-threaded (RAYON_NUM_THREADS=1) and each is capped to 8 GiB of address space and reports its peak resident memory.
 # Toolchain: scarb 2.13.1 and snforge 0.51.2 (override with SCARB_BIN_DIR / SNFORGE_BIN_DIR);
 # cairo-coverage must be on the PATH (https://github.com/software-mansion/cairo-coverage).
 set -euo pipefail
@@ -17,6 +17,8 @@ SCARB_BIN_DIR="${SCARB_BIN_DIR:-$HOME/.asdf/installs/scarb/2.13.1/bin}"
 SNFORGE_BIN_DIR="${SNFORGE_BIN_DIR:-$HOME/.asdf/installs/starknet-foundry/0.51.2/bin}"
 export PATH="$SCARB_BIN_DIR:$SNFORGE_BIN_DIR:$HOME/.local/bin:$PATH"
 MEM_CAP_BYTES="${MEM_CAP_BYTES:-8589934592}"
+# docs/programme/OPERATIONS.md: builds and measures run single-threaded.
+export RAYON_NUM_THREADS=1
 
 mode="${1:-all}"
 

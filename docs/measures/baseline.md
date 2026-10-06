@@ -5,7 +5,7 @@ Taken before any change to the contracts, to judge P2 (remove Dojo) and P5 (gas 
 - Date: 2026-10-06
 - Commit: `76f8dd3` (branch `hp/paved-core/t-0001-p0-toolchain-pin-and-ci`, PR #185) plus the files of this PR
 - Toolchain: scarb 2.13.1 (cairo 2.13.1, sierra 1.7.0), snforge 0.51.2, dojo 1.8.0, `~/.asdf/installs/...` binaries
-- Reproduce: `scripts/measure.sh` (`gas`, `coverage` or `all`)
+- Reproduce: `scripts/measure.sh` (`gas`, `coverage` or `all`); it sets `RAYON_NUM_THREADS=1` as `docs/programme/OPERATIONS.md` requires. The figures above were taken before that rule, with the default thread count; a rerun of `scripts/measure.sh gas` with it gave identical gas figures (peak RSS 3.99 GB).
 
 ## L2 gas of one `Daily.build`
 
