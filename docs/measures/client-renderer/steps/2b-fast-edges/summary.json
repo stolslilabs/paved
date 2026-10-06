@@ -1,0 +1,290 @@
+{
+ "when": "2026-10-06T16:10:08.601Z",
+ "profile": {
+  "name": "throttled",
+  "cpuRate": 4,
+  "fps": 60
+ },
+ "durationMs": 20000,
+ "runs": 3,
+ "warmup": 1,
+ "machine": {
+  "model": "Mac14,6",
+  "chip": "Apple M2 Max",
+  "cpuCores": 12,
+  "memoryGiB": 64,
+  "macOS": "27.0.1 (26A434)",
+  "chrome": "154.0.8037.98",
+  "power": "Now drawing from 'AC Power'",
+  "loadAvgAtStart": [
+   3.81,
+   4.45,
+   7.08
+  ],
+  "windowArg": "1440x900",
+  "profiles": [
+   {
+    "name": "throttled",
+    "cpuRate": 4,
+    "fps": 60
+   }
+  ],
+  "displays": [
+   {
+    "name": "Color LCD",
+    "type": "spdisplays_built-in-liquid-retina-xdr",
+    "pixels": "3456 x 2234",
+    "mode": "1728 x 1117 @ 120.00Hz",
+    "main": true
+   },
+   {
+    "name": "BenQ PD2725U",
+    "type": null,
+    "pixels": "3840 x 2160",
+    "mode": "1920 x 1080 @ 60.00Hz",
+    "main": false
+   },
+   {
+    "name": "BenQ PD2725U",
+    "type": null,
+    "pixels": "3840 x 2160",
+    "mode": "1920 x 1080 @ 60.00Hz",
+    "main": false
+   }
+  ]
+ },
+ "summaries": {
+  "72": {
+   "tileCount": 72,
+   "runs": 3,
+   "perRun": [
+    {
+     "refreshMs": 16.600000000000136,
+     "rafP50": 16.600000000002183,
+     "rafP95": 18.299999999999272,
+     "rafP99": 18.599999999998545,
+     "rafMax": 18.69999999999891,
+     "fps": 60.0046964541771,
+     "droppedPct": 0,
+     "cpuP50": 1.2999999970197678,
+     "cpuP95": 2.2999999970197678,
+     "cpuP99": 2.9000000059604645,
+     "gpuP50": 3.68975,
+     "gpuP95": 5.554083,
+     "calls": 208,
+     "callsP95": 258,
+     "callsMin": 128,
+     "callsMax": 258,
+     "triangles": 1695576,
+     "trianglesP95": 1923720,
+     "trianglesMin": 1234918,
+     "trianglesMax": 1923720,
+     "ttiMs": 803.1999999955297,
+     "heapTtiMB": 51.53042507171631,
+     "heapEndMB": 29.206551551818848,
+     "rendered": 1201,
+     "raf": 1201
+    },
+    {
+     "refreshMs": 16.800000000000068,
+     "rafP50": 16.69999999999891,
+     "rafP95": 18.299999999999272,
+     "rafP99": 18.5,
+     "rafMax": 18.700000000000728,
+     "fps": 59.99660302330924,
+     "droppedPct": 0,
+     "cpuP50": 1.2000000029802322,
+     "cpuP95": 2.2000000029802322,
+     "cpuP99": 2.6999999955296516,
+     "gpuP50": 3.917958,
+     "gpuP95": 5.122333,
+     "calls": 208,
+     "callsP95": 258,
+     "callsMin": 128,
+     "callsMax": 258,
+     "triangles": 1695576,
+     "trianglesP95": 1923720,
+     "trianglesMin": 1234918,
+     "trianglesMax": 1923720,
+     "ttiMs": 819.1999999955297,
+     "heapTtiMB": 50.766615867614746,
+     "heapEndMB": 29.4899959564209,
+     "rendered": 1201,
+     "raf": 1201
+    },
+    {
+     "refreshMs": 16.600000000000136,
+     "rafP50": 16.699999999999818,
+     "rafP95": 18.200000000000728,
+     "rafP99": 18.5,
+     "rafMax": 23.600000000002183,
+     "fps": 59.95563283170454,
+     "droppedPct": 0,
+     "cpuP50": 1.2000000029802322,
+     "cpuP95": 2.1999999955296516,
+     "cpuP99": 2.899999998509884,
+     "gpuP50": 3.634125,
+     "gpuP95": 5.318208,
+     "calls": 207,
+     "callsP95": 258,
+     "callsMin": 128,
+     "callsMax": 258,
+     "triangles": 1681492,
+     "trianglesP95": 1923720,
+     "trianglesMin": 1234918,
+     "trianglesMax": 1923720,
+     "ttiMs": 825.5,
+     "heapTtiMB": 49.81821250915527,
+     "heapEndMB": 29.470189094543457,
+     "rendered": 1200,
+     "raf": 1200
+    }
+   ],
+   "stats": {
+    "refreshMs": {
+     "median": 16.600000000000136,
+     "min": 16.600000000000136,
+     "max": 16.800000000000068
+    },
+    "rafP50": {
+     "median": 16.69999999999891,
+     "min": 16.600000000002183,
+     "max": 16.699999999999818
+    },
+    "rafP95": {
+     "median": 18.299999999999272,
+     "min": 18.200000000000728,
+     "max": 18.299999999999272
+    },
+    "rafP99": {
+     "median": 18.5,
+     "min": 18.5,
+     "max": 18.599999999998545
+    },
+    "rafMax": {
+     "median": 18.700000000000728,
+     "min": 18.69999999999891,
+     "max": 23.600000000002183
+    },
+    "fps": {
+     "median": 59.99660302330924,
+     "min": 59.95563283170454,
+     "max": 60.0046964541771
+    },
+    "droppedPct": {
+     "median": 0,
+     "min": 0,
+     "max": 0
+    },
+    "cpuP50": {
+     "median": 1.2000000029802322,
+     "min": 1.2000000029802322,
+     "max": 1.2999999970197678
+    },
+    "cpuP95": {
+     "median": 2.2000000029802322,
+     "min": 2.1999999955296516,
+     "max": 2.2999999970197678
+    },
+    "cpuP99": {
+     "median": 2.899999998509884,
+     "min": 2.6999999955296516,
+     "max": 2.9000000059604645
+    },
+    "gpuP50": {
+     "median": 3.68975,
+     "min": 3.634125,
+     "max": 3.917958
+    },
+    "gpuP95": {
+     "median": 5.318208,
+     "min": 5.122333,
+     "max": 5.554083
+    },
+    "calls": {
+     "median": 208,
+     "min": 207,
+     "max": 208
+    },
+    "callsP95": {
+     "median": 258,
+     "min": 258,
+     "max": 258
+    },
+    "callsMin": {
+     "median": 128,
+     "min": 128,
+     "max": 128
+    },
+    "callsMax": {
+     "median": 258,
+     "min": 258,
+     "max": 258
+    },
+    "triangles": {
+     "median": 1695576,
+     "min": 1681492,
+     "max": 1695576
+    },
+    "trianglesP95": {
+     "median": 1923720,
+     "min": 1923720,
+     "max": 1923720
+    },
+    "trianglesMin": {
+     "median": 1234918,
+     "min": 1234918,
+     "max": 1234918
+    },
+    "trianglesMax": {
+     "median": 1923720,
+     "min": 1923720,
+     "max": 1923720
+    },
+    "ttiMs": {
+     "median": 819.1999999955297,
+     "min": 803.1999999955297,
+     "max": 825.5
+    },
+    "heapTtiMB": {
+     "median": 50.766615867614746,
+     "min": 49.81821250915527,
+     "max": 51.53042507171631
+    },
+    "heapEndMB": {
+     "median": 29.470189094543457,
+     "min": 29.206551551818848,
+     "max": 29.4899959564209
+    },
+    "rendered": {
+     "median": 1201,
+     "min": 1200,
+     "max": 1201
+    },
+    "raf": {
+     "median": 1201,
+     "min": 1200,
+     "max": 1201
+    }
+   },
+   "gl": {
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)",
+    "vendor": "Google Inc. (Apple)",
+    "version": "WebGL 2.0 (OpenGL ES 3.0 Chromium)"
+   },
+   "page": {
+    "innerWidth": 1440,
+    "innerHeight": 813,
+    "devicePixelRatio": 2,
+    "canvasWidth": 1440,
+    "canvasHeight": 813,
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+   },
+   "info": {
+    "geometries": 69,
+    "textures": 33,
+    "programs": 13
+   }
+  }
+ }
+}

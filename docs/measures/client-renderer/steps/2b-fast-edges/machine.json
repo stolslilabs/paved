@@ -1,0 +1,45 @@
+{
+  "model": "Mac14,6",
+  "chip": "Apple M2 Max",
+  "cpuCores": 12,
+  "memoryGiB": 64,
+  "macOS": "27.0.1 (26A434)",
+  "chrome": "154.0.8037.98",
+  "power": "Now drawing from 'AC Power'",
+  "loadAvgAtStart": [
+    3.81,
+    4.45,
+    7.08
+  ],
+  "windowArg": "1440x900",
+  "profiles": [
+    {
+      "name": "throttled",
+      "cpuRate": 4,
+      "fps": 60
+    }
+  ],
+  "displays": [
+    {
+      "name": "Color LCD",
+      "type": "spdisplays_built-in-liquid-retina-xdr",
+      "pixels": "3456 x 2234",
+      "mode": "1728 x 1117 @ 120.00Hz",
+      "main": true
+    },
+    {
+      "name": "BenQ PD2725U",
+      "type": null,
+      "pixels": "3840 x 2160",
+      "mode": "1920 x 1080 @ 60.00Hz",
+      "main": false
+    },
+    {
+      "name": "BenQ PD2725U",
+      "type": null,
+      "pixels": "3840 x 2160",
+      "mode": "1920 x 1080 @ 60.00Hz",
+      "main": false
+    }
+  ]
+}
