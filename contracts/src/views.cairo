@@ -9,8 +9,10 @@ use paved::helpers::bitmap::Bitmap;
 use paved::models::game::{Game, GameAssert};
 use paved::models::tournament::{Tournament, TournamentTrait};
 use paved::store::{Store, StoreImpl};
+use paved::types::mode::{Mode, ModeTrait};
 use paved::types::orientation::Orientation;
 use paved::types::role::Role;
+use starknet::ContractAddress;
 
 // Constants
 
@@ -99,6 +101,13 @@ pub struct TournamentView {
     pub top3_claimed: bool,
 }
 
+/// The entry price of `Daily`: the ERC20 `spawn` pulls from the player and the amount it pulls.
+#[derive(Copy, Drop, Serde, Debug, PartialEq)]
+pub struct PriceView {
+    pub token: ContractAddress,
+    pub amount: u256,
+}
+
 // Interfaces
 
 /// Views of a game, on `Daily` and `Tutorial`.
@@ -115,6 +124,7 @@ pub trait IGameView<TContractState> {
 pub trait ITournamentView<TContractState> {
     fn tournament(self: @TContractState, id: u64) -> TournamentView;
     fn current_tournament_id(self: @TContractState) -> u64;
+    fn entry_price(self: @TContractState) -> PriceView;
 }
 
 // Implementations
@@ -293,6 +303,11 @@ pub impl ViewsImpl of ViewsTrait {
 
     fn current_tournament_id(time: u64) -> u64 {
         TournamentTrait::compute_id(time, constants::DAILY_TOURNAMENT_DURATION)
+    }
+
+    /// The entry price of a Daily game, from the same source as `spawn` (`Mode::price`).
+    fn entry_price(token: ContractAddress) -> PriceView {
+        PriceView { token, amount: Mode::Daily.price().into() }
     }
 
     fn existing_game(store: Store, game_id: u32) -> Game {

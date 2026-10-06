@@ -83,7 +83,7 @@ fn test_access_pending_owner_accepts_ownership() {
 }
 
 #[test]
-fn test_access_new_owner_holds_the_power_and_old_owner_loses_it() {
+fn test_access_new_owner_holds_the_power() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
     propose(ownable, OWNER(), ANYONE());

@@ -74,7 +74,12 @@ pub mod HostableComponent {
             // [Effect] Store game
             store.set_game(game);
 
-            // [Event] Game spawned
+            // [Event] Game spawned: a Tutorial game belongs to no tournament (id 0)
+            let event_tournament_id = if mode == Mode::Tutorial {
+                0
+            } else {
+                tournament_id
+            };
             store
                 .emit(
                     PavedEvent::GameSpawned(
@@ -82,7 +87,7 @@ pub mod HostableComponent {
                             game_id,
                             player_id: player.id,
                             mode: game.mode,
-                            tournament_id,
+                            tournament_id: event_tournament_id,
                             start_time: time,
                             price: game.price(),
                         },

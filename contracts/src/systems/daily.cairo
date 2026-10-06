@@ -41,8 +41,8 @@ pub mod Daily {
     use paved::types::role::Role;
     use paved::types::spot::Spot;
     use paved::views::{
-        BuilderView, CharacterView, GameView, IGameView, ITournamentView, TileView, TournamentView,
-        ViewsImpl,
+        BuilderView, CharacterView, GameView, IGameView, ITournamentView, PriceView, TileView,
+        TournamentView, ViewsImpl,
     };
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
 
@@ -202,6 +202,10 @@ pub mod Daily {
 
         fn current_tournament_id(self: @ContractState) -> u64 {
             ViewsImpl::current_tournament_id(get_block_timestamp())
+        }
+
+        fn entry_price(self: @ContractState) -> PriceView {
+            ViewsImpl::entry_price(self.payable.token_address.read())
         }
     }
 }
