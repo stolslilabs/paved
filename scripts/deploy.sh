@@ -29,10 +29,12 @@ if [[ "$NETWORK" != "devnet" ]]; then
 fi
 
 RPC_URL="${RPC_URL:-http://127.0.0.1:5050}"
-case "$RPC_URL" in
-  http://127.0.0.1:* | http://localhost:* | http://\[::1\]:*) ;;
-  *) echo "deploy.sh: devnet must be a local node, got RPC_URL=$RPC_URL" >&2; exit 2 ;;
-esac
+# Full-authority match: a prefix glob would let `http://127.0.0.1:5050@other-host:5050` through.
+LOCAL_URL_RE='^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?$'
+if [[ ! "$RPC_URL" =~ $LOCAL_URL_RE ]]; then
+  echo "deploy.sh: devnet must be a local node (http://127.0.0.1|localhost|[::1]:<port>), got RPC_URL=$RPC_URL" >&2
+  exit 2
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASDF="${ASDF_DATA_DIR:-$HOME/.asdf}/installs"
@@ -86,7 +88,7 @@ call() { # <address> <function> [calldata...]
   local addr="$1" fn="$2"; shift 2
   local args=()
   [[ $# -gt 0 ]] && args=(--calldata "$@")
-  sc sncast call --url "$RPC_URL" --contract-address "$addr" --function "$fn" "${args[@]}" |
+  sc sncast call --url "$RPC_URL" --contract-address "$addr" --function "$fn" ${args[@]+"${args[@]}"} |
     pyj '" ".join(d["response_raw"])'
 }
 
@@ -97,7 +99,7 @@ invoke() { # <address> <function> [calldata...]
   [[ $# -gt 0 ]] && args=(--calldata "$@")
   local tx
   tx="$(sc sncast --wait "${ACCOUNTS[@]}" --account dev invoke --url "$RPC_URL" \
-    --contract-address "$addr" --function "$fn" "${args[@]}" | pyj 'd["transaction_hash"]')"
+    --contract-address "$addr" --function "$fn" ${args[@]+"${args[@]}"} | pyj 'd["transaction_hash"]')"
   echo "   $fn tx $tx" >&2
   echo "$tx"
 }
@@ -122,7 +124,7 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   [[ $# -gt 0 ]] && args=(--constructor-calldata "$@")
   local out
   out="$(sc sncast --wait "${ACCOUNTS[@]}" --account dev deploy --url "$RPC_URL" \
-    --class-hash "$class" --salt "$SALT" "${args[@]}")" || die "deploy $name failed (is the node fresh?)"
+    --class-hash "$class" --salt "$SALT" ${args[@]+"${args[@]}"})" || die "deploy $name failed (is the node fresh?)"
   local tx
   tx="$(pyj 'd["transaction_hash"]' <<<"$out")"
   echo "$tx" >>"$WORK_DIR/deploy-txs"  # deploy runs in a subshell: a file, not an array
