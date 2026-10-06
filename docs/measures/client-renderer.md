@@ -10,8 +10,9 @@ At 72 tiles, throttled (CDP CPU 4x, 60 Hz), **time to interactive falls from 6.2
 from 1.42 s to 0.24 s unthrottled. A click shows its tile in 34 ms (p95) instead of 115 ms. Draw calls
 per median frame fall from 207 to 137 and triangles from 1.7 M to 0.74 M. In the real Game page, long
 tasks fall from 17 to 1 per minute of play. That one is the first transaction signature of the session
-(starknet.js), not the renderer. Every P-7b target is met but one: "no long task > 50 ms per
-placement" fails once per session, on that first signature. Three changes made this:
+(starknet.js), not the renderer. Every P-7b target is met but two: "no long task > 50 ms per
+placement" fails once per session, on that first signature, and "no frame over 1.5 intervals" in
+play (0.1 % of frames). Three changes made this:
 - tiles share their type's geometry, materials and edge outlines;
 - the outlines are built by a faster function that gives three's exact segments;
 - the shadow map is drawn only when the tiles change.
