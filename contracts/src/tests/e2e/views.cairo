@@ -7,7 +7,8 @@ use paved::models::tournament::TournamentTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    IDailyDispatcherTrait, PLAYER, SOMEONE, Systems, TestStore, TestStoreTrait,
+    IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, Systems, TestStore,
+    TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -150,6 +151,7 @@ fn test_views_game_tutorial() {
     assert(view.player_id == context.player_id, 'Views: player');
     assert(view.mode == Mode::Tutorial.into(), 'Views: mode');
     assert(view.deck_size == 10, 'Views: deck size');
+    assert(view.tournament_id == 0, 'Views: no tournament');
     assert(view.placed_count == 2, 'Views: placed count');
     assert(view.tile_count == 3, 'Views: tile count');
     let tiles = views.tiles(context.game_id, 0, MAX_PAGE);
@@ -413,6 +415,21 @@ fn test_views_tournament_id_bounds() {
     assert(!view.over && view.prize == 0, 'Views: beyond empty');
     let view = tournaments.tournament(max);
     assert(view.id == max && view.end_time == 0, 'Views: u64 max');
+}
+
+#[test]
+fn test_views_entry_price_equals_the_spawn_debit() {
+    let (_, systems, context) = setup::spawn_game(Mode::None);
+    let tournaments = ITournamentViewDispatcher {
+        contract_address: systems.daily.contract_address,
+    };
+    let price = tournaments.entry_price();
+    assert(price.token == context.token.contract_address, 'Views: price token');
+    assert(price.amount > 0, 'Views: price amount');
+
+    let player_before = context.token.balance_of(PLAYER());
+    systems.daily.spawn();
+    assert(player_before - context.token.balance_of(PLAYER()) == price.amount, 'Views: debit');
 }
 
 // Events

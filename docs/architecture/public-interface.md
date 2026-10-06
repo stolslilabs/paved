@@ -72,7 +72,7 @@ long as it reads the ABI of the deployed class.
 | 13 | `deck_size` | `u32` | Tiles in a full game of this mode, the starter tile included (Daily 38, Tutorial 10) |
 | 14 | `start_time` | `u64` | Time of the spawn |
 | 15 | `end_time` | `u64` | Time of the end of the game when it counted for its tournament; `0` otherwise (game not over, ended after its tournament closed, or Tutorial) |
-| 16 | `tournament_id` | `u64` | The tournament the game counted for, set when the game ends in time; `0` otherwise |
+| 16 | `tournament_id` | `u64` | The tournament the game counted for, set when the game ends in time; `0` otherwise. Always `0` for a Tutorial game: it belongs to no tournament |
 
 `tile_count = placed_count + discarded_count + (1 if a tile is held, else 0)`. A game abandoned by
 `surrender` keeps the tile that was in hand: it is in `tile_count` but neither placed nor
@@ -153,6 +153,17 @@ The tournament of the current block time: `block_timestamp / 86400`. One tournam
 
 A game counts for the tournament of its spawn only if it ends before that tournament is over.
 
+### `entry_price() -> PriceView`
+
+What `spawn` pulls from the player: the ERC20 and the amount. It is read from the same source as
+`spawn` (the token the contract was deployed with, and the price of the mode), so the two cannot
+diverge.
+
+| # | Field | Type | Meaning |
+|---|---|---|---|
+| 1 | `token` | `ContractAddress` | The ERC20 that `spawn` pulls the entry price from (the player approves the `Daily` contract on it) |
+| 2 | `amount` | `u256` | The entry price `spawn` pulls, in the base unit of the token (18 decimals for the test token) |
+
 ## Events for lists
 
 The views read one game; lists come from events. The player id is a key of the two events a list
@@ -160,12 +171,14 @@ needs, so a node can filter them (`starknet_getEvents` with `keys`):
 
 | Event | Keys, in order | Data |
 |---|---|---|
-| `GameSpawned` | selector, `game_id`, `player_id` | `mode`, `tournament_id`, `start_time`, `price` |
+| `GameSpawned` | selector, `game_id`, `player_id` | `mode`, `tournament_id` (`0` for Tutorial), `start_time`, `price` |
 | `GameOver` | selector, `game_id`, `player_id`, `tournament_id` | `mode`, `score` (final), `start_time`, `end_time` |
 
 "My games": `GameSpawned` with keys `[[selector], [], [player_id]]`. "My finished games and their
 scores": `GameOver` with the same filter. "Games of a tournament": `GameOver` with keys
-`[[selector], [], [], [tournament_id]]` (`tournament_id` is `0` for a game that did not count).
+`[[selector], [], [], [tournament_id]]` (`tournament_id` is `0` for a game that did not count, and
+for every Tutorial game). A Tutorial game belongs to no tournament: its `GameSpawned` and its
+`GameOver` carry `tournament_id = 0`.
 The other events are listed in `native-storage.md`.
 
 ## How the views are read today

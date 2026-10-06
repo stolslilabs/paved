@@ -226,7 +226,7 @@ fn test_events_tutorial_spawn_and_surrender() {
                 game_id,
                 player_id: context.player_id,
                 mode: Mode::Tutorial.into(),
-                tournament_id: TournamentTrait::compute_id(game.start_time, game.duration()),
+                tournament_id: 0,
                 start_time: game.start_time,
                 price: game.price(),
             },
@@ -353,7 +353,7 @@ fn test_events_daily_wonder_emits_scored() {
             context.game_id, Orientation::North, CENTER + 1, CENTER, Role::Pilgrim, Spot::Center,
         );
 
-    // Seven more neighbors of the wonder: five are written directly (field tiles with no
+    // Seven more neighbors of the wonder: six are written directly (field tiles with no
     // character), the starter is already there, and the last one is built through the contract.
     let mut id = 100;
     for (x, y) in array![

@@ -554,6 +554,20 @@
     ]
   },
   {
+    "type": "struct",
+    "name": "paved::views::PriceView",
+    "members": [
+      {
+        "name": "token",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256"
+      }
+    ]
+  },
+  {
     "type": "interface",
     "name": "paved::views::ITournamentView",
     "items": [
@@ -580,6 +594,17 @@
         "outputs": [
           {
             "type": "core::integer::u64"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "entry_price",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "paved::views::PriceView"
           }
         ],
         "state_mutability": "view"

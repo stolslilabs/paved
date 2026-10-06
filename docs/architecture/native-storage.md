@@ -104,7 +104,8 @@ Own, minimal, no Dojo permission:
   control of the contract and of its funds (in `Daily`, the prize pools held in the token), so the
   owner key holds the funds. Treat it as such (hardware or multisig account).
 - **Two-step handover**: `transfer_ownership(new_owner)` only records `new_owner` as pending (a new
-  call overwrites the pending owner); the pending owner completes it with `accept_ownership()`,
+  call overwrites the pending owner, so a pending proposal is withdrawn by proposing the owner's own
+  address); the pending owner completes it with `accept_ownership()`,
   which clears the pending owner. A mistyped address therefore never takes the ownership.
 - **Player**: an address registered in `Account`. A player acts only on their own game: every game
   entry point loads the `Builder` keyed by `(game_id, caller)`, and a missing builder reverts
