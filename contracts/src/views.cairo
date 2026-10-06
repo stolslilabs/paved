@@ -16,6 +16,8 @@ use paved::types::role::Role;
 
 /// Largest page `tiles` returns.
 pub const MAX_PAGE: u32 = 64;
+/// Last tournament id whose end time fits in a `u64`: `(2^64 - 1) / 86400 - 1`.
+pub const MAX_TOURNAMENT_ID: u64 = 213503982334600;
 /// Characters of a player, one per role.
 pub const CHARACTER_COUNT: u8 = 5;
 
@@ -249,6 +251,25 @@ pub impl ViewsImpl of ViewsTrait {
     }
 
     fn tournament(store: Store, id: u64, time: u64) -> TournamentView {
+        // [Check] Beyond the last day a u64 time can end: a zeroed view, no revert
+        if id > MAX_TOURNAMENT_ID {
+            return TournamentView {
+                id,
+                start_time: 0,
+                end_time: 0,
+                over: false,
+                prize: 0,
+                top1_player_id: 0,
+                top1_score: 0,
+                top1_claimed: false,
+                top2_player_id: 0,
+                top2_score: 0,
+                top2_claimed: false,
+                top3_player_id: 0,
+                top3_score: 0,
+                top3_claimed: false,
+            };
+        }
         let tournament: Tournament = store.tournament(id);
         let duration = constants::DAILY_TOURNAMENT_DURATION;
         let end_time = (id + 1) * duration;

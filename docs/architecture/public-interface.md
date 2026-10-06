@@ -46,8 +46,10 @@ long as it reads the ABI of the deployed class.
   real game in some fields (score 0, not over), so the views refuse it.
 - **A player who is not the player of the game**: `builder` and `characters` revert with
   `View: not the game player`. Games are single-player; the player is the one who spawned it.
-- **A tournament**: every id is a valid day, so `tournament` never reverts. A day with no entry
-  returns its id, its start and end times, and zero everywhere else.
+- **A tournament**: `tournament` never reverts. A day with no entry returns its id, its start and
+  end times, and zero everywhere else. An id above `MAX_TOURNAMENT_ID = 213503982334600`
+  (`(2^64 - 1) / 86400 - 1`, the last day whose end time fits in a `u64`) can never hold a
+  tournament: it returns its id and zero everywhere else, `start_time` and `end_time` included.
 
 ## Views of `Daily` and `Tutorial` (`IGameView`)
 
@@ -135,8 +137,8 @@ The tournament of the current block time: `block_timestamp / 86400`. One tournam
 | # | Field | Type | Meaning |
 |---|---|---|---|
 | 1 | `id` | `u64` | `id` |
-| 2 | `start_time` | `u64` | `id * 86400`; games spawned from then on enter this tournament |
-| 3 | `end_time` | `u64` | `(id + 1) * 86400`; first second when the tournament is over and prizes can be claimed |
+| 2 | `start_time` | `u64` | `id * 86400`; games spawned from then on enter this tournament; `0` above `MAX_TOURNAMENT_ID` |
+| 3 | `end_time` | `u64` | `(id + 1) * 86400`; first second when the tournament is over and prizes can be claimed; `0` above `MAX_TOURNAMENT_ID` |
 | 4 | `over` | `bool` | `block_timestamp >= end_time` |
 | 5 | `prize` | `u256` | Prize pool: entry prices and sponsored amounts. Claims do not reduce it |
 | 6 | `top1_player_id` | `felt252` | First place; `0` when empty |

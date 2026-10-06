@@ -16,7 +16,8 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 use paved::views::{
     CharacterView, IGameViewDispatcher, IGameViewDispatcherTrait, ITournamentViewDispatcher,
-    ITournamentViewDispatcherTrait, MAX_PAGE, TILE_DISCARDED, TILE_HELD, TILE_PLACED,
+    ITournamentViewDispatcherTrait, MAX_PAGE, MAX_TOURNAMENT_ID, TILE_DISCARDED, TILE_HELD,
+    TILE_PLACED,
 };
 use snforge_std::{EventSpyTrait, spy_events, start_cheat_block_timestamp_global};
 
@@ -391,15 +392,43 @@ fn test_views_tournament_empty_day() {
     assert(view.prize == 0 && view.top1_player_id == 0, 'Views: empty');
 }
 
+#[test]
+fn test_views_tournament_id_bounds() {
+    start_cheat_block_timestamp_global(3 * DAY + 100);
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let tournaments = ITournamentViewDispatcher {
+        contract_address: systems.daily.contract_address,
+    };
+    // The last id: its end time is the last whole day that fits in a u64.
+    let view = tournaments.tournament(MAX_TOURNAMENT_ID);
+    assert(view.id == MAX_TOURNAMENT_ID, 'Views: max id');
+    assert(view.start_time == MAX_TOURNAMENT_ID * DAY, 'Views: max start');
+    assert(view.end_time == (MAX_TOURNAMENT_ID + 1) * DAY, 'Views: max end');
+    let max: u64 = 0xffffffffffffffff;
+    assert(max - view.end_time < DAY, 'Views: max is the last day');
+    // Beyond it: a zeroed view, no revert.
+    let view = tournaments.tournament(MAX_TOURNAMENT_ID + 1);
+    assert(view.id == MAX_TOURNAMENT_ID + 1, 'Views: beyond id');
+    assert(view.start_time == 0 && view.end_time == 0, 'Views: beyond window');
+    assert(!view.over && view.prize == 0, 'Views: beyond empty');
+    let view = tournaments.tournament(max);
+    assert(view.id == max && view.end_time == 0, 'Views: u64 max');
+}
+
 // Events
 
 #[test]
 fn test_views_events_keys_carry_the_player() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
-    let (_, systems, context) = setup::spawn_game(Mode::None);
+    let (store, systems, context) = setup::spawn_game(Mode::None);
     let mut spy = spy_events();
     let game_id = systems.daily.spawn();
+    // Close a city so the final score is not zero.
+    build_two(store, @systems, game_id, context.player_id);
+    start_cheat_block_timestamp_global(3 * DAY + 200);
     systems.daily.surrender(game_id);
+    let score = store.game(game_id).score;
+    assert(score > 0, 'Views: scored');
     let player: felt252 = PLAYER().into();
 
     let mut spawned = false;
@@ -425,7 +454,9 @@ fn test_views_events_keys_carry_the_player() {
             assert(data.len() == 4, 'Views: over data');
             let mode: u8 = Mode::Daily.into();
             assert(*data.at(0) == mode.into(), 'Views: over mode');
-            assert(*data.at(1) == 0, 'Views: over score');
+            assert(*data.at(1) == score.into(), 'Views: over score');
+            assert(*data.at(2) == (3 * DAY + 100).into(), 'Views: over start');
+            assert(*data.at(3) == (3 * DAY + 200).into(), 'Views: over end');
             over = true;
         }
     }
