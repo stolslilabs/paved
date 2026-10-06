@@ -1,0 +1,31 @@
+{
+  "network": "devnet",
+  "chain_id": "0x534e5f5345504f4c4941",
+  "rpc_url": "http://127.0.0.1:5050",
+  "deployed_at": "0c1b5ec68e64151aca414caeec570d0070def602",
+  "deployed_block": 5,
+  "token": {
+    "address": "0x02aa1b3c0b07d9abd3568a3dc6cb1b15f87001f45a644bb31841c96cc33ffac7",
+    "class_hash": "0x041f8b68c2be80df578aff51c57cf28ba7dc1eac2ce2d60104da3755cc3530c9",
+    "decimals": 18,
+    "symbol": "LORDS"
+  },
+  "contracts": {
+    "Account": {
+      "address": "0x04d1328dbe2c9441a5b7f1fca8da91e94bfd7de2bdc7550dbd989f7af72f99ef",
+      "class_hash": "0x055084db306b681a4b9823fcc8db6957389f571bae38e8d41d687ed4ed7750fe"
+    },
+    "Daily": {
+      "address": "0x07cd5e8bc2b745425b2764662a899bf053d2b243d124dcb5ec3d877ab835269f",
+      "class_hash": "0x05e175549561bea8df9ee2d0a568b86df7486697dcc502e3f561824b94be697b"
+    },
+    "Tutorial": {
+      "address": "0x068bd86d9924de61ca6a1cece04ad4df18416c314807a8f8245e0315e91f8db3",
+      "class_hash": "0x07c796f954abcf07233099b296f680229de8fb86328c129c23eec3c32d6d2f90"
+    },
+    "Token": {
+      "address": "0x02aa1b3c0b07d9abd3568a3dc6cb1b15f87001f45a644bb31841c96cc33ffac7",
+      "class_hash": "0x041f8b68c2be80df578aff51c57cf28ba7dc1eac2ce2d60104da3755cc3530c9"
+    }
+  }
+}
