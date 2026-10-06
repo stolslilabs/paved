@@ -55,5 +55,46 @@ export { useGameEconomySnapshot } from "./hooks/useGameEconomySnapshot";
 export { DojoChainProvider, useDojo } from "./provider";
 
 // Auth
-export { createControllerConnector } from "./auth/controller";
+export { controllerPolicies, createControllerConnector } from "./auth/controller";
 export type { ControllerConfig } from "./auth/controller";
+
+// Native data layer (P-10): typed clients on starknet.js, views, events. See
+// docs/architecture/client-data-layer.md.
+export { ABIS, createCodecs } from "./abis";
+export type { ContractName, Codecs } from "./abis";
+export { AbiCodec, sameAddress } from "./codec";
+export type { Abi, DecodedEvent, RawEvent } from "./codec";
+export { resolveDeployment } from "./deployment";
+export type { Deployment, DeploymentEnv, DeploymentFile } from "./deployment";
+export {
+  MAX_PAGE,
+  MODE_CODE,
+  TILE_STATUS,
+  FakeGameViews,
+  RpcGameViews,
+  ViewError,
+  emptyTournament,
+  gameContract,
+  modeFromCode,
+  toViewError,
+} from "./views";
+export type {
+  BuilderView,
+  CharacterView,
+  FakeGame,
+  GameKey,
+  GameMode,
+  GameView,
+  GameViews,
+  TileView,
+  TournamentView,
+  ViewErrorKind,
+} from "./views";
+export { EventReader, receiptEvents } from "./events";
+export type { PlayerGame } from "./events";
+export { placementOutcome } from "./placement";
+export type { PlacementOutcome } from "./placement";
+export { DAILY_PRICE, RECEIPT_POLL_MS, PavedWriter, WriteError } from "./writer";
+export type { BuildMove, WriteAccount, WriteResult } from "./writer";
+export { PavedClient, createPavedClient } from "./paved-client";
+export type { PavedProvider, PlayerRecord } from "./paved-client";
