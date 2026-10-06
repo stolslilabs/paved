@@ -5,7 +5,7 @@ import { EventReader, type EventProvider } from "./events";
 import { RpcGameViews, ViewError, toViewError, type CallProvider, type GameViews } from "./views";
 import { PavedWriter, type ReceiptProvider, type WriteAccount } from "./writer";
 
-export type PavedProvider = CallProvider & EventProvider & ReceiptProvider;
+export type PavedRpc = CallProvider & EventProvider & ReceiptProvider;
 
 export interface PlayerRecord {
   id: string;
@@ -20,7 +20,7 @@ export class PavedClient {
 
   constructor(
     readonly deployment: Deployment,
-    readonly provider: PavedProvider,
+    readonly provider: PavedRpc,
     readonly codecs: Codecs = createCodecs(),
     views?: GameViews,
   ) {
@@ -60,5 +60,5 @@ export class PavedClient {
 /** A client on starknet.js's `RpcProvider` for the deployment's RPC URL. */
 export function createPavedClient(deployment: Deployment): PavedClient {
   const provider = new RpcProvider({ nodeUrl: deployment.rpcUrl });
-  return new PavedClient(deployment, provider as unknown as PavedProvider);
+  return new PavedClient(deployment, provider as unknown as PavedRpc);
 }

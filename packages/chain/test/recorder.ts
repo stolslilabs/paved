@@ -1,5 +1,5 @@
 import type { RawEvent } from "../src/codec";
-import type { PavedProvider } from "../src/paved-client";
+import type { PavedRpc } from "../src/paved-client";
 
 /** RPC answers recorded from devnet, replayed by the unit tests. */
 export interface Recording {
@@ -21,7 +21,7 @@ function rawEvent(e: any): RawEvent {
 }
 
 /** Wraps a provider and records what the client layer asks and gets. */
-export function recording(provider: PavedProvider, record: Recording): PavedProvider {
+export function recording(provider: PavedRpc, record: Recording): PavedRpc {
   record.raw ??= {};
   return {
     async callContract(call) {

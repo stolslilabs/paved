@@ -38,12 +38,12 @@ describe("ModeDetailDialog", () => {
 
     const allProps = {
       open: true,
-      mode: "weekly",
-      title: "Weekly Tournament",
+      mode: "daily",
+      title: "Daily Challenge",
       tileCount: 144,
-      entryFee: "0.01 ETH",
+      entryFee: "1 $TILE",
       duration: "7d",
-      prizePool: "1.5 ETH",
+      prizePool: "1.5",
       topPlayers: [
         { name: "Alice", score: 500 },
         { name: "Bob", score: 450 },

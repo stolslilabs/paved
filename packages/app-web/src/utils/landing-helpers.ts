@@ -1,119 +1,10 @@
-import { feltToString, parseToriiBool } from "./torii";
-import { buildRewardPreview } from "./economy-ui";
+import type { TournamentView } from "@paved/chain";
 
-export interface PlayerGame {
-  gameId: number;
-  mode: string;
-  score: number;
-  tilesPlaced: number;
-  totalTiles: number;
-  isOver: boolean;
-  startTime: number;
-}
+/** The entry token's label, whatever its on-chain symbol (D-2). */
+export const TOKEN_LABEL = "$TILE";
 
-export interface LeaderboardEntry {
-  rank: number;
-  name: string;
-  score: number;
-}
-
-export interface TournamentInfo {
-  prizePool: string;
-  topPlayers: { name: string; score: number }[];
-  rewardPreview: Array<{
-    rank: number;
-    baseLabel: string;
-    multiplierLabel: string;
-    adjustedLabel: string;
-  }>;
-}
-
-const MODE_MAP: Record<string, string> = {
-  "0": "none",
-  "1": "daily",
-  "2": "weekly",
-  "3": "tutorial",
-};
-
-export function parseGameRow(row: any): PlayerGame {
-  return {
-    gameId: Number(row.id),
-    mode: MODE_MAP[row.mode] || "none",
-    score: Number(row.score),
-    tilesPlaced: Number(row.built),
-    totalTiles: Number(row.tile_count),
-    isOver: parseToriiBool(row.over),
-    startTime: Number(row.start_time),
-  };
-}
-
-export function splitGames(games: PlayerGame[]): {
-  activeGames: PlayerGame[];
-  completedGames: PlayerGame[];
-} {
-  const activeGames = games
-    .filter((g) => !g.isOver)
-    .sort((a, b) => b.gameId - a.gameId);
-  const completedGames = games
-    .filter((g) => g.isOver)
-    .sort((a, b) => b.gameId - a.gameId);
-  return { activeGames, completedGames };
-}
-
-export function parseLeaderboardRow(row: any, rank: number): LeaderboardEntry {
-  return {
-    rank,
-    name: feltToString(row.name),
-    score: Number(row.score),
-  };
-}
-
-export function parseTournamentRow(
-  row: any,
-  playerNames: Record<string, string>
-): TournamentInfo {
-  const prizeWei = BigInt(row.prize);
-  const prizeEth = Number(prizeWei) / 1e18;
-
-  const topPlayers: { name: string; score: number }[] = [];
-  if (Number(row.top1_score) > 0) {
-    topPlayers.push({ name: playerNames[row.top1_player_id] || "Unknown", score: Number(row.top1_score) });
-  }
-  if (Number(row.top2_score) > 0) {
-    topPlayers.push({ name: playerNames[row.top2_player_id] || "Unknown", score: Number(row.top2_score) });
-  }
-  if (Number(row.top3_score) > 0) {
-    topPlayers.push({ name: playerNames[row.top3_player_id] || "Unknown", score: Number(row.top3_score) });
-  }
-
-  const hasTop2 = BigInt(row.top2_player_id ?? 0) !== 0n;
-  const hasTop3 = BigInt(row.top3_player_id ?? 0) !== 0n;
-  const reward3 = hasTop3 ? prizeEth / 6 : 0;
-  const reward2 = hasTop2 ? (prizeEth - reward3) / 3 : 0;
-  const reward1 = prizeEth - reward2 - reward3;
-
-  const rewardPreview = [
-    { rank: 1, baseReward: reward1, multiplierFp: Number(row.top1_multiplier_fp ?? 1_000_000) },
-    { rank: 2, baseReward: reward2, multiplierFp: Number(row.top2_multiplier_fp ?? 1_000_000) },
-    { rank: 3, baseReward: reward3, multiplierFp: Number(row.top3_multiplier_fp ?? 1_000_000) },
-  ].map((entry) => ({
-    rank: entry.rank,
-    ...buildRewardPreview({
-      baseReward: entry.baseReward,
-      multiplierFp: entry.multiplierFp,
-    }),
-  }));
-
-  return {
-    prizePool: prizeEth % 1 === 0 ? String(prizeEth) : String(prizeEth),
-    topPlayers,
-    rewardPreview,
-  };
-}
-
-export function formatTimeRemaining(endTimeUnix: number): string {
-  const now = Math.floor(Date.now() / 1000);
-  const remaining = endTimeUnix - now;
+export function formatTimeRemaining(endTimeUnix: number, nowUnix = Math.floor(Date.now() / 1000)): string {
+  const remaining = endTimeUnix - nowUnix;
   if (remaining <= 0) return "Ended";
 
   const days = Math.floor(remaining / 86400);
@@ -124,9 +15,34 @@ export function formatTimeRemaining(endTimeUnix: number): string {
   return `${hours}h ${minutes}m`;
 }
 
-export function formatEntryFee(priceWei: bigint): string {
-  if (priceWei === BigInt(0)) return "Free";
-  const eth = Number(priceWei) / 1e18;
-  if (eth % 1 === 0) return `${eth} ETH`;
-  return `${eth} ETH`;
+function trimTrailingZeros(value: string): string {
+  if (!value.includes(".")) return value;
+  return value.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+}
+
+/** An amount of the token in its base unit, as a decimal string. */
+export function formatTokenAmount(value: bigint | number | string, decimals = 18, precision = 4): string {
+  const raw = BigInt(value);
+  const divisor = 10n ** BigInt(decimals);
+  const whole = raw / divisor;
+  const fraction = raw % divisor;
+  if (fraction === 0n) return whole.toString();
+  const padded = fraction.toString().padStart(decimals, "0");
+  return trimTrailingZeros(`${whole.toString()}.${padded.slice(0, precision)}`);
+}
+
+export function shortAddress(address: string): string {
+  const hex = BigInt(address).toString(16);
+  return hex.length <= 10 ? `0x${hex}` : `0x${hex.slice(0, 4)}…${hex.slice(-4)}`;
+}
+
+/** The top three of a tournament, empty places left out. Names wait for the indexer: the address stands in. */
+export function podium(t: TournamentView): { name: string; score: number }[] {
+  return [
+    [t.top1PlayerId, t.top1Score],
+    [t.top2PlayerId, t.top2Score],
+    [t.top3PlayerId, t.top3Score],
+  ]
+    .filter(([id]) => BigInt(id as string) !== 0n)
+    .map(([id, score]) => ({ name: shortAddress(id as string), score: score as number }));
 }

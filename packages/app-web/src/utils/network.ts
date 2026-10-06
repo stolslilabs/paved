@@ -1,0 +1,66 @@
+import { Account, RpcProvider } from "starknet";
+import { resolveDeployment } from "@paved/chain";
+import type { Deployment, DeploymentFile } from "@paved/chain";
+
+/** The `VITE_*` variables the app reads; each one set overrides `contracts/deployments/<network>.json`. */
+export interface NetworkEnv {
+  VITE_NETWORK?: string;
+  VITE_RPC_URL?: string;
+  VITE_DEPLOYED_BLOCK?: string;
+  VITE_ACCOUNT_ADDRESS?: string;
+  VITE_DAILY_ADDRESS?: string;
+  VITE_TUTORIAL_ADDRESS?: string;
+  VITE_TOKEN_ADDRESS?: string;
+  /** The account that plays (a devnet predeployed account); without both, the app is read-only. */
+  VITE_PLAYER_ADDRESS?: string;
+  VITE_PLAYER_PRIVATE_KEY?: string;
+  VITE_SUPPORTS_TOKEN_MINT?: string;
+}
+
+export interface AppNetwork {
+  deployment: Deployment;
+  /** The test token's faucet is offered (devnet: the Token is a mock there). */
+  supportsMint: boolean;
+  /** Tip of each write: 0 on devnet, where starknet.js's tip estimate stalls. */
+  tip: bigint | undefined;
+}
+
+export const DEFAULT_NETWORK = "devnet";
+
+/** Picks `<network>.json` among the deployments files (keyed by path) and merges the env over it. */
+export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown>): AppNetwork {
+  const network = env.VITE_NETWORK || DEFAULT_NETWORK;
+  const entry = Object.entries(files).find(([path]) => path.endsWith(`/${network}.json`));
+  const file = (entry?.[1] as { default?: DeploymentFile } | DeploymentFile | undefined) ?? null;
+  const deployment = resolveDeployment({
+    network,
+    file: file && "default" in file ? (file.default ?? null) : (file as DeploymentFile | null),
+    env: {
+      rpcUrl: env.VITE_RPC_URL,
+      deployedBlock: env.VITE_DEPLOYED_BLOCK,
+      addresses: {
+        Account: env.VITE_ACCOUNT_ADDRESS,
+        Daily: env.VITE_DAILY_ADDRESS,
+        Tutorial: env.VITE_TUTORIAL_ADDRESS,
+        Token: env.VITE_TOKEN_ADDRESS,
+      },
+    },
+  });
+  const devnet = network === "devnet";
+  const mint = env.VITE_SUPPORTS_TOKEN_MINT;
+  return {
+    deployment,
+    supportsMint: mint === undefined || mint === "" ? devnet : mint.toLowerCase() === "true",
+    tip: devnet ? 0n : undefined,
+  };
+}
+
+/** The playing account, or null (read-only) when the deployment is not configured or no key is set. */
+export function resolvePlayerAccount(env: NetworkEnv, deployment: Deployment): Account | null {
+  if (!deployment.configured || !env.VITE_PLAYER_ADDRESS || !env.VITE_PLAYER_PRIVATE_KEY) return null;
+  return new Account({
+    provider: new RpcProvider({ nodeUrl: deployment.rpcUrl }),
+    address: env.VITE_PLAYER_ADDRESS,
+    signer: env.VITE_PLAYER_PRIVATE_KEY,
+  });
+}

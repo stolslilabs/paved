@@ -15,7 +15,6 @@ describe("LandingScreen", () => {
       gameModes: [],
       activeGames: [],
       completedGames: [],
-      leaderboard: [],
       isLoading: false,
       onModeSelect: () => {},
     };
@@ -25,7 +24,6 @@ describe("LandingScreen", () => {
     expect(props.gameModes).toEqual([]);
     expect(props.activeGames).toEqual([]);
     expect(props.completedGames).toEqual([]);
-    expect(props.leaderboard).toEqual([]);
     expect(props.isLoading).toBe(false);
     expect(typeof props.onModeSelect).toBe("function");
   });

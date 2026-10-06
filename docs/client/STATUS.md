@@ -27,7 +27,15 @@ follow-up for when the Mac is back (P-9).
 | B. Frame-time baseline at 38 and 72 tiles | Done, #190: method and figures in `docs/measures/client-baseline.md` |
 | C. Throttled baseline, click-to-display latency, polling cost in play (P-7) | Done, #192: section "Throttled and in-play (P-7)" of `docs/measures/client-baseline.md` |
 | Renderer: shared geometry and materials, no per-tile edge geometry (P-7b) | Done, #194: `docs/measures/client-renderer.md`. Instancing measured and dropped |
-| Data layer: drop Torii and polling, view calls and events | From P2, with `paved-core` |
+| Data layer: drop Torii and polling, view calls and events (P-10) | In progress: (a) `packages/chain` #202; (b) app-web wiring and removals; (c) bench mock. Design: `docs/architecture/client-data-layer.md` |
+
+2026-10-07, data layer (P-10): `packages/chain` talks to the native contracts through starknet.js, from
+the ABIs of `contracts/abis/`: views for one game or tournament, `GameSpawned` / `GameOver` events keyed
+by player for the lists, and each write's receipt events to show a placement before one reconciling
+read. No Torii, no Dojo package and no timer: only a pending write asks for its own receipt (every
+250 ms). The leaderboard shows "coming later" until META's indexer. A devnet integration test
+(`bun run test:devnet` in `packages/chain`) deploys the four contracts and plays through; browser
+figures of the new layer wait for the Mac.
 
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 

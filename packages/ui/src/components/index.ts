@@ -16,5 +16,3 @@ export { ModeDetailDialog, ModeDetailDialogStat, ModeDetailDialogView } from "./
 export type { ModeDetailDialogProps } from "./ModeDetailDialog";
 export { TokenPanel, resolveTokenPanelState } from "./TokenPanel";
 export type { TokenPanelProps, TokenPanelState, TokenPanelStateInput } from "./TokenPanel";
-export { EconomySnapshotCard, resolveEconomySnapshotState } from "./EconomySnapshotCard";
-export type { EconomySnapshotCardProps, EconomySnapshotState, EconomySnapshotStateInput } from "./EconomySnapshotCard";

@@ -1,26 +1,17 @@
+import type { GameMode } from "@paved/chain";
+import { modeFromParam } from "./mode-routing";
+
 export interface GameParams {
-  mode: string;
+  mode: GameMode;
   gameId: number | null;
   readonly: boolean;
 }
 
-const VALID_MODES = ["daily", "weekly", "tutorial"];
-
 export function parseGameParams(searchParams: URLSearchParams): GameParams {
-  const modeParam = searchParams.get("mode");
-  const mode = modeParam && VALID_MODES.includes(modeParam) ? modeParam : "daily";
+  const mode = modeFromParam(searchParams.get("mode"));
   const idParam = searchParams.get("id");
-  const gameId = idParam ? Number(idParam) : null;
+  const id = idParam ? Number(idParam) : NaN;
+  const gameId = Number.isInteger(id) && id > 0 ? id : null;
   const readonly = searchParams.get("readonly") === "true";
   return { mode, gameId, readonly };
-}
-
-const CONTRACT_MAP: Record<string, string> = {
-  daily: "Daily",
-  weekly: "Weekly",
-  tutorial: "Tutorial",
-};
-
-export function modeToContractName(mode: string): string {
-  return CONTRACT_MAP[mode] || "Daily";
 }

@@ -4,10 +4,6 @@ How the web client reads and writes the native contracts (`contracts/`, since P2
 Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 `public-interface.md` (views). The code is `packages/chain`.
 
-Status: part (a) of P-10 adds this layer to `packages/chain`. The Dojo code it replaces
-(`bindings/`, `DojoProvider`, the Torii hooks, `@dojoengine/*`) still sits beside it until part (b)
-wires `packages/app-web` to it and removes them.
-
 ## Sources
 
 | What | From | Override |
@@ -40,8 +36,9 @@ devnet: starknet.js 8.9's tip estimate wants 10 V3 transactions per block and st
 The Daily entry price (`DAILY_PRICE`, 1 token) mirrors `DAILY_TOURNAMENT_PRICE` of
 `contracts/src/constants.cairo`: no view exposes it.
 
-Kept from the old code: the plain `Account` from an address and a private key (the devnet
-predeployed account, as before), and the Cartridge controller placeholder
+Kept from the old code: the plain `Account` from an address and a private key (a devnet
+predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`; the old hard-coded
+Katana master key is gone), and the Cartridge controller placeholder
 (`auth/controller.ts`), whose policies are now built from the deployment's addresses. Dropped:
 the Dojo burner manager (`@dojoengine/create-burner`).
 
@@ -77,8 +74,9 @@ filtering:
 |---|---|---|
 | Landing: player registered, name | `Account.player(address)` | on connect, after `create` |
 | Landing: balance | `Token.balance_of(address)` | on connect, after a write that pays |
-| Landing: my games, active and finished | `GameSpawned` + `GameOver` events (both game contracts) | on connect, after `spawn`, on "refresh" |
-| Landing: today's tournament (prize, top 3, end) | `Daily.current_tournament_id` + `Daily.tournament(id)` | on connect, on "refresh", when the page becomes visible |
+| Landing: my games, active and finished | `GameSpawned` + `GameOver` events (both game contracts), then one `game` view per listed game (the active ones and the 10 latest finished) for its counts | on connect, when the page becomes visible |
+| Landing: today's tournament (prize, top 3, end) | `Daily.current_tournament_id` + `Daily.tournament(id)` | on connect, when the page becomes visible |
+| Game page without an id | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once |
 | Landing: leaderboard | none: a plain "coming later" card until META's indexer | |
 | Game: board | `tiles(game_id, 0, 64)` | on open |
 | Game: tile in hand, score, counts, over | `game(game_id)` | on open, after each write (reconcile) |
@@ -107,8 +105,18 @@ can replace that later.
   surrender), lists the games from events and checks the error mapping. `PAVED_RECORD=1` rewrites
   the fixtures. CI does not run it (no devnet there).
 
+## In the app
+
+`PavedProvider` (`react.tsx`) gives the client, the writer and a status computed once from
+`configured` and the account: `not-configured`, `read-only` (no account) or `ready`. `useRead` runs
+one read on its inputs, on `refresh` and, when asked, when the page becomes visible. The game page
+uses `GameSession` (`session.ts`) through `useGameSession`: it loads `game` + `tiles` (+ `builder` and
+`characters` for the game's player), and moves only on this client's writes, as above.
+
 ## Not connected
 
-The app shows "not connected" (no write button, no spawn) when `configured` is false, or when no
-account is available. Reads that need no account (a game in read-only mode, the tournament) still
-work when the deployment is configured.
+`ConnectionBanner` (app-web) says why writes are not offered. `not-configured`: the deployment
+misses addresses or the RPC URL; no write button, no spawn, and the game page shows "Not connected".
+`read-only`: no playing account; games open read-only and the landing page offers no start. A game of
+another player opens read-only with "Not your game: read only"; a missing game shows "Game not
+found".

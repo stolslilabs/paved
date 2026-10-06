@@ -1,45 +1,13 @@
-import { ModeType } from "@paved/game-core";
+import type { GameMode } from "@paved/chain";
 
-export function buildGameRoute(params: { gameId: number; mode: string; readonly?: boolean }): string {
-  const search = new URLSearchParams({
-    id: String(params.gameId),
-    mode: params.mode,
-  });
-
-  if (params.readonly) {
-    search.set("readonly", "true");
-  }
-
+/** `/game?mode=..&id=..`; without an id the game page spawns a new game of that mode. */
+export function buildGameRoute(params: { gameId?: number; mode: GameMode; readonly?: boolean }): string {
+  const search = new URLSearchParams({ mode: params.mode });
+  if (params.gameId !== undefined) search.set("id", String(params.gameId));
+  if (params.readonly) search.set("readonly", "true");
   return `/game?${search.toString()}`;
 }
 
-export function modeTypeFromParam(mode: string | null | undefined): ModeType {
-  switch (mode) {
-    case ModeType.Daily:
-      return ModeType.Daily;
-    case ModeType.Weekly:
-      return ModeType.Weekly;
-    case ModeType.Tutorial:
-      return ModeType.Tutorial;
-    default:
-      return ModeType.Daily;
-  }
-}
-
-export function modeTypeFromToriiMode(mode: unknown): ModeType | null {
-  const value = Number(mode);
-  switch (value) {
-    case 1:
-      return ModeType.Daily;
-    case 2:
-      return ModeType.Weekly;
-    case 3:
-      return ModeType.Tutorial;
-    default:
-      return null;
-  }
-}
-
-export function resolveRuntimeMode(fallback: ModeType, toriiMode: unknown): ModeType {
-  return modeTypeFromToriiMode(toriiMode) ?? fallback;
+export function modeFromParam(mode: string | null | undefined): GameMode {
+  return mode === "tutorial" ? "tutorial" : "daily";
 }

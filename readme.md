@@ -21,6 +21,9 @@ sh scripts/contracts.sh
 ### Terminal 3 - Local stack
 
 The Dojo and Torii scripts (`scripts/indexer.sh`, `scripts/dev-stack.sh`) were removed with the Dojo
-contracts (P2). A native local stack (deploy to a devnet, contract addresses for the client in
-`VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`, `VITE_TUTORIAL_ADDRESS` and `VITE_TOKEN_ADDRESS`) comes with the
-data-layer step; until then the client builds but cannot reach a chain.
+contracts (P2). The client (`packages/app-web`) reads `contracts/deployments/<network>.json`
+(`VITE_NETWORK`, default `devnet`), written by CORE's deploy script; each `VITE_*` variable set
+overrides it: `VITE_RPC_URL`, `VITE_DEPLOYED_BLOCK`, `VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`,
+`VITE_TUTORIAL_ADDRESS`, `VITE_TOKEN_ADDRESS`. The playing account is `VITE_PLAYER_ADDRESS` and
+`VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); without it the client is read-only, and
+without a full deployment it shows "not connected". Design: `docs/architecture/client-data-layer.md`.

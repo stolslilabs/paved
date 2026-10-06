@@ -91,7 +91,7 @@ export function GameModeCardView({
       </GameModeCardStats>
       {prizePool ? (
         <Text color="$muted" fontSize="$2">
-          {`Prize: ${prizePool} ETH`}
+          {`Prize: ${prizePool} $TILE`}
         </Text>
       ) : null}
       {timeRemaining ? (

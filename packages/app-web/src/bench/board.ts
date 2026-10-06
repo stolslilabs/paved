@@ -22,7 +22,7 @@ export interface BenchBoard {
   bounds: PathBounds;
 }
 
-/** Same conversion as Game.tsx toRenderTiles, from the recorded rows instead of Torii. */
+/** Same conversion as utils/game-helpers.ts toRenderBoard, from the recorded rows. */
 export const toRenderTile = (t: TileData): TileRenderData => ({ ...t, worldX: t.x - offset, worldZ: offset - t.y });
 
 /** The recorded board of `size` tiles; throws when there is no fixture of that size. */

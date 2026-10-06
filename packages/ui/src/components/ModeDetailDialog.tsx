@@ -72,7 +72,7 @@ export function ModeDetailDialogView({
         {prizePool ? (
           <ModeDetailDialogStat>
             <Text color="$muted">{"Prize Pool"}</Text>
-            <Text color="$color">{`${prizePool} ETH`}</Text>
+            <Text color="$color">{`${prizePool} $TILE`}</Text>
           </ModeDetailDialogStat>
         ) : null}
         {topPlayers && topPlayers.length > 0 ? (
