@@ -213,6 +213,9 @@ fn test_events_daily_sponsor_and_claim() {
 
 #[test]
 fn test_events_tutorial_spawn_and_surrender() {
+    // A non-zero time: at 0 the spawn time and 0 are the same value. A same-second game over is
+    // the worst case for a tournament id computed from the time (Tutorial duration is 1 second).
+    start_cheat_block_timestamp_global(100);
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let mut spy = spy_events();
     let game_id = systems.tutorial.spawn();
@@ -246,6 +249,15 @@ fn test_events_tutorial_spawn_and_surrender() {
         ),
     );
     spy.assert_emitted(@array![(tutorial, spawned), (tutorial, over)]);
+
+    // The game, its view and both events agree: no tournament, and none was written.
+    assert(game.start_time == 100, 'Events: start time');
+    assert(game.tournament_id == 0, 'Events: game tournament');
+    assert(tutorial_store.tournament(100).prize == 0, 'Events: tutorial tournament');
+    assert(
+        TestStoreTrait::new(systems.daily.contract_address).tournament(100).prize == 0,
+        'Events: daily',
+    );
 }
 
 #[test]

@@ -143,6 +143,7 @@ fn test_views_game_closed_by_last_tile() {
 
 #[test]
 fn test_views_game_tutorial() {
+    start_cheat_block_timestamp_global(3 * DAY + 100);
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
     systems.tutorial.build(context.game_id);
     let views = tutorial_views(@systems);
@@ -158,6 +159,19 @@ fn test_views_game_tutorial() {
     assert(tiles.len() == 3, 'Views: tiles');
     assert(*tiles.at(1).status == TILE_PLACED, 'Views: placed');
     assert(*tiles.at(2).status == TILE_HELD, 'Views: held');
+}
+
+#[test]
+fn test_views_game_tutorial_same_second_game_over() {
+    start_cheat_block_timestamp_global(3 * DAY + 100);
+    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
+    systems.tutorial.surrender(context.game_id);
+    let view = tutorial_views(@systems).game(context.game_id);
+
+    assert(view.over, 'Views: over');
+    assert(view.start_time == 3 * DAY + 100, 'Views: start time');
+    assert(view.tournament_id == 0, 'Views: no tournament');
+    assert(view.end_time == 0, 'Views: no end time');
 }
 
 #[test]

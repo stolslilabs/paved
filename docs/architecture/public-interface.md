@@ -71,7 +71,7 @@ long as it reads the ABI of the deployed class.
 | 12 | `remaining_count` | `u32` | Tiles still to draw after the tile to place now; `0` when the game is over |
 | 13 | `deck_size` | `u32` | Tiles in a full game of this mode, the starter tile included (Daily 38, Tutorial 10) |
 | 14 | `start_time` | `u64` | Time of the spawn |
-| 15 | `end_time` | `u64` | Time of the end of the game when it counted for its tournament; `0` otherwise (game not over, ended after its tournament closed, or Tutorial) |
+| 15 | `end_time` | `u64` | Time of the end of the game when it counted for its tournament; `0` otherwise (game not over, ended after its tournament closed). Always `0` for a Tutorial game, even when it is over: no tournament, so no end time |
 | 16 | `tournament_id` | `u64` | The tournament the game counted for, set when the game ends in time; `0` otherwise. Always `0` for a Tutorial game: it belongs to no tournament |
 
 `tile_count = placed_count + discarded_count + (1 if a tile is held, else 0)`. A game abandoned by
