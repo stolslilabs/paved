@@ -2,6 +2,9 @@
   "name": "paved",
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "vocs dev",
     "build": "vocs build",
@@ -12,6 +15,6 @@
     "react": "latest",
     "react-dom": "latest",
     "typescript": "latest",
-    "vocs": "latest"
+    "vocs": "^1.4.1"
   }
 }
