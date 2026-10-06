@@ -102,3 +102,4 @@ excluded) is computed by that script from `coverage/coverage.lcov`; its awk part
 | `snforge test test_gas_` | 5 passed | 4.17 GB (single-threaded) |
 | `snforge test` | `Tests: 222 passed, 0 failed, 1 ignored, 0 filtered out` | 5.53 GB |
 | `snforge test --coverage` | aborted in `cairo-coverage` | 7.90 GB |
+| `snforge test` after P1 | `Tests: 192 passed, 0 failed, 0 ignored, 0 filtered out` (the CI job `Test game` of the PR passes) | 4.32 GB |
