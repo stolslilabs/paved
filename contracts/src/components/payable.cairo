@@ -18,9 +18,6 @@ pub trait IERC20<TContractState> {
 pub mod PayableComponent {
     // Starknet imports
 
-    // Dojo imports
-
-    use dojo::world::IWorldDispatcher;
     use starknet::{ContractAddress, get_contract_address};
 
     // Internal imports
@@ -51,11 +48,7 @@ pub mod PayableComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
-        fn initialize(
-            ref self: ComponentState<TContractState>,
-            world: IWorldDispatcher,
-            token_address: ContractAddress,
-        ) {
+        fn initialize(ref self: ComponentState<TContractState>, token_address: ContractAddress) {
             // [Storage] Set token address
             self.token_address.write(token_address);
         }

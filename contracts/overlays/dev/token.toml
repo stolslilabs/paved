@@ -1,5 +1,0 @@
-tag = "paved-Token"
-writes = [
-    "paved-EconomyState",
-]
-init_calldata = []

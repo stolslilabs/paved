@@ -5,10 +5,9 @@ use paved::mocks::erc20::interface::{
 };
 use paved::models::tile::CENTER;
 use paved::models::tournament::TournamentTrait;
-use paved::store::StoreTrait;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE,
+    ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -21,8 +20,7 @@ use snforge_std::{
 
 #[test]
 fn test_daily_e2e_discard_increments_counter() {
-    let (world, systems, context) = setup::spawn_game(Mode::Daily);
-    let store = StoreTrait::new(world);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
     systems.daily.discard(context.game_id);
 
@@ -32,8 +30,7 @@ fn test_daily_e2e_discard_increments_counter() {
 
 #[test]
 fn test_daily_e2e_sponsor_updates_prize_and_balance() {
-    let (world, systems, context) = setup::spawn_game(Mode::Daily);
-    let store = StoreTrait::new(world);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
     let game = store.game(context.game_id);
     let tournament_id = TournamentTrait::compute_id(
@@ -57,8 +54,7 @@ fn test_daily_e2e_sponsor_updates_prize_and_balance() {
 fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
     start_cheat_block_timestamp_global(100);
 
-    let (world, systems, context) = setup::spawn_game(Mode::Daily);
-    let store = StoreTrait::new(world);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
     let game = store.game(context.game_id);
     let tournament_id = TournamentTrait::compute_id(
@@ -92,8 +88,7 @@ fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
 fn test_daily_e2e_claim_pays_exact_reward_per_rank() {
     start_cheat_block_timestamp_global(100);
 
-    let (world, systems, context) = setup::spawn_game(Mode::Daily);
-    let store = StoreTrait::new(world);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
     let game = store.game(context.game_id);
     let tournament_id = TournamentTrait::compute_id(
@@ -148,8 +143,7 @@ fn test_daily_e2e_claim_pays_exact_reward_per_rank() {
 fn test_daily_e2e_claim_reverts_before_tournament_end() {
     start_cheat_block_timestamp_global(100);
 
-    let (world, systems, context) = setup::spawn_game(Mode::Daily);
-    let store = StoreTrait::new(world);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
     let game = store.game(context.game_id);
     let tournament_id = TournamentTrait::compute_id(
@@ -166,8 +160,7 @@ fn test_daily_e2e_claim_reverts_before_tournament_end() {
 
 #[test]
 fn test_daily_e2e_build_then_discard_tracks_both_actions() {
-    let (world, systems, context) = setup::spawn_game(Mode::Daily);
-    let store = StoreTrait::new(world);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
     let game = store.game(context.game_id);
     let builder = store.builder(game, context.player_id);

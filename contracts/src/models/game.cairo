@@ -3,7 +3,6 @@
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::hash::HashStateTrait;
 use core::poseidon::{HashState, PoseidonTrait};
-use origami_random::deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 
 // Internal imports
 
@@ -11,6 +10,7 @@ use paved::constants;
 use paved::helpers::bitmap::Bitmap;
 use paved::helpers::conflict::Conflict;
 use paved::helpers::generic::GenericCount;
+use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 use paved::helpers::wonder::WonderCount;
 use paved::models::builder::{Builder, BuilderTrait};
 use paved::models::character::{Char, CharAssert, CharPosition, CharTrait};

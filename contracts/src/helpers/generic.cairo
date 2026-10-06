@@ -3,6 +3,7 @@
 // Internal imports
 
 use paved::constants;
+use paved::events::{Event, Scored};
 use paved::helpers::multiplier::compute_multiplier;
 use paved::models::builder::{Builder, BuilderImpl};
 use paved::models::character::{Char, CharPosition};
@@ -151,13 +152,27 @@ pub impl GenericCount of GenericCountTrait {
 
         if solved {
             // [Compute] Update the scores if a winner is determined
-            let player = store.player(winner);
-            let mut builder = store.builder(game, player.id);
+            // [Info] The winner is a builder of the game, so no player read is needed.
+            let mut builder = store.builder(game, winner);
             let power = powers.get(winner);
             let (num, den) = compute_multiplier(count);
             let points = count * base_points * power * num / den;
 
             game.add_score(points);
+
+            // [Event] Structure scored
+            store
+                .emit(
+                    Event::Scored(
+                        Scored {
+                            game_id: game.id,
+                            player_id: winner,
+                            category: category.into(),
+                            size: count,
+                            points,
+                        },
+                    ),
+                );
 
             // [Effect] Update the builder
             store.set_builder(builder);

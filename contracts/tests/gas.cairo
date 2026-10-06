@@ -20,26 +20,25 @@
 
 use core::testing::get_available_gas;
 use paved::constants::CENTER;
-use paved::store::{Store, StoreTrait};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 use crate::setup::setup;
-use crate::setup::setup::{IDailyDispatcherTrait, Systems};
+use crate::setup::setup::{IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
-pub const CEILING_OPEN: u128 = 49481748;
-pub const CEILING_SIMPLE: u128 = 60458018;
-pub const CEILING_CHARACTER: u128 = 68906410;
-pub const CEILING_CLOSE_LARGE: u128 = 111468835;
-pub const CEILING_WORST_CASE: u128 = 252396099;
+pub const CEILING_OPEN: u128 = 8189457;
+pub const CEILING_SIMPLE: u128 = 8975523;
+pub const CEILING_CHARACTER: u128 = 10189588;
+pub const CEILING_CLOSE_LARGE: u128 = 12410866;
+pub const CEILING_WORST_CASE: u128 = 22989783;
 
 #[derive(Drop)]
 struct Scenario {
     systems: Systems,
-    store: Store,
+    store: TestStore,
     game_id: u32,
     player_id: felt252,
 }
@@ -47,13 +46,8 @@ struct Scenario {
 #[generate_trait]
 impl ScenarioImpl of ScenarioTrait {
     fn new() -> Scenario {
-        let (world, systems, context) = setup::spawn_game(Mode::Daily);
-        Scenario {
-            systems,
-            store: StoreTrait::new(world),
-            game_id: context.game_id,
-            player_id: context.player_id,
-        }
+        let (store, systems, context) = setup::spawn_game(Mode::Daily);
+        Scenario { systems, store, game_id: context.game_id, player_id: context.player_id }
     }
 
     /// Overwrites the plan of the tile held by the builder, then builds it. Returns the L2 gas

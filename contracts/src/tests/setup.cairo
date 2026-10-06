@@ -3,10 +3,6 @@ pub mod setup {
 
     // Starknet imports
 
-    // Dojo imports
-
-    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
-    use dojo_cairo_test::{NamespaceDef, TestResource, spawn_test_world};
     pub use paved::mocks::token::IERC20DispatcherTrait;
 
     // Internal imports
@@ -14,7 +10,12 @@ pub mod setup {
     use paved::mocks::token::{
         IERC20Dispatcher, IERC20FaucetDispatcher, IERC20FaucetDispatcherTrait, Token,
     };
+    use paved::models::builder::Builder;
     use paved::models::game::{Game, GameImpl};
+    use paved::models::player::Player;
+    use paved::models::tile::Tile;
+    use paved::models::tournament::Tournament;
+    use paved::store::{StoreImpl, StoreTrait};
     use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
     use paved::systems::daily::IDailyDispatcher;
     pub use paved::systems::daily::IDailyDispatcherTrait;
@@ -22,7 +23,8 @@ pub mod setup {
     pub use paved::types::mode::Mode;
     use paved::types::plan::{Plan, PlanImpl};
     use snforge_std::{
-        DeclareResultTrait, declare, start_cheat_caller_address, stop_cheat_caller_address,
+        ContractClassTrait, DeclareResultTrait, declare, interact_with_state,
+        start_cheat_caller_address, stop_cheat_caller_address,
     };
     use starknet::ContractAddress;
 
@@ -42,6 +44,10 @@ pub mod setup {
 
     pub fn NOONE() -> ContractAddress {
         starknet::contract_address_const::<'NOONE'>()
+    }
+
+    pub fn OWNER() -> ContractAddress {
+        starknet::contract_address_const::<'OWNER'>()
     }
 
     pub const PLAYER_NAME: felt252 = 'PLAYER';
@@ -73,6 +79,51 @@ pub mod setup {
         pub token: IERC20Dispatcher,
     }
 
+    /// Reads and writes the game state of a deployed contract, as `Store` does from inside it.
+    #[derive(Copy, Drop)]
+    pub struct TestStore {
+        pub contract: ContractAddress,
+    }
+
+    #[generate_trait]
+    pub impl TestStoreImpl of TestStoreTrait {
+        fn new(contract: ContractAddress) -> TestStore {
+            TestStore { contract }
+        }
+
+        fn game(self: TestStore, game_id: u32) -> Game {
+            interact_with_state(self.contract, || StoreImpl::new().game(game_id))
+        }
+
+        fn player(self: TestStore, player_id: felt252) -> Player {
+            interact_with_state(self.contract, || StoreImpl::new().player(player_id))
+        }
+
+        fn builder(self: TestStore, game: Game, player_id: felt252) -> Builder {
+            interact_with_state(self.contract, || StoreImpl::new().builder(game, player_id))
+        }
+
+        fn tile(self: TestStore, game: Game, tile_id: u32) -> Tile {
+            interact_with_state(self.contract, || StoreImpl::new().tile(game, tile_id))
+        }
+
+        fn tournament(self: TestStore, tournament_id: u64) -> Tournament {
+            interact_with_state(self.contract, || StoreImpl::new().tournament(tournament_id))
+        }
+
+        fn set_game(self: TestStore, game: Game) {
+            interact_with_state(self.contract, || StoreImpl::new().set_game(game))
+        }
+
+        fn set_tile(self: TestStore, tile: Tile) {
+            interact_with_state(self.contract, || StoreImpl::new().set_tile(tile))
+        }
+
+        fn set_tournament(self: TestStore, tournament: Tournament) {
+            interact_with_state(self.contract, || StoreImpl::new().set_tournament(tournament))
+        }
+    }
+
     pub fn compute_seed(game: Game, target: Plan) -> felt252 {
         let mut seed: felt252 = 0;
         loop {
@@ -88,71 +139,30 @@ pub mod setup {
         seed
     }
 
-    #[inline]
-    fn declared_class_hash(name: ByteArray) -> starknet::ClassHash {
-        *declare(name).unwrap().contract_class().class_hash
+    fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
+        let class = declare(name).unwrap().contract_class();
+        let (address, _) = class.deploy(@calldata).unwrap();
+        address
     }
 
+    /// Deploys the token, `Account`, `Tutorial` and `Daily`, registers four players with tokens
+    /// approved for `Daily`, and spawns a game of `mode` for `PLAYER` (none for `Mode::None`).
+    /// Returns a `TestStore` of the contract of `mode` (`Daily` for `Mode::None`).
     #[inline]
-    pub fn spawn_game(mode: Mode) -> (IWorldDispatcher, Systems, Context) {
-        // [Setup] Declarations
-        let world_class_hash = declared_class_hash("world");
-        let model_player_class_hash = declared_class_hash("m_Player");
-        let model_game_class_hash = declared_class_hash("m_Game");
-        let model_builder_class_hash = declared_class_hash("m_Builder");
-        let model_tile_class_hash = declared_class_hash("m_Tile");
-        let model_tile_position_class_hash = declared_class_hash("m_TilePosition");
-        let model_char_class_hash = declared_class_hash("m_Char");
-        let model_char_position_class_hash = declared_class_hash("m_CharPosition");
-        let model_tournament_class_hash = declared_class_hash("m_Tournament");
-        let token_class_hash = declared_class_hash("Token");
-        let account_class_hash = declared_class_hash("Account");
-        let tutorial_class_hash = declared_class_hash("Tutorial");
-        let daily_class_hash = declared_class_hash("Daily");
-
-        // [Setup] World
-        let resources = array![
-            TestResource::Model(model_player_class_hash),
-            TestResource::Model(model_game_class_hash),
-            TestResource::Model(model_builder_class_hash),
-            TestResource::Model(model_tile_class_hash),
-            TestResource::Model(model_tile_position_class_hash),
-            TestResource::Model(model_char_class_hash),
-            TestResource::Model(model_char_position_class_hash),
-            TestResource::Model(model_tournament_class_hash),
-        ];
-        let namespaces = array![NamespaceDef { namespace: "paved", resources: resources.span() }];
-        let world = spawn_test_world(world_class_hash, namespaces.span());
-        let mut dispatcher = world.dispatcher;
-
+    pub fn spawn_game(mode: Mode) -> (TestStore, Systems, Context) {
         // [Setup] Systems
-        let token_address = dispatcher.register_contract('token', "paved", token_class_hash);
-        let account_address = dispatcher.register_contract('account', "paved", account_class_hash);
-        let tutorial_address = dispatcher
-            .register_contract('tutorial', "paved", tutorial_class_hash);
-        let daily_address = dispatcher.register_contract('daily', "paved", daily_class_hash);
+        let owner: felt252 = OWNER().into();
+        let token_address = deploy("Token", array![]);
+        let account_address = deploy("Account", array![owner]);
+        let tutorial_address = deploy("Tutorial", array![owner, account_address.into()]);
+        let daily_address = deploy(
+            "Daily", array![owner, account_address.into(), token_address.into()],
+        );
         let systems = Systems {
             account: IAccountDispatcher { contract_address: account_address },
             tutorial: ITutorialDispatcher { contract_address: tutorial_address },
             daily: IDailyDispatcher { contract_address: daily_address },
         };
-
-        // [Setup] Permissions
-        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), account_address);
-        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), token_address);
-        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), tutorial_address);
-        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), daily_address);
-        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), PLAYER());
-        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), ANYONE());
-        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), SOMEONE());
-        dispatcher.grant_writer(dojo::utils::bytearray_hash(@"paved"), NOONE());
-
-        // [Setup] Initialize
-        let daily_calldata: Array<felt252> = array![token_address.into()];
-        dispatcher
-            .init_contract(
-                dojo::utils::selector_from_names(@"paved", @"Daily"), daily_calldata.span(),
-            );
 
         // [Setup] Context
         let token = IERC20Dispatcher { contract_address: token_address };
@@ -217,6 +227,10 @@ pub mod setup {
         };
 
         // [Return]
-        (dispatcher, systems, context)
+        let store = match mode {
+            Mode::Tutorial => TestStoreTrait::new(tutorial_address),
+            _ => TestStoreTrait::new(daily_address),
+        };
+        (store, systems, context)
     }
 }

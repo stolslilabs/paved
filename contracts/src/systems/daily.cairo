@@ -1,25 +1,18 @@
 // Starknet imports
 
-// Dojo imports
-
-use dojo::world::IWorldDispatcher;
-
-// Internal imports
-
 use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
-use starknet::ContractAddress;
 
 #[starknet::interface]
 pub trait IDaily<TContractState> {
-    fn spawn(self: @TContractState) -> u32;
-    fn claim(self: @TContractState, tournament_id: u64, rank: u8);
-    fn sponsor(self: @TContractState, amount: felt252);
-    fn discard(self: @TContractState, game_id: u32);
-    fn surrender(self: @TContractState, game_id: u32);
+    fn spawn(ref self: TContractState) -> u32;
+    fn claim(ref self: TContractState, tournament_id: u64, rank: u8);
+    fn sponsor(ref self: TContractState, amount: felt252);
+    fn discard(ref self: TContractState, game_id: u32);
+    fn surrender(ref self: TContractState, game_id: u32);
     fn build(
-        self: @TContractState,
+        ref self: TContractState,
         game_id: u32,
         orientation: Orientation,
         x: u32,
@@ -29,20 +22,20 @@ pub trait IDaily<TContractState> {
     );
 }
 
-#[dojo::contract]
+#[starknet::contract]
 pub mod Daily {
-    // Starknet imports
-
     // Component imports
 
-    use paved::components::emitter::EmitterComponent;
     use paved::components::hostable::HostableComponent;
+    use paved::components::ownable::OwnableComponent;
     use paved::components::payable::PayableComponent;
     use paved::components::playable::PlayableComponent;
-    use paved::types::mode::Mode;
 
     // Internal imports
 
+    use paved::events::Event as PavedEvent;
+    use paved::store::{StoreImpl, StoreTrait};
+    use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;
     use paved::types::spot::Spot;
@@ -54,10 +47,12 @@ pub mod Daily {
 
     // Components
 
-    component!(path: EmitterComponent, storage: emitter, event: EmitterEvent);
-    impl EmitterImpl = EmitterComponent::EmitterImpl<ContractState>;
     component!(path: HostableComponent, storage: hostable, event: HostableEvent);
     impl HostableInternalImpl = HostableComponent::InternalImpl<ContractState>;
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    #[abi(embed_v0)]
+    impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
     component!(path: PayableComponent, storage: payable, event: PayableEvent);
     impl PayableInternalImpl = PayableComponent::InternalImpl<ContractState>;
     component!(path: PlayableComponent, storage: playable, event: PlayableEvent);
@@ -68,9 +63,9 @@ pub mod Daily {
     #[storage]
     struct Storage {
         #[substorage(v0)]
-        emitter: EmitterComponent::Storage,
-        #[substorage(v0)]
         hostable: HostableComponent::Storage,
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
         #[substorage(v0)]
         payable: PayableComponent::Storage,
         #[substorage(v0)]
@@ -81,11 +76,13 @@ pub mod Daily {
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
+    pub enum Event {
         #[flat]
-        EmitterEvent: EmitterComponent::Event,
+        PavedEvent: PavedEvent,
         #[flat]
         HostableEvent: HostableComponent::Event,
+        #[flat]
+        OwnableEvent: OwnableComponent::Event,
         #[flat]
         PayableEvent: PayableComponent::Event,
         #[flat]
@@ -94,20 +91,27 @@ pub mod Daily {
 
     // Constructor
 
-    fn dojo_init(ref self: ContractState, token_address: ContractAddress) {
+    #[constructor]
+    fn constructor(
+        ref self: ContractState,
+        owner: ContractAddress,
+        account_address: ContractAddress,
+        token_address: ContractAddress,
+    ) {
         // [Effect] Initialize components
-        self.payable.initialize(self.world(@"paved").dispatcher, token_address);
+        self.ownable.initialize(owner);
+        self.payable.initialize(token_address);
+        // [Effect] Players are read from the Account contract
+        StoreImpl::new().initialize(account_address);
     }
 
     // Implementations
 
     #[abi(embed_v0)]
     impl DailyImpl of IDaily<ContractState> {
-        fn spawn(self: @ContractState) -> u32 {
+        fn spawn(ref self: ContractState) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, amount) = self
-                .hostable
-                .spawn(self.world(@"paved").dispatcher, Mode::Daily);
+            let (game_id, amount) = self.hostable.spawn(Mode::Daily);
             // [Interaction] Pay entry price
             let caller = get_caller_address();
             self.payable.pay(caller, amount);
@@ -115,38 +119,34 @@ pub mod Daily {
             game_id
         }
 
-        fn claim(self: @ContractState, tournament_id: u64, rank: u8) {
-            // [Effect] Create game
-            let reward = self
-                .hostable
-                .claim(self.world(@"paved").dispatcher, tournament_id, rank, Mode::Daily);
+        fn claim(ref self: ContractState, tournament_id: u64, rank: u8) {
+            // [Effect] Claim the reward
+            let reward = self.hostable.claim(tournament_id, rank, Mode::Daily);
             // [Interaction] Pay the reward out of the prize pool
             let caller = get_caller_address();
             self.payable.refund(caller, reward);
         }
 
-        fn sponsor(self: @ContractState, amount: felt252) {
-            // [Effect] Create game
-            let amount = self
-                .hostable
-                .sponsor(self.world(@"paved").dispatcher, amount, Mode::Daily);
-            // [Interaction] Pay entry price
+        fn sponsor(ref self: ContractState, amount: felt252) {
+            // [Effect] Add to the prize pool
+            let amount = self.hostable.sponsor(amount, Mode::Daily);
+            // [Interaction] Pay the amount
             let caller = get_caller_address();
             self.payable.pay(caller, amount);
         }
 
-        fn discard(self: @ContractState, game_id: u32) {
+        fn discard(ref self: ContractState, game_id: u32) {
             // [Effect] Discard tile
-            self.playable.discard(self.world(@"paved").dispatcher, game_id);
+            self.playable.discard(game_id);
         }
 
-        fn surrender(self: @ContractState, game_id: u32) {
+        fn surrender(ref self: ContractState, game_id: u32) {
             // [Effect] Surrender game
-            self.playable.surrender(self.world(@"paved").dispatcher, game_id);
+            self.playable.surrender(game_id);
         }
 
         fn build(
-            self: @ContractState,
+            ref self: ContractState,
             game_id: u32,
             orientation: Orientation,
             x: u32,
@@ -155,9 +155,7 @@ pub mod Daily {
             spot: Spot,
         ) {
             // [Effect] Build a tile
-            self
-                .playable
-                .build(self.world(@"paved").dispatcher, game_id, orientation, x, y, role, spot);
+            self.playable.build(game_id, orientation, x, y, role, spot);
         }
     }
 }

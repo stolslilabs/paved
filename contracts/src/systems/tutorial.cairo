@@ -1,37 +1,27 @@
 // Starknet imports
 
-// Dojo imports
-
-use dojo::world::IWorldDispatcher;
-use starknet::ContractAddress;
-
 #[starknet::interface]
 pub trait ITutorial<TContractState> {
-    fn spawn(self: @TContractState) -> u32;
-    fn discard(self: @TContractState, game_id: u32);
-    fn surrender(self: @TContractState, game_id: u32);
-    fn build(self: @TContractState, game_id: u32);
+    fn spawn(ref self: TContractState) -> u32;
+    fn discard(ref self: TContractState, game_id: u32);
+    fn surrender(ref self: TContractState, game_id: u32);
+    fn build(ref self: TContractState, game_id: u32);
 }
 
-#[dojo::contract]
+#[starknet::contract]
 pub mod Tutorial {
-    // Core imports
-
-    // Starknet imports
-
     // Component imports
 
-    use paved::components::emitter::EmitterComponent;
     use paved::components::hostable::HostableComponent;
+    use paved::components::ownable::OwnableComponent;
     use paved::components::tutoriable::TutoriableComponent;
-    use paved::types::mode::Mode;
 
     // Internal imports
 
-    use paved::types::orientation::Orientation;
-    use paved::types::role::Role;
-    use paved::types::spot::Spot;
-    use starknet::{ContractAddress, get_caller_address};
+    use paved::events::Event as PavedEvent;
+    use paved::store::{StoreImpl, StoreTrait};
+    use paved::types::mode::Mode;
+    use starknet::ContractAddress;
 
     // Local imports
 
@@ -39,10 +29,12 @@ pub mod Tutorial {
 
     // Components
 
-    component!(path: EmitterComponent, storage: emitter, event: EmitterEvent);
-    impl EmitterImpl = EmitterComponent::EmitterImpl<ContractState>;
     component!(path: HostableComponent, storage: hostable, event: HostableEvent);
     impl HostableInternalImpl = HostableComponent::InternalImpl<ContractState>;
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    #[abi(embed_v0)]
+    impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
     component!(path: TutoriableComponent, storage: tutoriable, event: TutoriableEvent);
     impl TutoriableInternalImpl = TutoriableComponent::InternalImpl<ContractState>;
 
@@ -51,9 +43,9 @@ pub mod Tutorial {
     #[storage]
     struct Storage {
         #[substorage(v0)]
-        emitter: EmitterComponent::Storage,
-        #[substorage(v0)]
         hostable: HostableComponent::Storage,
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
         #[substorage(v0)]
         tutoriable: TutoriableComponent::Storage,
     }
@@ -62,39 +54,53 @@ pub mod Tutorial {
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
+    pub enum Event {
         #[flat]
-        EmitterEvent: EmitterComponent::Event,
+        PavedEvent: PavedEvent,
         #[flat]
         HostableEvent: HostableComponent::Event,
         #[flat]
+        OwnableEvent: OwnableComponent::Event,
+        #[flat]
         TutoriableEvent: TutoriableComponent::Event,
+    }
+
+    // Constructor
+
+    #[constructor]
+    fn constructor(
+        ref self: ContractState, owner: ContractAddress, account_address: ContractAddress,
+    ) {
+        // [Effect] Initialize components
+        self.ownable.initialize(owner);
+        // [Effect] Players are read from the Account contract
+        StoreImpl::new().initialize(account_address);
     }
 
     // Implementations
 
     #[abi(embed_v0)]
     impl TutorialImpl of ITutorial<ContractState> {
-        fn spawn(self: @ContractState) -> u32 {
+        fn spawn(ref self: ContractState) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, _) = self.hostable.spawn(self.world(@"paved").dispatcher, Mode::Tutorial);
+            let (game_id, _) = self.hostable.spawn(Mode::Tutorial);
             // [Return] Game ID
             game_id
         }
 
-        fn discard(self: @ContractState, game_id: u32) {
+        fn discard(ref self: ContractState, game_id: u32) {
             // [Effect] Discard a tile
-            self.tutoriable.discard(self.world(@"paved").dispatcher, game_id);
+            self.tutoriable.discard(game_id);
         }
 
-        fn surrender(self: @ContractState, game_id: u32) {
+        fn surrender(ref self: ContractState, game_id: u32) {
             // [Effect] Surrender game
-            self.tutoriable.surrender(self.world(@"paved").dispatcher, game_id);
+            self.tutoriable.surrender(game_id);
         }
 
-        fn build(self: @ContractState, game_id: u32) {
+        fn build(ref self: ContractState, game_id: u32) {
             // [Effect] Build a tile
-            self.tutoriable.build(self.world(@"paved").dispatcher, game_id);
+            self.tutoriable.build(game_id);
         }
     }
 }

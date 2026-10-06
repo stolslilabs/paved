@@ -1,44 +1,31 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/mark-dark.svg">
-  <img alt="Dojo logo" align="right" width="120" src=".github/mark-light.svg">
-</picture>
+# Paved contracts
 
-<a href="https://twitter.com/dojostarknet">
-<img src="https://img.shields.io/twitter/follow/dojostarknet?style=social"/>
-</a>
-<a href="https://github.com/dojoengine/dojo">
-<img src="https://img.shields.io/github/stars/dojoengine/dojo?style=social"/>
-</a>
+Native Starknet contracts of Paved (Cairo, no framework since phase P2).
 
-[![discord](https://img.shields.io/badge/join-dojo-green?logo=discord&logoColor=white)](https://discord.gg/PwDa2mKhR4)
-[![Telegram Chat][tg-badge]][tg-url]
+- `Account`: player registry.
+- `Daily`: Daily games, tournaments, entry fee and prizes (ERC20).
+- `Tutorial`: Tutorial games.
 
-[tg-badge]: https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&style=flat-square&url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Fdojoengine
-[tg-url]: https://t.me/dojoengine
+Design, storage layout, events and access rules: `docs/architecture/native-storage.md`.
 
-# Dojo Starter: Official Guide
+## Toolchain
 
-The official Dojo Starter guide, the quickest and most streamlined way to get your Dojo Autonomous World up and running. This guide will assist you with the initial setup, from cloning the repository to deploying your world.
+Pinned in `.tool-versions`: scarb 2.13.1, starknet-foundry (snforge) 0.51.2.
 
-Read the full tutorial [here](https://book.dojoengine.org/cairo/hello-dojo.html).
+```sh
+scarb fmt --check
+scarb build
+snforge test            # whole suite (CI); locally, filter: snforge test golden, snforge test test_gas_
+```
 
----
+Runs are single-threaded (`RAYON_NUM_THREADS=1`); measure peak memory first
+(`prlimit --as=8589934592 -- /usr/bin/time -v snforge test <filter>`). Gas and coverage measures:
+`scripts/measure.sh`.
 
-## Contribution
+## Layout
 
-This starter project is a constant work in progress and contributions are greatly appreciated!
-
-1. **Report a Bug**
-
-    - If you think you have encountered a bug, and we should know about it, feel free to report it [here](https://github.com/dojoengine/dojo-starter/issues) and we will take care of it.
-
-2. **Request a Feature**
-
-    - You can also request for a feature [here](https://github.com/dojoengine/dojo-starter/issues), and if it's viable, it will be picked for development.
-
-3. **Create a Pull Request**
-    - It can't get better then this, your pull request will be appreciated by the community.
-
-For any other questions, feel free to reach out to us [here](https://dojoengine.org/contact).
-
-Happy coding!
+- `src/types`, `src/elements`, `src/helpers`: game rules (pure logic).
+- `src/models`: game state as plain structs, with their rules.
+- `src/store.cairo`: storage of the game state (`Map`s, packed values).
+- `src/components`, `src/systems`: entry points.
+- `src/tests`: e2e tests and golden games; `tests/`: gas measures (integration crate).
