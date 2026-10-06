@@ -28,6 +28,7 @@ jobs:
           filters: |
             contracts:
               - 'contracts/**'
+              - 'scripts/abis.sh'
               - '.tool-versions'
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -58,6 +59,24 @@ jobs:
         run: scarb build
         shell: bash
 
+  abis:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    runs-on: ubuntu-latest
+    name: Contract ABIs up to date
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Regenerate ABIs
+        run: scripts/abis.sh
+        shell: bash
+      - name: Fail if the committed ABIs are stale
+        run: |
+          # Also catches a committed file that was deleted: the script rewrites it untracked.
+          git add --intent-to-add contracts/abis
+          git diff --exit-code contracts/abis
+        shell: bash
+
   test:
     needs: changes
     if: needs.changes.outputs.contracts == 'true'
@@ -77,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     name: ci
     if: always()
-    needs: [changes, check, build, test]
+    needs: [changes, check, build, abis, test]
     steps:
       - name: Require every job to have succeeded or been skipped
         run: |
