@@ -10,7 +10,7 @@ sierra-replace-ids = true
 test = "snforge test"
 
 [dependencies]
-starknet = "2.13.1"
+starknet = "2.20.1"
 
 [[target.starknet-contract]]
 
@@ -20,5 +20,5 @@ unstable-add-statements-code-locations-debug-info = true
 inlining-strategy = "avoid"
 
 [dev-dependencies]
-cairo_test = "2.13.1"
-snforge_std = "0.51.2"
+cairo_test = "2.20.1"
+snforge_std = "=0.64.0"

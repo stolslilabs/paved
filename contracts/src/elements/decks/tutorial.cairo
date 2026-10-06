@@ -123,4 +123,3 @@ pub mod tests {
         assert(counts.get(Plan::WFFFFFFFR.into()) == 1, 'Deck: WFFFFFFFR count');
     }
 }
-

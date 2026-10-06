@@ -10,7 +10,7 @@ Design, storage layout, events and access rules: `docs/architecture/native-stora
 
 ## Toolchain
 
-Pinned in `.tool-versions`: scarb 2.13.1, starknet-foundry (snforge) 0.51.2.
+Pinned in `.tool-versions`: scarb 2.20.1, starknet-foundry (snforge) 0.64.0.
 
 ```sh
 scarb fmt --check

@@ -119,6 +119,29 @@ north city cap of `FFCFFFCFF`, which stays open; the 2-tile city closed by the m
 So b places a character but scores nothing (the P0 description above, "scored, Lord recovered", is
 not what the test does). The test is kept as is so that the series stays comparable.
 
+### After P3 (Scarb 2.20.1 / snforge 0.64.0)
+
+Same tests and method. Toolchain moved to scarb 2.20.1 / snforge 0.64.0 (organisation D-180, phase P3), run on 2026-10-06 (VPS, `RAYON_NUM_THREADS=1`, capped 8 GiB; `scarb build` peak 1,197,760 KB, full `snforge test` peak 2,138,340 KB). All figures rose: this is a compiler effect (the code and the rules are unchanged; the golden expected values are identical), so the ceilings are raised to the new figure + 5 %, the one case where a rise may raise a ceiling.
+
+| Scenario | L2 gas P2 | L2 gas P3 | Change | Ceiling P2 | Ceiling P3 |
+| --- | --- | --- | --- | --- | --- |
+| a0 | 7,799,482 | 8,664,572 | +11.1 % | 8,189,457 | 9,097,801 |
+| a | 8,548,117 | 9,525,767 | +11.4 % | 8,975,523 | 10,002,056 |
+| b | 9,704,369 | 10,887,309 | +12.2 % | 10,189,588 | 11,431,675 |
+| c | 11,819,872 | 13,619,382 | +15.2 % | 12,410,866 | 14,300,352 |
+| d | 21,895,031 | 25,305,931 | +15.6 % | 22,989,783 | 26,571,228 |
+
+Output excerpt (`snforge test`, whole suite, 246 tests since the views of #200):
+
+```
+GAS b_move_with_character: 10887309
+GAS a0_open_simple_move: 8664572
+GAS a_simple_move: 9525767
+GAS c_close_large_city: 13619382
+GAS d_worst_case: 25305931
+Tests: 246 passed, 0 failed, 0 ignored, 0 filtered out
+```
+
 ## Line coverage of `contracts/src`
 
 **Not measured.** `cairo-coverage` 0.6.1 was installed in user space (release tarball into
