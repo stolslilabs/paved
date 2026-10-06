@@ -11,6 +11,7 @@ const TILE_MIN_METALNESS = 0.02;
 const TILE_MAX_METALNESS = 0.45;
 const EDGE_COLOR = 0x000000;
 const STRATEGY_THICKNESS = 0.1;
+const EDGE_RENDER_ORDER = 1;
 
 // Validity overlay colors & opacities
 const VALID_IDLE_COLOR = 0x00ff00; // green
@@ -193,6 +194,9 @@ export class TileRenderer {
           const edges = new THREE.EdgesGeometry(child.geometry);
           const wireframe = new THREE.LineSegments(edges, this.edgeMaterial);
           wireframe.position.z += 0.001;
+          // After the tile faces: lines and faces meet at equal depth, and the line must win.
+          // (Per-tile line materials used to be drawn right after their tile's material.)
+          wireframe.renderOrder = EDGE_RENDER_ORDER;
           child.add(wireframe);
         }
       });
