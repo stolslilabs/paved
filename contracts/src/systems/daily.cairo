@@ -105,12 +105,12 @@ pub mod Daily {
     impl DailyImpl of IDaily<ContractState> {
         fn spawn(self: @ContractState) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, amount, team_amount, burn_amount) = self
+            let (game_id, amount) = self
                 .hostable
                 .spawn(self.world(@"paved").dispatcher, Mode::Daily);
-            // [Interaction] Pay entry price with split settlement
+            // [Interaction] Pay entry price
             let caller = get_caller_address();
-            self.payable.pay_split(caller, amount, team_amount, burn_amount);
+            self.payable.pay(caller, amount);
             // [Return] Game ID
             game_id
         }
@@ -120,9 +120,9 @@ pub mod Daily {
             let reward = self
                 .hostable
                 .claim(self.world(@"paved").dispatcher, tournament_id, rank, Mode::Daily);
-            // [Interaction] Mint reward amount
+            // [Interaction] Pay the reward out of the prize pool
             let caller = get_caller_address();
-            self.payable.mint(caller, reward);
+            self.payable.refund(caller, reward);
         }
 
         fn sponsor(self: @ContractState, amount: felt252) {

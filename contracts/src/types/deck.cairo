@@ -2,7 +2,6 @@
 
 use core::hash::HashStateTrait;
 use core::poseidon::{HashState, PoseidonTrait};
-use paved::elements::decks::base::DeckImpl as Base;
 use paved::elements::decks::simple::DeckImpl as Simple;
 use paved::elements::decks::tutorial::DeckImpl as Tutorial;
 use paved::helpers::bitmap::Bitmap;
@@ -19,10 +18,11 @@ use paved::types::spot::Spot;
 pub const NONE: felt252 = 0;
 pub const MULTIPLIER: u128 = 10_000;
 
+// The u8 codes of the decks are persisted: Simple keeps 2 (1 was Base, used by Weekly).
+
 #[derive(Copy, Drop, Serde)]
 pub enum Deck {
     None,
-    Base,
     Simple,
     Tutorial,
 }
@@ -32,7 +32,6 @@ pub impl IntoDeckFelt252 of Into<Deck, felt252> {
     fn into(self: Deck) -> felt252 {
         match self {
             Deck::None => NONE,
-            Deck::Base => 'BASE',
             Deck::Simple => 'SIMPLE',
             Deck::Tutorial => 'TUTORIAL',
         }
@@ -44,7 +43,6 @@ pub impl IntoDeckU8 of Into<Deck, u8> {
     fn into(self: Deck) -> u8 {
         match self {
             Deck::None => 0,
-            Deck::Base => 1,
             Deck::Simple => 2,
             Deck::Tutorial => 3,
         }
@@ -57,7 +55,6 @@ pub impl IntoDeck of Into<u8, Deck> {
         let deck: felt252 = self.into();
         match deck {
             0 => Deck::None,
-            1 => Deck::Base,
             2 => Deck::Simple,
             3 => Deck::Tutorial,
             _ => Deck::None,
@@ -71,7 +68,6 @@ pub impl DeckImpl of DeckTrait {
     fn total_count(self: Deck) -> u8 {
         match self {
             Deck::None => 0,
-            Deck::Base => Base::total_count(),
             Deck::Simple => Simple::total_count(),
             Deck::Tutorial => Tutorial::total_count(),
         }
@@ -81,7 +77,6 @@ pub impl DeckImpl of DeckTrait {
     fn count(self: Deck) -> u8 {
         match self {
             Deck::None => 0,
-            Deck::Base => Base::count(),
             Deck::Simple => Simple::count(),
             Deck::Tutorial => Tutorial::count(),
         }
@@ -91,7 +86,6 @@ pub impl DeckImpl of DeckTrait {
     fn plan(self: Deck, index: u32) -> Plan {
         match self {
             Deck::None => Plan::None,
-            Deck::Base => Base::plan(index),
             Deck::Simple => Simple::plan(index),
             Deck::Tutorial => Tutorial::plan(index),
         }
@@ -101,7 +95,6 @@ pub impl DeckImpl of DeckTrait {
     fn indexes(self: Deck, plan: Plan) -> Array<u8> {
         match self {
             Deck::None => array![],
-            Deck::Base => Base::indexes(plan),
             Deck::Simple => Simple::indexes(plan),
             Deck::Tutorial => Tutorial::indexes(plan),
         }
@@ -111,7 +104,6 @@ pub impl DeckImpl of DeckTrait {
     fn parameters(self: Deck, index: u32) -> (Orientation, u32, u32, Role, Spot) {
         match self {
             Deck::None => (Orientation::None, 0, 0, Role::None, Spot::None),
-            Deck::Base => Base::parameters(index),
             Deck::Simple => Simple::parameters(index),
             Deck::Tutorial => Tutorial::parameters(index),
         }
@@ -183,17 +175,17 @@ pub mod tests {
 
     #[test]
     fn test_deck_into_felt() {
-        assert('BASE' == Deck::Base.into(), 'Deck: into felt BASE');
+        assert('SIMPLE' == Deck::Simple.into(), 'Deck: into felt SIMPLE');
     }
 
     #[test]
     fn test_deck_into_u8() {
-        assert(1_u8 == Deck::Base.into(), 'Deck: into u8 BASE');
+        assert(2_u8 == Deck::Simple.into(), 'Deck: into u8 SIMPLE');
     }
 
     #[test]
     fn test_u8_into_deck() {
-        assert(Deck::Base == 1_u8.into(), 'Deck: into deck BASE');
+        assert(Deck::Simple == 2_u8.into(), 'Deck: into deck SIMPLE');
     }
 
     #[test]

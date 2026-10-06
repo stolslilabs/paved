@@ -10,7 +10,6 @@ use origami_random::deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
 use paved::helpers::conflict::Conflict;
-use paved::helpers::economy_curve::FP;
 use paved::helpers::generic::GenericCount;
 use paved::helpers::wonder::WonderCount;
 use paved::models::builder::{Builder, BuilderTrait};
@@ -45,8 +44,6 @@ pub mod errors {
     pub const GAME_IS_OVER: felt252 = 'Game: is over';
     pub const GAME_NOT_OVER: felt252 = 'Game: not over';
     pub const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
-    pub const DISCARD_DISABLED: felt252 = 'Game: discard disabled';
-    pub const SURRENDER_DISABLED: felt252 = 'Game: surrender disabled';
 }
 
 #[generate_trait]
@@ -70,32 +67,26 @@ pub impl GameImpl of GameTrait {
             seed: 0,
             mode: mode.into(),
             tournament_id: 0,
-            config_id: 0,
-            entry_price: mode.price(),
-            duration_seconds: mode.duration(),
-            deck_id: mode.deck().into(),
             tile_limit: mode.deck().count().into(),
-            allow_discard: true,
-            allow_surrender: true,
-            entry_multiplier_fp: FP,
-            entry_supply_snapshot: 0,
-            entry_target_snapshot: 0,
         }
     }
 
     #[inline]
     fn price(self: Game) -> felt252 {
-        self.entry_price
+        let mode: Mode = self.mode.into();
+        mode.price()
     }
 
     #[inline]
     fn duration(self: Game) -> u64 {
-        self.duration_seconds
+        let mode: Mode = self.mode.into();
+        mode.duration()
     }
 
     #[inline]
     fn deck(self: Game) -> Deck {
-        self.deck_id.into()
+        let mode: Mode = self.mode.into();
+        mode.deck()
     }
 
     #[inline]
@@ -159,7 +150,6 @@ pub impl GameImpl of GameTrait {
     #[inline]
     fn surrender(ref self: Game) {
         // [Comment] Only available for solo mode
-        assert(self.allow_surrender, errors::SURRENDER_DISABLED);
         self.over = true;
     }
 
@@ -311,16 +301,7 @@ pub impl ZeroableGame of ZeroableGameTrait {
             seed: 0,
             mode: 0,
             tournament_id: 0,
-            config_id: 0,
-            entry_price: 0,
-            duration_seconds: 0,
-            deck_id: 0,
             tile_limit: 0,
-            allow_discard: false,
-            allow_surrender: false,
-            entry_multiplier_fp: FP,
-            entry_supply_snapshot: 0,
-            entry_target_snapshot: 0,
         }
     }
 
@@ -384,7 +365,7 @@ pub mod tests {
 
     pub const GAME_ID: u32 = 1;
     pub const NAME: felt252 = 'NAME';
-    pub const MODE: Mode = Mode::Weekly;
+    pub const MODE: Mode = Mode::Daily;
 
     #[test]
     fn test_game_new() {
