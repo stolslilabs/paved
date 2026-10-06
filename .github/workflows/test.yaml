@@ -18,7 +18,7 @@ jobs:
     outputs:
       contracts: ${{ steps.filter.outputs.contracts }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       # dorny/paths-filter v3.0.4
       - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
         id: filter
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Check format
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup
       - name: Format
         working-directory: ${{ env.WORKING_DIRECTORY }}
@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Build game
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup
       - name: Build
         working-directory: ${{ env.WORKING_DIRECTORY }}
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Contract ABIs up to date
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup
       - name: Regenerate ABIs
         run: scripts/abis.sh
@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Test game
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup
         with:
           foundry: "true"
