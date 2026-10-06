@@ -30,10 +30,10 @@
   },
   "dependencies": {
     "@paved/game-core": "workspace:*",
-    "three": "^0.172.0"
+    "three": "^0.186.1"
   },
   "devDependencies": {
-    "@types/three": "^0.172.0",
+    "@types/three": "^0.186.0",
     "@types/react": "^19.3.0",
     "react": "^19.3.0",
     "typescript": "^7.0.2",
