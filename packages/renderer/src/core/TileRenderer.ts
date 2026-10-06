@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { getPlanKey, Plan, PlanType, Orientation, OrientationType } from "@paved/game-core";
 import type { AssetLoader } from "./AssetLoader";
+import { buildEdgesGeometry } from "./edges";
 import { TILE_SIZE } from "./types";
 import type { TileRenderData, HoverState } from "./types";
 
@@ -163,7 +164,7 @@ export class TileRenderer {
         child.receiveShadow = true;
 
         // Add edge outlines (toon-style), built once per type
-        const edges = new THREE.EdgesGeometry(child.geometry);
+        const edges = buildEdgesGeometry(child.geometry);
         const wireframe = new THREE.LineSegments(edges, this.edgeMaterial);
         wireframe.position.z += 0.001;
         // After the tile faces: lines and faces meet at equal depth, and the line must win.
