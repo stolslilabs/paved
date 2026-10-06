@@ -9,6 +9,7 @@ use core::poseidon::{HashState, PoseidonTrait};
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
 use paved::helpers::conflict::Conflict;
+use paved::helpers::forest::ForestCount;
 use paved::helpers::generic::GenericCount;
 use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 use paved::helpers::wonder::WonderCount;
@@ -253,7 +254,23 @@ pub impl GameImpl of GameTrait {
         let base = category.base_points();
         match category {
             Category::None => { return; },
-            Category::Forest => { return; },
+            Category::Forest => {
+                let (count, woodsman_score, herdsman_score, mut woodsmen, mut herdsmen) =
+                    ForestCount::start(
+                    self, tile, at, ref store,
+                );
+                // [Effect] Solve and collect characters
+                if 0 != count.into() && 0 != woodsmen.len().into() {
+                    ForestCount::solve(
+                        ref self, count, woodsman_score, base, ref woodsmen, ref store,
+                    );
+                }
+                if 0 != count.into() && 0 != herdsmen.len().into() {
+                    ForestCount::solve(
+                        ref self, count, herdsman_score, base, ref herdsmen, ref store,
+                    );
+                }
+            },
             Category::Road => {
                 let (count, mut characters) = GenericCount::start(self, tile, at, ref store);
                 // [Effect] Solve and collect characters

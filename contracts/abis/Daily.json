@@ -57,6 +57,14 @@
       {
         "name": "Pilgrim",
         "type": "()"
+      },
+      {
+        "name": "Woodsman",
+        "type": "()"
+      },
+      {
+        "name": "Herdsman",
+        "type": "()"
       }
     ]
   },

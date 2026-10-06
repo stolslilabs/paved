@@ -52,6 +52,7 @@ pub mod elements {
 pub mod helpers {
     pub mod bitmap;
     pub mod conflict;
+    pub mod forest;
     pub mod generic;
     pub mod math;
     pub mod multiplier;
