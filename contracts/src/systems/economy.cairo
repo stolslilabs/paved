@@ -1,6 +1,5 @@
 use core::traits::TryInto;
-
-use paved::models::economy::{EconomyConfig, EconomyConfigTrait, EconomyStateTrait, EconomyState};
+use paved::models::economy::{EconomyConfig, EconomyConfigTrait, EconomyState, EconomyStateTrait};
 use paved::types::mode::Mode;
 
 #[starknet::interface]
@@ -30,15 +29,13 @@ pub trait IEconomy<TContractState> {
 #[dojo::contract]
 pub mod Economy {
     use core::traits::TryInto;
-    use starknet::get_block_timestamp;
-
     use paved::helpers::economy_curve::compute_multiplier_fp;
     use paved::models::economy::{
-        EconomyConfig, EconomyConfigTrait, EconomyState, EconomyStateTrait
+        EconomyConfig, EconomyConfigTrait, EconomyState, EconomyStateTrait,
     };
-    use paved::store::{StoreImpl, Store};
+    use paved::store::{Store, StoreImpl};
     use paved::types::mode::Mode;
-
+    use starknet::get_block_timestamp;
     use super::IEconomy;
 
     #[event]
@@ -98,7 +95,7 @@ pub mod Economy {
             let supply_u256: u256 = state.last_supply.try_into().unwrap();
             let target_u256: u256 = config.target_at(time);
             let multiplier_fp = compute_multiplier_fp(supply_u256, target_u256);
-            (supply_u256.try_into().unwrap(), target_u256.try_into().unwrap(), multiplier_fp,)
+            (supply_u256.try_into().unwrap(), target_u256.try_into().unwrap(), multiplier_fp)
         }
 
         fn snapshot_for_spawn(self: @ContractState, mode: Mode) -> (felt252, felt252, u32) {

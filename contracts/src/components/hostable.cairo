@@ -1,7 +1,7 @@
 // Starknet imports
 
-use starknet::ContractAddress;
 use core::traits::TryInto;
+use starknet::ContractAddress;
 
 // Component
 
@@ -9,27 +9,24 @@ use core::traits::TryInto;
 pub mod HostableComponent {
     // Starknet imports
 
-    use starknet::ContractAddress;
-    use starknet::{get_contract_address, get_caller_address, get_block_timestamp};
-
     // Dojo imports
 
-    use dojo::world::IWorldDispatcher;
-    use dojo::world::IWorldDispatcherTrait;
+    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
+    use paved::helpers::config_templates::ConfigTemplatesTrait;
+    use paved::helpers::config_validation::{RuntimeGameConfig, RuntimeGameConfigTrait};
+    use paved::helpers::economy_curve::compute_multiplier_fp;
+    use paved::models::builder::{Builder, BuilderAssert, BuilderImpl};
+    use paved::models::economy::{EconomyConfigTrait, EntrySettlement};
+    use paved::models::game::{Game, GameAssert, GameImpl};
+    use paved::models::player::{Player, PlayerAssert, PlayerImpl};
+    use paved::models::tile::{Tile, TileImpl, TilePosition};
+    use paved::models::tournament::{Tournament, TournamentAssert, TournamentImpl};
 
     // Internal imports
 
     use paved::store::{Store, StoreImpl};
-    use paved::helpers::config_templates::ConfigTemplatesTrait;
-    use paved::helpers::config_validation::{RuntimeGameConfig, RuntimeGameConfigTrait};
-    use paved::helpers::economy_curve::compute_multiplier_fp;
-    use paved::models::game::{Game, GameImpl, GameAssert};
-    use paved::models::economy::{EconomyConfigTrait, EntrySettlement};
-    use paved::models::player::{Player, PlayerImpl, PlayerAssert};
-    use paved::models::builder::{Builder, BuilderImpl, BuilderAssert};
-    use paved::models::tile::{Tile, TilePosition, TileImpl};
-    use paved::models::tournament::{Tournament, TournamentImpl, TournamentAssert};
     use paved::types::mode::{Mode, ModeTrait};
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
 
     // Storage
 
@@ -42,10 +39,10 @@ pub mod HostableComponent {
 
     #[generate_trait]
     pub impl InternalImpl<
-        TContractState, +HasComponent<TContractState>
+        TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
         fn spawn(
-            self: @ComponentState<TContractState>, world: IWorldDispatcher, mode: Mode
+            self: @ComponentState<TContractState>, world: IWorldDispatcher, mode: Mode,
         ) -> (u32, u256, u256, u256) {
             let store: Store = StoreImpl::new(world);
             let template_id = ConfigTemplatesTrait::default_template_id(mode);
@@ -202,7 +199,7 @@ pub mod HostableComponent {
             self: @ComponentState<TContractState>,
             world: IWorldDispatcher,
             amount: felt252,
-            mode: Mode
+            mode: Mode,
         ) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new(world);

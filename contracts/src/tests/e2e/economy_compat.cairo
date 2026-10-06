@@ -1,8 +1,9 @@
 use paved::constants;
-use paved::store::{StoreTrait};
 use paved::models::tournament::TournamentTrait;
+use paved::store::StoreTrait;
+use paved::tests::setup::setup;
+use paved::tests::setup::setup::{IDailyDispatcherTrait, IWeeklyDispatcherTrait};
 use paved::types::mode::Mode;
-use paved::tests::setup::{setup, setup::{IDailyDispatcherTrait, IWeeklyDispatcherTrait},};
 use snforge_std::start_cheat_block_timestamp_global;
 
 #[test]
@@ -29,7 +30,7 @@ fn test_economy_compat_existing_claim_rank_guard_unchanged() {
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
     let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION
+        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
     );
 
     let mut tournament = store.tournament(tournament_id);

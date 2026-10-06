@@ -1,18 +1,18 @@
 // Core imports
 
-use core::poseidon::{PoseidonTrait, HashState};
 use core::hash::HashStateTrait;
+use core::poseidon::{HashState, PoseidonTrait};
+use paved::elements::decks::base::DeckImpl as Base;
+use paved::elements::decks::simple::DeckImpl as Simple;
+use paved::elements::decks::tutorial::DeckImpl as Tutorial;
+use paved::helpers::bitmap::Bitmap;
+use paved::types::orientation::Orientation;
 
 // Internal imports
 
 use paved::types::plan::Plan;
-use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
-use paved::elements::decks::base::{DeckImpl as Base};
-use paved::elements::decks::simple::{DeckImpl as Simple};
-use paved::elements::decks::tutorial::{DeckImpl as Tutorial};
-use paved::helpers::bitmap::Bitmap;
 
 // Constants
 
@@ -146,7 +146,7 @@ pub impl DeckImpl of DeckTrait {
                     if random <= probability {
                         to_removes -= 1;
                         tiles = Bitmap::set_bit_at(tiles, index, true);
-                    };
+                    }
                     index += 1;
                 }
             },
@@ -172,7 +172,6 @@ pub impl DeckPartialEq of PartialEq<Deck> {
 #[cfg(test)]
 pub mod tests {
     // Core imports
-
 
     // Local imports
 

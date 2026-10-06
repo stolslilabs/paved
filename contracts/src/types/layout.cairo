@@ -1,14 +1,13 @@
 // Core imports
 
-
 // Internal imports
 
-use paved::types::plan::{Plan, PlanImpl};
-use paved::types::orientation::Orientation;
-use paved::types::direction::{Direction, DirectionImpl};
 use paved::types::category::Category;
-use paved::types::spot::{Spot, SpotImpl};
+use paved::types::direction::{Direction, DirectionImpl};
 use paved::types::move::Move;
+use paved::types::orientation::Orientation;
+use paved::types::plan::{Plan, PlanImpl};
+use paved::types::spot::{Spot, SpotImpl};
 
 // Constants
 
@@ -187,11 +186,9 @@ pub impl DefaultLayoutImpl of Default<Layout> {
 pub mod tests {
     // Core imports
 
-
     // Local imports
 
-    use super::{Layout, LayoutImpl};
-    use super::{Plan, Category, Orientation, Direction};
+    use super::{Category, Direction, Layout, LayoutImpl, Orientation, Plan};
 
     #[test]
     fn test_layout_from_north() {

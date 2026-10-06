@@ -4,26 +4,23 @@
 pub mod PlayableComponent {
     // Starknet imports
 
-    use starknet::ContractAddress;
-    use starknet::{get_contract_address, get_caller_address, get_block_timestamp};
-
     // Dojo imports
 
-    use dojo::world::IWorldDispatcher;
-    use dojo::world::IWorldDispatcherTrait;
+    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
     // Internal imports
 
     use paved::constants;
+    use paved::models::builder::{Builder, BuilderAssert, BuilderImpl, ZeroableBuilderImpl};
+    use paved::models::game::{Game, GameAssert, GameImpl};
+    use paved::models::player::{Player, PlayerAssert, PlayerImpl};
+    use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
+    use paved::models::tournament::{Tournament, TournamentAssert, TournamentImpl};
     use paved::store::{Store, StoreImpl};
-    use paved::models::game::{Game, GameImpl, GameAssert};
-    use paved::models::player::{Player, PlayerImpl, PlayerAssert};
-    use paved::models::builder::{Builder, BuilderImpl, ZeroableBuilderImpl, BuilderAssert};
-    use paved::models::tile::{Tile, TilePosition, TileImpl, TileAssert, TilePositionAssert};
-    use paved::models::tournament::{Tournament, TournamentImpl, TournamentAssert};
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;
     use paved::types::spot::Spot;
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
 
     // Storage
 
@@ -38,7 +35,7 @@ pub mod PlayableComponent {
 
     #[generate_trait]
     pub impl InternalImpl<
-        TContractState, +HasComponent<TContractState>
+        TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
         fn discard(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore

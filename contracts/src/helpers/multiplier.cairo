@@ -9,7 +9,7 @@ pub fn compute_multiplier(exp: u32) -> (u32, u32) {
 
 
 fn pow_div<T, +Sub<T>, +Mul<T>, +Div<T>, +Rem<T>, +PartialEq<T>, +Into<u8, T>, +Drop<T>, +Copy<T>>(
-    base: T, exp: T, div: T
+    base: T, exp: T, div: T,
 ) -> T {
     if exp == 0_u8.into() {
         div * 1_u8.into()
@@ -26,10 +26,9 @@ fn pow_div<T, +Sub<T>, +Mul<T>, +Div<T>, +Rem<T>, +PartialEq<T>, +Into<u8, T>, +
 pub mod tests {
     // Core imports
 
-
     // Local imports
 
-    use super::{compute_multiplier, MULTIPLIER};
+    use super::{MULTIPLIER, compute_multiplier};
 
     #[test]
     fn test_multiplier_0() {

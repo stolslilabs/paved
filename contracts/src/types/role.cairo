@@ -1,6 +1,5 @@
 // Core imports
 
-
 // Internal imports
 
 use paved::types::category::Category;
@@ -205,10 +204,9 @@ pub impl U8IntoRole of Into<u8, Role> {
 pub mod tests {
     // Core imports
 
-
     // Local imports
 
-    use super::{Role, RoleImpl, Category};
+    use super::{Category, Role, RoleImpl};
 
     // Constants
 
