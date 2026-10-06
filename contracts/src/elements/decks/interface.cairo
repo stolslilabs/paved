@@ -1,7 +1,7 @@
 // Internal imports
 
-pub use paved::types::plan::Plan;
 pub use paved::types::orientation::Orientation;
+pub use paved::types::plan::Plan;
 pub use paved::types::role::Role;
 pub use paved::types::spot::Spot;
 

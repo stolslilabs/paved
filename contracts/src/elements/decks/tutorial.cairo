@@ -22,7 +22,7 @@
 // Internal imports
 
 use paved::constants::CENTER;
-use paved::elements::decks::interface::{DeckTrait, Plan, Orientation, Role, Spot};
+use paved::elements::decks::interface::{DeckTrait, Orientation, Plan, Role, Spot};
 
 // Constants
 
@@ -108,7 +108,7 @@ pub mod tests {
             let key: felt252 = DeckImpl::plan(index).into();
             counts.insert(key, counts.get(key) + 1);
             index += 1;
-        };
+        }
         // [Assert] Each plan has been drawn the right amount of time
         assert(counts.get(Plan::None.into()) == 0, 'Deck: None count');
         assert(counts.get(Plan::CCCCCCCCC.into()) == 1, 'Deck: CCCCCCCCC count');

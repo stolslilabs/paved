@@ -1,8 +1,7 @@
-use paved::types::deck::DeckTrait;
+use core::hash::HashStateTrait;
 // Core imports
 
-use core::poseidon::{PoseidonTrait, HashState};
-use core::hash::HashStateTrait;
+use core::poseidon::{HashState, PoseidonTrait};
 
 // External imports
 
@@ -11,13 +10,13 @@ use origami_random::deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 // Internal imports
 
 use paved::constants;
+use paved::helpers::bitmap::Bitmap;
 use paved::models::tournament::TournamentTrait;
-use paved::types::deck::{Deck, DeckImpl};
-use paved::types::plan::{Plan, PlanImpl};
+use paved::types::deck::{Deck, DeckImpl, DeckTrait};
 use paved::types::orientation::Orientation;
+use paved::types::plan::{Plan, PlanImpl};
 use paved::types::role::Role;
 use paved::types::spot::Spot;
-use paved::helpers::bitmap::Bitmap;
 
 // Constants
 
@@ -97,7 +96,7 @@ pub impl ModeImpl of ModeTrait {
                 let deck: Deck = self.deck();
                 if tiles == 0 {
                     return (deck.plan(0), 1);
-                };
+                }
                 let index: u8 = 1 + Bitmap::most_significant_bit(tiles).unwrap();
                 let plan: Plan = deck.plan(index.into());
                 let tiles = Bitmap::set_bit_at(tiles, index.into(), true);
@@ -175,10 +174,9 @@ pub impl IntoU8Mode of Into<u8, Mode> {
 pub mod tests {
     // Core imports
 
-
     // Local imports
 
-    use super::{Mode, NONE, DAILY, WEEKLY, TUTORIAL,};
+    use super::{DAILY, Mode, NONE, TUTORIAL, WEEKLY};
 
     // Constants
 

@@ -1,6 +1,5 @@
 // Core imports
 
-
 // Constants
 
 pub const NONE: felt252 = 0;
@@ -22,7 +21,7 @@ pub enum Orientation {
     North,
     East,
     South,
-    West
+    West,
 }
 
 #[generate_trait]
@@ -84,7 +83,6 @@ pub impl IntoOrientationFelt252 of Into<Orientation, felt252> {
 #[cfg(test)]
 pub mod tests {
     // Core imports
-
 
     // Local imports
 

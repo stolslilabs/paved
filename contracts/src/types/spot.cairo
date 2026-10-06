@@ -1,6 +1,5 @@
 // Core imports
 
-
 // Internal imports
 
 use paved::types::orientation::Orientation;
@@ -125,10 +124,9 @@ pub impl SpotImpl of SpotTrait {
 pub mod tests {
     // Core imports
 
-
     // Local imports
 
-    use super::{Spot, SpotImpl, Orientation};
+    use super::{Orientation, Spot, SpotImpl};
 
     // Constants
 

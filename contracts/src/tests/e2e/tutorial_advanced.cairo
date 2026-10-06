@@ -1,9 +1,8 @@
-use paved::store::{StoreTrait};
-use paved::models::game::{GameTrait};
-use paved::types::mode::Mode;
-
-use paved::tests::setup::setup;
+use paved::models::game::GameTrait;
+use paved::store::StoreTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
+use paved::tests::setup::setup;
+use paved::types::mode::Mode;
 
 #[test]
 fn test_tutorial_e2e_surrender_ends_game() {

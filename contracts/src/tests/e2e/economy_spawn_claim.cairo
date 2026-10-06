@@ -1,11 +1,12 @@
 use paved::constants;
 use paved::mocks::token::{IERC20FaucetDispatcher, IERC20FaucetDispatcherTrait};
-use paved::store::{StoreTrait};
-use paved::models::tournament::{TournamentTrait};
+use paved::models::tournament::TournamentTrait;
+use paved::store::StoreTrait;
+use paved::tests::setup::setup;
+use paved::tests::setup::setup::{IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER};
 use paved::types::mode::Mode;
-use paved::tests::setup::{setup, setup::{IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER},};
 use snforge_std::{
-    start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address
+    start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
 };
 
 #[test]
@@ -25,7 +26,7 @@ fn test_economy_spawn_locks_snapshot_once() {
 
     let game_after = store.game(context.game_id);
     assert(
-        game_after.entry_multiplier_fp == game.entry_multiplier_fp, 'Economy: snapshot immutable'
+        game_after.entry_multiplier_fp == game.entry_multiplier_fp, 'Economy: snapshot immutable',
     );
 }
 
@@ -37,7 +38,7 @@ fn test_economy_claim_uses_locked_multiplier_after_supply_change() {
     let store = StoreTrait::new(world);
     let game = store.game(context.game_id);
     let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION
+        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
     );
 
     let mut tournament = store.tournament(tournament_id);
@@ -75,7 +76,7 @@ fn test_economy_oversupply_snapshot_zero_multiplier_results_in_zero_mint() {
     assert(game.entry_multiplier_fp == 0, 'Economy: oversupply multiplier');
 
     let tournament_id = TournamentTrait::compute_id(
-        game.start_time, constants::DAILY_TOURNAMENT_DURATION
+        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
     );
     let mut tournament = store.tournament(tournament_id);
     tournament.top1_player_id = context.player_id;
@@ -105,7 +106,5 @@ fn test_economy_faucet_mint_updates_supply_snapshot() {
 
     let state_after = store.economy_state();
     assert(state_after.last_supply != state_before.last_supply, 'Economy: faucet updates supply');
-    assert(
-        state_after.total_minted != state_before.total_minted, 'Economy: faucet tracks minted'
-    );
+    assert(state_after.total_minted != state_before.total_minted, 'Economy: faucet tracks minted');
 }

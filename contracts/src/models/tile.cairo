@@ -1,19 +1,19 @@
 // Core imports
 
-use core::traits::{Into, TryInto};
 use core::option::OptionTrait;
+use core::traits::{Into, TryInto};
 
 // Internal imports
 
 pub use paved::constants::CENTER;
-use paved::types::orientation::Orientation;
+pub use paved::models::index::{Tile, TilePosition};
 use paved::types::area::{Area, AreaImpl};
 use paved::types::direction::{Direction, DirectionImpl};
-use paved::types::plan::{Plan, PlanImpl};
 use paved::types::layout::{Layout, LayoutImpl};
-use paved::types::spot::{Spot, SpotImpl};
 use paved::types::move::{Move, MoveImpl};
-pub use paved::models::index::{Tile, TilePosition};
+use paved::types::orientation::Orientation;
+use paved::types::plan::{Plan, PlanImpl};
+use paved::types::spot::{Spot, SpotImpl};
 
 // Constants
 
@@ -36,7 +36,7 @@ pub mod errors {
 #[generate_trait]
 pub impl TileImpl of TileTrait {
     #[inline]
-    fn new(game_id: u32, id: u32, player_id: felt252, plan: Plan,) -> Tile {
+    fn new(game_id: u32, id: u32, player_id: felt252, plan: Plan) -> Tile {
         Tile {
             game_id,
             id,
@@ -186,7 +186,7 @@ pub impl TileIntoPosition of Into<Tile, TilePosition> {
         } else {
             self.id
         };
-        TilePosition { game_id: self.game_id, x: self.x, y: self.y, tile_id: tile_id, }
+        TilePosition { game_id: self.game_id, x: self.x, y: self.y, tile_id: tile_id }
     }
 }
 
@@ -275,7 +275,7 @@ pub impl ZeroableTile of ZeroableTileTrait {
     #[inline]
     fn zero() -> Tile {
         Tile {
-            game_id: 0, id: 0, player_id: 0, plan: 0, orientation: 0, x: 0, y: 0, occupied_spot: 0
+            game_id: 0, id: 0, player_id: 0, plan: 0, orientation: 0, x: 0, y: 0, occupied_spot: 0,
         }
     }
 
@@ -294,7 +294,7 @@ pub impl ZeroableTile of ZeroableTileTrait {
 pub impl ZeroableTilePosition of ZeroableTilePositionTrait {
     #[inline]
     fn zero() -> TilePosition {
-        TilePosition { game_id: 0, x: 0, y: 0, tile_id: 0, }
+        TilePosition { game_id: 0, x: 0, y: 0, tile_id: 0 }
     }
 
     #[inline]
@@ -312,12 +312,11 @@ pub impl ZeroableTilePosition of ZeroableTilePositionTrait {
 pub mod tests {
     // Core imports
 
-
     // Local imports
 
     use super::{
-        Tile, TileImpl, TileAssert, TileIntoLayout, InternalImpl, Layout, Orientation, Direction,
-        Plan, CENTER,
+        CENTER, Direction, InternalImpl, Layout, Orientation, Plan, Tile, TileAssert, TileImpl,
+        TileIntoLayout,
     };
 
     // Implementations
@@ -325,7 +324,7 @@ pub mod tests {
     #[generate_trait]
     impl TestImpl of TestTrait {
         #[inline]
-        fn from(plan: Plan, orientation: Orientation, x: u32, y: u32,) -> Tile {
+        fn from(plan: Plan, orientation: Orientation, x: u32, y: u32) -> Tile {
             Tile {
                 game_id: 0,
                 id: 0,
@@ -419,7 +418,7 @@ pub mod tests {
         let south_tile = TestImpl::from(plan, Orientation::North, tile.x, tile.y - 1);
         let west_tile = TestImpl::from(plan, Orientation::West, tile.x - 1, tile.y);
         let mut neighbors: Array<Tile> = array![
-            invalid_north_tile, east_tile, south_tile, west_tile
+            invalid_north_tile, east_tile, south_tile, west_tile,
         ];
         tile.can_place(ref neighbors);
     }
@@ -453,31 +452,31 @@ pub mod tests {
         let north_tile = TestImpl::from(plan, Orientation::South, tile.x, tile.y + 1);
         assert(
             InternalImpl::reference_direction(tile, north_tile) == Direction::North,
-            'Tile: north neighbor'
+            'Tile: north neighbor',
         );
         // East
         let east_tile = TestImpl::from(plan, Orientation::East, tile.x + 1, tile.y);
         assert(
             InternalImpl::reference_direction(tile, east_tile) == Direction::East,
-            'Tile: east neighbor'
+            'Tile: east neighbor',
         );
         // South
         let south_tile = TestImpl::from(plan, Orientation::North, tile.x, tile.y - 1);
         assert(
             InternalImpl::reference_direction(tile, south_tile) == Direction::South,
-            'Tile: south neighbor'
+            'Tile: south neighbor',
         );
         // West
         let west_tile = TestImpl::from(plan, Orientation::West, tile.x - 1, tile.y);
         assert(
             InternalImpl::reference_direction(tile, west_tile) == Direction::West,
-            'Tile: west neighbor'
+            'Tile: west neighbor',
         );
         // Not a neighbor
         let not_a_neighbor = TestImpl::from(plan, Orientation::North, tile.x + 1, tile.y + 1);
         assert(
             InternalImpl::reference_direction(tile, not_a_neighbor) == Direction::None,
-            'Tile: not a neighbor'
+            'Tile: not a neighbor',
         );
     }
 }

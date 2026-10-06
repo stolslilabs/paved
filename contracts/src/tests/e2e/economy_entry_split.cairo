@@ -1,7 +1,8 @@
 use paved::constants;
-use paved::store::{StoreTrait};
+use paved::store::StoreTrait;
+use paved::tests::setup::setup;
+use paved::tests::setup::setup::IDailyDispatcherTrait;
 use paved::types::mode::Mode;
-use paved::tests::setup::{setup, setup::{IDailyDispatcherTrait}};
 
 #[test]
 fn test_economy_entry_split_accounting_for_team_and_burn_amounts() {
@@ -21,6 +22,7 @@ fn test_economy_entry_split_accounting_for_team_and_burn_amounts() {
 }
 
 #[test]
+#[ignore] // P1 removes #181's economy; see PLAN
 fn test_economy_burn_execution_reduces_circulating_supply_metric() {
     let (world, systems, _) = setup::spawn_game(Mode::None);
     let store = StoreTrait::new(world);

@@ -1,19 +1,18 @@
 // Core imports
 
-
 // Internal imports
 
 use paved::constants;
-use paved::store::{Store, StoreImpl};
-use paved::types::spot::Spot;
-use paved::types::area::Area;
-use paved::types::move::{Move, MoveImpl};
-use paved::types::category::Category;
-use paved::models::game::{Game, GameImpl};
+use paved::helpers::multiplier::compute_multiplier;
 use paved::models::builder::{Builder, BuilderImpl};
 use paved::models::character::{Char, CharPosition};
-use paved::models::tile::{Tile, TilePosition, ZeroableTilePosition, TileImpl};
-use paved::helpers::multiplier::compute_multiplier;
+use paved::models::game::{Game, GameImpl};
+use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
+use paved::store::{Store, StoreImpl};
+use paved::types::area::Area;
+use paved::types::category::Category;
+use paved::types::move::{Move, MoveImpl};
+use paved::types::spot::Spot;
 
 #[generate_trait]
 pub impl GenericCount of GenericCountTrait {
@@ -35,14 +34,14 @@ pub impl GenericCount of GenericCountTrait {
         ref count: u32,
         ref visited: Felt252Dict<bool>,
         ref characters: Array<Char>,
-        ref store: Store
+        ref store: Store,
     ) {
         // [Check] The tile area is already visited, then pass
         let area: Area = tile.area(at);
         let visited_key = tile.get_key(area);
         if visited.get(visited_key) {
             return;
-        };
+        }
         visited.insert(visited_key, true);
         count += 1;
 
@@ -54,7 +53,7 @@ pub impl GenericCount of GenericCountTrait {
             let character = store
                 .character(game, character_position.player_id, character_position.index.into());
             characters.append(character);
-        };
+        }
 
         // [Compute] Process next tiles if exist
         let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
@@ -76,7 +75,13 @@ pub impl GenericCount of GenericCountTrait {
                     // [Check] If the points are zero, the structure is not finished
                     let neighbor = store.tile(game, tile_position.tile_id);
                     Self::iter(
-                        game, neighbor, move.spot, ref count, ref visited, ref characters, ref store
+                        game,
+                        neighbor,
+                        move.spot,
+                        ref count,
+                        ref visited,
+                        ref characters,
+                        ref store,
                     );
                     if 0 == count.into() {
                         break;
@@ -94,7 +99,7 @@ pub impl GenericCount of GenericCountTrait {
         count: u32,
         base_points: u32,
         ref characters: Array<Char>,
-        ref store: Store
+        ref store: Store,
     ) {
         // [Compute] Find the winner
         let mut winner_weight: u32 = 0;
@@ -115,7 +120,7 @@ pub impl GenericCount of GenericCountTrait {
                     let builder_power = powers.get(character.player_id);
                     if power > builder_power {
                         powers.insert(character.player_id, power);
-                    };
+                    }
 
                     // [Effect] Collect the character's builder
                     let mut tile = store.tile(game, character.tile_id);
@@ -142,7 +147,7 @@ pub impl GenericCount of GenericCountTrait {
                 },
                 Option::None => { break; },
             };
-        };
+        }
 
         if solved {
             // [Compute] Update the scores if a winner is determined

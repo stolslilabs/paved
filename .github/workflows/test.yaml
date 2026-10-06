@@ -1,28 +1,53 @@
 name: Stolsis CI
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches: [main]
 
 env:
-  DOJO_VERSION: v1.0.0-alpha.12
-  SCARB_VERSION: 2.7.0
   WORKING_DIRECTORY: ./contracts
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    name: Detect changes
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      contracts: ${{ steps.filter.outputs.contracts }}
+    steps:
+      - uses: actions/checkout@v4
+      # dorny/paths-filter v3.0.4
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
+        id: filter
+        with:
+          # On push to main, compare with the previous commit; on a PR, with its base.
+          base: ${{ github.event_name == 'push' && github.event.before || '' }}
+          filters: |
+            contracts:
+              - 'contracts/**'
+              - '.tool-versions'
+              - '.github/workflows/**'
+              - '.github/actions/**'
+
   check:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     name: Check format
     steps:
       - uses: actions/checkout@v4
-      - uses: software-mansion/setup-scarb@v1
-        with:
-          scarb-version: ${{ env.SCARB_VERSION }}
+      - uses: ./.github/actions/setup
       - name: Format
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: scarb fmt --check
         shell: bash
 
   build:
-    needs: check
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     name: Build game
     steps:
@@ -30,17 +55,32 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Build
         working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: sozo build
+        run: scarb build
         shell: bash
 
   test:
-    needs: [check, build]
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     name: Test game
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+        with:
+          foundry: "true"
       - name: Test
         working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: sozo test
+        run: snforge test
+        shell: bash
+
+  ci:
+    runs-on: ubuntu-latest
+    name: ci
+    if: always()
+    needs: [changes, check, build, test]
+    steps:
+      - name: Require every job to have succeeded or been skipped
+        run: |
+          echo '${{ toJSON(needs.*.result) }}'
+          if ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}; then exit 1; fi
         shell: bash

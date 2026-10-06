@@ -1,22 +1,21 @@
 // Core imports
 
-
 // Internal imports
 
 use paved::constants;
-use paved::store::{Store, StoreImpl};
-use paved::types::plan::Plan;
-use paved::types::orientation::Orientation;
-use paved::types::role::{Role, RoleImpl, RoleAssert};
-use paved::types::spot::Spot;
-use paved::types::layout::{Layout, LayoutImpl};
-use paved::types::category::Category;
+use paved::helpers::bitmap::Bitmap;
+use paved::models::character::{Char, CharImpl};
 use paved::models::game::{Game, GameImpl};
+pub use paved::models::index::Builder;
 use paved::models::player::{Player, PlayerImpl};
 use paved::models::tile::{Tile, TileImpl, TileIntoLayout};
-use paved::models::character::{Char, CharImpl};
-pub use paved::models::index::Builder;
-use paved::helpers::bitmap::Bitmap;
+use paved::store::{Store, StoreImpl};
+use paved::types::category::Category;
+use paved::types::layout::{Layout, LayoutImpl};
+use paved::types::orientation::Orientation;
+use paved::types::plan::Plan;
+use paved::types::role::{Role, RoleAssert, RoleImpl};
+use paved::types::spot::Spot;
 
 pub mod errors {
     pub const BUILDER_DOES_NOT_EXIST: felt252 = 'Builder: does not exist';
@@ -39,7 +38,7 @@ pub impl BuilderImpl of BuilderTrait {
     #[inline]
     fn new(game_id: u32, player_id: felt252) -> Builder {
         // [Return] Builder
-        Builder { game_id, player_id, tile_id: 0, characters: 0, }
+        Builder { game_id, player_id, tile_id: 0, characters: 0 }
     }
 
     #[inline]
@@ -65,7 +64,7 @@ pub impl BuilderImpl of BuilderTrait {
         self.assert_discardable();
         // [Effect] Substract penalty
         let mut malus = constants::DISCARD_POINTS;
-        game.sub_score(ref malus,);
+        game.sub_score(ref malus);
         // [Effect] Remove tile from tile count
         self.tile_id = 0;
     }
@@ -77,7 +76,7 @@ pub impl BuilderImpl of BuilderTrait {
         orientation: Orientation,
         x: u32,
         y: u32,
-        ref neighbors: Array<Tile>
+        ref neighbors: Array<Tile>,
     ) {
         // [Check] Have a tile to place
         self.assert_buildable();
@@ -164,7 +163,7 @@ pub impl BuilderAssert of AssertTrait {
 pub impl ZeroableBuilderImpl of ZeroableBuilderTrait {
     #[inline]
     fn zero() -> Builder {
-        Builder { game_id: 0, player_id: 0, tile_id: 0, characters: 0, }
+        Builder { game_id: 0, player_id: 0, tile_id: 0, characters: 0 }
     }
 
     #[inline]

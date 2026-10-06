@@ -41,7 +41,7 @@ pub impl EconomyConfigImpl of EconomyConfigTrait {
         assert(
             self.target_mode == constants::TARGET_MODE_FIXED
                 || self.target_mode == constants::TARGET_MODE_AFFINE,
-            errors::INVALID_TARGET_MODE
+            errors::INVALID_TARGET_MODE,
         );
     }
 
@@ -92,15 +92,13 @@ pub impl EconomyStateImpl of EconomyStateTrait {
 #[generate_trait]
 pub impl EntrySettlementImpl of EntrySettlementTrait {
     fn zero(game_id: u32) -> EntrySettlement {
-        EntrySettlement {
-            game_id, entry_amount: 0, team_amount: 0, burn_amount: 0, settled: false,
-        }
+        EntrySettlement { game_id, entry_amount: 0, team_amount: 0, burn_amount: 0, settled: false }
     }
 }
 
 #[cfg(test)]
 pub mod tests {
-    use super::{EconomyConfig, EconomyConfigTrait, EconomyConfigImpl, constants};
+    use super::{EconomyConfig, EconomyConfigImpl, EconomyConfigTrait, constants};
 
     #[test]
     #[should_panic(expected: ('Economy: bps invalid',))]

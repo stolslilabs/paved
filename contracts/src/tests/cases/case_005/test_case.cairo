@@ -1,9 +1,6 @@
 // Core imports
 
-
 // Starknet imports
-
-use starknet::testing::{set_contract_address, set_transaction_hash};
 
 // Dojo imports
 
@@ -12,20 +9,21 @@ use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 // Internal imports
 
 use paved::constants;
-use paved::store::{Store, StoreTrait};
-use paved::models::game::{Game, GameTrait};
 use paved::models::builder::{Builder, BuilderTrait};
-use paved::models::tile::{Tile, TileTrait, CENTER};
+use paved::models::game::{Game, GameTrait};
+use paved::models::tile::{CENTER, Tile, TileTrait};
+use paved::store::{Store, StoreTrait};
+use paved::systems::daily::IDailyDispatcherTrait;
+use paved::tests::setup::setup;
+use paved::tests::setup::setup::{ANYONE, Mode, PLAYER, Systems};
+use paved::types::direction::Direction;
 use paved::types::mode::Mode;
 use paved::types::order::Order;
 use paved::types::orientation::Orientation;
-use paved::types::direction::Direction;
 use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
-use paved::systems::daily::IDailyDispatcherTrait;
-
-use paved::tests::setup::{setup, setup::{Mode, Systems, PLAYER, ANYONE}};
+use starknet::testing::{set_contract_address, set_transaction_hash};
 
 #[test]
 fn test_case_005() {

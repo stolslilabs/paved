@@ -1,15 +1,14 @@
 // Core imports
 
-
 // Internal imports
 
-use paved::store::{Store, StoreImpl};
-use paved::types::spot::Spot;
-use paved::types::area::Area;
-use paved::types::plan::Plan;
-use paved::types::move::{Move, MoveImpl};
 use paved::models::game::Game;
 use paved::models::tile::{Tile, TilePosition, TileTrait, ZeroableTilePosition};
+use paved::store::{Store, StoreImpl};
+use paved::types::area::Area;
+use paved::types::move::{Move, MoveImpl};
+use paved::types::plan::Plan;
+use paved::types::spot::Spot;
 
 #[generate_trait]
 pub impl Conflict of ConflictTrait {
@@ -29,14 +28,14 @@ pub impl Conflict of ConflictTrait {
         at: Spot,
         ref status: bool,
         ref visited: Felt252Dict<bool>,
-        ref store: Store
+        ref store: Store,
     ) {
         // [Check] The tile area is already visited, then pass
         let area: Area = tile.area(at);
         let visited_key = tile.get_key(area);
         if visited.get(visited_key) {
             return;
-        };
+        }
         visited.insert(visited_key, true);
 
         // [Check] The tile handles a character

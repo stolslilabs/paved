@@ -1,6 +1,5 @@
 // Core imports
 
-
 // Internal imports
 
 use paved::types::orientation::Orientation;
@@ -124,10 +123,9 @@ pub impl DirectionImpl of DirectionTrait {
 pub mod tests {
     // Core imports
 
-
     // Local imports
 
-    use super::{Direction};
+    use super::Direction;
 
     // Constants
 

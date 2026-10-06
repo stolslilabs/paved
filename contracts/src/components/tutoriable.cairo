@@ -4,29 +4,25 @@
 pub mod TutoriableComponent {
     // Core imports
 
-
     // Starknet imports
-
-    use starknet::ContractAddress;
-    use starknet::{get_contract_address, get_caller_address, get_block_timestamp};
 
     // Dojo imports
 
-    use dojo::world::IWorldDispatcher;
-    use dojo::world::IWorldDispatcherTrait;
+    use dojo::world::{IWorldDispatcher, IWorldDispatcherTrait};
 
     // Internal imports
 
     use paved::constants;
+    use paved::models::builder::{Builder, BuilderAssert, BuilderImpl, ZeroableBuilderImpl};
+    use paved::models::game::{Game, GameAssert, GameImpl};
+    use paved::models::player::{Player, PlayerAssert, PlayerImpl};
+    use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
     use paved::store::{Store, StoreImpl};
-    use paved::models::game::{Game, GameImpl, GameAssert};
-    use paved::models::player::{Player, PlayerImpl, PlayerAssert};
-    use paved::models::builder::{Builder, BuilderImpl, ZeroableBuilderImpl, BuilderAssert};
-    use paved::models::tile::{Tile, TilePosition, TileImpl, TileAssert, TilePositionAssert};
+    use paved::types::mode::{Mode, ModeTrait};
     use paved::types::orientation::{Orientation, OrientationAssert};
     use paved::types::role::Role;
     use paved::types::spot::Spot;
-    use paved::types::mode::{Mode, ModeTrait};
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
 
     // Storage
 
@@ -41,7 +37,7 @@ pub mod TutoriableComponent {
 
     #[generate_trait]
     pub impl InternalImpl<
-        TContractState, +HasComponent<TContractState>
+        TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
         fn discard(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore
@@ -127,7 +123,7 @@ pub mod TutoriableComponent {
             store.set_game(game);
         }
 
-        fn build(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32,) {
+        fn build(self: @ComponentState<TContractState>, world: IWorldDispatcher, game_id: u32) {
             // [Setup] Datastore
             let mut store: Store = StoreImpl::new(world);
 
