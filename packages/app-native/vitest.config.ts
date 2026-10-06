@@ -4,8 +4,9 @@ import { resolve } from "node:path";
 export default defineConfig({
   resolve: {
     alias: {
-      "@paved/renderer": resolve(__dirname, "../renderer/src/index.ts"),
+      // The subpath first: aliases match by prefix, in this order.
       "@paved/renderer/react-native": resolve(__dirname, "../renderer/src/react-native/index.ts"),
+      "@paved/renderer": resolve(__dirname, "../renderer/src/index.ts"),
     },
   },
   test: {
