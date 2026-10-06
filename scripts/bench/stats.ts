@@ -420,43 +420,29 @@ export interface PlayRun {
   driver: { loadAvg: number[]; attempted: number; applied: number; mockCalls: unknown[]; pageErrors: string[] };
 }
 
+/** Input in the 3 s before `t`: what the page does then may answer a placement. */
+const IDLE_AFTER_INPUT_MS = 3000;
+
 /**
- * Poll cycles of Game.tsx: each starts with its [paved-Builder] query and ends at the start
- * of the next cycle, or 1 s after its [paved-Game] response, whichever is first. A commit or a
- * long task is the poll's if it falls in that window and no input came in the 1 s before it.
- * Polls with no input near them ("quiet") show the cost of a poll that changes nothing.
+ * What the page does with no input in the 3 s before: RPC requests and React commits. Since P-10
+ * the page does not poll, so both should be 0; a Torii-era run counts its polls here.
  */
-export function pollCycles(r: PlayRun) {
+export function idleWork(r: PlayRun) {
   const inSession = (t: number) => t >= r.session.start && t <= r.session.end;
-  const sql = r.fetches.filter((x) => x.kind === "sql" && inSession(x.start)).sort((a, b) => a.start - b.start);
-  const starts = sql.filter((x) => x.what === "paved-Builder").map((x) => x.start);
-  const afterInput = (t: number) => r.inputs.some((i) => i.ts <= t && t - i.ts < 1000);
-  return starts.map((start, i) => {
-    const next = starts[i + 1] ?? r.session.end;
-    const game = sql.find((x) => x.what === "paved-Game" && x.start >= start && x.start < next);
-    const end = Math.min(next, (game?.end ?? start) + 1000);
-    const commits = r.commits.filter((c) => c.commitTime >= start && c.commitTime < end && !afterInput(c.commitTime));
-    const tasks = r.longTasks.filter((t) => t.start + t.duration > start && t.start < end && !afterInput(t.start));
-    return {
-      start,
-      end,
-      queries: sql.filter((x) => x.start >= start && x.start < next).length,
-      commits: commits.length,
-      renderMs: commits.reduce((a, c) => a + c.actualMs, 0),
-      longTasks: tasks.length,
-      longTaskMs: tasks.reduce((a, t) => a + t.duration, 0),
-      /** Any input from 3 s before the poll to its end: the poll may carry a placement's change. */
-      inputNearby: r.inputs.some((i) => i.ts >= start - 3000 && i.ts < end),
-    };
-  });
+  const idle = (t: number) => !r.inputs.some((i) => i.ts <= t && t - i.ts < IDLE_AFTER_INPUT_MS);
+  const requests = r.fetches.filter((x) => inSession(x.start));
+  return {
+    requests: requests.length,
+    idleRequests: requests.filter((x) => idle(x.start)).length,
+    idleCommits: r.commits.filter((c) => inSession(c.commitTime) && idle(c.commitTime)).length,
+  };
 }
 
 export function playRunStats(r: PlayRun) {
   const inSession = (t: number) => t >= r.session.start && t <= r.session.end;
   const tasks = r.longTasks.filter((t) => inSession(t.start));
   const commits = r.commits.filter((c) => inSession(c.commitTime));
-  const cycles = pollCycles(r);
-  const quiet = cycles.filter((c) => !c.inputNearby);
+  const work = idleWork(r);
   const minutes = (r.session.end - r.session.start) / 60000;
   return {
     file: r.file ?? null,
@@ -479,14 +465,9 @@ export function playRunStats(r: PlayRun) {
     commitP50: percentile(commits.map((c) => c.actualMs), 50),
     commitP95: percentile(commits.map((c) => c.actualMs), 95),
     commitMax: commits.length ? Math.max(...commits.map((c) => c.actualMs)) : 0,
-    polls: cycles.length,
-    queriesPerPoll: percentile(cycles.map((c) => c.queries), 50),
-    commitsPerPoll: percentile(quiet.map((c) => c.commits), 50),
-    commitsPerPollMax: quiet.length ? Math.max(...quiet.map((c) => c.commits)) : 0,
-    renderMsPerPollP50: percentile(quiet.map((c) => c.renderMs), 50),
-    renderMsPerPollP95: percentile(quiet.map((c) => c.renderMs), 95),
-    pollsWithLongTask: quiet.filter((c) => c.longTasks > 0).length,
-    quietPolls: quiet.length,
+    requests: work.requests,
+    idleRequests: work.idleRequests,
+    idleCommits: work.idleCommits,
     confirmP50: percentile(r.confirms.map((s) => s.presentedMs), 50),
     confirmP95: percentile(r.confirms.map((s) => s.presentedMs), 95),
     placements: `${r.driver.applied}/${r.driver.attempted}`,
@@ -538,11 +519,9 @@ export function playsToMarkdown(summary: ReturnType<typeof summarizePlays>): str
     ["Long task duration p95, pooled (ms)", (g) => `${ms(g.pooled.longTaskMs.p95, 0)} (n=${g.pooled.longTaskMs.n}, max ${ms(g.pooled.longTaskMs.max, 0)})`],
     ["React commits in the session (count)", (g) => f(g.stats.commits, 0)],
     ["Commit render time p95, pooled (ms)", (g) => `${ms(g.pooled.commitMs.p95)} (n=${g.pooled.commitMs.n}, max ${ms(g.pooled.commitMs.max)})`],
-    ["Poll cycles (count)", (g) => f(g.stats.polls, 0)],
-    ["Torii queries per poll", (g) => f(g.stats.queriesPerPoll, 0)],
-    ["Commits per poll without input, median (max)", (g) => `${ms(g.stats.commitsPerPoll?.median ?? NaN, 0)} (max ${ms(g.stats.commitsPerPollMax?.max ?? NaN, 0)})`],
-    ["Render time per poll p50 / p95 (ms)", (g) => `${f(g.stats.renderMsPerPollP50)} / ${f(g.stats.renderMsPerPollP95)}`],
-    ["Polls with a long task / polls without input", (g) => `${f(g.stats.pollsWithLongTask, 0)} / ${f(g.stats.quietPolls, 0)}`],
+    ["Requests to the node in the session (count)", (g) => f(g.stats.requests, 0)],
+    ["Requests with no input in the 3 s before (polling: 0 expected)", (g) => f(g.stats.idleRequests, 0)],
+    ["React commits with no input in the 3 s before", (g) => f(g.stats.idleCommits, 0)],
     ["Confirm (key C) to presented frame p50 / p95, pooled (ms)", (g) => `${ms(g.pooled.confirmMs.p50)} / ${ms(g.pooled.confirmMs.p95)} (n=${g.pooled.confirmMs.n})`],
     ["Load average (1 min) after the run", (g) => f(g.stats.loadAvg1, 1)],
   ];

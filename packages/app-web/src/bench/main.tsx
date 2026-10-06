@@ -16,7 +16,7 @@ import type { BenchResult } from "./run-bench";
  *   bench.html?bench=38|72[&duration=20000]   frame time along the scripted camera path
  *   bench.html?bench=38|72&mode=click         click-to-display latency (driven by the driver)
  *   bench.html?mode=play[&duration=60000]     the real Game page against the local mock of
- *                                             Torii and the RPC (scripts/bench/mock-chain.ts)
+ *                                             the RPC (scripts/bench/mock-chain.ts)
  *
  * The board and click modes render through the game's own renderer path (GameCanvas,
  * GameScene, the same assets, materials, effects and `play` camera), without the chain layer.

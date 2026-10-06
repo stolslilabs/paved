@@ -4,8 +4,8 @@
  * does.
  */
 export interface FetchRecord {
-  kind: "sql" | "rpc" | "other";
-  /** Table of a Torii SQL query, method of a JSON-RPC call, or the URL. */
+  kind: "rpc" | "other";
+  /** Method of a JSON-RPC call, or the URL. */
   what: string;
   start: number;
   /** Response headers received (the body is read by the caller afterwards). */
@@ -31,7 +31,6 @@ export const probes = {
 
 function describe(url: string, body: unknown): Pick<FetchRecord, "kind" | "what"> {
   const text = typeof body === "string" ? body : "";
-  if (url.endsWith("/sql")) return { kind: "sql", what: /FROM \[([^\]]+)\]/.exec(text)?.[1] ?? "?" };
   if (url.includes("/rpc")) {
     try {
       const msg = JSON.parse(text);

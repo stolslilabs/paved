@@ -30,4 +30,6 @@ export function holdOverview(scene: GameScene, bounds: { minX: number; maxX: num
   const cz = (bounds.minZ + bounds.maxZ) / 2;
   scene.controls.controls.target.set(cx, 0, cz);
   scene.camera.position.set(cx, distance * Math.cos(0.01), cz + distance * Math.sin(0.01));
+  // Turn the camera to the target now, not on the controls' next update.
+  scene.controls.controls.update();
 }
