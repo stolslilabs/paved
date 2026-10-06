@@ -8,7 +8,10 @@ import { resolveDeployment } from "../src/deployment";
 import { PavedClient } from "../src/paved-client";
 import { placementOutcome } from "../src/placement";
 import { toViewError, type GameKey } from "../src/views";
-import { DAILY_PRICE, WriteError, type Call, type WriteAccount } from "../src/writer";
+import { WriteError, type Call, type WriteAccount } from "../src/writer";
+
+/** The Daily entry of the recorded deployment (1 token of the test ERC20). */
+const DAILY_PRICE = 10n ** 18n;
 import type { Recording } from "./recorder";
 import { replay } from "./replay";
 
@@ -92,6 +95,7 @@ describe("event reader on recorded events", () => {
     const games = await c.events.playerGames(player);
     expect(games).toEqual(
       expect.arrayContaining([
+        // Tutorial's GameSpawned gives tournament_id 0 since #205 (no client workaround).
         expect.objectContaining({ mode: "tutorial", gameId: 1, over: true, tournamentId: 0, countedTournamentId: 0 }),
         expect.objectContaining({ mode: "daily", gameId: 1, over: true }),
       ]),
@@ -115,6 +119,8 @@ describe("writer on recorded receipts", () => {
     const result = await c.writer(acc).spawn("daily");
     expect(result.gameId).toBe(1);
     expect(acc.sent[0].map((call) => call.entrypoint)).toEqual(["approve", "spawn"]);
+    // The approve goes to the token `entry_price` names, for the amount it names.
+    expect(BigInt(acc.sent[0][0].contractAddress)).toBe(BigInt(deployment.addresses.Token));
     expect(acc.sent[0][0].calldata).toEqual([deployment.addresses.Daily, "0xde0b6b3a7640000", "0x0"]);
   });
 

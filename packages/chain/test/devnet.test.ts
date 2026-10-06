@@ -11,7 +11,7 @@ import { resolveDeployment } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { placementOutcome } from "../src/placement";
 import { ViewError, type GameKey } from "../src/views";
-import { DAILY_PRICE, type PavedWriter } from "../src/writer";
+import type { PavedWriter } from "../src/writer";
 import { startDevnet, type Devnet } from "./devnet/devnet";
 import { recording, type Recording } from "./recorder";
 
@@ -57,13 +57,18 @@ describe.skipIf(!enabled)("devnet integration", () => {
     expect(result.events.map((e) => e.name)).toEqual(["PlayerCreated"]);
     const registered = await client.player(player);
     expect(registered?.name).toBe("alice");
-    expect(await client.balance(player)).toBeGreaterThan(DAILY_PRICE);
+    const price = await client.views.entryPrice();
+    expect(BigInt(price.token)).toBe(BigInt(devnet.addresses.Token));
+    expect(price.amount).toBeGreaterThan(0n);
+    expect(await client.balance(player)).toBeGreaterThan(price.amount);
   });
 
   test("plays a tutorial game to its end from receipts and views", async () => {
     const spawned = await writer.spawn("tutorial");
     record.receipts.spawnTutorial = spawned.transactionHash;
     expect(spawned.gameId).toBe(1);
+    // Tutorial has no tournament: 0 in its events and its view (#205).
+    expect(spawned.events.find((e) => e.name === "GameSpawned")?.fields.tournamentId).toBe(0);
     const key: GameKey = { mode: "tutorial", gameId: spawned.gameId };
 
     let game = await client.views.game(key);
@@ -100,7 +105,7 @@ describe.skipIf(!enabled)("devnet integration", () => {
         expect(outcome.over.score).toBe(game.score);
       }
     }
-    expect(game).toMatchObject({ over: true, placedCount: 9, discardedCount: 1, tileId: 0 });
+    expect(game).toMatchObject({ over: true, placedCount: 9, discardedCount: 1, tileId: 0, tournamentId: 0, endTime: 0 });
     expect(moves).toBe(9);
     expect(scored).toBeGreaterThan(0);
     const statuses = (await client.views.tiles(key)).map((t) => t.status);
@@ -115,7 +120,8 @@ describe.skipIf(!enabled)("devnet integration", () => {
     record.receipts.spawnDaily = spawned.transactionHash;
     expect(spawned.gameId).toBe(1);
     const key: GameKey = { mode: "daily", gameId: 1 };
-    expect((await client.views.tournament(tournamentId)).prize).toBe(before.prize + DAILY_PRICE);
+    const price = await client.views.entryPrice();
+    expect((await client.views.tournament(tournamentId)).prize).toBe(before.prize + price.amount);
 
     const held = (await client.views.game(key)).tileId;
     const discarded = await writer.discard(key);

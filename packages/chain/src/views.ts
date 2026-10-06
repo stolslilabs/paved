@@ -91,6 +91,12 @@ export interface TournamentView {
   top3Claimed: boolean;
 }
 
+/** What a Daily `spawn` pulls from the player: the ERC20 and the amount (`Daily.entry_price`). */
+export interface PriceView {
+  token: string;
+  amount: bigint;
+}
+
 /** Field lists in ABI order; a test checks them against `contracts/abis/`. */
 export const VIEW_FIELDS = {
   "paved::views::GameView": [
@@ -108,6 +114,7 @@ export const VIEW_FIELDS = {
     "top2PlayerId", "top2Score", "top2Claimed",
     "top3PlayerId", "top3Score", "top3Claimed",
   ] satisfies (keyof TournamentView)[],
+  "paved::views::PriceView": ["token", "amount"] satisfies (keyof PriceView)[],
 };
 
 /** `abi-mismatch`: the contract answered with another layout than the ABI (an upgrade the client does not follow). */
@@ -153,6 +160,8 @@ export interface GameViews {
   characters(key: GameKey, playerId: string): Promise<CharacterView[]>;
   currentTournamentId(): Promise<number>;
   tournament(id: number): Promise<TournamentView>;
+  /** The Daily entry: token and amount, from the same source `spawn` uses. */
+  entryPrice(): Promise<PriceView>;
 }
 
 /** What the views need from starknet.js's `RpcProvider`. */
@@ -198,6 +207,10 @@ export class RpcGameViews implements GameViews {
     return (await this.call("Daily", "tournament", [id])) as TournamentView;
   }
 
+  async entryPrice(): Promise<PriceView> {
+    return (await this.call("Daily", "entry_price", [])) as PriceView;
+  }
+
   private async call(contract: ContractName, entrypoint: string, args: Encodable[]): Promise<unknown> {
     const contractAddress = this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
@@ -232,6 +245,7 @@ export class FakeGameViews implements GameViews {
   readonly games = new Map<string, FakeGame>();
   readonly tournaments = new Map<number, TournamentView>();
   currentTournament = 0;
+  price: PriceView = { token: "0x4", amount: 10n ** 18n };
   calls: string[] = [];
 
   setGame(key: GameKey, game: FakeGame): void {
@@ -261,6 +275,11 @@ export class FakeGameViews implements GameViews {
   async currentTournamentId(): Promise<number> {
     this.calls.push("current_tournament_id");
     return this.currentTournament;
+  }
+
+  async entryPrice(): Promise<PriceView> {
+    this.calls.push("entry_price");
+    return { ...this.price };
   }
 
   async tournament(id: number): Promise<TournamentView> {

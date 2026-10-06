@@ -21,6 +21,12 @@ The client runs in parallel from P2: base is `packages/` (2026). Client P0 is me
 frame time on the Mac (real browser, GPU); then an instanced renderer, no more polling (view calls for
 the running game, an indexer for the leaderboard), and the native app put to sleep.
 
+Planned client tasks, not started:
+
+| Task | When | Status |
+|---|---|---|
+| Wire the Cartridge controller (signing outside devnet; today a private key is taken on devnet only, P-10) | Before the first non-local deployment: the MVP and the tests run on local nodes (D-5), and a mainnet trial happens only at the owner's go | planned |
+
 ## Tracks
 
 | Track | Delivers | Measured by |

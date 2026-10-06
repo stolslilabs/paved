@@ -3,10 +3,7 @@ import type { Codecs, ContractName } from "./abis";
 import type { DecodedEvent, Encodable, RawEvent } from "./codec";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
-import { gameContract, type GameKey, type GameMode } from "./views";
-
-/** Entry price of a Daily game: `DAILY_TOURNAMENT_PRICE` of `contracts/src/constants.cairo`. */
-export const DAILY_PRICE = 10n ** 18n;
+import { gameContract, type GameKey, type GameMode, type PriceView } from "./views";
 
 export interface Call {
   contractAddress: string;
@@ -79,6 +76,8 @@ export class PavedWriter {
       tip?: bigint;
       /** Interval between two receipt requests while a write is pending. */
       receiptPollMs?: number;
+      /** The Daily entry (`Daily.entry_price`), read before each Daily spawn. */
+      entryPrice?: () => Promise<PriceView>;
       /** Called with the decoded events of every successful write (the event reader keeps them). */
       onEvents?: (contract: ContractName, events: DecodedEvent[]) => void;
     },
@@ -99,12 +98,25 @@ export class PavedWriter {
     return this.send("Account", calls);
   }
 
-  /** Spawns a game; Daily approves the entry price in the same transaction. */
+  /**
+   * Spawns a game. Daily first reads its entry (`entry_price`: the token and the amount `spawn`
+   * pulls) and approves exactly that, in the same transaction.
+   */
   async spawn(mode: GameMode): Promise<WriteResult & { gameId: number }> {
     const contract = gameContract(mode);
     const calls = [this.call(contract, "spawn", [])];
     if (mode === "daily") {
-      calls.unshift(this.call("Token", "approve", [this.options.deployment.addresses.Daily, DAILY_PRICE]));
+      if (!this.options.entryPrice) throw new WriteError("No entry price reader: cannot approve the Daily entry");
+      let price: PriceView;
+      try {
+        price = await this.options.entryPrice();
+      } catch (error) {
+        throw new WriteError(`Cannot read the Daily entry price: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      if (price.amount > 0n) {
+        const approve = this.call("Token", "approve", [this.options.deployment.addresses.Daily, price.amount]);
+        calls.unshift({ ...approve, contractAddress: price.token });
+      }
     }
     const result = await this.send(contract, calls);
     const spawned = result.events.find((e) => e.name === "GameSpawned");

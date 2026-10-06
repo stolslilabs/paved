@@ -7,7 +7,7 @@ import { AbiMismatchError, type DecodedEvent } from "../src/codec";
 import { resolveDeployment } from "../src/deployment";
 import { EventReader } from "../src/events";
 import { PavedClient, createPavedClient, type PavedRpc } from "../src/paved-client";
-import { RpcGameViews, ViewError } from "../src/views";
+import { FakeGameViews, RpcGameViews, ViewError } from "../src/views";
 import { WriteError, type WriteAccount } from "../src/writer";
 
 const codecs = createCodecs();
@@ -105,6 +105,41 @@ describe("writer", () => {
     const writer = client().writer({ address: "0x5", execute: async () => ({ transaction_hash: "0x1" }) });
     await expect(writer.createPlayer("x".repeat(32))).rejects.toThrow(WriteError);
     await expect(writer.createPlayer("")).rejects.toThrow(WriteError);
+  });
+});
+
+describe("Daily spawn approves what entry_price names (O-23)", () => {
+  test("token and amount from the view, approve before spawn, in one multicall", async () => {
+    const views = new FakeGameViews();
+    views.price = { token: "0x77", amount: 5n };
+    const rpc = {
+      callContract: async () => [],
+      getEvents: async () => ({ events: [] }),
+      waitForTransaction: async () => ({
+        execution_status: "SUCCEEDED",
+        events: [{ from_address: "0x2", keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x5"], data: ["0x1", "0x0", "0x1", "0x5"] }],
+      }),
+    } as unknown as PavedRpc;
+    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+    const result = await new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily");
+    expect(result.gameId).toBe(9);
+    const calls = (execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>])[0];
+    expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([["0x77", "approve"], ["0x2", "spawn"]]);
+    expect(calls[0].calldata).toEqual(["0x2", "0x5", "0x0"]);
+  });
+
+  test("a free entry sends no approve; a failed price read sends nothing", async () => {
+    const views = new FakeGameViews();
+    views.price = { token: "0x77", amount: 0n };
+    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+    const rpc = { callContract: async () => [], getEvents: async () => ({ events: [] }), waitForTransaction: async () => ({ events: [] }) } as unknown as PavedRpc;
+    await new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily").catch(() => undefined);
+    expect((execute.mock.calls[0] as unknown as [Array<{ entrypoint: string }>])[0].map((c) => c.entrypoint)).toEqual(["spawn"]);
+
+    views.entryPrice = async () => { throw new Error("fetch failed"); };
+    execute.mockClear();
+    await expect(new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily")).rejects.toThrow(/entry price/);
+    expect(execute).not.toHaveBeenCalled();
   });
 });
 
