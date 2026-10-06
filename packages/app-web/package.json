@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "build:bench": "vite build -c vite.bench.config.ts --outDir dist-bench",
+    "bench": "bun install --cwd ../../scripts/bench --frozen-lockfile && bun ../../scripts/bench/run.ts"
   },
   "dependencies": {
     "@paved/game-core": "workspace:*",

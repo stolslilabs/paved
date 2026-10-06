@@ -1,6 +1,6 @@
 // Core
 export { GameScene } from "./core/GameScene";
-export type { GameSceneDependencies } from "./core/GameScene";
+export type { GameSceneDependencies, FrameObserver } from "./core/GameScene";
 export { TileRenderer } from "./core/TileRenderer";
 export { CharRenderer } from "./core/CharRenderer";
 export { CameraController } from "./core/CameraController";
@@ -16,6 +16,7 @@ export { BoxRainScene } from "./core/BoxRainScene";
 export { WebSurfaceAdapter, createWebSurfaceAdapter } from "./core/WebSurfaceAdapter";
 
 // Types
+export { TILE_SIZE } from "./core/types";
 export type {
   CameraMode,
   RenderProfile,
