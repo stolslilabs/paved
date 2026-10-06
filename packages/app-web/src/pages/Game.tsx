@@ -151,9 +151,13 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
   const hand = state?.hand ?? null;
   const game = state?.game ?? null;
 
+  // `scene` is a dependency on purpose: GameCanvas hands `tiles` to the renderer in an effect that
+  // runs before the scene has loaded its models, and again only when `tiles` changes. With no
+  // polling, the board read once before the scene was ready must be handed over again once it is.
   const { tiles, characters } = useMemo(
     () => (state ? toRenderBoard(state, game?.playerId ?? "0x0") : { tiles: [] as TileRenderData[], characters: [] }),
-    [state, game?.playerId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state, game?.playerId, scene],
   );
 
   const handleReady = useCallback((s: GameScene) => {
