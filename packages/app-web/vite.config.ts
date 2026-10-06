@@ -1,10 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import wasm from "vite-plugin-wasm";
-import topLevelAwait from "vite-plugin-top-level-await";
 
 export default defineConfig({
-  plugins: [react(), wasm(), topLevelAwait()],
+  // No top-level-await plugin: Vite 8's default build target keeps top-level await native.
+  plugins: [react(), wasm()],
   resolve: {
     alias: {
       "@paved/game-core": new URL("../game-core/src", import.meta.url).pathname,
