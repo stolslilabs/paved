@@ -8,7 +8,7 @@
 use paved::models::game::{Game, GameTrait};
 use paved::models::tile::Tile;
 use paved::models::tournament::TournamentTrait;
-use paved::store::{Store, StoreTrait};
+use paved::tests::setup::setup::{TestStore, TestStoreTrait};
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::IDailyDispatcherTrait;
@@ -91,7 +91,7 @@ pub fn discard(plan: Plan, score: u32) -> GoldenMove {
 }
 
 pub fn assert_outcome(
-    store: Store, name: felt252, game: Game, player_id: felt252, outcome: GoldenOutcome,
+    store: TestStore, name: felt252, game: Game, player_id: felt252, outcome: GoldenOutcome,
 ) {
     assert_eq!(game.score, outcome.score, "Golden {}: final score", name);
     assert_eq!(game.built, outcome.built, "Golden {}: built count", name);
@@ -127,10 +127,9 @@ pub fn play_daily(
     outcome: GoldenOutcome,
 ) -> Game {
     snforge_std::start_cheat_block_timestamp_global(timestamp);
-    let (world, systems, _) = setup::spawn_game(Mode::None);
+    let (store, systems, _) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.daily.contract_address, caller);
     let game_id = systems.daily.spawn();
-    let store = StoreTrait::new(world);
     if tile_limit != 0 {
         let mut game = store.game(game_id);
         game.tile_limit = tile_limit;
@@ -215,8 +214,7 @@ pub struct TutorialStep {
 
 /// Spawns a Tutorial game and replays `steps` on it. Returns the final game.
 pub fn play_tutorial(name: felt252, steps: Span<TutorialStep>, outcome: GoldenOutcome) -> Game {
-    let (world, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let store = StoreTrait::new(world);
+    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let game_id = context.game_id;
 
     let mut step: u32 = 0;

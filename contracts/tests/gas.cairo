@@ -20,14 +20,13 @@
 
 use core::testing::get_available_gas;
 use paved::constants::CENTER;
-use paved::store::{Store, StoreTrait};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 use crate::setup::setup;
-use crate::setup::setup::{IDailyDispatcherTrait, Systems};
+use crate::setup::setup::{IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
 pub const CEILING_OPEN: u128 = 49481748;
@@ -39,7 +38,7 @@ pub const CEILING_WORST_CASE: u128 = 252396099;
 #[derive(Drop)]
 struct Scenario {
     systems: Systems,
-    store: Store,
+    store: TestStore,
     game_id: u32,
     player_id: felt252,
 }
@@ -47,10 +46,10 @@ struct Scenario {
 #[generate_trait]
 impl ScenarioImpl of ScenarioTrait {
     fn new() -> Scenario {
-        let (world, systems, context) = setup::spawn_game(Mode::Daily);
+        let (store, systems, context) = setup::spawn_game(Mode::Daily);
         Scenario {
             systems,
-            store: StoreTrait::new(world),
+            store,
             game_id: context.game_id,
             player_id: context.player_id,
         }

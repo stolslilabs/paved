@@ -1,13 +1,12 @@
 use paved::models::game::GameTrait;
-use paved::store::StoreTrait;
+use paved::tests::setup::setup::TestStoreTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::setup::setup;
 use paved::types::mode::Mode;
 
 #[test]
 fn test_tutorial_e2e_surrender_ends_game() {
-    let (world, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let store = StoreTrait::new(world);
+    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
 
     systems.tutorial.surrender(context.game_id);
 
@@ -26,8 +25,7 @@ fn test_tutorial_e2e_surrender_reverts_if_game_already_over() {
 
 #[test]
 fn test_tutorial_e2e_discard_increments_counter_in_scripted_path() {
-    let (world, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let store = StoreTrait::new(world);
+    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
 
     systems.tutorial.build(context.game_id);
     systems.tutorial.build(context.game_id);

@@ -1,13 +1,12 @@
 use paved::models::game::GameTrait;
-use paved::store::StoreTrait;
+use paved::tests::setup::setup::TestStoreTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::setup::setup;
 use paved::types::mode::Mode;
 
 #[test]
 fn test_tutorial_e2e_spawn_starts_game() {
-    let (world, _, context) = setup::spawn_game(Mode::Tutorial);
-    let store = StoreTrait::new(world);
+    let (store, _, context) = setup::spawn_game(Mode::Tutorial);
 
     let game = store.game(context.game_id);
     let mode: Mode = game.mode.into();
@@ -17,8 +16,7 @@ fn test_tutorial_e2e_spawn_starts_game() {
 
 #[test]
 fn test_tutorial_e2e_scripted_run_is_deterministic() {
-    let (world, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let store = StoreTrait::new(world);
+    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
 
     systems.tutorial.build(context.game_id);
     systems.tutorial.build(context.game_id);
