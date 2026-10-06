@@ -55,10 +55,10 @@ Read these when the economy or configurable games come back (a P5 extension, or 
   rest, mint the reward) and `mint_to`, `burn` of the token mock in `contracts/src/mocks/token.cairo`,
   with the supply bookkeeping (`record_mint`, `record_burn`). The settlement of an entry is stored per
   game (`EntrySettlement`, `contracts/src/models/economy.cairo`).
-- **Known flaws of #181** (do not copy as is): the economy was configured by a writable system with no
-  access control worth the name, the token mock mirrors supply into the world on every mint, and the
-  spawn of Daily and Tutorial read and wrote the economy models, which cost gas on every game (the P1
-  removal alone lowered a Daily build by 3 % to 12 %, see `docs/measures/baseline.md`).
+- **Known flaws of #181** (do not copy as is): `Economy.configure`, `record_mint` and `record_burn`
+  check no caller, the token mock mirrors supply into the world on every mint, and the spawn of Daily
+  and Tutorial read and wrote the economy models. The P1 removal alone lowered the L2 gas of a Daily
+  build by 2.7 % to 12.1 % (`docs/measures/baseline.md`).
 
 ## Stale generated files
 
