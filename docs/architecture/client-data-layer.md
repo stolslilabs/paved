@@ -58,7 +58,19 @@ which keeps the `GameSpawned` / `GameOver` of this client and merges them into t
 just spawned is listed even when the node's `latest` block lags behind the receipt.
 A Daily spawn first reads `Daily.entry_price()` (O-23: the token and the amount `spawn` pulls, from
 the same source) and approves exactly that, in the same multicall as `spawn`; a free entry sends
-no approve. The landing page shows the same view as the Daily entry fee.
+no approve. The landing page shows the same view as the Daily entry fee, with these rules, so that the
+player never pays an amount they did not see:
+
+- The fee is read on connect, when the page becomes visible and after each write. The Daily confirm
+  is disabled while the read is loading or failed ("Entry price unavailable"); resuming a game
+  and the free Tutorial need no fee.
+- The amount is formatted with the decimals of the deployment's token only. If `entry_price().token`
+  is another token, the card says "Unknown token" and the confirm is refused (and `spawn` refuses it
+  too).
+- The confirm passes the amount the player saw to the game page (`/game?mode=daily&spawn=1&price=<base
+  unit>`), which passes it to `spawn`. `spawn` reads the price again; if it differs, nothing is sent
+  and the page says "The entry price changed: confirm again" (`EntryPriceChangedError`). A Daily
+  `spawn=1` URL without a valid `price` spawns nothing.
 
 Kept from the old code: the plain `Account` from an address and a private key (a devnet
 predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`, on devnet only; the
@@ -102,7 +114,7 @@ filtering:
 | Landing: balance | `Token.balance_of(address)` | on connect, after a write that pays |
 | Landing: my games, active and finished | `GameSpawned` + `GameOver` events (both game contracts), then one `game` view per listed game (the active ones and the 10 latest finished) for its counts | on connect, when the page becomes visible |
 | Landing: today's tournament (prize, top 3, end) | `Daily.current_tournament_id` + `Daily.tournament(id)` | on connect, when the page becomes visible |
-| Landing: Daily entry fee | `Daily.entry_price()` | on connect |
+| Landing: Daily entry fee | `Daily.entry_price()` | on connect, when the page becomes visible, after a write |
 | Daily spawn: the approve | `Daily.entry_price()` | before each Daily spawn |
 | Game page with `spawn=1` (set by the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once |
 | Landing: leaderboard | none: a plain "coming later" card until META's indexer | |

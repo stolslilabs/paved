@@ -16,6 +16,11 @@ describe("mode-routing", () => {
     expect(buildGameRoute({ mode: "daily", gameId: 4, spawn: true })).toBe("/game?mode=daily&id=4");
   });
 
+  it("carries the confirmed entry amount on a spawn only", () => {
+    expect(buildGameRoute({ mode: "daily", spawn: true, price: 10n ** 18n })).toBe("/game?mode=daily&spawn=1&price=1000000000000000000");
+    expect(buildGameRoute({ mode: "daily", gameId: 4, price: 5n })).toBe("/game?mode=daily&id=4");
+  });
+
   it("maps params to the two modes", () => {
     expect(modeFromParam("tutorial")).toBe("tutorial");
     expect(modeFromParam("daily")).toBe("daily");

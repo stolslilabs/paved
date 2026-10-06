@@ -38,6 +38,14 @@ export interface BuildMove {
   spot: number;
 }
 
+/** The Daily entry read at spawn is not what the player confirmed: nothing was sent. */
+export class EntryPriceChangedError extends Error {
+  constructor(readonly confirmed: bigint, readonly current: bigint) {
+    super("The entry price changed: confirm again");
+    this.name = "EntryPriceChangedError";
+  }
+}
+
 /** A write that the chain refused; the message is the revert reason. */
 export class WriteError extends Error {
   constructor(message: string, readonly transactionHash?: string) {
@@ -100,9 +108,11 @@ export class PavedWriter {
 
   /**
    * Spawns a game. Daily first reads its entry (`entry_price`: the token and the amount `spawn`
-   * pulls) and approves exactly that, in the same transaction.
+   * pulls) and approves exactly that, in the same transaction. With `confirmedAmount` (what the
+   * player saw and confirmed), a different amount at spawn is refused (`EntryPriceChangedError`)
+   * instead of paying it.
    */
-  async spawn(mode: GameMode): Promise<WriteResult & { gameId: number }> {
+  async spawn(mode: GameMode, options: { confirmedAmount?: bigint } = {}): Promise<WriteResult & { gameId: number }> {
     const contract = gameContract(mode);
     const calls = [this.call(contract, "spawn", [])];
     if (mode === "daily") {
@@ -112,6 +122,13 @@ export class PavedWriter {
         price = await this.options.entryPrice();
       } catch (error) {
         throw new WriteError(`Cannot read the Daily entry price: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      // Only the deployment's own token is approved, and only for what the player confirmed.
+      if (BigInt(price.token) !== BigInt(this.options.deployment.addresses.Token)) {
+        throw new WriteError("Unknown entry token: the Daily entry is not paid in this deployment's token");
+      }
+      if (options.confirmedAmount !== undefined && price.amount !== options.confirmedAmount) {
+        throw new EntryPriceChangedError(options.confirmedAmount, price.amount);
       }
       if (price.amount > 0n) {
         const approve = this.call("Token", "approve", [this.options.deployment.addresses.Daily, price.amount]);

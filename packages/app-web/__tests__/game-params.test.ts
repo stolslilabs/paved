@@ -11,12 +11,13 @@ describe("parseGameParams", () => {
       gameId: 42,
       invalidId: false,
       spawn: false,
+      price: null,
       readonly: true,
     });
   });
 
   it("a bare /game neither spawns nor pays", () => {
-    expect(parse("")).toEqual({ mode: "daily", gameId: null, invalidId: false, spawn: false, readonly: false });
+    expect(parse("")).toEqual({ mode: "daily", gameId: null, invalidId: false, spawn: false, price: null, readonly: false });
     expect(parse("mode=daily").spawn).toBe(false);
   });
 
@@ -32,12 +33,22 @@ describe("parseGameParams", () => {
     }
   });
 
+  it("reads the confirmed entry amount, only as a plain integer", () => {
+    expect(parse("mode=daily&spawn=1&price=1000000000000000000").price).toBe(10n ** 18n);
+    expect(parse("mode=daily&spawn=1&price=0").price).toBe(0n);
+    for (const bad of ["", "-1", "1.5", "0x10", "01", "abc", "9".repeat(80)]) {
+      expect(parse(`mode=daily&spawn=1&price=${bad}`).price).toBeNull();
+    }
+    expect(parse("mode=daily&spawn=1").price).toBeNull();
+  });
+
   it("reads weekly, gone since P1, as daily", () => {
     expect(parse("mode=weekly").mode).toBe("daily");
   });
 
   it("round-trips the routes of the landing page", () => {
-    expect(parseGameParams(new URLSearchParams(buildGameRoute({ mode: "daily", spawn: true }).split("?")[1]))).toMatchObject({ spawn: true, gameId: null });
+    expect(parseGameParams(new URLSearchParams(buildGameRoute({ mode: "daily", spawn: true }).split("?")[1]))).toMatchObject({ spawn: true, gameId: null, price: null });
+    expect(parseGameParams(new URLSearchParams(buildGameRoute({ mode: "daily", spawn: true, price: 10n ** 18n }).split("?")[1]))).toMatchObject({ spawn: true, price: 10n ** 18n });
     expect(parseGameParams(new URLSearchParams(buildGameRoute({ mode: "tutorial", gameId: 9 }).split("?")[1]))).toMatchObject({ spawn: false, gameId: 9 });
   });
 });

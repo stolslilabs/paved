@@ -8,7 +8,7 @@ import { resolveDeployment } from "../src/deployment";
 import { EventReader } from "../src/events";
 import { PavedClient, createPavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews, RpcGameViews, ViewError } from "../src/views";
-import { WriteError, type WriteAccount } from "../src/writer";
+import { EntryPriceChangedError, WriteError, type WriteAccount } from "../src/writer";
 
 const codecs = createCodecs();
 const deployment = resolveDeployment({
@@ -130,9 +130,9 @@ describe("writer", () => {
 });
 
 describe("Daily spawn approves what entry_price names (O-23)", () => {
-  test("token and amount from the view, approve before spawn, in one multicall", async () => {
+  test("the view's token and amount, approve before spawn, in one multicall", async () => {
     const views = new FakeGameViews();
-    views.price = { token: "0x77", amount: 5n };
+    views.price = { token: "0x4", amount: 5n };
     const rpc = {
       callContract: async () => [],
       getEvents: async () => ({ events: [] }),
@@ -145,13 +145,13 @@ describe("Daily spawn approves what entry_price names (O-23)", () => {
     const result = await new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily");
     expect(result.gameId).toBe(9);
     const calls = (execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>])[0];
-    expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([["0x77", "approve"], ["0x2", "spawn"]]);
+    expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([["0x4", "approve"], ["0x2", "spawn"]]);
     expect(calls[0].calldata).toEqual(["0x2", "0x5", "0x0"]);
   });
 
   test("a free entry sends no approve; a failed price read sends nothing", async () => {
     const views = new FakeGameViews();
-    views.price = { token: "0x77", amount: 0n };
+    views.price = { token: "0x4", amount: 0n };
     const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
     const rpc = { callContract: async () => [], getEvents: async () => ({ events: [] }), waitForTransaction: async () => ({ events: [] }) } as unknown as PavedRpc;
     await new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily").catch(() => undefined);
@@ -160,6 +160,40 @@ describe("Daily spawn approves what entry_price names (O-23)", () => {
     views.entryPrice = async () => { throw new Error("fetch failed"); };
     execute.mockClear();
     await expect(new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily")).rejects.toThrow(/entry price/);
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
+
+describe("a Daily spawn pays only what the player confirmed (review of #209)", () => {
+  const rpc = { callContract: async () => [], getEvents: async () => ({ events: [] }), waitForTransaction: async () => ({ events: [] }) } as unknown as PavedRpc;
+  const spawnWith = (price: { token: string; amount: bigint }, confirmedAmount?: bigint) => {
+    const views = new FakeGameViews();
+    views.price = price;
+    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+    const result = new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).spawn("daily", { confirmedAmount });
+    return { result, execute };
+  };
+
+  test("the price changed between confirm and spawn: refused, nothing sent", async () => {
+    const { result, execute } = spawnWith({ token: "0x4", amount: 2n * 10n ** 18n }, 10n ** 18n);
+    const error = await result.catch((e) => e);
+    expect(error).toBeInstanceOf(EntryPriceChangedError);
+    expect(error.message).toBe("The entry price changed: confirm again");
+    expect(error).toMatchObject({ confirmed: 10n ** 18n, current: 2n * 10n ** 18n });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("the same amount goes through, approving exactly it", async () => {
+    const { result, execute } = spawnWith({ token: "0x4", amount: 10n ** 18n }, 10n ** 18n);
+    await result.catch(() => undefined); // no GameSpawned in this receipt: the send is what counts
+    const calls = (execute.mock.calls[0] as unknown as [Array<{ entrypoint: string; calldata: string[] }>])[0];
+    expect(calls.map((c) => c.entrypoint)).toEqual(["approve", "spawn"]);
+    expect(calls[0].calldata[1]).toBe("0xde0b6b3a7640000");
+  });
+
+  test("a token other than the deployment's is refused, nothing sent", async () => {
+    const { result, execute } = spawnWith({ token: "0x77", amount: 1n }, 1n);
+    await expect(result).rejects.toThrow(/Unknown entry token/);
     expect(execute).not.toHaveBeenCalled();
   });
 });

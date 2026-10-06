@@ -5,7 +5,7 @@ import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
 import { usePaved, useRead } from "@paved/chain";
 import type { GameMode, GameView, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
-import { canOfferCreate, formatTimeRemaining, formatTokenAmount, podium, TOKEN_LABEL } from "../utils/landing-helpers";
+import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, podium, TOKEN_LABEL } from "../utils/landing-helpers";
 
 interface ModeInfo {
   mode: GameMode;
@@ -48,7 +48,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const balance = useRead((c) => (address ? c.balance(address) : Promise.resolve(0n)), [address]);
   const games = useRead((c) => (address ? listGames(c, address) : Promise.resolve([])), [address], { onVisible: true });
   // What a Daily spawn pulls (O-23): the same source the contract's `spawn` uses.
-  const price = useRead((c) => c.views.entryPrice(), []);
+  const price = useRead((c) => c.views.entryPrice(), [], { onVisible: true });
   const tournament = useRead<TournamentView>(
     async (c) => c.views.tournament(await c.views.currentTournamentId()),
     [],
@@ -56,6 +56,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   );
 
   const write = async (fn: () => Promise<unknown>, after: Array<() => void>) => {
+    after = [...after, price.refresh]; // a write may change what the entry costs the player to see
     if (writing) return;
     setWriting(true);
     setWriteError(null);
@@ -90,19 +91,25 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const completed = allGames.filter((g) => g.over);
   const daily = tournament.data;
 
+  const fee = entryFee(price, deployment.addresses.Token);
+  const feeLabel =
+    fee.kind === "amount"
+      ? `${formatTokenAmount(fee.amount, deployment.tokenDecimals)} ${TOKEN_LABEL}`
+      : fee.kind === "free"
+        ? "Free"
+        : fee.kind === "unknown-token"
+          ? "Unknown token"
+          : fee.kind === "error"
+            ? "Unavailable"
+            : "…";
+
   const gameModes: GameModeCardProps[] = MODES.map((m) => ({
     mode: m.mode,
     title: m.title,
     description: `${m.tiles} tiles`,
     tileCount: m.tiles,
     duration: m.duration,
-    entryFee: !m.paid
-      ? "Free"
-      : price.data
-        ? price.data.amount === 0n
-          ? "Free"
-          : `${formatTokenAmount(price.data.amount, deployment.tokenDecimals)} ${TOKEN_LABEL}`
-        : "…",
+    entryFee: !m.paid ? "Free" : feeLabel,
     prizePool: m.mode === "daily" && daily ? formatTokenAmount(daily.prize, deployment.tokenDecimals) : undefined,
     topPlayers: m.mode === "daily" && daily ? podium(daily) : undefined,
     timeRemaining: m.mode === "daily" && daily ? formatTimeRemaining(daily.endTime) : undefined,
@@ -123,12 +130,19 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const handleConfirm = () => {
     if (!selected) return;
     const resume = active.find((g) => g.mode === selected);
-    // The only place that asks the game page to spawn (and pay the Daily entry).
-    navigate(resume ? buildGameRoute({ gameId: resume.gameId, mode: resume.mode }) : buildGameRoute({ mode: selected, spawn: true }));
+    // The only place that asks the game page to spawn (and pay the Daily entry): with the amount the
+    // player sees here, which the spawn refuses to differ from.
+    if (resume) navigate(buildGameRoute({ gameId: resume.gameId, mode: resume.mode }));
+    else if (selected === "daily") {
+      if (!canConfirmEntry(fee, false)) return;
+      navigate(buildGameRoute({ mode: selected, spawn: true, price: fee.kind === "amount" ? fee.amount : 0n }));
+    } else navigate(buildGameRoute({ mode: selected, spawn: true }));
     setSelected(null);
   };
 
   const selectedCard = selected ? gameModes.find((m) => m.mode === selected) : null;
+  // A Daily start needs a known entry fee; resuming a game, and the free Tutorial, do not.
+  const confirmAllowed = selected !== "daily" || canConfirmEntry(fee, active.some((g) => g.mode === "daily"));
 
   return (
     <>
@@ -213,21 +227,25 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
               <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                 <button
                   onClick={handleConfirm}
-                  disabled={status !== "ready"}
-                  title={status !== "ready" ? "Not connected" : undefined}
+                  disabled={status !== "ready" || !confirmAllowed}
+                  title={status !== "ready" ? "Not connected" : !confirmAllowed ? `Entry price: ${feeLabel}` : undefined}
                   style={{
                     flex: 1,
-                    background: status === "ready" ? "#f59e0b" : "#555",
+                    background: status === "ready" && confirmAllowed ? "#f59e0b" : "#555",
                     border: "none",
                     color: "#0a0a0a",
                     padding: "12px 24px",
                     borderRadius: 8,
-                    cursor: status === "ready" ? "pointer" : "not-allowed",
+                    cursor: status === "ready" && confirmAllowed ? "pointer" : "not-allowed",
                     fontFamily: "RubikMonoOne",
                     fontSize: 14,
                   }}
                 >
-                  {status !== "ready" ? "Not connected" : selectedCard.hasActiveGame ? "Resume Game" : "Start Game"}
+                  {status !== "ready"
+                    ? "Not connected"
+                    : !confirmAllowed
+                      ? feeLabel === "Unknown token" ? "Unknown token" : "Entry price unavailable"
+                      : selectedCard.hasActiveGame ? "Resume Game" : "Start Game"}
                 </button>
                 <button
                   onClick={() => setSelected(null)}

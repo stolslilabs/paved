@@ -107,14 +107,16 @@ export function GamePage() {
 
   useEffect(() => {
     if (!gameParams.spawn || !client || !writer || !address || spawnAttempted.current) return;
+    // A Daily spawn pays: it needs the amount the player confirmed on the landing page.
+    if (gameParams.mode === "daily" && gameParams.price === null) return;
     spawnAttempted.current = true;
     (async () => {
       const games = await client.events.playerGames(address, [gameParams.mode]);
       const active = games.find((g) => !g.over);
-      const gameId = active ? active.gameId : (await writer.spawn(gameParams.mode)).gameId;
+      const gameId = active ? active.gameId : (await writer.spawn(gameParams.mode, { confirmedAmount: gameParams.price ?? undefined })).gameId;
       navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true });
     })().catch((error) => setSpawnError(error instanceof Error ? error.message : String(error)));
-  }, [client, writer, address, gameParams.spawn, gameParams.mode, navigate]);
+  }, [client, writer, address, gameParams.spawn, gameParams.mode, gameParams.price, navigate]);
 
   const key = useMemo<GameKey | null>(
     () => (gameParams.gameId === null ? null : { mode: gameParams.mode, gameId: gameParams.gameId }),
@@ -126,6 +128,9 @@ export function GamePage() {
   if (!key) {
     // Only the landing page's confirm spawns: a bare `/game` URL never pays an entry.
     if (!gameParams.spawn) return <Screen text="No game selected" onBack={() => navigate("/")} />;
+    if (gameParams.mode === "daily" && gameParams.price === null) {
+      return <Screen text="Confirm the entry price on the landing page" onBack={() => navigate("/")} />;
+    }
     if (spawnError) return <Screen text={`Cannot start a game: ${spawnError}`} onBack={() => navigate("/")} />;
     if (status !== "ready") return <Screen text="Not connected: no playing account" onBack={() => navigate("/")} />;
     return <Screen text="Spawning game..." />;
