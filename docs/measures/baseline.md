@@ -75,6 +75,50 @@ economy fields, so every `world` read and write of a build is smaller. The ceili
 
 The golden games (whole games, spawn included) went down too: see `docs/measures/golden-games.md`.
 
+### After P2 (Dojo removed, native Starknet storage)
+
+Same tests, same method, same toolchain (scarb 2.13.1, snforge 0.51.2; no Dojo), run twice on
+2026-10-06 on the commit of the PR `refactor: P2 native Starknet contracts, Dojo removed`, with
+identical figures. The world calls (76 % of scenario a at P0) are gone: the state is read and written
+with storage syscalls on packed slots (`docs/architecture/native-storage.md`), and a game contract
+reads the player with one call to `Account`. The rules are unchanged (golden games identical). The
+ceilings of `contracts/tests/gas.cairo` are lowered to the new figure + 5 %.
+
+| | L2 gas P1 | L2 gas P2 | Change | P1 / P2 | Ceiling before | Ceiling after |
+| --- | --- | --- | --- | --- | --- | --- |
+| a0 | 47,125,474 | 7,799,482 | -83.4 % | 6.04 | 49,481,748 | 8,189,457 |
+| a | 57,579,064 | 8,548,117 | -85.2 % | 6.74 | 60,458,018 | 8,975,523 |
+| b | 65,625,152 | 9,704,369 | -85.2 % | 6.76 | 68,906,410 | 10,189,588 |
+| c | 106,160,795 | 11,819,872 | -88.9 % | 8.98 | 111,468,835 | 12,410,866 |
+| d | 240,377,237 | 21,895,031 | -90.9 % | 10.98 | 252,396,099 | 22,989,783 |
+
+Golden games (whole test, spawn and the test's own state reads included):
+
+| Golden | L2 gas P1 | L2 gas P2 | Change | P1 / P2 |
+| --- | --- | --- | --- | --- |
+| `daily_city5_game_over` | 502,727,336 | 106,111,373 | -78.9 % | 4.74 |
+| `daily_road6` | 556,024,333 | 118,279,043 | -78.7 % | 4.70 |
+| `daily_mixed_roles` | 535,832,671 | 113,176,918 | -78.9 % | 4.73 |
+| `daily_real_deck_discards_to_game_over` | 392,683,480 | 103,613,438 | -73.6 % | 3.79 |
+| `tutorial_full_sequence` | 1,042,528,480 | 116,162,877 | -88.9 % | 8.97 |
+
+Output excerpt (`snforge test`, whole suite):
+
+```
+GAS b_move_with_character: 9704369
+GAS a0_open_simple_move: 7799482
+GAS a_simple_move: 8548117
+GAS c_close_large_city: 11819872
+GAS d_worst_case: 21895031
+Tests: 226 passed, 0 failed, 0 ignored, 0 filtered out
+	Maximum resident set size (kbytes): 2183960
+```
+
+Found while writing the P2 event tests: in scenario b the Lord is placed on `Spot::North`, the
+north city cap of `FFCFFFCFF`, which stays open; the 2-tile city closed by the move is the south cap.
+So b places a character but scores nothing (the P0 description above, "scored, Lord recovered", is
+not what the test does). The test is kept as is so that the series stays comparable.
+
 ## Line coverage of `contracts/src`
 
 **Not measured.** `cairo-coverage` 0.6.1 was installed in user space (release tarball into
@@ -103,3 +147,5 @@ excluded) is computed by that script from `coverage/coverage.lcov`; its awk part
 | `snforge test` | `Tests: 222 passed, 0 failed, 1 ignored, 0 filtered out` | 5.53 GB |
 | `snforge test --coverage` | aborted in `cairo-coverage` | 7.90 GB |
 | `snforge test` after P1 | `Tests: 192 passed, 0 failed, 0 ignored, 0 filtered out` (the CI job `Test game` of the PR passes) | 4.32 GB |
+| `scarb build` after P2 | pass | 0.85 GB |
+| `snforge test` after P2 | `Tests: 226 passed, 0 failed, 0 ignored, 0 filtered out` | 2.18 GB (single-threaded) |

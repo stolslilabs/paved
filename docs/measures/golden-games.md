@@ -34,18 +34,19 @@ Forest: no role is allowed on a forest (`Role::is_allowed`), so no case places a
 ## Gas budget
 
 Each case carries `#[available_gas(l2_gas: N)]`: the test fails if the total L2 gas of its game
-(spawn included) exceeds N. N is the figure measured plus 5 %. The figures below are those of P1
-(2026-10-06, after Weekly, Configurable and the #181 economy left the contracts); before they were
-677M, 734M, 699M, 609M and 1,270M (ceilings 710,810,288, 770,365,032, 734,284,283, 639,735,276 and
-1,333,928,297).
+(spawn included) exceeds N. N is the figure measured plus 5 %. The figures below are those of P2
+(2026-10-06, Dojo removed, native storage; the expected values did not change). P1 figures, for
+comparison, with the ceilings of P1 in brackets: 502,727,336 (527,863,703), 556,024,333
+(583,825,550), 535,832,671 (562,624,305), 392,683,480 (412,317,654), 1,042,528,480 (1,094,654,904);
+P0: 677M, 734M, 699M, 609M and 1,270M.
 
 | Test | Measured L2 gas | Ceiling (+5 %) |
 | --- | --- | --- |
-| `daily_city5_game_over` | 502,727,336 | 527,863,703 |
-| `daily_road6` | 556,024,333 | 583,825,550 |
-| `daily_mixed_roles` | 535,832,671 | 562,624,305 |
-| `daily_real_deck_discards_to_game_over` | 392,683,480 | 412,317,654 |
-| `tutorial_full_sequence` | 1,042,528,480 | 1,094,654,904 |
+| `daily_city5_game_over` | 106,111,373 | 111,416,942 |
+| `daily_road6` | 118,279,043 | 124,192,996 |
+| `daily_mixed_roles` | 113,176,918 | 118,835,764 |
+| `daily_real_deck_discards_to_game_over` | 103,613,438 | 108,794,110 |
+| `tutorial_full_sequence` | 116,162,877 | 121,971,021 |
 
 A gas improvement lowers the figures: lower the ceilings in the same PR. A rise above a ceiling is
 a regression, not a reason to raise it.
@@ -56,10 +57,11 @@ a regression, not a reason to raise it.
   as `e2e/daily*.cairo` do), so that a structure of known size can be built in a few moves. Before
   each override the harness still asserts the plan that the real deck drew (`drawn`), so the draw
   after every build (reseed included) is pinned too; the discard case pins 7 draws on its own.
-- A full Daily deck (38 tiles) is kept out of the suite: one more build (road6, 5 builds, against
-  city5, 4 builds) costs about 53M L2 gas in the test world (about 57M before P1), so 37 builds would
-  cost about 2B and more as the structures grow, and the 10-step tutorial already costs 1.04B (a test
-  caps near 1.3B): a 38-tile game would not fit a test. The
+- A full Daily deck (38 tiles) is kept out of the suite: at P1 one more build (road6, 5 builds,
+  against city5, 4 builds) cost about 53M L2 gas in the test world, so 37 builds would have cost about
+  2B and more as the structures grow (a test caps near 1.3B). Since P2 that build costs about 12M
+  (118.3M against 106.1M), so a 38-tile game is estimated near 0.5B: it may now fit a test (not tried
+  in P2, which only keeps the existing cases). The
   "end of deck" cases therefore cut `tile_limit` (fixture, `tile_limit` argument) to 5 and 8 tiles.
   The game-over rule (`tile_count >= tile_limit`) is the real one.
 - Expected values come from running the code of the commit that introduced them (characterisation),

@@ -7,7 +7,9 @@ events and the access rules. Brief: `docs/briefs/p2-native.md`.
 ## Contract split
 
 Three game contracts and one test token, as under Dojo, with the same interfaces (`IAccount`,
-`IDaily`, `ITutorial`; same function names, arguments and returns):
+`IDaily`, `ITutorial`; same function names, arguments and returns). Two changes: the functions that
+write state take `ref self` (they were `self: @` under Dojo, where the world did the writing, so the
+ABI now marks them `external` instead of `view`), and `IAccount` gains the view `player(id)`:
 
 | Contract | Role | Constructor |
 |---|---|---|
@@ -78,8 +80,8 @@ and data as the contract's `self.emit` would.
 | `GameSpawned` | Daily, Tutorial | `key game_id`, `player_id`, `mode`, `tournament_id`, `start_time`, `price` | `spawn` |
 | `Built` | Daily, Tutorial | `key game_id`, `player_id`, `tile_id`, `plan`, `orientation`, `x`, `y`, `role`, `spot` | a tile is built |
 | `Discarded` | Daily, Tutorial | `key game_id`, `player_id`, `tile_id`, `plan`, `points` (penalty) | a tile is discarded |
-| `Scored` | Daily, Tutorial | `key game_id`, `player_id`, `category`, `size`, `points` | a structure is solved and scores |
-| `GameOver` | Daily, Tutorial | `key game_id`, `key tournament_id`, `player_id`, `mode`, `score`, `start_time`, `end_time` | the game ends (last tile, or surrender); `tournament_id` and `end_time` are 0 when the game ended after its tournament closed (it does not count) |
+| `Scored` | Daily, Tutorial | `key game_id`, `player_id`, `category`, `size` (tiles; 0 for a wonder), `points` | a structure is solved and scores |
+| `GameOver` | Daily, Tutorial | `key game_id`, `key tournament_id`, `player_id`, `mode`, `score`, `start_time`, `end_time` | the game ends (last tile, or surrender); `tournament_id` and `end_time` are 0 when the game ended after its tournament closed (it does not count), and always in Tutorial |
 | `Sponsored` | Daily | `key tournament_id`, `sponsor`, `amount` | `sponsor` |
 | `Claimed` | Daily | `key tournament_id`, `player_id`, `rank`, `reward` | `claim` |
 | `OwnershipTransferred` | all three | `previous_owner`, `new_owner` | constructor, `transfer_ownership` |
@@ -123,12 +125,13 @@ Entry points (every `external` function):
 | Token (mock) | ERC20 entry points, `mint()` | anyone | tests only, never deployed |
 
 Token interactions follow checks-effects-interactions: state is written before `transferFrom` /
-`transfer`, and a failed transfer reverts the whole call.
+`transfer`, and a failed transfer reverts the whole call. The token and the `Account` address are
+fixed at deployment and trusted; only an `upgrade` by the owner can change them.
 
 ## Tests
 
-`snforge` only. `tests/setup.cairo` (and its copy `contracts/tests/setup.cairo`, checked by
-`scripts/measure.sh check-setup`) deploys `Token`, `Account`, `Tutorial`, `Daily` with `deploy`, and
+`snforge` only. `contracts/src/tests/setup.cairo` (and its copy `contracts/tests/setup.cairo`,
+checked by `scripts/measure.sh check-setup`) deploys `Token`, `Account`, `Tutorial`, `Daily` with `deploy`, and
 gives the tests a `TestStore`: the same reads and writes as `Store`, run against a deployed contract
 with `snforge_std::interact_with_state`. The golden harness only changes the line that builds its
 store.
