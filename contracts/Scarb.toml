@@ -9,7 +9,7 @@ sierra-replace-ids = true
 [scripts]
 dev = "sozo --profile dev clean && sozo --profile dev build && sozo --profile dev migrate plan && sozo --profile dev migrate apply"
 slot = "sozo --profile slot clean && sozo --profile slot build && sozo --profile slot migrate plan && sozo --profile slot migrate apply"
-test_all = "sozo test && snforge test"
+test = "snforge test"
 
 [dependencies]
 dojo = "1.8.0"
@@ -33,4 +33,4 @@ inlining-strategy = "avoid"
 [dev-dependencies]
 cairo_test = "2.13.1"
 dojo_cairo_test = "1.8.0"
-snforge_std = "0.56.0"
+snforge_std = "0.51.2"
