@@ -10,15 +10,9 @@ describe("mode-routing", () => {
     expect(buildGameRoute({ gameId: 7, mode: "tutorial", readonly: true })).toBe("/game?mode=tutorial&id=7&readonly=true");
   });
 
-  it("routes to a new game only with spawn", () => {
-    expect(buildGameRoute({ mode: "tutorial", spawn: true })).toBe("/game?mode=tutorial&spawn=1");
+  it("a route never carries a consent to start a game", () => {
     expect(buildGameRoute({ mode: "tutorial" })).toBe("/game?mode=tutorial");
-    expect(buildGameRoute({ mode: "daily", gameId: 4, spawn: true })).toBe("/game?mode=daily&id=4");
-  });
-
-  it("carries the confirmed entry amount on a spawn only", () => {
-    expect(buildGameRoute({ mode: "daily", spawn: true, price: 10n ** 18n })).toBe("/game?mode=daily&spawn=1&price=1000000000000000000");
-    expect(buildGameRoute({ mode: "daily", gameId: 4, price: 5n })).toBe("/game?mode=daily&id=4");
+    expect(buildGameRoute({ mode: "daily", gameId: 4 })).toBe("/game?mode=daily&id=4");
   });
 
   it("maps params to the two modes", () => {

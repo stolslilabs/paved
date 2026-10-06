@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import { IngameStatus, GameCompleteDialog, ActionBar, SpotSelector, useGameStore } from "@paved/ui";
 import type { GameScene, TileRenderData, CameraMode } from "@paved/renderer";
@@ -10,6 +10,7 @@ import { CENTER, shouldShowSpotSelector, spotKeyToNumber, toRenderBoard } from "
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { parseGameParams } from "../utils/game-params";
 import { buildGameRoute } from "../utils/mode-routing";
+import { readStartIntent, startGame } from "../utils/start-game";
 
 let _debugOnce = true;
 
@@ -93,30 +94,32 @@ function Screen({ text, onBack }: { text: string; onBack?: () => void }) {
 }
 
 /**
- * `/game?mode=..&id=..` shows that game. `/game?mode=..&spawn=1` (the landing page's confirm only)
- * resumes the player's active game of the mode (from its events) or spawns one, then replaces the
- * URL with the game's id. A malformed id is "Game not found"; no id and no spawn spawns nothing.
+ * `/game?mode=..&id=..` shows that game. A game is started only from the landing page's confirm,
+ * which carries the player's consent in the history state (a link cannot set it): the page resumes
+ * the player's active game of the mode (from its events) or spawns one, then replaces the URL with
+ * the game's id. The consent is cleared before anything is sent, so a reload, Back or a refused
+ * spawn never pays again. A malformed id is "Game not found"; no id and no consent spawns nothing.
  */
 export function GamePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const gameParams = parseGameParams(searchParams);
   const { status, client, writer, address } = usePaved();
   const [spawnError, setSpawnError] = useState<string | null>(null);
+  const intent = gameParams.gameId === null ? readStartIntent(location.state, gameParams.mode) : null;
   const spawnAttempted = useRef(false);
 
   useEffect(() => {
-    if (!gameParams.spawn || !client || !writer || !address || spawnAttempted.current) return;
-    // A Daily spawn pays: it needs the amount the player confirmed on the landing page.
-    if (gameParams.mode === "daily" && gameParams.price === null) return;
+    if (!intent || !client || !writer || !address || spawnAttempted.current) return;
     spawnAttempted.current = true;
-    (async () => {
-      const games = await client.events.playerGames(address, [gameParams.mode]);
-      const active = games.find((g) => !g.over);
-      const gameId = active ? active.gameId : (await writer.spawn(gameParams.mode, { confirmedAmount: gameParams.price ?? undefined })).gameId;
-      navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true });
-    })().catch((error) => setSpawnError(error instanceof Error ? error.message : String(error)));
-  }, [client, writer, address, gameParams.spawn, gameParams.mode, gameParams.price, navigate]);
+    startGame(intent, {
+      listGames: () => client.events.playerGames(address, [gameParams.mode]),
+      spawn: (confirmedAmount) => writer.spawn(gameParams.mode, { confirmedAmount }),
+      clearIntent: () => navigate(`${location.pathname}${location.search}`, { replace: true, state: null }),
+      open: (gameId) => navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
+    }).catch((error) => setSpawnError(error instanceof Error ? error.message : String(error)));
+  }, [intent, client, writer, address, gameParams.mode, location.pathname, location.search, navigate]);
 
   const key = useMemo<GameKey | null>(
     () => (gameParams.gameId === null ? null : { mode: gameParams.mode, gameId: gameParams.gameId }),
@@ -126,12 +129,10 @@ export function GamePage() {
   if (gameParams.invalidId) return <Screen text={`Game not found: ${searchParams.get("id")}`} onBack={() => navigate("/")} />;
   if (status === "not-configured") return <Screen text="Not connected" onBack={() => navigate("/")} />;
   if (!key) {
-    // Only the landing page's confirm spawns: a bare `/game` URL never pays an entry.
-    if (!gameParams.spawn) return <Screen text="No game selected" onBack={() => navigate("/")} />;
-    if (gameParams.mode === "daily" && gameParams.price === null) {
-      return <Screen text="Confirm the entry price on the landing page" onBack={() => navigate("/")} />;
-    }
+    // The error of a refused or failed start stays on screen after the consent is cleared.
     if (spawnError) return <Screen text={`Cannot start a game: ${spawnError}`} onBack={() => navigate("/")} />;
+    // Only the landing page's confirm starts a game: a link, a reload or Back never pays an entry.
+    if (!intent) return <Screen text="No game selected" onBack={() => navigate("/")} />;
     if (status !== "ready") return <Screen text="Not connected: no playing account" onBack={() => navigate("/")} />;
     return <Screen text="Spawning game..." />;
   }

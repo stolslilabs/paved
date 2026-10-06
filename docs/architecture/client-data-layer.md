@@ -42,7 +42,10 @@ checks that the field lists of the TS view types match the ABI structs, so an AB
 client does not follow fails the tests. A result with felts left over, or too few, is an
 `abi-mismatch` error (a contract upgraded with a grown struct fails rather than misaligns);
 integers are range-checked before they are encoded; an event with a field type the codec does not
-know is skipped and logged, so ABI growth cannot break a receipt or an event page.
+know is skipped and logged, so ABI growth cannot break a receipt or an event page. A unit enum
+decodes to its variant index, and an index the bundled ABI does not list (a variant added by a later
+contract version, e.g. a role in P4) decodes to a **bare number**, for any unit enum: the consumer
+must handle a code it does not know (treat it as "unknown"), as `public-interface.md` says.
 
 Writes go through a starknet.js `Account` (`client.writer(account, { tip })`, a `PavedWriter`): `create`, `spawn`
 (Daily: `approve` + `spawn` in one multicall), `build`, `discard`, `surrender`, `claim`, `sponsor`,
@@ -59,7 +62,7 @@ just spawned is listed even when the node's `latest` block lags behind the recei
 A Daily spawn first reads `Daily.entry_price()` (O-23: the token and the amount `spawn` pulls, from
 the same source) and approves exactly that, in the same multicall as `spawn`; a free entry sends
 no approve. The landing page shows the same view as the Daily entry fee, with these rules, so that the
-player never pays an amount they did not see:
+client pays a Daily entry only for an amount the player saw and confirmed with a click:
 
 - The fee is read on connect, when the page becomes visible and after each write. The Daily confirm
   is disabled while the read is loading or failed ("Entry price unavailable"); resuming a game
@@ -67,10 +70,20 @@ player never pays an amount they did not see:
 - The amount is formatted with the decimals of the deployment's token only. If `entry_price().token`
   is another token, the card says "Unknown token" and the confirm is refused (and `spawn` refuses it
   too).
-- The confirm passes the amount the player saw to the game page (`/game?mode=daily&spawn=1&price=<base
-  unit>`), which passes it to `spawn`. `spawn` reads the price again; if it differs, nothing is sent
-  and the page says "The entry price changed: confirm again" (`EntryPriceChangedError`). A Daily
-  `spawn=1` URL without a valid `price` spawns nothing.
+- The consent to start a game is the **history state** of the landing page's confirm
+  (`navigate("/game?mode=daily", { state: { start: true, confirmedAmount } })`, `utils/start-game.ts`),
+  which a link cannot set: the URL carries only `mode` and `id`, and `spawn` or `price` in a URL are
+  ignored. The state holds the amount the player saw (a plain integer, base unit) and the game page
+  passes it to `spawn`, which reads the price again; if it differs, nothing is sent and the page says
+  "The entry price changed: confirm again" (`EntryPriceChangedError`).
+- The state is cleared (`navigate(..., { replace: true, state: null })`) **before** anything is sent,
+  so a reload, Back, a refused spawn or a failed one cannot pay again: the player confirms again.
+  A Daily consent without a valid amount, or no state at all, starts nothing.
+
+What this guarantees is that the client never pays an amount the player did not see and confirm by
+a click; it does not make the price atomic with the spawn. The approve is built from a read made
+just before `execute` (`entry_price`, then the multicall), so the contract could change the price
+in between: accepted for the MVP, where the owner is the only one who can upgrade it.
 
 Kept from the old code: the plain `Account` from an address and a private key (a devnet
 predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`, on devnet only; the
@@ -116,7 +129,7 @@ filtering:
 | Landing: today's tournament (prize, top 3, end) | `Daily.current_tournament_id` + `Daily.tournament(id)` | on connect, when the page becomes visible |
 | Landing: Daily entry fee | `Daily.entry_price()` | on connect, when the page becomes visible, after a write |
 | Daily spawn: the approve | `Daily.entry_price()` | before each Daily spawn |
-| Game page with `spawn=1` (set by the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once |
+| Game page with a consent in its history state (the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once, then the consent is cleared |
 | Landing: leaderboard | none: a plain "coming later" card until META's indexer | |
 | Game: board | `tiles(game_id, 0, 64)` | on open |
 | Game: tile in hand, score, counts, over | `game(game_id)` | on open, after each write (reconcile) |
@@ -154,9 +167,10 @@ uses `GameSession` (`session.ts`) through `useGameSession`: it loads `game` + `t
 `characters` for the game's player), and moves only on this client's writes, as above. A read that
 fails after a successful write is a `readError` ("Move applied; refresh failed"), not a write error.
 
-`/game?mode=..&id=..` shows a game. Only `/game?mode=..&spawn=1`, which the landing page's confirm
-builds, starts one (a Daily spawn pays the entry); a bare `/game` URL spawns nothing ("No game
-selected"), and a malformed id shows "Game not found". `useRead` says when a read has answered
+`/game?mode=..&id=..` shows a game. Only a consent in the history state, from the landing page's
+confirm, starts one (a Daily spawn pays the entry); a bare `/game` URL, a link with `spawn=1` and a
+reload after the consent was cleared spawn nothing ("No game selected"), and a malformed id shows
+"Game not found". `useRead` says when a read has answered
 (`loaded`): "Create Account" is offered only once the player read has answered "none", never while
 it is in flight or failed, and the landing page shows the errors of its reads with a "Retry".
 

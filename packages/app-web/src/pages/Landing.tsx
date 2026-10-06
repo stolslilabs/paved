@@ -5,6 +5,7 @@ import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
 import { usePaved, useRead } from "@paved/chain";
 import type { GameMode, GameView, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
+import { startIntent } from "../utils/start-game";
 import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, podium, TOKEN_LABEL } from "../utils/landing-helpers";
 
 interface ModeInfo {
@@ -130,13 +131,14 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const handleConfirm = () => {
     if (!selected) return;
     const resume = active.find((g) => g.mode === selected);
-    // The only place that asks the game page to spawn (and pay the Daily entry): with the amount the
-    // player sees here, which the spawn refuses to differ from.
+    // The only place that consents to start a game (and to pay the Daily entry): the consent is the
+    // history state, with the amount the player sees here, which the spawn refuses to differ from.
+    const route = buildGameRoute({ mode: selected });
     if (resume) navigate(buildGameRoute({ gameId: resume.gameId, mode: resume.mode }));
     else if (selected === "daily") {
       if (!canConfirmEntry(fee, false)) return;
-      navigate(buildGameRoute({ mode: selected, spawn: true, price: fee.kind === "amount" ? fee.amount : 0n }));
-    } else navigate(buildGameRoute({ mode: selected, spawn: true }));
+      navigate(route, { state: startIntent("daily", fee.kind === "amount" ? fee.amount : 0n) });
+    } else navigate(route, { state: startIntent(selected, null) });
     setSelected(null);
   };
 
