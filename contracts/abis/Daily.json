@@ -209,6 +209,385 @@
   },
   {
     "type": "impl",
+    "name": "GameViewImpl",
+    "interface_name": "paved::views::IGameView"
+  },
+  {
+    "type": "enum",
+    "name": "core::bool",
+    "variants": [
+      {
+        "name": "False",
+        "type": "()"
+      },
+      {
+        "name": "True",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::GameView",
+    "members": [
+      {
+        "name": "id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "mode",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "seed",
+        "type": "core::felt252"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "over",
+        "type": "core::bool"
+      },
+      {
+        "name": "tile_count",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "placed_count",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "discarded_count",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "remaining_count",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "deck_size",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "start_time",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "end_time",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "tournament_id",
+        "type": "core::integer::u64"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::TileView",
+    "members": [
+      {
+        "name": "id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "status",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "orientation",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::BuilderView",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "placed_count",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "available_count",
+        "type": "core::integer::u8"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::CharacterView",
+    "members": [
+      {
+        "name": "role",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "placed",
+        "type": "core::bool"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "spot",
+        "type": "core::integer::u8"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::views::IGameView",
+    "items": [
+      {
+        "type": "function",
+        "name": "game",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::views::GameView"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "tiles",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "from",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "count",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<paved::views::TileView>"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "builder",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::views::BuilderView"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "characters",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<paved::views::CharacterView>"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "TournamentViewImpl",
+    "interface_name": "paved::views::ITournamentView"
+  },
+  {
+    "type": "struct",
+    "name": "core::integer::u256",
+    "members": [
+      {
+        "name": "low",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "high",
+        "type": "core::integer::u128"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::TournamentView",
+    "members": [
+      {
+        "name": "id",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "start_time",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "end_time",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "over",
+        "type": "core::bool"
+      },
+      {
+        "name": "prize",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "top1_player_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "top1_score",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "top1_claimed",
+        "type": "core::bool"
+      },
+      {
+        "name": "top2_player_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "top2_score",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "top2_claimed",
+        "type": "core::bool"
+      },
+      {
+        "name": "top3_player_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "top3_score",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "top3_claimed",
+        "type": "core::bool"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::views::ITournamentView",
+    "items": [
+      {
+        "type": "function",
+        "name": "tournament",
+        "inputs": [
+          {
+            "name": "id",
+            "type": "core::integer::u64"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::views::TournamentView"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "current_tournament_id",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u64"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
     "name": "OwnableImpl",
     "interface_name": "paved::components::ownable::IOwnable"
   },
@@ -306,7 +685,7 @@
       {
         "name": "player_id",
         "type": "core::felt252",
-        "kind": "data"
+        "kind": "key"
       },
       {
         "name": "mode",
@@ -457,14 +836,14 @@
         "kind": "key"
       },
       {
-        "name": "tournament_id",
-        "type": "core::integer::u64",
+        "name": "player_id",
+        "type": "core::felt252",
         "kind": "key"
       },
       {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "data"
+        "name": "tournament_id",
+        "type": "core::integer::u64",
+        "kind": "key"
       },
       {
         "name": "mode",
@@ -507,20 +886,6 @@
         "name": "amount",
         "type": "core::felt252",
         "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "core::integer::u256",
-    "members": [
-      {
-        "name": "low",
-        "type": "core::integer::u128"
-      },
-      {
-        "name": "high",
-        "type": "core::integer::u128"
       }
     ]
   },

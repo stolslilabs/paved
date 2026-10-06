@@ -31,6 +31,7 @@ pub struct PlayerCreated {
 pub struct GameSpawned {
     #[key]
     pub game_id: u32,
+    #[key]
     pub player_id: felt252,
     pub mode: u8,
     pub tournament_id: u64,
@@ -77,8 +78,9 @@ pub struct GameOver {
     #[key]
     pub game_id: u32,
     #[key]
-    pub tournament_id: u64,
     pub player_id: felt252,
+    #[key]
+    pub tournament_id: u64,
     pub mode: u8,
     pub score: u32,
     pub start_time: u64,
@@ -107,8 +109,8 @@ pub fn game_over(game: Game, player_id: felt252) -> Event {
     Event::GameOver(
         GameOver {
             game_id: game.id,
-            tournament_id: game.tournament_id,
             player_id,
+            tournament_id: game.tournament_id,
             mode: game.mode,
             score: game.score,
             start_time: game.start_time,
