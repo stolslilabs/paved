@@ -14,6 +14,13 @@ placement brings two to three long tasks of 57-123 ms throttled.
 tile borders. Every P-7b target is met but two: one long task (56-58 ms) per play session remains, the
 first transaction signature (chain layer); and 0.1 % of in-play frames run over 1.5 intervals.
 
+2026-10-06, dependencies (P-8, PR #195): `packages/*` moved to current majors on Node 24 (bun 1.4.2,
+TypeScript 7, Vite 8, vitest 5, React 19.3, three 0.186, Tamagui 2.7.7; starknet 8 and `@dojoengine/*`
+1.x stay, Dojo peers starknet ^8). At 72 tiles throttled, time to interactive goes from 848 to 742 ms
+and CPU + GPU per frame p95 from 6.31 to 5.60 ms; a cold install from 12.9 GB to 0.21 GB. P-7b holds as
+before, met but two. Tamagui 2.7.7 adds about +0.5 ms CPU per frame in play; the off-screen bisect is a
+follow-up for when the Mac is back (P-9).
+
 | Step | State |
 |---|---|
 | A. The packages build and their tests run | Done, #188 (CI job `client`) |
