@@ -291,7 +291,7 @@ fn test_views_builder_and_characters_placed_then_returned() {
     assert(builder.tile_id == 2, 'Views: builder tile');
     assert(builder.plan == store.tile(store.game(context.game_id), 2).plan, 'Views: builder plan');
     assert(builder.placed_count == 0, 'Views: none placed');
-    assert(builder.available_count == 5, 'Views: all available');
+    assert(builder.available_count == 7, 'Views: all available');
 
     // A Lord on the open north city of tile 2: it stays on the board.
     force_plan(store, context.game_id, context.player_id, Plan::FFCFFFCFF);
@@ -300,9 +300,9 @@ fn test_views_builder_and_characters_placed_then_returned() {
         .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::Lord, Spot::North);
     let builder = views.builder(context.game_id, context.player_id);
     assert(builder.placed_count == 1, 'Views: one placed');
-    assert(builder.available_count == 4, 'Views: four available');
+    assert(builder.available_count == 6, 'Views: six available');
     let characters = views.characters(context.game_id, context.player_id);
-    assert(characters.len() == 5, 'Views: five characters');
+    assert(characters.len() == 7, 'Views: seven characters');
     let lord = *characters.at(0);
     let expected = CharacterView {
         role: Role::Lord.into(),
@@ -314,7 +314,7 @@ fn test_views_builder_and_characters_placed_then_returned() {
     };
     assert(lord == expected, 'Views: lord placed');
     let mut index: u32 = 1;
-    while index < 5 {
+    while index < 7 {
         let character = *characters.at(index);
         let role: u32 = character.role.into();
         assert(role == index + 1, 'Views: role order');
@@ -330,7 +330,7 @@ fn test_views_builder_and_characters_placed_then_returned() {
         .build(context.game_id, Orientation::North, CENTER, CENTER + 2, Role::None, Spot::None);
     let builder = views.builder(context.game_id, context.player_id);
     assert(builder.placed_count == 0, 'Views: lord back');
-    assert(builder.available_count == 5, 'Views: all available again');
+    assert(builder.available_count == 7, 'Views: all available again');
     let lord = *views.characters(context.game_id, context.player_id).at(0);
     assert(!lord.placed, 'Views: lord not placed');
     assert(lord.tile_id == 0 && lord.x == 0 && lord.y == 0, 'Views: lord off board');

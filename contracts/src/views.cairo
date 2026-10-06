@@ -21,7 +21,7 @@ pub const MAX_PAGE: u32 = 64;
 /// Last tournament id whose end time fits in a `u64`: `(2^64 - 1) / 86400 - 1`.
 pub const MAX_TOURNAMENT_ID: u64 = 213503982334600;
 /// Characters of a player, one per role.
-pub const CHARACTER_COUNT: u8 = 5;
+pub const CHARACTER_COUNT: u8 = 7;
 
 pub const TILE_PLACED: u8 = 1;
 pub const TILE_DISCARDED: u8 = 2;
@@ -237,7 +237,10 @@ pub impl ViewsImpl of ViewsTrait {
         let game = Self::existing_game(store, game_id);
         Self::assert_game_player(store, game, player_id);
         let builder = store.builder(game, player_id);
-        let roles = array![Role::Lord, Role::Lady, Role::Adventurer, Role::Paladin, Role::Pilgrim];
+        let roles = array![
+            Role::Lord, Role::Lady, Role::Adventurer, Role::Paladin, Role::Pilgrim, Role::Woodsman,
+            Role::Herdsman,
+        ];
         let mut characters: Array<CharacterView> = array![];
         for role in roles {
             let index: u8 = role.into();

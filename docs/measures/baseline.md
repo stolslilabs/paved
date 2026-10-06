@@ -142,6 +142,40 @@ GAS d_worst_case: 25305931
 Tests: 246 passed, 0 failed, 0 ignored, 0 filtered out
 ```
 
+### After P4 (Woodsman and Herdsman)
+
+Same tests, same method, scarb 2.20.1 / snforge 0.64.0, run on 2026-10-06 (VPS, `RAYON_NUM_THREADS=1`,
+capped 8 GiB). Cause of the rise: **forest scoring**. The forest starts of the layouts
+(`elements/layouts/*`, `starts()`), commented out since #95, are active again, so every build now
+assesses (walks) each forest it touches, with or without a Woodsman or a Herdsman on the board;
+the walk of a forest visits the roads and the cities next to it as well. The "before" figures are those of
+P3 above, which the unchanged `main` (`f351faa`) reproduced to the unit when measured again the same day.
+No other cause: the rules are unchanged (the five golden cases keep every expected value), and a game
+that builds nothing (`daily_real_deck_discards_to_game_over`) has the same figure as before. The ceilings of
+`contracts/tests/gas.cairo` are raised to measured + 5 %.
+
+| Scenario | L2 gas P3 | L2 gas P4 | Change | Ceiling P3 | Ceiling P4 |
+| --- | --- | --- | --- | --- | --- |
+| a0 | 8,664,572 | 9,634,832 | +11.2 % | 9,097,801 | 10,116,574 |
+| a | 9,525,767 | 10,878,072 | +14.2 % | 10,002,056 | 11,421,976 |
+| b | 10,887,309 | 12,252,204 | +12.5 % | 11,431,675 | 12,864,815 |
+| c | 13,619,382 | 17,085,237 | +25.4 % | 14,300,352 | 17,939,499 |
+| d | 25,305,931 | 32,287,556 | +27.6 % | 26,571,228 | 33,901,934 |
+
+The rise is largest where the structures are largest (c, d): the forests of the tiles of a big city are
+walked too. The persistent structure state of P5 is meant to remove these walks. The golden games
+(whole games) rose too, see `docs/measures/golden-games.md`.
+
+Output excerpt (`snforge test test_gas_`, the 5 `GAS` lines):
+
+```
+GAS a0_open_simple_move: 9634832
+GAS b_move_with_character: 12252204
+GAS a_simple_move: 10878072
+GAS c_close_large_city: 17085237
+GAS d_worst_case: 32287556
+```
+
 ## Line coverage of `contracts/src`
 
 **Not measured.** `cairo-coverage` 0.6.1 was installed in user space (release tarball into

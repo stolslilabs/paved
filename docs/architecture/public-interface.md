@@ -33,7 +33,7 @@ long as it reads the ABI of the deployed class.
 | `mode` | `u8` | `1` Daily, `3` Tutorial (`2` was Weekly and is never given again) |
 | `plan` | `u8` | `Plan` code (`types/plan.cairo`); `0` means none |
 | `orientation` | `u8` | `0` none (not placed), `1` north, `2` east, `3` south, `4` west |
-| `role` | `u8` | `1` Lord, `2` Lady, `3` Adventurer, `4` Paladin, `5` Pilgrim |
+| `role` | `u8` | `1` Lord, `2` Lady, `3` Adventurer, `4` Paladin, `5` Pilgrim, `6` Woodsman, `7` Herdsman (the last two since P4) |
 | `spot` | `u8` | `0` none, `1` center, `2` north-west, `3` north, `4` north-east, `5` east, `6` south-east, `7` south, `8` south-west, `9` west |
 | score, points | `u32` | Game points, no decimals |
 | time | `u64` | Block timestamp, seconds |
@@ -108,14 +108,16 @@ tiles with ids `from + 1` to `from + n`, where `n = min(count, MAX_PAGE, tile_co
 | 3 | `tile_id` | `u32` | Tile in hand: the tile to place now; `0` when there is none. After a surrender it is the tile that was in hand (`status` 3 in `tiles`), unlike `GameView.tile_id` |
 | 4 | `plan` | `u8` | Plan of the tile in hand; `0` when there is none |
 | 5 | `placed_count` | `u8` | Characters on the board |
-| 6 | `available_count` | `u8` | Characters still to place (`5 - placed_count`) |
+| 6 | `available_count` | `u8` | Characters still to place (`7 - placed_count`; `5 - placed_count` before P4) |
 
 A character placed on a structure comes back to the player when the structure is solved, so
 `available_count` can grow again.
 
 ### `characters(game_id: u32, player_id: felt252) -> Array<CharacterView>`
 
-Always five entries, one per role, in role order (Lord, Lady, Adventurer, Paladin, Pilgrim).
+Always seven entries, one per role, in role order (Lord, Lady, Adventurer, Paladin, Pilgrim, Woodsman,
+Herdsman). Before P4 there were five: the first five entries are unchanged, the two roles of P4 are
+appended.
 
 | # | Field | Type | Meaning |
 |---|---|---|---|
@@ -189,3 +191,25 @@ records its player; the starter tile has none). `placed_count = built + 1`, `dis
 discarded`, the tile to place now is tile `tile_count` while the game is not over, and a tile is
 `held` when it is the builder's `tile_id`. Phase P5 may compute them otherwise; the fields keep
 their meaning.
+
+## Changes since publication
+
+Append only: each entry says what changed and why a client that follows the promise above keeps
+working.
+
+- **P4, Woodsman and Herdsman** (the forest roles of 2024 come back).
+  - `role` has two new codes: `6` Woodsman, `7` Herdsman. A client that does not know them treats
+    them as unknown roles.
+  - `characters` returns seven entries instead of five: the two new roles are appended after
+    Pilgrim, the first five entries are what they were.
+  - `builder`: `available_count` counts against seven characters (`7 - placed_count`), and
+    `placed_count` can reach 7. No field was added, moved or retyped.
+  - `Daily.build(role, spot)` accepts the two new roles: `Role::Woodsman` on a forest or on a road,
+    `Role::Herdsman` on a forest or on a city (the codes of the other roles and their permissions
+    are unchanged). The ABI of `Daily` gains the two variants of `Role`; `Tutorial` does not take a
+    role.
+  - A forest scores like any structure through the `Scored` event, with `category` `FOREST`,
+    `size` the number of tiles of the forest and `points` the points of one character (a Woodsman
+    and a Herdsman of the same forest give two events). The event is also emitted when the points
+    are 0 (a forest that closes next to no closed city for the Herdsman): the character comes back
+    all the same. Forests are scored only when closed, see `native-storage.md`.

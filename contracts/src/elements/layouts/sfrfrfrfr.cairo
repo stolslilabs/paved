@@ -12,13 +12,13 @@ pub impl LayoutImpl of LayoutTrait {
     #[inline]
     fn starts() -> Array<Spot> {
         let mut starts: Array<Spot> = ArrayTrait::new();
-        // starts.append(Spot::NorthWest);
+        starts.append(Spot::NorthWest);
         starts.append(Spot::North);
-        // starts.append(Spot::NorthEast);
+        starts.append(Spot::NorthEast);
         starts.append(Spot::East);
-        // starts.append(Spot::SouthEast);
+        starts.append(Spot::SouthEast);
         starts.append(Spot::South);
-        // starts.append(Spot::SouthWest);
+        starts.append(Spot::SouthWest);
         starts.append(Spot::West);
         starts
     }
