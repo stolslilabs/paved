@@ -9,7 +9,32 @@ env:
   WORKING_DIRECTORY: ./contracts
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    name: Detect changes
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      contracts: ${{ steps.filter.outputs.contracts }}
+    steps:
+      - uses: actions/checkout@v4
+      # dorny/paths-filter v3.0.4
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad
+        id: filter
+        with:
+          # On push to main, compare with the previous commit; on a PR, with its base.
+          base: ${{ github.event_name == 'push' && github.event.before || '' }}
+          filters: |
+            contracts:
+              - 'contracts/**'
+              - '.tool-versions'
+              - '.github/workflows/**'
+              - '.github/actions/**'
+
   check:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     name: Check format
     steps:
@@ -21,6 +46,8 @@ jobs:
         shell: bash
 
   build:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     name: Build game
     steps:
@@ -32,6 +59,8 @@ jobs:
         shell: bash
 
   test:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
     name: Test game
     steps:
@@ -48,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     name: ci
     if: always()
-    needs: [check, build, test]
+    needs: [changes, check, build, test]
     steps:
       - name: Require every job to have succeeded or been skipped
         run: |
