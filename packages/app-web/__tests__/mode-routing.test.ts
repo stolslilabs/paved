@@ -10,8 +10,10 @@ describe("mode-routing", () => {
     expect(buildGameRoute({ gameId: 7, mode: "tutorial", readonly: true })).toBe("/game?mode=tutorial&id=7&readonly=true");
   });
 
-  it("routes to a new game without an id", () => {
+  it("routes to a new game only with spawn", () => {
+    expect(buildGameRoute({ mode: "tutorial", spawn: true })).toBe("/game?mode=tutorial&spawn=1");
     expect(buildGameRoute({ mode: "tutorial" })).toBe("/game?mode=tutorial");
+    expect(buildGameRoute({ mode: "daily", gameId: 4, spawn: true })).toBe("/game?mode=daily&id=4");
   });
 
   it("maps params to the two modes", () => {

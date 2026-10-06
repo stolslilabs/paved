@@ -29,7 +29,7 @@ follow-up for when the Mac is back (P-9).
 | Renderer: shared geometry and materials, no per-tile edge geometry (P-7b) | Done, #194: `docs/measures/client-renderer.md`. Instancing measured and dropped |
 | Data layer: drop Torii and polling, view calls and events (P-10) | In progress: (a) `packages/chain` #202; (b) app-web wiring and removals; (c) bench mock. Design: `docs/architecture/client-data-layer.md` |
 
-2026-10-07, data layer (P-10): `packages/chain` talks to the native contracts through starknet.js, from
+2026-10-06, data layer (P-10): `packages/chain` talks to the native contracts through starknet.js, from
 the ABIs of `contracts/abis/`: views for one game or tournament, `GameSpawned` / `GameOver` events keyed
 by player for the lists, and each write's receipt events to show a placement before one reconciling
 read. No Torii, no Dojo package and no timer: only a pending write asks for its own receipt (every

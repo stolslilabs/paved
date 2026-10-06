@@ -47,6 +47,13 @@ describe("resolvePlayerAccount", () => {
     expect(resolvePlayerAccount({ VITE_PLAYER_ADDRESS: "0x5", VITE_PLAYER_PRIVATE_KEY: "0x6" }, off)).toBeNull();
   });
 
+  it("takes a key from the env on devnet only", () => {
+    const sepolia = { rpc_url: "http://s/rpc", contracts: DEVNET.contracts };
+    const { deployment } = resolveAppNetwork({ VITE_NETWORK: "sepolia" }, { "x/sepolia.json": { default: sepolia } });
+    expect(deployment.configured).toBe(true);
+    expect(resolvePlayerAccount({ VITE_PLAYER_ADDRESS: "0x5", VITE_PLAYER_PRIVATE_KEY: "0x6" }, deployment)).toBeNull();
+  });
+
   it("builds an account from the player's address and key", () => {
     const { deployment } = resolveAppNetwork({}, FILES);
     expect(resolvePlayerAccount({ VITE_PLAYER_ADDRESS: "0x5", VITE_PLAYER_PRIVATE_KEY: "0x6" }, deployment)?.address).toBe("0x5");

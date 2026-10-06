@@ -46,6 +46,10 @@ describe("encodeCall checks integer ranges", () => {
     expect(() => codecs.Daily.encodeCall("claim", [1, 256])).toThrow(RangeError);
     expect(() => codecs.Daily.encodeCall("builder", [1, 1n << 252n])).toThrow(RangeError);
     expect(codecs.Daily.encodeCall("discard", [2 ** 32 - 1])).toEqual(["0xffffffff"]);
+    // A felt is in [0, P): P - 1 is the largest.
+    const P = (1n << 251n) + 17n * (1n << 192n) + 1n;
+    expect(codecs.Daily.encodeCall("builder", [1, P - 1n])[1]).toBe("0x" + (P - 1n).toString(16));
+    expect(() => codecs.Daily.encodeCall("builder", [1, P])).toThrow(RangeError);
   });
 });
 

@@ -35,7 +35,8 @@ const INT_BITS: Record<string, number> = {
   "core::integer::u64": 64,
   "core::integer::u128": 128,
 };
-const FELT_MAX = (1n << 251n) + 17n * (1n << 192n);
+/** The field prime P: a felt is in [0, P). */
+const FELT_P = (1n << 251n) + 17n * (1n << 192n) + 1n;
 
 /** An event decoded from its keys and data; field names are camelCase. */
 export interface DecodedEvent {
@@ -208,7 +209,7 @@ export class AbiCodec {
     if (SMALL_INTS.has(type) || FELT_LIKE.has(type) || type === U128) {
       const v = BigInt(value as string | number | bigint);
       const bits = INT_BITS[type];
-      if (v < 0n || (bits ? v >= 1n << BigInt(bits) : v >= FELT_MAX)) throw new RangeError(`${String(value)} is out of range for ${type}`);
+      if (v < 0n || (bits ? v >= 1n << BigInt(bits) : v >= FELT_P)) throw new RangeError(`${String(value)} is out of range for ${type}`);
       out.push(toHex(v));
       return;
     }

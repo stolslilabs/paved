@@ -1,4 +1,13 @@
+import type { ConnectionStatus, PlayerRecord, ReadState } from "@paved/chain";
 import type { TournamentView } from "@paved/chain";
+
+/**
+ * "Create Account" is offered only once a read has answered that the address has no player: with
+ * the read in flight or failed (RPC down), a registered player would be offered a create that reverts.
+ */
+export function canOfferCreate(status: ConnectionStatus, player: Pick<ReadState<PlayerRecord | null>, "data" | "error" | "loading" | "loaded">): boolean {
+  return status === "ready" && player.loaded && !player.loading && !player.error && player.data === null;
+}
 
 /** The entry token's label, whatever its on-chain symbol (D-2). */
 export const TOKEN_LABEL = "$TILE";

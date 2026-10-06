@@ -52,6 +52,11 @@ export interface SessionState {
   pending: boolean;
   /** Error of the last write, for the UI; null when it succeeded. */
   writeError: string | null;
+  /**
+   * The write succeeded but the read that follows it failed: the move is applied (from its
+   * receipt), the next tile and the exact score are not known yet. Null otherwise.
+   */
+  readError: string | null;
 }
 
 export interface PlaceMove {
@@ -93,6 +98,7 @@ export class GameSession {
       readonly: true,
       pending: false,
       writeError: null,
+      readError: null,
     };
   }
 
@@ -137,6 +143,7 @@ export class GameSession {
     this.set({
       pending: true,
       writeError: null,
+      readError: null,
       hand: null,
       tiles: [...this.current.tiles, tile],
       characters: character ? [...this.current.characters, character] : this.current.characters,
@@ -161,7 +168,7 @@ export class GameSession {
   private async simpleWrite(send: () => Promise<WriteResult>): Promise<boolean> {
     const hand = this.current.hand;
     if (this.current.readonly || this.current.pending) return false;
-    this.set({ pending: true, writeError: null, hand: null });
+    this.set({ pending: true, writeError: null, readError: null, hand: null });
     return this.write(send, () => this.set({ hand }));
   }
 
@@ -210,7 +217,7 @@ export class GameSession {
       this.set({ game, hand: game.tileId ? { tileId: game.tileId, plan: game.plan } : null });
       await this.readPlayer();
     } catch (error) {
-      this.set({ writeError: toViewError(error).message });
+      this.set({ readError: toViewError(error).message });
     }
   }
 

@@ -58,6 +58,8 @@ export interface ReadState<T> {
   data: T | null;
   error: string | null;
   loading: boolean;
+  /** The last read for the current inputs succeeded: `data` is an answer, not the initial null. */
+  loaded: boolean;
   /** Reads again now (after a write of this client, or a "refresh" button). */
   refresh: () => void;
 }
@@ -72,24 +74,27 @@ export function useRead<T>(
   options: { onVisible?: boolean } = {},
 ): ReadState<T> {
   const { client } = usePaved();
-  const [state, setState] = useState<{ data: T | null; error: string | null; loading: boolean }>({
+  const [state, setState] = useState<{ data: T | null; error: string | null; loading: boolean; loaded: boolean }>({
     data: null,
     error: null,
     loading: false,
+    loaded: false,
   });
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((t) => t + 1), []);
 
   useEffect(() => {
     if (!client || !read) {
-      setState({ data: null, error: null, loading: false });
+      setState({ data: null, error: null, loading: false, loaded: false });
       return;
     }
     let cancelled = false;
     setState((s) => ({ ...s, loading: true }));
     read(client).then(
-      (data) => !cancelled && setState({ data, error: null, loading: false }),
-      (error) => !cancelled && setState((s) => ({ ...s, error: error instanceof Error ? error.message : String(error), loading: false })),
+      (data) => !cancelled && setState({ data, error: null, loading: false, loaded: true }),
+      (error) =>
+        !cancelled &&
+        setState((s) => ({ ...s, error: error instanceof Error ? error.message : String(error), loading: false, loaded: false })),
     );
     return () => {
       cancelled = true;

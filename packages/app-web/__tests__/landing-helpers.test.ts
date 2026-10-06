@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyTournament } from "@paved/chain";
-import { formatTimeRemaining, formatTokenAmount, podium, shortAddress, TOKEN_LABEL } from "../src/utils/landing-helpers";
+import { canOfferCreate, formatTimeRemaining, formatTokenAmount, podium, shortAddress, TOKEN_LABEL } from "../src/utils/landing-helpers";
 
 describe("landing helpers", () => {
   it("labels the token $TILE (D-2)", () => {
@@ -28,5 +28,20 @@ describe("landing helpers", () => {
 
   it("shortens addresses", () => {
     expect(shortAddress("0xabc")).toBe("0xabc");
+  });
+});
+
+describe("canOfferCreate", () => {
+  const none = { data: null, error: null, loading: false, loaded: true };
+  it("only after a read answered no player, with an account", () => {
+    expect(canOfferCreate("ready", none)).toBe(true);
+    expect(canOfferCreate("read-only", none)).toBe(false);
+    expect(canOfferCreate("ready", { ...none, data: { id: "0x5", name: "Paved", master: "0x5" } })).toBe(false);
+  });
+
+  it("never while the read is in flight, not done yet, or failed (RPC down)", () => {
+    expect(canOfferCreate("ready", { ...none, loading: true })).toBe(false);
+    expect(canOfferCreate("ready", { ...none, loaded: false })).toBe(false);
+    expect(canOfferCreate("ready", { ...none, loaded: false, error: "fetch failed" })).toBe(false);
   });
 });

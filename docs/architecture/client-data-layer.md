@@ -10,7 +10,7 @@ Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 |---|---|---|
 | ABIs of `Account`, `Daily`, `Tutorial`, `Token` | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
 | RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script); `<network>` is `VITE_NETWORK`, default `devnet` | env, see below |
-| The playing account | env only: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account) | none; without both the app is read-only |
+| The playing account | env, **devnet only**: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); ignored on any other network, since a key in a built bundle is public | none; without both the app is read-only |
 
 The env variables of `packages/app-web` (`src/utils/network.ts`), each one set overriding the file:
 
@@ -60,10 +60,11 @@ The Daily entry price (`DAILY_PRICE`, 1 token) mirrors `DAILY_TOURNAMENT_PRICE` 
 `contracts/src/constants.cairo`: no view exposes it.
 
 Kept from the old code: the plain `Account` from an address and a private key (a devnet
-predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`; the old hard-coded
-Katana master key is gone), and the Cartridge controller placeholder
+predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`, on devnet only; the
+old hard-coded Katana master key is gone), and the Cartridge controller placeholder
 (`auth/controller.ts`), whose policies are now built from the deployment's addresses (refused
-when it is not configured: no policy on an empty target). Dropped:
+when it is not configured: no policy on an empty target). The controller is the only signing path
+outside devnet; until it is wired, other networks are read-only. Dropped:
 the Dojo burner manager (`@dojoengine/create-burner`).
 
 ## Views
@@ -100,7 +101,7 @@ filtering:
 | Landing: balance | `Token.balance_of(address)` | on connect, after a write that pays |
 | Landing: my games, active and finished | `GameSpawned` + `GameOver` events (both game contracts), then one `game` view per listed game (the active ones and the 10 latest finished) for its counts | on connect, when the page becomes visible |
 | Landing: today's tournament (prize, top 3, end) | `Daily.current_tournament_id` + `Daily.tournament(id)` | on connect, when the page becomes visible |
-| Game page without an id | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once |
+| Game page with `spawn=1` (set by the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once |
 | Landing: leaderboard | none: a plain "coming later" card until META's indexer | |
 | Game: board | `tiles(game_id, 0, 64)` | on open |
 | Game: tile in hand, score, counts, over | `game(game_id)` | on open, after each write (reconcile) |
@@ -135,7 +136,14 @@ can replace that later.
 `configured` and the account: `not-configured`, `read-only` (no account) or `ready`. `useRead` runs
 one read on its inputs, on `refresh` and, when asked, when the page becomes visible. The game page
 uses `GameSession` (`session.ts`) through `useGameSession`: it loads `game` + `tiles` (+ `builder` and
-`characters` for the game's player), and moves only on this client's writes, as above.
+`characters` for the game's player), and moves only on this client's writes, as above. A read that
+fails after a successful write is a `readError` ("Move applied; refresh failed"), not a write error.
+
+`/game?mode=..&id=..` shows a game. Only `/game?mode=..&spawn=1`, which the landing page's confirm
+builds, starts one (a Daily spawn pays the entry); a bare `/game` URL spawns nothing ("No game
+selected"), and a malformed id shows "Game not found". `useRead` says when a read has answered
+(`loaded`): "Create Account" is offered only once the player read has answered "none", never while
+it is in flight or failed, and the landing page shows the errors of its reads with a "Retry".
 
 ## Not connected
 

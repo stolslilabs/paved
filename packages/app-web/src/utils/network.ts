@@ -11,7 +11,7 @@ export interface NetworkEnv {
   VITE_DAILY_ADDRESS?: string;
   VITE_TUTORIAL_ADDRESS?: string;
   VITE_TOKEN_ADDRESS?: string;
-  /** The account that plays (a devnet predeployed account); without both, the app is read-only. */
+  /** The account that plays: a devnet predeployed account, devnet only; without both, read-only. */
   VITE_PLAYER_ADDRESS?: string;
   VITE_PLAYER_PRIVATE_KEY?: string;
   VITE_SUPPORTS_TOKEN_MINT?: string;
@@ -55,8 +55,13 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
   };
 }
 
-/** The playing account, or null (read-only) when the deployment is not configured or no key is set. */
+/**
+ * The playing account from a private key in the env, on devnet only (its predeployed accounts):
+ * a key in a built bundle is public, so no other network takes one. Elsewhere the controller is
+ * the only signing path. Null (read-only) when not devnet, not configured, or no key is set.
+ */
 export function resolvePlayerAccount(env: NetworkEnv, deployment: Deployment): Account | null {
+  if (deployment.network !== DEFAULT_NETWORK) return null;
   if (!deployment.configured || !env.VITE_PLAYER_ADDRESS || !env.VITE_PLAYER_PRIVATE_KEY) return null;
   return new Account({
     provider: new RpcProvider({ nodeUrl: deployment.rpcUrl }),

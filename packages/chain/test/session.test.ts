@@ -119,6 +119,23 @@ describe("GameSession", () => {
     expect(session.state).toMatchObject({ hand: null, game: { over: true } });
   });
 
+  test("a failed read after a successful write is a read error, not a write error", async () => {
+    const views = new FakeGameViews();
+    views.setGame(key, fakeGame());
+    const session = new GameSession(views, key, PLAYER);
+    await session.load();
+    const ok = await session.place({ orientation: 2, x: C + 1, y: C, role: 0, spot: 0 }, async () => {
+      views.games.clear(); // the node fails the next read
+      return {
+        transactionHash: "0x1",
+        events: [event("Built", { playerId: PLAYER, tileId: 2, plan: 7, orientation: 2, x: C + 1, y: C, role: 0, spot: 0 })],
+      };
+    });
+    expect(ok).toBe(true);
+    expect(session.state).toMatchObject({ writeError: null, readError: "Game: does not exist", pending: false });
+    expect(session.state.tiles.map((t) => [t.id, t.pending ?? false])).toEqual([[1, false], [2, false]]);
+  });
+
   test("no write in read-only mode", async () => {
     const views = new FakeGameViews();
     views.setGame(key, fakeGame());

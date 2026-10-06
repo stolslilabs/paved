@@ -93,8 +93,9 @@ function Screen({ text, onBack }: { text: string; onBack?: () => void }) {
 }
 
 /**
- * `/game?mode=..&id=..` shows that game. Without an id, it resumes the player's active game of
- * the mode (from its events) or spawns one, then replaces the URL with the game's id.
+ * `/game?mode=..&id=..` shows that game. `/game?mode=..&spawn=1` (the landing page's confirm only)
+ * resumes the player's active game of the mode (from its events) or spawns one, then replaces the
+ * URL with the game's id. A malformed id is "Game not found"; no id and no spawn spawns nothing.
  */
 export function GamePage() {
   const navigate = useNavigate();
@@ -105,7 +106,7 @@ export function GamePage() {
   const spawnAttempted = useRef(false);
 
   useEffect(() => {
-    if (gameParams.gameId !== null || !client || !writer || !address || spawnAttempted.current) return;
+    if (!gameParams.spawn || !client || !writer || !address || spawnAttempted.current) return;
     spawnAttempted.current = true;
     (async () => {
       const games = await client.events.playerGames(address, [gameParams.mode]);
@@ -113,15 +114,18 @@ export function GamePage() {
       const gameId = active ? active.gameId : (await writer.spawn(gameParams.mode)).gameId;
       navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true });
     })().catch((error) => setSpawnError(error instanceof Error ? error.message : String(error)));
-  }, [client, writer, address, gameParams.gameId, gameParams.mode, navigate]);
+  }, [client, writer, address, gameParams.spawn, gameParams.mode, navigate]);
 
   const key = useMemo<GameKey | null>(
     () => (gameParams.gameId === null ? null : { mode: gameParams.mode, gameId: gameParams.gameId }),
     [gameParams.mode, gameParams.gameId],
   );
 
+  if (gameParams.invalidId) return <Screen text={`Game not found: ${searchParams.get("id")}`} onBack={() => navigate("/")} />;
   if (status === "not-configured") return <Screen text="Not connected" onBack={() => navigate("/")} />;
   if (!key) {
+    // Only the landing page's confirm spawns: a bare `/game` URL never pays an entry.
+    if (!gameParams.spawn) return <Screen text="No game selected" onBack={() => navigate("/")} />;
     if (spawnError) return <Screen text={`Cannot start a game: ${spawnError}`} onBack={() => navigate("/")} />;
     if (status !== "ready") return <Screen text="Not connected: no playing account" onBack={() => navigate("/")} />;
     return <Screen text="Spawning game..." />;
@@ -336,6 +340,8 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
 
   const notice = state.writeError
     ? { text: state.writeError, background: "rgba(127,29,29,0.9)" }
+    : state.readError
+      ? { text: `Move applied; refresh failed: ${state.readError}`, background: "rgba(120,53,15,0.9)" }
     : !forceReadonly && state.readonly
       ? { text: writer ? "Not your game: read only" : "Not connected: read only", background: "rgba(120,53,15,0.9)" }
       : null;

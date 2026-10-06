@@ -5,7 +5,7 @@ import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
 import { DAILY_PRICE, usePaved, useRead } from "@paved/chain";
 import type { GameMode, GameView, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
-import { formatTimeRemaining, formatTokenAmount, podium, TOKEN_LABEL } from "../utils/landing-helpers";
+import { canOfferCreate, formatTimeRemaining, formatTokenAmount, podium, TOKEN_LABEL } from "../utils/landing-helpers";
 
 interface ModeInfo {
   mode: GameMode;
@@ -66,8 +66,19 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     }
   };
 
+  // "Create Account" only once a read has answered that this address has no player: with the RPC
+  // down or the read in flight, a registered player must not be offered a create that reverts.
+  const canCreate = canOfferCreate(status, player);
   const handleCreate = () =>
-    writer && write(() => writer.createPlayer("Paved", { mintTestToken: supportsMint }), [player.refresh, balance.refresh]);
+    canCreate && writer && write(() => writer.createPlayer("Paved", { mintTestToken: supportsMint }), [player.refresh, balance.refresh]);
+  const readErrors = (
+    [
+      ["player", player.error],
+      ["balance", balance.error],
+      ["games", games.error],
+      ["tournament", tournament.error],
+    ] as const
+  ).filter(([, error]) => error);
   const handleMint = () => writer && write(() => writer.mint(), [balance.refresh]);
 
   const allGames: ListedGame[] = games.data ?? [];
@@ -102,8 +113,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const handleConfirm = () => {
     if (!selected) return;
     const resume = active.find((g) => g.mode === selected);
-    // Without an id the game page spawns a new game.
-    navigate(resume ? buildGameRoute({ gameId: resume.gameId, mode: resume.mode }) : buildGameRoute({ mode: selected }));
+    // The only place that asks the game page to spawn (and pay the Daily entry).
+    navigate(resume ? buildGameRoute({ gameId: resume.gameId, mode: resume.mode }) : buildGameRoute({ mode: selected, spawn: true }));
     setSelected(null);
   };
 
@@ -121,8 +132,22 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
           onMint={handleMint}
         />
       </div>
+      {readErrors.length > 0 && (
+        <div role="alert" style={{ background: "#7f1d1d", color: "#fff", padding: "8px 12px", fontSize: 14 }}>
+          {`Cannot read from ${deployment.network}: `}
+          {readErrors.map(([what, error]) => `${what} (${error})`).join("; ")}
+          <button
+            type="button"
+            onClick={() => [player, balance, games, tournament].forEach((r) => r.refresh())}
+            style={{ marginLeft: 12, background: "transparent", border: "1px solid #fff", color: "#fff", borderRadius: 6, cursor: "pointer" }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <LandingScreen
-        connected={status === "ready"}
+        // Until the player is known (read in flight or failed), neither the games nor "Create Account".
+        connected={status === "ready" && (player.data !== null || canCreate)}
         playerName={player.data?.name}
         onSpawn={handleCreate}
         gameModes={gameModes}

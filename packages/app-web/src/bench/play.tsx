@@ -216,7 +216,8 @@ export function mountPlay(): void {
   // Same providers as src/main.tsx, pointed at the driver's mock RPC (scripts/bench/mock-chain.ts),
   // which serves these addresses and accepts this account's writes.
   const env = {
-    VITE_NETWORK: "bench",
+    // A devnet in kind: the only network that takes a key from the env.
+    VITE_NETWORK: "devnet",
     VITE_RPC_URL: `${window.location.origin}/rpc`,
     ...BENCH_ADDRESSES,
   };
