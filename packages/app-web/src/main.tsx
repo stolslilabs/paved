@@ -23,17 +23,22 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
   });
 }
 
-const DEFAULT_LOCAL_WORLD = "0x04d8a741b4c0680c3f3de05808173c3640428a841d75f9055f250d1f9cff3ad1";
 const profile = resolveAppNetworkProfile(import.meta.env as any);
 const config = createDojoConfig({
   rpcUrl: profile.rpcUrl,
   toriiUrl: profile.toriiUrl,
-  worldAddress: profile.worldAddress || profile.manifest?.world?.address || DEFAULT_LOCAL_WORLD,
-  manifest: profile.manifest,
+  addresses: profile.addresses,
   profile: profile.key,
   profileLabel: profile.label,
   supportsTokenMint: profile.supportsMint,
 });
+
+if (!config.configured) {
+  console.error(
+    "Paved: contract addresses are not configured (set VITE_ACCOUNT_ADDRESS, VITE_DAILY_ADDRESS, " +
+      "VITE_TUTORIAL_ADDRESS and VITE_TOKEN_ADDRESS). The app cannot reach a chain.",
+  );
+}
 
 const root = createRoot(document.getElementById("root")!);
 
@@ -41,6 +46,12 @@ root.render(
   <StrictMode>
     <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
       <DojoChainProvider config={config}>
+        {!config.configured && (
+          <div role="alert" style={{ background: "#7f1d1d", color: "#fff", padding: "8px 12px", fontSize: 14 }}>
+            Not configured: set VITE_ACCOUNT_ADDRESS, VITE_DAILY_ADDRESS, VITE_TUTORIAL_ADDRESS and
+            VITE_TOKEN_ADDRESS. The native data layer is not wired yet, so the game cannot reach a chain.
+          </div>
+        )}
         <BrowserRouter>
           <App />
         </BrowserRouter>

@@ -2,7 +2,7 @@
 export { createDojoConfig } from "./config";
 export type { DojoConfig } from "./config";
 export { resolveChainProfileConfig } from "./network";
-export type { ChainProfile, ChainProfileKey, ResolveChainProfileInput } from "./network";
+export type { ChainProfile, ChainProfileKey, ContractAddresses, ResolveChainProfileInput } from "./network";
 
 // Client
 export { createChainClient } from "./client";
