@@ -2,20 +2,22 @@
 //! only act on their own game. Rules: `docs/architecture/native-storage.md`.
 
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait, OwnableComponent};
+use paved::constants;
 use paved::models::tile::CENTER;
+use paved::models::tournament::TournamentTrait;
 use paved::systems::account::IAccountDispatcherTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    ANYONE, IDailyDispatcherTrait, NOONE, OWNER, PLAYER, PLAYER_NAME, TestStoreTrait,
+    ANYONE, IDailyDispatcherTrait, NOONE, OWNER, PLAYER, PLAYER_NAME, SOMEONE, TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 use snforge_std::{
-    DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events, start_cheat_caller_address,
-    stop_cheat_caller_address,
+    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
+    start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
 
@@ -35,15 +37,44 @@ fn test_access_owner_is_set_at_deployment() {
     }
 }
 
+fn propose(ownable: IOwnableDispatcher, from: ContractAddress, to: ContractAddress) {
+    start_cheat_caller_address(ownable.contract_address, from);
+    ownable.transfer_ownership(to);
+    stop_cheat_caller_address(ownable.contract_address);
+}
+
+fn accept(ownable: IOwnableDispatcher, caller: ContractAddress) {
+    start_cheat_caller_address(ownable.contract_address, caller);
+    ownable.accept_ownership();
+    stop_cheat_caller_address(ownable.contract_address);
+}
+
 #[test]
-fn test_access_owner_transfers_ownership() {
+fn test_access_transfer_ownership_only_proposes() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
         let mut spy = spy_events();
-        start_cheat_caller_address(ownable.contract_address, OWNER());
-        ownable.transfer_ownership(ANYONE());
-        stop_cheat_caller_address(ownable.contract_address);
+        propose(ownable, OWNER(), ANYONE());
+        assert(ownable.owner() == OWNER(), 'Access: owner unchanged');
+        assert(ownable.pending_owner() == ANYONE(), 'Access: pending owner');
+        let event = OwnableComponent::Event::OwnershipTransferStarted(
+            OwnableComponent::OwnershipTransferStarted {
+                previous_owner: OWNER(), new_owner: ANYONE(),
+            },
+        );
+        spy.assert_emitted(@array![(ownable.contract_address, event)]);
+    }
+}
+
+#[test]
+fn test_access_pending_owner_accepts_ownership() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    for ownable in ownables(@systems) {
+        propose(ownable, OWNER(), ANYONE());
+        let mut spy = spy_events();
+        accept(ownable, ANYONE());
         assert(ownable.owner() == ANYONE(), 'Access: new owner');
+        assert(ownable.pending_owner() == 0.try_into().unwrap(), 'Access: pending cleared');
         let event = OwnableComponent::Event::OwnershipTransferred(
             OwnableComponent::OwnershipTransferred { previous_owner: OWNER(), new_owner: ANYONE() },
         );
@@ -52,12 +83,83 @@ fn test_access_owner_transfers_ownership() {
 }
 
 #[test]
-#[should_panic(expected: 'Ownable: caller is not owner')]
-fn test_access_transfer_ownership_reverts_for_non_owner() {
+fn test_access_new_owner_holds_the_power_and_old_owner_loses_it() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    // The setup keeps PLAYER as the caller of Daily.
-    IOwnableDispatcher { contract_address: systems.daily.contract_address }
-        .transfer_ownership(PLAYER());
+    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    propose(ownable, OWNER(), ANYONE());
+    accept(ownable, ANYONE());
+    // The new owner proposes in turn.
+    propose(ownable, ANYONE(), NOONE());
+    assert(ownable.pending_owner() == NOONE(), 'Access: new owner proposes');
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller is not owner')]
+fn test_access_old_owner_cannot_transfer_after_accept() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    propose(ownable, OWNER(), ANYONE());
+    accept(ownable, ANYONE());
+    propose(ownable, OWNER(), NOONE());
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller not pending')]
+fn test_access_accept_ownership_reverts_for_wrong_caller() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let ownable = IOwnableDispatcher { contract_address: systems.daily.contract_address };
+    propose(ownable, OWNER(), ANYONE());
+    accept(ownable, NOONE());
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller not pending')]
+fn test_access_accept_ownership_reverts_for_the_owner_itself() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let ownable = IOwnableDispatcher { contract_address: systems.daily.contract_address };
+    propose(ownable, OWNER(), ANYONE());
+    accept(ownable, OWNER());
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller not pending')]
+fn test_access_accept_ownership_reverts_without_proposal() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let ownable = IOwnableDispatcher { contract_address: systems.tutorial.contract_address };
+    accept(ownable, ANYONE());
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller not pending')]
+fn test_access_accept_ownership_twice_reverts() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    propose(ownable, OWNER(), ANYONE());
+    accept(ownable, ANYONE());
+    // The pending owner was cleared by the first accept.
+    accept(ownable, ANYONE());
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller not pending')]
+fn test_access_new_proposal_overwrites_the_pending_owner() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    propose(ownable, OWNER(), ANYONE());
+    propose(ownable, OWNER(), NOONE());
+    assert(ownable.pending_owner() == NOONE(), 'Access: pending overwritten');
+    // The first candidate can no longer accept.
+    accept(ownable, ANYONE());
+}
+
+#[test]
+fn test_access_overwriting_proposal_lets_the_second_candidate_accept() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
+    propose(ownable, OWNER(), ANYONE());
+    propose(ownable, OWNER(), NOONE());
+    accept(ownable, NOONE());
+    assert(ownable.owner() == NOONE(), 'Access: second candidate owns');
 }
 
 #[test]
@@ -190,4 +292,120 @@ fn test_access_game_ids_are_counted_per_contract() {
     let tutorial_game = store.game(1);
     let daily_game = setup::TestStoreTrait::new(systems.daily.contract_address).game(1);
     assert(tutorial_game.mode != daily_game.mode, 'Access: separate games');
+}
+
+/// The first felt of the panic raised by the constructor of `name` deployed with `calldata`.
+fn constructor_panic(name: ByteArray, calldata: Array<felt252>) -> felt252 {
+    let class = declare(name).unwrap().contract_class();
+    let panic = class.deploy(@calldata).unwrap_err();
+    *panic.at(0)
+}
+
+#[test]
+fn test_access_daily_constructor_reverts_on_zero_account() {
+    let owner: felt252 = OWNER().into();
+    let token: felt252 = SOMEONE().into();
+    assert(
+        constructor_panic("Daily", array![owner, 0, token]) == 'Daily: account is zero',
+        'Access: account',
+    );
+}
+
+#[test]
+fn test_access_daily_constructor_reverts_on_zero_token() {
+    let owner: felt252 = OWNER().into();
+    let account: felt252 = SOMEONE().into();
+    assert(
+        constructor_panic("Daily", array![owner, account, 0]) == 'Daily: token is zero',
+        'Access: token',
+    );
+}
+
+#[test]
+fn test_access_tutorial_constructor_reverts_on_zero_account() {
+    let owner: felt252 = OWNER().into();
+    assert(
+        constructor_panic("Tutorial", array![owner, 0]) == 'Tutorial: account is zero',
+        'Access: tutorial account',
+    );
+}
+
+#[test]
+fn test_access_constructors_revert_on_zero_owner() {
+    let account: felt252 = SOMEONE().into();
+    let token: felt252 = ANYONE().into();
+    assert(
+        constructor_panic("Account", array![0]) == 'Ownable: new owner is zero',
+        'Access: account owner',
+    );
+    assert(
+        constructor_panic("Tutorial", array![0, account]) == 'Ownable: new owner is zero',
+        'Access: tutorial owner',
+    );
+    assert(
+        constructor_panic("Daily", array![0, account, token]) == 'Ownable: new owner is zero',
+        'Access: daily owner',
+    );
+}
+
+/// Forces PLAYER first of the tournament of the game, then moves past the end of the tournament.
+fn close_tournament(store: setup::TestStore, game_id: u32, player_id: felt252) -> u64 {
+    let game = store.game(game_id);
+    let tournament_id = TournamentTrait::compute_id(
+        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
+    );
+    let mut tournament = store.tournament(tournament_id);
+    tournament.top1_player_id = player_id;
+    tournament.top1_score = 1;
+    store.set_tournament(tournament);
+    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
+    tournament_id
+}
+
+#[test]
+#[should_panic(expected: 'Tournament: invalid player')]
+fn test_access_claim_reverts_for_registered_non_holder() {
+    start_cheat_block_timestamp_global(100);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let tournament_id = close_tournament(store, context.game_id, context.player_id);
+    // ANYONE is registered but is not at rank 1.
+    start_cheat_caller_address(systems.daily.contract_address, ANYONE());
+    systems.daily.claim(tournament_id, 1);
+}
+
+#[test]
+#[should_panic(expected: 'Tournament: invalid player')]
+fn test_access_claim_reverts_on_an_empty_rank() {
+    start_cheat_block_timestamp_global(100);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let tournament_id = close_tournament(store, context.game_id, context.player_id);
+    // Nobody holds rank 2 (id 0), and no registered player has id 0.
+    systems.daily.claim(tournament_id, 2);
+}
+
+#[test]
+#[should_panic(expected: 'Tournament: already claimed')]
+fn test_access_claim_reverts_on_a_second_claim_of_the_same_rank() {
+    start_cheat_block_timestamp_global(100);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let tournament_id = close_tournament(store, context.game_id, context.player_id);
+    systems.daily.claim(tournament_id, 1);
+    systems.daily.claim(tournament_id, 1);
+}
+
+#[test]
+#[should_panic(expected: 'Builder: does not exist')]
+fn test_access_tutorial_discard_reverts_on_another_players_game() {
+    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
+    start_cheat_caller_address(systems.tutorial.contract_address, NOONE());
+    systems.tutorial.discard(context.game_id);
+}
+
+/// `sponsor` only adds to a tournament that exists, that is one that has at least one entry fee:
+/// with no game spawned in the current period it reverts, and the caller pays nothing.
+#[test]
+#[should_panic(expected: 'Tournament: not found')]
+fn test_access_sponsor_reverts_without_a_current_tournament() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    systems.daily.sponsor(1000);
 }

@@ -5,14 +5,15 @@ version = 1
 name = "paved"
 version = "0.0.0"
 dependencies = [
+ "snforge_scarb_plugin",
  "snforge_std",
 ]
 
 [[package]]
 name = "snforge_scarb_plugin"
-version = "0.64.1"
+version = "0.64.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:811790c3a1b0c4008c3da568ba2bb4204ecedadb15a0b73fed4b81572bb66e88"
+checksum = "sha256:b6e330b8303add0d1a32e636e4e0d2b44a6b4ff5632bfe0ce66f136a701ae151"
 
 [[package]]
 name = "snforge_std"

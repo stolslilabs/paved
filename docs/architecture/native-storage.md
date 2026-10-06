@@ -63,7 +63,7 @@ world did, so a missing entry reads as the model with its keys set and every val
 calls `IAccount::player` otherwise. Packing is the only change of representation; no structure state
 is added (that is P5).
 
-Other storage, outside `PavedStorage`: `owner` (`components/ownable.cairo`) in every contract, and
+Other storage, outside `PavedStorage`: `owner` and `pending_owner` (`components/ownable.cairo`) in every contract, and
 `token_address` (`components/payable.cairo`) in `Daily`.
 
 The models are plain structs (`models/index.cairo`), with their impls unchanged.
@@ -85,7 +85,8 @@ and data as the contract's `self.emit` would.
 | `GameOver` | Daily, Tutorial | `key game_id`, `key player_id`, `key tournament_id`, `mode`, `score`, `start_time`, `end_time` | the game ends (last tile, or surrender); `tournament_id` and `end_time` are 0 when the game ended after its tournament closed (it does not count), and always in Tutorial |
 | `Sponsored` | Daily | `key tournament_id`, `sponsor`, `amount` | `sponsor` |
 | `Claimed` | Daily | `key tournament_id`, `player_id`, `rank`, `reward` | `claim` |
-| `OwnershipTransferred` | all three | `previous_owner`, `new_owner` | constructor, `transfer_ownership` |
+| `OwnershipTransferStarted` | all three | `previous_owner`, `new_owner` | `transfer_ownership` (the new owner is only pending) |
+| `OwnershipTransferred` | all three | `previous_owner`, `new_owner` | constructor, `accept_ownership` |
 | `Upgraded` | all three | `class_hash` | `upgrade` |
 
 `player_id` is a key of `GameSpawned` and `GameOver` so that a client lists a player's games from
@@ -99,8 +100,12 @@ events (`docs/architecture/public-interface.md`).
 Own, minimal, no Dojo permission:
 
 - **Owner**, set at deployment (constructor argument, must be non-zero). The owner may `upgrade` the
-  contract class (what the Dojo world owner could do to its systems) and `transfer_ownership`. The
-  owner has no power over games, players, tournaments or funds.
+  contract class and hand the ownership over. `upgrade` replaces the class: the owner has full
+  control of the contract and of its funds (in `Daily`, the prize pools held in the token), so the
+  owner key holds the funds. Treat it as such (hardware or multisig account).
+- **Two-step handover**: `transfer_ownership(new_owner)` only records `new_owner` as pending (a new
+  call overwrites the pending owner); the pending owner completes it with `accept_ownership()`,
+  which clears the pending owner. A mistyped address therefore never takes the ownership.
 - **Player**: an address registered in `Account`. A player acts only on their own game: every game
   entry point loads the `Builder` keyed by `(game_id, caller)`, and a missing builder reverts
   (`Builder: Does not exist`). Games are single-player; the builder is created by `spawn` for the
@@ -125,10 +130,19 @@ Entry points (every `external` function):
 | Tutorial | `spawn()` | a registered player | `Player: Does not exist` |
 | Tutorial | `build(game_id)`, `discard(game_id)`, `surrender(game_id)` | the player of `game_id` | builder `(game_id, caller)` exists, game started and not over |
 | Tutorial | `game`, `tiles`, `builder`, `characters` (views) | anyone | none; see `public-interface.md` |
-| all three | `owner()` (view) | anyone | none |
+| all three | `owner()`, `pending_owner()` (views) | anyone | none |
 | all three | `transfer_ownership(new_owner)` | owner | `Ownable: caller is not owner`, `new_owner` non-zero |
+| all three | `accept_ownership()` | the pending owner | `Ownable: caller not pending` |
 | all three | `upgrade(class_hash)` | owner | `Ownable: caller is not owner`, `class_hash` non-zero |
-| Token (mock) | ERC20 entry points, `mint()` | anyone | tests only, never deployed |
+| Token (mock) | ERC20 entry points, `mint()` | anyone | test and devnet only, never deploy on a public network (see below) |
+
+**Mock token.** `mocks/token.cairo` has an open `mint()`: anyone mints 1E6 tokens. It stays compiled
+(the devnet deploy and the client's `Token.json` ABI need it) and is not gated by `cfg(test)`; its
+header says "test and devnet only, never deploy on a public network". A public network uses a real
+token whose address is the `token_address` constructor argument of `Daily`.
+
+**Constructors.** `Daily` and `Tutorial` revert on a zero `account_address`, and `Daily` on a zero
+`token_address` (`Daily: account is zero`, `Daily: token is zero`, `Tutorial: account is zero`).
 
 Token interactions follow checks-effects-interactions: state is written before `transferFrom` /
 `transfer`, and a failed transfer reverts the whole call. The token and the `Account` address are
@@ -145,4 +159,4 @@ store.
 ## Vendored code
 
 `origami_random` came from the Dojo organisation's git repository; the one module used (`deck`) is
-copied into `helpers/deck.cairo` with its source and MIT licence named in the file.
+copied into `helpers/random_deck.cairo` with its source and MIT licence named in the file.
