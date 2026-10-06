@@ -28,6 +28,7 @@ jobs:
           filters: |
             contracts:
               - 'contracts/**'
+              - 'scripts/abis.sh'
               - '.tool-versions'
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -70,7 +71,10 @@ jobs:
         run: scripts/abis.sh
         shell: bash
       - name: Fail if the committed ABIs are stale
-        run: git diff --exit-code contracts/abis
+        run: |
+          # Also catches a committed file that was deleted: the script rewrites it untracked.
+          git add --intent-to-add contracts/abis
+          git diff --exit-code contracts/abis
         shell: bash
 
   test:
