@@ -1,0 +1,783 @@
+{
+ "seed": 12648430,
+ "size": 72,
+ "center": 2147483647,
+ "tiles": [
+  {
+   "game_id": 1,
+   "id": 1,
+   "player_id": "0x1234",
+   "plan": 14,
+   "orientation": 1,
+   "x": 2147483647,
+   "y": 2147483647,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 2,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 4,
+   "x": 2147483647,
+   "y": 2147483648,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 3,
+   "player_id": "0x1234",
+   "plan": 9,
+   "orientation": 3,
+   "x": 2147483647,
+   "y": 2147483649,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 4,
+   "player_id": "0x1234",
+   "plan": 9,
+   "orientation": 2,
+   "x": 2147483646,
+   "y": 2147483647,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 5,
+   "player_id": "0x1234",
+   "plan": 7,
+   "orientation": 1,
+   "x": 2147483648,
+   "y": 2147483648,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 6,
+   "player_id": "0x1234",
+   "plan": 16,
+   "orientation": 2,
+   "x": 2147483646,
+   "y": 2147483648,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 7,
+   "player_id": "0x1234",
+   "plan": 6,
+   "orientation": 3,
+   "x": 2147483647,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 8,
+   "player_id": "0x1234",
+   "plan": 17,
+   "orientation": 3,
+   "x": 2147483646,
+   "y": 2147483646,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 9,
+   "player_id": "0x1234",
+   "plan": 11,
+   "orientation": 2,
+   "x": 2147483649,
+   "y": 2147483648,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 10,
+   "player_id": "0x1234",
+   "plan": 7,
+   "orientation": 4,
+   "x": 2147483649,
+   "y": 2147483647,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 11,
+   "player_id": "0x1234",
+   "plan": 14,
+   "orientation": 3,
+   "x": 2147483650,
+   "y": 2147483648,
+   "occupied_spot": 3
+  },
+  {
+   "game_id": 1,
+   "id": 12,
+   "player_id": "0x1234",
+   "plan": 15,
+   "orientation": 4,
+   "x": 2147483646,
+   "y": 2147483645,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 13,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 3,
+   "x": 2147483651,
+   "y": 2147483648,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 14,
+   "player_id": "0x1234",
+   "plan": 10,
+   "orientation": 4,
+   "x": 2147483651,
+   "y": 2147483647,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 15,
+   "player_id": "0x1234",
+   "plan": 18,
+   "orientation": 2,
+   "x": 2147483652,
+   "y": 2147483647,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 16,
+   "player_id": "0x1234",
+   "plan": 19,
+   "orientation": 1,
+   "x": 2147483646,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 17,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 3,
+   "x": 2147483645,
+   "y": 2147483646,
+   "occupied_spot": 5
+  },
+  {
+   "game_id": 1,
+   "id": 18,
+   "player_id": "0x1234",
+   "plan": 3,
+   "orientation": 3,
+   "x": 2147483651,
+   "y": 2147483646,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 19,
+   "player_id": "0x1234",
+   "plan": 18,
+   "orientation": 3,
+   "x": 2147483644,
+   "y": 2147483646,
+   "occupied_spot": 1
+  },
+  {
+   "game_id": 1,
+   "id": 20,
+   "player_id": "0x1234",
+   "plan": 18,
+   "orientation": 2,
+   "x": 2147483651,
+   "y": 2147483649,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 21,
+   "player_id": "0x1234",
+   "plan": 3,
+   "orientation": 3,
+   "x": 2147483648,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 22,
+   "player_id": "0x1234",
+   "plan": 12,
+   "orientation": 2,
+   "x": 2147483645,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 23,
+   "player_id": "0x1234",
+   "plan": 11,
+   "orientation": 4,
+   "x": 2147483647,
+   "y": 2147483646,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 24,
+   "player_id": "0x1234",
+   "plan": 16,
+   "orientation": 2,
+   "x": 2147483645,
+   "y": 2147483651,
+   "occupied_spot": 6
+  },
+  {
+   "game_id": 1,
+   "id": 25,
+   "player_id": "0x1234",
+   "plan": 16,
+   "orientation": 1,
+   "x": 2147483647,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 26,
+   "player_id": "0x1234",
+   "plan": 10,
+   "orientation": 1,
+   "x": 2147483649,
+   "y": 2147483646,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 27,
+   "player_id": "0x1234",
+   "plan": 11,
+   "orientation": 3,
+   "x": 2147483651,
+   "y": 2147483645,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 28,
+   "player_id": "0x1234",
+   "plan": 19,
+   "orientation": 1,
+   "x": 2147483649,
+   "y": 2147483645,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 29,
+   "player_id": "0x1234",
+   "plan": 10,
+   "orientation": 4,
+   "x": 2147483653,
+   "y": 2147483647,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 30,
+   "player_id": "0x1234",
+   "plan": 15,
+   "orientation": 3,
+   "x": 2147483653,
+   "y": 2147483648,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 31,
+   "player_id": "0x1234",
+   "plan": 12,
+   "orientation": 2,
+   "x": 2147483646,
+   "y": 2147483644,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 32,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 1,
+   "x": 2147483643,
+   "y": 2147483646,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 33,
+   "player_id": "0x1234",
+   "plan": 10,
+   "orientation": 1,
+   "x": 2147483654,
+   "y": 2147483648,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 34,
+   "player_id": "0x1234",
+   "plan": 10,
+   "orientation": 3,
+   "x": 2147483645,
+   "y": 2147483649,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 35,
+   "player_id": "0x1234",
+   "plan": 1,
+   "orientation": 2,
+   "x": 2147483645,
+   "y": 2147483644,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 36,
+   "player_id": "0x1234",
+   "plan": 8,
+   "orientation": 4,
+   "x": 2147483645,
+   "y": 2147483647,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 37,
+   "player_id": "0x1234",
+   "plan": 7,
+   "orientation": 4,
+   "x": 2147483654,
+   "y": 2147483649,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 38,
+   "player_id": "0x1234",
+   "plan": 16,
+   "orientation": 3,
+   "x": 2147483646,
+   "y": 2147483649,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 39,
+   "player_id": "0x1234",
+   "plan": 8,
+   "orientation": 3,
+   "x": 2147483644,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 40,
+   "player_id": "0x1234",
+   "plan": 5,
+   "orientation": 4,
+   "x": 2147483652,
+   "y": 2147483646,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 41,
+   "player_id": "0x1234",
+   "plan": 4,
+   "orientation": 2,
+   "x": 2147483650,
+   "y": 2147483649,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 42,
+   "player_id": "0x1234",
+   "plan": 2,
+   "orientation": 4,
+   "x": 2147483654,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 43,
+   "player_id": "0x1234",
+   "plan": 9,
+   "orientation": 4,
+   "x": 2147483643,
+   "y": 2147483647,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 44,
+   "player_id": "0x1234",
+   "plan": 4,
+   "orientation": 4,
+   "x": 2147483655,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 45,
+   "player_id": "0x1234",
+   "plan": 5,
+   "orientation": 2,
+   "x": 2147483644,
+   "y": 2147483644,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 46,
+   "player_id": "0x1234",
+   "plan": 10,
+   "orientation": 1,
+   "x": 2147483649,
+   "y": 2147483644,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 47,
+   "player_id": "0x1234",
+   "plan": 2,
+   "orientation": 1,
+   "x": 2147483645,
+   "y": 2147483643,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 48,
+   "player_id": "0x1234",
+   "plan": 12,
+   "orientation": 3,
+   "x": 2147483648,
+   "y": 2147483644,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 49,
+   "player_id": "0x1234",
+   "plan": 15,
+   "orientation": 2,
+   "x": 2147483647,
+   "y": 2147483645,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 50,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 3,
+   "x": 2147483654,
+   "y": 2147483647,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 51,
+   "player_id": "0x1234",
+   "plan": 11,
+   "orientation": 1,
+   "x": 2147483654,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 52,
+   "player_id": "0x1234",
+   "plan": 14,
+   "orientation": 4,
+   "x": 2147483654,
+   "y": 2147483646,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 53,
+   "player_id": "0x1234",
+   "plan": 8,
+   "orientation": 4,
+   "x": 2147483652,
+   "y": 2147483649,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 54,
+   "player_id": "0x1234",
+   "plan": 6,
+   "orientation": 3,
+   "x": 2147483643,
+   "y": 2147483645,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 55,
+   "player_id": "0x1234",
+   "plan": 11,
+   "orientation": 4,
+   "x": 2147483647,
+   "y": 2147483652,
+   "occupied_spot": 3
+  },
+  {
+   "game_id": 1,
+   "id": 56,
+   "player_id": "0x1234",
+   "plan": 9,
+   "orientation": 1,
+   "x": 2147483655,
+   "y": 2147483647,
+   "occupied_spot": 7
+  },
+  {
+   "game_id": 1,
+   "id": 57,
+   "player_id": "0x1234",
+   "plan": 7,
+   "orientation": 3,
+   "x": 2147483651,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 58,
+   "player_id": "0x1234",
+   "plan": 5,
+   "orientation": 4,
+   "x": 2147483648,
+   "y": 2147483652,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 59,
+   "player_id": "0x1234",
+   "plan": 10,
+   "orientation": 1,
+   "x": 2147483655,
+   "y": 2147483648,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 60,
+   "player_id": "0x1234",
+   "plan": 18,
+   "orientation": 2,
+   "x": 2147483656,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 61,
+   "player_id": "0x1234",
+   "plan": 2,
+   "orientation": 1,
+   "x": 2147483656,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 62,
+   "player_id": "0x1234",
+   "plan": 8,
+   "orientation": 4,
+   "x": 2147483644,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 63,
+   "player_id": "0x1234",
+   "plan": 7,
+   "orientation": 1,
+   "x": 2147483654,
+   "y": 2147483645,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 64,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 2,
+   "x": 2147483653,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 65,
+   "player_id": "0x1234",
+   "plan": 8,
+   "orientation": 2,
+   "x": 2147483643,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 66,
+   "player_id": "0x1234",
+   "plan": 4,
+   "orientation": 3,
+   "x": 2147483653,
+   "y": 2147483650,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 67,
+   "player_id": "0x1234",
+   "plan": 10,
+   "orientation": 1,
+   "x": 2147483650,
+   "y": 2147483644,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 68,
+   "player_id": "0x1234",
+   "plan": 3,
+   "orientation": 1,
+   "x": 2147483657,
+   "y": 2147483651,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 69,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 1,
+   "x": 2147483651,
+   "y": 2147483644,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 70,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 3,
+   "x": 2147483654,
+   "y": 2147483652,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 71,
+   "player_id": "0x1234",
+   "plan": 13,
+   "orientation": 2,
+   "x": 2147483643,
+   "y": 2147483652,
+   "occupied_spot": 0
+  },
+  {
+   "game_id": 1,
+   "id": 72,
+   "player_id": "0x1234",
+   "plan": 2,
+   "orientation": 2,
+   "x": 2147483656,
+   "y": 2147483652,
+   "occupied_spot": 0
+  }
+ ],
+ "characters": [
+  {
+   "game_id": 1,
+   "player_id": "0x1234",
+   "index": 1,
+   "tile_id": 11,
+   "spot": 3,
+   "weight": 1,
+   "power": 1
+  },
+  {
+   "game_id": 1,
+   "player_id": "0x1234",
+   "index": 2,
+   "tile_id": 55,
+   "spot": 3,
+   "weight": 1,
+   "power": 1
+  },
+  {
+   "game_id": 1,
+   "player_id": "0x1234",
+   "index": 3,
+   "tile_id": 17,
+   "spot": 5,
+   "weight": 1,
+   "power": 1
+  },
+  {
+   "game_id": 1,
+   "player_id": "0x1234",
+   "index": 4,
+   "tile_id": 19,
+   "spot": 1,
+   "weight": 1,
+   "power": 1
+  },
+  {
+   "game_id": 1,
+   "player_id": "0x1234",
+   "index": 5,
+   "tile_id": 56,
+   "spot": 7,
+   "weight": 1,
+   "power": 1
+  },
+  {
+   "game_id": 1,
+   "player_id": "0x1234",
+   "index": 6,
+   "tile_id": 24,
+   "spot": 6,
+   "weight": 1,
+   "power": 1
+  }
+ ]
+}

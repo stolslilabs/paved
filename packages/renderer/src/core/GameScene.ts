@@ -31,6 +31,17 @@ const SHADOW_NEAR = 1;
 const SHADOW_FAR = 100;
 const SHADOW_FRUSTUM = 50;
 
+/**
+ * Read-only measurement hook for the frame-time bench: it observes the render loop and
+ * changes nothing about how a frame is rendered.
+ */
+export interface FrameObserver {
+  /** Called right before a frame is rendered (not on idle ticks). */
+  beforeRender?(): void;
+  /** Called at the end of every loop tick with the CPU time the tick took. */
+  afterTick?(info: { cpuMs: number; rendered: boolean }): void;
+}
+
 export interface GameSceneDependencies {
   createRenderer?: (surface: RenderSurfaceAdapter) => THREE.WebGLRenderer;
   createCameraController?: (surface: RenderSurfaceAdapter) => CameraController;
@@ -72,6 +83,7 @@ export class GameScene {
   private readonly dependencies: GameSceneDependencies;
   private sceneGroup: THREE.Group;
   private animationId: number | null = null;
+  private frameObserver: FrameObserver | null = null;
   private needsRender = true;
   private isWebGPU = false;
   private latestTiles: TileRenderData[] = [];
@@ -410,6 +422,9 @@ export class GameScene {
   start(): void {
     const animate = () => {
       this.animationId = requestAnimationFrame(animate);
+      const observer = this.frameObserver;
+      const tickStart = observer ? performance.now() : 0;
+      let rendered = false;
 
       // controls.update() returns true while damping is active
       const controlsChanged = this.controls.update();
@@ -418,12 +433,21 @@ export class GameScene {
       }
 
       if (this.needsRender) {
+        observer?.beforeRender?.();
         this.characters.updateBillboards(this.camera);
         this.effects.render();
         this.needsRender = false;
+        rendered = true;
       }
+
+      observer?.afterTick?.({ cpuMs: performance.now() - tickStart, rendered });
     };
     animate();
+  }
+
+  /** Attach (or detach with null) a read-only observer of the render loop. */
+  setFrameObserver(observer: FrameObserver | null): void {
+    this.frameObserver = observer;
   }
 
   /** Stop the render loop */
