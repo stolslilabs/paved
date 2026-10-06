@@ -11,8 +11,6 @@ pub const CENTER: u32 = 0x7fffffff;
 
 pub const DAILY_TOURNAMENT_PRICE: felt252 = 1_000_000_000_000_000_000;
 pub const DAILY_TOURNAMENT_DURATION: u64 = 86400; // 1 day
-pub const WEEKLY_TOURNAMENT_PRICE: felt252 = 1_000_000_000_000_000_000;
-pub const WEEKLY_TOURNAMENT_DURATION: u64 = 604800; // 1 week
 
 // Bonus curve
 

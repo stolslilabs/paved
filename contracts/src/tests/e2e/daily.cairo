@@ -1,8 +1,10 @@
+use paved::constants;
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
+use paved::models::tournament::TournamentTrait;
 use paved::store::StoreTrait;
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::IDailyDispatcherTrait;
+use paved::tests::setup::setup::{IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -18,6 +20,30 @@ fn test_daily_e2e_spawn_starts_game() {
     let mode: Mode = game.mode.into();
     assert(game.tile_count > 0, 'Daily e2e: game started');
     assert(mode == Mode::Daily, 'Daily e2e: game mode');
+}
+
+#[test]
+fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
+    // No game spawned by the setup: spawn here to observe the balances around it.
+    let (world, systems, context) = setup::spawn_game(Mode::None);
+    let store = StoreTrait::new(world);
+    let price: u256 = constants::DAILY_TOURNAMENT_PRICE.into();
+    let daily = systems.daily.contract_address;
+
+    let player_before = context.token.balance_of(PLAYER());
+    let pool_before = context.token.balance_of(daily);
+
+    let game_id = systems.daily.spawn();
+
+    let game = store.game(game_id);
+    let tournament_id = TournamentTrait::compute_id(
+        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
+    );
+    let prize: u256 = store.tournament(tournament_id).prize.into();
+
+    assert(player_before - context.token.balance_of(PLAYER()) == price, 'Daily: player debit');
+    assert(context.token.balance_of(daily) - pool_before == price, 'Daily: pool credit');
+    assert(prize == price, 'Daily: prize grows');
 }
 
 #[test]

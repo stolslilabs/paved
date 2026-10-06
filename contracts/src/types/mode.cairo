@@ -22,14 +22,14 @@ use paved::types::spot::Spot;
 
 pub const NONE: felt252 = 0;
 pub const DAILY: felt252 = 'DAILY';
-pub const WEEKLY: felt252 = 'WEEKLY';
 pub const TUTORIAL: felt252 = 'TUTORIAL';
+
+// The u8 codes of the modes are persisted in `Game.mode`: Tutorial keeps 3 (2 was Weekly).
 
 #[derive(Copy, Drop, Serde, PartialEq)]
 pub enum Mode {
     None,
     Daily,
-    Weekly,
     Tutorial,
 }
 
@@ -39,7 +39,6 @@ pub impl ModeImpl of ModeTrait {
     fn price(self: Mode) -> felt252 {
         match self {
             Mode::Daily => constants::DAILY_TOURNAMENT_PRICE,
-            Mode::Weekly => constants::WEEKLY_TOURNAMENT_PRICE,
             Mode::Tutorial => 0,
             _ => 0,
         }
@@ -49,7 +48,6 @@ pub impl ModeImpl of ModeTrait {
     fn duration(self: Mode) -> u64 {
         match self {
             Mode::Daily => constants::DAILY_TOURNAMENT_DURATION,
-            Mode::Weekly => constants::WEEKLY_TOURNAMENT_DURATION,
             Mode::Tutorial => 1,
             _ => 0,
         }
@@ -65,13 +63,6 @@ pub impl ModeImpl of ModeTrait {
                 let state = state.update(tournament_id.into());
                 state.finalize()
             },
-            Mode::Weekly => {
-                let state: HashState = PoseidonTrait::new();
-                let state = state.update(salt);
-                let state = state.update(game_id.into());
-                let state = state.update(time.into());
-                state.finalize()
-            },
             Mode::Tutorial => 0,
             _ => 0,
         }
@@ -81,7 +72,6 @@ pub impl ModeImpl of ModeTrait {
     fn deck(self: Mode) -> Deck {
         match self {
             Mode::Daily => Deck::Simple,
-            Mode::Weekly => Deck::Base,
             Mode::Tutorial => Deck::Tutorial,
             _ => Deck::None,
         }
@@ -91,7 +81,6 @@ pub impl ModeImpl of ModeTrait {
     fn draw(self: Mode, seed: felt252, tiles: u128) -> (Plan, u128) {
         match self {
             Mode::Daily => self._draw(seed, tiles),
-            Mode::Weekly => self._draw(seed, tiles),
             Mode::Tutorial => {
                 let deck: Deck = self.deck();
                 if tiles == 0 {
@@ -138,7 +127,6 @@ pub impl IntoModeFelt252 of Into<Mode, felt252> {
     fn into(self: Mode) -> felt252 {
         match self {
             Mode::Daily => DAILY,
-            Mode::Weekly => WEEKLY,
             Mode::Tutorial => TUTORIAL,
             _ => NONE,
         }
@@ -150,7 +138,6 @@ pub impl IntoModeU8 of Into<Mode, u8> {
     fn into(self: Mode) -> u8 {
         match self {
             Mode::Daily => 1,
-            Mode::Weekly => 2,
             Mode::Tutorial => 3,
             _ => 0,
         }
@@ -163,7 +150,6 @@ pub impl IntoU8Mode of Into<u8, Mode> {
         match self {
             0 => Mode::None,
             1 => Mode::Daily,
-            2 => Mode::Weekly,
             3 => Mode::Tutorial,
             _ => Mode::None,
         }
@@ -176,7 +162,7 @@ pub mod tests {
 
     // Local imports
 
-    use super::{DAILY, Mode, NONE, TUTORIAL, WEEKLY};
+    use super::{DAILY, Mode, NONE, TUTORIAL};
 
     // Constants
 
@@ -187,7 +173,6 @@ pub mod tests {
     fn test_mode_into_felt() {
         assert(NONE == Mode::None.into(), 'Mode: wrong None');
         assert(DAILY == Mode::Daily.into(), 'Mode: wrong Daily');
-        assert(WEEKLY == Mode::Weekly.into(), 'Mode: wrong Weekly');
         assert(TUTORIAL == Mode::Tutorial.into(), 'Mode: wrong Tutorial');
     }
 
@@ -195,7 +180,6 @@ pub mod tests {
     fn test_felt_into_mode() {
         assert(NONE == Mode::None.into(), 'Mode: wrong None');
         assert(DAILY == Mode::Daily.into(), 'Mode: wrong Daily');
-        assert(WEEKLY == Mode::Weekly.into(), 'Mode: wrong Weekly');
         assert(TUTORIAL == Mode::Tutorial.into(), 'Mode: wrong Tutorial');
     }
 
@@ -203,7 +187,6 @@ pub mod tests {
     fn test_mode_into_u8() {
         assert(0_u8 == Mode::None.into(), 'Mode: wrong None');
         assert(1_u8 == Mode::Daily.into(), 'Mode: wrong Daily');
-        assert(2_u8 == Mode::Weekly.into(), 'Mode: wrong Weekly');
         assert(3_u8 == Mode::Tutorial.into(), 'Mode: wrong Tutorial');
     }
 
@@ -211,7 +194,6 @@ pub mod tests {
     fn test_u8_into_mode() {
         assert(Mode::None == 0_u8.into(), 'Mode: wrong None');
         assert(Mode::Daily == 1_u8.into(), 'Mode: wrong Daily');
-        assert(Mode::Weekly == 2_u8.into(), 'Mode: wrong Weekly');
         assert(Mode::Tutorial == 3_u8.into(), 'Mode: wrong Tutorial');
     }
 

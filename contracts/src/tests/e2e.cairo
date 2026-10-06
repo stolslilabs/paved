@@ -1,10 +1,4 @@
-pub mod configurable_creation;
 pub mod daily;
 pub mod daily_advanced;
-pub mod economy_compat;
-pub mod economy_entry_split;
-pub mod economy_spawn_claim;
 pub mod tutorial;
 pub mod tutorial_advanced;
-pub mod weekly;
-pub mod weekly_advanced;

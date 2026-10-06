@@ -77,9 +77,7 @@ pub mod Tutorial {
     impl TutorialImpl of ITutorial<ContractState> {
         fn spawn(self: @ContractState) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, _, _, _) = self
-                .hostable
-                .spawn(self.world(@"paved").dispatcher, Mode::Tutorial);
+            let (game_id, _) = self.hostable.spawn(self.world(@"paved").dispatcher, Mode::Tutorial);
             // [Return] Game ID
             game_id
         }

@@ -50,10 +50,7 @@ pub mod elements {
 
 pub mod helpers {
     pub mod bitmap;
-    pub mod config_templates;
-    pub mod config_validation;
     pub mod conflict;
-    pub mod economy_curve;
     pub mod generic;
     pub mod math;
     pub mod multiplier;
@@ -64,7 +61,6 @@ pub mod helpers {
 pub mod models {
     pub mod builder;
     pub mod character;
-    pub mod economy;
     pub mod game;
     pub mod index;
     pub mod player;
@@ -83,11 +79,8 @@ pub mod components {
 
 pub mod systems {
     pub mod account;
-    pub mod configurable;
     pub mod daily;
-    pub mod economy;
     pub mod tutorial;
-    pub mod weekly;
 }
 
 pub mod mocks {
