@@ -21,7 +21,7 @@ Measured on 2026-10-06, Apple Silicon Mac (macOS, arm64), bun 1.3.1, turbo 2.8.1
 | Step | Peak memory | Wall time |
 |---|---|---|
 | `bun install` (cold, 1524 packages) | 12.9 GB | 250 s |
-| `bun run build` (cold, without app-native) | 1.9 GB | 9.6 s |
+| `bun run build` (cold, `--force`, all 6 packages) | 2.0 GB | 10.1 s |
 | `bun run test` (after build, 5 packages cached) | 0.2 GB | 3.4 s |
 
 The cold install's peak is large: do not run it on a small machine. Warm builds hit the turbo cache.
