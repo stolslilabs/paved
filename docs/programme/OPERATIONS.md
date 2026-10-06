@@ -46,7 +46,7 @@ repeats this rule.
   `/Users/bal7hazar/git/paved` (only as the source of its worktree, rule above). Pins and measures that
   commit a figure stay on Linux (CI or VPS). The Mac restarts for updates and its agents come back
   logged out.
-- **Tests are scoped** as in [`PROJECT.md`](../../PROJECT.md). Briefs name the parts touched and their
+- **Tests are scoped** as in [`AGENTS.md`](../../AGENTS.md). Briefs name the parts touched and their
   test command.
 - No deployment to a production network without the owner's go (reserved act).
 
