@@ -21,4 +21,4 @@ inlining-strategy = "avoid"
 
 [dev-dependencies]
 cairo_test = "2.20.1"
-snforge_std = "0.64.0"
+snforge_std = "=0.64.0"

@@ -16,7 +16,7 @@ cd contracts
 RAYON_NUM_THREADS=1 snforge test golden
 ```
 
-With the pinned toolchain (scarb 2.13.1, snforge 0.51.2). Peak memory measured for this command:
+With the toolchain of P0 (scarb 2.13.1, snforge 0.51.2; P3 runs on 2.20.1 / 0.64.0, see "Gas budget"). Peak memory measured for this command at P0:
 about 3.7 GB (`/usr/bin/time -v`).
 
 ## Cases
