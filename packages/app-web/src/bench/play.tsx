@@ -190,7 +190,6 @@ class PlayBench {
   }
 }
 
-const DEFAULT_LOCAL_WORLD = "0x04d8a741b4c0680c3f3de05808173c3640428a841d75f9055f250d1f9cff3ad1";
 
 export function mountPlay(): void {
   const params = new URLSearchParams(window.location.search);
@@ -214,8 +213,7 @@ export function mountPlay(): void {
   const config = createDojoConfig({
     rpcUrl: profile.rpcUrl,
     toriiUrl: profile.toriiUrl,
-    worldAddress: profile.worldAddress || profile.manifest?.world?.address || DEFAULT_LOCAL_WORLD,
-    manifest: profile.manifest,
+    addresses: profile.addresses,
     profile: profile.key,
     profileLabel: profile.label,
     supportsTokenMint: profile.supportsMint,

@@ -39,7 +39,11 @@ pub mod Daily {
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;
     use paved::types::spot::Spot;
-    use starknet::{ContractAddress, get_caller_address};
+    use paved::views::{
+        BuilderView, CharacterView, GameView, IGameView, ITournamentView, TileView, TournamentView,
+        ViewsImpl,
+    };
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
 
     // Local imports
 
@@ -156,6 +160,37 @@ pub mod Daily {
         ) {
             // [Effect] Build a tile
             self.playable.build(game_id, orientation, x, y, role, spot);
+        }
+    }
+    #[abi(embed_v0)]
+    impl GameViewImpl of IGameView<ContractState> {
+        fn game(self: @ContractState, game_id: u32) -> GameView {
+            ViewsImpl::game(StoreImpl::new(), game_id)
+        }
+
+        fn tiles(self: @ContractState, game_id: u32, from: u32, count: u32) -> Array<TileView> {
+            ViewsImpl::tiles(StoreImpl::new(), game_id, from, count)
+        }
+
+        fn builder(self: @ContractState, game_id: u32, player_id: felt252) -> BuilderView {
+            ViewsImpl::builder(StoreImpl::new(), game_id, player_id)
+        }
+
+        fn characters(
+            self: @ContractState, game_id: u32, player_id: felt252,
+        ) -> Array<CharacterView> {
+            ViewsImpl::characters(StoreImpl::new(), game_id, player_id)
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl TournamentViewImpl of ITournamentView<ContractState> {
+        fn tournament(self: @ContractState, id: u64) -> TournamentView {
+            ViewsImpl::tournament(StoreImpl::new(), id, get_block_timestamp())
+        }
+
+        fn current_tournament_id(self: @ContractState) -> u64 {
+            ViewsImpl::current_tournament_id(get_block_timestamp())
         }
     }
 }

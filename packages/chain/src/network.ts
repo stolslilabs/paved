@@ -1,12 +1,21 @@
 export type ChainProfileKey = "local" | "slot" | "sepolia";
 
+/** Addresses of the native contracts; an empty string means "not configured". */
+export interface ContractAddresses {
+  account: string;
+  daily: string;
+  tutorial: string;
+  token: string;
+}
+
 export interface ChainProfile {
   key: ChainProfileKey;
   label: string;
   rpcUrl: string;
   toriiUrl: string;
-  worldAddress: string;
-  manifest: any;
+  addresses: ContractAddresses;
+  /** True when every contract address is set. */
+  configured: boolean;
   supportsTokenMint: boolean;
 }
 
@@ -14,12 +23,11 @@ export interface ResolveChainProfileInput {
   profile?: string;
   rpcUrl?: string;
   toriiUrl?: string;
-  worldAddress?: string;
+  addresses?: Partial<ContractAddresses>;
   supportsTokenMint?: boolean | string;
-  manifests: Partial<Record<ChainProfileKey, any>>;
 }
 
-const DEFAULTS: Record<ChainProfileKey, Omit<ChainProfile, "worldAddress" | "manifest">> = {
+const DEFAULTS: Record<ChainProfileKey, Omit<ChainProfile, "addresses" | "configured">> = {
   local: {
     key: "local",
     label: "Local Dev",
@@ -58,14 +66,20 @@ function parseMintSupport(value: boolean | string | undefined, fallback: boolean
 export function resolveChainProfileConfig(input: ResolveChainProfileInput): ChainProfile {
   const key = parseProfile(input.profile);
   const defaults = DEFAULTS[key];
+  const addresses: ContractAddresses = {
+    account: input.addresses?.account || "",
+    daily: input.addresses?.daily || "",
+    tutorial: input.addresses?.tutorial || "",
+    token: input.addresses?.token || "",
+  };
 
   return {
     key,
     label: defaults.label,
     rpcUrl: input.rpcUrl || defaults.rpcUrl,
     toriiUrl: input.toriiUrl || defaults.toriiUrl,
-    worldAddress: input.worldAddress || "",
-    manifest: input.manifests[key] ?? null,
+    addresses,
+    configured: Object.values(addresses).every(Boolean),
     supportsTokenMint: parseMintSupport(input.supportsTokenMint, defaults.supportsTokenMint),
   };
 }

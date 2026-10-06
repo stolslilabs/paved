@@ -1,6 +1,7 @@
 pub mod constants;
 pub mod events;
 pub mod store;
+pub mod views;
 
 pub mod types {
     pub mod area;

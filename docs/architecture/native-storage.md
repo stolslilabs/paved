@@ -9,7 +9,8 @@ events and the access rules. Brief: `docs/briefs/p2-native.md`.
 Three game contracts and one test token, as under Dojo, with the same interfaces (`IAccount`,
 `IDaily`, `ITutorial`; same function names, arguments and returns). Two changes: the functions that
 write state take `ref self` (they were `self: @` under Dojo, where the world did the writing, so the
-ABI now marks them `external` instead of `view`), and `IAccount` gains the view `player(id)`:
+ABI now marks them `external` instead of `view`), and `IAccount` gains the view `player(id)`. `Daily` and `Tutorial` also expose the read-only views of
+`IGameView` (and `Daily` those of `ITournamentView`), documented in `public-interface.md`:
 
 | Contract | Role | Constructor |
 |---|---|---|
@@ -77,15 +78,18 @@ and data as the contract's `self.emit` would.
 | Event | Contract | Fields (`key` first) | When |
 |---|---|---|---|
 | `PlayerCreated` | Account | `key player_id`, `name`, `master` | `create` |
-| `GameSpawned` | Daily, Tutorial | `key game_id`, `player_id`, `mode`, `tournament_id`, `start_time`, `price` | `spawn` |
+| `GameSpawned` | Daily, Tutorial | `key game_id`, `key player_id`, `mode`, `tournament_id`, `start_time`, `price` | `spawn` |
 | `Built` | Daily, Tutorial | `key game_id`, `player_id`, `tile_id`, `plan`, `orientation`, `x`, `y`, `role`, `spot` | a tile is built |
 | `Discarded` | Daily, Tutorial | `key game_id`, `player_id`, `tile_id`, `plan`, `points` (penalty) | a tile is discarded |
 | `Scored` | Daily, Tutorial | `key game_id`, `player_id`, `category`, `size` (tiles; 0 for a wonder), `points` | a structure is solved and scores |
-| `GameOver` | Daily, Tutorial | `key game_id`, `key tournament_id`, `player_id`, `mode`, `score`, `start_time`, `end_time` | the game ends (last tile, or surrender); `tournament_id` and `end_time` are 0 when the game ended after its tournament closed (it does not count), and always in Tutorial |
+| `GameOver` | Daily, Tutorial | `key game_id`, `key player_id`, `key tournament_id`, `mode`, `score`, `start_time`, `end_time` | the game ends (last tile, or surrender); `tournament_id` and `end_time` are 0 when the game ended after its tournament closed (it does not count), and always in Tutorial |
 | `Sponsored` | Daily | `key tournament_id`, `sponsor`, `amount` | `sponsor` |
 | `Claimed` | Daily | `key tournament_id`, `player_id`, `rank`, `reward` | `claim` |
 | `OwnershipTransferred` | all three | `previous_owner`, `new_owner` | constructor, `transfer_ownership` |
 | `Upgraded` | all three | `class_hash` | `upgrade` |
+
+`player_id` is a key of `GameSpawned` and `GameOver` so that a client lists a player's games from
+events (`docs/architecture/public-interface.md`).
 
 `category` is the `Category` value (`types/category.cairo`), `mode` the `Mode` value, `plan`,
 `orientation`, `role`, `spot` their `u8` values. The ERC20 mock keeps its OpenZeppelin events.
@@ -117,8 +121,10 @@ Entry points (every `external` function):
 | Daily | `surrender(game_id)` | the player of `game_id` | same |
 | Daily | `claim(tournament_id, rank)` | the player at `rank` of a closed tournament | registered player, tournament exists, rank holder, not claimed, tournament over |
 | Daily | `sponsor(amount)` | anyone with the token approved | current tournament exists; pays `amount` (`transferFrom` caller) |
+| Daily | `game`, `tiles`, `builder`, `characters`, `tournament`, `current_tournament_id` (views) | anyone | none; see `public-interface.md` |
 | Tutorial | `spawn()` | a registered player | `Player: Does not exist` |
 | Tutorial | `build(game_id)`, `discard(game_id)`, `surrender(game_id)` | the player of `game_id` | builder `(game_id, caller)` exists, game started and not over |
+| Tutorial | `game`, `tiles`, `builder`, `characters` (views) | anyone | none; see `public-interface.md` |
 | all three | `owner()` (view) | anyone | none |
 | all three | `transfer_ownership(new_owner)` | owner | `Ownable: caller is not owner`, `new_owner` non-zero |
 | all three | `upgrade(class_hash)` | owner | `Ownable: caller is not owner`, `class_hash` non-zero |

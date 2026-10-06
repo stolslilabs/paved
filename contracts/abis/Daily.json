@@ -1,0 +1,1062 @@
+[
+  {
+    "type": "impl",
+    "name": "DailyImpl",
+    "interface_name": "paved::systems::daily::IDaily"
+  },
+  {
+    "type": "enum",
+    "name": "paved::types::orientation::Orientation",
+    "variants": [
+      {
+        "name": "None",
+        "type": "()"
+      },
+      {
+        "name": "North",
+        "type": "()"
+      },
+      {
+        "name": "East",
+        "type": "()"
+      },
+      {
+        "name": "South",
+        "type": "()"
+      },
+      {
+        "name": "West",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "enum",
+    "name": "paved::types::role::Role",
+    "variants": [
+      {
+        "name": "None",
+        "type": "()"
+      },
+      {
+        "name": "Lord",
+        "type": "()"
+      },
+      {
+        "name": "Lady",
+        "type": "()"
+      },
+      {
+        "name": "Adventurer",
+        "type": "()"
+      },
+      {
+        "name": "Paladin",
+        "type": "()"
+      },
+      {
+        "name": "Pilgrim",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "enum",
+    "name": "paved::types::spot::Spot",
+    "variants": [
+      {
+        "name": "None",
+        "type": "()"
+      },
+      {
+        "name": "Center",
+        "type": "()"
+      },
+      {
+        "name": "NorthWest",
+        "type": "()"
+      },
+      {
+        "name": "North",
+        "type": "()"
+      },
+      {
+        "name": "NorthEast",
+        "type": "()"
+      },
+      {
+        "name": "East",
+        "type": "()"
+      },
+      {
+        "name": "SouthEast",
+        "type": "()"
+      },
+      {
+        "name": "South",
+        "type": "()"
+      },
+      {
+        "name": "SouthWest",
+        "type": "()"
+      },
+      {
+        "name": "West",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::daily::IDaily",
+    "items": [
+      {
+        "type": "function",
+        "name": "spawn",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u32"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "claim",
+        "inputs": [
+          {
+            "name": "tournament_id",
+            "type": "core::integer::u64"
+          },
+          {
+            "name": "rank",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "sponsor",
+        "inputs": [
+          {
+            "name": "amount",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "discard",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "surrender",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "build",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "orientation",
+            "type": "paved::types::orientation::Orientation"
+          },
+          {
+            "name": "x",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "y",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "role",
+            "type": "paved::types::role::Role"
+          },
+          {
+            "name": "spot",
+            "type": "paved::types::spot::Spot"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "GameViewImpl",
+    "interface_name": "paved::views::IGameView"
+  },
+  {
+    "type": "enum",
+    "name": "core::bool",
+    "variants": [
+      {
+        "name": "False",
+        "type": "()"
+      },
+      {
+        "name": "True",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::GameView",
+    "members": [
+      {
+        "name": "id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "mode",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "seed",
+        "type": "core::felt252"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "over",
+        "type": "core::bool"
+      },
+      {
+        "name": "tile_count",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "placed_count",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "discarded_count",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "remaining_count",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "deck_size",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "start_time",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "end_time",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "tournament_id",
+        "type": "core::integer::u64"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::TileView",
+    "members": [
+      {
+        "name": "id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "status",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "orientation",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::BuilderView",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "placed_count",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "available_count",
+        "type": "core::integer::u8"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::CharacterView",
+    "members": [
+      {
+        "name": "role",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "placed",
+        "type": "core::bool"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "spot",
+        "type": "core::integer::u8"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::views::IGameView",
+    "items": [
+      {
+        "type": "function",
+        "name": "game",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::views::GameView"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "tiles",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "from",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "count",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<paved::views::TileView>"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "builder",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::views::BuilderView"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "characters",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<paved::views::CharacterView>"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "TournamentViewImpl",
+    "interface_name": "paved::views::ITournamentView"
+  },
+  {
+    "type": "struct",
+    "name": "core::integer::u256",
+    "members": [
+      {
+        "name": "low",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "high",
+        "type": "core::integer::u128"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::views::TournamentView",
+    "members": [
+      {
+        "name": "id",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "start_time",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "end_time",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "over",
+        "type": "core::bool"
+      },
+      {
+        "name": "prize",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "top1_player_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "top1_score",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "top1_claimed",
+        "type": "core::bool"
+      },
+      {
+        "name": "top2_player_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "top2_score",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "top2_claimed",
+        "type": "core::bool"
+      },
+      {
+        "name": "top3_player_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "top3_score",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "top3_claimed",
+        "type": "core::bool"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::views::ITournamentView",
+    "items": [
+      {
+        "type": "function",
+        "name": "tournament",
+        "inputs": [
+          {
+            "name": "id",
+            "type": "core::integer::u64"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::views::TournamentView"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "current_tournament_id",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u64"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "OwnableImpl",
+    "interface_name": "paved::components::ownable::IOwnable"
+  },
+  {
+    "type": "interface",
+    "name": "paved::components::ownable::IOwnable",
+    "items": [
+      {
+        "type": "function",
+        "name": "owner",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "transfer_ownership",
+        "inputs": [
+          {
+            "name": "new_owner",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "upgrade",
+        "inputs": [
+          {
+            "name": "class_hash",
+            "type": "core::starknet::class_hash::ClassHash"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "constructor",
+    "name": "constructor",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "account_address",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "token_address",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::PlayerCreated",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "name",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "master",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::GameSpawned",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "mode",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "tournament_id",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "start_time",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "price",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Built",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "orientation",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "x",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "y",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "role",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "spot",
+        "type": "core::integer::u8",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Discarded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "tile_id",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "plan",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "points",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Scored",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "category",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "size",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "points",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::GameOver",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "tournament_id",
+        "type": "core::integer::u64",
+        "kind": "key"
+      },
+      {
+        "name": "mode",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "start_time",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "end_time",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Sponsored",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "tournament_id",
+        "type": "core::integer::u64",
+        "kind": "key"
+      },
+      {
+        "name": "sponsor",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "amount",
+        "type": "core::felt252",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Claimed",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "tournament_id",
+        "type": "core::integer::u64",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "rank",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "reward",
+        "type": "core::integer::u256",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::events::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "PlayerCreated",
+        "type": "paved::events::PlayerCreated",
+        "kind": "nested"
+      },
+      {
+        "name": "GameSpawned",
+        "type": "paved::events::GameSpawned",
+        "kind": "nested"
+      },
+      {
+        "name": "Built",
+        "type": "paved::events::Built",
+        "kind": "nested"
+      },
+      {
+        "name": "Discarded",
+        "type": "paved::events::Discarded",
+        "kind": "nested"
+      },
+      {
+        "name": "Scored",
+        "type": "paved::events::Scored",
+        "kind": "nested"
+      },
+      {
+        "name": "GameOver",
+        "type": "paved::events::GameOver",
+        "kind": "nested"
+      },
+      {
+        "name": "Sponsored",
+        "type": "paved::events::Sponsored",
+        "kind": "nested"
+      },
+      {
+        "name": "Claimed",
+        "type": "paved::events::Claimed",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::hostable::HostableComponent::Event",
+    "kind": "enum",
+    "variants": []
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "previous_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "new_owner",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::Upgraded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "class_hash",
+        "type": "core::starknet::class_hash::ClassHash",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::ownable::OwnableComponent::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "OwnershipTransferred",
+        "type": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
+        "kind": "nested"
+      },
+      {
+        "name": "Upgraded",
+        "type": "paved::components::ownable::OwnableComponent::Upgraded",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::components::payable::PayableComponent::Event",
+    "kind": "enum",
+    "variants": []
+  },
+  {
+    "type": "event",
+    "name": "paved::components::playable::PlayableComponent::Event",
+    "kind": "enum",
+    "variants": []
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::daily::Daily::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "PavedEvent",
+        "type": "paved::events::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "HostableEvent",
+        "type": "paved::components::hostable::HostableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "OwnableEvent",
+        "type": "paved::components::ownable::OwnableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "PayableEvent",
+        "type": "paved::components::payable::PayableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "PlayableEvent",
+        "type": "paved::components::playable::PlayableComponent::Event",
+        "kind": "flat"
+      }
+    ]
+  }
+]

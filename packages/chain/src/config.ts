@@ -1,3 +1,5 @@
+import type { ContractAddresses } from "./network";
+
 export interface DojoConfig {
   rpcUrl: string;
   toriiUrl: string;
@@ -6,8 +8,11 @@ export interface DojoConfig {
   masterPrivateKey: string;
   accountClassHash: string;
   feeTokenAddress: string;
-  worldAddress: string;
+  addresses: ContractAddresses;
+  /** Manifest-shaped view of `addresses` (tag -> address) for DojoProvider; built here, not read from a file. */
   manifest: any;
+  /** False while a contract address is missing: the app shows "not configured" instead of calling a chain. */
+  configured: boolean;
   profile?: string;
   profileLabel?: string;
   supportsTokenMint?: boolean;
@@ -23,12 +28,29 @@ const DEFAULT_CONFIG: Partial<DojoConfig> = {
   feeTokenAddress: "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
 };
 
-export function createDojoConfig(overrides: Partial<DojoConfig> = {}): DojoConfig {
+export function createDojoConfig(
+  overrides: Partial<Omit<DojoConfig, "manifest" | "configured">> = {},
+): DojoConfig {
   const config = { ...DEFAULT_CONFIG, ...overrides } as DojoConfig;
+  const addresses: ContractAddresses = {
+    account: "",
+    daily: "",
+    tutorial: "",
+    token: "",
+    ...overrides.addresses,
+  };
 
-  if (!config.worldAddress) {
-    throw new Error("worldAddress is required in DojoConfig");
-  }
+  config.addresses = addresses;
+  config.configured = Object.values(addresses).every(Boolean);
+  config.manifest = {
+    world: { address: "" },
+    contracts: [
+      { tag: "paved-Account", address: addresses.account },
+      { tag: "paved-Daily", address: addresses.daily },
+      { tag: "paved-Tutorial", address: addresses.tutorial },
+      { tag: "paved-Token", address: addresses.token },
+    ],
+  };
 
   return config;
 }
