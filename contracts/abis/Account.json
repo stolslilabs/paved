@@ -151,7 +151,7 @@
       {
         "name": "player_id",
         "type": "core::felt252",
-        "kind": "data"
+        "kind": "key"
       },
       {
         "name": "mode",
@@ -302,14 +302,14 @@
         "kind": "key"
       },
       {
-        "name": "tournament_id",
-        "type": "core::integer::u64",
+        "name": "player_id",
+        "type": "core::felt252",
         "kind": "key"
       },
       {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "data"
+        "name": "tournament_id",
+        "type": "core::integer::u64",
+        "kind": "key"
       },
       {
         "name": "mode",
