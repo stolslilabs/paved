@@ -72,15 +72,75 @@ fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
     store.set_tournament(tournament);
 
     let balance_before = context.token.balance_of(PLAYER());
+    let pool_before = context.token.balance_of(systems.daily.contract_address);
 
     start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
     systems.daily.claim(tournament_id, 1);
 
     let tournament = store.tournament(tournament_id);
     let balance_after = context.token.balance_of(PLAYER());
+    let pool_after = context.token.balance_of(systems.daily.contract_address);
+    let prize: u256 = tournament.prize.into();
 
     assert(tournament.top1_claimed, 'Daily: claim marked');
-    assert(balance_after > balance_before, 'Daily: claim reward');
+    assert(prize == constants::DAILY_TOURNAMENT_PRICE.into(), 'Daily: prize is entry');
+    assert(balance_after - balance_before == prize, 'Daily: claim reward');
+    assert(pool_before - pool_after == prize, 'Daily: pool debit');
+}
+
+#[test]
+fn test_daily_e2e_claim_pays_exact_reward_per_rank() {
+    start_cheat_block_timestamp_global(100);
+
+    let (world, systems, context) = setup::spawn_game(Mode::Daily);
+    let store = StoreTrait::new(world);
+
+    let game = store.game(context.game_id);
+    let tournament_id = TournamentTrait::compute_id(
+        game.start_time, constants::DAILY_TOURNAMENT_DURATION,
+    );
+
+    // Force the three ranks: PLAYER first, ANYONE second, SOMEONE third.
+    let mut tournament = store.tournament(tournament_id);
+    tournament.top1_player_id = context.player_id;
+    tournament.top1_score = 3;
+    tournament.top2_player_id = context.anyone_id;
+    tournament.top2_score = 2;
+    tournament.top3_player_id = context.someone_id;
+    tournament.top3_score = 1;
+    store.set_tournament(tournament);
+
+    // Prize 1e18: rank 3 = prize / 6, rank 2 = (prize - rank 3) / 3, rank 1 = the rest.
+    let prize: u256 = tournament.prize.into();
+    assert(prize == 1_000_000_000_000_000_000_u256, 'Daily: prize');
+    let reward_1: u256 = 555_555_555_555_555_556;
+    let reward_2: u256 = 277_777_777_777_777_778;
+    let reward_3: u256 = 166_666_666_666_666_666;
+    assert(reward_1 + reward_2 + reward_3 == prize, 'Daily: rewards sum');
+
+    let daily = systems.daily.contract_address;
+    let pool_before = context.token.balance_of(daily);
+    let before_1 = context.token.balance_of(PLAYER());
+    let before_2 = context.token.balance_of(ANYONE());
+    let before_3 = context.token.balance_of(SOMEONE());
+
+    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
+    systems.daily.claim(tournament_id, 1);
+    start_cheat_caller_address(daily, ANYONE());
+    systems.daily.claim(tournament_id, 2);
+    start_cheat_caller_address(daily, SOMEONE());
+    systems.daily.claim(tournament_id, 3);
+    stop_cheat_caller_address(daily);
+
+    assert(context.token.balance_of(PLAYER()) - before_1 == reward_1, 'Daily: reward 1');
+    assert(context.token.balance_of(ANYONE()) - before_2 == reward_2, 'Daily: reward 2');
+    assert(context.token.balance_of(SOMEONE()) - before_3 == reward_3, 'Daily: reward 3');
+    assert(pool_before - context.token.balance_of(daily) == prize, 'Daily: pool debit');
+
+    let tournament = store.tournament(tournament_id);
+    assert(tournament.top1_claimed, 'Daily: claim 1 marked');
+    assert(tournament.top2_claimed, 'Daily: claim 2 marked');
+    assert(tournament.top3_claimed, 'Daily: claim 3 marked');
 }
 
 #[test]

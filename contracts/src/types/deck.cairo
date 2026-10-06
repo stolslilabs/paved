@@ -18,7 +18,8 @@ use paved::types::spot::Spot;
 pub const NONE: felt252 = 0;
 pub const MULTIPLIER: u128 = 10_000;
 
-// The u8 codes of the decks are persisted: Simple keeps 2 (1 was Base, used by Weekly).
+// The u8 code of Simple stays 2 and Tutorial 3 (1 was Base, used by Weekly), so the codes do not
+// shift.
 
 #[derive(Copy, Drop, Serde)]
 pub enum Deck {
