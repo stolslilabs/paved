@@ -1,0 +1,214 @@
+//! Shared harness of the golden games.
+//!
+//! A golden game is a list of `GoldenMove`: the tile that must have been drawn, what the player
+//! does with it, and the game score expected once the move is played. The harness replays the list
+//! against the real systems and checks every step, so any change of a rule, of the deck draw or of
+//! the scoring shows up at the first move that diverges.
+
+use paved::models::game::{Game, GameTrait};
+use paved::models::tile::Tile;
+use paved::store::{Store, StoreTrait};
+use paved::systems::tutorial::ITutorialDispatcherTrait;
+use paved::tests::setup::setup;
+use paved::tests::setup::setup::IDailyDispatcherTrait;
+use paved::types::mode::Mode;
+use paved::types::orientation::Orientation;
+use paved::types::plan::Plan;
+use paved::types::role::Role;
+use paved::types::spot::Spot;
+use starknet::ContractAddress;
+
+/// One step of a golden game.
+/// `orientation == Orientation::None` means that the drawn tile is discarded.
+#[derive(Copy, Drop)]
+pub struct GoldenMove {
+    /// Plan of the tile that the builder must hold before the move.
+    pub plan: Plan,
+    pub orientation: Orientation,
+    pub x: u32,
+    pub y: u32,
+    pub role: Role,
+    pub spot: Spot,
+    /// Game score once the move is played.
+    pub score: u32,
+}
+
+/// Final state of a golden game.
+#[derive(Copy, Drop)]
+pub struct GoldenOutcome {
+    pub score: u32,
+    pub built: u8,
+    pub discarded: u8,
+    /// Tile count, the starter tile included.
+    pub tile_count: u32,
+    pub over: bool,
+}
+
+/// Seconds of the first tournament day used by the Daily golden games, plus a day offset.
+pub fn day(index: u64) -> u64 {
+    86400 * (1000 + index) + 3600
+}
+
+pub fn mv(
+    plan: Plan, orientation: Orientation, x: u32, y: u32, role: Role, spot: Spot, score: u32,
+) -> GoldenMove {
+    GoldenMove { plan, orientation, x, y, role, spot, score }
+}
+
+pub fn discard(plan: Plan, score: u32) -> GoldenMove {
+    GoldenMove {
+        plan, orientation: Orientation::None, x: 0, y: 0, role: Role::None, spot: Spot::None, score,
+    }
+}
+
+pub fn assert_outcome(name: felt252, game: Game, outcome: GoldenOutcome) {
+    assert_eq!(game.score, outcome.score, "Golden {}: final score", name);
+    assert_eq!(game.built, outcome.built, "Golden {}: built count", name);
+    assert_eq!(game.discarded, outcome.discarded, "Golden {}: discard count", name);
+    assert_eq!(game.tile_count, outcome.tile_count, "Golden {}: tile count", name);
+    assert_eq!(game.is_over(), outcome.over, "Golden {}: game over", name);
+}
+
+/// Set to true to print the observed values instead of asserting them (used to record a new case).
+const RECORD: bool = false;
+
+/// Spawns a Daily game for `caller` at `timestamp` and replays `moves` on it.
+/// - `forced`: the drawn tile is replaced by the plan of the move (the deck draw is not under
+/// test),
+///   otherwise the plan drawn by the real deck must be the one of the move.
+/// - `tile_limit`: when not zero, shortens the deck so that the game ends in a few moves.
+/// Returns the final game.
+pub fn play_daily(
+    name: felt252,
+    timestamp: u64,
+    caller: ContractAddress,
+    forced: bool,
+    tile_limit: u16,
+    moves: Span<GoldenMove>,
+    outcome: GoldenOutcome,
+) -> Game {
+    snforge_std::start_cheat_block_timestamp_global(timestamp);
+    let (world, systems, _) = setup::spawn_game(Mode::None);
+    snforge_std::start_cheat_caller_address(systems.daily.contract_address, caller);
+    let game_id = systems.daily.spawn();
+    let store = StoreTrait::new(world);
+    if tile_limit != 0 {
+        let mut game = store.game(game_id);
+        game.tile_limit = tile_limit;
+        store.set_game(game);
+    }
+
+    let mut step: u32 = 0;
+    for golden in moves {
+        let game = store.game(game_id);
+        let builder = store.builder(game, caller.into());
+        let mut tile: Tile = store.tile(game, builder.tile_id);
+        if forced {
+            tile.plan = (*golden.plan).into();
+            store.set_tile(tile);
+        } else if RECORD {
+            let before: u8 = tile.plan;
+            println!("GOLDEN {} step={} plan_before={}", name, step, before);
+        } else {
+            let drawn: u8 = tile.plan;
+            let expected: u8 = (*golden.plan).into();
+            assert_eq!(drawn, expected, "Golden {}: drawn plan at step {}", name, step);
+        }
+        if *golden.orientation == Orientation::None {
+            systems.daily.discard(game_id);
+        } else {
+            systems
+                .daily
+                .build(
+                    game_id, *golden.orientation, *golden.x, *golden.y, *golden.role, *golden.spot,
+                );
+        }
+        let game = store.game(game_id);
+        if RECORD {
+            let drawn: felt252 = store
+                .tile(game, store.builder(game, caller.into()).tile_id)
+                .plan
+                .into();
+            println!("GOLDEN {} step={} score={} next_plan={}", name, step, game.score, drawn);
+        } else {
+            assert_eq!(game.score, *golden.score, "Golden {}: score at step {}", name, step);
+        }
+        step += 1;
+    }
+
+    let game = store.game(game_id);
+    if RECORD {
+        println!(
+            "GOLDEN {} end score={} built={} discarded={} tile_count={} over={}",
+            name,
+            game.score,
+            game.built,
+            game.discarded,
+            game.tile_count,
+            game.is_over(),
+        );
+    } else {
+        assert_outcome(name, game, outcome);
+    }
+    game
+}
+
+/// One step of a golden Tutorial game: the tutorial places the tile by itself, the player only
+/// builds or discards.
+#[derive(Copy, Drop)]
+pub struct TutorialStep {
+    /// Plan of the tile that the builder must hold before the step.
+    pub plan: Plan,
+    pub discard: bool,
+    /// Game score once the step is played.
+    pub score: u32,
+}
+
+/// Spawns a Tutorial game and replays `steps` on it. Returns the final game.
+pub fn play_tutorial(name: felt252, steps: Span<TutorialStep>, outcome: GoldenOutcome) -> Game {
+    let (world, systems, context) = setup::spawn_game(Mode::Tutorial);
+    let store = StoreTrait::new(world);
+    let game_id = context.game_id;
+
+    let mut step: u32 = 0;
+    for golden in steps {
+        let game = store.game(game_id);
+        let builder = store.builder(game, context.player_id);
+        let tile: Tile = store.tile(game, builder.tile_id);
+        let before: u8 = tile.plan;
+        if RECORD {
+            println!("GOLDEN {} step={} plan_before={}", name, step, before);
+        } else {
+            let expected: u8 = (*golden.plan).into();
+            assert_eq!(before, expected, "Golden {}: drawn plan at step {}", name, step);
+        }
+        if *golden.discard {
+            systems.tutorial.discard(game_id);
+        } else {
+            systems.tutorial.build(game_id);
+        }
+        let game = store.game(game_id);
+        if RECORD {
+            println!("GOLDEN {} step={} score={}", name, step, game.score);
+        } else {
+            assert_eq!(game.score, *golden.score, "Golden {}: score at step {}", name, step);
+        }
+        step += 1;
+    }
+
+    let game = store.game(game_id);
+    if RECORD {
+        println!(
+            "GOLDEN {} end score={} built={} discarded={} tile_count={} over={}",
+            name,
+            game.score,
+            game.built,
+            game.discarded,
+            game.tile_count,
+            game.is_over(),
+        );
+    } else {
+        assert_outcome(name, game, outcome);
+    }
+    game
+}
