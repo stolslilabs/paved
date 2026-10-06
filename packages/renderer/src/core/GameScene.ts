@@ -85,6 +85,8 @@ export class GameScene {
   private animationId: number | null = null;
   private frameObserver: FrameObserver | null = null;
   private needsRender = true;
+  /** The shadow casters changed since the shadow map was last drawn. */
+  private shadowsDirty = true;
   private isWebGPU = false;
   private latestTiles: TileRenderData[] = [];
   private renderProfile: RenderProfile = "play";
@@ -164,6 +166,9 @@ export class GameScene {
     if (shadows) {
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      // The light and its shadow camera are fixed: the map changes only with the shadow
+      // casters (the tiles), not with the view, so it is drawn only when they change.
+      this.renderer.shadowMap.autoUpdate = false;
     }
 
     // Camera
@@ -338,6 +343,7 @@ export class GameScene {
     if (this.controls) {
       this.controls.setBoardBounds(this.computeBoardBounds());
     }
+    this.requestShadowUpdate();
     this.requestRender();
   }
 
@@ -363,12 +369,14 @@ export class GameScene {
   setStrategyMode(on: boolean): void {
     this.tiles.setStrategyMode(on);
     this.tiles.updateTiles(this.latestTiles);
+    this.requestShadowUpdate();
     this.requestRender();
   }
 
   /** Set compass rotation for scene group */
   setCompassRotation(angle: number): void {
     this.sceneGroup.rotation.y = angle;
+    this.requestShadowUpdate();
     this.requestRender();
   }
 
@@ -418,6 +426,23 @@ export class GameScene {
     this.needsRender = true;
   }
 
+  /**
+   * Redraw the shadow map with the next frame. Needed whenever a shadow caster is added,
+   * removed or moved; tiles are the only casters (hover preview, slots and characters cast none).
+   */
+  requestShadowUpdate(): void {
+    this.shadowsDirty = true;
+  }
+
+  private renderFrame(): void {
+    if (this.shadowsDirty) {
+      this.renderer.shadowMap.needsUpdate = true;
+      this.shadowsDirty = false;
+    }
+    this.characters.updateBillboards(this.camera);
+    this.effects.render();
+  }
+
   /** Start the render loop */
   start(): void {
     const animate = () => {
@@ -434,8 +459,7 @@ export class GameScene {
 
       if (this.needsRender) {
         observer?.beforeRender?.();
-        this.characters.updateBillboards(this.camera);
-        this.effects.render();
+        this.renderFrame();
         this.needsRender = false;
         rendered = true;
       }
@@ -460,8 +484,7 @@ export class GameScene {
 
   /** Render a single frame */
   render(): void {
-    this.characters.updateBillboards(this.camera);
-    this.effects.render();
+    this.renderFrame();
   }
 
   /** Take a screenshot */

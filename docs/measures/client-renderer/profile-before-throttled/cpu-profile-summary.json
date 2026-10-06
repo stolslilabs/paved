@@ -1,0 +1,743 @@
+{
+ "board": 72,
+ "load": {
+  "sampledMs": 7248.412999999974,
+  "idleMs": 989.3830000000015,
+  "programMs": 225.6320000000001,
+  "gcMs": 116.88800000000003,
+  "topSelf": [
+   {
+    "fn": "EdgesGeometry three/build/three.core.js:20585",
+    "selfMs": 4212.963999999972,
+    "totalMs": 4424.716999999966,
+    "selfPct": 58.122571106254384
+   },
+   {
+    "fn": "(idle)",
+    "selfMs": 989.3830000000015,
+    "totalMs": 989.3830000000015,
+    "selfPct": 13.649649930267564
+   },
+   {
+    "fn": "(anonymous) renderer/src/core/TileRenderer.ts:137",
+    "selfMs": 859.5240000000006,
+    "totalMs": 5321.2789999999695,
+    "selfPct": 11.858099145288818
+   },
+   {
+    "fn": "(program)",
+    "selfMs": 225.6320000000001,
+    "totalMs": 225.6320000000001,
+    "selfPct": 3.11284690869575
+   },
+   {
+    "fn": "(garbage collector)",
+    "selfMs": 116.88800000000003,
+    "totalMs": 116.88800000000003,
+    "selfPct": 1.6126012687191038
+   },
+   {
+    "fn": "getY three/build/three.core.js:10223",
+    "selfMs": 63.67599999999999,
+    "totalMs": 63.67599999999999,
+    "selfPct": 0.878481951842427
+   },
+   {
+    "fn": "getX three/build/three.core.js:10203",
+    "selfMs": 52.59199999999999,
+    "totalMs": 52.59199999999999,
+    "selfPct": 0.7255657203859683
+   },
+   {
+    "fn": "copy three/build/three.core.js:10058",
+    "selfMs": 44.708000000000006,
+    "totalMs": 44.708000000000006,
+    "selfPct": 0.6167970837202593
+   },
+   {
+    "fn": "getNormal three/build/three.core.js:8305",
+    "selfMs": 43.29799999999998,
+    "totalMs": 69.679,
+    "selfPct": 0.597344549765585
+   },
+   {
+    "fn": "onFirstUse three/build/three.module.js:6455",
+    "selfMs": 41.28300000000001,
+    "totalMs": 43.19100000000002,
+    "selfPct": 0.5695453611707854
+   },
+   {
+    "fn": "getZ three/build/three.core.js:10243",
+    "selfMs": 26.498999999999995,
+    "totalMs": 26.498999999999995,
+    "selfPct": 0.3655834732375223
+   },
+   {
+    "fn": "createBuffer three/build/three.module.js:65",
+    "selfMs": 26.224,
+    "totalMs": 26.224,
+    "selfPct": 0.36178953931019237
+   },
+   {
+    "fn": "fromBufferAttribute three/build/three.core.js:4675",
+    "selfMs": 26.079000000000015,
+    "totalMs": 152.925,
+    "selfPct": 0.3597891014212367
+   },
+   {
+    "fn": "computeBoundingSphere three/build/three.core.js:10997",
+    "selfMs": 19.007999999999992,
+    "totalMs": 52.035000000000025,
+    "selfPct": 0.2622367130570521
+   },
+   {
+    "fn": "Float32BufferAttribute three/build/three.core.js:10602",
+    "selfMs": 18.291999999999994,
+    "totalMs": 18.291999999999994,
+    "selfPct": 0.2523586887226219
+   },
+   {
+    "fn": "dot three/build/three.core.js:4417",
+    "selfMs": 15.529,
+    "totalMs": 15.529,
+    "selfPct": 0.2142399998454842
+   },
+   {
+    "fn": "subVectors three/build/three.core.js:4166",
+    "selfMs": 14.336000000000004,
+    "totalMs": 14.336000000000004,
+    "selfPct": 0.19778122466255793
+   },
+   {
+    "fn": "fetch",
+    "selfMs": 13.461,
+    "totalMs": 13.461,
+    "selfPct": 0.18570961671196232
+   },
+   {
+    "fn": "(anonymous) three/build/three.core.js:26944",
+    "selfMs": 13.201999999999998,
+    "totalMs": 15.076999999999998,
+    "selfPct": 0.182136420758586
+   },
+   {
+    "fn": "max three/build/three.core.js:4327",
+    "selfMs": 12.542,
+    "totalMs": 12.542,
+    "selfPct": 0.17303097933299394
+   },
+   {
+    "fn": "(anonymous) three/examples/jsm/loaders/GLTFLoader.js:3288",
+    "selfMs": 11.841000000000001,
+    "totalMs": 11.841000000000001,
+    "selfPct": 0.16335989684914537
+   },
+   {
+    "fn": "getContext three/build/three.module.js:14894",
+    "selfMs": 10.848,
+    "totalMs": 10.848,
+    "selfPct": 0.14966034634064093
+   },
+   {
+    "fn": "Vector3 three/build/three.core.js:4006",
+    "selfMs": 10.415000000000001,
+    "totalMs": 10.415000000000001,
+    "selfPct": 0.1436866249205176
+   },
+   {
+    "fn": "Object3D three/build/three.core.js:7288",
+    "selfMs": 9.690000000000001,
+    "totalMs": 11.177,
+    "selfPct": 0.1336844354757384
+   },
+   {
+    "fn": "GLTFBinaryExtension three/examples/jsm/loaders/GLTFLoader.js:1846",
+    "selfMs": 8.070999999999998,
+    "totalMs": 8.070999999999998,
+    "selfPct": 0.11134851173629354
+   },
+   {
+    "fn": "getParameters three/build/three.module.js:6786",
+    "selfMs": 7.864000000000001,
+    "totalMs": 7.9399999999999995,
+    "selfPct": 0.10849271419826698
+   },
+   {
+    "fn": "(anonymous) three/examples/jsm/loaders/GLTFLoader.js:3036",
+    "selfMs": 7.753,
+    "totalMs": 7.753,
+    "selfPct": 0.10696134450396283
+   },
+   {
+    "fn": "(anonymous) bench-BnLZYZN0.js:1",
+    "selfMs": 7.005999999999999,
+    "totalMs": 32.835999999999984,
+    "selfPct": 0.09665564034499723
+   },
+   {
+    "fn": "setFromBufferAttribute three/build/three.core.js:4758",
+    "selfMs": 6.932,
+    "totalMs": 56.333,
+    "selfPct": 0.09563472721546117
+   },
+   {
+    "fn": "cloneUniforms three/build/three.core.js:12289",
+    "selfMs": 6.2749999999999995,
+    "totalMs": 6.863,
+    "selfPct": 0.0865706741599854
+   }
+  ],
+  "topInclusive": [
+   {
+    "fn": "performWorkUntilDeadline scheduler/cjs/scheduler.production.js:121",
+    "selfMs": 0.5369999999999999,
+    "totalMs": 5522.862999999961,
+    "selfPct": 0.007408518250822654
+   },
+   {
+    "fn": "flushPassiveEffects react-dom/cjs/react-dom-client.production.js:11741",
+    "selfMs": 0,
+    "totalMs": 5499.542999999961,
+    "selfPct": 0
+   },
+   {
+    "fn": "(anonymous) react-dom/cjs/react-dom-client.production.js:11497",
+    "selfMs": 0,
+    "totalMs": 5499.542999999961,
+    "selfPct": 0
+   },
+   {
+    "fn": "commitHookEffectListMount react-dom/cjs/react-dom-client.production.js:8571",
+    "selfMs": 0.992,
+    "totalMs": 5498.706999999959,
+    "selfPct": 0.013685754385132353
+   },
+   {
+    "fn": "commitPassiveMountOnFiber react-dom/cjs/react-dom-client.production.js:10109",
+    "selfMs": 0,
+    "totalMs": 5498.706999999959,
+    "selfPct": 0
+   },
+   {
+    "fn": "recursivelyTraversePassiveMountEffects react-dom/cjs/react-dom-client.production.js:10093",
+    "selfMs": 0,
+    "totalMs": 5498.706999999959,
+    "selfPct": 0
+   },
+   {
+    "fn": "updateTiles renderer/src/core/GameScene.ts:335",
+    "selfMs": 0.108,
+    "totalMs": 5416.785999999966,
+    "selfPct": 0.0014899813241877966
+   },
+   {
+    "fn": "(anonymous) renderer/src/react/GameCanvas.tsx:76",
+    "selfMs": 0,
+    "totalMs": 5416.785999999966,
+    "selfPct": 0
+   },
+   {
+    "fn": "updateTiles renderer/src/core/TileRenderer.ts:50",
+    "selfMs": 2.3400000000000003,
+    "totalMs": 5416.677999999967,
+    "selfPct": 0.032282928690735596
+   },
+   {
+    "fn": "createVoxelTile renderer/src/core/TileRenderer.ts:118",
+    "selfMs": 2.776,
+    "totalMs": 5413.519999999966,
+    "selfPct": 0.03829803848097521
+   },
+   {
+    "fn": "traverse three/build/three.core.js:7789",
+    "selfMs": 0.846,
+    "totalMs": 5350.716999999974,
+    "selfPct": 0.011671520372804405
+   },
+   {
+    "fn": "(anonymous) renderer/src/core/TileRenderer.ts:137",
+    "selfMs": 859.5240000000006,
+    "totalMs": 5321.2789999999695,
+    "selfPct": 11.858099145288818
+   },
+   {
+    "fn": "EdgesGeometry three/build/three.core.js:20585",
+    "selfMs": 4212.963999999972,
+    "totalMs": 4424.716999999966,
+    "selfPct": 58.122571106254384
+   },
+   {
+    "fn": "animate renderer/src/core/GameScene.ts:423",
+    "selfMs": 0.689,
+    "totalMs": 225.60699999999989,
+    "selfPct": 0.009505529003383256
+   },
+   {
+    "fn": "render renderer/src/core/Effects.ts:147",
+    "selfMs": 0.824,
+    "totalMs": 217.46699999999984,
+    "selfPct": 0.011368005658618003
+   },
+   {
+    "fn": "render three/examples/jsm/postprocessing/EffectComposer.js:104",
+    "selfMs": 1.003,
+    "totalMs": 216.64299999999986,
+    "selfPct": 0.013837511742225552
+   },
+   {
+    "fn": "WebGLRenderer.render three/build/three.module.js:15811",
+    "selfMs": 3.111,
+    "totalMs": 208.07099999999986,
+    "selfPct": 0.04291973981063181
+   },
+   {
+    "fn": "tick",
+    "selfMs": 0.897,
+    "totalMs": 166.6929999999999,
+    "selfPct": 0.012375122664781977
+   },
+   {
+    "fn": "render three/examples/jsm/postprocessing/RenderPass.js:27",
+    "selfMs": 1.219,
+    "totalMs": 164.37099999999987,
+    "selfPct": 0.016817474390601148
+   },
+   {
+    "fn": "fromBufferAttribute three/build/three.core.js:4675",
+    "selfMs": 26.079000000000015,
+    "totalMs": 152.925,
+    "selfPct": 0.3597891014212367
+   },
+   {
+    "fn": "(garbage collector)",
+    "selfMs": 116.88800000000003,
+    "totalMs": 116.88800000000003,
+    "selfPct": 1.6126012687191038
+   },
+   {
+    "fn": "WebGLRenderer.renderBufferDirect three/build/three.module.js:15422",
+    "selfMs": 3.737000000000001,
+    "totalMs": 111.43499999999996,
+    "selfPct": 0.0515561130415722
+   },
+   {
+    "fn": "renderScene three/build/three.module.js:16111",
+    "selfMs": 0,
+    "totalMs": 101.10400000000003,
+    "selfPct": 0
+   },
+   {
+    "fn": "renderObjects three/build/three.module.js:16259",
+    "selfMs": 0.754,
+    "totalMs": 100.29300000000003,
+    "selfPct": 0.010402277022570358
+   },
+   {
+    "fn": "renderObject three/build/three.module.js:16282",
+    "selfMs": 0.378,
+    "totalMs": 99.53900000000003,
+    "selfPct": 0.005214934634657288
+   },
+   {
+    "fn": "setProgram three/build/three.module.js:16460",
+    "selfMs": 2.566,
+    "totalMs": 95.79300000000003,
+    "selfPct": 0.03540085257283227
+   },
+   {
+    "fn": "projectObject three/build/three.module.js:15997",
+    "selfMs": 0.8150000000000001,
+    "totalMs": 81.96200000000006,
+    "selfPct": 0.01124384054826902
+   },
+   {
+    "fn": "getNormal three/build/three.core.js:8305",
+    "selfMs": 43.29799999999998,
+    "totalMs": 69.679,
+    "selfPct": 0.597344549765585
+   },
+   {
+    "fn": "(anonymous) renderer/src/react/GameCanvas.tsx:55",
+    "selfMs": 0.819,
+    "totalMs": 68.26300000000002,
+    "selfPct": 0.011299025041757456
+   },
+   {
+    "fn": "init renderer/src/core/GameScene.ts:119",
+    "selfMs": 0.524,
+    "totalMs": 65.71800000000005,
+    "selfPct": 0.007229168646985236
+   }
+  ]
+ },
+ "path": {
+  "sampledMs": 20295.678999999996,
+  "idleMs": 16373.326000000023,
+  "programMs": 634.8120000000001,
+  "gcMs": 4.281000000000001,
+  "topSelf": [
+   {
+    "fn": "(idle)",
+    "selfMs": 16373.326000000023,
+    "totalMs": 16373.326000000023,
+    "selfPct": 80.67395035169814
+   },
+   {
+    "fn": "(program)",
+    "selfMs": 634.8120000000001,
+    "totalMs": 634.8120000000001,
+    "selfPct": 3.12781848786631
+   },
+   {
+    "fn": "needsUpdate three/build/three.module.js:1716",
+    "selfMs": 281.14899999999983,
+    "totalMs": 281.80899999999986,
+    "selfPct": 1.3852653069650929
+   },
+   {
+    "fn": "WebGLRenderer.renderBufferDirect three/build/three.module.js:15422",
+    "selfMs": 188.66500000000002,
+    "totalMs": 1979.185000000005,
+    "selfPct": 0.929582104644048
+   },
+   {
+    "fn": "updateMatrixWorld three/build/three.core.js:7841",
+    "selfMs": 159.646,
+    "totalMs": 270.813,
+    "selfPct": 0.7866009311637222
+   },
+   {
+    "fn": "setup three/build/three.module.js:1592",
+    "selfMs": 155.14399999999995,
+    "totalMs": 607.7289999999999,
+    "selfPct": 0.764418869652008
+   },
+   {
+    "fn": "projectObject three/build/three.module.js:15997",
+    "selfMs": 146.7650000000001,
+    "totalMs": 241.94899999999998,
+    "selfPct": 0.7231342198504427
+   },
+   {
+    "fn": "multiplyMatrices three/build/three.core.js:6331",
+    "selfMs": 137.54899999999998,
+    "totalMs": 137.54899999999998,
+    "selfPct": 0.6777255395101588
+   },
+   {
+    "fn": "copyArray three/build/three.module.js:4494",
+    "selfMs": 136.66099999999997,
+    "totalMs": 136.66099999999997,
+    "selfPct": 0.6733502239565377
+   },
+   {
+    "fn": "renderObject three/build/three.module.js:8678",
+    "selfMs": 97.99900000000004,
+    "totalMs": 577.2400000000011,
+    "selfPct": 0.48285647403075327
+   },
+   {
+    "fn": "bindVertexArrayObject three/build/three.module.js:1637",
+    "selfMs": 95.55699999999999,
+    "totalMs": 150.62099999999995,
+    "selfPct": 0.4708243562582952
+   },
+   {
+    "fn": "uniformMatrix4fv",
+    "selfMs": 94.09700000000001,
+    "totalMs": 94.09700000000001,
+    "selfPct": 0.46363070681202645
+   },
+   {
+    "fn": "tick",
+    "selfMs": 84.124,
+    "totalMs": 3255.9120000000107,
+    "selfPct": 0.4144921685054243
+   },
+   {
+    "fn": "setProgram three/build/three.module.js:16460",
+    "selfMs": 82.49700000000001,
+    "totalMs": 974.8249999999998,
+    "selfPct": 0.40647568381427407
+   },
+   {
+    "fn": "upload three/build/three.module.js:5502",
+    "selfMs": 67.788,
+    "totalMs": 348.3249999999996,
+    "selfPct": 0.334002129221693
+   },
+   {
+    "fn": "bindVertexArray",
+    "selfMs": 62.95300000000001,
+    "totalMs": 62.95300000000001,
+    "selfPct": 0.3101793243773713
+   },
+   {
+    "fn": "setValueM4 three/build/three.module.js:4700",
+    "selfMs": 62.36399999999999,
+    "totalMs": 308.88500000000045,
+    "selfPct": 0.3072772288130887
+   },
+   {
+    "fn": "flatten three/build/three.module.js:4445",
+    "selfMs": 59.92700000000001,
+    "totalMs": 62.40700000000001,
+    "selfPct": 0.29526974682640583
+   },
+   {
+    "fn": "arraysEqual three/build/three.module.js:4480",
+    "selfMs": 57.775000000000006,
+    "totalMs": 57.775000000000006,
+    "selfPct": 0.2846665046288918
+   },
+   {
+    "fn": "setValue three/build/three.module.js:5376",
+    "selfMs": 42.72499999999997,
+    "totalMs": 68.28599999999996,
+    "selfPct": 0.21051278944646287
+   },
+   {
+    "fn": "disable three/build/three.module.js:9246",
+    "selfMs": 41.23900000000002,
+    "totalMs": 50.19100000000004,
+    "selfPct": 0.2031910339141648
+   },
+   {
+    "fn": "useProgram",
+    "selfMs": 39.31100000000001,
+    "totalMs": 39.31100000000001,
+    "selfPct": 0.19369147491936592
+   },
+   {
+    "fn": "setValueV3f three/build/three.module.js:4575",
+    "selfMs": 39.06900000000001,
+    "totalMs": 49.606999999999985,
+    "selfPct": 0.1924991028878611
+   },
+   {
+    "fn": "drawElements",
+    "selfMs": 35.893,
+    "totalMs": 35.893,
+    "selfPct": 0.17685045176364883
+   },
+   {
+    "fn": "enable three/build/three.module.js:9235",
+    "selfMs": 25.124999999999993,
+    "totalMs": 32.77199999999999,
+    "selfPct": 0.12379482351883864
+   },
+   {
+    "fn": "requestAnimationFrame",
+    "selfMs": 24.486000000000008,
+    "totalMs": 24.486000000000008,
+    "selfPct": 0.12064637009680737
+   },
+   {
+    "fn": "refreshUniformsCommon three/build/three.module.js:13869",
+    "selfMs": 23.931,
+    "totalMs": 57.030000000000015,
+    "selfPct": 0.11791179787579417
+   },
+   {
+    "fn": "setMaterial three/build/three.module.js:9528",
+    "selfMs": 22.588999999999995,
+    "totalMs": 111.41800000000005,
+    "selfPct": 0.1112995529738128
+   },
+   {
+    "fn": "bindFramebuffer",
+    "selfMs": 21.730999999999995,
+    "totalMs": 21.730999999999995,
+    "selfPct": 0.10707205213484111
+   },
+   {
+    "fn": "WebGLRenderer.render three/build/three.module.js:15811",
+    "selfMs": 21.508,
+    "totalMs": 2879.957000000005,
+    "selfPct": 0.10597329608928088
+   }
+  ],
+  "topInclusive": [
+   {
+    "fn": "tick",
+    "selfMs": 84.124,
+    "totalMs": 3255.9120000000107,
+    "selfPct": 0.4144921685054243
+   },
+   {
+    "fn": "animate renderer/src/core/GameScene.ts:423",
+    "selfMs": 11.722999999999999,
+    "totalMs": 3149.4780000000087,
+    "selfPct": 0.05776106332781476
+   },
+   {
+    "fn": "render renderer/src/core/Effects.ts:147",
+    "selfMs": 0.747,
+    "totalMs": 2984.587000000004,
+    "selfPct": 0.0036805863947690547
+   },
+   {
+    "fn": "render three/examples/jsm/postprocessing/EffectComposer.js:104",
+    "selfMs": 5.5120000000000005,
+    "totalMs": 2982.8710000000037,
+    "selfPct": 0.027158490238242343
+   },
+   {
+    "fn": "WebGLRenderer.render three/build/three.module.js:15811",
+    "selfMs": 21.508,
+    "totalMs": 2879.957000000005,
+    "selfPct": 0.10597329608928088
+   },
+   {
+    "fn": "render three/examples/jsm/postprocessing/RenderPass.js:27",
+    "selfMs": 1.3239999999999998,
+    "totalMs": 2604.3950000000036,
+    "selfPct": 0.006523556073191737
+   },
+   {
+    "fn": "WebGLRenderer.renderBufferDirect three/build/three.module.js:15422",
+    "selfMs": 188.66500000000002,
+    "totalMs": 1979.185000000005,
+    "selfPct": 0.929582104644048
+   },
+   {
+    "fn": "renderScene three/build/three.module.js:16111",
+    "selfMs": 2.144,
+    "totalMs": 1636.7430000000024,
+    "selfPct": 0.010563824940274235
+   },
+   {
+    "fn": "renderObjects three/build/three.module.js:16259",
+    "selfMs": 9.094000000000001,
+    "totalMs": 1626.4510000000023,
+    "selfPct": 0.044807567167375884
+   },
+   {
+    "fn": "renderObject three/build/three.module.js:16282",
+    "selfMs": 11.458,
+    "totalMs": 1617.5340000000024,
+    "selfPct": 0.05645536668174542
+   },
+   {
+    "fn": "setProgram three/build/three.module.js:16460",
+    "selfMs": 82.49700000000001,
+    "totalMs": 974.8249999999998,
+    "selfPct": 0.40647568381427407
+   },
+   {
+    "fn": "WebGLShadowMap.render three/build/three.module.js:8419",
+    "selfMs": 5.136,
+    "totalMs": 608.9630000000012,
+    "selfPct": 0.02530587914797037
+   },
+   {
+    "fn": "setup three/build/three.module.js:1592",
+    "selfMs": 155.14399999999995,
+    "totalMs": 607.7289999999999,
+    "selfPct": 0.764418869652008
+   },
+   {
+    "fn": "renderObject three/build/three.module.js:8678",
+    "selfMs": 97.99900000000004,
+    "totalMs": 577.2400000000011,
+    "selfPct": 0.48285647403075327
+   },
+   {
+    "fn": "setValue three/build/three.module.js:5486",
+    "selfMs": 11.535000000000002,
+    "totalMs": 359.92800000000045,
+    "selfPct": 0.05683475778267879
+   },
+   {
+    "fn": "upload three/build/three.module.js:5502",
+    "selfMs": 67.788,
+    "totalMs": 348.3249999999996,
+    "selfPct": 0.334002129221693
+   },
+   {
+    "fn": "render three/examples/jsm/postprocessing/UnrealBloomPass.js:204",
+    "selfMs": 10.782,
+    "totalMs": 318.54399999999964,
+    "selfPct": 0.053124608444979855
+   },
+   {
+    "fn": "render three/examples/jsm/postprocessing/Pass.js:75",
+    "selfMs": 5.0809999999999995,
+    "totalMs": 309.7969999999995,
+    "selfPct": 0.02503488550444654
+   },
+   {
+    "fn": "setValueM4 three/build/three.module.js:4700",
+    "selfMs": 62.36399999999999,
+    "totalMs": 308.88500000000045,
+    "selfPct": 0.3072772288130887
+   },
+   {
+    "fn": "needsUpdate three/build/three.module.js:1716",
+    "selfMs": 281.14899999999983,
+    "totalMs": 281.80899999999986,
+    "selfPct": 1.3852653069650929
+   },
+   {
+    "fn": "updateMatrixWorld three/build/three.core.js:7841",
+    "selfMs": 159.646,
+    "totalMs": 270.813,
+    "selfPct": 0.7866009311637222
+   },
+   {
+    "fn": "projectObject three/build/three.module.js:15997",
+    "selfMs": 146.7650000000001,
+    "totalMs": 241.94899999999998,
+    "selfPct": 0.7231342198504427
+   },
+   {
+    "fn": "bindVertexArrayObject three/build/three.module.js:1637",
+    "selfMs": 95.55699999999999,
+    "totalMs": 150.62099999999995,
+    "selfPct": 0.4708243562582952
+   },
+   {
+    "fn": "multiplyMatrices three/build/three.core.js:6331",
+    "selfMs": 137.54899999999998,
+    "totalMs": 137.54899999999998,
+    "selfPct": 0.6777255395101588
+   },
+   {
+    "fn": "copyArray three/build/three.module.js:4494",
+    "selfMs": 136.66099999999997,
+    "totalMs": 136.66099999999997,
+    "selfPct": 0.6733502239565377
+   },
+   {
+    "fn": "setMaterial three/build/three.module.js:9528",
+    "selfMs": 22.588999999999995,
+    "totalMs": 111.41800000000005,
+    "selfPct": 0.1112995529738128
+   },
+   {
+    "fn": "uniformMatrix4fv",
+    "selfMs": 94.09700000000001,
+    "totalMs": 94.09700000000001,
+    "selfPct": 0.46363070681202645
+   },
+   {
+    "fn": "refreshMaterialUniforms three/build/three.module.js:13789",
+    "selfMs": 15.457999999999997,
+    "totalMs": 81.52199999999995,
+    "selfPct": 0.07616399530166003
+   },
+   {
+    "fn": "setValueM4Array three/build/three.module.js:5113",
+    "selfMs": 1.8780000000000001,
+    "totalMs": 70.97200000000001,
+    "selfPct": 0.009253201137049914
+   },
+   {
+    "fn": "WebGLRenderer.setRenderTarget three/build/three.module.js:16943",
+    "selfMs": 11.124,
+    "totalMs": 69.38,
+    "selfPct": 0.05480969619198255
+   }
+  ]
+ }
+}

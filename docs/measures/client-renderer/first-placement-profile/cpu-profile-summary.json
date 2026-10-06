@@ -1,0 +1,370 @@
+{
+ "sampledMs": 3053.5720000000015,
+ "idleMs": 2650.1480000000006,
+ "programMs": 83.14900000000003,
+ "gcMs": 1.7150000000000003,
+ "topSelf": [
+  {
+   "fn": "(idle)",
+   "selfMs": 2650.1480000000006,
+   "totalMs": 2650.1480000000006,
+   "selfPct": 86.78845627350523
+  },
+  {
+   "fn": "(program)",
+   "selfMs": 83.14900000000003,
+   "totalMs": 83.14900000000003,
+   "selfPct": 2.7230076775658145
+  },
+  {
+   "fn": "getProgramInfoLog",
+   "selfMs": 23.033,
+   "totalMs": 23.033,
+   "selfPct": 0.7542969348684095
+  },
+  {
+   "fn": "xt play-DDesAen3.js:9988",
+   "selfMs": 21.276999999999997,
+   "totalMs": 21.276999999999997,
+   "selfPct": 0.6967905128813071
+  },
+  {
+   "fn": "updateMatrixWorld bench-DbYsdt92.js:12071",
+   "selfMs": 10.740999999999998,
+   "totalMs": 13.014,
+   "selfPct": 0.35175198095869337
+  },
+  {
+   "fn": "M bench-DbYsdt92.js:20677",
+   "selfMs": 10.187999999999999,
+   "totalMs": 10.187999999999999,
+   "selfPct": 0.3336420428272198
+  },
+  {
+   "fn": "E bench-DbYsdt92.js:22725",
+   "selfMs": 9.829,
+   "totalMs": 11.056999999999997,
+   "selfPct": 0.3218853198811096
+  },
+  {
+   "fn": "renderBufferDirect bench-DbYsdt92.js:25075",
+   "selfMs": 7.927999999999999,
+   "totalMs": 126.23600000000012,
+   "selfPct": 0.2596303607709265
+  },
+  {
+   "fn": "h bench-DbYsdt92.js:20639",
+   "selfMs": 7.766,
+   "totalMs": 19.671,
+   "selfPct": 0.25432509860582936
+  },
+  {
+   "fn": "Rs bench-DbYsdt92.js:25255",
+   "selfMs": 7.483,
+   "totalMs": 34.332,
+   "selfPct": 0.24505726408285103
+  },
+  {
+   "fn": "to bench-DbYsdt92.js:25183",
+   "selfMs": 7.372999999999999,
+   "totalMs": 14.299,
+   "selfPct": 0.24145492557568632
+  },
+  {
+   "fn": "mul play-DDesAen3.js:10133",
+   "selfMs": 7.046,
+   "totalMs": 23.771,
+   "selfPct": 0.2307461556498421
+  },
+  {
+   "fn": "fetch",
+   "selfMs": 6.533999999999999,
+   "totalMs": 6.533999999999999,
+   "selfPct": 0.21397890732558444
+  },
+  {
+   "fn": "va bench-DbYsdt92.js:25278",
+   "selfMs": 5.8709999999999996,
+   "totalMs": 90.67700000000009,
+   "selfPct": 0.1922666306869462
+  },
+  {
+   "fn": "tick",
+   "selfMs": 5.688000000000001,
+   "totalMs": 181.53500000000003,
+   "selfPct": 0.18627364935229948
+  },
+  {
+   "fn": "add play-DDesAen3.js:10131",
+   "selfMs": 4.823999999999999,
+   "totalMs": 8.596,
+   "selfPct": 0.1579789178051147
+  },
+  {
+   "fn": "K_ play-DDesAen3.js:25989",
+   "selfMs": 4.749,
+   "totalMs": 5.7540000000000004,
+   "selfPct": 0.15552277791386604
+  },
+  {
+   "fn": "Pn bench-DbYsdt92.js:21713",
+   "selfMs": 4.091,
+   "totalMs": 4.091,
+   "selfPct": 0.13397424393464435
+  },
+  {
+   "fn": "NS bench-DbYsdt92.js:22253",
+   "selfMs": 3.762,
+   "totalMs": 3.762,
+   "selfPct": 0.12319997694503348
+  },
+  {
+   "fn": "yi play-DDesAen3.js:3709",
+   "selfMs": 3.6079999999999997,
+   "totalMs": 3.6079999999999997,
+   "selfPct": 0.11815670303500286
+  },
+  {
+   "fn": "precomputeWindow play-DDesAen3.js:10284",
+   "selfMs": 3.414,
+   "totalMs": 32.83399999999999,
+   "selfPct": 0.11180348784963966
+  },
+  {
+   "fn": "uniformMatrix4fv",
+   "selfMs": 3.313,
+   "totalMs": 3.313,
+   "selfPct": 0.10849588612942476
+  },
+  {
+   "fn": "o0 play-DDesAen3.js:3426",
+   "selfMs": 3.0460000000000003,
+   "totalMs": 14.316999999999998,
+   "selfPct": 0.09975202811657949
+  },
+  {
+   "fn": "p play-DDesAen3.js:10539",
+   "selfMs": 2.883,
+   "totalMs": 2.883,
+   "selfPct": 0.09441401741959904
+  },
+  {
+   "fn": "(anonymous) play-DDesAen3.js:26262",
+   "selfMs": 2.7619999999999996,
+   "totalMs": 8.516,
+   "selfPct": 0.09045144506171782
+  },
+  {
+   "fn": "intersectsSphere bench-DbYsdt92.js:14117",
+   "selfMs": 2.7110000000000003,
+   "totalMs": 2.753,
+   "selfPct": 0.08878126993566875
+  },
+  {
+   "fn": "shaderSource",
+   "selfMs": 2.5909999999999997,
+   "totalMs": 2.5909999999999997,
+   "selfPct": 0.08485144610967085
+  },
+  {
+   "fn": "jC bench-DbYsdt92.js:21766",
+   "selfMs": 2.5060000000000002,
+   "totalMs": 2.716,
+   "selfPct": 0.08206782089958904
+  },
+  {
+   "fn": "requestAnimationFrame",
+   "selfMs": 2.472,
+   "totalMs": 2.472,
+   "selfPct": 0.0809543708155563
+  },
+  {
+   "fn": "multiplyMatrices bench-DbYsdt92.js:11653",
+   "selfMs": 2.273,
+   "totalMs": 2.273,
+   "selfPct": 0.07443741297077648
+  }
+ ],
+ "topInclusive": [
+  {
+   "fn": "tick",
+   "selfMs": 5.688000000000001,
+   "totalMs": 181.53500000000003,
+   "selfPct": 0.18627364935229948
+  },
+  {
+   "fn": "t bench-DbYsdt92.js:32176",
+   "selfMs": 0,
+   "totalMs": 172.37499999999997,
+   "selfPct": 0
+  },
+  {
+   "fn": "renderFrame bench-DbYsdt92.js:32172",
+   "selfMs": 0.158,
+   "totalMs": 169.01699999999997,
+   "selfPct": 0.005174268037563874
+  },
+  {
+   "fn": "render bench-DbYsdt92.js:30355",
+   "selfMs": 0,
+   "totalMs": 166.367,
+   "selfPct": 0
+  },
+  {
+   "fn": "render bench-DbYsdt92.js:31941",
+   "selfMs": 0,
+   "totalMs": 166.367,
+   "selfPct": 0
+  },
+  {
+   "fn": "render bench-DbYsdt92.js:25155",
+   "selfMs": 1.2730000000000001,
+   "totalMs": 163.073,
+   "selfPct": 0.041688881087460834
+  },
+  {
+   "fn": "render bench-DbYsdt92.js:30398",
+   "selfMs": 0,
+   "totalMs": 146.27800000000002,
+   "selfPct": 0
+  },
+  {
+   "fn": "_r bench-DbYsdt92.js:25245",
+   "selfMs": 0.9,
+   "totalMs": 128.09200000000013,
+   "selfPct": 0.02947367869498409
+  },
+  {
+   "fn": "Nl bench-DbYsdt92.js:25209",
+   "selfMs": 0,
+   "totalMs": 128.09200000000013,
+   "selfPct": 0
+  },
+  {
+   "fn": "Dl bench-DbYsdt92.js:25252",
+   "selfMs": 0.721,
+   "totalMs": 127.19200000000014,
+   "selfPct": 0.023611691487870585
+  },
+  {
+   "fn": "renderBufferDirect bench-DbYsdt92.js:25075",
+   "selfMs": 7.927999999999999,
+   "totalMs": 126.23600000000012,
+   "selfPct": 0.2596303607709265
+  },
+  {
+   "fn": "va bench-DbYsdt92.js:25278",
+   "selfMs": 5.8709999999999996,
+   "totalMs": 90.67700000000009,
+   "selfPct": 0.1922666306869462
+  },
+  {
+   "fn": "buildInvocation play-DDesAen3.js:20379",
+   "selfMs": 0.226,
+   "totalMs": 65.36300000000001,
+   "selfPct": 0.007401168205629339
+  },
+  {
+   "fn": "signTransaction play-DDesAen3.js:19570",
+   "selfMs": 0,
+   "totalMs": 63.949999999999996,
+   "selfPct": 0
+  },
+  {
+   "fn": "c2 play-DDesAen3.js:11153",
+   "selfMs": 1.04,
+   "totalMs": 56.178,
+   "selfPct": 0.03405847315864828
+  },
+  {
+   "fn": "signRaw play-DDesAen3.js:19615",
+   "selfMs": 0,
+   "totalMs": 56.178,
+   "selfPct": 0
+  },
+  {
+   "fn": "B play-DDesAen3.js:10880",
+   "selfMs": 0,
+   "totalMs": 54.11900000000001,
+   "selfPct": 0
+  },
+  {
+   "fn": "(anonymous) play-DDesAen3.js:9597",
+   "selfMs": 0,
+   "totalMs": 52.854,
+   "selfPct": 0
+  },
+  {
+   "fn": "Fe play-DDesAen3.js:10858",
+   "selfMs": 1.633,
+   "totalMs": 51.09499999999999,
+   "selfPct": 0.05347835256545447
+  },
+  {
+   "fn": "getPrecomputes play-DDesAen3.js:10322",
+   "selfMs": 0,
+   "totalMs": 49.46199999999999,
+   "selfPct": 0
+  },
+  {
+   "fn": "wNAFCached play-DDesAen3.js:10326",
+   "selfMs": 0,
+   "totalMs": 49.46199999999999,
+   "selfPct": 0
+  },
+  {
+   "fn": "wNAF play-DDesAen3.js:10612",
+   "selfMs": 0,
+   "totalMs": 49.46199999999999,
+   "selfPct": 0
+  },
+  {
+   "fn": "multiply play-DDesAen3.js:10626",
+   "selfMs": 0,
+   "totalMs": 49.46199999999999,
+   "selfPct": 0
+  },
+  {
+   "fn": "ty bench-DbYsdt92.js:6515",
+   "selfMs": 0,
+   "totalMs": 44.547999999999995,
+   "selfPct": 0
+  },
+  {
+   "fn": "ry bench-DbYsdt92.js:6819",
+   "selfMs": 0,
+   "totalMs": 38.502,
+   "selfPct": 0
+  },
+  {
+   "fn": "yE bench-DbYsdt92.js:6739",
+   "selfMs": 0,
+   "totalMs": 38.502,
+   "selfPct": 0
+  },
+  {
+   "fn": "Ap bench-DbYsdt92.js:6696",
+   "selfMs": 0,
+   "totalMs": 38.502,
+   "selfPct": 0
+  },
+  {
+   "fn": "lp game-core/bench/fixtures/board-72.json?raw:1",
+   "selfMs": 0,
+   "totalMs": 38.372,
+   "selfPct": 0
+  },
+  {
+   "fn": "Fd three/build/three.module.js:570",
+   "selfMs": 0,
+   "totalMs": 36.072,
+   "selfPct": 0
+  },
+  {
+   "fn": "Rs bench-DbYsdt92.js:25255",
+   "selfMs": 7.483,
+   "totalMs": 34.332,
+   "selfPct": 0.24505726408285103
+  }
+ ]
+}

@@ -1,0 +1,203 @@
+{
+ "when": "2026-10-06T16:48:39.061Z",
+ "machine": {
+  "model": "Mac14,6",
+  "chip": "Apple M2 Max",
+  "cpuCores": 12,
+  "memoryGiB": 64,
+  "macOS": "27.0.1 (26A434)",
+  "chrome": "154.0.8037.98",
+  "power": "Now drawing from 'AC Power'",
+  "loadAvgAtStart": [
+   3.6,
+   3.17,
+   3.32
+  ],
+  "windowArg": "1440x900",
+  "profiles": [
+   {
+    "name": "unthrottled",
+    "cpuRate": 1,
+    "fps": null
+   },
+   {
+    "name": "throttled",
+    "cpuRate": 4,
+    "fps": 60
+   }
+  ],
+  "displays": [
+   {
+    "name": "Color LCD",
+    "type": "spdisplays_built-in-liquid-retina-xdr",
+    "pixels": "3456 x 2234",
+    "mode": "1728 x 1117 @ 120.00Hz",
+    "main": true
+   },
+   {
+    "name": "BenQ PD2725U",
+    "type": null,
+    "pixels": "3840 x 2160",
+    "mode": "1920 x 1080 @ 60.00Hz",
+    "main": false
+   },
+   {
+    "name": "BenQ PD2725U",
+    "type": null,
+    "pixels": "3840 x 2160",
+    "mode": "1920 x 1080 @ 60.00Hz",
+    "main": false
+   }
+  ]
+ },
+ "groups": [
+  {
+   "profile": "unthrottled",
+   "tileCount": 38,
+   "runs": 5,
+   "placements": 120,
+   "shown": 120,
+   "missed": 0,
+   "refreshMs": 8.300000000000182,
+   "presented": {
+    "n": 120,
+    "p50": 12.699999995529652,
+    "p95": 18.700000002980232,
+    "max": 35.29999999701977
+   },
+   "rendered": {
+    "n": 120,
+    "p50": 8.700000002980232,
+    "p95": 18.399999998509884,
+    "max": 35
+   },
+   "handled": {
+    "n": 120,
+    "p50": 0.8999999985098839,
+    "p95": 1.4000000059604645,
+    "max": 2.9000000059604645
+   },
+   "presentedP95PerRun": {
+    "median": 18,
+    "min": 15.800000004470348,
+    "max": 19.30000000447035
+   },
+   "loadAvg1": {
+    "median": 2.93,
+    "min": 2.75,
+    "max": 3.27
+   }
+  },
+  {
+   "profile": "unthrottled",
+   "tileCount": 72,
+   "runs": 5,
+   "placements": 120,
+   "shown": 120,
+   "missed": 0,
+   "refreshMs": 8.299999999999955,
+   "presented": {
+    "n": 120,
+    "p50": 12.299999997019768,
+    "p95": 15.299999997019768,
+    "max": 35.29999999701977
+   },
+   "rendered": {
+    "n": 120,
+    "p50": 8.700000002980232,
+    "p95": 11.900000005960464,
+    "max": 35
+   },
+   "handled": {
+    "n": 120,
+    "p50": 0.8999999985098839,
+    "p95": 1.7999999970197678,
+    "max": 3.399999998509884
+   },
+   "presentedP95PerRun": {
+    "median": 14.899999998509884,
+    "min": 14.299999997019768,
+    "max": 21.099999994039536
+   },
+   "loadAvg1": {
+    "median": 2.64,
+    "min": 2.08,
+    "max": 2.92
+   }
+  },
+  {
+   "profile": "throttled",
+   "tileCount": 38,
+   "runs": 5,
+   "placements": 120,
+   "shown": 120,
+   "missed": 0,
+   "refreshMs": 16.699999999999818,
+   "presented": {
+    "n": 120,
+    "p50": 25.80000000447035,
+    "p95": 35.100000001490116,
+    "max": 65.20000000298023
+   },
+   "rendered": {
+    "n": 120,
+    "p50": 17.200000002980232,
+    "p95": 31,
+    "max": 60.100000001490116
+   },
+   "handled": {
+    "n": 120,
+    "p50": 1,
+    "p95": 2.100000001490116,
+    "max": 5.699999995529652
+   },
+   "presentedP95PerRun": {
+    "median": 35.100000001490116,
+    "min": 33.600000001490116,
+    "max": 37.599999994039536
+   },
+   "loadAvg1": {
+    "median": 1.43,
+    "min": 1.17,
+    "max": 2.05
+   }
+  },
+  {
+   "profile": "throttled",
+   "tileCount": 72,
+   "runs": 5,
+   "placements": 120,
+   "shown": 120,
+   "missed": 0,
+   "refreshMs": 16.699999999999818,
+   "presented": {
+    "n": 120,
+    "p50": 25.700000002980232,
+    "p95": 33.599999994039536,
+    "max": 35
+   },
+   "rendered": {
+    "n": 120,
+    "p50": 14.600000001490116,
+    "p95": 23.5,
+    "max": 34.20000000298023
+   },
+   "handled": {
+    "n": 120,
+    "p50": 1.1000000014901161,
+    "p95": 1.7999999970197678,
+    "max": 2.9000000059604645
+   },
+   "presentedP95PerRun": {
+    "median": 33.899999998509884,
+    "min": 32.69999999552965,
+    "max": 34.29999999701977
+   },
+   "loadAvg1": {
+    "median": 1.95,
+    "min": 1.79,
+    "max": 2.19
+   }
+  }
+ ]
+}

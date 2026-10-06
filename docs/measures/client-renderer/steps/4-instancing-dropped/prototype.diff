@@ -1,0 +1,143 @@
+diff --git a/packages/renderer/src/core/TileRenderer.ts b/packages/renderer/src/core/TileRenderer.ts
+index 2cd2969..fbf244f 100644
+--- a/packages/renderer/src/core/TileRenderer.ts
++++ b/packages/renderer/src/core/TileRenderer.ts
+@@ -29,7 +29,9 @@ export class TileRenderer {
+   private tileGroup: THREE.Group; // placed tiles
+   private emptyGroup: THREE.Group; // empty slots
+   private previewGroup: THREE.Group; // hover preview
+-  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean }> = new Map();
++  private tileMeshes: Map<string, { mesh: THREE.Object3D; pending: boolean; instances?: Array<{ batch: InstanceBatch; slot: { index: number } }> }> = new Map();
++  private batches: Map<string, InstanceBatch> = new Map();
++  private batchGroup = new THREE.Group();
+   private assets: AssetLoader;
+   private strategyMode = false;
+   private squareSize = TILE_SIZE;
+@@ -54,7 +56,7 @@ export class TileRenderer {
+     this.tileGroup = new THREE.Group();
+     this.emptyGroup = new THREE.Group();
+     this.previewGroup = new THREE.Group();
+-    this.group.add(this.tileGroup, this.emptyGroup, this.previewGroup);
++    this.group.add(this.tileGroup, this.emptyGroup, this.previewGroup, this.batchGroup);
+   }
+ 
+   getGroup(): THREE.Group {
+@@ -77,6 +79,7 @@ export class TileRenderer {
+       // Pending state changed — remove old mesh to recreate (a tile owns no geometry or material)
+       if (existing) {
+         this.tileGroup.remove(existing.mesh);
++        existing.instances?.forEach((i) => i.batch.remove(i.slot));
+         this.tileMeshes.delete(key);
+       }
+ 
+@@ -100,7 +103,8 @@ export class TileRenderer {
+           tile.worldZ * this.squareSize
+         );
+         this.tileGroup.add(mesh);
+-        this.tileMeshes.set(key, { mesh, pending });
++        const instances = !pending && !this.strategyMode ? this.instance(mesh) : undefined;
++        this.tileMeshes.set(key, { mesh, pending, instances });
+       }
+     }
+ 
+@@ -108,11 +112,46 @@ export class TileRenderer {
+     for (const [key, entry] of this.tileMeshes) {
+       if (!currentKeys.has(key)) {
+         this.tileGroup.remove(entry.mesh);
++        entry.instances?.forEach((i) => i.batch.remove(i.slot));
+         this.tileMeshes.delete(key);
+       }
+     }
+   }
+ 
++  /** Moves the tile's meshes into instanced batches; its edge lines stay in the tile. */
++  private instance(container: THREE.Object3D): Array<{ batch: InstanceBatch; slot: { index: number } }> {
++    container.updateMatrix();
++    const out: Array<{ batch: InstanceBatch; slot: { index: number } }> = [];
++    const meshes: Array<{ mesh: THREE.Mesh; matrix: THREE.Matrix4 }> = [];
++    const walk = (obj: THREE.Object3D, parent: THREE.Matrix4) => {
++      obj.updateMatrix();
++      const m = new THREE.Matrix4().multiplyMatrices(parent, obj.matrix);
++      if (obj instanceof THREE.Mesh) meshes.push({ mesh: obj, matrix: m });
++      for (const c of obj.children) walk(c, m);
++    };
++    walk(container, new THREE.Matrix4());
++    for (const { mesh, matrix } of meshes) {
++      const material = mesh.material as THREE.Material;
++      const id = `${mesh.geometry.uuid}/${material.uuid}`;
++      let batch = this.batches.get(id);
++      if (!batch) {
++        batch = new InstanceBatch(mesh.geometry, material);
++        this.batches.set(id, batch);
++        this.batchGroup.add(batch.mesh);
++      }
++      out.push({ batch, slot: batch.add(matrix) });
++      // Keep the transform and the edge lines, drop the faces
++      const holder = new THREE.Object3D();
++      holder.position.copy(mesh.position);
++      holder.quaternion.copy(mesh.quaternion);
++      holder.scale.copy(mesh.scale);
++      holder.add(...mesh.children);
++      mesh.parent!.add(holder);
++      mesh.parent!.remove(mesh);
++    }
++    return out;
++  }
++
+   /** The pending (translucent, blue glow) variant of a tile material, one per source material. */
+   private pendingMaterial(material: THREE.Material | THREE.Material[]): THREE.Material {
+     if (material instanceof THREE.MeshStandardMaterial) {
+@@ -466,3 +505,53 @@ function disposeMaterials(material: THREE.Material | THREE.Material[]): void {
+     material.dispose();
+   }
+ }
++
++class InstanceBatch {
++  mesh: THREE.InstancedMesh;
++  private slots: Array<{ index: number }> = [];
++
++  constructor(geometry: THREE.BufferGeometry, material: THREE.Material) {
++    this.mesh = new THREE.InstancedMesh(geometry, material, 8);
++    this.mesh.count = 0;
++    this.mesh.castShadow = true;
++    this.mesh.receiveShadow = true;
++  }
++
++  add(matrix: THREE.Matrix4): { index: number } {
++    if (this.slots.length >= this.mesh.instanceMatrix.count) this.grow();
++    const slot = { index: this.slots.length };
++    this.slots.push(slot);
++    this.mesh.setMatrixAt(slot.index, matrix);
++    this.mesh.count = this.slots.length;
++    this.mesh.instanceMatrix.needsUpdate = true;
++    this.mesh.boundingSphere = null;
++    return slot;
++  }
++
++  remove(slot: { index: number }): void {
++    const last = this.slots.pop()!;
++    if (last !== slot) {
++      const m = new THREE.Matrix4();
++      this.mesh.getMatrixAt(last.index, m);
++      this.mesh.setMatrixAt(slot.index, m);
++      last.index = slot.index;
++      this.slots[slot.index] = last;
++    }
++    this.mesh.count = this.slots.length;
++    this.mesh.instanceMatrix.needsUpdate = true;
++    this.mesh.boundingSphere = null;
++  }
++
++  private grow(): void {
++    const old = this.mesh;
++    const next = new THREE.InstancedMesh(old.geometry, old.material, old.instanceMatrix.count * 2);
++    next.castShadow = true;
++    next.receiveShadow = true;
++    next.instanceMatrix.array.set(old.instanceMatrix.array);
++    next.count = old.count;
++    old.parent?.add(next);
++    old.parent?.remove(old);
++    old.dispose();
++    this.mesh = next;
++  }
++}
