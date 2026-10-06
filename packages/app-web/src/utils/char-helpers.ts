@@ -21,10 +21,6 @@ function computeCharWorldPos(
   };
 }
 
-export function buildCharQuery(gameId: number): string {
-  return `SELECT * FROM [paved-Char] WHERE game_id = ${gameId}`;
-}
-
 export function toRenderCharacters(
   charRows: any[],
   tileMap: Map<number, { worldX: number; worldZ: number }>,

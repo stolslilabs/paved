@@ -1,8 +1,8 @@
-import type { PavedProvider } from "../src/paved-client";
+import type { PavedRpc } from "../src/paved-client";
 import type { Recording } from "./recorder";
 
 /** A provider that answers from a recording of devnet, and fails on anything it did not record. */
-export function replay(record: Recording): PavedProvider & { asked: string[] } {
+export function replay(record: Recording): PavedRpc & { asked: string[] } {
   const asked: string[] = [];
   const sameCall = (a: string[], b: string[]) => a.length === b.length && a.every((v, i) => BigInt(v) === BigInt(b[i]));
   return {

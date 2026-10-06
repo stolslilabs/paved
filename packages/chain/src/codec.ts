@@ -20,6 +20,24 @@ export type Decoded = string | number | bigint | boolean | Decoded[] | { [field:
 
 export type Encodable = string | number | bigint | boolean;
 
+/** The felts of a result do not match the ABI (e.g. a contract upgraded with a grown struct). */
+export class AbiMismatchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AbiMismatchError";
+  }
+}
+
+const INT_BITS: Record<string, number> = {
+  "core::integer::u8": 8,
+  "core::integer::u16": 16,
+  "core::integer::u32": 32,
+  "core::integer::u64": 64,
+  "core::integer::u128": 128,
+};
+/** The field prime P: a felt is in [0, P). */
+const FELT_P = (1n << 251n) + 17n * (1n << 192n) + 1n;
+
 /** An event decoded from its keys and data; field names are camelCase. */
 export interface DecodedEvent {
   /** Short event name, e.g. `GameSpawned`. */
@@ -131,7 +149,17 @@ export class AbiCodec {
     const output = this.function(fnName).outputs?.[0];
     if (!output) return [];
     const cursor = { felts: felts.map((f) => BigInt(f)), at: 0 };
-    return this.decode(output.type, cursor);
+    let value: Decoded;
+    try {
+      value = this.decode(output.type, cursor);
+    } catch (error) {
+      throw new AbiMismatchError(`${fnName}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    // Felts left over mean the contract returns more than this ABI says: refuse rather than misalign.
+    if (cursor.at !== cursor.felts.length) {
+      throw new AbiMismatchError(`${fnName}: ${cursor.felts.length - cursor.at} felts left over after ${output.type}`);
+    }
+    return value;
   }
 
   /** Decodes an emitted event, or returns null when it is not an event of this ABI or cannot be decoded. */
@@ -146,9 +174,10 @@ export class AbiCodec {
       for (const member of event.members) {
         fields[camelCase(member.name)] = this.decode(member.type, member.kind === "key" ? keys : data);
       }
-    } catch {
+    } catch (error) {
       // A field type this codec does not know (an event added to the ABI later): skip the event
       // rather than fail the whole receipt or event page.
+      console.warn(`paved codec: skipped event ${event.name}: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
     return {
@@ -173,11 +202,15 @@ export class AbiCodec {
     }
     if (type === U256) {
       const v = BigInt(value as string | number | bigint);
+      if (v < 0n || v >= 1n << 256n) throw new RangeError(`${String(value)} is out of range for ${type}`);
       out.push(toHex(v & ((1n << 128n) - 1n)), toHex(v >> 128n));
       return;
     }
     if (SMALL_INTS.has(type) || FELT_LIKE.has(type) || type === U128) {
-      out.push(toHex(BigInt(value as string | number | bigint)));
+      const v = BigInt(value as string | number | bigint);
+      const bits = INT_BITS[type];
+      if (v < 0n || (bits ? v >= 1n << BigInt(bits) : v >= FELT_P)) throw new RangeError(`${String(value)} is out of range for ${type}`);
+      out.push(toHex(v));
       return;
     }
     const variants = this.enums.get(type);

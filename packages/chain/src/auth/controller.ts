@@ -11,6 +11,8 @@ export interface ControllerConfig {
 
 /** Session policies for the game's writes, on the deployment's addresses. */
 export function controllerPolicies(deployment: Deployment): NonNullable<ControllerConfig["policies"]> {
+  // No policy on an empty target: the deployment must be complete.
+  if (!deployment.configured) throw new Error(`Not connected: ${deployment.missing.join(", ")} missing`);
   const { Account, Daily, Tutorial, Token } = deployment.addresses;
   return [
     { target: Account, method: "create" },

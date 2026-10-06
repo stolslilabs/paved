@@ -1,15 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { toRenderCharacters, buildCharQuery } from "../src/utils/char-helpers";
-
-describe("buildCharQuery", () => {
-  it("returns correct SQL for gameId", () => {
-    expect(buildCharQuery(42)).toBe("SELECT * FROM [paved-Char] WHERE game_id = 42");
-  });
-
-  it("handles gameId 0", () => {
-    expect(buildCharQuery(0)).toBe("SELECT * FROM [paved-Char] WHERE game_id = 0");
-  });
-});
+import { toRenderCharacters } from "../src/utils/char-helpers";
 
 describe("toRenderCharacters", () => {
   it("returns empty array for empty input", () => {

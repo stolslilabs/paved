@@ -4,10 +4,10 @@ import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import { TamaguiProvider } from "tamagui";
 import { tamaguiConfig, useGameStore } from "@paved/ui";
-import { DojoChainProvider, createDojoConfig } from "@paved/chain";
+import { PavedProvider } from "@paved/chain";
 import { GameScene } from "@paved/renderer";
 import { App } from "../App";
-import { resolveAppNetworkProfile } from "../utils/network-profile";
+import { resolveAppNetwork, resolvePlayerAccount } from "../utils/network";
 import { loadBoard } from "./board";
 import { cameraPose } from "./camera-path";
 import { CLICK_DISTANCE } from "./click-bench";
@@ -191,6 +191,16 @@ class PlayBench {
 }
 
 
+/** The chain the mock of scripts/bench/mock-chain.ts serves: contract addresses and the playing account. */
+export const BENCH_ADDRESSES = {
+  VITE_ACCOUNT_ADDRESS: "0x1a",
+  VITE_DAILY_ADDRESS: "0x2a",
+  VITE_TUTORIAL_ADDRESS: "0x3a",
+  VITE_TOKEN_ADDRESS: "0x4a",
+  VITE_PLAYER_ADDRESS: "0x5a",
+  VITE_PLAYER_PRIVATE_KEY: "0x1",
+};
+
 export function mountPlay(): void {
   const params = new URLSearchParams(window.location.search);
   const bench = new PlayBench(Number(params.get("tiles") ?? 72));
@@ -203,33 +213,28 @@ export function mountPlay(): void {
     return start.call(this);
   };
 
-  // Same providers as src/main.tsx; the network profile points at the driver's mock.
-  const origin = window.location.origin;
-  const profile = resolveAppNetworkProfile({
-    VITE_CHAIN_PROFILE: "local",
-    VITE_RPC_URL: `${origin}/rpc`,
-    VITE_TORII_URL: origin,
-  });
-  const config = createDojoConfig({
-    rpcUrl: profile.rpcUrl,
-    toriiUrl: profile.toriiUrl,
-    addresses: profile.addresses,
-    profile: profile.key,
-    profileLabel: profile.label,
-    supportsTokenMint: profile.supportsMint,
-  });
+  // Same providers as src/main.tsx, pointed at the driver's mock RPC (scripts/bench/mock-chain.ts),
+  // which serves these addresses and accepts this account's writes.
+  const env = {
+    // A devnet in kind: the only network that takes a key from the env.
+    VITE_NETWORK: "devnet",
+    VITE_RPC_URL: `${window.location.origin}/rpc`,
+    ...BENCH_ADDRESSES,
+  };
+  const network = resolveAppNetwork(env, {});
+  const account = resolvePlayerAccount(env, network.deployment);
   const gameId = params.get("game") ?? "1";
 
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
-        <DojoChainProvider config={config}>
+        <PavedProvider deployment={network.deployment} account={account} tip={0n}>
           <MemoryRouter initialEntries={[`/game?mode=daily&id=${gameId}`]}>
             <Profiler id="game" onRender={bench.onRender}>
               <App />
             </Profiler>
           </MemoryRouter>
-        </DojoChainProvider>
+        </PavedProvider>
       </TamaguiProvider>
     </StrictMode>,
   );

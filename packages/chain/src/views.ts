@@ -1,6 +1,6 @@
 import { shortString } from "starknet";
 import type { Codecs, ContractName } from "./abis";
-import type { Encodable } from "./codec";
+import { AbiMismatchError, type Encodable } from "./codec";
 import type { Deployment } from "./deployment";
 
 /** The two game contracts. Game ids are counted per contract, so a game is (mode, id). */
@@ -110,7 +110,8 @@ export const VIEW_FIELDS = {
   ] satisfies (keyof TournamentView)[],
 };
 
-export type ViewErrorKind = "game-not-found" | "not-player" | "not-configured" | "rpc";
+/** `abi-mismatch`: the contract answered with another layout than the ABI (an upgrade the client does not follow). */
+export type ViewErrorKind = "game-not-found" | "not-player" | "not-configured" | "abi-mismatch" | "rpc";
 
 /** A view that failed, with the reason the UI shows. */
 export class ViewError extends Error {
@@ -132,6 +133,7 @@ const REVERTS: Array<[string, ViewErrorKind]> = [
 /** Maps a failed call to a `ViewError`: the two reverts of the views by their message, the rest as `rpc`. */
 export function toViewError(error: unknown): ViewError {
   if (error instanceof ViewError) return error;
+  if (error instanceof AbiMismatchError) return new ViewError("abi-mismatch", error.message, error);
   const text = error instanceof Error ? error.message : String(error);
   const lower = text.toLowerCase();
   for (const [message, kind] of REVERTS) {

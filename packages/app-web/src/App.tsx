@@ -3,13 +3,13 @@ import { useGameStore, useUIStore } from "@paved/ui";
 import { LandingPage } from "./pages/Landing";
 import { GamePage } from "./pages/Game";
 
-export function App() {
+export function App({ supportsMint = false }: { supportsMint?: boolean }) {
   const loading = useUIStore((s) => s.loading);
 
   return (
     <div style={{ width: "100%", height: "100%", cursor: loading ? "wait" : "default" }}>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={<LandingPage supportsMint={supportsMint} />} />
         <Route path="/game" element={<GamePage />} />
       </Routes>
     </div>

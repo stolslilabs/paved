@@ -1,32 +1,46 @@
-/** Find the next unplaced tile (orientation === 0) with id > currentTileId */
-export function findNextTile(
-  rows: any[],
-  currentTileId: number,
-): { tile_id: number; tile_plan: number } | null {
-  let best: { tile_id: number; tile_plan: number } | null = null;
+import { getColorFromCharacter, getIndexFromCharacter, getRole, getSpotOffset, Spot, SpotType } from "@paved/game-core";
+import type { CharacterRenderData, TileRenderData } from "@paved/renderer";
+import type { SessionState } from "@paved/chain";
 
-  for (const row of rows) {
-    const id = Number(row.id);
-    const orientation = Number(row.orientation);
-    if (id > currentTileId && orientation === 0) {
-      if (!best || id < best.tile_id) {
-        best = { tile_id: id, tile_plan: Number(row.plan) };
-      }
-    }
-  }
+/** Board centre of the contracts (0x7FFFFFFF): the starter tile's x and y. */
+export const CENTER = 2147483647;
 
-  return best;
-}
-
-/** Decide whether the poll should overwrite builderState.
- *  Returns false when a tx is in-flight and the poll still reports the same tile
- *  (i.e. contract hasn't processed the tx yet). */
-export function shouldPollUpdateBuilder(
-  inFlightTileId: number | null,
-  pollTileId: number,
-): boolean {
-  if (inFlightTileId === null) return true;
-  return inFlightTileId !== pollTileId;
+/** The session's board as the renderer draws it (world x east, world z south). */
+export function toRenderBoard(state: SessionState, playerId: string): {
+  tiles: TileRenderData[];
+  characters: CharacterRenderData[];
+} {
+  const spots = new Map(state.characters.map((c) => [c.tileId, c.spot]));
+  const tiles = state.tiles.map((t) => ({
+    game_id: state.key.gameId,
+    id: t.id,
+    player_id: playerId,
+    plan: t.plan,
+    orientation: t.orientation,
+    x: t.x,
+    y: t.y,
+    occupied_spot: spots.get(t.id) ?? 0,
+    worldX: t.x - CENTER,
+    worldZ: CENTER - t.y,
+    ...(t.pending ? { pending: true } : {}),
+  }));
+  const characters = state.characters.map((c) => {
+    const offset = getSpotOffset(c.spot > 0 ? Spot.from(c.spot).value : SpotType.None);
+    return {
+      gameId: state.key.gameId,
+      playerId,
+      index: c.role,
+      tileId: c.tileId,
+      spot: c.spot,
+      weight: 1,
+      power: 1,
+      color: getColorFromCharacter(c.role),
+      name: getRole(getIndexFromCharacter(c.role)),
+      worldX: c.x - CENTER + offset.dx,
+      worldZ: CENTER - c.y + offset.dz,
+    };
+  });
+  return { tiles, characters };
 }
 
 /** Whether the SpotSelector overlay should be visible */
@@ -36,16 +50,6 @@ export function shouldShowSpotSelector(
   hoverValid: boolean,
 ): boolean {
   return character > 0 && selectedTile !== null && hoverValid;
-}
-
-/** Prefer configured game tile limit for UI denominator, then fallback to dynamic tile count. */
-export function resolveStatusTotalTiles(
-  tileLimit?: number,
-  tileCount?: number,
-): number {
-  if (tileLimit && tileLimit > 0) return tileLimit;
-  if (tileCount && tileCount > 0) return tileCount;
-  return 72;
 }
 
 const KEY_TO_SPOT: Record<string, number> = {

@@ -8,7 +8,7 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { resolveDeployment } from "../src/deployment";
-import { PavedClient, type PavedProvider } from "../src/paved-client";
+import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { placementOutcome } from "../src/placement";
 import { ViewError, type GameKey } from "../src/views";
 import { DAILY_PRICE, type PavedWriter } from "../src/writer";
@@ -33,9 +33,9 @@ describe.skipIf(!enabled)("devnet integration", () => {
       env: { rpcUrl: devnet.rpcUrl, addresses: devnet.addresses, deployedBlock: devnet.deployedBlock },
     });
     expect(deployment.configured).toBe(true);
-    const provider = recording(devnet.provider as unknown as PavedProvider, record);
+    const provider = recording(devnet.provider as unknown as PavedRpc, record);
     client = new PavedClient(deployment, provider);
-    other = new PavedClient(deployment, devnet.provider as unknown as PavedProvider);
+    other = new PavedClient(deployment, devnet.provider as unknown as PavedRpc);
     player = devnet.accounts[0].address;
     writer = client.writer(devnet.accounts[0].account, { tip: 0n });
   }, 180_000);

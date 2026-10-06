@@ -4,7 +4,6 @@ const Row = XStack as any;
 import { Button, ButtonText } from "../components/Button";
 import { GameModeCardView } from "../components/GameModeCard";
 import { GameListItemView } from "../components/GameListItem";
-import { LeaderboardTableView } from "../components/LeaderboardTable";
 import type { GameModeCardProps } from "../components/GameModeCard";
 import type { GameListItemProps } from "../components/GameListItem";
 
@@ -16,7 +15,6 @@ export interface LandingScreenProps {
   gameModes?: GameModeCardProps[];
   activeGames?: GameListItemProps[];
   completedGames?: GameListItemProps[];
-  leaderboard?: { rank: number; name: string; score: number }[];
   isLoading?: boolean;
   onModeSelect?: (mode: string) => void;
 }
@@ -29,7 +27,6 @@ export function LandingScreen({
   gameModes = [],
   activeGames = [],
   completedGames = [],
-  leaderboard = [],
   isLoading = false,
   onModeSelect,
 }: LandingScreenProps) {
@@ -137,10 +134,8 @@ export function LandingScreen({
             >
               {"Leaderboard"}
             </Text>
-            <LeaderboardTableView
-              players={leaderboard}
-              isLoading={isLoading}
-            />
+            {/* Waits for the META track's indexer: the contracts keep only each day's top three. */}
+            <Text color="$muted">{"Coming later"}</Text>
           </Stack>
         ) : null}
       </Stack>

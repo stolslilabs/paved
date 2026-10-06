@@ -5,7 +5,7 @@ import { EventReader, type EventProvider } from "./events";
 import { RpcGameViews, ViewError, toViewError, type CallProvider, type GameViews } from "./views";
 import { PavedWriter, type ReceiptProvider, type WriteAccount } from "./writer";
 
-export type PavedProvider = CallProvider & EventProvider & ReceiptProvider;
+export type PavedRpc = CallProvider & EventProvider & ReceiptProvider;
 
 export interface PlayerRecord {
   id: string;
@@ -20,7 +20,7 @@ export class PavedClient {
 
   constructor(
     readonly deployment: Deployment,
-    readonly provider: PavedProvider,
+    readonly provider: PavedRpc,
     readonly codecs: Codecs = createCodecs(),
     views?: GameViews,
   ) {
@@ -41,7 +41,14 @@ export class PavedClient {
   }
 
   writer(account: WriteAccount, options: { tip?: bigint } = {}): PavedWriter {
-    return new PavedWriter({ account, provider: this.provider, deployment: this.deployment, codecs: this.codecs, ...options });
+    return new PavedWriter({
+      account,
+      provider: this.provider,
+      deployment: this.deployment,
+      codecs: this.codecs,
+      onEvents: (contract, events) => this.events.remember(contract, events),
+      ...options,
+    });
   }
 
   private async read(contract: "Account" | "Token", entrypoint: string, args: string[]): Promise<unknown> {
@@ -57,8 +64,12 @@ export class PavedClient {
   }
 }
 
-/** A client on starknet.js's `RpcProvider` for the deployment's RPC URL. */
+/**
+ * A client on starknet.js's `RpcProvider` for the deployment's RPC URL. Refused when the deployment
+ * is not configured: an empty URL would make starknet.js fall back to a public node.
+ */
 export function createPavedClient(deployment: Deployment): PavedClient {
+  if (!deployment.configured) throw new ViewError("not-configured", `Not connected: ${deployment.missing.join(", ")} missing`);
   const provider = new RpcProvider({ nodeUrl: deployment.rpcUrl });
-  return new PavedClient(deployment, provider as unknown as PavedProvider);
+  return new PavedClient(deployment, provider as unknown as PavedRpc);
 }

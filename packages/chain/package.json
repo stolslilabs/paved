@@ -23,12 +23,7 @@
   },
   "dependencies": {
     "@paved/game-core": "workspace:*",
-    "@dojoengine/sdk": "^1.0.7",
-    "@dojoengine/core": "^1.0.7",
-    "@dojoengine/create-burner": "^1.0.7",
-    "@dojoengine/torii-client": "^1.0.7",
-    "starknet": "^8.1.2",
-    "zustand": "^5.0.0"
+    "starknet": "^8.1.2"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",

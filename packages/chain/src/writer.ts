@@ -55,12 +55,20 @@ interface Receipt {
   events?: RawEvent[];
 }
 
+/** A player name as a Cairo short string: at most 31 ASCII characters. */
 function feltOfName(name: string): string {
-  return /^0x[0-9a-f]+$/i.test(name) ? name : shortString.encodeShortString(name);
+  if (!/^[\x20-\x7e]{1,31}$/.test(name)) throw new WriteError("A name is 1 to 31 ASCII characters");
+  return shortString.encodeShortString(name);
 }
 
-/** The writes of the four contracts. Each one waits for its receipt and returns its decoded events. */
+/**
+ * The writes of the four contracts. Each one waits for its receipt and returns its decoded events.
+ * Writes are serialised: while one is pending, another is refused (`WriteError`), so a double click
+ * never sends two transactions from the account.
+ */
 export class PavedWriter {
+  private pending = false;
+
   constructor(
     private readonly options: {
       account: WriteAccount;
@@ -71,6 +79,8 @@ export class PavedWriter {
       tip?: bigint;
       /** Interval between two receipt requests while a write is pending. */
       receiptPollMs?: number;
+      /** Called with the decoded events of every successful write (the event reader keeps them). */
+      onEvents?: (contract: ContractName, events: DecodedEvent[]) => void;
     },
   ) {
     if (!options.deployment.configured) {
@@ -83,7 +93,7 @@ export class PavedWriter {
   }
 
   /** Registers the account as a player; on the test token, mints its faucet amount first. */
-  createPlayer(name: string, options: { mintTestToken?: boolean } = {}): Promise<WriteResult> {
+  async createPlayer(name: string, options: { mintTestToken?: boolean } = {}): Promise<WriteResult> {
     const calls = [this.call("Account", "create", [feltOfName(name), this.address])];
     if (options.mintTestToken) calls.unshift(this.call("Token", "mint", []));
     return this.send("Account", calls);
@@ -148,8 +158,24 @@ export class PavedWriter {
   }
 
   private async send(contract: ContractName, calls: Call[]): Promise<WriteResult> {
-    const { account, provider, codecs, deployment, tip, receiptPollMs = RECEIPT_POLL_MS } = this.options;
-    const { transaction_hash } = await account.execute(calls, tip === undefined ? undefined : { tip });
+    if (this.pending) throw new WriteError("Another write is pending");
+    this.pending = true;
+    try {
+      return await this.sendNow(contract, calls);
+    } finally {
+      this.pending = false;
+    }
+  }
+
+  private async sendNow(contract: ContractName, calls: Call[]): Promise<WriteResult> {
+    const { account, provider, codecs, deployment, tip, receiptPollMs = RECEIPT_POLL_MS, onEvents } = this.options;
+    let transaction_hash: string;
+    try {
+      // Rejected before sending: fee estimation, or a contract assert found by the simulation.
+      ({ transaction_hash } = await account.execute(calls, tip === undefined ? undefined : { tip }));
+    } catch (error) {
+      throw new WriteError(error instanceof Error ? error.message : String(error));
+    }
     let receipt: Receipt;
     try {
       receipt = (await provider.waitForTransaction(transaction_hash, { retryInterval: receiptPollMs })) as Receipt;
@@ -159,9 +185,9 @@ export class PavedWriter {
     if (receipt.execution_status === "REVERTED") {
       throw new WriteError(receipt.revert_reason ?? "Transaction reverted", transaction_hash);
     }
-    return {
-      transactionHash: transaction_hash,
-      events: receiptEvents(receipt, codecs, contract, deployment.addresses[contract]),
-    };
+    const events = receiptEvents(receipt, codecs, contract, deployment.addresses[contract]);
+    onEvents?.(contract, events);
+    return { transactionHash: transaction_hash, events };
   }
+
 }

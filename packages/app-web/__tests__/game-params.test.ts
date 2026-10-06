@@ -1,52 +1,43 @@
 import { describe, it, expect } from "vitest";
-import { parseGameParams, modeToContractName } from "../src/utils/game-params";
+import { parseGameParams } from "../src/utils/game-params";
+import { buildGameRoute } from "../src/utils/mode-routing";
+
+const parse = (q: string) => parseGameParams(new URLSearchParams(q));
 
 describe("parseGameParams", () => {
-  it("extracts mode from search params", () => {
-    const params = new URLSearchParams("mode=weekly");
-    expect(parseGameParams(params).mode).toBe("weekly");
+  it("reads mode, id and readonly", () => {
+    expect(parse("mode=tutorial&id=42&readonly=true")).toEqual({
+      mode: "tutorial",
+      gameId: 42,
+      invalidId: false,
+      spawn: false,
+      readonly: true,
+    });
   });
 
-  it("extracts gameId from search params", () => {
-    const params = new URLSearchParams("id=42");
-    expect(parseGameParams(params).gameId).toBe(42);
+  it("a bare /game neither spawns nor pays", () => {
+    expect(parse("")).toEqual({ mode: "daily", gameId: null, invalidId: false, spawn: false, readonly: false });
+    expect(parse("mode=daily").spawn).toBe(false);
   });
 
-  it("extracts readonly flag from search params", () => {
-    const params = new URLSearchParams("readonly=true");
-    expect(parseGameParams(params).readonly).toBe(true);
+  it("spawns only on spawn=1 with no id", () => {
+    expect(parse("mode=daily&spawn=1").spawn).toBe(true);
+    expect(parse("mode=daily&spawn=true").spawn).toBe(false);
+    expect(parse("mode=daily&id=3&spawn=1")).toMatchObject({ gameId: 3, spawn: false });
   });
 
-  it("defaults mode to daily when absent", () => {
-    const params = new URLSearchParams("");
-    expect(parseGameParams(params).mode).toBe("daily");
+  it("a malformed id is not found, never a spawn", () => {
+    for (const id of ["0", "abc", "-1", "1.5", "1e3", "", "4294967296"]) {
+      expect(parse(`mode=daily&spawn=1&id=${id}`)).toMatchObject({ gameId: null, invalidId: true, spawn: false });
+    }
   });
 
-  it("returns null gameId when absent", () => {
-    const params = new URLSearchParams("");
-    expect(parseGameParams(params).gameId).toBeNull();
+  it("reads weekly, gone since P1, as daily", () => {
+    expect(parse("mode=weekly").mode).toBe("daily");
   });
 
-  it("returns false readonly when absent", () => {
-    const params = new URLSearchParams("");
-    expect(parseGameParams(params).readonly).toBe(false);
-  });
-});
-
-describe("modeToContractName", () => {
-  it("maps daily to Daily", () => {
-    expect(modeToContractName("daily")).toBe("Daily");
-  });
-
-  it("maps weekly to Weekly", () => {
-    expect(modeToContractName("weekly")).toBe("Weekly");
-  });
-
-  it("maps tutorial to Tutorial", () => {
-    expect(modeToContractName("tutorial")).toBe("Tutorial");
-  });
-
-  it("defaults to Daily for unknown mode", () => {
-    expect(modeToContractName("none")).toBe("Daily");
+  it("round-trips the routes of the landing page", () => {
+    expect(parseGameParams(new URLSearchParams(buildGameRoute({ mode: "daily", spawn: true }).split("?")[1]))).toMatchObject({ spawn: true, gameId: null });
+    expect(parseGameParams(new URLSearchParams(buildGameRoute({ mode: "tutorial", gameId: 9 }).split("?")[1]))).toMatchObject({ spawn: false, gameId: 9 });
   });
 });

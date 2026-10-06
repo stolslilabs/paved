@@ -4,16 +4,25 @@ How the web client reads and writes the native contracts (`contracts/`, since P2
 Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 `public-interface.md` (views). The code is `packages/chain`.
 
-Status: part (a) of P-10 adds this layer to `packages/chain`. The Dojo code it replaces
-(`bindings/`, `DojoProvider`, the Torii hooks, `@dojoengine/*`) still sits beside it until part (b)
-wires `packages/app-web` to it and removes them.
-
 ## Sources
 
 | What | From | Override |
 |---|---|---|
 | ABIs of `Account`, `Daily`, `Tutorial`, `Token` | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
-| RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script) | env: `VITE_RPC_URL`, `VITE_<CONTRACT>_ADDRESS`, `VITE_DEPLOYED_BLOCK` |
+| RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script); `<network>` is `VITE_NETWORK`, default `devnet` | env, see below |
+| The playing account | env, **devnet only**: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); ignored on any other network, since a key in a built bundle is public | none; without both the app is read-only |
+
+The env variables of `packages/app-web` (`src/utils/network.ts`), each one set overriding the file:
+
+| Variable | Overrides |
+|---|---|
+| `VITE_RPC_URL` | `rpc_url` |
+| `VITE_DEPLOYED_BLOCK` | `deployed_block` |
+| `VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`, `VITE_TUTORIAL_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player) |
+| `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` only |
+
+The app reads every `contracts/deployments/*.json` at build time (`import.meta.glob`, which
+tolerates a missing folder) and picks `<network>.json`.
 
 `resolveDeployment` (`packages/chain/src/deployment.ts`) merges the file and the env, env first. A
 missing address, or a missing file with no env, gives a deployment with `configured: false`.
@@ -25,24 +34,37 @@ The token is labelled `$TILE` whatever its on-chain symbol (D-2); `decimals` com
 
 ## Clients
 
-`createPavedClient(provider, deployment)` gives one typed client per contract, built on starknet.js
-`RpcProvider` (`callContract`, `getEvents`, `waitForTransaction`). Calldata and results are encoded
+`createPavedClient(deployment)` gives a `PavedClient` on a starknet.js `RpcProvider` for the
+deployment's RPC URL (`callContract`, `getEvents`, `waitForTransaction`); it refuses a deployment
+that is not configured, so an empty URL never falls back to a public node. Calldata and results are encoded
 and decoded from the ABIs (`codec.ts`): structs, arrays, `u256`, enums by variant index. A unit test
 checks that the field lists of the TS view types match the ABI structs, so an ABI change that the
-client does not follow fails the tests.
+client does not follow fails the tests. A result with felts left over, or too few, is an
+`abi-mismatch` error (a contract upgraded with a grown struct fails rather than misaligns);
+integers are range-checked before they are encoded; an event with a field type the codec does not
+know is skipped and logged, so ABI growth cannot break a receipt or an event page.
 
-Writes go through a starknet.js `Account` (`createWriter(account, deployment)`): `create`, `spawn`
+Writes go through a starknet.js `Account` (`client.writer(account, { tip })`, a `PavedWriter`): `create`, `spawn`
 (Daily: `approve` + `spawn` in one multicall), `build`, `discard`, `surrender`, `claim`, `sponsor`,
 `mint` (test token). Each write waits for its own receipt and returns its decoded events: the one
 request repeated while a transaction is pending, every 250 ms (`RECEIPT_POLL_MS`; starknet.js waits
 5 s by default), and only until that receipt arrives. The writer takes an explicit `tip` (0 on
 devnet: starknet.js 8.9's tip estimate wants 10 V3 transactions per block and stalls a fresh node).
+A rejected write (fee estimation, a contract assert found by the simulation, a reverted receipt)
+is a `WriteError` with the reason. Writes are serialised in `PavedWriter`: while one is pending, a
+second is refused, so a double click on "confirm" never sends two transactions; `GameSession` also
+ignores a move while its own write is pending. The events of every receipt go to the event reader,
+which keeps the `GameSpawned` / `GameOver` of this client and merges them into the lists: a game
+just spawned is listed even when the node's `latest` block lags behind the receipt.
 The Daily entry price (`DAILY_PRICE`, 1 token) mirrors `DAILY_TOURNAMENT_PRICE` of
 `contracts/src/constants.cairo`: no view exposes it.
 
-Kept from the old code: the plain `Account` from an address and a private key (the devnet
-predeployed account, as before), and the Cartridge controller placeholder
-(`auth/controller.ts`), whose policies are now built from the deployment's addresses. Dropped:
+Kept from the old code: the plain `Account` from an address and a private key (a devnet
+predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`, on devnet only; the
+old hard-coded Katana master key is gone), and the Cartridge controller placeholder
+(`auth/controller.ts`), whose policies are now built from the deployment's addresses (refused
+when it is not configured: no policy on an empty target). The controller is the only signing path
+outside devnet; until it is wired, other networks are read-only. Dropped:
 the Dojo burner manager (`@dojoengine/create-burner`).
 
 ## Views
@@ -56,7 +78,7 @@ Every game read names its contract: game ids are counted per contract, so the cl
 
 Reverts are mapped to typed errors (`ViewError`), from the message as text or as the hex of its
 short string (devnet 0.10 gives only the hex): `Game: does not exist` gives `game-not-found`,
-`View: not the game player` gives `not-player`, anything else `rpc`. The game page shows "game not
+`View: not the game player` gives `not-player`, a layout the ABI does not describe `abi-mismatch`, anything else `rpc`. The game page shows "game not
 found" and "not your game: read only" for the first two.
 
 ## Events
@@ -77,8 +99,9 @@ filtering:
 |---|---|---|
 | Landing: player registered, name | `Account.player(address)` | on connect, after `create` |
 | Landing: balance | `Token.balance_of(address)` | on connect, after a write that pays |
-| Landing: my games, active and finished | `GameSpawned` + `GameOver` events (both game contracts) | on connect, after `spawn`, on "refresh" |
-| Landing: today's tournament (prize, top 3, end) | `Daily.current_tournament_id` + `Daily.tournament(id)` | on connect, on "refresh", when the page becomes visible |
+| Landing: my games, active and finished | `GameSpawned` + `GameOver` events (both game contracts), then one `game` view per listed game (the active ones and the 10 latest finished) for its counts | on connect, when the page becomes visible |
+| Landing: today's tournament (prize, top 3, end) | `Daily.current_tournament_id` + `Daily.tournament(id)` | on connect, when the page becomes visible |
+| Game page with `spawn=1` (set by the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once |
 | Landing: leaderboard | none: a plain "coming later" card until META's indexer | |
 | Game: board | `tiles(game_id, 0, 64)` | on open |
 | Game: tile in hand, score, counts, over | `game(game_id)` | on open, after each write (reconcile) |
@@ -107,8 +130,25 @@ can replace that later.
   surrender), lists the games from events and checks the error mapping. `PAVED_RECORD=1` rewrites
   the fixtures. CI does not run it (no devnet there).
 
+## In the app
+
+`PavedProvider` (`react.tsx`) gives the client, the writer and a status computed once from
+`configured` and the account: `not-configured`, `read-only` (no account) or `ready`. `useRead` runs
+one read on its inputs, on `refresh` and, when asked, when the page becomes visible. The game page
+uses `GameSession` (`session.ts`) through `useGameSession`: it loads `game` + `tiles` (+ `builder` and
+`characters` for the game's player), and moves only on this client's writes, as above. A read that
+fails after a successful write is a `readError` ("Move applied; refresh failed"), not a write error.
+
+`/game?mode=..&id=..` shows a game. Only `/game?mode=..&spawn=1`, which the landing page's confirm
+builds, starts one (a Daily spawn pays the entry); a bare `/game` URL spawns nothing ("No game
+selected"), and a malformed id shows "Game not found". `useRead` says when a read has answered
+(`loaded`): "Create Account" is offered only once the player read has answered "none", never while
+it is in flight or failed, and the landing page shows the errors of its reads with a "Retry".
+
 ## Not connected
 
-The app shows "not connected" (no write button, no spawn) when `configured` is false, or when no
-account is available. Reads that need no account (a game in read-only mode, the tournament) still
-work when the deployment is configured.
+`ConnectionBanner` (app-web) says why writes are not offered. `not-configured`: the deployment
+misses addresses or the RPC URL; no write button, no spawn, and the game page shows "Not connected".
+`read-only`: no playing account; games open read-only and the landing page offers no start. A game of
+another player opens read-only with "Not your game: read only"; a missing game shows "Game not
+found".
