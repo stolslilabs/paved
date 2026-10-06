@@ -118,7 +118,8 @@ fn road6_moves() -> Array<GoldenMove> {
 }
 
 /// Three roles on three spot types: a pilgrim on a wonder (left open), a paladin on a city closed
-/// right away, an adventurer on a road closed by the last move. No role is allowed on a forest.
+/// right away, an adventurer on a road closed by the last move. None of these roles is allowed on a
+/// forest (the Woodsman and the Herdsman, of P4, are: see `forest.cairo`).
 fn mixed_moves() -> Array<GoldenMove> {
     array![
         forced(
@@ -165,7 +166,7 @@ fn mixed_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 143357491)]
+#[available_gas(l2_gas: 157836565)]
 fn test_golden_daily_city5_game_over() {
     let moves = city5_moves();
     play_daily(
@@ -188,7 +189,7 @@ fn test_golden_daily_city5_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 158587951)]
+#[available_gas(l2_gas: 167931019)]
 fn test_golden_daily_road6() {
     let moves = road6_moves();
     play_daily(
@@ -211,7 +212,7 @@ fn test_golden_daily_road6() {
 }
 
 #[test]
-#[available_gas(l2_gas: 153899139)]
+#[available_gas(l2_gas: 162952344)]
 fn test_golden_daily_mixed_roles() {
     let moves = mixed_moves();
     play_daily(
