@@ -10,7 +10,7 @@ Validated by the owner on 2026-10-06 (D-1). Status values: `planned`, `briefed`,
 | P1 | **Refocus on single player**: port only Daily (and Tutorial); Weekly, Configurable and the #181 economy leave the path (kept in history) | 5 (partly) | Less code to port and optimise | done |
 | P2 | **Leave Dojo** at constant compiler (2.13.1): native Starknet storage, native contract(s), real events, snforge tests, same directory layout | 3 | Dojo 1.8 locks Cairo 2.13, so the compiler cannot move while Dojo is there. Doing it at constant compiler isolates the change: goldens stay identical | done |
 | P3 | **Cairo migration**: Scarb 2.20.1 / snforge 0.64, alone in its PR | 1 | Becomes a plain bump (the known pattern from Slingfall and quiver) | done |
-| P4 | **Woodsman and Herdsman** | 2 | Before optimisation: Forest scoring adds nested DFS, and the new structure state must cover them by design | planned |
+| P4 | **Woodsman and Herdsman** | 2 | Before optimisation: Forest scoring adds nested DFS, and the new structure state must cover them by design | done |
 | P5 | **Gas and coverage iterations**: persistent structure state (union-find or equivalent) instead of DFS, packing and bitmaps, `Game` split (frozen config vs hot state) | 4 | Most of the gain is here; designed to take extensions (rivers) without a redo | planned |
 | P6 | **Single-player product**: daily seed, full leaderboard (events plus a light indexer, or a bounded on-chain ranking), client wired to the native contracts | 5 | | planned |
 | P7 | **Quests and achievements** through `quiver_quest` / `quiver_achievement` (pinned published version, never git or path) | 6 | | planned |

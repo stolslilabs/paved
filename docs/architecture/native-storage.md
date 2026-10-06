@@ -50,7 +50,7 @@ world did, so a missing entry reads as the model with its keys set and every val
 |---|---|---|---|
 | `Game` | `id: u32` | 3 | `seed`; `tiles u128, tile_count u32, score u32, discarded u8, built u8, mode u8, over bool`; `start_time u64, end_time u64, tournament_id u64, tile_limit u16` |
 | `Player` | `id: felt252` | 2 | `name`; `master` |
-| `Builder` | `(game_id, player_id)` | 1 | `tile_id u32, characters u8` |
+| `Builder` | `(game_id, player_id)` | 1 | `tile_id u32, characters u8` (bit `i` set: the role of code `i` is on the board; with the Woodsman and the Herdsman of P4 the 7 codes use bits 1 to 7, so a new role needs a wider field) |
 | `Tile` | `(game_id, id)` | 2 | `player_id`; `plan u8, orientation u8, x u32, y u32, occupied_spot u8` |
 | `TilePosition` | `(game_id, x, y)` | 1 | `tile_id u32` |
 | `Char` | `(game_id, player_id, index)` | 1 | `tile_id u32, spot u8, weight u8, power u8` |
@@ -81,7 +81,7 @@ and data as the contract's `self.emit` would.
 | `GameSpawned` | Daily, Tutorial | `key game_id`, `key player_id`, `mode`, `tournament_id`, `start_time`, `price` | `spawn` |
 | `Built` | Daily, Tutorial | `key game_id`, `player_id`, `tile_id`, `plan`, `orientation`, `x`, `y`, `role`, `spot` | a tile is built |
 | `Discarded` | Daily, Tutorial | `key game_id`, `player_id`, `tile_id`, `plan`, `points` (penalty) | a tile is discarded |
-| `Scored` | Daily, Tutorial | `key game_id`, `player_id`, `category`, `size` (tiles; 0 for a wonder), `points` | a structure is solved and scores |
+| `Scored` | Daily, Tutorial | `key game_id`, `player_id`, `category`, `size` (tiles; 0 for a wonder), `points` | a structure is solved and scores; a forest emits one per character (Woodsman, Herdsman), with `category` FOREST and the size of the forest, even with 0 points |
 | `GameOver` | Daily, Tutorial | `key game_id`, `key player_id`, `key tournament_id`, `mode`, `score`, `start_time`, `end_time` | the game ends (last tile, or surrender); `tournament_id` and `end_time` are 0 when the game ended after its tournament closed (it does not count), and always in Tutorial |
 | `Sponsored` | Daily | `key tournament_id`, `sponsor`, `amount` | `sponsor` |
 | `Claimed` | Daily | `key tournament_id`, `player_id`, `rank`, `reward` | `claim` |
@@ -161,3 +161,26 @@ store.
 
 `origami_random` came from the Dojo organisation's git repository; the one module used (`deck`) is
 copied into `helpers/random_deck.cairo` with its source and MIT licence named in the file.
+
+## Forest scoring (P4)
+
+The roles of 2024, restored from `b0f837e^` (`helpers/forest.cairo`, `ForestCount`). The forest
+starts of the layouts (`elements/layouts/*`, `starts()`), which `b0f837e` had commented out, are
+active again: each tile built assesses every forest it touches, as it does for roads and cities.
+
+- A forest is **closed** when every tile around it exists (as for any structure) **and every road
+  adjacent to it is closed**: one open adjacent road keeps the forest open. Adjacent cities do not
+  keep it open.
+- **Woodsman**: `distinct closed roads adjacent to the forest x 300 x bonus(size) / woodsmen`.
+  **Herdsman**: the same with the distinct closed cities adjacent. `bonus(n) = 1.0235^n`
+  (`helpers/multiplier.cairo`), `size` is the number of tile areas of the forest. A road or a city
+  touched at several places counts once. The size of the forest therefore enters the points only
+  through the bonus, not as a factor.
+- A Woodsman is also allowed on a road, where it scores as a Lord (weight and power 1); a Herdsman
+  is also allowed on a city, where it scores as a Lord too (weight and power 1). Neither is allowed
+  on the other structures (the Woodsman on a city, the Herdsman on a road, both on a wonder).
+- A forest is assessed from the forest starts of the tile that is built, as roads and cities are
+  from theirs: the build that completes the forest scores it, and a build that does not touch it
+  does not assess it (behaviour of 2024, kept).
+- Cost: each build walks the forests of the new tile. The gas ceilings of `docs/measures/` were
+  raised for it (P4); the persistent structure state of P5 is meant to replace these walks.
