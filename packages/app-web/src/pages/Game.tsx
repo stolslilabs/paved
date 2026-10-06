@@ -192,13 +192,9 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
   const hand = state?.hand ?? null;
   const game = state?.game ?? null;
 
-  // `scene` is a dependency on purpose: GameCanvas hands `tiles` to the renderer in an effect that
-  // runs before the scene has loaded its models, and again only when `tiles` changes. With no
-  // polling, the board read once before the scene was ready must be handed over again once it is.
   const { tiles, characters } = useMemo(
     () => (state ? toRenderBoard(state, game?.playerId ?? "0x0") : { tiles: [] as TileRenderData[], characters: [] }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state, game?.playerId, scene],
+    [state, game?.playerId],
   );
 
   const handleReady = useCallback((s: GameScene) => {
@@ -301,6 +297,15 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
     await session.discard(() => writer.discard(gameKey));
   }, [session, writer, readonly, gameKey]);
 
+  const [confirmingSurrender, setConfirmingSurrender] = useState(false);
+  // Surrender ends the game with its score so far; it asks first and is serialised by the writer.
+  const handleSurrender = useCallback(async () => {
+    setConfirmingSurrender(false);
+    if (!session || !writer || readonly) return;
+    await session.surrender(() => writer.surrender(gameKey));
+  }, [session, writer, readonly, gameKey]);
+  const canSurrender = !readonly && !loading && game !== null && !game.over;
+
   // Stable refs for keyboard hotkeys — avoids re-registering listener on every state change
   const hotkeys = useRef({
     handleRotate,
@@ -353,7 +358,8 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
           if (!h.loading && h.hand && h.hoverState?.valid) h.handleConfirm();
           break;
         case "d":
-          if (!h.loading && h.game) h.handleDiscard();
+          // The button's own condition: nothing to discard on a finished game or with an empty hand.
+          if (!h.loading && h.hand) h.handleDiscard();
           break;
         default: {
           const spotNum = spotKeyToNumber(e.key);
@@ -484,6 +490,24 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
             >
               Recenter (F)
             </button>
+            {!readonly && (
+              <button
+                type="button"
+                onClick={() => setConfirmingSurrender(true)}
+                disabled={!canSurrender}
+                style={{
+                  border: "1px solid rgba(248,113,113,0.6)",
+                  background: "rgba(127,29,29,0.4)",
+                  color: "#fecaca",
+                  borderRadius: 8,
+                  padding: "6px 10px",
+                  cursor: canSurrender ? "pointer" : "default",
+                  opacity: canSurrender ? 1 : 0.5,
+                }}
+              >
+                {loading ? "Working..." : "Surrender"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -517,6 +541,26 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
           </div>
         )}
       </div>
+
+      {confirmingSurrender && (
+        <div
+          role="dialog"
+          aria-label="Surrender"
+          style={{ position: "absolute", inset: 0, zIndex: 30, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)" }}
+        >
+          <div style={{ background: "#171717", border: "1px solid #555", borderRadius: 12, padding: 24, display: "flex", flexDirection: "column", gap: 16, maxWidth: 360, color: "#f5f5f5" }}>
+            <span>Surrender this game? It ends now with your current score of {game?.score ?? 0}. This cannot be undone.</span>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button type="button" onClick={handleSurrender} disabled={!canSurrender} style={{ flex: 1, background: "#b91c1c", border: "none", color: "#fff", padding: "10px 16px", borderRadius: 8, cursor: "pointer" }}>
+                Confirm surrender
+              </button>
+              <button type="button" onClick={() => setConfirmingSurrender(false)} style={{ background: "transparent", border: "1px solid #555", color: "#999", padding: "10px 16px", borderRadius: 8, cursor: "pointer" }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <GameCompleteDialog score={game?.score ?? 0} visible={game?.over === true} onClose={() => navigate("/")} />
     </div>

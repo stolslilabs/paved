@@ -40,6 +40,31 @@ export function formatTokenAmount(value: bigint | number | string, decimals = 18
   return trimTrailingZeros(`${whole.toString()}.${padded.slice(0, precision)}`);
 }
 
+/** An amount with the token label, or "—" when the deployment does not say the token's decimals. */
+export function tokenLabel(value: bigint, decimals: number | null): string {
+  return decimals === null ? "—" : `${formatTokenAmount(value, decimals)} ${TOKEN_LABEL}`;
+}
+
+/**
+ * A decimal amount typed by the player as the token's base unit, or null when it is not a positive
+ * amount with at most `decimals` fraction digits (or the decimals are unknown).
+ */
+export function parseTokenAmount(text: string, decimals: number | null): bigint | null {
+  if (decimals === null) return null;
+  const m = /^(\d{1,40})(?:\.(\d{1,40}))?$/.exec(text.trim());
+  if (!m) return null;
+  const fraction = m[2] ?? "";
+  if (fraction.length > decimals) return null;
+  const amount = BigInt(m[1]) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, "0") || "0");
+  return amount > 0n ? amount : null;
+}
+
+/** A player name is 1 to 31 printable ASCII characters (a Cairo short string), not only spaces. */
+export function playerNameError(name: string): string | null {
+  if (!/^[\x20-\x7e]{1,31}$/.test(name) || name.trim() === "") return "A name is 1 to 31 ASCII characters";
+  return null;
+}
+
 export function shortAddress(address: string): string {
   const hex = BigInt(address).toString(16);
   return hex.length <= 10 ? `0x${hex}` : `0x${hex.slice(0, 4)}…${hex.slice(-4)}`;
@@ -68,10 +93,12 @@ export type EntryFee =
  * The Daily entry as the player may see it. The amount is formatted with the decimals of the
  * deployment's token only: another token (`price.token`) has unknown decimals, so no figure.
  */
-export function entryFee(price: Pick<ReadState<PriceView>, "data" | "error">, deploymentToken: string): EntryFee {
+export function entryFee(price: Pick<ReadState<PriceView>, "data" | "error">, deploymentToken: string, decimals: number | null): EntryFee {
   if (price.error) return { kind: "error", message: price.error };
   if (!price.data) return { kind: "loading" };
   if (!deploymentToken || BigInt(price.data.token) !== BigInt(deploymentToken)) return { kind: "unknown-token" };
+  // Without the token's decimals no amount can be shown, so none can be confirmed: never a default.
+  if (decimals === null && price.data.amount !== 0n) return { kind: "error", message: "token decimals missing from the deployment" };
   return price.data.amount === 0n ? { kind: "free" } : { kind: "amount", amount: price.data.amount };
 }
 
