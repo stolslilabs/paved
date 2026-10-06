@@ -46,9 +46,10 @@ Whole-test `--detailed-resources` of scenario a, for reference (includes setup):
 syscalls StorageRead 654, StorageWrite 322, CallContract 155, GetExecutionInfo 151, EmitEvent 82,
 Deploy 22, GetClassHashAt 1.
 
-Output excerpt (`snforge test test_gas_`, 4 of the 5 lines shown):
+Output excerpt (`snforge test test_gas_`, the 5 `GAS` lines, one `[PASS]` line and the summary):
 
 ```
+GAS a0_open_simple_move: 53633322
 GAS a_simple_move: 64102212
 [PASS] paved_tests::gas::test_gas_a_simple_move (l1_gas: ~0, l1_data_gas: ~21696, l2_gas: ~285498002)
 GAS b_move_with_character: 72155500
@@ -56,6 +57,23 @@ GAS c_close_large_city: 112722643
 GAS d_worst_case: 247082185
 Tests: 5 passed, 0 failed, 0 ignored, 219 filtered out
 ```
+
+### After P1 (Weekly, Configurable and the #181 economy removed)
+
+Same tests, same method, same toolchain, run on 2026-10-06 on the commit of the PR `refactor: P1 scope,
+drop Weekly, Configurable and the #181 economy`. The `Game` and `Tournament` models lost the config and
+economy fields, so every `world` read and write of a build is smaller. The ceilings of
+`contracts/tests/gas.cairo` are lowered to the new figure + 5 %.
+
+| | L2 gas before (P0) | L2 gas after (P1) | Change | Ceiling before | Ceiling after |
+| --- | --- | --- | --- | --- | --- |
+| a0 | 53,633,322 | 47,125,474 | -12.1 % | 56,314,989 | 49,481,748 |
+| a | 64,102,212 | 57,579,064 | -10.2 % | 67,307,323 | 60,458,018 |
+| b | 72,155,500 | 65,625,152 | -9.0 % | 75,763,275 | 68,906,410 |
+| c | 112,722,643 | 106,160,795 | -5.8 % | 118,358,776 | 111,468,835 |
+| d | 247,082,185 | 240,377,237 | -2.7 % | 259,436,295 | 252,396,099 |
+
+The golden games (whole games, spawn included) went down too: see `docs/measures/golden-games.md`.
 
 ## Line coverage of `contracts/src`
 

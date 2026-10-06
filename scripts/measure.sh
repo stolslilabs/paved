@@ -22,6 +22,11 @@ export RAYON_NUM_THREADS=1
 
 mode="${1:-all}"
 
+versions() {
+  scarb --version | head -n 1
+  snforge --version
+}
+
 run_capped() {
   # Peak memory is printed by /usr/bin/time: kbytes on Linux (capped with prlimit), bytes on macOS
   # (`time -l`; prlimit does not exist there, so no cap).
@@ -62,9 +67,9 @@ coverage() {
 }
 
 case "$mode" in
-  gas) gas ;;
-  coverage) coverage ;;
-  check-setup) check_setup ;;
-  all) check_setup; gas; coverage ;;
+  gas) versions; gas ;;
+  coverage) versions; coverage ;;
+  check-setup) versions; check_setup ;;
+  all) versions; check_setup; gas; coverage ;;
   *) echo "usage: $0 [gas|coverage|check-setup|all]"; exit 2 ;;
 esac

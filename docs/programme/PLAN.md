@@ -6,8 +6,8 @@ Validated by the owner on 2026-10-06 (D-1). Status values: `planned`, `briefed`,
 
 | # | Phase | Owner's task no. | Why at this place | Status |
 |---|---|---|---|---|
-| P0 | **Base**: pin the current toolchain, repair the CI, baseline measures (gas per move on 3 scenarios, coverage) and **golden games** (move sequences with expected score) | none | Without a baseline no gain can be measured; goldens prove that later phases do not change the rules | briefed |
-| P1 | **Refocus on single player**: port only Daily (and Tutorial); Weekly, Configurable and the #181 economy leave the path (kept in history) | 5 (partly) | Less code to port and optimise | planned |
+| P0 | **Base**: pin the current toolchain, repair the CI, baseline measures (gas per move on 3 scenarios, coverage) and **golden games** (move sequences with expected score) | none | Without a baseline no gain can be measured; goldens prove that later phases do not change the rules | done (line coverage pending (Mac)) |
+| P1 | **Refocus on single player**: port only Daily (and Tutorial); Weekly, Configurable and the #181 economy leave the path (kept in history) | 5 (partly) | Less code to port and optimise | done |
 | P2 | **Leave Dojo** at constant compiler (2.13.1): native Starknet storage, native contract(s), real events, snforge tests, same directory layout | 3 | Dojo 1.8 locks Cairo 2.13, so the compiler cannot move while Dojo is there. Doing it at constant compiler isolates the change: goldens stay identical | planned |
 | P3 | **Cairo migration**: Scarb 2.20.1 / snforge 0.64, alone in its PR | 1 | Becomes a plain bump (the known pattern from Slingfall and quiver) | planned |
 | P4 | **Woodsman and Herdsman** | 2 | Before optimisation: Forest scoring adds nested DFS, and the new structure state must cover them by design | planned |
