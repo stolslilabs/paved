@@ -18,8 +18,9 @@ cd app && pnpm dev
 sh scripts/contracts.sh
 ```
 
-### Terminal 3 - Migrate the contracts and start the indexer
+### Terminal 3 - Local stack
 
-```
-sh scripts/indexer.sh
-```
+The Dojo and Torii scripts (`scripts/indexer.sh`, `scripts/dev-stack.sh`) were removed with the Dojo
+contracts (P2). A native local stack (deploy to a devnet, contract addresses for the client in
+`VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`, `VITE_TUTORIAL_ADDRESS` and `VITE_TOKEN_ADDRESS`) comes with the
+data-layer step; until then the client builds but cannot reach a chain.

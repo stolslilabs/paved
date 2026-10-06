@@ -30,6 +30,11 @@ jobs:
               - 'turbo.json'
               - 'tsconfig*.json'
               - '.github/workflows/client.yaml'
+              # What the client consumes from the contracts: the ABIs and the deploy output (addresses,
+              # class hashes). Not `contracts/**`: Cairo sources alone do not change the client. P2
+              # (#197) removed the manifests the client imported and no client job ran.
+              - 'contracts/abis/**'
+              - 'contracts/deployments/**'
 
   build-test:
     needs: changes
