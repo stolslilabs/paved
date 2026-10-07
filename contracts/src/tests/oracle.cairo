@@ -783,6 +783,7 @@ pub mod check {
     use paved::structure::tables;
     use paved::tests::setup::setup::TestStore;
     use paved::types::category::Category;
+    use paved::types::role::Role;
     use paved::types::spot::Spot;
     use snforge_std::interact_with_state;
     use super::conflict::Conflict;
@@ -815,6 +816,7 @@ pub mod check {
         if tile.orientation == 0 {
             return;
         }
+        check_forest_characters(game_id);
         let mut structures = StructuresTrait::new(game_id);
         let mut area: u8 = 1;
         while area <= tables::AREA_COUNT {
@@ -837,6 +839,48 @@ pub mod check {
             }
             direction += 1;
         }
+    }
+
+    /// P-16 (PR P5-8) as an invariant of the board: after a move, no Woodsman or Herdsman stands on a
+    /// forest that the walk finds finished (closed, every adjacent road closed). The ruling asked a
+    /// road or a city that closes away from a forest to assess it again, so that its character
+    /// scores and returns. No board that a placement accepts keeps such a forest waiting (a forest
+    /// closes only when the tiles around it, which hold every road next to it, are all placed: see
+    /// the report of P5-8), so the runtime has no such step; this check proves it holds on every
+    /// checked game, and fails the day a tile makes it reachable.
+    fn check_forest_characters(game_id: u32) {
+        let word = StoreImpl::characters_word(game_id);
+        if word == 0 {
+            return;
+        }
+        let mut s = StoreImpl::new();
+        let game = s.game(game_id);
+        let mut roles: Array<Role> = array![Role::Woodsman, Role::Herdsman];
+        while let Option::Some(role) = roles.pop_front() {
+            let character = StoreImpl::unpack_character(game_id, game.player_id, role.into(), word);
+            if character.tile_id == 0 {
+                continue;
+            }
+            let (tile, refs) = StoreImpl::tile_with_refs(game_id, character.tile_id);
+            // A forest that still has an open half-edge is not finished: the walk is only for a
+            // forest the structure state calls closed
+            let mut structures = StructuresTrait::new(game_id);
+            let area = tables::area_at(tile.plan, character.spot, tile.orientation);
+            let (_, record) = structures.find(ref_of(refs, area));
+            if !record_closed(record) {
+                continue;
+            }
+            let at: Spot = character.spot.into();
+            let (count, _, _, _, _) = ForestCount::start(game, tile, at, ref s);
+            if count != 0 {
+                println!("Check: tile {} spot {}: forest finished, character stays", tile.id, character.spot);
+            }
+            assert(count == 0, 'Check: forest left unscored');
+        }
+    }
+
+    fn record_closed(record: u64) -> bool {
+        paved::structure::record::open_of(record) == 0
     }
 
     fn check_node(ref structures: Structures, tile: Tile, area: u8, sid: u32) {
