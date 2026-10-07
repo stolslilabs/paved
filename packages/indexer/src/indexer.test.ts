@@ -6,7 +6,7 @@ import { afterEach, describe, expect, test } from "vitest";
 import { Chain } from "./chain.ts";
 import { SELECTORS, decode, padded } from "./events.ts";
 import { Indexer } from "./indexer.ts";
-import { SchemaMismatch, Store } from "./store.ts";
+import { SCHEMA_VERSION, SchemaMismatch, Store } from "./store.ts";
 import { ACCOUNT, DAILY, FakeNode, TUTORIAL, ev } from "./testing/fake-node.ts";
 import { CONFIG, indexerOf, settle } from "./testing/setup.ts";
 
@@ -214,7 +214,7 @@ describe("the database", () => {
     expect(() => new Store(path)).toThrow(SchemaMismatch);
     const store = new Store(path, { rebuild: true });
     store.open(CONFIG);
-    expect(store.meta("schema")).toBe("1");
+    expect(store.meta("schema")).toBe(SCHEMA_VERSION);
     store.close();
   });
 
@@ -229,7 +229,7 @@ describe("the database", () => {
     expect(() => again.open({ ...CONFIG, chainId: "0x1" })).toThrow(/chain/);
     expect(() => again.open(CONFIG)).not.toThrow();
     again.close();
-    expect(Store.peek(path)).toMatchObject({ schema: "1", from: 1 });
+    expect(Store.peek(path)).toMatchObject({ schema: SCHEMA_VERSION, from: 1 });
     expect(Store.peek(join(tempDb(), "missing"))).toEqual({});
   });
 

@@ -4,11 +4,16 @@
 // (`checks.last_mismatch`), never acted on, and halts nothing. The view is read at a block the indexer has applied, so no
 // mismatch can come from the indexer lagging; a day is closed when the served block's time is at or past its end, after
 // which the slots cannot move (counting `GameOver`s stop at the day's end).
+//
+// The same read is the Podium (quests.md, "On the Podium", P-22/O-37): the players the view names in its three slots are
+// recorded in the `podium` table for that day, credited to the On the Podium achievement. They come from the view, not from
+// the replay of the events, so a mismatch does not change who is credited; and only from a closed day (never early).
 import { hash } from "starknet";
-import type { Mismatch } from "./api.ts";
+import { TOURNAMENT_DURATION, type Mismatch } from "./api.ts";
 import type { Chain, Header } from "./chain.ts";
 import { padded } from "./events.ts";
-import { slotView, type Queries } from "./queries.ts";
+import { Queries, slotView } from "./queries.ts";
+import type { Store } from "./store.ts";
 
 const SELECTOR = BigInt(hash.getSelectorFromName("tournament")).toString(16);
 
@@ -22,11 +27,13 @@ export class CrossCheck {
   readonly checked = new Set<number>();
   private readonly chain: Chain;
   private readonly queries: Queries;
+  private readonly store: Store;
   private readonly log: (message: string) => void;
 
-  constructor(chain: Chain, queries: Queries, log: (message: string) => void = () => {}) {
+  constructor(chain: Chain, store: Store, log: (message: string) => void = () => {}) {
     this.chain = chain;
-    this.queries = queries;
+    this.store = store;
+    this.queries = new Queries(store);
     this.log = log;
   }
 
@@ -51,6 +58,14 @@ export class CrossCheck {
         score: Number(felts[FIRST_TOP + rank * 3 + 1] ?? 0n),
       }));
       const indexed = this.queries.slots(served.number, id).map(slotView);
+      this.store.recordPodium(
+        id,
+        (id + 1) * TOURNAMENT_DURATION,
+        view.flatMap((slot, index) =>
+          BigInt(slot.player_id) === 0n ? [] : [{ playerId: slot.player_id, rank: index + 1 }],
+        ),
+        served,
+      );
       this.checked.add(id);
       if (JSON.stringify(view) !== JSON.stringify(indexed)) {
         this.lastMismatch = { tournament_id: id, head_number: served.number, view, indexed };

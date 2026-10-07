@@ -181,3 +181,87 @@ export interface EntryAnswer extends Envelope {
   /** The player's leaderboard row of that day, null when the player has no finished game that counted. */
   entry: LeaderboardEntry | null;
 }
+
+/** A task of a definition: the id the game reports and the count that completes it. */
+export interface TaskTarget {
+  task_id: number;
+  total: number;
+}
+
+export interface QuestDefinition {
+  quest_id: number;
+  /** The schedule of `QuestDefined`: `end` 0 never ends; `duration` and `interval` 0 for a one-off quest. */
+  start_time: number;
+  end_time: number;
+  duration: number;
+  interval: number;
+  tasks: TaskTarget[];
+  /** Prerequisites as defined; the indexer does not apply them (quests.md, "Indexer"). */
+  conditions: number[];
+  /** Time of the block that defined it. */
+  defined_at: number;
+  retired: boolean;
+  /** Time of the block that retired it, null while it is live. */
+  retired_at: number | null;
+}
+
+export interface AchievementDefinition {
+  achievement_id: number;
+  /** The window of `AchievementDefined`: 0 is open on that side. */
+  start_time: number;
+  end_time: number;
+  tasks: TaskTarget[];
+  /** Display only. */
+  points: number;
+  defined_at: number;
+  retired: boolean;
+  retired_at: number | null;
+}
+
+export interface DefinitionsAnswer extends Envelope {
+  quests: QuestDefinition[];
+  achievements: AchievementDefinition[];
+}
+
+export interface TaskProgress extends TaskTarget {
+  /** The sum of the counts that counted, at most `total`. */
+  count: number;
+}
+
+export interface PlayerQuest {
+  quest_id: number;
+  /** The interval of the schedule the day falls in (0 for a one-off quest). */
+  interval_id: number;
+  tasks: TaskProgress[];
+  completed: boolean;
+  /** Time of the block of the report that completed it; null while incomplete. */
+  completed_at: number | null;
+  /** Retired at the served block: what counted before stays, nothing counts after. */
+  retired: boolean;
+}
+
+export interface PlayerQuestsAnswer extends Envelope {
+  player_id: string;
+  /** The UTC day (`timestamp / 86400`, the tournament id of the day). */
+  day: number;
+  start_time: number;
+  end_time: number;
+  /** The quests active at some time of that day, with the player's progress (zero for an unknown player). */
+  quests: PlayerQuest[];
+}
+
+export interface PlayerAchievement {
+  achievement_id: number;
+  points: number;
+  tasks: TaskProgress[];
+  completed: boolean;
+  completed_at: number | null;
+  retired: boolean;
+}
+
+export interface PlayerAchievementsAnswer extends Envelope {
+  player_id: string;
+  /** The points of the completed achievements. */
+  points: number;
+  achievements: PlayerAchievement[];
+}

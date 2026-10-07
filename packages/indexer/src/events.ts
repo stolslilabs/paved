@@ -50,7 +50,36 @@ export type Decoded =
       playerId: bigint;
       displayName: bigint;
       master: bigint;
-    };
+    }
+  | {
+      name: "QuestDefined";
+      questId: number;
+      start: bigint;
+      end: bigint;
+      duration: number;
+      interval: number;
+      tasks: TaskTarget[];
+      conditions: number[];
+    }
+  | { name: "QuestProgressed"; playerId: bigint; taskId: number; count: number }
+  | { name: "QuestRetired"; questId: number }
+  | {
+      name: "AchievementDefined";
+      achievementId: number;
+      start: bigint;
+      end: bigint;
+      tasks: TaskTarget[];
+      points: number;
+    }
+  | { name: "AchievementProgressed"; playerId: bigint; taskId: number; count: number }
+  | { name: "AchievementRetired"; achievementId: number };
+
+/** One task of a quest or an achievement: the id the game reports, and the count that completes it. */
+export type TaskTarget = { taskId: number; total: number };
+
+/** quiver 0.2.0 (`MAX_TASKS`, `MAX_CONDITIONS`): a definition holds 1 to 3 tasks and at most 7 prerequisites. */
+export const MAX_TASKS = 3;
+export const MAX_CONDITIONS = 7;
 
 export type EventName = Decoded["name"];
 
@@ -59,6 +88,13 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   GameSpawned: ["daily", "tutorial"],
   GameOver: ["daily", "tutorial"],
   PlayerCreated: ["account"],
+  // Definitions and quest progress come from Daily only (Tutorial declares the achievement component, to report task 10).
+  QuestDefined: ["daily"],
+  QuestProgressed: ["daily"],
+  QuestRetired: ["daily"],
+  AchievementDefined: ["daily"],
+  AchievementProgressed: ["daily", "tutorial"],
+  AchievementRetired: ["daily"],
 };
 
 /** Events of the contracts' ABIs that are not indexed in v1 (indexer.md, "Not indexed"). */
@@ -71,16 +107,11 @@ export const IGNORED = [
   "OwnershipTransferStarted",
   "OwnershipTransferred",
   "Upgraded",
-  // Quests and achievements (quiver 0.2.0): read by the P7 indexer PR
-  "QuestDefined",
-  "QuestProgressed",
+  // Quests and achievements of quiver 0.2.0 that Paved never emits: quests are in event mode (no completion, no claim),
+  // and the reporters are not used (the game flow calls the internal layer).
   "QuestCompleted",
   "QuestClaimed",
-  "QuestRetired",
   "QuestReporterSet",
-  "AchievementDefined",
-  "AchievementProgressed",
-  "AchievementRetired",
   "AchievementReporterSet",
 ] as const;
 
@@ -88,6 +119,12 @@ const INDEXED: readonly EventName[] = [
   "GameSpawned",
   "GameOver",
   "PlayerCreated",
+  "QuestDefined",
+  "QuestProgressed",
+  "QuestRetired",
+  "AchievementDefined",
+  "AchievementProgressed",
+  "AchievementRetired",
 ];
 
 /** Selector (a lowercase 0x hex without leading zeros) of every event name of the contracts. */
@@ -183,6 +220,45 @@ function tournamentId(value: string | undefined): bigint {
 }
 
 /**
+ * `count` then that many `[task_id, total]` pairs from `data` at `at` (a serialized `Span<QuestTask>` or
+ * `Span<AchievementTask>`): the tasks and the index after them.
+ */
+function tasksAt(
+  name: EventName,
+  data: readonly string[],
+  at: number,
+): { tasks: TaskTarget[]; next: number } {
+  const count = small(data[at], 8, "tasks length");
+  if (count < 1 || count > MAX_TASKS) {
+    throw new DecodeError(`${name}: ${count} tasks, expected 1 to ${MAX_TASKS}`);
+  }
+  const tasks: TaskTarget[] = [];
+  for (let i = 0; i < count; i++) {
+    const taskId = small(data[at + 1 + 2 * i], 32, "task_id");
+    if (taskId === 0) throw new DecodeError(`${name}: task id 0`);
+    tasks.push({ taskId, total: small(data[at + 2 + 2 * i], 32, "total") });
+  }
+  return { tasks, next: at + 1 + 2 * count };
+}
+
+/** The data of a progress event: `count` (u32); the keys are the player and the task. */
+function progressed(
+  name: "QuestProgressed" | "AchievementProgressed",
+  keys: readonly string[],
+  data: readonly string[],
+) {
+  shape(name, keys, data, 2, 1);
+  const taskId = small(keys[2], 32, "task_id");
+  if (taskId === 0) throw new DecodeError(`${name}: task id 0`);
+  return {
+    name,
+    playerId: felt(keys[1]),
+    taskId,
+    count: small(data[0], 32, "count"),
+  } as const;
+}
+
+/**
  * The event of `source` with these raw keys and data; null for an event of the contract that is known and not
  * indexed; a DecodeError for anything else (unknown selector, wrong contract, wrong shape).
  */
@@ -234,5 +310,61 @@ export function decode(
         displayName: felt(data[0]),
         master: felt(data[1]),
       };
+    case "QuestDefined": {
+      // key quest_id; data start, end, duration, interval, tasks (length, pairs), conditions (length, ids)
+      if (keys.length !== 2 || data.length < 6) {
+        throw new DecodeError(
+          `${name}: ${keys.length - 1} keys and ${data.length} data, expected 1 key and at least 6 data`,
+        );
+      }
+      const { tasks, next } = tasksAt(name, data, 4);
+      const length = small(data[next], 8, "conditions length");
+      if (length > MAX_CONDITIONS) {
+        throw new DecodeError(`${name}: ${length} conditions, expected at most ${MAX_CONDITIONS}`);
+      }
+      if (data.length !== next + 1 + length) {
+        throw new DecodeError(`${name}: ${data.length} data, expected ${next + 1 + length}`);
+      }
+      return {
+        name,
+        questId: small(keys[1], 32, "quest_id"),
+        start: safe(uint(data[0], 64, "start"), "start"),
+        end: safe(uint(data[1], 64, "end"), "end"),
+        duration: small(data[2], 32, "duration"),
+        interval: small(data[3], 32, "interval"),
+        tasks,
+        conditions: Array.from({ length }, (_, i) => small(data[next + 1 + i], 32, "condition")),
+      };
+    }
+    case "QuestProgressed":
+      return progressed(name, keys, data);
+    case "QuestRetired":
+      shape(name, keys, data, 1, 0);
+      return { name, questId: small(keys[1], 32, "quest_id") };
+    case "AchievementDefined": {
+      // key achievement_id; data start, end, tasks (length, pairs), points (u16)
+      if (keys.length !== 2 || data.length < 5) {
+        throw new DecodeError(
+          `${name}: ${keys.length - 1} keys and ${data.length} data, expected 1 key and at least 5 data`,
+        );
+      }
+      const { tasks, next } = tasksAt(name, data, 2);
+      if (data.length !== next + 1) {
+        throw new DecodeError(`${name}: ${data.length} data, expected ${next + 1}`);
+      }
+      return {
+        name,
+        achievementId: small(keys[1], 32, "achievement_id"),
+        start: safe(uint(data[0], 64, "start"), "start"),
+        end: safe(uint(data[1], 64, "end"), "end"),
+        tasks,
+        points: small(data[next], 16, "points"),
+      };
+    }
+    case "AchievementProgressed":
+      return progressed(name, keys, data);
+    case "AchievementRetired":
+      shape(name, keys, data, 1, 0);
+      return { name, achievementId: small(keys[1], 32, "achievement_id") };
   }
 }

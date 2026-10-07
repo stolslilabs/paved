@@ -39,7 +39,7 @@ async function scenario(slots: [bigint, number][]) {
   const indexer = indexerOf(node);
   await settle(indexer);
   const chain = new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT });
-  const check = new CrossCheck(chain, new Queries(indexer.store));
+  const check = new CrossCheck(chain, indexer.store);
   return { node, indexer, check, calls };
 }
 
@@ -89,7 +89,7 @@ describe("the cross-check against the tournament view", () => {
       calls++;
       throw new Error("down");
     };
-    const check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), new Queries(indexer.store));
+    const check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), indexer.store);
     await check.run(indexer.served!);
     expect(calls).toBe(0);
     node.time = (DAY + 1) * 86400;
@@ -122,7 +122,7 @@ describe("the cross-check against the tournament view", () => {
     const indexer = indexerOf(node, 1000, undefined, async (served) => {
       await check?.run(served);
     }, (message) => logs.push(message));
-    check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), new Queries(indexer.store));
+    check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), indexer.store);
     await settle(indexer); // the first call fails, and the indexer is idle
     expect(logs.some((message) => /after-served hook failed: cross-check of tournament 100 failed: down/.test(message))).toBe(true);
     expect(calls).toBe(1);
@@ -149,7 +149,7 @@ describe("the cross-check against the tournament view", () => {
     const indexer = indexerOf(node, 1000, undefined, async (served) => {
       await check?.run(served);
     });
-    check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), new Queries(indexer.store));
+    check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), indexer.store);
     await settle(indexer);
     expect(check.checked.has(DAY)).toBe(true);
     expect(check.lastMismatch).toBeNull();

@@ -99,6 +99,60 @@ export const ev = {
     ),
   created: (player: bigint | number, name: bigint | number, master: bigint | number = 0xabc) =>
     raw("account", "PlayerCreated", [player], [name, master]),
+  /** `QuestDefined`: key quest_id; data schedule (start, end, duration, interval), tasks span, conditions span. */
+  questDefined: (
+    questId: number,
+    options: {
+      start?: number;
+      end?: number;
+      duration?: number;
+      interval?: number;
+      tasks?: [number, number][];
+      conditions?: number[];
+    } = {},
+  ) => {
+    const tasks = options.tasks ?? [[1, 1]];
+    const conditions = options.conditions ?? [];
+    return raw(
+      "daily",
+      "QuestDefined",
+      [questId],
+      [
+        options.start ?? 0,
+        options.end ?? 0,
+        options.duration ?? 86400,
+        options.interval ?? 86400,
+        tasks.length,
+        ...tasks.flat(),
+        conditions.length,
+        ...conditions,
+      ],
+    );
+  },
+  questProgressed: (player: bigint | number, task: number, count: number) =>
+    raw("daily", "QuestProgressed", [player, task], [count]),
+  questRetired: (questId: number) => raw("daily", "QuestRetired", [questId], []),
+  /** `AchievementDefined`: key achievement_id; data window (start, end), tasks span, points. */
+  achievementDefined: (
+    achievementId: number,
+    options: { start?: number; end?: number; tasks?: [number, number][]; points?: number } = {},
+  ) => {
+    const tasks = options.tasks ?? [[1, 1]];
+    return raw(
+      "daily",
+      "AchievementDefined",
+      [achievementId],
+      [options.start ?? 0, options.end ?? 0, tasks.length, ...tasks.flat(), options.points ?? 10],
+    );
+  },
+  achievementProgressed: (
+    source: "daily" | "tutorial",
+    player: bigint | number,
+    task: number,
+    count: number,
+  ) => raw(source, "AchievementProgressed", [player, task], [count]),
+  achievementRetired: (achievementId: number) =>
+    raw("daily", "AchievementRetired", [achievementId], []),
   /** An event of the contracts that is known and not indexed. */
   built: (source: Source, gameId: number) =>
     raw(source, "Built", [gameId], [1, 2, 3, 4, 5, 6, 7, 8]),

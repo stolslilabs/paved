@@ -22,7 +22,6 @@ import {
   readDeployment,
 } from "./deployment.ts";
 import { Indexer, type Depth } from "./indexer.ts";
-import { Queries } from "./queries.ts";
 import { DEFAULT_PORT, serve } from "./server.ts";
 import { SchemaMismatch, Store, deploymentHash } from "./store.ts";
 
@@ -163,7 +162,7 @@ try {
   console.error((error as Error).message);
   process.exit(2);
 }
-checks = new CrossCheck(chain, new Queries(store), log);
+checks = new CrossCheck(chain, store, log);
 indexer.listen({ rewound: () => checks!.reset() });
 
 const abort = new AbortController();
