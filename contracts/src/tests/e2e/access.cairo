@@ -314,7 +314,7 @@ fn constructor_panic(name: ByteArray, calldata: Array<felt252>) -> felt252 {
 }
 
 #[test]
-#[available_gas(l2_gas: 506142)]
+#[available_gas(l2_gas: 544331)]
 fn test_access_daily_constructor_reverts_on_zero_account() {
     let owner: felt252 = OWNER().into();
     let token: felt252 = SOMEONE().into();
@@ -325,7 +325,7 @@ fn test_access_daily_constructor_reverts_on_zero_account() {
 }
 
 #[test]
-#[available_gas(l2_gas: 506142)]
+#[available_gas(l2_gas: 544331)]
 fn test_access_daily_constructor_reverts_on_zero_token() {
     let owner: felt252 = OWNER().into();
     let account: felt252 = SOMEONE().into();
@@ -336,7 +336,7 @@ fn test_access_daily_constructor_reverts_on_zero_token() {
 }
 
 #[test]
-#[available_gas(l2_gas: 506142)]
+#[available_gas(l2_gas: 544961)]
 fn test_access_daily_constructor_reverts_on_zero_lobby_class() {
     let owner: felt252 = OWNER().into();
     let account: felt252 = SOMEONE().into();
@@ -350,7 +350,7 @@ fn test_access_daily_constructor_reverts_on_zero_lobby_class() {
 }
 
 #[test]
-#[available_gas(l2_gas: 465959)]
+#[available_gas(l2_gas: 504777)]
 fn test_access_tutorial_constructor_reverts_on_zero_lobby_class() {
     let owner: felt252 = OWNER().into();
     let account: felt252 = SOMEONE().into();
@@ -361,7 +361,7 @@ fn test_access_tutorial_constructor_reverts_on_zero_lobby_class() {
 }
 
 #[test]
-#[available_gas(l2_gas: 465959)]
+#[available_gas(l2_gas: 504147)]
 fn test_access_tutorial_constructor_reverts_on_zero_account() {
     let owner: felt252 = OWNER().into();
     assert(
@@ -371,7 +371,7 @@ fn test_access_tutorial_constructor_reverts_on_zero_account() {
 }
 
 #[test]
-#[available_gas(l2_gas: 1327032)]
+#[available_gas(l2_gas: 1403409)]
 fn test_access_constructors_revert_on_zero_owner() {
     let account: felt252 = SOMEONE().into();
     let token: felt252 = ANYONE().into();
