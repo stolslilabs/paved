@@ -256,6 +256,25 @@ GAS d_worst_case: 12701782
 
 Golden games: `docs/measures/golden-games.md`.
 
+### After P5-5 (forests on the structure state, P-15)
+
+Same tests and method, scarb 2.20.1 / snforge 0.64.0. The figures are the `GAS` lines of the CI
+`Test game` job of the PR (Linux, run 37616293570, same code as the final head: the final commit only
+lowers ceilings and writes the docs). Cause of the small fall: a forest start costs a root read
+instead of the P5-4 gate plus walk set-up; no scenario scores a forest. The ceilings of
+`contracts/tests/gas.cairo` are lowered to measured + 5 %.
+
+| Scenario | L2 gas P5-4 | L2 gas P5-5 | Change | Ceiling P5-4 | Ceiling P5-5 |
+| --- | --- | --- | --- | --- | --- |
+| a0 | 9,143,695 | 9,128,151 | -0.2 % | 9,600,880 | 9,584,559 |
+| a | 8,918,742 | 8,908,025 | -0.1 % | 9,364,680 | 9,353,427 |
+| b | 9,967,911 | 9,957,194 | -0.1 % | 10,466,307 | 10,455,054 |
+| c | 10,639,848 | 10,630,441 | -0.1 % | 11,171,841 | 11,161,964 |
+| d | 12,701,782 | 12,692,375 | -0.1 % | 13,336,872 | 13,326,994 |
+
+The forest goldens, where forests score, fall by 1.9 % to 2.7 %: `docs/measures/golden-games.md`.
+Scenario e (a move that closes a forest with a Woodsman) is added in P5-6.
+
 ## Line coverage of `contracts/src`
 
 **Not measured.** `cairo-coverage` 0.6.1 was installed in user space (release tarball into

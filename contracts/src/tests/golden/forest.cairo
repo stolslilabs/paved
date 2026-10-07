@@ -304,7 +304,7 @@ fn herdsman_open_city_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 147993169)]
+#[available_gas(l2_gas: 145126506)]
 fn test_golden_daily_forest_woodsman_ring() {
     let moves = woodsman_ring_moves();
     play_daily(
@@ -327,7 +327,7 @@ fn test_golden_daily_forest_woodsman_ring() {
 }
 
 #[test]
-#[available_gas(l2_gas: 162363834)]
+#[available_gas(l2_gas: 159541517)]
 fn test_golden_daily_forest_herdsman_caps() {
     let moves = herdsman_caps_moves();
     play_daily(
@@ -350,7 +350,7 @@ fn test_golden_daily_forest_herdsman_caps() {
 }
 
 #[test]
-#[available_gas(l2_gas: 234252198)]
+#[available_gas(l2_gas: 227839604)]
 fn test_golden_daily_forest_both_roles() {
     let moves = both_roles_moves();
     play_daily(
@@ -375,7 +375,7 @@ fn test_golden_daily_forest_both_roles() {
 /// The new case of P5-5: the rule correction P-15, see `herdsman_open_city_moves`. Not a rule of
 /// 2024: its 2024 figure was 314.
 #[test]
-#[available_gas(l2_gas: 220000000)]
+#[available_gas(l2_gas: 160072793)]
 fn test_golden_daily_forest_herdsman_open_city() {
     let moves = herdsman_open_city_moves();
     play_daily(
@@ -467,7 +467,7 @@ fn test_golden_daily_forest_both_roles_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 400000000)]
+#[available_gas(l2_gas: 222587468)]
 fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
     play_daily_checked(
         'forest_open',

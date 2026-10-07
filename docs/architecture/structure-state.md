@@ -3,8 +3,8 @@
 Design of the persistent structure state that replaces the recursive walks of
 `helpers/generic.cairo`, `conflict.cairo`, `wonder.cairo`, `forest.cairo` (and `simple.cairo`, which
 the forest walk calls), with the `Game` split and the packing that go with it. The PRs that build it
-are in [`docs/briefs/p5-plan.md`](../briefs/p5-plan.md). Status: roads, cities, wonders and the conflict check built in P5-4 (section "As built" at the
-end says where the code differs from this design); forests in P5-5.
+are in [`docs/briefs/p5-plan.md`](../briefs/p5-plan.md). Status: roads, cities, wonders and the conflict check built in P5-4, forests in P5-5 (section "As
+built" at the end says where the code differs from this design).
 
 Every gas figure in this document is an **estimate** unless it is quoted from
 `docs/measures/baseline.md` (P4 figures, scarb 2.20.1 / snforge 0.64.0). No measurement was run for
@@ -380,3 +380,35 @@ e2e boards (`tests/differential.cairo`, `e2e/forest.cairo`, `e2e/views.cairo`), 
 tile and the wonder of every neighbour with the oracle's walks: closed against `GenericCount`, size
 against its count when closed, `chars != 0` against `Conflict` and the roles against those
 `GenericCount` collects.
+
+## As built (P5-5)
+
+Code: `contracts/src/structure/forest.cairo` (`assess_forest`, called from `Game::assess`, and `scan`).
+`helpers/forest.cairo` and `helpers/simple.cairo` are gone from the runtime; the walks live on in
+`tests/oracle.cairo` only. Where it differs from "Forests" above, and why:
+
+- **The scan walks the forest from the built tile's start area**, one tile read per node
+  (`Store::tile_at`: the position, then the tile with its refs), moves within the forest through the
+  oriented rows, a `Felt252Dict` of visited nodes. For each node it reads the adjacency bitmaps of the
+  plan row (`tables::row_adjacent_roads`, `row_adjacent_cities`: the adjacency is by area, the same in
+  every orientation) and takes the root of each adjacent area from the tile's refs.
+- **An adjacent road whose root is open ends the scan at once**, as the walk stopped at an open
+  road: the forest does not score and the characters stay.
+- **The Woodsman and the Herdsman are one character each** (one tile of each role at most), so the
+  division by the number of characters of a role is by 1 and left out. The `Scored` events keep their
+  order: the Woodsman first, then the Herdsman, each with the forest's size, even with 0 points.
+- **P-15** is a count of closed city roots: a city whose root has `open != 0` is not counted, each
+  root once. The new golden `test_golden_daily_forest_herdsman_open_city` builds a forest of 2 tiles
+  between two city corridors that a corner and a T-junction join into one open city (its east edge looks
+  at an empty position). By hand: the city is open, so 0 x 300 x bonus(2) = **0**; the 2024 walk, run on
+  the commit before the fix (`dc804707`), gave **314** (1 x 300 x 10475 / 10000, the open city counted
+  once). The Herdsman is back either way.
+- **The oracle follows P-15**: its forest walk explores a whole city before judging it
+  (`SimpleCount::explore`), and the differential check (`oracle::check`) compares, for every closed
+  forest node of a built tile, the scan with the oracle's forest walk (closed or not, size, distinct
+  roads, distinct cities).
+- **Two guards from the audit of #222**: `placement::place_alone` refuses a tile that holds a character
+  (a tile written alone never goes through `occupy`, so its structure would not know the character;
+  a plan without areas has no structure and is left alone), and `Store::set_tile` refuses to change the
+  plan, the orientation or the position of a tile whose refs are stored (the records were built from
+  them).
