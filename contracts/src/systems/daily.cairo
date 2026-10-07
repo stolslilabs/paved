@@ -63,7 +63,7 @@ pub mod Daily {
 
     use paved::constants;
     use paved::events::Event as PavedEvent;
-    use paved::quests::{Tally, achievement_entries, quest_entries};
+    use paved::quests::{achievement_entries, decode, quest_entries};
     use paved::store::{StoreImpl, StoreTrait};
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
@@ -106,14 +106,9 @@ pub mod Daily {
     // trusted internal layer only. No `progress` entrypoint exists: a game over reports its own.
     // The indexer reads the definitions from `QuestDefined` and `AchievementDefined`: TrackAll.
     component!(path: QuestComponent, storage: quest, event: QuestEvent);
-    #[abi(embed_v0)]
-    impl QuestViewImpl = QuestComponent::QuestViewImpl<ContractState>;
     impl QuestInternalImpl = QuestComponent::InternalImpl<ContractState>;
     impl QuestTracking = quiver_quest::store::tracking::TrackAll<ContractState>;
     component!(path: AchievementComponent, storage: achievement, event: AchievementEvent);
-    #[abi(embed_v0)]
-    impl AchievementViewImpl =
-        AchievementComponent::AchievementViewImpl<ContractState>;
     impl AchievementInternalImpl = AchievementComponent::InternalImpl<ContractState>;
     impl AchievementTracking = quiver_achievement::store::tracking::TrackAll<ContractState>;
 
@@ -269,55 +264,15 @@ pub mod Daily {
             self.report(over);
         }
     }
-    #[abi(embed_v0)]
-    impl DailyQuestsImpl of IDailyQuests<ContractState> {
-        fn define_quest(
-            ref self: ContractState,
-            quest_id: u32,
-            schedule: QuestSchedule,
-            tasks: Span<QuestTask>,
-            conditions: Span<u32>,
-        ) {
-            // [Check] Caller is the owner
-            self.ownable.assert_only_owner();
-            // [Check] A recurring quest rolls over at 00:00 UTC, where the tournament id does
-            if schedule.interval != 0 {
-                assert(schedule.start % 86400 == 0, errors::MISALIGNED_QUEST);
-            }
-            // [Effect] Define the quest
-            self.quest.define(quest_id, schedule, tasks, conditions);
-        }
-
-        fn retire_quest(ref self: ContractState, quest_id: u32) {
-            self.ownable.assert_only_owner();
-            self.quest.retire(quest_id);
-        }
-
-        fn define_achievement(
-            ref self: ContractState,
-            achievement_id: u32,
-            window: AchievementWindow,
-            tasks: Span<AchievementTask>,
-            points: u16,
-        ) {
-            self.ownable.assert_only_owner();
-            self.achievement.define(achievement_id, window, tasks, points);
-        }
-
-        fn retire_achievement(ref self: ContractState, achievement_id: u32) {
-            self.ownable.assert_only_owner();
-            self.achievement.retire(achievement_id);
-        }
-    }
-
     #[generate_trait]
     impl InternalImpl of InternalTrait {
         /// A Daily game over reports its tally to the quests and to the achievements, once each,
         /// after the ranking is written and the `GameOver` emitted. Entries come from constants
         /// (`paved::quests`), so the calls cannot revert and the game over cannot fail.
-        fn report(ref self: ContractState, over: Option<Tally>) {
-            if let Option::Some(tally) = over {
-                let player_id = tally.player_id;
+        fn report(ref self: ContractState, over: u128) {
+            if over != 0 {
+                let player_id: felt252 = get_caller_address().into();
+                let tally = decode(over, player_id);
                 self.quest.progress_many(player_id, quest_entries(tally).span(), QuestMode::Event);
                 self.achievement.progress_many(player_id, achievement_entries(tally).span());
             }
@@ -359,4 +314,53 @@ pub mod Daily {
             ViewsImpl::entry_price(self.payable.token_address.read())
         }
     }
+
+    // [Info] Declared last: the entrypoints of the game come first in the dispatch of the contract
+    #[abi(embed_v0)]
+    impl DailyQuestsImpl of IDailyQuests<ContractState> {
+        fn define_quest(
+            ref self: ContractState,
+            quest_id: u32,
+            schedule: QuestSchedule,
+            tasks: Span<QuestTask>,
+            conditions: Span<u32>,
+        ) {
+            // [Check] Caller is the owner
+            self.ownable.assert_only_owner();
+            // [Check] A recurring quest rolls over at 00:00 UTC, where the tournament id does
+            if schedule.interval != 0 {
+                assert(schedule.start % 86400 == 0, errors::MISALIGNED_QUEST);
+            }
+            // [Effect] Define the quest
+            self.quest.define(quest_id, schedule, tasks, conditions);
+        }
+
+        fn retire_quest(ref self: ContractState, quest_id: u32) {
+            self.ownable.assert_only_owner();
+            self.quest.retire(quest_id);
+        }
+
+        fn define_achievement(
+            ref self: ContractState,
+            achievement_id: u32,
+            window: AchievementWindow,
+            tasks: Span<AchievementTask>,
+            points: u16,
+        ) {
+            self.ownable.assert_only_owner();
+            self.achievement.define(achievement_id, window, tasks, points);
+        }
+
+        fn retire_achievement(ref self: ContractState, achievement_id: u32) {
+            self.ownable.assert_only_owner();
+            self.achievement.retire(achievement_id);
+        }
+    }
+
+
+    #[abi(embed_v0)]
+    impl QuestViewImpl = QuestComponent::QuestViewImpl<ContractState>;
+    #[abi(embed_v0)]
+    impl AchievementViewImpl =
+        AchievementComponent::AchievementViewImpl<ContractState>;
 }

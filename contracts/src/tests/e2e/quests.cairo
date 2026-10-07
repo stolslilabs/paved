@@ -5,7 +5,7 @@
 use paved::constants;
 use paved::events::game_over;
 use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait};
-use paved::models::game::GameTrait;
+use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tile::CENTER;
 use paved::systems::daily::{Daily, IDailyQuestsDispatcher, IDailyQuestsDispatcherTrait};
 use paved::systems::tutorial::{ITutorialDispatcherTrait, Tutorial};
@@ -249,7 +249,7 @@ fn test_quests_game_over_every_count_zero() {
 
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: game over');
-    assert(game.score == 0 && game.structures == 0 && game.forests == 0, 'Quests: counters');
+    assert(game.score == 0 && game.counts == 0, 'Quests: counters');
     let over = Daily::Event::PavedEvent(game_over(game, context.player_id));
     spy
         .assert_emitted(
@@ -265,7 +265,8 @@ fn test_quests_game_over_every_count_zero() {
 }
 
 /// A game over with every counter at the maximum of its width, a score above the high score and
-/// the first rank: the 8 entries, and the game over, the ranking and `GameOver` all happen.
+/// the first rank: the largest lists (4 and 6 entries), and the game over, the ranking and
+/// `GameOver` all happen.
 #[test]
 #[available_gas(l2_gas: 104736338)]
 fn test_quests_game_over_every_counter_at_maximum() {
@@ -276,10 +277,14 @@ fn test_quests_game_over_every_counter_at_maximum() {
     define_accepted_list(daily);
     let mut game = store.game(context.game_id);
     game.score = 0xffffffff;
-    game.structures = constants::MAX_STRUCTURES;
-    game.forests = constants::MAX_FORESTS;
-    game.wonders = constants::MAX_WONDERS;
-    game.big = constants::MAX_BIG;
+    game
+        .counts =
+            GameImpl::counts_of(
+                constants::MAX_STRUCTURES,
+                constants::MAX_FORESTS,
+                constants::MAX_WONDERS,
+                constants::MAX_BIG,
+            );
     store.set_game(game);
 
     let mut spy = spy_events();
@@ -293,7 +298,8 @@ fn test_quests_game_over_every_counter_at_maximum() {
     let top = interact_with_state(daily, || LeaderboardImpl::new().top(id));
     assert(top.first.score == 0xffffffff, 'Quests: first rank');
     let over = Daily::Event::PavedEvent(game_over(game, context.player_id));
-    // [Assert] The report: tasks 1 to 7 and 9, after `GameOver`
+    // [Assert] The report: tasks 1 to 4 to the quests, 1, 4 to 7 and 9 to the achievements, after
+    // `GameOver`
     let p = context.player_id;
     spy
         .assert_emitted(
@@ -302,13 +308,7 @@ fn test_quests_game_over_every_counter_at_maximum() {
                 (daily, quest_progressed(p, constants::TASK_STRUCTURE_SCORED, 127)),
                 (daily, quest_progressed(p, constants::TASK_POINTS, 0xffffffff)),
                 (daily, quest_progressed(p, constants::TASK_FOREST_SCORED, 63)),
-                (daily, quest_progressed(p, constants::TASK_WONDER_SCORED, 15)),
-                (daily, quest_progressed(p, constants::TASK_BIG_STRUCTURE, 63)),
-                (daily, quest_progressed(p, constants::TASK_HIGH_SCORE, 1)),
-                (daily, quest_progressed(p, constants::TASK_WIN, 1)),
                 (daily, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
-                (daily, achievement_progressed(p, constants::TASK_STRUCTURE_SCORED, 127)),
-                (daily, achievement_progressed(p, constants::TASK_POINTS, 0xffffffff)),
                 (daily, achievement_progressed(p, constants::TASK_FOREST_SCORED, 63)),
                 (daily, achievement_progressed(p, constants::TASK_WONDER_SCORED, 15)),
                 (daily, achievement_progressed(p, constants::TASK_BIG_STRUCTURE, 63)),
@@ -336,10 +336,10 @@ fn test_quests_game_over_after_tournament_reports_without_win() {
         .assert_emitted(
             @array![
                 (daily, quest_progressed(p, constants::TASK_POINTS, 5000)),
-                (daily, quest_progressed(p, constants::TASK_HIGH_SCORE, 1)),
+                (daily, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
             ],
         );
-    spy.assert_not_emitted(@array![(daily, quest_progressed(p, constants::TASK_WIN, 1))]);
+    spy.assert_not_emitted(@array![(daily, achievement_progressed(p, constants::TASK_WIN, 1))]);
 }
 
 /// The counters follow the scoring: a 2-tile city closed with a Lord scores one structure, not a
@@ -358,8 +358,8 @@ fn test_quests_counters_follow_the_scoring() {
         .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::Lord, Spot::South);
     let game = store.game(context.game_id);
     assert(game.score > 0, 'Quests: scored');
-    assert(game.structures == 1, 'Quests: structures');
-    assert(game.big == 0 && game.forests == 0 && game.wonders == 0, 'Quests: others');
+    assert(game.structures() == 1, 'Quests: structures');
+    assert(game.big() == 0 && game.forests() == 0 && game.wonders() == 0, 'Quests: others');
 }
 
 /// A Tutorial game over reports task 10 to the achievements, and only that.

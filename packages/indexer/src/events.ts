@@ -70,6 +70,17 @@ export const IGNORED = [
   "OwnershipTransferStarted",
   "OwnershipTransferred",
   "Upgraded",
+  // Quests and achievements (quiver 0.2.0): read by the P7 indexer PR
+  "QuestDefined",
+  "QuestProgressed",
+  "QuestCompleted",
+  "QuestClaimed",
+  "QuestRetired",
+  "QuestReporterSet",
+  "AchievementDefined",
+  "AchievementProgressed",
+  "AchievementRetired",
+  "AchievementReporterSet",
 ] as const;
 
 const INDEXED: readonly EventName[] = [

@@ -361,17 +361,20 @@ from the design above. Figures are L2 gas, measured on Linux with `contracts/tes
 - **Daily** embeds both components (`TrackAll`, views and internal layer only) and the owner-only
   `IDailyQuests`: `define_quest`, `retire_quest`, `define_achievement`, `retire_achievement`. A recurring quest
   must start on a multiple of 86,400 (`'Daily: quest not on UTC day'`, Q-6). **Tutorial** embeds the achievement
-  component only, to report task 10 (a quest component there would emit a `QuestProgressed` for a task no quest uses);
+  component only, to report task 10 (a quest component there would emit a `QuestProgressed` for a task no quest uses; accepted by the orchestrator);
   it has no views and no definitions.
-- **Counters.** `Game` gains `structures`, `forests`, `wonders`, `big` (saturating `u8`), packed at bits 88, 95,
-  101 and 105 of the high half of the `GameState` word (7, 6, 4, 6 bits; the word stays at bit 111 of 123): no new
-  slot. `Store::set_builder` keeps them.
-- **Report.** `PlayableComponent` returns `Option<Tally>` at game over, after `end_in_tournament` (which now returns
-  the rank) and after `GameOver`; `Daily` makes one `progress_many` per component from `paved::quests`
-  (tasks 1 to 7 and 9, zero counts dropped, at most 8 entries). Tutorial reports task 10 with one `progress`.
+- **Counters.** `Game` gains one field, `counts: u32`, holding `structures` (7 bits), `forests` (6), `wonders` (4) and
+  `big` (6), saturating, read with `structures()`, `forests()`, `wonders()`, `big()`. It sits at bit 88 of the high
+  half of the `GameState` word (23 bits, up to bit 111 of 123): no new slot. `Store::set_builder` keeps it.
+- **Report.** `PlayableComponent` returns the tally as one `u128` at game over (0 when the game is not over, so a
+  move that does not end the game pays nothing for it), after `end_in_tournament` (which now returns the rank) and
+  after `GameOver`; `Daily` makes one `progress_many` per component from `paved::quests`, with its own list: the
+  quests get tasks 1 to 4 (at most 4 entries), the achievements tasks 1, 4, 5, 6, 7 and 9 (at most 6). Zero counts
+  are dropped. Tutorial reports task 10 with one `progress`. The design's single list of 8 entries is split because
+  each entry is an event (about 70k).
 - **No runtime guard (ruling P-23).** `progress_many` reverts in event mode only on more than 16 entries or a task id
   0; both are decided by the array built from constants. `paved::quests::tests` proves the bounds on every shape of
-  report (rank 0 to 3, scores around the thresholds, counters at 0, 1, 15 and at their maximum), and
+  report, for both lists (rank 0 to 3, scores around the thresholds, counters at 0, 1, 15 and at their maximum), and
   `e2e::quests` ends a game with every counter at its maximum and with every count zero and asserts the game over,
   the ranking and `GameOver`.
 - **Definitions** are not made by the contracts' constructor: the accepted list is defined with the entrypoints above

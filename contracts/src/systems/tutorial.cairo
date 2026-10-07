@@ -25,7 +25,7 @@ pub mod Tutorial {
     use paved::types::mode::Mode;
     use paved::views::{BuilderView, CharacterView, GameView, IGameView, TileView, ViewsImpl};
     use quiver_achievement::component::AchievementComponent;
-    use starknet::ContractAddress;
+    use starknet::{ContractAddress, get_caller_address};
 
     // Local imports
 
@@ -139,8 +139,9 @@ pub mod Tutorial {
     #[generate_trait]
     impl InternalImpl of InternalTrait {
         /// A Tutorial game over reports one unit of task 10 for its player, after the game over.
-        fn report(ref self: ContractState, over: Option<felt252>) {
-            if let Option::Some(player_id) = over {
+        fn report(ref self: ContractState, over: bool) {
+            if over {
+                let player_id: felt252 = get_caller_address().into();
                 self.achievement.progress(player_id, constants::TASK_TUTORIAL_FINISHED, 1);
             }
         }

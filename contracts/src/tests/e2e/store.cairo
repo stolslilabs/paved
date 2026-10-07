@@ -5,7 +5,7 @@ use core::num::traits::Bounded;
 use paved::constants;
 use paved::models::builder::Builder;
 use paved::models::character::Char;
-use paved::models::game::Game;
+use paved::models::game::{Game, GameImpl};
 use paved::models::player::Player;
 use paved::models::tile::{Tile, TilePosition};
 use paved::models::tournament::Tournament;
@@ -45,10 +45,12 @@ fn test_store_round_trips_at_maximum_values() {
                 mode: Bounded::MAX,
                 tournament_id: Bounded::MAX,
                 tile_limit: Bounded::MAX,
-                structures: constants::MAX_STRUCTURES,
-                forests: constants::MAX_FORESTS,
-                wonders: constants::MAX_WONDERS,
-                big: constants::MAX_BIG,
+                counts: GameImpl::counts_of(
+                    constants::MAX_STRUCTURES,
+                    constants::MAX_FORESTS,
+                    constants::MAX_WONDERS,
+                    constants::MAX_BIG,
+                ),
             };
             store.set_game(game);
             assert_eq!(store.game(game.id), game);

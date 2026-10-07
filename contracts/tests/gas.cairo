@@ -25,6 +25,7 @@
 use core::testing::get_available_gas;
 use paved::constants::{self, CENTER};
 use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
+use paved::models::game::GameImpl;
 use paved::models::tournament::TournamentTrait;
 use paved::structure::placement::role_bit;
 use paved::types::mode::Mode;
@@ -45,11 +46,11 @@ pub const CEILING_CLOSE_LARGE: u128 = 6392332;
 pub const CEILING_WORST_CASE: u128 = 7325796;
 pub const CEILING_FOREST: u128 = 9756082;
 pub const CEILING_FOREST_WORST: u128 = 19956685;
-pub const CEILING_CLOSING_PLACES: u128 = 2130638;
-pub const CEILING_CLOSING_NOT_PLACED: u128 = 1638176;
-pub const CEILING_CLOSING_AFTER: u128 = 1450384;
+pub const CEILING_CLOSING_PLACES: u128 = 2007883;
+pub const CEILING_CLOSING_NOT_PLACED: u128 = 1584779;
+pub const CEILING_CLOSING_AFTER: u128 = 1397271;
 pub const CEILING_VIEW: u128 = 388740;
-pub const CEILING_CLOSING_FULL_REPORT: u128 = 2682989;
+pub const CEILING_CLOSING_FULL_REPORT: u128 = 2352157;
 
 #[derive(Drop)]
 struct Scenario {
@@ -344,17 +345,14 @@ fn test_gas_i_closing_move_after_tournament() {
 }
 
 /// k. Closing move with the largest report (P7): rank 1, a high score and every counter non-zero,
-/// so the 8 entries of the design go to the quests and to the achievements.
+/// so 4 entries go to the quests and 6 to the achievements.
 #[test]
 fn test_gas_k_closing_move_full_report() {
     let s = scored_game();
     prefill(@s, array![30, 20, 10].span());
     let mut game = s.store.game(s.game_id);
     game.score = 4500;
-    game.structures = 20;
-    game.forests = 5;
-    game.wonders = 3;
-    game.big = 4;
+    game.counts = GameImpl::counts_of(20, 5, 3, 4);
     s.store.set_game(game);
     let gas = surrender(@s);
     let id = tournament_id(@s);

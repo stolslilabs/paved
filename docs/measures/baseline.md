@@ -521,34 +521,38 @@ None of them is a gameplay branch known to be unreached: the re-rooting branch o
 
 ## P7: quests and achievements (contracts)
 
-`contracts/tests/gas.cairo`, same method as above (L2 gas of the call alone), VPS, pinned toolchain
-(scarb 2.20.1, snforge 0.64.0). "Before" is main at `0cc8dd0`, "after" is the P7 contracts PR. The closing moves
-are `surrender` at the end of scenario c (a 6-tile city closed, score 1379), as g to i above.
+`contracts/tests/gas.cairo`, same method as above (L2 gas of the call alone), Linux, pinned toolchain
+(scarb 2.20.1, snforge 0.64.0). "Before" is main at `0cc8dd0`, "after" is the P7 contracts PR (CI log). The closing
+moves are `surrender` at the end of scenario c (a 6-tile city closed, score 1379), as g to i above. The quests get
+tasks 1 to 4 and the achievements tasks 1, 4 to 7 and 9 (at most 4 and 6 entries).
 
 | | Scenario | Before | After | Change | New ceiling |
 |---|---|---|---|---|---|
-| g | closing move, rank 1, two shifts | 1,234,989 | 2,029,179 | +794,190 | 2,130,638 |
-| h | closing move, not ranked | 897,489 | 1,560,167 | +662,678 | 1,638,176 |
-| i | game over after its tournament | 719,000 | 1,381,318 | +662,318 | 1,450,384 |
-| k | closing move, rank 1, score 4,500 and every counter non-zero: the 8 entries to each package | n/a (g's base 1,234,989) | 2,555,227 | +1,320,238 against g's base | 2,682,989 |
+| g | closing move, rank 1, two shifts | 1,234,989 | 1,912,269 | +677,280 | 2,007,883 |
+| h | closing move, not ranked | 897,489 | 1,509,313 | +611,824 | 1,584,779 |
+| i | game over after its tournament | 719,000 | 1,330,734 | +611,734 | 1,397,271 |
+| k | closing move, rank 1, score 4,500 and every counter non-zero: the largest lists | n/a (g's base 1,234,989) | 2,240,149 | +1,005,160 against g's base | 2,352,157 |
 
-The P-22 guard is +1.5M on the closing move: the largest report (k, 8 entries to the quests and 8 to the
-achievements, with the ranking at rank 1) is +1.32M; the game over of scenario c is +0.79M. Not-ranked and
-late game overs cost +0.66M.
+The P-22 guard is +1.5M on the closing move: the largest report (k) is +1.0M; the game over of scenario c is +0.68M.
 
-Moves that are not a game over (never report), the code counts in bits of the word already written:
+Moves that are not a game over (never report). The code counts in 23 bits of the word already written
+(`Game.counts`, one field):
 
 | | Before | After | Change |
 |---|---|---|---|
-| a0 open simple move | 5,596,035 | 5,705,107 | +109,072 (+1.9 %) |
-| a simple move | 5,082,345 | 5,191,457 | +109,112 (+2.1 %) |
-| b move with a character | 6,056,534 | 6,166,446 | +109,912 (+1.8 %) |
-| c close a large city | 6,098,165 | 6,240,777 | +142,612 (+2.3 %) |
-| d worst case | 6,987,338 | 7,130,750 | +143,412 (+2.1 %) |
-| e close a forest | 9,308,936 | 9,436,058 | +127,122 (+1.4 %) |
-| f worst forest scan | 19,048,196 | 19,176,118 | +127,922 (+0.7 %) |
+| a0 open simple move | 5,596,035 | 5,626,675 | +30,640 (+0.55 %) |
+| a simple move | 5,082,345 | 5,112,995 | +30,650 (+0.60 %) |
+| b move with a character | 6,056,534 | 6,087,384 | +30,850 (+0.51 %) |
+| c close a large city | 6,098,165 | 6,160,411 | +62,246 (+1.02 %) |
+| d worst case | 6,987,338 | 7,049,784 | +62,446 (+0.89 %) |
+| e close a forest | 9,308,936 | 9,358,159 | +49,223 (+0.53 %) |
+| f worst forest scan | 19,048,196 | 19,097,619 | +49,423 (+0.26 %) |
 
-All stay under the existing ceilings (+5 %), which are unchanged. The cost is the four counters carried in `Game`
-(a larger struct copied through the move, four fields packed and unpacked with `GameState`) and the `Option` a move
-returns; no storage access was added. It is above the +0.1 % to +0.2 % of the leaderboard PR: reported to the
-orchestrator for a ruling.
+The ceilings of a0 to f are unchanged. First version (four `u8` fields, an `Option<Tally>` returned by every
+move): +109,072 on a0 (+1.9 %), +142,612 on c (+2.3 %). What was removed, measured one step at a time on a0:
+`Option` of a struct replaced by a `u128` (0 when the game is not over) and the four fields by one `counts`:
+-16k; the caller address read only when the game is over: -61k (it was a syscall on every move). What is left
+is +30.6k on every move and +31.6k more on a move that scores (c, d, e, f: the saturating count of a structure, a
+forest or a wonder); the cause per piece was not isolated (one more division and one more multiplication on the
+word, one more felt in the `Game` copies, the report call and its `if`). The target of +0.3 % was not reached for
+the scenarios a0 to e.

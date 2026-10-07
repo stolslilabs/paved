@@ -38,18 +38,13 @@ const TWO_POW_64: u128 = 0x10000000000000000;
 const TWO_POW_72: u128 = 0x1000000000000000000;
 const TWO_POW_80: u128 = 0x100000000000000000000;
 const TWO_POW_88: u128 = 0x10000000000000000000000;
-const TWO_POW_95: u128 = 0x800000000000000000000000;
 const TWO_POW_96: u128 = 0x1000000000000000000000000;
-const TWO_POW_101: u128 = 0x20000000000000000000000000;
-const TWO_POW_105: u128 = 0x200000000000000000000000000;
 const TWO_POW_108: u128 = 0x1000000000000000000000000000;
 const TWO_POW_112: u128 = 0x10000000000000000000000000000;
 const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
 const TWO_POW_88_FELT: felt252 = 0x10000000000000000000000;
 const MASK_1: u128 = 0x1;
 const MASK_4: u128 = 0xf;
-const MASK_6: u128 = 0x3f;
-const MASK_7: u128 = 0x7f;
 const MASK_8: u128 = 0xff;
 const MASK_16: u128 = 0xffff;
 const MASK_32: u128 = 0xffffffff;
@@ -191,10 +186,8 @@ pub impl StoreImpl of StoreTrait {
             mode: (c.low & MASK_8).try_into().unwrap(),
             tournament_id: 0,
             tile_limit: ((c.low / TWO_POW_72) & MASK_16).try_into().unwrap(),
-            structures: ((s.high / TWO_POW_88) & MASK_7).try_into().unwrap(),
-            forests: ((s.high / TWO_POW_95) & MASK_6).try_into().unwrap(),
-            wonders: ((s.high / TWO_POW_101) & MASK_4).try_into().unwrap(),
-            big: ((s.high / TWO_POW_105) & MASK_6).try_into().unwrap(),
+            // [Info] Nothing is above the counters: the quotient is the 23 bits
+            counts: (s.high / TWO_POW_88).try_into().unwrap(),
         }
     }
 
@@ -423,10 +416,7 @@ pub impl StoreImpl of StoreTrait {
             + over * TWO_POW_56
             + game.held_tile.into() * TWO_POW_64
             + game.characters.into() * TWO_POW_72
-            + game.structures.into() * TWO_POW_88
-            + game.forests.into() * TWO_POW_95
-            + game.wonders.into() * TWO_POW_101
-            + game.big.into() * TWO_POW_105;
+            + game.counts.into() * TWO_POW_88;
         let slots = Slots2 { a: game.seed, b: game.tiles.into() + high.into() * TWO_POW_128 };
         storage().game_states.entry(game.id).write(slots);
     }

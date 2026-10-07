@@ -48,5 +48,7 @@ pub const MAX_FORESTS: u8 = 63;
 pub const MAX_WONDERS: u8 = 15;
 pub const MAX_BIG: u8 = 63;
 
-/// Entries of one report: tasks 1 to 7 and 9 (the package bound is 16).
-pub const REPORT_ENTRIES: u32 = 8;
+/// Entries of one report: tasks 1 to 4 for the quests, 1, 4 to 7 and 9 for the achievements (the
+/// package bound is 16).
+pub const QUEST_ENTRIES: u32 = 4;
+pub const ACHIEVEMENT_ENTRIES: u32 = 6;

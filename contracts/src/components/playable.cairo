@@ -11,7 +11,7 @@ pub mod PlayableComponent {
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
     use paved::models::tournament::TournamentImpl;
-    use paved::quests::{Tally, tally};
+    use paved::quests::encode;
     use paved::store::{Store, StoreImpl};
     use paved::structure::placement::{self, NeighborhoodTrait};
     use paved::structure::state::StructuresTrait;
@@ -58,7 +58,7 @@ pub mod PlayableComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
-        fn discard(self: @ComponentState<TContractState>, game_id: u32) -> Option<Tally> {
+        fn discard(self: @ComponentState<TContractState>, game_id: u32) -> u128 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -127,14 +127,15 @@ pub mod PlayableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
-                // [Return] What the caller reports to the quests, once the ranking is written
-                Option::Some(tally(game, player_id, rank))
+                // [Return] The tally the caller reports to the quests, once the ranking is written
+                // (0: not over)
+                encode(game, rank)
             } else {
-                Option::None
+                0
             }
         }
 
-        fn surrender(self: @ComponentState<TContractState>, game_id: u32) -> Option<Tally> {
+        fn surrender(self: @ComponentState<TContractState>, game_id: u32) -> u128 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -169,10 +170,11 @@ pub mod PlayableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
-                // [Return] What the caller reports to the quests, once the ranking is written
-                Option::Some(tally(game, player_id, rank))
+                // [Return] The tally the caller reports to the quests, once the ranking is written
+                // (0: not over)
+                encode(game, rank)
             } else {
-                Option::None
+                0
             }
         }
 
@@ -184,7 +186,7 @@ pub mod PlayableComponent {
             y: u32,
             role: Role,
             spot: Spot,
-        ) -> Option<Tally> {
+        ) -> u128 {
             // [Setup] Datastore
             let mut store: Store = StoreImpl::new();
 
@@ -292,10 +294,11 @@ pub mod PlayableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
-                // [Return] What the caller reports to the quests, once the ranking is written
-                Option::Some(tally(game, player_id, rank))
+                // [Return] The tally the caller reports to the quests, once the ranking is written
+                // (0: not over)
+                encode(game, rank)
             } else {
-                Option::None
+                0
             }
         }
     }
