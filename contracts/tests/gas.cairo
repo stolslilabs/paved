@@ -24,6 +24,7 @@
 
 use core::testing::get_available_gas;
 use paved::constants::CENTER;
+use paved::structure::placement::role_bit;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -33,13 +34,13 @@ use crate::setup::setup;
 use crate::setup::setup::{IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
-pub const CEILING_OPEN: u128 = 8339713;
-pub const CEILING_SIMPLE: u128 = 8090069;
-pub const CEILING_CHARACTER: u128 = 9111287;
-pub const CEILING_CLOSE_LARGE: u128 = 8975530;
-pub const CEILING_WORST_CASE: u128 = 10371858;
-pub const CEILING_FOREST: u128 = 12621534;
-pub const CEILING_FOREST_WORST: u128 = 22763658;
+pub const CEILING_OPEN: u128 = 5869212;
+pub const CEILING_SIMPLE: u128 = 5329081;
+pub const CEILING_CHARACTER: u128 = 6350300;
+pub const CEILING_CLOSE_LARGE: u128 = 6392332;
+pub const CEILING_WORST_CASE: u128 = 7325796;
+pub const CEILING_FOREST: u128 = 9756082;
+pub const CEILING_FOREST_WORST: u128 = 19956685;
 
 #[derive(Drop)]
 struct Scenario {
@@ -242,7 +243,11 @@ fn test_gas_f_worst_forest_scan() {
     // [Last tile] the top-left curve closes the loop and the forest
     let gas = s.build(curve, Orientation::South, CENTER - 1, CENTER, Role::None, Spot::None);
     let game = s.store.game(s.game_id);
-    assert(game.score > 0, 'Gas: forest not scored');
+    // The forest scores exactly this, and its Woodsman is back in the builder's hand
+    assert_eq!(game.score, 434);
+    let builder = s.store.builder(game, s.player_id);
+    let woodsman: u8 = Role::Woodsman.into();
+    assert(builder.characters & role_bit(woodsman) == 0, 'Gas: Woodsman not recovered');
     println!("SCORE f_worst_forest_scan: {}", game.score);
     report("f_worst_forest_scan", gas, CEILING_FOREST_WORST);
 }

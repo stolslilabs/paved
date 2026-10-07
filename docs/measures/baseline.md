@@ -347,6 +347,44 @@ Golden games and the full-deck case: `docs/measures/golden-games.md`. Every game
 `golden/` and `differential.cairo` that does not expect a revert now carries `#[available_gas]` (measured
 + 5 %, from the same CI log).
 
+### After P-17 (same-draw optimisation)
+
+Same tests and method, scarb 2.20.1 / snforge 0.64.0. Figures are the `GAS` lines of the CI `Test game` job of
+PR #225 (Linux, run 37627275425, head `9839dcf8`; the final head only sets budgets and writes the docs); they
+equal the local Mac run to the unit. The scenarios overwrite the plan of the tile in hand, but a `build` still
+draws the next tile at its end (`draw_plan`), so the draw is inside every figure. No figure is above P5-6.
+
+| Scenario | L2 gas P5-6 | L2 gas P-17 | Change | Ceiling P-17 |
+| --- | --- | --- | --- | --- |
+| a0 | 7,942,583 | 5,589,725 | -29.6 % | 5,869,212 |
+| a | 7,704,827 | 5,075,315 | -34.1 % | 5,329,081 |
+| b | 8,677,416 | 6,047,904 | -30.3 % | 6,350,300 |
+| c | 8,548,123 | 6,087,935 | -28.8 % | 6,392,332 |
+| d | 9,877,960 | 6,976,948 | -29.4 % | 7,325,796 |
+| e | 12,020,508 | 9,291,506 | -22.7 % | 9,756,082 |
+| f (worst forest scan) | 21,679,674 | 19,006,366 | -12.3 % | 19,956,685 |
+
+What changed: `draw_plan` no longer rebuilds the deck from the bitmap (one dictionary read and write per
+withdrawn card, the 2.5M L2 gas of Sierra, 39 % of a0 in the P5-6 profile). `helpers/random_deck::draw_from_bitmap`
+counts the withdrawn cards with a popcount and reads the drawn slot through a short chain of lookups: withdrawing
+the cards in ascending order moves the card of the last slot into the hole, so slot `q` holds `q` unless card `q`
+is withdrawn, in which case it holds what the last slot held at that withdrawal (rank = popcount of the bitmap up
+to it). Same card and same remaining count as `from_bitmap` + `draw`, so the seed-to-tiles mapping does not change.
+
+Output excerpt (CI, the 7 `GAS` lines):
+
+```
+GAS a0_open_simple_move: 5589725
+GAS e_close_forest: 9291506
+GAS d_worst_case: 6976948
+GAS a_simple_move: 5075315
+GAS c_close_large_city: 6087935
+GAS f_worst_forest_scan: 19006366
+GAS b_move_with_character: 6047904
+```
+
+Scenario f now also asserts its exact score (434) and that the Woodsman is back in the builder's hand.
+
 ## Line coverage of `contracts/src`
 
 **Not measured.** `cairo-coverage` 0.6.1 was installed in user space (release tarball into

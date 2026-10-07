@@ -168,7 +168,7 @@ fn mixed_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 133858946)]
+#[available_gas(l2_gas: 125014019)]
 fn test_golden_daily_city5_game_over() {
     let moves = city5_moves();
     play_daily(
@@ -191,7 +191,7 @@ fn test_golden_daily_city5_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 149531799)]
+#[available_gas(l2_gas: 132964307)]
 fn test_golden_daily_road6() {
     let moves = road6_moves();
     play_daily(
@@ -214,7 +214,7 @@ fn test_golden_daily_road6() {
 }
 
 #[test]
-#[available_gas(l2_gas: 141107383)]
+#[available_gas(l2_gas: 128945410)]
 fn test_golden_daily_mixed_roles() {
     let moves = mixed_moves();
     play_daily(
@@ -238,7 +238,7 @@ fn test_golden_daily_mixed_roles() {
 
 /// Real deck, no forced plan: pins the draw order of the seed (tournament day 3) through discards.
 #[test]
-#[available_gas(l2_gas: 134105090)]
+#[available_gas(l2_gas: 117495162)]
 fn test_golden_daily_real_deck_discards_to_game_over() {
     let moves = array![
         discard(Plan::CCCCCFFFC, 0), discard(Plan::SFRFRFRFR, 0), discard(Plan::RFRFFFFFR, 0),
@@ -268,7 +268,7 @@ fn test_golden_daily_real_deck_discards_to_game_over() {
 // the walks after every build. Separate runs, so that the cases above measure the games alone.
 
 #[test]
-#[available_gas(l2_gas: 189364046)]
+#[available_gas(l2_gas: 180519119)]
 fn test_golden_daily_city5_structures_agree() {
     play_daily_checked(
         'daily_city5',
@@ -290,7 +290,7 @@ fn test_golden_daily_city5_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 253544384)]
+#[available_gas(l2_gas: 236976891)]
 fn test_golden_daily_road6_structures_agree() {
     play_daily_checked(
         'daily_road6',
@@ -312,7 +312,7 @@ fn test_golden_daily_road6_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 222028195)]
+#[available_gas(l2_gas: 209866222)]
 fn test_golden_daily_mixed_roles_structures_agree() {
     play_daily_checked(
         'daily_mixed',
@@ -334,7 +334,7 @@ fn test_golden_daily_mixed_roles_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 145152234)]
+#[available_gas(l2_gas: 128542306)]
 fn test_golden_daily_real_deck_discards_to_game_over_structures_agree() {
     let moves = array![
         discard(Plan::CCCCCFFFC, 0), discard(Plan::SFRFRFRFR, 0), discard(Plan::RFRFFFFFR, 0),

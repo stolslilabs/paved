@@ -49,7 +49,7 @@ fn test_events_account_create_emits_player_created() {
 }
 
 #[test]
-#[available_gas(l2_gas: 75091890)]
+#[available_gas(l2_gas: 72677963)]
 fn test_events_daily_spawn_emits_game_spawned() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -75,7 +75,7 @@ fn test_events_daily_spawn_emits_game_spawned() {
 }
 
 #[test]
-#[available_gas(l2_gas: 89131880)]
+#[available_gas(l2_gas: 83956965)]
 fn test_events_daily_build_emits_built_and_scored() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let game = store.game(context.game_id);
@@ -127,7 +127,7 @@ fn test_events_daily_build_emits_built_and_scored() {
 }
 
 #[test]
-#[available_gas(l2_gas: 81803118)]
+#[available_gas(l2_gas: 76984998)]
 fn test_events_daily_discard_emits_discarded() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let game = store.game(context.game_id);
@@ -154,7 +154,7 @@ fn test_events_daily_discard_emits_discarded() {
 }
 
 #[test]
-#[available_gas(l2_gas: 78817644)]
+#[available_gas(l2_gas: 76524600)]
 fn test_events_daily_surrender_emits_game_over() {
     // A day after the epoch, so that the tournament id is not zero.
     let time: u64 = 86400 * 1000 + 3600;
@@ -183,7 +183,7 @@ fn test_events_daily_surrender_emits_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 82738298)]
+#[available_gas(l2_gas: 80324372)]
 fn test_events_daily_sponsor_and_claim() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -218,7 +218,7 @@ fn test_events_daily_sponsor_and_claim() {
 }
 
 #[test]
-#[available_gas(l2_gas: 35950487)]
+#[available_gas(l2_gas: 35950435)]
 fn test_events_tutorial_spawn_and_surrender() {
     // A non-zero time: at 0 the spawn time and 0 are the same value. A same-second game over is
     // the worst case for a tournament id computed from the time (Tutorial duration is 1 second).
@@ -268,7 +268,7 @@ fn test_events_tutorial_spawn_and_surrender() {
 }
 
 #[test]
-#[available_gas(l2_gas: 86175366)]
+#[available_gas(l2_gas: 83761544)]
 fn test_events_daily_last_build_emits_game_over() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -326,7 +326,7 @@ fn test_events_daily_last_build_emits_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 81023219)]
+#[available_gas(l2_gas: 78730175)]
 fn test_events_daily_last_discard_emits_game_over() {
     // A day after the epoch, so that the tournament id is not zero.
     let time: u64 = 86400 * 1000 + 3600;
@@ -359,7 +359,7 @@ fn test_events_daily_last_discard_emits_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 137555576)]
+#[available_gas(l2_gas: 130877274)]
 fn test_events_daily_wonder_emits_scored() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let game = store.game(context.game_id);
@@ -454,7 +454,7 @@ fn tutorial_build(
 }
 
 #[test]
-#[available_gas(l2_gas: 67914808)]
+#[available_gas(l2_gas: 67914598)]
 fn test_events_tutorial_build_emits_built_and_scored() {
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
     let tutorial = systems.tutorial.contract_address;
@@ -484,7 +484,7 @@ fn test_events_tutorial_build_emits_built_and_scored() {
 }
 
 #[test]
-#[available_gas(l2_gas: 98961278)]
+#[available_gas(l2_gas: 98960701)]
 fn test_events_tutorial_discard_emits_discarded() {
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
     let tutorial = systems.tutorial.contract_address;
