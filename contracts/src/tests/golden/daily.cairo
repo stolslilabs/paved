@@ -166,7 +166,7 @@ fn mixed_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 156690189)]
+#[available_gas(l2_gas: 154635232)]
 fn test_golden_daily_city5_game_over() {
     let moves = city5_moves();
     play_daily(
@@ -189,7 +189,7 @@ fn test_golden_daily_city5_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 165092685)]
+#[available_gas(l2_gas: 162672671)]
 fn test_golden_daily_road6() {
     let moves = road6_moves();
     play_daily(
@@ -212,7 +212,7 @@ fn test_golden_daily_road6() {
 }
 
 #[test]
-#[available_gas(l2_gas: 160921679)]
+#[available_gas(l2_gas: 157018897)]
 fn test_golden_daily_mixed_roles() {
     let moves = mixed_moves();
     play_daily(
@@ -236,7 +236,7 @@ fn test_golden_daily_mixed_roles() {
 
 /// Real deck, no forced plan: pins the draw order of the seed (tournament day 3) through discards.
 #[test]
-#[available_gas(l2_gas: 133633391)]
+#[available_gas(l2_gas: 133514279)]
 fn test_golden_daily_real_deck_discards_to_game_over() {
     let moves = array![
         discard(Plan::CCCCCFFFC, 0), discard(Plan::SFRFRFRFR, 0), discard(Plan::RFRFFFFFR, 0),

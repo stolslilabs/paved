@@ -114,6 +114,22 @@ Every expected value is unchanged. L2 gas from the CI `Test game` log of the PR 
 | daily_forest_herdsman_caps | 161,737,017 | 158,538,599 | -2.0 % | 169,823,868 | 166,465,529 |
 | daily_forest_both_roles | 242,370,465 | 235,984,172 | -2.6 % | 254,488,989 | 247,783,381 |
 
+### After P5-3 (characters packed in one slot)
+
+Every expected value is unchanged. L2 gas from the CI `Test game` log of the PR (Linux, run 37603717369); the
+ceilings (`#[available_gas]`) are lowered to measured + 5 %, the golden data is not touched.
+
+| Test | L2 gas P5-2 | L2 gas P5-3 | Change | Ceiling P5-2 | Ceiling P5-3 |
+| --- | --- | --- | --- | --- | --- |
+| tutorial_full_sequence | 184,223,856 | 178,254,025 | -3.2 % | 193,435,049 | 187,166,727 |
+| daily_city5_game_over | 149,228,751 | 147,271,649 | -1.3 % | 156,690,189 | 154,635,232 |
+| daily_road6 | 157,231,128 | 154,926,353 | -1.5 % | 165,092,685 | 162,672,671 |
+| daily_mixed_roles | 153,258,741 | 149,541,806 | -2.4 % | 160,921,679 | 157,018,897 |
+| daily_real_deck_discards_to_game_over | 127,269,896 | 127,156,456 | -0.1 % | 133,633,391 | 133,514,279 |
+| daily_forest_woodsman_ring | 146,872,410 | 144,970,162 | -1.3 % | 154,216,031 | 152,218,671 |
+| daily_forest_herdsman_caps | 158,538,599 | 156,763,241 | -1.1 % | 166,465,529 | 164,601,404 |
+| daily_forest_both_roles | 235,984,172 | 233,113,166 | -1.2 % | 247,783,381 | 244,768,825 |
+
 A gas improvement lowers the figures: lower the ceilings in the same PR. A rise above a ceiling is
 a regression, not a reason to raise it.
 

@@ -192,6 +192,23 @@ lowered to measured + 5 %.
 | c | 17,085,237 | 16,688,689 | -2.3 % | 17,939,499 | 17,523,124 |
 | d | 32,287,556 | 30,685,028 | -5.0 % | 33,901,934 | 32,219,280 |
 
+### After P5-3 (characters packed in one slot)
+
+Same tests and method, scarb 2.20.1 / snforge 0.64.0. The figures are the `GAS` lines of the CI
+`Test game` job of the PR (Linux, run 37603717369, same code as the final head: the final commit only lowers
+ceilings and writes this section); "P5-2" is the table above. Cause of the fall: the `Char` and `CharPosition`
+maps (3 storage slots per placement, 2 of them new every time) are one `Characters` slot per game, read
+and rewritten; the walks look a character up with one slot read. The ceilings of
+`contracts/tests/gas.cairo` are lowered to measured + 5 %.
+
+| Scenario | L2 gas P5-2 | L2 gas P5-3 | Change | Ceiling P5-2 | Ceiling P5-3 |
+| --- | --- | --- | --- | --- | --- |
+| a0 | 9,301,448 | 9,240,568 | -0.7 % | 9,766,521 | 9,702,597 |
+| a | 10,442,168 | 10,363,688 | -0.8 % | 10,964,277 | 10,881,873 |
+| b | 11,820,610 | 11,573,236 | -2.1 % | 12,411,641 | 12,151,898 |
+| c | 16,688,689 | 16,372,535 | -1.9 % | 17,523,124 | 17,191,162 |
+| d | 30,685,028 | 30,145,567 | -1.8 % | 32,219,280 | 31,652,846 |
+
 Golden games: `docs/measures/golden-games.md`.
 
 ## Line coverage of `contracts/src`
