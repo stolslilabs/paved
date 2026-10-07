@@ -11,8 +11,8 @@ export const DEFAULT_MAX_LAG = 5;
 /** Largest page the API serves (`limit` is 1 to 100). */
 export const MAX_INDEXER_PAGE = 100;
 
-/** Largest tournament id the API serves: ids above it cannot round-trip as JSON numbers (indexer doc). */
-export const MAX_TOURNAMENT_ID = 213503982334600;
+/** Largest tournament id the API serves: its end time stays a safe JSON integer (indexer doc, P-19). */
+export const MAX_TOURNAMENT_ID = Math.floor(Number.MAX_SAFE_INTEGER / 86400) - 1; // 104249991373 (P-19)
 
 /** `daily` or `tutorial`: the contract that emitted a game's events. */
 export type IndexerContract = "daily" | "tutorial";
