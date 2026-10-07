@@ -6,6 +6,7 @@
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
+use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait};
 use paved::models::game::{Game, GameAssert, GameImpl};
 use paved::models::tournament::{Tournament, TournamentTrait};
 use paved::store::{Store, StoreImpl};
@@ -284,6 +285,7 @@ pub impl ViewsImpl of ViewsTrait {
             };
         }
         let tournament: Tournament = store.tournament(id);
+        let top = LeaderboardImpl::new().top(id);
         let duration = constants::DAILY_TOURNAMENT_DURATION;
         let end_time = (id + 1) * duration;
         TournamentView {
@@ -292,14 +294,14 @@ pub impl ViewsImpl of ViewsTrait {
             end_time,
             over: time >= end_time,
             prize: tournament.prize.into(),
-            top1_player_id: tournament.top1_player_id,
-            top1_score: tournament.top1_score,
+            top1_player_id: top.first.player_id,
+            top1_score: top.first.score,
             top1_claimed: tournament.top1_claimed,
-            top2_player_id: tournament.top2_player_id,
-            top2_score: tournament.top2_score,
+            top2_player_id: top.second.player_id,
+            top2_score: top.second.score,
             top2_claimed: tournament.top2_claimed,
-            top3_player_id: tournament.top3_player_id,
-            top3_score: tournament.top3_score,
+            top3_player_id: top.third.player_id,
+            top3_score: top.third.score,
             top3_claimed: tournament.top3_claimed,
         }
     }

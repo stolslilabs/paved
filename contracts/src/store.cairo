@@ -19,9 +19,11 @@ use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 use starknet::storage::{
-    Map, Mutable, StorageAsPath, StorageBase, StoragePath, StoragePathEntry,
+    Map, Mutable, StorageAsPath, StorageAsPointer, StorageBase, StoragePath, StoragePathEntry,
     StoragePointerReadAccess, StoragePointerWriteAccess,
 };
+use starknet::storage_access::{StorageBaseAddress, storage_address_from_base_and_offset};
+use starknet::syscalls::{storage_read_syscall, storage_write_syscall};
 use starknet::{ContractAddress, SyscallResultTrait};
 
 // Constants
@@ -37,8 +39,6 @@ const TWO_POW_72: u128 = 0x1000000000000000000;
 const TWO_POW_80: u128 = 0x100000000000000000000;
 const TWO_POW_88: u128 = 0x10000000000000000000000;
 const TWO_POW_96: u128 = 0x1000000000000000000000000;
-const TWO_POW_97: u128 = 0x2000000000000000000000000;
-const TWO_POW_98: u128 = 0x4000000000000000000000000;
 const TWO_POW_108: u128 = 0x1000000000000000000000000000;
 const TWO_POW_112: u128 = 0x10000000000000000000000000000;
 const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
@@ -73,14 +73,13 @@ pub struct Slots3 {
     pub c: felt252,
 }
 
-/// Five consecutive storage slots.
+/// Four consecutive storage slots.
 #[derive(Copy, Drop, Serde, starknet::Store)]
-pub struct Slots5 {
+pub struct Slots4 {
     pub a: felt252,
     pub b: felt252,
     pub c: felt252,
     pub d: felt252,
-    pub e: felt252,
 }
 
 /// Game state of a contract.
@@ -103,7 +102,12 @@ pub struct PavedStorage {
     pub tile_positions: Map<(u32, u32, u32), u32>,
     /// `Characters`: one slot per game, 16 bits per role (role `r` at bits `16 r`).
     pub characters: Map<u32, felt252>,
-    pub tournaments: Map<u64, Slots5>,
+    /// `Tournament`: the prize and the claimed flags (bits 0 to 2), two slots per tournament.
+    pub tournaments: Map<u64, Slots2>,
+    /// The ranking of a tournament, kept by the native leaderboard (`leaderboard.cairo`): one word
+    /// that packs the three scores (32 bits each, rank 1 in the low bits), then the players of
+    /// ranks 1, 2 and 3.
+    pub rankings: Map<u64, Slots4>,
     /// `Structures`: the record pages, one or two slots per placed tile (`slot` 0 or 1), four
     /// records of 48 bits per slot (see `structure/record.cairo`).
     pub structures: Map<(u32, u32, u8), felt252>,
@@ -214,19 +218,13 @@ pub impl StoreImpl of StoreTrait {
 
     fn tournament(self: Store, tournament_id: u64) -> Tournament {
         let slots = storage().tournaments.entry(tournament_id).read();
-        let word: u256 = slots.e.into();
+        let flags: u256 = slots.b.into();
         Tournament {
             id: tournament_id,
             prize: slots.a,
-            top1_player_id: slots.b,
-            top2_player_id: slots.c,
-            top3_player_id: slots.d,
-            top1_score: (word.low & MASK_32).try_into().unwrap(),
-            top2_score: ((word.low / TWO_POW_32) & MASK_32).try_into().unwrap(),
-            top3_score: ((word.low / TWO_POW_64) & MASK_32).try_into().unwrap(),
-            top1_claimed: (word.low / TWO_POW_96) & MASK_1 == 1,
-            top2_claimed: (word.low / TWO_POW_97) & MASK_1 == 1,
-            top3_claimed: (word.low / TWO_POW_98) & MASK_1 == 1,
+            top1_claimed: flags.low & MASK_1 == 1,
+            top2_claimed: (flags.low / 2) & MASK_1 == 1,
+            top3_claimed: (flags.low / 4) & MASK_1 == 1,
         }
     }
 
@@ -537,26 +535,42 @@ pub impl StoreImpl of StoreTrait {
     }
 
     fn set_tournament(self: Store, tournament: Tournament) {
-        let mut word: u128 = tournament.top1_score.into()
-            + tournament.top2_score.into() * TWO_POW_32
-            + tournament.top3_score.into() * TWO_POW_64;
+        let mut flags: u128 = 0;
         if tournament.top1_claimed {
-            word += TWO_POW_96;
+            flags += 1;
         }
         if tournament.top2_claimed {
-            word += TWO_POW_97;
+            flags += 2;
         }
         if tournament.top3_claimed {
-            word += TWO_POW_98;
+            flags += 4;
         }
-        let slots = Slots5 {
-            a: tournament.prize,
-            b: tournament.top1_player_id,
-            c: tournament.top2_player_id,
-            d: tournament.top3_player_id,
-            e: word.into(),
-        };
+        let slots = Slots2 { a: tournament.prize, b: flags.into() };
         storage().tournaments.entry(tournament.id).write(slots);
+    }
+
+    /// The ranking of a tournament as the native leaderboard keeps it (`a`: the scores, `b`, `c`
+    /// and `d`: the players of ranks 1, 2 and 3); zero for an empty one.
+    fn ranking(self: Store, tournament_id: u64) -> Slots4 {
+        storage().rankings.entry(tournament_id).read()
+    }
+
+    /// The address of the first slot of a ranking, hashed once: `ranking_read` and `ranking_write`
+    /// then reach one slot of the `Slots4` without hashing again, so a submission that does not
+    /// rank reads one slot and one that ranks writes only the slots that change.
+    fn ranking_base(self: Store, tournament_id: u64) -> StorageBaseAddress {
+        storage().rankings.entry(tournament_id).as_ptr().__storage_pointer_address__
+    }
+
+    /// Slot `offset` (0 to 3) of the ranking at `base`.
+    fn ranking_read(self: Store, base: StorageBaseAddress, offset: u8) -> felt252 {
+        let address = storage_address_from_base_and_offset(base, offset);
+        storage_read_syscall(0, address).unwrap_syscall()
+    }
+
+    fn ranking_write(self: Store, base: StorageBaseAddress, offset: u8, value: felt252) {
+        let address = storage_address_from_base_and_offset(base, offset);
+        storage_write_syscall(0, address, value).unwrap_syscall()
     }
 }
 

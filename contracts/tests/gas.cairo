@@ -23,13 +23,17 @@
 //! The starter tile (`RFFFRFCFR`, facing South) is a city cap on its N edge with a W-E road.
 
 use core::testing::get_available_gas;
-use paved::constants::CENTER;
+use paved::constants::{self, CENTER};
+use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
+use paved::models::tournament::TournamentTrait;
 use paved::structure::placement::role_bit;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
+use paved::views::{ITournamentViewDispatcher, ITournamentViewDispatcherTrait};
+use snforge_std::{interact_with_state, start_cheat_block_timestamp_global};
 use crate::setup::setup;
 use crate::setup::setup::{IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
 
@@ -41,6 +45,10 @@ pub const CEILING_CLOSE_LARGE: u128 = 6392332;
 pub const CEILING_WORST_CASE: u128 = 7325796;
 pub const CEILING_FOREST: u128 = 9756082;
 pub const CEILING_FOREST_WORST: u128 = 19956685;
+pub const CEILING_CLOSING_PLACES: u128 = 1296739;
+pub const CEILING_CLOSING_NOT_PLACED: u128 = 942364;
+pub const CEILING_CLOSING_AFTER: u128 = 754950;
+pub const CEILING_VIEW: u128 = 388740;
 
 #[derive(Drop)]
 struct Scenario {
@@ -250,4 +258,99 @@ fn test_gas_f_worst_forest_scan() {
     assert(builder.characters & role_bit(woodsman) == 0, 'Gas: Woodsman not recovered');
     println!("SCORE f_worst_forest_scan: {}", game.score);
     report("f_worst_forest_scan", gas, CEILING_FOREST_WORST);
+}
+
+/// Leaderboard (P6). A closing move (`surrender` of a game of score 1379, a 6-tile city closed)
+/// ends the game in its tournament, which ranks it. Each figure is the L2 gas of one external call,
+/// read right before and right after it; the call is the same on the code before the leaderboard
+/// interface, where the closing moves (g, h) cost 1,440,588 whether they ranked or not, the move
+/// after the tournament (i) 726,130 and the view (j) 384,638 (`docs/measures/baseline.md`).
+///
+/// The tournament holds three ranks before the move: `scores` in rank order (101, 102, 103).
+fn prefill(s: @Scenario, scores: Span<u32>) {
+    let id = tournament_id(s);
+    interact_with_state(
+        *s.store.contract,
+        || {
+            let mut i = 0;
+            while i < 3 {
+                let submission = Submission {
+                    player_id: 101 + i.into(), game_id: 1, score: *scores[i], time: 0,
+                };
+                LeaderboardImpl::new().submit(id, submission);
+                i += 1;
+            }
+        },
+    );
+}
+
+fn tournament_id(s: @Scenario) -> u64 {
+    let game = s.store.game(*s.game_id);
+    TournamentTrait::compute_id(game.start_time, constants::DAILY_TOURNAMENT_DURATION)
+}
+
+/// The game of scenario c, one tile later: a 6-tile city closed and scored, the game not over.
+fn scored_game() -> Scenario {
+    let s = ScenarioTrait::new();
+    s.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, Role::Lord, Spot::Center);
+    s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 2);
+    s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3);
+    s.step(Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 4);
+    s.step(Plan::FFFFFFCFF, Orientation::East, CENTER + 1, CENTER + 4);
+    s
+}
+
+fn surrender(s: @Scenario) -> u128 {
+    let before = get_available_gas();
+    s.systems.daily.surrender(*s.game_id);
+    let after = get_available_gas();
+    before - after
+}
+
+/// g. Closing move that ranks at rank 1 and shifts the two other ranks (the worst case).
+#[test]
+fn test_gas_g_closing_move_places() {
+    let s = scored_game();
+    prefill(@s, array![30, 20, 10].span());
+    let gas = surrender(@s);
+    let id = tournament_id(@s);
+    let top = interact_with_state(s.store.contract, || LeaderboardImpl::new().top(id));
+    assert(top.first.score == 1379 && top.second.score == 30, 'Gas: not placed');
+    report("g_closing_move_places", gas, CEILING_CLOSING_PLACES);
+}
+
+/// h. Closing move that does not rank (the score is below the three ranks).
+#[test]
+fn test_gas_h_closing_move_not_placed() {
+    let s = scored_game();
+    prefill(@s, array![2000, 1900, 1800].span());
+    let gas = surrender(@s);
+    let id = tournament_id(@s);
+    let top = interact_with_state(s.store.contract, || LeaderboardImpl::new().top(id));
+    assert(top.first.score == 2000 && top.third.score == 1800, 'Gas: placed');
+    report("h_closing_move_not_placed", gas, CEILING_CLOSING_NOT_PLACED);
+}
+
+/// i. Game over after its tournament closed: it ranks in nothing, the leaderboard is not called.
+#[test]
+fn test_gas_i_closing_move_after_tournament() {
+    let s = scored_game();
+    let game = s.store.game(s.game_id);
+    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
+    let gas = surrender(@s);
+    assert(s.store.game(s.game_id).tournament_id == 0, 'Gas: ranked');
+    report("i_closing_move_after_tournament", gas, CEILING_CLOSING_AFTER);
+}
+
+/// j. The `tournament` view: the prize record and the three ranks.
+#[test]
+fn test_gas_j_view_tournament() {
+    let s = scored_game();
+    prefill(@s, array![30, 20, 10].span());
+    let views = ITournamentViewDispatcher { contract_address: s.store.contract };
+    let before = get_available_gas();
+    let view = views.tournament(tournament_id(@s));
+    let after = get_available_gas();
+    assert(view.top3_score == 10, 'Gas: wrong view');
+    report("j_view_tournament", before - after, CEILING_VIEW);
 }

@@ -9,6 +9,7 @@ use paved::models::game::{Game, GameTrait};
 use paved::models::tile::Tile;
 use paved::models::tournament::TournamentTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
+use paved::tests::leaderboard;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, TestStore, TestStoreTrait};
@@ -102,11 +103,12 @@ pub fn assert_outcome(
     assert_eq!(
         builder.characters, outcome.characters.into(), "Golden {}: builder characters", name,
     );
-    let tournament = store
-        .tournament(TournamentTrait::compute_id(game.start_time, game.duration()));
-    assert_eq!(tournament.top1_score, outcome.top1_score, "Golden {}: tournament top score", name);
+    let first = leaderboard::ranked(
+        store.contract, TournamentTrait::compute_id(game.start_time, game.duration()), 1,
+    );
+    assert_eq!(first.score, outcome.top1_score, "Golden {}: tournament top score", name);
     if outcome.top1_score != 0 {
-        assert_eq!(tournament.top1_player_id, player_id, "Golden {}: tournament top player", name);
+        assert_eq!(first.player_id, player_id, "Golden {}: tournament top player", name);
     }
 }
 
@@ -251,13 +253,11 @@ fn replay_daily(
             game.is_over(),
         );
         let builder = store.builder(game, caller.into());
-        let tournament = store
-            .tournament(TournamentTrait::compute_id(game.start_time, game.duration()));
+        let first = leaderboard::ranked(
+            store.contract, TournamentTrait::compute_id(game.start_time, game.duration()), 1,
+        );
         println!(
-            "GOLDEN {} end characters={} top1_score={}",
-            name,
-            builder.characters,
-            tournament.top1_score,
+            "GOLDEN {} end characters={} top1_score={}", name, builder.characters, first.score,
         );
         assert(false, 'Golden: record run');
     } else {
@@ -320,13 +320,11 @@ pub fn play_tutorial(name: felt252, steps: Span<TutorialStep>, outcome: GoldenOu
             game.is_over(),
         );
         let builder = store.builder(game, context.player_id);
-        let tournament = store
-            .tournament(TournamentTrait::compute_id(game.start_time, game.duration()));
+        let first = leaderboard::ranked(
+            store.contract, TournamentTrait::compute_id(game.start_time, game.duration()), 1,
+        );
         println!(
-            "GOLDEN {} end characters={} top1_score={}",
-            name,
-            builder.characters,
-            tournament.top1_score,
+            "GOLDEN {} end characters={} top1_score={}", name, builder.characters, first.score,
         );
         assert(false, 'Golden: record run');
     } else {

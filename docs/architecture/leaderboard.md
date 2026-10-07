@@ -2,7 +2,7 @@
 
 Design of the on-chain leaderboard of the Daily tournaments as an interface that the game flow calls, so that the
 current implementation can be replaced by a published package without a change to the game flow, the public views
-or the events. Documents only: no code exists for it yet; a later code PR implements part 1.
+or the events. Part 1, stage A is implemented (`contracts/src/leaderboard.cairo`, PR "refactor: P6 leaderboard behind an interface (stage A)"); the measured figures below replace the estimates the first version of this document gave.
 
 Context. Grim World's track ARC is porting cartridge-gg/arcade's leaderboard module into quiver (no Dojo) and will
 publish it. Paved uses that package instead of its own if performance is not degraded, decided by measured numbers
@@ -92,6 +92,16 @@ Decisions behind the shape:
 - **No ranking logic in Paved's types any more.** `Tournament::score` and the `top*` fields leave the model and
   move behind the interface; the same code, moved, becomes the native implementation.
 
+### Can player 0 reach the top 3?
+
+On main `Tournament::score` has no check on the player: a submission of player 0 with a score above rank 3 would rank (the bench measured 230,778). It cannot be reached, by three guards in the game flow, all on main (`9f930468`) as well as in this PR:
+
+1. **Where `player_id` comes from.** `HostableComponent.spawn` takes `get_caller_address()`, reads `store.player(caller)` and `player.assert_exists()` (`hostable.cairo`), then `GameImpl::new(.., player.id)` writes it as `GameConfig.player_id`. An unregistered caller reverts with `Player: Does not exist` (`test_access_daily_spawn_reverts_for_unregistered_caller`, `test_access_tutorial_spawn_reverts_for_unregistered_caller` in `src/tests/e2e/access.cairo`). The `player_id` submitted at the end is not read from the game: `build`, `discard` and `surrender` take `get_caller_address()` again (`playable.cairo`).
+2. **The caller must be the player of the game.** Each of the three calls does `game.builder_of(player_id)` then `builder.assert_exists()` before anything else. `builder_of` returns a builder with the held tile only when `player_id != 0 && player_id == game.player_id`; anyone else, and player 0 in particular even for a game whose `player_id` is 0, gets tile 0, which is the zero builder, so the call reverts with `Builder: does not exist` before `end_in_tournament` (`test_access_daily_build_reverts_on_another_players_game`; new: `test_access_daily_player_zero_cannot_end_its_game`, which forces a game of player 0 and calls `surrender` from address 0).
+3. **A game of player 0 cannot even be paid for.** `create` and `spawn` only check that the caller is unregistered, then registered, so address 0 could register; but the entry price is debited from the caller in the token, and the mock token refuses the zero address (`ERC20: mint to 0`); a real ERC20 has no balance or allowance at 0 either. A transaction does not have the zero address as caller in any case.
+
+So a game end with `player_id` 0 does not reach the leaderboard on main: no bug, no change of behaviour on main. The native implementation returns 0 for player 0 anyway (an empty rank is player 0, so a ranked player 0 would be indistinguishable from an empty rank, and `claim` would treat the rank as empty): `test_leaderboard_player_zero_does_not_rank` (`src/tests/leaderboard.cairo`), part of the conformance suite a package must also pass.
+
 ### What stays in Paved, what the package would hold
 
 | | Stays in Paved | Held by the implementation behind the interface |
@@ -117,7 +127,7 @@ one time the game flow is touched.
 
 | File | Change |
 |---|---|
-| `contracts/src/leaderboard.cairo` (new), `lib.cairo` | The trait, the three types, and the native implementation: the logic of `Tournament::score`, storage in the node of `Store` (four slots: three player ids, one word of three scores) |
+| `contracts/src/leaderboard.cairo` (new), `lib.cairo` | The trait, the three types, and the native implementation: the logic of `Tournament::score`, storage in the node of `Store` (four slots: one word of three scores, then three player ids) |
 | `components/playable.cairo` | The three repeated blocks (`discard`, `surrender`, `build`) become one private function `end_in_tournament` that calls `Leaderboard.submit(tournament_id, Submission { player_id, game_id: game.id, score: game.score, time })`, then sets `game.tournament_id` and `game.end_time` and `set_game_end`, exactly as now |
 | `components/hostable.cairo` | `claim` reads `Leaderboard.top(tournament_id)` and passes it to `Tournament::claim`; `spawn` and `sponsor` keep their `buyin` on the (smaller) prize record |
 | `models/tournament.cairo`, `models/index.cairo` | `Tournament` loses the `top*_player_id` and `top*_score` fields and `score`; `reward`, `claim`, `player` take a `Top3` |
@@ -137,6 +147,28 @@ Not touched in stage A: the `Daily` and `Tutorial` entry points and their ABI, `
 
 `playable.cairo`, `hostable.cairo`, `views.cairo`, `events.cairo` and the models are not in the diff of stage B; if
 they are, the interface was wrong and the swap stops.
+
+### Storage node or component: what a package of either form changes
+
+The interface is a zero-sized handle over storage reached the way `Store` reaches its own (`Leaderboard::new()`,
+no state argument), because the three call sites are components that receive `self: @ComponentState` and
+cannot take a contract state by `ref`. Grim World's package is designed as a **storage node** in the consumer's
+storage (no entry point, no event; `submit`, `ranked`, `top`; N = 3; four slots per tournament), which is
+the form this shape expects: stage B changes `LeaderboardImpl` alone (it holds the package's node, as
+`PavedStorage` holds `rankings` today) and adds the node as one member of `PavedStorage`. Nothing at the call
+sites changes.
+
+If Cairo 2.20 storage nodes cannot hold a `Map` and the package has to be a **component** instead, its state is taken by `ref self`
+and its calls need the component state of the contract. What changes then: `Daily` embeds the component
+(`component!` line, a storage member, `substorage(v0)` and an event member only if the package has one, which
+part 2 forbids); `LeaderboardImpl` takes a state argument (`submit(ref state, ...)`); and `end_in_tournament`
+in `playable.cairo`, `claim` in `hostable.cairo` and `ViewsImpl::tournament` take that state. `PlayableComponent`
+and `HostableComponent` are components themselves (`self: @ComponentState`), so they would reach the leaderboard
+component through the contract's `get_dep_component!` with a `+HasComponent` bound added to their
+generics. That is a signature change in the game flow, and stage B would no longer touch only the leaderboard
+module: the swap rule above ("if they are in the diff, the interface was wrong") is the check that tells
+which form was delivered. The ABI test (`Daily.json` byte-identical) still holds if the component has no
+external function.
 
 ### Deployed data: the cutover
 
@@ -183,12 +215,9 @@ Peak memory of these runs follows `AGENTS.md`: `snforge test <filter>` with the 
 `golden`, `e2e::daily_advanced`, `e2e::views`, `e2e::events`), a capped first run, `--max-threads 2` for the
 golden filter.
 
-### Expected effect on gas (estimates)
+### Effect on gas (measured)
 
-From the unit costs of `docs/measures/baseline.md` (a storage read about 0.1M L2 gas, a write about 0.13M): `spawn`
-and `sponsor` read and write the tournament and would handle two slots instead of five, about 0.7M less each
-(estimate); a closing move keeps the same reads and writes of the ranking (four slots instead of five, the claim
-flags no longer rewritten with the scores). These are estimates until the stage A measure.
+A closing move that ranks costs 14.3 % less (1,440,588 to 1,234,989), one that does not rank 37.7 % less (to 897,489): the ranking is four slots instead of five, a submission that cannot rank reads one slot and writes nothing, and one that ranks writes only the slots that change. `spawn` and `sponsor` handle the two-slot prize record instead of five. The `tournament` view costs 17 % more. Figures and method: `docs/measures/baseline.md`. The first version of this document estimated the update at 0.5M without a rank and 1.15M with one, from unit costs; the measure gives 0.71M for main whatever happened.
 
 ### Decided here
 
@@ -213,8 +242,6 @@ flags no longer rewritten with the scores). These are estimates until the stage 
   part 2 asks for a storage-node form.
 - **Events from the package** would appear on the `Daily` address and the indexer halts on what it cannot decode;
   part 2 forbids them by default.
-- **The tournament update has no measure today**; the figures in part 2 are estimates from unit costs until the
-  stage A measure replaces them.
 
 ## What Paved needs from a leaderboard package
 
@@ -244,8 +271,27 @@ fn top(tournament_id: u64) -> Top3;
 
 **Limits.**
 
-- *Gas, today*: the tournament update in a closing move has not been measured on its own (`docs/measures/baseline.md` gives `Daily.build` totals only). What baseline.md measures is a storage read at about 0.1M L2 gas and a write at about 0.13M (P5-6, `cairo-profiler`, key hashing included). The update is one read of the five slots of the tournament, the comparison, and (when the score ranks) one write of the five slots: about 0.5M without a rank and about 1.15M with one. **These two figures are estimates from the unit costs, not measures**; the code PR of the interface measures the real delta first and replaces them.
-- *Ceiling the package must meet*: `submit` costs at most 1.3M L2 gas when it places (worst case: rank 1, two ranks shifted) and at most 0.6M when it does not, `top` at most 0.6M, `ranked` at most 0.3M; none of them depends on the number of submissions already made (no loop over submissions). Paved fixes the final ceilings as measured + 5 %, like the other ceilings of `contracts/tests/gas.cairo`, and the swap is refused when a closing move that places costs more than before the swap.
+- *Gas, measured* (stage A, `docs/measures/baseline.md` "Leaderboard behind an interface"). Method of Grim World's table: a bench test that calls the operation against a baseline test that only primes the tournament, whole-test snforge L2 gas, difference, minus the cost of the `interact_with_state` wrapper that the bench pays and an internal call does not (517,560 on the Mac). The figures are those of the Mac and of Linux alike: the `Test game` job of the PR (run 37652684501, Linux) gives the same L2 gas, to the unit, for each of the 22 bench cases and for scenarios a0 to j (the gas of a test does not depend on the machine), so one column serves both.
+
+| Operation (full board 30, 20, 10 unless said) | Today's `Tournament` update (main) | Native implementation behind the interface | Grim World package |
+|---|---|---|---|
+| submit placing at rank 1 (two ranks shifted) | 632,778 | 424,079 | 427,420 |
+| submit placing at rank 2 | 632,778 | 333,669 | 313,540 |
+| submit placing at rank 3 | 632,778 | 240,519 | 198,050 |
+| submit not placing | 632,778 | 86,579 | 47,920 |
+| submit, score 0 | 632,778 | 15,580 | 0 |
+| submit, player 0 | 230,778 (main places it) | 16,780 | 0 |
+| top 3 read (full board) | 231,508 (the five-slot read) | 182,689 | 163,910 |
+| one rank read, full board | 231,508 (same read) | 116,749 | 83,450 |
+| one rank read, empty tournament | 231,808 (same read) | 88,759 | 44,530 |
+| 1st submission of a tournament (slot creation) | 1,437,078 | 1,228,379 | 1,005,030 |
+| 2nd submission | 1,034,978 | 735,869 | 602,200 |
+| 3rd submission | 1,034,778 | 642,519 | 599,750 |
+
+  Main's update reads the five slots and writes them back whether it ranks or not, so its cost is one figure; it has no cheaper `ranked`. The player-0 figure of main is lower than the others for a reason that was not found (main places the submission). That submission cannot happen in the game flow: see "Can player 0 reach the top 3?" below. After 10, 100 and 1,000 prior submissions no figure changes by more than 200 L2 gas, for main and for the native implementation (rank 1, not placing and top 3 measured at each size): nothing depends on the number of submissions.
+
+  At the contract level (the cost of a whole closing move, `contracts/tests/gas.cairo` g to j) the ranking update was 714,458 L2 gas on main whatever happened; it is now 515,989 when it ranks (rank 1, two shifts) and 178,489 when it does not (these include the game-end slot write that both versions pay). The `tournament` view costs 17 % more (+53,710), two storage entries instead of one.
+- *Ceiling the package must meet*: the closing move of a game that ranks at rank 1 with a full board costs at most 1,296,739 L2 gas (`CEILING_CLOSING_PLACES`, native + 5 %), one that does not rank at most 942,364 (`CEILING_CLOSING_NOT_PLACED`), the `tournament` view at most 388,740 (`CEILING_VIEW`), and none of them depends on the number of submissions already made (no loop over submissions). In bench terms, the table above: a package is accepted when its closing moves meet these ceilings, whatever the split between `submit`, `top` and `ranked`. The swap is refused when a closing move that places costs more than before the swap.
 - *Storage per tournament*: today 5 slots (`Slots5`: the prize, 3 player ids, and one word with 3 scores and 3 claim bits). The package side is 4 of them (3 player ids, one word of scores). Ceiling: 4 slots if the package stores only player and score, 6 if it also stores game id and time (packed: one slot per rank for score, game id and time, one for the player id). A submit writes only the slots that changed.
 - *Events*: `GameOver` stays Paved's, with its keys (`game_id`, `player_id`, `tournament_id`) and data (`mode`, `score`, `start_time`, `end_time`) unchanged: the indexer reads it and halts on an undecodable event from the game contract's address. The package emits **no** event from that address, or only behind a switch that is off by default.
 

@@ -385,6 +385,49 @@ GAS b_move_with_character: 6047904
 
 Scenario f now also asserts its exact score (434) and that the Woodsman is back in the builder's hand.
 
+### Leaderboard behind an interface (P6, stage A)
+
+The tournament ranking moved behind `LeaderboardTrait` (`contracts/src/leaderboard.cairo`,
+`docs/architecture/leaderboard.md`). Behaviour, events and `contracts/abis/*.json` are unchanged. Scarb 2.20.1 /
+snforge 0.64.0, Mac (aarch64), `RAYON_NUM_THREADS=1`, `--max-threads 2`; the Linux figures are those of the CI
+log of the PR: the `Test game` job (run 37652684501, Linux) gave the same L2 gas, to the unit, as the Mac for g to j, a0 to f and the 22 bench cases, so the ceilings stand.
+
+**Closing moves, one external call.** `contracts/tests/gas.cairo` g to j: `get_available_gas()` right before
+and right after the call. The scenario is the one of scenario c (a 6-tile city closed, score 1379), then
+`surrender`, which ends the game in its tournament. Before the interface, the same four scenarios (with the
+ranking forced through `Store.set_tournament`) gave the "main" column.
+
+| | Scenario | L2 gas main (`9f930468`) | L2 gas after | Change | Ceiling |
+|---|---|---|---|---|---|
+| g | closing move that ranks at rank 1 and shifts two ranks (full board 30, 20, 10) | 1,440,588 | 1,234,989 | -205,599 (-14.3 %) | 1,296,739 |
+| h | closing move that does not rank (full board 2000, 1900, 1800) | 1,440,588 | 897,489 | -543,099 (-37.7 %) | 942,364 |
+| i | game over after its tournament closed (no ranking at all) | 726,130 | 719,000 | -7,130 (-1.0 %) | 754,950 |
+| j | the `tournament` view (prize record + three ranks) | 316,518 | 370,228 | +53,710 (+17.0 %) | 388,740 |
+
+The update itself, isolated by difference: main g - main i = 714,458 L2 gas for the ranking update of a closing
+move, whether it ranks or not (it read and wrote the five slots every time); after the interface,
+g - i = 515,989 when it ranks (rank 1, two shifts) and h - i = 178,489 when it does not. These include the
+write of the game-end slot (`set_game_end`, the same in both). The view costs more because the prize
+record (two slots) and the ranking (four slots) are two storage entries, two key hashes, where the five-slot
+record was one. A first version that read the four ranking slots through a storage node (one key hash per
+member) was dearer than this one on the view and on a ranking closing move, and was dropped.
+
+The other scenarios (a0 to f), which never reach the leaderboard, measure 6,310 (a0) to 41,830 (f) L2 gas
+more than on main (+0.1 % to +0.2 %): 5,596,035 against 5,589,725 for a0. It is not the call site (the same
+figures with the block written inline in `build`); the cause was not found. The ceilings of a0 to f are
+unchanged. The orchestrator accepted this and the view's +17 % (a view, not a closing move) as they stand; reverse if a later PR shows a trend.
+
+**In-process figures are not used.** `get_available_gas()` inside `interact_with_state` gave 302,120 for the
+main update, against 714,458 by difference at the contract level, and a negative delta for an early return
+(Sierra pre-pays the longest path of a straight-line region and refunds it at the return). The bench tests
+below take whole-test L2 gas instead.
+
+**Bench minus baseline** (`contracts/src/tests/bench.cairo`, run by `snforge test tests::bench`): each case is
+two tests, `test_base_*` primes a tournament and `test_bench_*` primes it then calls the operation once inside
+`interact_with_state`. The operation is the difference of their `l2_gas` lines in the snforge log, minus the
+cost of `interact_with_state` itself (`test_bench_noop` - `test_base_noop` = 517,560), which the bench pays and
+an internal call does not. Table in `docs/architecture/leaderboard.md`, "Limits".
+
 ## Line coverage of `contracts/src`
 
 Measured on the Mac (aarch64, scarb 2.20.1, snforge 0.64.0, cairo-coverage 0.6.1 from `~/.asdf/installs`;

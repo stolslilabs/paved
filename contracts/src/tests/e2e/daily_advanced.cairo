@@ -5,6 +5,7 @@ use paved::mocks::erc20::interface::{
 };
 use paved::models::tile::CENTER;
 use paved::models::tournament::TournamentTrait;
+use paved::tests::leaderboard;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, TestStoreTrait,
@@ -65,10 +66,7 @@ fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
     );
 
     // Force a deterministic top-1 winner for this test.
-    let mut tournament = store.tournament(tournament_id);
-    tournament.top1_player_id = context.player_id;
-    tournament.top1_score = 1;
-    store.set_tournament(tournament);
+    leaderboard::submit(store.contract, tournament_id, context.player_id, 1);
 
     let balance_before = context.token.balance_of(PLAYER());
     let pool_before = context.token.balance_of(systems.daily.contract_address);
@@ -100,16 +98,12 @@ fn test_daily_e2e_claim_pays_exact_reward_per_rank() {
     );
 
     // Force the three ranks: PLAYER first, ANYONE second, SOMEONE third.
-    let mut tournament = store.tournament(tournament_id);
-    tournament.top1_player_id = context.player_id;
-    tournament.top1_score = 3;
-    tournament.top2_player_id = context.anyone_id;
-    tournament.top2_score = 2;
-    tournament.top3_player_id = context.someone_id;
-    tournament.top3_score = 1;
-    store.set_tournament(tournament);
+    leaderboard::submit(store.contract, tournament_id, context.player_id, 3);
+    leaderboard::submit(store.contract, tournament_id, context.anyone_id, 2);
+    leaderboard::submit(store.contract, tournament_id, context.someone_id, 1);
 
     // Prize 1e18: rank 3 = prize / 6, rank 2 = (prize - rank 3) / 3, rank 1 = the rest.
+    let tournament = store.tournament(tournament_id);
     let prize: u256 = tournament.prize.into();
     assert(prize == 1_000_000_000_000_000_000_u256, 'Daily: prize');
     let reward_1: u256 = 555_555_555_555_555_556;
@@ -154,10 +148,7 @@ fn test_daily_e2e_claim_reverts_before_tournament_end() {
         game.start_time, constants::DAILY_TOURNAMENT_DURATION,
     );
 
-    let mut tournament = store.tournament(tournament_id);
-    tournament.top1_player_id = context.player_id;
-    tournament.top1_score = 1;
-    store.set_tournament(tournament);
+    leaderboard::submit(store.contract, tournament_id, context.player_id, 1);
 
     systems.daily.claim(tournament_id, 1);
 }
