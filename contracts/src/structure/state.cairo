@@ -8,7 +8,8 @@
 //!
 //! The same cache holds what the assessment changes outside the pages, so that each slot of a move
 //! is read once and written once: the `Characters` word of the game (read at the first character,
-//! written by `flush` if a character was placed or recovered) and the built tile (written by `flush`
+//! written by `flush` if a character was placed or recovered) and the built tile (written by
+//! `flush`
 //! with its position, after the assessment, which a recovered character on it changes).
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
