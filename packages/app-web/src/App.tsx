@@ -2,6 +2,8 @@ import { Routes, Route } from "react-router-dom";
 import { useGameStore, useUIStore } from "@paved/ui";
 import { LandingPage } from "./pages/Landing";
 import { GamePage } from "./pages/Game";
+import { LeaderboardPage } from "./pages/Leaderboard";
+import { PlayerPage } from "./pages/Player";
 
 export function App({ supportsMint = false }: { supportsMint?: boolean }) {
   const loading = useUIStore((s) => s.loading);
@@ -11,6 +13,8 @@ export function App({ supportsMint = false }: { supportsMint?: boolean }) {
       <Routes>
         <Route path="/" element={<LandingPage supportsMint={supportsMint} />} />
         <Route path="/game" element={<GamePage />} />
+        <Route path="/leaderboard/:tournamentId?" element={<LeaderboardPage />} />
+        <Route path="/player/:playerId" element={<PlayerPage />} />
       </Routes>
     </div>
   );

@@ -132,6 +132,8 @@ describe("envelope", () => {
     expect(await kindOf(client.head())).toBe("not-found");
     raw('{"error":"forbidden"}', 403);
     expect(await kindOf(client.head())).toBe("rejected");
+    raw('{"message":"Service Unavailable"}', 503);
+    expect(await kindOf(client.head())).toBe("unreachable");
     raw('{"version":2,"status":"error","error":"x"}', 404);
     expect(await kindOf(client.head())).toBe("wrong-version");
   });
@@ -178,6 +180,19 @@ describe("envelope", () => {
     expect(await kindOf(client.head())).toBe("bad-response");
     fixture.state.rawBody = { text: "[]", httpStatus: 200 };
     expect(await kindOf(client.head())).toBe("bad-response");
+  });
+
+  test("games_finished is required for one tournament and absent from the list", async () => {
+    const ok = { version: 1, status: "ok", head: FIXTURE_HEAD, behind: 0 };
+    const row = { id: 1, start_time: 1, end_time: 2, games_spawned: 3, players: 2, best_score: 9 };
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, tournament: row }), httpStatus: 200 };
+    expect(await kindOf(client.tournament(1))).toBe("bad-response");
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, tournament: { ...row, games_finished: 2 } }), httpStatus: 200 };
+    expect((await client.tournament(1)).data.gamesFinished).toBe(2);
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, tournaments: [row], next: null }), httpStatus: 200 };
+    const list = (await client.tournaments()).data.tournaments[0];
+    expect(list).toEqual({ id: 1, startTime: 1, endTime: 2, gamesSpawned: 3, players: 2, bestScore: 9 });
+    expect("gamesFinished" in list).toBe(false);
   });
 
   test("a prize slot outside 1 to 3 is bad-response", async () => {

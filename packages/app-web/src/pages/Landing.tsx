@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
-import { claimableRanks, countedTournamentIds, usePaved, useRead } from "@paved/chain";
+import { claimableRanks, countedTournamentIds, indexerPlayerId, usePaved, useRead } from "@paved/chain";
 import type { GameMode, GameView, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
@@ -244,6 +244,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
         completedGames={completed.map(toItem(true))}
         isLoading={games.loading || tournament.loading}
         onModeSelect={(mode: string) => setSelected(mode as GameMode)}
+        onLeaderboard={() => navigate("/leaderboard")}
+        onProfile={playerId ? () => navigate(`/player/${indexerPlayerId(playerId)}`) : undefined}
       />
       {selected && selectedCard && (
         <div

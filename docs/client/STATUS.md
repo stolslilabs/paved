@@ -33,7 +33,7 @@ follow-up for when the Mac is back (P-9).
 the ABIs of `contracts/abis/`: views for one game or tournament, `GameSpawned` / `GameOver` events keyed
 by player for the lists, and each write's receipt events to show a placement before one reconciling
 read. No Torii, no Dojo package and no timer: only a pending write asks for its own receipt (every
-250 ms). The leaderboard shows "coming later" until META's indexer. A devnet integration test
+250 ms). The leaderboard shows "coming later" until META's indexer (replaced on 2026-10-07, below). A devnet integration test
 (`bun run test:devnet` in `packages/chain`) deploys the four contracts and plays through; browser
 figures of the new layer wait for the Mac.
 
@@ -46,6 +46,11 @@ after init (the app's workaround is gone). Page-level tests of the Game and Land
 2026-10-07, D-7: client performance work is dropped and the CLIENT targets (P-7b) are frozen at #195's figures
 (see PLAN.md); no more browser runs on the Mac. The track is idle until META's leaderboard screen or the
 Cartridge controller (P-14).
+
+2026-10-07, leaderboard (t-0038): typed client of the indexer API v1 in `@paved/chain` (#231) and the leaderboard and
+player screens (`/leaderboard`, `/player/:id`) with the lag from `behind`, stale and unavailable states and the prize slots
+from `prize_ranks`. Tested against a fixture server only: no real indexer is wired yet (`VITE_INDEXER_URL` unset shows
+"Leaderboard unavailable"). Prizes and claims stay on the contract views.
 
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 

@@ -2,8 +2,8 @@ import React from "react";
 import { vi } from "vitest";
 import { render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { PavedProvider, FakeGameViews } from "@paved/chain";
-import type { Deployment, FakeGame, GameKey, PavedClient } from "@paved/chain";
+import { IndexerProvider, PavedProvider, FakeGameViews } from "@paved/chain";
+import type { Deployment, FakeGame, GameKey, IndexerClient, PavedClient } from "@paved/chain";
 
 export const PLAYER = "0xabc";
 export const configured = { configured: true, network: "devnet", tokenDecimals: 18, addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" } } as unknown as Deployment;
@@ -47,6 +47,8 @@ export interface FakeWriter {
 export function renderPage(opts: {
   page: React.ReactElement;
   path: string;
+  /** The route pattern when it differs from the path (`/player/:playerId`). */
+  route?: string;
   search?: string;
   state?: unknown;
   deployment?: Deployment;
@@ -55,6 +57,8 @@ export function renderPage(opts: {
   writer?: FakeWriter;
   player?: { id: string; name: string; master: string } | null;
   games?: unknown[];
+  /** The indexer client the screens read; none by default. */
+  indexer?: IndexerClient | null;
 }) {
   const views = opts.views ?? new FakeGameViews();
   const playerGames = vi.fn(async () => opts.games ?? []);
@@ -67,12 +71,14 @@ export function renderPage(opts: {
   } as unknown as PavedClient;
   const utils = render(
     <PavedProvider deployment={opts.deployment ?? configured} account={opts.account === undefined ? account : opts.account} client={client}>
-      <MemoryRouter initialEntries={[{ pathname: opts.path, search: opts.search ?? "", state: opts.state }]}>
-        <Where />
-        <Routes>
-          <Route path={opts.path} element={opts.page} />
-        </Routes>
-      </MemoryRouter>
+      <IndexerProvider client={opts.indexer ?? null}>
+        <MemoryRouter initialEntries={[{ pathname: opts.path, search: opts.search ?? "", state: opts.state }]}>
+          <Where />
+          <Routes>
+            <Route path={opts.route ?? opts.path} element={opts.page} />
+          </Routes>
+        </MemoryRouter>
+      </IndexerProvider>
     </PavedProvider>,
   );
   return { ...utils, client, views, playerGames };

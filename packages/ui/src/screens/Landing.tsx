@@ -17,6 +17,10 @@ export interface LandingScreenProps {
   completedGames?: GameListItemProps[];
   isLoading?: boolean;
   onModeSelect?: (mode: string) => void;
+  /** Opens the leaderboard screen; the section is public, it does not need a wallet. */
+  onLeaderboard?: () => void;
+  /** Opens the player's own page; offered once the player is known. */
+  onProfile?: () => void;
 }
 
 export function LandingScreen({
@@ -29,6 +33,8 @@ export function LandingScreen({
   completedGames = [],
   isLoading = false,
   onModeSelect,
+  onLeaderboard,
+  onProfile,
 }: LandingScreenProps) {
   const hasPlayer = connected && !!playerName;
   const hasGames = activeGames.length > 0 || completedGames.length > 0;
@@ -124,20 +130,26 @@ export function LandingScreen({
         ) : null}
 
         {/* Leaderboard */}
-        {hasPlayer ? (
-          <Stack gap="$4">
-            <Text
-              fontSize="$6"
-              fontWeight="700"
-              fontFamily="$heading"
-              color="$color"
-            >
-              {"Leaderboard"}
-            </Text>
-            {/* Waits for the META track's indexer: the contracts keep only each day's top three. */}
-            <Text color="$muted">{"Coming later"}</Text>
-          </Stack>
-        ) : null}
+        <Stack gap="$4">
+          <Text
+            fontSize="$6"
+            fontWeight="700"
+            fontFamily="$heading"
+            color="$color"
+          >
+            {"Leaderboard"}
+          </Text>
+          <Row gap="$4" flexWrap="wrap">
+            <Button onPress={onLeaderboard}>
+              <ButtonText>{"Open leaderboard"}</ButtonText>
+            </Button>
+            {hasPlayer && onProfile ? (
+              <Button onPress={onProfile}>
+                <ButtonText>{"Your stats"}</ButtonText>
+              </Button>
+            ) : null}
+          </Row>
+        </Stack>
       </Stack>
     </Stack>
   );
