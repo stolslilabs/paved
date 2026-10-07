@@ -23,7 +23,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist",
-    "test:devnet": "PAVED_DEVNET=1 vitest run test/devnet.test.ts"
+    "test:devnet": "PAVED_DEVNET=1 vitest run test/devnet.test.ts",
+    "test:e2e": "PAVED_E2E=1 vitest run test/e2e-devnet.test.ts"
   },
   "dependencies": {
     "@paved/game-core": "workspace:*",
