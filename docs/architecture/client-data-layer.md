@@ -29,6 +29,9 @@ missing address, or a missing file with no env, gives a deployment with `configu
 `configured` is computed there once, from the four addresses and the RPC URL. The app shows a "not
 connected" state and no write button while it is false.
 
+Only the keys above are read: any other key of the file, such as `classes` (the declared library
+class `Lobby` of P-26, which has no address), is ignored.
+
 The token is labelled `$TILE` whatever its on-chain symbol (D-2); `decimals` comes from the file
 (no default: when the file does not say, `tokenDecimals` is `null` and the app shows no
 amount and offers no Daily confirm, claim or sponsor, rather than assume 18).
