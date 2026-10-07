@@ -10,6 +10,7 @@
 // it (it never guesses). The events of the contracts that are not indexed (the board events, claims, ownership) are
 // known by name and skipped; any other selector is a contract change the indexer was not told about.
 import { hash } from "starknet";
+import { MAX_TOURNAMENT_ID } from "./api.ts";
 
 /** The three contracts whose events are read: `daily` and `tutorial` play, `account` registers players. */
 export type Source = "daily" | "tutorial" | "account";
@@ -172,6 +173,15 @@ function safe(value: bigint, field: string): bigint {
   return value;
 }
 
+/** A tournament id: at most `MAX_TOURNAMENT_ID`, the API's bound, so that no indexed day can exceed it. */
+function tournamentId(value: string | undefined): bigint {
+  const id = uint(value, 64, "tournament_id");
+  if (id > BigInt(MAX_TOURNAMENT_ID)) {
+    throw new DecodeError(`tournament_id ${id} is above the API bound ${MAX_TOURNAMENT_ID}`);
+  }
+  return id;
+}
+
 /**
  * The event of `source` with these raw keys and data; null for an event of the contract that is known and not
  * indexed; a DecodeError for anything else (unknown selector, wrong contract, wrong shape).
@@ -200,7 +210,7 @@ export function decode(
         gameId: small(keys[1], 32, "game_id"),
         playerId: felt(keys[2]),
         mode: small(data[0], 8, "mode"),
-        tournamentId: safe(uint(data[1], 64, "tournament_id"), "tournament_id"),
+        tournamentId: tournamentId(data[1]),
         startTime: safe(uint(data[2], 64, "start_time"), "start_time"),
         price: felt(data[3]),
       };
@@ -210,7 +220,7 @@ export function decode(
         name,
         gameId: small(keys[1], 32, "game_id"),
         playerId: felt(keys[2]),
-        tournamentId: safe(uint(keys[3], 64, "tournament_id"), "tournament_id"),
+        tournamentId: tournamentId(keys[3]),
         mode: small(data[0], 8, "mode"),
         score: small(data[1], 32, "score"),
         startTime: safe(uint(data[2], 64, "start_time"), "start_time"),
