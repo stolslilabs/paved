@@ -15,9 +15,12 @@ ABI now marks them `external` instead of `view`), and `IAccount` gains the view 
 | Contract | Role | Constructor |
 |---|---|---|
 | `Account` (`systems/account.cairo`) | Player registry | `owner` |
-| `Daily` (`systems/daily.cairo`) | Daily games, tournaments, entry fee and prizes | `owner`, `account`, `token` |
-| `Tutorial` (`systems/tutorial.cairo`) | Tutorial games | `owner`, `account` |
+| `Daily` (`systems/daily.cairo`) | Daily games, tournaments, entry fee and prizes | `owner`, `account`, `token`, `lobby_class` |
+| `Tutorial` (`systems/tutorial.cairo`) | Tutorial games | `owner`, `account`, `lobby_class` |
 | `Token` (`mocks/token.cairo`) | ERC20 mock with a faucet, tests only | none |
+
+Since S1 (P-26) part of the code of `Daily` and `Tutorial` runs in a fourth class, `Lobby`, declared and
+never deployed: see "Classes" below.
 
 Why three contracts and not one: `Daily` and `Tutorial` share entry point names (`spawn`, `discard`,
 `surrender`, `build`), and Starknet selectors are the bare function name, so one contract would have
@@ -151,11 +154,58 @@ header says "test and devnet only, never deploy on a public network". A public n
 token whose address is the `token_address` constructor argument of `Daily`.
 
 **Constructors.** `Daily` and `Tutorial` revert on a zero `account_address`, and `Daily` on a zero
-`token_address` (`Daily: account is zero`, `Daily: token is zero`, `Tutorial: account is zero`).
+`token_address` (`Daily: account is zero`, `Daily: token is zero`, `Tutorial: account is zero`). Since S1 both
+also revert on a zero `lobby_class` (`Daily: lobby class is zero`, `Tutorial: lobby class is zero`).
 
 Token interactions follow checks-effects-interactions: state is written before `transferFrom` /
 `transfer`, and a failed transfer reverts the whole call. The token and the `Account` address are
 fixed at deployment and trusted; only an `upgrade` by the owner can change them.
+
+## Classes (S1, P-26)
+
+`Daily` was at 98.2 % of the Starknet class cap (81,920 CASM felts) and `Tutorial` at 91.9 %
+(`class-headroom.md`). Option (e) of that note is built: the move stays, the rest moves out.
+
+| Class | Deployed | Holds | Runs |
+|---|---|---|---|
+| `Daily` | yes | `build` (the whole engine), the views, `Ownable`, the wrappers of `spawn`, `claim`, `sponsor`, `discard`, `surrender` | its own code; the wrappers make one library call to `Lobby` |
+| `Tutorial` | yes | `build`, the views, `Ownable`, the wrappers of `spawn`, `discard`, `surrender` | the same |
+| `Lobby` (`systems/lobby.cairo`) | **no**: declared only | `spawn` (both modes; pays the entry price for Daily), `claim`, `sponsor`, `discard`, `surrender` (Daily: Playable), `tutorial_discard`, `tutorial_surrender` (Tutorial: Tutoriable) | only as `Daily` or `Tutorial`, by `library_call_syscall` |
+
+Rules:
+
+- **`lobby_class` is immutable.** It is a `ClassHash` storage variable of `Daily` and `Tutorial`, written by the
+  constructor only (non-zero); no entry point writes it, there is no setter and no owner path to it. The
+  owner's `upgrade` (P2) replaces the whole class of the contract, unchanged; a new lobby can only come with a new
+  class of `Daily` or `Tutorial` whose own code sets it. Test: `tests::e2e::lobby::test_lobby_class_is_never_written_after_construction`
+  runs every entry point of both but `upgrade` and reads the raw slot back after each.
+- **What runs as whom.** Under a library call the storage, `get_contract_address()`, `get_caller_address()` and the
+  address that emits the events are those of the calling contract. So `Lobby`'s `spawn` reads the caller (the
+  player) for the player check, its `transferFrom(player, Daily, price)` is made by `Daily` and the tokens land on
+  `Daily`; `claim` pays out of `Daily`'s balance; the events come from `Daily` or `Tutorial`, with the same keys and
+  data as before. The player approves `Daily` and calls `Daily.spawn`, as before.
+- **Same storage layout.** The game state is the `paved` storage node (`store.cairo`), at a fixed base address,
+  and the components are flat (`#[substorage(v0)]`): a variable's address is its name, whichever class's code
+  reads it. `Lobby` declares the components it runs (Hostable, Payable, Playable, Tutoriable) the same way.
+  Tests: `test_lobby_and_daily_share_the_storage_layout` and `test_lobby_and_tutorial_share_the_storage_layout`
+  (what `Lobby`'s code writes reads back through the views of `Daily` and `Tutorial`, and `Lobby`'s code reads
+  what theirs wrote: the token and account set by the constructor, the game state left by a `build`).
+- **`Lobby` only runs through `Daily` and `Tutorial`.** Its constructor reverts (`Lobby: declared only`), so no
+  instance of the class can exist; its entry points take effect only inside a library call, and the only library
+  calls to it are the fixed wrappers of `Daily` and `Tutorial` (each passes its own mode; no wrapper forwards a
+  caller-chosen selector or class). Test: `test_lobby_cannot_be_deployed`. `scripts/deploy.sh` declares it and
+  passes its class hash to both constructors.
+- **Checks, effects, interactions under the library call.** `spawn` and `sponsor` store the game and the prize,
+  and `claim` the claimed flag, before the token transfer, as before. Tests with a token that reads `Daily`'s
+  views from inside `transferFrom` and `transfer`: `test_lobby_spawn_and_sponsor_write_state_before_the_transfer`,
+  `test_lobby_claim_writes_state_before_the_transfer` (they also check the payer and recipient are `Daily`).
+- **Public interface.** Unchanged but the constructors: `Daily` and `Tutorial` keep the Hostable component declared
+  (empty storage and event enum) so their ABIs differ from before only by the constructor argument. No `Lobby.json`
+  ABI: the client never calls it. `contracts/deployments/<network>.json` records it under `classes.Lobby` (a class
+  hash, no address).
+- **Cost.** An ordinary `build` makes no library call; a `build` that ends the game neither (the game over of a
+  `build` stays in `Daily`). `spawn`, `claim`, `sponsor`, `discard` and `surrender` pay one library call:
+  +118,650 L2 gas in release, +146,530 in the test profile (`docs/measures/baseline.md`).
 
 ## Tests
 

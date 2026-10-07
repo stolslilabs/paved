@@ -428,6 +428,23 @@ two tests, `test_base_*` primes a tournament and `test_bench_*` primes it then c
 cost of `interact_with_state` itself (`test_bench_noop` - `test_base_noop` = 517,560), which the bench pays and
 an internal call does not. Table in `docs/architecture/leaderboard.md`, "Limits".
 
+### Lobby library class (S1, P-26)
+
+`spawn`, `claim`, `sponsor`, `discard` and `surrender` of `Daily` and `Tutorial` run in the declared class `Lobby`
+through `library_call_syscall` (`docs/architecture/native-storage.md`, "Classes"). Scarb 2.20.1 / snforge 0.64.0,
+VPS (Linux), `RAYON_NUM_THREADS=1`, `--max-threads 2`, under `prlimit --as=8589934592` (peak RSS 4.5 GB per gas
+run). Full tables (both profiles, sizes): `docs/architecture/class-headroom.md`, "As built (S1)".
+
+- **Moves (a0 to f), the view (j):** -200 L2 gas in the test profile, 0 in release. Ceilings unchanged.
+- **Closing moves g, h, i** (`surrender`, now one library call): +146,530 in the test profile, +118,650 in
+  release. Test profile: g 1,234,989 -> 1,381,519, h 897,489 -> 1,044,019, i 719,000 -> 865,530. New ceilings,
+  measured + 5 %: 1,450,595, 1,096,220, 908,807.
+- **New scenario l**, game over on the last `build` (the game of c with its tile limit cut, then the move of a0):
+  5,277,505 (test profile; 5,277,705 on main), 2,872,365 in release (same on main). Ceiling 5,541,381. No library
+  call on S1; the reference for the game-over report of #242.
+- **Sizes** (CASM, release): `Daily` 80,418 -> 69,062 (84.3 % of the cap), `Tutorial` 75,296 -> 66,059 (80.6 %),
+  `Lobby` 47,299 (57.7 %).
+
 ## Line coverage of `contracts/src`
 
 Measured on the Mac (aarch64, scarb 2.20.1, snforge 0.64.0, cairo-coverage 0.6.1 from `~/.asdf/installs`;
