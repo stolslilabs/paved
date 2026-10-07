@@ -493,7 +493,13 @@ pub mod simple {
                         }
                         let neighbor = store.tile(game, tile_position.tile_id);
                         Self::explore(
-                            game, neighbor, move.spot, ref count, ref closed, ref visited, ref store,
+                            game,
+                            neighbor,
+                            move.spot,
+                            ref count,
+                            ref closed,
+                            ref visited,
+                            ref store,
                         );
                     },
                     Option::None => { break; },
@@ -882,11 +888,11 @@ pub mod check {
     }
 
     /// A closed forest (no half-edge of its own towards an empty position): the scan of the
-    /// structure state agrees with the walk, which also looks at the roads around it. The walk finds
-    /// the forest finished (a count that is not 0) iff no adjacent road is open; then its size is
-    /// the root's, its Woodsman score is the distinct closed roads and its Herdsman score the
-    /// distinct closed cities (P-15: the walk of this oracle counts a city only when it is closed
-    /// as a whole).
+    /// structure state agrees with the walk, which also looks at the roads around it. The walk
+    /// finds the forest finished (a count that is not 0) iff no adjacent road is open; then its
+    /// size is the root's, its Woodsman score is the distinct closed roads and its Herdsman score
+    /// the distinct closed cities (P-15: the walk of this oracle counts a city only when it is
+    /// closed as a whole).
     fn check_forest(
         ref structures: Structures,
         ref s: Store,
@@ -974,14 +980,14 @@ pub mod tests {
             || {
                 let mut s = StoreImpl::new();
                 let game = s.game(game_id);
-                let first = Tile {
+                let mut first = Tile {
                     game_id,
                     id: 90,
                     plan: Plan::SFRFRFRFR.into(),
                     orientation: Orientation::North.into(),
                     x: CENTER + 10,
                     y: CENTER + 10,
-                    occupied_spot: Spot::East.into(),
+                    occupied_spot: Spot::None.into(),
                 };
                 let second = Tile {
                     game_id,
@@ -1007,12 +1013,16 @@ pub mod tests {
                             power: 1,
                         },
                     );
+                // The Lord joins its road through `occupy`, then stands on the tile (a tile written
+                // alone holds no character)
                 let (_, refs) = StoreImpl::tile_with_refs(game_id, first.id);
                 let mut structures = StructuresTrait::new(game_id);
                 placement::occupy(
                     ref structures, first, refs, Spot::East.into(), Role::Lord.into(),
                 );
                 structures.flush(s);
+                first.occupied_spot = Spot::East.into();
+                StoreImpl::write_tile(first, refs);
 
                 // The closed road: 2 nodes, one character, the character is met.
                 let (count, characters) = OracleGenericCount::start(game, first, Spot::East, ref s);

@@ -332,3 +332,30 @@ fn test_golden_daily_mixed_roles_structures_agree() {
         },
     );
 }
+
+#[test]
+#[available_gas(l2_gas: 133514279)]
+fn test_golden_daily_real_deck_discards_to_game_over_structures_agree() {
+    let moves = array![
+        discard(Plan::CCCCCFFFC, 0), discard(Plan::SFRFRFRFR, 0), discard(Plan::RFRFFFFFR, 0),
+        discard(Plan::SFRFRFFFR, 0), discard(Plan::RFFFRFFFR, 0), discard(Plan::RFFFRFFFR, 0),
+        discard(Plan::FFFFCCCFF, 0),
+    ];
+    play_daily_checked(
+        'daily_deck',
+        day(3),
+        PLAYER(),
+        false,
+        8,
+        moves.span(),
+        GoldenOutcome {
+            score: 0,
+            built: 0,
+            discarded: 7,
+            tile_count: 8,
+            over: true,
+            characters: 0,
+            top1_score: 0,
+        },
+    );
+}

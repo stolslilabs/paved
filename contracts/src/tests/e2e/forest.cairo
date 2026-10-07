@@ -590,6 +590,85 @@ fn test_forest_herdsman_is_back_with_nothing_when_no_city_is_closed() {
     spy.assert_emitted(@array![(systems.daily.contract_address, scored(g, p, 2, 0))]);
 }
 
+/// P-15: one city, open, touched at two places by the forest (the board of
+/// `golden/forest.cairo`, `herdsman_open_city_moves`). The 2024 walk counted it once (314); an open
+/// city never counts: the Herdsman is back with a `Scored` of 0 points. The oracle's walk,
+/// corrected the same way, agrees (`put` checks the structure state against it after every build).
+#[test]
+fn test_forest_herdsman_open_city_touched_twice_scores_nothing() {
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (g, p) = (context.game_id, context.player_id);
+    let daily = systems.daily;
+    put(
+        store,
+        daily,
+        g,
+        p,
+        Plan::RFFFRFCFR,
+        Orientation::South,
+        CENTER + 1,
+        CENTER,
+        Role::None,
+        Spot::None,
+    );
+    put(
+        store,
+        daily,
+        g,
+        p,
+        Plan::CFFFCFFFC,
+        Orientation::East,
+        CENTER + 1,
+        CENTER + 1,
+        Role::Herdsman,
+        Spot::West,
+    );
+    put(
+        store,
+        daily,
+        g,
+        p,
+        Plan::FFFFCCCFF,
+        Orientation::East,
+        CENTER + 1,
+        CENTER + 2,
+        Role::None,
+        Spot::None,
+    );
+    put(
+        store,
+        daily,
+        g,
+        p,
+        Plan::CCCCCFFFC,
+        Orientation::South,
+        CENTER,
+        CENTER + 2,
+        Role::None,
+        Spot::None,
+    );
+    assert_eq!(builder(store, g, p).characters, HERDSMAN_BIT, "the herdsman waits");
+    let mut spy = spy_events();
+    put(
+        store,
+        daily,
+        g,
+        p,
+        Plan::CFFFCFFFC,
+        Orientation::East,
+        CENTER,
+        CENTER + 1,
+        Role::None,
+        Spot::None,
+    );
+    // The forest of 2 tiles is closed, the only city around it is open: no city counts
+    let (count, woodsman, herdsman, _, _) = forest_at(store, g, CENTER, CENTER + 1, Spot::East);
+    assert_eq!((count, woodsman, herdsman), (2, 0, 0), "the walk");
+    assert_eq!(store.game(g).score, 0, "score");
+    assert_eq!(builder(store, g, p).characters, 0, "the herdsman is back");
+    spy.assert_emitted(@array![(daily.contract_address, scored(g, p, 2, 0))]);
+}
+
 /// The Woodsman is also allowed on a road, where it counts like a Lord (weight and power 1).
 /// By hand: the road has 3 tiles (two road ends and the starter), 3 x 100 x 1 x bonus(3) =
 /// 3 x 100 x 10721 / 10000 = 321 (10235 x 10475 / 10000 = 10721).

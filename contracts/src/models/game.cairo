@@ -259,9 +259,9 @@ pub impl GameImpl of GameTrait {
 
     /// Assesses the structures of the built tile (step 4), in the order of the walks: each start
     /// spot of the tile in `starts()` order, then the wonder of each neighbour, N, E, S, W, NW, NE,
-    /// SE, SW. Every structure is read from its root; a forest is scanned only when it is closed and
-    /// holds a Woodsman or a Herdsman (`structure/forest.cairo`). Returns whether a structure scored
-    /// (and characters were recovered).
+    /// SE, SW. Every structure is read from its root; a forest is scanned only when it is closed
+    /// and holds a Woodsman or a Herdsman (`structure/forest.cairo`). Returns whether a structure
+    /// scored (and characters were recovered).
     fn assess(
         ref self: Game,
         tile: Tile,

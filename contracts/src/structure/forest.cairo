@@ -31,12 +31,7 @@ use paved::types::role::Role;
 /// Woodsman or a Herdsman: one `Scored` per character (the Woodsman first), even with 0 points, and
 /// the characters recovered. Returns whether it scored.
 pub fn assess_forest(
-    ref game: Game,
-    tile: Tile,
-    refs: u128,
-    area: u8,
-    ref structures: Structures,
-    ref store: Store,
+    ref game: Game, tile: Tile, refs: u128, area: u8, ref structures: Structures, ref store: Store,
 ) -> bool {
     // [Check] The gate: no half-edge of the forest points to an empty position, and a character
     // stands on it (the only roles a forest takes are the Woodsman and the Herdsman)

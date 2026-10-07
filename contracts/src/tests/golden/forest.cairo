@@ -231,6 +231,78 @@ fn both_roles_moves() -> Array<GoldenMove> {
     ]
 }
 
+/// Herdsman, rule correction P-15: two vertical city corridors `CFFFCFFFC` side by side, east of
+/// the starter (first the cap `RFFFRFCFR` that closes the east corridor to the south), with a
+/// forest of 2 tiles between them. A corner `FFFFCCCFF` and a T-junction `CCCCCFFFC` over their
+/// north ends join the two corridors into one city of 6 tiles, which stays **open**: the east edge
+/// of the T-junction looks at an empty position. The forest touches that city at two places, one
+/// corridor each. The Herdsman stands on the east corridor and waits; the west corridor, built
+/// last, closes the forest.
+///
+/// 2024 figure (recorded on the commit before the fix, `dc804707`, by running this case): **314**.
+/// The walk stopped at the open edge of the city when it started from the west corridor, left the
+/// east corridor unvisited, and found the rest of the city closed from the second contact: it
+/// counted the open city once, 1 x 300 x bonus(2) = 300 x 10475 / 10000 = 314.
+///
+/// P5 figure (P-15, an open city never counts): **0**. By hand: the city is open, so no city
+/// counts:
+/// 0 x 300 x bonus(2) = 0. The forest is closed all the same, so the Herdsman comes back (builder
+/// characters 0) with a `Scored` of 0 points.
+fn herdsman_open_city_moves() -> Array<GoldenMove> {
+    array![
+        forced(
+            Plan::FFFFFFCFF,
+            Plan::RFFFRFCFR,
+            Orientation::South,
+            CENTER + 1,
+            CENTER,
+            Role::None,
+            Spot::None,
+            0,
+        ),
+        forced(
+            Plan::RFRFRFCFF,
+            Plan::CFFFCFFFC,
+            Orientation::East,
+            CENTER + 1,
+            CENTER + 1,
+            Role::Herdsman,
+            Spot::West,
+            0,
+        ),
+        forced(
+            Plan::RFRFRFCFF,
+            Plan::FFFFCCCFF,
+            Orientation::East,
+            CENTER + 1,
+            CENTER + 2,
+            Role::None,
+            Spot::None,
+            0,
+        ),
+        forced(
+            Plan::RFRFFFFFR,
+            Plan::CCCCCFFFC,
+            Orientation::South,
+            CENTER,
+            CENTER + 2,
+            Role::None,
+            Spot::None,
+            0,
+        ),
+        forced(
+            Plan::RFFFRFFFR,
+            Plan::CFFFCFFFC,
+            Orientation::East,
+            CENTER,
+            CENTER + 1,
+            Role::None,
+            Spot::None,
+            0,
+        ),
+    ]
+}
+
 #[test]
 #[available_gas(l2_gas: 147993169)]
 fn test_golden_daily_forest_woodsman_ring() {
@@ -300,6 +372,31 @@ fn test_golden_daily_forest_both_roles() {
     );
 }
 
+/// The new case of P5-5: the rule correction P-15, see `herdsman_open_city_moves`. Not a rule of
+/// 2024: its 2024 figure was 314.
+#[test]
+#[available_gas(l2_gas: 220000000)]
+fn test_golden_daily_forest_herdsman_open_city() {
+    let moves = herdsman_open_city_moves();
+    play_daily(
+        'forest_open',
+        day(7),
+        PLAYER(),
+        true,
+        0,
+        moves.span(),
+        GoldenOutcome {
+            score: 0,
+            built: 5,
+            discarded: 0,
+            tile_count: 7,
+            over: false,
+            characters: 0,
+            top1_score: 0,
+        },
+    );
+}
+
 // Differential check of P5-4 (`oracle::check`): the same games, the structure state compared with
 // the walks after every build. Separate runs, so that the cases above measure the games alone.
 
@@ -362,6 +459,28 @@ fn test_golden_daily_forest_both_roles_structures_agree() {
             built: 9,
             discarded: 0,
             tile_count: 11,
+            over: false,
+            characters: 0,
+            top1_score: 0,
+        },
+    );
+}
+
+#[test]
+#[available_gas(l2_gas: 400000000)]
+fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
+    play_daily_checked(
+        'forest_open',
+        day(7),
+        PLAYER(),
+        true,
+        0,
+        herdsman_open_city_moves().span(),
+        GoldenOutcome {
+            score: 0,
+            built: 5,
+            discarded: 0,
+            tile_count: 7,
             over: false,
             characters: 0,
             top1_score: 0,

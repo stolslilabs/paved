@@ -854,6 +854,9 @@ pub mod tests {
                                 );
                                 assert_eq!(adjacent_roads(plan, area), roads);
                                 assert_eq!(adjacent_cities(plan, area), cities);
+                                // The readers of a row (the forest scan) give the same bitmaps
+                                assert_eq!(row_adjacent_roads(area_row(plan, area)), roads);
+                                assert_eq!(row_adjacent_cities(area_row(plan, area)), cities);
                             }
                             spot += 1;
                         }
