@@ -52,6 +52,13 @@ player screens (`/leaderboard`, `/player/:id`) with the lag from `behind`, stale
 from `prize_ranks`. Tested against a fixture server only: no real indexer is wired yet (`VITE_INDEXER_URL` unset shows
 "Leaderboard unavailable"). Prizes and claims stay on the contract views.
 
+2026-10-07, leaderboard wiring (t-0042): the review of #232 fixed (the screens never show rows of another day or page,
+nor another's failure; no day to show is a failure with Retry or "No tournament yet"; the player screen says "among
+the last 10 games"; a day id above `MAX_TOURNAMENT_ID` is "Not a tournament"). The client reads the indexer's "As built"
+API (extra `/v1/head` fields, 503 on `/v1/head`, null score of a running game) and is tested against the real
+`packages/indexer` run in-process (no chain, no browser). `VITE_INDEXER_URL` and the indexer's `--allow-origin` for devnet
+are in `packages/README.md`. Not done: the end-to-end check on a live devnet (waits for CORE's regenerated `devnet.json`).
+
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
 The baseline measures a recorded board, not a live deployment (decided 2026-10-06): the contracts

@@ -80,6 +80,8 @@ export interface IndexerHeadInfo {
   contracts: Record<string, string>;
   /** The last closed day whose `prize_ranks` differed from the `tournament` view, or null. */
   lastMismatch: number | null;
+  /** Closed days the indexer has compared with the `tournament` view since it started (`checks.tournaments_checked`); null when the answer has no such count. */
+  tournamentsChecked: number | null;
 }
 
 export interface TournamentSummary {
@@ -159,9 +161,11 @@ export interface IndexedGame {
   /** Tournament of the spawn. */
   tournamentId: number;
   over: boolean;
+  /** 0 while the game runs: the indexer answers null then, and the screens show "In progress". */
   score: number;
-  /** 0 when the game ranks in no tournament (Tutorial, or over after its day closed). */
+  /** 0 when the game ranks in no tournament (Tutorial, or over after its day closed, or still running). */
   countedTournamentId: number;
+  /** 0 while the game runs (`over` is false). */
   endTime: number;
 }
 
@@ -209,6 +213,8 @@ const bool = (o: Obj, key: string, what: string): boolean => {
 /** A key the doc lists as nullable: `null` is an answer, a missing key is not. */
 const orNull = <T>(o: Obj, key: string, read: (o: Obj, key: string, what: string) => T, what: string): T | null =>
   o[key] === null ? null : key in o ? read(o, key, what) : bad(`${what}.${key} is missing`);
+/** A count the indexer answers as null while a game runs ("As built"): read as 0, `over` tells which. */
+const numOrZero = (o: Obj, key: string, what: string): number => (o[key] === null ? 0 : num(o, key, what));
 const list = (o: Obj, key: string, what: string): unknown[] => {
   const v = o[key];
   return Array.isArray(v) ? v : bad(`${what}.${key} is not a list`);
@@ -259,9 +265,9 @@ function parseGame(v: unknown, what: string): IndexedGame {
     startTime: num(o, "start_time", what),
     tournamentId: num(o, "tournament_id", what),
     over: bool(o, "over", what),
-    score: num(o, "score", what),
-    countedTournamentId: num(o, "counted_tournament_id", what),
-    endTime: num(o, "end_time", what),
+    score: numOrZero(o, "score", what),
+    countedTournamentId: numOrZero(o, "counted_tournament_id", what),
+    endTime: numOrZero(o, "end_time", what),
   };
 }
 
@@ -299,13 +305,15 @@ export class IndexerClient {
 
   async head(): Promise<IndexerAnswer<IndexerHeadInfo>> {
     return this.get("/v1/head", {}, (b) => {
-      const checks = b.checks === null ? null : obj(b.checks, "checks");
+      // Keys the client does not read (as built: `checks.tournaments_checked` and later fields) are ignored; `checks` itself may be absent.
+      const checks = b.checks === null || b.checks === undefined ? null : obj(b.checks, "checks");
       return {
         state: str(b, "state", "head"),
         chainId: str(b, "chain_id", "head"),
         fromBlock: num(b, "from_block", "head"),
         contracts: Object.fromEntries(Object.entries(obj(b.contracts, "contracts")).map(([k, v]) => [k, typeof v === "string" ? v : bad(`contracts.${k}`)])),
         lastMismatch: checks ? orNull(checks, "last_mismatch", num, "checks") : null,
+        tournamentsChecked: checks && checks.tournaments_checked !== undefined ? num(checks, "tournaments_checked", "checks") : null,
       };
     });
   }

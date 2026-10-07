@@ -17,7 +17,7 @@ type Row = Record<string, unknown>;
 export interface FixtureState {
   /** Blocks the indexer says it is behind the chain. */
   behind: number;
-  /** `ok`, or a 503 status. */
+  /** `ok`, or a 503 status (every route, `/v1/head` too, as built). */
   status: "ok" | "loading" | "rewinding" | "halted";
   /** A thrown fetch, as for an indexer that is down. */
   down: boolean;
@@ -57,9 +57,13 @@ const ENTRIES: Row[] = [
 ];
 
 const GAMES: Row[] = [
-  { contract: "daily", game_id: 912, mode: 1, start_time: 1791869000, tournament_id: 20733, over: true, score: 187, counted_tournament_id: 20733, end_time: 1791871203 },
-  { contract: "tutorial", game_id: 55, mode: 3, start_time: 1791860000, tournament_id: 0, over: true, score: 64, counted_tournament_id: 0, end_time: 0 },
+  // As built, a game row also carries `player_id`; a game that runs has `score`, `counted_tournament_id` and `end_time` null (`RUNNING_GAME`).
+  { contract: "daily", game_id: 912, player_id: FIXTURE_ADA, mode: 1, start_time: 1791869000, tournament_id: 20733, over: true, score: 187, counted_tournament_id: 20733, end_time: 1791871203 },
+  { contract: "tutorial", game_id: 55, player_id: FIXTURE_ADA, mode: 3, start_time: 1791860000, tournament_id: 0, over: true, score: 64, counted_tournament_id: 0, end_time: 0 },
 ];
+
+/** A game that has not ended, as the real indexer writes it. */
+export const RUNNING_GAME: Row = { contract: "daily", game_id: 913, player_id: FIXTURE_ADA, mode: 1, start_time: 1791875000, tournament_id: 20733, over: false, score: null, counted_tournament_id: null, end_time: null };
 
 /** A fixture indexer: set `state` to put it in a degraded condition, then pass `fetch` to an `IndexerClient`. */
 export class FixtureIndexer {
@@ -86,7 +90,8 @@ export class FixtureIndexer {
       return new Response(raw.text, { status: raw.httpStatus });
     }
     const { version, status } = this.state;
-    if (status !== "ok") return json(503, { version, status, reason: status === "halted" ? "a contract changed" : "starting" });
+    // As built: a 503 carries the indexer's last served head (null before its first block).
+    if (status !== "ok") return json(503, { version, status, reason: status === "halted" ? "a contract changed" : "starting", head: status === "loading" ? null : FIXTURE_HEAD });
     const result = this.route(url);
     if (result.error) return json(result.code, { version, status: "error", error: result.error, state: "ok" });
     return json(200, { version, status: "ok", head: FIXTURE_HEAD, behind: this.state.behind, ...result.body });
@@ -118,7 +123,7 @@ export class FixtureIndexer {
     if (a === "head" && !b) {
       const e = allowed();
       if (e) return fail(400, e);
-      return ok({ state: "ok", chain_id: "0x534e5f5345504f4c4941", from_block: 12, contracts: { account: "0x1", daily: "0x2", tutorial: "0x3" }, checks: { last_mismatch: null } });
+      return ok({ state: "ok", chain_id: "0x534e5f5345504f4c4941", from_block: 12, contracts: { account: "0x1", daily: "0x2", tutorial: "0x3" }, checks: { tournaments_checked: 2, last_mismatch: null } });
     }
     if (a === "tournaments" && !b) {
       const e = allowed("limit", "before");

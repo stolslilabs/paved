@@ -66,35 +66,52 @@ export interface ReadState<T> {
   refresh: () => void;
 }
 
+type ReadOutcome<T> = Omit<ReadState<T>, "refresh">;
+
+const EMPTY_READ = { data: null, error: null, cause: null, loading: false, loaded: false };
+
+const sameInputs = (a: unknown[], b: unknown[]) => a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
+
 /**
  * One read, done when its inputs change, when `refresh` is called, and, with `onVisible`, when the
  * page becomes visible again. No timer. A null `read` clears the state. After a failure `data` keeps
- * the last answer, so a screen can show it as stale next to the error.
+ * the last answer of the same inputs, so a screen can show it as stale next to the error; a read for other
+ * inputs never shows the rows of the earlier ones.
  */
 export function useAsyncRead<T>(read: (() => Promise<T>) | null, deps: unknown[], options: { onVisible?: boolean } = {}): ReadState<T> {
-  const [state, setState] = useState<Omit<ReadState<T>, "refresh">>({ data: null, error: null, cause: null, loading: false, loaded: false });
+  const [stored, setStored] = useState<{ inputs: unknown[] | null; state: ReadOutcome<T> }>({ inputs: null, state: EMPTY_READ });
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((t) => t + 1), []);
   const enabled = read !== null;
+  const inputs = [enabled, ...deps];
 
   useEffect(() => {
+    // What was read for other inputs is dropped here, and hidden in the meantime (see `state` below).
+    const own = (s: typeof stored): ReadOutcome<T> => (s.inputs && sameInputs(s.inputs, inputs) ? s.state : EMPTY_READ);
     if (!read) {
-      setState({ data: null, error: null, cause: null, loading: false, loaded: false });
+      setStored({ inputs, state: EMPTY_READ });
       return;
     }
     let cancelled = false;
-    setState((s) => ({ ...s, loading: true }));
+    setStored((s) => ({ inputs, state: { ...own(s), loading: true } }));
     read().then(
-      (data) => !cancelled && setState({ data, error: null, cause: null, loading: false, loaded: true }),
+      (data) => !cancelled && setStored({ inputs, state: { data, error: null, cause: null, loading: false, loaded: true } }),
       (cause) =>
         !cancelled &&
-        setState((s) => ({ ...s, error: cause instanceof Error ? cause.message : String(cause), cause, loading: false, loaded: false })),
+        setStored((s) => ({
+          inputs,
+          state: { ...own(s), error: cause instanceof Error ? cause.message : String(cause), cause, loading: false, loaded: false },
+        })),
     );
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, tick, ...deps]);
+
+  // The state of other inputs shows nothing, not even in the render before the effect runs; a refresh of the
+  // same inputs keeps its last answer.
+  const state = stored.inputs && sameInputs(stored.inputs, inputs) ? stored.state : { ...EMPTY_READ, loading: enabled };
 
   useEffect(() => {
     if (!options.onVisible || typeof document === "undefined") return;
