@@ -20,7 +20,7 @@ pub mod generic {
     use paved::events::{Event, Scored};
     use paved::helpers::multiplier::compute_multiplier;
     use paved::models::builder::{Builder, BuilderImpl};
-    use paved::models::character::{Char, CharPosition};
+    use paved::models::character::Char;
     use paved::models::game::{Game, GameImpl};
     use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
     use paved::store::{Store, StoreImpl};
@@ -63,10 +63,7 @@ pub mod generic {
             // [Check] The tile handles a character
             let spot: Spot = tile.occupied_spot.into();
             if 0_u8 != spot.into() && tile.are_connected(at, spot) {
-                let character_position: CharPosition = store
-                    .character_position(game, tile, spot.into());
-                let character = store
-                    .character(game, character_position.player_id, character_position.index.into());
+                let character = store.character_at(game, tile, spot.into());
                 characters.append(character);
             }
 
@@ -281,7 +278,7 @@ pub mod wonder {
 
     use paved::events::{Event, Scored};
     use paved::models::builder::{Builder, BuilderImpl};
-    use paved::models::character::{Char, CharPosition, ZeroableChar};
+    use paved::models::character::{Char, ZeroableChar};
     use paved::models::game::{Game, GameImpl};
     use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
     use paved::store::{Store, StoreImpl};
@@ -302,10 +299,7 @@ pub mod wonder {
                 return (0, ZeroableChar::zero());
             }
             // [Compute] Extract the character
-            let character_position: CharPosition = store
-                .character_position(game, tile, spot.into());
-            let character = store
-                .character(game, character_position.player_id, character_position.index.into());
+            let character = store.character_at(game, tile, spot.into());
             // [Compute] Recursively count the points
             let mut count = 0;
             Self::iter(game, tile, at, ref count, ref visited, ref store);
@@ -476,7 +470,7 @@ pub mod forest {
     use paved::events::{Event, Scored};
     use paved::helpers::multiplier::compute_multiplier;
     use paved::models::builder::BuilderImpl;
-    use paved::models::character::{Char, CharPosition};
+    use paved::models::character::Char;
     use paved::models::game::{Game, GameImpl};
     use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
     use paved::store::{Store, StoreImpl};
@@ -553,10 +547,7 @@ pub mod forest {
             // [Check] The tile handles a character
             let spot: Spot = tile.occupied_spot.into();
             if 0_u8 != spot.into() && tile.are_connected(at, spot) {
-                let character_position: CharPosition = store
-                    .character_position(game, tile, spot.into());
-                let character = store
-                    .character(game, character_position.player_id, character_position.index.into());
+                let character = store.character_at(game, tile, spot.into());
                 let woodsman: u8 = Role::Woodsman.into();
                 let herdsman: u8 = Role::Herdsman.into();
                 if character.index == woodsman {

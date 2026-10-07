@@ -6,7 +6,7 @@ use paved::events::{Event, Scored};
 use paved::helpers::multiplier::compute_multiplier;
 use paved::helpers::simple::SimpleCount;
 use paved::models::builder::BuilderImpl;
-use paved::models::character::{Char, CharPosition};
+use paved::models::character::Char;
 use paved::models::game::{Game, GameImpl};
 use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
 use paved::store::{Store, StoreImpl};
@@ -81,10 +81,7 @@ pub impl ForestCount of ForestCountTrait {
         // [Check] The tile handles a character
         let spot: Spot = tile.occupied_spot.into();
         if 0_u8 != spot.into() && tile.are_connected(at, spot) {
-            let character_position: CharPosition = store
-                .character_position(game, tile, spot.into());
-            let character = store
-                .character(game, character_position.player_id, character_position.index.into());
+            let character = store.character_at(game, tile, spot.into());
             let woodsman: u8 = Role::Woodsman.into();
             let herdsman: u8 = Role::Herdsman.into();
             if character.index == woodsman {

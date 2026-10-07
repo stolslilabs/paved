@@ -3,7 +3,7 @@
 
 use core::num::traits::Bounded;
 use paved::models::builder::Builder;
-use paved::models::character::{Char, CharPosition};
+use paved::models::character::Char;
 use paved::models::game::Game;
 use paved::models::player::Player;
 use paved::models::tile::{Tile, TilePosition};
@@ -68,7 +68,7 @@ fn test_store_round_trips_at_maximum_values() {
 
             let tile = Tile {
                 game_id: game.id,
-                id: Bounded::MAX,
+                id: MAX_U8,
                 plan: Bounded::MAX,
                 // A valid orientation: an unknown value reads as `None` (not placed).
                 orientation: Orientation::West.into(),
@@ -90,21 +90,20 @@ fn test_store_round_trips_at_maximum_values() {
                 index: role.into(),
                 tile_id: tile.id,
                 spot: Spot::NorthWest.into(),
-                weight: Bounded::MAX,
-                power: Bounded::MAX,
+                weight: 3,
+                power: 3,
             };
             store.set_character(character);
             assert_eq!(store.character(game, BIG, role), character);
-            assert_eq!(
-                store.character_position(game, tile, Spot::NorthWest),
-                CharPosition {
-                    game_id: game.id,
-                    tile_id: tile.id,
-                    spot: Spot::NorthWest.into(),
-                    player_id: BIG,
-                    index: role.into(),
-                },
-            );
+            assert_eq!(store.character_at(game, tile, Spot::NorthWest), character);
+            // Another role in the same slot leaves the first one untouched.
+            let other = Char {
+                index: Role::Herdsman.into(), spot: Spot::South.into(), ..character,
+            };
+            store.set_character(other);
+            assert_eq!(store.character(game, BIG, role), character);
+            assert_eq!(store.character(game, BIG, Role::Herdsman), other);
+            assert_eq!(store.character_at(game, tile, Spot::South), other);
 
             let tournament = Tournament {
                 id: Bounded::MAX,

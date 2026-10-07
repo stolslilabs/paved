@@ -8,7 +8,7 @@
 use core::num::traits::Zero;
 use paved::events::Event;
 use paved::models::builder::Builder;
-use paved::models::character::{Char, CharIntoCharPosition, CharPosition};
+use paved::models::character::Char;
 use paved::models::game::Game;
 use paved::models::player::Player;
 use paved::models::tile::{Tile, TileIntoPosition, TilePosition};
@@ -38,8 +38,10 @@ const TWO_POW_88: u128 = 0x10000000000000000000000;
 const TWO_POW_96: u128 = 0x1000000000000000000000000;
 const TWO_POW_97: u128 = 0x2000000000000000000000000;
 const TWO_POW_98: u128 = 0x4000000000000000000000000;
+const TWO_POW_112: u128 = 0x10000000000000000000000000000;
 const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
 const MASK_1: u128 = 0x1;
+const MASK_4: u128 = 0xf;
 const MASK_8: u128 = 0xff;
 const MASK_16: u128 = 0xffff;
 const MASK_32: u128 = 0xffffffff;
@@ -88,8 +90,8 @@ pub struct PavedStorage {
     pub players: Map<felt252, Slots2>,
     pub tiles: Map<(u32, u32), felt252>,
     pub tile_positions: Map<(u32, u32, u32), u32>,
-    pub characters: Map<(u32, felt252, u8), felt252>,
-    pub character_positions: Map<(u32, u32, u8), Slots2>,
+    /// `Characters`: one slot per game, 16 bits per role (role `r` at bits `16 r`).
+    pub characters: Map<u32, felt252>,
     pub tournaments: Map<u64, Slots5>,
 }
 
@@ -276,30 +278,73 @@ pub impl StoreImpl of StoreTrait {
         neighbors
     }
 
+    /// The character of `role`, read from the `Characters` slot of the game: zero (`tile_id` 0)
+    /// when the role is not placed. `player_id` is the one asked for, as it was a key before.
     fn character(self: Store, game: Game, player_id: felt252, role: Role) -> Char {
+        let word: u256 = storage().characters.entry(game.id).read().into();
         let index: u8 = role.into();
-        let word: u256 = storage().characters.entry((game.id, player_id, index)).read().into();
-        Char {
+        Self::unpack_character(game.id, player_id, index, word.low)
+    }
+
+    /// The character that stands on `spot` of `tile`: the facade the walks use. One slot read,
+    /// the roles are scanned in order. Zero when no character stands there.
+    fn character_at(self: Store, game: Game, tile: Tile, spot: Spot) -> Char {
+        let word: u256 = storage().characters.entry(game.id).read().into();
+        let spot_u8: u8 = spot.into();
+        let mut index: u8 = 1;
+        let mut found: Char = Char {
             game_id: game.id,
+            player_id: game.player_id,
+            index: 0,
+            tile_id: 0,
+            spot: 0,
+            weight: 0,
+            power: 0,
+        };
+        while index <= 7 {
+            let character = Self::unpack_character(game.id, game.player_id, index, word.low);
+            if character.tile_id == tile.id && character.spot == spot_u8 {
+                found = character;
+                break;
+            }
+            index += 1;
+        }
+        found
+    }
+
+    /// A role entry of the `Characters` word: `tile_id u8, spot u4, weight u2, power u2`.
+    fn unpack_character(game_id: u32, player_id: felt252, index: u8, low: u128) -> Char {
+        let entry = (low / Self::role_shift(index)) & MASK_16;
+        Char {
+            game_id,
             player_id,
             index,
-            tile_id: (word.low & MASK_32).try_into().unwrap(),
-            spot: ((word.low / TWO_POW_32) & MASK_8).try_into().unwrap(),
-            weight: ((word.low / TWO_POW_40) & MASK_8).try_into().unwrap(),
-            power: ((word.low / TWO_POW_48) & MASK_8).try_into().unwrap(),
+            tile_id: (entry & MASK_8).try_into().unwrap(),
+            spot: ((entry / 0x100) & MASK_4).try_into().unwrap(),
+            weight: ((entry / 0x1000) & 0x3).try_into().unwrap(),
+            power: ((entry / 0x4000) & 0x3).try_into().unwrap(),
         }
     }
 
-    fn character_position(self: Store, game: Game, tile: Tile, spot: Spot) -> CharPosition {
-        let spot_u8: u8 = spot.into();
-        let slots = storage().character_positions.entry((game.id, tile.id, spot_u8)).read();
-        let index: u256 = slots.b.into();
-        CharPosition {
-            game_id: game.id,
-            tile_id: tile.id,
-            spot: spot_u8,
-            player_id: slots.a,
-            index: index.low.try_into().unwrap(),
+    /// `2^(16 r)`, the position of role `r` in the `Characters` word.
+    fn role_shift(index: u8) -> u128 {
+        if index == 0 {
+            1
+        } else if index == 1 {
+            TWO_POW_16
+        } else if index == 2 {
+            TWO_POW_32
+        } else if index == 3 {
+            TWO_POW_48
+        } else if index == 4 {
+            TWO_POW_64
+        } else if index == 5 {
+            TWO_POW_80
+        } else if index == 6 {
+            TWO_POW_96
+        } else {
+            assert(index == 7, 'Char: Invalid role');
+            TWO_POW_112
         }
     }
 
@@ -380,21 +425,20 @@ pub impl StoreImpl of StoreTrait {
         storage().tiles.entry((tile.game_id, tile.id)).write(word.into());
     }
 
+    /// Writes one role of the `Characters` slot of the game (read, replace the 16 bits, write).
     fn set_character(self: Store, character: Char) {
-        // [Info] Char are created when placed and can be removed.
-        let position: CharPosition = character.into();
-        storage()
-            .character_positions
-            .entry((position.game_id, position.tile_id, position.spot))
-            .write(Slots2 { a: position.player_id, b: position.index.into() });
-        let word: u128 = character.tile_id.into()
-            + character.spot.into() * TWO_POW_32
-            + character.weight.into() * TWO_POW_40
-            + character.power.into() * TWO_POW_48;
-        storage()
-            .characters
-            .entry((character.game_id, character.player_id, character.index))
-            .write(word.into());
+        // [Info] Char are created when placed and can be removed (the entry is then zero).
+        let entry: u128 = character.tile_id.into()
+            + character.spot.into() * 0x100
+            + character.weight.into() * 0x1000
+            + character.power.into() * 0x4000;
+        assert(character.tile_id < 0x100 && character.spot < 0x10, 'Char: Out of range');
+        assert(character.weight < 4 && character.power < 4, 'Char: Out of range');
+        let shift = Self::role_shift(character.index);
+        let word: u256 = storage().characters.entry(character.game_id).read().into();
+        let old = (word.low / shift) & MASK_16;
+        let low: u128 = word.low - old * shift + entry * shift;
+        storage().characters.entry(character.game_id).write(low.into());
     }
 
     fn set_tournament(self: Store, tournament: Tournament) {
