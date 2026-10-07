@@ -191,6 +191,24 @@ What remains to measure, off screen, throttled in-play (`bun run bench --play --
 Chrome placement of the other sets: the board, throttled board, click and play figures of "after"
 above, #194's, and the controls were all on screen.
 
+## Bisect: stopped again on 2026-10-07
+
+Stopped on the owner's order: Chrome windows showed on the Mac although the driver ran with
+`--offscreen`. No browser was started after the order. Arms were built from `origin/main` (c40372af) in
+fresh `git archive` copies under `/tmp`, bun 1.4.2 (install 0.19 GB).
+
+| Arm | State | Chrome | Raw |
+|---|---|---|---|
+| HEAD as is (Tamagui 2.7.7, React 19.3.0, react-native-web 0.21.3) | finished: throttled, 3 runs, 8/8 placements each | `--offscreen` (windows seen on screen: figures to be treated as not comparable until the window problem is solved) | `client-deps/bisect/head-play-offscreen/` |
+| T1 (Tamagui 2.0.0-rc.17) | built and installed; run killed at the order, no figure | | none |
+| T2 (React 19.2.4, react-native-web 0.19.13, by root `overrides`) | built and installed, not run | | none |
+| main (dependency state of f6a9807 on today's code) | built and installed, not run | | none |
+
+HEAD, throttled in play, 3 runs: interval p95 17.60 ms (17.50-17.60), long tasks 1 per session (55-60 ms),
+commit render time p95 8.5 ms, confirm to presented p50 / p95 24.8 / 42.2 ms, TTI 1262 ms.
+Peak memory of the whole bench run (`/usr/bin/time -l`, largest process): 0.71 GB, 252 s.
+The unthrottled board, main and HEAD, was not run. The conclusion on Tamagui 2.7.7 is still open.
+
 ## Build and install
 
 `packages/README.md`, measured with `/usr/bin/time -l` in a fresh copy of the tree and an empty bun
