@@ -47,7 +47,7 @@ rebuild (below), never a migration.
 - **Daily leaderboard of a tournament**: one row per player, from the player's finished games that counted
   for that tournament (`GameOver.tournament_id = id`):
   `rank`, `player_id`, `name`, `best_score`, `best_game_id`, `games_played` (games of this player that
-  counted, finished or not: see below), `finished_at` (`end_time` of the best game).
+  counted, finished or not: see below), `finished_at` (`end_time` of the best game). When a player has several games with the same best score, the best game is the earliest by chain order `(over_block, over_tx, over_idx)`.
   Rank: best score descending; ties broken by chain order of the `GameOver` event, `(over_block, over_tx, over_idx)`, earliest first. This is the
   order in which the chain filled its slots (a later equal score never displaces an earlier one:
   `Tournament.score` compares with `<=`), so a tie is never reordered against the contract. `end_time` and `game_id`
@@ -238,7 +238,7 @@ An error is `{ "version": 1, "status": "error", "error": "<what>", "state": "ok"
 |---|---|---|
 | `GET /v1/head` | none | `head`, `state`, `chain_id`, `from_block`, `contracts` (the three addresses), `checks` (`last_mismatch`: the last closed day whose `prize_ranks` differed from the `tournament` view, or null) |
 | `GET /v1/tournaments` | `limit`, `before` (a tournament id, from `next`) | `tournaments`: newest first, each `id, start_time, end_time, games_spawned, players, best_score`; `next` (id or null) |
-| `GET /v1/tournaments/{id}` | none | `tournament`: `id, start_time, end_time, games_spawned, games_finished, players, best_score`; `{id}` is parsed as a decimal string and must fit a `u64`, else 400; a day with no game answers zeros, never 404, and an id above `MAX_TOURNAMENT_ID` (`213503982334600`) answers its id and zeros, `start_time` and `end_time` included, as the `tournament` view does |
+| `GET /v1/tournaments/{id}` | none | `tournament`: `id, start_time, end_time, games_spawned, games_finished, players, best_score`; `{id}` is parsed as a decimal string; a malformed one, or one above `MAX_TOURNAMENT_ID` (`213503982334600`), is 400. This differs from the contract's `tournament` view, which answers zeros above that id: ids above 2^53 cannot round-trip as JSON numbers, so every id the API returns is at most `MAX_TOURNAMENT_ID` (< 2^53). A day with no game answers zeros, never 404 |
 | `GET /v1/tournaments/{id}/leaderboard` | `limit`, `offset` (default 0) | `total` (players ranked), `entries`: by `rank`, each `rank, player_id, name, best_score, best_game_id, games_played, games_finished, finished_at, prize_ranks`; `next_offset` (or null) |
 | `GET /v1/players/{player_id}` | none | `player`: `player_id, name, created`; `stats`: `daily_games, daily_finished, best_score, tutorial_games`. a malformed id is `400`; an unknown player answers `player: null` with `200` |
 | `GET /v1/players/{player_id}/games` | `contract` (`daily`, `tutorial`, default both), `limit`, `before` (`<start_time>:<contract>:<game_id>`, from `next`) | `games`: newest first, each `contract, game_id, mode, start_time, tournament_id` (of the spawn), `over, score, counted_tournament_id, end_time`; `next` (or null) |
