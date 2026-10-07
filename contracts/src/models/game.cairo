@@ -17,7 +17,7 @@ use paved::models::player::{Player, PlayerTrait};
 use paved::models::tile::{Tile, TileIntoLayout, TileTrait, ZeroableTile};
 use paved::store::{Store, StoreImpl};
 use paved::structure::assessment::{assess_generic, assess_wonder};
-use paved::structure::forest::{assess_forest, reassess_forests};
+use paved::structure::forest::assess_forest;
 use paved::structure::placement::{Neighborhood, NeighborhoodTrait};
 use paved::structure::record::ref_of;
 use paved::structure::state::{Structures, StructuresTrait};
@@ -267,8 +267,7 @@ pub impl GameImpl of GameTrait {
 
     /// Assesses the structures of the built tile (step 4), in the order of the walks: each start
     /// spot of the tile in `starts()` order, then the wonder of each neighbour, N, E, S, W, NW, NE,
-    /// SE, SW, then the forests that a road or a city closing away from them lets score (P-16,
-/// `reassess_forests`). Every structure is read from its root; a forest is scanned only when it is closed
+    /// SE, SW. Every structure is read from its root; a forest is scanned only when it is closed
     /// and holds a Woodsman or a Herdsman (`structure/forest.cairo`). Returns whether a structure
     /// scored (and characters were recovered).
     fn assess(
@@ -281,7 +280,6 @@ pub impl GameImpl of GameTrait {
     ) -> bool {
         // [Compute] The start spots of the tile
         let mut scored = false;
-        let mut assessed: Array<u32> = array![];
         let row = oriented::plan_row(tile.plan, tile.orientation);
         let mut count = oriented::start_count(row);
         let mut starts = oriented::starts(row);
@@ -306,14 +304,8 @@ pub impl GameImpl of GameTrait {
                     }
                 },
                 Category::Forest => {
-                    let (forest_scored, root) = assess_forest(
-                        ref self, tile, refs, area, ref structures, ref store,
-                    );
-                    if forest_scored {
+                    if assess_forest(ref self, tile, refs, area, ref structures, ref store) {
                         scored = true;
-                    }
-                    if root != 0 {
-                        assessed.append(root);
                     }
                 },
                 _ => {},
@@ -334,11 +326,6 @@ pub impl GameImpl of GameTrait {
                     scored = true;
                 }
             }
-        }
-
-        // [Compute] The forests next to a road or a city that closed away from them (P-16)
-        if reassess_forests(ref self, tile, refs, assessed.span(), ref structures, ref store) {
-            scored = true;
         }
         scored
     }
