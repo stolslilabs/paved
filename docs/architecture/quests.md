@@ -380,12 +380,23 @@ from the design above. Figures are L2 gas, measured on Linux with `contracts/tes
 - **Definitions** are not made by the contracts' constructor: the accepted list is defined with the entrypoints above
   (`e2e::quests::define_accepted_list` is the list as calls). The script that does it on a network belongs with the
   deploy task.
-- **Class sizes** (dev profile, `casm = true` in a scratch copy, main `b4d0c74` against this PR; felts of the Sierra
-  program and of the CASM bytecode):
+- **Class sizes** (release profile, the one `scripts/deploy.sh` declares; felts; `scripts/class-sizes.sh` prints this
+  table in CI and fails above the Starknet limits of 81,920 Sierra and 81,920 CASM felts):
 
-  | | Sierra before | Sierra after | CASM before | CASM after | Entrypoints |
+  | | Sierra main | Sierra PR | CASM main | CASM PR | CASM % of cap, PR |
   |---|---|---|---|---|---|
-  | `Daily` | 39,958 | 53,180 (+33 %) | 80,568 | 103,162 (+28 %) | 19 -> 33 |
-  | `Tutorial` | 37,076 | 38,612 (+4 %) | 75,165 | 78,098 (+4 %) | 14 -> 14 |
+  | `Daily` | 36,028 | 44,814 | 80,418 | **91,570** | 111.8 % (over) |
+  | `Tutorial` | 33,975 | 34,835 | 75,296 | 76,859 | 93.8 % |
+  | `Account` | 1,307 | 1,307 | 2,879 | 2,879 | 3.5 % |
+  | `Token` | 1,611 | 1,611 | 4,374 | 4,374 | 5.3 % |
+
+  `Daily` does not fit. Main was already at 98.2 % of the cap. What was tried, in release, on `Daily` (CASM):
+  with both components, their views and the owner entrypoints 97,976; without the quiver views 91,570 (the choice
+  made here: the client and the indexer read definitions and progress from events); without the views and without
+  the define/retire entrypoints 84,362 (the reporting path alone costs +3.9k over main); with no quiver component in
+  `Daily` at all and the report sent to another contract through a dispatcher 82,405. So neither (a), (b) nor (c)
+  brings `Daily` under 81,920, and the 90 % target (73,728) is below main itself. It needs either a smaller game
+  class (the structure tables and walks, outside this PR) or a split of the game contract; the sizes are
+  the limit of any P7 shape. `Tutorial` is at 93.8 % (main 91.9 %).
 - **Event order.** At a game over the order is `GameOver`, the quest events, then the achievement events
   (`e2e::quests::test_quests_game_over_every_counter_at_maximum`, from `spy.get_events()`).

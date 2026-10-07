@@ -15,6 +15,7 @@ quiver_quest = "=0.2.0"
 quiver_achievement = "=0.2.0"
 
 [[target.starknet-contract]]
+casm = true
 
 [profile.dev.cairo]
 unstable-add-statements-functions-debug-info = true

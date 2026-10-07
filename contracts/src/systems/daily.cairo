@@ -102,8 +102,9 @@ pub mod Daily {
     impl PayableInternalImpl = PayableComponent::InternalImpl<ContractState>;
     component!(path: PlayableComponent, storage: playable, event: PlayableEvent);
     impl PlayableInternalImpl = PlayableComponent::InternalImpl<ContractState>;
-    // [Info] Quests and achievements (docs/architecture/quests.md): event mode, the views and the
-    // trusted internal layer only. No `progress` entrypoint exists: a game over reports its own.
+    // [Info] Quests and achievements (docs/architecture/quests.md): event mode, the trusted
+    // internal layer only (no view: the class is at the Starknet size cap, see
+    // `scripts/class-sizes.sh`). No `progress` entrypoint exists: a game over reports its own.
     // The indexer reads the definitions from `QuestDefined` and `AchievementDefined`: TrackAll.
     component!(path: QuestComponent, storage: quest, event: QuestEvent);
     impl QuestInternalImpl = QuestComponent::InternalImpl<ContractState>;
@@ -356,11 +357,4 @@ pub mod Daily {
             self.achievement.retire(achievement_id);
         }
     }
-
-
-    #[abi(embed_v0)]
-    impl QuestViewImpl = QuestComponent::QuestViewImpl<ContractState>;
-    #[abi(embed_v0)]
-    impl AchievementViewImpl =
-        AchievementComponent::AchievementViewImpl<ContractState>;
 }

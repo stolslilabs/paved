@@ -18,12 +18,10 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 use quiver_achievement::component::AchievementComponent;
 use quiver_achievement::events::index::{AchievementDefined, AchievementProgressed};
-use quiver_achievement::interface::{IAchievementViewDispatcher, IAchievementViewDispatcherTrait};
 use quiver_achievement::types::task::AchievementTask;
 use quiver_achievement::types::window::AchievementWindow;
 use quiver_quest::component::QuestComponent;
 use quiver_quest::events::index::{QuestDefined, QuestProgressed};
-use quiver_quest::interface::{IQuestViewDispatcher, IQuestViewDispatcherTrait};
 use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use snforge_std::{
@@ -104,21 +102,6 @@ fn test_quests_owner_defines_the_accepted_list() {
     let daily = systems.daily.contract_address;
     let mut spy = spy_events();
     define_accepted_list(daily);
-
-    // [Assert] The definitions are readable
-    let quests = IQuestViewDispatcher { contract_address: daily };
-    let (_, tasks, conditions) = quests.quest_definition(4);
-    assert(
-        *tasks.at(0_usize) == QuestTask { task_id: constants::TASK_POINTS, total: 3000 },
-        'Quest 4 task',
-    );
-    assert(conditions.len() == 0, 'Quest 4 conditions');
-    let achievements = IAchievementViewDispatcher { contract_address: daily };
-    let (_, tasks) = achievements.achievement_definition(4);
-    assert(
-        *tasks.at(0_usize) == AchievementTask { task_id: constants::TASK_GAME_FINISHED, total: 50 },
-        'Achievement 4 task',
-    );
 
     // [Assert] The indexer reads them from events
     let (schedule, tasks) = daily_quest(constants::TASK_GAME_FINISHED, 1);
