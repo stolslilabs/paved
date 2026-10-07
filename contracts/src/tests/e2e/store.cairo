@@ -97,7 +97,9 @@ fn test_store_round_trips_at_maximum_values() {
             assert_eq!(store.character(game, BIG, role), character);
             assert_eq!(store.character_at(game, tile, Spot::NorthWest), character);
             // Another role in the same slot leaves the first one untouched.
-            let other = Char { index: Role::Herdsman.into(), spot: Spot::South.into(), ..character };
+            let other = Char {
+                index: Role::Herdsman.into(), spot: Spot::South.into(), ..character,
+            };
             store.set_character(other);
             assert_eq!(store.character(game, BIG, role), character);
             assert_eq!(store.character(game, BIG, Role::Herdsman), other);
