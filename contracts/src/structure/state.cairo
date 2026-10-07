@@ -6,11 +6,11 @@
 //! the cache, on packed records (`record.cairo`): `find` follows parents to the root, `merge` joins
 //! roots by size.
 //!
-//! The same cache holds what the assessment changes outside the pages, so that each slot of a move is
-//! read once and written once: the `Characters` word of the game (read at the first character, written
-//! by `flush` if a character was placed or recovered) and the built tile (written by the build before
-//! the assessment, which a recovered character on it changes: `flush` writes it again, without
-//! reading it).
+//! The same cache holds what the assessment changes outside the pages, so that each slot of a move
+//! is read once and written once: the `Characters` word of the game (read at the first character,
+//! written by `flush` if a character was placed or recovered) and the built tile (written by the
+//! build before the assessment, which a recovered character on it changes: `flush` writes it again,
+//! without reading it).
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::character::Char;

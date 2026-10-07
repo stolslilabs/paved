@@ -10,7 +10,7 @@ pub mod TutoriableComponent {
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
     use paved::store::{Store, StoreImpl};
-    use paved::structure::placement::NeighborhoodTrait;
+    use paved::structure::placement::{self, NeighborhoodTrait};
     use paved::structure::state::StructuresTrait;
     use paved::types::mode::{Mode, ModeTrait};
     use paved::types::orientation::{Orientation, OrientationAssert};
@@ -171,8 +171,10 @@ pub mod TutoriableComponent {
 
             // [Effect] Build tile
             let around = NeighborhoodTrait::read(game_id, x, y);
-            let mut neighbors = around.sides();
-            builder.build(ref tile, orientation, x, y, ref neighbors);
+            builder.build(ref tile, orientation, x, y);
+
+            // [Check] The tile fits its neighbours
+            placement::assert_fits(tile, @around);
 
             // [Event] Tile built
             store

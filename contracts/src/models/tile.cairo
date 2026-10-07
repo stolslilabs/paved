@@ -105,14 +105,21 @@ pub impl TileImpl of TileTrait {
         }
     }
 
+    /// Puts the tile at a position with an orientation (the neighbours are not checked: a move
+    /// checks them on the oriented tables, `structure::placement::assert_fits`).
     #[inline]
-    fn place(ref self: Tile, orientation: Orientation, x: u32, y: u32, ref neighbors: Array<Tile>) {
+    fn settle(ref self: Tile, orientation: Orientation, x: u32, y: u32) {
         // [Check] Tile is not already placed
         self.assert_not_placed();
         // [Effect] Update tile orientation and position
         self.orientation = orientation.into();
         self.x = x;
         self.y = y;
+    }
+
+    #[inline]
+    fn place(ref self: Tile, orientation: Orientation, x: u32, y: u32, ref neighbors: Array<Tile>) {
+        self.settle(orientation, x, y);
         // [Check] Tile is valid
         self.assert_can_place(ref neighbors);
     }

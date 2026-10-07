@@ -49,6 +49,12 @@ const MASK_16: u128 = 0xffff;
 const MASK_32: u128 = 0xffffffff;
 const MASK_64: u128 = 0xffffffffffffffff;
 
+/// Flag of a position that holds a wonder tile, above the 8 bits of the tile id.
+const POSITION_WONDER: u32 = 0x100;
+/// The wonder plans (`WFFFFFFFF`, `WFFFFFFFR`) are the last two plan codes
+/// (`test_store_wonder_plans_are_the_last_codes`).
+const FIRST_WONDER_PLAN: u8 = 18;
+
 // Storage
 
 /// Two consecutive storage slots.
@@ -91,6 +97,8 @@ pub struct PavedStorage {
     pub game_ends: Map<u32, felt252>,
     pub players: Map<felt252, Slots2>,
     pub tiles: Map<(u32, u32), felt252>,
+    /// The tile at a position: its id (8 bits) and `POSITION_WONDER` when it holds a wonder, so
+    /// that a move reads the tile of a diagonal neighbour only if it can score a wonder.
     pub tile_positions: Map<(u32, u32, u32), u32>,
     /// `Characters`: one slot per game, 16 bits per role (role `r` at bits `16 r`).
     pub characters: Map<u32, felt252>,
@@ -243,18 +251,32 @@ pub impl StoreImpl of StoreTrait {
     }
 
     fn tile_position(self: Store, game: Game, x: u32, y: u32) -> TilePosition {
-        let tile_id = storage().tile_positions.entry((game.id, x, y)).read();
-        TilePosition { game_id: game.id, x, y, tile_id }
+        let value = storage().tile_positions.entry((game.id, x, y)).read();
+        TilePosition { game_id: game.id, x, y, tile_id: value % POSITION_WONDER }
     }
 
     /// The tile at a position and its refs, the zero tile (and no refs) when the position is
     /// empty.
     fn tile_at(game_id: u32, x: u32, y: u32) -> (Tile, u128) {
-        let tile_id = storage().tile_positions.entry((game_id, x, y)).read();
-        if tile_id == 0 {
+        let value = storage().tile_positions.entry((game_id, x, y)).read();
+        if value == 0 {
             return (ZeroableTile::zero(), 0);
         }
-        Self::tile_with_refs(game_id, tile_id)
+        Self::tile_with_refs(game_id, value % POSITION_WONDER)
+    }
+
+    /// Whether a position is taken and, if its tile holds a wonder, the tile and its refs (the
+    /// zero tile otherwise: nothing else of a diagonal neighbour matters to a move).
+    fn wonder_at(game_id: u32, x: u32, y: u32) -> (bool, Tile, u128) {
+        let value = storage().tile_positions.entry((game_id, x, y)).read();
+        if value == 0 {
+            return (false, ZeroableTile::zero(), 0);
+        }
+        if value < POSITION_WONDER {
+            return (true, ZeroableTile::zero(), 0);
+        }
+        let (tile, refs) = Self::tile_with_refs(game_id, value - POSITION_WONDER);
+        (true, tile, refs)
     }
 
     /// A slot of the record page of a tile (0 when nothing was written there).
@@ -424,10 +446,15 @@ pub impl StoreImpl of StoreTrait {
     /// Writes a placed tile with its refs, and its position.
     fn set_placed_tile(self: Store, tile: Tile, refs: u128) {
         let position: TilePosition = tile.into();
+        let wonder = if tile.plan >= FIRST_WONDER_PLAN {
+            POSITION_WONDER
+        } else {
+            0
+        };
         storage()
             .tile_positions
             .entry((position.game_id, position.x, position.y))
-            .write(position.tile_id);
+            .write(position.tile_id + wonder);
         Self::write_tile(tile, refs);
     }
 
@@ -494,5 +521,22 @@ pub impl StoreImpl of StoreTrait {
             e: word.into(),
         };
         storage().tournaments.entry(tournament.id).write(slots);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use paved::structure::{oriented, tables};
+    use super::FIRST_WONDER_PLAN;
+
+    /// The position flag reads the plan code: it holds a wonder exactly when the plan has a wonder
+    /// area.
+    #[test]
+    fn test_store_wonder_plans_are_the_last_codes() {
+        let mut plan: u8 = 1;
+        while plan <= tables::PLAN_COUNT {
+            assert_eq!(plan >= FIRST_WONDER_PLAN, oriented::wonder_area(plan) != 0);
+            plan += 1;
+        }
     }
 }

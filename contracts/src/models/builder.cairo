@@ -70,18 +70,11 @@ pub impl BuilderImpl of BuilderTrait {
     }
 
     #[inline]
-    fn build(
-        ref self: Builder,
-        ref tile: Tile,
-        orientation: Orientation,
-        x: u32,
-        y: u32,
-        ref neighbors: Array<Tile>,
-    ) {
+    fn build(ref self: Builder, ref tile: Tile, orientation: Orientation, x: u32, y: u32) {
         // [Check] Have a tile to place
         self.assert_buildable();
-        // [Effect] Place tile
-        tile.place(orientation, x, y, ref neighbors);
+        // [Effect] Place tile (the caller checks that it fits its neighbours)
+        tile.settle(orientation, x, y);
         // [Effect] Remove tile from tile count
         self.tile_id = 0;
     }

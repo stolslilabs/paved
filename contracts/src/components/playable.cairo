@@ -11,7 +11,7 @@ pub mod PlayableComponent {
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
     use paved::models::tournament::{Tournament, TournamentAssert, TournamentImpl};
     use paved::store::{Store, StoreImpl};
-    use paved::structure::placement::NeighborhoodTrait;
+    use paved::structure::placement::{self, NeighborhoodTrait};
     use paved::structure::state::StructuresTrait;
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;
@@ -90,19 +90,21 @@ pub mod PlayableComponent {
             game.set_builder(builder);
 
             // [Event] Update tournament on game over
-            let time = get_block_timestamp();
-            let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
-            let id_end = TournamentImpl::compute_id(time, game.duration());
-            if tournament_id == id_end && game.is_over() {
-                // [Effect] Update tournament
-                let mut tournament = store.tournament(tournament_id);
-                tournament.score(player_id, game.score);
-                store.set_tournament(tournament);
+            if game.is_over() {
+                let time = get_block_timestamp();
+                let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
+                let id_end = TournamentImpl::compute_id(time, game.duration());
+                if tournament_id == id_end {
+                    // [Effect] Update tournament
+                    let mut tournament = store.tournament(tournament_id);
+                    tournament.score(player_id, game.score);
+                    store.set_tournament(tournament);
 
-                // [Effect] Add tournament id to game
-                game.tournament_id = tournament_id;
-                game.end_time = time;
-                store.set_game_end(game);
+                    // [Effect] Add tournament id to game
+                    game.tournament_id = tournament_id;
+                    game.end_time = time;
+                    store.set_game_end(game);
+                }
             }
 
             // [Effect] Update game
@@ -139,19 +141,21 @@ pub mod PlayableComponent {
             game.surrender();
 
             // [Event] Update tournament on game over
-            let time = get_block_timestamp();
-            let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
-            let id_end = TournamentImpl::compute_id(time, game.duration());
-            if tournament_id == id_end && game.is_over() {
-                // [Effect] Update tournament
-                let mut tournament = store.tournament(tournament_id);
-                tournament.score(player_id, game.score);
-                store.set_tournament(tournament);
+            if game.is_over() {
+                let time = get_block_timestamp();
+                let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
+                let id_end = TournamentImpl::compute_id(time, game.duration());
+                if tournament_id == id_end {
+                    // [Effect] Update tournament
+                    let mut tournament = store.tournament(tournament_id);
+                    tournament.score(player_id, game.score);
+                    store.set_tournament(tournament);
 
-                // [Effect] Add tournament id to game
-                game.tournament_id = tournament_id;
-                game.end_time = time;
-                store.set_game_end(game);
+                    // [Effect] Add tournament id to game
+                    game.tournament_id = tournament_id;
+                    game.end_time = time;
+                    store.set_game_end(game);
+                }
             }
 
             // [Effect] Update game
@@ -201,8 +205,10 @@ pub mod PlayableComponent {
 
             // [Effect] Build tile
             let around = NeighborhoodTrait::read(game_id, x, y);
-            let mut neighbors = around.sides();
-            builder.build(ref tile, orientation, x, y, ref neighbors);
+            builder.build(ref tile, orientation, x, y);
+
+            // [Check] The tile fits its neighbours
+            placement::assert_fits(tile, @around);
 
             // [Event] Tile built
             store
@@ -264,6 +270,24 @@ pub mod PlayableComponent {
             // pages, the `Characters` word and the built tile
             game.assess(tile, refs, @around, ref structures, ref store);
             structures.flush(store);
+
+            // [Event] Update tournament on game over
+            if game.is_over() {
+                let time = get_block_timestamp();
+                let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
+                let id_end = TournamentImpl::compute_id(time, game.duration());
+                if tournament_id == id_end {
+                    // [Effect] Update tournament
+                    let mut tournament = store.tournament(tournament_id);
+                    tournament.score(player_id, game.score);
+                    store.set_tournament(tournament);
+
+                    // [Effect] Add tournament id to game
+                    game.tournament_id = tournament_id;
+                    game.end_time = time;
+                    store.set_game_end(game);
+                }
+            }
 
             // [Effect] Update game
             game.built += 1;

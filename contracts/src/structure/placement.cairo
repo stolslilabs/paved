@@ -15,6 +15,9 @@ use paved::structure::state::{Structures, StructuresTrait};
 use paved::structure::{oriented, tables};
 
 pub mod errors {
+    pub const TILE_NO_NEIGHBORS: felt252 = 'Tile: no neighbors';
+    pub const TILE_NOT_PLACED: felt252 = 'Tile: not placed';
+    pub const TILE_CANNOT_PLACE: felt252 = 'Tile: cannot place';
     pub const NO_STRUCTURE: felt252 = 'Structure: no area';
     pub const INVALID_ROLE: felt252 = 'Structure: invalid role';
     pub const OCCUPIED: felt252 = 'Structure: tile occupied';
@@ -31,6 +34,9 @@ pub struct Neighborhood {
     pub rows: Span<u128>,
     /// The directions whose tile holds a wonder (bit `direction`).
     pub wonders: u16,
+    /// The directions whose position is taken (bit `direction`). A diagonal tile is read only if it
+    /// holds a wonder: the other diagonal tiles are the zero tile here.
+    pub taken: u16,
 }
 
 #[generate_trait]
@@ -38,14 +44,22 @@ pub impl NeighborhoodImpl of NeighborhoodTrait {
     /// Reads the 8 positions around `(x, y)` and the tile of each taken one.
     fn read(game_id: u32, x: u32, y: u32) -> Neighborhood {
         // Avoid loop for gas efficiency
-        let (nw, nw_refs) = StoreImpl::tile_at(game_id, x - 1, y + 1);
+        let (nw_taken, nw, nw_refs) = StoreImpl::wonder_at(game_id, x - 1, y + 1);
         let (n, n_refs) = StoreImpl::tile_at(game_id, x, y + 1);
-        let (ne, ne_refs) = StoreImpl::tile_at(game_id, x + 1, y + 1);
+        let (ne_taken, ne, ne_refs) = StoreImpl::wonder_at(game_id, x + 1, y + 1);
         let (e, e_refs) = StoreImpl::tile_at(game_id, x + 1, y);
-        let (se, se_refs) = StoreImpl::tile_at(game_id, x + 1, y - 1);
+        let (se_taken, se, se_refs) = StoreImpl::wonder_at(game_id, x + 1, y - 1);
         let (s, s_refs) = StoreImpl::tile_at(game_id, x, y - 1);
-        let (sw, sw_refs) = StoreImpl::tile_at(game_id, x - 1, y - 1);
+        let (sw_taken, sw, sw_refs) = StoreImpl::wonder_at(game_id, x - 1, y - 1);
         let (w, w_refs) = StoreImpl::tile_at(game_id, x - 1, y);
+        let taken = taken_bit(nw_taken, 0x2)
+            | taken_bit(n.is_non_zero(), 0x4)
+            | taken_bit(ne_taken, 0x8)
+            | taken_bit(e.is_non_zero(), 0x10)
+            | taken_bit(se_taken, 0x20)
+            | taken_bit(s.is_non_zero(), 0x40)
+            | taken_bit(sw_taken, 0x80)
+            | taken_bit(w.is_non_zero(), 0x100);
         let wonders = wonder_bit(nw, 0x2)
             | wonder_bit(n, 0x4)
             | wonder_bit(ne, 0x8)
@@ -60,6 +74,7 @@ pub impl NeighborhoodImpl of NeighborhoodTrait {
                 .span(),
             rows: array![0, 0, side_row(n), 0, side_row(e), 0, side_row(s), 0, side_row(w)].span(),
             wonders,
+            taken,
         }
     }
 
@@ -80,20 +95,51 @@ pub impl NeighborhoodImpl of NeighborhoodTrait {
     fn landing(self: @Neighborhood, direction: u8, spot: u8) -> u8 {
         oriented::area_of(*(*self.rows).at(direction.into()), spot)
     }
+}
 
-    /// The orthogonal neighbours that exist, north, east, south, west: what `Tile::can_place`
-    /// checks.
-    fn sides(self: @Neighborhood) -> Array<Tile> {
-        let mut sides: Array<Tile> = array![];
-        let mut direction: u8 = tables::NORTH;
-        while direction <= tables::WEST {
-            let neighbor = self.tile(direction);
-            if neighbor.is_non_zero() {
-                sides.append(neighbor);
+/// The category (`Category` code) of the middle spot of the edge of a placed tile that looks in
+/// `direction` (2 north, 4 east, 6 south or 8 west): what `Layout::is_compatible` compares.
+pub fn edge_category(plan: u8, orientation: u8, direction: u8) -> u8 {
+    let area = oriented::area_of(oriented::plan_row(plan, orientation), direction + 1);
+    tables::row_category(oriented::area_row(plan, orientation, area))
+}
+
+/// Checks that the built tile (placed: orientation and position set) fits its side neighbours, as
+/// `Tile::can_place` did on the layouts: there is at least one, and each facing edge has the same
+/// category on both tiles.
+pub fn assert_fits(tile: Tile, around: @Neighborhood) {
+    let mut found = false;
+    let mut fits = true;
+    let mut direction: u8 = tables::NORTH;
+    while direction <= tables::WEST {
+        let neighbor = around.tile(direction);
+        if neighbor.is_non_zero() {
+            // [Check] The tile is placed (the layout of an unplaced tile asserts it)
+            assert(tile.orientation != 0, errors::TILE_NOT_PLACED);
+            let opposite = if direction <= tables::EAST {
+                direction + 4
+            } else {
+                direction - 4
+            };
+            if edge_category(
+                tile.plan, tile.orientation, direction,
+            ) != edge_category(neighbor.plan, neighbor.orientation, opposite) {
+                fits = false;
             }
-            direction += 2;
+            found = true;
         }
-        sides
+        direction += 2;
+    }
+    assert(found, errors::TILE_NO_NEIGHBORS);
+    assert(fits, errors::TILE_CANNOT_PLACE);
+}
+
+#[inline(always)]
+fn taken_bit(taken: bool, bit: u16) -> u16 {
+    if taken {
+        bit
+    } else {
+        0
     }
 }
 
@@ -206,7 +252,7 @@ pub fn place(ref structures: Structures, tile: Tile, around: @Neighborhood) -> u
             count -= 1;
             if at == 0 {
                 // A wonder's half-edge: it asks only for the tile
-                if around.tile(direction).is_zero() {
+                if *around.taken & role_bit(direction) == 0 {
                     open += 1;
                 }
                 continue;
@@ -316,12 +362,39 @@ mod tests {
     use paved::constants::CENTER;
     use paved::models::index::Tile;
     use paved::store::{StoreImpl, StoreTrait};
+    use paved::structure::tables;
     use paved::tests::setup::setup;
+    use paved::types::category::Category;
+    use paved::types::layout::LayoutImpl;
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::types::plan::Plan;
     use paved::types::spot::Spot;
     use snforge_std::interact_with_state;
+    use super::edge_category;
+
+    /// The category of every edge of every placed plan is the one the layout gives: `assert_fits`
+    /// (equal categories on the facing edges) answers as `Layout::is_compatible` did.
+    #[test]
+    fn test_placement_edge_categories_equal_the_layouts() {
+        let mut plan: u8 = 1;
+        while plan <= tables::PLAN_COUNT {
+            let mut orientation: u8 = 1;
+            while orientation <= 4 {
+                let layout = LayoutImpl::from(plan.into(), orientation.into());
+                let mut direction: u8 = tables::NORTH;
+                while direction <= tables::WEST {
+                    let spot: Spot = (direction + 1).into();
+                    let expected: Category = layout.get_category(spot);
+                    let expected: u8 = expected.into();
+                    assert_eq!(edge_category(plan, orientation, direction), expected);
+                    direction += 2;
+                }
+                orientation += 1;
+            }
+            plan += 1;
+        }
+    }
 
     /// A board written straight into storage with a character on a tile cannot give the record its
     /// `chars`: it fails loudly.

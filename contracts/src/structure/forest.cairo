@@ -151,7 +151,12 @@ pub fn scan(
 /// closed roads or cities around it: `distinct x base x bonus(size)`, one `Scored`, the character
 /// recovered.
 fn solve(
-    ref game: Game, size: u32, distinct: u32, role: u8, ref structures: Structures, ref store: Store,
+    ref game: Game,
+    size: u32,
+    distinct: u32,
+    role: u8,
+    ref structures: Structures,
+    ref store: Store,
 ) {
     let (num, den) = compute_multiplier(size);
     let points = distinct * Category::Forest.base_points() * num / den;
