@@ -534,6 +534,20 @@ pub fn next_move(moves: u128, turns: u8) -> (u8, u8, u128) {
     (rotate_direction(byte % 16, turns), rotate_spot(byte / 16, turns), moves / 0x100)
 }
 
+/// Returns the road areas adjacent to the area of a north-oriented area row, as a bitmap (bit
+/// `area - 1`): the adjacency is by area, the same in every orientation.
+#[inline(always)]
+pub fn row_adjacent_roads(row: u128) -> u16 {
+    ((row / 0x800000000000000000000000000) & 0x1ff).try_into().unwrap()
+}
+
+/// Returns the city areas adjacent to the area of a north-oriented area row, as a bitmap (bit
+/// `area - 1`).
+#[inline(always)]
+pub fn row_adjacent_cities(row: u128) -> u16 {
+    ((row / 0x100000000000000000000000000000) & 0x1ff).try_into().unwrap()
+}
+
 /// Returns the road areas adjacent to an area, as a bitmap (bit `area - 1`).
 pub fn adjacent_roads(plan: u8, area: u8) -> u16 {
     field(area_row(plan, area), 107, 0x1ff).try_into().unwrap()

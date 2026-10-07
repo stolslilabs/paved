@@ -23,12 +23,12 @@
 
 use paved::constants;
 use paved::events::{Event as PavedEvent, Scored};
-use paved::helpers::forest::ForestCount;
 use paved::models::builder::Builder;
 use paved::models::tile::CENTER;
 use paved::store::{StoreImpl, StoreTrait};
 use paved::systems::daily::{Daily, IDailyDispatcher};
 use paved::tests::oracle::check;
+use paved::tests::oracle::forest::ForestCount;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, TestStore, TestStoreTrait};
 use paved::types::category::Category;
@@ -71,7 +71,7 @@ fn builder(store: TestStore, game_id: u32, player_id: felt252) -> Builder {
     store.builder(store.game(game_id), player_id)
 }
 
-/// Reads the forest at `at` of the tile placed at (`x`, `y`) with the helper itself:
+/// Reads the forest at `at` of the tile placed at (`x`, `y`) with the walk of the oracle:
 /// (size, woodsman score, herdsman score, woodsmen found, herdsmen found).
 fn forest_at(
     store: TestStore, game_id: u32, x: u32, y: u32, at: Spot,

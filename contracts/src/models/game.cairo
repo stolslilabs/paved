@@ -8,7 +8,6 @@ use core::poseidon::{HashState, PoseidonTrait};
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
-use paved::helpers::forest::ForestCount;
 use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 use paved::models::builder::{Builder, BuilderTrait};
 use paved::models::character::{Char, CharAssert, CharTrait};
@@ -17,8 +16,9 @@ use paved::models::player::{Player, PlayerTrait};
 use paved::models::tile::{Tile, TileIntoLayout, TileTrait, ZeroableTile};
 use paved::store::{Store, StoreImpl};
 use paved::structure::assessment::{assess_generic, assess_wonder};
+use paved::structure::forest::assess_forest;
 use paved::structure::placement::{Neighborhood, NeighborhoodTrait};
-use paved::structure::record::{chars_of, open_of, ref_of, without_chars};
+use paved::structure::record::ref_of;
 use paved::structure::state::{Structures, StructuresTrait};
 use paved::structure::{oriented, placement, tables};
 use paved::types::area::Area;
@@ -259,8 +259,9 @@ pub impl GameImpl of GameTrait {
 
     /// Assesses the structures of the built tile (step 4), in the order of the walks: each start
     /// spot of the tile in `starts()` order, then the wonder of each neighbour, N, E, S, W, NW, NE,
-    /// SE, SW. Roads, cities and wonders are read from their roots; forests are still walked.
-    /// Returns whether a structure scored (and characters were recovered).
+    /// SE, SW. Every structure is read from its root; a forest is scanned only when it is closed and
+    /// holds a Woodsman or a Herdsman (`structure/forest.cairo`). Returns whether a structure scored
+    /// (and characters were recovered).
     fn assess(
         ref self: Game,
         tile: Tile,
@@ -270,16 +271,12 @@ pub impl GameImpl of GameTrait {
         ref store: Store,
     ) -> bool {
         // [Compute] The start spots of the tile
-        // [Info] The forest walk reads the tile's character: the tile is read again only after a
-        // score, which may have recovered it
-        let mut current = tile;
         let mut scored = false;
-        let mut any = false;
         let row = oriented::plan_row(tile.plan, tile.orientation);
         let mut count = oriented::start_count(row);
         let mut starts = oriented::starts(row);
         while count > 0 {
-            let (start, area, rest) = oriented::next_start(starts);
+            let (_, area, rest) = oriented::next_start(starts);
             starts = rest;
             count -= 1;
             let area_row = oriented::area_row(tile.plan, tile.orientation, area);
@@ -299,13 +296,7 @@ pub impl GameImpl of GameTrait {
                     }
                 },
                 Category::Forest => {
-                    if scored {
-                        current = store.tile(self, tile.id);
-                        scored = false;
-                        any = true;
-                    }
-                    let sid = ref_of(refs, area);
-                    if self.assess_forest(current, start.into(), sid, ref structures, ref store) {
+                    if assess_forest(ref self, tile, refs, area, ref structures, ref store) {
                         scored = true;
                     }
                 },
@@ -328,56 +319,7 @@ pub impl GameImpl of GameTrait {
                 }
             }
         }
-        any || scored
-    }
-
-    /// The forest arm: `ForestCount` walks it as in P4, when its root says it can score. The
-    /// characters it recovers leave the forest's structure. Returns whether it recovered
-    /// characters.
-    ///
-    /// The walk has no effect unless it finds the forest finished (no half-edge of it towards an
-    /// empty position, so `open == 0` on the root) and finds a Woodsman or a Herdsman on it (the
-    /// only roles a forest takes, so `chars != 0` on the root): any other forest is left unwalked,
-    /// with the same result.
-    fn assess_forest(
-        ref self: Game,
-        tile: Tile,
-        at: Spot,
-        sid: u32,
-        ref structures: Structures,
-        ref store: Store,
-    ) -> bool {
-        let (_, root) = structures.find(sid);
-        if open_of(root) != 0 || chars_of(root) == 0 {
-            return false;
-        }
-        let base = Category::Forest.base_points();
-        let (count, woodsman_score, herdsman_score, mut woodsmen, mut herdsmen) =
-            ForestCount::start(
-            self, tile, at, ref store,
-        );
-        if 0 == count.into() {
-            return false;
-        }
-        let mut recovered: u16 = 0;
-        for character in woodsmen.span() {
-            recovered = recovered | placement::role_bit(*character.index);
-        }
-        for character in herdsmen.span() {
-            recovered = recovered | placement::role_bit(*character.index);
-        }
-        // [Effect] Solve and collect characters
-        if 0 != woodsmen.len().into() {
-            ForestCount::solve(ref self, count, woodsman_score, base, ref woodsmen, ref store);
-        }
-        if 0 != herdsmen.len().into() {
-            ForestCount::solve(ref self, count, herdsman_score, base, ref herdsmen, ref store);
-        }
-        if recovered != 0 {
-            let (root, record) = structures.find(sid);
-            structures.set(root, without_chars(record, recovered));
-        }
-        recovered != 0
+        scored
     }
 }
 

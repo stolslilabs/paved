@@ -459,6 +459,47 @@ pub mod simple {
                 }
             }
         }
+
+        /// Walks the whole structure from `at` without stopping at an empty position: `count`
+        /// nodes, `closed` false when any of them has a move towards an empty position. The forest
+        /// walk of P5-5 (P-15) counts a city with it, so that a city that is open is all marked
+        /// seen, not a part of it.
+        fn explore(
+            game: Game,
+            tile: Tile,
+            at: Spot,
+            ref count: u32,
+            ref closed: bool,
+            ref visited: Felt252Dict<bool>,
+            ref store: Store,
+        ) {
+            let area: Area = tile.area(at);
+            let visited_key = tile.get_key(area);
+            if visited.get(visited_key) {
+                return;
+            }
+            visited.insert(visited_key, true);
+            count += 1;
+            let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
+            loop {
+                match north_oriented_moves.pop_front() {
+                    Option::Some(north_oriented_move) => {
+                        let mut move = north_oriented_move.rotate(tile.orientation.into());
+                        let (x, y) = tile.proxy_coordinates(move.direction);
+                        let tile_position: TilePosition = store.tile_position(game, x, y);
+                        if tile_position.is_zero() {
+                            closed = false;
+                            continue;
+                        }
+                        let neighbor = store.tile(game, tile_position.tile_id);
+                        Self::explore(
+                            game, neighbor, move.spot, ref count, ref closed, ref visited, ref store,
+                        );
+                    },
+                    Option::None => { break; },
+                }
+            }
+        }
     }
 }
 
@@ -491,6 +532,10 @@ pub mod forest {
     /// the number of distinct closed cities adjacent to it; an open adjacent city is not counted
     /// and does not keep the forest open. The size of the forest only enters the points through the
     /// bonus curve.
+    ///
+    /// P-15 (P5-5): the Herdsman counts a city only when it is closed as a whole, each city once.
+    /// The 2024 walk could count an open city that the forest touched at two places; this oracle
+    /// follows the corrected rule, as the structure state does.
     #[generate_trait]
     pub impl ForestCount of ForestCountTrait {
         #[inline]
@@ -600,12 +645,17 @@ pub mod forest {
 
                         // [Check] If the area is not visited, then count it
                         if !visited.get(key) {
-                            let mut city_score = 0;
-                            SimpleCount::iter(
-                                game, tile, spot, ref city_score, ref visited, ref store,
+                            // [Info] P-15: the whole city is walked, so that an open city is
+                            // never counted, and none is counted twice (the 2024 walk stopped at
+                            // the open edge and could find the rest of the city closed from
+                            // another contact)
+                            let mut nodes = 0;
+                            let mut closed = true;
+                            SimpleCount::explore(
+                                game, tile, spot, ref nodes, ref closed, ref visited, ref store,
                             );
                             // [Check] Only a closed city is counted
-                            if city_score > 0 {
+                            if closed {
                                 herdsman_score += 1;
                             }
                         }
@@ -717,8 +767,10 @@ pub mod forest {
 /// - characters: the root's `chars` is not 0 iff `Conflict` meets a character on the structure, and
 ///   when closed it is exactly the roles that `GenericCount` collects.
 pub mod check {
+    use paved::models::game::Game;
     use paved::models::tile::{Tile, ZeroableTile};
-    use paved::store::{StoreImpl, StoreTrait};
+    use paved::store::{Store, StoreImpl, StoreTrait};
+    use paved::structure::forest::scan;
     use paved::structure::placement::{NeighborhoodTrait, role_bit};
     use paved::structure::record::{RecordTrait, ref_of};
     use paved::structure::state::{Structures, StructuresTrait};
@@ -728,6 +780,7 @@ pub mod check {
     use paved::types::spot::Spot;
     use snforge_std::interact_with_state;
     use super::conflict::Conflict;
+    use super::forest::ForestCount;
     use super::generic::GenericCount;
 
     /// Runs the check on the tile `tile_id` of the game, in the contract of `store`.
@@ -822,6 +875,55 @@ pub mod check {
                 chars = chars | role_bit(character.index);
             }
             assert(chars == record.chars, 'Check: roles differ');
+        }
+        if closed && category == Category::Forest.into() {
+            check_forest(ref structures, ref s, game, tile, area, at, record.size.into());
+        }
+    }
+
+    /// A closed forest (no half-edge of its own towards an empty position): the scan of the
+    /// structure state agrees with the walk, which also looks at the roads around it. The walk finds
+    /// the forest finished (a count that is not 0) iff no adjacent road is open; then its size is
+    /// the root's, its Woodsman score is the distinct closed roads and its Herdsman score the
+    /// distinct closed cities (P-15: the walk of this oracle counts a city only when it is closed
+    /// as a whole).
+    fn check_forest(
+        ref structures: Structures,
+        ref s: Store,
+        game: Game,
+        tile: Tile,
+        area: u8,
+        at: Spot,
+        size: u32,
+    ) {
+        let (_, refs) = StoreImpl::tile_with_refs(tile.game_id, tile.id);
+        let (open_road, roads, cities) = scan(tile.game_id, tile, refs, area, ref structures);
+        let (count, woodsman, herdsman, _, _) = ForestCount::start(game, tile, at, ref s);
+        if (count != 0) == open_road {
+            println!(
+                "Check: tile {} forest {}: walk count {}, scan open road {}",
+                tile.id,
+                area,
+                count,
+                open_road,
+            );
+        }
+        assert((count != 0) != open_road, 'Check: forest closed differs');
+        if !open_road {
+            assert(count == size, 'Check: forest size differs');
+            if woodsman != roads || herdsman != cities {
+                println!(
+                    "Check: tile {} forest {}: walk {} roads {} cities, scan {} roads {} cities",
+                    tile.id,
+                    area,
+                    woodsman,
+                    herdsman,
+                    roads,
+                    cities,
+                );
+            }
+            assert(woodsman == roads, 'Check: forest roads differ');
+            assert(herdsman == cities, 'Check: forest cities differ');
         }
     }
 
