@@ -127,7 +127,6 @@ pub fn recover(ref game: Game, ref structures: Structures, role: u8) -> u32 {
         let mut tile = structures.built;
         builder.recover(ref character, ref tile);
         structures.built = tile;
-        structures.built_dirty = true;
     } else {
         let (mut tile, refs) = StoreImpl::tile_with_refs(game.id, character.tile_id);
         builder.recover(ref character, ref tile);

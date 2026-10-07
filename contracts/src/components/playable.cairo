@@ -247,8 +247,7 @@ pub mod PlayableComponent {
                 structures.put_character(character);
             }
 
-            // [Effect] Update tile
-            store.set_placed_tile(tile, refs);
+            // [Effect] Update tile (written with its position by `flush`, after the assessment)
             structures.track(tile, refs);
 
             // [Effect] Assess game over

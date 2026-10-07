@@ -486,14 +486,24 @@ pub impl StoreImpl of StoreTrait {
 
     /// Writes the slot of a tile with its refs (its position is not written).
     fn write_tile(tile: Tile, refs: u128) {
+        storage().tiles.entry((tile.game_id, tile.id)).write(Self::tile_word(tile, refs));
+    }
+
+    /// The slot of a tile with its refs.
+    fn tile_word(tile: Tile, refs: u128) -> felt252 {
         let word: u128 = tile.plan.into()
             + tile.orientation.into() * TWO_POW_8
             + tile.x.into() * TWO_POW_16
             + tile.y.into() * TWO_POW_48
             + tile.occupied_spot.into() * TWO_POW_80;
         assert(refs < TWO_POW_108, 'Tile: refs out of range');
-        let word: felt252 = word.into() + refs.into() * TWO_POW_128;
-        storage().tiles.entry((tile.game_id, tile.id)).write(word);
+        word.into() + refs.into() * TWO_POW_128
+    }
+
+    /// The slot of a tile as `tile_slot_at` gives it (with the id above the fields), for a tile
+    /// that the move holds and has not written yet.
+    fn tile_slot(tile: Tile, refs: u128) -> felt252 {
+        Self::tile_word(tile, refs) + tile.id.into() * TWO_POW_88_FELT
     }
 
     /// The `Characters` word of a game (the 16 bits of each role).

@@ -77,6 +77,15 @@ pub fn scan(
     let mut visited: Felt252Dict<bool> = Default::default();
     // [Info] The slots of the tiles read, by position: a tile next to several nodes is read once
     let mut slots: Felt252Dict<felt252> = Default::default();
+    // [Info] The built tile is not in storage yet (`flush` writes it): the scan takes it from here
+    if structures.built.id != 0 {
+        let built = structures.built;
+        slots
+            .insert(
+                built.x.into() * 0x100000000 + built.y.into(),
+                StoreImpl::tile_slot(built, structures.built_refs),
+            );
+    }
     let mut road_roots: Felt252Dict<bool> = Default::default();
     let mut city_roots: Felt252Dict<bool> = Default::default();
     let mut roads: u32 = 0;

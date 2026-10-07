@@ -8,9 +8,8 @@
 //!
 //! The same cache holds what the assessment changes outside the pages, so that each slot of a move
 //! is read once and written once: the `Characters` word of the game (read at the first character,
-//! written by `flush` if a character was placed or recovered) and the built tile (written by the
-//! build before the assessment, which a recovered character on it changes: `flush` writes it again,
-//! without reading it).
+//! written by `flush` if a character was placed or recovered) and the built tile (written by `flush`
+//! with its position, after the assessment, which a recovered character on it changes).
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::character::Char;
@@ -48,10 +47,10 @@ pub struct Structures {
     /// The `Characters` word of the game, once read (`characters_state` 1) or changed (2).
     characters: u128,
     characters_state: u8,
-    /// The tile built by the move (id 0 for none), its refs, and whether the assessment changed it.
+    /// The tile built by the move (id 0 for none) and its refs: `flush` writes it with its
+    /// position.
     pub built: Tile,
     pub built_refs: u128,
-    pub built_dirty: bool,
 }
 
 #[generate_trait]
@@ -67,12 +66,11 @@ pub impl StructuresImpl of StructuresTrait {
             characters_state: 0,
             built: ZeroableTile::zero(),
             built_refs: 0,
-            built_dirty: false,
         }
     }
 
-    /// Declares the tile the move built, as it is written: a character recovered from it is
-    /// cleared here, not read back from storage.
+    /// Declares the tile the move built. It is written by `flush`, once, after the assessment: a
+    /// character recovered from it is cleared here, and a scan that reaches it reads it from here.
     #[inline(always)]
     fn track(ref self: Structures, tile: Tile, refs: u128) {
         self.built = tile;
@@ -205,15 +203,14 @@ pub impl StructuresImpl of StructuresTrait {
     }
 
     /// Writes every page slot that holds a record the move changed, once, then the `Characters`
-    /// word and the built tile if the move changed them.
+    /// word if the move changed it, and the built tile.
     fn flush(ref self: Structures, store: Store) {
         if self.characters_state == 2 {
             StoreImpl::set_characters_word(self.game_id, self.characters);
             self.characters_state = 1;
         }
-        if self.built_dirty {
-            StoreImpl::write_tile(self.built, self.built_refs);
-            self.built_dirty = false;
+        if self.built.id != 0 {
+            store.set_placed_tile(self.built, self.built_refs);
         }
         while let Option::Some(key) = self.slots.pop_front() {
             let first = key * 4;
