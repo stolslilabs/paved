@@ -39,9 +39,8 @@ CI: the `client` check of `.github/workflows/client.yaml` runs install, build an
 The leaderboard and player screens read the indexer of `packages/indexer` (API v1). The app takes its base URL,
 without `/v1`, from `VITE_INDEXER_URL`; unset, the screens say "Leaderboard unavailable" and ask nothing.
 
-The indexer has no fixed default port: without `--port` it listens on port 0, a free port the OS picks and the
-log line `serving on http://127.0.0.1:<port>` prints (`packages/indexer/src/main.ts`). Pass `--port` so the app can
-be told where it is; the indexer's own README and docs use 8787. It listens on `127.0.0.1` (`--host`) and its CORS
+The indexer listens on port 8787 by default (`--port` changes it; `--port 0` takes a free port the OS picks, which
+the log line `serving on http://127.0.0.1:<port>` prints; `packages/indexer/src/main.ts`). It listens on `127.0.0.1` (`--host`) and its CORS
 list is empty by default: a browser blocks every answer until the app's origin is given with `--allow-origin`
 (repeatable, `scheme://host[:port]` exactly as the browser writes the page's origin; `localhost` and `127.0.0.1`
 are different origins). The Vite dev server of `app-web` is `http://localhost:5173`.
@@ -54,7 +53,7 @@ scripts/deploy.sh devnet
 # 2. The indexer, with the app's origin allowed
 INDEXER_RPC_URL=http://127.0.0.1:5050 bun run --cwd packages/indexer start run \
   --deployment ../../contracts/deployments/devnet.json --db /tmp/paved-indexer.db \
-  --port 8787 --allow-origin http://localhost:5173
+  --allow-origin http://localhost:5173
 
 # 3. The app, pointed at it
 VITE_INDEXER_URL=http://127.0.0.1:8787 bun run --cwd packages/app-web dev

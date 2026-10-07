@@ -26,11 +26,44 @@ describe("endpoints", () => {
       fixture.state.rawBody = { text: JSON.stringify({ ...ok, ...extra }), httpStatus: 200 };
       return client.head();
     };
-    expect((await raw({ checks: { tournaments_checked: 4, last_mismatch: 20730, later_field: [1] }, later: "x" })).data).toMatchObject({ lastMismatch: 20730, tournamentsChecked: 4 });
+    expect((await raw({ checks: { tournaments_checked: 4, last_mismatch: null, later_field: [1] }, later: "x" })).data).toMatchObject({ lastMismatch: null, tournamentsChecked: 4 });
     expect((await raw({ checks: { last_mismatch: null } })).data).toMatchObject({ lastMismatch: null, tournamentsChecked: null });
     expect((await raw({})).data).toMatchObject({ lastMismatch: null, tournamentsChecked: null });
     fixture.state.rawBody = { text: JSON.stringify({ ...ok, checks: { tournaments_checked: -1, last_mismatch: null } }), httpStatus: 200 };
     expect(await kindOf(client.head())).toBe("bad-response");
+  });
+
+  test("/v1/head reads last_mismatch as a typed object, and refuses any other shape", async () => {
+    const slot = (player: string, score: number) => ({ player_id: player, score });
+    fixture.state.lastMismatch = {
+      tournament_id: 20730,
+      head_number: 41,
+      view: [slot(FIXTURE_BO, 40), slot(FIXTURE_ADA, 50), slot("0x0", 0)],
+      indexed: [slot(FIXTURE_ADA, 50), slot(FIXTURE_BO, 40), slot("0x0", 0)],
+    };
+    expect((await client.head()).data.lastMismatch).toEqual({
+      tournamentId: 20730,
+      headNumber: 41,
+      view: [{ playerId: FIXTURE_BO, score: 40 }, { playerId: FIXTURE_ADA, score: 50 }, { playerId: "0x0", score: 0 }],
+      indexed: [{ playerId: FIXTURE_ADA, score: 50 }, { playerId: FIXTURE_BO, score: 40 }, { playerId: "0x0", score: 0 }],
+    });
+    for (const wrong of [20730, "20730", [], { tournament_id: 20730 }, { tournament_id: 1, head_number: 2, view: [{ player_id: "0x1" }], indexed: [] }, { tournament_id: 1, head_number: 2, view: [], indexed: {} }]) {
+      fixture.state.lastMismatch = wrong as never;
+      expect(await kindOf(client.head())).toBe("bad-response");
+    }
+  });
+
+  test("null score, end time or counted tournament is accepted only on a running game", async () => {
+    const finished = fixture.games[0];
+    for (const key of ["score", "end_time", "counted_tournament_id"]) {
+      fixture.games = [{ ...RUNNING_GAME }, { ...finished }];
+      expect((await client.playerGames(FIXTURE_ADA)).data.games[0].over).toBe(false);
+      fixture.games = [{ ...finished, [key]: null }];
+      expect(await kindOf(client.playerGames(FIXTURE_ADA))).toBe("bad-response");
+      expect(await kindOf(client.game("daily", finished.game_id as number))).toBe("bad-response");
+      fixture.games = [{ ...RUNNING_GAME, [key]: 5 }];
+      expect((await client.game("daily", 913)).data).toMatchObject({ over: false });
+    }
   });
 
   test("a running game: the null score, tournament and end time read as 0, not as a bad answer", async () => {

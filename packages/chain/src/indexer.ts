@@ -73,13 +73,27 @@ export interface IndexerAnswer<T> {
   freshness: Freshness;
 }
 
+/** One prize slot of a mismatch: the three slots of the view, then of the replay of the events (player 0x0.. and score 0 when empty). */
+export interface MismatchSlot {
+  playerId: string;
+  score: number;
+}
+
+export interface IndexerMismatch {
+  tournamentId: number;
+  /** The block the view was read at. */
+  headNumber: number;
+  view: MismatchSlot[];
+  indexed: MismatchSlot[];
+}
+
 export interface IndexerHeadInfo {
   state: string;
   chainId: string;
   fromBlock: number;
   contracts: Record<string, string>;
-  /** The last closed day whose `prize_ranks` differed from the `tournament` view, or null. */
-  lastMismatch: number | null;
+  /** The last closed day whose prize slots differed from the `tournament` view (`checks.last_mismatch`), or null. */
+  lastMismatch: IndexerMismatch | null;
   /** Closed days the indexer has compared with the `tournament` view since it started (`checks.tournaments_checked`); null when the answer has no such count. */
   tournamentsChecked: number | null;
 }
@@ -213,8 +227,9 @@ const bool = (o: Obj, key: string, what: string): boolean => {
 /** A key the doc lists as nullable: `null` is an answer, a missing key is not. */
 const orNull = <T>(o: Obj, key: string, read: (o: Obj, key: string, what: string) => T, what: string): T | null =>
   o[key] === null ? null : key in o ? read(o, key, what) : bad(`${what}.${key} is missing`);
-/** A count the indexer answers as null while a game runs ("As built"): read as 0, `over` tells which. */
-const numOrZero = (o: Obj, key: string, what: string): number => (o[key] === null ? 0 : num(o, key, what));
+/** A count that is null only while the game runs: a finished game answers every one of them. */
+const numUnlessRunning = (o: Obj, key: string, what: string, over: boolean): number =>
+  o[key] === null ? (over ? bad(`${what}.${key} is null on a finished game`) : 0) : num(o, key, what);
 const list = (o: Obj, key: string, what: string): unknown[] => {
   const v = o[key];
   return Array.isArray(v) ? v : bad(`${what}.${key} is not a list`);
@@ -254,20 +269,37 @@ function parseEntry(v: unknown, what: string): LeaderboardEntry {
   };
 }
 
+function parseSlot(v: unknown, what: string): MismatchSlot {
+  const o = obj(v, what);
+  return { playerId: str(o, "player_id", what), score: num(o, "score", what) };
+}
+
+function parseMismatch(v: unknown, what: string): IndexerMismatch {
+  const o = obj(v, what);
+  return {
+    tournamentId: num(o, "tournament_id", what),
+    headNumber: num(o, "head_number", what),
+    view: list(o, "view", what).map((s, i) => parseSlot(s, `${what}.view[${i}]`)),
+    indexed: list(o, "indexed", what).map((s, i) => parseSlot(s, `${what}.indexed[${i}]`)),
+  };
+}
+
 function parseGame(v: unknown, what: string): IndexedGame {
   const o = obj(v, what);
   const contract = str(o, "contract", what);
   if (contract !== "daily" && contract !== "tutorial") bad(`${what}.contract is ${contract}`);
+  const over = bool(o, "over", what);
+  // "As built": a running game answers null for these three, read as 0; `over` says which.
   return {
     contract: contract as IndexerContract,
     gameId: num(o, "game_id", what),
     mode: num(o, "mode", what),
     startTime: num(o, "start_time", what),
     tournamentId: num(o, "tournament_id", what),
-    over: bool(o, "over", what),
-    score: numOrZero(o, "score", what),
-    countedTournamentId: numOrZero(o, "counted_tournament_id", what),
-    endTime: numOrZero(o, "end_time", what),
+    over,
+    score: numUnlessRunning(o, "score", what, over),
+    countedTournamentId: numUnlessRunning(o, "counted_tournament_id", what, over),
+    endTime: numUnlessRunning(o, "end_time", what, over),
   };
 }
 
@@ -312,7 +344,7 @@ export class IndexerClient {
         chainId: str(b, "chain_id", "head"),
         fromBlock: num(b, "from_block", "head"),
         contracts: Object.fromEntries(Object.entries(obj(b.contracts, "contracts")).map(([k, v]) => [k, typeof v === "string" ? v : bad(`contracts.${k}`)])),
-        lastMismatch: checks ? orNull(checks, "last_mismatch", num, "checks") : null,
+        lastMismatch: checks ? orNull(checks, "last_mismatch", (o, k) => parseMismatch(o[k], "checks.last_mismatch"), "checks") : null,
         tournamentsChecked: checks && checks.tournaments_checked !== undefined ? num(checks, "tournaments_checked", "checks") : null,
       };
     });
