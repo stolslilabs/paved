@@ -1,14 +1,6 @@
-import { beforeAll, describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 
 describe("ActionBar", () => {
-  // The first import of ActionBar pulls in tamagui and game-core, which is slow on a cold CI
-  // runner (the first test hit the 5000 ms default once). Pay that cost here, under a hook
-  // timeout sized for it, so no test carries it. Later imports are served from the module cache.
-  beforeAll(async () => {
-    await import("../src/overlays/ActionBar");
-    await import("../src/index");
-  }, 60_000);
-
   it("exports ActionBar as a function component", async () => {
     const mod = await import("../src/overlays/ActionBar");
     expect(typeof mod.ActionBar).toBe("function");
