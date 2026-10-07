@@ -30,10 +30,11 @@ export class CrossCheck {
   private readonly store: Store;
   private readonly log: (message: string) => void;
 
-  constructor(chain: Chain, store: Store, log: (message: string) => void = () => {}) {
+  /** `source`: the store, or the queries over it (the client's tests build it that way; the podium needs the store). */
+  constructor(chain: Chain, source: Store | Queries, log: (message: string) => void = () => {}) {
     this.chain = chain;
-    this.store = store;
-    this.queries = new Queries(store);
+    this.queries = source instanceof Queries ? source : new Queries(source);
+    this.store = this.queries.store;
     this.log = log;
   }
 

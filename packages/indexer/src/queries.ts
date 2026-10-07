@@ -116,7 +116,7 @@ const BOARD = `
   LIMIT :limit OFFSET :offset`;
 
 export class Queries {
-  private readonly store: Store;
+  readonly store: Store;
 
   constructor(store: Store) {
     this.store = store;
