@@ -131,10 +131,10 @@ achievement and is credited off the contract's report path (the indexer applies 
 
 How this was checked, on 2026-10-07: the registry index of both packages
 (`https://scarbs.xyz/api/v1/index/qu/iv/<name>.json`) lists the two versions each, and Scarb downloaded 0.2.0 of both
-into its registry cache. quiver's own `STATUS.md` (2026-10-02, and the local clone is 19 commits behind its remote)
-still says "publication of both as 0.2.0 not asked"; the registry is newer and is the authority here. **Which commit
-of quiver the published 0.2.0 was packaged from is not stated by the registry: to confirm with Grim World** (see
-"What Paved needs from quiver").
+into its registry cache. **Provenance (confirmed by Grim World):** both
+0.2.0 packages on scarbs.xyz are built from quiver commit `2e6bb77392335a5420b2ff331f072f66f265c16f`, tags
+`quiver_quest-v0.2.0` and `quiver_achievement-v0.2.0`. quiver main's `STATUS.md` says published. An earlier reading
+of this document said "unpublished": that came from a stale local clone, 19 commits behind its remote, and was wrong.
 
 **Toolchain against Paved's.** Paved is Scarb 2.20.1 (Cairo 2.20.0) / snforge 0.64.0 exact, package edition `2023_11`
 (`contracts/Scarb.toml`). quiver 0.2.0 is built with the same compiler and snforge (its ARC-10), and its published
@@ -311,15 +311,14 @@ windows, points): they live in the client or in the indexer's config, keyed by i
 ## What Paved needs from quiver (list for the Overseer, to forward to Grim World)
 
 Nothing blocks the proposal: both packages are published, build on Paved's toolchain, and cover the list in event
-mode. Three requests, none a PR to quiver:
+mode. Two requests, none a PR to quiver (the provenance one is answered, above):
 
-1. **Provenance of the published 0.2.0.** Which quiver commit (or tag) each registry artifact was packaged from, and
-   that it is the audited one. The registry shows the checksums above; quiver's `STATUS.md` still says unpublished.
-2. **An API guarantee on the game-over path.** That `progress_many` through the internal layer, with at most 16
+1. **An API guarantee on the game-over path.** That `progress_many` through the internal layer, with at most 16
    entries, non-zero task ids and non-zero counts, **cannot revert** in event mode, for the life of 0.2.x. The
    READMEs state "progress never reverts for a quest-level reason" for storage mode and bound the entries; Paved
-   wants it stated for event mode as a guarantee, because a revert there would stop a game from ending.
-3. **A note for later:** the achievement storage design ("per-task counters, one packed slot per (player, task)")
+   wants it stated for event mode as a guarantee, because a revert there would stop a game from ending. **Open:
+   until Grim World answers, the implementation guards the call itself** (Q-1).
+2. **A note for later:** the achievement storage design ("per-task counters, one packed slot per (player, task)")
    announced "for a later version". Paved needs it only if a rule of a contract has to read an achievement (a P8
    reward gated by a title); it is not needed for this proposal.
 
@@ -327,7 +326,7 @@ mode. Three requests, none a PR to quiver:
 
 | # | Risk | Mitigation |
 |---|---|---|
-| Q-1 | **A revert in the report stops a game from ending** (and skips the leaderboard submit). | The internal layer checks no caller and no reporter; the only failures are the bounds (more than 16 entries, task id 0), which the code cannot reach (8 fixed entries, constant ids); zero counts are dropped, not refused. Order of the game-over path: `end_in_tournament` first, report after, so the ranking is written before anything of quiver runs. A test of the game over with every counter at its maximum. Guarantee asked of quiver (request 2). The separate-contract shape is worse here: a failing external call needs a catchable failure, which is **to confirm on the network version** before choosing it. |
+| Q-1 | **A revert in the report stops a game from ending** (and skips the leaderboard submit). | The internal layer checks no caller and no reporter; the only failures are the bounds (more than 16 entries, task id 0), which the code cannot reach (8 fixed entries, constant ids); zero counts are dropped, not refused. Order of the game-over path: `end_in_tournament` first, report after, so the ranking is written before anything of quiver runs. A test of the game over with every counter at its maximum. Guarantee asked of quiver (request 1, open). **Until Grim World answers whether event-mode `progress_many` can revert within its bounds, the implementation guards the call so that a game over never fails because of quests**: the entries are built from constants and counters clamped to their field widths, their number (at most 8 against the bound of 16), the non-zero task ids and the dropped zero counts are checked before the call, and a test ends a game with every counter at its maximum and with every count zero, and asserts the game over, the ranking and the `GameOver` event happen. The separate-contract shape is worse here: a failing external call needs a catchable failure, which is **to confirm on the network version** before choosing it. |
 | Q-2 | **The closing move costs +0.4 M to +1.4 M** and the class grows. | Measured before merge with the method above; ceilings recorded; the alternative of reporting per scoring move is worse. If the cost is not accepted, achievements only (one call) halves it. |
 | Q-3 | **`GameState` layout change** touches goldens and tests that build a `Game`. | Counters are not part of the score: goldens stay identical (never edited). Done in its own PR with the baseline gas of the non-final moves. Nothing is deployed on a public network. |
 | Q-4 | **Targets are guesses.** 3,000 points a day, 4,000 for High Roller, `BIG_SIZE` 8, six structures: the only reference is the greedy bot of the full-deck golden (3,554 points over 38 tiles). | Calibrate before defining, from the golden bot, a few scripted games and the first devnet plays. A definition cannot be edited, only retired and replaced: calibrate before the definitions go to a shared network. |
@@ -342,7 +341,8 @@ mode. Three requests, none a PR to quiver:
 
 1. Pin, build, embed (no counters yet): the two components in `Daily` and `Tutorial`, owner entrypoints, `define`
    script and a regenerated `contracts/abis`; tests of access and of the definitions. One PR.
-2. Counters in `GameState`, the report at game over, tests (events of the golden games), the gas bench and the
+2. Counters in `GameState`, the report at game over with the guard of Q-1 (inputs bounded and checked before the call,
+   with its test), tests (events of the golden games), the gas bench and the
    ceilings. One PR; the figures replace the estimates of this document.
 3. Indexer: the events above and the read API (quests of the day with progress, achievements and tiers), by the
    META track, then the client by the CLIENT track.
