@@ -27,8 +27,8 @@ use quiver_quest::interface::{IQuestViewDispatcher, IQuestViewDispatcherTrait};
 use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use snforge_std::{
-    EventSpyAssertionsTrait, interact_with_state, spy_events, start_cheat_block_timestamp_global,
-    start_cheat_caller_address, stop_cheat_caller_address,
+    EventSpyAssertionsTrait, EventSpyTrait, interact_with_state, spy_events,
+    start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
 
@@ -268,7 +268,7 @@ fn test_quests_game_over_every_count_zero() {
 /// the first rank: the largest lists (4 and 6 entries), and the game over, the ranking and
 /// `GameOver` all happen.
 #[test]
-#[available_gas(l2_gas: 104736338)]
+#[available_gas(l2_gas: 101893619)]
 fn test_quests_game_over_every_counter_at_maximum() {
     // [Setup] Not day 0, whose tournament id is the unset id 0
     start_cheat_block_timestamp_global(10 * 86400);
@@ -298,6 +298,33 @@ fn test_quests_game_over_every_counter_at_maximum() {
     let top = interact_with_state(daily, || LeaderboardImpl::new().top(id));
     assert(top.first.score == 0xffffffff, 'Quests: first rank');
     let over = Daily::Event::PavedEvent(game_over(game, context.player_id));
+    // [Assert] Order: `GameOver` before the first quiver event, the quests before the achievements
+    let events = spy.get_events().events;
+    let mut positions: Array<u32> = array![];
+    let mut i = 0;
+    while i < events.len() {
+        let (from, event) = events.at(i);
+        let selector = *event.keys.at(0);
+        if *from == daily {
+            if selector == selector!("GameOver") {
+                positions.append(0);
+            } else if selector == selector!("QuestProgressed") {
+                positions.append(1);
+            } else if selector == selector!("AchievementProgressed") {
+                positions.append(2);
+            }
+        }
+        i += 1;
+    }
+    let mut sorted = true;
+    let mut k = 1;
+    while k < positions.len() {
+        if *positions.at(k) < *positions.at(k - 1) {
+            sorted = false;
+        }
+        k += 1;
+    }
+    assert(positions.len() == 1 + 4 + 6 && sorted, 'Quests: event order');
     // [Assert] The report: tasks 1 to 4 to the quests, 1, 4 to 7 and 9 to the achievements, after
     // `GameOver`
     let p = context.player_id;

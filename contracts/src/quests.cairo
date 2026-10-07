@@ -168,38 +168,45 @@ mod tests {
         assert_eq!(achievement_entries(report).len(), achievement_counts(report).len());
     }
 
-    /// Every shape a closing move can produce: each rank, scores around the thresholds, every
-    /// counter at zero, at one and at its maximum.
+    /// Every shape a closing move can produce: each rank, scores around the thresholds, and each
+    /// of the four counters independently at zero or at the maximum of its width.
     #[test]
-    #[available_gas(l2_gas: 143782418)]
+    #[available_gas(l2_gas: 230266947)]
     fn test_report_bounds_on_every_shape() {
         let scores = array![0, 1, constants::HIGH_SCORE - 1, constants::HIGH_SCORE, 0xffffffff];
         let ranks = array![0_u8, 1, 2, 3];
-        let counters = array![0_u8, 1, 15];
         let mut s = scores.span();
         while let Option::Some(score) = s.pop_front() {
             let mut r = ranks.span();
             while let Option::Some(rank) = r.pop_front() {
-                let mut a = counters.span();
-                while let Option::Some(n) = a.pop_front() {
-                    let mut b = counters.span();
-                    while let Option::Some(f) = b.pop_front() {
-                        assert_bounds(tally(*score, *rank, *n, *f, *n, *f));
-                    }
+                // [Info] Bit i of `mask` puts the counter i at its maximum
+                let mut mask: u8 = 0;
+                while mask < 16 {
+                    let structures = if mask & 1 != 0 {
+                        constants::MAX_STRUCTURES
+                    } else {
+                        0
+                    };
+                    let forests = if mask & 2 != 0 {
+                        constants::MAX_FORESTS
+                    } else {
+                        0
+                    };
+                    let wonders = if mask & 4 != 0 {
+                        constants::MAX_WONDERS
+                    } else {
+                        0
+                    };
+                    let big = if mask & 8 != 0 {
+                        constants::MAX_BIG
+                    } else {
+                        0
+                    };
+                    assert_bounds(tally(*score, *rank, structures, forests, wonders, big));
+                    mask += 1;
                 }
             }
         }
-        // Every counter at the maximum of its width
-        assert_bounds(
-            tally(
-                0xffffffff,
-                1,
-                constants::MAX_STRUCTURES,
-                constants::MAX_FORESTS,
-                constants::MAX_WONDERS,
-                constants::MAX_BIG,
-            ),
-        );
     }
 
     /// The largest reports are 4 entries for the quests and 6 for the achievements, and a report

@@ -380,3 +380,12 @@ from the design above. Figures are L2 gas, measured on Linux with `contracts/tes
 - **Definitions** are not made by the contracts' constructor: the accepted list is defined with the entrypoints above
   (`e2e::quests::define_accepted_list` is the list as calls). The script that does it on a network belongs with the
   deploy task.
+- **Class sizes** (dev profile, `casm = true` in a scratch copy, main `b4d0c74` against this PR; felts of the Sierra
+  program and of the CASM bytecode):
+
+  | | Sierra before | Sierra after | CASM before | CASM after | Entrypoints |
+  |---|---|---|---|---|---|
+  | `Daily` | 39,958 | 53,180 (+33 %) | 80,568 | 103,162 (+28 %) | 19 -> 33 |
+  | `Tutorial` | 37,076 | 38,612 (+4 %) | 75,165 | 78,098 (+4 %) | 14 -> 14 |
+- **Event order.** At a game over the order is `GameOver`, the quest events, then the achievement events
+  (`e2e::quests::test_quests_game_over_every_counter_at_maximum`, from `spy.get_events()`).
