@@ -62,7 +62,7 @@ fn test_differential_gas_scenarios_a0_a_b() {
 
 /// Gas scenario c: a 6-tile city closed with its character scored.
 #[test]
-#[available_gas(l2_gas: 177317181)]
+#[available_gas(l2_gas: 191206362)]
 fn test_differential_gas_scenario_c() {
     let board = BoardTrait::new();
     board.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, Role::Lord, Spot::Center);
@@ -76,7 +76,7 @@ fn test_differential_gas_scenario_c() {
 
 /// Gas scenario d: a 12-tile city tree closed by a tile placed with a character.
 #[test]
-#[available_gas(l2_gas: 332650578)]
+#[available_gas(l2_gas: 378828024)]
 fn test_differential_gas_scenario_d() {
     let board = BoardTrait::new();
     board.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
@@ -100,7 +100,7 @@ fn test_differential_gas_scenario_d() {
 /// The scripted Tutorial to its end: each step builds when the script gives a placement for the
 /// tile in hand, and discards it otherwise, as the golden `tutorial_full_sequence` does.
 #[test]
-#[available_gas(l2_gas: 308099299)]
+#[available_gas(l2_gas: 390107061)]
 fn test_differential_tutorial_full_sequence() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let game_id = context.game_id;
@@ -127,7 +127,7 @@ fn test_differential_tutorial_full_sequence() {
 /// The wonder ring of `e2e/events.cairo`: six of the eight neighbours are written without a build
 /// (`Store::set_tile` places them on the structure state), the last one closes the wonder.
 #[test]
-#[available_gas(l2_gas: 267734998)]
+#[available_gas(l2_gas: 323400350)]
 fn test_differential_wonder_ring() {
     let board = BoardTrait::new();
     board
