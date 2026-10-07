@@ -16,6 +16,10 @@
 //! - `FFFFCCCFF`: a city corner, E+S when facing North, S+W East, W+N South, N+E West.
 //! - `CCCCCFFFC`: a city T-junction, N+E+W when facing North, S+E+W when facing South.
 //! - `FFFFFFCFF`: a city cap on the S edge, facing North; W edge facing East, N edge facing South.
+//! - `RFRFFFFFR`: a road curve N+W facing North, E+N East, S+E South, W+S West; one forest in the
+//!   corner between the roads and one around the outside.
+//! - `RFFFRFFFR`: a straight road, W-E facing North, N-S facing East, forests on both sides.
+//! - `WFFFFFFFF`: a wonder (its centre) in a ring of forest on every edge.
 //! The starter tile (`RFFFRFCFR`, facing South) is a city cap on its N edge with a W-E road.
 
 use core::testing::get_available_gas;
@@ -34,6 +38,8 @@ pub const CEILING_SIMPLE: u128 = 9353427;
 pub const CEILING_CHARACTER: u128 = 10455054;
 pub const CEILING_CLOSE_LARGE: u128 = 11161964;
 pub const CEILING_WORST_CASE: u128 = 13326994;
+pub const CEILING_FOREST: u128 = 20000000;
+pub const CEILING_FOREST_WORST: u128 = 40000000;
 
 #[derive(Drop)]
 struct Scenario {
@@ -165,4 +171,78 @@ fn test_gas_d_worst_case() {
     let game = s.store.game(s.game_id);
     assert(game.score > 0, 'Gas: tree not scored');
     report("d_worst_case", gas, CEILING_WORST_CASE);
+}
+
+/// e. Closes a forest of 4 tiles that holds a Woodsman (scoring, character recovery and the forest
+/// scan included).
+///
+/// Four road curves under the starter close a loop of road around one corner; their inner corners
+/// are one forest. The Woodsman waits on the first curve, the fourth closes the loop and scores
+/// 1 road x 300 x bonus(4) = 329 (the P4 golden `daily_forest_woodsman_ring`).
+#[test]
+fn test_gas_e_close_forest() {
+    let s = ScenarioTrait::new();
+    s
+        .build(
+            Plan::RFRFFFFFR,
+            Orientation::South,
+            CENTER,
+            CENTER - 1,
+            Role::Woodsman,
+            Spot::SouthEast,
+        );
+    s.step(Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1);
+    s.step(Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2);
+    let gas = s
+        .build(Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, Role::None, Spot::None);
+    let game = s.store.game(s.game_id);
+    assert(game.score == 329, 'Gas: forest not scored');
+    report("e_close_forest", gas, CEILING_FOREST);
+}
+
+/// f. Worst forest scan we can build: the last tile closes a forest of 16 nodes that holds a
+/// Woodsman, inside a loop of 12 road tiles.
+///
+/// The starter tile is the top edge of the loop (its south forest is the inside). The loop goes
+/// east along the top, down the right column, west along the bottom, up the left column; four
+/// wonder tiles (`WFFFFFFFF`, every edge forest) fill the 2 x 2 inside. The last tile is the top-left
+/// curve: it closes the loop of road and the forest, and the scan walks the 16 nodes (the four
+/// wonder tiles, the eight inner sides of the straights, the four inner corners), every tile of the
+/// inside read from its position. The Woodsman waits on the first straight.
+///
+/// ```text
+///   y=0    curve*  starter  straight  curve
+///   y=-1   straight  wonder  wonder   straight
+///   y=-2   straight  wonder  wonder   straight
+///   y=-3   curve   straight  straight curve        (* the last tile)
+///          x=-1    x=0      x=1       x=2
+/// ```
+#[test]
+fn test_gas_f_worst_forest_scan() {
+    let s = ScenarioTrait::new();
+    let straight = Plan::RFFFRFFFR;
+    let curve = Plan::RFRFFFFFR;
+    // [Top and right] the first straight carries the Woodsman on its inner forest
+    s.build(straight, Orientation::North, CENTER + 1, CENTER, Role::Woodsman, Spot::South);
+    s.step(curve, Orientation::West, CENTER + 2, CENTER);
+    s.step(straight, Orientation::East, CENTER + 2, CENTER - 1);
+    s.step(straight, Orientation::East, CENTER + 2, CENTER - 2);
+    s.step(curve, Orientation::North, CENTER + 2, CENTER - 3);
+    // [Bottom and left]
+    s.step(straight, Orientation::North, CENTER + 1, CENTER - 3);
+    s.step(straight, Orientation::North, CENTER, CENTER - 3);
+    s.step(curve, Orientation::East, CENTER - 1, CENTER - 3);
+    s.step(straight, Orientation::East, CENTER - 1, CENTER - 2);
+    s.step(straight, Orientation::East, CENTER - 1, CENTER - 1);
+    // [Inside] the four wonders
+    s.step(Plan::WFFFFFFFF, Orientation::North, CENTER, CENTER - 1);
+    s.step(Plan::WFFFFFFFF, Orientation::North, CENTER + 1, CENTER - 1);
+    s.step(Plan::WFFFFFFFF, Orientation::North, CENTER, CENTER - 2);
+    s.step(Plan::WFFFFFFFF, Orientation::North, CENTER + 1, CENTER - 2);
+    // [Last tile] the top-left curve closes the loop and the forest
+    let gas = s.build(curve, Orientation::South, CENTER - 1, CENTER, Role::None, Spot::None);
+    let game = s.store.game(s.game_id);
+    assert(game.score > 0, 'Gas: forest not scored');
+    println!("SCORE f_worst_forest_scan: {}", game.score);
+    report("f_worst_forest_scan", gas, CEILING_FOREST_WORST);
 }

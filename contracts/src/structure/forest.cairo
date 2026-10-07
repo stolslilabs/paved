@@ -75,6 +75,8 @@ pub fn scan(
     game_id: u32, tile: Tile, refs: u128, area: u8, ref structures: Structures,
 ) -> (bool, u32, u32) {
     let mut visited: Felt252Dict<bool> = Default::default();
+    // [Info] The slots of the tiles read, by position: a tile next to several nodes is read once
+    let mut slots: Felt252Dict<felt252> = Default::default();
     let mut road_roots: Felt252Dict<bool> = Default::default();
     let mut city_roots: Felt252Dict<bool> = Default::default();
     let mut roads: u32 = 0;
@@ -133,9 +135,15 @@ pub fn scan(
                 continue;
             }
             let (x, y) = toward(node.x, node.y, direction);
-            let (next, next_refs) = StoreImpl::tile_at(game_id, x, y);
-            // [Check] The gate guarantees that every position the forest needs is taken
-            assert(next.id != 0, 'Forest scan: open forest');
+            let key: felt252 = x.into() * 0x100000000 + y.into();
+            let mut slot = slots.get(key);
+            if slot == 0 {
+                slot = StoreImpl::tile_slot_at(game_id, x, y);
+                // [Check] The gate guarantees that every position the forest needs is taken
+                assert(slot != 0, 'Forest scan: open forest');
+                slots.insert(key, slot);
+            }
+            let (next, next_refs) = StoreImpl::tile_of_slot(game_id, slot);
             let landing = oriented::area_of(oriented::plan_row(next.plan, next.orientation), at);
             let key = node_key(next.id, landing);
             if !visited.get(key) {

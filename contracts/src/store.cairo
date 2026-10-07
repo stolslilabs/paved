@@ -42,6 +42,7 @@ const TWO_POW_98: u128 = 0x4000000000000000000000000;
 const TWO_POW_108: u128 = 0x1000000000000000000000000000;
 const TWO_POW_112: u128 = 0x10000000000000000000000000000;
 const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
+const TWO_POW_88_FELT: felt252 = 0x10000000000000000000000;
 const MASK_1: u128 = 0x1;
 const MASK_4: u128 = 0xf;
 const MASK_8: u128 = 0xff;
@@ -237,7 +238,12 @@ pub impl StoreImpl of StoreTrait {
     /// The tile and its refs: the tile's fields are the low 128 bits of its slot, the refs of its
     /// nodes on the structure state (108 bits, see `structure/record.cairo`) the high bits.
     fn tile_with_refs(game_id: u32, tile_id: u32) -> (Tile, u128) {
-        let word: u256 = storage().tiles.entry((game_id, tile_id)).read().into();
+        let word = storage().tiles.entry((game_id, tile_id)).read();
+        Self::decode_tile(game_id, tile_id, word.into())
+    }
+
+    #[inline(always)]
+    fn decode_tile(game_id: u32, tile_id: u32, word: u256) -> (Tile, u128) {
         let tile = Tile {
             game_id,
             id: tile_id,
@@ -263,6 +269,26 @@ pub impl StoreImpl of StoreTrait {
             return (ZeroableTile::zero(), 0);
         }
         Self::tile_with_refs(game_id, value % POSITION_WONDER)
+    }
+
+    /// The slot of the tile at a position with the tile's id in the 8 bits above the tile's fields
+    /// (bits 88 to 96, unused in a slot), so that a caller that reads the same positions again keeps
+    /// the word and decodes it with `tile_of_slot`. 0 when the position is empty.
+    fn tile_slot_at(game_id: u32, x: u32, y: u32) -> felt252 {
+        let value = storage().tile_positions.entry((game_id, x, y)).read();
+        if value == 0 {
+            return 0;
+        }
+        let tile_id = value % POSITION_WONDER;
+        let word = storage().tiles.entry((game_id, tile_id)).read();
+        word + tile_id.into() * TWO_POW_88_FELT
+    }
+
+    /// The tile and its refs of a slot from `tile_slot_at`.
+    fn tile_of_slot(game_id: u32, slot: felt252) -> (Tile, u128) {
+        let word: u256 = slot.into();
+        let tile_id: u32 = ((word.low / TWO_POW_88) & MASK_8).try_into().unwrap();
+        Self::decode_tile(game_id, tile_id, word)
     }
 
     /// Whether a position is taken and, if its tile holds a wonder, the tile and its refs (the
