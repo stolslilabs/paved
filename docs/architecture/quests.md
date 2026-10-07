@@ -222,14 +222,14 @@ reports once, when the game is over**:
   game and from the rank that `end_in_tournament` now keeps (`Leaderboard::submit` already returns it, 1 to 3 or 0,
   and the call site ignores it today), and makes **one `progress_many` per component** (quest, achievement), each with
   at most 8 entries (the package bound is 16 per call, one call per player per transaction).
-- `TutoriableComponent` does the same at its own game over with the single entry of task 10.
+- `TutoriableComponent` does the same at its own game over (last build, last discard; never surrender, P-28) with the single entry of task 10.
 
 | Call site | File | Report |
 |---|---|---|
 | `build` game over | `components/playable.cairo` | tasks 1 to 7 and 9 from the game and the rank |
 | `discard` game over | `components/playable.cairo` | same |
 | `surrender` game over | `components/playable.cairo` | same |
-| Tutorial game over (three sites) | `components/tutoriable.cairo` | task 10 |
+| Tutorial game over (last build, last discard; never surrender, P-28) | `components/tutoriable.cairo` | task 10 |
 
 A game that is never finished reports nothing: that is by design (a daily is "finish today's game" first), and a
 player who wants their partial scoring to count can `surrender`.
