@@ -108,7 +108,7 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
   });
 
   test("a `classes` key (P-26: classes.Lobby, a declared class with no address) changes nothing", () => {
-    const withClasses = { ...real, classes: { Lobby: { class_hash: "0x123" } } } as DeploymentFile;
+    const withClasses = { ...real, classes: { Lobby: "0x123" } } as DeploymentFile;
     const env = { addresses: { Tutorial: "0x77" } };
     expect(resolveDeployment({ network: "devnet", file: withClasses })).toEqual(resolveDeployment({ network: "devnet", file: real }));
     expect(resolveDeployment({ network: "devnet", file: withClasses, env })).toEqual(resolveDeployment({ network: "devnet", file: real, env }));

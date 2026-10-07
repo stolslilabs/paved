@@ -88,4 +88,5 @@ NODE_OPTIONS=--max-old-space-size=2048 bun run --cwd packages/chain test:e2e
 `E2E_DEPLOYMENT` (default `contracts/deployments/devnet.json`), `E2E_INDEXER_URL` (default `http://127.0.0.1:8787`),
 `E2E_TABLE=<file>` (writes the steps and their evidence as a markdown table) and `E2E_VERBOSE=<file>` (one line per
 Daily placement) are optional. The players are the predeployed accounts 1 to 3; account 0 is the deployer, whose smoke
-game stays running in the chain and is part of the day's prize and game counts. Rerun on a fresh node, not on the same.
+(`deploy.sh`) plays only a Tutorial game: no deployer game is left in the Daily day, so nothing of it counts in the
+day's prize or game counts. Rerun on a fresh node, not on the same.

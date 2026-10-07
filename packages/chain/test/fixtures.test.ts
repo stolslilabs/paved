@@ -62,9 +62,9 @@ describe("views on recorded answers", () => {
 
   test("builder and characters of the player", async () => {
     const { client: c } = client();
-    expect(await c.views.builder(tutorial, player)).toMatchObject({ gameId: 1, placedCount: 0, availableCount: 5 });
+    expect(await c.views.builder(tutorial, player)).toMatchObject({ gameId: 1, placedCount: 0, availableCount: 7 });
     const characters = await c.views.characters(tutorial, player);
-    expect(characters.map((ch) => ch.role)).toEqual([1, 2, 3, 4, 5]);
+    expect(characters.map((ch) => ch.role)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(characters.every((ch) => !ch.placed && ch.tileId === 0)).toBe(true);
   });
 
