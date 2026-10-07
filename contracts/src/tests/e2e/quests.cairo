@@ -389,20 +389,172 @@ fn test_quests_counters_follow_the_scoring() {
     assert(game.big() == 0 && game.forests() == 0 && game.wonders() == 0, 'Quests: others');
 }
 
-/// A Tutorial game over reports task 10 to the achievements, and only that.
+/// The kinds of the events of a game over, in the order they must come: `GameOver`, the quest
+/// events, then the achievement events.
+fn kinds(
+    events: @Array<(ContractAddress, snforge_std::Event)>, from: ContractAddress,
+) -> Array<u8> {
+    let mut kinds: Array<u8> = array![];
+    let mut i = 0;
+    while i < events.len() {
+        let (address, event) = events.at(i);
+        if *address == from {
+            let selector = *event.keys.at(0);
+            if selector == selector!("GameOver") {
+                kinds.append(0);
+            } else if selector == selector!("QuestProgressed") {
+                kinds.append(1);
+            } else if selector == selector!("AchievementProgressed") {
+                kinds.append(2);
+            }
+        }
+        i += 1;
+    }
+    kinds
+}
+
+/// `GameOver`, then `quests` quest events, then `achievements` achievement events, nothing else.
+fn assert_order(kinds: Array<u8>, quests: u32, achievements: u32) {
+    assert(kinds.len() == 1 + quests + achievements, 'Quests: event count');
+    let mut i = 0;
+    while i < kinds.len() {
+        let expected: u8 = if i == 0 {
+            0
+        } else if i <= quests {
+            1
+        } else {
+            2
+        };
+        assert(*kinds.at(i) == expected, 'Quests: event order');
+        i += 1;
+    }
+}
+
+/// A Daily game of score 4,500, 2 structures and a forest, with its tile limit cut to the tiles
+/// drawn, so that the next `build` or `discard` ends it. The tournament is empty: it ranks first.
+fn almost_over_daily() -> (setup::TestStore, setup::Systems, setup::Context) {
+    start_cheat_block_timestamp_global(10 * 86400);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let mut game = store.game(context.game_id);
+    game.score = 4500;
+    game.counts = GameImpl::counts_of(2, 1, 0, 0);
+    game.tile_limit = game.tile_count.try_into().unwrap();
+    store.set_game(game);
+    (store, systems, context)
+}
+
+/// The report a Daily game over makes, from the game as it ended: 4 quest entries and the
+/// achievement entries of a first-ranked high score with a forest.
+fn assert_daily_report(
+    daily: ContractAddress, mut spy: snforge_std::EventSpy, p: felt252, score: u32,
+) {
+    assert_order(kinds(@spy.get_events().events, daily), 4, 4);
+    spy
+        .assert_emitted(
+            @array![
+                (daily, quest_progressed(p, constants::TASK_GAME_FINISHED, 1)),
+                (daily, quest_progressed(p, constants::TASK_STRUCTURE_SCORED, 2)),
+                (daily, quest_progressed(p, constants::TASK_POINTS, score)),
+                (daily, quest_progressed(p, constants::TASK_FOREST_SCORED, 1)),
+                (daily, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
+                (daily, achievement_progressed(p, constants::TASK_FOREST_SCORED, 1)),
+                (daily, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
+                (daily, achievement_progressed(p, constants::TASK_WIN, 1)),
+            ],
+        );
+}
+
+/// A Daily game over on the last `build` (the one library call from `Daily`) reports.
 #[test]
-#[available_gas(l2_gas: 34307519)]
-fn test_quests_tutorial_game_over_reports_task_10() {
-    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let tutorial = systems.tutorial.contract_address;
+#[available_gas(l2_gas: 92083551)]
+fn test_quests_daily_game_over_on_the_last_build() {
+    let (store, systems, context) = almost_over_daily();
     let mut spy = spy_events();
-    systems.tutorial.surrender(context.game_id);
+    let game = store.game(context.game_id);
+    let builder = store.builder(game, context.player_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::RFFFRFFFR.into();
+    store.set_tile(tile);
+    systems
+        .daily
+        .build(context.game_id, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);
+    let game = store.game(context.game_id);
+    assert(game.is_over(), 'Quests: not over');
+    assert_daily_report(systems.daily.contract_address, spy, context.player_id, game.score);
+}
+
+/// A Daily game over on the last `discard` (in `Lobby`) reports.
+#[test]
+#[available_gas(l2_gas: 84502819)]
+fn test_quests_daily_game_over_on_the_last_discard() {
+    let (store, systems, context) = almost_over_daily();
+    let mut spy = spy_events();
+    systems.daily.discard(context.game_id);
+    let game = store.game(context.game_id);
+    assert(game.is_over(), 'Quests: not over');
+    assert_daily_report(systems.daily.contract_address, spy, context.player_id, game.score);
+}
+
+/// A Tutorial game over (see the checks): `GameOver`, then one unit of task 10 from the Tutorial.
+fn assert_first_stone(tutorial: ContractAddress, mut spy: snforge_std::EventSpy, p: felt252) {
+    assert_order(kinds(@spy.get_events().events, tutorial), 0, 1);
     let event = Tutorial::Event::AchievementEvent(
         AchievementComponent::Event::AchievementProgressed(
             AchievementProgressed {
-                player_id: context.player_id, task_id: constants::TASK_TUTORIAL_FINISHED, count: 1,
+                player_id: p, task_id: constants::TASK_TUTORIAL_FINISHED, count: 1,
             },
         ),
     );
     spy.assert_emitted(@array![(tutorial, event)]);
+}
+
+/// P-28: a Tutorial ended by placing its last tile credits First Stone once.
+#[test]
+#[available_gas(l2_gas: 111542995)]
+fn test_quests_tutorial_game_over_on_the_last_build_credits_task_10() {
+    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
+    let mut i: u8 = 0;
+    while i < 7 {
+        systems.tutorial.build(context.game_id);
+        i += 1;
+    }
+    systems.tutorial.discard(context.game_id);
+    assert(!store.game(context.game_id).is_over(), 'Quests: over too soon');
+    let mut spy = spy_events();
+    systems.tutorial.build(context.game_id);
+    assert(store.game(context.game_id).is_over(), 'Quests: not over');
+    assert_first_stone(systems.tutorial.contract_address, spy, context.player_id);
+}
+
+/// P-28: a Tutorial ended by discarding its last tile credits First Stone once.
+#[test]
+#[available_gas(l2_gas: 99910539)]
+fn test_quests_tutorial_game_over_on_the_last_discard_credits_task_10() {
+    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
+    let mut i: u8 = 0;
+    while i < 7 {
+        systems.tutorial.build(context.game_id);
+        i += 1;
+    }
+    // [Setup] The tile the script discards is the last one
+    let mut game = store.game(context.game_id);
+    game.tile_limit = game.tile_count.try_into().unwrap();
+    store.set_game(game);
+    let mut spy = spy_events();
+    systems.tutorial.discard(context.game_id);
+    assert(store.game(context.game_id).is_over(), 'Quests: not over');
+    assert_first_stone(systems.tutorial.contract_address, spy, context.player_id);
+}
+
+/// P-28: a Tutorial surrender credits nothing, however early or late, but the game is over.
+#[test]
+#[available_gas(l2_gas: 34881561)]
+fn test_quests_tutorial_surrender_credits_no_task_10() {
+    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
+    let tutorial = systems.tutorial.contract_address;
+    let mut spy = spy_events();
+    systems.tutorial.surrender(context.game_id);
+    assert(store.game(context.game_id).is_over(), 'Quests: not over');
+    let kinds = kinds(@spy.get_events().events, tutorial);
+    assert(kinds.len() == 1 && *kinds.at(0) == 0, 'Quests: surrender credited');
 }

@@ -137,11 +137,9 @@ pub mod TutoriableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
-                // [Return] Whether the game is over, which the caller reports to the achievements
-                true
-            } else {
-                false
             }
+            // [Return] Nothing to report: a surrender never credits First Stone (P-28)
+            false
         }
 
         fn build(self: @ComponentState<TContractState>, game_id: u32) -> bool {

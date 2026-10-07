@@ -377,7 +377,7 @@ from the design above. Figures are L2 gas, measured on Linux with `contracts/tes
   move that does not end the game pays nothing for it), after `end_in_tournament` (which now returns the rank) and
   after `GameOver`; `Lobby` makes one `progress_many` per component from `paved::quests`, with its own list: the
   quests get tasks 1 to 4 (at most 4 entries), the achievements tasks 1, 4, 5, 6, 7 and 9 (at most 6). Zero counts
-  are dropped. Tutorial reports task 10 with one `progress`. The design's single list of 8 entries is split because
+  are dropped. Tutorial reports task 10 with one `progress`, never on a surrender (P-28). The design's single list of 8 entries is split because
   each entry is an event (about 70k).
 - **No runtime guard (ruling P-23).** `progress_many` reverts in event mode only on more than 16 entries or a task id
   0; both are decided by the array built from constants. `paved::quests::tests` proves the bounds on every shape of
@@ -399,5 +399,11 @@ from the design above. Figures are L2 gas, measured on Linux with `contracts/tes
 
   `Daily` grows by 3,362 felts: the tally encoding in `build`, the call to `Lobby.report`, the four wrappers and the
   `counts` unpack. The plan of section 4 of `class-headroom.md` was at most 72,408 (16 felts less).
+- **P-28.** First Stone is credited only when the Tutorial ends by placing or discarding its last tile, never by
+  surrender. For P8: if a reward ever attaches to Daily Run or Settler, revisit whether a surrender counts. (Daily
+  keeps counting any finished game, surrender included: it is paid.) Tests: `e2e::quests`
+  `test_quests_tutorial_game_over_on_the_last_build_credits_task_10`, `..._last_discard_...` and
+  `test_quests_tutorial_surrender_credits_no_task_10`; the Daily game over is tested on the last `build`, on the last
+  `discard` and on `surrender`, each with its events after `GameOver`.
 - **Event order.** At a game over the order is `GameOver`, the quest events, then the achievement events
   (`e2e::quests::test_quests_game_over_every_counter_at_maximum`, from `spy.get_events()`).
