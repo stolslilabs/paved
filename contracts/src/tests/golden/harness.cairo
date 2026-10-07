@@ -9,6 +9,7 @@ use paved::models::game::{Game, GameTrait};
 use paved::models::tile::Tile;
 use paved::models::tournament::TournamentTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
+use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, TestStore, TestStoreTrait};
 use paved::types::mode::Mode;
@@ -127,6 +128,33 @@ pub fn play_daily(
     moves: Span<GoldenMove>,
     outcome: GoldenOutcome,
 ) -> Game {
+    replay_daily(name, timestamp, caller, forced, tile_limit, moves, outcome, false)
+}
+
+/// `play_daily`, with the differential check of P5-4 (`oracle::check`) on the built tile after
+/// every build. A separate run, so that the golden's gas budget measures the game alone.
+pub fn play_daily_checked(
+    name: felt252,
+    timestamp: u64,
+    caller: ContractAddress,
+    forced: bool,
+    tile_limit: u16,
+    moves: Span<GoldenMove>,
+    outcome: GoldenOutcome,
+) -> Game {
+    replay_daily(name, timestamp, caller, forced, tile_limit, moves, outcome, true)
+}
+
+fn replay_daily(
+    name: felt252,
+    timestamp: u64,
+    caller: ContractAddress,
+    forced: bool,
+    tile_limit: u16,
+    moves: Span<GoldenMove>,
+    outcome: GoldenOutcome,
+    checked: bool,
+) -> Game {
     snforge_std::start_cheat_block_timestamp_global(timestamp);
     let (store, systems, _) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.daily.contract_address, caller);
@@ -161,6 +189,9 @@ pub fn play_daily(
                 .build(
                     game_id, *golden.orientation, *golden.x, *golden.y, *golden.role, *golden.spot,
                 );
+            if checked {
+                check::assert_tile_agrees(store, game_id, builder.tile_id);
+            }
         }
         let game = store.game(game_id);
         if RECORD {

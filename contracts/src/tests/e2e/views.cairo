@@ -5,6 +5,7 @@ use paved::constants;
 use paved::models::tile::CENTER;
 use paved::models::tournament::TournamentTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
+use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, Systems, TestStore,
@@ -49,6 +50,8 @@ fn build_two(store: TestStore, systems: @Systems, game_id: u32, player_id: felt2
     daily.build(game_id, Orientation::North, CENTER, CENTER + 1, Role::Lord, Spot::North);
     force_plan(store, game_id, player_id, Plan::FFCFFFCFF);
     daily.build(game_id, Orientation::North, CENTER, CENTER + 2, Role::None, Spot::None);
+    // [Check] The structure state agrees with the walks on the board (P5-4)
+    check::assert_board_agrees(store, game_id);
 }
 
 // Game

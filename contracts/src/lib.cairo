@@ -102,6 +102,7 @@ pub mod mocks {
 
 #[cfg(test)]
 pub mod tests {
+    pub mod differential;
     pub mod e2e;
     pub mod golden;
     pub mod oracle;

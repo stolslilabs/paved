@@ -12,7 +12,9 @@
 //! bonus(2) = 10475, bonus(4) = 10972.
 
 use paved::models::tile::CENTER;
-use paved::tests::golden::harness::{GoldenMove, GoldenOutcome, day, forced, play_daily};
+use paved::tests::golden::harness::{
+    GoldenMove, GoldenOutcome, day, forced, play_daily, play_daily_checked,
+};
 use paved::tests::setup::setup::{ANYONE, PLAYER, SOMEONE};
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -286,6 +288,75 @@ fn test_golden_daily_forest_both_roles() {
         true,
         0,
         moves.span(),
+        GoldenOutcome {
+            score: 643,
+            built: 9,
+            discarded: 0,
+            tile_count: 11,
+            over: false,
+            characters: 0,
+            top1_score: 0,
+        },
+    );
+}
+
+// Differential check of P5-4 (`oracle::check`): the same games, the structure state compared with
+// the walks after every build. Separate runs, so that the cases above measure the games alone.
+
+#[test]
+#[available_gas(l2_gas: 1000000000)]
+fn test_golden_daily_forest_woodsman_ring_structures_agree() {
+    play_daily_checked(
+        'forest_ring',
+        day(4),
+        PLAYER(),
+        true,
+        0,
+        woodsman_ring_moves().span(),
+        GoldenOutcome {
+            score: 329,
+            built: 4,
+            discarded: 0,
+            tile_count: 6,
+            over: false,
+            characters: 0,
+            top1_score: 0,
+        },
+    );
+}
+
+#[test]
+#[available_gas(l2_gas: 1000000000)]
+fn test_golden_daily_forest_herdsman_caps_structures_agree() {
+    play_daily_checked(
+        'forest_caps',
+        day(5),
+        ANYONE(),
+        true,
+        0,
+        herdsman_caps_moves().span(),
+        GoldenOutcome {
+            score: 628,
+            built: 5,
+            discarded: 0,
+            tile_count: 7,
+            over: false,
+            characters: 0,
+            top1_score: 0,
+        },
+    );
+}
+
+#[test]
+#[available_gas(l2_gas: 1000000000)]
+fn test_golden_daily_forest_both_roles_structures_agree() {
+    play_daily_checked(
+        'forest_both',
+        day(6),
+        SOMEONE(),
+        true,
+        0,
+        both_roles_moves().span(),
         GoldenOutcome {
             score: 643,
             built: 9,

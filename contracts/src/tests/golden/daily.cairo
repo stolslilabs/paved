@@ -7,7 +7,9 @@
 //! to the north, road from west to east) lies.
 
 use paved::models::tile::CENTER;
-use paved::tests::golden::harness::{GoldenMove, GoldenOutcome, day, discard, forced, play_daily};
+use paved::tests::golden::harness::{
+    GoldenMove, GoldenOutcome, day, discard, forced, play_daily, play_daily_checked,
+};
 use paved::tests::setup::setup::{ANYONE, PLAYER, SOMEONE};
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -257,6 +259,75 @@ fn test_golden_daily_real_deck_discards_to_game_over() {
             tile_count: 8,
             over: true,
             characters: 0,
+            top1_score: 0,
+        },
+    );
+}
+
+// Differential check of P5-4 (`oracle::check`): the same games, the structure state compared with
+// the walks after every build. Separate runs, so that the cases above measure the games alone.
+
+#[test]
+#[available_gas(l2_gas: 1000000000)]
+fn test_golden_daily_city5_structures_agree() {
+    play_daily_checked(
+        'daily_city5',
+        day(0),
+        PLAYER(),
+        true,
+        5,
+        city5_moves().span(),
+        GoldenOutcome {
+            score: 2245,
+            built: 4,
+            discarded: 0,
+            tile_count: 5,
+            over: true,
+            characters: 0,
+            top1_score: 2245,
+        },
+    );
+}
+
+#[test]
+#[available_gas(l2_gas: 1000000000)]
+fn test_golden_daily_road6_structures_agree() {
+    play_daily_checked(
+        'daily_road6',
+        day(1),
+        ANYONE(),
+        true,
+        0,
+        road6_moves().span(),
+        GoldenOutcome {
+            score: 1379,
+            built: 5,
+            discarded: 0,
+            tile_count: 7,
+            over: false,
+            characters: 0,
+            top1_score: 0,
+        },
+    );
+}
+
+#[test]
+#[available_gas(l2_gas: 1000000000)]
+fn test_golden_daily_mixed_roles_structures_agree() {
+    play_daily_checked(
+        'daily_mixed',
+        day(2),
+        SOMEONE(),
+        true,
+        0,
+        mixed_moves().span(),
+        GoldenOutcome {
+            score: 1715,
+            built: 4,
+            discarded: 0,
+            tile_count: 6,
+            over: false,
+            characters: 32,
             top1_score: 0,
         },
     );
