@@ -398,7 +398,9 @@ pub impl StoreImpl of StoreTrait {
 
     /// Writes a tile and keeps its refs. A placed tile that has no refs yet (the starter tile at
     /// spawn, a board written by a test) is placed on the structure state here, as a build places
-    /// it, so the records always cover every placed tile.
+    /// it, so the records always cover every placed tile. A tile whose refs are stored is placed:
+    /// its plan, orientation and position are the ones its records were built from, so they must
+    /// not change.
     fn set_tile(self: Store, tile: Tile) {
         // [Info] Tile is created when draw then build later and cannot be removed.
         if tile.orientation == Orientation::None.into() {
@@ -409,6 +411,11 @@ pub impl StoreImpl of StoreTrait {
         let refs = if word.high == 0 {
             placement::place_alone(tile)
         } else {
+            let unchanged = (word.low & MASK_8) == tile.plan.into()
+                && ((word.low / TWO_POW_8) & MASK_8) == tile.orientation.into()
+                && ((word.low / TWO_POW_16) & MASK_32) == tile.x.into()
+                && ((word.low / TWO_POW_48) & MASK_32) == tile.y.into();
+            assert(unchanged, 'Tile: placement is fixed');
             word.high
         };
         self.set_placed_tile(tile, refs);

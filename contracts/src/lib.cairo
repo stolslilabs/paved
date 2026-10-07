@@ -51,11 +51,9 @@ pub mod elements {
 
 pub mod helpers {
     pub mod bitmap;
-    pub mod forest;
     pub mod math;
     pub mod multiplier;
     pub mod random_deck;
-    pub mod simple;
 }
 
 pub mod models {
@@ -85,6 +83,7 @@ pub mod systems {
 
 pub mod structure {
     pub mod assessment;
+    pub mod forest;
     pub mod oriented;
     pub mod placement;
     pub mod record;

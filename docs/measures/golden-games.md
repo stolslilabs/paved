@@ -46,6 +46,7 @@ the boards use some plans more often than the deck holds them.
 | `test_golden_daily_forest_woodsman_ring` | Daily, PLAYER, day 4 | Four road curves under the starter close a loop of road; the four inner corners are one forest of 4 tiles. The Woodsman waits on the first curve and scores on the fourth: 1 road x 300 x 10972 / 10000 = **329**. Built 4, tile count 6. |
 | `test_golden_daily_forest_herdsman_caps` | Daily, ANYONE, day 5 | Two city corridors side by side, each closed by caps, with a forest of 2 tiles between them. The Herdsman waits on the first corridor and scores when the second closes the forest: 2 cities x 300 x 10475 / 10000 = **628** (628.5 rounded down). Built 5, tile count 7. |
 | `test_golden_daily_forest_both_roles` | Daily, SOMEONE, day 6 | Both roles in one game: the ring one tile short, then the corridors joined by a city arch (one city touched twice, counted once): the Herdsman scores 1 x 300 x 10475 / 10000 = **314** on move 8, the last curve scores the Woodsman 329 on move 9: **643**. Built 9, tile count 11. |
+| `test_golden_daily_forest_herdsman_open_city` | Daily, PLAYER, day 7 | **P5-5, rule P-15.** A forest of 2 tiles between two city corridors that a corner and a T-junction join into one city that stays open (the T-junction's east edge looks at an empty position); the forest touches it at two places. The Herdsman waits on one corridor and the other, built last, closes the forest. 2024 figure (run on `dc804707`, before the fix): **314** (the open city counted once). P5 figure: **0** (an open city never counts), the Herdsman comes back. Built 5, tile count 7. |
 
 ## Gas budget
 
@@ -169,8 +170,53 @@ and `tests/differential.cairo` checks the gas scenarios, the Tutorial and a wond
 | differential_tutorial_full_sequence | 307,826,455 | 323,217,778 |
 | differential_wonder_ring | 264,252,765 | 277,465,404 |
 
+### After P5-5 (forests on the structure state, P-15)
+
+Every expected value of an existing case is unchanged; one case is added (the P-15 rule correction,
+above). L2 gas from the CI `Test game` log of the PR (Linux, run 37616293570); the ceilings
+(`#[available_gas]`) of the forest cases are lowered to measured + 5 %, the golden data is not touched.
+
+| Test | L2 gas P5-4 | L2 gas P5-5 | Change | Ceiling P5-4 | Ceiling P5-5 |
+| --- | --- | --- | --- | --- | --- |
+| daily_forest_woodsman_ring | 140,945,875 | 138,215,720 | -1.9 % | 147,993,169 | 145,126,506 |
+| daily_forest_herdsman_caps | 154,632,222 | 151,944,301 | -1.7 % | 162,363,834 | 159,541,517 |
+| daily_forest_both_roles | 223,097,331 | 216,990,099 | -2.7 % | 234,252,198 | 227,839,604 |
+| daily_forest_herdsman_open_city (new) | n/a | 152,450,279 | n/a | n/a | 160,072,793 |
+
+Checked replays: `daily_forest_herdsman_open_city_structures_agree` is new (211,988,064, ceiling
+222,587,468); the other twins keep their ceilings (woodsman_ring 205,098,443, herdsman_caps 209,305,150,
+both_roles 348,484,189: the forest comparison of the differential check added to them), and the
+real-deck discard golden has its twin (129,860,385, same ceiling 133,514,279).
+
 A gas improvement lowers the figures: lower the ceilings in the same PR. A rise above a ceiling is
 a regression, not a reason to raise it.
+
+### P5-5 review and audit follow-up
+
+Two checked cases are added (new cases only, `play_daily_checked`, hand figures matched the run):
+`daily_forest_lord_and_woodsman_ring_structures_agree` (a Lord on the fourth curve's road: 4 x 100 x
+bonus(4) = 438, then the Woodsman 329, **767**) and `daily_forest_woodsman_ring_last_tile_structures_agree`
+(tile limit 5: 329, over, tournament top score 329). A third board (a Woodsman and a Herdsman on two
+corner forests of a 2x2 crossings block, joined by a later tile) was dropped: it cannot be built
+legally, since the tiles of the block join the corner nodes as soon as they touch.
+
+The checked replays now also check the starter tile after the spawn (`replay_daily`). That is test
+instrumentation only: every checked twin costs about 10M more, so the ceilings that this crossed are
+raised. All figures below are L2 gas from the CI `Test game` log of head `2872da70` (Linux, run
+37618564008); ceilings are CI figure + 5 %.
+
+| Test | L2 gas | Ceiling |
+| --- | --- | --- |
+| daily_city5_structures_agree (was 175,595,726) | 185,943,874 | 195,241,068 |
+| daily_forest_herdsman_caps_structures_agree (was 209,305,150) | 219,666,898 | 230,650,243 |
+| daily_forest_woodsman_ring_structures_agree (was 205,098,443) | 215,500,991 | 226,276,041 |
+| daily_real_deck_discards_to_game_over_structures_agree (was 129,860,385) | 140,208,533 | 147,218,960 |
+| daily_forest_lord_and_woodsman_ring_structures_agree (new) | 218,243,041 | 229,155,194 |
+| daily_forest_woodsman_ring_last_tile_structures_agree (new) | 215,365,035 | 226,133,287 |
+
+The other twins (road6 247,223,342; mixed_roles 218,648,663; both_roles 358,900,337;
+herdsman_open_city 222,349,812) rise by the same extra check and stay under their ceilings, which are
+kept.
 
 ## Limits
 

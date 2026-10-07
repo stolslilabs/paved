@@ -268,7 +268,7 @@ fn test_golden_daily_real_deck_discards_to_game_over() {
 // the walks after every build. Separate runs, so that the cases above measure the games alone.
 
 #[test]
-#[available_gas(l2_gas: 184397079)]
+#[available_gas(l2_gas: 195241068)]
 fn test_golden_daily_city5_structures_agree() {
     play_daily_checked(
         'daily_city5',
@@ -328,6 +328,33 @@ fn test_golden_daily_mixed_roles_structures_agree() {
             tile_count: 6,
             over: false,
             characters: 32,
+            top1_score: 0,
+        },
+    );
+}
+
+#[test]
+#[available_gas(l2_gas: 147218960)]
+fn test_golden_daily_real_deck_discards_to_game_over_structures_agree() {
+    let moves = array![
+        discard(Plan::CCCCCFFFC, 0), discard(Plan::SFRFRFRFR, 0), discard(Plan::RFRFFFFFR, 0),
+        discard(Plan::SFRFRFFFR, 0), discard(Plan::RFFFRFFFR, 0), discard(Plan::RFFFRFFFR, 0),
+        discard(Plan::FFFFCCCFF, 0),
+    ];
+    play_daily_checked(
+        'daily_deck',
+        day(3),
+        PLAYER(),
+        false,
+        8,
+        moves.span(),
+        GoldenOutcome {
+            score: 0,
+            built: 0,
+            discarded: 7,
+            tile_count: 8,
+            over: true,
+            characters: 0,
             top1_score: 0,
         },
     );

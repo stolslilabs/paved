@@ -17,6 +17,7 @@ use paved::structure::{oriented, tables};
 pub mod errors {
     pub const NO_STRUCTURE: felt252 = 'Structure: no area';
     pub const INVALID_ROLE: felt252 = 'Structure: invalid role';
+    pub const OCCUPIED: felt252 = 'Structure: tile occupied';
 }
 
 /// The tiles around a position, their refs and, for the sides, their oriented plan rows, by
@@ -116,10 +117,17 @@ fn side_row(tile: Tile) -> u128 {
 /// Places a tile written without a build (the starter tile at spawn, a board written by a test) on
 /// the structure state, with the neighbours that are there, and writes the pages. Returns its refs
 /// (0 for a plan without areas).
+///
+/// The tile must hold no character: a character joins its structure at a build (`occupy`), which a
+/// tile written alone never goes through, so the record's `chars` would not know it. A board that
+/// needs one writes the tile first and the character after, through `occupy`.
 pub fn place_alone(tile: Tile) -> u128 {
+    // [Info] A plan without areas has no structure to hold a character: the storage round trips of
+    // `e2e/store.cairo` write such a tile at the maximum values
     if oriented::record_areas(tile.plan) == 0 {
         return 0;
     }
+    assert(tile.occupied_spot == 0, errors::OCCUPIED);
     let around = NeighborhoodTrait::read(tile.game_id, tile.x, tile.y);
     let mut structures = StructuresTrait::new(tile.game_id);
     let refs = place(ref structures, tile, @around);
@@ -301,4 +309,133 @@ fn contains(roots: Span<u32>, root: u32) -> bool {
         }
     }
     found
+}
+
+#[cfg(test)]
+mod tests {
+    use paved::constants::CENTER;
+    use paved::models::index::Tile;
+    use paved::store::{StoreImpl, StoreTrait};
+    use paved::tests::setup::setup;
+    use paved::types::mode::Mode;
+    use paved::types::orientation::Orientation;
+    use paved::types::plan::Plan;
+    use paved::types::spot::Spot;
+    use snforge_std::interact_with_state;
+
+    /// A board written straight into storage with a character on a tile cannot give the record its
+    /// `chars`: it fails loudly.
+    #[test]
+    #[should_panic(expected: 'Structure: tile occupied')]
+    fn test_placement_a_tile_written_alone_holds_no_character() {
+        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let game_id = context.game_id;
+        interact_with_state(
+            store.contract,
+            || {
+                let tile = Tile {
+                    game_id,
+                    id: 90,
+                    plan: Plan::SFRFRFRFR.into(),
+                    orientation: Orientation::North.into(),
+                    x: CENTER + 10,
+                    y: CENTER + 10,
+                    occupied_spot: Spot::East.into(),
+                };
+                StoreImpl::new().set_tile(tile);
+            },
+        );
+    }
+
+    /// The same tile written without a character is placed, and written again as it is.
+    #[test]
+    fn test_placement_a_tile_written_alone_is_placed_and_kept() {
+        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let game_id = context.game_id;
+        interact_with_state(
+            store.contract,
+            || {
+                let tile = Tile {
+                    game_id,
+                    id: 90,
+                    plan: Plan::SFRFRFRFR.into(),
+                    orientation: Orientation::North.into(),
+                    x: CENTER + 10,
+                    y: CENTER + 10,
+                    occupied_spot: Spot::None.into(),
+                };
+                let s = StoreImpl::new();
+                s.set_tile(tile);
+                let (_, refs) = StoreImpl::tile_with_refs(game_id, tile.id);
+                assert!(refs != 0);
+                // A tile that holds a character now (a build, a test) is written with its refs
+                s.set_tile(Tile { occupied_spot: Spot::East.into(), ..tile });
+                let (kept, kept_refs) = StoreImpl::tile_with_refs(game_id, tile.id);
+                assert_eq!(kept.occupied_spot, Spot::East.into());
+                assert_eq!(kept_refs, refs);
+            },
+        );
+    }
+
+    /// The plan, the orientation and the position of a placed tile are the ones its records were
+    /// built from: writing it with another one fails.
+    #[test]
+    #[should_panic(expected: 'Tile: placement is fixed')]
+    fn test_placement_a_placed_tile_keeps_its_plan() {
+        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let game_id = context.game_id;
+        interact_with_state(
+            store.contract,
+            || {
+                let s = StoreImpl::new();
+                let (starter, _) = StoreImpl::tile_with_refs(game_id, 1);
+                s.set_tile(Tile { plan: Plan::CCCCCCCCC.into(), ..starter });
+            },
+        );
+    }
+
+    #[test]
+    #[should_panic(expected: 'Tile: placement is fixed')]
+    fn test_placement_a_placed_tile_keeps_its_orientation() {
+        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let game_id = context.game_id;
+        interact_with_state(
+            store.contract,
+            || {
+                let s = StoreImpl::new();
+                let (starter, _) = StoreImpl::tile_with_refs(game_id, 1);
+                s.set_tile(Tile { orientation: Orientation::North.into(), ..starter });
+            },
+        );
+    }
+
+    #[test]
+    #[should_panic(expected: 'Tile: placement is fixed')]
+    fn test_placement_a_placed_tile_keeps_its_x() {
+        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let game_id = context.game_id;
+        interact_with_state(
+            store.contract,
+            || {
+                let s = StoreImpl::new();
+                let (starter, _) = StoreImpl::tile_with_refs(game_id, 1);
+                s.set_tile(Tile { x: starter.x + 1, ..starter });
+            },
+        );
+    }
+
+    #[test]
+    #[should_panic(expected: 'Tile: placement is fixed')]
+    fn test_placement_a_placed_tile_keeps_its_y() {
+        let (store, _, context) = setup::spawn_game(Mode::Daily);
+        let game_id = context.game_id;
+        interact_with_state(
+            store.contract,
+            || {
+                let s = StoreImpl::new();
+                let (starter, _) = StoreImpl::tile_with_refs(game_id, 1);
+                s.set_tile(Tile { y: starter.y + 1, ..starter });
+            },
+        );
+    }
 }

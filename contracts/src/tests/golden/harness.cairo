@@ -159,6 +159,10 @@ fn replay_daily(
     let (store, systems, _) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.daily.contract_address, caller);
     let game_id = systems.daily.spawn();
+    if checked {
+        // The starter tile is placed by the spawn: its records agree with the walks too
+        check::assert_tile_agrees(store, game_id, 1);
+    }
     if tile_limit != 0 {
         let mut game = store.game(game_id);
         game.tile_limit = tile_limit;
