@@ -230,7 +230,7 @@ fn both_roles_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 157299331)]
+#[available_gas(l2_gas: 154216031)]
 fn test_golden_daily_forest_woodsman_ring() {
     let moves = woodsman_ring_moves();
     play_daily(
@@ -253,7 +253,7 @@ fn test_golden_daily_forest_woodsman_ring() {
 }
 
 #[test]
-#[available_gas(l2_gas: 169823868)]
+#[available_gas(l2_gas: 166465529)]
 fn test_golden_daily_forest_herdsman_caps() {
     let moves = herdsman_caps_moves();
     play_daily(
@@ -276,7 +276,7 @@ fn test_golden_daily_forest_herdsman_caps() {
 }
 
 #[test]
-#[available_gas(l2_gas: 254488989)]
+#[available_gas(l2_gas: 247783381)]
 fn test_golden_daily_forest_both_roles() {
     let moves = both_roles_moves();
     play_daily(
