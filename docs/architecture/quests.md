@@ -1,8 +1,8 @@
 # Quests and achievements (P7, design)
 
 Design of Paved's daily quests and achievements, built on Grim World's `quiver_quest` and `quiver_achievement`.
-Documents only: no code and no dependency is added by this PR. The list in the next section is **a proposal for the
-project manager's ruling**; the rest of the document says how it would be built once ruled.
+Documents only: no code and no dependency is added by this PR. The list in the next section is **accepted (P-22, 2026-10-07)**, with the design choices below; the rest of the
+document says how it will be built.
 
 Rules that bind this design (`docs/programme/DECISIONS.md` O-1, `docs/programme/OPERATIONS.md`): quiver comes **by
 pinned published version on scarbs.xyz only, never git or path**; what Paved needs from quiver goes to the Overseer
@@ -32,7 +32,7 @@ Both are Dojo games using the Arcade `quest` and `achievement` components, with 
   placed number). That is affordable on Dojo's cost model. It is not on Paved's: see "Cost" below. Paved reports
   **once per game**.
 
-## The proposal (for the project manager's ruling)
+## The list (accepted, P-22, 2026-10-07)
 
 Everything below is derived from what the contracts already compute: the score, the `Scored` events (category, size,
 points), the game-over data (`score`, `built`, `discarded`, tournament rank returned by `Leaderboard::submit`), and
@@ -52,7 +52,7 @@ A task id is a non-zero `u32` that the package treats as opaque. The game owns t
 | 5 | `WONDER_SCORED` | A `Scored` event of a wonder |
 | 6 | `BIG_STRUCTURE` | A road or a city scored with size of at least `BIG_SIZE` (8, to calibrate) |
 | 7 | `HIGH_SCORE` | A finished Daily game with a score of at least `HIGH_SCORE` (4,000, to calibrate) |
-| 8 | `PODIUM` | A finished Daily game that took rank 1, 2 or 3 in its tournament (`submit` returned 1 to 3) |
+| 8 | `PODIUM` | A place in the top 3 of a closed day's tournament. **Not reported by the contract** (see "On the Podium" below) |
 | 9 | `WIN` | A finished Daily game that took rank 1 |
 | 10 | `TUTORIAL_FINISHED` | A Tutorial game over |
 
@@ -71,7 +71,7 @@ is reachable in one Daily game, so a player is not pushed to buy several entries
 | 1 | Daily Run | Finish today's Daily. | `GAME_FINISHED` 1 | each UTC day | none |
 | 2 | Master Builder | Score six roads and cities in a day. | `STRUCTURE_SCORED` 6 | each UTC day | none |
 | 3 | Into the Woods | Score a forest with your Woodsman or Herdsman. | `FOREST_SCORED` 1 | each UTC day | none |
-| 4 | Point Chaser | Collect 3,000 points in a day. | `POINTS` 3,000 | each UTC day | none |
+| 4 | Point Chaser | Collect 3,000 points in a day: the **sum of the scores of the day's finished Daily games**, not a single game. | `POINTS` 3,000, summed over the day's finished Daily games | each UTC day | none |
 
 Not proposed for v1: a Nums-style finisher ("complete the four", +1 task reported from the claim hook). It needs
 storage mode and a reward to mean anything (see "Quest mode").
@@ -91,14 +91,25 @@ task, as the package intends.
 | 6 | Forester | Score 10 forests. | `FOREST_SCORED` 10 | 20 |
 | 7 | Pilgrimage | Score a wonder. | `WONDER_SCORED` 1 | 30 |
 | 8 | High Roller | Finish a Daily game with 4,000 points or more. | `HIGH_SCORE` 1 | 30 |
-| 9 | On the Podium | Take a place in the top 3 of a day's tournament. | `PODIUM` 1 | 50 |
+| 9 | On the Podium | Take a place in the top 3 of a day's tournament. | `PODIUM` 1, reported by the indexer | 50 |
 
 A tenth, `Champion` (`WIN` 5), is left out to keep the list at nine; task 9 is defined and reported anyway, because it
 costs nothing (below) and lets the ruling add it without a contract change.
 
-### What the ruling decides
+### On the Podium (orchestrator's choice under P-22)
 
-1. The list, its titles and its targets (the table is the proposal).
+The contract cannot know a final rank before the day ends: a later game can push a player out of the top 3. So
+`PODIUM` is **reported by the indexer**, not by the game-over report: after the day ends, the indexer reads the
+contract's `tournament` view of that day, at a served head whose timestamp is past the day's `end_time` (the same
+read as the D-P6-5 cross-check, `docs/architecture/indexer.md`), and credits each player holding a rank 1 to 3.
+It is exact (the view is the contract's own ranking), never early, and does not depend on the player doing anything.
+Why not at `claim`: a player in the top 3 who never claims would never get the achievement. Consequence for the
+contract: the game-over report carries tasks 1 to 7 and 9 only, at most 8 entries; task 8 stays defined for the
+achievement and is credited off the contract's report path (the indexer applies it as it applies windows).
+
+### What the ruling decided
+
+1. The list, its titles and its targets: accepted as in the tables above.
 2. **Rewards: none in v1.** Achievement points are shown, never read by a rule; dailies give nothing. A reward
    (a free Daily entry, `$TILE`) belongs with P8, which owns the economy and its audit. Reverse: the PM wants a reward
    now; then quests move to storage mode (below) and the reward is granted from the claim hook.
@@ -135,7 +146,7 @@ package refused to resolve under Scarb 2.19.4 (`required Cairo version ^2.20.0`)
 bump (P3) came first. Nothing of the contracts was built against it: the real build and `snforge` come with the
 implementation.
 
-**Pin.** `quiver_quest = "=0.2.0"` and `quiver_achievement = "=0.2.0"` in `contracts/Scarb.toml`, exact, so a later
+**Pin (O-1).** `quiver_quest` and `quiver_achievement` are pinned **exactly `=0.2.0`** in `contracts/Scarb.toml`, so a later
 0.2.x is a deliberate PR; `contracts/Scarb.lock` is committed and records the checksums. No `git`, no `path`. A
 breaking release is announced by Grim World to the Overseer (O-1).
 
@@ -210,12 +221,12 @@ reports once, when the game is over**:
   (`discard`, `surrender`, `build`: today `if game.is_over() { end_in_tournament(...) }`), builds the report from the
   game and from the rank that `end_in_tournament` now keeps (`Leaderboard::submit` already returns it, 1 to 3 or 0,
   and the call site ignores it today), and makes **one `progress_many` per component** (quest, achievement), each with
-  at most 9 entries (the package bound is 16 per call, one call per player per transaction).
+  at most 8 entries (the package bound is 16 per call, one call per player per transaction).
 - `TutoriableComponent` does the same at its own game over with the single entry of task 10.
 
 | Call site | File | Report |
 |---|---|---|
-| `build` game over | `components/playable.cairo` | tasks 1, 2, 3, 4, 5, 6, 7, 8, 9 from the game and the rank |
+| `build` game over | `components/playable.cairo` | tasks 1 to 7 and 9 from the game and the rank |
 | `discard` game over | `components/playable.cairo` | same |
 | `surrender` game over | `components/playable.cairo` | same |
 | Tutorial game over (three sites) | `components/tutoriable.cairo` | task 10 |
@@ -243,6 +254,9 @@ but a streak is the indexer's to compute from the daily `GAME_FINISHED` events a
 
 ## Cost
 
+**Gas guard (P-22).** If the measured cost on the closing move goes above **+1.5 M L2 gas**, the implementation
+comes back to the project manager before merging.
+
 **Estimates, not measures.** quiver measured its own calls through a dispatcher with snforge (`GAS.md` of 0.2.0):
 
 | Call | L2 gas |
@@ -258,7 +272,7 @@ From these, for Paved:
 | | Estimate | Basis |
 |---|---|---|
 | Every move that is not a game over | about 0: the counters are bits of a word that is already written; a few additions per scoring | no storage access added, no call |
-| A game over | +0.4 M to +1.4 M L2 gas, on top of the closing move | two `progress_many` of up to 9 entries each, from 2 x ~0.21 M (1 entry) to 2 x ~0.7 M (9 entries); the internal layer skips the dispatcher and the reporter read the figures above include, so it is likely lower |
+| A game over | +0.4 M to +1.4 M L2 gas, on top of the closing move | two `progress_many` of up to 8 entries each, from 2 x ~0.21 M (1 entry) to 2 x ~0.65 M (8 entries); the internal layer skips the dispatcher and the reporter read the figures above include, so it is likely lower |
 | Against the closing move today | +5 % to +19 % of the worst move's ceiling (7.33 M); the leaderboard update alone is 0.18 M to 0.52 M | `contracts/tests/gas.cairo` ceilings |
 | Storage per player | none | event mode, nothing keyed by a player |
 | Storage for the definitions | 4 quests + 9 achievements, one task each: one slot each (`define` 1 task: 722,550 / 701,944 network for an achievement) | one-off, admin, in a few transactions (the package caps a transaction near 25 single-task definitions under its 20 M rule) |
@@ -313,7 +327,7 @@ mode. Three requests, none a PR to quiver:
 
 | # | Risk | Mitigation |
 |---|---|---|
-| Q-1 | **A revert in the report stops a game from ending** (and skips the leaderboard submit). | The internal layer checks no caller and no reporter; the only failures are the bounds (more than 16 entries, task id 0), which the code cannot reach (9 fixed entries, constant ids); zero counts are dropped, not refused. Order of the game-over path: `end_in_tournament` first, report after, so the ranking is written before anything of quiver runs. A test of the game over with every counter at its maximum. Guarantee asked of quiver (request 2). The separate-contract shape is worse here: a failing external call needs a catchable failure, which is **to confirm on the network version** before choosing it. |
+| Q-1 | **A revert in the report stops a game from ending** (and skips the leaderboard submit). | The internal layer checks no caller and no reporter; the only failures are the bounds (more than 16 entries, task id 0), which the code cannot reach (8 fixed entries, constant ids); zero counts are dropped, not refused. Order of the game-over path: `end_in_tournament` first, report after, so the ranking is written before anything of quiver runs. A test of the game over with every counter at its maximum. Guarantee asked of quiver (request 2). The separate-contract shape is worse here: a failing external call needs a catchable failure, which is **to confirm on the network version** before choosing it. |
 | Q-2 | **The closing move costs +0.4 M to +1.4 M** and the class grows. | Measured before merge with the method above; ceilings recorded; the alternative of reporting per scoring move is worse. If the cost is not accepted, achievements only (one call) halves it. |
 | Q-3 | **`GameState` layout change** touches goldens and tests that build a `Game`. | Counters are not part of the score: goldens stay identical (never edited). Done in its own PR with the baseline gas of the non-final moves. Nothing is deployed on a public network. |
 | Q-4 | **Targets are guesses.** 3,000 points a day, 4,000 for High Roller, `BIG_SIZE` 8, six structures: the only reference is the greedy bot of the full-deck golden (3,554 points over 38 tiles). | Calibrate before defining, from the golden bot, a few scripted games and the first devnet plays. A definition cannot be edited, only retired and replaced: calibrate before the definitions go to a shared network. |
