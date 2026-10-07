@@ -461,7 +461,7 @@ fn test_forest_helper_collects_the_characters_of_an_open_forest() {
 /// is finished, every adjacent road closed) through the test store is found by the board check.
 #[test]
 #[should_panic(expected: ('Check: char on finished forest',))]
-#[available_gas(l2_gas: 389746000)]
+#[available_gas(l2_gas: 389811200)]
 fn test_forest_oracle_finds_a_character_on_a_finished_forest() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);

@@ -150,7 +150,7 @@ fn test_store_missing_entries_read_as_zero_with_keys() {
 /// A character the packed word cannot hold: the tile id does not fit its 8 bits.
 #[test]
 #[should_panic(expected: ('Char: Out of range',))]
-#[available_gas(l2_gas: 23976000)]
+#[available_gas(l2_gas: 23975305)]
 fn test_store_character_tile_out_of_range() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     interact_with_state(
@@ -173,7 +173,7 @@ fn test_store_character_tile_out_of_range() {
 /// A role index past the seven roles has no entry in the word.
 #[test]
 #[should_panic(expected: ('Char: Invalid role',))]
-#[available_gas(l2_gas: 23976000)]
+#[available_gas(l2_gas: 23974675)]
 fn test_store_character_invalid_role() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     interact_with_state(

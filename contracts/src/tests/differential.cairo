@@ -105,7 +105,7 @@ fn test_differential_gas_scenario_d() {
 /// search over legal boards (a model of the placement in Python, not kept) and then confirmed
 /// here: the coverage run of the test reaches those lines. Every move is checked against the walks.
 #[test]
-#[available_gas(l2_gas: 531260000)]
+#[available_gas(l2_gas: 531259991)]
 fn test_differential_two_areas_of_one_tile_join_one_structure() {
     let board = BoardTrait::new();
     board.step(Plan::FFCFFFCFF, Orientation::South, CENTER, CENTER + 1);
