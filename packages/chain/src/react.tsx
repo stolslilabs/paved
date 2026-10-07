@@ -57,6 +57,8 @@ export function usePaved(): PavedContextValue {
 export interface ReadState<T> {
   data: T | null;
   error: string | null;
+  /** What the read threw, for a caller that tells failures apart (an `IndexerError`'s kind). */
+  cause: unknown;
   loading: boolean;
   /** The last read for the current inputs succeeded: `data` is an answer, not the initial null. */
   loaded: boolean;
@@ -66,41 +68,33 @@ export interface ReadState<T> {
 
 /**
  * One read, done when its inputs change, when `refresh` is called, and, with `onVisible`, when the
- * page becomes visible again. No timer.
+ * page becomes visible again. No timer. A null `read` clears the state. After a failure `data` keeps
+ * the last answer, so a screen can show it as stale next to the error.
  */
-export function useRead<T>(
-  read: ((client: PavedClient) => Promise<T>) | null,
-  deps: unknown[],
-  options: { onVisible?: boolean } = {},
-): ReadState<T> {
-  const { client } = usePaved();
-  const [state, setState] = useState<{ data: T | null; error: string | null; loading: boolean; loaded: boolean }>({
-    data: null,
-    error: null,
-    loading: false,
-    loaded: false,
-  });
+export function useAsyncRead<T>(read: (() => Promise<T>) | null, deps: unknown[], options: { onVisible?: boolean } = {}): ReadState<T> {
+  const [state, setState] = useState<Omit<ReadState<T>, "refresh">>({ data: null, error: null, cause: null, loading: false, loaded: false });
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((t) => t + 1), []);
+  const enabled = read !== null;
 
   useEffect(() => {
-    if (!client || !read) {
-      setState({ data: null, error: null, loading: false, loaded: false });
+    if (!read) {
+      setState({ data: null, error: null, cause: null, loading: false, loaded: false });
       return;
     }
     let cancelled = false;
     setState((s) => ({ ...s, loading: true }));
-    read(client).then(
-      (data) => !cancelled && setState({ data, error: null, loading: false, loaded: true }),
-      (error) =>
+    read().then(
+      (data) => !cancelled && setState({ data, error: null, cause: null, loading: false, loaded: true }),
+      (cause) =>
         !cancelled &&
-        setState((s) => ({ ...s, error: error instanceof Error ? error.message : String(error), loading: false, loaded: false })),
+        setState((s) => ({ ...s, error: cause instanceof Error ? cause.message : String(cause), cause, loading: false, loaded: false })),
     );
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, tick, ...deps]);
+  }, [enabled, tick, ...deps]);
 
   useEffect(() => {
     if (!options.onVisible || typeof document === "undefined") return;
@@ -110,6 +104,16 @@ export function useRead<T>(
   }, [options.onVisible, refresh]);
 
   return { ...state, refresh };
+}
+
+/** A read of the contracts' client; see `useAsyncRead`. */
+export function useRead<T>(
+  read: ((client: PavedClient) => Promise<T>) | null,
+  deps: unknown[],
+  options: { onVisible?: boolean } = {},
+): ReadState<T> {
+  const { client } = usePaved();
+  return useAsyncRead(client && read ? () => read(client) : null, [client, ...deps], options);
 }
 
 /** The session of one game: loaded once, then moved by this client's writes only. */

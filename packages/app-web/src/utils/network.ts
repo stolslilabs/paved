@@ -1,6 +1,6 @@
 import { Account, RpcProvider } from "starknet";
-import { resolveDeployment } from "@paved/chain";
-import type { Deployment, DeploymentFile } from "@paved/chain";
+import { createIndexerClient, resolveDeployment } from "@paved/chain";
+import type { Deployment, DeploymentFile, IndexerClient } from "@paved/chain";
 
 /** The `VITE_*` variables the app reads; each one set overrides `contracts/deployments/<network>.json`. */
 export interface NetworkEnv {
@@ -15,6 +15,8 @@ export interface NetworkEnv {
   VITE_PLAYER_ADDRESS?: string;
   VITE_PLAYER_PRIVATE_KEY?: string;
   VITE_SUPPORTS_TOKEN_MINT?: string;
+  /** Base URL of the indexer API (display only); without it the leaderboard says it is unavailable. */
+  VITE_INDEXER_URL?: string;
 }
 
 export interface AppNetwork {
@@ -23,6 +25,8 @@ export interface AppNetwork {
   supportsMint: boolean;
   /** Tip of each write: 0 on devnet, where starknet.js's tip estimate stalls. */
   tip: bigint | undefined;
+  /** Reads the leaderboard and player screens; null when `VITE_INDEXER_URL` is unset. */
+  indexer: IndexerClient | null;
 }
 
 export const DEFAULT_NETWORK = "devnet";
@@ -52,6 +56,7 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
     deployment,
     supportsMint: mint === undefined || mint === "" ? devnet : mint.toLowerCase() === "true",
     tip: devnet ? 0n : undefined,
+    indexer: createIndexerClient(env.VITE_INDEXER_URL),
   };
 }
 
