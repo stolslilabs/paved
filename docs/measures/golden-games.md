@@ -191,6 +191,36 @@ real-deck discard golden has its twin (129,860,385, same ceiling 133,514,279).
 A gas improvement lowers the figures: lower the ceilings in the same PR. A rise above a ceiling is
 a regression, not a reason to raise it.
 
+### After P5-6 (gas pass)
+
+Every expected value is unchanged. L2 gas from the CI `Test game` job of PR #224 (Linux, run 37624454030,
+same code as the final head: the final commit only sets budgets and writes the docs). Every ceiling
+(`#[available_gas]`) of the golden and differential cases is reset to measured + 5 % (four checked twins
+sat within 1 % of their limit: mixed_roles, both_roles, herdsman_open_city, road6), the golden data is not touched.
+
+| Test | L2 gas P5-5 | L2 gas P5-6 | Change | Ceiling P5-5 | Ceiling P5-6 |
+| --- | --- | --- | --- | --- | --- |
+| daily_forest_woodsman_ring | 138,215,720 | 130,512,828 | -5.6 % | 145,126,506 | 137,038,470 |
+| daily_forest_herdsman_caps | 151,944,301 | 142,820,786 | -6.0 % | 159,541,517 | 149,961,826 |
+| daily_forest_both_roles | 216,990,099 | 200,352,047 | -7.7 % | 227,839,604 | 210,369,650 |
+| daily_forest_herdsman_open_city | 152,450,279 | 143,325,544 | -6.0 % | 160,072,793 | 150,491,822 |
+
+Other cases now (measured, ceiling): `city5_game_over` 127,484,710 (ceiling 133,858,946); `road6` 142,411,237 (ceiling 149,531,799); `mixed_roles` 134,387,983 (ceiling 141,107,383); `real_deck_discards_to_game_over` 127,719,133 (ceiling 134,105,090); `tutorial_full_sequence` 130,887,773 (ceiling 137,432,162).
+
+Checked replays (measured, ceiling): city5 180,346,710 (ceiling 189,364,046); mixed_roles 211,455,423 (ceiling 222,028,195); road6 241,470,841 (ceiling 253,544,384); real_deck_discards_to_game_over 138,240,222 (ceiling 145,152,234); forest_woodsman_ring 208,354,803 (ceiling 218,772,544); forest_herdsman_caps 211,326,795 (ceiling 221,893,135); forest_both_roles 343,456,605 (ceiling 360,629,436); forest_herdsman_open_city 214,062,109 (ceiling 224,765,215); forest_woodsman_ring_last_tile 208,486,147 (ceiling 218,910,455); forest_lord_and_woodsman_ring 209,934,279 (ceiling 220,430,993).
+
+**Full-deck case (new).** `test_golden_daily_full_deck`: all 38 tiles of the Daily deck, real draws, real
+placements (no forced plan; `contracts/src/tests/golden/full_deck.cairo`). 37 builds, 0 discards, characters
+placed along the way; final score 3554, tile count 38, game over, characters left `120` (Adventurer,
+Paladin, Pilgrim, Woodsman still placed), tournament top score 3554. The moves come from a greedy bot
+(`test_full_deck_generate`, `#[ignore]`, run once by hand: most-neighbours legal position, a character on
+the first area that accepts one); the expected scores were recorded from that run, not computed by hand.
+Their check is the differential twin `test_golden_daily_full_deck_structures_agree`, which compares the
+structure state with the 2024 walks (`oracle::check`) after each of the 37 builds. Gas: 586,423,537 (ceiling 615,744,714) and 1,337,226,473 (ceiling 1,404,087,797). Memory (Mac, `/usr/bin/time -l`, `--max-threads 2`): 3.8 to 4.0 GB peak for
+either test alone, 5.9 GB for the whole suite. The generator itself took 1.27B L2 gas and 4.4 GB. The
+"caps near 1.3B" of earlier phases is not a hard cap: the twin runs at 1.34B. This answers O-12 and O-17: the
+full deck fits since P5.
+
 ### P5-5 review and audit follow-up
 
 Two checked cases are added (new cases only, `play_daily_checked`, hand figures matched the run):
@@ -224,7 +254,7 @@ kept.
   as `e2e/daily*.cairo` do), so that a structure of known size can be built in a few moves. Before
   each override the harness still asserts the plan that the real deck drew (`drawn`), so the draw
   after every build (reseed included) is pinned too; the discard case pins 7 draws on its own.
-- A full Daily deck (38 tiles) is kept out of the suite: at P1 one more build (road6, 5 builds,
+- (Superseded in P5-6: a full Daily deck is now a case, see "After P5-6".) A full Daily deck (38 tiles) was kept out of the suite: at P1 one more build (road6, 5 builds,
   against city5, 4 builds) cost about 53M L2 gas in the test world, so 37 builds would have cost about
   2B and more as the structures grow (a test caps near 1.3B). Since P2 that build costs about 12M
   (118.3M against 106.1M), so a 38-tile game is estimated near 0.5B: it may now fit a test (not tried

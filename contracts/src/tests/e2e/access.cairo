@@ -30,6 +30,7 @@ fn ownables(systems: @setup::Systems) -> Array<IOwnableDispatcher> {
 }
 
 #[test]
+#[available_gas(l2_gas: 23647712)]
 fn test_access_owner_is_set_at_deployment() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -50,6 +51,7 @@ fn accept(ownable: IOwnableDispatcher, caller: ContractAddress) {
 }
 
 #[test]
+#[available_gas(l2_gas: 28663961)]
 fn test_access_transfer_ownership_only_proposes() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -67,6 +69,7 @@ fn test_access_transfer_ownership_only_proposes() {
 }
 
 #[test]
+#[available_gas(l2_gas: 30322887)]
 fn test_access_pending_owner_accepts_ownership() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -83,6 +86,7 @@ fn test_access_pending_owner_accepts_ownership() {
 }
 
 #[test]
+#[available_gas(l2_gas: 26512332)]
 fn test_access_new_owner_holds_the_power() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -153,6 +157,7 @@ fn test_access_new_proposal_overwrites_the_pending_owner() {
 }
 
 #[test]
+#[available_gas(l2_gas: 26090232)]
 fn test_access_overwriting_proposal_lets_the_second_candidate_accept() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -189,6 +194,7 @@ fn test_access_upgrade_reverts_on_zero_class_hash() {
 }
 
 #[test]
+#[available_gas(l2_gas: 24438204)]
 fn test_access_owner_upgrades_and_state_is_kept() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -212,6 +218,7 @@ fn test_access_account_creates_once_per_address() {
 }
 
 #[test]
+#[available_gas(l2_gas: 23707394)]
 fn test_access_account_player_view() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let player = systems.account.player(context.player_id);
@@ -283,6 +290,7 @@ fn test_access_tutorial_surrender_reverts_on_another_players_game() {
 }
 
 #[test]
+#[available_gas(l2_gas: 84146179)]
 fn test_access_game_ids_are_counted_per_contract() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     assert(context.game_id == 1, 'Access: first tutorial id');
@@ -302,6 +310,7 @@ fn constructor_panic(name: ByteArray, calldata: Array<felt252>) -> felt252 {
 }
 
 #[test]
+#[available_gas(l2_gas: 506142)]
 fn test_access_daily_constructor_reverts_on_zero_account() {
     let owner: felt252 = OWNER().into();
     let token: felt252 = SOMEONE().into();
@@ -312,6 +321,7 @@ fn test_access_daily_constructor_reverts_on_zero_account() {
 }
 
 #[test]
+#[available_gas(l2_gas: 506142)]
 fn test_access_daily_constructor_reverts_on_zero_token() {
     let owner: felt252 = OWNER().into();
     let account: felt252 = SOMEONE().into();
@@ -322,6 +332,7 @@ fn test_access_daily_constructor_reverts_on_zero_token() {
 }
 
 #[test]
+#[available_gas(l2_gas: 465959)]
 fn test_access_tutorial_constructor_reverts_on_zero_account() {
     let owner: felt252 = OWNER().into();
     assert(
@@ -331,6 +342,7 @@ fn test_access_tutorial_constructor_reverts_on_zero_account() {
 }
 
 #[test]
+#[available_gas(l2_gas: 1327032)]
 fn test_access_constructors_revert_on_zero_owner() {
     let account: felt252 = SOMEONE().into();
     let token: felt252 = ANYONE().into();

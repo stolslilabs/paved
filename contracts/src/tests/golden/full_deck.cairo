@@ -316,7 +316,7 @@ fn full_deck_outcome() -> GoldenOutcome {
 }
 
 #[test]
-#[available_gas(l2_gas: 1300000000)]
+#[available_gas(l2_gas: 615744714)]
 fn test_golden_daily_full_deck() {
     let moves = full_deck_moves();
     play_daily('daily_full_deck', day(10), PLAYER(), false, 0, moves.span(), full_deck_outcome());
@@ -325,7 +325,7 @@ fn test_golden_daily_full_deck() {
 // Differential check of P5-4 (`oracle::check`): the same game, the structure state compared with
 // the walks of 2024 after every build.
 #[test]
-#[available_gas(l2_gas: 2000000000)]
+#[available_gas(l2_gas: 1404087797)]
 fn test_golden_daily_full_deck_structures_agree() {
     let moves = full_deck_moves();
     play_daily_checked(

@@ -13,6 +13,7 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 
 #[test]
+#[available_gas(l2_gas: 74451747)]
 fn test_daily_e2e_spawn_starts_game() {
     let (store, _, context) = setup::spawn_game(Mode::Daily);
 
@@ -23,6 +24,7 @@ fn test_daily_e2e_spawn_starts_game() {
 }
 
 #[test]
+#[available_gas(l2_gas: 76167004)]
 fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
     // No game spawned by the setup: spawn here to observe the balances around it.
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -46,6 +48,7 @@ fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
 }
 
 #[test]
+#[available_gas(l2_gas: 86915363)]
 fn test_daily_e2e_build_increments_counter() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
@@ -64,6 +67,7 @@ fn test_daily_e2e_build_increments_counter() {
 }
 
 #[test]
+#[available_gas(l2_gas: 76038452)]
 fn test_daily_e2e_surrender_ends_game() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
