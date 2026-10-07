@@ -50,7 +50,7 @@ impl BoardImpl of BoardTrait {
 
 /// Gas scenarios a0, a and b: one move each.
 #[test]
-#[available_gas(l2_gas: 292462680)]
+#[available_gas(l2_gas: 277228423)]
 fn test_differential_gas_scenarios_a0_a_b() {
     let board = BoardTrait::new();
     board.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);
@@ -62,7 +62,7 @@ fn test_differential_gas_scenarios_a0_a_b() {
 
 /// Gas scenario c: a 6-tile city closed with its character scored.
 #[test]
-#[available_gas(l2_gas: 192962576)]
+#[available_gas(l2_gas: 177317181)]
 fn test_differential_gas_scenario_c() {
     let board = BoardTrait::new();
     board.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, Role::Lord, Spot::Center);
@@ -76,7 +76,7 @@ fn test_differential_gas_scenario_c() {
 
 /// Gas scenario d: a 12-tile city tree closed by a tile placed with a character.
 #[test]
-#[available_gas(l2_gas: 363011830)]
+#[available_gas(l2_gas: 332650578)]
 fn test_differential_gas_scenario_d() {
     let board = BoardTrait::new();
     board.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
@@ -100,7 +100,7 @@ fn test_differential_gas_scenario_d() {
 /// The scripted Tutorial to its end: each step builds when the script gives a placement for the
 /// tile in hand, and discards it otherwise, as the golden `tutorial_full_sequence` does.
 #[test]
-#[available_gas(l2_gas: 308099771)]
+#[available_gas(l2_gas: 308099299)]
 fn test_differential_tutorial_full_sequence() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let game_id = context.game_id;
@@ -127,7 +127,7 @@ fn test_differential_tutorial_full_sequence() {
 /// The wonder ring of `e2e/events.cairo`: six of the eight neighbours are written without a build
 /// (`Store::set_tile` places them on the structure state), the last one closes the wonder.
 #[test]
-#[available_gas(l2_gas: 274413300)]
+#[available_gas(l2_gas: 267734998)]
 fn test_differential_wonder_ring() {
     let board = BoardTrait::new();
     board

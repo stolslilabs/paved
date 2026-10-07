@@ -290,7 +290,7 @@ fn test_access_tutorial_surrender_reverts_on_another_players_game() {
 }
 
 #[test]
-#[available_gas(l2_gas: 84146179)]
+#[available_gas(l2_gas: 81732200)]
 fn test_access_game_ids_are_counted_per_contract() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     assert(context.game_id == 1, 'Access: first tutorial id');

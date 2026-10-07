@@ -272,3 +272,37 @@ No pull request may change an expected value of these tests without saying so in
 example `... [golden: city5 score 2245 -> 2300]`). A change of a golden value is a change of the
 rules. To record a new case, set `RECORD` to true in `harness.cairo`, run the case, copy the printed
 values, and set it back to false.
+
+### After P-17 (same-draw optimisation of `draw_plan`)
+
+Every expected value is unchanged (all goldens pass on the same data, `test_golden_daily_full_deck` with its 38
+real draws and the real-deck discards case included): `draw_plan` returns the same tile for the same seed and
+deck state, which `helpers/random_deck` tests against the old `from_bitmap` + `draw` path. L2 gas from the CI
+`Test game` job of PR #225 (Linux, run 37627275425, head `9839dcf8`; the final head only sets budgets and writes
+the docs); the P5-6 column is the figure of the previous section. Every `#[available_gas]` of the
+golden, differential and e2e cases is reset to CI figure + 5 % (all 100 of them that run in the job; the `#[ignore]`
+generator keeps its limit).
+
+| Test | L2 gas P5-6 | L2 gas P-17 | Change | Ceiling |
+| --- | --- | --- | --- | --- |
+| daily_forest_woodsman_ring | 130,512,828 | 118,674,722 | -9.1 % | 124,608,459 |
+| daily_forest_herdsman_caps | 142,820,786 | 130,039,108 | -8.9 % | 136,541,064 |
+| daily_forest_both_roles | 200,352,047 | 178,043,673 | -11.1 % | 186,945,857 |
+| daily_forest_herdsman_open_city | 143,325,544 | 129,908,758 | -9.4 % | 136,404,196 |
+| daily_city5_game_over | 127,484,710 | 119,060,970 | -6.6 % | 125,014,019 |
+| daily_road6 | 142,411,237 | 126,632,673 | -11.1 % | 132,964,307 |
+| daily_mixed_roles | 134,387,983 | 122,805,152 | -8.6 % | 128,945,410 |
+| daily_real_deck_discards_to_game_over | 127,719,133 | 111,900,154 | -12.4 % | 117,495,162 |
+| tutorial_full_sequence | 130,887,773 | 130,887,323 | -0.0 % | 137,431,690 |
+| daily_city5_structures_agree | 180,346,710 | 171,922,970 | -4.7 % | 180,519,119 |
+| daily_mixed_roles_structures_agree | 211,455,423 | 199,872,592 | -5.5 % | 209,866,222 |
+| daily_road6_structures_agree | 241,470,841 | 225,692,277 | -6.5 % | 236,976,891 |
+| daily_real_deck_discards_to_game_over_structures_agree | 138,240,222 | 122,421,243 | -11.4 % | 128,542,306 |
+| daily_forest_woodsman_ring_structures_agree | 208,354,803 | 196,516,697 | -5.7 % | 206,342,532 |
+| daily_forest_herdsman_caps_structures_agree | 211,326,795 | 198,545,117 | -6.0 % | 208,472,373 |
+| daily_forest_both_roles_structures_agree | 343,456,605 | 321,148,231 | -6.5 % | 337,205,643 |
+| daily_forest_herdsman_open_city_structures_agree | 214,062,109 | 200,645,323 | -6.3 % | 210,677,590 |
+| daily_forest_woodsman_ring_last_tile_structures_agree | 208,486,147 | 198,689,797 | -4.7 % | 208,624,287 |
+| daily_forest_lord_and_woodsman_ring_structures_agree | 209,934,279 | 198,096,173 | -5.6 % | 208,000,982 |
+| daily_full_deck | 586,423,537 | 542,367,578 | -7.5 % | 569,485,957 |
+| daily_full_deck_structures_agree | 1,337,226,473 | 1,293,170,514 | -3.3 % | 1,357,829,040 |
