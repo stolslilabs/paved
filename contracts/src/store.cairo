@@ -19,9 +19,11 @@ use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 use starknet::storage::{
-    Map, Mutable, StorageAsPath, StorageBase, StoragePath, StoragePathEntry,
+    Map, Mutable, StorageAsPath, StorageAsPointer, StorageBase, StoragePath, StoragePathEntry,
     StoragePointerReadAccess, StoragePointerWriteAccess,
 };
+use starknet::storage_access::{StorageBaseAddress, storage_address_from_base_and_offset};
+use starknet::syscalls::{storage_read_syscall, storage_write_syscall};
 use starknet::{ContractAddress, SyscallResultTrait};
 
 // Constants
@@ -553,8 +555,22 @@ pub impl StoreImpl of StoreTrait {
         storage().rankings.entry(tournament_id).read()
     }
 
-    fn set_ranking(self: Store, tournament_id: u64, ranking: Slots4) {
-        storage().rankings.entry(tournament_id).write(ranking);
+    /// The address of the first slot of a ranking, hashed once: `ranking_read` and `ranking_write`
+    /// then reach one slot of the `Slots4` without hashing again, so a submission that does not
+    /// rank reads one slot and one that ranks writes only the slots that change.
+    fn ranking_base(self: Store, tournament_id: u64) -> StorageBaseAddress {
+        storage().rankings.entry(tournament_id).as_ptr().__storage_pointer_address__
+    }
+
+    /// Slot `offset` (0 to 3) of the ranking at `base`.
+    fn ranking_read(self: Store, base: StorageBaseAddress, offset: u8) -> felt252 {
+        let address = storage_address_from_base_and_offset(base, offset);
+        storage_read_syscall(0, address).unwrap_syscall()
+    }
+
+    fn ranking_write(self: Store, base: StorageBaseAddress, offset: u8, value: felt252) {
+        let address = storage_address_from_base_and_offset(base, offset);
+        storage_write_syscall(0, address, value).unwrap_syscall()
     }
 }
 

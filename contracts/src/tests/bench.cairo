@@ -821,3 +821,24 @@ fn test_bench_h1000_top() {
         top1(c, ID);
     });
 }
+
+/// The cost of `interact_with_state` itself, which every `bench_*` pays and the operation does not:
+/// the figures of the table are `bench - base - (bench_noop - base_noop)`.
+#[test]
+fn test_base_noop() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let c: ContractAddress = systems.daily.contract_address;
+    interact_with_state(c, || {
+        submit(c, ID, 101, 30);
+    });
+}
+
+#[test]
+fn test_bench_noop() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let c: ContractAddress = systems.daily.contract_address;
+    interact_with_state(c, || {
+        submit(c, ID, 101, 30);
+    });
+    interact_with_state(c, || {});
+}
