@@ -70,6 +70,9 @@ jobs:
         working-directory: ${{ env.WORKING_DIRECTORY }}
         run: scarb build
         shell: bash
+      - name: Class sizes (Starknet limits)
+        run: scripts/class-sizes.sh
+        shell: bash
 
   abis:
     needs: changes
