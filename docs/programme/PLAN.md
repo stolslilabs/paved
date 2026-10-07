@@ -11,9 +11,9 @@ Validated by the owner on 2026-10-06 (D-1). Status values: `planned`, `briefed`,
 | P2 | **Leave Dojo** at constant compiler (2.13.1): native Starknet storage, native contract(s), real events, snforge tests, same directory layout | 3 | Dojo 1.8 locks Cairo 2.13, so the compiler cannot move while Dojo is there. Doing it at constant compiler isolates the change: goldens stay identical | done |
 | P3 | **Cairo migration**: Scarb 2.20.1 / snforge 0.64, alone in its PR | 1 | Becomes a plain bump (the known pattern from Slingfall and quiver) | done |
 | P4 | **Woodsman and Herdsman** | 2 | Before optimisation: Forest scoring adds nested DFS, and the new structure state must cover them by design | done |
-| P5 | **Gas and coverage iterations**: persistent structure state (union-find or equivalent) instead of DFS, packing and bitmaps, `Game` split (frozen config vs hot state) | 4 | Most of the gain is here; designed to take extensions (rivers) without a redo | planned |
-| P6 | **Single-player product**: daily seed, full leaderboard (events plus a light indexer, or a bounded on-chain ranking), client wired to the native contracts | 5 | | planned |
-| P7 | **Quests and achievements** through `quiver_quest` / `quiver_achievement` (pinned published version, never git or path) | 6 | | planned |
+| P5 | **Gas and coverage iterations**: persistent structure state (union-find or equivalent) instead of DFS, packing and bitmaps, `Game` split (frozen config vs hot state) | 4 | Most of the gain is here; designed to take extensions (rivers) without a redo | done (P5-1 to P5-8 merged: #218, #220, #221, #222, #223, #224, #226, #228; line coverage 96.38 %) |
+| P6 | **Single-player product** (META, carried by `paved-core`, P-18): daily seed, full leaderboard from events through our own indexer (copy of Grim World's `indexer/`, O-3; own package, SQLite, read API); the prize top 3 stays on chain. Design: [indexer.md](../architecture/indexer.md); client wired to the native contracts | 5 | | briefed (design PR first, then implementation) |
+| P7 | **Quests and achievements** (META, carried by `paved-core`, P-18) through `quiver_quest` / `quiver_achievement` (pinned published version, never git or path); a design PR with the list for the PM's ruling comes first | 6 | | planned |
 | P8 | **Tokenomics** (`$TILE`): paid game, moving mean shifted by profitability, stake lost below the threshold | 7 | Rewritten, not built on #181; needs the owner's parameters | planned |
 | - | **Extensions** (rivers and so on) | 8 | Out of scope; a design constraint in P5 (extensible tile and zone types) | planned |
 
@@ -33,10 +33,10 @@ Planned client tasks, not started:
 |---|---|---|
 | **CORE** (contracts) | P0 to P5: native contracts, Cairo 2.20, roles, optimised state | **L2 gas per move** (simple move, move with character, move that closes a large structure, worst case) by snforge and Sepolia receipts; goldens identical; **line coverage** (`cairo-coverage`) |
 | **CLIENT** | `packages/` client on the native contracts, without Torii, on Node 24 and the current majors of its dependencies (P-8); the site moves to `packages/app-web` once it plays on the native contracts (P-8) | **p95 frame time** at 38 and 72 tiles (Mac, real browser), draw calls, time to interactive, latency from move to display, click-to-display latency, long tasks and React commit time while polling |
-| **META** (single-player product and progression) | P6 to P7: daily, leaderboard, quests, achievements | gas per meta action; completeness of the e2e scenarios |
+| **META** (single-player product and progression), carried by `paved-core` after P5 (P-18) | P6 to P7: daily, leaderboard (own indexer), quests, achievements | gas per meta action; completeness of the e2e scenarios; leaderboard agrees with the contract's top 3 on every closed day |
 | **ECO** (economy) | P8: token, paid entry, per-game settlement | profitability simulation (Monte-Carlo over score distributions), tested invariants (no mint outside the game system, real supply), audit |
 
-Orchestrators: `paved-core` from P0, `paved-client` from P2; META and ECO later (possibly carried by
+Orchestrators: `paved-core` from P0, `paved-client` from P2; META (P6, P7) is carried by `paved-core` after P5 (P-18); ECO later (possibly carried by
 core). See [OPERATIONS.md](OPERATIONS.md).
 
 ## Targets
