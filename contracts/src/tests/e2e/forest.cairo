@@ -24,6 +24,7 @@
 use paved::constants;
 use paved::events::{Event as PavedEvent, Scored};
 use paved::models::builder::Builder;
+use paved::models::character::Char;
 use paved::models::tile::CENTER;
 use paved::store::{StoreImpl, StoreTrait};
 use paved::systems::daily::{Daily, IDailyDispatcher};
@@ -455,6 +456,39 @@ fn test_forest_helper_collects_the_characters_of_an_open_forest() {
 }
 
 // Scoring.
+
+/// The P-16 invariant of the oracle fires: a Woodsman written onto the closed ring (the forest
+/// is finished, every adjacent road closed) through the test store is found by the board check.
+#[test]
+#[should_panic(expected: ('Check: char on finished forest',))]
+#[available_gas(l2_gas: 389746000)]
+fn test_forest_oracle_finds_a_character_on_a_finished_forest() {
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (g, p) = (context.game_id, context.player_id);
+    ring(store, systems.daily, g, p, Role::None, true);
+    check::assert_board_agrees(store, g);
+    interact_with_state(
+        store.contract,
+        || {
+            let mut s = StoreImpl::new();
+            let game = s.game(g);
+            let tile_id = s.tile_position(game, CENTER, CENTER - 1).tile_id;
+            s
+                .set_character(
+                    Char {
+                        game_id: g,
+                        player_id: p,
+                        index: Role::Woodsman.into(),
+                        tile_id: tile_id.try_into().unwrap(),
+                        spot: Spot::SouthEast.into(),
+                        weight: 1,
+                        power: 1,
+                    },
+                );
+        },
+    );
+    check::assert_board_agrees(store, g);
+}
 
 #[test]
 #[available_gas(l2_gas: 145921899)]

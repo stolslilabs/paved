@@ -762,6 +762,62 @@ pub mod forest {
     }
 }
 
+/// The walk that counts the half-edges of a structure that look at an empty position, and its
+/// nodes (P5-7). Added to the oracle, not copied from `helpers/`: the walks above stop at the
+/// first empty position, so none of them says how many are open. It follows the same moves as
+/// `GenericCount`, without the short-circuit.
+pub mod open_count {
+    use paved::models::game::Game;
+    use paved::models::tile::{Tile, TilePosition, TileTrait, ZeroableTilePosition};
+    use paved::store::{Store, StoreImpl};
+    use paved::types::area::Area;
+    use paved::types::move::{Move, MoveImpl};
+    use paved::types::spot::Spot;
+
+    #[generate_trait]
+    pub impl OpenCount of OpenCountTrait {
+        /// `(nodes, open)` of the structure of the area of `tile` at `at`.
+        fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, u32) {
+            let mut visited: Felt252Dict<bool> = Default::default();
+            let mut nodes: u32 = 0;
+            let mut open: u32 = 0;
+            Self::iter(game, tile, at, ref nodes, ref open, ref visited, ref store);
+            (nodes, open)
+        }
+
+        fn iter(
+            game: Game,
+            tile: Tile,
+            at: Spot,
+            ref nodes: u32,
+            ref open: u32,
+            ref visited: Felt252Dict<bool>,
+            ref store: Store,
+        ) {
+            let area: Area = tile.area(at);
+            let visited_key = tile.get_key(area);
+            if visited.get(visited_key) {
+                return;
+            }
+            visited.insert(visited_key, true);
+            nodes += 1;
+
+            let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
+            while let Option::Some(north_oriented_move) = north_oriented_moves.pop_front() {
+                let move = north_oriented_move.rotate(tile.orientation.into());
+                let (x, y) = tile.proxy_coordinates(move.direction);
+                let tile_position: TilePosition = store.tile_position(game, x, y);
+                if tile_position.is_zero() {
+                    open += 1;
+                    continue;
+                }
+                let neighbor = store.tile(game, tile_position.tile_id);
+                Self::iter(game, neighbor, move.spot, ref nodes, ref open, ref visited, ref store);
+            }
+        }
+    }
+}
+
 /// The differential check of P5-4: after a move, the structure state of a tile agrees with the
 /// walks of this oracle on the board as it is.
 ///
@@ -789,6 +845,7 @@ pub mod check {
     use super::conflict::Conflict;
     use super::forest::ForestCount;
     use super::generic::GenericCount;
+    use super::open_count::OpenCount;
 
     /// Runs the check on the tile `tile_id` of the game, in the contract of `store`.
     pub fn assert_tile_agrees(store: TestStore, game_id: u32, tile_id: u32) {
@@ -870,6 +927,10 @@ pub mod check {
             if !record_closed(record) {
                 continue;
             }
+            // Directly, from the structure state: a forest whose adjacent roads are all closed is
+            // finished and holds no character (the walk below says the same from the board)
+            let (open_road, _, _) = scan(game_id, tile, refs, area, ref structures);
+            assert(open_road, 'Check: char on finished forest');
             let at: Spot = character.spot.into();
             let (count, _, _, _, _) = ForestCount::start(game, tile, at, ref s);
             if count != 0 {
@@ -908,6 +969,21 @@ pub mod check {
             );
         }
         assert(closed == record.is_closed(), 'Check: closed differs');
+        // The open half-edges, as an exact count (not only zero or not)
+        let (nodes, open) = OpenCount::start(game, tile, at, ref s);
+        if open != record.open.into() {
+            println!(
+                "Check: tile {} area {}: walk open {}, record open {}",
+                tile.id,
+                area,
+                open,
+                record.open,
+            );
+        }
+        assert(open == record.open.into(), 'Check: open differs');
+        if !is_wonder {
+            assert(nodes == record.size.into(), 'Check: nodes differ');
+        }
         if closed && !is_wonder {
             if count != record.size.into() {
                 println!(

@@ -13,7 +13,7 @@ use paved::helpers::bitmap::Bitmap;
 use paved::models::tournament::TournamentTrait;
 use paved::types::deck::{Deck, DeckImpl, DeckTrait};
 use paved::types::orientation::Orientation;
-use paved::types::plan::{Plan, PlanImpl};
+use paved::types::plan::PlanImpl;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
 
