@@ -812,6 +812,149 @@
     "variants": []
   },
   {
+    "type": "struct",
+    "name": "quiver_achievement::types::window::AchievementWindow",
+    "members": [
+      {
+        "name": "start",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "end",
+        "type": "core::integer::u64"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "quiver_achievement::types::task::AchievementTask",
+    "members": [
+      {
+        "name": "task_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "total",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "core::array::Span::<quiver_achievement::types::task::AchievementTask>",
+    "members": [
+      {
+        "name": "snapshot",
+        "type": "@core::array::Array::<quiver_achievement::types::task::AchievementTask>"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "quiver_achievement::events::index::AchievementDefined",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "achievement_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "window",
+        "type": "quiver_achievement::types::window::AchievementWindow",
+        "kind": "data"
+      },
+      {
+        "name": "tasks",
+        "type": "core::array::Span::<quiver_achievement::types::task::AchievementTask>",
+        "kind": "data"
+      },
+      {
+        "name": "points",
+        "type": "core::integer::u16",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "quiver_achievement::events::index::AchievementProgressed",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "task_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "count",
+        "type": "core::integer::u32",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "quiver_achievement::events::index::AchievementRetired",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "achievement_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "quiver_achievement::events::index::AchievementReporterSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "reporter",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "allowed",
+        "type": "core::bool",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "quiver_achievement::component::AchievementComponent::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "AchievementDefined",
+        "type": "quiver_achievement::events::index::AchievementDefined",
+        "kind": "nested"
+      },
+      {
+        "name": "AchievementProgressed",
+        "type": "quiver_achievement::events::index::AchievementProgressed",
+        "kind": "nested"
+      },
+      {
+        "name": "AchievementRetired",
+        "type": "quiver_achievement::events::index::AchievementRetired",
+        "kind": "nested"
+      },
+      {
+        "name": "AchievementReporterSet",
+        "type": "quiver_achievement::events::index::AchievementReporterSet",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
     "type": "event",
     "name": "paved::systems::tutorial::Tutorial::Event",
     "kind": "enum",
@@ -834,6 +977,11 @@
       {
         "name": "TutoriableEvent",
         "type": "paved::components::tutoriable::TutoriableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "AchievementEvent",
+        "type": "quiver_achievement::component::AchievementComponent::Event",
         "kind": "flat"
       }
     ]

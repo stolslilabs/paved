@@ -24,6 +24,7 @@ pub mod Tutorial {
     use paved::systems::lobby::{ILobbyDispatcherTrait, ILobbyLibraryDispatcher};
     use paved::types::mode::Mode;
     use paved::views::{BuilderView, CharacterView, GameView, IGameView, TileView, ViewsImpl};
+    use quiver_achievement::component::AchievementComponent;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ClassHash, ContractAddress};
 
@@ -49,6 +50,9 @@ pub mod Tutorial {
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
     component!(path: TutoriableComponent, storage: tutoriable, event: TutoriableEvent);
     impl TutoriableInternalImpl = TutoriableComponent::InternalImpl<ContractState>;
+    // Achievements run in the lobby class (task 10); declared here so the storage and the events
+    // are those of the interface
+    component!(path: AchievementComponent, storage: achievement, event: AchievementEvent);
 
     // Storage
 
@@ -60,6 +64,8 @@ pub mod Tutorial {
         ownable: OwnableComponent::Storage,
         #[substorage(v0)]
         tutoriable: TutoriableComponent::Storage,
+        #[substorage(v0)]
+        achievement: AchievementComponent::Storage,
         /// The `Lobby` class run by library call; written by the constructor only.
         lobby_class: ClassHash,
     }
@@ -77,6 +83,8 @@ pub mod Tutorial {
         OwnableEvent: OwnableComponent::Event,
         #[flat]
         TutoriableEvent: TutoriableComponent::Event,
+        #[flat]
+        AchievementEvent: AchievementComponent::Event,
     }
 
     // Constructor
@@ -121,7 +129,11 @@ pub mod Tutorial {
 
         fn build(ref self: ContractState, game_id: u32) {
             // [Effect] Build a tile
-            self.tutoriable.build(game_id);
+            let over = self.tutoriable.build(game_id);
+            // [Effect] A game that ends reports task 10, in the lobby class (one call)
+            if over {
+                ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.tutorial_report();
+            }
         }
     }
     #[abi(embed_v0)]

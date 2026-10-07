@@ -186,6 +186,8 @@ pub impl StoreImpl of StoreTrait {
             mode: (c.low & MASK_8).try_into().unwrap(),
             tournament_id: 0,
             tile_limit: ((c.low / TWO_POW_72) & MASK_16).try_into().unwrap(),
+            // [Info] Nothing is above the counters: the quotient is the 23 bits
+            counts: (s.high / TWO_POW_88).try_into().unwrap(),
         }
     }
 
@@ -413,7 +415,8 @@ pub impl StoreImpl of StoreTrait {
             + game.built.into() * TWO_POW_48
             + over * TWO_POW_56
             + game.held_tile.into() * TWO_POW_64
-            + game.characters.into() * TWO_POW_72;
+            + game.characters.into() * TWO_POW_72
+            + game.counts.into() * TWO_POW_88;
         let slots = Slots2 { a: game.seed, b: game.tiles.into() + high.into() * TWO_POW_128 };
         storage().game_states.entry(game.id).write(slots);
     }
@@ -432,7 +435,8 @@ pub impl StoreImpl of StoreTrait {
     fn set_builder(self: Store, builder: Builder) {
         let state = storage().game_states.entry(builder.game_id).read();
         let s: u256 = state.b.into();
-        let kept: u128 = s.high & (TWO_POW_64 - 1);
+        // [Info] The counters above the roles placed (bit 88 up) are kept
+        let kept: u128 = (s.high & (TWO_POW_64 - 1)) + (s.high / TWO_POW_88) * TWO_POW_88;
         let high: u128 = kept
             + builder.tile_id.into() * TWO_POW_64
             + builder.characters.into() * TWO_POW_72;

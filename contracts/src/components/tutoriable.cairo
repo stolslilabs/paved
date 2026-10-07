@@ -33,7 +33,7 @@ pub mod TutoriableComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
-        fn discard(self: @ComponentState<TContractState>, game_id: u32) {
+        fn discard(self: @ComponentState<TContractState>, game_id: u32) -> bool {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -101,10 +101,14 @@ pub mod TutoriableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
+                // [Return] Whether the game is over, which the caller reports to the achievements
+                true
+            } else {
+                false
             }
         }
 
-        fn surrender(self: @ComponentState<TContractState>, game_id: u32) {
+        fn surrender(self: @ComponentState<TContractState>, game_id: u32) -> bool {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -134,9 +138,11 @@ pub mod TutoriableComponent {
             if game.is_over() {
                 store.emit(game_over(game, player_id));
             }
+            // [Return] Nothing to report: a surrender never credits First Stone (P-28)
+            false
         }
 
-        fn build(self: @ComponentState<TContractState>, game_id: u32) {
+        fn build(self: @ComponentState<TContractState>, game_id: u32) -> bool {
             // [Setup] Datastore
             let mut store: Store = StoreImpl::new();
 
@@ -242,6 +248,10 @@ pub mod TutoriableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
+                // [Return] Whether the game is over, which the caller reports to the achievements
+                true
+            } else {
+                false
             }
         }
     }

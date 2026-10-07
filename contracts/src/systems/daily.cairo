@@ -3,6 +3,10 @@
 use paved::types::orientation::Orientation;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
+use quiver_achievement::types::task::AchievementTask;
+use quiver_achievement::types::window::AchievementWindow;
+use quiver_quest::types::schedule::QuestSchedule;
+use quiver_quest::types::task::QuestTask;
 
 #[starknet::interface]
 pub trait IDaily<TContractState> {
@@ -20,6 +24,30 @@ pub trait IDaily<TContractState> {
         role: Role,
         spot: Spot,
     );
+}
+
+/// The definitions of the quests and of the achievements: owner only (checked in `Lobby`, which
+/// runs them). A definition is created once and cannot be edited; a retired id cannot be defined
+/// again (`quiver_quest` and `quiver_achievement` rules). Progress has no entrypoint: only a game
+/// over reports it.
+#[starknet::interface]
+pub trait IDailyQuests<TContractState> {
+    fn define_quest(
+        ref self: TContractState,
+        quest_id: u32,
+        schedule: QuestSchedule,
+        tasks: Span<QuestTask>,
+        conditions: Span<u32>,
+    );
+    fn retire_quest(ref self: TContractState, quest_id: u32);
+    fn define_achievement(
+        ref self: TContractState,
+        achievement_id: u32,
+        window: AchievementWindow,
+        tasks: Span<AchievementTask>,
+        points: u16,
+    );
+    fn retire_achievement(ref self: TContractState, achievement_id: u32);
 }
 
 #[starknet::contract]
@@ -45,12 +73,14 @@ pub mod Daily {
         BuilderView, CharacterView, GameView, IGameView, ITournamentView, PriceView, TileView,
         TournamentView, ViewsImpl,
     };
+    use quiver_achievement::component::AchievementComponent;
+    use quiver_quest::component::QuestComponent;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ClassHash, ContractAddress, get_block_timestamp};
 
     // Local imports
 
-    use super::IDaily;
+    use super::{AchievementTask, AchievementWindow, IDaily, IDailyQuests, QuestSchedule, QuestTask};
 
     // Errors
 
@@ -73,6 +103,10 @@ pub mod Daily {
     impl PayableInternalImpl = PayableComponent::InternalImpl<ContractState>;
     component!(path: PlayableComponent, storage: playable, event: PlayableEvent);
     impl PlayableInternalImpl = PlayableComponent::InternalImpl<ContractState>;
+    // Quests and achievements run in the lobby class; declared here so the storage and the events
+    // (`QuestDefined`, `AchievementProgressed`, ...) are those of the interface
+    component!(path: QuestComponent, storage: quest, event: QuestEvent);
+    component!(path: AchievementComponent, storage: achievement, event: AchievementEvent);
 
     // Storage
 
@@ -86,6 +120,10 @@ pub mod Daily {
         payable: PayableComponent::Storage,
         #[substorage(v0)]
         playable: PlayableComponent::Storage,
+        #[substorage(v0)]
+        quest: QuestComponent::Storage,
+        #[substorage(v0)]
+        achievement: AchievementComponent::Storage,
         /// The `Lobby` class run by library call; written by the constructor only.
         lobby_class: ClassHash,
     }
@@ -105,6 +143,10 @@ pub mod Daily {
         PayableEvent: PayableComponent::Event,
         #[flat]
         PlayableEvent: PlayableComponent::Event,
+        #[flat]
+        QuestEvent: QuestComponent::Event,
+        #[flat]
+        AchievementEvent: AchievementComponent::Event,
     }
 
     // Constructor
@@ -169,9 +211,48 @@ pub mod Daily {
             spot: Spot,
         ) {
             // [Effect] Build a tile
-            self.playable.build(game_id, orientation, x, y, role, spot);
+            let over = self.playable.build(game_id, orientation, x, y, role, spot);
+            // [Effect] A game that ends reports to the quests, in the lobby class (one call)
+            if over != 0 {
+                ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.report(over);
+            }
         }
     }
+    #[abi(embed_v0)]
+    impl DailyQuestsImpl of IDailyQuests<ContractState> {
+        fn define_quest(
+            ref self: ContractState,
+            quest_id: u32,
+            schedule: QuestSchedule,
+            tasks: Span<QuestTask>,
+            conditions: Span<u32>,
+        ) {
+            // [Effect] Owner check and definition, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                .define_quest(quest_id, schedule, tasks, conditions);
+        }
+
+        fn retire_quest(ref self: ContractState, quest_id: u32) {
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.retire_quest(quest_id);
+        }
+
+        fn define_achievement(
+            ref self: ContractState,
+            achievement_id: u32,
+            window: AchievementWindow,
+            tasks: Span<AchievementTask>,
+            points: u16,
+        ) {
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                .define_achievement(achievement_id, window, tasks, points);
+        }
+
+        fn retire_achievement(ref self: ContractState, achievement_id: u32) {
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                .retire_achievement(achievement_id);
+        }
+    }
+
     #[abi(embed_v0)]
     impl GameViewImpl of IGameView<ContractState> {
         fn game(self: @ContractState, game_id: u32) -> GameView {

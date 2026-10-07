@@ -535,3 +535,39 @@ None of them is a gameplay branch known to be unreached: the re-rooting branch o
 | `scarb build` after P2 | pass | 0.85 GB |
 | `snforge test` after P2 | `Tests: 226 passed, 0 failed, 0 ignored, 0 filtered out` | 2.18 GB (single-threaded) |
 | `snforge test --max-threads 2` after P5-4 (Mac, `/usr/bin/time -l`) | `Tests: 349 passed, 0 failed, 0 ignored, 0 filtered out` (CI) | 6.14 GB (two test threads, the Mac's measure) |
+
+## P7: quests and achievements (contracts)
+
+`contracts/tests/gas.cairo`, same method as above (L2 gas of the call alone), Linux, pinned toolchain
+(scarb 2.20.1, snforge 0.64.0), test profile. "Before" is main after S1 (`e138c6f`, the Lobby class), "after" is the
+P7 contracts PR (CI log). The closing moves g to i are `surrender` (which runs in `Lobby`, so the report adds no
+library call); l is the game over of a `build` (`Daily` then one library call to `Lobby.report`). The quests get
+tasks 1 to 4 and the achievements tasks 1, 4 to 7 and 9 (at most 4 and 6 entries).
+
+| | Scenario | Before | After | Change | New ceiling |
+|---|---|---|---|---|---|
+| g | closing move, rank 1, two shifts | 1,381,719 | 2,060,599 | +678,880 | 2,163,629 |
+| h | closing move, not ranked | 1,044,219 | 1,657,443 | +613,224 | 1,740,316 |
+| i | game over after its tournament | 865,730 | 1,478,864 | +613,134 | 1,552,808 |
+| k | closing move, rank 1, score 4,500, every counter non-zero (largest lists) | n/a (g's base 1,381,719) | 2,389,479 | +1,007,760 against g's base | 2,508,953 |
+| l | game over on the last `build` | 5,277,705 | 6,111,335 | +833,630 | 6,416,902 |
+
+The P-22 guard is +1.5M on the closing move: the largest (k) is +1.0M, the game over of a `build` (l) +0.83M.
+
+Moves that are not a game over (never report; the code counts in 23 bits of the word already written,
+`Game.counts`):
+
+| | Before | After | Change |
+|---|---|---|---|
+| a0 open simple move | 5,596,035 | 5,626,085 | +30,050 (+0.54 %) |
+| a simple move | 5,082,345 | 5,112,405 | +30,060 (+0.59 %) |
+| b move with a character | 6,056,534 | 6,086,794 | +30,260 (+0.50 %) |
+| c close a large city | 6,098,165 | 6,159,821 | +61,656 (+1.01 %) |
+| d worst case | 6,987,338 | 7,049,194 | +61,856 (+0.89 %) |
+| e close a forest | 9,308,936 | 9,357,569 | +48,633 (+0.52 %) |
+| f worst forest scan | 19,048,196 | 19,097,029 | +48,833 (+0.26 %) |
+
+The ceilings of a0 to f are unchanged. The rise is the one accepted as O-40 on #242 before S1 (the same figures
+within 600): one more division on the `GameState` unpack, one more multiplication on the pack, one more felt in the
+`Game` copies, and the report's `if`; +31.6k more on a move that scores (the saturating count). It is not
+"identical to main"; the cause per piece was not isolated.
