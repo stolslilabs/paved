@@ -201,3 +201,28 @@ walks live on only in the test oracle (`tests/oracle.cairo`).
 - Cost: a build that does not close a forest holding a Woodsman or a Herdsman pays one root read
   (`open`, `chars`) per forest start of the tile. The build that does pays a scan bounded by the
   forest's tiles (one tile read per node, plus the finds of its adjacent roads and cities).
+
+## As built (P5-6 and after)
+
+The storage after the gas pass (PR P5-6, #224), the draw (P-17, #225) and P5-8 (#226). The table
+above stands; these are the details that the code fixed since:
+
+- **`TilePosition` carries a wonder flag.** The value is the tile id in 8 bits, plus `0x100`
+  (`POSITION_WONDER`) when the tile is a wonder plan (`plan >= 18`). A move reads the tile of a
+  diagonal neighbour only if the flag is set (`Store::wonder_at`); the id is `value % 0x100`.
+- **`Characters`: one read, one write per move.** The move-local cache (`structure/state.cairo`)
+  reads the word once, edits it in memory and `flush` writes the slot once if a character was
+  placed or recovered. The built tile is written by the same `flush`, once, with its position,
+  after the assessment.
+- **Spawn takes the player explicitly.** `GameImpl::new(id, time, mode, player_id)`; `GameConfig`
+  records the registered player read at spawn, not the caller read in the model. No builder is
+  stored: the first tile is in `GameState`, and the builder of a move is composed from the game
+  (`held_tile`, `characters`).
+- **`tile_limit <= 255`.** `GameState.tile_count` is 8 bits, so `GameImpl::new` reverts with
+  `Game: invalid tile limit` for a deck of more than 255 tiles.
+- **Fit of a placement** is checked by `structure::placement::assert_fits` on the oriented tables,
+  in `build` of both components.
+- **The draw.** `draw_plan` uses `draw_from_bitmap(seed, number, bitmap)` for the Daily deck: the
+  same tile for the same seed and the same bitmap as the original `from_bitmap` then `draw()` (P-17,
+  proved by the unchanged goldens, the full-deck one included), without building the deck. The
+  Tutorial deck is read in order. `Mode::draw` was removed.
