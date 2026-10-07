@@ -39,7 +39,7 @@ only data shared across contracts today is the player registry, so:
 rooted at `selector!("paved")`, and the `Store` reads and writes it through native
 `starknet::storage` paths (`Map`). `Store` keeps the interface it had over the Dojo world (`game`,
 `player`, `builder`, `tile`, `tile_position`, `neighbors`, `neighborhood`, `character`,
-`character_position`, `tournament` and their `set_*`), so the components and helpers change little.
+`character_at`, `tournament` and their `set_*`), so the components and helpers change little.
 It holds no state: every call works on the storage of the contract that runs it.
 
 Each Dojo model keeps its keys; the `Map` is keyed by them and the values are packed into whole
@@ -55,8 +55,7 @@ world did, so a missing entry reads as the model with its keys set and every val
 | `Builder` | none: a facade over `GameState` | 0 | `held_tile` is its `tile_id`, `characters` its roles (`u16`, bit `i` set: the role of code `i` is on the board; roles 1 to 7 use bits 1 to 7, the 16 bits leave room for new roles). `Store::builder(game, p)` returns it for the game's player and the zero builder for anyone else |
 | `Tile` | `(game_id, id)` | 1 | `plan u8, orientation u8, x u32, y u32, occupied_spot u8` (no player: the player is in `GameConfig`) |
 | `TilePosition` | `(game_id, x, y)` | 1 | `tile_id u32` |
-| `Char` | `(game_id, player_id, index)` | 1 | `tile_id u32, spot u8, weight u8, power u8` |
-| `CharPosition` | `(game_id, tile_id, spot)` | 2 | `player_id`; `index u8` |
+| `Characters` | `game_id: u32` | 1 | per role `1..=7`, 16 bits each (role `r` at bits `16 r`): `tile_id u8, spot u4, weight u2, power u2`; a role not on the board is 0. One slot per game, rewritten on place and recover. `Store::character(game, p, role)` unpacks one role into a `Char`; `Store::character_at(game, tile, spot)` finds the character on a tile spot (one slot read, the roles scanned) for the walks |
 | `Tournament` | `id: u64` | 5 | `prize`; `top1_player_id`; `top2_player_id`; `top3_player_id`; `top1_score u32, top2_score u32, top3_score u32, top1_claimed, top2_claimed, top3_claimed` |
 | game counter | none | 1 | `u32`, last game id given |
 | account | none | 1 | address of `Account` (zero in `Account` itself) |

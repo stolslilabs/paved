@@ -4,7 +4,7 @@
 
 use paved::events::{Event, Scored};
 use paved::models::builder::{Builder, BuilderImpl};
-use paved::models::character::{Char, CharPosition, ZeroableChar};
+use paved::models::character::{Char, ZeroableChar};
 use paved::models::game::{Game, GameImpl};
 use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
 use paved::store::{Store, StoreImpl};
@@ -25,9 +25,7 @@ pub impl WonderCount of WonderCountTrait {
             return (0, ZeroableChar::zero());
         }
         // [Compute] Extract the character
-        let character_position: CharPosition = store.character_position(game, tile, spot.into());
-        let character = store
-            .character(game, character_position.player_id, character_position.index.into());
+        let character = store.character_at(game, tile, spot.into());
         // [Compute] Recursively count the points
         let mut count = 0;
         Self::iter(game, tile, at, ref count, ref visited, ref store);

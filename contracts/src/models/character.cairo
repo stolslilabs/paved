@@ -52,19 +52,6 @@ pub impl CharImpl of CharTrait {
     }
 }
 
-pub impl CharIntoCharPosition of Into<Char, CharPosition> {
-    #[inline]
-    fn into(self: Char) -> CharPosition {
-        CharPosition {
-            game_id: self.game_id,
-            tile_id: self.tile_id,
-            spot: self.spot,
-            player_id: self.player_id,
-            index: self.index,
-        }
-    }
-}
-
 #[generate_trait]
 pub impl CharAssert of AssertTrait {
     #[inline]
@@ -93,24 +80,6 @@ pub impl ZeroableChar of ZeroableCharTrait {
 
     #[inline]
     fn is_non_zero(self: Char) -> bool {
-        !self.is_zero()
-    }
-}
-
-#[generate_trait]
-pub impl ZeroableCharPosition of ZeroableCharPositionTrait {
-    #[inline]
-    fn zero() -> CharPosition {
-        CharPosition { game_id: 0, tile_id: 0, spot: 0, player_id: 0, index: 0 }
-    }
-
-    #[inline]
-    fn is_zero(self: CharPosition) -> bool {
-        0 == self.player_id.into()
-    }
-
-    #[inline]
-    fn is_non_zero(self: CharPosition) -> bool {
         !self.is_zero()
     }
 }
