@@ -97,6 +97,31 @@ fn test_differential_gas_scenario_d() {
     assert(game.score > 0, 'Differential: tree not scored');
 }
 
+/// Two areas of one tile join one structure (the re-rooting branch of
+/// `structure::placement::place`):
+/// the last tile, a road crossing, has an area that joins one structure while a later area of the
+/// same tile joins two others, one of them the same structure, so that the first root becomes a
+/// child and the refs of the first area are put back on the final root. The board was found by a
+/// search over legal boards (a model of the placement in Python, not kept) and then confirmed
+/// here: the coverage run of the test reaches those lines. Every move is checked against the walks.
+#[test]
+#[available_gas(l2_gas: 531260000)]
+fn test_differential_two_areas_of_one_tile_join_one_structure() {
+    let board = BoardTrait::new();
+    board.step(Plan::FFCFFFCFF, Orientation::South, CENTER, CENTER + 1);
+    board.step(Plan::RFRFFFCFR, Orientation::South, CENTER + 1, CENTER + 1);
+    board.step(Plan::FFFFFFCFF, Orientation::North, CENTER + 1, CENTER + 2);
+    board.step(Plan::SFRFRFRFR, Orientation::North, CENTER + 2, CENTER + 1);
+    board.step(Plan::RFFFRFFFR, Orientation::South, CENTER, CENTER - 1);
+    board.step(Plan::RFRFFFCFR, Orientation::North, CENTER + 1, CENTER - 1);
+    board.step(Plan::RFFFRFFFR, Orientation::West, CENTER + 2, CENTER + 2);
+    board.step(Plan::CFFFCFFFC, Orientation::East, CENTER - 1, CENTER + 1);
+    board.step(Plan::FFCFFFFFC, Orientation::West, CENTER, CENTER + 2);
+    board.step(Plan::RFRFFFCFR, Orientation::East, CENTER - 1, CENTER - 1);
+    board.step(Plan::RFRFFFCFR, Orientation::South, CENTER - 1, CENTER);
+    board.step(Plan::SFRFRFRFR, Orientation::South, CENTER + 1, CENTER);
+}
+
 /// The scripted Tutorial to its end: each step builds when the script gives a placement for the
 /// tile in hand, and discards it otherwise, as the golden `tutorial_full_sequence` does.
 #[test]
