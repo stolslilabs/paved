@@ -393,3 +393,59 @@ and `Daily`'s 1,320 felts as untouchable.
 
 If #242 must merge before S1, the same split is done inside #242 instead (the prototype of section 2 (e) is that
 diff), with the same acceptance and the security audit.
+
+## As built (S1)
+
+S1 is on main as the PR "refactor: S1 Lobby library class" (ruling P-26), on main `627a7b3` (no P7). Measured on
+the VPS, scarb 2.20.1 / snforge 0.64.0, `RAYON_NUM_THREADS=1`, under `prlimit --as=8589934592`, snforge
+`--max-threads 2` (peak RSS 1.1 to 1.2 GB for the release build, 4.5 GB for a gas run).
+
+**Sizes** (`scripts/class-sizes.sh`, release):
+
+| Class | Sierra main | CASM main | Sierra S1 | CASM S1 | Of the cap | Margin to 90 % |
+|---|---:|---:|---:|---:|---:|---:|
+| `Daily` | 36,028 | 80,418 | 31,129 | 69,062 | 84.3 % | 4,666 |
+| `Tutorial` | 33,975 | 75,296 | 30,361 | 66,059 | 80.6 % | 7,669 |
+| `Lobby` (declared only) | - | - | 21,226 | 47,299 | 57.7 % | 26,429 |
+| `Account` | 1,307 | 2,879 | 1,307 | 2,879 | 3.5 % | 70,849 |
+| `Token` | 1,611 | 4,374 | 1,611 | 4,374 | 5.3 % | 69,354 |
+
+**Gas** (`contracts/tests/gas.cairo`, L2 gas of the isolated call, main `627a7b3` -> S1):
+
+| Scenario | Test profile | | Release | |
+|---|---:|---:|---:|---:|
+| a0 open simple move | 5,596,035 -> 5,596,035 | 0 | 2,770,440 -> 2,770,440 | 0 |
+| a simple move | 5,082,345 -> 5,082,345 | 0 | 2,586,870 -> 2,586,870 | 0 |
+| b move with a character | 6,056,534 -> 6,056,534 | 0 | 2,974,629 -> 2,974,629 | 0 |
+| c close a large city | 6,098,165 -> 6,098,165 | 0 | 3,068,670 -> 3,068,670 | 0 |
+| d worst case | 6,987,338 -> 6,987,338 | 0 | 3,390,103 -> 3,390,103 | 0 |
+| e close a forest | 9,308,936 -> 9,308,936 | 0 | 4,616,931 -> 4,616,931 | 0 |
+| f worst forest scan | 19,048,196 -> 19,048,196 | 0 | 9,026,991 -> 9,026,991 | 0 |
+| g closing move (`surrender`), places | 1,234,989 -> 1,381,719 | +11.9 % | 864,999 -> 983,649 | +13.7 % |
+| h closing move (`surrender`), not placed | 897,489 -> 1,044,219 | +16.3 % | 562,729 -> 681,379 | +21.1 % |
+| i closing move (`surrender`) after the tournament | 719,000 -> 865,730 | +20.4 % | 442,610 -> 561,260 | +26.8 % |
+| j tournament view | 370,228 -> 370,228 | 0 | 303,728 -> 303,728 | 0 |
+| l game over on the last `build` (new) | 5,277,705 -> 5,277,705 | 0 | 2,872,365 -> 2,872,365 | 0 |
+
+The library call costs **+146,730** (test profile) and **+118,650** (release) on g, h and i, the per-call cost
+measured on the prototype in section 2 (e) (+118,650 in release). The percentages are higher than the prototype's
+(+10.7 to +17.9 % in release) because main's closing moves, without the P7 report, are cheaper; the absolute cost
+is the same. Scenario l is the game over of a `build`: on S1 it makes no library call (the game over of a move is
+part of the move), so it is unchanged to the unit; it is the reference for #242, where `Daily.build` calls `Lobby.report` at
+game over.
+
+**Differences from section 4.**
+
+- The game over of a `build` stays in `Daily` (S1 has no report to move; #242 adds the call).
+- `Lobby`'s constructor reverts (`Lobby: declared only`): no instance of the class can be deployed.
+- The constructors of `Daily` and `Tutorial` revert on a zero `lobby_class`.
+- `Daily` and `Tutorial` keep the (empty) Hostable component declared, so that their ABI differs only by the
+  constructor; without it the empty `HostableEvent` variant leaves the ABI (6 CASM felts).
+- S1 has no owner-only entry point in `Lobby` (the quest definitions come with #242), so the "owner-only entry
+  points revert for a non-owner through `Daily`" test of section 4 belongs to #242.
+- `contracts/deployments/devnet.json` is not regenerated in this PR: `scripts/deploy.sh` deploys only sources equal
+  to main (`deployed_at`), so the file is regenerated after the merge, as after #234 (#237).
+- `docs/architecture/public-interface.md` ("Changes since publication") is outside the allowlist of the task.
+
+Rules and tests of the split: `native-storage.md`, "Classes (S1, P-26)".
+

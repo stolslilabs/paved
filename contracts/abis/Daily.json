@@ -698,6 +698,10 @@
       {
         "name": "token_address",
         "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "lobby_class",
+        "type": "core::starknet::class_hash::ClassHash"
       }
     ]
   },

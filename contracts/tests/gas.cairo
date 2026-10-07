@@ -25,6 +25,7 @@
 use core::testing::get_available_gas;
 use paved::constants::{self, CENTER};
 use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
+use paved::models::game::GameTrait;
 use paved::models::tournament::TournamentTrait;
 use paved::structure::placement::role_bit;
 use paved::types::mode::Mode;
@@ -45,10 +46,12 @@ pub const CEILING_CLOSE_LARGE: u128 = 6392332;
 pub const CEILING_WORST_CASE: u128 = 7325796;
 pub const CEILING_FOREST: u128 = 9756082;
 pub const CEILING_FOREST_WORST: u128 = 19956685;
-pub const CEILING_CLOSING_PLACES: u128 = 1296739;
-pub const CEILING_CLOSING_NOT_PLACED: u128 = 942364;
-pub const CEILING_CLOSING_AFTER: u128 = 754950;
+// g, h, i: a surrender runs in the `Lobby` class, one library call (+146,730 in this profile, S1).
+pub const CEILING_CLOSING_PLACES: u128 = 1450805;
+pub const CEILING_CLOSING_NOT_PLACED: u128 = 1096430;
+pub const CEILING_CLOSING_AFTER: u128 = 909017;
 pub const CEILING_VIEW: u128 = 388740;
+pub const CEILING_GAME_OVER_ON_BUILD: u128 = 5541591;
 
 #[derive(Drop)]
 struct Scenario {
@@ -340,6 +343,22 @@ fn test_gas_i_closing_move_after_tournament() {
     let gas = surrender(@s);
     assert(s.store.game(s.game_id).tournament_id == 0, 'Gas: ranked');
     report("i_closing_move_after_tournament", gas, CEILING_CLOSING_AFTER);
+}
+
+/// l. Game over on the last `build`: the game of scenario c with its tile limit cut to the tiles
+/// drawn, then an open road east of the starter tile (the move of a0). The game ends and ranks
+/// in its empty tournament, inside `Daily` (no library call:
+/// `docs/architecture/class-headroom.md`).
+#[test]
+fn test_gas_l_game_over_on_build() {
+    let s = scored_game();
+    let mut game = s.store.game(s.game_id);
+    game.tile_limit = game.tile_count.try_into().unwrap();
+    s.store.set_game(game);
+    let gas = s
+        .build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);
+    assert(s.store.game(s.game_id).is_over(), 'Gas: not over');
+    report("l_game_over_on_build", gas, CEILING_GAME_OVER_ON_BUILD);
 }
 
 /// j. The `tournament` view: the prize record and the three ranks.

@@ -36,6 +36,7 @@ pub mod Daily {
 
     use paved::events::Event as PavedEvent;
     use paved::store::{StoreImpl, StoreTrait};
+    use paved::systems::lobby::{ILobbyDispatcherTrait, ILobbyLibraryDispatcher};
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;
@@ -44,7 +45,8 @@ pub mod Daily {
         BuilderView, CharacterView, GameView, IGameView, ITournamentView, PriceView, TileView,
         TournamentView, ViewsImpl,
     };
-    use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ClassHash, ContractAddress, get_block_timestamp};
 
     // Local imports
 
@@ -55,12 +57,14 @@ pub mod Daily {
     pub mod errors {
         pub const ZERO_ACCOUNT_ADDRESS: felt252 = 'Daily: account is zero';
         pub const ZERO_TOKEN_ADDRESS: felt252 = 'Daily: token is zero';
+        pub const ZERO_LOBBY_CLASS: felt252 = 'Daily: lobby class is zero';
     }
 
     // Components
 
+    // Hostable runs in the lobby class; declared here so the storage and event layout stay
+    // those of the published interface
     component!(path: HostableComponent, storage: hostable, event: HostableEvent);
-    impl HostableInternalImpl = HostableComponent::InternalImpl<ContractState>;
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
@@ -82,6 +86,8 @@ pub mod Daily {
         payable: PayableComponent::Storage,
         #[substorage(v0)]
         playable: PlayableComponent::Storage,
+        /// The `Lobby` class run by library call; written by the constructor only.
+        lobby_class: ClassHash,
     }
 
     // Events
@@ -109,13 +115,16 @@ pub mod Daily {
         owner: ContractAddress,
         account_address: ContractAddress,
         token_address: ContractAddress,
+        lobby_class: ClassHash,
     ) {
         // [Check] Addresses are set
         assert(account_address.is_non_zero(), errors::ZERO_ACCOUNT_ADDRESS);
         assert(token_address.is_non_zero(), errors::ZERO_TOKEN_ADDRESS);
+        assert(lobby_class.is_non_zero(), errors::ZERO_LOBBY_CLASS);
         // [Effect] Initialize components
         self.ownable.initialize(owner);
         self.payable.initialize(token_address);
+        self.lobby_class.write(lobby_class);
         // [Effect] Players are read from the Account contract
         StoreImpl::new().initialize(account_address);
     }
@@ -125,39 +134,29 @@ pub mod Daily {
     #[abi(embed_v0)]
     impl DailyImpl of IDaily<ContractState> {
         fn spawn(ref self: ContractState) -> u32 {
-            // [Effect] Spawn a game
-            let (game_id, amount) = self.hostable.spawn(Mode::Daily);
-            // [Interaction] Pay entry price
-            let caller = get_caller_address();
-            self.payable.pay(caller, amount);
-            // [Return] Game ID
-            game_id
+            // [Effect] Spawn a game and pay its entry price, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.spawn(Mode::Daily)
         }
 
         fn claim(ref self: ContractState, tournament_id: u64, rank: u8) {
-            // [Effect] Claim the reward
-            let reward = self.hostable.claim(tournament_id, rank, Mode::Daily);
-            // [Interaction] Pay the reward out of the prize pool
-            let caller = get_caller_address();
-            self.payable.refund(caller, reward);
+            // [Effect] Claim the reward and pay it, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                .claim(tournament_id, rank);
         }
 
         fn sponsor(ref self: ContractState, amount: felt252) {
-            // [Effect] Add to the prize pool
-            let amount = self.hostable.sponsor(amount, Mode::Daily);
-            // [Interaction] Pay the amount
-            let caller = get_caller_address();
-            self.payable.pay(caller, amount);
+            // [Effect] Add to the prize pool and pay it, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.sponsor(amount);
         }
 
         fn discard(ref self: ContractState, game_id: u32) {
-            // [Effect] Discard tile
-            self.playable.discard(game_id);
+            // [Effect] Discard tile, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.discard(game_id);
         }
 
         fn surrender(ref self: ContractState, game_id: u32) {
-            // [Effect] Surrender game
-            self.playable.surrender(game_id);
+            // [Effect] Surrender game, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.surrender(game_id);
         }
 
         fn build(

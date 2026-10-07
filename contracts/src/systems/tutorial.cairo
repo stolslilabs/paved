@@ -21,9 +21,11 @@ pub mod Tutorial {
 
     use paved::events::Event as PavedEvent;
     use paved::store::{StoreImpl, StoreTrait};
+    use paved::systems::lobby::{ILobbyDispatcherTrait, ILobbyLibraryDispatcher};
     use paved::types::mode::Mode;
     use paved::views::{BuilderView, CharacterView, GameView, IGameView, TileView, ViewsImpl};
-    use starknet::ContractAddress;
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ClassHash, ContractAddress};
 
     // Local imports
 
@@ -33,12 +35,14 @@ pub mod Tutorial {
 
     pub mod errors {
         pub const ZERO_ACCOUNT_ADDRESS: felt252 = 'Tutorial: account is zero';
+        pub const ZERO_LOBBY_CLASS: felt252 = 'Tutorial: lobby class is zero';
     }
 
     // Components
 
+    // Hostable runs in the lobby class; declared here so the storage and event layout stay
+    // those of the published interface
     component!(path: HostableComponent, storage: hostable, event: HostableEvent);
-    impl HostableInternalImpl = HostableComponent::InternalImpl<ContractState>;
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
@@ -56,6 +60,8 @@ pub mod Tutorial {
         ownable: OwnableComponent::Storage,
         #[substorage(v0)]
         tutoriable: TutoriableComponent::Storage,
+        /// The `Lobby` class run by library call; written by the constructor only.
+        lobby_class: ClassHash,
     }
 
     // Events
@@ -77,12 +83,17 @@ pub mod Tutorial {
 
     #[constructor]
     fn constructor(
-        ref self: ContractState, owner: ContractAddress, account_address: ContractAddress,
+        ref self: ContractState,
+        owner: ContractAddress,
+        account_address: ContractAddress,
+        lobby_class: ClassHash,
     ) {
-        // [Check] Account address is set
+        // [Check] Addresses are set
         assert(account_address.is_non_zero(), errors::ZERO_ACCOUNT_ADDRESS);
+        assert(lobby_class.is_non_zero(), errors::ZERO_LOBBY_CLASS);
         // [Effect] Initialize components
         self.ownable.initialize(owner);
+        self.lobby_class.write(lobby_class);
         // [Effect] Players are read from the Account contract
         StoreImpl::new().initialize(account_address);
     }
@@ -92,20 +103,20 @@ pub mod Tutorial {
     #[abi(embed_v0)]
     impl TutorialImpl of ITutorial<ContractState> {
         fn spawn(ref self: ContractState) -> u32 {
-            // [Effect] Spawn a game
-            let (game_id, _) = self.hostable.spawn(Mode::Tutorial);
-            // [Return] Game ID
-            game_id
+            // [Effect] Spawn a game, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.spawn(Mode::Tutorial)
         }
 
         fn discard(ref self: ContractState, game_id: u32) {
-            // [Effect] Discard a tile
-            self.tutoriable.discard(game_id);
+            // [Effect] Discard a tile, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                .tutorial_discard(game_id);
         }
 
         fn surrender(ref self: ContractState, game_id: u32) {
-            // [Effect] Surrender game
-            self.tutoriable.surrender(game_id);
+            // [Effect] Surrender game, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                .tutorial_surrender(game_id);
         }
 
         fn build(ref self: ContractState, game_id: u32) {
