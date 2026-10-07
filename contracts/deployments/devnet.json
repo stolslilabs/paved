@@ -2,7 +2,7 @@
   "network": "devnet",
   "chain_id": "0x534e5f5345504f4c4941",
   "rpc_url": "http://127.0.0.1:5050",
-  "deployed_at": "e138c6f5bd4aede210cb9dfb4504e8e63cd142a5",
+  "deployed_at": "c5c446b386fb20a4f2a117dd7d6d611573ab774e",
   "deployed_block": 6,
   "token": {
     "address": "0x02aa1b3c0b07d9abd3568a3dc6cb1b15f87001f45a644bb31841c96cc33ffac7",
@@ -16,12 +16,12 @@
       "class_hash": "0x055084db306b681a4b9823fcc8db6957389f571bae38e8d41d687ed4ed7750fe"
     },
     "Daily": {
-      "address": "0x00c26c5e512f9d73d57dd8049086ba6756285ceb62aa8497f01ee8735e28e8f6",
-      "class_hash": "0x055551e3d4234303d0ed6649175b056b77c90d1b23d891b61d814368d188c520"
+      "address": "0x02acda061e02a14fd92cd3a67f5335ec1a6a0a4a29b7e1e0741703fcc58edc72",
+      "class_hash": "0x0510b15fee315c8cca9bcd7d40311cd27a9e7d5f63fd275a8fb66106459ab220"
     },
     "Tutorial": {
-      "address": "0x019ca88e82a79f48ab624b7b3cc21e5b893f20addbed9a80194ba44475b7e488",
-      "class_hash": "0x039f0e5626588cd6924161f33fde55686da7ff49b9171aa9d2a64f7fac2898cd"
+      "address": "0x04a0fdd9e34f0966d3535f0aa7a6ea4fa3e04b539200ada8badf6f6df22100f6",
+      "class_hash": "0x041f8bb5c3a473a0fc17c933385cad686a29fff5812b186e647009dba0b9b530"
     },
     "Token": {
       "address": "0x02aa1b3c0b07d9abd3568a3dc6cb1b15f87001f45a644bb31841c96cc33ffac7",
@@ -29,6 +29,6 @@
     }
   },
   "classes": {
-    "Lobby": "0x06edb738367a8ad9d7493fb0f5cfc9192314af2d87a9ab127775498aa43fa0dc"
+    "Lobby": "0x065099f5e6eb019fa1d3fd80256007d293d846bd200ceb2b96992f202e5e917a"
   }
 }
