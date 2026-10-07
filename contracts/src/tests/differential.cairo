@@ -5,6 +5,9 @@
 
 use paved::models::index::Tile;
 use paved::models::tile::CENTER;
+use paved::store::{StoreImpl, StoreTrait};
+use paved::structure::record::ref_of;
+use paved::structure::state::StructuresTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
@@ -14,6 +17,7 @@ use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::Spot;
+use snforge_std::interact_with_state;
 
 #[derive(Drop)]
 struct Board {
@@ -119,7 +123,25 @@ fn test_differential_two_areas_of_one_tile_join_one_structure() {
     board.step(Plan::FFCFFFFFC, Orientation::West, CENTER, CENTER + 2);
     board.step(Plan::RFRFFFCFR, Orientation::East, CENTER - 1, CENTER - 1);
     board.step(Plan::RFRFFFCFR, Orientation::South, CENTER - 1, CENTER);
+    let game = board.store.game(board.game_id);
+    let last = board.store.builder(game, board.player_id);
     board.step(Plan::SFRFRFRFR, Orientation::South, CENTER + 1, CENTER);
+    // The last tile's areas 2 and 6, and 3 and 5, each pair one structure: the refs of the pair
+    // resolve to one root (and, the re-rooting having put them back on it, are that root).
+    interact_with_state(
+        board.store.contract,
+        || {
+            let (_, refs) = StoreImpl::tile_with_refs(board.game_id, last.tile_id);
+            let mut structures = StructuresTrait::new(board.game_id);
+            for (first, second) in array![(2_u8, 6_u8), (3_u8, 5_u8)] {
+                let (root, _) = structures.find(ref_of(refs, first));
+                let (other, _) = structures.find(ref_of(refs, second));
+                assert_eq!(root, other);
+                assert_eq!(ref_of(refs, first), root);
+                assert_eq!(ref_of(refs, second), root);
+            }
+        },
+    );
 }
 
 /// The scripted Tutorial to its end: each step builds when the script gives a placement for the

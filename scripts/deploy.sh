@@ -17,6 +17,8 @@
 # exit; nothing secret is written in the repository.
 #
 # Env overrides: RPC_URL (localhost only), SCARB_BIN_DIR, SNCAST_BIN_DIR.
+# `deployed_at` is the merge base of HEAD with origin/main, and the script refuses when the contract
+# sources of the working tree (contracts/src, Scarb.toml, Scarb.lock; untracked files in src too) differ from it.
 # Needs: scarb 2.20.1, sncast 0.64.0, curl, python3, git.
 set -euo pipefail
 
@@ -32,7 +34,15 @@ RPC_URL="${RPC_URL:-http://127.0.0.1:5050}"
 # Full-authority match: a prefix glob would let `http://127.0.0.1:5050@other-host:5050` through.
 LOCAL_URL_RE='^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?$'
 if [[ ! "$RPC_URL" =~ $LOCAL_URL_RE ]]; then
-  echo "deploy.sh: devnet must be a local node (http://127.0.0.1|localhost|[::1]:<port>), got RPC_URL=$RPC_URL" >&2
+  # Only scheme and host are printed: the URL could carry an API key (userinfo, path, query or fragment).
+  # The authority is cut first, so an `@` after the host never counts as userinfo.
+  RPC_SCHEME="(none)"; RPC_HOST="(none)"
+  if [[ "$RPC_URL" == *://* ]]; then
+    [[ "${RPC_URL%%://*}" =~ ^[A-Za-z][A-Za-z0-9+.-]*$ ]] && RPC_SCHEME="${RPC_URL%%://*}"
+    auth="${RPC_URL#*://}"; auth="${auth%%[/?#]*}"; auth="${auth##*@}"
+    if [[ "$auth" == \[* ]]; then RPC_HOST="${auth%%]*}]"; else RPC_HOST="${auth%%:*}"; fi
+  fi
+  echo "deploy.sh: devnet must be a local node (http://127.0.0.1|localhost|[::1]:<port>), got scheme '${RPC_SCHEME}' host '${RPC_HOST}'" >&2
   exit 2
 fi
 
@@ -132,6 +142,15 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   pyj 'd["contract_address"]' <<<"$out"
 }
 
+# deployed_at: the main commit whose contract sources are deployed. The build compiles the working
+# tree, so the working tree (not HEAD) must equal the merge base with origin/main on the contract
+# sources, with no untracked source file either.
+DEPLOYED_AT="$(git -C "$ROOT" merge-base HEAD origin/main)" || die "no merge base of HEAD with origin/main (git fetch origin main)"
+git -C "$ROOT" diff --quiet "$DEPLOYED_AT" -- contracts/src contracts/Scarb.toml contracts/Scarb.lock ||
+  die "contract sources differ from origin/main (merge base ${DEPLOYED_AT:0:12}): deploy from main-equivalent sources"
+[[ -z "$(git -C "$ROOT" ls-files --others --exclude-standard -- contracts/src)" ]] ||
+  die "untracked files in contracts/src: deploy from main-equivalent sources"
+
 echo "== node $RPC_URL"
 rpc starknet_specVersion '[]' >/dev/null || die "no node answers at $RPC_URL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
 CHAIN_ID="$(rpc starknet_chainId '[]' | pyj 'd["result"]')"
@@ -166,7 +185,7 @@ SYMBOL="$(felt_str "$(call "$TOKEN" symbol)")"
 echo "   token $SYMBOL, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOCK"
 
 mkdir -p "$(dirname "$OUT")"
-python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_URL" "$(git -C "$ROOT" rev-parse HEAD)" "$DEPLOYED_BLOCK" \
+python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_URL" "$DEPLOYED_AT" "$DEPLOYED_BLOCK" \
   "$DECIMALS" "$SYMBOL" "Token=$TOKEN=$TOKEN_CLASS" "Account=$ACCOUNT=$ACCOUNT_CLASS" \
   "Daily=$DAILY=$DAILY_CLASS" "Tutorial=$TUTORIAL=$TUTORIAL_CLASS" <<'PY'
 import json, sys
@@ -193,21 +212,26 @@ echo "== wrote ${OUT#"$ROOT/"}"
 echo "== smoke"
 invoke "$TOKEN" mint >/dev/null
 invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER" >/dev/null
+# The Daily view stays exercised, read only. No Daily game is played: even an ended one leaves its entry
+# price in the day's prize, and the smoke must leave no trace in the day's figures (P-24).
 read -r PRICE_TOKEN PRICE_LOW PRICE_HIGH <<<"$(call "$DAILY" entry_price)"
 [[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$TOKEN")" ]] || die "entry_price token $PRICE_TOKEN is not the deployed Token"
-invoke "$PRICE_TOKEN" approve "$DAILY" "$PRICE_LOW" "$PRICE_HIGH" >/dev/null
-SPAWN_TX="$(invoke "$DAILY" spawn)"
+echo "   entry_price: token $SYMBOL, amount low $(hex_int "$PRICE_LOW") high $(hex_int "$PRICE_HIGH")"
+# The Tutorial belongs to no tournament: spawn, one scripted build (the Tutorial refuses a discard while the
+# tile in hand has a legal placement, and `build` takes no placement), read back.
+SPAWN_TX="$(invoke "$TUTORIAL" spawn)"
 GAME_ID="$(rpc starknet_getTransactionReceipt "[\"$SPAWN_TX\"]" | python3 -I -c '
 import sys, json
 d = json.load(sys.stdin)["result"]
-daily = int(sys.argv[1], 16)
-ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) == daily and len(e["keys"]) == 3]
-print(ids[0])' "$DAILY")" || die "no GameSpawned event in the spawn receipt"
-echo "   game $GAME_ID spawned"
-invoke "$DAILY" discard "$GAME_ID" >/dev/null
-GAME="$(call "$DAILY" game "$GAME_ID")"
-read -r G_ID _ _ _ _ G_OVER _ _ G_DISCARDED _ <<<"$GAME"
+tutorial = int(sys.argv[1], 16)
+ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) == tutorial and len(e["keys"]) == 3]
+print(ids[0])' "$TUTORIAL")" || die "no GameSpawned event in the spawn receipt"
+echo "   tutorial game $GAME_ID spawned"
+invoke "$TUTORIAL" build "$GAME_ID" >/dev/null
+GAME="$(call "$TUTORIAL" game "$GAME_ID")"
+read -r G_ID _ G_MODE _ _ G_OVER _ G_PLACED _ <<<"$GAME"
 [[ "$(hex_int "$G_ID")" == "$GAME_ID" ]] || die "game($GAME_ID) read back id $G_ID"
-[[ "$(hex_int "$G_DISCARDED")" == 1 ]] || die "game($GAME_ID) discarded_count is $(hex_int "$G_DISCARDED"), expected 1"
-echo "   game($GAME_ID) read back: id $GAME_ID, discarded_count 1, over $(hex_int "$G_OVER")"
+[[ "$(hex_int "$G_MODE")" == 3 ]] || die "game($GAME_ID) mode is $(hex_int "$G_MODE"), expected 3 (Tutorial)"
+[[ "$(hex_int "$G_PLACED")" == 2 ]] || die "game($GAME_ID) placed_count is $(hex_int "$G_PLACED"), expected 2"
+echo "   game($GAME_ID) read back: id $GAME_ID, mode Tutorial, placed_count 2, over $(hex_int "$G_OVER")"
 echo "== smoke ok"

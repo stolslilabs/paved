@@ -27,7 +27,7 @@ exists; a public network is the owner's decision and `scripts/deploy.sh` refuses
 | `network` | `devnet` |
 | `chain_id` | Felt of the chain id, hex (`0x534e5f5345504f4c4941` is `SN_SEPOLIA`, the starknet-devnet default) |
 | `rpc_url` | Node the script ran against |
-| `deployed_at` | `git rev-parse HEAD` when the script ran. The main commit whose contract sources were deployed (the script may run on a branch with identical sources) |
+| `deployed_at` | `git merge-base HEAD origin/main`, the main commit whose contract sources were deployed, when `git diff --quiet <that> -- contracts/src contracts/Scarb.toml contracts/Scarb.lock` holds (the working tree, which is what the build compiles) and `contracts/src` has no untracked file. Otherwise the script refuses (deploy from main-equivalent sources) |
 | `deployed_block` | Block number of the first deploy transaction (`Token`). Start indexing events here; the declares are in earlier blocks |
 | `token` | The ERC20 `Daily` charges. `decimals` and `symbol` are read from the deployed token by call (`symbol` decoded from its short string) |
 | `contracts.<Name>` | Address and class hash. `Token` is the mock ERC20 (test and devnet only); it is repeated under `token` |
@@ -45,8 +45,10 @@ scripts/deploy.sh devnet
 `RPC_URL` overrides the node (localhost only). Needs Scarb 2.20.1 and sncast 0.64.0 (the paths under
 `~/.asdf/installs` by default; `SCARB_BIN_DIR`, `SNCAST_BIN_DIR` override). The script builds (release profile, the one
 sncast declares), declares the four classes, deploys `Token`, `Account`, `Daily(owner, account, token)` and
-`Tutorial(owner, account)` with salt 1, writes the file, then runs a smoke check (mint, `Account.create`, approve of
-`entry_price().amount`, `Daily.spawn`, `discard`, `game(id)` read back) and exits non-zero on any failure.
+`Tutorial(owner, account)` with salt 1, writes the file, then runs a smoke check (mint, `Account.create`, `Daily.entry_price()` read and
+printed, `Tutorial.spawn`, one `Tutorial.build` (the Tutorial refuses a discard while the tile has a legal placement), `Tutorial.game(id)` read back) and exits non-zero on any failure. The smoke plays the
+Tutorial, never a Daily game: even an ended Daily game leaves its entry price in the day's prize, and the smoke must leave no
+trace in the day's figures.
 
 Deployer, owner and smoke player is the first predeployed account of the node, read from the node at run time (its keys are
 public dev keys and are never written to a file).
