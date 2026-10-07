@@ -55,7 +55,7 @@ pub impl BuilderImpl of BuilderTrait {
         // [Effect] Update tile_id
         self.tile_id = tile_id;
         // [Return] New tile
-        TileImpl::new(self.game_id, self.tile_id, self.player_id, plan.into())
+        TileImpl::new(self.game_id, self.tile_id, plan.into())
     }
 
     #[inline]

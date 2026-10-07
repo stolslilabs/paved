@@ -186,11 +186,12 @@ The other events are listed in `native-storage.md`.
 ## How the views are read today
 
 For the record, not part of the interface: the views are computed from the storage of
-`native-storage.md`. The player of a game is the owner of its last drawn tile (every drawn tile
-records its player; the starter tile has none). `placed_count = built + 1`, `discarded_count =
-discarded`, the tile to place now is tile `tile_count` while the game is not over, and a tile is
-`held` when it is the builder's `tile_id`. Phase P5 may compute them otherwise; the fields keep
-their meaning.
+`native-storage.md`. The player of a game is `GameConfig.player_id`, recorded at spawn (so a game
+with no build has one too). `placed_count = built + 1`, `discarded_count = discarded`, the tile to
+place now is tile `tile_count` while the game is not over, and a tile is `held` when it is the
+builder's `tile_id`, which is `GameState.held_tile` (kept by a surrender, 0 after the last tile).
+`end_time` and `tournament_id` come from `GameEnd`. Phase P5 may compute them otherwise; the fields
+keep their meaning.
 
 ## Changes since publication
 

@@ -6,7 +6,7 @@
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
-use paved::models::game::{Game, GameAssert};
+use paved::models::game::{Game, GameAssert, GameImpl};
 use paved::models::tournament::{Tournament, TournamentTrait};
 use paved::store::{Store, StoreImpl};
 use paved::types::mode::{Mode, ModeTrait};
@@ -177,7 +177,7 @@ pub impl ViewsImpl of ViewsTrait {
         if count > game.tile_count - from {
             count = game.tile_count - from;
         }
-        let builder = store.builder(game, Self::game_player(store, game));
+        let builder = game.builder_of(game.player_id);
         let none: u8 = Orientation::None.into();
         let mut tile_id = from + 1;
         let last = from + count;
@@ -209,7 +209,7 @@ pub impl ViewsImpl of ViewsTrait {
     fn builder(store: Store, game_id: u32, player_id: felt252) -> BuilderView {
         let game = Self::existing_game(store, game_id);
         Self::assert_game_player(store, game, player_id);
-        let builder = store.builder(game, player_id);
+        let builder = game.builder_of(player_id);
         let plan = if builder.tile_id == 0 {
             0
         } else {
@@ -236,7 +236,7 @@ pub impl ViewsImpl of ViewsTrait {
     fn characters(store: Store, game_id: u32, player_id: felt252) -> Array<CharacterView> {
         let game = Self::existing_game(store, game_id);
         Self::assert_game_player(store, game, player_id);
-        let builder = store.builder(game, player_id);
+        let builder = game.builder_of(player_id);
         let roles = array![
             Role::Lord, Role::Lady, Role::Adventurer, Role::Paladin, Role::Pilgrim, Role::Woodsman,
             Role::Herdsman,
@@ -319,10 +319,9 @@ pub impl ViewsImpl of ViewsTrait {
         game
     }
 
-    /// The player of a game: the owner of its last drawn tile (the starter tile has none, and a
-    /// spawned game has drawn at least one tile after it).
+    /// The player of a game: the one `GameConfig` records at spawn.
     fn game_player(store: Store, game: Game) -> felt252 {
-        store.tile(game, game.tile_count).player_id
+        game.player_id
     }
 
     fn assert_game_player(store: Store, game: Game, player_id: felt252) {

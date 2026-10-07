@@ -81,6 +81,23 @@ fn test_views_game_after_spawn() {
 }
 
 #[test]
+fn test_views_game_player_answerable_without_any_build() {
+    // The player is in `GameConfig`: a game that nobody built on still answers for its player,
+    // and the builder facade holds the first drawn tile.
+    let (_, systems, context) = setup::spawn_game(Mode::Daily);
+    let views = daily_views(@systems);
+    let view = views.game(context.game_id);
+    assert(view.player_id == context.player_id, 'Views: player');
+    assert(view.tile_count >= 2, 'Views: tile count');
+    assert(view.placed_count == 1, 'Views: placed count');
+    assert(view.discarded_count == 0, 'Views: discarded count');
+    let builder = views.builder(context.game_id, context.player_id);
+    assert(builder.tile_id == view.tile_count, 'Views: builder tile');
+    assert(builder.placed_count == 0, 'Views: no character');
+    assert(views.characters(context.game_id, context.player_id).len() == 7, 'Views: characters');
+}
+
+#[test]
 fn test_views_game_after_builds_and_discard() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     build_two(store, @systems, context.game_id, context.player_id);

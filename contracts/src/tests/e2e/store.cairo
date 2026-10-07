@@ -16,6 +16,7 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 use snforge_std::interact_with_state;
 
+const MAX_U8: u32 = 255;
 const BIG: felt252 = 0x800000000000011000000000000000000000000000000000000000000000000 - 1;
 
 #[test]
@@ -27,11 +28,14 @@ fn test_store_round_trips_at_maximum_values() {
             let store = StoreImpl::new();
             let game = Game {
                 id: Bounded::MAX,
+                player_id: BIG,
+                held_tile: MAX_U8,
+                characters: Bounded::MAX,
                 over: true,
                 discarded: Bounded::MAX,
                 built: Bounded::MAX,
                 tiles: Bounded::MAX,
-                tile_count: Bounded::MAX,
+                tile_count: MAX_U8,
                 start_time: Bounded::MAX,
                 end_time: Bounded::MAX,
                 score: Bounded::MAX,
@@ -43,16 +47,28 @@ fn test_store_round_trips_at_maximum_values() {
             store.set_game(game);
             assert_eq!(store.game(game.id), game);
 
+            // The builder is the tile in hand and the roles placed of the game's player
             let builder = Builder {
-                game_id: game.id, player_id: BIG, tile_id: Bounded::MAX, characters: Bounded::MAX,
+                game_id: game.id, player_id: BIG, tile_id: MAX_U8, characters: Bounded::MAX,
             };
-            store.set_builder(builder);
             assert_eq!(store.builder(game, BIG), builder);
+            let other = Builder { game_id: game.id, player_id: 'OTHER', tile_id: 0, characters: 0 };
+            assert_eq!(store.builder(game, 'OTHER'), other);
+            let moved = Builder {
+                game_id: game.id, player_id: BIG, tile_id: 7, characters: 0x1234,
+            };
+            store.set_builder(moved);
+            assert_eq!(store.builder(game, BIG), moved);
+            let after = store.live_game(game.id);
+            assert_eq!(after.held_tile, 7);
+            assert_eq!(after.characters, 0x1234);
+            assert_eq!(after.tiles, game.tiles);
+            assert_eq!(after.score, game.score);
+            assert_eq!(after.seed, game.seed);
 
             let tile = Tile {
                 game_id: game.id,
                 id: Bounded::MAX,
-                player_id: BIG,
                 plan: Bounded::MAX,
                 // A valid orientation: an unknown value reads as `None` (not placed).
                 orientation: Orientation::West.into(),
@@ -121,6 +137,7 @@ fn test_store_missing_entries_read_as_zero_with_keys() {
             let game = store.game(42);
             assert_eq!(game.id, 42);
             assert_eq!(game.tile_count, 0);
+            assert_eq!(game.player_id, 0);
             let builder = store.builder(game, 'NOBODY');
             assert_eq!(
                 builder, Builder { game_id: 42, player_id: 'NOBODY', tile_id: 0, characters: 0 },

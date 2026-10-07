@@ -377,7 +377,6 @@ fn test_events_daily_wonder_emits_scored() {
                 Tile {
                     game_id: context.game_id,
                     id,
-                    player_id: context.player_id,
                     plan: Plan::FFFFFFCFF.into(),
                     orientation: Orientation::North.into(),
                     x,

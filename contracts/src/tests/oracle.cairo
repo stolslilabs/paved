@@ -755,7 +755,6 @@ pub mod tests {
                 let first = Tile {
                     game_id,
                     id: 90,
-                    player_id,
                     plan: Plan::SFRFRFRFR.into(),
                     orientation: Orientation::North.into(),
                     x: CENTER + 10,
@@ -765,7 +764,6 @@ pub mod tests {
                 let second = Tile {
                     game_id,
                     id: 91,
-                    player_id,
                     plan: Plan::SFRFRFRFR.into(),
                     orientation: Orientation::North.into(),
                     x: CENTER + 11,

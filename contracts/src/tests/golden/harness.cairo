@@ -98,7 +98,9 @@ pub fn assert_outcome(
     assert_eq!(game.tile_count, outcome.tile_count, "Golden {}: tile count", name);
     assert_eq!(game.is_over(), outcome.over, "Golden {}: game over", name);
     let builder = store.builder(game, player_id);
-    assert_eq!(builder.characters, outcome.characters, "Golden {}: builder characters", name);
+    assert_eq!(
+        builder.characters, outcome.characters.into(), "Golden {}: builder characters", name,
+    );
     let tournament = store
         .tournament(TournamentTrait::compute_id(game.start_time, game.duration()));
     assert_eq!(tournament.top1_score, outcome.top1_score, "Golden {}: tournament top score", name);

@@ -48,10 +48,12 @@ world did, so a missing entry reads as the model with its keys set and every val
 
 | Model | Map key | Slots | Packing (low bits first) |
 |---|---|---|---|
-| `Game` | `id: u32` | 3 | `seed`; `tiles u128, tile_count u32, score u32, discarded u8, built u8, mode u8, over bool`; `start_time u64, end_time u64, tournament_id u64, tile_limit u16` |
+| `GameConfig` | `game_id: u32` | 2 | `player_id`; `mode u8, start_time u64, tile_limit u16`. Written once, at spawn |
+| `GameState` | `game_id: u32` | 2 | `seed`; `tiles u128, tile_count u8, score u32, discarded u8, built u8, over bool, held_tile u8, characters u16`. Written by every action |
+| `GameEnd` | `game_id: u32` | 1 | `end_time u64, tournament_id u64`. Written once, when the game ends in time; absent reads as 0 |
 | `Player` | `id: felt252` | 2 | `name`; `master` |
-| `Builder` | `(game_id, player_id)` | 1 | `tile_id u32, characters u8` (bit `i` set: the role of code `i` is on the board; with the Woodsman and the Herdsman of P4 the 7 codes use bits 1 to 7, so a new role needs a wider field) |
-| `Tile` | `(game_id, id)` | 2 | `player_id`; `plan u8, orientation u8, x u32, y u32, occupied_spot u8` |
+| `Builder` | none: a facade over `GameState` | 0 | `held_tile` is its `tile_id`, `characters` its roles (`u16`, bit `i` set: the role of code `i` is on the board; roles 1 to 7 use bits 1 to 7, the 16 bits leave room for new roles). `Store::builder(game, p)` returns it for the game's player and the zero builder for anyone else |
+| `Tile` | `(game_id, id)` | 1 | `plan u8, orientation u8, x u32, y u32, occupied_spot u8` (no player: the player is in `GameConfig`) |
 | `TilePosition` | `(game_id, x, y)` | 1 | `tile_id u32` |
 | `Char` | `(game_id, player_id, index)` | 1 | `tile_id u32, spot u8, weight u8, power u8` |
 | `CharPosition` | `(game_id, tile_id, spot)` | 2 | `player_id`; `index u8` |
@@ -60,8 +62,10 @@ world did, so a missing entry reads as the model with its keys set and every val
 | account | none | 1 | address of `Account` (zero in `Account` itself) |
 
 `Store::player` reads the local `players` map when the `account` slot is zero (in `Account`), and
-calls `IAccount::player` otherwise. Packing is the only change of representation; no structure state
-is added (that is P5).
+calls `IAccount::player` otherwise. `Store::game` composes the `Game` struct of the three game records
+(`live_game` leaves `GameEnd` out, which a move does not need), and `set_game_config`,
+`set_game_state` and `set_game_end` write them apart; a move rewrites `GameState` only. No structure
+state is added yet (that is P5-4).
 
 Other storage, outside `PavedStorage`: `owner` and `pending_owner` (`components/ownable.cairo`) in every contract, and
 `token_address` (`components/payable.cairo`) in `Daily`.
@@ -107,10 +111,12 @@ Own, minimal, no Dojo permission:
   call overwrites the pending owner, so a pending proposal is withdrawn by proposing the owner's own
   address); the pending owner completes it with `accept_ownership()`,
   which clears the pending owner. A mistyped address therefore never takes the ownership.
-- **Player**: an address registered in `Account`. A player acts only on their own game: every game
-  entry point loads the `Builder` keyed by `(game_id, caller)`, and a missing builder reverts
-  (`Builder: Does not exist`). Games are single-player; the builder is created by `spawn` for the
-  caller only.
+- **Player**: an address registered in `Account`. `spawn` checks the registration
+  (`Player: Does not exist`) and records the caller in `GameConfig.player_id`. A player acts only on
+  their own game: `build`, `discard` and `surrender` take the builder of the caller from the game,
+  which exists for `GameConfig.player_id` only, and revert for anyone else
+  (`Builder: Does not exist`). They no longer call `Account`: an address cannot be unregistered, so
+  the callers accepted are the same. Games are single-player.
 - **Prize claim**: a tournament rank pays only the address recorded at that rank, once, after the
   tournament is over (`Tournament::claim`, unchanged).
 - No entry point lets a caller write another player's record or another player's game.
