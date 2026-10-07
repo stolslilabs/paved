@@ -50,8 +50,9 @@ build, 4.5 to 5.1 GB for a gas run (`--max-threads 2`).
 - **Bases.** main `0a1d7a6` and #242 head `3f91639` (P7), each exported with `git archive` to a scratch folder
   outside the worktree. Nothing of the prototypes is committed.
 - **Class sizes.** `scarb --release build` with `casm = true` (what `scripts/deploy.sh` declares); Sierra =
-  length of `sierra_program`, CASM = length of `bytecode` of the compiled class, as `scripts/class-sizes.sh` of
-  #242 reads them.
+  length of `sierra_program`, CASM = length of `bytecode` of the compiled class, as `scripts/class-sizes.sh`
+  (main, #243) reads them. #243 only added `casm = true` to `Scarb.toml` after `0a1d7a6`; the contract
+  sources measured are those of main today.
 - **Where the bytes go.** The compiled class carries `bytecode_segment_lengths`, one segment per Sierra function in
   the order of `sierra_program_debug_info.user_func_names` (their counts and sums match the bytecode exactly, for
   every class measured). This gives the CASM size of every function that was not inlined; inlined code counts in
@@ -317,8 +318,8 @@ What is measured and what is derived:
   attribute). The e2e suite also passes (120 of 127) except for harness work the PR must do: 4 constructor tests pass the
   old calldata, and 3 tests exceed their gas budgets by the one call.
 - **Deploy.** `scripts/deploy.sh` declares `Lobby` before `Daily` and `Tutorial`, passes its class hash as the last
-  constructor argument of both, and writes `classes.Lobby` into `devnet.json`. `scripts/class-sizes.sh` (#242)
-  lists `Lobby`. The smoke check is unchanged: it plays the Tutorial through the same entry points.
+  constructor argument of both, and writes `classes.Lobby` into `devnet.json`. `scripts/class-sizes.sh` measures
+  every class of the build, so it covers `Lobby` with no change. The smoke check is unchanged: it plays the Tutorial through the same entry points.
 - **Audits (OPERATIONS).** No correctness audit: the structure-state algorithm is unchanged. A **security audit**
   is due: the paths that hold and pay tokens (spawn, claim, sponsor) and the owner-only paths now run through a
   library call, and that pattern is new in the repository. Points to check: caller and contract address under the
@@ -345,7 +346,9 @@ What is measured and what is derived:
 Its cost: every game over, discard, surrender, spawn and claim pays one library call (+118,650 L2 gas in release,
 measured on the closing moves; +9.6 % on the closing move with the full quests report). Its risk: `Daily` keeps
 only 1,320 felts below 90 %. That is enough for P8, which goes into `Lobby`, but not for growth of the move code.
-`scripts/class-sizes.sh` in CI catches it. The measured way out is (a) on top of (e), or (c2).
+`scripts/class-sizes.sh` in CI flags a class above 90 % as
+"tight" and fails above the cap. Its own header warns that the sequencer compiles CASM with its own compiler
+version, which is one more reason not to spend the 1,320. The measured way out is (a) on top of (e), or (c2).
 
 What reverses this choice: the PM rules that +3 % on a simple move may be exceeded (then (a) gives more room in
 `Daily`); or the move code has to grow by more than 1,320 felts (then (a) or (c2)); or a security audit refuses
@@ -380,8 +383,7 @@ Not stacked: each one branches from main and targets main (rule of the programme
 
 **#242 (P7) after S1.** It merges main and moves its additions to where (e) puts them:
 - the quiver components, the `report` and the quest definitions go into `Lobby`;
-- `Daily.build` and `Tutorial.build` call `Lobby.report(tally)` / `Lobby.tutorial_report()` only at game over;
-- `scripts/class-sizes.sh` lists `Lobby`.
+- `Daily.build` and `Tutorial.build` call `Lobby.report(tally)` / `Lobby.tutorial_report()` only at game over.
 
 Acceptance as #242 plus the sizes of section 2 (e) (Daily at most 72,408, measured on the prototype) and k within
 +0.2 % of the prototype's 2,388,879 (test profile). No new audit beyond #242's, unless S1's audit asks for one.
