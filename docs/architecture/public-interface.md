@@ -214,3 +214,10 @@ working.
     and a Herdsman of the same forest give two events). The event is also emitted when the points
     are 0 (a forest that closes next to no closed city for the Herdsman): the character comes back
     all the same. Forests are scored only when closed, see `native-storage.md`.
+
+- **S1, Lobby library class** (P-26).
+  - The constructors of `Daily` and `Tutorial` take a new last argument, `lobby_class: ClassHash`:
+    `Daily(owner, account, token, lobby_class)` and `Tutorial(owner, account, lobby_class)`. The class is
+    set at construction and cannot change.
+  - Every function, view and event of both contracts is unchanged. A client does not call the Lobby and
+    needs no ABI for it; `contracts/deployments/<network>.json` gains `classes.Lobby`, the class hash.

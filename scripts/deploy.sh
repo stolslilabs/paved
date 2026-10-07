@@ -12,6 +12,8 @@
 # It must be fresh: a second run on the same node fails at the first deploy (same addresses).
 #
 # Declared only: Lobby (run by Daily and Tutorial through library calls; its constructor reverts).
+# The Lobby class hash is checked as declared on the node (starknet_getClass) before Daily and Tutorial are
+# deployed; the script refuses otherwise.
 # Deploy order: Token, Account, Daily(owner, account, token, lobby class), Tutorial(owner, account,
 # lobby class).
 # Deployer, owner and smoke player: the first predeployed devnet account, read from the node at run
@@ -174,6 +176,11 @@ ACCOUNT_CLASS="$(declare_class Account)"
 DAILY_CLASS="$(declare_class Daily)"
 TUTORIAL_CLASS="$(declare_class Tutorial)"
 LOBBY_CLASS="$(declare_class Lobby)"
+
+# Daily and Tutorial only store the Lobby class hash: an undeclared one would deploy fine and revert every
+# spawn, claim, sponsor, discard and surrender. Refuse before deploying anything.
+rpc starknet_getClass "[\"latest\",\"$LOBBY_CLASS\"]" | pyj '"ok" if "result" in d else 1/0' >/dev/null 2>&1 ||
+  die "Lobby class $LOBBY_CLASS is not declared on $RPC_URL: refusing to deploy Daily and Tutorial"
 
 echo "== deploy"
 TOKEN="$(deploy Token "$TOKEN_CLASS")"
