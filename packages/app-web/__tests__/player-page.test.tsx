@@ -52,6 +52,11 @@ describe("Player page", () => {
     expect(fixture.requests).toContain(`/v1/players/${FIXTURE_ADA}/tournaments/${FIXTURE_TOURNAMENT}`);
   });
 
+  it("says the Tournaments section looks only among the last 10 games", async () => {
+    player(FIXTURE_ADA);
+    expect(await screen.findByText("Among the last 10 games.")).toBeTruthy();
+  });
+
   it("shows the indexer's lag", async () => {
     fixture.state.behind = 4;
     player(FIXTURE_ADA);

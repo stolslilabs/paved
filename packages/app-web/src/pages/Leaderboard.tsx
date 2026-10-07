@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { indexerPlayerId, useIndexer, useIndexerRead, usePaved, useRead } from "@paved/chain";
+import { MAX_TOURNAMENT_ID, indexerPlayerId, useIndexer, useIndexerRead, usePaved, useRead } from "@paved/chain";
 import type { LeaderboardEntry } from "@paved/chain";
 import { IndexerFailure, IndexerLag } from "../components/IndexerLag";
 import { BOARD_PAGE, DAYS_LISTED, dayLabel, playerLabel, slotsLabel } from "../utils/indexer-view";
@@ -9,9 +9,9 @@ const page = { minHeight: "100%", background: "#0a0a0a", color: "#f5f5f5", paddi
 const cell = { padding: "6px 10px", textAlign: "left" } as const;
 const button = { border: "1px solid rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.08)", color: "#fff", borderRadius: 8, padding: "6px 12px", cursor: "pointer" } as const;
 
-/** A tournament id from the route; null when it is not a plain decimal. */
+/** A tournament id from the route; null when it is not a plain decimal or is above what the API serves. */
 function routeId(text: string | undefined): number | null {
-  return text !== undefined && /^\d+$/.test(text) && Number.isSafeInteger(Number(text)) ? Number(text) : null;
+  return text !== undefined && /^\d+$/.test(text) && Number(text) <= MAX_TOURNAMENT_ID ? Number(text) : null;
 }
 
 /**
@@ -56,6 +56,7 @@ export function LeaderboardPage() {
     );
   }
 
+  // `useIndexerRead` shows an answer only for the day and page asked now, so these rows are never another's.
   const answer = board.data;
   const rows = answer?.data.entries ?? [];
   const total = answer?.data.total ?? 0;
@@ -87,6 +88,10 @@ export function LeaderboardPage() {
         <div role="alert">Not a tournament</div>
       ) : !answer && board.error ? (
         <IndexerFailure error={board.cause} onRetry={board.refresh} />
+      ) : id === null && !waitingForToday && !days.data && days.error ? (
+        <IndexerFailure error={days.cause} onRetry={days.refresh} />
+      ) : id === null && !waitingForToday && days.data ? (
+        <div role="status">No tournament yet</div>
       ) : !answer ? (
         <div role="status">{board.loading || waitingForToday || days.loading || id === null ? "Loading leaderboard…" : "No tournament yet"}</div>
       ) : total === 0 ? (

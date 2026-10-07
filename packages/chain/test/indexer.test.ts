@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_HEAD, FIXTURE_NAMELESS, FIXTURE_TOURNAMENT, FixtureIndexer } from "../src/testing";
+import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_HEAD, FIXTURE_NAMELESS, FIXTURE_TOURNAMENT, FixtureIndexer, RUNNING_GAME } from "../src/testing";
 import { IndexerClient, IndexerError, MAX_TOURNAMENT_ID, createIndexerClient, indexerPlayerId } from "../src/indexer";
 
 let fixture: FixtureIndexer;
@@ -15,9 +15,29 @@ describe("endpoints", () => {
   test("/v1/head", async () => {
     const { data, head } = await client.head();
     expect(head).toEqual(FIXTURE_HEAD);
-    expect(data).toMatchObject({ state: "ok", fromBlock: 12, lastMismatch: null });
+    expect(data).toMatchObject({ state: "ok", fromBlock: 12, lastMismatch: null, tournamentsChecked: 2 });
     expect(data.contracts.daily).toBe("0x2");
     expect(fixture.requests).toEqual(["/v1/head"]);
+  });
+
+  test("/v1/head accepts the as-built extra fields and any unknown key, and a missing checks", async () => {
+    const ok = { version: 1, status: "ok", head: FIXTURE_HEAD, behind: 0, state: "ok", chain_id: "0x1", from_block: 3, contracts: { daily: "0x2" } };
+    const raw = (extra: object) => {
+      fixture.state.rawBody = { text: JSON.stringify({ ...ok, ...extra }), httpStatus: 200 };
+      return client.head();
+    };
+    expect((await raw({ checks: { tournaments_checked: 4, last_mismatch: 20730, later_field: [1] }, later: "x" })).data).toMatchObject({ lastMismatch: 20730, tournamentsChecked: 4 });
+    expect((await raw({ checks: { last_mismatch: null } })).data).toMatchObject({ lastMismatch: null, tournamentsChecked: null });
+    expect((await raw({})).data).toMatchObject({ lastMismatch: null, tournamentsChecked: null });
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, checks: { tournaments_checked: -1, last_mismatch: null } }), httpStatus: 200 };
+    expect(await kindOf(client.head())).toBe("bad-response");
+  });
+
+  test("a running game: the null score, tournament and end time read as 0, not as a bad answer", async () => {
+    fixture.games = [RUNNING_GAME, ...fixture.games];
+    const { data } = await client.playerGames(FIXTURE_ADA);
+    expect(data.games[0]).toEqual({ contract: "daily", gameId: 913, mode: 1, startTime: 1791875000, tournamentId: 20733, over: false, score: 0, countedTournamentId: 0, endTime: 0 });
+    expect((await client.game("daily", 913)).data.over).toBe(false);
   });
 
   test("/v1/tournaments pages newest first with before and next", async () => {
@@ -113,6 +133,15 @@ describe("envelope", () => {
     expect(error).toBeInstanceOf(IndexerError);
     expect(error).toMatchObject({ kind: "unavailable", status });
     expect(error.detail.reason).toBeTruthy();
+    expect(error.detail.httpStatus).toBe(503);
+  });
+
+  test("as built, /v1/head answers 503 when the state is not ok: unavailable with its status, the head in the body unread", async () => {
+    const body = { version: 1, status: "rewinding", reason: "reorg", head: FIXTURE_HEAD };
+    fixture.state.rawBody = { text: JSON.stringify(body), httpStatus: 503 };
+    expect(await client.head().catch((e) => e)).toMatchObject({ kind: "unavailable", status: "rewinding", detail: { reason: "reorg", httpStatus: 503 } });
+    fixture.state.rawBody = { text: JSON.stringify({ ...body, status: "loading", head: null }), httpStatus: 503 };
+    expect(await client.head().catch((e) => e)).toMatchObject({ kind: "unavailable", status: "loading" });
   });
 
   test("a wrong version is its own error, whatever the status", async () => {

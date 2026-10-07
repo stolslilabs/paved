@@ -203,11 +203,25 @@ view, never from here.
 - `IndexerProvider`, `useIndexer` and `useIndexerRead` follow the rules of `useRead`: a read on its inputs, on
   `refresh`, and on visibility; no timer. After a failure the last answer stays in `data`, so a screen can show it
   marked stale beside the error.
+- As built (`indexer.md`, "As built"): `head()` also reads `checks.tournaments_checked` (`tournamentsChecked`, null when
+  absent) and ignores any other key, known or later, and a missing `checks`; the 503 of `/v1/head` when the state is
+  not `ok` is `unavailable` with its `status`, like every other route; a game that is still running answers `score`,
+  `counted_tournament_id` and `end_time` as null, which the client reads as 0 (`over` says which game it is) and shows
+  as "In progress".
+- A read never shows another input's answer: `useAsyncRead` (and so `useIndexerRead`) hides what was read for earlier
+  inputs at once, in the render that changes them, so the leaderboard never shows rows of another day or page, nor
+  another day's failure. A refresh of the same inputs still keeps its last answer, marked stale.
+- A `tournament` answer for an id near `MAX_TOURNAMENT_ID` carries `start_time` above 2^53; the client refuses it as
+  `bad-response` (reported to META).
 - Not done: the `head.hash` check against the node's block (the fork guard of the indexer doc) and the fallback to the
   on-chain top 3 when the indexer is down.
 - Tests run against `FixtureIndexer`, imported from `@paved/chain/testing` only (not from the public entry, so no app code can reach it), an in-process `fetch` built from the doc's examples that
   refuses parameters as the API does and can be put `behind`, `loading`, `rewinding`, `halted`, `down` or on another
-  `version`. No real indexer exists yet.
+  `version`; `RUNNING_GAME` is a game row as the real indexer writes a running game. Its answers follow the real
+  indexer's as built. `packages/chain/test/indexer-real.test.ts` also runs the client against the real
+  `packages/indexer` started in-process over its own fake node (an in-memory SQLite, a free local port, real HTTP):
+  every route, paging, a running game, `halted` (503 on `/v1/head` too), CORS. Run on devnet is configured in
+  `packages/README.md`; the end-to-end check on a live devnet waits for CORE's regenerated `devnet.json`.
 
 ## Tests
 

@@ -75,6 +75,7 @@ export function PlayerPage() {
       )}
 
       <h2 style={{ margin: "12px 0 0" }}>Tournaments</h2>
+      <div style={{ color: "#999", fontSize: 12 }}>{`Among the last ${GAMES_PAGE} games.`}</div>
       {!games.data ? (
         games.error ? <IndexerFailure error={games.cause} onRetry={games.refresh} /> : <div role="status">Loading…</div>
       ) : tournamentIds.length === 0 ? (
