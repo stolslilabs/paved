@@ -63,3 +63,29 @@ VITE_INDEXER_URL=http://127.0.0.1:8787 bun run --cwd packages/app-web dev
 `/v1/head` included, answers 503 with `loading`, `rewinding` or `halted`, which the screens show as unavailable.
 The client's contract test, `packages/chain/test/indexer-real.test.ts`, starts the real indexer in-process on its
 own fake node (no chain, no browser) and reads every route.
+
+## End-to-end check on devnet (on demand)
+
+`packages/chain/test/e2e-devnet.test.ts` drives the client's own code (`PavedClient`, `PavedWriter`, `GameViews`,
+`EventReader`, `IndexerClient`) against a local node, the real deployment and the real indexer, with no browser:
+three players are created; one plays a Tutorial game; all three spawn a Daily game at `entry_price` and play it to
+game over; the node's clock is moved past the day's end (`devnet_increaseTime`); the prizes are claimed through the
+contract view; the leaderboard, the players and the games read from the indexer are compared with the contract
+views and the events (scores, ranks, `prize_ranks`, `checks.last_mismatch`). It runs only with `PAVED_E2E=1`
+(CI does not), takes about 2.5 minutes and about 0.3 GB.
+
+It starts nothing: the node must be **fresh** (the test moves its clock one day forward) and `scripts/deploy.sh devnet`
+must have run on it. Note the PIDs and stop them at the end.
+
+```sh
+starknet-devnet --host 127.0.0.1 --port 5050 --seed 42          # PID to note
+scripts/deploy.sh devnet                                        # git checkout contracts/deployments/devnet.json after, if it changed
+node packages/indexer/src/main.ts run --deployment contracts/deployments/devnet.json \
+  --db /tmp/paved-e2e.db --port 8787 --poll 300                 # from a shell where INDEXER_RPC_URL=http://127.0.0.1:5050; PID to note
+NODE_OPTIONS=--max-old-space-size=2048 bun run --cwd packages/chain test:e2e
+```
+
+`E2E_DEPLOYMENT` (default `contracts/deployments/devnet.json`), `E2E_INDEXER_URL` (default `http://127.0.0.1:8787`),
+`E2E_TABLE=<file>` (writes the steps and their evidence as a markdown table) and `E2E_VERBOSE=<file>` (one line per
+Daily placement) are optional. The players are the predeployed accounts 1 to 3; account 0 is the deployer, whose smoke
+game stays running in the chain and is part of the day's prize and game counts. Rerun on a fresh node, not on the same.
