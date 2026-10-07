@@ -841,9 +841,9 @@ pub mod check {
         }
     }
 
-    /// P-16 (PR P5-8) as an invariant of the board: after a move, no Woodsman or Herdsman stands on a
-    /// forest that the walk finds finished (closed, every adjacent road closed). The ruling asked a
-    /// road or a city that closes away from a forest to assess it again, so that its character
+    /// P-16 (PR P5-8) as an invariant of the board: after a move, no Woodsman or Herdsman stands on
+    /// a forest that the walk finds finished (closed, every adjacent road closed). The ruling asked
+    /// a road or a city that closes away from a forest to assess it again, so that its character
     /// scores and returns. No board that a placement accepts keeps such a forest waiting (a forest
     /// closes only when the tiles around it, which hold every road next to it, are all placed: see
     /// the report of P5-8), so the runtime has no such step; this check proves it holds on every
@@ -873,7 +873,11 @@ pub mod check {
             let at: Spot = character.spot.into();
             let (count, _, _, _, _) = ForestCount::start(game, tile, at, ref s);
             if count != 0 {
-                println!("Check: tile {} spot {}: forest finished, character stays", tile.id, character.spot);
+                println!(
+                    "Check: tile {} spot {}: forest finished, character stays",
+                    tile.id,
+                    character.spot,
+                );
             }
             assert(count == 0, 'Check: forest left unscored');
         }
