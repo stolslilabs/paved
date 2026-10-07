@@ -1,0 +1,27 @@
+{
+  "name": "@paved/indexer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Paved's indexer: follows a Starknet node, keeps the games and players of Daily, Tutorial and Account in SQLite, serves the daily leaderboard over a read-only HTTP API (docs/architecture/indexer.md).",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "start": "node src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:devnet": "PAVED_DEVNET=1 vitest run --config vitest.devnet.config.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "starknet": "10.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}
