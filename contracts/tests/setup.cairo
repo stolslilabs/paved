@@ -146,7 +146,8 @@ pub mod setup {
         address
     }
 
-    /// Deploys the token, `Account`, `Tutorial` and `Daily`, registers four players with tokens
+    /// Deploys the token and `Account`, declares `Lobby`, deploys `Tutorial` and `Daily` (with the
+    /// class hash of `Lobby`), registers four players with tokens
     /// approved for `Daily`, and spawns a game of `mode` for `PLAYER` (none for `Mode::None`).
     /// Returns a `TestStore` of the contract of `mode` (`Daily` for `Mode::None`).
     #[inline]
@@ -155,9 +156,10 @@ pub mod setup {
         let owner: felt252 = OWNER().into();
         let token_address = deploy("Token", array![]);
         let account_address = deploy("Account", array![owner]);
-        let tutorial_address = deploy("Tutorial", array![owner, account_address.into()]);
+        let lobby: felt252 = (*declare("Lobby").unwrap().contract_class().class_hash).into();
+        let tutorial_address = deploy("Tutorial", array![owner, account_address.into(), lobby]);
         let daily_address = deploy(
-            "Daily", array![owner, account_address.into(), token_address.into()],
+            "Daily", array![owner, account_address.into(), token_address.into(), lobby],
         );
         let systems = Systems {
             account: IAccountDispatcher { contract_address: account_address },

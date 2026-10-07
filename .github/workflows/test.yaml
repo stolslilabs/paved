@@ -30,6 +30,7 @@ jobs:
             contracts:
               - 'contracts/**'
               - 'scripts/abis.sh'
+              - 'scripts/class-sizes.sh'
               - '.tool-versions'
               - '.github/workflows/**'
               - '.github/actions/**'

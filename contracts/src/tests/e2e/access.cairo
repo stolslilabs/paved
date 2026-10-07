@@ -303,6 +303,9 @@ fn test_access_game_ids_are_counted_per_contract() {
     assert(tutorial_game.mode != daily_game.mode, 'Access: separate games');
 }
 
+/// A non-zero class hash for the constructor checks, which do not call the lobby.
+const LOBBY: felt252 = 'lobby';
+
 /// The first felt of the panic raised by the constructor of `name` deployed with `calldata`.
 fn constructor_panic(name: ByteArray, calldata: Array<felt252>) -> felt252 {
     let class = declare(name).unwrap().contract_class();
@@ -311,39 +314,64 @@ fn constructor_panic(name: ByteArray, calldata: Array<felt252>) -> felt252 {
 }
 
 #[test]
-#[available_gas(l2_gas: 506142)]
+#[available_gas(l2_gas: 544331)]
 fn test_access_daily_constructor_reverts_on_zero_account() {
     let owner: felt252 = OWNER().into();
     let token: felt252 = SOMEONE().into();
     assert(
-        constructor_panic("Daily", array![owner, 0, token]) == 'Daily: account is zero',
+        constructor_panic("Daily", array![owner, 0, token, LOBBY]) == 'Daily: account is zero',
         'Access: account',
     );
 }
 
 #[test]
-#[available_gas(l2_gas: 506142)]
+#[available_gas(l2_gas: 544331)]
 fn test_access_daily_constructor_reverts_on_zero_token() {
     let owner: felt252 = OWNER().into();
     let account: felt252 = SOMEONE().into();
     assert(
-        constructor_panic("Daily", array![owner, account, 0]) == 'Daily: token is zero',
+        constructor_panic("Daily", array![owner, account, 0, LOBBY]) == 'Daily: token is zero',
         'Access: token',
     );
 }
 
 #[test]
-#[available_gas(l2_gas: 465959)]
+#[available_gas(l2_gas: 544961)]
+fn test_access_daily_constructor_reverts_on_zero_lobby_class() {
+    let owner: felt252 = OWNER().into();
+    let account: felt252 = SOMEONE().into();
+    let token: felt252 = ANYONE().into();
+    assert(
+        constructor_panic(
+            "Daily", array![owner, account, token, 0],
+        ) == 'Daily: lobby class is zero',
+        'Access: daily lobby',
+    );
+}
+
+#[test]
+#[available_gas(l2_gas: 504777)]
+fn test_access_tutorial_constructor_reverts_on_zero_lobby_class() {
+    let owner: felt252 = OWNER().into();
+    let account: felt252 = SOMEONE().into();
+    assert(
+        constructor_panic("Tutorial", array![owner, account, 0]) == 'Tutorial: lobby class is zero',
+        'Access: tutorial lobby',
+    );
+}
+
+#[test]
+#[available_gas(l2_gas: 504147)]
 fn test_access_tutorial_constructor_reverts_on_zero_account() {
     let owner: felt252 = OWNER().into();
     assert(
-        constructor_panic("Tutorial", array![owner, 0]) == 'Tutorial: account is zero',
+        constructor_panic("Tutorial", array![owner, 0, LOBBY]) == 'Tutorial: account is zero',
         'Access: tutorial account',
     );
 }
 
 #[test]
-#[available_gas(l2_gas: 1327032)]
+#[available_gas(l2_gas: 1403409)]
 fn test_access_constructors_revert_on_zero_owner() {
     let account: felt252 = SOMEONE().into();
     let token: felt252 = ANYONE().into();
@@ -352,11 +380,13 @@ fn test_access_constructors_revert_on_zero_owner() {
         'Access: account owner',
     );
     assert(
-        constructor_panic("Tutorial", array![0, account]) == 'Ownable: new owner is zero',
+        constructor_panic("Tutorial", array![0, account, LOBBY]) == 'Ownable: new owner is zero',
         'Access: tutorial owner',
     );
     assert(
-        constructor_panic("Daily", array![0, account, token]) == 'Ownable: new owner is zero',
+        constructor_panic(
+            "Daily", array![0, account, token, LOBBY],
+        ) == 'Ownable: new owner is zero',
         'Access: daily owner',
     );
 }

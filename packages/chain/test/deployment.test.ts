@@ -107,6 +107,17 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     expect(d.addresses.Account).toBe(real.contracts!.Account!.address);
   });
 
+  test("a `classes` key (P-26: classes.Lobby, a declared class with no address) changes nothing", () => {
+    const withClasses = { ...real, classes: { Lobby: { class_hash: "0x123" } } } as DeploymentFile;
+    const env = { addresses: { Tutorial: "0x77" } };
+    expect(resolveDeployment({ network: "devnet", file: withClasses })).toEqual(resolveDeployment({ network: "devnet", file: real }));
+    expect(resolveDeployment({ network: "devnet", file: withClasses, env })).toEqual(resolveDeployment({ network: "devnet", file: real, env }));
+    const d = resolveDeployment({ network: "devnet", file: withClasses });
+    expect(d.configured).toBe(true);
+    expect(d.tokenDecimals).toBe(18);
+    expect(Object.keys(d.addresses).sort()).toEqual(["Account", "Daily", "Token", "Tutorial"]);
+  });
+
   test("the symbol is never read for display: the label stays $TILE (D-2)", () => {
     expect(real.token?.symbol).toBe("LORDS");
     expect(Object.keys(resolveDeployment({ network: "devnet", file: real }))).not.toContain("tokenSymbol");

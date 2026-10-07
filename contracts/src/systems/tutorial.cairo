@@ -19,13 +19,14 @@ pub mod Tutorial {
 
     // Internal imports
 
-    use paved::constants;
     use paved::events::Event as PavedEvent;
     use paved::store::{StoreImpl, StoreTrait};
+    use paved::systems::lobby::{ILobbyDispatcherTrait, ILobbyLibraryDispatcher};
     use paved::types::mode::Mode;
     use paved::views::{BuilderView, CharacterView, GameView, IGameView, TileView, ViewsImpl};
     use quiver_achievement::component::AchievementComponent;
-    use starknet::{ContractAddress, get_caller_address};
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ClassHash, ContractAddress};
 
     // Local imports
 
@@ -35,32 +36,23 @@ pub mod Tutorial {
 
     pub mod errors {
         pub const ZERO_ACCOUNT_ADDRESS: felt252 = 'Tutorial: account is zero';
+        pub const ZERO_LOBBY_CLASS: felt252 = 'Tutorial: lobby class is zero';
     }
 
     // Components
 
+    // Hostable runs in the lobby class; declared here so the storage and event layout stay
+    // those of the published interface
     component!(path: HostableComponent, storage: hostable, event: HostableEvent);
-    impl HostableInternalImpl = HostableComponent::InternalImpl<ContractState>;
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
     component!(path: TutoriableComponent, storage: tutoriable, event: TutoriableEvent);
     impl TutoriableInternalImpl = TutoriableComponent::InternalImpl<ContractState>;
-    // [Info] Achievements: the Tutorial only reports task 10. Progress reads no definition, so the
-    // definitions live in `Daily` and nothing is stored here; no view and no external entrypoint.
+    // Achievements run in the lobby class (task 10); declared here so the storage and the events
+    // are those of the interface
     component!(path: AchievementComponent, storage: achievement, event: AchievementEvent);
-    impl AchievementInternalImpl = AchievementComponent::InternalImpl<ContractState>;
-    impl AchievementTracking = quiver_achievement::store::tracking::TrackAll<ContractState>;
-
-    impl AchievementHooks of AchievementComponent::AchievementHooksTrait<ContractState> {
-        // Used by the external `AchievementImpl` only, which is not embedded
-        fn authorize_admin(
-            self: @AchievementComponent::ComponentState<ContractState>, caller: ContractAddress,
-        ) -> bool {
-            false
-        }
-    }
 
     // Storage
 
@@ -74,6 +66,8 @@ pub mod Tutorial {
         tutoriable: TutoriableComponent::Storage,
         #[substorage(v0)]
         achievement: AchievementComponent::Storage,
+        /// The `Lobby` class run by library call; written by the constructor only.
+        lobby_class: ClassHash,
     }
 
     // Events
@@ -97,12 +91,17 @@ pub mod Tutorial {
 
     #[constructor]
     fn constructor(
-        ref self: ContractState, owner: ContractAddress, account_address: ContractAddress,
+        ref self: ContractState,
+        owner: ContractAddress,
+        account_address: ContractAddress,
+        lobby_class: ClassHash,
     ) {
-        // [Check] Account address is set
+        // [Check] Addresses are set
         assert(account_address.is_non_zero(), errors::ZERO_ACCOUNT_ADDRESS);
+        assert(lobby_class.is_non_zero(), errors::ZERO_LOBBY_CLASS);
         // [Effect] Initialize components
         self.ownable.initialize(owner);
+        self.lobby_class.write(lobby_class);
         // [Effect] Players are read from the Account contract
         StoreImpl::new().initialize(account_address);
     }
@@ -112,41 +111,31 @@ pub mod Tutorial {
     #[abi(embed_v0)]
     impl TutorialImpl of ITutorial<ContractState> {
         fn spawn(ref self: ContractState) -> u32 {
-            // [Effect] Spawn a game
-            let (game_id, _) = self.hostable.spawn(Mode::Tutorial);
-            // [Return] Game ID
-            game_id
+            // [Effect] Spawn a game, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.spawn(Mode::Tutorial)
         }
 
         fn discard(ref self: ContractState, game_id: u32) {
-            // [Effect] Discard a tile
-            let over = self.tutoriable.discard(game_id);
-            self.report(over);
+            // [Effect] Discard a tile, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                .tutorial_discard(game_id);
         }
 
         fn surrender(ref self: ContractState, game_id: u32) {
-            // [Effect] Surrender game
-            let over = self.tutoriable.surrender(game_id);
-            self.report(over);
+            // [Effect] Surrender game, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                .tutorial_surrender(game_id);
         }
 
         fn build(ref self: ContractState, game_id: u32) {
             // [Effect] Build a tile
             let over = self.tutoriable.build(game_id);
-            self.report(over);
-        }
-    }
-    #[generate_trait]
-    impl InternalImpl of InternalTrait {
-        /// A Tutorial game over reports one unit of task 10 for its player, after the game over.
-        fn report(ref self: ContractState, over: bool) {
+            // [Effect] A game that ends reports task 10, in the lobby class (one call)
             if over {
-                let player_id: felt252 = get_caller_address().into();
-                self.achievement.progress(player_id, constants::TASK_TUTORIAL_FINISHED, 1);
+                ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.tutorial_report();
             }
         }
     }
-
     #[abi(embed_v0)]
     impl GameViewImpl of IGameView<ContractState> {
         fn game(self: @ContractState, game_id: u32) -> GameView {

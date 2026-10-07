@@ -11,7 +11,9 @@
 #   starknet-devnet --host 127.0.0.1 --port 5050 --seed 42
 # It must be fresh: a second run on the same node fails at the first deploy (same addresses).
 #
-# Deploy order: Token, Account, Daily(owner, account, token), Tutorial(owner, account).
+# Declared only: Lobby (run by Daily and Tutorial through library calls; its constructor reverts).
+# Deploy order: Token, Account, Daily(owner, account, token, lobby class), Tutorial(owner, account,
+# lobby class).
 # Deployer, owner and smoke player: the first predeployed devnet account, read from the node at run
 # time (public dev keys of the node). The key is only held in a temporary accounts file, removed on
 # exit; nothing secret is written in the repository.
@@ -171,12 +173,13 @@ TOKEN_CLASS="$(declare_class Token)"
 ACCOUNT_CLASS="$(declare_class Account)"
 DAILY_CLASS="$(declare_class Daily)"
 TUTORIAL_CLASS="$(declare_class Tutorial)"
+LOBBY_CLASS="$(declare_class Lobby)"
 
 echo "== deploy"
 TOKEN="$(deploy Token "$TOKEN_CLASS")"
 ACCOUNT="$(deploy Account "$ACCOUNT_CLASS" "$DEPLOYER")"
-DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER" "$ACCOUNT" "$TOKEN")"
-TUTORIAL="$(deploy Tutorial "$TUTORIAL_CLASS" "$DEPLOYER" "$ACCOUNT")"
+DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER" "$ACCOUNT" "$TOKEN" "$LOBBY_CLASS")"
+TUTORIAL="$(deploy Tutorial "$TUTORIAL_CLASS" "$DEPLOYER" "$ACCOUNT" "$LOBBY_CLASS")"
 
 DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$(head -1 "$WORK_DIR/deploy-txs")\"]" | pyj 'd["result"]["block_number"]')"
 DECIMALS="$(hex_int "$(call "$TOKEN" decimals)")"
@@ -186,10 +189,10 @@ echo "   token $SYMBOL, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOC
 
 mkdir -p "$(dirname "$OUT")"
 python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_URL" "$DEPLOYED_AT" "$DEPLOYED_BLOCK" \
-  "$DECIMALS" "$SYMBOL" "Token=$TOKEN=$TOKEN_CLASS" "Account=$ACCOUNT=$ACCOUNT_CLASS" \
+  "$DECIMALS" "$SYMBOL" "$LOBBY_CLASS" "Token=$TOKEN=$TOKEN_CLASS" "Account=$ACCOUNT=$ACCOUNT_CLASS" \
   "Daily=$DAILY=$DAILY_CLASS" "Tutorial=$TUTORIAL=$TUTORIAL_CLASS" <<'PY'
 import json, sys
-out, network, chain_id, rpc_url, commit, block, decimals, symbol, *items = sys.argv[1:]
+out, network, chain_id, rpc_url, commit, block, decimals, symbol, lobby, *items = sys.argv[1:]
 c = {}
 for item in items:
     name, address, class_hash = item.split("=")
@@ -202,6 +205,8 @@ doc = {
     "deployed_block": int(block),
     "token": {**c["Token"], "decimals": int(decimals), "symbol": symbol},
     "contracts": {k: c[k] for k in ("Account", "Daily", "Tutorial", "Token")},
+    # Declared, not deployed: a class hash and no address, so not under `contracts`.
+    "classes": {"Lobby": lobby},
 }
 with open(out, "w") as f:
     json.dump(doc, f, indent=2)

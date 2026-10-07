@@ -18,6 +18,9 @@ exists; a public network is the owner's decision and `scripts/deploy.sh` refuses
     "Daily":    { "address": "0x..", "class_hash": "0x.." },
     "Tutorial": { "address": "0x..", "class_hash": "0x.." },
     "Token":    { "address": "0x..", "class_hash": "0x.." }
+  },
+  "classes": {
+    "Lobby": "0x.."
   }
 }
 ```
@@ -31,6 +34,7 @@ exists; a public network is the owner's decision and `scripts/deploy.sh` refuses
 | `deployed_block` | Block number of the first deploy transaction (`Token`). Start indexing events here; the declares are in earlier blocks |
 | `token` | The ERC20 `Daily` charges. `decimals` and `symbol` are read from the deployed token by call (`symbol` decoded from its short string) |
 | `contracts.<Name>` | Address and class hash. `Token` is the mock ERC20 (test and devnet only); it is repeated under `token` |
+| `classes.<Name>` | Class hash of a class that is declared and never deployed, so it has no address. `Lobby` runs `spawn`, `claim`, `sponsor`, `discard` and `surrender` of `Daily` and `Tutorial` by library call (`docs/architecture/native-storage.md`, "Classes"); the client never calls it and has no ABI for it |
 
 Hex strings are `0x`-prefixed and 64 digits for addresses and class hashes, as printed by sncast. ABIs are in
 `contracts/abis/<Contract>.json`.
@@ -44,8 +48,8 @@ scripts/deploy.sh devnet
 
 `RPC_URL` overrides the node (localhost only). Needs Scarb 2.20.1 and sncast 0.64.0 (the paths under
 `~/.asdf/installs` by default; `SCARB_BIN_DIR`, `SNCAST_BIN_DIR` override). The script builds (release profile, the one
-sncast declares), declares the four classes, deploys `Token`, `Account`, `Daily(owner, account, token)` and
-`Tutorial(owner, account)` with salt 1, writes the file, then runs a smoke check (mint, `Account.create`, `Daily.entry_price()` read and
+sncast declares), declares the five classes (`Lobby` last, never deployed), deploys `Token`, `Account`,
+`Daily(owner, account, token, lobby class)` and `Tutorial(owner, account, lobby class)` with salt 1, writes the file, then runs a smoke check (mint, `Account.create`, `Daily.entry_price()` read and
 printed, `Tutorial.spawn`, one `Tutorial.build` (the Tutorial refuses a discard while the tile has a legal placement), `Tutorial.game(id)` read back) and exits non-zero on any failure. The smoke plays the
 Tutorial, never a Daily game: even an ended Daily game leaves its entry price in the day's prize, and the smoke must leave no
 trace in the day's figures.

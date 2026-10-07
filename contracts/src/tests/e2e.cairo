@@ -3,6 +3,7 @@ pub mod daily;
 pub mod daily_advanced;
 pub mod events;
 pub mod forest;
+pub mod lobby;
 pub mod quests;
 pub mod store;
 pub mod tutorial;

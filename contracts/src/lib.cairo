@@ -80,6 +80,7 @@ pub mod components {
 pub mod systems {
     pub mod account;
     pub mod daily;
+    pub mod lobby;
     pub mod tutorial;
 }
 

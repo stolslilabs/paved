@@ -120,7 +120,7 @@ fn test_views_game_after_builds_and_discard() {
 }
 
 #[test]
-#[available_gas(l2_gas: 134836466)]
+#[available_gas(l2_gas: 142018505)]
 fn test_views_game_closed_by_surrender() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);

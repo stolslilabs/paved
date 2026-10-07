@@ -358,17 +358,24 @@ from the design above. Figures are L2 gas, measured on Linux with `contracts/tes
 
 - **Dependencies.** `quiver_quest = "=0.2.0"` and `quiver_achievement = "=0.2.0"` in `contracts/Scarb.toml`, checksums in
   `contracts/Scarb.lock`. Both build under the `2023_11` edition of the package.
-- **Daily** embeds both components (`TrackAll`, views and internal layer only) and the owner-only
-  `IDailyQuests`: `define_quest`, `retire_quest`, `define_achievement`, `retire_achievement`. A recurring quest
-  must start on a multiple of 86,400 (`'Daily: quest not on UTC day'`, Q-6). **Tutorial** embeds the achievement
-  component only, to report task 10 (a quest component there would emit a `QuestProgressed` for a task no quest uses; accepted by the orchestrator);
-  it has no views and no definitions.
+- **Where it runs (S1, `class-headroom.md`).** The quiver components, the report and the quest definitions are in the
+  `Lobby` class. `Daily` and `Tutorial` declare the components (storage and events, so the ABI and the layout are
+  the interface's) but embed no quiver code: `Daily.build` makes ONE library call, `Lobby.report(tally)`, only when
+  the game ends; `Tutorial.build` likewise makes `Lobby.tutorial_report()`. `discard` and `surrender` already run in
+  `Lobby` and report there, with no extra call. The owner-only `IDailyQuests` (`define_quest`, `retire_quest`,
+  `define_achievement`, `retire_achievement`) are wrappers on `Daily` that call `Lobby`. **The owner check is in
+  `Lobby`** (`assert_only_owner` on the `Ownable` storage of the caller, whose wrappers are the only way in, since
+  `Lobby` is never deployed); `e2e::quests` tests that a non-owner reverts through `Daily`. A recurring quest must
+  start on a multiple of 86,400 (`'Daily: quest not on UTC day'`, Q-6). `Tutorial` declares the achievement
+  component only, to report task 10 (a quest component there would emit a `QuestProgressed` for a task no quest
+  uses; accepted by the orchestrator). No quiver view is embedded anywhere (class size); definitions and progress
+  are read from events.
 - **Counters.** `Game` gains one field, `counts: u32`, holding `structures` (7 bits), `forests` (6), `wonders` (4) and
   `big` (6), saturating, read with `structures()`, `forests()`, `wonders()`, `big()`. It sits at bit 88 of the high
   half of the `GameState` word (23 bits, up to bit 111 of 123): no new slot. `Store::set_builder` keeps it.
 - **Report.** `PlayableComponent` returns the tally as one `u128` at game over (0 when the game is not over, so a
   move that does not end the game pays nothing for it), after `end_in_tournament` (which now returns the rank) and
-  after `GameOver`; `Daily` makes one `progress_many` per component from `paved::quests`, with its own list: the
+  after `GameOver`; `Lobby` makes one `progress_many` per component from `paved::quests`, with its own list: the
   quests get tasks 1 to 4 (at most 4 entries), the achievements tasks 1, 4, 5, 6, 7 and 9 (at most 6). Zero counts
   are dropped. Tutorial reports task 10 with one `progress`. The design's single list of 8 entries is split because
   each entry is an event (about 70k).
@@ -380,23 +387,17 @@ from the design above. Figures are L2 gas, measured on Linux with `contracts/tes
 - **Definitions** are not made by the contracts' constructor: the accepted list is defined with the entrypoints above
   (`e2e::quests::define_accepted_list` is the list as calls). The script that does it on a network belongs with the
   deploy task.
-- **Class sizes** (release profile, the one `scripts/deploy.sh` declares; felts; `scripts/class-sizes.sh` prints this
-  table in CI and fails above the Starknet limits of 81,920 Sierra and 81,920 CASM felts):
+- **Class sizes** (release; felts; `scripts/class-sizes.sh`; cap 81,920 Sierra and CASM, programme limit 90 %):
 
-  | | Sierra main | Sierra PR | CASM main | CASM PR | CASM % of cap, PR |
-  |---|---|---|---|---|---|
-  | `Daily` | 36,028 | 44,814 | 80,418 | **91,570** | 111.8 % (over) |
-  | `Tutorial` | 33,975 | 34,835 | 75,296 | 76,859 | 93.8 % |
-  | `Account` | 1,307 | 1,307 | 2,879 | 2,879 | 3.5 % |
-  | `Token` | 1,611 | 1,611 | 4,374 | 4,374 | 5.3 % |
+  | Class | Sierra S1 | CASM S1 | Sierra PR | CASM PR | Of the cap | Margin to 90 % |
+  |---|---:|---:|---:|---:|---:|---:|
+  | `Daily` | 31,129 | 69,062 | 32,507 | **72,424** | 88.4 % | 1,304 |
+  | `Tutorial` | 30,361 | 66,059 | 30,642 | 66,689 | 81.4 % | 7,039 |
+  | `Lobby` (declared only) | 21,226 | 47,299 | 26,759 | 58,636 | 71.6 % | 15,092 |
+  | `Account` | 1,307 | 2,879 | 1,307 | 2,879 | 3.5 % | |
+  | `Token` | 1,611 | 4,374 | 1,611 | 4,374 | 5.3 % | |
 
-  `Daily` does not fit. Main was already at 98.2 % of the cap. What was tried, in release, on `Daily` (CASM):
-  with both components, their views and the owner entrypoints 97,976; without the quiver views 91,570 (the choice
-  made here: the client and the indexer read definitions and progress from events); without the views and without
-  the define/retire entrypoints 84,362 (the reporting path alone costs +3.9k over main); with no quiver component in
-  `Daily` at all and the report sent to another contract through a dispatcher 82,405. So neither (a), (b) nor (c)
-  brings `Daily` under 81,920, and the 90 % target (73,728) is below main itself. It needs either a smaller game
-  class (the structure tables and walks, outside this PR) or a split of the game contract; the sizes are
-  the limit of any P7 shape. `Tutorial` is at 93.8 % (main 91.9 %).
+  `Daily` grows by 3,362 felts: the tally encoding in `build`, the call to `Lobby.report`, the four wrappers and the
+  `counts` unpack. The plan of section 4 of `class-headroom.md` was at most 72,408 (16 felts less).
 - **Event order.** At a game over the order is `GameOver`, the quest events, then the achievement events
   (`e2e::quests::test_quests_game_over_every_counter_at_maximum`, from `spy.get_events()`).

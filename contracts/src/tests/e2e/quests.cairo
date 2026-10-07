@@ -25,8 +25,9 @@ use quiver_quest::events::index::{QuestDefined, QuestProgressed};
 use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use snforge_std::{
-    EventSpyAssertionsTrait, EventSpyTrait, interact_with_state, spy_events,
-    start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
+    EventSpyAssertionsTrait, EventSpyTrait, interact_with_state, load, map_entry_address,
+    spy_events, start_cheat_block_timestamp_global, start_cheat_caller_address,
+    stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
 
@@ -95,8 +96,24 @@ fn define_accepted_list(daily: ContractAddress) {
     start_cheat_caller_address(daily, PLAYER());
 }
 
+/// The definitions `Lobby`'s code writes are in `Daily`'s storage, at the addresses the components
+/// give (`Quest_definitions`, `Achievement_definitions`): the layout pin of the quiver components.
 #[test]
-#[available_gas(l2_gas: 42896028)]
+#[available_gas(l2_gas: 44562725)]
+fn test_quests_definitions_live_in_the_callers_storage() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let daily = systems.daily.contract_address;
+    let quest = map_entry_address(selector!("Quest_definitions"), array![1].span());
+    let achievement = map_entry_address(selector!("Achievement_definitions"), array![9].span());
+    assert(*load(daily, quest, 1).at(0) == 0, 'Quests: stored before');
+    assert(*load(daily, achievement, 1).at(0) == 0, 'Achievements: stored before');
+    define_accepted_list(daily);
+    assert(*load(daily, quest, 1).at(0) != 0, 'Quests: not in the caller');
+    assert(*load(daily, achievement, 1).at(0) != 0, 'Achievements: not in the caller');
+}
+
+#[test]
+#[available_gas(l2_gas: 46043330)]
 fn test_quests_owner_defines_the_accepted_list() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let daily = systems.daily.contract_address;
@@ -126,7 +143,7 @@ fn test_quests_owner_defines_the_accepted_list() {
 }
 
 #[test]
-#[available_gas(l2_gas: 24094476)]
+#[available_gas(l2_gas: 25410221)]
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_define_quest_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -137,7 +154,7 @@ fn test_quests_define_quest_not_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 23960024)]
+#[available_gas(l2_gas: 25251776)]
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_define_achievement_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -153,7 +170,7 @@ fn test_quests_define_achievement_not_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 25827942)]
+#[available_gas(l2_gas: 27298593)]
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_retire_quest_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -167,7 +184,7 @@ fn test_quests_retire_quest_not_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 23768378)]
+#[available_gas(l2_gas: 24998778)]
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_retire_achievement_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -177,7 +194,7 @@ fn test_quests_retire_achievement_not_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 41449401)]
+#[available_gas(l2_gas: 45742137)]
 fn test_quests_owner_retires() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let daily = systems.daily.contract_address;
@@ -191,7 +208,7 @@ fn test_quests_owner_retires() {
 /// A recurring quest rolls over at 00:00 UTC only when its start is a multiple of a day (Q-6), the
 /// hour where `TournamentImpl::compute_id` rolls over.
 #[test]
-#[available_gas(l2_gas: 24093216)]
+#[available_gas(l2_gas: 25408961)]
 #[should_panic(expected: 'Daily: quest not on UTC day')]
 fn test_quests_define_quest_misaligned() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -207,7 +224,7 @@ fn test_quests_define_quest_misaligned() {
 
 /// A definition is created once.
 #[test]
-#[available_gas(l2_gas: 41275007)]
+#[available_gas(l2_gas: 45498075)]
 #[should_panic(expected: 'Quest: already defined')]
 fn test_quests_define_twice() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -222,7 +239,7 @@ fn test_quests_define_twice() {
 /// A game over with nothing scored reports the finished game only: the ranking (a score of 0
 /// never ranks) and `GameOver` happen.
 #[test]
-#[available_gas(l2_gas: 91007295)]
+#[available_gas(l2_gas: 95321625)]
 fn test_quests_game_over_every_count_zero() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
@@ -251,7 +268,7 @@ fn test_quests_game_over_every_count_zero() {
 /// the first rank: the largest lists (4 and 6 entries), and the game over, the ranking and
 /// `GameOver` all happen.
 #[test]
-#[available_gas(l2_gas: 101893619)]
+#[available_gas(l2_gas: 106199427)]
 fn test_quests_game_over_every_counter_at_maximum() {
     // [Setup] Not day 0, whose tournament id is the unset id 0
     start_cheat_block_timestamp_global(10 * 86400);
@@ -330,7 +347,7 @@ fn test_quests_game_over_every_counter_at_maximum() {
 
 /// A game over after its tournament closed ranks in nothing but still reports (Q-6): no WIN.
 #[test]
-#[available_gas(l2_gas: 77252819)]
+#[available_gas(l2_gas: 78111427)]
 fn test_quests_game_over_after_tournament_reports_without_win() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
@@ -355,7 +372,7 @@ fn test_quests_game_over_after_tournament_reports_without_win() {
 /// The counters follow the scoring: a 2-tile city closed with a Lord scores one structure, not a
 /// big one.
 #[test]
-#[available_gas(l2_gas: 83391170)]
+#[available_gas(l2_gas: 84486794)]
 fn test_quests_counters_follow_the_scoring() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let game = store.game(context.game_id);
@@ -374,7 +391,7 @@ fn test_quests_counters_follow_the_scoring() {
 
 /// A Tutorial game over reports task 10 to the achievements, and only that.
 #[test]
-#[available_gas(l2_gas: 33004954)]
+#[available_gas(l2_gas: 34307519)]
 fn test_quests_tutorial_game_over_reports_task_10() {
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
     let tutorial = systems.tutorial.contract_address;

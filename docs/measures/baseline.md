@@ -428,6 +428,23 @@ two tests, `test_base_*` primes a tournament and `test_bench_*` primes it then c
 cost of `interact_with_state` itself (`test_bench_noop` - `test_base_noop` = 517,560), which the bench pays and
 an internal call does not. Table in `docs/architecture/leaderboard.md`, "Limits".
 
+### Lobby library class (S1, P-26)
+
+`spawn`, `claim`, `sponsor`, `discard` and `surrender` of `Daily` and `Tutorial` run in the declared class `Lobby`
+through `library_call_syscall` (`docs/architecture/native-storage.md`, "Classes"). Scarb 2.20.1 / snforge 0.64.0,
+VPS (Linux), `RAYON_NUM_THREADS=1`, `--max-threads 2`, under `prlimit --as=8589934592` (peak RSS 4.5 GB per gas
+run). Full tables (both profiles, sizes): `docs/architecture/class-headroom.md`, "As built (S1)".
+
+- **Moves (a0 to f), the view (j):** unchanged to the unit in both profiles. Ceilings unchanged.
+- **Closing moves g, h, i** (`surrender`, now one library call): +146,730 in the test profile, +118,650 in
+  release. Test profile: g 1,234,989 -> 1,381,719, h 897,489 -> 1,044,219, i 719,000 -> 865,730. New ceilings,
+  measured + 5 %: 1,450,805, 1,096,430, 909,017.
+- **New scenario l**, game over on the last `build` (the game of c with its tile limit cut, then the move of a0):
+  5,277,705 (test profile), 2,872,365 in release, both the same on main. Ceiling 5,541,591. No library
+  call on S1; the reference for the game-over report of #242.
+- **Sizes** (CASM, release): `Daily` 80,418 -> 69,062 (84.3 % of the cap), `Tutorial` 75,296 -> 66,059 (80.6 %),
+  `Lobby` 47,299 (57.7 %).
+
 ## Line coverage of `contracts/src`
 
 Measured on the Mac (aarch64, scarb 2.20.1, snforge 0.64.0, cairo-coverage 0.6.1 from `~/.asdf/installs`;
@@ -522,37 +539,35 @@ None of them is a gameplay branch known to be unreached: the re-rooting branch o
 ## P7: quests and achievements (contracts)
 
 `contracts/tests/gas.cairo`, same method as above (L2 gas of the call alone), Linux, pinned toolchain
-(scarb 2.20.1, snforge 0.64.0). "Before" is main at `0cc8dd0`, "after" is the P7 contracts PR (CI log). The closing
-moves are `surrender` at the end of scenario c (a 6-tile city closed, score 1379), as g to i above. The quests get
+(scarb 2.20.1, snforge 0.64.0), test profile. "Before" is main after S1 (`e138c6f`, the Lobby class), "after" is the
+P7 contracts PR (CI log). The closing moves g to i are `surrender` (which runs in `Lobby`, so the report adds no
+library call); l is the game over of a `build` (`Daily` then one library call to `Lobby.report`). The quests get
 tasks 1 to 4 and the achievements tasks 1, 4 to 7 and 9 (at most 4 and 6 entries).
 
 | | Scenario | Before | After | Change | New ceiling |
 |---|---|---|---|---|---|
-| g | closing move, rank 1, two shifts | 1,234,989 | 1,912,269 | +677,280 | 2,007,883 |
-| h | closing move, not ranked | 897,489 | 1,509,313 | +611,824 | 1,584,779 |
-| i | game over after its tournament | 719,000 | 1,330,734 | +611,734 | 1,397,271 |
-| k | closing move, rank 1, score 4,500 and every counter non-zero: the largest lists | n/a (g's base 1,234,989) | 2,240,149 | +1,005,160 against g's base | 2,352,157 |
+| g | closing move, rank 1, two shifts | 1,381,719 | 2,060,599 | +678,880 | 2,163,629 |
+| h | closing move, not ranked | 1,044,219 | 1,657,443 | +613,224 | 1,740,316 |
+| i | game over after its tournament | 865,730 | 1,478,864 | +613,134 | 1,552,808 |
+| k | closing move, rank 1, score 4,500, every counter non-zero (largest lists) | n/a (g's base 1,381,719) | 2,389,479 | +1,007,760 against g's base | 2,508,953 |
+| l | game over on the last `build` | 5,277,705 | 6,111,335 | +833,630 | 6,416,902 |
 
-The P-22 guard is +1.5M on the closing move: the largest report (k) is +1.0M; the game over of scenario c is +0.68M.
+The P-22 guard is +1.5M on the closing move: the largest (k) is +1.0M, the game over of a `build` (l) +0.83M.
 
-Moves that are not a game over (never report). The code counts in 23 bits of the word already written
-(`Game.counts`, one field):
+Moves that are not a game over (never report; the code counts in 23 bits of the word already written,
+`Game.counts`):
 
 | | Before | After | Change |
 |---|---|---|---|
-| a0 open simple move | 5,596,035 | 5,626,675 | +30,640 (+0.55 %) |
-| a simple move | 5,082,345 | 5,112,995 | +30,650 (+0.60 %) |
-| b move with a character | 6,056,534 | 6,087,384 | +30,850 (+0.51 %) |
-| c close a large city | 6,098,165 | 6,160,411 | +62,246 (+1.02 %) |
-| d worst case | 6,987,338 | 7,049,784 | +62,446 (+0.89 %) |
-| e close a forest | 9,308,936 | 9,358,159 | +49,223 (+0.53 %) |
-| f worst forest scan | 19,048,196 | 19,097,619 | +49,423 (+0.26 %) |
+| a0 open simple move | 5,596,035 | 5,626,085 | +30,050 (+0.54 %) |
+| a simple move | 5,082,345 | 5,112,405 | +30,060 (+0.59 %) |
+| b move with a character | 6,056,534 | 6,086,794 | +30,260 (+0.50 %) |
+| c close a large city | 6,098,165 | 6,159,821 | +61,656 (+1.01 %) |
+| d worst case | 6,987,338 | 7,049,194 | +61,856 (+0.89 %) |
+| e close a forest | 9,308,936 | 9,357,569 | +48,633 (+0.52 %) |
+| f worst forest scan | 19,048,196 | 19,097,029 | +48,833 (+0.26 %) |
 
-The ceilings of a0 to f are unchanged. First version (four `u8` fields, an `Option<Tally>` returned by every
-move): +109,072 on a0 (+1.9 %), +142,612 on c (+2.3 %). What was removed, measured one step at a time on a0:
-`Option` of a struct replaced by a `u128` (0 when the game is not over) and the four fields by one `counts`:
--16k; the caller address read only when the game is over: -61k (it was a syscall on every move). What is left
-is +30.6k on every move and +31.6k more on a move that scores (c, d, e, f: the saturating count of a structure, a
-forest or a wonder); the cause per piece was not isolated (one more division and one more multiplication on the
-word, one more felt in the `Game` copies, the report call and its `if`). The target of +0.3 % was not reached for
-the scenarios a0 to e.
+The ceilings of a0 to f are unchanged. The rise is the one accepted as O-40 on #242 before S1 (the same figures
+within 600): one more division on the `GameState` unpack, one more multiplication on the pack, one more felt in the
+`Game` copies, and the report's `if`; +31.6k more on a move that scores (the saturating count). It is not
+"identical to main"; the cause per piece was not isolated.
