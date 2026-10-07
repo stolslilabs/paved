@@ -257,10 +257,7 @@ fn replay_daily(
             store.contract, TournamentTrait::compute_id(game.start_time, game.duration()), 1,
         );
         println!(
-            "GOLDEN {} end characters={} top1_score={}",
-            name,
-            builder.characters,
-            first.score,
+            "GOLDEN {} end characters={} top1_score={}", name, builder.characters, first.score,
         );
         assert(false, 'Golden: record run');
     } else {
@@ -327,10 +324,7 @@ pub fn play_tutorial(name: felt252, steps: Span<TutorialStep>, outcome: GoldenOu
             store.contract, TournamentTrait::compute_id(game.start_time, game.duration()), 1,
         );
         println!(
-            "GOLDEN {} end characters={} top1_score={}",
-            name,
-            builder.characters,
-            first.score,
+            "GOLDEN {} end characters={} top1_score={}", name, builder.characters, first.score,
         );
         assert(false, 'Golden: record run');
     } else {

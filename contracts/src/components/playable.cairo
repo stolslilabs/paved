@@ -6,10 +6,10 @@ pub mod PlayableComponent {
 
     use paved::constants;
     use paved::events::{Built, Discarded, Event as PavedEvent, game_over};
+    use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl, ZeroableBuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
-    use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
     use paved::models::tournament::TournamentImpl;
     use paved::store::{Store, StoreImpl};
     use paved::structure::placement::{self, NeighborhoodTrait};
@@ -33,6 +33,7 @@ pub mod PlayableComponent {
     /// A game that ends in the tournament it started in is submitted to the leaderboard, then gets
     /// the tournament id and its end time. One that ends after its tournament closed ranks in
     /// nothing and keeps `tournament_id` 0.
+    #[inline(always)]
     fn end_in_tournament(store: Store, ref game: Game, player_id: felt252) {
         let time = get_block_timestamp();
         let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());

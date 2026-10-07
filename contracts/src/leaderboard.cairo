@@ -1,10 +1,10 @@
 //! The ranking of the Daily tournaments behind an interface (phase P6, stage A of
 //! `docs/architecture/leaderboard.md`).
 //!
-//! The game flow submits a finished game with `submit` and reads the three prize ranks with `top` or
-//! `ranked`; it knows nothing else of how the ranking is kept. The implementation here is the native
-//! one: the logic that was `Tournament::score`, over four slots of `PavedStorage` (`Store`). A
-//! published package can replace it by changing this module alone.
+//! The game flow submits a finished game with `submit` and reads the three prize ranks with `top`
+//! or `ranked`; it knows nothing else of how the ranking is kept. The implementation here is the
+//! native one: the logic that was `Tournament::score`, over four slots of `PavedStorage` (`Store`).
+//! A published package can replace it by changing this module alone.
 //!
 //! The rule, which every implementation keeps:
 //! - a score at or below the score of rank 3 does not rank, so equal scores keep the earlier
@@ -13,7 +13,7 @@
 //! - games are ranked, not players: one player can hold two or three ranks;
 //! - the order is the order of the calls: `game_id` and `time` take no part.
 
-use paved::store::{Store, StoreImpl, StoreTrait};
+use paved::store::{Slots4, Store, StoreImpl, StoreTrait};
 
 // Constants
 
@@ -82,6 +82,18 @@ pub impl Top3Impl of Top3Trait {
 
 // Native implementation
 
+/// The three scores of the word `scores` of the ranking, rank 1 first.
+#[inline]
+fn unpack(scores: felt252) -> (u128, u128, u128) {
+    let word: u256 = scores.into();
+    (word.low & MASK_32, (word.low / TWO_POW_32) & MASK_32, (word.low / TWO_POW_64) & MASK_32)
+}
+
+#[inline]
+fn pack(first: u128, second: u128, third: u128) -> felt252 {
+    (first + second * TWO_POW_32 + third * TWO_POW_64).into()
+}
+
 pub impl LeaderboardImpl of LeaderboardTrait {
     #[inline(always)]
     fn new() -> Leaderboard {
@@ -89,81 +101,62 @@ pub impl LeaderboardImpl of LeaderboardTrait {
     }
 
     fn submit(self: Leaderboard, tournament_id: u64, submission: Submission) -> u8 {
-        let store: Store = StoreImpl::new();
-        let score: u128 = submission.score.into();
         // [Check] A player of 0 is an empty rank: it cannot be ranked
         if submission.player_id == 0 {
             return 0;
         }
-        let scores = store.ranking_scores(tournament_id);
-        let first = scores & MASK_32;
-        let second = (scores / TWO_POW_32) & MASK_32;
-        let third = (scores / TWO_POW_64) & MASK_32;
+        let store: Store = StoreImpl::new();
+        let ranking = store.ranking(tournament_id);
+        let (first, second, third) = unpack(ranking.a);
+        let score: u128 = submission.score.into();
+        let player = submission.player_id;
 
         // [Check] At or below rank 3, or score 0 (an empty rank has score 0): not placed
         if score <= third {
             return 0;
         }
 
-        // [Effect] Rank 3: the former rank 3 leaves
+        // [Effect] Rank 3, 2 or 1: the lower ranks move down, the last one leaves
         if score <= second {
-            store.set_ranking_scores(tournament_id, first + second * TWO_POW_32 + score * TWO_POW_64);
-            store.set_ranking_player(tournament_id, 3, submission.player_id);
-            return 3;
+            store
+                .set_ranking(
+                    tournament_id, Slots4 { a: pack(first, second, score), d: player, ..ranking },
+                );
+            3
+        } else if score <= first {
+            let moved = Slots4 {
+                a: pack(first, score, second), c: player, d: ranking.c, ..ranking,
+            };
+            store.set_ranking(tournament_id, moved);
+            2
+        } else {
+            let moved = Slots4 {
+                a: pack(score, first, second), b: player, c: ranking.b, d: ranking.c,
+            };
+            store.set_ranking(tournament_id, moved);
+            1
         }
-
-        // [Effect] Rank 2: the former rank 2 moves to rank 3
-        if score <= first {
-            let player = store.ranking_player(tournament_id, 2);
-            store.set_ranking_scores(tournament_id, first + score * TWO_POW_32 + second * TWO_POW_64);
-            store.set_ranking_player(tournament_id, 3, player);
-            store.set_ranking_player(tournament_id, 2, submission.player_id);
-            return 2;
-        }
-
-        // [Effect] Rank 1: the former ranks 1 and 2 move down
-        let player1 = store.ranking_player(tournament_id, 1);
-        let player2 = store.ranking_player(tournament_id, 2);
-        store.set_ranking_scores(tournament_id, score + first * TWO_POW_32 + second * TWO_POW_64);
-        store.set_ranking_player(tournament_id, 3, player2);
-        store.set_ranking_player(tournament_id, 2, player1);
-        store.set_ranking_player(tournament_id, 1, submission.player_id);
-        1
     }
 
     fn ranked(self: Leaderboard, tournament_id: u64, rank: u8) -> Ranked {
         if rank == 0 || rank > 3 {
             return Ranked { player_id: 0, score: 0 };
         }
-        let store: Store = StoreImpl::new();
-        let scores = store.ranking_scores(tournament_id);
-        let shift: u128 = match rank {
-            1 => 1,
-            2 => TWO_POW_32,
-            _ => TWO_POW_64,
-        };
-        Ranked {
-            player_id: store.ranking_player(tournament_id, rank),
-            score: ((scores / shift) & MASK_32).try_into().unwrap(),
+        let top = Self::top(self, tournament_id);
+        match rank {
+            1 => top.first,
+            2 => top.second,
+            _ => top.third,
         }
     }
 
     fn top(self: Leaderboard, tournament_id: u64) -> Top3 {
-        let store: Store = StoreImpl::new();
-        let scores = store.ranking_scores(tournament_id);
+        let ranking = StoreImpl::new().ranking(tournament_id);
+        let (first, second, third) = unpack(ranking.a);
         Top3 {
-            first: Ranked {
-                player_id: store.ranking_player(tournament_id, 1),
-                score: (scores & MASK_32).try_into().unwrap(),
-            },
-            second: Ranked {
-                player_id: store.ranking_player(tournament_id, 2),
-                score: ((scores / TWO_POW_32) & MASK_32).try_into().unwrap(),
-            },
-            third: Ranked {
-                player_id: store.ranking_player(tournament_id, 3),
-                score: ((scores / TWO_POW_64) & MASK_32).try_into().unwrap(),
-            },
+            first: Ranked { player_id: ranking.b, score: first.try_into().unwrap() },
+            second: Ranked { player_id: ranking.c, score: second.try_into().unwrap() },
+            third: Ranked { player_id: ranking.d, score: third.try_into().unwrap() },
         }
     }
 }

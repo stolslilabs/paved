@@ -5,9 +5,7 @@
 //! reach the implementation through `submit`, `ranked` and `top` of the deployed `Daily`'s storage,
 //! and a reference model of the rule (the former `Tournament::score`) checks a long sequence.
 
-use paved::leaderboard::{
-    LeaderboardImpl, LeaderboardTrait, Ranked, Submission, Top3, Top3Trait,
-};
+use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Ranked, Submission, Top3, Top3Trait};
 use paved::tests::setup::setup;
 use paved::types::mode::Mode;
 use paved::views::MAX_TOURNAMENT_ID;
@@ -21,8 +19,7 @@ pub fn submit(contract: ContractAddress, id: u64, player_id: felt252, score: u32
     interact_with_state(
         contract,
         || {
-            LeaderboardImpl::new()
-                .submit(id, Submission { player_id, game_id: 1, score, time: 0 })
+            LeaderboardImpl::new().submit(id, Submission { player_id, game_id: 1, score, time: 0 })
         },
     )
 }
@@ -90,7 +87,9 @@ impl ModelImpl of ModelTrait {
     }
 
     fn top(self: Model) -> Top3 {
-        Top3 { first: at(self.p1, self.s1), second: at(self.p2, self.s2), third: at(self.p3, self.s3) }
+        Top3 {
+            first: at(self.p1, self.s1), second: at(self.p2, self.s2), third: at(self.p3, self.s3),
+        }
     }
 }
 

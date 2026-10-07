@@ -6,8 +6,8 @@
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
-use paved::models::game::{Game, GameAssert, GameImpl};
 use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait};
+use paved::models::game::{Game, GameAssert, GameImpl};
 use paved::models::tournament::{Tournament, TournamentTrait};
 use paved::store::{Store, StoreImpl};
 use paved::types::mode::{Mode, ModeTrait};

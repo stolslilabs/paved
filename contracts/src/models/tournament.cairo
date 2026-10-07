@@ -128,11 +128,7 @@ pub impl ZeroableTournament of ZeroableTournamentTrait {
     #[inline]
     fn zero() -> Tournament {
         Tournament {
-            id: 0,
-            prize: 0,
-            top1_claimed: false,
-            top2_claimed: false,
-            top3_claimed: false,
+            id: 0, prize: 0, top1_claimed: false, top2_claimed: false, top3_claimed: false,
         }
     }
 

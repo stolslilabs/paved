@@ -71,14 +71,13 @@ pub struct Slots3 {
     pub c: felt252,
 }
 
-/// The ranking of a tournament: the player of each of the three ranks, and one word that packs
-/// the three scores (32 bits each, rank 1 in the low bits). Four slots, read one by one.
-#[starknet::storage_node]
-pub struct Ranking {
-    pub first: felt252,
-    pub second: felt252,
-    pub third: felt252,
-    pub scores: felt252,
+/// Four consecutive storage slots.
+#[derive(Copy, Drop, Serde, starknet::Store)]
+pub struct Slots4 {
+    pub a: felt252,
+    pub b: felt252,
+    pub c: felt252,
+    pub d: felt252,
 }
 
 /// Game state of a contract.
@@ -103,9 +102,10 @@ pub struct PavedStorage {
     pub characters: Map<u32, felt252>,
     /// `Tournament`: the prize and the claimed flags (bits 0 to 2), two slots per tournament.
     pub tournaments: Map<u64, Slots2>,
-    /// The ranking of a tournament, read and written by the native leaderboard
-    /// (`leaderboard.cairo`).
-    pub rankings: Map<u64, Ranking>,
+    /// The ranking of a tournament, kept by the native leaderboard (`leaderboard.cairo`): one word
+    /// that packs the three scores (32 bits each, rank 1 in the low bits), then the players of
+    /// ranks 1, 2 and 3.
+    pub rankings: Map<u64, Slots4>,
     /// `Structures`: the record pages, one or two slots per placed tile (`slot` 0 or 1), four
     /// records of 48 bits per slot (see `structure/record.cairo`).
     pub structures: Map<(u32, u32, u8), felt252>,
@@ -547,36 +547,14 @@ pub impl StoreImpl of StoreTrait {
         storage().tournaments.entry(tournament.id).write(slots);
     }
 
-    /// The three scores of a ranking (rank 1 in the low 32 bits); zero for an empty one.
-    fn ranking_scores(self: Store, tournament_id: u64) -> u128 {
-        let word: u256 = storage().rankings.entry(tournament_id).scores.read().into();
-        word.low
+    /// The ranking of a tournament as the native leaderboard keeps it (`a`: the scores, `b`, `c`
+    /// and `d`: the players of ranks 1, 2 and 3); zero for an empty one.
+    fn ranking(self: Store, tournament_id: u64) -> Slots4 {
+        storage().rankings.entry(tournament_id).read()
     }
 
-    fn set_ranking_scores(self: Store, tournament_id: u64, scores: u128) {
-        storage().rankings.entry(tournament_id).scores.write(scores.into());
-    }
-
-    /// The player of `rank` (1 to 3) of a ranking; zero for an empty rank or any other rank.
-    fn ranking_player(self: Store, tournament_id: u64, rank: u8) -> felt252 {
-        let ranking = storage().rankings.entry(tournament_id);
-        match rank {
-            1 => ranking.first.read(),
-            2 => ranking.second.read(),
-            3 => ranking.third.read(),
-            _ => 0,
-        }
-    }
-
-    /// Writes the player of `rank` (1 to 3); any other rank writes nothing.
-    fn set_ranking_player(self: Store, tournament_id: u64, rank: u8, player_id: felt252) {
-        let ranking = storage().rankings.entry(tournament_id);
-        match rank {
-            1 => ranking.first.write(player_id),
-            2 => ranking.second.write(player_id),
-            3 => ranking.third.write(player_id),
-            _ => {},
-        }
+    fn set_ranking(self: Store, tournament_id: u64, ranking: Slots4) {
+        storage().rankings.entry(tournament_id).write(ranking);
     }
 }
 
