@@ -419,3 +419,19 @@ fn test_access_sponsor_reverts_without_a_current_tournament() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     systems.daily.sponsor(1000);
 }
+
+/// A game whose player is 0 can never be acted on: `builder_of` gives player 0 no builder, so
+/// `surrender`, `discard` and `build` revert before `end_in_tournament`, and player 0 is never
+/// submitted to the leaderboard (`docs/architecture/leaderboard.md`). The game is forced, since the
+/// token refuses the zero address before a game of player 0 can be paid for (`ERC20: mint to 0`).
+#[test]
+#[should_panic(expected: 'Builder: does not exist')]
+fn test_access_daily_player_zero_cannot_end_its_game() {
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let mut game = store.game(context.game_id);
+    game.player_id = 0;
+    store.set_game(game);
+    let zero: ContractAddress = 0.try_into().unwrap();
+    start_cheat_caller_address(systems.daily.contract_address, zero);
+    systems.daily.surrender(context.game_id);
+}

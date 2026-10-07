@@ -92,6 +92,16 @@ Decisions behind the shape:
 - **No ranking logic in Paved's types any more.** `Tournament::score` and the `top*` fields leave the model and
   move behind the interface; the same code, moved, becomes the native implementation.
 
+### Can player 0 reach the top 3?
+
+On main `Tournament::score` has no check on the player: a submission of player 0 with a score above rank 3 would rank (the bench measured 230,778). It cannot be reached, by three guards in the game flow, all on main (`9f930468`) as well as in this PR:
+
+1. **Where `player_id` comes from.** `HostableComponent.spawn` takes `get_caller_address()`, reads `store.player(caller)` and `player.assert_exists()` (`hostable.cairo`), then `GameImpl::new(.., player.id)` writes it as `GameConfig.player_id`. An unregistered caller reverts with `Player: Does not exist` (`test_access_daily_spawn_reverts_for_unregistered_caller`, `test_access_tutorial_spawn_reverts_for_unregistered_caller` in `src/tests/e2e/access.cairo`). The `player_id` submitted at the end is not read from the game: `build`, `discard` and `surrender` take `get_caller_address()` again (`playable.cairo`).
+2. **The caller must be the player of the game.** Each of the three calls does `game.builder_of(player_id)` then `builder.assert_exists()` before anything else. `builder_of` returns a builder with the held tile only when `player_id != 0 && player_id == game.player_id`; anyone else, and player 0 in particular even for a game whose `player_id` is 0, gets tile 0, which is the zero builder, so the call reverts with `Builder: does not exist` before `end_in_tournament` (`test_access_daily_build_reverts_on_another_players_game`; new: `test_access_daily_player_zero_cannot_end_its_game`, which forces a game of player 0 and calls `surrender` from address 0).
+3. **A game of player 0 cannot even be paid for.** `create` and `spawn` only check that the caller is unregistered, then registered, so address 0 could register; but the entry price is debited from the caller in the token, and the mock token refuses the zero address (`ERC20: mint to 0`); a real ERC20 has no balance or allowance at 0 either. A transaction does not have the zero address as caller in any case.
+
+So a game end with `player_id` 0 does not reach the leaderboard on main: no bug, no change of behaviour on main. The native implementation returns 0 for player 0 anyway (an empty rank is player 0, so a ranked player 0 would be indistinguishable from an empty rank, and `claim` would treat the rank as empty): `test_leaderboard_player_zero_does_not_rank` (`src/tests/leaderboard.cairo`), part of the conformance suite a package must also pass.
+
 ### What stays in Paved, what the package would hold
 
 | | Stays in Paved | Held by the implementation behind the interface |
@@ -261,7 +271,7 @@ fn top(tournament_id: u64) -> Top3;
 
 **Limits.**
 
-- *Gas, measured* (stage A, `docs/measures/baseline.md` "Leaderboard behind an interface"). Method of Grim World's table: a bench test that calls the operation against a baseline test that only primes the tournament, whole-test snforge L2 gas, difference, minus the cost of the `interact_with_state` wrapper that the bench pays and an internal call does not (517,560 on the Mac). Mac figures; the Linux figures of the CI log of the PR are in the second table when the PR has run.
+- *Gas, measured* (stage A, `docs/measures/baseline.md` "Leaderboard behind an interface"). Method of Grim World's table: a bench test that calls the operation against a baseline test that only primes the tournament, whole-test snforge L2 gas, difference, minus the cost of the `interact_with_state` wrapper that the bench pays and an internal call does not (517,560 on the Mac). The figures are those of the Mac and of Linux alike: the `Test game` job of the PR (run 37652684501, Linux) gives the same L2 gas, to the unit, for each of the 22 bench cases and for scenarios a0 to j (the gas of a test does not depend on the machine), so one column serves both.
 
 | Operation (full board 30, 20, 10 unless said) | Today's `Tournament` update (main) | Native implementation behind the interface | Grim World package |
 |---|---|---|---|
@@ -278,7 +288,7 @@ fn top(tournament_id: u64) -> Top3;
 | 2nd submission | 1,034,978 | 735,869 | 602,200 |
 | 3rd submission | 1,034,778 | 642,519 | 599,750 |
 
-  Main's update reads the five slots and writes them back whether it ranks or not, so its cost is one figure; it has no cheaper `ranked`. The player-0 figure of main is lower than the others for a reason that was not found (main places the submission; the same slots change). After 10, 100 and 1,000 prior submissions no figure changes by more than 200 L2 gas, for main and for the native implementation (rank 1, not placing and top 3 measured at each size): nothing depends on the number of submissions.
+  Main's update reads the five slots and writes them back whether it ranks or not, so its cost is one figure; it has no cheaper `ranked`. The player-0 figure of main is lower than the others for a reason that was not found (main places the submission). That submission cannot happen in the game flow: see "Can player 0 reach the top 3?" below. After 10, 100 and 1,000 prior submissions no figure changes by more than 200 L2 gas, for main and for the native implementation (rank 1, not placing and top 3 measured at each size): nothing depends on the number of submissions.
 
   At the contract level (the cost of a whole closing move, `contracts/tests/gas.cairo` g to j) the ranking update was 714,458 L2 gas on main whatever happened; it is now 515,989 when it ranks (rank 1, two shifts) and 178,489 when it does not (these include the game-end slot write that both versions pay). The `tournament` view costs 17 % more (+53,710), two storage entries instead of one.
 - *Ceiling the package must meet*: the closing move of a game that ranks at rank 1 with a full board costs at most 1,296,739 L2 gas (`CEILING_CLOSING_PLACES`, native + 5 %), one that does not rank at most 942,364 (`CEILING_CLOSING_NOT_PLACED`), the `tournament` view at most 388,740 (`CEILING_VIEW`), and none of them depends on the number of submissions already made (no loop over submissions). In bench terms, the table above: a package is accepted when its closing moves meet these ceilings, whatever the split between `submit`, `top` and `ranked`. The swap is refused when a closing move that places costs more than before the swap.

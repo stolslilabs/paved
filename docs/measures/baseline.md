@@ -390,7 +390,7 @@ Scenario f now also asserts its exact score (434) and that the Woodsman is back 
 The tournament ranking moved behind `LeaderboardTrait` (`contracts/src/leaderboard.cairo`,
 `docs/architecture/leaderboard.md`). Behaviour, events and `contracts/abis/*.json` are unchanged. Scarb 2.20.1 /
 snforge 0.64.0, Mac (aarch64), `RAYON_NUM_THREADS=1`, `--max-threads 2`; the Linux figures are those of the CI
-log of the PR (see the note at the end of the section).
+log of the PR: the `Test game` job (run 37652684501, Linux) gave the same L2 gas, to the unit, as the Mac for g to j, a0 to f and the 22 bench cases, so the ceilings stand.
 
 **Closing moves, one external call.** `contracts/tests/gas.cairo` g to j: `get_available_gas()` right before
 and right after the call. The scenario is the one of scenario c (a 6-tile city closed, score 1379), then
@@ -415,7 +415,7 @@ member) was dearer than this one on the view and on a ranking closing move, and 
 The other scenarios (a0 to f), which never reach the leaderboard, measure 6,310 (a0) to 41,830 (f) L2 gas
 more than on main (+0.1 % to +0.2 %): 5,596,035 against 5,589,725 for a0. It is not the call site (the same
 figures with the block written inline in `build`); the cause was not found. The ceilings of a0 to f are
-unchanged.
+unchanged. The orchestrator accepted this and the view's +17 % (a view, not a closing move) as they stand; reverse if a later PR shows a trend.
 
 **In-process figures are not used.** `get_available_gas()` inside `interact_with_state` gave 302,120 for the
 main update, against 714,458 by difference at the contract level, and a negative delta for an early return
