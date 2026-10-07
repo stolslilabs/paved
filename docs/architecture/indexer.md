@@ -48,9 +48,10 @@ rebuild (below), never a migration.
   for that tournament (`GameOver.tournament_id = id`):
   `rank`, `player_id`, `name`, `best_score`, `best_game_id`, `games_played` (games of this player that
   counted, finished or not: see below), `finished_at` (`end_time` of the best game).
-  Rank: best score descending; ties broken by the earlier `end_time`, then the lower `game_id`. This is the
+  Rank: best score descending; ties broken by chain order of the `GameOver` event, `(over_block, over_tx, over_idx)`, earliest first. This is the
   order in which the chain filled its slots (a later equal score never displaces an earlier one:
-  `Tournament.score` compares with `<=`), so a tie is never reordered against the contract.
+  `Tournament.score` compares with `<=`), so a tie is never reordered against the contract. `end_time` and `game_id`
+  are not used: `GameOver`s of one block share a timestamp, and `game_id` is spawn order, not finish order.
 - **`games_played`** counts the player's games spawned in that tournament (`GameSpawned.tournament_id = id`),
   including those still running or abandoned: it measures entries. `games_finished` counts the ones that
   have a counting `GameOver`.
@@ -98,7 +99,7 @@ that library), and the shared response types are plain TypeScript.
 Each copied file keeps the licence header it has and adds, at its top, a block of this form (O-3):
 
 ```
-// Copied from Grim World, indexer/src/<file>.ts (https://github.com/<owner>/grimworld, commit <sha>),
+// Copied from Grim World, indexer/src/<file>.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
 // Apache-2.0. Adapted for Paved: <what changed>. This copy is maintained by the Paved repository.
 ```
 
@@ -133,8 +134,8 @@ Not copied, on purpose:
 ## Storage
 
 SQLite file (WAL), opened with `node:sqlite`. Schema version `1` in `meta`; a database of another version is
-refused at open and rebuilt (`rebuild` drops every table), as in Grim World. u64 and felt values are stored as
-fixed-width lowercase hex text (lossless and ordered like numbers); `game_id`, `score`, `mode` fit an `INTEGER`.
+refused at open and rebuilt (`rebuild` drops every table), as in Grim World. bounded integers (`game_id`, `score`, `mode`, `tournament_id`, and every time: all below 2^53) are
+`INTEGER`; only felts (`player_id`, `price`, `name`, `master`) are fixed-width lowercase hex text, 66 characters.
 
 ```sql
 CREATE TABLE meta   (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -160,12 +161,13 @@ CREATE TABLE games (
   end_time INTEGER, over_block INTEGER, over_tx INTEGER, over_idx INTEGER,
   PRIMARY KEY (contract, game_id));
 CREATE INDEX games_player ON games (player_id, start_time DESC, game_id DESC);
-CREATE INDEX games_board  ON games (tournament_id, score DESC, end_time, game_id) WHERE over = 1 AND tournament_id > 0;
+CREATE INDEX games_board  ON games (tournament_id, score DESC, over_block, over_tx, over_idx) WHERE over = 1 AND tournament_id > 0;
 CREATE INDEX games_spawn  ON games (spawn_tournament, player_id) WHERE contract = 'daily';
 ```
 
-- **Idempotence**: `(block, tx, idx)` is the primary key of `events`, and `games` upserts on
-  `(contract, game_id)`: applying the same block twice changes nothing. A `GameOver` for a game with no
+- **Idempotence**, in this order: an event whose `(block, tx, idx)` is already in `events` (primary key) is
+  skipped, so applying the same block twice changes nothing; a new event is inserted in `events`, then applied
+  to `games` or `players`, in one transaction per block. A duplicate game is never merged: a `GameOver` for a game with no
   `GameSpawned`, a second `GameOver` for one game, or a `GameSpawned` for an existing id halts the indexer
   (the data it holds is not the chain's).
 - **Derived data are queries, not tables**: the leaderboard is a `GROUP BY player_id` over `games_board` with a
@@ -236,7 +238,7 @@ An error is `{ "version": 1, "status": "error", "error": "<what>", "state": "ok"
 |---|---|---|
 | `GET /v1/head` | none | `head`, `state`, `chain_id`, `from_block`, `contracts` (the three addresses), `checks` (`last_mismatch`: the last closed day whose `prize_ranks` differed from the `tournament` view, or null) |
 | `GET /v1/tournaments` | `limit`, `before` (a tournament id, from `next`) | `tournaments`: newest first, each `id, start_time, end_time, games_spawned, players, best_score`; `next` (id or null) |
-| `GET /v1/tournaments/{id}` | none | `tournament`: `id, start_time, end_time, games_spawned, games_finished, players, best_score`; `{id}` is a `u64`; a day with no game answers zeros, never 404 (as the `tournament` view) |
+| `GET /v1/tournaments/{id}` | none | `tournament`: `id, start_time, end_time, games_spawned, games_finished, players, best_score`; `{id}` is parsed as a decimal string and must fit a `u64`, else 400; a day with no game answers zeros, never 404, and an id above `MAX_TOURNAMENT_ID` (`213503982334600`) answers its id and zeros, `start_time` and `end_time` included, as the `tournament` view does |
 | `GET /v1/tournaments/{id}/leaderboard` | `limit`, `offset` (default 0) | `total` (players ranked), `entries`: by `rank`, each `rank, player_id, name, best_score, best_game_id, games_played, games_finished, finished_at, prize_ranks`; `next_offset` (or null) |
 | `GET /v1/players/{player_id}` | none | `player`: `player_id, name, created`; `stats`: `daily_games, daily_finished, best_score, tutorial_games`. a malformed id is `400`; an unknown player answers `player: null` with `200` |
 | `GET /v1/players/{player_id}/games` | `contract` (`daily`, `tutorial`, default both), `limit`, `before` (`<start_time>:<contract>:<game_id>`, from `next`) | `games`: newest first, each `contract, game_id, mode, start_time, tournament_id` (of the spawn), `over, score, counted_tournament_id, end_time`; `next` (or null) |
@@ -355,13 +357,17 @@ Why the indexer can never cost a player anything:
 2. **Prizes are read from the contract.** The client shows "you can claim rank N" from the `tournament` view,
    and the `Claimed` flags from it too. The indexer's `prize_ranks` is informative and cross-checked, never
    authoritative.
-3. **It is a pure function of the chain.** Every row comes from three event kinds the contract emits in the
-   same transaction that updates `Tournament`. The ranking rule that decides prizes (`Tournament.score`) is
+3. **It is a pure function of the chain.** Every row comes from three event kinds the contracts emit, and a counting
+   `GameOver` is emitted in the same transaction that updates `Tournament`. The ranking rule that decides prizes (`Tournament.score`) is
    replayed on the same events in the same order, so `prize_ranks` equals the contract's slots by
    construction; a test feeds the same table to both. The first difference between `prize_ranks` and the
    `tournament` view for a closed day is an indexer bug (a missed event, a wrong order) and halts nothing: it is
    reported (`GET /v1/head` carries `checks.last_mismatch`, set by a cross-check that the indexer makes with
-   one `tournament` view call per closed day it has not checked yet; the call is read-only).
+   one `tournament` view call per closed day it has not checked yet; the call is read-only). A day is closed when the
+   timestamp of the **served** head is at least its `end_time`; the call passes `block_id` = the served head (any
+   later block gives the same answer, since the slots cannot move after the day ends: counting `GameOver`s stop at
+   `end_time`). The view is therefore read at a block the indexer has applied, and no mismatch can come from the
+   indexer lagging.
 4. **The only difference is a documented one**: the leaderboard has one row per player, the contract's slots are
    per game (a player may hold two or three of them). The leaderboard shows both, so no player sees a rank
    that hides a prize they hold.
@@ -370,7 +376,7 @@ Why the indexer can never cost a player anything:
 
 Decided here, for the owner to read afterwards (changeable by a later PR, as no code exists yet):
 
-- **D-P6-1** Rank by player's best game, ties by earlier `end_time` then `game_id`. Reverse: the PM wants rank
+- **D-P6-1** Rank by player's best game, ties by chain order of the `GameOver`. Reverse: the PM wants rank
   by game (one row per game, as the contract).
 - **D-P6-2** No subscriptions in v1; polling by the client. Reverse: a push screen is wanted (copy
   `subscriptions.ts`).
