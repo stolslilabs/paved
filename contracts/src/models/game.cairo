@@ -9,7 +9,7 @@ use core::poseidon::{HashState, PoseidonTrait};
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
-use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
+use paved::helpers::random_deck::draw_from_bitmap;
 use paved::models::builder::{Builder, BuilderTrait};
 use paved::models::character::{Char, CharAssert, CharTrait};
 pub use paved::models::index::Game;
@@ -227,11 +227,8 @@ pub impl GameImpl of GameTrait {
             }
         } else {
             let number: u32 = deck.total_count().into();
-            let mut random_deck: OrigamiDeck = OrigamiDeckTrait::from_bitmap(
-                self.seed, number, self.tiles,
-            );
-            let plan_id: u8 = random_deck.draw().into();
-            let tiles = if random_deck.remaining == 0 {
+            let (plan_id, remaining) = draw_from_bitmap(self.seed, number, self.tiles);
+            let tiles = if remaining == 0 {
                 0
             } else {
                 let index = plan_id - 1;

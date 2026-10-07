@@ -24,6 +24,7 @@
 
 use core::testing::get_available_gas;
 use paved::constants::CENTER;
+use paved::structure::placement::role_bit;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -242,7 +243,11 @@ fn test_gas_f_worst_forest_scan() {
     // [Last tile] the top-left curve closes the loop and the forest
     let gas = s.build(curve, Orientation::South, CENTER - 1, CENTER, Role::None, Spot::None);
     let game = s.store.game(s.game_id);
-    assert(game.score > 0, 'Gas: forest not scored');
+    // The forest scores exactly this, and its Woodsman is back in the builder's hand
+    assert_eq!(game.score, 434);
+    let builder = s.store.builder(game, s.player_id);
+    let woodsman: u8 = Role::Woodsman.into();
+    assert(builder.characters & role_bit(woodsman) == 0, 'Gas: Woodsman not recovered');
     println!("SCORE f_worst_forest_scan: {}", game.score);
     report("f_worst_forest_scan", gas, CEILING_FOREST_WORST);
 }
