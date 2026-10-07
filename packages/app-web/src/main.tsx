@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { TamaguiProvider } from "tamagui";
 import { tamaguiConfig } from "@paved/ui";
-import { PavedProvider } from "@paved/chain";
+import { IndexerProvider, PavedProvider } from "@paved/chain";
 import { App } from "./App";
 import { ConnectionBanner } from "./components/ConnectionBanner";
 import { resolveAppNetwork, resolvePlayerAccount } from "./utils/network";
@@ -40,10 +40,12 @@ root.render(
   <StrictMode>
     <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
       <PavedProvider deployment={network.deployment} account={account} tip={network.tip}>
-        <ConnectionBanner />
-        <BrowserRouter>
-          <App supportsMint={network.supportsMint} />
-        </BrowserRouter>
+        <IndexerProvider client={network.indexer}>
+          <ConnectionBanner />
+          <BrowserRouter>
+            <App supportsMint={network.supportsMint} />
+          </BrowserRouter>
+        </IndexerProvider>
       </PavedProvider>
     </TamaguiProvider>
   </StrictMode>

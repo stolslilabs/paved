@@ -183,6 +183,31 @@ the client waits for. The tournament changes when other players finish games; it
 visibility and on demand, not on a timer. A live feed (a websocket subscription or META's indexer)
 can replace that later.
 
+## Indexer client
+
+`packages/chain/src/indexer.ts` reads the indexer's API v1 (`docs/architecture/indexer.md`, "Read API"). It is for
+display only: a prize amount, who may claim and whether a rank was claimed come from the contract's `tournament`
+view, never from here.
+
+- `IndexerClient({ url })` has one method per route (`head`, `tournaments`, `tournament`, `leaderboard`, `player`,
+  `playerGames`, `playerTournament`, `game`), checks its ids before sending, and returns rows in camelCase.
+- Every answer is `{ data, head, behind, freshness }`. `freshness` is `ok` up to `maxLag` blocks behind (default 5,
+  the indexer doc's figure) and `behind` above it; the screens print `behind` as it is.
+- Errors are `IndexerError` with a `kind`: `not-configured` (no URL), `unreachable` (the request failed, timed out
+  after 10 s, or a 5xx without an envelope), `wrong-version` (envelope `version` is not 1, checked first), `unavailable`
+  (503: `status` is `loading`, `rewinding` or `halted`), `not-found` (404), `rejected` (400, or an id refused
+  before sending) and `bad-response` (the shape is not the doc's: nothing is guessed).
+- The base URL is `VITE_INDEXER_URL`; the deployments file is not touched. With none, `createIndexerClient` gives
+  `null` and the screens say "Leaderboard unavailable": no request, no placeholder rows.
+- `IndexerProvider`, `useIndexer` and `useIndexerRead` follow the rules of `useRead`: a read on its inputs, on
+  `refresh`, and on visibility; no timer. After a failure the last answer stays in `data`, so a screen can show it
+  marked stale beside the error.
+- Not done: the `head.hash` check against the node's block (the fork guard of the indexer doc) and the fallback to the
+  on-chain top 3 when the indexer is down.
+- Tests run against `FixtureIndexer`, imported from `@paved/chain/testing` only (not from the public entry, so no app code can reach it), an in-process `fetch` built from the doc's examples that
+  refuses parameters as the API does and can be put `behind`, `loading`, `rewinding`, `halted`, `down` or on another
+  `version`. No real indexer exists yet.
+
 ## Tests
 
 - Unit tests (`packages/chain/test/*.test.ts`) replay RPC answers recorded from devnet

@@ -49,12 +49,43 @@ export {
 export type { BuildMove, WriteAccount, WriteResult } from "./writer";
 export { PavedClient, createPavedClient } from "./paved-client";
 export type { PavedRpc, PlayerRecord } from "./paved-client";
+export {
+  DEFAULT_MAX_LAG,
+  INDEXER_API_VERSION,
+  MAX_INDEXER_PAGE,
+  MAX_TOURNAMENT_ID,
+  IndexerClient,
+  IndexerError,
+  createIndexerClient,
+  indexerPlayerId,
+} from "./indexer";
+export type {
+  Freshness,
+  IndexedGame,
+  IndexedPlayer,
+  IndexerAnswer,
+  IndexerContract,
+  IndexerErrorKind,
+  IndexerHead,
+  IndexerHeadInfo,
+  IndexerOptions,
+  IndexerStatus,
+  Leaderboard,
+  LeaderboardEntry,
+  PlayerGames,
+  PlayerProfile,
+  PlayerStats,
+  TournamentDetail,
+  TournamentList,
+  TournamentSummary,
+} from "./indexer";
 export { GameSession } from "./session";
 export type { BoardCharacter, BoardTile, PlaceMove, SessionState } from "./session";
 
 // React
-export { PavedProvider, connectionStatus, useGameSession, usePaved, useRead } from "./react";
+export { PavedProvider, connectionStatus, useAsyncRead, useGameSession, usePaved, useRead } from "./react";
 export type { ConnectionStatus, PavedContextValue, ReadState } from "./react";
+export { IndexerProvider, useIndexer, useIndexerRead } from "./indexer-react";
 
 // Auth
 export { controllerPolicies, createControllerConnector } from "./auth/controller";

@@ -40,6 +40,12 @@ describe("resolveAppNetwork", () => {
 });
 
 describe("resolvePlayerAccount", () => {
+  it("reads the indexer URL from VITE_INDEXER_URL, and has no client without it", () => {
+    expect(resolveAppNetwork({}, FILES).indexer).toBeNull();
+    expect(resolveAppNetwork({ VITE_INDEXER_URL: "  " }, FILES).indexer).toBeNull();
+    expect(resolveAppNetwork({ VITE_INDEXER_URL: "http://localhost:8080" }, FILES).indexer).not.toBeNull();
+  });
+
   it("is null without a key, or when the deployment is not configured", () => {
     const { deployment } = resolveAppNetwork({}, FILES);
     expect(resolvePlayerAccount({}, deployment)).toBeNull();
