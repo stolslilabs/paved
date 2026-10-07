@@ -191,6 +191,18 @@ real-deck discard golden has its twin (129,860,385, same ceiling 133,514,279).
 A gas improvement lowers the figures: lower the ceilings in the same PR. A rise above a ceiling is
 a regression, not a reason to raise it.
 
+### P5-5 review and audit follow-up
+
+Three checked cases are added (new cases only, `play_daily_checked`, hand figures matched the run):
+`daily_forest_lord_and_woodsman_ring_structures_agree` (a Lord on the fourth curve's road: 4 x 100 x
+bonus(4) = 438, then the Woodsman 329, **767**), `daily_forest_woodsman_ring_last_tile_structures_agree`
+(tile limit 5: 329, over, tournament top score 329). The checked replays now also check the starter tile
+after the spawn (`replay_daily`), which is why every checked twin rises by about 10M and their ceilings
+are raised to measured + 5 % where they were crossed (city5 195,241,068; herdsman_caps 230,650,243;
+woodsman_ring 226,276,041; real-deck discards 147,218,960). New ceilings: lord_and_woodsman_ring
+229,155,194; woodsman_ring_last_tile 226,133,287. Figures are local (Mac), equal to CI within 4k on
+the P5-5 run.
+
 ## Limits
 
 - The Daily moves with a role use forced plans (`forced: true`: the harness replaces the drawn tile,

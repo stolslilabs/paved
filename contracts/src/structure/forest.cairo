@@ -133,9 +133,8 @@ pub fn scan(
             }
             let (x, y) = toward(node.x, node.y, direction);
             let (next, next_refs) = StoreImpl::tile_at(game_id, x, y);
-            if next.id == 0 {
-                continue;
-            }
+            // [Check] The gate guarantees that every position the forest needs is taken
+            assert(next.id != 0, 'Forest scan: open forest');
             let landing = oriented::area_of(oriented::plan_row(next.plan, next.orientation), at);
             let key = node_key(next.id, landing);
             if !visited.get(key) {
