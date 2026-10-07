@@ -272,8 +272,8 @@ pub impl StoreImpl of StoreTrait {
     }
 
     /// The slot of the tile at a position with the tile's id in the 8 bits above the tile's fields
-    /// (bits 88 to 96, unused in a slot), so that a caller that reads the same positions again keeps
-    /// the word and decodes it with `tile_of_slot`. 0 when the position is empty.
+    /// (bits 88 to 96, unused in a slot), so that a caller that reads the same positions again
+    /// keeps the word and decodes it with `tile_of_slot`. 0 when the position is empty.
     fn tile_slot_at(game_id: u32, x: u32, y: u32) -> felt252 {
         let value = storage().tile_positions.entry((game_id, x, y)).read();
         if value == 0 {

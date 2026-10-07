@@ -205,10 +205,10 @@ fn test_gas_e_close_forest() {
 ///
 /// The starter tile is the top edge of the loop (its south forest is the inside). The loop goes
 /// east along the top, down the right column, west along the bottom, up the left column; four
-/// wonder tiles (`WFFFFFFFF`, every edge forest) fill the 2 x 2 inside. The last tile is the top-left
-/// curve: it closes the loop of road and the forest, and the scan walks the 16 nodes (the four
-/// wonder tiles, the eight inner sides of the straights, the four inner corners), every tile of the
-/// inside read from its position. The Woodsman waits on the first straight.
+/// wonder tiles (`WFFFFFFFF`, every edge forest) fill the 2 x 2 inside. The last tile is the
+/// top-left curve: it closes the loop of road and the forest, and the scan walks the 16 nodes (the
+/// four wonder tiles, the eight inner sides of the straights, the four inner corners), every tile
+/// of the inside read from its position. The Woodsman waits on the first straight.
 ///
 /// ```text
 ///   y=0    curve*  starter  straight  curve
