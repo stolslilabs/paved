@@ -34,7 +34,7 @@ curl -s http://127.0.0.1:8787/v1/head
 | `--deployment <file>` | `contracts/deployments/<network>.json`: the three addresses, `deployed_block`, `chain_id` |
 | `--db <file>` | SQLite file (WAL). A database built for another deployment, start or chain is refused: `rebuild` it |
 | `--rpc <url>` or `INDEXER_RPC_URL` | The node. Default: the file's `rpc_url`, only for `network: devnet` and only at localhost. Never logged (a short hash is) |
-| `--port`, `--host` | The API, default `127.0.0.1` and a free port |
+| `--port`, `--host` | The API, default `127.0.0.1` and port `8787`; `--port 0` picks a free port (the log line says which) |
 | `--poll <ms>` | Idle wait between steps, default 1000 |
 | `--batch <n>` | Blocks applied per step, default 100 |
 | `--depth <n>\|l1` | Block headers kept below the tip, default `l1` (down to the last block accepted on L1) |

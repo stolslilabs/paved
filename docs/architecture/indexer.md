@@ -216,10 +216,11 @@ CREATE INDEX games_spawn  ON games (spawn_tournament, player_id) WHERE contract 
 ## Read API (v1)
 
 HTTP, JSON, `GET` only, read-only, versioned in the path. Served on `--host` (default `127.0.0.1`) and
-`--port`; `--allow-origin` lists the origins that may call it from a browser (default none). Every parameter is
+`--port` (default `8787`, P-20; `--port 0` picks a free port, which the startup log line names); `--allow-origin` lists the origins that may call it from a browser (default none). Every parameter is
 checked before anything is read: a missing, unknown, repeated or malformed parameter is `400`, an unknown route
-`404`. u64 values (tournament ids, timestamps) are JSON numbers (all below 2^53: a tournament id is at most
-`2^64 / 86400`, and times are seconds); `player_id` is a `0x` hex string, 66 characters, zero-padded;
+`404`. u64 values (tournament ids, timestamps) are JSON numbers, and every number the API returns is a safe integer
+(at most 2^53 - 1, P-19): a tournament id is at most `MAX_TOURNAMENT_ID` = `floor((2^53 - 1) / 86400) - 1` =
+`104249991373`, so that its `end_time`, `(id + 1) * 86400`, stays at most 2^53 - 1 (`9007199254713600` at the bound); `player_id` is a `0x` hex string, 66 characters, zero-padded;
 `name` is the short string decoded as UTF-8 (`null` when it does not decode, or when the player has no
 `PlayerCreated`). `limit` is 1 to 100 (default 20). A v1 field is never removed or retyped; fields may be
 appended, as for the views (`public-interface.md`).
@@ -239,7 +240,7 @@ An error is `{ "version": 1, "status": "error", "error": "<what>", "state": "ok"
 |---|---|---|
 | `GET /v1/head` | none | `head`, `state`, `chain_id`, `from_block`, `contracts` (the three addresses), `checks` (`last_mismatch`: the last closed day whose `prize_ranks` differed from the `tournament` view, or null) |
 | `GET /v1/tournaments` | `limit`, `before` (a tournament id, from `next`) | `tournaments`: newest first, each `id, start_time, end_time, games_spawned, players, best_score`; `next` (id or null) |
-| `GET /v1/tournaments/{id}` | none | `tournament`: `id, start_time, end_time, games_spawned, games_finished, players, best_score`; `{id}` is parsed as a decimal string; a malformed one, or one above `MAX_TOURNAMENT_ID` (`213503982334600`), is 400. This differs from the contract's `tournament` view, which answers zeros above that id: ids above 2^53 cannot round-trip as JSON numbers, so every id the API returns is at most `MAX_TOURNAMENT_ID` (< 2^53). A day with no game answers zeros, never 404 |
+| `GET /v1/tournaments/{id}` | none | `tournament`: `id, start_time, end_time, games_spawned, games_finished, players, best_score`; `{id}` is parsed as a decimal string; a malformed one, or one above `MAX_TOURNAMENT_ID` (`104249991373`, P-19), is 400. This differs from the contract's `tournament` view, which answers zeros for ids up to `2^64 / 86400`: a start or end time above 2^53 - 1 cannot round-trip as a JSON number, so the indexer alone refuses the ids whose times would exceed it (the contract view is unchanged). The same bound applies to every tournament id of a path or of `before`. A day with no game answers zeros, never 404 |
 | `GET /v1/tournaments/{id}/leaderboard` | `limit`, `offset` (default 0) | `total` (players ranked), `entries`: by `rank`, each `rank, player_id, name, best_score, best_game_id, games_played, games_finished, finished_at, prize_ranks`; `next_offset` (or null) |
 | `GET /v1/players/{player_id}` | none | `player`: `player_id, name, created`; `stats`: `daily_games, daily_finished, best_score, tutorial_games`. a malformed id is `400`; an unknown player answers `player: null` with `200` |
 | `GET /v1/players/{player_id}/games` | `contract` (`daily`, `tutorial`, default both), `limit`, `before` (`<start_time>:<contract>:<game_id>`, from `next`) | `games`: newest first, each `contract, game_id, mode, start_time, tournament_id` (of the spawn), `over, score, counted_tournament_id, end_time`; `next` (or null) |

@@ -95,7 +95,7 @@ describe("the cross-check against the tournament view", () => {
     node.time = (DAY + 1) * 86400;
     node.mine();
     await settle(indexer);
-    await check.run(indexer.served!); // the call fails: nothing recorded
+    await expect(check.run(indexer.served!)).rejects.toThrow(/tournament 100 failed: down/); // nothing recorded
     expect(calls).toBe(1);
     expect(check.checked.size).toBe(0);
     node.views = () => view([]);
@@ -103,6 +103,38 @@ describe("the cross-check against the tournament view", () => {
     expect(check.checked.has(DAY)).toBe(true);
     check.reset();
     expect(check.checked.size).toBe(0);
+  });
+
+  test("a failed call is retried on the idle path, with no new block", async () => {
+    const node = new FakeNode();
+    node.mine([ev.created(A, 0x41)]);
+    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })]);
+    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
+    let calls = 0;
+    node.views = () => {
+      if (++calls === 1) throw new Error("down");
+      return view([[A, 50]]);
+    };
+    node.time = (DAY + 1) * 86400;
+    node.mine();
+    const logs: string[] = [];
+    let check: CrossCheck | undefined;
+    const indexer = indexerOf(node, 1000, undefined, async (served) => {
+      await check?.run(served);
+    }, (message) => logs.push(message));
+    check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), new Queries(indexer.store));
+    await settle(indexer); // the first call fails, and the indexer is idle
+    expect(logs.some((message) => /after-served hook failed: cross-check of tournament 100 failed: down/.test(message))).toBe(true);
+    expect(calls).toBe(1);
+    expect(check.checked.size).toBe(0);
+    const served = indexer.served;
+    expect(await indexer.step()).toBe(false); // no new block: the same served block, the hook runs again
+    expect(indexer.served).toBe(served);
+    expect(calls).toBe(2);
+    expect(check.checked.has(DAY)).toBe(true);
+    expect(check.lastMismatch).toBeNull();
+    await indexer.step();
+    expect(calls).toBe(2); // succeeded: not called again while the block is the same
   });
 
   test("it runs as the hook after a block is served", async () => {

@@ -23,11 +23,11 @@ import {
 } from "./deployment.ts";
 import { Indexer, type Depth } from "./indexer.ts";
 import { Queries } from "./queries.ts";
-import { serve } from "./server.ts";
+import { DEFAULT_PORT, serve } from "./server.ts";
 import { SchemaMismatch, Store, deploymentHash } from "./store.ts";
 
 const USAGE =
-  "usage: indexer run|rebuild --deployment <file> --db <file> [--port <n>] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rpc <url>]";
+  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rpc <url>]`;
 
 function log(message: string) {
   console.log(`[indexer ${new Date().toISOString()}] ${message}`);
@@ -203,7 +203,7 @@ const server = serve(indexer, {
   },
 });
 server.listen(
-  integer(values.port, "port", 0),
+  integer(values.port, "port", DEFAULT_PORT),
   values.host ?? "127.0.0.1",
   () => {
     const address = server.address();

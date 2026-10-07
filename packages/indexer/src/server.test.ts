@@ -103,6 +103,22 @@ describe("routes", () => {
     expect(get(indexer, `/v1/tournaments/${MAX_TOURNAMENT_ID}`).code).toBe(200);
     expect(get(indexer, `/v1/tournaments/${MAX_TOURNAMENT_ID + 1}`).code).toBe(400);
   });
+
+  test("P-19: the bound is floor((2^53 - 1) / 86400) - 1, and its times are exact safe integers", async () => {
+    const { indexer } = await served();
+    expect(MAX_TOURNAMENT_ID).toBe(104249991373);
+    const bound = get(indexer, "/v1/tournaments/104249991373");
+    expect(bound.code).toBe(200);
+    expect(bound.body).toMatchObject({
+      tournament: { id: 104249991373, start_time: 9007199254627200, end_time: 9007199254713600 },
+    });
+    expect((bound.body.tournament as { end_time: number }).end_time).toBeLessThanOrEqual(Number.MAX_SAFE_INTEGER);
+    const leaderboard = get(indexer, "/v1/tournaments/104249991373/leaderboard");
+    expect(leaderboard.body).toMatchObject({ start_time: 9007199254627200, end_time: 9007199254713600 });
+    expect(get(indexer, "/v1/tournaments/104249991374")).toMatchObject({ code: 400, body: { status: "error" } });
+    expect(get(indexer, "/v1/tournaments?before=104249991374").code).toBe(400);
+    expect(get(indexer, "/v1/tournaments?before=104249991373").code).toBe(200);
+  });
 });
 
 describe("strict parameters", () => {

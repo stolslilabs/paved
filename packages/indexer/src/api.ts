@@ -4,11 +4,15 @@
 
 export const API_VERSION = 1;
 
-/** The largest tournament id the API accepts and returns: `2^64 / 86400` rounded down, below 2^53. */
-export const MAX_TOURNAMENT_ID = 213503982334600;
-
 /** Seconds of a tournament (`DAILY_TOURNAMENT_DURATION` of the contracts). */
 export const TOURNAMENT_DURATION = 86400;
+
+/**
+ * The largest tournament id the API accepts and returns (P-19): `floor((2^53 - 1) / 86400) - 1`, so that the end time
+ * `(id + 1) * 86400` of the id, the largest number the API returns for it, is at most 2^53 - 1 (`Number.MAX_SAFE_INTEGER`).
+ * The contract's `tournament` view accepts ids up to `2^64 / 86400`; above this bound the API answers 400.
+ */
+export const MAX_TOURNAMENT_ID = Math.floor(Number.MAX_SAFE_INTEGER / 86400) - 1; // 104249991373
 
 /** The block every answer is read at: the highest block checked after it was applied. */
 export interface ApiHead {
