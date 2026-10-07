@@ -21,10 +21,12 @@ export function indexerOf(
   depth = 1000,
   recheck?: { depth: number; everyMs: number },
   afterServed?: ConstructorParameters<typeof Indexer>[0]["afterServed"],
+  log?: (message: string) => void,
 ): Indexer {
   return new Indexer({
     recheck,
     afterServed,
+    log,
     chain: new Chain(node.rpc, {
       daily: DAILY,
       tutorial: TUTORIAL,

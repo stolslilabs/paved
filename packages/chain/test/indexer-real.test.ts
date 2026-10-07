@@ -63,10 +63,10 @@ describe("IndexerClient against the real indexer", () => {
     expect(list.data.next).toBeNull();
     expect((await client.tournament(DAY)).data).toMatchObject({ id: DAY, gamesSpawned: 3, gamesFinished: 2, players: 2, bestScore: 50 });
     expect((await client.tournament(7n)).data).toMatchObject({ gamesSpawned: 0, players: 0, bestScore: 0 });
-    // The API accepts ids up to MAX_TOURNAMENT_ID, but there the day's start_time (id * 86400) is about 2^64 and
-    // not a safe JSON integer: the client refuses that answer (reported to META). A large id with safe times reads.
     expect((await client.tournament(10_000_000_000)).data).toMatchObject({ id: 10_000_000_000, startTime: 10_000_000_000 * 86400, players: 0 });
-    expect(await kindOf(client.tournament(MAX_TOURNAMENT_ID))).toBe("bad-response");
+    // The bound reads with exact times; one above it is refused before any request (P-19).
+    expect((await client.tournament(MAX_TOURNAMENT_ID)).data).toMatchObject({ id: MAX_TOURNAMENT_ID, startTime: MAX_TOURNAMENT_ID * 86400, players: 0 });
+    expect(await kindOf(client.tournament(MAX_TOURNAMENT_ID + 1))).toBe("rejected");
   });
 
   test("/v1/tournaments/{id}/leaderboard: rows, prize slots and paging", async () => {

@@ -38,6 +38,9 @@ export type Answer = { code: number; body: Record<string, unknown> };
 /** Page sizes: the default, and the cap. */
 export const LIMIT = { default: 20, max: 100 };
 
+/** The port the API listens on when `--port` is not given (P-20); `--port 0` picks a free one. */
+export const DEFAULT_PORT = 8787;
+
 class BadRequest extends Error {}
 
 /** The served block as the API names it. */

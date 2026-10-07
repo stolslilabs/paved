@@ -36,7 +36,7 @@ export class CrossCheck {
     this.lastMismatch = null;
   }
 
-  /** Compares every closed day of the served block that is not checked yet. A failed call is retried at the next block. */
+  /** Compares every closed day of the served block that is not checked yet. A failed call throws, nothing recorded for that day; the indexer logs it and calls again at its next step. */
   async run(served: Header): Promise<void> {
     for (const id of this.queries.closedTournaments(served.number, served.timestamp)) {
       if (this.checked.has(id)) continue;
@@ -44,8 +44,7 @@ export class CrossCheck {
       try {
         felts = await this.chain.view("daily", `0x${SELECTOR}`, [`0x${id.toString(16)}`], served.hash);
       } catch (error) {
-        this.log(`cross-check of tournament ${id} failed: ${(error as Error).message}`);
-        return;
+        throw new Error(`cross-check of tournament ${id} failed: ${(error as Error).message}`);
       }
       const view = [0, 1, 2].map((rank) => ({
         player_id: padded(felts[FIRST_TOP + rank * 3] ?? 0n),

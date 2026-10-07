@@ -29,7 +29,7 @@
 // at the start); `rewound(to)` once the tables went back to block `to`; `status(status, reason)` at every change of
 // state. They run synchronously inside the step. A listener that throws is logged and does not stop the loop. The
 // `afterServed` option is the one asynchronous hook: it runs after the served block changed, may read the node, and its
-// failure is logged and never halts.
+// failure is logged, never halts, and is retried at every step (also when no new block came) until it succeeds.
 //
 // RESIDUAL, DEVNET ONLY: a block replaced deeper than `recheck.depth` below the tip, under
 // replacement blocks that keep the aborted blocks' hashes AND commitments (devnet's empty blocks
@@ -58,7 +58,7 @@ export type Options = {
    */
   recheck?: { depth: number; everyMs: number };
   log?: (message: string) => void;
-  /** Runs after the served block changed (never during a rewind); its failure is logged and does not stop the loop. */
+  /** Runs after the served block changed (never during a rewind); its failure is logged, does not stop the loop, and is retried at every step until it succeeds or the served block changes. */
   afterServed?: (served: Header) => Promise<void>;
 };
 
@@ -95,6 +95,8 @@ export class Indexer {
   private lastRecheck = -Infinity;
   private readonly log: (message: string) => void;
   private readonly afterServed: ((served: Header) => Promise<void>) | undefined;
+  /** The hook threw for the served block: it runs again at the next step, new block or not. */
+  private afterServedFailed = false;
   private readonly listeners = new Set<Listener>();
 
   constructor(options: Options) {
@@ -175,6 +177,17 @@ export class Indexer {
     return now !== null && sameBlock(now, block);
   }
 
+  private async runAfterServed(served: Header) {
+    if (!this.afterServed) return;
+    this.afterServedFailed = false;
+    try {
+      await this.afterServed(served);
+    } catch (error) {
+      this.afterServedFailed = true;
+      this.log(`after-served hook failed: ${(error as Error).message}`);
+    }
+  }
+
   /** One step; true when there is more to do right away. */
   async step(): Promise<boolean> {
     if (this.status === "halted") return false;
@@ -218,13 +231,9 @@ export class Indexer {
         this.served = stored;
         this.setStatus("ok");
         this.notify((listener) => listener.served?.(previous, stored));
-        if (this.afterServed) {
-          try {
-            await this.afterServed(stored);
-          } catch (error) {
-            this.log(`after-served hook failed: ${(error as Error).message}`);
-          }
-        }
+        await this.runAfterServed(stored);
+      } else if (this.afterServedFailed) {
+        await this.runAfterServed(stored); // idle: the same block again, until the hook succeeds
       }
       if (advanced) await this.prune();
     }

@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { DEFAULT_PORT } from "./server.ts";
 import { afterAll, describe, expect, test } from "vitest";
 
 const main = resolve(import.meta.dirname, "main.ts");
@@ -45,6 +46,11 @@ describe("the command line", () => {
     const result = run(...args);
     expect(result.status).toBe(2);
     expect(result.stderr).toMatch(message);
+  });
+
+  test("the usage names the default port, 8787 (P-20)", () => {
+    expect(DEFAULT_PORT).toBe(8787);
+    expect(run("serve").stderr).toMatch(/--port <n> \(default 8787, 0: a free port\)/);
   });
 
   test("without any RPC URL, a non-local deployment is refused, a local one defaults to its file's", () => {
