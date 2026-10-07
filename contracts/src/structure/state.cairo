@@ -5,8 +5,16 @@
 //! by `sid / 4` (`tile_id * 4 + slot`): the four records of a slot share it. The union-find runs on
 //! the cache, on packed records (`record.cairo`): `find` follows parents to the root, `merge` joins
 //! roots by size.
+//!
+//! The same cache holds what the assessment changes outside the pages, so that each slot of a move is
+//! read once and written once: the `Characters` word of the game (read at the first character, written
+//! by `flush` if a character was placed or recovered) and the built tile (written by the build before
+//! the assessment, which a recovered character on it changes: `flush` writes it again, without
+//! reading it).
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
+use paved::models::character::Char;
+use paved::models::tile::{Tile, ZeroableTile};
 use paved::store::{Store, StoreImpl};
 use paved::structure::record::{
     Record, RecordTrait, chars_of, child_of, grow, open_of, pack_slot, parent_of, root_of, size_of,
@@ -37,6 +45,13 @@ pub struct Structures {
     /// The page slots in `records`, in the order they came in: `flush` writes those that hold a
     /// changed record.
     slots: Array<u32>,
+    /// The `Characters` word of the game, once read (`characters_state` 1) or changed (2).
+    characters: u128,
+    characters_state: u8,
+    /// The tile built by the move (id 0 for none), its refs, and whether the assessment changed it.
+    pub built: Tile,
+    pub built_refs: u128,
+    pub built_dirty: bool,
 }
 
 #[generate_trait]
@@ -44,8 +59,46 @@ pub impl StructuresImpl of StructuresTrait {
     #[inline(always)]
     fn new(game_id: u32) -> Structures {
         Structures {
-            game_id, records: Default::default(), loaded: Default::default(), slots: array![],
+            game_id,
+            records: Default::default(),
+            loaded: Default::default(),
+            slots: array![],
+            characters: 0,
+            characters_state: 0,
+            built: ZeroableTile::zero(),
+            built_refs: 0,
+            built_dirty: false,
         }
+    }
+
+    /// Declares the tile the move built, as it is written: a character recovered from it is
+    /// cleared here, not read back from storage.
+    #[inline(always)]
+    fn track(ref self: Structures, tile: Tile, refs: u128) {
+        self.built = tile;
+        self.built_refs = refs;
+    }
+
+    /// The `Characters` word of the game, read the first time.
+    fn characters_word(ref self: Structures) -> u128 {
+        if self.characters_state == 0 {
+            self.characters = StoreImpl::characters_word(self.game_id);
+            self.characters_state = 1;
+        }
+        self.characters
+    }
+
+    /// The character of `role` (zero, `tile_id` 0, when it is not placed).
+    fn character(ref self: Structures, player_id: felt252, role: u8) -> Char {
+        let word = self.characters_word();
+        StoreImpl::unpack_character(self.game_id, player_id, role, word)
+    }
+
+    /// Writes a character in the cached `Characters` word; `flush` writes the slot.
+    fn put_character(ref self: Structures, character: Char) {
+        let word = self.characters_word();
+        self.characters = StoreImpl::with_character(word, character);
+        self.characters_state = 2;
     }
 
     /// Declares the page of a tile that has just been placed, of one slot or two: it holds no
@@ -151,8 +204,17 @@ pub impl StructuresImpl of StructuresTrait {
         root
     }
 
-    /// Writes every page slot that holds a record the move changed, once.
+    /// Writes every page slot that holds a record the move changed, once, then the `Characters`
+    /// word and the built tile if the move changed them.
     fn flush(ref self: Structures, store: Store) {
+        if self.characters_state == 2 {
+            StoreImpl::set_characters_word(self.game_id, self.characters);
+            self.characters_state = 1;
+        }
+        if self.built_dirty {
+            StoreImpl::write_tile(self.built, self.built_refs);
+            self.built_dirty = false;
+        }
         while let Option::Some(key) = self.slots.pop_front() {
             let first = key * 4;
             let r0 = self.records.get(first.into());

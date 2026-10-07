@@ -443,8 +443,18 @@ pub impl StoreImpl of StoreTrait {
         storage().tiles.entry((tile.game_id, tile.id)).write(word);
     }
 
-    /// Writes one role of the `Characters` slot of the game (read, replace the 16 bits, write).
-    fn set_character(self: Store, character: Char) {
+    /// The `Characters` word of a game (the 16 bits of each role).
+    fn characters_word(game_id: u32) -> u128 {
+        let word: u256 = storage().characters.entry(game_id).read().into();
+        word.low
+    }
+
+    fn set_characters_word(game_id: u32, word: u128) {
+        storage().characters.entry(game_id).write(word.into());
+    }
+
+    /// `word` with the entry of the role of `character` replaced by it.
+    fn with_character(word: u128, character: Char) -> u128 {
         // [Info] Char are created when placed and can be removed (the entry is then zero).
         let entry: u128 = character.tile_id.into()
             + character.spot.into() * 0x100
@@ -453,10 +463,14 @@ pub impl StoreImpl of StoreTrait {
         assert(character.tile_id < 0x100 && character.spot < 0x10, 'Char: Out of range');
         assert(character.weight < 4 && character.power < 4, 'Char: Out of range');
         let shift = Self::role_shift(character.index);
-        let word: u256 = storage().characters.entry(character.game_id).read().into();
-        let old = (word.low / shift) & MASK_16;
-        let low: u128 = word.low - old * shift + entry * shift;
-        storage().characters.entry(character.game_id).write(low.into());
+        let old = (word / shift) & MASK_16;
+        word - old * shift + entry * shift
+    }
+
+    /// Writes one role of the `Characters` slot of the game (read, replace the 16 bits, write).
+    fn set_character(self: Store, character: Char) {
+        let word = Self::characters_word(character.game_id);
+        Self::set_characters_word(character.game_id, Self::with_character(word, character));
     }
 
     fn set_tournament(self: Store, tournament: Tournament) {

@@ -20,6 +20,7 @@ use paved::models::builder::BuilderImpl;
 use paved::models::game::{Game, GameImpl};
 use paved::models::tile::Tile;
 use paved::store::{Store, StoreImpl};
+use paved::structure::assessment::recover;
 use paved::structure::placement::role_bit;
 use paved::structure::record::{chars_of, open_of, ref_of, size_of, without_chars};
 use paved::structure::state::{Structures, StructuresTrait};
@@ -52,12 +53,12 @@ pub fn assess_forest(
     let mut recovered: u16 = 0;
     let woodsman: u8 = Role::Woodsman.into();
     if chars & role_bit(woodsman) != 0 {
-        solve(ref game, size, roads, woodsman, ref store);
+        solve(ref game, size, roads, woodsman, ref structures, ref store);
         recovered = recovered | role_bit(woodsman);
     }
     let herdsman: u8 = Role::Herdsman.into();
     if chars & role_bit(herdsman) != 0 {
-        solve(ref game, size, cities, herdsman, ref store);
+        solve(ref game, size, cities, herdsman, ref structures, ref store);
         recovered = recovered | role_bit(herdsman);
     }
     if recovered == 0 {
@@ -149,13 +150,12 @@ pub fn scan(
 /// The points of the characters of `role` standing on a forest of `size` nodes with `distinct`
 /// closed roads or cities around it: `distinct x base x bonus(size)`, one `Scored`, the character
 /// recovered.
-fn solve(ref game: Game, size: u32, distinct: u32, role: u8, ref store: Store) {
+fn solve(
+    ref game: Game, size: u32, distinct: u32, role: u8, ref structures: Structures, ref store: Store,
+) {
     let (num, den) = compute_multiplier(size);
     let points = distinct * Category::Forest.base_points() * num / den;
-    let mut character = store.character(game, game.player_id, role.into());
-    let (mut tile, refs) = StoreImpl::tile_with_refs(game.id, character.tile_id);
-    let mut builder = store.builder(game, game.player_id);
-    builder.recover(ref character, ref tile);
+    recover(ref game, ref structures, role);
     game.add_score(points);
 
     // [Event] Forest scored
@@ -171,11 +171,6 @@ fn solve(ref game: Game, size: u32, distinct: u32, role: u8, ref store: Store) {
                 },
             ),
         );
-
-    // [Effect] Update the character, the tile and the builder
-    store.set_character(character);
-    StoreImpl::write_tile(tile, refs);
-    store.set_builder(builder);
 }
 
 /// The key of a node (an area of a tile) in the sets of a scan.
