@@ -2,7 +2,7 @@
   "network": "devnet",
   "chain_id": "0x534e5f5345504f4c4941",
   "rpc_url": "http://127.0.0.1:5050",
-  "deployed_at": "882d61a6fab7cab95702a42c8429a54e9d646d16",
+  "deployed_at": "bb32f0b283b5327304e7932372d5568ebc14956b",
   "deployed_block": 5,
   "token": {
     "address": "0x02aa1b3c0b07d9abd3568a3dc6cb1b15f87001f45a644bb31841c96cc33ffac7",
