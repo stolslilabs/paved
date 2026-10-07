@@ -20,7 +20,7 @@ use paved::models::tile::CENTER;
 use paved::structure::{oriented, placement, tables};
 use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
 use paved::tests::golden::harness::{
-    GoldenMove, GoldenOutcome, day, mv, play_daily, play_daily_checked,
+    GoldenMove, GoldenOutcome, day, mv, play_daily, play_daily_checked_lite,
 };
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, PLAYER, TestStoreTrait};
@@ -328,7 +328,7 @@ fn test_golden_daily_full_deck() {
 #[available_gas(l2_gas: 1357829040)]
 fn test_golden_daily_full_deck_structures_agree() {
     let moves = full_deck_moves();
-    play_daily_checked(
+    play_daily_checked_lite(
         'daily_full_deck', day(10), PLAYER(), false, 0, moves.span(), full_deck_outcome(),
     );
 }

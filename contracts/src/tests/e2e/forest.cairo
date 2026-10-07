@@ -24,6 +24,7 @@
 use paved::constants;
 use paved::events::{Event as PavedEvent, Scored};
 use paved::models::builder::Builder;
+use paved::models::character::Char;
 use paved::models::tile::CENTER;
 use paved::store::{StoreImpl, StoreTrait};
 use paved::systems::daily::{Daily, IDailyDispatcher};
@@ -348,7 +349,7 @@ fn corridors(
 // The forest helper alone, on boards without characters.
 
 #[test]
-#[available_gas(l2_gas: 196544674)]
+#[available_gas(l2_gas: 217484876)]
 fn test_forest_helper_ring_open_then_closed() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -384,7 +385,7 @@ fn test_forest_helper_ring_open_then_closed() {
 }
 
 #[test]
-#[available_gas(l2_gas: 245986971)]
+#[available_gas(l2_gas: 265964512)]
 fn test_forest_helper_crossings_count_each_road() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -396,7 +397,7 @@ fn test_forest_helper_crossings_count_each_road() {
 }
 
 #[test]
-#[available_gas(l2_gas: 117350048)]
+#[available_gas(l2_gas: 123238710)]
 fn test_forest_helper_sandwich_open_roads() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -409,7 +410,7 @@ fn test_forest_helper_sandwich_open_roads() {
 }
 
 #[test]
-#[available_gas(l2_gas: 195819806)]
+#[available_gas(l2_gas: 208574471)]
 fn test_forest_helper_one_city_touched_twice_counts_once() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -422,7 +423,7 @@ fn test_forest_helper_one_city_touched_twice_counts_once() {
 }
 
 #[test]
-#[available_gas(l2_gas: 187262352)]
+#[available_gas(l2_gas: 197426006)]
 fn test_forest_helper_two_cities_count_twice() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -443,7 +444,7 @@ fn test_forest_helper_open_cities_do_not_count_nor_block() {
 }
 
 #[test]
-#[available_gas(l2_gas: 116622968)]
+#[available_gas(l2_gas: 124486880)]
 fn test_forest_helper_collects_the_characters_of_an_open_forest() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -456,8 +457,41 @@ fn test_forest_helper_collects_the_characters_of_an_open_forest() {
 
 // Scoring.
 
+/// The P-16 invariant of the oracle fires: a Woodsman written onto the closed ring (the forest
+/// is finished, every adjacent road closed) through the test store is found by the board check.
 #[test]
-#[available_gas(l2_gas: 145921899)]
+#[should_panic(expected: ('Check: char on finished forest',))]
+#[available_gas(l2_gas: 389811200)]
+fn test_forest_oracle_finds_a_character_on_a_finished_forest() {
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let (g, p) = (context.game_id, context.player_id);
+    ring(store, systems.daily, g, p, Role::None, true);
+    check::assert_board_agrees(store, g);
+    interact_with_state(
+        store.contract,
+        || {
+            let mut s = StoreImpl::new();
+            let game = s.game(g);
+            let tile_id = s.tile_position(game, CENTER, CENTER - 1).tile_id;
+            s
+                .set_character(
+                    Char {
+                        game_id: g,
+                        player_id: p,
+                        index: Role::Woodsman.into(),
+                        tile_id: tile_id.try_into().unwrap(),
+                        spot: Spot::SouthEast.into(),
+                        weight: 1,
+                        power: 1,
+                    },
+                );
+        },
+    );
+    check::assert_board_agrees(store, g);
+}
+
+#[test]
+#[available_gas(l2_gas: 161034607)]
 fn test_forest_woodsman_waits_for_the_last_tile_of_the_ring() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -470,7 +504,7 @@ fn test_forest_woodsman_waits_for_the_last_tile_of_the_ring() {
 /// 1 x 300 x bonus(4); bonus(4) = 10972 / 10000 (10235^2 / 10000 = 10475, 10475^2 / 10000 = 10972),
 /// so 300 x 10972 / 10000 = 329.
 #[test]
-#[available_gas(l2_gas: 190023046)]
+#[available_gas(l2_gas: 213926123)]
 fn test_forest_woodsman_scores_the_closed_ring() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -495,7 +529,7 @@ fn test_forest_woodsman_scores_the_closed_ring() {
 
 /// By hand: 4 closed roads x 300 x bonus(4) = 4 x 300 x 10972 / 10000 = 1316.
 #[test]
-#[available_gas(l2_gas: 247765209)]
+#[available_gas(l2_gas: 270712554)]
 fn test_forest_woodsman_scores_four_roads() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -518,7 +552,7 @@ fn test_forest_woodsman_scores_four_roads() {
 }
 
 #[test]
-#[available_gas(l2_gas: 117257792)]
+#[available_gas(l2_gas: 125121704)]
 fn test_forest_woodsman_stays_while_an_adjacent_road_is_open() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -531,7 +565,7 @@ fn test_forest_woodsman_stays_while_an_adjacent_road_is_open() {
 /// one more cap: 6 tiles, closed) is one city, touched twice: 1 x 300 x bonus(2) =
 /// 300 x 10475 / 10000 = 314.
 #[test]
-#[available_gas(l2_gas: 193094466)]
+#[available_gas(l2_gas: 209799630)]
 fn test_forest_herdsman_scores_one_city_touched_twice_once() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -557,7 +591,7 @@ fn test_forest_herdsman_scores_one_city_touched_twice_once() {
 
 /// By hand: 2 cities x 300 x bonus(2) = 2 x 300 x 10475 / 10000 = 628 (628.5 rounded down).
 #[test]
-#[available_gas(l2_gas: 188932124)]
+#[available_gas(l2_gas: 203046277)]
 fn test_forest_herdsman_scores_two_cities() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -609,7 +643,7 @@ fn test_forest_herdsman_is_back_with_nothing_when_no_city_is_closed() {
 /// city never counts: the Herdsman is back with a `Scored` of 0 points. The oracle's walk,
 /// corrected the same way, agrees (`put` checks the structure state against it after every build).
 #[test]
-#[available_gas(l2_gas: 199716425)]
+#[available_gas(l2_gas: 215561970)]
 fn test_forest_herdsman_open_city_touched_twice_scores_nothing() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -688,7 +722,7 @@ fn test_forest_herdsman_open_city_touched_twice_scores_nothing() {
 /// By hand: the road has 3 tiles (two road ends and the starter), 3 x 100 x 1 x bonus(3) =
 /// 3 x 100 x 10721 / 10000 = 321 (10235 x 10475 / 10000 = 10721).
 #[test]
-#[available_gas(l2_gas: 128358874)]
+#[available_gas(l2_gas: 139334970)]
 fn test_forest_woodsman_on_a_road_counts_like_a_lord() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -859,7 +893,7 @@ fn test_forest_second_character_on_the_same_forest_is_refused() {
 // Views.
 
 #[test]
-#[available_gas(l2_gas: 149282834)]
+#[available_gas(l2_gas: 164395542)]
 fn test_forest_views_list_the_two_roles() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);

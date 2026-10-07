@@ -387,21 +387,80 @@ Scenario f now also asserts its exact score (434) and that the Woodsman is back 
 
 ## Line coverage of `contracts/src`
 
-**Not measured.** `cairo-coverage` 0.6.1 was installed in user space (release tarball into
-`~/.local/bin`; the official `install.sh` was not run because it appends to `~/.bashrc`).
-`snforge test --coverage` ran all tests, then `cairo-coverage` aborted:
+Measured on the Mac (aarch64, scarb 2.20.1, snforge 0.64.0, cairo-coverage 0.6.1 from `~/.asdf/installs`;
+line coverage does not depend on the machine). Command: `scripts/measure.sh coverage-split`. It runs
+`snforge test --coverage --max-threads 2 <filter>` once per group below (`RAYON_NUM_THREADS=1`, peak
+printed with `/usr/bin/time -l` on Darwin; on Linux `prlimit` 8 GiB and `time -f`), keeps each
+`coverage.lcov` under `contracts/target/coverage-split/`, merges them by summing the hits of each
+`SF`/`DA` line with awk (`lcov -a` is not used, so that every machine gives the same file), then prints
+the table (`tests/` and `mocks/` excluded). One run of everything (`scripts/measure.sh coverage`) aborted
+at 7.9 GB on the VPS, and the first split peaked at 19 GB for `paved::structure::` (the exhaustive table
+tests), hence the groups: those tests run two per run (`--partition i/12`).
 
-```
-$ prlimit --as=8589934592 -- /usr/bin/time -v snforge test --coverage
-memory allocation of 632 bytes failed
-[ERROR] cairo-coverage failed to generate coverage - ... failed with status signal: 6 (SIGABRT)
-	Elapsed (wall clock) time: 3:22.13
-	Maximum resident set size (kbytes): 7896092
-```
+| Group | Filter | Peak RSS (Mac, `time -l`) |
+| --- | --- | --- |
+| types | `paved::types::` | 5.27 GB |
+| elements | `paved::elements::` | 5.31 GB |
+| helpers-random-deck | `paved::helpers::random_deck::` | 7.44 GB |
+| helpers-multiplier | `paved::helpers::multiplier::` | 5.25 GB |
+| models | `paved::models::` | 5.34 GB |
+| structure-record | `paved::structure::record::` | 5.32 GB |
+| structure-placement | `paved::structure::placement::` | 5.50 GB |
+| structure-state | `paved::structure::state::` | 5.35 GB |
+| structure-oriented | `paved::structure::oriented::` | 5.62 GB |
+| structure-tables-1 | `paved::structure::tables::` --partition 1/12 | 6.14 GB |
+| structure-tables-2 | `paved::structure::tables::` --partition 2/12 | 6.73 GB |
+| structure-tables-3 | `paved::structure::tables::` --partition 3/12 | 6.65 GB |
+| structure-tables-4 | `paved::structure::tables::` --partition 4/12 | 6.18 GB |
+| structure-tables-5 | `paved::structure::tables::` --partition 5/12 | 6.77 GB |
+| structure-tables-6 | `paved::structure::tables::` --partition 6/12 | 7.22 GB |
+| structure-tables-7 | `paved::structure::tables::` --partition 7/12 | 6.94 GB |
+| structure-tables-8 | `paved::structure::tables::` --partition 8/12 | 7.20 GB |
+| structure-tables-9 | `paved::structure::tables::` --partition 9/12 | 7.20 GB |
+| structure-tables-10 | `paved::structure::tables::` --partition 10/12 | 7.02 GB |
+| structure-tables-11 | `paved::structure::tables::` --partition 11/12 | 7.18 GB |
+| structure-tables-12 | `paved::structure::tables::` --partition 12/12 | 6.75 GB |
+| store | `paved::store::` | 5.33 GB |
+| e2e | `paved::tests::e2e::` | 7.12 GB |
+| golden | `paved::tests::golden::` | 7.70 GB |
+| differential | `paved::tests::differential` | 5.87 GB |
+| oracle | `paved::tests::oracle` | 5.41 GB |
+| gas | `test_gas_` | 3.93 GB |
 
-Peak memory reached 7.9 GB under the 8 GiB cap, so it does not fit this VPS. The command is
-`scripts/measure.sh coverage`, to be run on the Mac (the script uses `/usr/bin/time -l` and no cap on Darwin). The overall and per-directory table (tests/ and mocks/
-excluded) is computed by that script from `coverage/coverage.lcov`; its awk part has not been exercised yet.
+Largest peak 7.70 GB (golden), under the 8 GiB cap (8.59 GB) by 10 %. The Mac has no cap, so the cap
+itself was not exercised here. Merged result (every test of the groups passes):
+
+| Directory | Lines hit / lines | Coverage |
+| --- | --- | --- |
+| (root) | 265 / 265 | 100.00 % |
+| components | 260 / 268 | 97.01 % |
+| elements | 687 / 717 | 95.82 % |
+| helpers | 226 / 243 | 93.00 % |
+| models | 436 / 441 | 98.87 % |
+| structure | 1591 / 1679 | 94.76 % |
+| systems | 69 / 71 | 97.18 % |
+| TOTAL | 4312 / 4474 | 96.38 % |
+| types | 778 / 790 | 98.48 % |
+
+Lines left uncovered (162 of 4474), as listed from `merged.lcov`, by kind:
+
+- 42 in `structure/oriented.cairo`, 29 in `structure/tables.cairo`, 14 in `types/{plan,deck,layout,area,direction,spot}.cairo`
+  and `models/tournament.cairo`: the header line of a `match` (compiled to a jump table that is attributed to
+  the line of the `match`), the `_ => array![]` / `Orientation::None` / `Plan::None` default arms, and the
+  `println!` lines of the failure branches of the exhaustive table tests, which run only on a failure.
+- 29 in `elements/decks/{base,tutorial,simple}.cairo`: the deck literals (`Plan::X => array![..]`) and the
+  default arm, which the tests reach through the packed deck bitmaps, not these lines.
+- 17 in `helpers/{bitmap,random_deck}.cairo`: branches of the bitmap helpers no test reaches (`x & ~mask`,
+  the shifts of the high words), `discard`, and lines of the tests of `random_deck` itself.
+- 8 in `components/*.cairo`: the `#[derive(starknet::Event)]` lines and two lines of the tutorial and
+  playable components (`structures.track`, a game-over emit) that the instrumented trace does not attribute.
+- 22 in `structure/{state,placement,forest,record,assessment}.cairo`, `models/game.cairo` and
+  `systems/tutorial.cairo`: function headers (`#[inline]` and multi-line signatures attributed to their first
+  line), one `return false` and one `break` of the forest scan, and the two view helpers of the tutorial.
+
+None of them is a gameplay branch known to be unreached: the re-rooting branch of `place` is covered by
+`test_differential_two_areas_of_one_tile_join_one_structure`, and the P-16 invariant of the oracle by
+`test_forest_oracle_finds_a_character_on_a_finished_forest`.
 
 ## Commands and peak memory (VPS, under `prlimit --as=8589934592`)
 
@@ -411,7 +470,7 @@ excluded) is computed by that script from `coverage/coverage.lcov`; its awk part
 | `scarb build` | pass | 2.65 GB |
 | `snforge test test_gas_` | 5 passed | 4.17 GB (single-threaded) |
 | `snforge test` | `Tests: 222 passed, 0 failed, 1 ignored, 0 filtered out` | 5.53 GB |
-| `snforge test --coverage` | aborted in `cairo-coverage` | 7.90 GB |
+| `snforge test --coverage` | aborted in `cairo-coverage` | 7.90 GB (VPS, P0; see the split run above) |
 | `snforge test` after P1 | `Tests: 192 passed, 0 failed, 0 ignored, 0 filtered out` (the CI job `Test game` of the PR passes) | 4.32 GB |
 | `scarb build` after P2 | pass | 0.85 GB |
 | `snforge test` after P2 | `Tests: 226 passed, 0 failed, 0 ignored, 0 filtered out` | 2.18 GB (single-threaded) |

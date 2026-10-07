@@ -268,7 +268,7 @@ fn test_golden_daily_real_deck_discards_to_game_over() {
 // the walks after every build. Separate runs, so that the cases above measure the games alone.
 
 #[test]
-#[available_gas(l2_gas: 180519119)]
+#[available_gas(l2_gas: 192001057)]
 fn test_golden_daily_city5_structures_agree() {
     play_daily_checked(
         'daily_city5',
@@ -290,7 +290,7 @@ fn test_golden_daily_city5_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 236976891)]
+#[available_gas(l2_gas: 276876851)]
 fn test_golden_daily_road6_structures_agree() {
     play_daily_checked(
         'daily_road6',
@@ -312,7 +312,7 @@ fn test_golden_daily_road6_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 209866222)]
+#[available_gas(l2_gas: 240235064)]
 fn test_golden_daily_mixed_roles_structures_agree() {
     play_daily_checked(
         'daily_mixed',

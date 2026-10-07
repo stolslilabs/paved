@@ -762,6 +762,62 @@ pub mod forest {
     }
 }
 
+/// The walk that counts the half-edges of a structure that look at an empty position, and its
+/// nodes (P5-7). Added to the oracle, not copied from `helpers/`: the walks above stop at the
+/// first empty position, so none of them says how many are open. It follows the same moves as
+/// `GenericCount`, without the short-circuit.
+pub mod open_count {
+    use paved::models::game::Game;
+    use paved::models::tile::{Tile, TilePosition, TileTrait, ZeroableTilePosition};
+    use paved::store::{Store, StoreImpl};
+    use paved::types::area::Area;
+    use paved::types::move::{Move, MoveImpl};
+    use paved::types::spot::Spot;
+
+    #[generate_trait]
+    pub impl OpenCount of OpenCountTrait {
+        /// `(nodes, open)` of the structure of the area of `tile` at `at`.
+        fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, u32) {
+            let mut visited: Felt252Dict<bool> = Default::default();
+            let mut nodes: u32 = 0;
+            let mut open: u32 = 0;
+            Self::iter(game, tile, at, ref nodes, ref open, ref visited, ref store);
+            (nodes, open)
+        }
+
+        fn iter(
+            game: Game,
+            tile: Tile,
+            at: Spot,
+            ref nodes: u32,
+            ref open: u32,
+            ref visited: Felt252Dict<bool>,
+            ref store: Store,
+        ) {
+            let area: Area = tile.area(at);
+            let visited_key = tile.get_key(area);
+            if visited.get(visited_key) {
+                return;
+            }
+            visited.insert(visited_key, true);
+            nodes += 1;
+
+            let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
+            while let Option::Some(north_oriented_move) = north_oriented_moves.pop_front() {
+                let move = north_oriented_move.rotate(tile.orientation.into());
+                let (x, y) = tile.proxy_coordinates(move.direction);
+                let tile_position: TilePosition = store.tile_position(game, x, y);
+                if tile_position.is_zero() {
+                    open += 1;
+                    continue;
+                }
+                let neighbor = store.tile(game, tile_position.tile_id);
+                Self::iter(game, neighbor, move.spot, ref nodes, ref open, ref visited, ref store);
+            }
+        }
+    }
+}
+
 /// The differential check of P5-4: after a move, the structure state of a tile agrees with the
 /// walks of this oracle on the board as it is.
 ///
@@ -789,10 +845,17 @@ pub mod check {
     use super::conflict::Conflict;
     use super::forest::ForestCount;
     use super::generic::GenericCount;
+    use super::open_count::OpenCount;
 
     /// Runs the check on the tile `tile_id` of the game, in the contract of `store`.
     pub fn assert_tile_agrees(store: TestStore, game_id: u32, tile_id: u32) {
         interact_with_state(store.contract, || check_tile(game_id, tile_id));
+    }
+
+    /// `assert_tile_agrees` without the exact count of open half-edges (zero or not only): for the
+    /// one board whose test has no gas left for the extra walk.
+    pub fn assert_tile_agrees_lite(store: TestStore, game_id: u32, tile_id: u32) {
+        interact_with_state(store.contract, || check_tile_with(game_id, tile_id, false));
     }
 
     /// Runs the check on every placed tile of the game (tile ids 1 to `tile_count`).
@@ -812,6 +875,10 @@ pub mod check {
 
     /// The check of one tile, from inside the contract: nothing for a tile that is not placed.
     pub fn check_tile(game_id: u32, tile_id: u32) {
+        check_tile_with(game_id, tile_id, true);
+    }
+
+    fn check_tile_with(game_id: u32, tile_id: u32, exact: bool) {
         let (tile, refs) = StoreImpl::tile_with_refs(game_id, tile_id);
         if tile.orientation == 0 {
             return;
@@ -823,7 +890,7 @@ pub mod check {
             if tables::record_index(tile.plan, area) != tables::NO_RECORD {
                 let sid = ref_of(refs, area);
                 assert(sid != 0, 'Check: node without structure');
-                check_node(ref structures, tile, area, sid);
+                check_node(ref structures, tile, area, sid, exact);
             }
             area += 1;
         }
@@ -835,7 +902,9 @@ pub mod check {
             let wonder = tables::wonder(neighbor.plan);
             if neighbor.is_non_zero() && wonder != 0 {
                 let area = tables::area_at(neighbor.plan, wonder, neighbor.orientation);
-                check_node(ref structures, neighbor, area, around.reference(direction, area));
+                check_node(
+                    ref structures, neighbor, area, around.reference(direction, area), exact,
+                );
             }
             direction += 1;
         }
@@ -870,6 +939,10 @@ pub mod check {
             if !record_closed(record) {
                 continue;
             }
+            // Directly, from the structure state: a forest whose adjacent roads are all closed is
+            // finished and holds no character (the walk below says the same from the board)
+            let (open_road, _, _) = scan(game_id, tile, refs, area, ref structures);
+            assert(open_road, 'Check: char on finished forest');
             let at: Spot = character.spot.into();
             let (count, _, _, _, _) = ForestCount::start(game, tile, at, ref s);
             if count != 0 {
@@ -887,7 +960,7 @@ pub mod check {
         paved::structure::record::open_of(record) == 0
     }
 
-    fn check_node(ref structures: Structures, tile: Tile, area: u8, sid: u32) {
+    fn check_node(ref structures: Structures, tile: Tile, area: u8, sid: u32, exact: bool) {
         let mut s = StoreImpl::new();
         let game = s.game(tile.game_id);
         let at: Spot = spot_of(tile, area).into();
@@ -908,6 +981,25 @@ pub mod check {
             );
         }
         assert(closed == record.is_closed(), 'Check: closed differs');
+        // The open half-edges, as an exact count (not only zero or not). The walk costs the size of
+        // the structure on every node checked: the full-deck game, whose gas is at the cap of a
+        // test already, runs the `lite` check and keeps the zero or not comparison above.
+        if exact {
+            let (nodes, open) = OpenCount::start(game, tile, at, ref s);
+            if open != record.open.into() {
+                println!(
+                    "Check: tile {} area {}: walk open {}, record open {}",
+                    tile.id,
+                    area,
+                    open,
+                    record.open,
+                );
+            }
+            assert(open == record.open.into(), 'Check: open differs');
+            if !is_wonder {
+                assert(nodes == record.size.into(), 'Check: nodes differ');
+            }
+        }
         if closed && !is_wonder {
             if count != record.size.into() {
                 println!(

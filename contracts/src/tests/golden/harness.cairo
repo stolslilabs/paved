@@ -128,7 +128,7 @@ pub fn play_daily(
     moves: Span<GoldenMove>,
     outcome: GoldenOutcome,
 ) -> Game {
-    replay_daily(name, timestamp, caller, forced, tile_limit, moves, outcome, false)
+    replay_daily(name, timestamp, caller, forced, tile_limit, moves, outcome, Check::None)
 }
 
 /// `play_daily`, with the differential check of P5-4 (`oracle::check`) on the built tile after
@@ -142,7 +142,36 @@ pub fn play_daily_checked(
     moves: Span<GoldenMove>,
     outcome: GoldenOutcome,
 ) -> Game {
-    replay_daily(name, timestamp, caller, forced, tile_limit, moves, outcome, true)
+    replay_daily(name, timestamp, caller, forced, tile_limit, moves, outcome, Check::Full)
+}
+
+/// `play_daily_checked` with the lighter check (`oracle::check::assert_tile_agrees_lite`): the
+/// full-deck game, whose test is at the gas cap already.
+pub fn play_daily_checked_lite(
+    name: felt252,
+    timestamp: u64,
+    caller: ContractAddress,
+    forced: bool,
+    tile_limit: u16,
+    moves: Span<GoldenMove>,
+    outcome: GoldenOutcome,
+) -> Game {
+    replay_daily(name, timestamp, caller, forced, tile_limit, moves, outcome, Check::Lite)
+}
+
+#[derive(Copy, Drop, PartialEq)]
+enum Check {
+    None,
+    Full,
+    Lite,
+}
+
+fn run_check(store: TestStore, game_id: u32, tile_id: u32, checked: Check) {
+    if checked == Check::Lite {
+        check::assert_tile_agrees_lite(store, game_id, tile_id);
+    } else {
+        check::assert_tile_agrees(store, game_id, tile_id);
+    }
 }
 
 fn replay_daily(
@@ -153,15 +182,15 @@ fn replay_daily(
     tile_limit: u16,
     moves: Span<GoldenMove>,
     outcome: GoldenOutcome,
-    checked: bool,
+    checked: Check,
 ) -> Game {
     snforge_std::start_cheat_block_timestamp_global(timestamp);
     let (store, systems, _) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.daily.contract_address, caller);
     let game_id = systems.daily.spawn();
-    if checked {
+    if checked != Check::None {
         // The starter tile is placed by the spawn: its records agree with the walks too
-        check::assert_tile_agrees(store, game_id, 1);
+        run_check(store, game_id, 1, checked);
     }
     if tile_limit != 0 {
         let mut game = store.game(game_id);
@@ -193,8 +222,8 @@ fn replay_daily(
                 .build(
                     game_id, *golden.orientation, *golden.x, *golden.y, *golden.role, *golden.spot,
                 );
-            if checked {
-                check::assert_tile_agrees(store, game_id, builder.tile_id);
+            if checked != Check::None {
+                run_check(store, game_id, builder.tile_id, checked);
             }
         }
         let game = store.game(game_id);
