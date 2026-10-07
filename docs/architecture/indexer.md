@@ -390,3 +390,35 @@ Decided here, for the owner to read afterwards (changeable by a later PR, as no 
 Open points for the PM: the public hosting of the indexer (who runs it, the origin allow-list) is a
 deployment question, outside this design and outside P6's first implementation PR; a non-local network is the
 owner's decision (`OPERATIONS.md`).
+
+## As built (P6 implementation)
+
+The package follows this design. What differs, or was decided while building (Paved-specific names are those of the code):
+
+- **Layout**: as the table above, plus `src/deployment.ts` (reads `deployments/<network>.json`) and `src/crosscheck.ts`
+  (the view comparison). `bun run --cwd packages/indexer start run ...` starts it: Node 24 runs the TypeScript directly,
+  so `build` is `tsc --noEmit` (a typecheck). The repository has no ESLint configuration, so there is no `lint` script.
+- **Tables**: `blocks` has no `checked` column; the highest checked block is the `meta` key `checked`, as in Grim World.
+  `meta` holds `schema`, `chain_id`, `deployment` (sha256 of the three addresses), `from_block`, `addresses`, `checked`,
+  `started_at`. `players` gains `created_time` (the block's time). `games_player` is `(player_id, start_time DESC,
+  contract DESC, game_id DESC)`: the list's order is total across the two contracts. Only the three indexed events are
+  stored in `events`; the known others (`Built`, `Discarded`, `Scored`, `Sponsored`, `Claimed`, the ownership events) are
+  skipped, and any other selector halts the indexer. A `PlayerCreated` from a contract other than `Account`, a second
+  one for a player, and a `GameOver` by another player than the one that spawned the game also halt.
+- **Reading blocks**: as Grim World, one header and the events of each of the three contracts per block, by block hash
+  (`chunk_size` 100), not by ranges of blocks; the node's chain id is checked against the file's at start.
+- **Served block**: the tables hold the stored tip, which may be above the served block while a batch is being checked, so
+  every query compares the block columns with the served block (a later spawn is absent, a later game over has not happened).
+- **API**: `GET /v1/head` also answers `state` and `checks.tournaments_checked`, and is `503` like the other routes when the
+  indexer is not `ok`; error answers carry `head`; game rows carry `player_id`; a game that is running has `score`,
+  `counted_tournament_id` and `end_time` `null`; an unknown player has `stats: null`; `players` of a tournament counts the
+  players ranked (the leaderboard's `total`) and `created` of a player is the creation block's time. The tournament list
+  holds the days with at least one Daily game spawned.
+- **Cross-check**: compared days are kept in memory (a restart compares the closed days again, one call each); a rewind
+  clears them and the last mismatch.
+- **Tests**: the prize-slot table is in `src/queries.test.ts`, with a stable top-3 oracle and a seeded random run. The Cairo
+  half of the design (feeding the same table to a test of `Tournament::score`) is not added: P6 does not touch `contracts/`.
+  The devnet scenario is `test/devnet/scenario.test.ts`.
+- **CI**: the package has its own job in `test.yaml`, gated on `packages/indexer/**` and the ABIs and deployments it reads;
+  it is in the aggregate `ci` job's needs. `client.yaml` also runs it (it runs every package of `packages/**`).
+
