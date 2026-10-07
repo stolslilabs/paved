@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { GPU_FLAGS, SMOKE_FLAGS, TRIAL, checkGpu, launchArgs, parseMode, probeGpu } from "../../../scripts/bench/launch";
+import { GPU_FLAGS, SMOKE_FLAGS, TRIAL, checkGpu, launchArgs, launchChecked, parseMode, probeGpu } from "../../../scripts/bench/launch";
 
 const M2 = "ANGLE (Apple, ANGLE Metal Renderer: Apple M2 Max, Unspecified Version)";
 
@@ -20,6 +20,15 @@ describe("parseMode", () => {
 
   it("refuses --offscreen next to --headless too", () => {
     expect(() => parseMode(["--headless", "--offscreen"])).toThrow(/--offscreen is refused/);
+  });
+
+  it("refuses --chromium without --headless", () => {
+    expect(() => parseMode(["--chromium", "/usr/bin/chromium"])).toThrow(/use it with --headless/);
+    expect(parseMode(["--headless", "--chromium", "/usr/bin/chromium"]).mode).toBe("smoke");
+  });
+
+  it.each(["--click", "--play", "--sizes", "--runs", "--duration", "--profiles"])("refuses %s with --trial", (flag) => {
+    expect(() => parseMode(["--trial", flag, "1"])).toThrow(new RegExp(`${flag} is refused with it`));
   });
 
   it("does not take --window (the size) for --window-position", () => {
@@ -97,5 +106,49 @@ describe("probeGpu", () => {
     expect(probeGpu()).toEqual({ renderer: "WebKit WebGL", timerQuery: false });
     stubDocument(null);
     expect(probeGpu()).toEqual({ renderer: "", timerQuery: false });
+  });
+});
+
+describe("launchChecked", () => {
+  const stubBrowser = (facts: { renderer: string; timerQuery: boolean }) => {
+    const calls: string[] = [];
+    const browser = {
+      newPage: async () => ({
+        evaluate: async () => facts,
+        close: async () => void calls.push("page.close"),
+      }),
+      close: async () => void calls.push("browser.close"),
+    };
+    return { browser, calls };
+  };
+
+  it("launches once and returns the browser, open, on a hardware renderer", async () => {
+    const { browser, calls } = stubBrowser({ renderer: M2, timerQuery: true });
+    const launcher = vi.fn(async () => browser);
+    await expect(launchChecked("gpu", launcher)).resolves.toBe(browser);
+    expect(launcher).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(["page.close"]);
+  });
+
+  it("closes the browser and throws on a SwiftShader renderer", async () => {
+    const { browser, calls } = stubBrowser({ renderer: "Google SwiftShader", timerQuery: true });
+    const launcher = vi.fn(async () => browser);
+    await expect(launchChecked("gpu", launcher)).rejects.toThrow(/software rendering/);
+    expect(launcher).toHaveBeenCalledTimes(1);
+    expect(calls).toContain("browser.close");
+  });
+
+  it("closes the browser and throws on a missing timer query", async () => {
+    const { browser, calls } = stubBrowser({ renderer: M2, timerQuery: false });
+    await expect(launchChecked("gpu", async () => browser)).rejects.toThrow(/no GPU timer query/);
+    expect(calls).toContain("browser.close");
+  });
+
+  it("skips the check in smoke mode", async () => {
+    const { browser, calls } = stubBrowser({ renderer: "Google SwiftShader", timerQuery: false });
+    const launcher = vi.fn(async () => browser);
+    await expect(launchChecked("smoke", launcher)).resolves.toBe(browser);
+    expect(launcher).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual([]);
   });
 });

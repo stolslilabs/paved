@@ -36,8 +36,7 @@ import { SourceMapConsumer } from "source-map-js";
 import { chromium } from "playwright-core";
 import type { Browser, BrowserContext, Page } from "playwright-core";
 import { capFrameRate } from "./frame-cap";
-import { TRIAL, checkGpu, launchArgs, parseMode, probeGpu } from "./launch";
-import type { GpuFacts } from "./launch";
+import { TRIAL, checkGpu, launchArgs, launchChecked, parseMode } from "./launch";
 import { createMockChain } from "./mock-chain";
 import type { MockChain } from "./mock-chain";
 import {
@@ -299,22 +298,6 @@ const launch = () =>
         args: launchArguments,
       });
 
-/** The browser, after a preflight on a blank page: in GPU mode the run is refused before any figure when the renderer is software or has no GPU timer. */
-async function launchChecked(): Promise<Browser> {
-  const browser = await launchChecked();
-  if (headless) return browser;
-  try {
-    const page = await browser.newPage();
-    const facts: GpuFacts = await page.evaluate(probeGpu);
-    await page.close();
-    checkGpu(facts);
-  } catch (e) {
-    await browser.close();
-    throw e;
-  }
-  return browser;
-}
-
 /** The profile the raw runs were measured under: they say it (`driver.profile`); an older raw folder is read from its summary. */
 function profileOfRuns(runs: RunResult[], old: { profile?: Profile }): Profile {
   const names = new Set(runs.map((r) => r.driver?.profile).filter((p): p is string => Boolean(p)));
@@ -357,7 +340,7 @@ async function measureBoard() {
   if (profiles.length > 1) throw new Error("the board bench takes one profile per invocation (its own --out)");
   const server = serve(join(appWeb, "dist-bench"));
   const base = `http://127.0.0.1:${server.port}`;
-  const browser = await launchChecked();
+  const browser = await launchChecked(mode, launch);
   const machine = machineInfo(browser.version());
   writeFileSync(join(outDir, "machine.json"), JSON.stringify(machine, null, 2) + "\n");
   console.log(`machine: ${machine.chip}, ${machine.macOS}, Chrome ${machine.chrome}, profile ${profile.name}`);
@@ -395,7 +378,7 @@ async function cpuProfile() {
   if (doBuild) build("build:bench", ["--outDir", "dist-profile"], { BENCH_PROFILE: "1" });
   const root = join(appWeb, "dist-profile");
   const server = serve(root);
-  const browser = await launchChecked();
+  const browser = await launchChecked(mode, launch);
   const big = Math.max(...sizes);
   console.log(`profile: board ${big}`);
   const { load, path } = await runOnce(browser, `http://127.0.0.1:${server.port}`, big, profiles[0], true);
@@ -445,7 +428,7 @@ async function measureClick() {
   if (doBuild) build("build:bench");
   const server = serve(join(appWeb, "dist-bench"));
   const base = `http://127.0.0.1:${server.port}`;
-  const browser = await launchChecked();
+  const browser = await launchChecked(mode, launch);
   const machine = machineInfo(browser.version());
   writeFileSync(join(outDir, "machine.json"), JSON.stringify(machine, null, 2) + "\n");
   for (const profile of profiles) {
@@ -585,7 +568,7 @@ async function measurePlay() {
   const mock = createMockChain(fixtures, 72, { revertBuilds: failPlacements });
   const server = serve(playRoot, mock);
   const base = `http://127.0.0.1:${server.port}`;
-  const browser = await launchChecked();
+  const browser = await launchChecked(mode, launch);
   const machine = machineInfo(browser.version());
   writeFileSync(join(outDir, "machine.json"), JSON.stringify(machine, null, 2) + "\n");
   for (const profile of profiles) {

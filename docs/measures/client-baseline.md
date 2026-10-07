@@ -78,8 +78,8 @@ The driver is standalone for its own two packages only. Its in-play mock imports
 
 - **On the Mac: new headless with the GPU, the only measuring mode** (the default). No window at all,
   Chromium in new headless (`channel: "chromium"`) with `--use-angle=metal --enable-gpu
-  --ignore-gpu-blocklist`. Owner's rule (Overseer, 2026-10-07): no browser run on the Mac while the
-  owner uses it, with any flag; only headless. `--offscreen`, `--window-position` and `--headed` are
+  --ignore-gpu-blocklist`. Owner's rule (Overseer, 2026-10-07): no browser window on the Mac while the
+  owner uses it, with any flag; only new headless. `--offscreen`, `--window-position` and `--headed` are
   **refused** (an off-screen headed window did show windows: `--window-position` places the first window
   only, and each browser context opens another). Before any long run, the 10-second trial, arranged
   with the owner watching: `bun run bench --trial` (one throttled board run of 10 s at 72 tiles, output
@@ -87,7 +87,8 @@ The driver is standalone for its own two packages only. Its in-play mock imports
   is present.
 - **The GPU check**: a run in this mode fails, before any figure is written, when the WebGL renderer
   string contains SwiftShader (preflight on a blank page, and the renderer of each board run) or when
-  `gpuMs` is null (no `EXT_disjoint_timer_query_webgl2`). `machine.json` records `"window": "headless
+  `gpuMs` is null (no `EXT_disjoint_timer_query_webgl2`). Click and play runs are checked by the
+  blank-page preflight only, since they produce no per-run renderer or `gpuMs`. `machine.json` records `"window": "headless
   new"`, the Chrome version and the full launch args (`launchArgs`).
 - **What is not comparable**: no display, so no vsync: Chrome paces frames from a 60 Hz software clock.
   The throttled profile already caps requestAnimationFrame at 60 Hz and stays valid; the unthrottled

@@ -33,8 +33,18 @@ export function parseMode(argv: string[]): { mode: Mode; trial: boolean } {
       );
     }
   }
-  return { mode: argv.includes("--headless") ? "smoke" : "gpu", trial: argv.includes("--trial") };
+  const has = (name: string) => argv.includes(`--${name}`);
+  if (has("chromium") && !has("headless")) throw new Error("--chromium <path> applies to the smoke mode: use it with --headless");
+  if (has("trial")) {
+    for (const name of TRIAL_FIXED) {
+      if (has(name)) throw new Error(`--trial is one fixed run (throttled board, 72 tiles, 10 s): --${name} is refused with it`);
+    }
+  }
+  return { mode: has("headless") ? "smoke" : "gpu", trial: has("trial") };
 }
+
+/** Options the trial sets itself. */
+const TRIAL_FIXED = ["click", "play", "sizes", "runs", "duration", "profiles"];
 
 /** The full launch arguments of a mode, recorded in machine.json. */
 export function launchArgs(mode: Mode, winW: number, winH: number): string[] {
@@ -67,4 +77,30 @@ export function probeGpu(): GpuFacts {
     renderer: String(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)),
     timerQuery: gl.getExtension("EXT_disjoint_timer_query_webgl2") !== null,
   };
+}
+
+/** The part of a browser the preflight uses (Playwright's Browser fits). */
+export interface PreflightBrowser {
+  newPage(): Promise<{ evaluate(fn: () => GpuFacts): Promise<GpuFacts>; close(): Promise<void> }>;
+  close(): Promise<void>;
+}
+
+/**
+ * The browser of a run, after a preflight on a blank page: launch once; in GPU mode probe the WebGL
+ * renderer and the timer query and refuse (closing the browser) when it is software or has no GPU
+ * timer, so no figure is written. The smoke mode is not checked.
+ */
+export async function launchChecked<B extends PreflightBrowser>(mode: Mode, launcher: () => Promise<B>): Promise<B> {
+  const browser = await launcher();
+  if (mode === "smoke") return browser;
+  try {
+    const page = await browser.newPage();
+    const facts = await page.evaluate(probeGpu);
+    await page.close();
+    checkGpu(facts);
+  } catch (e) {
+    await browser.close();
+    throw e;
+  }
+  return browser;
 }
