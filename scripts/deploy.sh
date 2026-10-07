@@ -17,6 +17,8 @@
 # exit; nothing secret is written in the repository.
 #
 # Env overrides: RPC_URL (localhost only), SCARB_BIN_DIR, SNCAST_BIN_DIR.
+# `deployed_at` is the merge base of HEAD with origin/main, and the script refuses when the contract
+# sources (contracts/src, Scarb.toml, Scarb.lock) differ from it.
 # Needs: scarb 2.20.1, sncast 0.64.0, curl, python3, git.
 set -euo pipefail
 
@@ -32,7 +34,9 @@ RPC_URL="${RPC_URL:-http://127.0.0.1:5050}"
 # Full-authority match: a prefix glob would let `http://127.0.0.1:5050@other-host:5050` through.
 LOCAL_URL_RE='^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?$'
 if [[ ! "$RPC_URL" =~ $LOCAL_URL_RE ]]; then
-  echo "deploy.sh: devnet must be a local node (http://127.0.0.1|localhost|[::1]:<port>), got RPC_URL=$RPC_URL" >&2
+  # Only scheme and host are printed: the URL could carry an API key (path, query or userinfo).
+  RPC_HOST="${RPC_URL#*://}"; RPC_HOST="${RPC_HOST##*@}"; RPC_HOST="${RPC_HOST%%[/?#:]*}"
+  echo "deploy.sh: devnet must be a local node (http://127.0.0.1|localhost|[::1]:<port>), got scheme '${RPC_URL%%://*}' host '${RPC_HOST}'" >&2
   exit 2
 fi
 
@@ -132,6 +136,12 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   pyj 'd["contract_address"]' <<<"$out"
 }
 
+# deployed_at: the main commit whose contract sources are deployed. HEAD may be a branch commit, but
+# only when its contract sources equal those of the merge base with origin/main.
+DEPLOYED_AT="$(git -C "$ROOT" merge-base HEAD origin/main)" || die "no merge base of HEAD with origin/main (git fetch origin main)"
+git -C "$ROOT" diff --quiet "$DEPLOYED_AT" HEAD -- contracts/src contracts/Scarb.toml contracts/Scarb.lock ||
+  die "contract sources differ from origin/main (merge base ${DEPLOYED_AT:0:12}): deploy from main-equivalent sources"
+
 echo "== node $RPC_URL"
 rpc starknet_specVersion '[]' >/dev/null || die "no node answers at $RPC_URL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
 CHAIN_ID="$(rpc starknet_chainId '[]' | pyj 'd["result"]')"
@@ -166,7 +176,7 @@ SYMBOL="$(felt_str "$(call "$TOKEN" symbol)")"
 echo "   token $SYMBOL, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOCK"
 
 mkdir -p "$(dirname "$OUT")"
-python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_URL" "$(git -C "$ROOT" rev-parse HEAD)" "$DEPLOYED_BLOCK" \
+python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_URL" "$DEPLOYED_AT" "$DEPLOYED_BLOCK" \
   "$DECIMALS" "$SYMBOL" "Token=$TOKEN=$TOKEN_CLASS" "Account=$ACCOUNT=$ACCOUNT_CLASS" \
   "Daily=$DAILY=$DAILY_CLASS" "Tutorial=$TUTORIAL=$TUTORIAL_CLASS" <<'PY'
 import json, sys

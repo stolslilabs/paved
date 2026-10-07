@@ -12,6 +12,7 @@ import {
   padded,
   shortString,
 } from "./events.ts";
+import { MAX_TOURNAMENT_ID } from "./api.ts";
 import { ev } from "./testing/fake-node.ts";
 
 type AbiItem = {
@@ -131,6 +132,21 @@ describe("decode", () => {
     expect(() => decode("daily", nofelt.keys, nofelt.data)).toThrow(DecodeError);
     const tooBig = ev.spawned("daily", 1, 1, { start: 2 ** 60 });
     expect(() => decode("daily", tooBig.keys, tooBig.data)).toThrow(DecodeError); // above 2^53
+  });
+});
+
+describe("the tournament id bound", () => {
+  test("a tournament id above MAX_TOURNAMENT_ID (the API's bound) is a DecodeError, the bound itself decodes", () => {
+    const id = BigInt(MAX_TOURNAMENT_ID);
+    const spawned = ev.spawned("daily", 1, 1, { tournament: id });
+    expect(decode("daily", spawned.keys, spawned.data)).toMatchObject({ tournamentId: id });
+    const over = ev.over("daily", 1, 1, 10, { tournament: id });
+    expect(decode("daily", over.keys, over.data)).toMatchObject({ tournamentId: id });
+    // Below 2^53, so the old check let these through
+    const spawnedAbove = ev.spawned("daily", 1, 1, { tournament: id + 1n });
+    expect(() => decode("daily", spawnedAbove.keys, spawnedAbove.data)).toThrow(DecodeError);
+    const overAbove = ev.over("daily", 1, 1, 10, { tournament: id + 1n });
+    expect(() => decode("daily", overAbove.keys, overAbove.data)).toThrow(DecodeError);
   });
 });
 

@@ -27,7 +27,7 @@ exists; a public network is the owner's decision and `scripts/deploy.sh` refuses
 | `network` | `devnet` |
 | `chain_id` | Felt of the chain id, hex (`0x534e5f5345504f4c4941` is `SN_SEPOLIA`, the starknet-devnet default) |
 | `rpc_url` | Node the script ran against |
-| `deployed_at` | `git rev-parse HEAD` when the script ran. The main commit whose contract sources were deployed (the script may run on a branch with identical sources) |
+| `deployed_at` | `git merge-base HEAD origin/main`, the main commit whose contract sources were deployed, when `git diff --quiet <that> HEAD -- contracts/src contracts/Scarb.toml contracts/Scarb.lock` holds. Otherwise the script refuses (deploy from main-equivalent sources) |
 | `deployed_block` | Block number of the first deploy transaction (`Token`). Start indexing events here; the declares are in earlier blocks |
 | `token` | The ERC20 `Daily` charges. `decimals` and `symbol` are read from the deployed token by call (`symbol` decoded from its short string) |
 | `contracts.<Name>` | Address and class hash. `Token` is the mock ERC20 (test and devnet only); it is repeated under `token` |

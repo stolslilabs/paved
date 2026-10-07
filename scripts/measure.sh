@@ -140,8 +140,18 @@ coverage_split() {
     name="${group%%|*}"; rest="${group#*|}"; filter="${rest%%|*}"; extra="${rest#*|}"
     echo "-- group $name (filter $filter $extra)"
     rm -rf coverage
+    # The group fails when snforge exits non-zero or its `Tests:` line does not say `0 failed`.
+    log="target/coverage-split/$name.log"
+    set +e
     # shellcheck disable=SC2086
-    run_capped snforge test --coverage --max-threads 2 $extra "$filter" 2>&1 | grep -iE '^Tests:|maximum resident|coverage|error|panicked' || true
+    run_capped snforge test --coverage --max-threads 2 $extra "$filter" > "$log" 2>&1
+    status=$?
+    set -e
+    grep -iE '^Tests:|maximum resident|coverage|error|panicked' "$log" || true
+    if [[ "$status" -ne 0 ]]; then
+      echo "group $name: snforge exited with status $status"; exit 1
+    fi
+    grep -qE '^Tests:.* 0 failed' "$log" || { echo "group $name: its Tests: line does not say 0 failed"; exit 1; }
     test -s coverage/coverage.lcov || { echo "no coverage.lcov for group $name"; exit 1; }
     cp coverage/coverage.lcov "target/coverage-split/$name.lcov"
     parts+=("target/coverage-split/$name.lcov")
