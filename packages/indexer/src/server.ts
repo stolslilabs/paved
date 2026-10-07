@@ -369,7 +369,10 @@ export function answer(indexer: Indexer, target: string, info?: HeadInfo): Answe
         chain_id: info?.chainId ?? indexer.store.meta("chain_id"),
         from_block: info?.fromBlock ?? Number(indexer.store.meta("from_block")),
         contracts: info?.contracts ?? stored,
-        checks: { last_mismatch: info?.checks?.lastMismatch ?? null },
+        checks: {
+          tournaments_checked: info?.checks?.checked.size ?? 0,
+          last_mismatch: info?.checks?.lastMismatch ?? null,
+        },
       },
     };
   }

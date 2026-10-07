@@ -66,7 +66,11 @@ export interface HeadAnswer extends Envelope {
   chain_id: string;
   from_block: number;
   contracts: { daily: string; tutorial: string; account: string };
-  checks: { last_mismatch: Mismatch | null };
+  checks: {
+    /** Closed days compared with the `tournament` view since the process started (or the last rewind). */
+    tournaments_checked: number;
+    last_mismatch: Mismatch | null;
+  };
 }
 
 export interface TournamentSummary {
