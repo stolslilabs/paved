@@ -213,12 +213,26 @@ look closed. P5 counts a city only when its root is closed (`open == 0`), and ea
 changes no existing golden (their Herdsman cities are closed); a new golden case shows it
 (`daily_forest_herdsman_open_city`, PR P5-5). The rest of the 2024 rules stand.
 
-**A road closed away from its forest** never re-assesses the forest (today's walk and this design
-alike): the forest's own edges are all placed, so no later tile touches it, and a Woodsman or Herdsman
-on it never comes back. P-15 says the rest of the 2024 rules stand, so P5 keeps this behaviour. A fix
-fits the design without new storage: when a road root closes during a move, scan its nodes' adjacent
-forest areas and assess each forest root once. It is a rule change that needs a ruling of the PM
-(proposed as P-16, PR P5-8, not briefed until ruled).
+**A road closed away from its forest** (P5-8, ruling P-16: "a road or city that closes away from a
+forest re-assesses the adjacent forest(s)"). The premise is that a forest can be closed while an
+adjacent road is still open, and then waits for that road. Measured in P5-8, **no board that a
+placement accepts does this**: a forest's own half-edges close only when every tile around it is
+placed, and a road next to a forest runs through tiles whose forest corners join that forest (an
+edge of a road has a forest corner on each side, and the corner has a move back), so every open end
+of such a road is also an open half-edge of the forest. A model of the 19 layouts (rotation, edge
+matching, moves, adjacency; checked against the ring and caps goldens) was played at random for about
+530,000 closed-forest states with the quirky plans weighted up (`RFRFCCCFR`, `RFRFFFCFR`,
+`CCCCCFRFC`, `RFFFRFCFR`, stops): none had an open adjacent road. Consequences:
+
+- no golden can show the rule (the closing move would be the move that closes the forest, which
+  assesses it as a start spot), and `forest::scan`'s "open road" exit is never taken at runtime;
+- the runtime has no re-assess step: it would only cost gas. The step was written and measured
+  in a commit of the P5-8 branch (`f9fa9758`, reverted in the next one) for the day a tile makes the
+  situation reachable (a road that leaves the tiles of its forest, a river, a tile whose forest area
+  lacks a move);
+- the oracle checks the invariant on every checked game: after each build, no Woodsman or Herdsman
+  stands on a forest that the walk finds finished (`oracle::check`, "Check: forest left unscored").
+  A new tile that breaks the property fails there first.
 
 ## Cost model per move
 
