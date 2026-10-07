@@ -11,6 +11,8 @@ pub mod PlayableComponent {
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
     use paved::models::tournament::{Tournament, TournamentAssert, TournamentImpl};
     use paved::store::{Store, StoreImpl};
+    use paved::structure::placement::NeighborhoodTrait;
+    use paved::structure::state::StructuresTrait;
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;
     use paved::types::spot::Spot;
@@ -198,7 +200,8 @@ pub mod PlayableComponent {
             tile_position.assert_not_exists();
 
             // [Effect] Build tile
-            let mut neighbors = store.neighbors(game, x, y);
+            let around = NeighborhoodTrait::read(game_id, x, y);
+            let mut neighbors = around.sides();
             builder.build(ref tile, orientation, x, y, ref neighbors);
 
             // [Event] Tile built
@@ -219,20 +222,27 @@ pub mod PlayableComponent {
                     ),
                 );
 
-            // [Check] Character to place
-            if role != Role::None && spot != Spot::None {
-                // [Check] Structure is idle
-                game.assert_structure_idle(tile, spot, ref store);
+            // [Check] Character to place: its structure is idle
+            let mut structures = StructuresTrait::new(game_id);
+            let placing = role != Role::None && spot != Spot::None;
+            if placing {
+                game.assert_structure_idle(tile, spot, @around, ref structures);
+            }
 
+            // [Effect] Place the tile on the structure state
+            let refs = game.place_structures(tile, @around, ref structures);
+
+            if placing {
                 // [Effect] Place character
                 let character = builder.place(role, ref tile, spot);
+                game.occupy_structure(tile, refs, spot, role, ref structures);
 
                 // [Effect] Update character
                 store.set_character(character);
             }
 
             // [Effect] Update tile
-            store.set_tile(tile);
+            store.set_placed_tile(tile, refs);
 
             // [Effect] Assess game over
             game.assess_over();
@@ -249,11 +259,17 @@ pub mod PlayableComponent {
             // [Effect] Write the builder before the assessment, which recovers characters
             store.set_builder(builder);
 
-            // [Effect] Assessment
-            game.assess(tile, ref store);
+            // [Effect] Assessment, then the record pages the move changed
+            let scored = game.assess(tile, refs, @around, ref structures, ref store);
+            structures.flush(store);
 
-            // [Effect] Take back the characters that the assessment recovered
-            game.set_builder(store.builder(game, player_id));
+            // [Effect] Take back the characters that the assessment recovered (the builder
+            // written above is unchanged when nothing scored)
+            if scored {
+                game.set_builder(store.builder(game, player_id));
+            } else {
+                game.set_builder(builder);
+            }
 
             // [Event] Update tournament on game over
             let time = get_block_timestamp();

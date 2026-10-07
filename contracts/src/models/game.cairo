@@ -8,17 +8,19 @@ use core::poseidon::{HashState, PoseidonTrait};
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
-use paved::helpers::conflict::Conflict;
 use paved::helpers::forest::ForestCount;
-use paved::helpers::generic::GenericCount;
 use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
-use paved::helpers::wonder::WonderCount;
 use paved::models::builder::{Builder, BuilderTrait};
-use paved::models::character::{Char, CharAssert, CharPosition, CharTrait};
+use paved::models::character::{Char, CharAssert, CharTrait};
 pub use paved::models::index::Game;
 use paved::models::player::{Player, PlayerTrait};
-use paved::models::tile::{Tile, TileIntoLayout, TileTrait};
+use paved::models::tile::{Tile, TileIntoLayout, TileTrait, ZeroableTile};
 use paved::store::{Store, StoreImpl};
+use paved::structure::assessment::{assess_generic, assess_wonder};
+use paved::structure::placement::{Neighborhood, NeighborhoodTrait};
+use paved::structure::record::{chars_of, open_of, ref_of, without_chars};
+use paved::structure::state::{Structures, StructuresTrait};
+use paved::structure::{oriented, placement, tables};
 use paved::types::area::Area;
 use paved::types::category::{Category, CategoryImpl};
 use paved::types::deck::{Deck, DeckImpl};
@@ -137,6 +139,7 @@ pub impl GameImpl of GameTrait {
         let tile_id = self.add_tile();
         let mut tile = TileTrait::new(self.id, tile_id, Plan::RFFFRFCFR);
         tile.orientation = Orientation::South.into();
+        // [Info] Writing it places it on the structure state (`Store::set_tile`)
 
         // [Effect] Remove the starter tile from the deck
         let plan: Plan = tile.plan.into();
@@ -237,94 +240,144 @@ pub impl GameImpl of GameTrait {
         (self.tile_count, plan)
     }
 
-    fn assess(ref self: Game, tile: Tile, ref store: Store) {
-        // [Compute] Setup recursion
-        let layout: Layout = tile.into();
-        let mut north_oriented_starts = tile.north_oriented_starts();
-        loop {
-            match north_oriented_starts.pop_front() {
-                // [Compute] Process the current spot
-                Option::Some(north_oriented_start) => {
-                    // Update the tile according to previous assessments to avoid characters to be
-                    // counted twice
-                    let tile = store.tile(self, tile.id);
-                    let start = north_oriented_start.rotate(tile.orientation.into());
-                    let category: Category = layout.get_category(start);
-                    self.assess_at(tile, start, category, ref store);
-                },
-                // [Check] Otherwise returns the characters
-                Option::None => { break; },
-            };
-        }
-
-        // [Compute] Assess wonders in the neighborhood
-        let mut neighbors = store.neighborhood(self, tile.x, tile.y);
-        loop {
-            match neighbors.pop_front() {
-                // [Compute] Process the current neighbor
-                Option::Some(neighbor) => {
-                    let start = neighbor.north_oriented_wonder();
-                    // [Check] Skip if there is no wonder
-                    if start != Spot::None {
-                        self.assess_at(neighbor, start, Category::Wonder, ref store);
-                    };
-                },
-                // [Check] Otherwise returns the characters
-                Option::None => { break; },
-            };
-        };
+    /// Places the built tile on the structure state (steps 1 and 2 of
+    /// `docs/architecture/structure-state.md`): returns its refs.
+    #[inline]
+    fn place_structures(
+        self: Game, tile: Tile, around: @Neighborhood, ref structures: Structures,
+    ) -> u128 {
+        placement::place(ref structures, tile, around)
     }
 
+    /// The character placed on `spot` of the built tile joins the structure of that area (step 3).
     #[inline]
-    fn assess_at(ref self: Game, tile: Tile, at: Spot, category: Category, ref store: Store) {
-        // [Compute] Assess the spot
-        let base = category.base_points();
-        match category {
-            Category::None => { return; },
-            Category::Forest => {
-                let (count, woodsman_score, herdsman_score, mut woodsmen, mut herdsmen) =
-                    ForestCount::start(
-                    self, tile, at, ref store,
-                );
-                // [Effect] Solve and collect characters
-                if 0 != count.into() && 0 != woodsmen.len().into() {
-                    ForestCount::solve(
-                        ref self, count, woodsman_score, base, ref woodsmen, ref store,
-                    );
+    fn occupy_structure(
+        self: Game, tile: Tile, refs: u128, spot: Spot, role: Role, ref structures: Structures,
+    ) {
+        placement::occupy(ref structures, tile, refs, spot.into(), role.into());
+    }
+
+    /// Assesses the structures of the built tile (step 4), in the order of the walks: each start
+    /// spot of the tile in `starts()` order, then the wonder of each neighbour, N, E, S, W, NW, NE,
+    /// SE, SW. Roads, cities and wonders are read from their roots; forests are still walked.
+    /// Returns whether a structure scored (and characters were recovered).
+    fn assess(
+        ref self: Game,
+        tile: Tile,
+        refs: u128,
+        around: @Neighborhood,
+        ref structures: Structures,
+        ref store: Store,
+    ) -> bool {
+        // [Compute] The start spots of the tile
+        // [Info] The forest walk reads the tile's character: the tile is read again only after a
+        // score, which may have recovered it
+        let mut current = tile;
+        let mut scored = false;
+        let mut any = false;
+        let row = oriented::plan_row(tile.plan, tile.orientation);
+        let mut count = oriented::start_count(row);
+        let mut starts = oriented::starts(row);
+        while count > 0 {
+            let (start, area, rest) = oriented::next_start(starts);
+            starts = rest;
+            count -= 1;
+            let area_row = oriented::area_row(tile.plan, tile.orientation, area);
+            let category: Category = tables::row_category(area_row).into();
+            match category {
+                Category::Road |
+                Category::City => {
+                    let sid = ref_of(refs, area);
+                    if assess_generic(ref self, ref structures, ref store, sid, category) {
+                        scored = true;
+                    }
+                },
+                Category::Wonder => {
+                    let sid = ref_of(refs, area);
+                    if assess_wonder(ref self, ref structures, ref store, sid) {
+                        scored = true;
+                    }
+                },
+                Category::Forest => {
+                    if scored {
+                        current = store.tile(self, tile.id);
+                        scored = false;
+                        any = true;
+                    }
+                    let sid = ref_of(refs, area);
+                    if self.assess_forest(current, start.into(), sid, ref structures, ref store) {
+                        scored = true;
+                    }
+                },
+                _ => {},
+            }
+        }
+
+        // [Compute] The wonders of the neighbours
+        let mut directions = array![
+            tables::NORTH, tables::EAST, tables::SOUTH, tables::WEST, tables::NORTH_WEST,
+            tables::NORTH_EAST, tables::SOUTH_EAST, tables::SOUTH_WEST,
+        ]
+            .span();
+        while let Option::Some(direction) = directions.pop_front() {
+            if *around.wonders & placement::role_bit(*direction) != 0 {
+                let wonder = oriented::wonder_area(around.tile(*direction).plan);
+                let sid = around.reference(*direction, wonder);
+                if assess_wonder(ref self, ref structures, ref store, sid) {
+                    scored = true;
                 }
-                if 0 != count.into() && 0 != herdsmen.len().into() {
-                    ForestCount::solve(
-                        ref self, count, herdsman_score, base, ref herdsmen, ref store,
-                    );
-                }
-            },
-            Category::Road => {
-                let (count, mut characters) = GenericCount::start(self, tile, at, ref store);
-                // [Effect] Solve and collect characters
-                if 0 != count.into() && 0 != characters.len().into() {
-                    GenericCount::solve(
-                        ref self, Category::Road, count, base, ref characters, ref store,
-                    );
-                }
-            },
-            Category::City => {
-                let (count, mut characters) = GenericCount::start(self, tile, at, ref store);
-                // [Effect] Solve and collect characters
-                if 0 != count.into() && 0 != characters.len().into() {
-                    GenericCount::solve(
-                        ref self, Category::City, count, base, ref characters, ref store,
-                    );
-                }
-            },
-            Category::Wonder => {
-                let (count, mut character) = WonderCount::start(self, tile, at, ref store);
-                // [Effect] Solve and collect the character
-                if 0 != count.into() {
-                    WonderCount::solve(ref self, base, ref character, ref store);
-                }
-            },
-            _ => { return; },
-        };
+            }
+        }
+        any || scored
+    }
+
+    /// The forest arm: `ForestCount` walks it as in P4, when its root says it can score. The
+    /// characters it recovers leave the forest's structure. Returns whether it recovered
+    /// characters.
+    ///
+    /// The walk has no effect unless it finds the forest finished (no half-edge of it towards an
+    /// empty position, so `open == 0` on the root) and finds a Woodsman or a Herdsman on it (the
+    /// only roles a forest takes, so `chars != 0` on the root): any other forest is left unwalked,
+    /// with the same result.
+    fn assess_forest(
+        ref self: Game,
+        tile: Tile,
+        at: Spot,
+        sid: u32,
+        ref structures: Structures,
+        ref store: Store,
+    ) -> bool {
+        let (_, root) = structures.find(sid);
+        if open_of(root) != 0 || chars_of(root) == 0 {
+            return false;
+        }
+        let base = Category::Forest.base_points();
+        let (count, woodsman_score, herdsman_score, mut woodsmen, mut herdsmen) =
+            ForestCount::start(
+            self, tile, at, ref store,
+        );
+        if 0 == count.into() {
+            return false;
+        }
+        let mut recovered: u16 = 0;
+        for character in woodsmen.span() {
+            recovered = recovered | placement::role_bit(*character.index);
+        }
+        for character in herdsmen.span() {
+            recovered = recovered | placement::role_bit(*character.index);
+        }
+        // [Effect] Solve and collect characters
+        if 0 != woodsmen.len().into() {
+            ForestCount::solve(ref self, count, woodsman_score, base, ref woodsmen, ref store);
+        }
+        if 0 != herdsmen.len().into() {
+            ForestCount::solve(ref self, count, herdsman_score, base, ref herdsmen, ref store);
+        }
+        if recovered != 0 {
+            let (root, record) = structures.find(sid);
+            structures.set(root, without_chars(record, recovered));
+        }
+        recovered != 0
     }
 }
 
@@ -380,10 +433,14 @@ pub impl GameAssert of AssertTrait {
         assert(0 != self.tile_count.into(), errors::GAME_NOT_STARTED);
     }
 
+    /// No structure that the area of `at` of the built tile touches holds a character (read from
+    /// the roots, before the tile joins them: see `placement::is_idle`).
     #[inline]
-    fn assert_structure_idle(self: Game, tile: Tile, at: Spot, ref store: Store) {
-        let status = Conflict::start(self, tile, at, ref store);
-        assert(!status, errors::STRUCTURE_NOT_IDLE);
+    fn assert_structure_idle(
+        self: Game, tile: Tile, at: Spot, around: @Neighborhood, ref structures: Structures,
+    ) {
+        let idle = placement::is_idle(ref structures, tile, at.into(), around);
+        assert(idle, errors::STRUCTURE_NOT_IDLE);
     }
 
     #[inline]

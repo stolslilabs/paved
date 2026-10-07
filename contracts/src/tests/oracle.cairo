@@ -1,10 +1,10 @@
 //! Walk oracle (phase P5, PR P5-1).
 //!
 //! The recursive walks of `helpers/{generic,conflict,wonder,forest,simple}.cairo`, copied unchanged
-//! into a test-only module: they define the scores the structure state of P5-4 must reproduce. When
-//! the runtime stops using them, the originals leave `helpers/` and this copy stays, so that a
-//! differential check can compare the stored structures with a walk after every move of the
-//! goldens, the gas scenarios and the e2e boards.
+//! into a test-only module: they define the scores the structure state of P5-4 must reproduce. The
+//! runtime no longer uses `generic`, `conflict` and `wonder` (P5-4 removed them from `helpers/`);
+//! this copy stays, and `check` compares the stored structures with the walks after every move of
+//! the goldens, the gas scenarios and the e2e boards.
 //!
 //! The copies differ from the originals in two import paths only: `forest` and `simple` reach
 //! `simple` and `generic` of this module instead of `paved::helpers`, so that the oracle does not
@@ -706,17 +706,145 @@ pub mod forest {
     }
 }
 
+/// The differential check of P5-4: after a move, the structure state of a tile agrees with the
+/// walks of this oracle on the board as it is.
+///
+/// For every node of the tile (every area with moves) and for the wonder of every neighbour:
+/// - closed: the root has no open half-edge (`open == 0`) iff `GenericCount` finds the structure
+///   finished (a count that is not 0);
+/// - size: when closed, the root's `size` is the walk's count (a wonder is not compared: its walk
+///   counts the 8 tiles around it, the record counts its one node);
+/// - characters: the root's `chars` is not 0 iff `Conflict` meets a character on the structure, and
+///   when closed it is exactly the roles that `GenericCount` collects.
+pub mod check {
+    use paved::models::tile::{Tile, ZeroableTile};
+    use paved::store::{StoreImpl, StoreTrait};
+    use paved::structure::placement::{NeighborhoodTrait, role_bit};
+    use paved::structure::record::{RecordTrait, ref_of};
+    use paved::structure::state::{Structures, StructuresTrait};
+    use paved::structure::tables;
+    use paved::tests::setup::setup::TestStore;
+    use paved::types::category::Category;
+    use paved::types::spot::Spot;
+    use snforge_std::interact_with_state;
+    use super::conflict::Conflict;
+    use super::generic::GenericCount;
+
+    /// Runs the check on the tile `tile_id` of the game, in the contract of `store`.
+    pub fn assert_tile_agrees(store: TestStore, game_id: u32, tile_id: u32) {
+        interact_with_state(store.contract, || check_tile(game_id, tile_id));
+    }
+
+    /// Runs the check on every placed tile of the game (tile ids 1 to `tile_count`).
+    pub fn assert_board_agrees(store: TestStore, game_id: u32) {
+        interact_with_state(
+            store.contract,
+            || {
+                let game = StoreImpl::new().game(game_id);
+                let mut tile_id: u32 = 1;
+                while tile_id <= game.tile_count {
+                    check_tile(game_id, tile_id);
+                    tile_id += 1;
+                }
+            },
+        );
+    }
+
+    /// The check of one tile, from inside the contract: nothing for a tile that is not placed.
+    pub fn check_tile(game_id: u32, tile_id: u32) {
+        let (tile, refs) = StoreImpl::tile_with_refs(game_id, tile_id);
+        if tile.orientation == 0 {
+            return;
+        }
+        let mut structures = StructuresTrait::new(game_id);
+        let mut area: u8 = 1;
+        while area <= tables::AREA_COUNT {
+            if tables::record_index(tile.plan, area) != tables::NO_RECORD {
+                let sid = ref_of(refs, area);
+                assert(sid != 0, 'Check: node without structure');
+                check_node(ref structures, tile, area, sid);
+            }
+            area += 1;
+        }
+        // The wonders around the tile: a move closes their half-edges, never joins them
+        let around = NeighborhoodTrait::read(game_id, tile.x, tile.y);
+        let mut direction: u8 = 1;
+        while direction <= 8 {
+            let neighbor = around.tile(direction);
+            let wonder = tables::wonder(neighbor.plan);
+            if neighbor.is_non_zero() && wonder != 0 {
+                let area = tables::area_at(neighbor.plan, wonder, neighbor.orientation);
+                check_node(ref structures, neighbor, area, around.reference(direction, area));
+            }
+            direction += 1;
+        }
+    }
+
+    fn check_node(ref structures: Structures, tile: Tile, area: u8, sid: u32) {
+        let mut s = StoreImpl::new();
+        let game = s.game(tile.game_id);
+        let at: Spot = spot_of(tile, area).into();
+        let (root, _) = structures.find(sid);
+        let record = structures.unpacked(root);
+        let category = tables::category(tile.plan, area);
+        let is_wonder = category == Category::Wonder.into();
+
+        let (count, characters) = GenericCount::start(game, tile, at, ref s);
+        let closed = count != 0;
+        if closed != record.is_closed() {
+            println!(
+                "Check: tile {} area {}: walk closed {}, open {}",
+                tile.id,
+                area,
+                closed,
+                record.open,
+            );
+        }
+        assert(closed == record.is_closed(), 'Check: closed differs');
+        if closed && !is_wonder {
+            if count != record.size.into() {
+                println!(
+                    "Check: tile {} area {}: walk {}, size {}", tile.id, area, count, record.size,
+                );
+            }
+            assert(count == record.size.into(), 'Check: size differs');
+        }
+        let met = Conflict::start(game, tile, at, ref s);
+        if met != (record.chars != 0) {
+            println!(
+                "Check: tile {} area {}: walk met {}, chars {}", tile.id, area, met, record.chars,
+            );
+        }
+        assert(met == (record.chars != 0), 'Check: characters differ');
+        if closed && !is_wonder {
+            let mut chars: u16 = 0;
+            for character in characters {
+                chars = chars | role_bit(character.index);
+            }
+            assert(chars == record.chars, 'Check: roles differ');
+        }
+    }
+
+    /// A spot of `area` of the placed tile (its own frame).
+    fn spot_of(tile: Tile, area: u8) -> u8 {
+        let mut spot: u8 = 1;
+        while tables::area_at(tile.plan, spot, tile.orientation) != area {
+            spot += 1;
+        }
+        spot
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     // Local imports
 
-    use paved::helpers::conflict::Conflict as RuntimeConflict;
-    use paved::helpers::forest::ForestCount as RuntimeForestCount;
-    use paved::helpers::generic::GenericCount as RuntimeGenericCount;
-    use paved::helpers::simple::SimpleCount as RuntimeSimpleCount;
     use paved::models::index::{Char, Tile};
     use paved::models::tile::CENTER;
     use paved::store::{StoreImpl, StoreTrait};
+    use paved::structure::record::ref_of;
+    use paved::structure::state::StructuresTrait;
+    use paved::structure::{placement, tables};
     use paved::tests::setup::setup;
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
@@ -724,6 +852,7 @@ pub mod tests {
     use paved::types::role::Role;
     use paved::types::spot::Spot;
     use snforge_std::interact_with_state;
+    use super::check;
     use super::conflict::Conflict as OracleConflict;
     use super::forest::ForestCount as OracleForestCount;
     use super::generic::GenericCount as OracleGenericCount;
@@ -731,10 +860,10 @@ pub mod tests {
 
     /// Two road crossings `SFRFRFRFR` side by side, a Lord on the east road of the first one: the
     /// east road of the first tile and the west road of the second one are one closed road of two
-    /// nodes. Each oracle walk answers as the walk of `helpers` does, on a closed structure and on
-    /// open ones.
+    /// nodes. The walks answer on a closed structure and on open ones, and the structure state
+    /// written for the two tiles agrees with them (`check`).
     #[test]
-    fn test_oracle_walks_equal_the_runtime_walks() {
+    fn test_oracle_walks_agree_with_the_structure_state() {
         let (store, _, context) = setup::spawn_game(Mode::Daily);
         let game_id = context.game_id;
         let player_id = context.player_id;
@@ -761,6 +890,7 @@ pub mod tests {
                     y: CENTER + 10,
                     occupied_spot: Spot::None.into(),
                 };
+                // Written without a build: `set_tile` places them on the structure state
                 s.set_tile(first);
                 s.set_tile(second);
                 s
@@ -775,47 +905,44 @@ pub mod tests {
                             power: 1,
                         },
                     );
+                let (_, refs) = StoreImpl::tile_with_refs(game_id, first.id);
+                let mut structures = StructuresTrait::new(game_id);
+                placement::occupy(
+                    ref structures, first, refs, Spot::East.into(), Role::Lord.into(),
+                );
+                structures.flush(s);
 
                 // The closed road: 2 nodes, one character, the character is met.
-                let (count, characters) = RuntimeGenericCount::start(
-                    game, first, Spot::East, ref s,
-                );
-                let (oracle_count, oracle_characters) = OracleGenericCount::start(
-                    game, first, Spot::East, ref s,
-                );
+                let (count, characters) = OracleGenericCount::start(game, first, Spot::East, ref s);
                 assert_eq!(count, 2);
-                assert_eq!(oracle_count, count);
                 assert_eq!(characters.len(), 1);
-                assert_eq!(oracle_characters.len(), characters.len());
-                assert_eq!(
-                    RuntimeSimpleCount::start(game, second, Spot::West, ref s),
-                    OracleSimpleCount::start(game, second, Spot::West, ref s),
-                );
-                assert!(RuntimeConflict::start(game, second, Spot::West, ref s));
+                assert_eq!(OracleSimpleCount::start(game, second, Spot::West, ref s), 2);
                 assert!(OracleConflict::start(game, second, Spot::West, ref s));
+                let road = tables::area_at(first.plan, Spot::East.into(), first.orientation);
+                let mut structures = StructuresTrait::new(game_id);
+                let (root, _) = structures.find(ref_of(refs, road));
+                let record = structures.unpacked(root);
+                assert_eq!(record.size, 2);
+                assert_eq!(record.open, 0);
+                assert_eq!(record.chars, placement::role_bit(Role::Lord.into()));
 
                 // An open road (its north end looks at an empty position): not finished.
-                let (count, _) = RuntimeGenericCount::start(game, first, Spot::North, ref s);
-                let (oracle_count, _) = OracleGenericCount::start(game, first, Spot::North, ref s);
+                let (count, _) = OracleGenericCount::start(game, first, Spot::North, ref s);
                 assert_eq!(count, 0);
-                assert_eq!(oracle_count, count);
-                assert!(!RuntimeConflict::start(game, second, Spot::North, ref s));
                 assert!(!OracleConflict::start(game, second, Spot::North, ref s));
 
                 // The forest in the north-west corner is bounded by open roads: not finished.
-                let (count, woodsman, herdsman, woodsmen, herdsmen) = RuntimeForestCount::start(
-                    game, first, Spot::NorthWest, ref s,
-                );
-                let (o_count, o_woodsman, o_herdsman, o_woodsmen, o_herdsmen) =
-                    OracleForestCount::start(
+                let (count, woodsman, herdsman, woodsmen, herdsmen) = OracleForestCount::start(
                     game, first, Spot::NorthWest, ref s,
                 );
                 assert_eq!(count, 0);
-                assert_eq!(o_count, count);
-                assert_eq!(o_woodsman, woodsman);
-                assert_eq!(o_herdsman, herdsman);
-                assert_eq!(o_woodsmen.len(), woodsmen.len());
-                assert_eq!(o_herdsmen.len(), herdsmen.len());
+                assert_eq!(woodsman, 0);
+                assert_eq!(herdsman, 0);
+                assert_eq!(woodsmen.len(), 0);
+                assert_eq!(herdsmen.len(), 0);
+
+                check::check_tile(game_id, first.id);
+                check::check_tile(game_id, second.id);
             },
         );
     }

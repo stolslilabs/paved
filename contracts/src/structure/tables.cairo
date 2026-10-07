@@ -46,6 +46,14 @@
 // Constants
 
 pub const NO_RECORD: u8 = 15;
+pub const NORTH_WEST: u8 = 1;
+pub const NORTH: u8 = 2;
+pub const NORTH_EAST: u8 = 3;
+pub const EAST: u8 = 4;
+pub const SOUTH_EAST: u8 = 5;
+pub const SOUTH: u8 = 6;
+pub const SOUTH_WEST: u8 = 7;
+pub const WEST: u8 = 8;
 /// Row of an area that has no spot in the plan: no category, no record, no move.
 pub const ABSENT: u128 = 0x78;
 pub const PLAN_COUNT: u8 = 19;
@@ -489,6 +497,41 @@ pub fn half_edges(plan: u8, area: u8, direction: u8, orientation: u8) -> u8 {
     }
     let direction = antirotate_direction(direction, turns(orientation));
     small(field(area_row(plan, area), 75 + 4 * (direction - 1).into(), 0xf))
+}
+
+// Row readers: the hot path reads an area row once and walks its moves byte by byte.
+
+/// Returns the category of an area row.
+#[inline(always)]
+pub fn row_category(row: u128) -> u8 {
+    small(row & 0x7)
+}
+
+/// Returns the record index of an area row (`NO_RECORD` when the area has no move).
+#[inline(always)]
+pub fn row_record_index(row: u128) -> u8 {
+    small((row / 0x8) & 0xf)
+}
+
+/// Returns the number of moves of an area row.
+#[inline(always)]
+pub fn row_move_count(row: u128) -> u8 {
+    small((row / 0x80) & 0xf)
+}
+
+/// Returns the moves of an area row, one byte per move from the low bits (direction, then spot x
+/// 16), north-oriented.
+#[inline(always)]
+pub fn row_moves(row: u128) -> u128 {
+    (row / 0x800) & 0xffffffffffffffff
+}
+
+/// Takes the first move of `moves` (as `row_moves` gives them): returns its direction and its spot
+/// rotated by `turns` quarter turns, and the moves left.
+#[inline]
+pub fn next_move(moves: u128, turns: u8) -> (u8, u8, u128) {
+    let byte = small(moves & 0xff);
+    (rotate_direction(byte % 16, turns), rotate_spot(byte / 16, turns), moves / 0x100)
 }
 
 /// Returns the road areas adjacent to an area, as a bitmap (bit `area - 1`).
@@ -1128,6 +1171,37 @@ pub mod tests {
                 area += 1;
             }
             assert_eq!(half_edges(plan, 1, 9, 1), 0);
+            plan += 1;
+        }
+    }
+
+    /// The row readers of the hot path answer as the lookups by plan and area.
+    #[test]
+    fn test_tables_row_readers_equal_the_lookups() {
+        let mut plan = 1_u8;
+        while plan <= PLAN_COUNT {
+            let mut area = 1_u8;
+            while area <= AREA_COUNT {
+                let row = area_row(plan, area);
+                assert_eq!(row_category(row), category(plan, area));
+                assert_eq!(row_record_index(row), record_index(plan, area));
+                assert_eq!(row_move_count(row), move_count(plan, area));
+                let mut orientation = 1_u8;
+                while orientation <= 4 {
+                    let mut moves = row_moves(row);
+                    let mut index = 0_u8;
+                    while index < row_move_count(row) {
+                        let (direction, spot, rest) = next_move(moves, turns(orientation));
+                        assert_eq!(direction, move_direction(plan, area, index, orientation));
+                        assert_eq!(spot, move_spot(plan, area, index, orientation));
+                        moves = rest;
+                        index += 1;
+                    }
+                    assert_eq!(moves, 0);
+                    orientation += 1;
+                }
+                area += 1;
+            }
             plan += 1;
         }
     }
