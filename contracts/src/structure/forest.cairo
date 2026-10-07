@@ -179,6 +179,7 @@ fn solve(
     let points = distinct * Category::Forest.base_points() * num / den;
     recover(ref game, ref structures, role);
     game.add_score(points);
+    game.count_forest();
 
     // [Event] Forest scored
     store

@@ -22,6 +22,10 @@ pub struct Game {
     pub mode: u8,
     pub tournament_id: u64,
     pub tile_limit: u16,
+    /// The four scoring counters (structures, forests, wonders, big structures scored), packed in
+    /// 23 bits as `GameState` holds them: see `GameImpl::counts_of` and
+    /// `docs/architecture/quests.md`.
+    pub counts: u32,
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]

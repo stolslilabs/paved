@@ -349,3 +349,61 @@ mode. Two requests, none a PR to quiver (the provenance one is answered, above):
 
 An audit is not planned for 1 and 2 (events only, no money, no player-writable state); one is planned if the ruling
 moves quests to storage mode with a reward.
+
+## As built (P7 contracts)
+
+What the contracts PR (`feat: P7 quests and achievements on quiver 0.2.0 (contracts)`) does, and where it differs
+from the design above. Figures are L2 gas, measured on Linux with `contracts/tests/gas.cairo` (the call alone,
+`get_available_gas()` right before and after), pinned toolchain.
+
+- **Dependencies.** `quiver_quest = "=0.2.0"` and `quiver_achievement = "=0.2.0"` in `contracts/Scarb.toml`, checksums in
+  `contracts/Scarb.lock`. Both build under the `2023_11` edition of the package.
+- **Where it runs (S1, `class-headroom.md`).** The quiver components, the report and the quest definitions are in the
+  `Lobby` class. `Daily` and `Tutorial` declare the components (storage and events, so the ABI and the layout are
+  the interface's) but embed no quiver code: `Daily.build` makes ONE library call, `Lobby.report(tally)`, only when
+  the game ends; `Tutorial.build` likewise makes `Lobby.tutorial_report()`. `discard` and `surrender` already run in
+  `Lobby` and report there, with no extra call. The owner-only `IDailyQuests` (`define_quest`, `retire_quest`,
+  `define_achievement`, `retire_achievement`) are wrappers on `Daily` that call `Lobby`. **The owner check is in
+  `Lobby`** (`assert_only_owner` on the `Ownable` storage of the caller, whose wrappers are the only way in, since
+  `Lobby` is never deployed); `e2e::quests` tests that a non-owner reverts through `Daily`. A recurring quest must
+  start on a multiple of 86,400 (`'Daily: quest not on UTC day'`, Q-6). `Tutorial` declares the achievement
+  component only, to report task 10 (a quest component there would emit a `QuestProgressed` for a task no quest
+  uses; accepted by the orchestrator). No quiver view is embedded anywhere (class size); definitions and progress
+  are read from events.
+- **Counters.** `Game` gains one field, `counts: u32`, holding `structures` (7 bits), `forests` (6), `wonders` (4) and
+  `big` (6), saturating, read with `structures()`, `forests()`, `wonders()`, `big()`. It sits at bit 88 of the high
+  half of the `GameState` word (23 bits, up to bit 111 of 123): no new slot. `Store::set_builder` keeps it.
+- **Report.** `PlayableComponent` returns the tally as one `u128` at game over (0 when the game is not over, so a
+  move that does not end the game pays nothing for it), after `end_in_tournament` (which now returns the rank) and
+  after `GameOver`; `Lobby` makes one `progress_many` per component from `paved::quests`, with its own list: the
+  quests get tasks 1 to 4 (at most 4 entries), the achievements tasks 1, 4, 5, 6, 7 and 9 (at most 6). Zero counts
+  are dropped. Tutorial reports task 10 with one `progress`, never on a surrender (P-28). The design's single list of 8 entries is split because
+  each entry is an event (about 70k).
+- **No runtime guard (ruling P-23).** `progress_many` reverts in event mode only on more than 16 entries or a task id
+  0; both are decided by the array built from constants. `paved::quests::tests` proves the bounds on every shape of
+  report, for both lists (rank 0 to 3, scores around the thresholds, counters at 0, 1, 15 and at their maximum), and
+  `e2e::quests` ends a game with every counter at its maximum and with every count zero and asserts the game over,
+  the ranking and `GameOver`.
+- **Definitions** are not made by the contracts' constructor: the accepted list is defined with the entrypoints above
+  (`e2e::quests::define_accepted_list` is the list as calls). The script that does it on a network belongs with the
+  deploy task.
+- **Class sizes** (release; felts; `scripts/class-sizes.sh`; cap 81,920 Sierra and CASM, programme limit 90 %):
+
+  | Class | Sierra S1 | CASM S1 | Sierra PR | CASM PR | Of the cap | Margin to 90 % |
+  |---|---:|---:|---:|---:|---:|---:|
+  | `Daily` | 31,129 | 69,062 | 32,507 | **72,424** | 88.4 % | 1,304 |
+  | `Tutorial` | 30,361 | 66,059 | 30,642 | 66,689 | 81.4 % | 7,039 |
+  | `Lobby` (declared only) | 21,226 | 47,299 | 26,759 | 58,636 | 71.6 % | 15,092 |
+  | `Account` | 1,307 | 2,879 | 1,307 | 2,879 | 3.5 % | |
+  | `Token` | 1,611 | 4,374 | 1,611 | 4,374 | 5.3 % | |
+
+  `Daily` grows by 3,362 felts: the tally encoding in `build`, the call to `Lobby.report`, the four wrappers and the
+  `counts` unpack. The plan of section 4 of `class-headroom.md` was at most 72,408 (16 felts less).
+- **P-28.** First Stone is credited only when the Tutorial ends by placing or discarding its last tile, never by
+  surrender. For P8: if a reward ever attaches to Daily Run or Settler, revisit whether a surrender counts. (Daily
+  keeps counting any finished game, surrender included: it is paid.) Tests: `e2e::quests`
+  `test_quests_tutorial_game_over_on_the_last_build_credits_task_10`, `..._last_discard_...` and
+  `test_quests_tutorial_surrender_credits_no_task_10`; the Daily game over is tested on the last `build`, on the last
+  `discard` and on `surrender`, each with its events after `GameOver`.
+- **Event order.** At a game over the order is `GameOver`, the quest events, then the achievement events
+  (`e2e::quests::test_quests_game_over_every_counter_at_maximum`, from `spy.get_events()`).

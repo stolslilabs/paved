@@ -1,6 +1,7 @@
 pub mod constants;
 pub mod events;
 pub mod leaderboard;
+pub mod quests;
 pub mod store;
 pub mod views;
 
