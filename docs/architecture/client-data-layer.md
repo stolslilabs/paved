@@ -205,7 +205,7 @@ view, never from here.
   marked stale beside the error.
 - Not done: the `head.hash` check against the node's block (the fork guard of the indexer doc) and the fallback to the
   on-chain top 3 when the indexer is down.
-- Tests run against `FixtureIndexer` (`indexer-fixture.ts`), an in-process `fetch` built from the doc's examples that
+- Tests run against `FixtureIndexer`, imported from `@paved/chain/testing` only (not from the public entry, so no app code can reach it), an in-process `fetch` built from the doc's examples that
   refuses parameters as the API does and can be put `behind`, `loading`, `rewinding`, `halted`, `down` or on another
   `version`. No real indexer exists yet.
 

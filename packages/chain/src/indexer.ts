@@ -11,6 +11,9 @@ export const DEFAULT_MAX_LAG = 5;
 /** Largest page the API serves (`limit` is 1 to 100). */
 export const MAX_INDEXER_PAGE = 100;
 
+/** Largest tournament id the API serves: ids above it cannot round-trip as JSON numbers (indexer doc). */
+export const MAX_TOURNAMENT_ID = 213503982334600;
+
 /** `daily` or `tutorial`: the contract that emitted a game's events. */
 export type IndexerContract = "daily" | "tutorial";
 
@@ -180,6 +183,11 @@ export interface IndexerOptions {
 
 type Obj = Record<string, unknown>;
 
+function failedByStatus(httpStatus: number): IndexerError {
+  if (httpStatus === 404) return new IndexerError("not-found", "Not found", { httpStatus });
+  return new IndexerError(httpStatus >= 500 ? "unreachable" : "rejected", `Indexer answered ${httpStatus}`, { httpStatus });
+}
+
 const bad = (what: string): never => {
   throw new IndexerError("bad-response", `Indexer answer: ${what}`);
 };
@@ -198,8 +206,9 @@ const bool = (o: Obj, key: string, what: string): boolean => {
   const v = o[key];
   return typeof v === "boolean" ? v : bad(`${what}.${key} is not a boolean`);
 };
+/** A key the doc lists as nullable: `null` is an answer, a missing key is not. */
 const orNull = <T>(o: Obj, key: string, read: (o: Obj, key: string, what: string) => T, what: string): T | null =>
-  o[key] === null || o[key] === undefined ? null : read(o, key, what);
+  o[key] === null ? null : key in o ? read(o, key, what) : bad(`${what}.${key} is missing`);
 const list = (o: Obj, key: string, what: string): unknown[] => {
   const v = o[key];
   return Array.isArray(v) ? v : bad(`${what}.${key} is not a list`);
@@ -265,7 +274,8 @@ export function indexerPlayerId(id: string | bigint): string {
 }
 
 function tournamentPath(id: number | bigint): string {
-  if (typeof id === "number" ? !Number.isSafeInteger(id) || id < 0 : id < 0n) throw new IndexerError("rejected", `Not a tournament id: ${id}`);
+  const ok = typeof id === "number" ? Number.isSafeInteger(id) && id >= 0 && id <= MAX_TOURNAMENT_ID : id >= 0n && id <= BigInt(MAX_TOURNAMENT_ID);
+  if (!ok) throw new IndexerError("rejected", `Not a tournament id: ${id}`);
   return String(id);
 }
 
@@ -285,7 +295,7 @@ export class IndexerClient {
 
   async head(): Promise<IndexerAnswer<IndexerHeadInfo>> {
     return this.get("/v1/head", {}, (b) => {
-      const checks = b.checks === undefined || b.checks === null ? null : obj(b.checks, "checks");
+      const checks = b.checks === null ? null : obj(b.checks, "checks");
       return {
         state: str(b, "state", "head"),
         chainId: str(b, "chain_id", "head"),
@@ -298,6 +308,7 @@ export class IndexerClient {
 
   /** Tournaments newest first; `before` is a previous page's `next`. */
   async tournaments(params: { limit?: number; before?: number } = {}): Promise<IndexerAnswer<TournamentList>> {
+    if (params.before !== undefined) tournamentPath(params.before);
     return this.get("/v1/tournaments", params, (b) => ({
       tournaments: list(b, "tournaments", "tournaments").map((t, i) => {
         const { gamesFinished: _unused, ...summary } = parseTournament(t, `tournaments[${i}]`);
@@ -326,8 +337,9 @@ export class IndexerClient {
   /** An unknown player is `player: null`, not an error. */
   async player(playerId: string | bigint): Promise<IndexerAnswer<PlayerProfile>> {
     return this.get(`/v1/players/${indexerPlayerId(playerId)}`, {}, (b) => {
-      const player = b.player === null || b.player === undefined ? null : obj(b.player, "player");
-      const stats = b.stats === null || b.stats === undefined ? null : obj(b.stats, "stats");
+      const player = b.player === null ? null : obj(b.player, "player");
+      // An unknown player has no stats; the route may leave the key out then, never for a known one.
+      const stats = b.stats === null || (b.stats === undefined && player === null) ? null : obj(b.stats, "stats");
       return {
         player: player && { playerId: str(player, "player_id", "player"), name: orNull(player, "name", str, "player"), created: orNull(player, "created", num, "player") },
         stats: stats && {
@@ -351,7 +363,7 @@ export class IndexerClient {
   /** The player's row of that day, or null: "your rank today" without paging the board. */
   async playerTournament(playerId: string | bigint, id: number | bigint): Promise<IndexerAnswer<LeaderboardEntry | null>> {
     return this.get(`/v1/players/${indexerPlayerId(playerId)}/tournaments/${tournamentPath(id)}`, {}, (b) =>
-      b.entry === null || b.entry === undefined ? null : parseEntry(b.entry, "entry"),
+      b.entry === null ? null : parseEntry(b.entry, "entry"),
     );
   }
 
@@ -387,9 +399,10 @@ export class IndexerClient {
     } catch {
       // A gateway's HTML error page is the indexer being out of reach; an ok status with no JSON is a bad answer.
       if (response.ok) bad("not JSON");
-      if (response.status === 404) throw new IndexerError("not-found", "Not found", { httpStatus: 404 });
-      throw new IndexerError(response.status >= 500 ? "unreachable" : "rejected", `Indexer answered ${response.status}`, { httpStatus: response.status });
+      throw failedByStatus(response.status);
     }
+    // A failure that is not an envelope (a gateway's JSON error) is judged by its HTTP status, not by a version it never had.
+    if (!response.ok && response.status !== 503 && !(isObj(body) && "version" in body)) throw failedByStatus(response.status);
     const envelope = obj(body, "envelope");
     if (envelope.version !== INDEXER_API_VERSION) {
       throw new IndexerError("wrong-version", `Indexer speaks API version ${String(envelope.version)}, this client reads ${INDEXER_API_VERSION}`, { version: envelope.version });
