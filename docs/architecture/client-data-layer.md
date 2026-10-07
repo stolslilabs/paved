@@ -165,7 +165,8 @@ filtering:
 | Landing: Daily entry fee | `Daily.entry_price()` | on connect, when the page becomes visible, after a write |
 | Daily spawn: the approve | `Daily.entry_price()` | before each Daily spawn |
 | Game page with a consent in its history state (the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once, then the consent is cleared |
-| Landing: leaderboard | none: a plain "coming later" card until META's indexer | |
+| Leaderboard screen (`/leaderboard/:day?`) | indexer `tournaments`, `leaderboard` (limit, offset); today's id from `Daily.current_tournament_id` | on open, when the page becomes visible, on paging |
+| Player screen (`/player/:id`) | indexer `player`, `playerGames` (before), `playerTournament` per listed day | on open, when the page becomes visible |
 | Game: board | `tiles(game_id, 0, 64)` | on open |
 | Game: tile in hand, score, counts, over | `game(game_id)` | on open, after each write (reconcile) |
 | Game: characters | `builder` + `characters(game_id, player)` | on open, after each write (reconcile) |

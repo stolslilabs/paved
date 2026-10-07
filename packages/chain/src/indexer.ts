@@ -214,17 +214,21 @@ const list = (o: Obj, key: string, what: string): unknown[] => {
   return Array.isArray(v) ? v : bad(`${what}.${key} is not a list`);
 };
 
-function parseTournament(v: unknown, what: string): TournamentDetail {
+function parseSummary(v: unknown, what: string): TournamentSummary {
   const o = obj(v, what);
   return {
     id: num(o, "id", what),
     startTime: num(o, "start_time", what),
     endTime: num(o, "end_time", what),
     gamesSpawned: num(o, "games_spawned", what),
-    gamesFinished: o.games_finished === undefined ? 0 : num(o, "games_finished", what),
     players: num(o, "players", what),
     bestScore: num(o, "best_score", what),
   };
+}
+
+/** One tournament: the list route's fields plus `games_finished`, which the list leaves out. */
+function parseTournament(v: unknown, what: string): TournamentDetail {
+  return { ...parseSummary(v, what), gamesFinished: num(obj(v, what), "games_finished", what) };
 }
 
 function parseEntry(v: unknown, what: string): LeaderboardEntry {
@@ -310,10 +314,7 @@ export class IndexerClient {
   async tournaments(params: { limit?: number; before?: number } = {}): Promise<IndexerAnswer<TournamentList>> {
     if (params.before !== undefined) tournamentPath(params.before);
     return this.get("/v1/tournaments", params, (b) => ({
-      tournaments: list(b, "tournaments", "tournaments").map((t, i) => {
-        const { gamesFinished: _unused, ...summary } = parseTournament(t, `tournaments[${i}]`);
-        return summary;
-      }),
+      tournaments: list(b, "tournaments", "tournaments").map((t, i) => parseSummary(t, `tournaments[${i}]`)),
       next: orNull(b, "next", num, "tournaments"),
     }));
   }
@@ -402,7 +403,7 @@ export class IndexerClient {
       throw failedByStatus(response.status);
     }
     // A failure that is not an envelope (a gateway's JSON error) is judged by its HTTP status, not by a version it never had.
-    if (!response.ok && response.status !== 503 && !(isObj(body) && "version" in body)) throw failedByStatus(response.status);
+    if (!response.ok && !(isObj(body) && "version" in body)) throw failedByStatus(response.status);
     const envelope = obj(body, "envelope");
     if (envelope.version !== INDEXER_API_VERSION) {
       throw new IndexerError("wrong-version", `Indexer speaks API version ${String(envelope.version)}, this client reads ${INDEXER_API_VERSION}`, { version: envelope.version });
