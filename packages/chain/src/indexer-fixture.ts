@@ -10,6 +10,8 @@ export const FIXTURE_BO = "0x000000000000000000000000000000000000000000000000000
 export const FIXTURE_TOURNAMENT = 20733;
 export const FIXTURE_HEAD = { number: 9120, hash: "0x01b4e2", timestamp: 1791878004 };
 
+import { MAX_TOURNAMENT_ID } from "./indexer";
+
 type Row = Record<string, unknown>;
 
 export interface FixtureState {
@@ -109,7 +111,7 @@ export class FixtureIndexer {
       if (text === null) return fallback;
       return /^\d+$/.test(text) && Number(text) >= min && Number(text) <= max ? Number(text) : `malformed ${key}`;
     };
-    const decimalId = (text: string) => (/^\d+$/.test(text) && Number(text) <= 213503982334600 ? Number(text) : null);
+    const decimalId = (text: string) => (/^\d+$/.test(text) && Number(text) <= MAX_TOURNAMENT_ID ? Number(text) : null);
     const playerOk = (id: string) => /^0x[0-9a-f]{64}$/.test(id);
 
     const [, a, b, c, d] = path;

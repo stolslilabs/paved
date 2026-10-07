@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_HEAD, FIXTURE_NAMELESS, FIXTURE_TOURNAMENT, FixtureIndexer } from "../src/indexer-fixture";
-import { IndexerClient, IndexerError, createIndexerClient, indexerPlayerId } from "../src/indexer";
+import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_HEAD, FIXTURE_NAMELESS, FIXTURE_TOURNAMENT, FixtureIndexer } from "../src/testing";
+import { IndexerClient, IndexerError, MAX_TOURNAMENT_ID, createIndexerClient, indexerPlayerId } from "../src/indexer";
 
 let fixture: FixtureIndexer;
 let client: IndexerClient;
@@ -124,6 +124,37 @@ describe("envelope", () => {
     expect(await kindOf(client.head())).toBe("wrong-version");
   });
 
+  test("a failure that is not an envelope is judged by its HTTP status, not as a wrong version", async () => {
+    const raw = (text: string, httpStatus: number) => (fixture.state.rawBody = { text, httpStatus });
+    raw('{"message":"Bad Gateway"}', 502);
+    expect(await kindOf(client.head())).toBe("unreachable");
+    raw('{"error":"no such path"}', 404);
+    expect(await kindOf(client.head())).toBe("not-found");
+    raw('{"error":"forbidden"}', 403);
+    expect(await kindOf(client.head())).toBe("rejected");
+    raw('{"version":2,"status":"error","error":"x"}', 404);
+    expect(await kindOf(client.head())).toBe("wrong-version");
+  });
+
+  test("a missing key is refused, null is an answer", async () => {
+    const ok = { version: 1, status: "ok", head: FIXTURE_HEAD, behind: 0 };
+    const board = { tournament_id: 1, start_time: 0, end_time: 0, total: 0, entries: [] };
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, ...board }), httpStatus: 200 };
+    expect(await kindOf(client.leaderboard(1))).toBe("bad-response"); // next_offset missing: paging must not just stop
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, ...board, next_offset: null }), httpStatus: 200 };
+    expect(await kindOf(client.leaderboard(1))).toBe("none");
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, games: [] }), httpStatus: 200 };
+    expect(await kindOf(client.playerGames(FIXTURE_ADA))).toBe("bad-response"); // next missing
+    fixture.state.rawBody = { text: JSON.stringify(ok), httpStatus: 200 };
+    expect(await kindOf(client.playerTournament(FIXTURE_ADA, 1))).toBe("bad-response"); // entry missing
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, player: { player_id: FIXTURE_ADA, name: "A" }, stats: null }), httpStatus: 200 };
+    expect(await kindOf(client.player(FIXTURE_ADA))).toBe("bad-response"); // created missing
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, player: null }), httpStatus: 200 };
+    expect((await client.player(FIXTURE_ADA)).data).toEqual({ player: null, stats: null });
+    fixture.state.rawBody = { text: JSON.stringify({ ...ok, tournaments: [] }), httpStatus: 200 };
+    expect(await kindOf(client.tournaments())).toBe("bad-response"); // next missing
+  });
+
   test("a missing version is a wrong version", async () => {
     fixture.state.rawBody = { text: JSON.stringify({ status: "ok", head: FIXTURE_HEAD, behind: 0 }), httpStatus: 200 };
     expect(await kindOf(client.head())).toBe("wrong-version");
@@ -191,6 +222,9 @@ describe("errors", () => {
     expect(await kindOf(client.player("nope"))).toBe("rejected");
     expect(await kindOf(client.tournament(-1))).toBe("rejected");
     expect(await kindOf(client.tournament(2 ** 53))).toBe("rejected");
+    expect(await kindOf(client.tournament(MAX_TOURNAMENT_ID + 1))).toBe("rejected");
+    expect(await kindOf(client.leaderboard(BigInt(MAX_TOURNAMENT_ID) + 1n))).toBe("rejected");
+    expect(await kindOf(client.tournaments({ before: MAX_TOURNAMENT_ID + 1 }))).toBe("rejected");
     expect(await kindOf(client.game("daily", -2))).toBe("rejected");
     expect(fixture.requests).toEqual([]);
   });
@@ -201,6 +235,12 @@ describe("construction", () => {
     expect(createIndexerClient(undefined)).toBeNull();
     expect(createIndexerClient("  ")).toBeNull();
     expect(createIndexerClient(" http://i.test/ ", { fetch: fixture.fetch as typeof fetch })).toBeInstanceOf(IndexerClient);
+  });
+
+  test("the largest tournament id is sent", async () => {
+    fixture.state.rawBody = { text: JSON.stringify({ version: 1, status: "ok", head: FIXTURE_HEAD, behind: 0, tournament: { id: MAX_TOURNAMENT_ID, start_time: 1, end_time: 2, games_spawned: 0, games_finished: 0, players: 0, best_score: 0 } }), httpStatus: 200 };
+    expect((await client.tournament(BigInt(MAX_TOURNAMENT_ID))).data.id).toBe(MAX_TOURNAMENT_ID);
+    expect(fixture.requests[0]).toBe(`/v1/tournaments/${MAX_TOURNAMENT_ID}`);
   });
 
   test("player ids are zero-padded lowercase", () => {

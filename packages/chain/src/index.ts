@@ -53,6 +53,7 @@ export {
   DEFAULT_MAX_LAG,
   INDEXER_API_VERSION,
   MAX_INDEXER_PAGE,
+  MAX_TOURNAMENT_ID,
   IndexerClient,
   IndexerError,
   createIndexerClient,
@@ -78,8 +79,6 @@ export type {
   TournamentList,
   TournamentSummary,
 } from "./indexer";
-export { FIXTURE_ADA, FIXTURE_BO, FIXTURE_HEAD, FIXTURE_NAMELESS, FIXTURE_TOURNAMENT, FixtureIndexer } from "./indexer-fixture";
-export type { FixtureState } from "./indexer-fixture";
 export { GameSession } from "./session";
 export type { BoardCharacter, BoardTile, PlaceMove, SessionState } from "./session";
 
