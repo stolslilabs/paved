@@ -232,7 +232,7 @@ fn both_roles_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 152218671)]
+#[available_gas(l2_gas: 147993169)]
 fn test_golden_daily_forest_woodsman_ring() {
     let moves = woodsman_ring_moves();
     play_daily(
@@ -255,7 +255,7 @@ fn test_golden_daily_forest_woodsman_ring() {
 }
 
 #[test]
-#[available_gas(l2_gas: 164601404)]
+#[available_gas(l2_gas: 162363834)]
 fn test_golden_daily_forest_herdsman_caps() {
     let moves = herdsman_caps_moves();
     play_daily(
@@ -278,7 +278,7 @@ fn test_golden_daily_forest_herdsman_caps() {
 }
 
 #[test]
-#[available_gas(l2_gas: 244768825)]
+#[available_gas(l2_gas: 234252198)]
 fn test_golden_daily_forest_both_roles() {
     let moves = both_roles_moves();
     play_daily(
@@ -304,7 +304,7 @@ fn test_golden_daily_forest_both_roles() {
 // the walks after every build. Separate runs, so that the cases above measure the games alone.
 
 #[test]
-#[available_gas(l2_gas: 1000000000)]
+#[available_gas(l2_gas: 210117648)]
 fn test_golden_daily_forest_woodsman_ring_structures_agree() {
     play_daily_checked(
         'forest_ring',
@@ -326,7 +326,7 @@ fn test_golden_daily_forest_woodsman_ring_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 1000000000)]
+#[available_gas(l2_gas: 217980437)]
 fn test_golden_daily_forest_herdsman_caps_structures_agree() {
     play_daily_checked(
         'forest_caps',
@@ -348,7 +348,7 @@ fn test_golden_daily_forest_herdsman_caps_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 1000000000)]
+#[available_gas(l2_gas: 359324939)]
 fn test_golden_daily_forest_both_roles_structures_agree() {
     play_daily_checked(
         'forest_both',

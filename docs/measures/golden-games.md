@@ -130,6 +130,45 @@ ceilings (`#[available_gas]`) are lowered to measured + 5 %, the golden data is 
 | daily_forest_herdsman_caps | 158,538,599 | 156,763,241 | -1.1 % | 166,465,529 | 164,601,404 |
 | daily_forest_both_roles | 235,984,172 | 233,113,166 | -1.2 % | 247,783,381 | 244,768,825 |
 
+### After P5-4 (structure state for roads, cities, wonders and conflicts)
+
+Every expected value is unchanged. L2 gas from the CI `Test game` log of the PR (Linux, run 37610956822);
+the ceilings (`#[available_gas]`) are lowered to measured + 5 %, the golden data is not touched.
+
+| Test | L2 gas P5-3 | L2 gas P5-4 | Change | Ceiling P5-3 | Ceiling P5-4 |
+| --- | --- | --- | --- | --- | --- |
+| tutorial_full_sequence | 178,254,025 | 147,440,483 | -17.3 % | 187,166,727 | 154,812,508 |
+| daily_city5_game_over | 147,271,649 | 133,958,018 | -9.0 % | 154,635,232 | 140,655,919 |
+| daily_road6 | 154,926,353 | 149,887,333 | -3.3 % | 162,672,671 | 157,381,700 |
+| daily_mixed_roles | 149,541,806 | 142,837,157 | -4.5 % | 157,018,897 | 149,979,015 |
+| daily_real_deck_discards_to_game_over | 127,156,456 | 129,856,885 | +2.1 % | 133,514,279 | 133,514,279 (kept) |
+| daily_forest_woodsman_ring | 144,970,162 | 140,945,875 | -2.8 % | 152,218,671 | 147,993,169 |
+| daily_forest_herdsman_caps | 156,763,241 | 154,632,222 | -1.4 % | 164,601,404 | 162,363,834 |
+| daily_forest_both_roles | 233,113,166 | 223,097,331 | -4.3 % | 244,768,825 | 234,252,198 |
+
+`daily_real_deck_discards_to_game_over` builds nothing: its rise is the spawn, which now places the
+starter tile on the structure state (8 position reads around it and its record page written). It stays
+under its ceiling, which is kept (not raised).
+
+Differential check (P5-4): each Daily case above but the discard one has a checked replay
+`<case>_structures_agree` (same moves, same expected values, `oracle::check` after every build),
+and `tests/differential.cairo` checks the gas scenarios, the Tutorial and a wonder ring. Their budgets
+(measured + 5 %, run 37610956822) include the oracle's walks and do not measure the game:
+
+| Test | L2 gas | Ceiling (+5 %) |
+| --- | --- | --- |
+| daily_city5_structures_agree | 175,616,265 | 184,397,079 |
+| daily_road6_structures_agree | 237,004,823 | 248,855,065 |
+| daily_mixed_roles_structures_agree | 208,409,579 | 218,830,058 |
+| daily_forest_woodsman_ring_structures_agree | 200,112,045 | 210,117,648 |
+| daily_forest_herdsman_caps_structures_agree | 207,600,416 | 217,980,437 |
+| daily_forest_both_roles_structures_agree | 342,214,227 | 359,324,939 |
+| differential_gas_scenarios_a0_a_b | 283,820,600 | 298,011,630 |
+| differential_gas_scenario_c | 190,727,389 | 200,263,759 |
+| differential_gas_scenario_d | 360,609,021 | 378,639,473 |
+| differential_tutorial_full_sequence | 307,826,455 | 323,217,778 |
+| differential_wonder_ring | 264,252,765 | 277,465,404 |
+
 A gas improvement lowers the figures: lower the ceilings in the same PR. A rise above a ceiling is
 a regression, not a reason to raise it.
 
