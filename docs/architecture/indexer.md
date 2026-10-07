@@ -3,6 +3,7 @@
 Design of Paved's own indexer and of the full daily leaderboard that it serves. Documents only: no
 package exists yet. Ruling P-18 (project manager, 2026-10-07): the prize top 3 stays on chain; the full
 leaderboard comes from events, through an indexer that is our copy of Grim World's `indexer/` (O-3).
+The on-chain top 3 sits behind an interface that a published package can replace: `docs/architecture/leaderboard.md`.
 
 Sources read for this design: `docs/architecture/public-interface.md` (events for lists),
 `docs/architecture/native-storage.md` (events, `Tournament`), `contracts/abis/Daily.json`,
