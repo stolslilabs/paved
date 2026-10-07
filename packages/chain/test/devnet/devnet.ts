@@ -1,5 +1,5 @@
 /**
- * Test setup only: starts a local starknet-devnet and declares and deploys the four contracts from
+ * Test setup only: starts a local starknet-devnet and declares the Lobby class and deploys the four contracts from
  * the classes `scarb build` leaves in `contracts/target/dev/`. Not deploy tooling (that is CORE's).
  *
  * Needs `starknet-devnet` 0.10 (`DEVNET_BIN`, default on the PATH) and `universal-sierra-compiler`
@@ -25,6 +25,8 @@ export interface Devnet {
   provider: RpcProvider;
   accounts: DevAccount[];
   addresses: Record<ContractName, string>;
+  /** Class hash of the declared Lobby library class. */
+  lobbyClass: string;
   /** Block of the last deployment. */
   deployedBlock: number;
   stop(): void;
@@ -79,7 +81,7 @@ export async function startDevnet(port: number): Promise<Devnet> {
     const deployer = accounts[0].account;
     const owner = accounts[0].address;
 
-    const deploy = async (name: ContractName, constructorCalldata: string[]) => {
+    const compile = (name: string) => {
       const sierraPath = join(CLASSES, `paved_${name}.contract_class.json`);
       const casmPath = join(work, `${name}.casm.json`);
       execFileSync(process.env.USC_BIN || "universal-sierra-compiler", [
@@ -89,23 +91,27 @@ export async function startDevnet(port: number): Promise<Devnet> {
         "--output-path",
         casmPath,
       ]);
+      return { contract: json.parse(readFileSync(sierraPath, "utf8")), casm: json.parse(readFileSync(casmPath, "utf8")) };
+    };
+
+    const deploy = async (name: ContractName, constructorCalldata: string[]) => {
       const result = await deployer.declareAndDeploy(
-        {
-          contract: json.parse(readFileSync(sierraPath, "utf8")),
-          casm: json.parse(readFileSync(casmPath, "utf8")),
-          constructorCalldata,
-          salt: "0x1",
-          unique: false,
-        },
+        { ...compile(name), constructorCalldata, salt: "0x1", unique: false },
         { tip: 0n, retryInterval: 200 },
       );
       return result.deploy.contract_address;
     };
 
+    // Lobby (P-26) is declared and never deployed: Daily and Tutorial store its class hash and run it
+    // through library calls. Declared before them, as scripts/deploy.sh does.
+    const declared = await deployer.declare(compile("Lobby"), { tip: 0n });
+    await provider.waitForTransaction(declared.transaction_hash, { retryInterval: 200 });
+    const lobbyClass = declared.class_hash;
+
     const Token = await deploy("Token", []);
     const AccountAddress = await deploy("Account", [owner]);
-    const Tutorial = await deploy("Tutorial", [owner, AccountAddress]);
-    const Daily = await deploy("Daily", [owner, AccountAddress, Token]);
+    const Tutorial = await deploy("Tutorial", [owner, AccountAddress, lobbyClass]);
+    const Daily = await deploy("Daily", [owner, AccountAddress, Token, lobbyClass]);
     const deployedBlock = (await provider.getBlockNumber()) as number;
 
     return {
@@ -113,6 +119,7 @@ export async function startDevnet(port: number): Promise<Devnet> {
       provider,
       accounts,
       addresses: { Account: AccountAddress, Daily, Tutorial, Token },
+      lobbyClass,
       deployedBlock,
       stop,
     };

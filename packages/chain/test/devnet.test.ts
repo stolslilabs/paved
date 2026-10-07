@@ -78,8 +78,8 @@ describe.skipIf(!enabled)("devnet integration", () => {
     expect(tiles.map((t) => t.id)).toEqual([1, 2]);
     expect(tiles[0]).toMatchObject({ status: 1, x: 0x7fffffff, y: 0x7fffffff });
     expect(tiles[1]).toMatchObject({ status: 3, id: game.tileId, plan: game.plan });
-    expect((await client.views.builder(key, player)).availableCount).toBe(5);
-    expect((await client.views.characters(key, player)).map((c) => c.role)).toEqual([1, 2, 3, 4, 5]);
+    expect((await client.views.builder(key, player)).availableCount).toBe(7);
+    expect((await client.views.characters(key, player)).map((c) => c.role)).toEqual([1, 2, 3, 4, 5, 6, 7]);
 
     // The tutorial is scripted (contracts/src/elements/decks/tutorial.cairo): every drawn plan has
     // its move, except one that must be discarded; `build` refuses it with 'Orientation: not valid'.
