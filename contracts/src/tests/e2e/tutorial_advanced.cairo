@@ -5,6 +5,7 @@ use paved::tests::setup::setup::TestStoreTrait;
 use paved::types::mode::Mode;
 
 #[test]
+#[available_gas(l2_gas: 33625351)]
 fn test_tutorial_e2e_surrender_ends_game() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
 
@@ -24,6 +25,7 @@ fn test_tutorial_e2e_surrender_reverts_if_game_already_over() {
 }
 
 #[test]
+#[available_gas(l2_gas: 96359458)]
 fn test_tutorial_e2e_discard_increments_counter_in_scripted_path() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
 

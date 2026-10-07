@@ -30,7 +30,7 @@ pub fn assess_generic(
     if open_of(record) != 0 || chars == 0 {
         return false;
     }
-    let power = recover_all(ref game, chars, ref store);
+    let power = recover_all(ref game, chars, ref structures);
     let size: u32 = size_of(record).into();
     let (num, den) = compute_multiplier(size);
     let points = size * category.base_points() * power * num / den;
@@ -73,7 +73,7 @@ pub fn assess_wonder(
         }
         role += 1;
     }
-    let mut character = store.character(game, game.player_id, role.into());
+    let character = structures.character(game.player_id, role);
     let power: u32 = character.power.into();
     let points = Category::Wonder.base_points() * power;
     game.add_score(points);
@@ -93,37 +93,46 @@ pub fn assess_wonder(
         );
 
     // [Effect] Recover the character
-    let (mut tile, refs) = StoreImpl::tile_with_refs(game.id, character.tile_id);
-    let mut builder = store.builder(game, game.player_id);
-    builder.recover(ref character, ref tile);
-    store.set_character(character);
-    StoreImpl::write_tile(tile, refs);
-    store.set_builder(builder);
+    recover(ref game, ref structures, role);
 
     structures.set(root, without_chars(record, chars));
     true
 }
 
-/// Recovers every character of a `chars` bitmap (tile spot cleared, role back to the builder, entry
-/// of `Characters` cleared), in role order. Returns their highest power.
-fn recover_all(ref game: Game, chars: u16, ref store: Store) -> u32 {
+/// Recovers every character of a `chars` bitmap, in role order. Returns their highest power.
+fn recover_all(ref game: Game, chars: u16, ref structures: Structures) -> u32 {
     let mut power: u32 = 0;
     let mut role: u8 = 1;
     while role <= MAX_ROLE {
         if chars & role_bit(role) != 0 {
-            let mut character = store.character(game, game.player_id, role.into());
-            let character_power: u32 = character.power.into();
+            let character_power = recover(ref game, ref structures, role);
             if character_power > power {
                 power = character_power;
             }
-            let (mut tile, refs) = StoreImpl::tile_with_refs(game.id, character.tile_id);
-            let mut builder = store.builder(game, game.player_id);
-            builder.recover(ref character, ref tile);
-            store.set_character(character);
-            StoreImpl::write_tile(tile, refs);
-            store.set_builder(builder);
         }
         role += 1;
     }
+    power
+}
+
+/// Recovers the character of `role`: its tile spot is cleared (in the cache when the tile is the
+/// one the move built, in its slot otherwise), the role goes back to the builder (the game's
+/// `characters`, written with its state at the end of the move) and its entry of `Characters` is
+/// cleared. Returns its power.
+pub fn recover(ref game: Game, ref structures: Structures, role: u8) -> u32 {
+    let mut character = structures.character(game.player_id, role);
+    let power: u32 = character.power.into();
+    let mut builder = game.builder_of(game.player_id);
+    if character.tile_id == structures.built.id {
+        let mut tile = structures.built;
+        builder.recover(ref character, ref tile);
+        structures.built = tile;
+    } else {
+        let (mut tile, refs) = StoreImpl::tile_with_refs(game.id, character.tile_id);
+        builder.recover(ref character, ref tile);
+        StoreImpl::write_tile(tile, refs);
+    }
+    game.set_builder(builder);
+    structures.put_character(character);
     power
 }

@@ -275,6 +275,78 @@ instead of the P5-4 gate plus walk set-up; no scenario scores a forest. The ceil
 The forest goldens, where forests score, fall by 1.9 % to 2.7 %: `docs/measures/golden-games.md`.
 Scenario e (a move that closes a forest with a Woodsman) is added in P5-6.
 
+### After P5-6 (gas pass)
+
+Same tests and method, scarb 2.20.1 / snforge 0.64.0. The P5-6 figures are the `GAS` lines of the CI
+`Test game` job of PR #224 (Linux, run 37624454030, same code as the final head: the final commit only
+sets budgets and writes the docs); they equal the local Mac run to the unit. Scenarios e (a move that
+closes a forest of 4 tiles with a Woodsman, 329 points, the P4 ring golden) and f (the last tile of a loop
+of 12 road tiles closes a forest of 16 nodes that holds a Woodsman: the largest forest scan built) are new:
+their P4 and P5-5 figures were measured on those commits (`64739c2a`, `d2061597`) with the scenario
+tests copied onto them, locally on the Mac. The ceilings of `contracts/tests/gas.cairo` are measured + 5 %.
+
+| Scenario | L2 gas P4 | L2 gas P5-5 | L2 gas P5-6 | Change vs P5-5 | Ceiling P5-6 |
+| --- | --- | --- | --- | --- | --- |
+| a0 | 9,634,832 | 9,128,151 | 7,942,583 | -13.0 % | 8,339,713 |
+| a | 10,878,072 | 8,908,025 | 7,704,827 | -13.5 % | 8,090,069 |
+| b | 12,252,204 | 9,957,194 | 8,677,416 | -12.9 % | 9,111,287 |
+| c | 17,085,237 | 10,630,441 | 8,548,123 | -19.6 % | 8,975,530 |
+| d | 32,287,556 | 12,692,375 | 9,877,960 | -22.2 % | 10,371,858 |
+| e | 23,285,560 | 15,004,154 | 12,020,508 | -19.9 % | 12,621,534 |
+| f (worst forest scan) | 49,286,395 | 27,744,345 | 21,679,674 | -21.9 % | 22,763,658 |
+
+a0, a and b are at most 10M (acceptance), every figure is lower than P5-5. What changed:
+
+- **Move-local cache extended**: the `Characters` word (read at the first character, written once by
+  `flush`) and the built tile (written once, with its position, after the assessment) join the record
+  pages in `Structures`. The builder is no longer written before the assessment and read back after it:
+  a recovered role goes back into the `Game` in memory (`GameState` is written once at the end of the
+  move). A character on the built tile is cleared in the cache. Spawn no longer writes the builder before
+  the game (`set_game` wrote it again).
+- **Fit check on the oriented tables** (`placement::assert_fits`, same reverts as `Tile::can_place`; the
+  edge categories equal the layouts, tested): the layout-based check cost 0.7M L2 gas of Sierra.
+- **No 256-bit power loop** for the bit of a role or a card (`Bitmap::set_bit_at` builds `2^i` with a loop of
+  256-bit products, about 0.25M each, twice for a character, again for a recovery).
+- **Positions carry a wonder flag** (bit 8 of the stored tile id): a diagonal neighbour that holds no wonder
+  is not read, only its position (a read of about 0.1M saved per such neighbour).
+- **The forest scan reads each tile once** (a dictionary of slots by position, the built tile seeded from the
+  cache): f fell from 27.7M to 21.7M, e from 15.0M to 12.0M.
+- The tournament id is computed only when the game is over (about 0.03M).
+
+Measured with `cairo-profiler` (`snforge test --build-profile`, 0.17.0) and `--detailed-resources`: a
+storage read costs about 0.1M L2 gas and a write about 0.13M (key hashing included), the Sierra cost of a
+`build` is about 6.4M of the 7.9M. The rest of a0 is, by the profile: `draw_plan` 2.5M (39 %: the deck is
+rebuilt from the bitmap at every draw in `helpers/random_deck`, outside this PR's allowlist), the placement
+1.0M (8 position reads 0.88M of it), the assessment 0.6M, dictionaries 0.5M.
+
+**c and d against a** (P5-4 left them at +19.3 % and +42.4 %): c is a + 10.9 %, d is a + 28.2 %, b is a + 12.6 %.
+What remains is work that a does not do and that the one-read-one-write rule keeps: the last build of a has
+16 storage reads and 7 writes, c has 23 and 9, d 24 and 8 (`--detailed-resources`, last move alone): c and d
+read a page and a tile more per neighbour (d has two side neighbours, a one), the `Characters` word, and write
+the recovered tile and the word; they emit a `Scored`; d also runs the idle check and the unions of a
+closing tile with several neighbours, and scores a 12-node structure (`compute_multiplier`). Nothing in them
+grows with the size of the structure.
+
+Worst cases: d (a 12-tile city tree, the deepest `find` of the gas scenarios) 9.9M, f 21.7M. A forest scan costs
+about 0.6M per node of the forest (one position read, one tile read and the finds); a forest holds at most
+the 38 tiles of the deck, so the bound of a move is about 38 x 0.6M + 8M = 31M, no move is unbounded.
+
+Output excerpt (CI, the 7 `GAS` lines):
+
+```
+GAS a0_open_simple_move: 7942583
+GAS e_close_forest: 12020508
+GAS d_worst_case: 9877960
+GAS a_simple_move: 7704827
+GAS c_close_large_city: 8548123
+GAS f_worst_forest_scan: 21679674
+GAS b_move_with_character: 8677416
+```
+
+Golden games and the full-deck case: `docs/measures/golden-games.md`. Every gameplay test of `src/tests/e2e/`,
+`golden/` and `differential.cairo` that does not expect a revert now carries `#[available_gas]` (measured
++ 5 %, from the same CI log).
+
 ## Line coverage of `contracts/src`
 
 **Not measured.** `cairo-coverage` 0.6.1 was installed in user space (release tarball into

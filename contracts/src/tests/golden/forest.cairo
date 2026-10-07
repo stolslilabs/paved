@@ -304,7 +304,7 @@ fn herdsman_open_city_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 145126506)]
+#[available_gas(l2_gas: 137038470)]
 fn test_golden_daily_forest_woodsman_ring() {
     let moves = woodsman_ring_moves();
     play_daily(
@@ -327,7 +327,7 @@ fn test_golden_daily_forest_woodsman_ring() {
 }
 
 #[test]
-#[available_gas(l2_gas: 159541517)]
+#[available_gas(l2_gas: 149961826)]
 fn test_golden_daily_forest_herdsman_caps() {
     let moves = herdsman_caps_moves();
     play_daily(
@@ -350,7 +350,7 @@ fn test_golden_daily_forest_herdsman_caps() {
 }
 
 #[test]
-#[available_gas(l2_gas: 227839604)]
+#[available_gas(l2_gas: 210369650)]
 fn test_golden_daily_forest_both_roles() {
     let moves = both_roles_moves();
     play_daily(
@@ -375,7 +375,7 @@ fn test_golden_daily_forest_both_roles() {
 /// The new case of P5-5: the rule correction P-15, see `herdsman_open_city_moves`. Not a rule of
 /// 2024: its 2024 figure was 314.
 #[test]
-#[available_gas(l2_gas: 160072793)]
+#[available_gas(l2_gas: 150491822)]
 fn test_golden_daily_forest_herdsman_open_city() {
     let moves = herdsman_open_city_moves();
     play_daily(
@@ -401,7 +401,7 @@ fn test_golden_daily_forest_herdsman_open_city() {
 // the walks after every build. Separate runs, so that the cases above measure the games alone.
 
 #[test]
-#[available_gas(l2_gas: 226276041)]
+#[available_gas(l2_gas: 218772544)]
 fn test_golden_daily_forest_woodsman_ring_structures_agree() {
     play_daily_checked(
         'forest_ring',
@@ -423,7 +423,7 @@ fn test_golden_daily_forest_woodsman_ring_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 230650243)]
+#[available_gas(l2_gas: 221893135)]
 fn test_golden_daily_forest_herdsman_caps_structures_agree() {
     play_daily_checked(
         'forest_caps',
@@ -445,7 +445,7 @@ fn test_golden_daily_forest_herdsman_caps_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 359324939)]
+#[available_gas(l2_gas: 360629436)]
 fn test_golden_daily_forest_both_roles_structures_agree() {
     play_daily_checked(
         'forest_both',
@@ -467,7 +467,7 @@ fn test_golden_daily_forest_both_roles_structures_agree() {
 }
 
 #[test]
-#[available_gas(l2_gas: 222587468)]
+#[available_gas(l2_gas: 224765215)]
 fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
     play_daily_checked(
         'forest_open',
@@ -539,7 +539,7 @@ fn lord_and_woodsman_ring_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 229155194)]
+#[available_gas(l2_gas: 220430993)]
 fn test_golden_daily_forest_lord_and_woodsman_ring_structures_agree() {
     play_daily_checked(
         'forest_lord',
@@ -565,7 +565,7 @@ fn test_golden_daily_forest_lord_and_woodsman_ring_structures_agree() {
 /// (1 x 300 x 10972 / 10000), comes back, and the game is over (`tile_count 5 >= tile_limit 5`);
 /// the score is the top score of the tournament.
 #[test]
-#[available_gas(l2_gas: 226133287)]
+#[available_gas(l2_gas: 218910455)]
 fn test_golden_daily_forest_woodsman_ring_last_tile_structures_agree() {
     play_daily_checked(
         'forest_last',

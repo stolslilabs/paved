@@ -10,7 +10,7 @@ pub mod TutoriableComponent {
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
     use paved::store::{Store, StoreImpl};
-    use paved::structure::placement::NeighborhoodTrait;
+    use paved::structure::placement::{self, NeighborhoodTrait};
     use paved::structure::state::StructuresTrait;
     use paved::types::mode::{Mode, ModeTrait};
     use paved::types::orientation::{Orientation, OrientationAssert};
@@ -171,8 +171,10 @@ pub mod TutoriableComponent {
 
             // [Effect] Build tile
             let around = NeighborhoodTrait::read(game_id, x, y);
-            let mut neighbors = around.sides();
-            builder.build(ref tile, orientation, x, y, ref neighbors);
+            builder.build(ref tile, orientation, x, y);
+
+            // [Check] The tile fits its neighbours
+            placement::assert_fits(tile, @around);
 
             // [Event] Tile built
             store
@@ -207,12 +209,12 @@ pub mod TutoriableComponent {
                 let character = builder.place(role, ref tile, spot);
                 game.occupy_structure(tile, refs, spot, role, ref structures);
 
-                // [Effect] Update character
-                store.set_character(character);
+                // [Effect] Update character (written with the structure state, at the end)
+                structures.put_character(character);
             }
 
-            // [Effect] Update tile
-            store.set_placed_tile(tile, refs);
+            // [Effect] Update tile (written with its position by `flush`, after the assessment)
+            structures.track(tile, refs);
 
             // [Effect] Assess game over
             game.assess_over();
@@ -224,21 +226,14 @@ pub mod TutoriableComponent {
                 store.set_tile(new_tile);
             }
 
-            // [Effect] Update builder
-            // [Effect] Write the builder before the assessment, which recovers characters
-            store.set_builder(builder);
+            // [Effect] Update builder: the tile in hand and the roles placed are part of the game
+            // state, which the assessment recovers characters into
+            game.set_builder(builder);
 
-            // [Effect] Assessment, then the record pages the move changed
-            let scored = game.assess(tile, refs, @around, ref structures, ref store);
+            // [Effect] Assessment, then what the move changed outside the game state: the record
+            // pages, the `Characters` word and the built tile
+            game.assess(tile, refs, @around, ref structures, ref store);
             structures.flush(store);
-
-            // [Effect] Take back the characters that the assessment recovered (the builder
-            // written above is unchanged when nothing scored)
-            if scored {
-                game.set_builder(store.builder(game, player_id));
-            } else {
-                game.set_builder(builder);
-            }
 
             // [Effect] Update game
             game.built += 1;

@@ -20,6 +20,7 @@ use paved::models::builder::BuilderImpl;
 use paved::models::game::{Game, GameImpl};
 use paved::models::tile::Tile;
 use paved::store::{Store, StoreImpl};
+use paved::structure::assessment::recover;
 use paved::structure::placement::role_bit;
 use paved::structure::record::{chars_of, open_of, ref_of, size_of, without_chars};
 use paved::structure::state::{Structures, StructuresTrait};
@@ -52,12 +53,12 @@ pub fn assess_forest(
     let mut recovered: u16 = 0;
     let woodsman: u8 = Role::Woodsman.into();
     if chars & role_bit(woodsman) != 0 {
-        solve(ref game, size, roads, woodsman, ref store);
+        solve(ref game, size, roads, woodsman, ref structures, ref store);
         recovered = recovered | role_bit(woodsman);
     }
     let herdsman: u8 = Role::Herdsman.into();
     if chars & role_bit(herdsman) != 0 {
-        solve(ref game, size, cities, herdsman, ref store);
+        solve(ref game, size, cities, herdsman, ref structures, ref store);
         recovered = recovered | role_bit(herdsman);
     }
     if recovered == 0 {
@@ -74,6 +75,17 @@ pub fn scan(
     game_id: u32, tile: Tile, refs: u128, area: u8, ref structures: Structures,
 ) -> (bool, u32, u32) {
     let mut visited: Felt252Dict<bool> = Default::default();
+    // [Info] The slots of the tiles read, by position: a tile next to several nodes is read once
+    let mut slots: Felt252Dict<felt252> = Default::default();
+    // [Info] The built tile is not in storage yet (`flush` writes it): the scan takes it from here
+    if structures.built.id != 0 {
+        let built = structures.built;
+        slots
+            .insert(
+                built.x.into() * 0x100000000 + built.y.into(),
+                StoreImpl::tile_slot(built, structures.built_refs),
+            );
+    }
     let mut road_roots: Felt252Dict<bool> = Default::default();
     let mut city_roots: Felt252Dict<bool> = Default::default();
     let mut roads: u32 = 0;
@@ -132,9 +144,15 @@ pub fn scan(
                 continue;
             }
             let (x, y) = toward(node.x, node.y, direction);
-            let (next, next_refs) = StoreImpl::tile_at(game_id, x, y);
-            // [Check] The gate guarantees that every position the forest needs is taken
-            assert(next.id != 0, 'Forest scan: open forest');
+            let key: felt252 = x.into() * 0x100000000 + y.into();
+            let mut slot = slots.get(key);
+            if slot == 0 {
+                slot = StoreImpl::tile_slot_at(game_id, x, y);
+                // [Check] The gate guarantees that every position the forest needs is taken
+                assert(slot != 0, 'Forest scan: open forest');
+                slots.insert(key, slot);
+            }
+            let (next, next_refs) = StoreImpl::tile_of_slot(game_id, slot);
             let landing = oriented::area_of(oriented::plan_row(next.plan, next.orientation), at);
             let key = node_key(next.id, landing);
             if !visited.get(key) {
@@ -149,13 +167,17 @@ pub fn scan(
 /// The points of the characters of `role` standing on a forest of `size` nodes with `distinct`
 /// closed roads or cities around it: `distinct x base x bonus(size)`, one `Scored`, the character
 /// recovered.
-fn solve(ref game: Game, size: u32, distinct: u32, role: u8, ref store: Store) {
+fn solve(
+    ref game: Game,
+    size: u32,
+    distinct: u32,
+    role: u8,
+    ref structures: Structures,
+    ref store: Store,
+) {
     let (num, den) = compute_multiplier(size);
     let points = distinct * Category::Forest.base_points() * num / den;
-    let mut character = store.character(game, game.player_id, role.into());
-    let (mut tile, refs) = StoreImpl::tile_with_refs(game.id, character.tile_id);
-    let mut builder = store.builder(game, game.player_id);
-    builder.recover(ref character, ref tile);
+    recover(ref game, ref structures, role);
     game.add_score(points);
 
     // [Event] Forest scored
@@ -171,11 +193,6 @@ fn solve(ref game: Game, size: u32, distinct: u32, role: u8, ref store: Store) {
                 },
             ),
         );
-
-    // [Effect] Update the character, the tile and the builder
-    store.set_character(character);
-    StoreImpl::write_tile(tile, refs);
-    store.set_builder(builder);
 }
 
 /// The key of a node (an area of a tile) in the sets of a scan.

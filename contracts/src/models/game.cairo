@@ -2,6 +2,7 @@
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::hash::HashStateTrait;
+use core::num::traits::Pow;
 use core::poseidon::{HashState, PoseidonTrait};
 
 // Internal imports
@@ -32,13 +33,13 @@ use paved::types::orientation::{IntoOrientationU8, IntoU8Orientation, Orientatio
 use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::{Spot, SpotImpl};
-use starknet::get_caller_address;
 
 pub mod errors {
     pub const INVALID_NAME: felt252 = 'Game: invalid name';
     pub const INVALID_HOST: felt252 = 'Game: invalid host';
     pub const INVALID_MODE: felt252 = 'Game: invalid mode';
     pub const INVALID_PRIZE: felt252 = 'Game: invalid prize';
+    pub const INVALID_TILE_LIMIT: felt252 = 'Game: invalid tile limit';
     pub const INVALID_PLAYER_COUNT: felt252 = 'Game: invalid player count';
     pub const TRANSFER_SAME_HOST: felt252 = 'Game: transfer to same host';
     pub const GAME_NOT_EXISTS: felt252 = 'Game: does not exist';
@@ -50,18 +51,28 @@ pub mod errors {
     pub const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
 }
 
+/// `2^index`, the bit of a card in the deck bitmap (`Bitmap::set_bit_at` computes it with a
+/// loop of 256-bit products, which costs about 0.25M L2 gas).
+#[inline]
+fn bit(index: u8) -> u128 {
+    2_u128.pow(index.into())
+}
+
 #[generate_trait]
 pub impl GameImpl of GameTrait {
     #[inline]
-    fn new(id: u32, time: u64, mode: Mode) -> Game {
+    fn new(id: u32, time: u64, mode: Mode, player_id: felt252) -> Game {
         // [Check] Validate parameters
         let mode: Mode = mode.into();
         assert(Mode::None != mode, errors::INVALID_MODE);
+        // [Check] The tile count is packed in 8 bits (`GameState`)
+        let tile_limit: u16 = mode.deck().count().into();
+        assert(tile_limit <= 255, errors::INVALID_TILE_LIMIT);
         // [Effect] Create the game
-        // [Info] A game is created by its player's call: the caller is the player of the game
+        // [Info] A game belongs to the player that spawns it
         Game {
             id,
-            player_id: get_caller_address().into(),
+            player_id,
             held_tile: 0,
             characters: 0,
             over: false,
@@ -75,7 +86,7 @@ pub impl GameImpl of GameTrait {
             seed: 0,
             mode: mode.into(),
             tournament_id: 0,
-            tile_limit: mode.deck().count().into(),
+            tile_limit,
         }
     }
 
@@ -146,7 +157,7 @@ pub impl GameImpl of GameTrait {
         let deck: Deck = self.deck();
         let mut indexes = deck.indexes(plan);
         let index = indexes.pop_front().unwrap();
-        self.tiles = Bitmap::set_bit_at(self.tiles, index.into(), true);
+        self.tiles = self.tiles | bit(index);
 
         // [Effect] Update game start time and seed
         let mode: Mode = self.mode.into();
@@ -211,7 +222,7 @@ pub impl GameImpl of GameTrait {
             } else {
                 let index: u8 = 1 + Bitmap::most_significant_bit(self.tiles).unwrap();
                 let plan: Plan = deck.plan(index.into());
-                let tiles = Bitmap::set_bit_at(self.tiles, index.into(), true);
+                let tiles = self.tiles | bit(index);
                 (plan, tiles)
             }
         } else {
@@ -224,7 +235,7 @@ pub impl GameImpl of GameTrait {
                 0
             } else {
                 let index = plan_id - 1;
-                Bitmap::set_bit_at(self.tiles, index.into(), true)
+                self.tiles | bit(index)
             };
             (deck.plan(plan_id.into()), tiles)
         };
@@ -411,11 +422,12 @@ pub mod tests {
 
     pub const GAME_ID: u32 = 1;
     pub const NAME: felt252 = 'NAME';
+    pub const PLAYER: felt252 = 'PLAYER';
     pub const MODE: Mode = Mode::Daily;
 
     #[test]
     fn test_game_new() {
-        let game = GameImpl::new(GAME_ID, 0, MODE);
+        let game = GameImpl::new(GAME_ID, 0, MODE, PLAYER);
         assert(game.id == GAME_ID, 'Game: Invalid id');
         assert(game.tiles == 0, 'Game: Invalid tiles');
         assert(game.tile_count == 0, 'Game: Invalid tile_count');
@@ -423,7 +435,7 @@ pub mod tests {
 
     #[test]
     fn test_game_add_tile() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, PLAYER);
         let tile_count = game.tile_count;
         let tile_id = game.add_tile();
         assert(tile_id == GAME_ID, 'Game: Invalid tile_id');
@@ -432,7 +444,7 @@ pub mod tests {
 
     #[test]
     fn test_game_draw_plan() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, PLAYER);
         let (tile_count, plan_id) = game.draw_plan();
         let deck: Deck = game.deck();
         assert(tile_count == 1, 'Game: Invalid tile_count');
@@ -443,7 +455,7 @@ pub mod tests {
 
     #[test]
     fn test_game_draw_planes() {
-        let mut game = GameImpl::new(GAME_ID, 0, MODE);
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, PLAYER);
         let mut counts: Felt252Dict<u8> = Default::default();
         let deck: Deck = game.deck();
         loop {

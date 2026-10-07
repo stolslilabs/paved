@@ -42,12 +42,19 @@ const TWO_POW_98: u128 = 0x4000000000000000000000000;
 const TWO_POW_108: u128 = 0x1000000000000000000000000000;
 const TWO_POW_112: u128 = 0x10000000000000000000000000000;
 const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
+const TWO_POW_88_FELT: felt252 = 0x10000000000000000000000;
 const MASK_1: u128 = 0x1;
 const MASK_4: u128 = 0xf;
 const MASK_8: u128 = 0xff;
 const MASK_16: u128 = 0xffff;
 const MASK_32: u128 = 0xffffffff;
 const MASK_64: u128 = 0xffffffffffffffff;
+
+/// Flag of a position that holds a wonder tile, above the 8 bits of the tile id.
+const POSITION_WONDER: u32 = 0x100;
+/// The wonder plans (`WFFFFFFFF`, `WFFFFFFFR`) are the last two plan codes
+/// (`test_store_wonder_plans_are_the_last_codes`).
+const FIRST_WONDER_PLAN: u8 = 18;
 
 // Storage
 
@@ -91,6 +98,8 @@ pub struct PavedStorage {
     pub game_ends: Map<u32, felt252>,
     pub players: Map<felt252, Slots2>,
     pub tiles: Map<(u32, u32), felt252>,
+    /// The tile at a position: its id (8 bits) and `POSITION_WONDER` when it holds a wonder, so
+    /// that a move reads the tile of a diagonal neighbour only if it can score a wonder.
     pub tile_positions: Map<(u32, u32, u32), u32>,
     /// `Characters`: one slot per game, 16 bits per role (role `r` at bits `16 r`).
     pub characters: Map<u32, felt252>,
@@ -229,7 +238,12 @@ pub impl StoreImpl of StoreTrait {
     /// The tile and its refs: the tile's fields are the low 128 bits of its slot, the refs of its
     /// nodes on the structure state (108 bits, see `structure/record.cairo`) the high bits.
     fn tile_with_refs(game_id: u32, tile_id: u32) -> (Tile, u128) {
-        let word: u256 = storage().tiles.entry((game_id, tile_id)).read().into();
+        let word = storage().tiles.entry((game_id, tile_id)).read();
+        Self::decode_tile(game_id, tile_id, word.into())
+    }
+
+    #[inline(always)]
+    fn decode_tile(game_id: u32, tile_id: u32, word: u256) -> (Tile, u128) {
         let tile = Tile {
             game_id,
             id: tile_id,
@@ -243,18 +257,52 @@ pub impl StoreImpl of StoreTrait {
     }
 
     fn tile_position(self: Store, game: Game, x: u32, y: u32) -> TilePosition {
-        let tile_id = storage().tile_positions.entry((game.id, x, y)).read();
-        TilePosition { game_id: game.id, x, y, tile_id }
+        let value = storage().tile_positions.entry((game.id, x, y)).read();
+        TilePosition { game_id: game.id, x, y, tile_id: value % POSITION_WONDER }
     }
 
     /// The tile at a position and its refs, the zero tile (and no refs) when the position is
     /// empty.
     fn tile_at(game_id: u32, x: u32, y: u32) -> (Tile, u128) {
-        let tile_id = storage().tile_positions.entry((game_id, x, y)).read();
-        if tile_id == 0 {
+        let value = storage().tile_positions.entry((game_id, x, y)).read();
+        if value == 0 {
             return (ZeroableTile::zero(), 0);
         }
-        Self::tile_with_refs(game_id, tile_id)
+        Self::tile_with_refs(game_id, value % POSITION_WONDER)
+    }
+
+    /// The slot of the tile at a position with the tile's id in the 8 bits above the tile's fields
+    /// (bits 88 to 96, unused in a slot), so that a caller that reads the same positions again
+    /// keeps the word and decodes it with `tile_of_slot`. 0 when the position is empty.
+    fn tile_slot_at(game_id: u32, x: u32, y: u32) -> felt252 {
+        let value = storage().tile_positions.entry((game_id, x, y)).read();
+        if value == 0 {
+            return 0;
+        }
+        let tile_id = value % POSITION_WONDER;
+        let word = storage().tiles.entry((game_id, tile_id)).read();
+        word + tile_id.into() * TWO_POW_88_FELT
+    }
+
+    /// The tile and its refs of a slot from `tile_slot_at`.
+    fn tile_of_slot(game_id: u32, slot: felt252) -> (Tile, u128) {
+        let word: u256 = slot.into();
+        let tile_id: u32 = ((word.low / TWO_POW_88) & MASK_8).try_into().unwrap();
+        Self::decode_tile(game_id, tile_id, word)
+    }
+
+    /// Whether a position is taken and, if its tile holds a wonder, the tile and its refs (the
+    /// zero tile otherwise: nothing else of a diagonal neighbour matters to a move).
+    fn wonder_at(game_id: u32, x: u32, y: u32) -> (bool, Tile, u128) {
+        let value = storage().tile_positions.entry((game_id, x, y)).read();
+        if value == 0 {
+            return (false, ZeroableTile::zero(), 0);
+        }
+        if value < POSITION_WONDER {
+            return (true, ZeroableTile::zero(), 0);
+        }
+        let (tile, refs) = Self::tile_with_refs(game_id, value - POSITION_WONDER);
+        (true, tile, refs)
     }
 
     /// A slot of the record page of a tile (0 when nothing was written there).
@@ -424,27 +472,52 @@ pub impl StoreImpl of StoreTrait {
     /// Writes a placed tile with its refs, and its position.
     fn set_placed_tile(self: Store, tile: Tile, refs: u128) {
         let position: TilePosition = tile.into();
+        let wonder = if tile.plan >= FIRST_WONDER_PLAN {
+            POSITION_WONDER
+        } else {
+            0
+        };
         storage()
             .tile_positions
             .entry((position.game_id, position.x, position.y))
-            .write(position.tile_id);
+            .write(position.tile_id + wonder);
         Self::write_tile(tile, refs);
     }
 
     /// Writes the slot of a tile with its refs (its position is not written).
     fn write_tile(tile: Tile, refs: u128) {
+        storage().tiles.entry((tile.game_id, tile.id)).write(Self::tile_word(tile, refs));
+    }
+
+    /// The slot of a tile with its refs.
+    fn tile_word(tile: Tile, refs: u128) -> felt252 {
         let word: u128 = tile.plan.into()
             + tile.orientation.into() * TWO_POW_8
             + tile.x.into() * TWO_POW_16
             + tile.y.into() * TWO_POW_48
             + tile.occupied_spot.into() * TWO_POW_80;
         assert(refs < TWO_POW_108, 'Tile: refs out of range');
-        let word: felt252 = word.into() + refs.into() * TWO_POW_128;
-        storage().tiles.entry((tile.game_id, tile.id)).write(word);
+        word.into() + refs.into() * TWO_POW_128
     }
 
-    /// Writes one role of the `Characters` slot of the game (read, replace the 16 bits, write).
-    fn set_character(self: Store, character: Char) {
+    /// The slot of a tile as `tile_slot_at` gives it (with the id above the fields), for a tile
+    /// that the move holds and has not written yet.
+    fn tile_slot(tile: Tile, refs: u128) -> felt252 {
+        Self::tile_word(tile, refs) + tile.id.into() * TWO_POW_88_FELT
+    }
+
+    /// The `Characters` word of a game (the 16 bits of each role).
+    fn characters_word(game_id: u32) -> u128 {
+        let word: u256 = storage().characters.entry(game_id).read().into();
+        word.low
+    }
+
+    fn set_characters_word(game_id: u32, word: u128) {
+        storage().characters.entry(game_id).write(word.into());
+    }
+
+    /// `word` with the entry of the role of `character` replaced by it.
+    fn with_character(word: u128, character: Char) -> u128 {
         // [Info] Char are created when placed and can be removed (the entry is then zero).
         let entry: u128 = character.tile_id.into()
             + character.spot.into() * 0x100
@@ -453,10 +526,14 @@ pub impl StoreImpl of StoreTrait {
         assert(character.tile_id < 0x100 && character.spot < 0x10, 'Char: Out of range');
         assert(character.weight < 4 && character.power < 4, 'Char: Out of range');
         let shift = Self::role_shift(character.index);
-        let word: u256 = storage().characters.entry(character.game_id).read().into();
-        let old = (word.low / shift) & MASK_16;
-        let low: u128 = word.low - old * shift + entry * shift;
-        storage().characters.entry(character.game_id).write(low.into());
+        let old = (word / shift) & MASK_16;
+        word - old * shift + entry * shift
+    }
+
+    /// Writes one role of the `Characters` slot of the game (read, replace the 16 bits, write).
+    fn set_character(self: Store, character: Char) {
+        let word = Self::characters_word(character.game_id);
+        Self::set_characters_word(character.game_id, Self::with_character(word, character));
     }
 
     fn set_tournament(self: Store, tournament: Tournament) {
@@ -480,5 +557,22 @@ pub impl StoreImpl of StoreTrait {
             e: word.into(),
         };
         storage().tournaments.entry(tournament.id).write(slots);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use paved::structure::{oriented, tables};
+    use super::FIRST_WONDER_PLAN;
+
+    /// The position flag reads the plan code: it holds a wonder exactly when the plan has a wonder
+    /// area.
+    #[test]
+    fn test_store_wonder_plans_are_the_last_codes() {
+        let mut plan: u8 = 1;
+        while plan <= tables::PLAN_COUNT {
+            assert_eq!(plan >= FIRST_WONDER_PLAN, oriented::wonder_area(plan) != 0);
+            plan += 1;
+        }
     }
 }
