@@ -244,7 +244,10 @@ fn test_leaderboard_max_score_and_big_player() {
     assert_eq!(submit(contract, ID, big, 0xffffffff), 1);
     assert_eq!(submit(contract, ID, 2, 0xffffffff), 2);
     assert_eq!(ranked(contract, ID, 1), at(big, 0xffffffff));
+    assert_eq!(submit(contract, ID, 3, 0xffffffff), 3);
+    assert_eq!(ranked(contract, ID, 1), at(big, 0xffffffff));
     assert_eq!(ranked(contract, ID, 2), at(2, 0xffffffff));
+    assert_eq!(ranked(contract, ID, 3), at(3, 0xffffffff));
 }
 
 // Property test against the reference model
