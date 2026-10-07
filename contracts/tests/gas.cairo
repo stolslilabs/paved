@@ -46,12 +46,12 @@ pub const CEILING_CLOSE_LARGE: u128 = 6392332;
 pub const CEILING_WORST_CASE: u128 = 7325796;
 pub const CEILING_FOREST: u128 = 9756082;
 pub const CEILING_FOREST_WORST: u128 = 19956685;
-// g, h, i: a surrender runs in the `Lobby` class, one library call (+146,530 in this profile, S1).
-pub const CEILING_CLOSING_PLACES: u128 = 1450595;
-pub const CEILING_CLOSING_NOT_PLACED: u128 = 1096220;
-pub const CEILING_CLOSING_AFTER: u128 = 908807;
+// g, h, i: a surrender runs in the `Lobby` class, one library call (+146,730 in this profile, S1).
+pub const CEILING_CLOSING_PLACES: u128 = 1450805;
+pub const CEILING_CLOSING_NOT_PLACED: u128 = 1096430;
+pub const CEILING_CLOSING_AFTER: u128 = 909017;
 pub const CEILING_VIEW: u128 = 388740;
-pub const CEILING_GAME_OVER_ON_BUILD: u128 = 5541381;
+pub const CEILING_GAME_OVER_ON_BUILD: u128 = 5541591;
 
 #[derive(Drop)]
 struct Scenario {

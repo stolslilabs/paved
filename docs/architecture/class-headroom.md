@@ -414,24 +414,24 @@ the VPS, scarb 2.20.1 / snforge 0.64.0, `RAYON_NUM_THREADS=1`, under `prlimit --
 
 | Scenario | Test profile | | Release | |
 |---|---:|---:|---:|---:|
-| a0 open simple move | 5,596,035 -> 5,595,835 | -0.0 % | 2,770,440 -> 2,770,440 | 0 |
-| a simple move | 5,082,345 -> 5,082,145 | -0.0 % | 2,586,870 -> 2,586,870 | 0 |
-| b move with a character | 6,056,534 -> 6,056,334 | -0.0 % | 2,974,629 -> 2,974,629 | 0 |
-| c close a large city | 6,098,165 -> 6,097,965 | -0.0 % | 3,068,670 -> 3,068,670 | 0 |
-| d worst case | 6,987,338 -> 6,987,138 | -0.0 % | 3,390,103 -> 3,390,103 | 0 |
-| e close a forest | 9,308,936 -> 9,308,736 | -0.0 % | 4,616,931 -> 4,616,931 | 0 |
-| f worst forest scan | 19,048,196 -> 19,047,996 | -0.0 % | 9,026,991 -> 9,026,991 | 0 |
-| g closing move (`surrender`), places | 1,234,989 -> 1,381,519 | +11.9 % | 864,999 -> 983,649 | +13.7 % |
-| h closing move (`surrender`), not placed | 897,489 -> 1,044,019 | +16.3 % | 562,729 -> 681,379 | +21.1 % |
-| i closing move (`surrender`) after the tournament | 719,000 -> 865,530 | +20.4 % | 442,610 -> 561,260 | +26.8 % |
-| j tournament view | 370,228 -> 370,028 | -0.1 % | 303,728 -> 303,728 | 0 |
-| l game over on the last `build` (new) | 5,277,705 -> 5,277,505 | -0.0 % | 2,872,365 -> 2,872,365 | 0 |
+| a0 open simple move | 5,596,035 -> 5,596,035 | 0 | 2,770,440 -> 2,770,440 | 0 |
+| a simple move | 5,082,345 -> 5,082,345 | 0 | 2,586,870 -> 2,586,870 | 0 |
+| b move with a character | 6,056,534 -> 6,056,534 | 0 | 2,974,629 -> 2,974,629 | 0 |
+| c close a large city | 6,098,165 -> 6,098,165 | 0 | 3,068,670 -> 3,068,670 | 0 |
+| d worst case | 6,987,338 -> 6,987,338 | 0 | 3,390,103 -> 3,390,103 | 0 |
+| e close a forest | 9,308,936 -> 9,308,936 | 0 | 4,616,931 -> 4,616,931 | 0 |
+| f worst forest scan | 19,048,196 -> 19,048,196 | 0 | 9,026,991 -> 9,026,991 | 0 |
+| g closing move (`surrender`), places | 1,234,989 -> 1,381,719 | +11.9 % | 864,999 -> 983,649 | +13.7 % |
+| h closing move (`surrender`), not placed | 897,489 -> 1,044,219 | +16.3 % | 562,729 -> 681,379 | +21.1 % |
+| i closing move (`surrender`) after the tournament | 719,000 -> 865,730 | +20.4 % | 442,610 -> 561,260 | +26.8 % |
+| j tournament view | 370,228 -> 370,228 | 0 | 303,728 -> 303,728 | 0 |
+| l game over on the last `build` (new) | 5,277,705 -> 5,277,705 | 0 | 2,872,365 -> 2,872,365 | 0 |
 
-The library call costs **+146,530** (test profile) and **+118,650** (release) on g, h and i, the per-call cost
+The library call costs **+146,730** (test profile) and **+118,650** (release) on g, h and i, the per-call cost
 measured on the prototype in section 2 (e) (+118,650 in release). The percentages are higher than the prototype's
 (+10.7 to +17.9 % in release) because main's closing moves, without the P7 report, are cheaper; the absolute cost
 is the same. Scenario l is the game over of a `build`: on S1 it makes no library call (the game over of a move is
-part of the move), so it is unchanged; it is the reference for #242, where `Daily.build` calls `Lobby.report` at
+part of the move), so it is unchanged to the unit; it is the reference for #242, where `Daily.build` calls `Lobby.report` at
 game over.
 
 **Differences from section 4.**

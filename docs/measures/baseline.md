@@ -435,12 +435,12 @@ through `library_call_syscall` (`docs/architecture/native-storage.md`, "Classes"
 VPS (Linux), `RAYON_NUM_THREADS=1`, `--max-threads 2`, under `prlimit --as=8589934592` (peak RSS 4.5 GB per gas
 run). Full tables (both profiles, sizes): `docs/architecture/class-headroom.md`, "As built (S1)".
 
-- **Moves (a0 to f), the view (j):** -200 L2 gas in the test profile, 0 in release. Ceilings unchanged.
-- **Closing moves g, h, i** (`surrender`, now one library call): +146,530 in the test profile, +118,650 in
-  release. Test profile: g 1,234,989 -> 1,381,519, h 897,489 -> 1,044,019, i 719,000 -> 865,530. New ceilings,
-  measured + 5 %: 1,450,595, 1,096,220, 908,807.
+- **Moves (a0 to f), the view (j):** unchanged to the unit in both profiles. Ceilings unchanged.
+- **Closing moves g, h, i** (`surrender`, now one library call): +146,730 in the test profile, +118,650 in
+  release. Test profile: g 1,234,989 -> 1,381,719, h 897,489 -> 1,044,219, i 719,000 -> 865,730. New ceilings,
+  measured + 5 %: 1,450,805, 1,096,430, 909,017.
 - **New scenario l**, game over on the last `build` (the game of c with its tile limit cut, then the move of a0):
-  5,277,505 (test profile; 5,277,705 on main), 2,872,365 in release (same on main). Ceiling 5,541,381. No library
+  5,277,705 (test profile), 2,872,365 in release, both the same on main. Ceiling 5,541,591. No library
   call on S1; the reference for the game-over report of #242.
 - **Sizes** (CASM, release): `Daily` 80,418 -> 69,062 (84.3 % of the cap), `Tutorial` 75,296 -> 66,059 (80.6 %),
   `Lobby` 47,299 (57.7 %).

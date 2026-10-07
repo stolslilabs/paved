@@ -205,7 +205,7 @@ Rules:
   hash, no address).
 - **Cost.** An ordinary `build` makes no library call; a `build` that ends the game neither (the game over of a
   `build` stays in `Daily`). `spawn`, `claim`, `sponsor`, `discard` and `surrender` pay one library call:
-  +118,650 L2 gas in release, +146,530 in the test profile (`docs/measures/baseline.md`).
+  +118,650 L2 gas in release, +146,730 in the test profile (`docs/measures/baseline.md`).
 
 ## Tests
 
