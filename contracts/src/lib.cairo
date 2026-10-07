@@ -51,14 +51,11 @@ pub mod elements {
 
 pub mod helpers {
     pub mod bitmap;
-    pub mod conflict;
     pub mod forest;
-    pub mod generic;
     pub mod math;
     pub mod multiplier;
     pub mod random_deck;
     pub mod simple;
-    pub mod wonder;
 }
 
 pub mod models {
@@ -87,6 +84,11 @@ pub mod systems {
 }
 
 pub mod structure {
+    pub mod assessment;
+    pub mod oriented;
+    pub mod placement;
+    pub mod record;
+    pub mod state;
     pub mod tables;
 }
 
@@ -100,6 +102,7 @@ pub mod mocks {
 
 #[cfg(test)]
 pub mod tests {
+    pub mod differential;
     pub mod e2e;
     pub mod golden;
     pub mod oracle;

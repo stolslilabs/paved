@@ -29,11 +29,11 @@ use crate::setup::setup;
 use crate::setup::setup::{IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
-pub const CEILING_OPEN: u128 = 9702597;
-pub const CEILING_SIMPLE: u128 = 10881873;
-pub const CEILING_CHARACTER: u128 = 12151898;
-pub const CEILING_CLOSE_LARGE: u128 = 17191162;
-pub const CEILING_WORST_CASE: u128 = 31652846;
+pub const CEILING_OPEN: u128 = 9600880;
+pub const CEILING_SIMPLE: u128 = 9364680;
+pub const CEILING_CHARACTER: u128 = 10466307;
+pub const CEILING_CLOSE_LARGE: u128 = 11171841;
+pub const CEILING_WORST_CASE: u128 = 13336872;
 
 #[derive(Drop)]
 struct Scenario {

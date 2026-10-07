@@ -11,8 +11,9 @@ use paved::models::builder::Builder;
 use paved::models::character::Char;
 use paved::models::game::Game;
 use paved::models::player::Player;
-use paved::models::tile::{Tile, TileIntoPosition, TilePosition};
+use paved::models::tile::{Tile, TileIntoPosition, TilePosition, ZeroableTile};
 use paved::models::tournament::Tournament;
+use paved::structure::placement;
 use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
 use paved::types::orientation::Orientation;
 use paved::types::role::Role;
@@ -38,6 +39,7 @@ const TWO_POW_88: u128 = 0x10000000000000000000000;
 const TWO_POW_96: u128 = 0x1000000000000000000000000;
 const TWO_POW_97: u128 = 0x2000000000000000000000000;
 const TWO_POW_98: u128 = 0x4000000000000000000000000;
+const TWO_POW_108: u128 = 0x1000000000000000000000000000;
 const TWO_POW_112: u128 = 0x10000000000000000000000000000;
 const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
 const MASK_1: u128 = 0x1;
@@ -93,6 +95,9 @@ pub struct PavedStorage {
     /// `Characters`: one slot per game, 16 bits per role (role `r` at bits `16 r`).
     pub characters: Map<u32, felt252>,
     pub tournaments: Map<u64, Slots5>,
+    /// `Structures`: the record pages, one or two slots per placed tile (`slot` 0 or 1), four
+    /// records of 48 bits per slot (see `structure/record.cairo`).
+    pub structures: Map<(u32, u32, u8), felt252>,
 }
 
 #[inline(always)]
@@ -217,16 +222,24 @@ pub impl StoreImpl of StoreTrait {
     }
 
     fn tile(self: Store, game: Game, tile_id: u32) -> Tile {
-        let word: u256 = storage().tiles.entry((game.id, tile_id)).read().into();
-        Tile {
-            game_id: game.id,
+        let (tile, _) = Self::tile_with_refs(game.id, tile_id);
+        tile
+    }
+
+    /// The tile and its refs: the tile's fields are the low 128 bits of its slot, the refs of its
+    /// nodes on the structure state (108 bits, see `structure/record.cairo`) the high bits.
+    fn tile_with_refs(game_id: u32, tile_id: u32) -> (Tile, u128) {
+        let word: u256 = storage().tiles.entry((game_id, tile_id)).read().into();
+        let tile = Tile {
+            game_id,
             id: tile_id,
             plan: (word.low & MASK_8).try_into().unwrap(),
             orientation: ((word.low / TWO_POW_8) & MASK_8).try_into().unwrap(),
             x: ((word.low / TWO_POW_16) & MASK_32).try_into().unwrap(),
             y: ((word.low / TWO_POW_48) & MASK_32).try_into().unwrap(),
             occupied_spot: ((word.low / TWO_POW_80) & MASK_8).try_into().unwrap(),
-        }
+        };
+        (tile, word.high)
     }
 
     fn tile_position(self: Store, game: Game, x: u32, y: u32) -> TilePosition {
@@ -234,48 +247,23 @@ pub impl StoreImpl of StoreTrait {
         TilePosition { game_id: game.id, x, y, tile_id }
     }
 
-    fn neighbors(self: Store, game: Game, x: u32, y: u32) -> Array<Tile> {
-        // Avoid loop for gas efficiency
-        let mut neighbors: Array<Tile> = array![];
-        let north = self.tile_position(game, x, y + 1);
-        if north.tile_id != 0 {
-            neighbors.append(self.tile(game, north.tile_id));
+    /// The tile at a position and its refs, the zero tile (and no refs) when the position is
+    /// empty.
+    fn tile_at(game_id: u32, x: u32, y: u32) -> (Tile, u128) {
+        let tile_id = storage().tile_positions.entry((game_id, x, y)).read();
+        if tile_id == 0 {
+            return (ZeroableTile::zero(), 0);
         }
-        let east = self.tile_position(game, x + 1, y);
-        if east.tile_id != 0 {
-            neighbors.append(self.tile(game, east.tile_id));
-        }
-        let south = self.tile_position(game, x, y - 1);
-        if south.tile_id != 0 {
-            neighbors.append(self.tile(game, south.tile_id));
-        }
-        let west = self.tile_position(game, x - 1, y);
-        if west.tile_id != 0 {
-            neighbors.append(self.tile(game, west.tile_id));
-        }
-        neighbors
+        Self::tile_with_refs(game_id, tile_id)
     }
 
-    fn neighborhood(self: Store, game: Game, x: u32, y: u32) -> Array<Tile> {
-        // Avoid loop for gas efficiency
-        let mut neighbors: Array<Tile> = self.neighbors(game, x, y);
-        let northwest = self.tile_position(game, x - 1, y + 1);
-        if northwest.tile_id != 0 {
-            neighbors.append(self.tile(game, northwest.tile_id));
-        }
-        let northeast = self.tile_position(game, x + 1, y + 1);
-        if northeast.tile_id != 0 {
-            neighbors.append(self.tile(game, northeast.tile_id));
-        }
-        let southeast = self.tile_position(game, x + 1, y - 1);
-        if southeast.tile_id != 0 {
-            neighbors.append(self.tile(game, southeast.tile_id));
-        }
-        let southwest = self.tile_position(game, x - 1, y - 1);
-        if southwest.tile_id != 0 {
-            neighbors.append(self.tile(game, southwest.tile_id));
-        }
-        neighbors
+    /// A slot of the record page of a tile (0 when nothing was written there).
+    fn structure_slot(self: Store, game_id: u32, tile_id: u32, slot: u8) -> felt252 {
+        storage().structures.entry((game_id, tile_id, slot)).read()
+    }
+
+    fn set_structure_slot(self: Store, game_id: u32, tile_id: u32, slot: u8, word: felt252) {
+        storage().structures.entry((game_id, tile_id, slot)).write(word);
     }
 
     /// The character of `role`, read from the `Characters` slot of the game: zero (`tile_id` 0)
@@ -408,21 +396,44 @@ pub impl StoreImpl of StoreTrait {
             .write(Slots2 { a: state.a, b: s.low.into() + high.into() * TWO_POW_128 });
     }
 
+    /// Writes a tile and keeps its refs. A placed tile that has no refs yet (the starter tile at
+    /// spawn, a board written by a test) is placed on the structure state here, as a build places
+    /// it, so the records always cover every placed tile.
     fn set_tile(self: Store, tile: Tile) {
         // [Info] Tile is created when draw then build later and cannot be removed.
-        if tile.orientation != Orientation::None.into() {
-            let position: TilePosition = tile.into();
-            storage()
-                .tile_positions
-                .entry((position.game_id, position.x, position.y))
-                .write(position.tile_id);
+        if tile.orientation == Orientation::None.into() {
+            Self::write_tile(tile, 0);
+            return;
         }
+        let word: u256 = storage().tiles.entry((tile.game_id, tile.id)).read().into();
+        let refs = if word.high == 0 {
+            placement::place_alone(tile)
+        } else {
+            word.high
+        };
+        self.set_placed_tile(tile, refs);
+    }
+
+    /// Writes a placed tile with its refs, and its position.
+    fn set_placed_tile(self: Store, tile: Tile, refs: u128) {
+        let position: TilePosition = tile.into();
+        storage()
+            .tile_positions
+            .entry((position.game_id, position.x, position.y))
+            .write(position.tile_id);
+        Self::write_tile(tile, refs);
+    }
+
+    /// Writes the slot of a tile with its refs (its position is not written).
+    fn write_tile(tile: Tile, refs: u128) {
         let word: u128 = tile.plan.into()
             + tile.orientation.into() * TWO_POW_8
             + tile.x.into() * TWO_POW_16
             + tile.y.into() * TWO_POW_48
             + tile.occupied_spot.into() * TWO_POW_80;
-        storage().tiles.entry((tile.game_id, tile.id)).write(word.into());
+        assert(refs < TWO_POW_108, 'Tile: refs out of range');
+        let word: felt252 = word.into() + refs.into() * TWO_POW_128;
+        storage().tiles.entry((tile.game_id, tile.id)).write(word);
     }
 
     /// Writes one role of the `Characters` slot of the game (read, replace the 16 bits, write).

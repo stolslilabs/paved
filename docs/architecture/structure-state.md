@@ -3,7 +3,8 @@
 Design of the persistent structure state that replaces the recursive walks of
 `helpers/generic.cairo`, `conflict.cairo`, `wonder.cairo`, `forest.cairo` (and `simple.cairo`, which
 the forest walk calls), with the `Game` split and the packing that go with it. The PRs that build it
-are in [`docs/briefs/p5-plan.md`](../briefs/p5-plan.md). Status: design, nothing implemented.
+are in [`docs/briefs/p5-plan.md`](../briefs/p5-plan.md). Status: roads, cities, wonders and the conflict check built in P5-4 (section "As built" at the
+end says where the code differs from this design); forests in P5-5.
 
 Every gas figure in this document is an **estimate** unless it is quoted from
 `docs/measures/baseline.md` (P4 figures, scarb 2.20.1 / snforge 0.64.0). No measurement was run for
@@ -328,3 +329,54 @@ A river (or any new kind of area) is: a category code, rows in the plan tables (
 adjacency), and an arm in step 4 for its closing and scoring rule. Union, pages, refs and half-edge
 counting do not change. Room left: `chars` and `GameState.characters` have 16 role bits (7 used), the
 `Tile` slot keeps about 50 free bits, a record page holds 5 records per slot.
+
+## As built (P5-4)
+
+Code: `contracts/src/structure/` (`record.cairo` records, pages and refs; `state.cairo` the move-local
+cache and the union-find; `placement.cairo` steps 1 to 3 and the neighbourhood; `assessment.cairo`
+the road, city and wonder arms of step 4; `oriented.cairo` the hot-path tables), called from
+`models/game.cairo` and the `build` of `components/{playable,tutoriable}.cairo`. Where it differs
+from the design above, and why:
+
+- **Structure id** `sid = tile_id * 16 + record_index` (the rank of the founding area among the
+  areas of its plan that have moves), not `+ area`: the id then says where the record lives (page of
+  `tile_id`, slot `record_index / 4`) without reading the tile's plan.
+- **Pages hold 4 records per slot**, two in each 128-bit half, not 5 per felt: no record straddles
+  the halves, and the slot count per plan is the same (only the three `sfrfrf*` plans have more
+  than 4 areas with moves, and they have more than 5 too).
+- **Refs are not a field of the `Tile` struct**: they live in the high bits of the tile's slot and
+  are read with `Store::tile_with_refs`. `Store::set_tile` keeps them, and places on the structure
+  state a placed tile written with none: the starter tile at spawn (`hostable.cairo` is unchanged)
+  and the boards that tests write without a build (the wonder ring of `e2e/events.cairo`, which
+  stays unchanged).
+- **Step 1 runs inside step 2**: each move of the new tile into a neighbour closes one half-edge of
+  the neighbour's landing area; the wonders around close one half-edge each. The tables test proves
+  both: on every pair of tiles a placement accepts, the half-edges of an area towards the other tile
+  are exactly as many as the moves of the other tile that land on it, and a wonder area has one
+  spotless half-edge per direction (`test_tables_spotless_moves_are_the_wonders`). The same test
+  checks that the two ends of every move have the same category and that no move with a spot
+  leaves on a diagonal.
+- **The idle check is read before the unions**: `Game: structure not idle` reverts when a structure
+  that the area of the spot reaches through its own moves holds a character, as these structures
+  were before the tile. That is what `Conflict` answered (it walked from the new tile while its
+  position was still empty, so it never came back through it). Reading the root after step 2 would
+  also see a structure that another area of the new tile joins in: a stricter rule, not today's.
+- **Hot-path tables**: the lookups of `tables.cairo` rotate with index arithmetic and read fields
+  with a computed shift, which measured 30k to 190k L2 gas per lookup (snforge 0.64, dev profile,
+  `inlining-strategy = "avoid"`). `oriented.cairo` gives the same rows with the rotation of each
+  orientation applied (generated from `tables.cairo`, compared with it answer by answer by
+  `test_oriented_rows_equal_the_tables`), read with constant shifts.
+- **Path compression** of the new tile's refs runs only when a union made a root a child; otherwise
+  every ref is already a root.
+- **Forests**: `ForestCount` still scores them, but runs only when the forest's root is closed and
+  holds a character (`open == 0`, `chars != 0`): any other forest walk found no character to solve
+  or a count of 0, so skipping it changes nothing. This is the gate of "Forests" above; the scan
+  that replaces the walk is P5-5. The characters it recovers leave the forest root's `chars`.
+- **After the assessment**, the builder is read back from storage only when something scored.
+
+The differential check (`contracts/src/tests/oracle.cairo`, `check`) compares, after every build of
+the goldens (checked replays `*_structures_agree`), of the gas scenarios, of the Tutorial and of the
+e2e boards (`tests/differential.cairo`, `e2e/forest.cairo`, `e2e/views.cairo`), every node of the built
+tile and the wonder of every neighbour with the oracle's walks: closed against `GenericCount`, size
+against its count when closed, `chars != 0` against `Conflict` and the roles against those
+`GenericCount` collects.

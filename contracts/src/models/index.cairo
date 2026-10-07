@@ -51,15 +51,6 @@ pub struct Char {
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
-pub struct CharPosition {
-    pub game_id: u32,
-    pub tile_id: u32,
-    pub spot: u8,
-    pub player_id: felt252,
-    pub index: u8,
-}
-
-#[derive(Copy, Drop, Serde, Debug, PartialEq)]
 pub struct Tile {
     pub game_id: u32,
     pub id: u32,

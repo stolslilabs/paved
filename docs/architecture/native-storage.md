@@ -38,8 +38,10 @@ only data shared across contracts today is the player registry, so:
 `store.cairo` declares the game storage once, as a `#[starknet::storage_node]` (`PavedStorage`)
 rooted at `selector!("paved")`, and the `Store` reads and writes it through native
 `starknet::storage` paths (`Map`). `Store` keeps the interface it had over the Dojo world (`game`,
-`player`, `builder`, `tile`, `tile_position`, `neighbors`, `neighborhood`, `character`,
-`character_at`, `tournament` and their `set_*`), so the components and helpers change little.
+`player`, `builder`, `tile`, `tile_position`, `character`, `character_at`, `tournament` and their
+`set_*`), so the components and helpers change little. Since P5-4 the neighbourhood of a move is
+read by `structure::placement::NeighborhoodTrait::read` (the 8 tiles around and their refs), which
+replaces `neighbors` and `neighborhood`.
 It holds no state: every call works on the storage of the contract that runs it.
 
 Each Dojo model keeps its keys; the `Map` is keyed by them and the values are packed into whole
@@ -53,9 +55,10 @@ world did, so a missing entry reads as the model with its keys set and every val
 | `GameEnd` | `game_id: u32` | 1 | `end_time u64, tournament_id u64`. Written once, when the game ends in time; absent reads as 0 |
 | `Player` | `id: felt252` | 2 | `name`; `master` |
 | `Builder` | none: a facade over `GameState` | 0 | `held_tile` is its `tile_id`, `characters` its roles (`u16`, bit `i` set: the role of code `i` is on the board; roles 1 to 7 use bits 1 to 7, the 16 bits leave room for new roles). `Store::builder(game, p)` returns it for the game's player and the zero builder for anyone else |
-| `Tile` | `(game_id, id)` | 1 | `plan u8, orientation u8, x u32, y u32, occupied_spot u8` (no player: the player is in `GameConfig`) |
+| `Tile` | `(game_id, id)` | 1 | low 128 bits: `plan u8, orientation u8, x u32, y u32, occupied_spot u8` (no player: the player is in `GameConfig`); high bits: `refs`, 9 x 12 bits (area `a` at `12 (a - 1)`), the structure id each node of the placed tile was given at placement (0 for an area without moves). `Store::tile` reads the `Tile` struct, which has no refs field; `Store::tile_with_refs` reads both. `Store::set_tile` keeps the refs, and puts a placed tile that has none on the structure state (the starter tile at spawn, a board written by a test); a build writes its tile with `set_placed_tile(tile, refs)` |
 | `TilePosition` | `(game_id, x, y)` | 1 | `tile_id u32` |
-| `Characters` | `game_id: u32` | 1 | per role `1..=7`, 16 bits each (role `r` at bits `16 r`): `tile_id u8, spot u4, weight u2, power u2`; a role not on the board is 0. One slot per game, rewritten on place and recover. `Store::character(game, p, role)` unpacks one role into a `Char`; `Store::character_at(game, tile, spot)` finds the character on a tile spot (one slot read, the roles scanned) for the walks |
+| `Characters` | `game_id: u32` | 1 | per role `1..=7`, 16 bits each (role `r` at bits `16 r`): `tile_id u8, spot u4, weight u2, power u2`; a role not on the board is 0. One slot per game, rewritten on place and recover. `Store::character(game, p, role)` unpacks one role into a `Char`; `Store::character_at(game, tile, spot)` finds the character on a tile spot (one slot read, the roles scanned) for the forest walk and the oracle |
+| `Structures` | `(game_id, tile_id, slot: u8)` | 1 or 2 per placed tile | the record page of a tile (P5-4, `structure/record.cairo`): 4 records of 48 bits per slot, two in each 128-bit half: `parent u12, size u10, open u10, chars u16`. Record `r` of a tile (its rank among the areas of the plan that have moves) is slot `r / 4`, position `r % 4`; a second slot only for the plans of more than 4 such areas (the three `sfrfrf*`). Written by the build that places the tile, rewritten by later unions and scorings |
 | `Tournament` | `id: u64` | 5 | `prize`; `top1_player_id`; `top2_player_id`; `top3_player_id`; `top1_score u32, top2_score u32, top3_score u32, top1_claimed, top2_claimed, top3_claimed` |
 | game counter | none | 1 | `u32`, last game id given |
 | account | none | 1 | address of `Account` (zero in `Account` itself) |
@@ -63,8 +66,8 @@ world did, so a missing entry reads as the model with its keys set and every val
 `Store::player` reads the local `players` map when the `account` slot is zero (in `Account`), and
 calls `IAccount::player` otherwise. `Store::game` composes the `Game` struct of the three game records
 (`live_game` leaves `GameEnd` out, which a move does not need), and `set_game_config`,
-`set_game_state` and `set_game_end` write them apart; a move rewrites `GameState` only. No structure
-state is added yet (that is P5-4).
+`set_game_state` and `set_game_end` write them apart; a move rewrites `GameState` only. The structure state (P5-4) is the `Structures` pages and the refs
+of the tiles: see `docs/architecture/structure-state.md`.
 
 Other storage, outside `PavedStorage`: `owner` and `pending_owner` (`components/ownable.cairo`) in every contract, and
 `token_address` (`components/payable.cairo`) in `Daily`.
@@ -189,3 +192,5 @@ active again: each tile built assesses every forest it touches, as it does for r
   does not assess it (behaviour of 2024, kept).
 - Cost: each build walks the forests of the new tile. The gas ceilings of `docs/measures/` were
   raised for it (P4); the persistent structure state of P5 is meant to replace these walks.
+  Since P5-4 the walk runs only when the forest's root is closed and holds a Woodsman or a Herdsman
+  (otherwise it had no effect); the scan from the root replaces it in P5-5.

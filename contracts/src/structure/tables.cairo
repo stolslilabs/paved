@@ -46,6 +46,14 @@
 // Constants
 
 pub const NO_RECORD: u8 = 15;
+pub const NORTH_WEST: u8 = 1;
+pub const NORTH: u8 = 2;
+pub const NORTH_EAST: u8 = 3;
+pub const EAST: u8 = 4;
+pub const SOUTH_EAST: u8 = 5;
+pub const SOUTH: u8 = 6;
+pub const SOUTH_WEST: u8 = 7;
+pub const WEST: u8 = 8;
 /// Row of an area that has no spot in the plan: no category, no record, no move.
 pub const ABSENT: u128 = 0x78;
 pub const PLAN_COUNT: u8 = 19;
@@ -484,11 +492,46 @@ pub fn move_spot(plan: u8, area: u8, index: u8, orientation: u8) -> u8 {
 /// Returns the number of half-edges of an area that leave towards `direction`, for a tile placed
 /// with `orientation`.
 pub fn half_edges(plan: u8, area: u8, direction: u8, orientation: u8) -> u8 {
-    let direction = antirotate_direction(direction, turns(orientation));
     if direction == 0 || direction > 8 {
         return 0;
     }
+    let direction = antirotate_direction(direction, turns(orientation));
     small(field(area_row(plan, area), 75 + 4 * (direction - 1).into(), 0xf))
+}
+
+// Row readers: the hot path reads an area row once and walks its moves byte by byte.
+
+/// Returns the category of an area row.
+#[inline(always)]
+pub fn row_category(row: u128) -> u8 {
+    small(row & 0x7)
+}
+
+/// Returns the record index of an area row (`NO_RECORD` when the area has no move).
+#[inline(always)]
+pub fn row_record_index(row: u128) -> u8 {
+    small((row / 0x8) & 0xf)
+}
+
+/// Returns the number of moves of an area row.
+#[inline(always)]
+pub fn row_move_count(row: u128) -> u8 {
+    small((row / 0x80) & 0xf)
+}
+
+/// Returns the moves of an area row, one byte per move from the low bits (direction, then spot x
+/// 16), north-oriented.
+#[inline(always)]
+pub fn row_moves(row: u128) -> u128 {
+    (row / 0x800) & 0xffffffffffffffff
+}
+
+/// Takes the first move of `moves` (as `row_moves` gives them): returns its direction and its spot
+/// rotated by `turns` quarter turns, and the moves left.
+#[inline]
+pub fn next_move(moves: u128, turns: u8) -> (u8, u8, u128) {
+    let byte = small(moves & 0xff);
+    (rotate_direction(byte % 16, turns), rotate_spot(byte / 16, turns), moves / 0x100)
 }
 
 /// Returns the road areas adjacent to an area, as a bitmap (bit `area - 1`).
@@ -826,7 +869,8 @@ pub mod tests {
     /// Returns the moves with a spot of a tile that leave towards `direction`, as `area * 16 +
     /// spot`
     /// (from the tables, which the tests above prove equal to the layouts for every plan,
-    /// orientation, area and spot).
+    /// orientation, area and spot). Asserts on the way that no move with a spot leaves on a
+    /// diagonal: a move with a spot crosses a side of the tile, never a corner.
     fn edge(plan: u8, orientation: u8, direction: u8) -> Array<u8> {
         let turns = turns(orientation);
         let mut edge: Array<u8> = array![];
@@ -838,8 +882,13 @@ pub mod tests {
             while index < moves {
                 let byte = small(field(row, 11 + 8 * index, 0xff));
                 let spot = rotate_spot(byte / 16, turns);
-                if spot != 0 && rotate_direction(byte % 16, turns) == direction {
-                    edge.append(area * 16 + spot);
+                let leaves = rotate_direction(byte % 16, turns);
+                if spot != 0 {
+                    // Sides are the even codes: north 2, east 4, south 6, west 8
+                    assert(leaves % 2 == 0, 'Tables: diagonal move');
+                    if leaves == direction {
+                        edge.append(area * 16 + spot);
+                    }
                 }
                 index += 1;
             }
@@ -878,9 +927,15 @@ pub mod tests {
     /// Counts the asymmetric pairs between two tiles side by side: a move of one into an area of
     /// the other that the other does not answer with a move back into the first area. `out` holds
     /// the moves of a tile towards the other, `back` the moves of the other towards it, `map` the
-    /// areas of each spot.
+    /// areas of each spot, `cats` the category of each area. Asserts that both ends of each
+    /// answered pair have the same category: a structure never spans two categories.
     fn table_asymmetries(
-        out1: @Array<u8>, map1: @Array<u8>, back2: @Array<u8>, map2: @Array<u8>,
+        cats1: @Array<u8>,
+        out1: @Array<u8>,
+        map1: @Array<u8>,
+        cats2: @Array<u8>,
+        back2: @Array<u8>,
+        map2: @Array<u8>,
     ) -> u32 {
         let mut count = 0;
         let mut i = 0;
@@ -890,6 +945,8 @@ pub mod tests {
             if !answered(back2, landing, entry / 16, map1) {
                 println!("asymmetric: first tile entry {} -> second tile area {}", entry, landing);
                 count += 1;
+            } else {
+                assert_eq!(*cats1.at((entry / 16).into()), *cats2.at(landing.into()));
             }
             i += 1;
         }
@@ -899,6 +956,65 @@ pub mod tests {
             let landing = *map1.at((entry % 16).into());
             if !answered(out1, landing, entry / 16, map2) {
                 println!("asymmetric: second tile entry {} -> first tile area {}", entry, landing);
+                count += 1;
+            } else {
+                assert_eq!(*cats2.at((entry / 16).into()), *cats1.at(landing.into()));
+            }
+            i += 1;
+        }
+        count
+    }
+
+    /// Counts the areas of the second tile whose number of moves with a spot towards the first
+    /// tile differs from the number of moves of the first tile that land on that area (and the
+    /// same the other way round). The structure state closes the half-edges of a neighbour from
+    /// the moves of the new tile, so the two counts must be equal area by area.
+    fn half_edge_mismatches(
+        out1: @Array<u8>, map1: @Array<u8>, back2: @Array<u8>, map2: @Array<u8>,
+    ) -> u32 {
+        // An area with no move towards the other tile and a move landing on it is an asymmetric
+        // pair already: only the areas that the moves leave from are counted here.
+        let mut count = 0;
+        let mut i = 0;
+        while i < back2.len() {
+            let area = *back2.at(i) / 16;
+            if count_from(back2, area) != count_landing(out1, area, map2) {
+                println!("half-edges: second tile area {}", area);
+                count += 1;
+            }
+            i += 1;
+        }
+        let mut i = 0;
+        while i < out1.len() {
+            let area = *out1.at(i) / 16;
+            if count_from(out1, area) != count_landing(back2, area, map1) {
+                println!("half-edges: first tile area {}", area);
+                count += 1;
+            }
+            i += 1;
+        }
+        count
+    }
+
+    /// Returns the number of moves of `edge` that leave from `area`.
+    fn count_from(edge: @Array<u8>, area: u8) -> u32 {
+        let mut count = 0;
+        let mut i = 0;
+        while i < edge.len() {
+            if *edge.at(i) / 16 == area {
+                count += 1;
+            }
+            i += 1;
+        }
+        count
+    }
+
+    /// Returns the number of moves of `edge` that land on `area` of the other tile.
+    fn count_landing(edge: @Array<u8>, area: u8, map: @Array<u8>) -> u32 {
+        let mut count = 0;
+        let mut i = 0;
+        while i < edge.len() {
+            if *map.at((*edge.at(i) % 16).into()) == area {
                 count += 1;
             }
             i += 1;
@@ -966,8 +1082,16 @@ pub mod tests {
         let mut maps: Array<Array<u8>> = array![];
         let mut outs: Array<Array<u8>> = array![];
         let mut backs: Array<Array<u8>> = array![];
+        let mut cats: Array<Array<u8>> = array![];
         let mut plan = 1_u8;
         while plan <= PLAN_COUNT {
+            let mut row: Array<u8> = array![0];
+            let mut area = 1_u8;
+            while area <= AREA_COUNT {
+                row.append(category(plan, area));
+                area += 1;
+            }
+            cats.append(row);
             let mut orientation = 1_u8;
             while orientation <= 4 {
                 maps.append(area_map(plan, orientation));
@@ -991,7 +1115,18 @@ pub mod tests {
                     if *facing.at(i1) == *opposite_facing.at(i2) {
                         accepted += 1;
                         asymmetric +=
-                            table_asymmetries(outs.at(i1), maps.at(i1), backs.at(i2), maps.at(i2));
+                            table_asymmetries(
+                                cats.at((p1 - 1).into()),
+                                outs.at(i1),
+                                maps.at(i1),
+                                cats.at((p2 - 1).into()),
+                                backs.at(i2),
+                                maps.at(i2),
+                            );
+                        asymmetric +=
+                            half_edge_mismatches(
+                                outs.at(i1), maps.at(i1), backs.at(i2), maps.at(i2),
+                            );
                     }
                     o2 += 1;
                 }
@@ -1007,6 +1142,68 @@ pub mod tests {
             asymmetric,
         );
         (accepted, asymmetric)
+    }
+
+    /// Moves without a spot are the wonder's, and the wonder has only those, one per direction:
+    /// the structure state counts them as half-edges that only ask for a tile.
+    #[test]
+    fn test_tables_spotless_moves_are_the_wonders() {
+        let mut plan = 1_u8;
+        while plan <= PLAN_COUNT {
+            let mut area = 1_u8;
+            while area <= AREA_COUNT {
+                let is_wonder = category(plan, area) == category_code(Category::Wonder);
+                let moves = move_count(plan, area);
+                if is_wonder {
+                    assert_eq!(moves, 8);
+                    assert_eq!(area_at(plan, wonder(plan), 1), area);
+                }
+                let mut index = 0_u8;
+                while index < moves {
+                    assert_eq!(move_spot(plan, area, index, 1) == 0, is_wonder);
+                    index += 1;
+                }
+                let mut direction = 1_u8;
+                while is_wonder && direction <= 8 {
+                    assert_eq!(half_edges(plan, area, direction, 1), 1);
+                    direction += 1;
+                }
+                area += 1;
+            }
+            assert_eq!(half_edges(plan, 1, 9, 1), 0);
+            plan += 1;
+        }
+    }
+
+    /// The row readers of the hot path answer as the lookups by plan and area.
+    #[test]
+    fn test_tables_row_readers_equal_the_lookups() {
+        let mut plan = 1_u8;
+        while plan <= PLAN_COUNT {
+            let mut area = 1_u8;
+            while area <= AREA_COUNT {
+                let row = area_row(plan, area);
+                assert_eq!(row_category(row), category(plan, area));
+                assert_eq!(row_record_index(row), record_index(plan, area));
+                assert_eq!(row_move_count(row), move_count(plan, area));
+                let mut orientation = 1_u8;
+                while orientation <= 4 {
+                    let mut moves = row_moves(row);
+                    let mut index = 0_u8;
+                    while index < row_move_count(row) {
+                        let (direction, spot, rest) = next_move(moves, turns(orientation));
+                        assert_eq!(direction, move_direction(plan, area, index, orientation));
+                        assert_eq!(spot, move_spot(plan, area, index, orientation));
+                        moves = rest;
+                        index += 1;
+                    }
+                    assert_eq!(moves, 0);
+                    orientation += 1;
+                }
+                area += 1;
+            }
+            plan += 1;
+        }
     }
 
     fn assert_symmetric(direction: Direction, o1: u8) {

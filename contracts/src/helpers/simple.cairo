@@ -2,7 +2,6 @@
 
 // Internal imports
 
-use paved::helpers::generic::GenericCount;
 use paved::models::game::Game;
 use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
 use paved::store::{Store, StoreImpl};

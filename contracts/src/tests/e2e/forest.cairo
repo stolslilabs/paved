@@ -28,6 +28,7 @@ use paved::models::builder::Builder;
 use paved::models::tile::CENTER;
 use paved::store::{StoreImpl, StoreTrait};
 use paved::systems::daily::{Daily, IDailyDispatcher};
+use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, TestStore, TestStoreTrait};
 use paved::types::category::Category;
@@ -62,6 +63,8 @@ fn put(
     tile.plan = plan.into();
     store.set_tile(tile);
     daily.build(game_id, orientation, x, y, role, spot);
+    // [Check] The structure state of the built tile agrees with the walks (P5-4)
+    check::assert_tile_agrees(store, game_id, builder.tile_id);
 }
 
 fn builder(store: TestStore, game_id: u32, player_id: felt252) -> Builder {

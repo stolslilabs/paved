@@ -209,6 +209,51 @@ and rewritten; the walks look a character up with one slot read. The ceilings of
 | c | 16,688,689 | 16,372,535 | -1.9 % | 17,523,124 | 17,191,162 |
 | d | 30,685,028 | 30,145,567 | -1.8 % | 32,219,280 | 31,652,846 |
 
+### After P5-4 (structure state for roads, cities, wonders and conflicts)
+
+Same tests and method, scarb 2.20.1 / snforge 0.64.0. The figures are the `GAS` lines of the CI
+`Test game` job of the PR (Linux, run 37610956822, same code as the final head: the final commit only
+lowers ceilings and writes the docs); "P5-3" is the table above. Cause of the fall: the walks of roads,
+cities and wonders and the conflict walk are gone (union-find over record pages,
+`docs/architecture/structure-state.md`); the forest walk runs only when the forest's root is closed
+and holds a Woodsman or a Herdsman; the neighbourhood is read once per move (8 positions, against 4
+then 8 before). What the move adds: the record pages it reads and writes (one slot per neighbour
+tile touched, the new tile's page). The ceilings of `contracts/tests/gas.cairo` are lowered to measured
++ 5 %.
+
+| Scenario | L2 gas P5-3 | L2 gas P5-4 | Change | Ceiling P5-3 | Ceiling P5-4 |
+| --- | --- | --- | --- | --- | --- |
+| a0 | 9,240,568 | 9,143,695 | -1.0 % | 9,702,597 | 9,600,880 |
+| a | 10,363,688 | 8,918,742 | -13.9 % | 10,881,873 | 9,364,680 |
+| b | 11,573,236 | 9,967,911 | -13.9 % | 12,151,898 | 10,466,307 |
+| c | 16,372,535 | 10,639,848 | -35.0 % | 17,191,162 | 11,171,841 |
+| d | 30,145,567 | 12,701,782 | -57.9 % | 31,652,846 | 13,336,872 |
+
+**c and d against a** (acceptance of P5-4: within 10 %): c is a + 19.3 %, d is a + 42.4 %. Their cost no
+longer depends on the size of the city (the 12-tile tree of d costs 2.1M more than the 6-tile city of
+c, against 13.8M at P5-3); what remains is the work of the move itself, which a does not do:
+
+- c scores: the character is recovered (its `Characters` entry, its tile slot and `GameState` read
+  and written, the builder read again after the assessment) and one `Scored` is emitted; c's tile
+  also has one more neighbour tile than a's (a diagonal one, read for its wonder: a tile read).
+- d places a character (b - a = 1.05M: the idle check, the `Characters` slot) and scores it (as c),
+  and its tile has three neighbour tiles (a has one: two sides and a diagonal against one side): two
+  more tile reads and one more record page read and written.
+
+Measured cost of the pieces (snforge, local, scenario a0; get_unspent_gas around each call, dev
+profile): reading the neighbourhood 0.93M (8 position reads of about 84k, a tile read of about
+105k), placing the tile on the structure state about 1.2M, writing two record pages 0.21M.
+
+Output excerpt (CI, the 5 `GAS` lines):
+
+```
+GAS b_move_with_character: 9967911
+GAS a0_open_simple_move: 9143695
+GAS c_close_large_city: 10639848
+GAS a_simple_move: 8918742
+GAS d_worst_case: 12701782
+```
+
 Golden games: `docs/measures/golden-games.md`.
 
 ## Line coverage of `contracts/src`
@@ -241,3 +286,4 @@ excluded) is computed by that script from `coverage/coverage.lcov`; its awk part
 | `snforge test` after P1 | `Tests: 192 passed, 0 failed, 0 ignored, 0 filtered out` (the CI job `Test game` of the PR passes) | 4.32 GB |
 | `scarb build` after P2 | pass | 0.85 GB |
 | `snforge test` after P2 | `Tests: 226 passed, 0 failed, 0 ignored, 0 filtered out` | 2.18 GB (single-threaded) |
+| `snforge test --max-threads 2` after P5-4 (Mac, `/usr/bin/time -l`) | `Tests: 349 passed, 0 failed, 0 ignored, 0 filtered out` (CI) | 6.14 GB (two test threads, the Mac's measure) |
