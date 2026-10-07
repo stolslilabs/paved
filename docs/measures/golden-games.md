@@ -193,15 +193,30 @@ a regression, not a reason to raise it.
 
 ### P5-5 review and audit follow-up
 
-Three checked cases are added (new cases only, `play_daily_checked`, hand figures matched the run):
+Two checked cases are added (new cases only, `play_daily_checked`, hand figures matched the run):
 `daily_forest_lord_and_woodsman_ring_structures_agree` (a Lord on the fourth curve's road: 4 x 100 x
-bonus(4) = 438, then the Woodsman 329, **767**), `daily_forest_woodsman_ring_last_tile_structures_agree`
-(tile limit 5: 329, over, tournament top score 329). The checked replays now also check the starter tile
-after the spawn (`replay_daily`), which is why every checked twin rises by about 10M and their ceilings
-are raised to measured + 5 % where they were crossed (city5 195,241,068; herdsman_caps 230,650,243;
-woodsman_ring 226,276,041; real-deck discards 147,218,960). New ceilings: lord_and_woodsman_ring
-229,155,194; woodsman_ring_last_tile 226,133,287. Figures are local (Mac), equal to CI within 4k on
-the P5-5 run.
+bonus(4) = 438, then the Woodsman 329, **767**) and `daily_forest_woodsman_ring_last_tile_structures_agree`
+(tile limit 5: 329, over, tournament top score 329). A third board (a Woodsman and a Herdsman on two
+corner forests of a 2x2 crossings block, joined by a later tile) was dropped: it cannot be built
+legally, since the tiles of the block join the corner nodes as soon as they touch.
+
+The checked replays now also check the starter tile after the spawn (`replay_daily`). That is test
+instrumentation only: every checked twin costs about 10M more, so the ceilings that this crossed are
+raised. All figures below are L2 gas from the CI `Test game` log of head `2872da70` (Linux, run
+37618564008); ceilings are CI figure + 5 %.
+
+| Test | L2 gas | Ceiling |
+| --- | --- | --- |
+| daily_city5_structures_agree (was 175,595,726) | 185,943,874 | 195,241,068 |
+| daily_forest_herdsman_caps_structures_agree (was 209,305,150) | 219,666,898 | 230,650,243 |
+| daily_forest_woodsman_ring_structures_agree (was 205,098,443) | 215,500,991 | 226,276,041 |
+| daily_real_deck_discards_to_game_over_structures_agree (was 129,860,385) | 140,208,533 | 147,218,960 |
+| daily_forest_lord_and_woodsman_ring_structures_agree (new) | 218,243,041 | 229,155,194 |
+| daily_forest_woodsman_ring_last_tile_structures_agree (new) | 215,365,035 | 226,133,287 |
+
+The other twins (road6 247,223,342; mixed_roles 218,648,663; both_roles 358,900,337;
+herdsman_open_city 222,349,812) rise by the same extra check and stay under their ceilings, which are
+kept.
 
 ## Limits
 
