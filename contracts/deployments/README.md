@@ -45,8 +45,10 @@ scripts/deploy.sh devnet
 `RPC_URL` overrides the node (localhost only). Needs Scarb 2.20.1 and sncast 0.64.0 (the paths under
 `~/.asdf/installs` by default; `SCARB_BIN_DIR`, `SNCAST_BIN_DIR` override). The script builds (release profile, the one
 sncast declares), declares the four classes, deploys `Token`, `Account`, `Daily(owner, account, token)` and
-`Tutorial(owner, account)` with salt 1, writes the file, then runs a smoke check (mint, `Account.create`, approve of
-`entry_price().amount`, `Daily.spawn`, `discard`, `game(id)` read back) and exits non-zero on any failure.
+`Tutorial(owner, account)` with salt 1, writes the file, then runs a smoke check (mint, `Account.create`, `Daily.entry_price()` read and
+printed, `Tutorial.spawn`, one `Tutorial.build` (the Tutorial refuses a discard while the tile has a legal placement), `Tutorial.game(id)` read back) and exits non-zero on any failure. The smoke plays the
+Tutorial, never a Daily game: even an ended Daily game leaves its entry price in the day's prize, and the smoke must leave no
+trace in the day's figures.
 
 Deployer, owner and smoke player is the first predeployed account of the node, read from the node at run time (its keys are
 public dev keys and are never written to a file).

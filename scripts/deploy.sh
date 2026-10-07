@@ -203,21 +203,26 @@ echo "== wrote ${OUT#"$ROOT/"}"
 echo "== smoke"
 invoke "$TOKEN" mint >/dev/null
 invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER" >/dev/null
+# The Daily view stays exercised, read only. No Daily game is played: even an ended one leaves its entry
+# price in the day's prize, and the smoke must leave no trace in the day's figures (P-24).
 read -r PRICE_TOKEN PRICE_LOW PRICE_HIGH <<<"$(call "$DAILY" entry_price)"
 [[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$TOKEN")" ]] || die "entry_price token $PRICE_TOKEN is not the deployed Token"
-invoke "$PRICE_TOKEN" approve "$DAILY" "$PRICE_LOW" "$PRICE_HIGH" >/dev/null
-SPAWN_TX="$(invoke "$DAILY" spawn)"
+echo "   entry_price: token $SYMBOL, amount low $(hex_int "$PRICE_LOW") high $(hex_int "$PRICE_HIGH")"
+# The Tutorial belongs to no tournament: spawn, one scripted build (the Tutorial refuses a discard while the
+# tile in hand has a legal placement, and `build` takes no placement), read back.
+SPAWN_TX="$(invoke "$TUTORIAL" spawn)"
 GAME_ID="$(rpc starknet_getTransactionReceipt "[\"$SPAWN_TX\"]" | python3 -I -c '
 import sys, json
 d = json.load(sys.stdin)["result"]
-daily = int(sys.argv[1], 16)
-ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) == daily and len(e["keys"]) == 3]
-print(ids[0])' "$DAILY")" || die "no GameSpawned event in the spawn receipt"
-echo "   game $GAME_ID spawned"
-invoke "$DAILY" discard "$GAME_ID" >/dev/null
-GAME="$(call "$DAILY" game "$GAME_ID")"
-read -r G_ID _ _ _ _ G_OVER _ _ G_DISCARDED _ <<<"$GAME"
+tutorial = int(sys.argv[1], 16)
+ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) == tutorial and len(e["keys"]) == 3]
+print(ids[0])' "$TUTORIAL")" || die "no GameSpawned event in the spawn receipt"
+echo "   tutorial game $GAME_ID spawned"
+invoke "$TUTORIAL" build "$GAME_ID" >/dev/null
+GAME="$(call "$TUTORIAL" game "$GAME_ID")"
+read -r G_ID _ G_MODE _ _ G_OVER _ G_PLACED _ <<<"$GAME"
 [[ "$(hex_int "$G_ID")" == "$GAME_ID" ]] || die "game($GAME_ID) read back id $G_ID"
-[[ "$(hex_int "$G_DISCARDED")" == 1 ]] || die "game($GAME_ID) discarded_count is $(hex_int "$G_DISCARDED"), expected 1"
-echo "   game($GAME_ID) read back: id $GAME_ID, discarded_count 1, over $(hex_int "$G_OVER")"
+[[ "$(hex_int "$G_MODE")" == 3 ]] || die "game($GAME_ID) mode is $(hex_int "$G_MODE"), expected 3 (Tutorial)"
+[[ "$(hex_int "$G_PLACED")" == 2 ]] || die "game($GAME_ID) placed_count is $(hex_int "$G_PLACED"), expected 2"
+echo "   game($GAME_ID) read back: id $GAME_ID, mode Tutorial, placed_count 2, over $(hex_int "$G_OVER")"
 echo "== smoke ok"
