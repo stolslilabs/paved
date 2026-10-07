@@ -35,6 +35,7 @@ pub fn assess_generic(
     let (num, den) = compute_multiplier(size);
     let points = size * category.base_points() * power * num / den;
     game.add_score(points);
+    game.count_structure(size);
 
     // [Event] Structure scored
     store
@@ -77,6 +78,7 @@ pub fn assess_wonder(
     let power: u32 = character.power.into();
     let points = Category::Wonder.base_points() * power;
     game.add_score(points);
+    game.count_wonder();
 
     // [Event] Wonder scored (a wonder has no size)
     store

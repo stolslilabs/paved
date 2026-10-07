@@ -391,7 +391,7 @@ fn test_views_characters_missing_game() {
 // Tournament
 
 #[test]
-#[available_gas(l2_gas: 136936122)]
+#[available_gas(l2_gas: 144041602)]
 fn test_views_tournament_lifecycle() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -484,7 +484,7 @@ fn test_views_entry_price_equals_the_spawn_debit() {
 // Events
 
 #[test]
-#[available_gas(l2_gas: 133702437)]
+#[available_gas(l2_gas: 140995185)]
 fn test_views_events_keys_carry_the_player() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (store, systems, context) = setup::spawn_game(Mode::None);

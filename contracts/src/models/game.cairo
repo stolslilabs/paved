@@ -87,6 +87,10 @@ pub impl GameImpl of GameTrait {
             mode: mode.into(),
             tournament_id: 0,
             tile_limit,
+            structures: 0,
+            forests: 0,
+            wonders: 0,
+            big: 0,
         }
     }
 
@@ -202,6 +206,34 @@ pub impl GameImpl of GameTrait {
     #[inline]
     fn add_score(ref self: Game, score: u32) {
         self.score += score;
+    }
+
+    /// A road or a city scored: counts a structure, and a big one from `constants::BIG_SIZE`
+    /// tiles. The counters saturate at their bit width in `GameState`.
+    #[inline]
+    fn count_structure(ref self: Game, size: u32) {
+        if self.structures < constants::MAX_STRUCTURES {
+            self.structures += 1;
+        }
+        if size >= constants::BIG_SIZE && self.big < constants::MAX_BIG {
+            self.big += 1;
+        }
+    }
+
+    /// A forest scored (one `Scored` per character, even with 0 points).
+    #[inline]
+    fn count_forest(ref self: Game) {
+        if self.forests < constants::MAX_FORESTS {
+            self.forests += 1;
+        }
+    }
+
+    /// A wonder scored.
+    #[inline]
+    fn count_wonder(ref self: Game) {
+        if self.wonders < constants::MAX_WONDERS {
+            self.wonders += 1;
+        }
     }
 
     #[inline]
@@ -352,6 +384,10 @@ pub impl ZeroableGame of ZeroableGameTrait {
             mode: 0,
             tournament_id: 0,
             tile_limit: 0,
+            structures: 0,
+            forests: 0,
+            wonders: 0,
+            big: 0,
         }
     }
 
@@ -428,6 +464,30 @@ pub mod tests {
         assert(game.id == GAME_ID, 'Game: Invalid id');
         assert(game.tiles == 0, 'Game: Invalid tiles');
         assert(game.tile_count == 0, 'Game: Invalid tile_count');
+    }
+
+    #[test]
+    fn test_game_counters_saturate() {
+        let mut game = GameImpl::new(GAME_ID, 0, MODE, PLAYER);
+        game.count_structure(constants::BIG_SIZE - 1);
+        assert(game.structures == 1 && game.big == 0, 'Game: small structure');
+        game.count_structure(constants::BIG_SIZE);
+        assert(game.structures == 2 && game.big == 1, 'Game: big structure');
+        game.count_forest();
+        game.count_wonder();
+        assert(game.forests == 1 && game.wonders == 1, 'Game: forest, wonder');
+        // [Assert] Saturation at the bit width in `GameState`
+        game.structures = constants::MAX_STRUCTURES;
+        game.big = constants::MAX_BIG;
+        game.forests = constants::MAX_FORESTS;
+        game.wonders = constants::MAX_WONDERS;
+        game.count_structure(constants::BIG_SIZE);
+        game.count_forest();
+        game.count_wonder();
+        assert(game.structures == constants::MAX_STRUCTURES, 'Game: structures max');
+        assert(game.big == constants::MAX_BIG, 'Game: big max');
+        assert(game.forests == constants::MAX_FORESTS, 'Game: forests max');
+        assert(game.wonders == constants::MAX_WONDERS, 'Game: wonders max');
     }
 
     #[test]

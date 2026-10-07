@@ -11,6 +11,7 @@ pub mod PlayableComponent {
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
     use paved::models::tournament::TournamentImpl;
+    use paved::quests::{Tally, tally};
     use paved::store::{Store, StoreImpl};
     use paved::structure::placement::{self, NeighborhoodTrait};
     use paved::structure::state::StructuresTrait;
@@ -32,21 +33,24 @@ pub mod PlayableComponent {
 
     /// A game that ends in the tournament it started in is submitted to the leaderboard, then gets
     /// the tournament id and its end time. One that ends after its tournament closed ranks in
-    /// nothing and keeps `tournament_id` 0.
+    /// nothing and keeps `tournament_id` 0. Returns the rank it took, 1 to 3, or 0.
     #[inline(always)]
-    fn end_in_tournament(store: Store, ref game: Game, player_id: felt252) {
+    fn end_in_tournament(store: Store, ref game: Game, player_id: felt252) -> u8 {
         let time = get_block_timestamp();
         let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
         let id_end = TournamentImpl::compute_id(time, game.duration());
         if tournament_id == id_end {
             // [Effect] Submit to the leaderboard
             let submission = Submission { player_id, game_id: game.id, score: game.score, time };
-            LeaderboardImpl::new().submit(tournament_id, submission);
+            let rank = LeaderboardImpl::new().submit(tournament_id, submission);
 
             // [Effect] Add tournament id to game
             game.tournament_id = tournament_id;
             game.end_time = time;
             store.set_game_end(game);
+            rank
+        } else {
+            0
         }
     }
 
@@ -54,7 +58,7 @@ pub mod PlayableComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
-        fn discard(self: @ComponentState<TContractState>, game_id: u32) {
+        fn discard(self: @ComponentState<TContractState>, game_id: u32) -> Option<Tally> {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -111,8 +115,9 @@ pub mod PlayableComponent {
             game.set_builder(builder);
 
             // [Effect] Rank the game in its tournament on game over
+            let mut rank: u8 = 0;
             if game.is_over() {
-                end_in_tournament(store, ref game, player_id);
+                rank = end_in_tournament(store, ref game, player_id);
             }
 
             // [Effect] Update game
@@ -122,10 +127,14 @@ pub mod PlayableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
+                // [Return] What the caller reports to the quests, once the ranking is written
+                Option::Some(tally(game, player_id, rank))
+            } else {
+                Option::None
             }
         }
 
-        fn surrender(self: @ComponentState<TContractState>, game_id: u32) {
+        fn surrender(self: @ComponentState<TContractState>, game_id: u32) -> Option<Tally> {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -149,8 +158,9 @@ pub mod PlayableComponent {
             game.surrender();
 
             // [Effect] Rank the game in its tournament on game over
+            let mut rank: u8 = 0;
             if game.is_over() {
-                end_in_tournament(store, ref game, player_id);
+                rank = end_in_tournament(store, ref game, player_id);
             }
 
             // [Effect] Update game
@@ -159,6 +169,10 @@ pub mod PlayableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
+                // [Return] What the caller reports to the quests, once the ranking is written
+                Option::Some(tally(game, player_id, rank))
+            } else {
+                Option::None
             }
         }
 
@@ -170,7 +184,7 @@ pub mod PlayableComponent {
             y: u32,
             role: Role,
             spot: Spot,
-        ) {
+        ) -> Option<Tally> {
             // [Setup] Datastore
             let mut store: Store = StoreImpl::new();
 
@@ -266,8 +280,9 @@ pub mod PlayableComponent {
             structures.flush(store);
 
             // [Effect] Rank the game in its tournament on game over
+            let mut rank: u8 = 0;
             if game.is_over() {
-                end_in_tournament(store, ref game, player_id);
+                rank = end_in_tournament(store, ref game, player_id);
             }
 
             // [Effect] Update game
@@ -277,6 +292,10 @@ pub mod PlayableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
+                // [Return] What the caller reports to the quests, once the ranking is written
+                Option::Some(tally(game, player_id, rank))
+            } else {
+                Option::None
             }
         }
     }

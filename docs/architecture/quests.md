@@ -349,3 +349,31 @@ mode. Two requests, none a PR to quiver (the provenance one is answered, above):
 
 An audit is not planned for 1 and 2 (events only, no money, no player-writable state); one is planned if the ruling
 moves quests to storage mode with a reward.
+
+## As built (P7 contracts)
+
+What the contracts PR (`feat: P7 quests and achievements on quiver 0.2.0 (contracts)`) does, and where it differs
+from the design above. Figures are L2 gas, measured on Linux with `contracts/tests/gas.cairo` (the call alone,
+`get_available_gas()` right before and after), pinned toolchain.
+
+- **Dependencies.** `quiver_quest = "=0.2.0"` and `quiver_achievement = "=0.2.0"` in `contracts/Scarb.toml`, checksums in
+  `contracts/Scarb.lock`. Both build under the `2023_11` edition of the package.
+- **Daily** embeds both components (`TrackAll`, views and internal layer only) and the owner-only
+  `IDailyQuests`: `define_quest`, `retire_quest`, `define_achievement`, `retire_achievement`. A recurring quest
+  must start on a multiple of 86,400 (`'Daily: quest not on UTC day'`, Q-6). **Tutorial** embeds the achievement
+  component only, to report task 10 (a quest component there would emit a `QuestProgressed` for a task no quest uses);
+  it has no views and no definitions.
+- **Counters.** `Game` gains `structures`, `forests`, `wonders`, `big` (saturating `u8`), packed at bits 88, 95,
+  101 and 105 of the high half of the `GameState` word (7, 6, 4, 6 bits; the word stays at bit 111 of 123): no new
+  slot. `Store::set_builder` keeps them.
+- **Report.** `PlayableComponent` returns `Option<Tally>` at game over, after `end_in_tournament` (which now returns
+  the rank) and after `GameOver`; `Daily` makes one `progress_many` per component from `paved::quests`
+  (tasks 1 to 7 and 9, zero counts dropped, at most 8 entries). Tutorial reports task 10 with one `progress`.
+- **No runtime guard (ruling P-23).** `progress_many` reverts in event mode only on more than 16 entries or a task id
+  0; both are decided by the array built from constants. `paved::quests::tests` proves the bounds on every shape of
+  report (rank 0 to 3, scores around the thresholds, counters at 0, 1, 15 and at their maximum), and
+  `e2e::quests` ends a game with every counter at its maximum and with every count zero and asserts the game over,
+  the ranking and `GameOver`.
+- **Definitions** are not made by the contracts' constructor: the accepted list is defined with the entrypoints above
+  (`e2e::quests::define_accepted_list` is the list as calls). The script that does it on a network belongs with the
+  deploy task.

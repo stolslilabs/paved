@@ -518,3 +518,37 @@ None of them is a gameplay branch known to be unreached: the re-rooting branch o
 | `scarb build` after P2 | pass | 0.85 GB |
 | `snforge test` after P2 | `Tests: 226 passed, 0 failed, 0 ignored, 0 filtered out` | 2.18 GB (single-threaded) |
 | `snforge test --max-threads 2` after P5-4 (Mac, `/usr/bin/time -l`) | `Tests: 349 passed, 0 failed, 0 ignored, 0 filtered out` (CI) | 6.14 GB (two test threads, the Mac's measure) |
+
+## P7: quests and achievements (contracts)
+
+`contracts/tests/gas.cairo`, same method as above (L2 gas of the call alone), VPS, pinned toolchain
+(scarb 2.20.1, snforge 0.64.0). "Before" is main at `0cc8dd0`, "after" is the P7 contracts PR. The closing moves
+are `surrender` at the end of scenario c (a 6-tile city closed, score 1379), as g to i above.
+
+| | Scenario | Before | After | Change | New ceiling |
+|---|---|---|---|---|---|
+| g | closing move, rank 1, two shifts | 1,234,989 | 2,029,179 | +794,190 | 2,130,638 |
+| h | closing move, not ranked | 897,489 | 1,560,167 | +662,678 | 1,638,176 |
+| i | game over after its tournament | 719,000 | 1,381,318 | +662,318 | 1,450,384 |
+| k | closing move, rank 1, score 4,500 and every counter non-zero: the 8 entries to each package | n/a (g's base 1,234,989) | 2,555,227 | +1,320,238 against g's base | 2,682,989 |
+
+The P-22 guard is +1.5M on the closing move: the largest report (k, 8 entries to the quests and 8 to the
+achievements, with the ranking at rank 1) is +1.32M; the game over of scenario c is +0.79M. Not-ranked and
+late game overs cost +0.66M.
+
+Moves that are not a game over (never report), the code counts in bits of the word already written:
+
+| | Before | After | Change |
+|---|---|---|---|
+| a0 open simple move | 5,596,035 | 5,705,107 | +109,072 (+1.9 %) |
+| a simple move | 5,082,345 | 5,191,457 | +109,112 (+2.1 %) |
+| b move with a character | 6,056,534 | 6,166,446 | +109,912 (+1.8 %) |
+| c close a large city | 6,098,165 | 6,240,777 | +142,612 (+2.3 %) |
+| d worst case | 6,987,338 | 7,130,750 | +143,412 (+2.1 %) |
+| e close a forest | 9,308,936 | 9,436,058 | +127,122 (+1.4 %) |
+| f worst forest scan | 19,048,196 | 19,176,118 | +127,922 (+0.7 %) |
+
+All stay under the existing ceilings (+5 %), which are unchanged. The cost is the four counters carried in `Game`
+(a larger struct copied through the move, four fields packed and unpacked with `GameState`) and the `Option` a move
+returns; no storage access was added. It is above the +0.1 % to +0.2 % of the leaderboard PR: reported to the
+orchestrator for a ruling.

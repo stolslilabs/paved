@@ -33,7 +33,7 @@ pub mod TutoriableComponent {
     pub impl InternalImpl<
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
-        fn discard(self: @ComponentState<TContractState>, game_id: u32) {
+        fn discard(self: @ComponentState<TContractState>, game_id: u32) -> Option<felt252> {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -101,10 +101,14 @@ pub mod TutoriableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
+                // [Return] The player, whom the caller reports to the achievements
+                Option::Some(player_id)
+            } else {
+                Option::None
             }
         }
 
-        fn surrender(self: @ComponentState<TContractState>, game_id: u32) {
+        fn surrender(self: @ComponentState<TContractState>, game_id: u32) -> Option<felt252> {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -133,10 +137,14 @@ pub mod TutoriableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
+                // [Return] The player, whom the caller reports to the achievements
+                Option::Some(player_id)
+            } else {
+                Option::None
             }
         }
 
-        fn build(self: @ComponentState<TContractState>, game_id: u32) {
+        fn build(self: @ComponentState<TContractState>, game_id: u32) -> Option<felt252> {
             // [Setup] Datastore
             let mut store: Store = StoreImpl::new();
 
@@ -242,6 +250,10 @@ pub mod TutoriableComponent {
             // [Event] Game over
             if game.is_over() {
                 store.emit(game_over(game, player_id));
+                // [Return] The player, whom the caller reports to the achievements
+                Option::Some(player_id)
+            } else {
+                Option::None
             }
         }
     }

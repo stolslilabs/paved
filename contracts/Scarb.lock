@@ -5,9 +5,23 @@ version = 1
 name = "paved"
 version = "0.0.0"
 dependencies = [
+ "quiver_achievement",
+ "quiver_quest",
  "snforge_scarb_plugin",
  "snforge_std",
 ]
+
+[[package]]
+name = "quiver_achievement"
+version = "0.2.0"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:a66de3292e925cdcb2b4c669763d1d75f4aab4edcbe523a2043fb1320449e3db"
+
+[[package]]
+name = "quiver_quest"
+version = "0.2.0"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:15f0a3710a471e779f7a003f61eedc1814296a4dfa22ac7dda5c079e20cdcb54"
 
 [[package]]
 name = "snforge_scarb_plugin"

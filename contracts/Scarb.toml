@@ -11,6 +11,8 @@ test = "snforge test"
 
 [dependencies]
 starknet = "2.20.1"
+quiver_quest = "=0.2.0"
+quiver_achievement = "=0.2.0"
 
 [[target.starknet-contract]]
 

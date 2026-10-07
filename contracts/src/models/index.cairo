@@ -22,6 +22,12 @@ pub struct Game {
     pub mode: u8,
     pub tournament_id: u64,
     pub tile_limit: u16,
+    /// Roads and cities scored, forests scored, wonders scored and big structures scored, from
+    /// `GameState` (saturating counters, reported at game over: `docs/architecture/quests.md`).
+    pub structures: u8,
+    pub forests: u8,
+    pub wonders: u8,
+    pub big: u8,
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]

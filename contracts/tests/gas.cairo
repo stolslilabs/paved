@@ -45,10 +45,11 @@ pub const CEILING_CLOSE_LARGE: u128 = 6392332;
 pub const CEILING_WORST_CASE: u128 = 7325796;
 pub const CEILING_FOREST: u128 = 9756082;
 pub const CEILING_FOREST_WORST: u128 = 19956685;
-pub const CEILING_CLOSING_PLACES: u128 = 1296739;
-pub const CEILING_CLOSING_NOT_PLACED: u128 = 942364;
-pub const CEILING_CLOSING_AFTER: u128 = 754950;
+pub const CEILING_CLOSING_PLACES: u128 = 2130638;
+pub const CEILING_CLOSING_NOT_PLACED: u128 = 1638176;
+pub const CEILING_CLOSING_AFTER: u128 = 1450384;
 pub const CEILING_VIEW: u128 = 388740;
+pub const CEILING_CLOSING_FULL_REPORT: u128 = 2682989;
 
 #[derive(Drop)]
 struct Scenario {
@@ -340,6 +341,26 @@ fn test_gas_i_closing_move_after_tournament() {
     let gas = surrender(@s);
     assert(s.store.game(s.game_id).tournament_id == 0, 'Gas: ranked');
     report("i_closing_move_after_tournament", gas, CEILING_CLOSING_AFTER);
+}
+
+/// k. Closing move with the largest report (P7): rank 1, a high score and every counter non-zero,
+/// so the 8 entries of the design go to the quests and to the achievements.
+#[test]
+fn test_gas_k_closing_move_full_report() {
+    let s = scored_game();
+    prefill(@s, array![30, 20, 10].span());
+    let mut game = s.store.game(s.game_id);
+    game.score = 4500;
+    game.structures = 20;
+    game.forests = 5;
+    game.wonders = 3;
+    game.big = 4;
+    s.store.set_game(game);
+    let gas = surrender(@s);
+    let id = tournament_id(@s);
+    let top = interact_with_state(s.store.contract, || LeaderboardImpl::new().top(id));
+    assert(top.first.score == 4500, 'Gas: not first');
+    report("k_closing_move_full_report", gas, CEILING_CLOSING_FULL_REPORT);
 }
 
 /// j. The `tournament` view: the prize record and the three ranks.
