@@ -204,10 +204,11 @@ view, never from here.
   `refresh`, and on visibility; no timer. After a failure the last answer stays in `data`, so a screen can show it
   marked stale beside the error.
 - As built (`indexer.md`, "As built"): `head()` also reads `checks.tournaments_checked` (`tournamentsChecked`, null when
-  absent) and ignores any other key, known or later, and a missing `checks`; the 503 of `/v1/head` when the state is
+  absent) and `checks.last_mismatch` (`lastMismatch`: null, or `{ tournamentId, headNumber, view, indexed }` with
+  slots `{ playerId, score }`; any other shape is `bad-response`), and ignores any other key, known or later, and a missing `checks`; the 503 of `/v1/head` when the state is
   not `ok` is `unavailable` with its `status`, like every other route; a game that is still running answers `score`,
-  `counted_tournament_id` and `end_time` as null, which the client reads as 0 (`over` says which game it is) and shows
-  as "In progress".
+  `counted_tournament_id` and `end_time` as null, which the client reads as 0 and shows as "In progress"; a null on a
+  game with `over` true is `bad-response`.
 - A read never shows another input's answer: `useAsyncRead` (and so `useIndexerRead`) hides what was read for earlier
   inputs at once, in the render that changes them, so the leaderboard never shows rows of another day or page, nor
   another day's failure. A refresh of the same inputs still keeps its last answer, marked stale.

@@ -25,6 +25,8 @@ export interface FixtureState {
   version: number;
   /** Replaces the body of the next answer (and only that one) with this text, served with `httpStatus`. */
   rawBody?: { text: string; httpStatus: number };
+  /** `checks.last_mismatch` of `/v1/head`: null or `{ tournament_id, head_number, view, indexed }`. */
+  lastMismatch?: Row | null;
 }
 
 const tournament = (id: number, over: Partial<Row> = {}): Row => ({
@@ -123,7 +125,7 @@ export class FixtureIndexer {
     if (a === "head" && !b) {
       const e = allowed();
       if (e) return fail(400, e);
-      return ok({ state: "ok", chain_id: "0x534e5f5345504f4c4941", from_block: 12, contracts: { account: "0x1", daily: "0x2", tutorial: "0x3" }, checks: { tournaments_checked: 2, last_mismatch: null } });
+      return ok({ state: "ok", chain_id: "0x534e5f5345504f4c4941", from_block: 12, contracts: { account: "0x1", daily: "0x2", tutorial: "0x3" }, checks: { tournaments_checked: 2, last_mismatch: this.state.lastMismatch ?? null } });
     }
     if (a === "tournaments" && !b) {
       const e = allowed("limit", "before");

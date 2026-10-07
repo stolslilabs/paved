@@ -2,12 +2,16 @@
 // in-memory store, its own HTTP server answers on a free local port, and `IndexerClient` reads every route over
 // real HTTP. No chain, no browser. Needs Node 24 (the indexer runs on `node:sqlite`).
 import type { AddressInfo } from "node:net";
+import { hash } from "starknet";
 import { afterEach, describe, expect, test } from "vitest";
 import { IndexerClient, MAX_TOURNAMENT_ID, indexerPlayerId } from "../src/indexer";
 import type { IndexerError } from "../src/indexer";
-import { padded } from "../../indexer/src/events.ts";
+import { Chain } from "../../indexer/src/chain.ts";
+import { CrossCheck } from "../../indexer/src/crosscheck.ts";
+import { canonical, padded } from "../../indexer/src/events.ts";
+import { Queries } from "../../indexer/src/queries.ts";
 import { serve } from "../../indexer/src/server.ts";
-import { FakeNode, ev } from "../../indexer/src/testing/fake-node.ts";
+import { ACCOUNT, DAILY, FakeNode, TUTORIAL, ev } from "../../indexer/src/testing/fake-node.ts";
 import { indexerOf, settle } from "../../indexer/src/testing/setup.ts";
 
 const A = 0xa1n;
@@ -54,6 +58,38 @@ describe("IndexerClient against the real indexer", () => {
     expect(head.number).toBeGreaterThan(0);
     expect(behind).toBe(0);
     expect(freshness).toEqual({ kind: "ok", blocks: 0 });
+  });
+
+  test("/v1/head: a real cross-check mismatch is read as a typed object", async () => {
+    // Day 100 closes; the `tournament` view ranks B above A, the events say the opposite.
+    const node = new FakeNode();
+    node.mine([ev.created(A, 0x41)], [ev.created(B, 0x42)]);
+    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })], [ev.spawned("daily", 2, B, { tournament: DAY })]);
+    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
+    node.mine([ev.over("daily", 2, B, 40, { tournament: DAY })]);
+    const slots = [[B, 40], [A, 50], [0n, 0]] as const;
+    node.views = (_address, selector) => {
+      expect(selector).toBe(canonical(hash.getSelectorFromName("tournament")));
+      return ["0x64", "0x0", "0x0", "0x1", "0x0", "0x0", ...slots.flatMap(([p, score]) => [`0x${p.toString(16)}`, `0x${score.toString(16)}`, "0x0"])];
+    };
+    node.time = (DAY + 1) * 86400 + 5;
+    node.mine();
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    const checks = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), new Queries(indexer.store));
+    await checks.run(indexer.served!);
+    const server = serve(indexer, { info: { chainId: "0x1", fromBlock: 1, contracts: { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }, checks } });
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const client = new IndexerClient({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` });
+    const { data } = await client.head();
+    expect(data.tournamentsChecked).toBe(1);
+    expect(data.lastMismatch).toEqual({
+      tournamentId: DAY,
+      headNumber: indexer.served!.number,
+      view: [{ playerId: padded(B), score: 40 }, { playerId: padded(A), score: 50 }, { playerId: padded(0n), score: 0 }],
+      indexed: [{ playerId: padded(A), score: 50 }, { playerId: padded(B), score: 40 }, { playerId: padded(0n), score: 0 }],
+    });
   });
 
   test("/v1/tournaments, /v1/tournaments/{id}: the day, and zeros for a day with no game", async () => {
