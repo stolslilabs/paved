@@ -30,6 +30,7 @@ use paved::types::orientation::{IntoOrientationU8, IntoU8Orientation, Orientatio
 use paved::types::plan::Plan;
 use paved::types::role::Role;
 use paved::types::spot::{Spot, SpotImpl};
+use starknet::get_caller_address;
 
 pub mod errors {
     pub const INVALID_NAME: felt252 = 'Game: invalid name';
@@ -55,8 +56,12 @@ pub impl GameImpl of GameTrait {
         let mode: Mode = mode.into();
         assert(Mode::None != mode, errors::INVALID_MODE);
         // [Effect] Create the game
+        // [Info] A game is created by its player's call: the caller is the player of the game
         Game {
             id,
+            player_id: get_caller_address().into(),
+            held_tile: 0,
+            characters: 0,
             over: false,
             discarded: 0,
             built: 0,
@@ -70,6 +75,26 @@ pub impl GameImpl of GameTrait {
             tournament_id: 0,
             tile_limit: mode.deck().count().into(),
         }
+    }
+
+    /// The builder of `player_id` in this game: the one of the game's player, the zero builder for
+    /// anyone else (so `Builder: does not exist` reverts as it did with a builder per player).
+    #[inline]
+    fn builder_of(self: Game, player_id: felt252) -> Builder {
+        if player_id != 0 && player_id == self.player_id {
+            Builder {
+                game_id: self.id, player_id, tile_id: self.held_tile, characters: self.characters,
+            }
+        } else {
+            Builder { game_id: self.id, player_id, tile_id: 0, characters: 0 }
+        }
+    }
+
+    /// Takes the tile in hand and the roles placed back from the builder.
+    #[inline]
+    fn set_builder(ref self: Game, builder: Builder) {
+        self.held_tile = builder.tile_id;
+        self.characters = builder.characters;
     }
 
     #[inline]
@@ -110,7 +135,7 @@ pub impl GameImpl of GameTrait {
     fn start(ref self: Game, time: u64) -> Tile {
         // [Effect] Create the starter tile
         let tile_id = self.add_tile();
-        let mut tile = TileTrait::new(self.id, tile_id, 0, Plan::RFFFRFCFR);
+        let mut tile = TileTrait::new(self.id, tile_id, Plan::RFFFRFCFR);
         tile.orientation = Orientation::South.into();
 
         // [Effect] Remove the starter tile from the deck
@@ -202,6 +227,8 @@ pub impl GameImpl of GameTrait {
         };
         self.tiles = tiles;
         self.tile_count += 1;
+        // The drawn tile is the tile in hand
+        self.held_tile = self.tile_count;
         // Update the seed after draw
         let state = PoseidonTrait::new();
         let state = state.update(self.seed);
@@ -307,6 +334,9 @@ pub impl ZeroableGame of ZeroableGameTrait {
     fn zero() -> Game {
         Game {
             id: 0,
+            player_id: 0,
+            held_tile: 0,
+            characters: 0,
             over: false,
             discarded: 0,
             built: 0,

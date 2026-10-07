@@ -8,7 +8,6 @@ pub mod TutoriableComponent {
     use paved::events::{Built, Discarded, Event as PavedEvent, game_over};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl, ZeroableBuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
-    use paved::models::player::{Player, PlayerAssert, PlayerImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
     use paved::store::{Store, StoreImpl};
     use paved::types::mode::{Mode, ModeTrait};
@@ -37,7 +36,7 @@ pub mod TutoriableComponent {
             let store: Store = StoreImpl::new();
 
             // [Check] Game exists
-            let mut game = store.game(game_id);
+            let mut game = store.live_game(game_id);
             game.assert_exists();
 
             // [Check] Game has started
@@ -46,13 +45,10 @@ pub mod TutoriableComponent {
             // [Check] Game is not over
             game.assert_not_over();
 
-            // [Check] Player exists
-            let caller = get_caller_address();
-            let mut player = store.player(caller.into());
-            player.assert_exists();
-
-            // [Check] Builder exists
-            let mut builder = store.builder(game, caller.into());
+            // [Check] The caller is the player of the game: the game has one builder, its
+            // player's, and anyone else has none
+            let player_id: felt252 = get_caller_address().into();
+            let mut builder = game.builder_of(player_id);
             builder.assert_exists();
 
             // [Check] Tile exists
@@ -74,7 +70,7 @@ pub mod TutoriableComponent {
                     PavedEvent::Discarded(
                         Discarded {
                             game_id,
-                            player_id: player.id,
+                            player_id: player_id,
                             tile_id: tile.id,
                             plan: tile.plan,
                             points: score - game.score,
@@ -94,15 +90,15 @@ pub mod TutoriableComponent {
             }
 
             // [Effect] Update builder
-            store.set_builder(builder);
+            game.set_builder(builder);
 
             // [Effect] Update game
             game.discarded += 1;
-            store.set_game(game);
+            store.set_game_state(game);
 
             // [Event] Game over
             if game.is_over() {
-                store.emit(game_over(game, player.id));
+                store.emit(game_over(game, player_id));
             }
         }
 
@@ -111,7 +107,7 @@ pub mod TutoriableComponent {
             let store: Store = StoreImpl::new();
 
             // [Check] Game exists
-            let mut game = store.game(game_id);
+            let mut game = store.live_game(game_id);
             game.assert_exists();
 
             // [Check] Game has started
@@ -120,24 +116,21 @@ pub mod TutoriableComponent {
             // [Check] Game is not over
             game.assert_not_over();
 
-            // [Check] Player exists
-            let caller = get_caller_address();
-            let mut player = store.player(caller.into());
-            player.assert_exists();
-
-            // [Check] Builder exists
-            let mut builder = store.builder(game, caller.into());
+            // [Check] The caller is the player of the game: the game has one builder, its
+            // player's, and anyone else has none
+            let player_id: felt252 = get_caller_address().into();
+            let mut builder = game.builder_of(player_id);
             builder.assert_exists();
 
             // [Effect] Game over
             game.surrender();
 
             // [Effect] Update game
-            store.set_game(game);
+            store.set_game_state(game);
 
             // [Event] Game over
             if game.is_over() {
-                store.emit(game_over(game, player.id));
+                store.emit(game_over(game, player_id));
             }
         }
 
@@ -146,7 +139,7 @@ pub mod TutoriableComponent {
             let mut store: Store = StoreImpl::new();
 
             // [Check] Game exists
-            let mut game = store.game(game_id);
+            let mut game = store.live_game(game_id);
             game.assert_exists();
 
             // [Check] Game has started
@@ -155,13 +148,10 @@ pub mod TutoriableComponent {
             // [Check] Game is not over
             game.assert_not_over();
 
-            // [Check] Player exists
-            let caller = get_caller_address();
-            let player = store.player(caller.into());
-            player.assert_exists();
-
-            // [Check] Builder exists
-            let mut builder = store.builder(game, caller.into());
+            // [Check] The caller is the player of the game: the game has one builder, its
+            // player's, and anyone else has none
+            let player_id: felt252 = get_caller_address().into();
+            let mut builder = game.builder_of(player_id);
             builder.assert_exists();
 
             // [Check] Tile exists
@@ -187,7 +177,7 @@ pub mod TutoriableComponent {
                     PavedEvent::Built(
                         Built {
                             game_id,
-                            player_id: player.id,
+                            player_id: player_id,
                             tile_id: tile.id,
                             plan: tile.plan,
                             orientation: orientation.into(),
@@ -225,18 +215,22 @@ pub mod TutoriableComponent {
             }
 
             // [Effect] Update builder
+            // [Effect] Write the builder before the assessment, which recovers characters
             store.set_builder(builder);
 
             // [Effect] Assessment
             game.assess(tile, ref store);
 
+            // [Effect] Take back the characters that the assessment recovered
+            game.set_builder(store.builder(game, player_id));
+
             // [Effect] Update game
             game.built += 1;
-            store.set_game(game);
+            store.set_game_state(game);
 
             // [Event] Game over
             if game.is_over() {
-                store.emit(game_over(game, player.id));
+                store.emit(game_over(game, player_id));
             }
         }
     }

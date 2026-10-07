@@ -4,6 +4,12 @@
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
 pub struct Game {
     pub id: u32,
+    /// The player of the game, from `GameConfig`; the builder of the game is this player's.
+    pub player_id: felt252,
+    /// The tile in hand, from `GameState`: the `tile_id` of the builder.
+    pub held_tile: u32,
+    /// The roles placed, from `GameState`: the `characters` of the builder.
+    pub characters: u16,
     pub over: bool,
     pub discarded: u8,
     pub built: u8,
@@ -30,7 +36,7 @@ pub struct Builder {
     pub game_id: u32,
     pub player_id: felt252,
     pub tile_id: u32,
-    pub characters: u8,
+    pub characters: u16,
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]
@@ -57,7 +63,6 @@ pub struct CharPosition {
 pub struct Tile {
     pub game_id: u32,
     pub id: u32,
-    pub player_id: felt252,
     pub plan: u8,
     pub orientation: u8,
     pub x: u32,

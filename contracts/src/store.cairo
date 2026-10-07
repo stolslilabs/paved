@@ -30,6 +30,7 @@ const TWO_POW_16: u128 = 0x10000;
 const TWO_POW_32: u128 = 0x100000000;
 const TWO_POW_40: u128 = 0x10000000000;
 const TWO_POW_48: u128 = 0x1000000000000;
+const TWO_POW_56: u128 = 0x100000000000000;
 const TWO_POW_64: u128 = 0x10000000000000000;
 const TWO_POW_72: u128 = 0x1000000000000000000;
 const TWO_POW_80: u128 = 0x100000000000000000000;
@@ -78,10 +79,14 @@ pub struct PavedStorage {
     pub game_count: u32,
     /// `Account` contract that keeps the players; zero in `Account` itself.
     pub account: ContractAddress,
-    pub games: Map<u32, Slots3>,
+    /// `GameConfig`: written once, at spawn.
+    pub game_configs: Map<u32, Slots2>,
+    /// `GameState`: written by every action.
+    pub game_states: Map<u32, Slots2>,
+    /// `GameEnd`: written once, when the game ends in time.
+    pub game_ends: Map<u32, felt252>,
     pub players: Map<felt252, Slots2>,
-    pub builders: Map<(u32, felt252), felt252>,
-    pub tiles: Map<(u32, u32), Slots2>,
+    pub tiles: Map<(u32, u32), felt252>,
     pub tile_positions: Map<(u32, u32, u32), u32>,
     pub characters: Map<(u32, felt252, u8), felt252>,
     pub character_positions: Map<(u32, u32, u8), Slots2>,
@@ -127,30 +132,40 @@ pub impl StoreImpl of StoreTrait {
         starknet::syscalls::emit_event_syscall(keys.span(), data.span()).unwrap_syscall();
     }
 
+    /// The game with its end: the facade of the three game records, for the views and the tests.
     fn game(self: Store, game_id: u32) -> Game {
-        let slots = storage().games.entry(game_id).read();
-        let b: u256 = slots.b.into();
-        let c: u256 = slots.c.into();
-        let tile_count = b.high & MASK_32;
-        let score = (b.high / TWO_POW_32) & MASK_32;
-        let discarded = (b.high / TWO_POW_64) & MASK_8;
-        let built = (b.high / TWO_POW_72) & MASK_8;
-        let mode = (b.high / TWO_POW_80) & MASK_8;
-        let over = (b.high / TWO_POW_88) & MASK_1;
+        let mut game = self.live_game(game_id);
+        let end: u256 = storage().game_ends.entry(game_id).read().into();
+        game.end_time = (end.low & MASK_64).try_into().unwrap();
+        game.tournament_id = (end.low / TWO_POW_64).try_into().unwrap();
+        game
+    }
+
+    /// The game without its end (`end_time` and `tournament_id` are 0): `GameConfig` and
+    /// `GameState`, which is all a move needs.
+    fn live_game(self: Store, game_id: u32) -> Game {
+        let config = storage().game_configs.entry(game_id).read();
+        let state = storage().game_states.entry(game_id).read();
+        let c: u256 = config.b.into();
+        let s: u256 = state.b.into();
+        let over = (s.high / TWO_POW_56) & MASK_1;
         Game {
             id: game_id,
+            player_id: config.a,
+            held_tile: ((s.high / TWO_POW_64) & MASK_8).try_into().unwrap(),
+            characters: ((s.high / TWO_POW_72) & MASK_16).try_into().unwrap(),
             over: over == 1,
-            discarded: discarded.try_into().unwrap(),
-            built: built.try_into().unwrap(),
-            tiles: b.low,
-            tile_count: tile_count.try_into().unwrap(),
-            start_time: (c.low & MASK_64).try_into().unwrap(),
-            end_time: (c.low / TWO_POW_64).try_into().unwrap(),
-            score: score.try_into().unwrap(),
-            seed: slots.a,
-            mode: mode.try_into().unwrap(),
-            tournament_id: (c.high & MASK_64).try_into().unwrap(),
-            tile_limit: ((c.high / TWO_POW_64) & MASK_16).try_into().unwrap(),
+            discarded: ((s.high / TWO_POW_40) & MASK_8).try_into().unwrap(),
+            built: ((s.high / TWO_POW_48) & MASK_8).try_into().unwrap(),
+            tiles: s.low,
+            tile_count: (s.high & MASK_8).try_into().unwrap(),
+            start_time: ((c.low / TWO_POW_8) & MASK_64).try_into().unwrap(),
+            end_time: 0,
+            score: ((s.high / TWO_POW_8) & MASK_32).try_into().unwrap(),
+            seed: state.a,
+            mode: (c.low & MASK_8).try_into().unwrap(),
+            tournament_id: 0,
+            tile_limit: ((c.low / TWO_POW_72) & MASK_16).try_into().unwrap(),
         }
     }
 
@@ -163,13 +178,21 @@ pub impl StoreImpl of StoreTrait {
         Player { id: player_id, name: slots.a, master: slots.b }
     }
 
+    /// The builder of `player_id`, read from `GameState` as it is now (a move that changes the
+    /// builder through `set_builder` is seen by the next read). A facade: the builder of the game
+    /// is its player's, anyone else gets the zero builder.
     fn builder(self: Store, game: Game, player_id: felt252) -> Builder {
-        let word: u256 = storage().builders.entry((game.id, player_id)).read().into();
+        let config = storage().game_configs.entry(game.id).read();
+        if player_id == 0 || player_id != config.a {
+            return Builder { game_id: game.id, player_id, tile_id: 0, characters: 0 };
+        }
+        let state = storage().game_states.entry(game.id).read();
+        let s: u256 = state.b.into();
         Builder {
             game_id: game.id,
             player_id,
-            tile_id: (word.low & MASK_32).try_into().unwrap(),
-            characters: ((word.low / TWO_POW_32) & MASK_8).try_into().unwrap(),
+            tile_id: ((s.high / TWO_POW_64) & MASK_8).try_into().unwrap(),
+            characters: ((s.high / TWO_POW_72) & MASK_16).try_into().unwrap(),
         }
     }
 
@@ -192,12 +215,10 @@ pub impl StoreImpl of StoreTrait {
     }
 
     fn tile(self: Store, game: Game, tile_id: u32) -> Tile {
-        let slots = storage().tiles.entry((game.id, tile_id)).read();
-        let word: u256 = slots.b.into();
+        let word: u256 = storage().tiles.entry((game.id, tile_id)).read().into();
         Tile {
             game_id: game.id,
             id: tile_id,
-            player_id: slots.a,
             plan: (word.low & MASK_8).try_into().unwrap(),
             orientation: ((word.low / TWO_POW_8) & MASK_8).try_into().unwrap(),
             x: ((word.low / TWO_POW_16) & MASK_32).try_into().unwrap(),
@@ -282,35 +303,64 @@ pub impl StoreImpl of StoreTrait {
         }
     }
 
+    /// Writes the three records of a game: the facade for the tests. A move writes `GameState`
+    /// through `set_game_state`.
     fn set_game(self: Store, game: Game) {
+        self.set_game_config(game);
+        self.set_game_state(game);
+        if game.end_time != 0 || game.tournament_id != 0 {
+            self.set_game_end(game);
+        }
+    }
+
+    /// `GameConfig`: the player, the mode, the start time and the tile limit. Written at spawn.
+    fn set_game_config(self: Store, game: Game) {
+        let b: u128 = game.mode.into()
+            + game.start_time.into() * TWO_POW_8
+            + game.tile_limit.into() * TWO_POW_72;
+        storage().game_configs.entry(game.id).write(Slots2 { a: game.player_id, b: b.into() });
+    }
+
+    /// `GameState`: the seed and the hot fields, rewritten by every action.
+    fn set_game_state(self: Store, game: Game) {
         let over: u128 = if game.over {
             1
         } else {
             0
         };
         let high: u128 = game.tile_count.into()
-            + game.score.into() * TWO_POW_32
-            + game.discarded.into() * TWO_POW_64
-            + game.built.into() * TWO_POW_72
-            + game.mode.into() * TWO_POW_80
-            + over * TWO_POW_88;
-        let c_low: u128 = game.start_time.into() + game.end_time.into() * TWO_POW_64;
-        let c_high: u128 = game.tournament_id.into() + game.tile_limit.into() * TWO_POW_64;
-        let slots = Slots3 {
-            a: game.seed,
-            b: game.tiles.into() + high.into() * TWO_POW_128,
-            c: c_low.into() + c_high.into() * TWO_POW_128,
-        };
-        storage().games.entry(game.id).write(slots);
+            + game.score.into() * TWO_POW_8
+            + game.discarded.into() * TWO_POW_40
+            + game.built.into() * TWO_POW_48
+            + over * TWO_POW_56
+            + game.held_tile.into() * TWO_POW_64
+            + game.characters.into() * TWO_POW_72;
+        let slots = Slots2 { a: game.seed, b: game.tiles.into() + high.into() * TWO_POW_128 };
+        storage().game_states.entry(game.id).write(slots);
+    }
+
+    /// `GameEnd`: the end time and the tournament of a game that ended in time.
+    fn set_game_end(self: Store, game: Game) {
+        let word: u128 = game.end_time.into() + game.tournament_id.into() * TWO_POW_64;
+        storage().game_ends.entry(game.id).write(word.into());
     }
 
     fn set_player(self: Store, player: Player) {
         storage().players.entry(player.id).write(Slots2 { a: player.name, b: player.master });
     }
 
+    /// Writes the tile in hand and the roles placed of the builder into `GameState`.
     fn set_builder(self: Store, builder: Builder) {
-        let word: u128 = builder.tile_id.into() + builder.characters.into() * TWO_POW_32;
-        storage().builders.entry((builder.game_id, builder.player_id)).write(word.into());
+        let state = storage().game_states.entry(builder.game_id).read();
+        let s: u256 = state.b.into();
+        let kept: u128 = s.high & (TWO_POW_64 - 1);
+        let high: u128 = kept
+            + builder.tile_id.into() * TWO_POW_64
+            + builder.characters.into() * TWO_POW_72;
+        storage()
+            .game_states
+            .entry(builder.game_id)
+            .write(Slots2 { a: state.a, b: s.low.into() + high.into() * TWO_POW_128 });
     }
 
     fn set_tile(self: Store, tile: Tile) {
@@ -327,10 +377,7 @@ pub impl StoreImpl of StoreTrait {
             + tile.x.into() * TWO_POW_16
             + tile.y.into() * TWO_POW_48
             + tile.occupied_spot.into() * TWO_POW_80;
-        storage()
-            .tiles
-            .entry((tile.game_id, tile.id))
-            .write(Slots2 { a: tile.player_id, b: word.into() });
+        storage().tiles.entry((tile.game_id, tile.id)).write(word.into());
     }
 
     fn set_character(self: Store, character: Char) {

@@ -36,11 +36,10 @@ pub mod errors {
 #[generate_trait]
 pub impl TileImpl of TileTrait {
     #[inline]
-    fn new(game_id: u32, id: u32, player_id: felt252, plan: Plan) -> Tile {
+    fn new(game_id: u32, id: u32, plan: Plan) -> Tile {
         Tile {
             game_id,
             id,
-            player_id,
             plan: plan.into(),
             orientation: Orientation::None.into(),
             x: CENTER,
@@ -274,14 +273,12 @@ pub impl InternalImpl of InternalTrait {
 pub impl ZeroableTile of ZeroableTileTrait {
     #[inline]
     fn zero() -> Tile {
-        Tile {
-            game_id: 0, id: 0, player_id: 0, plan: 0, orientation: 0, x: 0, y: 0, occupied_spot: 0,
-        }
+        Tile { game_id: 0, id: 0, plan: 0, orientation: 0, x: 0, y: 0, occupied_spot: 0 }
     }
 
     #[inline]
     fn is_zero(self: Tile) -> bool {
-        self.player_id == 0
+        self.plan == 0
     }
 
     #[inline]
@@ -328,7 +325,6 @@ pub mod tests {
             Tile {
                 game_id: 0,
                 id: 0,
-                player_id: 0,
                 plan: plan.into(),
                 orientation: orientation.into(),
                 x: x,
@@ -341,10 +337,9 @@ pub mod tests {
     #[test]
     fn test_tile_new() {
         let plan = Plan::RFRFCCCFR;
-        let tile = TileImpl::new(0, 1, 2, plan);
+        let tile = TileImpl::new(0, 1, plan);
         assert(tile.game_id == 0, 'Tile: game_id');
         assert(tile.id == 1, 'Tile: id');
-        assert(tile.player_id == 2, 'Tile: player_id');
         assert(tile.plan == plan.into(), 'Tile: plan');
         assert(tile.orientation == Orientation::None.into(), 'Tile: orientation');
         assert(tile.x == CENTER, 'Tile: x');
@@ -354,7 +349,7 @@ pub mod tests {
     #[test]
     fn test_tile_is_placed() {
         let plan = Plan::RFFFRFCFR;
-        let tile = TileImpl::new(1, 2, 3, plan);
+        let tile = TileImpl::new(1, 2, plan);
         tile.assert_not_placed();
     }
 

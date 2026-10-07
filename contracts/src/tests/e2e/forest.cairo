@@ -40,8 +40,8 @@ use paved::views::{CharacterView, IGameViewDispatcher, IGameViewDispatcherTrait}
 use snforge_std::{EventSpyAssertionsTrait, interact_with_state, spy_events};
 
 /// Bit of a role in `Builder.characters`: the role code is the index of the bit.
-const WOODSMAN_BIT: u8 = 64;
-const HERDSMAN_BIT: u8 = 128;
+const WOODSMAN_BIT: u16 = 64;
+const HERDSMAN_BIT: u16 = 128;
 
 /// Builds `plan` at (`x`, `y`) with `role` on `spot`, as the builder of the game.
 fn put(

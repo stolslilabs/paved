@@ -176,6 +176,24 @@ GAS c_close_large_city: 17085237
 GAS d_worst_case: 32287556
 ```
 
+### After P5-2 (`Game` split, player in config, builder in game state)
+
+Same tests and method, scarb 2.20.1 / snforge 0.64.0. The figures are the `GAS` lines of the CI
+`Test game` job of the PR (Linux, run 37601718300), not a local run; "P4" is the table above. Cause of the
+fall: no `Account` call and no player read per move, no `Builder` map entry, one game slot read fewer, no
+player slot in a drawn `Tile`; the walks are unchanged (P5-4). The ceilings of `contracts/tests/gas.cairo` are
+lowered to measured + 5 %.
+
+| Scenario | L2 gas P4 | L2 gas P5-2 | Change | Ceiling P4 | Ceiling P5-2 |
+| --- | --- | --- | --- | --- | --- |
+| a0 | 9,634,832 | 9,301,448 | -3.5 % | 10,116,574 | 9,766,521 |
+| a | 10,878,072 | 10,442,168 | -4.0 % | 11,421,976 | 10,964,277 |
+| b | 12,252,204 | 11,820,610 | -3.5 % | 12,864,815 | 12,411,641 |
+| c | 17,085,237 | 16,688,689 | -2.3 % | 17,939,499 | 17,523,124 |
+| d | 32,287,556 | 30,685,028 | -5.0 % | 33,901,934 | 32,219,280 |
+
+Golden games: `docs/measures/golden-games.md`.
+
 ## Line coverage of `contracts/src`
 
 **Not measured.** `cairo-coverage` 0.6.1 was installed in user space (release tarball into

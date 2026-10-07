@@ -98,6 +98,22 @@ New cases (ceiling = measured + 5 %):
 | `daily_forest_herdsman_caps` | 161,737,017 | 169,823,868 |
 | `daily_forest_both_roles` | 242,370,465 | 254,488,989 |
 
+### After P5-2 (`Game` split)
+
+Every expected value is unchanged. L2 gas from the CI `Test game` log of the PR (Linux); the ceilings
+(`#[available_gas]`) are lowered to measured + 5 %, the golden data is not touched.
+
+| Test | L2 gas P4 | L2 gas P5-2 | Change | Ceiling P4 | Ceiling P5-2 |
+| --- | --- | --- | --- | --- | --- |
+| tutorial_full_sequence | 188,832,897 | 184,223,856 | -2.4 % | 198,274,542 | 193,435,049 |
+| daily_city5_game_over | 150,320,538 | 149,228,751 | -0.7 % | 157,836,565 | 156,690,189 |
+| daily_road6 | 159,934,303 | 157,231,128 | -1.7 % | 167,931,019 | 165,092,685 |
+| daily_mixed_roles | 155,192,708 | 153,258,741 | -1.2 % | 162,952,344 | 160,921,679 |
+| daily_real_deck_discards_to_game_over | 130,455,168 | 127,269,896 | -2.4 % | 136,957,977 | 133,633,391 |
+| daily_forest_woodsman_ring | 149,808,886 | 146,872,410 | -2.0 % | 157,299,331 | 154,216,031 |
+| daily_forest_herdsman_caps | 161,737,017 | 158,538,599 | -2.0 % | 169,823,868 | 166,465,529 |
+| daily_forest_both_roles | 242,370,465 | 235,984,172 | -2.6 % | 254,488,989 | 247,783,381 |
+
 A gas improvement lowers the figures: lower the ceilings in the same PR. A rise above a ceiling is
 a regression, not a reason to raise it.
 
