@@ -13,6 +13,7 @@ test = "snforge test"
 starknet = "2.20.1"
 
 [[target.starknet-contract]]
+casm = true
 
 [profile.dev.cairo]
 unstable-add-statements-functions-debug-info = true
