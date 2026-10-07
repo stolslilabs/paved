@@ -13,6 +13,7 @@ pub mod Tutorial {
     // Component imports
 
     use core::num::traits::Zero;
+    use paved::components::hostable::HostableComponent;
     use paved::components::ownable::OwnableComponent;
     use paved::components::tutoriable::TutoriableComponent;
 
@@ -39,6 +40,9 @@ pub mod Tutorial {
 
     // Components
 
+    // Hostable runs in the lobby class; declared here so the storage and event layout stay
+    // those of the published interface
+    component!(path: HostableComponent, storage: hostable, event: HostableEvent);
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
@@ -50,6 +54,8 @@ pub mod Tutorial {
 
     #[storage]
     struct Storage {
+        #[substorage(v0)]
+        hostable: HostableComponent::Storage,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
         #[substorage(v0)]
@@ -65,6 +71,8 @@ pub mod Tutorial {
     pub enum Event {
         #[flat]
         PavedEvent: PavedEvent,
+        #[flat]
+        HostableEvent: HostableComponent::Event,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         #[flat]
