@@ -78,20 +78,38 @@ coverage() {
   coverage_table "$lcov"
 }
 
-# The test groups of the split run: `name|snforge filter` (a filter is a substring of the test
-# path; one run each). Together they cover every test of the crate, `tests/gas.cairo` included.
+# The test groups of the split run: `name|snforge filter|extra snforge arguments` (a filter is a
+# substring of the test path; one run each). Together they cover every test of the crate,
+# `tests/gas.cairo` included. The exhaustive table tests (`paved::structure::tables`) peak above
+# 8 GiB when run together, so they run by partition (`--partition i/12`: two tests per run).
 COVERAGE_GROUPS=(
-  "types|paved::types::"
-  "elements|paved::elements::"
-  "helpers|paved::helpers::"
-  "models|paved::models::"
-  "structure|paved::structure::"
-  "store|paved::store::"
-  "e2e|paved::tests::e2e::"
-  "golden|paved::tests::golden::"
-  "differential|paved::tests::differential"
-  "oracle|paved::tests::oracle"
-  "gas|test_gas_"
+  "types|paved::types::|"
+  "elements|paved::elements::|"
+  "helpers-random-deck|paved::helpers::random_deck::|"
+  "helpers-multiplier|paved::helpers::multiplier::|"
+  "models|paved::models::|"
+  "structure-record|paved::structure::record::|"
+  "structure-placement|paved::structure::placement::|"
+  "structure-state|paved::structure::state::|"
+  "structure-oriented|paved::structure::oriented::|"
+  "structure-tables-1|paved::structure::tables::|--partition 1/12"
+  "structure-tables-2|paved::structure::tables::|--partition 2/12"
+  "structure-tables-3|paved::structure::tables::|--partition 3/12"
+  "structure-tables-4|paved::structure::tables::|--partition 4/12"
+  "structure-tables-5|paved::structure::tables::|--partition 5/12"
+  "structure-tables-6|paved::structure::tables::|--partition 6/12"
+  "structure-tables-7|paved::structure::tables::|--partition 7/12"
+  "structure-tables-8|paved::structure::tables::|--partition 8/12"
+  "structure-tables-9|paved::structure::tables::|--partition 9/12"
+  "structure-tables-10|paved::structure::tables::|--partition 10/12"
+  "structure-tables-11|paved::structure::tables::|--partition 11/12"
+  "structure-tables-12|paved::structure::tables::|--partition 12/12"
+  "store|paved::store::|"
+  "e2e|paved::tests::e2e::|"
+  "golden|paved::tests::golden::|"
+  "differential|paved::tests::differential|"
+  "oracle|paved::tests::oracle|"
+  "gas|test_gas_|"
 )
 
 # Sums the line hits of lcov files per source file and line: `merge_lcov out in...`.
@@ -119,10 +137,11 @@ coverage_split() {
   mkdir -p target/coverage-split
   parts=()
   for group in "${COVERAGE_GROUPS[@]}"; do
-    name="${group%%|*}"; filter="${group#*|}"
-    echo "-- group $name (filter $filter)"
+    name="${group%%|*}"; rest="${group#*|}"; filter="${rest%%|*}"; extra="${rest#*|}"
+    echo "-- group $name (filter $filter $extra)"
     rm -rf coverage
-    run_capped snforge test --coverage "$filter" 2>&1 | grep -iE '^Tests:|maximum resident|coverage|error|panicked' || true
+    # shellcheck disable=SC2086
+    run_capped snforge test --coverage --max-threads 2 $extra "$filter" 2>&1 | grep -iE '^Tests:|maximum resident|coverage|error|panicked' || true
     test -s coverage/coverage.lcov || { echo "no coverage.lcov for group $name"; exit 1; }
     cp coverage/coverage.lcov "target/coverage-split/$name.lcov"
     parts+=("target/coverage-split/$name.lcov")
