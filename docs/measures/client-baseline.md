@@ -45,10 +45,10 @@ not cover (see Limits).
   - *JS heap*: `performance.memory.usedJSHeapSize` (Chrome run with `--enable-precise-memory-info`);
   - *time to interactive*: navigation start to the end of the first rendered frame that holds every
     tile. Input is bound by `GameScene.init()`, which has finished by then.
-- **Driver** (`scripts/bench/run.ts`, Playwright on the installed Google Chrome, headed; see
-  "Where it runs" under Rerun for `--offscreen` and the headless smoke runs): per board one warm-up run and 5 measured runs, each in a fresh browser context, served
-  from a local static server over the production build. The machine is kept awake with `caffeinate`.
-  Percentiles are nearest-rank.
+- **Driver** (`scripts/bench/run.ts`, Playwright, new headless Chromium with the real GPU; see "Where
+  it runs" under Rerun): per board one warm-up run and 5 measured runs, each in a fresh browser
+  context, served from a local static server over the production build. Percentiles are nearest-rank.
+  The sets of baselines B and C, #194 and #195 ran in headed Chrome on screen (see "Where it runs").
 - **CPU profile**: one extra 72-tile run with the CDP sampling profiler (200 us), on a build made for
   the profile (not minified, without the wasm/top-level-await plugins whose transform breaks
   sourcemaps; `BENCH_PROFILE=1` in `vite.bench.config.ts`). The load phase and the camera path are
@@ -64,9 +64,9 @@ bun run bench --profile              # also the CPU profile of one 72-tile run
 ```
 
 `bun run bench` installs the driver's own two dependencies (`scripts/bench/package.json`, outside the
-root workspaces, so the client's frozen lockfile is untouched), builds `dist-bench`, and needs Google
-Chrome installed and the display awake with the window visible (a hidden or locked window stops
-requestAnimationFrame; the driver then fails after a timeout). Options: `--sizes 38,72 --runs 5
+root workspaces, so the client's frozen lockfile is untouched), builds `dist-bench`, and needs
+Playwright's Chromium for the driver's pinned version (`bunx playwright-core@1.49.1 install chromium`).
+No window opens and no display is needed. Options: `--sizes 38,72 --runs 5
 --warmup 1 --duration 20000 --window 1440x900 --no-build --out <dir>`. `--profile-only` runs the profile
 alone. The unit tests of the pieces: `bun run test --filter @paved/game-core | @paved/renderer | @paved/app-web`.
 
@@ -76,9 +76,26 @@ The driver is standalone for its own two packages only. Its in-play mock imports
 
 ### Where it runs
 
-- **On the Mac, in use by the owner**: `--offscreen`. Headed Chrome with its window at x = -10000: no
-  window shows, the GPU is kept, so GPU figures stay measures. Long runs only when the owner is away or
-  told.
+- **On the Mac: new headless with the GPU, the only measuring mode** (the default). No window at all,
+  Chromium in new headless (`channel: "chromium"`) with `--use-angle=metal --enable-gpu
+  --ignore-gpu-blocklist`. Owner's rule (Overseer, 2026-10-07): no browser run on the Mac while the
+  owner uses it, with any flag; only headless. `--offscreen`, `--window-position` and `--headed` are
+  **refused** (an off-screen headed window did show windows: `--window-position` places the first window
+  only, and each browser context opens another). Before any long run, the 10-second trial, arranged
+  with the owner watching: `bun run bench --trial` (one throttled board run of 10 s at 72 tiles, output
+  under the system temp dir only), which prints the WebGL renderer, the launch args and whether `gpuMs`
+  is present.
+- **The GPU check**: a run in this mode fails, before any figure is written, when the WebGL renderer
+  string contains SwiftShader (preflight on a blank page, and the renderer of each board run) or when
+  `gpuMs` is null (no `EXT_disjoint_timer_query_webgl2`). `machine.json` records `"window": "headless
+  new"`, the Chrome version and the full launch args (`launchArgs`).
+- **What is not comparable**: no display, so no vsync: Chrome paces frames from a 60 Hz software clock.
+  The throttled profile already caps requestAnimationFrame at 60 Hz and stays valid; the unthrottled
+  frame intervals (120 Hz on the built-in display in the earlier sets) are **not comparable**, and
+  neither is the unthrottled TTI until a calibration run says so. CPU, GPU and CPU + GPU per frame, draw
+  calls, triangles, long tasks, commit times and click-to-display are to be compared only after a
+  calibration (headless against an on-screen set of the same build). Every set says its mode in
+  `machine.window`; earlier sets (`on screen`, `off screen`) are older figures, not headless ones.
 - **Smoke runs off the Mac** (the VPS, no display): `--headless [--chromium <path>]`. Software
   rendering, no GPU: it checks that the bench works, and **its figures are not measures**. It writes
   under the system temp dir by default, `summary.md` and `summary.json` say on their first line that it

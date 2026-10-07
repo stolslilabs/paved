@@ -1,7 +1,7 @@
 // Client bench driver. Run on the Mac, from packages/app-web:  bun run bench
 //
-// Builds the bench page, serves it from a local static server, and drives headed Chrome
-// (real GPU, not headless; --headless for smoke runs only) through Playwright. Three benches (method: docs/measures/client-baseline.md):
+// Builds the bench page, serves it from a local static server, and drives new headless Chrome with the
+// real GPU (ANGLE on Metal; no window, owner's rule of 2026-10-07) through Playwright. Three benches (method: docs/measures/client-baseline.md):
 //
 //   bun run bench                         frame time along the camera path, unthrottled (baseline B)
 //   bun run bench --profiles throttled    the same under the throttled profile (P-7)
@@ -14,17 +14,20 @@
 //
 // Options: --profiles unthrottled,throttled  --sizes 38,72  --runs 5  --warmup 1  --duration <ms>
 //          --no-build  --profile  --profile-only  --summarize-only  --out <dir>  --window 1440x900
-//          --offscreen (headed, GPU kept, window at x = -10000: nothing shows while the Mac is in use)
-//          --headless [--chromium <path>] (smoke runs off the Mac, e.g. on the VPS: headless Chromium,
-//          no window, no GPU; figures not comparable; output under the system temp dir by default;
+//          --trial (the 10-second trial: one throttled board run of 10 s at 72 tiles, output under the
+//          system temp dir only; prints the WebGL renderer, the launch args and whether gpuMs is present)
+//          --headless [--chromium <path>] (smoke runs off the Mac, e.g. on the VPS: software
+//          rendering, no GPU; figures not comparable; output under the system temp dir by default;
 //          marked as a smoke run in summary.md and summary.json, and refused with --out under
 //          docs/measures/)
+// There is no on-screen or off-screen mode: --offscreen and --window-position are refused. A GPU-mode run
+// fails before any figure is written when the WebGL renderer is SwiftShader or gpuMs is null.
 //          --fail-placements (--play self-test of the run's checks: the mock reverts every build,
 //          the run must fail)
 //
 // The bench is not standalone: it imports the mock's codec and addresses from the client workspace
 // (packages/chain, packages/app-web/src/bench), so `bun install` at the repository root comes first.
-import { spawnSync, spawn } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { loadavg, tmpdir } from "node:os";
@@ -33,6 +36,8 @@ import { SourceMapConsumer } from "source-map-js";
 import { chromium } from "playwright-core";
 import type { Browser, BrowserContext, Page } from "playwright-core";
 import { capFrameRate } from "./frame-cap";
+import { TRIAL, checkGpu, launchArgs, parseMode, probeGpu } from "./launch";
+import type { GpuFacts } from "./launch";
 import { createMockChain } from "./mock-chain";
 import type { MockChain } from "./mock-chain";
 import {
@@ -58,7 +63,8 @@ function arg(name: string, fallback?: string): string | undefined {
   const next = process.argv[i + 1];
   return next && !next.startsWith("--") ? next : "true";
 }
-const kind: "board" | "click" | "play" = arg("click") ? "click" : arg("play") ? "play" : "board";
+const { mode, trial } = parseMode(process.argv);
+const kind: "board" | "click" | "play" = trial ? TRIAL.kind : arg("click") ? "click" : arg("play") ? "play" : "board";
 
 interface Profile {
   name: "unthrottled" | "throttled";
@@ -71,16 +77,16 @@ const PROFILES: Record<string, Profile> = {
   unthrottled: { name: "unthrottled", cpuRate: 1, fps: null },
   throttled: { name: "throttled", cpuRate: 4, fps: 60 },
 };
-const profiles = (arg("profiles", kind === "board" ? "unthrottled" : "unthrottled,throttled") as string)
+const profiles = (trial ? TRIAL.profile : (arg("profiles", kind === "board" ? "unthrottled" : "unthrottled,throttled") as string))
   .split(",")
   .map((p) => {
     if (!PROFILES[p]) throw new Error(`unknown profile ${p} (unthrottled, throttled)`);
     return PROFILES[p];
   });
-const sizes = (arg("sizes", "38,72") as string).split(",").map(Number);
-const runs = Number(arg("runs", kind === "play" ? "3" : "5"));
-const warmup = Number(arg("warmup", "1"));
-const durationMs = Number(arg("duration", kind === "play" ? "60000" : "20000"));
+const sizes = (trial ? String(TRIAL.size) : (arg("sizes", "38,72") as string)).split(",").map(Number);
+const runs = trial ? TRIAL.runs : Number(arg("runs", kind === "play" ? "3" : "5"));
+const warmup = trial ? TRIAL.warmup : Number(arg("warmup", "1"));
+const durationMs = trial ? TRIAL.durationMs : Number(arg("duration", kind === "play" ? "60000" : "20000"));
 /** Below these a run measures too little: a path of a few frames, a session with fewer than two placements. */
 const MIN_DURATION_MS = { board: 5000, click: 0, play: 17_000 };
 const [winW, winH] = (arg("window", "1440x900") as string).split("x").map(Number);
@@ -88,11 +94,14 @@ const defaultOut =
   kind === "board" ? (profiles.length === 1 && profiles[0].name === "throttled" ? join(measures, "throttled") : measures) : join(measures, kind);
 const failPlacements = arg("fail-placements") !== undefined;
 const doBuild = arg("no-build") === undefined;
-const offscreen = arg("offscreen") !== undefined;
-const headless = arg("headless") !== undefined;
+/** The software smoke mode; every other run is new headless with the GPU. */
+const headless = mode === "smoke";
+const launchArguments = launchArgs(mode, winW, winH);
 const chromiumPath = arg("chromium");
 // A headless smoke run never writes into docs/measures unless --out says so.
-const outDir = resolve(arg("out", headless ? join(tmpdir(), "paved-bench-headless", kind) : defaultOut) as string);
+const outDir = resolve(
+  trial ? join(tmpdir(), "paved-bench-trial") : (arg("out", headless ? join(tmpdir(), "paved-bench-headless", kind) : defaultOut) as string),
+);
 const profileOnly = arg("profile-only") !== undefined;
 const doProfile = arg("profile") !== undefined || profileOnly;
 const summarizeOnly = arg("summarize-only") !== undefined;
@@ -110,6 +119,8 @@ function checkArguments(): void {
   if (!Number.isInteger(warmup) || warmup < 0) bad(`--warmup ${arg("warmup")}: a count, 0 or more`);
   if (sizes.length === 0 || sizes.some((n) => !Number.isInteger(n) || n <= 0)) bad(`--sizes ${arg("sizes")}: tile counts such as 38,72`);
   if (failPlacements && kind !== "play") bad("--fail-placements applies to --play");
+  if (trial && headless) bad("--trial runs the GPU mode: it cannot be combined with --headless (smoke)");
+  if (trial && arg("out") !== undefined) bad("--trial writes under the system temp dir only: --out is refused");
   // A smoke run is not a measure: it never lands where the measures are committed.
   const measuresRoot = join(repo, "docs/measures");
   if (headless && (outDir === measuresRoot || outDir.startsWith(measuresRoot + sep))) {
@@ -124,7 +135,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const loadAvg = (): number[] => loadavg();
 
 /** A smoke run says so on top of its table, wherever the table goes. */
-const isSmoke = (machine: unknown): boolean => String((machine as { window?: string } | null)?.window ?? "").startsWith("headless");
+const isSmoke = (machine: unknown): boolean => String((machine as { window?: string } | null)?.window ?? "").includes("smoke");
 const SMOKE_BANNER = "> **Headless smoke run: not a measure.** Software rendering, no GPU, another machine: the figures are not comparable with any committed one and are never committed.\n\n";
 const withBanner = (md: string, machine: unknown) => (isSmoke(machine) ? SMOKE_BANNER : "") + md;
 
@@ -188,7 +199,8 @@ function machineInfo(browserVersion: string) {
     power: sh("pmset", ["-g", "batt"]).split("\n")[0],
     loadAvgAtStart: loadAvg(),
     windowArg: `${winW}x${winH}`,
-    window: headless ? "headless (smoke, not comparable)" : offscreen ? "off screen" : "on screen",
+    window: headless ? "headless (smoke, not comparable)" : "headless new",
+    launchArgs: launchArguments,
     profiles,
     displays,
   };
@@ -205,8 +217,8 @@ function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
 
 /** A fresh context and page under a profile: CPU throttling through CDP, the frame cap before any page script. */
 async function openPage(browser: Browser, profile: Profile) {
-  // Headed: the window's own size. Headless has no window: the same size as a viewport.
-  const context = await browser.newContext({ viewport: headless ? { width: winW, height: winH } : null });
+  // No window: the size is a viewport.
+  const context = await browser.newContext({ viewport: { width: winW, height: winH } });
   const page = await context.newPage();
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
@@ -277,13 +289,31 @@ const launch = () =>
     ? chromium.launch({
         headless: true,
         ...(chromiumPath ? { executablePath: chromiumPath } : {}),
-        args: [`--window-size=${winW},${winH}`, "--enable-precise-memory-info", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
+        args: launchArguments,
       })
     : chromium.launch({
-        channel: "chrome",
-        headless: false,
-        args: [`--window-size=${winW},${winH}`, offscreen ? "--window-position=-10000,0" : "--window-position=0,0", "--enable-precise-memory-info"],
+        // New headless: the full browser, no window, GPU process kept. Playwright 1.49 starts new headless
+        // with channel "chromium" (its own Chromium build: `bunx playwright-core@1.49.1 install chromium`).
+        channel: "chromium",
+        headless: true,
+        args: launchArguments,
       });
+
+/** The browser, after a preflight on a blank page: in GPU mode the run is refused before any figure when the renderer is software or has no GPU timer. */
+async function launchChecked(): Promise<Browser> {
+  const browser = await launchChecked();
+  if (headless) return browser;
+  try {
+    const page = await browser.newPage();
+    const facts: GpuFacts = await page.evaluate(probeGpu);
+    await page.close();
+    checkGpu(facts);
+  } catch (e) {
+    await browser.close();
+    throw e;
+  }
+  return browser;
+}
 
 /** The profile the raw runs were measured under: they say it (`driver.profile`); an older raw folder is read from its summary. */
 function profileOfRuns(runs: RunResult[], old: { profile?: Profile }): Profile {
@@ -327,7 +357,7 @@ async function measureBoard() {
   if (profiles.length > 1) throw new Error("the board bench takes one profile per invocation (its own --out)");
   const server = serve(join(appWeb, "dist-bench"));
   const base = `http://127.0.0.1:${server.port}`;
-  const browser = await launch();
+  const browser = await launchChecked();
   const machine = machineInfo(browser.version());
   writeFileSync(join(outDir, "machine.json"), JSON.stringify(machine, null, 2) + "\n");
   console.log(`machine: ${machine.chip}, ${machine.macOS}, Chrome ${machine.chrome}, profile ${profile.name}`);
@@ -339,6 +369,8 @@ async function measureBoard() {
       const { result } = await runOnce(browser, base, size, profile, false, i === warmup ? join(outDir, `screenshot-${size}.jpg`) : undefined);
       if (result.error) throw new Error(result.error);
       if (isWarm) continue;
+      // GPU mode: the run itself must show a hardware renderer and GPU times, before its file is written.
+      if (!headless) checkGpu({ renderer: result.gl?.renderer, gpuMs: result.gpuMs });
       // Labelled by what the page drew, not by what was asked.
       result.driver = { profile: profile.name, loadAvg: loadAvg() };
       writeFileSync(join(outDir, `run-${result.tileCount}-${i - warmup + 1}.json`), JSON.stringify(result) + "\n");
@@ -347,6 +379,15 @@ async function measureBoard() {
   await browser.close();
   server.stop(true);
   boardSummary(machine);
+  if (trial) {
+    const raw = JSON.parse(readFileSync(join(outDir, "run-72-1.json"), "utf8")) as RunResult;
+    console.log("\ntrial (new headless, no window):");
+    console.log(`  WebGL renderer: ${raw.gl.renderer}`);
+    console.log(`  launch args: ${machine.launchArgs.join(" ")}`);
+    console.log(`  Chrome: ${machine.chrome}`);
+    console.log(`  gpuMs present: ${raw.gpuMs && raw.gpuMs.length ? "yes" : "no"}`);
+    console.log(`  output: ${outDir}`);
+  }
 }
 
 /** One run of the largest board with the CPU profiler attached, on a build made for the profile (see vite.bench.config.ts). */
@@ -354,7 +395,7 @@ async function cpuProfile() {
   if (doBuild) build("build:bench", ["--outDir", "dist-profile"], { BENCH_PROFILE: "1" });
   const root = join(appWeb, "dist-profile");
   const server = serve(root);
-  const browser = await launch();
+  const browser = await launchChecked();
   const big = Math.max(...sizes);
   console.log(`profile: board ${big}`);
   const { load, path } = await runOnce(browser, `http://127.0.0.1:${server.port}`, big, profiles[0], true);
@@ -404,7 +445,7 @@ async function measureClick() {
   if (doBuild) build("build:bench");
   const server = serve(join(appWeb, "dist-bench"));
   const base = `http://127.0.0.1:${server.port}`;
-  const browser = await launch();
+  const browser = await launchChecked();
   const machine = machineInfo(browser.version());
   writeFileSync(join(outDir, "machine.json"), JSON.stringify(machine, null, 2) + "\n");
   for (const profile of profiles) {
@@ -544,7 +585,7 @@ async function measurePlay() {
   const mock = createMockChain(fixtures, 72, { revertBuilds: failPlacements });
   const server = serve(playRoot, mock);
   const base = `http://127.0.0.1:${server.port}`;
-  const browser = await launch();
+  const browser = await launchChecked();
   const machine = machineInfo(browser.version());
   writeFileSync(join(outDir, "machine.json"), JSON.stringify(machine, null, 2) + "\n");
   for (const profile of profiles) {
@@ -584,18 +625,12 @@ async function main() {
     else boardSummary(machine, old.when, old);
     return;
   }
-  // Keep the display awake: a sleeping display stops requestAnimationFrame (macOS only; a headless
-  // run has no display).
-  const caffeinate = process.platform === "darwin" && !headless ? spawn("caffeinate", ["-d", "-i"], { stdio: "ignore" }) : null;
-  try {
-    if (kind === "click") await measureClick();
-    else if (kind === "play") await measurePlay();
-    else {
-      if (!profileOnly) await measureBoard();
-      if (doProfile) await cpuProfile();
-    }
-  } finally {
-    caffeinate?.kill();
+  // No window and no display: nothing to keep awake.
+  if (kind === "click") await measureClick();
+  else if (kind === "play") await measurePlay();
+  else {
+    if (!profileOnly) await measureBoard();
+    if (doProfile) await cpuProfile();
   }
 }
 
