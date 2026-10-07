@@ -2,6 +2,7 @@
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use core::hash::HashStateTrait;
+use core::num::traits::Pow;
 use core::poseidon::{HashState, PoseidonTrait};
 
 // Internal imports
@@ -48,6 +49,13 @@ pub mod errors {
     pub const GAME_IS_OVER: felt252 = 'Game: is over';
     pub const GAME_NOT_OVER: felt252 = 'Game: not over';
     pub const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
+}
+
+/// `2^index`, the bit of a card in the deck bitmap (`Bitmap::set_bit_at` computes it with a
+/// loop of 256-bit products, which costs about 0.25M L2 gas).
+#[inline]
+fn bit(index: u8) -> u128 {
+    2_u128.pow(index.into())
 }
 
 #[generate_trait]
@@ -149,7 +157,7 @@ pub impl GameImpl of GameTrait {
         let deck: Deck = self.deck();
         let mut indexes = deck.indexes(plan);
         let index = indexes.pop_front().unwrap();
-        self.tiles = Bitmap::set_bit_at(self.tiles, index.into(), true);
+        self.tiles = self.tiles | bit(index);
 
         // [Effect] Update game start time and seed
         let mode: Mode = self.mode.into();
@@ -214,7 +222,7 @@ pub impl GameImpl of GameTrait {
             } else {
                 let index: u8 = 1 + Bitmap::most_significant_bit(self.tiles).unwrap();
                 let plan: Plan = deck.plan(index.into());
-                let tiles = Bitmap::set_bit_at(self.tiles, index.into(), true);
+                let tiles = self.tiles | bit(index);
                 (plan, tiles)
             }
         } else {
@@ -227,7 +235,7 @@ pub impl GameImpl of GameTrait {
                 0
             } else {
                 let index = plan_id - 1;
-                Bitmap::set_bit_at(self.tiles, index.into(), true)
+                self.tiles | bit(index)
             };
             (deck.plan(plan_id.into()), tiles)
         };

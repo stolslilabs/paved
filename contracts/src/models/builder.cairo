@@ -10,6 +10,7 @@ pub use paved::models::index::Builder;
 use paved::models::player::{Player, PlayerImpl};
 use paved::models::tile::{Tile, TileImpl, TileIntoLayout};
 use paved::store::{Store, StoreImpl};
+use paved::structure::placement::role_bit;
 use paved::types::category::Category;
 use paved::types::layout::{Layout, LayoutImpl};
 use paved::types::orientation::Orientation;
@@ -89,7 +90,7 @@ pub impl BuilderImpl of BuilderTrait {
         let category: Category = layout.get_category(spot);
         role.assert_is_allowed(category);
         // [Effect] Set character as placed
-        self.characters = Bitmap::set_bit_at(self.characters, index.into(), true);
+        self.characters = self.characters | role_bit(index);
         // [Effect] Update tile status
         tile.occupe(spot);
         // [Return] New character
@@ -104,7 +105,7 @@ pub impl BuilderImpl of BuilderTrait {
         let index: u8 = character.index;
         self.assert_recoverable(index);
         // [Effect] Collect character
-        self.characters = Bitmap::set_bit_at(self.characters, index.into(), false);
+        self.characters = self.characters & ~role_bit(index);
         // [Effect] Update character
         character.remove();
         // [Effect] Update tile status
@@ -141,13 +142,13 @@ pub impl BuilderAssert of AssertTrait {
 
     #[inline]
     fn assert_available(self: Builder, index: u8) {
-        let placed = Bitmap::get_bit_at(self.characters, index.into());
+        let placed = self.characters & role_bit(index) != 0;
         assert(!placed, errors::ALREADY_PLACED);
     }
 
     #[inline]
     fn assert_recoverable(self: Builder, index: u8) {
-        let placed = Bitmap::get_bit_at(self.characters, index.into());
+        let placed = self.characters & role_bit(index) != 0;
         assert(placed, errors::CHARACTER_NOT_PLACED);
     }
 }
