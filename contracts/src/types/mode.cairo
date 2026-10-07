@@ -10,7 +10,6 @@ use paved::helpers::bitmap::Bitmap;
 
 // External imports
 
-use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait as OrigamiDeckTrait};
 use paved::models::tournament::TournamentTrait;
 use paved::types::deck::{Deck, DeckImpl, DeckTrait};
 use paved::types::orientation::Orientation;
@@ -78,47 +77,10 @@ pub impl ModeImpl of ModeTrait {
     }
 
     #[inline]
-    fn draw(self: Mode, seed: felt252, tiles: u128) -> (Plan, u128) {
-        match self {
-            Mode::Daily => self._draw(seed, tiles),
-            Mode::Tutorial => {
-                let deck: Deck = self.deck();
-                if tiles == 0 {
-                    return (deck.plan(0), 1);
-                }
-                let index: u8 = 1 + Bitmap::most_significant_bit(tiles).unwrap();
-                let plan: Plan = deck.plan(index.into());
-                let tiles = Bitmap::set_bit_at(tiles, index.into(), true);
-                (plan, tiles)
-            },
-            _ => (Plan::None, tiles),
-        }
-    }
-
-    #[inline]
     fn parameters(self: Mode, tiles: u128) -> (Orientation, u32, u32, Role, Spot) {
         let deck: Deck = self.deck();
         let index = Bitmap::most_significant_bit(tiles).unwrap();
         deck.parameters(index.into())
-    }
-}
-
-#[generate_trait]
-pub impl Private of PrivateTrait {
-    #[inline]
-    fn _draw(self: Mode, seed: felt252, tiles: u128) -> (Plan, u128) {
-        let game_deck: Deck = self.deck();
-        let number: u32 = game_deck.total_count().into();
-        let mut deck: OrigamiDeck = OrigamiDeckTrait::from_bitmap(seed, number, tiles);
-        let plan_id: u8 = deck.draw().into();
-        // Update bitmap if deck is not empty, otherwise reset
-        let tiles = if deck.remaining == 0 {
-            0
-        } else {
-            let index = plan_id - 1;
-            Bitmap::set_bit_at(tiles, index.into(), true)
-        };
-        (game_deck.plan(plan_id.into()), tiles)
     }
 }
 

@@ -12,6 +12,9 @@
 //! - the Woodsman scores the distinct closed road roots, the Herdsman the distinct closed city
 //!   roots. A city whose root is open is not counted (P-15, the correction of the 2024 walk, which
 //!   could count an open city that a forest touched twice).
+//!
+//! A forest whose last open road (or city) closes away from it is assessed again (P-16, PR P5-8):
+//! `reassess_forests`, after the start spots and the wonders of the move.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::events::{Event, Scored};
@@ -28,24 +31,25 @@ use paved::structure::{oriented, tables};
 use paved::types::category::{Category, CategoryImpl};
 use paved::types::role::Role;
 
-/// Scores the forest of `area` of the built `tile` (of refs `refs`) if it is closed and holds a
-/// Woodsman or a Herdsman: one `Scored` per character (the Woodsman first), even with 0 points, and
-/// the characters recovered. Returns whether it scored.
+/// Scores the forest of `area` of `tile` (of refs `refs`) if it is closed and holds a Woodsman or a
+/// Herdsman: one `Scored` per character (the Woodsman first), even with 0 points, and the
+/// characters recovered. Returns whether it scored, and the root of the forest when it was scanned
+/// (0 when the gate stopped it), so that the move does not assess it twice.
 pub fn assess_forest(
     ref game: Game, tile: Tile, refs: u128, area: u8, ref structures: Structures, ref store: Store,
-) -> bool {
+) -> (bool, u32) {
     // [Check] The gate: no half-edge of the forest points to an empty position, and a character
     // stands on it (the only roles a forest takes are the Woodsman and the Herdsman)
     let (root, record) = structures.find(ref_of(refs, area));
     let chars = chars_of(record);
     if open_of(record) != 0 || chars == 0 {
-        return false;
+        return (false, 0);
     }
 
     // [Compute] The roads and cities around the forest
     let (open_road, roads, cities) = scan(game.id, tile, refs, area, ref structures);
     if open_road {
-        return false;
+        return (false, root);
     }
 
     // [Effect] Solve and collect the characters, the Woodsman first
@@ -62,10 +66,107 @@ pub fn assess_forest(
         recovered = recovered | role_bit(herdsman);
     }
     if recovered == 0 {
-        return false;
+        return (false, root);
     }
     structures.set(root, without_chars(record, recovered));
-    true
+    (true, root)
+}
+
+/// P-16 (PR P5-8): a road or a city that closes during the move, away from a forest, assesses the
+/// forests next to it again. A forest holding a Woodsman or a Herdsman is closed (its own edges all
+/// land) while an adjacent road is open; the road closing is the move that lets it score, though
+/// the built tile may not touch the forest. 2024 never came back to it: the character stayed.
+///
+/// Called after the start spots and the wonders of the move, with the roots that the start spots
+/// already scanned (`assessed`): a forest is never assessed twice in a move. A forest with a
+/// character is where the forests adjacent to a closed road or city that matter are, so the
+/// forests are found from the characters (no walk of the closed structure): Woodsman first, then
+/// Herdsman, whose events follow that order. Gates, cheapest first:
+/// - a Woodsman or a Herdsman is placed (the builder's `characters`, in memory);
+/// - a road or a city of the built tile closed in this move (its root has no open half-edge: it
+///   holds a node of the tile, so it was open before);
+/// - the forest of the character is closed and still holds it, and was not assessed in this move
+///   (`assess_forest` makes the last check, then scans).
+/// Returns whether a forest scored.
+pub fn reassess_forests(
+    ref game: Game,
+    tile: Tile,
+    refs: u128,
+    assessed: Span<u32>,
+    ref structures: Structures,
+    ref store: Store,
+) -> bool {
+    let woodsman: u8 = Role::Woodsman.into();
+    let herdsman: u8 = Role::Herdsman.into();
+    if game.characters & (role_bit(woodsman) | role_bit(herdsman)) == 0 {
+        return false;
+    }
+    if !closes_road_or_city(tile, refs, ref structures) {
+        return false;
+    }
+    let mut scored = false;
+    let mut done: Array<u32> = array![];
+    let mut roles = array![woodsman, herdsman].span();
+    while let Option::Some(role) = roles.pop_front() {
+        // [Check] The role is still placed: a forest assessed above recovered its characters
+        if game.characters & role_bit(*role) == 0 {
+            continue;
+        }
+        let character = structures.character(game.player_id, *role);
+        let (at, at_refs) = if character.tile_id == structures.built.id {
+            (structures.built, structures.built_refs)
+        } else {
+            StoreImpl::tile_with_refs(game.id, character.tile_id)
+        };
+        let area = oriented::area_of(oriented::plan_row(at.plan, at.orientation), character.spot);
+        let (root, record) = structures.find(ref_of(at_refs, area));
+        if open_of(record) != 0 || contains(assessed, root) || contains(done.span(), root) {
+            continue;
+        }
+        let (forest_scored, scanned) = assess_forest(
+            ref game, at, at_refs, area, ref structures, ref store,
+        );
+        if scanned != 0 {
+            done.append(scanned);
+        }
+        if forest_scored {
+            scored = true;
+        }
+    }
+    scored
+}
+
+/// Whether a road or a city of the built tile has no open half-edge: it closed in this move.
+fn closes_road_or_city(tile: Tile, refs: u128, ref structures: Structures) -> bool {
+    let mut closed = false;
+    let mut area: u8 = 1;
+    while area <= tables::AREA_COUNT {
+        let sid = ref_of(refs, area);
+        if sid != 0 {
+            let category: Category = tables::row_category(tables::area_row(tile.plan, area)).into();
+            if category == Category::Road || category == Category::City {
+                let (_, record) = structures.find(sid);
+                if open_of(record) == 0 {
+                    closed = true;
+                    break;
+                }
+            }
+        }
+        area += 1;
+    }
+    closed
+}
+
+#[inline(always)]
+fn contains(roots: Span<u32>, root: u32) -> bool {
+    let mut found = false;
+    for candidate in roots {
+        if *candidate == root {
+            found = true;
+            break;
+        }
+    }
+    found
 }
 
 /// Walks the forest of `area` of `tile` and returns whether an adjacent road is still open, the
