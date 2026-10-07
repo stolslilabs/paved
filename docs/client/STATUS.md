@@ -43,6 +43,10 @@ explicit confirm and the amount re-checked at send), a player-name field, the `D
 discard button, Woodsman and Herdsman (P4) in the role picker, and the scene redrawing its last board
 after init (the app's workaround is gone). Page-level tests of the Game and Landing states.
 
+2026-10-07, D-7: client performance work is dropped and the CLIENT targets (P-7b) are frozen at #195's figures
+(see PLAN.md); no more browser runs on the Mac. The track is idle until META's leaderboard screen or the
+Cartridge controller (P-14).
+
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
 The baseline measures a recorded board, not a live deployment (decided 2026-10-06): the contracts

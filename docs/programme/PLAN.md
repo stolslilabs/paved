@@ -50,3 +50,22 @@ These are **estimates**, to be fixed after P2's native measure:
   CPU + GPU time per frame p95 at most 16.7 ms and no frame over 1.5 intervals; time to interactive at
   most 2.0 s throttled and 0.5 s unthrottled; click to display p95 at most 50 ms and no long task over
   50 ms per placement, throttled; draw calls and triangles per median frame below baseline B.
+
+**CLIENT targets (P-7b): frozen on 2026-10-07 (D-7).** Client performance work is dropped; the figures
+below are the last measured, at 72 tiles on the M2 Max, Chrome on screen, from
+`docs/measures/client-deps.md` (PR #195; renderer step before it in `docs/measures/client-renderer.md`,
+PR #194). No further measure is planned.
+
+| P-7b target | Last measured (#195) | |
+|---|---|---|
+| Time to interactive <= 2.0 s, throttled | 742 ms | met |
+| Time to interactive <= 0.5 s, unthrottled | 231 ms | met |
+| CPU + GPU time per frame p95 <= 16.7 ms | 5.60 ms | met |
+| No frame over 1.5 intervals, board | 0.0 % | met |
+| Click to display p95 <= 50 ms, throttled | 34.7 ms | met |
+| Draw calls per median frame below baseline B (207) | 137 | met |
+| Triangles per median frame below baseline B (1,695,576) | 735,122 | met |
+| No long task > 50 ms per placement, throttled, in play | 1 per session, the first signature (50-54 ms) | **not met**, and not to be closed |
+| No frame over 1.5 intervals, in play (Game page) | 0.1 % | **not met**, and not to be closed |
+
+Native mobile client: later, not planned yet.
