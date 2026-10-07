@@ -18,7 +18,7 @@
 #
 # Env overrides: RPC_URL (localhost only), SCARB_BIN_DIR, SNCAST_BIN_DIR.
 # `deployed_at` is the merge base of HEAD with origin/main, and the script refuses when the contract
-# sources (contracts/src, Scarb.toml, Scarb.lock) differ from it.
+# sources of the working tree (contracts/src, Scarb.toml, Scarb.lock; untracked files in src too) differ from it.
 # Needs: scarb 2.20.1, sncast 0.64.0, curl, python3, git.
 set -euo pipefail
 
@@ -34,9 +34,15 @@ RPC_URL="${RPC_URL:-http://127.0.0.1:5050}"
 # Full-authority match: a prefix glob would let `http://127.0.0.1:5050@other-host:5050` through.
 LOCAL_URL_RE='^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?$'
 if [[ ! "$RPC_URL" =~ $LOCAL_URL_RE ]]; then
-  # Only scheme and host are printed: the URL could carry an API key (path, query or userinfo).
-  RPC_HOST="${RPC_URL#*://}"; RPC_HOST="${RPC_HOST##*@}"; RPC_HOST="${RPC_HOST%%[/?#:]*}"
-  echo "deploy.sh: devnet must be a local node (http://127.0.0.1|localhost|[::1]:<port>), got scheme '${RPC_URL%%://*}' host '${RPC_HOST}'" >&2
+  # Only scheme and host are printed: the URL could carry an API key (userinfo, path, query or fragment).
+  # The authority is cut first, so an `@` after the host never counts as userinfo.
+  RPC_SCHEME="(none)"; RPC_HOST="(none)"
+  if [[ "$RPC_URL" == *://* ]]; then
+    [[ "${RPC_URL%%://*}" =~ ^[A-Za-z][A-Za-z0-9+.-]*$ ]] && RPC_SCHEME="${RPC_URL%%://*}"
+    auth="${RPC_URL#*://}"; auth="${auth%%[/?#]*}"; auth="${auth##*@}"
+    if [[ "$auth" == \[* ]]; then RPC_HOST="${auth%%]*}]"; else RPC_HOST="${auth%%:*}"; fi
+  fi
+  echo "deploy.sh: devnet must be a local node (http://127.0.0.1|localhost|[::1]:<port>), got scheme '${RPC_SCHEME}' host '${RPC_HOST}'" >&2
   exit 2
 fi
 
@@ -136,11 +142,14 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   pyj 'd["contract_address"]' <<<"$out"
 }
 
-# deployed_at: the main commit whose contract sources are deployed. HEAD may be a branch commit, but
-# only when its contract sources equal those of the merge base with origin/main.
+# deployed_at: the main commit whose contract sources are deployed. The build compiles the working
+# tree, so the working tree (not HEAD) must equal the merge base with origin/main on the contract
+# sources, with no untracked source file either.
 DEPLOYED_AT="$(git -C "$ROOT" merge-base HEAD origin/main)" || die "no merge base of HEAD with origin/main (git fetch origin main)"
-git -C "$ROOT" diff --quiet "$DEPLOYED_AT" HEAD -- contracts/src contracts/Scarb.toml contracts/Scarb.lock ||
+git -C "$ROOT" diff --quiet "$DEPLOYED_AT" -- contracts/src contracts/Scarb.toml contracts/Scarb.lock ||
   die "contract sources differ from origin/main (merge base ${DEPLOYED_AT:0:12}): deploy from main-equivalent sources"
+[[ -z "$(git -C "$ROOT" ls-files --others --exclude-standard -- contracts/src)" ]] ||
+  die "untracked files in contracts/src: deploy from main-equivalent sources"
 
 echo "== node $RPC_URL"
 rpc starknet_specVersion '[]' >/dev/null || die "no node answers at $RPC_URL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"

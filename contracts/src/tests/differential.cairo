@@ -138,6 +138,7 @@ fn test_differential_two_areas_of_one_tile_join_one_structure() {
                 let (other, _) = structures.find(ref_of(refs, second));
                 assert_eq!(root, other);
                 assert_eq!(ref_of(refs, first), root);
+                assert_eq!(ref_of(refs, second), root);
             }
         },
     );

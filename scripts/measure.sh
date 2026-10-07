@@ -149,9 +149,9 @@ coverage_split() {
     set -e
     grep -iE '^Tests:|maximum resident|coverage|error|panicked' "$log" || true
     if [[ "$status" -ne 0 ]]; then
-      echo "group $name: snforge exited with status $status"; exit 1
+      echo "group $name: snforge exited with status $status (log: $log)"; exit 1
     fi
-    grep -qE '^Tests:.* 0 failed' "$log" || { echo "group $name: its Tests: line does not say 0 failed"; exit 1; }
+    grep -qE '^Tests:.* 0 failed' "$log" || { echo "group $name: its Tests: line does not say 0 failed (log: $log)"; exit 1; }
     test -s coverage/coverage.lcov || { echo "no coverage.lcov for group $name"; exit 1; }
     cp coverage/coverage.lcov "target/coverage-split/$name.lcov"
     parts+=("target/coverage-split/$name.lcov")
