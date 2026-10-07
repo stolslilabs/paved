@@ -48,7 +48,7 @@ pub const CEILING_FOREST_WORST: u128 = 19956685;
 pub const CEILING_CLOSING_PLACES: u128 = 1383301;
 pub const CEILING_CLOSING_NOT_PLACED: u128 = 1046450;
 pub const CEILING_CLOSING_AFTER: u128 = 760074;
-pub const CEILING_VIEW: u128 = 460266;
+pub const CEILING_VIEW: u128 = 388740;
 
 #[derive(Drop)]
 struct Scenario {
