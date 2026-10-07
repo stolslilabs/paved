@@ -2,7 +2,8 @@
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_TOURNAMENT, FixtureIndexer, IndexerClient } from "@paved/chain";
+import { IndexerClient } from "@paved/chain";
+import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_TOURNAMENT, FixtureIndexer } from "@paved/chain/testing";
 import { PlayerPage } from "../src/pages/Player";
 import { renderPage } from "./helpers/page-fixtures";
 
