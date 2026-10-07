@@ -226,6 +226,8 @@ matching, moves, adjacency; checked against the ring and caps goldens) was playe
 
 - no golden can show the rule (the closing move would be the move that closes the forest, which
   assesses it as a start spot), and `forest::scan`'s "open road" exit is never taken at runtime;
+- an open city never keeps a forest open (P-15), so the city half of P-16 can never trigger; only
+  the road half was ever in question;
 - the runtime has no re-assess step: it would only cost gas. The step was written and measured
   in a commit of the P5-8 branch (`f9fa9758`, reverted in the next one) for the day a tile makes the
   situation reachable (a road that leaves the tiles of its forest, a river, a tile whose forest area
@@ -426,3 +428,49 @@ Code: `contracts/src/structure/forest.cairo` (`assess_forest`, called from `Game
   a plan without areas has no structure and is left alone), and `Store::set_tile` refuses to change the
   plan, the orientation or the position of a tile whose refs are stored (the records were built from
   them).
+
+## As built (P5-6 and after)
+
+Code: PR P5-6 (#224, the gas pass), PR P-17 (#225, the draw) and PR P5-8 (#226). Where it differs from
+the sections above, and why:
+
+- **Positions carry a wonder flag.** `tile_positions` stores the tile id in 8 bits and
+  `POSITION_WONDER` (`0x100`, bit 8) when the tile is a wonder plan (`plan >= FIRST_WONDER_PLAN`, 18,
+  the last two plan codes), written by `Store::set_placed_tile`. `Store::wonder_at` reads the diagonal
+  neighbours: a position without the flag answers "taken" and nothing else, and its tile is not read.
+  A diagonal tile that is not a wonder is therefore never read by a move (it matters to a move only if
+  it can score a wonder). The tile id is `value % POSITION_WONDER` everywhere else.
+- **The `Characters` word is read once and written once per move.** `Structures` (the move-local
+  cache, `structure/state.cairo`) reads the word at the first character it needs
+  (`characters_state` 1) and keeps it; a placed or recovered character changes the cached word
+  (`characters_state` 2); `flush` writes the slot once, if it changed.
+- **The built tile is in the same cache.** `Structures::set_built` declares the tile and its refs;
+  `flush` writes it once, with its position, after the assessment (a character recovered on it
+  changes its `occupied_spot`). A move therefore writes each tile slot, record page slot and the
+  `Characters` slot at most once, and reads each at most once.
+- **`placement::assert_fits` checks the fit on the oriented tables.** The category of an edge is
+  `edge_category(plan, orientation, direction)`, read from the oriented rows of `oriented.cairo`;
+  `build` of `playable` and `tutoriable` calls `assert_fits(tile, @around)`, which needs at least one
+  side neighbour (`TILE_NO_NEIGHBORS`), a placed tile when a neighbour is there (`TILE_NOT_PLACED`)
+  and the same category on every facing edge (`TILE_CANNOT_PLACE`). It replaces `Tile::can_place`
+  on the layouts.
+- **The player is explicit at spawn.** `GameImpl::new(id, time, mode, player_id)` takes the player,
+  which `spawn` reads from the registry (`player.id`); the game no longer calls
+  `get_caller_address`. The builder is not stored apart: `spawn` leaves the first tile in the game's
+  hand (`GameState`), and `builder_of` composes the builder.
+- **`tile_limit <= 255`.** The tile count is packed in 8 bits in `GameState`, so `GameImpl::new`
+  refuses a deck of more than 255 tiles (`Game: invalid tile limit`). `tile_limit` itself stays 16
+  bits in `GameConfig`.
+- **Bits of the deck bitmap** are set with `bit(index)` (`2^index`) and `|`, not with
+  `Bitmap::set_bit_at`, whose loop of 256-bit products cost about 0.25M L2 gas.
+- **The draw is `draw_from_bitmap`** (P-17, `helpers/random_deck.cairo`). `Game::draw_plan` calls
+  `draw_from_bitmap(seed, number, bitmap)`, which returns the card and the number of cards left, and
+  gives **the same tiles for the same seed** as `Deck::from_bitmap(seed, number, bitmap)` then
+  `draw()` did: same hash (`seed`, 0, remaining), same slot, with the swaps of the withdrawn cards
+  followed through `slot_card` and a `popcount` of the bitmap instead of rebuilding the deck. The
+  goldens, the full-deck one included, are unchanged. A change of the seed-to-tiles mapping is out
+  of reach of this optimisation (D-3).
+- **`Mode::draw` is gone** (with its private `_draw` and the imports of the original deck): it had no
+  caller since `draw_plan` is on `Game`.
+- **P-16 is closed**: see "A road closed away from its forest" above; the oracle invariant replaces
+  the re-assess step.
