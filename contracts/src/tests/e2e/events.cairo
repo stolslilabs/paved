@@ -12,6 +12,7 @@ use paved::models::tournament::TournamentTrait;
 use paved::systems::account::{Account, IAccountDispatcherTrait};
 use paved::systems::daily::Daily;
 use paved::systems::tutorial::{ITutorialDispatcherTrait, Tutorial};
+use paved::tests::leaderboard;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, TestStoreTrait,
@@ -200,10 +201,7 @@ fn test_events_daily_sponsor_and_claim() {
     spy.assert_emitted(@array![(systems.daily.contract_address, sponsored)]);
 
     // Force PLAYER as the top-1 winner, then claim after the tournament.
-    let mut tournament = store.tournament(tournament_id);
-    tournament.top1_player_id = context.player_id;
-    tournament.top1_score = 1;
-    store.set_tournament(tournament);
+    leaderboard::submit(store.contract, tournament_id, context.player_id, 1);
     start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
     let balance_before = context.token.balance_of(PLAYER());
     systems.daily.claim(tournament_id, 1);

@@ -9,7 +9,8 @@ pub mod PlayableComponent {
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl, ZeroableBuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::tile::{Tile, TileAssert, TileImpl, TilePosition, TilePositionAssert};
-    use paved::models::tournament::{Tournament, TournamentAssert, TournamentImpl};
+    use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
+    use paved::models::tournament::TournamentImpl;
     use paved::store::{Store, StoreImpl};
     use paved::structure::placement::{self, NeighborhoodTrait};
     use paved::structure::state::StructuresTrait;
@@ -28,6 +29,25 @@ pub mod PlayableComponent {
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {}
+
+    /// A game that ends in the tournament it started in is submitted to the leaderboard, then gets
+    /// the tournament id and its end time. One that ends after its tournament closed ranks in
+    /// nothing and keeps `tournament_id` 0.
+    fn end_in_tournament(store: Store, ref game: Game, player_id: felt252) {
+        let time = get_block_timestamp();
+        let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
+        let id_end = TournamentImpl::compute_id(time, game.duration());
+        if tournament_id == id_end {
+            // [Effect] Submit to the leaderboard
+            let submission = Submission { player_id, game_id: game.id, score: game.score, time };
+            LeaderboardImpl::new().submit(tournament_id, submission);
+
+            // [Effect] Add tournament id to game
+            game.tournament_id = tournament_id;
+            game.end_time = time;
+            store.set_game_end(game);
+        }
+    }
 
     #[generate_trait]
     pub impl InternalImpl<
@@ -89,22 +109,9 @@ pub mod PlayableComponent {
             // [Effect] Update builder
             game.set_builder(builder);
 
-            // [Event] Update tournament on game over
+            // [Effect] Rank the game in its tournament on game over
             if game.is_over() {
-                let time = get_block_timestamp();
-                let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
-                let id_end = TournamentImpl::compute_id(time, game.duration());
-                if tournament_id == id_end {
-                    // [Effect] Update tournament
-                    let mut tournament = store.tournament(tournament_id);
-                    tournament.score(player_id, game.score);
-                    store.set_tournament(tournament);
-
-                    // [Effect] Add tournament id to game
-                    game.tournament_id = tournament_id;
-                    game.end_time = time;
-                    store.set_game_end(game);
-                }
+                end_in_tournament(store, ref game, player_id);
             }
 
             // [Effect] Update game
@@ -140,22 +147,9 @@ pub mod PlayableComponent {
             // [Effect] Game over
             game.surrender();
 
-            // [Event] Update tournament on game over
+            // [Effect] Rank the game in its tournament on game over
             if game.is_over() {
-                let time = get_block_timestamp();
-                let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
-                let id_end = TournamentImpl::compute_id(time, game.duration());
-                if tournament_id == id_end {
-                    // [Effect] Update tournament
-                    let mut tournament = store.tournament(tournament_id);
-                    tournament.score(player_id, game.score);
-                    store.set_tournament(tournament);
-
-                    // [Effect] Add tournament id to game
-                    game.tournament_id = tournament_id;
-                    game.end_time = time;
-                    store.set_game_end(game);
-                }
+                end_in_tournament(store, ref game, player_id);
             }
 
             // [Effect] Update game
@@ -270,22 +264,9 @@ pub mod PlayableComponent {
             game.assess(tile, refs, @around, ref structures, ref store);
             structures.flush(store);
 
-            // [Event] Update tournament on game over
+            // [Effect] Rank the game in its tournament on game over
             if game.is_over() {
-                let time = get_block_timestamp();
-                let tournament_id = TournamentImpl::compute_id(game.start_time, game.duration());
-                let id_end = TournamentImpl::compute_id(time, game.duration());
-                if tournament_id == id_end {
-                    // [Effect] Update tournament
-                    let mut tournament = store.tournament(tournament_id);
-                    tournament.score(player_id, game.score);
-                    store.set_tournament(tournament);
-
-                    // [Effect] Add tournament id to game
-                    game.tournament_id = tournament_id;
-                    game.end_time = time;
-                    store.set_game_end(game);
-                }
+                end_in_tournament(store, ref game, player_id);
             }
 
             // [Effect] Update game

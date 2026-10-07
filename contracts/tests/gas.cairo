@@ -24,6 +24,7 @@
 
 use core::testing::get_available_gas;
 use paved::constants::CENTER;
+use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
 use paved::structure::placement::role_bit;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -32,6 +33,7 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 use crate::setup::setup;
 use crate::setup::setup::{IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
+use snforge_std::interact_with_state;
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
 pub const CEILING_OPEN: u128 = 5869212;
@@ -41,6 +43,8 @@ pub const CEILING_CLOSE_LARGE: u128 = 6392332;
 pub const CEILING_WORST_CASE: u128 = 7325796;
 pub const CEILING_FOREST: u128 = 9756082;
 pub const CEILING_FOREST_WORST: u128 = 19956685;
+pub const CEILING_CLOSING_RANKS: u128 = 1000000000;
+pub const CEILING_CLOSING_NO_RANK: u128 = 1000000000;
 
 #[derive(Drop)]
 struct Scenario {
@@ -250,4 +254,143 @@ fn test_gas_f_worst_forest_scan() {
     assert(builder.characters & role_bit(woodsman) == 0, 'Gas: Woodsman not recovered');
     println!("SCORE f_worst_forest_scan: {}", game.score);
     report("f_worst_forest_scan", gas, CEILING_FOREST_WORST);
+}
+
+impl ScenarioSurrender of ScenarioSurrenderTrait {
+    /// L2 gas of `surrender` alone: the game ends inside its tournament, which ranks it.
+    fn surrender(self: @Scenario) -> u128 {
+        let before = get_available_gas();
+        self.systems.daily.surrender(*self.game_id);
+        let after = get_available_gas();
+        before - after
+    }
+}
+trait ScenarioSurrenderTrait {
+    fn surrender(self: @Scenario) -> u128;
+}
+
+/// g. Closing move that ranks: the game of scenario c (a 6-tile city scored) ends by surrender in
+/// its tournament, whose ranking is empty, so the score takes rank 1. The measure of the
+/// leaderboard update inside a closing move (P6).
+#[test]
+fn test_gas_g_closing_move_ranks() {
+    let s = ScenarioTrait::new();
+    s.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, Role::Lord, Spot::Center);
+    s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 2);
+    s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3);
+    s.step(Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 4);
+    s.step(Plan::FFFFFFCFF, Orientation::East, CENTER + 1, CENTER + 4);
+    let gas = s.surrender();
+    let game = s.store.game(s.game_id);
+    assert(game.over && game.score > 0, 'Gas: game not over');
+    println!("GAS g_score: {}", game.score);
+    report("g_closing_move_ranks", gas, CEILING_CLOSING_RANKS);
+}
+
+/// h. Closing move that does not rank: a game of score 0 ends by surrender.
+#[test]
+fn test_gas_h_closing_move_does_not_rank() {
+    let s = ScenarioTrait::new();
+    let gas = s.surrender();
+    let game = s.store.game(s.game_id);
+    assert(game.over && game.score == 0, 'Gas: wrong game over');
+    report("h_closing_move_does_not_rank", gas, CEILING_CLOSING_NO_RANK);
+}
+
+// Leaderboard (P6): the interface alone, on a tournament that holds three ranks (30, 20, 10).
+
+const BOARD_ID: u64 = 20000;
+pub const CEILING_SUBMIT_PLACES: u128 = 1000000000;
+pub const CEILING_SUBMIT_NOT_PLACED: u128 = 1000000000;
+pub const CEILING_TOP: u128 = 1000000000;
+pub const CEILING_RANKED: u128 = 1000000000;
+
+fn board() -> TestStore {
+    let (store, _, _) = setup::spawn_game(Mode::None);
+    interact_with_state(
+        store.contract,
+        || {
+            let leaderboard = LeaderboardImpl::new();
+            let mut score = 30;
+            let mut player = 1;
+            while score > 0 {
+                let submission = Submission { player_id: player, game_id: 1, score, time: 0 };
+                leaderboard.submit(BOARD_ID, submission);
+                score -= 10;
+                player += 1;
+            }
+        },
+    );
+    store
+}
+
+/// i. `submit` that places at rank 1 and shifts the two other ranks (the worst case).
+#[test]
+fn test_gas_i_submit_places_at_rank_1() {
+    let store = board();
+    let gas = interact_with_state(
+        store.contract,
+        || {
+            let submission = Submission { player_id: 9, game_id: 2, score: 40, time: 0 };
+            let before = get_available_gas();
+            let rank = LeaderboardImpl::new().submit(BOARD_ID, submission);
+            let after = get_available_gas();
+            assert(rank == 1, 'Gas: not placed');
+            before - after
+        },
+    );
+    report("i_submit_places_at_rank_1", gas, CEILING_SUBMIT_PLACES);
+}
+
+/// j. `submit` that does not place.
+#[test]
+fn test_gas_j_submit_not_placed() {
+    let store = board();
+    let (before, after, rank) = interact_with_state(
+        store.contract,
+        || {
+            let submission = Submission { player_id: 9, game_id: 2, score: 5, time: 0 };
+            let before = get_available_gas();
+            let rank = LeaderboardImpl::new().submit(BOARD_ID, submission);
+            let after = get_available_gas();
+            (before, after, rank)
+        },
+    );
+    assert(rank == 0, 'Gas: placed');
+    println!("RAW before={} after={}", before, after);
+    report("j_submit_not_placed", before - after, CEILING_SUBMIT_NOT_PLACED);
+}
+
+/// k. `top`: the three ranks.
+#[test]
+fn test_gas_k_top() {
+    let store = board();
+    let gas = interact_with_state(
+        store.contract,
+        || {
+            let before = get_available_gas();
+            let top = LeaderboardImpl::new().top(BOARD_ID);
+            let after = get_available_gas();
+            assert(top.third.score == 10, 'Gas: wrong top');
+            before - after
+        },
+    );
+    report("k_top", gas, CEILING_TOP);
+}
+
+/// l. `ranked`: one rank.
+#[test]
+fn test_gas_l_ranked() {
+    let store = board();
+    let gas = interact_with_state(
+        store.contract,
+        || {
+            let before = get_available_gas();
+            let ranked = LeaderboardImpl::new().ranked(BOARD_ID, 2);
+            let after = get_available_gas();
+            assert(ranked.score == 20, 'Gas: wrong rank');
+            before - after
+        },
+    );
+    report("l_ranked", gas, CEILING_RANKED);
 }

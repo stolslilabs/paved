@@ -1,5 +1,6 @@
 pub mod constants;
 pub mod events;
+pub mod leaderboard;
 pub mod store;
 pub mod views;
 
@@ -104,6 +105,7 @@ pub mod tests {
     pub mod differential;
     pub mod e2e;
     pub mod golden;
+    pub mod leaderboard;
     pub mod oracle;
     pub mod setup;
 }

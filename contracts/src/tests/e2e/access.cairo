@@ -7,6 +7,7 @@ use paved::models::tile::CENTER;
 use paved::models::tournament::TournamentTrait;
 use paved::systems::account::IAccountDispatcherTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
+use paved::tests::leaderboard;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     ANYONE, IDailyDispatcherTrait, NOONE, OWNER, PLAYER, PLAYER_NAME, SOMEONE, TestStoreTrait,
@@ -366,10 +367,7 @@ fn close_tournament(store: setup::TestStore, game_id: u32, player_id: felt252) -
     let tournament_id = TournamentTrait::compute_id(
         game.start_time, constants::DAILY_TOURNAMENT_DURATION,
     );
-    let mut tournament = store.tournament(tournament_id);
-    tournament.top1_player_id = player_id;
-    tournament.top1_score = 1;
-    store.set_tournament(tournament);
+    leaderboard::submit(store.contract, tournament_id, player_id, 1);
     start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
     tournament_id
 }

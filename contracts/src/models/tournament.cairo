@@ -8,6 +8,7 @@ use paved::constants;
 // External imports
 
 use paved::helpers::random_deck::{Deck as OrigamiDeck, DeckTrait};
+use paved::leaderboard::{Top3, Top3Impl};
 pub use paved::models::index::Tournament;
 
 // Errors
@@ -28,69 +29,36 @@ pub impl TournamentImpl of TournamentTrait {
         time / duration
     }
 
+    /// The player who holds `rank` in `top`, the ranking read from the leaderboard.
     #[inline]
-    fn player(self: Tournament, rank: u8) -> felt252 {
-        match rank {
-            0 => 0,
-            1 => self.top1_player_id,
-            2 => self.top2_player_id,
-            3 => self.top3_player_id,
-            _ => 0,
-        }
+    fn player(self: Tournament, top: Top3, rank: u8) -> felt252 {
+        top.player(rank)
     }
 
-    fn reward(self: Tournament, rank: u8) -> u256 {
+    fn reward(self: Tournament, top: Top3, rank: u8) -> u256 {
         match rank {
             0 => 0_u256,
             1 => {
                 // [Compute] Remove the other prize to avoid remaining dust due to rounding
-                let second_prize = self.reward(2);
-                let third_prize = self.reward(3);
+                let second_prize = self.reward(top, 2);
+                let third_prize = self.reward(top, 3);
                 self.prize.into() - second_prize - third_prize
             },
             2 => {
-                if self.top2_player_id == 0 {
+                if top.second.player_id == 0 {
                     return 0_u256;
                 }
-                let third_reward = self.reward(3);
+                let third_reward = self.reward(top, 3);
                 (self.prize.into() - third_reward) / 3_u256
             },
             3 => {
-                if self.top3_player_id == 0 {
+                if top.third.player_id == 0 {
                     return 0_u256;
                 }
                 self.prize.into() / 6_u256
             },
             _ => 0_u256,
         }
-    }
-
-    #[inline]
-    fn score(ref self: Tournament, player_id: felt252, score: u32) {
-        if score <= self.top3_score {
-            return;
-        }
-
-        if score <= self.top2_score {
-            self.top3_score = score;
-            self.top3_player_id = player_id;
-            return;
-        }
-
-        if score <= self.top1_score {
-            self.top3_score = self.top2_score;
-            self.top3_player_id = self.top2_player_id;
-            self.top2_score = score;
-            self.top2_player_id = player_id;
-            return;
-        }
-
-        self.top3_score = self.top2_score;
-        self.top3_player_id = self.top2_player_id;
-        self.top2_score = self.top1_score;
-        self.top2_player_id = self.top1_player_id;
-        self.top1_score = score;
-        self.top1_player_id = player_id;
     }
 
     #[inline]
@@ -104,16 +72,18 @@ pub impl TournamentImpl of TournamentTrait {
     }
 
     #[inline]
-    fn claim(ref self: Tournament, player_id: felt252, rank: u8, time: u64, duration: u64) -> u256 {
+    fn claim(
+        ref self: Tournament, top: Top3, player_id: felt252, rank: u8, time: u64, duration: u64,
+    ) -> u256 {
         // [Check] Tournament is over
         self.assert_is_over(time, duration);
         // [Check] Reward not already claimed
         self.assert_not_claimed(rank);
         // [Check] Player is caller
-        let player = self.player(rank);
+        let player = self.player(top, rank);
         assert(player == player_id, errors::INVALID_PLAYER);
         // [Check] Something to claim
-        let reward = self.reward(rank);
+        let reward = self.reward(top, rank);
         assert(reward != 0, errors::NOTHING_TO_CLAIM);
         // [Effect] Claim and return the corresponding reward
         if rank == 1 {
@@ -160,12 +130,6 @@ pub impl ZeroableTournament of ZeroableTournamentTrait {
         Tournament {
             id: 0,
             prize: 0,
-            top1_player_id: 0,
-            top2_player_id: 0,
-            top3_player_id: 0,
-            top1_score: 0,
-            top2_score: 0,
-            top3_score: 0,
             top1_claimed: false,
             top2_claimed: false,
             top3_claimed: false,
@@ -185,10 +149,9 @@ pub impl ZeroableTournament of ZeroableTournamentTrait {
 
 #[cfg(test)]
 pub mod tests {
-    // Core imports
-
     // Local imports
 
+    use paved::leaderboard::{Ranked, Top3};
     use super::{Tournament, TournamentImpl};
 
     // Constants
@@ -201,18 +164,18 @@ pub mod tests {
         #[inline]
         fn default() -> Tournament {
             Tournament {
-                id: 0,
-                prize: 0,
-                top1_player_id: 0,
-                top2_player_id: 0,
-                top3_player_id: 0,
-                top1_score: 0,
-                top2_score: 0,
-                top3_score: 0,
-                top1_claimed: false,
-                top2_claimed: false,
-                top3_claimed: false,
+                id: 0, prize: 0, top1_claimed: false, top2_claimed: false, top3_claimed: false,
             }
+        }
+    }
+
+    /// The ranking of three players, as the leaderboard would give it. A player of 0 is an empty
+    /// rank.
+    fn top(p1: felt252, s1: u32, p2: felt252, s2: u32, p3: felt252, s3: u32) -> Top3 {
+        Top3 {
+            first: Ranked { player_id: p1, score: s1 },
+            second: Ranked { player_id: p2, score: s2 },
+            third: Ranked { player_id: p3, score: s3 },
         }
     }
 
@@ -230,41 +193,23 @@ pub mod tests {
     }
 
     #[test]
-    fn test_score() {
-        let mut tournament: Tournament = Default::default();
-        tournament.score(1, 10);
-        tournament.score(2, 20);
-        tournament.score(3, 15);
-        tournament.score(4, 5);
-        tournament.score(5, 25);
-        assert(5 == tournament.top1_player_id, 'Tournament: wrong top1 player');
-        assert(2 == tournament.top2_player_id, 'Tournament: wrong top2 player');
-        assert(3 == tournament.top3_player_id, 'Tournament: wrong top3 player');
-        assert(25 == tournament.top1_score, 'Tournament: wrong top1 score');
-        assert(20 == tournament.top2_score, 'Tournament: wrong top2 score');
-        assert(15 == tournament.top3_score, 'Tournament: wrong top3 score');
-    }
-
-    #[test]
     fn test_claim_three_players() {
         let mut tournament: Tournament = Default::default();
         tournament.prize = 100;
-        tournament.score(1, 10);
-        tournament.score(2, 20);
-        tournament.score(3, 15);
+        let top = top(2, 20, 3, 15, 1, 10);
 
         // First claims the reward
-        let reward = tournament.claim(2, 1, TIME, 604800);
+        let reward = tournament.claim(top, 2, 1, TIME, 604800);
         assert(56 == reward, 'Tournament: wrong reward');
         assert(tournament.top1_claimed, 'Tournament: not claimed');
 
         // Second claims the reward
-        let reward = tournament.claim(3, 2, TIME, 604800);
+        let reward = tournament.claim(top, 3, 2, TIME, 604800);
         assert(28 == reward, 'Tournament: wrong reward');
         assert(tournament.top2_claimed, 'Tournament: not claimed');
 
         // Third claims the reward
-        let reward = tournament.claim(1, 3, TIME, 604800);
+        let reward = tournament.claim(top, 1, 3, TIME, 604800);
         assert(16 == reward, 'Tournament: wrong reward');
         assert(tournament.top3_claimed, 'Tournament: not claimed');
     }
@@ -273,16 +218,15 @@ pub mod tests {
     fn test_claim_two_players() {
         let mut tournament: Tournament = Default::default();
         tournament.prize = 100;
-        tournament.score(2, 20);
-        tournament.score(3, 15);
+        let top = top(2, 20, 3, 15, 0, 0);
 
         // First claims the reward
-        let reward = tournament.claim(2, 1, TIME, 604800);
+        let reward = tournament.claim(top, 2, 1, TIME, 604800);
         assert(67 == reward, 'Tournament: wrong reward');
         assert(tournament.top1_claimed, 'Tournament: not claimed');
 
         // Second claims the reward
-        let reward = tournament.claim(3, 2, TIME, 604800);
+        let reward = tournament.claim(top, 3, 2, TIME, 604800);
         assert(33 == reward, 'Tournament: wrong reward');
         assert(tournament.top2_claimed, 'Tournament: not claimed');
     }
@@ -291,10 +235,10 @@ pub mod tests {
     fn test_claim_one_player() {
         let mut tournament: Tournament = Default::default();
         tournament.prize = 100;
-        tournament.score(2, 20);
+        let top = top(2, 20, 0, 0, 0, 0);
 
         // First claims the reward
-        let reward = tournament.claim(2, 1, TIME, 604800);
+        let reward = tournament.claim(top, 2, 1, TIME, 604800);
         assert(100 == reward, 'Tournament: wrong reward');
         assert(tournament.top1_claimed, 'Tournament: not claimed');
     }
@@ -304,11 +248,10 @@ pub mod tests {
     fn test_claim_revert_invalid_player() {
         let mut tournament: Tournament = Default::default();
         tournament.prize = 100;
-        tournament.score(2, 20);
-        tournament.score(3, 15);
+        let top = top(2, 20, 3, 15, 0, 0);
 
         // First claims the reward
-        tournament.claim(3, 1, TIME, 604800);
+        tournament.claim(top, 3, 1, TIME, 604800);
     }
 
     #[test]
@@ -316,12 +259,10 @@ pub mod tests {
     fn test_claim_revert_not_over() {
         let mut tournament: Tournament = Default::default();
         tournament.prize = 100;
-        tournament.score(1, 10);
-        tournament.score(2, 20);
-        tournament.score(3, 15);
+        let top = top(2, 20, 3, 15, 1, 10);
 
         // First claims the reward
-        tournament.claim(1, 3, 0, 604800);
+        tournament.claim(top, 1, 3, 0, 604800);
     }
 
     #[test]
@@ -329,12 +270,10 @@ pub mod tests {
     fn test_claim_revert_already_claimed() {
         let mut tournament: Tournament = Default::default();
         tournament.prize = 100;
-        tournament.score(1, 10);
-        tournament.score(2, 20);
-        tournament.score(3, 15);
+        let top = top(2, 20, 3, 15, 1, 10);
 
         // First claims the reward
-        tournament.claim(1, 3, TIME, 604800);
-        tournament.claim(1, 3, TIME, 604800);
+        tournament.claim(top, 1, 3, TIME, 604800);
+        tournament.claim(top, 1, 3, TIME, 604800);
     }
 }

@@ -73,12 +73,6 @@ pub struct TilePosition {
 pub struct Tournament {
     pub id: u64,
     pub prize: felt252,
-    pub top1_player_id: felt252,
-    pub top2_player_id: felt252,
-    pub top3_player_id: felt252,
-    pub top1_score: u32,
-    pub top2_score: u32,
-    pub top3_score: u32,
     pub top1_claimed: bool,
     pub top2_claimed: bool,
     pub top3_claimed: bool,

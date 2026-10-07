@@ -109,12 +109,6 @@ fn test_store_round_trips_at_maximum_values() {
             let tournament = Tournament {
                 id: Bounded::MAX,
                 prize: BIG,
-                top1_player_id: BIG,
-                top2_player_id: BIG - 1,
-                top3_player_id: BIG - 2,
-                top1_score: Bounded::MAX,
-                top2_score: Bounded::MAX - 1,
-                top3_score: Bounded::MAX - 2,
                 top1_claimed: true,
                 top2_claimed: false,
                 top3_claimed: true,

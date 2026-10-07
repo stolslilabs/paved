@@ -10,6 +10,7 @@ pub mod HostableComponent {
     // Internal imports
 
     use paved::events::{Claimed, Event as PavedEvent, GameSpawned, Sponsored};
+    use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::player::{Player, PlayerAssert, PlayerImpl};
@@ -111,9 +112,10 @@ pub mod HostableComponent {
             let mut tournament = store.tournament(tournament_id);
             tournament.assert_exists();
 
-            // [Effect] Update claim
+            // [Effect] Update claim, against the ranking of the leaderboard
+            let top = LeaderboardImpl::new().top(tournament_id);
             let time = get_block_timestamp();
-            let reward = tournament.claim(player.id, rank, time, mode.duration());
+            let reward = tournament.claim(top, player.id, rank, time, mode.duration());
             store.set_tournament(tournament);
 
             // [Event] Reward claimed

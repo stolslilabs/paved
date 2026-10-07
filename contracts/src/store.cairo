@@ -37,8 +37,6 @@ const TWO_POW_72: u128 = 0x1000000000000000000;
 const TWO_POW_80: u128 = 0x100000000000000000000;
 const TWO_POW_88: u128 = 0x10000000000000000000000;
 const TWO_POW_96: u128 = 0x1000000000000000000000000;
-const TWO_POW_97: u128 = 0x2000000000000000000000000;
-const TWO_POW_98: u128 = 0x4000000000000000000000000;
 const TWO_POW_108: u128 = 0x1000000000000000000000000000;
 const TWO_POW_112: u128 = 0x10000000000000000000000000000;
 const TWO_POW_128: felt252 = 0x100000000000000000000000000000000;
@@ -73,14 +71,14 @@ pub struct Slots3 {
     pub c: felt252,
 }
 
-/// Five consecutive storage slots.
-#[derive(Copy, Drop, Serde, starknet::Store)]
-pub struct Slots5 {
-    pub a: felt252,
-    pub b: felt252,
-    pub c: felt252,
-    pub d: felt252,
-    pub e: felt252,
+/// The ranking of a tournament: the player of each of the three ranks, and one word that packs
+/// the three scores (32 bits each, rank 1 in the low bits). Four slots, read one by one.
+#[starknet::storage_node]
+pub struct Ranking {
+    pub first: felt252,
+    pub second: felt252,
+    pub third: felt252,
+    pub scores: felt252,
 }
 
 /// Game state of a contract.
@@ -103,7 +101,11 @@ pub struct PavedStorage {
     pub tile_positions: Map<(u32, u32, u32), u32>,
     /// `Characters`: one slot per game, 16 bits per role (role `r` at bits `16 r`).
     pub characters: Map<u32, felt252>,
-    pub tournaments: Map<u64, Slots5>,
+    /// `Tournament`: the prize and the claimed flags (bits 0 to 2), two slots per tournament.
+    pub tournaments: Map<u64, Slots2>,
+    /// The ranking of a tournament, read and written by the native leaderboard
+    /// (`leaderboard.cairo`).
+    pub rankings: Map<u64, Ranking>,
     /// `Structures`: the record pages, one or two slots per placed tile (`slot` 0 or 1), four
     /// records of 48 bits per slot (see `structure/record.cairo`).
     pub structures: Map<(u32, u32, u8), felt252>,
@@ -214,19 +216,13 @@ pub impl StoreImpl of StoreTrait {
 
     fn tournament(self: Store, tournament_id: u64) -> Tournament {
         let slots = storage().tournaments.entry(tournament_id).read();
-        let word: u256 = slots.e.into();
+        let flags: u256 = slots.b.into();
         Tournament {
             id: tournament_id,
             prize: slots.a,
-            top1_player_id: slots.b,
-            top2_player_id: slots.c,
-            top3_player_id: slots.d,
-            top1_score: (word.low & MASK_32).try_into().unwrap(),
-            top2_score: ((word.low / TWO_POW_32) & MASK_32).try_into().unwrap(),
-            top3_score: ((word.low / TWO_POW_64) & MASK_32).try_into().unwrap(),
-            top1_claimed: (word.low / TWO_POW_96) & MASK_1 == 1,
-            top2_claimed: (word.low / TWO_POW_97) & MASK_1 == 1,
-            top3_claimed: (word.low / TWO_POW_98) & MASK_1 == 1,
+            top1_claimed: flags.low & MASK_1 == 1,
+            top2_claimed: (flags.low / 2) & MASK_1 == 1,
+            top3_claimed: (flags.low / 4) & MASK_1 == 1,
         }
     }
 
@@ -537,26 +533,50 @@ pub impl StoreImpl of StoreTrait {
     }
 
     fn set_tournament(self: Store, tournament: Tournament) {
-        let mut word: u128 = tournament.top1_score.into()
-            + tournament.top2_score.into() * TWO_POW_32
-            + tournament.top3_score.into() * TWO_POW_64;
+        let mut flags: u128 = 0;
         if tournament.top1_claimed {
-            word += TWO_POW_96;
+            flags += 1;
         }
         if tournament.top2_claimed {
-            word += TWO_POW_97;
+            flags += 2;
         }
         if tournament.top3_claimed {
-            word += TWO_POW_98;
+            flags += 4;
         }
-        let slots = Slots5 {
-            a: tournament.prize,
-            b: tournament.top1_player_id,
-            c: tournament.top2_player_id,
-            d: tournament.top3_player_id,
-            e: word.into(),
-        };
+        let slots = Slots2 { a: tournament.prize, b: flags.into() };
         storage().tournaments.entry(tournament.id).write(slots);
+    }
+
+    /// The three scores of a ranking (rank 1 in the low 32 bits); zero for an empty one.
+    fn ranking_scores(self: Store, tournament_id: u64) -> u128 {
+        let word: u256 = storage().rankings.entry(tournament_id).scores.read().into();
+        word.low
+    }
+
+    fn set_ranking_scores(self: Store, tournament_id: u64, scores: u128) {
+        storage().rankings.entry(tournament_id).scores.write(scores.into());
+    }
+
+    /// The player of `rank` (1 to 3) of a ranking; zero for an empty rank or any other rank.
+    fn ranking_player(self: Store, tournament_id: u64, rank: u8) -> felt252 {
+        let ranking = storage().rankings.entry(tournament_id);
+        match rank {
+            1 => ranking.first.read(),
+            2 => ranking.second.read(),
+            3 => ranking.third.read(),
+            _ => 0,
+        }
+    }
+
+    /// Writes the player of `rank` (1 to 3); any other rank writes nothing.
+    fn set_ranking_player(self: Store, tournament_id: u64, rank: u8, player_id: felt252) {
+        let ranking = storage().rankings.entry(tournament_id);
+        match rank {
+            1 => ranking.first.write(player_id),
+            2 => ranking.second.write(player_id),
+            3 => ranking.third.write(player_id),
+            _ => {},
+        }
     }
 }
 
