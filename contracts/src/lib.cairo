@@ -86,6 +86,10 @@ pub mod systems {
     pub mod tutorial;
 }
 
+pub mod structure {
+    pub mod tables;
+}
+
 pub mod mocks {
     pub mod token;
     pub mod erc20 {
@@ -98,5 +102,6 @@ pub mod mocks {
 pub mod tests {
     pub mod e2e;
     pub mod golden;
+    pub mod oracle;
     pub mod setup;
 }
