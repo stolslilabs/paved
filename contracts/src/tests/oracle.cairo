@@ -8,8 +8,8 @@
 //!
 //! The copies differ from the originals in two import paths only: `forest` and `simple` reach
 //! `simple` and `generic` of this module instead of `paved::helpers`, so that the oracle does not
-//! depend on the runtime walks it will outlive. The code is the same, `scarb fmt` aside (order of the
-//! `use` lines, trailing commas).
+//! depend on the runtime walks it will outlive. The code is the same, `scarb fmt` aside (order of
+//! the `use` lines, trailing commas).
 
 pub mod generic {
     // Core imports
