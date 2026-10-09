@@ -322,6 +322,16 @@ neighbour wonders; Woodsman before Herdsman) with the same `size` (the root's `s
   facade; tests that read `character_position` move to the facade of `Characters`.
 - **Gas**: every gameplay test keeps a budget; ceilings drop to measured + 5 % in each PR that lowers
   them; scenario e (forest scoring) is added.
+- **"Vector capacity exceeded" in the table symmetry tests (t-0110).** The message is cairo-vm's
+  `MemoryError::VecCapacityExceeded`: a memory segment of the test VM could not grow (`Vec::try_reserve`
+  failed), i.e. the process ran out of address space or RAM. It is not a defect of the tables and is
+  not reachable on chain; the tests are deterministic and pass whenever the memory is there. The
+  exhaustive symmetry tests cost about 1B L2 gas each and are the heaviest of the crate, so under a
+  full parallel run (8 VMs at once) they are the first to hit a cap. Measured on the VPS with
+  `prlimit --as` and default threads (24 tests, before): abort at 8 and 9 GiB, one test failing with
+  the message at 10 GiB, all green at 11 GiB. Each side is now cut in two halves by the plan of the
+  first tile (40 tests, same pairs, accepted placements add up to the former counts): all green from
+  9 GiB. Mitigation, if it comes back: run with `--max-threads 4`, or keep the cap above 12 GiB.
 
 ## Line coverage
 

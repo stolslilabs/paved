@@ -1091,8 +1091,9 @@ pub mod tests {
     }
 
     /// Runs the symmetry check of every pair of tiles that a placement accepts on one side, the
-    /// first tile facing `o1`. Returns (accepted placements, asymmetric pairs).
-    fn symmetry_on_side(direction: Direction, o1: u8) -> (u32, u32) {
+    /// first tile facing `o1` and of a plan from `first` to `last`. Returns (accepted placements,
+    /// asymmetric pairs).
+    fn symmetry_on_side(direction: Direction, o1: u8, first: u8, last: u8) -> (u32, u32) {
         let code: u8 = direction.into();
         let facing = facing_categories(code);
         let opposite_facing = facing_categories(opposite(code));
@@ -1120,8 +1121,8 @@ pub mod tests {
         }
         let mut accepted = 0;
         let mut asymmetric = 0;
-        let mut p1 = 1_u8;
-        while p1 <= PLAN_COUNT {
+        let mut p1 = first;
+        while p1 <= last {
             let i1: u32 = ((p1 - 1) * 4 + o1 - 1).into();
             let mut p2 = 1_u8;
             while p2 <= PLAN_COUNT {
@@ -1152,9 +1153,11 @@ pub mod tests {
             p1 += 1;
         }
         println!(
-            "side {} facing {}: {} accepted placements, {} asymmetric pairs",
+            "side {} facing {} plans {}..{}: {} accepted placements, {} asymmetric pairs",
             code,
             o1,
+            first,
+            last,
             accepted,
             asymmetric,
         );
@@ -1223,89 +1226,175 @@ pub mod tests {
         }
     }
 
-    fn assert_symmetric(direction: Direction, o1: u8) {
-        let (accepted, asymmetric) = symmetry_on_side(direction, o1);
+    // The exhaustive check is cut in two halves by the plan of the first tile: each half takes
+    // about half the VM memory of a whole side, and the 16 whole sides in parallel used to reach
+    // the address-space cap of a capped run ("Vector capacity exceeded", see
+    // docs/architecture/structure-state.md).
+    const SPLIT_PLAN: u8 = 9;
+
+    fn assert_symmetric(direction: Direction, o1: u8, first: u8, last: u8) {
+        let (accepted, asymmetric) = symmetry_on_side(direction, o1, first, last);
         assert(accepted > 0, 'Tables: no placement');
         assert_eq!(asymmetric, 0);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_north_facing_north() {
-        assert_symmetric(Direction::North, 1);
+    fn test_tables_move_relation_is_symmetric_north_facing_north_low() {
+        assert_symmetric(Direction::North, 1, 1, SPLIT_PLAN);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_north_facing_east() {
-        assert_symmetric(Direction::North, 2);
+    fn test_tables_move_relation_is_symmetric_north_facing_north_high() {
+        assert_symmetric(Direction::North, 1, SPLIT_PLAN + 1, PLAN_COUNT);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_north_facing_south() {
-        assert_symmetric(Direction::North, 3);
+    fn test_tables_move_relation_is_symmetric_north_facing_east_low() {
+        assert_symmetric(Direction::North, 2, 1, SPLIT_PLAN);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_north_facing_west() {
-        assert_symmetric(Direction::North, 4);
+    fn test_tables_move_relation_is_symmetric_north_facing_east_high() {
+        assert_symmetric(Direction::North, 2, SPLIT_PLAN + 1, PLAN_COUNT);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_east_facing_north() {
-        assert_symmetric(Direction::East, 1);
+    fn test_tables_move_relation_is_symmetric_north_facing_south_low() {
+        assert_symmetric(Direction::North, 3, 1, SPLIT_PLAN);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_east_facing_east() {
-        assert_symmetric(Direction::East, 2);
+    fn test_tables_move_relation_is_symmetric_north_facing_south_high() {
+        assert_symmetric(Direction::North, 3, SPLIT_PLAN + 1, PLAN_COUNT);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_east_facing_south() {
-        assert_symmetric(Direction::East, 3);
+    fn test_tables_move_relation_is_symmetric_north_facing_west_low() {
+        assert_symmetric(Direction::North, 4, 1, SPLIT_PLAN);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_east_facing_west() {
-        assert_symmetric(Direction::East, 4);
+    fn test_tables_move_relation_is_symmetric_north_facing_west_high() {
+        assert_symmetric(Direction::North, 4, SPLIT_PLAN + 1, PLAN_COUNT);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_south_facing_north() {
-        assert_symmetric(Direction::South, 1);
+    fn test_tables_move_relation_is_symmetric_east_facing_north_low() {
+        assert_symmetric(Direction::East, 1, 1, SPLIT_PLAN);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_south_facing_east() {
-        assert_symmetric(Direction::South, 2);
+    fn test_tables_move_relation_is_symmetric_east_facing_north_high() {
+        assert_symmetric(Direction::East, 1, SPLIT_PLAN + 1, PLAN_COUNT);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_south_facing_south() {
-        assert_symmetric(Direction::South, 3);
+    fn test_tables_move_relation_is_symmetric_east_facing_east_low() {
+        assert_symmetric(Direction::East, 2, 1, SPLIT_PLAN);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_south_facing_west() {
-        assert_symmetric(Direction::South, 4);
+    fn test_tables_move_relation_is_symmetric_east_facing_east_high() {
+        assert_symmetric(Direction::East, 2, SPLIT_PLAN + 1, PLAN_COUNT);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_west_facing_north() {
-        assert_symmetric(Direction::West, 1);
+    fn test_tables_move_relation_is_symmetric_east_facing_south_low() {
+        assert_symmetric(Direction::East, 3, 1, SPLIT_PLAN);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_west_facing_east() {
-        assert_symmetric(Direction::West, 2);
+    fn test_tables_move_relation_is_symmetric_east_facing_south_high() {
+        assert_symmetric(Direction::East, 3, SPLIT_PLAN + 1, PLAN_COUNT);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_west_facing_south() {
-        assert_symmetric(Direction::West, 3);
+    fn test_tables_move_relation_is_symmetric_east_facing_west_low() {
+        assert_symmetric(Direction::East, 4, 1, SPLIT_PLAN);
     }
 
     #[test]
-    fn test_tables_move_relation_is_symmetric_west_facing_west() {
-        assert_symmetric(Direction::West, 4);
+    fn test_tables_move_relation_is_symmetric_east_facing_west_high() {
+        assert_symmetric(Direction::East, 4, SPLIT_PLAN + 1, PLAN_COUNT);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_south_facing_north_low() {
+        assert_symmetric(Direction::South, 1, 1, SPLIT_PLAN);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_south_facing_north_high() {
+        assert_symmetric(Direction::South, 1, SPLIT_PLAN + 1, PLAN_COUNT);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_south_facing_east_low() {
+        assert_symmetric(Direction::South, 2, 1, SPLIT_PLAN);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_south_facing_east_high() {
+        assert_symmetric(Direction::South, 2, SPLIT_PLAN + 1, PLAN_COUNT);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_south_facing_south_low() {
+        assert_symmetric(Direction::South, 3, 1, SPLIT_PLAN);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_south_facing_south_high() {
+        assert_symmetric(Direction::South, 3, SPLIT_PLAN + 1, PLAN_COUNT);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_south_facing_west_low() {
+        assert_symmetric(Direction::South, 4, 1, SPLIT_PLAN);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_south_facing_west_high() {
+        assert_symmetric(Direction::South, 4, SPLIT_PLAN + 1, PLAN_COUNT);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_west_facing_north_low() {
+        assert_symmetric(Direction::West, 1, 1, SPLIT_PLAN);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_west_facing_north_high() {
+        assert_symmetric(Direction::West, 1, SPLIT_PLAN + 1, PLAN_COUNT);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_west_facing_east_low() {
+        assert_symmetric(Direction::West, 2, 1, SPLIT_PLAN);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_west_facing_east_high() {
+        assert_symmetric(Direction::West, 2, SPLIT_PLAN + 1, PLAN_COUNT);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_west_facing_south_low() {
+        assert_symmetric(Direction::West, 3, 1, SPLIT_PLAN);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_west_facing_south_high() {
+        assert_symmetric(Direction::West, 3, SPLIT_PLAN + 1, PLAN_COUNT);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_west_facing_west_low() {
+        assert_symmetric(Direction::West, 4, 1, SPLIT_PLAN);
+    }
+
+    #[test]
+    fn test_tables_move_relation_is_symmetric_west_facing_west_high() {
+        assert_symmetric(Direction::West, 4, SPLIT_PLAN + 1, PLAN_COUNT);
     }
 }
