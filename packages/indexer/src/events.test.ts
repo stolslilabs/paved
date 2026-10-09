@@ -37,7 +37,8 @@ const shortOf = (item: AbiItem) => item.name.split("::").at(-1)!;
 
 describe("the ABIs", () => {
   test("every event of every contract is indexed or ignored, with the selector of its name", () => {
-    for (const contract of ["Daily", "Tutorial", "Account", "Economy"]) {
+    // Lobby runs inside Daily and Tutorial by library call: its events come from their addresses.
+    for (const contract of ["Daily", "Tutorial", "Account", "Economy", "Lobby"]) {
       const items = abi(contract).filter((item) => item.type === "event" && item.kind === "struct");
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {

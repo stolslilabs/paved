@@ -194,6 +194,18 @@ pub mod Lobby {
         QuestEvent: QuestComponent::Event,
         #[flat]
         AchievementEvent: AchievementComponent::Event,
+        Reclaimed: Reclaimed,
+    }
+
+    /// A sponsor took back its part of what no rank can claim on a day (P-37); emitted from
+    /// `Daily`'s address, as every event of this class.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct Reclaimed {
+        #[key]
+        pub tournament_id: u64,
+        #[key]
+        pub sponsor: ContractAddress,
+        pub amount: u256,
     }
 
     // Constructor
@@ -226,10 +238,18 @@ pub mod Lobby {
         }
 
         fn claim(ref self: ContractState, tournament_id: u64, rank: u8) {
-            // [Effect] Claim the reward
-            let reward = self.hostable.claim(tournament_id, rank, Mode::Daily);
-            // [Interaction] Pay the reward out of the prize pool
-            self.payable.refund(get_caller_address(), reward);
+            // [Effect] Rank 0 is a sponsor's reclaim of what no rank can claim (P-37); 1 to 3 a
+            // reward
+            let caller = get_caller_address();
+            let amount = if rank == 0 {
+                let amount = self.hostable.reclaim(tournament_id, Mode::Daily);
+                self.emit(Reclaimed { tournament_id, sponsor: caller, amount });
+                amount
+            } else {
+                self.hostable.claim(tournament_id, rank, Mode::Daily)
+            };
+            // [Interaction] Pay it out of the prize pool
+            self.payable.refund(caller, amount);
         }
 
         fn sponsor(ref self: ContractState, amount: felt252) {

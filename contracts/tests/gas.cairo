@@ -60,6 +60,10 @@ pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7961200;
 pub const CEILING_SPAWN_DAILY: u128 = 51829666;
 pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 52906871;
 pub const CEILING_SPAWN_TUTORIAL: u128 = 4530165;
+// p, q, r: the prize (P-31, P-37). A sponsor records its share; a claim and a reclaim pay out.
+pub const CEILING_SPONSOR: u128 = 1960255;
+pub const CEILING_CLAIM: u128 = 2099631;
+pub const CEILING_RECLAIM: u128 = 1860966;
 
 #[derive(Drop)]
 struct Scenario {
@@ -429,4 +433,56 @@ fn test_gas_o_spawn_tutorial() {
     systems.tutorial.spawn();
     let after = get_available_gas();
     report("o_spawn_tutorial", before - after, CEILING_SPAWN_TUTORIAL);
+}
+
+/// The day of p, q and r, an hour into it.
+const PRIZE_DAY: u64 = 3;
+
+fn prize_day() -> (Systems, TestStore) {
+    start_cheat_block_timestamp_global(PRIZE_DAY * constants::DAILY_TOURNAMENT_DURATION + 3600);
+    let (store, systems, _) = setup::spawn_game(Mode::None);
+    (systems, store)
+}
+
+/// p. The first sponsor of a day: the prize and the sponsor's share (P-37), then the transfer.
+#[test]
+fn test_gas_p_sponsor() {
+    let (systems, _) = prize_day();
+    let before = get_available_gas();
+    systems.daily.sponsor(2_000_000);
+    let after = get_available_gas();
+    report("p_sponsor", before - after, CEILING_SPONSOR);
+}
+
+/// q. Rank 1 claims its share of a sponsored day, the other ranks empty.
+#[test]
+fn test_gas_q_claim() {
+    let (systems, store) = prize_day();
+    systems.daily.sponsor(2_000_000);
+    interact_with_state(
+        store.contract,
+        || {
+            let submission = Submission {
+                player_id: crate::setup::setup::PLAYER().into(), game_id: 1, score: 100, time: 0,
+            };
+            LeaderboardImpl::new().submit(PRIZE_DAY, submission);
+        },
+    );
+    start_cheat_block_timestamp_global((PRIZE_DAY + 1) * constants::DAILY_TOURNAMENT_DURATION);
+    let before = get_available_gas();
+    systems.daily.claim(PRIZE_DAY, 1);
+    let after = get_available_gas();
+    report("q_claim", before - after, CEILING_CLAIM);
+}
+
+/// r. The sponsor's reclaim of a day nobody ranked in (`claim(day, 0)`, P-37).
+#[test]
+fn test_gas_r_reclaim() {
+    let (systems, _) = prize_day();
+    systems.daily.sponsor(2_000_000);
+    start_cheat_block_timestamp_global((PRIZE_DAY + 1) * constants::DAILY_TOURNAMENT_DURATION);
+    let before = get_available_gas();
+    systems.daily.claim(PRIZE_DAY, 0);
+    let after = get_available_gas();
+    report("r_reclaim", before - after, CEILING_RECLAIM);
 }

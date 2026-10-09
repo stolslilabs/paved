@@ -168,6 +168,8 @@ export const IGNORED = [
   "PoolSet",
   "GameSet",
   "EconomySet",
+  // A sponsor's reclaim of a day's unclaimable prize (P-37): declared by the Lobby class, emitted from Daily's address.
+  "Reclaimed",
 ] as const;
 
 const INDEXED: readonly EventName[] = [

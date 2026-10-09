@@ -6,6 +6,7 @@ pub mod events;
 pub mod forest;
 pub mod lobby;
 pub mod quests;
+pub mod reclaim;
 pub mod store;
 pub mod tutorial;
 pub mod tutorial_advanced;
