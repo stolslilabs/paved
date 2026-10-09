@@ -2,10 +2,15 @@
 # Builds, declares and deploys the native Paved contracts on a local node, writes
 # contracts/deployments/<network>.json for the client, then runs a smoke check.
 #
-# Usage: scripts/deploy.sh devnet
+# Usage: scripts/deploy.sh devnet [--unmerged]
 #
 # Only `devnet` is allowed. Every other value is refused: a public network is the owner's decision
-# and would need a real token address (the mock Token is test and devnet only).
+# and would need real USDC and router addresses (MockUSDC, MockRouter and the mock Token are test
+# and devnet only; `deploy` refuses them by name off devnet as well).
+#
+# --unmerged: deploys the working tree of a pull request (the source check below is skipped) and writes
+# the deployment file to a temporary path, printed at the end, never to contracts/deployments/. The
+# committed file is only written from main-equivalent sources.
 #
 # The node is not started here. Start a seeded one first (addresses are then stable across runs):
 #   starknet-devnet --host 127.0.0.1 --port 5050 --seed 42
@@ -14,8 +19,15 @@
 # Declared only: Lobby (run by Daily and Tutorial through library calls; its constructor reverts).
 # The Lobby class hash is checked as declared on the node (starknet_getClass) before Daily and Tutorial are
 # deployed; the script refuses otherwise.
-# Deploy order: Token, Account, Daily(owner, account, token, lobby class), Tutorial(owner, account,
-# lobby class).
+# Deploy order (P8 E3, docs/architecture/economy.md sections 1, 4, 5; E1's audit):
+#   MockUSDC, Token (the old mock, kept for the client until it reads USDC), PavedToken(deployer, deployer),
+#   MockRouter(paved, usdc) seeded with 800,000 PAVED and 10,000 MockUSDC, Vault(paved, usdc) with the
+#   owner's 200,000 PAVED staked (never fully unstaked), Economy(owner, paved, usdc, vault, router, the
+#   router's pool key, sqrt_ratio_limit 0 (the mock ignores it), the decided configuration, initial mean
+#   3,353 points, launch rate 7.6e31 after the pool's fee), PavedToken.set_minter(Economy) (then
+#   minter() == Economy and admin() == 0 are checked), Account(owner), Daily(owner, account, USDC, lobby
+#   class), Tutorial(owner, account, lobby class), Economy.set_game(Daily) (after the stake),
+#   Account.set_economy(Economy).
 # Deployer, owner and smoke player: the first predeployed devnet account, read from the node at run
 # time (public dev keys of the node). The key is only held in a temporary accounts file, removed on
 # exit; nothing secret is written in the repository.
@@ -27,10 +39,17 @@
 set -euo pipefail
 
 NETWORK="${1:-}"
+UNMERGED=0
+if [[ "${2:-}" == "--unmerged" ]]; then
+  UNMERGED=1
+elif [[ -n "${2:-}" ]]; then
+  echo "Usage: scripts/deploy.sh devnet [--unmerged]" >&2
+  exit 2
+fi
 if [[ "$NETWORK" != "devnet" ]]; then
   echo "deploy.sh: unsupported network '${NETWORK}'. Only 'devnet' (a local node) is allowed." >&2
   echo "deploy.sh: a public network needs the owner's go and a real token address; the mock Token is devnet only." >&2
-  echo "Usage: scripts/deploy.sh devnet" >&2
+  echo "Usage: scripts/deploy.sh devnet [--unmerged]" >&2
   exit 2
 fi
 
@@ -55,10 +74,15 @@ ASDF="${ASDF_DATA_DIR:-$HOME/.asdf}/installs"
 SCARB_BIN_DIR="${SCARB_BIN_DIR:-$ASDF/scarb/2.20.1/bin}"
 SNCAST_BIN_DIR="${SNCAST_BIN_DIR:-$ASDF/starknet-foundry/0.64.0/bin}"
 PATH="$SNCAST_BIN_DIR:$SCARB_BIN_DIR:$PATH"
-OUT="$ROOT/contracts/deployments/$NETWORK.json"
 SALT=1
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
+if [[ "$UNMERGED" == 1 ]]; then
+  OUT_DIR="$(mktemp -d)"
+  OUT="$OUT_DIR/$NETWORK.json"
+else
+  OUT="$ROOT/contracts/deployments/$NETWORK.json"
+fi
 ACCOUNTS=(--accounts-file "$WORK_DIR/accounts.json")
 
 die() { echo "deploy.sh: $*" >&2; exit 1; }
@@ -134,6 +158,10 @@ declare_class() { # <Contract> -> class hash
 
 deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   local name="$1" class="$2"; shift 2
+  # The mocks are test and devnet only (E1's audit): refused by name on any other network.
+  case "$name" in
+    MockUSDC|MockRouter|Token) [[ "$NETWORK" == "devnet" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
+  esac
   local args=()
   [[ $# -gt 0 ]] && args=(--constructor-calldata "$@")
   local out
@@ -149,11 +177,16 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
 # deployed_at: the main commit whose contract sources are deployed. The build compiles the working
 # tree, so the working tree (not HEAD) must equal the merge base with origin/main on the contract
 # sources, with no untracked source file either.
-DEPLOYED_AT="$(git -C "$ROOT" merge-base HEAD origin/main)" || die "no merge base of HEAD with origin/main (git fetch origin main)"
-git -C "$ROOT" diff --quiet "$DEPLOYED_AT" -- contracts/src contracts/Scarb.toml contracts/Scarb.lock ||
-  die "contract sources differ from origin/main (merge base ${DEPLOYED_AT:0:12}): deploy from main-equivalent sources"
-[[ -z "$(git -C "$ROOT" ls-files --others --exclude-standard -- contracts/src)" ]] ||
-  die "untracked files in contracts/src: deploy from main-equivalent sources"
+if [[ "$UNMERGED" == 1 ]]; then
+  DEPLOYED_AT="unmerged-$(git -C "$ROOT" rev-parse HEAD)"
+  echo "== unmerged: the working tree is deployed, the file goes to $OUT"
+else
+  DEPLOYED_AT="$(git -C "$ROOT" merge-base HEAD origin/main)" || die "no merge base of HEAD with origin/main (git fetch origin main)"
+  git -C "$ROOT" diff --quiet "$DEPLOYED_AT" -- contracts/src contracts/Scarb.toml contracts/Scarb.lock ||
+    die "contract sources differ from origin/main (merge base ${DEPLOYED_AT:0:12}): deploy from main-equivalent sources (or --unmerged)"
+  [[ -z "$(git -C "$ROOT" ls-files --others --exclude-standard -- contracts/src)" ]] ||
+    die "untracked files in contracts/src: deploy from main-equivalent sources (or --unmerged)"
+fi
 
 echo "== node $RPC_URL"
 rpc starknet_specVersion '[]' >/dev/null || die "no node answers at $RPC_URL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
@@ -175,6 +208,11 @@ TOKEN_CLASS="$(declare_class Token)"
 ACCOUNT_CLASS="$(declare_class Account)"
 DAILY_CLASS="$(declare_class Daily)"
 TUTORIAL_CLASS="$(declare_class Tutorial)"
+USDC_CLASS="$(declare_class MockUSDC)"
+PAVED_CLASS="$(declare_class PavedToken)"
+ROUTER_CLASS="$(declare_class MockRouter)"
+VAULT_CLASS="$(declare_class Vault)"
+ECONOMY_CLASS="$(declare_class Economy)"
 LOBBY_CLASS="$(declare_class Lobby)"
 
 # Daily and Tutorial only store the Lobby class hash: an undeclared one would deploy fine and revert every
@@ -182,21 +220,67 @@ LOBBY_CLASS="$(declare_class Lobby)"
 rpc starknet_getClass "[\"latest\",\"$LOBBY_CLASS\"]" | pyj '"ok" if "result" in d else 1/0' >/dev/null 2>&1 ||
   die "Lobby class $LOBBY_CLASS is not declared on $RPC_URL: refusing to deploy Daily and Tutorial"
 
+# u256 calldata: low and high halves, decimal.
+u256() { python3 -I -c 'import sys;v=int(sys.argv[1]);print(v%2**128, v>>128)' "$1"; }
+USDC_UNIT=1000000
+PAVED_UNIT=1000000000000000000
+POOL_USDC=$((10000 * USDC_UNIT))
+POOL_PAVED="$(python3 -I -c "print(800000 * $PAVED_UNIT)")"
+STAKE_PAVED="$(python3 -I -c "print(200000 * $PAVED_UNIT)")"
+# Economy: the decided configuration (burn 7,000 bps, sigma 0, slope 18,130 bps, cap 5, target 1,000,000
+# PAVED), the initial mean (3,353 points x 1,000) and the launch rate after the pool's fee (economy.md section 5).
+CONFIG=(7000 0 18130 5 "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")")
+MEAN0=3353000
+LAUNCH_RATE=76000000000000000000000000000000
+
 echo "== deploy"
+USDC="$(deploy MockUSDC "$USDC_CLASS")"
 TOKEN="$(deploy Token "$TOKEN_CLASS")"
+PAVED="$(deploy PavedToken "$PAVED_CLASS" "$DEPLOYER" "$DEPLOYER")"
+ROUTER="$(deploy MockRouter "$ROUTER_CLASS" "$PAVED" "$USDC")"
+VAULT="$(deploy Vault "$VAULT_CLASS" "$PAVED" "$USDC")"
+
+echo "== pool and stake"
+# The launch pool, in the router's token order, from the initial supply and the USDC faucet.
+invoke "$USDC" mint "$DEPLOYER" $(u256 "$POOL_USDC") >/dev/null
+invoke "$PAVED" approve "$ROUTER" $(u256 "$POOL_PAVED") >/dev/null
+invoke "$USDC" approve "$ROUTER" $(u256 "$POOL_USDC") >/dev/null
+if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)<int(sys.argv[2],16) else 1)' "$PAVED" "$USDC"; then
+  invoke "$ROUTER" add_liquidity $(u256 "$POOL_PAVED") $(u256 "$POOL_USDC") >/dev/null
+else
+  invoke "$ROUTER" add_liquidity $(u256 "$POOL_USDC") $(u256 "$POOL_PAVED") >/dev/null
+fi
+# The owner's stake, before Economy can buy anything (E1's audit): the Vault never has zero stakers.
+invoke "$PAVED" approve "$VAULT" $(u256 "$STAKE_PAVED") >/dev/null
+invoke "$VAULT" stake $(u256 "$STAKE_PAVED") >/dev/null
+read -r -a POOL_KEY <<<"$(call "$ROUTER" pool_key)"
+[[ "${#POOL_KEY[@]}" == 5 ]] || die "MockRouter.pool_key returned ${#POOL_KEY[@]} felts, expected 5"
+
+ECONOMY="$(deploy Economy "$ECONOMY_CLASS" "$DEPLOYER" "$PAVED" "$USDC" "$VAULT" "$ROUTER" \
+  "${POOL_KEY[@]}" 0 0 "${CONFIG[@]}" "$MEAN0" $(u256 "$LAUNCH_RATE"))"
+invoke "$PAVED" set_minter "$ECONOMY" >/dev/null
+[[ "$(hex_int "$(call "$PAVED" minter)")" == "$(hex_int "$ECONOMY")" ]] || die "PavedToken.minter() is not Economy"
+[[ "$(hex_int "$(call "$PAVED" admin)")" == 0 ]] || die "PavedToken.admin() is not zero after set_minter"
+echo "   PavedToken: minter Economy, admin 0"
+
 ACCOUNT="$(deploy Account "$ACCOUNT_CLASS" "$DEPLOYER")"
-DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER" "$ACCOUNT" "$TOKEN" "$LOBBY_CLASS")"
+DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER" "$ACCOUNT" "$USDC" "$LOBBY_CLASS")"
 TUTORIAL="$(deploy Tutorial "$TUTORIAL_CLASS" "$DEPLOYER" "$ACCOUNT" "$LOBBY_CLASS")"
+invoke "$ECONOMY" set_game "$DAILY" >/dev/null
+invoke "$ACCOUNT" set_economy "$ECONOMY" >/dev/null
+[[ "$(hex_int "$(call "$ACCOUNT" economy)")" == "$(hex_int "$ECONOMY")" ]] || die "Account.economy() is not Economy"
 
 DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$(head -1 "$WORK_DIR/deploy-txs")\"]" | pyj 'd["result"]["block_number"]')"
-DECIMALS="$(hex_int "$(call "$TOKEN" decimals)")"
-SYMBOL="$(felt_str "$(call "$TOKEN" symbol)")"
-[[ -n "$SYMBOL" ]] || die "token symbol is empty"
-echo "   token $SYMBOL, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOCK"
+DECIMALS="$(hex_int "$(call "$USDC" decimals)")"
+[[ "$DECIMALS" == 6 ]] || die "MockUSDC has $DECIMALS decimals, expected 6"
+SYMBOL="USDC"
+echo "   token MockUSDC, $DECIMALS decimals, first deploy in block $DEPLOYED_BLOCK"
 
 mkdir -p "$(dirname "$OUT")"
 python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_URL" "$DEPLOYED_AT" "$DEPLOYED_BLOCK" \
-  "$DECIMALS" "$SYMBOL" "$LOBBY_CLASS" "Token=$TOKEN=$TOKEN_CLASS" "Account=$ACCOUNT=$ACCOUNT_CLASS" \
+  "$DECIMALS" "$SYMBOL" "$LOBBY_CLASS" "MockUSDC=$USDC=$USDC_CLASS" "Token=$TOKEN=$TOKEN_CLASS" \
+  "PavedToken=$PAVED=$PAVED_CLASS" "MockRouter=$ROUTER=$ROUTER_CLASS" "Vault=$VAULT=$VAULT_CLASS" \
+  "Economy=$ECONOMY=$ECONOMY_CLASS" "Account=$ACCOUNT=$ACCOUNT_CLASS" \
   "Daily=$DAILY=$DAILY_CLASS" "Tutorial=$TUTORIAL=$TUTORIAL_CLASS" <<'PY'
 import json, sys
 out, network, chain_id, rpc_url, commit, block, decimals, symbol, lobby, *items = sys.argv[1:]
@@ -204,14 +288,18 @@ c = {}
 for item in items:
     name, address, class_hash = item.split("=")
     c[name] = {"address": address, "class_hash": class_hash}
+names = ["Account", "Daily", "Tutorial", "Token", "Economy", "PavedToken", "Vault"]
+# Off devnet the real USDC goes under `USDC`; on devnet the mocks keep their names.
+names += ["MockUSDC", "MockRouter"] if network == "devnet" else ["USDC"]
 doc = {
     "network": network,
     "chain_id": chain_id,
     "rpc_url": rpc_url,
     "deployed_at": commit,
     "deployed_block": int(block),
-    "token": {**c["Token"], "decimals": int(decimals), "symbol": symbol},
-    "contracts": {k: c[k] for k in ("Account", "Daily", "Tutorial", "Token")},
+    # The ERC20 Daily charges: USDC (MockUSDC on devnet).
+    "token": {**c["MockUSDC"], "decimals": int(decimals), "symbol": symbol},
+    "contracts": {k: c[k] for k in names},
     # Declared, not deployed: a class hash and no address, so not under `contracts`.
     "classes": {"Lobby": lobby},
 }
@@ -221,14 +309,48 @@ with open(out, "w") as f:
 PY
 echo "== wrote ${OUT#"$ROOT/"}"
 
+# Reads `Economy.terms(game_id)` and prints `player recorded settled reward` (TermsView, E2's felt order:
+# player, time, day, stake, reference, sigma, slope, cap, score, recorded, expired, settled, reward).
+terms() {
+  read -r -a T <<<"$(call "$ECONOMY" terms "$1")"
+  echo "$(hex_int "${T[0]}") $(hex_int "${T[9]}") $(hex_int "${T[11]}") $(hex_int "${T[12]}")"
+}
+
 echo "== smoke"
-invoke "$TOKEN" mint >/dev/null
 invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER" >/dev/null
-# The Daily view stays exercised, read only. No Daily game is played: even an ended one leaves its entry
-# price in the day's prize, and the smoke must leave no trace in the day's figures (P-24).
 read -r PRICE_TOKEN PRICE_LOW PRICE_HIGH <<<"$(call "$DAILY" entry_price)"
-[[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$TOKEN")" ]] || die "entry_price token $PRICE_TOKEN is not the deployed Token"
-echo "   entry_price: token $SYMBOL, amount low $(hex_int "$PRICE_LOW") high $(hex_int "$PRICE_HIGH")"
+[[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$USDC")" ]] || die "entry_price token $PRICE_TOKEN is not MockUSDC"
+[[ "$(hex_int "$PRICE_LOW")" == 2000000 && "$(hex_int "$PRICE_HIGH")" == 0 ]] || die "entry_price amount is not 2 USDC"
+echo "   entry_price: 2 USDC per stake unit"
+
+# A paid Daily game at stake 1, with the client's min_out: the pool's quote of the burn, less 1 %.
+invoke "$USDC" mint "$DEPLOYER" 2000000 0 >/dev/null
+invoke "$USDC" approve "$DAILY" 2000000 0 >/dev/null
+read -r -a QUOTE <<<"$(call "$ECONOMY" quote 1)"
+read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap "${QUOTE[2]}" "${QUOTE[3]}")"
+MIN_OUT="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)*99//100)' "$SWAP_LOW")"
+EMA_BEFORE="$(call "$ECONOMY" ema)"
+USDC_BEFORE="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER" | cut -d' ' -f1)")"
+DAILY_TX="$(invoke "$DAILY" spawn 1 0 $(u256 "$MIN_OUT"))"
+PAID_ID="$(rpc starknet_getTransactionReceipt "[\"$DAILY_TX\"]" | python3 -I -c '
+import sys, json
+d = json.load(sys.stdin)["result"]
+daily = int(sys.argv[1], 16)
+ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) == daily and len(e["keys"]) == 3]
+print(ids[0])' "$DAILY")" || die "no GameSpawned event in the Daily spawn receipt"
+DAY="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)//86400)' "$(call "$DAILY" game "$PAID_ID" | cut -d' ' -f14)")"
+USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER" | cut -d' ' -f1)")"
+[[ $((USDC_BEFORE - USDC_AFTER)) == 2000000 ]] || die "the spawn moved $((USDC_BEFORE - USDC_AFTER)) USDC base units, expected 2000000"
+[[ "$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds USDC after the purchase"
+[[ "$(hex_int "$(call "$PAVED" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds PAVED after the purchase"
+read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
+[[ "$T_PLAYER" == "$(hex_int "$DEPLOYER")" ]] || die "Economy.terms($PAID_ID) is not the player's"
+echo "   daily game $PAID_ID bought at stake 1 on day $DAY (min_out $MIN_OUT), Economy holds nothing"
+invoke "$DAILY" surrender "$PAID_ID" >/dev/null
+read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
+[[ "$T_RECORDED" == 1 ]] || die "the surrender of game $PAID_ID was not recorded by Economy"
+echo "   daily game $PAID_ID surrendered (score 0), recorded"
+
 # The Tutorial belongs to no tournament: spawn, one scripted build (the Tutorial refuses a discard while the
 # tile in hand has a legal placement, and `build` takes no placement), read back.
 SPAWN_TX="$(invoke "$TUTORIAL" spawn)"
@@ -246,4 +368,26 @@ read -r G_ID _ G_MODE _ _ G_OVER _ G_PLACED _ <<<"$GAME"
 [[ "$(hex_int "$G_MODE")" == 3 ]] || die "game($GAME_ID) mode is $(hex_int "$G_MODE"), expected 3 (Tutorial)"
 [[ "$(hex_int "$G_PLACED")" == 2 ]] || die "game($GAME_ID) placed_count is $(hex_int "$G_PLACED"), expected 2"
 echo "   game($GAME_ID) read back: id $GAME_ID, mode Tutorial, placed_count 2, over $(hex_int "$G_OVER")"
+
+# Settlement on a later day: from (D + 2) x 86400 (P-34). A keeper settles each day then (README).
+SETTLE_AT=$(((DAY + 2) * 86400))
+rpc devnet_setTime "{\"time\":$SETTLE_AT,\"generate_block\":true}" >/dev/null || die "devnet_setTime failed"
+invoke "$ECONOMY" settle 1 "$PAID_ID" >/dev/null
+read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
+[[ "$T_SETTLED" == 1 ]] || die "game $PAID_ID was not settled at $SETTLE_AT"
+echo "   daily game $PAID_ID settled at (D + 2) x 86400 = $SETTLE_AT: reward $T_REWARD"
+
+# No trace in the day's figures (P-24): the prize is sponsor-only and the game ranks nowhere (score 0); a
+# score under 100 enters no mean, so the day closes on its prior and the EMA does not move.
+read -r -a TOURNAMENT <<<"$(call "$DAILY" tournament "$DAY")"
+[[ "$(hex_int "${TOURNAMENT[4]}")" == 0 && "$(hex_int "${TOURNAMENT[5]}")" == 0 ]] || die "day $DAY has a prize"
+[[ "$(hex_int "${TOURNAMENT[6]}")" == 0 ]] || die "day $DAY has a leader"
+read -r -a DAYVIEW <<<"$(call "$ECONOMY" day "$DAY")"
+[[ "$(hex_int "${DAYVIEW[2]}")" == 0 && "$(hex_int "${DAYVIEW[4]}")" == 1 ]] || die "day $DAY has a weight or is not closed"
+[[ "$(call "$ECONOMY" ema)" == "$EMA_BEFORE" ]] || die "the EMA moved"
+echo "   day $DAY: no prize, no leader, closed with weight 0, EMA unchanged"
 echo "== smoke ok"
+if [[ "$UNMERGED" == 1 ]]; then
+  echo "== unmerged deployment file ($OUT):"
+  cat "$OUT"
+fi
