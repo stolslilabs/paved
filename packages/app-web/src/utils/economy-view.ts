@@ -29,9 +29,10 @@ export type SettleState =
   | { kind: "settleable" }
   | { kind: "settled"; reward: bigint };
 
-export function settleState(terms: TermsView, over: boolean, nowSeconds: number): SettleState {
+export function settleState(terms: TermsView, nowSeconds: number): SettleState {
   if (terms.settled) return { kind: "settled", reward: terms.reward };
   if (!dayOver(terms.day, nowSeconds)) return { kind: "running" };
-  if (!over) return { kind: "not-over" };
+  // `recorded`: the Economy has the game's final score (E2).
+  if (!terms.recorded) return { kind: "not-over" };
   return { kind: "settleable" };
 }

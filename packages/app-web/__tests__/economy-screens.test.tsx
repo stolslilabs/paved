@@ -5,13 +5,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { FakeGameViews, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
 import type { Deployment, EconomyDeployment } from "@paved/chain";
-import { FAKE_UNIT, FakeEconomy } from "@paved/chain/economy/fake";
+import { FAKE_UNIT, FakeEconomy, fakeTerms } from "@paved/chain/economy/fake";
 import { LandingPage } from "../src/pages/Landing";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { purchaseIntent, readPurchaseIntent } from "../src/utils/economy-start";
 import { CLIFF_TEXT, referralLink, referrerFromSearch, settleState } from "../src/utils/economy-view";
 import { resolveEconomyNetwork } from "../src/utils/economy-network";
-import { PLAYER, fakeGame, renderPage } from "./helpers/page-fixtures";
+import { PLAYER, renderPage } from "./helpers/page-fixtures";
 
 vi.mock("@paved/ui", () => ({
   LandingScreen: ({ gameModes }: any) => (
@@ -49,14 +49,10 @@ function fakeBaseWriter() {
   return { address: PLAYER, sendCalls, sent };
 }
 
-function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; overGames?: number[] } = {}) {
+function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number } = {}) {
   const economy = opts.economy ?? new FakeEconomy();
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: FAKE_UNIT };
-  for (const id of opts.overGames ?? []) {
-    const g = fakeGame(PLAYER, true);
-    views.setGame({ mode: "daily", gameId: id }, { ...g, game: { ...g.game, id } });
-  }
   const writer = fakeBaseWriter();
   const utils = renderPage({
     page: <LandingPage />,
@@ -203,16 +199,18 @@ describe("after the day: settle with the cliff stated", () => {
 
   it("lists bought games by state; settle only after a confirm; the reward shown is the chain's", async () => {
     const economy = new FakeEconomy();
-    economy.terms_.set(1, { stake: 2, reference: P, day: DAY, score: 4000, settled: false, reward: 0n });
-    economy.terms_.set(2, { stake: 1, reference: P, day: DAY - 1, score: 5000, settled: true, reward: 3n * P });
-    economy.terms_.set(3, { stake: 1, reference: P, day: DAY - 1, score: 10, settled: true, reward: 0n });
-    economy.terms_.set(5, { stake: 3, reference: P, day: DAY + 1, score: 0, settled: false, reward: 0n });
+    economy.terms_.set(1, fakeTerms({ stake: 2, day: DAY, score: 4000 }));
+    economy.terms_.set(2, fakeTerms({ stake: 1, day: DAY - 1, score: 5000, settled: true, reward: 3n * P }));
+    economy.terms_.set(3, fakeTerms({ stake: 1, day: DAY - 1, score: 10, settled: true }));
+    economy.terms_.set(5, fakeTerms({ stake: 3, day: DAY + 1, recorded: false }));
+    economy.terms_.set(6, fakeTerms({ stake: 1, day: DAY - 1, recorded: false }));
     // Game 4 was not bought (stake 0): not listed.
-    const { writer } = land({ economy, games: [game(5, false), game(4, true), game(3, true), game(2, true), game(1, true)], overGames: [1, 2, 3, 4, 5] });
+    const { writer } = land({ economy, games: [game(5, false), game(4, true), game(3, true), game(2, true), game(1, true), game(6, false)] });
     expect(await screen.findByText(/Game 1, day 20000, stake 2: score 4000, to settle/)).toBeTruthy();
     expect(screen.getByText(/Game 2, .*settled, score 5000: 3 PAVED/)).toBeTruthy();
     expect(screen.getByText(/Game 3, .*below the shifted mean, the stake is lost/)).toBeTruthy();
     expect(screen.getByText(/Game 5, .*day running/)).toBeTruthy();
+    expect(screen.getByText(/Game 6, .*not finished: it cannot be settled, the stake is lost/)).toBeTruthy();
     expect(screen.queryByText(/Game 4,/)).toBeNull();
     expect(screen.getAllByText(CLIFF_TEXT).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByText("Settle"));
@@ -242,11 +240,11 @@ describe("helpers", () => {
   });
 
   it("settle state from the chain's terms", () => {
-    const terms = { stake: 1, reference: 1n, day: DAY, score: 1, settled: false, reward: 0n };
-    expect(settleState(terms, true, (DAY + 1) * 86400 - 1).kind).toBe("running");
-    expect(settleState(terms, false, (DAY + 1) * 86400).kind).toBe("not-over");
-    expect(settleState(terms, true, (DAY + 1) * 86400).kind).toBe("settleable");
-    expect(settleState({ ...terms, settled: true, reward: 5n }, true, 0)).toEqual({ kind: "settled", reward: 5n });
+    const terms = fakeTerms({ day: DAY });
+    expect(settleState(terms, (DAY + 1) * 86400 - 1).kind).toBe("running");
+    expect(settleState({ ...terms, recorded: false }, (DAY + 1) * 86400).kind).toBe("not-over");
+    expect(settleState(terms, (DAY + 1) * 86400).kind).toBe("settleable");
+    expect(settleState({ ...terms, settled: true, reward: 5n }, 0)).toEqual({ kind: "settled", reward: 5n });
   });
 
   it("the economy's addresses come from the same network's file, the env first", () => {

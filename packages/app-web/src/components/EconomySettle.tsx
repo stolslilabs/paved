@@ -49,7 +49,7 @@ export function EconomySettle({
       {bought.error && <span role="alert" style={warning}>{`Games unavailable: ${bought.error}`}</span>}
       {bought.data?.length === 0 && <span>No bought game yet.</span>}
       {bought.data?.map(({ game, terms }) => {
-        const state = settleState(terms, game.over, t);
+        const state = settleState(terms, t);
         return (
           <div key={game.gameId} style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <span style={{ flex: 1 }}>
