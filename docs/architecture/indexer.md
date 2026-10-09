@@ -550,8 +550,9 @@ The package follows this design. What differs, or was decided while building (Pa
   then the threshold and reward of `Settled`, with the block of each) and `economy_days` (each `DayClosed`). The indexer
   halts on a second `Purchased`, `Recorded`, `Settled` or `DayClosed` for the same game or day, on a `Recorded` or
   `Settled` without a purchase, on a `Settled` before its `Recorded`, and on a `Settled` whose player, day or score
-  differ from the purchase and the record. A `Purchased` is not checked against `GameSpawned` (their order inside one
-  transaction is not fixed); they are joined on read, `contract = 'daily'` and the same `game_id` (`Economy` uses
+  differ from the purchase and the record. In a paid spawn's receipt `GameSpawned` comes before `Purchased`
+  (`Lobby.spawn` stores and announces the game, then calls `Economy.purchase`; the devnet scenario asserts the order on
+  every paid spawn). The indexer does not cross-check the two: they are joined on read, `contract = 'daily'` and the same `game_id` (`Economy` uses
   `Daily`'s ids). A rewind deletes or undoes them by block.
 - **Numbers**: USDC and PAVED amounts (`u256`, `u128`) are decimal strings, stored as text and summed with `BigInt`;
   every other value is a safe-integer JSON number (P-19). No `settles_at` is served: `(day + 2) x 86400` can pass 2^53 at
@@ -571,5 +572,8 @@ The package follows this design. What differs, or was decided while building (Pa
     `ema_after`, `closed_at` (null until `DayClosed`).
   - `GET /v1/head`: `contracts.economy`.
 - **Devnet**: the scenario deploys with `scripts/deploy.sh`, whose smoke buys, records and settles one paid game, and
-  checks it against `Economy.terms` and `Economy.day`; a keeper test settles a later day from the API's `unsettled` list.
+  checks it against `Economy.terms` and `Economy.day`. One of its games is bought at stake 10 with a referrer, checked
+  against the referrer's USDC. A keeper test settles a later day from the API's `unsettled` list, and checks the
+  `rewards` against the PAVED the settlement minted (`total_supply`, and a player's balance), not only against
+  `Economy.terms`. `Reclaimed` (P-37, from `Daily`'s address) is ignored.
   `PAVED_DEPLOY_UNMERGED=1` deploys a pull request's sources (`--unmerged`). It passed (7 of 7) against #275.
