@@ -103,7 +103,7 @@ predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`, o
 old hard-coded Katana master key is gone), and the Cartridge controller placeholder
 (`auth/controller.ts`), whose policies are now built from the deployment's addresses (refused
 when it is not configured: no policy on an empty target). The controller is the only signing path
-outside devnet; until it is wired, other networks are read-only. Dropped:
+outside devnet, now wired: see [Signing](#signing). Dropped:
 the Dojo burner manager (`@dojoengine/create-burner`).
 
 ### Surrender, claim, sponsor, name (t-0028)
@@ -293,20 +293,38 @@ lazy chunk of about 262 kB (78 kB gzip) and a devnet session never loads it; the
 runs in Cartridge's iframe. The connector is configured as follows:
 
 - `chains`: the deployment's RPC URL only.
-- `defaultChainId`: the deployment file's `chain_id`, or else the RPC's `starknet_chainId`. It is
-  never left unset, because the controller would then default to mainnet.
-- `policies`: `controllerPolicies(deployment)`, passed through the package's `toSessionPolicies`.
-  It holds one policy per entry point the writer sends (`CONTROLLER_ENTRY_POINTS`):
-  `Account.create`, `Token.approve`, Daily `spawn`/`build`/`discard`/`surrender`/`claim`/`sponsor`,
-  and Tutorial `spawn`/`build`/`discard`/`surrender`. `Token.mint` is not a policy, because the faucet
-  exists only on the devnet mock. The connector refuses to build without an RPC URL or policies.
+- `defaultChainId`: the deployment file's `chain_id` and the RPC's `starknet_chainId`. When both
+  are known and differ, the connector refuses ("Chain id mismatch"), and the banner shows that error.
+  When only one is known, it is used. It is never left unset, because the controller would then
+  default to mainnet.
+- `policies`: `controllerPolicies(deployment, { approveCap })`, converted by
+  `toControllerSessionPolicies`. The package's own `toSessionPolicies` is not used, because it drops
+  an approve's `spender` and `amount`, and the controller turns an approve without both into a
+  policy on any spender and any amount. The policies hold:
+  - one policy per call the writer sends outside devnet (`CONTROLLER_ENTRY_POINTS`): `Account.create`,
+    Daily `spawn`/`build`/`discard`/`surrender`/`claim`/`sponsor`, and Tutorial
+    `spawn`/`build`/`discard`/`surrender`;
+  - `Token.approve` only as the controller's approval policy, with the spender pinned to the Daily
+    contract and the cap set to the Daily entry price read when the controller is first used.
+
+  An approve that is larger (a sponsor above the entry price), or any approve when the read fails or
+  the entry is in another token, is not covered by the session and goes through the controller's own
+  prompt. `Token.mint` is not a policy, because the faucet exists only on the devnet mock. The
+  connector refuses to build without an RPC URL or policies. A test drives every `PavedWriter` method
+  against a recording account and checks that the policies hold exactly the calls it sends, with
+  approve as the only call kept to its spender.
 
 When the app opens, `probe` restores a session already approved in the browser without a prompt. A
 connect that the player abandons leaves the app read-only and says why.
 
-A session policy lets the controller sign `approve` without asking each time. What guards each payment
-is the client's own confirm, which shows the amount, and the check at send. The session is not that
-guard.
+Within the session, the controller signs an approve to the Daily contract up to the entry price
+without asking. What guards each payment is still the client's own confirm, which shows the amount,
+and the check at send. "Disconnect" is disabled while a write is in flight (`writing` from
+`usePaved`, counted by `PavedProvider` around the writer's calls), so a write that has been sent
+never loses its account to a reconnect.
+
+Not verified: that the keychain prompts for an approve above the cap, rather than refusing it. That
+needs a run against the real controller, which is due before any public deployment.
 
 The controller's licence is Cartridge's own (`LICENSE` in the package): use is free for non-commercial
 purposes or under 10,000 monthly active users, and each copy must carry a notice. The connected banner

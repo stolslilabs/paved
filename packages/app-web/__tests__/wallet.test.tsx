@@ -2,22 +2,26 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { PavedClient, controllerPolicies, createControllerConnector, usePaved } from "@paved/chain";
-import type { ControllerConfig, PavedRpc, WriteResult } from "@paved/chain";
+import { getChecksumAddress } from "starknet";
+import { PavedClient, controllerPolicies, createCodecs, createControllerConnector, usePaved } from "@paved/chain";
+import type { ControllerConfig, GameViews, PavedRpc, WriteResult } from "@paved/chain";
 import { ConnectionBanner } from "../src/components/ConnectionBanner";
 import { WalletProvider } from "../src/components/WalletProvider";
 import { resolveAppNetwork } from "../src/utils/network";
 
+const SEPOLIA = "0x534e5f5345504f4c4941";
+const ENTRY = 25n;
 const CONTRACTS = { Account: { address: "0x1" }, Daily: { address: "0x2" }, Tutorial: { address: "0x3" }, Token: { address: "0x4" } };
 const FILES = {
   "x/devnet.json": { default: { rpc_url: "http://devnet/rpc", contracts: CONTRACTS } },
-  "x/sepolia.json": { default: { rpc_url: "http://sepolia/rpc", chain_id: "0x534e5f5345504f4c4941", contracts: CONTRACTS } },
+  "x/sepolia.json": { default: { rpc_url: "http://sepolia/rpc", chain_id: SEPOLIA, contracts: CONTRACTS } },
 };
 const BURNER_ENV = { VITE_PLAYER_ADDRESS: "0xb0", VITE_PLAYER_PRIVATE_KEY: "0xb1" };
 const SEPOLIA_ENV = { VITE_NETWORK: "sepolia", ...BURNER_ENV };
 
+
 /** `@cartridge/controller` as the connector uses it: a session the player approves on `connect`. */
-function fakeController(options: { approved?: boolean } = {}) {
+function fakeController(options: { approved?: boolean; rpcChainId?: string } = {}) {
   const execute = vi.fn(async () => ({ transaction_hash: "0xabc" }));
   const account = { address: "0xc0ffee", execute };
   const seen: { options: Record<string, unknown> | null; disconnects: number } = { options: null, disconnects: 0 };
@@ -38,11 +42,11 @@ function fakeController(options: { approved?: boolean } = {}) {
       session = undefined;
     }
   }
-  const module = { default: Controller, toSessionPolicies: (policies: unknown) => ({ converted: policies }) };
+  const module = { default: Controller };
   const configs: ControllerConfig[] = [];
   const createConnector = (config: ControllerConfig) => {
     configs.push(config);
-    return createControllerConnector(config, { load: async () => module, chainId: async () => "0xfeed" });
+    return createControllerConnector(config, { load: async () => module, chainId: async () => options.rpcChainId ?? SEPOLIA });
   };
   return { account, execute, seen, configs, createConnector };
 }
@@ -53,7 +57,8 @@ function clientOf(network: ReturnType<typeof resolveAppNetwork>) {
     getEvents: async () => ({ events: [] }),
     waitForTransaction: async () => ({ execution_status: "SUCCEEDED", events: [] }),
   } as unknown as PavedRpc;
-  return new PavedClient(network.deployment, rpc);
+  const views = { entryPrice: async () => ({ token: "0x4", amount: ENTRY }) } as unknown as GameViews;
+  return new PavedClient(network.deployment, rpc, createCodecs(), views);
 }
 
 let lastWrite: Promise<WriteResult> | null = null;
@@ -158,30 +163,54 @@ describe("signing (P-14)", () => {
   });
 
   it("a connect the player abandons stays read-only and says why", async () => {
-    const load = async () => ({ default: Abandoned, toSessionPolicies: (policies: unknown) => policies });
-    setup(SEPOLIA_ENV, { ...fakeController(), createConnector: (config) => createControllerConnector(config, { load }) });
+    const load = async () => ({ default: Abandoned });
+    setup(SEPOLIA_ENV, { ...fakeController(), createConnector: (config) => createControllerConnector(config, { load, chainId: async () => SEPOLIA }) });
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Not connected: The controller did not connect"));
     expect(status()).toBe("read-only");
   });
 
-  it("the session policies list exactly the client's entry points, on the deployment's chain", async () => {
+  it("the session holds the client's policies on the deployment's chain, approve pinned to Daily up to the entry price", async () => {
     const { fake, network } = setup(SEPOLIA_ENV);
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     await waitFor(() => expect(status()).toBe("ready"));
-    const expected = [
-      { target: "0x1", method: "create" },
-      { target: "0x4", method: "approve" },
-      ...["spawn", "build", "discard", "surrender", "claim", "sponsor"].map((method) => ({ target: "0x2", method })),
-      ...["spawn", "build", "discard", "surrender"].map((method) => ({ target: "0x3", method })),
-    ];
-    expect(controllerPolicies(network.deployment)).toEqual(expected);
-    expect(fake.configs).toEqual([{ rpc: "http://sepolia/rpc", chainId: "0x534e5f5345504f4c4941", policies: expected }]);
-    expect(fake.seen.options).toMatchObject({
-      chains: [{ rpcUrl: "http://sepolia/rpc" }],
-      defaultChainId: "0x534e5f5345504f4c4941",
-      policies: { converted: expected },
+    expect(fake.configs).toHaveLength(1);
+    expect(fake.configs[0]).toMatchObject({ rpc: "http://sepolia/rpc", chainId: SEPOLIA });
+    expect(fake.seen.options).toMatchObject({ chains: [{ rpcUrl: "http://sepolia/rpc" }], defaultChainId: SEPOLIA });
+    const session = fake.seen.options!.policies as { contracts: Record<string, { methods: Array<Record<string, string>> }> };
+    const sessionKeys = Object.entries(session.contracts).flatMap(([target, { methods }]) => methods.map((m) => `${BigInt(target)}:${m.entrypoint}`));
+    const expected = controllerPolicies(network.deployment, { approveCap: ENTRY });
+    expect(sessionKeys.sort()).toEqual(expected.map((p) => `${BigInt(p.target)}:${p.method}`).sort());
+    expect(session.contracts[getChecksumAddress("0x4")].methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" }]);
+  });
+
+  it("Disconnect is disabled while a write is in flight", async () => {
+    const fake = fakeController();
+    let release!: () => void;
+    fake.execute.mockImplementationOnce(() => new Promise((resolve) => (release = () => resolve({ transaction_hash: "0x1" }))));
+    setup(SEPOLIA_ENV, fake);
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(status()).toBe("ready"));
+    const disconnect = () => screen.getByRole<HTMLButtonElement>("button", { name: "Disconnect" });
+    expect(disconnect().disabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "discard" }));
+    await waitFor(() => expect(disconnect().disabled).toBe(true));
+    fireEvent.click(disconnect());
+    expect(status()).toBe("ready");
+    expect(fake.seen.disconnects).toBe(0);
+    await act(async () => {
+      release();
+      await lastWrite;
     });
+    expect(disconnect().disabled).toBe(false);
+  });
+
+  it("a deployment and an RPC on different chains: no connection, and the banner says why", async () => {
+    const { fake } = setup(SEPOLIA_ENV, fakeController({ rpcChainId: "0x534e5f4d41494e" }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Chain id mismatch"));
+    expect(status()).toBe("read-only");
+    expect(fake.seen.options).toBeNull();
   });
 
   it("a deployment that is not configured gets no controller and no Connect", () => {

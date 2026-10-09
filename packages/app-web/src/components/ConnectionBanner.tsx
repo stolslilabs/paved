@@ -8,7 +8,7 @@ const short = (address: string) => (address.length > 12 ? `${address.slice(0, 6)
  * devnet it holds the controller's "Connect" button, and once connected its account and "Disconnect".
  */
 export function ConnectionBanner() {
-  const { status, deployment, address } = usePaved();
+  const { status, deployment, address, writing } = usePaved();
   const wallet = useWallet();
   const controller = wallet?.signer === "controller";
 
@@ -17,7 +17,8 @@ export function ConnectionBanner() {
     return (
       <div role="status" style={{ background: "#1e293b", color: "#fff", padding: "8px 12px", fontSize: 14 }}>
         Signed in with Cartridge Controller ({short(address)}).{" "}
-        <button type="button" onClick={wallet.disconnect}>
+        {/* Not while a write is in flight: its receipt would arrive for an account the player left. */}
+        <button type="button" onClick={wallet.disconnect} disabled={writing}>
           Disconnect
         </button>
         {wallet.error && <span> {wallet.error}</span>}

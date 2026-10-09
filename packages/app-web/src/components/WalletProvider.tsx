@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { PavedProvider, controllerPolicies, createControllerConnector } from "@paved/chain";
+import { PavedProvider, controllerPolicies, createControllerConnector, createPavedClient } from "@paved/chain";
 import type { ControllerConfig, PavedClient, WriteAccount } from "@paved/chain";
 import { resolvePlayerAccount, signerOf, type AppNetwork, type NetworkEnv, type Signer } from "../utils/network";
 
@@ -21,6 +21,16 @@ const WalletContext = createContext<WalletState | null>(null);
 /** The wallet state; null outside a `WalletProvider` (a screen rendered on its own). */
 export function useWallet(): WalletState | null {
   return useContext(WalletContext);
+}
+
+/** The Daily entry price when it is paid in the deployment's token; null when it cannot be read. */
+async function entryCap(client: PavedClient, token: string): Promise<bigint | null> {
+  try {
+    const price = await client.views.entryPrice();
+    return BigInt(price.token) === BigInt(token) ? price.amount : null;
+  } catch {
+    return null;
+  }
 }
 
 const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -48,13 +58,20 @@ export function WalletProvider({
 }) {
   const { deployment } = network;
   const signer = signerOf(deployment);
-  const connector = useMemo(
-    () =>
-      signer === "controller"
-        ? createConnector({ rpc: deployment.rpcUrl, chainId: deployment.chainId, policies: controllerPolicies(deployment) })
-        : null,
-    [signer, deployment, createConnector],
-  );
+  // One client for the app and the connector's read of the entry price.
+  const reader = useMemo(() => (deployment.configured ? (client ?? createPavedClient(deployment)) : undefined), [deployment, client]);
+  const connector = useMemo(() => {
+    if (signer !== "controller" || !reader) return null;
+    // Checked now: no controller on an incomplete deployment.
+    controllerPolicies(deployment);
+    return createConnector({
+      rpc: deployment.rpcUrl,
+      chainId: deployment.chainId,
+      // The session may approve the Daily contract alone, up to the entry price read at connect; a
+      // larger approve (a sponsor), or any approve when the read fails, goes through the controller's prompt.
+      policies: async () => controllerPolicies(deployment, { approveCap: await entryCap(reader, deployment.addresses.Token) }),
+    });
+  }, [signer, deployment, reader, createConnector]);
   const [controller, setController] = useState<WriteAccount | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +123,7 @@ export function WalletProvider({
 
   return (
     <WalletContext.Provider value={wallet}>
-      <PavedProvider deployment={deployment} account={account} tip={network.tip} client={client}>
+      <PavedProvider deployment={deployment} account={account} tip={network.tip} client={reader}>
         {children}
       </PavedProvider>
     </WalletContext.Provider>
