@@ -1,4 +1,4 @@
-# Economy (P8, design for ruling)
+# Economy (P8, design, ruled by the PM: P-31)
 
 Design of Paved's economy: the paid Daily game in USDC, the PAVED token, the burn, the reward curve with its cliff,
 the moving mean, the Vault, the swap and the LP. Documents only: no contract changes in this PR. The prototypes that
@@ -33,23 +33,51 @@ components `hostable`, `payable`, `playable`; `models/{game,tournament}`, `types
 both games lives in Cartridge's `arcade` bundle component (pinned there at `cartridge-gg/arcade` rev `fc2e81c`); it was
 read from a local checkout that may differ from that revision.
 
+## Rulings (P-31, 2026-10-09)
+
+The project manager ruled every open point of this design on 2026-10-09 (P-31). Each one below is **DECIDED**; the
+sections that follow give the reasons and the figures.
+
+| # | Point | DECIDED (P-31, 2026-10-09) | What would reverse it |
+|---|---|---|---|
+| 1 | Referral | The 5 % comes from the **margin**; the 70 % burn holds on every purchase (section 1) | The PM rules the burn |
+| 2 | Curve | As proposed: `sigma = 0`, `rho = 0.9` (`c = 1.813` on today's sample), `H = 5`, `T = 1,000,000`, Nums' supply factor; Glitchbomb's boost `1 + k/100` **kept** (the owner asked for it, D-10) (section 2) | E4's recalibration on real games, or the PM |
+| 3 | Mean | Weighted EMA: weight = stake, min score 100, max weight 1,000; 4x clamp; a push's weight capped at the max weight; no admin setter (section 2) | The PM |
+| 4 | Settlement | **Option B**: after the day, against the day's mean blended with the EMA; option A stays documented as the fallback (section 1) | The owner wants the payout at game over (then option A) |
+| 5 | Contracts | As proposed (section 6): `Economy`, `PavedToken` (minted by the game only, the real `total_supply`), a simple no-owner staking `Vault`, Ekubo interfaces declared locally, `MockRouter` and `MockUSDC` on devnet only, `Lobby` makes the calls. Entries no longer feed the daily top-3 prize, which is **sponsor-only**. **OpenZeppelin for `PavedToken`: yes, a published version pinned exactly** | The PM |
+| 6 | Class headroom | `Daily` +183 felts (72,607, 88.6 %) with the move code unchanged: **OK under P-27** (section 6) | Any further growth of `Daily` goes back to the PM |
+| 7 | NFTs | As proposed (section 9): soulbound `Collection`, mint at spawn from `Lobby`, JSON `token_uri`, transfers revert; spawn +838k (Daily) / +845k (Tutorial) **accepted**; wallet display checked at the first public deploy | The owner (D-11b) |
+| 8 | PR plan | E1 to E5 (section 8), with the security and economy audits | The PM |
+
+**Open questions for the owner** (recorded by P-31; **neither blocks E1**):
+
+- **The structural house edge.** D-10's numbers (70 % burn, 5 % pool fee) give players back about 63 % of what they
+  pay in the long run, a house edge of about **37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to 37.3 %, section 3).
+  The curve parameters do not change it. Only the burn share or the fee does.
+- **The predictable seed with paid games** (D-3, E-1): replaying the day's best known line pays 1.31x to 1.36x
+  (section 3). Recommendation: a VRF, or a seed revealed after the purchase.
+
+**Until the owner answers, no paid game leaves devnet.** The seed mechanism stays isolated behind an interface, so
+that a VRF or a seed revealed after the purchase can replace it without touching the move code. The interface is
+built in E3 (section 8, "Seed source").
+
 ## Summary
 
 - **Where the money goes.** For a purchase of stake `k`, the price is `P = 2k` USDC.
   - 70 % (`0.7 P`) is swapped to PAVED through Ekubo and burned.
   - The rest goes to the Vault in USDC: 30 %, or 25 % when the player came with a referrer, who gets 5 %.
-    **Recommended: the referral comes out of the margin**, so the 70 % burn of D-10 holds on every purchase.
+    **DECIDED (P-31): the referral comes out of the margin**, so the 70 % burn of D-10 holds on every purchase.
   - The pool keeps its 5 % fee on the swapped USDC.
   - At settlement the game **mints** PAVED to the player: `R x h(score / mean)`. Here `R` is the PAVED burned for
     that game, times the stake boost `1 + k/100` (Glitchbomb), times Nums' supply factor `F = 2 - S/T`.
 - **The curve.** `h` is 0 below the threshold `(1 + sigma) x mean`, where the whole stake is lost. Above it, `h` is
   linear in the score, `c x score / threshold`, capped at `H`.
-  - Proposed: `sigma = 0`, so the threshold is the mean.
+  - DECIDED (P-31): `sigma = 0`, so the threshold is the mean.
   - `c` is calibrated so that `E[h] = rho = 0.9` on the score sample. That gives `c = 1.813` today.
-  - Proposed cap: `H = 5`.
+  - DECIDED (P-31): cap `H = 5`, `T = 1,000,000`, and Glitchbomb's boost `1 + k/100` kept.
 - **The mean.** Nums' weighted mean: weight = stake, scores under 100 left out, cumulative up to a weight of 1,000,
   then an EMA. Two additions: a clamp at 4x the mean, and the initial mean taken from the calibration.
-  - **Recommended (option B): each game is settled against the mean of its own day**, blended with the EMA as a
+  - **DECIDED (P-31), option B: each game is settled against the mean of its own day**, blended with the EMA as a
     prior of weight 100. Settlement is one permissionless transaction once the day is over. The reason: every player
     of a day plays the same deck, and the day's deck moves the mean score by **50 to 55 %** from one day to the next
     (measured).
@@ -63,12 +91,12 @@ read from a local checkout that may differ from that revision.
   - Of `sigma`, `rho` and `H`, none moves the edge. They only decide **who** loses and where the supply settles:
     `S* = T (2 - 1/rho_eff)`.
 - **Contracts.** The paying logic lives in its own contracts: `PavedToken`, `Economy` (purchase split, swap, burn,
-  terms, mean, settlement, mint) and `Vault` (stake PAVED, earn USDC; **simpler than Nums' ERC4626**, recommended).
+  terms, mean, settlement, mint) and `Vault` (stake PAVED, earn USDC; **simpler than Nums' ERC4626**; DECIDED, P-31).
   - Devnet only: `MockUSDC` and `MockRouter`.
   - `Lobby` gains a few lines: one `transferFrom` and one call to `Economy` at spawn, one call at game over.
   - **`Daily` grows by 183 CASM felts** (measured on a prototype): the three new arguments of `spawn` and the game id
     passed to `Lobby.report`. It goes from 72,424 to 72,607 (88.6 % of the cap), and nothing in the move code
-    changes. That growth goes back to the PM under P-27.
+    changes. That growth is accepted under P-27 (P-31).
 - **Games as NFTs** (D-11, amended D-11b: every game NFT is soulbound). There is a separate `Collection`
   contract. It mints the game's token to the player at spawn, from `Lobby`, and serves on-chain JSON metadata. It
   refuses every transfer and approval. Measured on a prototype:
@@ -139,7 +167,7 @@ happened.
 
 ### Settlement and mint
 
-**Option B (recommended).** Once the day is over (`now >= (day + 1) x 86400`), anyone calls
+**Option B (DECIDED, P-31).** Once the day is over (`now >= (day + 1) x 86400`), anyone calls
 `Economy.settle(game_ids)`. For each game that is recorded and not yet settled:
 
 1. On the day's first settlement, its mean is fixed:
@@ -159,7 +187,7 @@ transaction and no day state, but the closing move pays the mint.
 
 ### Where the referral 5 % comes from
 
-| | From the margin (recommended) | From the burn |
+| | From the margin (DECIDED, P-31) | From the burn |
 |---|---|---|
 | Burn of a referred purchase | 70 % (D-10 holds on every purchase) | 65 % |
 | Vault income of a referred purchase | 25 % instead of 30 % (stakers' yield -16.7 % on that purchase) | 30 % |
@@ -168,14 +196,14 @@ transaction and no day state, but the closing move pays the mint.
 | Calibration | one curve for every game | the same curve, a smaller `R` |
 | Nums, Glitchbomb | the same (the bundle pays the referrer before the game gets the funds) | |
 
-The recommendation is the margin. It keeps D-10's "70 % of the price swapped and burned on each purchase" to the
+The margin was recommended and is DECIDED (P-31). It keeps D-10's "70 % of the price swapped and burned on each purchase" to the
 letter, the reward of a game does not depend on who referred it, and it is what Nums and Glitchbomb do. Its cost is
 on the stakers: 5 points of price on every referred purchase. A player who refers themself from a second address
 takes those 5 points. A referrer must be a registered Paved player (`Account`) other than the payer, which stops the
 trivial case only.
 
 Taking the referral from the burn would make self-referral pointless and keep the stakers whole, but it changes the
-burn rate D-10 fixed. It is the PM's ruling, and the owner's if the 70 % is to read "70 % minus referrals".
+burn rate D-10 fixed. **DECIDED (P-31, 2026-10-09): the margin.**
 
 ## 2. The reward curve, the supply factor, the stake and the mean
 
@@ -210,7 +238,7 @@ D-10 asks for a threshold shifted from the mean by profitability. The Monte-Carl
 profitability does not depend on the shift**. In steady state the supply factor brings the mint back to the burn,
 and the player's expected return is `burn x (1 - fee)^2 = 0.7 x 0.95^2 = 63.2 %` of the price, whatever `sigma`,
 `c` or `H` are (section 3). The shift decides how many games lose everything, and `c` how much the others get.
-Proposed values:
+Values, DECIDED (P-31, 2026-10-09):
 
 - `sigma = 0`: the threshold is the mean. 69 % of the sampled games are below it. Negative shifts (a
   threshold under the mean) lose fewer games and pay them less; positive shifts the reverse. Table in section 3.
@@ -228,7 +256,7 @@ Proposed values:
 - 0 at `2T` and above.
 
 `S` is `PavedToken.total_supply()` read at the purchase after the burn. `F` is frozen into `R`, so a game keeps the
-terms it was bought under (#181's "multiplier fixed at spawn"). Proposed `T = 1,000,000 PAVED`, the initial supply,
+terms it was bought under (#181's "multiplier fixed at spawn"). DECIDED (P-31): `T = 1,000,000 PAVED`, the initial supply,
 as in Nums.
 
 This is the only feedback that holds the token supply. The simulation keeps it bounded in every scenario. A target
@@ -248,12 +276,12 @@ same thing when `price / base_price = k` exactly, which holds here since there i
 Glitchbomb's README describes a discounted price. Its code has none, and D-10 says no discount.
 
 The boost adds up to 10 % to the mint of a stake-10 game. The supply factor absorbs it, at a slightly higher
-equilibrium supply. If the PM reads "linear in the stake" as `R` proportional to the burn only, the boost is
-removed: one constant, no other change.
+equilibrium supply. **DECIDED (P-31): the boost is kept**, as the owner asked (D-10). Removing it later is one
+constant, no other change.
 
 ### The mean (Nums' weighted EMA)
 
-| Parameter | Nums | Proposed | Why |
+| Parameter | Nums | DECIDED (P-31) | Why |
 |---|---|---|---|
 | Weight of a game | `multiplier / 1e6`, truncated (a paid game under 1x counts 0) | the stake `k` (1 to 10) | the same intent, without the truncation |
 | Initial mean | 10 (mainnet) | the calibration mean of the sample, 3,353 points, set at deploy | an initial mean far off only costs the first days (the cumulative phase converges) |
@@ -365,7 +393,7 @@ scores under 100 left out: 3,353; cap 5):
 | +0.2 | 74 % | 2.144 | 2.421 | 2.736 |
 | +0.3 | 76 % | 2.497 | 2.843 | 3.276 |
 
-At the proposed point (`sigma` 0, `rho` 0.9, `c` 1.813), `h` has median 0, p90 3.16, p99 4.60, and no game of the
+At the decided point (`sigma` 0, `rho` 0.9, `c` 1.813), `h` has median 0, p90 3.16, p99 4.60, and no game of the
 sample reaches the cap.
 
 **Runs** (365 days x 200 games; "return" is what a player gets back in USDC per USDC paid, after selling the reward;
@@ -414,14 +442,14 @@ the output). The median return is 0 in every run: more than half the games lose 
 - **Option B is fairer by day.** With option A, on a hard deck every game of the day loses (p90 of 100 %); with B
   the share of a day's games lost stays between 48 % and 78 %, and the p99 return falls from 3.08 to 2.58. The cost
   is the settlement after the day. With few games a day (20), B's day mean is noisy; a prior weight of 100 (about 30
-  games at the mean stake) is the proposed compromise.
+  games at the mean stake) is the decided compromise (P-31).
 - **Replay is the hole (E-1).** A player who replays the best known line of the day at stake 10 gets back 1.31x to
   1.36x what they pay with 10 % of the games theirs, and drags everyone else to about half. At 30 % they fall back
   under 1 (0.94) because the mean adapts, but the others then get 0.31 to 0.37.
 
 ## 4. The Vault
 
-**Recommended: a simple staking vault, not Nums' ERC4626.**
+**DECIDED (P-31): a simple staking vault, not Nums' ERC4626.**
 
 Nums' Vault (`systems/vault.cairo`, 445 lines plus 300 of components and models) is an OpenZeppelin ERC4626 over NUMS
 with a transferable share token `vNUMS`, `Votes` for governance, and a USDC reward-per-share accumulator settled in
@@ -462,7 +490,7 @@ The Vault has no owner, no setter, no pause and no upgrade. Its only parameters 
 the constructor. Lockup and exit fee: none. Dividends arrive per purchase, a few USDC at a time, so staking just
 before a purchase earns only that purchase's pro-rata share; a lockup would buy nothing.
 
-What reverses the recommendation: the owner wants a transferable or tradable share (an LP of vPAVED, governance).
+What reverses the decision: the owner wants a transferable or tradable share (an LP of vPAVED, governance).
 Then Nums' ERC4626 is ported, with its roles cut to none and its accumulator kept.
 
 ## 5. Swap and LP
@@ -528,7 +556,7 @@ Rule P-27 holds: **nothing is added to the move code of `Daily`**, and its payin
 | the three arguments of `spawn` (`u8`, `ContractAddress`, `u256`) through to `Lobby` | 182 |
 | the game id passed to `Lobby.report` in `build` | 1 |
 
-That growth goes back to the PM (P-27). Two variants were measured and rejected:
+That growth is **accepted under P-27 (P-31, 2026-10-09)**. Two variants were measured and rejected:
 
 - the economy's configuration and views as `Daily` entry points: +1,253 felts, 89.9 %, a margin of 51;
 - the economy's events in Paved's shared event enum: +1,409 felts, 90.1 %, above the line. Every contract that
@@ -626,14 +654,14 @@ economy at all.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| E-1 | **Predictable daily seed** (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.31x to 1.36x of their price; at 10 % of the games the others drop to about half | **The owner's decision**: a seed nobody knows before the purchase (Cartridge VRF on mainnet, a mock on devnet) before a paid game leaves devnet. Option B already blends the replayers into the day's mean, which limits them as their share grows |
+| E-1 | **Predictable daily seed** (open question for the owner, P-31) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.31x to 1.36x of their price; at 10 % of the games the others drop to about half | **The owner's decision**: a seed nobody knows before the purchase (Cartridge VRF on mainnet, a mock on devnet) before a paid game leaves devnet. Option B already blends the replayers into the day's mean, which limits them as their share grows |
 | E-2 | **Day effect**: one deck per day; the mean score moves 50 to 55 % from day to day | Option B (the day's own mean). With option A, the share of a day's games lost spans 46 % to 100 % (p10 to p90 over the days), against 48 % to 78 % with option B |
 | E-3 | Bot sample, not players | Recalibrate on the first real games (PR E4); `c`, `sigma`, `H`, `T` are configurable within bounds |
 | E-4 | Thin pool or self-sandwich | `min_out` from the player; the rate guard (+10 %); a launch LP of at least ~10,000 USDC (the owner's act) |
 | E-5 | `Daily` at 88.6 % after P8 (1,121 felts to 90 %) | P8 adds nothing more to `Daily`; growth of the move code goes to the PM (P-27); fallbacks (a) or (c2) of `class-headroom.md` |
 | E-6 | Self-referral through a second address takes 5 % from the stakers | Accepted with the margin option; the burn option removes it (section 1) |
 | E-7 | USDC that arrives while nobody stakes goes to the first staker | The owner stakes at launch |
-| E-8 | New dependency: an OpenZeppelin ERC20 (`openzeppelin_token`, pinned to a published version that builds with Scarb 2.20.1) | The PM decides; the alternative is our own ERC20, as the mock's |
+| E-8 | New dependency: an OpenZeppelin ERC20 (`openzeppelin_token`) | DECIDED (P-31): OpenZeppelin for `PavedToken`, a published version that builds with Scarb 2.20.1, pinned exactly (`=x.y.z`) in E1 |
 | E-9 | Ekubo interface drift | Local ABI-compatible declarations; a fork test against the mainnet router before the owner's mainnet go |
 | E-11 | A wallet or indexer does not show the games, or shows a transfer button that then fails | Standard ERC721 surface with SRC5 ids, the camelCase twins and the `Transfer` event at mint; no Starknet standard for "soulbound" exists (section 9) |
 | E-10 | A paid game of skill with token rewards may be regulated in places | Out of this track's scope; for the owner |
@@ -669,7 +697,7 @@ Not stacked: each one branches from main and targets main.
   three entry points), with unit tests. No game change.
 - Allowlist:
   - `contracts/src/economy/{token,vault,ekubo}.cairo` and `contracts/src/mocks/{usdc,router}.cairo` (new);
-  - `contracts/src/lib.cairo`; `contracts/Scarb.toml` (OpenZeppelin, if ruled), `contracts/Scarb.lock`;
+  - `contracts/src/lib.cairo`; `contracts/Scarb.toml` (OpenZeppelin, pinned exactly: P-31), `contracts/Scarb.lock`;
   - their tests under `contracts/src/tests/`;
   - `contracts/abis/{PavedToken,Vault}.json` and `scripts/abis.sh`.
 - Acceptance:
@@ -701,12 +729,20 @@ Not stacked: each one branches from main and targets main.
 - Goal:
   - `Daily.spawn(stake, referrer, min_out)` and `Lobby.report(game_id, over)`;
   - `Lobby` calls `Economy`;
-  - the entry no longer feeds the prize;
+  - the entry no longer feeds the prize (sponsor-only, P-31);
+  - **Seed source (P-31):** the initial seed of a game is taken behind an interface, so that a VRF or a seed
+    revealed after the purchase can replace it. Today `GameImpl::start` calls `Mode::seed(time, id, salt)` at spawn,
+    which runs in `Lobby` (`HostableComponent::spawn`). E3 moves that call behind a `SeedSource` trait in
+    `contracts/src/seed.cairo`, and `spawn` passes the seed in. Its only implementation in E3 is today's daily seed,
+    so the goldens stay identical. The reseeds of `build` and `discard` derive from the initial seed and are not
+    touched, so `Daily`'s move code does not change;
   - `scripts/deploy.sh devnet` deploys and wires everything;
   - the indexer decodes the new events.
 - Allowlist:
   - `contracts/src/systems/{daily,lobby,tutorial,account}.cairo`, `contracts/src/components/hostable.cairo`,
     `contracts/src/types/mode.cairo`, `contracts/src/constants.cairo`;
+  - `contracts/src/seed.cairo` (new) and `GameImpl::start` in `contracts/src/models/game.cairo` (the seed is passed
+    in);
   - test setups and e2e tests, `contracts/tests/gas.cairo`;
   - `scripts/deploy.sh`, `contracts/deployments/{README.md,devnet.json}`, `contracts/abis/{Daily,Tutorial}.json`;
   - `packages/indexer/**` (the decoders and the API fields);
@@ -719,7 +755,9 @@ Not stacked: each one branches from main and targets main.
   - every class at most 90 %;
   - gas of spawn and of the closing moves measured and reported, with the cause stated;
   - a devnet smoke check that buys, plays the Tutorial, and settles a paid game on a later day;
-  - the indexer's devnet scenario passes with the new events.
+  - the indexer's devnet scenario passes with the new events;
+  - the seed comes only through `SeedSource`: a test with a stub implementation changes the draw, and the default
+    gives the goldens.
 - Audit: security and economy.
 
 **E4. Calibration on real games.**
@@ -753,22 +791,27 @@ Not stacked: each one branches from main and targets main.
 **CLIENT** (their track, through the PM): the stake selector, the USDC approval, the quote, the settle button and the
 Vault screens.
 
-### Decided here, and what would reverse it
+### Decided (P-31, 2026-10-09)
+
+Every point of this design was ruled by the PM on 2026-10-09: the table at the top ("Rulings (P-31, 2026-10-09)")
+says what was decided and what would reverse each decision. The choices made inside this design, and not listed
+there, stand as written:
 
 | Decision | Reverse |
 |---|---|
-| Referral from the margin | The PM rules the burn (section 1) |
-| Option B (the day's mean, settle after the day) | The PM prefers Nums' immediate mint (option A, same contract minus the day state) |
-| Glitchbomb's boost `1 + k/100` kept | The PM reads "linear" as the burn alone |
-| A linear curve above the cliff, `sigma = 0`, `rho = 0.9`, `H = 5`, `T = 1,000,000` | E4's calibration, or the PM's ruling on the table of section 3 |
-| A simple staking Vault | The owner wants a tradable share |
 | Ekubo interfaces declared locally | A published Ekubo package by version, if allowed |
 | Configuration and views on `Economy`, not `Daily` | None: the `Daily` variant was measured at 89.9 % |
+| Addresses (`Economy`, `Collection`) read from the `Account` registry, no constructor change of `Daily` | A constructor argument (about +92 felts in `Daily`) |
 
 ### For the owner
 
+Two open questions, recorded by P-31. Neither blocks E1. **Until the owner answers, no paid game leaves devnet.**
+
+- **The structural house edge, about 37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to 37.3 %). It follows from D-10's
+  70 % burn and 5 % pool fee; the curve does not change it.
 - **D-3** (randomness, theirs): paid Daily games with the predictable daily seed are exploitable by replay (E-1).
-  Recommendation: a seed revealed only after the purchase (VRF) before any paid game outside devnet.
+  Recommendation: a seed revealed only after the purchase (VRF). The seed already sits behind `SeedSource` from E3,
+  so either answer replaces one implementation.
 - **The owner's acts**, unchanged by this design: deploying PAVED on a public network and distributing the initial
   1,000,000; creating the Ekubo pool and funding its LP (Nums: 800,000 PAVED and 10,000 USDC); who holds the LP
   position and its 5 % fees; staking at launch.
