@@ -12,7 +12,7 @@ import { EconomyWriter } from "./writer";
  */
 export class EconomyClient {
   readonly views: EconomyViews;
-  /** Null while `quote_swap` is a stub (`POOL_QUOTE_CONFIRMED`): purchases are refused then. */
+  /** Null only when a test passes none (`POOL_QUOTE_CONFIRMED`): purchases are refused then. */
   readonly poolQuoter: PoolQuoter | null;
 
   constructor(

@@ -12,7 +12,7 @@ import { parseGameParams } from "../utils/game-params";
 import { buildGameRoute } from "../utils/mode-routing";
 import { readStartIntent, startGame } from "../utils/start-game";
 import { useEconomy } from "../utils/economy-context";
-import { readPurchaseIntent, type ReadPurchase } from "../utils/economy-start";
+import { readPurchaseIntent, spawnForIntent, type ReadPurchase } from "../utils/economy-start";
 
 /** How long a start consent waits for a ready writer before it is dropped. */
 const START_CONSENT_MS = 30_000;
@@ -174,10 +174,7 @@ export function GamePage() {
     setStarting(true);
     startGame(intent, {
       listGames: () => client.events.playerGames(address, [gameParams.mode]),
-      spawn: (confirmedAmount) =>
-        intent.purchase && economy.writer
-          ? economy.writer.purchase({ stake: intent.purchase.stake, confirmedPrice: intent.purchase.confirmedPrice, referrer: intent.purchase.referrer })
-          : writer.spawn(gameParams.mode, { confirmedAmount }),
+      spawn: (confirmedAmount) => spawnForIntent(intent.purchase, economy.writer, () => writer.spawn(gameParams.mode, { confirmedAmount })),
       clearIntent: () => {}, // already cleared at mount
       open: (gameId) => alive.current && navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
     }).catch((error) => {

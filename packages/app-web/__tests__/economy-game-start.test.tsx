@@ -6,7 +6,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { FakeGameViews, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
 import type { PavedClient } from "@paved/chain";
-import { FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "@paved/chain/economy/fake";
+import { FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "@paved/chain/testing";
 import { GamePage } from "../src/pages/Game";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { purchaseIntent } from "../src/utils/economy-start";

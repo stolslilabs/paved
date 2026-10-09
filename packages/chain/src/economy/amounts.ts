@@ -103,3 +103,6 @@ export function parseUnits(text: string, decimals: number): bigint | null {
 export function formatBps(bps: bigint): string {
   return formatUnits(bps, 4);
 }
+
+/** A contract address is below `2^251 - 256` (Starknet's address bound), tighter than the felt prime. */
+export const ADDRESS_BOUND = (1n << 251n) - 256n;

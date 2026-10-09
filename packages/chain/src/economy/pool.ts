@@ -11,12 +11,13 @@ export interface PoolQuoter {
 }
 
 /**
- * STUB switch (P-35): `Economy.quote_swap` is in the stub ABI only. Until CORE confirms it in a merged
- * `Economy.json`, no client has a pool quoter, and every purchase is refused with "No pool quote: nothing was sent".
+ * `Economy.quote_swap` is in the committed ABI (E2, #262): the client has a pool quoter. A purchase still cannot go
+ * through before E3, because the paid `Daily.spawn` is a stub (`stub-abi.ts`). A missing, failed or zero quote refuses
+ * the purchase with "No pool quote: nothing was sent".
  */
-export const POOL_QUOTE_CONFIRMED = false;
+export const POOL_QUOTE_CONFIRMED = true;
 
-/** `Economy.quote_swap(usdc_in) -> paved_out` (STUB until a merged ABI has it; routed to the MockRouter on devnet). */
+/** `Economy.quote_swap(usdc_in) -> paved_out` (P-35; routed to the MockRouter on devnet). */
 export class EconomyPoolQuoter implements PoolQuoter {
   constructor(
     private readonly provider: CallProvider,

@@ -5,10 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { FakeGameViews, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
 import type { Deployment, EconomyDeployment } from "@paved/chain";
-import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/economy/fake";
+import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/testing";
+import { EconomyPage } from "../src/pages/Economy";
 import { LandingPage } from "../src/pages/Landing";
 import { EconomyProvider } from "../src/utils/economy-context";
-import { purchaseIntent, readPurchaseIntent } from "../src/utils/economy-start";
+import { purchaseIntent, readPurchaseIntent, spawnForIntent } from "../src/utils/economy-start";
 import { CLIFF_TEXT, referralLink, referrerFromSearch, settleState } from "../src/utils/economy-view";
 import { resolveEconomyNetwork } from "../src/utils/economy-network";
 import { PLAYER, renderPage } from "./helpers/page-fixtures";
@@ -49,7 +50,7 @@ function fakeBaseWriter() {
   return { address: PLAYER, sendCalls, sent };
 }
 
-function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null } = {}) {
+function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null; playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null> } = {}) {
   const economy = opts.economy ?? new FakeEconomy();
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: FAKE_UNIT };
@@ -61,6 +62,7 @@ function land(opts: { search?: string; economy?: FakeEconomy; deployment?: Econo
     deployment: base,
     views,
     games: opts.games,
+    playerFor: opts.playerFor,
     writer: writer as never,
     wrap: (routes) => (
       <EconomyProvider value={{ deployment: opts.deployment ?? economyDeployment, views: economy, poolQuoter: opts.pool === undefined ? new FakePoolQuoter() : opts.pool, now: () => opts.now ?? settlesAfter(DAY) }}>{routes}</EconomyProvider>
@@ -126,6 +128,44 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();
   });
 
+  it("a referrer that is not a registered player is shown as ignored and is not sent", async () => {
+    land({ search: `?ref=${REFERRER}`, playerFor: async (address) => (BigInt(address) === BigInt(REFERRER) ? null : { id: PLAYER, name: "Zed", master: PLAYER }) });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    await screen.findByText("Referrer 0x77 is not a registered player: ignored");
+    fireEvent.click(await screen.findByText("Buy for 2 USDC"));
+    expect(screen.getByRole("dialog", { name: "Confirm purchase" }).textContent).not.toContain("gets");
+    fireEvent.click(screen.getByText("Confirm purchase"));
+    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();
+  });
+
+  it("a referrer still loading holds the purchase back; it is offered once the answer is in", async () => {
+    let answer!: (player: { id: string; name: string; master: string } | null) => void;
+    const pending = new Promise<{ id: string; name: string; master: string } | null>((resolve) => (answer = resolve));
+    land({ search: `?ref=${REFERRER}`, playerFor: (address) => (BigInt(address) === BigInt(REFERRER) ? pending : Promise.resolve({ id: PLAYER, name: "Zed", master: PLAYER })) });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    await screen.findByText("Price: 2 USDC");
+    // The price is known, the referrer is not: nothing can be confirmed yet, so the referrer cannot be dropped silently.
+    expect((screen.getByText("Buy for 2 USDC", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+    answer({ id: REFERRER, name: "Ref", master: REFERRER });
+    await waitFor(() => expect((screen.getByText("Buy for 2 USDC", { selector: "button" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.getByText("Referrer: 0x77")).toBeTruthy();
+    fireEvent.click(screen.getByText("Buy for 2 USDC"));
+    fireEvent.click(screen.getByText("Confirm purchase"));
+    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBe(REFERRER);
+  });
+
+  it("a ?ref= out of the address range (at or above 2^251 - 256, up to the felt prime and beyond) is no referrer", async () => {
+    land({ search: `?ref=0x${((1n << 251n) - 256n).toString(16)}` });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await screen.findByText("Buy for 2 USDC"));
+    expect(screen.queryByText(/Referrer/)).toBeNull();
+    fireEvent.click(screen.getByText("Confirm purchase"));
+    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();
+  });
+
   it("a referral link to one's own address is ignored", async () => {
     land({ search: `?ref=${PLAYER}` });
     fireEvent.click(await screen.findByText(/mode daily/));
@@ -136,7 +176,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();
   });
 
-  it("no pool quote (quote_swap not confirmed yet): the purchase is not offered", async () => {
+  it("no pool quote (a missing quoter): the purchase is not offered", async () => {
     land({ pool: null });
     fireEvent.click(await screen.findByText(/mode daily/));
     expect(await screen.findByText("No pool quote: purchase unavailable")).toBeTruthy();
@@ -177,7 +217,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
   it("not deployed (every network today): the old Daily confirm, and the panel says so", async () => {
     land({ deployment: resolveEconomyDeployment({ base }) });
     expect(await screen.findByText(/Not deployed on devnet: Economy address/)).toBeTruthy();
-    expect(screen.getByText("Economy contracts on stub ABIs (E2 not merged)")).toBeTruthy();
+    expect(screen.getByText("Economy is live on its real ABI; the paid spawn and USDC are stubs until E3, so purchases are not possible yet")).toBeTruthy();
     expect(screen.queryByText(/USDC, by stake/)).toBeNull();
   });
 });
@@ -257,14 +297,15 @@ describe("after the day: settle with the cliff stated", () => {
     economy.terms_.set(1, fakeTerms({ stake: 2, day: DAY, score: 4000 }));
     economy.terms_.set(2, fakeTerms({ stake: 1, day: DAY - 1, score: 5000, settled: true, reward: 3n * P }));
     economy.terms_.set(3, fakeTerms({ stake: 1, day: DAY - 1, score: 10, settled: true }));
-    economy.terms_.set(5, fakeTerms({ stake: 3, day: DAY + 1, recorded: false }));
+    economy.terms_.set(5, fakeTerms({ stake: 3, day: DAY + 1, time: NOW - 3600, recorded: false }));
+    economy.terms_.set(8, fakeTerms({ stake: 1, day: DAY, score: 700, expired: true }));
     economy.terms_.set(6, fakeTerms({ stake: 1, day: DAY - 1, recorded: false }));
     economy.terms_.set(7, fakeTerms({ stake: 1, day: DAY + 1, score: 900 }));
     // Game 4 was not bought (stake 0): not listed.
     const { writer } = land({
       economy,
       now: NOW,
-      games: [game(7, true, NOW - 600), game(5, false, NOW - 3600), game(4, true), game(3, true), game(2, true), game(1, true), game(6, false)],
+      games: [game(7, true, NOW - 600), game(5, false, NOW - 3600), game(8, true), game(4, true), game(3, true), game(2, true), game(1, true), game(6, false)],
     });
     expect(await screen.findByText(/Game 1, day 20000, stake 2: score 4000, to settle/)).toBeTruthy();
     expect(screen.getByText(/Game 2, .*settled, score 5000: 3 PAVED/)).toBeTruthy();
@@ -273,6 +314,8 @@ describe("after the day: settle with the cliff stated", () => {
     expect(screen.getByText(`Game 5, day ${DAY + 1}, stake 3: in play, expires 2024-10-06 23:00 UTC`)).toBeTruthy();
     // Not recorded 24 h after its purchase: expired.
     expect(screen.getByText(/Game 6, .*: Expired: no reward/)).toBeTruthy();
+    // Recorded after its 24 h (terms().expired): no reward, and nothing to settle.
+    expect(screen.getByText(/Game 8, .*: Expired: no reward/)).toBeTruthy();
     // Day D+1 settles after D+2 ends: no Settle button for it.
     expect(screen.getByText(`Game 7, day ${DAY + 1}, stake 1: score 900, settles after 2024-10-07 00:00 UTC`)).toBeTruthy();
     expect(screen.getAllByText("Settle")).toHaveLength(1);
@@ -286,7 +329,70 @@ describe("after the day: settle with the cliff stated", () => {
   });
 });
 
+describe("the economy page (/economy)", () => {
+  const visit = (opts: { deployment?: EconomyDeployment; economy?: FakeEconomy } = {}) => {
+    const economy = opts.economy ?? new FakeEconomy();
+    const views = new FakeGameViews();
+    views.price = { token: ECON.usdc, amount: FAKE_UNIT };
+    const writer = fakeBaseWriter();
+    renderPage({
+      page: <EconomyPage />,
+      path: "/economy",
+      search: `?ref=${REFERRER}`,
+      deployment: base,
+      views,
+      writer: writer as never,
+      wrap: (routes) => (
+        <EconomyProvider value={{ deployment: opts.deployment ?? economyDeployment, views: economy, poolQuoter: new FakePoolQuoter(), now: () => settlesAfter(DAY) }}>{routes}</EconomyProvider>
+      ),
+    });
+    return { economy, writer };
+  };
+
+  it("shows the purchase, the Vault, the after-the-day list and the referral link together", async () => {
+    visit();
+    expect(await screen.findByText("Price: 2 USDC")).toBeTruthy();
+    expect(screen.getByLabelText("Purchase")).toBeTruthy();
+    expect(screen.getByLabelText("Vault amount")).toBeTruthy();
+    expect(screen.getByLabelText("After the day")).toBeTruthy();
+    expect(screen.getByLabelText("Referral")).toBeTruthy();
+  });
+
+  it("the purchase confirm carries the price in history state to the game page, as from the Landing", async () => {
+    const { writer } = visit();
+    fireEvent.click(await screen.findByText("Buy for 2 USDC"));
+    fireEvent.click(screen.getByText("Confirm purchase"));
+    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 1, confirmedPrice: 2_000_000n, referrer: REFERRER });
+    expect(writer.sendCalls).not.toHaveBeenCalled();
+  });
+
+  it("not deployed: it says so and reads nothing", async () => {
+    visit({ deployment: resolveEconomyDeployment({ base }) });
+    expect(await screen.findByText(/Not deployed on devnet: Economy address/)).toBeTruthy();
+    expect(screen.queryByLabelText("Purchase")).toBeNull();
+  });
+
+  it("the Landing keeps its entry point to the page", async () => {
+    land();
+    expect(await screen.findByText("Open the economy page")).toBeTruthy();
+  });
+});
+
 describe("helpers", () => {
+  it("a purchase never falls back to the plain spawn: without the economy writer it throws and sends nothing", async () => {
+    const plain = vi.fn(async () => ({ gameId: 1 }));
+    const purchase = { stake: 2, confirmedPrice: 4_000_000n, referrer: null };
+    await expect(spawnForIntent(purchase, null, plain)).rejects.toThrow("The economy is not available: nothing was sent");
+    expect(plain).not.toHaveBeenCalled();
+    const bought = vi.fn(async () => ({ gameId: 9 }));
+    expect(await spawnForIntent(purchase, { purchase: bought } as never, plain)).toEqual({ gameId: 9 });
+    expect(bought).toHaveBeenCalledWith(purchase);
+    expect(plain).not.toHaveBeenCalled();
+    // No purchase in the intent: the plain spawn, with or without the economy.
+    expect(await spawnForIntent(undefined, null, plain)).toEqual({ gameId: 1 });
+  });
+
   it("a purchase intent comes only from state, well formed; a URL alone buys nothing", () => {
     expect(readPurchaseIntent(purchaseIntent(3, 6_000_000n, null))).toEqual({ stake: 3, confirmedPrice: 6_000_000n, referrer: null });
     expect(readPurchaseIntent(null)).toBeNull();
@@ -301,16 +407,22 @@ describe("helpers", () => {
     expect(referrerFromSearch(new URLSearchParams("ref=0x0077"))).toBe("0x77");
     expect(referrerFromSearch(new URLSearchParams("ref=0x0"))).toBeNull();
     expect(referrerFromSearch(new URLSearchParams("ref=abc"))).toBeNull();
+    // Below the address bound 2^251 - 256 (itself below the felt prime) only: out of range counts as no referrer.
+    const bound = (1n << 251n) - 256n;
+    const ref = (v: bigint) => referrerFromSearch(new URLSearchParams(`ref=0x${v.toString(16)}`));
+    expect(ref(bound - 1n)).toBe(`0x${(bound - 1n).toString(16)}`);
+    for (const v of [bound, 1n << 251n, (1n << 251n) + 17n * (1n << 192n) + 1n, (1n << 256n) - 1n]) expect(ref(v)).toBeNull();
     expect(referralLink("https://paved.gg", "0x00abc")).toBe("https://paved.gg/?ref=0xabc");
   });
 
   it("settle state: expiry 24 h after the purchase, settlement after the next day ends (P-34)", () => {
-    const terms = fakeTerms({ day: DAY });
     const bought = DAY * 86400 + 100;
+    const terms = fakeTerms({ day: DAY, time: bought });
     expect(settleState({ ...terms, recorded: false }, bought, bought + 86_399)).toEqual({ kind: "playing", expiresAt: bought + 86_400 });
     expect(settleState({ ...terms, recorded: false }, bought, bought + 86_400).kind).toBe("expired");
     expect(settleState(terms, bought, (DAY + 2) * 86400 - 1)).toEqual({ kind: "waiting", settlesAfter: (DAY + 2) * 86400 });
     expect(settleState(terms, bought, (DAY + 2) * 86400).kind).toBe("settleable");
+    expect(settleState({ ...terms, expired: true }, bought, bought + 10).kind).toBe("expired"); // recorded as expired
     expect(settleState({ ...terms, settled: true, reward: 5n }, bought, 0)).toEqual({ kind: "settled", reward: 5n });
   });
 
