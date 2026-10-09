@@ -59,6 +59,14 @@ API (extra `/v1/head` fields, 503 on `/v1/head`, null score of a running game) a
 `packages/indexer` run in-process (no chain, no browser). `VITE_INDEXER_URL` and the indexer's `--allow-origin` for devnet
 are in `packages/README.md`. Not done: the end-to-end check on a live devnet (waits for CORE's regenerated `devnet.json`).
 
+2026-10-09, quests and achievements (t-0053): typed client of the indexer's P7 routes (`definitions`, `playerQuests`,
+`playerAchievements`) in `@paved/chain`, with fixture routes and contract tests against the real indexer (schema 3), and the
+screens: `/quests/:day?` (the connected player's quests of a day with the leaderboard's day picker, achievements with
+their points, the list of what counts) and the same progress on `/player/:id`, with the lag line and the unavailable,
+not-configured and stale states. Display only: no reward is shown or promised. Landing has a "Quests and achievements"
+button. jsdom tests only, no browser run. The e2e step "deployer smoke game" now queries the Tutorial contract and expects
+game 1 there (it passed vacuously on Daily). Not run on a live devnet.
+
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
 The baseline measures a recorded board, not a live deployment (decided 2026-10-06): the contracts

@@ -170,6 +170,8 @@ filtering:
 | Game page with a consent in its history state (the landing page's confirm only) | `GameSpawned` / `GameOver` of the mode: resume the active game, else `spawn` | once, then the consent is cleared |
 | Leaderboard screen (`/leaderboard/:day?`) | indexer `tournaments`, `leaderboard` (limit, offset); today's id from `Daily.current_tournament_id` | on open, when the page becomes visible, on paging |
 | Player screen (`/player/:id`) | indexer `player`, `playerGames` (before), `playerTournament` per listed day | on open, when the page becomes visible |
+| Quests screen (`/quests/:day?`) | indexer `playerQuests(player, day)`, `playerAchievements(player)`, `definitions`; the player id from `Account.player(address)`; today's id from `Daily.current_tournament_id`; the day list from `tournaments` | on open, when the page becomes visible, on a day change |
+| Player screen: quests and achievements | indexer `playerQuests`, `playerAchievements` (not `definitions`), same day rules | on open, when the page becomes visible, on a day change |
 | Game: board | `tiles(game_id, 0, 64)` | on open |
 | Game: tile in hand, score, counts, over | `game(game_id)` | on open, after each write (reconcile) |
 | Game: characters | `builder` + `characters(game_id, player)` | on open, after each write (reconcile) |
@@ -194,7 +196,8 @@ display only: a prize amount, who may claim and whether a rank was claimed come 
 view, never from here.
 
 - `IndexerClient({ url })` has one method per route (`head`, `tournaments`, `tournament`, `leaderboard`, `player`,
-  `playerGames`, `playerTournament`, `game`), checks its ids before sending, and returns rows in camelCase.
+  `playerGames`, `playerTournament`, `game`, and the P7 routes `definitions`, `playerQuests(player, { day })`,
+  `playerAchievements(player)`), checks its ids and days before sending, and returns rows in camelCase.
 - Every answer is `{ data, head, behind, freshness }`. `freshness` is `ok` up to `maxLag` blocks behind (default 5,
   the indexer doc's figure) and `behind` above it; the screens print `behind` as it is.
 - Errors are `IndexerError` with a `kind`: `not-configured` (no URL), `unreachable` (the request failed, timed out
@@ -226,6 +229,30 @@ view, never from here.
   `packages/indexer` started in-process over its own fake node (an in-memory SQLite, a free local port, real HTTP):
   every route, paging, a running game, `halted` (503 on `/v1/head` too), CORS. Run on devnet is configured in
   `packages/README.md`; the end-to-end check on a live devnet waits for CORE's regenerated `devnet.json`.
+
+### Quests and achievements (P7, display only)
+
+- The three routes are validated field by field against `indexer.md`: a missing key, a count above its target, a task
+  list that is empty, `completed` without `completed_at` (or the reverse), `completed` that disagrees with the counts,
+  `retired` that disagrees with `retired_at`, and an answer about another player or another day than the one asked are all
+  `bad-response`. Nothing is guessed. A player the indexer does not know has zero counts (200, not an error); a day with no
+  quest is an empty list.
+- Titles and descriptions are not on chain: `app-web/src/utils/quests-view.ts` keys them by id from the accepted list
+  (`quests.md`, P-22). The targets shown are always the chain's (`definitions`, and the `total` of each task), never copied
+  into the client, because they are first guesses to be calibrated. An id the list does not know shows by number, without
+  a description.
+- **No reward is shown or promised anywhere.** Achievement points are shown as points, never as a grant. The tests assert no
+  `reward`, `prize`, `claim` or token label on these screens. "On the Podium" is credited by the indexer after the day
+  closes, from the contract's `tournament` view; the screen says so and nothing more.
+- States, as for the leaderboard: not configured (`Quests unavailable`, no request), loading, unavailable by kind (down,
+  halted, rewinding, loading, another API version, unexpected answer) with Retry for each read, stale (the rows stay with
+  the reason after a failed refresh), and one lag line (`progress-lag`) for the furthest-behind of the screen's reads.
+  Not connected and "no player yet" are said in words; the definitions still show.
+- The day picker is the leaderboard's (`DayPicker`, `useDays`): the days the indexer lists, today from the contract. The
+  quest `interval_id` is not the day (it counts from the quest's own `start`), so the screens use the requested `day`.
+- Tests: `packages/chain/test/indexer-quests.test.ts` (fixture, every error case), the new cases of
+  `indexer-real.test.ts` (the real indexer: a player with progress, one with none, an unknown one, a day with no quest, a
+  retired quest, a halted indexer) and `app-web/__tests__/{quests,player}-page.test.tsx` (jsdom, every state).
 
 ## Tests
 
