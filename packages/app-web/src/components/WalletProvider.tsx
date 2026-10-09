@@ -23,11 +23,18 @@ export function useWallet(): WalletState | null {
   return useContext(WalletContext);
 }
 
-/** The Daily entry price when it is paid in the deployment's token; null when it cannot be read. */
-async function entryCap(client: PavedClient, token: string): Promise<bigint | null> {
+/** The most stakes one Daily purchase buys (the contract's MAX_STAKE, E3): its approve is at most this x the unit price. */
+export const ENTRY_MAX_STAKE = 10n;
+
+/**
+ * The session's approve: the token `Daily.entry_price` names (the deployment's Token before E3, USDC
+ * after), capped at `ENTRY_MAX_STAKE` x its unit price. Null when the entry cannot be read: no approve
+ * in the session then.
+ */
+export async function entryApprove(client: PavedClient): Promise<{ token: string; cap: bigint } | null> {
   try {
     const price = await client.views.entryPrice();
-    return BigInt(price.token) === BigInt(token) ? price.amount : null;
+    return { token: price.token, cap: price.amount * ENTRY_MAX_STAKE };
   } catch {
     return null;
   }
@@ -67,9 +74,9 @@ export function WalletProvider({
     return createConnector({
       rpc: deployment.rpcUrl,
       chainId: deployment.chainId,
-      // The session may approve the Daily contract alone, up to the entry price read at connect; a
-      // larger approve (a sponsor), or any approve when the read fails, goes through the controller's prompt.
-      policies: async () => controllerPolicies(deployment, { approveCap: await entryCap(reader, deployment.addresses.Token) }),
+      // The session may approve the entry token to the Daily contract alone, up to a full purchase,
+      // read at first use; a sponsor's approve, or any approve when the read fails, prompts.
+      policies: async () => controllerPolicies(deployment, { approve: await entryApprove(reader) }),
     });
   }, [signer, deployment, reader, createConnector]);
   const [controller, setController] = useState<WriteAccount | null>(null);

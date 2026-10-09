@@ -13,6 +13,8 @@ const deployment = resolveDeployment({
 });
 const policies = controllerPolicies(deployment);
 const ENTRY = 25n;
+/** The entry approve the app gives the session: the entry token, 10 x the unit price. */
+const TOKEN_APPROVE = { token: "0x4", cap: 10n * ENTRY };
 
 const TOURNAMENT: TournamentView = {
   id: 3, startTime: 0, endTime: 1, over: true, prize: 600n,
@@ -56,7 +58,7 @@ const key = (target: string, method: string) => `${BigInt(target)}:${method}`;
 describe("controllerPolicies", () => {
   test("hold exactly the calls the writer sends outside devnet; approve only pinned to Daily, with a cap", async () => {
     const sent = await callsOfEveryWrite();
-    const capped = controllerPolicies(deployment, { approveCap: ENTRY });
+    const capped = controllerPolicies(deployment, { approve: TOKEN_APPROVE });
     const sentKeys = new Set(sent.map((c) => key(c.contractAddress, c.entrypoint)));
     expect(new Set(capped.map((p) => key(p.target, p.method)))).toEqual(sentKeys);
     // Without a cap, approve is not in the session at all.
@@ -65,19 +67,33 @@ describe("controllerPolicies", () => {
     const approves = sent.filter((c) => c.entrypoint === "approve");
     expect(approves.length).toBeGreaterThan(0);
     for (const c of approves) expect(BigInt((c.calldata as string[])[0])).toBe(BigInt(deployment.addresses.Daily));
-    expect(capped.find((p) => p.method === "approve")).toEqual({ target: "0x4", method: "approve", spender: "0x2", amount: ENTRY });
+    expect(capped.find((p) => p.method === "approve")).toEqual({ target: "0x4", method: "approve", spender: "0x2", amount: 250n });
+    // The Daily spawn's approve fits under the cap.
+    for (const c of approves) expect(BigInt((c.calldata as string[])[1])).toBeLessThanOrEqual(250n);
     expect(sent.map((c) => c.entrypoint)).not.toContain("mint");
   });
 
-  test("a cap of 0 or none adds no approve", () => {
-    expect(controllerPolicies(deployment, { approveCap: 0n }).map((p) => p.method)).not.toContain("approve");
-    expect(controllerPolicies(deployment, { approveCap: null }).map((p) => p.method)).not.toContain("approve");
+  test("after E3 the entry is paid in USDC: the approve targets the token entry_price names, capped at 10 stakes", () => {
+    const usdc = "0x5";
+    const unit = 2_000_000n; // 2 USDC, 6 decimals
+    const after = controllerPolicies(deployment, { approve: { token: usdc, cap: 10n * unit } });
+    expect(after.filter((p) => p.method === "approve")).toEqual([{ target: usdc, method: "approve", spender: "0x2", amount: 20_000_000n }]);
+    expect(after.filter((p) => p.method !== "approve")).toEqual(policies);
+    const session = toControllerSessionPolicies(after);
+    expect(session.contracts[getChecksumAddress(usdc)].methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x1312d00" }]);
+    expect(session.contracts[getChecksumAddress("0x4")]).toBeUndefined();
+  });
+
+  test("no approve without a token that can be read, or with a cap of 0", () => {
+    for (const approve of [null, undefined, { token: "0x4", cap: 0n }, { token: "0x0", cap: 10n }, { token: "", cap: 10n }]) {
+      expect(controllerPolicies(deployment, { approve }).map((p) => p.method)).not.toContain("approve");
+    }
   });
 });
 
 describe("toControllerSessionPolicies", () => {
   test("keeps an approve's spender and cap, which the package's own conversion drops", () => {
-    const session = toControllerSessionPolicies(controllerPolicies(deployment, { approveCap: ENTRY }));
+    const session = toControllerSessionPolicies(controllerPolicies(deployment, { approve: { token: "0x4", cap: ENTRY } }));
     const token = session.contracts[getChecksumAddress("0x4")];
     expect(token.methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" }]);
     expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "build", "discard", "surrender"]);
@@ -130,11 +146,11 @@ describe("createControllerConnector", () => {
 
   test("policies built at first use (the cap read then)", async () => {
     const { module, built } = fakeModule();
-    const read = vi.fn(async () => controllerPolicies(deployment, { approveCap: ENTRY }));
+    const read = vi.fn(async () => controllerPolicies(deployment, { approve: TOKEN_APPROVE }));
     const connector = createControllerConnector({ rpc: "http://s/rpc", policies: read }, { load: async () => module, chainId: async () => SEPOLIA });
     expect(read).not.toHaveBeenCalled();
     await connector.connect();
-    expect(built[0].policies).toEqual(toControllerSessionPolicies(controllerPolicies(deployment, { approveCap: ENTRY })));
+    expect(built[0].policies).toEqual(toControllerSessionPolicies(controllerPolicies(deployment, { approve: TOKEN_APPROVE })));
   });
 
   test("an unknown chain id is read from the RPC, never left to the controller's mainnet default", async () => {

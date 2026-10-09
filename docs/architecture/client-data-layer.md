@@ -297,19 +297,24 @@ runs in Cartridge's iframe. The connector is configured as follows:
   are known and differ, the connector refuses ("Chain id mismatch"), and the banner shows that error.
   When only one is known, it is used. It is never left unset, because the controller would then
   default to mainnet.
-- `policies`: `controllerPolicies(deployment, { approveCap })`, converted by
+- `policies`: `controllerPolicies(deployment, { approve })`, converted by
   `toControllerSessionPolicies`. The package's own `toSessionPolicies` is not used, because it drops
   an approve's `spender` and `amount`, and the controller turns an approve without both into a
   policy on any spender and any amount. The policies hold:
   - one policy per call the writer sends outside devnet (`CONTROLLER_ENTRY_POINTS`): `Account.create`,
     Daily `spawn`/`build`/`discard`/`surrender`/`claim`/`sponsor`, and Tutorial
     `spawn`/`build`/`discard`/`surrender`;
-  - `Token.approve` only as the controller's approval policy, with the spender pinned to the Daily
-    contract and the cap set to the Daily entry price read when the controller is first used.
+  - `approve` only as the controller's approval policy, on the token that `Daily.entry_price` names,
+    read when the controller is first used. That token is the deployment's Token before E3 and USDC
+    after it, so no code change is needed. The spender is pinned to the Daily contract, and the cap is
+    `ENTRY_MAX_STAKE` (10, the contract's MAX_STAKE) times the unit price, which is the most one
+    purchase approves.
 
-  An approve that is larger (a sponsor above the entry price), or any approve when the read fails or
-  the entry is in another token, is not covered by the session and goes through the controller's own
-  prompt. `Token.mint` is not a policy, because the faucet exists only on the devnet mock. The
+  When the entry cannot be read, the session holds no approve. Any approve outside the policy goes
+  through the controller's own prompt: another token, another spender, or an amount above the cap.
+  Sponsor approves are meant to prompt. A sponsor whose approve is on the entry token and within the
+  cap still falls inside the session, because the policy cannot tell which call made the approve.
+  Before E3 this applies to the Token; after it, only if the sponsor is paid in USDC. `Token.mint` is not a policy, because the faucet exists only on the devnet mock. The
   connector refuses to build without an RPC URL or policies. A test drives every `PavedWriter` method
   against a recording account and checks that the policies hold exactly the calls it sends, with
   approve as the only call kept to its spender.
@@ -317,8 +322,8 @@ runs in Cartridge's iframe. The connector is configured as follows:
 When the app opens, `probe` restores a session already approved in the browser without a prompt. A
 connect that the player abandons leaves the app read-only and says why.
 
-Within the session, the controller signs an approve to the Daily contract up to the entry price
-without asking. What guards each payment is still the client's own confirm, which shows the amount,
+Within the session, the controller signs an approve of the entry token to the Daily contract, up to
+one full purchase, without asking. What guards each payment is still the client's own confirm, which shows the amount,
 and the check at send. "Disconnect" is disabled while a write is in flight (`writing` from
 `usePaved`, counted by `PavedProvider` around the writer's calls), so a write that has been sent
 never loses its account to a reconnect.

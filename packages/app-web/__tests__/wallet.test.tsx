@@ -51,13 +51,15 @@ function fakeController(options: { approved?: boolean; rpcChainId?: string } = {
   return { account, execute, seen, configs, createConnector };
 }
 
-function clientOf(network: ReturnType<typeof resolveAppNetwork>) {
+type EntryPrice = () => Promise<{ token: string; amount: bigint }>;
+
+function clientOf(network: ReturnType<typeof resolveAppNetwork>, entryPrice: EntryPrice) {
   const rpc = {
     callContract: async () => [],
     getEvents: async () => ({ events: [] }),
     waitForTransaction: async () => ({ execution_status: "SUCCEEDED", events: [] }),
   } as unknown as PavedRpc;
-  const views = { entryPrice: async () => ({ token: "0x4", amount: ENTRY }) } as unknown as GameViews;
+  const views = { entryPrice } as unknown as GameViews;
   return new PavedClient(network.deployment, rpc, createCodecs(), views);
 }
 
@@ -76,10 +78,10 @@ function Probe() {
   );
 }
 
-function setup(env: Record<string, string>, fake = fakeController()) {
+function setup(env: Record<string, string>, fake = fakeController(), entryPrice: EntryPrice = async () => ({ token: "0x4", amount: ENTRY })) {
   const network = resolveAppNetwork(env, FILES);
   render(
-    <WalletProvider env={env} network={network} createConnector={fake.createConnector} client={clientOf(network)}>
+    <WalletProvider env={env} network={network} createConnector={fake.createConnector} client={clientOf(network, entryPrice)}>
       <ConnectionBanner />
       <Probe />
     </WalletProvider>,
@@ -170,7 +172,7 @@ describe("signing (P-14)", () => {
     expect(status()).toBe("read-only");
   });
 
-  it("the session holds the client's policies on the deployment's chain, approve pinned to Daily up to the entry price", async () => {
+  it("the session holds the client's policies on the deployment's chain, approve on the entry token (Token before E3) pinned to Daily, up to 10 stakes", async () => {
     const { fake, network } = setup(SEPOLIA_ENV);
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
     await waitFor(() => expect(status()).toBe("ready"));
@@ -179,9 +181,34 @@ describe("signing (P-14)", () => {
     expect(fake.seen.options).toMatchObject({ chains: [{ rpcUrl: "http://sepolia/rpc" }], defaultChainId: SEPOLIA });
     const session = fake.seen.options!.policies as { contracts: Record<string, { methods: Array<Record<string, string>> }> };
     const sessionKeys = Object.entries(session.contracts).flatMap(([target, { methods }]) => methods.map((m) => `${BigInt(target)}:${m.entrypoint}`));
-    const expected = controllerPolicies(network.deployment, { approveCap: ENTRY });
+    const expected = controllerPolicies(network.deployment, { approve: { token: "0x4", cap: 10n * ENTRY } });
     expect(sessionKeys.sort()).toEqual(expected.map((p) => `${BigInt(p.target)}:${p.method}`).sort());
-    expect(session.contracts[getChecksumAddress("0x4")].methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" }]);
+    expect(session.contracts[getChecksumAddress("0x4")].methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0xfa" }]);
+  });
+
+  const sessionOf = (fake: ReturnType<typeof fakeController>) =>
+    fake.seen.options!.policies as { contracts: Record<string, { methods: Array<Record<string, string>> }> };
+
+  it("after E3 the entry is in USDC: the session's approve targets USDC, capped at 10 x the unit price", async () => {
+    const fake = fakeController();
+    setup(SEPOLIA_ENV, fake, async () => ({ token: "0x5", amount: 2_000_000n }));
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(status()).toBe("ready"));
+    const session = sessionOf(fake);
+    expect(session.contracts[getChecksumAddress("0x5")].methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x1312d00" }]);
+    expect(session.contracts[getChecksumAddress("0x4")]).toBeUndefined();
+  });
+
+  it("an entry that cannot be read puts no approve in the session", async () => {
+    const fake = fakeController();
+    setup(SEPOLIA_ENV, fake, async () => {
+      throw new Error("node down");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+    await waitFor(() => expect(status()).toBe("ready"));
+    const methods = Object.values(sessionOf(fake).contracts).flatMap((c) => c.methods.map((m) => m.entrypoint));
+    expect(methods).not.toContain("approve");
+    expect(methods).toContain("spawn");
   });
 
   it("Disconnect is disabled while a write is in flight", async () => {

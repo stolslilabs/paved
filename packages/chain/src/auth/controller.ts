@@ -22,8 +22,8 @@ export interface ControllerConfig {
 }
 
 /**
- * The client's writes, by contract: what `PavedWriter` sends outside devnet. `Token.approve` is not
- * here: it is a session policy only with its spender and a cap (`controllerPolicies`). `Token.mint`
+ * The client's writes, by contract: what `PavedWriter` sends outside devnet. `approve` is not
+ * here: it is a session policy only on the entry token, with its spender and a cap (`controllerPolicies`). `Token.mint`
  * is left out: the faucet exists on the devnet mock only, where the burner signs.
  */
 export const CONTROLLER_ENTRY_POINTS = {
@@ -33,20 +33,33 @@ export const CONTROLLER_ENTRY_POINTS = {
 } as const;
 
 /**
- * Session policies for the game's writes, on the deployment's addresses. With `approveCap` (above
- * 0), the session may also approve the Daily contract, and it alone, up to that amount; without it,
- * every approve goes through the controller's own prompt.
+ * Session policies for the game's writes, on the deployment's addresses. With `approve` (a cap
+ * above 0), the session may also approve that token to the Daily contract, and to it alone, up to
+ * the cap: the token is the one `Daily.entry_price` names (the deployment's Token before E3, USDC
+ * after). Without it, every approve goes through the controller's own prompt.
  */
-export function controllerPolicies(deployment: Deployment, options: { approveCap?: bigint | null } = {}): ControllerPolicy[] {
+export function controllerPolicies(
+  deployment: Deployment,
+  options: { approve?: { token: string; cap: bigint } | null } = {},
+): ControllerPolicy[] {
   // No policy on an empty target: the deployment must be complete.
   if (!deployment.configured) throw new Error(`Not connected: ${deployment.missing.join(", ")} missing`);
   const policies: ControllerPolicy[] = (Object.keys(CONTROLLER_ENTRY_POINTS) as Array<keyof typeof CONTROLLER_ENTRY_POINTS>).flatMap(
     (contract) => CONTROLLER_ENTRY_POINTS[contract].map((method) => ({ target: deployment.addresses[contract], method })),
   );
-  if (options.approveCap && options.approveCap > 0n) {
-    policies.push({ target: deployment.addresses.Token, method: "approve", spender: deployment.addresses.Daily, amount: options.approveCap });
+  const approve = options.approve;
+  if (approve && approve.cap > 0n && isAddress(approve.token)) {
+    policies.push({ target: approve.token, method: "approve", spender: deployment.addresses.Daily, amount: approve.cap });
   }
   return policies;
+}
+
+function isAddress(value: string): boolean {
+  try {
+    return BigInt(value) !== 0n;
+  } catch {
+    return false;
+  }
 }
 
 /**
