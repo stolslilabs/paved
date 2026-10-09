@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { MAX_TOURNAMENT_ID, indexerPlayerId, useIndexer, useIndexerRead, usePaved, useRead } from "@paved/chain";
 import type { LeaderboardEntry } from "@paved/chain";
+import { DayPicker } from "../components/DayPicker";
 import { IndexerFailure, IndexerLag } from "../components/IndexerLag";
-import { BOARD_PAGE, DAYS_LISTED, dayLabel, playerLabel, slotsLabel } from "../utils/indexer-view";
+import { BOARD_PAGE, playerLabel, slotsLabel } from "../utils/indexer-view";
+import { useDays } from "../utils/use-days";
 
 const page = { minHeight: "100%", background: "#0a0a0a", color: "#f5f5f5", padding: 24, display: "flex", flexDirection: "column", gap: 12, maxWidth: 960, margin: "0 auto", boxSizing: "border-box" } as const;
 const cell = { padding: "6px 10px", textAlign: "left" } as const;
@@ -23,17 +25,11 @@ export function LeaderboardPage() {
   const params = useParams();
   const navigate = useNavigate();
   const indexer = useIndexer();
-  const { client, address } = usePaved();
+  const { address } = usePaved();
 
   const requested = params.tournamentId === undefined ? undefined : routeId(params.tournamentId);
-  const days = useIndexerRead((c) => c.tournaments({ limit: DAYS_LISTED }), [], { onVisible: true });
-  // Today's id is the contract's; with the node unreachable the newest day the indexer lists stands in.
-  const current = useRead((c) => c.views.currentTournamentId(), []);
+  const { days, current, waitingForToday, id, listed } = useDays(requested);
   const me = useRead((c) => (address ? c.player(address) : Promise.resolve(null)), [address]);
-
-  const waitingForToday = requested === undefined && client !== null && !current.loaded && !current.error;
-  const newest = days.data?.data.tournaments[0]?.id ?? null;
-  const id = requested === undefined ? (current.loaded ? current.data : newest) : requested;
 
   const [paging, setPaging] = useState({ id: -1, offset: 0 });
   const offset = paging.id === id ? paging.offset : 0;
@@ -44,7 +40,6 @@ export function LeaderboardPage() {
   );
 
   const myId = me.data ? indexerPlayerId(me.data.id) : null;
-  const listed = days.data?.data.tournaments ?? [];
 
   if (!indexer) {
     return (
@@ -66,21 +61,7 @@ export function LeaderboardPage() {
       <Link to="/" style={{ color: "#f59e0b" }}>Back</Link>
       <h1 style={{ margin: 0 }}>Leaderboard</h1>
       {id !== null && (
-        <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
-          Day
-          <select
-            aria-label="Day"
-            value={id}
-            onChange={(e) => navigate(`/leaderboard/${e.target.value}`)}
-            style={{ background: "#111", color: "#fff", border: "1px solid #555", borderRadius: 6, padding: "4px 8px" }}
-          >
-            {[...(listed.some((t) => t.id === id) ? [] : [{ id, startTime: answer?.data.startTime ?? 0 }]), ...listed].map((t) => (
-              <option key={t.id} value={t.id}>
-                {`${t.startTime ? dayLabel(t.startTime) : `Day ${t.id}`}${t.id === current.data ? " (today)" : ""}`}
-              </option>
-            ))}
-          </select>
-        </label>
+        <DayPicker id={id} listed={listed} today={current.data} startTime={answer?.data.startTime} onChange={(day) => navigate(`/leaderboard/${day}`)} />
       )}
       <IndexerLag answer={answer} error={board.cause} />
 

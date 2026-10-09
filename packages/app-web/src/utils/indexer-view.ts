@@ -31,26 +31,26 @@ export function isLate(freshness: Freshness): boolean {
   return freshness.kind === "behind";
 }
 
-/** One line for an indexer failure, by kind. */
-export function describeIndexerError(error: unknown): string {
-  if (!(error instanceof IndexerError)) return "Leaderboard unavailable";
+/** One line for an indexer failure, by kind; `subject` is what the screen shows ("Leaderboard", "Quests"). */
+export function describeIndexerError(error: unknown, subject = "Leaderboard"): string {
+  if (!(error instanceof IndexerError)) return `${subject} unavailable`;
   switch (error.kind) {
     case "not-configured":
-      return "Leaderboard unavailable";
+      return `${subject} unavailable`;
     case "unreachable":
-      return "Leaderboard unavailable: the indexer cannot be reached";
+      return `${subject} unavailable: the indexer cannot be reached`;
     case "wrong-version":
-      return "Leaderboard unavailable: the indexer speaks another API version";
+      return `${subject} unavailable: the indexer speaks another API version`;
     case "unavailable":
       return error.status === "halted"
-        ? "Leaderboard unavailable: the indexer is halted"
+        ? `${subject} unavailable: the indexer is halted`
         : error.status === "rewinding"
-          ? "Leaderboard unavailable: the indexer is catching up after a chain reorganisation"
-          : "Leaderboard unavailable: the indexer is starting";
+          ? `${subject} unavailable: the indexer is catching up after a chain reorganisation`
+          : `${subject} unavailable: the indexer is starting`;
     case "not-found":
       return "Not found";
     default:
-      return "Leaderboard unavailable: the indexer gave an unexpected answer";
+      return `${subject} unavailable: the indexer gave an unexpected answer`;
   }
 }
 

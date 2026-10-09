@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { IndexerError, indexerPlayerId, useIndexer, useIndexerRead } from "@paved/chain";
 import type { IndexedGame } from "@paved/chain";
+import { DayPicker } from "../components/DayPicker";
 import { IndexerFailure, IndexerLag } from "../components/IndexerLag";
+import { ProgressSections } from "../components/Progress";
+import { useDays } from "../utils/use-days";
 import { GAMES_PAGE, PLAYER_TOURNAMENTS_SHOWN, dayLabel, playerLabel, slotsLabel } from "../utils/indexer-view";
 
 const page = { minHeight: "100%", background: "#0a0a0a", color: "#f5f5f5", padding: 24, display: "flex", flexDirection: "column", gap: 12, maxWidth: 960, margin: "0 auto", boxSizing: "border-box" } as const;
@@ -73,6 +76,8 @@ export function PlayerPage() {
           </dl>
         )
       )}
+
+      <PlayerProgress playerId={id} />
 
       <h2 style={{ margin: "12px 0 0" }}>Tournaments</h2>
       <div style={{ color: "#999", fontSize: 12 }}>{`Among the last ${GAMES_PAGE} games.`}</div>
@@ -182,5 +187,17 @@ function TournamentRow({ playerId, tournamentId }: { playerId: string; tournamen
         {entry.error && !entry.data && entry.cause instanceof IndexerError ? ` (${entry.cause.kind})` : ""}
       </td>
     </tr>
+  );
+}
+
+/** The player's quests of a day (today's first, the leaderboard's day picker) and their achievements. */
+function PlayerProgress({ playerId }: { playerId: string }) {
+  const [day, setDay] = useState<number | undefined>(undefined);
+  const { current, waitingForToday, id, listed } = useDays(day);
+  return (
+    <>
+      {id !== null && <DayPicker id={id} listed={listed} today={current.data} onChange={setDay} />}
+      <ProgressSections playerId={playerId} day={id} waiting={waitingForToday} />
+    </>
   );
 }
