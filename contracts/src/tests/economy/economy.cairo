@@ -4,14 +4,15 @@
 //! `record`.
 //!
 //! The end-to-end fixture compares `R` and the payout of nine games over two days with
-//! `scripts/montecarlo/sim.py`'s formulas: a script imports its `payout_factor` and `Ema` and runs
-//! the purchase and day lines of `simulate` on the same inputs (players keep their rewards, and the
-//! pool keeps its fee in its reserves as `MockRouter` does; see the "As built" notes of
+//! `scripts/montecarlo/sim.py`'s formulas: `python3 -I -B scripts/montecarlo/fixture.py` imports
+//! its `payout_factor` and `Ema`, runs the purchase and day lines of `simulate` on the same inputs,
+//! adds the price guard, and prints `expected()` (players keep their rewards, and the pool keeps
+//! its fee in its reserves as `MockRouter` does; see the "As built" notes of
 //! `docs/architecture/economy.md`).
 
 use core::num::traits::Zero;
 use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
-use paved::economy::curve::{RATE_SCALE, guarded, reference, split, supply_factor};
+use paved::economy::curve::{RATE_SCALE, guarded, next_rate, reference, split, supply_factor};
 use paved::economy::economy::Economy::{
     DayClosed, EconomyConfigured, Event, GameSet, Purchased, Recorded, Settled,
 };
@@ -58,8 +59,9 @@ const USDC: u256 = 1_000_000;
 /// The day of the tests, and an hour into it.
 const DAY0: u64 = 20_000;
 const MEAN0: u64 = 3_353_000;
-/// The launch pool's rate: 800,000 PAVED for 10,000 USDC, in base units per base unit x 1e18.
-const POOL_RATE: u256 = 80_000_000_000_000 * RATE_SCALE;
+/// The launch pool's rate after its 5 % fee (800,000 PAVED for 10,000 USDC, x 0.95), in base
+/// units per base unit x 1e18: what the deploy passes.
+const POOL_RATE: u256 = 76_000_000_000_000 * RATE_SCALE;
 
 #[derive(Copy, Drop)]
 struct Setup {
@@ -148,9 +150,9 @@ fn buy(
     r
 }
 
-fn record(s: Setup, game_id: u32, score: u32, in_day: bool) {
+fn record(s: Setup, game_id: u32, score: u32) {
     start_cheat_caller_address(s.economy.contract_address, DAILY());
-    s.economy.record(game_id, score, in_day);
+    s.economy.record(game_id, score);
     stop_cheat_caller_address(s.economy.contract_address);
 }
 
@@ -324,18 +326,30 @@ fn test_price_guard_caps_r_after_a_dump_into_the_pool() {
     let capped = quote * POOL_RATE * 11 / (10 * RATE_SCALE);
     assert!(supply - after > capped);
     assert_eq!(r, reference(capped, 10, supply_factor(after, 1_000_000 * ONE_PAVED)));
-    // The rate moves by a 32nd toward what the purchase got
+    // The rate moves by a 32nd toward what the purchase got, clamped at 110 % of the rate
     let observed = (supply - after) * RATE_SCALE / quote;
-    assert_eq!(s.economy.rate(), (POOL_RATE * 31 + observed) / 32);
+    assert!(observed > POOL_RATE * 11 / 10);
+    assert_eq!(s.economy.rate(), (POOL_RATE * 31 + POOL_RATE * 11 / 10) / 32);
 }
 
 #[test]
-fn test_without_an_initial_rate_the_first_purchase_sets_it() {
-    let s = setup_with(0);
-    let supply = s.paved.total_supply();
-    buy(s, 1, PLAYER(), 1, Zero::zero());
-    let bought = supply - s.paved.total_supply();
-    assert_eq!(s.economy.rate(), bought * RATE_SCALE / 1_400_000);
+fn test_constructor_refuses_a_zero_rate() {
+    let s = setup();
+    let class = declare("Economy").unwrap().contract_class();
+    let (pool_key, _) = s.economy.pool();
+    let mut calldata: Array<felt252> = array![
+        OWNER().into(), s.paved.contract_address.into(), s.usdc.contract_address.into(),
+        s.vault.into(), s.router.into(),
+    ];
+    pool_key.serialize(ref calldata);
+    0_u256.serialize(ref calldata);
+    decided().serialize(ref calldata);
+    MEAN0.serialize(ref calldata);
+    0_u256.serialize(ref calldata);
+    match class.deploy(@calldata) {
+        Result::Ok(_) => panic!("a zero rate was accepted"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Economy: zero rate'),
+    }
 }
 
 // Purchase: refusals
@@ -435,24 +449,88 @@ fn test_purchase_for_a_zero_player_reverts() {
 // Record
 
 #[test]
-fn test_record_within_the_day_enters_the_accumulator() {
+fn test_record_before_expiry_enters_the_purchase_day() {
     let s = setup();
     buy(s, 1, PLAYER(), 3, Zero::zero());
     buy(s, 2, PLAYER(), 2, Zero::zero());
     buy(s, 3, PLAYER(), 5, Zero::zero());
     buy(s, 4, PLAYER(), 7, Zero::zero());
     let mut spy = spy_events();
-    record(s, 1, 2_000, true);
-    record(s, 2, 99, true); // under the min score
-    record(s, 3, 50_000, true); // enters as 4 x the prior
-    record(s, 4, 5_000, false); // ended after its day
-    let day = s.economy.day(DAY0);
-    assert_eq!((day.sum, day.weight), (3 * 2_000_000 + 5 * 4 * MEAN0.into(), 8));
-    let terms = s.economy.terms(1);
-    assert!(terms.recorded && !terms.settled);
-    assert_eq!(terms.score, 2_000);
-    let event = Recorded { game_id: 4, score: 5_000, in_day: false };
+    record(s, 1, 2_000);
+    record(s, 2, 99); // under the min score
+    record(s, 3, 50_000); // enters as 4 x the prior
+    // After midnight, before its expiry (24 h after its purchase, an hour into DAY0)
+    at(DAY0 + 1, 3599);
+    record(s, 4, 5_000);
+    let terms = s.economy.terms(4);
+    assert!(terms.recorded && !terms.expired && !terms.settled);
+    assert_eq!((terms.score, terms.day, terms.time), (5_000, DAY0, DAY0 * DAY + 3600));
+    let event = Recorded { game_id: 4, score: 5_000, expired: false };
     spy.assert_emitted(@array![(s.economy.contract_address, Event::Recorded(event))]);
+    // The day shows its sum once closed
+    at(DAY0 + 2, 0);
+    s.economy.settle(array![1].span());
+    let day = s.economy.day(DAY0);
+    assert_eq!((day.sum, day.weight), (3 * 2_000_000 + 5 * 4 * MEAN0.into() + 7 * 5_000_000, 15));
+}
+
+#[test]
+fn test_record_at_expiry_earns_nothing_and_moves_no_mean() {
+    let s = setup();
+    buy(s, 1, PLAYER(), 2, Zero::zero());
+    buy(s, 2, PLAYER(), 3, Zero::zero());
+    record(s, 1, 6_000);
+    // Exactly 24 h after its purchase
+    at(DAY0 + 1, 3600);
+    let mut spy = spy_events();
+    record(s, 2, 9_000);
+    let event = Recorded { game_id: 2, score: 9_000, expired: true };
+    spy.assert_emitted(@array![(s.economy.contract_address, Event::Recorded(event))]);
+    assert!(s.economy.terms(2).expired);
+    at(DAY0 + 2, 0);
+    assert_eq!(s.economy.settle(array![2].span()), 0);
+    assert_eq!(s.paved.balance_of(PLAYER()), 0);
+    let terms = s.economy.terms(2);
+    assert!(terms.settled && terms.expired);
+    assert_eq!(terms.reward, 0);
+    // Only game 1 is in the day's mean and in the EMA
+    let day = s.economy.day(DAY0);
+    assert_eq!((day.sum, day.weight), (12_000_000, 2));
+    let (ema, _) = s.economy.ema();
+    assert_eq!(ema, Ema { sum: 100 * MEAN0.into() + 12_000_000, weight: 102 });
+}
+
+#[test]
+fn test_record_after_the_close_is_expired_and_changes_no_mean() {
+    let s = setup();
+    buy(s, 1, PLAYER(), 2, Zero::zero());
+    buy(s, 2, PLAYER(), 3, Zero::zero());
+    record(s, 1, 6_000);
+    at(DAY0 + 2, 0);
+    s.economy.settle(array![1].span());
+    let day = s.economy.day(DAY0);
+    let ema = s.economy.ema();
+    record(s, 2, 9_000);
+    assert!(s.economy.terms(2).expired);
+    assert_eq!(s.economy.day(DAY0), day);
+    assert_eq!(s.economy.ema(), ema);
+}
+
+#[test]
+fn test_day_hides_its_sum_weight_and_mean_until_it_closes() {
+    let s = setup();
+    buy(s, 1, PLAYER(), 2, Zero::zero());
+    record(s, 1, 6_000);
+    at(DAY0 + 1, 0);
+    let day = s.economy.day(DAY0);
+    assert_eq!((day.prior, day.sum, day.weight, day.mean, day.closed), (MEAN0, 0, 0, 0, false));
+    at(DAY0 + 2, 0);
+    s.economy.settle(array![1].span());
+    let day = s.economy.day(DAY0);
+    let mean = (100 * MEAN0 + 12_000_000) / 102;
+    assert_eq!(
+        (day.prior, day.sum, day.weight, day.mean, day.closed), (MEAN0, 12_000_000, 2, mean, true),
+    );
 }
 
 #[test]
@@ -461,14 +539,14 @@ fn test_record_by_anyone_else_reverts() {
     let s = setup();
     buy(s, 1, PLAYER(), 1, Zero::zero());
     start_cheat_caller_address(s.economy.contract_address, SOMEONE());
-    s.economy.record(1, 1_000, true);
+    s.economy.record(1, 1_000);
 }
 
 #[test]
 #[should_panic(expected: 'Economy: unknown game')]
 fn test_record_of_a_game_never_purchased_reverts() {
     let s = setup();
-    record(s, 1, 1_000, true);
+    record(s, 1, 1_000);
 }
 
 #[test]
@@ -476,8 +554,8 @@ fn test_record_of_a_game_never_purchased_reverts() {
 fn test_record_twice_reverts() {
     let s = setup();
     buy(s, 1, PLAYER(), 1, Zero::zero());
-    record(s, 1, 1_000, true);
-    record(s, 1, 2_000, true);
+    record(s, 1, 1_000);
+    record(s, 1, 2_000);
 }
 
 // Settle
@@ -486,8 +564,8 @@ fn test_record_twice_reverts() {
 fn test_settle_after_the_day_mints_once_to_the_player() {
     let s = setup();
     let r = buy(s, 1, PLAYER(), 2, Zero::zero());
-    record(s, 1, 6_000, true);
-    at(DAY0 + 1, 0);
+    record(s, 1, 6_000);
+    at(DAY0 + 2, 0);
     let mut spy = spy_events();
     let minted = s.economy.settle(array![1].span());
     // The day's mean: (100 x prior + 2 x 6,000,000) / 102
@@ -525,9 +603,9 @@ fn test_settle_closes_the_day_and_pushes_the_ema_once() {
     let s = setup();
     buy(s, 1, PLAYER(), 2, Zero::zero());
     buy(s, 2, PLAYER(), 3, Zero::zero());
-    record(s, 1, 6_000, true);
-    record(s, 2, 1_000, true);
-    at(DAY0 + 1, 0);
+    record(s, 1, 6_000);
+    record(s, 2, 1_000);
+    at(DAY0 + 2, 0);
     s.economy.settle(array![1].span());
     let (ema, _) = s.economy.ema();
     // The day's average (2 x 6,000 + 3 x 1,000) / 5 = 3,000 points, pushed with weight 5
@@ -541,33 +619,56 @@ fn test_settle_closes_the_day_and_pushes_the_ema_once() {
 fn test_a_game_below_the_threshold_gets_nothing() {
     let s = setup();
     buy(s, 1, PLAYER(), 2, Zero::zero());
-    record(s, 1, 3_000, true);
-    at(DAY0 + 1, 0);
+    record(s, 1, 3_000);
+    at(DAY0 + 2, 0);
     assert_eq!(s.economy.settle(array![1].span()), 0);
     assert_eq!(s.paved.balance_of(PLAYER()), 0);
     assert!(s.economy.terms(1).settled);
 }
 
 #[test]
-fn test_a_game_ended_after_its_day_is_settled_against_its_day() {
+#[should_panic(expected: 'Economy: day cannot close yet')]
+fn test_settle_before_the_end_of_the_next_day_reverts() {
+    let s = setup();
+    buy(s, 1, PLAYER(), 1, Zero::zero());
+    record(s, 1, 5_000);
+    at(DAY0 + 2, 0);
+    start_cheat_block_timestamp_global((DAY0 + 2) * DAY - 1);
+    s.economy.settle(array![1].span());
+}
+
+#[test]
+fn test_settle_at_the_end_of_the_next_day_passes() {
     let s = setup();
     let r = buy(s, 1, PLAYER(), 1, Zero::zero());
-    at(DAY0 + 1, 10);
-    record(s, 1, 7_000, false);
+    record(s, 1, 7_000);
+    start_cheat_block_timestamp_global((DAY0 + 2) * DAY);
     s.economy.settle(array![1].span());
-    // No game entered the day: its mean is its prior
-    let reward = r.into() * 18_130_u256 * 7_000_000 / (MEAN0.into() * 10_000);
+    let mean = (100 * MEAN0 + 7_000_000) / 101;
+    let reward = r.into() * 18_130_u256 * 7_000_000 / (mean.into() * 10_000);
     assert_eq!(s.paved.balance_of(PLAYER()), reward);
 }
 
 #[test]
-#[should_panic(expected: 'Economy: day not over')]
-fn test_settle_during_the_day_reverts() {
+fn test_days_can_close_out_of_order() {
     let s = setup();
-    buy(s, 1, PLAYER(), 1, Zero::zero());
-    record(s, 1, 5_000, true);
-    at(DAY0, DAY - 1);
+    buy(s, 1, PLAYER(), 2, Zero::zero());
+    record(s, 1, 6_000);
+    at(DAY0 + 1, 3600);
+    // Day 1's prior is the EMA at its first purchase: day 0 is not closed yet
+    buy(s, 2, PLAYER(), 3, Zero::zero());
+    record(s, 2, 1_000);
+    at(DAY0 + 3, 0);
+    s.economy.settle(array![2].span());
     s.economy.settle(array![1].span());
+    // Day 1: (100 x 3,353,000 + 3 x 1,000,000) / 103; day 0: (100 x 3,353,000 + 2 x 6,000,000) /
+    // 102
+    assert_eq!(s.economy.day(DAY0 + 1).mean, 3_284_466);
+    assert_eq!(s.economy.day(DAY0).mean, 3_404_901);
+    // The EMA took day 1's average first, then day 0's
+    let (ema, mean) = s.economy.ema();
+    assert_eq!(ema, Ema { sum: 100 * MEAN0.into() + 3 * 1_000_000 + 2 * 6_000_000, weight: 105 });
+    assert_eq!(mean, 3_336_190);
 }
 
 #[test]
@@ -575,7 +676,7 @@ fn test_settle_during_the_day_reverts() {
 fn test_settle_of_a_game_not_recorded_reverts() {
     let s = setup();
     buy(s, 1, PLAYER(), 1, Zero::zero());
-    at(DAY0 + 1, 0);
+    at(DAY0 + 2, 0);
     s.economy.settle(array![1].span());
 }
 
@@ -583,7 +684,7 @@ fn test_settle_of_a_game_not_recorded_reverts() {
 #[should_panic(expected: 'Economy: unknown game')]
 fn test_settle_of_a_game_never_purchased_reverts() {
     let s = setup();
-    at(DAY0 + 1, 0);
+    at(DAY0 + 2, 0);
     s.economy.settle(array![1].span());
 }
 
@@ -592,9 +693,9 @@ fn test_settle_in_a_batch_skips_the_games_already_settled() {
     let s = setup();
     buy(s, 1, PLAYER(), 1, Zero::zero());
     buy(s, 2, REFERRER(), 1, Zero::zero());
-    record(s, 1, 9_000, true);
-    record(s, 2, 9_000, true);
-    at(DAY0 + 1, 0);
+    record(s, 1, 9_000);
+    record(s, 2, 9_000);
+    at(DAY0 + 2, 0);
     let first = s.economy.settle(array![1].span());
     // Someone settles game 1 first: the batch still settles game 2 and pays nothing twice
     let second = s.economy.settle(array![1, 2].span());
@@ -716,6 +817,112 @@ fn test_quote_shows_the_split_and_the_curve() {
     assert_eq!((quote.mean, quote.threshold, quote.slope, quote.cap), (MEAN0, MEAN0, 18_130, 5));
 }
 
+// The router: what the swap paid, the rate's clamp, the quotes
+
+/// Sends `amount` PAVED from the initial supply to `to`.
+fn send_paved(s: Setup, to: ContractAddress, amount: u256) {
+    start_cheat_caller_address(s.paved.contract_address, RECIPIENT());
+    s.paved.transfer(to, amount);
+    stop_cheat_caller_address(s.paved.contract_address);
+}
+
+#[test]
+fn test_paved_on_the_router_before_a_purchase_does_not_count_in_r() {
+    let s = setup();
+    send_paved(s, s.router, 50 * ONE_PAVED);
+    let quote: u256 = 14 * USDC;
+    let swap_out: u256 = IMockRouterDispatcher { contract_address: s.router }
+        .quote(s.usdc.contract_address, 14_000_000)
+        .into();
+    let supply = s.paved.total_supply();
+    let mut spy = spy_events();
+    let r = buy(s, 1, PLAYER(), 10, Zero::zero());
+    let after = s.paved.total_supply();
+    // The 50 PAVED are burned with the purchase, but R and the rate follow the swap alone
+    assert_eq!(supply - after, swap_out + 50 * ONE_PAVED);
+    let factor = supply_factor(after, 1_000_000 * ONE_PAVED);
+    assert_eq!(r, reference(guarded(swap_out, quote, POOL_RATE), 10, factor));
+    assert_eq!(s.economy.rate(), next_rate(POOL_RATE, swap_out, quote));
+    // The event reports what was burned, the 50 PAVED included
+    let event = Purchased {
+        game_id: 1,
+        player_id: PLAYER().into(),
+        day: DAY0,
+        stake: 10,
+        price: 20 * USDC,
+        referrer: Zero::zero(),
+        referral: 0,
+        burned_quote: quote,
+        burned: swap_out + 50 * ONE_PAVED,
+        margin: 6 * USDC,
+        supply: after,
+        factor,
+        reference: r,
+    };
+    spy.assert_emitted(@array![(s.economy.contract_address, Event::Purchased(event))]);
+    assert_nothing_left(s);
+}
+
+#[test]
+fn test_one_purchase_moves_the_rate_down_by_at_most_the_clamp() {
+    let s = setup();
+    // Someone buys 5,000 USDC of PAVED: PAVED gets much dearer, a purchase gets far less
+    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }.mint(s.router, 5_000 * USDC);
+    let pool_key = IMockRouterDispatcher { contract_address: s.router }.pool_key();
+    start_cheat_caller_address(s.router, RECIPIENT());
+    IRouterDispatcher { contract_address: s.router }
+        .swap(
+            RouteNode { pool_key, sqrt_ratio_limit: 0, skip_ahead: 0 },
+            TokenAmount {
+                token: s.usdc.contract_address, amount: i129 { mag: 5_000_000_000, sign: false },
+            },
+        );
+    IClearDispatcher { contract_address: s.router }.clear(s.paved.contract_address);
+    stop_cheat_caller_address(s.router);
+    let supply = s.paved.total_supply();
+    buy(s, 1, PLAYER(), 1, Zero::zero());
+    let observed = (supply - s.paved.total_supply()) * RATE_SCALE / 1_400_000;
+    assert!(observed < POOL_RATE * 10 / 11);
+    assert_eq!(s.economy.rate(), (POOL_RATE * 31 + POOL_RATE * 10 / 11) / 32);
+}
+
+#[test]
+fn test_quote_min_out_hint_is_not_above_the_swap_output_at_launch() {
+    let s = setup();
+    let mut stake: u8 = 1;
+    while stake <= 10 {
+        let quote = s.economy.quote(stake);
+        let out = IMockRouterDispatcher { contract_address: s.router }
+            .quote(s.usdc.contract_address, quote.burn_quote.try_into().unwrap());
+        assert!(quote.min_out_hint <= out.into());
+        stake += 1;
+    }
+}
+
+#[test]
+fn test_quote_swap_is_the_router_quote() {
+    let s = setup();
+    let router = IMockRouterDispatcher { contract_address: s.router };
+    assert_eq!(
+        s.economy.quote_swap(1_400_000), router.quote(s.usdc.contract_address, 1_400_000).into(),
+    );
+    assert_eq!(
+        s.economy.quote_swap(14_000_000), router.quote(s.usdc.contract_address, 14_000_000).into(),
+    );
+}
+
+#[test]
+fn test_purchase_at_99_percent_of_quote_swap_passes() {
+    let s = setup();
+    let min_out = s.economy.quote_swap(14_000_000) * 99 / 100;
+    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+        .mint(s.economy.contract_address, 10 * BASE_PRICE);
+    start_cheat_caller_address(s.economy.contract_address, DAILY());
+    s.economy.purchase(1, PLAYER(), DAY0, 10, 10 * BASE_PRICE, Zero::zero(), min_out);
+    stop_cheat_caller_address(s.economy.contract_address);
+    assert_nothing_left(s);
+}
+
 // The end-to-end fixture against sim.py
 
 /// (game id, day offset, stake, referred, score)
@@ -758,13 +965,14 @@ fn ppm(actual: u256, expected: u256) -> u256 {
 
 #[test]
 fn test_fixture_matches_sim() {
-    // No initial rate: the guard never binds on a pool that only gets bought from
-    let s = setup_with(0);
+    // The launch rate after the fee: the guard never binds on a pool that only gets bought from
+    let s = setup_with(POOL_RATE);
     let mut bought: Array<u256> = array![];
     let mut references: Array<u256> = array![];
+    // The second day of games is two days later, so that the first one is settled before its
+    // purchases, as sim.py does
     for d in 0..2_u64 {
-        at(DAY0 + d, 3600);
-        // The previous day is settled first, as sim.py does
+        at(DAY0 + 2 * d, 3600);
         if d == 1 {
             s.economy.settle(array![1, 2, 3, 4, 5].span());
         }
@@ -784,11 +992,11 @@ fn test_fixture_matches_sim() {
         }
         for (game_id, day, _, _, score) in games() {
             if day == d {
-                record(s, game_id, score, true);
+                record(s, game_id, score);
             }
         }
     }
-    at(DAY0 + 2, 0);
+    at(DAY0 + 4, 0);
     s.economy.settle(array![6, 7, 8, 9].span());
     assert_nothing_left(s);
     // Each row within 120 ppm: integer rounding, F in basis points (1 bps of 1x is 100 ppm)
@@ -813,7 +1021,7 @@ fn test_fixture_matches_sim() {
     // The day means and the EMA (sim: 4,215.689655, 4,387.025132; EMA after 4,366.567164); the
     // second day's mean is 1 milli-point under sim's, as its prior is the EMA rounded down
     assert_eq!(s.economy.day(DAY0).mean, 4_215_689);
-    assert_eq!(s.economy.day(DAY0 + 1).mean, 4_387_024);
+    assert_eq!(s.economy.day(DAY0 + 2).mean, 4_387_024);
     let (_, mean) = s.economy.ema();
     assert_eq!(mean, 4_366_567);
 }

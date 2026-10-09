@@ -98,7 +98,8 @@ pub struct Quote {
     pub referral: u256,
     /// The margin without a referrer.
     pub margin: u256,
-    /// 99 % of the burn quote at the guard's swap rate; the client should quote the pool.
+    /// An estimate only: 99 % of the burn quote at the guard's swap rate. Never send it as
+    /// `min_out`: the client quotes the pool and sends 99 % of that.
     pub min_out_hint: u256,
     /// The supply factor at the current supply (bps).
     pub factor: u32,
@@ -111,11 +112,11 @@ pub struct Quote {
 }
 
 #[derive(Copy, Drop, Serde, PartialEq, Debug)]
+/// A day's prior; its sum, weight and mean stay 0 until it closes (P-34).
 pub struct DayView {
     pub prior: u64,
     pub sum: u128,
     pub weight: u32,
-    /// The day's mean once closed, else 0.
     pub mean: u64,
     pub closed: bool,
 }
@@ -123,6 +124,7 @@ pub struct DayView {
 #[derive(Copy, Drop, Serde, PartialEq, Debug)]
 pub struct TermsView {
     pub player: ContractAddress,
+    pub time: u64,
     pub day: u64,
     pub stake: u8,
     pub reference: u128,
@@ -131,6 +133,7 @@ pub struct TermsView {
     pub cap: u8,
     pub score: u32,
     pub recorded: bool,
+    pub expired: bool,
     pub settled: bool,
     pub reward: u128,
 }
@@ -142,6 +145,14 @@ pub struct Addresses {
     pub vault: ContractAddress,
     pub router: ContractAddress,
     pub game: ContractAddress,
+}
+
+/// The quote `MockRouter` serves on devnet (`quote(token_in, amount_in) -> amount_out`, the pool's
+/// fee included). Ekubo's router has another shape (`quote_swap(RouteNode, TokenAmount) -> Delta`),
+/// so `Economy.quote_swap` serves devnet only (`docs/architecture/economy.md`, section 5).
+#[starknet::interface]
+pub trait IQuote<TContractState> {
+    fn quote(self: @TContractState, token_in: ContractAddress, amount_in: u128) -> u128;
 }
 
 #[starknet::interface]
@@ -158,10 +169,12 @@ pub trait IEconomy<TContractState> {
         referrer: ContractAddress,
         min_out: u256,
     ) -> u128;
-    /// Records a purchased game's score, once. The game only.
-    fn record(ref self: TContractState, game_id: u32, score: u32, in_day: bool);
-    /// Pays every recorded game of `game_ids` whose day is over; a game already settled is
-    /// skipped. Returns the PAVED minted. Anyone.
+    /// Records a purchased game's score, once. Before its expiry (24 h after its purchase) the
+    /// score enters the mean of its purchase day; at or after it, the game is expired: no reward,
+    /// no mean. The game only.
+    fn record(ref self: TContractState, game_id: u32, score: u32);
+    /// Pays every recorded game of `game_ids` from the end of the day after its purchase day; a
+    /// game already settled is skipped. Returns the PAVED minted. Anyone.
     fn settle(ref self: TContractState, game_ids: Span<u32>) -> u256;
     /// Sets the parameters for the next purchases, within the bounds. The owner only.
     fn configure(ref self: TContractState, config: Config);
@@ -170,6 +183,9 @@ pub trait IEconomy<TContractState> {
     /// Sets the game allowed to purchase and record, once. The owner only.
     fn set_game(ref self: TContractState, game: ContractAddress);
     fn quote(self: @TContractState, stake: u8) -> Quote;
+    /// The PAVED the pool pays now for `usdc_in`, its fee included, from the router's quote
+    /// (devnet: `MockRouter.quote`). The client takes `min_out` from it.
+    fn quote_swap(self: @TContractState, usdc_in: u256) -> u256;
     fn day(self: @TContractState, day: u64) -> DayView;
     fn terms(self: @TContractState, game_id: u32) -> TermsView;
     fn config(self: @TContractState) -> Config;
@@ -213,8 +229,8 @@ pub mod Economy {
     // Local imports
 
     use super::{
-        Addresses, BASE_PRICE, Config, DAY, DayView, IEconomy, MAX_STAKE, Quote, TermsView,
-        validate,
+        Addresses, BASE_PRICE, Config, DAY, DayView, IEconomy, IQuoteDispatcher,
+        IQuoteDispatcherTrait, MAX_STAKE, Quote, TermsView, validate,
     };
 
     // Errors
@@ -233,7 +249,8 @@ pub mod Economy {
         pub const UNKNOWN_GAME: felt252 = 'Economy: unknown game';
         pub const RECORDED: felt252 = 'Economy: already recorded';
         pub const NOT_RECORDED: felt252 = 'Economy: not recorded';
-        pub const DAY_NOT_OVER: felt252 = 'Economy: day not over';
+        pub const TOO_EARLY: felt252 = 'Economy: day cannot close yet';
+        pub const ZERO_RATE: felt252 = 'Economy: zero rate';
         pub const TRANSFER_FAILED: felt252 = 'Economy: transfer failed';
     }
 
@@ -242,6 +259,7 @@ pub mod Economy {
     const TWO_POW_8: u256 = 0x100;
     const TWO_POW_16: u256 = 0x10000;
     const TWO_POW_32: u256 = 0x100000000;
+    const TWO_POW_40: u256 = 0x10000000000;
     const TWO_POW_128: u256 = 0x100000000000000000000000000000000;
     const SIGMA_OFFSET: i32 = 32768;
 
@@ -249,11 +267,13 @@ pub mod Economy {
     const RECORDED: u8 = 1;
     const SETTLED: u8 = 2;
 
-    /// What a purchase freezes (one slot): `R`, the day and the curve in force.
+    /// What a purchase freezes (one slot): `R`, the purchase time (its day and its expiry) and
+    /// the curve in force.
     #[derive(Copy, Drop, PartialEq, Debug)]
     struct Terms {
         reference: u128,
-        day: u32,
+        /// Packed in 40 bits (until the year 36,000).
+        time: u64,
         stake: u8,
         sigma_bps: i16,
         slope_bps: u32,
@@ -265,6 +285,8 @@ pub mod Economy {
     struct Outcome {
         score: u32,
         status: u8,
+        /// Recorded at or after its expiry: no reward, no mean.
+        expired: bool,
         reward: u128,
     }
 
@@ -286,7 +308,8 @@ pub mod Economy {
             high = high * TWO_POW_32 + value.slope_bps.into();
             high = high * TWO_POW_16 + sigma_to_u16(value.sigma_bps);
             high = high * TWO_POW_8 + value.stake.into();
-            high = high * TWO_POW_32 + value.day.into();
+            assert(value.time.into() < TWO_POW_40, 'Economy: time overflow');
+            high = high * TWO_POW_40 + value.time.into();
             let packed: u256 = value.reference.into() + high * TWO_POW_128;
             packed.try_into().unwrap()
         }
@@ -294,8 +317,8 @@ pub mod Economy {
         fn unpack(value: felt252) -> Terms {
             let packed: u256 = value.into();
             let mut high: u256 = packed.high.into();
-            let day = (high % TWO_POW_32).try_into().unwrap();
-            high /= TWO_POW_32;
+            let time = (high % TWO_POW_40).try_into().unwrap();
+            high /= TWO_POW_40;
             let stake = (high % TWO_POW_8).try_into().unwrap();
             high /= TWO_POW_8;
             let sigma_bps = sigma_from_u16(high % TWO_POW_16);
@@ -303,13 +326,20 @@ pub mod Economy {
             let slope_bps = (high % TWO_POW_32).try_into().unwrap();
             high /= TWO_POW_32;
             let cap = high.try_into().unwrap();
-            Terms { reference: packed.low, day, stake, sigma_bps, slope_bps, cap }
+            Terms { reference: packed.low, time, stake, sigma_bps, slope_bps, cap }
         }
     }
 
     impl OutcomeStorePacking of starknet::storage_access::StorePacking<Outcome, felt252> {
         fn pack(value: Outcome) -> felt252 {
-            let high: u256 = value.score.into() + value.status.into() * TWO_POW_32;
+            let expired: u256 = if value.expired {
+                1
+            } else {
+                0
+            };
+            let high: u256 = value.score.into()
+                + value.status.into() * TWO_POW_32
+                + expired * TWO_POW_32 * TWO_POW_8;
             let packed: u256 = value.reward.into() + high * TWO_POW_128;
             packed.try_into().unwrap()
         }
@@ -320,7 +350,8 @@ pub mod Economy {
             Outcome {
                 reward: packed.low,
                 score: (high % TWO_POW_32).try_into().unwrap(),
-                status: (high / TWO_POW_32).try_into().unwrap(),
+                status: (high / TWO_POW_32 % TWO_POW_8).try_into().unwrap(),
+                expired: high / (TWO_POW_32 * TWO_POW_8) != 0,
             }
         }
     }
@@ -414,7 +445,7 @@ pub mod Economy {
         #[key]
         pub game_id: u32,
         pub score: u32,
-        pub in_day: bool,
+        pub expired: bool,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -462,8 +493,8 @@ pub mod Economy {
     // Constructor
 
     /// `mean` is the initial mean (points x 1,000, at least 100 points); `rate` the guard's
-    /// initial swap rate (PAVED base units per USDC base unit x 1e18; 0 lets the first purchase
-    /// set it).
+    /// initial swap rate (PAVED base units per USDC base unit x 1e18, after the pool's fee; not
+    /// zero).
     #[constructor]
     fn constructor(
         ref self: ContractState,
@@ -482,6 +513,8 @@ pub mod Economy {
         assert(owner.is_non_zero(), errors::ZERO_ADDRESS);
         assert(paved.is_non_zero() && usdc.is_non_zero(), errors::ZERO_ADDRESS);
         assert(vault.is_non_zero() && router.is_non_zero(), errors::ZERO_ADDRESS);
+        // [Check] The guard is on from the first purchase
+        assert(rate != 0, errors::ZERO_RATE);
         // [Effect] Store them, the pool, the configuration and the initial mean
         self.owner.write(owner);
         self.paved.write(paved);
@@ -535,7 +568,8 @@ pub mod Economy {
                 assert(usdc.transfer(referrer, referral), errors::TRANSFER_FAILED);
             }
 
-            // [Interaction] Swap the burn quote, burn what it bought
+            // [Interaction] Swap the burn quote, burn the whole PAVED balance (what it bought, and
+            // anything sent to the router or to Economy before)
             let bought = self.swap(usdc, quote, min_out);
             let paved = IERC20Dispatcher { contract_address: self.paved.read() };
             let burned = paved.balance_of(this);
@@ -547,7 +581,8 @@ pub mod Economy {
                 assert(usdc.transfer(self.vault.read(), margin), errors::TRANSFER_FAILED);
             }
 
-            // [Compute] R: the guarded PAVED bought, the stake boost, the supply after the burn
+            // [Compute] R: the guarded PAVED the swap paid out, the stake boost, the supply after
+            // the burn
             let supply = paved.total_supply();
             let factor = curve::supply_factor(supply, config.target.into());
             let rate = self.rate.read();
@@ -558,7 +593,7 @@ pub mod Economy {
             self.rate.write(curve::next_rate(rate, bought, quote));
             let terms = Terms {
                 reference,
-                day: day.try_into().unwrap(),
+                time: get_block_timestamp(),
                 stake,
                 sigma_bps: config.sigma_bps,
                 slope_bps: config.slope_bps,
@@ -580,7 +615,7 @@ pub mod Economy {
                         },
                         referral,
                         burned_quote: quote,
-                        burned: bought,
+                        burned,
                         margin,
                         supply,
                         factor,
@@ -590,25 +625,24 @@ pub mod Economy {
             reference
         }
 
-        fn record(ref self: ContractState, game_id: u32, score: u32, in_day: bool) {
+        fn record(ref self: ContractState, game_id: u32, score: u32) {
             // [Check] The game, a purchased game, not yet recorded
             self.assert_game();
             assert(self.players.read(game_id).is_non_zero(), errors::UNKNOWN_GAME);
             let outcome = self.outcomes.read(game_id);
             assert(outcome.status == PURCHASED, errors::RECORDED);
 
-            // [Effect] The score; the day's accumulator if the game ended within its open day
-            self.outcomes.write(game_id, Outcome { score, status: RECORDED, reward: 0 });
-            if in_day {
-                let terms = self.terms.read(game_id);
-                let day: u64 = terms.day.into();
-                if self.means.read(day) == 0 {
-                    let mut today = self.days.read(day);
-                    today.add(score, terms.stake);
-                    self.days.write(day, today);
-                }
+            // [Effect] The score; before its expiry, it enters the mean of its purchase day (P-34)
+            let terms = self.terms.read(game_id);
+            let expired = get_block_timestamp() >= terms.time + DAY;
+            self.outcomes.write(game_id, Outcome { score, status: RECORDED, expired, reward: 0 });
+            let day = terms.time / DAY;
+            if !expired && self.means.read(day) == 0 {
+                let mut state = self.days.read(day);
+                state.add(score, terms.stake);
+                self.days.write(day, state);
             }
-            self.emit(Recorded { game_id, score, in_day });
+            self.emit(Recorded { game_id, score, expired });
         }
 
         fn settle(ref self: ContractState, game_ids: Span<u32>) -> u256 {
@@ -617,7 +651,8 @@ pub mod Economy {
             let mut minted: u256 = 0;
             for game_id in game_ids {
                 let game_id = *game_id;
-                // [Check] A recorded game, not settled, whose day is over
+                // [Check] A recorded game, not settled, whose day can close: from the end of the
+                // next day, when every game of the day has ended or expired (P-34)
                 let player = self.players.read(game_id);
                 assert(player.is_non_zero(), errors::UNKNOWN_GAME);
                 let outcome = self.outcomes.read(game_id);
@@ -626,20 +661,29 @@ pub mod Economy {
                 }
                 assert(outcome.status == RECORDED, errors::NOT_RECORDED);
                 let terms = self.terms.read(game_id);
-                let day: u64 = terms.day.into();
-                assert(now >= (day + 1) * DAY, errors::DAY_NOT_OVER);
+                let day = terms.time / DAY;
+                assert(now >= (day + 2) * DAY, errors::TOO_EARLY);
 
-                // [Compute] The reward against the day's mean
+                // [Compute] The reward against the day's mean; an expired game gets nothing
                 let mean = self.close(day);
                 let threshold = curve::threshold(mean, terms.sigma_bps);
-                let reward = curve::payout(
-                    terms.reference, outcome.score, threshold, terms.slope_bps, terms.cap,
-                );
+                let reward = if outcome.expired {
+                    0
+                } else {
+                    curve::payout(
+                        terms.reference, outcome.score, threshold, terms.slope_bps, terms.cap,
+                    )
+                };
 
                 // [Effect] Settled, once
                 self
                     .outcomes
-                    .write(game_id, Outcome { score: outcome.score, status: SETTLED, reward });
+                    .write(
+                        game_id,
+                        Outcome {
+                            score: outcome.score, status: SETTLED, expired: outcome.expired, reward,
+                        },
+                    );
                 self
                     .emit(
                         Settled {
@@ -708,12 +752,20 @@ pub mod Economy {
             }
         }
 
+        fn quote_swap(self: @ContractState, usdc_in: u256) -> u256 {
+            let amount: u128 = usdc_in.try_into().unwrap();
+            IQuoteDispatcher { contract_address: self.router.read() }
+                .quote(self.usdc.read(), amount)
+                .into()
+        }
+
         fn day(self: @ContractState, day: u64) -> DayView {
             let state = self.days.read(day);
             let mean = self.means.read(day);
-            DayView {
-                prior: state.prior, sum: state.sum, weight: state.weight, mean, closed: mean != 0,
+            if mean == 0 {
+                return DayView { prior: state.prior, sum: 0, weight: 0, mean: 0, closed: false };
             }
+            DayView { prior: state.prior, sum: state.sum, weight: state.weight, mean, closed: true }
         }
 
         fn terms(self: @ContractState, game_id: u32) -> TermsView {
@@ -721,7 +773,8 @@ pub mod Economy {
             let outcome = self.outcomes.read(game_id);
             TermsView {
                 player: self.players.read(game_id),
-                day: terms.day.into(),
+                time: terms.time,
+                day: terms.time / DAY,
                 stake: terms.stake,
                 reference: terms.reference,
                 sigma_bps: terms.sigma_bps,
@@ -729,6 +782,7 @@ pub mod Economy {
                 cap: terms.cap,
                 score: outcome.score,
                 recorded: outcome.status != PURCHASED,
+                expired: outcome.expired,
                 settled: outcome.status == SETTLED,
                 reward: outcome.reward,
             }
@@ -827,7 +881,8 @@ pub mod Economy {
         }
 
         /// Ekubo's pattern in one call: the quote to the router, `swap`, the PAVED back (at least
-        /// `min_out`), the unswapped USDC back. Returns the PAVED bought.
+        /// `min_out`), the unswapped USDC back. Returns the PAVED the swap paid out, from its
+        /// delta: the router's balance may hold more, sent there by anyone.
         fn swap(
             ref self: ContractState, usdc: IERC20Dispatcher, quote: u256, min_out: u256,
         ) -> u256 {
@@ -839,12 +894,18 @@ pub mod Economy {
                 skip_ahead: 0,
             };
             let amount = i129 { mag: quote.try_into().unwrap(), sign: false };
-            IRouterDispatcher { contract_address: router }
+            let delta = IRouterDispatcher { contract_address: router }
                 .swap(node, TokenAmount { token: usdc.contract_address, amount });
+            let paved = self.paved.read();
+            let out = if paved < usdc.contract_address {
+                delta.amount0
+            } else {
+                delta.amount1
+            };
             let clear = IClearDispatcher { contract_address: router };
-            let bought = clear.clear_minimum(self.paved.read(), min_out);
+            clear.clear_minimum(paved, min_out);
             clear.clear(usdc.contract_address);
-            bought
+            out.mag.into()
         }
 
         /// The day's mean; on the first call after the day, fixes it and pushes the day into the

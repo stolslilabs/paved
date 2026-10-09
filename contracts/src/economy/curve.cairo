@@ -66,13 +66,23 @@ pub fn guarded(bought: u256, quote: u256, rate: u256) -> u256 {
     }
 }
 
-/// The swap rate's EMA after one purchase that bought `bought` PAVED for `quote` USDC; the first
-/// purchase (rate 0) sets it.
+/// The swap rate's EMA after one purchase that bought `bought` PAVED for `quote` USDC. The
+/// observation is clamped to [rate x 10/11, rate x 11/10], so one purchase moves the rate by at
+/// most 1/32 of 10 %, in either direction. A zero rate is set by the observation.
 pub fn next_rate(rate: u256, bought: u256, quote: u256) -> u256 {
     let observed = bought * RATE_SCALE / quote;
     if rate == 0 {
         return observed;
     }
+    let low = rate * BPS.into() / GUARD_BPS.into();
+    let high = rate * GUARD_BPS.into() / BPS.into();
+    let observed = if observed < low {
+        low
+    } else if observed > high {
+        high
+    } else {
+        observed
+    };
     (rate * (RATE_STEP - 1) + observed) / RATE_STEP
 }
 

@@ -97,12 +97,25 @@ fn test_guard_without_a_rate_counts_everything() {
 }
 
 #[test]
-fn test_rate_is_set_by_the_first_purchase_then_moves_by_a_32nd() {
+fn test_rate_is_set_by_a_zero_rate_then_moves_by_a_32nd() {
     let first = next_rate(0, 800, 10);
     assert_eq!(first, 80 * RATE_SCALE);
-    // A purchase at twice the rate moves it by 1/32 of the gap
-    assert_eq!(next_rate(first, 1_600, 10), 80 * RATE_SCALE + 80 * RATE_SCALE / 32);
+    // Within 10 % of the rate, the observation moves it by 1/32 of the gap
+    assert_eq!(next_rate(first, 840, 10), 80 * RATE_SCALE + 4 * RATE_SCALE / 32);
     assert_eq!(next_rate(first, 800, 10), first);
+}
+
+#[test]
+fn test_rate_observation_is_clamped_to_10_percent_both_ways() {
+    let rate = 80 * RATE_SCALE;
+    // Twice the rate counts as 11/10 of it, a tenth of it as 10/11
+    let up = (rate * 31 + rate * 11 / 10) / 32;
+    let down = (rate * 31 + rate * 10 / 11) / 32;
+    assert_eq!(next_rate(rate, 1_600, 10), up);
+    assert_eq!(next_rate(rate, 80, 10), down);
+    // At most 1/32 of 10 % per purchase
+    assert!(up - rate <= rate / 320);
+    assert!(rate - down <= rate / 320);
 }
 
 // R
