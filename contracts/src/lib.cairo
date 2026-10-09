@@ -2,6 +2,7 @@ pub mod constants;
 pub mod events;
 pub mod leaderboard;
 pub mod quests;
+pub mod seed;
 pub mod store;
 pub mod views;
 
@@ -88,6 +89,7 @@ pub mod components {
 
 pub mod systems {
     pub mod account;
+    pub mod collection;
     pub mod daily;
     pub mod lobby;
     pub mod tutorial;
@@ -117,11 +119,13 @@ pub mod mocks {
 pub mod tests {
     pub mod bench;
     pub mod bench_backend;
+    pub mod collection;
     pub mod differential;
     pub mod e2e;
     pub mod economy;
     pub mod golden;
     pub mod leaderboard;
     pub mod oracle;
+    pub mod seed;
     pub mod setup;
 }

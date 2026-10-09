@@ -160,7 +160,7 @@ pub impl GameImpl of GameTrait {
     }
 
     #[inline]
-    fn start(ref self: Game, time: u64) -> Tile {
+    fn start(ref self: Game, time: u64, seed: felt252) -> Tile {
         // [Effect] Create the starter tile
         let tile_id = self.add_tile();
         let mut tile = TileTrait::new(self.id, tile_id, Plan::RFFFRFCFR);
@@ -174,9 +174,8 @@ pub impl GameImpl of GameTrait {
         let index = indexes.pop_front().unwrap();
         self.tiles = self.tiles | bit(index);
 
-        // [Effect] Update game start time and seed
-        let mode: Mode = self.mode.into();
-        self.seed = mode.seed(time, self.id, self.seed);
+        // [Effect] Update game start time and seed (the seed comes from a `SeedSource`)
+        self.seed = seed;
         self.tiles = deck.tiles(self.tiles, self.seed);
         self.start_time = time;
 
