@@ -52,7 +52,10 @@ pub mod elements {
 }
 
 pub mod economy {
+    pub mod curve;
+    pub mod economy;
     pub mod ekubo;
+    pub mod mean;
     pub mod token;
     pub mod vault;
 }
