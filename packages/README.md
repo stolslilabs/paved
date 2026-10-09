@@ -7,7 +7,7 @@ builds and its tests run, but it is not developed). `app/` is deprecated.
 
 Node 24 (`engines` in every `package.json`; CI sets it up, since `tsc`, `vite` and `vitest` run on
 Node). Bun is pinned to **1.4.2** (`packageManager` in the root `package.json`, and in
-`.github/workflows/client.yaml`). `bun.lock` carries `configVersion` 1, which keeps the isolated linker:
+`.github/workflows/test.yaml`). `bun.lock` carries `configVersion` 1, which keeps the isolated linker:
 without it bun 1.4 installs hoisted. Turbo orchestrates the packages; `agentGuidance` is off in
 `turbo.json`, else turbo 2.11 writes a block into `AGENTS.md` on each run.
 
@@ -31,7 +31,7 @@ TypeScript 7.0.2, Vite 8.3.3, in a fresh copy of the tree with an empty bun cach
 On bun 1.3.1 the same cold install took 12.9 GB and 220-250 s (measured twice on 2026-10-06), and the
 build 2.0 GB and 10.1 s on TypeScript 5.9 and Vite 6. Warm builds hit the turbo cache.
 
-CI: the `client` check of `.github/workflows/client.yaml` runs install, build and tests when
+CI: the client jobs of `.github/workflows/test.yaml` (part of `ci`) run install, build and tests when
 `packages/**`, the root package files, `turbo.json`, `tsconfig*.json` or the workflow change.
 
 ## The leaderboard on devnet (`VITE_INDEXER_URL`)

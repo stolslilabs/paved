@@ -41,9 +41,10 @@ describe("ModeDetailDialog", () => {
       mode: "daily",
       title: "Daily Challenge",
       tileCount: 144,
-      entryFee: "1 $TILE",
+      entryFee: "1 PAVED",
       duration: "7d",
       prizePool: "1.5",
+      tokenLabel: "PAVED",
       topPlayers: [
         { name: "Alice", score: 500 },
         { name: "Bob", score: 450 },

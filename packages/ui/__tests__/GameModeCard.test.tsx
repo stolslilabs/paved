@@ -25,6 +25,7 @@ describe("GameModeCard", () => {
       tileCount: 72,
       duration: "24h",
       entryFee: "Free",
+      tokenLabel: "PAVED",
       onPress: vi.fn(),
     };
 

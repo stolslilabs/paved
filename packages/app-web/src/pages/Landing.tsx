@@ -146,6 +146,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     tileCount: m.tiles,
     duration: m.duration,
     entryFee: !m.paid ? "Free" : feeLabel,
+    tokenLabel: TOKEN_LABEL,
     prizePool: m.mode === "daily" && daily && deployment.tokenDecimals !== null ? formatTokenAmount(daily.prize, deployment.tokenDecimals) : undefined,
     topPlayers: m.mode === "daily" && daily ? podium(daily) : undefined,
     timeRemaining: m.mode === "daily" && daily ? formatTimeRemaining(daily.endTime) : undefined,

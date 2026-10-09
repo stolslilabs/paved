@@ -55,7 +55,7 @@ describe("Landing states", () => {
 
   it("a Daily confirm carries the amount the player saw in the history state", async () => {
     land({});
-    await waitFor(() => expect(screen.getByText(/mode daily: 1 \$TILE/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/mode daily: 1 PAVED/)).toBeTruthy());
     fireEvent.click(screen.getByText(/mode daily/));
     fireEvent.click(await screen.findByText("Start Game"));
     await waitFor(() => expect(screen.getByTestId("where").textContent).toContain("mode=daily"));
@@ -148,7 +148,7 @@ describe("Claiming a prize", () => {
 
   it("nothing to claim when the rank is already claimed", async () => {
     setup({ top1Claimed: true });
-    await screen.findByText("balance 5 $TILE");
+    await screen.findByText("balance 5 PAVED");
     await new Promise((r) => setTimeout(r, 30));
     expect(screen.queryByText("Claim")).toBeNull();
   });
@@ -176,7 +176,7 @@ describe("Sponsoring", () => {
     fireEvent.change(await screen.findByLabelText("Sponsor amount"), { target: { value: "1.5" } });
     fireEvent.click(screen.getByText("Sponsor"));
     expect(sponsor).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Pay 1.5 $TILE into today's prize?");
+    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Pay 1.5 PAVED into today's prize?");
     fireEvent.click(screen.getByText("Confirm sponsor"));
     await waitFor(() => expect(sponsor).toHaveBeenCalledTimes(1));
     expect(sponsor).toHaveBeenCalledWith(15n * 10n ** 17n, { confirmedAmount: 15n * 10n ** 17n });

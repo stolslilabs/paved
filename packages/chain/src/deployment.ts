@@ -6,7 +6,7 @@ export interface DeploymentFile {
   rpc_url?: string;
   deployed_at?: string;
   deployed_block?: number;
-  /** The symbol is for the record only: the app labels the token `$TILE` whatever it says (D-2). */
+  /** The symbol is for the record only: the app labels the token `PAVED` whatever it says (D-10, which replaces D-2's old label); reading it waits for P8's token. */
   token?: { address?: string; class_hash?: string; decimals?: number; symbol?: string };
   contracts?: Partial<Record<ContractName, { address?: string; class_hash?: string }>>;
 }

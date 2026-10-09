@@ -59,9 +59,9 @@ The majors left behind:
 One commit per family; build and all tests green after each.
 
 - **Node 24.** `engines` `24.x` in the root and every package (as `app/` and `book/` since #193).
-  `client.yaml` now sets up Node 24 (`actions/setup-node` v7.0.0, pinned by SHA): `tsc`, `vite` and
+  `test.yaml` (client jobs) now sets up Node 24 (`actions/setup-node` v7.0.0, pinned by SHA): `tsc`, `vite` and
   `vitest` run on Node through their bin shebang, and CI used the runner's default Node until now.
-- **bun 1.4.2.** `packageManager`, `client.yaml`, the cache key (which now also names Node 24) and
+- **bun 1.4.2.** `packageManager`, `test.yaml`, the cache key (which now also names Node 24) and
   `packages/README.md`. bun 1.4 reads a lockfile without `configVersion` as version 0, which installs
   with the hoisted linker; 1.3.1 used the isolated one. `bun.lock` carries `configVersion: 1` to keep
   the isolated linker, so nothing else changes.
