@@ -86,6 +86,7 @@ pub mod components {
 
 pub mod systems {
     pub mod account;
+    pub mod collection;
     pub mod daily;
     pub mod lobby;
     pub mod tutorial;
@@ -115,6 +116,7 @@ pub mod mocks {
 pub mod tests {
     pub mod bench;
     pub mod bench_backend;
+    pub mod collection;
     pub mod differential;
     pub mod e2e;
     pub mod economy;
