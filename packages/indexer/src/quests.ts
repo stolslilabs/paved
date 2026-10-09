@@ -19,6 +19,14 @@ export const PODIUM_TASK = 8;
 /** The only task Tutorial reports (quests.md, TUTORIAL_FINISHED). */
 export const TUTORIAL_TASK = 10;
 
+/**
+ * Whether a definition's tasks are consistent: no total of 0 (complete before any report, with no completion time) and no
+ * task id repeated (two entries under one key). The contract refuses both since P-30, but a definition made before, or
+ * through quiver directly, can still be on chain: the indexer excludes it (queries.ts) and counts it (`GET /v1/head`).
+ */
+export const consistent = (tasks: readonly TaskTarget[]): boolean =>
+  tasks.every((task) => task.total > 0) && new Set(tasks.map((task) => task.taskId)).size === tasks.length;
+
 /** A quest's schedule (`QuestSchedule`): `end` 0 never ends, `duration` and `period` (the package's `interval`) 0 one-off. */
 export type Schedule = { start: number; end: number; duration: number; period: number };
 

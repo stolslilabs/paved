@@ -743,7 +743,7 @@ function statements(db: DatabaseSync) {
        VALUES (:t, :p, :ranks, :end, :block)`,
     ),
     closeBlock: db.prepare(
-      "SELECT block AS n FROM day_closes WHERE prev_time < ?1 AND time >= ?1 AND block <= ?2",
+      "SELECT block AS n FROM day_closes WHERE prev_time < ?1 AND time >= ?1 AND block <= ?2 ORDER BY block LIMIT 1",
     ),
     insertClose: db.prepare("INSERT OR IGNORE INTO day_closes (block, prev_time, time) VALUES (?, ?, ?)"),
     rewindCloses: db.prepare("DELETE FROM day_closes WHERE block > ?"),

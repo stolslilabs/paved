@@ -5,7 +5,7 @@ import { CrossCheck } from "./crosscheck.ts";
 import { Chain } from "./chain.ts";
 import { canonical, padded } from "./events.ts";
 import { Queries } from "./queries.ts";
-import { PODIUM_TASK, firstActive, intervalId, intervalSpan, replay, type Schedule } from "./quests.ts";
+import { PODIUM_TASK, consistent, firstActive, intervalId, intervalSpan, replay, type Schedule } from "./quests.ts";
 import { respond } from "./server.ts";
 import { ACCOUNT, DAILY, FakeNode, TUTORIAL, ev } from "./testing/fake-node.ts";
 import { indexerOf, settle } from "./testing/setup.ts";
@@ -724,3 +724,42 @@ describe("the routes", () => {
 });
 
 const get503 = (indexer: ReturnType<typeof indexerOf>, target: string) => respond(indexer, "GET", target).code;
+
+describe("inconsistent definitions (P-30)", () => {
+  // Made before the contract refused them, or through quiver directly: the indexer must not halt on them.
+  const inconsistent = (node: FakeNode) =>
+    node.mine(
+      [ev.questDefined(1, { tasks: [[DAILY_RUN, 1]] })],
+      [ev.questDefined(2, { tasks: [[DAILY_RUN, 0]] })], // a total of 0
+      [ev.questDefined(3, { tasks: [[3, 10], [3, 20]] })], // a task id repeated
+      [ev.achievementDefined(1, { tasks: [[1, 1]], points: 10 })],
+      [ev.achievementDefined(2, { tasks: [[1, 0], [10, 1]], points: 20 })], // a total of 0
+      [ev.achievementDefined(3, { tasks: [[1, 1], [1, 1]], points: 30 })], // a task id repeated
+    );
+
+  test("are served nowhere, and never as completed without a completion time", async () => {
+    const { queries, head } = await open((node) => {
+      inconsistent(node);
+      node.mine(finished(A, 100));
+    });
+    const definitions = queries.definitions(head);
+    expect(definitions.quests.map((q) => q.quest_id)).toEqual([1]);
+    expect(definitions.achievements.map((a) => a.achievement_id)).toEqual([1]);
+    expect(queries.playerQuests(head, padded(A), DAY).map((q) => q.quest_id)).toEqual([1]);
+    const { achievements, points } = queries.playerAchievements(head, padded(A));
+    expect(achievements.map((a) => a.achievement_id)).toEqual([1]);
+    expect(points).toBe(10);
+    for (const entry of [...queries.playerQuests(head, padded(A), DAY), ...achievements]) {
+      expect(entry.completed && entry.completed_at === null).toBe(false);
+    }
+    expect(queries.excludedDefinitions(head)).toBe(4);
+  });
+
+  test("are counted in checks.definitions_excluded of /v1/head, and do not stop the indexer", async () => {
+    const { indexer, head } = await open(inconsistent);
+    expect(respond(indexer, "GET", "/v1/head").body).toMatchObject({ checks: { definitions_excluded: 4 } });
+    // the exclusion is as of the head asked for: nothing defined yet at block 0
+    expect(new Queries(indexer.store).excludedDefinitions(head - 1)).toBe(0);
+    expect(consistent([{ taskId: 1, total: 1 }])).toBe(true);
+  });
+});

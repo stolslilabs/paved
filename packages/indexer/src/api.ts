@@ -74,6 +74,8 @@ export interface HeadAnswer extends Envelope {
     /** Closed days compared with the `tournament` view since the process started (or the last rewind). */
     tournaments_checked: number;
     last_mismatch: Mismatch | null;
+    /** Quest and achievement definitions left out of every answer: a task total of 0 or a task id repeated (P-30). */
+    definitions_excluded: number;
   };
 }
 

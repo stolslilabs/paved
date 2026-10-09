@@ -48,7 +48,7 @@ describe("routes", () => {
       chain_id: "0x534e5f5345504f4c4941",
       from_block: 1,
       contracts: { daily: "0x1111", tutorial: "0x2222", account: "0x3333" },
-      checks: { tournaments_checked: 0, last_mismatch: null },
+      checks: { tournaments_checked: 0, last_mismatch: null, definitions_excluded: 0 },
     });
   });
 
