@@ -23,6 +23,7 @@ import {
 } from "node:sqlite";
 import type { Header, RawEvent } from "./chain.ts";
 import { canonical, MODE, padded, type Decoded, type Source } from "./events.ts";
+import { TUTORIAL_TASK } from "./quests.ts";
 
 /** An invariant failed: the indexer stops following and answers `halted`, with this reason. */
 export class Halt extends Error {}
@@ -117,10 +118,10 @@ const SCHEMA = `
   -- The top 3 of a closed day, read from the contract's tournament view at the served block (not from events).
   CREATE TABLE IF NOT EXISTS podium (
     tournament_id INTEGER NOT NULL, player_id TEXT NOT NULL, ranks TEXT NOT NULL,
-    day_end INTEGER NOT NULL, read_block INTEGER NOT NULL,
+    day_end INTEGER NOT NULL, close_block INTEGER NOT NULL,
     PRIMARY KEY (tournament_id, player_id)
   );
-  CREATE INDEX IF NOT EXISTS podium_read ON podium (read_block);
+  CREATE INDEX IF NOT EXISTS podium_close ON podium (close_block);
   CREATE INDEX IF NOT EXISTS podium_player ON podium (player_id);
 `;
 
@@ -486,6 +487,11 @@ export class Store {
           }
           case "QuestProgressed":
           case "AchievementProgressed": {
+            if (event.name === "AchievementProgressed" && raw.source === "tutorial" && event.taskId !== TUTORIAL_TASK) {
+              throw new Halt(
+                `AchievementProgressed of task ${event.taskId} from tutorial ${where}: Tutorial reports task ${TUTORIAL_TASK} only`,
+              );
+            }
             this.sql.insertProgress.run({
               block: at,
               tx: raw.transactionIndex,
@@ -540,7 +546,9 @@ export class Store {
 
   /**
    * The top 3 of a closed day, as the `tournament` view gave it at the served block `served`: each player holding a slot
-   * is credited once for the day (the slots they hold are kept in `ranks`). Never early: a `served` block whose time is
+   * is credited once for the day (the slots they hold are kept in `ranks`), at the block that closed the day (`close_block`:
+   * the credit comes after the events of the blocks before it and before those of that block, so a retirement in the closing
+   * block or after it comes after the credit). Never early: a `served` block whose time is
    * before the end of the day is refused. A day already recorded is left as it is (the slots of a closed day cannot move;
    * a rewind below `served` forgets them).
    */
@@ -555,6 +563,10 @@ export class Store {
         `podium of tournament ${tournamentId} recorded at block ${served.number} (time ${served.timestamp}) before the day ends (${dayEnd})`,
       );
     }
+    // The credit is ordered at the block that closed the day (the first stored block at or before `served` whose time is at
+    // or past the end), not at the block the view was read at: a live run, a rebuild in batches and a retried call then
+    // hold the same rows. `served` itself when that block's header is already forgotten.
+    const closed = (this.sql.closeBlock.get(dayEnd, served.number) as { n: number | null }).n ?? served.number;
     this.transaction(() => {
       const players = new Map<string, number[]>();
       for (const { playerId, rank } of slots) {
@@ -566,7 +578,7 @@ export class Store {
           p: playerId,
           ranks: JSON.stringify(ranks.sort()),
           end: dayEnd,
-          block: served.number,
+          block: closed,
         });
       }
     });
@@ -707,8 +719,11 @@ function statements(db: DatabaseSync) {
        VALUES (:block, :tx, :idx, :kind, :source, :player_id, :task_id, :count, :time)`,
     ),
     insertPodium: db.prepare(
-      `INSERT OR IGNORE INTO podium (tournament_id, player_id, ranks, day_end, read_block)
+      `INSERT OR IGNORE INTO podium (tournament_id, player_id, ranks, day_end, close_block)
        VALUES (:t, :p, :ranks, :end, :block)`,
+    ),
+    closeBlock: db.prepare(
+      "SELECT min(number) AS n FROM blocks WHERE timestamp >= ? AND number <= ?",
     ),
     rewindQuests: db.prepare("DELETE FROM quests WHERE def_block > ?"),
     rewindAchievements: db.prepare("DELETE FROM achievements WHERE def_block > ?"),
@@ -721,7 +736,7 @@ function statements(db: DatabaseSync) {
        WHERE retired_block > ?`,
     ),
     rewindProgress: db.prepare("DELETE FROM progress WHERE block > ?"),
-    rewindPodium: db.prepare("DELETE FROM podium WHERE read_block > ?"),
+    rewindPodium: db.prepare("DELETE FROM podium WHERE close_block > ?"),
     rewindEvents: db.prepare("DELETE FROM events WHERE block > ?"),
     rewindBlocks: db.prepare("DELETE FROM blocks WHERE number > ?"),
     pruneBlocks: db.prepare("DELETE FROM blocks WHERE number < ?"),

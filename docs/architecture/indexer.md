@@ -152,7 +152,7 @@ Not copied, on purpose:
 - **On the Podium (task 8, P-22/O-37)**: not from events. After a day closes (the served block's time is at or past the
   day's `end_time`, the D-P6-5 condition), the cross-check's read of the contract's `tournament(id)` view at that served
   block also records the players in the view's three slots, once each for the day. The credit is a progress of 1 on task 8
-  at the end of the day, in the achievement rules above. It is exact (the contract's own ranking), never early (a day still
+  at the end of the day, in the achievement rules above, ordered at the block that closed the day (`close_block`: the first block whose time is at or past the day's end). A retirement in that block or after it comes after the credit, one before it comes first; this does not depend on when the view was read (live, rebuilt in batches, or retried). A `AchievementProgressed` of task 8 on chain is not counted: the credit comes only from the view. It is exact (the contract's own ranking), never early (a day still
   open records nothing), and independent of a claim.
 
 ## Storage
@@ -501,15 +501,16 @@ The package follows this design. What differs, or was decided while building (Pa
 - **Events**: the six events of the table above are decoded (`src/events.ts`) strictly, with the ABI's key and data order
   (`src/events.test.ts` reads it from `contracts/abis/Daily.json`): 1 to 3 tasks of a non-zero id, at most 7 conditions,
   every time below 2^53, `points` a `u16`. Quest events and the definitions come from `Daily` only; `AchievementProgressed`
-  also from `Tutorial` (task 10); any other emitter halts the indexer (Q-7: the filter is the addresses of the deployment
+  also from `Tutorial` (task 10); any other emitter halts the indexer, and so does a Tutorial `AchievementProgressed` of a task other than 10 (Q-7: the filter is the addresses of the deployment
   file). `QuestCompleted`, `QuestClaimed` and the two `...ReporterSet` stay in `IGNORED`: Paved's quests are in event mode
   and the game flow calls the internal layer.
+- **Definition times**: a definition's `start` and `end` must be below 2^53 (0 = never ends), else the decoder halts the indexer. The deploy script's definitions are far below.
 - **Tables** (schema `2`): `quests` and `achievements` (the definition, the position and time of the defining block, and of
   the retiring block once there is one); `progress` (each `QuestProgressed` and `AchievementProgressed`: position, kind,
   emitter, player, task, count, block time); `podium` (`tournament_id`, `player_id`, the slots held, the day's end and the
-  served block it was read at). A definition twice, a retirement of nothing and a second retirement halt the indexer. A
+  block that closed the day). A definition twice, a retirement of nothing and a second retirement halt the indexer. A
   rewind deletes the rows of the blocks above the fork, un-retires what was retired above it, and deletes the podium rows
-  read above it, so a rewound database equals one rebuilt from the chain (`src/quests.test.ts`).
+  closed above it, so a rewound database equals one rebuilt from the chain (`src/quests.test.ts`).
 - **Derivation**: queries at the served block, not tables (as the leaderboard): `src/quests.ts` has the pure rules
   (`intervalId`, `firstActive`, `replay`), `src/queries.ts` the reads. A player's progress is replayed from that player's
   rows, which stay small (at most six reports per finished game).
@@ -518,7 +519,7 @@ The package follows this design. What differs, or was decided while building (Pa
   86,400`) that is the interval whose id is the day number.
 - **Podium**: `CrossCheck.run` records the podium from the same view read as the cross-check, once per closed day per process
   (a restart reads closed days again; `recordPodium` ignores a player already recorded). The credit's time is the day's end,
-  so it does not depend on when the indexer ran. A player in two slots is credited once.
+  so it does not depend on when the indexer ran. A player in two slots is credited once. `podium.close_block` is also what a rewind deletes by.
 - **API**: `GET /v1/definitions`, `GET /v1/players/{player_id}/quests?day=` and `GET /v1/players/{player_id}/achievements`,
   append-only on v1, same envelope, every number a safe integer (`day` is bounded by `MAX_TOURNAMENT_ID`).
 - **Devnet**: the scenario (`test/devnet/scenario.test.ts`) is not extended in this PR and was not run with it:

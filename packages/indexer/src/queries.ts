@@ -433,11 +433,11 @@ export class Queries {
         .statement(
           `SELECT block, tx, idx, task_id, count, time FROM (
              SELECT block, tx, idx, task_id, count, time FROM progress
-             WHERE kind = 'achievement' AND player_id = :p AND block <= :h
+             WHERE kind = 'achievement' AND player_id = :p AND block <= :h AND task_id <> ${PODIUM_TASK}
              UNION ALL
-             SELECT read_block AS block, -1 AS tx, tournament_id AS idx, ${PODIUM_TASK} AS task_id, 1 AS count,
+             SELECT close_block AS block, -1 AS tx, tournament_id AS idx, ${PODIUM_TASK} AS task_id, 1 AS count,
                day_end AS time
-             FROM podium WHERE player_id = :p AND read_block <= :h
+             FROM podium WHERE player_id = :p AND close_block <= :h
            ) ORDER BY block, tx, idx`,
         )
         .all({ p: playerId, h: head }) as Row[]

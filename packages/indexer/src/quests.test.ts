@@ -383,9 +383,9 @@ describe("On the Podium", () => {
     }
     expect(queries.playerAchievements(served.number, padded(A)).points).toBe(50);
     expect(indexer.store.dump().podium).toEqual([
-      { tournament_id: DAY, player_id: padded(A), ranks: "[1]", day_end: END, read_block: served.number },
-      { tournament_id: DAY, player_id: padded(B), ranks: "[2]", day_end: END, read_block: served.number },
-      { tournament_id: DAY, player_id: padded(C), ranks: "[3]", day_end: END, read_block: served.number },
+      { tournament_id: DAY, player_id: padded(A), ranks: "[1]", day_end: END, close_block: served.number },
+      { tournament_id: DAY, player_id: padded(B), ranks: "[2]", day_end: END, close_block: served.number },
+      { tournament_id: DAY, player_id: padded(C), ranks: "[3]", day_end: END, close_block: served.number },
     ]);
     // read at a block before the credit was recorded: not there
     expect(credited(queries, served.number - 1, A)).toMatchObject({ completed: false });
@@ -432,6 +432,87 @@ describe("On the Podium", () => {
     expect(indexer.store.tip()!.number).toBe(read);
     expect(indexer.store.dump().podium).toEqual([]);
     expect(credited(queries, indexer.served!.number, A)).toMatchObject({ completed: false });
+  });
+});
+
+describe("the podium credit is ordered at the day's close", () => {
+  test("a live run, step by step, and a rebuild in one batch hold the same rows, with a retirement in the closing block", async () => {
+    const node = new FakeNode();
+    node.time = T0 + 10;
+    node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
+    node.mine([ev.created(A, 0x41)]);
+    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })]);
+    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
+    node.views = () => view([[A, 50]]);
+    const chainOf = () => new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT });
+
+    const live = indexerOf(node);
+    const liveCheck = new CrossCheck(chainOf(), live.store);
+    await settle(live);
+    await liveCheck.run(live.served!); // the day is open: nothing
+    node.time = END + 1;
+    node.mine([ev.achievementRetired(9)]); // the closing block retires the achievement
+    await settle(live);
+    await liveCheck.run(live.served!);
+    node.mine(); // later blocks
+    node.mine();
+    await settle(live);
+    await liveCheck.run(live.served!);
+
+    const rebuilt = indexerOf(node);
+    await settle(rebuilt);
+    await new CrossCheck(chainOf(), rebuilt.store).run(rebuilt.served!); // read at the tip, two blocks later
+
+    expect(rebuilt.store.dump()).toEqual(live.store.dump());
+    const closing = node.blocks.findIndex((b) => b.timestamp >= END);
+    expect(live.store.dump().podium).toEqual([
+      { tournament_id: DAY, player_id: padded(A), ranks: "[1]", day_end: END, close_block: closing },
+    ]);
+    // the credit precedes the retirement of the closing block, in both
+    for (const subject of [live, rebuilt]) {
+      expect(new Queries(subject.store).playerAchievements(subject.served!.number, padded(A)).achievements[0]).toMatchObject({
+        retired: true,
+        completed: true,
+      });
+    }
+  });
+
+  test("a retirement before the closing block comes before the credit", async () => {
+    const node = new FakeNode();
+    node.time = T0 + 10;
+    node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]] })]);
+    node.mine([ev.created(A, 0x41)]);
+    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })]);
+    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
+    node.mine([ev.achievementRetired(9)]); // still inside the day
+    node.views = () => view([[A, 50]]);
+    node.time = END + 1;
+    node.mine();
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    await new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), indexer.store).run(indexer.served!);
+    expect(new Queries(indexer.store).playerAchievements(indexer.served!.number, padded(A)).achievements[0]).toMatchObject({
+      retired: true,
+      completed: false,
+      tasks: [{ count: 0 }],
+    });
+  });
+
+  test("a reported task 8 is not a podium: only the view credits On the Podium", async () => {
+    const { queries, head } = await open((node) => {
+      node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]] })]);
+      node.mine([ev.achievementProgressed("daily", A, PODIUM_TASK, 1)]);
+    });
+    expect(queries.playerAchievements(head, padded(A)).achievements[0]).toMatchObject({ completed: false, tasks: [{ count: 0 }] });
+  });
+
+  test("Tutorial reporting a task other than 10 halts the indexer", async () => {
+    const node = new FakeNode();
+    node.mine([ev.achievementProgressed("tutorial", A, 1, 1)]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("halted");
+    expect(indexer.reason).toMatch(/Tutorial reports task 10 only/);
   });
 });
 

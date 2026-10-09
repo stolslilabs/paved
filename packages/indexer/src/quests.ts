@@ -16,6 +16,9 @@ import type { TaskTarget } from "./events.ts";
 /** The task the game never reports and the indexer credits from the `tournament` view (quests.md, "On the Podium"). */
 export const PODIUM_TASK = 8;
 
+/** The only task Tutorial reports (quests.md, TUTORIAL_FINISHED). */
+export const TUTORIAL_TASK = 10;
+
 /** A quest's schedule (`QuestSchedule`): `end` 0 never ends, `duration` and `period` (the package's `interval`) 0 one-off. */
 export type Schedule = { start: number; end: number; duration: number; period: number };
 
