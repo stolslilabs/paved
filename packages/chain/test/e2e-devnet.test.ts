@@ -386,5 +386,5 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(BigInt(view.playerId)).toBe(BigInt(deployer));
     expect(view.over).toBe(false);
     pass("deployer's smoke game seen by the indexer", "Tutorial game 1, running: score 0, end_time 0 (null read as 0); no Daily game");
-  });
+  }, 120_000);
 });
