@@ -89,7 +89,15 @@ export class EconomyWriter {
    * referrer (the contract pays none either).
    */
   async purchase(request: PurchaseRequest): Promise<WriteResult & { gameId: number }> {
-    const result = await this.options.writer.sendCalls(async () => ({ calls: (await this.planPurchase(request)).calls, events: "Daily" }));
+    let result: WriteResult;
+    try {
+      result = await this.options.writer.sendCalls(async () => ({ calls: (await this.planPurchase(request)).calls, events: "Daily" }));
+    } catch (error) {
+      // Sent, but its receipt could not be read (timeout, RPC drop): the USDC may have moved. Not a failure, unlike a
+      // revert, which is a known one.
+      if (error instanceof WriteError && error.transactionHash && !error.reverted) throw new PurchaseOutcomeUnknownError(error.transactionHash);
+      throw error;
+    }
     const spawned = result.events.find((e) => e.name === "GameSpawned");
     if (!spawned) throw new PurchaseOutcomeUnknownError(result.transactionHash);
     return { ...result, gameId: Number(spawned.fields.gameId) };

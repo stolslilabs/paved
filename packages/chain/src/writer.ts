@@ -63,9 +63,12 @@ export class SponsorAmountChangedError extends Error {
   }
 }
 
-/** A write that the chain refused; the message is the revert reason. */
+/**
+ * A write that the chain refused; the message is the revert reason. With a `transactionHash` the write was sent:
+ * `reverted` says the receipt is a known revert; otherwise its receipt could not be read (timeout, RPC drop).
+ */
 export class WriteError extends Error {
-  constructor(message: string, readonly transactionHash?: string) {
+  constructor(message: string, readonly transactionHash?: string, readonly reverted = false) {
     super(message);
     this.name = "WriteError";
   }
@@ -274,7 +277,7 @@ export class PavedWriter {
       throw new WriteError(error instanceof Error ? error.message : String(error), transaction_hash);
     }
     if (receipt.execution_status === "REVERTED") {
-      throw new WriteError(receipt.revert_reason ?? "Transaction reverted", transaction_hash);
+      throw new WriteError(receipt.revert_reason ?? "Transaction reverted", transaction_hash, true);
     }
     if (typeof contract !== "string") {
       const events = (receipt.events ?? []).flatMap((raw) =>
