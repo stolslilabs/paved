@@ -67,6 +67,12 @@ not-configured and stale states. Display only: no reward is shown or promised. L
 button. jsdom tests only, no browser run. The e2e step "deployer smoke game" now queries the Tutorial contract and expects
 game 1 there (it passed vacuously on Daily). Not run on a live devnet.
 
+2026-10-09, economy client (t-0056, P8, part a): `packages/chain/src/economy/` buys a paid Daily (USDC approve + `Daily.spawn(stake,
+referrer, min_out)` in one multicall, `min_out` the quote less 1 %), settles a bought game after its day (the player's claim of
+PAVED) and stakes, unstakes and claims dividends in the Vault, every amount a BigInt re-read and checked at send, serialised with
+the game's writes. `Economy`, USDC and the paid `spawn` run on **stub ABIs** until CORE's E2/E3; `PavedToken` and `Vault` are E1's
+real ABIs. No deployment has the economy's addresses yet, so it is not configured anywhere. `docs/architecture/client-economy.md`.
+
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
 The baseline measures a recorded board, not a live deployment (decided 2026-10-06): the contracts

@@ -1,0 +1,72 @@
+# Client economy (P8)
+
+How the web client buys a paid Daily game in USDC, settles it after the day, and stakes PAVED in the Vault. The
+contract side is `economy.md` (ruled by the PM: P-31); the data layer and its payment rules are
+`client-data-layer.md`. The code is `packages/chain/src/economy/` (this document's part a) and the economy panels of
+`packages/app-web` (part b).
+
+**Nothing is deployed beyond devnet** (economy.md). Every deployment today lacks the economy's addresses, so the
+client's economy is **not configured** everywhere and the screens say so; nothing is read or sent.
+
+## What runs on a stub until CORE's E2 and E3
+
+| Piece | Source today | Real source | What to do when it lands |
+|---|---|---|---|
+| `Economy` ABI: `quote`, `day`, `terms`, `settle`, events `Purchased`, `Recorded`, `DayClosed`, `Settled` | **STUB** `economy/stub-abi.ts`, shapes from economy.md section 6; integer widths guessed | `contracts/abis/Economy.json` (E2) | import it in `abis.ts`, delete the stub, fix `ECONOMY_VIEW_FIELDS` where `test/economy.test.ts` fails |
+| `Daily.spawn(stake, referrer, min_out)` | **STUB** `STUB_DAILY_PAID_ABI`: the real `Daily` ABI with that one entry replaced | `contracts/abis/Daily.json` (E3) | the test "the real Daily ABI still has none" fails on E3's ABI: drop `DailyPaid`, encode with `Daily` |
+| USDC (`approve`, `balance_of`, `allowance`) | **STUB** `STUB_USDC_ABI` | the MockUSDC ABI (E3's devnet deploy) | import it |
+| `PavedToken`, `Vault` | CORE's real ABIs (E1, #260) | | |
+| Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json`, as economy.md says E3 writes them; or the env | E3's `devnet.json` | check the key names against E3's file |
+| Reads in unit tests | `FakeEconomy` (`economy/fake.ts`), **tests only**: not exported from `@paved/chain`, imported by path | | |
+
+`ECONOMY_ABI_IS_STUB` is true while any stub remains; the screens print "Economy contracts on stub ABIs (E2 not
+merged)" from it.
+
+Two readings of the stub that E2 must confirm:
+
+- `Quote.min_out_hint` is read as the router's **expected** PAVED for `burn_quote`, before slippage; the client applies
+  its own slippage to it. If E2 makes it already include a slippage, the client must send it as it is.
+- `TermsView.stake` is 0 for a Daily game that was not bought (before E3 every Daily game).
+
+## Deployment
+
+`resolveEconomyDeployment({ base, file, env })` (`economy/deployment.ts`) takes the four contracts' `Deployment` and
+adds the economy's addresses, the env first. It is `configured` only when the base is configured and `Economy`,
+`PavedToken`, `Vault` and USDC are all known; otherwise `missing` lists what is not. `createEconomyClient` gives null
+then. `deployment.ts` is not changed: a deployment without the economy keeps working as before.
+
+## Amounts
+
+Every amount is a `bigint` in base units: USDC 6 decimals, PAVED 18 (D-10, economy.md "Units"). `parseUnits` and
+`formatUnits` never go through a float. The labels are `USDC` and `PAVED` whatever a mock's symbol says.
+
+| Figure | How the client gets it |
+|---|---|
+| Price `P` of stake `k` (1 to 10) | `k x Daily.entry_price().amount` (2 USDC per stake unit after E3), and `Economy.quote(k).price` must be the same, else nothing is sent |
+| Boost | `1 + k/100` (`boostBps`), shown as a multiplier; the reward itself is the contract's |
+| Referral | 5 % of `P`, **out of the margin**: it changes no amount the player pays (P-31) |
+| `min_out` | `quote.min_out_hint x (1 - slippage)`, rounded down; slippage 1 % (`DEFAULT_SLIPPAGE_BPS`, economy.md section 5), at most 50 % |
+| Reward | only `Economy.terms(game).reward` after settlement; the client computes and promises none |
+
+## Writes
+
+`EconomyWriter` (`economy/writer.ts`), from `EconomyClient.writer(pavedWriter)`. Every write goes through the
+account's `PavedWriter` (`PavedWriter.sendCalls`), so the economy's writes and the game's are **serialised together**:
+while one is pending, another is refused. The checks below run inside that lock, just before `execute`, and any failed
+read or refused check sends nothing (`WriteError`, or the typed errors).
+
+| Write | Calls (one multicall) | Read and refused at send |
+|---|---|---|
+| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Daily, P)`, `Daily.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10. A self-referral is sent as `0x0` |
+| `settle(gameIds)` (the player's claim of PAVED) | `Economy.settle(game_ids)` | `terms` and `Daily.game` of each: not bought (stake 0), not over, already settled, or its day not over (`now < (day + 1) x 86400`) |
+| `stake(amount, { confirmedAmount })` | `PavedToken.approve(Vault, amount)`, `Vault.stake(amount)` | the amount is 0 or not the confirmed one (`VaultAmountChangedError`); the PAVED balance is short |
+| `unstake(amount, { confirmedAmount })` | `Vault.unstake(amount)` | the amount is 0 or not the confirmed one; more than staked |
+| `claimDividends({ confirmedAmount })` | `Vault.claim()` | the pending USDC is 0 or not the confirmed one (it grows with every purchase: the player confirms again) |
+
+`planPurchase` runs the same reads and checks and returns the calls without sending them (tests).
+
+## Reads
+
+`EconomyViews` (`RpcEconomyViews` on the contracts, `FakeEconomy` in tests): `quote(stake)`, `day(day)`,
+`terms(gameId)`, `vault(account)` (`staked`, `pending`, `total_staked`), `usdcBalance`, `pavedBalance`. Reverts map to
+`ViewError` as the game views do; a not configured economy is a `not-configured` `ViewError` with no call.
