@@ -36,4 +36,11 @@ describe("LandingScreen", () => {
     };
     expect(props).toBeDefined();
   });
+
+  it("offers the quests screen through onQuests, next to the leaderboard", () => {
+    const opened: string[] = [];
+    const props: LandingScreenProps = { onLeaderboard: () => opened.push("leaderboard"), onQuests: () => opened.push("quests") };
+    props.onQuests?.();
+    expect(opened).toEqual(["quests"]);
+  });
 });

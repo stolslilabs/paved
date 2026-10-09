@@ -67,6 +67,27 @@ const GAMES: Row[] = [
 /** A game that has not ended, as the real indexer writes it. */
 export const RUNNING_GAME: Row = { contract: "daily", game_id: 913, player_id: FIXTURE_ADA, mode: 1, start_time: 1791875000, tournament_id: 20733, over: false, score: null, counted_tournament_id: null, end_time: null };
 
+const DEFINED_AT = 1791000000;
+
+/** The accepted daily quests (docs/architecture/quests.md, P-22): `[quest_id, task_id, total]`. */
+const QUESTS: Array<[number, number, number]> = [[1, 1, 1], [2, 2, 6], [3, 4, 1], [4, 3, 3000]];
+
+/** The accepted achievements: `[achievement_id, task_id, total, points]`. */
+const ACHIEVEMENTS: Array<[number, number, number, number]> = [
+  [1, 10, 1, 10], [2, 1, 1, 10], [3, 1, 10, 20], [4, 1, 50, 40], [5, 6, 1, 20], [6, 4, 10, 20], [7, 5, 1, 30], [8, 7, 1, 30], [9, 8, 1, 50],
+];
+
+const questDefinition = ([id, task, total]: [number, number, number]): Row => ({
+  quest_id: id, start_time: 0, end_time: 0, duration: 86400, interval: 86400, tasks: [{ task_id: task, total }], conditions: [], defined_at: DEFINED_AT, retired: false, retired_at: null,
+});
+const achievementDefinition = ([id, task, total, points]: [number, number, number, number]): Row => ({
+  achievement_id: id, start_time: 0, end_time: 0, tasks: [{ task_id: task, total }], points, defined_at: DEFINED_AT, retired: false, retired_at: null,
+});
+
+/** What the fixture's player Ada has done: quest 1 done and quest 4 at 2,700 of 3,000 on `FIXTURE_TOURNAMENT`, as in the doc's examples. */
+const ADA_QUEST_COUNTS = new Map<number, { count: number; completed_at?: number }>([[1, { count: 1, completed_at: 1791871203 }], [4, { count: 2700 }]]);
+const ADA_ACHIEVEMENT_COUNTS = new Map<number, { count: number; completed_at?: number }>([[2, { count: 1, completed_at: 1791871203 }], [3, { count: 1 }]]);
+
 /** A fixture indexer: set `state` to put it in a degraded condition, then pass `fetch` to an `IndexerClient`. */
 export class FixtureIndexer {
   readonly state: FixtureState = { behind: 0, status: "ok", down: false, version: 1, rawBody: undefined };
@@ -80,6 +101,15 @@ export class FixtureIndexer {
     tournament(FIXTURE_TOURNAMENT - 2, { players: 7, best_score: 143 }),
   ];
   games: Row[] = GAMES;
+  /** The definitions `/v1/definitions` serves, and the progress routes are built from. */
+  quests: Row[] = QUESTS.map(questDefinition);
+  achievements: Row[] = ACHIEVEMENTS.map(achievementDefinition);
+  /** Days before this one have no quest active (their quest list is empty). */
+  questsFromDay = FIXTURE_TOURNAMENT - 10;
+  /** Progress of a player by quest or achievement id; a player not listed has zero counts, as an unknown player does. */
+  progress = new Map<string, { quests: Map<number, { count: number; completed_at?: number }>; achievements: Map<number, { count: number; completed_at?: number }> }>([
+    [FIXTURE_ADA, { quests: ADA_QUEST_COUNTS, achievements: ADA_ACHIEVEMENT_COUNTS }],
+  ]);
 
   /** A `fetch` for `new IndexerClient({ url, fetch })`. */
   readonly fetch = async (input: RequestInfo | URL): Promise<Response> => {
@@ -157,6 +187,11 @@ export class FixtureIndexer {
       const t = this.tournaments.find((x) => x.id === id) ?? tournament(id);
       return ok({ tournament_id: id, start_time: t.start_time, end_time: t.end_time, total: rows.length, entries: page, next_offset: offset + limit < rows.length ? offset + limit : null });
     }
+    if (a === "definitions" && !b) {
+      const e = allowed();
+      if (e) return fail(400, e);
+      return ok({ quests: this.quests, achievements: this.achievements });
+    }
     if (a === "players" && b) {
       if (!playerOk(b)) return fail(400, "malformed player id");
       if (!c) {
@@ -184,6 +219,23 @@ export class FixtureIndexer {
         const page = rows.slice(0, limit);
         return ok({ games: page, next: rows.length > limit ? key(page[page.length - 1]) : null });
       }
+      if (c === "quests" && !d) {
+        const e = allowed("day");
+        if (e) return fail(400, e);
+        const dayText = url.searchParams.get("day");
+        if (dayText !== null && decimalId(dayText) === null) return fail(400, "malformed day");
+        const day = dayText === null ? Math.floor(FIXTURE_HEAD.timestamp / 86400) : Number(dayText);
+        const mine = this.progress.get(b)?.quests;
+        const quests = day < this.questsFromDay ? [] : this.quests.map((q) => progressRow(q, "quest_id", mine?.get(q.quest_id as number), { interval_id: day }));
+        return ok({ player_id: b, day, start_time: day * 86400, end_time: (day + 1) * 86400, quests });
+      }
+      if (c === "achievements" && !d) {
+        const e = allowed();
+        if (e) return fail(400, e);
+        const mine = this.progress.get(b)?.achievements;
+        const rows = this.achievements.map((a) => progressRow(a, "achievement_id", mine?.get(a.achievement_id as number), { points: a.points }));
+        return ok({ player_id: b, points: rows.filter((r) => r.completed).reduce((sum, r) => sum + (r.points as number), 0), achievements: rows });
+      }
       if (c === "tournaments" && d) {
         const e = allowed();
         const id = decimalId(d);
@@ -199,6 +251,13 @@ export class FixtureIndexer {
     }
     return fail(404, "unknown route");
   }
+}
+
+/** A player's row for one definition: the counts saturate at the target, and a completed one has a time. */
+function progressRow(definition: Row, idKey: string, done: { count: number; completed_at?: number } | undefined, extra: Row): Row {
+  const tasks = (definition.tasks as Array<{ task_id: number; total: number }>).map((t) => ({ ...t, count: Math.min(done?.count ?? 0, t.total) }));
+  const completed = tasks.every((t) => t.count === t.total);
+  return { [idKey]: definition[idKey], ...extra, tasks, completed, completed_at: completed ? (done?.completed_at ?? FIXTURE_HEAD.timestamp) : null, retired: definition.retired };
 }
 
 function json(code: number, body: unknown): Response {

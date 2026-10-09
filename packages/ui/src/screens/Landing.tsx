@@ -19,6 +19,8 @@ export interface LandingScreenProps {
   onModeSelect?: (mode: string) => void;
   /** Opens the leaderboard screen; the section is public, it does not need a wallet. */
   onLeaderboard?: () => void;
+  /** Opens the quests and achievements screen; public like the leaderboard. */
+  onQuests?: () => void;
   /** Opens the player's own page; offered once the player is known. */
   onProfile?: () => void;
 }
@@ -34,6 +36,7 @@ export function LandingScreen({
   isLoading = false,
   onModeSelect,
   onLeaderboard,
+  onQuests,
   onProfile,
 }: LandingScreenProps) {
   const hasPlayer = connected && !!playerName;
@@ -143,6 +146,11 @@ export function LandingScreen({
             <Button onPress={onLeaderboard}>
               <ButtonText>{"Open leaderboard"}</ButtonText>
             </Button>
+            {onQuests ? (
+              <Button onPress={onQuests}>
+                <ButtonText>{"Quests and achievements"}</ButtonText>
+              </Button>
+            ) : null}
             {hasPlayer && onProfile ? (
               <Button onPress={onProfile}>
                 <ButtonText>{"Your stats"}</ButtonText>

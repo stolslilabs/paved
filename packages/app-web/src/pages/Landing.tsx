@@ -246,6 +246,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
         isLoading={games.loading || tournament.loading}
         onModeSelect={(mode: string) => setSelected(mode as GameMode)}
         onLeaderboard={() => navigate("/leaderboard")}
+        onQuests={() => navigate("/quests")}
         onProfile={playerId ? () => navigate(`/player/${indexerPlayerId(playerId)}`) : undefined}
       />
       {selected && selectedCard && (

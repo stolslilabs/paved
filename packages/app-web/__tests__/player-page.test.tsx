@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { IndexerClient } from "@paved/chain";
+import { act, configure, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+
+import { FakeGameViews, IndexerClient } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_TOURNAMENT, FixtureIndexer } from "@paved/chain/testing";
 import { PlayerPage } from "../src/pages/Player";
 import { renderPage } from "./helpers/page-fixtures";
+
+// A cold CI run is slow on the first render: the library's 1 s default is too tight.
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(cleanup);
 
@@ -102,5 +106,74 @@ describe("Player page", () => {
     player("nope");
     expect(screen.getByText("Not a player id")).toBeTruthy();
     expect(fixture.requests).toEqual([]);
+  });
+  describe("quests and achievements", () => {
+    const withViews = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => {
+      const views = new FakeGameViews();
+      views.currentTournament = FIXTURE_TOURNAMENT;
+      return player(FIXTURE_ADA, { views, ...opts });
+    };
+    const region = (name: string) => within(screen.getByRole("region", { name }));
+
+    it("their quests of today and their achievements, from the indexer; the definitions list stays on the quests screen", async () => {
+      withViews();
+      await screen.findByRole("list", { name: "Daily quests" });
+      expect(fixture.requests).toContain(`/v1/players/${FIXTURE_ADA}/quests?day=${FIXTURE_TOURNAMENT}`);
+      expect(fixture.requests).toContain(`/v1/players/${FIXTURE_ADA}/achievements`);
+      expect(fixture.requests).not.toContain("/v1/definitions");
+      expect(region("Your quests").getByText("2,700 / 3,000 points")).toBeTruthy();
+      await screen.findByTestId("achievement-points");
+      expect(screen.getByTestId("achievement-points").textContent).toBe("Achievement points: 10");
+      expect(screen.queryByText("What counts")).toBeNull();
+      expect(screen.getByTestId("progress-lag").textContent).toContain("Up to date");
+      // The page's own lag line is the profile's.
+      expect(screen.getByTestId("lag").textContent).toContain("Up to date");
+    });
+
+    it("another player's progress is theirs: Bo has none", async () => {
+      withViews({ path: `/player/${FIXTURE_BO}` });
+      await screen.findByRole("list", { name: "Daily quests" });
+      expect(fixture.requests).toContain(`/v1/players/${FIXTURE_BO}/quests?day=${FIXTURE_TOURNAMENT}`);
+      expect(region("Your quests").getByText("0 / 3,000 points")).toBeTruthy();
+      expect(region("Your quests").queryByText(/Completed/)).toBeNull();
+      await screen.findByText("Achievement points: 0");
+    });
+
+    it("the day picker reads another day for this player, and a day with no quest says so", async () => {
+      fixture.questsFromDay = FIXTURE_TOURNAMENT;
+      withViews();
+      await screen.findByRole("list", { name: "Daily quests" });
+      fireEvent.change(screen.getByLabelText("Day"), { target: { value: String(FIXTURE_TOURNAMENT - 1) } });
+      await screen.findByText("No quest on this day.");
+      expect(fixture.requests).toContain(`/v1/players/${FIXTURE_ADA}/quests?day=${FIXTURE_TOURNAMENT - 1}`);
+    });
+
+    it("quests unavailable do not hide the player: the profile still shows, the quests say why with Retry", async () => {
+      withViews();
+      await screen.findByRole("heading", { name: "Ada" });
+      await screen.findByRole("list", { name: "Daily quests" });
+      cleanup();
+      fixture.state.status = "loading";
+      withViews();
+      expect((await screen.findAllByText("Quests unavailable: the indexer is starting")).length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Retry").length).toBeGreaterThan(0);
+    });
+
+    it("a stale refresh keeps the quests, marked stale next to the reason", async () => {
+      withViews();
+      await screen.findByRole("list", { name: "Daily quests" });
+      fixture.state.down = true;
+      await act(async () => void document.dispatchEvent(new Event("visibilitychange")));
+      await screen.findByTestId("progress-lag-stale");
+      expect(screen.getByTestId("progress-lag-stale").textContent).toContain("Stale: Quests unavailable: the indexer cannot be reached");
+      expect(region("Your quests").getByText("2,700 / 3,000 points")).toBeTruthy();
+    });
+
+    it("no reward, prize or claim is shown with the quests", async () => {
+      withViews();
+      await screen.findByRole("list", { name: "Achievements list" });
+      expect(region("Your quests").queryByText(/reward|prize|claim/i)).toBeNull();
+      expect(region("Achievements").queryByText(/reward|prize|claim/i)).toBeNull();
+    });
   });
 });
