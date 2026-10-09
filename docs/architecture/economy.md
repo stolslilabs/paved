@@ -49,17 +49,19 @@ sections that follow give the reasons and the figures.
 | 7 | NFTs | As proposed (section 9): soulbound `Collection`, mint at spawn from `Lobby`, JSON `token_uri`, transfers revert; spawn +838k (Daily) / +845k (Tutorial) **accepted**; wallet display checked at the first public deploy | The owner (D-11b) |
 | 8 | PR plan | E1 to E5 (section 8), with the security and economy audits | The PM |
 
-**Open questions for the owner** (recorded by P-31; **neither blocks E1**):
+**The owner's answers** (2026-10-09) to the two questions P-31 recorded:
 
-- **The structural house edge.** D-10's numbers (70 % burn, 5 % pool fee) give players back about 63 % of what they
-  pay in the long run, a house edge of about **37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to 37.3 %, section 3).
-  The curve parameters do not change it. Only the burn share or the fee does.
-- **The predictable seed with paid games** (D-3, E-1): replaying the day's best known line pays 1.31x to 1.36x
-  (section 3). Recommendation: a VRF, or a seed revealed after the purchase.
+- **The structural house edge: accepted (D-12).** D-10's numbers (70 % burn, 5 % pool fee) give players back about
+  63 % of what they pay in the long run, a house edge of about **37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to
+  37.3 %, section 3). The curve parameters do not change it. Only the burn share or the fee does. D-10's numbers
+  stand.
+- **The predictable seed with paid games: kept for now (D-13).** Replaying the day's best known line pays 1.31x to
+  1.36x (section 3, E-1). The owner keeps the predictable daily seed, paid games included. A VRF may come back
+  later, so E3 still puts the seed behind the `SeedSource` interface (section 8, "Seed source"). With it, a VRF or a
+  seed revealed after the purchase can replace the daily seed without touching the move code.
 
-**Until the owner answers, no paid game leaves devnet.** The seed mechanism stays isolated behind an interface, so
-that a VRF or a seed revealed after the purchase can replace it without touching the move code. The interface is
-built in E3 (section 8, "Seed source").
+D-13 lifts the seed gate on paid games leaving devnet. The other gates stay: see "Gates before a paid game leaves
+devnet" in section 8.
 
 ## Summary
 
@@ -105,11 +107,11 @@ built in E3 (section 8, "Seed source").
   - `Collection` is 13,070 CASM felts (16 %).
 
   The player, the leaderboard, the quests and "my games" are unchanged. The indexer reads only the mints. Section 9.
-- **For the owner** (D-3, their decision): **the predictable daily seed makes a paid Daily exploitable.**
+- **The predictable daily seed makes a paid Daily exploitable.** The owner keeps it for now (D-13, 2026-10-09).
   - The day's deck is public, so a player can find the day's best line offline and replay it at stake 10.
   - Measured in the simulation: such "replayers" get back 1.31x to 1.36x of what they pay, while everyone else drops to
     about half.
-  - Recommendation: a seed that nobody knows before the purchase (a VRF) before any paid game goes beyond devnet.
+  - The seed stays behind `SeedSource` (E3), so that a VRF can replace it later.
 
 ## 1. The flows of one paid game
 
@@ -505,7 +507,7 @@ Then Nums' ERC4626 is ported, with its roles cut to none and its accumulator kep
 The interfaces are declared locally in `contracts/src/economy/ekubo.cairo`, ABI-compatible (`PoolKey { token0,
 token1, fee: u128, tick_spacing: u128, extension }`, `i129 { mag: u128, sign: bool }`, `RouteNode`, `TokenAmount`,
 `Delta`, `IRouter.swap`, `IClear.{clear, clear_minimum}`). This takes no git dependency on Ekubo, in the spirit of
-O-1. Check Ekubo's licence on the declarations before the PR.
+O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, owner, 2026-10-09).
 
 - Router address, pool key (PAVED/USDC, fee `0.05 x 2^128` = `0xccccccccccccccccccccccccccccccc`, Nums' tick
   spacing `0x56a4c` for that fee, extension 0 unless the owner picks one) and `sqrt_ratio_limit` (the extreme bound
@@ -654,7 +656,7 @@ economy at all.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| E-1 | **Predictable daily seed** (open question for the owner, P-31) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.31x to 1.36x of their price; at 10 % of the games the others drop to about half | **The owner's decision**: a seed nobody knows before the purchase (Cartridge VRF on mainnet, a mock on devnet) before a paid game leaves devnet. Option B already blends the replayers into the day's mean, which limits them as their share grows |
+| E-1 | **Predictable daily seed** (kept by the owner, D-13) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.31x to 1.36x of their price; at 10 % of the games the others drop to about half | **Accepted by the owner (D-13, 2026-10-09)**: the predictable seed stays for now, paid games included. The seed sits behind `SeedSource` (E3), so that a VRF (Cartridge VRF on mainnet, a mock on devnet) can replace it later. Option B already blends the replayers into the day's mean, which limits them as their share grows |
 | E-2 | **Day effect**: one deck per day; the mean score moves 50 to 55 % from day to day | Option B (the day's own mean). With option A, the share of a day's games lost spans 46 % to 100 % (p10 to p90 over the days), against 48 % to 78 % with option B |
 | E-3 | Bot sample, not players | Recalibrate on the first real games (PR E4); `c`, `sigma`, `H`, `T` are configurable within bounds |
 | E-4 | Thin pool or self-sandwich | `min_out` from the player; the rate guard (+10 %); a launch LP of at least ~10,000 USDC (the owner's act) |
@@ -805,16 +807,24 @@ there, stand as written:
 
 ### For the owner
 
-Two open questions, recorded by P-31. Neither blocks E1. **Until the owner answers, no paid game leaves devnet.**
+The two questions recorded by P-31 are answered (2026-10-09):
 
-- **The structural house edge, about 37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to 37.3 %). It follows from D-10's
-  70 % burn and 5 % pool fee; the curve does not change it.
-- **D-3** (randomness, theirs): paid Daily games with the predictable daily seed are exploitable by replay (E-1).
-  Recommendation: a seed revealed only after the purchase (VRF). The seed already sits behind `SeedSource` from E3,
-  so either answer replaces one implementation.
+- **The structural house edge, about 37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to 37.3 %), is **accepted (D-12)**.
+  It follows from D-10's 70 % burn and 5 % pool fee, and D-10's numbers stand.
+- **The predictable daily seed is kept for now, paid games included (D-13).** Paid games are exploitable by replay
+  (E-1). A VRF may come back later. E3 keeps the seed behind `SeedSource`, so that a VRF would replace one
+  implementation.
+- **Ekubo's interfaces are public (D-14).** Declaring them locally in `economy/ekubo.cairo` is fine.
+
+### Gates before a paid game leaves devnet
+
+D-13 lifts the seed gate. These gates stay:
+
 - **The owner's acts**, unchanged by this design: deploying PAVED on a public network and distributing the initial
   1,000,000; creating the Ekubo pool and funding its LP (Nums: 800,000 PAVED and 10,000 USDC); who holds the LP
   position and its 5 % fees; staking at launch.
+- **The mock-router gate** (from E1's audit): the mainnet price limit and partial fills are untested until a fork
+  test against the mainnet router covers them (see "As built: E2" below).
 
 ### As built: E2 (`Economy`)
 
@@ -865,7 +875,8 @@ differs from the text above, or the text left the choice open, it is written her
 - **Indexer.** The indexer reads only `Daily`, `Tutorial` and `Account`, so `Economy`'s events need no
   `IGNORED` entry. E3 decodes them.
 
-**Gate (before any paid game leaves devnet): the mainnet price limit and partial fills are untested.**
+**Gate (before any paid game leaves devnet; it stands after D-13): the mainnet price limit and partial fills are
+untested.**
 `MockRouter` ignores `sqrt_ratio_limit` and always fills the whole input. On Ekubo, a swap that reaches the limit
 fills only part of its input. `clear(USDC)` then returns the rest to `Economy`, which sends it to the Vault as
 margin. The burn of that purchase then falls below 70 %, and its `R`, which follows the PAVED bought, is smaller.
