@@ -7,16 +7,30 @@
 import type { SQLInputValue } from "node:sqlite";
 import {
   TOURNAMENT_DURATION,
+  type AchievementDefinition,
   type GameContract,
   type GameRow,
   type LeaderboardEntry,
+  type PlayerAchievement,
   type PlayerInfo,
+  type PlayerQuest,
   type PlayerStats,
+  type QuestDefinition,
   type PrizeSlot,
   type TournamentDetail,
   type TournamentSummary,
 } from "./api.ts";
-import { padded, shortString } from "./events.ts";
+import { padded, shortString, type TaskTarget } from "./events.ts";
+import {
+  PODIUM_TASK,
+  firstActive,
+  inWindow,
+  intervalId,
+  intervalSpan,
+  replay,
+  type ProgressRow,
+  type Schedule,
+} from "./quests.ts";
 import type { Store } from "./store.ts";
 
 type Row = Record<string, SQLInputValue>;
@@ -102,7 +116,7 @@ const BOARD = `
   LIMIT :limit OFFSET :offset`;
 
 export class Queries {
-  private readonly store: Store;
+  readonly store: Store;
 
   constructor(store: Store) {
     this.store = store;
@@ -338,4 +352,176 @@ export class Queries {
       .get(contract, gameId, head) as Row | undefined;
     return row ? gameRow(row, head) : null;
   }
+
+  // --- quests and achievements ---------------------------------------------------------------------
+
+  /** The definitions defined at `head`, by id; a retirement above `head` has not happened yet. */
+  definitions(head: number): { quests: QuestDefinition[]; achievements: AchievementDefinition[] } {
+    return {
+      quests: this.questRows(head).map((row) => questDefinition(row, head)),
+      achievements: this.achievementRows(head).map((row) => achievementDefinition(row, head)),
+    };
+  }
+
+  private questRows(head: number): Row[] {
+    return this.store
+      .statement("SELECT * FROM quests WHERE def_block <= ? ORDER BY quest_id")
+      .all(head) as Row[];
+  }
+
+  private achievementRows(head: number): Row[] {
+    return this.store
+      .statement("SELECT * FROM achievements WHERE def_block <= ? ORDER BY achievement_id")
+      .all(head) as Row[];
+  }
+
+  /**
+   * A player's quests of a UTC day: every quest whose schedule is active at some second of the day (a quest retired
+   * before the day began is not on its board), with the progress of the interval that second falls in. The reports of that
+   * interval count in chain order up to the quest's retirement, per task saturated at its total.
+   */
+  playerQuests(head: number, playerId: string, day: number): PlayerQuest[] {
+    const dayStart = day * TOURNAMENT_DURATION;
+    const quests: PlayerQuest[] = [];
+    for (const row of this.questRows(head)) {
+      const retired = retiredAt(row, head);
+      if (retired !== null && retired <= dayStart) continue;
+      const schedule = scheduleOf(row);
+      const reference = firstActive(schedule, dayStart, dayStart + TOURNAMENT_DURATION);
+      if (reference === null) continue;
+      const interval = intervalId(schedule, reference)!;
+      const span = intervalSpan(schedule, interval);
+      const tasks = JSON.parse(String(row.tasks)) as TaskTarget[];
+      const rows = (
+        this.store
+          .statement(
+            `SELECT task_id, count, time FROM progress
+             WHERE kind = 'quest' AND player_id = :p AND block <= :h AND time >= :from AND time < :to
+               AND (:rb IS NULL OR (block, tx, idx) < (:rb, :rt, :ri))
+             ORDER BY block, tx, idx`,
+          )
+          .all({
+            p: playerId,
+            h: head,
+            from: span.from,
+            to: span.to,
+            rb: retired === null ? null : Number(row.retired_block),
+            rt: retired === null ? null : Number(row.retired_tx),
+            ri: retired === null ? null : Number(row.retired_idx),
+          }) as Row[]
+      ).map(progressRow);
+      const progress = replay(tasks, rows);
+      quests.push({
+        quest_id: Number(row.quest_id),
+        interval_id: interval,
+        tasks: progress.tasks,
+        completed: progress.completed,
+        completed_at: progress.completedAt,
+        retired: retired !== null,
+      });
+    }
+    return quests;
+  }
+
+  /**
+   * A player's achievements: for each, the reports in its window and before its retirement (the chain's, and the podium
+   * credits of the days closed at `head`), per task saturated at its total. A completed achievement is kept.
+   */
+  playerAchievements(head: number, playerId: string): { points: number; achievements: PlayerAchievement[] } {
+    const rows = (
+      this.store
+        .statement(
+          `SELECT block, tx, idx, task_id, count, time FROM (
+             SELECT block, tx, idx, task_id, count, time FROM progress
+             WHERE kind = 'achievement' AND player_id = :p AND block <= :h AND task_id <> ${PODIUM_TASK}
+             UNION ALL
+             SELECT close_block AS block, -1 AS tx, tournament_id AS idx, ${PODIUM_TASK} AS task_id, 1 AS count,
+               day_end AS time
+             FROM podium WHERE player_id = :p AND close_block <= :h
+           ) ORDER BY block, tx, idx`,
+        )
+        .all({ p: playerId, h: head }) as Row[]
+    ).map((row) => ({ ...progressRow(row), position: [Number(row.block), Number(row.tx), Number(row.idx)] }));
+    let points = 0;
+    const achievements = this.achievementRows(head).map((row): PlayerAchievement => {
+      const retired =
+        row.retired_block !== null && Number(row.retired_block) <= head
+          ? [Number(row.retired_block), Number(row.retired_tx), Number(row.retired_idx)]
+          : null;
+      const start = Number(row.start_time);
+      const end = Number(row.end_time);
+      const counted = rows.filter(
+        (found) => inWindow(start, end, found.time) && (retired === null || before(found.position, retired)),
+      );
+      const progress = replay(JSON.parse(String(row.tasks)) as TaskTarget[], counted);
+      if (progress.completed) points += Number(row.points);
+      return {
+        achievement_id: Number(row.achievement_id),
+        points: Number(row.points),
+        tasks: progress.tasks,
+        completed: progress.completed,
+        completed_at: progress.completedAt,
+        retired: retired !== null,
+      };
+    });
+    return { points, achievements };
+  }
+}
+
+const progressRow = (row: Row): ProgressRow => ({
+  taskId: Number(row.task_id),
+  count: Number(row.count),
+  time: Number(row.time),
+});
+
+/** Whether chain position `a` (block, transaction, event) comes before `b`. */
+function before(a: readonly number[], b: readonly number[]): boolean {
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i]! < b[i]!;
+  }
+  return false;
+}
+
+/** The time of a retirement at or below `head`, else null. */
+const retiredAt = (row: Row, head: number): number | null =>
+  row.retired_block !== null && Number(row.retired_block) <= head ? Number(row.retired_time) : null;
+
+const scheduleOf = (row: Row): Schedule => ({
+  start: Number(row.start_time),
+  end: Number(row.end_time),
+  duration: Number(row.duration),
+  period: Number(row.period),
+});
+
+const taskTargets = (row: Row) =>
+  (JSON.parse(String(row.tasks)) as TaskTarget[]).map((task) => ({ task_id: task.taskId, total: task.total }));
+
+function questDefinition(row: Row, head: number): QuestDefinition {
+  const retired = retiredAt(row, head);
+  return {
+    quest_id: Number(row.quest_id),
+    start_time: Number(row.start_time),
+    end_time: Number(row.end_time),
+    duration: Number(row.duration),
+    interval: Number(row.period),
+    tasks: taskTargets(row),
+    conditions: JSON.parse(String(row.conditions)) as number[],
+    defined_at: Number(row.def_time),
+    retired: retired !== null,
+    retired_at: retired,
+  };
+}
+
+function achievementDefinition(row: Row, head: number): AchievementDefinition {
+  const retired = retiredAt(row, head);
+  return {
+    achievement_id: Number(row.achievement_id),
+    start_time: Number(row.start_time),
+    end_time: Number(row.end_time),
+    tasks: taskTargets(row),
+    points: Number(row.points),
+    defined_at: Number(row.def_time),
+    retired: retired !== null,
+    retired_at: retired,
+  };
 }

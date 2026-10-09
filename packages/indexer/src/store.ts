@@ -23,6 +23,7 @@ import {
 } from "node:sqlite";
 import type { Header, RawEvent } from "./chain.ts";
 import { canonical, MODE, padded, type Decoded, type Source } from "./events.ts";
+import { TUTORIAL_TASK } from "./quests.ts";
 
 /** An invariant failed: the indexer stops following and answers `halted`, with this reason. */
 export class Halt extends Error {}
@@ -44,7 +45,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "1";
+export const SCHEMA_VERSION = "2";
 
 /** The sha256 of the three addresses (canonical, in a fixed order): the identity of a deployment. */
 export function deploymentHash(
@@ -92,6 +93,36 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS games_spawn ON games (spawn_tournament, player_id) WHERE contract = 'daily';
   CREATE INDEX IF NOT EXISTS games_spawned ON games (spawned_block);
   CREATE INDEX IF NOT EXISTS games_over ON games (over_block) WHERE over = 1;
+  -- Definitions (QuestDefined, AchievementDefined) and their retirement (a position in chain order: block, tx, idx).
+  CREATE TABLE IF NOT EXISTS quests (
+    quest_id INTEGER PRIMARY KEY, start_time INTEGER NOT NULL, end_time INTEGER NOT NULL,
+    duration INTEGER NOT NULL, period INTEGER NOT NULL, tasks TEXT NOT NULL, conditions TEXT NOT NULL,
+    def_block INTEGER NOT NULL, def_tx INTEGER NOT NULL, def_idx INTEGER NOT NULL, def_time INTEGER NOT NULL,
+    retired_block INTEGER, retired_tx INTEGER, retired_idx INTEGER, retired_time INTEGER
+  );
+  CREATE TABLE IF NOT EXISTS achievements (
+    achievement_id INTEGER PRIMARY KEY, start_time INTEGER NOT NULL, end_time INTEGER NOT NULL,
+    tasks TEXT NOT NULL, points INTEGER NOT NULL,
+    def_block INTEGER NOT NULL, def_tx INTEGER NOT NULL, def_idx INTEGER NOT NULL, def_time INTEGER NOT NULL,
+    retired_block INTEGER, retired_tx INTEGER, retired_idx INTEGER, retired_time INTEGER
+  );
+  -- QuestProgressed and AchievementProgressed as the chain emitted them: the increments, with the time of their block.
+  CREATE TABLE IF NOT EXISTS progress (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    kind TEXT NOT NULL, source TEXT NOT NULL, player_id TEXT NOT NULL, task_id INTEGER NOT NULL, count INTEGER NOT NULL,
+    time INTEGER NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS progress_player ON progress (kind, player_id, task_id, block, tx, idx);
+  CREATE INDEX IF NOT EXISTS progress_time ON progress (kind, time);
+  -- The top 3 of a closed day, read from the contract's tournament view at the served block (not from events).
+  CREATE TABLE IF NOT EXISTS podium (
+    tournament_id INTEGER NOT NULL, player_id TEXT NOT NULL, ranks TEXT NOT NULL,
+    day_end INTEGER NOT NULL, close_block INTEGER NOT NULL,
+    PRIMARY KEY (tournament_id, player_id)
+  );
+  CREATE INDEX IF NOT EXISTS podium_close ON podium (close_block);
+  CREATE INDEX IF NOT EXISTS podium_player ON podium (player_id);
 `;
 
 type Row = Record<string, SQLInputValue>;
@@ -396,6 +427,84 @@ export class Store {
             });
             break;
           }
+          case "QuestDefined": {
+            if (this.sql.quest.get(event.questId)) {
+              throw new Halt(`QuestDefined of quest ${event.questId} ${where}: the quest is already defined`);
+            }
+            this.sql.insertQuest.run({
+              quest_id: event.questId,
+              start_time: Number(event.start),
+              end_time: Number(event.end),
+              duration: event.duration,
+              period: event.interval,
+              tasks: JSON.stringify(event.tasks),
+              conditions: JSON.stringify(event.conditions),
+              def_block: at,
+              def_tx: raw.transactionIndex,
+              def_idx: raw.eventIndex,
+              def_time: block.timestamp,
+            });
+            break;
+          }
+          case "AchievementDefined": {
+            if (this.sql.achievement.get(event.achievementId)) {
+              throw new Halt(
+                `AchievementDefined of achievement ${event.achievementId} ${where}: the achievement is already defined`,
+              );
+            }
+            this.sql.insertAchievement.run({
+              achievement_id: event.achievementId,
+              start_time: Number(event.start),
+              end_time: Number(event.end),
+              tasks: JSON.stringify(event.tasks),
+              points: event.points,
+              def_block: at,
+              def_tx: raw.transactionIndex,
+              def_idx: raw.eventIndex,
+              def_time: block.timestamp,
+            });
+            break;
+          }
+          case "QuestRetired":
+          case "AchievementRetired": {
+            const quest = event.name === "QuestRetired";
+            const id = event.name === "QuestRetired" ? event.questId : event.achievementId;
+            const found = (quest ? this.sql.quest : this.sql.achievement).get(id) as Row | undefined;
+            if (!found) {
+              throw new Halt(`${event.name} of ${id} ${where}: it was never defined`);
+            }
+            if (found.retired_block !== null) {
+              throw new Halt(`${event.name} of ${id} ${where}: it is already retired`);
+            }
+            (quest ? this.sql.retireQuest : this.sql.retireAchievement).run({
+              id,
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              time: block.timestamp,
+            });
+            break;
+          }
+          case "QuestProgressed":
+          case "AchievementProgressed": {
+            if (event.name === "AchievementProgressed" && raw.source === "tutorial" && event.taskId !== TUTORIAL_TASK) {
+              throw new Halt(
+                `AchievementProgressed of task ${event.taskId} from tutorial ${where}: Tutorial reports task ${TUTORIAL_TASK} only`,
+              );
+            }
+            this.sql.insertProgress.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              kind: event.name === "QuestProgressed" ? "quest" : "achievement",
+              source: raw.source,
+              player_id: padded(event.playerId),
+              task_id: event.taskId,
+              count: event.count,
+              time: block.timestamp,
+            });
+            break;
+          }
           case "PlayerCreated": {
             if (raw.source !== "account") {
               throw new Halt(`PlayerCreated from ${raw.source} ${where}`);
@@ -435,12 +544,58 @@ export class Store {
     });
   }
 
+  /**
+   * The top 3 of a closed day, as the `tournament` view gave it at the served block `served`: each player holding a slot
+   * is credited once for the day (the slots they hold are kept in `ranks`), at the block that closed the day (`close_block`:
+   * the credit comes after the events of the blocks before it and before those of that block, so a retirement in the closing
+   * block or after it comes after the credit). Never early: a `served` block whose time is
+   * before the end of the day is refused. A day already recorded is left as it is (the slots of a closed day cannot move;
+   * a rewind below `served` forgets them).
+   */
+  recordPodium(
+    tournamentId: number,
+    dayEnd: number,
+    slots: readonly { playerId: string; rank: number }[],
+    served: Header,
+  ) {
+    if (served.timestamp < dayEnd) {
+      throw new Error(
+        `podium of tournament ${tournamentId} recorded at block ${served.number} (time ${served.timestamp}) before the day ends (${dayEnd})`,
+      );
+    }
+    // The credit is ordered at the block that closed the day (the first stored block at or before `served` whose time is at
+    // or past the end), not at the block the view was read at: a live run, a rebuild in batches and a retried call then
+    // hold the same rows. `served` itself when that block's header is already forgotten.
+    const closed = (this.sql.closeBlock.get(dayEnd, served.number) as { n: number | null }).n ?? served.number;
+    this.transaction(() => {
+      const players = new Map<string, number[]>();
+      for (const { playerId, rank } of slots) {
+        players.set(playerId, [...(players.get(playerId) ?? []), rank]);
+      }
+      for (const [playerId, ranks] of players) {
+        this.sql.insertPodium.run({
+          t: tournamentId,
+          p: playerId,
+          ranks: JSON.stringify(ranks.sort()),
+          end: dayEnd,
+          block: closed,
+        });
+      }
+    });
+  }
+
   /** Every table back to block `to` (its state after `to`), in one transaction. */
   rewind(to: number) {
     this.transaction(() => {
       this.sql.rewindGames.run(to);
       this.sql.unfinishGames.run(to);
       this.sql.rewindPlayers.run(to);
+      this.sql.rewindQuests.run(to);
+      this.sql.rewindAchievements.run(to);
+      this.sql.unretireQuests.run(to);
+      this.sql.unretireAchievements.run(to);
+      this.sql.rewindProgress.run(to);
+      this.sql.rewindPodium.run(to);
       this.sql.rewindEvents.run(to);
       this.sql.rewindBlocks.run(to);
       if (this.checked() > to) this.setChecked(to);
@@ -460,11 +615,18 @@ export class Store {
    * Every row of every table in a fixed order: two databases hold the same tables when their dumps are equal (a rewound
    * one and a rebuilt one).
    */
-  dump(): Record<"players" | "games" | "events" | "blocks", Row[]> {
+  dump(): Record<
+    "players" | "games" | "quests" | "achievements" | "progress" | "podium" | "events" | "blocks",
+    Row[]
+  > {
     const all = (sql: string) => this.db.prepare(sql).all() as Row[];
     return {
       players: all("SELECT * FROM players ORDER BY player_id"),
       games: all("SELECT * FROM games ORDER BY contract, game_id"),
+      quests: all("SELECT * FROM quests ORDER BY quest_id"),
+      achievements: all("SELECT * FROM achievements ORDER BY achievement_id"),
+      progress: all("SELECT * FROM progress ORDER BY block, tx, idx"),
+      podium: all("SELECT * FROM podium ORDER BY tournament_id, player_id"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -530,6 +692,51 @@ function statements(db: DatabaseSync) {
        WHERE over_block > ?`,
     ),
     rewindPlayers: db.prepare("DELETE FROM players WHERE created_block > ?"),
+    quest: db.prepare("SELECT retired_block FROM quests WHERE quest_id = ?"),
+    achievement: db.prepare("SELECT retired_block FROM achievements WHERE achievement_id = ?"),
+    insertQuest: db.prepare(
+      `INSERT INTO quests (quest_id, start_time, end_time, duration, period, tasks, conditions,
+         def_block, def_tx, def_idx, def_time)
+       VALUES (:quest_id, :start_time, :end_time, :duration, :period, :tasks, :conditions,
+         :def_block, :def_tx, :def_idx, :def_time)`,
+    ),
+    insertAchievement: db.prepare(
+      `INSERT INTO achievements (achievement_id, start_time, end_time, tasks, points,
+         def_block, def_tx, def_idx, def_time)
+       VALUES (:achievement_id, :start_time, :end_time, :tasks, :points,
+         :def_block, :def_tx, :def_idx, :def_time)`,
+    ),
+    retireQuest: db.prepare(
+      `UPDATE quests SET retired_block = :block, retired_tx = :tx, retired_idx = :idx, retired_time = :time
+       WHERE quest_id = :id`,
+    ),
+    retireAchievement: db.prepare(
+      `UPDATE achievements SET retired_block = :block, retired_tx = :tx, retired_idx = :idx, retired_time = :time
+       WHERE achievement_id = :id`,
+    ),
+    insertProgress: db.prepare(
+      `INSERT INTO progress (block, tx, idx, kind, source, player_id, task_id, count, time)
+       VALUES (:block, :tx, :idx, :kind, :source, :player_id, :task_id, :count, :time)`,
+    ),
+    insertPodium: db.prepare(
+      `INSERT OR IGNORE INTO podium (tournament_id, player_id, ranks, day_end, close_block)
+       VALUES (:t, :p, :ranks, :end, :block)`,
+    ),
+    closeBlock: db.prepare(
+      "SELECT min(number) AS n FROM blocks WHERE timestamp >= ? AND number <= ?",
+    ),
+    rewindQuests: db.prepare("DELETE FROM quests WHERE def_block > ?"),
+    rewindAchievements: db.prepare("DELETE FROM achievements WHERE def_block > ?"),
+    unretireQuests: db.prepare(
+      `UPDATE quests SET retired_block = NULL, retired_tx = NULL, retired_idx = NULL, retired_time = NULL
+       WHERE retired_block > ?`,
+    ),
+    unretireAchievements: db.prepare(
+      `UPDATE achievements SET retired_block = NULL, retired_tx = NULL, retired_idx = NULL, retired_time = NULL
+       WHERE retired_block > ?`,
+    ),
+    rewindProgress: db.prepare("DELETE FROM progress WHERE block > ?"),
+    rewindPodium: db.prepare("DELETE FROM podium WHERE close_block > ?"),
     rewindEvents: db.prepare("DELETE FROM events WHERE block > ?"),
     rewindBlocks: db.prepare("DELETE FROM blocks WHERE number > ?"),
     pruneBlocks: db.prepare("DELETE FROM blocks WHERE number < ?"),

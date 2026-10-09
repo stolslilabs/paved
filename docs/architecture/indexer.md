@@ -29,6 +29,12 @@ selector first, then the fields marked `key`. Types are those of the ABIs in `co
 | `GameSpawned` | `Daily`, `Tutorial` | `game_id u32`, `player_id felt252` | `mode u8`, `tournament_id u64` (0 for Tutorial), `start_time u64`, `price felt252` | A player's games list, games played per day, active games |
 | `GameOver` | `Daily`, `Tutorial` | `game_id u32`, `player_id felt252`, `tournament_id u64` | `mode u8`, `score u32`, `start_time u64`, `end_time u64` | Final score, the leaderboard |
 | `PlayerCreated` | `Account` | `player_id felt252` | `name felt252` (short string), `master felt252` | Display name of a player |
+| `QuestDefined` | `Daily` | `quest_id u32` | `schedule` (`start u64`, `end u64`, `duration u32`, `interval u32`), `tasks` (a span of `task_id u32`, `total u32`), `conditions` (a span of `u32`) | The definitions of the daily quests (P7) |
+| `QuestProgressed` | `Daily` | `player_id felt252`, `task_id u32` | `count u32` | A player's progress on a task, per game over (P7) |
+| `QuestRetired` | `Daily` | `quest_id u32` | none | The quest stops counting (P7) |
+| `AchievementDefined` | `Daily` | `achievement_id u32` | `window` (`start u64`, `end u64`), `tasks` (as above), `points u16` | The definitions of the achievements (P7) |
+| `AchievementProgressed` | `Daily`, `Tutorial` | `player_id felt252`, `task_id u32` | `count u32` | A player's progress on a task (`Tutorial`: task 10) (P7) |
+| `AchievementRetired` | `Daily` | `achievement_id u32` | none | The achievement stops counting (P7) |
 
 `Daily` and `Tutorial` both count `game_id` from 1, so a game is identified by `(contract, game_id)`, where
 `contract` is `daily` or `tutorial` (the address that emitted the event). `mode` is checked against the
@@ -39,7 +45,8 @@ told about).
 in Tutorial. Such a game is stored and listed under its player, but ranks in no tournament.
 
 Not indexed in v1: `Built`, `Discarded`, `Scored` (the current board of a game is a view call, not a list),
-`Sponsored`, `Claimed`, ownership and upgrade events. `Claimed` may be added later to mark a prize as claimed;
+`Sponsored`, `Claimed`, ownership and upgrade events, and the quiver events Paved never emits (`QuestCompleted`,
+`QuestClaimed`: quests are in event mode; the two `...ReporterSet`). `Claimed` may be added later to mark a prize as claimed;
 until then the client reads `top*_claimed` from the `tournament` view. Adding an event is a schema change and a
 rebuild (below), never a migration.
 
@@ -132,9 +139,25 @@ Not copied, on purpose:
 | `test-node/bin/setsid`, `scenario.node.test.ts`, `queries.scenario.ts` | Grim World's scenarios; ours is new |
 | `eslint.config.js`, `tsconfig*.json`, `vitest*.config.ts` | Taken from the Paved packages' own configuration, not from Grim World |
 
+- **Daily quests and achievements (P7)**: the rules of quiver 0.2.0 event mode applied to the stored reports, as
+  queries (`docs/architecture/quests.md`, "Indexer"; `src/quests.ts`). A report counts for a quest when its block's time
+  is in the quest's schedule (`ScheduleTrait::interval_id`: `start <= time`, `end == 0 || time < end`, and
+  `(time - start) % interval < duration`) and its position (block, tx, event) is before the quest's retirement; per task
+  the counts are summed and saturated at the target, per player and per interval; the quest is complete when every task is
+  at its target. A daily quest is an interval of one UTC day (its `start` is a multiple of 86,400), so **Point Chaser is the
+  sum of the scores of the day's finished Daily games** (the `POINTS` reports, one per game, P-22). A game that ends after
+  midnight counts for the day of its closing block. An achievement counts the reports in its window, before its retirement,
+  summed per task and saturated; a reached achievement stays reached. Quest `conditions` (prerequisites) are served as
+  defined and not applied: in event mode they depend on acceptances that emit no event, and Paved defines none.
+- **On the Podium (task 8, P-22/O-37)**: not from events. After a day closes (the served block's time is at or past the
+  day's `end_time`, the D-P6-5 condition), the cross-check's read of the contract's `tournament(id)` view at that served
+  block also records the players in the view's three slots, once each for the day. The credit is a progress of 1 on task 8
+  at the end of the day, in the achievement rules above, ordered at the block that closed the day (`close_block`: the first block whose time is at or past the day's end). A retirement in that block or after it comes after the credit, one before it comes first; this does not depend on when the view was read (live, rebuilt in batches, or retried). A `AchievementProgressed` of task 8 on chain is not counted: the credit comes only from the view. It is exact (the contract's own ranking), never early (a day still
+  open records nothing), and independent of a claim.
+
 ## Storage
 
-SQLite file (WAL), opened with `node:sqlite`. Schema version `1` in `meta`; a database of another version is
+SQLite file (WAL), opened with `node:sqlite`. Schema version `2` in `meta` (`1` before P7); a database of another version is
 refused at open and rebuilt (`rebuild` drops every table), as in Grim World. bounded integers (`game_id`, `score`, `mode`, `tournament_id`, and every time: all below 2^53) are
 `INTEGER`; only felts (`player_id`, `price`, `name`, `master`) are fixed-width lowercase hex text, 66 characters.
 
@@ -245,6 +268,9 @@ An error is `{ "version": 1, "status": "error", "error": "<what>", "state": "ok"
 | `GET /v1/players/{player_id}` | none | `player`: `player_id, name, created`; `stats`: `daily_games, daily_finished, best_score, tutorial_games`. a malformed id is `400`; an unknown player answers `player: null` with `200` |
 | `GET /v1/players/{player_id}/games` | `contract` (`daily`, `tutorial`, default both), `limit`, `before` (`<start_time>:<contract>:<game_id>`, from `next`) | `games`: newest first, each `contract, game_id, mode, start_time, tournament_id` (of the spawn), `over, score, counted_tournament_id, end_time`; `next` (or null) |
 | `GET /v1/games/{contract}/{game_id}` | none | `game`: one row as above, or `404` |
+| `GET /v1/definitions` | none | `quests`: by id, each `quest_id, start_time, end_time, duration, interval, tasks` (`task_id, total`), `conditions, defined_at, retired, retired_at`; `achievements`: by id, each `achievement_id, start_time, end_time, tasks, points, defined_at, retired, retired_at`. Titles and descriptions are not on chain: the client keys them by id. A retirement above the served block has not happened |
+| `GET /v1/players/{player_id}/quests` | `day` (a UTC day, `timestamp / 86400`, from 0 to `MAX_TOURNAMENT_ID`; default the day of the served block) | `day, start_time, end_time` and `quests`: the quests active at some second of that day (a quest retired before the day began is not listed), each `quest_id, interval_id, tasks` (`task_id, total, count`: the sum so far, at most `total`), `completed, completed_at` (the time of the block of the report that completed it, or null), `retired`. A player the indexer does not know has zero counts (200) |
+| `GET /v1/players/{player_id}/achievements` | none | `points` (of the completed achievements) and `achievements`: every defined one, each `achievement_id, points, tasks` (`task_id, total, count`), `completed, completed_at, retired` |
 | `GET /v1/players/{player_id}/tournaments/{id}` | none | `entry`: that player's leaderboard row of that day, or `null` (what "your rank today" needs, without paging the board) |
 
 Example, `GET /v1/tournaments/20733/leaderboard?limit=3`:
@@ -280,6 +306,53 @@ Example, `GET /v1/tournaments/20733/leaderboard?limit=3`:
       "over": true, "score": 64, "counted_tournament_id": 0, "end_time": 0 }
   ],
   "next": null
+}
+```
+
+Example, `GET /v1/players/0x04d1…/quests?day=20733` (Point Chaser at 2,700 of 3,000 after two games of 1,200 and 1,500;
+the figures are illustrative):
+
+```json
+{
+  "version": 1, "status": "ok", "head": { "number": 9120, "hash": "0x01b4..e2", "timestamp": 1791878004 }, "behind": 0,
+  "player_id": "0x04d1328dbe2c9441a5b7f1fca8da91e94bfd7de2bdc7550dbd989f7af72f99ef",
+  "day": 20733, "start_time": 1791849600, "end_time": 1791936000,
+  "quests": [
+    { "quest_id": 1, "interval_id": 20733, "completed": true, "completed_at": 1791871203, "retired": false,
+      "tasks": [ { "task_id": 1, "total": 1, "count": 1 } ] },
+    { "quest_id": 4, "interval_id": 20733, "completed": false, "completed_at": null, "retired": false,
+      "tasks": [ { "task_id": 3, "total": 3000, "count": 2700 } ] }
+  ]
+}
+```
+
+Example, `GET /v1/players/0x04d1…/achievements`:
+
+```json
+{
+  "version": 1, "status": "ok", "head": { "number": 9120, "hash": "0x01b4..e2", "timestamp": 1791878004 }, "behind": 0,
+  "player_id": "0x04d1328dbe2c9441a5b7f1fca8da91e94bfd7de2bdc7550dbd989f7af72f99ef",
+  "points": 10,
+  "achievements": [
+    { "achievement_id": 2, "points": 10, "completed": true, "completed_at": 1791871203, "retired": false,
+      "tasks": [ { "task_id": 1, "total": 1, "count": 1 } ] },
+    { "achievement_id": 3, "points": 20, "completed": false, "completed_at": null, "retired": false,
+      "tasks": [ { "task_id": 1, "total": 10, "count": 1 } ] },
+    { "achievement_id": 9, "points": 50, "completed": false, "completed_at": null, "retired": false,
+      "tasks": [ { "task_id": 8, "total": 1, "count": 0 } ] }
+  ]
+}
+```
+
+And `GET /v1/definitions`, trimmed to one of each:
+
+```json
+{
+  "version": 1, "status": "ok", "head": { "number": 9120, "hash": "0x01b4..e2", "timestamp": 1791878004 }, "behind": 0,
+  "quests": [ { "quest_id": 4, "start_time": 0, "end_time": 0, "duration": 86400, "interval": 86400,
+    "tasks": [ { "task_id": 3, "total": 3000 } ], "conditions": [], "defined_at": 1791000000, "retired": false, "retired_at": null } ],
+  "achievements": [ { "achievement_id": 9, "start_time": 0, "end_time": 0, "tasks": [ { "task_id": 8, "total": 1 } ],
+    "points": 50, "defined_at": 1791000000, "retired": false, "retired_at": null } ]
 }
 ```
 
@@ -423,3 +496,34 @@ The package follows this design. What differs, or was decided while building (Pa
 - **CI**: the package has its own job in `test.yaml`, gated on `packages/indexer/**` and the ABIs and deployments it reads;
   it is in the aggregate `ci` job's needs. `client.yaml` also runs it (it runs every package of `packages/**`).
 
+## As built (P7 indexer, quests and achievements)
+
+- **Events**: the six events of the table above are decoded (`src/events.ts`) strictly, with the ABI's key and data order
+  (`src/events.test.ts` reads it from `contracts/abis/Daily.json`): 1 to 3 tasks of a non-zero id, at most 7 conditions,
+  every time below 2^53, `points` a `u16`. Quest events and the definitions come from `Daily` only; `AchievementProgressed`
+  also from `Tutorial` (task 10); any other emitter halts the indexer, and so does a Tutorial `AchievementProgressed` of a task other than 10 (Q-7: the filter is the addresses of the deployment
+  file). `QuestCompleted`, `QuestClaimed` and the two `...ReporterSet` stay in `IGNORED`: Paved's quests are in event mode
+  and the game flow calls the internal layer.
+- **Definition times**: a definition's `start` and `end` must be below 2^53 (0 = never ends), else the decoder halts the indexer. The deploy script's definitions are far below.
+- **Tables** (schema `2`): `quests` and `achievements` (the definition, the position and time of the defining block, and of
+  the retiring block once there is one); `progress` (each `QuestProgressed` and `AchievementProgressed`: position, kind,
+  emitter, player, task, count, block time); `podium` (`tournament_id`, `player_id`, the slots held, the day's end and the
+  block that closed the day). A definition twice, a retirement of nothing and a second retirement halt the indexer. A
+  rewind deletes the rows of the blocks above the fork, un-retires what was retired above it, and deletes the podium rows
+  closed above it, so a rewound database equals one rebuilt from the chain (`src/quests.test.ts`).
+- **Derivation**: queries at the served block, not tables (as the leaderboard): `src/quests.ts` has the pure rules
+  (`intervalId`, `firstActive`, `replay`), `src/queries.ts` the reads. A player's progress is replayed from that player's
+  rows, which stay small (at most six reports per finished game).
+- **Day of a quest**: the quests listed for a day are those whose schedule is active at some second of it, the interval
+  shown is the one of the first such second. For the accepted list (`start` a multiple of 86,400, `duration = interval =
+  86,400`) that is the interval whose id is the day number.
+- **Podium**: `CrossCheck.run` records the podium from the same view read as the cross-check, once per closed day per process
+  (a restart reads closed days again; `recordPodium` ignores a player already recorded). The credit's time is the day's end,
+  so it does not depend on when the indexer ran. A player in two slots is credited once. `podium.close_block` is also what a rewind deletes by.
+- **API**: `GET /v1/definitions`, `GET /v1/players/{player_id}/quests?day=` and `GET /v1/players/{player_id}/achievements`,
+  append-only on v1, same envelope, every number a safe integer (`day` is bounded by `MAX_TOURNAMENT_ID`).
+- **Devnet**: the scenario (`test/devnet/scenario.test.ts`) is not extended in this PR and was not run with it:
+  `starknet-devnet` is not installed on the machine that built it. Its games already emit the quiver reports (progress reads
+  no definition, so a report is emitted with or without definitions), which the indexer now decodes and stores, so a
+  mismatch with the real events halts that run. Defining the accepted list and asserting the three routes belongs with the
+  deploy task's definition script.

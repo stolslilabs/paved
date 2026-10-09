@@ -197,6 +197,11 @@ function route(url: URL): Read | null {
       }
       return null;
     }
+    case "definitions": {
+      if (parts.length !== 3) return null;
+      parameters(url, []);
+      return (queries, served) => queries.definitions(served.number);
+    }
     case "players": {
       if (a === undefined || a === "") return null;
       if (parts.length === 4) {
@@ -206,6 +211,30 @@ function route(url: URL): Read | null {
           const found = queries.player(served.number, player);
           return { player: found?.player ?? null, stats: found?.stats ?? null };
         };
+      }
+      if (b === "quests" && parts.length === 5) {
+        const player = playerId(a);
+        const p = parameters(url, [], ["day"]);
+        const day = p.day === undefined ? undefined : integer(p.day, "day", 0, MAX_TOURNAMENT_ID);
+        return (queries, served) => {
+          // Without `day`: the UTC day of the served block
+          const of = day ?? Math.floor(served.timestamp / TOURNAMENT_DURATION);
+          return {
+            player_id: player,
+            day: of,
+            start_time: of * TOURNAMENT_DURATION,
+            end_time: (of + 1) * TOURNAMENT_DURATION,
+            quests: queries.playerQuests(served.number, player, of),
+          };
+        };
+      }
+      if (b === "achievements" && parts.length === 5) {
+        const player = playerId(a);
+        parameters(url, []);
+        return (queries, served) => ({
+          player_id: player,
+          ...queries.playerAchievements(served.number, player),
+        });
       }
       if (b === "games" && parts.length === 5) {
         const player = playerId(a);

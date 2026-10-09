@@ -407,3 +407,11 @@ from the design above. Figures are L2 gas, measured on Linux with `contracts/tes
   `discard` and on `surrender`, each with its events after `GameOver`.
 - **Event order.** At a game over the order is `GameOver`, the quest events, then the achievement events
   (`e2e::quests::test_quests_game_over_every_counter_at_maximum`, from `spy.get_events()`).
+
+### Indexer (P7)
+
+The indexer side is in `docs/architecture/indexer.md` ("Daily quests and achievements", "As built (P7 indexer ...)"): it
+decodes the six events, applies the schedule, window, retirement and saturation rules above per player and per UTC day
+(Point Chaser is the sum of the day's `POINTS` reports), credits On the Podium from the `tournament` view once the day has
+closed, and serves `GET /v1/definitions`, `GET /v1/players/{player_id}/quests?day=` and
+`GET /v1/players/{player_id}/achievements`. Prerequisites (`conditions`) are served and not applied.
