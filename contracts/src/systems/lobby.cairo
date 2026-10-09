@@ -59,10 +59,7 @@ pub trait ILobby<TContractState> {
 
 #[starknet::contract]
 pub mod Lobby {
-    // Component imports
-
-
-    // Internal imports
+    // Imports
 
     use core::num::traits::Zero;
     use paved::components::hostable::HostableComponent;
