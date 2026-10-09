@@ -5,6 +5,6 @@ export { resolveEconomyDeployment } from "./deployment";
 export type { EconomyDeployment, EconomyDeploymentFile, EconomyEnv } from "./deployment";
 export { ECONOMY_VIEW_FIELDS, RpcEconomyViews } from "./views";
 export type { DayView, EconomyViews, QuoteView, TermsView, VaultPosition } from "./views";
-export { EconomyWriter, PurchasePriceChangedError, VaultAmountChangedError } from "./writer";
+export { EconomyWriter, PurchaseOutcomeUnknownError, PurchasePriceChangedError, VaultAmountChangedError } from "./writer";
 export type { PurchasePlan, PurchaseRequest } from "./writer";
 export { EconomyClient, createEconomyClient } from "./client";

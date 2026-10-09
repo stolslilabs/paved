@@ -14,6 +14,17 @@ export class PurchasePriceChangedError extends Error {
   }
 }
 
+/**
+ * The purchase was sent and its receipt arrived, but it carries no `GameSpawned`: the outcome is unknown, not a
+ * failure. The hash is kept; the screen says so and never invites a second purchase.
+ */
+export class PurchaseOutcomeUnknownError extends WriteError {
+  constructor(transactionHash: string) {
+    super(`Purchase sent (${transactionHash}), outcome unknown: check your games before buying again`, transactionHash);
+    this.name = "PurchaseOutcomeUnknownError";
+  }
+}
+
 /** A Vault amount at send is not the one the player confirmed: nothing was sent. */
 export class VaultAmountChangedError extends Error {
   constructor(readonly confirmed: bigint, readonly current: bigint) {
@@ -57,8 +68,11 @@ export class EconomyWriter {
       views: EconomyViews;
       /** The game views of the same deployment: `Daily.entry_price`. */
       gameViews: Pick<GameViews, "entryPrice">;
-      /** Seconds since the epoch; the settlement checks that the day is over. */
-      now?: () => number;
+      /**
+       * Seconds since the epoch, for the settlement's "is the day over": the latest block's timestamp when the
+       * client gives one (`EconomyClient.writer`), the device clock otherwise.
+       */
+      now?: () => number | Promise<number>;
     },
   ) {
     if (!options.deployment.configured) throw new WriteError(`Economy not deployed: ${options.deployment.missing.join(", ")} missing`);
@@ -77,7 +91,7 @@ export class EconomyWriter {
   async purchase(request: PurchaseRequest): Promise<WriteResult & { gameId: number }> {
     const result = await this.options.writer.sendCalls(async () => ({ calls: (await this.planPurchase(request)).calls, events: "Daily" }));
     const spawned = result.events.find((e) => e.name === "GameSpawned");
-    if (!spawned) throw new WriteError("No GameSpawned event in the receipt", result.transactionHash);
+    if (!spawned) throw new PurchaseOutcomeUnknownError(result.transactionHash);
     return { ...result, gameId: Number(spawned.fields.gameId) };
   }
 
@@ -97,9 +111,11 @@ export class EconomyWriter {
     if (price === 0n) throw new WriteError("The Daily entry has no price: nothing to buy");
     if (quote.price !== price) throw new WriteError("The quote disagrees with the entry price: nothing was sent");
     if (request.confirmedPrice !== price) throw new PurchasePriceChangedError(request.confirmedPrice, price);
-    const referrer = request.referrer && BigInt(request.referrer) !== 0n && !sameAddress(request.referrer, this.address) ? toHex(request.referrer) : "0x0";
+    const referrer = referrerOf(request.referrer, this.address);
     // E2's hint already has the 1 % off (99 % of q at the guard's rate): sent as it is, never cut again.
     const minOut = quote.minOutHint;
+    // A 0 floor is no slippage protection at all (economy.md section 5): refuse rather than send it.
+    if (minOut === 0n) throw new WriteError("No quote for the burn swap: nothing was sent");
     const calls = [
       this.call("USDC", "approve", [deployment.base.addresses.Daily, price]),
       this.call("DailyPaid", "spawn", [request.stake, referrer, minOut]),
@@ -114,8 +130,14 @@ export class EconomyWriter {
    */
   settle(gameIds: number[]): Promise<WriteResult> {
     return this.options.writer.sendCalls(async () => {
+      gameIds = [...new Set(gameIds)];
       if (gameIds.length === 0) throw new WriteError("No game to settle");
-      const now = this.options.now?.() ?? Math.floor(Date.now() / 1000);
+      let now: number;
+      try {
+        now = await (this.options.now?.() ?? Math.floor(Date.now() / 1000));
+      } catch (error) {
+        throw new WriteError(`Cannot read the latest block: ${message(error)}`);
+      }
       let checked: TermsView[];
       try {
         checked = await Promise.all(gameIds.map((gameId) => this.options.views.terms(gameId)));
@@ -147,7 +169,7 @@ export class EconomyWriter {
     });
   }
 
-  /** Takes PAVED back out of the Vault (the pending dividends are paid with it). */
+  /** Takes PAVED back out of the Vault. The dividends earned so far are credited, not paid: they stay claimable (E1). */
   unstake(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult> {
     return this.options.writer.sendCalls(async () => {
       this.checkAmount(amount, options.confirmedAmount);
@@ -197,6 +219,19 @@ export class EconomyWriter {
       calldata: this.options.codecs[contract].encodeCall(entrypoint, args),
     };
   }
+}
+
+/** The referrer to send: "0x0" for none or oneself; a malformed one is a `WriteError`, never a raw parse error. */
+function referrerOf(referrer: string | null, self: string): string {
+  if (!referrer) return "0x0";
+  let value: bigint;
+  try {
+    value = BigInt(referrer);
+  } catch {
+    throw new WriteError(`Not a referrer address: ${referrer}`);
+  }
+  if (value < 0n || value >= 1n << 251n) throw new WriteError(`Not a referrer address: ${referrer}`);
+  return value === 0n || sameAddress(value, self) ? "0x0" : toHex(value);
 }
 
 function message(error: unknown): string {
