@@ -1,0 +1,807 @@
+[
+  {
+    "type": "impl",
+    "name": "EconomyImpl",
+    "interface_name": "paved::economy::economy::IEconomy"
+  },
+  {
+    "type": "struct",
+    "name": "core::integer::u256",
+    "members": [
+      {
+        "name": "low",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "high",
+        "type": "core::integer::u128"
+      }
+    ]
+  },
+  {
+    "type": "enum",
+    "name": "core::bool",
+    "variants": [
+      {
+        "name": "False",
+        "type": "()"
+      },
+      {
+        "name": "True",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "core::array::Span::<core::integer::u32>",
+    "members": [
+      {
+        "name": "snapshot",
+        "type": "@core::array::Array::<core::integer::u32>"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::economy::Config",
+    "members": [
+      {
+        "name": "burn_bps",
+        "type": "core::integer::u16"
+      },
+      {
+        "name": "sigma_bps",
+        "type": "core::integer::i16"
+      },
+      {
+        "name": "slope_bps",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "cap",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "target",
+        "type": "core::integer::u128"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::ekubo::PoolKey",
+    "members": [
+      {
+        "name": "token0",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "token1",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "fee",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "tick_spacing",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "extension",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::economy::Quote",
+    "members": [
+      {
+        "name": "price",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "burn_quote",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "referral",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "margin",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "min_out_hint",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "factor",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "mean",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "threshold",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "slope",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "cap",
+        "type": "core::integer::u8"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::economy::DayView",
+    "members": [
+      {
+        "name": "prior",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "sum",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "weight",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "mean",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "closed",
+        "type": "core::bool"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::economy::TermsView",
+    "members": [
+      {
+        "name": "player",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "day",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "stake",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "reference",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "sigma_bps",
+        "type": "core::integer::i16"
+      },
+      {
+        "name": "slope_bps",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "cap",
+        "type": "core::integer::u8"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "recorded",
+        "type": "core::bool"
+      },
+      {
+        "name": "settled",
+        "type": "core::bool"
+      },
+      {
+        "name": "reward",
+        "type": "core::integer::u128"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::mean::Ema",
+    "members": [
+      {
+        "name": "sum",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "weight",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::economy::Addresses",
+    "members": [
+      {
+        "name": "paved",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "usdc",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "vault",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "router",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "game",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::economy::economy::IEconomy",
+    "items": [
+      {
+        "type": "function",
+        "name": "purchase",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "player",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "day",
+            "type": "core::integer::u64"
+          },
+          {
+            "name": "stake",
+            "type": "core::integer::u8"
+          },
+          {
+            "name": "price",
+            "type": "core::integer::u256"
+          },
+          {
+            "name": "referrer",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "min_out",
+            "type": "core::integer::u256"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u128"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "record",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "score",
+            "type": "core::integer::u32"
+          },
+          {
+            "name": "in_day",
+            "type": "core::bool"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "settle",
+        "inputs": [
+          {
+            "name": "game_ids",
+            "type": "core::array::Span::<core::integer::u32>"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "configure",
+        "inputs": [
+          {
+            "name": "config",
+            "type": "paved::economy::economy::Config"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "set_pool",
+        "inputs": [
+          {
+            "name": "pool_key",
+            "type": "paved::economy::ekubo::PoolKey"
+          },
+          {
+            "name": "sqrt_ratio_limit",
+            "type": "core::integer::u256"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "set_game",
+        "inputs": [
+          {
+            "name": "game",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "quote",
+        "inputs": [
+          {
+            "name": "stake",
+            "type": "core::integer::u8"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::economy::economy::Quote"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "day",
+        "inputs": [
+          {
+            "name": "day",
+            "type": "core::integer::u64"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::economy::economy::DayView"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "terms",
+        "inputs": [
+          {
+            "name": "game_id",
+            "type": "core::integer::u32"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::economy::economy::TermsView"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "config",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "paved::economy::economy::Config"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "ema",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "(paved::economy::mean::Ema, core::integer::u64)"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "rate",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "pool",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "(paved::economy::ekubo::PoolKey, core::integer::u256)"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "addresses",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "paved::economy::economy::Addresses"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "owner",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "constructor",
+    "name": "constructor",
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "paved",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "usdc",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "vault",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "router",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "pool_key",
+        "type": "paved::economy::ekubo::PoolKey"
+      },
+      {
+        "name": "sqrt_ratio_limit",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "config",
+        "type": "paved::economy::economy::Config"
+      },
+      {
+        "name": "mean",
+        "type": "core::integer::u64"
+      },
+      {
+        "name": "rate",
+        "type": "core::integer::u256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::economy::Economy::Purchased",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "day",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "stake",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "price",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "referrer",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "referral",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "burned_quote",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "burned",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "margin",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "supply",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "factor",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "reference",
+        "type": "core::integer::u128",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::economy::Economy::Recorded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "in_day",
+        "type": "core::bool",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::economy::Economy::DayClosed",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "day",
+        "type": "core::integer::u64",
+        "kind": "key"
+      },
+      {
+        "name": "mean",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "weight",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "prior",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "ema_after",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::economy::Economy::Settled",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game_id",
+        "type": "core::integer::u32",
+        "kind": "key"
+      },
+      {
+        "name": "player_id",
+        "type": "core::felt252",
+        "kind": "key"
+      },
+      {
+        "name": "day",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "score",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "threshold",
+        "type": "core::integer::u64",
+        "kind": "data"
+      },
+      {
+        "name": "reward",
+        "type": "core::integer::u128",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::economy::Economy::EconomyConfigured",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "burn_bps",
+        "type": "core::integer::u16",
+        "kind": "data"
+      },
+      {
+        "name": "sigma_bps",
+        "type": "core::integer::i16",
+        "kind": "data"
+      },
+      {
+        "name": "slope_bps",
+        "type": "core::integer::u32",
+        "kind": "data"
+      },
+      {
+        "name": "cap",
+        "type": "core::integer::u8",
+        "kind": "data"
+      },
+      {
+        "name": "target",
+        "type": "core::integer::u128",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::economy::Economy::PoolSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "pool_key",
+        "type": "paved::economy::ekubo::PoolKey",
+        "kind": "data"
+      },
+      {
+        "name": "sqrt_ratio_limit",
+        "type": "core::integer::u256",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::economy::Economy::GameSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "game",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::economy::Economy::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "Purchased",
+        "type": "paved::economy::economy::Economy::Purchased",
+        "kind": "nested"
+      },
+      {
+        "name": "Recorded",
+        "type": "paved::economy::economy::Economy::Recorded",
+        "kind": "nested"
+      },
+      {
+        "name": "DayClosed",
+        "type": "paved::economy::economy::Economy::DayClosed",
+        "kind": "nested"
+      },
+      {
+        "name": "Settled",
+        "type": "paved::economy::economy::Economy::Settled",
+        "kind": "nested"
+      },
+      {
+        "name": "EconomyConfigured",
+        "type": "paved::economy::economy::Economy::EconomyConfigured",
+        "kind": "nested"
+      },
+      {
+        "name": "PoolSet",
+        "type": "paved::economy::economy::Economy::PoolSet",
+        "kind": "nested"
+      },
+      {
+        "name": "GameSet",
+        "type": "paved::economy::economy::Economy::GameSet",
+        "kind": "nested"
+      }
+    ]
+  }
+]
