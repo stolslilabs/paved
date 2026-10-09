@@ -2,6 +2,7 @@ pub mod constants;
 pub mod events;
 pub mod leaderboard;
 pub mod quests;
+pub mod seed;
 pub mod store;
 pub mod views;
 
@@ -122,5 +123,6 @@ pub mod tests {
     pub mod golden;
     pub mod leaderboard;
     pub mod oracle;
+    pub mod seed;
     pub mod setup;
 }
