@@ -11,6 +11,7 @@ import { WriteError } from "../src/writer";
 import {
   ECONOMY_ABI_IS_STUB,
   ECONOMY_VIEW_FIELDS,
+  PurchaseOutcomeUnknownError,
   PurchasePriceChangedError,
   RpcEconomyViews,
   STAKES,
@@ -163,6 +164,32 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     expect(execute).not.toHaveBeenCalled();
   });
 
+  test("a quote with no min_out (0) sends nothing: no slippage protection", async () => {
+    const { economy, econWriter, execute } = setup();
+    economy.rate = { paved: 0n, usdc: 1n };
+    await expect(econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow("No quote for the burn swap: nothing was sent");
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("a malformed referrer is a WriteError, never a raw SyntaxError, and sends nothing", async () => {
+    const { econWriter, execute } = setup();
+    for (const referrer of ["abc", "0xzz", `0x${"f".repeat(64)}`]) {
+      const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer }).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(WriteError);
+      expect((error as Error).message).toMatch(/Not a referrer address/);
+    }
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("a receipt without GameSpawned is 'sent, outcome unknown' with its hash, not a failure", async () => {
+    const { econWriter, execute } = setup({ receiptEvents: [] });
+    const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(PurchaseOutcomeUnknownError);
+    expect((error as PurchaseOutcomeUnknownError).transactionHash).toBe("0x1");
+    expect((error as Error).message).toBe("Purchase sent (0x1), outcome unknown: check your games before buying again");
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
   test("a failed read sends nothing", async () => {
     const { economy, econWriter, execute } = setup();
     economy.fail = "node down";
@@ -212,6 +239,34 @@ describe("settle: the player's claim of PAVED, after the day", () => {
     expect(sent()[0]).toEqual([{ contractAddress: ECON.economy, entrypoint: "settle", calldata: ["0x1", "0x7"] }]);
     expect(result.events[0].name).toBe("Settled");
     expect(result.events[0].fields.reward).toBe(10n ** 18n);
+  });
+
+  test("several ids: [n, id...], duplicates sent once", async () => {
+    const { economy, econWriter, sent } = setup({ receiptEvents: [] });
+    for (const id of [7, 8, 300]) economy.terms_.set(id, fakeTerms({ stake: 1, day: DAY }));
+    await econWriter.settle([7, 300, 7, 8, 300]);
+    expect(sent()[0][0].calldata).toEqual(["0x3", "0x7", "0x12c", "0x8"]);
+  });
+
+  test("'now' is the latest block's timestamp when the provider has one, not the device clock", async () => {
+    const economy = new FakeEconomy();
+    economy.terms_.set(7, fakeTerms({ stake: 1, day: DAY }));
+    const gameViews = new FakeGameViews();
+    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+    const block = { timestamp: (DAY + 1) * 86400 - 1 };
+    const rpc = {
+      callContract: async () => [],
+      getEvents: async () => ({ events: [] }),
+      waitForTransaction: async () => ({ execution_status: "SUCCEEDED", events: [] }),
+      getBlock: async () => block,
+    } as unknown as PavedRpc;
+    const client = new PavedClient(base, rpc, createCodecs(), gameViews);
+    const writer = createEconomyClient(economyDeployment, client, economy)!.writer(client.writer({ address: PLAYER, execute }));
+    // The device clock (2026) is long past day 20,000; the chain's block is not.
+    await expect(writer.settle([7])).rejects.toThrow(/day of game 7 is not over/);
+    block.timestamp += 1;
+    await writer.settle([7]);
+    expect(execute).toHaveBeenCalledTimes(1);
   });
 
   test("refused, sending nothing: day running, game not over, already settled, not bought, failed read", async () => {
