@@ -1,4 +1,4 @@
-import { PAVED_DECIMALS, PAVED_LABEL, USDC_DECIMALS, USDC_LABEL, dayOver, formatUnits } from "@paved/chain";
+import { PAVED_DECIMALS, PAVED_LABEL, USDC_DECIMALS, USDC_LABEL, expiresAt, formatUnits, settlesAfter } from "@paved/chain";
 import type { TermsView } from "@paved/chain";
 
 /** The cliff, said as it is (D-10, P-31). Shown at the purchase and after the day. */
@@ -22,17 +22,35 @@ export function referralLink(origin: string, address: string): string {
   return `${origin}/?${REFERRAL_PARAM}=0x${BigInt(address).toString(16)}`;
 }
 
-/** Where a bought game is after its day, from the chain's terms only. */
+/** A chain time (Unix seconds) as a date the player reads, in UTC. */
+export function utcDate(seconds: number): string {
+  return `${new Date(seconds * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+/** Points x 1,000 (the economy's mean and threshold) as points. */
+export function points(milli: number): string {
+  return (milli / 1000).toFixed(0);
+}
+
+/**
+ * Where a bought game is, from the chain's terms and its purchase time (its spawn's `start_time`): playing until it
+ * expires 24 h later (P-34), expired with no reward, waiting for its day to settle after the next day ends, to settle,
+ * or settled with the chain's reward. `now` only chooses which of these to show; the writer checks the latest block.
+ */
 export type SettleState =
-  | { kind: "running" }
-  | { kind: "not-over" }
+  | { kind: "playing"; expiresAt: number }
+  | { kind: "expired" }
+  | { kind: "waiting"; settlesAfter: number }
   | { kind: "settleable" }
   | { kind: "settled"; reward: bigint };
 
-export function settleState(terms: TermsView, nowSeconds: number): SettleState {
+export function settleState(terms: TermsView, purchasedAt: number, nowSeconds: number): SettleState {
   if (terms.settled) return { kind: "settled", reward: terms.reward };
-  if (!dayOver(terms.day, nowSeconds)) return { kind: "running" };
-  // `recorded`: the Economy has the game's final score (E2).
-  if (!terms.recorded) return { kind: "not-over" };
-  return { kind: "settleable" };
+  // `recorded`: the Economy has the game's final score (E2). An expired game is never recorded.
+  if (!terms.recorded) {
+    const expiry = expiresAt(purchasedAt);
+    return nowSeconds < expiry ? { kind: "playing", expiresAt: expiry } : { kind: "expired" };
+  }
+  const after = settlesAfter(terms.day);
+  return nowSeconds < after ? { kind: "waiting", settlesAfter: after } : { kind: "settleable" };
 }

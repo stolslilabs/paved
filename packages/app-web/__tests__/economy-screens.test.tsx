@@ -3,9 +3,9 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
+import { FakeGameViews, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
 import type { Deployment, EconomyDeployment } from "@paved/chain";
-import { FAKE_UNIT, FakeEconomy, fakeTerms } from "@paved/chain/economy/fake";
+import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/economy/fake";
 import { LandingPage } from "../src/pages/Landing";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { purchaseIntent, readPurchaseIntent } from "../src/utils/economy-start";
@@ -49,7 +49,7 @@ function fakeBaseWriter() {
   return { address: PLAYER, sendCalls, sent };
 }
 
-function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number } = {}) {
+function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null } = {}) {
   const economy = opts.economy ?? new FakeEconomy();
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: FAKE_UNIT };
@@ -63,7 +63,7 @@ function land(opts: { search?: string; economy?: FakeEconomy; deployment?: Econo
     games: opts.games,
     writer: writer as never,
     wrap: (routes) => (
-      <EconomyProvider value={{ deployment: opts.deployment ?? economyDeployment, views: economy, now: () => opts.now ?? (DAY + 1) * 86400 }}>{routes}</EconomyProvider>
+      <EconomyProvider value={{ deployment: opts.deployment ?? economyDeployment, views: economy, poolQuoter: opts.pool === undefined ? new FakePoolQuoter() : opts.pool, now: () => opts.now ?? settlesAfter(DAY) }}>{routes}</EconomyProvider>
     ),
   });
   return { ...utils, economy, writer };
@@ -134,6 +134,27 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();
+  });
+
+  it("no pool quote (quote_swap not confirmed yet): the purchase is not offered", async () => {
+    land({ pool: null });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText("No pool quote: purchase unavailable")).toBeTruthy();
+    expect((screen.getByText("No pool quote", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("shows the slippage, the 24 h expiry and the current reference, never a day mean or projected reward", async () => {
+    const economy = new FakeEconomy();
+    economy.days.set(DAY, { prior: 3_353_000, sum: 0n, weight: 0, mean: 0, closed: false });
+    land({ economy });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText("Slippage on the burn swap: 1 % (at most 5 %)")).toBeTruthy();
+    expect(screen.getByText("A paid game expires 24 h after its purchase; an expired game gets no reward.")).toBeTruthy();
+    expect(
+      screen.getAllByText("Current reference: mean 3353 points, threshold 3353 points; the day's own mean is known only at settlement.").length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/mean 0 points/)).toBeNull();
+    expect(screen.queryByText(/projected|estimated|expected reward/i)).toBeNull();
   });
 
   it("a failed read disables the purchase", async () => {
@@ -208,7 +229,8 @@ describe("Vault: stake, unstake, dividends, each after a confirm", () => {
 });
 
 describe("after the day: settle with the cliff stated", () => {
-  const game = (gameId: number, over: boolean) => ({ mode: "daily", gameId, startTime: DAY * 86400, tournamentId: DAY, over, score: over ? 4000 : null, countedTournamentId: over ? DAY : null });
+  const NOW = settlesAfter(DAY);
+  const game = (gameId: number, over: boolean, startTime = DAY * 86400) => ({ mode: "daily", gameId, startTime, tournamentId: DAY, over, score: over ? 4000 : null, countedTournamentId: over ? DAY : null });
 
   it("lists bought games by state; settle only after a confirm; the reward shown is the chain's", async () => {
     const economy = new FakeEconomy();
@@ -217,13 +239,23 @@ describe("after the day: settle with the cliff stated", () => {
     economy.terms_.set(3, fakeTerms({ stake: 1, day: DAY - 1, score: 10, settled: true }));
     economy.terms_.set(5, fakeTerms({ stake: 3, day: DAY + 1, recorded: false }));
     economy.terms_.set(6, fakeTerms({ stake: 1, day: DAY - 1, recorded: false }));
+    economy.terms_.set(7, fakeTerms({ stake: 1, day: DAY + 1, score: 900 }));
     // Game 4 was not bought (stake 0): not listed.
-    const { writer } = land({ economy, games: [game(5, false), game(4, true), game(3, true), game(2, true), game(1, true), game(6, false)] });
+    const { writer } = land({
+      economy,
+      now: NOW,
+      games: [game(7, true, NOW - 600), game(5, false, NOW - 3600), game(4, true), game(3, true), game(2, true), game(1, true), game(6, false)],
+    });
     expect(await screen.findByText(/Game 1, day 20000, stake 2: score 4000, to settle/)).toBeTruthy();
     expect(screen.getByText(/Game 2, .*settled, score 5000: 3 PAVED/)).toBeTruthy();
     expect(screen.getByText(/Game 3, .*below the shifted mean, the stake is lost/)).toBeTruthy();
-    expect(screen.getByText(/Game 5, .*day running/)).toBeTruthy();
-    expect(screen.getByText(/Game 6, .*not finished: it cannot be settled, the stake is lost/)).toBeTruthy();
+    // Bought an hour ago, not over: its expiry, 24 h after the purchase.
+    expect(screen.getByText(`Game 5, day ${DAY + 1}, stake 3: in play, expires 2024-10-06 23:00 UTC`)).toBeTruthy();
+    // Not recorded 24 h after its purchase: expired.
+    expect(screen.getByText(/Game 6, .*: Expired: no reward/)).toBeTruthy();
+    // Day D+1 settles after D+2 ends: no Settle button for it.
+    expect(screen.getByText(`Game 7, day ${DAY + 1}, stake 1: score 900, settles after 2024-10-07 00:00 UTC`)).toBeTruthy();
+    expect(screen.getAllByText("Settle")).toHaveLength(1);
     expect(screen.queryByText(/Game 4,/)).toBeNull();
     expect(screen.getAllByText(CLIFF_TEXT).length).toBeGreaterThan(0);
     fireEvent.click(screen.getByText("Settle"));
@@ -252,12 +284,14 @@ describe("helpers", () => {
     expect(referralLink("https://paved.gg", "0x00abc")).toBe("https://paved.gg/?ref=0xabc");
   });
 
-  it("settle state from the chain's terms", () => {
+  it("settle state: expiry 24 h after the purchase, settlement after the next day ends (P-34)", () => {
     const terms = fakeTerms({ day: DAY });
-    expect(settleState(terms, (DAY + 1) * 86400 - 1).kind).toBe("running");
-    expect(settleState({ ...terms, recorded: false }, (DAY + 1) * 86400).kind).toBe("not-over");
-    expect(settleState(terms, (DAY + 1) * 86400).kind).toBe("settleable");
-    expect(settleState({ ...terms, settled: true, reward: 5n }, 0)).toEqual({ kind: "settled", reward: 5n });
+    const bought = DAY * 86400 + 100;
+    expect(settleState({ ...terms, recorded: false }, bought, bought + 86_399)).toEqual({ kind: "playing", expiresAt: bought + 86_400 });
+    expect(settleState({ ...terms, recorded: false }, bought, bought + 86_400).kind).toBe("expired");
+    expect(settleState(terms, bought, (DAY + 2) * 86400 - 1)).toEqual({ kind: "waiting", settlesAfter: (DAY + 2) * 86400 });
+    expect(settleState(terms, bought, (DAY + 2) * 86400).kind).toBe("settleable");
+    expect(settleState({ ...terms, settled: true, reward: 5n }, bought, 0)).toEqual({ kind: "settled", reward: 5n });
   });
 
   it("the economy's addresses come from the same network's file, the env first", () => {

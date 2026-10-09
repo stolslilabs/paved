@@ -6,7 +6,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { FakeGameViews, PavedProvider, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
 import type { PavedClient } from "@paved/chain";
-import { FAKE_UNIT, FakeEconomy } from "@paved/chain/economy/fake";
+import { FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "@paved/chain/economy/fake";
 import { GamePage } from "../src/pages/Game";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { purchaseIntent } from "../src/utils/economy-start";
@@ -46,7 +46,7 @@ function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSp
     <PavedProvider deployment={base} account={account} client={client}>
       <MemoryRouter initialEntries={[{ pathname: "/game", search: opts.search ?? "?mode=daily", state: opts.state }]}>
         <Where />
-        <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base, env: ECON }), views: economy }}>
+        <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base, env: ECON }), views: economy, poolQuoter: new FakePoolQuoter() }}>
           <Routes>
             <Route path="/game" element={<GamePage />} />
           </Routes>
