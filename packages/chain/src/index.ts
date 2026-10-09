@@ -99,3 +99,8 @@ export { IndexerProvider, useIndexer, useIndexerRead } from "./indexer-react";
 // Auth
 export { controllerPolicies, createControllerConnector } from "./auth/controller";
 export type { ControllerConfig } from "./auth/controller";
+
+// Economy (P8; Economy, USDC and the paid spawn on stub ABIs until E2/E3)
+export { ECONOMY_ABIS, createEconomyCodecs } from "./abis";
+export type { EconomyCodecs, EconomyContractName } from "./abis";
+export * from "./economy";
