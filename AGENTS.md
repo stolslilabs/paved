@@ -22,10 +22,12 @@ Exceptions, all in the contracts:
 
 Memory figures and the VPS/Mac rule:
 
-- The `snforge test` build of `contracts/` peaks at about 8.0 GB RSS (7.99 GB measured on main 144521b,
-  with OpenZeppelin); a plain `scarb build` peaks at about 5.0 GB (4.96 GB). The cap for a snforge run
-  is `prlimit --as=12884901888` (12 GiB). The test build sits at the 8 GB line; the debug-info flag
-  change (next PR) lowers it to about 5.5 GB.
+- The `snforge test` build of `contracts/` peaked at about 8.0 GB RSS (7.99 GB measured on main 144521b,
+  with OpenZeppelin) before the code-location debug info left the dev profile; it now peaks at about
+  5.6 GB (5.56 GB, 5.57 GB on `snforge test paved::types::`). A plain `scarb build` peaks at about 5.0 GB
+  (4.96 GB). The cap for a snforge run is `prlimit --as=12884901888` (12 GiB).
+- Coverage runs use `snforge test -P coverage` (`scripts/measure.sh coverage*`), which keeps the
+  code-location flag and its cost.
 - A Cairo run whose measured peak RSS is under about 8 GB may run on the VPS under `--as` = 1.5x its
   measured peak, rounded up, at most 16 GiB. A peak above about 8 GB goes to the Mac. Every peak is
   measured first.
