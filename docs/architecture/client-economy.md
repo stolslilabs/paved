@@ -3,7 +3,7 @@
 How the web client buys a paid Daily game in USDC, settles it after the day, and stakes PAVED in the Vault. The
 contract side is `economy.md` (ruled by the PM: P-31); the data layer and its payment rules are
 `client-data-layer.md`. The code is `packages/chain/src/economy/` (this document's part a) and the economy panels of
-`packages/app-web` (part b).
+`packages/app-web` (part b, below).
 
 **Nothing is deployed beyond devnet** (economy.md). Every deployment today lacks the economy's addresses, so the
 client's economy is **not configured** everywhere and the screens say so; nothing is read or sent.
@@ -97,3 +97,65 @@ nothing buys again without a new confirm.
 `EconomyViews` (`RpcEconomyViews` on the contracts, `FakeEconomy` in tests): `quote(stake)`, `day(day)`,
 `terms(gameId)`, `vault(account)` (`staked`, `pending`, `total_staked`), `usdcBalance`, `pavedBalance`. Reverts map to
 `ViewError` as the game views do; a not configured economy is a `not-configured` `ViewError` with no call.
+
+## Screens (part b)
+
+All on the landing page (`App.tsx`, which holds the routes, is outside this task's files: no new route). The economy of
+the build is `useEconomy()` (`utils/economy-context.ts`): the same network's deployments file and the env
+(`VITE_ECONOMY_ADDRESS`, `VITE_PAVED_TOKEN_ADDRESS`, `VITE_VAULT_ADDRESS`, `VITE_USDC_ADDRESS`, `utils/economy-network.ts`);
+`EconomyProvider` overrides it in tests. While it is not configured, the panel says "Not deployed on `<network>`" with what
+is missing, the Daily keeps today's confirm, and nothing of the economy is read.
+
+| Screen | Where | What it shows and does |
+|---|---|---|
+| Purchase | the Daily dialog (`EconomyPurchase`), when the economy is configured and no Daily game is active | the stake `k` picker (1 to 10), the price read from the chain (`k x entry_price`, equal to `quote(k).price`, else "Price unavailable"), the boost `x(1 + k/100)`, the slippage ("1 % (at most 5 %)"), "A paid game expires 24 h after its purchase", the current reference (`Quote.mean` and `threshold`, "the day's own mean is known only at settlement"), the referrer from the link, the cliff. Without a pool quoter (today, P-35) it says "No pool quote: purchase unavailable" and offers no Buy. "Buy for P USDC" only opens the confirm; "Confirm purchase" navigates to `/game?mode=daily` with the purchase in the history state |
+| Referral link | panel (`EconomyReferral`) | the player's link `/?ref=<address>` and "pays the same price; you get 5 % of it, out of the stakers' margin" |
+| Vault | panel (`EconomyVault`) | staked PAVED, total staked, pending USDC dividends, the wallet's PAVED; stake, unstake, claim dividends, each through a confirm that shows the amount; the unstake confirm says the dividends stay claimable (E1's `unstake` credits them, it does not pay them); dividends that changed between the confirm and the send (`VaultAmountChangedError`) reopen the confirm with the new amount and say so, sending nothing |
+| After the day | panel (`EconomySettle`) | the current reference (as above), then the player's bought Daily games (the newest 30 `GameSpawned`, then `terms` each; stake 0 is not listed): in play with its expiry (purchase `start_time` + 24 h), "Expired: no reward" (not recorded by then), "settles after <end of D+1>" (recorded, day D), to settle, or settled with the chain's reward; a reward of 0 says "below the shifted mean, the stake is lost". "Settle" shows only once the settlement date is past and opens a confirm; the writer checks that date against the latest block. No day mean (zeros until the day closes), estimate or projected reward is shown |
+
+The cliff is said as it is wherever a game is bought or settled: **"Below the shifted mean the stake is lost."** No
+reward is shown before the contract computed it (`terms.reward` after settlement).
+
+### Consent
+
+The payment rules of `client-data-layer.md` hold for each paying action:
+
+- **A paid start only after a click on a confirm that shows the amount.** The purchase's consent is the history state
+  `{ start: true, purchase: { stake, confirmedPrice, referrer } }` (`utils/economy-start.ts`), set only by "Confirm
+  purchase". A link (`?stake=`, `?price=`, `?ref=`) sets none: the game page says "No game selected" and sends nothing.
+  `readPurchaseIntent` refuses any malformed state (a stake outside 1..10, a price that is not a positive integer string,
+  a referrer that is not hex). A malformed `?ref=` (`?ref=abc`) is ignored on the landing page: no referrer is shown or sent.
+- **The referrer comes from a link; the consent never does.** `?ref=0x...` on the landing page names a referrer, shown at
+  the confirm with its 5 % "out of the stakers' margin: you pay the same"; one's own address, or an address that is not a
+  registered player (`Account.player`), is ignored and said so. A failed read of the referrer disables the purchase.
+- **Cleared before sending.** The game page reads the purchase at mount, clears the history state (replace, state
+  null) before anything is sent, and keeps the intent in a ref, exactly as the Daily start; the 30 s expiry without a
+  ready writer applies too. An active Daily game is resumed instead of buying another.
+- **Amounts re-checked at send** by `EconomyWriter` (part a); a changed price shows "The price changed: confirm
+  again". The Vault's amount field is read again at the confirm click and handed over with the confirmed amount.
+- **Writes serialised** with the game's (`PavedWriter.sendCalls`); the panels share the landing's `writing` flag.
+- **Nothing sent when a read fails or the client is not configured**: the purchase and Vault buttons are disabled on a
+  failed read, and every write re-reads.
+
+## Tests
+
+- `packages/chain/test/economy.test.ts`: the stubs and their field lists, the arithmetic (BigInt, 2k USDC, boost,
+  5 %, `min_out`), the deployment, each write's calls and each refusal with nothing sent, the serialisation, the views'
+  decoding.
+- `packages/app-web/__tests__/economy-screens.test.tsx` (jsdom, `FakeEconomy`): the picker's price and boost, the
+  explicit confirm and its history state, the referrer shown and the same price, self-referral, a failed read and a
+  quote that disagrees, the not-deployed state, the Vault confirms and a changed amount, the settle list and confirm, the
+  cliff text.
+- `packages/app-web/__tests__/economy-game-start.test.tsx`: the game page buys from the state only, after clearing it;
+  a changed price, a URL alone and a malformed state send nothing.
+
+No browser run (jsdom only). Nothing has run against a live economy: no deployment has one yet.
+
+## What waits for E2 and E3
+
+- The real `Economy.json`, the paid `Daily.spawn` and the MockUSDC ABI replace the stubs (table at the top); the
+  deployments file gains the addresses, and the economy becomes configured on devnet by itself.
+- Then: a devnet run of a purchase with MockUSDC, a settlement on a later day and the Vault (`PAVED_E2E`), and the
+  Daily's old free-token confirm removed (after E3 `Daily.spawn` takes the stake, so `PavedWriter.spawn("daily")` must
+  go).
+- The list of games to settle could come from the indexer's unsettled games (economy.md section 6) instead of events.

@@ -73,6 +73,12 @@ PAVED) and stakes, unstakes and claims dividends in the Vault, every amount a Bi
 the game's writes. `Economy`, USDC and the paid `spawn` run on **stub ABIs** until CORE's E2/E3; `PavedToken` and `Vault` are E1's
 real ABIs. No deployment has the economy's addresses yet, so it is not configured anywhere. `docs/architecture/client-economy.md`.
 
+2026-10-09, economy screens (t-0056, P8, part b): on the landing page, the paid Daily's stake picker (price `2k` USDC read from
+the chain, boost `1 + k/100`, the referrer from `?ref=` shown at the confirm with "you pay the same"), the referral link, the
+Vault (stake, unstake, dividends) and "after the day" (settle, the chain's reward, and "Below the shifted mean the stake is
+lost"). Every paying action has an explicit confirm showing the amount; the purchase's consent is history state only, cleared
+before the game page sends. jsdom tests on the fake; nothing runs until E2/E3 deploy the economy.
+
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
 The baseline measures a recorded board, not a live deployment (decided 2026-10-06): the contracts
