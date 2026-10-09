@@ -558,10 +558,88 @@ describe("rewinding the new tables", () => {
     const check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), indexer.store);
     await check.run(indexer.served!);
     expect(indexer.store.dump().podium).toHaveLength(1);
+    expect(indexer.store.dump().day_closes).toHaveLength(1);
     node.reorg(1, [[]]);
     node.blocks[node.blocks.length - 1]!.timestamp = T0 + 50;
     await settle(indexer);
     expect(indexer.store.dump().podium).toEqual([]);
+    expect(indexer.store.dump().day_closes).toEqual([]);
+  });
+});
+
+describe("the day's closing block survives the pruning of its header", () => {
+  // Blocks 1-4 inside the day, 5 closes it, 6 retires the achievement, 7-9 are empty; with a depth of 2 the first step
+  // (one batch) applies all of them, and the floor is then block 7: the closing block is forgotten.
+  const CLOSE = 5;
+  function chainRun(failures: number) {
+    const node = new FakeNode();
+    node.time = T0 + 10;
+    node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]], points: 50 })]);
+    node.mine([ev.created(A, 0x41)]);
+    node.mine([ev.spawned("daily", 1, A, { tournament: DAY })]);
+    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
+    node.time = END + 1;
+    node.mine();
+    node.mine([ev.achievementRetired(9)]);
+    for (let i = 0; i < 3; i++) node.mine();
+    let calls = 0;
+    node.views = () => {
+      if (calls++ < failures) throw new Error("node unreachable");
+      return view([[A, 50]]);
+    };
+    let check: CrossCheck;
+    const indexer = indexerOf(node, 2, undefined, (served) => check.run(served));
+    check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), indexer.store);
+    indexer.listen({ rewound: () => check.reset() });
+    return { node, indexer };
+  }
+  const retiredBeforeCredit = (indexer: Awaited<ReturnType<typeof chainRun>>["indexer"]) =>
+    new Queries(indexer.store).playerAchievements(indexer.served!.number, padded(A)).achievements[0];
+
+  test("a view call that fails once during a catch-up leaves the database equal to a run without the failure", async () => {
+    const clean = chainRun(0);
+    await settle(clean.indexer);
+    await settle(clean.indexer);
+    const retried = chainRun(1);
+    await settle(retried.indexer); // the hook fails, then the history is pruned
+    await settle(retried.indexer); // the next poll retries it
+    expect(retried.indexer.store.lowest()!.number).toBeGreaterThan(CLOSE + 1); // the header is forgotten in both
+    expect(retried.indexer.store.block(CLOSE)).toBeUndefined();
+    expect(retried.indexer.store.dump().podium).toEqual([
+      { tournament_id: DAY, player_id: padded(A), ranks: "[1]", day_end: END, close_block: CLOSE },
+    ]);
+    expect(retried.indexer.store.dump()).toEqual(clean.indexer.store.dump());
+    // the retirement of block 6 comes after the credit at block 5
+    expect(retiredBeforeCredit(retried.indexer)).toMatchObject({ retired: true, completed: true });
+  });
+
+  test("a rewind to a fork after the close behaves the same with and without the failure", async () => {
+    const dumps = [];
+    for (const failures of [0, 1]) {
+      const { node, indexer } = chainRun(failures);
+      await settle(indexer);
+      await settle(indexer);
+      const fork = node.tip - 2;
+      node.reorg(2, [[], []]);
+      await settle(indexer);
+      expect(indexer.store.tip()!.number).toBe(node.tip);
+      expect(indexer.store.dump().podium).toHaveLength(1); // the close (block 5) is below the fork
+      expect(indexer.store.block(fork)).toBeDefined();
+      dumps.push(indexer.store.dump());
+    }
+    expect(dumps[1]).toEqual(dumps[0]);
+  });
+
+  test("the closing block is not recorded twice for a gap of several days, and none before the first block indexed", async () => {
+    const node = new FakeNode();
+    node.time = T0 + 10;
+    node.mine();
+    node.time = END + 3 * 86400;
+    node.mine();
+    node.mine();
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.store.dump().day_closes).toEqual([{ block: 2, prev_time: T0 + 10, time: END + 3 * 86400 }]);
   });
 });
 

@@ -45,7 +45,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "2";
+export const SCHEMA_VERSION = "3";
 
 /** The sha256 of the three addresses (canonical, in a fixed order): the identity of a deployment. */
 export function deploymentHash(
@@ -59,6 +59,8 @@ export function deploymentHash(
     )
     .digest("hex");
 }
+
+const DAY_SECONDS = 86400;
 
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -122,6 +124,13 @@ const SCHEMA = `
     PRIMARY KEY (tournament_id, player_id)
   );
   CREATE INDEX IF NOT EXISTS podium_close ON podium (close_block);
+  -- The block that closed each UTC day, recorded when it is applied: the first block whose time is at or past the day's end,
+  -- after a block (prev_time) before it. Rewound by block number, never pruned, so the podium credit does not depend on
+  -- which headers are still kept.
+  CREATE TABLE IF NOT EXISTS day_closes (
+    block INTEGER PRIMARY KEY, prev_time INTEGER NOT NULL, time INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS day_closes_time ON day_closes (prev_time, time);
   CREATE INDEX IF NOT EXISTS podium_player ON podium (player_id);
 `;
 
@@ -534,6 +543,14 @@ export class Store {
         }
         return;
       }
+      const previous = this.tip();
+      if (
+        previous &&
+        previous.number < at &&
+        Math.floor(previous.timestamp / DAY_SECONDS) < Math.floor(block.timestamp / DAY_SECONDS)
+      ) {
+        this.sql.insertClose.run(at, previous.timestamp, block.timestamp);
+      }
       this.sql.insertBlock.run(
         block.number,
         block.hash,
@@ -563,10 +580,11 @@ export class Store {
         `podium of tournament ${tournamentId} recorded at block ${served.number} (time ${served.timestamp}) before the day ends (${dayEnd})`,
       );
     }
-    // The credit is ordered at the block that closed the day (the first stored block at or before `served` whose time is at
-    // or past the end), not at the block the view was read at: a live run, a rebuild in batches and a retried call then
-    // hold the same rows. `served` itself when that block's header is already forgotten.
-    const closed = (this.sql.closeBlock.get(dayEnd, served.number) as { n: number | null }).n ?? served.number;
+    // The credit is ordered at the block that closed the day (the first block whose time is at or past the end, recorded by
+    // `apply` and never pruned), not at the block the view was read at: a live run, a rebuild in batches and a retried call
+    // then hold the same rows. `served` itself when no block closed the day in this database (the day ended before the
+    // first block indexed).
+    const closed = (this.sql.closeBlock.get(dayEnd, served.number) as { n: number } | undefined)?.n ?? served.number;
     this.transaction(() => {
       const players = new Map<string, number[]>();
       for (const { playerId, rank } of slots) {
@@ -596,6 +614,7 @@ export class Store {
       this.sql.unretireAchievements.run(to);
       this.sql.rewindProgress.run(to);
       this.sql.rewindPodium.run(to);
+      this.sql.rewindCloses.run(to);
       this.sql.rewindEvents.run(to);
       this.sql.rewindBlocks.run(to);
       if (this.checked() > to) this.setChecked(to);
@@ -616,7 +635,7 @@ export class Store {
    * one and a rebuilt one).
    */
   dump(): Record<
-    "players" | "games" | "quests" | "achievements" | "progress" | "podium" | "events" | "blocks",
+    "players" | "games" | "quests" | "achievements" | "progress" | "podium" | "day_closes" | "events" | "blocks",
     Row[]
   > {
     const all = (sql: string) => this.db.prepare(sql).all() as Row[];
@@ -627,6 +646,7 @@ export class Store {
       achievements: all("SELECT * FROM achievements ORDER BY achievement_id"),
       progress: all("SELECT * FROM progress ORDER BY block, tx, idx"),
       podium: all("SELECT * FROM podium ORDER BY tournament_id, player_id"),
+      day_closes: all("SELECT * FROM day_closes ORDER BY block"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -723,8 +743,10 @@ function statements(db: DatabaseSync) {
        VALUES (:t, :p, :ranks, :end, :block)`,
     ),
     closeBlock: db.prepare(
-      "SELECT min(number) AS n FROM blocks WHERE timestamp >= ? AND number <= ?",
+      "SELECT block AS n FROM day_closes WHERE prev_time < ?1 AND time >= ?1 AND block <= ?2",
     ),
+    insertClose: db.prepare("INSERT OR IGNORE INTO day_closes (block, prev_time, time) VALUES (?, ?, ?)"),
+    rewindCloses: db.prepare("DELETE FROM day_closes WHERE block > ?"),
     rewindQuests: db.prepare("DELETE FROM quests WHERE def_block > ?"),
     rewindAchievements: db.prepare("DELETE FROM achievements WHERE def_block > ?"),
     unretireQuests: db.prepare(

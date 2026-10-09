@@ -494,7 +494,7 @@ The package follows this design. What differs, or was decided while building (Pa
   half of the design (feeding the same table to a test of `Tournament::score`) is not added: P6 does not touch `contracts/`.
   The devnet scenario is `test/devnet/scenario.test.ts`.
 - **CI**: the package has its own job in `test.yaml`, gated on `packages/indexer/**` and the ABIs and deployments it reads;
-  it is in the aggregate `ci` job's needs. `client.yaml` also runs it (it runs every package of `packages/**`).
+  it is in the aggregate `ci` job's needs. The `client` job of test.yaml, under `ci`, also runs it (it runs every package of `packages/**`).
 
 ## As built (P7 indexer, quests and achievements)
 
@@ -505,12 +505,15 @@ The package follows this design. What differs, or was decided while building (Pa
   file). `QuestCompleted`, `QuestClaimed` and the two `...ReporterSet` stay in `IGNORED`: Paved's quests are in event mode
   and the game flow calls the internal layer.
 - **Definition times**: a definition's `start` and `end` must be below 2^53 (0 = never ends), else the decoder halts the indexer. The deploy script's definitions are far below.
-- **Tables** (schema `2`): `quests` and `achievements` (the definition, the position and time of the defining block, and of
+- **Tables** (schema `3`): `quests` and `achievements` (the definition, the position and time of the defining block, and of
   the retiring block once there is one); `progress` (each `QuestProgressed` and `AchievementProgressed`: position, kind,
   emitter, player, task, count, block time); `podium` (`tournament_id`, `player_id`, the slots held, the day's end and the
-  block that closed the day). A definition twice, a retirement of nothing and a second retirement halt the indexer. A
+  block that closed the day); `day_closes` (each UTC day's closing block, written by `apply` when it stores the first block
+  whose time is at or past the day's end, with the time of the block before it). `recordPodium` reads the closing block
+  there, not in `blocks`, which prune empties: a view call retried after the header is forgotten still credits at the real
+  closing block. A definition twice, a retirement of nothing and a second retirement halt the indexer. A
   rewind deletes the rows of the blocks above the fork, un-retires what was retired above it, and deletes the podium rows
-  closed above it, so a rewound database equals one rebuilt from the chain (`src/quests.test.ts`).
+  closed above it and the `day_closes` rows above it (prune leaves them), so a rewound database equals one rebuilt from the chain (`src/quests.test.ts`).
 - **Derivation**: queries at the served block, not tables (as the leaderboard): `src/quests.ts` has the pure rules
   (`intervalId`, `firstActive`, `replay`), `src/queries.ts` the reads. A player's progress is replayed from that player's
   rows, which stay small (at most six reports per finished game).
