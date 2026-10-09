@@ -19,20 +19,6 @@
     ]
   },
   {
-    "type": "enum",
-    "name": "core::bool",
-    "variants": [
-      {
-        "name": "False",
-        "type": "()"
-      },
-      {
-        "name": "True",
-        "type": "()"
-      }
-    ]
-  },
-  {
     "type": "struct",
     "name": "core::array::Span::<core::integer::u32>",
     "members": [
@@ -141,6 +127,20 @@
     ]
   },
   {
+    "type": "enum",
+    "name": "core::bool",
+    "variants": [
+      {
+        "name": "False",
+        "type": "()"
+      },
+      {
+        "name": "True",
+        "type": "()"
+      }
+    ]
+  },
+  {
     "type": "struct",
     "name": "paved::economy::economy::DayView",
     "members": [
@@ -175,6 +175,10 @@
         "type": "core::starknet::contract_address::ContractAddress"
       },
       {
+        "name": "time",
+        "type": "core::integer::u64"
+      },
+      {
         "name": "day",
         "type": "core::integer::u64"
       },
@@ -204,6 +208,10 @@
       },
       {
         "name": "recorded",
+        "type": "core::bool"
+      },
+      {
+        "name": "expired",
         "type": "core::bool"
       },
       {
@@ -311,10 +319,6 @@
           {
             "name": "score",
             "type": "core::integer::u32"
-          },
-          {
-            "name": "in_day",
-            "type": "core::bool"
           }
         ],
         "outputs": [],
@@ -388,6 +392,22 @@
         "outputs": [
           {
             "type": "paved::economy::economy::Quote"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "quote_swap",
+        "inputs": [
+          {
+            "name": "usdc_in",
+            "type": "core::integer::u256"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
           }
         ],
         "state_mutability": "view"
@@ -626,7 +646,7 @@
         "kind": "data"
       },
       {
-        "name": "in_day",
+        "name": "expired",
         "type": "core::bool",
         "kind": "data"
       }
