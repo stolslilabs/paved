@@ -1,18 +1,28 @@
 // FOR UNIT TESTS ONLY. Not exported from `@paved/chain`: tests import it by path (`@paved/chain/economy/fake` in
 // app-web's tests, whose alias points at the sources). No app code may import it.
 import { ViewError } from "../views";
-import { BPS, isStake, minOutFor, priceOf, referralOf } from "./amounts";
+import { BPS, isStake, priceOf, referralOf } from "./amounts";
 import type { DayView, EconomyViews, QuoteView, TermsView, VaultPosition } from "./views";
 
 /** USDC's base units of 2 USDC: the `Mode::Daily` unit price of economy.md. */
 export const FAKE_UNIT = 2_000_000n;
+
+/** What `terms` answers for a game that was not bought (E2). */
+const notBought: TermsView = {
+  player: "0x0", day: 0, stake: 0, reference: 0n, sigmaBps: 0, slopeBps: 0, cap: 0, score: 0, recorded: false, settled: false, reward: 0n,
+};
+
+/** A bought game's terms, for tests: the given fields over plausible defaults. */
+export function fakeTerms(fields: Partial<TermsView>): TermsView {
+  return { ...notBought, stake: 1, reference: 10n ** 18n, slopeBps: 18_130, cap: 5, recorded: true, ...fields };
+}
 
 /** In-memory economy views with the stub's shapes. `fail` makes every read throw, as an RPC down. */
 export class FakeEconomy implements EconomyViews {
   unit = FAKE_UNIT;
   /** PAVED per USDC base unit the fake router quotes, as a ratio. */
   rate = { paved: 80n * 10n ** 18n, usdc: 1_000_000n };
-  threshold = 3_353;
+  threshold = 3_353_000;
   mean = 3_353_000;
   readonly days = new Map<number, DayView>();
   readonly terms_ = new Map<number, TermsView>();
@@ -28,7 +38,8 @@ export class FakeEconomy implements EconomyViews {
     if (!isStake(stake)) throw new ViewError("rpc", "Economy: bad stake");
     const price = priceOf(this.unit, stake);
     const burnQuote = (price * 7_000n) / BPS;
-    const out = (burnQuote * 95n * this.rate.paved) / (100n * this.rate.usdc);
+    // As E2: 99 % of q at the guard's rate, to be sent as `min_out` as it is.
+    const out = (burnQuote * this.rate.paved * 99n) / (this.rate.usdc * 100n);
     return {
       price,
       burnQuote,
@@ -50,7 +61,7 @@ export class FakeEconomy implements EconomyViews {
 
   async terms(gameId: number): Promise<TermsView> {
     this.check(`terms ${gameId}`);
-    return { ...(this.terms_.get(gameId) ?? { stake: 0, reference: 0n, day: 0, score: 0, settled: false, reward: 0n }) };
+    return { ...(this.terms_.get(gameId) ?? notBought) };
   }
 
   async vault(account: string): Promise<VaultPosition> {
@@ -77,9 +88,9 @@ export class FakeEconomy implements EconomyViews {
     (token === "usdc" ? this.usdc : this.paved).set(BigInt(account).toString(16), amount);
   }
 
-  /** The `min_out` a purchase of `stake` sends with the default slippage. */
+  /** The `min_out` a purchase of `stake` sends: the hint as it is. */
   async expectedMinOut(stake: number): Promise<bigint> {
-    return minOutFor((await this.quote(stake)).minOutHint);
+    return (await this.quote(stake)).minOutHint;
   }
 
   private check(call: string): void {

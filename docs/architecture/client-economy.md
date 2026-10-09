@@ -12,21 +12,27 @@ client's economy is **not configured** everywhere and the screens say so; nothin
 
 | Piece | Source today | Real source | What to do when it lands |
 |---|---|---|---|
-| `Economy` ABI: `quote`, `day`, `terms`, `settle`, events `Purchased`, `Recorded`, `DayClosed`, `Settled` | **STUB** `economy/stub-abi.ts`, shapes from economy.md section 6; integer widths guessed | `contracts/abis/Economy.json` (E2) | import it in `abis.ts`, delete the stub, fix `ECONOMY_VIEW_FIELDS` where `test/economy.test.ts` fails |
+| `Economy` ABI: `quote`, `day`, `terms`, `settle`, events `Purchased`, `Recorded`, `DayClosed`, `Settled` | **STUB** `economy/stub-abi.ts`: `Quote` and `TermsView` as CORE gave them from E2's branch (#262 head 0cbb1a5); `Quote.slope`, `Quote.cap`, `DayView` and the events from economy.md section 6 | `contracts/abis/Economy.json` (E2, #262), authoritative once merged | import it in `abis.ts`, delete the stub, fix `ECONOMY_VIEW_FIELDS` where `test/economy.test.ts` fails |
 | `Daily.spawn(stake, referrer, min_out)` | **STUB** `STUB_DAILY_PAID_ABI`: the real `Daily` ABI with that one entry replaced | `contracts/abis/Daily.json` (E3) | the test "the real Daily ABI still has none" fails on E3's ABI: drop `DailyPaid`, encode with `Daily` |
 | USDC (`approve`, `balance_of`, `allowance`) | **STUB** `STUB_USDC_ABI` | the MockUSDC ABI (E3's devnet deploy) | import it |
 | `PavedToken`, `Vault` | CORE's real ABIs (E1, #260) | | |
-| Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json`, as economy.md says E3 writes them; or the env | E3's `devnet.json` | check the key names against E3's file |
+| Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json`, as CORE confirmed (USDC off devnet, MockUSDC on devnet); or the env | E3's `devnet.json` | |
 | Reads in unit tests | `FakeEconomy` (`economy/fake.ts`), **tests only**: not exported from `@paved/chain`, imported by path | | |
 
 `ECONOMY_ABI_IS_STUB` is true while any stub remains; the screens print "Economy contracts on stub ABIs (E2 not
 merged)" from it.
 
-Two readings of the stub that E2 must confirm:
+What CORE confirmed from E2's branch (2026-10-09):
 
-- `Quote.min_out_hint` is read as the router's **expected** PAVED for `burn_quote`, before slippage; the client applies
-  its own slippage to it. If E2 makes it already include a slippage, the client must send it as it is.
-- `TermsView.stake` is 0 for a Daily game that was not bought (before E3 every Daily game).
+- `Quote.min_out_hint` **already has the 1 % off**: 99 % of `burn_quote` at the price guard's swap rate. The client sends
+  it as `min_out` as it is and takes nothing more off. It is a floor, not the pool's price: the client never shows it as
+  a price, and since the stub has no pool quote, no PAVED price is shown at all.
+- `TermsView.stake` is 0 for a Daily game that was not bought, with `recorded` and `settled` false.
+- Widths: `Quote` amounts `u256`, `factor` `u32` (bps), `mean` and `threshold` `u64` (points x 1,000); `TermsView` is
+  `player`, `day` u64, `stake` u8, `reference` u128, `sigma_bps` i16, `slope_bps` u32, `cap` u8, `score` u32, `recorded`,
+  `settled`, `reward` u128. `quote(stake)` asserts `1 <= stake <= MAX_STAKE`; the price is `stake x 2 USDC`.
+- The codec decodes no signed integer, so the stub declares `sigma_bps` as a `felt252` and `RpcEconomyViews` reads it as
+  an `i16`. With the real ABI, the codec needs `i16` (`codec.ts`, outside this task's files) or the same workaround.
 
 ## Deployment
 
@@ -45,7 +51,7 @@ Every amount is a `bigint` in base units: USDC 6 decimals, PAVED 18 (D-10, econo
 | Price `P` of stake `k` (1 to 10) | `k x Daily.entry_price().amount` (2 USDC per stake unit after E3), and `Economy.quote(k).price` must be the same, else nothing is sent |
 | Boost | `1 + k/100` (`boostBps`), shown as a multiplier; the reward itself is the contract's |
 | Referral | 5 % of `P`, **out of the margin**: it changes no amount the player pays (P-31) |
-| `min_out` | `quote.min_out_hint x (1 - slippage)`, rounded down; slippage 1 % (`DEFAULT_SLIPPAGE_BPS`, economy.md section 5), at most 50 % |
+| `min_out` | `quote.min_out_hint` as it is: E2 already took the 1 % slippage of economy.md section 5 off |
 | Reward | only `Economy.terms(game).reward` after settlement; the client computes and promises none |
 
 ## Writes
@@ -58,7 +64,7 @@ read or refused check sends nothing (`WriteError`, or the typed errors).
 | Write | Calls (one multicall) | Read and refused at send |
 |---|---|---|
 | `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Daily, P)`, `Daily.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10. A self-referral is sent as `0x0` |
-| `settle(gameIds)` (the player's claim of PAVED) | `Economy.settle(game_ids)` | `terms` and `Daily.game` of each: not bought (stake 0), not over, already settled, or its day not over (`now < (day + 1) x 86400`) |
+| `settle(gameIds)` (the player's claim of PAVED) | `Economy.settle(game_ids)` | `terms` of each: not bought (stake 0), not over (`recorded` false), already settled, or its day not over (`now < (day + 1) x 86400`) |
 | `stake(amount, { confirmedAmount })` | `PavedToken.approve(Vault, amount)`, `Vault.stake(amount)` | the amount is 0 or not the confirmed one (`VaultAmountChangedError`); the PAVED balance is short |
 | `unstake(amount, { confirmedAmount })` | `Vault.unstake(amount)` | the amount is 0 or not the confirmed one; more than staked |
 | `claimDividends({ confirmedAmount })` | `Vault.claim()` | the pending USDC is 0 or not the confirmed one (it grows with every purchase: the player confirms again) |

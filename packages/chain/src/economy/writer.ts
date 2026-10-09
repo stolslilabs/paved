@@ -2,7 +2,7 @@ import type { EconomyCodecs, EconomyContractName } from "../abis";
 import { sameAddress, toHex, type Encodable } from "../codec";
 import type { GameViews, PriceView } from "../views";
 import { WriteError, type Call, type PavedWriter, type WriteResult } from "../writer";
-import { DEFAULT_SLIPPAGE_BPS, dayOver, isStake, minOutFor, priceOf } from "./amounts";
+import { dayOver, isStake, priceOf } from "./amounts";
 import type { EconomyDeployment } from "./deployment";
 import type { EconomyViews, QuoteView, TermsView } from "./views";
 
@@ -29,8 +29,6 @@ export interface PurchaseRequest {
   confirmedPrice: bigint;
   /** The referrer from the link, or null. It changes no amount the player pays. */
   referrer: string | null;
-  /** Bps under the quote that the burn swap may return; 1 % by default. */
-  slippageBps?: bigint;
 }
 
 /** A purchase's calls and the figures they were built from, before anything is sent (for the tests and the docs). */
@@ -57,8 +55,8 @@ export class EconomyWriter {
       deployment: EconomyDeployment;
       codecs: EconomyCodecs;
       views: EconomyViews;
-      /** The game views of the same deployment: `entry_price` and `game` of `Daily`. */
-      gameViews: Pick<GameViews, "entryPrice" | "game">;
+      /** The game views of the same deployment: `Daily.entry_price`. */
+      gameViews: Pick<GameViews, "entryPrice">;
       /** Seconds since the epoch; the settlement checks that the day is over. */
       now?: () => number;
     },
@@ -100,7 +98,8 @@ export class EconomyWriter {
     if (quote.price !== price) throw new WriteError("The quote disagrees with the entry price: nothing was sent");
     if (request.confirmedPrice !== price) throw new PurchasePriceChangedError(request.confirmedPrice, price);
     const referrer = request.referrer && BigInt(request.referrer) !== 0n && !sameAddress(request.referrer, this.address) ? toHex(request.referrer) : "0x0";
-    const minOut = minOutFor(quote.minOutHint, request.slippageBps ?? DEFAULT_SLIPPAGE_BPS);
+    // E2's hint already has the 1 % off (99 % of q at the guard's rate): sent as it is, never cut again.
+    const minOut = quote.minOutHint;
     const calls = [
       this.call("USDC", "approve", [deployment.base.addresses.Daily, price]),
       this.call("DailyPaid", "spawn", [request.stake, referrer, minOut]),
@@ -117,22 +116,17 @@ export class EconomyWriter {
     return this.options.writer.sendCalls(async () => {
       if (gameIds.length === 0) throw new WriteError("No game to settle");
       const now = this.options.now?.() ?? Math.floor(Date.now() / 1000);
-      let checked: Array<{ terms: TermsView; over: boolean }>;
+      let checked: TermsView[];
       try {
-        checked = await Promise.all(
-          gameIds.map(async (gameId) => {
-            const [terms, game] = await Promise.all([this.options.views.terms(gameId), this.options.gameViews.game({ mode: "daily", gameId })]);
-            return { terms, over: game.over };
-          }),
-        );
+        checked = await Promise.all(gameIds.map((gameId) => this.options.views.terms(gameId)));
       } catch (error) {
         throw new WriteError(`Cannot read the game: ${message(error)}`);
       }
-      checked.forEach(({ terms, over }, i) => {
+      checked.forEach((terms, i) => {
         const id = gameIds[i];
         if (terms.stake === 0) throw new WriteError(`Game ${id} was not bought: nothing to settle`);
         if (terms.settled) throw new WriteError(`Game ${id} is already settled`);
-        if (!over) throw new WriteError(`Game ${id} is not over`);
+        if (!terms.recorded) throw new WriteError(`Game ${id} is not over`);
         if (!dayOver(terms.day, now)) throw new WriteError(`The day of game ${id} is not over`);
       });
       // `Span<u32>` by hand (the codec encodes no arrays): the length, then each id.

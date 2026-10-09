@@ -17,10 +17,6 @@ export const STAKES: readonly number[] = Array.from({ length: MAX_STAKE - MIN_ST
 export const BPS = 10_000n;
 /** The referrer's share of the price, paid out of the Vault's margin (P-31): the player pays the same. */
 export const REFERRAL_BPS = 500n;
-/** The slippage the client accepts on the burn swap: `min_out = quote x (1 - 1 %)` (economy.md section 5). */
-export const DEFAULT_SLIPPAGE_BPS = 100n;
-/** At most 50 %: a wider slippage is a mistake, not a setting. */
-export const MAX_SLIPPAGE_BPS = 5_000n;
 
 export const SECONDS_PER_DAY = 86_400;
 
@@ -43,13 +39,6 @@ export function boostBps(stake: number): bigint {
 /** What a referrer gets out of the margin: 5 % of the price. The player's price does not change. */
 export function referralOf(price: bigint): bigint {
   return (price * REFERRAL_BPS) / BPS;
-}
-
-/** The least PAVED the burn swap may return: the quote less the slippage, rounded down. */
-export function minOutFor(quoted: bigint, slippageBps: bigint = DEFAULT_SLIPPAGE_BPS): bigint {
-  if (slippageBps < 0n || slippageBps > MAX_SLIPPAGE_BPS) throw new RangeError(`Slippage ${slippageBps} bps is out of 0..${MAX_SLIPPAGE_BPS}`);
-  if (quoted < 0n) throw new RangeError("A quote is not negative");
-  return (quoted * (BPS - slippageBps)) / BPS;
 }
 
 /** The economy's day of a Unix time (the Daily tournament id). */

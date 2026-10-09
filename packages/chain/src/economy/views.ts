@@ -10,13 +10,16 @@ export interface QuoteView {
   burnQuote: bigint;
   referral: bigint;
   margin: bigint;
-  /** The router's expected PAVED for `burnQuote`, before the client's slippage. */
+  /**
+   * The `min_out` to send, as it is: E2 already takes 1 % off (99 % of `burnQuote` at the price guard's rate). A
+   * floor, not the pool's price: never shown as a price.
+   */
   minOutHint: bigint;
   /** Supply factor `F`, bps. */
   factor: number;
   /** The mean the next purchase is priced against, points x 1,000. */
   mean: number;
-  /** Points: below it the whole stake is lost. */
+  /** Points x 1,000: below it the whole stake is lost. */
   threshold: number;
   /** `c`, bps. */
   slope: number;
@@ -36,12 +39,19 @@ export interface DayView {
 
 /** `Economy.terms(game_id)` (STUB shape): a bought game's frozen terms and its settlement. */
 export interface TermsView {
-  /** 0 for a game that was not bought. */
+  player: string;
+  day: number;
+  /** 0 for a game that was not bought (then `recorded` and `settled` are false). */
   stake: number;
   /** `R`, PAVED base units. */
   reference: bigint;
-  day: number;
+  /** The threshold's shift, bps, signed. */
+  sigmaBps: number;
+  slopeBps: number;
+  cap: number;
   score: number;
+  /** The game is over and its score is in: it can be settled after its day. */
+  recorded: boolean;
   settled: boolean;
   /** PAVED minted at settlement; 0 below the threshold (the stake is lost). */
   reward: bigint;
@@ -62,7 +72,9 @@ export const ECONOMY_VIEW_FIELDS = {
     "price", "burnQuote", "referral", "margin", "minOutHint", "factor", "mean", "threshold", "slope", "cap",
   ] satisfies (keyof QuoteView)[],
   "paved::economy::views::DayView": ["prior", "sum", "weight", "mean", "closed"] satisfies (keyof DayView)[],
-  "paved::economy::views::TermsView": ["stake", "reference", "day", "score", "settled", "reward"] satisfies (keyof TermsView)[],
+  "paved::economy::views::TermsView": [
+    "player", "day", "stake", "reference", "sigmaBps", "slopeBps", "cap", "score", "recorded", "settled", "reward",
+  ] satisfies (keyof TermsView)[],
 };
 
 /** The economy's reads. `RpcEconomyViews` calls the contracts; `FakeEconomy` (`economy/fake.ts`) is for unit tests. */
@@ -73,6 +85,15 @@ export interface EconomyViews {
   vault(account: string): Promise<VaultPosition>;
   usdcBalance(account: string): Promise<bigint>;
   pavedBalance(account: string): Promise<bigint>;
+}
+
+/** The felt of an `i16` as a number: a negative value is `P - |v|` (STUB: the codec decodes no signed integer). */
+function signedI16(felt: string): number {
+  const P = (1n << 251n) + 17n * (1n << 192n) + 1n;
+  const v = BigInt(felt);
+  const signed = v > P / 2n ? v - P : v;
+  if (signed < -32_768n || signed > 32_767n) throw new ViewError("abi-mismatch", `sigma_bps ${felt} is not an i16`);
+  return Number(signed);
 }
 
 export class RpcEconomyViews implements EconomyViews {
@@ -91,7 +112,8 @@ export class RpcEconomyViews implements EconomyViews {
   }
 
   async terms(gameId: number): Promise<TermsView> {
-    return (await this.call("Economy", "terms", [gameId])) as TermsView;
+    const raw = (await this.call("Economy", "terms", [gameId])) as Omit<TermsView, "sigmaBps"> & { sigmaBps: string };
+    return { ...raw, sigmaBps: signedI16(raw.sigmaBps) };
   }
 
   async vault(account: string): Promise<VaultPosition> {
