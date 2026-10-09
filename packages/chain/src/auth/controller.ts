@@ -34,9 +34,10 @@ export const CONTROLLER_ENTRY_POINTS = {
 
 /**
  * Session policies for the game's writes, on the deployment's addresses. With `approve` (a cap
- * above 0), the session may also approve that token to the Daily contract, and to it alone, up to
- * the cap: the token is the one `Daily.entry_price` names (the deployment's Token before E3, USDC
- * after). Without it, every approve goes through the controller's own prompt.
+ * above 0), an approve to the Daily contract on that token (the one `Daily.entry_price` names: the
+ * deployment's Token before E3, USDC after) up to the cap is signed in the session, whether a
+ * purchase's or a sponsor's; above the cap, or on another token or spender, it prompts. Without
+ * `approve`, every approve prompts.
  */
 export function controllerPolicies(
   deployment: Deployment,

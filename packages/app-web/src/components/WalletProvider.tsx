@@ -74,8 +74,9 @@ export function WalletProvider({
     return createConnector({
       rpc: deployment.rpcUrl,
       chainId: deployment.chainId,
-      // The session may approve the entry token to the Daily contract alone, up to a full purchase,
-      // read at first use; a sponsor's approve, or any approve when the read fails, prompts.
+      // An approve to Daily on the entry token up to 10 x the unit price is signed in the session, whether
+      // a purchase's or a sponsor's; above that it prompts. The price is read once, at first use; when the
+      // read fails, the session holds no approve and every approve prompts.
       policies: async () => controllerPolicies(deployment, { approve: await entryApprove(reader) }),
     });
   }, [signer, deployment, reader, createConnector]);

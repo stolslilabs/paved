@@ -310,11 +310,19 @@ runs in Cartridge's iframe. The connector is configured as follows:
     `ENTRY_MAX_STAKE` (10, the contract's MAX_STAKE) times the unit price, which is the most one
     purchase approves.
 
-  When the entry cannot be read, the session holds no approve. Any approve outside the policy goes
-  through the controller's own prompt: another token, another spender, or an amount above the cap.
-  Sponsor approves are meant to prompt. A sponsor whose approve is on the entry token and within the
-  cap still falls inside the session, because the policy cannot tell which call made the approve.
-  Before E3 this applies to the Token; after it, only if the sponsor is paid in USDC. `Token.mint` is not a policy, because the faucet exists only on the devnet mock. The
+  An approve to Daily on the entry token up to 10 times the unit price is signed in the session,
+  whether it is a purchase's or a sponsor's, because the policy cannot tell which call made it.
+  `PavedWriter.sponsor` sends `approve(Daily, amount)` on the deployment's Token, so a sponsor within
+  the cap is signed without a prompt (after E3, only if the entry token is the same). No more money is
+  at risk: `sponsor` itself is a policy, and the app asks for an explicit confirm of the amount. Above
+  the cap, or on another token or spender, an approve prompts. When the entry cannot be read, the
+  session holds no approve and every approve prompts.
+
+  The cap is read once per page load, when the controller is first used, and kept for the session. If
+  the price falls, the cap stays at 10 times the old unit price, while the writer still approves
+  exactly the amount the player confirmed.
+
+  `Token.mint` is not a policy, because the faucet exists only on the devnet mock. The
   connector refuses to build without an RPC URL or policies. A test drives every `PavedWriter` method
   against a recording account and checks that the policies hold exactly the calls it sends, with
   approve as the only call kept to its spender.
@@ -323,7 +331,7 @@ When the app opens, `probe` restores a session already approved in the browser w
 connect that the player abandons leaves the app read-only and says why.
 
 Within the session, the controller signs an approve of the entry token to the Daily contract, up to
-one full purchase, without asking. What guards each payment is still the client's own confirm, which shows the amount,
+10 times the unit price, without asking, whether it is a purchase's or a sponsor's. What guards each payment is still the client's own confirm, which shows the amount,
 and the check at send. "Disconnect" is disabled while a write is in flight (`writing` from
 `usePaved`, counted by `PavedProvider` around the writer's calls), so a write that has been sent
 never loses its account to a reconnect.
