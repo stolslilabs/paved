@@ -196,8 +196,14 @@ day `D` enters the EMA only at its first settlement. So day `D + 2`'s prior incl
 settled before `D + 2`'s first purchase. Day `D + 1`'s prior never includes day `D`, since `D + 1` starts before
 `D` can close (E-2).
 
-No view shows a day's sum, weight or mean before the day closes (P-34): `day()` returns them as 0 until then. The
-prior, the running EMA and `quote`'s mean and threshold stay visible.
+`day()` hides only a day's aggregate (sum, weight, mean) until the day closes: it returns them as 0 until then
+(P-34, as amended by P-34b). **Every input of the open day's mean is public**, so anyone can compute that mean
+exactly before the close:
+- the stake and purchase time of each game (`Purchased`, `terms(game_id)`);
+- each score, and whether the game expired (`Recorded`, `terms(game_id)`);
+- the day's prior (`day()`).
+
+The prior, the running EMA and `quote`'s mean and threshold stay visible.
 
 **Option A (fallback, Nums).** `purchase` also freezes `mean` (the EMA at that moment) into the game's terms.
 `record` computes the payout against it, mints at once, and pushes the score into the EMA. There is no settle
@@ -559,11 +565,14 @@ O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, ow
     doubles `R`.
   - At stake 10 and the cap `H = 5`, the gain is at most about 63 USDC. The attack pays when `U < ~2,200 USDC`.
   - The guard: `Economy` keeps an EMA of the swap rate (PAVED per USDC, weight 1/32 per purchase), and the `R` of a
-    purchase counts at most `q x rate x 1.10` PAVED. One manipulated purchase gains at most 10 %. Each purchase's
-    observed rate is clamped to `[rate x 10/11, rate x 11/10]`, so one purchase moves the EMA by at most
-    `1/32 x 10 %`, about 0.31 %, up or down. Moving it by 10 % therefore takes at least about 31 purchases, each
-    paying the fee and its price. With a launch LP like Nums' (10,000 USDC) the attack does not pay even without the
-    guard. The guard covers a thinner pool.
+    purchase counts at most `q x rate x 1.10` PAVED. One manipulated purchase gains at most 10 %.
+  - **The rate moves at most once per block**, by its first purchase in that block. Its last update's block time
+    is packed with it. That observation is clamped to `[rate x 10/11, rate x 11/10]`, so the EMA moves by at most
+    `1/32 x 10 %`, about 0.31 %, per block, up or down. Moving it by 10 % takes at least about 31 blocks. A pumped
+    or dumped pool must therefore survive across those blocks, where arbitrage closes it; many purchases inside
+    one manipulation no longer ratchet it (E2's economy re-audit). `R` always uses the current rate's guard.
+  - With a launch LP like Nums' (10,000 USDC) the attack does not pay even without the guard. The guard covers a
+    thinner pool.
   - The guard's rate starts at the launch rate **after the pool's fee**: 800,000 PAVED for 10,000 USDC is 8e31 PAVED
     base units per USDC base unit x 1e18 at the spot price, and a purchase gets about 0.95 x that, so the deploy
     passes **7.6e31**. E3's deploy applies it. The constructor refuses 0.
@@ -880,6 +889,10 @@ D-13 lifts the seed gate. These gates stay:
   position and its 5 % fees; staking at launch.
 - **The mock-router gate** (from E1's audit): the mainnet price limit and partial fills are untested until a fork
   test against the mainnet router covers them (see "As built: E2" below).
+- **The dump/withhold gate** (P-34b, PM, 2026-10-09). Every input of the open day's mean is public, so a player
+  may dump a low score or withhold a game to move the day's mean. E4 measures that strategy in `sim.py` at
+  realistic volumes, including a thin day. If it pays, a floor goes in before any paid game leaves devnet: a score
+  counts at least `prior / 4` in the day's mean. E2 has no code change for it.
 
 ### As built: E2 (`Economy`)
 
@@ -893,9 +906,13 @@ differs from the text above, or the text left the choice open, it is written her
   - `settle(game_ids) -> minted`: anyone, from `(D + 2) x 86400` for a game of day `D` (P-34).
   - `configure(config)` and `set_pool(pool_key, sqrt_ratio_limit)`: the owner. `set_pool` lets the owner point the
     swaps at any PAVED/USDC pool, which is accepted trust (section 6; no code change).
-  - Views: `quote`, `quote_swap` (P-35, devnet only, section 5), `day` (sum, weight and mean are 0 until the day
-    closes, P-34), `terms` (with the purchase time and `expired`), `config`, `ema`, `rate`, `pool`, `addresses`,
-    `owner`.
+  - Views:
+    - `quote`, and `quote_swap` (P-35, devnet only, section 5);
+    - `day`: hides only the aggregate (sum, weight and mean are 0 until the day closes). Every input of the open
+      day's mean is public (`Purchased`, `Recorded`, `terms`), so the mean can be computed before the close
+      (P-34b);
+    - `terms`, with the purchase time, the score and `expired`;
+    - `config`, `ema`, `rate`, `pool`, `addresses`, `owner`.
 - **Who may call `configure`, and its bounds.** The owner named in the constructor calls it. The bounds are those
   of section 6, checked by `validate`: `burn_bps` 5,000 to 9,000; `sigma_bps` -3,000 to +5,000; `slope_bps`
   (`c`) 1,000 to 50,000; `cap` (`H`) 1 to 20; `target` (`T`) 100,000 to 10,000,000 PAVED. The constructor's
@@ -928,8 +945,9 @@ differs from the text above, or the text left the choice open, it is written her
   exactly its reserves after every purchase. A donation to `Economy` or to the router leaves with the next
   purchase: its USDC goes to the Vault, its PAVED is burned. `Purchased.burned` is the whole amount burned,
   donations included. **`R` and the guard's rate follow only what the swap paid out**, which is the PAVED leg of
-  the `Delta` that `swap` returns. `clear_minimum` returns the router's whole PAVED balance, and that amount is
-  used only for the `min_out` check. No balance is re-read to assert 0.
+  the `Delta` that `swap` returns. That output must itself be at least `min_out` (`'Economy: swap below
+  min_out'`), so PAVED sent to the router cannot let a worse swap pass. `clear_minimum(PAVED, min_out)` still
+  clears the router's whole balance. No balance is re-read to assert 0.
 - **The margin goes to the Vault on every purchase**, in the same call, and never in a batch. The referral is
   taken out of the margin, so the burn stays at `BURN_BPS` (70 %) on every purchase (P-31). A referrer that is
   the player gets nothing. Checking that a referrer is a registered player is `Lobby`'s job (E3).
@@ -937,13 +955,16 @@ differs from the text above, or the text left the choice open, it is written her
   above rounds it down to whole points. Keeping the milli-points is closer to `sim.py`.
 - **The price guard.** The guard's initial rate is a constructor argument, in PAVED base units per USDC base
   unit x 1e18, and the constructor refuses 0. The deploy passes the launch rate **after the pool's fee**: 8e31 x
-  0.95 = **7.6e31** (section 5; E3's deploy applies it). Each purchase's observed rate is clamped to 10 % of the
-  rate, in both directions, before the 1/32 step.
+  0.95 = **7.6e31** (section 5; E3's deploy applies it). The rate moves at most once per block: it is packed with
+  its last update's block time in one slot, as a `u128`, and the constructor refuses a larger rate. The first
+  purchase of a block moves it, with its observation clamped to 10 % of the rate in both directions before the
+  1/32 step.
 - **`min_out_hint`** keeps its name, because CLIENT's stub reads it. It is an estimate (99 % of the burn quote at
   the guard's rate) and is never sent as `min_out`. At the launch rate after the fee, it stays under the swap's
   output for every stake (a test checks it). `quote_swap` gives the pool's quote (P-35).
 - **Storage.** Each game's terms take one slot and its outcome another; the player is a third. The
-  configuration, the EMA and each day's accumulator take one packed slot each.
+  configuration, the EMA, the guard (its rate and the time of its last update) and each day's accumulator take one
+  packed slot each.
 - **Size.** See the table in the PR (`scripts/class-sizes.sh`, release profile). `Daily`, `Tutorial` and `Lobby`
   are unchanged.
 - **Indexer.** The indexer reads only `Daily`, `Tutorial` and `Account`, so `Economy`'s events need no

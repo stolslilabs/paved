@@ -9,7 +9,8 @@ the fixture's inputs: the launch pool (800,000 PAVED and 10,000 USDC) and the in
 decided configuration, the initial mean 3,353, nine games over two days, the first day settled
 before the second day's purchases, and players who keep their rewards (sell = 0). It adds what
 sim.py does not model and Economy does: the price guard, from the post-fee launch rate (76 PAVED per
-USDC), with its EMA and its clamp.
+USDC), with its EMA and its clamp. The rate moves at most once per block, and the test buys each day's
+games in one block, so it moves once a day here.
 
 The pool keeps its fee in its reserves, as MockRouter does (sim.py keeps it out: `--sim-pool` runs
 sim.py's pool instead, to measure that gap). It prints the day means and the rows of `expected()` in
@@ -53,6 +54,7 @@ def main():
     rows = {}
     for d in (0, 1):
         pending = []
+        moved = False
         for game_id, day, stake, referred, score in GAMES:
             if day != d:
                 continue
@@ -67,7 +69,9 @@ def main():
             factor = min(max((2 * TARGET - supply) / TARGET, 0.0), 2.0)
             # The guard, then sim.py's R
             counted = min(out, quote * rate * GUARD)
-            rate = (rate * (RATE_STEP - 1) + min(max(out / quote, rate / GUARD), rate * GUARD)) / RATE_STEP
+            if not moved:
+                rate = (rate * (RATE_STEP - 1) + min(max(out / quote, rate / GUARD), rate * GUARD)) / RATE_STEP
+                moved = True
             reference = counted * (1 + stake / 100) * factor
             pending.append((game_id, stake, reference, score, out))
         # The day's mean and the settlement, as sim.py's option B

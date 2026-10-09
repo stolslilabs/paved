@@ -191,7 +191,8 @@ pub trait IEconomy<TContractState> {
     fn config(self: @TContractState) -> Config;
     /// The EMA (sum and weight) and its mean, points x 1,000.
     fn ema(self: @TContractState) -> (Ema, u64);
-    /// The guard's swap rate: PAVED base units per USDC base unit, x 1e18.
+    /// The guard's swap rate: PAVED base units per USDC base unit, x 1e18. It moves at most once
+    /// per block.
     fn rate(self: @TContractState) -> u256;
     fn pool(self: @TContractState) -> (PoolKey, u256);
     fn addresses(self: @TContractState) -> Addresses;
@@ -251,6 +252,8 @@ pub mod Economy {
         pub const NOT_RECORDED: felt252 = 'Economy: not recorded';
         pub const TOO_EARLY: felt252 = 'Economy: day cannot close yet';
         pub const ZERO_RATE: felt252 = 'Economy: zero rate';
+        pub const RATE_OVERFLOW: felt252 = 'Economy: rate overflow';
+        pub const BELOW_MIN_OUT: felt252 = 'Economy: swap below min_out';
         pub const TRANSFER_FAILED: felt252 = 'Economy: transfer failed';
     }
 
@@ -278,6 +281,26 @@ pub mod Economy {
         sigma_bps: i16,
         slope_bps: u32,
         cap: u8,
+    }
+
+    /// The price guard's swap rate and the block time of its last move (one slot). The rate moves
+    /// at most once per block.
+    #[derive(Copy, Drop, PartialEq, Debug)]
+    struct Guard {
+        rate: u128,
+        updated: u64,
+    }
+
+    impl GuardStorePacking of starknet::storage_access::StorePacking<Guard, felt252> {
+        fn pack(value: Guard) -> felt252 {
+            let packed: u256 = value.rate.into() + value.updated.into() * TWO_POW_128;
+            packed.try_into().unwrap()
+        }
+
+        fn unpack(value: felt252) -> Guard {
+            let packed: u256 = value.into();
+            Guard { rate: packed.low, updated: packed.high.try_into().unwrap() }
+        }
     }
 
     /// What the game's end and its settlement write (one slot).
@@ -397,7 +420,7 @@ pub mod Economy {
         sqrt_ratio_limit: u256,
         config: Config,
         ema: Ema,
-        rate: u256,
+        guard: Guard,
         /// The player of a purchased game (zero: not purchased).
         players: Map<u32, ContractAddress>,
         terms: Map<u32, Terms>,
@@ -524,7 +547,8 @@ pub mod Economy {
         self.write_pool(pool_key, sqrt_ratio_limit);
         self.write_config(config);
         self.ema.write(EmaTrait::new(mean));
-        self.rate.write(rate);
+        let rate: u128 = rate.try_into().expect(errors::RATE_OVERFLOW);
+        self.guard.write(Guard { rate, updated: 0 });
     }
 
     // Implementations
@@ -585,12 +609,17 @@ pub mod Economy {
             // the burn
             let supply = paved.total_supply();
             let factor = curve::supply_factor(supply, config.target.into());
-            let rate = self.rate.read();
+            let guard = self.guard.read();
+            let rate: u256 = guard.rate.into();
             let counted = curve::guarded(bought, quote, rate);
             let reference = curve::reference(counted, stake, factor);
 
-            // [Effect] The rate and the terms
-            self.rate.write(curve::next_rate(rate, bought, quote));
+            // [Effect] The rate, at most once per block, and the terms
+            let now = get_block_timestamp();
+            if now != guard.updated {
+                let next = curve::next_rate(rate, bought, quote);
+                self.guard.write(Guard { rate: next.try_into().unwrap(), updated: now });
+            }
             let terms = Terms {
                 reference,
                 time: get_block_timestamp(),
@@ -737,7 +766,7 @@ pub mod Economy {
             } else {
                 self.ema.read().mean()
             };
-            let rate = self.rate.read();
+            let rate: u256 = self.guard.read().rate.into();
             Quote {
                 price,
                 burn_quote,
@@ -798,7 +827,7 @@ pub mod Economy {
         }
 
         fn rate(self: @ContractState) -> u256 {
-            self.rate.read()
+            self.guard.read().rate.into()
         }
 
         fn pool(self: @ContractState) -> (PoolKey, u256) {
@@ -902,6 +931,8 @@ pub mod Economy {
             } else {
                 delta.amount1
             };
+            // [Check] The swap itself paid at least `min_out`: the router's balance may hold more
+            assert(out.mag.into() >= min_out, errors::BELOW_MIN_OUT);
             let clear = IClearDispatcher { contract_address: router };
             clear.clear_minimum(paved, min_out);
             clear.clear(usdc.contract_address);

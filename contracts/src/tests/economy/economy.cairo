@@ -355,7 +355,7 @@ fn test_constructor_refuses_a_zero_rate() {
 // Purchase: refusals
 
 #[test]
-#[should_panic(expected: 'CLEAR_AT_LEAST_MINIMUM')]
+#[should_panic(expected: 'Economy: swap below min_out')]
 fn test_purchase_below_min_out_reverts() {
     let s = setup();
     IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
@@ -884,6 +884,37 @@ fn test_one_purchase_moves_the_rate_down_by_at_most_the_clamp() {
     let observed = (supply - s.paved.total_supply()) * RATE_SCALE / 1_400_000;
     assert!(observed < POOL_RATE * 10 / 11);
     assert_eq!(s.economy.rate(), (POOL_RATE * 31 + POOL_RATE * 10 / 11) / 32);
+}
+
+#[test]
+#[should_panic(expected: 'Economy: swap below min_out')]
+fn test_paved_on_the_router_does_not_let_a_swap_below_min_out_pass() {
+    let s = setup();
+    // The router's balance covers min_out, the swap alone does not
+    send_paved(s, s.router, 1_000 * ONE_PAVED);
+    let min_out = s.economy.quote_swap(1_400_000) + 1;
+    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+        .mint(s.economy.contract_address, BASE_PRICE);
+    start_cheat_caller_address(s.economy.contract_address, DAILY());
+    s.economy.purchase(1, PLAYER(), DAY0, 1, BASE_PRICE, Zero::zero(), min_out);
+}
+
+#[test]
+fn test_rate_moves_at_most_once_per_block() {
+    let s = setup();
+    let quote: u256 = 1_400_000;
+    // Two purchases in the same block: the first moves the rate, the second does not
+    let out = s.economy.quote_swap(quote);
+    buy(s, 1, PLAYER(), 1, Zero::zero());
+    let once = next_rate(POOL_RATE, out, quote);
+    assert_eq!(s.economy.rate(), once);
+    buy(s, 2, PLAYER(), 1, Zero::zero());
+    assert_eq!(s.economy.rate(), once);
+    // The next block moves it again
+    at(DAY0, 3601);
+    let out = s.economy.quote_swap(quote);
+    buy(s, 3, PLAYER(), 1, Zero::zero());
+    assert_eq!(s.economy.rate(), next_rate(once, out, quote));
 }
 
 #[test]
