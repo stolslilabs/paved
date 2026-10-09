@@ -193,9 +193,26 @@ describe("players and games", () => {
     const { queries, head } = await open(build);
     expect(queries.player(head, id(A))).toEqual({
       player: { player_id: id(A), name: "Ada", created: expect.any(Number) },
-      stats: { daily_games: 2, daily_finished: 1, best_score: 30, tutorial_games: 2 },
+      stats: {
+        daily_games: 2,
+        daily_finished: 1,
+        best_score: 30,
+        tutorial_games: 2,
+        paid_games: 0,
+        settled_games: 0,
+        rewards: "0",
+      },
+      unsettled: [],
     });
-    expect(queries.player(head, id(B))!.stats).toEqual({ daily_games: 1, daily_finished: 0, best_score: null, tutorial_games: 0 });
+    expect(queries.player(head, id(B))!.stats).toEqual({
+      daily_games: 1,
+      daily_finished: 0,
+      best_score: null,
+      tutorial_games: 0,
+      paid_games: 0,
+      settled_games: 0,
+      rewards: "0",
+    });
     expect(queries.player(head, id(0xffffn))).toBeNull();
   });
 
@@ -274,5 +291,115 @@ describe("the prize slot replay", () => {
       const games = sequence(Array.from({ length }, () => next() % 6)); // few values: many ties, and zeros
       expect(replaySlots(games).filter((slot) => slot !== null)).toEqual(oracle(games));
     }
+  });
+});
+
+describe("Economy", () => {
+  const BIG = 2n ** 100n; // above 2^53 and 2^63: only a decimal string holds it
+  // Day 100: A buys games 1 (stake 1) and 2 (stake 3, referred by B), B buys game 3; game 1 is recorded and settled, game 2
+  // recorded late (expired), game 3 never ends. Day 101: A buys game 4, recorded. A Tutorial game and a game not bought too.
+  const build = (node: FakeNode) => {
+    players(node);
+    node.mine(
+      [ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY })],
+      [ev.spawned("daily", 2, A, { tournament: DAY }), ev.purchased(2, A, { day: DAY, stake: 3, referrer: B, referral: 300_000n })],
+      [ev.spawned("daily", 3, B, { tournament: DAY }), ev.purchased(3, B, { day: DAY, reference: BIG })],
+      [ev.spawned("tutorial", 1, A)],
+      [ev.spawned("daily", 5, A, { tournament: DAY })], // not bought
+    );
+    node.mine([ev.over("daily", 1, A, 5000, { tournament: DAY }), ev.recorded(1, 5000)]);
+    node.mine([ev.over("daily", 2, A, 4000, { tournament: 0 }), ev.recorded(2, 4000, true)]);
+    node.mine([ev.spawned("daily", 4, A, { tournament: DAY + 1 }), ev.purchased(4, A, { day: DAY + 1 })]);
+    node.mine([ev.over("daily", 4, A, 100, { tournament: DAY + 1 }), ev.recorded(4, 100)]);
+    node.mine([ev.dayClosed(DAY, { mean: 4_215_689, weight: 4, prior: 3_353_000, emaAfter: 3_400_000 }), ev.settled(1, A, { day: DAY, score: 5000, threshold: 4_215_689, reward: BIG })]);
+  };
+
+  test("a game's terms and settlement, null for a Tutorial game and a game not bought", async () => {
+    const { queries, head } = await open(build);
+    expect(queries.game(head, "daily", 1)!.economy).toEqual({
+      day: DAY,
+      stake: 1,
+      price: "2000000",
+      referrer: null,
+      referral: "0",
+      burned: String(107n * 10n ** 18n),
+      factor: 10_000,
+      reference: String(107n * 10n ** 18n),
+      purchased_at: expect.any(Number),
+      recorded: true,
+      expired: false,
+      settled: true,
+      threshold: 4_215_689,
+      reward: String(BIG),
+    });
+    expect(queries.game(head, "daily", 2)!.economy).toMatchObject({
+      stake: 3,
+      price: "6000000",
+      referrer: id(B),
+      referral: "300000",
+      recorded: true,
+      expired: true,
+      settled: false,
+      threshold: null,
+      reward: null,
+    });
+    expect(queries.game(head, "daily", 3)!.economy).toMatchObject({ reference: String(BIG), recorded: false, expired: false, settled: false });
+    expect(queries.game(head, "tutorial", 1)!.economy).toBeNull();
+    expect(queries.game(head, "daily", 5)!.economy).toBeNull();
+    const games = queries.games(head, id(A), "daily", 20, undefined).games;
+    expect(games.map((g) => [g.game_id, g.economy?.stake ?? null])).toEqual([[5, null], [4, 1], [2, 3], [1, 1]]);
+  });
+
+  test("read at the served block: a settlement, a record or a purchase above it has not happened", async () => {
+    const { queries, head } = await open(build);
+    expect(queries.game(head - 1, "daily", 1)!.economy).toMatchObject({ settled: false, reward: null, recorded: true });
+    expect(queries.game(head - 2, "daily", 4)!.economy).toMatchObject({ recorded: false });
+    expect(queries.game(head - 3, "daily", 4)).toBeNull();
+    expect(queries.dayEconomy(head - 1, DAY)).toMatchObject({ closed: false, mean: null, games_settled: 0, unsettled: [1, 2] });
+  });
+
+  test("a player's paid games, rewards and unsettled games", async () => {
+    const { queries, head } = await open(build);
+    const a = queries.player(head, id(A))!;
+    expect(a.stats).toMatchObject({ paid_games: 3, settled_games: 1, rewards: String(BIG) });
+    expect(a.unsettled).toEqual([
+      { game_id: 2, day: DAY, expired: true },
+      { game_id: 4, day: DAY + 1, expired: false },
+    ]);
+    const b = queries.player(head, id(B))!;
+    expect(b.stats).toMatchObject({ paid_games: 1, settled_games: 0, rewards: "0" });
+    expect(b.unsettled).toEqual([]); // game 3 is not recorded: nothing to settle
+    expect(queries.player(head - 1, id(A))!.stats).toMatchObject({ settled_games: 0, rewards: "0" });
+  });
+
+  test("a day: its paid games, the unsettled ones, its rewards and its close", async () => {
+    const { queries, head } = await open(build);
+    expect(queries.dayEconomy(head, DAY)).toEqual({
+      games_purchased: 3,
+      games_recorded: 2,
+      games_settled: 1,
+      unsettled: [2],
+      rewards: String(BIG),
+      closed: true,
+      mean: 4_215_689,
+      weight: 4,
+      prior: 3_353_000,
+      ema_after: 3_400_000,
+      closed_at: expect.any(Number),
+    });
+    expect(queries.dayEconomy(head, DAY + 1)).toMatchObject({ games_purchased: 1, unsettled: [4], closed: false, ema_after: null, closed_at: null });
+    expect(queries.dayEconomy(head, 7)).toEqual({
+      games_purchased: 0,
+      games_recorded: 0,
+      games_settled: 0,
+      unsettled: [],
+      rewards: "0",
+      closed: false,
+      mean: null,
+      weight: null,
+      prior: null,
+      ema_after: null,
+      closed_at: null,
+    });
   });
 });

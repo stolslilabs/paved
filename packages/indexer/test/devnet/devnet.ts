@@ -64,9 +64,14 @@ export async function startNode(port: number, seed = 42, archive = false): Promi
   }
 }
 
-/** Runs `scripts/deploy.sh devnet` against `url`; throws with its output on a failure. */
+/**
+ * Runs `scripts/deploy.sh devnet` against `url`; throws with its output on a failure. With PAVED_DEPLOY_UNMERGED=1 it
+ * passes `--unmerged` (a pull request's sources): the script then writes the deployment file to a temporary path, which
+ * `writtenFile` reads from its output.
+ */
 export function deploy(url: string): string {
-  const result = spawnSync(resolve(ROOT, "scripts/deploy.sh"), ["devnet"], {
+  const args = process.env.PAVED_DEPLOY_UNMERGED === "1" ? ["devnet", "--unmerged"] : ["devnet"];
+  const result = spawnSync(resolve(ROOT, "scripts/deploy.sh"), args, {
     cwd: ROOT,
     env: { ...process.env, RPC_URL: url },
     encoding: "utf8",
@@ -74,6 +79,12 @@ export function deploy(url: string): string {
   });
   if (result.status !== 0) throw new Error(`deploy.sh failed (${result.status}): ${result.stdout}\n${result.stderr}`);
   return result.stdout;
+}
+
+/** The deployment file an `--unmerged` run wrote (its `== wrote <path>` line), or null for the committed one. */
+export function writtenFile(stdout: string): string | null {
+  const match = /^== wrote (\/.+\.json)$/m.exec(stdout);
+  return match ? match[1]! : null;
 }
 
 export interface Receipt {

@@ -13,13 +13,13 @@
 //    ancestor can hide under a tip of the same hash and commitments, as empty blocks have); the
 //    highest checked block is the served one, and the state is `ok`; then forgets the history
 //    below the kept depth, counted from the checked tip (never above the checked blocks);
-// 3. applies the next blocks, up to a batch, each with the events of the three contracts in block order,
+// 3. applies the next blocks, up to a batch, each with the events of the four contracts in block order,
 //    each in one transaction. Before applying block N+1 it reads the stored tip N again, AFTER N+1's
 //    header and events were read: N+1 is applied only if N is still the node's (hash AND
 //    commitments). On devnet a replacement keeps the replaced block's hash, so N+1's parent hash
 //    does not prove N; without this, N+1 could land on a stale N. That read is also N's check.
 // It halts (state `halted`, for good; the reason in the log and in every answer) on an event of
-// the three contracts it cannot decode, a game or a player that the tables contradict (store.ts), or a
+// the four contracts it cannot decode, a game or a player that the tables contradict (store.ts), or a
 // node that went back below the kept history. A halt found while
 // applying is made permanent only if the block and its parent are still the node's when read again;
 // otherwise the step ends and the next one rewinds. Pre-confirmed blocks are never read: the

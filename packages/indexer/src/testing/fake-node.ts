@@ -1,5 +1,5 @@
 // Copied from Grim World, indexer/src/testing/fake-node.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
-// Apache-2.0. Adapted for Paved: three contracts (daily, tutorial, account) and Paved's event builders, `starknet_chainId`
+// Apache-2.0. Adapted for Paved: four contracts (daily, tutorial, account, economy) and Paved's event builders, `starknet_chainId`
 // and `starknet_call` (a scripted view). This copy is maintained by the Paved repository.
 //
 // A fake Starknet node for the unit tests: no network. It answers the read methods the indexer
@@ -13,11 +13,13 @@ import { SELECTORS, type Source } from "../events.ts";
 export const DAILY = "0x1111";
 export const TUTORIAL = "0x2222";
 export const ACCOUNT = "0x3333";
+export const ECONOMY = "0x4444";
 export const CHAIN_ID = "0x534e5f5345504f4c4941";
 const ADDRESS: Record<Source, string> = {
   daily: DAILY,
   tutorial: TUTORIAL,
   account: ACCOUNT,
+  economy: ECONOMY,
 };
 
 export type FakeEvent = { source: Source; keys: string[]; data: string[] };
@@ -153,6 +155,71 @@ export const ev = {
   ) => raw(source, "AchievementProgressed", [player, task], [count]),
   achievementRetired: (achievementId: number) =>
     raw("daily", "AchievementRetired", [achievementId], []),
+  /**
+   * Economy's `Purchased`: keys game_id, player_id; data day, stake, price (u256: low, high), referrer, referral,
+   * burned_quote, burned, margin, supply (u256 each), factor, reference (u128). Defaults: a stake-1 purchase, no referrer.
+   */
+  purchased: (
+    gameId: number,
+    player: bigint | number,
+    options: {
+      day?: number;
+      stake?: number;
+      price?: bigint;
+      referrer?: bigint | number;
+      referral?: bigint;
+      burnedQuote?: bigint;
+      burned?: bigint;
+      margin?: bigint;
+      supply?: bigint;
+      factor?: number;
+      reference?: bigint;
+    } = {},
+  ) => {
+    const stake = options.stake ?? 1;
+    const u256 = (value: bigint) => [value & (2n ** 128n - 1n), value >> 128n];
+    return raw(
+      "economy",
+      "Purchased",
+      [gameId, player],
+      [
+        options.day ?? 100,
+        stake,
+        ...u256(options.price ?? BigInt(stake) * 2_000_000n),
+        options.referrer ?? 0,
+        ...u256(options.referral ?? 0n),
+        ...u256(options.burnedQuote ?? BigInt(stake) * 1_400_000n),
+        ...u256(options.burned ?? 107n * 10n ** 18n),
+        ...u256(options.margin ?? BigInt(stake) * 600_000n),
+        ...u256(options.supply ?? 999_893n * 10n ** 18n),
+        options.factor ?? 10_000,
+        options.reference ?? 107n * 10n ** 18n,
+      ],
+    );
+  },
+  recorded: (gameId: number, score: number, expired = false) =>
+    raw("economy", "Recorded", [gameId], [score, expired ? 1 : 0]),
+  dayClosed: (
+    day: number,
+    options: { mean?: number; weight?: number; prior?: number; emaAfter?: number } = {},
+  ) =>
+    raw(
+      "economy",
+      "DayClosed",
+      [day],
+      [options.mean ?? 4_215_689, options.weight ?? 21, options.prior ?? 3_353_000, options.emaAfter ?? 3_500_000],
+    ),
+  settled: (
+    gameId: number,
+    player: bigint | number,
+    options: { day?: number; score?: number; threshold?: number; reward?: bigint } = {},
+  ) =>
+    raw(
+      "economy",
+      "Settled",
+      [gameId, player],
+      [options.day ?? 100, options.score ?? 5000, options.threshold ?? 4_215_689, options.reward ?? 231n * 10n ** 18n],
+    ),
   /** An event of the contracts that is known and not indexed. */
   built: (source: Source, gameId: number) =>
     raw(source, "Built", [gameId], [1, 2, 3, 4, 5, 6, 7, 8]),

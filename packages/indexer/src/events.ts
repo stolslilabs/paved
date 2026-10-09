@@ -4,18 +4,22 @@
 // PlayerCreated) and the list of the events of the contracts that are known and not indexed. This copy is maintained by
 // the Paved repository.
 //
-// The three events of the indexer (docs/architecture/indexer.md, contracts/abis/*.json): the first key is the selector of
-// the event's name; then the declared keys, then the data, in the declared order. Decoding is strict: a selector of no
+// The events of the indexer (docs/architecture/indexer.md, contracts/abis/*.json): the first key is the selector of
+// the event's name (Economy's `Event` enum is not flat: its variants are named as their structs, so the selector is the
+// struct's name too); then the declared keys, then the data, in the declared order. Decoding is strict: a selector of no
 // list, a count of keys or data that differs, or a value wider than its type is a DecodeError, and the indexer halts on
 // it (it never guesses). The events of the contracts that are not indexed (the board events, claims, ownership) are
 // known by name and skipped; any other selector is a contract change the indexer was not told about.
 import { hash } from "starknet";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
 
-/** The three contracts whose events are read: `daily` and `tutorial` play, `account` registers players. */
-export type Source = "daily" | "tutorial" | "account";
+/**
+ * The four contracts whose events are read: `daily` and `tutorial` play, `account` registers players, `economy` holds the
+ * terms, the scores and the settlements of the paid Daily games (docs/architecture/economy.md, "Events").
+ */
+export type Source = "daily" | "tutorial" | "account" | "economy";
 
-export const SOURCES: readonly Source[] = ["daily", "tutorial", "account"];
+export const SOURCES: readonly Source[] = ["daily", "tutorial", "account", "economy"];
 
 export class DecodeError extends Error {}
 
@@ -72,7 +76,49 @@ export type Decoded =
       points: number;
     }
   | { name: "AchievementProgressed"; playerId: bigint; taskId: number; count: number }
-  | { name: "AchievementRetired"; achievementId: number };
+  | { name: "AchievementRetired"; achievementId: number }
+  | {
+      name: "Purchased";
+      gameId: number;
+      playerId: bigint;
+      day: bigint;
+      stake: number;
+      /** USDC base units (u256). */
+      price: bigint;
+      /** 0 when the purchase had no referral. */
+      referrer: bigint;
+      referral: bigint;
+      burnedQuote: bigint;
+      /** PAVED base units burned (u256). */
+      burned: bigint;
+      margin: bigint;
+      supply: bigint;
+      /** The supply factor, bps. */
+      factor: number;
+      /** `R`, PAVED base units (u128). */
+      reference: bigint;
+    }
+  | { name: "Recorded"; gameId: number; score: number; expired: boolean }
+  | {
+      name: "DayClosed";
+      day: bigint;
+      /** Points x 1,000. */
+      mean: bigint;
+      weight: number;
+      prior: bigint;
+      emaAfter: bigint;
+    }
+  | {
+      name: "Settled";
+      gameId: number;
+      playerId: bigint;
+      day: bigint;
+      score: number;
+      /** Milli-points. */
+      threshold: bigint;
+      /** PAVED base units minted (u128). */
+      reward: bigint;
+    };
 
 /** One task of a quest or an achievement: the id the game reports, and the count that completes it. */
 export type TaskTarget = { taskId: number; total: number };
@@ -95,6 +141,10 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   AchievementDefined: ["daily"],
   AchievementProgressed: ["daily", "tutorial"],
   AchievementRetired: ["daily"],
+  Purchased: ["economy"],
+  Recorded: ["economy"],
+  DayClosed: ["economy"],
+  Settled: ["economy"],
 };
 
 /** Events of the contracts' ABIs that are not indexed in v1 (indexer.md, "Not indexed"). */
@@ -113,6 +163,11 @@ export const IGNORED = [
   "QuestClaimed",
   "QuestReporterSet",
   "AchievementReporterSet",
+  // Economy's owner events (its constructor emits EconomyConfigured and PoolSet), and Account's one-shot wiring.
+  "EconomyConfigured",
+  "PoolSet",
+  "GameSet",
+  "EconomySet",
 ] as const;
 
 const INDEXED: readonly EventName[] = [
@@ -125,6 +180,10 @@ const INDEXED: readonly EventName[] = [
   "AchievementDefined",
   "AchievementProgressed",
   "AchievementRetired",
+  "Purchased",
+  "Recorded",
+  "DayClosed",
+  "Settled",
 ];
 
 /** Selector (a lowercase 0x hex without leading zeros) of every event name of the contracts. */
@@ -188,6 +247,17 @@ function uint(value: string | undefined, bits: number, field: string): bigint {
 const small = (value: string | undefined, bits: 8 | 16 | 32, field: string) =>
   Number(uint(value, bits, field));
 
+/** A u256 from its two felts, low then high (each a u128). */
+function u256(data: readonly string[], at: number, field: string): bigint {
+  return uint(data[at], 128, `${field}.low`) + (uint(data[at + 1], 128, `${field}.high`) << 128n);
+}
+
+function bool(value: string | undefined, field: string): boolean {
+  const number = felt(value);
+  if (number > 1n) throw new DecodeError(`${field} ${value} is not a bool`);
+  return number === 1n;
+}
+
 function shape(
   name: EventName,
   keys: readonly string[],
@@ -210,14 +280,20 @@ function safe(value: bigint, field: string): bigint {
   return value;
 }
 
-/** A tournament id: at most `MAX_TOURNAMENT_ID`, the API's bound, so that no indexed day can exceed it. */
-function tournamentId(value: string | undefined): bigint {
-  const id = uint(value, 64, "tournament_id");
+/**
+ * A tournament id (or an Economy day, the same UTC day id): at most `MAX_TOURNAMENT_ID`, the API's bound, so that no
+ * indexed day can exceed it.
+ */
+function tournamentId(value: string | undefined, field = "tournament_id"): bigint {
+  const id = uint(value, 64, field);
   if (id > BigInt(MAX_TOURNAMENT_ID)) {
-    throw new DecodeError(`tournament_id ${id} is above the API bound ${MAX_TOURNAMENT_ID}`);
+    throw new DecodeError(`${field} ${id} is above the API bound ${MAX_TOURNAMENT_ID}`);
   }
   return id;
 }
+
+/** A u64 that the API serves as a JSON number: below 2^53. */
+const u64 = (value: string | undefined, field: string) => safe(uint(value, 64, field), field);
 
 /**
  * `count` then that many `[task_id, total]` pairs from `data` at `at` (a serialized `Span<QuestTask>` or
@@ -366,5 +442,54 @@ export function decode(
     case "AchievementRetired":
       shape(name, keys, data, 1, 0);
       return { name, achievementId: small(keys[1], 32, "achievement_id") };
+    case "Purchased":
+      // keys game_id, player_id; data day, stake, price (u256), referrer, referral, burned_quote, burned, margin,
+      // supply (u256 each), factor, reference
+      shape(name, keys, data, 2, 17);
+      return {
+        name,
+        gameId: small(keys[1], 32, "game_id"),
+        playerId: felt(keys[2]),
+        day: tournamentId(data[0], "day"),
+        stake: small(data[1], 8, "stake"),
+        price: u256(data, 2, "price"),
+        referrer: felt(data[4]),
+        referral: u256(data, 5, "referral"),
+        burnedQuote: u256(data, 7, "burned_quote"),
+        burned: u256(data, 9, "burned"),
+        margin: u256(data, 11, "margin"),
+        supply: u256(data, 13, "supply"),
+        factor: small(data[15], 32, "factor"),
+        reference: uint(data[16], 128, "reference"),
+      };
+    case "Recorded":
+      shape(name, keys, data, 1, 2);
+      return {
+        name,
+        gameId: small(keys[1], 32, "game_id"),
+        score: small(data[0], 32, "score"),
+        expired: bool(data[1], "expired"),
+      };
+    case "DayClosed":
+      shape(name, keys, data, 1, 4);
+      return {
+        name,
+        day: tournamentId(keys[1], "day"),
+        mean: u64(data[0], "mean"),
+        weight: small(data[1], 32, "weight"),
+        prior: u64(data[2], "prior"),
+        emaAfter: u64(data[3], "ema_after"),
+      };
+    case "Settled":
+      shape(name, keys, data, 2, 4);
+      return {
+        name,
+        gameId: small(keys[1], 32, "game_id"),
+        playerId: felt(keys[2]),
+        day: tournamentId(data[0], "day"),
+        score: small(data[1], 32, "score"),
+        threshold: u64(data[2], "threshold"),
+        reward: uint(data[3], 128, "reward"),
+      };
   }
 }
