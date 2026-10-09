@@ -181,6 +181,7 @@ export function GamePage() {
       clearIntent: () => {}, // already cleared at mount
       open: (gameId) => alive.current && navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
     }).catch((error) => {
+      // Before any WriteError test: PurchaseOutcomeUnknownError extends WriteError, and must keep its no-retry screen.
       if (error instanceof PurchaseOutcomeUnknownError) setUnknownOutcome(error.message);
       else setSpawnError(error instanceof Error ? error.message : String(error));
       setStarting(false);

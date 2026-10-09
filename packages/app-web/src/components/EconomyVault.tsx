@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PAVED_DECIMALS, parseUnits, useAsyncRead } from "@paved/chain";
+import { PAVED_DECIMALS, VaultAmountChangedError, parseUnits, useAsyncRead } from "@paved/chain";
 import type { EconomyClient, EconomyWriter } from "@paved/chain";
 import { paved, usdc } from "../utils/economy-view";
 import { button, confirmButton, input, panel, warning } from "./EconomyStyles";
@@ -28,6 +28,8 @@ export function EconomyVault({
   const balance = useAsyncRead(address ? () => client.views.pavedBalance(address) : null, [client, address], { onVisible: true });
   const [text, setText] = useState("");
   const [pending, setPending] = useState<Pending | null>(null);
+  // The dividends grew between the confirm and the send: say so and ask again with the new amount.
+  const [changed, setChanged] = useState<string | null>(null);
   const typed = parseUnits(text, PAVED_DECIMALS);
   const refresh = [position.refresh, balance.refresh];
   const failed = position.error ?? balance.error;
@@ -35,7 +37,19 @@ export function EconomyVault({
   const confirm = () => {
     if (!pending || !writer || busy) return;
     setPending(null);
-    if (pending.kind === "claim") return write(() => writer.claimDividends({ confirmedAmount: pending.amount }), refresh);
+    setChanged(null);
+    if (pending.kind === "claim") {
+      return write(async () => {
+        try {
+          await writer.claimDividends({ confirmedAmount: pending.amount });
+        } catch (error) {
+          if (!(error instanceof VaultAmountChangedError)) throw error;
+          // Nothing was sent: a new confirm with the amount the chain has now, not a bare error.
+          setChanged(`Your dividends changed from ${usdc(error.confirmed)} to ${usdc(error.current)}: confirm again`);
+          setPending({ kind: "claim", amount: error.current });
+        }
+      }, refresh);
+    }
     // The field again: an edit after the first click is another amount, which the writer refuses.
     const now = parseUnits(text, PAVED_DECIMALS) ?? 0n;
     const send = pending.kind === "stake" ? writer.stake.bind(writer) : writer.unstake.bind(writer);
@@ -72,6 +86,7 @@ export function EconomyVault({
       >
         Claim dividends
       </button>
+      {changed && <span role="status" style={warning}>{changed}</span>}
       {pending && (
         <div role="dialog" aria-label="Confirm" style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid #444", paddingTop: 8 }}>
           <span>
@@ -85,7 +100,14 @@ export function EconomyVault({
             <button type="button" style={confirmButton} disabled={busy} onClick={confirm}>
               {pending.kind === "stake" ? "Confirm stake" : pending.kind === "unstake" ? "Confirm unstake" : "Confirm claim"}
             </button>
-            <button type="button" style={button} onClick={() => setPending(null)}>
+            <button
+              type="button"
+              style={button}
+              onClick={() => {
+                setPending(null);
+                setChanged(null);
+              }}
+            >
               Cancel
             </button>
           </div>

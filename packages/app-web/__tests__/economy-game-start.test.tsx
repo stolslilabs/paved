@@ -4,7 +4,7 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { FakeGameViews, PavedProvider, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
+import { FakeGameViews, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
 import type { PavedClient } from "@paved/chain";
 import { FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "@paved/chain/economy/fake";
 import { GamePage } from "../src/pages/Game";
@@ -91,6 +91,15 @@ describe("GamePage purchase", () => {
     expect(await screen.findByText("Purchase sent (0xab), outcome unknown: check your games before buying again")).toBeTruthy();
     expect(screen.queryByText(/Cannot start a game/)).toBeNull();
     expect(sendCalls).toHaveBeenCalledTimes(1);
+  });
+
+  it("an outcome-unknown error is told apart from its parent WriteError: the no-retry screen, not a failure", async () => {
+    // PurchaseOutcomeUnknownError extends WriteError: the page tests it first.
+    const unknown = new PurchaseOutcomeUnknownError("0xcd");
+    expect(unknown).toBeInstanceOf(WriteError);
+    setup({ state: purchaseIntent(1, 2_000_000n, null), sendError: unknown });
+    expect(await screen.findByText("Purchase sent (0xcd), outcome unknown: check your games before buying again")).toBeTruthy();
+    expect(screen.queryByText(/Cannot start a game/)).toBeNull();
   });
 
   it("a reverted purchase is a known failure: 'Cannot start a game' with its reason", async () => {

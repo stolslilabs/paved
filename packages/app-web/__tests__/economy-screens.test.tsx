@@ -228,6 +228,26 @@ describe("Vault: stake, unstake, dividends, each after a confirm", () => {
   });
 });
 
+describe("dividends that change between the confirm and the send", () => {
+  it("show the new amount and ask for a new confirm, sending nothing until then", async () => {
+    const economy = new FakeEconomy();
+    economy.setVault(PLAYER, { staked: P, pending: 2_500_000n });
+    const { writer } = land({ economy });
+    fireEvent.click(await screen.findByText("Claim dividends"));
+    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Claim 2.5 USDC of dividends?");
+    // A purchase elsewhere pays the Vault meanwhile.
+    economy.setVault(PLAYER, { staked: P, pending: 3_000_000n });
+    fireEvent.click(screen.getByText("Confirm claim"));
+    expect(await screen.findByText("Your dividends changed from 2.5 USDC to 3 USDC: confirm again")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Claim 3 USDC of dividends?");
+    expect(writer.sent).toHaveLength(0);
+    expect(screen.queryByText("The amount changed: confirm again")).toBeNull();
+    fireEvent.click(screen.getByText("Confirm claim"));
+    await waitFor(() => expect(writer.sent).toHaveLength(1));
+    expect(writer.sent[0].map((c) => c.entrypoint)).toEqual(["claim"]);
+  });
+});
+
 describe("after the day: settle with the cliff stated", () => {
   const NOW = settlesAfter(DAY);
   const game = (gameId: number, over: boolean, startTime = DAY * 86400) => ({ mode: "daily", gameId, startTime, tournamentId: DAY, over, score: over ? 4000 : null, countedTournamentId: over ? DAY : null });
