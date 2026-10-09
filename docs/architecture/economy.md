@@ -816,6 +816,91 @@ Two open questions, recorded by P-31. Neither blocks E1. **Until the owner answe
   1,000,000; creating the Ekubo pool and funding its LP (Nums: 800,000 PAVED and 10,000 USDC); who holds the LP
   position and its 5 % fees; staking at launch.
 
+### As built: E2 (`Economy`)
+
+`contracts/src/economy/{economy,curve,mean}.cairo`. `curve` and `mean` hold the arithmetic as pure functions,
+unit tested against the formulas above. `Economy` holds the storage, the calls and the events. Where the code
+differs from the text above, or the text left the choice open, it is written here.
+
+- **Entry points.**
+  - `purchase(game_id, player, day, stake, price, referrer, min_out) -> R` and `record(game_id, score, in_day)`:
+    the game only (`set_game`, one shot, by the owner).
+  - `settle(game_ids) -> minted`: anyone.
+  - `configure(config)` and `set_pool(pool_key, sqrt_ratio_limit)`: the owner.
+  - Views: `quote`, `day`, `terms`, `config`, `ema`, `rate`, `pool`, `addresses`, `owner`.
+- **Who may call `configure`, and its bounds.** The owner named in the constructor calls it. The bounds are those
+  of section 6, checked by `validate`: `burn_bps` 5,000 to 9,000; `sigma_bps` -3,000 to +5,000; `slope_bps`
+  (`c`) 1,000 to 50,000; `cap` (`H`) 1 to 20; `target` (`T`) 100,000 to 10,000,000 PAVED. The constructor's
+  configuration passes the same check. The referral (500 bps), the base price (2 USDC), the stake range (1 to 10)
+  and the parameters of the mean are constants. The mean has no setter.
+- **The owner has no transfer and no upgrade.** The owner can configure and set the pool, and nothing else.
+  `PavedToken`'s minter is set once, so **a fix of `Economy` after its deploy needs a new `PavedToken`**. Reverse:
+  the PM wants an upgradeable `Economy`. That also makes its owner able to mint.
+- **Frozen terms.** A purchase freezes `R`, the day and the curve then in force (`sigma`, `c`, `H`) into the
+  game's terms. A `configure` therefore applies to the next purchase only, the curve included.
+- **The day.** `purchase` refuses any day other than `now / 86400`. A day's prior is the EMA at its first
+  purchase. `record` adds a game to its day's accumulator only if `in_day` holds and the day is not yet closed.
+  The first `settle` of a game of the day closes it: the day's mean is fixed, and the day's average is pushed
+  into the EMA once, with the day's weight capped at the max weight. Days can close in any order. A push is
+  clamped at 4x the EMA at that moment, which binds only if an earlier day closed late and lowered the EMA.
+- **`settle`** reverts on an unknown game, a game not recorded or a day not over. **A game already settled is
+  skipped** (no mint, no event), so that a batch cannot be blocked by someone settling one of its games first.
+- **Nothing is left behind.** In one call, `purchase` pays the referrer, transfers the quote to the router,
+  calls `swap`, then `clear_minimum(PAVED, min_out)` and `clear(USDC)`. It then burns **its whole PAVED
+  balance** and sends **its whole USDC balance** to the Vault. Tests check that `Economy` holds 0 and the router
+  exactly its reserves after every purchase. A donation to `Economy` leaves with the next purchase: its USDC to
+  the Vault, its PAVED burned. `R` counts only what the swap returned. No balance is re-read to assert 0.
+- **The margin goes to the Vault on every purchase**, in the same call, and never in a batch. The referral is
+  taken out of the margin, so the burn stays at `BURN_BPS` (70 %) on every purchase (P-31). A referrer that is
+  the player gets nothing. Checking that a referrer is a registered player is `Lobby`'s job (E3).
+- **The threshold is in milli-points** (`mean x (10_000 + sigma) / 10_000`, with the mean x 1,000). The text
+  above rounds it down to whole points. Keeping the milli-points is closer to `sim.py`.
+- **The price guard.** The guard's initial rate is a constructor argument, in PAVED base units per USDC base
+  unit x 1e18. The deploy passes the pool's launch rate: 800,000 PAVED for 10,000 USDC is 8e31. With 0, the
+  first purchase sets the rate unguarded, which a first buyer could exploit. 0 is used only in the fixture test.
+- **Storage.** Each game's terms take one slot and its outcome another; the player is a third. The
+  configuration, the EMA and each day's accumulator take one packed slot each.
+- **Size.** 22,659 CASM felts (27.7 % of the cap) and 8,326 Sierra felts, release profile. `Daily`, `Tutorial`
+  and `Lobby` are unchanged.
+- **Indexer.** The indexer reads only `Daily`, `Tutorial` and `Account`, so `Economy`'s events need no
+  `IGNORED` entry. E3 decodes them.
+
+**Gate (before any paid game leaves devnet): the mainnet price limit and partial fills are untested.**
+`MockRouter` ignores `sqrt_ratio_limit` and always fills the whole input. On Ekubo, a swap that reaches the limit
+fills only part of its input. `clear(USDC)` then returns the rest to `Economy`, which sends it to the Vault as
+margin. The burn of that purchase then falls below 70 %, and its `R`, which follows the PAVED bought, is smaller.
+`Economy` passes the constructor's `sqrt_ratio_limit` (meant as the extreme bound of the swap direction), so a
+partial fill needs a drained pool. Before the owner's go for a non-local paid game, a fork test against the
+mainnet router must cover the chosen limit and a partial fill (E-9). The mock was left unchanged.
+
+**Gap: the mock's fee stays in its reserves.** `MockRouter` adds the whole input to its reserve, fee included,
+as Uniswap v2 does. Ekubo and `sim.py` keep the fee out of the price curve. E4 recalibrates from real games'
+scores, not from the mock's prices, so it does not need the mock changed. The difference is small: over the 9
+purchases of the fixture, `sim.py`'s pool gives an `R` up to 230 ppm away from the mock's.
+
+**Fixture against `sim.py`** (`test_fixture_matches_sim`). The inputs:
+- the launch pool: 800,000 PAVED and 10,000 USDC, with the 1,000,000 initial supply;
+- the decided configuration, the initial mean 3,353 and no initial rate;
+- two days of games; day 0 is settled before day 1's purchases, and players keep their rewards (`sell = 0`).
+
+The expected values come from a script that imports `sim.py`'s `payout_factor` and `Ema` and runs the purchase
+and day lines of `simulate`, with the pool's fee in its reserves as the mock keeps it. The PAVED bought matches
+to the base unit. `R` and the payout are within 120 ppm; the worst gap measured is 86 ppm. The gap comes from
+`F`, which is in whole basis points: 1 bp of 1x is 100 ppm. The day means are 4,215.689 and 4,387.024 points
+(sim: 4,215.690 and 4,387.025). The EMA after both days is 4,366.567 points.
+
+| Game | Day | Stake | Referred | Score | `R`, sim (PAVED) | `R` gap | Payout, sim (PAVED) | Payout gap |
+|---:|---:|---:|---|---:|---:|---:|---:|---:|
+| 1 | 0 | 1 | no | 5,000 | 107.4611 | 6 ppm | 231.0738 | 6 ppm |
+| 2 | 0 | 3 | yes | 2,000 | 328.6949 | 25 ppm | 0 | exact |
+| 3 | 0 | 10 | no | 15,000 | 1,169.3069 | 86 ppm | 5,846.5346 (cap) | 86 ppm |
+| 4 | 0 | 5 | yes | 50 | 557.2234 | 16 ppm | 0 | exact |
+| 5 | 0 | 2 | no | 4,300 | 216.3582 | 28 ppm | 400.1023 | 27 ppm |
+| 6 | 1 | 4 | no | 6,000 | 438.1808 | 73 ppm | 1,086.5064 | 73 ppm |
+| 7 | 1 | 7 | yes | 9,000 | 788.3495 | 12 ppm | 2,932.1688 | 12 ppm |
+| 8 | 1 | 1 | no | 4,300 | 106.1996 | 17 ppm | 0 | exact |
+| 9 | 1 | 6 | no | 800 | 668.5417 | 50 ppm | 0 | exact |
+
 ## 9. Games as NFTs (D-11, amended D-11b)
 
 The owner's decision, relayed by the PM: every game is an NFT of its own ERC721 contract, `Collection`, with token
