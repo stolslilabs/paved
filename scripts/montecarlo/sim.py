@@ -133,6 +133,8 @@ class Ema:
     def push(self, score, weight, clamp):
         if score < self.min_score:
             return
+        # A step never weighs more than the whole mean (a day of option B may)
+        weight = min(weight, self.max_weight)
         if clamp:
             score = min(score, clamp * self.mean())
         if self.weight < self.max_weight:

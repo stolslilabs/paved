@@ -45,21 +45,21 @@ read from a local checkout that may differ from that revision.
 - **The curve.** `h` is 0 below the threshold `(1 + sigma) x mean`, where the whole stake is lost. Above it, `h` is
   linear in the score, `c x score / threshold`, capped at `H`.
   - Proposed: `sigma = 0`, so the threshold is the mean.
-  - `c` is calibrated so that `E[h] = rho = 0.9` on the score sample. That gives `c = {{SLOPE}}` today.
+  - `c` is calibrated so that `E[h] = rho = 0.9` on the score sample. That gives `c = 1.813` today.
   - Proposed cap: `H = 5`.
 - **The mean.** Nums' weighted mean: weight = stake, scores under 100 left out, cumulative up to a weight of 1,000,
   then an EMA. Two additions: a clamp at 4x the mean, and the initial mean taken from the calibration.
   - **Recommended (option B): each game is settled against the mean of its own day**, blended with the EMA as a
     prior of weight 100. Settlement is one permissionless transaction once the day is over. The reason: every player
-    of a day plays the same deck, and the day's deck moves the mean score by **{{CV}}** from one day to the next
+    of a day plays the same deck, and the day's deck moves the mean score by **50 to 55 %** from one day to the next
     (measured).
   - The fallback (option A, Nums) freezes the EMA at the purchase and mints at game over. It is simpler, but on
     hard days everyone loses: up to 100 % of the games of a day in the simulation.
-- **What the Monte-Carlo shows.** It ran on {{N}} whole Daily games played by bots on the contracts. Real players
+- **What the Monte-Carlo shows.** It ran on 205 whole Daily games played by bots on the contracts. Real players
   are not in it: these are the limits of the sample.
-  - **In steady state the supply factor drives the mint to equal the burn**: mint / burn is {{MINTBURN}}. The house
+  - **In steady state the supply factor drives the mint to equal the burn**: mint / burn is 0.99 in the base runs (0.95 to 1.02 across the runs). The house
     edge is then structural: `1 - 0.7 x 0.95^2 = 36.8 %` (30 % margin, plus the pool fee on the buy and on the
-    player's sale), measured {{EDGE}}.
+    player's sale), measured 37.0 % (option B) and 37.3 % (option A).
   - Of `sigma`, `rho` and `H`, none moves the edge. They only decide **who** loses and where the supply settles:
     `S* = T (2 - 1/rho_eff)`.
 - **Contracts.** The paying logic lives in its own contracts: `PavedToken`, `Economy` (purchase split, swap, burn,
@@ -69,9 +69,17 @@ read from a local checkout that may differ from that revision.
   - **`Daily` grows by 183 CASM felts** (measured on a prototype): the three new arguments of `spawn` and the game id
     passed to `Lobby.report`. It goes from 72,424 to 72,607 (88.6 % of the cap), and nothing in the move code
     changes. That growth goes back to the PM under P-27.
+- **Games as NFTs** (D-11, amended D-11b: every game NFT is soulbound). There is a separate `Collection`
+  contract. It mints the game's token to the player at spawn, from `Lobby`, and serves on-chain JSON metadata. It
+  refuses every transfer and approval. Measured on a prototype:
+  - `Daily` and `Tutorial` are unchanged to the felt, and so is the gas of every move (a0 to l);
+  - a spawn costs **+837,910 L2 gas** (Daily, +2.0 %) and +844,700 (Tutorial, +18.5 %);
+  - `Collection` is 13,070 CASM felts (16 %).
+
+  The player, the leaderboard, the quests and "my games" are unchanged. The indexer reads only the mints. Section 9.
 - **For the owner** (D-3, their decision): **the predictable daily seed makes a paid Daily exploitable.**
   - The day's deck is public, so a player can find the day's best line offline and replay it at stake 10.
-  - Measured in the simulation: such "replayers" get back {{REPLAY}} of what they pay, while everyone else drops to
+  - Measured in the simulation: such "replayers" get back 1.31x to 1.36x of what they pay, while everyone else drops to
     about half.
   - Recommendation: a seed that nobody knows before the purchase (a VRF) before any paid game goes beyond devnet.
 
@@ -184,7 +192,7 @@ payout = R x h(x)                          (PAVED base units)
 - `sigma` (bps on chain) is the **profitability shift** of the threshold: the cliff is at `(1 + sigma) x mean`.
 - `c` is the slope. At the threshold the player gets `c x R`, and at twice the threshold `2c x R`.
 - `H` caps the reward of one game at `H x R`, which bounds the mint per game whatever the score. The cap is a safety
-  net and rarely binds: the 99th percentile of `h` is about {{P99H}}.
+  net and rarely binds: the 99th percentile of `h` is about 4.6 on the sample (0.0 % of the games reach the cap of 5).
 
 On chain, with integers: `threshold = mean x (10_000 + sigma_bps) / 10_000 / 1_000` (points, rounded down);
 `payout = min(R x c_bps x score / (threshold x 10_000), R x H)`; 0 if `score < threshold`. `R` fits in a `u128`
@@ -204,10 +212,10 @@ and the player's expected return is `burn x (1 - fee)^2 = 0.7 x 0.95^2 = 63.2 %`
 `c` or `H` are (section 3). The shift decides how many games lose everything, and `c` how much the others get.
 Proposed values:
 
-- `sigma = 0`: the threshold is the mean. {{BELOW0}} of the sampled games are below it. Negative shifts (a
+- `sigma = 0`: the threshold is the mean. 69 % of the sampled games are below it. Negative shifts (a
   threshold under the mean) lose fewer games and pay them less; positive shifts the reverse. Table in section 3.
-- `rho = E[h] = 0.9` on the sample, which gives `c = {{SLOPE}}`. `rho` sets where the supply settles, not the edge:
-  `S* = T x (2 - 1/rho_eff)`, with `rho_eff = rho x E[k(1+k/100)] / E[k]`. That is about {{SSTAR}} with the stake
+- `rho = E[h] = 0.9` on the sample, which gives `c = 1.813`. `rho` sets where the supply settles, not the edge:
+  `S* = T x (2 - 1/rho_eff)`, with `rho_eff = rho x E[k(1+k/100)] / E[k]`. That is about 947,000 in the limit (`rho_eff` = 0.95; 901,000 after the simulated year) with the stake
   mix of the simulation, a mild deflation from the initial 1,000,000.
 - `H = 5`.
 
@@ -248,7 +256,7 @@ removed: one constant, no other change.
 | Parameter | Nums | Proposed | Why |
 |---|---|---|---|
 | Weight of a game | `multiplier / 1e6`, truncated (a paid game under 1x counts 0) | the stake `k` (1 to 10) | the same intent, without the truncation |
-| Initial mean | 10 (mainnet) | the calibration mean of the sample, {{MEAN}} points, set at deploy | an initial mean far off only costs the first days (the cumulative phase converges) |
+| Initial mean | 10 (mainnet) | the calibration mean of the sample, 3,353 points, set at deploy | an initial mean far off only costs the first days (the cumulative phase converges) |
 | Initial weight | 100 | 100 | |
 | Max weight | 1,000 | 1,000 | an EMA step of `k / 1,000` |
 | Min score | 5 | 100 | a game abandoned or surrendered at 0 does not pull the mean down |
@@ -259,7 +267,9 @@ removed: one constant, no other change.
 Update, as Nums (`models/config.cairo:257-287`):
 
 - While the total weight `W < 1,000`: `sum += s x w'` and `W += w'`, with `w' = min(w, 1,000 - W)`.
-- Then: `sum += w x s - w x sum / W`.
+- Then: `sum += w x s - w x sum / W`, with `w` capped at the max weight (a step never weighs more than the whole
+  mean; option B pushes a whole day at once, which can weigh more than 1,000, and without the cap the EMA diverges:
+  the Monte-Carlo found it).
 - The mean is `sum / W`, stored x 1,000.
 
 In option B the EMA moves once per day, by the day's own mean with the day's weight. It is the prior for the next
@@ -269,7 +279,7 @@ day, and the mean in option A.
 
 ### The sample
 
-**What it is.** {{N}} whole Daily games (38 tiles, real draws, real placements), played on the contracts by bots:
+**What it is.** 205 whole Daily games (38 tiles, real draws, real placements), played on the contracts by bots:
 
 | Bot | What it does |
 |---|---|
@@ -278,14 +288,14 @@ day, and the mean in option A.
 | novice | a random legal position, a character on half of the moves |
 | bare | greedy, never a character (5 games, a check) |
 
-The days are 11 to {{LASTDAY}}, each a different deck.
+The days are 11 to 60, each a different deck.
 
 **How it was played.** A test placed outside this PR (`scripts/montecarlo/sampler.cairo`, a copy of the
 `test_full_deck_generate` bot with these strategies) plays one game per `snforge` run, as `OPERATIONS.md` requires
 for game generation. The run reads the day, the strategy and the seed from the environment. The greedy bot on day
 10 reproduces the golden's 3,554 exactly, which validates the harness.
 
-Each run measured about 20 s and 4.6 to 5.0 GB peak RSS on the VPS (scarb 2.20.1, snforge 0.64.0,
+Each run measured 13 to 40 s and 4.6 to 5.0 GB peak RSS (205 runs, none failed) on the VPS (scarb 2.20.1, snforge 0.64.0,
 `RAYON_NUM_THREADS=1`, `prlimit --as=8589934592`, `--max-n-steps 200000000`).
 
 The output is `scripts/montecarlo/scores.csv`.
@@ -298,7 +308,7 @@ The output is `scripts/montecarlo/scores.csv`.
   (5 to 11 tiles) with forced plans, and their scores say nothing about a whole game.
 - No devnet games were played. The bots run the same contract code on snforge, which is what devnet would run, at
   a fraction of the cost.
-- The sample is too small for the tail. With {{N}} games, the 99th percentile of the score rests on a handful of
+- The sample is too small for the tail. With 205 games, the 99th percentile of the score rests on a handful of
   games, hence the cap `H`.
 - The model has no outside trader. Every player sells their whole reward at once, and nobody else trades the pool,
   so the pool price drifts up (`price end / start` in the tables). This shows the buy pressure; it is not a forecast.
@@ -309,7 +319,7 @@ give the distribution, and `c`, `sigma` and `mean0` are re-derived with the same
 
 ### Script and output
 
-`python3 -I scripts/montecarlo/sim.py` (standard library only, fixed seeds, about 20 s). It prints the tables
+`python3 -I scripts/montecarlo/sim.py` (standard library only, fixed seeds, about 40 s; two runs give the same output byte for byte). It prints the tables
 below; `scripts/montecarlo/output.md` is its committed output for the sample.
 
 What it models, per game:
@@ -327,11 +337,87 @@ to `1/k`.
 
 ### Results
 
-{{RESULTS}}
+From `scripts/montecarlo/output.md` (the full output, every run of both options).
+
+**The sample.**
+
+| Bot | Games | Mean | Median | Min | Max | Zero scores |
+|---|---:|---:|---:|---:|---:|---:|
+| greedy | 50 | 3,640 | 3,446 | 0 | 8,074 | 2 |
+| noisy | 100 | 2,965 | 2,443 | 0 | 9,062 | 14 |
+| novice | 50 | 287 | 0 | 0 | 1,755 | 37 |
+| bare (no character) | 5 | 0 | 0 | 0 | 0 | 5 |
+
+The day effect: the mean of the greedy bot's day is 3,640 with a standard deviation of 1,992 over 50 days (55 %); for
+the noisy bot, 2,965 and 1,495 (50 %). The same bot on the same rules scores twice as much on one day's deck as on
+another's.
+
+**Calibration** (`E[h] = rho` on the population 25 % greedy, 50 % noisy, 25 % novice; mean as the contract tracks it,
+scores under 100 left out: 3,353; cap 5):
+
+| sigma | games below the threshold | `c` for rho 0.8 | rho 0.9 | rho 1.0 |
+|---:|---:|---:|---:|---:|
+| -0.3 | 56 % | 0.921 | 1.036 | 1.151 |
+| -0.2 | 62 % | 1.131 | 1.272 | 1.414 |
+| -0.1 | 64 % | 1.312 | 1.476 | 1.640 |
+| 0 | 69 % | 1.612 | **1.813** | 2.022 |
+| +0.1 | 72 % | 1.916 | 2.159 | 2.429 |
+| +0.2 | 74 % | 2.144 | 2.421 | 2.736 |
+| +0.3 | 76 % | 2.497 | 2.843 | 3.276 |
+
+At the proposed point (`sigma` 0, `rho` 0.9, `c` 1.813), `h` has median 0, p90 3.16, p99 4.60, and no game of the
+sample reaches the cap.
+
+**Runs** (365 days x 200 games; "return" is what a player gets back in USDC per USDC paid, after selling the reward;
+"lost per day" is the share of a day's games that pay nothing, p10 to p90 over the days):
+
+| Run | mint / burn | house edge | games lost | lost per day | return p90 | p99 | supply after a year | greedy | noisy | novice | replayer |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| A, base | 0.989 | 37.3 % | 69 % | 46-100 % | 2.13 | 3.08 | 905k | 0.99 | 0.75 | 0.00 | |
+| **B, base** | 0.988 | 37.0 % | 66 % | 48-78 % | 2.00 | 2.58 | 901k | 1.05 | 0.73 | 0.00 | |
+| B, sigma -0.2 | 0.996 | 36.7 % | 56 % | 26-76 % | 1.68 | 2.17 | 961k | 1.08 | 0.71 | 0.02 | |
+| B, sigma +0.2 | 0.950 | 38.7 % | 76 % | 50-100 % | 2.53 | 3.27 | 706k | 0.93 | 0.76 | 0.00 | |
+| B, rho 0.8 | 0.963 | 37.9 % | 66 % | 48-78 % | 1.98 | 2.55 | 762k | 1.04 | 0.72 | 0.00 | |
+| B, rho 1.2 | 1.016 | 36.2 % | 66 % | 48-78 % | 2.04 | 2.64 | 1,217k | 1.06 | 0.74 | 0.00 | |
+| B, cap 2 | 0.919 | 39.3 % | 66 % | 48-78 % | 1.81 | 1.93 | 621k | 1.05 | 0.68 | 0.00 | |
+| B, stakes all 1 | 0.954 | 39.1 % | 68 % | 47-100 % | 2.07 | 2.67 | 823k | 0.96 | 0.73 | 0.00 | |
+| B, stakes all 10 | 0.999 | 36.5 % | 64 % | 48-78 % | 2.00 | 2.68 | 988k | 1.09 | 0.72 | 0.00 | |
+| B, pool depth x0.1 | 0.940 | 40.3 % | 66 % | 48-78 % | 1.90 | 2.60 | 956k | 0.99 | 0.69 | 0.00 | |
+| B, players keep half their reward | 0.963 | 37.9 % | 66 % | 48-78 % | 1.97 | 2.50 | 948k | 1.04 | 0.72 | 0.00 | |
+| B, all greedy | 0.943 | 38.0 % | 50 % | 0-100 % | 1.31 | 1.42 | 698k | 0.62 | | | |
+| B, half novices | 0.984 | 37.3 % | 76 % | 62-87 % | 2.57 | 3.67 | 873k | 1.60 | 1.10 | 0.00 | |
+| A, 10 % replayers | 1.008 | 36.6 % | 69 % | 42-100 % | 1.73 | 2.46 | 1,096k | 0.65 | 0.51 | 0.00 | 1.31 |
+| B, 10 % replayers | 1.011 | 36.5 % | 64 % | 45-72 % | 1.48 | 1.81 | 1,145k | 0.62 | 0.50 | 0.00 | 1.36 |
+| B, 30 % replayers | 1.016 | 36.8 % | 55 % | 42-61 % | 1.10 | 1.30 | 1,265k | 0.37 | 0.31 | 0.00 | 0.94 |
+| B, target 500k | 0.785 | 41.8 % | 66 % | 48-78 % | 1.88 | 2.44 | 456k | 0.98 | 0.67 | 0.00 | |
+| B, 20 games a day | 0.959 | 39.1 % | 67 % | 35-100 % | 2.03 | 2.79 | 920k | 0.99 | 0.70 | 0.00 | |
+| B, prior weight 20 | 0.996 | 36.6 % | 64 % | 47-78 % | 1.93 | 2.49 | 965k | 1.09 | 0.72 | 0.00 | |
+| B, prior weight 1,000 | 0.987 | 37.5 % | 68 % | 46-100 % | 2.08 | 2.93 | 887k | 1.00 | 0.74 | 0.00 | |
+
+The initial mean (x0.5 or x2) and the max weight (100 instead of 1,000) change nothing visible after a year (rows in
+the output). The median return is 0 in every run: more than half the games lose their stake, as D-10 asks.
 
 ### What the figures say
 
-{{READING}}
+- **The house edge is structural.** In every run where the supply has time to settle, mint / burn is close to 1
+  and the house edge is 36.2 % to 37.9 %. That is the analytic `1 - 0.7 x 0.95^2 = 36.8 %`: 30 points of margin (to
+  the Vault and the referrers), 3.5 points of pool fee on the buy, 3.3 points of pool fee on the player's sale. The
+  edge is higher only where the supply has not settled within the year: a low target (500k: 41.8 %), a thin pool
+  (40.3 %), a low cap (39.3 %), or few games (20 a day: 39.1 %). In those runs the token is still deflating.
+- **The supply factor is the regulator.** `rho` moves the supply after a year (762k at 0.8, 1,217k at 1.2), not
+  the edge. Its value is a choice of where the supply sits, and 0.9 keeps it a little under the initial million.
+- **`sigma` chooses who loses.** From -0.2 to +0.2, the share of games lost goes from 56 % to 76 % and the p99
+  return from 2.17 to 3.27; the edge stays at 36.7 to 38.7 %. D-10 asks for a cliff at the profitability-shifted
+  mean; 0 puts it at the mean. A negative shift is gentler on the median player at no cost to the house.
+- **Skill pays, as it should.** The greedy bot gets back 1.05 per USDC (option B), the noisy bot 0.73, the novice
+  nothing. With half the population novices, the greedy bot earns 1.60: a skilled player gains from weaker ones.
+- **Option B is fairer by day.** With option A, on a hard deck every game of the day loses (p90 of 100 %); with B
+  the share of a day's games lost stays between 48 % and 78 %, and the p99 return falls from 3.08 to 2.58. The cost
+  is the settlement after the day. With few games a day (20), B's day mean is noisy; a prior weight of 100 (about 30
+  games at the mean stake) is the proposed compromise.
+- **Replay is the hole (E-1).** A player who replays the best known line of the day at stake 10 gets back 1.31x to
+  1.36x what they pay with 10 % of the games theirs, and drags everyone else to about half. At 30 % they fall back
+  under 1 (0.94) because the mean adapts, but the others then get 0.31 to 0.37.
 
 ## 4. The Vault
 
@@ -423,13 +509,15 @@ refuses `MockRouter` and `MockUSDC` on any non-local network, as it refuses the 
 
 | Contract | Holds | Deployed? | Size (CASM felts, release) |
 |---|---|---|---|
-| `Daily` | the game; `spawn(stake, referrer, min_out)`; storage gains the `Economy` address (constructor) | yes | **72,607, measured** on a prototype (main 72,424, +183; 88.6 %; margin to 90 %: 1,121) |
+| `Daily` | the game; `spawn(stake, referrer, min_out)`; no constructor change: `Lobby` reads the `Economy` address from `Account`, as the `Collection`'s (section 9; a constructor argument would cost about 92 felts, measured there) | yes | **72,607, measured** on a prototype (main 72,424, +183; 88.6 %; margin to 90 %: 1,121) |
 | `Tutorial` | unchanged behaviour (free); its call to `Lobby.spawn` passes zeros | yes | 66,704, measured (+15) |
 | `Lobby` | spawn: one `transferFrom`, one call to `Economy.purchase`; game over: one call to `Economy.record`; stops feeding the prize from entries | declared | 58,636 on main; about +1,000 (estimate; a prototype with heavier stubs measured +2,353) |
 | `Economy` (new) | the split, the swap, the burn, the terms per game, the mean and the days, settlement and mint, the configuration, the views | yes | estimate 15,000 to 30,000 (20 to 37 %), measured in its PR |
 | `PavedToken` (new) | OpenZeppelin ERC20, `mint` by `Economy` only, `burn` of one's own balance | yes | estimate 5,000 to 8,000 |
 | `Vault` (new) | stakes in PAVED, dividends in USDC (section 4) | yes | estimate 5,000 to 8,000 |
 | `MockRouter`, `MockUSDC` (new) | devnet and tests only | devnet only | estimate under 6,000 each |
+| `Collection` (new, D-11b) | the soulbound ERC721 of the games: mint at spawn, `token_uri` (section 9) | yes | **13,070, measured** (16.0 %) |
+| `Account` | the registry of the addresses `Lobby` needs: the `Collection` (measured: 3,329, +450) and the `Economy` (the same shape, one more slot) | yes | 3,329 with the `Collection`, measured (+450) |
 
 Rule P-27 holds: **nothing is added to the move code of `Daily`**, and its paying path is outside the class.
 
@@ -512,7 +600,7 @@ lot as the contract**, per O-39's lesson.
 | A game's terms | `Economy.terms(game_id) -> TermsView { stake, reference, day, score, settled, reward }` |
 | Settlement | `Economy.settle(game_ids)`; the client offers it after the day, and the indexer lists the unsettled games |
 | Prize | the daily top-3 prize no longer grows with entries (section 7): sponsor-only |
-| Deployments | `contracts/deployments/<network>.json` gains `Economy`, `PavedToken`, `Vault` (and `MockRouter`, `MockUSDC` on devnet); `token` becomes USDC; ABIs `Economy.json`, `PavedToken.json`, `Vault.json` |
+| Deployments | `contracts/deployments/<network>.json` gains `Economy`, `PavedToken`, `Vault`, `Collection` (and `MockRouter`, `MockUSDC` on devnet); `token` becomes USDC; ABIs `Economy.json`, `PavedToken.json`, `Vault.json`, `Collection.json` |
 
 ## 7. What #181 left, reused and avoided
 
@@ -538,8 +626,8 @@ economy at all.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| E-1 | **Predictable daily seed** (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get {{REPLAY}} of their price; at 10 % of the games the others drop to about half | **The owner's decision**: a seed nobody knows before the purchase (Cartridge VRF on mainnet, a mock on devnet) before a paid game leaves devnet. Option B already blends the replayers into the day's mean, which limits them as their share grows |
-| E-2 | **Day effect**: one deck per day; the mean score moves {{CV}} from day to day | Option B (the day's own mean). With option A, the share of a day's games lost spans {{LOSTA}} |
+| E-1 | **Predictable daily seed** (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.31x to 1.36x of their price; at 10 % of the games the others drop to about half | **The owner's decision**: a seed nobody knows before the purchase (Cartridge VRF on mainnet, a mock on devnet) before a paid game leaves devnet. Option B already blends the replayers into the day's mean, which limits them as their share grows |
+| E-2 | **Day effect**: one deck per day; the mean score moves 50 to 55 % from day to day | Option B (the day's own mean). With option A, the share of a day's games lost spans 46 % to 100 % (p10 to p90 over the days), against 48 % to 78 % with option B |
 | E-3 | Bot sample, not players | Recalibrate on the first real games (PR E4); `c`, `sigma`, `H`, `T` are configurable within bounds |
 | E-4 | Thin pool or self-sandwich | `min_out` from the player; the rate guard (+10 %); a launch LP of at least ~10,000 USDC (the owner's act) |
 | E-5 | `Daily` at 88.6 % after P8 (1,121 felts to 90 %) | P8 adds nothing more to `Daily`; growth of the move code goes to the PM (P-27); fallbacks (a) or (c2) of `class-headroom.md` |
@@ -547,6 +635,7 @@ economy at all.
 | E-7 | USDC that arrives while nobody stakes goes to the first staker | The owner stakes at launch |
 | E-8 | New dependency: an OpenZeppelin ERC20 (`openzeppelin_token`, pinned to a published version that builds with Scarb 2.20.1) | The PM decides; the alternative is our own ERC20, as the mock's |
 | E-9 | Ekubo interface drift | Local ABI-compatible declarations; a fork test against the mainnet router before the owner's mainnet go |
+| E-11 | A wallet or indexer does not show the games, or shows a transfer button that then fails | Standard ERC721 surface with SRC5 ids, the camelCase twins and the `Transfer` event at mint; no Starknet standard for "soulbound" exists (section 9) |
 | E-10 | A paid game of skill with token rewards may be regulated in places | Out of this track's scope; for the owner |
 
 ### Audits (OPERATIONS)
@@ -616,7 +705,7 @@ Not stacked: each one branches from main and targets main.
   - `scripts/deploy.sh devnet` deploys and wires everything;
   - the indexer decodes the new events.
 - Allowlist:
-  - `contracts/src/systems/{daily,lobby,tutorial}.cairo`, `contracts/src/components/hostable.cairo`,
+  - `contracts/src/systems/{daily,lobby,tutorial,account}.cairo`, `contracts/src/components/hostable.cairo`,
     `contracts/src/types/mode.cairo`, `contracts/src/constants.cairo`;
   - test setups and e2e tests, `contracts/tests/gas.cairo`;
   - `scripts/deploy.sh`, `contracts/deployments/{README.md,devnet.json}`, `contracts/abis/{Daily,Tutorial}.json`;
@@ -638,6 +727,28 @@ Not stacked: each one branches from main and targets main.
   them by `configure`.
 - Allowlist: `scripts/montecarlo/**` and this document.
 - Audit: economy.
+
+**E5. Games as NFTs (section 9).**
+- Goal: `Collection`, the mint at spawn in `Lobby`, and `Account`'s registry of the collection address. It can
+  land before or after E1 to E4, since it touches no paying path.
+- Allowlist:
+  - `contracts/src/systems/collection.cairo` (new);
+  - `contracts/src/systems/{account,lobby}.cairo`, `contracts/src/store.cairo` (the `account()` accessor),
+    `contracts/src/lib.cairo`;
+  - test setups and the e2e and gas tests;
+  - `scripts/deploy.sh`, `contracts/deployments/{README.md,devnet.json}`, `contracts/abis/{Collection,Account}.json`,
+    `scripts/abis.sh`;
+  - `packages/indexer/**` (the mint).
+- Acceptance:
+  - `Daily` and `Tutorial` class sizes identical to main;
+  - a0 to l identical to main;
+  - spawn gas reported (prototype: +837,910 Daily, +844,700 Tutorial, test profile);
+  - `transfer_from`, `safe_transfer_from`, `approve` and `set_approval_for_all` revert for every token, minted or not;
+  - `mint` reverts for anyone but `Daily` (Daily ids) and `Tutorial` (Tutorial ids);
+  - `set_minters` and `set_collection` are one shot;
+  - `token_uri` decodes to the JSON of section 9 for a running and a finished game;
+  - `supports_interface` is true for SRC5, ERC721 and ERC721 metadata.
+- Audit: security (minters, the one-shot setters, no transfer path, no receiver callback at mint).
 
 **CLIENT** (their track, through the PM): the stake selector, the USDC approval, the quote, the settle button and the
 Vault screens.
@@ -661,3 +772,154 @@ Vault screens.
 - **The owner's acts**, unchanged by this design: deploying PAVED on a public network and distributing the initial
   1,000,000; creating the Ekubo pool and funding its LP (Nums: 800,000 PAVED and 10,000 USDC); who holds the LP
   position and its 5 % fees; staking at launch.
+
+## 9. Games as NFTs (D-11, amended D-11b)
+
+The owner's decision, relayed by the PM: every game is an NFT of its own ERC721 contract, `Collection`, with token
+id = game id, so that games are visible in a standard way in any wallet. One day the image will be the board itself
+(an on-chain render, a later task). **D-11b makes every game NFT non-transferable (soulbound), paid games
+included**, and drops D-11's owner checks, transfer-time payouts and Transfer indexing.
+
+### Design
+
+- **Who owns a game never changes.** The player bound at spawn (`game.player_id`, the caller of `spawn`, a
+  registered `Account`) is the token's owner for the game's whole life. No action calls `owner_of`: `build`,
+  `discard`, `surrender`, game over and claim keep checking the player as today. **`Daily`'s move code and gas are
+  unchanged** (measured below), so P-27's margin is untouched.
+- **Mint at spawn, from `Lobby`.**
+  - `Lobby.spawn` runs as `Daily` or `Tutorial` (library call), so the `Collection` sees `Daily` or `Tutorial` as
+    its caller, the two minters.
+  - The token goes to the player. It is a plain mint, not a "safe" mint, so there is no `on_erc721_received` callback
+    into the player's account during a spawn.
+- **Token ids.** `Daily` and `Tutorial` each count their own game ids (`store.uuid()` in their own storage), so the
+  same id exists twice. A Daily game's token id is its game id. A Tutorial game's token id is `2^32 + game id`
+  (Glitchbomb reserves a range the same way, `REWARD_OFFSET`). The `Collection` routes `mint` and `token_uri` by that
+  range.
+- **Soulbound.**
+  - `transfer_from`, `safe_transfer_from`, `approve` and `set_approval_for_all` revert (`Collection: soulbound`) for
+    every token.
+  - `get_approved` is always zero and `is_approved_for_all` always false.
+  - There is no burn.
+- **`token_uri` (and `tokenURI`).** It returns `data:application/json;base64,` + base64 of:
+  ```json
+  {"name":"Paved Games #<id>","description":"A game of Paved.","attributes":[
+    {"trait_type":"Score","value":<score>},{"trait_type":"Over","value":<true|false>},
+    {"trait_type":"Day","value":<start_time / 86400, the tournament day>}]}
+  ```
+  It reads the `game` view of `Daily` or `Tutorial` by the token's range. There is no `image` until the board
+  render; wallets show their placeholder. The prototype's output decodes to exactly this JSON (test p below).
+- **How `Lobby` finds the `Collection` without touching `Daily` or `Tutorial`.** Both already know the `Account`
+  contract (`store.account`, read at every spawn).
+  - `Account` gains the `Collection` address: `set_collection`, owner only, one shot, plus a `collection()` view.
+  - `Lobby` reads it at spawn.
+  - The alternative, a constructor argument of `Daily` and `Tutorial`, was measured at +92 felts in `Daily`.
+- **Deploy.** `Account`, then `Collection(owner)`, then `Daily` and `Tutorial`. Then, as the owner:
+  `Account.set_collection(collection)` and `Collection.set_minters(daily, tutorial)`, each one shot.
+
+### Measured
+
+Prototype on main `f6545ba` (exported with `git archive` outside the worktree, not committed):
+- `contracts/src/systems/collection.cairo` as designed above: our own minimal ERC721, no OpenZeppelin dependency,
+  SRC5 and the camelCase twins included;
+- the `Account` registry and the mint in `Lobby.spawn`.
+
+Sizes come from `scripts/class-sizes.sh` (release, `RAYON_NUM_THREADS=1`, `prlimit --as=8589934592`). Gas comes from
+the gas suite in the test profile (the CI's): `snforge test gas:: --max-threads 1` under the same cap, peak RSS
+5.2 GB. Three tests were added to both the prototype and a copy of main:
+- n: a second Daily spawn;
+- o: a Tutorial spawn;
+- p: the token's owner, the soulbound reverts and `token_uri`.
+
+| Class (CASM felts, release) | main | with NFTs | Change |
+|---|---:|---:|---:|
+| `Daily` | 72,424 | **72,424** | **0** |
+| `Tutorial` | 66,689 | **66,689** | **0** |
+| `Lobby` | 58,636 | 58,986 | +350 |
+| `Account` | 2,879 | 3,329 | +450 |
+| `Collection` (new) | | 13,070 (16.0 %) | |
+
+| L2 gas (test profile) | main | with NFTs | Change |
+|---|---:|---:|---:|
+| a0, a, b, c, d, e, f (moves), l (game over on `build`) | 5,626,085 ... 6,111,335 | identical to the unit | 0 |
+| g, h, i, k (closing moves by `surrender`), j (view) | 2,060,599 ... 370,628 | identical to the unit | 0 |
+| n: Daily `spawn` | 40,983,345 | 41,821,255 | **+837,910 (+2.0 %)** |
+| o: Tutorial `spawn` | 4,555,211 | 5,399,911 | **+844,700 (+18.5 %)** |
+| p: `token_uri` (a view, free off chain) | | 22,359,558 | |
+
+What the mint pays: one view call to `Account`, one call to the `Collection`, two new storage slots (owner, balance)
+and the `Transfer` event. These parts were not measured one by one.
+
+Test p also checks that `transfer_from` and `approve` revert for the owner's own token. The implementation tests
+every entry point and every token (E5).
+
+`token_uri` is heavy because of the base64 in Cairo. That matters only to a contract that calls it; wallets read it
+off chain. A `data:application/json;utf8,` URI would skip the base64, but percent-escaping is then needed for the
+quotes and braces, and support for it is less certain than for base64.
+
+### What wallets need, and what was found where
+
+- **ERC721 through SRC5, not EIP-165.** Starknet's ERC721 declares its interfaces with SRC5. The ids are
+  OpenZeppelin's:
+  - `ISRC5_ID = 0x3f918d17e5ee77373b56385708f855659a07f75997f365cf87748628532a055`;
+  - `IERC721_ID = 0x33eb2f84c309543403fd69f0d0f363781ef06ef6faeb0131ff16ea3175bd943`;
+  - `IERC721_METADATA_ID = 0xabbcd595a567dce909050a1038e055daccb3c42af06f0add544fa90ee91f25`.
+
+  They come from `openzeppelin_interfaces` 2.2.0 (`src/introspection.cairo`, `src/token/erc721.cairo`, in the Scarb
+  cache of the VPS) and OpenZeppelin's Cairo docs (https://docs.openzeppelin.com/contracts-cairo/0.10.0/erc721).
+  **Yes, they must still be claimed**: a soulbound token still implements the ERC721 read surface, and
+  `supports_interface` answers true for all three (prototype).
+- **The camelCase twins.** OpenZeppelin ships `IERC721CamelOnly` and `IERC721MetadataCamelOnly` (`balanceOf`,
+  `ownerOf`, `tokenURI`), because older Starknet wallets and indexers call them. The prototype exposes the read ones.
+- **Wallets list NFTs from indexers that follow the standard `Transfer` event.** The mint emits
+  `Transfer(from: 0, to, token_id)` with all three fields as keys, OpenZeppelin's layout. Without it the token may
+  never show.
+
+  **No official document of Ready (ex-Argent) or Braavos was found** that lists what a contract needs to be
+  displayed. The points above are pieced together from OpenZeppelin's docs and community templates (for example
+  https://github.com/nvthaovn/Starknet-ERC721-Cairo-1, which claims ArgentX, Braavos, Starkscan, Element, Unframed and
+  Pyramid). A devnet cannot prove it, since the wallets' indexers do not watch it. The check is on the owner's first
+  public deploy.
+- **Metadata JSON** follows the ERC721 metadata schema as OpenSea documents it (https://docs.opensea.io/docs/metadata-standards):
+  - `name`, `description`, `image`, and traits under `attributes` (`trait_type`, `value`);
+  - a contract may return the JSON on chain, which is the `data:application/json;base64,` form.
+- **Soulbound display.**
+  - Ethereum has ERC-5192 (https://eips.ethereum.org/EIPS/eip-5192): `locked(tokenId)`, `Locked` and `Unlocked`
+    events, detected through EIP-165. Its own discussion notes that marketplaces follow the events, not the view.
+  - **No Starknet (SNIP or SRC5) equivalent was found.** A Starknet wallet therefore shows a game as an ordinary NFT,
+    and a transfer started from the wallet reverts with `Collection: soulbound`.
+  - Adding a `locked()` view with no recognised interface id would buy nothing today, so it is left out until a
+    Starknet standard exists.
+
+### Identity, leaderboard, quests, indexer, client
+
+- **Identity is unchanged.** The player is the caller of `spawn` (a registered `Account`) and stays the token's
+  owner. The leaderboard, the quests and achievements, and the `Account` names are unchanged.
+- **Indexer.** It adds the `Collection` address and reads only its mints, `Transfer` with `from = 0`, which give the
+  token id of each game. A `Transfer` with `from != 0` cannot happen; if one appears, the indexer halts, as for any
+  event its rules exclude (a contract changed under it). "My games" is unchanged: by player, as today. The new
+  event comes in the same lot as the contract (O-39).
+- **Client.** Nothing is required. It may link a game to its token (contract address and token id).
+- **`Lobby`.** It holds the mint, in `spawn`, and that is its only change. `Daily` and `Tutorial` hold nothing of it.
+
+### Security audit (OPERATIONS)
+
+D-11b removes the ownership checks, so the audit covers what remains:
+- the minter check by id range (only `Daily` mints Daily ids, only `Tutorial` mints Tutorial ids);
+- the one-shot owner setters (`Collection.set_minters`, `Account.set_collection`);
+- no transfer path at all: the four entry points revert, and there is no internal transfer;
+- no burn;
+- no receiver callback at mint;
+- `token_uri` is read-only and calls only the two game contracts' views;
+- `Account`'s new storage does not overlap the player storage of the `paved` storage node.
+
+### For the record: D-11 as first written
+
+These were measured before D-11b, on the same base, and are kept in case transfers come back.
+
+- **The owner check of Glitchbomb** (`owner_of` on every action, `Play.assert_caller_is_owner`) puts one external
+  call into `build`. Measured:
+  - +239,330 L2 gas on every move (a: 5,112,405 -> 5,351,735, +4.7 %; l: +3.9 %; two gas ceilings fail);
+  - `Daily` +339 felts.
+- **A cached owner** (the `Collection` rewrites `game.player_id` through a `Daily.transfer_game` hook at each
+  transfer) kept every move identical to main, at a cost of `Daily` +333 felts (+241 for the hook's wrapper).
+- D-11b makes both unnecessary.

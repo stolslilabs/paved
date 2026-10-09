@@ -1,6 +1,11 @@
-//! Prototype for the P8 calibration (not committed): plays one whole Daily game with a bot and
-//! prints its final score. DAY (day index), STRATEGY (0 greedy, 1 random legal, 2 greedy without
-//! characters, 3 random legal without characters, 4 greedy with random ties), SEED (bot randomness) come from the environment.
+//! The bot that played the games of `scores.csv` (P8 calibration, docs/architecture/economy.md section 3).
+//! A reference copy, not compiled by the package. To run it, place it at
+//! `contracts/src/tests/golden/sampler.cairo`, add `pub mod sampler;` to `contracts/src/tests/golden.cairo`, make
+//! `edge_table`, `edge`, `key` and `fits` of `golden/full_deck.cairo` public, then, one game per run:
+//!     DAY=11 STRATEGY=0 SEED=0 snforge test --ignored test_sampler --max-n-steps 200000000
+//! Strategies: 0 greedy (the full-deck golden's bot), 1 random legal with characters on half the moves,
+//! 2 greedy without characters, 3 random legal without characters, 4 greedy with random ties. SEED drives the
+//! bot's own randomness; DAY picks the deck of the day.
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
