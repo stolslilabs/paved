@@ -42,14 +42,14 @@ const spawnedEvent = (gameId: number) => ({
   data: ["0x1", `0x${DAY.toString(16)}`, "0x1", "0x0"],
 });
 
-function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () => Promise<{ transaction_hash: string }> } = {}) {
+function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () => Promise<{ transaction_hash: string }>; wait?: () => Promise<unknown> } = {}) {
   const economy = new FakeEconomy();
   const gameViews = new FakeGameViews();
   gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
   const rpc = {
     callContract: async () => [],
     getEvents: async () => ({ events: [] }),
-    waitForTransaction: async () => ({ execution_status: "SUCCEEDED", events: options.receiptEvents ?? [spawnedEvent(9)] }),
+    waitForTransaction: options.wait ?? (async () => ({ execution_status: "SUCCEEDED", events: options.receiptEvents ?? [spawnedEvent(9)] })),
   } as unknown as PavedRpc;
   const execute = vi.fn(options.execute ?? (async () => ({ transaction_hash: "0x1" })));
   const client = new PavedClient(base, rpc, createCodecs(), gameViews);
@@ -188,6 +188,20 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     expect((error as PurchaseOutcomeUnknownError).transactionHash).toBe("0x1");
     expect((error as Error).message).toBe("Purchase sent (0x1), outcome unknown: check your games before buying again");
     expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  test("sent, then the receipt wait throws (timeout, RPC drop): outcome unknown with the hash; a revert stays a failure", async () => {
+    const dropped = setup({ wait: async () => Promise.reject(new Error("socket hang up")) });
+    const error = await dropped.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(PurchaseOutcomeUnknownError);
+    expect((error as PurchaseOutcomeUnknownError).transactionHash).toBe("0x1");
+
+    const reverted = setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: "Economy: slippage" }) });
+    const revert = await reverted.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+    expect(revert).toBeInstanceOf(WriteError);
+    expect(revert).not.toBeInstanceOf(PurchaseOutcomeUnknownError);
+    expect((revert as WriteError).reverted).toBe(true);
+    expect((revert as Error).message).toBe("Economy: slippage");
   });
 
   test("a failed read sends nothing", async () => {

@@ -75,8 +75,9 @@ Stake and unstake check the amount handed over against the confirmed one (`Vault
 chain: the PAVED balance for a stake, the staked amount for an unstake. The player's consent for both is the confirm of the
 Vault screen (part b), which shows the amount and hands over the field read again at the click.
 
-**Sent, outcome unknown.** A purchase whose receipt arrives without a `GameSpawned` was sent and may have spent USDC: it is
-not a failure. The writer throws `PurchaseOutcomeUnknownError` with the transaction hash. The game page shows "Purchase
+**Sent, outcome unknown.** A purchase that was sent but whose receipt could not be read (the wait timed out, the RPC
+dropped), or whose receipt arrives without a `GameSpawned`, may have spent USDC: it is not a failure. A reverted receipt
+stays a `WriteError` (`reverted` true): that one is a known failure. The writer throws `PurchaseOutcomeUnknownError` with the transaction hash. The game page shows "Purchase
 sent (hash), outcome unknown: check your games before buying again", offers no retry, and the consent is already gone, so
 nothing buys again without a new confirm.
 
