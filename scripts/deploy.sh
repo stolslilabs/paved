@@ -262,6 +262,13 @@ invoke "$PAVED" set_minter "$ECONOMY" >/dev/null
 [[ "$(hex_int "$(call "$PAVED" minter)")" == "$(hex_int "$ECONOMY")" ]] || die "PavedToken.minter() is not Economy"
 [[ "$(hex_int "$(call "$PAVED" admin)")" == 0 ]] || die "PavedToken.admin() is not zero after set_minter"
 echo "   PavedToken: minter Economy, admin 0"
+# The whole initial supply is in the pool and the Vault: 1,000,000 PAVED, none left with the deployer.
+read -r SUPPLY_LOW SUPPLY_HIGH <<<"$(call "$PAVED" total_supply)"
+[[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$SUPPLY_LOW" "$SUPPLY_HIGH")" == "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")" ]] ||
+  die "PavedToken.total_supply() is not 1,000,000 PAVED"
+read -r HELD_LOW HELD_HIGH <<<"$(call "$PAVED" balance_of "$DEPLOYER")"
+[[ "$(hex_int "$HELD_LOW")" == 0 && "$(hex_int "$HELD_HIGH")" == 0 ]] || die "the deployer still holds PAVED after the pool and the stake"
+echo "   PavedToken: total supply 1,000,000 PAVED, deployer holds 0"
 
 ACCOUNT="$(deploy Account "$ACCOUNT_CLASS" "$DEPLOYER")"
 DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER" "$ACCOUNT" "$USDC" "$LOBBY_CLASS")"

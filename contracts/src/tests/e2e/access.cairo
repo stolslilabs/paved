@@ -473,3 +473,62 @@ fn test_access_daily_player_zero_cannot_end_its_game() {
     start_cheat_caller_address(systems.daily.contract_address, zero);
     systems.daily.surrender(context.game_id);
 }
+
+/// A fresh `Account` of `OWNER`, its economy not set.
+fn fresh_account() -> paved::systems::account::IAccountDispatcher {
+    let class = declare("Account").unwrap().contract_class();
+    let owner: felt252 = OWNER().into();
+    let (address, _) = class.deploy(@array![owner]).unwrap();
+    paved::systems::account::IAccountDispatcher { contract_address: address }
+}
+
+fn ECONOMY() -> ContractAddress {
+    'ECONOMY'.try_into().unwrap()
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller is not owner')]
+fn test_access_account_set_economy_reverts_for_non_owner() {
+    let account = fresh_account();
+    start_cheat_caller_address(account.contract_address, ANYONE());
+    account.set_economy(ECONOMY());
+}
+
+#[test]
+#[should_panic(expected: 'Account: economy already set')]
+fn test_access_account_set_economy_reverts_twice() {
+    let account = fresh_account();
+    start_cheat_caller_address(account.contract_address, OWNER());
+    account.set_economy(ECONOMY());
+    account.set_economy(ANYONE());
+}
+
+#[test]
+#[should_panic(expected: 'Account: economy is zero')]
+fn test_access_account_set_economy_reverts_on_zero() {
+    let account = fresh_account();
+    start_cheat_caller_address(account.contract_address, OWNER());
+    account.set_economy(core::num::traits::Zero::zero());
+}
+
+#[test]
+#[available_gas(l2_gas: 2490978)]
+fn test_access_account_set_economy_emits_economy_set() {
+    let account = fresh_account();
+    assert(account.economy() == core::num::traits::Zero::zero(), 'Account: economy before');
+    let mut spy = spy_events();
+    start_cheat_caller_address(account.contract_address, OWNER());
+    account.set_economy(ECONOMY());
+    assert(account.economy() == ECONOMY(), 'Account: economy after');
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    account.contract_address,
+                    paved::systems::account::Account::Event::EconomySet(
+                        paved::systems::account::Account::EconomySet { economy: ECONOMY() },
+                    ),
+                ),
+            ],
+        );
+}

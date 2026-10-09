@@ -38,7 +38,9 @@ describe.skipIf(!enabled)("devnet scenario", () => {
   let node: Node;
   let work: string;
   let committed: string;
-  let deployment: { contracts: Record<"Account" | "Daily" | "Tutorial" | "Economy" | "MockUSDC", { address: string }> };
+  let deployment: {
+    contracts: Record<"Account" | "Daily" | "Tutorial" | "Economy" | "MockUSDC" | "PavedToken", { address: string }>;
+  };
   let file: string;
   let alice: Player;
   let bo: Player;
@@ -94,8 +96,13 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     await send(p, deployment.contracts.Account.address, "create", [`0x${Buffer.from(name).toString("hex")}`, p.address]);
   };
   const u256 = (low: bigint, high: bigint) => low + (high << 128n);
+  /** An ERC20 balance (`balance_of`, a u256). */
+  const balance = async (p: Player, token: string) => {
+    const [low, high] = await p.call(token, "balance_of", [p.address]);
+    return u256(low!, high!);
+  };
   /** A paid Daily game (`spawn(stake, referrer, min_out)`): `stake` units approved, `min_out` 99 % of the pool's quote. */
-  const spawn_ = async (p: Player, stake = 1): Promise<Game> => {
+  const spawn_ = async (p: Player, stake = 1, referrer = 0n): Promise<Game> => {
     const daily = deployment.contracts.Daily.address;
     const economy = deployment.contracts.Economy.address;
     const [token, low, high] = await p.call(daily, "entry_price");
@@ -105,8 +112,11 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     const quote = await p.call(economy, "quote", [stake]);
     const swap = await p.call(economy, "quote_swap", [quote[2]!, quote[3]!]);
     const minOut = (u256(swap[0]!, swap[1]!) * 99n) / 100n;
-    const receipt = await send(p, daily, "spawn", [stake, 0, minOut & (2n ** 128n - 1n), minOut >> 128n]);
+    const receipt = await send(p, daily, "spawn", [stake, referrer, minOut & (2n ** 128n - 1n), minOut >> 128n]);
     const spawned = receipt.events.find((e) => BigInt(e.from_address) === BigInt(daily) && e.keys.length === 3)!;
+    // Lobby.spawn emits GameSpawned, then calls Economy.purchase, which emits Purchased: in this order in the receipt.
+    const purchased = receipt.events.findIndex((e) => BigInt(e.from_address) === BigInt(economy));
+    expect(purchased).toBeGreaterThan(receipt.events.indexOf(spawned));
     return new Game(p, daily, Number(BigInt(spawned.keys[1]!)));
   };
   /** `Economy.terms(game_id)`: player, time, day, stake, reference, sigma, slope, cap, score, recorded, expired, settled, reward. */
@@ -234,14 +244,16 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     await register(bo, "Bo");
     await register(cy, "Cy");
     await fund(alice);
-    const games: [Player, number, number][] = [
-      [bo, Infinity, 3],
-      [bo, 3, 3],
-      [cy, Infinity, 6],
-      [cy, 0, 0],
+    // Bo's first game is bought at stake 10, referred by Cy: Cy gets 5 % of 20 USDC from the margin.
+    const games: [Player, number, number, number, bigint][] = [
+      [bo, Infinity, 3, 10, BigInt(cy.address)],
+      [bo, 3, 3, 1, 0n],
+      [cy, Infinity, 6, 1, 0n],
+      [cy, 0, 0, 1, 0n],
     ];
-    for (const [p, moves, characters] of games) {
-      const g = await spawn_(p);
+    const cyBefore = await balance(cy, deployment.contracts.MockUSDC.address);
+    for (const [p, moves, characters, stake, referrer] of games) {
+      const g = await spawn_(p, stake, referrer);
       await play(g, moves, characters, p);
       played.push({ id: g.id, player: p });
     }
@@ -257,6 +269,11 @@ describe.skipIf(!enabled)("devnet scenario", () => {
       const api_ = await get<{ game: { score: number; end_time: number; counted_tournament_id: number } }>(`/v1/games/daily/${id}`);
       expect(api_.game).toMatchObject({ score: chain.score, end_time: chain.endTime, counted_tournament_id: day0 });
     }
+    const referred = await get<GameAnswer>(`/v1/games/daily/${played[0]!.id}`);
+    expect(referred.game.economy).toMatchObject({ stake: 10, price: "20000000", referrer: padded(cy.address), referral: "1000000" });
+    // Independent of the API and of Economy's views: Cy's USDC, less its three spawns at 2 USDC (two played, the late
+    // one), plus the referral.
+    expect(cyBefore - (await balance(cy, deployment.contracts.MockUSDC.address))).toBe(6_000_000n - 1_000_000n);
     const board = await get<LeaderboardAnswer>(`/v1/tournaments/${day0}/leaderboard`);
     const view_ = await alice.call(deployment.contracts.Daily.address, "tournament", [day0]);
     // TournamentView: id, start, end, over, prize (2), then player, score, claimed per rank.
@@ -328,6 +345,13 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     expect(before.economy.unsettled).toEqual(ids);
     expect((await get<GameAnswer>(`/v1/games/daily/${late.id}`)).game.economy).toMatchObject({ recorded: true, expired: true });
 
+    const paved = deployment.contracts.PavedToken.address;
+    const supply = async () => {
+      const [low, high] = await alice.call(paved, "total_supply");
+      return u256(low!, high!);
+    };
+    const supplyBefore = await supply();
+    const boBefore = await balance(bo, paved);
     await send(alice, deployment.contracts.Economy.address, "settle", [ids.length, ...ids]);
     await rpc(node.url, "devnet_createBlock"); // an empty tip again, which the replaced-block test aborts
     await caught(API[0]!);
@@ -354,6 +378,10 @@ describe.skipIf(!enabled)("devnet scenario", () => {
       expect(answer.stats).toMatchObject({ settled_games: mine.length, rewards: String(mine.reduce((sum, t) => sum + BigInt(t.reward), 0n)) });
       expect(answer.unsettled).toEqual([]);
     }
+    // Independent of Economy's views: the PAVED the settlement minted, in total and to Bo.
+    expect(String((await supply()) - supplyBefore)).toBe(after.economy.rewards);
+    const bos = await get<PlayerAnswer>(`/v1/players/${padded(bo.address)}`);
+    expect(String((await balance(bo, paved)) - boBefore)).toBe(bos.stats!.rewards);
   });
 
   test("a replaced block is rewound, and the answers follow the new chain", async () => {

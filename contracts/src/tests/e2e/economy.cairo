@@ -188,3 +188,70 @@ fn test_economy_tutorial_calls_neither_purchase_nor_record() {
     }
     assert(from_economy == 0, 'Economy: tutorial reached it');
 }
+
+/// A `Daily` whose `Account` has no economy yet: a spawn reverts and leaves no game.
+#[test]
+#[available_gas(l2_gas: 50926209)]
+#[feature("safe_dispatcher")]
+fn test_economy_spawn_reverts_before_set_economy() {
+    let owner: felt252 = setup::OWNER().into();
+    let usdc = snforge_std::declare("MockUSDC").unwrap();
+    let (usdc, _) = snforge_std::ContractClassTrait::deploy(
+        snforge_std::DeclareResultTrait::contract_class(@usdc), @array![],
+    )
+        .unwrap();
+    let account = snforge_std::declare("Account").unwrap();
+    let (account, _) = snforge_std::ContractClassTrait::deploy(
+        snforge_std::DeclareResultTrait::contract_class(@account), @array![owner],
+    )
+        .unwrap();
+    let lobby: felt252 = (*snforge_std::DeclareResultTrait::contract_class(
+        @snforge_std::declare("Lobby").unwrap(),
+    )
+        .class_hash)
+        .into();
+    let daily = snforge_std::declare("Daily").unwrap();
+    let (daily, _) = snforge_std::ContractClassTrait::deploy(
+        snforge_std::DeclareResultTrait::contract_class(@daily),
+        @array![owner, account.into(), usdc.into(), lobby],
+    )
+        .unwrap();
+    start_cheat_caller_address(account, PLAYER());
+    paved::systems::account::IAccountDispatcherTrait::create(
+        paved::systems::account::IAccountDispatcher { contract_address: account },
+        'PLAYER',
+        PLAYER(),
+    );
+    stop_cheat_caller_address(account);
+    start_cheat_caller_address(daily, PLAYER());
+    let reason = *IDailySafeDispatcher { contract_address: daily }
+        .spawn(1, Zero::zero(), 0)
+        .unwrap_err()
+        .at(0);
+    assert(reason == 'Lobby: economy not set', 'Economy: reason');
+    assert(TestStoreTrait::new(daily).game(1).player_id == 0, 'Economy: a game was left');
+}
+
+/// A game over at its expiry (24 h after the purchase, P-34) is recorded as expired: it enters no
+/// mean, its day closes empty, and its settlement pays 0.
+#[test]
+#[available_gas(l2_gas: 124579295)]
+fn test_economy_records_an_expired_game_over() {
+    snforge_std::start_cheat_block_timestamp_global(10 * 86400 + 3600);
+    let (store, systems, _) = setup::spawn_game(Mode::None);
+    let game_id = systems.daily.spawn(1, Zero::zero(), 0);
+    let spawned = store.game(game_id).start_time;
+    let day = spawned / 86400;
+    snforge_std::start_cheat_block_timestamp_global(spawned + 86400);
+    systems.daily.surrender(game_id);
+    let terms = systems.economy.terms(game_id);
+    assert(terms.recorded && terms.expired, 'Economy: not expired');
+    snforge_std::start_cheat_block_timestamp_global((day + 2) * 86400);
+    let minted = systems.economy.settle(array![game_id].span());
+    assert(minted == 0, 'Economy: an expired game paid');
+    let closed = systems.economy.day(day);
+    assert(closed.closed, 'Economy: day not closed');
+    assert(closed.weight == 0 && closed.sum == 0, 'Economy: day not empty');
+    let terms = systems.economy.terms(game_id);
+    assert(terms.settled && terms.reward == 0, 'Economy: settled');
+}
