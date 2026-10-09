@@ -53,14 +53,14 @@ describe("Landing states", () => {
     expect(confirm.disabled).toBe(true);
   });
 
-  it("a Daily confirm carries the amount the player saw in the history state", async () => {
+  it("without the economy a new Daily game cannot be started from the dialog: nothing navigates", async () => {
     land({});
-    await waitFor(() => expect(screen.getByText(/mode daily: 1 PAVED/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/mode daily: 1 USDC/)).toBeTruthy());
     fireEvent.click(screen.getByText(/mode daily/));
-    fireEvent.click(await screen.findByText("Start Game"));
-    await waitFor(() => expect(screen.getByTestId("where").textContent).toContain("mode=daily"));
-    // the Where probe renders the landing route's own location: the state is on the navigation
-    expect(screen.getByTestId("where").textContent).toContain(`"confirmedAmount":"${10n ** 18n}"`);
+    const confirm = (await screen.findByText("Buy it in USDC: not deployed here")) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(screen.getByTestId("where").textContent).not.toContain("mode=daily");
   });
 
   it("missing token decimals: the entry price is unavailable and cannot be confirmed", async () => {
@@ -148,7 +148,7 @@ describe("Claiming a prize", () => {
 
   it("nothing to claim when the rank is already claimed", async () => {
     setup({ top1Claimed: true });
-    await screen.findByText("balance 5 PAVED");
+    await screen.findByText("balance 5 USDC");
     await new Promise((r) => setTimeout(r, 30));
     expect(screen.queryByText("Claim")).toBeNull();
   });
@@ -176,7 +176,7 @@ describe("Sponsoring", () => {
     fireEvent.change(await screen.findByLabelText("Sponsor amount"), { target: { value: "1.5" } });
     fireEvent.click(screen.getByText("Sponsor"));
     expect(sponsor).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Pay 1.5 PAVED into today's prize?");
+    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Pay 1.5 USDC into today's prize?");
     fireEvent.click(screen.getByText("Confirm sponsor"));
     await waitFor(() => expect(sponsor).toHaveBeenCalledTimes(1));
     expect(sponsor).toHaveBeenCalledWith(15n * 10n ** 17n, { confirmedAmount: 15n * 10n ** 17n });

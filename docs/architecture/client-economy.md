@@ -5,32 +5,48 @@ contract side is `economy.md` (ruled by the PM: P-31); the data layer and its pa
 `client-data-layer.md`. The code is `packages/chain/src/economy/` (this document's part a) and the economy panels and the `/economy` page of
 `packages/app-web` (part b, below).
 
-**Nothing is deployed beyond devnet** (economy.md). Every deployment today lacks the economy's addresses, so the
-client's economy is **not configured** everywhere and the screens say so; nothing is read or sent.
+**Nothing is deployed beyond devnet** (economy.md). A deployment file without the economy's addresses leaves the client's
+economy **not configured**, and the screens say so; nothing is read or sent. The committed `contracts/deployments/devnet.json`
+on #275 is still the pre-E3 one: `scripts/deploy.sh` writes `contracts.{Economy, PavedToken, Vault, MockUSDC}` when it runs.
 
-## What is real now, what waits for E3
+## What E3 made real (P8, #275)
 
-E2 is merged (#262, 2256724): `Economy` is the committed `contracts/abis/Economy.json`. E3 (Economy wired into Lobby and
-Daily, the paid `Daily.spawn`, MockUSDC in the deploy) is still running on CORE, so two stubs remain, marked in
-`economy/stub-abi.ts`.
+Every ABI is now a committed one. There are no stubs, `stub-abi.ts` and `ECONOMY_ABI_IS_STUB` are gone, and the economy
+panel no longer prints that purchases are not possible.
 
-| Piece | Source today | Real source | What to do when it lands |
-|---|---|---|---|
-| `Economy` ABI | **Real**: `contracts/abis/Economy.json`, imported by `abis.ts`. `test/economy.test.ts` compares `ECONOMY_VIEW_FIELDS` with it | | |
-| `PavedToken`, `Vault` | **Real** (E1, #260) | | |
-| `Economy.quote_swap(usdc_in) -> paved_out` (P-35) | **Real**: `EconomyPoolQuoter` is on (`POOL_QUOTE_CONFIRMED = true`) | | |
-| `Daily.spawn(stake, referrer, min_out)` | **STUB** `STUB_DAILY_PAID_ABI`: the real `Daily` ABI with that one entry replaced | `contracts/abis/Daily.json` (E3) | the test "the real Daily ABI still has none" fails on E3's ABI: drop `DailyPaid`, encode with `Daily` |
-| USDC (`approve`, `balance_of`, `allowance`) | **STUB** `STUB_USDC_ABI` | the MockUSDC ABI (E3's devnet deploy) | import it |
-| Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json` (USDC off devnet, MockUSDC on devnet); or the env | E3's `devnet.json` | |
-| Reads in unit tests | `FakeEconomy`, `FakePoolQuoter`, `fakeTerms`: **tests only**, exported from `@paved/chain/testing` (not from `@paved/chain`) | | |
+| Piece | Source |
+|---|---|
+| `Economy`, `PavedToken`, `Vault` | `contracts/abis/{Economy,PavedToken,Vault}.json` (E1, E2) |
+| `Daily.spawn(stake, referrer, min_out)` | `contracts/abis/Daily.json` (E3), encoded by the `Daily` codec of `ECONOMY_ABIS` |
+| USDC (`approve`, `balance_of`, `allowance`) | The ERC20 interface of `contracts/abis/Token.json`. **E3 commits no `MockUSDC.json`** (nine ABIs: Account, Collection, Daily, Economy, Lobby, PavedToken, Token, Tutorial, Vault); the mock and the real USDC both expose the OpenZeppelin ERC20 the client calls, and a test checks the three entries are there. A `MockUSDC.json` would replace it |
+| Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json`; or the env |
+| Reads in unit tests | `FakeEconomy`, `FakePoolQuoter`, `fakeTerms`: **tests only**, exported from `@paved/chain/testing` |
 
-`ECONOMY_ABI_IS_STUB` is true while the paid spawn or USDC is a stub; the economy panel prints "Economy is live on its
-real ABI; the paid spawn and USDC are stubs until E3, so purchases are not possible yet" from it.
+What a purchase sends (`EconomyWriter.purchase`), in one multicall:
 
-**Purchases are impossible in practice until E3**, because the paid spawn is a stub and no deployment has USDC. The pool
-quoter is real, but the writer still refuses a missing, failed or zero quote ("No pool quote: nothing was sent").
+1. `USDC.approve(Daily, price)`, `price = stake x Daily.entry_price().amount` (2,000,000 per stake unit, 6 decimals);
+2. `Daily.spawn(stake, referrer, min_out)`, `min_out = Economy.quote_swap(Economy.quote(stake).burn_quote)` less the player's
+   slippage (1 % by default, at most 5 %, rounded down).
 
-What E2 changed from the stub, and what the client does with it:
+The rules around it are unchanged and keep their tests: the confirm, the consent in history state only, the re-check of
+the price at send (`PurchasePriceChangedError`), no purchase from a URL alone, writes serialised through one writer, and
+nothing sent after a failed read or a missing pool quote.
+
+What E3 removed from the client:
+
+- `PavedWriter.spawn("daily")`, with its approve of `entry_price` and `EntryPriceChangedError`: it now throws and sends
+  nothing, a Daily game is bought only by `EconomyWriter.purchase`. `spawn("tutorial")` stays: the Tutorial is free and
+  unchanged. The Landing dialog of a Daily game only resumes one; a new one is bought with the stake picker.
+- The prize no longer grows with entries (economy.md section 7, P-31): it is **sponsor-only**. The Landing labels the
+  prize and the entry in USDC (`TOKEN_LABEL`), and a sponsorship approves the token `Daily.entry_price` names, not the old mock.
+  `PavedClient.balance` reads that same token.
+- "Price unavailable" on the purchase button is only a failed price read now, never the stubs.
+
+The indexer's appended fields (API v1, indexer.md "As built (P8 E3)") are parsed by `IndexerClient` and optional, so an indexer
+from before E3 is still read: `contracts.economy` of `/v1/head`, `IndexedGame.economy`, `PlayerStats.{paidGames, settledGames,
+rewards}` and `TournamentDetail.economy`. A present but malformed field is a bad response.
+
+What E2 changed from the stub it had, and what the client does with it:
 
 - `Quote.min_out_hint` is **an estimate only**: it sits above what the swap returns, because its rate leaves the pool fee
   out, so a purchase sent with it would revert. The client never sends it as `min_out` and never shows it as a price.
@@ -55,7 +71,7 @@ the short string):
 
 | Contract reason | State | Why |
 |---|---|---|
-| `Economy: swap below min_out` (purchase) | `SwapBelowMinOutError`: "The price moved before your purchase went through: nothing was charged. Try again." | The approve, the transfers and the swap are one multicall, and a revert undoes it whole: no funds move. The player confirms again at the new price |
+| `Economy: swap below min_out` (purchase) | `SwapBelowMinOutError`: "The price moved before your purchase went through: your USDC was not spent. Try again." | The approve, the transfers and the swap are one multicall, and a revert undoes it whole: no funds move, but the reverted transaction still pays its network fee, so the message says the USDC was not spent, not that nothing was charged. The player confirms again at the new price |
 | `Economy: day cannot close yet` (settle) | `SettleTooEarlyError`: "This day cannot be settled yet: try again after the next day ends." | The contract settles day D at `(D + 2) x 86400`; the writer already refuses earlier from the latest block's time, so this is the race at the border |
 
 An expired game says "Expired: no reward" in the "after the day" list (`terms().expired`, or never recorded 24 h after
@@ -172,7 +188,7 @@ The payment rules of `client-data-layer.md` hold for each paying action:
 - `packages/app-web/__tests__/economy-game-start.test.tsx`: the game page buys from the state only, after clearing it;
   a changed price, a URL alone and a malformed state send nothing.
 
-No browser run (jsdom only). Nothing has run against a live economy: no deployment has one yet.
+No browser run (jsdom only). Nothing has run against a live economy from the client yet.
 
 ## The page
 
@@ -180,11 +196,12 @@ No browser run (jsdom only). Nothing has run against a live economy: no deployme
 page; the Landing keeps its own entry points and links to it. The purchase is only confirmed on the page: its consent is
 the history state to the game page, which sends it, as from the Landing.
 
-## What waits for E3
+## What waits
 
-- The paid `Daily.spawn` and the MockUSDC ABI replace the two stubs (table at the top); the deployments file gains the
-  addresses, and the economy becomes configured on devnet by itself.
-- Then: a devnet run of a purchase with MockUSDC, a settlement on a later day and the Vault (`PAVED_E2E`), and the
-  Daily's old free-token confirm removed (after E3 `Daily.spawn` takes the stake, so `PavedWriter.spawn("daily")` must
-  go).
-- The list of games to settle could come from the indexer's unsettled games (economy.md section 6) instead of events.
+- A devnet run of a purchase with MockUSDC, a settlement on a later day and the Vault (`PAVED_E2E`): the unit tests here
+  build the multicall from the ABI, and the recorded receipts of `test/fixtures/devnet.json` predate E3 (no devnet runs on
+  the machine that did this step; the paid spawn is not re-recorded).
+- The old `Token` (the mock ERC20, no longer charged) is still in the base deployment while the client reads its
+  codec; the entry token is read from `Daily.entry_price`.
+- The list of games to settle could come from the indexer's `unsettled` list (indexer.md) instead of events.
+- If a batch settle is ever added, it skips expired games.

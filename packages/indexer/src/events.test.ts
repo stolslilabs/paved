@@ -37,7 +37,8 @@ const shortOf = (item: AbiItem) => item.name.split("::").at(-1)!;
 
 describe("the ABIs", () => {
   test("every event of every contract is indexed or ignored, with the selector of its name", () => {
-    for (const contract of ["Daily", "Tutorial", "Account"]) {
+    // Lobby runs inside Daily and Tutorial by library call: its events come from their addresses.
+    for (const contract of ["Daily", "Tutorial", "Account", "Economy", "Lobby"]) {
       const items = abi(contract).filter((item) => item.type === "event" && item.kind === "struct");
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
@@ -265,6 +266,136 @@ describe("the tournament id bound", () => {
     expect(() => decode("daily", spawnedAbove.keys, spawnedAbove.data)).toThrow(DecodeError);
     const overAbove = ev.over("daily", 1, 1, 10, { tournament: id + 1n });
     expect(() => decode("daily", overAbove.keys, overAbove.data)).toThrow(DecodeError);
+  });
+});
+
+describe("Economy's events", () => {
+  const members = (name: string, kind: string) =>
+    abi("Economy")
+      .find((item) => item.type === "event" && item.kind === "struct" && shortOf(item) === name)!
+      .members!.filter((m) => m.kind === kind)
+      .map((m) => `${m.name}: ${m.type.split("::").at(-1)}`);
+
+  test("their keys and data are the ABI's, in the order the decoder reads them", () => {
+    expect(members("Purchased", "key")).toEqual(["game_id: u32", "player_id: felt252"]);
+    expect(members("Purchased", "data")).toEqual([
+      "day: u64",
+      "stake: u8",
+      "price: u256",
+      "referrer: ContractAddress",
+      "referral: u256",
+      "burned_quote: u256",
+      "burned: u256",
+      "margin: u256",
+      "supply: u256",
+      "factor: u32",
+      "reference: u128",
+    ]);
+    expect(members("Recorded", "key")).toEqual(["game_id: u32"]);
+    expect(members("Recorded", "data")).toEqual(["score: u32", "expired: bool"]);
+    expect(members("DayClosed", "key")).toEqual(["day: u64"]);
+    expect(members("DayClosed", "data")).toEqual(["mean: u64", "weight: u32", "prior: u64", "ema_after: u64"]);
+    expect(members("Settled", "key")).toEqual(["game_id: u32", "player_id: felt252"]);
+    expect(members("Settled", "data")).toEqual(["day: u64", "score: u32", "threshold: u64", "reward: u128"]);
+  });
+
+  test("the Event enum is not flat: each variant is named as its struct, whose name is the selector", () => {
+    const event = abi("Economy").find((item) => item.type === "event" && item.kind === "enum")! as AbiItem & {
+      variants: { name: string; type: string; kind: string }[];
+    };
+    for (const variant of event.variants) {
+      expect(variant.kind, variant.name).toBe("nested");
+      expect(variant.type.split("::").at(-1)).toBe(variant.name);
+    }
+    expect(event.variants.map((v) => v.name).sort()).toEqual(
+      ["DayClosed", "EconomyConfigured", "GameSet", "PoolSet", "Purchased", "Recorded", "Settled"],
+    );
+    for (const name of ["Purchased", "Recorded", "DayClosed", "Settled"] as const) expect(EMITTERS[name]).toEqual(["economy"]);
+  });
+
+  test("Purchased: u256 amounts from their low and high felts", () => {
+    const big = 2n ** 128n + 5n; // a high half of 1
+    const e = ev.purchased(7, 0x1234, {
+      day: 20733,
+      stake: 3,
+      referrer: 0xbeef,
+      referral: 300_000n,
+      burned: big,
+      supply: 2n ** 200n,
+      factor: 9_876,
+      reference: 2n ** 128n - 1n,
+    });
+    expect(decode("economy", e.keys, e.data)).toEqual({
+      name: "Purchased",
+      gameId: 7,
+      playerId: 0x1234n,
+      day: 20733n,
+      stake: 3,
+      price: 6_000_000n,
+      referrer: 0xbeefn,
+      referral: 300_000n,
+      burnedQuote: 4_200_000n,
+      burned: big,
+      margin: 1_800_000n,
+      supply: 2n ** 200n,
+      factor: 9_876,
+      reference: 2n ** 128n - 1n,
+    });
+  });
+
+  test("Recorded, DayClosed and Settled", () => {
+    const recorded = ev.recorded(7, 5000, true);
+    expect(decode("economy", recorded.keys, recorded.data)).toEqual({ name: "Recorded", gameId: 7, score: 5000, expired: true });
+    const live = ev.recorded(8, 0);
+    expect(decode("economy", live.keys, live.data)).toMatchObject({ expired: false, score: 0 });
+    const closed = ev.dayClosed(20733, { mean: 4_215_689, weight: 21, prior: 3_353_000, emaAfter: 3_500_000 });
+    expect(decode("economy", closed.keys, closed.data)).toEqual({
+      name: "DayClosed",
+      day: 20733n,
+      mean: 4_215_689n,
+      weight: 21,
+      prior: 3_353_000n,
+      emaAfter: 3_500_000n,
+    });
+    const settled = ev.settled(7, 0x1234, { day: 20733, score: 5000, threshold: 4_215_689, reward: 2n ** 100n });
+    expect(decode("economy", settled.keys, settled.data)).toEqual({
+      name: "Settled",
+      gameId: 7,
+      playerId: 0x1234n,
+      day: 20733n,
+      score: 5000,
+      threshold: 4_215_689n,
+      reward: 2n ** 100n,
+    });
+  });
+
+  test("the owner events and Account's EconomySet are known and skipped", () => {
+    for (const name of ["EconomyConfigured", "PoolSet", "GameSet"] as const) {
+      expect(decode("economy", [SELECTORS[name]], ["0x1", "0x2"]), name).toBeNull();
+    }
+    expect(decode("account", [SELECTORS.EconomySet], ["0x4444"])).toBeNull();
+    expect(SELECTORS.EconomySet).toBe(canonical(hash.getSelectorFromName("EconomySet")));
+  });
+
+  test("a wrong emitter, shape, half, bool or day is a DecodeError", () => {
+    const e = ev.purchased(1, 1);
+    expect(() => decode("daily", e.keys, e.data)).toThrow(DecodeError); // Daily does not emit Purchased
+    expect(() => decode("economy", e.keys, e.data.slice(1))).toThrow(DecodeError);
+    expect(() => decode("economy", e.keys.slice(0, 2), e.data)).toThrow(DecodeError);
+    const half = [...e.data];
+    half[3] = `0x${(2n ** 128n).toString(16)}`; // price.high wider than u128
+    expect(() => decode("economy", e.keys, half)).toThrow(/price.high/);
+    const reference = ev.purchased(1, 1, { reference: 2n ** 128n });
+    expect(() => decode("economy", reference.keys, reference.data)).toThrow(/reference/);
+    const day = ev.purchased(1, 1, { day: MAX_TOURNAMENT_ID + 1 });
+    expect(() => decode("economy", day.keys, day.data)).toThrow(/day/);
+    const recorded = ev.recorded(1, 1);
+    expect(() => decode("economy", recorded.keys, [recorded.data[0]!, "0x2"])).toThrow(/bool/);
+    const closed = ev.dayClosed(1, { mean: 2 ** 60 });
+    expect(() => decode("economy", closed.keys, closed.data)).toThrow(/above 2\^53/);
+    const settled = ev.settled(1, 1);
+    expect(() => decode("tutorial", settled.keys, settled.data)).toThrow(DecodeError);
+    expect(() => decode("economy", settled.keys, [...settled.data, "0x0"])).toThrow(DecodeError);
   });
 });
 

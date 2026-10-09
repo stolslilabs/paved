@@ -99,7 +99,7 @@ fn define_accepted_list(daily: ContractAddress) {
 /// The definitions `Lobby`'s code writes are in `Daily`'s storage, at the addresses the components
 /// give (`Quest_definitions`, `Achievement_definitions`): the layout pin of the quiver components.
 #[test]
-#[available_gas(l2_gas: 44562725)]
+#[available_gas(l2_gas: 77111543)]
 fn test_quests_definitions_live_in_the_callers_storage() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let daily = systems.daily.contract_address;
@@ -113,7 +113,7 @@ fn test_quests_definitions_live_in_the_callers_storage() {
 }
 
 #[test]
-#[available_gas(l2_gas: 46043330)]
+#[available_gas(l2_gas: 78592148)]
 fn test_quests_owner_defines_the_accepted_list() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let daily = systems.daily.contract_address;
@@ -143,7 +143,7 @@ fn test_quests_owner_defines_the_accepted_list() {
 }
 
 #[test]
-#[available_gas(l2_gas: 25410221)]
+#[available_gas(l2_gas: 57366041)]
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_define_quest_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -154,7 +154,7 @@ fn test_quests_define_quest_not_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 25251776)]
+#[available_gas(l2_gas: 57207386)]
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_define_achievement_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -170,7 +170,7 @@ fn test_quests_define_achievement_not_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 27298593)]
+#[available_gas(l2_gas: 59289756)]
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_retire_quest_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -184,7 +184,7 @@ fn test_quests_retire_quest_not_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 24998778)]
+#[available_gas(l2_gas: 56943321)]
 #[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_quests_retire_achievement_not_owner() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -194,7 +194,7 @@ fn test_quests_retire_achievement_not_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 45742137)]
+#[available_gas(l2_gas: 78290850)]
 fn test_quests_owner_retires() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let daily = systems.daily.contract_address;
@@ -208,7 +208,7 @@ fn test_quests_owner_retires() {
 /// A recurring quest rolls over at 00:00 UTC only when its start is a multiple of a day (Q-6), the
 /// hour where `TournamentImpl::compute_id` rolls over.
 #[test]
-#[available_gas(l2_gas: 25408961)]
+#[available_gas(l2_gas: 57364781)]
 #[should_panic(expected: 'Daily: quest not on UTC day')]
 fn test_quests_define_quest_misaligned() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -224,7 +224,7 @@ fn test_quests_define_quest_misaligned() {
 
 /// A definition is created once.
 #[test]
-#[available_gas(l2_gas: 45498075)]
+#[available_gas(l2_gas: 78093408)]
 #[should_panic(expected: 'Quest: already defined')]
 fn test_quests_define_twice() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -239,7 +239,7 @@ fn test_quests_define_twice() {
 /// A game over with nothing scored reports the finished game only: the ranking (a score of 0
 /// never ranks) and `GameOver` happen.
 #[test]
-#[available_gas(l2_gas: 95321625)]
+#[available_gas(l2_gas: 140148472)]
 fn test_quests_game_over_every_count_zero() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
@@ -268,7 +268,7 @@ fn test_quests_game_over_every_count_zero() {
 /// the first rank: the largest lists (4 and 6 entries), and the game over, the ranking and
 /// `GameOver` all happen.
 #[test]
-#[available_gas(l2_gas: 106199427)]
+#[available_gas(l2_gas: 151415950)]
 fn test_quests_game_over_every_counter_at_maximum() {
     // [Setup] Not day 0, whose tournament id is the unset id 0
     start_cheat_block_timestamp_global(10 * 86400);
@@ -347,7 +347,7 @@ fn test_quests_game_over_every_counter_at_maximum() {
 
 /// A game over after its tournament closed ranks in nothing but still reports (Q-6): no WIN.
 #[test]
-#[available_gas(l2_gas: 78111427)]
+#[available_gas(l2_gas: 122023293)]
 fn test_quests_game_over_after_tournament_reports_without_win() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
@@ -372,7 +372,7 @@ fn test_quests_game_over_after_tournament_reports_without_win() {
 /// The counters follow the scoring: a 2-tile city closed with a Lord scores one structure, not a
 /// big one.
 #[test]
-#[available_gas(l2_gas: 84486794)]
+#[available_gas(l2_gas: 126664386)]
 fn test_quests_counters_follow_the_scoring() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let game = store.game(context.game_id);
@@ -432,7 +432,7 @@ fn assert_order(kinds: Array<u8>, quests: u32, achievements: u32) {
 
 /// A Daily game of score 4,500, 2 structures and a forest, with its tile limit cut to the tiles
 /// drawn, so that the next `build` or `discard` ends it. The tournament is empty: it ranks first.
-fn almost_over_daily() -> (setup::TestStore, setup::Systems, setup::Context) {
+pub fn almost_over_daily() -> (setup::TestStore, setup::Systems, setup::Context) {
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let mut game = store.game(context.game_id);
@@ -466,7 +466,7 @@ fn assert_daily_report(
 
 /// A Daily game over on the last `build` (the one library call from `Daily`) reports.
 #[test]
-#[available_gas(l2_gas: 92083551)]
+#[available_gas(l2_gas: 136699338)]
 fn test_quests_daily_game_over_on_the_last_build() {
     let (store, systems, context) = almost_over_daily();
     let mut spy = spy_events();
@@ -485,7 +485,7 @@ fn test_quests_daily_game_over_on_the_last_build() {
 
 /// A Daily game over on the last `discard` (in `Lobby`) reports.
 #[test]
-#[available_gas(l2_gas: 84502819)]
+#[available_gas(l2_gas: 129111665)]
 fn test_quests_daily_game_over_on_the_last_discard() {
     let (store, systems, context) = almost_over_daily();
     let mut spy = spy_events();
@@ -510,7 +510,7 @@ fn assert_first_stone(tutorial: ContractAddress, mut spy: snforge_std::EventSpy,
 
 /// P-28: a Tutorial ended by placing its last tile credits First Stone once.
 #[test]
-#[available_gas(l2_gas: 111542995)]
+#[available_gas(l2_gas: 143234730)]
 fn test_quests_tutorial_game_over_on_the_last_build_credits_task_10() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let mut i: u8 = 0;
@@ -528,7 +528,7 @@ fn test_quests_tutorial_game_over_on_the_last_build_credits_task_10() {
 
 /// P-28: a Tutorial ended by discarding its last tile credits First Stone once.
 #[test]
-#[available_gas(l2_gas: 99910539)]
+#[available_gas(l2_gas: 131602274)]
 fn test_quests_tutorial_game_over_on_the_last_discard_credits_task_10() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let mut i: u8 = 0;
@@ -548,7 +548,7 @@ fn test_quests_tutorial_game_over_on_the_last_discard_credits_task_10() {
 
 /// P-28: a Tutorial surrender credits nothing, however early or late, but the game is over.
 #[test]
-#[available_gas(l2_gas: 34881561)]
+#[available_gas(l2_gas: 66573401)]
 fn test_quests_tutorial_surrender_credits_no_task_10() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let tutorial = systems.tutorial.contract_address;
@@ -561,7 +561,7 @@ fn test_quests_tutorial_surrender_credits_no_task_10() {
 
 /// A task total of 0 is complete before any report: refused, in a quest and in an achievement.
 #[test]
-#[available_gas(l2_gas: 25410221)]
+#[available_gas(l2_gas: 57496755)]
 #[should_panic(expected: 'Daily: task total is zero')]
 fn test_quests_define_quest_total_zero() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -574,7 +574,7 @@ fn test_quests_define_quest_total_zero() {
 }
 
 #[test]
-#[available_gas(l2_gas: 25251776)]
+#[available_gas(l2_gas: 57240041)]
 #[should_panic(expected: 'Daily: task total is zero')]
 fn test_quests_define_achievement_total_zero() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -592,7 +592,7 @@ fn test_quests_define_achievement_total_zero() {
 
 /// A task id twice in one definition gives two entries under one key: refused.
 #[test]
-#[available_gas(l2_gas: 25410221)]
+#[available_gas(l2_gas: 57537884)]
 #[should_panic(expected: 'Daily: task id repeated')]
 fn test_quests_define_quest_task_repeated() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -608,7 +608,7 @@ fn test_quests_define_quest_task_repeated() {
 }
 
 #[test]
-#[available_gas(l2_gas: 25251776)]
+#[available_gas(l2_gas: 57310265)]
 #[should_panic(expected: 'Daily: task id repeated')]
 fn test_quests_define_achievement_task_repeated() {
     let (_, systems, _) = setup::spawn_game(Mode::None);

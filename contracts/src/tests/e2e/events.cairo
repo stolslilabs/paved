@@ -34,7 +34,7 @@ fn daily(event: PavedEvent) -> Daily::Event {
 }
 
 #[test]
-#[available_gas(l2_gas: 25016849)]
+#[available_gas(l2_gas: 58029116)]
 fn test_events_account_create_emits_player_created() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let caller: ContractAddress = 'NEWCOMER'.try_into().unwrap();
@@ -50,12 +50,12 @@ fn test_events_account_create_emits_player_created() {
 }
 
 #[test]
-#[available_gas(l2_gas: 72677963)]
+#[available_gas(l2_gas: 116505746)]
 fn test_events_daily_spawn_emits_game_spawned() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::None);
     let mut spy = spy_events();
-    let game_id = systems.daily.spawn();
+    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
     let game = store.game(game_id);
     let event = daily(
         PavedEvent::GameSpawned(
@@ -76,7 +76,7 @@ fn test_events_daily_spawn_emits_game_spawned() {
 }
 
 #[test]
-#[available_gas(l2_gas: 83956965)]
+#[available_gas(l2_gas: 127127434)]
 fn test_events_daily_build_emits_built_and_scored() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let game = store.game(context.game_id);
@@ -128,7 +128,7 @@ fn test_events_daily_build_emits_built_and_scored() {
 }
 
 #[test]
-#[available_gas(l2_gas: 76984998)]
+#[available_gas(l2_gas: 120255221)]
 fn test_events_daily_discard_emits_discarded() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let game = store.game(context.game_id);
@@ -155,7 +155,7 @@ fn test_events_daily_discard_emits_discarded() {
 }
 
 #[test]
-#[available_gas(l2_gas: 76524600)]
+#[available_gas(l2_gas: 122161737)]
 fn test_events_daily_surrender_emits_game_over() {
     // A day after the epoch, so that the tournament id is not zero.
     let time: u64 = 86400 * 1000 + 3600;
@@ -184,7 +184,7 @@ fn test_events_daily_surrender_emits_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 80324372)]
+#[available_gas(l2_gas: 124020728)]
 fn test_events_daily_sponsor_and_claim() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -216,7 +216,7 @@ fn test_events_daily_sponsor_and_claim() {
 }
 
 #[test]
-#[available_gas(l2_gas: 35950435)]
+#[available_gas(l2_gas: 68477406)]
 fn test_events_tutorial_spawn_and_surrender() {
     // A non-zero time: at 0 the spawn time and 0 are the same value. A same-second game over is
     // the worst case for a tournament id computed from the time (Tutorial duration is 1 second).
@@ -266,7 +266,7 @@ fn test_events_tutorial_spawn_and_surrender() {
 }
 
 #[test]
-#[available_gas(l2_gas: 83761544)]
+#[available_gas(l2_gas: 129460159)]
 fn test_events_daily_last_build_emits_game_over() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -324,7 +324,7 @@ fn test_events_daily_last_build_emits_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 78730175)]
+#[available_gas(l2_gas: 124395095)]
 fn test_events_daily_last_discard_emits_game_over() {
     // A day after the epoch, so that the tournament id is not zero.
     let time: u64 = 86400 * 1000 + 3600;
@@ -357,7 +357,7 @@ fn test_events_daily_last_discard_emits_game_over() {
 }
 
 #[test]
-#[available_gas(l2_gas: 130877274)]
+#[available_gas(l2_gas: 174187610)]
 fn test_events_daily_wonder_emits_scored() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let game = store.game(context.game_id);
@@ -452,7 +452,7 @@ fn tutorial_build(
 }
 
 #[test]
-#[available_gas(l2_gas: 67914598)]
+#[available_gas(l2_gas: 100738619)]
 fn test_events_tutorial_build_emits_built_and_scored() {
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
     let tutorial = systems.tutorial.contract_address;
@@ -482,7 +482,7 @@ fn test_events_tutorial_build_emits_built_and_scored() {
 }
 
 #[test]
-#[available_gas(l2_gas: 98960701)]
+#[available_gas(l2_gas: 132167537)]
 fn test_events_tutorial_discard_emits_discarded() {
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
     let tutorial = systems.tutorial.contract_address;

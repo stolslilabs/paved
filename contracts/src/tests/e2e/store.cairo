@@ -21,7 +21,7 @@ const MAX_U8: u32 = 255;
 const BIG: felt252 = 0x800000000000011000000000000000000000000000000000000000000000000 - 1;
 
 #[test]
-#[available_gas(l2_gas: 34181650)]
+#[available_gas(l2_gas: 65647394)]
 fn test_store_round_trips_at_maximum_values() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     interact_with_state(
@@ -127,7 +127,7 @@ fn test_store_round_trips_at_maximum_values() {
 }
 
 #[test]
-#[available_gas(l2_gas: 24273977)]
+#[available_gas(l2_gas: 57294780)]
 fn test_store_missing_entries_read_as_zero_with_keys() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     interact_with_state(
@@ -151,7 +151,7 @@ fn test_store_missing_entries_read_as_zero_with_keys() {
 /// A character the packed word cannot hold: the tile id does not fit its 8 bits.
 #[test]
 #[should_panic(expected: ('Char: Out of range',))]
-#[available_gas(l2_gas: 23975305)]
+#[available_gas(l2_gas: 56986626)]
 fn test_store_character_tile_out_of_range() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     interact_with_state(
@@ -174,7 +174,7 @@ fn test_store_character_tile_out_of_range() {
 /// A role index past the seven roles has no entry in the word.
 #[test]
 #[should_panic(expected: ('Char: Invalid role',))]
-#[available_gas(l2_gas: 23974675)]
+#[available_gas(l2_gas: 56985996)]
 fn test_store_character_invalid_role() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     interact_with_state(

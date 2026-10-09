@@ -57,6 +57,29 @@
           }
         ],
         "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "set_economy",
+        "inputs": [
+          {
+            "name": "economy",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "economy",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
       }
     ]
   },
@@ -537,6 +560,18 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::account::Account::EconomySet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "economy",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::account::Account::Event",
     "kind": "enum",
     "variants": [
@@ -554,6 +589,11 @@
         "name": "OwnableEvent",
         "type": "paved::components::ownable::OwnableComponent::Event",
         "kind": "flat"
+      },
+      {
+        "name": "EconomySet",
+        "type": "paved::systems::account::Account::EconomySet",
+        "kind": "nested"
       }
     ]
   }

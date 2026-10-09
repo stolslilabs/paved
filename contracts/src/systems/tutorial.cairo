@@ -112,7 +112,8 @@ pub mod Tutorial {
     impl TutorialImpl of ITutorial<ContractState> {
         fn spawn(ref self: ContractState) -> u32 {
             // [Effect] Spawn a game, in the lobby class
-            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.spawn(Mode::Tutorial)
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                .spawn(Mode::Tutorial, 0, Zero::zero(), 0)
         }
 
         fn discard(ref self: ContractState, game_id: u32) {

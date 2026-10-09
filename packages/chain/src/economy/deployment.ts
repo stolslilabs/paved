@@ -17,7 +17,7 @@ export interface EconomyEnv {
 export interface EconomyDeployment {
   /** The four contracts' deployment: `Daily` takes the purchase, `Account` registers referrers. */
   base: Deployment;
-  addresses: Record<Exclude<EconomyContractName, "DailyPaid">, string>;
+  addresses: Record<Exclude<EconomyContractName, "Daily">, string>;
   /**
    * True when the base deployment is configured and the four economy addresses are known: the only case where the
    * economy screens read or offer a write. False on every deployment until CORE's E2/E3 add the addresses.

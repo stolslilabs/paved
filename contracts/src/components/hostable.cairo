@@ -19,12 +19,23 @@ pub mod HostableComponent {
     use paved::seed::{DailySeed, SeedSource};
     use paved::store::{Store, StoreImpl};
     use paved::types::mode::{Mode, ModeTrait};
+    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
+
+    // Errors
+
+    pub mod errors {
+        pub const NOTHING_TO_RECLAIM: felt252 = 'Tournament: nothing to reclaim';
+    }
 
     // Storage
 
     #[storage]
-    struct Storage {}
+    pub struct Storage {
+        /// What each sponsor put in each day's prize (P-37); zero once reclaimed. The day's prize
+        /// is the sum, since entries no longer feed it (P-31).
+        pub sponsorships: Map<(u64, ContractAddress), felt252>,
+    }
 
     #[event]
     #[derive(Drop, starknet::Event)]
@@ -69,13 +80,8 @@ pub mod HostableComponent {
             // [Effect] Store tile
             store.set_tile(tile);
 
-            // [Effect] Update tournament
+            // [Info] The entry no longer feeds the tournament's prize: it is sponsor-only (P-31)
             let tournament_id = TournamentImpl::compute_id(time, game.duration());
-            let mut tournament = store.tournament(tournament_id);
-            tournament.buyin(game.price());
-
-            // [Effect] Store tournament
-            store.set_tournament(tournament);
 
             // [Effect] Store game
             store.set_game(game);
@@ -100,7 +106,7 @@ pub mod HostableComponent {
                     ),
                 );
 
-            // [Return] Game ID and amount to pay
+            // [Return] Game ID and the price of one stake unit (0 for the Tutorial)
             let amount: u256 = game.price().into();
             (game_id, amount)
         }
@@ -138,19 +144,20 @@ pub mod HostableComponent {
             reward
         }
 
-        fn sponsor(self: @ComponentState<TContractState>, amount: felt252, mode: Mode) -> u256 {
+        fn sponsor(ref self: ComponentState<TContractState>, amount: felt252, mode: Mode) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
-            // [Check] Tournament exists
+            // [Info] Any day may be sponsored: its prize comes from sponsors only (P-31)
             let time = get_block_timestamp();
             let tournament_id = TournamentImpl::compute_id(time, mode.duration());
             let mut tournament = store.tournament(tournament_id);
-            tournament.assert_exists();
 
-            // [Effect] Add amount to the current tournament prize pool
+            // [Effect] Add amount to the current tournament prize pool, and to the sponsor's share
             tournament.buyin(amount);
             store.set_tournament(tournament);
+            let key = (tournament_id, get_caller_address());
+            self.sponsorships.write(key, self.sponsorships.read(key) + amount);
 
             // [Event] Prize pool sponsored
             store
@@ -162,6 +169,34 @@ pub mod HostableComponent {
 
             // [Return] Amount to pay
             amount.into()
+        }
+
+        /// A sponsor's reclaim of a day nobody ranked in (P-37b): an empty top (nobody played, or
+        /// every score 0) leaves the whole prize unclaimable, and each sponsor gets back what it
+        /// put in. A ranked day has nothing to reclaim: rank 1 takes the shares of the empty ranks.
+        /// The sponsor is marked reclaimed before the caller transfers.
+        fn reclaim(
+            ref self: ComponentState<TContractState>, tournament_id: u64, mode: Mode,
+        ) -> u256 {
+            // [Setup] Datastore
+            let store: Store = StoreImpl::new();
+
+            // [Check] The day is over, nobody ranked, the caller sponsored it and has not reclaimed
+            let tournament = store.tournament(tournament_id);
+            tournament.assert_exists();
+            tournament.assert_is_over(get_block_timestamp(), mode.duration());
+            let top = LeaderboardImpl::new().top(tournament_id);
+            assert(top.first.player_id == 0, errors::NOTHING_TO_RECLAIM);
+            let sponsor = get_caller_address();
+            let key = (tournament_id, sponsor);
+            let amount: u256 = self.sponsorships.read(key).into();
+            assert(amount != 0, errors::NOTHING_TO_RECLAIM);
+
+            // [Effect] Reclaimed, once
+            self.sponsorships.write(key, 0);
+
+            // [Return] Amount to pay
+            amount
         }
     }
 }

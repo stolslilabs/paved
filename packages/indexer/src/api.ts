@@ -1,6 +1,9 @@
 // The v1 response types of the read API (docs/architecture/indexer.md, "Read API (v1)"), shared with the client: plain
 // TypeScript, no import, so that a client may import this file as types only and the daemon's code never enters its
 // bundle. A v1 field is never removed or retyped; fields may be appended.
+//
+// Amounts (Economy's u256 and u128: USDC and PAVED base units) can exceed 2^53, so they are decimal strings, never JSON
+// numbers (P-19); every other number is a safe integer.
 
 export const API_VERSION = 1;
 
@@ -69,7 +72,7 @@ export interface HeadAnswer extends Envelope {
   state: "ok";
   chain_id: string;
   from_block: number;
-  contracts: { daily: string; tutorial: string; account: string };
+  contracts: { daily: string; tutorial: string; account: string; economy: string };
   checks: {
     /** Closed days compared with the `tournament` view since the process started (or the last rewind). */
     tournaments_checked: number;
@@ -100,8 +103,32 @@ export interface TournamentDetail extends TournamentSummary {
   games_finished: number;
 }
 
+/** A day of Economy (the tournament id is the UTC day): its paid games and, once its first settlement closed it, its mean. */
+export interface DayEconomy {
+  /** Daily games bought this day (`Purchased`). */
+  games_purchased: number;
+  /** Of them, the games whose score Economy has (`Recorded`), settled or not. */
+  games_recorded: number;
+  games_settled: number;
+  /** The recorded games of the day not settled yet, by id: what `Economy.settle` takes from `(id + 2) x 86400`. */
+  unsettled: number[];
+  /** PAVED base units minted to the day's settled games, a decimal string. */
+  rewards: string;
+  /** `DayClosed` seen: the day's mean is fixed. */
+  closed: boolean;
+  /** Of `DayClosed`, points x 1,000; null until the day closes. */
+  mean: number | null;
+  weight: number | null;
+  prior: number | null;
+  ema_after: number | null;
+  /** Time of the block that closed the day; null until then. */
+  closed_at: number | null;
+}
+
 export interface TournamentAnswer extends Envelope {
   tournament: TournamentDetail;
+  /** Appended in E3. */
+  economy: DayEconomy;
 }
 
 export interface LeaderboardEntry {
@@ -143,12 +170,29 @@ export interface PlayerStats {
   /** Best score of a finished Daily game, null when none finished. */
   best_score: number | null;
   tutorial_games: number;
+  /** Daily games the player bought (`Purchased`). Appended in E3. */
+  paid_games: number;
+  /** Of them, the games settled. */
+  settled_games: number;
+  /** PAVED base units minted to the player's settled games, a decimal string. */
+  rewards: string;
+}
+
+/** A paid game whose score Economy has and that is not settled yet: what a client or a keeper settles. */
+export interface UnsettledGame {
+  game_id: number;
+  /** The purchase day: the game can be settled from `(day + 2) x 86400`. */
+  day: number;
+  /** Recorded 24 h or more after its purchase: it settles for 0. */
+  expired: boolean;
 }
 
 export interface PlayerAnswer extends Envelope {
   /** null for a player the indexer does not know (200, not 404). */
   player: PlayerInfo | null;
   stats: PlayerStats | null;
+  /** The player's unsettled games, oldest first; null for a player the indexer does not know. Appended in E3. */
+  unsettled: UnsettledGame[] | null;
 }
 
 export interface GameRow {
@@ -166,6 +210,37 @@ export interface GameRow {
   counted_tournament_id: number | null;
   /** 0 when the game did not count; null while running. */
   end_time: number | null;
+  /** The terms and the settlement of a Daily game bought through Economy; null for a Tutorial game and a game not bought. Appended in E3. */
+  economy: GameEconomy | null;
+}
+
+export interface GameEconomy {
+  /** The purchase's UTC day. */
+  day: number;
+  stake: number;
+  /** USDC base units, a decimal string. */
+  price: string;
+  /** The referrer paid, `0x` and 64 hex digits; null when the purchase had no referral. */
+  referrer: string | null;
+  /** USDC base units paid to the referrer, a decimal string ("0" without one). */
+  referral: string;
+  /** PAVED base units burned by the purchase, a decimal string. */
+  burned: string;
+  /** The supply factor at the purchase, bps. */
+  factor: number;
+  /** `R`, the reference reward, PAVED base units, a decimal string. */
+  reference: string;
+  /** Time of the block of the purchase. */
+  purchased_at: number;
+  /** Economy has the game's score (`Recorded`). */
+  recorded: boolean;
+  /** Recorded 24 h or more after its purchase: no reward, no mean. False until recorded. */
+  expired: boolean;
+  settled: boolean;
+  /** The cliff the score was paid against, points x 1,000; null until settled. */
+  threshold: number | null;
+  /** PAVED base units minted at the settlement, a decimal string; null until settled. */
+  reward: string | null;
 }
 
 export interface PlayerGamesAnswer extends Envelope {

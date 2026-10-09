@@ -253,6 +253,7 @@ pub mod Economy {
         pub const TOO_EARLY: felt252 = 'Economy: day cannot close yet';
         pub const ZERO_RATE: felt252 = 'Economy: zero rate';
         pub const RATE_OVERFLOW: felt252 = 'Economy: rate overflow';
+        pub const AMOUNT_TOO_LARGE: felt252 = 'Economy: amount too large';
         pub const BELOW_MIN_OUT: felt252 = 'Economy: swap below min_out';
         pub const TRANSFER_FAILED: felt252 = 'Economy: transfer failed';
     }
@@ -618,7 +619,11 @@ pub mod Economy {
             let now = get_block_timestamp();
             if now != guard.updated {
                 let next = curve::next_rate(rate, bought, quote);
-                self.guard.write(Guard { rate: next.try_into().unwrap(), updated: now });
+                self
+                    .guard
+                    .write(
+                        Guard { rate: next.try_into().expect(errors::RATE_OVERFLOW), updated: now },
+                    );
             }
             let terms = Terms {
                 reference,
@@ -782,7 +787,7 @@ pub mod Economy {
         }
 
         fn quote_swap(self: @ContractState, usdc_in: u256) -> u256 {
-            let amount: u128 = usdc_in.try_into().unwrap();
+            let amount: u128 = usdc_in.try_into().expect(errors::AMOUNT_TOO_LARGE);
             IQuoteDispatcher { contract_address: self.router.read() }
                 .quote(self.usdc.read(), amount)
                 .into()

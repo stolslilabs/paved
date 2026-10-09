@@ -35,9 +35,10 @@ export class PavedClient {
     return { id: raw.id, name: shortString.decodeShortString(raw.name), master: raw.master };
   }
 
-  /** Balance of the entry token, in its base unit. */
+  /** Balance of the entry token (USDC since E3), in its base unit: the token `Daily.entry_price` names. */
   async balance(address: string): Promise<bigint> {
-    return (await this.read("Token", "balance_of", [address])) as bigint;
+    const { token } = await this.views.entryPrice();
+    return (await this.read("Token", "balance_of", [address], token)) as bigint;
   }
 
   writer(account: WriteAccount, options: { tip?: bigint } = {}): PavedWriter {
@@ -53,8 +54,8 @@ export class PavedClient {
     });
   }
 
-  private async read(contract: "Account" | "Token", entrypoint: string, args: string[]): Promise<unknown> {
-    const contractAddress = this.deployment.addresses[contract];
+  private async read(contract: "Account" | "Token", entrypoint: string, args: string[], at?: string): Promise<unknown> {
+    const contractAddress = at ?? this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
     const codec = this.codecs[contract];
     try {

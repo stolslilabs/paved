@@ -1,4 +1,4 @@
-/** The economy client (P8) on E2's real ABI (E3's paid spawn and USDC still stubs) and the fake: `docs/architecture/client-economy.md`. */
+/** The economy client (P8) on the committed ABIs (E1 to E3) and the fake: `docs/architecture/client-economy.md`. */
 import { describe, expect, test, vi } from "vitest";
 import { hash, shortString } from "starknet";
 import devnetFile from "../../../contracts/deployments/devnet.json";
@@ -9,7 +9,6 @@ import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews, ViewError } from "../src/views";
 import { WriteError } from "../src/writer";
 import {
-  ECONOMY_ABI_IS_STUB,
   ECONOMY_VIEW_FIELDS,
   PurchaseOutcomeUnknownError,
   PurchasePriceChangedError,
@@ -70,7 +69,7 @@ function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () 
   return { economy, gameViews, execute, writer, econWriter, sent, pool };
 }
 
-describe("ABIs: Economy is E2's real one; USDC and the paid spawn are stubs until E3", () => {
+describe("ABIs: all committed (Economy E2, paid spawn E3; USDC is the ERC20 of Token.json)", () => {
   test("Economy is the committed Economy.json, and the view field lists match it", () => {
     expect(ECONOMY_ABIS.Economy).toBe(economyAbi);
     const codec = new AbiCodec(economyAbi as Abi);
@@ -90,14 +89,17 @@ describe("ABIs: Economy is E2's real one; USDC and the paid spawn are stubs unti
     expect(codec.encodeCall("record", [7, 4000])).toEqual(["0x7", "0xfa0"]);
   });
 
-  test("the economy is still marked as awaiting E3", () => {
-    expect(ECONOMY_ABI_IS_STUB).toBe(true);
-  });
-
-  test("the paid spawn is E3's: the real Daily ABI still has none (this fails when E3 lands: wire it)", () => {
+  test("the paid spawn is E3's, on the real committed Daily ABI: spawn(stake, referrer, min_out)", () => {
     const spawnOf = (abi: Abi) => abi.flatMap((e) => e.items ?? []).find((i) => i.name === "spawn");
-    expect(spawnOf(ECONOMY_ABIS.DailyPaid)?.inputs?.map((i) => i.name)).toEqual(["stake", "referrer", "min_out"]);
-    expect(spawnOf(ABIS.Daily)?.inputs).toEqual([]);
+    expect(spawnOf(ECONOMY_ABIS.Daily)?.inputs?.map((i) => `${i.name}: ${i.type}`)).toEqual([
+      "stake: core::integer::u8",
+      "referrer: core::starknet::contract_address::ContractAddress",
+      "min_out: core::integer::u256",
+    ]);
+    expect(ECONOMY_ABIS.Daily).toBe(ABIS.Daily);
+    const codecs = createEconomyCodecs();
+    expect(codecs.Daily.encodeCall("spawn", [3, "0x0", 5n])).toEqual(["0x3", "0x0", "0x5", "0x0"]);
+    for (const f of ["approve", "balance_of", "allowance"]) expect(codecs.USDC.hasFunction(f)).toBe(true);
   });
 
   test("PavedToken and Vault are CORE's real ABIs (E1)", () => {
@@ -515,14 +517,14 @@ describe("Settled: E2's widths (day u64, score u32, threshold u64, reward u128, 
 describe("errors of the Economy as clear states", () => {
   const reverted = (reason: string) => setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: reason }) });
 
-  test("purchase: 'swap below min_out' is 'the price moved, nothing was charged', with the hash", async () => {
+  test("purchase: 'swap below min_out' is 'the price moved, your USDC was not spent', with the hash", async () => {
     for (const reason of ["Economy: swap below min_out", `Failure reason: ${shortString.encodeShortString("Economy: swap below min_out")} ('Economy: swap below min_out')`, shortString.encodeShortString("Economy: swap below min_out")]) {
       const error = await reverted(reason).econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
       expect(error).toBeInstanceOf(SwapBelowMinOutError);
       expect(error).toBeInstanceOf(WriteError);
       expect((error as SwapBelowMinOutError).reverted).toBe(true);
       expect((error as SwapBelowMinOutError).transactionHash).toBe("0x1");
-      expect((error as Error).message).toBe("The price moved before your purchase went through: nothing was charged. Try again.");
+      expect((error as Error).message).toBe("The price moved before your purchase went through: your USDC was not spent. Try again.");
     }
   });
 

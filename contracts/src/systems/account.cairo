@@ -7,12 +7,18 @@ use starknet::ContractAddress;
 pub trait IAccount<TContractState> {
     fn create(ref self: TContractState, name: felt252, master: ContractAddress);
     fn player(self: @TContractState, id: felt252) -> Player;
+    /// Sets the `Economy` that `Daily` pays into, once. The owner only.
+    fn set_economy(ref self: TContractState, economy: ContractAddress);
+    /// The `Economy` of the paid Daily games (zero until set): `Lobby` reads it at spawn and at
+    /// game over.
+    fn economy(self: @TContractState) -> ContractAddress;
 }
 
 #[starknet::contract]
 pub mod Account {
     // Component imports
 
+    use core::num::traits::Zero;
     use paved::components::manageable::ManageableComponent;
     use paved::components::ownable::OwnableComponent;
 
@@ -22,10 +28,18 @@ pub mod Account {
     use paved::models::player::Player;
     use paved::store::{StoreImpl, StoreTrait};
     use starknet::ContractAddress;
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
 
     // Local imports
 
     use super::IAccount;
+
+    // Errors
+
+    pub mod errors {
+        pub const ECONOMY_SET: felt252 = 'Account: economy already set';
+        pub const ZERO_ECONOMY: felt252 = 'Account: economy is zero';
+    }
 
     // Components
 
@@ -44,6 +58,8 @@ pub mod Account {
         manageable: ManageableComponent::Storage,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
+        /// The `Economy` of the paid Daily games; written once by the owner.
+        economy: ContractAddress,
     }
 
     // Events
@@ -57,6 +73,12 @@ pub mod Account {
         ManageableEvent: ManageableComponent::Event,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
+        EconomySet: EconomySet,
+    }
+
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct EconomySet {
+        pub economy: ContractAddress,
     }
 
     // Constructor
@@ -79,6 +101,20 @@ pub mod Account {
         fn player(self: @ContractState, id: felt252) -> Player {
             // [Return] Player, zero if not registered
             StoreImpl::new().player(id)
+        }
+
+        fn set_economy(ref self: ContractState, economy: ContractAddress) {
+            // [Check] The owner, once, a real address
+            self.ownable.assert_only_owner();
+            assert(self.economy.read().is_zero(), errors::ECONOMY_SET);
+            assert(economy.is_non_zero(), errors::ZERO_ECONOMY);
+            // [Effect] Set it for good
+            self.economy.write(economy);
+            self.emit(EconomySet { economy });
+        }
+
+        fn economy(self: @ContractState) -> ContractAddress {
+            self.economy.read()
         }
     }
 }

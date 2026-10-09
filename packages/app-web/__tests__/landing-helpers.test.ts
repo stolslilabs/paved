@@ -3,8 +3,8 @@ import { emptyTournament } from "@paved/chain";
 import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, podium, shortAddress, TOKEN_LABEL, parseTokenAmount, playerNameError, tokenLabel } from "../src/utils/landing-helpers";
 
 describe("landing helpers", () => {
-  it("labels the token PAVED (D-10)", () => {
-    expect(TOKEN_LABEL).toBe("PAVED");
+  it("labels the entry and prize token USDC (E3)", () => {
+    expect(TOKEN_LABEL).toBe("USDC");
   });
 
   it("formats token amounts from the base unit", () => {

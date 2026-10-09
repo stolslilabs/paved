@@ -169,6 +169,7 @@ function route(url: URL): Read | null {
         parameters(url, []);
         return (queries, served) => ({
           tournament: queries.tournament(served.number, id),
+          economy: queries.dayEconomy(served.number, id),
         });
       }
       if (b === "leaderboard" && parts.length === 5) {
@@ -209,7 +210,11 @@ function route(url: URL): Read | null {
         parameters(url, []);
         return (queries, served) => {
           const found = queries.player(served.number, player);
-          return { player: found?.player ?? null, stats: found?.stats ?? null };
+          return {
+            player: found?.player ?? null,
+            stats: found?.stats ?? null,
+            unsettled: found?.unsettled ?? null,
+          };
         };
       }
       if (b === "quests" && parts.length === 5) {
@@ -355,7 +360,7 @@ export function cacheOf(indexer: Indexer): AnswerCache {
 export type HeadInfo = {
   chainId: string;
   fromBlock: number;
-  contracts: { daily: string; tutorial: string; account: string };
+  contracts: { daily: string; tutorial: string; account: string; economy: string };
   checks?: CrossCheck;
 };
 
