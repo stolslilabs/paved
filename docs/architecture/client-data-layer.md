@@ -264,6 +264,57 @@ view, never from here.
   surrender), lists the games from events and checks the error mapping. `PAVED_RECORD=1` rewrites
   the fixtures. CI does not run it (no devnet there).
 
+## Signing
+
+Who signs depends on the network (`signerOf`, `app-web/src/utils/network.ts`), and
+`resolvePlayerAccount` returns that account:
+
+- **devnet**: the burner, a predeployed account from `VITE_PLAYER_ADDRESS` and
+  `VITE_PLAYER_PRIVATE_KEY`. No other network takes a key from the env: a key in a built bundle is
+  public.
+- **any other network**: the Cartridge controller's account, once the player has connected. Until then
+  the app is read-only: the banner says "Read only: connect to play." and shows a "Connect" button.
+  Once the player is connected, the banner shows the account and "Disconnect", and disconnecting makes
+  the app read-only again at once.
+- **not configured**: nobody signs and no controller is built (`controllerPolicies` refuses, since
+  there is no policy on an empty target).
+
+`WalletProvider` (`app-web/src/components/WalletProvider.tsx`) holds the controller's account and passes
+the resolved account to `PavedProvider`. That makes a controller account go through the same `PavedWriter`
+as the burner, so the payment rules above hold whoever signs: writes are serialised, a paying write needs
+an explicit confirm, the amount is checked again at send, and nothing is written when the deployment is
+not configured. The account object changes only when the signer changes, because a new account means a
+new writer.
+
+The connector (`createControllerConnector`, `chain/src/auth/controller.ts`) wraps
+`@cartridge/controller` **0.13.16**, pinned exactly. It is the last release on starknet ^8: 0.14.x
+needs starknet ^10, and the client stays on 8.9. The package is imported on first use, so it lives in a
+lazy chunk of about 262 kB (78 kB gzip) and a devnet session never loads it; the controller's UI
+runs in Cartridge's iframe. The connector is configured as follows:
+
+- `chains`: the deployment's RPC URL only.
+- `defaultChainId`: the deployment file's `chain_id`, or else the RPC's `starknet_chainId`. It is
+  never left unset, because the controller would then default to mainnet.
+- `policies`: `controllerPolicies(deployment)`, passed through the package's `toSessionPolicies`.
+  It holds one policy per entry point the writer sends (`CONTROLLER_ENTRY_POINTS`):
+  `Account.create`, `Token.approve`, Daily `spawn`/`build`/`discard`/`surrender`/`claim`/`sponsor`,
+  and Tutorial `spawn`/`build`/`discard`/`surrender`. `Token.mint` is not a policy, because the faucet
+  exists only on the devnet mock. The connector refuses to build without an RPC URL or policies.
+
+When the app opens, `probe` restores a session already approved in the browser without a prompt. A
+connect that the player abandons leaves the app read-only and says why.
+
+A session policy lets the controller sign `approve` without asking each time. What guards each payment
+is the client's own confirm, which shows the amount, and the check at send. The session is not that
+guard.
+
+The controller's licence is Cartridge's own (`LICENSE` in the package): use is free for non-commercial
+purposes or under 10,000 monthly active users, and each copy must carry a notice. The connected banner
+carries the notice ("Cartridge Controller is the copyright of Cartridge Gaming Company"). Whether that
+licence fits the product is the owner's call. Tested in jsdom with the controller mocked
+(`app-web/__tests__/wallet.test.tsx`, `chain/test/controller.test.ts`). No browser run has been made
+against a real controller or network.
+
 ## In the app
 
 `PavedProvider` (`react.tsx`) gives the client, the writer and a status computed once from

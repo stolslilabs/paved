@@ -67,6 +67,15 @@ not-configured and stale states. Display only: no reward is shown or promised. L
 button. jsdom tests only, no browser run. The e2e step "deployer smoke game" now queries the Tutorial contract and expects
 game 1 there (it passed vacuously on Daily). Not run on a live devnet.
 
+2026-10-09, signing (P-14, t-0055): outside devnet, the player signs with the Cartridge controller
+(`@cartridge/controller` 0.13.16, the last release on starknet ^8). The connection banner has "Connect"
+and "Disconnect", and the session policies are exactly the client's entry points. The controller's
+account goes through the same `PavedWriter` as the devnet burner, which is kept. Without a connection,
+other networks are read-only. jsdom tests only (controller mocked). Nothing has been deployed beyond
+devnet, and no real controller has been tried. The controller's licence (non-commercial or under 10,000
+monthly active users, notice required) is for the owner. Design: section "Signing" of
+`docs/architecture/client-data-layer.md`.
+
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
 The baseline measures a recorded board, not a live deployment (decided 2026-10-06): the contracts

@@ -1,6 +1,6 @@
 import { Account, RpcProvider } from "starknet";
 import { createIndexerClient, resolveDeployment } from "@paved/chain";
-import type { Deployment, DeploymentFile, IndexerClient } from "@paved/chain";
+import type { Deployment, DeploymentFile, IndexerClient, WriteAccount } from "@paved/chain";
 
 /** The `VITE_*` variables the app reads; each one set overrides `contracts/deployments/<network>.json`. */
 export interface NetworkEnv {
@@ -60,14 +60,24 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
   };
 }
 
+/** Who signs: the env's burner on devnet, the Cartridge controller elsewhere, nobody when not configured. */
+export type Signer = "burner" | "controller" | "none";
+
+export function signerOf(deployment: Deployment): Signer {
+  if (!deployment.configured) return "none";
+  return deployment.network === DEFAULT_NETWORK ? "burner" : "controller";
+}
+
 /**
- * The playing account from a private key in the env, on devnet only (its predeployed accounts):
- * a key in a built bundle is public, so no other network takes one. Elsewhere the controller is
- * the only signing path. Null (read-only) when not devnet, not configured, or no key is set.
+ * The playing account. On devnet, the account from a private key in the env (its predeployed
+ * accounts): a key in a built bundle is public, so no other network takes one. Elsewhere, the
+ * controller's account once the player connected (`controller`). Null (read-only) when not
+ * configured, when devnet has no key, or when nobody connected the controller.
  */
-export function resolvePlayerAccount(env: NetworkEnv, deployment: Deployment): Account | null {
-  if (deployment.network !== DEFAULT_NETWORK) return null;
-  if (!deployment.configured || !env.VITE_PLAYER_ADDRESS || !env.VITE_PLAYER_PRIVATE_KEY) return null;
+export function resolvePlayerAccount(env: NetworkEnv, deployment: Deployment, controller: WriteAccount | null = null): WriteAccount | null {
+  const signer = signerOf(deployment);
+  if (signer === "controller") return controller;
+  if (signer === "none" || !env.VITE_PLAYER_ADDRESS || !env.VITE_PLAYER_PRIVATE_KEY) return null;
   return new Account({
     provider: new RpcProvider({ nodeUrl: deployment.rpcUrl }),
     address: env.VITE_PLAYER_ADDRESS,
