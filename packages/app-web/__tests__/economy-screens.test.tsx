@@ -120,7 +120,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     land({ search: "?ref=abc" });
     fireEvent.click(await screen.findByText(/mode daily/));
     fireEvent.click(await screen.findByText("Buy for 2 USDC"));
-    expect(screen.queryByText(/Referr/)).toBeNull();
+    expect(screen.queryByText(/Referrer/)).toBeNull();
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();

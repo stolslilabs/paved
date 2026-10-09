@@ -98,7 +98,7 @@ is missing, the Daily keeps today's confirm, and nothing of the economy is read.
 |---|---|---|
 | Purchase | the Daily dialog (`EconomyPurchase`), when the economy is configured and no Daily game is active | the stake `k` picker (1 to 10), the price read from the chain (`k x entry_price`, equal to `quote(k).price`, else "Price unavailable"), the boost `x(1 + k/100)`, the referrer from the link, the cliff. "Buy for P USDC" only opens the confirm; "Confirm purchase" navigates to `/game?mode=daily` with the purchase in the history state |
 | Referral link | panel (`EconomyReferral`) | the player's link `/?ref=<address>` and "pays the same price; you get 5 % of it, out of the stakers' margin" |
-| Vault | panel (`EconomyVault`) | staked PAVED, total staked, pending USDC dividends, the wallet's PAVED; stake, unstake, claim dividends, each through a confirm that shows the amount |
+| Vault | panel (`EconomyVault`) | staked PAVED, total staked, pending USDC dividends, the wallet's PAVED; stake, unstake, claim dividends, each through a confirm that shows the amount; the unstake confirm says the dividends stay claimable (E1's `unstake` credits them, it does not pay them) |
 | After the day | panel (`EconomySettle`) | the player's bought Daily games (the newest 30 `GameSpawned`, then `terms` each; stake 0 is not listed): day running, not finished (`recorded` false after its day: never settled, the stake is lost), to settle, or settled with the chain's reward; a reward of 0 says "below the shifted mean, the stake is lost". "Settle" opens a confirm |
 
 The cliff is said as it is wherever a game is bought or settled: **"Below the shifted mean the stake is lost."** No
@@ -112,7 +112,7 @@ The payment rules of `client-data-layer.md` hold for each paying action:
   `{ start: true, purchase: { stake, confirmedPrice, referrer } }` (`utils/economy-start.ts`), set only by "Confirm
   purchase". A link (`?stake=`, `?price=`, `?ref=`) sets none: the game page says "No game selected" and sends nothing.
   `readPurchaseIntent` refuses any malformed state (a stake outside 1..10, a price that is not a positive integer string,
-  a referrer that is not hex).
+  a referrer that is not hex). A malformed `?ref=` (`?ref=abc`) is ignored on the landing page: no referrer is shown or sent.
 - **The referrer comes from a link; the consent never does.** `?ref=0x...` on the landing page names a referrer, shown at
   the confirm with its 5 % "out of the stakers' margin: you pay the same"; one's own address, or an address that is not a
   registered player (`Account.player`), is ignored and said so. A failed read of the referrer disables the purchase.
