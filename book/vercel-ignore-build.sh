@@ -13,25 +13,29 @@ unchanged() { git diff --quiet "$@" -- . 2>/dev/null; }
 # it exists (Vercel clones the branch at a small depth). Empty when it cannot be found.
 merge_base() {
   depth=100
-  git fetch -q --depth="$depth" origin "$1" 2>/dev/null || return 1
+  git fetch -q --depth="$depth" "$remote" "$1" || return 1
   tries=0
   while [ "$tries" -lt 5 ]; do
     mb=$(git merge-base FETCH_HEAD HEAD 2>/dev/null) && [ -n "$mb" ] && { echo "$mb"; return 0; }
     tries=$((tries + 1))
-    git fetch -q --deepen=200 origin "$1" "${VERCEL_GIT_COMMIT_REF:-HEAD}" 2>/dev/null \
-      || git fetch -q --deepen=200 origin "$1" 2>/dev/null || return 1
+    git fetch -q --deepen=200 "$remote" "$1" "${VERCEL_GIT_COMMIT_REF:-HEAD}" \
+      || git fetch -q --deepen=200 "$remote" "$1" || return 1
   done
   return 1
 }
 
 ref="${VERCEL_GIT_COMMIT_REF:-}"
+remote=origin
+public="https://github.com/${VERCEL_GIT_REPO_OWNER:-stolslilabs}/${VERCEL_GIT_REPO_SLUG:-paved}.git"
+echo "ignore step: remotes: $(git remote -v 2>&1 | sed 's|//[^@/]*@|//***@|' | tr '\n' ' ')"
 echo "ignore step: ref='$ref' pr='${VERCEL_GIT_PULL_REQUEST_ID:-}' previous='${VERCEL_GIT_PREVIOUS_SHA:-}' head=$(git rev-parse --short HEAD 2>/dev/null)"
 
 # 1. A PR (or any branch other than main): compare with the merge base of main. Not with
 #    VERCEL_GIT_PREVIOUS_SHA, which on a new branch may be an old deployment of another
 #    branch, whose diff would include book/ changes already on main.
 if [ -n "$VERCEL_GIT_PULL_REQUEST_ID" ] || { [ -n "$ref" ] && [ "$ref" != "main" ]; }; then
-  if mb=$(merge_base main); then
+  # The clone's own remote first, then the public repository by URL.
+  if mb=$(merge_base main) || { remote="$public"; mb=$(merge_base main); }; then
     if unchanged "$mb" HEAD; then
       echo "ignore step: branch 1 (merge base ${mb%"${mb#???????}"}): no change under book/, skip"
       exit 0
