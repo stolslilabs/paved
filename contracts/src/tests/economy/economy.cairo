@@ -352,6 +352,33 @@ fn test_constructor_refuses_a_zero_rate() {
     }
 }
 
+#[test]
+fn test_constructor_refuses_a_rate_of_two_pow_128() {
+    let s = setup();
+    let class = declare("Economy").unwrap().contract_class();
+    let (pool_key, _) = s.economy.pool();
+    let mut calldata: Array<felt252> = array![
+        OWNER().into(), s.paved.contract_address.into(), s.usdc.contract_address.into(),
+        s.vault.into(), s.router.into(),
+    ];
+    pool_key.serialize(ref calldata);
+    0_u256.serialize(ref calldata);
+    decided().serialize(ref calldata);
+    MEAN0.serialize(ref calldata);
+    u256 { low: 0, high: 1 }.serialize(ref calldata);
+    match class.deploy(@calldata) {
+        Result::Ok(_) => panic!("a rate of 2^128 was accepted"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Economy: rate overflow'),
+    }
+}
+
+#[test]
+#[should_panic(expected: 'Economy: amount too large')]
+fn test_quote_swap_refuses_an_amount_above_u128() {
+    let s = setup();
+    s.economy.quote_swap(u256 { low: 0, high: 1 });
+}
+
 // Purchase: refusals
 
 #[test]

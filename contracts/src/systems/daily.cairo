@@ -10,7 +10,12 @@ use quiver_quest::types::task::QuestTask;
 
 #[starknet::interface]
 pub trait IDaily<TContractState> {
-    fn spawn(ref self: TContractState) -> u32;
+    /// A paid game: approve `Daily` on USDC for `stake x entry_price().amount` first (stake 1 to
+    /// 10). `referrer`: a registered player other than the caller, or zero; `min_out`: the least
+    /// PAVED the burn's swap must buy (`docs/architecture/economy.md`, section 5).
+    fn spawn(
+        ref self: TContractState, stake: u8, referrer: starknet::ContractAddress, min_out: u256,
+    ) -> u32;
     fn claim(ref self: TContractState, tournament_id: u64, rank: u8);
     fn sponsor(ref self: TContractState, amount: felt252);
     fn discard(ref self: TContractState, game_id: u32);
@@ -175,9 +180,12 @@ pub mod Daily {
 
     #[abi(embed_v0)]
     impl DailyImpl of IDaily<ContractState> {
-        fn spawn(ref self: ContractState) -> u32 {
-            // [Effect] Spawn a game and pay its entry price, in the lobby class
-            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.spawn(Mode::Daily)
+        fn spawn(
+            ref self: ContractState, stake: u8, referrer: ContractAddress, min_out: u256,
+        ) -> u32 {
+            // [Effect] Spawn a game and purchase it, in the lobby class
+            ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                .spawn(Mode::Daily, stake, referrer, min_out)
         }
 
         fn claim(ref self: ContractState, tournament_id: u64, rank: u8) {
@@ -214,7 +222,8 @@ pub mod Daily {
             let over = self.playable.build(game_id, orientation, x, y, role, spot);
             // [Effect] A game that ends reports to the quests, in the lobby class (one call)
             if over != 0 {
-                ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }.report(over);
+                ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
+                    .report(game_id, over);
             }
         }
     }

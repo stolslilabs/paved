@@ -174,7 +174,7 @@ export function GamePage() {
     setStarting(true);
     startGame(intent, {
       listGames: () => client.events.playerGames(address, [gameParams.mode]),
-      spawn: (confirmedAmount) => spawnForIntent(intent.purchase, economy.writer, () => writer.spawn(gameParams.mode, { confirmedAmount })),
+      spawn: () => spawnForIntent(intent.purchase, economy.writer, () => writer.spawn(gameParams.mode)),
       clearIntent: () => {}, // already cleared at mount
       open: (gameId) => alive.current && navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
     }).catch((error) => {

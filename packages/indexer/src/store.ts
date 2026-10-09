@@ -6,6 +6,7 @@
 //
 // The indexer's tables, in SQLite (node:sqlite). Bounded integers (game id, score, mode, tournament id, every time: all
 // below 2^53) are INTEGER; only felts (player id, price, name, master) are fixed-width lowercase hex text, 66 characters.
+// Economy's amounts (u256 and u128: USDC and PAVED base units) can exceed 2^63 and are decimal text.
 //
 // Rewinding to a block F is one transaction: the rows created after F are deleted, and the games finished after F go back
 // to unfinished. Pruning forgets the headers below the kept history; the rows stay (they are the state, not a history).
@@ -13,7 +14,10 @@
 // Idempotence: an event whose (block, tx, idx) is already in `events` is skipped, so applying one block twice changes
 // nothing. A duplicate game is never merged: a GameOver for a game with no GameSpawned, a second GameOver for one game, a
 // GameSpawned for an existing id, a second PlayerCreated, a mode that does not match its contract, or an event of a
-// contract that does not emit it, halts the indexer (what it holds is not the chain's).
+// contract that does not emit it, halts the indexer (what it holds is not the chain's). The same for Economy: a second
+// Purchased for one game, a Recorded or a Settled for a game not purchased, a second Recorded or Settled for one game, a
+// Settled before its Recorded or that names another player, day or score than the purchase and the record, or a second
+// DayClosed for one day.
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
@@ -36,6 +40,7 @@ export type Config = {
   daily: string;
   tutorial: string;
   account: string;
+  economy: string;
   /** The first block indexed (the contracts' deployment block). */
   from: number;
   /** The chain id of the deployment file, as a canonical felt. */
@@ -45,15 +50,15 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "3";
+export const SCHEMA_VERSION = "4";
 
-/** The sha256 of the three addresses (canonical, in a fixed order): the identity of a deployment. */
+/** The sha256 of the four addresses (canonical, in a fixed order): the identity of a deployment. */
 export function deploymentHash(
-  config: Pick<Config, "daily" | "tutorial" | "account">,
+  config: Pick<Config, "daily" | "tutorial" | "account" | "economy">,
 ): string {
   return createHash("sha256")
     .update(
-      [config.daily, config.tutorial, config.account]
+      [config.daily, config.tutorial, config.account, config.economy]
         .map((address) => canonical(address))
         .join(","),
     )
@@ -132,6 +137,24 @@ const SCHEMA = `
   );
   CREATE INDEX IF NOT EXISTS day_closes_time ON day_closes (prev_time, time);
   CREATE INDEX IF NOT EXISTS podium_player ON podium (player_id);
+  -- Economy: one row per paid Daily game (Purchased), recorded (Recorded) then settled (Settled), each at a block. The
+  -- amounts are decimal text (u256, u128); the game id is Daily's own.
+  CREATE TABLE IF NOT EXISTS purchases (
+    game_id INTEGER PRIMARY KEY, player_id TEXT NOT NULL, day INTEGER NOT NULL, stake INTEGER NOT NULL,
+    price TEXT NOT NULL, referrer TEXT NOT NULL, referral TEXT NOT NULL, burned_quote TEXT NOT NULL, burned TEXT NOT NULL,
+    margin TEXT NOT NULL, supply TEXT NOT NULL, factor INTEGER NOT NULL, reference TEXT NOT NULL,
+    purchased_block INTEGER NOT NULL, purchased_time INTEGER NOT NULL,
+    score INTEGER, expired INTEGER, recorded_block INTEGER,
+    threshold INTEGER, reward TEXT, settled_block INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS purchases_player ON purchases (player_id, game_id);
+  CREATE INDEX IF NOT EXISTS purchases_day ON purchases (day, game_id);
+  CREATE INDEX IF NOT EXISTS purchases_purchased ON purchases (purchased_block);
+  -- DayClosed: a day's mean, fixed at its first settlement.
+  CREATE TABLE IF NOT EXISTS economy_days (
+    day INTEGER PRIMARY KEY, mean INTEGER NOT NULL, weight INTEGER NOT NULL, prior INTEGER NOT NULL,
+    ema_after INTEGER NOT NULL, closed_block INTEGER NOT NULL, closed_time INTEGER NOT NULL
+  );
 `;
 
 type Row = Record<string, SQLInputValue>;
@@ -155,12 +178,13 @@ function normalize(config: Config): Config {
     daily: canonical(config.daily),
     tutorial: canonical(config.tutorial),
     account: canonical(config.account),
+    economy: canonical(config.economy),
     from: config.from,
     chainId: canonical(config.chainId),
   };
 }
 
-/** The meta rows of a configuration (the three addresses are kept as their hash, and as text for the API). */
+/** The meta rows of a configuration (the four addresses are kept as their hash, and as text for the API). */
 function metaOf(config: Config): Record<string, string> {
   return {
     chain_id: config.chainId,
@@ -170,6 +194,7 @@ function metaOf(config: Config): Record<string, string> {
       daily: config.daily,
       tutorial: config.tutorial,
       account: config.account,
+      economy: config.economy,
     }),
   };
 }
@@ -322,7 +347,7 @@ export class Store {
   }
 
   /** The configuration the database was opened with (the addresses as stored). */
-  contracts(): { daily: string; tutorial: string; account: string } | undefined {
+  contracts(): { daily: string; tutorial: string; account: string; economy: string } | undefined {
     const text = this.meta("addresses");
     return text === undefined ? undefined : JSON.parse(text);
   }
@@ -514,6 +539,75 @@ export class Store {
             });
             break;
           }
+          case "Purchased": {
+            if (this.sql.purchase.get(event.gameId)) {
+              throw new Halt(`Purchased of game ${event.gameId} ${where}: the game is already purchased`);
+            }
+            this.sql.insertPurchase.run({
+              game_id: event.gameId,
+              player_id: padded(event.playerId),
+              day: Number(event.day),
+              stake: event.stake,
+              price: String(event.price),
+              referrer: padded(event.referrer),
+              referral: String(event.referral),
+              burned_quote: String(event.burnedQuote),
+              burned: String(event.burned),
+              margin: String(event.margin),
+              supply: String(event.supply),
+              factor: event.factor,
+              reference: String(event.reference),
+              block: at,
+              time: block.timestamp,
+            });
+            break;
+          }
+          case "Recorded": {
+            const found = this.sql.purchase.get(event.gameId) as Row | undefined;
+            if (!found) throw new Halt(`Recorded of game ${event.gameId} ${where}: no Purchased for it`);
+            if (found.recorded_block !== null) {
+              throw new Halt(`Recorded of game ${event.gameId} ${where}: the game is already recorded`);
+            }
+            this.sql.recordPurchase.run({
+              game_id: event.gameId,
+              score: event.score,
+              expired: event.expired ? 1 : 0,
+              block: at,
+            });
+            break;
+          }
+          case "Settled": {
+            const found = this.sql.purchase.get(event.gameId) as Row | undefined;
+            const what = `Settled of game ${event.gameId} ${where}`;
+            if (!found) throw new Halt(`${what}: no Purchased for it`);
+            if (found.recorded_block === null) throw new Halt(`${what}: the game is not recorded`);
+            if (found.settled_block !== null) throw new Halt(`${what}: the game is already settled`);
+            if (found.player_id !== padded(event.playerId)) throw new Halt(`${what}: another player than the purchase's`);
+            if (Number(found.day) !== Number(event.day)) throw new Halt(`${what}: another day than the purchase's`);
+            if (Number(found.score) !== event.score) throw new Halt(`${what}: another score than the record's`);
+            this.sql.settlePurchase.run({
+              game_id: event.gameId,
+              threshold: Number(event.threshold),
+              reward: String(event.reward),
+              block: at,
+            });
+            break;
+          }
+          case "DayClosed": {
+            if (this.sql.economyDay.get(Number(event.day))) {
+              throw new Halt(`DayClosed of day ${event.day} ${where}: the day is already closed`);
+            }
+            this.sql.insertEconomyDay.run({
+              day: Number(event.day),
+              mean: Number(event.mean),
+              weight: event.weight,
+              prior: Number(event.prior),
+              ema_after: Number(event.emaAfter),
+              block: at,
+              time: block.timestamp,
+            });
+            break;
+          }
           case "PlayerCreated": {
             if (raw.source !== "account") {
               throw new Halt(`PlayerCreated from ${raw.source} ${where}`);
@@ -613,6 +707,10 @@ export class Store {
       this.sql.unretireQuests.run(to);
       this.sql.unretireAchievements.run(to);
       this.sql.rewindProgress.run(to);
+      this.sql.rewindPurchases.run(to);
+      this.sql.unrecordPurchases.run(to);
+      this.sql.unsettlePurchases.run(to);
+      this.sql.rewindEconomyDays.run(to);
       this.sql.rewindPodium.run(to);
       this.sql.rewindCloses.run(to);
       this.sql.rewindEvents.run(to);
@@ -635,7 +733,17 @@ export class Store {
    * one and a rebuilt one).
    */
   dump(): Record<
-    "players" | "games" | "quests" | "achievements" | "progress" | "podium" | "day_closes" | "events" | "blocks",
+    | "players"
+    | "games"
+    | "quests"
+    | "achievements"
+    | "progress"
+    | "podium"
+    | "day_closes"
+    | "purchases"
+    | "economy_days"
+    | "events"
+    | "blocks",
     Row[]
   > {
     const all = (sql: string) => this.db.prepare(sql).all() as Row[];
@@ -647,6 +755,8 @@ export class Store {
       progress: all("SELECT * FROM progress ORDER BY block, tx, idx"),
       podium: all("SELECT * FROM podium ORDER BY tournament_id, player_id"),
       day_closes: all("SELECT * FROM day_closes ORDER BY block"),
+      purchases: all("SELECT * FROM purchases ORDER BY game_id"),
+      economy_days: all("SELECT * FROM economy_days ORDER BY day"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -758,6 +868,32 @@ function statements(db: DatabaseSync) {
        WHERE retired_block > ?`,
     ),
     rewindProgress: db.prepare("DELETE FROM progress WHERE block > ?"),
+    purchase: db.prepare("SELECT player_id, day, score, recorded_block, settled_block FROM purchases WHERE game_id = ?"),
+    insertPurchase: db.prepare(
+      `INSERT INTO purchases (game_id, player_id, day, stake, price, referrer, referral, burned_quote, burned, margin, supply,
+         factor, reference, purchased_block, purchased_time)
+       VALUES (:game_id, :player_id, :day, :stake, :price, :referrer, :referral, :burned_quote, :burned, :margin, :supply,
+         :factor, :reference, :block, :time)`,
+    ),
+    recordPurchase: db.prepare(
+      "UPDATE purchases SET score = :score, expired = :expired, recorded_block = :block WHERE game_id = :game_id",
+    ),
+    settlePurchase: db.prepare(
+      "UPDATE purchases SET threshold = :threshold, reward = :reward, settled_block = :block WHERE game_id = :game_id",
+    ),
+    economyDay: db.prepare("SELECT 1 FROM economy_days WHERE day = ?"),
+    insertEconomyDay: db.prepare(
+      `INSERT INTO economy_days (day, mean, weight, prior, ema_after, closed_block, closed_time)
+       VALUES (:day, :mean, :weight, :prior, :ema_after, :block, :time)`,
+    ),
+    rewindPurchases: db.prepare("DELETE FROM purchases WHERE purchased_block > ?"),
+    unrecordPurchases: db.prepare(
+      "UPDATE purchases SET score = NULL, expired = NULL, recorded_block = NULL WHERE recorded_block > ?",
+    ),
+    unsettlePurchases: db.prepare(
+      "UPDATE purchases SET threshold = NULL, reward = NULL, settled_block = NULL WHERE settled_block > ?",
+    ),
+    rewindEconomyDays: db.prepare("DELETE FROM economy_days WHERE closed_block > ?"),
     rewindPodium: db.prepare("DELETE FROM podium WHERE close_block > ?"),
     rewindEvents: db.prepare("DELETE FROM events WHERE block > ?"),
     rewindBlocks: db.prepare("DELETE FROM blocks WHERE number > ?"),

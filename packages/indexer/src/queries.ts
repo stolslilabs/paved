@@ -8,7 +8,9 @@ import type { SQLInputValue } from "node:sqlite";
 import {
   TOURNAMENT_DURATION,
   type AchievementDefinition,
+  type DayEconomy,
   type GameContract,
+  type GameEconomy,
   type GameRow,
   type LeaderboardEntry,
   type PlayerAchievement,
@@ -19,6 +21,7 @@ import {
   type PrizeSlot,
   type TournamentDetail,
   type TournamentSummary,
+  type UnsettledGame,
 } from "./api.ts";
 import { padded, shortString, type TaskTarget } from "./events.ts";
 import {
@@ -88,11 +91,48 @@ function gameRow(row: Row, head: number): GameRow {
     score: over ? Number(row.score) : null,
     counted_tournament_id: over ? Number(row.tournament_id) : null,
     end_time: over ? Number(row.end_time) : null,
+    economy: gameEconomy(row, head),
   };
 }
 
-const GAME_COLUMNS = `contract, game_id, player_id, mode, spawn_tournament, start_time, over, score, tournament_id,
-  end_time, over_block`;
+/** The Economy terms of a game row joined with its purchase (`p_` columns), read at `head`; null when not bought. */
+function gameEconomy(row: Row, head: number): GameEconomy | null {
+  if (row.p_block === null || row.p_block === undefined) return null;
+  const recorded = row.p_recorded !== null && Number(row.p_recorded) <= head;
+  const settled = row.p_settled !== null && Number(row.p_settled) <= head;
+  const referrer = String(row.p_referrer);
+  return {
+    day: Number(row.p_day),
+    stake: Number(row.p_stake),
+    price: String(row.p_price),
+    referrer: BigInt(referrer) === 0n ? null : referrer,
+    referral: String(row.p_referral),
+    burned: String(row.p_burned),
+    factor: Number(row.p_factor),
+    reference: String(row.p_reference),
+    purchased_at: Number(row.p_time),
+    recorded,
+    expired: recorded && Number(row.p_expired) === 1,
+    settled,
+    threshold: settled ? Number(row.p_threshold) : null,
+    reward: settled ? String(row.p_reward) : null,
+  };
+}
+
+/** The sum of decimal amounts, as a decimal string (u128 and u256 sums do not fit SQLite's integers). */
+const total = (amounts: readonly SQLInputValue[]): string =>
+  String(amounts.reduce<bigint>((sum, amount) => sum + BigInt(String(amount)), 0n));
+
+/** A game and its purchase: Economy's game ids are Daily's own, and a purchase above `:h` has not happened yet. */
+const GAME_FROM = `games g LEFT JOIN purchases p
+  ON g.contract = 'daily' AND p.game_id = g.game_id AND p.purchased_block <= :h`;
+
+const GAME_COLUMNS = `g.contract, g.game_id, g.player_id, g.mode, g.spawn_tournament, g.start_time, g.over, g.score,
+  g.tournament_id, g.end_time, g.over_block,
+  p.day AS p_day, p.stake AS p_stake, p.price AS p_price, p.referrer AS p_referrer, p.referral AS p_referral,
+  p.burned AS p_burned, p.factor AS p_factor, p.reference AS p_reference, p.purchased_time AS p_time,
+  p.purchased_block AS p_block, p.expired AS p_expired, p.recorded_block AS p_recorded, p.threshold AS p_threshold,
+  p.reward AS p_reward, p.settled_block AS p_settled`;
 
 /** The leaderboard of a tournament: one row per player, the best game, ranked (see the file header of the design). */
 const BOARD = `
@@ -268,13 +308,16 @@ export class Queries {
   player(
     head: number,
     playerId: string,
-  ): { player: PlayerInfo; stats: PlayerStats } | null {
+  ): { player: PlayerInfo; stats: PlayerStats; unsettled: UnsettledGame[] } | null {
     const row = this.store
       .statement(
         "SELECT player_id, name, created_time FROM players WHERE player_id = ? AND created_block <= ?",
       )
       .get(playerId, head) as Row | undefined;
     if (!row) return null;
+    const rewards = this.store
+      .statement("SELECT reward FROM purchases WHERE player_id = ? AND settled_block <= ?")
+      .all(playerId, head) as Row[];
     const count = (sql: string) =>
       Number(
         (this.store.statement(sql).get(playerId, head) as Row).n,
@@ -304,7 +347,49 @@ export class Queries {
         tutorial_games: count(
           "SELECT count(*) AS n FROM games WHERE player_id = ? AND contract = 'tutorial' AND spawned_block <= ?",
         ),
+        paid_games: count("SELECT count(*) AS n FROM purchases WHERE player_id = ? AND purchased_block <= ?"),
+        settled_games: rewards.length,
+        rewards: total(rewards.map((row) => row.reward!)),
       },
+      unsettled: (
+        this.store
+          .statement(
+            `SELECT game_id, day, expired FROM purchases
+             WHERE player_id = :p AND recorded_block <= :h AND (settled_block IS NULL OR settled_block > :h)
+             ORDER BY game_id`,
+          )
+          .all({ p: playerId, h: head }) as Row[]
+      ).map((game) => ({ game_id: Number(game.game_id), day: Number(game.day), expired: Number(game.expired) === 1 })),
+    };
+  }
+
+  /** Economy's figures of a UTC day (the tournament id): its paid games, its unsettled ones, and its close. */
+  dayEconomy(head: number, day: number): DayEconomy {
+    const games = this.store
+      .statement(
+        `SELECT game_id, recorded_block, settled_block, reward FROM purchases
+         WHERE day = :d AND purchased_block <= :h ORDER BY game_id`,
+      )
+      .all({ d: day, h: head }) as Row[];
+    const at = (block: SQLInputValue | undefined) => block !== null && block !== undefined && Number(block) <= head;
+    const recorded = games.filter((game) => at(game.recorded_block));
+    const settled = recorded.filter((game) => at(game.settled_block));
+    const closed = this.store
+      .statement("SELECT * FROM economy_days WHERE day = ? AND closed_block <= ?")
+      .get(day, head) as Row | undefined;
+    const of = (key: string) => (closed ? Number(closed[key]) : null);
+    return {
+      games_purchased: games.length,
+      games_recorded: recorded.length,
+      games_settled: settled.length,
+      unsettled: recorded.filter((game) => !at(game.settled_block)).map((game) => Number(game.game_id)),
+      rewards: total(settled.map((game) => game.reward!)),
+      closed: closed !== undefined,
+      mean: of("mean"),
+      weight: of("weight"),
+      prior: of("prior"),
+      ema_after: of("ema_after"),
+      closed_at: of("closed_time"),
     };
   }
 
@@ -318,11 +403,11 @@ export class Queries {
   ): { games: GameRow[]; next: string | null } {
     const rows = this.store
       .statement(
-        `SELECT ${GAME_COLUMNS} FROM games
-         WHERE player_id = :p AND spawned_block <= :h
-           AND (:contract IS NULL OR contract = :contract)
-           AND (:cursor = 0 OR (start_time, contract, game_id) < (:cs, :cc, :cg))
-         ORDER BY start_time DESC, contract DESC, game_id DESC LIMIT :n`,
+        `SELECT ${GAME_COLUMNS} FROM ${GAME_FROM}
+         WHERE g.player_id = :p AND g.spawned_block <= :h
+           AND (:contract IS NULL OR g.contract = :contract)
+           AND (:cursor = 0 OR (g.start_time, g.contract, g.game_id) < (:cs, :cc, :cg))
+         ORDER BY g.start_time DESC, g.contract DESC, g.game_id DESC LIMIT :n`,
       )
       .all({
         p: playerId,
@@ -348,9 +433,9 @@ export class Queries {
   game(head: number, contract: GameContract, gameId: number): GameRow | null {
     const row = this.store
       .statement(
-        `SELECT ${GAME_COLUMNS} FROM games WHERE contract = ? AND game_id = ? AND spawned_block <= ?`,
+        `SELECT ${GAME_COLUMNS} FROM ${GAME_FROM} WHERE g.contract = :c AND g.game_id = :id AND g.spawned_block <= :h`,
       )
-      .get(contract, gameId, head) as Row | undefined;
+      .get({ c: contract, id: gameId, h: head }) as Row | undefined;
     return row ? gameRow(row, head) : null;
   }
 

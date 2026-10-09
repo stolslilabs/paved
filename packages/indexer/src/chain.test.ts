@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { BadAnswer, CHUNK_SIZE, Chain, RpcError, parseRpcUrl, redact, sameBlock } from "./chain.ts";
-import { ACCOUNT, DAILY, FakeNode, TUTORIAL, ev } from "./testing/fake-node.ts";
+import { ACCOUNT, ECONOMY, DAILY, FakeNode, TUTORIAL, ev } from "./testing/fake-node.ts";
 
-const chainOf = (node: FakeNode) => new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT });
+const chainOf = (node: FakeNode) => new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY });
 
 describe("the URL", () => {
   test("only http(s) is accepted, and a log never holds any part of it", () => {
@@ -44,19 +44,26 @@ describe("the reader", () => {
     expect(await chain.header(1)).toBeNull();
   });
 
-  test("events of the three contracts, in block order, across pages", async () => {
+  test("events of the four contracts, in block order, across pages", async () => {
     const node = new FakeNode();
     const many = Array.from({ length: CHUNK_SIZE + 5 }, (_, i) => ev.spawned("daily", i + 1, 1));
-    node.mine(many, [ev.created(1, 2)], [ev.spawned("tutorial", 1, 1), ev.built("tutorial", 1)]);
+    node.mine(
+      many,
+      [ev.created(1, 2)],
+      [ev.spawned("tutorial", 1, 1), ev.built("tutorial", 1)],
+      [ev.spawned("daily", 999, 1), ev.purchased(999, 1)],
+    );
     const chain = chainOf(node);
     const events = await chain.events((await chain.header(1))!);
-    expect(events).toHaveLength(CHUNK_SIZE + 5 + 1 + 2);
+    expect(events).toHaveLength(CHUNK_SIZE + 5 + 1 + 2 + 2);
     expect(events.slice(CHUNK_SIZE + 5).map((e) => [e.source, e.transactionIndex, e.eventIndex])).toEqual([
       ["account", 1, 0],
       ["tutorial", 2, 0],
       ["tutorial", 2, 1],
+      ["daily", 3, 0],
+      ["economy", 3, 1],
     ]);
-    expect(node.calls.filter((call) => call === "starknet_getEvents").length).toBe(2 + 1 + 1);
+    expect(node.calls.filter((call) => call === "starknet_getEvents").length).toBe(2 + 1 + 1 + 1); // Daily's two pages, then one per other contract
   });
 
   test("an event of another block, of another contract, or without its position is a BadAnswer", async () => {

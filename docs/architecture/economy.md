@@ -153,7 +153,7 @@ The player approves `Daily` for `P` USDC, then calls `spawn`. `Daily` runs `Lobb
 | Reference reward | `R = b' x (10_000 + 100 k) / 10_000 x F / 10_000`, with `b' = min(b, q x rate x 1.10)` (price guard, section 5) | stored with the game |
 
 `Economy` holds no balance after a purchase: every USDC and PAVED unit that came in left in the same transaction
-(asserted). Nothing can accrue there for anyone to take.
+(tested; the whole balances leave). Nothing can accrue there for anyone to take.
 
 ### Game over
 
@@ -566,9 +566,9 @@ O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, ow
   - At stake 10 and the cap `H = 5`, the gain is at most about 63 USDC. The attack pays when `U < ~2,200 USDC`.
   - The guard: `Economy` keeps an EMA of the swap rate (PAVED per USDC, weight 1/32 per purchase), and the `R` of a
     purchase counts at most `q x rate x 1.10` PAVED. One manipulated purchase gains at most 10 %.
-  - **The rate moves at most once per block**, by its first purchase in that block. Its last update's block time
-    is packed with it. That observation is clamped to `[rate x 10/11, rate x 11/10]`, so the EMA moves by at most
-    `1/32 x 10 %`, about 0.31 %, per block, up or down. Moving it by 10 % takes at least about 31 blocks. A pumped
+  - **The rate moves at most once per block timestamp**, by the first purchase at that timestamp. Its last update's
+    block time is packed with it. That observation is clamped to `[rate x 10/11, rate x 11/10]`, so the EMA moves by
+    at most about 0.31 % up (`1/32 x 10 %`) and 0.28 % down (`1/32 x 1/11`) per block. Moving it by 10 % takes at least about 31 blocks. A pumped
     or dumped pool must therefore survive across those blocks, where arbitrage closes it; many purchases inside
     one manipulation no longer ratchet it (E2's economy re-audit). `R` always uses the current rate's guard.
   - With a launch LP like Nums' (10,000 USDC) the attack does not pay even without the guard. The guard covers a
@@ -1010,6 +1010,78 @@ to the base unit. `R` and the payout are within 120 ppm; the worst gap measured 
 | 7 | 1 | 7 | yes | 9,000 | 788.3495 | 12 ppm | 2,932.1688 | 12 ppm |
 | 8 | 1 | 1 | no | 4,300 | 106.1996 | 17 ppm | 0 | exact |
 | 9 | 1 | 6 | no | 800 | 668.5417 | 50 ppm | 0 | exact |
+
+### As built: E3 (wiring)
+
+`Daily`, `Lobby`, `Account`, `scripts/deploy.sh` and the indexer. Where the code differs from the text above, or the
+text left the choice open, it is written here.
+
+- **Spawn.** `Daily.spawn(stake: u8, referrer: ContractAddress, min_out: u256) -> u32` runs `Lobby.spawn(mode,
+  stake, referrer, min_out)` by library call. For a Daily game, after the game is stored, `Lobby`:
+  1. reads `Economy` from `Account.economy()` (zero: `'Lobby: economy not set'`);
+  2. keeps the referrer only if it is non-zero, not the payer, and a registered player (`Account.player`); any
+     other referrer is **ignored** (passed as zero, no referral), not refused, so a bad link never blocks a paid
+     game. Reverse: the PM wants a refusal;
+  3. pulls `stake x entry price` (the mode's price, 2,000,000) from the player straight to `Economy`
+     (`transferFrom(player, Economy, P)`, made by `Daily`, so the approval target stays `Daily`);
+  4. calls `Economy.purchase(game_id, player, now / 86400, stake, P, referrer, min_out)` with the game's own id.
+  `Economy` checks the stake (1 to 10) and the price; a stake of 0 or 11, or a missing approval, reverts the whole
+  spawn. A Tutorial spawn passes zeros and calls neither.
+- **Game over.** Each way a Daily game ends (`build` through `Lobby.report(game_id, over)`, `discard`, `surrender`)
+  calls `Economy.record(game_id, score)` after the quests and achievements, with the score of the tally. A Tutorial
+  game over does not.
+- **Prize.** `HostableComponent::spawn` no longer adds the entry to the tournament: the prize is sponsor-only
+  (P-31). `sponsor` no longer requires a tournament that exists, since entries no longer create one: any day can be
+  sponsored.
+- **Registry.** `Account.set_economy(economy)` (owner, once, non-zero; event `EconomySet`) and `Account.economy()`.
+  `Lobby` reads the `Account` address from the `paved` storage node, as `Store` does.
+- **Price.** `constants::DAILY_TOURNAMENT_PRICE` is 2,000,000 (2 USDC, `economy::BASE_PRICE`, a test pins the two
+  equal), so `entry_price()` returns USDC and the price of one stake unit, and `GameSpawned.price` is that unit.
+- **Sizes.** `Daily` 72,607 CASM felts (88.6 %, the prototype's figure exactly), `Tutorial` 66,704, `Lobby`
+  60,228, `Account` 3,203. `Economy` is unchanged by its two `expect`s.
+- **Gas** (test profile, the L2 gas of one call, Mac, equal to Linux so far):
+  - moves a0 to f: +170 each (+0.003 %);
+  - closing moves g, h, k +1,464,150, i +1,110,270, l +1,470,760: the `Account.economy()` read and
+    `Economy.record` (its outcome slot, and the day's accumulator unless the game expired);
+  - Daily spawn 40,983,345 to 49,361,586 (+8,378,241, +20.4 %): `Economy.purchase` (the `transferFrom`, the swap
+    through the router, `clear_minimum`, `clear`, the burn, the margin to the Vault, the terms, the guard), less the
+    prize write that left; referred at stake 10: 50,387,496. Tutorial spawn 4,555,211 to 4,314,442 (-240,769, the
+    prize read and write that left).
+- **Deploy.** `scripts/deploy.sh devnet` deploys `MockUSDC`, `Token` (the old mock, kept while CLIENT still reads
+  it), `PavedToken(deployer, deployer)`, `MockRouter` seeded with 800,000 PAVED and 10,000 MockUSDC, `Vault` with
+  the owner's 200,000 PAVED staked, `Economy` (the router's pool key, `sqrt_ratio_limit` 0 since the mock ignores
+  it, the decided configuration, initial mean 3,353 points, launch rate 7.6e31), `set_minter(Economy)` (then
+  `minter() == Economy` and `admin() == 0` are checked), `Account`, `Daily` with MockUSDC as its token,
+  `Tutorial`, `Economy.set_game(Daily)` and `Account.set_economy(Economy)`. It refuses `MockUSDC`, `MockRouter`
+  and `Token` by name off devnet. The smoke buys a paid game at stake 1 with the client's `min_out` (99 % of
+  `quote_swap`), surrenders it, plays the Tutorial, moves devnet's time to `(D + 2) x 86400` and settles the paid
+  game; it then checks that the day has no prize, no leader, weight 0 and that the EMA did not move (P-24). The
+  script deploys main-equivalent sources only; `--unmerged` runs a pull request's sources and writes the file to a
+  temporary path, so the committed `devnet.json` is regenerated from main once E3 has merged.
+- **Every Daily game over calls `Economy.record`, and fails if it reverts.** That is a constraint on any later
+  upgrade or migration of `Daily` or of `Economy`: a `Daily` that keeps its games must keep an `Economy` that records
+  them (a new `Economy` needs `set_game` for that `Daily`, and `Account.set_economy` is one shot), or the games in
+  flight can no longer end.
+- **Unclaimable prize (P-37, amended by P-37b, PM, 2026-10-09).** After a day nobody ranked in (nobody played, or
+  every score 0), its sponsors take back what each put in, through a sponsor-only reclaim:
+  - `Daily.claim(day, 0)`: rank 0 is the sponsor's reclaim, run in `Lobby`. A dedicated `Daily.reclaim(day)` would
+    put `Daily` at 72,799 CASM felts, measured, past its 72,607 bound; rank 0 was an invalid rank, so `Daily`'s
+    code is unchanged;
+  - the ranks' rewards are those of main: rank 1 takes the shares of the empty ranks (P-37b). A day with a ranked
+    game therefore has nothing to reclaim, and a sponsor's reclaim reverts (`'Tournament: nothing to reclaim'`);
+  - on an empty top the whole prize is unclaimable, and pro rata to what each sponsor put in is exactly what it put
+    in: the reclaims add up to the prize, with no dust;
+  - each sponsor's contribution per day is stored (`HostableComponent.sponsorships`, one slot per sponsor and day,
+    written by `sponsor`). A reclaim sets it to 0 before the transfer; a second reclaim, a non-sponsor and a reclaim
+    before the day is over revert;
+  - event `Reclaimed { tournament_id (key), sponsor (key), amount }`, declared by the `Lobby` class and emitted from
+    `Daily`'s address;
+  - cost (one call, test profile): `sponsor` 1,688,689 to 1,866,909 (+178,220, the sponsor's slot), a rank's
+    `claim` 1,920,578 to 1,940,478 (+19,900, the rank-0 branch), a reclaim 1,534,868. `Lobby` 60,228 to 60,996 CASM
+    felts.
+- **Indexer.** `Economy` is a fourth address (`contracts.Economy`, required). `Purchased`, `Recorded`, `DayClosed`
+  and `Settled` are stored and served in API v1 (appended fields; amounts as decimal strings, P-19);
+  `EconomyConfigured`, `PoolSet`, `GameSet` and `EconomySet` are ignored.
 
 ## 9. Games as NFTs (D-11, amended D-11b)
 

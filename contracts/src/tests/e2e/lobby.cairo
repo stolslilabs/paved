@@ -124,6 +124,106 @@ pub mod SpyToken {
     }
 }
 
+/// An `Economy` that records what `Lobby` passes to `purchase` and `record`, and whether the
+/// game exists in the caller's view at the purchase. It moves no token and always succeeds.
+#[starknet::interface]
+pub trait ISpyEconomy<TContractState> {
+    fn purchase(
+        ref self: TContractState,
+        game_id: u32,
+        player: ContractAddress,
+        day: u64,
+        stake: u8,
+        price: u256,
+        referrer: ContractAddress,
+        min_out: u256,
+    ) -> u128;
+    fn record(ref self: TContractState, game_id: u32, score: u32);
+    fn purchased(self: @TContractState) -> Purchase;
+    fn recorded(self: @TContractState) -> (u32, u32, u32);
+}
+
+#[derive(Copy, Drop, Serde, PartialEq, Debug, starknet::Store)]
+pub struct Purchase {
+    pub count: u32,
+    pub caller: ContractAddress,
+    pub game_id: u32,
+    pub player: ContractAddress,
+    pub day: u64,
+    pub stake: u8,
+    pub price: u256,
+    pub referrer: ContractAddress,
+    pub min_out: u256,
+    /// The game exists in the caller's view when the purchase runs.
+    pub spawned: bool,
+}
+
+#[starknet::contract]
+pub mod SpyEconomy {
+    use paved::views::{IGameViewDispatcher, IGameViewDispatcherTrait};
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ContractAddress, get_caller_address};
+    use super::{ISpyEconomy, Purchase};
+
+    #[storage]
+    struct Storage {
+        purchase: Purchase,
+        records: u32,
+        recorded_game: u32,
+        recorded_score: u32,
+    }
+
+    #[abi(embed_v0)]
+    impl SpyEconomyImpl of ISpyEconomy<ContractState> {
+        fn purchase(
+            ref self: ContractState,
+            game_id: u32,
+            player: ContractAddress,
+            day: u64,
+            stake: u8,
+            price: u256,
+            referrer: ContractAddress,
+            min_out: u256,
+        ) -> u128 {
+            let caller = get_caller_address();
+            let game = IGameViewDispatcher { contract_address: caller }.game(game_id);
+            let count = self.purchase.read().count + 1;
+            self
+                .purchase
+                .write(
+                    Purchase {
+                        count,
+                        caller,
+                        game_id,
+                        player,
+                        day,
+                        stake,
+                        price,
+                        referrer,
+                        min_out,
+                        spawned: game.player_id == player.into(),
+                    },
+                );
+            0
+        }
+
+        fn record(ref self: ContractState, game_id: u32, score: u32) {
+            self.records.write(self.records.read() + 1);
+            self.recorded_game.write(game_id);
+            self.recorded_score.write(score);
+        }
+
+        fn purchased(self: @ContractState) -> Purchase {
+            self.purchase.read()
+        }
+
+        /// The number of records, the last game id and its score.
+        fn recorded(self: @ContractState) -> (u32, u32, u32) {
+            (self.records.read(), self.recorded_game.read(), self.recorded_score.read())
+        }
+    }
+}
+
 fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
     let class = declare(name).unwrap().contract_class();
     let (address, _) = class.deploy(@calldata).unwrap();
@@ -139,17 +239,26 @@ fn stored_lobby_class(contract: ContractAddress) -> felt252 {
     *load(contract, selector!("lobby_class"), 1).at(0)
 }
 
-/// `Daily` paid in the spy token, with PLAYER registered and calling `Daily`.
-fn spied_daily() -> (IDailyDispatcher, ISpyTokenDispatcher) {
+/// `Daily` paid in the spy token into the spy `Economy`, with PLAYER registered and calling
+/// `Daily`.
+pub fn spied_daily() -> (IDailyDispatcher, ISpyTokenDispatcher, ISpyEconomyDispatcher) {
     let owner: felt252 = OWNER().into();
     let token = deploy("SpyToken", array![]);
+    let economy = deploy("SpyEconomy", array![]);
     let account = deploy("Account", array![owner]);
     let daily = deploy("Daily", array![owner, account.into(), token.into(), lobby_class()]);
+    start_cheat_caller_address(account, OWNER());
+    IAccountDispatcher { contract_address: account }.set_economy(economy);
+    stop_cheat_caller_address(account);
     start_cheat_caller_address(account, PLAYER());
     IAccountDispatcher { contract_address: account }.create(PLAYER_NAME, PLAYER());
     stop_cheat_caller_address(account);
     start_cheat_caller_address(daily, PLAYER());
-    (IDailyDispatcher { contract_address: daily }, ISpyTokenDispatcher { contract_address: token })
+    (
+        IDailyDispatcher { contract_address: daily },
+        ISpyTokenDispatcher { contract_address: token },
+        ISpyEconomyDispatcher { contract_address: economy },
+    )
 }
 
 // Condition 3: `Lobby` is declared, never deployed
@@ -165,7 +274,7 @@ fn test_lobby_cannot_be_deployed() {
 // Condition 1: `lobby_class` is written by the constructors only
 
 #[test]
-#[available_gas(l2_gas: 24392351)]
+#[available_gas(l2_gas: 56315579)]
 fn test_lobby_class_is_set_by_the_constructors() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let lobby = lobby_class();
@@ -176,7 +285,7 @@ fn test_lobby_class_is_set_by_the_constructors() {
 /// Every entry point of `Daily` and `Tutorial` but `upgrade` (which replaces the whole class, P2)
 /// is run, each with the stored class hash read back after it.
 #[test]
-#[available_gas(l2_gas: 170409450)]
+#[available_gas(l2_gas: 216467952)]
 fn test_lobby_class_is_never_written_after_construction() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -242,7 +351,7 @@ fn test_lobby_class_is_never_written_after_construction() {
 /// the game state of a build) is what `Lobby`'s code reads (it finds the player, pays the token
 /// `Daily` stores, and discards on the state the build left).
 #[test]
-#[available_gas(l2_gas: 99216145)]
+#[available_gas(l2_gas: 145504993)]
 fn test_lobby_and_daily_share_the_storage_layout() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -257,11 +366,12 @@ fn test_lobby_and_daily_share_the_storage_layout() {
         *load(daily, selector!("token_address"), 1).at(0) == context.token.contract_address.into(),
         'Lobby: token address',
     );
-    let pool_before = context.token.balance_of(daily);
+    let player_before = context.token.balance_of(PLAYER());
 
-    // [Lobby -> Daily] spawn
-    let game_id = systems.daily.spawn();
-    assert(context.token.balance_of(daily) - pool_before == price, 'Lobby: paid to daily');
+    // [Lobby -> Daily] spawn, paid by the player into `Economy`, which keeps nothing
+    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    assert(player_before - context.token.balance_of(PLAYER()) == price, 'Lobby: paid');
+    assert(context.token.balance_of(daily) == 0, 'Lobby: nothing to daily');
     let game = views.game(game_id);
     assert(game.id == game_id, 'Lobby: game id');
     assert(game.player_id == context.player_id, 'Lobby: game player');
@@ -273,7 +383,7 @@ fn test_lobby_and_daily_share_the_storage_layout() {
     let tournament_id = TournamentTrait::compute_id(
         tournament_id, constants::DAILY_TOURNAMENT_DURATION,
     );
-    assert(tournaments.tournament(tournament_id).prize == price, 'Lobby: prize');
+    assert(tournaments.tournament(tournament_id).prize == 0, 'Lobby: no entry in prize');
 
     // [Daily -> Lobby] a build by `Daily`, then a discard by `Lobby` on the state it left
     let builder = store.builder(store.game(game_id), context.player_id);
@@ -290,7 +400,7 @@ fn test_lobby_and_daily_share_the_storage_layout() {
 
     // [Lobby -> Daily] sponsor, surrender, claim
     systems.daily.sponsor(1000);
-    assert(tournaments.tournament(tournament_id).prize == price + 1000, 'Lobby: sponsored');
+    assert(tournaments.tournament(tournament_id).prize == 1000, 'Lobby: sponsored');
     systems.daily.surrender(game_id);
     let over = views.game(game_id);
     assert(over.over, 'Lobby: over');
@@ -308,7 +418,7 @@ fn test_lobby_and_daily_share_the_storage_layout() {
 /// The same agreement for `Tutorial`: `Lobby` spawns, discards and surrenders, `Tutorial` builds,
 /// and each reads what the other wrote.
 #[test]
-#[available_gas(l2_gas: 100330532)]
+#[available_gas(l2_gas: 132364874)]
 fn test_lobby_and_tutorial_share_the_storage_layout() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let views = IGameViewDispatcher { contract_address: systems.tutorial.contract_address };
@@ -334,41 +444,53 @@ fn test_lobby_and_tutorial_share_the_storage_layout() {
 
 // Condition 4: state before transfer, on the library-call path
 
-/// `spawn` pays by `transferFrom` from `Daily` to `Daily`, after the game and the prize are
-/// stored; `sponsor` likewise after the prize grows.
+/// `spawn` pays by `transferFrom` from `Daily` to `Economy`, after the game is stored, then
+/// `Economy.purchase` runs on the stored game; the entry no longer feeds the prize. `sponsor`
+/// pays to `Daily` after the prize grows.
 #[test]
-#[available_gas(l2_gas: 60272485)]
+#[available_gas(l2_gas: 68370357)]
 fn test_lobby_spawn_and_sponsor_write_state_before_the_transfer() {
     start_cheat_block_timestamp_global(100);
-    let (daily, spy) = spied_daily();
+    let (daily, spy, economy) = spied_daily();
     let tournament_id = TournamentTrait::compute_id(100, constants::DAILY_TOURNAMENT_DURATION);
     let price: u256 = constants::DAILY_TOURNAMENT_PRICE.into();
     spy.watch(tournament_id, 1);
 
-    let game_id = daily.spawn();
+    let game_id = daily.spawn(3, core::num::traits::Zero::zero(), 7);
     let seen = spy.seen();
     assert(game_id == 1, 'Lobby: game id');
     assert(seen.caller == daily.contract_address, 'Lobby: spawn payer');
-    assert(seen.recipient == daily.contract_address, 'Lobby: spawn recipient');
+    assert(seen.recipient == economy.contract_address, 'Lobby: spawn recipient');
     assert(seen.spawned, 'Lobby: game before pay');
-    assert(seen.prize == price, 'Lobby: prize before pay');
+    assert(seen.prize == 0, 'Lobby: no entry in prize');
+    let purchase = economy.purchased();
+    assert(purchase.count == 1, 'Lobby: one purchase');
+    assert(purchase.caller == daily.contract_address, 'Lobby: purchase caller');
+    assert(purchase.game_id == game_id, 'Lobby: purchase game id');
+    assert(purchase.player == PLAYER(), 'Lobby: purchase player');
+    assert(purchase.day == 0, 'Lobby: purchase day');
+    assert(purchase.stake == 3, 'Lobby: purchase stake');
+    assert(purchase.price == 3 * price, 'Lobby: purchase price');
+    assert(purchase.min_out == 7, 'Lobby: purchase min_out');
+    assert(purchase.spawned, 'Lobby: game before purchase');
 
     daily.sponsor(1000);
     let seen = spy.seen();
     assert(seen.caller == daily.contract_address, 'Lobby: sponsor payer');
     assert(seen.recipient == daily.contract_address, 'Lobby: sponsor recipient');
-    assert(seen.prize == price + 1000, 'Lobby: prize before sponsor');
+    assert(seen.prize == 1000, 'Lobby: prize before sponsor');
 }
 
 /// `claim` pays out of `Daily` by `transfer`, after the rank is marked claimed.
 #[test]
-#[available_gas(l2_gas: 64789556)]
+#[available_gas(l2_gas: 76446148)]
 fn test_lobby_claim_writes_state_before_the_transfer() {
     start_cheat_block_timestamp_global(100);
-    let (daily, spy) = spied_daily();
+    let (daily, spy, _) = spied_daily();
     let tournament_id = TournamentTrait::compute_id(100, constants::DAILY_TOURNAMENT_DURATION);
     spy.watch(tournament_id, 1);
-    let game_id = daily.spawn();
+    let game_id = daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    daily.sponsor(1000);
     daily.surrender(game_id);
     // [Effect] A game of score 0 ranks nowhere: force PLAYER first
     leaderboard::submit(daily.contract_address, tournament_id, PLAYER().into(), 1);

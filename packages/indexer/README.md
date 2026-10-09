@@ -1,7 +1,8 @@
 # @paved/indexer
 
 Paved's indexer: one Node process that follows a Starknet node over JSON-RPC, keeps the games and the players of `Daily`,
-`Tutorial` and `Account` in SQLite, and serves the daily leaderboard over a read-only HTTP API. It is display only: it
+`Tutorial` and `Account`, and the paid games' terms and settlements of `Economy`, in SQLite, and serves the daily
+leaderboard over a read-only HTTP API. It is display only: it
 holds no key, sends nothing, and its database can be deleted at any time (`rebuild` makes the same tables from the
 chain). Design: `docs/architecture/indexer.md` (with an "As built" section at its end).
 
@@ -31,7 +32,7 @@ curl -s http://127.0.0.1:8787/v1/head
 
 | Option | Meaning |
 |---|---|
-| `--deployment <file>` | `contracts/deployments/<network>.json`: the three addresses, `deployed_block`, `chain_id` |
+| `--deployment <file>` | `contracts/deployments/<network>.json`: the four addresses (`Daily`, `Tutorial`, `Account`, `Economy`; all required), `deployed_block`, `chain_id` |
 | `--db <file>` | SQLite file (WAL). A database built for another deployment, start or chain is refused: `rebuild` it |
 | `--rpc <url>` or `INDEXER_RPC_URL` | The node. Default: the file's `rpc_url`, only for `network: devnet` and only at localhost. Never logged (a short hash is) |
 | `--port`, `--host` | The API, default `127.0.0.1` and port `8787`; `--port 0` picks a free port (the log line says which) |

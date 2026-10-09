@@ -11,8 +11,8 @@ export interface PoolQuoter {
 }
 
 /**
- * `Economy.quote_swap` is in the committed ABI (E2, #262): the client has a pool quoter. A purchase still cannot go
- * through before E3, because the paid `Daily.spawn` is a stub (`stub-abi.ts`). A missing, failed or zero quote refuses
+ * `Economy.quote_swap` is in the committed ABI (E2, #262): the client has a pool quoter, and the paid `Daily.spawn`
+ * (E3) takes its `min_out`. A missing, failed or zero quote refuses
  * the purchase with "No pool quote: nothing was sent".
  */
 export const POOL_QUOTE_CONFIRMED = true;

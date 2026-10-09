@@ -1,6 +1,8 @@
 /**
  * The whole path on a local starknet-devnet 0.10 (docs/architecture/indexer.md, "Devnet run and tests"): `scripts/deploy.sh
- * devnet` deploys the contracts on a seeded fresh node, three accounts play complete Daily games over two days, the indexer
+ * devnet` deploys the contracts on a seeded fresh node (its smoke buys a paid Daily game, plays the Tutorial and settles the
+ * paid game two days later), three accounts buy and play complete Daily games over two days and a keeper settles the first
+ * day from the API's unsettled list, the indexer
  * (the real process, `src/main.ts`) follows live, is stopped and restarted mid-run, sees a replaced block, and a second
  * indexer rebuilt from the chain answers the same. The API is compared with the contracts' own views, and the cross-check
  * against the `tournament` view must report no mismatch.
@@ -14,9 +16,16 @@ import { closeSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import type { HeadAnswer, LeaderboardAnswer, PlayerGamesAnswer } from "../../src/api.ts";
+import type {
+  GameAnswer,
+  HeadAnswer,
+  LeaderboardAnswer,
+  PlayerAnswer,
+  PlayerGamesAnswer,
+  TournamentAnswer,
+} from "../../src/api.ts";
 import { padded } from "../../src/events.ts";
-import { deploy, Game, type Node, type Player, players, ROOT, rpc, startNode } from "./devnet.ts";
+import { deploy, Game, type Node, type Player, players, ROOT, rpc, startNode, writtenFile } from "./devnet.ts";
 
 const enabled = process.env.PAVED_DEVNET === "1";
 const NODE_PORT = Number(process.env.DEVNET_PORT || 5072);
@@ -29,7 +38,9 @@ describe.skipIf(!enabled)("devnet scenario", () => {
   let node: Node;
   let work: string;
   let committed: string;
-  let deployment: { contracts: Record<"Account" | "Daily" | "Tutorial" | "Token", { address: string }> };
+  let deployment: {
+    contracts: Record<"Account" | "Daily" | "Tutorial" | "Economy" | "MockUSDC" | "PavedToken", { address: string }>;
+  };
   let file: string;
   let alice: Player;
   let bo: Player;
@@ -78,17 +89,54 @@ describe.skipIf(!enabled)("devnet scenario", () => {
 
   const send = (p: Player, address: string, entrypoint: string, calldata: (string | number | bigint)[] = []) =>
     p.send({ contractAddress: address, entrypoint, calldata });
+  /** USDC from the devnet faucet (`MockUSDC.mint`): 100 USDC, enough for every stake the scenario buys. */
+  const fund = (p: Player) => send(p, deployment.contracts.MockUSDC.address, "mint", [p.address, 100_000_000n, 0]);
   const register = async (p: Player, name: string) => {
-    await send(p, deployment.contracts.Token.address, "mint");
+    await fund(p);
     await send(p, deployment.contracts.Account.address, "create", [`0x${Buffer.from(name).toString("hex")}`, p.address]);
   };
-  const spawn_ = async (p: Player): Promise<Game> => {
+  const u256 = (low: bigint, high: bigint) => low + (high << 128n);
+  /** An ERC20 balance (`balance_of`, a u256). */
+  const balance = async (p: Player, token: string) => {
+    const [low, high] = await p.call(token, "balance_of", [p.address]);
+    return u256(low!, high!);
+  };
+  /** A paid Daily game (`spawn(stake, referrer, min_out)`): `stake` units approved, `min_out` 99 % of the pool's quote. */
+  const spawn_ = async (p: Player, stake = 1, referrer = 0n): Promise<Game> => {
     const daily = deployment.contracts.Daily.address;
+    const economy = deployment.contracts.Economy.address;
     const [token, low, high] = await p.call(daily, "entry_price");
-    await send(p, `0x${token!.toString(16)}`, "approve", [daily, low!, high!]);
-    const receipt = await send(p, daily, "spawn");
+    const price = u256(low!, high!) * BigInt(stake);
+    await send(p, `0x${token!.toString(16)}`, "approve", [daily, price, 0]);
+    // Quote: price (u256), burn_quote (u256), ...
+    const quote = await p.call(economy, "quote", [stake]);
+    const swap = await p.call(economy, "quote_swap", [quote[2]!, quote[3]!]);
+    const minOut = (u256(swap[0]!, swap[1]!) * 99n) / 100n;
+    const receipt = await send(p, daily, "spawn", [stake, referrer, minOut & (2n ** 128n - 1n), minOut >> 128n]);
     const spawned = receipt.events.find((e) => BigInt(e.from_address) === BigInt(daily) && e.keys.length === 3)!;
+    // Lobby.spawn emits GameSpawned, then calls Economy.purchase, which emits Purchased: in this order in the receipt.
+    const purchased = receipt.events.findIndex((e) => BigInt(e.from_address) === BigInt(economy));
+    expect(purchased).toBeGreaterThan(receipt.events.indexOf(spawned));
     return new Game(p, daily, Number(BigInt(spawned.keys[1]!)));
+  };
+  /** `Economy.terms(game_id)`: player, time, day, stake, reference, sigma, slope, cap, score, recorded, expired, settled, reward. */
+  const terms = async (p: Player, id: number) => {
+    const t = await p.call(deployment.contracts.Economy.address, "terms", [id]);
+    return {
+      day: Number(t[2]),
+      stake: Number(t[3]),
+      reference: t[4]!.toString(),
+      score: Number(t[8]),
+      recorded: t[9] === 1n,
+      expired: t[10] === 1n,
+      settled: t[11] === 1n,
+      reward: t[12]!.toString(),
+    };
+  };
+  /** `Economy.day(day)`: prior, sum (u128), weight, mean, closed. */
+  const economyDay = async (p: Player, day: number) => {
+    const d = await p.call(deployment.contracts.Economy.address, "day", [day]);
+    return { prior: Number(d[0]), weight: Number(d[2]), mean: Number(d[3]), closed: d[4] === 1n };
   };
   const view = async (p: Player, id: number) => {
     const g = await p.call(deployment.contracts.Daily.address, "game", [id]);
@@ -118,11 +166,12 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     work = mkdtempSync(join(tmpdir(), "paved-devnet-"));
     committed = readFileSync(COMMITTED, "utf8");
     node = await startNode(NODE_PORT, 42, true);
+    let written: string | null = null;
     try {
-      deploy(node.url);
+      written = writtenFile(deploy(node.url));
     } finally {
       file = join(work, "devnet.json");
-      writeFileSync(file, readFileSync(COMMITTED, "utf8"));
+      writeFileSync(file, readFileSync(written ?? COMMITTED, "utf8"));
       writeFileSync(COMMITTED, committed); // the repository's file, as it was
     }
     deployment = JSON.parse(readFileSync(file, "utf8"));
@@ -139,15 +188,52 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     if (work) rmSync(work, { recursive: true, force: true });
   });
 
-  test("the indexer follows the deployment: the smoke game is in the API", async () => {
+  test("the indexer follows the deployment: the smoke's paid game, its settlement and its Tutorial are in the API", async () => {
     startIndexer("run", API[0]!, join(work, "a.db"));
     const head = await caught(API[0]!);
     expect(head.from_block).toBeGreaterThan(0);
     expect(head.chain_id).toBe("0x534e5f5345504f4c4941");
     expect(BigInt(head.contracts.daily)).toBe(BigInt(deployment.contracts.Daily.address));
-    const smoke = await get<PlayerGamesAnswer>(`/v1/players/${padded(alice.address)}/games`);
-    expect(smoke.games).toMatchObject([{ contract: "daily", game_id: 1, over: false, score: null }]);
-    expect((await get<{ player: { name: string } }>(`/v1/players/${padded(alice.address)}`)).player.name).toBe("smoke");
+    expect(BigInt(head.contracts.economy)).toBe(BigInt(deployment.contracts.Economy.address));
+    const me = padded(alice.address);
+    const smoke = await get<PlayerGamesAnswer>(`/v1/players/${me}/games?contract=daily`);
+    expect(smoke.games).toHaveLength(1);
+    const paid = smoke.games[0]!;
+    const chain = await terms(alice, paid.game_id);
+    expect(paid).toMatchObject({ contract: "daily", over: true });
+    expect(paid.economy).toMatchObject({
+      day: chain.day,
+      stake: 1,
+      price: "2000000",
+      referrer: null,
+      reference: chain.reference,
+      recorded: true,
+      expired: chain.expired,
+      settled: true,
+      reward: chain.reward,
+    });
+    expect(chain).toMatchObject({ stake: 1, recorded: true, settled: true });
+    const tutorial = await get<PlayerGamesAnswer>(`/v1/players/${me}/games?contract=tutorial`);
+    expect(tutorial.games).toMatchObject([{ contract: "tutorial", economy: null }]);
+    const player = await get<PlayerAnswer>(`/v1/players/${me}`);
+    expect(player.player?.name).toBe("smoke");
+    expect(player.stats).toMatchObject({ paid_games: 1, settled_games: 1, rewards: chain.reward });
+    expect(player.unsettled).toEqual([]);
+    // The settlement closed the smoke's day: the indexer's close is the contract's.
+    const day = await get<TournamentAnswer>(`/v1/tournaments/${chain.day}`);
+    const view_ = await economyDay(alice, chain.day);
+    expect(view_.closed).toBe(true);
+    expect(day.economy).toMatchObject({
+      games_purchased: 1,
+      games_recorded: 1,
+      games_settled: 1,
+      unsettled: [],
+      rewards: chain.reward,
+      closed: true,
+      mean: view_.mean,
+      weight: view_.weight,
+      prior: view_.prior,
+    });
   });
 
   let day0 = 0;
@@ -157,19 +243,23 @@ describe.skipIf(!enabled)("devnet scenario", () => {
   test("complete games of two players are ranked as the contract ranks them", async () => {
     await register(bo, "Bo");
     await register(cy, "Cy");
-    day0 = Math.floor(Number((await view(alice, 1)).startTime) / DAY);
-    const games: [Player, number, number][] = [
-      [bo, Infinity, 3],
-      [bo, 3, 3],
-      [cy, Infinity, 6],
-      [cy, 0, 0],
+    await fund(alice);
+    // Bo's first game is bought at stake 10, referred by Cy: Cy gets 5 % of 20 USDC from the margin.
+    const games: [Player, number, number, number, bigint][] = [
+      [bo, Infinity, 3, 10, BigInt(cy.address)],
+      [bo, 3, 3, 1, 0n],
+      [cy, Infinity, 6, 1, 0n],
+      [cy, 0, 0, 1, 0n],
     ];
-    for (const [p, moves, characters] of games) {
-      const g = await spawn_(p);
+    const cyBefore = await balance(cy, deployment.contracts.MockUSDC.address);
+    for (const [p, moves, characters, stake, referrer] of games) {
+      const g = await spawn_(p, stake, referrer);
       await play(g, moves, characters, p);
       played.push({ id: g.id, player: p });
     }
     late = await spawn_(cy); // left running across the end of the day
+    // The day of these games: the smoke advanced the node's time past its own day.
+    day0 = Math.floor(Number((await view(bo, played[0]!.id)).startTime) / DAY);
     await caught(API[0]!);
 
     for (const { id, player } of played) {
@@ -179,6 +269,11 @@ describe.skipIf(!enabled)("devnet scenario", () => {
       const api_ = await get<{ game: { score: number; end_time: number; counted_tournament_id: number } }>(`/v1/games/daily/${id}`);
       expect(api_.game).toMatchObject({ score: chain.score, end_time: chain.endTime, counted_tournament_id: day0 });
     }
+    const referred = await get<GameAnswer>(`/v1/games/daily/${played[0]!.id}`);
+    expect(referred.game.economy).toMatchObject({ stake: 10, price: "20000000", referrer: padded(cy.address), referral: "1000000" });
+    // Independent of the API and of Economy's views: Cy's USDC, less its three spawns at 2 USDC (two played, the late
+    // one), plus the referral.
+    expect(cyBefore - (await balance(cy, deployment.contracts.MockUSDC.address))).toBe(6_000_000n - 1_000_000n);
     const board = await get<LeaderboardAnswer>(`/v1/tournaments/${day0}/leaderboard`);
     const view_ = await alice.call(deployment.contracts.Daily.address, "tournament", [day0]);
     // TournamentView: id, start, end, over, prize (2), then player, score, claimed per rank.
@@ -239,6 +334,56 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     expect(head.checks.last_mismatch).toBeNull();
   });
 
+  test("a keeper settles the first day from the API's unsettled list; the rewards are the contract's", async () => {
+    // Day 0's games all ended (or expired: the late one, recorded a day after its purchase); it settles from (day0 + 2) x 86400.
+    await rpc(node.url, "devnet_increaseTime", { time: DAY });
+    await rpc(node.url, "devnet_createBlock");
+    await caught(API[0]!);
+    const before = await get<TournamentAnswer>(`/v1/tournaments/${day0}`);
+    const ids = [...played.filter(({ id }) => id !== played.at(-1)!.id).map(({ id }) => id), late.id].sort((a, b) => a - b);
+    expect(before.economy).toMatchObject({ games_purchased: ids.length, games_recorded: ids.length, games_settled: 0, closed: false });
+    expect(before.economy.unsettled).toEqual(ids);
+    expect((await get<GameAnswer>(`/v1/games/daily/${late.id}`)).game.economy).toMatchObject({ recorded: true, expired: true });
+
+    const paved = deployment.contracts.PavedToken.address;
+    const supply = async () => {
+      const [low, high] = await alice.call(paved, "total_supply");
+      return u256(low!, high!);
+    };
+    const supplyBefore = await supply();
+    const boBefore = await balance(bo, paved);
+    await send(alice, deployment.contracts.Economy.address, "settle", [ids.length, ...ids]);
+    await rpc(node.url, "devnet_createBlock"); // an empty tip again, which the replaced-block test aborts
+    await caught(API[0]!);
+    const after = await get<TournamentAnswer>(`/v1/tournaments/${day0}`);
+    const view_ = await economyDay(alice, day0);
+    const rewards = await Promise.all(ids.map(async (id) => ({ id, ...(await terms(alice, id)) })));
+    expect(after.economy).toMatchObject({
+      games_settled: ids.length,
+      unsettled: [],
+      closed: true,
+      mean: view_.mean,
+      weight: view_.weight,
+      prior: view_.prior,
+      rewards: String(rewards.reduce((sum, t) => sum + BigInt(t.reward), 0n)),
+    });
+    for (const t of rewards) {
+      const game = await get<GameAnswer>(`/v1/games/daily/${t.id}`);
+      expect(game.game.economy, `game ${t.id}`).toMatchObject({ settled: true, reward: t.reward, reference: t.reference, expired: t.expired });
+    }
+    expect(rewards.find((t) => t.id === late.id)!.reward).toBe("0");
+    for (const p of [bo, cy]) {
+      const mine = rewards.filter((t) => played.some(({ id, player }) => id === t.id && player === p) || (p === cy && t.id === late.id));
+      const answer = await get<PlayerAnswer>(`/v1/players/${padded(p.address)}`);
+      expect(answer.stats).toMatchObject({ settled_games: mine.length, rewards: String(mine.reduce((sum, t) => sum + BigInt(t.reward), 0n)) });
+      expect(answer.unsettled).toEqual([]);
+    }
+    // Independent of Economy's views: the PAVED the settlement minted, in total and to Bo.
+    expect(String((await supply()) - supplyBefore)).toBe(after.economy.rewards);
+    const bos = await get<PlayerAnswer>(`/v1/players/${padded(bo.address)}`);
+    expect(String((await balance(bo, paved)) - boBefore)).toBe(bos.stats!.rewards);
+  });
+
   test("a replaced block is rewound, and the answers follow the new chain", async () => {
     const before = await caught(API[0]!);
     const tip = await latest();
@@ -263,6 +408,8 @@ describe.skipIf(!enabled)("devnet scenario", () => {
       `/v1/tournaments/${day0}`,
       `/v1/tournaments/${day0}/leaderboard`,
       `/v1/tournaments/${day1}/leaderboard`,
+      `/v1/tournaments/${day1}`,
+      `/v1/games/daily/${late.id}`,
       ...[alice, bo, cy].flatMap((p) => [`/v1/players/${padded(p.address)}`, `/v1/players/${padded(p.address)}/games`]),
     ];
     const first = await stable(API[0]!, paths);

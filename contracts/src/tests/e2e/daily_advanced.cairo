@@ -20,7 +20,7 @@ use snforge_std::{
 };
 
 #[test]
-#[available_gas(l2_gas: 74450892)]
+#[available_gas(l2_gas: 117706152)]
 fn test_daily_e2e_discard_increments_counter() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
@@ -31,7 +31,7 @@ fn test_daily_e2e_discard_increments_counter() {
 }
 
 #[test]
-#[available_gas(l2_gas: 76194239)]
+#[available_gas(l2_gas: 119661255)]
 fn test_daily_e2e_sponsor_updates_prize_and_balance() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
@@ -43,7 +43,7 @@ fn test_daily_e2e_sponsor_updates_prize_and_balance() {
     let prize_before = store.tournament(tournament_id).prize;
     let balance_before = context.token.balance_of(PLAYER());
 
-    let sponsor_amount: felt252 = 2_000_000_000_000_000_000;
+    let sponsor_amount: felt252 = 20_000_000;
     systems.daily.sponsor(sponsor_amount);
 
     let prize_after = store.tournament(tournament_id).prize;
@@ -54,7 +54,7 @@ fn test_daily_e2e_sponsor_updates_prize_and_balance() {
 }
 
 #[test]
-#[available_gas(l2_gas: 78618090)]
+#[available_gas(l2_gas: 124315903)]
 fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
     start_cheat_block_timestamp_global(100);
 
@@ -65,8 +65,10 @@ fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
         game.start_time, constants::DAILY_TOURNAMENT_DURATION,
     );
 
-    // Force a deterministic top-1 winner for this test.
+    // Force a deterministic top-1 winner for this test; the prize is sponsor-only (P-31).
     leaderboard::submit(store.contract, tournament_id, context.player_id, 1);
+    let sponsored: felt252 = 2_000_000;
+    systems.daily.sponsor(sponsored);
 
     let balance_before = context.token.balance_of(PLAYER());
     let pool_before = context.token.balance_of(systems.daily.contract_address);
@@ -80,13 +82,13 @@ fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
     let prize: u256 = tournament.prize.into();
 
     assert(tournament.top1_claimed, 'Daily: claim marked');
-    assert(prize == constants::DAILY_TOURNAMENT_PRICE.into(), 'Daily: prize is entry');
+    assert(prize == sponsored.into(), 'Daily: prize is sponsored');
     assert(balance_after - balance_before == prize, 'Daily: claim reward');
     assert(pool_before - pool_after == prize, 'Daily: pool debit');
 }
 
 #[test]
-#[available_gas(l2_gas: 85592879)]
+#[available_gas(l2_gas: 133619589)]
 fn test_daily_e2e_claim_pays_exact_reward_per_rank() {
     start_cheat_block_timestamp_global(100);
 
@@ -102,13 +104,15 @@ fn test_daily_e2e_claim_pays_exact_reward_per_rank() {
     leaderboard::submit(store.contract, tournament_id, context.anyone_id, 2);
     leaderboard::submit(store.contract, tournament_id, context.someone_id, 1);
 
-    // Prize 1e18: rank 3 = prize / 6, rank 2 = (prize - rank 3) / 3, rank 1 = the rest.
+    // A sponsored prize of 7 USDC (entries no longer feed it, P-31): rank 3 = prize / 6, rank 2 =
+    // (prize - rank 3) / 3, rank 1 = the rest.
+    systems.daily.sponsor(7_000_000);
     let tournament = store.tournament(tournament_id);
     let prize: u256 = tournament.prize.into();
-    assert(prize == 1_000_000_000_000_000_000_u256, 'Daily: prize');
-    let reward_1: u256 = 555_555_555_555_555_556;
-    let reward_2: u256 = 277_777_777_777_777_778;
-    let reward_3: u256 = 166_666_666_666_666_666;
+    assert(prize == 7_000_000_u256, 'Daily: prize');
+    let reward_1: u256 = 3_888_890;
+    let reward_2: u256 = 1_944_444;
+    let reward_3: u256 = 1_166_666;
     assert(reward_1 + reward_2 + reward_3 == prize, 'Daily: rewards sum');
 
     let daily = systems.daily.contract_address;
@@ -149,12 +153,13 @@ fn test_daily_e2e_claim_reverts_before_tournament_end() {
     );
 
     leaderboard::submit(store.contract, tournament_id, context.player_id, 1);
+    systems.daily.sponsor(2_000_000);
 
     systems.daily.claim(tournament_id, 1);
 }
 
 #[test]
-#[available_gas(l2_gas: 84165995)]
+#[available_gas(l2_gas: 127473871)]
 fn test_daily_e2e_build_then_discard_tracks_both_actions() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
@@ -175,7 +180,7 @@ fn test_daily_e2e_build_then_discard_tracks_both_actions() {
 }
 
 #[test]
-#[available_gas(l2_gas: 76148220)]
+#[available_gas(l2_gas: 119022519)]
 fn test_daily_e2e_token_erc20_entrypoints() {
     let (_, _, context) = setup::spawn_game(Mode::Daily);
 
@@ -183,10 +188,9 @@ fn test_daily_e2e_token_erc20_entrypoints() {
     let metadata = IERC20MetadataDispatcher { contract_address: token_address };
     let camel = IERC20CamelOnlyDispatcher { contract_address: token_address };
 
-    // Metadata and camel ABI methods should stay in sync with standard ERC20 methods.
-    assert(metadata.name() == 'Lords', 'Token: name');
-    assert(metadata.symbol() == 'LORDS', 'Token: symbol');
-    assert(metadata.decimals() == 18, 'Token: decimals');
+    // The token of Daily is USDC (6 decimals; `MockUSDC` here, whose name and symbol are byte
+    // arrays). Camel ABI methods should stay in sync with standard ERC20 methods.
+    assert(metadata.decimals() == 6, 'Token: decimals');
 
     let supply_standard = context.token.total_supply();
     let supply_camel = camel.totalSupply();

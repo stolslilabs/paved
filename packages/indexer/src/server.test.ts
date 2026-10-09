@@ -47,7 +47,7 @@ describe("routes", () => {
       state: "ok",
       chain_id: "0x534e5f5345504f4c4941",
       from_block: 1,
-      contracts: { daily: "0x1111", tutorial: "0x2222", account: "0x3333" },
+      contracts: { daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444" },
       checks: { tournaments_checked: 0, last_mismatch: null, definitions_excluded: 0 },
     });
   });
@@ -118,6 +118,77 @@ describe("routes", () => {
     expect(get(indexer, "/v1/tournaments/104249991374")).toMatchObject({ code: 400, body: { status: "error" } });
     expect(get(indexer, "/v1/tournaments?before=104249991374").code).toBe(400);
     expect(get(indexer, "/v1/tournaments?before=104249991373").code).toBe(200);
+  });
+});
+
+describe("Economy's fields (appended in E3)", () => {
+  const REWARD = 2n ** 90n;
+  async function paid() {
+    const node = new FakeNode();
+    node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]);
+    node.mine([ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY, stake: 2, referrer: B, referral: 200_000n })]);
+    node.mine([ev.spawned("daily", 2, A, { tournament: DAY }), ev.purchased(2, A, { day: DAY })]);
+    node.mine([ev.over("daily", 1, A, 5000, { tournament: DAY }), ev.recorded(1, 5000)]);
+    node.mine([ev.over("daily", 2, A, 300, { tournament: DAY }), ev.recorded(2, 300)]);
+    node.mine([ev.dayClosed(DAY), ev.settled(1, A, { day: DAY, score: 5000, threshold: 4_215_689, reward: REWARD })]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    return indexer;
+  }
+
+  /** Every number of an answer, at any depth. */
+  const numbers = (value: unknown): number[] =>
+    typeof value === "number"
+      ? [value]
+      : value && typeof value === "object"
+        ? Object.values(value).flatMap(numbers)
+        : [];
+
+  test("a game, its player and its day carry the terms, the rewards and the unsettled games", async () => {
+    const indexer = await paid();
+    expect(get(indexer, "/v1/games/daily/1").body).toMatchObject({
+      game: {
+        game_id: 1,
+        score: 5000,
+        economy: {
+          day: DAY,
+          stake: 2,
+          price: "4000000",
+          referrer: padded(B),
+          referral: "200000",
+          recorded: true,
+          expired: false,
+          settled: true,
+          threshold: 4_215_689,
+          reward: String(REWARD),
+        },
+      },
+    });
+    expect(get(indexer, `/v1/players/${PA}`).body).toMatchObject({
+      stats: { paid_games: 2, settled_games: 1, rewards: String(REWARD) },
+      unsettled: [{ game_id: 2, day: DAY, expired: false }],
+    });
+    expect(get(indexer, `/v1/players/${padded(0xeeen)}`).body).toMatchObject({ player: null, stats: null, unsettled: null });
+    expect(get(indexer, `/v1/tournaments/${DAY}`).body).toMatchObject({
+      tournament: { id: DAY, games_spawned: 2 },
+      economy: { games_purchased: 2, games_recorded: 2, games_settled: 1, unsettled: [2], rewards: String(REWARD), closed: true, mean: 4_215_689 },
+    });
+    // The list keeps its summaries: the day's economy is in the detail only.
+    expect((get(indexer, "/v1/tournaments").body.tournaments as object[])[0]).not.toHaveProperty("economy");
+  });
+
+  test("P-19: every number is a safe integer, every amount a decimal string", async () => {
+    const indexer = await paid();
+    for (const target of ["/v1/games/daily/1", `/v1/players/${PA}`, `/v1/players/${PA}/games`, `/v1/tournaments/${DAY}`]) {
+      const answer = get(indexer, target);
+      expect(answer.code, target).toBe(200);
+      const body = JSON.parse(JSON.stringify(answer.body));
+      for (const value of numbers(body)) expect(Number.isSafeInteger(value), `${target}: ${value}`).toBe(true);
+    }
+    const game = get(indexer, "/v1/games/daily/1").body.game as { economy: Record<string, unknown> };
+    for (const key of ["price", "referral", "burned", "reference", "reward"]) {
+      expect(game.economy[key], key).toMatch(/^(0|[1-9]\d*)$/);
+    }
   });
 });
 

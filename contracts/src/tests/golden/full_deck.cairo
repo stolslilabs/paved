@@ -316,7 +316,7 @@ fn full_deck_outcome() -> GoldenOutcome {
 }
 
 #[test]
-#[available_gas(l2_gas: 569485957)]
+#[available_gas(l2_gas: 618238296)]
 fn test_golden_daily_full_deck() {
     let moves = full_deck_moves();
     play_daily('daily_full_deck', day(10), PLAYER(), false, 0, moves.span(), full_deck_outcome());
@@ -325,7 +325,7 @@ fn test_golden_daily_full_deck() {
 // Differential check of P5-4 (`oracle::check`): the same game, the structure state compared with
 // the walks of 2024 after every build.
 #[test]
-#[available_gas(l2_gas: 1357829040)]
+#[available_gas(l2_gas: 1449558414)]
 fn test_golden_daily_full_deck_structures_agree() {
     let moves = full_deck_moves();
     play_daily_checked_lite(
@@ -344,7 +344,7 @@ fn test_full_deck_generate() {
     snforge_std::start_cheat_block_timestamp_global(day(10));
     let (store, systems, _) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.daily.contract_address, PLAYER());
-    let game_id = systems.daily.spawn();
+    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
     let safe = IDailySafeDispatcher { contract_address: systems.daily.contract_address };
     let table = edge_table();
     let mut board: Felt252Dict<u8> = Default::default();

@@ -113,15 +113,22 @@ describe("event reader on recorded events", () => {
 });
 
 describe("writer on recorded receipts", () => {
-  test("spawn returns the game id from GameSpawned; Daily approves the price in the same call", async () => {
+  // The receipts were recorded from a pre-E3 devnet and cannot be re-recorded here (no devnet runs on this machine). The
+  // Tutorial is unchanged by E3, so its recorded spawn is still the real shape; the paid Daily spawn is built from the
+  // committed ABI in `economy.test.ts` ("purchase": approve + spawn(stake, referrer, min_out) in one multicall).
+  test("the Tutorial spawn returns the game id from GameSpawned and sends the free spawn alone", async () => {
+    const { client: c } = client();
+    const acc = account([record.receipts.spawnTutorial]);
+    const result = await c.writer(acc).spawn("tutorial");
+    expect(result.gameId).toBe(1);
+    expect(acc.sent[0].map((call) => [BigInt(call.contractAddress), call.entrypoint, call.calldata])).toEqual([[BigInt(deployment.addresses.Tutorial), "spawn", []]]);
+  });
+
+  test("a Daily game is not spawned by the plain writer: nothing is sent", async () => {
     const { client: c } = client();
     const acc = account([record.receipts.spawnDaily]);
-    const result = await c.writer(acc).spawn("daily");
-    expect(result.gameId).toBe(1);
-    expect(acc.sent[0].map((call) => call.entrypoint)).toEqual(["approve", "spawn"]);
-    // The approve goes to the token `entry_price` names, for the amount it names.
-    expect(BigInt(acc.sent[0][0].contractAddress)).toBe(BigInt(deployment.addresses.Token));
-    expect(acc.sent[0][0].calldata).toEqual([deployment.addresses.Daily, "0xde0b6b3a7640000", "0x0"]);
+    await expect(c.writer(acc).spawn("daily")).rejects.toThrow(/economy writer/);
+    expect(acc.sent).toHaveLength(0);
   });
 
   test("a tutorial build: Built, then the last one ends the game with GameOver", async () => {

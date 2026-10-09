@@ -17,7 +17,16 @@ use quiver_quest::types::task::QuestTask;
 
 #[starknet::interface]
 pub trait ILobby<TContractState> {
-    fn spawn(ref self: TContractState, mode: Mode) -> u32;
+    /// A Daily spawn is paid: `stake x entry price` USDC go from the player to `Economy`, which
+    /// then runs its purchase (`referrer` and `min_out` are passed on). A Tutorial spawn is free
+    /// and passes zeros.
+    fn spawn(
+        ref self: TContractState,
+        mode: Mode,
+        stake: u8,
+        referrer: starknet::ContractAddress,
+        min_out: u256,
+    ) -> u32;
     fn claim(ref self: TContractState, tournament_id: u64, rank: u8);
     fn sponsor(ref self: TContractState, amount: felt252);
     fn discard(ref self: TContractState, game_id: u32);
@@ -25,7 +34,7 @@ pub trait ILobby<TContractState> {
     fn tutorial_discard(ref self: TContractState, game_id: u32);
     fn tutorial_surrender(ref self: TContractState, game_id: u32);
     /// The report of a Daily game that ended on a `build` (the tally of `paved::quests::encode`).
-    fn report(ref self: TContractState, over: u128);
+    fn report(ref self: TContractState, game_id: u32, over: u128);
     /// The report of a Tutorial game that ended on a `build`.
     fn tutorial_report(ref self: TContractState);
     /// The definitions of the quests and of the achievements: owner only, checked here against
@@ -50,23 +59,26 @@ pub trait ILobby<TContractState> {
 
 #[starknet::contract]
 pub mod Lobby {
-    // Component imports
+    // Imports
 
+    use core::num::traits::Zero;
     use paved::components::hostable::HostableComponent;
     use paved::components::ownable::OwnableComponent;
-    use paved::components::payable::PayableComponent;
+    use paved::components::payable::{IERC20Dispatcher, IERC20DispatcherTrait, PayableComponent};
     use paved::components::playable::PlayableComponent;
     use paved::components::tutoriable::TutoriableComponent;
-
-    // Internal imports
-
     use paved::constants;
+    use paved::economy::economy::{DAY, IEconomyDispatcher, IEconomyDispatcherTrait};
+    use paved::models::player::ZeroablePlayerTrait;
     use paved::quests::{achievement_entries, decode, quest_entries};
+    use paved::store::{PavedStorage, StoreImpl, StoreTrait};
+    use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
     use paved::types::mode::Mode;
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
     use quiver_quest::types::mode::Mode as QuestMode;
-    use starknet::{ContractAddress, get_caller_address};
+    use starknet::storage::{StorageAsPath, StorageBase, StoragePointerReadAccess};
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
 
     // Local imports
 
@@ -76,6 +88,8 @@ pub mod Lobby {
 
     pub mod errors {
         pub const NOT_DEPLOYABLE: felt252 = 'Lobby: declared only';
+        pub const NO_ECONOMY: felt252 = 'Lobby: economy not set';
+        pub const PAY_FAILED: felt252 = 'ERC20: pay failed';
         pub const MISALIGNED_QUEST: felt252 = 'Daily: quest not on UTC day';
         pub const TASK_TOTAL_ZERO: felt252 = 'Daily: task total is zero';
         pub const TASK_REPEATED: felt252 = 'Daily: task id repeated';
@@ -180,6 +194,18 @@ pub mod Lobby {
         QuestEvent: QuestComponent::Event,
         #[flat]
         AchievementEvent: AchievementComponent::Event,
+        Reclaimed: Reclaimed,
+    }
+
+    /// A sponsor took back what it put in a day nobody ranked in (P-37b); emitted from
+    /// `Daily`'s address, as every event of this class.
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct Reclaimed {
+        #[key]
+        pub tournament_id: u64,
+        #[key]
+        pub sponsor: ContractAddress,
+        pub amount: u256,
     }
 
     // Constructor
@@ -194,22 +220,36 @@ pub mod Lobby {
 
     #[abi(embed_v0)]
     impl LobbyImpl of ILobby<ContractState> {
-        fn spawn(ref self: ContractState, mode: Mode) -> u32 {
+        fn spawn(
+            ref self: ContractState,
+            mode: Mode,
+            stake: u8,
+            referrer: ContractAddress,
+            min_out: u256,
+        ) -> u32 {
             // [Effect] Spawn a game
-            let (game_id, amount) = self.hostable.spawn(mode);
-            // [Interaction] Pay entry price (a Tutorial game is free)
+            let (game_id, unit) = self.hostable.spawn(mode);
+            // [Interaction] A Daily game is purchased (a Tutorial game is free)
             if mode == Mode::Daily {
-                self.payable.pay(get_caller_address(), amount);
+                self.purchase(game_id, unit, stake, referrer, min_out);
             }
             // [Return] Game ID
             game_id
         }
 
         fn claim(ref self: ContractState, tournament_id: u64, rank: u8) {
-            // [Effect] Claim the reward
-            let reward = self.hostable.claim(tournament_id, rank, Mode::Daily);
-            // [Interaction] Pay the reward out of the prize pool
-            self.payable.refund(get_caller_address(), reward);
+            // [Effect] Rank 0 is a sponsor's reclaim of a day nobody ranked in (P-37b); 1 to 3 a
+            // reward
+            let caller = get_caller_address();
+            let amount = if rank == 0 {
+                let amount = self.hostable.reclaim(tournament_id, Mode::Daily);
+                self.emit(Reclaimed { tournament_id, sponsor: caller, amount });
+                amount
+            } else {
+                self.hostable.claim(tournament_id, rank, Mode::Daily)
+            };
+            // [Interaction] Pay it out of the prize pool
+            self.payable.refund(caller, amount);
         }
 
         fn sponsor(ref self: ContractState, amount: felt252) {
@@ -222,13 +262,13 @@ pub mod Lobby {
         fn discard(ref self: ContractState, game_id: u32) {
             // [Effect] Discard tile
             let over = self.playable.discard(game_id);
-            self.finish(over);
+            self.finish(game_id, over);
         }
 
         fn surrender(ref self: ContractState, game_id: u32) {
             // [Effect] Surrender game
             let over = self.playable.surrender(game_id);
-            self.finish(over);
+            self.finish(game_id, over);
         }
 
         fn tutorial_discard(ref self: ContractState, game_id: u32) {
@@ -243,8 +283,8 @@ pub mod Lobby {
             self.finish_tutorial(over);
         }
 
-        fn report(ref self: ContractState, over: u128) {
-            self.finish(over);
+        fn report(ref self: ContractState, game_id: u32, over: u128) {
+            self.finish(game_id, over);
         }
 
         fn tutorial_report(ref self: ContractState) {
@@ -319,17 +359,61 @@ pub mod Lobby {
         }
     }
 
+    /// The `Economy` of the paid Daily games, from the `Account` registry that keeps the players
+    /// (`docs/architecture/economy.md`, section 6): set once, never zero after that.
+    fn economy() -> IEconomyDispatcher {
+        let base: StorageBase<PavedStorage> = StorageBase { __base_address__: selector!("paved") };
+        let account = IAccountDispatcher { contract_address: base.as_path().account.read() };
+        let economy = account.economy();
+        assert(economy.is_non_zero(), errors::NO_ECONOMY);
+        IEconomyDispatcher { contract_address: economy }
+    }
+
     #[generate_trait]
     impl InternalImpl of InternalTrait {
+        /// The purchase of a Daily game (economy.md section 1, P-31): `stake x unit` USDC go
+        /// from the player straight to `Economy`, then `Economy.purchase` splits them, in the same
+        /// call, for this game's own id. `Economy` checks the stake (1 to 10) and the price. A
+        /// referrer counts only if it is a registered player other than the payer; any other is
+        /// ignored (no referral).
+        fn purchase(
+            ref self: ContractState,
+            game_id: u32,
+            unit: u256,
+            stake: u8,
+            referrer: ContractAddress,
+            min_out: u256,
+        ) {
+            let player = get_caller_address();
+            let economy = economy();
+            let referred = referrer.is_non_zero()
+                && referrer != player
+                && StoreImpl::new().player(referrer.into()).is_non_zero();
+            let referrer = if referred {
+                referrer
+            } else {
+                Zero::zero()
+            };
+            let price = stake.into() * unit;
+            let token = IERC20Dispatcher { contract_address: self.payable.token_address.read() };
+            assert(token.transferFrom(player, economy.contract_address, price), errors::PAY_FAILED);
+            economy
+                .purchase(
+                    game_id, player, get_block_timestamp() / DAY, stake, price, referrer, min_out,
+                );
+        }
+
         /// A Daily game over reports its tally to the quests and to the achievements, once each,
         /// after the ranking is written and the `GameOver` emitted. Entries come from constants
-        /// (`paved::quests`), so the calls cannot revert and the game over cannot fail.
-        fn finish(ref self: ContractState, over: u128) {
+        /// (`paved::quests`), so the calls cannot revert and the game over cannot fail. Its score
+        /// is then recorded by `Economy` (P-34).
+        fn finish(ref self: ContractState, game_id: u32, over: u128) {
             if over != 0 {
                 let player_id: felt252 = get_caller_address().into();
                 let tally = decode(over, player_id);
                 self.quest.progress_many(player_id, quest_entries(tally).span(), QuestMode::Event);
                 self.achievement.progress_many(player_id, achievement_entries(tally).span());
+                economy().record(game_id, tally.score);
             }
         }
 

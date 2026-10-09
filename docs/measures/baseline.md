@@ -571,3 +571,47 @@ The ceilings of a0 to f are unchanged. The rise is the one accepted as O-40 on #
 within 600): one more division on the `GameState` unpack, one more multiplication on the pack, one more felt in the
 `Game` copies, and the report's `if`; +31.6k more on a move that scores (the saturating count). It is not
 "identical to main"; the cause per piece was not isolated.
+
+## P8 E3: the economy wired (contracts)
+
+`contracts/tests/gas.cairo`, the L2 gas of one external call (`get_available_gas()` right before and after it), scarb
+2.20.1 / snforge 0.64.0. "After" is the `GAS` lines of the CI `Test game` job of #275 (Linux, job 113980427433, head
+`bcd7fc4b`); "Before" is main `2256724` measured the same way on the Mac, which gave the same figures as Linux for
+every line both share (a0 to l match P7's "After" above to the unit). m and o on main were measured with a temporary
+copy of the two tests that call the old `spawn()`.
+
+| | Scenario | Before | After | Change | Ceiling |
+|---|---|---:|---:|---:|---:|
+| a0 | open simple move | 5,626,085 | 5,626,255 | +170 (+0.003 %) | 5,869,212 (unchanged) |
+| a | simple move | 5,112,405 | 5,112,575 | +170 | 5,329,081 (unchanged) |
+| b | move with a character | 6,086,794 | 6,086,964 | +170 | 6,350,300 (unchanged) |
+| c | close a large city | 6,159,821 | 6,159,991 | +170 | 6,392,332 (unchanged) |
+| d | worst case | 7,049,194 | 7,049,364 | +170 | 7,325,796 (unchanged) |
+| e | close a forest | 9,357,569 | 9,357,739 | +170 | 9,756,082 (unchanged) |
+| f | worst forest scan | 19,097,029 | 19,097,199 | +170 | 19,956,685 (unchanged) |
+| g | closing move, rank 1 | 2,060,599 | 3,524,749 | +1,464,150 | 3,700,987 |
+| h | closing move, not ranked | 1,657,443 | 3,121,593 | +1,464,150 | 3,277,673 |
+| i | game over after its tournament | 1,478,864 | 2,589,134 | +1,110,270 | 2,718,591 |
+| j | `tournament` view | 370,628 | 370,628 | 0 | 388,740 (unchanged) |
+| k | closing move, largest report | 2,389,479 | 3,853,629 | +1,464,150 | 4,046,311 |
+| l | game over on the last `build` | 6,111,335 | 7,582,095 | +1,470,760 | 7,961,200 |
+| m | Daily spawn, stake 1 | 40,983,345 | 49,361,586 | +8,378,241 (+20.4 %) | 51,829,666 (new) |
+| n | Daily spawn, stake 10, referred | n/a | 50,387,496 | | 52,906,871 (new) |
+| o | Tutorial spawn | 4,555,211 | 4,314,442 | -240,769 | 4,530,165 (new) |
+
+- **Moves a0 to f.** +170 each; the move code of `Daily` is unchanged (`Daily.build` passes the game id to
+  `Lobby.report` only on a game over). Within the +0.1 % of the brief.
+- **Closing moves g to l.** A Daily game over calls `Economy.record`: the `Account.economy()` read, then `Economy`'s
+  checks, its outcome slot and the day's accumulator. i is lower (+1.11M): its game ends at `start_time + 86401`,
+  at or after its expiry (24 h after the purchase, P-34), so `record` marks it expired and does not write the day's
+  accumulator; the 353,880 gap was not isolated further. Every closing move stays under P-22's +1.5M guard.
+- **Daily spawn.** `Economy.purchase`: the `transferFrom` of the price, the referral (n), the transfer to the
+  router, `swap`, `clear_minimum`, `clear`, the burn, the margin to the Vault, the terms, the day's prior and the
+  guard; less the prize write that left (P-31).
+- **Tutorial spawn.** -240,769: the tournament prize read and write that left. It calls nothing of the economy.
+
+**Test budgets** (`#[available_gas]`, measured + 5 %) rose by the setup, not by the contracts. `setup::spawn_game`
+now deploys and wires the economy as `scripts/deploy.sh` does: whole-test L2 gas of the setup alone 23,058,890 on
+main, 53,482,264 here (+30,423,374; 11.0M of it measured inside the test, the rest snforge's declare and deploy
+charges). The Tutorial golden rose from 132,797,718 to 162,980,323 (+30,182,605), exactly the setup's rise less the
+Tutorial spawn's saving: the golden less its setup and spawn is 101,493,507 on both.

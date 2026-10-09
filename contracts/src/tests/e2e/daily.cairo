@@ -13,7 +13,7 @@ use paved::types::role::Role;
 use paved::types::spot::Spot;
 
 #[test]
-#[available_gas(l2_gas: 72037820)]
+#[available_gas(l2_gas: 115115389)]
 fn test_daily_e2e_spawn_starts_game() {
     let (store, _, context) = setup::spawn_game(Mode::Daily);
 
@@ -24,17 +24,17 @@ fn test_daily_e2e_spawn_starts_game() {
 }
 
 #[test]
-#[available_gas(l2_gas: 73753077)]
+#[available_gas(l2_gas: 116703229)]
 fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
     // No game spawned by the setup: spawn here to observe the balances around it.
     let (store, systems, context) = setup::spawn_game(Mode::None);
     let price: u256 = constants::DAILY_TOURNAMENT_PRICE.into();
     let daily = systems.daily.contract_address;
 
+    let economy = systems.economy.contract_address;
     let player_before = context.token.balance_of(PLAYER());
-    let pool_before = context.token.balance_of(daily);
 
-    let game_id = systems.daily.spawn();
+    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
 
     let game = store.game(game_id);
     let tournament_id = TournamentTrait::compute_id(
@@ -42,13 +42,15 @@ fn test_daily_e2e_spawn_moves_exactly_the_entry_price() {
     );
     let prize: u256 = store.tournament(tournament_id).prize.into();
 
+    // The price went to Economy, which split it at once; the entry no longer feeds the prize
     assert(player_before - context.token.balance_of(PLAYER()) == price, 'Daily: player debit');
-    assert(context.token.balance_of(daily) - pool_before == price, 'Daily: pool credit');
-    assert(prize == price, 'Daily: prize grows');
+    assert(context.token.balance_of(daily) == 0, 'Daily: holds nothing');
+    assert(context.token.balance_of(economy) == 0, 'Daily: economy holds nothing');
+    assert(prize == 0, 'Daily: prize is sponsor-only');
 }
 
 #[test]
-#[available_gas(l2_gas: 81740449)]
+#[available_gas(l2_gas: 124870633)]
 fn test_daily_e2e_build_increments_counter() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
@@ -67,7 +69,7 @@ fn test_daily_e2e_build_increments_counter() {
 }
 
 #[test]
-#[available_gas(l2_gas: 73624525)]
+#[available_gas(l2_gas: 118783188)]
 fn test_daily_e2e_surrender_ends_game() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 

@@ -13,7 +13,7 @@ import { useEconomy } from "../utils/economy-context";
 import { purchaseIntent } from "../utils/economy-start";
 import { referrerFromSearch } from "../utils/economy-view";
 import type { Claimable } from "../components/PrizePanel";
-import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, playerNameError, podium, TOKEN_LABEL, tokenLabel } from "../utils/landing-helpers";
+import { canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, playerNameError, podium, TOKEN_LABEL, tokenLabel } from "../utils/landing-helpers";
 
 interface ModeInfo {
   mode: GameMode;
@@ -182,15 +182,15 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     const route = buildGameRoute({ mode: selected });
     if (resume) navigate(buildGameRoute({ gameId: resume.gameId, mode: resume.mode }));
     else if (selected === "daily") {
-      if (!canConfirmEntry(fee, false)) return;
-      navigate(route, { state: startIntent("daily", fee.kind === "amount" ? fee.amount : 0n) });
+      return; // a new Daily game is bought with the stake picker, never from this dialog
     } else navigate(route, { state: startIntent(selected, null) });
     setSelected(null);
   };
 
   const selectedCard = selected ? gameModes.find((m) => m.mode === selected) : null;
   // A Daily start needs a known entry fee; resuming a game, and the free Tutorial, do not.
-  const confirmAllowed = selected !== "daily" || canConfirmEntry(fee, active.some((g) => g.mode === "daily"));
+  // A new Daily game is bought with the stake picker (E3: `Daily.spawn` takes USDC and a swap floor); this dialog only resumes one.
+  const confirmAllowed = selected !== "daily" || active.some((g) => g.mode === "daily");
 
   return (
     <>
@@ -340,7 +340,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
                   {status !== "ready"
                     ? "Not connected"
                     : !confirmAllowed
-                      ? feeLabel === "Unknown token" ? "Unknown token" : "Entry price unavailable"
+                      ? feeLabel === "Unknown token" ? "Unknown token" : fee.kind === "amount" || fee.kind === "free" ? "Buy it in USDC: not deployed here" : "Entry price unavailable"
                       : selectedCard.hasActiveGame ? "Resume Game" : "Start Game"}
                 </button>
                 )}

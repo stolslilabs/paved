@@ -9,7 +9,8 @@ pub const CENTER: u32 = 0x7fffffff;
 
 // Tournament
 
-pub const DAILY_TOURNAMENT_PRICE: felt252 = 1_000_000_000_000_000_000;
+/// The price of one stake unit of a Daily game: 2 USDC (6 decimals), `economy::BASE_PRICE`.
+pub const DAILY_TOURNAMENT_PRICE: felt252 = 2_000_000;
 pub const DAILY_TOURNAMENT_DURATION: u64 = 86400; // 1 day
 
 // Bonus curve

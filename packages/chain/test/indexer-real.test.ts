@@ -11,7 +11,7 @@ import { CrossCheck } from "../../indexer/src/crosscheck.ts";
 import { canonical, padded } from "../../indexer/src/events.ts";
 import { Queries } from "../../indexer/src/queries.ts";
 import { serve } from "../../indexer/src/server.ts";
-import { ACCOUNT, DAILY, FakeNode, TUTORIAL, ev } from "../../indexer/src/testing/fake-node.ts";
+import { ACCOUNT, DAILY, ECONOMY, FakeNode, TUTORIAL, ev } from "../../indexer/src/testing/fake-node.ts";
 import { indexerOf, settle } from "../../indexer/src/testing/setup.ts";
 
 const A = 0xa1n;
@@ -83,10 +83,49 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const { data, head, behind, freshness } = await client.head();
     expect(data).toMatchObject({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 1, lastMismatch: null, tournamentsChecked: 0 });
-    expect(data.contracts).toEqual({ daily: "0x1111", tutorial: "0x2222", account: "0x3333" });
+    expect(data.contracts).toEqual({ daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444" });
     expect(head.number).toBeGreaterThan(0);
     expect(behind).toBe(0);
     expect(freshness).toEqual({ kind: "ok", blocks: 0 });
+  });
+
+  test("E3's appended economy fields are read: game, player stats and the day's economy", async () => {
+    const node = new FakeNode();
+    node.mine([ev.created(A, 0x41)]);
+    node.mine([ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY })]);
+    node.mine([ev.over("daily", 1, A, 1200, { tournament: DAY, end: T0 + 200 }), ev.recorded(1, 1200)]);
+    const { client } = await serveNode(node);
+
+    const { data: games } = await client.playerGames(ADA);
+    expect(games.games[0].economy).toEqual({
+      day: DAY,
+      stake: 1,
+      price: "2000000",
+      referrer: null,
+      referral: "0",
+      burned: (107n * 10n ** 18n).toString(),
+      factor: 10_000,
+      reference: (107n * 10n ** 18n).toString(),
+      purchasedAt: expect.any(Number),
+      recorded: true,
+      expired: false,
+      settled: false,
+      threshold: null,
+      reward: null,
+    });
+    const { data: profile } = await client.player(ADA);
+    expect(profile.stats).toMatchObject({ paidGames: 1, settledGames: 0, rewards: "0" });
+    const { data: day } = await client.tournament(DAY);
+    expect(day.economy).toMatchObject({ gamesPurchased: 1, gamesRecorded: 1, gamesSettled: 0, unsettled: [1], rewards: "0", closed: false, mean: null });
+  });
+
+  test("an indexer without the E3 fields is still read; a malformed economy is a bad response", async () => {
+    const answer = (body: unknown) => new IndexerClient({ url: "http://x", fetch: (async () => Response.json(body)) as unknown as typeof fetch });
+    const envelope = { version: 1, status: "ok", behind: 0, head: { number: 1, hash: "0x1", timestamp: 1 } };
+    const row = { contract: "daily", game_id: 1, mode: 1, start_time: 1, tournament_id: 1, over: false, score: null, counted_tournament_id: null, end_time: null };
+    const old = await kindOf(answer({ ...envelope, games: [row], next: null }).playerGames(ADA));
+    expect(old).not.toBe("bad-response");
+    expect(await kindOf(answer({ ...envelope, games: [{ ...row, economy: { day: 1 } }], next: null }).playerGames(ADA))).toBe("bad-response");
   });
 
   test("/v1/head: a real cross-check mismatch is read as a typed object", async () => {
@@ -105,9 +144,9 @@ describe("IndexerClient against the real indexer", () => {
     node.mine();
     const indexer = indexerOf(node);
     await settle(indexer);
-    const checks = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }), new Queries(indexer.store));
+    const checks = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }), new Queries(indexer.store));
     await checks.run(indexer.served!);
-    const server = serve(indexer, { info: { chainId: "0x1", fromBlock: 1, contracts: { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT }, checks } });
+    const server = serve(indexer, { info: { chainId: "0x1", fromBlock: 1, contracts: { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }, checks } });
     servers.push(server);
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const client = new IndexerClient({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` });
@@ -149,7 +188,7 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const known = await client.player(ADA);
     expect(known.data.player).toMatchObject({ playerId: ADA, name: "Ada" });
-    expect(known.data.stats).toEqual({ dailyGames: 2, dailyFinished: 1, bestScore: 50, tutorialGames: 1 });
+    expect(known.data.stats).toEqual({ dailyGames: 2, dailyFinished: 1, bestScore: 50, tutorialGames: 1, paidGames: 0, settledGames: 0, rewards: "0" });
     expect(await client.player(0xeen)).toMatchObject({ data: { player: null, stats: null } });
   });
 

@@ -214,10 +214,9 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(await screen.findByText(/the quote disagrees/)).toBeTruthy();
   });
 
-  it("not deployed (every network today): the old Daily confirm, and the panel says so", async () => {
+  it("not deployed (a network without the economy addresses): the panel says so", async () => {
     land({ deployment: resolveEconomyDeployment({ base }) });
     expect(await screen.findByText(/Not deployed on devnet: Economy address/)).toBeTruthy();
-    expect(screen.getByText("Economy is live on its real ABI; the paid spawn and USDC are stubs until E3, so purchases are not possible yet")).toBeTruthy();
     expect(screen.queryByText(/USDC, by stake/)).toBeNull();
   });
 });
