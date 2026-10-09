@@ -515,14 +515,14 @@ describe("Settled: E2's widths (day u64, score u32, threshold u64, reward u128, 
 describe("errors of the Economy as clear states", () => {
   const reverted = (reason: string) => setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: reason }) });
 
-  test("purchase: 'swap below min_out' is 'the price moved, nothing was charged', with the hash", async () => {
+  test("purchase: 'swap below min_out' is 'the price moved, your USDC was not spent', with the hash", async () => {
     for (const reason of ["Economy: swap below min_out", `Failure reason: ${shortString.encodeShortString("Economy: swap below min_out")} ('Economy: swap below min_out')`, shortString.encodeShortString("Economy: swap below min_out")]) {
       const error = await reverted(reason).econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
       expect(error).toBeInstanceOf(SwapBelowMinOutError);
       expect(error).toBeInstanceOf(WriteError);
       expect((error as SwapBelowMinOutError).reverted).toBe(true);
       expect((error as SwapBelowMinOutError).transactionHash).toBe("0x1");
-      expect((error as Error).message).toBe("The price moved before your purchase went through: nothing was charged. Try again.");
+      expect((error as Error).message).toBe("The price moved before your purchase went through: your USDC was not spent. Try again.");
     }
   });
 

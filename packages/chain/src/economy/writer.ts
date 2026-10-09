@@ -37,12 +37,13 @@ function names(revert: string, reason: string): boolean {
 
 /**
  * The purchase reverted because the swap paid less than `min_out`: the pool's price moved between the quote and the
- * block. A revert moves no funds (the approve, the transfers and the swap are one transaction), so nothing was
- * charged; the player can confirm again at the new price.
+ * block. A revert moves no funds (the approve, the transfers and the swap are one transaction), so the USDC was not
+ * spent; the network fee of the reverted transaction is still paid, which is why the message does not say "nothing was
+ * charged". The player can confirm again at the new price.
  */
 export class SwapBelowMinOutError extends WriteError {
   constructor(transactionHash?: string) {
-    super("The price moved before your purchase went through: nothing was charged. Try again.", transactionHash, true);
+    super("The price moved before your purchase went through: your USDC was not spent. Try again.", transactionHash, true);
     this.name = "SwapBelowMinOutError";
   }
 }

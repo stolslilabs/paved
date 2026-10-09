@@ -55,7 +55,7 @@ the short string):
 
 | Contract reason | State | Why |
 |---|---|---|
-| `Economy: swap below min_out` (purchase) | `SwapBelowMinOutError`: "The price moved before your purchase went through: nothing was charged. Try again." | The approve, the transfers and the swap are one multicall, and a revert undoes it whole: no funds move. The player confirms again at the new price |
+| `Economy: swap below min_out` (purchase) | `SwapBelowMinOutError`: "The price moved before your purchase went through: your USDC was not spent. Try again." | The approve, the transfers and the swap are one multicall, and a revert undoes it whole: no funds move, but the reverted transaction still pays its network fee, so the message says the USDC was not spent, not that nothing was charged. The player confirms again at the new price |
 | `Economy: day cannot close yet` (settle) | `SettleTooEarlyError`: "This day cannot be settled yet: try again after the next day ends." | The contract settles day D at `(D + 2) x 86400`; the writer already refuses earlier from the latest block's time, so this is the race at the border |
 
 An expired game says "Expired: no reward" in the "after the day" list (`terms().expired`, or never recorded 24 h after
