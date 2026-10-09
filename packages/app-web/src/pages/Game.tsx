@@ -11,6 +11,8 @@ import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers
 import { parseGameParams } from "../utils/game-params";
 import { buildGameRoute } from "../utils/mode-routing";
 import { readStartIntent, startGame } from "../utils/start-game";
+import { useEconomy } from "../utils/economy-context";
+import { readPurchaseIntent, type ReadPurchase } from "../utils/economy-start";
 
 /** How long a start consent waits for a ready writer before it is dropped. */
 const START_CONSENT_MS = 30_000;
@@ -116,6 +118,7 @@ export function GamePage() {
   const [searchParams] = useSearchParams();
   const gameParams = parseGameParams(searchParams);
   const { status, client, writer, address } = usePaved();
+  const economy = useEconomy();
   const [spawnError, setSpawnError] = useState<string | null>(null);
   // A consent was found at mount and is waiting for a writer, or its start is in flight.
   const [wantsStart, setWantsStart] = useState(false);
@@ -123,7 +126,7 @@ export function GamePage() {
   const [expired, setExpired] = useState(false);
   // False once the page is gone (the browser's Back during an in-flight start): no navigation then.
   const alive = useRef(true);
-  const intentRef = useRef<{ confirmedAmount: bigint | undefined } | null>(null);
+  const intentRef = useRef<{ confirmedAmount: bigint | undefined; purchase?: ReadPurchase } | null>(null);
   const consumed = useRef(false);
 
   useEffect(() => {
@@ -135,7 +138,9 @@ export function GamePage() {
 
   useEffect(() => {
     if (consumed.current || gameParams.gameId !== null) return;
-    const found = readStartIntent(location.state, gameParams.mode);
+    // A paid Daily (P8) carries its purchase; any other consent is the plain start's.
+    const purchase = gameParams.mode === "daily" ? readPurchaseIntent(location.state) : null;
+    const found = purchase ? { confirmedAmount: purchase.confirmedPrice, purchase } : readStartIntent(location.state, gameParams.mode);
     if (!found) return;
     intentRef.current = found;
     setWantsStart(true);
@@ -160,19 +165,24 @@ export function GamePage() {
   useEffect(() => {
     const intent = intentRef.current;
     if (!intent || consumed.current || !client || !writer || !address) return;
+    // A purchase waits for the economy's writer (and expires like any consent without one).
+    if (intent.purchase && !economy.writer) return;
     consumed.current = true;
     intentRef.current = null;
     setStarting(true);
     startGame(intent, {
       listGames: () => client.events.playerGames(address, [gameParams.mode]),
-      spawn: (confirmedAmount) => writer.spawn(gameParams.mode, { confirmedAmount }),
+      spawn: (confirmedAmount) =>
+        intent.purchase && economy.writer
+          ? economy.writer.purchase({ stake: intent.purchase.stake, confirmedPrice: intent.purchase.confirmedPrice, referrer: intent.purchase.referrer })
+          : writer.spawn(gameParams.mode, { confirmedAmount }),
       clearIntent: () => {}, // already cleared at mount
       open: (gameId) => alive.current && navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
     }).catch((error) => {
       setSpawnError(error instanceof Error ? error.message : String(error));
       setStarting(false);
     });
-  }, [wantsStart, client, writer, address, gameParams.mode, navigate]);
+  }, [wantsStart, client, writer, address, gameParams.mode, navigate, economy.writer]);
 
   const key = useMemo<GameKey | null>(
     () => (gameParams.gameId === null ? null : { mode: gameParams.mode, gameId: gameParams.gameId }),
@@ -188,7 +198,7 @@ export function GamePage() {
     if (starting) return <Screen text="Spawning game..." onBack={() => navigate("/")} backDisabled />;
     if (expired) return <Screen text="Not connected: confirm again on the landing page" onBack={() => navigate("/")} />;
     // Only the landing page's confirm starts a game: a link, a reload or Back never pays an entry.
-    const consent = wantsStart || readStartIntent(location.state, gameParams.mode) !== null;
+    const consent = wantsStart || readStartIntent(location.state, gameParams.mode) !== null || readPurchaseIntent(location.state) !== null;
     if (!consent) return <Screen text="No game selected" onBack={() => navigate("/")} />;
     if (status !== "ready") return <Screen text="Not connected: no playing account" onBack={() => navigate("/")} />;
     return <Screen text="Spawning game..." onBack={() => navigate("/")} backDisabled />;

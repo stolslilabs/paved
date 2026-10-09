@@ -59,6 +59,8 @@ export function renderPage(opts: {
   games?: unknown[];
   /** The indexer client the screens read; none by default. */
   indexer?: IndexerClient | null;
+  /** Wraps the routes (an `EconomyProvider`). */
+  wrap?: (routes: React.ReactElement) => React.ReactElement;
 }) {
   const views = opts.views ?? new FakeGameViews();
   const playerGames = vi.fn(async () => opts.games ?? []);
@@ -74,9 +76,11 @@ export function renderPage(opts: {
       <IndexerProvider client={opts.indexer ?? null}>
         <MemoryRouter initialEntries={[{ pathname: opts.path, search: opts.search ?? "", state: opts.state }]}>
           <Where />
-          <Routes>
-            <Route path={opts.route ?? opts.path} element={opts.page} />
-          </Routes>
+          {(opts.wrap ?? ((r) => r))(
+            <Routes>
+              <Route path={opts.route ?? opts.path} element={opts.page} />
+            </Routes>,
+          )}
         </MemoryRouter>
       </IndexerProvider>
     </PavedProvider>,
