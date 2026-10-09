@@ -3,24 +3,61 @@
 # Exit 0 = skip the build, exit 1 = build. Runs from book/.
 # Skips only when it has proven that nothing under book/ changed since the
 # comparison commit; on any doubt (missing commit, shallow clone, git error) it builds.
+# It echoes which branch it took, so the build log says why.
 
 # Succeeds (exit 0) when nothing under the current directory differs: `git diff --quiet`
 # exits 1 on a difference and >1 on an error, and both must build.
 unchanged() { git diff --quiet "$@" -- . 2>/dev/null; }
 
-# 1. Last successfully built commit of this branch (main: the last production build;
-#    a PR: the last build of the PR branch). Empty on the first push of a branch.
-prev="$VERCEL_GIT_PREVIOUS_SHA"
-if [ -n "$prev" ] && git cat-file -e "$prev^{commit}" 2>/dev/null; then
-  unchanged "$prev" HEAD && exit 0 || exit 1
+# Prints the merge base of the base branch and HEAD, deepening the shallow clone until
+# it exists (Vercel clones the branch at a small depth). Empty when it cannot be found.
+merge_base() {
+  depth=100
+  git fetch -q --depth="$depth" "$remote" "$1" || return 1
+  tries=0
+  while [ "$tries" -lt 5 ]; do
+    mb=$(git merge-base FETCH_HEAD HEAD 2>/dev/null) && [ -n "$mb" ] && { echo "$mb"; return 0; }
+    tries=$((tries + 1))
+    git fetch -q --deepen=200 "$remote" "$1" "${VERCEL_GIT_COMMIT_REF:-HEAD}" \
+      || git fetch -q --deepen=200 "$remote" "$1" || return 1
+  done
+  return 1
+}
+
+ref="${VERCEL_GIT_COMMIT_REF:-}"
+remote=origin
+public="https://github.com/${VERCEL_GIT_REPO_OWNER:-stolslilabs}/${VERCEL_GIT_REPO_SLUG:-paved}.git"
+echo "ignore step: remotes: $(git remote -v 2>&1 | sed 's|//[^@/]*@|//***@|' | tr '\n' ' ')"
+echo "ignore step: ref='$ref' pr='${VERCEL_GIT_PULL_REQUEST_ID:-}' previous='${VERCEL_GIT_PREVIOUS_SHA:-}' head=$(git rev-parse --short HEAD 2>/dev/null)"
+
+# 1. A PR (or any branch other than main): compare with the merge base of main. Not with
+#    VERCEL_GIT_PREVIOUS_SHA, which on a new branch may be an old deployment of another
+#    branch, whose diff would include book/ changes already on main.
+if [ -n "$VERCEL_GIT_PULL_REQUEST_ID" ] || { [ -n "$ref" ] && [ "$ref" != "main" ]; }; then
+  # The clone's own remote first, then the public repository by URL.
+  if mb=$(merge_base main) || { remote="$public"; mb=$(merge_base main); }; then
+    if unchanged "$mb" HEAD; then
+      echo "ignore step: branch 1 (merge base ${mb%"${mb#???????}"}): no change under book/, skip"
+      exit 0
+    fi
+    echo "ignore step: branch 1 (merge base ${mb%"${mb#???????}"}): book/ changed or diff failed, build"
+    exit 1
+  fi
+  echo "ignore step: branch 1: no merge base with main, build"
+  exit 1
 fi
 
-# 2. First push of a PR branch: compare with the merge base of the base branch, when
-#    the shallow clone can fetch it.
-base="${VERCEL_GIT_PULL_REQUEST_ID:+main}"
-if [ -n "$base" ] && git fetch -q --depth=100 origin "$base" 2>/dev/null; then
-  unchanged FETCH_HEAD...HEAD 2>/dev/null && exit 0 || exit 1
+# 2. Main: last successfully built commit of the branch (the last production build).
+prev="$VERCEL_GIT_PREVIOUS_SHA"
+if [ -n "$prev" ] && git cat-file -e "$prev^{commit}" 2>/dev/null; then
+  if unchanged "$prev" HEAD; then
+    echo "ignore step: branch 2 (previous ${prev%"${prev#???????}"}): no change under book/, skip"
+    exit 0
+  fi
+  echo "ignore step: branch 2 (previous ${prev%"${prev#???????}"}): book/ changed or diff failed, build"
+  exit 1
 fi
 
 # 3. No usable comparison commit: build.
+echo "ignore step: branch 3: no usable comparison commit, build"
 exit 1
