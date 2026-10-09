@@ -1,20 +1,33 @@
 import { getChecksumAddress, type Call } from "starknet";
 import { describe, expect, test, vi } from "vitest";
 import { createCodecs } from "../src/abis";
-import { controllerPolicies, createControllerConnector, toControllerSessionPolicies, type ControllerModule } from "../src/auth/controller";
+import {
+  controllerPolicies,
+  createControllerConnector,
+  toControllerSessionPolicies,
+  type ControllerModule,
+  type ControllerPolicy,
+} from "../src/auth/controller";
 import { resolveDeployment } from "../src/deployment";
+import { MAX_STAKE, createEconomyClient, priceOf, resolveEconomyDeployment, settlesAfter } from "../src/economy";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { rewardOf } from "../src/prize";
-import type { GameViews, TournamentView } from "../src/views";
+import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
+import { FakeGameViews, type TournamentView } from "../src/views";
 
 const deployment = resolveDeployment({
   network: "sepolia",
   env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" } },
 });
 const policies = controllerPolicies(deployment);
-const ENTRY = 25n;
-/** The entry approve the app gives the session: the entry token, 10 x the unit price. */
-const TOKEN_APPROVE = { token: "0x4", cap: 10n * ENTRY };
+/** The economy of the same deployment (E3): the Daily entry is paid in USDC. */
+const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
+/** The approve the app gives the session (`entryApprove`): the token entry_price names, MAX_STAKE x its unit. */
+const USDC_APPROVE = { token: ECON.usdc, cap: BigInt(MAX_STAKE) * FAKE_UNIT };
+const session = controllerPolicies(deployment, { approve: USDC_APPROVE });
+const PLAYER = "0xc";
+const DAY = 20_000;
+const P = 10n ** 18n;
 
 const TOURNAMENT: TournamentView = {
   id: 3, startTime: 0, endTime: 1, over: true, prize: 600n,
@@ -23,56 +36,138 @@ const TOURNAMENT: TournamentView = {
   top3PlayerId: "0x7", top3Score: 8, top3Claimed: false,
 };
 
-/** Every write of `PavedWriter` outside devnet, against an account that records what it is asked to sign. */
-async function callsOfEveryWrite(): Promise<Call[]> {
-  const sent: Call[] = [];
-  const account = { address: "0xc", execute: async (calls: Call[]) => (sent.push(...calls), { transaction_hash: "0x1" }) };
+/**
+ * Every write of the client outside devnet, the game's (`PavedWriter`) and the economy's (`EconomyWriter`, on E3's
+ * committed ABIs), each against an account that records what it is asked to sign. Writes that throw after sending
+ * (no GameSpawned in the fake receipt) count by what they sent.
+ */
+async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
+  let current: Call[] = [];
+  const account = { address: PLAYER, execute: async (calls: Call[]) => (current.push(...calls), { transaction_hash: "0x1" }) };
   const rpc = {
     callContract: async () => [],
     getEvents: async () => ({ events: [] }),
     waitForTransaction: async () => ({ execution_status: "SUCCEEDED", events: [] }),
   } as unknown as PavedRpc;
-  const views = { entryPrice: async () => ({ token: "0x4", amount: ENTRY }), tournament: async () => TOURNAMENT } as unknown as GameViews;
-  const writer = new PavedClient(deployment, rpc, createCodecs(), views).writer(account);
+  const gameViews = new FakeGameViews();
+  gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
+  gameViews.tournaments.set(3, TOURNAMENT);
+  const client = new PavedClient(deployment, rpc, createCodecs(), gameViews);
+  const writer = client.writer(account);
+  const economy = new FakeEconomy();
+  economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY }));
+  economy.setBalance("paved", PLAYER, 5n * P);
+  economy.vaults.set(BigInt(PLAYER).toString(16), { staked: 2n * P, pending: 3n, totalStaked: 2n * P });
+  const econ = createEconomyClient(resolveEconomyDeployment({ base: deployment, env: ECON }), client, economy, new FakePoolQuoter())!;
+  const econWriter = econ.writer(writer, { now: () => settlesAfter(DAY) });
   const move = { orientation: 1, x: 2, y: 3, role: 0, spot: 0 };
-  // `spawn` finds no GameSpawned in the fake receipt and throws after sending: what was signed is what counts.
-  const each = [
-    () => writer.createPlayer("ada"),
-    () => writer.spawn("daily", { confirmedAmount: ENTRY }),
-    () => writer.spawn("tutorial"),
-    () => writer.build({ mode: "daily", gameId: 1 }, move),
-    () => writer.build({ mode: "tutorial", gameId: 1 }, move),
-    () => writer.discard({ mode: "daily", gameId: 1 }),
-    () => writer.discard({ mode: "tutorial", gameId: 1 }),
-    () => writer.surrender({ mode: "daily", gameId: 1 }),
-    () => writer.surrender({ mode: "tutorial", gameId: 1 }),
-    () => writer.claim(3, 1, { confirmedReward: rewardOf(TOURNAMENT, 1) }),
-    () => writer.sponsor(ENTRY, { confirmedAmount: ENTRY }),
-  ];
-  for (const write of each) await write().catch(() => undefined);
+  const writes: Record<string, () => Promise<unknown>> = {
+    "create player": () => writer.createPlayer("ada"),
+    "daily spawn (sends nothing since E3)": () => writer.spawn("daily"),
+    "tutorial spawn": () => writer.spawn("tutorial"),
+    "daily build": () => writer.build({ mode: "daily", gameId: 1 }, move),
+    "tutorial build": () => writer.build({ mode: "tutorial", gameId: 1 }, move),
+    "daily discard": () => writer.discard({ mode: "daily", gameId: 1 }),
+    "tutorial discard": () => writer.discard({ mode: "tutorial", gameId: 1 }),
+    "daily surrender": () => writer.surrender({ mode: "daily", gameId: 1 }),
+    "tutorial surrender": () => writer.surrender({ mode: "tutorial", gameId: 1 }),
+    claim: () => writer.claim(3, 1, { confirmedReward: rewardOf(TOURNAMENT, 1) }),
+    "sponsor within the cap": () => writer.sponsor(FAKE_UNIT, { confirmedAmount: FAKE_UNIT }),
+    "sponsor above the cap": () => writer.sponsor(USDC_APPROVE.cap + 1n, { confirmedAmount: USDC_APPROVE.cap + 1n }),
+    "purchase, stake 1": () => econWriter.purchase({ stake: 1, confirmedPrice: priceOf(FAKE_UNIT, 1), referrer: null }),
+    "purchase, stake 10": () => econWriter.purchase({ stake: MAX_STAKE, confirmedPrice: priceOf(FAKE_UNIT, MAX_STAKE), referrer: null }),
+    settle: () => econWriter.settle([7]),
+    "vault stake": () => econWriter.stake(P, { confirmedAmount: P }),
+    "vault unstake": () => econWriter.unstake(P, { confirmedAmount: P }),
+    "vault claim": () => econWriter.claimDividends({ confirmedAmount: 3n }),
+  };
+  const sent: Record<string, Call[]> = {};
+  for (const [label, write] of Object.entries(writes)) {
+    current = [];
+    await write().catch(() => undefined);
+    sent[label] = current;
+  }
   return sent;
 }
 
 const key = (target: string, method: string) => `${BigInt(target)}:${method}`;
 
-describe("controllerPolicies", () => {
-  test("hold exactly the calls the writer sends outside devnet; approve only pinned to Daily, with a cap", async () => {
-    const sent = await callsOfEveryWrite();
-    const capped = controllerPolicies(deployment, { approve: TOKEN_APPROVE });
-    const sentKeys = new Set(sent.map((c) => key(c.contractAddress, c.entrypoint)));
-    expect(new Set(capped.map((p) => key(p.target, p.method)))).toEqual(sentKeys);
-    // Without a cap, approve is not in the session at all.
-    expect(new Set(policies.map((p) => key(p.target, p.method)))).toEqual(new Set([...sentKeys].filter((k) => !k.endsWith(":approve"))));
-    // Every approve the writer sends names the Daily contract, the one spender the session allows.
-    const approves = sent.filter((c) => c.entrypoint === "approve");
-    expect(approves.length).toBeGreaterThan(0);
-    for (const c of approves) expect(BigInt((c.calldata as string[])[0])).toBe(BigInt(deployment.addresses.Daily));
-    expect(capped.find((p) => p.method === "approve")).toEqual({ target: "0x4", method: "approve", spender: "0x2", amount: 250n });
-    // The Daily spawn's approve fits under the cap.
-    for (const c of approves) expect(BigInt((c.calldata as string[])[1])).toBeLessThanOrEqual(250n);
-    expect(sent.map((c) => c.entrypoint)).not.toContain("mint");
+/** A u256 argument from its two felts (low, high). */
+const u256 = (low: string, high: string) => BigInt(low) + (BigInt(high) << 128n);
+
+/** The call is signed in the session: a policy on its target and entry point, and for an approve its spender and at most its cap. */
+function inSession(call: Call, ps: ControllerPolicy[]): boolean {
+  const data = call.calldata as string[];
+  return ps.some(
+    (p) =>
+      BigInt(p.target) === BigInt(call.contractAddress) &&
+      p.method === call.entrypoint &&
+      (p.method !== "approve" || (BigInt(data[0]) === BigInt(p.spender!) && u256(data[1], data[2]) <= p.amount!)),
+  );
+}
+
+const GAME_AND_PURCHASE = [
+  "create player", "tutorial spawn", "daily build", "tutorial build", "daily discard", "tutorial discard",
+  "daily surrender", "tutorial surrender", "claim", "sponsor within the cap", "purchase, stake 1", "purchase, stake 10",
+];
+const PROMPTED = ["settle", "vault stake", "vault unstake", "vault claim"];
+
+describe("controllerPolicies against what the writers send (E3)", () => {
+  test("every game write and the paid Daily purchase are signed in the session", async () => {
+    const sent = await sentByEveryWrite();
+    for (const label of GAME_AND_PURCHASE) {
+      expect(sent[label].length, label).toBeGreaterThan(0);
+      for (const call of sent[label]) expect(inSession(call, session), `${label}: ${call.entrypoint}`).toBe(true);
+    }
+    expect(sent["daily spawn (sends nothing since E3)"]).toEqual([]);
   });
 
+  test("the policies hold exactly those calls, nothing else; no faucet", async () => {
+    const sent = await sentByEveryWrite();
+    const keys = new Set(GAME_AND_PURCHASE.flatMap((label) => sent[label].map((c) => key(c.contractAddress, c.entrypoint))));
+    expect(new Set(session.map((p) => key(p.target, p.method)))).toEqual(keys);
+    // Without the entry's approve, the session is the same minus approve.
+    expect(new Set(policies.map((p) => key(p.target, p.method)))).toEqual(new Set([...keys].filter((k) => !k.endsWith(":approve"))));
+    expect(Object.values(sent).flat().map((c) => c.entrypoint)).not.toContain("mint");
+  });
+
+  test("the purchase approves USDC to Daily for stake x unit; at stake 10 that is exactly the cap", async () => {
+    const sent = await sentByEveryWrite();
+    for (const [label, stake] of [["purchase, stake 1", 1], ["purchase, stake 10", MAX_STAKE]] as const) {
+      const [approve, spawn] = sent[label];
+      expect(BigInt(approve.contractAddress)).toBe(BigInt(ECON.usdc));
+      expect(approve.entrypoint).toBe("approve");
+      const data = approve.calldata as string[];
+      expect(BigInt(data[0])).toBe(BigInt(deployment.addresses.Daily));
+      expect(u256(data[1], data[2])).toBe(priceOf(FAKE_UNIT, stake));
+      expect([BigInt(spawn.contractAddress), spawn.entrypoint]).toEqual([BigInt(deployment.addresses.Daily), "spawn"]);
+    }
+    expect(priceOf(FAKE_UNIT, MAX_STAKE)).toBe(USDC_APPROVE.cap);
+  });
+
+  test("settle and the Vault fall outside the session: each prompts", async () => {
+    const sent = await sentByEveryWrite();
+    for (const label of PROMPTED) {
+      expect(sent[label].length, label).toBeGreaterThan(0);
+      for (const call of sent[label]) expect(inSession(call, session), `${label}: ${call.entrypoint}`).toBe(false);
+    }
+  });
+
+  test("a sponsor above the cap: its approve prompts, its sponsor call is in the session", async () => {
+    const [approve, sponsor] = (await sentByEveryWrite())["sponsor above the cap"];
+    expect(approve.entrypoint).toBe("approve");
+    expect(inSession(approve, session)).toBe(false);
+    expect(inSession(sponsor, session)).toBe(true);
+  });
+
+  test("with no approve in the session (entry unreadable), the purchase's approve prompts", async () => {
+    const [approve, spawn] = (await sentByEveryWrite())["purchase, stake 1"];
+    expect(inSession(approve, policies)).toBe(false);
+    expect(inSession(spawn, policies)).toBe(true);
+  });
+});
+
+describe("controllerPolicies", () => {
   test("after E3 the entry is paid in USDC: the approve targets the token entry_price names, capped at 10 stakes", () => {
     const usdc = "0x5";
     const unit = 2_000_000n; // 2 USDC, 6 decimals
@@ -93,7 +188,7 @@ describe("controllerPolicies", () => {
 
 describe("toControllerSessionPolicies", () => {
   test("keeps an approve's spender and cap, which the package's own conversion drops", () => {
-    const session = toControllerSessionPolicies(controllerPolicies(deployment, { approve: { token: "0x4", cap: ENTRY } }));
+    const session = toControllerSessionPolicies(controllerPolicies(deployment, { approve: { token: "0x4", cap: 25n } }));
     const token = session.contracts[getChecksumAddress("0x4")];
     expect(token.methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" }]);
     expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "build", "discard", "surrender"]);
@@ -146,11 +241,11 @@ describe("createControllerConnector", () => {
 
   test("policies built at first use (the cap read then)", async () => {
     const { module, built } = fakeModule();
-    const read = vi.fn(async () => controllerPolicies(deployment, { approve: TOKEN_APPROVE }));
+    const read = vi.fn(async () => controllerPolicies(deployment, { approve: USDC_APPROVE }));
     const connector = createControllerConnector({ rpc: "http://s/rpc", policies: read }, { load: async () => module, chainId: async () => SEPOLIA });
     expect(read).not.toHaveBeenCalled();
     await connector.connect();
-    expect(built[0].policies).toEqual(toControllerSessionPolicies(controllerPolicies(deployment, { approve: TOKEN_APPROVE })));
+    expect(built[0].policies).toEqual(toControllerSessionPolicies(controllerPolicies(deployment, { approve: USDC_APPROVE })));
   });
 
   test("an unknown chain id is read from the RPC, never left to the controller's mainnet default", async () => {

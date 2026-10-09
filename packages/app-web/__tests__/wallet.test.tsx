@@ -6,7 +6,7 @@ import { getChecksumAddress } from "starknet";
 import { PavedClient, controllerPolicies, createCodecs, createControllerConnector, usePaved } from "@paved/chain";
 import type { ControllerConfig, GameViews, PavedRpc, WriteResult } from "@paved/chain";
 import { ConnectionBanner } from "../src/components/ConnectionBanner";
-import { WalletProvider } from "../src/components/WalletProvider";
+import { ENTRY_MAX_STAKE, WalletProvider } from "../src/components/WalletProvider";
 import { resolveAppNetwork } from "../src/utils/network";
 
 const SEPOLIA = "0x534e5f5345504f4c4941";
@@ -197,6 +197,10 @@ describe("signing (P-14)", () => {
     const session = sessionOf(fake);
     expect(session.contracts[getChecksumAddress("0x5")].methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x1312d00" }]);
     expect(session.contracts[getChecksumAddress("0x4")]).toBeUndefined();
+  });
+
+  it("the cap counts the economy's MAX_STAKE stakes (10)", () => {
+    expect(ENTRY_MAX_STAKE).toBe(10n);
   });
 
   it("an entry that cannot be read puts no approve in the session", async () => {

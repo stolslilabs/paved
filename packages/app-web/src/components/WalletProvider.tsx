@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { PavedProvider, controllerPolicies, createControllerConnector, createPavedClient } from "@paved/chain";
+import { MAX_STAKE, PavedProvider, controllerPolicies, createControllerConnector, createPavedClient } from "@paved/chain";
 import type { ControllerConfig, PavedClient, WriteAccount } from "@paved/chain";
 import { resolvePlayerAccount, signerOf, type AppNetwork, type NetworkEnv, type Signer } from "../utils/network";
 
@@ -23,8 +23,8 @@ export function useWallet(): WalletState | null {
   return useContext(WalletContext);
 }
 
-/** The most stakes one Daily purchase buys (the contract's MAX_STAKE, E3): its approve is at most this x the unit price. */
-export const ENTRY_MAX_STAKE = 10n;
+/** The most stakes one Daily purchase buys (the economy's MAX_STAKE, E3): its approve is at most this x the unit price. */
+export const ENTRY_MAX_STAKE = BigInt(MAX_STAKE);
 
 /**
  * The session's approve: the token `Daily.entry_price` names (the deployment's Token before E3, USDC

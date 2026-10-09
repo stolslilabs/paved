@@ -301,19 +301,21 @@ runs in Cartridge's iframe. The connector is configured as follows:
   `toControllerSessionPolicies`. The package's own `toSessionPolicies` is not used, because it drops
   an approve's `spender` and `amount`, and the controller turns an approve without both into a
   policy on any spender and any amount. The policies hold:
-  - one policy per call the writer sends outside devnet (`CONTROLLER_ENTRY_POINTS`): `Account.create`,
+  - one policy per call the client sends outside devnet (`CONTROLLER_ENTRY_POINTS`): `Account.create`,
     Daily `spawn`/`build`/`discard`/`surrender`/`claim`/`sponsor`, and Tutorial
-    `spawn`/`build`/`discard`/`surrender`;
+    `spawn`/`build`/`discard`/`surrender`. Since E3 the Daily `spawn` is the paid purchase's
+    (`EconomyWriter.purchase`: `Daily.spawn(stake, referrer, min_out)`); `PavedWriter` spawns
+    Tutorial games only;
   - `approve` only as the controller's approval policy, on the token that `Daily.entry_price` names,
     read when the controller is first used. That token is the deployment's Token before E3 and USDC
     after it, so no code change is needed. The spender is pinned to the Daily contract, and the cap is
-    `ENTRY_MAX_STAKE` (10, the contract's MAX_STAKE) times the unit price, which is the most one
-    purchase approves.
+    `ENTRY_MAX_STAKE` (the economy's `MAX_STAKE`, 10) times the unit price, which is the most one
+    purchase approves: `USDC.approve(Daily, stake x unit)`.
 
   An approve to Daily on the entry token up to 10 times the unit price is signed in the session,
   whether it is a purchase's or a sponsor's, because the policy cannot tell which call made it.
-  `PavedWriter.sponsor` sends `approve(Daily, amount)` on the deployment's Token, so a sponsor within
-  the cap is signed without a prompt (after E3, only if the entry token is the same). No more money is
+  `PavedWriter.sponsor` sends `approve(Daily, amount)` on the entry token (USDC since E3), so a sponsor
+  within the cap is signed without a prompt. No more money is
   at risk: `sponsor` itself is a policy, and the app asks for an explicit confirm of the amount. Above
   the cap, or on another token or spender, an approve prompts. When the entry cannot be read, the
   session holds no approve and every approve prompts.
@@ -322,10 +324,18 @@ runs in Cartridge's iframe. The connector is configured as follows:
   the price falls, the cap stays at 10 times the old unit price, while the writer still approves
   exactly the amount the player confirmed.
 
-  `Token.mint` is not a policy, because the faucet exists only on the devnet mock. The
-  connector refuses to build without an RPC URL or policies. A test drives every `PavedWriter` method
-  against a recording account and checks that the policies hold exactly the calls it sends, with
-  approve as the only call kept to its spender.
+  The economy's other writes are not in the session, so each one prompts: `Economy.settle`,
+  `PavedToken.approve(Vault, …)`, and Vault `stake`/`unstake`/`claim`. Their addresses belong to
+  the economy's deployment, not to `Deployment`. `Token.mint` is not a policy, because the faucet
+  exists only on the devnet mock. The connector refuses to build without an RPC URL or policies.
+
+  A test (`chain/test/controller.test.ts`) drives every write of `PavedWriter` and `EconomyWriter`,
+  on E3's committed ABIs, against a recording account. It checks that:
+  - each call of the game writes and of the purchase is signed in the session (target and entry
+    point, and for an approve its spender and an amount within the cap);
+  - the policies hold exactly those calls;
+  - a purchase at stake 10 approves exactly the cap;
+  - settle, the Vault writes and a sponsor's approve above the cap fall outside the session.
 
 When the app opens, `probe` restores a session already approved in the browser without a prompt. A
 connect that the player abandons leaves the app read-only and says why.
