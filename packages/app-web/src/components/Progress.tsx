@@ -110,7 +110,7 @@ function DefinitionRows({ quests, achievements }: { quests: QuestDefinition[]; a
  * progress is counted by the indexer from the chain's reports, nothing here is a claim or a grant. One lag line stands for
  * the reads; after a failed refresh the rows stay, marked stale.
  */
-export function ProgressSections({ playerId, day, waiting = false, definitions = false }: {
+export function ProgressSections({ playerId, day, waiting = false, definitions = false, label = "Daily quests" }: {
   /** The player whose progress is shown; null shows no progress (not connected). */
   playerId: string | null;
   /** The UTC day of the quests; null when no day is known. */
@@ -118,6 +118,8 @@ export function ProgressSections({ playerId, day, waiting = false, definitions =
   /** The day is not known yet (today's id is being read). */
   waiting?: boolean;
   definitions?: boolean;
+  /** The accessible name of the quests region; "Your quests" only on the connected player's own page. */
+  label?: string;
 }) {
   const quests = useIndexerRead(playerId && day !== null && !waiting ? (c) => c.playerQuests(playerId, { day }) : null, [playerId, day, waiting], { onVisible: true });
   const achievements = useIndexerRead(playerId ? (c) => c.playerAchievements(playerId) : null, [playerId], { onVisible: true });
@@ -133,7 +135,7 @@ export function ProgressSections({ playerId, day, waiting = false, definitions =
       <IndexerLag answer={lag} error={stale} subject={SUBJECT} lateNote="progress may be late" testId="progress-lag" />
 
       {playerId && (
-        <section aria-label="Your quests" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <section aria-label={label} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <h2 style={{ margin: "8px 0 0" }}>Daily quests</h2>
           {day === null && !waiting ? (
             <div role="status">No day to show yet.</div>
