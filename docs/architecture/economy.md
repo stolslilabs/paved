@@ -736,6 +736,10 @@ Not stacked: each one branches from main and targets main.
     `contracts/src/seed.cairo`, and `spawn` passes the seed in. Its only implementation in E3 is today's daily seed,
     so the goldens stay identical. The reseeds of `build` and `discard` derive from the initial seed and are not
     touched, so `Daily`'s move code does not change;
+    - *As built (E3a, D-13):* `SeedSource<T>` and `DailySeed` are in `contracts/src/seed.cairo`;
+      `HostableComponent::spawn` calls `spawn_with(mode, @DailySeed {})`, which takes the seed from the source and
+      passes it to `GameImpl::start(time, seed)`. Goldens and the gas of moves a0 to l are identical to main, and
+      `Daily` stays at 72,424 CASM felts;
   - `scripts/deploy.sh devnet` deploys and wires everything;
   - the indexer decodes the new events.
 - Allowlist:
