@@ -1,0 +1,311 @@
+[
+  {
+    "type": "impl",
+    "name": "RouterImpl",
+    "interface_name": "paved::economy::ekubo::IRouter"
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::ekubo::PoolKey",
+    "members": [
+      {
+        "name": "token0",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "token1",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "fee",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "tick_spacing",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "extension",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "core::integer::u256",
+    "members": [
+      {
+        "name": "low",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "high",
+        "type": "core::integer::u128"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::ekubo::RouteNode",
+    "members": [
+      {
+        "name": "pool_key",
+        "type": "paved::economy::ekubo::PoolKey"
+      },
+      {
+        "name": "sqrt_ratio_limit",
+        "type": "core::integer::u256"
+      },
+      {
+        "name": "skip_ahead",
+        "type": "core::integer::u128"
+      }
+    ]
+  },
+  {
+    "type": "enum",
+    "name": "core::bool",
+    "variants": [
+      {
+        "name": "False",
+        "type": "()"
+      },
+      {
+        "name": "True",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::ekubo::i129",
+    "members": [
+      {
+        "name": "mag",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "sign",
+        "type": "core::bool"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::ekubo::TokenAmount",
+    "members": [
+      {
+        "name": "token",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "amount",
+        "type": "paved::economy::ekubo::i129"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "paved::economy::ekubo::Delta",
+    "members": [
+      {
+        "name": "amount0",
+        "type": "paved::economy::ekubo::i129"
+      },
+      {
+        "name": "amount1",
+        "type": "paved::economy::ekubo::i129"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::economy::ekubo::IRouter",
+    "items": [
+      {
+        "type": "function",
+        "name": "swap",
+        "inputs": [
+          {
+            "name": "node",
+            "type": "paved::economy::ekubo::RouteNode"
+          },
+          {
+            "name": "token_amount",
+            "type": "paved::economy::ekubo::TokenAmount"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::economy::ekubo::Delta"
+          }
+        ],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "ClearImpl",
+    "interface_name": "paved::economy::ekubo::IClear"
+  },
+  {
+    "type": "interface",
+    "name": "paved::economy::ekubo::IClear",
+    "items": [
+      {
+        "type": "function",
+        "name": "clear",
+        "inputs": [
+          {
+            "name": "token",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "clear_minimum",
+        "inputs": [
+          {
+            "name": "token",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "minimum",
+            "type": "core::integer::u256"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "MockRouterImpl",
+    "interface_name": "paved::mocks::router::IMockRouter"
+  },
+  {
+    "type": "interface",
+    "name": "paved::mocks::router::IMockRouter",
+    "items": [
+      {
+        "type": "function",
+        "name": "add_liquidity",
+        "inputs": [
+          {
+            "name": "amount0",
+            "type": "core::integer::u256"
+          },
+          {
+            "name": "amount1",
+            "type": "core::integer::u256"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "quote",
+        "inputs": [
+          {
+            "name": "token_in",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "amount_in",
+            "type": "core::integer::u128"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u128"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "reserves",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "(core::integer::u256, core::integer::u256)"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "pool_key",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "paved::economy::ekubo::PoolKey"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "constructor",
+    "name": "constructor",
+    "inputs": [
+      {
+        "name": "token_a",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "token_b",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::mocks::router::MockRouter::Swapped",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "token_in",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "amount_in",
+        "type": "core::integer::u128",
+        "kind": "data"
+      },
+      {
+        "name": "amount_out",
+        "type": "core::integer::u128",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::mocks::router::MockRouter::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "Swapped",
+        "type": "paved::mocks::router::MockRouter::Swapped",
+        "kind": "nested"
+      }
+    ]
+  }
+]

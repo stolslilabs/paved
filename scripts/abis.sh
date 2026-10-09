@@ -11,7 +11,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-contracts=(Account Daily Tutorial Lobby Token PavedToken Vault Economy Collection)
+contracts=(Account Daily Tutorial Lobby Token MockUSDC MockRouter PavedToken Vault Economy Collection)
 
 cd "$root/contracts"
 RAYON_NUM_THREADS=1 scarb build
