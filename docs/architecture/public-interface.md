@@ -239,9 +239,8 @@ working.
     `player_id`); its views are `quote`, `quote_swap`, `day`, `terms`, `config`, `ema`, `rate`, `pool`,
     `addresses`, `owner`, and `settle(game_ids)` is open to anyone from `(D + 2) x 86400`.
     `contracts/abis/Economy.json` is its ABI. Every view and event of `Daily` and `Tutorial` keeps its fields.
-  - P-37: after a day, what no rank can claim returns to its sponsors. `Daily.claim(tournament_id, 0)` (rank 0) is a
-    sponsor's reclaim of its part, pro rata to what it put in, once, after the day is over. The ranks' shares are
-    fixed: 1/6 to rank 3, a third of the rest to rank 2, the remainder to rank 1, and an empty rank's share is
-    reclaimable (rank 1 no longer takes it). New event, emitted from `Daily`'s address and declared in
-    `contracts/abis/Lobby.json`: `Reclaimed` (keys `tournament_id`, `sponsor`; data `amount: u256`). The ABI of
-    `Daily` is unchanged.
+  - P-37, P-37b: after a day nobody ranked in (nobody played, or every score 0), its sponsors take back what each put
+    in. `Daily.claim(tournament_id, 0)` (rank 0) is a sponsor's reclaim, once, after the day is over; on a day with
+    a ranked game it reverts, since rank 1 takes the shares of the empty ranks as before (the ranks' rewards are
+    unchanged). New event, emitted from `Daily`'s address and declared in `contracts/abis/Lobby.json`: `Reclaimed`
+    (keys `tournament_id`, `sponsor`; data `amount: u256`). The ABI of `Daily` is unchanged.

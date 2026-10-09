@@ -83,10 +83,8 @@ fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
 
     assert(tournament.top1_claimed, 'Daily: claim marked');
     assert(prize == sponsored.into(), 'Daily: prize is sponsored');
-    // Rank 1's fixed share (P-37): ranks 2 and 3 are empty, their shares go back to the sponsor
-    let reward: u256 = 1_111_112;
-    assert(balance_after - balance_before == reward, 'Daily: claim reward');
-    assert(pool_before - pool_after == reward, 'Daily: pool debit');
+    assert(balance_after - balance_before == prize, 'Daily: claim reward');
+    assert(pool_before - pool_after == prize, 'Daily: pool debit');
 }
 
 #[test]

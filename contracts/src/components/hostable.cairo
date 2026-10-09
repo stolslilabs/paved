@@ -10,7 +10,7 @@ pub mod HostableComponent {
     // Internal imports
 
     use paved::events::{Claimed, Event as PavedEvent, GameSpawned, Sponsored};
-    use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Ranked, Top3};
+    use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait};
     use paved::models::builder::{Builder, BuilderAssert, BuilderImpl};
     use paved::models::game::{Game, GameAssert, GameImpl};
     use paved::models::player::{Player, PlayerAssert, PlayerImpl};
@@ -28,10 +28,6 @@ pub mod HostableComponent {
         pub const NOTHING_TO_RECLAIM: felt252 = 'Tournament: nothing to reclaim';
     }
 
-    /// The player id of an empty rank in the shares' split: no caller has it (an address is below
-    /// 2^251), so the share of an empty rank is computed but never claimed.
-    const NOBODY: felt252 = -1;
-
     // Storage
 
     #[storage]
@@ -39,20 +35,6 @@ pub mod HostableComponent {
         /// What each sponsor put in each day's prize (P-37); zero once reclaimed. The day's prize
         /// is the sum, since entries no longer feed it (P-31).
         pub sponsorships: Map<(u64, ContractAddress), felt252>,
-    }
-
-    /// The top with every empty rank held by `NOBODY`: the shares are then fixed (1/6 to rank 3,
-    /// a third of the rest to rank 2, the remainder to rank 1) whoever holds them (P-37).
-    fn full(top: Top3) -> Top3 {
-        Top3 { first: fill(top.first), second: fill(top.second), third: fill(top.third) }
-    }
-
-    fn fill(ranked: Ranked) -> Ranked {
-        if ranked.player_id == 0 {
-            Ranked { player_id: NOBODY, score: 0 }
-        } else {
-            ranked
-        }
     }
 
     #[event]
@@ -144,9 +126,8 @@ pub mod HostableComponent {
             let mut tournament = store.tournament(tournament_id);
             tournament.assert_exists();
 
-            // [Effect] Update claim, against the ranking of the leaderboard, at the rank's fixed
-            // share: the share of an empty rank goes back to the sponsors (P-37)
-            let top = full(LeaderboardImpl::new().top(tournament_id));
+            // [Effect] Update claim, against the ranking of the leaderboard
+            let top = LeaderboardImpl::new().top(tournament_id);
             let time = get_block_timestamp();
             let reward = tournament.claim(top, player.id, rank, time, mode.duration());
             store.set_tournament(tournament);
@@ -190,39 +171,25 @@ pub mod HostableComponent {
             amount.into()
         }
 
-        /// The sponsor's part of what no rank can claim on a day that is over (P-37): the shares
-        /// of the empty ranks (the whole prize when nobody ranked), pro rata to what the sponsor
-        /// put in, rounded down. The sponsor is marked reclaimed before the caller transfers.
+        /// A sponsor's reclaim of a day nobody ranked in (P-37b): an empty top (nobody played, or
+        /// every score 0) leaves the whole prize unclaimable, and each sponsor gets back what it
+        /// put in. A ranked day has nothing to reclaim: rank 1 takes the shares of the empty ranks.
+        /// The sponsor is marked reclaimed before the caller transfers.
         fn reclaim(
             ref self: ComponentState<TContractState>, tournament_id: u64, mode: Mode,
         ) -> u256 {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
-            // [Check] The day is over, the caller sponsored it and has not reclaimed
+            // [Check] The day is over, nobody ranked, the caller sponsored it and has not reclaimed
             let tournament = store.tournament(tournament_id);
             tournament.assert_exists();
             tournament.assert_is_over(get_block_timestamp(), mode.duration());
+            let top = LeaderboardImpl::new().top(tournament_id);
+            assert(top.first.player_id == 0, errors::NOTHING_TO_RECLAIM);
             let sponsor = get_caller_address();
             let key = (tournament_id, sponsor);
-            let given: u256 = self.sponsorships.read(key).into();
-            assert(given != 0, errors::NOTHING_TO_RECLAIM);
-
-            // [Compute] The shares of the empty ranks, the sponsor's part of them
-            let top = LeaderboardImpl::new().top(tournament_id);
-            let shares = full(top);
-            let mut unclaimable: u256 = 0;
-            if top.first.player_id == 0 {
-                unclaimable += tournament.reward(shares, 1);
-            }
-            if top.second.player_id == 0 {
-                unclaimable += tournament.reward(shares, 2);
-            }
-            if top.third.player_id == 0 {
-                unclaimable += tournament.reward(shares, 3);
-            }
-            let prize: u256 = tournament.prize.into();
-            let amount = unclaimable * given / prize;
+            let amount: u256 = self.sponsorships.read(key).into();
             assert(amount != 0, errors::NOTHING_TO_RECLAIM);
 
             // [Effect] Reclaimed, once

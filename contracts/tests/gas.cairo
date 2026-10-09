@@ -62,8 +62,8 @@ pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 52906871;
 pub const CEILING_SPAWN_TUTORIAL: u128 = 4530165;
 // p, q, r: the prize (P-31, P-37). A sponsor records its share; a claim and a reclaim pay out.
 pub const CEILING_SPONSOR: u128 = 1960255;
-pub const CEILING_CLAIM: u128 = 2099631;
-pub const CEILING_RECLAIM: u128 = 1860966;
+pub const CEILING_CLAIM: u128 = 2037502;
+pub const CEILING_RECLAIM: u128 = 1611612;
 
 #[derive(Drop)]
 struct Scenario {
@@ -454,7 +454,7 @@ fn test_gas_p_sponsor() {
     report("p_sponsor", before - after, CEILING_SPONSOR);
 }
 
-/// q. Rank 1 claims its share of a sponsored day, the other ranks empty.
+/// q. Rank 1 claims a sponsored day, the other ranks empty: it takes the whole prize.
 #[test]
 fn test_gas_q_claim() {
     let (systems, store) = prize_day();

@@ -1,7 +1,7 @@
-//! P-37: after a day, what no rank can claim goes back to its sponsors, pro rata to what each put
-//! in, through `Daily.claim(day, 0)` (rank 0 is the sponsor's reclaim, run in `Lobby`). The shares
-//! are fixed: 1/6 to rank 3, a third of the rest to rank 2, the remainder to rank 1; the share of
-//! an empty rank is reclaimable, and the whole prize when nobody ranked.
+//! P-37, P-37b: after a day nobody ranked in (nobody played, or every score 0), its sponsors take
+//! back what each put in, through `Daily.claim(day, 0)` (rank 0 is the sponsor's reclaim, run in
+//! `Lobby`). A day with a ranked game has nothing to reclaim: rank 1 takes the shares of the empty
+//! ranks, as before.
 
 use paved::constants;
 use paved::systems::lobby::Lobby;
@@ -81,55 +81,50 @@ fn test_reclaim_whole_prize_when_every_score_is_zero() {
     assert(take(@systems, @context, ANYONE(), 0) == 2_000_000, 'Reclaim: whole prize');
 }
 
-/// One ranked game: ranks 2 and 3 are empty, their shares go back. Prize 6 USDC: rank 1 gets
-/// 3,333,334, ranks 2 and 3 would get 1,666,666 and 1,000,000.
+/// One ranked game: rank 1 takes the whole prize, and the sponsor's reclaim reverts.
 #[test]
-#[available_gas(l2_gas: 67531473)]
-fn test_reclaim_the_shares_of_two_empty_ranks() {
+#[should_panic(expected: 'Tournament: nothing to reclaim')]
+fn test_reclaim_with_one_ranked_game_reverts() {
     let (store, systems, context) = start();
     leaderboard::submit(store.contract, D, context.player_id, 100);
     sponsor(@systems, ANYONE(), 6_000_000);
     end_day();
-    assert(take(@systems, @context, PLAYER(), 1) == 3_333_334, 'Reclaim: rank 1');
-    assert(take(@systems, @context, ANYONE(), 0) == 2_666_666, 'Reclaim: ranks 2 and 3');
+    assert(take(@systems, @context, PLAYER(), 1) == 6_000_000, 'Reclaim: rank 1');
     assert(context.token.balance_of(systems.daily.contract_address) == 0, 'Reclaim: left');
+    take(@systems, @context, ANYONE(), 0);
 }
 
-/// Two ranked games: rank 3 is empty, its 1/6 goes back.
+/// Two ranked games: rank 2 gets a third, rank 1 the rest (rank 3's share included), and the
+/// sponsor's reclaim reverts.
 #[test]
-#[available_gas(l2_gas: 71697072)]
-fn test_reclaim_the_share_of_one_empty_rank() {
+#[should_panic(expected: 'Tournament: nothing to reclaim')]
+fn test_reclaim_with_two_ranked_games_reverts() {
     let (store, systems, context) = start();
     leaderboard::submit(store.contract, D, context.player_id, 200);
     leaderboard::submit(store.contract, D, context.someone_id, 100);
     sponsor(@systems, ANYONE(), 6_000_000);
     end_day();
-    assert(take(@systems, @context, PLAYER(), 1) == 3_333_334, 'Reclaim: rank 1');
-    assert(take(@systems, @context, SOMEONE(), 2) == 1_666_666, 'Reclaim: rank 2');
-    assert(take(@systems, @context, ANYONE(), 0) == 1_000_000, 'Reclaim: rank 3');
+    assert(take(@systems, @context, PLAYER(), 1) == 4_000_000, 'Reclaim: rank 1');
+    assert(take(@systems, @context, SOMEONE(), 2) == 2_000_000, 'Reclaim: rank 2');
     assert(context.token.balance_of(systems.daily.contract_address) == 0, 'Reclaim: left');
+    take(@systems, @context, ANYONE(), 0);
 }
 
-/// Two sponsors (2,000,000 and 1,000,001, prize 3,000,001), one ranked game. Rank 1 claims
-/// 1,666,668; ranks 2 and 3 leave 833,333 + 500,000 = 1,333,333, shared pro rata and rounded
-/// down: 888,888 and 444,444. Claims and reclaims add up to the prize less 1 base unit of dust,
-/// which stays in `Daily`.
+/// Two sponsors (2,000,000 and 1,000,001) of a day nobody ranked in: each takes back exactly what
+/// it put in. Reclaims add up to the prize, 3,000,001: no dust stays in `Daily`.
 #[test]
-#[available_gas(l2_gas: 72944577)]
-fn test_reclaim_pro_rata_with_the_dust_in_daily() {
-    let (store, systems, context) = start();
-    leaderboard::submit(store.contract, D, context.player_id, 100);
+#[available_gas(l2_gas: 67013665)]
+fn test_reclaim_pro_rata_on_an_empty_top() {
+    let (_, systems, context) = start();
     sponsor(@systems, ANYONE(), 2_000_000);
     sponsor(@systems, SOMEONE(), 1_000_001);
     end_day();
-    let rank1 = take(@systems, @context, PLAYER(), 1);
     let first = take(@systems, @context, ANYONE(), 0);
     let second = take(@systems, @context, SOMEONE(), 0);
-    assert(rank1 == 1_666_668, 'Reclaim: rank 1');
-    assert(first == 888_888, 'Reclaim: first sponsor');
-    assert(second == 444_444, 'Reclaim: second sponsor');
-    assert(rank1 + first + second == 3_000_000, 'Reclaim: sum');
-    assert(context.token.balance_of(systems.daily.contract_address) == 1, 'Reclaim: dust');
+    assert(first == 2_000_000, 'Reclaim: first sponsor');
+    assert(second == 1_000_001, 'Reclaim: second sponsor');
+    assert(first + second == 3_000_001, 'Reclaim: sum');
+    assert(context.token.balance_of(systems.daily.contract_address) == 0, 'Reclaim: dust');
 }
 
 #[test]

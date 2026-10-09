@@ -197,7 +197,7 @@ pub mod Lobby {
         Reclaimed: Reclaimed,
     }
 
-    /// A sponsor took back its part of what no rank can claim on a day (P-37); emitted from
+    /// A sponsor took back what it put in a day nobody ranked in (P-37b); emitted from
     /// `Daily`'s address, as every event of this class.
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct Reclaimed {
@@ -238,7 +238,7 @@ pub mod Lobby {
         }
 
         fn claim(ref self: ContractState, tournament_id: u64, rank: u8) {
-            // [Effect] Rank 0 is a sponsor's reclaim of what no rank can claim (P-37); 1 to 3 a
+            // [Effect] Rank 0 is a sponsor's reclaim of a day nobody ranked in (P-37b); 1 to 3 a
             // reward
             let caller = get_caller_address();
             let amount = if rank == 0 {

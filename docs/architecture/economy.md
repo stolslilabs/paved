@@ -1062,23 +1062,23 @@ text left the choice open, it is written here.
   upgrade or migration of `Daily` or of `Economy`: a `Daily` that keeps its games must keep an `Economy` that records
   them (a new `Economy` needs `set_game` for that `Daily`, and `Account.set_economy` is one shot), or the games in
   flight can no longer end.
-- **Unclaimable prize (P-37, PM, 2026-10-09).** After a day, what no rank can claim returns to its sponsors, pro rata
-  to what each put in, through a sponsor-only reclaim:
+- **Unclaimable prize (P-37, amended by P-37b, PM, 2026-10-09).** After a day nobody ranked in (nobody played, or
+  every score 0), its sponsors take back what each put in, through a sponsor-only reclaim:
   - `Daily.claim(day, 0)`: rank 0 is the sponsor's reclaim, run in `Lobby`. A dedicated `Daily.reclaim(day)` would
     put `Daily` at 72,799 CASM felts, measured, past its 72,607 bound; rank 0 was an invalid rank, so `Daily`'s
     code is unchanged;
-  - the shares are fixed: 1/6 of the prize to rank 3, a third of the rest to rank 2, the remainder to rank 1. An
-    empty rank's share is reclaimable, and so is the whole prize when nobody ranked (nobody played, or every score
-    0). Before P-37, rank 1 took the shares of the empty ranks: with one ranked game it now gets its own share only;
-  - the sponsor's part is `unclaimable x what it put in / prize`, rounded down. The rounding dust (less than one
-    base unit per sponsor of the day) stays in `Daily`;
+  - the ranks' rewards are those of main: rank 1 takes the shares of the empty ranks (P-37b). A day with a ranked
+    game therefore has nothing to reclaim, and a sponsor's reclaim reverts (`'Tournament: nothing to reclaim'`);
+  - on an empty top the whole prize is unclaimable, and pro rata to what each sponsor put in is exactly what it put
+    in: the reclaims add up to the prize, with no dust;
   - each sponsor's contribution per day is stored (`HostableComponent.sponsorships`, one slot per sponsor and day,
     written by `sponsor`). A reclaim sets it to 0 before the transfer; a second reclaim, a non-sponsor and a reclaim
     before the day is over revert;
   - event `Reclaimed { tournament_id (key), sponsor (key), amount }`, declared by the `Lobby` class and emitted from
     `Daily`'s address;
   - cost (one call, test profile): `sponsor` 1,688,689 to 1,866,909 (+178,220, the sponsor's slot), a rank's
-    `claim` 1,920,578 to 1,999,648 (+79,070), a reclaim 1,772,348. `Lobby` 60,228 to 61,850 CASM felts.
+    `claim` 1,920,578 to 1,940,478 (+19,900, the rank-0 branch), a reclaim 1,534,868. `Lobby` 60,228 to 60,996 CASM
+    felts.
 - **Indexer.** `Economy` is a fourth address (`contracts.Economy`, required). `Purchased`, `Recorded`, `DayClosed`
   and `Settled` are stored and served in API v1 (appended fields; amounts as decimal strings, P-19);
   `EconomyConfigured`, `PoolSet`, `GameSet` and `EconomySet` are ignored.
