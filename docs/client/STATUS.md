@@ -67,9 +67,29 @@ not-configured and stale states. Display only: no reward is shown or promised. L
 button. jsdom tests only, no browser run. The e2e step "deployer smoke game" now queries the Tutorial contract and expects
 game 1 there (it passed vacuously on Daily). Not run on a live devnet.
 
+2026-10-09, economy client (t-0056, P8, part a): `packages/chain/src/economy/` buys a paid Daily (USDC approve + `Daily.spawn(stake,
+referrer, min_out)` in one multicall, `min_out` from the pool quote less 1 %, P-35), settles a bought game after its day (the player's claim of
+PAVED) and stakes, unstakes and claims dividends in the Vault, every amount a BigInt re-read and checked at send, serialised with
+the game's writes. USDC and the paid `spawn` run on **stub ABIs** until CORE's E3 (`Economy` is real since t-0066); `PavedToken` and `Vault` are E1's
+real ABIs. No deployment has the economy's addresses yet, so it is not configured anywhere. `docs/architecture/client-economy.md`.
+
+2026-10-09, economy screens (t-0056, P8, part b): on the landing page, the paid Daily's stake picker (price `2k` USDC read from
+the chain, boost `1 + k/100`, the referrer from `?ref=` shown at the confirm with "you pay the same"), the referral link, the
+Vault (stake, unstake, dividends) and "after the day" (settle, the chain's reward, and "Below the shifted mean the stake is
+lost"). Every paying action has an explicit confirm showing the amount; the purchase's consent is history state only, cleared
+before the game page sends. jsdom tests on the fake; nothing runs until E2/E3 deploy the economy.
+
+2026-10-09, economy on E2's real ABI (t-0066, P8): `Economy` is the committed `contracts/abis/Economy.json` (E2, #262): `Recorded.expired`,
+`terms()` with `time` and `expired`, `quote_swap` (P-35) behind `EconomyPoolQuoter`, now on. The codec decodes and encodes signed
+integers (`sigma_bps` is a real `i16`). "Swap below min_out" (nothing charged) and "day cannot close yet" are clear states; an expired game
+says "Expired: no reward". `?ref=` is bounded below `2^251 - 256`, and the writer too; `Game.tsx` never falls back to the plain spawn for a
+purchase. New `/economy` page; the fakes moved to `@paved/chain/testing`. **Still stubs until E3**: the paid `Daily.spawn` and USDC, so
+purchases stay impossible in practice. jsdom tests only. `docs/architecture/client-economy.md`.
+
 2026-10-09, signing (P-14, t-0055): outside devnet, the player signs with the Cartridge controller
 (`@cartridge/controller` 0.13.16, the last release on starknet ^8). The connection banner has "Connect"
-and "Disconnect", and the session policies are exactly the client's entry points. The controller's
+and "Disconnect" (held while a write is in flight). The session policies hold the game's writes, and an
+approve of the token `Daily.entry_price` names (Token now, USDC after E3) to Daily, capped at 10 stakes. The controller's
 account goes through the same `PavedWriter` as the devnet burner, which is kept. Without a connection,
 other networks are read-only. jsdom tests only (controller mocked). Nothing has been deployed beyond
 devnet, and no real controller has been tried. The controller's licence (non-commercial or under 10,000

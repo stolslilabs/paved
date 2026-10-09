@@ -56,16 +56,20 @@ export function renderPage(opts: {
   views?: FakeGameViews;
   writer?: FakeWriter;
   player?: { id: string; name: string; master: string } | null;
+  /** Answers `player(address)` per address, instead of `player` for all of them (e.g. a referrer still loading). */
+  playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null>;
   games?: unknown[];
   /** The indexer client the screens read; none by default. */
   indexer?: IndexerClient | null;
+  /** Wraps the routes (an `EconomyProvider`). */
+  wrap?: (routes: React.ReactElement) => React.ReactElement;
 }) {
   const views = opts.views ?? new FakeGameViews();
   const playerGames = vi.fn(async () => opts.games ?? []);
   const client = {
     views,
     events: { playerGames },
-    player: vi.fn(async () => (opts.player === undefined ? { id: PLAYER, name: "Zed", master: PLAYER } : opts.player)),
+    player: vi.fn(async (address: string) => opts.playerFor ? opts.playerFor(address) : (opts.player === undefined ? { id: PLAYER, name: "Zed", master: PLAYER } : opts.player)),
     balance: vi.fn(async () => 5n * 10n ** 18n),
     writer: () => opts.writer ?? {},
   } as unknown as PavedClient;
@@ -74,9 +78,11 @@ export function renderPage(opts: {
       <IndexerProvider client={opts.indexer ?? null}>
         <MemoryRouter initialEntries={[{ pathname: opts.path, search: opts.search ?? "", state: opts.state }]}>
           <Where />
-          <Routes>
-            <Route path={opts.route ?? opts.path} element={opts.page} />
-          </Routes>
+          {(opts.wrap ?? ((r) => r))(
+            <Routes>
+              <Route path={opts.route ?? opts.path} element={opts.page} />
+            </Routes>,
+          )}
         </MemoryRouter>
       </IndexerProvider>
     </PavedProvider>,

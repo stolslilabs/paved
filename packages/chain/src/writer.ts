@@ -1,6 +1,6 @@
 import { shortString } from "starknet";
 import type { Codecs, ContractName } from "./abis";
-import type { DecodedEvent, Encodable, RawEvent } from "./codec";
+import { sameAddress, type AbiCodec, type DecodedEvent, type Encodable, type RawEvent } from "./codec";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
 import { rewardOf, type Rank } from "./prize";
@@ -63,9 +63,12 @@ export class SponsorAmountChangedError extends Error {
   }
 }
 
-/** A write that the chain refused; the message is the revert reason. */
+/**
+ * A write that the chain refused; the message is the revert reason. With a `transactionHash` the write was sent:
+ * `reverted` says the receipt is a known revert; otherwise its receipt could not be read (timeout, RPC drop).
+ */
 export class WriteError extends Error {
-  constructor(message: string, readonly transactionHash?: string) {
+  constructor(message: string, readonly transactionHash?: string, readonly reverted = false) {
     super(message);
     this.name = "WriteError";
   }
@@ -231,17 +234,34 @@ export class PavedWriter {
     };
   }
 
-  private async send(contract: ContractName, calls: Call[]): Promise<WriteResult> {
+  private send(contract: ContractName, calls: Call[]): Promise<WriteResult> {
+    return this.serialised(() => this.sendNow(contract, calls));
+  }
+
+  /**
+   * Sends calls built by another client of this account (the economy's, `economy/writer.ts`) in the same
+   * serialisation as this writer's own: one write at a time across both. `prepare` runs inside it, so the reads
+   * that check an amount happen after any earlier write has landed; it returns the calls and where the receipt's
+   * events come from: one of the four contracts, or another contract's codec and address.
+   */
+  sendCalls(prepare: () => Promise<{ calls: Call[]; events: ContractName | { codec: AbiCodec; address: string } }>): Promise<WriteResult> {
+    return this.serialised(async () => {
+      const { calls, events } = await prepare();
+      return this.sendNow(events, calls);
+    });
+  }
+
+  private async serialised<T>(run: () => Promise<T>): Promise<T> {
     if (this.pending) throw new WriteError("Another write is pending");
     this.pending = true;
     try {
-      return await this.sendNow(contract, calls);
+      return await run();
     } finally {
       this.pending = false;
     }
   }
 
-  private async sendNow(contract: ContractName, calls: Call[]): Promise<WriteResult> {
+  private async sendNow(contract: ContractName | { codec: AbiCodec; address: string }, calls: Call[]): Promise<WriteResult> {
     const { account, provider, codecs, deployment, tip, receiptPollMs = RECEIPT_POLL_MS, onEvents } = this.options;
     let transaction_hash: string;
     try {
@@ -257,7 +277,13 @@ export class PavedWriter {
       throw new WriteError(error instanceof Error ? error.message : String(error), transaction_hash);
     }
     if (receipt.execution_status === "REVERTED") {
-      throw new WriteError(receipt.revert_reason ?? "Transaction reverted", transaction_hash);
+      throw new WriteError(receipt.revert_reason ?? "Transaction reverted", transaction_hash, true);
+    }
+    if (typeof contract !== "string") {
+      const events = (receipt.events ?? []).flatMap((raw) =>
+        raw.from_address && sameAddress(raw.from_address, contract.address) ? (contract.codec.decodeEvent(raw) ?? []) : [],
+      );
+      return { transactionHash: transaction_hash, events };
     }
     const events = receiptEvents(receipt, codecs, contract, deployment.addresses[contract]);
     onEvents?.(contract, events);

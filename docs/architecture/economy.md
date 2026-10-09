@@ -49,17 +49,19 @@ sections that follow give the reasons and the figures.
 | 7 | NFTs | As proposed (section 9): soulbound `Collection`, mint at spawn from `Lobby`, JSON `token_uri`, transfers revert; spawn +838k (Daily) / +845k (Tutorial) **accepted**; wallet display checked at the first public deploy | The owner (D-11b) |
 | 8 | PR plan | E1 to E5 (section 8), with the security and economy audits | The PM |
 
-**Open questions for the owner** (recorded by P-31; **neither blocks E1**):
+**The owner's answers** (2026-10-09) to the two questions P-31 recorded:
 
-- **The structural house edge.** D-10's numbers (70 % burn, 5 % pool fee) give players back about 63 % of what they
-  pay in the long run, a house edge of about **37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to 37.3 %, section 3).
-  The curve parameters do not change it. Only the burn share or the fee does.
-- **The predictable seed with paid games** (D-3, E-1): replaying the day's best known line pays 1.31x to 1.36x
-  (section 3). Recommendation: a VRF, or a seed revealed after the purchase.
+- **The structural house edge: accepted (D-12).** D-10's numbers (70 % burn, 5 % pool fee) give players back about
+  63 % of what they pay in the long run, a house edge of about **37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to
+  37.3 %, section 3). The curve parameters do not change it. Only the burn share or the fee does. D-10's numbers
+  stand.
+- **The predictable seed with paid games: kept for now (D-13).** Replaying the day's best known line pays 1.31x to
+  1.36x (section 3, E-1). The owner keeps the predictable daily seed, paid games included. A VRF may come back
+  later, so E3 still puts the seed behind the `SeedSource` interface (section 8, "Seed source"). With it, a VRF or a
+  seed revealed after the purchase can replace the daily seed without touching the move code.
 
-**Until the owner answers, no paid game leaves devnet.** The seed mechanism stays isolated behind an interface, so
-that a VRF or a seed revealed after the purchase can replace it without touching the move code. The interface is
-built in E3 (section 8, "Seed source").
+D-13 lifts the seed gate on paid games leaving devnet. The other gates stay: see "Gates before a paid game leaves
+devnet" in section 8.
 
 ## Summary
 
@@ -105,11 +107,11 @@ built in E3 (section 8, "Seed source").
   - `Collection` is 13,070 CASM felts (16 %).
 
   The player, the leaderboard, the quests and "my games" are unchanged. The indexer reads only the mints. Section 9.
-- **For the owner** (D-3, their decision): **the predictable daily seed makes a paid Daily exploitable.**
+- **The predictable daily seed makes a paid Daily exploitable.** The owner keeps it for now (D-13, 2026-10-09).
   - The day's deck is public, so a player can find the day's best line offline and replay it at stake 10.
   - Measured in the simulation: such "replayers" get back 1.31x to 1.36x of what they pay, while everyone else drops to
     about half.
-  - Recommendation: a seed that nobody knows before the purchase (a VRF) before any paid game goes beyond devnet.
+  - The seed stays behind `SeedSource` (E3), so that a VRF can replace it later.
 
 ## 1. The flows of one paid game
 
@@ -156,10 +158,18 @@ The player approves `Daily` for `P` USDC, then calls `spawn`. `Daily` runs `Lobb
 ### Game over
 
 The three ways a Daily game ends already pass through `Lobby`: `discard` and `surrender` run there, and a `build`
-that ends the game calls `Lobby.report`. `Lobby` calls `Economy.record(game_id, score, in_day)`, where `in_day`
-means the game ended within the day it was bought in, the same rule as the leaderboard (`end_in_tournament`).
-`record` stores the score. If `score >= MIN_SCORE` and `in_day`, it also adds the game to the day's accumulator
-(`sum k x min(score, 4 x prior)`, `sum k`).
+that ends the game calls `Lobby.report`. `Lobby` calls `Economy.record(game_id, score)`.
+
+**A paid game expires 24 h after its purchase (P-34, PM, 2026-10-09; Nums' expiry).** The terms store the purchase
+time.
+- A `record` before `purchase_time + 86400` stores the score. If `score >= MIN_SCORE`, the game also enters the
+  accumulator of its **purchase** day (`sum k x min(score, 4 x prior)`, `sum k`), even when it ends after
+  midnight.
+- A `record` at or after `purchase_time + 86400` records the game as **expired**: its reward is 0 (the stake is
+  lost), and its score enters no mean.
+
+The leaderboard keeps its own rule (`end_in_tournament`). The economy no longer depends on it, and `record` has no
+`in_day` argument (P-34).
 
 `Lobby.report` today carries only the tally, so the game id is added as an argument (one felt in `Daily.build`,
 measured: +1 CASM felt). A game that never ends is never settled: its stake is lost, and its burn has already
@@ -167,19 +177,33 @@ happened.
 
 ### Settlement and mint
 
-**Option B (DECIDED, P-31).** Once the day is over (`now >= (day + 1) x 86400`), anyone calls
-`Economy.settle(game_ids)`. For each game that is recorded and not yet settled:
+**Option B (DECIDED, P-31).** Day `D` settles only once every game of `D` has ended or expired (P-34). The last
+purchase of `D` expires before `(D + 2) x 86400`, the end of `D + 1`. From that time, anyone calls
+`Economy.settle(game_ids)`, and an earlier call reverts. For each game that is recorded and not yet settled:
 
 1. On the day's first settlement, its mean is fixed:
    `mean_d = (W_p x prior_d + sum k x s') / (W_p + sum k)`.
    - `prior_d` is the EMA as of the day's first purchase, stored then.
    - `W_p = 100`.
    - The day is folded into the EMA once, as one push of `(sum k x s' / sum k, sum k)`.
-2. `payout = R x h(score / mean_d)` (section 2).
+2. `payout = R x h(score / mean_d)` (section 2), or 0 for an expired game.
 3. If it is non-zero, it is minted: `PavedToken.mint(player, payout)`. Only `Economy` is a minter.
 4. `Settled` is emitted.
 
-The indexer, a keeper or the client can batch every game of a day. The player's own claim is the fallback.
+The indexer, a keeper or the client can batch every game of a day. The player's own claim is the fallback. A
+keeper should settle each day `D` just after `(D + 2) x 86400`: a day's prior is the EMA at its first purchase, and
+day `D` enters the EMA only at its first settlement. So day `D + 2`'s prior includes day `D` only if `D` was
+settled before `D + 2`'s first purchase. Day `D + 1`'s prior never includes day `D`, since `D + 1` starts before
+`D` can close (E-2).
+
+`day()` hides only a day's aggregate (sum, weight, mean) until the day closes: it returns them as 0 until then
+(P-34, as amended by P-34b). **Every input of the open day's mean is public**, so anyone can compute that mean
+exactly before the close:
+- the stake and purchase time of each game (`Purchased`, `terms(game_id)`);
+- each score, and whether the game expired (`Recorded`, `terms(game_id)`);
+- the day's prior (`day()`).
+
+The prior, the running EMA and `quote`'s mean and threshold stay visible.
 
 **Option A (fallback, Nums).** `purchase` also freezes `mean` (the EMA at that moment) into the game's terms.
 `record` computes the payout against it, mints at once, and pushes the score into the EMA. There is no settle
@@ -505,14 +529,35 @@ Then Nums' ERC4626 is ported, with its roles cut to none and its accumulator kep
 The interfaces are declared locally in `contracts/src/economy/ekubo.cairo`, ABI-compatible (`PoolKey { token0,
 token1, fee: u128, tick_spacing: u128, extension }`, `i129 { mag: u128, sign: bool }`, `RouteNode`, `TokenAmount`,
 `Delta`, `IRouter.swap`, `IClear.{clear, clear_minimum}`). This takes no git dependency on Ekubo, in the spirit of
-O-1. Check Ekubo's licence on the declarations before the PR.
+O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, owner, 2026-10-09).
 
 - Router address, pool key (PAVED/USDC, fee `0.05 x 2^128` = `0xccccccccccccccccccccccccccccccc`, Nums' tick
   spacing `0x56a4c` for that fee, extension 0 unless the owner picks one) and `sqrt_ratio_limit` (the extreme bound
   for the swap direction) are constructor arguments of `Economy`. A setter for the pool is in section 6.
 - **Slippage.** Nums and Glitchbomb pass a minimum of 0 and an extreme price limit: their swap is sandwichable.
-  Here the player passes `min_out`. The client quotes the pool and sends `quote x (1 - 1 %)`. The player is the one
-  who loses from a bad price, since their `R` follows `b`.
+  Here the player passes `min_out`, and the player is the one who loses from a bad price, since their `R` follows
+  `b`.
+  - **The client's slippage (P-35, approved by the PM):** 1 % by default, shown to the player, and capped at 5 %.
+    The client sends `min_out = pool quote x (1 - slippage)`.
+  - **The pool quote.** On devnet it is `Economy.quote_swap(usdc_in) -> PAVED out` (pool fee included), which
+    forwards to `MockRouter.quote`. The client never calls the router itself. On mainnet, see "Quoting on
+    mainnet" below.
+  - **`Quote.min_out_hint` is never sent as `min_out`.** It is only an estimate, 99 % of the burn quote at the
+    guard's rate, and it lags the pool.
+- **Quoting on mainnet (P-35).** What was checked, on 2026-10-09:
+  - Ekubo's router source (`EkuboProtocol/starknet-contracts`, `src/router.cairo` on `main`) has a view
+    `quote_swap(node: RouteNode, token_amount: TokenAmount) -> Delta`, along with `quote_multihop_swap` and
+    `quote_multi_multihop_swap`. It runs the swap inside core's `lock` with a callback that reverts on purpose
+    (`FUNCTION_DID_NOT_ERROR_FLAG`), then decodes the result from the revert data and returns it as a `Delta`.
+  - Its shape is not `MockRouter.quote(token_in, amount_in) -> u128`, so `Economy.quote_swap` serves **devnet
+    only**: on mainnet its call to the router fails.
+  - Nums' client quotes through Ekubo's public quoter API instead (`https://prod-api-quoter.ekubo.org/<chain
+    id>/<amount>/<token>/<quote token>`, in `client/src/api/ekubo.ts` and `client/src/config.ts` of Nums at
+    `4f8f405`).
+  - **Unverified:** whether the router deployed at the mainnet address has `quote_swap`, and whether a contract
+    can call it on chain (the result rides on a caught revert). On mainnet the client uses Ekubo's public quote API
+    until a fork test (E-9) shows the router's `quote_swap` works. `Economy.quote_swap` can then move to that
+    interface, with the mock implementing it too.
 - **Price guard (self-sandwich).** A player can push the PAVED price down before their own purchase, by selling
   PAVED into the pool. Their burn then buys more PAVED, so their `R` and their reward grow. They buy back
   afterwards. Their cost is the pool fee on both legs.
@@ -520,9 +565,17 @@ O-1. Check Ekubo's licence on the declarations before the PR.
     doubles `R`.
   - At stake 10 and the cap `H = 5`, the gain is at most about 63 USDC. The attack pays when `U < ~2,200 USDC`.
   - The guard: `Economy` keeps an EMA of the swap rate (PAVED per USDC, weight 1/32 per purchase), and the `R` of a
-    purchase counts at most `q x rate x 1.10` PAVED. One manipulated purchase gains at most 10 %, and moving the EMA
-    takes many purchases, each paying the fee. With a launch LP like Nums' (10,000 USDC) the attack does not pay even
-    without the guard. The guard covers a thinner pool.
+    purchase counts at most `q x rate x 1.10` PAVED. One manipulated purchase gains at most 10 %.
+  - **The rate moves at most once per block**, by its first purchase in that block. Its last update's block time
+    is packed with it. That observation is clamped to `[rate x 10/11, rate x 11/10]`, so the EMA moves by at most
+    `1/32 x 10 %`, about 0.31 %, per block, up or down. Moving it by 10 % takes at least about 31 blocks. A pumped
+    or dumped pool must therefore survive across those blocks, where arbitrage closes it; many purchases inside
+    one manipulation no longer ratchet it (E2's economy re-audit). `R` always uses the current rate's guard.
+  - With a launch LP like Nums' (10,000 USDC) the attack does not pay even without the guard. The guard covers a
+    thinner pool.
+  - The guard's rate starts at the launch rate **after the pool's fee**: 800,000 PAVED for 10,000 USDC is 8e31 PAVED
+    base units per USDC base unit x 1e18 at the spot price, and a purchase gets about 0.95 x that, so the deploy
+    passes **7.6e31**. E3's deploy applies it. The constructor refuses 0.
 - **LP fee.** 5 % of every swap's input stays in the pool, for the LP position's holder. That is the owner's choice
   (D-10 gives the margin to the stakers; the LP fee is not margin). Nums sends its LP fees to its treasury.
 
@@ -578,7 +631,7 @@ under `prlimit --as=8589934592`, peak RSS 1.5 GB. Nothing of the prototypes is c
 | `Economy.purchase`, `Economy.record` | `Daily` only (its address, set once by the owner, `set_game`, one shot) | |
 | `Economy.settle` | anyone | mints only to the game's player, once per game, after its day |
 | `Economy.configure` | `Economy`'s owner (the programme's owner) | `BURN_BPS` 5,000 to 9,000; `sigma` -3,000 to +5,000 bps; `c` 0.1x to 5x; `H` 1 to 20; `T` 100,000 to 10,000,000 PAVED; applies to the next purchase only (terms are frozen); `EconomyConfigured` event |
-| `Economy.set_pool` | owner | a pool key on the same two tokens only; event |
+| `Economy.set_pool` | owner | a pool key on the same two tokens only; event. **Accepted trust:** the owner can point the swaps at any PAVED/USDC pool, including a thin one (E-4) |
 | The mean | nobody | no setter (Nums' `set_average_score` is dropped) |
 | `Vault` | nobody | no owner |
 | Margin | `BURN_BPS` decides it: the margin is the rest, all to the Vault | no team address exists anywhere |
@@ -604,7 +657,7 @@ bounded and evented so that a mistake is visible and limited.
 | Event | Keys | Data |
 |---|---|---|
 | `Purchased` | `game_id`, `player_id` | `day`, `stake`, `price`, `referrer`, `referral`, `burned_quote` (`q`), `burned` (`b`), `margin`, `supply`, `factor`, `reference` (`R`) |
-| `Recorded` | `game_id` | `score`, `in_day` |
+| `Recorded` | `game_id` | `score`, `expired` (P-34) |
 | `DayClosed` | `day` | `mean`, `weight`, `prior`, `ema_after` |
 | `Settled` | `game_id`, `player_id` | `day`, `score`, `threshold`, `reward` |
 | `EconomyConfigured` | | every parameter |
@@ -623,10 +676,10 @@ lot as the contract**, per O-39's lesson.
 |---|---|
 | Entry | the player approves **`Daily`** on **USDC** for `k x entry_price().amount`, then `Daily.spawn(stake, referrer, min_out)`. The approval target is unchanged; the token is USDC (6 decimals) instead of the test token |
 | `entry_price()` | same view, `token` = USDC, `amount` = the price of **one stake unit** (2,000,000). A meaning change for `amount` ("per stake unit"), written under "Changes since publication" in `public-interface.md` |
-| Quote | `Economy.quote(stake) -> Quote { price, burn_quote, referral, margin, min_out_hint, factor, mean, threshold, slope, cap }` (a view on `Economy`, not `Daily`) |
-| Running day | `Economy.day(day) -> DayView { prior, sum, weight, mean (if closed), closed }` |
+| Quote | `Economy.quote(stake) -> Quote { price, burn_quote, referral, margin, min_out_hint, factor, mean, threshold, slope, cap }` (a view on `Economy`, not `Daily`). `min_out_hint` is an estimate and is never sent as `min_out`. `min_out` comes from `Economy.quote_swap(burn_quote)` on devnet, or Ekubo's quote API on mainnet, minus the slippage (1 % by default, shown, at most 5 %; P-35) |
+| Running day | `Economy.day(day) -> DayView { prior, sum, weight, mean, closed }`: sum, weight and mean are 0 until the day closes (P-34) |
 | A game's terms | `Economy.terms(game_id) -> TermsView { stake, reference, day, score, settled, reward }` |
-| Settlement | `Economy.settle(game_ids)`; the client offers it after the day, and the indexer lists the unsettled games |
+| Settlement | `Economy.settle(game_ids)`, from the end of the day after the purchase day (P-34); the client offers it then, and the indexer lists the unsettled games. A game recorded 24 h or more after its purchase is expired and earns nothing |
 | Prize | the daily top-3 prize no longer grows with entries (section 7): sponsor-only |
 | Deployments | `contracts/deployments/<network>.json` gains `Economy`, `PavedToken`, `Vault`, `Collection` (and `MockRouter`, `MockUSDC` on devnet); `token` becomes USDC; ABIs `Economy.json`, `PavedToken.json`, `Vault.json`, `Collection.json` |
 
@@ -654,15 +707,15 @@ economy at all.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| E-1 | **Predictable daily seed** (open question for the owner, P-31) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.31x to 1.36x of their price; at 10 % of the games the others drop to about half | **The owner's decision**: a seed nobody knows before the purchase (Cartridge VRF on mainnet, a mock on devnet) before a paid game leaves devnet. Option B already blends the replayers into the day's mean, which limits them as their share grows |
-| E-2 | **Day effect**: one deck per day; the mean score moves 50 to 55 % from day to day | Option B (the day's own mean). With option A, the share of a day's games lost spans 46 % to 100 % (p10 to p90 over the days), against 48 % to 78 % with option B |
+| E-1 | **Predictable daily seed** (kept by the owner, D-13) (D-3, R-4): the day's deck is public, so the best line can be searched offline and replayed at stake 10. Measured: replayers get 1.31x to 1.36x of their price; at 10 % of the games the others drop to about half | **Accepted by the owner (D-13, 2026-10-09)**: the predictable seed stays for now, paid games included. The seed sits behind `SeedSource` (E3), so that a VRF (Cartridge VRF on mainnet, a mock on devnet) can replace it later. Option B already blends the replayers into the day's mean, which limits them as their share grows |
+| E-2 | **Day effect**: one deck per day; the mean score moves 50 to 55 % from day to day. **Stale prior**: a day's prior is the EMA at its first purchase, and a day enters the EMA only at its first settlement, from `(D + 2) x 86400` (P-34). Day `D + 1`'s prior never includes day `D`; day `D + 2`'s includes it only if `D` was settled before `D + 2`'s first purchase | Option B (the day's own mean). With option A, the share of a day's games lost spans 46 % to 100 % (p10 to p90 over the days), against 48 % to 78 % with option B. A keeper settles each day just after `(D + 2) x 86400`, so that the prior lags by two days at most. The prior weighs 100 against the day's own games |
 | E-3 | Bot sample, not players | Recalibrate on the first real games (PR E4); `c`, `sigma`, `H`, `T` are configurable within bounds |
-| E-4 | Thin pool or self-sandwich | `min_out` from the player; the rate guard (+10 %); a launch LP of at least ~10,000 USDC (the owner's act) |
+| E-4 | Thin pool or self-sandwich; the owner repointing `set_pool` at a thin pool (accepted trust, section 6); a stale guard rate | `min_out` from the player (pool quote minus 1 % to 5 %, P-35); the rate guard (+10 %, observation clamped to 10 % per purchase); a launch LP of at least ~10,000 USDC (the owner's act). The guard's rate follows the swaps, not the day's settlement, so the stale prior (E-2) does not touch it |
 | E-5 | `Daily` at 88.6 % after P8 (1,121 felts to 90 %) | P8 adds nothing more to `Daily`; growth of the move code goes to the PM (P-27); fallbacks (a) or (c2) of `class-headroom.md` |
 | E-6 | Self-referral through a second address takes 5 % from the stakers | Accepted with the margin option; the burn option removes it (section 1) |
 | E-7 | USDC that arrives while nobody stakes goes to the first staker | The owner stakes at launch |
 | E-8 | New dependency: an OpenZeppelin ERC20 (`openzeppelin_token`) | DECIDED (P-31): OpenZeppelin for `PavedToken`, a published version that builds with Scarb 2.20.1, pinned exactly (`=x.y.z`) in E1 |
-| E-9 | Ekubo interface drift | Local ABI-compatible declarations; a fork test against the mainnet router before the owner's mainnet go |
+| E-9 | Ekubo interface drift | Local ABI-compatible declarations; a fork test against the mainnet router before the owner's mainnet go. It covers the price limit, a partial fill, and the router's `quote_swap` (P-35, section 5) |
 | E-11 | A wallet or indexer does not show the games, or shows a transfer button that then fails | Standard ERC721 surface with SRC5 ids, the camelCase twins and the `Transfer` event at mint; no Starknet standard for "soulbound" exists (section 9) |
 | E-10 | A paid game of skill with token rewards may be regulated in places | Out of this track's scope; for the owner |
 
@@ -720,7 +773,7 @@ Not stacked: each one branches from main and targets main.
   - unit tests of `h` against the formulas above, of `F` (#181's table), of the EMA (Nums' update, with the clamp and
     the min score) and of the day mean;
   - a purchase's split adds up to `P` exactly, and `Economy`'s balance is 0 after every call;
-  - `settle` is once per game, only after the day, and only for recorded games;
+  - `settle` is once per game, only from the end of the next day (P-34), and only for recorded games;
   - an end-to-end check of the Monte-Carlo's formulas: the same inputs give the same `R` and payout as
     `scripts/montecarlo/sim.py` (a fixture table).
 - Audit: security and economy.
@@ -736,6 +789,10 @@ Not stacked: each one branches from main and targets main.
     `contracts/src/seed.cairo`, and `spawn` passes the seed in. Its only implementation in E3 is today's daily seed,
     so the goldens stay identical. The reseeds of `build` and `discard` derive from the initial seed and are not
     touched, so `Daily`'s move code does not change;
+    - *As built (E3a, D-13):* `SeedSource<T>` and `DailySeed` are in `contracts/src/seed.cairo`;
+      `HostableComponent::spawn` calls `spawn_with(mode, @DailySeed {})`, which takes the seed from the source and
+      passes it to `GameImpl::start(time, seed)`. Goldens and the gas of moves a0 to l are identical to main, and
+      `Daily` stays at 72,424 CASM felts;
   - `scripts/deploy.sh devnet` deploys and wires everything;
   - the indexer decodes the new events.
 - Allowlist:
@@ -757,7 +814,16 @@ Not stacked: each one branches from main and targets main.
   - a devnet smoke check that buys, plays the Tutorial, and settles a paid game on a later day;
   - the indexer's devnet scenario passes with the new events;
   - the seed comes only through `SeedSource`: a test with a stub implementation changes the draw, and the default
-    gives the goldens.
+    gives the goldens;
+  - **trust in `Daily`** (from E2's audit): `Economy.purchase` trusts its caller for the game id, the player, the
+    stake and the price, and it only checks that its USDC balance covers the price. E3's `Lobby.spawn` pulls `P`
+    from the player to `Economy` in the same call, just before `purchase`. Tests:
+    - a spawn at stake `k` moves exactly `k x 2 USDC` from the player, and `Economy` holds 0 after it;
+    - a spawn without the approval, or with a stake of 0 or 11, reverts and leaves no game and no terms;
+    - the game id passed to `purchase` is the game's own id, and `record` reaches `Economy` for each way a Daily
+      game ends (`build`, `discard`, `surrender`);
+    - the referrer is a registered player (`Account`), not the payer;
+    - a Tutorial spawn calls neither `purchase` nor `record`.
 - Audit: security and economy.
 
 **E4. Calibration on real games.**
@@ -805,16 +871,145 @@ there, stand as written:
 
 ### For the owner
 
-Two open questions, recorded by P-31. Neither blocks E1. **Until the owner answers, no paid game leaves devnet.**
+The two questions recorded by P-31 are answered (2026-10-09):
 
-- **The structural house edge, about 37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to 37.3 %). It follows from D-10's
-  70 % burn and 5 % pool fee; the curve does not change it.
-- **D-3** (randomness, theirs): paid Daily games with the predictable daily seed are exploitable by replay (E-1).
-  Recommendation: a seed revealed only after the purchase (VRF). The seed already sits behind `SeedSource` from E3,
-  so either answer replaces one implementation.
+- **The structural house edge, about 37 %** (`1 - 0.7 x 0.95^2`, measured 37.0 % to 37.3 %), is **accepted (D-12)**.
+  It follows from D-10's 70 % burn and 5 % pool fee, and D-10's numbers stand.
+- **The predictable daily seed is kept for now, paid games included (D-13).** Paid games are exploitable by replay
+  (E-1). A VRF may come back later. E3 keeps the seed behind `SeedSource`, so that a VRF would replace one
+  implementation.
+- **Ekubo's interfaces are public (D-14).** Declaring them locally in `economy/ekubo.cairo` is fine.
+
+### Gates before a paid game leaves devnet
+
+D-13 lifts the seed gate. These gates stay:
+
 - **The owner's acts**, unchanged by this design: deploying PAVED on a public network and distributing the initial
   1,000,000; creating the Ekubo pool and funding its LP (Nums: 800,000 PAVED and 10,000 USDC); who holds the LP
   position and its 5 % fees; staking at launch.
+- **The mock-router gate** (from E1's audit): the mainnet price limit and partial fills are untested until a fork
+  test against the mainnet router covers them (see "As built: E2" below).
+- **The dump/withhold gate** (P-34b, PM, 2026-10-09). Every input of the open day's mean is public, so a player
+  may dump a low score or withhold a game to move the day's mean. E4 measures that strategy in `sim.py` at
+  realistic volumes, including a thin day. If it pays, a floor goes in before any paid game leaves devnet: a score
+  counts at least `prior / 4` in the day's mean. E2 has no code change for it.
+
+### As built: E2 (`Economy`)
+
+`contracts/src/economy/{economy,curve,mean}.cairo`. `curve` and `mean` hold the arithmetic as pure functions,
+unit tested against the formulas above. `Economy` holds the storage, the calls and the events. Where the code
+differs from the text above, or the text left the choice open, it is written here.
+
+- **Entry points.**
+  - `purchase(game_id, player, day, stake, price, referrer, min_out) -> R` and `record(game_id, score)` (P-34: no
+    `in_day`): the game only (`set_game`, one shot, by the owner).
+  - `settle(game_ids) -> minted`: anyone, from `(D + 2) x 86400` for a game of day `D` (P-34).
+  - `configure(config)` and `set_pool(pool_key, sqrt_ratio_limit)`: the owner. `set_pool` lets the owner point the
+    swaps at any PAVED/USDC pool, which is accepted trust (section 6; no code change).
+  - Views:
+    - `quote`, and `quote_swap` (P-35, devnet only, section 5);
+    - `day`: hides only the aggregate (sum, weight and mean are 0 until the day closes). Every input of the open
+      day's mean is public (`Purchased`, `Recorded`, `terms`), so the mean can be computed before the close
+      (P-34b);
+    - `terms`, with the purchase time, the score and `expired`;
+    - `config`, `ema`, `rate`, `pool`, `addresses`, `owner`.
+- **Who may call `configure`, and its bounds.** The owner named in the constructor calls it. The bounds are those
+  of section 6, checked by `validate`: `burn_bps` 5,000 to 9,000; `sigma_bps` -3,000 to +5,000; `slope_bps`
+  (`c`) 1,000 to 50,000; `cap` (`H`) 1 to 20; `target` (`T`) 100,000 to 10,000,000 PAVED. The constructor's
+  configuration passes the same check. The referral (500 bps), the base price (2 USDC), the stake range (1 to 10)
+  and the parameters of the mean are constants. The mean has no setter.
+- **The owner has no transfer and no upgrade.** The owner can configure and set the pool, and nothing else.
+  `PavedToken`'s minter is set once, so **a fix of `Economy` after its deploy needs a new `PavedToken`**. Reverse:
+  the PM wants an upgradeable `Economy`. That also makes its owner able to mint.
+- **Frozen terms.** A purchase freezes `R`, its time and the curve then in force (`sigma`, `c`, `H`) into the
+  game's terms. A `configure` therefore applies to the next purchase only, the curve included. The time is packed
+  in 40 bits in the same slot, in place of the day, which is derived from it.
+- **The day and the expiry (P-34).** `purchase` refuses any day other than `now / 86400`. A day's prior is the EMA
+  at its first purchase.
+  - A `record` before `purchase time + 86400` adds the game to its purchase day's accumulator (scores of 100 or
+    more).
+  - A `record` from then on marks the game expired: it enters no mean, and `settle` pays it 0.
+  - A day closes at its first `settle`, which is allowed from `(D + 2) x 86400`, once every game of the day has
+    ended or expired. The day's mean is then fixed, and the day's average is pushed into the EMA once, with the
+    day's weight capped at the max weight.
+  - Days can close in any order. A push is clamped at 4x the EMA at that moment, which binds only if an earlier
+    day closed late and lowered the EMA.
+  - The check that the day is not closed in `record` stays as a defence. With the expiry it cannot bind: a close
+    comes after every game of the day has expired.
+- **`settle`** reverts on an unknown game, a game not recorded, or a day that cannot close yet. **A game already
+  settled is skipped** (no mint, no event), so that a batch cannot be blocked by someone settling one of its games
+  first.
+- **Nothing is left behind.** In one call, `purchase` pays the referrer, transfers the quote to the router,
+  calls `swap`, then `clear_minimum(PAVED, min_out)` and `clear(USDC)`. It then burns **its whole PAVED
+  balance** and sends **its whole USDC balance** to the Vault. Tests check that `Economy` holds 0 and the router
+  exactly its reserves after every purchase. A donation to `Economy` or to the router leaves with the next
+  purchase: its USDC goes to the Vault, its PAVED is burned. `Purchased.burned` is the whole amount burned,
+  donations included. **`R` and the guard's rate follow only what the swap paid out**, which is the PAVED leg of
+  the `Delta` that `swap` returns. That output must itself be at least `min_out` (`'Economy: swap below
+  min_out'`), so PAVED sent to the router cannot let a worse swap pass. `clear_minimum(PAVED, min_out)` still
+  clears the router's whole balance. No balance is re-read to assert 0.
+- **The margin goes to the Vault on every purchase**, in the same call, and never in a batch. The referral is
+  taken out of the margin, so the burn stays at `BURN_BPS` (70 %) on every purchase (P-31). A referrer that is
+  the player gets nothing. Checking that a referrer is a registered player is `Lobby`'s job (E3).
+- **The threshold is in milli-points** (`mean x (10_000 + sigma) / 10_000`, with the mean x 1,000). The text
+  above rounds it down to whole points. Keeping the milli-points is closer to `sim.py`.
+- **The price guard.** The guard's initial rate is a constructor argument, in PAVED base units per USDC base
+  unit x 1e18, and the constructor refuses 0. The deploy passes the launch rate **after the pool's fee**: 8e31 x
+  0.95 = **7.6e31** (section 5; E3's deploy applies it). The rate moves at most once per block: it is packed with
+  its last update's block time in one slot, as a `u128`, and the constructor refuses a larger rate. The first
+  purchase of a block moves it, with its observation clamped to 10 % of the rate in both directions before the
+  1/32 step.
+- **`min_out_hint`** keeps its name, because CLIENT's stub reads it. It is an estimate (99 % of the burn quote at
+  the guard's rate) and is never sent as `min_out`. At the launch rate after the fee, it stays under the swap's
+  output for every stake (a test checks it). `quote_swap` gives the pool's quote (P-35).
+- **Storage.** Each game's terms take one slot and its outcome another; the player is a third. The
+  configuration, the EMA, the guard (its rate and the time of its last update) and each day's accumulator take one
+  packed slot each.
+- **Size.** See the table in the PR (`scripts/class-sizes.sh`, release profile). `Daily`, `Tutorial` and `Lobby`
+  are unchanged.
+- **Indexer.** The indexer reads only `Daily`, `Tutorial` and `Account`, so `Economy`'s events need no
+  `IGNORED` entry. E3 decodes them.
+
+**Gate (before any paid game leaves devnet; it stands after D-13): the mainnet price limit and partial fills are
+untested.**
+`MockRouter` ignores `sqrt_ratio_limit` and always fills the whole input. On Ekubo, a swap that reaches the limit
+fills only part of its input. `clear(USDC)` then returns the rest to `Economy`, which sends it to the Vault as
+margin. The burn of that purchase then falls below 70 %, and its `R`, which follows the PAVED bought, is smaller.
+`Economy` passes the constructor's `sqrt_ratio_limit` (meant as the extreme bound of the swap direction), so a
+partial fill needs a drained pool. Before the owner's go for a non-local paid game, a fork test against the
+mainnet router must cover the chosen limit and a partial fill (E-9). The mock was left unchanged.
+
+**Gap: the mock's fee stays in its reserves.** `MockRouter` adds the whole input to its reserve, fee included,
+as Uniswap v2 does. Ekubo and `sim.py` keep the fee out of the price curve. E4 recalibrates from real games'
+scores, not from the mock's prices, so it does not need the mock changed. The difference is small: over the 9
+purchases of the fixture, `sim.py`'s pool gives an `R` up to 230 ppm away from the mock's.
+
+**Fixture against `sim.py`** (`test_fixture_matches_sim`). The inputs:
+- the launch pool: 800,000 PAVED and 10,000 USDC, with the 1,000,000 initial supply;
+- the decided configuration, the initial mean 3,353, and the guard's launch rate after the fee (7.6e31);
+- two days of games, two days apart (P-34): the first is settled before the second's purchases, as `sim.py` does,
+  and players keep their rewards (`sell = 0`).
+
+The expected values are printed by `python3 -I -B scripts/montecarlo/fixture.py`. It imports `sim.py`'s
+`payout_factor` and `Ema`, runs the purchase and day lines of `simulate`, and adds the price guard, which `sim.py`
+does not model (E4 adds it there). The pool keeps its fee in its reserves, as the mock does; `--sim-pool` runs
+`sim.py`'s pool instead, and measures the 230 ppm gap. The test's `expected()` table is the script's output. The
+guard does not bind on this pool. The PAVED bought matches
+to the base unit. `R` and the payout are within 120 ppm; the worst gap measured is 86 ppm. The gap comes from
+`F`, which is in whole basis points: 1 bp of 1x is 100 ppm. The day means are 4,215.689 and 4,387.024 points
+(sim: 4,215.690 and 4,387.025). The EMA after both days is 4,366.567 points.
+
+| Game | Day | Stake | Referred | Score | `R`, sim (PAVED) | `R` gap | Payout, sim (PAVED) | Payout gap |
+|---:|---:|---:|---|---:|---:|---:|---:|---:|
+| 1 | 0 | 1 | no | 5,000 | 107.4611 | 6 ppm | 231.0738 | 6 ppm |
+| 2 | 0 | 3 | yes | 2,000 | 328.6949 | 25 ppm | 0 | exact |
+| 3 | 0 | 10 | no | 15,000 | 1,169.3069 | 86 ppm | 5,846.5346 (cap) | 86 ppm |
+| 4 | 0 | 5 | yes | 50 | 557.2234 | 16 ppm | 0 | exact |
+| 5 | 0 | 2 | no | 4,300 | 216.3582 | 28 ppm | 400.1023 | 27 ppm |
+| 6 | 1 | 4 | no | 6,000 | 438.1808 | 73 ppm | 1,086.5064 | 73 ppm |
+| 7 | 1 | 7 | yes | 9,000 | 788.3495 | 12 ppm | 2,932.1688 | 12 ppm |
+| 8 | 1 | 1 | no | 4,300 | 106.1996 | 17 ppm | 0 | exact |
+| 9 | 1 | 6 | no | 800 | 668.5417 | 50 ppm | 0 | exact |
 
 ## 9. Games as NFTs (D-11, amended D-11b)
 
