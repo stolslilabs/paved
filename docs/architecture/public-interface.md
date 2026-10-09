@@ -164,7 +164,7 @@ diverge.
 | # | Field | Type | Meaning |
 |---|---|---|---|
 | 1 | `token` | `ContractAddress` | The ERC20 that `spawn` pulls the entry price from (the player approves the `Daily` contract on it) |
-| 2 | `amount` | `u256` | The entry price `spawn` pulls, in the base unit of the token (18 decimals for the test token) |
+| 2 | `amount` | `u256` | The price of one stake unit, in the base unit of the token: 2,000,000 (2 USDC, 6 decimals). `spawn(stake, ..)` pulls `stake x amount` |
 
 ## Events for lists
 
@@ -221,3 +221,21 @@ working.
     set at construction and cannot change.
   - Every function, view and event of both contracts is unchanged. A client does not call the Lobby and
     needs no ABI for it; `contracts/deployments/<network>.json` gains `classes.Lobby`, the class hash.
+
+- **P8 E3, the economy wired** (`docs/architecture/economy.md`, "As built: E3").
+  - `Daily.spawn()` becomes `Daily.spawn(stake: u8, referrer: ContractAddress, min_out: u256) -> u32`. The player
+    approves `Daily` on USDC for `stake x entry_price().amount` (stake 1 to 10). `referrer` is a registered player
+    other than the caller, or zero (any other is ignored). `min_out` is the least PAVED the burn's swap must buy:
+    the pool's quote (`Economy.quote_swap(Economy.quote(stake).burn_quote)` on devnet) less the slippage. A
+    client that calls `spawn()` without arguments must change: this is the one breaking change, agreed in P-31.
+  - `entry_price()` keeps its shape. `token` is USDC (`MockUSDC` on devnet, 6 decimals) and `amount` is the price of
+    one stake unit (2,000,000), which is also `GameSpawned.price`.
+  - The tournament's `prize` no longer grows with entries: it is sponsor-only, and `sponsor` works on a day with no
+    game.
+  - `Account` gains `set_economy(economy)` (owner, once) and the view `economy() -> ContractAddress`, and the
+    event `EconomySet { economy }`, emitted once at deploy.
+  - `Economy` (its own address in `contracts/deployments/<network>.json`) emits `Purchased` (keys `game_id`,
+    `player_id`), `Recorded` (key `game_id`), `DayClosed` (key `day`) and `Settled` (keys `game_id`,
+    `player_id`); its views are `quote`, `quote_swap`, `day`, `terms`, `config`, `ema`, `rate`, `pool`,
+    `addresses`, `owner`, and `settle(game_ids)` is open to anyone from `(D + 2) x 86400`.
+    `contracts/abis/Economy.json` is its ABI. Every view and event of `Daily` and `Tutorial` keeps its fields.
