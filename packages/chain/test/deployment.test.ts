@@ -118,7 +118,7 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     expect(Object.keys(d.addresses).sort()).toEqual(["Account", "Daily", "Token", "Tutorial"]);
   });
 
-  test("the symbol is never read for display: the label stays $TILE (D-2)", () => {
+  test("the symbol is never read for display: the label stays PAVED (D-10)", () => {
     expect(real.token?.symbol).toBe("LORDS");
     expect(Object.keys(resolveDeployment({ network: "devnet", file: real }))).not.toContain("tokenSymbol");
   });

@@ -68,7 +68,7 @@ describe("Leaderboard page", () => {
     // a player without a name shows a short id and links to their page
     const nameless = screen.getByText(/^0x000000…22ac$/);
     expect(nameless.getAttribute("href")).toMatch(/^\/player\/0x0{59}722ac$/);
-    expect(screen.queryByText(/\$TILE/)).toBeNull();
+    expect(screen.queryByText(/PAVED/)).toBeNull();
     expect(document.body.textContent).not.toMatch(/claim(?!s)/i);
     expect(screen.getByText(/Prizes and claims are read from the contract/)).toBeTruthy();
   });

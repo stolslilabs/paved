@@ -9,8 +9,8 @@ export function canOfferCreate(status: ConnectionStatus, player: Pick<ReadState<
   return status === "ready" && player.loaded && !player.loading && !player.error && player.data === null;
 }
 
-/** The entry token's label, whatever its on-chain symbol (D-2). */
-export const TOKEN_LABEL = "$TILE";
+/** The entry token's label, whatever its on-chain symbol (D-10, which replaces D-2's old label). */
+export const TOKEN_LABEL = "PAVED";
 
 export function formatTimeRemaining(endTimeUnix: number, nowUnix = Math.floor(Date.now() / 1000)): string {
   const remaining = endTimeUnix - nowUnix;

@@ -3,8 +3,8 @@ import { emptyTournament } from "@paved/chain";
 import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, podium, shortAddress, TOKEN_LABEL, parseTokenAmount, playerNameError, tokenLabel } from "../src/utils/landing-helpers";
 
 describe("landing helpers", () => {
-  it("labels the token $TILE (D-2)", () => {
-    expect(TOKEN_LABEL).toBe("$TILE");
+  it("labels the token PAVED (D-10)", () => {
+    expect(TOKEN_LABEL).toBe("PAVED");
   });
 
   it("formats token amounts from the base unit", () => {

@@ -32,7 +32,7 @@ connected" state and no write button while it is false.
 Only the keys above are read: any other key of the file, such as `classes` (the declared library
 class `Lobby` of P-26, which has no address), is ignored.
 
-The token is labelled `$TILE` whatever its on-chain symbol (D-2); `decimals` comes from the file
+The token is labelled `PAVED` whatever its on-chain symbol (D-10, which replaces D-2's old label; reading the symbol waits for P8's token); `decimals` comes from the file
 (no default: when the file does not say, `tokenDecimals` is `null` and the app shows no
 amount and offers no Daily confirm, claim or sponsor, rather than assume 18).
 
