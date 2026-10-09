@@ -172,7 +172,7 @@ the internal layer from its own entrypoints, after its own checks"):
 
 | Action | Who | How |
 |---|---|---|
-| `define`, `retire` (quests and achievements) | the `Daily` owner (`OwnableComponent`, already there) | New owner-only entrypoints `define_quest`, `define_achievement`, `retire_quest`, `retire_achievement` that check the owner and call the internal layer. A definition is created once and a retired one cannot be redefined (package rule). |
+| `define`, `retire` (quests and achievements) | the `Daily` owner (`OwnableComponent`, already there) | New owner-only entrypoints `define_quest`, `define_achievement`, `retire_quest`, `retire_achievement` that check the owner and call the internal layer. A definition is created once and a retired one cannot be redefined (package rule). The wrappers (in `Lobby`) also refuse a task total of 0 (`'Daily: task total is zero'`) and a task id repeated within one definition (`'Daily: task id repeated'`) (P-30); the indexer excludes any such definition already on chain from its answers and counts it in `GET /v1/head` `checks.definitions_excluded`. |
 | `progress`, `progress_many` | **the game flow only** | Called from `PlayableComponent` / `TutoriableComponent` through the internal layer. No external entrypoint, no reporter registry, so no client can emit progress. |
 | `accept`, `abandon`, `claim` | nobody in v1 | Event-mode quests have no acceptance and no claim. In storage mode they would be `authorize_player(caller, player_id)` with the caller equal to the player's account. |
 

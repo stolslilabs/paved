@@ -77,6 +77,8 @@ pub mod Lobby {
     pub mod errors {
         pub const NOT_DEPLOYABLE: felt252 = 'Lobby: declared only';
         pub const MISALIGNED_QUEST: felt252 = 'Daily: quest not on UTC day';
+        pub const TASK_TOTAL_ZERO: felt252 = 'Daily: task total is zero';
+        pub const TASK_REPEATED: felt252 = 'Daily: task id repeated';
     }
 
     // Components
@@ -262,6 +264,12 @@ pub mod Lobby {
             if schedule.interval != 0 {
                 assert(schedule.start % 86400 == 0, errors::MISALIGNED_QUEST);
             }
+            // [Check] Every task total is positive and every task id appears once
+            let mut totals: Array<(u32, u32)> = array![];
+            for task in tasks {
+                totals.append((*task.task_id, *task.total));
+            }
+            assert_tasks(totals.span());
             // [Effect] Define the quest
             self.quest.define(quest_id, schedule, tasks, conditions);
         }
@@ -279,12 +287,35 @@ pub mod Lobby {
             points: u16,
         ) {
             self.ownable.assert_only_owner();
+            // [Check] Every task total is positive and every task id appears once
+            let mut totals: Array<(u32, u32)> = array![];
+            for task in tasks {
+                totals.append((*task.task_id, *task.total));
+            }
+            assert_tasks(totals.span());
             self.achievement.define(achievement_id, window, tasks, points);
         }
 
         fn retire_achievement(ref self: ContractState, achievement_id: u32) {
             self.ownable.assert_only_owner();
             self.achievement.retire(achievement_id);
+        }
+    }
+
+    /// A definition the indexer can serve: no task total of 0 (complete before any report) and no
+    /// task id twice (two entries under one key). Tasks are at most 3 (quiver `MAX_TASKS`).
+    fn assert_tasks(tasks: Span<(u32, u32)>) {
+        let mut i = 0;
+        while i < tasks.len() {
+            let (task_id, total) = *tasks.at(i);
+            assert(total != 0, errors::TASK_TOTAL_ZERO);
+            let mut j = i + 1;
+            while j < tasks.len() {
+                let (other, _) = *tasks.at(j);
+                assert(other != task_id, errors::TASK_REPEATED);
+                j += 1;
+            }
+            i += 1;
         }
     }
 

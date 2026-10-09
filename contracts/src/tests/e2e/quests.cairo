@@ -558,3 +558,71 @@ fn test_quests_tutorial_surrender_credits_no_task_10() {
     let kinds = kinds(@spy.get_events().events, tutorial);
     assert(kinds.len() == 1 && *kinds.at(0) == 0, 'Quests: surrender credited');
 }
+
+/// A task total of 0 is complete before any report: refused, in a quest and in an achievement.
+#[test]
+#[available_gas(l2_gas: 25410221)]
+#[should_panic(expected: 'Daily: task total is zero')]
+fn test_quests_define_quest_total_zero() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let daily = systems.daily.contract_address;
+    let admin = IDailyQuestsDispatcher { contract_address: daily };
+    start_cheat_caller_address(daily, OWNER());
+    let schedule = QuestSchedule { start: 0, end: 0, duration: DAY, interval: DAY };
+    let tasks = array![QuestTask { task_id: 1, total: 1 }, QuestTask { task_id: 3, total: 0 }];
+    admin.define_quest(1, schedule, tasks.span(), array![].span());
+}
+
+#[test]
+#[available_gas(l2_gas: 25251776)]
+#[should_panic(expected: 'Daily: task total is zero')]
+fn test_quests_define_achievement_total_zero() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let daily = systems.daily.contract_address;
+    let admin = IDailyQuestsDispatcher { contract_address: daily };
+    start_cheat_caller_address(daily, OWNER());
+    admin
+        .define_achievement(
+            1,
+            AchievementWindow { start: 0, end: 0 },
+            array![AchievementTask { task_id: 1, total: 0 }].span(),
+            10,
+        );
+}
+
+/// A task id twice in one definition gives two entries under one key: refused.
+#[test]
+#[available_gas(l2_gas: 25410221)]
+#[should_panic(expected: 'Daily: task id repeated')]
+fn test_quests_define_quest_task_repeated() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let daily = systems.daily.contract_address;
+    let admin = IDailyQuestsDispatcher { contract_address: daily };
+    start_cheat_caller_address(daily, OWNER());
+    let schedule = QuestSchedule { start: 0, end: 0, duration: DAY, interval: DAY };
+    let tasks = array![
+        QuestTask { task_id: 1, total: 1 }, QuestTask { task_id: 3, total: 5 },
+        QuestTask { task_id: 1, total: 2 },
+    ];
+    admin.define_quest(1, schedule, tasks.span(), array![].span());
+}
+
+#[test]
+#[available_gas(l2_gas: 25251776)]
+#[should_panic(expected: 'Daily: task id repeated')]
+fn test_quests_define_achievement_task_repeated() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let daily = systems.daily.contract_address;
+    let admin = IDailyQuestsDispatcher { contract_address: daily };
+    start_cheat_caller_address(daily, OWNER());
+    admin
+        .define_achievement(
+            1,
+            AchievementWindow { start: 0, end: 0 },
+            array![
+                AchievementTask { task_id: 2, total: 1 }, AchievementTask { task_id: 2, total: 1 },
+            ]
+                .span(),
+            10,
+        );
+}

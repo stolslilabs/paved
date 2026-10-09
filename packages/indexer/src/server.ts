@@ -404,6 +404,7 @@ export function answer(indexer: Indexer, target: string, info?: HeadInfo): Answe
         checks: {
           tournaments_checked: info?.checks?.checked.size ?? 0,
           last_mismatch: info?.checks?.lastMismatch ?? null,
+          definitions_excluded: cacheOf(indexer).queries.excludedDefinitions(served.number),
         },
       },
     };

@@ -23,6 +23,7 @@ import {
 import { padded, shortString, type TaskTarget } from "./events.ts";
 import {
   PODIUM_TASK,
+  consistent,
   firstActive,
   inWindow,
   intervalId,
@@ -363,16 +364,31 @@ export class Queries {
     };
   }
 
+  /** The consistent quest definitions at `head` (see `consistent`); the others are served nowhere. */
   private questRows(head: number): Row[] {
+    return this.allQuestRows(head).filter(hasConsistentTasks);
+  }
+
+  private achievementRows(head: number): Row[] {
+    return this.allAchievementRows(head).filter(hasConsistentTasks);
+  }
+
+  private allQuestRows(head: number): Row[] {
     return this.store
       .statement("SELECT * FROM quests WHERE def_block <= ? ORDER BY quest_id")
       .all(head) as Row[];
   }
 
-  private achievementRows(head: number): Row[] {
+  private allAchievementRows(head: number): Row[] {
     return this.store
       .statement("SELECT * FROM achievements WHERE def_block <= ? ORDER BY achievement_id")
       .all(head) as Row[];
+  }
+
+  /** How many quest and achievement definitions at `head` are excluded as inconsistent (`checks.definitions_excluded`). */
+  excludedDefinitions(head: number): number {
+    const all = this.allQuestRows(head).length + this.allAchievementRows(head).length;
+    return all - this.questRows(head).length - this.achievementRows(head).length;
   }
 
   /**
@@ -467,6 +483,8 @@ export class Queries {
     return { points, achievements };
   }
 }
+
+const hasConsistentTasks = (row: Row): boolean => consistent(JSON.parse(String(row.tasks)) as TaskTarget[]);
 
 const progressRow = (row: Row): ProgressRow => ({
   taskId: Number(row.task_id),
