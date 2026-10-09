@@ -6,10 +6,9 @@ import { ABIS, createCodecs, createEconomyCodecs, ECONOMY_ABIS } from "../src/ab
 import { AbiCodec, type Abi } from "../src/codec";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
-import { FakeGameViews, ViewError, type GameView } from "../src/views";
+import { FakeGameViews, ViewError } from "../src/views";
 import { WriteError } from "../src/writer";
 import {
-  DEFAULT_SLIPPAGE_BPS,
   ECONOMY_ABI_IS_STUB,
   ECONOMY_VIEW_FIELDS,
   PurchasePriceChangedError,
@@ -21,13 +20,12 @@ import {
   dayOver,
   formatBps,
   formatUnits,
-  minOutFor,
   parseUnits,
   priceOf,
   referralOf,
   resolveEconomyDeployment,
 } from "../src/economy";
-import { FAKE_UNIT, FakeEconomy } from "../src/economy/fake";
+import { FAKE_UNIT, FakeEconomy, fakeTerms } from "../src/economy/fake";
 
 const ADDR = { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
@@ -42,13 +40,6 @@ const spawnedEvent = (gameId: number) => ({
   keys: [hash.getSelectorFromName("GameSpawned"), `0x${gameId.toString(16)}`, "0x9"],
   data: ["0x1", `0x${DAY.toString(16)}`, "0x1", "0x0"],
 });
-
-function game(id: number, over: boolean): GameView {
-  return {
-    id, playerId: "0x9", mode: 1, seed: "0x0", score: 4000, over, tileCount: 38, placedCount: 38, discardedCount: 0,
-    tileId: 0, plan: 0, remainingCount: 0, deckSize: 38, startTime: DAY * 86400, endTime: (DAY + 1) * 86400, tournamentId: DAY,
-  };
-}
 
 function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () => Promise<{ transaction_hash: string }> } = {}) {
   const economy = new FakeEconomy();
@@ -101,12 +92,8 @@ describe("amounts: BigInt base units, never floats", () => {
     expect(() => priceOf(FAKE_UNIT, 1.5)).toThrow(RangeError);
   });
 
-  test("referral 5 % of the price; min_out the quote less 1 %", () => {
+  test("referral 5 % of the price", () => {
     expect(referralOf(20_000_000n)).toBe(1_000_000n);
-    expect(DEFAULT_SLIPPAGE_BPS).toBe(100n);
-    expect(minOutFor(1_000n)).toBe(990n);
-    expect(minOutFor(999n)).toBe(989n); // rounded down
-    expect(() => minOutFor(1n, 6_000n)).toThrow(RangeError);
   });
 
   test("parse and format without floats, 18 decimals included", () => {
@@ -142,15 +129,17 @@ describe("deployment: the economy is not configured until CORE deploys it", () =
 });
 
 describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in one multicall", () => {
-  test("approves exactly the price to Daily, min_out from the quote less the slippage", async () => {
+  test("approves exactly the price to Daily; min_out is the quote's hint as it is (E2 already took 1 % off)", async () => {
     const { economy, econWriter, sent } = setup();
     const result = await econWriter.purchase({ stake: 3, confirmedPrice: 6_000_000n, referrer: null });
     expect(result.gameId).toBe(9);
     const [calls] = sent();
     expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.usdc, "approve"], [ADDR.Daily, "spawn"]]);
     expect(calls[0].calldata).toEqual([ADDR.Daily, "0x5b8d80", "0x0"]); // 6_000_000 as u256
-    const minOut = await economy.expectedMinOut(3);
+    const minOut = (await economy.quote(3)).minOutHint;
     expect(typeof minOut).toBe("bigint");
+    // No second cut: 99 % of the burn quote at the rate, not 99 % of that.
+    expect(minOut).toBe((4_200_000n * 80n * 10n ** 18n * 99n) / (1_000_000n * 100n));
     expect(calls[1].calldata).toEqual(["0x3", "0x0", `0x${minOut.toString(16)}`, "0x0"]);
   });
 
@@ -217,9 +206,8 @@ describe("settle: the player's claim of PAVED, after the day", () => {
   };
 
   test("sends settle([ids]) and decodes Settled from the Economy", async () => {
-    const { economy, gameViews, econWriter, sent } = setup({ receiptEvents: [settled] });
-    economy.terms_.set(7, { stake: 2, reference: 10n ** 18n, day: DAY, score: 4000, settled: false, reward: 0n });
-    gameViews.setGame({ mode: "daily", gameId: 7 }, { game: game(7, true), tiles: [], builder: {} as never, characters: [] });
+    const { economy, econWriter, sent } = setup({ receiptEvents: [settled] });
+    economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, score: 4000 }));
     const result = await econWriter.settle([7]);
     expect(sent()[0]).toEqual([{ contractAddress: ECON.economy, entrypoint: "settle", calldata: ["0x1", "0x7"] }]);
     expect(result.events[0].name).toBe("Settled");
@@ -229,15 +217,14 @@ describe("settle: the player's claim of PAVED, after the day", () => {
   test("refused, sending nothing: day running, game not over, already settled, not bought, failed read", async () => {
     const cases: Array<[string, (s: ReturnType<typeof setup>) => void, RegExp, number?]> = [
       ["day running", () => {}, /day of game 7 is not over/, (DAY + 1) * 86400 - 1],
-      ["not over", (s) => s.gameViews.setGame({ mode: "daily", gameId: 7 }, { game: game(7, false), tiles: [], builder: {} as never, characters: [] }), /not over/],
-      ["settled", (s) => s.economy.terms_.set(7, { stake: 2, reference: 1n, day: DAY, score: 1, settled: true, reward: 0n }), /already settled/],
-      ["not bought", (s) => s.economy.terms_.set(7, { stake: 0, reference: 0n, day: 0, score: 0, settled: false, reward: 0n }), /not bought/],
+      ["not over", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /not over/],
+      ["settled", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, settled: true })), /already settled/],
+      ["not bought", (s) => s.economy.terms_.delete(7), /not bought/],
       ["read fails", (s) => (s.economy.fail = "down"), /Cannot read the game/],
     ];
     for (const [, arrange, error, now] of cases) {
       const s = setup({ now });
-      s.economy.terms_.set(7, { stake: 2, reference: 1n, day: DAY, score: 1, settled: false, reward: 0n });
-      s.gameViews.setGame({ mode: "daily", gameId: 7 }, { game: game(7, true), tiles: [], builder: {} as never, characters: [] });
+      s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY }));
       arrange(s);
       await expect(s.econWriter.settle([7])).rejects.toThrow(error);
       expect(s.execute).not.toHaveBeenCalled();
@@ -298,6 +285,15 @@ describe("RpcEconomyViews decode the stub layouts", () => {
     expect(quote.minOutHint).toBe(5n);
     expect(quote.threshold).toBe(3353);
     expect(await views.vault(PLAYER)).toEqual({ staked: 2n, pending: 3n, totalStaked: 4n });
+  });
+
+  test("terms: E2's layout, sigma_bps read as a signed i16 from its felt", async () => {
+    const P = (1n << 251n) + 17n * (1n << 192n) + 1n;
+    const felts = ["0x9", "0x4e20", "0x2", "0xde0b6b3a7640000", `0x${(P - 500n).toString(16)}`, "0x46d2", "0x5", "0xfa0", "0x1", "0x0", "0x0"];
+    const views = new RpcEconomyViews({ callContract: async () => felts }, economyDeployment, createEconomyCodecs());
+    expect(await views.terms(7)).toEqual({
+      player: "0x9", day: 20_000, stake: 2, reference: 10n ** 18n, sigmaBps: -500, slopeBps: 18_130, cap: 5, score: 4000, recorded: true, settled: false, reward: 0n,
+    });
   });
 
   test("not configured: a ViewError, no call", async () => {
