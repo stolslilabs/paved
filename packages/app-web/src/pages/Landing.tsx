@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
 import { claimableRanks, countedTournamentIds, indexerPlayerId, usePaved, useRead } from "@paved/chain";
@@ -7,6 +7,11 @@ import type { GameMode, GameView, PavedClient, PlayerGame, TournamentView } from
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
 import { PrizePanel } from "../components/PrizePanel";
+import { EconomyPanel } from "../components/EconomyPanel";
+import { EconomyPurchase } from "../components/EconomyPurchase";
+import { useEconomy } from "../utils/economy-context";
+import { purchaseIntent } from "../utils/economy-start";
+import { referrerFromSearch } from "../utils/economy-view";
 import type { Claimable } from "../components/PrizePanel";
 import { canConfirmEntry, canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, playerNameError, podium, TOKEN_LABEL, tokenLabel } from "../utils/landing-helpers";
 
@@ -52,6 +57,10 @@ async function listClaimables(client: PavedClient, address: string, playerId: st
 export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }) {
   const navigate = useNavigate();
   const { status, writer, address, deployment } = usePaved();
+  const economy = useEconomy();
+  // A referral link names a referrer only: the purchase still needs the confirm below.
+  const [searchParams] = useSearchParams();
+  const referrer = referrerFromSearch(searchParams);
   const [selected, setSelected] = useState<GameMode | null>(null);
   const [writing, setWriting] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
@@ -145,7 +154,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     description: `${m.tiles} tiles`,
     tileCount: m.tiles,
     duration: m.duration,
-    entryFee: !m.paid ? "Free" : feeLabel,
+    // With the economy deployed the Daily is bought in USDC by stake (P8); the price shows in the stake picker.
+    entryFee: !m.paid ? "Free" : economy.client ? "USDC, by stake" : feeLabel,
     tokenLabel: TOKEN_LABEL,
     prizePool: m.mode === "daily" && daily && deployment.tokenDecimals !== null ? formatTokenAmount(daily.prize, deployment.tokenDecimals) : undefined,
     topPlayers: m.mode === "daily" && daily ? podium(daily) : undefined,
@@ -209,6 +219,9 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
             {nameError && <span role="alert" style={{ color: "#fecaca", fontSize: 12 }}>{nameError}</span>}
           </div>
         )}
+        <div style={{ marginTop: 8 }}>
+          <EconomyPanel economy={economy} address={address} origin={window.location.origin} write={write} busy={writing} />
+        </div>
         {status === "ready" && player.data && (
           <div style={{ marginTop: 8 }}>
             <PrizePanel
@@ -293,7 +306,21 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
                   ))}
                 </div>
               )}
+              {selected === "daily" && economy.client && !selectedCard.hasActiveGame && (
+                <EconomyPurchase
+                  client={economy.client}
+                  address={address}
+                  ready={status === "ready" && economy.writer !== null}
+                  referrer={referrer}
+                  onConfirm={(stake, confirmedPrice, ref) => {
+                    // The consent to pay is this click's history state, never the link's URL.
+                    navigate(buildGameRoute({ mode: "daily" }), { state: purchaseIntent(stake, confirmedPrice, ref) });
+                    setSelected(null);
+                  }}
+                />
+              )}
               <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+                {!(selected === "daily" && economy.client && !selectedCard.hasActiveGame) && (
                 <button
                   onClick={handleConfirm}
                   disabled={status !== "ready" || !confirmAllowed}
@@ -316,6 +343,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
                       ? feeLabel === "Unknown token" ? "Unknown token" : "Entry price unavailable"
                       : selectedCard.hasActiveGame ? "Resume Game" : "Start Game"}
                 </button>
+                )}
                 <button
                   onClick={() => setSelected(null)}
                   style={{

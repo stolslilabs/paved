@@ -52,7 +52,7 @@ export function QuestsPage() {
       ) : me.data === null ? (
         <div role="status">You have no player yet: your quests appear after your first game.</div>
       ) : null}
-      <ProgressSections playerId={myId} day={requested === null ? null : id} waiting={waitingForToday} definitions />
+      <ProgressSections playerId={myId} day={requested === null ? null : id} waiting={waitingForToday} definitions label="Your quests" />
       <p style={{ color: "#999", fontSize: 12, margin: 0 }}>
         Counted by the indexer from the games the chain reports. Daily quests start over at 00:00 UTC. Achievement points are for display.
       </p>

@@ -121,7 +121,7 @@ describe("Player page", () => {
       expect(fixture.requests).toContain(`/v1/players/${FIXTURE_ADA}/quests?day=${FIXTURE_TOURNAMENT}`);
       expect(fixture.requests).toContain(`/v1/players/${FIXTURE_ADA}/achievements`);
       expect(fixture.requests).not.toContain("/v1/definitions");
-      expect(region("Your quests").getByText("2,700 / 3,000 points")).toBeTruthy();
+      expect(region("Daily quests").getByText("2,700 / 3,000 points")).toBeTruthy();
       await screen.findByTestId("achievement-points");
       expect(screen.getByTestId("achievement-points").textContent).toBe("Achievement points: 10");
       expect(screen.queryByText("What counts")).toBeNull();
@@ -134,8 +134,8 @@ describe("Player page", () => {
       withViews({ path: `/player/${FIXTURE_BO}` });
       await screen.findByRole("list", { name: "Daily quests" });
       expect(fixture.requests).toContain(`/v1/players/${FIXTURE_BO}/quests?day=${FIXTURE_TOURNAMENT}`);
-      expect(region("Your quests").getByText("0 / 3,000 points")).toBeTruthy();
-      expect(region("Your quests").queryByText(/Completed/)).toBeNull();
+      expect(region("Daily quests").getByText("0 / 3,000 points")).toBeTruthy();
+      expect(region("Daily quests").queryByText(/Completed/)).toBeNull();
       await screen.findByText("Achievement points: 0");
     });
 
@@ -166,13 +166,13 @@ describe("Player page", () => {
       await act(async () => void document.dispatchEvent(new Event("visibilitychange")));
       await screen.findByTestId("progress-lag-stale");
       expect(screen.getByTestId("progress-lag-stale").textContent).toContain("Stale: Quests unavailable: the indexer cannot be reached");
-      expect(region("Your quests").getByText("2,700 / 3,000 points")).toBeTruthy();
+      expect(region("Daily quests").getByText("2,700 / 3,000 points")).toBeTruthy();
     });
 
     it("no reward, prize or claim is shown with the quests", async () => {
       withViews();
       await screen.findByRole("list", { name: "Achievements list" });
-      expect(region("Your quests").queryByText(/reward|prize|claim/i)).toBeNull();
+      expect(region("Daily quests").queryByText(/reward|prize|claim/i)).toBeNull();
       expect(region("Achievements").queryByText(/reward|prize|claim/i)).toBeNull();
     });
   });
