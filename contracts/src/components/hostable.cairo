@@ -16,6 +16,7 @@ pub mod HostableComponent {
     use paved::models::player::{Player, PlayerAssert, PlayerImpl};
     use paved::models::tile::{Tile, TileImpl, TilePosition};
     use paved::models::tournament::{Tournament, TournamentAssert, TournamentImpl};
+    use paved::seed::{DailySeed, SeedSource};
     use paved::store::{Store, StoreImpl};
     use paved::types::mode::{Mode, ModeTrait};
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
@@ -34,6 +35,12 @@ pub mod HostableComponent {
         TContractState, +HasComponent<TContractState>,
     > of InternalTrait<TContractState> {
         fn spawn(self: @ComponentState<TContractState>, mode: Mode) -> (u32, u256) {
+            self.spawn_with(mode, @DailySeed {})
+        }
+
+        fn spawn_with<S, +SeedSource<S>>(
+            self: @ComponentState<TContractState>, mode: Mode, source: @S,
+        ) -> (u32, u256) {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
@@ -48,7 +55,8 @@ pub mod HostableComponent {
             let mut game = GameImpl::new(game_id, time, mode, player.id);
 
             // [Effect] Start game
-            let tile = game.start(time);
+            let seed = source.seed(mode, time, game.id, game.seed);
+            let tile = game.start(time, seed);
 
             // [Effect] Store tile
             store.set_tile(tile);
