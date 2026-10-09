@@ -5,17 +5,17 @@ use core::num::traits::Zero;
 use openzeppelin_interfaces::introspection::ISRC5_ID;
 use openzeppelin_interfaces::token::erc721::{IERC721_ID, IERC721_METADATA_ID};
 use paved::systems::collection::{
-    ICollectionDispatcher, ICollectionDispatcherTrait, IERC721MetadataSoulboundDispatcher,
-    IERC721MetadataSoulboundDispatcherTrait, IERC721SoulboundCamelDispatcher,
-    IERC721SoulboundCamelDispatcherTrait, IERC721SoulboundCamelSafeDispatcher,
-    IERC721SoulboundCamelSafeDispatcherTrait, IERC721SoulboundDispatcher,
-    IERC721SoulboundDispatcherTrait, IERC721SoulboundSafeDispatcher,
+    Collection, ICollectionDispatcher, ICollectionDispatcherTrait,
+    IERC721MetadataSoulboundDispatcher, IERC721MetadataSoulboundDispatcherTrait,
+    IERC721SoulboundCamelDispatcher, IERC721SoulboundCamelDispatcherTrait,
+    IERC721SoulboundCamelSafeDispatcher, IERC721SoulboundCamelSafeDispatcherTrait,
+    IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait, IERC721SoulboundSafeDispatcher,
     IERC721SoulboundSafeDispatcherTrait, ISRC5SoulboundDispatcher, ISRC5SoulboundDispatcherTrait,
     TUTORIAL_OFFSET, metadata,
 };
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
-    stop_cheat_caller_address,
+    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
+    start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
 
@@ -154,7 +154,30 @@ fn minted(world: @World) {
 #[test]
 fn test_collection_mint_by_range() {
     let world = setup();
+    let mut spy = spy_events();
     minted(@world);
+    // The standard Transfer(from: 0, to, token_id), all three fields keys: wallets and the indexer.
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    world.collection,
+                    Collection::Event::Transfer(
+                        Collection::Transfer {
+                            from: Zero::zero(), to: PLAYER(), token_id: DAILY_ID,
+                        },
+                    ),
+                ),
+                (
+                    world.collection,
+                    Collection::Event::Transfer(
+                        Collection::Transfer {
+                            from: Zero::zero(), to: PLAYER(), token_id: TUTORIAL_ID,
+                        },
+                    ),
+                ),
+            ],
+        );
     let erc721 = erc721(@world);
     assert_eq!(erc721.owner_of(DAILY_ID), PLAYER());
     assert_eq!(erc721.owner_of(TUTORIAL_ID), PLAYER());
@@ -268,6 +291,22 @@ fn test_collection_set_minters_zero() {
     start_cheat_caller_address(world.collection, OWNER());
     ICollectionDispatcher { contract_address: world.collection }
         .set_minters(world.daily, Zero::zero());
+}
+
+#[test]
+#[should_panic(expected: 'Collection: zero minter')]
+fn test_collection_set_minters_zero_daily() {
+    let world = deploy();
+    start_cheat_caller_address(world.collection, OWNER());
+    ICollectionDispatcher { contract_address: world.collection }
+        .set_minters(Zero::zero(), world.tutorial);
+}
+
+#[test]
+fn test_collection_constructor_rejects_zero_owner() {
+    let class = declare("Collection").unwrap().contract_class();
+    let error = class.deploy(@array![0]).unwrap_err();
+    assert_eq!(*error.at(0), 'Collection: zero owner');
 }
 
 // Soulbound: every entry point, minted and unminted tokens, owner or not

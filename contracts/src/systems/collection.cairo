@@ -226,6 +226,7 @@ pub mod Collection {
         pub const ALREADY_MINTED: felt252 = 'Collection: already minted';
         pub const ZERO_RECIPIENT: felt252 = 'Collection: zero recipient';
         pub const ZERO_ACCOUNT: felt252 = 'Collection: zero account';
+        pub const ZERO_OWNER: felt252 = 'Collection: zero owner';
         pub const SOULBOUND: felt252 = 'Collection: soulbound';
     }
 
@@ -263,6 +264,7 @@ pub mod Collection {
 
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress) {
+        assert(owner.is_non_zero(), errors::ZERO_OWNER);
         self.owner.write(owner);
     }
 
