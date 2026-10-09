@@ -51,6 +51,12 @@ pub mod elements {
     }
 }
 
+pub mod economy {
+    pub mod ekubo;
+    pub mod token;
+    pub mod vault;
+}
+
 pub mod helpers {
     pub mod bitmap;
     pub mod math;
@@ -95,7 +101,9 @@ pub mod structure {
 }
 
 pub mod mocks {
+    pub mod router;
     pub mod token;
+    pub mod usdc;
     pub mod erc20 {
         pub mod erc20;
         pub mod interface;
@@ -108,6 +116,7 @@ pub mod tests {
     pub mod bench_backend;
     pub mod differential;
     pub mod e2e;
+    pub mod economy;
     pub mod golden;
     pub mod leaderboard;
     pub mod oracle;
