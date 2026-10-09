@@ -10,7 +10,7 @@ whole suite is the CI's job on the pull request, gated by paths. Pre-push hooks 
 
 | Part | Local test command | Peak memory |
 |---|---|---|
-| Contracts (`contracts/`, package `paved`, toolchain pinned by `.tool-versions`) | `snforge test <filter>` with the module path of what changed, e.g. `snforge test paved::types::` | Measure first: `prlimit --as=12884901888 -- /usr/bin/time -v snforge test <filter>` (12 GiB cap) |
+| Contracts (`contracts/`, package `paved`, toolchain pinned by `.tool-versions`) | `snforge test <filter>` with the module path of what changed, e.g. `snforge test paved::types::` | Measure first. Linux: `prlimit --as=12884901888 -- /usr/bin/time -v snforge test <filter>` (12 GiB cap). macOS: `/usr/bin/time -l snforge test <filter>`, no cap (see "On the Mac (P-33)") |
 | Client package `@paved/game-core`, `@paved/chain`, `@paved/renderer`, `@paved/ui`, `@paved/app-web`, `@paved/app-native` | `bun run test --filter <package>` | Measure first |
 
 Exceptions, all in the contracts:
@@ -31,3 +31,15 @@ Memory figures and the VPS/Mac rule:
 - A Cairo run whose measured peak RSS is under about 8 GB may run on the VPS under `--as` = 1.5x its
   measured peak, rounded up, at most 16 GiB. A peak above about 8 GB goes to the Mac. Every peak is
   measured first.
+
+On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the PM's ruling for Paved):
+
+- macOS has no `prlimit`, and `ulimit -v` does not limit memory. A Cairo build or test run on the Mac
+  has no address-space cap.
+- Measure every Cairo build or test run with `/usr/bin/time -l`. The peak is the line "maximum resident
+  set size", in bytes.
+- If a run's peak passes 16 GB, stop it and report.
+- Paved runs at most 2 heavy Cairo runs at once on the Mac. The organisation runs at most 4 across
+  programmes. Read `machine-capacity mac` before starting one.
+- Record the peak in each PR.
+- Committed figures stay measured on Linux (CI or VPS): gas, pins, baselines.
