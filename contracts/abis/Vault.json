@@ -1,0 +1,262 @@
+[
+  {
+    "type": "impl",
+    "name": "VaultImpl",
+    "interface_name": "paved::economy::vault::IVault"
+  },
+  {
+    "type": "struct",
+    "name": "core::integer::u256",
+    "members": [
+      {
+        "name": "low",
+        "type": "core::integer::u128"
+      },
+      {
+        "name": "high",
+        "type": "core::integer::u128"
+      }
+    ]
+  },
+  {
+    "type": "interface",
+    "name": "paved::economy::vault::IVault",
+    "items": [
+      {
+        "type": "function",
+        "name": "stake",
+        "inputs": [
+          {
+            "name": "amount",
+            "type": "core::integer::u256"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "unstake",
+        "inputs": [
+          {
+            "name": "amount",
+            "type": "core::integer::u256"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "claim",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "pending",
+        "inputs": [
+          {
+            "name": "account",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "staked",
+        "inputs": [
+          {
+            "name": "account",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "total_staked",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "acc",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "accounted",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::integer::u256"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "tokens",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "(core::starknet::contract_address::ContractAddress, core::starknet::contract_address::ContractAddress)"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "constructor",
+    "name": "constructor",
+    "inputs": [
+      {
+        "name": "paved",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "usdc",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::vault::Vault::Staked",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "account",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "total_staked",
+        "type": "core::integer::u256",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::vault::Vault::Unstaked",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "account",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "total_staked",
+        "type": "core::integer::u256",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::vault::Vault::Claimed",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "account",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "key"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::vault::Vault::Distributed",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "amount",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "acc",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "total_staked",
+        "type": "core::integer::u256",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::economy::vault::Vault::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "Staked",
+        "type": "paved::economy::vault::Vault::Staked",
+        "kind": "nested"
+      },
+      {
+        "name": "Unstaked",
+        "type": "paved::economy::vault::Vault::Unstaked",
+        "kind": "nested"
+      },
+      {
+        "name": "Claimed",
+        "type": "paved::economy::vault::Vault::Claimed",
+        "kind": "nested"
+      },
+      {
+        "name": "Distributed",
+        "type": "paved::economy::vault::Vault::Distributed",
+        "kind": "nested"
+      }
+    ]
+  }
+]
