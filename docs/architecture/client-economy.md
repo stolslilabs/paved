@@ -2,48 +2,69 @@
 
 How the web client buys a paid Daily game in USDC, settles it after the day, and stakes PAVED in the Vault. The
 contract side is `economy.md` (ruled by the PM: P-31); the data layer and its payment rules are
-`client-data-layer.md`. The code is `packages/chain/src/economy/` (this document's part a) and the economy panels of
+`client-data-layer.md`. The code is `packages/chain/src/economy/` (this document's part a) and the economy panels and the `/economy` page of
 `packages/app-web` (part b, below).
 
 **Nothing is deployed beyond devnet** (economy.md). Every deployment today lacks the economy's addresses, so the
 client's economy is **not configured** everywhere and the screens say so; nothing is read or sent.
 
-## What runs on a stub until CORE's E2 and E3
+## What is real now, what waits for E3
+
+E2 is merged (#262, 2256724): `Economy` is the committed `contracts/abis/Economy.json`. E3 (Economy wired into Lobby and
+Daily, the paid `Daily.spawn`, MockUSDC in the deploy) is still running on CORE, so two stubs remain, marked in
+`economy/stub-abi.ts`.
 
 | Piece | Source today | Real source | What to do when it lands |
 |---|---|---|---|
-| `Economy` ABI: `quote`, `day`, `terms`, `settle`, events `Purchased`, `Recorded`, `DayClosed`, `Settled` | **STUB** `economy/stub-abi.ts`: `Quote` and `TermsView` as CORE gave them from E2's branch (#262 head 0cbb1a5); `Quote.slope`, `Quote.cap`, `DayView`, the events and `quote_swap` (P-35) from economy.md section 6 and CORE's messages; final names come after CORE's fix-loop review | `contracts/abis/Economy.json` (E2, #262), authoritative once merged | import it in `abis.ts`, delete the stub, fix `ECONOMY_VIEW_FIELDS` where `test/economy.test.ts` fails |
+| `Economy` ABI | **Real**: `contracts/abis/Economy.json`, imported by `abis.ts`. `test/economy.test.ts` compares `ECONOMY_VIEW_FIELDS` with it | | |
+| `PavedToken`, `Vault` | **Real** (E1, #260) | | |
+| `Economy.quote_swap(usdc_in) -> paved_out` (P-35) | **Real**: `EconomyPoolQuoter` is on (`POOL_QUOTE_CONFIRMED = true`) | | |
 | `Daily.spawn(stake, referrer, min_out)` | **STUB** `STUB_DAILY_PAID_ABI`: the real `Daily` ABI with that one entry replaced | `contracts/abis/Daily.json` (E3) | the test "the real Daily ABI still has none" fails on E3's ABI: drop `DailyPaid`, encode with `Daily` |
 | USDC (`approve`, `balance_of`, `allowance`) | **STUB** `STUB_USDC_ABI` | the MockUSDC ABI (E3's devnet deploy) | import it |
-| `PavedToken`, `Vault` | CORE's real ABIs (E1, #260) | | |
-| Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json`, as CORE confirmed (USDC off devnet, MockUSDC on devnet); or the env | E3's `devnet.json` | |
-| Reads in unit tests | `FakeEconomy` (`economy/fake.ts`), **tests only**: not exported from `@paved/chain`, imported by path | | |
+| Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json` (USDC off devnet, MockUSDC on devnet); or the env | E3's `devnet.json` | |
+| Reads in unit tests | `FakeEconomy`, `FakePoolQuoter`, `fakeTerms`: **tests only**, exported from `@paved/chain/testing` (not from `@paved/chain`) | | |
 
-`ECONOMY_ABI_IS_STUB` is true while any stub remains; the screens print "Economy contracts on stub ABIs (E2 not
-merged)" from it.
+`ECONOMY_ABI_IS_STUB` is true while the paid spawn or USDC is a stub; the economy panel prints "Economy is live on its
+real ABI; the paid spawn and USDC are stubs until E3, so purchases are not possible yet" from it.
 
-What CORE confirmed from E2's branch (2026-10-09):
+**Purchases are impossible in practice until E3**, because the paid spawn is a stub and no deployment has USDC. The pool
+quoter is real, but the writer still refuses a missing, failed or zero quote ("No pool quote: nothing was sent").
 
-- `Quote.min_out_hint` is **an estimate only** (correction from CORE, superseding its first answer): at launch it sits
-  above what the swap returns, because its rate leaves the pool fee out, so a purchase sent with it would revert. The
-  client never sends it as `min_out` and never shows it as a price.
-- **The pool quote (P-35)** is one `Economy` view, `quote_swap(usdc_in) -> paved_out`, fee included (forwarded to the
-  MockRouter on devnet; on mainnet it may be devnet-only, and Ekubo's public quote API used instead, as economy.md will
-  say). The client reads it behind one interface, `PoolQuoter` (`economy/pool.ts`), so that a second implementation can
-  be added. `EconomyPoolQuoter` calls the stub's `quote_swap`, but it stays **switched off** (`POOL_QUOTE_CONFIRMED =
-  false`) until a merged ABI has it: until then no client has a quoter, and every purchase is refused with "No pool
-  quote: nothing was sent". `FakePoolQuoter` is for tests only.
-- **P-34**: a paid game expires 24 h after its purchase (`expiresAt`, from its spawn's chain `start_time`); an expired
-  game gets no reward and enters no mean, and is never recorded. Day D settles only after D+1 ends (`settlesAfter(D) =
-  (D + 2) x 86400`, from the chain's day id). Until a day closes, `day()` answers a zero `mean`, `sum` and `weight`:
-  never shown as figures. The screens show `Quote.mean` and `Quote.threshold` as "the current reference; the day's own
-  mean is known only at settlement", and no projected reward.
+What E2 changed from the stub, and what the client does with it:
+
+- `Quote.min_out_hint` is **an estimate only**: it sits above what the swap returns, because its rate leaves the pool fee
+  out, so a purchase sent with it would revert. The client never sends it as `min_out` and never shows it as a price.
+  `min_out` comes from `quote_swap` (fee included, a pool read), less 1 % (at most 5 %).
+- `quote_swap` takes and returns a `u256` (two felts, low then high). `EconomyPoolQuoter` encodes and decodes them with
+  the ABI's codec; a result of another width is a `ViewError`, not a misread figure.
+- `Recorded` carries `expired` and no `in_day` (P-34); `record(game_id, score)` has no `in_day`.
+- `terms()` adds `time` (the purchase's block time) and `expired`; `day = time / 86400`. `recorded` is true for an
+  expired game too (it is recorded, flagged expired): an expired game gets no reward and enters no mean.
+- `sigma_bps` is a real `i16`: the codec decodes and encodes signed integers (`i8` to `i128`, a negative value is
+  `P - |v|`, a felt outside the type is refused), and `RpcEconomyViews.terms` no longer reads it through a felt.
+- Widths: `DayView.weight` is a `u32`; `Settled` is `game_id`, `player_id`, `day` u64, `score` u32, `threshold` u64,
+  `reward` u128 (one felt each; the stub had a `u256` reward and a `u32` threshold). A test decodes it at those widths.
+- **P-34**: a paid game expires 24 h after its purchase. Day D settles only after D+1 ends (`settlesAfter(D) = (D + 2) x
+  86400`). Until a day closes, `day()` answers a zero `mean`, `sum` and `weight`: never shown as figures. The screens show
+  `Quote.mean` and `Quote.threshold` as "the current reference; the day's own mean is known only at settlement", and no
+  projected reward.
 - `TermsView.stake` is 0 for a Daily game that was not bought, with `recorded` and `settled` false.
-- Widths: `Quote` amounts `u256`, `factor` `u32` (bps), `mean` and `threshold` `u64` (points x 1,000); `TermsView` is
-  `player`, `day` u64, `stake` u8, `reference` u128, `sigma_bps` i16, `slope_bps` u32, `cap` u8, `score` u32, `recorded`,
-  `settled`, `reward` u128. `quote(stake)` asserts `1 <= stake <= MAX_STAKE`; the price is `stake x 2 USDC`.
-- The codec decodes no signed integer, so the stub declares `sigma_bps` as a `felt252` and `RpcEconomyViews` reads it as
-  an `i16`. With the real ABI, the codec needs `i16` (`codec.ts`, outside this task's files) or the same workaround.
+
+Errors of the Economy shown as clear states (`economy/writer.ts`, matched in the revert reason as text or as the hex of
+the short string):
+
+| Contract reason | State | Why |
+|---|---|---|
+| `Economy: swap below min_out` (purchase) | `SwapBelowMinOutError`: "The price moved before your purchase went through: nothing was charged. Try again." | The approve, the transfers and the swap are one multicall, and a revert undoes it whole: no funds move. The player confirms again at the new price |
+| `Economy: day cannot close yet` (settle) | `SettleTooEarlyError`: "This day cannot be settled yet: try again after the next day ends." | The contract settles day D at `(D + 2) x 86400`; the writer already refuses earlier from the latest block's time, so this is the race at the border |
+
+An expired game says "Expired: no reward" in the "after the day" list (`terms().expired`, or never recorded 24 h after
+its purchase); `settle` refuses it before sending.
+
+Referrers: a `?ref=` must be a non-zero hex address below `2^251 - 256` (`ADDRESS_BOUND`, itself below the felt prime);
+a value out of range counts as no referrer, as does a malformed one. The writer applies the same bound to what it sends.
+The purchase waits for the referrer's registration read, and a referrer who is not a registered player is shown as
+ignored and not sent.
 
 ## Deployment
 
@@ -139,22 +160,30 @@ The payment rules of `client-data-layer.md` hold for each paying action:
 
 ## Tests
 
-- `packages/chain/test/economy.test.ts`: the stubs and their field lists, the arithmetic (BigInt, 2k USDC, boost,
+- `packages/chain/test/economy.test.ts`: the ABIs and the field lists against `Economy.json`, `quote_swap`'s u256 in and out, the error states, the referrer bound, the arithmetic (BigInt, 2k USDC, boost,
   5 %, `min_out`), the deployment, each write's calls and each refusal with nothing sent, the serialisation, the views'
   decoding.
 - `packages/app-web/__tests__/economy-screens.test.tsx` (jsdom, `FakeEconomy`): the picker's price and boost, the
   explicit confirm and its history state, the referrer shown and the same price, self-referral, a failed read and a
   quote that disagrees, the not-deployed state, the Vault confirms and a changed amount, the settle list and confirm, the
   cliff text.
+- `packages/chain/test/codec.test.ts`: signed integers.
+- `packages/app-web/__tests__/economy-screens.test.tsx` also covers the `/economy` page, the expired state, a non-registered and a loading referrer, the `?ref=` bound and `spawnForIntent`.
 - `packages/app-web/__tests__/economy-game-start.test.tsx`: the game page buys from the state only, after clearing it;
   a changed price, a URL alone and a malformed state send nothing.
 
 No browser run (jsdom only). Nothing has run against a live economy: no deployment has one yet.
 
-## What waits for E2 and E3
+## The page
 
-- The real `Economy.json`, the paid `Daily.spawn` and the MockUSDC ABI replace the stubs (table at the top); the
-  deployments file gains the addresses, and the economy becomes configured on devnet by itself.
+`/economy` (`pages/Economy.tsx`) shows the purchase, the Vault, the "after the day" list and the referral link as one
+page; the Landing keeps its own entry points and links to it. The purchase is only confirmed on the page: its consent is
+the history state to the game page, which sends it, as from the Landing.
+
+## What waits for E3
+
+- The paid `Daily.spawn` and the MockUSDC ABI replace the two stubs (table at the top); the deployments file gains the
+  addresses, and the economy becomes configured on devnet by itself.
 - Then: a devnet run of a purchase with MockUSDC, a settlement on a later day and the Vault (`PAVED_E2E`), and the
   Daily's old free-token confirm removed (after E3 `Daily.spawn` takes the stake, so `PavedWriter.spawn("daily")` must
   go).

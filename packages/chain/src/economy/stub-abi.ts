@@ -1,27 +1,16 @@
-// STUB ABIs of the economy (P8), written by CLIENT from `docs/architecture/economy.md` until CORE commits the
-// real ones. Every entry here is a stub: delete it when its real ABI lands, and let the field-list test
-// (`test/economy.test.ts`) say what changed.
+// STUB ABIs of what E3 has not merged (P8). `Economy` is no longer here: it is the real `contracts/abis/Economy.json`
+// (E2, #262). Every entry left is a stub: delete it when its real ABI lands, and let `test/economy.test.ts` say so.
 //
-// - `Economy`: waits for E2 (`contracts/abis/Economy.json`, #262). Shapes and integer widths from CORE's answer on
-//   E2's branch (#262 head 0cbb1a5, 2026-10-09); `Quote.slope` and `Quote.cap` were not in that answer and stay guesses.
-//   One deliberate difference: `TermsView.sigma_bps` is an `i16` in E2, declared `felt252` here because the codec
-//   decodes no signed integer; `RpcEconomyViews` reads it as signed.
-//   P-34 (E2's fix loop): `day()` answers a zero mean, sum and weight until the day closes, never shown as figures;
-//   day D settles after D+1 ends; a paid game expires 24 h after its purchase. P-35: `quote_swap(usdc_in) ->
-//   paved_out` (the pool's quote, fee included; MockRouter on devnet) is a STUB too, switched off
-//   (`POOL_QUOTE_CONFIRMED` in `pool.ts`) until a merged ABI has it. CORE sends the final names after its review.
 // - `USDC`: waits for the MockUSDC ABI (E3's devnet deploy). The ERC20 subset the client calls.
 // - `DailyPaid`: `Daily` with E3's `spawn(stake, referrer, min_out)`; only that call uses it.
 import dailyAbi from "../../../../contracts/abis/Daily.json";
 import type { Abi, AbiEntry } from "../codec";
 
-/** True for every ABI of this file: the screens say that the economy runs on a stub. */
+/** True while the paid spawn and USDC are stubs (E3): the screens say that purchases are not live yet. */
 export const ECONOMY_ABI_IS_STUB = true;
 
 const U8 = "core::integer::u8";
-const FELT = "core::felt252";
 const U32 = "core::integer::u32";
-const U64 = "core::integer::u64";
 const U128 = "core::integer::u128";
 const U256 = "core::integer::u256";
 const BOOL = "core::bool";
@@ -41,80 +30,7 @@ const struct = (name: string, members: Array<[string, string]>): AbiEntry => ({
   members: members.map(([n, type]) => ({ name: n, type })),
 });
 
-const event = (name: string, keys: Array<[string, string]>, data: Array<[string, string]>): AbiEntry => ({
-  type: "event",
-  name: `paved::economy::economy::Economy::${name}`,
-  kind: "struct",
-  members: [
-    ...keys.map(([n, type]) => ({ name: n, type, kind: "key" })),
-    ...data.map(([n, type]) => ({ name: n, type, kind: "data" })),
-  ],
-});
-
 const U256_STRUCT = struct(U256, [["low", U128], ["high", U128]]);
-
-/** STUB of `contracts/abis/Economy.json` (E2). */
-export const STUB_ECONOMY_ABI: Abi = [
-  U256_STRUCT,
-  struct("paved::economy::views::Quote", [
-    ["price", U256], // USDC base units: k x entry_price().amount
-    ["burn_quote", U256], // q, the USDC swapped and burned
-    ["referral", U256], // what a referrer would get (from the margin)
-    ["margin", U256], // to the Vault, without a referrer
-    ["min_out_hint", U256], // an estimate only, above the swap's output at launch (no pool fee): never sent, never shown
-    ["factor", U32], // F, bps
-    ["mean", U64], // points x 1,000
-    ["threshold", U64], // points x 1,000: below it the whole stake is lost
-    ["slope", U32], // c, bps (guess)
-    ["cap", U32], // H (guess)
-  ]),
-  struct("paved::economy::views::DayView", [
-    ["prior", U64],
-    ["sum", U128], // 0 until the day closes: never shown
-    ["weight", U64], // 0 until the day closes: never shown
-    ["mean", U64], // points x 1,000; 0 until the day closes: never shown
-    ["closed", BOOL],
-  ]),
-  struct("paved::economy::views::TermsView", [
-    ["player", ADDRESS],
-    ["day", U64],
-    ["stake", U8], // 0 for a game that was not bought (recorded and settled false then)
-    ["reference", U128], // R, PAVED base units
-    ["sigma_bps", FELT], // i16 in E2 (see the header)
-    ["slope_bps", U32],
-    ["cap", U8],
-    ["score", U32],
-    ["recorded", BOOL], // the game is over and its score is in
-    ["settled", BOOL],
-    ["reward", U128], // PAVED minted at settlement; 0 below the threshold
-  ]),
-  {
-    type: "interface",
-    name: "paved::economy::economy::IEconomy",
-    items: [
-      fn("quote", [["stake", U8]], ["paved::economy::views::Quote"], true),
-      fn("day", [["day", U64]], ["paved::economy::views::DayView"], true),
-      fn("terms", [["game_id", U32]], ["paved::economy::views::TermsView"], true),
-      fn("quote_swap", [["usdc_in", U256]], [U256], true),
-      fn("settle", [["game_ids", `core::array::Span::<${U32}>`]], [], false),
-    ],
-  },
-  event(
-    "Purchased",
-    [["game_id", U32], ["player_id", "core::felt252"]],
-    [
-      ["day", U64], ["stake", U8], ["price", U256], ["referrer", ADDRESS], ["referral", U256], ["burned_quote", U256],
-      ["burned", U256], ["margin", U256], ["supply", U256], ["factor", U32], ["reference", U256],
-    ],
-  ),
-  event("Recorded", [["game_id", U32]], [["score", U32], ["in_day", BOOL]]),
-  event("DayClosed", [["day", U64]], [["mean", U64], ["weight", U64], ["prior", U64], ["ema_after", U64]]),
-  event(
-    "Settled",
-    [["game_id", U32], ["player_id", "core::felt252"]],
-    [["day", U64], ["score", U32], ["threshold", U32], ["reward", U256]],
-  ),
-];
 
 /** STUB of the MockUSDC ABI (E3): the ERC20 entries the client calls. */
 export const STUB_USDC_ABI: Abi = [

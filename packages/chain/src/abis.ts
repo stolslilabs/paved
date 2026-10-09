@@ -3,8 +3,9 @@ import dailyAbi from "../../../contracts/abis/Daily.json";
 import tutorialAbi from "../../../contracts/abis/Tutorial.json";
 import tokenAbi from "../../../contracts/abis/Token.json";
 import pavedTokenAbi from "../../../contracts/abis/PavedToken.json";
+import economyAbi from "../../../contracts/abis/Economy.json";
 import vaultAbi from "../../../contracts/abis/Vault.json";
-import { STUB_DAILY_PAID_ABI, STUB_ECONOMY_ABI, STUB_USDC_ABI } from "./economy/stub-abi";
+import { STUB_DAILY_PAID_ABI, STUB_USDC_ABI } from "./economy/stub-abi";
 import { AbiCodec, type Abi } from "./codec";
 
 /** The four native contracts, as named in `contracts/abis/` and in the deployments file. */
@@ -32,14 +33,14 @@ export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
 // optional until CORE deploys them, so a deployment without them keeps working (`economy/deployment.ts`).
 
 /**
- * `PavedToken` and `Vault` are CORE's real ABIs (E1, #260). `Economy` and `USDC` are **STUBS** until E2/E3
- * commit `contracts/abis/Economy.json` and the MockUSDC ABI; `DailyPaid` is `Daily` with the paid `spawn` of
- * E3 (**STUB**), used for that one call. See `economy/stub-abi.ts`.
+ * `PavedToken` and `Vault` (E1, #260) and `Economy` (E2, #262) are CORE's real ABIs. `USDC` is a **STUB** until E3
+ * commits the MockUSDC ABI; `DailyPaid` is `Daily` with the paid `spawn` of E3 (**STUB**), used for that one call.
+ * See `economy/stub-abi.ts`.
  */
 export type EconomyContractName = "Economy" | "PavedToken" | "Vault" | "USDC" | "DailyPaid";
 
 export const ECONOMY_ABIS: Record<EconomyContractName, Abi> = {
-  Economy: STUB_ECONOMY_ABI,
+  Economy: economyAbi as Abi,
   PavedToken: pavedTokenAbi as Abi,
   Vault: vaultAbi as Abi,
   USDC: STUB_USDC_ABI,

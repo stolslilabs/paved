@@ -1,5 +1,5 @@
-// FOR UNIT TESTS ONLY. Not exported from `@paved/chain`: tests import it by path (`@paved/chain/economy/fake` in
-// app-web's tests, whose alias points at the sources). No app code may import it.
+// FOR UNIT TESTS ONLY. Not exported from `@paved/chain`: tests import it from `@paved/chain/testing`, the entry for
+// test doubles. No app code may import it.
 import { ViewError } from "../views";
 import { BPS, isStake, minOutFor, priceOf, referralOf } from "./amounts";
 import type { PoolQuoter } from "./pool";
@@ -10,15 +10,17 @@ export const FAKE_UNIT = 2_000_000n;
 
 /** What `terms` answers for a game that was not bought (E2). */
 const notBought: TermsView = {
-  player: "0x0", day: 0, stake: 0, reference: 0n, sigmaBps: 0, slopeBps: 0, cap: 0, score: 0, recorded: false, settled: false, reward: 0n,
+  player: "0x0", time: 0, day: 0, stake: 0, reference: 0n, sigmaBps: 0, slopeBps: 0, cap: 0, score: 0, recorded: false, expired: false, settled: false, reward: 0n,
 };
 
 /** A bought game's terms, for tests: the given fields over plausible defaults. */
 export function fakeTerms(fields: Partial<TermsView>): TermsView {
-  return { ...notBought, stake: 1, reference: 10n ** 18n, slopeBps: 18_130, cap: 5, recorded: true, ...fields };
+  // `time` is the purchase's block time: the start of its `day` unless given (as the contract: `day = time / 86400`).
+  const day = fields.day ?? 0;
+  return { ...notBought, time: day * 86_400, stake: 1, reference: 10n ** 18n, slopeBps: 18_130, cap: 5, recorded: true, ...fields };
 }
 
-/** In-memory economy views with the stub's shapes. `fail` makes every read throw, as an RPC down. */
+/** In-memory economy views with E2's shapes. `fail` makes every read throw, as an RPC down. */
 export class FakeEconomy implements EconomyViews {
   unit = FAKE_UNIT;
   /** PAVED per USDC base unit the fake router quotes, as a ratio. */

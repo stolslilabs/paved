@@ -1,8 +1,9 @@
+import { shortString } from "starknet";
 import type { EconomyCodecs, EconomyContractName } from "../abis";
 import { sameAddress, toHex, type Encodable } from "../codec";
 import type { GameViews, PriceView } from "../views";
 import { WriteError, type Call, type PavedWriter, type WriteResult } from "../writer";
-import { DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, isStake, minOutFor, priceOf, settlesAfter } from "./amounts";
+import { ADDRESS_BOUND, DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, expiresAt, isStake, minOutFor, priceOf, settlesAfter } from "./amounts";
 import type { PoolQuoter } from "./pool";
 import type { EconomyDeployment } from "./deployment";
 import type { EconomyViews, QuoteView, TermsView } from "./views";
@@ -24,6 +25,42 @@ export class PurchaseOutcomeUnknownError extends WriteError {
     super(`Purchase sent (${transactionHash}), outcome unknown: check your games before buying again`, transactionHash);
     this.name = "PurchaseOutcomeUnknownError";
   }
+}
+
+const BELOW_MIN_OUT = "Economy: swap below min_out";
+const TOO_EARLY = "Economy: day cannot close yet";
+
+/** True when a revert reason names `reason`: as text, or as the hex of the short string the node may return. */
+function names(revert: string, reason: string): boolean {
+  return revert.includes(reason) || revert.toLowerCase().includes(shortString.encodeShortString(reason).toLowerCase());
+}
+
+/**
+ * The purchase reverted because the swap paid less than `min_out`: the pool's price moved between the quote and the
+ * block. A revert moves no funds (the approve, the transfers and the swap are one transaction), so nothing was
+ * charged; the player can confirm again at the new price.
+ */
+export class SwapBelowMinOutError extends WriteError {
+  constructor(transactionHash?: string) {
+    super("The price moved before your purchase went through: nothing was charged. Try again.", transactionHash, true);
+    this.name = "SwapBelowMinOutError";
+  }
+}
+
+/** Settle refused by the contract: the game's day cannot be settled yet (it settles after the next day ends). */
+export class SettleTooEarlyError extends WriteError {
+  constructor(transactionHash?: string) {
+    super("This day cannot be settled yet: try again after the next day ends.", transactionHash, true);
+    this.name = "SettleTooEarlyError";
+  }
+}
+
+/** A known revert of the Economy as its clear state; any other error unchanged. */
+function economyRevert(error: unknown): unknown {
+  if (!(error instanceof WriteError) || !error.reverted) return error;
+  if (names(error.message, BELOW_MIN_OUT)) return new SwapBelowMinOutError(error.transactionHash);
+  if (names(error.message, TOO_EARLY)) return new SettleTooEarlyError(error.transactionHash);
+  return error;
 }
 
 /** A Vault amount at send is not the one the player confirmed: nothing was sent. */
@@ -103,7 +140,7 @@ export class EconomyWriter {
       // Sent, but its receipt could not be read (timeout, RPC drop): the USDC may have moved. Not a failure, unlike a
       // revert, which is a known one.
       if (error instanceof WriteError && error.transactionHash && !error.reverted) throw new PurchaseOutcomeUnknownError(error.transactionHash);
-      throw error;
+      throw economyRevert(error);
     }
     const spawned = result.events.find((e) => e.name === "GameSpawned");
     if (!spawned) throw new PurchaseOutcomeUnknownError(result.transactionHash);
@@ -150,11 +187,19 @@ export class EconomyWriter {
   /**
    * Settles bought Daily games once their day may be settled, after the end of the next day (P-34): the contract
    * mints each one's reward to its player (`R x h(score / mean)`, 0 below the day's shifted mean). This is the
-   * player's claim of PAVED; anyone may settle. A game not bought, not recorded (not over, or expired: no reward) or
+   * player's claim of PAVED; anyone may settle. A game not bought, not recorded (not over), expired (no reward) or
    * already settled, or whose day settles after the latest block's time (`settlesAfter`, from the chain's day id),
    * sends nothing.
    */
-  settle(gameIds: number[]): Promise<WriteResult> {
+  async settle(gameIds: number[]): Promise<WriteResult> {
+    try {
+      return await this.sendSettle(gameIds);
+    } catch (error) {
+      throw economyRevert(error);
+    }
+  }
+
+  private sendSettle(gameIds: number[]): Promise<WriteResult> {
     return this.options.writer.sendCalls(async () => {
       gameIds = [...new Set(gameIds)];
       if (gameIds.length === 0) throw new WriteError("No game to settle");
@@ -174,8 +219,9 @@ export class EconomyWriter {
         const id = gameIds[i];
         if (terms.stake === 0) throw new WriteError(`Game ${id} was not bought: nothing to settle`);
         if (terms.settled) throw new WriteError(`Game ${id} is already settled`);
-        // An expired game (24 h after its purchase, P-34) is never recorded: no reward, no mean.
-        if (!terms.recorded) throw new WriteError(`Game ${id} is not over, or expired: no reward`);
+        // An expired game (recorded 24 h or more after its purchase, or never recorded, P-34) gets no reward and has no mean.
+        if (terms.expired || (!terms.recorded && now >= expiresAt(terms.time))) throw new WriteError(`Game ${id} is expired: no reward`);
+        if (!terms.recorded) throw new WriteError(`Game ${id} is not over yet`);
         const after = settlesAfter(terms.day);
         if (now < after) throw new WriteError(`Game ${id} settles after ${new Date(after * 1000).toISOString()}`);
       });
@@ -258,7 +304,7 @@ function referrerOf(referrer: string | null, self: string): string {
   } catch {
     throw new WriteError(`Not a referrer address: ${referrer}`);
   }
-  if (value < 0n || value >= 1n << 251n) throw new WriteError(`Not a referrer address: ${referrer}`);
+  if (value < 0n || value >= ADDRESS_BOUND) throw new WriteError(`Not a referrer address: ${referrer}`);
   return value === 0n || sameAddress(value, self) ? "0x0" : toHex(value);
 }
 

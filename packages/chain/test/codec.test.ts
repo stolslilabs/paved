@@ -122,3 +122,51 @@ describe("tolerance to ABI growth (CORE's hardening adds entries and events)", (
     expect(grown.decodeEvent({ keys: [selector, "0x3"], data: ["0xabc", "0x4", "0x2", "0x0"] })?.fields).toMatchObject({ gameId: 3, tileId: 4 });
   });
 });
+
+describe("signed integers (i8 to i128): a negative value -v is the felt P - v", () => {
+  const P = (1n << 251n) + 17n * (1n << 192n) + 1n;
+  const hex = (v: bigint) => `0x${v.toString(16)}`;
+  const fn = (name: string, type: string) => ({
+    type: "function", name, inputs: [{ name: "v", type }], outputs: [{ type }], state_mutability: "view",
+  });
+  const codec = new AbiCodec([
+    fn("a", "core::integer::i8"), fn("b", "core::integer::i16"), fn("c", "core::integer::i64"), fn("d", "core::integer::i128"),
+    {
+      type: "struct", name: "S", members: [{ name: "sigma_bps", type: "core::integer::i16" }, { name: "n", type: "core::integer::u8" }],
+    },
+    { type: "function", name: "s", inputs: [], outputs: [{ type: "S" }], state_mutability: "view" },
+  ]);
+
+  test("decodes i16 on both sides of zero, at its bounds", () => {
+    const cases: Array<[bigint, number]> = [[0n, 0], [500n, 500], [32_767n, 32_767], [P - 500n, -500], [P - 1n, -1], [P - 32_768n, -32_768]];
+    for (const [felt, value] of cases) expect(codec.decodeResult("b", [hex(felt)])).toBe(value);
+  });
+
+  test("refuses a felt outside the type, rather than wrapping or reading it as a huge number", () => {
+    expect(() => codec.decodeResult("b", [hex(32_768n)])).toThrow(/not an i16/);
+    expect(() => codec.decodeResult("b", [hex(P - 32_769n)])).toThrow(/not an i16/);
+    expect(() => codec.decodeResult("a", [hex(128n)])).toThrow(/not an i8/);
+    expect(codec.decodeResult("a", [hex(P - 128n)])).toBe(-128);
+  });
+
+  test("wide ones: i64 stays a number while safe, i128 is a bigint past 2^53", () => {
+    expect(codec.decodeResult("c", [hex(P - 5n)])).toBe(-5);
+    expect(codec.decodeResult("d", [hex(P - (1n << 100n))])).toBe(-(1n << 100n));
+    expect(codec.decodeResult("d", [hex((1n << 127n) - 1n)])).toBe((1n << 127n) - 1n);
+    expect(() => codec.decodeResult("d", [hex(1n << 127n)])).toThrow(/not an i128/);
+  });
+
+  test("encodes negative values as P - v, and refuses out-of-range ones", () => {
+    expect(codec.encodeCall("b", [-500])).toEqual([hex(P - 500n)]);
+    expect(codec.encodeCall("b", [500])).toEqual(["0x1f4"]);
+    expect(codec.encodeCall("b", [-32_768])).toEqual([hex(P - 32_768n)]);
+    expect(() => codec.encodeCall("b", [32_768])).toThrow(RangeError);
+    expect(() => codec.encodeCall("b", [-32_769])).toThrow(RangeError);
+    expect(codec.encodeCall("d", [-(1n << 127n)])).toEqual([hex(P - (1n << 127n))]);
+  });
+
+  test("round trips, and decodes inside a struct", () => {
+    for (const v of [-32_768, -1, 0, 1, 32_767]) expect(codec.decodeResult("b", codec.encodeCall("b", [v]))).toBe(v);
+    expect(codec.decodeResult("s", [hex(P - 7n), "0x3"])).toEqual({ sigmaBps: -7, n: 3 });
+  });
+});

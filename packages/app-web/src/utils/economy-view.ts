@@ -1,4 +1,4 @@
-import { PAVED_DECIMALS, PAVED_LABEL, USDC_DECIMALS, USDC_LABEL, expiresAt, formatUnits, settlesAfter } from "@paved/chain";
+import { ADDRESS_BOUND, PAVED_DECIMALS, PAVED_LABEL, USDC_DECIMALS, USDC_LABEL, expiresAt, formatUnits, settlesAfter } from "@paved/chain";
 import type { TermsView } from "@paved/chain";
 
 /** The cliff, said as it is (D-10, P-31). Shown at the purchase and after the day. */
@@ -10,11 +10,16 @@ export const paved = (amount: bigint) => `${formatUnits(amount, PAVED_DECIMALS, 
 /** The query key of a referral link: `/?ref=0x...`. */
 export const REFERRAL_PARAM = "ref";
 
-/** A referrer from a link's `ref`: a non-zero hex address, or null. It never carries a consent or an amount. */
+/**
+ * A referrer from a link's `ref`: a non-zero hex address below the address bound (`2^251 - 256`, itself below the
+ * felt prime), or null. A value out of range counts as no referrer: it is never shown nor sent. It never carries a
+ * consent or an amount.
+ */
 export function referrerFromSearch(search: URLSearchParams): string | null {
   const value = search.get(REFERRAL_PARAM);
   if (!value || !/^0x[0-9a-fA-F]{1,64}$/.test(value)) return null;
-  return BigInt(value) === 0n ? null : `0x${BigInt(value).toString(16)}`;
+  const referrer = BigInt(value);
+  return referrer === 0n || referrer >= ADDRESS_BOUND ? null : `0x${referrer.toString(16)}`;
 }
 
 /** The player's own referral link. */
@@ -46,9 +51,11 @@ export type SettleState =
 
 export function settleState(terms: TermsView, purchasedAt: number, nowSeconds: number): SettleState {
   if (terms.settled) return { kind: "settled", reward: terms.reward };
-  // `recorded`: the Economy has the game's final score (E2). An expired game is never recorded.
+  // `expired`: recorded 24 h or more after the purchase (P-34): no reward. A game still unrecorded past that time is
+  // expired too, whenever it is recorded. `recorded` alone: the Economy has the game's final score (E2).
+  if (terms.expired) return { kind: "expired" };
   if (!terms.recorded) {
-    const expiry = expiresAt(purchasedAt);
+    const expiry = expiresAt(terms.time > 0 ? terms.time : purchasedAt);
     return nowSeconds < expiry ? { kind: "playing", expiresAt: expiry } : { kind: "expired" };
   }
   const after = settlesAfter(terms.day);

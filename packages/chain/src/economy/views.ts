@@ -3,7 +3,7 @@ import type { Encodable } from "../codec";
 import { ViewError, toViewError, type CallProvider } from "../views";
 import type { EconomyDeployment } from "./deployment";
 
-/** `Economy.quote(stake)` (STUB shape, economy.md section 6): what a purchase of stake `k` costs and its terms now. */
+/** `Economy.quote(stake)` (economy.md section 6): what a purchase of stake `k` costs and its terms now. */
 export interface QuoteView {
   /** USDC base units: `k x entry_price().amount`. */
   price: bigint;
@@ -28,7 +28,7 @@ export interface QuoteView {
 }
 
 /**
- * `Economy.day(day)` (STUB shape). Until the day closes, `mean`, `sum` and `weight` are 0 (P-34): never show them as
+ * `Economy.day(day)`. Until the day closes, `mean`, `sum` and `weight` are 0 (P-34): never show them as
  * figures; the screens show `Quote.mean` and `Quote.threshold` as the current reference instead.
  */
 export interface DayView {
@@ -40,9 +40,11 @@ export interface DayView {
   closed: boolean;
 }
 
-/** `Economy.terms(game_id)` (STUB shape): a bought game's frozen terms and its settlement. */
+/** `Economy.terms(game_id)`: a bought game's frozen terms and its settlement. */
 export interface TermsView {
   player: string;
+  /** Seconds since the epoch: the purchase's block time; a paid game expires 24 h after it (P-34). */
+  time: number;
   day: number;
   /** 0 for a game that was not bought (then `recorded` and `settled` are false). */
   stake: number;
@@ -55,6 +57,8 @@ export interface TermsView {
   score: number;
   /** The game is over and its score is in: it can be settled after its day. */
   recorded: boolean;
+  /** The game was not recorded within 24 h of its purchase: no reward, no mean (P-34). */
+  expired: boolean;
   settled: boolean;
   /** PAVED minted at settlement; 0 below the threshold (the stake is lost). */
   reward: bigint;
@@ -69,14 +73,14 @@ export interface VaultPosition {
   totalStaked: bigint;
 }
 
-/** Field lists in ABI order; a test checks them against the (stub) ABI. */
+/** Field lists in ABI order; a test checks them against `contracts/abis/Economy.json`. */
 export const ECONOMY_VIEW_FIELDS = {
-  "paved::economy::views::Quote": [
+  "paved::economy::economy::Quote": [
     "price", "burnQuote", "referral", "margin", "minOutHint", "factor", "mean", "threshold", "slope", "cap",
   ] satisfies (keyof QuoteView)[],
-  "paved::economy::views::DayView": ["prior", "sum", "weight", "mean", "closed"] satisfies (keyof DayView)[],
-  "paved::economy::views::TermsView": [
-    "player", "day", "stake", "reference", "sigmaBps", "slopeBps", "cap", "score", "recorded", "settled", "reward",
+  "paved::economy::economy::DayView": ["prior", "sum", "weight", "mean", "closed"] satisfies (keyof DayView)[],
+  "paved::economy::economy::TermsView": [
+    "player", "time", "day", "stake", "reference", "sigmaBps", "slopeBps", "cap", "score", "recorded", "expired", "settled", "reward",
   ] satisfies (keyof TermsView)[],
 };
 
@@ -88,15 +92,6 @@ export interface EconomyViews {
   vault(account: string): Promise<VaultPosition>;
   usdcBalance(account: string): Promise<bigint>;
   pavedBalance(account: string): Promise<bigint>;
-}
-
-/** The felt of an `i16` as a number: a negative value is `P - |v|` (STUB: the codec decodes no signed integer). */
-function signedI16(felt: string): number {
-  const P = (1n << 251n) + 17n * (1n << 192n) + 1n;
-  const v = BigInt(felt);
-  const signed = v > P / 2n ? v - P : v;
-  if (signed < -32_768n || signed > 32_767n) throw new ViewError("abi-mismatch", `sigma_bps ${felt} is not an i16`);
-  return Number(signed);
 }
 
 export class RpcEconomyViews implements EconomyViews {
@@ -115,8 +110,7 @@ export class RpcEconomyViews implements EconomyViews {
   }
 
   async terms(gameId: number): Promise<TermsView> {
-    const raw = (await this.call("Economy", "terms", [gameId])) as Omit<TermsView, "sigmaBps"> & { sigmaBps: string };
-    return { ...raw, sigmaBps: signedI16(raw.sigmaBps) };
+    return (await this.call("Economy", "terms", [gameId])) as TermsView;
   }
 
   async vault(account: string): Promise<VaultPosition> {

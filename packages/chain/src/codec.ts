@@ -35,6 +35,14 @@ const INT_BITS: Record<string, number> = {
   "core::integer::u64": 64,
   "core::integer::u128": 128,
 };
+/** Signed integers: a negative value `-v` is the felt `P - v`. */
+const SIGNED_BITS: Record<string, number> = {
+  "core::integer::i8": 8,
+  "core::integer::i16": 16,
+  "core::integer::i32": 32,
+  "core::integer::i64": 64,
+  "core::integer::i128": 128,
+};
 /** The field prime P: a felt is in [0, P). */
 const FELT_P = (1n << 251n) + 17n * (1n << 192n) + 1n;
 
@@ -97,7 +105,7 @@ export function toHex(value: string | number | bigint): string {
 
 /**
  * Encodes calldata and decodes results and events from a contract's ABI. Covers the types the
- * Paved ABIs use: integers, felts, addresses, bool, u256, unit enums, structs, arrays.
+ * Paved ABIs use: integers (signed too), felts, addresses, bool, u256, unit enums, structs, arrays.
  */
 export class AbiCodec {
   private readonly functions = new Map<string, AbiEntry>();
@@ -211,6 +219,14 @@ export class AbiCodec {
       out.push(toHex(v & ((1n << 128n) - 1n)), toHex(v >> 128n));
       return;
     }
+    const signedBits = SIGNED_BITS[type];
+    if (signedBits) {
+      const v = BigInt(value as string | number | bigint);
+      const half = 1n << BigInt(signedBits - 1);
+      if (v < -half || v >= half) throw new RangeError(`${String(value)} is out of range for ${type}`);
+      out.push(toHex(v < 0n ? FELT_P + v : v));
+      return;
+    }
     if (SMALL_INTS.has(type) || FELT_LIKE.has(type) || type === U128) {
       const v = BigInt(value as string | number | bigint);
       const bits = INT_BITS[type];
@@ -242,6 +258,14 @@ export class AbiCodec {
       return v <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(v) : v;
     }
     if (FELT_LIKE.has(type)) return toHex(next());
+    const signedBits = SIGNED_BITS[type];
+    if (signedBits) {
+      const felt = next();
+      const v = felt > FELT_P / 2n ? felt - FELT_P : felt;
+      const half = 1n << BigInt(signedBits - 1);
+      if (v < -half || v >= half) throw new Error(`${felt.toString()} is not an ${shortName(type)}`);
+      return v >= BigInt(Number.MIN_SAFE_INTEGER) && v <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(v) : v;
+    }
     if (type === U128) return next();
     if (type === U256) {
       const low = next();

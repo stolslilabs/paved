@@ -1,9 +1,9 @@
-/** The economy client (P8) on its stub ABIs and the fake: `docs/architecture/client-economy.md`. */
+/** The economy client (P8) on E2's real ABI (E3's paid spawn and USDC still stubs) and the fake: `docs/architecture/client-economy.md`. */
 import { describe, expect, test, vi } from "vitest";
-import { hash } from "starknet";
+import { hash, shortString } from "starknet";
 import devnetFile from "../../../contracts/deployments/devnet.json";
 import { ABIS, createCodecs, createEconomyCodecs, ECONOMY_ABIS } from "../src/abis";
-import { AbiCodec, type Abi } from "../src/codec";
+import { AbiCodec, camelCase, type Abi } from "../src/codec";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews, ViewError } from "../src/views";
@@ -21,6 +21,9 @@ import {
   DEFAULT_SLIPPAGE_BPS,
   MAX_SLIPPAGE_BPS,
   POOL_QUOTE_CONFIRMED,
+  EconomyPoolQuoter,
+  SettleTooEarlyError,
+  SwapBelowMinOutError,
   expiresAt,
   minOutFor,
   settlesAfter,
@@ -31,7 +34,8 @@ import {
   referralOf,
   resolveEconomyDeployment,
 } from "../src/economy";
-import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/economy/fake";
+import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
+import economyAbi from "../../../contracts/abis/Economy.json";
 
 const ADDR = { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
@@ -66,11 +70,28 @@ function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () 
   return { economy, gameViews, execute, writer, econWriter, sent, pool };
 }
 
-describe("stub ABIs (until E2/E3)", () => {
-  test("are marked as stubs, and the view field lists match them", () => {
+describe("ABIs: Economy is E2's real one; USDC and the paid spawn are stubs until E3", () => {
+  test("Economy is the committed Economy.json, and the view field lists match it", () => {
+    expect(ECONOMY_ABIS.Economy).toBe(economyAbi);
+    const codec = new AbiCodec(economyAbi as Abi);
+    for (const [struct, fields] of Object.entries(ECONOMY_VIEW_FIELDS)) {
+      expect(codec.structFields(struct)).toEqual(fields);
+      // Same member names, in order, straight from the JSON (not through the codec).
+      const entry = (economyAbi as Abi).find((e) => e.type === "struct" && e.name === struct);
+      expect(entry?.members?.map((m) => camelCase(m.name))).toEqual(fields);
+    }
+  });
+
+  test("E2's changes from the stub: Recorded.expired, terms().time/expired, quote_swap, no in_day", () => {
+    const codec = new AbiCodec(economyAbi as Abi);
+    const recorded = codec.decodeEvent({ keys: [hash.getSelectorFromName("Recorded"), "0x7"], data: ["0xfa0", "0x1"] });
+    expect(recorded?.fields).toEqual({ gameId: 7, score: 4000, expired: true });
+    expect(codec.hasFunction("quote_swap")).toBe(true);
+    expect(codec.encodeCall("record", [7, 4000])).toEqual(["0x7", "0xfa0"]);
+  });
+
+  test("the economy is still marked as awaiting E3", () => {
     expect(ECONOMY_ABI_IS_STUB).toBe(true);
-    const codec = new AbiCodec(ECONOMY_ABIS.Economy);
-    for (const [struct, fields] of Object.entries(ECONOMY_VIEW_FIELDS)) expect(codec.structFields(struct)).toEqual(fields);
   });
 
   test("the paid spawn is E3's: the real Daily ABI still has none (this fails when E3 lands: wire it)", () => {
@@ -182,9 +203,9 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("no pool quoter (today: quote_swap is a stub), a zero quote or a failed one: nothing sent", async () => {
+  test("no pool quoter, a zero quote or a failed one: nothing sent", async () => {
     const request = { stake: 1, confirmedPrice: 2_000_000n, referrer: null };
-    expect(POOL_QUOTE_CONFIRMED).toBe(false);
+    expect(POOL_QUOTE_CONFIRMED).toBe(true);
     const none = setup({ pool: null });
     await expect(none.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent");
     const zero = setup();
@@ -194,8 +215,8 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     failed.pool!.fail = "down";
     await expect(failed.econWriter.purchase(request)).rejects.toThrow(/Cannot read the pool quote: down/);
     for (const s of [none, zero, failed]) expect(s.execute).not.toHaveBeenCalled();
-    // A real client has no quoter until CORE confirms quote_swap.
-    expect(createEconomyClient(economyDeployment, new PavedClient(base, {} as PavedRpc), new FakeEconomy())!.poolQuoter).toBeNull();
+    // A real client has the Economy's quoter (E2's `quote_swap`).
+    expect(createEconomyClient(economyDeployment, new PavedClient(base, {} as PavedRpc), new FakeEconomy())!.poolQuoter).toBeInstanceOf(EconomyPoolQuoter);
   });
 
   test("slippage: shown in bps, at most 5 %", async () => {
@@ -277,7 +298,7 @@ describe("settle: the player's claim of PAVED, after the day", () => {
   const settled = {
     from_address: ECON.economy,
     keys: [hash.getSelectorFromName("Settled"), "0x7", "0x9"],
-    data: [`0x${DAY.toString(16)}`, "0xfa0", "0xd19", "0xde0b6b3a7640000", "0x0"],
+    data: [`0x${DAY.toString(16)}`, "0xfa0", "0xd19", "0xde0b6b3a7640000"], // day u64, score u32, threshold u64, reward u128
   };
 
   test("sends settle([ids]) and decodes Settled from the Economy", async () => {
@@ -320,7 +341,9 @@ describe("settle: the player's claim of PAVED, after the day", () => {
   test("refused, sending nothing: day running, game not over, already settled, not bought, failed read", async () => {
     const cases: Array<[string, (s: ReturnType<typeof setup>) => void, RegExp, number?]> = [
       ["day D before D+1 ends", () => {}, /settles after/, settlesAfter(DAY) - 1],
-      ["not over", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /not over, or expired: no reward/],
+      ["not over", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /not over yet/, DAY * 86_400 + 3_600],
+      ["expired and recorded", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, expired: true })), /expired: no reward/],
+      ["never recorded, past its 24 h", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /expired: no reward/, expiresAt(DAY * 86_400)],
       ["settled", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, settled: true })), /already settled/],
       ["not bought", (s) => s.economy.terms_.delete(7), /not bought/],
       ["read fails", (s) => (s.economy.fail = "down"), /Cannot read the game/],
@@ -390,13 +413,30 @@ describe("RpcEconomyViews decode the stub layouts", () => {
     expect(await views.vault(PLAYER)).toEqual({ staked: 2n, pending: 3n, totalStaked: 4n });
   });
 
-  test("terms: E2's layout, sigma_bps read as a signed i16 from its felt", async () => {
+  test("terms: E2's layout (time and expired included), sigma_bps read as a signed i16", async () => {
     const P = (1n << 251n) + 17n * (1n << 192n) + 1n;
-    const felts = ["0x9", "0x4e20", "0x2", "0xde0b6b3a7640000", `0x${(P - 500n).toString(16)}`, "0x46d2", "0x5", "0xfa0", "0x1", "0x0", "0x0"];
+    const time = DAY * 86_400 + 5;
+    const felts = ["0x9", `0x${time.toString(16)}`, "0x4e20", "0x2", "0xde0b6b3a7640000", `0x${(P - 500n).toString(16)}`, "0x46d2", "0x5", "0xfa0", "0x1", "0x1", "0x0", "0x0"];
     const views = new RpcEconomyViews({ callContract: async () => felts }, economyDeployment, createEconomyCodecs());
     expect(await views.terms(7)).toEqual({
-      player: "0x9", day: 20_000, stake: 2, reference: 10n ** 18n, sigmaBps: -500, slopeBps: 18_130, cap: 5, score: 4000, recorded: true, settled: false, reward: 0n,
+      player: "0x9", time, day: 20_000, stake: 2, reference: 10n ** 18n, sigmaBps: -500, slopeBps: 18_130, cap: 5, score: 4000, recorded: true, expired: true, settled: false, reward: 0n,
     });
+    // A positive sigma, and the i16 bounds.
+    for (const [felt, sigma] of [["0x1f4", 500], [`0x${(P - 32_768n).toString(16)}`, -32_768], ["0x7fff", 32_767]] as const) {
+      const f = [...felts];
+      f[5] = felt;
+      const v = new RpcEconomyViews({ callContract: async () => f }, economyDeployment, createEconomyCodecs());
+      expect((await v.terms(7)).sigmaBps).toBe(sigma);
+    }
+    // 32768 is no i16: the read fails, it does not wrap.
+    const out = [...felts];
+    out[5] = "0x8000";
+    await expect(new RpcEconomyViews({ callContract: async () => out }, economyDeployment, createEconomyCodecs()).terms(7)).rejects.toBeInstanceOf(ViewError);
+  });
+
+  test("day: E2's widths (weight is a u32)", async () => {
+    const views = new RpcEconomyViews({ callContract: async () => ["0x1", "0x2", "0x3", "0x4", "0x1"] }, economyDeployment, createEconomyCodecs());
+    expect(await views.day(20_000)).toEqual({ prior: 1, sum: 2n, weight: 3, mean: 4, closed: true });
   });
 
   test("not configured: a ViewError, no call", async () => {
@@ -404,5 +444,119 @@ describe("RpcEconomyViews decode the stub layouts", () => {
     const views = new RpcEconomyViews({ callContract }, resolveEconomyDeployment({ base }), createEconomyCodecs());
     await expect(views.quote(1)).rejects.toBeInstanceOf(ViewError);
     expect(callContract).not.toHaveBeenCalled();
+  });
+});
+
+describe("quote_swap (P-35): the real ABI's u256 in and out", () => {
+  const pool = (felts: string[] | Error) => {
+    const callContract = vi.fn(async (_call: { contractAddress: string; entrypoint: string; calldata: string[] }) => {
+      if (felts instanceof Error) throw felts;
+      return felts;
+    });
+    return { callContract, quoter: new EconomyPoolQuoter({ callContract }, economyDeployment, createEconomyCodecs().Economy) };
+  };
+
+  test("encodes usdc_in as (low, high) and decodes paved_out from (low, high), both past 2^128", async () => {
+    const usdcIn = (3n << 128n) + 5n;
+    const out = (7n << 128n) + 9n;
+    const { callContract, quoter } = pool(["0x9", "0x7"]);
+    expect(await quoter.quoteSwap(usdcIn)).toBe(out);
+    expect(callContract).toHaveBeenCalledWith({ contractAddress: ECON.economy, entrypoint: "quote_swap", calldata: ["0x5", "0x3"] });
+    expect(await pool(["0x1", "0x0"]).quoter.quoteSwap(2n)).toBe(1n);
+  });
+
+  test("a result of the wrong width is a ViewError (the ABI moved), not a misread figure", async () => {
+    await expect(pool(["0x9"]).quoter.quoteSwap(1n)).rejects.toBeInstanceOf(ViewError);
+    await expect(pool(["0x9", "0x7", "0x1"]).quoter.quoteSwap(1n)).rejects.toBeInstanceOf(ViewError);
+  });
+
+  test("through the real quoter: min_out is the quote less 1 %; a zero or failed quote refuses the purchase", async () => {
+    const quoted = (felts: string[] | Error) => {
+      const { quoter } = pool(felts);
+      const s = setup({ pool: quoter as unknown as FakePoolQuoter });
+      return s;
+    };
+    const ok = quoted(["0x2710", "0x0"]); // 10,000
+    expect((await ok.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).minOut).toBe(9_900n);
+    const zero = quoted(["0x0", "0x0"]);
+    await expect(zero.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow("No pool quote: nothing was sent");
+    const down = quoted(new Error("node down"));
+    await expect(down.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow(/Cannot read the pool quote/);
+    for (const s of [zero, down]) expect(s.execute).not.toHaveBeenCalled();
+  });
+
+  test("not deployed: a ViewError, no call", async () => {
+    const callContract = vi.fn();
+    const quoter = new EconomyPoolQuoter({ callContract }, resolveEconomyDeployment({ base }), createEconomyCodecs().Economy);
+    await expect(quoter.quoteSwap(1n)).rejects.toBeInstanceOf(ViewError);
+    expect(callContract).not.toHaveBeenCalled();
+  });
+});
+
+describe("Settled: E2's widths (day u64, score u32, threshold u64, reward u128, one felt each)", () => {
+  test("a threshold past 2^32 and a reward past 2^64 decode with no felt left over", () => {
+    const codec = createEconomyCodecs().Economy;
+    const threshold = (1n << 40n) + 1n;
+    const reward = (1n << 100n) + 3n;
+    const event = codec.decodeEvent({
+      from_address: ECON.economy,
+      keys: [hash.getSelectorFromName("Settled"), "0x7", "0x9"],
+      data: ["0x4e20", "0xfa0", `0x${threshold.toString(16)}`, `0x${reward.toString(16)}`],
+    });
+    expect(event?.fields).toEqual({ gameId: 7, playerId: "0x9", day: 20_000, score: 4000, threshold: Number(threshold), reward });
+    // The ABI's data members are exactly four felts: a fifth one would be a stub's u256 reward again.
+    const members = (economyAbi as Abi).find((e) => e.type === "event" && e.name.endsWith("::Settled"))?.members ?? [];
+    expect(members.filter((m) => m.kind === "data").map((m) => m.type)).toEqual([
+      "core::integer::u64", "core::integer::u32", "core::integer::u64", "core::integer::u128",
+    ]);
+  });
+});
+
+describe("errors of the Economy as clear states", () => {
+  const reverted = (reason: string) => setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: reason }) });
+
+  test("purchase: 'swap below min_out' is 'the price moved, nothing was charged', with the hash", async () => {
+    for (const reason of ["Economy: swap below min_out", `Failure reason: ${shortString.encodeShortString("Economy: swap below min_out")} ('Economy: swap below min_out')`, shortString.encodeShortString("Economy: swap below min_out")]) {
+      const error = await reverted(reason).econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(SwapBelowMinOutError);
+      expect(error).toBeInstanceOf(WriteError);
+      expect((error as SwapBelowMinOutError).reverted).toBe(true);
+      expect((error as SwapBelowMinOutError).transactionHash).toBe("0x1");
+      expect((error as Error).message).toBe("The price moved before your purchase went through: nothing was charged. Try again.");
+    }
+  });
+
+  test("a revert moves no funds: the approve and the spawn are one transaction, so the failed one has no other call", async () => {
+    const s = reverted("Economy: swap below min_out");
+    await s.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch(() => undefined);
+    expect(s.sent()).toHaveLength(1); // one multicall, which the revert undoes whole
+    expect(s.sent()[0].map((c) => c.entrypoint)).toEqual(["approve", "spawn"]);
+  });
+
+  test("settle: 'day cannot close yet' is 'cannot be settled yet'", async () => {
+    const s = setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: "Economy: day cannot close yet" }) });
+    s.economy.terms_.set(7, fakeTerms({ stake: 1, day: DAY }));
+    const error = await s.econWriter.settle([7]).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(SettleTooEarlyError);
+    expect((error as Error).message).toBe("This day cannot be settled yet: try again after the next day ends.");
+  });
+
+  test("any other revert keeps its own message", async () => {
+    const error = await reverted("Economy: wrong price").econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+    expect(error).not.toBeInstanceOf(SwapBelowMinOutError);
+    expect((error as Error).message).toBe("Economy: wrong price");
+  });
+});
+
+describe("referrer bound: 2^251 - 256", () => {
+  test("below it is sent; at or above it is a WriteError and nothing is sent", async () => {
+    const bound = (1n << 251n) - 256n;
+    const ok = await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: `0x${(bound - 1n).toString(16)}` });
+    expect(ok.referrer).toBe(`0x${(bound - 1n).toString(16)}`);
+    for (const value of [bound, bound + 1n, 1n << 251n]) {
+      const s = setup();
+      await expect(s.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: `0x${value.toString(16)}` })).rejects.toThrow(/Not a referrer address/);
+      expect(s.execute).not.toHaveBeenCalled();
+    }
   });
 });

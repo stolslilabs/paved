@@ -56,6 +56,8 @@ export function renderPage(opts: {
   views?: FakeGameViews;
   writer?: FakeWriter;
   player?: { id: string; name: string; master: string } | null;
+  /** Answers `player(address)` per address, instead of `player` for all of them (e.g. a referrer still loading). */
+  playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null>;
   games?: unknown[];
   /** The indexer client the screens read; none by default. */
   indexer?: IndexerClient | null;
@@ -67,7 +69,7 @@ export function renderPage(opts: {
   const client = {
     views,
     events: { playerGames },
-    player: vi.fn(async () => (opts.player === undefined ? { id: PLAYER, name: "Zed", master: PLAYER } : opts.player)),
+    player: vi.fn(async (address: string) => opts.playerFor ? opts.playerFor(address) : (opts.player === undefined ? { id: PLAYER, name: "Zed", master: PLAYER } : opts.player)),
     balance: vi.fn(async () => 5n * 10n ** 18n),
     writer: () => opts.writer ?? {},
   } as unknown as PavedClient;

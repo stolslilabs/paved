@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { ECONOMY_ABI_IS_STUB } from "@paved/chain";
 import type { EconomyState } from "../utils/economy-context";
 import { EconomyReferral } from "./EconomyReferral";
@@ -25,7 +26,7 @@ export function EconomyPanel({
   const { client, writer, deployment } = economy;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }} aria-label="Economy">
-      {ECONOMY_ABI_IS_STUB && <span style={{ ...warning, fontSize: 12 }}>Economy contracts on stub ABIs (E2 not merged)</span>}
+      {ECONOMY_ABI_IS_STUB && <span style={{ ...warning, fontSize: 12 }}>Economy is live on its real ABI; the paid spawn and USDC are stubs until E3, so purchases are not possible yet</span>}
       {!client ? (
         <div style={panel}>
           <strong>Paid Daily (USDC)</strong>
@@ -38,6 +39,7 @@ export function EconomyPanel({
         </>
       )}
       <EconomyReferral address={address} origin={origin} />
+      <Link to="/economy" style={{ color: "#f59e0b", fontSize: 13 }}>Open the economy page</Link>
     </div>
   );
 }
