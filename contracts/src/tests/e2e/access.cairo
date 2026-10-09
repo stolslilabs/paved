@@ -10,7 +10,8 @@ use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::leaderboard;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
-    ANYONE, IDailyDispatcherTrait, NOONE, OWNER, PLAYER, PLAYER_NAME, SOMEONE, TestStoreTrait,
+    ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, NOONE, OWNER, PLAYER, PLAYER_NAME,
+    SOMEONE, TestStoreTrait,
 };
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
@@ -31,7 +32,7 @@ fn ownables(systems: @setup::Systems) -> Array<IOwnableDispatcher> {
 }
 
 #[test]
-#[available_gas(l2_gas: 23647712)]
+#[available_gas(l2_gas: 56658089)]
 fn test_access_owner_is_set_at_deployment() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -52,7 +53,7 @@ fn accept(ownable: IOwnableDispatcher, caller: ContractAddress) {
 }
 
 #[test]
-#[available_gas(l2_gas: 28663961)]
+#[available_gas(l2_gas: 61652708)]
 fn test_access_transfer_ownership_only_proposes() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -70,7 +71,7 @@ fn test_access_transfer_ownership_only_proposes() {
 }
 
 #[test]
-#[available_gas(l2_gas: 30322887)]
+#[available_gas(l2_gas: 63289374)]
 fn test_access_pending_owner_accepts_ownership() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -87,7 +88,7 @@ fn test_access_pending_owner_accepts_ownership() {
 }
 
 #[test]
-#[available_gas(l2_gas: 26512332)]
+#[available_gas(l2_gas: 59521974)]
 fn test_access_new_owner_holds_the_power() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -158,7 +159,7 @@ fn test_access_new_proposal_overwrites_the_pending_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 26090232)]
+#[available_gas(l2_gas: 59099874)]
 fn test_access_overwriting_proposal_lets_the_second_candidate_accept() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -195,7 +196,7 @@ fn test_access_upgrade_reverts_on_zero_class_hash() {
 }
 
 #[test]
-#[available_gas(l2_gas: 24438204)]
+#[available_gas(l2_gas: 57449631)]
 fn test_access_owner_upgrades_and_state_is_kept() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -219,7 +220,7 @@ fn test_access_account_creates_once_per_address() {
 }
 
 #[test]
-#[available_gas(l2_gas: 23707394)]
+#[available_gas(l2_gas: 56720396)]
 fn test_access_account_player_view() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let player = systems.account.player(context.player_id);
@@ -236,7 +237,7 @@ fn test_access_daily_spawn_reverts_for_unregistered_caller() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let stranger: ContractAddress = 'STRANGER'.try_into().unwrap();
     start_cheat_caller_address(systems.daily.contract_address, stranger);
-    systems.daily.spawn();
+    systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
 }
 
 #[test]
@@ -291,11 +292,11 @@ fn test_access_tutorial_surrender_reverts_on_another_players_game() {
 }
 
 #[test]
-#[available_gas(l2_gas: 81732200)]
+#[available_gas(l2_gas: 124396827)]
 fn test_access_game_ids_are_counted_per_contract() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     assert(context.game_id == 1, 'Access: first tutorial id');
-    let daily_id = systems.daily.spawn();
+    let daily_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
     assert(daily_id == 1, 'Access: first daily id');
     // The two games live in two storages.
     let tutorial_game = store.game(1);
@@ -314,7 +315,7 @@ fn constructor_panic(name: ByteArray, calldata: Array<felt252>) -> felt252 {
 }
 
 #[test]
-#[available_gas(l2_gas: 544331)]
+#[available_gas(l2_gas: 554348)]
 fn test_access_daily_constructor_reverts_on_zero_account() {
     let owner: felt252 = OWNER().into();
     let token: felt252 = SOMEONE().into();
@@ -325,7 +326,7 @@ fn test_access_daily_constructor_reverts_on_zero_account() {
 }
 
 #[test]
-#[available_gas(l2_gas: 544331)]
+#[available_gas(l2_gas: 554348)]
 fn test_access_daily_constructor_reverts_on_zero_token() {
     let owner: felt252 = OWNER().into();
     let account: felt252 = SOMEONE().into();
@@ -336,7 +337,7 @@ fn test_access_daily_constructor_reverts_on_zero_token() {
 }
 
 #[test]
-#[available_gas(l2_gas: 544961)]
+#[available_gas(l2_gas: 554978)]
 fn test_access_daily_constructor_reverts_on_zero_lobby_class() {
     let owner: felt252 = OWNER().into();
     let account: felt252 = SOMEONE().into();
@@ -350,7 +351,7 @@ fn test_access_daily_constructor_reverts_on_zero_lobby_class() {
 }
 
 #[test]
-#[available_gas(l2_gas: 504777)]
+#[available_gas(l2_gas: 507087)]
 fn test_access_tutorial_constructor_reverts_on_zero_lobby_class() {
     let owner: felt252 = OWNER().into();
     let account: felt252 = SOMEONE().into();
@@ -361,7 +362,7 @@ fn test_access_tutorial_constructor_reverts_on_zero_lobby_class() {
 }
 
 #[test]
-#[available_gas(l2_gas: 504147)]
+#[available_gas(l2_gas: 506457)]
 fn test_access_tutorial_constructor_reverts_on_zero_account() {
     let owner: felt252 = OWNER().into();
     assert(
@@ -371,7 +372,7 @@ fn test_access_tutorial_constructor_reverts_on_zero_account() {
 }
 
 #[test]
-#[available_gas(l2_gas: 1403409)]
+#[available_gas(l2_gas: 1415736)]
 fn test_access_constructors_revert_on_zero_owner() {
     let account: felt252 = SOMEONE().into();
     let token: felt252 = ANYONE().into();
@@ -391,13 +392,17 @@ fn test_access_constructors_revert_on_zero_owner() {
     );
 }
 
-/// Forces PLAYER first of the tournament of the game, then moves past the end of the tournament.
-fn close_tournament(store: setup::TestStore, game_id: u32, player_id: felt252) -> u64 {
+/// Forces PLAYER first of the tournament of the game, sponsors its prize (entries no longer feed
+/// it, P-31), then moves past the end of the tournament.
+fn close_tournament(
+    store: setup::TestStore, systems: @setup::Systems, game_id: u32, player_id: felt252,
+) -> u64 {
     let game = store.game(game_id);
     let tournament_id = TournamentTrait::compute_id(
         game.start_time, constants::DAILY_TOURNAMENT_DURATION,
     );
     leaderboard::submit(store.contract, tournament_id, player_id, 1);
+    systems.daily.sponsor(2_000_000);
     start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
     tournament_id
 }
@@ -407,7 +412,7 @@ fn close_tournament(store: setup::TestStore, game_id: u32, player_id: felt252) -
 fn test_access_claim_reverts_for_registered_non_holder() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let tournament_id = close_tournament(store, context.game_id, context.player_id);
+    let tournament_id = close_tournament(store, @systems, context.game_id, context.player_id);
     // ANYONE is registered but is not at rank 1.
     start_cheat_caller_address(systems.daily.contract_address, ANYONE());
     systems.daily.claim(tournament_id, 1);
@@ -418,7 +423,7 @@ fn test_access_claim_reverts_for_registered_non_holder() {
 fn test_access_claim_reverts_on_an_empty_rank() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let tournament_id = close_tournament(store, context.game_id, context.player_id);
+    let tournament_id = close_tournament(store, @systems, context.game_id, context.player_id);
     // Nobody holds rank 2 (id 0), and no registered player has id 0.
     systems.daily.claim(tournament_id, 2);
 }
@@ -428,7 +433,7 @@ fn test_access_claim_reverts_on_an_empty_rank() {
 fn test_access_claim_reverts_on_a_second_claim_of_the_same_rank() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let tournament_id = close_tournament(store, context.game_id, context.player_id);
+    let tournament_id = close_tournament(store, @systems, context.game_id, context.player_id);
     systems.daily.claim(tournament_id, 1);
     systems.daily.claim(tournament_id, 1);
 }
@@ -441,13 +446,16 @@ fn test_access_tutorial_discard_reverts_on_another_players_game() {
     systems.tutorial.discard(context.game_id);
 }
 
-/// `sponsor` only adds to a tournament that exists, that is one that has at least one entry fee:
-/// with no game spawned in the current period it reverts, and the caller pays nothing.
+/// The prize is sponsor-only (P-31): `sponsor` funds the current day even when no game was
+/// spawned in it.
 #[test]
-#[should_panic(expected: 'Tournament: not found')]
-fn test_access_sponsor_reverts_without_a_current_tournament() {
-    let (_, systems, _) = setup::spawn_game(Mode::None);
+fn test_access_sponsor_funds_a_day_without_entries() {
+    let (store, systems, context) = setup::spawn_game(Mode::None);
+    let before = context.token.balance_of(PLAYER());
     systems.daily.sponsor(1000);
+    let tournament_id = TournamentTrait::compute_id(0, constants::DAILY_TOURNAMENT_DURATION);
+    assert(store.tournament(tournament_id).prize == 1000, 'Sponsor: prize');
+    assert(before - context.token.balance_of(PLAYER()) == 1000, 'Sponsor: debit');
 }
 
 /// A game whose player is 0 can never be acted on: `builder_of` gives player 0 no builder, so

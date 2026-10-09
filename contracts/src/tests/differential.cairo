@@ -54,7 +54,7 @@ impl BoardImpl of BoardTrait {
 
 /// Gas scenarios a0, a and b: one move each.
 #[test]
-#[available_gas(l2_gas: 277228423)]
+#[available_gas(l2_gas: 413321297)]
 fn test_differential_gas_scenarios_a0_a_b() {
     let board = BoardTrait::new();
     board.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);
@@ -66,7 +66,7 @@ fn test_differential_gas_scenarios_a0_a_b() {
 
 /// Gas scenario c: a 6-tile city closed with its character scored.
 #[test]
-#[available_gas(l2_gas: 191206362)]
+#[available_gas(l2_gas: 234989905)]
 fn test_differential_gas_scenario_c() {
     let board = BoardTrait::new();
     board.build(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, Role::Lord, Spot::Center);
@@ -80,7 +80,7 @@ fn test_differential_gas_scenario_c() {
 
 /// Gas scenario d: a 12-tile city tree closed by a tile placed with a character.
 #[test]
-#[available_gas(l2_gas: 378828024)]
+#[available_gas(l2_gas: 423731119)]
 fn test_differential_gas_scenario_d() {
     let board = BoardTrait::new();
     board.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1);
@@ -109,7 +109,7 @@ fn test_differential_gas_scenario_d() {
 /// search over legal boards (a model of the placement in Python, not kept) and then confirmed
 /// here: the coverage run of the test reaches those lines. Every move is checked against the walks.
 #[test]
-#[available_gas(l2_gas: 531259991)]
+#[available_gas(l2_gas: 579918245)]
 fn test_differential_two_areas_of_one_tile_join_one_structure() {
     let board = BoardTrait::new();
     board.step(Plan::FFCFFFCFF, Orientation::South, CENTER, CENTER + 1);
@@ -147,7 +147,7 @@ fn test_differential_two_areas_of_one_tile_join_one_structure() {
 /// The scripted Tutorial to its end: each step builds when the script gives a placement for the
 /// tile in hand, and discards it otherwise, as the golden `tutorial_full_sequence` does.
 #[test]
-#[available_gas(l2_gas: 390107061)]
+#[available_gas(l2_gas: 425629810)]
 fn test_differential_tutorial_full_sequence() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let game_id = context.game_id;
@@ -174,7 +174,7 @@ fn test_differential_tutorial_full_sequence() {
 /// The wonder ring of `e2e/events.cairo`: six of the eight neighbours are written without a build
 /// (`Store::set_tile` places them on the structure state), the last one closes the wonder.
 #[test]
-#[available_gas(l2_gas: 323400350)]
+#[available_gas(l2_gas: 367926072)]
 fn test_differential_wonder_ring() {
     let board = BoardTrait::new();
     board

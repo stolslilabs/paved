@@ -1,6 +1,7 @@
 pub mod access;
 pub mod daily;
 pub mod daily_advanced;
+pub mod economy;
 pub mod events;
 pub mod forest;
 pub mod lobby;

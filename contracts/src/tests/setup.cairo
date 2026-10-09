@@ -1,15 +1,20 @@
 pub mod setup {
     // Core imports
 
-    // Starknet imports
-
-    pub use paved::mocks::token::IERC20DispatcherTrait;
+    use core::num::traits::Zero;
 
     // Internal imports
 
-    use paved::mocks::token::{
-        IERC20Dispatcher, IERC20FaucetDispatcher, IERC20FaucetDispatcherTrait, Token,
-    };
+    use paved::economy::economy::{IEconomyDispatcher, IEconomyDispatcherTrait, decided};
+    use paved::economy::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
+    use paved::economy::vault::{IVaultDispatcher, IVaultDispatcherTrait};
+    use paved::mocks::router::{IMockRouterDispatcher, IMockRouterDispatcherTrait};
+    use paved::mocks::token::IERC20Dispatcher;
+
+    // Starknet imports
+
+    pub use paved::mocks::token::IERC20DispatcherTrait;
+    use paved::mocks::usdc::{IMockUSDCDispatcher, IMockUSDCDispatcherTrait};
     use paved::models::builder::Builder;
     use paved::models::game::{Game, GameImpl};
     use paved::models::player::Player;
@@ -50,6 +55,16 @@ pub mod setup {
         starknet::contract_address_const::<'OWNER'>()
     }
 
+    /// One USDC (6 decimals) and one PAVED (18 decimals), in base units.
+    pub const USDC: u256 = 1_000_000;
+    pub const PAVED: u256 = 1_000_000_000_000_000_000;
+    /// What each player gets from the USDC faucet and approves for `Daily`.
+    pub const FUNDS: u256 = 1_000 * USDC;
+    /// The initial mean of `Economy` (points x 1,000) and the launch rate after the pool's fee
+    /// (`docs/architecture/economy.md`, section 5): what the deploy passes.
+    pub const MEAN0: u64 = 3_353_000;
+    pub const LAUNCH_RATE: u256 = 76_000_000_000_000_000_000_000_000_000_000;
+
     pub const PLAYER_NAME: felt252 = 'PLAYER';
     pub const ANYONE_NAME: felt252 = 'ANYONE';
     pub const SOMEONE_NAME: felt252 = 'SOMEONE';
@@ -61,6 +76,7 @@ pub mod setup {
         pub account: IAccountDispatcher,
         pub tutorial: ITutorialDispatcher,
         pub daily: IDailyDispatcher,
+        pub economy: IEconomyDispatcher,
     }
 
     #[derive(Drop)]
@@ -145,15 +161,82 @@ pub mod setup {
         address
     }
 
-    /// Deploys the token and `Account`, declares `Lobby`, deploys `Tutorial` and `Daily` (with the
-    /// class hash of `Lobby`), registers four players with tokens
-    /// approved for `Daily`, and spawns a game of `mode` for `PLAYER` (none for `Mode::None`).
+    /// The economy as `scripts/deploy.sh devnet` wires it: `PavedToken` (its initial supply to
+    /// `OWNER`), `MockUSDC`, `MockRouter` seeded with 800,000 PAVED and 10,000 USDC, the `Vault`
+    /// with 200,000 PAVED staked by `OWNER`, `Economy` (decided configuration, launch rate) as
+    /// the token's minter. `Economy.set_game` is left to the caller. Returns `Economy` and USDC.
+    pub fn deploy_economy() -> (ContractAddress, ContractAddress) {
+        let owner = OWNER();
+        let paved = deploy("PavedToken", array![owner.into(), owner.into()]);
+        let usdc = deploy("MockUSDC", array![]);
+        let router = deploy("MockRouter", array![paved.into(), usdc.into()]);
+        let vault = deploy("Vault", array![paved.into(), usdc.into()]);
+        // [Setup] The pool, from the owner's PAVED and the faucet's USDC
+        IMockUSDCDispatcher { contract_address: usdc }.mint(owner, 10_000 * USDC);
+        let paved_token = IERC20Dispatcher { contract_address: paved };
+        start_cheat_caller_address(paved, owner);
+        paved_token.approve(router, 800_000 * PAVED);
+        paved_token.approve(vault, 200_000 * PAVED);
+        stop_cheat_caller_address(paved);
+        start_cheat_caller_address(usdc, owner);
+        IERC20Dispatcher { contract_address: usdc }.approve(router, 10_000 * USDC);
+        stop_cheat_caller_address(usdc);
+        let (amount0, amount1) = if paved < usdc {
+            (800_000 * PAVED, 10_000 * USDC)
+        } else {
+            (10_000 * USDC, 800_000 * PAVED)
+        };
+        start_cheat_caller_address(router, owner);
+        IMockRouterDispatcher { contract_address: router }.add_liquidity(amount0, amount1);
+        stop_cheat_caller_address(router);
+        // [Setup] The owner's stake
+        start_cheat_caller_address(vault, owner);
+        IVaultDispatcher { contract_address: vault }.stake(200_000 * PAVED);
+        stop_cheat_caller_address(vault);
+        // [Setup] Economy, the token's minter
+        let pool_key = IMockRouterDispatcher { contract_address: router }.pool_key();
+        let mut calldata: Array<felt252> = array![
+            owner.into(), paved.into(), usdc.into(), vault.into(), router.into(),
+        ];
+        pool_key.serialize(ref calldata);
+        0_u256.serialize(ref calldata);
+        decided().serialize(ref calldata);
+        MEAN0.serialize(ref calldata);
+        LAUNCH_RATE.serialize(ref calldata);
+        let economy = deploy("Economy", calldata);
+        start_cheat_caller_address(paved, owner);
+        IPavedTokenDispatcher { contract_address: paved }.set_minter(economy);
+        stop_cheat_caller_address(paved);
+        (economy, usdc)
+    }
+
+    /// Gives `who` the faucet's USDC, approved for `daily`, and registers it as a player.
+    fn register(
+        account: IAccountDispatcher,
+        usdc: ContractAddress,
+        daily: ContractAddress,
+        who: ContractAddress,
+        name: felt252,
+    ) {
+        IMockUSDCDispatcher { contract_address: usdc }.mint(who, FUNDS);
+        start_cheat_caller_address(usdc, who);
+        IERC20Dispatcher { contract_address: usdc }.approve(daily, FUNDS);
+        stop_cheat_caller_address(usdc);
+        start_cheat_caller_address(account.contract_address, who);
+        account.create(name, who);
+        stop_cheat_caller_address(account.contract_address);
+    }
+
+    /// Deploys the economy (`deploy_economy`) and `Account`, declares `Lobby`, deploys `Tutorial`
+    /// and `Daily` (with the class hash of `Lobby`, USDC as its token), wires `Economy` to `Daily`
+    /// and `Account` to `Economy`, registers four players with USDC approved for `Daily`, and
+    /// spawns a game of `mode` for `PLAYER` (none for `Mode::None`; a Daily game at stake 1).
     /// Returns a `TestStore` of the contract of `mode` (`Daily` for `Mode::None`).
     #[inline]
     pub fn spawn_game(mode: Mode) -> (TestStore, Systems, Context) {
         // [Setup] Systems
         let owner: felt252 = OWNER().into();
-        let token_address = deploy("Token", array![]);
+        let (economy_address, token_address) = deploy_economy();
         let account_address = deploy("Account", array![owner]);
         let lobby: felt252 = (*declare("Lobby").unwrap().contract_class().class_hash).into();
         let tutorial_address = deploy("Tutorial", array![owner, account_address.into(), lobby]);
@@ -164,42 +247,21 @@ pub mod setup {
             account: IAccountDispatcher { contract_address: account_address },
             tutorial: ITutorialDispatcher { contract_address: tutorial_address },
             daily: IDailyDispatcher { contract_address: daily_address },
+            economy: IEconomyDispatcher { contract_address: economy_address },
         };
+        start_cheat_caller_address(economy_address, OWNER());
+        systems.economy.set_game(daily_address);
+        stop_cheat_caller_address(economy_address);
+        start_cheat_caller_address(account_address, OWNER());
+        systems.account.set_economy(economy_address);
+        stop_cheat_caller_address(account_address);
 
         // [Setup] Context
         let token = IERC20Dispatcher { contract_address: token_address };
-        let faucet = IERC20FaucetDispatcher { contract_address: token_address };
-        start_cheat_caller_address(token_address, ANYONE());
-        faucet.mint();
-        token.approve(daily_address, Token::FAUCET_AMOUNT);
-        stop_cheat_caller_address(token_address);
-        start_cheat_caller_address(account_address, ANYONE());
-        systems.account.create(ANYONE_NAME, ANYONE());
-        stop_cheat_caller_address(account_address);
-
-        start_cheat_caller_address(token_address, SOMEONE());
-        faucet.mint();
-        token.approve(daily_address, Token::FAUCET_AMOUNT);
-        stop_cheat_caller_address(token_address);
-        start_cheat_caller_address(account_address, SOMEONE());
-        systems.account.create(SOMEONE_NAME, SOMEONE());
-        stop_cheat_caller_address(account_address);
-
-        start_cheat_caller_address(token_address, NOONE());
-        faucet.mint();
-        token.approve(daily_address, Token::FAUCET_AMOUNT);
-        stop_cheat_caller_address(token_address);
-        start_cheat_caller_address(account_address, NOONE());
-        systems.account.create(NOONE_NAME, NOONE());
-        stop_cheat_caller_address(account_address);
-
-        start_cheat_caller_address(token_address, PLAYER());
-        faucet.mint();
-        token.approve(daily_address, Token::FAUCET_AMOUNT);
-        stop_cheat_caller_address(token_address);
-        start_cheat_caller_address(account_address, PLAYER());
-        systems.account.create(PLAYER_NAME, PLAYER());
-        stop_cheat_caller_address(account_address);
+        register(systems.account, token_address, daily_address, ANYONE(), ANYONE_NAME);
+        register(systems.account, token_address, daily_address, SOMEONE(), SOMEONE_NAME);
+        register(systems.account, token_address, daily_address, NOONE(), NOONE_NAME);
+        register(systems.account, token_address, daily_address, PLAYER(), PLAYER_NAME);
         let duration: u64 = 0;
 
         // [Setup] Keep player as caller for game interactions
@@ -208,7 +270,7 @@ pub mod setup {
 
         // [Setup] Game if mode is set
         let game_id = match mode {
-            Mode::Daily => systems.daily.spawn(),
+            Mode::Daily => systems.daily.spawn(1, Zero::zero(), 0),
             Mode::Tutorial => systems.tutorial.spawn(),
             _ => 0,
         };

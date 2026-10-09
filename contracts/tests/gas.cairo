@@ -28,6 +28,7 @@ use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tournament::TournamentTrait;
 use paved::structure::placement::role_bit;
+use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -36,7 +37,7 @@ use paved::types::spot::Spot;
 use paved::views::{ITournamentViewDispatcher, ITournamentViewDispatcherTrait};
 use snforge_std::{interact_with_state, start_cheat_block_timestamp_global};
 use crate::setup::setup;
-use crate::setup::setup::{IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
+use crate::setup::setup::{ANYONE, IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
 pub const CEILING_OPEN: u128 = 5869212;
@@ -47,12 +48,18 @@ pub const CEILING_WORST_CASE: u128 = 7325796;
 pub const CEILING_FOREST: u128 = 9756082;
 pub const CEILING_FOREST_WORST: u128 = 19956685;
 // g, h, i: a surrender runs in the `Lobby` class, one library call (+146,730 in this profile, S1).
-pub const CEILING_CLOSING_PLACES: u128 = 2163629;
-pub const CEILING_CLOSING_NOT_PLACED: u128 = 1740316;
-pub const CEILING_CLOSING_AFTER: u128 = 1552808;
+// g to l: a Daily game over records its score in `Economy` (P8 E3): the `Account.economy` read and
+// `Economy.record` add about 1.46M (1.11M on i).
+pub const CEILING_CLOSING_PLACES: u128 = 3700987;
+pub const CEILING_CLOSING_NOT_PLACED: u128 = 3277673;
+pub const CEILING_CLOSING_AFTER: u128 = 2718591;
 pub const CEILING_VIEW: u128 = 388740;
-pub const CEILING_CLOSING_FULL_REPORT: u128 = 2508953;
-pub const CEILING_GAME_OVER_ON_BUILD: u128 = 6416902;
+pub const CEILING_CLOSING_FULL_REPORT: u128 = 4046311;
+pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7961200;
+// m, n, o: spawns (P8 E3). A Daily spawn pays `Economy.purchase` (swap, burn, Vault).
+pub const CEILING_SPAWN_DAILY: u128 = 51829666;
+pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 52906871;
+pub const CEILING_SPAWN_TUTORIAL: u128 = 4530165;
 
 #[derive(Drop)]
 struct Scenario {
@@ -389,4 +396,37 @@ fn test_gas_j_view_tournament() {
     let after = get_available_gas();
     assert(view.top3_score == 10, 'Gas: wrong view');
     report("j_view_tournament", before - after, CEILING_VIEW);
+}
+
+/// m. A Daily spawn at stake 1, no referrer: the game, then the price from the player to
+/// `Economy` and its purchase (referral none, swap through the router, burn, margin to the Vault,
+/// the terms). The second game of the day, so the day's prior is already written.
+#[test]
+fn test_gas_m_spawn_daily() {
+    let (_, systems, _) = setup::spawn_game(Mode::Daily);
+    let before = get_available_gas();
+    systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    let after = get_available_gas();
+    report("m_spawn_daily", before - after, CEILING_SPAWN_DAILY);
+}
+
+/// n. A Daily spawn at stake 10 with a registered referrer (the `Account` read and the referral
+/// transfer added to m).
+#[test]
+fn test_gas_n_spawn_daily_referred() {
+    let (_, systems, _) = setup::spawn_game(Mode::Daily);
+    let before = get_available_gas();
+    systems.daily.spawn(10, ANYONE(), 0);
+    let after = get_available_gas();
+    report("n_spawn_daily_referred", before - after, CEILING_SPAWN_DAILY_REFERRED);
+}
+
+/// o. A Tutorial spawn: free, no call to `Economy`.
+#[test]
+fn test_gas_o_spawn_tutorial() {
+    let (_, systems, _) = setup::spawn_game(Mode::Tutorial);
+    let before = get_available_gas();
+    systems.tutorial.spawn();
+    let after = get_available_gas();
+    report("o_spawn_tutorial", before - after, CEILING_SPAWN_TUTORIAL);
 }

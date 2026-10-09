@@ -189,7 +189,7 @@ fn replay_daily(
     snforge_std::start_cheat_block_timestamp_global(timestamp);
     let (store, systems, _) = setup::spawn_game(Mode::None);
     snforge_std::start_cheat_caller_address(systems.daily.contract_address, caller);
-    let game_id = systems.daily.spawn();
+    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
     if checked != Check::None {
         // The starter tile is placed by the spawn: its records agree with the walks too
         run_check(store, game_id, 1, checked);
