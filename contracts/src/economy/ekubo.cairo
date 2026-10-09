@@ -1,12 +1,11 @@
-//! The part of Ekubo's router that the economy calls (P8, `docs/architecture/economy.md` section
-//! 5).
+//! The part of Ekubo's router that the economy calls (P8, `docs/architecture/economy.md`,
+//! section 5).
 //!
 //! Declared here instead of depending on Ekubo: only the types and entry points `Economy` uses,
-//! with the same field order and types as Ekubo's deployed router, so that their serialization (the
-//! ABI)
-//! is the same. Calling pattern: transfer the input to the router, `swap`, then `clear_minimum` the
-//! output and `clear` the input's leftover. `MockRouter` implements the same entry points on
-//! devnet.
+//! with the same field order and types as Ekubo's deployed router, so that they serialize the same
+//! way (the same ABI). Calling pattern: transfer the input to the router, `swap`, then
+//! `clear_minimum` the output and `clear` the input's leftover. `MockRouter` implements the same
+//! entry points on devnet.
 
 // Starknet imports
 
