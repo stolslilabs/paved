@@ -39,14 +39,6 @@ export interface BuildMove {
   spot: number;
 }
 
-/** The Daily entry read at spawn is not what the player confirmed: nothing was sent. */
-export class EntryPriceChangedError extends Error {
-  constructor(readonly confirmed: bigint, readonly current: bigint) {
-    super("The entry price changed: confirm again");
-    this.name = "EntryPriceChangedError";
-  }
-}
-
 /** The reward at send is not what the player confirmed: nothing was sent. */
 export class RewardChangedError extends Error {
   constructor(readonly confirmed: bigint, readonly current: bigint) {
@@ -104,7 +96,7 @@ export class PavedWriter {
       tip?: bigint;
       /** Interval between two receipt requests while a write is pending. */
       receiptPollMs?: number;
-      /** The Daily entry (`Daily.entry_price`), read before each Daily spawn. */
+      /** The Daily entry (`Daily.entry_price`): its token is the one a sponsorship is paid in. */
       entryPrice?: () => Promise<PriceView>;
       /** `Daily.tournament`, read before each claim. */
       tournament?: (id: number) => Promise<TournamentView>;
@@ -129,35 +121,13 @@ export class PavedWriter {
   }
 
   /**
-   * Spawns a game. Daily first reads its entry (`entry_price`: the token and the amount `spawn`
-   * pulls) and approves exactly that, in the same transaction. With `confirmedAmount` (what the
-   * player saw and confirmed), a different amount at spawn is refused (`EntryPriceChangedError`)
-   * instead of paying it.
+   * Spawns a free Tutorial game. A Daily game is bought, not spawned here: `Daily.spawn(stake, referrer, min_out)` takes
+   * USDC and a swap floor (E3), which only `EconomyWriter.purchase` builds, after the player's confirm. Asked for a
+   * Daily game this sends nothing.
    */
-  async spawn(mode: GameMode, options: { confirmedAmount?: bigint } = {}): Promise<WriteResult & { gameId: number }> {
-    const contract = gameContract(mode);
-    const calls = [this.call(contract, "spawn", [])];
-    if (mode === "daily") {
-      if (!this.options.entryPrice) throw new WriteError("No entry price reader: cannot approve the Daily entry");
-      let price: PriceView;
-      try {
-        price = await this.options.entryPrice();
-      } catch (error) {
-        throw new WriteError(`Cannot read the Daily entry price: ${error instanceof Error ? error.message : String(error)}`);
-      }
-      // Only the deployment's own token is approved, and only for what the player confirmed.
-      if (BigInt(price.token) !== BigInt(this.options.deployment.addresses.Token)) {
-        throw new WriteError("Unknown entry token: the Daily entry is not paid in this deployment's token");
-      }
-      if (options.confirmedAmount !== undefined && price.amount !== options.confirmedAmount) {
-        throw new EntryPriceChangedError(options.confirmedAmount, price.amount);
-      }
-      if (price.amount > 0n) {
-        const approve = this.call("Token", "approve", [this.options.deployment.addresses.Daily, price.amount]);
-        calls.unshift({ ...approve, contractAddress: price.token });
-      }
-    }
-    const result = await this.send(contract, calls);
+  async spawn(mode: GameMode): Promise<WriteResult & { gameId: number }> {
+    if (mode === "daily") throw new WriteError("A Daily game is bought with the economy writer: nothing was sent");
+    const result = await this.send("Tutorial", [this.call("Tutorial", "spawn", [])]);
     const spawned = result.events.find((e) => e.name === "GameSpawned");
     if (!spawned) throw new WriteError("No GameSpawned event in the receipt", result.transactionHash);
     return { ...result, gameId: Number(spawned.fields.gameId) };
@@ -215,10 +185,20 @@ export class PavedWriter {
     if (options.confirmedAmount !== amount) {
       return Promise.reject(new SponsorAmountChangedError(options.confirmedAmount, amount));
     }
-    return this.send("Daily", [
-      this.call("Token", "approve", [this.options.deployment.addresses.Daily, amount]),
-      this.call("Daily", "sponsor", [amount]),
-    ]);
+    return this.sendSponsor(amount);
+  }
+
+  private async sendSponsor(amount: bigint): Promise<WriteResult> {
+    // The sponsorship is paid in the token Daily charges (USDC since E3), read from Daily, not assumed.
+    if (!this.options.entryPrice) throw new WriteError("No entry price reader: cannot approve the sponsorship");
+    let price: PriceView;
+    try {
+      price = await this.options.entryPrice();
+    } catch (error) {
+      throw new WriteError(`Cannot read the Daily entry token: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const approve = this.call("Token", "approve", [this.options.deployment.addresses.Daily, amount]);
+    return this.send("Daily", [{ ...approve, contractAddress: price.token }, this.call("Daily", "sponsor", [amount])]);
   }
 
   /** The test token's faucet (devnet only: the mock is never deployed elsewhere). */

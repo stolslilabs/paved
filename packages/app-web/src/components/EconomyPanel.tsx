@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { ECONOMY_ABI_IS_STUB } from "@paved/chain";
 import type { EconomyState } from "../utils/economy-context";
 import { EconomyReferral } from "./EconomyReferral";
 import { EconomySettle } from "./EconomySettle";
@@ -26,7 +25,6 @@ export function EconomyPanel({
   const { client, writer, deployment } = economy;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }} aria-label="Economy">
-      {ECONOMY_ABI_IS_STUB && <span style={{ ...warning, fontSize: 12 }}>Economy is live on its real ABI; the paid spawn and USDC are stubs until E3, so purchases are not possible yet</span>}
       {!client ? (
         <div style={panel}>
           <strong>Paid Daily (USDC)</strong>

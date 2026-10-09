@@ -99,8 +99,6 @@ export interface PurchasePlan {
  * claim of PAVED), and the Vault's stake, unstake and dividends. Each one reads what it pays or receives again
  * just before sending and refuses an amount the player did not confirm, or any failed read, sending nothing. The
  * writes go through the account's `PavedWriter`, so they are serialised with the game's writes.
- *
- * `Economy`, the paid `Daily.spawn` and USDC are on STUB ABIs until E2/E3 (`stub-abi.ts`).
  */
 export class EconomyWriter {
   constructor(
@@ -180,7 +178,7 @@ export class EconomyWriter {
     if (minOut === 0n) throw new WriteError("No pool quote: nothing was sent");
     const calls = [
       this.call("USDC", "approve", [deployment.base.addresses.Daily, price]),
-      this.call("DailyPaid", "spawn", [request.stake, referrer, minOut]),
+      this.call("Daily", "spawn", [request.stake, referrer, minOut]),
     ];
     return { calls, price, minOut, poolOut, referrer, quote };
   }
@@ -289,7 +287,7 @@ export class EconomyWriter {
   private call(contract: EconomyContractName, entrypoint: string, args: Encodable[]): Call {
     const { addresses, base } = this.options.deployment;
     return {
-      contractAddress: contract === "DailyPaid" ? base.addresses.Daily : addresses[contract],
+      contractAddress: contract === "Daily" ? base.addresses.Daily : addresses[contract],
       entrypoint,
       calldata: this.options.codecs[contract].encodeCall(entrypoint, args),
     };

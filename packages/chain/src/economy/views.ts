@@ -130,7 +130,7 @@ export class RpcEconomyViews implements EconomyViews {
     return (await this.call("PavedToken", "balance_of", [account])) as bigint;
   }
 
-  private async call(contract: Exclude<EconomyContractName, "DailyPaid">, entrypoint: string, args: Encodable[]): Promise<unknown> {
+  private async call(contract: Exclude<EconomyContractName, "Daily">, entrypoint: string, args: Encodable[]): Promise<unknown> {
     if (!this.deployment.configured) throw new ViewError("not-configured", `Economy not deployed: ${this.deployment.missing.join(", ")} missing`);
     const codec = this.codecs[contract];
     try {

@@ -122,6 +122,21 @@ describe("a sponsor approves exactly the amount the player confirmed", () => {
     expect(calls.map((c) => c.entrypoint)).toEqual(["approve", "sponsor"]);
     expect(calls[0].calldata[1]).toBe("0x5");
   });
+  test("the approve is on the token Daily charges (USDC since E3), read from entry_price", async () => {
+    const views = new FakeGameViews();
+    views.price = { token: "0x99", amount: 1n };
+    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+    await new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).sponsor(5n, { confirmedAmount: 5n });
+    const calls = (execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string }>])[0];
+    expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([["0x99", "approve"], [deployment.addresses.Daily, "sponsor"]]);
+  });
+  test("a failed entry read sends nothing", async () => {
+    const views = new FakeGameViews();
+    views.entryPrice = async () => { throw new Error("fetch failed"); };
+    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+    await expect(new PavedClient(deployment, rpc, codecs, views).writer({ address: "0x5", execute }).sponsor(5n, { confirmedAmount: 5n })).rejects.toThrow(/entry token/);
+    expect(execute).not.toHaveBeenCalled();
+  });
   test("another amount than the confirmed one: refused, nothing sent", async () => {
     const { result, execute } = sponsorWith(6n, 5n);
     await expect(result).rejects.toBeInstanceOf(SponsorAmountChangedError);

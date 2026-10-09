@@ -115,6 +115,25 @@ export interface TournamentDetail {
   gamesFinished: number;
   players: number;
   bestScore: number;
+  /** The day's paid games (E3, appended to v1); undefined from an indexer that predates it. */
+  economy?: TournamentEconomy;
+}
+
+/** `GET /v1/tournaments/{id}` `economy` (E3): the UTC day's paid games and its mean. PAVED amounts are decimal strings. */
+export interface TournamentEconomy {
+  gamesPurchased: number;
+  gamesRecorded: number;
+  gamesSettled: number;
+  /** The ids a keeper passes to `Economy.settle`. */
+  unsettled: number[];
+  rewards: string;
+  closed: boolean;
+  /** Null until `DayClosed`. */
+  mean: number | null;
+  weight: number | null;
+  prior: number | null;
+  emaAfter: number | null;
+  closedAt: number | null;
 }
 
 export interface TournamentList {
@@ -159,6 +178,11 @@ export interface PlayerStats {
   dailyFinished: number;
   bestScore: number;
   tutorialGames: number;
+  /** E3 (appended to v1); undefined from an indexer that predates it. */
+  paidGames?: number;
+  settledGames?: number;
+  /** PAVED, the sum of the settled rewards (decimal string). */
+  rewards?: string;
 }
 
 /** `player` is null when the indexer has never seen this id. */
@@ -181,6 +205,35 @@ export interface IndexedGame {
   countedTournamentId: number;
   /** 0 while the game runs (`over` is false). */
   endTime: number;
+  /** The terms of a bought game (E3); null for a Tutorial game or a game not bought, undefined from an indexer that predates E3. */
+  economy?: GameEconomy | null;
+}
+
+/** `GameRow.economy` (E3). USDC and PAVED amounts are decimal strings; `threshold` is in points x 1,000. */
+export interface GameEconomy {
+  day: number;
+  stake: number;
+  /** USDC. */
+  price: string;
+  /** `0x` and 64 hex digits, or null without a referral. */
+  referrer: string | null;
+  /** USDC. */
+  referral: string;
+  /** PAVED. */
+  burned: string;
+  /** bps. */
+  factor: number;
+  /** `R`, PAVED. */
+  reference: string;
+  purchasedAt: number;
+  recorded: boolean;
+  /** False until recorded. */
+  expired: boolean;
+  settled: boolean;
+  /** Null until settled. */
+  threshold: number | null;
+  /** PAVED, null until settled. */
+  reward: string | null;
 }
 
 export interface PlayerGames {
@@ -328,6 +381,50 @@ function parseSummary(v: unknown, what: string): TournamentSummary {
   };
 }
 
+/** An amount of USDC or PAVED: a decimal string (a `u256` does not fit a JSON number). */
+const amount = (o: Obj, key: string, what: string): string => {
+  const v = str(o, key, what);
+  return /^(0|[1-9][0-9]{0,77})$/.test(v) ? v : bad(`${what}.${key} is not an amount`);
+};
+const present = (o: Obj, key: string): boolean => o[key] !== undefined;
+
+function parseTournamentEconomy(v: unknown, what: string): TournamentEconomy {
+  const o = obj(v, what);
+  return {
+    gamesPurchased: num(o, "games_purchased", what),
+    gamesRecorded: num(o, "games_recorded", what),
+    gamesSettled: num(o, "games_settled", what),
+    unsettled: list(o, "unsettled", what).map((id) => (typeof id === "number" && Number.isSafeInteger(id) && id >= 0 ? id : bad(`${what}.unsettled has a bad id`))),
+    rewards: amount(o, "rewards", what),
+    closed: bool(o, "closed", what),
+    mean: orNull(o, "mean", num, what),
+    weight: orNull(o, "weight", num, what),
+    prior: orNull(o, "prior", num, what),
+    emaAfter: orNull(o, "ema_after", num, what),
+    closedAt: orNull(o, "closed_at", num, what),
+  };
+}
+
+function parseGameEconomy(v: unknown, what: string): GameEconomy {
+  const o = obj(v, what);
+  return {
+    day: num(o, "day", what),
+    stake: num(o, "stake", what),
+    price: amount(o, "price", what),
+    referrer: orNull(o, "referrer", str, what),
+    referral: amount(o, "referral", what),
+    burned: amount(o, "burned", what),
+    factor: num(o, "factor", what),
+    reference: amount(o, "reference", what),
+    purchasedAt: num(o, "purchased_at", what),
+    recorded: bool(o, "recorded", what),
+    expired: bool(o, "expired", what),
+    settled: bool(o, "settled", what),
+    threshold: orNull(o, "threshold", num, what),
+    reward: orNull(o, "reward", amount, what),
+  };
+}
+
 /** One tournament: the list route's fields plus `games_finished`, which the list leaves out. */
 function parseTournament(v: unknown, what: string): TournamentDetail {
   return { ...parseSummary(v, what), gamesFinished: num(obj(v, what), "games_finished", what) };
@@ -371,7 +468,7 @@ function parseGame(v: unknown, what: string): IndexedGame {
   if (contract !== "daily" && contract !== "tutorial") bad(`${what}.contract is ${contract}`);
   const over = bool(o, "over", what);
   // "As built": a running game answers null for these three, read as 0; `over` says which.
-  return {
+  const game: IndexedGame = {
     contract: contract as IndexerContract,
     gameId: num(o, "game_id", what),
     mode: num(o, "mode", what),
@@ -382,6 +479,8 @@ function parseGame(v: unknown, what: string): IndexedGame {
     countedTournamentId: numUnlessRunning(o, "counted_tournament_id", what, over),
     endTime: numUnlessRunning(o, "end_time", what, over),
   };
+  if (present(o, "economy")) game.economy = o.economy === null ? null : parseGameEconomy(o.economy, `${what}.economy`);
+  return game;
 }
 
 function parseTasks<T extends TaskTarget>(v: unknown, what: string, count: boolean): T[] {
@@ -521,7 +620,12 @@ export class IndexerClient {
 
   /** A day with no game answers zeros, never not-found. */
   async tournament(id: number | bigint): Promise<IndexerAnswer<TournamentDetail>> {
-    return this.get(`/v1/tournaments/${tournamentPath(id)}`, {}, (b) => parseTournament(b.tournament, "tournament"));
+    return this.get(`/v1/tournaments/${tournamentPath(id)}`, {}, (b) => {
+      // E3's `economy` is the answer's own key, next to `tournament`.
+      const detail = parseTournament(b.tournament, "tournament");
+      if (present(b, "economy")) detail.economy = parseTournamentEconomy(b.economy, "economy");
+      return detail;
+    });
   }
 
   async leaderboard(id: number | bigint, params: { limit?: number; offset?: number } = {}): Promise<IndexerAnswer<Leaderboard>> {
@@ -548,6 +652,9 @@ export class IndexerClient {
           dailyFinished: num(stats, "daily_finished", "stats"),
           bestScore: num(stats, "best_score", "stats"),
           tutorialGames: num(stats, "tutorial_games", "stats"),
+          ...(present(stats, "paid_games") ? { paidGames: num(stats, "paid_games", "stats") } : {}),
+          ...(present(stats, "settled_games") ? { settledGames: num(stats, "settled_games", "stats") } : {}),
+          ...(present(stats, "rewards") ? { rewards: amount(stats, "rewards", "stats") } : {}),
         },
       };
     });
