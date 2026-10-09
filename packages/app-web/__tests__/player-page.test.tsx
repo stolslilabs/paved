@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, configure, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+
 import { FakeGameViews, IndexerClient } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_TOURNAMENT, FixtureIndexer } from "@paved/chain/testing";
 import { PlayerPage } from "../src/pages/Player";
 import { renderPage } from "./helpers/page-fixtures";
+
+// A cold CI run is slow on the first render: the library's 1 s default is too tight.
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(cleanup);
 
