@@ -36,6 +36,35 @@ async function start(): Promise<{ client: IndexerClient; indexer: Indexer; url: 
   node.mine([ev.over("daily", 1, A, 50, { tournament: DAY, end: 77 })]);
   node.mine([ev.over("daily", 2, B, 40, { tournament: DAY, end: 78 })]);
   node.mine([ev.spawned("daily", 3, A, { tournament: DAY })]); // still running: null score, day and end time
+  return serveNode(node);
+}
+
+const T0 = DAY * 86400;
+
+/**
+ * A node with the accepted P7 definitions (some of them: quests 1, 2 and 4, achievements 2, 3 and 9) from the day `DAY` on, and
+ * three Daily games of Ada's that day (1,200 and 1,500 points, then one that runs). Bo is known and has no progress.
+ */
+async function startQuests() {
+  const node = new FakeNode();
+  node.time = T0 + 100;
+  node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]); // "Ada", "Bo"
+  node.mine(
+    [ev.questDefined(1, { start: T0, tasks: [[1, 1]] })],
+    [ev.questDefined(2, { start: T0, tasks: [[2, 6]] })],
+    [ev.questDefined(4, { start: T0, tasks: [[3, 3000]] })],
+    [ev.achievementDefined(2, { tasks: [[1, 1]], points: 10 })],
+    [ev.achievementDefined(3, { tasks: [[1, 10]], points: 20 })],
+    [ev.achievementDefined(9, { tasks: [[8, 1]], points: 50 })],
+  );
+  node.mine([ev.spawned("daily", 1, A, { tournament: DAY })], [ev.spawned("daily", 2, A, { tournament: DAY })], [ev.spawned("daily", 3, A, { tournament: DAY })]);
+  node.mine([ev.over("daily", 1, A, 1200, { tournament: DAY, end: T0 + 200 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1200), ev.achievementProgressed("daily", A, 1, 1)]);
+  node.mine([ev.over("daily", 2, A, 1500, { tournament: DAY, end: T0 + 300 }), ev.questProgressed(A, 1, 1), ev.questProgressed(A, 3, 1500), ev.achievementProgressed("daily", A, 1, 1)]);
+  node.mine([ev.questRetired(2)]);
+  return { node, ...(await serveNode(node)) };
+}
+
+async function serveNode(node: FakeNode): Promise<{ client: IndexerClient; indexer: Indexer; url: string }> {
   const indexer = indexerOf(node);
   await settle(indexer);
   const server = serve(indexer, { allowedOrigins: [ORIGIN] });
@@ -169,6 +198,84 @@ describe("IndexerClient against the real indexer", () => {
     expect(error.detail).toMatchObject({ reason: "an unknown event", httpStatus: 503 });
     expect(await kindOf(client.leaderboard(DAY))).toBe("unavailable");
     expect(await kindOf(client.player(ADA))).toBe("unavailable");
+  });
+
+  test("/v1/definitions: the defined quests and achievements, a retired quest flagged with its time", async () => {
+    const { client } = await startQuests();
+    const { data } = await client.definitions();
+    expect(data.quests.map((q) => [q.questId, q.retired])).toEqual([[1, false], [2, true], [4, false]]);
+    expect(data.quests[2]).toMatchObject({ questId: 4, startTime: T0, endTime: 0, duration: 86400, interval: 86400, tasks: [{ taskId: 3, total: 3000 }], conditions: [], retiredAt: null });
+    expect(data.quests[1].retiredAt).toBeGreaterThan(T0);
+    expect(data.achievements.map((a) => [a.achievementId, a.points, a.tasks])).toEqual([
+      [2, 10, [{ taskId: 1, total: 1 }]],
+      [3, 20, [{ taskId: 1, total: 10 }]],
+      [9, 50, [{ taskId: 8, total: 1 }]],
+    ]);
+  });
+
+  test("/v1/definitions: nothing defined yet is two empty lists", async () => {
+    const { client } = await start();
+    expect((await client.definitions()).data).toEqual({ quests: [], achievements: [] });
+  });
+
+  test("/v1/players/{id}/quests: a player with progress (1,200 + 1,500 of 3,000 points, one game finished twice)", async () => {
+    const { client } = await startQuests();
+    const { data } = await client.playerQuests(ADA, { day: DAY });
+    expect(data).toMatchObject({ playerId: ADA, day: DAY, startTime: T0, endTime: T0 + 86400 });
+    const byId = new Map(data.quests.map((q) => [q.questId, q]));
+    expect(byId.get(1)).toMatchObject({ intervalId: 0, completed: true, retired: false, tasks: [{ taskId: 1, total: 1, count: 1 }] }); // saturated at the target; the interval counts from the quest's own start, so day 100 is its interval 0
+    expect(byId.get(1)!.completedAt).toBeGreaterThan(T0);
+    expect(byId.get(4)).toMatchObject({ completed: false, completedAt: null, tasks: [{ taskId: 3, total: 3000, count: 2700 }] });
+    // Retired after the reports: what counted stays, it is listed for the day it was live, and flagged.
+    expect(byId.get(2)).toMatchObject({ retired: true, completed: false, tasks: [{ taskId: 2, total: 6, count: 0 }] });
+  });
+
+  test("/v1/players/{id}/quests: a known player with none, and an unknown player, have zero counts", async () => {
+    const { client } = await startQuests();
+    for (const id of [BO, indexerPlayerId(0xdeadn)]) {
+      const { data } = await client.playerQuests(id, { day: DAY });
+      expect(data.quests.map((q) => q.questId)).toEqual([1, 2, 4]);
+      expect(data.quests.every((q) => !q.completed && q.completedAt === null && q.tasks.every((t) => t.count === 0))).toBe(true);
+    }
+  });
+
+  test("/v1/players/{id}/quests: a day with no quest is an empty list, another day has no progress, no day is the served block's", async () => {
+    const { client } = await startQuests();
+    expect((await client.playerQuests(ADA, { day: DAY - 1 })).data).toMatchObject({ day: DAY - 1, quests: [] });
+    const next = (await client.playerQuests(ADA, { day: DAY + 1 })).data;
+    expect(next.quests.map((q) => [q.questId, q.intervalId, q.completed])).toEqual([[1, 1, false], [4, 1, false]]); // quest 2 retired before the day began
+    expect((await client.playerQuests(ADA)).data.day).toBe(DAY); // the served block is on day 100
+    expect(await kindOf(client.playerQuests(ADA, { day: MAX_TOURNAMENT_ID + 1 }))).toBe("rejected");
+    expect((await client.playerQuests(ADA, { day: MAX_TOURNAMENT_ID })).data.quests).toHaveLength(2);
+  });
+
+  test("/v1/players/{id}/achievements: points of the completed ones, progress on the others", async () => {
+    const { client } = await startQuests();
+    const { data } = await client.playerAchievements(ADA);
+    expect(data.playerId).toBe(ADA);
+    expect(data.points).toBe(10);
+    expect(data.achievements.map((a) => [a.achievementId, a.completed, a.tasks[0].count, a.points])).toEqual([[2, true, 1, 10], [3, false, 2, 20], [9, false, 0, 50]]);
+    expect(data.achievements[0].completedAt).toBeGreaterThan(T0);
+    expect(data.achievements[1]).toMatchObject({ completedAt: null, retired: false });
+  });
+
+  test("/v1/players/{id}/achievements: no progress is zero points, and so is an unknown player", async () => {
+    const { client } = await startQuests();
+    for (const id of [BO, indexerPlayerId(0xdeadn)]) {
+      const { data } = await client.playerAchievements(id);
+      expect(data.points).toBe(0);
+      expect(data.achievements.map((a) => a.achievementId)).toEqual([2, 3, 9]);
+      expect(data.achievements.every((a) => !a.completed && a.tasks[0].count === 0)).toBe(true);
+    }
+  });
+
+  test("the new routes under a halted indexer, and a refused day, are typed", async () => {
+    const { client, indexer, url } = await startQuests();
+    expect(await kindOf(new IndexerClient({ url }).playerQuests(ADA, { day: -1 }))).toBe("rejected");
+    indexer.halt("an unknown event");
+    expect(await kindOf(client.definitions())).toBe("unavailable");
+    expect(await kindOf(client.playerQuests(ADA, { day: DAY }))).toBe("unavailable");
+    expect(await kindOf(client.playerAchievements(ADA))).toBe("unavailable");
   });
 
   test("CORS: the allowed origin is echoed, another is not", async () => {

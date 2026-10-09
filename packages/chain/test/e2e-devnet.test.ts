@@ -242,7 +242,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
 
   test("spawns three Daily games at the entry price", async () => {
     tournamentId = await client.views.currentTournamentId();
-    prizeAtStart = (await client.views.tournament(tournamentId)).prize; // the deploy script's smoke game paid one entry
+    prizeAtStart = (await client.views.tournament(tournamentId)).prize; // the deploy script plays no Daily game, so the prize is 0 on a fresh node
     const evidence: string[] = [];
     for (const p of players) {
       const before = await client.balance(p.address);
@@ -373,11 +373,18 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     pass("indexer players and games vs views and events", lines.join("; "));
   }, 120_000);
 
-  test("the smoke game of the deploy script is a running game of the deployer", async () => {
+  test("the smoke game of the deploy script is a running Tutorial game of the deployer", async () => {
+    // deploy.sh plays no Daily game (P-24): its smoke game is Tutorial game 1, spawned by the deployer and never finished.
+    // The step fails when it is missing: a node not deployed by scripts/deploy.sh is not what this check is run on.
     const predeployed: Array<{ address: string }> = await rpc(rpcUrl, "devnet_getPredeployedAccounts");
-    const games = (await indexer.playerGames(predeployed[0].address, { contract: "daily" })).data.games;
-    if (games.length === 0) return pass("deployer's smoke game seen by the indexer", "none (the node was not deployed with scripts/deploy.sh)");
-    expect(games.every((g) => !g.over && g.score === 0 && g.endTime === 0)).toBe(true);
-    pass("deployer's smoke game seen by the indexer", `${games.length} running game(s): score 0, end_time 0 (null read as 0)`);
+    const deployer = predeployed[0].address;
+    expect((await indexer.playerGames(deployer, { contract: "daily" })).data.games).toEqual([]);
+    const games = (await indexer.playerGames(deployer, { contract: "tutorial" })).data.games;
+    expect(games.map((g) => g.gameId)).toEqual([1]);
+    expect(games[0]).toMatchObject({ contract: "tutorial", over: false, score: 0, endTime: 0, countedTournamentId: 0, tournamentId: 0 });
+    const view = await client.views.game({ mode: "tutorial", gameId: 1 });
+    expect(BigInt(view.playerId)).toBe(BigInt(deployer));
+    expect(view.over).toBe(false);
+    pass("deployer's smoke game seen by the indexer", "Tutorial game 1, running: score 0, end_time 0 (null read as 0); no Daily game");
   });
 });

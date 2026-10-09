@@ -189,6 +189,87 @@ export interface PlayerGames {
   next: string | null;
 }
 
+/** A task of a definition or of a player's progress: the id the game reports and the count that completes it. */
+export interface TaskTarget {
+  taskId: number;
+  total: number;
+}
+
+/** A player's progress on a task: `count` is the sum so far, at most `total`. */
+export interface TaskProgress extends TaskTarget {
+  count: number;
+}
+
+/** One daily quest as defined on chain (`GET /v1/definitions`). Titles are not on chain: the screens key them by `questId`. */
+export interface QuestDefinition {
+  questId: number;
+  /** 0 and `endTime` 0: the schedule never ends; `duration` and `interval` 0 for a one-off quest. */
+  startTime: number;
+  endTime: number;
+  duration: number;
+  interval: number;
+  tasks: TaskTarget[];
+  /** Prerequisites as defined; the indexer does not apply them. */
+  conditions: number[];
+  definedAt: number;
+  retired: boolean;
+  retiredAt: number | null;
+}
+
+export interface AchievementDefinition {
+  achievementId: number;
+  /** The window, 0 is open on that side. */
+  startTime: number;
+  endTime: number;
+  tasks: TaskTarget[];
+  /** Display only: nothing is granted for it. */
+  points: number;
+  definedAt: number;
+  retired: boolean;
+  retiredAt: number | null;
+}
+
+export interface Definitions {
+  quests: QuestDefinition[];
+  achievements: AchievementDefinition[];
+}
+
+export interface PlayerQuest {
+  questId: number;
+  /** The interval of the schedule the day falls in (0 for a one-off quest). */
+  intervalId: number;
+  tasks: TaskProgress[];
+  completed: boolean;
+  completedAt: number | null;
+  retired: boolean;
+}
+
+/** A player's quests of one UTC day. A player the indexer does not know has zero counts. */
+export interface PlayerQuests {
+  playerId: string;
+  /** `timestamp / 86400`, the tournament id of the day. */
+  day: number;
+  startTime: number;
+  endTime: number;
+  quests: PlayerQuest[];
+}
+
+export interface PlayerAchievement {
+  achievementId: number;
+  points: number;
+  tasks: TaskProgress[];
+  completed: boolean;
+  completedAt: number | null;
+  retired: boolean;
+}
+
+export interface PlayerAchievements {
+  playerId: string;
+  /** Points of the completed achievements, as the indexer sums them. Display only. */
+  points: number;
+  achievements: PlayerAchievement[];
+}
+
 export interface IndexerOptions {
   /** Base URL of the API, without the `/v1`. */
   url: string;
@@ -303,6 +384,85 @@ function parseGame(v: unknown, what: string): IndexedGame {
   };
 }
 
+function parseTasks<T extends TaskTarget>(v: unknown, what: string, count: boolean): T[] {
+  const tasks = (Array.isArray(v) ? v : bad(`${what} is not a list`)).map((t, i): TaskTarget | TaskProgress => {
+    const o = obj(t, `${what}[${i}]`);
+    const target = { taskId: num(o, "task_id", `${what}[${i}]`), total: num(o, "total", `${what}[${i}]`) };
+    if (!count) return target;
+    const seen = num(o, "count", `${what}[${i}]`);
+    if (seen > target.total) bad(`${what}[${i}].count is above total`);
+    return { ...target, count: seen };
+  });
+  if (tasks.length === 0) bad(`${what} is empty`);
+  return tasks as T[];
+}
+
+/** Completion and its time go together: a completed one has a time, an incomplete one has none. */
+function parseCompletion(o: Obj, what: string, tasks: TaskProgress[]): { completed: boolean; completedAt: number | null } {
+  const completed = bool(o, "completed", what);
+  const completedAt = orNull(o, "completed_at", num, what);
+  if (completed !== (completedAt !== null)) bad(`${what}.completed and completed_at disagree`);
+  if (completed !== tasks.every((t) => t.count === t.total)) bad(`${what}.completed does not match its tasks`);
+  return { completed, completedAt };
+}
+
+function parseQuestDefinition(v: unknown, what: string): QuestDefinition {
+  const o = obj(v, what);
+  const conditions = list(o, "conditions", what);
+  if (!conditions.every((c) => typeof c === "number" && Number.isSafeInteger(c) && c >= 0)) bad(`${what}.conditions is not a list of ids`);
+  const retired = bool(o, "retired", what);
+  const retiredAt = orNull(o, "retired_at", num, what);
+  if (retired !== (retiredAt !== null)) bad(`${what}.retired and retired_at disagree`);
+  return {
+    questId: num(o, "quest_id", what),
+    startTime: num(o, "start_time", what),
+    endTime: num(o, "end_time", what),
+    duration: num(o, "duration", what),
+    interval: num(o, "interval", what),
+    tasks: parseTasks<TaskTarget>(o.tasks, `${what}.tasks`, false),
+    conditions: conditions as number[],
+    definedAt: num(o, "defined_at", what),
+    retired,
+    retiredAt,
+  };
+}
+
+function parseAchievementDefinition(v: unknown, what: string): AchievementDefinition {
+  const o = obj(v, what);
+  const retired = bool(o, "retired", what);
+  const retiredAt = orNull(o, "retired_at", num, what);
+  if (retired !== (retiredAt !== null)) bad(`${what}.retired and retired_at disagree`);
+  return {
+    achievementId: num(o, "achievement_id", what),
+    startTime: num(o, "start_time", what),
+    endTime: num(o, "end_time", what),
+    tasks: parseTasks<TaskTarget>(o.tasks, `${what}.tasks`, false),
+    points: num(o, "points", what),
+    definedAt: num(o, "defined_at", what),
+    retired,
+    retiredAt,
+  };
+}
+
+function parsePlayerQuest(v: unknown, what: string): PlayerQuest {
+  const o = obj(v, what);
+  const tasks = parseTasks<TaskProgress>(o.tasks, `${what}.tasks`, true);
+  return { questId: num(o, "quest_id", what), intervalId: num(o, "interval_id", what), tasks, ...parseCompletion(o, what, tasks), retired: bool(o, "retired", what) };
+}
+
+function parsePlayerAchievement(v: unknown, what: string): PlayerAchievement {
+  const o = obj(v, what);
+  const tasks = parseTasks<TaskProgress>(o.tasks, `${what}.tasks`, true);
+  return { achievementId: num(o, "achievement_id", what), points: num(o, "points", what), tasks, ...parseCompletion(o, what, tasks), retired: bool(o, "retired", what) };
+}
+
+/** The player an answer is about must be the one asked, so a mixed-up answer is never shown as theirs. */
+function answerPlayer(b: Obj, asked: string, what: string): string {
+  const id = str(b, "player_id", what);
+  if (id !== asked) bad(`${what}.player_id is not the player asked`);
+  return id;
+}
+
 /** A player id as the API writes it: `0x`, 64 lowercase hex digits. Throws on anything else. */
 export function indexerPlayerId(id: string | bigint): string {
   let value: bigint;
@@ -412,6 +572,41 @@ export class IndexerClient {
   async game(contract: IndexerContract, gameId: number): Promise<IndexerAnswer<IndexedGame>> {
     if (!Number.isSafeInteger(gameId) || gameId < 0) throw new IndexerError("rejected", `Not a game id: ${gameId}`);
     return this.get(`/v1/games/${contract}/${gameId}`, {}, (b) => parseGame(b.game, "game"));
+  }
+
+  /** The quests and achievements as defined on chain, retired ones included (flagged). */
+  async definitions(): Promise<IndexerAnswer<Definitions>> {
+    return this.get("/v1/definitions", {}, (b) => ({
+      quests: list(b, "quests", "definitions").map((q, i) => parseQuestDefinition(q, `quests[${i}]`)),
+      achievements: list(b, "achievements", "definitions").map((a, i) => parseAchievementDefinition(a, `achievements[${i}]`)),
+    }));
+  }
+
+  /** A player's quests of one UTC day (`day` = `timestamp / 86400`; the served block's day when left out). */
+  async playerQuests(playerId: string | bigint, params: { day?: number } = {}): Promise<IndexerAnswer<PlayerQuests>> {
+    const id = indexerPlayerId(playerId);
+    if (params.day !== undefined) tournamentPath(params.day);
+    return this.get(`/v1/players/${id}/quests`, params, (b) => {
+      const day = num(b, "day", "quests");
+      if (params.day !== undefined && day !== params.day) bad("quests.day is not the day asked");
+      return {
+        playerId: answerPlayer(b, id, "quests"),
+        day,
+        startTime: num(b, "start_time", "quests"),
+        endTime: num(b, "end_time", "quests"),
+        quests: list(b, "quests", "quests").map((q, i) => parsePlayerQuest(q, `quests[${i}]`)),
+      };
+    });
+  }
+
+  /** Every defined achievement with the player's progress. Points are for display. */
+  async playerAchievements(playerId: string | bigint): Promise<IndexerAnswer<PlayerAchievements>> {
+    const id = indexerPlayerId(playerId);
+    return this.get(`/v1/players/${id}/achievements`, {}, (b) => ({
+      playerId: answerPlayer(b, id, "achievements"),
+      points: num(b, "points", "achievements"),
+      achievements: list(b, "achievements", "achievements").map((a, i) => parsePlayerAchievement(a, `achievements[${i}]`)),
+    }));
   }
 
   private async get<T>(path: string, params: Record<string, string | number | undefined>, parse: (body: Obj) => T): Promise<IndexerAnswer<T>> {
