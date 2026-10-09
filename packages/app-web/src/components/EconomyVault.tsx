@@ -78,7 +78,7 @@ export function EconomyVault({
             {pending.kind === "stake"
               ? `Stake ${paved(pending.amount)} in the Vault?`
               : pending.kind === "unstake"
-                ? `Unstake ${paved(pending.amount)} from the Vault?`
+                ? `Unstake ${paved(pending.amount)} from the Vault? Your dividends stay claimable.`
                 : `Claim ${usdc(pending.amount)} of dividends?`}
           </span>
           <div style={{ display: "flex", gap: 8 }}>

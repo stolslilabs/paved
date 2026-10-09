@@ -116,6 +116,16 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 10, confirmedPrice: 20_000_000n, referrer: REFERRER });
   });
 
+  it("a malformed referrer in the link (?ref=abc) is ignored: no referrer shown or sent", async () => {
+    land({ search: "?ref=abc" });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await screen.findByText("Buy for 2 USDC"));
+    expect(screen.queryByText(/Referr/)).toBeNull();
+    fireEvent.click(screen.getByText("Confirm purchase"));
+    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.referrer).toBeNull();
+  });
+
   it("a referral link to one's own address is ignored", async () => {
     land({ search: `?ref=${PLAYER}` });
     fireEvent.click(await screen.findByText(/mode daily/));
@@ -163,6 +173,9 @@ describe("Vault: stake, unstake, dividends, each after a confirm", () => {
     fireEvent.click(screen.getByText("Stake"));
     expect(writer.sendCalls).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Stake 1.5 PAVED in the Vault?");
+    fireEvent.click(screen.getByText("Unstake"));
+    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Unstake 1.5 PAVED from the Vault? Your dividends stay claimable.");
+    fireEvent.click(screen.getByText("Stake"));
     fireEvent.click(screen.getByText("Confirm stake"));
     await waitFor(() => expect(writer.sent).toHaveLength(1));
     expect(writer.sent[0].map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.pavedToken, "approve"], [ECON.vault, "stake"]]);

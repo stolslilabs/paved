@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import { IngameStatus, GameCompleteDialog, ActionBar, SpotSelector, useGameStore } from "@paved/ui";
 import type { GameScene, TileRenderData, CameraMode } from "@paved/renderer";
-import { useGameSession, usePaved } from "@paved/chain";
+import { PurchaseOutcomeUnknownError, useGameSession, usePaved } from "@paved/chain";
 import type { GameKey } from "@paved/chain";
 import { Layout, Plan, Orientation, Direction, DirectionType, getIndexFromCharacter } from "@paved/game-core";
 import { CENTER, shouldShowSpotSelector, spotKeyToNumber, toRenderBoard } from "../utils/game-helpers";
@@ -120,6 +120,8 @@ export function GamePage() {
   const { status, client, writer, address } = usePaved();
   const economy = useEconomy();
   const [spawnError, setSpawnError] = useState<string | null>(null);
+  // A purchase sent whose receipt named no game: not a failure, and no invitation to buy again.
+  const [unknownOutcome, setUnknownOutcome] = useState<string | null>(null);
   // A consent was found at mount and is waiting for a writer, or its start is in flight.
   const [wantsStart, setWantsStart] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -179,7 +181,8 @@ export function GamePage() {
       clearIntent: () => {}, // already cleared at mount
       open: (gameId) => alive.current && navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
     }).catch((error) => {
-      setSpawnError(error instanceof Error ? error.message : String(error));
+      if (error instanceof PurchaseOutcomeUnknownError) setUnknownOutcome(error.message);
+      else setSpawnError(error instanceof Error ? error.message : String(error));
       setStarting(false);
     });
   }, [wantsStart, client, writer, address, gameParams.mode, navigate, economy.writer]);
@@ -193,6 +196,7 @@ export function GamePage() {
   if (status === "not-configured") return <Screen text="Not connected" onBack={() => navigate("/")} />;
   if (!key) {
     // The error of a refused or failed start stays on screen after the consent is cleared.
+    if (unknownOutcome) return <Screen text={unknownOutcome} onBack={() => navigate("/")} />;
     if (spawnError) return <Screen text={`Cannot start a game: ${spawnError}`} onBack={() => navigate("/")} />;
     // A paid start in flight: the consent is already cleared, so say what is happening, not "No game selected".
     if (starting) return <Screen text="Spawning game..." onBack={() => navigate("/")} backDisabled />;

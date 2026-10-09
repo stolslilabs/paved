@@ -28,7 +28,7 @@ const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" 
 const base = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } });
 const account = { address: "0x5", execute: async () => ({ transaction_hash: "0x0" }) };
 
-function setup(opts: { state?: unknown; search?: string; unit?: bigint }) {
+function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSpawned?: boolean }) {
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: opts.unit ?? FAKE_UNIT };
   const economy = new FakeEconomy();
@@ -37,7 +37,7 @@ function setup(opts: { state?: unknown; search?: string; unit?: bigint }) {
   const sendCalls = vi.fn(async (prepare: () => Promise<{ calls: (typeof sent)[number] }>) => {
     const { calls } = await prepare();
     sent.push(calls);
-    return { transactionHash: "0x1", events: [{ name: "GameSpawned", fields: { gameId: 9 }, fromAddress: ADDR.Daily }] };
+    return { transactionHash: "0x1", events: opts.noGameSpawned ? [] : [{ name: "GameSpawned", fields: { gameId: 9 }, fromAddress: ADDR.Daily }] };
   });
   const spawn = vi.fn(async () => ({ gameId: 1 }));
   const client = { views, events: { playerGames: vi.fn(async () => []) }, writer: () => ({ address: account.address, sendCalls, spawn }) } as unknown as PavedClient;
@@ -72,6 +72,16 @@ describe("GamePage purchase", () => {
     const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null), unit: 3_000_000n });
     expect(await screen.findByText("Cannot start a game: The price changed: confirm again")).toBeTruthy();
     expect(sent).toHaveLength(0);
+    expect(screen.getByTestId("where").textContent).toMatch(/\|null$/);
+  });
+
+  it("a receipt without GameSpawned: 'sent, outcome unknown' with the hash, no retry, never 'Cannot start'", async () => {
+    const { sendCalls } = setup({ state: purchaseIntent(1, 2_000_000n, null), noGameSpawned: true });
+    expect(await screen.findByText("Purchase sent (0x1), outcome unknown: check your games before buying again")).toBeTruthy();
+    expect(screen.queryByText(/Cannot start a game/)).toBeNull();
+    expect(screen.queryByText(/buy|retry/i, { selector: "button" })).toBeNull();
+    expect(sendCalls).toHaveBeenCalledTimes(1);
+    // The consent is gone: nothing can buy again without a new confirm.
     expect(screen.getByTestId("where").textContent).toMatch(/\|null$/);
   });
 
