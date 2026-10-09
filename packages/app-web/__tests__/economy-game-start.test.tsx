@@ -4,7 +4,7 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { FakeGameViews, PavedProvider, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
+import { FakeGameViews, PavedProvider, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
 import type { PavedClient } from "@paved/chain";
 import { FAKE_UNIT, FakeEconomy } from "@paved/chain/economy/fake";
 import { GamePage } from "../src/pages/Game";
@@ -28,7 +28,7 @@ const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" 
 const base = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } });
 const account = { address: "0x5", execute: async () => ({ transaction_hash: "0x0" }) };
 
-function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSpawned?: boolean }) {
+function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSpawned?: boolean; sendError?: WriteError }) {
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: opts.unit ?? FAKE_UNIT };
   const economy = new FakeEconomy();
@@ -37,6 +37,7 @@ function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSp
   const sendCalls = vi.fn(async (prepare: () => Promise<{ calls: (typeof sent)[number] }>) => {
     const { calls } = await prepare();
     sent.push(calls);
+    if (opts.sendError) throw opts.sendError;
     return { transactionHash: "0x1", events: opts.noGameSpawned ? [] : [{ name: "GameSpawned", fields: { gameId: 9 }, fromAddress: ADDR.Daily }] };
   });
   const spawn = vi.fn(async () => ({ gameId: 1 }));
@@ -83,6 +84,19 @@ describe("GamePage purchase", () => {
     expect(sendCalls).toHaveBeenCalledTimes(1);
     // The consent is gone: nothing can buy again without a new confirm.
     expect(screen.getByTestId("where").textContent).toMatch(/\|null$/);
+  });
+
+  it("sent, then the receipt could not be read: 'sent, outcome unknown', like the empty receipt", async () => {
+    const { sendCalls } = setup({ state: purchaseIntent(1, 2_000_000n, null), sendError: new WriteError("socket hang up", "0xab") });
+    expect(await screen.findByText("Purchase sent (0xab), outcome unknown: check your games before buying again")).toBeTruthy();
+    expect(screen.queryByText(/Cannot start a game/)).toBeNull();
+    expect(sendCalls).toHaveBeenCalledTimes(1);
+  });
+
+  it("a reverted purchase is a known failure: 'Cannot start a game' with its reason", async () => {
+    setup({ state: purchaseIntent(1, 2_000_000n, null), sendError: new WriteError("Economy: slippage", "0xab", true) });
+    expect(await screen.findByText("Cannot start a game: Economy: slippage")).toBeTruthy();
+    expect(screen.queryByText(/outcome unknown/)).toBeNull();
   });
 
   it("a URL alone buys nothing", async () => {
