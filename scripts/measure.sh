@@ -6,6 +6,8 @@
 #
 # Usage: scripts/measure.sh [gas|coverage|coverage-split|check-setup|all]   (default: all;
 #        `all` runs the whole coverage, `coverage-split` is the one for an 8 GB machine)
+#        Coverage runs use the `coverage` Scarb profile (contracts/Scarb.toml): only it keeps the code
+#        locations that cairo-coverage needs, the dev profile drops them to lower the test build peak.
 #
 # Runs are single-threaded (RAYON_NUM_THREADS=1) and each is capped to 8 GiB of address space and reports its peak resident memory.
 # Toolchain: scarb 2.20.1 and snforge 0.64.0 (override with SCARB_BIN_DIR / SNFORGE_BIN_DIR);
@@ -72,7 +74,7 @@ coverage_table() {
 coverage() {
   echo "== Line coverage of contracts/src"
   rm -rf coverage
-  run_capped snforge test --coverage 2>&1 | grep -iE '^Tests:|maximum resident|coverage'
+  run_capped snforge test -P coverage --coverage 2>&1 | grep -iE '^Tests:|maximum resident|coverage'
   lcov="$(pwd)/coverage/coverage.lcov"
   test -s "$lcov" || { echo "no coverage.lcov produced"; exit 1; }
   coverage_table "$lcov"
@@ -144,7 +146,7 @@ coverage_split() {
     log="target/coverage-split/$name.log"
     set +e
     # shellcheck disable=SC2086
-    run_capped snforge test --coverage --max-threads 2 $extra "$filter" > "$log" 2>&1
+    run_capped snforge test -P coverage --coverage --max-threads 2 $extra "$filter" > "$log" 2>&1
     status=$?
     set -e
     grep -iE '^Tests:|maximum resident|coverage|error|panicked' "$log" || true

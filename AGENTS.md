@@ -19,3 +19,7 @@ Exceptions, all in the contracts:
   (observed, not a capped measure).
 - **Gas-trace runs** (`--trace-components`): observed at 3.3 GB RSS, also not a capped measure. Measure
   first.
+
+Test build peak RSS after dropping the code-location debug info from the dev profile: 5.56 GB (5.57 GB on
+`snforge test paved::types::`, measured under `prlimit --as=12884901888`), down from 7.99 GB. Coverage runs use
+`snforge test -P coverage` (`scripts/measure.sh coverage*`), which keeps the flag and its cost.

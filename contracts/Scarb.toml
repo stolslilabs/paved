@@ -21,10 +21,17 @@ casm = true
 
 [profile.dev.cairo]
 unstable-add-statements-functions-debug-info = true
-unstable-add-statements-code-locations-debug-info = true
 inlining-strategy = "avoid"
 
 [dev-dependencies]
 cairo_test = "2.20.1"
 snforge_std = "=0.64.0"
 snforge_scarb_plugin = "=0.64.0"
+
+# Line coverage (`snforge test --coverage`, scripts/measure.sh coverage*) needs the code locations;
+# they cost about 2.5 GB of peak memory in the test build, so only this profile has them.
+[profile.coverage]
+inherits = "dev"
+
+[profile.coverage.cairo]
+unstable-add-statements-code-locations-debug-info = true
