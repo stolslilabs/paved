@@ -23,8 +23,8 @@ export class EconomyClient {
 
   /** The writer; "now" for the settlement is the latest block's timestamp when the provider can read it. */
   writer(writer: PavedWriter, options: { now?: () => number | Promise<number> } = {}): EconomyWriter {
-    const provider = this.base.provider as { getBlock?: (id: "latest") => Promise<{ timestamp: number }> };
-    const blockTime = provider.getBlock ? async () => Number((await provider.getBlock!("latest")).timestamp) : undefined;
+    const provider = this.base.provider as { getBlock?: (id: "latest") => Promise<{ timestamp: number }> } | undefined;
+    const blockTime = provider?.getBlock ? async () => Number((await provider.getBlock!("latest")).timestamp) : undefined;
     return new EconomyWriter({ writer, deployment: this.deployment, codecs: this.codecs, views: this.views, gameViews: this.base.views, now: options.now ?? blockTime });
   }
 }
