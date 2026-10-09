@@ -18,7 +18,12 @@ import {
   VaultAmountChangedError,
   boostBps,
   createEconomyClient,
-  dayOver,
+  DEFAULT_SLIPPAGE_BPS,
+  MAX_SLIPPAGE_BPS,
+  POOL_QUOTE_CONFIRMED,
+  expiresAt,
+  minOutFor,
+  settlesAfter,
   formatBps,
   formatUnits,
   parseUnits,
@@ -26,7 +31,7 @@ import {
   referralOf,
   resolveEconomyDeployment,
 } from "../src/economy";
-import { FAKE_UNIT, FakeEconomy, fakeTerms } from "../src/economy/fake";
+import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/economy/fake";
 
 const ADDR = { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
@@ -42,7 +47,7 @@ const spawnedEvent = (gameId: number) => ({
   data: ["0x1", `0x${DAY.toString(16)}`, "0x1", "0x0"],
 });
 
-function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () => Promise<{ transaction_hash: string }>; wait?: () => Promise<unknown> } = {}) {
+function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () => Promise<{ transaction_hash: string }>; wait?: () => Promise<unknown>; pool?: FakePoolQuoter | null } = {}) {
   const economy = new FakeEconomy();
   const gameViews = new FakeGameViews();
   gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
@@ -54,10 +59,11 @@ function setup(options: { receiptEvents?: unknown[]; now?: number; execute?: () 
   const execute = vi.fn(options.execute ?? (async () => ({ transaction_hash: "0x1" })));
   const client = new PavedClient(base, rpc, createCodecs(), gameViews);
   const writer = client.writer({ address: PLAYER, execute });
-  const econ = createEconomyClient(economyDeployment, client, economy)!;
-  const econWriter = econ.writer(writer, { now: () => options.now ?? (DAY + 1) * 86400 });
+  const pool = options.pool === undefined ? new FakePoolQuoter() : options.pool;
+  const econ = createEconomyClient(economyDeployment, client, economy, pool)!;
+  const econWriter = econ.writer(writer, { now: () => options.now ?? settlesAfter(DAY) });
   const sent = () => (execute.mock.calls as unknown as Array<[Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>]>).map((c) => c[0]);
-  return { economy, gameViews, execute, writer, econWriter, sent };
+  return { economy, gameViews, execute, writer, econWriter, sent, pool };
 }
 
 describe("stub ABIs (until E2/E3)", () => {
@@ -106,9 +112,18 @@ describe("amounts: BigInt base units, never floats", () => {
     expect(formatUnits(1_500_000n, 6, 2)).toBe("1.5");
   });
 
-  test("a day is settled once it is over", () => {
-    expect(dayOver(DAY, (DAY + 1) * 86400 - 1)).toBe(false);
-    expect(dayOver(DAY, (DAY + 1) * 86400)).toBe(true);
+  test("min_out: the pool quote less 1 % by default, rounded down, the slippage capped at 5 %", () => {
+    expect(DEFAULT_SLIPPAGE_BPS).toBe(100n);
+    expect(MAX_SLIPPAGE_BPS).toBe(500n);
+    expect(minOutFor(1_000n)).toBe(990n);
+    expect(minOutFor(999n)).toBe(989n);
+    expect(minOutFor(1_000n, 500n)).toBe(950n);
+    expect(() => minOutFor(1_000n, 501n)).toThrow(RangeError);
+  });
+
+  test("P-34: a paid game expires 24 h after its purchase; day D settles after D+1 ends", () => {
+    expect(expiresAt(1_000)).toBe(1_000 + 86_400);
+    expect(settlesAfter(DAY)).toBe((DAY + 2) * 86_400);
   });
 });
 
@@ -130,17 +145,20 @@ describe("deployment: the economy is not configured until CORE deploys it", () =
 });
 
 describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in one multicall", () => {
-  test("approves exactly the price to Daily; min_out is the quote's hint as it is (E2 already took 1 % off)", async () => {
+  test("approves exactly the price to Daily; min_out is the pool quote less 1 %, never the hint", async () => {
     const { economy, econWriter, sent } = setup();
     const result = await econWriter.purchase({ stake: 3, confirmedPrice: 6_000_000n, referrer: null });
     expect(result.gameId).toBe(9);
     const [calls] = sent();
     expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.usdc, "approve"], [ADDR.Daily, "spawn"]]);
     expect(calls[0].calldata).toEqual([ADDR.Daily, "0x5b8d80", "0x0"]); // 6_000_000 as u256
-    const minOut = (await economy.quote(3)).minOutHint;
+    const quote = await economy.quote(3);
+    const poolOut = (quote.burnQuote * 95n * 80n * 10n ** 18n) / (100n * 1_000_000n); // the fee included
+    const minOut = (poolOut * 9_900n) / 10_000n;
     expect(typeof minOut).toBe("bigint");
-    // No second cut: 99 % of the burn quote at the rate, not 99 % of that.
-    expect(minOut).toBe((4_200_000n * 80n * 10n ** 18n * 99n) / (1_000_000n * 100n));
+    expect(minOut).toBe(await economy.expectedMinOut(3));
+    // The hint leaves the fee out: it sits above what the swap returns, and is never sent.
+    expect(quote.minOutHint > poolOut).toBe(true);
     expect(calls[1].calldata).toEqual(["0x3", "0x0", `0x${minOut.toString(16)}`, "0x0"]);
   });
 
@@ -164,11 +182,27 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("a quote with no min_out (0) sends nothing: no slippage protection", async () => {
-    const { economy, econWriter, execute } = setup();
-    economy.rate = { paved: 0n, usdc: 1n };
-    await expect(econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow("No quote for the burn swap: nothing was sent");
-    expect(execute).not.toHaveBeenCalled();
+  test("no pool quoter (today: quote_swap is a stub), a zero quote or a failed one: nothing sent", async () => {
+    const request = { stake: 1, confirmedPrice: 2_000_000n, referrer: null };
+    expect(POOL_QUOTE_CONFIRMED).toBe(false);
+    const none = setup({ pool: null });
+    await expect(none.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent");
+    const zero = setup();
+    zero.pool!.zero = true;
+    await expect(zero.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent");
+    const failed = setup();
+    failed.pool!.fail = "down";
+    await expect(failed.econWriter.purchase(request)).rejects.toThrow(/Cannot read the pool quote: down/);
+    for (const s of [none, zero, failed]) expect(s.execute).not.toHaveBeenCalled();
+    // A real client has no quoter until CORE confirms quote_swap.
+    expect(createEconomyClient(economyDeployment, new PavedClient(base, {} as PavedRpc), new FakeEconomy())!.poolQuoter).toBeNull();
+  });
+
+  test("slippage: shown in bps, at most 5 %", async () => {
+    const s = setup();
+    const at5 = await s.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null, slippageBps: 500n });
+    expect(at5.minOut).toBe((at5.poolOut * 9_500n) / 10_000n);
+    await expect(s.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null, slippageBps: 600n })).rejects.toThrow(/Slippage is 0 to 500 bps/);
   });
 
   test("a malformed referrer is a WriteError, never a raw SyntaxError, and sends nothing", async () => {
@@ -267,7 +301,7 @@ describe("settle: the player's claim of PAVED, after the day", () => {
     economy.terms_.set(7, fakeTerms({ stake: 1, day: DAY }));
     const gameViews = new FakeGameViews();
     const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
-    const block = { timestamp: (DAY + 1) * 86400 - 1 };
+    const block = { timestamp: settlesAfter(DAY) - 1 };
     const rpc = {
       callContract: async () => [],
       getEvents: async () => ({ events: [] }),
@@ -275,9 +309,9 @@ describe("settle: the player's claim of PAVED, after the day", () => {
       getBlock: async () => block,
     } as unknown as PavedRpc;
     const client = new PavedClient(base, rpc, createCodecs(), gameViews);
-    const writer = createEconomyClient(economyDeployment, client, economy)!.writer(client.writer({ address: PLAYER, execute }));
+    const writer = createEconomyClient(economyDeployment, client, economy, new FakePoolQuoter())!.writer(client.writer({ address: PLAYER, execute }));
     // The device clock (2026) is long past day 20,000; the chain's block is not.
-    await expect(writer.settle([7])).rejects.toThrow(/day of game 7 is not over/);
+    await expect(writer.settle([7])).rejects.toThrow(/Game 7 settles after/);
     block.timestamp += 1;
     await writer.settle([7]);
     expect(execute).toHaveBeenCalledTimes(1);
@@ -285,8 +319,8 @@ describe("settle: the player's claim of PAVED, after the day", () => {
 
   test("refused, sending nothing: day running, game not over, already settled, not bought, failed read", async () => {
     const cases: Array<[string, (s: ReturnType<typeof setup>) => void, RegExp, number?]> = [
-      ["day running", () => {}, /day of game 7 is not over/, (DAY + 1) * 86400 - 1],
-      ["not over", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /not over/],
+      ["day D before D+1 ends", () => {}, /settles after/, settlesAfter(DAY) - 1],
+      ["not over", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, recorded: false })), /not over, or expired: no reward/],
       ["settled", (s) => s.economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY, settled: true })), /already settled/],
       ["not bought", (s) => s.economy.terms_.delete(7), /not bought/],
       ["read fails", (s) => (s.economy.fail = "down"), /Cannot read the game/],

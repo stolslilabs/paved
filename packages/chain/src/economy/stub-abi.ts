@@ -6,6 +6,10 @@
 //   E2's branch (#262 head 0cbb1a5, 2026-10-09); `Quote.slope` and `Quote.cap` were not in that answer and stay guesses.
 //   One deliberate difference: `TermsView.sigma_bps` is an `i16` in E2, declared `felt252` here because the codec
 //   decodes no signed integer; `RpcEconomyViews` reads it as signed.
+//   P-34 (E2's fix loop): `day()` answers a zero mean, sum and weight until the day closes, never shown as figures;
+//   day D settles after D+1 ends; a paid game expires 24 h after its purchase. P-35: `quote_swap(usdc_in) ->
+//   paved_out` (the pool's quote, fee included; MockRouter on devnet) is a STUB too, switched off
+//   (`POOL_QUOTE_CONFIRMED` in `pool.ts`) until a merged ABI has it. CORE sends the final names after its review.
 // - `USDC`: waits for the MockUSDC ABI (E3's devnet deploy). The ERC20 subset the client calls.
 // - `DailyPaid`: `Daily` with E3's `spawn(stake, referrer, min_out)`; only that call uses it.
 import dailyAbi from "../../../../contracts/abis/Daily.json";
@@ -57,7 +61,7 @@ export const STUB_ECONOMY_ABI: Abi = [
     ["burn_quote", U256], // q, the USDC swapped and burned
     ["referral", U256], // what a referrer would get (from the margin)
     ["margin", U256], // to the Vault, without a referrer
-    ["min_out_hint", U256], // the min_out to send as it is: 99 % of q at the guard's rate (a floor, not a price)
+    ["min_out_hint", U256], // an estimate only, above the swap's output at launch (no pool fee): never sent, never shown
     ["factor", U32], // F, bps
     ["mean", U64], // points x 1,000
     ["threshold", U64], // points x 1,000: below it the whole stake is lost
@@ -66,9 +70,9 @@ export const STUB_ECONOMY_ABI: Abi = [
   ]),
   struct("paved::economy::views::DayView", [
     ["prior", U64],
-    ["sum", U128],
-    ["weight", U64],
-    ["mean", U64], // points x 1,000; 0 while the day is not closed
+    ["sum", U128], // 0 until the day closes: never shown
+    ["weight", U64], // 0 until the day closes: never shown
+    ["mean", U64], // points x 1,000; 0 until the day closes: never shown
     ["closed", BOOL],
   ]),
   struct("paved::economy::views::TermsView", [
@@ -91,6 +95,7 @@ export const STUB_ECONOMY_ABI: Abi = [
       fn("quote", [["stake", U8]], ["paved::economy::views::Quote"], true),
       fn("day", [["day", U64]], ["paved::economy::views::DayView"], true),
       fn("terms", [["game_id", U32]], ["paved::economy::views::TermsView"], true),
+      fn("quote_swap", [["usdc_in", U256]], [U256], true),
       fn("settle", [["game_ids", `core::array::Span::<${U32}>`]], [], false),
     ],
   },

@@ -18,7 +18,13 @@ export const BPS = 10_000n;
 /** The referrer's share of the price, paid out of the Vault's margin (P-31): the player pays the same. */
 export const REFERRAL_BPS = 500n;
 
+/** The slippage the client takes off the pool quote for `min_out`: 1 % by default, at most 5 % (P-35). */
+export const DEFAULT_SLIPPAGE_BPS = 100n;
+export const MAX_SLIPPAGE_BPS = 500n;
+
 export const SECONDS_PER_DAY = 86_400;
+/** A paid game expires 24 h after its purchase (P-34). */
+export const PAID_GAME_TTL_SECONDS = 86_400;
 
 export function isStake(stake: unknown): stake is number {
   return typeof stake === "number" && Number.isInteger(stake) && stake >= MIN_STAKE && stake <= MAX_STAKE;
@@ -41,14 +47,29 @@ export function referralOf(price: bigint): bigint {
   return (price * REFERRAL_BPS) / BPS;
 }
 
+/**
+ * The least PAVED the burn swap may return: the pool's quote (fee included) less the slippage, rounded down. Never
+ * from `Quote.min_out_hint`, which leaves the pool fee out (CORE, P-35).
+ */
+export function minOutFor(poolOut: bigint, slippageBps: bigint = DEFAULT_SLIPPAGE_BPS): bigint {
+  if (slippageBps < 0n || slippageBps > MAX_SLIPPAGE_BPS) throw new RangeError(`Slippage ${slippageBps} bps is out of 0..${MAX_SLIPPAGE_BPS}`);
+  if (poolOut < 0n) throw new RangeError("A pool quote is not negative");
+  return (poolOut * (BPS - slippageBps)) / BPS;
+}
+
 /** The economy's day of a Unix time (the Daily tournament id). */
 export function dayOf(unixSeconds: number): number {
   return Math.floor(unixSeconds / SECONDS_PER_DAY);
 }
 
-/** A day can be settled once it is over: `now >= (day + 1) x 86400` (option B). */
-export function dayOver(day: number, nowSeconds: number): boolean {
-  return nowSeconds >= (day + 1) * SECONDS_PER_DAY;
+/** When a paid game bought at `purchasedAt` (its spawn's `start_time`, chain time) expires (P-34). */
+export function expiresAt(purchasedAt: number): number {
+  return purchasedAt + PAID_GAME_TTL_SECONDS;
+}
+
+/** Day `day` (a chain day id) settles only after the next day ends: `(day + 2) x 86400` (P-34). */
+export function settlesAfter(day: number): number {
+  return (day + 2) * SECONDS_PER_DAY;
 }
 
 function trimZeros(text: string): string {

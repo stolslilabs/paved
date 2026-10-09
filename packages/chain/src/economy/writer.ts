@@ -2,7 +2,8 @@ import type { EconomyCodecs, EconomyContractName } from "../abis";
 import { sameAddress, toHex, type Encodable } from "../codec";
 import type { GameViews, PriceView } from "../views";
 import { WriteError, type Call, type PavedWriter, type WriteResult } from "../writer";
-import { dayOver, isStake, priceOf } from "./amounts";
+import { DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, isStake, minOutFor, priceOf, settlesAfter } from "./amounts";
+import type { PoolQuoter } from "./pool";
 import type { EconomyDeployment } from "./deployment";
 import type { EconomyViews, QuoteView, TermsView } from "./views";
 
@@ -40,6 +41,8 @@ export interface PurchaseRequest {
   confirmedPrice: bigint;
   /** The referrer from the link, or null. It changes no amount the player pays. */
   referrer: string | null;
+  /** Taken off the pool quote for `min_out`: 1 % by default, at most 5 % (P-35). */
+  slippageBps?: bigint;
 }
 
 /** A purchase's calls and the figures they were built from, before anything is sent (for the tests and the docs). */
@@ -47,6 +50,8 @@ export interface PurchasePlan {
   calls: Call[];
   price: bigint;
   minOut: bigint;
+  /** The pool's PAVED for the burn quote, fee included, before the slippage. */
+  poolOut: bigint;
   referrer: string;
   quote: QuoteView;
 }
@@ -68,8 +73,10 @@ export class EconomyWriter {
       views: EconomyViews;
       /** The game views of the same deployment: `Daily.entry_price`. */
       gameViews: Pick<GameViews, "entryPrice">;
+      /** The pool's quote for the burn swap; null until CORE confirms `quote_swap` (every purchase is refused then). */
+      poolQuoter: PoolQuoter | null;
       /**
-       * Seconds since the epoch, for the settlement's "is the day over": the latest block's timestamp when the
+       * Seconds since the epoch, compared with the day view's `settles_at`: the latest block's timestamp when the
        * client gives one (`EconomyClient.writer`), the device clock otherwise.
        */
       now?: () => number | Promise<number>;
@@ -120,21 +127,32 @@ export class EconomyWriter {
     if (quote.price !== price) throw new WriteError("The quote disagrees with the entry price: nothing was sent");
     if (request.confirmedPrice !== price) throw new PurchasePriceChangedError(request.confirmedPrice, price);
     const referrer = referrerOf(request.referrer, this.address);
-    // E2's hint already has the 1 % off (99 % of q at the guard's rate): sent as it is, never cut again.
-    const minOut = quote.minOutHint;
-    // A 0 floor is no slippage protection at all (economy.md section 5): refuse rather than send it.
-    if (minOut === 0n) throw new WriteError("No quote for the burn swap: nothing was sent");
+    // `min_out` from the pool's quote (fee included) less the slippage; never from `min_out_hint`, which leaves the
+    // fee out and would make the purchase revert (P-35). No quote, or a 0 one, is no slippage protection: refused.
+    const slippage = request.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
+    if (slippage < 0n || slippage > MAX_SLIPPAGE_BPS) throw new WriteError(`Slippage is 0 to ${MAX_SLIPPAGE_BPS} bps`);
+    if (!this.options.poolQuoter) throw new WriteError("No pool quote: nothing was sent");
+    let poolOut: bigint;
+    try {
+      poolOut = await this.options.poolQuoter.quoteSwap(quote.burnQuote);
+    } catch (error) {
+      throw new WriteError(`Cannot read the pool quote: ${message(error)}`);
+    }
+    const minOut = minOutFor(poolOut, slippage);
+    if (minOut === 0n) throw new WriteError("No pool quote: nothing was sent");
     const calls = [
       this.call("USDC", "approve", [deployment.base.addresses.Daily, price]),
       this.call("DailyPaid", "spawn", [request.stake, referrer, minOut]),
     ];
-    return { calls, price, minOut, referrer, quote };
+    return { calls, price, minOut, poolOut, referrer, quote };
   }
 
   /**
-   * Settles bought Daily games once their day is over: the contract mints each one's reward to its player (`R x
-   * h(score / mean)`, 0 below the day's shifted mean). This is the player's claim of PAVED; anyone may settle. A
-   * game not bought, not over, already settled or whose day is running sends nothing.
+   * Settles bought Daily games once their day may be settled, after the end of the next day (P-34): the contract
+   * mints each one's reward to its player (`R x h(score / mean)`, 0 below the day's shifted mean). This is the
+   * player's claim of PAVED; anyone may settle. A game not bought, not recorded (not over, or expired: no reward) or
+   * already settled, or whose day settles after the latest block's time (`settlesAfter`, from the chain's day id),
+   * sends nothing.
    */
   settle(gameIds: number[]): Promise<WriteResult> {
     return this.options.writer.sendCalls(async () => {
@@ -156,8 +174,10 @@ export class EconomyWriter {
         const id = gameIds[i];
         if (terms.stake === 0) throw new WriteError(`Game ${id} was not bought: nothing to settle`);
         if (terms.settled) throw new WriteError(`Game ${id} is already settled`);
-        if (!terms.recorded) throw new WriteError(`Game ${id} is not over`);
-        if (!dayOver(terms.day, now)) throw new WriteError(`The day of game ${id} is not over`);
+        // An expired game (24 h after its purchase, P-34) is never recorded: no reward, no mean.
+        if (!terms.recorded) throw new WriteError(`Game ${id} is not over, or expired: no reward`);
+        const after = settlesAfter(terms.day);
+        if (now < after) throw new WriteError(`Game ${id} settles after ${new Date(after * 1000).toISOString()}`);
       });
       // `Span<u32>` by hand (the codec encodes no arrays): the length, then each id.
       const calldata = [toHex(gameIds.length), ...gameIds.map((id) => this.u32(id))];
