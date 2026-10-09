@@ -11,8 +11,8 @@ export interface QuoteView {
   referral: bigint;
   margin: bigint;
   /**
-   * The `min_out` to send, as it is: E2 already takes 1 % off (99 % of `burnQuote` at the price guard's rate). A
-   * floor, not the pool's price: never shown as a price.
+   * An estimate only: at launch it sits above what the swap returns (its rate leaves the pool fee out). Never sent as
+   * `min_out` (that comes from the pool quote, `pool.ts`) and never shown as a price (CORE, P-35).
    */
   minOutHint: bigint;
   /** Supply factor `F`, bps. */
@@ -27,12 +27,15 @@ export interface QuoteView {
   cap: number;
 }
 
-/** `Economy.day(day)` (STUB shape). */
+/**
+ * `Economy.day(day)` (STUB shape). Until the day closes, `mean`, `sum` and `weight` are 0 (P-34): never show them as
+ * figures; the screens show `Quote.mean` and `Quote.threshold` as the current reference instead.
+ */
 export interface DayView {
   prior: number;
   sum: bigint;
   weight: number;
-  /** Points x 1,000; 0 until the day is closed by its first settlement. */
+  /** Points x 1,000; 0 until the day closes. */
   mean: number;
   closed: boolean;
 }

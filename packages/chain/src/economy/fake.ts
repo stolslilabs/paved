@@ -1,7 +1,8 @@
 // FOR UNIT TESTS ONLY. Not exported from `@paved/chain`: tests import it by path (`@paved/chain/economy/fake` in
 // app-web's tests, whose alias points at the sources). No app code may import it.
 import { ViewError } from "../views";
-import { BPS, isStake, priceOf, referralOf } from "./amounts";
+import { BPS, isStake, minOutFor, priceOf, referralOf } from "./amounts";
+import type { PoolQuoter } from "./pool";
 import type { DayView, EconomyViews, QuoteView, TermsView, VaultPosition } from "./views";
 
 /** USDC's base units of 2 USDC: the `Mode::Daily` unit price of economy.md. */
@@ -38,8 +39,8 @@ export class FakeEconomy implements EconomyViews {
     if (!isStake(stake)) throw new ViewError("rpc", "Economy: bad stake");
     const price = priceOf(this.unit, stake);
     const burnQuote = (price * 7_000n) / BPS;
-    // As E2: 99 % of q at the guard's rate, to be sent as `min_out` as it is.
-    const out = (burnQuote * this.rate.paved * 99n) / (this.rate.usdc * 100n);
+    // An estimate at the guard's rate without the pool fee, as E2: above what the swap returns.
+    const out = (burnQuote * this.rate.paved) / this.rate.usdc;
     return {
       price,
       burnQuote,
@@ -88,13 +89,28 @@ export class FakeEconomy implements EconomyViews {
     (token === "usdc" ? this.usdc : this.paved).set(BigInt(account).toString(16), amount);
   }
 
-  /** The `min_out` a purchase of `stake` sends: the hint as it is. */
-  async expectedMinOut(stake: number): Promise<bigint> {
-    return (await this.quote(stake)).minOutHint;
+  /** The `min_out` a purchase of `stake` sends with `FakePoolQuoter` and the default slippage. */
+  async expectedMinOut(stake: number, pool: FakePoolQuoter = new FakePoolQuoter()): Promise<bigint> {
+    return minOutFor(await pool.quoteSwap((await this.quote(stake)).burnQuote));
   }
 
   private check(call: string): void {
     this.calls.push(call);
     if (this.fail) throw new ViewError("rpc", this.fail);
+  }
+}
+
+/** A pool quote for tests: PAVED per USDC base unit at `rate`, less the pool's 5 % fee. `fail` throws; `zero` quotes 0. */
+export class FakePoolQuoter implements PoolQuoter {
+  rate = { paved: 80n * 10n ** 18n, usdc: 1_000_000n };
+  fail: string | null = null;
+  zero = false;
+  calls: bigint[] = [];
+
+  async quoteSwap(usdcIn: bigint): Promise<bigint> {
+    this.calls.push(usdcIn);
+    if (this.fail) throw new ViewError("rpc", this.fail);
+    if (this.zero) return 0n;
+    return (usdcIn * 95n * this.rate.paved) / (100n * this.rate.usdc);
   }
 }
