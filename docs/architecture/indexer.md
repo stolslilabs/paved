@@ -21,7 +21,8 @@ and Grim World `indexer/` (read only, clone `/Users/bal7hazar/git/grimworld`, co
 
 ## What is indexed
 
-Events come from three contract addresses of `contracts/deployments/<network>.json`. Keys are the variant
+Events come from four contract addresses of `contracts/deployments/<network>.json` (`Daily`, `Tutorial`, `Account`
+and, since P8 E3, `Economy`). Keys are the variant
 selector first, then the fields marked `key`. Types are those of the ABIs in `contracts/abis/`.
 
 | Event | Emitted by | Keys (after the selector) | Data | Used for |
@@ -35,6 +36,10 @@ selector first, then the fields marked `key`. Types are those of the ABIs in `co
 | `AchievementDefined` | `Daily` | `achievement_id u32` | `window` (`start u64`, `end u64`), `tasks` (as above), `points u16` | The definitions of the achievements (P7) |
 | `AchievementProgressed` | `Daily`, `Tutorial` | `player_id felt252`, `task_id u32` | `count u32` | A player's progress on a task (`Tutorial`: task 10) (P7) |
 | `AchievementRetired` | `Daily` | `achievement_id u32` | none | The achievement stops counting (P7) |
+| `Purchased` | `Economy` | `game_id u32`, `player_id felt252` | `day u64`, `stake u8`, `price u256`, `referrer`, `referral u256`, `burned_quote u256`, `burned u256`, `margin u256`, `supply u256`, `factor u32`, `reference u128` | A paid Daily game's terms (P8 E3) |
+| `Recorded` | `Economy` | `game_id u32` | `score u32`, `expired bool` | The score `Economy` holds for the game (P8 E3) |
+| `DayClosed` | `Economy` | `day u64` | `mean u64`, `weight u32`, `prior u64`, `ema_after u64` | A day's mean, fixed at its first settlement (P8 E3) |
+| `Settled` | `Economy` | `game_id u32`, `player_id felt252` | `day u64`, `score u32`, `threshold u64`, `reward u128` | The reward minted to the game's player (P8 E3) |
 
 `Daily` and `Tutorial` both count `game_id` from 1, so a game is identified by `(contract, game_id)`, where
 `contract` is `daily` or `tutorial` (the address that emitted the event). `mode` is checked against the
@@ -46,7 +51,8 @@ in Tutorial. Such a game is stored and listed under its player, but ranks in no 
 
 Not indexed in v1: `Built`, `Discarded`, `Scored` (the current board of a game is a view call, not a list),
 `Sponsored`, `Claimed`, ownership and upgrade events, and the quiver events Paved never emits (`QuestCompleted`,
-`QuestClaimed`: quests are in event mode; the two `...ReporterSet`). `Claimed` may be added later to mark a prize as claimed;
+`QuestClaimed`: quests are in event mode; the two `...ReporterSet`), and the configuration events of the economy
+(`EconomyConfigured`, `PoolSet`, `GameSet` of `Economy`, `EconomySet` of `Account`). `Claimed` may be added later to mark a prize as claimed;
 until then the client reads `top*_claimed` from the `tournament` view. Adding an event is a schema change and a
 rebuild (below), never a migration.
 
@@ -261,12 +267,12 @@ An error is `{ "version": 1, "status": "error", "error": "<what>", "state": "ok"
 
 | Route | Parameters | Answer |
 |---|---|---|
-| `GET /v1/head` | none | `head`, `state`, `chain_id`, `from_block`, `contracts` (the three addresses), `checks` (`last_mismatch`: the last closed day whose `prize_ranks` differed from the `tournament` view, or null; `definitions_excluded`, P-30: the quest and achievement definitions left out of every answer because a task total is 0 or a task id repeats, which the contract refuses since P-30 but a definition made before, or through quiver directly, may still be on chain; the indexer never halts on them) |
+| `GET /v1/head` | none | `head`, `state`, `chain_id`, `from_block`, `contracts` (`daily`, `tutorial`, `account`, and `economy` since E3), `checks` (`last_mismatch`: the last closed day whose `prize_ranks` differed from the `tournament` view, or null; `definitions_excluded`, P-30: the quest and achievement definitions left out of every answer because a task total is 0 or a task id repeats, which the contract refuses since P-30 but a definition made before, or through quiver directly, may still be on chain; the indexer never halts on them) |
 | `GET /v1/tournaments` | `limit`, `before` (a tournament id, from `next`) | `tournaments`: newest first, each `id, start_time, end_time, games_spawned, players, best_score`; `next` (id or null) |
-| `GET /v1/tournaments/{id}` | none | `tournament`: `id, start_time, end_time, games_spawned, games_finished, players, best_score`; `{id}` is parsed as a decimal string; a malformed one, or one above `MAX_TOURNAMENT_ID` (`104249991373`, P-19), is 400. This differs from the contract's `tournament` view, which answers zeros for ids up to `2^64 / 86400`: a start or end time above 2^53 - 1 cannot round-trip as a JSON number, so the indexer alone refuses the ids whose times would exceed it (the contract view is unchanged). The same bound applies to every tournament id of a path or of `before`. A day with no game answers zeros, never 404 |
+| `GET /v1/tournaments/{id}` | none | `tournament`: `id, start_time, end_time, games_spawned, games_finished, players, best_score`; `economy` (E3): the day's paid games, see "As built (P8 E3)"; `{id}` is parsed as a decimal string; a malformed one, or one above `MAX_TOURNAMENT_ID` (`104249991373`, P-19), is 400. This differs from the contract's `tournament` view, which answers zeros for ids up to `2^64 / 86400`: a start or end time above 2^53 - 1 cannot round-trip as a JSON number, so the indexer alone refuses the ids whose times would exceed it (the contract view is unchanged). The same bound applies to every tournament id of a path or of `before`. A day with no game answers zeros, never 404 |
 | `GET /v1/tournaments/{id}/leaderboard` | `limit`, `offset` (default 0) | `total` (players ranked), `entries`: by `rank`, each `rank, player_id, name, best_score, best_game_id, games_played, games_finished, finished_at, prize_ranks`; `next_offset` (or null) |
-| `GET /v1/players/{player_id}` | none | `player`: `player_id, name, created`; `stats`: `daily_games, daily_finished, best_score, tutorial_games`. a malformed id is `400`; an unknown player answers `player: null` with `200` |
-| `GET /v1/players/{player_id}/games` | `contract` (`daily`, `tutorial`, default both), `limit`, `before` (`<start_time>:<contract>:<game_id>`, from `next`) | `games`: newest first, each `contract, game_id, mode, start_time, tournament_id` (of the spawn), `over, score, counted_tournament_id, end_time`; `next` (or null) |
+| `GET /v1/players/{player_id}` | none | `player`: `player_id, name, created`; `stats`: `daily_games, daily_finished, best_score, tutorial_games, paid_games, settled_games, rewards` (the last three since E3); `unsettled` (E3): the player's recorded games not yet settled. a malformed id is `400`; an unknown player answers `player: null` with `200` |
+| `GET /v1/players/{player_id}/games` | `contract` (`daily`, `tutorial`, default both), `limit`, `before` (`<start_time>:<contract>:<game_id>`, from `next`) | `games`: newest first, each `contract, game_id, mode, start_time, tournament_id` (of the spawn), `over, score, counted_tournament_id, end_time`, `economy` (E3; null for a Tutorial game or a game not bought); `next` (or null) |
 | `GET /v1/games/{contract}/{game_id}` | none | `game`: one row as above, or `404` |
 | `GET /v1/definitions` | none | `quests`: by id, each `quest_id, start_time, end_time, duration, interval, tasks` (`task_id, total`), `conditions, defined_at, retired, retired_at`; `achievements`: by id, each `achievement_id, start_time, end_time, tasks, points, defined_at, retired, retired_at`. Titles and descriptions are not on chain: the client keys them by id. A retirement above the served block has not happened |
 | `GET /v1/players/{player_id}/quests` | `day` (a UTC day, `timestamp / 86400`, from 0 to `MAX_TOURNAMENT_ID`; default the day of the served block) | `day, start_time, end_time` and `quests`: the quests active at some second of that day (a quest retired before the day began is not listed), each `quest_id, interval_id, tasks` (`task_id, total, count`: the sum so far, at most `total`), `completed, completed_at` (the time of the block of the report that completed it, or null), `retired`. A player the indexer does not know has zero counts (200) |
@@ -530,3 +536,40 @@ The package follows this design. What differs, or was decided while building (Pa
   no definition, so a report is emitted with or without definitions), which the indexer now decodes and stores, so a
   mismatch with the real events halts that run. Defining the accepted list and asserting the three routes belongs with the
   deploy task's definition script.
+
+## As built (P8 E3, the economy)
+
+- **Deployment**: `contracts.Economy` is required; a file without it is refused (`the deployment file has no address
+  for Economy`). The deployment hash covers the four addresses and the schema is `4`: a database of schema 3 is refused
+  until rebuilt. `PavedToken`, `Vault` and `MockUSDC` are not read.
+- **Events**: `Purchased`, `Recorded`, `DayClosed` and `Settled` from `Economy` only (another emitter halts the indexer).
+  `Economy`'s event enum is not flat: the first key is the selector of the variant's name, which is the struct's name
+  (`src/events.test.ts` checks the shapes against `contracts/abis/Economy.json`). `day` is bounded by
+  `MAX_TOURNAMENT_ID`.
+- **Tables**: `purchases` (one row per paid game: the terms of `Purchased`, then the score and `expired` of `Recorded`,
+  then the threshold and reward of `Settled`, with the block of each) and `economy_days` (each `DayClosed`). The indexer
+  halts on a second `Purchased`, `Recorded`, `Settled` or `DayClosed` for the same game or day, on a `Recorded` or
+  `Settled` without a purchase, on a `Settled` before its `Recorded`, and on a `Settled` whose player, day or score
+  differ from the purchase and the record. A `Purchased` is not checked against `GameSpawned` (their order inside one
+  transaction is not fixed); they are joined on read, `contract = 'daily'` and the same `game_id` (`Economy` uses
+  `Daily`'s ids). A rewind deletes or undoes them by block.
+- **Numbers**: USDC and PAVED amounts (`u256`, `u128`) are decimal strings, stored as text and summed with `BigInt`;
+  every other value is a safe-integer JSON number (P-19). No `settles_at` is served: `(day + 2) x 86400` can pass 2^53 at
+  `MAX_TOURNAMENT_ID`, so a client computes it.
+- **API fields** (appended to v1, read at the served block):
+  - `GameRow.economy`, `GameEconomy | null` (null for a Tutorial game and a Daily game with no `Purchased`): `day`,
+    `stake`, `price` (USDC, string), `referrer` (`0x` and 64 hex digits, or null without a referral), `referral` (USDC,
+    string), `burned` (PAVED, string), `factor` (bps), `reference` (`R`, PAVED, string), `purchased_at` (block time),
+    `recorded`, `expired` (false until recorded), `settled`, `threshold` (points x 1,000, null until settled),
+    `reward` (PAVED, string, null until settled).
+  - `PlayerStats`: `paid_games`, `settled_games`, `rewards` (PAVED, string: the sum of the settled rewards).
+  - `PlayerAnswer.unsettled`: the player's recorded games not settled, oldest first, each `game_id`, `day`, `expired`;
+    null for an unknown player.
+  - `TournamentAnswer.economy` (`GET /v1/tournaments/{id}` only, the list is unchanged), with the tournament id as the
+    UTC day: `games_purchased`, `games_recorded`, `games_settled`, `unsettled` (the ids a keeper passes to
+    `Economy.settle` from `(id + 2) x 86400`), `rewards` (PAVED, string), `closed`, and `mean`, `weight`, `prior`,
+    `ema_after`, `closed_at` (null until `DayClosed`).
+  - `GET /v1/head`: `contracts.economy`.
+- **Devnet**: the scenario deploys with `scripts/deploy.sh`, whose smoke buys, records and settles one paid game, and
+  checks it against `Economy.terms` and `Economy.day`; a keeper test settles a later day from the API's `unsettled` list.
+  `PAVED_DEPLOY_UNMERGED=1` deploys a pull request's sources (`--unmerged`). It passed (7 of 7) against #275.
