@@ -81,10 +81,18 @@ before the game page sends. jsdom tests on the fake; nothing runs until E2/E3 de
 
 2026-10-09, economy on E2's real ABI (t-0066, P8): `Economy` is the committed `contracts/abis/Economy.json` (E2, #262): `Recorded.expired`,
 `terms()` with `time` and `expired`, `quote_swap` (P-35) behind `EconomyPoolQuoter`, now on. The codec decodes and encodes signed
-integers (`sigma_bps` is a real `i16`). "Swap below min_out" (nothing charged) and "day cannot close yet" are clear states; an expired game
+integers (`sigma_bps` is a real `i16`). "Swap below min_out" (since reworded: the USDC was not spent) and "day cannot close yet" are clear states; an expired game
 says "Expired: no reward". `?ref=` is bounded below `2^251 - 256`, and the writer too; `Game.tsx` never falls back to the plain spawn for a
 purchase. New `/economy` page; the fakes moved to `@paved/chain/testing`. **Still stubs until E3**: the paid `Daily.spawn` and USDC, so
-purchases stay impossible in practice. jsdom tests only. `docs/architecture/client-economy.md`.
+purchases stay impossible in practice (until E3, above). jsdom tests only. `docs/architecture/client-economy.md`.
+
+2026-10-09, economy on E3 (t-0068, P8, commits on #275): the stubs are gone. The client uses the committed `Daily` ABI
+(`spawn(stake, referrer, min_out)`) and the ERC20 interface of `Token.json` for USDC (E3 commits no `MockUSDC.json`). A purchase
+is `USDC.approve(Daily, stake x 2,000,000)` and the spawn in one multicall, `min_out` from `Economy.quote_swap` less 1 % (cap 5 %).
+`PavedWriter.spawn("daily")` and its free-token path are removed (the Tutorial spawn stays), the prize is sponsor-only and labelled
+USDC, and a swap below `min_out` says "your USDC was not spent" (a revert still pays its network fee). `IndexerClient` reads
+`contracts.economy` and the appended game, player and tournament economy fields. jsdom tests only; the paid spawn is built from the
+ABI, not re-recorded (no devnet here). `docs/architecture/client-economy.md`.
 
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
