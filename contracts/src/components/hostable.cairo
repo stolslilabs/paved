@@ -69,13 +69,8 @@ pub mod HostableComponent {
             // [Effect] Store tile
             store.set_tile(tile);
 
-            // [Effect] Update tournament
+            // [Info] The entry no longer feeds the tournament's prize: it is sponsor-only (P-31)
             let tournament_id = TournamentImpl::compute_id(time, game.duration());
-            let mut tournament = store.tournament(tournament_id);
-            tournament.buyin(game.price());
-
-            // [Effect] Store tournament
-            store.set_tournament(tournament);
 
             // [Effect] Store game
             store.set_game(game);
@@ -100,7 +95,7 @@ pub mod HostableComponent {
                     ),
                 );
 
-            // [Return] Game ID and amount to pay
+            // [Return] Game ID and the price of one stake unit (0 for the Tutorial)
             let amount: u256 = game.price().into();
             (game_id, amount)
         }
@@ -142,11 +137,10 @@ pub mod HostableComponent {
             // [Setup] Datastore
             let store: Store = StoreImpl::new();
 
-            // [Check] Tournament exists
+            // [Info] Any day may be sponsored: its prize comes from sponsors only (P-31)
             let time = get_block_timestamp();
             let tournament_id = TournamentImpl::compute_id(time, mode.duration());
             let mut tournament = store.tournament(tournament_id);
-            tournament.assert_exists();
 
             // [Effect] Add amount to the current tournament prize pool
             tournament.buyin(amount);
