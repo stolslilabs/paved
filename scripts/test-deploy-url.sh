@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The RPC_URL guard of deploy.sh names what it could not parse (it runs before anything else, so no
 # node and no toolchain are needed), its network and sepolia variable checks refuse before anything is built or sent
-# (S-1), and its getClass predicate rejects a malformed answer. Usage: scripts/test-deploy-url.sh
+# (S-1), a sepolia run failing at the node leaks no value to an output, an argv or a child's environment (P-40), and
+# its getClass predicate rejects a malformed answer. Usage: scripts/test-deploy-url.sh
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fail=0
@@ -43,7 +44,7 @@ if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; th
   echo "ok: deploy.sh sepolia --rehearse refuses a remote node, its key unprinted"
 else echo "FAIL: deploy.sh sepolia --rehearse with a remote RPC_URL: $out"; fail=1; fi
 
-# sepolia names each missing variable, never a value, and stops before signing (S-1 escalation). The values below
+# sepolia names each missing variable, never a value, and stops before anything is built or sent. The values below
 # are dummies; a marker in each proves no value is printed.
 sepolia() { # <expected exit> <expected fragment> [VAR=value...]
   local code="$1" frag="$2" out rc; shift 2
@@ -64,7 +65,51 @@ sepolia 2 "needs STARKNET_RPC_URL in" "$ADDR" "$KEY"
 sepolia 2 "needs STARKNET_PRIVATE_KEY in" "$ADDR" STARKNET_PRIVATE_KEY= "$URL"
 sepolia 2 "STARKNET_ACCOUNT_ADDRESS is not a 0x hex address" STARKNET_ACCOUNT_ADDRESS=MARKER "$KEY" "$URL"
 sepolia 2 "STARKNET_RPC_URL must be an https:// URL" "$ADDR" "$KEY" STARKNET_RPC_URL=http://MARKER:5050
-sepolia 3 "signing on sepolia is not settled" "$ADDR" "$KEY" "$URL"
+
+# Past the variable checks, a sepolia run that fails at the node (P-40, #293 audit note 3): shims of curl, node and npm
+# first on PATH log each call's argv and environment, and curl answers as a fake node (down, on mainnet, or on Sepolia
+# without the deployer account). No marker of the three values may reach any output, argv or child environment; the
+# URL reaches curl on stdin only, and nothing is signed (no node or npm call).
+shims="$(mktemp -d)"
+trap 'rm -rf "$shims"' EXIT
+for tool in node npm; do
+  printf '#!/usr/bin/env bash\n{ printf "%s argv:"; printf " %%s" "$@"; echo; echo "%s env:"; env; } >>"$SHIM_LOG"\nexit 1\n' \
+    "$tool" "$tool" >"$shims/$tool"
+done
+cat >"$shims/curl" <<'SH'
+#!/usr/bin/env bash
+{ printf 'curl argv:'; printf ' %s' "$@"; echo; echo 'curl env:'; env; } >>"$SHIM_LOG"
+config="$(cat)"
+[[ "$config" == *MARKER* ]] && echo 'curl: the URL came on stdin' >>"$SHIM_LOG"
+body=""
+while [[ $# -gt 0 ]]; do [[ "$1" == -d ]] && body="$2"; shift; done
+case "$FAKE_NODE:$body" in
+  down:*) exit 7 ;;
+  *starknet_specVersion*) echo '{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
+  mainnet:*starknet_chainId*) echo '{"jsonrpc":"2.0","id":1,"result":"0x534e5f4d41494e"}' ;;
+  *starknet_chainId*) echo '{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
+  *) echo '{"jsonrpc":"2.0","id":1,"error":{"code":20,"message":"Contract not found"}}' ;;
+esac
+SH
+chmod +x "$shims/curl" "$shims/node" "$shims/npm"
+at_node() { # <FAKE_NODE mode> <expected fragment>
+  local out rc log="$shims/$1.log"
+  : >"$log"
+  out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$shims:$PATH" SHIM_LOG="$log" \
+    FAKE_NODE="$1" "$ADDR" "$KEY" "$URL" "$here/deploy.sh" sepolia 2>&1)"
+  rc=$?
+  if [[ $rc -ne 1 || "$out" != *"$2"* || "$out" == *MARKER* ]]; then
+    echo "FAIL: sepolia at a $1 node expected exit 1 and '$2', no value, got $rc: $out"; fail=1
+  elif grep -q MARKER "$log" || ! grep -q '^curl: the URL came on stdin$' "$log" || grep -q '^\(node\|npm\) argv' "$log"; then
+    echo "FAIL: sepolia at a $1 node: a value reached a child's argv or environment, or something was signed:"
+    grep -n 'MARKER\|^[a-z]* argv' "$log" | sed 's/MARKER/<marker>/g'; fail=1
+  else
+    echo "ok: sepolia at a $1 node -> $2; no value in any output, argv or child environment"
+  fi
+}
+at_node down "no node answers at \$STARKNET_RPC_URL"
+at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA"
+at_node sepolia "the deployer account 0xabc is not deployed on \$STARKNET_RPC_URL"
 
 # The getClass predicate of deploy.sh counts a class as declared only for a JSON object, with no `error`
 # field, whose `result` is an object.
