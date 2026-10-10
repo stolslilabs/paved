@@ -208,6 +208,8 @@ export const IGNORED = [
   "GameSet",
   // A sponsor's reclaim of a day's unclaimable prize (P-37): declared by the Lobby class, emitted from Daily's address.
   "Reclaimed",
+  // The owner's change of the Lobby class of Daily or Tutorial (P-42, set_lobby_class).
+  "LobbyClassSet",
 ] as const;
 
 const INDEXED: readonly EventName[] = [
