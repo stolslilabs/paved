@@ -268,6 +268,15 @@ export interface PlayerGamesAnswer extends Envelope {
   next: string | null;
 }
 
+/** The days a sponsor put something into the prize of (`Daily.Sponsored`), newest first. */
+export interface SponsorDaysAnswer extends Envelope {
+  sponsor_id: string;
+  /** Tournament ids (UTC days), each once, descending. */
+  days: number[];
+  /** Pass as `before` for the next page (the last day listed); null on the last. */
+  next: number | null;
+}
+
 export interface GameAnswer extends Envelope {
   game: GameRow;
 }
