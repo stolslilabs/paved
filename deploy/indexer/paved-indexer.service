@@ -1,5 +1,6 @@
 # Paved indexer (Sepolia). Installed by docs/client/indexer-hosting.md, "Runbook: this VPS (Sepolia)".
-# The client and the API are one origin, https://paved.bal7hazar.com (P-41). The RPC URL carries no key (Cartridge's public
+# Two names (P-41): the client is https://paved.bal7hazar.com and the API https://api.paved.bal7hazar.com; --allow-origin below
+# names the client's origin, the one a browser calls the API from. The RPC URL carries no key (Cartridge's public
 # Sepolia endpoint), so it is plain configuration here, not a secret.
 [Unit]
 Description=Paved indexer (Sepolia)

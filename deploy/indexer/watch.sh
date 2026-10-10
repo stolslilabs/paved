@@ -9,7 +9,7 @@
 # What it does, and why:
 #   halted      -> logs at priority err, every minute, and does NOT restart. `halted` is a decode failure or a database that
 #                  contradicts the chain: a restart replays the same blocks and halts again. It needs a person (`rebuild`).
-#   unreachable -> after FAILS minutes in a row while the unit is active (a hung start, a dead listener), restarts it.
+#   unreachable or status "error" (HTTP 500) -> after FAILS minutes in a row while the unit is active (a hung start, a dead listener), restarts it.
 #   stuck head  -> state ok, but head.number has not moved for STUCK minutes: restarts it (a stalled RPC connection).
 #   Restarts are at most one per COOLDOWN seconds, so a provider outage does not turn into a restart loop.
 # State lives in /run/paved-indexer-watch (RuntimeDirectory of the service), lost at reboot, which is fine.
@@ -54,10 +54,11 @@ rc=$?
 status=
 if ((rc == 0)); then status=$(jq -r '.status // empty' <<<"$body" 2>/dev/null); fi
 
-if [[ -z $status ]]; then
+if [[ -z $status || $status == error ]]; then
+  # No answer, or {"status":"error"} (an HTTP 500 of the indexer): the state is unknown either way.
   fails=$(($(read_int fails 0) + 1))
   echo "$fails" >"$DIR/fails"
-  say warning "no usable answer from $URL ($fails of $FAILS): curl exit $rc"
+  say warning "no usable answer from $URL ($fails of $FAILS): curl exit $rc, status '${status:-none}'"
   ((fails >= FAILS)) && restart "no answer from $URL for $fails minutes"
   exit 0
 fi

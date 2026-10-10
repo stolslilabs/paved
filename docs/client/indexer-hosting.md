@@ -327,6 +327,7 @@ a **503** is `{"status":"loading"|"rewinding"|"halted","reason":…,"head":…|n
 | `status` = `halted` | **Logs at `err`, every minute; no restart** | A restart replays the same blocks and halts again (decode failure, or a database contradicting the chain). It needs a person: `journalctl -u paved-indexer`, then rebuild. |
 | No answer (process up but not serving, curl fails) for 3 minutes | Restart | A hung start or dead listener. A stopped or failed unit is left to systemd. |
 | `status` = `ok` and `head.number` unchanged for 5 minutes | Restart | A stalled RPC connection. |
+| `status` = `error` (an HTTP 500: a bug in the indexer, not a state) | Counts as **no usable answer**: logged at `warning`, restart after 3 minutes in a row | The state is unknown and the process may be wedged; the cooldown still applies. |
 | `checks.last_mismatch` not null | Logs at `err` | The replayed prize slots differ from the contract's view. |
 | `loading`, `rewinding` | Logs at `info` | Catch-up and rewind are normal. |
 
@@ -449,20 +450,33 @@ prints nothing; `grep -n 'allow-origin\|INDEXER_RPC_URL' /etc/systemd/system/pav
 **5. Caddy: already installed, add the two sites**
 
 ```bash
+systemctl is-active caddy                      # must print "active"; if not, stop: the shared Caddy is another unit (caddy-api?) or down
 caddy version                                  # v2.11.4 here (apt). Already installed: skip the install below.
 # Only if absent (official repository, pinned):
 #   apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg
 #   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 #   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt > /etc/apt/sources.list.d/caddy-stable.list
 #   apt-get update && apt-get install -y caddy=2.11.4
-cp -a /etc/caddy/Caddyfile /etc/caddy/Caddyfile.bak-$(date +%F)-paved
-grep -n 'paved\|^import\|admin' /etc/caddy/Caddyfile     # read it: other imports, an `admin off`, any block for these names
-printf '\nimport /etc/caddy/paved.caddy\n' >> /etc/caddy/Caddyfile
+grep -n 'paved\|^import\|admin' /etc/caddy/Caddyfile   # read it: other imports, an `admin off`, any block or import for these names
+BAK=/etc/caddy/Caddyfile.bak-$(date +%Y%m%d-%H%M%S)-paved
+cp -an /etc/caddy/Caddyfile "$BAK" && echo "$BAK" | tee /root/paved-caddy-backup     # never overwrites; the path is kept for the revert
+grep -qxF 'import /etc/caddy/paved.caddy' /etc/caddy/Caddyfile || printf '\nimport /etc/caddy/paved.caddy\n' >> /etc/caddy/Caddyfile
 runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
-Verify: the last command ends with `Valid configuration`. An "ambiguous site definition" means the main Caddyfile already has a block
-for one of the two names: remove that block (the backup keeps it). Nothing is loaded yet.
+Verify: `systemctl is-active caddy` printed `active`, the last command ends with `Valid configuration`, and
+`grep -c '^import /etc/caddy/paved.caddy$' /etc/caddy/Caddyfile` prints `1`. An "ambiguous site definition" has two possible
+causes: check the import count first (a double import gives it; the line is added only once by the command above, so a second one
+means it was added by hand or by an earlier run: delete the extra line), and only then look for a block in the main file for one
+of the two names (remove that block; the backup keeps it). Nothing is loaded yet: the running Caddy still has its old config.
+
+**Revert, if validate failed or a reload is rejected and you stop here** (the running config never changed, so no reload is needed):
+
+```bash
+cp -a "$(cat /root/paved-caddy-backup)" /etc/caddy/Caddyfile
+rm -f /etc/caddy/paved.caddy
+runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile     # Valid configuration: back to how it was
+```
 
 **6. Firewall: 80 and 443 open, 8787 not exposed**
 
