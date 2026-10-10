@@ -10,11 +10,10 @@
  *   once with the strongest role allowed on it and the character comes back, so no character is ever stranded on an
  *   open structure. The exception is a wonder: it scores when its 8 neighbours are taken, so the Pilgrim (power 2 on a
  *   wonder) goes on it when it is placed, as close to the board's centre as the rules allow;
- * - among the placements that score nothing, the one with most neighbours (a compact board closes more structures);
- * - a two-move lookahead: the best few first moves are re-ranked by the best second move the node allows after them
- *   (the next tile is drawn by the contract from the first move, so the second move is probed blindly: positions and
- *   orientations, the closing character included).
- * Its runtime is bounded by the number of simulations (`maxSimulations`, per game).
+ * - otherwise the placement that scores most at once, then the one with most neighbours (a compact board closes
+ *   more structures).
+ * It looks one move ahead only: the next tile is drawn by the contract from the move played. Its cost is about 40 to
+ * 300 simulations a move, a few seconds each move on a local devnet (the e2e's evidence gives the total).
  */
 import { transaction, type Call } from "starknet";
 import type { AbiCodec } from "../src/codec";
@@ -33,6 +32,8 @@ const STRONG_ROLE: Record<number, number> = { 2: 3, 3: 4, 5: PILGRIM };
 const CENTER_SPOT = 1;
 /** Plans 18 and 19 are the wonder tiles (`wffffffff`, `wfffffffr`). */
 const WONDER_PLANS = new Set([18, 19]);
+/** Simulations in flight at once (the node answers them in parallel). */
+const CONCURRENCY = 4;
 const DIRECTIONS: Array<[number, number]> = [[0, 1], [1, 0], [0, -1], [-1, 0]];
 
 export interface PlayerContext {
@@ -45,10 +46,6 @@ export interface PlayerContext {
 }
 
 export interface PlayOptions {
-  /** How many first moves are re-ranked by their best second move (0: no lookahead). */
-  lookahead?: number;
-  /** A ceiling on simulations for the whole game: past it, the player plays without lookahead. */
-  maxSimulations?: number;
   /** Stop after this many placements and surrender (a short game, below the threshold). */
   maxMoves?: number;
   /** Called after each placement. */
@@ -111,16 +108,16 @@ export class DailyPlayer {
     };
   }
 
-  /** Runs the moves in sequence on the node's latest state, without sending: legal, and the points of the last move. */
-  async simulate(key: GameKey, moves: BuildMove[]): Promise<Simulated> {
+  /** Runs the move on the node's latest state, without sending: whether it is legal, and the points it makes. */
+  async simulate(key: GameKey, move: BuildMove): Promise<Simulated> {
     this.simulations++;
-    const txs = moves.map((m, i) => ({
+    const txs = [move].map((m) => ({
       type: "INVOKE",
       version: "0x3",
       sender_address: this.ctx.address,
       calldata: transaction.getExecuteCalldata([this.buildCall(key, m)], "1").map((f) => toHex(BigInt(f))),
       signature: [],
-      nonce: toHex(this.nonce + BigInt(i)),
+      nonce: toHex(this.nonce),
       resource_bounds: {
         l1_gas: { max_amount: "0x0", max_price_per_unit: "0x0" },
         l2_gas: { max_amount: "0x3b9aca00", max_price_per_unit: "0x0" },
@@ -149,8 +146,7 @@ export class DailyPlayer {
       const exec = t.transaction_trace.execute_invocation;
       if (!exec || exec.revert_reason) return { ok: false, points: 0, category: 0 };
     }
-    // Points of the last move only: the caller adds the earlier ones.
-    const last = traces[traces.length - 1].transaction_trace.execute_invocation;
+    const last = traces[0].transaction_trace.execute_invocation;
     const walk = (call: any) => {
       for (const e of call.events ?? []) {
         if (BigInt(call.contract_address) !== BigInt(this.ctx.daily)) continue;
@@ -192,52 +188,65 @@ export class DailyPlayer {
   }
 
   /**
-   * Every legal placement of the tile in hand after `prefix` (moves already simulated), with its best closing
-   * character. `wonder` places the Pilgrim on the wonder's centre when the tile is a wonder (only for the real hand).
+   * Every legal placement of the tile in hand, with its best closing character. `wonder` places the Pilgrim on the
+   * wonder's centre when the tile is a wonder.
    */
-  private async candidates(key: GameKey, prefix: BuildMove[], cells: Array<{ x: number; y: number; neighbours: number }>, characters: boolean, wonder: boolean): Promise<Candidate[]> {
+  private async candidates(key: GameKey, cells: Array<{ x: number; y: number; neighbours: number }>, characters: boolean, wonder: boolean): Promise<Candidate[]> {
+    // The cells are probed `CONCURRENCY` at a time; the result keeps the cells' fixed order, so the choice does not
+    // depend on which simulation answers first.
+    const perCell = new Array<Candidate[]>(cells.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < cells.length) {
+        const index = next++;
+        perCell[index] = await this.cellCandidates(key, cells[index], characters, wonder);
+      }
+    };
+    await Promise.all(Array.from({ length: CONCURRENCY }, worker));
+    return perCell.flat();
+  }
+
+  private async cellCandidates(key: GameKey, cell: { x: number; y: number; neighbours: number }, characters: boolean, wonder: boolean): Promise<Candidate[]> {
     const out: Candidate[] = [];
-    for (const cell of cells) {
-      for (let orientation = 1; orientation <= 4; orientation++) {
-        const bare: BuildMove = { orientation, x: cell.x, y: cell.y, role: 0, spot: 0 };
-        const sim = await this.simulate(key, [...prefix, bare]);
-        if (!sim.ok) continue;
-        let best: Candidate = { move: bare, points: sim.points, neighbours: cell.neighbours, value: 0 };
-        if (wonder && this.available.has(PILGRIM)) {
-          const pilgrim = { ...bare, role: PILGRIM, spot: CENTER_SPOT };
-          if ((await this.simulate(key, [...prefix, pilgrim])).ok) best = { ...best, move: pilgrim };
-        }
-        if (characters) {
-          // Close and claim: a character only where it scores at once. Each spot is probed with a role of power 1
-          // (the Lord on a road, a city or a wonder; else the forest roles), and a structure that scores is then
-          // claimed with the role of power 2 for its category.
-          const claimedStructures = new Set<string>();
-          for (let spot = 1; spot <= 9; spot++) {
-            for (const probe of [this.generic, WOODSMAN, HERDSMAN]) {
-              if (!this.available.has(probe)) continue;
-              const s = await this.simulate(key, [...prefix, { ...bare, role: probe, spot }]);
-              if (!s.ok) continue;
-              if (s.points === 0) break;
-              const id = `${s.category}:${s.points}`;
-              if (claimedStructures.has(id)) break; // another spot of a structure already tried
-              claimedStructures.add(id);
-              let move: BuildMove = { ...bare, role: probe, spot };
-              let points = s.points;
-              const strong = STRONG_ROLE[s.category];
-              if (strong && strong !== probe && this.available.has(strong)) {
-                const up = await this.simulate(key, [...prefix, { ...bare, role: strong, spot }]);
-                if (up.ok && up.points > points) {
-                  move = { ...bare, role: strong, spot };
-                  points = up.points;
-                }
+    for (let orientation = 1; orientation <= 4; orientation++) {
+      const bare: BuildMove = { orientation, x: cell.x, y: cell.y, role: 0, spot: 0 };
+      const sim = await this.simulate(key, bare);
+      if (!sim.ok) continue;
+      let best: Candidate = { move: bare, points: sim.points, neighbours: cell.neighbours, value: 0 };
+      if (wonder && this.available.has(PILGRIM)) {
+        const pilgrim = { ...bare, role: PILGRIM, spot: CENTER_SPOT };
+        if ((await this.simulate(key, pilgrim)).ok) best = { ...best, move: pilgrim };
+      }
+      if (characters) {
+        // Close and claim: a character only where it scores at once. Each spot is probed with a role of power 1
+        // (the Lord on a road, a city or a wonder; else the forest roles), and a structure that scores is then
+        // claimed with the role of power 2 for its category.
+        const claimedStructures = new Set<string>();
+        for (let spot = 1; spot <= 9; spot++) {
+          for (const probe of [this.generic, WOODSMAN, HERDSMAN]) {
+            if (!this.available.has(probe)) continue;
+            const s = await this.simulate(key, { ...bare, role: probe, spot });
+            if (!s.ok) continue;
+            if (s.points === 0) break;
+            const id = `${s.category}:${s.points}`;
+            if (claimedStructures.has(id)) break; // another spot of a structure already tried
+            claimedStructures.add(id);
+            let move: BuildMove = { ...bare, role: probe, spot };
+            let points = s.points;
+            const strong = STRONG_ROLE[s.category];
+            if (strong && strong !== probe && this.available.has(strong)) {
+              const up = await this.simulate(key, { ...bare, role: strong, spot });
+              if (up.ok && up.points > points) {
+                move = { ...bare, role: strong, spot };
+                points = up.points;
               }
-              if (points > best.points) best = { ...best, move, points };
-              break;
             }
+            if (points > best.points) best = { ...best, move, points };
+            break;
           }
         }
-        out.push(best);
       }
+      out.push(best);
     }
     return out;
   }
@@ -245,8 +254,6 @@ export class DailyPlayer {
   /** Plays the game to its end (or `maxMoves` placements, then surrenders). */
   async play(key: GameKey, options: PlayOptions = {}): Promise<PlayResult> {
     const started = Date.now();
-    const lookahead = options.lookahead ?? 3;
-    const maxSimulations = options.maxSimulations ?? 60_000;
     const maxMoves = options.maxMoves ?? Number.POSITIVE_INFINITY;
     const views = this.ctx.client.views;
     let moves = 0;
@@ -259,23 +266,14 @@ export class DailyPlayer {
       const characters = this.available.size > 0;
       const { cells, center } = await this.frontier(key);
       const isWonder = WONDER_PLANS.has(builder.plan);
-      const firsts = await this.candidates(key, [], cells, characters, isWonder);
+      const candidates = await this.candidates(key, cells, characters, isWonder);
       const distance = (m: BuildMove) => Math.abs(m.x - center.x) + Math.abs(m.y - center.y);
-      for (const c of firsts) {
+      for (const c of candidates) {
         // Points first; then compactness; a wonder wants the middle of the board (its 8 neighbours must fill).
         c.value = c.points * 1000 + c.neighbours * 10 - (isWonder ? distance(c.move) * 20 : 0) + (c.move.role === PILGRIM ? 500 : 0);
       }
-      firsts.sort((a, b) => b.value - a.value);
-      if (lookahead > 0 && this.simulations < maxSimulations && firsts.length > 1) {
-        for (const first of firsts.slice(0, lookahead)) {
-          const next = await this.frontierAfter(key, first.move, cells);
-          const seconds = await this.candidates(key, [first.move], next, characters || first.move.role !== 0, false);
-          const bestSecond = seconds.reduce((m, c) => Math.max(m, c.points), 0);
-          first.value += bestSecond * 1000;
-        }
-        firsts.sort((a, b) => b.value - a.value);
-      }
-      const chosen = firsts[0];
+      candidates.sort((a, b) => b.value - a.value);
+      const chosen = candidates[0];
       if (chosen) {
         const result = await this.ctx.writer.build(key, chosen.move);
         hash = result.transactionHash;
@@ -293,22 +291,5 @@ export class DailyPlayer {
       game = await views.game(key);
     }
     return { moves, discards, score: game.score, simulations: this.simulations, ms: Date.now() - started, hash };
-  }
-
-  /** The frontier once `move` is placed (computed, not read: the move is only simulated). */
-  private async frontierAfter(key: GameKey, move: BuildMove, cells: Array<{ x: number; y: number; neighbours: number }>) {
-    const tiles = (await this.ctx.client.views.tiles(key)).filter((t) => t.status === TILE_STATUS.placed);
-    const taken = new Set([...tiles.map((t) => `${t.x},${t.y}`), `${move.x},${move.y}`]);
-    const next = cells.filter((c) => !(c.x === move.x && c.y === move.y)).map((c) => ({ ...c }));
-    for (const [dx, dy] of DIRECTIONS) {
-      const x = move.x + dx;
-      const y = move.y + dy;
-      if (taken.has(`${x},${y}`) || next.some((c) => c.x === x && c.y === y)) continue;
-      next.push({ x, y, neighbours: 0 });
-    }
-    for (const c of next) {
-      c.neighbours = DIRECTIONS.filter(([ex, ey]) => taken.has(`${c.x + ex},${c.y + ey}`)).length;
-    }
-    return next.sort((a, b) => a.x - b.x || a.y - b.y);
   }
 }
