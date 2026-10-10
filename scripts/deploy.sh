@@ -41,9 +41,27 @@
 # Needs: scarb 2.20.1, sncast 0.64.0, curl, python3, git.
 set -euo pipefail
 
+# class_declared: reads a starknet_getClass answer on stdin; succeeds only for a JSON object with no `error`
+# field whose `result` is itself an object. Anything else (malformed JSON, a list, a string result, an error)
+# is "not declared or unknown", and fails.
+class_declared() {
+  python3 -I -c '
+import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+sys.exit(0 if isinstance(d, dict) and "error" not in d and isinstance(d.get("result"), dict) else 1)
+' 2>/dev/null
+}
+
 NETWORK="${1:-}"
 UNMERGED=0
-if [[ "${2:-}" == "--unmerged" ]]; then
+if [[ "${2:-}" == "--check-class-answer" ]]; then
+  # Test hook (scripts/test-deploy-url.sh): the verdict of class_declared on stdin, nothing else runs.
+  class_declared
+  exit $?
+elif [[ "${2:-}" == "--unmerged" ]]; then
   UNMERGED=1
 elif [[ -n "${2:-}" ]]; then
   echo "Usage: scripts/deploy.sh devnet [--unmerged]" >&2
@@ -229,7 +247,7 @@ COLLECTION_CLASS="$(declare_class Collection)"
 
 # Daily and Tutorial only store the Lobby class hash: an undeclared one would deploy fine and revert every
 # spawn, claim, sponsor, discard and surrender. Refuse before deploying anything.
-rpc starknet_getClass "[\"latest\",\"$LOBBY_CLASS\"]" | pyj '"ok" if "result" in d else 1/0' >/dev/null 2>&1 ||
+rpc starknet_getClass "[\"latest\",\"$LOBBY_CLASS\"]" | class_declared ||
   die "Lobby class $LOBBY_CLASS is not declared on $RPC_URL: refusing to deploy Daily and Tutorial"
 
 # u256 calldata: low and high halves, decimal.

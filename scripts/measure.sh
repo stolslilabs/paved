@@ -2,10 +2,11 @@
 # Reproduces the baseline measures of docs/measures/baseline.md:
 #   1. L2 gas of one `Daily.build` call on five scenarios (contracts/tests/gas.cairo);
 #   2. line coverage of contracts/src (snforge --coverage + cairo-coverage + lcov), whole or in
-#      split runs (one snforge run per test group, lcov files merged) for machines with 8 GB.
+#      split runs (one snforge run per test group, lcov files merged) to lower the peak of each run.
 #
 # Usage: scripts/measure.sh [gas|coverage|coverage-split|check-setup|all]   (default: all;
-#        `all` runs the whole coverage, `coverage-split` is the one for an 8 GB machine)
+#        `all` runs the whole coverage, `coverage-split` is the split one: its peak is
+#        9.34 GB, so it runs under a 14 GiB cap, on the Mac or in CI, not on a VPS shared with agents)
 #        Coverage runs use the `coverage` Scarb profile (contracts/Scarb.toml): only it keeps the code
 #        locations that cairo-coverage needs, the dev profile drops them to lower the test build peak.
 #

@@ -284,9 +284,9 @@ pub mod Lobby {
         }
 
         fn tutorial_surrender(ref self: ContractState, game_id: u32) {
-            // [Effect] Surrender game
-            let over = self.tutoriable.surrender(game_id);
-            self.finish_tutorial(over);
+            // [Effect] Surrender game: nothing to report, a surrender never credits First Stone
+            // (P-28)
+            self.tutoriable.surrender(game_id);
         }
 
         fn report(ref self: ContractState, game_id: u32, over: u128) {

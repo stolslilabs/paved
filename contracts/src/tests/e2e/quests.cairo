@@ -546,7 +546,8 @@ fn test_quests_tutorial_game_over_on_the_last_discard_credits_task_10() {
     assert_first_stone(systems.tutorial.contract_address, spy, context.player_id);
 }
 
-/// P-28: a Tutorial surrender credits nothing, however early or late, but the game is over.
+/// P-28: a Tutorial surrender credits nothing (no task 10 event, only the game over) and the game
+/// is over.
 #[test]
 #[available_gas(l2_gas: 68299000)]
 fn test_quests_tutorial_surrender_credits_no_task_10() {
