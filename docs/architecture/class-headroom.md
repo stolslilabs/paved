@@ -449,3 +449,21 @@ game over.
 
 Rules and tests of the split: `native-storage.md`, "Classes (S1, P-26)".
 
+
+## Cap of `Daily` after U-1 (P-44)
+
+The PM set `Daily`'s cap at 72,607 CASM felts (the prototype's figure, E3). U-1 (D-17, P-42, `upgrades.md`) puts
+`Daily` at **72,947 CASM felts (89.0 % of the Starknet cap)**: OpenZeppelin's `upgrade` (+15 net of the old one) and
+`set_lobby_class` in `Daily` (+325). Measured with `scripts/class-sizes.sh` (scarb 2.20.1). Every class stays under
+90 %; the script pins no per-class figure.
+
+**P-44 (PM, 2026-10-10): option (a), the cap of `Daily` becomes 72,947.** The levers measured in U-1 (`upgrades.md`,
+"The Lobby path") are not applied:
+
+- (c), no setter and a one-shot migration class, would make every `Lobby` change an upgrade-and-back of the live
+  `Daily`: the riskiest path.
+- (b), the setter's body in `Lobby`, would save only 136 felts (72,811).
+
+Headroom for future move code comes from moving logic into the `Lobby` library (74.8 % used) or from a later upgrade.
+
+What reverses it: a planned `Daily` feature that needs those 340 felts; (c) is then reconsidered.

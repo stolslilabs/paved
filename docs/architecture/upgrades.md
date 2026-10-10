@@ -61,7 +61,8 @@ the `Lobby` class by library call (P-26). P-26 made its class hash, `lobby_class
   | (c) no setter: the owner upgrades to a one-shot migration class that writes `lobby_class` and replaces the class back, both calls in one multicall | 72,622 (+15) | 61,301 | nothing in `Daily`; one more class to declare per change |
   | (a) and the view `current_tournament_id` dropped | 72,865 (+258) | 61,301 | dropping a view saves 82 |
 
-  The PM's cap for `Daily` is 72,607; the choice is the PM's (U-1 report).
+  P-44 (PM, 2026-10-10) chose (a) and set `Daily`'s cap to 72,947 (`class-headroom.md`, "Cap of `Daily` after
+  U-1").
 
 ## Storage layout discipline
 

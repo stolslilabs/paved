@@ -299,18 +299,30 @@ describe("Economy's events", () => {
     expect(members("Settled", "data")).toEqual(["day: u64", "score: u32", "threshold: u64", "reward: u128"]);
   });
 
-  test("the Event enum is not flat: each variant is named as its struct, whose name is the selector", () => {
-    const event = abi("Economy").find((item) => item.type === "event" && item.kind === "enum")! as AbiItem & {
-      variants: { name: string; type: string; kind: string }[];
-    };
-    for (const variant of event.variants) {
+  test("Economy's own variants are not flat: each is named as its struct, whose name is the selector", () => {
+    type Enum = AbiItem & { variants: { name: string; type: string; kind: string }[] };
+    const enums = abi("Economy").filter((item) => item.type === "event" && item.kind === "enum") as Enum[];
+    const event = enums.find((item) => item.name === "paved::economy::economy::Economy::Event")!;
+    const own = event.variants.filter((variant) => variant.kind !== "flat");
+    for (const variant of own) {
       expect(variant.kind, variant.name).toBe("nested");
       expect(variant.type.split("::").at(-1)).toBe(variant.name);
     }
-    expect(event.variants.map((v) => v.name).sort()).toEqual(
+    expect(own.map((v) => v.name).sort()).toEqual(
       ["DayClosed", "EconomyConfigured", "GameSet", "PoolSet", "Purchased", "Recorded", "Settled"],
     );
     for (const name of ["Purchased", "Recorded", "DayClosed", "Settled"] as const) expect(EMITTERS[name]).toEqual(["economy"]);
+    // The components (P-42): flat, so their events keep their own names as selectors, and every one is ignored.
+    const flat = event.variants.filter((variant) => variant.kind === "flat");
+    expect(flat.map((v) => v.name).sort()).toEqual(["OwnableEvent", "UpgradeableEvent"]);
+    for (const variant of flat) {
+      const component = enums.find((item) => item.name === variant.type)!;
+      for (const inner of component.variants) {
+        expect(inner.kind, inner.name).toBe("nested");
+        expect(inner.type.split("::").at(-1)).toBe(inner.name);
+        expect((IGNORED as readonly string[]).includes(inner.name), inner.name).toBe(true);
+      }
+    }
   });
 
   test("Purchased: u256 amounts from their low and high felts", () => {
