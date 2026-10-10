@@ -631,6 +631,25 @@ export class Store {
             });
             break;
           }
+          case "EconomySet":
+          case "CollectionSet": {
+            // Account's registry against the deployment file: the file alone names the contracts that are read.
+            const [what, set, filed] =
+              event.name === "EconomySet"
+                ? (["Economy", event.economy, this.contracts()?.economy] as const)
+                : (["Collection", event.collection, this.contracts()?.collection] as const);
+            if (filed === undefined || filed === null) {
+              throw new Halt(
+                `${event.name} ${where}: Account registers the ${what} ${padded(set)}, the deployment file has none`,
+              );
+            }
+            if (BigInt(filed) !== set) {
+              throw new Halt(
+                `${event.name} ${where}: Account registers the ${what} ${padded(set)}, the deployment file has ${padded(filed)}`,
+              );
+            }
+            break;
+          }
           case "PlayerCreated": {
             if (raw.source !== "account") {
               throw new Halt(`PlayerCreated from ${raw.source} ${where}`);

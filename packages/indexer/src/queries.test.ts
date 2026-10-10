@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { padded } from "./events.ts";
+import { UNSETTLED_PAGE } from "./api.ts";
 import { Queries, replaySlots } from "./queries.ts";
 import { FakeNode, ev } from "./testing/fake-node.ts";
 import { indexerOf, settle } from "./testing/setup.ts";
@@ -203,6 +204,7 @@ describe("players and games", () => {
         rewards: "0",
       },
       unsettled: [],
+      unsettled_count: 0,
     });
     expect(queries.player(head, id(B))!.stats).toEqual({
       daily_games: 1,
@@ -366,8 +368,10 @@ describe("Economy", () => {
       { game_id: 2, day: DAY, expired: true },
       { game_id: 4, day: DAY + 1, expired: false },
     ]);
+    expect(a.unsettled_count).toBe(2);
     const b = queries.player(head, id(B))!;
     expect(b.stats).toMatchObject({ paid_games: 1, settled_games: 0, rewards: "0" });
+    expect(b.unsettled_count).toBe(0);
     expect(b.unsettled).toEqual([]); // game 3 is not recorded: nothing to settle
     expect(queries.player(head - 1, id(A))!.stats).toMatchObject({ settled_games: 0, rewards: "0" });
   });
@@ -379,6 +383,7 @@ describe("Economy", () => {
       games_recorded: 2,
       games_settled: 1,
       unsettled: [2],
+      unsettled_count: 1,
       rewards: String(BIG),
       closed: true,
       mean: 4_215_689,
@@ -393,6 +398,7 @@ describe("Economy", () => {
       games_recorded: 0,
       games_settled: 0,
       unsettled: [],
+      unsettled_count: 0,
       rewards: "0",
       closed: false,
       mean: null,
@@ -401,5 +407,38 @@ describe("Economy", () => {
       ema_after: null,
       closed_at: null,
     });
+  });
+});
+
+describe("the unsettled list is bounded (UNSETTLED_PAGE)", () => {
+  // One player buys `count` games on one day and every one is recorded, none settled.
+  const unsettledGames = (count: number) => (node: FakeNode) => {
+    players(node);
+    for (let first = 1; first <= count; first += 50) {
+      const ids = Array.from({ length: Math.min(50, count - first + 1) }, (_, i) => first + i);
+      node.mine(
+        ...ids.map((game) => [ev.spawned("daily", game, A, { tournament: DAY }), ev.purchased(game, A, { day: DAY })]),
+      );
+      node.mine(...ids.map((game) => [ev.recorded(game, 100)]));
+    }
+  };
+
+  test.each([
+    [0, 0],
+    [1, 1],
+    [UNSETTLED_PAGE - 1, UNSETTLED_PAGE - 1],
+    [UNSETTLED_PAGE, UNSETTLED_PAGE],
+    [UNSETTLED_PAGE + 1, UNSETTLED_PAGE],
+    [UNSETTLED_PAGE + 30, UNSETTLED_PAGE],
+  ])("%i unsettled games: a player and a day list %i, the count is the whole", async (count, listed) => {
+    const { queries, head } = await open(unsettledGames(count));
+    const player = queries.player(head, id(A))!;
+    const oldest = Array.from({ length: listed }, (_, i) => i + 1);
+    expect(player.unsettled.map((game) => game.game_id)).toEqual(oldest);
+    expect(player.unsettled_count).toBe(count);
+    const day = queries.dayEconomy(head, DAY);
+    expect(day.unsettled).toEqual(oldest);
+    expect(day.unsettled_count).toBe(count);
+    expect(day.games_recorded).toBe(count);
   });
 });
