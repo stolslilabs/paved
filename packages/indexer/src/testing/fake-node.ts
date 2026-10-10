@@ -229,6 +229,9 @@ export const ev = {
       [gameId, player],
       [options.day ?? 100, options.score ?? 5000, options.threshold ?? 4_215_689, options.reward ?? 231n * 10n ** 18n],
     ),
+  /** `Daily.Sponsored`: key the day, data the sponsor and the amount. */
+  sponsored: (day: number, sponsor: bigint | number, amount: bigint | number = 10n ** 18n) =>
+    raw("daily", "Sponsored", [day], [sponsor, amount]),
   /** An event of the contracts that is known and not indexed. */
   built: (source: Source, gameId: number) =>
     raw(source, "Built", [gameId], [1, 2, 3, 4, 5, 6, 7, 8]),

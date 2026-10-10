@@ -136,6 +136,14 @@ export type Decoded =
       emaAfter: bigint;
     }
   | {
+      /** A sponsor's addition to a day's prize (`Daily.sponsor`): the day is the tournament id. */
+      name: "Sponsored";
+      tournamentId: bigint;
+      sponsor: bigint;
+      /** Token base units (a felt252). */
+      amount: bigint;
+    }
+  | {
       name: "Settled";
       gameId: number;
       playerId: bigint;
@@ -175,6 +183,7 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   Recorded: ["economy"],
   DayClosed: ["economy"],
   Settled: ["economy"],
+  Sponsored: ["daily"],
   Transfer: ["collection"],
 };
 
@@ -183,7 +192,6 @@ export const IGNORED = [
   "Built",
   "Discarded",
   "Scored",
-  "Sponsored",
   "Claimed",
   "OwnershipTransferStarted",
   "OwnershipTransferred",
@@ -218,6 +226,7 @@ const INDEXED: readonly EventName[] = [
   "Recorded",
   "DayClosed",
   "Settled",
+  "Sponsored",
   "Transfer",
 ];
 
@@ -542,6 +551,14 @@ export function decode(
         weight: small(data[1], 32, "weight"),
         prior: u64(data[2], "prior"),
         emaAfter: u64(data[3], "ema_after"),
+      };
+    case "Sponsored":
+      shape(name, keys, data, 1, 2);
+      return {
+        name,
+        tournamentId: tournamentId(keys[1]),
+        sponsor: felt(data[0]),
+        amount: felt(data[1]),
       };
     case "Settled":
       shape(name, keys, data, 2, 4);

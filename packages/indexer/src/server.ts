@@ -113,13 +113,13 @@ const tournamentId = (value: string | undefined, name = "id") =>
   integer(value, name, 0, MAX_TOURNAMENT_ID);
 
 /** A player id: `0x` and 64 hex digits (66 characters, zero-padded), a felt. Returned lowercase. */
-function playerId(value: string): string {
+function playerId(value: string, name = "player_id"): string {
   if (!/^0x[0-9a-fA-F]{64}$/.test(value))
-    throw new BadRequest("player_id must be 0x and 64 hex digits");
+    throw new BadRequest(`${name} must be 0x and 64 hex digits`);
   try {
     felt(value);
   } catch {
-    throw new BadRequest("player_id is not a felt");
+    throw new BadRequest(`${name} is not a felt`);
   }
   return padded(canonical(value));
 }
@@ -197,6 +197,18 @@ function route(url: URL): Read | null {
         };
       }
       return null;
+    }
+    case "sponsors": {
+      // A sponsor is an account address, written as a player id is (66 characters, a felt).
+      if (b !== "days" || parts.length !== 5 || a === undefined || a === "") return null;
+      const sponsor = playerId(a, "sponsor_id");
+      const p = parameters(url, [], ["limit", "before"]);
+      const limit = limitOf(p.limit);
+      const before = p.before === undefined ? undefined : tournamentId(p.before, "before");
+      return (queries, served) => ({
+        sponsor_id: sponsor,
+        ...queries.sponsorDays(served.number, sponsor, limit, before),
+      });
     }
     case "definitions": {
       if (parts.length !== 3) return null;

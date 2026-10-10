@@ -2,7 +2,7 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, NoPrizeDayError, NothingToReclaimError, ReclaimAmountChangedError, RewardChangedError, emptyTournament } from "@paved/chain";
+import { FakeGameViews, createIndexerClient, NoPrizeDayError, NothingToReclaimError, ReclaimAmountChangedError, RewardChangedError, emptyTournament } from "@paved/chain";
 import { resolveEconomyDeployment, type Deployment } from "@paved/chain";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { LandingPage } from "../src/pages/Landing";
@@ -234,8 +234,8 @@ describe("Reclaiming a prize nobody ranked for (P-37)", () => {
     const views = new FakeGameViews();
     views.tournaments.set(5, { ...unranked, ...options.tournament });
     const part = options.part ?? 2n * 10n ** 18n;
-    land({ views, writer: { reclaim }, sponsorship: { days: [5], reclaimable: () => part, returned: () => options.returned ?? 0n } });
-    return { reclaim, views };
+    const { client } = land({ views, writer: { reclaim }, sponsorship: { days: [5], reclaimable: () => part, returned: () => options.returned ?? 0n } });
+    return { reclaim, views, client };
   };
 
   it("lists the sponsor's part; one click only asks with the amount, Confirm sends the confirmed amount", async () => {
@@ -247,6 +247,25 @@ describe("Reclaiming a prize nobody ranked for (P-37)", () => {
     fireEvent.click(screen.getByText("Confirm reclaim"));
     await waitFor(() => expect(reclaim).toHaveBeenCalledTimes(1));
     expect(reclaim).toHaveBeenCalledWith(5, { confirmedAmount: 2n * 10n ** 18n });
+  });
+
+  it("passes the indexer to the days read, and reads at most 30 days (one tournament view each)", async () => {
+    const indexer = createIndexerClient("http://indexer.test")!;
+    const views = new FakeGameViews();
+    const days = Array.from({ length: 40 }, (_, i) => 100 - i);
+    for (const day of days) views.tournaments.set(day, { ...unranked, id: day });
+    const read = vi.spyOn(views, "tournament");
+    const { client } = land({ views, indexer, sponsorship: { days, reclaimable: () => 2n * 10n ** 18n } });
+    await screen.findByText("Tournament 100: your part, 2 USDC");
+    expect(client.events.sponsoredDays).toHaveBeenCalledWith(expect.any(String), indexer);
+    expect(read.mock.calls.filter(([id]) => days.includes(id as number))).toHaveLength(30);
+    expect(screen.queryByText(/Tournament 70:/)).toBeNull();
+  });
+
+  it("without an indexer the reader gets none and the same days are listed", async () => {
+    const { client } = setup();
+    await screen.findByText("Tournament 5: your part, 2 USDC");
+    expect(client.events.sponsoredDays).toHaveBeenCalledWith(expect.any(String), null);
   });
 
   it("what already went back comes from the Reclaimed events, beside the part left", async () => {

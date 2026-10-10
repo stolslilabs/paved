@@ -52,7 +52,7 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "5";
+export const SCHEMA_VERSION = "6";
 
 /** The sha256 of the five addresses (canonical, in a fixed order): the identity of a deployment. */
 export function deploymentHash(
@@ -160,6 +160,13 @@ const SCHEMA = `
     day INTEGER PRIMARY KEY, mean INTEGER NOT NULL, weight INTEGER NOT NULL, prior INTEGER NOT NULL,
     ema_after INTEGER NOT NULL, closed_block INTEGER NOT NULL, closed_time INTEGER NOT NULL
   );
+  -- Sponsored (Daily): one row per sponsoring, to list the days a sponsor put something into. The amount is decimal text.
+  CREATE TABLE IF NOT EXISTS sponsorships (
+    block INTEGER NOT NULL, tx INTEGER NOT NULL, idx INTEGER NOT NULL,
+    day INTEGER NOT NULL, sponsor TEXT NOT NULL, amount TEXT NOT NULL,
+    PRIMARY KEY (block, tx, idx)
+  );
+  CREATE INDEX IF NOT EXISTS sponsorships_sponsor ON sponsorships (sponsor, day DESC);
 `;
 
 type Row = Record<string, SQLInputValue>;
@@ -616,6 +623,17 @@ export class Store {
             });
             break;
           }
+          case "Sponsored": {
+            this.sql.insertSponsorship.run({
+              block: at,
+              tx: raw.transactionIndex,
+              idx: raw.eventIndex,
+              day: Number(event.tournamentId),
+              sponsor: padded(event.sponsor),
+              amount: String(event.amount),
+            });
+            break;
+          }
           case "DayClosed": {
             if (this.sql.economyDay.get(Number(event.day))) {
               throw new Halt(`DayClosed of day ${event.day} ${where}: the day is already closed`);
@@ -753,6 +771,7 @@ export class Store {
       this.sql.unrecordPurchases.run(to);
       this.sql.unsettlePurchases.run(to);
       this.sql.rewindEconomyDays.run(to);
+      this.sql.rewindSponsorships.run(to);
       this.sql.rewindPodium.run(to);
       this.sql.rewindCloses.run(to);
       this.sql.rewindEvents.run(to);
@@ -784,6 +803,7 @@ export class Store {
     | "day_closes"
     | "purchases"
     | "economy_days"
+    | "sponsorships"
     | "events"
     | "blocks",
     Row[]
@@ -799,6 +819,7 @@ export class Store {
       day_closes: all("SELECT * FROM day_closes ORDER BY block"),
       purchases: all("SELECT * FROM purchases ORDER BY game_id"),
       economy_days: all("SELECT * FROM economy_days ORDER BY day"),
+      sponsorships: all("SELECT * FROM sponsorships ORDER BY block, tx, idx"),
       events: all("SELECT * FROM events ORDER BY block, tx, idx"),
       blocks: all("SELECT * FROM blocks ORDER BY number"),
     };
@@ -939,6 +960,11 @@ function statements(db: DatabaseSync) {
       "UPDATE purchases SET threshold = NULL, reward = NULL, settled_block = NULL WHERE settled_block > ?",
     ),
     rewindEconomyDays: db.prepare("DELETE FROM economy_days WHERE closed_block > ?"),
+    insertSponsorship: db.prepare(
+      `INSERT INTO sponsorships (block, tx, idx, day, sponsor, amount)
+       VALUES (:block, :tx, :idx, :day, :sponsor, :amount)`,
+    ),
+    rewindSponsorships: db.prepare("DELETE FROM sponsorships WHERE block > ?"),
     rewindPodium: db.prepare("DELETE FROM podium WHERE close_block > ?"),
     rewindEvents: db.prepare("DELETE FROM events WHERE block > ?"),
     rewindBlocks: db.prepare("DELETE FROM blocks WHERE number > ?"),
