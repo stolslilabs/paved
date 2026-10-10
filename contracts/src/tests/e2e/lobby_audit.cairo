@@ -58,7 +58,8 @@ fn raw_entry(contract: ContractAddress, map: felt252, key: Array<felt252>) -> fe
 /// through the other) is not possible in snforge: a contract class lists no storage variables
 /// (the ABI holds none) and `Lobby` cannot be deployed, so it has no address to read. Whoever adds
 /// a variable to `OwnableComponent`, `PayableComponent`, `HostableComponent`, `QuestComponent` or
-/// `AchievementComponent` adds it here. `lobby_class` is `Daily`'s alone (`Lobby` never reads it).
+/// `AchievementComponent` adds it here. `lobby_class` is `Daily`'s alone (`Lobby` never reads it;
+/// `Daily`'s owner sets it, P-42). `UpgradeableComponent` has no storage.
 #[test]
 #[available_gas(l2_gas: 400000000)]
 fn test_lobby_and_daily_pin_every_shared_storage_variable_by_name() {

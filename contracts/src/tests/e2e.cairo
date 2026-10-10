@@ -12,4 +12,5 @@ pub mod reclaim;
 pub mod store;
 pub mod tutorial;
 pub mod tutorial_advanced;
+pub mod upgrades;
 pub mod views;

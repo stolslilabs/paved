@@ -23,6 +23,8 @@ pub mod Account {
     // Component imports
 
     use core::num::traits::Zero;
+    use openzeppelin_interfaces::upgrades::IUpgradeable;
+    use openzeppelin_upgrades::UpgradeableComponent;
     use paved::components::manageable::ManageableComponent;
     use paved::components::ownable::OwnableComponent;
 
@@ -31,8 +33,8 @@ pub mod Account {
     use paved::events::Event as PavedEvent;
     use paved::models::player::Player;
     use paved::store::{StoreImpl, StoreTrait};
-    use starknet::ContractAddress;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use starknet::{ClassHash, ContractAddress};
 
     // Local imports
 
@@ -55,6 +57,8 @@ pub mod Account {
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
 
     // Storage
 
@@ -68,6 +72,8 @@ pub mod Account {
         economy: ContractAddress,
         /// The `Collection` of the game NFTs; written once by the owner.
         collection: ContractAddress,
+        #[substorage(v0)]
+        upgradeable: UpgradeableComponent::Storage,
     }
 
     // Events
@@ -81,6 +87,8 @@ pub mod Account {
         ManageableEvent: ManageableComponent::Event,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
+        #[flat]
+        UpgradeableEvent: UpgradeableComponent::Event,
         EconomySet: EconomySet,
         CollectionSet: CollectionSet,
     }
@@ -143,6 +151,15 @@ pub mod Account {
 
         fn collection(self: @ContractState) -> ContractAddress {
             self.collection.read()
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl UpgradeableImpl of IUpgradeable<ContractState> {
+        /// Replaces the class, keeping the storage (OpenZeppelin's `Upgraded`). The owner only.
+        fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
+            self.ownable.assert_only_owner();
+            self.upgradeable.upgrade(new_class_hash);
         }
     }
 }

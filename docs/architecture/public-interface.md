@@ -256,3 +256,17 @@ working.
   - No entry point of `Daily`, `Tutorial` or `Lobby` takes a token id, and none calls `Collection.mint` on a caller's
     behalf.
   - `contracts/deployments/<network>.json` gains `contracts.Collection`.
+
+- **U-1, upgradable contracts** (D-17, P-42, `docs/architecture/upgrades.md`).
+  - `Daily`, `Tutorial`, `Account`, `Economy` and `Collection` expose OpenZeppelin's `IUpgradeable`:
+    `upgrade(new_class_hash)`, owner only, emitting `Upgraded { class_hash }`. `Daily`, `Tutorial` and `Account`
+    had an `upgrade(class_hash)` already, with the same selector and event; only the argument's name changes.
+  - `Economy` and `Collection` gain the two-step ownership of the other three: `owner()` (unchanged selector and
+    result), `pending_owner()`, `transfer_ownership(new_owner)`, `accept_ownership()`, and the events
+    `OwnershipTransferStarted` and `OwnershipTransferred` (the latter emitted once by each constructor). Their
+    owner-only setters revert with `Ownable: caller is not owner` instead of `Economy: not owner` and
+    `Collection: not owner`.
+  - `Daily` and `Tutorial` gain `set_lobby_class(class_hash)` (owner only) and the event
+    `LobbyClassSet { class_hash }`. The constructors are unchanged.
+  - A client that reads the views and sends the player calls keeps working. An indexer that refuses unknown
+    selectors must know `LobbyClassSet` before the owner first calls `set_lobby_class`.

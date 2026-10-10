@@ -60,6 +60,8 @@ pub mod Daily {
     // Component imports
 
     use core::num::traits::Zero;
+    use openzeppelin_interfaces::upgrades::IUpgradeable;
+    use openzeppelin_upgrades::UpgradeableComponent;
     use paved::components::hostable::HostableComponent;
     use paved::components::ownable::OwnableComponent;
     use paved::components::payable::PayableComponent;
@@ -69,7 +71,9 @@ pub mod Daily {
 
     use paved::events::Event as PavedEvent;
     use paved::store::{StoreImpl, StoreTrait};
-    use paved::systems::lobby::{ILobbyDispatcherTrait, ILobbyLibraryDispatcher};
+    use paved::systems::lobby::{
+        ILobbyClass, ILobbyDispatcherTrait, ILobbyLibraryDispatcher, LobbyClassSet,
+    };
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::types::role::Role;
@@ -104,6 +108,8 @@ pub mod Daily {
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
     component!(path: PayableComponent, storage: payable, event: PayableEvent);
     impl PayableInternalImpl = PayableComponent::InternalImpl<ContractState>;
     component!(path: PlayableComponent, storage: playable, event: PlayableEvent);
@@ -129,8 +135,10 @@ pub mod Daily {
         quest: QuestComponent::Storage,
         #[substorage(v0)]
         achievement: AchievementComponent::Storage,
-        /// The `Lobby` class run by library call; written by the constructor only.
+        /// The `Lobby` class run by library call; written by the constructor and `set_lobby_class`.
         lobby_class: ClassHash,
+        #[substorage(v0)]
+        upgradeable: UpgradeableComponent::Storage,
     }
 
     // Events
@@ -152,6 +160,9 @@ pub mod Daily {
         QuestEvent: QuestComponent::Event,
         #[flat]
         AchievementEvent: AchievementComponent::Event,
+        #[flat]
+        UpgradeableEvent: UpgradeableComponent::Event,
+        LobbyClassSet: LobbyClassSet,
     }
 
     // Constructor
@@ -259,6 +270,27 @@ pub mod Daily {
         fn retire_achievement(ref self: ContractState, achievement_id: u32) {
             ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
                 .retire_achievement(achievement_id);
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl UpgradeableImpl of IUpgradeable<ContractState> {
+        /// Replaces the class, keeping the storage (OpenZeppelin's `Upgraded`). The owner only.
+        fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
+            self.ownable.assert_only_owner();
+            self.upgradeable.upgrade(new_class_hash);
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl LobbyClassImpl of ILobbyClass<ContractState> {
+        fn set_lobby_class(ref self: ContractState, class_hash: ClassHash) {
+            // [Check] The owner, a real class
+            self.ownable.assert_only_owner();
+            assert(class_hash.is_non_zero(), errors::ZERO_LOBBY_CLASS);
+            // [Effect] Run it from the next call on
+            self.lobby_class.write(class_hash);
+            self.emit(LobbyClassSet { class_hash });
         }
     }
 

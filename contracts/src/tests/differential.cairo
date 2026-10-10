@@ -54,7 +54,7 @@ impl BoardImpl of BoardTrait {
 
 /// Gas scenarios a0, a and b: one move each.
 #[test]
-#[available_gas(l2_gas: 418435000)]
+#[available_gas(l2_gas: 419128000)]
 fn test_differential_gas_scenarios_a0_a_b() {
     let board = BoardTrait::new();
     board.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);

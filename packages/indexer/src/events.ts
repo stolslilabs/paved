@@ -5,8 +5,8 @@
 // the Paved repository.
 //
 // The events of the indexer (docs/architecture/indexer.md, contracts/abis/*.json): the first key is the selector of
-// the event's name (Economy's `Event` enum is not flat: its variants are named as their structs, so the selector is the
-// struct's name too); then the declared keys, then the data, in the declared order. Decoding is strict: a selector of no
+// the event's name (Economy's own `Event` variants are not flat: they are named as their structs, so the selector is the
+// struct's name too; its ownable and upgradeable components are flat, their events keep their own names); then the declared keys, then the data, in the declared order. Decoding is strict: a selector of no
 // list, a count of keys or data that differs, or a value wider than its type is a DecodeError, and the indexer halts on
 // it (it never guesses). The events of the contracts that are not indexed (the board events, claims, ownership) are
 // known by name and skipped; any other selector is a contract change the indexer was not told about.
@@ -208,6 +208,8 @@ export const IGNORED = [
   "GameSet",
   // A sponsor's reclaim of a day's unclaimable prize (P-37): declared by the Lobby class, emitted from Daily's address.
   "Reclaimed",
+  // The owner's change of the Lobby class of Daily or Tutorial (P-42, set_lobby_class).
+  "LobbyClassSet",
 ] as const;
 
 const INDEXED: readonly EventName[] = [

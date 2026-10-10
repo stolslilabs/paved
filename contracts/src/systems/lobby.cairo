@@ -57,6 +57,20 @@ pub trait ILobby<TContractState> {
     fn retire_achievement(ref self: TContractState, achievement_id: u32);
 }
 
+/// The `Lobby` class a game contract runs by library call: the owner of `Daily` or `Tutorial` sets
+/// it (P-42, which reverses P-26's "written by the constructors only").
+#[starknet::interface]
+pub trait ILobbyClass<TContractState> {
+    /// Sets the `Lobby` class run from now on: the owner only, never zero. Emits `LobbyClassSet`.
+    fn set_lobby_class(ref self: TContractState, class_hash: starknet::ClassHash);
+}
+
+/// Emitted by `Daily` or `Tutorial` when its owner sets the `Lobby` class.
+#[derive(Drop, Debug, PartialEq, starknet::Event)]
+pub struct LobbyClassSet {
+    pub class_hash: starknet::ClassHash,
+}
+
 #[starknet::contract]
 pub mod Lobby {
     // Imports

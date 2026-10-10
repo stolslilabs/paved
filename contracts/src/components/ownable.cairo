@@ -1,8 +1,9 @@
-//! Ownable component: an owner set at deployment, who may upgrade the contract class and hand the
-//! ownership over in two steps. `upgrade` replaces the class: the owner has full control of the
+//! Ownable component: an owner set at deployment, who hands the ownership over in two steps. It is
+//! the gate of OpenZeppelin's `UpgradeableComponent` in every contract that embeds both
+//! (`docs/architecture/upgrades.md`): the owner may replace the class, so has full control of the
 //! contract and of the funds it holds.
 
-use starknet::{ClassHash, ContractAddress};
+use starknet::ContractAddress;
 
 #[starknet::interface]
 pub trait IOwnable<TContractState> {
@@ -10,21 +11,19 @@ pub trait IOwnable<TContractState> {
     fn pending_owner(self: @TContractState) -> ContractAddress;
     fn transfer_ownership(ref self: TContractState, new_owner: ContractAddress);
     fn accept_ownership(ref self: TContractState);
-    fn upgrade(ref self: TContractState, class_hash: ClassHash);
 }
 
 #[starknet::component]
 pub mod OwnableComponent {
     use core::num::traits::Zero;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
-    use starknet::{ClassHash, ContractAddress, SyscallResultTrait, get_caller_address};
+    use starknet::{ContractAddress, get_caller_address};
     use super::IOwnable;
 
     pub mod errors {
         pub const NOT_OWNER: felt252 = 'Ownable: caller is not owner';
         pub const NOT_PENDING_OWNER: felt252 = 'Ownable: caller not pending';
         pub const ZERO_OWNER: felt252 = 'Ownable: new owner is zero';
-        pub const ZERO_CLASS_HASH: felt252 = 'Ownable: class hash is zero';
     }
 
     #[storage]
@@ -38,7 +37,6 @@ pub mod OwnableComponent {
     pub enum Event {
         OwnershipTransferStarted: OwnershipTransferStarted,
         OwnershipTransferred: OwnershipTransferred,
-        Upgraded: Upgraded,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -51,11 +49,6 @@ pub mod OwnableComponent {
     pub struct OwnershipTransferred {
         pub previous_owner: ContractAddress,
         pub new_owner: ContractAddress,
-    }
-
-    #[derive(Drop, Debug, PartialEq, starknet::Event)]
-    pub struct Upgraded {
-        pub class_hash: ClassHash,
     }
 
     #[embeddable_as(OwnableImpl)]
@@ -89,16 +82,6 @@ pub mod OwnableComponent {
             // [Effect] Complete the handover
             self.pending_owner.write(Zero::zero());
             self.set_owner(caller);
-        }
-
-        fn upgrade(ref self: ComponentState<TContractState>, class_hash: ClassHash) {
-            // [Check] Caller is the owner
-            self.assert_only_owner();
-            // [Check] Class hash is not zero
-            assert(class_hash.is_non_zero(), errors::ZERO_CLASS_HASH);
-            // [Interaction] Replace the class
-            starknet::syscalls::replace_class_syscall(class_hash).unwrap_syscall();
-            self.emit(Upgraded { class_hash });
         }
     }
 

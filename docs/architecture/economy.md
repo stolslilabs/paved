@@ -627,17 +627,19 @@ under `prlimit --as=8589934592`, peak RSS 1.5 GB. Nothing of the prototypes is c
 
 | Action | Who | Bounds |
 |---|---|---|
-| `PavedToken.mint` | `Economy` only | set once by the token's deployer (`set_minter`, one shot, then no admin remains); no upgrade |
+| `PavedToken.mint` | `Economy` only | set once by the token's deployer (`set_minter`, one shot, then no admin remains); no upgrade (a fix is a migration, `upgrades.md`) |
 | `PavedToken.burn` | any holder, of their own balance | |
 | `Economy.purchase`, `Economy.record` | `Daily` only (its address, set once by the owner, `set_game`, one shot) | |
 | `Economy.settle` | anyone | mints only to the game's player, once per game, after its day |
 | `Economy.configure` | `Economy`'s owner (the programme's owner) | `BURN_BPS` 5,000 to 9,000; `sigma` -3,000 to +5,000 bps; `c` 0.1x to 5x; `H` 1 to 20; `T` 100,000 to 10,000,000 PAVED; applies to the next purchase only (terms are frozen); `EconomyConfigured` event |
 | `Economy.set_pool` | owner | a pool key on the same two tokens only; event. **Accepted trust:** the owner can point the swaps at any PAVED/USDC pool, including a thin one (E-4) |
 | The mean | nobody | no setter (Nums' `set_average_score` is dropped) |
-| `Vault` | nobody | no owner |
+| `Vault` | nobody | no owner, no upgrade (a fix is a migration, `upgrades.md`) |
+| `Economy.upgrade`, `Economy.transfer_ownership` | owner (two-step) | OpenZeppelin's `UpgradeableComponent` (P-42); a new class can mint, see "Gates before a real-money game on mainnet" |
 | Margin | `BURN_BPS` decides it: the margin is the rest, all to the Vault | no team address exists anywhere |
 
-The owner's setters on `Economy` do not add a new class of trust. The owner can already upgrade `Daily`. They are
+The owner's setters on `Economy` do not add a new class of trust. The owner can already upgrade `Daily`, and since
+P-42 `Economy` itself. They are
 bounded and evented so that a mistake is visible and limited.
 
 #181's flaws (R-5), and what each becomes here:
@@ -809,7 +811,7 @@ Not stacked: each one branches from main and targets main.
 - Acceptance:
   - goldens identical;
   - a0 to f within +0.1 % of main;
-  - `Daily` at most 72,607 felts (the prototype);
+  - `Daily` at most 72,607 felts (the prototype) (72,947 since P-44);
   - every class at most 90 %;
   - gas of spawn and of the closing moves measured and reported, with the cause stated;
   - a devnet smoke check that buys, plays the Tutorial, and settles a paid game on a later day;
@@ -900,6 +902,12 @@ D-13 lifts the seed gate. These gates stay:
 - **The owner's acts**, unchanged by this design: deploying PAVED on a public network and distributing the initial
   1,000,000; creating the Ekubo pool and funding its LP (Nums: 800,000 PAVED and 10,000 USDC); who holds the LP
   position and its 5 % fees; staking at launch.
+- **The upgrade owner** (D-17, P-42, `upgrades.md`), a mainnet gate. `Daily`, `Tutorial`, `Account`, `Economy` and
+  `Collection` are upgradable by their owner, who therefore holds the prize pools and the PAVED mint (`Economy` is
+  its only minter). On mainnet that owner is the owner's account, then a multisig or a timelock; deploying with it
+  and moving the ownership there (two steps) are the owner's acts. `PavedToken` and `Vault` stay non-upgradable.
+  `set_lobby_class` on `Daily` and `Tutorial` is as strong as `upgrade`: a `Lobby` class runs by library call on
+  their storage, so it can move the prize pools, rewrite `owner`, or replace the class. This gate covers both.
 - **The mock-router gate** (from E1's audit), a mainnet gate: the mainnet price limit and partial fills are untested
   until a fork test against the mainnet router covers them (see "As built: E2" below).
 - **The route gap** (P-39, two mainnet gates). `MockRouter`'s quote is `Economy.quote_swap`; on mainnet the client
@@ -936,9 +944,11 @@ differs from the text above, or the text left the choice open, it is written her
   (`c`) 1,000 to 50,000; `cap` (`H`) 1 to 20; `target` (`T`) 100,000 to 10,000,000 PAVED. The constructor's
   configuration passes the same check. The referral (500 bps), the base price (2 USDC), the stake range (1 to 10)
   and the parameters of the mean are constants. The mean has no setter.
-- **The owner has no transfer and no upgrade.** The owner can configure and set the pool, and nothing else.
-  `PavedToken`'s minter is set once, so **a fix of `Economy` after its deploy needs a new `PavedToken`**. Reverse:
-  the PM wants an upgradeable `Economy`. That also makes its owner able to mint.
+- **The owner configures, sets the pool, and upgrades (P-42).** `Economy` is upgradable in place by its owner
+  (`upgrade`, OpenZeppelin's `UpgradeableComponent`), and the ownership moves in two steps (`transfer_ownership`,
+  then `accept_ownership` by the new owner). An upgrade keeps `Economy`'s address, so `PavedToken`'s minter, set
+  once, stays valid: **a fix of `Economy` after its deploy needs no new `PavedToken`**. The cost is trust: a new
+  class can mint (`upgrades.md`, "Trust"; "Gates before a real-money game on mainnet").
 - **Frozen terms.** A purchase freezes `R`, its time and the curve then in force (`sigma`, `c`, `H`) into the
   game's terms. A `configure` therefore applies to the next purchase only, the curve included. The time is packed
   in 40 bits in the same slot, in place of the day, which is derived from it.

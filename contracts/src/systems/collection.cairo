@@ -31,7 +31,6 @@ pub trait ICollection<TContractState> {
     fn set_minters(ref self: TContractState, daily: ContractAddress, tutorial: ContractAddress);
     /// Mints `token_id` to `to`. The minter of the id's range only.
     fn mint(ref self: TContractState, to: ContractAddress, token_id: u256);
-    fn owner(self: @TContractState) -> ContractAddress;
     fn daily(self: @TContractState) -> ContractAddress;
     fn tutorial(self: @TContractState) -> ContractAddress;
 }
@@ -195,9 +194,12 @@ pub mod Collection {
 
     use openzeppelin_interfaces::introspection::ISRC5_ID;
     use openzeppelin_interfaces::token::erc721::{IERC721_ID, IERC721_METADATA_ID};
+    use openzeppelin_interfaces::upgrades::IUpgradeable;
+    use openzeppelin_upgrades::UpgradeableComponent;
 
     // Internal imports
 
+    use paved::components::ownable::OwnableComponent;
     use paved::views::{GameView, IGameViewDispatcher, IGameViewDispatcherTrait};
 
     // Starknet imports
@@ -206,7 +208,7 @@ pub mod Collection {
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
     };
-    use starknet::{ContractAddress, get_caller_address};
+    use starknet::{ClassHash, ContractAddress, get_caller_address};
 
     // Local imports
 
@@ -218,7 +220,6 @@ pub mod Collection {
     // Errors
 
     pub mod errors {
-        pub const NOT_OWNER: felt252 = 'Collection: not owner';
         pub const MINTERS_SET: felt252 = 'Collection: minters set';
         pub const ZERO_MINTER: felt252 = 'Collection: zero minter';
         pub const SAME_MINTER: felt252 = 'Collection: same minter';
@@ -231,11 +232,24 @@ pub mod Collection {
         pub const SOULBOUND: felt252 = 'Collection: soulbound';
     }
 
+    // Components
+
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    #[abi(embed_v0)]
+    impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
+
     // Storage
 
     #[storage]
     struct Storage {
-        owner: ContractAddress,
+        /// `owner` and `pending_owner`, flat: `owner` keeps the slot it had before the component.
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
+        #[substorage(v0)]
+        upgradeable: UpgradeableComponent::Storage,
         daily: ContractAddress,
         tutorial: ContractAddress,
         owners: Map<u256, ContractAddress>,
@@ -259,6 +273,10 @@ pub mod Collection {
     #[derive(Drop, starknet::Event)]
     pub enum Event {
         Transfer: Transfer,
+        #[flat]
+        OwnableEvent: OwnableComponent::Event,
+        #[flat]
+        UpgradeableEvent: UpgradeableComponent::Event,
     }
 
     // Constructor
@@ -266,7 +284,7 @@ pub mod Collection {
     #[constructor]
     fn constructor(ref self: ContractState, owner: ContractAddress) {
         assert(owner.is_non_zero(), errors::ZERO_OWNER);
-        self.owner.write(owner);
+        self.ownable.initialize(owner);
     }
 
     // Internal
@@ -301,7 +319,7 @@ pub mod Collection {
     #[abi(embed_v0)]
     impl CollectionImpl of ICollection<ContractState> {
         fn set_minters(ref self: ContractState, daily: ContractAddress, tutorial: ContractAddress) {
-            assert(get_caller_address() == self.owner.read(), errors::NOT_OWNER);
+            self.ownable.assert_only_owner();
             assert(self.daily.read().is_zero(), errors::MINTERS_SET);
             assert(daily.is_non_zero() && tutorial.is_non_zero(), errors::ZERO_MINTER);
             // [Check] Two contracts: one address minting both ranges would defeat the split
@@ -326,16 +344,21 @@ pub mod Collection {
             self.emit(Transfer { from: Zero::zero(), to, token_id });
         }
 
-        fn owner(self: @ContractState) -> ContractAddress {
-            self.owner.read()
-        }
-
         fn daily(self: @ContractState) -> ContractAddress {
             self.daily.read()
         }
 
         fn tutorial(self: @ContractState) -> ContractAddress {
             self.tutorial.read()
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl UpgradeableImpl of IUpgradeable<ContractState> {
+        /// Replaces the class, keeping the storage (OpenZeppelin's `Upgraded`). The owner only.
+        fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
+            self.ownable.assert_only_owner();
+            self.upgradeable.upgrade(new_class_hash);
         }
     }
 

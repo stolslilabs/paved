@@ -50,6 +50,9 @@
 #   the owner Account.set_collection(Collection) and Collection.set_minters(Daily, Tutorial) (both checked
 #   by read back). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
 #   owner's stake (P-38: the stake is 200,000 - 1,000 x N, the pool stays 800,000). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
+# Upgrades (P-42, docs/architecture/upgrades.md): the `owner` of Economy, Account, Daily, Tutorial and Collection is
+#   the deployer, who alone may `upgrade` them (and set the Lobby class of Daily and Tutorial); the smoke reads
+#   owner() back on each. PavedToken and Vault have no owner and no upgrade.
 # Deployer, owner and smoke player: devnet and --rehearse, the first predeployed account, read from the node at run
 # time (public dev keys of the node), its key held in a temporary accounts file removed on exit; sepolia, the
 # funded account. Nothing secret is written in the repository.
@@ -502,6 +505,11 @@ print("   token", sys.argv[2], "owner the player, token_uri", json.dumps(attrs, 
 }
 
 echo "== smoke"
+# P-42: the upgrade owner of every upgradable contract is the deployer.
+for entry in "Economy=$ECONOMY" "Account=$ACCOUNT" "Daily=$DAILY" "Tutorial=$TUTORIAL" "Collection=$COLLECTION"; do
+  [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$(hex_int "$DEPLOYER")" ]] || die "${entry%%=*}.owner() is not the deployer"
+done
+echo "   owner() of Economy, Account, Daily, Tutorial and Collection: the deployer"
 invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER" >/dev/null
 read -r PRICE_TOKEN PRICE_LOW PRICE_HIGH <<<"$(call "$DAILY" entry_price)"
 [[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$USDC")" ]] || die "entry_price token $PRICE_TOKEN is not MockUSDC"

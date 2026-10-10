@@ -108,6 +108,29 @@
   },
   {
     "type": "impl",
+    "name": "UpgradeableImpl",
+    "interface_name": "openzeppelin_interfaces::upgrades::IUpgradeable"
+  },
+  {
+    "type": "interface",
+    "name": "openzeppelin_interfaces::upgrades::IUpgradeable",
+    "items": [
+      {
+        "type": "function",
+        "name": "upgrade",
+        "inputs": [
+          {
+            "name": "new_class_hash",
+            "type": "core::starknet::class_hash::ClassHash"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
     "name": "OwnableImpl",
     "interface_name": "paved::components::ownable::IOwnable"
   },
@@ -153,18 +176,6 @@
         "type": "function",
         "name": "accept_ownership",
         "inputs": [],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "upgrade",
-        "inputs": [
-          {
-            "name": "class_hash",
-            "type": "core::starknet::class_hash::ClassHash"
-          }
-        ],
         "outputs": [],
         "state_mutability": "external"
       }
@@ -549,18 +560,6 @@
   },
   {
     "type": "event",
-    "name": "paved::components::ownable::OwnableComponent::Upgraded",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "class_hash",
-        "type": "core::starknet::class_hash::ClassHash",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
     "name": "paved::components::ownable::OwnableComponent::Event",
     "kind": "enum",
     "variants": [
@@ -573,10 +572,29 @@
         "name": "OwnershipTransferred",
         "type": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
         "kind": "nested"
-      },
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "class_hash",
+        "type": "core::starknet::class_hash::ClassHash",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
+    "kind": "enum",
+    "variants": [
       {
         "name": "Upgraded",
-        "type": "paved::components::ownable::OwnableComponent::Upgraded",
+        "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
         "kind": "nested"
       }
     ]
@@ -623,6 +641,11 @@
       {
         "name": "OwnableEvent",
         "type": "paved::components::ownable::OwnableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "UpgradeableEvent",
+        "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
         "kind": "flat"
       },
       {
