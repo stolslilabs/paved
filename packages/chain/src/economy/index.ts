@@ -1,6 +1,8 @@
 // The economy client (P8): `docs/architecture/client-economy.md`. The fake (`fake.ts`) is left out on purpose.
 export * from "./amounts";
-export { EconomyPoolQuoter, POOL_QUOTE_CONFIRMED } from "./pool";
+export { EconomyPoolQuoter, POOL_QUOTE_CONFIRMED, poolQuoterFor } from "./pool";
+export { EKUBO_NETWORKS, EKUBO_QUOTER_URL, EKUBO_TIMEOUT_MS, EkuboPoolQuoter, EkuboQuoteError } from "./ekubo";
+export type { EkuboPoolQuoterOptions } from "./ekubo";
 export type { PoolQuoter } from "./pool";
 export { resolveEconomyDeployment } from "./deployment";
 export type { EconomyDeployment, EconomyDeploymentFile, EconomyEnv } from "./deployment";

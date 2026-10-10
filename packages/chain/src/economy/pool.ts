@@ -1,6 +1,7 @@
 import type { AbiCodec } from "../codec";
 import { toViewError, ViewError, type CallProvider } from "../views";
 import type { EconomyDeployment } from "./deployment";
+import { EKUBO_NETWORKS, EkuboPoolQuoter } from "./ekubo";
 
 /**
  * The pool's quote for the burn swap: PAVED out for `usdcIn` USDC in, the pool fee included. `min_out` is computed
@@ -17,7 +18,10 @@ export interface PoolQuoter {
  */
 export const POOL_QUOTE_CONFIRMED = true;
 
-/** `Economy.quote_swap(usdc_in) -> paved_out` (P-35; routed to the MockRouter on devnet). */
+/**
+ * `Economy.quote_swap(usdc_in) -> paved_out` (P-35; routed to the MockRouter on devnet). Devnet only: on another
+ * network the call would reach Ekubo's router, whose `quote_swap` has another shape (economy.md section 5).
+ */
 export class EconomyPoolQuoter implements PoolQuoter {
   constructor(
     private readonly provider: CallProvider,
@@ -38,4 +42,21 @@ export class EconomyPoolQuoter implements PoolQuoter {
       throw toViewError(error);
     }
   }
+}
+
+/**
+ * The pool quoter of a network: devnet asks `Economy.quote_swap` (the MockRouter), sepolia and mainnet ask Ekubo's
+ * quoter (`EKUBO_NETWORKS`) for the deployment's USDC and PAVED. Any other network has none: every purchase is refused.
+ */
+export function poolQuoterFor(
+  deployment: EconomyDeployment,
+  provider: CallProvider,
+  codec: AbiCodec,
+  options: { fetch?: typeof fetch; timeoutMs?: number } = {},
+): PoolQuoter | null {
+  const network = deployment.base.network;
+  if (network === "devnet") return new EconomyPoolQuoter(provider, deployment, codec);
+  if (!Object.hasOwn(EKUBO_NETWORKS, network)) return null;
+  const { USDC, PavedToken } = deployment.addresses;
+  return new EkuboPoolQuoter({ ...EKUBO_NETWORKS[network], usdc: USDC, paved: PavedToken, ...options });
 }

@@ -25,7 +25,8 @@ panel no longer prints that purchases are not possible.
 What a purchase sends (`EconomyWriter.purchase`), in one multicall:
 
 1. `USDC.approve(Daily, price)`, `price = stake x Daily.entry_price().amount` (2,000,000 per stake unit, 6 decimals);
-2. `Daily.spawn(stake, referrer, min_out)`, `min_out = Economy.quote_swap(Economy.quote(stake).burn_quote)` less the player's
+2. `Daily.spawn(stake, referrer, min_out)`, `min_out` = the network's pool quote of `Economy.quote(stake).burn_quote`
+   (`Economy.quote_swap` on devnet, Ekubo's quoter on sepolia and mainnet: "Quoter per network" below) less the player's
    slippage (1 % by default, at most 5 %, rounded down).
 
 The rules around it are unchanged and keep their tests: the confirm, the consent in history state only, the re-check of
@@ -119,6 +120,59 @@ adds the economy's addresses, the env first. It is `configured` only when the ba
 `PavedToken`, `Vault` and USDC are all known; otherwise `missing` lists what is not. `createEconomyClient` gives null
 then. `Deployment` gains only `mockUsdc` (the faucet's address, `""` where there is none): a deployment without the economy keeps working as before.
 
+## Quoter per network
+
+The pool quote sets the floor that protects the player's swap (P-35): `min_out` = quote less the slippage. A quote too
+low exposes the swap; a quote too high only makes it revert. `poolQuoterFor(deployment, provider, codec)`
+(`economy/pool.ts`) picks it from `Deployment.network`, and `EconomyClient` takes it unless a test passes its own:
+
+| Network | Quoter | Source |
+|---|---|---|
+| `devnet` | `EconomyPoolQuoter` | `Economy.quote_swap(usdc_in) -> paved_out`, forwarded to the `MockRouter` (P-35) |
+| `mainnet` | `EkuboPoolQuoter` | Ekubo's public quoter, `https://prod-api-quoter.ekubo.org/23448594291968334/...` (`SN_MAIN` in decimal) |
+| `sepolia` | `EkuboPoolQuoter` | the same host, `/393402133025997798000961/...` (`SN_SEPOLIA`). **On 2026-10-10 it answers 404 `route_not_found`**: Ekubo removed its testnets, so every Sepolia purchase is refused until it answers again |
+| any other | none | every purchase is refused, and the purchase screen says "No pool quote: purchase unavailable" |
+
+No network but devnet calls `Economy.quote_swap`: elsewhere it would reach Ekubo's router, whose `quote_swap` has
+another shape (economy.md section 5).
+
+`EkuboPoolQuoter` (`economy/ekubo.ts`) asks for an exact-input quote, `GET <host>/<chain id>/<usdc_in>/<USDC>/<PAVED>`
+(OpenAPI 3.1 at `https://prod-api-quoter.ekubo.org/openapi.json`, version 3.4.10 on 2026-10-10), and returns
+`total_calculated` (PAVED base units, 18 decimals, pool fees included) for `usdc_in` (USDC base units, 6 decimals), BigInt
+only. The two tokens come from the Economy deployment (`USDC`, `PavedToken`), never from the answer. `fetch` is injected
+(the global one by default) and the whole request, the body included, has 5 s (`EKUBO_TIMEOUT_MS`). Nothing is cached: a
+fresh quote is fetched at the confirm's plan and again at send, as with `EconomyPoolQuoter`. Each of these is no quote:
+
+- an answer that is not 2xx (Ekubo's `route_not_found`, `insufficient_liquidity`, a 5xx), a failed request, the timeout;
+- a body that is not JSON or not the documented shape (no `splits`, an empty route, a route node without a `pool_key`, a
+  token that is not a hex address);
+- `total_calculated`, an `amount_specified` or an `amount_calculated` that is not a positive integer as a decimal string,
+  or is 0;
+- splits whose `amount_specified` do not add up to `usdc_in` (the answer is for another input), or whose
+  `amount_calculated` do not add up to `total_calculated`;
+- a route that does not start from USDC, does not chain (a hop's pool does not hold the token in hand), or does not end in
+  PAVED. Each hop swaps the token in hand for the other token of its `pool_key`; the answer gives no token per hop.
+
+`EconomyWriter` turns each failure into "No pool quote: nothing was sent (<reason>)" and sends nothing; a quote whose
+`min_out` rounds to 0 is refused the same way.
+
+**Known gap: the quoted route is not the route the contract swaps.** `Economy` swaps the whole burn share in one hop
+through its own pool key (economy.md section 5: `RouteNode { pool_key, sqrt_ratio_limit, skip_ahead: 0 }`, the key set at
+construction or by `set_pool`), with no split. Ekubo's quoter returns its best route over all of Ekubo's pools, split and
+multi-hop (a hand check of 1,400 USDC.e to LORDS on mainnet gave 7 splits of 2 to 3 hops), and its API takes no pool to
+keep to and no option against splits or hops (the OpenAPI document has the four path parameters only). So the quote can
+differ from what `Economy` gets:
+
+- When the best route is better than the contract's pool alone, the quote is above what the swap returns and the purchase
+  reverts with "Economy: swap below min_out" (`SwapBelowMinOutError`): the USDC is not spent, the network fee is. Since the
+  quoter looks for the best output, this is the expected side (reasoning, not a measure).
+- A quote below the contract pool's output (the quoter's index behind the chain, an error of the quoter) lowers the floor:
+  that is not guarded by the client. The answer's `block_number` is not compared with the chain.
+- The client does not invent a guard for this. The ways to close it are decisions for CORE and the PM: refuse any answer
+  whose splits are not all the single hop through `Economy.pool()`'s key (purchases would then fail whenever Ekubo
+  splits), or quote on chain through the router's `quote_swap` with the contract's own pool key once the fork test (E-9,
+  economy.md section 5) shows it works.
+
 ## Amounts
 
 Every amount is a `bigint` in base units: USDC 6 decimals, PAVED 18 (D-10, economy.md "Units"). `parseUnits` and
@@ -141,7 +195,7 @@ read or refused check sends nothing (`WriteError`, or the typed errors).
 
 | Write | Calls (one multicall) | Read and refused at send |
 |---|---|---|
-| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Daily, P)`, `Daily.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10; no pool quoter (today), a pool quote of 0 or a min_out rounding to 0 ("No pool quote: nothing was sent": no slippage protection), a failed pool read; a slippage above 5 %; a referrer that does not parse as an address (a `WriteError`, never a raw parse error). A self-referral is sent as `0x0` |
+| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Daily, P)`, `Daily.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10; no pool quoter (a network other than devnet, sepolia or mainnet), a pool quote of 0 or a min_out rounding to 0 ("No pool quote: nothing was sent": no slippage protection), a failed pool read; a slippage above 5 %; a referrer that does not parse as an address (a `WriteError`, never a raw parse error). A self-referral is sent as `0x0` |
 | `settle(gameIds)` (the player's claim of PAVED) | `Economy.settle(game_ids)` | the ids de-duplicated; `terms` of each: not bought (stake 0), not recorded (not over, or expired: no reward), already settled, or its day not yet settleable (`now < settlesAfter(day)`, the end of the next day, `now` the latest block's timestamp when the provider reads blocks, the device clock otherwise); a failed block read sends nothing |
 | `stake(amount, { confirmedAmount })` | `PavedToken.approve(Vault, amount)`, `Vault.stake(amount)` | the amount is 0 or not the confirmed one (`VaultAmountChangedError`); the PAVED balance is short |
 | `unstake(amount, { confirmedAmount })` | `Vault.unstake(amount)` | the amount is 0 or not the confirmed one; more than staked. The dividends earned so far are credited, not paid: they stay claimable (E1's Vault) |
@@ -175,7 +229,7 @@ is missing, the Daily keeps today's confirm, and nothing of the economy is read.
 
 | Screen | Where | What it shows and does |
 |---|---|---|
-| Purchase | the Daily dialog (`EconomyPurchase`), when the economy is configured and no Daily game is active | the stake `k` picker (1 to 10), the price read from the chain (`k x entry_price`, equal to `quote(k).price`, else "Price unavailable"), the boost `x(1 + k/100)`, the slippage ("1 % (at most 5 %)"), "A paid game expires 24 h after its purchase", the current reference (`Quote.mean` and `threshold`, "the day's own mean is known only at settlement"), the referrer from the link, the cliff. Without a pool quoter (today, P-35) it says "No pool quote: purchase unavailable" and offers no Buy. "Buy for P USDC" only opens the confirm; "Confirm purchase" navigates to `/game?mode=daily` with the purchase in the history state |
+| Purchase | the Daily dialog (`EconomyPurchase`), when the economy is configured and no Daily game is active | the stake `k` picker (1 to 10), the price read from the chain (`k x entry_price`, equal to `quote(k).price`, else "Price unavailable"), the boost `x(1 + k/100)`, the slippage ("1 % (at most 5 %)"), "A paid game expires 24 h after its purchase", the current reference (`Quote.mean` and `threshold`, "the day's own mean is known only at settlement"), the referrer from the link, the cliff. Without a pool quoter (a network other than devnet, sepolia or mainnet, P-35) it says "No pool quote: purchase unavailable" and offers no Buy. "Buy for P USDC" only opens the confirm; "Confirm purchase" navigates to `/game?mode=daily` with the purchase in the history state |
 | Referral link | panel (`EconomyReferral`) | the player's link `/?ref=<address>` and "pays the same price; you get 5 % of it, out of the stakers' margin" |
 | Vault | panel (`EconomyVault`) | staked PAVED, total staked, pending USDC dividends, the wallet's PAVED; stake, unstake, claim dividends, each through a confirm that shows the amount; the unstake confirm says the dividends stay claimable (E1's `unstake` credits them, it does not pay them); dividends that changed between the confirm and the send (`VaultAmountChangedError`) reopen the confirm with the new amount and say so, sending nothing |
 | After the day | panel (`EconomySettle`) | the current reference (as above), then the player's bought Daily games (the newest 30 `GameSpawned`, then `terms` each; stake 0 is not listed): in play with its expiry (purchase `start_time` + 24 h), "Expired: no reward" (not recorded by then), "settles after <end of D+1>" (recorded, day D), to settle, or settled with the chain's reward; a reward of 0 says "below the shifted mean, the stake is lost". "Settle" shows only once the settlement date is past and opens a confirm; the writer checks that date against the latest block. No day mean (zeros until the day closes), estimate or projected reward is shown |
@@ -213,6 +267,9 @@ The payment rules of `client-data-layer.md` hold for each paying action:
   explicit confirm and its history state, the referrer shown and the same price, self-referral, a failed read and a
   quote that disagrees, the not-deployed state, the Vault confirms and a changed amount, the settle list and confirm, the
   cliff text.
+- `packages/chain/test/economy-ekubo.test.ts` (a fake `fetch`, no network): `EkuboPoolQuoter`'s request, decimals and
+  amounts past 2^128, split and multi-hop sums, no cache, each rejection above, the quoter per network, `min_out` from
+  the quote with the 5 % cap, and "No pool quote: nothing was sent" with nothing sent on each failure.
 - `packages/chain/test/codec.test.ts`: signed integers.
 - `packages/app-web/__tests__/economy-screens.test.tsx` also covers the `/economy` page, the expired state, a non-registered and a loading referrer, the `?ref=` bound and `spawnForIntent`.
 - `packages/app-web/__tests__/economy-game-start.test.tsx`: the game page buys from the state only, after clearing it;

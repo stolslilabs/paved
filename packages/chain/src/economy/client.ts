@@ -2,7 +2,7 @@ import { createEconomyCodecs, type EconomyCodecs } from "../abis";
 import type { PavedClient } from "../paved-client";
 import type { PavedWriter } from "../writer";
 import type { EconomyDeployment } from "./deployment";
-import { EconomyPoolQuoter, POOL_QUOTE_CONFIRMED, type PoolQuoter } from "./pool";
+import { POOL_QUOTE_CONFIRMED, poolQuoterFor, type PoolQuoter } from "./pool";
 import { RpcEconomyViews, type EconomyViews } from "./views";
 import { EconomyWriter } from "./writer";
 
@@ -12,7 +12,7 @@ import { EconomyWriter } from "./writer";
  */
 export class EconomyClient {
   readonly views: EconomyViews;
-  /** Null only when a test passes none (`POOL_QUOTE_CONFIRMED`): purchases are refused then. */
+  /** The network's (`poolQuoterFor`); null on a network without one, or when a test passes none: purchases are refused then. */
   readonly poolQuoter: PoolQuoter | null;
 
   constructor(
@@ -24,7 +24,7 @@ export class EconomyClient {
   ) {
     this.views = views ?? new RpcEconomyViews(base.provider, deployment, codecs);
     this.poolQuoter =
-      poolQuoter !== undefined ? poolQuoter : POOL_QUOTE_CONFIRMED ? new EconomyPoolQuoter(base.provider, deployment, codecs.Economy) : null;
+      poolQuoter !== undefined ? poolQuoter : POOL_QUOTE_CONFIRMED ? poolQuoterFor(deployment, base.provider, codecs.Economy) : null;
   }
 
   /** The writer; "now" for the settlement is the latest block's timestamp when the provider can read it. */

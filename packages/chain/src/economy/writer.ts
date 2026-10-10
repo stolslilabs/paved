@@ -167,7 +167,8 @@ export class EconomyWriter {
     try {
       poolOut = await this.options.poolQuoter.quoteSwap(quote.burnQuote);
     } catch (error) {
-      throw new WriteError(`Cannot read the pool quote: ${message(error)}`);
+      // A failed, timed-out or refused quote (Ekubo's checks) is no quote: no slippage protection, nothing is sent.
+      throw new WriteError(`No pool quote: nothing was sent (${message(error)})`);
     }
     const minOut = minOutFor(poolOut, slippage);
     if (minOut === 0n) throw new WriteError("No pool quote: nothing was sent");
