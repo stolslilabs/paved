@@ -42,7 +42,6 @@ pub trait IMockUSDC<TContractState> {
 pub mod MockUSDC {
     // Component imports
 
-
     // Starknet imports
 
     use core::num::traits::Zero;
