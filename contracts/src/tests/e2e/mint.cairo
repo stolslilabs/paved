@@ -18,9 +18,7 @@ use paved::systems::tutorial::{
     ITutorialDispatcherTrait, ITutorialSafeDispatcher, ITutorialSafeDispatcherTrait,
 };
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{
-    ANYONE, IDailyDispatcherTrait, OWNER, PLAYER, TestStoreTrait,
-};
+use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
 use paved::views::{IGameViewDispatcher, IGameViewDispatcherTrait};
 use snforge_std::{
@@ -196,14 +194,9 @@ fn test_mint_a_spawn_reverts_without_a_collection_and_leaves_no_game() {
         .at(0);
     assert(reason == 'Lobby: collection not set', 'Mint: daily reason');
     assert(TestStoreTrait::new(daily).game(1).player_id == 0, 'Mint: a daily game left');
-    let reason = *ITutorialSafeDispatcher { contract_address: tutorial }
-        .spawn()
-        .unwrap_err()
-        .at(0);
+    let reason = *ITutorialSafeDispatcher { contract_address: tutorial }.spawn().unwrap_err().at(0);
     assert(reason == 'Lobby: collection not set', 'Mint: tutorial reason');
-    assert(
-        TestStoreTrait::new(tutorial).game(1).player_id == 0, 'Mint: a tutorial game left',
-    );
+    assert(TestStoreTrait::new(tutorial).game(1).player_id == 0, 'Mint: a tutorial game left');
 }
 
 fn deploy_one(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
@@ -235,7 +228,9 @@ fn test_mint_token_uri_of_running_and_finished_games() {
         tutorial_uri == expected_uri(tutorial_address, tutorial_token(tutorial), tutorial),
         'Mint: tutorial running uri',
     );
-    assert(!IGameViewDispatcher { contract_address: tutorial_address }.game(tutorial).over, 'T run');
+    assert(
+        !IGameViewDispatcher { contract_address: tutorial_address }.game(tutorial).over, 'T run',
+    );
 
     // [Finished]
     systems.daily.surrender(1);
@@ -246,9 +241,7 @@ fn test_mint_token_uri_of_running_and_finished_games() {
     assert(finished_daily != daily_uri, 'Mint: daily uri unchanged');
     let finished_tutorial = uri.token_uri(tutorial_token(tutorial));
     assert(
-        finished_tutorial == expected_uri(
-            tutorial_address, tutorial_token(tutorial), tutorial,
-        ),
+        finished_tutorial == expected_uri(tutorial_address, tutorial_token(tutorial), tutorial),
         'Mint: tutorial finished uri',
     );
     assert(finished_tutorial != tutorial_uri, 'Mint: tutorial uri unchanged');

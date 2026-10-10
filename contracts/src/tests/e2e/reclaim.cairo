@@ -4,13 +4,13 @@
 //! ranks, as before.
 
 use paved::constants;
+use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
 use paved::systems::lobby::Lobby;
 use paved::tests::leaderboard;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, TestStoreTrait,
 };
-use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
 use paved::types::mode::Mode;
 use paved::views::{ITournamentViewDispatcher, ITournamentViewDispatcherTrait};
 use snforge_std::{
@@ -184,7 +184,9 @@ fn test_reclaim_then_late_game_over_ranks_nothing() {
     start_cheat_caller_address(systems.daily.contract_address, PLAYER());
     systems.daily.surrender(game_id);
     assert(store.game(game_id).over, 'Reclaim: game over');
-    let tournaments = ITournamentViewDispatcher { contract_address: systems.daily.contract_address };
+    let tournaments = ITournamentViewDispatcher {
+        contract_address: systems.daily.contract_address,
+    };
     let day = tournaments.tournament(D);
     assert(day.top1_player_id == 0 && day.top1_score == 0, 'Reclaim: D ranked');
     assert(day.top2_player_id == 0 && day.top3_player_id == 0, 'Reclaim: D ranked 2');
@@ -217,7 +219,9 @@ fn test_sponsorship_after_the_day_lands_in_the_next_one() {
     sponsor(@systems, ANYONE(), 1_000_000);
     end_day();
     sponsor(@systems, ANYONE(), 700_000);
-    let tournaments = ITournamentViewDispatcher { contract_address: systems.daily.contract_address };
+    let tournaments = ITournamentViewDispatcher {
+        contract_address: systems.daily.contract_address,
+    };
     assert(tournaments.tournament(D).prize == 1_000_000, 'Sponsor: day D');
     assert(tournaments.tournament(D + 1).prize == 700_000, 'Sponsor: day D+1');
 }
