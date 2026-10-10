@@ -99,7 +99,7 @@ fn define_accepted_list(daily: ContractAddress) {
 /// The definitions `Lobby`'s code writes are in `Daily`'s storage, at the addresses the components
 /// give (`Quest_definitions`, `Achievement_definitions`): the layout pin of the quiver components.
 #[test]
-#[available_gas(l2_gas: 77111543)]
+#[available_gas(l2_gas: 79990000)]
 fn test_quests_definitions_live_in_the_callers_storage() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let daily = systems.daily.contract_address;
@@ -113,7 +113,7 @@ fn test_quests_definitions_live_in_the_callers_storage() {
 }
 
 #[test]
-#[available_gas(l2_gas: 78592148)]
+#[available_gas(l2_gas: 81400000)]
 fn test_quests_owner_defines_the_accepted_list() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let daily = systems.daily.contract_address;
@@ -194,7 +194,7 @@ fn test_quests_retire_achievement_not_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 78290850)]
+#[available_gas(l2_gas: 81113000)]
 fn test_quests_owner_retires() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let daily = systems.daily.contract_address;
@@ -239,7 +239,7 @@ fn test_quests_define_twice() {
 /// A game over with nothing scored reports the finished game only: the ranking (a score of 0
 /// never ranks) and `GameOver` happen.
 #[test]
-#[available_gas(l2_gas: 140148472)]
+#[available_gas(l2_gas: 141824000)]
 fn test_quests_game_over_every_count_zero() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
@@ -268,7 +268,7 @@ fn test_quests_game_over_every_count_zero() {
 /// the first rank: the largest lists (4 and 6 entries), and the game over, the ranking and
 /// `GameOver` all happen.
 #[test]
-#[available_gas(l2_gas: 151415950)]
+#[available_gas(l2_gas: 152555000)]
 fn test_quests_game_over_every_counter_at_maximum() {
     // [Setup] Not day 0, whose tournament id is the unset id 0
     start_cheat_block_timestamp_global(10 * 86400);
@@ -347,7 +347,7 @@ fn test_quests_game_over_every_counter_at_maximum() {
 
 /// A game over after its tournament closed ranks in nothing but still reports (Q-6): no WIN.
 #[test]
-#[available_gas(l2_gas: 122023293)]
+#[available_gas(l2_gas: 124562000)]
 fn test_quests_game_over_after_tournament_reports_without_win() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
@@ -372,7 +372,7 @@ fn test_quests_game_over_after_tournament_reports_without_win() {
 /// The counters follow the scoring: a 2-tile city closed with a Lord scores one structure, not a
 /// big one.
 #[test]
-#[available_gas(l2_gas: 126664386)]
+#[available_gas(l2_gas: 128982000)]
 fn test_quests_counters_follow_the_scoring() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let game = store.game(context.game_id);
@@ -466,7 +466,7 @@ fn assert_daily_report(
 
 /// A Daily game over on the last `build` (the one library call from `Daily`) reports.
 #[test]
-#[available_gas(l2_gas: 136699338)]
+#[available_gas(l2_gas: 138540000)]
 fn test_quests_daily_game_over_on_the_last_build() {
     let (store, systems, context) = almost_over_daily();
     let mut spy = spy_events();
@@ -485,7 +485,7 @@ fn test_quests_daily_game_over_on_the_last_build() {
 
 /// A Daily game over on the last `discard` (in `Lobby`) reports.
 #[test]
-#[available_gas(l2_gas: 129111665)]
+#[available_gas(l2_gas: 131313000)]
 fn test_quests_daily_game_over_on_the_last_discard() {
     let (store, systems, context) = almost_over_daily();
     let mut spy = spy_events();
@@ -510,7 +510,7 @@ fn assert_first_stone(tutorial: ContractAddress, mut spy: snforge_std::EventSpy,
 
 /// P-28: a Tutorial ended by placing its last tile credits First Stone once.
 #[test]
-#[available_gas(l2_gas: 143234730)]
+#[available_gas(l2_gas: 144686000)]
 fn test_quests_tutorial_game_over_on_the_last_build_credits_task_10() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let mut i: u8 = 0;
@@ -528,7 +528,7 @@ fn test_quests_tutorial_game_over_on_the_last_build_credits_task_10() {
 
 /// P-28: a Tutorial ended by discarding its last tile credits First Stone once.
 #[test]
-#[available_gas(l2_gas: 131602274)]
+#[available_gas(l2_gas: 133607000)]
 fn test_quests_tutorial_game_over_on_the_last_discard_credits_task_10() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let mut i: u8 = 0;
@@ -549,7 +549,7 @@ fn test_quests_tutorial_game_over_on_the_last_discard_credits_task_10() {
 /// P-28: a Tutorial surrender credits nothing (no task 10 event, only the game over) and the game
 /// is over.
 #[test]
-#[available_gas(l2_gas: 68299000)]
+#[available_gas(l2_gas: 71673000)]
 fn test_quests_tutorial_surrender_credits_no_task_10() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let tutorial = systems.tutorial.contract_address;

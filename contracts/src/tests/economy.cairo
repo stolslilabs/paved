@@ -3,4 +3,5 @@ pub mod economy;
 pub mod mean;
 pub mod router;
 pub mod token;
+pub mod usdc;
 pub mod vault;
