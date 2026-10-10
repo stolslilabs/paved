@@ -126,8 +126,10 @@ if [[ "${2:-}" == "--check-class-answer" ]]; then
   class_declared
   exit $?
 elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--check-send-failure" ]]; then
-  # Test hook (scripts/test-deploy-url.sh): after the sepolia checks, one `send` that the test's fake node fails;
-  # nothing is built, read or sent.
+  # Test hook (scripts/test-deploy-url.sh): after the sepolia variable checks, and before the node, chain id and
+  # deployer checks, one `send call --contract 0x1 --function f`, then exit. The test puts a fake signer first on
+  # PATH, which fails. With real variables and the real signer it is one read-only call to 0x1 on that node:
+  # nothing is built, signed or sent.
   CHECK_SEND=1
 elif [[ "$NETWORK" == "devnet" && "${2:-}" == "--unmerged" ]]; then
   UNMERGED=1
@@ -168,6 +170,9 @@ if [[ "$NETWORK" == "sepolia" && "$REHEARSE" == 0 ]]; then
     { echo "deploy.sh: STARKNET_ACCOUNT_ADDRESS is not a 0x hex address (its value is not printed)" >&2; exit 2; }
   [[ "$FUNDED_URL" == https://* ]] ||
     { echo "deploy.sh: STARKNET_RPC_URL must be an https:// URL (its value is not printed)" >&2; exit 2; }
+  # It goes into a quoted string of curl's config (rpc): no character that could end the string or the line there.
+  [[ "$FUNDED_URL" != *[\"\\$'\n'$'\r']* ]] ||
+    { echo "deploy.sh: STARKNET_RPC_URL holds a double quote, a backslash or a line break (its value is not printed)" >&2; exit 2; }
   SEND_ADDRESS="$FUNDED_ADDRESS"
   SEND_KEY="$FUNDED_KEY"
   SEND_NETWORK=sepolia
@@ -205,6 +210,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ASDF="${ASDF_DATA_DIR:-$HOME/.asdf}/installs"
 SCARB_BIN_DIR="${SCARB_BIN_DIR:-$ASDF/scarb/2.20.1/bin}"
 SNCAST_BIN_DIR="${SNCAST_BIN_DIR:-$ASDF/starknet-foundry/0.64.0/bin}"
+# The signer's node: resolved on the caller's PATH, before the toolchain directories go first on it; `send` runs
+# this absolute path.
+NODE_BIN="$(command -v node || true)"
 PATH="$SNCAST_BIN_DIR:$SCARB_BIN_DIR:$PATH"
 # devnet: salt 1 and no `--unique`, so the addresses are stable across runs. sepolia (and its rehearsal): a fresh
 # random salt and `--unique`, so the addresses depend on the deployer and no rerun collides with an earlier one.
@@ -236,10 +244,12 @@ die() { echo "deploy.sh: $*" >&2; exit 1; }
 
 # The URL and the request go to curl through its config on stdin, not its arguments: a public URL may carry an API
 # key, and the params may hold the deployer's address. `-q` (first) keeps curl from reading a ~/.curlrc. In the
-# config's quoted strings, backslashes and double quotes are escaped.
+# config's quoted strings, backslashes, double quotes and line breaks are escaped (the URL holds none: checked above).
 rpc() {
   local body="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}"
   body="${body//\\/\\\\}"
+  body="${body//$'\n'/\\n}"
+  body="${body//$'\r'/\\r}"
   printf 'url = "%s"\ndata = "%s"\n' "$RPC_URL" "${body//\"/\\\"}" |
     curl -q -sf -K - -X POST -H 'content-type: application/json'
 }
@@ -310,13 +320,21 @@ send() {
     done < <(compgen -e)
     export STARKNET_ACCOUNT_ADDRESS="$SEND_ADDRESS" STARKNET_PRIVATE_KEY="$SEND_KEY" STARKNET_RPC_URL="$RPC_URL" \
       SIGNER_NETWORK="$SEND_NETWORK" NODE_OPTIONS="$SIGNER_HEAP"
-    exec node --disable-sigusr1 "$SIGNER_JS" "$@" 2>&1
+    exec "$NODE_BIN" --disable-sigusr1 "$SIGNER_JS" "$@" 2>&1
   )" || status=$?
   if [[ "$status" != 0 ]]; then
+    # Redacted whole, then cut: a value across the cut is still replaced.
+    res="$(printf '%s\n%s\n%s\n%s' "$SEND_ADDRESS" "$SEND_KEY" "$RPC_URL" "$res" | redact)"
     (( ${#res} <= 800 )) || res="${res: -800}"
-    die "signer $1 failed: $(printf '%s\n%s\n%s\n%s' "$SEND_ADDRESS" "$SEND_KEY" "$RPC_URL" "$res" | redact)"
+    die "signer $1 failed: $res"
   fi
-  printf '%s\n' "${res##*$'\n'}"
+  # The JSON line: the last line that starts with `{` (stderr shares the stream).
+  local line result=""
+  while IFS= read -r line; do
+    [[ "$line" == "{"* ]] && result="$line"
+  done <<<"$res"
+  [[ -n "$result" ]] || die "signer $1 printed no JSON line"
+  printf '%s\n' "$result"
 }
 
 if [[ "$CHECK_SEND" == 1 ]]; then
@@ -491,7 +509,7 @@ fi
 
 if ((USE_SIGNER)); then
   echo "== signer"
-  [[ "$(node --version 2>/dev/null)" == v24.* ]] || die "the signer needs Node 24 on the PATH"
+  [[ -n "$NODE_BIN" && "$("$NODE_BIN" --version 2>/dev/null)" == v24.* ]] || die "the signer needs Node 24 on the PATH"
   # Inside scripts/signer/ only, from its lockfile, without install scripts: never a global install.
   (cd "$ROOT/scripts/signer" && npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null) ||
     die "npm ci in scripts/signer failed"

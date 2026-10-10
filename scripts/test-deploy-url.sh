@@ -67,6 +67,11 @@ sepolia 2 "needs STARKNET_RPC_URL in" "$ADDR" "$KEY"
 sepolia 2 "needs STARKNET_PRIVATE_KEY in" "$ADDR" STARKNET_PRIVATE_KEY= "$URL"
 sepolia 2 "STARKNET_ACCOUNT_ADDRESS is not a 0x hex address" STARKNET_ACCOUNT_ADDRESS=MARKER "$KEY" "$URL"
 sepolia 2 "STARKNET_RPC_URL must be an https:// URL" "$ADDR" "$KEY" STARKNET_RPC_URL=http://MARKER:5050
+# The URL goes into a quoted string of curl's config: a quote, a backslash or a line break is refused.
+for bad in 'https://MARKER.example.com/"x' 'https://MARKER.example.com/\x' $'https://MARKER.example.com/\nx' \
+    $'https://MARKER.example.com/\rx'; do
+  sepolia 2 "STARKNET_RPC_URL holds a double quote, a backslash or a line break" "$ADDR" "$KEY" "STARKNET_RPC_URL=$bad"
+done
 
 # Past the variable checks, a sepolia run that fails at the node (P-40, #293 audit note 3): shims of curl, node and npm
 # first on PATH log each call's argv and environment, and curl answers as a fake node (down, on mainnet, or on Sepolia
@@ -103,6 +108,11 @@ cat >"$shims/signer/node" <<'SH'
 # Its log is beside it, not in SHIM_LOG: send's environment allowlist drops that variable.
 { printf 'node argv:'; printf ' %s' "$@"; echo; echo 'node env:'; env; } >>"${0%/*}/../send.log"
 pad="$(printf '%064x' "0x${STARKNET_ACCOUNT_ADDRESS#0x}" 2>/dev/null || echo "$STARKNET_ACCOUNT_ADDRESS")"
+if [[ -e "${0%/*}/long" ]]; then
+  # Long mode: more than 800 characters, the address across the 800th from the end (790 after it).
+  printf '%s%s%s\n' "$(printf 'x%.0s' {1..300})" "$STARKNET_ACCOUNT_ADDRESS" "$(printf 'y%.0s' {1..790})" >&2
+  exit 1
+fi
 echo "out ${STARKNET_ACCOUNT_ADDRESS} at ${STARKNET_RPC_URL}"
 echo "err 0x$pad key ${STARKNET_PRIVATE_KEY^^} ${STARKNET_PRIVATE_KEY}" >&2
 exit 1
@@ -149,6 +159,18 @@ elif [[ "$names" != "$want" ]]; then
   echo "FAIL: the signer's environment is not the allowlist: $names"; fail=1
 else
   echo "ok: a failing signer through send leaks no value; its argv holds none; its environment is: $names"
+fi
+# Redacted before the 800-character cut: an address across the cut leaves no fragment (its last 7 digits).
+touch "$shims/signer/long"
+out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$shims/signer:$PATH" \
+  "$ADDR" "$KEY" "$URL" "$here/deploy.sh" sepolia --check-send-failure 2>&1)"
+rc=$?
+rm -f "$shims/signer/long"
+if [[ $rc -ne 1 || "$out" != *"signer call failed"* || "$out" == *"${ADDR_MARK: -7}"* ]] || leaks -q <<<"$out"; then
+  echo "FAIL: a long failing signer output: expected exit 1 and no fragment of the address at the cut, got $rc:"
+  sed "s/MARKER/<marker>/gI; s/${ADDR_MARK: -7}/<address fragment>/gI" <<<"$out"; fail=1
+else
+  echo "ok: a long failing signer output is redacted before its cut (no fragment of the address)"
 fi
 
 # The getClass predicate of deploy.sh counts a class as declared only for a JSON object, with no `error`
