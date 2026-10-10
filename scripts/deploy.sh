@@ -39,7 +39,8 @@
 # deployed; the script refuses otherwise.
 # Deploy order (P8 E3, docs/architecture/economy.md sections 1, 4, 5; E1's audit):
 #   MockUSDC, Token (devnet only: the old mock, kept for the client until it reads USDC), PavedToken(deployer, deployer),
-#   MockRouter(paved, usdc) seeded with 800,000 PAVED and 10,000 MockUSDC (one faucet call), Vault(paved, usdc) with the
+#   MockRouter(paved, usdc) seeded with 800,000 PAVED and the 10,000 MockUSDC its constructor preminted to the deployer
+#   (outside the faucet, so nobody can push the deployer to the faucet's caps first), Vault(paved, usdc) with the
 #   owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked (never fully unstaked), Economy(owner, paved, usdc, vault, router, the
 #   router's pool key, sqrt_ratio_limit 0 (the mock ignores it), the decided configuration, initial mean
 #   3,353 points, launch rate 7.6e31 after the pool's fee), PavedToken.set_minter(Economy) (then
@@ -351,8 +352,12 @@ ROUTER="$(deploy MockRouter "$ROUTER_CLASS" "$PAVED" "$USDC")"
 VAULT="$(deploy Vault "$VAULT_CLASS" "$PAVED" "$USDC")"
 
 echo "== pool and stake"
-# The launch pool, in the router's token order, from the initial supply and the USDC faucet.
-invoke "$USDC" mint "$DEPLOYER" $(u256 "$POOL_USDC") >/dev/null
+# The launch pool, in the router's token order, from the initial supply and MockUSDC's premint to the deployer (its
+# constructor, outside the faucet's caps: S-1's audit).
+read -r PREMINT_LOW PREMINT_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER")"
+python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)>=int(sys.argv[3]) else 1)' \
+  "$PREMINT_LOW" "$PREMINT_HIGH" "$POOL_USDC" ||
+  die "the deployer does not hold MockUSDC's 10,000 USDC premint"
 invoke "$PAVED" approve "$ROUTER" $(u256 "$POOL_PAVED") >/dev/null
 invoke "$USDC" approve "$ROUTER" $(u256 "$POOL_USDC") >/dev/null
 if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)<int(sys.argv[2],16) else 1)' "$PAVED" "$USDC"; then
@@ -503,8 +508,13 @@ read -r PRICE_TOKEN PRICE_LOW PRICE_HIGH <<<"$(call "$DAILY" entry_price)"
 [[ "$(hex_int "$PRICE_LOW")" == 2000000 && "$(hex_int "$PRICE_HIGH")" == 0 ]] || die "entry_price amount is not 2 USDC"
 echo "   entry_price: 2 USDC per stake unit"
 
-# A paid Daily game at stake 1, with the client's min_out: the pool's quote of the burn, less 1 %.
-invoke "$USDC" mint "$DEPLOYER" 2000000 0 >/dev/null
+# A paid Daily game at stake 1, with the client's min_out: the pool's quote of the burn, less 1 %. The 2 USDC come
+# from the faucet, unless the deployer already holds them: on Sepolia anyone may have filled its faucet cap, and
+# that USDC is then on the deployer.
+read -r HELD_LOW HELD_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER")"
+if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)<2000000 else 1)' "$HELD_LOW" "$HELD_HIGH"; then
+  invoke "$USDC" mint "$DEPLOYER" 2000000 0 >/dev/null
+fi
 invoke "$USDC" approve "$DAILY" 2000000 0 >/dev/null
 read -r -a QUOTE <<<"$(call "$ECONOMY" quote 1)"
 read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap "${QUOTE[2]}" "${QUOTE[3]}")"
