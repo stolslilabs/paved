@@ -48,6 +48,8 @@ describe.skipIf(!enabled)("devnet scenario", () => {
   const children = new Map<number, ChildProcess>();
   const api = (port: number) => async <T>(path: string): Promise<T> => {
     const response = await fetch(`http://127.0.0.1:${port}${path}`);
+    // A 429 (the rate limit) or any error must fail here, not be recorded as an answer.
+    if (!response.ok) throw new Error(`GET ${path} on ${port}: ${response.status}`);
     return (await response.json()) as T;
   };
   const get = api(API[0]!);
@@ -56,7 +58,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     const log = openSync(join(work, `indexer-${port}.log`), "a");
     const child = spawn(
       process.execPath,
-      [MAIN, command, "--deployment", file, "--db", db, "--port", String(port), "--poll", "200", "--recheck-every", "500"],
+      [MAIN, command, "--deployment", file, "--db", db, "--port", String(port), "--poll", "200", "--recheck-every", "500", "--rate", "0"],
       { stdio: ["ignore", log, log], env: { PATH: process.env.PATH ?? "" } },
     );
     closeSync(log);
