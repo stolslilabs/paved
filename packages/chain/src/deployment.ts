@@ -8,7 +8,7 @@ export interface DeploymentFile {
   deployed_block?: number;
   /** The symbol is for the record only: the app labels the token `PAVED` whatever it says (D-10, which replaces D-2's old label); reading it waits for P8's token. */
   token?: { address?: string; class_hash?: string; decimals?: number; symbol?: string };
-  contracts?: Partial<Record<ContractName, { address?: string; class_hash?: string }>>;
+  contracts?: Partial<Record<ContractName | "MockUSDC", { address?: string; class_hash?: string }>>;
 }
 
 /** Values from the environment; each one set overrides the file. */
@@ -16,6 +16,8 @@ export interface DeploymentEnv {
   rpcUrl?: string;
   deployedBlock?: string | number;
   addresses?: Partial<Record<ContractName, string>>;
+  /** The devnet's `MockUSDC` (the faucet's token). */
+  mockUsdc?: string;
 }
 
 export interface Deployment {
@@ -28,6 +30,8 @@ export interface Deployment {
   tokenDecimals: number | null;
   /** Addresses of the four contracts; an empty string when unknown. */
   addresses: Record<ContractName, string>;
+  /** The devnet's `MockUSDC`, the faucet's token; an empty string where there is none (every other network). Not part of `configured`. */
+  mockUsdc: string;
   /** True when the RPC URL and the four addresses are known: the only case where writes are offered. */
   configured: boolean;
   /** What is missing when not configured, for the "not connected" state. */
@@ -71,6 +75,8 @@ export function resolveDeployment(input: {
   const envBlock = env.deployedBlock === undefined || env.deployedBlock === "" ? NaN : Number(env.deployedBlock);
   const deployedBlock = Number.isInteger(envBlock) && envBlock >= 0 ? envBlock : (file.deployed_block ?? 0);
 
+  const mockUsdc = env.mockUsdc || file.contracts?.MockUSDC?.address;
+
   return {
     network: input.network,
     rpcUrl,
@@ -78,6 +84,7 @@ export function resolveDeployment(input: {
     deployedBlock,
     tokenDecimals: Number.isInteger(file.token?.decimals) && file.token!.decimals! >= 0 && file.token!.decimals! <= 77 ? file.token!.decimals! : null,
     addresses,
+    mockUsdc: isAddress(mockUsdc) ? mockUsdc : "",
     configured: missing.length === 0,
     missing,
   };

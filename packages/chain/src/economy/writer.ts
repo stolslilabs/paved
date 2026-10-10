@@ -1,8 +1,7 @@
-import { shortString } from "starknet";
 import type { EconomyCodecs, EconomyContractName } from "../abis";
 import { sameAddress, toHex, type Encodable } from "../codec";
 import type { GameViews, PriceView } from "../views";
-import { WriteError, type Call, type PavedWriter, type WriteResult } from "../writer";
+import { WriteError, revertNames, type Call, type PavedWriter, type WriteResult } from "../writer";
 import { ADDRESS_BOUND, DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, expiresAt, isStake, minOutFor, priceOf, settlesAfter } from "./amounts";
 import type { PoolQuoter } from "./pool";
 import type { EconomyDeployment } from "./deployment";
@@ -30,11 +29,6 @@ export class PurchaseOutcomeUnknownError extends WriteError {
 const BELOW_MIN_OUT = "Economy: swap below min_out";
 const TOO_EARLY = "Economy: day cannot close yet";
 
-/** True when a revert reason names `reason`: as text, or as the hex of the short string the node may return. */
-function names(revert: string, reason: string): boolean {
-  return revert.includes(reason) || revert.toLowerCase().includes(shortString.encodeShortString(reason).toLowerCase());
-}
-
 /**
  * The purchase reverted because the swap paid less than `min_out`: the pool's price moved between the quote and the
  * block. A revert moves no funds (the approve, the transfers and the swap are one transaction), so the USDC was not
@@ -59,8 +53,8 @@ export class SettleTooEarlyError extends WriteError {
 /** A known revert of the Economy as its clear state; any other error unchanged. */
 function economyRevert(error: unknown): unknown {
   if (!(error instanceof WriteError) || !error.reverted) return error;
-  if (names(error.message, BELOW_MIN_OUT)) return new SwapBelowMinOutError(error.transactionHash);
-  if (names(error.message, TOO_EARLY)) return new SettleTooEarlyError(error.transactionHash);
+  if (revertNames(error.message, BELOW_MIN_OUT)) return new SwapBelowMinOutError(error.transactionHash);
+  if (revertNames(error.message, TOO_EARLY)) return new SettleTooEarlyError(error.transactionHash);
   return error;
 }
 
@@ -166,7 +160,7 @@ export class EconomyWriter {
     // `min_out` from the pool's quote (fee included) less the slippage; never from `min_out_hint`, which leaves the
     // fee out and would make the purchase revert (P-35). No quote, or a 0 one, is no slippage protection: refused.
     const slippage = request.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
-    if (slippage < 0n || slippage > MAX_SLIPPAGE_BPS) throw new WriteError(`Slippage is 0 to ${MAX_SLIPPAGE_BPS} bps`);
+    if (typeof slippage !== "bigint" || slippage < 0n || slippage > MAX_SLIPPAGE_BPS) throw new WriteError(`Slippage is 0 to ${MAX_SLIPPAGE_BPS} bps`);
     if (!this.options.poolQuoter) throw new WriteError("No pool quote: nothing was sent");
     let poolOut: bigint;
     try {

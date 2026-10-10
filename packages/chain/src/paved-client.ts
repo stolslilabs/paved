@@ -49,6 +49,7 @@ export class PavedClient {
       codecs: this.codecs,
       entryPrice: () => this.views.entryPrice(),
       tournament: (id) => this.views.tournament(id),
+      reclaimable: async (id, sponsor) => (await this.events.sponsorship(id, sponsor)).reclaimable,
       onEvents: (contract, events) => this.events.remember(contract, events),
       ...options,
     });

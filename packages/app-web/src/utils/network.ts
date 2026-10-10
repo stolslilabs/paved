@@ -11,6 +11,8 @@ export interface NetworkEnv {
   VITE_DAILY_ADDRESS?: string;
   VITE_TUTORIAL_ADDRESS?: string;
   VITE_TOKEN_ADDRESS?: string;
+  /** The devnet's MockUSDC, the faucet's token. */
+  VITE_MOCK_USDC_ADDRESS?: string;
   /** The account that plays: a devnet predeployed account, devnet only; without both, read-only. */
   VITE_PLAYER_ADDRESS?: string;
   VITE_PLAYER_PRIVATE_KEY?: string;
@@ -21,7 +23,7 @@ export interface NetworkEnv {
 
 export interface AppNetwork {
   deployment: Deployment;
-  /** The test token's faucet is offered (devnet: the Token is a mock there). */
+  /** The test token's faucet is offered (devnet: MockUSDC is a mock there). */
   supportsMint: boolean;
   /** Tip of each write: 0 on devnet, where starknet.js's tip estimate stalls. */
   tip: bigint | undefined;
@@ -41,6 +43,7 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
     file: file && "default" in file ? (file.default ?? null) : (file as DeploymentFile | null),
     env: {
       rpcUrl: env.VITE_RPC_URL,
+      mockUsdc: env.VITE_MOCK_USDC_ADDRESS,
       deployedBlock: env.VITE_DEPLOYED_BLOCK,
       addresses: {
         Account: env.VITE_ACCOUNT_ADDRESS,
