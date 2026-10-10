@@ -22,7 +22,6 @@ export function ConnectionBanner() {
           Disconnect
         </button>
         {wallet.error && <span> {wallet.error}</span>}
-        <div style={{ fontSize: 12, opacity: 0.7 }}>Cartridge Controller is the copyright of Cartridge Gaming Company.</div>
       </div>
     );
   }

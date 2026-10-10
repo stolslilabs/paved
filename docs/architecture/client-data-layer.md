@@ -349,10 +349,20 @@ never loses its account to a reconnect.
 Not verified: that the keychain prompts for an approve above the cap, rather than refusing it. That
 needs a run against the real controller, which is due before any public deployment.
 
-The controller's licence is Cartridge's own (`LICENSE` in the package): use is free for non-commercial
-purposes or under 10,000 monthly active users, and each copy must carry a notice. The connected banner
-carries the notice ("Cartridge Controller is the copyright of Cartridge Gaming Company"). Whether that
-licence fits the product is the owner's call. Tested in jsdom with the controller mocked
+The controller's licence is Cartridge's own (`LICENSE` in the package). It allows Non-Commercial Use only,
+which includes a product under 10,000 monthly active users. Each copy must carry a prominent notice that
+the controller is used and is Cartridge's copyright, and copies of the client are subject to the same
+terms. The owner accepted it for the MVP and testnet (D-15), to be revisited before mainnet or 10k
+monthly active users. The client meets the notice requirement in two ways:
+- `app-web/public/THIRD_PARTY_NOTICES.txt`, which `vite build` copies to `dist`, names the package and
+  version and Cartridge's copyright, and carries the licence text verbatim;
+- a small fixed footer on every page and network (`WalletNotice`, rendered from `main.tsx`) says "Uses
+  Cartridge Controller, © Cartridge Gaming Company" and links to that file. The controller's code ships
+  in every build, devnet's included, which is why the footer is not limited to connected sessions.
+
+`app-web/__tests__/third-party-notices.test.tsx` checks the file against the installed `LICENSE`, checks
+it is in `dist` (required in CI, which builds before it tests), and checks the link. Tested in jsdom with
+the controller mocked
 (`app-web/__tests__/wallet.test.tsx`, `chain/test/controller.test.ts`). No browser run has been made
 against a real controller or network.
 

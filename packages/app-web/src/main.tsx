@@ -6,6 +6,7 @@ import { tamaguiConfig } from "@paved/ui";
 import { IndexerProvider } from "@paved/chain";
 import { App } from "./App";
 import { ConnectionBanner } from "./components/ConnectionBanner";
+import { WalletNotice } from "./components/WalletNotice";
 import { WalletProvider } from "./components/WalletProvider";
 import { resolveAppNetwork } from "./utils/network";
 
@@ -45,6 +46,7 @@ root.render(
           <BrowserRouter>
             <App supportsMint={network.supportsMint} />
           </BrowserRouter>
+          <WalletNotice />
         </IndexerProvider>
       </WalletProvider>
     </TamaguiProvider>

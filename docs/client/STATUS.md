@@ -101,7 +101,8 @@ approve of the token `Daily.entry_price` names (Token now, USDC after E3) to Dai
 account goes through the same `PavedWriter` as the devnet burner, which is kept. Without a connection,
 other networks are read-only. jsdom tests only (controller mocked). Nothing has been deployed beyond
 devnet, and no real controller has been tried. The controller's licence (non-commercial or under 10,000
-monthly active users, notice required) is for the owner. Design: section "Signing" of
+monthly active users, notice required) is accepted for the MVP and testnet (D-15). The notice ships in
+`dist/THIRD_PARTY_NOTICES.txt` and is linked from a footer on every page. Design: section "Signing" of
 `docs/architecture/client-data-layer.md`.
 
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
