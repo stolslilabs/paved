@@ -8,7 +8,7 @@ export interface DeploymentFile {
   deployed_block?: number;
   /** The symbol is for the record only: the app labels the token `PAVED` whatever it says (D-10, which replaces D-2's old label); reading it waits for P8's token. */
   token?: { address?: string; class_hash?: string; decimals?: number; symbol?: string };
-  contracts?: Partial<Record<ContractName | "MockUSDC", { address?: string; class_hash?: string }>>;
+  contracts?: Partial<Record<ContractName | "MockUSDC" | "Collection", { address?: string; class_hash?: string }>>;
 }
 
 /** Values from the environment; each one set overrides the file. */
@@ -18,6 +18,8 @@ export interface DeploymentEnv {
   addresses?: Partial<Record<ContractName, string>>;
   /** The devnet's `MockUSDC` (the faucet's token). */
   mockUsdc?: string;
+  /** The game NFT's Collection (E5b), optional. */
+  collection?: string;
 }
 
 export interface Deployment {
@@ -32,6 +34,8 @@ export interface Deployment {
   addresses: Record<ContractName, string>;
   /** The devnet's `MockUSDC`, the faucet's token; an empty string where there is none (every other network). Not part of `configured`. */
   mockUsdc: string;
+  /** The game NFT's Collection (E5b), from `contracts.Collection` of the file or the env; an empty string when unknown. Not part of `configured`: a deployment before E5b has none. */
+  collection: string;
   /** True when the RPC URL and the four addresses are known: the only case where writes are offered. */
   configured: boolean;
   /** What is missing when not configured, for the "not connected" state. */
@@ -86,6 +90,7 @@ export function resolveDeployment(input: {
     tokenDecimals: Number.isInteger(file.token?.decimals) && file.token!.decimals! >= 0 && file.token!.decimals! <= 77 ? file.token!.decimals! : null,
     addresses,
     mockUsdc: isAddress(mockUsdc) ? mockUsdc : "",
+    collection: [env.collection, file.contracts?.Collection?.address].find(isAddress) ?? "",
     configured: missing.length === 0,
     missing,
   };

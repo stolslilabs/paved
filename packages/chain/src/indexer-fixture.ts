@@ -27,6 +27,8 @@ export interface FixtureState {
   rawBody?: { text: string; httpStatus: number };
   /** `checks.last_mismatch` of `/v1/head`: null or `{ tournament_id, head_number, view, indexed }`. */
   lastMismatch?: Row | null;
+  /** `contracts.collection` of `/v1/head` (E5b): an address, or null for an indexer with no Collection. */
+  collection?: string | null;
 }
 
 const tournament = (id: number, over: Partial<Row> = {}): Row => ({
@@ -60,8 +62,8 @@ const ENTRIES: Row[] = [
 
 const GAMES: Row[] = [
   // As built, a game row also carries `player_id`; a game that runs has `score`, `counted_tournament_id` and `end_time` null (`RUNNING_GAME`).
-  { contract: "daily", game_id: 912, player_id: FIXTURE_ADA, mode: 1, start_time: 1791869000, tournament_id: 20733, over: true, score: 187, counted_tournament_id: 20733, end_time: 1791871203 },
-  { contract: "tutorial", game_id: 55, player_id: FIXTURE_ADA, mode: 3, start_time: 1791860000, tournament_id: 0, over: true, score: 64, counted_tournament_id: 0, end_time: 0 },
+  { contract: "daily", game_id: 912, player_id: FIXTURE_ADA, mode: 1, start_time: 1791869000, tournament_id: 20733, over: true, score: 187, counted_tournament_id: 20733, end_time: 1791871203, token_id: 912 },
+  { contract: "tutorial", game_id: 55, player_id: FIXTURE_ADA, mode: 3, start_time: 1791860000, tournament_id: 0, over: true, score: 64, counted_tournament_id: 0, end_time: 0, token_id: 4294967351 },
 ];
 
 /** A game that has not ended, as the real indexer writes it. */
@@ -155,7 +157,7 @@ export class FixtureIndexer {
     if (a === "head" && !b) {
       const e = allowed();
       if (e) return fail(400, e);
-      return ok({ state: "ok", chain_id: "0x534e5f5345504f4c4941", from_block: 12, contracts: { account: "0x1", daily: "0x2", tutorial: "0x3" }, checks: { tournaments_checked: 2, last_mismatch: this.state.lastMismatch ?? null } });
+      return ok({ state: "ok", chain_id: "0x534e5f5345504f4c4941", from_block: 12, contracts: { account: "0x1", daily: "0x2", tutorial: "0x3", ...(this.state.collection === undefined ? {} : { collection: this.state.collection }) }, checks: { tournaments_checked: 2, last_mismatch: this.state.lastMismatch ?? null } });
     }
     if (a === "tournaments" && !b) {
       const e = allowed("limit", "before");

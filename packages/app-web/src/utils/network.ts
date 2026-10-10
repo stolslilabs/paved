@@ -11,6 +11,8 @@ export interface NetworkEnv {
   VITE_DAILY_ADDRESS?: string;
   VITE_TUTORIAL_ADDRESS?: string;
   VITE_TOKEN_ADDRESS?: string;
+  /** The game NFT's Collection (E5b), optional; without it the deployments file's `contracts.Collection`, else the indexer's head. */
+  VITE_COLLECTION_ADDRESS?: string;
   /** The devnet's MockUSDC, the faucet's token. */
   VITE_MOCK_USDC_ADDRESS?: string;
   /** The account that plays: a devnet predeployed account, devnet only; without both, read-only. */
@@ -44,6 +46,7 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
     env: {
       rpcUrl: env.VITE_RPC_URL,
       mockUsdc: env.VITE_MOCK_USDC_ADDRESS,
+      collection: env.VITE_COLLECTION_ADDRESS,
       deployedBlock: env.VITE_DEPLOYED_BLOCK,
       addresses: {
         Account: env.VITE_ACCOUNT_ADDRESS,

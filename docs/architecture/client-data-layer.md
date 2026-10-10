@@ -20,6 +20,7 @@ The env variables of `packages/app-web` (`src/utils/network.ts`), each one set o
 | `VITE_DEPLOYED_BLOCK` | `deployed_block` |
 | `VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`, `VITE_TUTORIAL_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player) |
 | `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` only |
+| `VITE_COLLECTION_ADDRESS` | the game NFT's Collection (overrides `contracts.Collection`, both optional; see "Game NFT") |
 | `VITE_MOCK_USDC_ADDRESS` | the devnet MockUSDC the faucet mints (overrides `contracts.MockUSDC`) |
 
 The app reads every `contracts/deployments/*.json` at build time (`import.meta.glob`, which
@@ -264,6 +265,35 @@ view, never from here.
   the test setup only, plays a Tutorial game to its end and a Daily game (spawn, discard,
   surrender), lists the games from events and checks the error mapping. `PAVED_RECORD=1` rewrites
   the fixtures. CI does not run it (no devnet there).
+
+## Game NFT
+
+CORE's E5b mints one soulbound token per game at spawn (`contracts/src/systems/collection.cairo`). A game's NFT is
+(Collection address, token id): a Daily game's token id is its game id, a Tutorial game's is `2^32 + game id`
+(`nftOf(mode, gameId)` in `packages/chain/src/nft.ts`, BigInt, a game id outside the u32 range is refused). The
+Collection address comes from the indexer's `/v1/head` `contracts.collection` when an indexer is configured, else from
+`contracts.Collection` of the deployments file or `VITE_COLLECTION_ADDRESS` (`collectionAddress`); the file's key is
+optional and a deployment without it stays `configured`. With no address known the screens show no NFT, not an error.
+
+- **Indexer rows**: `GameRow.token_id` is read as `tokenId`: a safe integer, or `null` for a game spawned before the
+  Collection existed, or undefined from an indexer that predates schema 5. The player page shows an NFT only for a row
+  with a token id (the id is the indexer's, never computed there); any other type is a `bad-response`. The game page,
+  which has no row, uses the rule above.
+- **Display**: "NFT: 0x1234…cdef #4294967297" next to the game (a column on the player page's games table, under the
+  status on the game page), and a "Metadata" toggle. Only when opened it calls `token_uri(token_id)` on the Collection
+  (`RpcCollectionViews`; the codec decodes the contract's `ByteArray` to text, bounded) and prints the name,
+  description and attributes as text.
+- **Safety**: only a `data:application/json` URI (base64 or percent-encoded, at most 16,384 characters) is decoded; an
+  http or ipfs URI is not fetched and is shown as unreadable. The JSON is parsed as data, the fields reach the page as
+  React text children (never `dangerouslySetInnerHTML`), non-text values are dropped. "Raw JSON" is a `blob:` URL of
+  the JSON typed `application/json` (revoked when the panel closes; absent where the browser has no blob URLs), opened
+  with `rel="noopener noreferrer"`, never a `data:` navigation.
+- **Tests**: `chain/test/nft.test.ts` (the token id rule for both modes including `2^32 + id`, the codec's `ByteArray`,
+  `token_id` parsing with and without the field, `contracts.collection` null, the Collection address sources, hostile
+  JSON) and `app-web/__tests__/game-nft.test.tsx` (jsdom: both pages, a hostile string that must create no element,
+  no Collection, no `token_id`, failure and retry, the blob link). No browser or devnet run.
+- **Not done**: `owner_of` is in the Collection client but no screen prints it; a game spawned before the Collection
+  existed shows its computed NFT on the game page (the indexer is not asked) and an error under "Metadata".
 
 ## Signing
 

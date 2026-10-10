@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { IndexerError, indexerPlayerId, useIndexer, useIndexerRead } from "@paved/chain";
+import { IndexerError, indexerPlayerId, tokenIdOf, useIndexer, useIndexerRead } from "@paved/chain";
 import type { IndexedGame } from "@paved/chain";
 import { DayPicker } from "../components/DayPicker";
 import { IndexerFailure, IndexerLag } from "../components/IndexerLag";
+import { GameNft, useCollection, type Collection } from "../components/GameNft";
 import { ProgressSections } from "../components/Progress";
 import { useDays } from "../utils/use-days";
 import { GAMES_PAGE, PLAYER_TOURNAMENTS_SHOWN, dayLabel, playerLabel, slotsLabel } from "../utils/indexer-view";
@@ -26,6 +27,7 @@ export function PlayerPage() {
   const profile = useIndexerRead(id ? (c) => c.player(id) : null, [id], { onVisible: true });
   const games = useIndexerRead(id ? (c) => c.playerGames(id, { limit: GAMES_PAGE }) : null, [id], { onVisible: true });
   const [more, setMore] = useState<string[]>([]);
+  const collection = useCollection(id !== null);
 
   const back = <Link to="/leaderboard" style={{ color: "#f59e0b" }}>Leaderboard</Link>;
   if (!indexer) {
@@ -105,10 +107,10 @@ export function PlayerPage() {
       )}
 
       <h2 style={{ margin: "12px 0 0" }}>Games</h2>
-      {games.data && <GamesTable games={first} />}
+      {games.data && <GamesTable games={first} collection={collection} />}
       {games.data && first.length === 0 && <div role="status">No games yet.</div>}
       {more.map((before, i) => (
-        <MoreGames key={before} playerId={id} before={before} last={i === more.length - 1} onMore={(next) => setMore((m) => [...m, next])} />
+        <MoreGames key={before} playerId={id} collection={collection} before={before} last={i === more.length - 1} onMore={(next) => setMore((m) => [...m, next])} />
       ))}
       {more.length === 0 && games.data?.data.next && (
         <button type="button" style={button} onClick={() => setMore([games.data!.data.next!])}>
@@ -123,8 +125,19 @@ export function PlayerPage() {
   );
 }
 
-function GamesTable({ games }: { games: IndexedGame[] }) {
+/** The token id a row carries, if it has one: an older indexer or a game before the Collection shows no NFT. */
+function rowToken(game: IndexedGame): bigint | null {
+  if (game.tokenId === undefined || game.tokenId === null) return null;
+  try {
+    return tokenIdOf(game.tokenId);
+  } catch {
+    return null;
+  }
+}
+
+function GamesTable({ games, collection }: { games: IndexedGame[]; collection: Collection }) {
   if (games.length === 0) return null;
+  const nft = collection.address !== null;
   return (
     <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 14 }}>
       <thead>
@@ -134,6 +147,7 @@ function GamesTable({ games }: { games: IndexedGame[] }) {
           <th style={cell}>Started</th>
           <th style={cell}>Score</th>
           <th style={cell}>Day</th>
+          {nft && <th style={cell}>NFT</th>}
         </tr>
       </thead>
       <tbody>
@@ -146,6 +160,11 @@ function GamesTable({ games }: { games: IndexedGame[] }) {
             <td style={cell}>
               {g.countedTournamentId > 0 ? <Link to={`/leaderboard/${g.countedTournamentId}`} style={{ color: "#f5f5f5" }}>{g.countedTournamentId}</Link> : "–"}
             </td>
+            {nft && (
+              <td style={cell}>
+                <GameNft tokenId={rowToken(g)} collection={collection} />
+              </td>
+            )}
           </tr>
         ))}
       </tbody>
@@ -153,13 +172,13 @@ function GamesTable({ games }: { games: IndexedGame[] }) {
   );
 }
 
-function MoreGames({ playerId, before, last, onMore }: { playerId: string; before: string; last: boolean; onMore: (next: string) => void }) {
+function MoreGames({ playerId, before, last, collection, onMore }: { playerId: string; before: string; last: boolean; collection: Collection; onMore: (next: string) => void }) {
   const chunk = useIndexerRead((c) => c.playerGames(playerId, { limit: GAMES_PAGE, before }), [playerId, before]);
   if (!chunk.data) return chunk.error ? <IndexerFailure error={chunk.cause} onRetry={chunk.refresh} /> : <div role="status">Loading…</div>;
   const next = chunk.data.data.next;
   return (
     <>
-      <GamesTable games={chunk.data.data.games} />
+      <GamesTable games={chunk.data.data.games} collection={collection} />
       {last && next && (
         <button type="button" style={button} onClick={() => onMore(next)}>
           Show more games

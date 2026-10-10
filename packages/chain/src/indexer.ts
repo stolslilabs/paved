@@ -205,6 +205,8 @@ export interface IndexedGame {
   countedTournamentId: number;
   /** 0 while the game runs (`over` is false). */
   endTime: number;
+  /** The game's NFT id in the Collection (E5b, schema 5); null when it has none (minted before the Collection existed), undefined from an indexer that predates it: no NFT is shown then. */
+  tokenId?: number | null;
   /** The terms of a bought game (E3); null for a Tutorial game or a game not bought, undefined from an indexer that predates E3. */
   economy?: GameEconomy | null;
 }
@@ -479,6 +481,8 @@ function parseGame(v: unknown, what: string): IndexedGame {
     countedTournamentId: numUnlessRunning(o, "counted_tournament_id", what, over),
     endTime: numUnlessRunning(o, "end_time", what, over),
   };
+  // Schema 5: `token_id` is a safe integer or null. Absent (an older answer) stays undefined; a wrong type is a bad answer.
+  if (present(o, "token_id")) game.tokenId = orNull(o, "token_id", num, what);
   if (present(o, "economy")) game.economy = o.economy === null ? null : parseGameEconomy(o.economy, `${what}.economy`);
   return game;
 }
@@ -602,7 +606,12 @@ export class IndexerClient {
         state: str(b, "state", "head"),
         chainId: str(b, "chain_id", "head"),
         fromBlock: num(b, "from_block", "head"),
-        contracts: Object.fromEntries(Object.entries(obj(b.contracts, "contracts")).map(([k, v]) => [k, typeof v === "string" ? v : bad(`contracts.${k}`)])),
+        // `contracts.collection` is null without a Collection (E5b): a null entry is left out, so `contracts.collection` is undefined then.
+        contracts: Object.fromEntries(
+          Object.entries(obj(b.contracts, "contracts"))
+            .filter(([, v]) => v !== null)
+            .map(([k, v]) => [k, typeof v === "string" ? v : bad(`contracts.${k}`)]),
+        ),
         lastMismatch: checks ? orNull(checks, "last_mismatch", (o, k) => parseMismatch(o[k], "checks.last_mismatch"), "checks") : null,
         tournamentsChecked: checks && checks.tournaments_checked !== undefined ? num(checks, "tournaments_checked", "checks") : null,
       };
