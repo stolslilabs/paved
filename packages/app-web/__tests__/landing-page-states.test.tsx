@@ -3,7 +3,8 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { FakeGameViews, RewardChangedError, emptyTournament } from "@paved/chain";
-import type { Deployment } from "@paved/chain";
+import { resolveEconomyDeployment, type Deployment } from "@paved/chain";
+import { EconomyProvider } from "../src/utils/economy-context";
 import { LandingPage } from "../src/pages/Landing";
 import { configured, notConfigured, renderPage, PLAYER } from "./helpers/page-fixtures";
 
@@ -36,6 +37,10 @@ vi.mock("@paved/ui", () => ({
 afterEach(cleanup);
 
 const land = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => renderPage({ page: <LandingPage />, path: "/", ...opts });
+/** An economy that is not deployed: the legacy Daily path (the build's own reads the real devnet.json, which has the economy since E3). */
+const noEconomy = (deployment: Deployment) => (routes: React.ReactElement) => (
+  <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment }) }}>{routes}</EconomyProvider>
+);
 const result = { transactionHash: "0x1", events: [] };
 
 describe("Landing states", () => {
@@ -54,7 +59,7 @@ describe("Landing states", () => {
   });
 
   it("without the economy a new Daily game cannot be started from the dialog: nothing navigates", async () => {
-    land({});
+    land({ wrap: noEconomy(configured) });
     await waitFor(() => expect(screen.getByText(/mode daily: 1 USDC/)).toBeTruthy());
     fireEvent.click(screen.getByText(/mode daily/));
     const confirm = (await screen.findByText("Buy it in USDC: not deployed here")) as HTMLButtonElement;
@@ -63,8 +68,16 @@ describe("Landing states", () => {
     expect(screen.getByTestId("where").textContent).not.toContain("mode=daily");
   });
 
+  it("with the economy of devnet.json (E3) the Daily is bought in USDC by stake", async () => {
+    land({});
+    await waitFor(() => expect(screen.getByText("mode daily: USDC, by stake")).toBeTruthy());
+    expect(screen.getByText("mode tutorial: Free")).toBeTruthy();
+    expect(screen.queryByText(/not deployed here/)).toBeNull();
+  });
+
   it("missing token decimals: the entry price is unavailable and cannot be confirmed", async () => {
-    land({ deployment: { ...(configured as object), tokenDecimals: null } as unknown as Deployment });
+    const deployment = { ...(configured as object), tokenDecimals: null } as unknown as Deployment;
+    land({ deployment, wrap: noEconomy(deployment) });
     await waitFor(() => expect(screen.getByText(/mode daily: Unavailable/)).toBeTruthy());
     fireEvent.click(screen.getByText(/mode daily/));
     const confirm = (await screen.findByText("Entry price unavailable")) as HTMLButtonElement;
