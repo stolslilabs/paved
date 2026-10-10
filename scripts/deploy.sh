@@ -22,7 +22,7 @@
 # Deploy order (P8 E3, docs/architecture/economy.md sections 1, 4, 5; E1's audit):
 #   MockUSDC, Token (the old mock, kept for the client until it reads USDC), PavedToken(deployer, deployer),
 #   MockRouter(paved, usdc) seeded with 800,000 PAVED and 10,000 MockUSDC, Vault(paved, usdc) with the
-#   owner's 200,000 PAVED staked (never fully unstaked), Economy(owner, paved, usdc, vault, router, the
+#   owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked (never fully unstaked), Economy(owner, paved, usdc, vault, router, the
 #   router's pool key, sqrt_ratio_limit 0 (the mock ignores it), the decided configuration, initial mean
 #   3,353 points, launch rate 7.6e31 after the pool's fee), PavedToken.set_minter(Economy) (then
 #   minter() == Economy and admin() == 0 are checked), Account(owner), Daily(owner, account, USDC, lobby
@@ -204,7 +204,7 @@ read -r DEPLOYER KEY < <(rpc devnet_getPredeployedAccounts '{"with_balance":fals
 TEST_ACCOUNTS=()
 while read -r addr; do
   [[ -n "$addr" ]] && TEST_ACCOUNTS+=("$addr")
-done < <(rpc devnet_getPredeployedAccounts '{"with_balance":false}' | pyj '"\n".join(a["address"] for a in d["result"][1:])')
+done < <(rpc devnet_getPredeployedAccounts '{"with_balance":false}' | pyj '"\n".join("0x%064x" % int(a["address"], 16) for a in d["result"][1:])')
 sncast "${ACCOUNTS[@]}" account import --url "$RPC_URL" --name dev --address "$DEPLOYER" \
   --private-key "$KEY" --type oz --silent >/dev/null
 KEY=""
@@ -241,6 +241,8 @@ POOL_PAVED="$(python3 -I -c "print(800000 * $PAVED_UNIT)")"
 # The devnet test PAVED (P-38, O-54): 1,000 PAVED per predeployed account other than the deployer, from the owner's
 # stake (never the pool: it sets the launch rate). The stake is 200,000 - 1,000 x N. Devnet only; no faucet exists.
 TEST_PAVED="$(python3 -I -c "print(1000 * $PAVED_UNIT)")"
+(( 1000 * ${#TEST_ACCOUNTS[@]} < 200000 )) ||
+  die "${#TEST_ACCOUNTS[@]} predeployed accounts would take 1,000 PAVED each, the owner's whole 200,000 stake: use fewer than 200"
 STAKE_PAVED="$(python3 -I -c "print((200000 - 1000 * ${#TEST_ACCOUNTS[@]}) * $PAVED_UNIT)")"
 # Economy: the decided configuration (burn 7,000 bps, sigma 0, slope 18,130 bps, cap 5, target 1,000,000
 # PAVED), the initial mean (3,353 points x 1,000) and the launch rate after the pool's fee (economy.md section 5).

@@ -1049,7 +1049,7 @@ text left the choice open, it is written here.
     prize read and write that left).
 - **Deploy.** `scripts/deploy.sh devnet` deploys `MockUSDC`, `Token` (the old mock, kept while CLIENT still reads
   it), `PavedToken(deployer, deployer)`, `MockRouter` seeded with 800,000 PAVED and 10,000 MockUSDC, `Vault` with
-  the owner's 200,000 PAVED staked, `Economy` (the router's pool key, `sqrt_ratio_limit` 0 since the mock ignores
+  the owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked, `Economy` (the router's pool key, `sqrt_ratio_limit` 0 since the mock ignores
   it, the decided configuration, initial mean 3,353 points, launch rate 7.6e31), `set_minter(Economy)` (then
   `minter() == Economy` and `admin() == 0` are checked), `Account`, `Daily` with MockUSDC as its token,
   `Tutorial`, `Economy.set_game(Daily)` and `Account.set_economy(Economy)`. It refuses `MockUSDC`, `MockRouter`
