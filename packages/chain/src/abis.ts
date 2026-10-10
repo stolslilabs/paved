@@ -2,6 +2,8 @@ import accountAbi from "../../../contracts/abis/Account.json";
 import dailyAbi from "../../../contracts/abis/Daily.json";
 import tutorialAbi from "../../../contracts/abis/Tutorial.json";
 import tokenAbi from "../../../contracts/abis/Token.json";
+import lobbyAbi from "../../../contracts/abis/Lobby.json";
+import mockUsdcAbi from "../../../contracts/abis/MockUSDC.json";
 import pavedTokenAbi from "../../../contracts/abis/PavedToken.json";
 import economyAbi from "../../../contracts/abis/Economy.json";
 import vaultAbi from "../../../contracts/abis/Vault.json";
@@ -33,8 +35,8 @@ export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
 
 /**
  * All of them are CORE's committed ABIs: `PavedToken` and `Vault` (E1), `Economy` (E2), and `Daily` with the paid
- * `spawn(stake, referrer, min_out)` (E3). `USDC` is the ERC20 interface (`approve`, `balance_of`, `allowance`) of
- * `Token.json`: E3 commits no `MockUSDC.json`, and the real USDC and the mock expose the same OpenZeppelin ERC20.
+ * `spawn(stake, referrer, min_out)` (E3). `USDC` is `MockUSDC.json`: the ERC20 interface (`approve`, `balance_of`,
+ * `allowance`) the real USDC exposes too, plus the mock's faucet `mint`.
  */
 export type EconomyContractName = "Economy" | "PavedToken" | "Vault" | "USDC" | "Daily";
 
@@ -42,7 +44,7 @@ export const ECONOMY_ABIS: Record<EconomyContractName, Abi> = {
   Economy: economyAbi as Abi,
   PavedToken: pavedTokenAbi as Abi,
   Vault: vaultAbi as Abi,
-  USDC: tokenAbi as Abi,
+  USDC: mockUsdcAbi as Abi,
   Daily: dailyAbi as Abi,
 };
 
@@ -57,3 +59,15 @@ export function createEconomyCodecs(abis: Record<EconomyContractName, Abi> = ECO
     Daily: new AbiCodec(abis.Daily),
   };
 }
+
+/** `MockUSDC.json`: the devnet faucet's `mint(recipient, amount)` is in it (`PavedWriter.mint`). */
+export const MOCK_USDC_ABI = mockUsdcAbi as Abi;
+
+/** What one faucet call mints on devnet: 100 USDC (6 decimals), enough for every stake of a day's games. */
+export const FAUCET_USDC_AMOUNT = 100_000_000n;
+
+/**
+ * `Lobby.json`: Daily runs `Lobby` by library call, so its events (`Reclaimed { tournament_id, sponsor, amount }`) are
+ * emitted from Daily's address but are declared in this ABI, not in `Daily.json`.
+ */
+export const LOBBY_ABI = lobbyAbi as Abi;

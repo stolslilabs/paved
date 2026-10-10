@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
-import { claimableRanks, countedTournamentIds, indexerPlayerId, usePaved, useRead } from "@paved/chain";
+import { claimableRanks, countedTournamentIds, indexerPlayerId, reclaimableAmount, usePaved, useRead } from "@paved/chain";
 import type { GameMode, GameView, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
@@ -12,7 +12,7 @@ import { EconomyPurchase } from "../components/EconomyPurchase";
 import { useEconomy } from "../utils/economy-context";
 import { purchaseIntent } from "../utils/economy-start";
 import { referrerFromSearch } from "../utils/economy-view";
-import type { Claimable } from "../components/PrizePanel";
+import type { Claimable, Reclaimable } from "../components/PrizePanel";
 import { canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, playerNameError, podium, TOKEN_LABEL, tokenLabel } from "../utils/landing-helpers";
 
 interface ModeInfo {
@@ -54,6 +54,21 @@ async function listClaimables(client: PavedClient, address: string, playerId: st
   return tournaments.flatMap((t) => claimableRanks(t, playerId).map(({ rank, reward }) => ({ tournamentId: t.id, rank, reward })));
 }
 
+/** Days the account sponsored, read for a part to take back: the newest ones. */
+const RECLAIM_DAYS_READ = 30;
+
+/** The days nobody ranked in where the account may take its part back: events for the part, one `tournament` view each for the day. */
+async function listReclaimables(client: PavedClient, address: string): Promise<Reclaimable[]> {
+  const ids = (await client.events.sponsoredDays(address)).slice(0, RECLAIM_DAYS_READ);
+  const days = await Promise.all(
+    ids.map(async (id) => {
+      const [t, mine, returned] = await Promise.all([client.views.tournament(id), client.events.sponsorship(id, address), client.events.reclaimedTotal(id)]);
+      return { tournamentId: id, amount: reclaimableAmount(t, mine.reclaimable), returned };
+    }),
+  );
+  return days.filter((d) => d.amount > 0n);
+}
+
 export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }) {
   const navigate = useNavigate();
   const { status, writer, address, deployment } = usePaved();
@@ -86,6 +101,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     { onVisible: true },
   );
 
+  const reclaimables = useRead((c) => (address ? listReclaimables(c, address) : Promise.resolve([])), [address], { onVisible: true });
+
   // `after` refreshes run when the write went through; `settled` ones run whatever the outcome.
   const write = async (fn: () => Promise<unknown>, after: Array<() => void>, settled: Array<() => void> = []) => {
     after = [...after, price.refresh]; // a write may change what the entry costs the player to see
@@ -117,6 +134,9 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const handleClaim = (c: Claimable, confirmedReward: bigint) =>
     // A refused claim (the reward changed, or the rank was claimed meanwhile) must not leave its stale row.
     writer && write(() => writer.claim(c.tournamentId, c.rank, { confirmedReward }), [balance.refresh, tournament.refresh], [claimables.refresh]);
+  // A refused reclaim (the part changed, or it was taken back meanwhile) must not leave its stale row.
+  const handleReclaim = (r: Reclaimable, confirmedAmount: bigint) =>
+    writer && write(() => writer.reclaim(r.tournamentId, { confirmedAmount }), [balance.refresh, tournament.refresh], [reclaimables.refresh]);
   const handleSponsor = (amount: bigint, confirmedAmount: bigint) =>
     writer && write(() => writer.sponsor(amount, { confirmedAmount }), [balance.refresh, tournament.refresh]);
   const readErrors = (
@@ -127,6 +147,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
       ["tournament", tournament.error],
       ["entry price", price.error],
       ["prizes", claimables.error],
+      ["reclaims", reclaimables.error],
     ] as const
   ).filter(([, error]) => error);
   const handleMint = () => writer && write(() => writer.mint(), [balance.refresh]);
@@ -136,7 +157,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const completed = allGames.filter((g) => g.over);
   const daily = tournament.data;
 
-  const fee = entryFee(price, deployment.addresses.Token, deployment.tokenDecimals);
+  // The Daily entry is paid in USDC since E3 (`contracts.USDC`, the devnet's MockUSDC), not in the old Token.
+  const fee = entryFee(price, economy.deployment.addresses.USDC, deployment.tokenDecimals);
   const feeLabel =
     fee.kind === "amount"
       ? tokenLabel(fee.amount, deployment.tokenDecimals)
@@ -227,9 +249,11 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
             <PrizePanel
               decimals={deployment.tokenDecimals}
               claimables={claimables.data ?? []}
+              reclaimables={reclaimables.data ?? []}
               busy={writing}
               error={null /* write errors show in the token panel above */}
               onClaim={handleClaim}
+              onReclaim={handleReclaim}
               onSponsor={handleSponsor}
             />
           </div>
@@ -241,7 +265,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
           {readErrors.map(([what, error]) => `${what} (${error})`).join("; ")}
           <button
             type="button"
-            onClick={() => [player, balance, games, tournament, price, claimables].forEach((r) => r.refresh())}
+            onClick={() => [player, balance, games, tournament, price, claimables, reclaimables].forEach((r) => r.refresh())}
             style={{ marginLeft: 12, background: "transparent", border: "1px solid #fff", color: "#fff", borderRadius: 6, cursor: "pointer" }}
           >
             Retry

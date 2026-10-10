@@ -23,8 +23,9 @@ export interface ControllerConfig {
 
 /**
  * The client's writes, by contract: what `PavedWriter` sends outside devnet. `approve` is not
- * here: it is a session policy only on the entry token, with its spender and a cap (`controllerPolicies`). `Token.mint`
- * is left out: the faucet exists on the devnet mock only, where the burner signs.
+ * here: it is a session policy only on the entry token, with its spender and a cap (`controllerPolicies`). `MockUSDC.mint`
+ * (the faucet, `PavedWriter.mint` and `createPlayer`'s `mintTestToken`) is left out: it exists on the devnet mock only,
+ * where the burner signs.
  */
 export const CONTROLLER_ENTRY_POINTS = {
   Account: ["create"],

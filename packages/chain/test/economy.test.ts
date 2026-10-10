@@ -236,6 +236,17 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     await expect(s.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null, slippageBps: 600n })).rejects.toThrow(/Slippage is 0 to 500 bps/);
   });
 
+  test("a slippage that is not a bigint (NaN from a bad field) is a WriteError, never a raw TypeError, and sends nothing", async () => {
+    const { econWriter, execute } = setup();
+    // NaN and a number both pass the two comparisons with a bigint; only the type check refuses them.
+    for (const bad of [Number.NaN, 100, "100"] as unknown[]) {
+      const error = await econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null, slippageBps: bad as bigint }).catch((e) => e);
+      expect(error).toBeInstanceOf(WriteError);
+      expect(error.message).toMatch(/Slippage is 0 to 500 bps/);
+    }
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   test("a malformed referrer is a WriteError, never a raw SyntaxError, and sends nothing", async () => {
     const { econWriter, execute } = setup();
     for (const referrer of ["abc", "0xzz", `0x${"f".repeat(64)}`]) {

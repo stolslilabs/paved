@@ -105,6 +105,13 @@ monthly active users, notice required) is accepted for the MVP and testnet (D-15
 `dist/THIRD_PARTY_NOTICES.txt` and is linked from a footer on every page. Design: section "Signing" of
 `docs/architecture/client-data-layer.md`.
 
+2026-10-10, economy follow-ups (t-0073, PR a): the devnet faucet mints MockUSDC (`MockUSDC.mint(self, 100 USDC)` at
+`contracts.MockUSDC`, no longer the old Token) for `mint()` and `createPlayer(..., { mintTestToken })`, and the Landing compares the entry
+token with the USDC address. `Tournament: not found` (top-3 claim on a day nobody sponsored) and `Tournament: nothing to reclaim` are clear
+states. A sponsor reclaims their part of a prize nobody ranked for through `claim(day, 0)`, with a confirm and a re-check at send; what went
+back comes from the `Reclaimed` events. A non-bigint slippage is a `WriteError`. The Cartridge session holds no faucet (test). The devnet
+end-to-end of the economy is PR (b). Details: `docs/architecture/client-economy.md`.
+
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
 The baseline measures a recorded board, not a live deployment (decided 2026-10-06): the contracts

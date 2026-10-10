@@ -1,9 +1,9 @@
 import { shortString } from "starknet";
-import type { Codecs, ContractName } from "./abis";
-import { sameAddress, type AbiCodec, type DecodedEvent, type Encodable, type RawEvent } from "./codec";
+import { FAUCET_USDC_AMOUNT, LOBBY_ABI, MOCK_USDC_ABI, type Codecs, type ContractName } from "./abis";
+import { AbiCodec as Codec, sameAddress, type AbiCodec, type DecodedEvent, type Encodable, type RawEvent } from "./codec";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
-import { rewardOf, type Rank } from "./prize";
+import { reclaimableAmount, rewardOf, type Rank } from "./prize";
 import { gameContract, type GameKey, type GameMode, type PriceView, type TournamentView } from "./views";
 
 export interface Call {
@@ -66,6 +66,49 @@ export class WriteError extends Error {
   }
 }
 
+/** True when a revert reason names `reason`: as text, or as the hex of the short string the node may return. */
+export function revertNames(revert: string, reason: string): boolean {
+  return revert.includes(reason) || revert.toLowerCase().includes(shortString.encodeShortString(reason).toLowerCase());
+}
+
+const NOT_FOUND = "Tournament: not found";
+const NOTHING_TO_RECLAIM = "Tournament: nothing to reclaim";
+
+/** A claim on a day that has no tournament: nobody sponsored it, so there is no prize and nothing to claim. */
+export class NoPrizeDayError extends WriteError {
+  constructor(transactionHash?: string) {
+    super("This day has no prize: nobody sponsored it, so there is nothing to claim.", transactionHash, true);
+    this.name = "NoPrizeDayError";
+  }
+}
+
+/**
+ * A reclaim the contract refuses: the day was ranked (its prize goes to the ranks), the account sponsored nothing in
+ * it, or it already took its part back. Nothing moved.
+ */
+export class NothingToReclaimError extends WriteError {
+  constructor(message = "Nothing to reclaim: this day was ranked, or you sponsored nothing in it, or you already took it back.", transactionHash?: string) {
+    super(message, transactionHash, transactionHash !== undefined);
+    this.name = "NothingToReclaimError";
+  }
+}
+
+/** The part a sponsor can reclaim at send is not the one they confirmed: nothing was sent. */
+export class ReclaimAmountChangedError extends Error {
+  constructor(readonly confirmed: bigint, readonly current: bigint) {
+    super("The amount to reclaim changed: confirm again");
+    this.name = "ReclaimAmountChangedError";
+  }
+}
+
+/** A known revert of `Daily.claim` as its clear state; any other error unchanged. */
+function claimRevert(error: unknown): unknown {
+  if (!(error instanceof WriteError) || !error.reverted) return error;
+  if (revertNames(error.message, NOT_FOUND)) return new NoPrizeDayError(error.transactionHash);
+  if (revertNames(error.message, NOTHING_TO_RECLAIM)) return new NothingToReclaimError(undefined, error.transactionHash);
+  return error;
+}
+
 interface Receipt {
   execution_status?: string;
   revert_reason?: string;
@@ -100,6 +143,11 @@ export class PavedWriter {
       entryPrice?: () => Promise<PriceView>;
       /** `Daily.tournament`, read before each claim. */
       tournament?: (id: number) => Promise<TournamentView>;
+      /**
+       * What the account can still reclaim of a day's prize: its `Sponsored` events less its `Reclaimed` ones
+       * (`EventReader.sponsorship`), read before each reclaim.
+       */
+      reclaimable?: (id: number, sponsor: string) => Promise<bigint>;
       /** Called with the decoded events of every successful write (the event reader keeps them). */
       onEvents?: (contract: ContractName, events: DecodedEvent[]) => void;
     },
@@ -113,10 +161,10 @@ export class PavedWriter {
     return this.options.account.address;
   }
 
-  /** Registers the account as a player; on the test token, mints its faucet amount first. */
+  /** Registers the account as a player; on devnet, mints its faucet USDC first (`mint`). */
   async createPlayer(name: string, options: { mintTestToken?: boolean } = {}): Promise<WriteResult> {
     const calls = [this.call("Account", "create", [feltOfName(name), this.address])];
-    if (options.mintTestToken) calls.unshift(this.call("Token", "mint", []));
+    if (options.mintTestToken) calls.unshift(this.faucetCall());
     return this.send("Account", calls);
   }
 
@@ -172,7 +220,43 @@ export class PavedWriter {
     }
     const reward = rewardOf(tournament, rank);
     if (reward !== options.confirmedReward) throw new RewardChangedError(options.confirmedReward, reward);
-    return this.send("Daily", [this.call("Daily", "claim", [tournamentId, rank])]);
+    try {
+      return await this.send("Daily", [this.call("Daily", "claim", [tournamentId, rank])]);
+    } catch (error) {
+      throw claimRevert(error);
+    }
+  }
+
+  /**
+   * A sponsor's reclaim (P-37): `claim(day, 0)`, sent by the sponsor, pays back their part of a prize nobody ranked for
+   * (an empty top 3, or every score 0); rank rewards are not touched, and a ranked day has nothing to reclaim.
+   * `confirmedAmount` is what the player saw and confirmed. Both the day and the amount are read again here, so a
+   * ranked day, an amount that changed, a part already taken back, or a day not over sends nothing. The Reclaimed event
+   * of the receipt (declared in Lobby's ABI, emitted from Daily) is in the result.
+   */
+  async reclaim(tournamentId: number, options: { confirmedAmount: bigint }): Promise<WriteResult> {
+    const { tournament: readTournament, reclaimable: readReclaimable } = this.options;
+    if (!readTournament || !readReclaimable) throw new WriteError("No tournament or sponsorship reader: cannot check the reclaim");
+    let tournament: TournamentView;
+    let amount: bigint;
+    try {
+      [tournament, amount] = await Promise.all([readTournament(tournamentId), readReclaimable(tournamentId, this.address)]);
+    } catch (error) {
+      throw new WriteError(`Cannot read the tournament: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!tournament.over) throw new WriteError("The tournament is not over");
+    if (BigInt(tournament.top1PlayerId) !== 0n) {
+      throw new NothingToReclaimError("This day was ranked: its prize goes to the ranks, so there is nothing to reclaim.");
+    }
+    amount = reclaimableAmount(tournament, amount);
+    if (amount === 0n) throw new NothingToReclaimError("You sponsored nothing in this day, or already took it back.");
+    if (amount !== options.confirmedAmount) throw new ReclaimAmountChangedError(options.confirmedAmount, amount);
+    const call = this.call("Daily", "claim", [tournamentId, 0]);
+    try {
+      return await this.serialised(() => this.sendNow({ codec: new Codec(LOBBY_ABI), address: call.contractAddress }, [call]));
+    } catch (error) {
+      throw claimRevert(error);
+    }
   }
 
   /**
@@ -201,9 +285,25 @@ export class PavedWriter {
     return this.send("Daily", [{ ...approve, contractAddress: price.token }, this.call("Daily", "sponsor", [amount])]);
   }
 
-  /** The test token's faucet (devnet only: the mock is never deployed elsewhere). */
+  /**
+   * The devnet faucet: `MockUSDC.mint(self, FAUCET_USDC_AMOUNT)` at `deployment.mockUsdc` (the mock is never deployed
+   * elsewhere). Without that address nothing is sent. Never in the controller's session: the burner signs it.
+   */
   mint(): Promise<WriteResult> {
-    return this.send("Token", [this.call("Token", "mint", [])]);
+    return this.serialised(async () => {
+      const call = this.faucetCall();
+      return this.sendNow({ codec: new Codec(MOCK_USDC_ABI), address: call.contractAddress }, [call]);
+    });
+  }
+
+  private faucetCall(): Call {
+    const { mockUsdc } = this.options.deployment;
+    if (!mockUsdc) throw new WriteError("No faucet: this deployment has no MockUSDC");
+    return {
+      contractAddress: mockUsdc,
+      entrypoint: "mint",
+      calldata: new Codec(MOCK_USDC_ABI).encodeCall("mint", [this.address, FAUCET_USDC_AMOUNT]),
+    };
   }
 
   private call(contract: ContractName, entrypoint: string, args: Encodable[]): Call {

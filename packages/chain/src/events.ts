@@ -1,5 +1,5 @@
-import type { Codecs, ContractName } from "./abis";
-import { sameAddress, toHex, type DecodedEvent, type RawEvent } from "./codec";
+import { LOBBY_ABI, type Codecs, type ContractName } from "./abis";
+import { AbiCodec, sameAddress, toHex, type DecodedEvent, type RawEvent } from "./codec";
 import type { Deployment } from "./deployment";
 import { gameContract, modeFromCode, type GameMode } from "./views";
 
@@ -29,6 +29,14 @@ export interface PlayerGame {
   countedTournamentId: number | null;
 }
 
+/** What a sponsor put into a day's prize and took back, from the `Sponsored` and `Reclaimed` events. */
+export interface Sponsorship {
+  sponsored: bigint;
+  reclaimed: bigint;
+  /** `sponsored - reclaimed`: what `claim(day, 0)` pays the sponsor on a day nobody ranked in. */
+  reclaimable: bigint;
+}
+
 const CHUNK_SIZE = 100;
 
 /** Reads the events of the native contracts from `deployed_block`, filtered by key on the node. */
@@ -40,6 +48,8 @@ export class EventReader {
     private readonly provider: EventProvider,
     private readonly deployment: Deployment,
     private readonly codecs: Codecs,
+    /** Decodes the events Daily emits from `Lobby`'s ABI (`Reclaimed`). */
+    private readonly lobby: AbiCodec = new AbiCodec(LOBBY_ABI),
   ) {}
 
   /**
@@ -47,9 +57,11 @@ export class EventReader {
    * (one entry per key; an empty entry matches any value), in chain order.
    */
   async read(contract: ContractName, name: string, keys: Array<string | number | null> = []): Promise<DecodedEvent[]> {
-    const address = this.deployment.addresses[contract];
+    return this.readAt(this.deployment.addresses[contract], this.codecs[contract], name, keys);
+  }
+
+  private async readAt(address: string, codec: AbiCodec, name: string, keys: Array<string | number | null>): Promise<DecodedEvent[]> {
     if (!address) return [];
-    const codec = this.codecs[contract];
     const filter = [[codec.eventSelector(name)], ...keys.map((k) => (k === null ? [] : [toHex(k)]))];
     const out: DecodedEvent[] = [];
     let continuation: string | undefined;
@@ -69,6 +81,39 @@ export class EventReader {
       continuation = chunk.continuation_token;
     } while (continuation);
     return out;
+  }
+
+  /**
+   * What `sponsor` put into the day `tournamentId` (`Daily.Sponsored`) and took back (`Lobby.Reclaimed`, emitted from
+   * Daily). The contract keeps no view of it, and `tournament(id).prize` stays at the historical total after a
+   * reclaim, so the events are the only record of what went back.
+   */
+  async sponsorship(tournamentId: number, sponsor: string): Promise<Sponsorship> {
+    const [sponsoredEvents, reclaimedEvents] = await Promise.all([
+      this.read("Daily", "Sponsored", [tournamentId]),
+      this.readAt(this.deployment.addresses.Daily, this.lobby, "Reclaimed", [tournamentId, sponsor]),
+    ]);
+    const sponsored = sponsoredEvents
+      .filter((e) => BigInt(e.fields.sponsor as string) === BigInt(sponsor))
+      .reduce((sum, e) => sum + BigInt(e.fields.amount as string | bigint), 0n);
+    const reclaimed = reclaimedEvents.reduce((sum, e) => sum + BigInt(e.fields.amount as string | bigint), 0n);
+    return { sponsored, reclaimed, reclaimable: sponsored > reclaimed ? sponsored - reclaimed : 0n };
+  }
+
+  /**
+   * The days `sponsor` put something into, newest first (from `Sponsored`, whose sponsor is event data, not a key: the
+   * node cannot filter on it, so every day's events are read). A day may hold a part to reclaim.
+   */
+  async sponsoredDays(sponsor: string): Promise<number[]> {
+    const events = await this.read("Daily", "Sponsored");
+    const days = new Set(events.filter((e) => BigInt(e.fields.sponsor as string) === BigInt(sponsor)).map((e) => Number(e.fields.tournamentId)));
+    return [...days].sort((a, b) => b - a);
+  }
+
+  /** What went back to the sponsors of the day `tournamentId` in all, from its `Reclaimed` events. */
+  async reclaimedTotal(tournamentId: number): Promise<bigint> {
+    const events = await this.readAt(this.deployment.addresses.Daily, this.lobby, "Reclaimed", [tournamentId]);
+    return events.reduce((sum, e) => sum + BigInt(e.fields.amount as string | bigint), 0n);
   }
 
   /**

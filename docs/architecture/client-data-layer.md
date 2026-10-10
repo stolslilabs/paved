@@ -20,6 +20,7 @@ The env variables of `packages/app-web` (`src/utils/network.ts`), each one set o
 | `VITE_DEPLOYED_BLOCK` | `deployed_block` |
 | `VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`, `VITE_TUTORIAL_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player) |
 | `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` only |
+| `VITE_MOCK_USDC_ADDRESS` | the devnet MockUSDC the faucet mints (overrides `contracts.MockUSDC`) |
 
 The app reads every `contracts/deployments/*.json` at build time (`import.meta.glob`, which
 tolerates a missing folder) and picks `<network>.json`.
@@ -326,7 +327,7 @@ runs in Cartridge's iframe. The connector is configured as follows:
 
   The economy's other writes are not in the session, so each one prompts: `Economy.settle`,
   `PavedToken.approve(Vault, …)`, and Vault `stake`/`unstake`/`claim`. Their addresses belong to
-  the economy's deployment, not to `Deployment`. `Token.mint` is not a policy, because the faucet
+  the economy's deployment, not to `Deployment`. `MockUSDC.mint` (was `Token.mint`) is not a policy, because the faucet
   exists only on the devnet mock. The connector refuses to build without an RPC URL or policies.
 
   A test (`chain/test/controller.test.ts`) drives every write of `PavedWriter` and `EconomyWriter`,
