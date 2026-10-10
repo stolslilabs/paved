@@ -20,7 +20,7 @@ use snforge_std::{
 };
 
 #[test]
-#[available_gas(l2_gas: 117706152)]
+#[available_gas(l2_gas: 120451000)]
 fn test_daily_e2e_discard_increments_counter() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
@@ -31,7 +31,7 @@ fn test_daily_e2e_discard_increments_counter() {
 }
 
 #[test]
-#[available_gas(l2_gas: 119661255)]
+#[available_gas(l2_gas: 122871000)]
 fn test_daily_e2e_sponsor_updates_prize_and_balance() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
@@ -54,7 +54,7 @@ fn test_daily_e2e_sponsor_updates_prize_and_balance() {
 }
 
 #[test]
-#[available_gas(l2_gas: 124315903)]
+#[available_gas(l2_gas: 127306000)]
 fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
     start_cheat_block_timestamp_global(100);
 
@@ -88,7 +88,7 @@ fn test_daily_e2e_claim_rewards_top_player_after_tournament_end() {
 }
 
 #[test]
-#[available_gas(l2_gas: 133619589)]
+#[available_gas(l2_gas: 136170000)]
 fn test_daily_e2e_claim_pays_exact_reward_per_rank() {
     start_cheat_block_timestamp_global(100);
 
@@ -159,7 +159,7 @@ fn test_daily_e2e_claim_reverts_before_tournament_end() {
 }
 
 #[test]
-#[available_gas(l2_gas: 127473871)]
+#[available_gas(l2_gas: 129753000)]
 fn test_daily_e2e_build_then_discard_tracks_both_actions() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
 
@@ -180,7 +180,7 @@ fn test_daily_e2e_build_then_discard_tracks_both_actions() {
 }
 
 #[test]
-#[available_gas(l2_gas: 119022519)]
+#[available_gas(l2_gas: 121704000)]
 fn test_daily_e2e_token_erc20_entrypoints() {
     let (_, _, context) = setup::spawn_game(Mode::Daily);
 

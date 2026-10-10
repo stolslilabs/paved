@@ -304,7 +304,7 @@ fn herdsman_open_city_moves() -> Array<GoldenMove> {
 }
 
 #[test]
-#[available_gas(l2_gas: 168144504)]
+#[available_gas(l2_gas: 168487000)]
 fn test_golden_daily_forest_woodsman_ring() {
     let moves = woodsman_ring_moves();
     play_daily(

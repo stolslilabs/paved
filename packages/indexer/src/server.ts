@@ -32,6 +32,7 @@ import type { CrossCheck } from "./crosscheck.ts";
 import { canonical, felt, padded } from "./events.ts";
 import type { Indexer } from "./indexer.ts";
 import { Queries } from "./queries.ts";
+import { clientAddress, limiterOf, type RateLimitOptions } from "./ratelimit.ts";
 
 export type Answer = { code: number; body: Record<string, unknown> };
 
@@ -494,13 +495,29 @@ export type ServeOptions = {
   /** Origins answered with `access-control-allow-origin` (default none: the same origin only). */
   allowedOrigins?: readonly string[];
   info?: HeadInfo;
+  /** Per-address rate limit (P-43); none, or `rate` 0, means no limit. */
+  rateLimit?: RateLimitOptions;
 };
 
 /** The HTTP server. */
 export function serve(indexer: Indexer, options: ServeOptions = {}): Server {
   const allowed = new Set(options.allowedOrigins ?? []);
+  const limiter = limiterOf(options.rateLimit);
   return createServer((request: IncomingMessage, response: ServerResponse) => {
     const headers = corsOf(request, allowed);
+    // First, before any work, whatever the method: an OPTIONS preflight takes a token like a GET.
+    const verdict = limiter?.take(
+      clientAddress(request.socket.remoteAddress, request.headers["x-forwarded-for"]),
+    );
+    if (verdict && !verdict.allowed) {
+      send(response, refusal(indexer, 429, "too many requests"), {
+        ...headers,
+        "retry-after": String(verdict.retryAfter),
+        // Without this a browser's script cannot read Retry-After from a cross-origin answer.
+        "access-control-expose-headers": "Retry-After",
+      });
+      return;
+    }
     let result: Answer;
     try {
       result = respond(indexer, request.method, request.url, options.info);

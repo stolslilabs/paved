@@ -48,6 +48,24 @@ repeats this rule.
 - **Tests are scoped** as in [`AGENTS.md`](../../AGENTS.md). Briefs name the parts touched and their
   test command.
 - No deployment to a production network without the owner's go (reserved act).
+- **Networks (D-8, D-16).** Devnet for tests, Starknet Sepolia for playtests, mainnet the owner's act.
+
+## Sepolia (S-1, D-16, P-39)
+
+Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
+
+1. On the VPS, from merged main (a clean worktree on `origin/main`, nothing unmerged: the script refuses
+   contract sources that differ from the merge base), with the funded account in the environment by name only:
+   `STARKNET_ACCOUNT_ADDRESS`, `STARKNET_PRIVATE_KEY`, `STARKNET_RPC_URL`. No value is printed, logged, echoed
+   or written: no `set -x`, no `env` dump, no value in a file, a commit or a report.
+2. First `scripts/deploy.sh sepolia --rehearse` on a fresh local `starknet-devnet`, then
+   `scripts/deploy.sh sepolia`. It builds, declares, deploys and wires (`contracts/deployments/README.md`,
+   "Sepolia"), writes `contracts/deployments/sepolia.json`, then runs the smoke. Signing is open until the PM
+   picks an option (README, "Signing on Sepolia"); until then the run stops before anything is sent.
+3. `sepolia.json` is committed in a follow-up PR, with the run's output (addresses, transactions, the smoke).
+4. The smoke's test-sized traces are listed in the README; its paid game is settled by the keeper from
+   `(D + 2) x 86400`.
+5. The report gives the addresses of `sepolia.json` (contracts, class hashes, `deployed_block`) to the PM.
 
 ## Checks that gate a merge
 

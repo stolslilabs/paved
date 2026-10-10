@@ -44,7 +44,7 @@ sections that follow give the reasons and the figures.
 | 2 | Curve | As proposed: `sigma = 0`, `rho = 0.9` (`c = 1.813` on today's sample), `H = 5`, `T = 1,000,000`, Nums' supply factor; Glitchbomb's boost `1 + k/100` **kept** (the owner asked for it, D-10) (section 2) | E4's recalibration on real games, or the PM |
 | 3 | Mean | Weighted EMA: weight = stake, min score 100, max weight 1,000; 4x clamp; a push's weight capped at the max weight; no admin setter (section 2) | The PM |
 | 4 | Settlement | **Option B**: after the day, against the day's mean blended with the EMA; option A stays documented as the fallback (section 1) | The owner wants the payout at game over (then option A) |
-| 5 | Contracts | As proposed (section 6): `Economy`, `PavedToken` (minted by the game only, the real `total_supply`), a simple no-owner staking `Vault`, Ekubo interfaces declared locally, `MockRouter` and `MockUSDC` on devnet only, `Lobby` makes the calls. Entries no longer feed the daily top-3 prize, which is **sponsor-only**. **OpenZeppelin for `PavedToken`: yes, a published version pinned exactly** | The PM |
+| 5 | Contracts | As proposed (section 6): `Economy`, `PavedToken` (minted by the game only, the real `total_supply`), a simple no-owner staking `Vault`, Ekubo interfaces declared locally, `MockRouter` and `MockUSDC` on devnet and Sepolia (P-39; refused by name on mainnet), `Lobby` makes the calls. Entries no longer feed the daily top-3 prize, which is **sponsor-only**. **OpenZeppelin for `PavedToken`: yes, a published version pinned exactly** | The PM |
 | 6 | Class headroom | `Daily` +183 felts (72,607, 88.6 %) with the move code unchanged: **OK under P-27** (section 6) | Any further growth of `Daily` goes back to the PM |
 | 7 | NFTs | As proposed (section 9): soulbound `Collection`, mint at spawn from `Lobby`, JSON `token_uri`, transfers revert; spawn +838k (Daily) / +845k (Tutorial) **accepted**; wallet display checked at the first public deploy | The owner (D-11b) |
 | 8 | PR plan | E1 to E5 (section 8), with the security and economy audits | The PM |
@@ -60,8 +60,8 @@ sections that follow give the reasons and the figures.
   later, so E3 still puts the seed behind the `SeedSource` interface (section 8, "Seed source"). With it, a VRF or a
   seed revealed after the purchase can replace the daily seed without touching the move code.
 
-D-13 lifts the seed gate on paid games leaving devnet. The other gates stay: see "Gates before a paid game leaves
-devnet" in section 8.
+D-13 lifts the seed gate on paid games leaving devnet. The other gates stay: see "Gates before a real-money game on
+mainnet" in section 8.
 
 ## Summary
 
@@ -579,10 +579,11 @@ O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, ow
 - **LP fee.** 5 % of every swap's input stays in the pool, for the LP position's holder. That is the owner's choice
   (D-10 gives the margin to the stakers; the LP fee is not margin). Nums sends its LP fees to its treasury.
 
-**Devnet: a mock, never a real router.** `MockRouter` (test and devnet only, like the `Token` mock, O-22) implements
-the same three entry points over its own constant-product reserves with the 5 % fee. `scripts/deploy.sh devnet`
-seeds it with 800,000 PAVED from the initial supply and 10,000 MockUSDC (6 decimals, faucet). The deploy script
-refuses `MockRouter` and `MockUSDC` on any non-local network, as it refuses the mock `Token` today.
+**Devnet and Sepolia: a mock, never a real router (P-39).** `MockRouter` (tests, devnet and Sepolia; no Ekubo on
+Sepolia) implements the same three entry points over its own constant-product reserves with the 5 % fee.
+`scripts/deploy.sh devnet` and `scripts/deploy.sh sepolia` seed it with 800,000 PAVED from the initial supply and
+10,000 MockUSDC (6 decimals, the constructor's premint to the deployer; a bounded faucet for everyone else). The deploy
+script refuses `MockRouter` and `MockUSDC` by name on mainnet, and the mock `Token` off devnet (O-22).
 
 ## 6. Contracts and class headroom
 
@@ -596,7 +597,7 @@ refuses `MockRouter` and `MockUSDC` on any non-local network, as it refuses the 
 | `Economy` (new) | the split, the swap, the burn, the terms per game, the mean and the days, settlement and mint, the configuration, the views | yes | estimate 15,000 to 30,000 (20 to 37 %), measured in its PR |
 | `PavedToken` (new) | OpenZeppelin ERC20, `mint` by `Economy` only, `burn` of one's own balance | yes | estimate 5,000 to 8,000 |
 | `Vault` (new) | stakes in PAVED, dividends in USDC (section 4) | yes | estimate 5,000 to 8,000 |
-| `MockRouter`, `MockUSDC` (new) | devnet and tests only | devnet only | estimate under 6,000 each |
+| `MockRouter`, `MockUSDC` (new) | tests, devnet and Sepolia (P-39) | devnet and Sepolia; refused by name on mainnet | estimate under 6,000 each |
 | `Collection` (new, D-11b) | the soulbound ERC721 of the games: mint at spawn, `token_uri` (section 9) | yes | **13,070, measured** (16.0 %) |
 | `Account` | the registry of the addresses `Lobby` needs: the `Collection` (measured: 3,329, +450) and the `Economy` (the same shape, one more slot) | yes | 3,329 with the `Collection`, measured (+450) |
 
@@ -880,18 +881,35 @@ The two questions recorded by P-31 are answered (2026-10-09):
   implementation.
 - **Ekubo's interfaces are public (D-14).** Declaring them locally in `economy/ekubo.cairo` is fine.
 
-### Gates before a paid game leaves devnet
+### Gates before a real-money game on mainnet
+
+(Called "Gates before a paid game leaves devnet" until S-1. D-16 opens Sepolia to paid games with test USDC; the gates
+below are for real money, on mainnet.)
 
 D-13 lifts the seed gate. These gates stay:
+
+- **Sepolia (D-16, P-39).** D-16 (owner, 2026-10-10) covers on Sepolia: deploying PAVED and distributing the initial
+  1,000,000, creating the Ekubo pool and funding its LP, and staking at launch, all done by the owner's funded account
+  from the VPS. On mainnet these three stay the owner's acts. P-39 (PM, 2026-10-10) then puts the mocks on Sepolia:
+  `MockUSDC` and `MockRouter`, so the "pool" there is `MockRouter`'s, funded the same way. P-39 is reversed if Ekubo
+  serves Sepolia again (quoter and router, checked), or if the owner asks for real Ekubo before mainnet.
+- **Real money only.** The P-34b dump/withhold floor and the mock-router gate below apply to real-money games
+  (mainnet). They do not block Sepolia playtests with test USDC. E4 runs the P-34b simulation on Sepolia data before
+  mainnet.
 
 - **The owner's acts**, unchanged by this design: deploying PAVED on a public network and distributing the initial
   1,000,000; creating the Ekubo pool and funding its LP (Nums: 800,000 PAVED and 10,000 USDC); who holds the LP
   position and its 5 % fees; staking at launch.
-- **The mock-router gate** (from E1's audit): the mainnet price limit and partial fills are untested until a fork
-  test against the mainnet router covers them (see "As built: E2" below).
+- **The mock-router gate** (from E1's audit), a mainnet gate: the mainnet price limit and partial fills are untested
+  until a fork test against the mainnet router covers them (see "As built: E2" below).
+- **The route gap** (P-39, two mainnet gates). `MockRouter`'s quote is `Economy.quote_swap`; on mainnet the client
+  quotes through Ekubo's API, which may answer with a route other than the pool `Economy` swaps through:
+  - (i) the interim guard: the client refuses any route that is not the single hop through `Economy.pool()`. It is
+    in place before any mainnet paid game;
+  - (ii) the target: an on-chain quote through the router, by CORE after the E-9 fork test.
 - **The dump/withhold gate** (P-34b, PM, 2026-10-09). Every input of the open day's mean is public, so a player
   may dump a low score or withhold a game to move the day's mean. E4 measures that strategy in `sim.py` at
-  realistic volumes, including a thin day. If it pays, a floor goes in before any paid game leaves devnet: a score
+  realistic volumes, including a thin day. If it pays, a floor goes in before any real-money game on mainnet: a score
   counts at least `prior / 4` in the day's mean. E2 has no code change for it.
 
 ### As built: E2 (`Economy`)
@@ -907,7 +925,7 @@ differs from the text above, or the text left the choice open, it is written her
   - `configure(config)` and `set_pool(pool_key, sqrt_ratio_limit)`: the owner. `set_pool` lets the owner point the
     swaps at any PAVED/USDC pool, which is accepted trust (section 6; no code change).
   - Views:
-    - `quote`, and `quote_swap` (P-35, devnet only, section 5);
+    - `quote`, and `quote_swap` (P-35, served by `MockRouter` on devnet and Sepolia (P-39), not by Ekubo's router; section 5);
     - `day`: hides only the aggregate (sum, weight and mean are 0 until the day closes). Every input of the open
       day's mean is public (`Purchased`, `Recorded`, `terms`), so the mean can be computed before the close
       (P-34b);
@@ -970,7 +988,7 @@ differs from the text above, or the text left the choice open, it is written her
 - **Indexer.** The indexer reads only `Daily`, `Tutorial` and `Account`, so `Economy`'s events need no
   `IGNORED` entry. E3 decodes them.
 
-**Gate (before any paid game leaves devnet; it stands after D-13): the mainnet price limit and partial fills are
+**Gate (before any real-money game on mainnet; it stands after D-13 and P-39): the mainnet price limit and partial fills are
 untested.**
 `MockRouter` ignores `sqrt_ratio_limit` and always fills the whole input. On Ekubo, a swap that reaches the limit
 fills only part of its input. `clear(USDC)` then returns the rest to `Economy`, which sends it to the Vault as
@@ -1085,6 +1103,40 @@ text left the choice open, it is written here.
 - **Indexer.** `Economy` is a fourth address (`contracts.Economy`, required). `Purchased`, `Recorded`, `DayClosed`
   and `Settled` are stored and served in API v1 (appended fields; amounts as decimal strings, P-19);
   `EconomyConfigured`, `PoolSet`, `GameSet` and `EconomySet` are ignored.
+
+### As built: S-1 (Sepolia, D-16, P-39)
+
+`scripts/deploy.sh sepolia`: Starknet Sepolia for the playtests that calibrate E4. No contract of the game or of the
+economy changed.
+
+- **The devnet economy path** (P-39). `MockUSDC` and `MockRouter` (800,000 PAVED and 10,000 USDC, 5 % fee, launch rate
+  7.6e31, `sqrt_ratio_limit` 0), so `Economy.quote_swap` is the quote path on Sepolia as on devnet. No Ekubo wiring.
+  `deploy.sh` refuses `MockUSDC` and `MockRouter` by name on mainnet only, and the old mock `Token` off devnet.
+- **The bounded faucet** (S-1's audit, findings 1 and 2).
+  - `MockUSDC.mint` mints at most 10,000 USDC per call (`MINT_CAP_PER_CALL`), and at most 20,000 USDC per recipient
+    in total (`MINT_CAP_PER_ADDRESS`, counted in `minted(account)`). The cap is cumulative: spending the USDC does
+    not reopen the faucet. A balance cap would let one account mint without limit by spending between mints, and,
+    through `MockRouter`'s permissionless swap, buy most of the pool's PAVED.
+  - The constructor premints exactly the pool's 10,000 USDC (`PREMINT`) to the account that sends the deploy
+    transaction (`get_tx_info`; through the UDC, the constructor's caller is the UDC, not the deployer). The premint
+    is outside the caps, not counted, and the only way past them.
+  - So nobody can push the deployer to the caps before `deploy.sh` funds the pool. The smoke mints its 2 USDC only
+    when the deployer holds less.
+  - A test deploy has no transaction account, so it gets no premint, and the other tests are unchanged.
+  - The per-call cap is the pool's 10,000 USDC rather than a smaller figure, because the existing tests mint 10,000
+    USDC in one call (`deploy_economy`, the router and economy setups).
+  - **Gas.** The count is a storage write per faucet mint, about 667k l2 gas. Every test budget is a measured figure,
+    so 84 rise:
+    - most e2e tests by about 3.34M (five setup mints);
+    - the goldens' ceilings by 55k to 571k (their expected values are unchanged);
+    - `test_differential_gas_scenarios_a0_a_b` by 5.11M.
+  - The gas of the moves is unchanged (the move-gas tests pass on their budgets), and no game contract changed.
+- **Wiring and stake** as on devnet: the owner's 200,000 PAVED staked before `Economy.set_game`, then
+  `set_minter(Economy)`, `minter() == Economy` and `admin() == 0` checked. P-38's test PAVED is devnet only, so the
+  stake is the whole 200,000. The seed is unchanged (D-13).
+- **The smoke** leaves test-sized traces on Sepolia (`contracts/deployments/README.md`, "Sepolia"); the day's figures
+  are untouched (P-24). Its paid game is settled by the keeper, since Sepolia's time cannot move.
+- **Phase 2** (the deployment and `sepolia.json`) waits for the signing choice (README, "Signing on Sepolia").
 
 ## 9. Games as NFTs (D-11, amended D-11b)
 

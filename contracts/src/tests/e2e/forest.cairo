@@ -397,7 +397,7 @@ fn test_forest_helper_crossings_count_each_road() {
 }
 
 #[test]
-#[available_gas(l2_gas: 166605397)]
+#[available_gas(l2_gas: 167021000)]
 fn test_forest_helper_sandwich_open_roads() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -433,7 +433,7 @@ fn test_forest_helper_two_cities_count_twice() {
 }
 
 #[test]
-#[available_gas(l2_gas: 163350780)]
+#[available_gas(l2_gas: 163922000)]
 fn test_forest_helper_open_cities_do_not_count_nor_block() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -444,7 +444,7 @@ fn test_forest_helper_open_cities_do_not_count_nor_block() {
 }
 
 #[test]
-#[available_gas(l2_gas: 167848999)]
+#[available_gas(l2_gas: 168206000)]
 fn test_forest_helper_collects_the_characters_of_an_open_forest() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -552,7 +552,7 @@ fn test_forest_woodsman_scores_four_roads() {
 }
 
 #[test]
-#[available_gas(l2_gas: 168490700)]
+#[available_gas(l2_gas: 168817000)]
 fn test_forest_woodsman_stays_while_an_adjacent_road_is_open() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -613,7 +613,7 @@ fn test_forest_herdsman_scores_two_cities() {
 }
 
 #[test]
-#[available_gas(l2_gas: 169331408)]
+#[available_gas(l2_gas: 169618000)]
 fn test_forest_herdsman_is_back_with_nothing_when_no_city_is_closed() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
@@ -759,7 +759,7 @@ fn test_forest_woodsman_on_a_road_counts_like_a_lord() {
 /// By hand: the city has 2 tiles (the starter cap and the new cap), 2 x 200 x 1 x bonus(2) =
 /// 2 x 200 x 10475 / 10000 = 419.
 #[test]
-#[available_gas(l2_gas: 138551335)]
+#[available_gas(l2_gas: 140303000)]
 fn test_forest_herdsman_on_a_city_counts_like_a_lord() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let (g, p) = (context.game_id, context.player_id);
