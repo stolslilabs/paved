@@ -87,10 +87,14 @@ stays the owner's act). It runs the devnet economy path (P-39, PM, 2026-10-10: E
   `admin() == 0` are checked), `Account`, `Daily`, `Tutorial`, `Collection`. The seed is unchanged (D-13). Deploys use
   `--unique` and a fresh random salt, so the addresses depend on the deployer and no rerun collides.
 - **Test USDC: `MockUSDC`'s bounded faucet.** `mint(recipient, amount)` is open to anyone, for at most
-  `MINT_CAP_PER_CALL` = 10,000 USDC per call, and never past a balance of `MINT_CAP_PER_ADDRESS` = 20,000 USDC for
-  its recipient (a cap on the balance: USDC sent away makes room again). The deployer funds the pool's 10,000 USDC with one call, and the smoke's
-  2 USDC with another, within both caps (`contracts/src/mocks/usdc.cairo`, tests in
-  `contracts/src/tests/economy/usdc.cairo`).
+  `MINT_CAP_PER_CALL` = 10,000 USDC per call and `MINT_CAP_PER_ADDRESS` = 20,000 USDC per recipient in total
+  (`minted(account)` reads what it received; spending it does not reopen the faucet).
+  - The pool's 10,000 USDC is not from the faucet. The constructor premints exactly `PREMINT` = 10,000 USDC to the
+    account that sends the deploy transaction, outside the caps and not counted in `minted`. It is the only way past
+    the caps.
+  - Nobody can push the deployer to the faucet's caps before the pool is funded.
+  - The smoke takes its 2 USDC from the faucet, unless the deployer already holds them.
+  - Sources: `contracts/src/mocks/usdc.cairo`, tests in `contracts/src/tests/economy/usdc.cairo`.
 - **The quote path.** `Economy.quote_swap(usdc_in)` (forwarded to `MockRouter.quote`), as on devnet; the client
   sends `min_out` = that quote less its slippage (P-35).
 - **The output.** `sepolia.json`, this file's shape (`network` `sepolia`, `rpc_url` `$STARKNET_RPC_URL`, no `Token`,
