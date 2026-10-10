@@ -43,6 +43,7 @@ curl -s http://127.0.0.1:8787/v1/head
 | `--depth <n>\|l1` | Block headers kept below the tip, default `l1` (down to the last block accepted on L1) |
 | `--recheck <blocks>`, `--recheck-every <ms>` | The last blocks read again for a replaced block, default 10 every 10 s |
 | `--allow-origin <origin>` | An origin allowed to call the API from a browser (repeatable; default none) |
+| `--rate <n>`, `--burst <n>` | Per-address rate limit (P-43): `n` requests per second refilled, a bucket of `--burst` (at least 1). Defaults `10` and `20`; `--rate 0` turns the limit off. Over it: `429` with `Retry-After`. Behind a proxy on this machine the address is the left-most `X-Forwarded-For` entry (read from loopback peers only) |
 
 Stop it with `SIGTERM`. The chain id of the node must be the file's.
 
