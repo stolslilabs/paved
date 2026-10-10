@@ -1,0 +1,17 @@
+{
+  "name": "paved-signer",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "bin": {
+    "paved-signer": "./signer.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "dependencies": {
+    "starknet": "10.8.0"
+  }
+}
