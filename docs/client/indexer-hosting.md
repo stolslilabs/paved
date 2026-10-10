@@ -459,8 +459,8 @@ caddy version                                  # v2.11.4 here (apt). Already ins
 #   apt-get update && apt-get install -y caddy=2.11.4
 grep -n 'paved\|^import\|admin' /etc/caddy/Caddyfile   # read it: other imports, an `admin off`, any block or import for these names
 BAK=/etc/caddy/Caddyfile.bak-$(date +%Y%m%d-%H%M%S)-paved
-cp -an /etc/caddy/Caddyfile "$BAK" && echo "$BAK" | tee /root/paved-caddy-backup     # never overwrites; the path is kept for the revert
-grep -qxF 'import /etc/caddy/paved.caddy' /etc/caddy/Caddyfile || printf '\nimport /etc/caddy/paved.caddy\n' >> /etc/caddy/Caddyfile
+# One branch does all three, and only while the import is absent: back up (never overwriting), note the backup, append the import.
+grep -qxF 'import /etc/caddy/paved.caddy' /etc/caddy/Caddyfile || { cp -an /etc/caddy/Caddyfile "$BAK" && echo "$BAK" > /root/paved-caddy-backup && printf '\nimport /etc/caddy/paved.caddy\n' >> /etc/caddy/Caddyfile; }
 runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
@@ -470,13 +470,28 @@ causes: check the import count first (a double import gives it; the line is adde
 means it was added by hand or by an earlier run: delete the extra line), and only then look for a block in the main file for one
 of the two names (remove that block; the backup keeps it). Nothing is loaded yet: the running Caddy still has its old config.
 
-**Revert, if validate failed or a reload is rejected and you stop here** (the running config never changed, so no reload is needed):
+**Revert, if validate failed or a reload is rejected and you stop here** (the running config never changed, so no reload is needed).
+It takes the one import line out of the main file and then removes the site file, so it does not depend on which backup is recorded
+(a re-run of step 5 while the import is there makes no new backup and does not move the note):
 
 ```bash
-cp -a "$(cat /root/paved-caddy-backup)" /etc/caddy/Caddyfile
+sed -i '\#^import /etc/caddy/paved.caddy$#d' /etc/caddy/Caddyfile      # that exact line only; first, so the file never imports a missing file
 rm -f /etc/caddy/paved.caddy
 runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile     # Valid configuration: back to how it was
 ```
+
+Never restore a backup and then delete `paved.caddy` without this `sed`: if the backup holds the import line, the main file would
+import a missing file (`File to import not found`) and the next restart or reboot would take every site down. The backup named in
+`/root/paved-caddy-backup` is for reference only (`diff` it against the main file). A block you removed from the main file *after* the
+first run exists only in the first backup, and only `cp -a` of that one brings it back. Same commands, simulated on scratch copies
+(one imported site file and one main file; `validate` replaced by "every import exists"), what the disk holds:
+
+| Sequence | Import lines in main | `paved.caddy` | Backups | Note points at | Main file imports a missing file? |
+|---|---|---|---|---|---|
+| Step 5 once, then revert | 1, then 0 | yes, then no | 1 (the original) | that backup | no |
+| Step 5 twice, then revert | 1 after both (the second run does nothing), then 0 | yes, then no | 1 (no second backup) | the first backup | no |
+| Validation fails; fix the main file (keep the import line); step 5 again; validate | 1 | yes | 1 (made by the first run, holds the pre-fix file) | that backup | no |
+| Revert twice | 0 | no | unchanged | unchanged | no (the second revert changes nothing) |
 
 **6. Firewall: 80 and 443 open, 8787 not exposed**
 
