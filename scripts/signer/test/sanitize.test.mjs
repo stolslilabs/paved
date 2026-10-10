@@ -58,3 +58,39 @@ test('non-Error throws are sanitised too', () => {
 test('without secrets, it still strips URLs', () => {
   assert.equal(makeSanitizer()(`at ${RPC_URL}`), 'at [redacted url]');
 });
+
+test('redacts the key as base64, base64url, percent-encoded base64 and u128 halves', () => {
+  const value = BigInt(KEY);
+  const bytes = Buffer.from(value.toString(16).padStart(64, '0'), 'hex');
+  const low = value & ((1n << 128n) - 1n);
+  const high = value >> 128n;
+  const spellings = [
+    bytes.toString('base64'),
+    bytes.toString('base64').replace(/=+$/, ''),
+    bytes.toString('base64url'),
+    encodeURIComponent(bytes.toString('base64')),
+    encodeURIComponent(bytes.toString('base64')).toLowerCase(),
+    `0x${low.toString(16)}`,
+    low.toString(10),
+    `0x${high.toString(16)}`,
+    high.toString(10),
+  ];
+  for (const spelling of spellings) {
+    const out = sanitize(`key=${spelling};`);
+    assert.equal(out, 'key=[redacted key];', `kept ${spelling}`);
+  }
+});
+
+test('a small u128 half is not redacted on its own (it would hide common values)', () => {
+  const small = makeSanitizer({ privateKey: '0x71d7bb07b9a64f6f78ac4c816aff4da9' });
+  assert.equal(small('["0x0","0x1"]'), '["0x0","0x1"]');
+  assert.equal(small('0x71d7bb07b9a64f6f78ac4c816aff4da9'), '[redacted key]');
+});
+
+test('redacts the RPC URL and its API key percent-encoded, in either case', () => {
+  for (const text of [encodeURIComponent(RPC_URL), encodeURIComponent(RPC_URL).toLowerCase(), encodeURIComponent(`?k=${API_KEY}&x`)]) {
+    const out = sanitize(`at ${text}`);
+    assert.ok(!out.toLowerCase().includes(API_KEY.toLowerCase()), `kept the API key: ${out}`);
+    assert.ok(!out.toLowerCase().includes('example-rpc'), `kept the host: ${out}`);
+  }
+});

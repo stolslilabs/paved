@@ -49,7 +49,8 @@ export const USAGE = `usage: signer.mjs <command> [options]
   invoke    --contract <felt> --function <name> [--calldata <felt>...]
   multicall --calls <file>   (a JSON array of {"contract", "function", "calldata"})
   call      --contract <felt> --function <name> [--calldata <felt>...]
-The account and the node come from STARKNET_ACCOUNT_ADDRESS, STARKNET_PRIVATE_KEY and STARKNET_RPC_URL.`;
+The account, the node and the network come from STARKNET_ACCOUNT_ADDRESS, STARKNET_PRIVATE_KEY,
+STARKNET_RPC_URL and SIGNER_NETWORK (sepolia or devnet; mainnet is refused).`;
 
 function describe(token) {
   return FLAG_RE.test(token) ? `'${token}'` : 'an argument';
