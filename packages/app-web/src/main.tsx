@@ -1,12 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
 import { TamaguiProvider } from "tamagui";
 import { tamaguiConfig } from "@paved/ui";
 import { IndexerProvider } from "@paved/chain";
-import { App } from "./App";
-import { ConnectionBanner } from "./components/ConnectionBanner";
-import { WalletNotice } from "./components/WalletNotice";
+import { AppTree } from "./AppTree";
 import { WalletProvider } from "./components/WalletProvider";
 import { resolveAppNetwork } from "./utils/network";
 
@@ -42,11 +39,7 @@ root.render(
     <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
       <WalletProvider env={env} network={network}>
         <IndexerProvider client={network.indexer}>
-          <ConnectionBanner />
-          <BrowserRouter>
-            <App supportsMint={network.supportsMint} />
-          </BrowserRouter>
-          <WalletNotice />
+          <AppTree supportsMint={network.supportsMint} />
         </IndexerProvider>
       </WalletProvider>
     </TamaguiProvider>

@@ -222,7 +222,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
 
   return (
     <>
-      <div style={{ position: "fixed", right: 16, top: 16, zIndex: 30, width: 320 }}>
+      <div style={{ position: "fixed", right: 16, top: 16, zIndex: 30, width: 320, maxHeight: "calc(100vh - 16px - 64px)", overflowY: "auto" }}>
         <TokenPanel
           networkLabel={deployment.network}
           balanceLabel={tokenLabel(balance.data ?? 0n, deployment.tokenDecimals)}
