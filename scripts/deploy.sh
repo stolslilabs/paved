@@ -25,14 +25,23 @@
 #   STARKNET_ACCOUNT_ADDRESS  the funded deployer (owner) account
 #   STARKNET_PRIVATE_KEY      its key: never printed, logged or written to a file
 #   STARKNET_RPC_URL          a Sepolia RPC endpoint (it may carry an API key: never printed)
-# It refuses to start when one is missing, naming it. Signing is not settled (S-1 escalation): sncast 0.64.0 signs
-# only from an accounts file, a keystore or a Ledger, and the key must not be written to a file, so the run stops
-# before its first transaction until the PM picks one of the options in contracts/deployments/README.md.
+# It refuses to start when one is missing, naming it. Every transaction (declare, deploy, invoke, multicall) and
+# every view call goes through the starknet.js signer in scripts/signer/ (P-40), installed there with `npm ci`:
+# sncast 0.64.0 signs only from an accounts file, a keystore or a Ledger, and its `--url` would put the RPC URL in
+# argv. The three values are copied into unexported shell variables and the variables unset, so only the signer
+# receives them, through its own environment (`send`), never argv; no other child (curl, python3, scarb, sncast, npm)
+# inherits them. The URL reaches curl through its config on stdin. Before anything is sent: the chain id is
+# SN_SEPOLIA, the deployer account is deployed on the node, then the signer checks the chain id again itself.
 # Phase 2 runs it from merged main (docs/programme/OPERATIONS.md).
 #
-# --rehearse (sepolia): the Sepolia flow on a fresh local starknet-devnet (started as above), with the node's first
-# predeployed account instead of the funded one, the working tree's sources, and the file written to a temporary
-# path. Its smoke also settles the paid game, as devnet's does.
+# --rehearse (sepolia): the same Sepolia path, signer included, on a fresh local starknet-devnet (started as above),
+# with the node's first predeployed account instead of the funded one (its public dev key, in the signer's
+# environment only, with SIGNER_NETWORK=devnet), the working tree's sources, and the file written to a temporary
+# path. The funded account's variables are unset first, so a shell that holds them never hands them to the rehearsal.
+# Its smoke also settles the paid game, as devnet's does.
+#
+# devnet keeps sncast (salt 1 and no `--unique`: the signer always deploys unique, which would tie the addresses of
+# contracts/deployments/devnet.json to the deployer and the salt of each run).
 #
 # Declared only: Lobby (run by Daily and Tutorial through library calls; its constructor reverts).
 # The Lobby class hash is checked as declared on the node (starknet_getClass) before Daily and Tutorial are
@@ -54,13 +63,13 @@
 #   the deployer, who alone may `upgrade` them (and set the Lobby class of Daily and Tutorial); the smoke reads
 #   owner() back on each. PavedToken and Vault have no owner and no upgrade.
 # Deployer, owner and smoke player: devnet and --rehearse, the first predeployed account, read from the node at run
-# time (public dev keys of the node), its key held in a temporary accounts file removed on exit; sepolia, the
-# funded account. Nothing secret is written in the repository.
+# time (public dev keys of the node), its key held in a temporary accounts file removed on exit (devnet) or in the
+# signer's environment (--rehearse); sepolia, the funded account. Nothing secret is written to a file.
 #
 # Env overrides: RPC_URL (devnet and --rehearse: localhost only), SCARB_BIN_DIR, SNCAST_BIN_DIR.
 # `deployed_at` is the merge base of HEAD with origin/main, and the script refuses when the contract
 # sources of the working tree (contracts/src, Scarb.toml, Scarb.lock; untracked files in src too) differ from it.
-# Needs: scarb 2.20.1, sncast 0.64.0, curl, python3, git.
+# Needs: scarb 2.20.1, sncast 0.64.0, curl, python3, git; sepolia and --rehearse also Node 24 and npm.
 set -euo pipefail
 
 # class_declared: reads a starknet_getClass answer on stdin; succeeds only for a JSON object with no `error`
@@ -74,6 +83,19 @@ try:
 except Exception:
     sys.exit(1)
 sys.exit(0 if isinstance(d, dict) and "error" not in d and isinstance(d.get("result"), dict) else 1)
+' 2>/dev/null
+}
+
+# class_hash_answer: reads a starknet_getClassHashAt answer on stdin; succeeds only for a hex `result` and no `error`.
+class_hash_answer() {
+  python3 -I -c '
+import sys, json, re
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+ok = isinstance(d, dict) and "error" not in d and isinstance(d.get("result"), str) and re.fullmatch("0x[0-9a-fA-F]+", d["result"])
+sys.exit(0 if ok else 1)
 ' 2>/dev/null
 }
 
@@ -107,6 +129,10 @@ case "$NETWORK" in
 esac
 
 # sepolia: the funded account's variables, by name only (never a value). A missing one stops the run here.
+unset SEND_ADDRESS SEND_KEY SEND_NETWORK
+SEND_ADDRESS=""
+SEND_KEY=""
+SEND_NETWORK=""
 if [[ "$NETWORK" == "sepolia" && "$REHEARSE" == 0 ]]; then
   missing=()
   for var in STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL; do
@@ -120,19 +146,21 @@ if [[ "$NETWORK" == "sepolia" && "$REHEARSE" == 0 ]]; then
     { echo "deploy.sh: STARKNET_ACCOUNT_ADDRESS is not a 0x hex address (its value is not printed)" >&2; exit 2; }
   [[ "$STARKNET_RPC_URL" == https://* ]] ||
     { echo "deploy.sh: STARKNET_RPC_URL must be an https:// URL (its value is not printed)" >&2; exit 2; }
-  # S-1 escalation: sncast 0.64.0 has no way to sign from the environment alone (an accounts file, a keystore or a
-  # Ledger), and the key must not be written to a file. The run stops before anything is built or sent.
-  echo "deploy.sh: signing on sepolia is not settled: sncast 0.64.0 signs only from an accounts file, a keystore or" >&2
-  echo "deploy.sh: a Ledger, and the key must not be written to a file (S-1). See contracts/deployments/README.md," >&2
-  echo "deploy.sh: \"Signing on Sepolia\". Nothing was built or sent." >&2
-  exit 3
-fi
-
-if [[ "$NETWORK" == "sepolia" && "$REHEARSE" == 0 ]]; then
+  # Unexported copies (unset first, so a caller's export of the same names cannot stick): only `send` passes them on.
+  SEND_ADDRESS="$STARKNET_ACCOUNT_ADDRESS"
+  SEND_KEY="$STARKNET_PRIVATE_KEY"
+  SEND_NETWORK=sepolia
+  unset RPC_URL
   RPC_URL="$STARKNET_RPC_URL"
 else
   RPC_URL="${RPC_URL:-http://127.0.0.1:5050}"
 fi
+# From here no child inherits the funded account: not on sepolia (the copies above), never on devnet or --rehearse.
+unset STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL SIGNER_NETWORK
+export -n RPC_URL
+# sepolia and its rehearsal send through the signer (P-40); devnet through sncast.
+USE_SIGNER=0
+[[ "$NETWORK" == "sepolia" ]] && USE_SIGNER=1
 # Full-authority match: a prefix glob would let `http://127.0.0.1:5050@other-host:5050` through.
 LOCAL_URL_RE='^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?$'
 if [[ ( "$NETWORK" == "devnet" || "$REHEARSE" == 1 ) && ! "$RPC_URL" =~ $LOCAL_URL_RE ]]; then
@@ -176,6 +204,10 @@ else
   OUT="$ROOT/contracts/deployments/$NETWORK.json"
 fi
 ACCOUNTS=(--accounts-file "$WORK_DIR/accounts.json")
+SIGNER_JS="$ROOT/scripts/signer/signer.mjs"
+# The signer's heap cap (1.5x its measured peak, VPS rule): NODE_OPTIONS holds it alone.
+SIGNER_HEAP="--max-old-space-size=256"
+RELEASE_DIR="$ROOT/contracts/target/release"
 
 die() { echo "deploy.sh: $*" >&2; exit 1; }
 
@@ -211,6 +243,20 @@ print(json.dumps(last))
 PY
 }
 
+# send <signer command> [options...]: runs scripts/signer as the deployer and prints its JSON line. The account, key
+# and node go in the signer's own environment, never argv. NODE_OPTIONS is the heap cap alone and NODE_DEBUG is
+# empty: the signer refuses anything else, but only once node runs, after an inspector from NODE_OPTIONS would
+# already listen. SIGUSR1 cannot open the inspector (--disable-sigusr1). A failure dies with the signer's stderr,
+# which the signer sanitises (no key, no URL); its progress lines stay out of a successful run's output.
+send() {
+  local out
+  out="$(STARKNET_ACCOUNT_ADDRESS="$SEND_ADDRESS" STARKNET_PRIVATE_KEY="$SEND_KEY" STARKNET_RPC_URL="$RPC_URL" \
+    SIGNER_NETWORK="$SEND_NETWORK" NODE_OPTIONS="$SIGNER_HEAP" NODE_DEBUG="" \
+    node --disable-sigusr1 "$SIGNER_JS" "$@" 2>"$WORK_DIR/signer.err")" ||
+    die "signer $1 failed: $(tail -c 800 "$WORK_DIR/signer.err")"
+  printf '%s\n' "$out"
+}
+
 hex_int() { python3 -I -c 'import sys;print(int(sys.argv[1],16))' "$1"; }
 felt_str() { python3 -I -c 'import sys;print(int(sys.argv[1],16).to_bytes(31,"big").lstrip(b"\0").decode())' "$1"; }
 
@@ -219,8 +265,12 @@ call() { # <address> <function> [calldata...]
   local addr="$1" fn="$2"; shift 2
   local args=()
   [[ $# -gt 0 ]] && args=(--calldata "$@")
-  sc sncast call --url "$RPC_URL" --contract-address "$addr" --function "$fn" ${args[@]+"${args[@]}"} |
-    pyj '" ".join(d["response_raw"])'
+  if ((USE_SIGNER)); then
+    send call --contract "$addr" --function "$fn" ${args[@]+"${args[@]}"} | pyj '" ".join(d["result"])'
+  else
+    sc sncast call --url "$RPC_URL" --contract-address "$addr" --function "$fn" ${args[@]+"${args[@]}"} |
+      pyj '" ".join(d["response_raw"])'
+  fi
 }
 
 # Invokes an entry point as the deployer, waits for acceptance, prints the tx hash.
@@ -229,16 +279,58 @@ invoke() { # <address> <function> [calldata...]
   local args=()
   [[ $# -gt 0 ]] && args=(--calldata "$@")
   local tx
-  tx="$(sc sncast --wait "${ACCOUNTS[@]}" --account dev invoke --url "$RPC_URL" \
-    --contract-address "$addr" --function "$fn" ${args[@]+"${args[@]}"} | pyj 'd["transaction_hash"]')"
+  if ((USE_SIGNER)); then
+    tx="$(send invoke --contract "$addr" --function "$fn" ${args[@]+"${args[@]}"} | pyj 'd["transaction_hash"]')" ||
+      die "invoke $fn failed"
+  else
+    tx="$(sc sncast --wait "${ACCOUNTS[@]}" --account dev invoke --url "$RPC_URL" \
+      --contract-address "$addr" --function "$fn" ${args[@]+"${args[@]}"} | pyj 'd["transaction_hash"]')"
+  fi
   echo "   $fn tx $tx" >&2
   echo "$tx"
 }
 
+# Invokes several calls as the deployer, each argument "<address> <function> [calldata...]": through the signer in one
+# multicall transaction, on devnet one invoke each. Prints nothing on stdout.
+invoke_all() {
+  local spec tx
+  if ((USE_SIGNER)); then
+    python3 -I -c '
+import json, sys
+calls = []
+for spec in sys.argv[2:]:
+    contract, function, *calldata = spec.split()
+    calls.append({"contract": contract, "function": function, "calldata": calldata})
+with open(sys.argv[1], "w") as f:
+    json.dump(calls, f)
+' "$WORK_DIR/calls.json" "$@" || die "invalid multicall"
+    tx="$(send multicall --calls "$WORK_DIR/calls.json" | pyj 'd["transaction_hash"]')" || die "multicall failed"
+    echo "   multicall$(for spec in "$@"; do printf ' %s' "$(cut -d' ' -f2 <<<"$spec")"; done) tx $tx" >&2
+  else
+    for spec in "$@"; do
+      # Each spec splits into the address, the function and the calldata.
+      # shellcheck disable=SC2086
+      invoke $spec >/dev/null
+    done
+  fi
+}
+
 declare_class() { # <Contract> -> class hash
   local name="$1" expected out
-  expected="$(sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]')"
-  if out="$(sc sncast --wait "${ACCOUNTS[@]}" --account dev declare --url "$RPC_URL" \
+  expected="$(sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]')" ||
+    die "class-hash $name failed"
+  if ((USE_SIGNER)); then
+    # The release build's files; the class the node takes must be the one sncast computes from the same sources.
+    out="$(send declare --sierra "$RELEASE_DIR/paved_$name.contract_class.json" \
+      --casm "$RELEASE_DIR/paved_$name.compiled_contract_class.json")" || die "declare $name failed"
+    [[ "$(hex_int "$(pyj 'd["class_hash"]' <<<"$out")")" == "$(hex_int "$expected")" ]] ||
+      die "declare $name: the signer declared $(pyj 'd["class_hash"]' <<<"$out"), sncast computes $expected"
+    if [[ "$(pyj 'd["already_declared"]' <<<"$out")" == True ]]; then
+      echo "   declare $name $expected (already declared)" >&2
+    else
+      echo "   declare $name $expected tx $(pyj 'd["transaction_hash"]' <<<"$out")" >&2
+    fi
+  elif out="$(sc sncast --wait "${ACCOUNTS[@]}" --account dev declare --url "$RPC_URL" \
       --contract-name "$name" 2>&1)"; then
     echo "   declare $name $(pyj 'd["class_hash"]' <<<"$out") tx $(pyj 'd["transaction_hash"]' <<<"$out")" >&2
   elif grep -q "already declared" <<<"$out"; then
@@ -257,17 +349,57 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
     MockUSDC|MockRouter) [[ "$NETWORK" == "devnet" || "$NETWORK" == "sepolia" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
     Token) [[ "$NETWORK" == "devnet" ]] || die "refusing to deploy the mock $name on $NETWORK" ;;
   esac
-  local args=()
-  [[ $# -gt 0 ]] && args=(--constructor-calldata "$@")
-  local out
-  out="$(sc sncast --wait "${ACCOUNTS[@]}" --account dev deploy --url "$RPC_URL" \
-    --class-hash "$class" --salt "$SALT" ${UNIQUE[@]+"${UNIQUE[@]}"} ${args[@]+"${args[@]}"})" || die "deploy $name failed (is the node fresh?)"
+  local args=() out
+  if ((USE_SIGNER)); then
+    # The signer always deploys unique (the address depends on the deployer), as UNIQUE does on this path.
+    [[ $# -gt 0 ]] && args=(--calldata "$@")
+    out="$(send deploy --class-hash "$class" --salt "$SALT" ${args[@]+"${args[@]}"})" || die "deploy $name failed"
+  else
+    [[ $# -gt 0 ]] && args=(--constructor-calldata "$@")
+    out="$(sc sncast --wait "${ACCOUNTS[@]}" --account dev deploy --url "$RPC_URL" \
+      --class-hash "$class" --salt "$SALT" ${UNIQUE[@]+"${UNIQUE[@]}"} ${args[@]+"${args[@]}"})" || die "deploy $name failed (is the node fresh?)"
+  fi
   local tx
   tx="$(pyj 'd["transaction_hash"]' <<<"$out")"
   echo "$tx" >>"$WORK_DIR/deploy-txs"  # deploy runs in a subshell: a file, not an array
   echo "   deploy $name $(pyj 'd["contract_address"]' <<<"$out") tx $tx" >&2
   pyj 'd["contract_address"]' <<<"$out"
 }
+
+echo "== node $RPC_LABEL"
+rpc starknet_specVersion '[]' >/dev/null || die "no node answers at $RPC_LABEL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
+CHAIN_ID="$(rpc starknet_chainId '[]' | pyj 'd["result"]')"
+# Sepolia's chain id is SN_SEPOLIA (starknet-devnet answers the same, so the rehearsal passes this check too).
+[[ "$NETWORK" != "sepolia" || "$CHAIN_ID" == "0x534e5f5345504f4c4941" ]] || die "the node's chain id $CHAIN_ID is not SN_SEPOLIA"
+# The deployer: on sepolia the funded account, which must already be deployed on the node; on devnet and the
+# rehearsal the node's first predeployed account (public dev keys): its key goes to sncast's temporary accounts file
+# (devnet) or to the signer's environment (--rehearse).
+TEST_ACCOUNTS=()
+if [[ "$NETWORK" == "sepolia" && "$REHEARSE" == 0 ]]; then
+  DEPLOYER="$SEND_ADDRESS"
+  rpc starknet_getClassHashAt "[\"latest\",\"$DEPLOYER\"]" | class_hash_answer ||
+    die "the deployer account $DEPLOYER is not deployed on $RPC_LABEL"
+else
+  read -r DEPLOYER KEY < <(rpc devnet_getPredeployedAccounts '{"with_balance":false}' |
+    pyj 'd["result"][0]["address"]+" "+d["result"][0]["private_key"]') ||
+    die "node has no predeployed accounts (not a starknet-devnet?)"
+  # The other predeployed accounts get the devnet test PAVED (P-38, devnet only); only addresses are read, never keys.
+  if [[ "$NETWORK" == "devnet" ]]; then
+    while read -r addr; do
+      [[ -n "$addr" ]] && TEST_ACCOUNTS+=("$addr")
+    done < <(rpc devnet_getPredeployedAccounts '{"with_balance":false}' | pyj '"\n".join("0x%064x" % int(a["address"], 16) for a in d["result"][1:])')
+  fi
+  if ((USE_SIGNER)); then
+    SEND_ADDRESS="$DEPLOYER"
+    SEND_KEY="$KEY"
+    SEND_NETWORK=devnet
+  else
+    sncast "${ACCOUNTS[@]}" account import --url "$RPC_URL" --name dev --address "$DEPLOYER" \
+      --private-key "$KEY" --type oz --silent >/dev/null
+  fi
+  KEY=""
+fi
+echo "   chain id $CHAIN_ID, deployer $DEPLOYER"
 
 # deployed_at: the main commit whose contract sources are deployed. The build compiles the working
 # tree, so the working tree (not HEAD) must equal the merge base with origin/main on the contract
@@ -283,27 +415,14 @@ else
     die "untracked files in contracts/src: deploy from main-equivalent sources (or --unmerged)"
 fi
 
-echo "== node $RPC_LABEL"
-rpc starknet_specVersion '[]' >/dev/null || die "no node answers at $RPC_LABEL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
-CHAIN_ID="$(rpc starknet_chainId '[]' | pyj 'd["result"]')"
-# Sepolia's chain id is SN_SEPOLIA (starknet-devnet answers the same, so the rehearsal passes this check too).
-[[ "$NETWORK" != "sepolia" || "$CHAIN_ID" == "0x534e5f5345504f4c4941" ]] || die "the node's chain id $CHAIN_ID is not SN_SEPOLIA"
-# Below, the deployer is the node's first predeployed account: devnet and the rehearsal (the sepolia run stopped at
-# the top, before signing; S-1 escalation).
-read -r DEPLOYER KEY < <(rpc devnet_getPredeployedAccounts '{"with_balance":false}' |
-  pyj 'd["result"][0]["address"]+" "+d["result"][0]["private_key"]') ||
-  die "node has no predeployed accounts (not a starknet-devnet?)"
-# The other predeployed accounts get the devnet test PAVED (P-38, devnet only); only addresses are read, never keys.
-TEST_ACCOUNTS=()
-if [[ "$NETWORK" == "devnet" ]]; then
-  while read -r addr; do
-    [[ -n "$addr" ]] && TEST_ACCOUNTS+=("$addr")
-  done < <(rpc devnet_getPredeployedAccounts '{"with_balance":false}' | pyj '"\n".join("0x%064x" % int(a["address"], 16) for a in d["result"][1:])')
+if ((USE_SIGNER)); then
+  echo "== signer"
+  [[ "$(node --version 2>/dev/null)" == v24.* ]] || die "the signer needs Node 24 on the PATH"
+  # Inside scripts/signer/ only, from its lockfile, without install scripts: never a global install.
+  (cd "$ROOT/scripts/signer" && npm ci --ignore-scripts --no-audit --no-fund --loglevel=error >/dev/null) ||
+    die "npm ci in scripts/signer failed"
+  echo "   scripts/signer installed (npm ci), SIGNER_NETWORK=$SEND_NETWORK"
 fi
-sncast "${ACCOUNTS[@]}" account import --url "$RPC_URL" --name dev --address "$DEPLOYER" \
-  --private-key "$KEY" --type oz --silent >/dev/null
-KEY=""
-echo "   chain id $CHAIN_ID, deployer $DEPLOYER"
 
 echo "== build"
 cd "$ROOT/contracts"
@@ -361,16 +480,16 @@ read -r PREMINT_LOW PREMINT_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER")"
 python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)>=int(sys.argv[3]) else 1)' \
   "$PREMINT_LOW" "$PREMINT_HIGH" "$POOL_USDC" ||
   die "the deployer does not hold MockUSDC's 10,000 USDC premint"
-invoke "$PAVED" approve "$ROUTER" $(u256 "$POOL_PAVED") >/dev/null
-invoke "$USDC" approve "$ROUTER" $(u256 "$POOL_USDC") >/dev/null
+# The approvals and the pool: one multicall through the signer, one invoke each on devnet.
 if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)<int(sys.argv[2],16) else 1)' "$PAVED" "$USDC"; then
-  invoke "$ROUTER" add_liquidity $(u256 "$POOL_PAVED") $(u256 "$POOL_USDC") >/dev/null
+  LIQUIDITY="$(u256 "$POOL_PAVED") $(u256 "$POOL_USDC")"
 else
-  invoke "$ROUTER" add_liquidity $(u256 "$POOL_USDC") $(u256 "$POOL_PAVED") >/dev/null
+  LIQUIDITY="$(u256 "$POOL_USDC") $(u256 "$POOL_PAVED")"
 fi
+invoke_all "$PAVED approve $ROUTER $(u256 "$POOL_PAVED")" "$USDC approve $ROUTER $(u256 "$POOL_USDC")" \
+  "$ROUTER add_liquidity $LIQUIDITY"
 # The owner's stake, before Economy can buy anything (E1's audit): the Vault never has zero stakers.
-invoke "$PAVED" approve "$VAULT" $(u256 "$STAKE_PAVED") >/dev/null
-invoke "$VAULT" stake $(u256 "$STAKE_PAVED") >/dev/null
+invoke_all "$PAVED approve $VAULT $(u256 "$STAKE_PAVED")" "$VAULT stake $(u256 "$STAKE_PAVED")"
 # P-38: the test PAVED, from what the owner keeps outside the stake. Devnet only: off devnet the list is empty, and a
 # non-empty one is refused here as well.
 [[ "$NETWORK" == "devnet" || "${#TEST_ACCOUNTS[@]}" == 0 ]] || die "refusing to transfer test PAVED on $NETWORK (devnet only)"
