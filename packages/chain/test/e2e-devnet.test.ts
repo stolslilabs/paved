@@ -4,6 +4,10 @@
  * a paid purchase with a referrer, play, the prizes, the settlement, the Vault, a sponsor's reclaim and an expired game. On demand only: `PAVED_E2E=1`
  * (`bun run test:e2e`). CI has no devnet.
  *
+ * alice plays her Daily game with the search player of `daily-player.ts` and must score above the day's threshold, so
+ * her settlement mints a positive PAVED reward, checked against `R x h(score / mean)` (`economy-curve.ts`); bob and
+ * carol play naively and stay under it (reward 0). carol then stakes her own 1,000 test PAVED (P-38) in the Vault.
+ *
  * It does not start anything. Start the stack first (packages/README.md, "End-to-end check on devnet"):
  *   starknet-devnet --host 127.0.0.1 --port 5050 --seed 42     # fresh node
  *   scripts/deploy.sh devnet                                   # writes contracts/deployments/devnet.json
@@ -147,7 +151,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   }
 
   /**
-   * Plays a Daily game for at most `maxMoves` placements: a legal placement next to the tiles placed
+   * The naive player (bob and carol): a Daily game for at most `maxMoves` placements, a legal placement next to the tiles placed
    * (found by probing the node), with a character when one fits, then sent through the writer. It
    * surrenders if the game is still running after that.
    */
