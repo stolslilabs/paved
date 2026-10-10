@@ -22,11 +22,12 @@ import {
   readDeployment,
 } from "./deployment.ts";
 import { Indexer, type Depth } from "./indexer.ts";
+import { DEFAULT_BURST, DEFAULT_RATE } from "./ratelimit.ts";
 import { DEFAULT_PORT, serve } from "./server.ts";
 import { SchemaMismatch, Store, deploymentHash } from "./store.ts";
 
 const USAGE =
-  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rpc <url>]`;
+  `usage: indexer run|rebuild --deployment <file> --db <file> [--port <n> (default ${DEFAULT_PORT}, 0: a free port)] [--host <h>] [--poll <ms>] [--depth <blocks>|l1] [--batch <n>] [--recheck <blocks>] [--recheck-every <ms>] [--allow-origin <origin>]... [--rate <requests per second per address> (default ${DEFAULT_RATE}, 0: no limit)] [--burst <n> (default ${DEFAULT_BURST})] [--rpc <url>]`;
 
 function log(message: string) {
   console.log(`[indexer ${new Date().toISOString()}] ${message}`);
@@ -70,6 +71,8 @@ function parsed() {
         recheck: { type: "string" },
         "recheck-every": { type: "string" },
         "allow-origin": { type: "string", multiple: true },
+        rate: { type: "string" },
+        burst: { type: "string" },
         rpc: { type: "string" },
       },
     });
@@ -113,6 +116,8 @@ const recheck = {
   depth: integer(values.recheck, "recheck", 10),
   everyMs: integer(values["recheck-every"], "recheck-every", 10_000, 1),
 };
+const rate = integer(values.rate, "rate", DEFAULT_RATE);
+const burst = integer(values.burst, "burst", DEFAULT_BURST, 1);
 for (const origin of values["allow-origin"] ?? []) {
   if (!URL.canParse(origin) || new URL(origin).origin !== origin)
     fail(`--allow-origin ${origin}: an origin, scheme://host[:port]`);
@@ -192,6 +197,7 @@ for (;;) {
 
 const server = serve(indexer, {
   allowedOrigins: values["allow-origin"] ?? [],
+  rateLimit: { rate, burst },
   info: {
     chainId: config.chainId,
     fromBlock: config.from,
@@ -216,7 +222,7 @@ server.listen(
         : String(address);
     const tip = store.tip();
     log(
-      `serving on ${where}, following ${redact(rpcUrl)} from block ${config.from}; stored tip ${tip ? `${tip.number} ${tip.hash}` : "none"}; depth ${depth}`,
+      `serving on ${where}, following ${redact(rpcUrl)} from block ${config.from}; stored tip ${tip ? `${tip.number} ${tip.hash}` : "none"}; depth ${depth}; rate limit ${rate > 0 ? `${rate}/s per address, burst ${burst}` : "off"}`,
     );
   },
 );
