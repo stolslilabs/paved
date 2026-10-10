@@ -205,8 +205,8 @@ else
 fi
 ACCOUNTS=(--accounts-file "$WORK_DIR/accounts.json")
 SIGNER_JS="$ROOT/scripts/signer/signer.mjs"
-# The signer's heap cap (1.5x its measured peak, VPS rule): NODE_OPTIONS holds it alone.
-SIGNER_HEAP="--max-old-space-size=256"
+# The signer's heap cap: 1.5x its measured peak (405,544 kB RSS, declare Daily, VPS 2026-10-10), rounded up to 64 MB.
+SIGNER_HEAP="--max-old-space-size=640"
 RELEASE_DIR="$ROOT/contracts/target/release"
 
 die() { echo "deploy.sh: $*" >&2; exit 1; }
