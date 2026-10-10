@@ -61,7 +61,7 @@ fn test_economy_entry_price_is_the_stake_unit() {
 }
 
 #[test]
-#[available_gas(l2_gas: 177759000)]
+#[available_gas(l2_gas: 177989000)]
 fn test_economy_spawn_moves_exactly_the_price_of_its_stake() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     assert_paid_spawn(store, @systems, @context, 1);
@@ -71,7 +71,7 @@ fn test_economy_spawn_moves_exactly_the_price_of_its_stake() {
 /// A USDC donation already on `Economy` does not pay for the game: the full price still comes
 /// from the player, and the donation leaves with the purchase (to the Vault, as margin).
 #[test]
-#[available_gas(l2_gas: 121209000)]
+#[available_gas(l2_gas: 121439000)]
 fn test_economy_spawn_with_a_donation_still_pulls_the_full_price() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     IMockUSDCDispatcher { contract_address: context.token.contract_address }
@@ -108,7 +108,7 @@ fn test_economy_unpaid_spawn_reverts_and_leaves_nothing() {
 /// A referrer counts only if it is a registered player other than the payer: it then gets 5 %
 /// of the price; an unregistered address or the payer itself gets nothing.
 #[test]
-#[available_gas(l2_gas: 230142000)]
+#[available_gas(l2_gas: 230372000)]
 fn test_economy_referrer_is_a_registered_player_not_the_payer() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let token = context.token;
@@ -136,7 +136,7 @@ fn assert_recorded(store: setup::TestStore, systems: @setup::Systems, game_id: u
 }
 
 #[test]
-#[available_gas(l2_gas: 135517000)]
+#[available_gas(l2_gas: 135748000)]
 fn test_economy_records_a_game_over_on_build() {
     let (store, systems, context) = almost_over_daily();
     let game = store.game(context.game_id);
@@ -151,7 +151,7 @@ fn test_economy_records_a_game_over_on_build() {
 }
 
 #[test]
-#[available_gas(l2_gas: 128331000)]
+#[available_gas(l2_gas: 128562000)]
 fn test_economy_records_a_game_over_on_discard() {
     let (store, systems, context) = almost_over_daily();
     systems.daily.discard(context.game_id);
@@ -159,7 +159,7 @@ fn test_economy_records_a_game_over_on_discard() {
 }
 
 #[test]
-#[available_gas(l2_gas: 122057000)]
+#[available_gas(l2_gas: 122288000)]
 fn test_economy_records_a_game_over_on_surrender() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     systems.daily.surrender(context.game_id);
@@ -168,7 +168,7 @@ fn test_economy_records_a_game_over_on_surrender() {
 
 /// A Tutorial game is free: neither its spawn nor its end reaches `Economy`.
 #[test]
-#[available_gas(l2_gas: 71960000)]
+#[available_gas(l2_gas: 72193000)]
 fn test_economy_tutorial_calls_neither_purchase_nor_record() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     let mut spy = spy_events();
@@ -235,7 +235,7 @@ fn test_economy_spawn_reverts_before_set_economy() {
 /// A game over at its expiry (24 h after the purchase, P-34) is recorded as expired: it enters no
 /// mean, its day closes empty, and its settlement pays 0.
 #[test]
-#[available_gas(l2_gas: 126997000)]
+#[available_gas(l2_gas: 127228000)]
 fn test_economy_records_an_expired_game_over() {
     snforge_std::start_cheat_block_timestamp_global(10 * 86400 + 3600);
     let (store, systems, _) = setup::spawn_game(Mode::None);

@@ -12,6 +12,7 @@
 
 use core::num::traits::Zero;
 use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::economy::curve::{RATE_SCALE, guarded, next_rate, reference, split, supply_factor};
 use paved::economy::economy::Economy::{
     DayClosed, EconomyConfigured, Event, GameSet, Purchased, Recorded, Settled,
@@ -758,7 +759,7 @@ fn test_configure_applies_to_the_next_purchases_only() {
 }
 
 #[test]
-#[should_panic(expected: 'Economy: not owner')]
+#[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_configure_by_anyone_else_reverts() {
     let s = setup();
     start_cheat_caller_address(s.economy.contract_address, DAILY());
@@ -783,7 +784,7 @@ fn test_set_game_twice_reverts() {
 }
 
 #[test]
-#[should_panic(expected: 'Economy: not owner')]
+#[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_set_game_by_anyone_else_reverts() {
     let s = setup();
     start_cheat_caller_address(s.economy.contract_address, SOMEONE());
@@ -798,7 +799,9 @@ fn test_set_game_emits_and_is_readable() {
     spy.assert_emitted(@array![(s.economy.contract_address, Event::GameSet(event))]);
     let addresses = s.economy.addresses();
     assert_eq!((addresses.game, addresses.vault, addresses.router), (DAILY(), s.vault, s.router));
-    assert_eq!(s.economy.owner(), OWNER());
+    assert_eq!(
+        IOwnableDispatcher { contract_address: s.economy.contract_address }.owner(), OWNER(),
+    );
 }
 
 #[test]
@@ -822,7 +825,7 @@ fn test_set_pool_on_other_tokens_reverts() {
 }
 
 #[test]
-#[should_panic(expected: 'Economy: not owner')]
+#[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_set_pool_by_anyone_else_reverts() {
     let s = setup();
     let (pool_key, _) = s.economy.pool();

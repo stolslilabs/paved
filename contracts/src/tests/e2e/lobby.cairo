@@ -1,8 +1,9 @@
 //! The `Lobby` class (S1, `docs/architecture/class-headroom.md` option e): spawn, claim, sponsor,
 //! discard and surrender of `Daily` and `Tutorial` run in it by library call. These tests pin the
-//! conditions of ruling P-26: `lobby_class` is written by the constructors only, `Lobby` and the
-//! game contracts agree on the storage layout, `Lobby` cannot be deployed, and the token paths
-//! write their state before the transfer (checks, effects, interactions) under the library call.
+//! conditions of ruling P-26: `lobby_class` is written by the constructors and, since P-42, by the
+//! owner's `set_lobby_class` only (`tests::e2e::upgrades`), `Lobby` and the game contracts agree on
+//! the storage layout, `Lobby` cannot be deployed, and the token paths write their state before the
+//! transfer (checks, effects, interactions) under the library call.
 
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::constants;
@@ -286,10 +287,10 @@ fn test_lobby_cannot_be_deployed() {
     assert(*panic.at(0) == 'Lobby: declared only', 'Lobby: deployable');
 }
 
-// Condition 1: `lobby_class` is written by the constructors only
+// Condition 1: `lobby_class` is written by the constructors and `set_lobby_class` only
 
 #[test]
-#[available_gas(l2_gas: 60184000)]
+#[available_gas(l2_gas: 60416000)]
 fn test_lobby_class_is_set_by_the_constructors() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let lobby = lobby_class();
@@ -297,10 +298,11 @@ fn test_lobby_class_is_set_by_the_constructors() {
     assert(stored_lobby_class(systems.tutorial.contract_address) == lobby, 'Lobby: tutorial class');
 }
 
-/// Every entry point of `Daily` and `Tutorial` but `upgrade` (which replaces the whole class, P2)
-/// is run, each with the stored class hash read back after it.
+/// Every entry point of `Daily` and `Tutorial` but `upgrade` (which replaces the whole class) and
+/// `set_lobby_class` (the owner's, P-42) is run, each with the stored class hash read back after
+/// it.
 #[test]
-#[available_gas(l2_gas: 216467952)]
+#[available_gas(l2_gas: 216623000)]
 fn test_lobby_class_is_never_written_after_construction() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -366,7 +368,7 @@ fn test_lobby_class_is_never_written_after_construction() {
 /// the game state of a build) is what `Lobby`'s code reads (it finds the player, pays the token
 /// `Daily` stores, and discards on the state the build left).
 #[test]
-#[available_gas(l2_gas: 147574000)]
+#[available_gas(l2_gas: 147807000)]
 fn test_lobby_and_daily_share_the_storage_layout() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -439,7 +441,7 @@ fn test_lobby_and_daily_share_the_storage_layout() {
 /// The same agreement for `Tutorial`: `Lobby` spawns, discards and surrenders, `Tutorial` builds,
 /// and each reads what the other wrote.
 #[test]
-#[available_gas(l2_gas: 134332000)]
+#[available_gas(l2_gas: 134567000)]
 fn test_lobby_and_tutorial_share_the_storage_layout() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let views = IGameViewDispatcher { contract_address: systems.tutorial.contract_address };
@@ -469,7 +471,7 @@ fn test_lobby_and_tutorial_share_the_storage_layout() {
 /// `Economy.purchase` runs on the stored game; the entry no longer feeds the prize. `sponsor`
 /// pays to `Daily` after the prize grows.
 #[test]
-#[available_gas(l2_gas: 70570000)]
+#[available_gas(l2_gas: 70668000)]
 fn test_lobby_spawn_and_sponsor_write_state_before_the_transfer() {
     start_cheat_block_timestamp_global(100);
     let (daily, spy, economy) = spied_daily();
@@ -504,7 +506,7 @@ fn test_lobby_spawn_and_sponsor_write_state_before_the_transfer() {
 
 /// `claim` pays out of `Daily` by `transfer`, after the rank is marked claimed.
 #[test]
-#[available_gas(l2_gas: 78260000)]
+#[available_gas(l2_gas: 78362000)]
 fn test_lobby_claim_writes_state_before_the_transfer() {
     start_cheat_block_timestamp_global(100);
     let (daily, spy, _) = spied_daily();

@@ -4,6 +4,7 @@
 use core::num::traits::Zero;
 use openzeppelin_interfaces::introspection::ISRC5_ID;
 use openzeppelin_interfaces::token::erc721::{IERC721_ID, IERC721_METADATA_ID};
+use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::systems::collection::{
     Collection, ICollectionDispatcher, ICollectionDispatcherTrait,
     IERC721MetadataSoulboundDispatcher, IERC721MetadataSoulboundDispatcherTrait,
@@ -265,7 +266,7 @@ fn test_collection_mint_high_word() {
 fn test_collection_minters_are_read() {
     let world = setup();
     let collection = ICollectionDispatcher { contract_address: world.collection };
-    assert_eq!(collection.owner(), OWNER());
+    assert_eq!(IOwnableDispatcher { contract_address: world.collection }.owner(), OWNER());
     assert_eq!(collection.daily(), world.daily);
     assert_eq!(collection.tutorial(), world.tutorial);
 }
@@ -287,7 +288,7 @@ fn test_collection_set_minters_refuses_one_address_for_both() {
 }
 
 #[test]
-#[should_panic(expected: 'Collection: not owner')]
+#[should_panic(expected: 'Ownable: caller is not owner')]
 fn test_collection_set_minters_by_anyone() {
     let world = deploy();
     set_minters(@world, OTHER());
