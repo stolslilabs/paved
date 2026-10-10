@@ -27,7 +27,9 @@
 #   3,353 points, launch rate 7.6e31 after the pool's fee), PavedToken.set_minter(Economy) (then
 #   minter() == Economy and admin() == 0 are checked), Account(owner), Daily(owner, account, USDC, lobby
 #   class), Tutorial(owner, account, lobby class), Economy.set_game(Daily) (after the stake),
-#   Account.set_economy(Economy).
+#   Account.set_economy(Economy), Collection(owner) (P8 E5b, the soulbound ERC721 of the games), then as
+#   the owner Account.set_collection(Collection) and Collection.set_minters(Daily, Tutorial) (both checked
+#   by read back). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
 # Deployer, owner and smoke player: the first predeployed devnet account, read from the node at run
 # time (public dev keys of the node). The key is only held in a temporary accounts file, removed on
 # exit; nothing secret is written in the repository.
@@ -59,11 +61,14 @@ LOCAL_URL_RE='^http://(127\.0\.0\.1|localhost|\[::1\]):[0-9]+/?$'
 if [[ ! "$RPC_URL" =~ $LOCAL_URL_RE ]]; then
   # Only scheme and host are printed: the URL could carry an API key (userinfo, path, query or fragment).
   # The authority is cut first, so an `@` after the host never counts as userinfo.
-  RPC_SCHEME="(none)"; RPC_HOST="(none)"
+  # Each part says what could not be read, never a bare placeholder.
+  RPC_SCHEME="(not a URL: no '://')"; RPC_HOST="(not a URL: no '://')"
   if [[ "$RPC_URL" == *://* ]]; then
+    RPC_SCHEME="(unparsable scheme)"
     [[ "${RPC_URL%%://*}" =~ ^[A-Za-z][A-Za-z0-9+.-]*$ ]] && RPC_SCHEME="${RPC_URL%%://*}"
     auth="${RPC_URL#*://}"; auth="${auth%%[/?#]*}"; auth="${auth##*@}"
     if [[ "$auth" == \[* ]]; then RPC_HOST="${auth%%]*}]"; else RPC_HOST="${auth%%:*}"; fi
+    [[ -n "$RPC_HOST" ]] || RPC_HOST="(unparsable host: empty)"
   fi
   echo "deploy.sh: devnet must be a local node (http://127.0.0.1|localhost|[::1]:<port>), got scheme '${RPC_SCHEME}' host '${RPC_HOST}'" >&2
   exit 2
@@ -214,6 +219,7 @@ ROUTER_CLASS="$(declare_class MockRouter)"
 VAULT_CLASS="$(declare_class Vault)"
 ECONOMY_CLASS="$(declare_class Economy)"
 LOBBY_CLASS="$(declare_class Lobby)"
+COLLECTION_CLASS="$(declare_class Collection)"
 
 # Daily and Tutorial only store the Lobby class hash: an undeclared one would deploy fine and revert every
 # spawn, claim, sponsor, discard and surrender. Refuse before deploying anything.
@@ -276,6 +282,14 @@ TUTORIAL="$(deploy Tutorial "$TUTORIAL_CLASS" "$DEPLOYER" "$ACCOUNT" "$LOBBY_CLA
 invoke "$ECONOMY" set_game "$DAILY" >/dev/null
 invoke "$ACCOUNT" set_economy "$ECONOMY" >/dev/null
 [[ "$(hex_int "$(call "$ACCOUNT" economy)")" == "$(hex_int "$ECONOMY")" ]] || die "Account.economy() is not Economy"
+# The game NFT: without it every spawn reverts ('Lobby: collection not set'), so it is wired before the smoke.
+COLLECTION="$(deploy Collection "$COLLECTION_CLASS" "$DEPLOYER")"
+invoke "$ACCOUNT" set_collection "$COLLECTION" >/dev/null
+invoke "$COLLECTION" set_minters "$DAILY" "$TUTORIAL" >/dev/null
+[[ "$(hex_int "$(call "$ACCOUNT" collection)")" == "$(hex_int "$COLLECTION")" ]] || die "Account.collection() is not Collection"
+[[ "$(hex_int "$(call "$COLLECTION" daily)")" == "$(hex_int "$DAILY")" ]] || die "Collection.daily() is not Daily"
+[[ "$(hex_int "$(call "$COLLECTION" tutorial)")" == "$(hex_int "$TUTORIAL")" ]] || die "Collection.tutorial() is not Tutorial"
+echo "   Collection: minters Daily and Tutorial, registered in Account"
 
 DEPLOYED_BLOCK="$(rpc starknet_getTransactionReceipt "[\"$(head -1 "$WORK_DIR/deploy-txs")\"]" | pyj 'd["result"]["block_number"]')"
 DECIMALS="$(hex_int "$(call "$USDC" decimals)")"
@@ -288,14 +302,15 @@ python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_URL" "$DEPLOYED_AT" "$DEPLOYED_
   "$DECIMALS" "$SYMBOL" "$LOBBY_CLASS" "MockUSDC=$USDC=$USDC_CLASS" "Token=$TOKEN=$TOKEN_CLASS" \
   "PavedToken=$PAVED=$PAVED_CLASS" "MockRouter=$ROUTER=$ROUTER_CLASS" "Vault=$VAULT=$VAULT_CLASS" \
   "Economy=$ECONOMY=$ECONOMY_CLASS" "Account=$ACCOUNT=$ACCOUNT_CLASS" \
-  "Daily=$DAILY=$DAILY_CLASS" "Tutorial=$TUTORIAL=$TUTORIAL_CLASS" <<'PY'
+  "Daily=$DAILY=$DAILY_CLASS" "Tutorial=$TUTORIAL=$TUTORIAL_CLASS" \
+  "Collection=$COLLECTION=$COLLECTION_CLASS" <<'PY'
 import json, sys
 out, network, chain_id, rpc_url, commit, block, decimals, symbol, lobby, *items = sys.argv[1:]
 c = {}
 for item in items:
     name, address, class_hash = item.split("=")
     c[name] = {"address": address, "class_hash": class_hash}
-names = ["Account", "Daily", "Tutorial", "Token", "Economy", "PavedToken", "Vault"]
+names = ["Account", "Daily", "Tutorial", "Collection", "Token", "Economy", "PavedToken", "Vault"]
 # Off devnet the real USDC goes under `USDC`; on devnet the mocks keep their names.
 names += ["MockUSDC", "MockRouter"] if network == "devnet" else ["USDC"]
 doc = {
@@ -321,6 +336,31 @@ echo "== wrote ${OUT#"$ROOT/"}"
 terms() {
   read -r -a T <<<"$(call "$ECONOMY" terms "$1")"
   echo "$(hex_int "${T[0]}") $(hex_int "${T[9]}") $(hex_int "${T[11]}") $(hex_int "${T[12]}")"
+}
+
+# Reads the owner and the token_uri of a game token and checks both: the owner is the deployer and the URI
+# decodes to section 9's JSON for this id (name, Score, Over, Day attributes). Args: <token id> <expected over>.
+check_token() {
+  local id="$1" over="$2" owner uri
+  owner="$(call "$COLLECTION" owner_of $(u256 "$id"))"
+  [[ "$(hex_int "$owner")" == "$(hex_int "$DEPLOYER")" ]] || die "Collection.owner_of($id) is not the player"
+  uri="$(call "$COLLECTION" token_uri $(u256 "$id"))"
+  python3 -I -c '
+import sys, json, base64
+felts = [int(x, 16) for x in sys.argv[1].split()]
+n = felts[0]
+data = b"".join(f.to_bytes(31, "big") for f in felts[1:1 + n])
+pending, plen = felts[1 + n], felts[2 + n]
+data += pending.to_bytes(plen, "big") if plen else b""
+prefix = b"data:application/json;base64,"
+assert data.startswith(prefix), "token_uri prefix"
+doc = json.loads(base64.b64decode(data[len(prefix):]))
+attrs = {a["trait_type"]: a["value"] for a in doc["attributes"]}
+assert doc["name"] == "Paved Games #" + sys.argv[2], doc["name"]
+assert attrs["Over"] == (sys.argv[3] == "true"), attrs
+assert isinstance(attrs["Score"], int) and isinstance(attrs["Day"], int), attrs
+print("   token", sys.argv[2], "owner the player, token_uri", json.dumps(attrs, sort_keys=True))
+' "$uri" "$id" "$over" || die "Collection.token_uri($id) is not section 9's JSON"
 }
 
 echo "== smoke"
@@ -357,6 +397,7 @@ invoke "$DAILY" surrender "$PAID_ID" >/dev/null
 read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
 [[ "$T_RECORDED" == 1 ]] || die "the surrender of game $PAID_ID was not recorded by Economy"
 echo "   daily game $PAID_ID surrendered (score 0), recorded"
+check_token "$PAID_ID" true
 
 # The Tutorial belongs to no tournament: spawn, one scripted build (the Tutorial refuses a discard while the
 # tile in hand has a legal placement, and `build` takes no placement), read back.
@@ -375,6 +416,8 @@ read -r G_ID _ G_MODE _ _ G_OVER _ G_PLACED _ <<<"$GAME"
 [[ "$(hex_int "$G_MODE")" == 3 ]] || die "game($GAME_ID) mode is $(hex_int "$G_MODE"), expected 3 (Tutorial)"
 [[ "$(hex_int "$G_PLACED")" == 2 ]] || die "game($GAME_ID) placed_count is $(hex_int "$G_PLACED"), expected 2"
 echo "   game($GAME_ID) read back: id $GAME_ID, mode Tutorial, placed_count 2, over $(hex_int "$G_OVER")"
+# A Tutorial game's token id is 2^32 + its game id.
+check_token $((4294967296 + GAME_ID)) false
 
 # Settlement on a later day: from (D + 2) x 86400 (P-34). A keeper settles each day then (README).
 SETTLE_AT=$(((DAY + 2) * 86400))

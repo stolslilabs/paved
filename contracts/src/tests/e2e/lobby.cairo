@@ -9,6 +9,7 @@ use paved::constants;
 use paved::models::tile::CENTER;
 use paved::models::tournament::TournamentTrait;
 use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
+use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
 use paved::systems::daily::IDailyDispatcher;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::leaderboard;
@@ -27,8 +28,8 @@ use paved::views::{
     ITournamentViewDispatcherTrait,
 };
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, declare, load, start_cheat_block_timestamp_global,
-    start_cheat_caller_address, stop_cheat_caller_address,
+    ContractClassTrait, DeclareResultTrait, declare, load, map_entry_address,
+    start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
 
@@ -249,7 +250,13 @@ pub fn spied_daily() -> (IDailyDispatcher, ISpyTokenDispatcher, ISpyEconomyDispa
     let daily = deploy("Daily", array![owner, account.into(), token.into(), lobby_class()]);
     start_cheat_caller_address(account, OWNER());
     IAccountDispatcher { contract_address: account }.set_economy(economy);
+    let collection = deploy("Collection", array![owner]);
+    IAccountDispatcher { contract_address: account }.set_collection(collection);
     stop_cheat_caller_address(account);
+    start_cheat_caller_address(collection, OWNER());
+    ICollectionDispatcher { contract_address: collection }
+        .set_minters(daily, 'TUTORIAL'.try_into().unwrap());
+    stop_cheat_caller_address(collection);
     start_cheat_caller_address(account, PLAYER());
     IAccountDispatcher { contract_address: account }.create(PLAYER_NAME, PLAYER());
     stop_cheat_caller_address(account);
@@ -274,7 +281,7 @@ fn test_lobby_cannot_be_deployed() {
 // Condition 1: `lobby_class` is written by the constructors only
 
 #[test]
-#[available_gas(l2_gas: 56315579)]
+#[available_gas(l2_gas: 56810000)]
 fn test_lobby_class_is_set_by_the_constructors() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let lobby = lobby_class();
@@ -401,6 +408,12 @@ fn test_lobby_and_daily_share_the_storage_layout() {
     // [Lobby -> Daily] sponsor, surrender, claim
     systems.daily.sponsor(1000);
     assert(tournaments.tournament(tournament_id).prize == 1000, 'Lobby: sponsored');
+    // [Lobby -> Daily] the sponsorship `Lobby` wrote sits at the raw address of `Daily`'s own
+    // `sponsorships` map, under the (day, sponsor) key
+    let slot = map_entry_address(
+        selector!("sponsorships"), array![tournament_id.into(), PLAYER().into()].span(),
+    );
+    assert(*load(daily, slot, 1).at(0) == 1000, 'Lobby: sponsorship slot');
     systems.daily.surrender(game_id);
     let over = views.game(game_id);
     assert(over.over, 'Lobby: over');
@@ -448,7 +461,7 @@ fn test_lobby_and_tutorial_share_the_storage_layout() {
 /// `Economy.purchase` runs on the stored game; the entry no longer feeds the prize. `sponsor`
 /// pays to `Daily` after the prize grows.
 #[test]
-#[available_gas(l2_gas: 68370357)]
+#[available_gas(l2_gas: 70570000)]
 fn test_lobby_spawn_and_sponsor_write_state_before_the_transfer() {
     start_cheat_block_timestamp_global(100);
     let (daily, spy, economy) = spied_daily();
@@ -483,7 +496,7 @@ fn test_lobby_spawn_and_sponsor_write_state_before_the_transfer() {
 
 /// `claim` pays out of `Daily` by `transfer`, after the rank is marked claimed.
 #[test]
-#[available_gas(l2_gas: 76446148)]
+#[available_gas(l2_gas: 78260000)]
 fn test_lobby_claim_writes_state_before_the_transfer() {
     start_cheat_block_timestamp_global(100);
     let (daily, spy, _) = spied_daily();

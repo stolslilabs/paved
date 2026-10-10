@@ -103,6 +103,7 @@ const config = {
   tutorial: deployment.tutorial,
   account: deployment.account,
   economy: deployment.economy,
+  collection: deployment.collection,
   from: deployment.deployedBlock,
   chainId: deployment.chainId,
 };
@@ -199,6 +200,7 @@ const server = serve(indexer, {
       tutorial: config.tutorial,
       account: config.account,
       economy: config.economy,
+      collection: config.collection ?? null,
     },
     checks,
   },

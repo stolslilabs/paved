@@ -38,7 +38,7 @@ const shortOf = (item: AbiItem) => item.name.split("::").at(-1)!;
 describe("the ABIs", () => {
   test("every event of every contract is indexed or ignored, with the selector of its name", () => {
     // Lobby runs inside Daily and Tutorial by library call: its events come from their addresses.
-    for (const contract of ["Daily", "Tutorial", "Account", "Economy", "Lobby"]) {
+    for (const contract of ["Daily", "Tutorial", "Account", "Economy", "Lobby", "Collection"]) {
       const items = abi(contract).filter((item) => item.type === "event" && item.kind === "struct");
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
@@ -396,6 +396,55 @@ describe("Economy's events", () => {
     const settled = ev.settled(1, 1);
     expect(() => decode("tutorial", settled.keys, settled.data)).toThrow(DecodeError);
     expect(() => decode("economy", settled.keys, [...settled.data, "0x0"])).toThrow(DecodeError);
+  });
+});
+
+describe("Collection's mint", () => {
+  test("its Transfer keys are the ABI's: from, to and the token id are all keys, and there is no data", () => {
+    const transfer = abi("Collection").find((item) => item.type === "event" && item.kind === "struct" && shortOf(item) === "Transfer")!;
+    expect(transfer.members!.map((m) => [m.name, m.kind])).toEqual([
+      ["from", "key"],
+      ["to", "key"],
+      ["token_id", "key"],
+    ]);
+  });
+
+  test("a Daily token is the game id, a Tutorial token is 2^32 + the game id", () => {
+    const daily = ev.minted(0x41, 7);
+    expect(decode("collection", daily.keys, daily.data)).toEqual({
+      name: "Transfer",
+      to: 0x41n,
+      tokenId: 7,
+      contract: "daily",
+      gameId: 7,
+    });
+    const tutorial = ev.minted(0x41, 2 ** 32 + 7);
+    expect(decode("collection", tutorial.keys, tutorial.data)).toEqual({
+      name: "Transfer",
+      to: 0x41n,
+      tokenId: 2 ** 32 + 7,
+      contract: "tutorial",
+      gameId: 7,
+    });
+    // The largest id stays a safe integer.
+    const last = ev.minted(0x41, 2 ** 33 - 1);
+    expect(decode("collection", last.keys, last.data)).toMatchObject({ contract: "tutorial", gameId: 2 ** 32 - 1 });
+  });
+
+  test("CollectionSet is known and skipped", () => {
+    expect(decode("account", [SELECTORS.CollectionSet!, "0x7"], [])).toBeNull();
+  });
+
+  test("a wrong emitter, a transfer that is not a mint, a token of no game, a wide id or a shape is a DecodeError", () => {
+    const good = ev.minted(0x41, 7);
+    expect(() => decode("daily", good.keys, good.data)).toThrow(DecodeError);
+    const keys = (...rest: string[]) => [SELECTORS.Transfer, ...rest];
+    expect(() => decode("collection", keys("0x9", "0x41", "0x7", "0x0"), [])).toThrow(/only mints/);
+    expect(() => decode("collection", keys("0x0", "0x41", "0x0", "0x0"), [])).toThrow(/game id 0/);
+    expect(() => decode("collection", keys("0x0", "0x41", `0x${(2n ** 33n).toString(16)}`, "0x0"), [])).toThrow(/no game contract/);
+    expect(() => decode("collection", keys("0x0", "0x41", "0x7", "0x1"), [])).toThrow(DecodeError);
+    expect(() => decode("collection", keys("0x0", "0x41", "0x7"), [])).toThrow(DecodeError);
+    expect(() => decode("collection", good.keys, ["0x1"])).toThrow(DecodeError);
   });
 });
 

@@ -5,6 +5,7 @@ pub mod economy;
 pub mod events;
 pub mod forest;
 pub mod lobby;
+pub mod mint;
 pub mod quests;
 pub mod reclaim;
 pub mod store;

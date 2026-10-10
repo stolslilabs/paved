@@ -80,6 +80,29 @@
           }
         ],
         "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "set_collection",
+        "inputs": [
+          {
+            "name": "collection",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "collection",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
       }
     ]
   },
@@ -572,6 +595,18 @@
   },
   {
     "type": "event",
+    "name": "paved::systems::account::Account::CollectionSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "collection",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::account::Account::Event",
     "kind": "enum",
     "variants": [
@@ -593,6 +628,11 @@
       {
         "name": "EconomySet",
         "type": "paved::systems::account::Account::EconomySet",
+        "kind": "nested"
+      },
+      {
+        "name": "CollectionSet",
+        "type": "paved::systems::account::Account::CollectionSet",
         "kind": "nested"
       }
     ]

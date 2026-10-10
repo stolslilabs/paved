@@ -92,6 +92,7 @@ function gameRow(row: Row, head: number): GameRow {
     counted_tournament_id: over ? Number(row.tournament_id) : null,
     end_time: over ? Number(row.end_time) : null,
     economy: gameEconomy(row, head),
+    token_id: row.token_id === null || row.token_id === undefined ? null : Number(row.token_id),
   };
 }
 
@@ -128,7 +129,7 @@ const GAME_FROM = `games g LEFT JOIN purchases p
   ON g.contract = 'daily' AND p.game_id = g.game_id AND p.purchased_block <= :h`;
 
 const GAME_COLUMNS = `g.contract, g.game_id, g.player_id, g.mode, g.spawn_tournament, g.start_time, g.over, g.score,
-  g.tournament_id, g.end_time, g.over_block,
+  g.tournament_id, g.end_time, g.over_block, g.token_id,
   p.day AS p_day, p.stake AS p_stake, p.price AS p_price, p.referrer AS p_referrer, p.referral AS p_referral,
   p.burned AS p_burned, p.factor AS p_factor, p.reference AS p_reference, p.purchased_time AS p_time,
   p.purchased_block AS p_block, p.expired AS p_expired, p.recorded_block AS p_recorded, p.threshold AS p_threshold,

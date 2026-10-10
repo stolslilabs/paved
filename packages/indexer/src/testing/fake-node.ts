@@ -14,12 +14,14 @@ export const DAILY = "0x1111";
 export const TUTORIAL = "0x2222";
 export const ACCOUNT = "0x3333";
 export const ECONOMY = "0x4444";
+export const COLLECTION = "0x5555";
 export const CHAIN_ID = "0x534e5f5345504f4c4941";
 const ADDRESS: Record<Source, string> = {
   daily: DAILY,
   tutorial: TUTORIAL,
   account: ACCOUNT,
   economy: ECONOMY,
+  collection: COLLECTION,
 };
 
 export type FakeEvent = { source: Source; keys: string[]; data: string[] };
@@ -197,6 +199,9 @@ export const ev = {
       ],
     );
   },
+  /** Collection's mint `Transfer` (keys from, to, token_id as u256; no data): a Daily game's token is its id. */
+  minted: (to: bigint | number, tokenId: bigint | number) =>
+    raw("collection", "Transfer", [0, to, BigInt(tokenId) & (2n ** 128n - 1n), BigInt(tokenId) >> 128n], []),
   recorded: (gameId: number, score: number, expired = false) =>
     raw("economy", "Recorded", [gameId], [score, expired ? 1 : 0]),
   dayClosed: (

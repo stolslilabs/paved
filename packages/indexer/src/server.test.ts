@@ -4,7 +4,7 @@ import { MAX_TOURNAMENT_ID } from "./api.ts";
 import { padded } from "./events.ts";
 import { cacheOf, respond, serve } from "./server.ts";
 import { FakeNode, ev } from "./testing/fake-node.ts";
-import { indexerOf, settle } from "./testing/setup.ts";
+import { indexerOf, indexerWithoutCollection, settle } from "./testing/setup.ts";
 
 const A = 0xa1n;
 const B = 0xb2n;
@@ -47,9 +47,19 @@ describe("routes", () => {
       state: "ok",
       chain_id: "0x534e5f5345504f4c4941",
       from_block: 1,
-      contracts: { daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444" },
+      contracts: { daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444", collection: "0x5555" },
       checks: { tournaments_checked: 0, last_mismatch: null, definitions_excluded: 0 },
     });
+  });
+
+  test("GET /v1/head: without a Collection (before E5b) contracts.collection is null and a game has no token_id", async () => {
+    const node = new FakeNode();
+    node.mine([ev.created(A, 0x416461)]);
+    node.mine([ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY })]);
+    const indexer = indexerWithoutCollection(node);
+    await settle(indexer);
+    expect(get(indexer, "/v1/head").body).toMatchObject({ contracts: { economy: "0x4444", collection: null } });
+    expect((get(indexer, "/v1/games/daily/1").body.game as { token_id: number | null }).token_id).toBeNull();
   });
 
   test("the leaderboard, with the example's fields and paging", async () => {
@@ -189,6 +199,23 @@ describe("Economy's fields (appended in E3)", () => {
     for (const key of ["price", "referral", "burned", "reference", "reward"]) {
       expect(game.economy[key], key).toMatch(/^(0|[1-9]\d*)$/);
     }
+  });
+});
+
+describe("the game token (appended in E5b)", () => {
+  test("token_id is the game id for Daily, 2^32 + the id for Tutorial, null before the mint; always a safe integer", async () => {
+    const node = new FakeNode();
+    node.mine([ev.created(A, 0x416461)]);
+    node.mine([ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY }), ev.minted(A, 1)]);
+    node.mine([ev.spawned("tutorial", 1, A), ev.minted(A, 2 ** 32 + 1)]);
+    node.mine([ev.spawned("daily", 2, A, { tournament: DAY }), ev.purchased(2, A, { day: DAY })]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    const token = (target: string) => (get(indexer, target).body.game as { token_id: number | null }).token_id;
+    expect(token("/v1/games/daily/1")).toBe(1);
+    expect(token("/v1/games/tutorial/1")).toBe(2 ** 32 + 1);
+    expect(token("/v1/games/daily/2")).toBeNull();
+    expect(Number.isSafeInteger(token("/v1/games/tutorial/1"))).toBe(true);
   });
 });
 

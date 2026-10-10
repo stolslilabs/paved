@@ -57,9 +57,9 @@ pub const CEILING_VIEW: u128 = 388740;
 pub const CEILING_CLOSING_FULL_REPORT: u128 = 4046311;
 pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7961200;
 // m, n, o: spawns (P8 E3). A Daily spawn pays `Economy.purchase` (swap, burn, Vault).
-pub const CEILING_SPAWN_DAILY: u128 = 51829666;
-pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 52906871;
-pub const CEILING_SPAWN_TUTORIAL: u128 = 4530165;
+pub const CEILING_SPAWN_DAILY: u128 = 52732319;
+pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 53809525;
+pub const CEILING_SPAWN_TUTORIAL: u128 = 5440053;
 // p, q, r: the prize (P-31, P-37). A sponsor records its share; a claim and a reclaim pay out.
 pub const CEILING_SPONSOR: u128 = 1960255;
 pub const CEILING_CLAIM: u128 = 2037502;

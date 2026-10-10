@@ -72,7 +72,14 @@ export interface HeadAnswer extends Envelope {
   state: "ok";
   chain_id: string;
   from_block: number;
-  contracts: { daily: string; tutorial: string; account: string; economy: string };
+  contracts: {
+    daily: string;
+    tutorial: string;
+    account: string;
+    economy: string;
+    /** null for a deployment without a Collection (before E5b). Appended in E5b. */
+    collection: string | null;
+  };
   checks: {
     /** Closed days compared with the `tournament` view since the process started (or the last rewind). */
     tournaments_checked: number;
@@ -212,6 +219,11 @@ export interface GameRow {
   end_time: number | null;
   /** The terms and the settlement of a Daily game bought through Economy; null for a Tutorial game and a game not bought. Appended in E3. */
   economy: GameEconomy | null;
+  /**
+   * The id of the game's token in `Collection` (the game id for Daily, 2^32 + the game id for Tutorial), from its mint, a
+   * safe integer; null for a game spawned before the collection existed. Appended in E5b.
+   */
+  token_id: number | null;
 }
 
 export interface GameEconomy {

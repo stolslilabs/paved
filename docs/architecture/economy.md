@@ -1211,6 +1211,26 @@ quotes and braces, and support for it is less certain than for base64.
 - **Client.** Nothing is required. It may link a game to its token (contract address and token id).
 - **`Lobby`.** It holds the mint, in `spawn`, and that is its only change. `Daily` and `Tutorial` hold nothing of it.
 
+### As built: E5b (mint at spawn)
+
+- **Registry.** `Account.set_collection(collection)` (owner, once, non-zero, event `CollectionSet`) and the view
+  `collection()`, as `set_economy`.
+- **Mint.** `Lobby.spawn` ends with the mint: `Collection.mint(caller, token_id)`, where `token_id` is the game id the spawn
+  just drew (Daily) or `2^32 + game id` (Tutorial). It is the last step, after the purchase, so a paid spawn that fails
+  keeps its earlier reason. The id is never an input: no entry point of `Daily`, `Tutorial` or `Lobby` takes one or calls
+  `mint` for a caller (`tests::e2e::mint`). Without a collection in `Account` the spawn reverts with
+  `'Lobby: collection not set'` and leaves no game.
+- **Upgrade trust.** The owner can upgrade `Account`, so the one-shot `set_collection` and `set_economy` bind only within one
+  class: an upgrade is an owner act (upgrade trust).
+- **Minters.** `Collection.set_minters` refuses `daily == tutorial` (`'Collection: same minter'`), on top of its one shot.
+- **Deploy.** `scripts/deploy.sh devnet` deploys `Collection(owner)`, then as the owner calls `Account.set_collection` and
+  `Collection.set_minters(Daily, Tutorial)`; `devnet.json` gains `contracts.Collection`; the smoke reads `owner_of` and
+  the decoded `token_uri` of a finished Daily game and a running Tutorial game.
+- **Indexer.** See `docs/architecture/indexer.md`, "As built (P8 E5b)".
+- **CLIENT.** A game's token is `(contracts.Collection, token_id)`, `token_id` from `GameRow.token_id`; `Daily.spawn` now
+  needs the collection wired on the `Account` of the deployment (the devnet deploy does it).
+- **Measures.** Class sizes, spawn gas and the budgets the mint raised: see the PR.
+
 ### Security audit (OPERATIONS)
 
 D-11b removes the ownership checks, so the audit covers what remains:

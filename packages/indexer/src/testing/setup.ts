@@ -6,13 +6,14 @@
 import { Chain } from "../chain.ts";
 import { Indexer } from "../indexer.ts";
 import { Halt, Store } from "../store.ts";
-import { ACCOUNT, CHAIN_ID, DAILY, ECONOMY, FakeNode, TUTORIAL } from "./fake-node.ts";
+import { ACCOUNT, CHAIN_ID, COLLECTION, DAILY, ECONOMY, FakeNode, TUTORIAL } from "./fake-node.ts";
 
 export const CONFIG = {
   daily: DAILY,
   tutorial: TUTORIAL,
   account: ACCOUNT,
   economy: ECONOMY,
+  collection: COLLECTION,
   from: 1,
   chainId: CHAIN_ID,
 };
@@ -33,10 +34,22 @@ export function indexerOf(
       tutorial: TUTORIAL,
       account: ACCOUNT,
       economy: ECONOMY,
+      collection: COLLECTION,
     }),
     store: new Store(":memory:"),
     config: CONFIG,
     depth,
+  });
+}
+
+/** The same indexer for a deployment without a Collection (before E5b): its mints are not read. */
+export function indexerWithoutCollection(node: FakeNode): Indexer {
+  const config = { ...CONFIG, collection: undefined };
+  return new Indexer({
+    chain: new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }),
+    store: new Store(":memory:"),
+    config,
+    depth: 1000,
   });
 }
 

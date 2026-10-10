@@ -7,8 +7,8 @@ import { Chain } from "./chain.ts";
 import { SELECTORS, decode, padded } from "./events.ts";
 import { Indexer } from "./indexer.ts";
 import { SCHEMA_VERSION, SchemaMismatch, Store } from "./store.ts";
-import { ACCOUNT, ECONOMY, DAILY, FakeNode, TUTORIAL, ev, raw } from "./testing/fake-node.ts";
-import { CONFIG, indexerOf, settle } from "./testing/setup.ts";
+import { ACCOUNT, COLLECTION, ECONOMY, DAILY, FakeNode, TUTORIAL, ev, raw } from "./testing/fake-node.ts";
+import { CONFIG, indexerOf, indexerWithoutCollection, settle } from "./testing/setup.ts";
 
 const ADA = 0xa1n;
 const BO = 0xb2n;
@@ -65,7 +65,7 @@ describe("following the chain", () => {
     await settle(indexer);
     const before = indexer.store.dump();
     const block = indexer.store.block(3)!;
-    const raws = await new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }).events(block);
+    const raws = await new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }).events(block);
     expect(raws.length).toBeGreaterThan(0);
     const events = raws.flatMap((raw) => {
       const event = decode(raw.source, raw.keys, raw.data);
@@ -79,7 +79,7 @@ describe("following the chain", () => {
     const path = tempDb();
     const node = played();
     const first = new Indexer({
-      chain: new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }),
+      chain: new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }),
       store: new Store(path),
       config: CONFIG,
       depth: 1000,
@@ -91,7 +91,7 @@ describe("following the chain", () => {
 
     node.mine([ev.over("daily", 2, BO, 70)]);
     const second = new Indexer({
-      chain: new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }),
+      chain: new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }),
       store: new Store(path),
       config: CONFIG,
       depth: 1000,
@@ -111,6 +111,47 @@ function paid(node = new FakeNode()) {
   node.mine([ev.dayClosed(100), ev.settled(1, ADA, { day: 100, score: 5000, reward: 2n ** 70n })]);
   return node;
 }
+
+describe("Collection's mint", () => {
+  test("the token id is stored with each game, a Daily id as is and a Tutorial id offset by 2^32", async () => {
+    const node = new FakeNode();
+    node.mine([ev.created(ADA, 0x416461)]);
+    node.mine([ev.spawned("daily", 1, ADA), ev.purchased(1, ADA, { day: 100 }), ev.minted(ADA, 1)]);
+    node.mine([ev.spawned("tutorial", 1, ADA), ev.minted(ADA, 2 ** 32 + 1)]);
+    const indexer = indexerOf(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    const games = indexer.store.dump().games;
+    expect(games.find((g) => g.contract === "daily" && g.game_id === 1)?.token_id).toBe(1);
+    expect(games.find((g) => g.contract === "tutorial" && g.game_id === 1)?.token_id).toBe(2 ** 32 + 1);
+  });
+
+  test("without a Collection address no mint is read: the games carry no token id", async () => {
+    const node = new FakeNode();
+    node.mine([ev.created(ADA, 0x416461)]);
+    node.mine([ev.spawned("tutorial", 1, ADA), ev.minted(ADA, 2 ** 32 + 1)]);
+    const indexer = indexerWithoutCollection(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    expect(indexer.store.dump().games[0]?.token_id).toBeNull();
+    expect(indexer.store.contracts()?.collection).toBeNull();
+  });
+
+  test("a mint without its game, twice, outside the spawn's block, or to another player halts the indexer", async () => {
+    const reasons = async (...blocks: Parameters<FakeNode["mine"]>[]) => {
+      const node = new FakeNode();
+      for (const block of blocks) node.mine(...block);
+      const indexer = indexerOf(node);
+      await settle(indexer);
+      expect(indexer.status).toBe("halted");
+      return indexer.reason;
+    };
+    expect(await reasons([[ev.minted(ADA, 1)]])).toMatch(/no daily game 1/);
+    expect(await reasons([[ev.spawned("daily", 1, ADA), ev.minted(ADA, 1), ev.minted(ADA, 1)]])).toMatch(/already has a token/);
+    expect(await reasons([[ev.spawned("daily", 1, ADA)]], [[ev.minted(ADA, 1)]])).toMatch(/outside the block of the spawn/);
+    expect(await reasons([[ev.spawned("daily", 1, ADA), ev.minted(BO, 1)]])).toMatch(/another player/);
+  });
+});
 
 describe("Economy", () => {
   test("a purchase, its record, the day's close and the settlement are stored, the amounts as decimal text", async () => {

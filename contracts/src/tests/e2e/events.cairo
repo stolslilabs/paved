@@ -34,7 +34,7 @@ fn daily(event: PavedEvent) -> Daily::Event {
 }
 
 #[test]
-#[available_gas(l2_gas: 58029116)]
+#[available_gas(l2_gas: 58440000)]
 fn test_events_account_create_emits_player_created() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let caller: ContractAddress = 'NEWCOMER'.try_into().unwrap();
@@ -216,7 +216,7 @@ fn test_events_daily_sponsor_and_claim() {
 }
 
 #[test]
-#[available_gas(l2_gas: 68477406)]
+#[available_gas(l2_gas: 70175000)]
 fn test_events_tutorial_spawn_and_surrender() {
     // A non-zero time: at 0 the spawn time and 0 are the same value. A same-second game over is
     // the worst case for a tournament id computed from the time (Tutorial duration is 1 second).
@@ -452,7 +452,7 @@ fn tutorial_build(
 }
 
 #[test]
-#[available_gas(l2_gas: 100738619)]
+#[available_gas(l2_gas: 100838000)]
 fn test_events_tutorial_build_emits_built_and_scored() {
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
     let tutorial = systems.tutorial.contract_address;

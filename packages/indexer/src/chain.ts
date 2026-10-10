@@ -1,5 +1,5 @@
 // Copied from Grim World, indexer/src/chain.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
-// Apache-2.0. Adapted for Paved: four addresses (daily, tutorial, account, economy) instead of hub and market, the `Source` type
+// Apache-2.0. Adapted for Paved: five addresses (daily, tutorial, account, economy, collection) instead of hub and market, the `Source` type
 // of events.ts, a smaller `getEvents` page, and two read calls added (`chainId`, `call`, for the chain id check and the
 // cross-check against the `tournament` view). URL redaction, block header and commitments, call counters unchanged. This
 // copy is maintained by the Paved repository.
@@ -143,7 +143,10 @@ type EventsPage = {
   continuation_token?: string;
 };
 
-export type Addresses = Record<Source, string>;
+/** `collection` is optional: without it its mints are not read (a deployment before E5b). */
+export type Addresses = Record<Exclude<Source, "collection">, string> & { collection?: string | undefined };
+
+type Resolved = Record<Exclude<Source, "collection">, string> & { collection: string | undefined };
 
 /** Events asked per page of `starknet_getEvents`. */
 export const CHUNK_SIZE = 100;
@@ -151,7 +154,7 @@ export const CHUNK_SIZE = 100;
 export class Chain {
   readonly calls: Record<string, number> = {};
   private readonly rpc: Rpc;
-  private readonly addresses: Addresses;
+  private readonly addresses: Resolved;
 
   constructor(rpc: Rpc, addresses: Addresses) {
     this.rpc = rpc;
@@ -160,6 +163,7 @@ export class Chain {
       tutorial: canonical(addresses.tutorial),
       account: canonical(addresses.account),
       economy: canonical(addresses.economy),
+      collection: addresses.collection === undefined ? undefined : canonical(addresses.collection),
     };
   }
 
@@ -261,13 +265,15 @@ export class Chain {
   async events(block: Header): Promise<RawEvent[]> {
     const events: RawEvent[] = [];
     for (const source of SOURCES) {
+      const address = this.addresses[source];
+      if (address === undefined) continue;
       let token: string | undefined;
       do {
         const page = (await this.call("starknet_getEvents", {
           filter: {
             from_block: { block_hash: block.hash },
             to_block: { block_hash: block.hash },
-            address: this.addresses[source],
+            address,
             chunk_size: CHUNK_SIZE,
             ...(token ? { continuation_token: token } : {}),
           },
@@ -318,7 +324,7 @@ export class Chain {
    * `tournament` view is its only use.
    */
   async view(
-    contract: Source,
+    contract: Exclude<Source, "collection">,
     selector: string,
     calldata: string[],
     blockHash: string,

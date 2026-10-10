@@ -1,6 +1,7 @@
-// Reads `contracts/deployments/<network>.json` (contracts/deployments/README.md): the four addresses the indexer
-// filters on (Daily, Tutorial, Account and Economy: every deployment has an Economy since E3, and a file without one is
-// refused, since its paid games would be half indexed), the block it starts from, the chain id, and the node's URL. Nothing else of the file is used.
+// Reads `contracts/deployments/<network>.json` (contracts/deployments/README.md): the five addresses the indexer
+// filters on (Daily, Tutorial, Account and Economy are required: every deployment has an Economy since E3, and a file
+// without one is refused, since its paid games would be half indexed; Collection, since E5b, is optional: without it the
+// mints are not read and no game has a token id), the block it starts from, the chain id, and the node's URL. Nothing else of the file is used.
 import { readFileSync } from "node:fs";
 import { canonical } from "./events.ts";
 
@@ -14,6 +15,8 @@ export type Deployment = {
   tutorial: string;
   account: string;
   economy: string;
+  /** Optional: a deployment before E5b has none, and its games carry no token id. */
+  collection: string | undefined;
 };
 
 const ADDRESS = /^0x[0-9a-fA-F]{1,64}$/;
@@ -51,6 +54,7 @@ export function parseDeployment(file: unknown): Deployment {
     tutorial: address("Tutorial"),
     account: address("Account"),
     economy: address("Economy"),
+    collection: contracts.Collection === undefined ? undefined : address("Collection"),
   };
 }
 

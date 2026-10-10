@@ -5,7 +5,7 @@ use paved::tests::setup::setup::TestStoreTrait;
 use paved::types::mode::Mode;
 
 #[test]
-#[available_gas(l2_gas: 65449849)]
+#[available_gas(l2_gas: 67229000)]
 fn test_tutorial_e2e_spawn_starts_game() {
     let (store, _, context) = setup::spawn_game(Mode::Tutorial);
 

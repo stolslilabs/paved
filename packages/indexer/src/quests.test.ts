@@ -7,7 +7,7 @@ import { canonical, padded } from "./events.ts";
 import { Queries } from "./queries.ts";
 import { PODIUM_TASK, consistent, firstActive, intervalId, intervalSpan, replay, type Schedule } from "./quests.ts";
 import { respond } from "./server.ts";
-import { ACCOUNT, ECONOMY, DAILY, FakeNode, TUTORIAL, ev } from "./testing/fake-node.ts";
+import { ACCOUNT, COLLECTION, ECONOMY, DAILY, FakeNode, TUTORIAL, ev } from "./testing/fake-node.ts";
 import { indexerOf, settle } from "./testing/setup.ts";
 
 const A = 0xa1n;
@@ -348,7 +348,7 @@ describe("On the Podium", () => {
     };
     const indexer = indexerOf(node);
     await settle(indexer);
-    const chain = new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY });
+    const chain = new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION });
     const check = new CrossCheck(chain, indexer.store);
     const queries = new Queries(indexer.store);
     return { node, indexer, check, queries, calls };
@@ -444,7 +444,7 @@ describe("the podium credit is ordered at the day's close", () => {
     node.mine([ev.spawned("daily", 1, A, { tournament: DAY })]);
     node.mine([ev.over("daily", 1, A, 50, { tournament: DAY })]);
     node.views = () => view([[A, 50]]);
-    const chainOf = () => new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY });
+    const chainOf = () => new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION });
 
     const live = indexerOf(node);
     const liveCheck = new CrossCheck(chainOf(), live.store);
@@ -490,7 +490,7 @@ describe("the podium credit is ordered at the day's close", () => {
     node.mine();
     const indexer = indexerOf(node);
     await settle(indexer);
-    await new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }), indexer.store).run(indexer.served!);
+    await new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }), indexer.store).run(indexer.served!);
     expect(new Queries(indexer.store).playerAchievements(indexer.served!.number, padded(A)).achievements[0]).toMatchObject({
       retired: true,
       completed: false,
@@ -555,7 +555,7 @@ describe("rewinding the new tables", () => {
     node.mine();
     const indexer = indexerOf(node);
     await settle(indexer);
-    const check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }), indexer.store);
+    const check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }), indexer.store);
     await check.run(indexer.served!);
     expect(indexer.store.dump().podium).toHaveLength(1);
     expect(indexer.store.dump().day_closes).toHaveLength(1);
@@ -589,7 +589,7 @@ describe("the day's closing block survives the pruning of its header", () => {
     };
     let check: CrossCheck;
     const indexer = indexerOf(node, 2, undefined, (served) => check.run(served));
-    check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }), indexer.store);
+    check = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }), indexer.store);
     indexer.listen({ rewound: () => check.reset() });
     return { node, indexer };
   }
