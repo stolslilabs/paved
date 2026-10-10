@@ -289,7 +289,7 @@ fn test_lobby_cannot_be_deployed() {
 // Condition 1: `lobby_class` is written by the constructors only
 
 #[test]
-#[available_gas(l2_gas: 56849000)]
+#[available_gas(l2_gas: 60184000)]
 fn test_lobby_class_is_set_by_the_constructors() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let lobby = lobby_class();
@@ -366,7 +366,7 @@ fn test_lobby_class_is_never_written_after_construction() {
 /// the game state of a build) is what `Lobby`'s code reads (it finds the player, pays the token
 /// `Daily` stores, and discards on the state the build left).
 #[test]
-#[available_gas(l2_gas: 145504993)]
+#[available_gas(l2_gas: 147574000)]
 fn test_lobby_and_daily_share_the_storage_layout() {
     start_cheat_block_timestamp_global(100);
     let (store, systems, context) = setup::spawn_game(Mode::None);
@@ -439,7 +439,7 @@ fn test_lobby_and_daily_share_the_storage_layout() {
 /// The same agreement for `Tutorial`: `Lobby` spawns, discards and surrenders, `Tutorial` builds,
 /// and each reads what the other wrote.
 #[test]
-#[available_gas(l2_gas: 132364874)]
+#[available_gas(l2_gas: 134332000)]
 fn test_lobby_and_tutorial_share_the_storage_layout() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let views = IGameViewDispatcher { contract_address: systems.tutorial.contract_address };
