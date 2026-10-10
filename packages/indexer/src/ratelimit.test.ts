@@ -37,6 +37,18 @@ describe("the token bucket", () => {
     expect(slow.take("a")).toEqual({ allowed: false, retryAfter: 4 });
   });
 
+  test("a clock that goes back locks nobody out", () => {
+    const c = clock();
+    const limiter = new RateLimiter({ rate: 1, burst: 2, now: c.now });
+    limiter.take("a");
+    limiter.take("a");
+    c.advance(-3_600_000); // a step back of an hour
+    expect(limiter.take("a")).toMatchObject({ allowed: false, retryAfter: 1 });
+    expect(limiter.size).toBe(1);
+    c.advance(1000); // elapsed counts from the step back, not from the old stamp
+    expect(limiter.take("a").allowed).toBe(true);
+  });
+
   test("addresses have their own buckets", () => {
     const limiter = new RateLimiter({ rate: 1, burst: 1, now: clock().now });
     expect(limiter.take("a").allowed).toBe(true);
@@ -80,8 +92,8 @@ describe("the client address", () => {
   test("X-Forwarded-For is trusted from loopback only", () => {
     for (const peer of ["127.0.0.1", "::1", "::ffff:127.0.0.1"]) {
       expect(clientAddress(peer, "203.0.113.7")).toBe("203.0.113.7");
-      expect(clientAddress(peer, "203.0.113.7, 10.0.0.1")).toBe("203.0.113.7");
-      expect(clientAddress(peer, ["2001:db8::1", "10.0.0.1"])).toBe("2001:db8::1");
+      expect(clientAddress(peer, "1.1.1.1, 203.0.113.7")).toBe("203.0.113.7");
+      expect(clientAddress(peer, ["1.1.1.1", "2001:db8::1"])).toBe("2001:db8::1");
     }
     expect(clientAddress("127.0.0.1", undefined)).toBe("127.0.0.1");
   });
@@ -93,7 +105,7 @@ describe("the client address", () => {
   });
 
   test("a malformed header falls back to the peer", () => {
-    for (const header of ["", "garbage", "999.1.1.1", "1.2.3", "unknown, 203.0.113.7", ", 203.0.113.7"]) {
+    for (const header of ["", "garbage", "999.1.1.1", "1.2.3", "203.0.113.7, unknown", "203.0.113.7, "]) {
       expect(clientAddress("127.0.0.1", header)).toBe("127.0.0.1");
     }
   });

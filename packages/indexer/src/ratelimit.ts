@@ -4,7 +4,11 @@
 // the machine, so the limit is in the process.
 import { isIP } from "node:net";
 
-/** Idle time after which an address is forgotten: by then its bucket is full again, so forgetting it changes nothing. */
+/**
+ * Idle time after which an address is forgotten. Forgetting changes nothing only while `burst / rate` (the time to refill a
+ * bucket) is at most this TTL: the defaults refill in 2 s. A slower setting (say rate 1, burst 1000) would hand a fresh full
+ * bucket to an address that is still empty, so keep `burst / rate` below it.
+ */
 export const BUCKET_IDLE_TTL_MS = 10 * 60 * 1000;
 
 /** The most addresses tracked at once; past it the one unused for longest is dropped first. A few hundred bytes each. */
@@ -19,7 +23,7 @@ export type RateLimitOptions = {
   rate: number;
   /** The bucket's size: requests allowed at once, at least 1. */
   burst: number;
-  /** The clock in milliseconds (injectable for tests). */
+  /** The clock in milliseconds (injectable for tests); default `performance.now()`, monotonic: a wall-clock step cannot lock anyone out. */
   now?: () => number;
   /** Overrides of the memory bounds (tests). */
   idleTtlMs?: number;
@@ -42,7 +46,7 @@ export class RateLimiter {
   constructor(options: RateLimitOptions) {
     this.rate = options.rate;
     this.burst = Math.max(1, options.burst);
-    this.now = options.now ?? Date.now;
+    this.now = options.now ?? (() => performance.now());
     this.idleTtlMs = options.idleTtlMs ?? BUCKET_IDLE_TTL_MS;
     this.maxAddresses = options.maxAddresses ?? MAX_TRACKED_ADDRESSES;
   }
@@ -59,7 +63,7 @@ export class RateLimiter {
     const known = this.buckets.get(address);
     const bucket: Bucket = known
       ? {
-          tokens: Math.min(this.burst, known.tokens + ((now - known.at) / 1000) * this.rate),
+          tokens: Math.min(this.burst, known.tokens + (Math.max(0, now - known.at) / 1000) * this.rate),
           at: now,
         }
       : { tokens: this.burst, at: now };
@@ -83,7 +87,7 @@ export class RateLimiter {
   /** Forgets the addresses idle for the TTL; the map is in last-use order, so it stops at the first one still live. */
   private forgetIdle(now: number) {
     for (const [address, bucket] of this.buckets) {
-      if (now - bucket.at < this.idleTtlMs) break;
+      if (now - bucket.at < this.idleTtlMs) break; // also true if the clock went back
       this.buckets.delete(address);
     }
   }
@@ -108,8 +112,10 @@ function normalized(address: string): string {
 
 /**
  * The client address a request is counted under. `X-Forwarded-For` is read only when the socket peer is loopback (the proxy
- * on this machine): from anyone else it is the client's own claim and is ignored. Then the left-most entry is the client
- * the proxy saw; if it is not an IP address the peer is used. Several header lines arrive joined by commas.
+ * on this machine): from anyone else it is the client's own claim and is ignored. Then the RIGHT-most entry is used: the
+ * one the local proxy appended is the only one a client cannot write (a client can prepend entries, never append after the
+ * proxy). If it is not an IP address the peer is used. Several header lines arrive joined by commas.
+ * Loopback is exactly 127.0.0.1, ::1 and ::ffff:127.0.0.1, not all of 127.0.0.0/8: the proxy must dial 127.0.0.1 (or ::1).
  */
 export function clientAddress(
   peer: string | undefined,
@@ -118,7 +124,8 @@ export function clientAddress(
   const socket = normalized(peer ?? "unknown");
   if (!isLoopback(peer) || forwardedFor === undefined) return socket;
   const first = (Array.isArray(forwardedFor) ? forwardedFor.join(",") : forwardedFor)
-    .split(",")[0]!
+    .split(",")
+    .at(-1)!
     .trim();
   return isIP(first) ? normalized(first) : socket;
 }

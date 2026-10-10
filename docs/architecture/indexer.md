@@ -645,10 +645,14 @@ The package follows this design. What differs, or was decided while building (Pa
   `state`, `head`), the CORS headers of the other answers and `Access-Control-Expose-Headers: Retry-After` so a browser can
   read it. API v1 stays append-only: `429` is a new status, no existing answer changes.
 - **Address**: the socket peer, unless the peer is loopback (`127.0.0.1`, `::1`, `::ffff:127.0.0.1`), in which case the
-  left-most `X-Forwarded-For` entry if it is an IP address (otherwise the peer). From any other peer the header is ignored,
-  since the client writes it. IPv4-mapped IPv6 addresses count as the IPv4 one. Each IPv6 address is its own key (no /64
+  right-most `X-Forwarded-For` entry if it is an IP address (otherwise the peer): the entry the local proxy wrote, the only
+  one a client cannot write, which stays right if a shared Caddy later trusts proxies for another site. Loopback is exactly
+  those three spellings, not all of `127.0.0.0/8`, so the proxy must dial `127.0.0.1` (or `::1`). From any other peer the
+  header is ignored, since the client writes it. IPv4-mapped IPv6 addresses count as the IPv4 one. Each IPv6 address is its own key (no /64
   grouping), so a client with a whole /64 can use many buckets; the cap below bounds the memory, not that.
 - **Memory**: an address idle for `BUCKET_IDLE_TTL_MS` (10 min; its bucket is full again, so nothing is lost) is forgotten,
   and at most `MAX_TRACKED_ADDRESSES` (10,000) are kept, the one unused for longest dropped first. A flood of addresses can
   push a real client's bucket out early, which gives it a fresh full bucket: the bound is on memory, not a guarantee.
-- **Clock**: injectable (`RateLimitOptions.now`), for the tests.
+- **Clock**: `performance.now()` (monotonic: a wall-clock step back cannot lock addresses out; elapsed time is clamped at 0);
+  injectable (`RateLimitOptions.now`), for the tests.
+- **TTL condition**: forgetting an idle address is lossless only while `burst / rate` is at most the TTL (2 s at the defaults).
