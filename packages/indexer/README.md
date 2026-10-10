@@ -6,7 +6,7 @@ leaderboard over a read-only HTTP API. It is display only: it
 holds no key, sends nothing, and its database can be deleted at any time (`rebuild` makes the same tables from the
 chain). Design: `docs/architecture/indexer.md` (with an "As built" section at its end).
 
-Hosting it for the public Sepolia client (process, host needs, exposure, systemd): `docs/client/indexer-hosting.md`.
+Hosting it for the public Sepolia client (process, host needs, exposure, systemd): `docs/client/indexer-hosting.md`, with the owner's runbook for this VPS and the files in `deploy/indexer/`.
 
 ## Source
 

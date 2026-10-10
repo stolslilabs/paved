@@ -1,0 +1,69 @@
+# The Sepolia client and its API, two names (P-41): paved.bal7hazar.com is the static build, api.paved.bal7hazar.com the
+# indexer's public face. Site blocks, imported by the main /etc/caddy/Caddyfile (docs/client/indexer-hosting.md, "Runbook:
+# this VPS (Sepolia)"). No global options: the main Caddyfile is shared with other sites on this VPS and keeps its own.
+# Certificates: automatic (Let's Encrypt), once both names resolve here and 80/443 are reachable.
+
+# --- the client: static files, read only from the deploy user's releases ---------------------------------------
+paved.bal7hazar.com {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+		# No Content-Security-Policy, Permissions-Policy or Cross-Origin-*-Policy: the Cartridge controller is an iframe
+		# (https://x.cartridge.gg) that needs WebAuthn and a popup; a header here can break it.
+	}
+
+	# Hashed build output: never changes under its name. No fallback here: a missing asset is a 404, not index.html.
+	handle /assets/* {
+		root * /var/www/paved/current
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# Everything else is the single-page app: a file if it exists, else index.html. Always revalidated (ETag), so a new
+	# release is seen at once and index.html never outlives the assets it names.
+	handle {
+		root * /var/www/paved/current
+		header Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# --- the API: the indexer on loopback, nothing else ----------------------------------------------------------------
+api.paved.bal7hazar.com {
+	encode zstd gzip
+
+	# Only reads: nothing here takes a body.
+	request_body {
+		max_size 1KB
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		-Server
+		# No Access-Control-* here, ever: the indexer sets them from --allow-origin (https://paved.bal7hazar.com) and a
+		# second value makes the browser refuse the answer. The proxy passes the Origin header through untouched.
+	}
+
+	# /v1/* only, GET and OPTIONS only; anything else is a 404 or a 405 from here, never from the indexer.
+	handle /v1/* {
+		@write not method GET OPTIONS
+		respond @write 405
+
+		reverse_proxy 127.0.0.1:8787 {
+			transport http {
+				dial_timeout 2s
+				response_header_timeout 15s
+				read_timeout 15s
+				write_timeout 15s
+			}
+			# The indexer sends cache-control: no-store, and its 503 JSON (loading, rewinding, halted) is passed through.
+		}
+	}
+	handle {
+		respond 404
+	}
+}

@@ -1,0 +1,53 @@
+# Paved indexer (Sepolia). Installed by docs/client/indexer-hosting.md, "Runbook: this VPS (Sepolia)".
+# The client and the API are one origin, https://paved.bal7hazar.com (P-41). The RPC URL carries no key (Cartridge's public
+# Sepolia endpoint), so it is plain configuration here, not a secret.
+[Unit]
+Description=Paved indexer (Sepolia)
+Documentation=https://github.com/stolslilabs/paved/blob/main/docs/client/indexer-hosting.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=paved-indexer
+Group=paved-indexer
+WorkingDirectory=/opt/paved-indexer/current
+Environment=INDEXER_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10
+Environment=NODE_OPTIONS=--max-old-space-size=384
+ExecStart=/usr/bin/node packages/indexer/src/main.ts run \
+  --deployment /opt/paved-indexer/current/contracts/deployments/sepolia.json \
+  --db /var/lib/paved-indexer/sepolia.db \
+  --host 127.0.0.1 --port 8787 \
+  --allow-origin https://paved.bal7hazar.com \
+  --depth l1 --poll 3000 --recheck 5 --recheck-every 60000
+# SIGTERM closes the database cleanly (main.ts); give it time, then SIGKILL.
+KillSignal=SIGTERM
+TimeoutStopSec=15
+# Exit 2 is a configuration error (a missing option, a refused database, a wrong chain id): restarting cannot fix it.
+# `halted` does not exit (main.ts keeps answering 503 until stopped): paved-indexer-watch.service logs it.
+Restart=on-failure
+RestartSec=5
+RestartPreventExitStatus=2
+# 384 MB heap + the runtime; measured peak 217 MB without a cap.
+MemoryMax=512M
+
+# Hardening. What the process does: reads the checkout (root-owned, read-only), writes sepolia.db and its -wal/-shm in
+# /var/lib/paved-indexer, opens outbound HTTPS to the RPC, listens on 127.0.0.1:8787. Nothing else.
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/paved-indexer
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+UMask=0077
+# Not set, on purpose: MemoryDenyWriteExecute (V8 needs executable memory for its JIT) and RestrictAddressFamilies
+# (the resolver may use AF_NETLINK and AF_UNIX; not worth a start failure that was not tested on this host).
+
+[Install]
+WantedBy=multi-user.target

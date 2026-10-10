@@ -1,0 +1,20 @@
+# One check of the indexer's /v1/head (run every minute by paved-indexer-watch.timer). Root: it may restart the indexer.
+[Unit]
+Description=Paved indexer watch (/v1/head)
+After=paved-indexer.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/paved-indexer/current/deploy/indexer/watch.sh
+RuntimeDirectory=paved-indexer-watch
+RuntimeDirectoryPreserve=yes
+TimeoutStartSec=30
+# A root script that reads loopback and runs `systemctl restart paved-indexer`: nothing else.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+LockPersonality=true
