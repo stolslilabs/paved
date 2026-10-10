@@ -9,7 +9,7 @@
 #        Coverage runs use the `coverage` Scarb profile (contracts/Scarb.toml): only it keeps the code
 #        locations that cairo-coverage needs, the dev profile drops them to lower the test build peak.
 #
-# Runs are single-threaded (RAYON_NUM_THREADS=1) and each is capped to 8 GiB of address space (14 GiB for the coverage modes and `all`) and reports its peak resident memory.
+# Runs are single-threaded (RAYON_NUM_THREADS=1) and each is capped to 8 GiB of address space (14 GiB for `coverage-split`) and reports its peak resident memory.
 # Toolchain: scarb 2.20.1 and snforge 0.64.0 (override with SCARB_BIN_DIR / SNFORGE_BIN_DIR);
 # cairo-coverage must be on the PATH (https://github.com/software-mansion/cairo-coverage).
 set -euo pipefail
@@ -26,18 +26,21 @@ if [ -d "$CAIRO_COVERAGE_BIN_DIR" ]; then
   export PATH="$CAIRO_COVERAGE_BIN_DIR:$PATH"
 fi
 export PATH="$SCARB_BIN_DIR:$SNFORGE_BIN_DIR:$HOME/.local/bin:$PATH"
-# Default cap of a run: 8 GiB. The coverage modes need more: the `types` coverage group peaked at 9.12 GB
-# RSS (9,123,164 kB, measured on the VPS on 2026-10-10, #277) and failed under 8 GiB ("memory allocation
-# of 5200 bytes failed"). Cap = 1.5 x that peak (about 14.0 GB) rounded up to a whole GiB = 14 GiB, below
-# the 16 GiB organisation limit. MEM_CAP_BYTES overrides both.
+# Default cap of a run: 8 GiB. `coverage-split` needs more: its `types` group peaked at 9,123,164 kB
+# RSS from `time -v` (KiB: 9.34 GB, 8.70 GiB; measured on the VPS on 2026-10-10, #277) and failed under
+# 8 GiB ("memory allocation of 5200 bytes failed"). Cap = 1.5 x that peak (14.0 GB, 13.05 GiB) rounded up
+# to a whole GiB = 14 GiB, below the 16 GiB organisation limit. `coverage` (the whole run) and `all` have
+# no measured peak; it is expected above 8 GB, so measure them first on the Mac (P-33,
+# `/usr/bin/time -l`, no cap) or in CI before giving them a cap: they keep 8 GiB here.
+# MEM_CAP_BYTES overrides both.
 MEM_CAP_DEFAULT_BYTES=8589934592
-MEM_CAP_COVERAGE_BYTES=15032385536
+MEM_CAP_COVERAGE_SPLIT_BYTES=15032385536
 # docs/programme/OPERATIONS.md: builds and measures run single-threaded.
 export RAYON_NUM_THREADS=1
 
 mode="${1:-all}"
 case "$mode" in
-  coverage*|all) MEM_CAP_BYTES="${MEM_CAP_BYTES:-$MEM_CAP_COVERAGE_BYTES}" ;;
+  coverage-split) MEM_CAP_BYTES="${MEM_CAP_BYTES:-$MEM_CAP_COVERAGE_SPLIT_BYTES}" ;;
   *) MEM_CAP_BYTES="${MEM_CAP_BYTES:-$MEM_CAP_DEFAULT_BYTES}" ;;
 esac
 
