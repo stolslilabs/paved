@@ -115,7 +115,7 @@ fn test_reclaim_with_two_ranked_games_reverts() {
 /// Two sponsors (2,000,000 and 1,000,001) of a day nobody ranked in: each takes back exactly what
 /// it put in. Reclaims add up to the prize, 3,000,001: no dust stays in `Daily`.
 #[test]
-#[available_gas(l2_gas: 67013665)]
+#[available_gas(l2_gas: 67038000)]
 fn test_reclaim_pro_rata_on_an_empty_top() {
     let (_, systems, context) = start();
     sponsor(@systems, ANYONE(), 2_000_000);

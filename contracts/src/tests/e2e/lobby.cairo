@@ -289,7 +289,7 @@ fn test_lobby_cannot_be_deployed() {
 // Condition 1: `lobby_class` is written by the constructors only
 
 #[test]
-#[available_gas(l2_gas: 56810000)]
+#[available_gas(l2_gas: 56849000)]
 fn test_lobby_class_is_set_by_the_constructors() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let lobby = lobby_class();

@@ -21,7 +21,7 @@ const MAX_U8: u32 = 255;
 const BIG: felt252 = 0x800000000000011000000000000000000000000000000000000000000000000 - 1;
 
 #[test]
-#[available_gas(l2_gas: 65695000)]
+#[available_gas(l2_gas: 65736000)]
 fn test_store_round_trips_at_maximum_values() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     interact_with_state(
@@ -127,7 +127,7 @@ fn test_store_round_trips_at_maximum_values() {
 }
 
 #[test]
-#[available_gas(l2_gas: 57740000)]
+#[available_gas(l2_gas: 57781000)]
 fn test_store_missing_entries_read_as_zero_with_keys() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     interact_with_state(

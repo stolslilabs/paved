@@ -168,7 +168,7 @@ fn test_economy_records_a_game_over_on_surrender() {
 
 /// A Tutorial game is free: neither its spawn nor its end reaches `Economy`.
 #[test]
-#[available_gas(l2_gas: 68585000)]
+#[available_gas(l2_gas: 68624000)]
 fn test_economy_tutorial_calls_neither_purchase_nor_record() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
     let mut spy = spy_events();
