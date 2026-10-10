@@ -13,6 +13,8 @@ pub mod Tutorial {
     // Component imports
 
     use core::num::traits::Zero;
+    use openzeppelin_interfaces::upgrades::IUpgradeable;
+    use openzeppelin_upgrades::UpgradeableComponent;
     use paved::components::hostable::HostableComponent;
     use paved::components::ownable::OwnableComponent;
     use paved::components::tutoriable::TutoriableComponent;
@@ -21,7 +23,9 @@ pub mod Tutorial {
 
     use paved::events::Event as PavedEvent;
     use paved::store::{StoreImpl, StoreTrait};
-    use paved::systems::lobby::{ILobbyDispatcherTrait, ILobbyLibraryDispatcher};
+    use paved::systems::lobby::{
+        ILobbyClass, ILobbyDispatcherTrait, ILobbyLibraryDispatcher, LobbyClassSet,
+    };
     use paved::types::mode::Mode;
     use paved::views::{BuilderView, CharacterView, GameView, IGameView, TileView, ViewsImpl};
     use quiver_achievement::component::AchievementComponent;
@@ -48,6 +52,8 @@ pub mod Tutorial {
     #[abi(embed_v0)]
     impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
     component!(path: TutoriableComponent, storage: tutoriable, event: TutoriableEvent);
     impl TutoriableInternalImpl = TutoriableComponent::InternalImpl<ContractState>;
     // Achievements run in the lobby class (task 10); declared here so the storage and the events
@@ -66,8 +72,10 @@ pub mod Tutorial {
         tutoriable: TutoriableComponent::Storage,
         #[substorage(v0)]
         achievement: AchievementComponent::Storage,
-        /// The `Lobby` class run by library call; written by the constructor only.
+        /// The `Lobby` class run by library call; written by the constructor and `set_lobby_class`.
         lobby_class: ClassHash,
+        #[substorage(v0)]
+        upgradeable: UpgradeableComponent::Storage,
     }
 
     // Events
@@ -85,6 +93,9 @@ pub mod Tutorial {
         TutoriableEvent: TutoriableComponent::Event,
         #[flat]
         AchievementEvent: AchievementComponent::Event,
+        #[flat]
+        UpgradeableEvent: UpgradeableComponent::Event,
+        LobbyClassSet: LobbyClassSet,
     }
 
     // Constructor
@@ -137,6 +148,27 @@ pub mod Tutorial {
             }
         }
     }
+    #[abi(embed_v0)]
+    impl UpgradeableImpl of IUpgradeable<ContractState> {
+        /// Replaces the class, keeping the storage (OpenZeppelin's `Upgraded`). The owner only.
+        fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
+            self.ownable.assert_only_owner();
+            self.upgradeable.upgrade(new_class_hash);
+        }
+    }
+
+    #[abi(embed_v0)]
+    impl LobbyClassImpl of ILobbyClass<ContractState> {
+        fn set_lobby_class(ref self: ContractState, class_hash: ClassHash) {
+            // [Check] The owner, a real class
+            self.ownable.assert_only_owner();
+            assert(class_hash.is_non_zero(), errors::ZERO_LOBBY_CLASS);
+            // [Effect] Run it from the next call on
+            self.lobby_class.write(class_hash);
+            self.emit(LobbyClassSet { class_hash });
+        }
+    }
+
     #[abi(embed_v0)]
     impl GameViewImpl of IGameView<ContractState> {
         fn game(self: @ContractState, game_id: u32) -> GameView {

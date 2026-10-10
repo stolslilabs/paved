@@ -14,7 +14,9 @@
 //!   and pushed once into the EMA; each recorded game is paid `R x h(score / mean)`, minted to its
 //!   player, once.
 //! - `configure`, `set_pool` (the owner, bounded and evented), `set_game` (the owner, once). The
-//!   mean has no setter. No upgrade.
+//!   mean has no setter.
+//! - `upgrade` (the owner): replaces the class, keeping the storage (P-42,
+//!   `docs/architecture/upgrades.md`). The owner is two-step (`OwnableComponent`).
 //!
 //! The arithmetic lives in `curve` and `mean`.
 
@@ -197,7 +199,6 @@ pub trait IEconomy<TContractState> {
     fn rate(self: @TContractState) -> u256;
     fn pool(self: @TContractState) -> (PoolKey, u256);
     fn addresses(self: @TContractState) -> Addresses;
-    fn owner(self: @TContractState) -> ContractAddress;
 }
 
 #[starknet::contract]
@@ -209,6 +210,9 @@ pub mod Economy {
     // External imports
 
     use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use openzeppelin_interfaces::upgrades::IUpgradeable;
+    use openzeppelin_upgrades::UpgradeableComponent;
+    use paved::components::ownable::OwnableComponent;
 
     // Internal imports
 
@@ -226,7 +230,9 @@ pub mod Economy {
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
     };
-    use starknet::{ContractAddress, get_block_timestamp, get_caller_address, get_contract_address};
+    use starknet::{
+        ClassHash, ContractAddress, get_block_timestamp, get_caller_address, get_contract_address,
+    };
 
     // Local imports
 
@@ -238,7 +244,6 @@ pub mod Economy {
     // Errors
 
     pub mod errors {
-        pub const NOT_OWNER: felt252 = 'Economy: not owner';
         pub const NOT_GAME: felt252 = 'Economy: not the game';
         pub const GAME_SET: felt252 = 'Economy: game already set';
         pub const ZERO_ADDRESS: felt252 = 'Economy: zero address';
@@ -405,11 +410,24 @@ pub mod Economy {
         }
     }
 
+    // Components
+
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    #[abi(embed_v0)]
+    impl OwnableImpl = OwnableComponent::OwnableImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
+
     // Storage
 
     #[storage]
     struct Storage {
-        owner: ContractAddress,
+        /// `owner` and `pending_owner`, flat: `owner` keeps the slot it had before the component.
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
+        #[substorage(v0)]
+        upgradeable: UpgradeableComponent::Storage,
         game: ContractAddress,
         paved: ContractAddress,
         usdc: ContractAddress,
@@ -444,6 +462,10 @@ pub mod Economy {
         EconomyConfigured: EconomyConfigured,
         PoolSet: PoolSet,
         GameSet: GameSet,
+        #[flat]
+        OwnableEvent: OwnableComponent::Event,
+        #[flat]
+        UpgradeableEvent: UpgradeableComponent::Event,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
@@ -541,7 +563,7 @@ pub mod Economy {
         // [Check] The guard is on from the first purchase
         assert(rate != 0, errors::ZERO_RATE);
         // [Effect] Store them, the pool, the configuration and the initial mean
-        self.owner.write(owner);
+        self.ownable.initialize(owner);
         self.paved.write(paved);
         self.usdc.write(usdc);
         self.vault.write(vault);
@@ -741,18 +763,18 @@ pub mod Economy {
         }
 
         fn configure(ref self: ContractState, config: Config) {
-            self.assert_owner();
+            self.ownable.assert_only_owner();
             self.write_config(config);
         }
 
         fn set_pool(ref self: ContractState, pool_key: PoolKey, sqrt_ratio_limit: u256) {
-            self.assert_owner();
+            self.ownable.assert_only_owner();
             self.write_pool(pool_key, sqrt_ratio_limit);
         }
 
         fn set_game(ref self: ContractState, game: ContractAddress) {
             // [Check] The owner, once, a real address
-            self.assert_owner();
+            self.ownable.assert_only_owner();
             assert(self.game.read().is_zero(), errors::GAME_SET);
             assert(game.is_non_zero(), errors::ZERO_ADDRESS);
             // [Effect] Set it for good
@@ -849,18 +871,19 @@ pub mod Economy {
                 game: self.game.read(),
             }
         }
+    }
 
-        fn owner(self: @ContractState) -> ContractAddress {
-            self.owner.read()
+    #[abi(embed_v0)]
+    impl UpgradeableImpl of IUpgradeable<ContractState> {
+        /// Replaces the class, keeping the storage (OpenZeppelin's `Upgraded`). The owner only.
+        fn upgrade(ref self: ContractState, new_class_hash: ClassHash) {
+            self.ownable.assert_only_owner();
+            self.upgradeable.upgrade(new_class_hash);
         }
     }
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {
-        fn assert_owner(self: @ContractState) {
-            assert(get_caller_address() == self.owner.read(), errors::NOT_OWNER);
-        }
-
         /// The game is set and is the caller.
         fn assert_game(self: @ContractState) {
             let game = self.game.read();

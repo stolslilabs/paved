@@ -39,6 +39,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "openzeppelin_upgrades"
+version = "4.0.1"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:100d56866be37531a68b886b2d2df19dfcf3e1a9abc64efa1d5a49c9de9b4e37"
+
+[[package]]
 name = "openzeppelin_utils"
 version = "2.2.0"
 source = "registry+https://scarbs.xyz/"
@@ -53,6 +59,7 @@ version = "0.0.0"
 dependencies = [
  "openzeppelin_interfaces",
  "openzeppelin_token",
+ "openzeppelin_upgrades",
  "quiver_achievement",
  "quiver_quest",
  "snforge_scarb_plugin",
