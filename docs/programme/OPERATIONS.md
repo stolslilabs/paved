@@ -67,6 +67,12 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    (`RAYON_NUM_THREADS=1 prlimit --as=12884901888 scarb --release build` in `contracts/`), so the script's own build
    is a no-op; the signer's heap is capped by `deploy.sh` (`--max-old-space-size=640`).
 
+   The node behind `STARKNET_RPC_URL` must accept request bodies of at least about 2 MB: the declare bodies are
+   about 1.8 MB for Daily, 1.67 MB for Tutorial and 1.51 MB for Lobby. The earlier provider answered 100 KB and
+   returned HTTP 503 "Request body size limit reached" at 2.5 MB. The owner sets `STARKNET_RPC_URL` on the VPS to
+   such an endpoint (an Infura Sepolia endpoint, which holds an API key, so it is never written anywhere), and
+   `scripts/deploy.sh sepolia` runs in that plain environment, with no override.
+
    What is checked before anything is sent, in order:
    - the network is `sepolia` (mainnet refused by name, any other value refused);
    - the three variables are set and not empty (each missing one named), the address is 0x-hex, the URL is
