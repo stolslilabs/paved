@@ -56,7 +56,7 @@ describe("the command line", () => {
 
   test("without any RPC URL, a non-local deployment is refused, a local one defaults to its file's", () => {
     const remote = join(dir, "sepolia.json");
-    writeFileSync(remote, JSON.stringify({ ...JSON.parse(JSON.stringify({ network: "sepolia", chain_id: "0x1", rpc_url: "https://rpc.example.com", deployed_block: 1, contracts: { Account: { address: "0x3" }, Daily: { address: "0x1" }, Tutorial: { address: "0x2" }, Economy: { address: "0x4" } } })) }));
+    writeFileSync(remote, JSON.stringify({ ...JSON.parse(JSON.stringify({ network: "sepolia", chain_id: "0x1", rpc_url: "https://rpc.example.com", deployed_block: 1, contracts: { Account: { address: "0x3" }, Daily: { address: "0x1" }, Tutorial: { address: "0x2" }, Economy: { address: "0x4" }, Collection: { address: "0x5" } } })) }));
     const result = run("run", "--deployment", remote, "--db", join(dir, "b.db"));
     expect(result.status).toBe(2);
     expect(result.stderr).toMatch(/no RPC URL/);
