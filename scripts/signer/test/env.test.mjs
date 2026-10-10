@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { ENV_NAMES, SN_MAIN, SN_SEPOLIA, UsageError, assertChain, assertSafeRuntime, readEnv } from '../lib/env.mjs';
 
@@ -81,11 +83,30 @@ test('the node chain id must be the network\'s; SN_MAIN is always refused', () =
   }
 });
 
-test('refuses NODE_DEBUG, --report-* and --inspect, naming the variable only', () => {
-  assertSafeRuntime({ NODE_OPTIONS: '--max-old-space-size=448' }, ['--import', 'x.mjs']);
+test('node options are an allowlist: --max-old-space-size=<n> only (and --disable-sigusr1 on the command line)', () => {
+  const fixture = fileURLToPath(new URL('./fixtures/fake-node.mjs', import.meta.url));
+  assertSafeRuntime({ NODE_OPTIONS: '--max-old-space-size=448' }, ['--disable-sigusr1', '--max-old-space-size=448']);
+  assertSafeRuntime({ NODE_OPTIONS: '  ' }, ['--import', fixture]);
+  assertSafeRuntime({}, [`--import=${fixture}`]);
   assert.match(refusal(() => assertSafeRuntime({ NODE_DEBUG: 'fetch,undici' }, []), ['fetch,undici']), /^NODE_DEBUG is set/);
-  for (const options of ['--report-on-signal', '--max-old-space-size=448 --report-uncaught-exception', '--inspect', '--inspect=127.0.0.1:9229', '--inspect-brk']) {
-    assert.match(refusal(() => assertSafeRuntime({ NODE_OPTIONS: options }, []), ['127.0.0.1:9229', 'max-old-space', 'on-signal', 'uncaught']), /^NODE_OPTIONS holds/);
+  for (const options of [
+    '--report-on-signal', '--max-old-space-size=448 --report-uncaught-exception', '--inspect', '--inspect=127.0.0.1:9229',
+    '--inspect-brk', '"--inspect"', "'--inspect'", '--heapsnapshot-signal=SIGUSR2', '--heapsnapshot-near-heap-limit=1',
+    '--require ./x.cjs', '-r ./x.cjs', `--import ${fixture}`, '--disable-sigusr1', '--max-old-space-size', '--max-old-space-size=448x',
+  ]) {
+    assert.match(refusal(() => assertSafeRuntime({ NODE_OPTIONS: options }, []), ['127.0.0.1:9229', 'on-signal', 'uncaught', 'SIGUSR2', 'x.cjs']),
+      /^NODE_OPTIONS holds an option other than --max-old-space-size=<n>; remove it$/);
   }
-  assert.match(refusal(() => assertSafeRuntime({}, ['--inspect-wait']), []), /^node was started with/);
+  for (const execArgv of [
+    ['--inspect-wait'], ['--report-on-signal'], ['--require', fixture], ['--import', 'x.mjs'], ['--import'],
+    ['--import', join(dirname(fixture), '..', 'cli.test.mjs')], ['--import=/tmp/x.mjs'], ['--heapsnapshot-signal=SIGUSR2'],
+  ]) {
+    assert.match(refusal(() => assertSafeRuntime({}, execArgv), ['x.mjs', 'SIGUSR2']), /^node was started with an option other than/);
+  }
+});
+
+test('the account address and the key must be below the field prime', () => {
+  const prime = `0x${(2n ** 251n + 17n * 2n ** 192n + 1n).toString(16)}`;
+  assert.match(refuseEnv({ ...GOOD, STARKNET_ACCOUNT_ADDRESS: prime }), /^STARKNET_ACCOUNT_ADDRESS is not a 0x-prefixed hex felt \(below the field prime\)$/);
+  assert.match(refuseEnv({ ...GOOD, STARKNET_PRIVATE_KEY: `0x${'f'.repeat(64)}` }), /^STARKNET_PRIVATE_KEY is not a non-zero/);
 });

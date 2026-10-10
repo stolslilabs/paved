@@ -8,8 +8,11 @@ Sepolia or a local devnet only, checked against the node's chain id; **mainnet i
 Why not sncast: sncast 0.64.0 cannot sign from an environment variable (it needs an accounts file, a
 keystore or a Ledger), and `sncast --url` puts the RPC URL in the process list.
 
-Part 1 (this folder) is the signer and its tests. `scripts/deploy.sh` does not call it yet; it is
-wired in part 2, with the allowlist of deployed addresses.
+`scripts/deploy.sh sepolia` and `scripts/deploy.sh sepolia --rehearse` send every transaction and view
+call through it (S-1b part 2): `deploy.sh` installs it with `npm ci`, starts it with an environment
+allowlist (PATH, HOME, the account, key and node, `SIGNER_NETWORK`, and `NODE_OPTIONS` as its heap cap
+alone), never argv, starts node with `--disable-sigusr1`, and names its own deployer `@account` in
+calldata (see "Secrets"). devnet keeps sncast.
 
 ## Install
 
@@ -51,6 +54,10 @@ signer: missing environment variable: SIGNER_NETWORK
 | `devnet` | `0x534e5f5345504f4c4941` (starknet-devnet 0.10.0's default, `--chain-id TESTNET`) | http on 127.0.0.1, localhost or [::1] |
 
 Devnet and Sepolia report the same chain id, so the URL rule keeps one from standing for the other.
+A local URL is not proof of a devnet either: a tunnel from a local port to a Sepolia node passes the
+URL rule and the chain id. So with `SIGNER_NETWORK=devnet` the node must also answer
+`devnet_getConfig`, a method only starknet-devnet has, before anything is signed; otherwise the signer
+refuses (exit 2, "nothing was signed").
 Before anything is signed (and before any read), the signer asks the node for `starknet_chainId` and
 refuses (exit 2, "nothing was signed") a chain id other than the network's. **`SN_MAIN`
 (`0x534e5f4d41494e`) is always refused**, whatever the variable says, and `mainnet` is not a value
@@ -77,6 +84,12 @@ deployer`, `signer: invoke <contract> <entry point>`.
 - `deploy` goes through the Universal Deployer with `unique: true` (the address depends on the
   deployer account) and a random salt unless `--salt` is given; the salt used is printed.
 - Calldata is raw felts (0x-hex or decimal), already serialised: a `u256` is two felts, low then high.
+  Every felt argument (`--class-hash`, `--salt`, `--contract`, `--calldata`, and each `contract` and
+  `calldata` value of a `--calls` file) must be below the field prime `2^251 + 17 x 2^192 + 1`, and so
+  must `STARKNET_ACCOUNT_ADDRESS` and `STARKNET_PRIVATE_KEY`; 64 hex digits alone would reach `2^256 - 1`.
+- A calldata word may be `@account`: the signer puts the account's address there, read from
+  `STARKNET_ACCOUNT_ADDRESS`, so a caller never writes that value in argv or a calls file (`deploy.sh`
+  does this for the deployer on Sepolia). It stands for a calldata word only, never for `--contract`.
 - The `--calls` file is a JSON array of `{"contract": <felt>, "function": <name>, "calldata": [<felt>...]}`,
   sent as one transaction.
 
@@ -107,15 +120,41 @@ What holds:
     query names and values), as given or percent-encoded, in any case;
   - every URL, whatever its host.
 - **It refuses to run** (exit 2, naming the variable, never its value) when `NODE_DEBUG` is set (its
-  debug logs of fetch, undici, http or net print the request path, which holds a provider API key), or
-  when `NODE_OPTIONS` or node's own options hold `--report-*` or `--inspect*`.
+  debug logs of fetch, undici, http or net print the request path, which holds a provider API key), and
+  when a node option is outside an **allowlist**:
+  - `NODE_OPTIONS` may hold `--max-old-space-size=<n>` and nothing else. That refuses `--report-*`,
+    `--heapsnapshot-*`, `--inspect*`, `--require`, `-r`, `--import`, and an option in quotes
+    (`"--inspect"`, which node itself unquotes).
+  - `NODE_TLS_REJECT_UNAUTHORIZED=0` (no TLS check of the node) is refused too. `deploy.sh` starts the
+    signer with an environment allowlist (PATH, HOME, the four variables, `NODE_OPTIONS`), so nothing else
+    of the caller's environment (`NODE_EXTRA_CA_CERTS`, proxies) reaches it.
+  - node's own command line may hold `--max-old-space-size=<n>`, `--disable-sigusr1`, and an `--import`
+    of a file of `test/fixtures/` (the tests' preloads). Whoever writes that command line already chooses
+    the code node runs, so this check catches a mistake, not an attacker; `NODE_OPTIONS` is the one
+    inherited unseen.
 
 What does not hold (not covered):
 
-- A secret split across two writes (a library writing the key in pieces) is not matched.
+- **A secret split across writes.** The sanitiser sees one write at a time: a key or URL written in two
+  or more pieces (`write('0x71d7')`, then `write('bb07...')`) is matched in no piece and passes. Nothing
+  in the signer writes that way; a library that streams its output could.
+- **The options check runs inside node.** By the time the signer refuses a `NODE_OPTIONS` (an
+  `--inspect`, a `--require`), node has already applied it: an inspector already listens, a preload has
+  already run. The refusal stops the signer before it signs or reads the node, not before node starts.
+  `deploy.sh` therefore sets `NODE_OPTIONS` to the heap cap alone.
+- **SIGUSR1.** Without `--disable-sigusr1`, node opens its inspector on 127.0.0.1:9229 when it receives
+  SIGUSR1, which any process of the same user may send; the inspector can then read the key from
+  memory. `deploy.sh` starts the signer with `--disable-sigusr1`; a direct `node signer.mjs` run does
+  not have it (start it as `node --disable-sigusr1 signer.mjs ...`).
 - Other encodings: the key or URL as hex of its text bytes, base64 of the key's text (as opposed to
   its bytes), a u128 half below 2^64 (it would also hide common small values), RPC URL parts shorter
   than 8 characters.
+- **The environment is readable by the same user.** Any process of the same uid can read
+  `/proc/<pid>/environ` for the whole run: the signer's holds the key and the URL while it runs, and
+  `deploy.sh`'s keeps the values it was started with until it exits (bash's `unset` stops its children
+  from inheriting them, but does not clear its own environment block). A same-uid process can also read
+  either's memory. Run it under an account no other agent or service shares, or treat same-uid
+  processes as trusted.
 - Anything outside this process: a shell history, `ps` of the parent, a core dump, a debugger
   attached from outside, the provider's own logs.
 
@@ -129,14 +168,17 @@ history.
 cd scripts/signer && npm ci && npm test
 ```
 
-`node --test`, no other runner, 33 tests:
+`node --test`, no other runner, 38 tests:
 - the sanitiser's spellings;
 - the variables: refusal of a missing or empty one (`SIGNER_NETWORK` included), mainnet refused as a
   value, the URL bound to the network;
 - the chain check: `SN_MAIN` and any other chain id refused, unit and through the script against a
-  preloaded fake node that reports any signing step it is asked (none happens);
-- the runtime refusal of `NODE_DEBUG`, `--report-*` and `--inspect`;
-- argv parsing, unit and through the real script;
+  preloaded fake node that reports any signing step it is asked (none happens); the right chain id,
+  on devnet and on sepolia, exits 1 after reaching a signing step (the fake node answers none);
+- the devnet gate: a node that does not answer `devnet_getConfig` is refused, nothing asked after it;
+- the node options allowlist (`NODE_OPTIONS` and node's command line), and `NODE_DEBUG`;
+- the felt range of every felt argument and of the address and key;
+- argv parsing, unit and through the real script, `@account` included;
 - a preloaded fake `fetch` that logs the key and the URL through console and both streams, then
   throws them (neither is printed);
 - an unreachable node;
@@ -150,4 +192,6 @@ The rehearsal needs `contracts/target/dev/paved_MockUSDC.*` (`scarb build` in `c
 devnet binary (`~/.asdf/installs/starknet-devnet/0.10.0/bin/starknet-devnet`); it is skipped when
 either is missing. Overrides: `DEVNET_BIN`, `SIGNER_SIERRA`, `SIGNER_CASM`.
 
-Memory: see the pull request for the measured peak; heap cap `NODE_OPTIONS=--max-old-space-size=448`.
+Memory: the signer's peak is 405,544 kB RSS (declare Daily, the largest class, on a local devnet; VPS,
+2026-10-10, Node v24.21.0); heap cap `NODE_OPTIONS=--max-old-space-size=640` (1.5x, rounded up to
+64 MB), which `deploy.sh` sets. The test run's peak is in the pull request.

@@ -103,23 +103,63 @@ test('a chain id other than the network\'s is refused before anything is signed'
   assert.doesNotMatch(result.stderr, /fake-node: asked|signer: invoke/);
 });
 
+// What starknet.js asks a node while it builds, estimates and sends a transaction: the steps of
+// signing. A run that asks one of them got past every check.
+const SIGNING_METHODS = /fake-node: asked (starknet_getBlockWithTxs|starknet_getNonce|starknet_estimateFee|starknet_getClassHashAt|starknet_addInvokeTransaction)\n/;
+const DEVNET_NODE = { FAKE_CHAIN_ID: '0x534e5f5345504f4c4941', FAKE_DEVNET_CONFIG: '1' };
+
 test('the right chain id goes on to sign, announcing each call first', () => {
+  for (const [network, extra] of [['devnet', DEVNET_NODE], ['sepolia', { FAKE_CHAIN_ID: '0x534e5f5345504f4c4941' }]]) {
+    const env = { ...ENV, ...extra, SIGNER_NETWORK: network };
+    if (network === 'sepolia') env.STARKNET_RPC_URL = `https://rpc.example.io/rpc/${API_KEY}`;
+    const result = run(INVOKE, env, ['--import', FAKE_NODE]);
+    // The fake node answers no signing step, so the run fails (1, not a refusal's 2) after reaching one.
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /^signer: invoke 0x1 mint\n/);
+    assert.match(result.stderr, SIGNING_METHODS);
+    assertNoSecret(result, env.STARKNET_RPC_URL);
+  }
+});
+
+test('devnet: a node that does not answer devnet_getConfig (a tunnel to Sepolia) is refused before signing', () => {
   const result = run(INVOKE, { ...ENV, FAKE_CHAIN_ID: '0x534e5f5345504f4c4941' }, ['--import', FAKE_NODE]);
-  assert.match(result.stderr, /^signer: invoke 0x1 mint\nfake-node: asked /);
+  assert.equal(result.status, 2);
+  assert.equal(result.stdout, '');
+  assert.equal(result.stderr, 'fake-node: asked devnet_getConfig\n'
+    + 'signer: SIGNER_NETWORK=devnet but the node does not answer devnet_getConfig (not a starknet-devnet); nothing was signed\n');
   assertNoSecret(result);
 });
 
-test('refuses NODE_DEBUG, --report-* and --inspect, naming the variable only', () => {
+test('refuses NODE_DEBUG, and any node option but --max-old-space-size (and --disable-sigusr1 on the command line)', () => {
   for (const [env, nodeArgs, message] of [
     [{ NODE_DEBUG: 'fetch' }, [], /^signer: NODE_DEBUG is set/],
-    [{ NODE_OPTIONS: '--report-on-signal' }, [], /^signer: NODE_OPTIONS holds --report-\* or --inspect/],
-    [{}, ['--report-uncaught-exception'], /^signer: node was started with --report-\* or --inspect/],
+    [{ NODE_OPTIONS: '--report-on-signal' }, [], /^signer: NODE_OPTIONS holds an option other than --max-old-space-size=<n>/],
+    [{ NODE_OPTIONS: '--max-old-space-size=448 --heapsnapshot-signal=SIGUSR2' }, [], /^signer: NODE_OPTIONS holds an option other/],
+    [{ NODE_OPTIONS: `--require ${THROWER}` }, [], /^signer: NODE_OPTIONS holds an option other/],
+    [{ NODE_OPTIONS: `--import=${THROWER}` }, [], /^signer: NODE_OPTIONS holds an option other/],
+    [{}, ['--report-uncaught-exception'], /^signer: node was started with an option other than/],
+    [{ NODE_TLS_REJECT_UNAUTHORIZED: '0' }, [], /^signer: NODE_TLS_REJECT_UNAUTHORIZED=0 turns off TLS checks/],
+    [{}, ['--heapsnapshot-near-heap-limit=1'], /^signer: node was started with an option other than/],
   ]) {
     const result = run(INVOKE, { ...ENV, ...env }, nodeArgs);
-    assert.equal(result.status, 2);
+    assert.equal(result.status, 2, result.stderr);
     assert.equal(result.stdout, '');
     assert.match(result.stderr, message);
-    assert.ok(!result.stderr.includes('fetch,') && !result.stderr.includes('--report-on-signal'));
+    assert.ok(!result.stderr.includes('fetch,') && !result.stderr.includes('--report-on-signal') && !result.stderr.includes('SIGUSR2'));
     assertNoSecret(result);
+  }
+  // What deploy.sh runs: the heap cap in NODE_OPTIONS, --disable-sigusr1 on the command line.
+  const allowed = run(INVOKE, { ...ENV, ...DEVNET_NODE, NODE_OPTIONS: '--max-old-space-size=448' }, ['--disable-sigusr1', '--import', FAKE_NODE]);
+  assert.equal(allowed.status, 1, allowed.stderr);
+  assert.match(allowed.stderr, SIGNING_METHODS);
+});
+
+test('refuses a felt at or above the field prime, before reading the node', () => {
+  const prime = 2n ** 251n + 17n * 2n ** 192n + 1n;
+  for (const value of [`0x${prime.toString(16)}`, (prime + 5n).toString(10), `0x${'f'.repeat(64)}`]) {
+    const result = run(['invoke', '--contract', '0x1', '--function', 'mint', '--calldata', value], { ...ENV, ...DEVNET_NODE }, ['--import', FAKE_NODE]);
+    assert.equal(result.status, 2);
+    assert.equal(result.stderr, 'signer: --calldata expects a felt (0x-hex or decimal, below the field prime)\n');
   }
 });

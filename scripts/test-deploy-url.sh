@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The RPC_URL guard of deploy.sh names what it could not parse (it runs before anything else, so no
 # node and no toolchain are needed), its network and sepolia variable checks refuse before anything is built or sent
-# (S-1), and its getClass predicate rejects a malformed answer. Usage: scripts/test-deploy-url.sh
+# (S-1), a sepolia run failing at the node leaks no value to an output, an argv or a child's environment (P-40), and
+# its getClass predicate rejects a malformed answer. Usage: scripts/test-deploy-url.sh
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fail=0
@@ -43,7 +44,7 @@ if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; th
   echo "ok: deploy.sh sepolia --rehearse refuses a remote node, its key unprinted"
 else echo "FAIL: deploy.sh sepolia --rehearse with a remote RPC_URL: $out"; fail=1; fi
 
-# sepolia names each missing variable, never a value, and stops before signing (S-1 escalation). The values below
+# sepolia names each missing variable, never a value, and stops before anything is built or sent. The values below
 # are dummies; a marker in each proves no value is printed.
 sepolia() { # <expected exit> <expected fragment> [VAR=value...]
   local code="$1" frag="$2" out rc; shift 2
@@ -55,7 +56,9 @@ sepolia() { # <expected exit> <expected fragment> [VAR=value...]
     echo "ok: sepolia with $# variable(s) -> $frag"
   fi
 }
-ADDR=STARKNET_ACCOUNT_ADDRESS=0xabc
+# The address is a valid hex felt, so its marker is a hex string too.
+ADDR_MARK=abcdef0123456789
+ADDR=STARKNET_ACCOUNT_ADDRESS=0x$ADDR_MARK
 KEY=STARKNET_PRIVATE_KEY=0xMARKER
 URL=STARKNET_RPC_URL=https://MARKER.example.com/v1/MARKER
 sepolia 2 "needs STARKNET_PRIVATE_KEY STARKNET_RPC_URL in" "$ADDR"
@@ -64,7 +67,111 @@ sepolia 2 "needs STARKNET_RPC_URL in" "$ADDR" "$KEY"
 sepolia 2 "needs STARKNET_PRIVATE_KEY in" "$ADDR" STARKNET_PRIVATE_KEY= "$URL"
 sepolia 2 "STARKNET_ACCOUNT_ADDRESS is not a 0x hex address" STARKNET_ACCOUNT_ADDRESS=MARKER "$KEY" "$URL"
 sepolia 2 "STARKNET_RPC_URL must be an https:// URL" "$ADDR" "$KEY" STARKNET_RPC_URL=http://MARKER:5050
-sepolia 3 "signing on sepolia is not settled" "$ADDR" "$KEY" "$URL"
+# The URL goes into a quoted string of curl's config: a quote, a backslash or a line break is refused.
+for bad in 'https://MARKER.example.com/"x' 'https://MARKER.example.com/\x' $'https://MARKER.example.com/\nx' \
+    $'https://MARKER.example.com/\rx'; do
+  sepolia 2 "STARKNET_RPC_URL holds a double quote, a backslash or a line break" "$ADDR" "$KEY" "STARKNET_RPC_URL=$bad"
+done
+
+# Past the variable checks, a sepolia run that fails at the node (P-40, #293 audit note 3): shims of curl, node and npm
+# first on PATH log each call's argv and environment, and curl answers as a fake node (down, on mainnet, or on Sepolia
+# without the deployer account). No marker of the three values (the address included) may reach any output, argv or
+# child environment; the URL and the request (with the address) reach curl on stdin only, and nothing is signed (no
+# node or npm call).
+shims="$(mktemp -d)"
+trap 'rm -rf "$shims"' EXIT
+mkdir "$shims/signer"
+# The shims read the address marker from a file: in their environment it would count as a leak.
+printf '%s' "$ADDR_MARK" >"$shims/addr_mark"
+for tool in node npm; do
+  printf '#!/usr/bin/env bash\n{ printf "%s argv:"; printf " %%s" "$@"; echo; echo "%s env:"; env; } >>"$SHIM_LOG"\nexit 1\n' \
+    "$tool" "$tool" >"$shims/$tool"
+done
+cat >"$shims/curl" <<'SH'
+#!/usr/bin/env bash
+{ printf 'curl argv:'; printf ' %s' "$@"; echo; echo 'curl env:'; env; } >>"$SHIM_LOG"
+config="$(cat)"
+[[ "$config" == *MARKER* ]] && echo 'curl: the URL came on stdin' >>"$SHIM_LOG"
+[[ "$config" == *"$(cat "${0%/*}/addr_mark")"* ]] && echo 'curl: the address came on stdin' >>"$SHIM_LOG"
+case "$FAKE_NODE:$config" in
+  down:*) exit 7 ;;
+  *starknet_specVersion*) echo '{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
+  mainnet:*starknet_chainId*) echo '{"jsonrpc":"2.0","id":1,"result":"0x534e5f4d41494e"}' ;;
+  *starknet_chainId*) echo '{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
+  *) echo '{"jsonrpc":"2.0","id":1,"error":{"code":20,"message":"Contract not found"}}' ;;
+esac
+SH
+# A fake signer for `--check-send-failure`: it logs its argv and environment, then prints the three values (the address
+# padded to 64 digits, the key in upper case) on both streams and fails, as a signer whose sanitiser missed them would.
+cat >"$shims/signer/node" <<'SH'
+#!/usr/bin/env bash
+# Its log is beside it, not in SHIM_LOG: send's environment allowlist drops that variable.
+{ printf 'node argv:'; printf ' %s' "$@"; echo; echo 'node env:'; env; } >>"${0%/*}/../send.log"
+pad="$(printf '%064x' "0x${STARKNET_ACCOUNT_ADDRESS#0x}" 2>/dev/null || echo "$STARKNET_ACCOUNT_ADDRESS")"
+if [[ -e "${0%/*}/long" ]]; then
+  # Long mode: more than 800 characters, the address across the 800th from the end (790 after it).
+  printf '%s%s%s\n' "$(printf 'x%.0s' {1..300})" "$STARKNET_ACCOUNT_ADDRESS" "$(printf 'y%.0s' {1..790})" >&2
+  exit 1
+fi
+echo "out ${STARKNET_ACCOUNT_ADDRESS} at ${STARKNET_RPC_URL}"
+echo "err 0x$pad key ${STARKNET_PRIVATE_KEY^^} ${STARKNET_PRIVATE_KEY}" >&2
+exit 1
+SH
+chmod +x "$shims/curl" "$shims/node" "$shims/npm" "$shims/signer/node"
+leaks() { grep -i -e MARKER -e "$ADDR_MARK" "$@"; }
+at_node() { # <FAKE_NODE mode> <expected fragment>
+  local out rc log="$shims/$1.log"
+  : >"$log"
+  out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$shims:$PATH" SHIM_LOG="$log" \
+    FAKE_NODE="$1" "$ADDR" "$KEY" "$URL" "$here/deploy.sh" sepolia 2>&1)"
+  rc=$?
+  if [[ $rc -ne 1 || "$out" != *"$2"* ]] || leaks -q <<<"$out"; then
+    echo "FAIL: sepolia at a $1 node expected exit 1 and '$2', no value, got $rc: $out"; fail=1
+  elif leaks -q "$log" || ! grep -q '^curl: the URL came on stdin$' "$log" || grep -q '^\(node\|npm\) argv' "$log" ||
+      { [[ "$1" == sepolia ]] && ! grep -q '^curl: the address came on stdin$' "$log"; }; then
+    echo "FAIL: sepolia at a $1 node: a value reached a child's argv or environment, or something was signed:"
+    leaks -n "$log" | sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI"; grep -n '^[a-z]* argv\|^curl: ' "$log"; fail=1
+  else
+    echo "ok: sepolia at a $1 node -> $2; no value in any output, argv or child environment"
+  fi
+}
+at_node down "no node answers at \$STARKNET_RPC_URL"
+at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA"
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL"
+
+# `send` (review of #299): a signer that fails while printing the three values leaks none of them through deploy.sh,
+# gets no value in its argv, and starts with the allowlisted environment only (no NODE_TLS_REJECT_UNAUTHORIZED, no
+# NODE_EXTRA_CA_CERTS, no other variable of the caller).
+log="$shims/send.log"
+: >"$log"
+out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$shims/signer:$PATH" \
+  NODE_TLS_REJECT_UNAUTHORIZED=0 NODE_EXTRA_CA_CERTS=/tmp/x.pem CALLER_CANARY=1 \
+  "$ADDR" "$KEY" "$URL" "$here/deploy.sh" sepolia --check-send-failure 2>&1)"
+rc=$?
+names="$(sed -n '/^node env:$/,$p' "$log" | sed '1d' | cut -d= -f1 | grep -v '^_$\|^PWD$\|^SHLVL$\|^OLDPWD$' | sort | tr '\n' ' ')"
+want="HOME NODE_OPTIONS PATH SIGNER_NETWORK STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL "
+if [[ $rc -ne 1 || "$out" != *"signer call failed"* || "$out" != *'$STARKNET_ACCOUNT_ADDRESS'* ]] || leaks -q <<<"$out"; then
+  echo "FAIL: a failing signer through send: expected exit 1, 'signer call failed', labels and no value, got $rc:"
+  sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
+elif grep '^node argv' "$log" | leaks -q; then
+  echo "FAIL: a value reached the signer's argv"; fail=1
+elif [[ "$names" != "$want" ]]; then
+  echo "FAIL: the signer's environment is not the allowlist: $names"; fail=1
+else
+  echo "ok: a failing signer through send leaks no value; its argv holds none; its environment is: $names"
+fi
+# Redacted before the 800-character cut: an address across the cut leaves no fragment (its last 7 digits).
+touch "$shims/signer/long"
+out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$shims/signer:$PATH" \
+  "$ADDR" "$KEY" "$URL" "$here/deploy.sh" sepolia --check-send-failure 2>&1)"
+rc=$?
+rm -f "$shims/signer/long"
+if [[ $rc -ne 1 || "$out" != *"signer call failed"* || "$out" == *"${ADDR_MARK: -7}"* ]] || leaks -q <<<"$out"; then
+  echo "FAIL: a long failing signer output: expected exit 1 and no fragment of the address at the cut, got $rc:"
+  sed "s/MARKER/<marker>/gI; s/${ADDR_MARK: -7}/<address fragment>/gI" <<<"$out"; fail=1
+else
+  echo "ok: a long failing signer output is redacted before its cut (no fragment of the address)"
+fi
 
 # The getClass predicate of deploy.sh counts a class as declared only for a JSON object, with no `error`
 # field, whose `result` is an object.

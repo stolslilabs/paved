@@ -58,10 +58,33 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    contract sources that differ from the merge base), with the funded account in the environment by name only:
    `STARKNET_ACCOUNT_ADDRESS`, `STARKNET_PRIVATE_KEY`, `STARKNET_RPC_URL`. No value is printed, logged, echoed
    or written: no `set -x`, no `env` dump, no value in a file, a commit or a report.
-2. First `scripts/deploy.sh sepolia --rehearse` on a fresh local `starknet-devnet`, then
+2. First `scripts/deploy.sh sepolia --rehearse` on a fresh local `starknet-devnet`
+   (`~/.asdf/installs/starknet-devnet/0.10.0/bin/starknet-devnet --host 127.0.0.1 --port 5050 --seed 42`), then
    `scripts/deploy.sh sepolia`. It builds, declares, deploys and wires (`contracts/deployments/README.md`,
-   "Sepolia"), writes `contracts/deployments/sepolia.json`, then runs the smoke. Signing is open until the PM
-   picks an option (README, "Signing on Sepolia"); until then the run stops before anything is sent.
+   "Sepolia"), writes `contracts/deployments/sepolia.json`, then runs the smoke. Every transaction is signed by
+   the starknet.js signer in `scripts/signer/` (P-40), which `deploy.sh` installs there with `npm ci` (Node 24 on
+   the PATH; never a global install). Prebuild the contracts under the cap of AGENTS.md first
+   (`RAYON_NUM_THREADS=1 prlimit --as=12884901888 scarb --release build` in `contracts/`), so the script's own build
+   is a no-op; the signer's heap is capped by `deploy.sh` (`--max-old-space-size=640`).
+
+   What is checked before anything is sent, in order:
+   - the network is `sepolia` (mainnet refused by name, any other value refused);
+   - the three variables are set and not empty (each missing one named), the address is 0x-hex, the URL is
+     `https://`; then they are copied into unexported shell variables and unset, so no child but the signer has
+     them, and the signer gets them in its environment, never in argv;
+   - the node answers, and its chain id is `SN_SEPOLIA` (`0x534e5f5345504f4c4941`);
+   - the deployer account is deployed on the node (`starknet_getClassHashAt`);
+   - the contract sources equal the merge base with `origin/main` (no untracked source either);
+   - in the signer, before each transaction: the variables (address and key felts below the field prime, the URL
+     a remote `https` one for `SIGNER_NETWORK=sepolia`), node options (`NODE_OPTIONS` only
+     `--max-old-space-size=<n>`, no `NODE_DEBUG`), each felt argument below the field prime, and the node's chain
+     id again (`SN_MAIN` always refused);
+   - each class hash the signer declares equals `sncast utils class-hash` for the same contract.
+
+   No value of the three variables appears in an argv, an echo, an error, a log or a file: `deploy.sh` prints
+   `$STARKNET_RPC_URL` and `$STARKNET_ACCOUNT_ADDRESS` instead, `curl` reads the URL and the request from its
+   config on stdin, the signer gets them in an allowlisted environment and names the deployer `@account` in
+   calldata, and a failing signer's output is redacted before it is printed (the signer sanitises it first).
 3. `sepolia.json` is committed in a follow-up PR, with the run's output (addresses, transactions, the smoke).
 4. The smoke's test-sized traces are listed in the README; its paid game is settled by the keeper from
    `(D + 2) x 86400`.
@@ -73,6 +96,14 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
 - Format
 - Contracts tests
 - Client build and tests
+- Signer tests (`scripts/signer/`: `npm ci && npm test`, Node 24; its devnet rehearsal tests are skipped in CI,
+  which has no build or node for them)
+
+A change of `scripts/deploy.sh` or `scripts/signer/` that touches the Sepolia path also needs, from its reviewer,
+`scripts/deploy.sh sepolia --rehearse` on a fresh local starknet-devnet (seed 42), end to end with its smoke
+(`== smoke ok`), and `npm test` in `scripts/signer/` with `contracts/target/dev/` built, so the signer's own
+rehearsal tests run. Not in CI: the rehearsal took 275 s on the VPS with the contracts already built (2026-10-10),
+above the 2 minutes a CI job may spend on it.
 
 ## Audits
 

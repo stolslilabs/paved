@@ -1,15 +1,22 @@
 // Parses the signer's argv. Only the options listed per subcommand exist: there is no option for a
 // key, an account or a node, so no secret can come from argv. No error message repeats a value.
 
-import { UsageError } from './env.mjs';
+import { FELT_PRIME, UsageError } from './env.mjs';
 
 const FELT_RE = /^(0x[0-9a-fA-F]{1,64}|[0-9]{1,78})$/;
 const ENTRYPOINT_RE = /^[A-Za-z_][A-Za-z0-9_]{0,250}$/;
 const FLAG_RE = /^--[a-z][a-z-]{0,39}$/;
 
+// A calldata word that stands for the account's own address (STARKNET_ACCOUNT_ADDRESS), so a caller
+// never has to put that value in argv or in a calls file.
+export const ACCOUNT_TOKEN = '@account';
+
 const kinds = {
   felt: (value, flag) => {
-    if (!FELT_RE.test(value)) throw new UsageError(`${flag} expects a felt (0x-hex or decimal)`);
+    // The pattern bounds the digits; the value must also be below the field prime.
+    if (!FELT_RE.test(value) || BigInt(value) >= FELT_PRIME) {
+      throw new UsageError(`${flag} expects a felt (0x-hex or decimal, below the field prime)`);
+    }
     return value;
   },
   entrypoint: (value, flag) => {
@@ -49,6 +56,7 @@ export const USAGE = `usage: signer.mjs <command> [options]
   invoke    --contract <felt> --function <name> [--calldata <felt>...]
   multicall --calls <file>   (a JSON array of {"contract", "function", "calldata"})
   call      --contract <felt> --function <name> [--calldata <felt>...]
+A calldata word may be @account: the account's address, read from the environment.
 The account, the node and the network come from STARKNET_ACCOUNT_ADDRESS, STARKNET_PRIVATE_KEY,
 STARKNET_RPC_URL and SIGNER_NETWORK (sepolia or devnet; mainnet is refused).`;
 
@@ -81,7 +89,7 @@ export function parseArgs(argv) {
       const values = [];
       while (i + 1 < rest.length && !rest[i + 1].startsWith('--')) {
         i += 1;
-        values.push(kinds.felt(rest[i], token));
+        values.push(rest[i] === ACCOUNT_TOKEN ? ACCOUNT_TOKEN : kinds.felt(rest[i], token));
       }
       options.calldata = values;
       continue;
@@ -112,6 +120,15 @@ export function assertNoSecretInArgv(argv, sanitize) {
 }
 
 /**
+ * Replaces each `@account` of a calldata list by the account's address.
+ * @param {string[]} calldata
+ * @param {string} address
+ */
+export function resolveAccount(calldata, address) {
+  return calldata.map((value) => (value === ACCOUNT_TOKEN ? address : value));
+}
+
+/**
  * Validates a multicall file's parsed JSON: [{ contract, function, calldata? }, ...].
  * @param {unknown} calls
  */
@@ -125,7 +142,7 @@ export function parseCalls(calls) {
     return {
       contractAddress: kinds.felt(String(call.contract ?? ''), `${where}: contract`),
       entrypoint: kinds.entrypoint(String(call.function ?? ''), `${where}: function`),
-      calldata: calldata.map((value) => kinds.felt(String(value), `${where}: calldata`)),
+      calldata: calldata.map((value) => (value === ACCOUNT_TOKEN ? ACCOUNT_TOKEN : kinds.felt(String(value), `${where}: calldata`))),
     };
   });
 }

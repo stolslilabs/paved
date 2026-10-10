@@ -2,58 +2,58 @@
   "network": "devnet",
   "chain_id": "0x534e5f5345504f4c4941",
   "rpc_url": "http://127.0.0.1:5050",
-  "deployed_at": "fa82f248573d630abf2a300b9322d8ea76bd6811",
+  "deployed_at": "82dcfe4179b1bd2a752a7077d575f33afe06796b",
   "deployed_block": 12,
   "token": {
-    "address": "0x03b94b62a217d473cc6ba758e6b73215e86c187ec408991d4a26a18e61e11ef5",
-    "class_hash": "0x01c3fb5b71f0af1502e4a209370a3a85c0e687f4ca64aabd742a3597afe90b09",
+    "address": "0x07a47df3630fba9141faaf316601ca4ac1355a8daa08dcc11f6afe9cc1497a0a",
+    "class_hash": "0x00eea3e1b7dc1b70c703b2ac5af9ace016e16715d6ef2e9ca15b34f5e47afa03",
     "decimals": 6,
     "symbol": "USDC"
   },
   "contracts": {
     "Account": {
-      "address": "0x02b401bf330a32801131d7c50c0b23d962f54661867dce642f4c503e3c644255",
-      "class_hash": "0x032204754a74a82d5f481a1d3fc7a896a312606a65583f1124eea8641f726697"
+      "address": "0x040bd120b931a8fef4ff298f2e7873b14684613c2a9c9fa652e534b7197f83e4",
+      "class_hash": "0x06ebe06aea650249adc3091c05125c9ad0ca3f2ee791c5f52c3d0d2088ec6a94"
     },
     "Daily": {
-      "address": "0x02ea57eddbbcf2df16da9cbcf7b611a9190b3e3da1fff6f116c3585f7494d4e7",
-      "class_hash": "0x04f53a52a654dd8bae3df902a43c4bba1a3815ff7e89d659aac98720f683a7ce"
+      "address": "0x0514095b1de7427ab3d03f68568e60748718d60d95d182aa8a5aaa73d6d7e6b7",
+      "class_hash": "0x02ba6398cc96b94232aa59473f627fcbd6302249537eefe9db97cd380a69f9f9"
     },
     "Tutorial": {
-      "address": "0x07077ae2465eb8dfe1a627c8c9aa5cf34a8d9d519407573cfd167bdf68afa547",
-      "class_hash": "0x069747566dcb67c391648df2f62105de10cb1b04fda6e8ac69871e0f408a9e63"
+      "address": "0x06bccee6082b9aeff2e44a622a199d146c9e80974dd38c8cc5495a17ae8bee79",
+      "class_hash": "0x00189ebf3c31270e867595aee5d624f389a26b068ae5fc5b23d21a2aa82c29aa"
     },
     "Collection": {
-      "address": "0x0161d5d54ffb8440d5ffac7ee39e9f0001e843a182b965dc34d91c43ac9a1e4c",
-      "class_hash": "0x053f3f29399821ba0c684292604359099003a3f3d6ac685ded3a966e9e0d74b9"
+      "address": "0x01796dcf8b5009ed453aeab23908452fbf535b473141138f543ec5eed2095fb2",
+      "class_hash": "0x06e2ce9c7e01741e65d9fef5d62e681fede934cc03bb69da727aa9aa77607087"
     },
     "Token": {
       "address": "0x02aa1b3c0b07d9abd3568a3dc6cb1b15f87001f45a644bb31841c96cc33ffac7",
       "class_hash": "0x041f8b68c2be80df578aff51c57cf28ba7dc1eac2ce2d60104da3755cc3530c9"
     },
     "Economy": {
-      "address": "0x071ed99407392ff9e4de3a640e8c90c549c430129b3b2b3ba6b180a9a36a8f76",
-      "class_hash": "0x003635f7df325d97ca6bfbf0fa02342f00c6bb609ccdc39a08f8a422e7064cd6"
+      "address": "0x0064149068356297cebe9b02c062513e6d330b51c91eecbe33f276f4c06943cc",
+      "class_hash": "0x00193f3e086e17c964b275721f9a5e12f8e84991fbcda87becb0e56627c95d90"
     },
     "PavedToken": {
       "address": "0x03bf402a32d9aad6df4facdecd8a3c23959583eca0c5952421bba0c8277596fd",
       "class_hash": "0x012cdbc4de283aef70bd1e056b4310da595ae072d332b9274566d7609eabfdcb"
     },
     "Vault": {
-      "address": "0x0125fce4a1fcefdfdcc12698adf4e48852e99f4d4bd736e33cd9a3611bc3c186",
+      "address": "0x035265a88b27349ad4247bf335022e6f18c635e175a61ea412eb0162e8ba894b",
       "class_hash": "0x0520ae02d3b73b4f4fcb0637a82c04927688bd32fcb479562111982a4f256b02"
     },
     "MockUSDC": {
-      "address": "0x03b94b62a217d473cc6ba758e6b73215e86c187ec408991d4a26a18e61e11ef5",
-      "class_hash": "0x01c3fb5b71f0af1502e4a209370a3a85c0e687f4ca64aabd742a3597afe90b09"
+      "address": "0x07a47df3630fba9141faaf316601ca4ac1355a8daa08dcc11f6afe9cc1497a0a",
+      "class_hash": "0x00eea3e1b7dc1b70c703b2ac5af9ace016e16715d6ef2e9ca15b34f5e47afa03"
     },
     "MockRouter": {
-      "address": "0x0777db89eb933df74f7bf364059e27f6297cfed1933c9fa533dbe1fa9c3d70ab",
+      "address": "0x00d3def244b7921bf703f0e7b98b32b0f74ac8720071e3796ae5ca74163f5c1d",
       "class_hash": "0x01ac7204d74dfb7e7dddfa564261c32f89d4dddf5ef0d66f478c8e8741a5ac07"
     }
   },
   "classes": {
-    "Lobby": "0x0510aa066b2f3383ec15e7bd30fa18c0d0c8018223a3ea282a1b420fa26b6ead"
+    "Lobby": "0x05bd429dc632b4c0612147bceafded0fdf5eba2ef820fb2689f1682117f09972"
   },
   "test_paved": {
     "0x02939f2dc3f80cc7d620e8a86f2e69c1e187b7ff44b74056647368b5c49dc370": "1000000000000000000000",
