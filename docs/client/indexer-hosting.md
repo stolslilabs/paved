@@ -262,7 +262,7 @@ addresses and `deployed_block`, and the client build reads the same file. Everyt
 | What | Name | Where |
 |---|---|---|
 | Client (static build) | `https://paved.bal7hazar.com` | Caddy reads `/var/www/paved/current`, written by the deploy user `paved-deploy` |
-| API | `https://api.paved.bal7hazar.com` | Caddy → `127.0.0.1:8787`, `/v1/*`, GET and OPTIONS only |
+| API | `https://api.paved.bal7hazar.com` | Caddy → `127.0.0.1:8787`, `/v1/*`, GET only |
 | Indexer | `paved-indexer.service` | user `paved-indexer`, code `/opt/paved-indexer/current` (root-owned), db `/var/lib/paved-indexer/sepolia.db` |
 | RPC | `https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` | spec 0.10.2, `SN_SEPOLIA`, `l1_accepted` and `getEvents` answer (checked by the PM). It carries no key: plain `Environment=` in the unit, no secret file. |
 
@@ -297,7 +297,7 @@ forged `X-Forwarded-For: 1.2.3.4` still arrived with `127.0.0.1`: Caddy replaces
 cannot pick its own bucket. `deploy/indexer/Caddyfile` sets no `trusted_proxies`, which keeps it so; do not add one without
 rereading this. Step 9 checks it on the real site.
 
-What Caddy still caps before the indexer: `/v1/*` only, GET and OPTIONS only (405 otherwise), a 1 KB request body, 2 s dial and 15 s
+What Caddy still caps before the indexer: `/v1/*` only, GET only (405 otherwise; the client sends simple GETs with no preflight, and the indexer would answer an OPTIONS with 405 anyway), a 1 KB request body, 2 s dial and 15 s
 response timeouts. The main Caddyfile's global `servers { timeouts }` belong to the shared global block, which this runbook does not
 touch; set them there if wanted.
 
@@ -424,7 +424,7 @@ git -C /opt/paved-indexer/releases/$COMMIT checkout --detach $COMMIT
 cd /opt/paved-indexer/releases/$COMMIT
 bun install --frozen-lockfile --ignore-scripts --filter @paved/indexer
 chmod -R go-w .
-ln -s releases/$COMMIT /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
+ln -sfnT releases/$COMMIT /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
 ```
 
 Verify: `git -C /opt/paved-indexer/current rev-parse HEAD` equals `<commit>`; `ls /opt/paved-indexer/current/deploy/indexer`
@@ -472,24 +472,38 @@ ufw status verbose                                  # if "Status: inactive", do 
 ufw allow 80/tcp && ufw allow 443/tcp && ufw deny 8787/tcp
 ```
 
+Note, for each rule, whether ufw printed `Rule added` or `Skipping adding existing rule`: the removal deletes only the rules this step added.
+
 Verify: `ufw status | grep -E '80|443|8787'` (if active); `ss -ltn 'sport = :8787'` prints nothing yet (the indexer listens on
 loopback only, never on `0.0.0.0`, once started). From another machine: `curl -sI http://paved.bal7hazar.com` answers (Caddy already
 holds port 80). No rate limit is set at the firewall (P-43).
 
 **7. Caddy: load the sites (certificates)**
 
-```bash
-systemctl reload caddy
-```
+Branch on what step 5's `grep -n admin /etc/caddy/Caddyfile` printed. **Never run a restart because a reload failed**: a rejected
+reload leaves every site on its old, working config, while a restart would load the rejected config and take all of them down.
 
-`reload` talks to Caddy's admin endpoint; if it succeeds, nothing else is interrupted. **If the main Caddyfile has `admin off`** (the dated backup names in `/etc/caddy` suggest
-one was set once; step 5 greps for it), `reload` fails and **only a restart applies the change. A restart briefly interrupts
-every other site this VPS serves through Caddy**, so the owner chooses the moment, and only then runs
-`systemctl restart caddy`.
+- **No `admin off`** (the admin endpoint is on): reload only.
+
+  ```bash
+  systemctl reload caddy
+  ```
+
+  If it fails, stop. The old configuration is still serving; read why with `journalctl -u caddy -n 50 --no-pager`, fix the file, run
+  the `caddy validate` of step 5 again, and reload again. Do not restart.
+
+- **`admin off`** (the dated backup names in `/etc/caddy` suggest one was set once): `reload` cannot work, and only a restart applies
+  the change. **A restart briefly interrupts every other site this VPS serves through Caddy**, so the owner chooses the moment. Two
+  separate commands, the second only if the first printed `Valid configuration`:
+
+  ```bash
+  runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+  systemctl restart caddy
+  ```
 
 Verify: `dig +short paved.bal7hazar.com` and `dig +short api.paved.bal7hazar.com` both print `31.97.36.234`;
 `journalctl -u caddy -n 40 --no-pager | grep -i 'certificate obtained'` shows both names;
-`curl -sI https://api.paved.bal7hazar.com/v1/head` answers over TLS (a `502` until step 8, because nothing listens on 8787 yet);
+`curl -s -o /dev/null -w '%{http_code}\n' https://api.paved.bal7hazar.com/v1/head` answers over TLS (`502` until step 8, because nothing listens on 8787 yet; use GET, not `curl -I`: a HEAD request is a `405` at the proxy);
 `curl -sI https://paved.bal7hazar.com/` answers `404` until the deploy user publishes the first release (list B).
 
 **8. Start the indexer (only once `sepolia.json` is merged and in the checkout) and the watch**
@@ -570,21 +584,38 @@ git clone --no-checkout https://github.com/stolslilabs/paved.git /opt/paved-inde
 git -C /opt/paved-indexer/releases/$NEW checkout --detach $NEW
 (cd /opt/paved-indexer/releases/$NEW && bun install --frozen-lockfile --ignore-scripts --filter @paved/indexer && chmod -R go-w .)
 systemctl stop paved-indexer
-ln -s releases/$NEW /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
+ln -sfnT releases/$NEW /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
 D=/opt/paved-indexer/current/deploy/indexer          # unit files changed? install them again and `systemctl daemon-reload`
 # Only for a schema change, or new contracts in sepolia.json: empty the database (the same as `rebuild`, supervised):
 rm -f /var/lib/paved-indexer/sepolia.db /var/lib/paved-indexer/sepolia.db-wal /var/lib/paved-indexer/sepolia.db-shm
 systemctl start paved-indexer
 ```
 
-Verify as in step 8; after an emptied database `/v1/head` is 503 `loading` until `behind` is a few blocks. The `rebuild` command
-itself is the same arguments as the unit with `rebuild` instead of `run`, run as `runuser -u paved-indexer --` with the unit's two
-`Environment=` values, in the foreground until `/v1/head` is `ok`, stopped with Ctrl-C, then `systemctl start paved-indexer`.
+Verify as in step 8; after an emptied database `/v1/head` is 503 `loading` until `behind` is a few blocks.
+
+A `rebuild` as a command (what the hosting text calls the same arguments with `rebuild` instead of `run`), with the unit stopped:
+
+```bash
+systemctl stop paved-indexer
+cd /opt/paved-indexer/current && runuser -u paved-indexer -- env \
+  INDEXER_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10 NODE_OPTIONS=--max-old-space-size=384 \
+  /usr/bin/node packages/indexer/src/main.ts rebuild \
+  --deployment /opt/paved-indexer/current/contracts/deployments/sepolia.json \
+  --db /var/lib/paved-indexer/sepolia.db \
+  --host 127.0.0.1 --port 8787 \
+  --allow-origin https://paved.bal7hazar.com \
+  --depth l1 --poll 3000 --recheck 5 --recheck-every 60000
+# in a second shell: curl -s http://127.0.0.1:8787/v1/head | jq '{status, behind}'
+# press Ctrl-C once it says "ok" and behind 0, then:
+systemctl start paved-indexer
+```
+
+(If the unit's flags change, change them here too: they are the unit's `ExecStart`, with `rebuild` for `run`.)
 
 ```bash
 # Roll back the code (root): the previous release directory is still there
 systemctl stop paved-indexer
-ln -s releases/<previous-commit> /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
+ln -sfnT releases/<previous-commit> /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
 systemctl start paved-indexer          # if the schema had changed, empty the database first (rm line above)
 
 # Remove everything (root); the chain is untouched, the database can always be rebuilt
@@ -592,13 +623,16 @@ systemctl disable --now paved-indexer-watch.timer paved-indexer.service
 rm -f /etc/systemd/system/paved-indexer.service /etc/systemd/system/paved-indexer-watch.service /etc/systemd/system/paved-indexer-watch.timer
 systemctl daemon-reload
 sed -i '\#^import /etc/caddy/paved.caddy$#d' /etc/caddy/Caddyfile && rm -f /etc/caddy/paved.caddy
-runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile && systemctl reload caddy
+runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+systemctl reload caddy          # with `admin off`: restart instead, at a moment the owner chooses (step 7); never restart after a failed reload
 rm -rf /opt/paved-indexer /var/lib/paved-indexer /var/www/paved /usr/local/lib/paved
+rm -f /usr/local/bin/bun                                  # installed in step 2; skip if something else on this VPS uses it
 userdel paved-indexer; userdel -r paved-deploy
-ufw delete allow 80/tcp; ufw delete allow 443/tcp; ufw delete deny 8787/tcp   # only if step 6 added them AND no other site needs 80/443
+# ufw: delete a rule only if step 6 printed "Rule added" for it ("Skipping adding existing rule" means it was there before):
+# ufw delete allow 80/tcp ; ufw delete allow 443/tcp ; ufw delete deny 8787/tcp
 ```
 
-(`ufw delete allow 80/tcp` would close the other sites' ports too: leave 80/443 if Caddy still serves anything else.)
+(Never delete the 80/443 rules if Caddy still serves anything else: they would close the other sites' ports too.)
 
 ## Appendix: how the figures were made
 

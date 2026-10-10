@@ -48,9 +48,10 @@ api.paved.bal7hazar.com {
 		# second value makes the browser refuse the answer. The proxy passes the Origin header through untouched.
 	}
 
-	# /v1/* only, GET and OPTIONS only; anything else is a 404 or a 405 from here, never from the indexer.
+	# /v1/* only, GET only; anything else is a 404 or a 405 from here. The client sends simple GETs (no preflight), and an
+	# OPTIONS would only reach the indexer to be answered 405.
 	handle /v1/* {
-		@write not method GET OPTIONS
+		@write not method GET
 		respond @write 405
 
 		reverse_proxy 127.0.0.1:8787 {

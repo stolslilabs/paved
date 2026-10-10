@@ -3,7 +3,7 @@
 #   publish.sh <dist-dir> <release-name>
 # <dist-dir> is packages/app-web/dist of a build made with the Sepolia env (docs/client/indexer-hosting.md). The release is
 # copied to /var/www/paved/releases/<release-name>, and /var/www/paved/current is then replaced by a symlink to it in one
-# atomic rename (ln -sfn is not atomic; mv -T of a fresh symlink is). Caddy only reads /var/www/paved.
+# atomic rename (the rename is atomic). Caddy only reads /var/www/paved.
 # Rollback is the same swap to an older release: switch.sh. Releases beyond the newest KEEP are removed.
 set -euo pipefail
 ROOT=${WWW_ROOT:-/var/www/paved}
@@ -22,7 +22,7 @@ touch "$tmp"   # cp -a keeps the build's mtime; the pruning below sorts by it
 mv -T "$tmp" "$ROOT/releases/$name"
 trap - EXIT
 
-ln -s "releases/$name" "$ROOT/.current.new"
+ln -sfnT "releases/$name" "$ROOT/.current.new"   # -f -n -T: a stale .current.new from an interrupted run is replaced
 mv -T "$ROOT/.current.new" "$ROOT/current"
 echo "current -> releases/$name"
 
