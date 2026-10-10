@@ -7,6 +7,7 @@
 import type { SQLInputValue } from "node:sqlite";
 import {
   TOURNAMENT_DURATION,
+  UNSETTLED_PAGE,
   type AchievementDefinition,
   type DayEconomy,
   type GameContract,
@@ -309,7 +310,7 @@ export class Queries {
   player(
     head: number,
     playerId: string,
-  ): { player: PlayerInfo; stats: PlayerStats; unsettled: UnsettledGame[] } | null {
+  ): { player: PlayerInfo; stats: PlayerStats; unsettled: UnsettledGame[]; unsettled_count: number } | null {
     const row = this.store
       .statement(
         "SELECT player_id, name, created_time FROM players WHERE player_id = ? AND created_block <= ?",
@@ -352,14 +353,24 @@ export class Queries {
         settled_games: rewards.length,
         rewards: total(rewards.map((row) => row.reward!)),
       },
+      unsettled_count: Number(
+        (
+          this.store
+            .statement(
+              `SELECT count(*) AS n FROM purchases
+               WHERE player_id = :p AND recorded_block <= :h AND (settled_block IS NULL OR settled_block > :h)`,
+            )
+            .get({ p: playerId, h: head }) as Row
+        ).n,
+      ),
       unsettled: (
         this.store
           .statement(
             `SELECT game_id, day, expired FROM purchases
              WHERE player_id = :p AND recorded_block <= :h AND (settled_block IS NULL OR settled_block > :h)
-             ORDER BY game_id`,
+             ORDER BY game_id LIMIT :page`,
           )
-          .all({ p: playerId, h: head }) as Row[]
+          .all({ p: playerId, h: head, page: UNSETTLED_PAGE }) as Row[]
       ).map((game) => ({ game_id: Number(game.game_id), day: Number(game.day), expired: Number(game.expired) === 1 })),
     };
   }
@@ -375,6 +386,7 @@ export class Queries {
     const at = (block: SQLInputValue | undefined) => block !== null && block !== undefined && Number(block) <= head;
     const recorded = games.filter((game) => at(game.recorded_block));
     const settled = recorded.filter((game) => at(game.settled_block));
+    const unsettled = recorded.filter((game) => !at(game.settled_block));
     const closed = this.store
       .statement("SELECT * FROM economy_days WHERE day = ? AND closed_block <= ?")
       .get(day, head) as Row | undefined;
@@ -383,7 +395,8 @@ export class Queries {
       games_purchased: games.length,
       games_recorded: recorded.length,
       games_settled: settled.length,
-      unsettled: recorded.filter((game) => !at(game.settled_block)).map((game) => Number(game.game_id)),
+      unsettled: unsettled.slice(0, UNSETTLED_PAGE).map((game) => Number(game.game_id)),
+      unsettled_count: unsettled.length,
       rewards: total(settled.map((game) => game.reward!)),
       closed: closed !== undefined,
       mean: of("mean"),

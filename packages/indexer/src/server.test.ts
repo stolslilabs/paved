@@ -177,11 +177,12 @@ describe("Economy's fields (appended in E3)", () => {
     expect(get(indexer, `/v1/players/${PA}`).body).toMatchObject({
       stats: { paid_games: 2, settled_games: 1, rewards: String(REWARD) },
       unsettled: [{ game_id: 2, day: DAY, expired: false }],
+      unsettled_count: 1,
     });
-    expect(get(indexer, `/v1/players/${padded(0xeeen)}`).body).toMatchObject({ player: null, stats: null, unsettled: null });
+    expect(get(indexer, `/v1/players/${padded(0xeeen)}`).body).toMatchObject({ player: null, stats: null, unsettled: null, unsettled_count: null });
     expect(get(indexer, `/v1/tournaments/${DAY}`).body).toMatchObject({
       tournament: { id: DAY, games_spawned: 2 },
-      economy: { games_purchased: 2, games_recorded: 2, games_settled: 1, unsettled: [2], rewards: String(REWARD), closed: true, mean: 4_215_689 },
+      economy: { games_purchased: 2, games_recorded: 2, games_settled: 1, unsettled: [2], unsettled_count: 1, rewards: String(REWARD), closed: true, mean: 4_215_689 },
     });
     // The list keeps its summaries: the day's economy is in the detail only.
     expect((get(indexer, "/v1/tournaments").body.tournaments as object[])[0]).not.toHaveProperty("economy");

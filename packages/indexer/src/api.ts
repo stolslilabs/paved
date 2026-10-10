@@ -10,6 +10,9 @@ export const API_VERSION = 1;
 /** Seconds of a tournament (`DAILY_TOURNAMENT_DURATION` of the contracts). */
 export const TOURNAMENT_DURATION = 86400;
 
+/** The most unsettled games an answer lists (`unsettled`); the whole count is `unsettled_count`. API v1 has no cursor for them. */
+export const UNSETTLED_PAGE = 100;
+
 /**
  * The largest tournament id the API accepts and returns (P-19): `floor((2^53 - 1) / 86400) - 1`, so that the end time
  * `(id + 1) * 86400` of the id, the largest number the API returns for it, is at most 2^53 - 1 (`Number.MAX_SAFE_INTEGER`).
@@ -117,8 +120,10 @@ export interface DayEconomy {
   /** Of them, the games whose score Economy has (`Recorded`), settled or not. */
   games_recorded: number;
   games_settled: number;
-  /** The recorded games of the day not settled yet, by id: what `Economy.settle` takes from `(id + 2) x 86400`. */
+  /** The recorded games of the day not settled yet, by id: what `Economy.settle` takes from `(id + 2) x 86400`. The first `UNSETTLED_PAGE` only: `unsettled_count` is the whole count. */
   unsettled: number[];
+  /** How many recorded games of the day are not settled yet (appended; `unsettled` holds at most `UNSETTLED_PAGE` of them). */
+  unsettled_count: number;
   /** PAVED base units minted to the day's settled games, a decimal string. */
   rewards: string;
   /** `DayClosed` seen: the day's mean is fixed. */
@@ -198,8 +203,10 @@ export interface PlayerAnswer extends Envelope {
   /** null for a player the indexer does not know (200, not 404). */
   player: PlayerInfo | null;
   stats: PlayerStats | null;
-  /** The player's unsettled games, oldest first; null for a player the indexer does not know. Appended in E3. */
+  /** The player's unsettled games, oldest first, the first `UNSETTLED_PAGE` only; null for a player the indexer does not know. Appended in E3. */
   unsettled: UnsettledGame[] | null;
+  /** How many games of the player are not settled yet (appended; `unsettled` holds at most `UNSETTLED_PAGE` of them); null for a player the indexer does not know. */
+  unsettled_count: number | null;
 }
 
 export interface GameRow {

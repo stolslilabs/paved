@@ -214,6 +214,7 @@ function route(url: URL): Read | null {
             player: found?.player ?? null,
             stats: found?.stats ?? null,
             unsettled: found?.unsettled ?? null,
+            unsettled_count: found?.unsettled_count ?? null,
           };
         };
       }

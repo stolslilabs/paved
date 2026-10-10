@@ -52,7 +52,7 @@ in Tutorial. Such a game is stored and listed under its player, but ranks in no 
 Not indexed in v1: `Built`, `Discarded`, `Scored` (the current board of a game is a view call, not a list),
 `Sponsored`, `Claimed`, ownership and upgrade events, and the quiver events Paved never emits (`QuestCompleted`,
 `QuestClaimed`: quests are in event mode; the two `...ReporterSet`), and the configuration events of the economy
-(`EconomyConfigured`, `PoolSet`, `GameSet` of `Economy`, `EconomySet` of `Account`). `Claimed` may be added later to mark a prize as claimed;
+(`EconomyConfigured`, `PoolSet`, `GameSet` of `Economy`). Account's `EconomySet` and `CollectionSet` are read, to check the deployment file ("As built (registry cross-check)"). `Claimed` may be added later to mark a prize as claimed;
 until then the client reads `top*_claimed` from the `tournament` view. Adding an event is a schema change and a
 rebuild (below), never a migration.
 
@@ -271,7 +271,7 @@ An error is `{ "version": 1, "status": "error", "error": "<what>", "state": "ok"
 | `GET /v1/tournaments` | `limit`, `before` (a tournament id, from `next`) | `tournaments`: newest first, each `id, start_time, end_time, games_spawned, players, best_score`; `next` (id or null) |
 | `GET /v1/tournaments/{id}` | none | `tournament`: `id, start_time, end_time, games_spawned, games_finished, players, best_score`; `economy` (E3): the day's paid games, see "As built (P8 E3)"; `{id}` is parsed as a decimal string; a malformed one, or one above `MAX_TOURNAMENT_ID` (`104249991373`, P-19), is 400. This differs from the contract's `tournament` view, which answers zeros for ids up to `2^64 / 86400`: a start or end time above 2^53 - 1 cannot round-trip as a JSON number, so the indexer alone refuses the ids whose times would exceed it (the contract view is unchanged). The same bound applies to every tournament id of a path or of `before`. A day with no game answers zeros, never 404 |
 | `GET /v1/tournaments/{id}/leaderboard` | `limit`, `offset` (default 0) | `total` (players ranked), `entries`: by `rank`, each `rank, player_id, name, best_score, best_game_id, games_played, games_finished, finished_at, prize_ranks`; `next_offset` (or null) |
-| `GET /v1/players/{player_id}` | none | `player`: `player_id, name, created`; `stats`: `daily_games, daily_finished, best_score, tutorial_games, paid_games, settled_games, rewards` (the last three since E3); `unsettled` (E3): the player's recorded games not yet settled. a malformed id is `400`; an unknown player answers `player: null` with `200` |
+| `GET /v1/players/{player_id}` | none | `player`: `player_id, name, created`; `stats`: `daily_games, daily_finished, best_score, tutorial_games, paid_games, settled_games, rewards` (the last three since E3); `unsettled` (E3): the player's recorded games not yet settled, the first `UNSETTLED_PAGE` (100) by game id; `unsettled_count`: how many there are in all. a malformed id is `400`; an unknown player answers `player: null` with `200` |
 | `GET /v1/players/{player_id}/games` | `contract` (`daily`, `tutorial`, default both), `limit`, `before` (`<start_time>:<contract>:<game_id>`, from `next`) | `games`: newest first, each `contract, game_id, mode, start_time, tournament_id` (of the spawn), `over, score, counted_tournament_id, end_time`, `economy` (E3; null for a Tutorial game or a game not bought); `next` (or null) |
 | `GET /v1/games/{contract}/{game_id}` | none | `game`: one row as above, or `404` |
 | `GET /v1/definitions` | none | `quests`: by id, each `quest_id, start_time, end_time, duration, interval, tasks` (`task_id, total`), `conditions, defined_at, retired, retired_at`; `achievements`: by id, each `achievement_id, start_time, end_time, tasks, points, defined_at, retired, retired_at`. Titles and descriptions are not on chain: the client keys them by id. A retirement above the served block has not happened |
@@ -565,10 +565,14 @@ The package follows this design. What differs, or was decided while building (Pa
     `reward` (PAVED, string, null until settled).
   - `PlayerStats`: `paid_games`, `settled_games`, `rewards` (PAVED, string: the sum of the settled rewards).
   - `PlayerAnswer.unsettled`: the player's recorded games not settled, oldest first, each `game_id`, `day`, `expired`;
-    null for an unknown player.
+    null for an unknown player. At most `UNSETTLED_PAGE` (100) are listed: it is the first page, and
+    `PlayerAnswer.unsettled_count` (appended; null for an unknown player) is the whole count. There is no cursor: the
+    list is bounded so that an answer never grows with a day's games, and settling the listed games brings the next ones
+    into the page. A client that needs more than a page reads `unsettled_count` and settles in rounds.
   - `TournamentAnswer.economy` (`GET /v1/tournaments/{id}` only, the list is unchanged), with the tournament id as the
     UTC day: `games_purchased`, `games_recorded`, `games_settled`, `unsettled` (the ids a keeper passes to
-    `Economy.settle` from `(id + 2) x 86400`), `rewards` (PAVED, string), `closed`, and `mean`, `weight`, `prior`,
+    `Economy.settle` from `(id + 2) x 86400`: the first `UNSETTLED_PAGE` (100) by id, the whole count is `unsettled_count`,
+    appended), `rewards` (PAVED, string), `closed`, and `mean`, `weight`, `prior`,
     `ema_after`, `closed_at` (null until `DayClosed`).
   - `GET /v1/head`: `contracts.economy`.
 - **Devnet**: the scenario deploys with `scripts/deploy.sh`, whose smoke buys, records and settles one paid game, and
@@ -584,7 +588,7 @@ The package follows this design. What differs, or was decided while building (Pa
   mints are not read, `head.contracts.collection` is null and no game has a `token_id`, as for a deployment before E5b). Its only event is the mint `Transfer` (keys `from`, `to`, `token_id` as `u256` low and high; no
   data). The decoder accepts `from = 0` only: a transfer from anyone else, a token id from `2^33` up, or the game id 0
   is a `DecodeError` and the indexer halts (the contract is soulbound, so none can exist). Account's `CollectionSet` is
-  known and skipped.
+  checked against the deployment file (below).
 - **Token id**: below `2^32` it is a Daily game id, from `2^32` up it is a Tutorial game id plus `2^32`. Both fit a safe
   integer (P-19), so the field is a JSON number.
 - **Storage**: `games.token_id` (schema version 5, `rebuild` on an older database). The mint must follow the game's own
@@ -594,3 +598,19 @@ The package follows this design. What differs, or was decided while building (Pa
 - **API fields** (appended to v1): `GameRow.token_id`, `number | null`; `GET /v1/head`: `contracts.collection` (null without a Collection).
 - **Devnet**: `scripts/deploy.sh` deploys `Collection`, wires it (`Account.set_collection`, `Collection.set_minters`)
   and its smoke reads `owner_of` and the decoded `token_uri` of a Daily and a Tutorial game.
+
+## As built (registry cross-check)
+
+- **What**: the indexer takes Economy and Collection from the deployment file only, but Account registers them once
+  (`set_economy`, `set_collection`) and emits `EconomySet { economy }` and `CollectionSet { collection }` (the address is
+  the only member and is in the data, not a key). Both are now decoded (events of `account` only, any other emitter or
+  shape is a `DecodeError`) and compared with the file's address when applied.
+- **A mismatch halts the indexer** with the reason (`EconomySet in block N (transaction T, event E): Account registers
+  the Economy 0x..., the deployment file has 0x...`), as every other contradiction of the chain does: the file points at
+  contracts that are not the ones the deployment wired, so what is indexed would be wrong. `rebuild` with the right file
+  is the way out.
+- **Collection stays optional**: a file without `Collection` and an Account that never sets one (a deployment before E5b)
+  index as before. A file without `Collection` against a `CollectionSet` halts too: the mints would go unread. A match
+  indexes the event and changes nothing else.
+- **Not a schema change**: no table changes, so an existing database is kept; it checks the registry from the events it
+  has not yet read, and a `rebuild` checks it from the start.

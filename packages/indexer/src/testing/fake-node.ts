@@ -103,6 +103,10 @@ export const ev = {
     ),
   created: (player: bigint | number, name: bigint | number, master: bigint | number = 0xabc) =>
     raw("account", "PlayerCreated", [player], [name, master]),
+  /** Account's `EconomySet` and `CollectionSet`: the address is the only member, in the data. */
+  economySet: (economy: bigint | number = BigInt(ECONOMY)) => raw("account", "EconomySet", [], [economy]),
+  collectionSet: (collection: bigint | number = BigInt(COLLECTION)) =>
+    raw("account", "CollectionSet", [], [collection]),
   /** `QuestDefined`: key quest_id; data schedule (start, end, duration, interval), tasks span, conditions span. */
   questDefined: (
     questId: number,

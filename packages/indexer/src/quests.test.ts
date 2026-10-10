@@ -762,4 +762,9 @@ describe("inconsistent definitions (P-30)", () => {
     expect(new Queries(indexer.store).excludedDefinitions(head - 1)).toBe(0);
     expect(consistent([{ taskId: 1, total: 1 }])).toBe(true);
   });
+
+  test("a definition with no task is not consistent (it would be complete before any report)", () => {
+    expect(consistent([])).toBe(false);
+    expect(consistent([{ taskId: 1, total: 1 }, { taskId: 2, total: 3 }])).toBe(true);
+  });
 });
