@@ -115,6 +115,16 @@ export type Decoded =
       contract: "daily" | "tutorial";
       gameId: number;
     }
+  | {
+      /** Account's one-shot registry of the Economy address (`Account.set_economy`). */
+      name: "EconomySet";
+      economy: bigint;
+    }
+  | {
+      /** Account's one-shot registry of the Collection address (`Account.set_collection`). */
+      name: "CollectionSet";
+      collection: bigint;
+    }
   | { name: "Recorded"; gameId: number; score: number; expired: boolean }
   | {
       name: "DayClosed";
@@ -151,6 +161,9 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   GameSpawned: ["daily", "tutorial"],
   GameOver: ["daily", "tutorial"],
   PlayerCreated: ["account"],
+  // Account's one-shot wiring: the store compares it with the deployment file (store.ts).
+  EconomySet: ["account"],
+  CollectionSet: ["account"],
   // Definitions and quest progress come from Daily only (Tutorial declares the achievement component, to report task 10).
   QuestDefined: ["daily"],
   QuestProgressed: ["daily"],
@@ -181,12 +194,10 @@ export const IGNORED = [
   "QuestClaimed",
   "QuestReporterSet",
   "AchievementReporterSet",
-  // Economy's owner events (its constructor emits EconomyConfigured and PoolSet), and Account's one-shot wiring.
+  // Economy's owner events (its constructor emits EconomyConfigured and PoolSet).
   "EconomyConfigured",
   "PoolSet",
   "GameSet",
-  "EconomySet",
-  "CollectionSet",
   // A sponsor's reclaim of a day's unclaimable prize (P-37): declared by the Lobby class, emitted from Daily's address.
   "Reclaimed",
 ] as const;
@@ -195,6 +206,8 @@ const INDEXED: readonly EventName[] = [
   "GameSpawned",
   "GameOver",
   "PlayerCreated",
+  "EconomySet",
+  "CollectionSet",
   "QuestDefined",
   "QuestProgressed",
   "QuestRetired",
@@ -408,6 +421,13 @@ export function decode(
         displayName: felt(data[0]),
         master: felt(data[1]),
       };
+    case "EconomySet":
+      // The address is the only member, and not a key.
+      shape(name, keys, data, 0, 1);
+      return { name, economy: felt(data[0]) };
+    case "CollectionSet":
+      shape(name, keys, data, 0, 1);
+      return { name, collection: felt(data[0]) };
     case "QuestDefined": {
       // key quest_id; data start, end, duration, interval, tasks (length, pairs), conditions (length, ids)
       if (keys.length !== 2 || data.length < 6) {

@@ -369,12 +369,18 @@ describe("Economy's events", () => {
     });
   });
 
-  test("the owner events and Account's EconomySet are known and skipped", () => {
+  test("the owner events of Economy are known and skipped", () => {
     for (const name of ["EconomyConfigured", "PoolSet", "GameSet"] as const) {
       expect(decode("economy", [SELECTORS[name]], ["0x1", "0x2"]), name).toBeNull();
     }
-    expect(decode("account", [SELECTORS.EconomySet], ["0x4444"])).toBeNull();
+  });
+
+  test("Account's EconomySet carries the address in its data", () => {
     expect(SELECTORS.EconomySet).toBe(canonical(hash.getSelectorFromName("EconomySet")));
+    expect(decode("account", [SELECTORS.EconomySet], ["0x4444"])).toEqual({ name: "EconomySet", economy: 0x4444n });
+    expect(() => decode("account", [SELECTORS.EconomySet], [])).toThrow(DecodeError);
+    expect(() => decode("account", [SELECTORS.EconomySet, "0x1"], ["0x4444"])).toThrow(DecodeError);
+    expect(() => decode("economy", [SELECTORS.EconomySet], ["0x4444"])).toThrow(DecodeError);
   });
 
   test("a wrong emitter, shape, half, bool or day is a DecodeError", () => {
@@ -431,8 +437,10 @@ describe("Collection's mint", () => {
     expect(decode("collection", last.keys, last.data)).toMatchObject({ contract: "tutorial", gameId: 2 ** 32 - 1 });
   });
 
-  test("CollectionSet is known and skipped", () => {
-    expect(decode("account", [SELECTORS.CollectionSet!, "0x7"], [])).toBeNull();
+  test("Account's CollectionSet carries the address in its data", () => {
+    expect(decode("account", [SELECTORS.CollectionSet], ["0x5555"])).toEqual({ name: "CollectionSet", collection: 0x5555n });
+    expect(() => decode("account", [SELECTORS.CollectionSet, "0x7"], [])).toThrow(DecodeError);
+    expect(() => decode("collection", [SELECTORS.CollectionSet], ["0x5555"])).toThrow(DecodeError);
   });
 
   test("a wrong emitter, a transfer that is not a mint, a token of no game, a wide id or a shape is a DecodeError", () => {

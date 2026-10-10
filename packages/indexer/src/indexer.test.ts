@@ -183,12 +183,54 @@ describe("Economy", () => {
       raw("economy", "EconomyConfigured", [], [7000, 0, 18130, 5, 10n ** 24n]),
       raw("economy", "PoolSet", [], [1, 2, 3, 4, 5, 6, 7]),
       raw("economy", "GameSet", [], [0x1111]),
-      raw("account", "EconomySet", [], [0x4444]),
     ]);
     const indexer = indexerOf(node);
     await settle(indexer);
     expect(indexer.status).toBe("ok");
     expect(indexer.eventsApplied).toBe(0);
+  });
+
+  describe("Account's registry against the deployment file", () => {
+    const reason = async (events: ReturnType<typeof ev.economySet>[], make: (node: FakeNode) => Indexer = indexerOf) => {
+      const node = new FakeNode();
+      node.mine(events);
+      const indexer = make(node);
+      await settle(indexer);
+      return { indexer, reason: indexer.reason };
+    };
+
+    test("a match: EconomySet and CollectionSet of the file's addresses are indexed and nothing halts", async () => {
+      const { indexer } = await reason([ev.economySet(), ev.collectionSet()]);
+      expect(indexer.status).toBe("ok");
+      expect(indexer.store.dump().events.map((e) => e.name)).toEqual(["EconomySet", "CollectionSet"]);
+    });
+
+    test("an Economy other than the file's halts, saying both", async () => {
+      const { indexer, reason: why } = await reason([ev.economySet(0x9999)]);
+      expect(indexer.status).toBe("halted");
+      expect(why).toContain("EconomySet");
+      expect(why).toContain(padded(0x9999n));
+      expect(why).toContain(padded(BigInt(ECONOMY)));
+    });
+
+    test("a Collection other than the file's halts, saying both", async () => {
+      const { indexer, reason: why } = await reason([ev.collectionSet(0x9999)]);
+      expect(indexer.status).toBe("halted");
+      expect(why).toContain("CollectionSet");
+      expect(why).toContain(padded(0x9999n));
+      expect(why).toContain(padded(BigInt(COLLECTION)));
+    });
+
+    test("no Collection in the file and none in Account: still optional, nothing halts", async () => {
+      const { indexer } = await reason([ev.economySet()], indexerWithoutCollection);
+      expect(indexer.status).toBe("ok");
+    });
+
+    test("no Collection in the file but one in Account halts: the mints would go unread", async () => {
+      const { indexer, reason: why } = await reason([ev.collectionSet()], indexerWithoutCollection);
+      expect(indexer.status).toBe("halted");
+      expect(why).toContain("the deployment file has none");
+    });
   });
 
   test("a rewind takes back a settlement, a close, a record and a purchase, as a fresh index of the new chain", async () => {
