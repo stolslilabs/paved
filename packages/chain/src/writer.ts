@@ -77,7 +77,7 @@ const NOTHING_TO_RECLAIM = "Tournament: nothing to reclaim";
 /** A claim on a day that has no tournament: nobody sponsored it, so there is no prize and nothing to claim. */
 export class NoPrizeDayError extends WriteError {
   constructor(transactionHash?: string) {
-    super("This day has no prize: nobody sponsored it, so there is nothing to claim.", transactionHash, true);
+    super("This day has no prize: nobody sponsored it, so there is nothing to claim.", transactionHash, transactionHash !== undefined);
     this.name = "NoPrizeDayError";
   }
 }
@@ -103,7 +103,8 @@ export class ReclaimAmountChangedError extends Error {
 
 /** A known revert of `Daily.claim` as its clear state; any other error unchanged. */
 function claimRevert(error: unknown): unknown {
-  if (!(error instanceof WriteError) || !error.reverted) return error;
+  // A revert of the receipt, or the node refusing at fee estimation before anything is sent: both name the reason.
+  if (!(error instanceof WriteError)) return error;
   if (revertNames(error.message, NOT_FOUND)) return new NoPrizeDayError(error.transactionHash);
   if (revertNames(error.message, NOTHING_TO_RECLAIM)) return new NothingToReclaimError(undefined, error.transactionHash);
   return error;

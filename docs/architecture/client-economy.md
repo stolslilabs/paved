@@ -86,7 +86,7 @@ ignored and not sent.
 
 - `PavedWriter.mint()` and `createPlayer(name, { mintTestToken: true })` send `MockUSDC.mint(self, FAUCET_USDC_AMOUNT)` (100 USDC,
   6 decimals) at `deployment.mockUsdc`, which is `contracts.MockUSDC` of the deployments file (or `VITE_MOCK_USDC_ADDRESS`). It
-  replaces the old `Token.mint()`. A deployment without that address has no faucet: both throw `No faucet` and send nothing, and
+  replaces the old `Token.mint()`. `mockUsdc` resolves on `network === "devnet"` only (any other network gets `""`, whatever its file or env holds), and the Landing asks for `mintTestToken` only with `supportsMint && !!deployment.mockUsdc`, so a missing MockUSDC never blocks account creation. A deployment without that address has no faucet: both throw `No faucet` and send nothing, and
   nothing else in `Deployment` changes (`configured` does not need it). The faucet is not a session policy of the Cartridge
   controller: the burner signs it on devnet, and `controller.test.ts` drives both writes and asserts that neither is in the session.
 - `Landing` compares `Daily.entry_price().token` with the **USDC address** (`economy.deployment.addresses.USDC`), no longer with
@@ -99,7 +99,7 @@ ignored and not sent.
 | `Tournament: not found` | a top-3 `claim` on a day nobody sponsored (no tournament) | `NoPrizeDayError`: "This day has no prize: nobody sponsored it, so there is nothing to claim." |
 | `Tournament: nothing to reclaim` | `claim(day, 0)` on a ranked day, from a non-sponsor, or a second time | `NothingToReclaimError`: nothing moved |
 
-Both match as text and as the hex of the short string the node may return. Any other revert stays as it is.
+Both match as text and as the hex of the short string the node may return, in the receipt's revert and in the node's refusal at fee estimation before anything is sent (the same for the Economy's `swap below min_out` and `day cannot close yet`). Any other revert stays as it is.
 
 **The reclaim line.** Rank rewards are unchanged (rank 1 absorbs the empty ranks). A sponsor takes back their part of a prize
 nobody ranked for, an empty top 3 or every score 0 (the view shows no first place), with `PavedWriter.reclaim(day,

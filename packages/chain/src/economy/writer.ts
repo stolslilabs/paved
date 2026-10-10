@@ -37,7 +37,7 @@ const TOO_EARLY = "Economy: day cannot close yet";
  */
 export class SwapBelowMinOutError extends WriteError {
   constructor(transactionHash?: string) {
-    super("The price moved before your purchase went through: your USDC was not spent. Try again.", transactionHash, true);
+    super("The price moved before your purchase went through: your USDC was not spent. Try again.", transactionHash, transactionHash !== undefined);
     this.name = "SwapBelowMinOutError";
   }
 }
@@ -45,14 +45,15 @@ export class SwapBelowMinOutError extends WriteError {
 /** Settle refused by the contract: the game's day cannot be settled yet (it settles after the next day ends). */
 export class SettleTooEarlyError extends WriteError {
   constructor(transactionHash?: string) {
-    super("This day cannot be settled yet: try again after the next day ends.", transactionHash, true);
+    super("This day cannot be settled yet: try again after the next day ends.", transactionHash, transactionHash !== undefined);
     this.name = "SettleTooEarlyError";
   }
 }
 
 /** A known revert of the Economy as its clear state; any other error unchanged. */
 function economyRevert(error: unknown): unknown {
-  if (!(error instanceof WriteError) || !error.reverted) return error;
+  // A revert of the receipt, or the node refusing at fee estimation before anything is sent.
+  if (!(error instanceof WriteError)) return error;
   if (revertNames(error.message, BELOW_MIN_OUT)) return new SwapBelowMinOutError(error.transactionHash);
   if (revertNames(error.message, TOO_EARLY)) return new SettleTooEarlyError(error.transactionHash);
   return error;

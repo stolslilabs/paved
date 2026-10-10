@@ -142,6 +142,28 @@ describe("Player name at account creation", () => {
   });
 });
 
+describe("The faucet at account creation", () => {
+  const create = async () => fireEvent.click(await screen.findByText("Create Account"));
+  const landMint = (deployment: Deployment, createPlayer: ReturnType<typeof vi.fn>) =>
+    renderPage({ page: <LandingPage supportsMint />, path: "/", player: null, deployment, writer: { createPlayer } });
+
+  it("asks for the faucet only when the deployment has a MockUSDC", async () => {
+    const createPlayer = vi.fn(async () => result);
+    landMint({ ...(configured as object), mockUsdc: "0x77" } as unknown as Deployment, createPlayer);
+    fireEvent.change(await screen.findByLabelText("Player name"), { target: { value: "Zed" } });
+    await create();
+    await waitFor(() => expect(createPlayer).toHaveBeenCalledWith("Zed", { mintTestToken: true }));
+  });
+
+  it("a missing MockUSDC never blocks account creation: the account is created without a mint", async () => {
+    const createPlayer = vi.fn(async () => result);
+    landMint({ ...(configured as object), mockUsdc: "" } as unknown as Deployment, createPlayer);
+    fireEvent.change(await screen.findByLabelText("Player name"), { target: { value: "Zed" } });
+    await create();
+    await waitFor(() => expect(createPlayer).toHaveBeenCalledWith("Zed", { mintTestToken: false }));
+  });
+});
+
 describe("Claiming a prize", () => {
   const finished = { mode: "daily", gameId: 1, startTime: 1, tournamentId: 5, over: true, score: 9, countedTournamentId: 5 };
   const setup = (tournament = {}, claim = vi.fn(async () => result)) => {

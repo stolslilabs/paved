@@ -128,7 +128,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     const invalid = playerNameError(name);
     setNameError(invalid);
     if (invalid) return;
-    return write(() => writer.createPlayer(name, { mintTestToken: supportsMint }), [player.refresh, balance.refresh]);
+    return write(() => writer.createPlayer(name, { mintTestToken: supportsMint && !!deployment.mockUsdc }), [player.refresh, balance.refresh]);
   };
   // Both pay or receive tokens: the panel asks for a confirm and hands over what the player confirmed.
   const handleClaim = (c: Claimable, confirmedReward: bigint) =>

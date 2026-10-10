@@ -17,7 +17,7 @@ import { FakeGameViews, type TournamentView } from "../src/views";
 
 const deployment = resolveDeployment({
   network: "sepolia",
-  // `mockUsdc` is set here only so that the faucet writes send something to check: no real network has one.
+  // Sepolia has no MockUSDC (devnet-only in code, even if an env gives one).
   env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
 });
 const policies = controllerPolicies(deployment);
@@ -55,6 +55,8 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   gameViews.tournaments.set(3, TOURNAMENT);
   const client = new PavedClient(deployment, rpc, createCodecs(), gameViews);
   const writer = client.writer(account);
+  // The faucet writes run on the devnet deployment, the only one with a MockUSDC.
+  const devnetWriter = new PavedClient({ ...deployment, network: "devnet", mockUsdc: "0x14" }, rpc, createCodecs(), gameViews).writer(account);
   const economy = new FakeEconomy();
   economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY }));
   economy.setBalance("paved", PLAYER, 5n * P);
@@ -65,8 +67,9 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   const writes: Record<string, () => Promise<unknown>> = {
     "create player": () => writer.createPlayer("ada"),
     // The devnet faucet (MockUSDC.mint): the burner signs it, the controller's session never holds it (review of #265).
-    "faucet mint": () => writer.mint(),
-    "create player with faucet": () => writer.createPlayer("ada", { mintTestToken: true }),
+    "faucet mint": () => devnetWriter.mint(),
+    "create player with faucet": () => devnetWriter.createPlayer("ada", { mintTestToken: true }),
+    "faucet on sepolia": () => writer.mint(),
     "daily spawn (sends nothing since E3)": () => writer.spawn("daily"),
     "tutorial spawn": () => writer.spawn("tutorial"),
     "daily build": () => writer.build({ mode: "daily", gameId: 1 }, move),
@@ -146,6 +149,9 @@ describe("controllerPolicies against what the writers send (E3)", () => {
       expect(inSession(call, session), "mint with an approve cap").toBe(false);
       expect(inSession(call, policies), "mint without").toBe(false);
     }
+    // On sepolia the faucet is not there at all, whatever the env says: nothing is sent.
+    expect(deployment.mockUsdc).toBe("");
+    expect(sent["faucet on sepolia"]).toEqual([]);
     // And the plain create player of the session is signed in it, as before.
     expect(sent["create player"].map((c) => c.entrypoint)).toEqual(["create"]);
     expect(inSession(sent["create player"][0], session)).toBe(true);

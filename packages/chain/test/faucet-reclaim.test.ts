@@ -68,6 +68,17 @@ describe("the devnet faucet is MockUSDC.mint(self, N)", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
+  test("devnet only: a sepolia deployment with a MockUSDC in its file and env resolves none, and sends no mint", async () => {
+    const file = { contracts: { MockUSDC: { address: "0x9" } } };
+    const env = { rpcUrl: "http://x", addresses: { Account: "0x1", Daily: DAILY, Tutorial: "0x3", Token: "0x4" }, mockUsdc: MOCK_USDC };
+    const dep = resolveDeployment({ network: "sepolia", file, env });
+    expect(dep.mockUsdc).toBe("");
+    const { writer, execute } = writerWith({ dep });
+    await expect(writer.mint()).rejects.toThrow(/No faucet/);
+    await expect(writer.createPlayer("ada", { mintTestToken: true })).rejects.toThrow(/No faucet/);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   test("the address comes from the deployments file's contracts.MockUSDC, the env first", () => {
     const file = { contracts: { MockUSDC: { address: "0x9" } } };
     const base = { network: "devnet", env: { rpcUrl: "http://x", addresses: { Account: "0x1", Daily: DAILY, Tutorial: "0x3", Token: "0x4" } } };
@@ -99,6 +110,21 @@ describe("a claim's known reverts are clear states", () => {
 
   test("'Tournament: nothing to reclaim' on a claim is NothingToReclaimError", async () => {
     expect(await claim(reverted("Tournament: nothing to reclaim")).catch((e) => e)).toBeInstanceOf(NothingToReclaimError);
+  });
+
+  test("the node refusing at fee estimation, before anything is sent, maps the same way", async () => {
+    for (const [reason, Expected] of [["Tournament: not found", NoPrizeDayError], ["Tournament: nothing to reclaim", NothingToReclaimError]] as const) {
+      const views = new FakeGameViews();
+      views.tournaments.set(5, { ...emptyTournament(5), over: true, prize: 0n });
+      const rpc = { callContract: async () => [], getEvents: async () => ({ events: [] }), waitForTransaction: async () => ({}) } as unknown as PavedRpc;
+      const execute = vi.fn(async () => {
+        throw new Error(`Account validation failed: ${reason}`);
+      });
+      const writer = new PavedClient(deployment, rpc, codecs, views).writer({ address: SPONSOR, execute });
+      const error = await writer.claim(5, 1, { confirmedReward: 0n }).catch((e) => e);
+      expect(error).toBeInstanceOf(Expected);
+      expect(error).toMatchObject({ transactionHash: undefined, reverted: false });
+    }
   });
 
   test("another revert stays as it is", async () => {
