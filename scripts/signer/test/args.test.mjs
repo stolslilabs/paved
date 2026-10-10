@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { COMMANDS, assertNoSecretInArgv, parseArgs, parseCalls } from '../lib/args.mjs';
+import { COMMANDS, assertNoSecretInArgv, parseArgs, parseCalls, resolveAccount } from '../lib/args.mjs';
 import { UsageError } from '../lib/env.mjs';
 import { makeSanitizer } from '../lib/sanitize.mjs';
 
@@ -102,4 +102,14 @@ test('every felt argument is below the field prime', () => {
     refused(() => parseCalls([{ contract: '0x1', function: 'f', calldata: [value] }]), value);
     refused(() => parseCalls([{ contract: value, function: 'f' }]), value);
   }
+});
+
+test('@account stands for the account address in calldata, and only there', () => {
+  assert.deepEqual(parseArgs(['invoke', '--contract', '0x1', '--function', 'mint', '--calldata', '@account', '5', '0']).options.calldata, ['@account', '5', '0']);
+  assert.deepEqual(resolveAccount(['@account', '5', '@account'], '0xabc'), ['0xabc', '5', '0xabc']);
+  assert.deepEqual(parseCalls([{ contract: '0x1', function: 'f', calldata: ['@account'] }])[0].calldata, ['@account']);
+  refused(() => parseArgs(['invoke', '--contract', '@account', '--function', 'f']));
+  refused(() => parseArgs(['deploy', '--class-hash', '@account']));
+  refused(() => parseArgs(['call', '--contract', '0x1', '--function', 'f', '--calldata', '@other']));
+  refused(() => parseCalls([{ contract: '@account', function: 'f' }]));
 });

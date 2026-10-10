@@ -113,6 +113,9 @@ export function assertSafeRuntime(env = process.env, execArgv = process.execArgv
   if (env.NODE_DEBUG !== undefined && env.NODE_DEBUG !== '') {
     throw new UsageError('NODE_DEBUG is set: its logs bypass the sanitiser; unset it');
   }
+  if (env.NODE_TLS_REJECT_UNAUTHORIZED === '0') {
+    throw new UsageError('NODE_TLS_REJECT_UNAUTHORIZED=0 turns off TLS checks of the node; unset it');
+  }
   const options = (env.NODE_OPTIONS ?? '').split(/\s+/).filter(Boolean);
   if (!options.every((option) => HEAP_RE.test(option))) {
     throw new UsageError('NODE_OPTIONS holds an option other than --max-old-space-size=<n>; remove it');

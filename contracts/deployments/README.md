@@ -128,11 +128,18 @@ sncast 0.64.0 signs only from an accounts file, a keystore or a Ledger, and the 
 `deploy.sh` goes through the starknet.js signer in `scripts/signer/` (P-40, option 2 of the S-1 escalation),
 installed there with `npm ci`; its README says what it checks and what its sanitiser covers. devnet keeps sncast.
 
-- The three variables are copied into unexported shell variables at the top of `deploy.sh` and unset, so no
-  child but the signer has them: the signer gets them in its own environment (bash's `VAR=value command`, not
-  argv), with `NODE_OPTIONS` reduced to its heap cap, `NODE_DEBUG` empty and `--disable-sigusr1`.
-- The RPC URL is in no process's arguments: the signer takes it from its environment, `curl` from its config on
-  stdin. `deploy.sh` prints and writes it as `$STARKNET_RPC_URL`.
+- The three variables are copied into unexported shell variables at the very top of `deploy.sh` (before its
+  options are read) and unset, so no child but the signer has them. The signer starts with an environment
+  allowlist (PATH, HOME, the three, `SIGNER_NETWORK`, `NODE_OPTIONS` as its heap cap alone), exported in a
+  subshell rather than passed in argv, with `--disable-sigusr1`; its output stays in a variable, never a file.
+- None of the three values is in a process's arguments, an echo, an error or a file: the signer takes them from
+  its environment, `curl` takes the URL and the request (whose params may hold the address) from its config on
+  stdin (`-q`: no `~/.curlrc`), the signer's calldata names the deployer `@account`, and comparisons read it on
+  stdin. `deploy.sh` prints the URL as `$STARKNET_RPC_URL` and the deployer as `$STARKNET_ACCOUNT_ADDRESS`, and
+  a failing signer's message is redacted of all three before it is printed.
+- `sepolia.json` records no deployer address (contracts, class hashes, the block, the token). The address is
+  public on Sepolia anyway: it sends every transaction and is the `owner()` of Economy, Account, Daily, Tutorial
+  and Collection.
 - The declared classes are the release build's files (`contracts/target/release/`); each class hash the signer
   declares is checked against `sncast utils class-hash` (no network) for the same contract.
 - The pool's approvals and `add_liquidity` are one multicall, the stake's approval and `stake` another.

@@ -9,9 +9,10 @@ Why not sncast: sncast 0.64.0 cannot sign from an environment variable (it needs
 keystore or a Ledger), and `sncast --url` puts the RPC URL in the process list.
 
 `scripts/deploy.sh sepolia` and `scripts/deploy.sh sepolia --rehearse` send every transaction and view
-call through it (S-1b part 2): `deploy.sh` installs it with `npm ci`, passes the account, key and node
-in its environment only, sets `NODE_OPTIONS` to its heap cap alone, empties `NODE_DEBUG` and starts
-node with `--disable-sigusr1` (see "Secrets"). devnet keeps sncast.
+call through it (S-1b part 2): `deploy.sh` installs it with `npm ci`, starts it with an environment
+allowlist (PATH, HOME, the account, key and node, `SIGNER_NETWORK`, and `NODE_OPTIONS` as its heap cap
+alone), never argv, starts node with `--disable-sigusr1`, and names its own deployer `@account` in
+calldata (see "Secrets"). devnet keeps sncast.
 
 ## Install
 
@@ -86,6 +87,9 @@ deployer`, `signer: invoke <contract> <entry point>`.
   Every felt argument (`--class-hash`, `--salt`, `--contract`, `--calldata`, and each `contract` and
   `calldata` value of a `--calls` file) must be below the field prime `2^251 + 17 x 2^192 + 1`, and so
   must `STARKNET_ACCOUNT_ADDRESS` and `STARKNET_PRIVATE_KEY`; 64 hex digits alone would reach `2^256 - 1`.
+- A calldata word may be `@account`: the signer puts the account's address there, read from
+  `STARKNET_ACCOUNT_ADDRESS`, so a caller never writes that value in argv or a calls file (`deploy.sh`
+  does this for the deployer on Sepolia). It stands for a calldata word only, never for `--contract`.
 - The `--calls` file is a JSON array of `{"contract": <felt>, "function": <name>, "calldata": [<felt>...]}`,
   sent as one transaction.
 
@@ -121,6 +125,9 @@ What holds:
   - `NODE_OPTIONS` may hold `--max-old-space-size=<n>` and nothing else. That refuses `--report-*`,
     `--heapsnapshot-*`, `--inspect*`, `--require`, `-r`, `--import`, and an option in quotes
     (`"--inspect"`, which node itself unquotes).
+  - `NODE_TLS_REJECT_UNAUTHORIZED=0` (no TLS check of the node) is refused too. `deploy.sh` starts the
+    signer with an environment allowlist (PATH, HOME, the four variables, `NODE_OPTIONS`), so nothing else
+    of the caller's environment (`NODE_EXTRA_CA_CERTS`, proxies) reaches it.
   - node's own command line may hold `--max-old-space-size=<n>`, `--disable-sigusr1`, and an `--import`
     of a file of `test/fixtures/` (the tests' preloads). Whoever writes that command line already chooses
     the code node runs, so this check catches a mistake, not an attacker; `NODE_OPTIONS` is the one
@@ -142,6 +149,12 @@ What does not hold (not covered):
 - Other encodings: the key or URL as hex of its text bytes, base64 of the key's text (as opposed to
   its bytes), a u128 half below 2^64 (it would also hide common small values), RPC URL parts shorter
   than 8 characters.
+- **The environment is readable by the same user.** Any process of the same uid can read
+  `/proc/<pid>/environ` for the whole run: the signer's holds the key and the URL while it runs, and
+  `deploy.sh`'s keeps the values it was started with until it exits (bash's `unset` stops its children
+  from inheriting them, but does not clear its own environment block). A same-uid process can also read
+  either's memory. Run it under an account no other agent or service shares, or treat same-uid
+  processes as trusted.
 - Anything outside this process: a shell history, `ps` of the parent, a core dump, a debugger
   attached from outside, the provider's own logs.
 
@@ -155,7 +168,7 @@ history.
 cd scripts/signer && npm ci && npm test
 ```
 
-`node --test`, no other runner, 37 tests:
+`node --test`, no other runner, 38 tests:
 - the sanitiser's spellings;
 - the variables: refusal of a missing or empty one (`SIGNER_NETWORK` included), mainnet refused as a
   value, the URL bound to the network;
@@ -165,7 +178,7 @@ cd scripts/signer && npm ci && npm test
 - the devnet gate: a node that does not answer `devnet_getConfig` is refused, nothing asked after it;
 - the node options allowlist (`NODE_OPTIONS` and node's command line), and `NODE_DEBUG`;
 - the felt range of every felt argument and of the address and key;
-- argv parsing, unit and through the real script;
+- argv parsing, unit and through the real script, `@account` included;
 - a preloaded fake `fetch` that logs the key and the URL through console and both streams, then
   throws them (neither is printed);
 - an unreachable node;

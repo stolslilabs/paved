@@ -30,7 +30,9 @@
 # sncast 0.64.0 signs only from an accounts file, a keystore or a Ledger, and its `--url` would put the RPC URL in
 # argv. The three values are copied into unexported shell variables and the variables unset, so only the signer
 # receives them, through its own environment (`send`), never argv; no other child (curl, python3, scarb, sncast, npm)
-# inherits them. The URL reaches curl through its config on stdin. Before anything is sent: the chain id is
+# inherits them. The URL and the request reach curl through its config on stdin. No value of the three is printed:
+# the URL and the deployer show as `$STARKNET_RPC_URL` and `$STARKNET_ACCOUNT_ADDRESS`, the signer's calldata names
+# the deployer `@account`, and comparisons read it on stdin. Before anything is sent: the chain id is
 # SN_SEPOLIA, the deployer account is deployed on the node, then the signer checks the chain id again itself.
 # Phase 2 runs it from merged main (docs/programme/OPERATIONS.md).
 #
@@ -64,13 +66,28 @@
 #   owner() back on each. PavedToken and Vault have no owner and no upgrade.
 # Deployer, owner and smoke player: devnet and --rehearse, the first predeployed account, read from the node at run
 # time (public dev keys of the node), its key held in a temporary accounts file removed on exit (devnet) or in the
-# signer's environment (--rehearse); sepolia, the funded account. Nothing secret is written to a file.
+# signer's environment (--rehearse); sepolia, the funded account. Files: a temporary directory, removed on exit, holds
+# sncast's accounts file (devnet only: the node's public dev key), the multicall files (contract addresses, entry
+# points, amounts) and the deploy transaction hashes; the signer's output stays in a variable. No value of the three
+# sepolia variables is written to a file.
 #
 # Env overrides: RPC_URL (devnet and --rehearse: localhost only), SCARB_BIN_DIR, SNCAST_BIN_DIR.
 # `deployed_at` is the merge base of HEAD with origin/main, and the script refuses when the contract
 # sources of the working tree (contracts/src, Scarb.toml, Scarb.lock; untracked files in src too) differ from it.
 # Needs: scarb 2.20.1, sncast 0.64.0, curl, python3, git; sepolia and --rehearse also Node 24 and npm.
 set -euo pipefail
+# No variable assigned below is exported unless the script says so.
+set +a
+
+# The funded account (sepolia, D-16), by name only: its three variables are copied into unexported shell variables
+# (unset first, so a caller's export of the same names cannot stick) and unset before anything else runs, so no child
+# (python3 for the test hook below, curl, scarb, sncast, npm) ever inherits them. Only `send` passes them on, to the
+# signer, in its environment; devnet and --rehearse clear the copies below.
+unset FUNDED_ADDRESS FUNDED_KEY FUNDED_URL
+FUNDED_ADDRESS="${STARKNET_ACCOUNT_ADDRESS:-}"
+FUNDED_KEY="${STARKNET_PRIVATE_KEY:-}"
+FUNDED_URL="${STARKNET_RPC_URL:-}"
+unset STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL SIGNER_NETWORK
 
 # class_declared: reads a starknet_getClass answer on stdin; succeeds only for a JSON object with no `error`
 # field whose `result` is itself an object. Anything else (malformed JSON, a list, a string result, an error)
@@ -103,10 +120,15 @@ USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia 
 NETWORK="${1:-}"
 UNMERGED=0
 REHEARSE=0
+CHECK_SEND=0
 if [[ "${2:-}" == "--check-class-answer" ]]; then
   # Test hook (scripts/test-deploy-url.sh): the verdict of class_declared on stdin, nothing else runs.
   class_declared
   exit $?
+elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--check-send-failure" ]]; then
+  # Test hook (scripts/test-deploy-url.sh): after the sepolia checks, one `send` that the test's fake node fails;
+  # nothing is built, read or sent.
+  CHECK_SEND=1
 elif [[ "$NETWORK" == "devnet" && "${2:-}" == "--unmerged" ]]; then
   UNMERGED=1
 elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--rehearse" ]]; then
@@ -135,28 +157,28 @@ SEND_KEY=""
 SEND_NETWORK=""
 if [[ "$NETWORK" == "sepolia" && "$REHEARSE" == 0 ]]; then
   missing=()
-  for var in STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL; do
-    [[ -n "${!var:-}" ]] || missing+=("$var")
-  done
+  [[ -n "$FUNDED_ADDRESS" ]] || missing+=(STARKNET_ACCOUNT_ADDRESS)
+  [[ -n "$FUNDED_KEY" ]] || missing+=(STARKNET_PRIVATE_KEY)
+  [[ -n "$FUNDED_URL" ]] || missing+=(STARKNET_RPC_URL)
   if [[ "${#missing[@]}" -gt 0 ]]; then
     echo "deploy.sh: sepolia needs ${missing[*]} in the environment (set, not empty); nothing was sent" >&2
     exit 2
   fi
-  [[ "$STARKNET_ACCOUNT_ADDRESS" =~ ^0x[0-9a-fA-F]{1,64}$ ]] ||
+  [[ "$FUNDED_ADDRESS" =~ ^0x[0-9a-fA-F]{1,64}$ ]] ||
     { echo "deploy.sh: STARKNET_ACCOUNT_ADDRESS is not a 0x hex address (its value is not printed)" >&2; exit 2; }
-  [[ "$STARKNET_RPC_URL" == https://* ]] ||
+  [[ "$FUNDED_URL" == https://* ]] ||
     { echo "deploy.sh: STARKNET_RPC_URL must be an https:// URL (its value is not printed)" >&2; exit 2; }
-  # Unexported copies (unset first, so a caller's export of the same names cannot stick): only `send` passes them on.
-  SEND_ADDRESS="$STARKNET_ACCOUNT_ADDRESS"
-  SEND_KEY="$STARKNET_PRIVATE_KEY"
+  SEND_ADDRESS="$FUNDED_ADDRESS"
+  SEND_KEY="$FUNDED_KEY"
   SEND_NETWORK=sepolia
   unset RPC_URL
-  RPC_URL="$STARKNET_RPC_URL"
+  RPC_URL="$FUNDED_URL"
 else
   RPC_URL="${RPC_URL:-http://127.0.0.1:5050}"
 fi
-# From here no child inherits the funded account: not on sepolia (the copies above), never on devnet or --rehearse.
-unset STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL SIGNER_NETWORK
+FUNDED_ADDRESS=""
+FUNDED_KEY=""
+FUNDED_URL=""
 export -n RPC_URL
 # sepolia and its rehearsal send through the signer (P-40); devnet through sncast.
 USE_SIGNER=0
@@ -194,6 +216,7 @@ else
   UNIQUE=(--unique)
 fi
 # The RPC URL is printed for a local node only: a public one may carry an API key (it then shows by variable name).
+# On sepolia the deployer's address is printed by name too (D-16: no value of the three variables is printed).
 if [[ "$NETWORK" == "sepolia" && "$REHEARSE" == 0 ]]; then RPC_LABEL="\$STARKNET_RPC_URL"; else RPC_LABEL="$RPC_URL"; fi
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
@@ -211,10 +234,14 @@ RELEASE_DIR="$ROOT/contracts/target/release"
 
 die() { echo "deploy.sh: $*" >&2; exit 1; }
 
-# The URL goes to curl through its config on stdin, not its arguments: a public one may carry an API key.
+# The URL and the request go to curl through its config on stdin, not its arguments: a public URL may carry an API
+# key, and the params may hold the deployer's address. `-q` (first) keeps curl from reading a ~/.curlrc. In the
+# config's quoted strings, backslashes and double quotes are escaped.
 rpc() {
-  printf 'url = "%s"\n' "$RPC_URL" | curl -sf -K - -X POST -H 'content-type: application/json' \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}"
+  local body="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}"
+  body="${body//\\/\\\\}"
+  printf 'url = "%s"\ndata = "%s"\n' "$RPC_URL" "${body//\"/\\\"}" |
+    curl -q -sf -K - -X POST -H 'content-type: application/json'
 }
 
 # jq-less JSON helpers. `pyj <expr>` reads JSON on stdin and prints the python expression on `d`.
@@ -243,21 +270,62 @@ print(json.dumps(last))
 PY
 }
 
-# send <signer command> [options...]: runs scripts/signer as the deployer and prints its JSON line. The account, key
-# and node go in the signer's own environment, never argv. NODE_OPTIONS is the heap cap alone and NODE_DEBUG is
-# empty: the signer refuses anything else, but only once node runs, after an inspector from NODE_OPTIONS would
-# already listen. SIGUSR1 cannot open the inspector (--disable-sigusr1). A failure dies with the signer's stderr,
-# which the signer sanitises (no key, no URL); its progress lines stay out of a successful run's output.
-send() {
-  local out
-  out="$(STARKNET_ACCOUNT_ADDRESS="$SEND_ADDRESS" STARKNET_PRIVATE_KEY="$SEND_KEY" STARKNET_RPC_URL="$RPC_URL" \
-    SIGNER_NETWORK="$SEND_NETWORK" NODE_OPTIONS="$SIGNER_HEAP" NODE_DEBUG="" \
-    node --disable-sigusr1 "$SIGNER_JS" "$@" 2>"$WORK_DIR/signer.err")" ||
-    die "signer $1 failed: $(tail -c 800 "$WORK_DIR/signer.err")"
-  printf '%s\n' "$out"
+# redact: reads the deployer's address, the key and the RPC URL, one per line, then a text, all on stdin (never argv),
+# and prints the text with each of the three replaced by its variable's name: the URL and the key as written, in any
+# case, and any hex number equal to the address or the key, padded or not. The signer sanitises its own output
+# already (the key and the URL, not the address); this is the second layer, and the one for the address.
+redact() {
+  python3 -I -c '
+import re, sys
+address, key, url = (sys.stdin.readline().rstrip("\n") for _ in range(3))
+text = sys.stdin.read()
+for value, name in ((url, "$STARKNET_RPC_URL"), (key, "$STARKNET_PRIVATE_KEY")):
+    if value:
+        text = re.sub(re.escape(value), name, text, flags=re.I)
+def number(value):
+    try:
+        return int(value, 16)
+    except ValueError:
+        return None
+names = {n: name for value, name in ((address, "$STARKNET_ACCOUNT_ADDRESS"), (key, "$STARKNET_PRIVATE_KEY"))
+         if (n := number(value))}
+text = re.sub(r"0x[0-9a-fA-F]+|\b[0-9a-fA-F]{32,}\b", lambda m: names.get(int(m.group(0), 16), m.group(0)), text)
+sys.stdout.write(text)'
 }
 
-hex_int() { python3 -I -c 'import sys;print(int(sys.argv[1],16))' "$1"; }
+# send <signer command> [options...]: runs scripts/signer as the deployer and prints its JSON line. The signer starts
+# in a subshell whose environment is an allowlist: PATH and HOME, the account, the key and the node (never argv:
+# exported in the subshell, not passed as `VAR=value` to `env`), SIGNER_NETWORK, and NODE_OPTIONS as the heap cap
+# alone. Nothing else of deploy.sh's environment reaches it (no NODE_TLS_REJECT_UNAUTHORIZED, NODE_EXTRA_CA_CERTS,
+# NODE_DEBUG or proxy variable). The signer refuses other node options, but only once node runs, after an inspector
+# from NODE_OPTIONS would already listen. SIGUSR1 cannot open the inspector (--disable-sigusr1). Its stdout and stderr
+# are held in a variable, never a file: on success the last line is the JSON line, on failure the run dies with its
+# tail, redacted (`redact`). In calldata, `@account` stands for the deployer: the signer reads its address from its
+# environment, so the address is in no argv either.
+send() {
+  local res status=0
+  res="$(
+    while read -r name; do
+      [[ "$name" == PATH || "$name" == HOME ]] || unset "$name" 2>/dev/null || true
+    done < <(compgen -e)
+    export STARKNET_ACCOUNT_ADDRESS="$SEND_ADDRESS" STARKNET_PRIVATE_KEY="$SEND_KEY" STARKNET_RPC_URL="$RPC_URL" \
+      SIGNER_NETWORK="$SEND_NETWORK" NODE_OPTIONS="$SIGNER_HEAP"
+    exec node --disable-sigusr1 "$SIGNER_JS" "$@" 2>&1
+  )" || status=$?
+  if [[ "$status" != 0 ]]; then
+    (( ${#res} <= 800 )) || res="${res: -800}"
+    die "signer $1 failed: $(printf '%s\n%s\n%s\n%s' "$SEND_ADDRESS" "$SEND_KEY" "$RPC_URL" "$res" | redact)"
+  fi
+  printf '%s\n' "${res##*$'\n'}"
+}
+
+if [[ "$CHECK_SEND" == 1 ]]; then
+  send call --contract 0x1 --function f
+  exit 0
+fi
+
+# On stdin, not argv: the values compared include the deployer's address.
+hex_int() { printf '%s' "$1" | python3 -I -c 'import sys;print(int(sys.stdin.read(),16))'; }
 felt_str() { python3 -I -c 'import sys;print(int(sys.argv[1],16).to_bytes(31,"big").lstrip(b"\0").decode())' "$1"; }
 
 # Calls a view and prints the response felts, space separated.
@@ -377,8 +445,9 @@ CHAIN_ID="$(rpc starknet_chainId '[]' | pyj 'd["result"]')"
 TEST_ACCOUNTS=()
 if [[ "$NETWORK" == "sepolia" && "$REHEARSE" == 0 ]]; then
   DEPLOYER="$SEND_ADDRESS"
+  DEPLOYER_LABEL="\$STARKNET_ACCOUNT_ADDRESS"
   rpc starknet_getClassHashAt "[\"latest\",\"$DEPLOYER\"]" | class_hash_answer ||
-    die "the deployer account $DEPLOYER is not deployed on $RPC_LABEL"
+    die "the deployer account $DEPLOYER_LABEL is not deployed on $RPC_LABEL"
 else
   read -r DEPLOYER KEY < <(rpc devnet_getPredeployedAccounts '{"with_balance":false}' |
     pyj 'd["result"][0]["address"]+" "+d["result"][0]["private_key"]') ||
@@ -398,8 +467,13 @@ else
       --private-key "$KEY" --type oz --silent >/dev/null
   fi
   KEY=""
+  DEPLOYER_LABEL="$DEPLOYER"
 fi
-echo "   chain id $CHAIN_ID, deployer $DEPLOYER"
+# The deployer as the signer's calldata (`@account`: its address from the signer's environment) or sncast's, and as an
+# integer for the comparisons below (read on stdin: no python3 argv).
+if ((USE_SIGNER)); then DEPLOYER_ARG="@account"; else DEPLOYER_ARG="$DEPLOYER"; fi
+DEPLOYER_INT="$(printf '%s' "$DEPLOYER" | python3 -I -c 'import sys;print(int(sys.stdin.read(),16))')"
+echo "   chain id $CHAIN_ID, deployer $DEPLOYER_LABEL"
 
 # deployed_at: the main commit whose contract sources are deployed. The build compiles the working
 # tree, so the working tree (not HEAD) must equal the merge base with origin/main on the contract
@@ -469,14 +543,14 @@ LAUNCH_RATE=76000000000000000000000000000000
 echo "== deploy"
 USDC="$(deploy MockUSDC "$USDC_CLASS")"
 if [[ "$NETWORK" == "devnet" ]]; then TOKEN="$(deploy Token "$TOKEN_CLASS")"; fi
-PAVED="$(deploy PavedToken "$PAVED_CLASS" "$DEPLOYER" "$DEPLOYER")"
+PAVED="$(deploy PavedToken "$PAVED_CLASS" "$DEPLOYER_ARG" "$DEPLOYER_ARG")"
 ROUTER="$(deploy MockRouter "$ROUTER_CLASS" "$PAVED" "$USDC")"
 VAULT="$(deploy Vault "$VAULT_CLASS" "$PAVED" "$USDC")"
 
 echo "== pool and stake"
 # The launch pool, in the router's token order, from the initial supply and MockUSDC's premint to the deployer (its
 # constructor, outside the faucet's caps: S-1's audit).
-read -r PREMINT_LOW PREMINT_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER")"
+read -r PREMINT_LOW PREMINT_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
 python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)>=int(sys.argv[3]) else 1)' \
   "$PREMINT_LOW" "$PREMINT_HIGH" "$POOL_USDC" ||
   die "the deployer does not hold MockUSDC's 10,000 USDC premint"
@@ -502,7 +576,7 @@ fi
 read -r -a POOL_KEY <<<"$(call "$ROUTER" pool_key)"
 [[ "${#POOL_KEY[@]}" == 5 ]] || die "MockRouter.pool_key returned ${#POOL_KEY[@]} felts, expected 5"
 
-ECONOMY="$(deploy Economy "$ECONOMY_CLASS" "$DEPLOYER" "$PAVED" "$USDC" "$VAULT" "$ROUTER" \
+ECONOMY="$(deploy Economy "$ECONOMY_CLASS" "$DEPLOYER_ARG" "$PAVED" "$USDC" "$VAULT" "$ROUTER" \
   "${POOL_KEY[@]}" 0 0 "${CONFIG[@]}" "$MEAN0" $(u256 "$LAUNCH_RATE"))"
 invoke "$PAVED" set_minter "$ECONOMY" >/dev/null
 [[ "$(hex_int "$(call "$PAVED" minter)")" == "$(hex_int "$ECONOMY")" ]] || die "PavedToken.minter() is not Economy"
@@ -512,7 +586,7 @@ echo "   PavedToken: minter Economy, admin 0"
 read -r SUPPLY_LOW SUPPLY_HIGH <<<"$(call "$PAVED" total_supply)"
 [[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$SUPPLY_LOW" "$SUPPLY_HIGH")" == "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")" ]] ||
   die "PavedToken.total_supply() is not 1,000,000 PAVED"
-read -r HELD_LOW HELD_HIGH <<<"$(call "$PAVED" balance_of "$DEPLOYER")"
+read -r HELD_LOW HELD_HIGH <<<"$(call "$PAVED" balance_of "$DEPLOYER_ARG")"
 [[ "$(hex_int "$HELD_LOW")" == 0 && "$(hex_int "$HELD_HIGH")" == 0 ]] || die "the deployer still holds PAVED after the pool and the stake"
 for acct in ${TEST_ACCOUNTS[@]+"${TEST_ACCOUNTS[@]}"}; do
   read -r B_LOW B_HIGH <<<"$(call "$PAVED" balance_of "$acct")"
@@ -520,20 +594,20 @@ for acct in ${TEST_ACCOUNTS[@]+"${TEST_ACCOUNTS[@]}"}; do
     die "test account $acct does not hold 1,000 PAVED"
   echo "   test account $acct holds 1,000 PAVED"
 done
-read -r STAKED_LOW STAKED_HIGH <<<"$(call "$VAULT" staked "$DEPLOYER")"
+read -r STAKED_LOW STAKED_HIGH <<<"$(call "$VAULT" staked "$DEPLOYER_ARG")"
 [[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$STAKED_LOW" "$STAKED_HIGH")" == "$STAKE_PAVED" ]] ||
   die "the owner's stake in the Vault is not 200,000 - 1,000 x ${#TEST_ACCOUNTS[@]} PAVED"
 echo "   Vault: owner's stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
 echo "   PavedToken: total supply 1,000,000 PAVED, deployer holds 0"
 
-ACCOUNT="$(deploy Account "$ACCOUNT_CLASS" "$DEPLOYER")"
-DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER" "$ACCOUNT" "$USDC" "$LOBBY_CLASS")"
-TUTORIAL="$(deploy Tutorial "$TUTORIAL_CLASS" "$DEPLOYER" "$ACCOUNT" "$LOBBY_CLASS")"
+ACCOUNT="$(deploy Account "$ACCOUNT_CLASS" "$DEPLOYER_ARG")"
+DAILY="$(deploy Daily "$DAILY_CLASS" "$DEPLOYER_ARG" "$ACCOUNT" "$USDC" "$LOBBY_CLASS")"
+TUTORIAL="$(deploy Tutorial "$TUTORIAL_CLASS" "$DEPLOYER_ARG" "$ACCOUNT" "$LOBBY_CLASS")"
 invoke "$ECONOMY" set_game "$DAILY" >/dev/null
 invoke "$ACCOUNT" set_economy "$ECONOMY" >/dev/null
 [[ "$(hex_int "$(call "$ACCOUNT" economy)")" == "$(hex_int "$ECONOMY")" ]] || die "Account.economy() is not Economy"
 # The game NFT: without it every spawn reverts ('Lobby: collection not set'), so it is wired before the smoke.
-COLLECTION="$(deploy Collection "$COLLECTION_CLASS" "$DEPLOYER")"
+COLLECTION="$(deploy Collection "$COLLECTION_CLASS" "$DEPLOYER_ARG")"
 invoke "$ACCOUNT" set_collection "$COLLECTION" >/dev/null
 invoke "$COLLECTION" set_minters "$DAILY" "$TUTORIAL" >/dev/null
 [[ "$(hex_int "$(call "$ACCOUNT" collection)")" == "$(hex_int "$COLLECTION")" ]] || die "Account.collection() is not Collection"
@@ -603,7 +677,7 @@ terms() {
 check_token() {
   local id="$1" over="$2" owner uri
   owner="$(call "$COLLECTION" owner_of $(u256 "$id"))"
-  [[ "$(hex_int "$owner")" == "$(hex_int "$DEPLOYER")" ]] || die "Collection.owner_of($id) is not the player"
+  [[ "$(hex_int "$owner")" == "$DEPLOYER_INT" ]] || die "Collection.owner_of($id) is not the player"
   uri="$(call "$COLLECTION" token_uri $(u256 "$id"))"
   python3 -I -c '
 import sys, json, base64
@@ -626,10 +700,10 @@ print("   token", sys.argv[2], "owner the player, token_uri", json.dumps(attrs, 
 echo "== smoke"
 # P-42: the upgrade owner of every upgradable contract is the deployer.
 for entry in "Economy=$ECONOMY" "Account=$ACCOUNT" "Daily=$DAILY" "Tutorial=$TUTORIAL" "Collection=$COLLECTION"; do
-  [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$(hex_int "$DEPLOYER")" ]] || die "${entry%%=*}.owner() is not the deployer"
+  [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
 done
 echo "   owner() of Economy, Account, Daily, Tutorial and Collection: the deployer"
-invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER" >/dev/null
+invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER_ARG" >/dev/null
 read -r PRICE_TOKEN PRICE_LOW PRICE_HIGH <<<"$(call "$DAILY" entry_price)"
 [[ "$(hex_int "$PRICE_TOKEN")" == "$(hex_int "$USDC")" ]] || die "entry_price token $PRICE_TOKEN is not MockUSDC"
 [[ "$(hex_int "$PRICE_LOW")" == 2000000 && "$(hex_int "$PRICE_HIGH")" == 0 ]] || die "entry_price amount is not 2 USDC"
@@ -638,16 +712,16 @@ echo "   entry_price: 2 USDC per stake unit"
 # A paid Daily game at stake 1, with the client's min_out: the pool's quote of the burn, less 1 %. The 2 USDC come
 # from the faucet, unless the deployer already holds them: on Sepolia anyone may have filled its faucet cap, and
 # that USDC is then on the deployer.
-read -r HELD_LOW HELD_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER")"
+read -r HELD_LOW HELD_HIGH <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
 if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)+(int(sys.argv[2],16)<<128)<2000000 else 1)' "$HELD_LOW" "$HELD_HIGH"; then
-  invoke "$USDC" mint "$DEPLOYER" 2000000 0 >/dev/null
+  invoke "$USDC" mint "$DEPLOYER_ARG" 2000000 0 >/dev/null
 fi
 invoke "$USDC" approve "$DAILY" 2000000 0 >/dev/null
 read -r -a QUOTE <<<"$(call "$ECONOMY" quote 1)"
 read -r SWAP_LOW _ <<<"$(call "$ECONOMY" quote_swap "${QUOTE[2]}" "${QUOTE[3]}")"
 MIN_OUT="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)*99//100)' "$SWAP_LOW")"
 EMA_BEFORE="$(call "$ECONOMY" ema)"
-USDC_BEFORE="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER" | cut -d' ' -f1)")"
+USDC_BEFORE="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
 DAILY_TX="$(invoke "$DAILY" spawn 1 0 $(u256 "$MIN_OUT"))"
 PAID_ID="$(rpc starknet_getTransactionReceipt "[\"$DAILY_TX\"]" | python3 -I -c '
 import sys, json
@@ -656,12 +730,12 @@ daily = int(sys.argv[1], 16)
 ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) == daily and len(e["keys"]) == 3]
 print(ids[0])' "$DAILY")" || die "no GameSpawned event in the Daily spawn receipt"
 DAY="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)//86400)' "$(call "$DAILY" game "$PAID_ID" | cut -d' ' -f14)")"
-USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER" | cut -d' ' -f1)")"
+USDC_AFTER="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
 [[ $((USDC_BEFORE - USDC_AFTER)) == 2000000 ]] || die "the spawn moved $((USDC_BEFORE - USDC_AFTER)) USDC base units, expected 2000000"
 [[ "$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds USDC after the purchase"
 [[ "$(hex_int "$(call "$PAVED" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds PAVED after the purchase"
 read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"
-[[ "$T_PLAYER" == "$(hex_int "$DEPLOYER")" ]] || die "Economy.terms($PAID_ID) is not the player's"
+[[ "$T_PLAYER" == "$DEPLOYER_INT" ]] || die "Economy.terms($PAID_ID) is not the player's"
 echo "   daily game $PAID_ID bought at stake 1 on day $DAY (min_out $MIN_OUT), Economy holds nothing"
 invoke "$DAILY" surrender "$PAID_ID" >/dev/null
 read -r T_PLAYER T_RECORDED T_SETTLED T_REWARD <<<"$(terms "$PAID_ID")"

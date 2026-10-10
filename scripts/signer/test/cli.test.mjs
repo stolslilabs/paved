@@ -139,6 +139,7 @@ test('refuses NODE_DEBUG, and any node option but --max-old-space-size (and --di
     [{ NODE_OPTIONS: `--require ${THROWER}` }, [], /^signer: NODE_OPTIONS holds an option other/],
     [{ NODE_OPTIONS: `--import=${THROWER}` }, [], /^signer: NODE_OPTIONS holds an option other/],
     [{}, ['--report-uncaught-exception'], /^signer: node was started with an option other than/],
+    [{ NODE_TLS_REJECT_UNAUTHORIZED: '0' }, [], /^signer: NODE_TLS_REJECT_UNAUTHORIZED=0 turns off TLS checks/],
     [{}, ['--heapsnapshot-near-heap-limit=1'], /^signer: node was started with an option other than/],
   ]) {
     const result = run(INVOKE, { ...ENV, ...env }, nodeArgs);

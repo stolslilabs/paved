@@ -81,8 +81,10 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
      id again (`SN_MAIN` always refused);
    - each class hash the signer declares equals `sncast utils class-hash` for the same contract.
 
-   The RPC URL appears in no argv, echo, error, log or file: `deploy.sh` prints and writes `$STARKNET_RPC_URL`,
-   `curl` reads the URL from its config on stdin, and the signer sanitises everything it prints.
+   No value of the three variables appears in an argv, an echo, an error, a log or a file: `deploy.sh` prints
+   `$STARKNET_RPC_URL` and `$STARKNET_ACCOUNT_ADDRESS` instead, `curl` reads the URL and the request from its
+   config on stdin, the signer gets them in an allowlisted environment and names the deployer `@account` in
+   calldata, and a failing signer's output is redacted before it is printed (the signer sanitises it first).
 3. `sepolia.json` is committed in a follow-up PR, with the run's output (addresses, transactions, the smoke).
 4. The smoke's test-sized traces are listed in the README; its paid game is settled by the keeper from
    `(D + 2) x 86400`.

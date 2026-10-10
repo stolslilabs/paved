@@ -113,7 +113,8 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
   // MockUSDC's constructor premints 10,000 USDC to the deployer (S-1): the balances below are read as
   // changes from it. A u256 balance is two felts, low then high.
   const balanceOf = () => {
-    const { json } = signer('call', '--contract', usdc, '--function', 'balance_of', '--calldata', account.address);
+    // @account: the signer reads the account's address from its environment.
+    const { json } = signer('call', '--contract', usdc, '--function', 'balance_of', '--calldata', '@account');
     t.diagnostic(`call balance_of: ${JSON.stringify(json)}`);
     assert.equal(json.result.length, 2);
     return BigInt(json.result[0]) + (BigInt(json.result[1]) << 128n);
@@ -122,7 +123,7 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
   assert.equal(premint, 10_000_000_000n);
 
   // mint(recipient, amount: u256 = low, high): 1 USDC (6 decimals).
-  const minted = signer('invoke', '--contract', usdc, '--function', 'mint', '--calldata', account.address, '1000000', '0');
+  const minted = signer('invoke', '--contract', usdc, '--function', 'mint', '--calldata', '@account', '1000000', '0');
   t.diagnostic(`invoke mint: ${minted.line}`);
   assert.match(minted.json.transaction_hash, /^0x[0-9a-f]+$/);
   assert.equal(minted.stderr, `signer: invoke ${usdc} mint\n`);
@@ -131,7 +132,7 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
 
   const calls = join(mkdtempSync(join(tmpdir(), 'paved-signer-')), 'calls.json');
   writeFileSync(calls, JSON.stringify([
-    { contract: usdc, function: 'mint', calldata: [account.address, '2000000', '0'] },
+    { contract: usdc, function: 'mint', calldata: ['@account', '2000000', '0'] },
     { contract: usdc, function: 'transfer', calldata: ['0x1234', '500000', '0'] },
   ]));
   const multi = signer('multicall', '--calls', calls);

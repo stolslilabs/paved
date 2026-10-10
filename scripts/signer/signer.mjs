@@ -5,7 +5,7 @@
 
 import { format } from 'node:util';
 
-import { USAGE, assertNoSecretInArgv, parseArgs } from './lib/args.mjs';
+import { USAGE, assertNoSecretInArgv, parseArgs, resolveAccount } from './lib/args.mjs';
 import { UsageError, assertSafeRuntime, readEnv } from './lib/env.mjs';
 import { formatError, makeSanitizer } from './lib/sanitize.mjs';
 
@@ -44,6 +44,7 @@ async function main(argv) {
   const env = readEnv(process.env);
   sanitize = makeSanitizer(env);
   assertNoSecretInArgv(argv, sanitize);
+  if (options.calldata) options.calldata = resolveAccount(options.calldata, env.address);
   // Imported late: a usage error never loads starknet.js.
   const actions = await import('./lib/actions.mjs');
   const result = await actions[command](await actions.connect(env), options);

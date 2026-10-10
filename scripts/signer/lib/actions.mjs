@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { Account, RpcProvider, config, json, stark } from 'starknet';
 
-import { parseCalls } from './args.mjs';
+import { parseCalls, resolveAccount } from './args.mjs';
 import { UsageError, assertChain } from './env.mjs';
 
 // starknet.js logs warnings (an RPC version mismatch, a fee retry) with the node's details: silence it.
@@ -96,7 +96,8 @@ export async function invoke({ account }, { contract, entrypoint, calldata }) {
 }
 
 export async function multicall({ account }, { calls }) {
-  return execute(account, parseCalls(await readJson(calls)));
+  const parsed = parseCalls(await readJson(calls));
+  return execute(account, parsed.map((call) => ({ ...call, calldata: resolveAccount(call.calldata, account.address) })));
 }
 
 export async function call({ provider }, { contract, entrypoint, calldata }) {
