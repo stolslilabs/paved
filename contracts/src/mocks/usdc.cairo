@@ -3,8 +3,11 @@
 
 //! A stand-in for USDC on devnet, on Sepolia and in tests (P8, `docs/architecture/economy.md`
 //! section 5; S-1, D-16): an OpenZeppelin ERC20 with 6 decimals, like Starknet's USDC, and a
-//! bounded faucet. A call mints at most `MINT_CAP_PER_CALL`, and an address receives at most
-//! `MINT_CAP_PER_ADDRESS` from the faucet over its life.
+//! bounded faucet. A call mints at most `MINT_CAP_PER_CALL`, and never past a balance of
+//! `MINT_CAP_PER_ADDRESS` for its recipient. The address cap is on the balance, not on a count of
+//! what the faucet gave: a count would cost a storage write on every mint, past the gas budgets of
+//! the tests that fund their players through the faucet. For the same reason `mint` writes the
+//! balance itself, from the one read the cap needs (OpenZeppelin's `mint` reads it again).
 //!
 //! The deployer funds the launch pool's 10,000 USDC with one call, within both caps: the per-call
 //! cap is exactly that, and the per-address cap leaves the deployer room for the smoke's purchase.
@@ -18,33 +21,37 @@ use starknet::ContractAddress;
 pub const DECIMALS: u8 = 6;
 /// The most one `mint` call mints: 10,000 USDC, the launch pool's USDC.
 pub const MINT_CAP_PER_CALL: u256 = 10_000_000_000;
-/// The most one address receives from the faucet, over all calls: 20,000 USDC.
+/// The faucet mints nothing that would take its recipient's balance past 20,000 USDC.
 pub const MINT_CAP_PER_ADDRESS: u256 = 20_000_000_000;
 
 pub mod errors {
     pub const OVER_CALL_CAP: felt252 = 'MockUSDC: over the call cap';
     pub const OVER_ADDRESS_CAP: felt252 = 'MockUSDC: over the address cap';
+    pub const MINT_TO_ZERO: felt252 = 'MockUSDC: mint to 0';
 }
 
 #[starknet::interface]
 pub trait IMockUSDC<TContractState> {
     /// Faucet: mints `amount` (base units, 6 decimals) to `recipient`. Anyone may call it, for at
-    /// most `MINT_CAP_PER_CALL` per call and `MINT_CAP_PER_ADDRESS` per recipient in total.
+    /// most `MINT_CAP_PER_CALL` per call, and only while the recipient's balance stays at most
+    /// `MINT_CAP_PER_ADDRESS`.
     fn mint(ref self: TContractState, recipient: ContractAddress, amount: u256);
-    /// What `account` has received from the faucet so far (base units).
-    fn minted(self: @TContractState, account: ContractAddress) -> u256;
 }
 
 #[starknet::contract]
 pub mod MockUSDC {
     // Component imports
 
-    use openzeppelin_token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
 
     // Starknet imports
 
+    use core::num::traits::Zero;
+    use openzeppelin_token::erc20::{ERC20Component, ERC20HooksEmptyImpl};
     use starknet::ContractAddress;
-    use starknet::storage::{Map, StorageMapReadAccess, StorageMapWriteAccess};
+    use starknet::storage::{
+        StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
+        StoragePointerWriteAccess,
+    };
 
     // Local imports
 
@@ -68,7 +75,6 @@ pub mod MockUSDC {
     struct Storage {
         #[substorage(v0)]
         erc20: ERC20Component::Storage,
-        minted: Map<ContractAddress, u256>,
     }
 
     // Events
@@ -92,17 +98,24 @@ pub mod MockUSDC {
     #[abi(embed_v0)]
     impl MockUSDCImpl of IMockUSDC<ContractState> {
         fn mint(ref self: ContractState, recipient: ContractAddress, amount: u256) {
-            // [Check] The caps
+            // [Check] The recipient and the caps
+            assert(recipient.is_non_zero(), errors::MINT_TO_ZERO);
             assert(amount <= MINT_CAP_PER_CALL, errors::OVER_CALL_CAP);
-            let minted = self.minted.read(recipient) + amount;
-            assert(minted <= MINT_CAP_PER_ADDRESS, errors::OVER_ADDRESS_CAP);
-            // [Effect] Count it, then mint
-            self.minted.write(recipient, minted);
-            self.erc20.mint(recipient, amount);
-        }
-
-        fn minted(self: @ContractState, account: ContractAddress) -> u256 {
-            self.minted.read(account)
+            let balance = self.erc20.ERC20_balances.read(recipient) + amount;
+            assert(balance <= MINT_CAP_PER_ADDRESS, errors::OVER_ADDRESS_CAP);
+            // [Effect] OpenZeppelin's `update` from the zero address (its hooks are empty), with
+            // the balance already read
+            let total_supply = self.erc20.ERC20_total_supply.read();
+            self.erc20.ERC20_total_supply.write(total_supply + amount);
+            self.erc20.ERC20_balances.write(recipient, balance);
+            self
+                .emit(
+                    ERC20Component::Event::Transfer(
+                        ERC20Component::Transfer {
+                            from: Zero::zero(), to: recipient, value: amount,
+                        },
+                    ),
+                );
         }
     }
 }
