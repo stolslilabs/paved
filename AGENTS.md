@@ -11,7 +11,7 @@ whole suite is the CI's job on the pull request, gated by paths. Pre-push hooks 
 | Part | Local test command | Peak memory |
 |---|---|---|
 | Contracts (`contracts/`, package `paved`, toolchain pinned by `.tool-versions`) | `snforge test <filter>` with the module path of what changed, e.g. `snforge test paved::types::` | Measure first. Linux: `prlimit --as=12884901888 -- /usr/bin/time -v snforge test <filter>` (12 GiB cap). macOS: `/usr/bin/time -l snforge test <filter>`, no cap (see "On the Mac (P-33)") |
-| Client package `@paved/game-core`, `@paved/chain`, `@paved/renderer`, `@paved/ui`, `@paved/app-web`, `@paved/app-native` | `bun run test --filter <package>` | Measure first |
+| Client package `@paved/game-core`, `@paved/chain`, `@paved/renderer`, `@paved/ui`, `@paved/app-web`, `@paved/app-native`, `@paved/indexer` | `bun run test --filter <package>` | Node: see "Node test peaks" below. Cap: `NODE_OPTIONS=--max-old-space-size=<MB>`, never `prlimit --as` |
 
 Exceptions, all in the contracts:
 
@@ -19,6 +19,31 @@ Exceptions, all in the contracts:
   (observed, not a capped measure).
 - **Gas-trace runs** (`--trace-components`): observed at 3.3 GB RSS, also not a capped measure. Measure
   first.
+
+Node test peaks (VPS, 2026-10-10, bun 1.4.2, Node v24.21.0, vitest; after `bun install --frozen-lockfile` and one
+`bun run build`, so no cold build in the figures):
+
+- **Rule**: V8 reserves a large address space, and Node aborts at about 265 MB resident under
+  `prlimit --as=8 GiB`. So a Node/V8 run is capped by its heap, `NODE_OPTIONS=--max-old-space-size=<MB>`, set
+  to 1.5x the measured peak (`/usr/bin/time -v`), rounded up to 64 MB. Never `prlimit --as` for Node. Cairo
+  runs keep their address-space cap (`prlimit --as`, figures below). The Mac keeps `/usr/bin/time -l`, no cap.
+- **Method**: `NODE_OPTIONS=--max-old-space-size=4096 /usr/bin/time -v bun run test --filter <package> --force`,
+  one package at a time, run twice, larger "Maximum resident set size" kept. `--force` is needed: without it
+  turbo replays the cached test run on the second pass and the figure is that of turbo alone (about 95 MB).
+  `/usr/bin/time` reports the largest process of the tree (not the sum of the processes).
+
+| Package | Peak RSS (largest process) | Heap cap `--max-old-space-size` |
+|---|---|---|
+| `@paved/game-core` | 224,944 kB (219.7 MiB) | 384 |
+| `@paved/chain` | 283,472 kB (276.8 MiB) | 448 |
+| `@paved/renderer` | 233,404 kB (227.9 MiB) | 384 |
+| `@paved/ui` | 237,084 kB (231.5 MiB) | 384 |
+| `@paved/app-web` | 1,024,844 kB (1,000.8 MiB) | 1536 |
+| `@paved/app-native` | 152,740 kB (149.2 MiB) | 256 |
+| `@paved/indexer` | 240,220 kB (234.6 MiB) | 384 |
+
+Example: `NODE_OPTIONS=--max-old-space-size=1536 bun run test --filter @paved/app-web`. Re-measure when a
+package's tests change a lot.
 
 Memory figures and the VPS/Mac rule:
 
