@@ -1220,6 +1220,8 @@ quotes and braces, and support for it is less certain than for base64.
   keeps its earlier reason. The id is never an input: no entry point of `Daily`, `Tutorial` or `Lobby` takes one or calls
   `mint` for a caller (`tests::e2e::mint`). Without a collection in `Account` the spawn reverts with
   `'Lobby: collection not set'` and leaves no game.
+- **Upgrade trust.** The owner can upgrade `Account`, so the one-shot `set_collection` and `set_economy` bind only within one
+  class: an upgrade is an owner act (upgrade trust).
 - **Minters.** `Collection.set_minters` refuses `daily == tutorial` (`'Collection: same minter'`), on top of its one shot.
 - **Deploy.** `scripts/deploy.sh devnet` deploys `Collection(owner)`, then as the owner calls `Account.set_collection` and
   `Collection.set_minters(Daily, Tutorial)`; `devnet.json` gains `contracts.Collection`; the smoke reads `owner_of` and

@@ -218,6 +218,15 @@ fn test_mint_token_uri_of_running_and_finished_games() {
     let daily_address = systems.daily.contract_address;
     let tutorial_address = systems.tutorial.contract_address;
 
+    // [Literal] section 9's exact text for Daily game 1 on day 5, running with score 0, pinned
+    // apart from the contract's own builder: the JSON, then its base64 in the URI
+    let literal: ByteArray =
+        "{\"name\":\"Paved Games #1\",\"description\":\"A game of Paved.\",\"attributes\":[{\"trait_type\":\"Score\",\"value\":0},{\"trait_type\":\"Over\",\"value\":false},{\"trait_type\":\"Day\",\"value\":5}]}";
+    assert(metadata::json(1, 0, false, 5) == literal, 'Mint: literal json');
+    let mut literal_uri = metadata::uri_prefix();
+    ByteArrayTrait::append(ref literal_uri, @metadata::base64(@literal));
+    assert(uri.token_uri(1) == literal_uri, 'Mint: literal uri');
+
     // [Running]
     let daily_uri = uri.token_uri(1);
     assert(daily_uri == expected_uri(daily_address, 1, 1), 'Mint: daily running uri');
@@ -245,4 +254,50 @@ fn test_mint_token_uri_of_running_and_finished_games() {
         'Mint: tutorial finished uri',
     );
     assert(finished_tutorial != tutorial_uri, 'Mint: tutorial uri unchanged');
+}
+
+/// The collection is set in `Account` but `set_minters` was never called: no one may mint, so the
+/// spawn reverts 'Collection: not minter' and leaves no game.
+#[test]
+#[feature("safe_dispatcher")]
+fn test_mint_a_spawn_reverts_when_the_minters_were_never_set() {
+    let owner: felt252 = OWNER().into();
+    let (economy, usdc) = setup::deploy_economy();
+    let account = deploy_one("Account", array![owner]);
+    let collection = deploy_one("Collection", array![owner]);
+    let lobby: felt252 = (*declare("Lobby").unwrap().contract_class().class_hash).into();
+    let daily = deploy_one("Daily", array![owner, account.into(), usdc.into(), lobby]);
+    let tutorial = deploy_one("Tutorial", array![owner, account.into(), lobby]);
+    start_cheat_caller_address(account, OWNER());
+    IAccountDispatcher { contract_address: account }.set_economy(economy);
+    IAccountDispatcher { contract_address: account }.set_collection(collection);
+    stop_cheat_caller_address(account);
+    start_cheat_caller_address(account, PLAYER());
+    IAccountDispatcher { contract_address: account }.create('PLAYER', PLAYER());
+    stop_cheat_caller_address(account);
+    paved::mocks::usdc::IMockUSDCDispatcherTrait::mint(
+        paved::mocks::usdc::IMockUSDCDispatcher { contract_address: usdc }, PLAYER(), 100_000_000,
+    );
+    start_cheat_caller_address(usdc, PLAYER());
+    paved::mocks::token::IERC20DispatcherTrait::approve(
+        paved::mocks::token::IERC20Dispatcher { contract_address: usdc }, daily, 100_000_000,
+    );
+    stop_cheat_caller_address(usdc);
+    start_cheat_caller_address(economy, OWNER());
+    paved::economy::economy::IEconomyDispatcherTrait::set_game(
+        paved::economy::economy::IEconomyDispatcher { contract_address: economy }, daily,
+    );
+    stop_cheat_caller_address(economy);
+
+    start_cheat_caller_address(daily, PLAYER());
+    start_cheat_caller_address(tutorial, PLAYER());
+    let reason = *IDailySafeDispatcher { contract_address: daily }
+        .spawn(1, Zero::zero(), 0)
+        .unwrap_err()
+        .at(0);
+    assert(reason == 'Collection: not minter', 'Mint: daily reason');
+    assert(TestStoreTrait::new(daily).game(1).player_id == 0, 'Mint: a daily game left');
+    let reason = *ITutorialSafeDispatcher { contract_address: tutorial }.spawn().unwrap_err().at(0);
+    assert(reason == 'Collection: not minter', 'Mint: tutorial reason');
+    assert(TestStoreTrait::new(tutorial).game(1).player_id == 0, 'Mint: a tutorial game left');
 }

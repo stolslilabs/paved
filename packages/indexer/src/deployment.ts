@@ -1,6 +1,7 @@
 // Reads `contracts/deployments/<network>.json` (contracts/deployments/README.md): the five addresses the indexer
-// filters on (Daily, Tutorial, Account, Economy and Collection: every deployment has an Economy since E3 and a Collection
-// since E5b, and a file without one is refused, since its games would be half indexed), the block it starts from, the chain id, and the node's URL. Nothing else of the file is used.
+// filters on (Daily, Tutorial, Account and Economy are required: every deployment has an Economy since E3, and a file
+// without one is refused, since its paid games would be half indexed; Collection, since E5b, is optional: without it the
+// mints are not read and no game has a token id), the block it starts from, the chain id, and the node's URL. Nothing else of the file is used.
 import { readFileSync } from "node:fs";
 import { canonical } from "./events.ts";
 
