@@ -197,6 +197,9 @@ fn test_reclaim_then_late_game_over_ranks_nothing() {
     assert(day.top1_player_id == 0 && day.top1_score == 0, 'Reclaim: D ranked');
     assert(day.top2_player_id == 0 && day.top3_player_id == 0, 'Reclaim: D ranked 2');
     assert(day.prize == 2_000_000, 'Reclaim: prize history');
+    // [Check] Nor does it rank in D+1: a game ranks only in the day it started in
+    // (`end_in_tournament`)
+    assert(tournaments.tournament(D + 1).top1_player_id == 0, 'Reclaim: D+1 ranked');
     // [Check] No rank claims D's prize, and the reclaim is spent
     let daily = IDailySafeDispatcher { contract_address: daily_address };
     assert(daily.claim(D, 1).is_err(), 'Reclaim: rank 1 claimed');

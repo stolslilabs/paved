@@ -1049,7 +1049,7 @@ text left the choice open, it is written here.
     prize read and write that left).
 - **Deploy.** `scripts/deploy.sh devnet` deploys `MockUSDC`, `Token` (the old mock, kept while CLIENT still reads
   it), `PavedToken(deployer, deployer)`, `MockRouter` seeded with 800,000 PAVED and 10,000 MockUSDC, `Vault` with
-  the owner's 200,000 PAVED staked, `Economy` (the router's pool key, `sqrt_ratio_limit` 0 since the mock ignores
+  the owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked, `Economy` (the router's pool key, `sqrt_ratio_limit` 0 since the mock ignores
   it, the decided configuration, initial mean 3,353 points, launch rate 7.6e31), `set_minter(Economy)` (then
   `minter() == Economy` and `admin() == 0` are checked), `Account`, `Daily` with MockUSDC as its token,
   `Tutorial`, `Economy.set_game(Daily)` and `Account.set_economy(Economy)`. It refuses `MockUSDC`, `MockRouter`
@@ -1058,6 +1058,9 @@ text left the choice open, it is written here.
   game; it then checks that the day has no prize, no leader, weight 0 and that the EMA did not move (P-24). The
   script deploys main-equivalent sources only; `--unmerged` runs a pull request's sources and writes the file to a
   temporary path, so the committed `devnet.json` is regenerated from main once E3 has merged.
+  P-38 (devnet only): the deploy also transfers 1,000 PAVED to each predeployed account other than the deployer, out of
+  the owner's stake (200,000 - 1,000 x N staked, the pool unchanged at 800,000), records them as `test_paved` in
+  `devnet.json`, and refuses the step off devnet; there is no minting faucet.
 - **Every Daily game over calls `Economy.record`, and fails if it reverts.** That is a constraint on any later
   upgrade or migration of `Daily` or of `Economy`: a `Daily` that keeps its games must keep an `Economy` that records
   them (a new `Economy` needs `set_game` for that `Daily`, and `Account.set_economy` is one shot), or the games in
