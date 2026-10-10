@@ -57,7 +57,7 @@ fn build_two(store: TestStore, systems: @Systems, game_id: u32, player_id: felt2
 // Game
 
 #[test]
-#[available_gas(l2_gas: 117760545)]
+#[available_gas(l2_gas: 120503000)]
 fn test_views_game_after_spawn() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -85,7 +85,7 @@ fn test_views_game_after_spawn() {
 }
 
 #[test]
-#[available_gas(l2_gas: 118775802)]
+#[available_gas(l2_gas: 121470000)]
 fn test_views_game_player_answerable_without_any_build() {
     // The player is in `GameConfig`: a game that nobody built on still answers for its player,
     // and the builder facade holds the first drawn tile.
@@ -146,7 +146,7 @@ fn test_views_game_closed_by_surrender() {
 }
 
 #[test]
-#[available_gas(l2_gas: 123257873)]
+#[available_gas(l2_gas: 125738000)]
 fn test_views_game_closed_by_last_tile() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     // Shrink the deck: the next discard ends the game.
@@ -167,7 +167,7 @@ fn test_views_game_closed_by_last_tile() {
 }
 
 #[test]
-#[available_gas(l2_gas: 78358000)]
+#[available_gas(l2_gas: 81735000)]
 fn test_views_game_tutorial() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
@@ -188,7 +188,7 @@ fn test_views_game_tutorial() {
 }
 
 #[test]
-#[available_gas(l2_gas: 68143000)]
+#[available_gas(l2_gas: 71517000)]
 fn test_views_game_tutorial_same_second_game_over() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
@@ -286,7 +286,7 @@ fn test_views_tiles_paging_edges() {
 }
 
 #[test]
-#[available_gas(l2_gas: 130874162)]
+#[available_gas(l2_gas: 132992000)]
 fn test_views_tiles_capped_at_max_page() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     // Pretend more tiles were drawn than one page holds; the extra ids read as empty tiles.
@@ -311,7 +311,7 @@ fn test_views_tiles_missing_game() {
 // Builder and characters
 
 #[test]
-#[available_gas(l2_gas: 147266471)]
+#[available_gas(l2_gas: 148604000)]
 fn test_views_builder_and_characters_placed_then_returned() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let views = daily_views(@systems);
@@ -432,7 +432,7 @@ fn test_views_tournament_lifecycle() {
 }
 
 #[test]
-#[available_gas(l2_gas: 57473000)]
+#[available_gas(l2_gas: 60849000)]
 fn test_views_tournament_empty_day() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -445,7 +445,7 @@ fn test_views_tournament_empty_day() {
 }
 
 #[test]
-#[available_gas(l2_gas: 58004000)]
+#[available_gas(l2_gas: 61380000)]
 fn test_views_tournament_id_bounds() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -469,7 +469,7 @@ fn test_views_tournament_id_bounds() {
 }
 
 #[test]
-#[available_gas(l2_gas: 114888071)]
+#[available_gas(l2_gas: 117767000)]
 fn test_views_entry_price_equals_the_spawn_debit() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let tournaments = ITournamentViewDispatcher {

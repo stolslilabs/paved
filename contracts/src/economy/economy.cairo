@@ -147,9 +147,10 @@ pub struct Addresses {
     pub game: ContractAddress,
 }
 
-/// The quote `MockRouter` serves on devnet (`quote(token_in, amount_in) -> amount_out`, the pool's
-/// fee included). Ekubo's router has another shape (`quote_swap(RouteNode, TokenAmount) -> Delta`),
-/// so `Economy.quote_swap` serves devnet only (`docs/architecture/economy.md`, section 5).
+/// The quote `MockRouter` serves on devnet and Sepolia (P-39; `quote(token_in, amount_in) ->
+/// amount_out`, the pool's fee included). Ekubo's router has another shape (`quote_swap(RouteNode,
+/// TokenAmount) -> Delta`), so `Economy.quote_swap` serves the mock only, not Ekubo's router
+/// (`docs/architecture/economy.md`, section 5).
 #[starknet::interface]
 pub trait IQuote<TContractState> {
     fn quote(self: @TContractState, token_in: ContractAddress, amount_in: u128) -> u128;
