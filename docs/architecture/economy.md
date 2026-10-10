@@ -811,7 +811,7 @@ Not stacked: each one branches from main and targets main.
 - Acceptance:
   - goldens identical;
   - a0 to f within +0.1 % of main;
-  - `Daily` at most 72,607 felts (the prototype);
+  - `Daily` at most 72,607 felts (the prototype) (72,947 since P-44);
   - every class at most 90 %;
   - gas of spawn and of the closing moves measured and reported, with the cause stated;
   - a devnet smoke check that buys, plays the Tutorial, and settles a paid game on a later day;
@@ -906,6 +906,8 @@ D-13 lifts the seed gate. These gates stay:
   `Collection` are upgradable by their owner, who therefore holds the prize pools and the PAVED mint (`Economy` is
   its only minter). On mainnet that owner is the owner's account, then a multisig or a timelock; deploying with it
   and moving the ownership there (two steps) are the owner's acts. `PavedToken` and `Vault` stay non-upgradable.
+  `set_lobby_class` on `Daily` and `Tutorial` is as strong as `upgrade`: a `Lobby` class runs by library call on
+  their storage, so it can move the prize pools, rewrite `owner`, or replace the class. This gate covers both.
 - **The mock-router gate** (from E1's audit), a mainnet gate: the mainnet price limit and partial fills are untested
   until a fork test against the mainnet router covers them (see "As built: E2" below).
 - **The route gap** (P-39, two mainnet gates). `MockRouter`'s quote is `Economy.quote_swap`; on mainnet the client
@@ -942,9 +944,11 @@ differs from the text above, or the text left the choice open, it is written her
   (`c`) 1,000 to 50,000; `cap` (`H`) 1 to 20; `target` (`T`) 100,000 to 10,000,000 PAVED. The constructor's
   configuration passes the same check. The referral (500 bps), the base price (2 USDC), the stake range (1 to 10)
   and the parameters of the mean are constants. The mean has no setter.
-- **The owner has no transfer and no upgrade.** The owner can configure and set the pool, and nothing else.
-  `PavedToken`'s minter is set once, so **a fix of `Economy` after its deploy needs a new `PavedToken`**. Reverse:
-  the PM wants an upgradeable `Economy`. That also makes its owner able to mint.
+- **The owner configures, sets the pool, and upgrades (P-42).** `Economy` is upgradable in place by its owner
+  (`upgrade`, OpenZeppelin's `UpgradeableComponent`), and the ownership moves in two steps (`transfer_ownership`,
+  then `accept_ownership` by the new owner). An upgrade keeps `Economy`'s address, so `PavedToken`'s minter, set
+  once, stays valid: **a fix of `Economy` after its deploy needs no new `PavedToken`**. The cost is trust: a new
+  class can mint (`upgrades.md`, "Trust"; "Gates before a real-money game on mainnet").
 - **Frozen terms.** A purchase freezes `R`, its time and the curve then in force (`sigma`, `c`, `H`) into the
   game's terms. A `configure` therefore applies to the next purchase only, the curve included. The time is packed
   in 40 bits in the same slot, in place of the day, which is derived from it.

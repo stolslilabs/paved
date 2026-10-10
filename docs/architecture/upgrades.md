@@ -89,6 +89,10 @@ map). So, for every upgradable contract and for `Lobby`:
 - **Before an upgrade on a public network:** the new class is built from a commit that passes those pins, the storage
   of the old class is diffed against the new one by name and type (the `#[storage]` structs and the components), and
   the upgrade is rehearsed on devnet from the deployed state (`--rehearse`).
+- **Before an upgrade on a public network, the way out stays:** the new class keeps `upgrade`, the ownable entry
+  points (`owner`, `transfer_ownership`, `accept_ownership`) and, for `Daily` and `Tutorial`, `set_lobby_class`, and
+  it is never the `Lobby` class. Only class hash 0 is refused: a class without these entry points freezes the contract
+  for good, with no owner able to upgrade it again.
 
 ## Not upgradable: migrations
 
@@ -111,7 +115,13 @@ its own brief when needed:
 The upgrade owner can replace the code of `Daily` (which holds the sponsored prize pools), of `Economy` (the only
 minter of PAVED: a new class can mint) and of `Account` and `Collection`. That is the custody of the prizes and of the
 PAVED supply. It cannot touch `Vault` (stakers' PAVED and USDC) or the PAVED already held, except through what
-`Economy` mints. Hence the mainnet gate: an owner account, later a multisig or a timelock.
+`Economy` mints.
+
+`set_lobby_class` on `Daily` and `Tutorial` is as strong as `upgrade`. A `Lobby` class runs by library call on the game
+contract's storage, so a new one can move the prize pools, rewrite `owner`, or replace the class
+(`replace_class_syscall`). Whoever may set the `Lobby` class holds the same keys as the upgrade owner.
+
+Hence the mainnet gate, for `upgrade` and `set_lobby_class` alike: an owner account, later a multisig or a timelock.
 
 ## Tests
 
