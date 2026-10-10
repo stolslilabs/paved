@@ -59,6 +59,52 @@
   },
   {
     "type": "impl",
+    "name": "UpgradeableImpl",
+    "interface_name": "openzeppelin_interfaces::upgrades::IUpgradeable"
+  },
+  {
+    "type": "interface",
+    "name": "openzeppelin_interfaces::upgrades::IUpgradeable",
+    "items": [
+      {
+        "type": "function",
+        "name": "upgrade",
+        "inputs": [
+          {
+            "name": "new_class_hash",
+            "type": "core::starknet::class_hash::ClassHash"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "LobbyClassImpl",
+    "interface_name": "paved::systems::lobby::ILobbyClass"
+  },
+  {
+    "type": "interface",
+    "name": "paved::systems::lobby::ILobbyClass",
+    "items": [
+      {
+        "type": "function",
+        "name": "set_lobby_class",
+        "inputs": [
+          {
+            "name": "class_hash",
+            "type": "core::starknet::class_hash::ClassHash"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
     "name": "GameViewImpl",
     "interface_name": "paved::views::IGameView"
   },
@@ -369,18 +415,6 @@
         "type": "function",
         "name": "accept_ownership",
         "inputs": [],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "upgrade",
-        "inputs": [
-          {
-            "name": "class_hash",
-            "type": "core::starknet::class_hash::ClassHash"
-          }
-        ],
         "outputs": [],
         "state_mutability": "external"
       }
@@ -773,18 +807,6 @@
   },
   {
     "type": "event",
-    "name": "paved::components::ownable::OwnableComponent::Upgraded",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "class_hash",
-        "type": "core::starknet::class_hash::ClassHash",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
     "name": "paved::components::ownable::OwnableComponent::Event",
     "kind": "enum",
     "variants": [
@@ -796,11 +818,6 @@
       {
         "name": "OwnershipTransferred",
         "type": "paved::components::ownable::OwnableComponent::OwnershipTransferred",
-        "kind": "nested"
-      },
-      {
-        "name": "Upgraded",
-        "type": "paved::components::ownable::OwnableComponent::Upgraded",
         "kind": "nested"
       }
     ]
@@ -956,6 +973,42 @@
   },
   {
     "type": "event",
+    "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "class_hash",
+        "type": "core::starknet::class_hash::ClassHash",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
+    "kind": "enum",
+    "variants": [
+      {
+        "name": "Upgraded",
+        "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+        "kind": "nested"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "paved::systems::lobby::LobbyClassSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "class_hash",
+        "type": "core::starknet::class_hash::ClassHash",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "paved::systems::tutorial::Tutorial::Event",
     "kind": "enum",
     "variants": [
@@ -983,6 +1036,16 @@
         "name": "AchievementEvent",
         "type": "quiver_achievement::component::AchievementComponent::Event",
         "kind": "flat"
+      },
+      {
+        "name": "UpgradeableEvent",
+        "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
+        "kind": "flat"
+      },
+      {
+        "name": "LobbyClassSet",
+        "type": "paved::systems::lobby::LobbyClassSet",
+        "kind": "nested"
       }
     ]
   }
