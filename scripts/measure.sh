@@ -143,7 +143,7 @@ coverage_split() {
     echo "-- group $name (filter $filter $extra)"
     rm -rf coverage
     # The group fails when snforge exits non-zero or its `Tests:` line does not say `0 failed`.
-    log="target/coverage-split/$name.log"
+    log="$(pwd)/target/coverage-split/$name.log"
     set +e
     # shellcheck disable=SC2086
     run_capped snforge test -P coverage --coverage --max-threads 2 $extra "$filter" > "$log" 2>&1
@@ -157,6 +157,7 @@ coverage_split() {
     test -s coverage/coverage.lcov || { echo "no coverage.lcov for group $name"; exit 1; }
     cp coverage/coverage.lcov "target/coverage-split/$name.lcov"
     parts+=("target/coverage-split/$name.lcov")
+    echo "group $name: log $log"
   done
   merge_lcov target/coverage-split/merged.lcov "${parts[@]}"
   echo "== Merged ($(pwd)/target/coverage-split/merged.lcov)"

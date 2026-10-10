@@ -484,3 +484,8 @@ the sections above, and why:
   caller since `draw_plan` is on `Game`.
 - **P-16 is closed**: see "A road closed away from its forest" above; the oracle invariant replaces
   the re-assess step.
+- **The re-rooting block is covered (mutation run, 2026-10-10).** With `if reparented {` in
+  `placement::place` changed to `if reparented && false {`,
+  `test_differential_two_areas_of_one_tile_join_one_structure` fails
+  (`assertion ref_of(refs, first) == root failed. ref_of(refs, first): 97 root: 32`,
+  `Tests: 0 passed, 1 failed`); restored, it passes (`Tests: 1 passed, 0 failed`).
