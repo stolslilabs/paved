@@ -9,7 +9,7 @@
     "paved-signer": "./signer.mjs"
   },
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "starknet": "10.8.0"

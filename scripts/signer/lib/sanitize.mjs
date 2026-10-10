@@ -75,22 +75,23 @@ export function makeSanitizer({ privateKey, rpcUrl } = {}) {
 
   return (input) => {
     let text = typeof input === 'string' ? input : String(input);
+    // Whole number tokens first, so a 0x prefix or padding goes with the key it belongs to.
+    if (keyValue !== undefined && keyValue !== 0n) {
+      text = text.replace(NUMBER_RE, (token) => (parseBig(token) === keyValue ? KEY_MARK : token));
+    }
     for (const [needle, mark] of literals) {
       // Case-insensitive for hex spellings of the key; the URL parts are matched as given.
       text = mark === KEY_MARK ? replaceCaseless(text, needle, mark) : replaceAll(text, needle, mark);
     }
-    text = text.replace(URL_RE, URL_MARK);
-    if (keyValue !== undefined && keyValue !== 0n) {
-      text = text.replace(NUMBER_RE, (token) => (parseBig(token) === keyValue ? KEY_MARK : token));
-    }
-    return text;
+    return text.replace(URL_RE, URL_MARK);
   };
 }
 
 function replaceCaseless(text, needle, mark) {
   if (!needle) return text;
   const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return text.replace(new RegExp(escaped, 'gi'), mark);
+  // A key embedded in a longer token takes its 0x prefix and leading zeros with it.
+  return text.replace(new RegExp(`(0x)?0*${escaped}`, 'gi'), mark);
 }
 
 /**
