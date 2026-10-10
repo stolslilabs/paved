@@ -11,7 +11,7 @@ export interface NetworkEnv {
   VITE_DAILY_ADDRESS?: string;
   VITE_TUTORIAL_ADDRESS?: string;
   VITE_TOKEN_ADDRESS?: string;
-  /** The game NFT's Collection (E5b), optional; without it the deployments file's `contracts.Collection`, else the indexer's head. */
+  /** The game NFT's Collection (E5b), optional, and first of the sources (an operator override); then the deployments file's `contracts.Collection`, then the indexer's head. */
   VITE_COLLECTION_ADDRESS?: string;
   /** The devnet's MockUSDC, the faucet's token. */
   VITE_MOCK_USDC_ADDRESS?: string;

@@ -91,8 +91,9 @@ describe("the Collection's address", () => {
     expect(resolveDeployment({ network: "devnet", file: { ...file, contracts: { ...file.contracts, Collection: { address: "0x0" } } } }).collection).toBe("");
   });
 
-  test("the indexer's address comes first, then the deployment's, else null", () => {
-    expect(collectionAddress({ collection: "0x9" }, "0x5")).toBe("0x5");
+  test("the deployment's address (env, then file) comes first, then the indexer's, else null", () => {
+    expect(collectionAddress({ collection: "0x9" }, "0x5")).toBe("0x9");
+    expect(collectionAddress({ collection: "" }, "0x5")).toBe("0x5");
     expect(collectionAddress({ collection: "0x9" }, null)).toBe("0x9");
     expect(collectionAddress({ collection: "0x9" })).toBe("0x9");
     expect(collectionAddress({ collection: "" }, undefined)).toBeNull();
@@ -132,6 +133,19 @@ describe("the indexer's token_id and contracts.collection", () => {
     const { data } = await client.head();
     expect(data.contracts.collection).toBeUndefined();
     expect(data.contracts.daily).toBe("0x2");
+  });
+
+  test("a null in any other contracts key stays a bad answer", async () => {
+    const fixture = new FixtureIndexer();
+    const client = new IndexerClient({ url: "http://indexer.test", fetch: fixture.fetch as typeof fetch });
+    for (const key of ["daily", "account", "economy"]) {
+      fixture.state.rawBody = {
+        text: JSON.stringify({ version: 1, status: "ok", head: { number: 1, hash: "0x1", timestamp: 1 }, behind: 0, state: "ok", chain_id: "0x1", from_block: 3, contracts: { daily: "0x2", collection: null, [key]: null } }),
+        httpStatus: 200,
+      };
+      const error = await client.head().then(() => null, (e: IndexerError) => e);
+      expect(error?.kind, key).toBe("bad-response");
+    }
   });
 });
 

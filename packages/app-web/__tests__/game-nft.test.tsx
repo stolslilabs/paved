@@ -40,6 +40,7 @@ beforeEach(() => {
   indexer = new IndexerClient({ url: "http://indexer.test", fetch: fixture.fetch as typeof fetch });
   collection = new FakeCollectionViews();
   collection.uris.set("912", dataUri(GAME_JSON));
+  for (const id of ["4", "4294967300"]) collection.owners.set(id, "0xabc");
 });
 
 const player = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) =>
@@ -212,7 +213,7 @@ describe("Game page: the game's NFT", () => {
     expect((await screen.findByTestId("game-nft")).textContent).toBe("NFT: 0x0777…7777 #4Metadata");
     fireEvent.click(screen.getByRole("button", { name: "Metadata" }));
     await screen.findByText("Paved Games #4");
-    expect(collection.calls).toEqual(["token_uri 4"]);
+    expect(collection.calls).toEqual(["owner_of 4", "token_uri 4"]);
   });
 
   it("a Tutorial game: 2^32 + the game id", async () => {
@@ -224,6 +225,29 @@ describe("Game page: the game's NFT", () => {
     fixture.state.collection = COLLECTION;
     open("?mode=daily&id=4", { deployment: configured, indexer });
     expect((await screen.findByTestId("game-nft")).textContent).toBe(`NFT: ${SHORT} #4Metadata`);
+  });
+
+  it("a Collection with no owner for the id: no line, no Metadata, no error", async () => {
+    collection.owners.clear();
+    open("?mode=daily&id=4");
+    await screen.findByText(/Mode: /);
+    await waitFor(() => expect(collection.calls).toEqual(["owner_of 4"]));
+    expect(screen.queryByTestId("game-nft")).toBeNull();
+    expect(screen.queryByText(/Metadata/)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("owner_of is the only call until Metadata is opened, and runs once", async () => {
+    open("?mode=daily&id=4");
+    await screen.findByTestId("game-nft");
+    expect(collection.calls).toEqual(["owner_of 4"]);
+  });
+
+  it("the deployment's Collection wins over the indexer's head, which is then not asked", async () => {
+    fixture.state.collection = COLLECTION;
+    open("?mode=daily&id=4", { indexer });
+    expect((await screen.findByTestId("game-nft")).textContent).toBe("NFT: 0x0777…7777 #4Metadata");
+    expect(fixture.requests).not.toContain("/v1/head");
   });
 
   it("no Collection known: no NFT line and no error", async () => {

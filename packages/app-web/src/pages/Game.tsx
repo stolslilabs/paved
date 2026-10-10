@@ -496,7 +496,7 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
             totalTiles={game?.deckSize ?? 0}
             discarded={game?.discardedCount ?? 0}
           />
-          <GameNft tokenId={tokenId} collection={collection} />
+          <GameNft tokenId={tokenId} collection={collection} verify />
         </div>
 
         <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: 1, justifySelf: "end" }}>

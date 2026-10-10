@@ -606,10 +606,10 @@ export class IndexerClient {
         state: str(b, "state", "head"),
         chainId: str(b, "chain_id", "head"),
         fromBlock: num(b, "from_block", "head"),
-        // `contracts.collection` is null without a Collection (E5b): a null entry is left out, so `contracts.collection` is undefined then.
+        // `contracts.collection` is null without a Collection (E5b): that one null is left out, so it is undefined then. A null elsewhere is a bad answer.
         contracts: Object.fromEntries(
           Object.entries(obj(b.contracts, "contracts"))
-            .filter(([, v]) => v !== null)
+            .filter(([k, v]) => !(k === "collection" && v === null))
             .map(([k, v]) => [k, typeof v === "string" ? v : bad(`contracts.${k}`)]),
         ),
         lastMismatch: checks ? orNull(checks, "last_mismatch", (o, k) => parseMismatch(o[k], "checks.last_mismatch"), "checks") : null,

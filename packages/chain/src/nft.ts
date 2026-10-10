@@ -44,9 +44,13 @@ export function nftLabel(collection: string, tokenId: bigint): string {
   return `NFT: ${shortAddress(collection)} #${tokenId.toString()}`;
 }
 
-/** The Collection's address of a deployment, or null when it is unknown (a deployment before E5b). */
+/**
+ * The Collection's address. Precedence: the deployment's (`VITE_COLLECTION_ADDRESS`, an operator override, then the
+ * deployments file's `contracts.Collection`; `resolveDeployment` already puts the env first), then the indexer's
+ * `/v1/head` `contracts.collection`. Null when none is a non-zero address (a deployment before E5b).
+ */
 export function collectionAddress(deployment: Pick<Deployment, "collection">, indexed?: string | null): string | null {
-  for (const candidate of [indexed, deployment.collection]) {
+  for (const candidate of [deployment.collection, indexed]) {
     if (!candidate) continue;
     try {
       if (BigInt(candidate) !== 0n) return candidate;

@@ -15,14 +15,14 @@ export interface Collection {
 }
 
 /**
- * The Collection of the build: the indexer's `/v1/head` `contracts.collection` when an indexer is configured, else the
- * deployments file's `contracts.Collection` (or `VITE_COLLECTION_ADDRESS`). Null when neither is known, and then the
+ * The Collection of the build: `VITE_COLLECTION_ADDRESS`, else the deployments file's `contracts.Collection`, else the
+ * indexer's `/v1/head` `contracts.collection` (read only when the first two are unset). Null when neither is known, and then the
  * screens show no NFT at all. `enabled` false asks the indexer nothing (a page that shows no games). A page reads it once and hands it to each `GameNft`. `views` is null without an address or without a client to call it through.
  */
 export function useCollection(enabled = true): Collection {
   const { deployment, client } = usePaved();
   const override = useContext(NftViewsContext);
-  const head = useIndexerRead(enabled ? (c) => c.head() : null, []);
+  const head = useIndexerRead(enabled && !collectionAddress(deployment) ? (c) => c.head() : null, []);
   const address = collectionAddress(deployment, head.data?.data.contracts.collection ?? null);
   const provider = client?.provider;
   const views = useMemo(() => override ?? (address && provider ? new RpcCollectionViews(provider, address) : null), [override, address, provider]);
@@ -58,9 +58,22 @@ function useJsonUrl(json: string | null): string | null {
  * the JSON as text. Everything the token says reaches the page as a React text child: the JSON is data, never markup.
  * Nothing is shown (not an error) while the Collection is unknown or the game has no token id.
  */
-export function GameNft({ tokenId, collection }: { tokenId: bigint | null; collection: Collection }) {
+export function GameNft({ tokenId, collection, verify = false }: { tokenId: bigint | null; collection: Collection; verify?: boolean }) {
   const { address, views } = collection;
   if (!address || tokenId === null) return null;
+  if (verify) return views ? <Verified tokenId={tokenId} address={address} views={views} /> : null;
+  return <NftBox tokenId={tokenId} address={address} views={views} />;
+}
+
+/** A token id computed by rule, not read from a row: shown only once `owner_of` says it exists (one call); any failure shows nothing. */
+function Verified({ tokenId, address, views }: { tokenId: bigint; address: string; views: CollectionViews }) {
+  const id = tokenId.toString();
+  const owner = useAsyncRead(() => views.ownerOf(tokenId), [views, id]);
+  if (!owner.data) return null;
+  return <NftBox tokenId={tokenId} address={address} views={views} />;
+}
+
+function NftBox({ tokenId, address, views }: { tokenId: bigint; address: string; views: CollectionViews | null }) {
   return (
     <div data-testid="game-nft" style={{ fontSize: 12, color: "#d4d4d4", display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
       <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
