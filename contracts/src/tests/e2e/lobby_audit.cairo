@@ -11,7 +11,7 @@ use paved::mocks::reentrant_token::{
 use paved::models::tournament::TournamentTrait;
 use paved::systems::daily::{IDailyDispatcher, IDailyQuestsDispatcher, IDailyQuestsDispatcherTrait};
 use paved::systems::tutorial::ITutorialDispatcherTrait;
-use paved::tests::e2e::lobby::daily_paid_in;
+use paved::tests::e2e::lobby::{ISpyEconomyDispatcher, ISpyEconomyDispatcherTrait, daily_paid_in};
 use paved::tests::leaderboard;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER};
@@ -139,9 +139,16 @@ fn test_lobby_and_daily_pin_every_shared_storage_variable_by_name() {
 /// `Daily` paid in the re-entrant token, with PLAYER registered and calling `Daily`. The cheat on
 /// the caller of `Daily` also makes the token's call come from PLAYER: the worst case.
 fn reentrant() -> (IDailyDispatcher, IReentrantTokenDispatcher) {
+    let (daily, token, _) = reentrant_with_economy();
+    (daily, token)
+}
+
+fn reentrant_with_economy() -> (
+    IDailyDispatcher, IReentrantTokenDispatcher, ISpyEconomyDispatcher,
+) {
     start_cheat_block_timestamp_global(100);
-    let (daily, token, _) = daily_paid_in("ReentrantToken");
-    (daily, IReentrantTokenDispatcher { contract_address: token })
+    let (daily, token, economy) = daily_paid_in("ReentrantToken");
+    (daily, IReentrantTokenDispatcher { contract_address: token }, economy)
 }
 
 fn day_one() -> u64 {
@@ -149,24 +156,38 @@ fn day_one() -> u64 {
 }
 
 /// A spawn pays by `transferFrom` after the game is stored; the token calls `spawn` again from
-/// inside it, as the player. The second call finds its transfer re-entered nothing (one re-entry
-/// is armed) and succeeds, so the player holds two games, each stored once, none overwritten.
+/// inside it, as the player. The nested spawn succeeds (its transfer is not re-entered: one
+/// re-entry is armed): the player holds two games, each with its own purchase, each paid once, and
+/// the first game is as it was written.
 #[test]
 #[available_gas(l2_gas: 140000000)]
 fn test_lobby_reentry_during_spawn_cannot_change_the_game_written() {
-    let (daily, token) = reentrant();
+    let (daily, token, economy) = reentrant_with_economy();
     token.arm(daily.contract_address, SPAWN, 0, 0);
     let views = IGameViewDispatcher { contract_address: daily.contract_address };
+    let price: u256 = constants::DAILY_TOURNAMENT_PRICE.into();
     let first = daily.spawn(1, Zero::zero(), 0);
     let (attempts, reverted) = token.outcome();
-    assert(attempts == 1, 'Reentry: not attempted');
-    // The re-entry ran inside the first spawn's transfer: it took the next game id, and the game
-    // written before the transfer is intact.
+    assert(attempts == 1 && reverted == 0, 'Reentry: nested spawn refused');
     assert(first == 1, 'Reentry: first id');
-    assert(views.game(1).player_id == PLAYER().into(), 'Reentry: first game');
-    assert(views.game(1).mode == Mode::Daily.into(), 'Reentry: first mode');
-    assert(reverted == 0 || views.game(2).player_id == 0, 'Reentry: second game');
-    assert(views.game(1).id == 1 && views.game(1).tile_count == 2, 'Reentry: first changed');
+    // [Nested game] exists, is the player's, is a Daily game
+    let nested = views.game(2);
+    assert(nested.id == 2 && nested.player_id == PLAYER().into(), 'Reentry: nested game');
+    assert(nested.mode == Mode::Daily.into() && nested.tile_id != 0, 'Reentry: nested mode');
+    // [First game] unchanged
+    let game = views.game(1);
+    assert(game.id == 1 && game.player_id == PLAYER().into(), 'Reentry: first game');
+    assert(game.mode == Mode::Daily.into() && game.tile_count == 2, 'Reentry: first changed');
+    assert(game.tile_id != 0 && !game.over, 'Reentry: first state');
+    // [Terms] one purchase per game; the outer one is the last, on game 1
+    let purchase = economy.purchased();
+    assert(purchase.count == 2, 'Reentry: two purchases');
+    assert(purchase.game_id == 1 && purchase.player == PLAYER(), 'Reentry: purchase game');
+    assert(purchase.price == price, 'Reentry: purchase price');
+    // [Paid] exactly twice the price, all of it to Economy
+    let (paid, recipient) = token.paid();
+    assert(paid == 2 * price, 'Reentry: paid twice');
+    assert(recipient == economy.contract_address, 'Reentry: paid to economy');
 }
 
 /// A claim marks the rank claimed before it pays; the token claims the same rank again from
@@ -186,6 +207,7 @@ fn test_lobby_reentry_during_claim_reverts() {
     daily.claim(tournament_id, 1);
     let (attempts, reverted) = token.outcome();
     assert(attempts == 1 && reverted == 1, 'Reentry: claim not refused');
+    assert(token.error() == 'Tournament: already claimed', 'Reentry: claim reason');
     assert(tournaments.tournament(tournament_id).top1_claimed, 'Reentry: claim lost');
 }
 
@@ -204,6 +226,7 @@ fn test_lobby_reentry_during_claim_cannot_reclaim() {
     daily.claim(tournament_id, 1);
     let (attempts, reverted) = token.outcome();
     assert(attempts == 1 && reverted == 1, 'Reentry: reclaim not refused');
+    assert(token.error() == 'Tournament: nothing to reclaim', 'Reentry: reclaim reason');
 }
 
 /// A sponsor's reclaim zeroes the sponsor's slot before it pays; the token reclaims again from
@@ -219,6 +242,7 @@ fn test_lobby_reentry_during_reclaim_reverts() {
     daily.claim(tournament_id, 0);
     let (attempts, reverted) = token.outcome();
     assert(attempts == 1 && reverted == 1, 'Reentry: reclaim twice');
+    assert(token.error() == 'Tournament: nothing to reclaim', 'Reentry: reclaim reason');
     assert(
         raw_entry(
             daily.contract_address,
@@ -242,6 +266,12 @@ fn test_lobby_reentry_during_sponsor_keeps_the_amount_written() {
     assert(attempts == 1 && reverted == 0, 'Reentry: sponsor');
     let tournaments = ITournamentViewDispatcher { contract_address: daily.contract_address };
     assert(tournaments.tournament(tournament_id).prize == 2000, 'Reentry: prize');
+    let slot = raw_entry(
+        daily.contract_address,
+        selector!("sponsorships"),
+        array![tournament_id.into(), PLAYER().into()],
+    );
+    assert(slot == 2000, 'Reentry: sponsor slot');
 }
 
 // Mode: `Lobby.spawn` takes a mode, no entry point of the game contracts does

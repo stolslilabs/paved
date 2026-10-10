@@ -23,6 +23,10 @@ pub trait IReentrantToken<TContractState> {
     );
     /// How many re-entries ran and how many of them reverted.
     fn outcome(self: @TContractState) -> (u32, u32);
+    /// The first panic datum of the reverted re-entry (0 if none reverted).
+    fn error(self: @TContractState) -> felt252;
+    /// The sum paid into this token by `transferFrom`, and the recipient of the last one.
+    fn paid(self: @TContractState) -> (u256, ContractAddress);
     fn transferFrom(
         ref self: TContractState, sender: ContractAddress, recipient: ContractAddress, amount: u256,
     ) -> bool;
@@ -45,6 +49,9 @@ pub mod ReentrantToken {
         rank: u8,
         attempts: u32,
         reverted: u32,
+        error: felt252,
+        paid: u256,
+        last_recipient: ContractAddress,
     }
 
     #[generate_trait]
@@ -70,8 +77,9 @@ pub mod ReentrantToken {
                 assert(action == SPONSOR, 'Reentrant: unknown action');
                 daily.sponsor(1000)
             };
-            if result.is_err() {
+            if let Result::Err(data) = result {
                 self.reverted.write(self.reverted.read() + 1);
+                self.error.write(*data.at(0));
             }
         }
     }
@@ -91,10 +99,19 @@ pub mod ReentrantToken {
             self.rank.write(rank);
             self.attempts.write(0);
             self.reverted.write(0);
+            self.error.write(0);
         }
 
         fn outcome(self: @ContractState) -> (u32, u32) {
             (self.attempts.read(), self.reverted.read())
+        }
+
+        fn error(self: @ContractState) -> felt252 {
+            self.error.read()
+        }
+
+        fn paid(self: @ContractState) -> (u256, ContractAddress) {
+            (self.paid.read(), self.last_recipient.read())
         }
 
         fn transferFrom(
@@ -103,6 +120,8 @@ pub mod ReentrantToken {
             recipient: ContractAddress,
             amount: u256,
         ) -> bool {
+            self.paid.write(self.paid.read() + amount);
+            self.last_recipient.write(recipient);
             self.reenter();
             true
         }

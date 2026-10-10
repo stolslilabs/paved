@@ -32,6 +32,8 @@ jobs:
               - 'contracts/**'
               - 'scripts/abis.sh'
               - 'scripts/class-sizes.sh'
+              - 'scripts/deploy.sh'
+              - 'scripts/test-deploy-url.sh'
               - '.tool-versions'
               - '.github/workflows/**'
               - '.github/actions/**'
@@ -86,6 +88,9 @@ jobs:
         shell: bash
       - name: Class sizes (Starknet limits)
         run: scripts/class-sizes.sh
+        shell: bash
+      - name: Deploy script checks (getClass answer, no Mode in the ABIs)
+        run: scripts/test-deploy-url.sh
         shell: bash
 
   abis:
