@@ -252,7 +252,7 @@ Dated 2026-10-10. Decisions D-16 and P-41. This is the owner's exact procedure t
 from this VPS. **Nothing here is done or running**: the agents prepared it and ran no root act. It replaces, for this VPS,
 the nginx block of section 3 and the unit of section 6 (the files below are the unit and the proxy of record). Files:
 `deploy/indexer/` (`paved-indexer.service`, `Caddyfile`, `watch.sh`, `paved-indexer-watch.{service,timer}`,
-`paved-ratelimit.{nft,service}`, `publish.sh`, `switch.sh`).
+`publish.sh`, `switch.sh`).
 
 **The indexer unit starts only once `contracts/deployments/sepolia.json` is merged** (CORE, task S-1): the indexer reads its
 addresses and `deployed_block`, and the client build reads the same file. Everything before step 8 can be done earlier.
@@ -282,24 +282,24 @@ HTTP-01 on port 80) when it first serves the name, so 80 and 443 must be reachab
 **Consequence: Caddy is shared.** The runbook adds two site blocks through an `import` and reloads; it never replaces the main
 Caddyfile, and it does not start a second Caddy (it could not bind 80/443).
 
-### Rate limiting: the option taken
+### Rate limiting (P-43)
 
-Caddy's core has no rate limiter. Two options: the third-party `caddy-ratelimit` module (a custom build with `xcaddy`), or a limit
-below Caddy. **Taken: a per-address limit on new TCP connections to ports 80 and 443 in nftables** (`paved-ratelimit.nft`, its own
-table `inet paved_ratelimit`, 30 new connections per second per address, burst 60, over that dropped). Why not the module: it
-replaces the packaged `caddy` binary that serves the team's other sites, outside apt's updates, for a playtest. Trade-offs, plainly:
+Caddy's core has no rate limiter, and a firewall limit on 80/443 would hit every other site on this VPS (and is a machine
+security setting, the owner's). So the limit lives **in the indexer**: a per-address token bucket, flags `--rate <req/s>` and
+`--burst <n>` (`--rate 0` disables), added by a parallel PR. **The unit's `ExecStart` leaves both flags out, so the indexer's
+defaults apply**; add `--rate` and `--burst` to it only to change them.
 
-- It limits **connections, not requests**. A browser holds one HTTP/2 connection for many requests, so a script that reuses one
-  connection is not slowed. The indexer's measured capacity (section 4: 1,400 req/s on one connection, 5,000 on eight, one Node
-  thread) and its per-block answer cache make that acceptable; what the limit stops is connection floods.
-- It is **per port, not per site**: it also covers the other sites on 443. 30 per second per address is far above a person's use,
-  but a shared NAT of many players would share it. Raise the figure in the file if a playtest room trips it
-  (`nft list table inet paved_ratelimit` shows the `counter` of drops).
-- Caddy still caps what reaches the indexer: `/v1/*` only, GET and OPTIONS only (405 otherwise), 1 KB request body, 2 s dial and
-  15 s response timeouts. The main Caddyfile's global `servers { timeouts }` (read header, idle) belong to the shared global
-  block, which this runbook does not touch; set them there if wanted.
-- `deploy/indexer/paved-ratelimit.nft` could not be syntax-checked in the session (`nft -c` needs root). Step 6 checks it with
-  `nft -c -f` before loading.
+The indexer sees only Caddy's loopback address, so it takes the client address from `X-Forwarded-For`, and **trusts that header
+only when the connection comes from 127.0.0.1**. Caddy must therefore pass the client address. Checked on this VPS's Caddy
+(v2.11.4), with a throwaway `reverse_proxy` to a header-echoing backend on loopback: the backend received
+`x-forwarded-for: 127.0.0.1` (the connecting address, here a local curl) and `x-forwarded-proto: http`, and a request carrying a
+forged `X-Forwarded-For: 1.2.3.4` still arrived with `127.0.0.1`: Caddy replaces a header from an untrusted client, so a caller
+cannot pick its own bucket. `deploy/indexer/Caddyfile` sets no `trusted_proxies`, which keeps it so; do not add one without
+rereading this. Step 9 checks it on the real site.
+
+What Caddy still caps before the indexer: `/v1/*` only, GET and OPTIONS only (405 otherwise), a 1 KB request body, 2 s dial and 15 s
+response timeouts. The main Caddyfile's global `servers { timeouts }` belong to the shared global block, which this runbook does not
+touch; set them there if wanted.
 
 ### What each hardening directive costs the indexer
 
@@ -375,10 +375,10 @@ obtained that way is *verification*: the approval screen shows the policies as u
 
 Not proven: no browser ran (this task has none), and the keychain's server side is not readable. **The headless run of the real
 controller on Sepolia (D-16, CLIENT, after `sepolia.json` merges) is the test.** If it were refused for this origin, the error
-would come from `x.cartridge.gg`; the owner's route would then be Cartridge's channel for adding the origin. Optional, for a
-nicer approval screen (not needed to play): a PR to `cartridge-gg/presets` adding a config under `configs/` with
+would come from `x.cartridge.gg`; the owner's route would then be Cartridge's channel for adding the origin. **Decision (P-43): no preset now.** Unverified policies are acceptable for playtests; revisit before mainnet. (What it would be, for
+then: a nicer approval screen, not needed to play: a PR to `cartridge-gg/presets` adding a config under `configs/` with
 `"origin": "https://paved.bal7hazar.com"` and the Sepolia contracts and methods of `CONTROLLER_ENTRY_POINTS`, then passing `preset`
-to the controller; it needs Cartridge's review, so it is not on the playtest's path.
+to the controller; it needs Cartridge's review.)
 
 ### Commands for the owner (root), in order
 
@@ -436,13 +436,13 @@ the owner's credentials).
 
 ```bash
 D=/opt/paved-indexer/current/deploy/indexer
-install -m 0644 $D/paved-indexer.service $D/paved-indexer-watch.service $D/paved-indexer-watch.timer $D/paved-ratelimit.service /etc/systemd/system/
+install -m 0644 $D/paved-indexer.service $D/paved-indexer-watch.service $D/paved-indexer-watch.timer /etc/systemd/system/
 install -m 0644 -o root -g caddy $D/Caddyfile /etc/caddy/paved.caddy
 install -d -m 0755 /usr/local/lib/paved && install -m 0755 $D/publish.sh $D/switch.sh /usr/local/lib/paved/
 systemctl daemon-reload
 ```
 
-Verify: `systemd-analyze verify /etc/systemd/system/paved-indexer.service /etc/systemd/system/paved-indexer-watch.service /etc/systemd/system/paved-indexer-watch.timer /etc/systemd/system/paved-ratelimit.service`
+Verify: `systemd-analyze verify /etc/systemd/system/paved-indexer.service /etc/systemd/system/paved-indexer-watch.service /etc/systemd/system/paved-indexer-watch.timer`
 prints nothing; `grep -n 'allow-origin\|INDEXER_RPC_URL' /etc/systemd/system/paved-indexer.service` shows
 `https://paved.bal7hazar.com` and the Cartridge Sepolia URL.
 
@@ -470,22 +470,22 @@ for one of the two names: remove that block (the backup keeps it). Nothing is lo
 ufw status verbose                                  # if "Status: inactive", do not enable it here: the ports are already reachable
 # only if the status is active:
 ufw allow 80/tcp && ufw allow 443/tcp && ufw deny 8787/tcp
-nft -c -f /opt/paved-indexer/current/deploy/indexer/paved-ratelimit.nft && echo "nft syntax ok"
-systemctl enable --now paved-ratelimit.service
 ```
 
-Verify: `ufw status | grep -E '80|443|8787'` (if active); `nft list table inet paved_ratelimit` prints the two meters;
-`ss -ltn 'sport = :8787'` prints nothing yet (the indexer listens on loopback only, never on `0.0.0.0`, once started).
-From another machine: `curl -sI http://paved.bal7hazar.com` answers (Caddy already holds port 80).
+Verify: `ufw status | grep -E '80|443|8787'` (if active); `ss -ltn 'sport = :8787'` prints nothing yet (the indexer listens on
+loopback only, never on `0.0.0.0`, once started). From another machine: `curl -sI http://paved.bal7hazar.com` answers (Caddy already
+holds port 80). No rate limit is set at the firewall (P-43).
 
 **7. Caddy: load the sites (certificates)**
 
 ```bash
-systemctl reload caddy || { echo "reload failed (admin off?): restarting briefly interrupts every site Caddy serves"; systemctl restart caddy; }
+systemctl reload caddy
 ```
 
-`reload` talks to Caddy's admin endpoint; the dated backup names in `/etc/caddy` suggest an `admin off` was set once, in which
-case `reload` fails and only `restart` applies the file (a few seconds of downtime for the other sites: do it when that is fine).
+`reload` talks to Caddy's admin endpoint; if it succeeds, nothing else is interrupted. **If the main Caddyfile has `admin off`** (the dated backup names in `/etc/caddy` suggest
+one was set once; step 5 greps for it), `reload` fails and **only a restart applies the change. A restart briefly interrupts
+every other site this VPS serves through Caddy**, so the owner chooses the moment, and only then runs
+`systemctl restart caddy`.
 
 Verify: `dig +short paved.bal7hazar.com` and `dig +short api.paved.bal7hazar.com` both print `31.97.36.234`;
 `journalctl -u caddy -n 40 --no-pager | grep -i 'certificate obtained'` shows both names;
@@ -523,10 +523,9 @@ curl -si -X POST https://api.paved.bal7hazar.com/v1/head | head -1              
 curl -si https://api.paved.bal7hazar.com/anything | head -1                                                 # 404
 ```
 
-The first prints `ok`; the second `access-control-allow-origin: https://paved.bal7hazar.com` **once** (one line: Caddy added none).
-After list B: `curl -sI https://paved.bal7hazar.com/ | grep -i cache-control` is `no-cache`; a hashed file under `/assets/` answers
-`cache-control: public, max-age=31536000, immutable`; `curl -s -o /dev/null -w '%{http_code}\n' https://paved.bal7hazar.com/player/x`
-is `200` (single-page fallback).
+The indexer's token bucket keys on the address Caddy forwards in `X-Forwarded-For` (see "Rate limiting"). Once a build with
+`--rate` is deployed, a quick loop shows it: `for i in $(seq 60); do curl -s -o /dev/null -w '%{http_code} ' https://api.paved.bal7hazar.com/v1/head; done`
+ends in `429`s when the defaults are low enough to trip, and the same loop with `-H 'X-Forwarded-For: 1.2.3.4'` must not get a fresh bucket.
 
 ### Commands for the deploy user (no root), to publish a client build
 
@@ -589,8 +588,8 @@ ln -s releases/<previous-commit> /opt/paved-indexer/current.new && mv -T /opt/pa
 systemctl start paved-indexer          # if the schema had changed, empty the database first (rm line above)
 
 # Remove everything (root); the chain is untouched, the database can always be rebuilt
-systemctl disable --now paved-indexer-watch.timer paved-indexer.service paved-ratelimit.service
-rm -f /etc/systemd/system/paved-indexer.service /etc/systemd/system/paved-indexer-watch.service /etc/systemd/system/paved-indexer-watch.timer /etc/systemd/system/paved-ratelimit.service
+systemctl disable --now paved-indexer-watch.timer paved-indexer.service
+rm -f /etc/systemd/system/paved-indexer.service /etc/systemd/system/paved-indexer-watch.service /etc/systemd/system/paved-indexer-watch.timer
 systemctl daemon-reload
 sed -i '\#^import /etc/caddy/paved.caddy$#d' /etc/caddy/Caddyfile && rm -f /etc/caddy/paved.caddy
 runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile && systemctl reload caddy
