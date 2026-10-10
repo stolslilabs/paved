@@ -27,7 +27,10 @@ Memory figures and the VPS/Mac rule:
   5.6 GB (5.56 GB, 5.57 GB on `snforge test paved::types::`). A plain `scarb build` peaks at about 5.0 GB
   (4.96 GB). The cap for a snforge run is `prlimit --as=12884901888` (12 GiB).
 - Coverage runs use `snforge test -P coverage` (`scripts/measure.sh coverage*`), which keeps the
-  code-location flag and its cost.
+  code-location flag and its cost. A coverage run peaked at 9.12 GB on the `types` group (9,123,164 kB,
+  VPS, 2026-10-10), so above about 8 GB it runs on the Mac or in CI, not on the VPS while agents work
+  there (memory rule). On macOS it is measured with `/usr/bin/time -l` and no cap (P-33). The default
+  cap of `scripts/measure.sh coverage*` is 14 GiB (1.5x that peak, rounded up); `MEM_CAP_BYTES` overrides it.
 - A Cairo run whose measured peak RSS is under about 8 GB may run on the VPS under `--as` = 1.5x its
   measured peak, rounded up, at most 16 GiB. A peak above about 8 GB goes to the Mac. Every peak is
   measured first.

@@ -9,7 +9,7 @@
 #        Coverage runs use the `coverage` Scarb profile (contracts/Scarb.toml): only it keeps the code
 #        locations that cairo-coverage needs, the dev profile drops them to lower the test build peak.
 #
-# Runs are single-threaded (RAYON_NUM_THREADS=1) and each is capped to 8 GiB of address space and reports its peak resident memory.
+# Runs are single-threaded (RAYON_NUM_THREADS=1) and each is capped to 8 GiB of address space (14 GiB for the coverage modes and `all`) and reports its peak resident memory.
 # Toolchain: scarb 2.20.1 and snforge 0.64.0 (override with SCARB_BIN_DIR / SNFORGE_BIN_DIR);
 # cairo-coverage must be on the PATH (https://github.com/software-mansion/cairo-coverage).
 set -euo pipefail
@@ -26,11 +26,20 @@ if [ -d "$CAIRO_COVERAGE_BIN_DIR" ]; then
   export PATH="$CAIRO_COVERAGE_BIN_DIR:$PATH"
 fi
 export PATH="$SCARB_BIN_DIR:$SNFORGE_BIN_DIR:$HOME/.local/bin:$PATH"
-MEM_CAP_BYTES="${MEM_CAP_BYTES:-8589934592}"
+# Default cap of a run: 8 GiB. The coverage modes need more: the `types` coverage group peaked at 9.12 GB
+# RSS (9,123,164 kB, measured on the VPS on 2026-10-10, #277) and failed under 8 GiB ("memory allocation
+# of 5200 bytes failed"). Cap = 1.5 x that peak (about 14.0 GB) rounded up to a whole GiB = 14 GiB, below
+# the 16 GiB organisation limit. MEM_CAP_BYTES overrides both.
+MEM_CAP_DEFAULT_BYTES=8589934592
+MEM_CAP_COVERAGE_BYTES=15032385536
 # docs/programme/OPERATIONS.md: builds and measures run single-threaded.
 export RAYON_NUM_THREADS=1
 
 mode="${1:-all}"
+case "$mode" in
+  coverage*|all) MEM_CAP_BYTES="${MEM_CAP_BYTES:-$MEM_CAP_COVERAGE_BYTES}" ;;
+  *) MEM_CAP_BYTES="${MEM_CAP_BYTES:-$MEM_CAP_DEFAULT_BYTES}" ;;
+esac
 
 versions() {
   scarb --version | head -n 1
