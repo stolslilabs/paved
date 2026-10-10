@@ -50,7 +50,7 @@ function fakeBaseWriter() {
   return { address: PLAYER, sendCalls, sent };
 }
 
-function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null; playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null> } = {}) {
+function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null> } = {}) {
   const economy = opts.economy ?? new FakeEconomy();
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: FAKE_UNIT };
@@ -65,7 +65,7 @@ function land(opts: { search?: string; economy?: FakeEconomy; deployment?: Econo
     playerFor: opts.playerFor,
     writer: writer as never,
     wrap: (routes) => (
-      <EconomyProvider value={{ deployment: opts.deployment ?? economyDeployment, views: economy, poolQuoter: opts.pool === undefined ? new FakePoolQuoter() : opts.pool, now: () => opts.now ?? settlesAfter(DAY) }}>{routes}</EconomyProvider>
+      <EconomyProvider value={{ deployment: opts.deployment ?? economyDeployment, views: economy, poolQuoter: opts.pool === "network" ? undefined : opts.pool === undefined ? new FakePoolQuoter() : opts.pool, now: () => opts.now ?? settlesAfter(DAY) }}>{routes}</EconomyProvider>
     ),
   });
   return { ...utils, economy, writer };
@@ -181,6 +181,17 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     fireEvent.click(await screen.findByText(/mode daily/));
     expect(await screen.findByText("No pool quote: purchase unavailable")).toBeTruthy();
     expect((screen.getByText("No pool quote", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("the network's quoter (none overridden): offered on mainnet (Ekubo's quoter), not on an unknown network", async () => {
+    const on = (network: string) => resolveEconomyDeployment({ base: { ...base, network }, env: ECON });
+    land({ pool: "network", deployment: on("mainnet") });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText("Buy for 2 USDC")).toBeTruthy();
+    cleanup();
+    land({ pool: "network", deployment: on("katana") });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText("No pool quote: purchase unavailable")).toBeTruthy();
   });
 
   it("shows the slippage, the 24 h expiry and the current reference, never a day mean or projected reward", async () => {

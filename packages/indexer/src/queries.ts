@@ -444,6 +444,21 @@ export class Queries {
     };
   }
 
+  /** The days `sponsor` sponsored, newest first, strictly below `before`; `next` when more remain. An unknown sponsor has none. */
+  sponsorDays(head: number, sponsor: string, limit: number, before: number | undefined): { days: number[]; next: number | null } {
+    const days = (
+      this.store
+        .statement(
+          `SELECT day FROM sponsorships
+           WHERE sponsor = :s AND block <= :h AND (:before IS NULL OR day < :before)
+           GROUP BY day ORDER BY day DESC LIMIT :n`,
+        )
+        .all({ s: sponsor, h: head, before: before ?? null, n: limit + 1 }) as Row[]
+    ).map((row) => Number(row.day));
+    const page = days.slice(0, limit);
+    return { days: page, next: days.length > limit ? page[page.length - 1]! : null };
+  }
+
   game(head: number, contract: GameContract, gameId: number): GameRow | null {
     const row = this.store
       .statement(

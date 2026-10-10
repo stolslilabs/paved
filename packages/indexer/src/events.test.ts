@@ -369,6 +369,18 @@ describe("Economy's events", () => {
     });
   });
 
+  test("Sponsored: key the day, data the sponsor and the amount; Daily only", () => {
+    expect(EMITTERS.Sponsored).toEqual(["daily"]);
+    expect((IGNORED as readonly string[]).includes("Sponsored")).toBe(false);
+    const sponsored = ev.sponsored(20733, 0xabc, 2n ** 100n);
+    expect(decode("daily", sponsored.keys, sponsored.data)).toEqual({ name: "Sponsored", tournamentId: 20733n, sponsor: 0xabcn, amount: 2n ** 100n });
+    expect(() => decode("tutorial", sponsored.keys, sponsored.data)).toThrow(DecodeError);
+    expect(() => decode("daily", sponsored.keys, ["0xabc"])).toThrow(DecodeError);
+    expect(() => decode("daily", [SELECTORS.Sponsored], sponsored.data)).toThrow(DecodeError);
+    const late = ev.sponsored(MAX_TOURNAMENT_ID + 1, 0xabc);
+    expect(() => decode("daily", late.keys, late.data)).toThrow(DecodeError);
+  });
+
   test("the owner events of Economy are known and skipped", () => {
     for (const name of ["EconomyConfigured", "PoolSet", "GameSet"] as const) {
       expect(decode("economy", [SELECTORS[name]], ["0x1", "0x2"]), name).toBeNull();

@@ -325,6 +325,19 @@ describe("IndexerClient against the real indexer", () => {
     expect(other.headers.get("access-control-allow-origin")).toBeNull();
   });
 
+  test("/v1/sponsors/{id}/days: the days a sponsor put something into, paged", async () => {
+    const node = new FakeNode();
+    node.mine([ev.sponsored(7, A), ev.sponsored(9, A), ev.sponsored(9, B)]);
+    node.mine([ev.sponsored(8, A), ev.sponsored(7, A, 5)]);
+    const { client } = await serveNode(node);
+    expect((await client.sponsorDays(A)).data).toEqual({ sponsorId: ADA, days: [9, 8, 7], next: null });
+    const first = await client.sponsorDays(A, { limit: 2 });
+    expect(first.data).toEqual({ sponsorId: ADA, days: [9, 8], next: 8 });
+    expect((await client.sponsorDays(A, { limit: 2, before: first.data.next! })).data).toEqual({ sponsorId: ADA, days: [7], next: null });
+    expect((await client.sponsorDays(0x9999n)).data.days).toEqual([]);
+    expect((await client.sponsorDays(B)).data.days).toEqual([9]);
+  });
+
   test("the padded id the client writes is the one the indexer serves", () => {
     expect(ADA).toBe(padded(A));
   });

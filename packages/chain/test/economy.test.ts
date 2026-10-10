@@ -223,7 +223,7 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     await expect(zero.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent");
     const failed = setup();
     failed.pool!.fail = "down";
-    await expect(failed.econWriter.purchase(request)).rejects.toThrow(/Cannot read the pool quote: down/);
+    await expect(failed.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent (down)");
     for (const s of [none, zero, failed]) expect(s.execute).not.toHaveBeenCalled();
     // A real client has the Economy's quoter (E2's `quote_swap`).
     expect(createEconomyClient(economyDeployment, new PavedClient(base, {} as PavedRpc), new FakeEconomy())!.poolQuoter).toBeInstanceOf(EconomyPoolQuoter);
@@ -502,7 +502,7 @@ describe("quote_swap (P-35): the real ABI's u256 in and out", () => {
     const zero = quoted(["0x0", "0x0"]);
     await expect(zero.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow("No pool quote: nothing was sent");
     const down = quoted(new Error("node down"));
-    await expect(down.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow(/Cannot read the pool quote/);
+    await expect(down.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow("No pool quote: nothing was sent (node down)");
     for (const s of [zero, down]) expect(s.execute).not.toHaveBeenCalled();
   });
 

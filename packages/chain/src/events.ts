@@ -13,6 +13,26 @@ export interface EventProvider {
     chunk_size: number;
     continuation_token?: string;
   }): Promise<{ events: RawEvent[]; continuation_token?: string }>;
+  /** The number of the latest block (starknet.js's `RpcProvider` has it): the bounded scan counts back from it. */
+  getBlockNumber?(): Promise<number>;
+}
+
+/** The most days `sponsoredDays` returns, newest first: what the Landing reads for a part to take back. */
+export const SPONSORED_DAYS_LIMIT = 30;
+
+/**
+ * How far back, in blocks from the latest one, the scan without an indexer reads `Daily.Sponsored`: about a week at a
+ * 6 s block time. The scan never starts at `deployed_block` (that grows without bound on a long-lived network), only at
+ * `max(deployed_block, latest - SPONSORED_FALLBACK_BLOCKS)`.
+ */
+export const SPONSORED_FALLBACK_BLOCKS = 100_000;
+
+/** What `sponsoredDays` reads from the indexer (`IndexerClient.sponsorDays`). */
+export interface SponsoredDaysIndexer {
+  sponsorDays(
+    sponsor: string,
+    params: { limit?: number },
+  ): Promise<{ data: { days: number[] }; freshness: { kind: "ok" | "behind" } }>;
 }
 
 /** A game of a player, from its `GameSpawned` event and, once it ended, its `GameOver` event. */
@@ -60,7 +80,13 @@ export class EventReader {
     return this.readAt(this.deployment.addresses[contract], this.codecs[contract], name, keys);
   }
 
-  private async readAt(address: string, codec: AbiCodec, name: string, keys: Array<string | number | null>): Promise<DecodedEvent[]> {
+  private async readAt(
+    address: string,
+    codec: AbiCodec,
+    name: string,
+    keys: Array<string | number | null>,
+    fromBlock: number = this.deployment.deployedBlock,
+  ): Promise<DecodedEvent[]> {
     if (!address) return [];
     const filter = [[codec.eventSelector(name)], ...keys.map((k) => (k === null ? [] : [toHex(k)]))];
     const out: DecodedEvent[] = [];
@@ -68,7 +94,7 @@ export class EventReader {
     do {
       const chunk = await this.provider.getEvents({
         address,
-        from_block: { block_number: this.deployment.deployedBlock },
+        from_block: { block_number: fromBlock },
         to_block: "latest",
         keys: filter,
         chunk_size: CHUNK_SIZE,
@@ -101,13 +127,32 @@ export class EventReader {
   }
 
   /**
-   * The days `sponsor` put something into, newest first (from `Sponsored`, whose sponsor is event data, not a key: the
-   * node cannot filter on it, so every day's events are read). A day may hold a part to reclaim.
+   * The days `sponsor` put something into, newest first, at most `SPONSORED_DAYS_LIMIT` of them. A day may hold a part
+   * to reclaim.
+   *
+   * With an `indexer` that answers and is not behind, one bounded page of its route. Otherwise (no indexer, an answer
+   * that is an error, an indexer older than the route, or one behind the node) a bounded scan: the sponsor is event
+   * data, not a key, so the node cannot filter on it and every `Sponsored` event of the range is read, paged with the
+   * RPC's continuation token, from `max(deployed_block, latest - SPONSORED_FALLBACK_BLOCKS)`, never from
+   * `deployed_block`. That scan MISSES a sponsoring older than the range (on a long-lived network, anything more than
+   * about a week old) and the Landing shows only the days read here: a part left in such a day is still there on the
+   * chain, but it is not offered until the indexer answers.
    */
-  async sponsoredDays(sponsor: string): Promise<number[]> {
-    const events = await this.read("Daily", "Sponsored");
+  async sponsoredDays(sponsor: string, indexer?: SponsoredDaysIndexer | null): Promise<number[]> {
+    if (indexer) {
+      try {
+        const answer = await indexer.sponsorDays(sponsor, { limit: SPONSORED_DAYS_LIMIT });
+        if (answer.freshness.kind === "ok") return answer.data.days.slice(0, SPONSORED_DAYS_LIMIT);
+      } catch {
+        // Unreachable, loading, halted, rewinding or without the route: the bounded scan below.
+      }
+    }
+    if (!this.provider.getBlockNumber) throw new Error("Cannot bound the Sponsored scan: the node provider has no getBlockNumber");
+    const latest = await this.provider.getBlockNumber();
+    const from = Math.max(this.deployment.deployedBlock, latest - SPONSORED_FALLBACK_BLOCKS);
+    const events = await this.readAt(this.deployment.addresses.Daily, this.codecs.Daily, "Sponsored", [], from);
     const days = new Set(events.filter((e) => BigInt(e.fields.sponsor as string) === BigInt(sponsor)).map((e) => Number(e.fields.tournamentId)));
-    return [...days].sort((a, b) => b - a);
+    return [...days].sort((a, b) => b - a).slice(0, SPONSORED_DAYS_LIMIT);
   }
 
   /** What went back to the sponsors of the day `tournamentId` in all, from its `Reclaimed` events. */
