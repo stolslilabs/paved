@@ -41,6 +41,8 @@ The PM decided:
     `starknet_getClassAt`, a read without the account), and report.
   - `Economy.quote_swap` is devnet only (P-35). On Sepolia the client uses Ekubo's public quote API. Write that in
     the README.
+  - Superseded by P-39 (PM, 2026-10-10): no Ekubo on Sepolia; `MockRouter` and `MockUSDC` as on devnet, and the quote
+    path on Sepolia is `Economy.quote_swap`.
   - Launch rate: 7.6e31, the post-fee rate at a 5 % fee, as on devnet.
 - **(c) Owner stake and wiring.**
   - The owner stakes in the `Vault` in the same deployment, before `Economy` is wired (`set_game`).
@@ -84,6 +86,7 @@ The PM decided:
 - The devnet deploy and its smoke still pass. Run them on the Mac or wherever `starknet-devnet` is: it is not on
   the VPS, so say where you ran them.
 - `MockRouter` stays devnet only, and both mocks stay refused on mainnet by name.
+  - Superseded by P-39: `MockRouter` and `MockUSDC` on devnet and Sepolia, both refused by name on mainnet.
 
 ## Runs (VPS)
 

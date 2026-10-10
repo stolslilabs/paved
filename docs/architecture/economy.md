@@ -44,7 +44,7 @@ sections that follow give the reasons and the figures.
 | 2 | Curve | As proposed: `sigma = 0`, `rho = 0.9` (`c = 1.813` on today's sample), `H = 5`, `T = 1,000,000`, Nums' supply factor; Glitchbomb's boost `1 + k/100` **kept** (the owner asked for it, D-10) (section 2) | E4's recalibration on real games, or the PM |
 | 3 | Mean | Weighted EMA: weight = stake, min score 100, max weight 1,000; 4x clamp; a push's weight capped at the max weight; no admin setter (section 2) | The PM |
 | 4 | Settlement | **Option B**: after the day, against the day's mean blended with the EMA; option A stays documented as the fallback (section 1) | The owner wants the payout at game over (then option A) |
-| 5 | Contracts | As proposed (section 6): `Economy`, `PavedToken` (minted by the game only, the real `total_supply`), a simple no-owner staking `Vault`, Ekubo interfaces declared locally, `MockRouter` and `MockUSDC` on devnet only, `Lobby` makes the calls. Entries no longer feed the daily top-3 prize, which is **sponsor-only**. **OpenZeppelin for `PavedToken`: yes, a published version pinned exactly** | The PM |
+| 5 | Contracts | As proposed (section 6): `Economy`, `PavedToken` (minted by the game only, the real `total_supply`), a simple no-owner staking `Vault`, Ekubo interfaces declared locally, `MockRouter` and `MockUSDC` on devnet and Sepolia (P-39; refused by name on mainnet), `Lobby` makes the calls. Entries no longer feed the daily top-3 prize, which is **sponsor-only**. **OpenZeppelin for `PavedToken`: yes, a published version pinned exactly** | The PM |
 | 6 | Class headroom | `Daily` +183 felts (72,607, 88.6 %) with the move code unchanged: **OK under P-27** (section 6) | Any further growth of `Daily` goes back to the PM |
 | 7 | NFTs | As proposed (section 9): soulbound `Collection`, mint at spawn from `Lobby`, JSON `token_uri`, transfers revert; spawn +838k (Daily) / +845k (Tutorial) **accepted**; wallet display checked at the first public deploy | The owner (D-11b) |
 | 8 | PR plan | E1 to E5 (section 8), with the security and economy audits | The PM |
@@ -579,10 +579,11 @@ O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, ow
 - **LP fee.** 5 % of every swap's input stays in the pool, for the LP position's holder. That is the owner's choice
   (D-10 gives the margin to the stakers; the LP fee is not margin). Nums sends its LP fees to its treasury.
 
-**Devnet: a mock, never a real router.** `MockRouter` (test and devnet only, like the `Token` mock, O-22) implements
-the same three entry points over its own constant-product reserves with the 5 % fee. `scripts/deploy.sh devnet`
-seeds it with 800,000 PAVED from the initial supply and 10,000 MockUSDC (6 decimals, faucet). The deploy script
-refuses `MockRouter` and `MockUSDC` on any non-local network, as it refuses the mock `Token` today.
+**Devnet and Sepolia: a mock, never a real router (P-39).** `MockRouter` (tests, devnet and Sepolia; no Ekubo on
+Sepolia) implements the same three entry points over its own constant-product reserves with the 5 % fee.
+`scripts/deploy.sh devnet` and `scripts/deploy.sh sepolia` seed it with 800,000 PAVED from the initial supply and
+10,000 MockUSDC (6 decimals, the constructor's premint to the deployer; a bounded faucet for everyone else). The deploy
+script refuses `MockRouter` and `MockUSDC` by name on mainnet, and the mock `Token` off devnet (O-22).
 
 ## 6. Contracts and class headroom
 
@@ -596,7 +597,7 @@ refuses `MockRouter` and `MockUSDC` on any non-local network, as it refuses the 
 | `Economy` (new) | the split, the swap, the burn, the terms per game, the mean and the days, settlement and mint, the configuration, the views | yes | estimate 15,000 to 30,000 (20 to 37 %), measured in its PR |
 | `PavedToken` (new) | OpenZeppelin ERC20, `mint` by `Economy` only, `burn` of one's own balance | yes | estimate 5,000 to 8,000 |
 | `Vault` (new) | stakes in PAVED, dividends in USDC (section 4) | yes | estimate 5,000 to 8,000 |
-| `MockRouter`, `MockUSDC` (new) | devnet and tests only | devnet only | estimate under 6,000 each |
+| `MockRouter`, `MockUSDC` (new) | tests, devnet and Sepolia (P-39) | devnet and Sepolia; refused by name on mainnet | estimate under 6,000 each |
 | `Collection` (new, D-11b) | the soulbound ERC721 of the games: mint at spawn, `token_uri` (section 9) | yes | **13,070, measured** (16.0 %) |
 | `Account` | the registry of the addresses `Lobby` needs: the `Collection` (measured: 3,329, +450) and the `Economy` (the same shape, one more slot) | yes | 3,329 with the `Collection`, measured (+450) |
 
@@ -924,7 +925,7 @@ differs from the text above, or the text left the choice open, it is written her
   - `configure(config)` and `set_pool(pool_key, sqrt_ratio_limit)`: the owner. `set_pool` lets the owner point the
     swaps at any PAVED/USDC pool, which is accepted trust (section 6; no code change).
   - Views:
-    - `quote`, and `quote_swap` (P-35, devnet only, section 5);
+    - `quote`, and `quote_swap` (P-35, served by `MockRouter` on devnet and Sepolia (P-39), not by Ekubo's router; section 5);
     - `day`: hides only the aggregate (sum, weight and mean are 0 until the day closes). Every input of the open
       day's mean is public (`Purchased`, `Recorded`, `terms`), so the mean can be computed before the close
       (P-34b);
