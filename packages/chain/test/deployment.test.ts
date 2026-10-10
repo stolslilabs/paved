@@ -72,7 +72,7 @@ describe("controllerPolicies", () => {
     const policies = controllerPolicies(resolveDeployment({ network: "devnet", file: FILE }));
     expect(policies).toContainEqual({ target: "0x2", method: "build" });
     expect(policies).toContainEqual({ target: "0x3", method: "spawn" });
-    expect(policies).toContainEqual({ target: "0x4", method: "approve" });
+    expect(policies.filter((p) => p.method === "approve")).toEqual([]);
     expect(policies.filter((p) => p.target === "0x3").map((p) => p.method)).not.toContain("claim");
   });
 });

@@ -94,6 +94,17 @@ USDC, and a swap below `min_out` says "your USDC was not spent" (a revert still 
 `contracts.economy` and the appended game, player and tournament economy fields. jsdom tests only; the paid spawn is built from the
 ABI, not re-recorded (no devnet here). `docs/architecture/client-economy.md`.
 
+2026-10-09, signing (P-14, t-0055): outside devnet, the player signs with the Cartridge controller
+(`@cartridge/controller` 0.13.16, the last release on starknet ^8). The connection banner has "Connect"
+and "Disconnect" (held while a write is in flight). The session policies hold the game's writes, and an
+approve of the token `Daily.entry_price` names (Token now, USDC after E3) to Daily, capped at 10 stakes. The controller's
+account goes through the same `PavedWriter` as the devnet burner, which is kept. Without a connection,
+other networks are read-only. jsdom tests only (controller mocked). Nothing has been deployed beyond
+devnet, and no real controller has been tried. The controller's licence (non-commercial or under 10,000
+monthly active users, notice required) is accepted for the MVP and testnet (D-15). The notice ships in
+`dist/THIRD_PARTY_NOTICES.txt` and is linked from a footer on every page. Design: section "Signing" of
+`docs/architecture/client-data-layer.md`.
+
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
 The baseline measures a recorded board, not a live deployment (decided 2026-10-06): the contracts

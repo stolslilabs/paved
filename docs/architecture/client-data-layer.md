@@ -103,7 +103,7 @@ predeployed account, from `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY`, o
 old hard-coded Katana master key is gone), and the Cartridge controller placeholder
 (`auth/controller.ts`), whose policies are now built from the deployment's addresses (refused
 when it is not configured: no policy on an empty target). The controller is the only signing path
-outside devnet; until it is wired, other networks are read-only. Dropped:
+outside devnet, now wired: see [Signing](#signing). Dropped:
 the Dojo burner manager (`@dojoengine/create-burner`).
 
 ### Surrender, claim, sponsor, name (t-0028)
@@ -263,6 +263,108 @@ view, never from here.
   the test setup only, plays a Tutorial game to its end and a Daily game (spawn, discard,
   surrender), lists the games from events and checks the error mapping. `PAVED_RECORD=1` rewrites
   the fixtures. CI does not run it (no devnet there).
+
+## Signing
+
+Who signs depends on the network (`signerOf`, `app-web/src/utils/network.ts`), and
+`resolvePlayerAccount` returns that account:
+
+- **devnet**: the burner, a predeployed account from `VITE_PLAYER_ADDRESS` and
+  `VITE_PLAYER_PRIVATE_KEY`. No other network takes a key from the env: a key in a built bundle is
+  public.
+- **any other network**: the Cartridge controller's account, once the player has connected. Until then
+  the app is read-only: the banner says "Read only: connect to play." and shows a "Connect" button.
+  Once the player is connected, the banner shows the account and "Disconnect", and disconnecting makes
+  the app read-only again at once.
+- **not configured**: nobody signs and no controller is built (`controllerPolicies` refuses, since
+  there is no policy on an empty target).
+
+`WalletProvider` (`app-web/src/components/WalletProvider.tsx`) holds the controller's account and passes
+the resolved account to `PavedProvider`. That makes a controller account go through the same `PavedWriter`
+as the burner, so the payment rules above hold whoever signs: writes are serialised, a paying write needs
+an explicit confirm, the amount is checked again at send, and nothing is written when the deployment is
+not configured. The account object changes only when the signer changes, because a new account means a
+new writer.
+
+The connector (`createControllerConnector`, `chain/src/auth/controller.ts`) wraps
+`@cartridge/controller` **0.13.16**, pinned exactly. It is the last release on starknet ^8: 0.14.x
+needs starknet ^10, and the client stays on 8.9. The package is imported on first use, so it lives in a
+lazy chunk of about 262 kB (78 kB gzip) and a devnet session never loads it; the controller's UI
+runs in Cartridge's iframe. The connector is configured as follows:
+
+- `chains`: the deployment's RPC URL only.
+- `defaultChainId`: the deployment file's `chain_id` and the RPC's `starknet_chainId`. When both
+  are known and differ, the connector refuses ("Chain id mismatch"), and the banner shows that error.
+  When only one is known, it is used. It is never left unset, because the controller would then
+  default to mainnet.
+- `policies`: `controllerPolicies(deployment, { approve })`, converted by
+  `toControllerSessionPolicies`. The package's own `toSessionPolicies` is not used, because it drops
+  an approve's `spender` and `amount`, and the controller turns an approve without both into a
+  policy on any spender and any amount. The policies hold:
+  - one policy per call the client sends outside devnet (`CONTROLLER_ENTRY_POINTS`): `Account.create`,
+    Daily `spawn`/`build`/`discard`/`surrender`/`claim`/`sponsor`, and Tutorial
+    `spawn`/`build`/`discard`/`surrender`. Since E3 the Daily `spawn` is the paid purchase's
+    (`EconomyWriter.purchase`: `Daily.spawn(stake, referrer, min_out)`); `PavedWriter` spawns
+    Tutorial games only;
+  - `approve` only as the controller's approval policy, on the token that `Daily.entry_price` names,
+    read when the controller is first used. That token is the deployment's Token before E3 and USDC
+    after it, so no code change is needed. The spender is pinned to the Daily contract, and the cap is
+    `ENTRY_MAX_STAKE` (the economy's `MAX_STAKE`, 10) times the unit price, which is the most one
+    purchase approves: `USDC.approve(Daily, stake x unit)`.
+
+  An approve to Daily on the entry token up to 10 times the unit price is signed in the session,
+  whether it is a purchase's or a sponsor's, because the policy cannot tell which call made it.
+  `PavedWriter.sponsor` sends `approve(Daily, amount)` on the entry token (USDC since E3), so a sponsor
+  within the cap is signed without a prompt. No more money is
+  at risk: `sponsor` itself is a policy, and the app asks for an explicit confirm of the amount. Above
+  the cap, or on another token or spender, an approve prompts. When the entry cannot be read, the
+  session holds no approve and every approve prompts.
+
+  The cap is read once per page load, when the controller is first used, and kept for the session. If
+  the price falls, the cap stays at 10 times the old unit price, while the writer still approves
+  exactly the amount the player confirmed.
+
+  The economy's other writes are not in the session, so each one prompts: `Economy.settle`,
+  `PavedToken.approve(Vault, …)`, and Vault `stake`/`unstake`/`claim`. Their addresses belong to
+  the economy's deployment, not to `Deployment`. `Token.mint` is not a policy, because the faucet
+  exists only on the devnet mock. The connector refuses to build without an RPC URL or policies.
+
+  A test (`chain/test/controller.test.ts`) drives every write of `PavedWriter` and `EconomyWriter`,
+  on E3's committed ABIs, against a recording account. It checks that:
+  - each call of the game writes and of the purchase is signed in the session (target and entry
+    point, and for an approve its spender and an amount within the cap);
+  - the policies hold exactly those calls;
+  - a purchase at stake 10 approves exactly the cap;
+  - settle, the Vault writes and a sponsor's approve above the cap fall outside the session.
+
+When the app opens, `probe` restores a session already approved in the browser without a prompt. A
+connect that the player abandons leaves the app read-only and says why.
+
+Within the session, the controller signs an approve of the entry token to the Daily contract, up to
+10 times the unit price, without asking, whether it is a purchase's or a sponsor's. What guards each payment is still the client's own confirm, which shows the amount,
+and the check at send. "Disconnect" is disabled while a write is in flight (`writing` from
+`usePaved`, counted by `PavedProvider` around the writer's calls), so a write that has been sent
+never loses its account to a reconnect.
+
+Not verified: that the keychain prompts for an approve above the cap, rather than refusing it. That
+needs a run against the real controller, which is due before any public deployment.
+
+The controller's licence is Cartridge's own (`LICENSE` in the package). It allows Non-Commercial Use only,
+which includes a product under 10,000 monthly active users. Each copy must carry a prominent notice that
+the controller is used and is Cartridge's copyright, and copies of the client are subject to the same
+terms. The owner accepted it for the MVP and testnet (D-15), to be revisited before mainnet or 10k
+monthly active users. The client meets the notice requirement in two ways:
+- `app-web/public/THIRD_PARTY_NOTICES.txt`, which `vite build` copies to `dist`, names the package and
+  version and Cartridge's copyright, and carries the licence text verbatim;
+- a small fixed footer on every page and network (`WalletNotice`, rendered from `main.tsx`) says "Uses
+  Cartridge Controller, © Cartridge Gaming Company" and links to that file. The controller's code ships
+  in every build, devnet's included, which is why the footer is not limited to connected sessions.
+
+`app-web/__tests__/third-party-notices.test.tsx` checks the file against the installed `LICENSE`, checks
+it is in `dist` (required in CI, which builds before it tests), and checks the link. Tested in jsdom with
+the controller mocked
+(`app-web/__tests__/wallet.test.tsx`, `chain/test/controller.test.ts`). No browser run has been made
+against a real controller or network.
 
 ## In the app
 

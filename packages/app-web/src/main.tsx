@@ -3,10 +3,12 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { TamaguiProvider } from "tamagui";
 import { tamaguiConfig } from "@paved/ui";
-import { IndexerProvider, PavedProvider } from "@paved/chain";
+import { IndexerProvider } from "@paved/chain";
 import { App } from "./App";
 import { ConnectionBanner } from "./components/ConnectionBanner";
-import { resolveAppNetwork, resolvePlayerAccount } from "./utils/network";
+import { WalletNotice } from "./components/WalletNotice";
+import { WalletProvider } from "./components/WalletProvider";
+import { resolveAppNetwork } from "./utils/network";
 
 if (import.meta.env.DEV && typeof window !== "undefined") {
   window.addEventListener("load", () => {
@@ -28,7 +30,6 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 const deploymentFiles = import.meta.glob("../../../contracts/deployments/*.json", { eager: true });
 const env = import.meta.env as Record<string, string | undefined>;
 const network = resolveAppNetwork(env, deploymentFiles);
-const account = resolvePlayerAccount(env, network.deployment);
 
 if (!network.deployment.configured) {
   console.error(`Paved: not connected, ${network.deployment.missing.join(", ")} missing.`);
@@ -39,14 +40,15 @@ const root = createRoot(document.getElementById("root")!);
 root.render(
   <StrictMode>
     <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
-      <PavedProvider deployment={network.deployment} account={account} tip={network.tip}>
+      <WalletProvider env={env} network={network}>
         <IndexerProvider client={network.indexer}>
           <ConnectionBanner />
           <BrowserRouter>
             <App supportsMint={network.supportsMint} />
           </BrowserRouter>
+          <WalletNotice />
         </IndexerProvider>
-      </PavedProvider>
+      </WalletProvider>
     </TamaguiProvider>
   </StrictMode>
 );

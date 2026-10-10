@@ -15,6 +15,8 @@ export interface PavedContextValue {
   writer: PavedWriter | null;
   /** Address of the account that writes; null when there is none. */
   address: string | null;
+  /** A write of `writer` is in flight (sent or waiting for its receipt). */
+  writing: boolean;
 }
 
 const PavedContext = createContext<PavedContextValue | null>(null);
@@ -39,13 +41,37 @@ export function PavedProvider({
   client?: PavedClient;
   children: React.ReactNode;
 }) {
-  const value = useMemo<PavedContextValue>(() => {
+  const base = useMemo(() => {
     const status = connectionStatus(deployment, account);
     const client = status === "not-configured" ? null : (given ?? createPavedClient(deployment));
     const writer = client && account && status === "ready" ? client.writer(account, { tip }) : null;
     return { deployment, status, client, writer, address: account?.address ?? null };
   }, [deployment, account, tip, given]);
+  const [inFlight, setInFlight] = useState(0);
+  const writer = useMemo(() => base.writer && trackWrites(base.writer, (delta) => setInFlight((n) => n + delta)), [base.writer]);
+  const value = useMemo<PavedContextValue>(() => ({ ...base, writer, writing: inFlight > 0 }), [base, writer, inFlight]);
   return <PavedContext.Provider value={value}>{children}</PavedContext.Provider>;
+}
+
+/** The writer as is, but each of its writes counted while in flight (`onChange(+1)`, then `onChange(-1)`). */
+function trackWrites(writer: PavedWriter, onChange: (delta: 1 | -1) => void): PavedWriter {
+  return new Proxy(writer, {
+    get(target, prop) {
+      const member = Reflect.get(target, prop, target);
+      if (typeof member !== "function") return member;
+      return (...args: unknown[]) => {
+        const result = member.apply(target, args);
+        if (result && typeof (result as Promise<unknown>).then === "function") {
+          onChange(1);
+          (result as Promise<unknown>).then(
+            () => onChange(-1),
+            () => onChange(-1),
+          );
+        }
+        return result;
+      };
+    },
+  });
 }
 
 export function usePaved(): PavedContextValue {

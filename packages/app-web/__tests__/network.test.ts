@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveAppNetwork, resolvePlayerAccount } from "../src/utils/network";
+import { resolveAppNetwork, resolvePlayerAccount, signerOf } from "../src/utils/network";
 
 const DEVNET = {
   rpc_url: "http://127.0.0.1:5050/rpc",
@@ -63,5 +63,25 @@ describe("resolvePlayerAccount", () => {
   it("builds an account from the player's address and key", () => {
     const { deployment } = resolveAppNetwork({}, FILES);
     expect(resolvePlayerAccount({ VITE_PLAYER_ADDRESS: "0x5", VITE_PLAYER_PRIVATE_KEY: "0x6" }, deployment)?.address).toBe("0x5");
+  });
+
+  it("elsewhere returns the controller's account once connected, and never the env's key (P-14)", () => {
+    const sepolia = { rpc_url: "http://s/rpc", contracts: DEVNET.contracts };
+    const { deployment } = resolveAppNetwork({ VITE_NETWORK: "sepolia" }, { "x/sepolia.json": { default: sepolia } });
+    const controller = { address: "0xc", execute: async () => ({ transaction_hash: "0x0" }) };
+    const keys = { VITE_PLAYER_ADDRESS: "0x5", VITE_PLAYER_PRIVATE_KEY: "0x6" };
+    expect(signerOf(deployment)).toBe("controller");
+    expect(resolvePlayerAccount(keys, deployment, controller)).toBe(controller);
+    expect(resolvePlayerAccount(keys, deployment, null)).toBeNull();
+  });
+
+  it("devnet keeps the burner; a deployment not configured has no signer", () => {
+    const { deployment } = resolveAppNetwork({}, FILES);
+    const controller = { address: "0xc", execute: async () => ({ transaction_hash: "0x0" }) };
+    expect(signerOf(deployment)).toBe("burner");
+    expect(resolvePlayerAccount({ VITE_PLAYER_ADDRESS: "0x5", VITE_PLAYER_PRIVATE_KEY: "0x6" }, deployment, controller)?.address).toBe("0x5");
+    const off = resolveAppNetwork({ VITE_NETWORK: "sepolia" }, {}).deployment;
+    expect(signerOf(off)).toBe("none");
+    expect(resolvePlayerAccount({}, off, controller)).toBeNull();
   });
 });
