@@ -40,6 +40,7 @@ export interface FakeWriter {
   build?: ReturnType<typeof vi.fn>;
   createPlayer?: ReturnType<typeof vi.fn>;
   claim?: ReturnType<typeof vi.fn>;
+  reclaim?: ReturnType<typeof vi.fn>;
   sponsor?: ReturnType<typeof vi.fn>;
   mint?: ReturnType<typeof vi.fn>;
 }
@@ -59,6 +60,8 @@ export function renderPage(opts: {
   /** Answers `player(address)` per address, instead of `player` for all of them (e.g. a referrer still loading). */
   playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null>;
   games?: unknown[];
+  /** The events the account's sponsorships come from (P-37); none by default. */
+  sponsorship?: { days: number[]; reclaimable: (id: number) => bigint; returned?: (id: number) => bigint };
   /** The indexer client the screens read; none by default. */
   indexer?: IndexerClient | null;
   /** Wraps the routes (an `EconomyProvider`). */
@@ -68,7 +71,15 @@ export function renderPage(opts: {
   const playerGames = vi.fn(async () => opts.games ?? []);
   const client = {
     views,
-    events: { playerGames },
+    events: {
+      playerGames,
+      sponsoredDays: vi.fn(async () => opts.sponsorship?.days ?? []),
+      sponsorship: vi.fn(async (id: number) => {
+        const reclaimable = opts.sponsorship?.reclaimable(id) ?? 0n;
+        return { sponsored: reclaimable, reclaimed: 0n, reclaimable };
+      }),
+      reclaimedTotal: vi.fn(async (id: number) => opts.sponsorship?.returned?.(id) ?? 0n),
+    },
     player: vi.fn(async (address: string) => opts.playerFor ? opts.playerFor(address) : (opts.player === undefined ? { id: PLAYER, name: "Zed", master: PLAYER } : opts.player)),
     balance: vi.fn(async () => 5n * 10n ** 18n),
     writer: () => opts.writer ?? {},

@@ -100,6 +100,16 @@ export class EventReader {
     return { sponsored, reclaimed, reclaimable: sponsored > reclaimed ? sponsored - reclaimed : 0n };
   }
 
+  /**
+   * The days `sponsor` put something into, newest first (from `Sponsored`, whose sponsor is event data, not a key: the
+   * node cannot filter on it, so every day's events are read). A day may hold a part to reclaim.
+   */
+  async sponsoredDays(sponsor: string): Promise<number[]> {
+    const events = await this.read("Daily", "Sponsored");
+    const days = new Set(events.filter((e) => BigInt(e.fields.sponsor as string) === BigInt(sponsor)).map((e) => Number(e.fields.tournamentId)));
+    return [...days].sort((a, b) => b - a);
+  }
+
   /** What went back to the sponsors of the day `tournamentId` in all, from its `Reclaimed` events. */
   async reclaimedTotal(tournamentId: number): Promise<bigint> {
     const events = await this.readAt(this.deployment.addresses.Daily, this.lobby, "Reclaimed", [tournamentId]);

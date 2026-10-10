@@ -3,7 +3,7 @@ import { FAUCET_USDC_AMOUNT, LOBBY_ABI, MOCK_USDC_ABI, type Codecs, type Contrac
 import { AbiCodec as Codec, sameAddress, type AbiCodec, type DecodedEvent, type Encodable, type RawEvent } from "./codec";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
-import { rewardOf, type Rank } from "./prize";
+import { reclaimableAmount, rewardOf, type Rank } from "./prize";
 import { gameContract, type GameKey, type GameMode, type PriceView, type TournamentView } from "./views";
 
 export interface Call {
@@ -248,6 +248,7 @@ export class PavedWriter {
     if (BigInt(tournament.top1PlayerId) !== 0n) {
       throw new NothingToReclaimError("This day was ranked: its prize goes to the ranks, so there is nothing to reclaim.");
     }
+    amount = reclaimableAmount(tournament, amount);
     if (amount === 0n) throw new NothingToReclaimError("You sponsored nothing in this day, or already took it back.");
     if (amount !== options.confirmedAmount) throw new ReclaimAmountChangedError(options.confirmedAmount, amount);
     const call = this.call("Daily", "claim", [tournamentId, 0]);

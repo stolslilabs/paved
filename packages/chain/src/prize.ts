@@ -40,3 +40,13 @@ export function countedTournamentIds(games: PlayerGame[]): number[] {
   }
   return [...ids].sort((a, b) => b - a);
 }
+
+/**
+ * A part of a prize the sponsor may take back (P-37): the day is over and nobody ranked in it (an empty top 3, or every
+ * score 0, which the view shows as no first place), and `amount`, their `Sponsored` events less their `Reclaimed` ones,
+ * is above 0. A ranked day pays its ranks, and `tournament(day).prize` keeps the historical total after a reclaim, so
+ * `amount` comes from the events, never from the prize.
+ */
+export function reclaimableAmount(t: TournamentView, amount: bigint): bigint {
+  return t.over && BigInt(t.top1PlayerId) === 0n && amount > 0n ? amount : 0n;
+}

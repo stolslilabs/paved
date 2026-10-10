@@ -36,7 +36,7 @@ export { EventReader, receiptEvents } from "./events";
 export type { PlayerGame, Sponsorship } from "./events";
 export { placementOutcome } from "./placement";
 export type { PlacementOutcome } from "./placement";
-export { claimableRanks, countedTournamentIds, rewardOf } from "./prize";
+export { claimableRanks, countedTournamentIds, reclaimableAmount, rewardOf } from "./prize";
 export type { Rank } from "./prize";
 export {
   RECEIPT_POLL_MS,

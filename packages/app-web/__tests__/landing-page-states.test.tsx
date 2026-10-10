@@ -2,7 +2,7 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, RewardChangedError, emptyTournament } from "@paved/chain";
+import { FakeGameViews, NoPrizeDayError, NothingToReclaimError, ReclaimAmountChangedError, RewardChangedError, emptyTournament } from "@paved/chain";
 import { resolveEconomyDeployment, type Deployment } from "@paved/chain";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { LandingPage } from "../src/pages/Landing";
@@ -37,8 +37,15 @@ vi.mock("@paved/ui", () => ({
 afterEach(cleanup);
 
 const land = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => renderPage({ page: <LandingPage />, path: "/", ...opts });
-/** An economy that is not deployed: the legacy Daily path (the build's own reads the real devnet.json, which has the economy since E3). */
+/**
+ * An economy that is not deployed (the build's own reads the real devnet.json, which has the economy since E3), but whose USDC
+ * address is known: the entry token is compared with it, not with the old Token (`addresses.Token`, "0x4" here too).
+ */
 const noEconomy = (deployment: Deployment) => (routes: React.ReactElement) => (
+  <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment, env: { usdc: "0x4" } }) }}>{routes}</EconomyProvider>
+);
+/** Neither an economy nor a USDC address. */
+const unknownUsdc = (deployment: Deployment) => (routes: React.ReactElement) => (
   <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment }) }}>{routes}</EconomyProvider>
 );
 const result = { transactionHash: "0x1", events: [] };
@@ -73,6 +80,19 @@ describe("Landing states", () => {
     await waitFor(() => expect(screen.getByText("mode daily: USDC, by stake")).toBeTruthy());
     expect(screen.getByText("mode tutorial: Free")).toBeTruthy();
     expect(screen.queryByText(/not deployed here/)).toBeNull();
+  });
+
+  it("the entry token is compared with the USDC address, not the old Token's", async () => {
+    // The fixture's entry token is 0x4. With USDC elsewhere and the old Token at 0x4, the entry is an unknown token.
+    const deployment = { ...(configured as object), addresses: { ...configured.addresses, Token: "0x4" } } as unknown as Deployment;
+    land({ deployment, wrap: (routes) => <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: deployment, env: { usdc: "0x99" } }) }}>{routes}</EconomyProvider> });
+    await waitFor(() => expect(screen.getByText(/mode daily: Unknown token/)).toBeTruthy());
+    cleanup();
+    land({ deployment, wrap: noEconomy(deployment) });
+    await waitFor(() => expect(screen.getByText(/mode daily: 1 USDC/)).toBeTruthy());
+    cleanup();
+    land({ deployment, wrap: unknownUsdc(deployment) });
+    await waitFor(() => expect(screen.getByText(/mode daily: Unknown token/)).toBeTruthy());
   });
 
   it("missing token decimals: the entry price is unavailable and cannot be confirmed", async () => {
@@ -164,6 +184,98 @@ describe("Claiming a prize", () => {
     await screen.findByText("balance 5 USDC");
     await new Promise((r) => setTimeout(r, 30));
     expect(screen.queryByText("Claim")).toBeNull();
+  });
+});
+
+describe("Reclaiming a prize nobody ranked for (P-37)", () => {
+  const unranked = { ...emptyTournament(5), over: true, prize: 3_000_000_000_000_000_000n };
+  const setup = (options: { tournament?: object; part?: bigint; returned?: bigint; reclaim?: ReturnType<typeof vi.fn> } = {}) => {
+    const reclaim = options.reclaim ?? vi.fn(async () => result);
+    const views = new FakeGameViews();
+    views.tournaments.set(5, { ...unranked, ...options.tournament });
+    const part = options.part ?? 2n * 10n ** 18n;
+    land({ views, writer: { reclaim }, sponsorship: { days: [5], reclaimable: () => part, returned: () => options.returned ?? 0n } });
+    return { reclaim, views };
+  };
+
+  it("lists the sponsor's part; one click only asks with the amount, Confirm sends the confirmed amount", async () => {
+    const { reclaim } = setup();
+    await screen.findByText("Tournament 5: your part, 2 USDC");
+    fireEvent.click(screen.getByText("Reclaim"));
+    expect(reclaim).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Take back 2 USDC, your part of tournament 5's prize? Nobody ranked in that day.");
+    fireEvent.click(screen.getByText("Confirm reclaim"));
+    await waitFor(() => expect(reclaim).toHaveBeenCalledTimes(1));
+    expect(reclaim).toHaveBeenCalledWith(5, { confirmedAmount: 2n * 10n ** 18n });
+  });
+
+  it("what already went back comes from the Reclaimed events, beside the part left", async () => {
+    setup({ returned: 10n ** 18n });
+    await screen.findByText(/Tournament 5: your part, 2 USDC \(1 USDC already went back to sponsors\)/);
+  });
+
+  it("a ranked day offers no reclaim: its prize is the ranks'", async () => {
+    setup({ tournament: { top1PlayerId: "0xa1", top1Score: 9 } });
+    await screen.findByText("balance 5 USDC");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.queryByText("Reclaim")).toBeNull();
+  });
+
+  it("a day not over, or a part already taken back, offers no reclaim", async () => {
+    setup({ tournament: { over: false } });
+    await screen.findByText("balance 5 USDC");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.queryByText("Reclaim")).toBeNull();
+    cleanup();
+    setup({ part: 0n });
+    await screen.findByText("balance 5 USDC");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(screen.queryByText("Reclaim")).toBeNull();
+  });
+
+  it("a refused reclaim shows its reason and re-reads: a part taken back meanwhile leaves no stale row", async () => {
+    let part = 2n * 10n ** 18n;
+    const refused = vi.fn(async () => {
+      part = 0n;
+      throw new ReclaimAmountChangedError(2n * 10n ** 18n, 0n);
+    });
+    const views = new FakeGameViews();
+    views.tournaments.set(5, unranked);
+    land({ views, writer: { reclaim: refused }, sponsorship: { days: [5], reclaimable: () => part } });
+    fireEvent.click(await screen.findByText("Reclaim"));
+    fireEvent.click(screen.getByText("Confirm reclaim"));
+    expect((await screen.findByText("The amount to reclaim changed: confirm again")).getAttribute("role")).toBe("alert");
+    await waitFor(() => expect(screen.queryByText(/Tournament 5: your part/)).toBeNull());
+  });
+});
+
+describe("Claim reverts are clear states", () => {
+  it("a top-3 claim on a day with no sponsor says there is no prize, not a raw revert", async () => {
+    const claim = vi.fn(async () => {
+      throw new NoPrizeDayError("0x1");
+    });
+    const views = new FakeGameViews();
+    views.tournaments.set(5, { ...emptyTournament(5), over: true, prize: 600n, top1PlayerId: PLAYER, top1Score: 9, top2PlayerId: "0x0", top3PlayerId: "0x0" });
+    views.setGame({ mode: "daily", gameId: 1 }, {
+      game: { id: 1, playerId: PLAYER, mode: 1, seed: "0x1", score: 9, over: true, tileCount: 3, placedCount: 3, discardedCount: 0, tileId: 0, plan: 0, remainingCount: 0, deckSize: 38, startTime: 1, endTime: 2, tournamentId: 5 },
+      tiles: [], builder: { gameId: 1, playerId: PLAYER, tileId: 0, plan: 0, placedCount: 0, availableCount: 7 }, characters: [],
+    });
+    land({ views, games: [{ mode: "daily", gameId: 1, startTime: 1, tournamentId: 5, over: true, score: 9, countedTournamentId: 5 }], writer: { claim } });
+    fireEvent.click(await screen.findByText("Claim"));
+    fireEvent.click(screen.getByText("Confirm claim"));
+    expect((await screen.findByText("This day has no prize: nobody sponsored it, so there is nothing to claim.")).getAttribute("role")).toBe("alert");
+  });
+
+  it("a reclaim on a ranked day says there is nothing to reclaim", async () => {
+    const reclaim = vi.fn(async () => {
+      throw new NothingToReclaimError("This day was ranked: its prize goes to the ranks, so there is nothing to reclaim.");
+    });
+    const views = new FakeGameViews();
+    views.tournaments.set(5, { ...emptyTournament(5), over: true, prize: 600n });
+    land({ views, writer: { reclaim }, sponsorship: { days: [5], reclaimable: () => 600n } });
+    fireEvent.click(await screen.findByText("Reclaim"));
+    fireEvent.click(screen.getByText("Confirm reclaim"));
+    expect((await screen.findByText(/This day was ranked.*nothing to reclaim/)).getAttribute("role")).toBe("alert");
   });
 });
 
