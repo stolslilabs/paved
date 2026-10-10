@@ -20,10 +20,13 @@ export const NOTICE_LINK = "#ffffff";
 /**
  * Layout under #root: the app area takes the height left (`flex: 1; min-height: 0`), the notice sits below it in normal
  * flow, so the notice reserves its own height (wrapped or not) and covers no page. The one mount of the notice.
+ * The connection banner goes in the same column (`flex: none`, above the area): anything else in-flow in #root would
+ * push the column past #root's height and clip the footer.
  */
-export function AppShell({ children, base }: { children: ReactNode; base?: string }) {
+export function AppShell({ children, banner, base }: { children: ReactNode; banner?: ReactNode; base?: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
+      {banner && <div style={{ flex: "none" }}>{banner}</div>}
       <div style={{ flex: 1, minHeight: 0, position: "relative" }}>{children}</div>
       <WalletNotice base={base} />
     </div>

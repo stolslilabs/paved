@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { App } from "../src/App";
+import { AppTree } from "../src/AppTree";
 import { AppShell, NOTICES_PATH, NOTICE_BACKGROUND, NOTICE_LINK, NOTICE_TEXT, WalletNotice } from "../src/components/WalletNotice";
 
 // The notices Cartridge's licence asks of every copy of the client (D-15). `vite build` copies public/ to dist; CI
@@ -21,6 +21,7 @@ const LICENSE = readFileSync(join(controllerDir, "LICENSE"), "utf8");
 
 // The pages are not under test: stub them so the real App routes render in jsdom.
 vi.mock("@paved/ui", () => ({ useUIStore: (select: (s: { loading: boolean }) => unknown) => select({ loading: false }), useGameStore: () => undefined }));
+vi.mock("../src/components/ConnectionBanner", () => ({ ConnectionBanner: () => <div role="status">banner</div> }));
 vi.mock("../src/pages/Landing", () => ({ LandingPage: () => <main>landing</main> }));
 vi.mock("../src/pages/Game", () => ({ GamePage: () => <main>game</main> }));
 vi.mock("../src/pages/Leaderboard", () => ({ LeaderboardPage: () => <main>leaderboard</main> }));
@@ -65,25 +66,27 @@ describe("third-party notices (D-15)", () => {
     expect(contrast(NOTICE_LINK, NOTICE_BACKGROUND)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("is in the app shell below the app area, with the link on every route", () => {
+  it("is in one column with the connection banner and the app, and nothing else in #root, on every route", () => {
+    const Router = ({ route, children }: { route: string; children?: React.ReactNode }) => <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>;
     for (const [route, page] of [["/", "landing"], ["/game", "game"], ["/economy", "economy"]] as const) {
-      const { container, unmount } = render(
-        <MemoryRouter initialEntries={[route]}>
-          <AppShell base="/">
-            <App />
-          </AppShell>
-        </MemoryRouter>
-      );
+      const root = document.body.appendChild(document.createElement("div")); // stands for #root
+      const { unmount } = render(<AppTree supportsMint={false} Router={({ children }) => <Router route={route}>{children}</Router>} />, { container: root });
       expect(screen.getByText(page)).toBeTruthy();
       expect(screen.getAllByRole("link", { name: "Third-party notices" })).toHaveLength(1);
-      const shell = container.firstElementChild as HTMLElement;
-      expect(shell.style.flexDirection).toBe("column");
-      const [area, footer] = Array.from(shell.children) as HTMLElement[];
-      expect(area.style.flex).toContain("1"); // flex: 1; min-height: 0
+      expect(root.children).toHaveLength(1); // nothing in-flow beside the column
+      const column = root.firstElementChild as HTMLElement;
+      expect(column.style.flexDirection).toBe("column");
+      expect(column.style.height).toBe("100%");
+      const [bannerSlot, area, footer] = Array.from(column.children) as HTMLElement[];
+      expect(column.children).toHaveLength(3);
+      expect(bannerSlot.style.flex).toBe("0 0 auto"); // flex: none
+      expect(bannerSlot.textContent).toBe("banner");
+      expect(area.style.flex).toContain("1");
       expect(area.style.minHeight).toBe("0px");
       expect(area.contains(screen.getByText(page))).toBe(true);
       expect(footer.tagName).toBe("FOOTER");
       unmount();
+      root.remove();
     }
   });
 });
