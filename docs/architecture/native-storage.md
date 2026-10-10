@@ -94,9 +94,10 @@ and data as the contract's `self.emit` would.
 | `GameOver` | Daily, Tutorial | `key game_id`, `key player_id`, `key tournament_id`, `mode`, `score`, `start_time`, `end_time` | the game ends (last tile, or surrender); `tournament_id` and `end_time` are 0 when the game ended after its tournament closed (it does not count), and always in Tutorial |
 | `Sponsored` | Daily | `key tournament_id`, `sponsor`, `amount` | `sponsor` |
 | `Claimed` | Daily | `key tournament_id`, `player_id`, `rank`, `reward` | `claim` |
-| `OwnershipTransferStarted` | all three | `previous_owner`, `new_owner` | `transfer_ownership` (the new owner is only pending) |
-| `OwnershipTransferred` | all three | `previous_owner`, `new_owner` | constructor, `accept_ownership` |
-| `Upgraded` | all three | `class_hash` | `upgrade` |
+| `OwnershipTransferStarted` | all three, `Economy`, `Collection` | `previous_owner`, `new_owner` | `transfer_ownership` (the new owner is only pending) |
+| `OwnershipTransferred` | all three, `Economy`, `Collection` | `previous_owner`, `new_owner` | constructor, `accept_ownership` |
+| `Upgraded` | all three, `Economy`, `Collection` | `class_hash` | `upgrade` (OpenZeppelin's event since U-1, same selector and data as before) |
+| `LobbyClassSet` | Daily, Tutorial | `class_hash` | `set_lobby_class` (P-42) |
 
 `player_id` is a key of `GameSpawned` and `GameOver` so that a client lists a player's games from
 events (`docs/architecture/public-interface.md`).
@@ -109,9 +110,10 @@ events (`docs/architecture/public-interface.md`).
 Own, minimal, no Dojo permission:
 
 - **Owner**, set at deployment (constructor argument, must be non-zero). The owner may `upgrade` the
-  contract class and hand the ownership over. `upgrade` replaces the class: the owner has full
-  control of the contract and of its funds (in `Daily`, the prize pools held in the token), so the
-  owner key holds the funds. Treat it as such (hardware or multisig account).
+  contract class (OpenZeppelin's `UpgradeableComponent`, gated by this owner: `upgrades.md`), set the
+  `Lobby` class of `Daily` and `Tutorial`, and hand the ownership over. `upgrade` replaces the class: the
+  owner has full control of the contract and of its funds (in `Daily`, the prize pools held in the token), so
+  the owner key holds the funds. Treat it as such (hardware or multisig account).
 - **Two-step handover**: `transfer_ownership(new_owner)` only records `new_owner` as pending (a new
   call overwrites the pending owner, so a pending proposal is withdrawn by proposing the owner's own
   address); the pending owner completes it with `accept_ownership()`,
@@ -145,7 +147,8 @@ Entry points (every `external` function):
 | all three | `owner()`, `pending_owner()` (views) | anyone | none |
 | all three | `transfer_ownership(new_owner)` | owner | `Ownable: caller is not owner`, `new_owner` non-zero |
 | all three | `accept_ownership()` | the pending owner | `Ownable: caller not pending` |
-| all three | `upgrade(class_hash)` | owner | `Ownable: caller is not owner`, `class_hash` non-zero |
+| all three | `upgrade(new_class_hash)` | owner | `Ownable: caller is not owner`, then `Class hash cannot be zero` (OpenZeppelin's) |
+| Daily, Tutorial | `set_lobby_class(class_hash)` | owner | `Ownable: caller is not owner`, `Daily: lobby class is zero` / `Tutorial: lobby class is zero` |
 | Token (mock) | ERC20 entry points, `mint()` | anyone | test and devnet only, never deploy on a public network (see below) |
 
 **Mock token.** `mocks/token.cairo` has an open `mint()`: anyone mints 1E6 tokens. It stays compiled
@@ -174,11 +177,11 @@ fixed at deployment and trusted; only an `upgrade` by the owner can change them.
 
 Rules:
 
-- **`lobby_class` is immutable.** It is a `ClassHash` storage variable of `Daily` and `Tutorial`, written by the
-  constructor only (non-zero); no entry point writes it, there is no setter and no owner path to it. The
-  owner's `upgrade` (P2) replaces the whole class of the contract, unchanged; a new lobby can only come with a new
-  class of `Daily` or `Tutorial` whose own code sets it. Test: `tests::e2e::lobby::test_lobby_class_is_never_written_after_construction`
-  runs every entry point of both but `upgrade` and reads the raw slot back after each.
+- **`lobby_class` is set by the owner only.** It is a `ClassHash` storage variable of `Daily` and `Tutorial`,
+  written by the constructor and, since P-42 (which reverses P-26's "immutable"), by the owner's
+  `set_lobby_class` (non-zero, `LobbyClassSet`); no other entry point writes it (`upgrades.md`). Tests:
+  `tests::e2e::lobby::test_lobby_class_is_never_written_after_construction` runs every entry point of both but
+  `upgrade` and `set_lobby_class` and reads the raw slot back after each; `tests::e2e::upgrades` covers the setter.
 - **What runs as whom.** Under a library call the storage, `get_contract_address()`, `get_caller_address()` and the
   address that emits the events are those of the calling contract. So `Lobby`'s `spawn` reads the caller (the
   player) for the player check, its `transferFrom(player, Daily, price)` is made by `Daily` and the tokens land on
