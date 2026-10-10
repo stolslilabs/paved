@@ -13,7 +13,7 @@ fn step(plan: Plan, discard: bool, score: u32) -> TutorialStep {
 }
 
 #[test]
-#[available_gas(l2_gas: 171129340)]
+#[available_gas(l2_gas: 171252000)]
 fn test_golden_tutorial_full_sequence() {
     let steps = array![
         step(Plan::SFRFRFCFR, false, 0), step(Plan::CFFFCFFFC, false, 0),

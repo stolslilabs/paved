@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The RPC_URL guard of deploy.sh names what it could not parse (it runs before anything else, so no
-# node and no toolchain are needed), and its getClass predicate rejects a malformed answer. Usage: scripts/test-deploy-url.sh
+# node and no toolchain are needed), its network and sepolia variable checks refuse before anything is built or sent
+# (S-1), and its getClass predicate rejects a malformed answer. Usage: scripts/test-deploy-url.sh
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fail=0
@@ -18,6 +19,52 @@ check "1http://example.com" "scheme '(unparsable scheme)' host 'example.com'"
 check "http://user:key@" "scheme 'http' host '(unparsable host: empty)'"
 check "https://user:key@rpc.example.com:5050/v1/KEY" "scheme 'https' host 'rpc.example.com'"
 check "http://127.0.0.1:5050@other-host:5050" "host 'other-host'"
+
+# The networks and options deploy.sh accepts (S-1, D-16): devnet and sepolia only, mainnet refused by name. Each
+# refusal happens before anything is built or sent.
+refuse() { # <expected exit> <expected fragment> <deploy.sh args...>
+  local code="$1" frag="$2" out rc; shift 2
+  out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL "$here/deploy.sh" "$@" 2>&1 >/dev/null)"
+  rc=$?
+  if [[ $rc -ne $code || "$out" != *"$frag"* ]]; then
+    echo "FAIL: deploy.sh $* expected exit $code and '$frag', got $rc: $out"; fail=1
+  else
+    echo "ok: deploy.sh $* -> $frag"
+  fi
+}
+refuse 2 "refusing mainnet" mainnet
+refuse 2 "unsupported network 'katana'" katana
+refuse 2 "unsupported network ''"
+refuse 2 "unknown option '--rehearse' for 'devnet'" devnet --rehearse
+refuse 2 "unknown option '--unmerged' for 'sepolia'" sepolia --unmerged
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia
+out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse 2>&1 >/dev/null)"
+if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
+  echo "ok: deploy.sh sepolia --rehearse refuses a remote node, its key unprinted"
+else echo "FAIL: deploy.sh sepolia --rehearse with a remote RPC_URL: $out"; fail=1; fi
+
+# sepolia names each missing variable, never a value, and stops before signing (S-1 escalation). The values below
+# are dummies; a marker in each proves no value is printed.
+sepolia() { # <expected exit> <expected fragment> [VAR=value...]
+  local code="$1" frag="$2" out rc; shift 2
+  out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL "$@" "$here/deploy.sh" sepolia 2>&1 >/dev/null)"
+  rc=$?
+  if [[ $rc -ne $code || "$out" != *"$frag"* || "$out" == *MARKER* || "$out" == *0xabc* ]]; then
+    echo "FAIL: sepolia with ${*%%=*} expected exit $code and '$frag', no value, got $rc: $out"; fail=1
+  else
+    echo "ok: sepolia with $# variable(s) -> $frag"
+  fi
+}
+ADDR=STARKNET_ACCOUNT_ADDRESS=0xabc
+KEY=STARKNET_PRIVATE_KEY=0xMARKER
+URL=STARKNET_RPC_URL=https://MARKER.example.com/v1/MARKER
+sepolia 2 "needs STARKNET_PRIVATE_KEY STARKNET_RPC_URL in" "$ADDR"
+sepolia 2 "needs STARKNET_ACCOUNT_ADDRESS in" "$KEY" "$URL"
+sepolia 2 "needs STARKNET_RPC_URL in" "$ADDR" "$KEY"
+sepolia 2 "needs STARKNET_PRIVATE_KEY in" "$ADDR" STARKNET_PRIVATE_KEY= "$URL"
+sepolia 2 "STARKNET_ACCOUNT_ADDRESS is not a 0x hex address" STARKNET_ACCOUNT_ADDRESS=MARKER "$KEY" "$URL"
+sepolia 2 "STARKNET_RPC_URL must be an https:// URL" "$ADDR" "$KEY" STARKNET_RPC_URL=http://MARKER:5050
+sepolia 3 "signing on sepolia is not settled" "$ADDR" "$KEY" "$URL"
 
 # The getClass predicate of deploy.sh counts a class as declared only for a JSON object, with no `error`
 # field, whose `result` is an object.
