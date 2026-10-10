@@ -83,7 +83,7 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const { data, head, behind, freshness } = await client.head();
     expect(data).toMatchObject({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 1, lastMismatch: null, tournamentsChecked: 0 });
-    expect(data.contracts).toEqual({ daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444" });
+    expect(data.contracts).toMatchObject({ daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444" });
     expect(head.number).toBeGreaterThan(0);
     expect(behind).toBe(0);
     expect(freshness).toEqual({ kind: "ok", blocks: 0 });

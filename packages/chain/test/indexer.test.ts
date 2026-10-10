@@ -33,6 +33,19 @@ describe("endpoints", () => {
     expect(await kindOf(client.head())).toBe("bad-response");
   });
 
+  test("a games row and a head with appended fields (token_id, contracts.collection, unknown keys) still parse", async () => {
+    fixture.games = fixture.games.map((g, i) => ({ ...g, token_id: i === 0 ? 7 : null, later_field: { x: 1 } }));
+    const { data } = await client.playerGames(FIXTURE_ADA);
+    expect(data.games.length).toBeGreaterThan(0);
+    expect(data.games[0]).toMatchObject({ gameId: fixture.games[0].game_id });
+    expect(data.games[0]).not.toHaveProperty("token_id");
+    fixture.state.rawBody = {
+      text: JSON.stringify({ version: 1, status: "ok", head: FIXTURE_HEAD, behind: 0, state: "ok", chain_id: "0x1", from_block: 3, contracts: { daily: "0x2", collection: "0x5" } }),
+      httpStatus: 200,
+    };
+    expect((await client.head()).data.contracts).toMatchObject({ daily: "0x2", collection: "0x5" });
+  });
+
   test("/v1/head reads last_mismatch as a typed object, and refuses any other shape", async () => {
     const slot = (player: string, score: number) => ({ player_id: player, score });
     fixture.state.lastMismatch = {
