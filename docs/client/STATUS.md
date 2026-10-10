@@ -112,6 +112,13 @@ states. A sponsor reclaims their part of a prize nobody ranked for through `clai
 back comes from the `Reclaimed` events. A non-bigint slippage is a `WriteError`. The Cartridge session holds no faucet (test). The devnet
 end-to-end of the economy is PR (b). Details: `docs/architecture/client-economy.md`.
 
+2026-10-10, game NFT (t-0078, E5b #283): each game shows "NFT: <Collection short address> #<token id>" on the game page and in the player
+page's games table, with a "Metadata" toggle that reads `token_uri` (a `data:application/json` URI, decoded as data and printed as text,
+never as markup) and a "Raw JSON" blob link. The Collection is the indexer's `contracts.collection`, else the deployments file's optional
+`contracts.Collection` (or `VITE_COLLECTION_ADDRESS`); none known shows nothing. A Daily token id is the game id, a Tutorial one `2^32 + id`
+(BigInt); the indexer's `token_id` is read when present (an older answer parses as no NFT). The codec decodes `ByteArray`. jsdom tests only;
+no browser, no devnet run. Section "Game NFT" of `docs/architecture/client-data-layer.md`.
+
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 
 The baseline measures a recorded board, not a live deployment (decided 2026-10-06): the contracts

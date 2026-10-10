@@ -78,6 +78,9 @@ const FELT_LIKE = new Set([
 const U128 = "core::integer::u128";
 const U256 = "core::integer::u256";
 const BOOL = "core::bool";
+const BYTE_ARRAY = "core::byte_array::ByteArray";
+/** Words a decoded `ByteArray` may hold (31 bytes each): a bound on what a contract can make the client allocate. */
+export const MAX_BYTE_ARRAY_WORDS = 8192;
 const ARRAY = /^core::array::(?:Array|Span)::<(.+)>$/;
 
 export function camelCase(name: string): string {
@@ -208,6 +211,36 @@ export class AbiCodec {
     return fn;
   }
 
+  /**
+   * A Cairo `ByteArray` (full 31-byte words, then a pending word and its length) read as UTF-8 text. Decode only: no
+   * Paved call takes one. Invalid UTF-8 becomes U+FFFD; the text is data and the caller never reads it as markup.
+   */
+  private decodeByteArray(cursor: { felts: bigint[]; at: number }): string {
+    const take = () => {
+      if (cursor.at >= cursor.felts.length) throw new Error("Not enough felts to decode ByteArray");
+      return cursor.felts[cursor.at++];
+    };
+    const words = take();
+    if (words > BigInt(MAX_BYTE_ARRAY_WORDS)) throw new Error(`ByteArray has ${words.toString()} words, above ${MAX_BYTE_ARRAY_WORDS}`);
+    const count = Number(words);
+    const words31: bigint[] = [];
+    for (let i = 0; i < count; i++) words31.push(take());
+    const pending = take();
+    const pendingLen = Number(take());
+    if (pendingLen > 30) throw new Error(`ByteArray pending word is ${pendingLen} bytes long`);
+    const bytes = new Uint8Array(count * 31 + pendingLen);
+    const put = (word: bigint, length: number, at: number) => {
+      if (word >= 1n << BigInt(8 * length)) throw new Error("ByteArray word is wider than its length");
+      for (let i = length - 1; i >= 0; i--) {
+        bytes[at + i] = Number(word & 0xffn);
+        word >>= 8n;
+      }
+    };
+    words31.forEach((word, i) => put(word, 31, i * 31));
+    put(pending, pendingLen, count * 31);
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+
   private encode(type: string, value: Encodable, out: string[]): void {
     if (type === BOOL) {
       out.push(value === true || value === 1 || value === "1" || value === 1n ? "0x1" : "0x0");
@@ -272,6 +305,7 @@ export class AbiCodec {
       const high = next();
       return low + (high << 128n);
     }
+    if (type === BYTE_ARRAY) return this.decodeByteArray(cursor);
     const array = ARRAY.exec(type);
     if (array) {
       const length = Number(next());

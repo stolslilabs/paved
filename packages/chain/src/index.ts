@@ -32,6 +32,22 @@ export type {
   TournamentView,
   ViewErrorKind,
 } from "./views";
+export {
+  COLLECTION_ABI,
+  FakeCollectionViews,
+  MAX_TOKEN_URI_LENGTH,
+  NftMetadataError,
+  RpcCollectionViews,
+  TOKEN_LIMIT,
+  TUTORIAL_TOKEN_OFFSET,
+  collectionAddress,
+  nftLabel,
+  nftOf,
+  parseTokenUri,
+  shortAddress,
+  tokenIdOf,
+} from "./nft";
+export type { CollectionViews, NftAttribute, NftMetadata } from "./nft";
 export { EventReader, receiptEvents } from "./events";
 export type { PlayerGame, Sponsorship } from "./events";
 export { placementOutcome } from "./placement";

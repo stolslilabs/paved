@@ -3,9 +3,10 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import { IngameStatus, GameCompleteDialog, ActionBar, SpotSelector, useGameStore } from "@paved/ui";
 import type { GameScene, TileRenderData, CameraMode } from "@paved/renderer";
-import { PurchaseOutcomeUnknownError, useGameSession, usePaved } from "@paved/chain";
+import { PurchaseOutcomeUnknownError, nftOf, useGameSession, usePaved } from "@paved/chain";
 import type { GameKey } from "@paved/chain";
 import { Layout, Plan, Orientation, Direction, DirectionType, getIndexFromCharacter } from "@paved/game-core";
+import { GameNft, useCollection } from "../components/GameNft";
 import { CENTER, shouldShowSpotSelector, spotKeyToNumber, toRenderBoard } from "../utils/game-helpers";
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { parseGameParams } from "../utils/game-params";
@@ -212,6 +213,15 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
   const navigate = useNavigate();
   const { writer } = usePaved();
   const { session, state } = useGameSession(gameKey);
+  const collection = useCollection();
+  // The game's NFT by the Collection's rule (Daily: the game id; Tutorial: 2^32 + the game id); null for an id no game has.
+  const tokenId = useMemo(() => {
+    try {
+      return nftOf(gameKey.mode, gameKey.gameId);
+    } catch {
+      return null;
+    }
+  }, [gameKey.mode, gameKey.gameId]);
 
   const [scene, setScene] = useState<GameScene | null>(null);
   const orientation = useGameStore((s) => s.orientation);
@@ -479,13 +489,14 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
           gap: 8,
         }}
       >
-        <div style={{ pointerEvents: "auto", gridColumn: 1, gridRow: 1 }}>
+        <div style={{ pointerEvents: "auto", gridColumn: 1, gridRow: 1, display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
           <IngameStatus
             score={game?.score ?? 0}
             built={Math.max(0, (game?.placedCount ?? 1) - 1)}
             totalTiles={game?.deckSize ?? 0}
             discarded={game?.discardedCount ?? 0}
           />
+          <GameNft tokenId={tokenId} collection={collection} verify />
         </div>
 
         <div style={{ pointerEvents: "auto", gridColumn: 3, gridRow: 1, justifySelf: "end" }}>
