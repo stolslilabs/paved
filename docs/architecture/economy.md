@@ -1058,6 +1058,9 @@ text left the choice open, it is written here.
   game; it then checks that the day has no prize, no leader, weight 0 and that the EMA did not move (P-24). The
   script deploys main-equivalent sources only; `--unmerged` runs a pull request's sources and writes the file to a
   temporary path, so the committed `devnet.json` is regenerated from main once E3 has merged.
+  P-38 (devnet only): the deploy also transfers 1,000 PAVED to each predeployed account other than the deployer, out of
+  the owner's stake (200,000 - 1,000 x N staked, the pool unchanged at 800,000), records them as `test_paved` in
+  `devnet.json`, and refuses the step off devnet; there is no minting faucet.
 - **Every Daily game over calls `Economy.record`, and fails if it reverts.** That is a constraint on any later
   upgrade or migration of `Daily` or of `Economy`: a `Daily` that keeps its games must keep an `Economy` that records
   them (a new `Economy` needs `set_game` for that `Daily`, and `Account.set_economy` is one shot), or the games in

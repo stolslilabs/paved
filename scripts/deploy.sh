@@ -29,7 +29,8 @@
 #   class), Tutorial(owner, account, lobby class), Economy.set_game(Daily) (after the stake),
 #   Account.set_economy(Economy), Collection(owner) (P8 E5b, the soulbound ERC721 of the games), then as
 #   the owner Account.set_collection(Collection) and Collection.set_minters(Daily, Tutorial) (both checked
-#   by read back). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
+#   by read back). On devnet only, 1,000 PAVED goes to each predeployed account other than the deployer, from the
+#   owner's stake (P-38: the stake is 200,000 - 1,000 x N, the pool stays 800,000). Every spawn mints its game to the player; the smoke reads token_uri and owner_of.
 # Deployer, owner and smoke player: the first predeployed devnet account, read from the node at run
 # time (public dev keys of the node). The key is only held in a temporary accounts file, removed on
 # exit; nothing secret is written in the repository.
@@ -199,6 +200,11 @@ CHAIN_ID="$(rpc starknet_chainId '[]' | pyj 'd["result"]')"
 read -r DEPLOYER KEY < <(rpc devnet_getPredeployedAccounts '{"with_balance":false}' |
   pyj 'd["result"][0]["address"]+" "+d["result"][0]["private_key"]') ||
   die "node has no predeployed accounts (not a starknet-devnet?)"
+# The other predeployed accounts get the devnet test PAVED (P-38); only addresses are read, never keys.
+TEST_ACCOUNTS=()
+while read -r addr; do
+  [[ -n "$addr" ]] && TEST_ACCOUNTS+=("$addr")
+done < <(rpc devnet_getPredeployedAccounts '{"with_balance":false}' | pyj '"\n".join(a["address"] for a in d["result"][1:])')
 sncast "${ACCOUNTS[@]}" account import --url "$RPC_URL" --name dev --address "$DEPLOYER" \
   --private-key "$KEY" --type oz --silent >/dev/null
 KEY=""
@@ -232,7 +238,10 @@ USDC_UNIT=1000000
 PAVED_UNIT=1000000000000000000
 POOL_USDC=$((10000 * USDC_UNIT))
 POOL_PAVED="$(python3 -I -c "print(800000 * $PAVED_UNIT)")"
-STAKE_PAVED="$(python3 -I -c "print(200000 * $PAVED_UNIT)")"
+# The devnet test PAVED (P-38, O-54): 1,000 PAVED per predeployed account other than the deployer, from the owner's
+# stake (never the pool: it sets the launch rate). The stake is 200,000 - 1,000 x N. Devnet only; no faucet exists.
+TEST_PAVED="$(python3 -I -c "print(1000 * $PAVED_UNIT)")"
+STAKE_PAVED="$(python3 -I -c "print((200000 - 1000 * ${#TEST_ACCOUNTS[@]}) * $PAVED_UNIT)")"
 # Economy: the decided configuration (burn 7,000 bps, sigma 0, slope 18,130 bps, cap 5, target 1,000,000
 # PAVED), the initial mean (3,353 points x 1,000) and the launch rate after the pool's fee (economy.md section 5).
 CONFIG=(7000 0 18130 5 "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")")
@@ -259,6 +268,12 @@ fi
 # The owner's stake, before Economy can buy anything (E1's audit): the Vault never has zero stakers.
 invoke "$PAVED" approve "$VAULT" $(u256 "$STAKE_PAVED") >/dev/null
 invoke "$VAULT" stake $(u256 "$STAKE_PAVED") >/dev/null
+# P-38: the test PAVED, from what the owner keeps outside the stake. Refused off devnet, here as well as at the top.
+[[ "$NETWORK" == "devnet" ]] || die "refusing to transfer test PAVED on $NETWORK (devnet only)"
+for acct in ${TEST_ACCOUNTS[@]+"${TEST_ACCOUNTS[@]}"}; do
+  invoke "$PAVED" transfer "$acct" $(u256 "$TEST_PAVED") >/dev/null
+done
+echo "   test PAVED: 1,000 to each of ${#TEST_ACCOUNTS[@]} predeployed accounts, stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
 read -r -a POOL_KEY <<<"$(call "$ROUTER" pool_key)"
 [[ "${#POOL_KEY[@]}" == 5 ]] || die "MockRouter.pool_key returned ${#POOL_KEY[@]} felts, expected 5"
 
@@ -274,6 +289,16 @@ read -r SUPPLY_LOW SUPPLY_HIGH <<<"$(call "$PAVED" total_supply)"
   die "PavedToken.total_supply() is not 1,000,000 PAVED"
 read -r HELD_LOW HELD_HIGH <<<"$(call "$PAVED" balance_of "$DEPLOYER")"
 [[ "$(hex_int "$HELD_LOW")" == 0 && "$(hex_int "$HELD_HIGH")" == 0 ]] || die "the deployer still holds PAVED after the pool and the stake"
+for acct in ${TEST_ACCOUNTS[@]+"${TEST_ACCOUNTS[@]}"}; do
+  read -r B_LOW B_HIGH <<<"$(call "$PAVED" balance_of "$acct")"
+  [[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$B_LOW" "$B_HIGH")" == "$TEST_PAVED" ]] ||
+    die "test account $acct does not hold 1,000 PAVED"
+  echo "   test account $acct holds 1,000 PAVED"
+done
+read -r STAKED_LOW STAKED_HIGH <<<"$(call "$VAULT" staked "$DEPLOYER")"
+[[ "$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$STAKED_LOW" "$STAKED_HIGH")" == "$STAKE_PAVED" ]] ||
+  die "the owner's stake in the Vault is not 200,000 - 1,000 x ${#TEST_ACCOUNTS[@]} PAVED"
+echo "   Vault: owner's stake $((200000 - 1000 * ${#TEST_ACCOUNTS[@]})) PAVED"
 echo "   PavedToken: total supply 1,000,000 PAVED, deployer holds 0"
 
 ACCOUNT="$(deploy Account "$ACCOUNT_CLASS" "$DEPLOYER")"
@@ -303,9 +328,12 @@ python3 -I - "$OUT" "$NETWORK" "$CHAIN_ID" "$RPC_URL" "$DEPLOYED_AT" "$DEPLOYED_
   "PavedToken=$PAVED=$PAVED_CLASS" "MockRouter=$ROUTER=$ROUTER_CLASS" "Vault=$VAULT=$VAULT_CLASS" \
   "Economy=$ECONOMY=$ECONOMY_CLASS" "Account=$ACCOUNT=$ACCOUNT_CLASS" \
   "Daily=$DAILY=$DAILY_CLASS" "Tutorial=$TUTORIAL=$TUTORIAL_CLASS" \
-  "Collection=$COLLECTION=$COLLECTION_CLASS" <<'PY'
+  "Collection=$COLLECTION=$COLLECTION_CLASS" "test_paved=$TEST_PAVED" "${TEST_ACCOUNTS[@]}" <<'PY'
 import json, sys
-out, network, chain_id, rpc_url, commit, block, decimals, symbol, lobby, *items = sys.argv[1:]
+out, network, chain_id, rpc_url, commit, block, decimals, symbol, lobby, *rest = sys.argv[1:]
+items = [r for r in rest if r.count("=") == 2]
+test_paved = next(r for r in rest if r.startswith("test_paved=")).split("=")[1]
+test_accounts = [r for r in rest if "=" not in r]
 c = {}
 for item in items:
     name, address, class_hash = item.split("=")
@@ -325,6 +353,9 @@ doc = {
     # Declared, not deployed: a class hash and no address, so not under `contracts`.
     "classes": {"Lobby": lobby},
 }
+if network == "devnet":
+    # P-38: the PAVED each predeployed account (other than the deployer) received, in base units (18 decimals).
+    doc["test_paved"] = {a: test_paved for a in test_accounts}
 with open(out, "w") as f:
     json.dump(doc, f, indent=2)
     f.write("\n")
