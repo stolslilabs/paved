@@ -150,7 +150,7 @@ found" and "not your game: read only" for the first two.
 ## Events
 
 `EventReader` (`events.ts`) reads `starknet_getEvents` from `deployed_block`, page by page
-(continuation token), and decodes the events from the ABIs. Lists use the keys, so the node does the
+(continuation token; the one list that no key narrows, the sponsored days, is bounded below), and decodes the events from the ABIs. Lists use the keys, so the node does the
 filtering:
 
 - "My games": `GameSpawned` with keys `[[selector], [], [player]]` on `Daily` and on `Tutorial`.
@@ -158,6 +158,25 @@ filtering:
   Tutorial has no tournament: its `GameSpawned`, `GameOver` and `game` give `tournament_id` 0 and
   `end_time` 0 (#205), read as they are.
 - The receipt of a write: its events from the contract written to.
+
+### Sponsored days
+
+Landing lists the days where the account may take back its part of a prize nobody ranked for (P-37). The days come from
+`EventReader.sponsoredDays(sponsor, indexer)`, which never reads `Sponsored` from `deployed_block`:
+
+- **With the indexer** (`VITE_INDEXER_URL`), one page of `GET /v1/sponsors/{sponsor_id}/days?limit=30`
+  (`IndexerClient.sponsorDays`), newest first. Used when the answer is valid and not `behind`.
+- **Otherwise** (no indexer, an error of any kind, an indexer older than schema 6 that answers not-found, or one behind
+  the node) a bounded scan: `Daily.Sponsored` from `max(deployed_block, latest - SPONSORED_FALLBACK_BLOCKS)` to the latest
+  block, paged by the RPC's continuation token (`chunk_size` 100), filtered on the sponsor in the client (the sponsor is
+  event data, not a key). `SPONSORED_FALLBACK_BLOCKS` is 100,000 blocks, about a week at a 6 s block time. A provider
+  that cannot give the latest block is refused: the scan is never left unbounded.
+- **What the scan can miss**: a sponsoring older than the range, which Landing then does not list (only the days read
+  are shown). The part is still on the chain and is offered again as soon as the indexer answers. The indexer path has
+  no such gap.
+- Both paths return at most `SPONSORED_DAYS_LIMIT` (30) days. Landing then reads one `tournament` view, the day's
+  `Sponsored` and `Reclaimed` events (keyed by the day) and the total returned, for each of them. Its flow is unchanged:
+  `claim(day, 0)` with the amount re-checked when it is sent.
 
 ## Who reads what, and when
 
@@ -198,7 +217,7 @@ display only: a prize amount, who may claim and whether a rank was claimed come 
 view, never from here.
 
 - `IndexerClient({ url })` has one method per route (`head`, `tournaments`, `tournament`, `leaderboard`, `player`,
-  `playerGames`, `playerTournament`, `game`, and the P7 routes `definitions`, `playerQuests(player, { day })`,
+  `playerGames`, `playerTournament`, `game`, `sponsorDays(sponsor, { limit, before })` (schema 6), and the P7 routes `definitions`, `playerQuests(player, { day })`,
   `playerAchievements(player)`), checks its ids and days before sending, and returns rows in camelCase.
 - Every answer is `{ data, head, behind, freshness }`. `freshness` is `ok` up to `maxLag` blocks behind (default 5,
   the indexer doc's figure) and `behind` above it; the screens print `behind` as it is.

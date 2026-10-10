@@ -50,7 +50,7 @@ told about).
 in Tutorial. Such a game is stored and listed under its player, but ranks in no tournament.
 
 Not indexed in v1: `Built`, `Discarded`, `Scored` (the current board of a game is a view call, not a list),
-`Sponsored`, `Claimed`, ownership and upgrade events, and the quiver events Paved never emits (`QuestCompleted`,
+`Claimed`, ownership and upgrade events, and the quiver events Paved never emits (`QuestCompleted`,
 `QuestClaimed`: quests are in event mode; the two `...ReporterSet`), and the configuration events of the economy
 (`EconomyConfigured`, `PoolSet`, `GameSet` of `Economy`). Account's `EconomySet` and `CollectionSet` are read, to check the deployment file ("As built (registry cross-check)"). `Claimed` may be added later to mark a prize as claimed;
 until then the client reads `top*_claimed` from the `tournament` view. Adding an event is a schema change and a
@@ -278,6 +278,7 @@ An error is `{ "version": 1, "status": "error", "error": "<what>", "state": "ok"
 | `GET /v1/players/{player_id}/quests` | `day` (a UTC day, `timestamp / 86400`, from 0 to `MAX_TOURNAMENT_ID`; default the day of the served block) | `day, start_time, end_time` and `quests`: the quests active at some second of that day (a quest retired before the day began is not listed), each `quest_id, interval_id, tasks` (`task_id, total, count`: the sum so far, at most `total`), `completed, completed_at` (the time of the block of the report that completed it, or null), `retired`. A player the indexer does not know has zero counts (200) |
 | `GET /v1/players/{player_id}/achievements` | none | `points` (of the completed achievements) and `achievements`: every defined one, each `achievement_id, points, tasks` (`task_id, total, count`), `completed, completed_at, retired` |
 | `GET /v1/players/{player_id}/tournaments/{id}` | none | `entry`: that player's leaderboard row of that day, or `null` (what "your rank today" needs, without paging the board) |
+| `GET /v1/sponsors/{sponsor_id}/days` | `limit` (default 20, at most 100), `before` (a tournament id, from `next`) | `sponsor_id` and `days`: the tournament ids (UTC days) the account put something into with `Daily.sponsor`, each once, newest first (appended after the first v1 routes, schema 6); `next` (the last day listed, or null). `{sponsor_id}` is written as a player id (`0x` and 64 hex digits). An account that never sponsored answers `days: []` with `200`. The days only: the amounts come from the chain (`client-data-layer.md`, "Sponsored days") |
 
 Example, `GET /v1/tournaments/20733/leaderboard?limit=3`:
 
@@ -482,7 +483,7 @@ The package follows this design. What differs, or was decided while building (Pa
   `meta` holds `schema`, `chain_id`, `deployment` (sha256 of the three addresses), `from_block`, `addresses`, `checked`,
   `started_at`. `players` gains `created_time` (the block's time). `games_player` is `(player_id, start_time DESC,
   contract DESC, game_id DESC)`: the list's order is total across the two contracts. Only the three indexed events are
-  stored in `events`; the known others (`Built`, `Discarded`, `Scored`, `Sponsored`, `Claimed`, the ownership events) are
+  stored in `events`; the known others (`Built`, `Discarded`, `Scored`, `Claimed`, the ownership events) are
   skipped, and any other selector halts the indexer. A `PlayerCreated` from a contract other than `Account`, a second
   one for a player, and a `GameOver` by another player than the one that spawned the game also halt.
 - **Reading blocks**: as Grim World, one header and the events of each of the three contracts per block, by block hash
@@ -614,3 +615,19 @@ The package follows this design. What differs, or was decided while building (Pa
   indexes the event and changes nothing else.
 - **Not a schema change**: no table changes, so an existing database is kept; it checks the registry from the events it
   has not yet read, and a `rebuild` checks it from the start.
+
+## As built (sponsored days)
+
+- **Why**: the client lists the days where an account may take back its part of a prize nobody ranked for. `Sponsored`
+  carries the sponsor as data, not as a key, so the node cannot filter on it, and reading every `Sponsored` event since
+  `deployed_block` on each visit grows without bound (review of #279, note 4). The indexer keeps the days by sponsor.
+- **Indexed**: `Sponsored` of `Daily` (key `tournament_id`; data `sponsor`, `amount`, a felt252) is decoded (any other
+  emitter or shape is a `DecodeError`) and stored in `sponsorships (block, tx, idx, day, sponsor, amount)`, with the index
+  `(sponsor, day DESC)`. A rewind deletes the rows of the blocks above the fork point.
+- **Schema 6**: a new table, so a database of schema 5 is refused and `rebuild`t (`Sponsored` was skipped before, so it
+  cannot be added in place). The API only gains a route and no existing route or field changes.
+- **Route**: `GET /v1/sponsors/{sponsor_id}/days?limit=&before=` as in the table. `before` is exclusive; the page holds
+  distinct days. Read as of the served block like the other routes, and in the states `loading`, `rewinding` and
+  `halted` it answers 503 with the state and no rows (R1).
+- **Display only**: the days are a list to look at. What a sponsor may reclaim is read from the chain (`Sponsored` and
+  `Reclaimed` events of the one day, and the `tournament` view) and re-checked when the transaction is sent.

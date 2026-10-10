@@ -244,6 +244,15 @@ export interface PlayerGames {
   next: string | null;
 }
 
+/** The days an account sponsored (`Daily.Sponsored`), newest first; the indexer's schema 6 route. */
+export interface SponsorDays {
+  sponsorId: string;
+  /** Tournament ids, descending, each once. */
+  days: number[];
+  /** Pass as `before` for the next page (the last day listed); null on the last. */
+  next: number | null;
+}
+
 /** A task of a definition or of a player's progress: the id the game reports and the count that completes it. */
 export interface TaskTarget {
   taskId: number;
@@ -566,6 +575,13 @@ function answerPlayer(b: Obj, asked: string, what: string): string {
   return id;
 }
 
+/** The sponsor an answer is about must be the one asked, so a mixed-up answer is never read as theirs. */
+function answerSponsor(b: Obj, asked: string): string {
+  const id = str(b, "sponsor_id", "sponsor days");
+  if (id !== asked) bad("sponsor days.sponsor_id is not the sponsor asked");
+  return id;
+}
+
 /** A player id as the API writes it: `0x`, 64 lowercase hex digits. Throws on anything else. */
 export function indexerPlayerId(id: string | bigint): string {
   let value: bigint;
@@ -682,6 +698,25 @@ export class IndexerClient {
     return this.get(`/v1/players/${indexerPlayerId(playerId)}/tournaments/${tournamentPath(id)}`, {}, (b) =>
       b.entry === null ? null : parseEntry(b.entry, "entry"),
     );
+  }
+
+  /**
+   * The days `sponsor` put something into, newest first (at most `limit`, default the indexer's 20, cap 100); `before` is
+   * a previous page's `next`. An indexer older than schema 6 has no such route: it answers not-found. An account that
+   * never sponsored has no days (200).
+   */
+  async sponsorDays(sponsor: string | bigint, params: { limit?: number; before?: number } = {}): Promise<IndexerAnswer<SponsorDays>> {
+    const id = indexerPlayerId(sponsor);
+    if (params.before !== undefined) tournamentPath(params.before);
+    const limit = params.limit ?? MAX_INDEXER_PAGE;
+    return this.get(`/v1/sponsors/${id}/days`, params, (b) => {
+      const days = list(b, "days", "sponsor days").map((d, i) =>
+        typeof d === "number" && Number.isSafeInteger(d) && d >= 0 && d <= MAX_TOURNAMENT_ID ? d : bad(`sponsor days.days[${i}] is not a day`),
+      );
+      if (days.length > limit) bad("sponsor days.days is longer than the limit asked");
+      if (days.some((d, i) => i > 0 && d >= days[i - 1]!)) bad("sponsor days.days is not strictly descending");
+      return { sponsorId: answerSponsor(b, id), days, next: orNull(b, "next", num, "sponsor days") };
+    });
   }
 
   /** One game; not-found when the indexer has no such game. */

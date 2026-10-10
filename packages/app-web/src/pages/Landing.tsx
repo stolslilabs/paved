@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
-import { claimableRanks, countedTournamentIds, indexerPlayerId, reclaimableAmount, usePaved, useRead } from "@paved/chain";
-import type { GameMode, GameView, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
+import { claimableRanks, countedTournamentIds, indexerPlayerId, reclaimableAmount, useIndexer, usePaved, useRead } from "@paved/chain";
+import type { GameMode, GameView, IndexerClient, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
 import { PrizePanel } from "../components/PrizePanel";
@@ -54,12 +54,17 @@ async function listClaimables(client: PavedClient, address: string, playerId: st
   return tournaments.flatMap((t) => claimableRanks(t, playerId).map(({ rank, reward }) => ({ tournamentId: t.id, rank, reward })));
 }
 
-/** Days the account sponsored, read for a part to take back: the newest ones. */
+/** Days the account sponsored, read for a part to take back: the newest ones (`SPONSORED_DAYS_LIMIT` in the chain package is the reader's own bound). */
 const RECLAIM_DAYS_READ = 30;
 
-/** The days nobody ranked in where the account may take its part back: events for the part, one `tournament` view each for the day. */
-async function listReclaimables(client: PavedClient, address: string): Promise<Reclaimable[]> {
-  const ids = (await client.events.sponsoredDays(address)).slice(0, RECLAIM_DAYS_READ);
+/**
+ * The days nobody ranked in where the account may take its part back: events for the part, one `tournament` view each for
+ * the day. The days come from the indexer's bounded route, else from a bounded scan of the latest blocks
+ * (`EventReader.sponsoredDays`): only the days read there are shown, and a sponsoring older than the scan's range shows
+ * nothing until the indexer answers. Never a read of every `Sponsored` event since `deployed_block`.
+ */
+async function listReclaimables(client: PavedClient, address: string, indexer: IndexerClient | null): Promise<Reclaimable[]> {
+  const ids = (await client.events.sponsoredDays(address, indexer)).slice(0, RECLAIM_DAYS_READ);
   const days = await Promise.all(
     ids.map(async (id) => {
       const [t, mine, returned] = await Promise.all([client.views.tournament(id), client.events.sponsorship(id, address), client.events.reclaimedTotal(id)]);
@@ -101,7 +106,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     { onVisible: true },
   );
 
-  const reclaimables = useRead((c) => (address ? listReclaimables(c, address) : Promise.resolve([])), [address], { onVisible: true });
+  const indexer = useIndexer();
+  const reclaimables = useRead((c) => (address ? listReclaimables(c, address, indexer) : Promise.resolve([])), [address, indexer], { onVisible: true });
 
   // `after` refreshes run when the write went through; `settled` ones run whatever the outcome.
   const write = async (fn: () => Promise<unknown>, after: Array<() => void>, settled: Array<() => void> = []) => {
