@@ -6,11 +6,11 @@
 #
 # Usage: scripts/measure.sh [gas|coverage|coverage-split|check-setup|all]   (default: all;
 #        `all` runs the whole coverage, `coverage-split` is the split one: its peak is
-#        9.34 GB, so it runs under a 14 GiB cap, on the Mac or in CI, not on a VPS shared with agents)
+#        9.34 GB RSS, so it runs on the Mac or in CI, and is refused on Linux without an override)
 #        Coverage runs use the `coverage` Scarb profile (contracts/Scarb.toml): only it keeps the code
 #        locations that cairo-coverage needs, the dev profile drops them to lower the test build peak.
 #
-# Runs are single-threaded (RAYON_NUM_THREADS=1) and each is capped to 8 GiB of address space (14 GiB for `coverage-split`) and reports its peak resident memory.
+# Runs are single-threaded (RAYON_NUM_THREADS=1) and each is capped to 15 GiB of address space (from VmPeak, see below) and reports its peak resident memory.
 # Toolchain: scarb 2.20.1 and snforge 0.64.0 (override with SCARB_BIN_DIR / SNFORGE_BIN_DIR);
 # cairo-coverage must be on the PATH (https://github.com/software-mansion/cairo-coverage).
 set -euo pipefail
@@ -27,19 +27,26 @@ if [ -d "$CAIRO_COVERAGE_BIN_DIR" ]; then
   export PATH="$CAIRO_COVERAGE_BIN_DIR:$PATH"
 fi
 export PATH="$SCARB_BIN_DIR:$SNFORGE_BIN_DIR:$HOME/.local/bin:$PATH"
-# Default cap of a run: 8 GiB. `coverage-split` needs more: its `types` group peaked at 9,123,164 kB
-# RSS from `time -v` (KiB: 9.34 GB, 8.70 GiB; measured on the VPS on 2026-10-10, #277) and failed under
-# 8 GiB ("memory allocation of 5200 bytes failed"). Cap = 1.5 x that peak (14.0 GB, 13.05 GiB) rounded up
-# to a whole GiB = 14 GiB, below the 16 GiB organisation limit. `coverage` (the whole run) and `all` have
-# no measured peak; it is expected above 8 GB, so measure them first on the Mac (P-33,
-# `/usr/bin/time -l`, no cap) or in CI before giving them a cap: they keep 8 GiB here.
-# MEM_CAP_BYTES overrides both.
-MEM_CAP_DEFAULT_BYTES=8589934592
-MEM_CAP_COVERAGE_SPLIT_BYTES=15032385536
+# `prlimit --as` caps address space, so caps come from VmPeak, not RSS (D-251): cap = 1.5 x the VmPeak of the
+# largest process of the run, rounded up to a whole GiB, within [8, 16] GiB. Measured on the VPS on 2026-10-10
+# (RAYON_NUM_THREADS=1, under a 16 GiB cap; see AGENTS.md): `snforge test paved::types::` VmPeak 10,374,784 kB
+# (9.89 GiB; VmHWM 6,269,668 kB), the largest of any snforge run (its scarb test-build child), so the cap is
+# 15 GiB for every snforge run here (`gas` and `coverage` included; a coverage-profile build of the whole crate is
+# unmeasured, expected above 8 GB RSS: measure on the Mac or in CI). `coverage-split` has an RSS of 9.34 GB, above
+# the Mac threshold, and its VmPeak is unmeasured on Linux: it runs on the Mac (P-33, no cap) or in CI, and is
+# refused on Linux unless ALLOW_COVERAGE_SPLIT_ON_LINUX=1 (then 16 GiB, the maximum). MEM_CAP_BYTES overrides.
+# A capped run with no progress for 15 minutes is stopped and moved, never left waiting.
+MEM_CAP_DEFAULT_BYTES=16106127360
+MEM_CAP_COVERAGE_SPLIT_BYTES=17179869184
 # docs/programme/OPERATIONS.md: builds and measures run single-threaded.
 export RAYON_NUM_THREADS=1
 
 mode="${1:-all}"
+if [ "$mode" = coverage-split ] && [ "$(uname -s)" != Darwin ] && [ "${ALLOW_COVERAGE_SPLIT_ON_LINUX:-}" != 1 ]; then
+  echo "coverage-split peaks at 9.34 GB RSS: run it on the Mac or in CI (set ALLOW_COVERAGE_SPLIT_ON_LINUX=1 to override)"
+  exit 2
+fi
+
 case "$mode" in
   coverage-split) MEM_CAP_BYTES="${MEM_CAP_BYTES:-$MEM_CAP_COVERAGE_SPLIT_BYTES}" ;;
   *) MEM_CAP_BYTES="${MEM_CAP_BYTES:-$MEM_CAP_DEFAULT_BYTES}" ;;
