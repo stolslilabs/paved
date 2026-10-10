@@ -68,11 +68,22 @@ own fake node (no chain, no browser) and reads every route.
 
 `packages/chain/test/e2e-devnet.test.ts` drives the client's own code (`PavedClient`, `PavedWriter`, `GameViews`,
 `EventReader`, `IndexerClient`) against a local node, the real deployment and the real indexer, with no browser:
-three players are created; one plays a Tutorial game; all three spawn a Daily game at `entry_price` and play it to
+three players are created; one plays a Tutorial game; all three buy a Daily game (stakes 3, 2 and 1) and play it to
 game over; the node's clock is moved past the day's end (`devnet_increaseTime`); the prizes are claimed through the
 contract view; the leaderboard, the players and the games read from the indexer are compared with the contract
-views and the events (scores, ranks, `prize_ranks`, `checks.last_mismatch`). It runs only with `PAVED_E2E=1`
-(CI does not), takes about 2.5 minutes and about 0.3 GB.
+views and the events (scores, ranks, `prize_ranks`, `checks.last_mismatch`); the games are settled, the Vault, a
+sponsor's reclaim and an expired game follow. It runs only with `PAVED_E2E=1` (CI does not). On the VPS
+(2026-10-10) it took 12 min 41 s and peaked at 240,104 kB (`/usr/bin/time -v`, largest process).
+
+alice plays with the search player of `packages/chain/test/daily-player.ts`: for every candidate placement (each empty
+position next to the board, each orientation, and a character on a spot) it asks the node with
+`starknet_simulateTransactions` (nothing is sent) whether it is legal and how many points it scores, places a
+character only on the move that closes its structure (it scores at once with the role of power 2 and comes back),
+and otherwise keeps the board compact. It is deterministic and looks one move ahead. It must score above the
+day's threshold (`R x h(score / mean)` pays more than 0); bob and carol play naively and stay under it. Most of
+the run is alice's game (657 s, 13,724 simulations on the 2026-10-10 run). The Daily deck depends on the day, so
+the score does too: on day 20738 it scored 9,084 against a threshold of 3,455.877. The Vault step stakes carol's
+own 1,000 test PAVED (`deploy.sh`, P-38).
 
 It starts nothing: the node must be **fresh** (the test moves its clock one day forward) and `scripts/deploy.sh devnet`
 must have run on it. Note the PIDs and stop them at the end.

@@ -114,10 +114,18 @@ end-to-end of the economy is PR (b). Details: `docs/architecture/client-economy.
 
 2026-10-10, game NFT (t-0078, E5b #283): each game shows "NFT: <Collection short address> #<token id>" on the game page and in the player
 page's games table, with a "Metadata" toggle that reads `token_uri` (a `data:application/json` URI, decoded as data and printed as text,
-never as markup) and a "Raw JSON" blob link. The Collection is the indexer's `contracts.collection`, else the deployments file's optional
-`contracts.Collection` (or `VITE_COLLECTION_ADDRESS`); none known shows nothing. A Daily token id is the game id, a Tutorial one `2^32 + id`
-(BigInt); the indexer's `token_id` is read when present (an older answer parses as no NFT). The codec decodes `ByteArray`. jsdom tests only;
-no browser, no devnet run. Section "Game NFT" of `docs/architecture/client-data-layer.md`.
+never as markup) and a "Raw JSON" blob link. The Collection is `VITE_COLLECTION_ADDRESS`, else the deployments file's optional
+`contracts.Collection`, else the indexer's `/v1/head` `contracts.collection` (read only when the first two are unset); none known
+shows nothing. A Daily token id is the game id, a Tutorial one `2^32 + id` (BigInt); the indexer's `token_id` is read when present (an
+older answer parses as no NFT). The codec decodes `ByteArray`. jsdom tests only; no browser, no devnet run. Section "Game NFT" of
+`docs/architecture/client-data-layer.md`.
+
+2026-10-10, economy end to end with a positive reward (t-0081): the devnet e2e (`PAVED_E2E=1`) passes 18 of 18 on a fresh node (VPS,
+12 min 41 s, peak 240,104 kB). alice plays with a search player (`packages/chain/test/daily-player.ts`: every candidate run with
+`starknet_simulateTransactions`, a character only on the move that closes its structure) and scores 9,084 on day 20738, above the
+threshold of 3,455.877: her settlement mints 1,566.39 PAVED, equal in the `Settled` event, `terms.reward`, her balance and
+`R x h(score / mean)`; the naive games (1,257) get 0. The Vault step stakes a test account's own 1,000 PAVED and claims the dividends
+of a later purchase (3,125 USDC base units, equal to `pending`). Details: `docs/architecture/client-economy.md`.
 
 Out of scope: Weekly, multiplayer/duel (owner D-4), configurable games (P-1), app-native.
 

@@ -231,11 +231,13 @@ the history state to the game page, which sends it, as from the Landing.
 - The devnet run of the economy (`PAVED_E2E=1`, `bun run test:e2e` in `packages/chain`, t-0073 PR b) passes on a fresh
   `starknet-devnet --seed 42` after `scripts/deploy.sh devnet`, with the indexer on 127.0.0.1:8787: faucet, a paid purchase with a
   referrer (price = burn + referral + margin against the balances), play to game over (recorded in the Economy), the prizes, the
-  settlement, the Vault, a sponsor's reclaim and an expired game. Limit: the three games of that run all score 1,257 points, under
-  the threshold the prior keeps near 3.3k, so every reward is 0; the Settled event, `terms` and the balance agree on 0, but no
-  positive reward was exercised (a better player than the e2e's naive one is needed). The Vault step takes its PAVED from the
-  deployer's own Vault stake for that reason. The recorded receipts of `test/fixtures/devnet.json` still predate E3 (the harness that
-  records them, `test/devnet.test.ts`, deploys the old four contracts): the paid spawn is not re-recorded.
+  settlement, the Vault, a sponsor's reclaim and an expired game. Since t-0081 (2026-10-10, 18 of 18 on day 20738): alice plays with
+  the search player of `test/daily-player.ts` and scores 9,084 against a threshold of 3,455.877 (prior 3,353, her stake 3, bob's and
+  carol's 1,257 at stakes 2 and 1); her settlement mints 1,566.385536085290946482 PAVED, and the `Settled` event, `terms.reward`, her
+  balance change and `R x c x score / threshold` from the chain's terms (`test/economy-curve.ts`) agree; bob and carol get 0. carol
+  stakes her own 1,000 test PAVED in the Vault; bob's later purchase gives her 3,125 USDC base units pending, which she claims.
+  The recorded receipts of `test/fixtures/devnet.json` still predate E3 (the harness that records them, `test/devnet.test.ts`,
+  deploys the old four contracts): the paid spawn is not re-recorded.
 - The old `Token` (the mock ERC20, no longer charged) is still in the base deployment (`PavedClient.balance` and a sponsor's approve use
   its codec, the same ERC20); the entry token is read from `Daily.entry_price`.
 - The list of games to settle could come from the indexer's `unsettled` list (indexer.md) instead of events.

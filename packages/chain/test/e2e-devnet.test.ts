@@ -4,6 +4,10 @@
  * a paid purchase with a referrer, play, the prizes, the settlement, the Vault, a sponsor's reclaim and an expired game. On demand only: `PAVED_E2E=1`
  * (`bun run test:e2e`). CI has no devnet.
  *
+ * alice plays her Daily game with the search player of `daily-player.ts` and must score above the day's threshold, so
+ * her settlement mints a positive PAVED reward, checked against `R x h(score / mean)` (`economy-curve.ts`); bob and
+ * carol play naively and stay under it (reward 0). carol then stakes her own 1,000 test PAVED (P-38) in the Vault.
+ *
  * It does not start anything. Start the stack first (packages/README.md, "End-to-end check on devnet"):
  *   starknet-devnet --host 127.0.0.1 --port 5050 --seed 42     # fresh node
  *   scripts/deploy.sh devnet                                   # writes contracts/deployments/devnet.json
@@ -36,6 +40,8 @@ import { placementOutcome } from "../src/placement";
 import { claimableRanks, rewardOf, type Rank } from "../src/prize";
 import { TILE_STATUS, type GameKey, type TournamentView } from "../src/views";
 import { NoPrizeDayError, NothingToReclaimError, type BuildMove, type PavedWriter } from "../src/writer";
+import { DailyPlayer } from "./daily-player";
+import { dayMean, payout, threshold } from "./economy-curve";
 
 const enabled = process.env.PAVED_E2E === "1";
 const DAY = 86400;
@@ -83,6 +89,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   const stakes = new Map<string, number>(); // player name -> stake k
   const settledReward = new Map<string, bigint>();
   let dayX = 0; // the day with a sponsor and no ranked player
+  let prior = 0; // the day's prior, points x 1,000
+  let cliff = 0n; // the threshold the settlement will use, points x 1,000
   let bobSecondGame = 0;
 
   const pass = (step: string, evidence: string) => steps.push({ step, pass: true, evidence });
@@ -143,7 +151,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   }
 
   /**
-   * Plays a Daily game for at most `maxMoves` placements: a legal placement next to the tiles placed
+   * The naive player (bob and carol): a Daily game for at most `maxMoves` placements, a legal placement next to the tiles placed
    * (found by probing the node), with a character when one fits, then sent through the writer. It
    * surrenders if the game is still running after that.
    */
@@ -352,9 +360,36 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     pass("sponsor the open day", `alice ${sponsored} -> prize ${prizeAtStart + sponsored}, ${short(result.transactionHash)}`);
   }, 60_000);
 
-  test("plays the Daily games to game over, with different move counts", async () => {
+  test("the threshold the settlement will use: the day's prior and the formula", async () => {
+    // Option B (economy.md section 2): the day's mean blends its prior (the EMA at its first purchase, weight 100)
+    // with its games (stake x min(score, 4 x prior)); the threshold is that mean shifted by sigma.
+    const day = await economy.views.day(tournamentId);
+    const quote = await economy.views.quote(1);
+    const terms = await economy.views.terms(dailyGames.get(players[0].name)!);
+    prior = day.prior;
+    expect(day.closed).toBe(false);
+    expect(prior).toBeGreaterThan(0);
+    // Before any game of the day is in, the threshold is the prior's (the quote shows the same reference).
+    expect(threshold(dayMean(prior, []), terms.sigmaBps)).toBe(BigInt(quote.threshold));
+    pass("threshold before play", `day ${tournamentId}: prior ${prior / 1000} points, sigma ${terms.sigmaBps} bps, c ${terms.slopeBps} bps, H ${terms.cap}: threshold now ${quote.threshold / 1000} points (Quote.threshold), and the day's games move it by stake x min(score, 4 x prior) at weight 100 + sum k`);
+  }, 30_000);
+
+  test("plays the Daily games to game over: alice with the search player, bob and carol naively", async () => {
     const evidence: string[] = [];
-    for (const [p, maxMoves] of [[players[0], 40], [players[1], 36], [players[2], 25]] as const) {
+    // alice (stake 3) plays the whole game with the player of daily-player.ts, which asks the node for every candidate.
+    {
+      const [alice] = players;
+      const key: GameKey = { mode: "daily", gameId: dailyGames.get(alice.name)! };
+      const player = new DailyPlayer({ rpcUrl, client, daily: client.deployment.addresses.Daily, codec: client.codecs.Daily, address: alice.address, writer: alice.writer });
+      const done = await player.play(key, {
+        onMove: process.env.E2E_VERBOSE ? (line) => appendFileSync(process.env.E2E_VERBOSE!, `alice ${line}\n`) : undefined,
+      });
+      scores.set(alice.name, done.score);
+      const terms = await economy.views.terms(key.gameId);
+      expect(terms).toMatchObject({ recorded: true, expired: false, settled: false, score: done.score });
+      evidence.push(`alice (search player) ${done.moves} moves ${done.discards} discards score ${done.score} in ${(done.ms / 1000).toFixed(0)} s, ${done.simulations} simulations, recorded ${short(done.hash)}`);
+    }
+    for (const [p, maxMoves] of [[players[1], 36], [players[2], 25]] as const) {
       const key: GameKey = { mode: "daily", gameId: dailyGames.get(p.name)! };
       const done = await playDaily(p, key, maxMoves);
       scores.set(p.name, done.score);
@@ -363,8 +398,14 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       expect(terms).toMatchObject({ recorded: true, expired: false, settled: false, score: done.score });
       evidence.push(`${p.name} ${done.moves} moves score ${done.score} recorded ${short(done.hash)}`);
     }
-    pass("Daily: play to game over; the game is recorded in the Economy", evidence.join(", "));
-  }, 1_200_000);
+    // The threshold the settlement will use, from the formula: alice must beat it, bob and carol stay under it.
+    const games = players.map((p) => ({ score: scores.get(p.name)!, stake: stakes.get(p.name)! }));
+    cliff = threshold(dayMean(prior, games), (await economy.views.terms(dailyGames.get(players[0].name)!)).sigmaBps);
+    expect(BigInt(scores.get("alice")!) * 1000n, `alice's score against the threshold ${cliff / 1000n}`).toBeGreaterThanOrEqual(cliff);
+    expect(BigInt(scores.get("bob")!) * 1000n).toBeLessThan(cliff);
+    expect(BigInt(scores.get("carol")!) * 1000n).toBeLessThan(cliff);
+    pass("Daily: play to game over; the game is recorded in the Economy", `${evidence.join(", ")}; threshold from the formula ${Number(cliff) / 1000} points: alice above, bob and carol below`);
+  }, 1_800_000);
 
   test("the indexer matches the contract views while the day is open", async () => {
     await caughtUp();
@@ -511,36 +552,36 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const settled = (await economyEvents(result.transactionHash)).find((e) => e.name === "Settled")!;
       expect(BigInt(settled.fields.reward as bigint)).toBe(after.reward);
       expect((await paved(p.address)) - balance).toBe(after.reward);
+      // The minted PAVED is R x h(score / mean) from the chain's own terms and the day's closed mean.
+      const day = await economy.views.day(after.day);
+      expect(day.closed).toBe(true);
+      const dayCliff = threshold(BigInt(day.mean), after.sigmaBps);
+      expect(dayCliff, "the settlement's threshold is the one computed before it").toBe(cliff);
+      expect(after.reward).toBe(payout(after.reference, after.score, dayCliff, after.slopeBps, after.cap));
       settledReward.set(p.name, after.reward);
-      evidence.push(`${p.name} k=${stakes.get(p.name)} score ${after.score} reward ${after.reward} PAVED${after.reward === 0n ? " (below the threshold: stake lost)" : ""}, ${short(result.transactionHash)}`);
+      evidence.push(`${p.name} k=${stakes.get(p.name)} score ${after.score} vs threshold ${Number(dayCliff) / 1000}: R ${after.reference} -> reward ${after.reward} PAVED${after.reward === 0n ? " (below the threshold: stake lost)" : ` = R x ${after.slopeBps} x ${after.score}000 / (${dayCliff} x 10000)`} (Settled = terms = balance change), ${short(result.transactionHash)}`);
       // settling twice sends nothing
       await expect(p.econ.settle([gameId])).rejects.toThrow(/already settled/);
     }
-    pass("settle after D+1: claim PAVED, reward from the chain (Settled event = terms = balance change)", evidence.join("; "));
+    // Both cases: a positive reward above the threshold, 0 below it.
+    expect(settledReward.get("alice")).toBeGreaterThan(0n);
+    expect(settledReward.get("bob")).toBe(0n);
+    expect(settledReward.get("carol")).toBe(0n);
+    pass("settle after D+1: PAVED reward = R x h(score / mean) (Settled event = terms = balance change), positive above the threshold, 0 below", evidence.join("; "));
   }, 120_000);
 
-  test("the Vault: stake PAVED, earn dividends from a later purchase, claim them", async () => {
-    const [alice, bob, carol] = players;
-    // The staker is the player with most PAVED. With the scores of this scenario every reward is 0 (all below the
-    // threshold, which the prior of weight 100 keeps near 3.3k points), so then the deployer, who staked 200,000 PAVED
-    // at deploy and holds no other, unstakes and sends 1,000 PAVED first (setup by direct calls, not the client's code).
-    const staker = [alice, bob, carol].reduce((best, p) => ((settledReward.get(p.name) ?? 0n) > (settledReward.get(best.name) ?? 0n) ? p : best));
-    let fundedBy = "reward";
-    if ((await paved(staker.address)) === 0n) {
-      const predeployed: Array<{ address: string; private_key: string }> = await rpc(rpcUrl, "devnet_getPredeployedAccounts");
-      const deployer = new Account({ provider, address: predeployed[0].address, signer: predeployed[0].private_key });
-      const amount = 1_000n * 10n ** 18n;
-      const unstake = { contractAddress: economy.deployment.addresses.Vault, entrypoint: "unstake", calldata: economy.codecs.Vault.encodeCall("unstake", [amount]) };
-      const transfer = { contractAddress: economy.deployment.addresses.PavedToken, entrypoint: "transfer", calldata: economy.codecs.PavedToken.encodeCall("transfer", [staker.address, amount]) };
-      await provider.waitForTransaction((await deployer.execute([unstake, transfer], { tip: 0n })).transaction_hash);
-      fundedBy = "deployer's Vault unstake and transfer (every reward was 0)";
-    }
-    const balance = await paved(staker.address);
-    const amount = balance / 2n > 0n ? balance / 2n : balance;
-    const staked = await staker.econ.stake(amount, { confirmedAmount: amount });
-    const position = await economy.views.vault(staker.address);
+  test("the Vault: a test account stakes its own PAVED, earns dividends from a later purchase, claims them", async () => {
+    const [, bob, carol] = players;
+    // carol stakes the 1,000 test PAVED that deploy.sh gives each predeployed account but the deployer (P-38): her
+    // own, not the deployer's stake. Her game was under the threshold, so that is all the PAVED she holds.
+    const testPaved = 1_000n * 10n ** 18n;
+    expect(settledReward.get(carol.name)).toBe(0n);
+    expect(await paved(carol.address)).toBe(testPaved);
+    const amount = testPaved;
+    const staked = await carol.econ.stake(amount, { confirmedAmount: amount });
+    const position = await economy.views.vault(carol.address);
     expect(position.staked).toBe(amount);
-    expect(await paved(staker.address)).toBe(balance - amount);
+    expect(await paved(carol.address)).toBe(0n);
     expect(position.pending).toBe(0n);
 
     // A later purchase (bob, stake 1, no referrer: its whole margin goes to the Vault) earns dividends.
@@ -549,14 +590,17 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, referrer: null });
     bobSecondGame = purchase.gameId;
     const margin = BigInt(((await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!.fields as { margin: bigint }).margin);
-    const earned = await economy.views.vault(staker.address);
+    const earned = await economy.views.vault(carol.address);
+    // carol's share of the margin, as the Vault accounts it: staked x (margin x 1e36 / total staked) / 1e36.
+    const scale = 10n ** 36n;
+    const share = (amount * ((margin * scale) / earned.totalStaked)) / scale;
     expect(earned.pending, "dividends pending after a later purchase").toBeGreaterThan(0n);
-    expect(earned.pending).toBeLessThanOrEqual(margin);
-    const before = await usdc(staker.address);
-    const claimed = await staker.econ.claimDividends({ confirmedAmount: earned.pending });
-    expect((await usdc(staker.address)) - before).toBe(earned.pending);
-    expect((await economy.views.vault(staker.address)).pending).toBe(0n);
-    pass("Vault: stake, dividends from a later purchase, claim", `${staker.name} staked ${amount} PAVED (${fundedBy}) ${short(staked.transactionHash)}; bob's purchase margin ${margin} -> pending ${earned.pending} USDC (staked ${position.staked} of ${earned.totalStaked}); claimed ${short(claimed.transactionHash)}, USDC +${earned.pending}`);
+    expect(earned.pending).toBe(share);
+    const before = await usdc(carol.address);
+    const claimed = await carol.econ.claimDividends({ confirmedAmount: earned.pending });
+    expect((await usdc(carol.address)) - before).toBe(earned.pending);
+    expect((await economy.views.vault(carol.address)).pending).toBe(0n);
+    pass("Vault: a test account stakes its own PAVED, dividends from a later purchase, claim", `carol staked her ${amount} test PAVED ${short(staked.transactionHash)}; bob's purchase margin ${margin} USDC -> carol's pending ${earned.pending} = ${amount} x (margin x 1e36 / ${earned.totalStaked}) / 1e36; claimed ${short(claimed.transactionHash)}, USDC +${earned.pending} = pending`);
   }, 120_000);
 
   test("a sponsor reclaims a day nobody ranked in", async () => {
