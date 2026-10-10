@@ -8,7 +8,7 @@ import { SELECTORS, decode, padded } from "./events.ts";
 import { Indexer } from "./indexer.ts";
 import { SCHEMA_VERSION, SchemaMismatch, Store } from "./store.ts";
 import { ACCOUNT, COLLECTION, ECONOMY, DAILY, FakeNode, TUTORIAL, ev, raw } from "./testing/fake-node.ts";
-import { CONFIG, indexerOf, settle } from "./testing/setup.ts";
+import { CONFIG, indexerOf, indexerWithoutCollection, settle } from "./testing/setup.ts";
 
 const ADA = 0xa1n;
 const BO = 0xb2n;
@@ -124,6 +124,17 @@ describe("Collection's mint", () => {
     const games = indexer.store.dump().games;
     expect(games.find((g) => g.contract === "daily" && g.game_id === 1)?.token_id).toBe(1);
     expect(games.find((g) => g.contract === "tutorial" && g.game_id === 1)?.token_id).toBe(2 ** 32 + 1);
+  });
+
+  test("without a Collection address no mint is read: the games carry no token id", async () => {
+    const node = new FakeNode();
+    node.mine([ev.created(ADA, 0x416461)]);
+    node.mine([ev.spawned("tutorial", 1, ADA), ev.minted(ADA, 2 ** 32 + 1)]);
+    const indexer = indexerWithoutCollection(node);
+    await settle(indexer);
+    expect(indexer.status).toBe("ok");
+    expect(indexer.store.dump().games[0]?.token_id).toBeNull();
+    expect(indexer.store.contracts()?.collection).toBeNull();
   });
 
   test("a mint without its game, twice, outside the spawn's block, or to another player halts the indexer", async () => {

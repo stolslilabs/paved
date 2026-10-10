@@ -200,7 +200,7 @@ const server = serve(indexer, {
       tutorial: config.tutorial,
       account: config.account,
       economy: config.economy,
-      collection: config.collection,
+      collection: config.collection ?? null,
     },
     checks,
   },

@@ -30,9 +30,9 @@ describe("the deployment file", () => {
       expect(() => readDeployment(committed)).toThrow("the deployment file has no address for Economy");
       return;
     }
-    // The file is regenerated from main once E5b has merged: until then it has no Collection.
+    // The file is regenerated from main once E5b has merged: until then it has no Collection, which is optional.
     if (file.contracts?.Collection === undefined) {
-      expect(() => readDeployment(committed)).toThrow("the deployment file has no address for Collection");
+      expect(readDeployment(committed).collection).toBeUndefined();
       return;
     }
     const deployment = readDeployment(committed);
@@ -76,9 +76,10 @@ describe("the deployment file", () => {
     const { Economy: _economy, ...before } = ok.contracts;
     expect(() => parseDeployment({ ...ok, contracts: before })).toThrow(/Economy/);
     expect(() => parseDeployment({ ...ok, contracts: { ...ok.contracts, Economy: { address: "0x0" } } })).toThrow(/Economy/);
-    // Required since E5b: without its Collection the game tokens would be missing from every game.
+    // Optional since E5b: without a Collection the mints are not read, but a bad address is still refused.
     const { Collection: _collection, ...without } = ok.contracts;
-    expect(() => parseDeployment({ ...ok, contracts: without })).toThrow(/Collection/);
+    expect(parseDeployment({ ...ok, contracts: without }).collection).toBeUndefined();
+    expect(() => parseDeployment({ ...ok, contracts: { ...ok.contracts, Collection: { address: "0x0" } } })).toThrow(/Collection/);
     expect(() => readDeployment("/nonexistent/devnet.json")).toThrow(/cannot read/);
   });
 

@@ -4,7 +4,7 @@ import { MAX_TOURNAMENT_ID } from "./api.ts";
 import { padded } from "./events.ts";
 import { cacheOf, respond, serve } from "./server.ts";
 import { FakeNode, ev } from "./testing/fake-node.ts";
-import { indexerOf, settle } from "./testing/setup.ts";
+import { indexerOf, indexerWithoutCollection, settle } from "./testing/setup.ts";
 
 const A = 0xa1n;
 const B = 0xb2n;
@@ -50,6 +50,16 @@ describe("routes", () => {
       contracts: { daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444", collection: "0x5555" },
       checks: { tournaments_checked: 0, last_mismatch: null, definitions_excluded: 0 },
     });
+  });
+
+  test("GET /v1/head: without a Collection (before E5b) contracts.collection is null and a game has no token_id", async () => {
+    const node = new FakeNode();
+    node.mine([ev.created(A, 0x416461)]);
+    node.mine([ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY })]);
+    const indexer = indexerWithoutCollection(node);
+    await settle(indexer);
+    expect(get(indexer, "/v1/head").body).toMatchObject({ contracts: { economy: "0x4444", collection: null } });
+    expect((get(indexer, "/v1/games/daily/1").body.game as { token_id: number | null }).token_id).toBeNull();
   });
 
   test("the leaderboard, with the example's fields and paging", async () => {

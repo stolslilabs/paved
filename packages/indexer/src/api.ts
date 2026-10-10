@@ -77,7 +77,8 @@ export interface HeadAnswer extends Envelope {
     tutorial: string;
     account: string;
     economy: string;
-    collection: string;
+    /** null for a deployment without a Collection (before E5b). Appended in E5b. */
+    collection: string | null;
   };
   checks: {
     /** Closed days compared with the `tournament` view since the process started (or the last rewind). */

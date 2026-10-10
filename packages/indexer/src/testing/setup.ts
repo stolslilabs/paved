@@ -42,6 +42,17 @@ export function indexerOf(
   });
 }
 
+/** The same indexer for a deployment without a Collection (before E5b): its mints are not read. */
+export function indexerWithoutCollection(node: FakeNode): Indexer {
+  const config = { ...CONFIG, collection: undefined };
+  return new Indexer({
+    chain: new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }),
+    store: new Store(":memory:"),
+    config,
+    depth: 1000,
+  });
+}
+
 /** Steps until idle or halted, as the process's loop does. */
 export async function settle(subject: Indexer) {
   for (let i = 0; i < 1000; i++) {

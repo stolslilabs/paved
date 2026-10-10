@@ -580,8 +580,8 @@ The package follows this design. What differs, or was decided while building (Pa
 
 ## As built (P8 E5b, the game token)
 
-- **Source**: `Collection` is the fifth contract read (`contracts.Collection` of the deployment file, required: a file
-  without it is refused). Its only event is the mint `Transfer` (keys `from`, `to`, `token_id` as `u256` low and high; no
+- **Source**: `Collection` is the fifth contract read (`contracts.Collection` of the deployment file, optional: without it the
+  mints are not read, `head.contracts.collection` is null and no game has a `token_id`, as for a deployment before E5b). Its only event is the mint `Transfer` (keys `from`, `to`, `token_id` as `u256` low and high; no
   data). The decoder accepts `from = 0` only: a transfer from anyone else, a token id from `2^33` up, or the game id 0
   is a `DecodeError` and the indexer halts (the contract is soulbound, so none can exist). Account's `CollectionSet` is
   known and skipped.
@@ -591,6 +591,6 @@ The package follows this design. What differs, or was decided while building (Pa
   `GameSpawned` in the same block, go to that game's player, and happen once; the indexer halts on a mint with no
   game, a second mint, a mint in another block than the spawn's, or a mint to another player. A game spawned before the
   collection existed keeps `token_id` null.
-- **API fields** (appended to v1): `GameRow.token_id`, `number | null`; `GET /v1/head`: `contracts.collection`.
+- **API fields** (appended to v1): `GameRow.token_id`, `number | null`; `GET /v1/head`: `contracts.collection` (null without a Collection).
 - **Devnet**: `scripts/deploy.sh` deploys `Collection`, wires it (`Account.set_collection`, `Collection.set_minters`)
   and its smoke reads `owner_of` and the decoded `token_uri` of a Daily and a Tutorial game.

@@ -11,7 +11,7 @@ import { CrossCheck } from "../../indexer/src/crosscheck.ts";
 import { canonical, padded } from "../../indexer/src/events.ts";
 import { Queries } from "../../indexer/src/queries.ts";
 import { serve } from "../../indexer/src/server.ts";
-import { ACCOUNT, COLLECTION, DAILY, ECONOMY, FakeNode, TUTORIAL, ev } from "../../indexer/src/testing/fake-node.ts";
+import { ACCOUNT, DAILY, ECONOMY, FakeNode, TUTORIAL, ev } from "../../indexer/src/testing/fake-node.ts";
 import { indexerOf, settle } from "../../indexer/src/testing/setup.ts";
 
 const A = 0xa1n;
@@ -83,7 +83,7 @@ describe("IndexerClient against the real indexer", () => {
     const { client } = await start();
     const { data, head, behind, freshness } = await client.head();
     expect(data).toMatchObject({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 1, lastMismatch: null, tournamentsChecked: 0 });
-    expect(data.contracts).toEqual({ daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444", collection: "0x5555" });
+    expect(data.contracts).toEqual({ daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444" });
     expect(head.number).toBeGreaterThan(0);
     expect(behind).toBe(0);
     expect(freshness).toEqual({ kind: "ok", blocks: 0 });
@@ -144,9 +144,9 @@ describe("IndexerClient against the real indexer", () => {
     node.mine();
     const indexer = indexerOf(node);
     await settle(indexer);
-    const checks = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }), new Queries(indexer.store));
+    const checks = new CrossCheck(new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }), new Queries(indexer.store));
     await checks.run(indexer.served!);
-    const server = serve(indexer, { info: { chainId: "0x1", fromBlock: 1, contracts: { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION }, checks } });
+    const server = serve(indexer, { info: { chainId: "0x1", fromBlock: 1, contracts: { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY }, checks } });
     servers.push(server);
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const client = new IndexerClient({ url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` });

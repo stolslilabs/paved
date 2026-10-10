@@ -41,7 +41,8 @@ export type Config = {
   tutorial: string;
   account: string;
   economy: string;
-  collection: string;
+  /** Undefined for a deployment before E5b: no mint is read and no game has a token id. */
+  collection: string | undefined;
   /** The first block indexed (the contracts' deployment block). */
   from: number;
   /** The chain id of the deployment file, as a canonical felt. */
@@ -60,6 +61,7 @@ export function deploymentHash(
   return createHash("sha256")
     .update(
       [config.daily, config.tutorial, config.account, config.economy, config.collection]
+        .filter((address): address is string => address !== undefined)
         .map((address) => canonical(address))
         .join(","),
     )
@@ -182,7 +184,7 @@ function normalize(config: Config): Config {
     tutorial: canonical(config.tutorial),
     account: canonical(config.account),
     economy: canonical(config.economy),
-    collection: canonical(config.collection),
+    collection: config.collection === undefined ? undefined : canonical(config.collection),
     from: config.from,
     chainId: canonical(config.chainId),
   };
@@ -199,7 +201,7 @@ function metaOf(config: Config): Record<string, string> {
       tutorial: config.tutorial,
       account: config.account,
       economy: config.economy,
-      collection: config.collection,
+      collection: config.collection ?? null,
     }),
   };
 }
@@ -353,7 +355,7 @@ export class Store {
 
   /** The configuration the database was opened with (the addresses as stored). */
   contracts():
-    | { daily: string; tutorial: string; account: string; economy: string; collection: string }
+    | { daily: string; tutorial: string; account: string; economy: string; collection: string | null }
     | undefined {
     const text = this.meta("addresses");
     return text === undefined ? undefined : JSON.parse(text);

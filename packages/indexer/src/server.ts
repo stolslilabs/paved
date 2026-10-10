@@ -365,7 +365,7 @@ export type HeadInfo = {
     tutorial: string;
     account: string;
     economy: string;
-    collection: string;
+    collection: string | null;
   };
   checks?: CrossCheck;
 };

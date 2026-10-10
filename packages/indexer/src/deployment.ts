@@ -14,7 +14,8 @@ export type Deployment = {
   tutorial: string;
   account: string;
   economy: string;
-  collection: string;
+  /** Optional: a deployment before E5b has none, and its games carry no token id. */
+  collection: string | undefined;
 };
 
 const ADDRESS = /^0x[0-9a-fA-F]{1,64}$/;
@@ -52,7 +53,7 @@ export function parseDeployment(file: unknown): Deployment {
     tutorial: address("Tutorial"),
     account: address("Account"),
     economy: address("Economy"),
-    collection: address("Collection"),
+    collection: contracts.Collection === undefined ? undefined : address("Collection"),
   };
 }
 
