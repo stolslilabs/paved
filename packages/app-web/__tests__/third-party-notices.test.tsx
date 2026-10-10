@@ -3,9 +3,11 @@ import React from "react";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
-import { NOTICES_PATH, NOTICE_BACKGROUND, NOTICE_LINK, NOTICE_TEXT, WalletNotice } from "../src/components/WalletNotice";
+import { App } from "../src/App";
+import { AppShell, NOTICES_PATH, NOTICE_BACKGROUND, NOTICE_LINK, NOTICE_TEXT, WalletNotice } from "../src/components/WalletNotice";
 
 // The notices Cartridge's licence asks of every copy of the client (D-15). `vite build` copies public/ to dist; CI
 // builds before it tests, so there dist must hold the file. Locally dist is checked when a build exists.
@@ -16,6 +18,15 @@ const DIST_FILE = at(`../dist/${NOTICES_PATH}`);
 const controllerDir = at("../../chain/node_modules/@cartridge/controller");
 const controller = JSON.parse(readFileSync(join(controllerDir, "package.json"), "utf8")) as { version: string };
 const LICENSE = readFileSync(join(controllerDir, "LICENSE"), "utf8");
+
+// The pages are not under test: stub them so the real App routes render in jsdom.
+vi.mock("@paved/ui", () => ({ useUIStore: (select: (s: { loading: boolean }) => unknown) => select({ loading: false }), useGameStore: () => undefined }));
+vi.mock("../src/pages/Landing", () => ({ LandingPage: () => <main>landing</main> }));
+vi.mock("../src/pages/Game", () => ({ GamePage: () => <main>game</main> }));
+vi.mock("../src/pages/Leaderboard", () => ({ LeaderboardPage: () => <main>leaderboard</main> }));
+vi.mock("../src/pages/Player", () => ({ PlayerPage: () => <main>player</main> }));
+vi.mock("../src/pages/Quests", () => ({ QuestsPage: () => <main>quests</main> }));
+vi.mock("../src/pages/Economy", () => ({ EconomyPage: () => <main>economy</main> }));
 
 afterEach(cleanup);
 
@@ -43,7 +54,7 @@ describe("third-party notices (D-15)", () => {
     const { container } = render(<WalletNotice base="/" />);
     const footer = container.querySelector("footer")!;
     expect(footer.style.fontSize).toBe("1rem"); // the body font: index.html sets no body size
-    expect(footer.style.position).toBe("fixed");
+    expect(footer.style.position).toBe(""); // in normal flow: reserves its height, covers no page
     expect(footer.style.display).not.toBe("none");
     expect(footer.style.opacity).toBe("");
     const link = screen.getByRole("link", { name: "Third-party notices" });
@@ -54,10 +65,26 @@ describe("third-party notices (D-15)", () => {
     expect(contrast(NOTICE_LINK, NOTICE_BACKGROUND)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("is mounted once, outside the router, so every page has it", () => {
-    const main = readFileSync(at("../src/main.tsx"), "utf8");
-    expect(main.match(/<WalletNotice \/>/g)).toHaveLength(1);
-    expect(main.indexOf("</BrowserRouter>")).toBeLessThan(main.indexOf("<WalletNotice />"));
+  it("is in the app shell below the app area, with the link on every route", () => {
+    for (const [route, page] of [["/", "landing"], ["/game", "game"], ["/economy", "economy"]] as const) {
+      const { container, unmount } = render(
+        <MemoryRouter initialEntries={[route]}>
+          <AppShell base="/">
+            <App />
+          </AppShell>
+        </MemoryRouter>
+      );
+      expect(screen.getByText(page)).toBeTruthy();
+      expect(screen.getAllByRole("link", { name: "Third-party notices" })).toHaveLength(1);
+      const shell = container.firstElementChild as HTMLElement;
+      expect(shell.style.flexDirection).toBe("column");
+      const [area, footer] = Array.from(shell.children) as HTMLElement[];
+      expect(area.style.flex).toContain("1"); // flex: 1; min-height: 0
+      expect(area.style.minHeight).toBe("0px");
+      expect(area.contains(screen.getByText(page))).toBe(true);
+      expect(footer.tagName).toBe("FOOTER");
+      unmount();
+    }
   });
 });
 

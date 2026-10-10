@@ -133,4 +133,4 @@ The baseline measures a recorded board, not a live deployment (decided 2026-10-0
 change in P2 and a fixture is deterministic. Latency from move to display is therefore not in the
 baseline; it needs a live node.
 
-The controller notice (D-15) is shown at body size (1rem), on an opaque bar, text and link at 16.06:1 and 19.80:1 on `#0a0a0a`, in the Tab order (D-16).
+The controller notice (D-15) is shown at body size (1rem), in normal flow below the app area (AppShell), on an opaque bar, text and link at 16.06:1 and 19.80:1 on `#0a0a0a`, in the Tab order (D-16).
