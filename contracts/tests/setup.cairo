@@ -23,6 +23,7 @@ pub mod setup {
     use paved::models::tournament::Tournament;
     use paved::store::{StoreImpl, StoreTrait};
     use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
+    use paved::systems::collection::{ICollectionDispatcher, ICollectionDispatcherTrait};
     use paved::systems::daily::IDailyDispatcher;
     pub use paved::systems::daily::IDailyDispatcherTrait;
     use paved::systems::tutorial::{ITutorialDispatcher, ITutorialDispatcherTrait};
@@ -78,6 +79,7 @@ pub mod setup {
         pub tutorial: ITutorialDispatcher,
         pub daily: IDailyDispatcher,
         pub economy: IEconomyDispatcher,
+        pub collection: ICollectionDispatcher,
     }
 
     #[derive(Drop)]
@@ -240,6 +242,7 @@ pub mod setup {
         let (economy_address, token_address) = deploy_economy();
         let account_address = deploy("Account", array![owner]);
         let lobby: felt252 = (*declare("Lobby").unwrap().contract_class().class_hash).into();
+        let collection_address = deploy("Collection", array![owner]);
         let tutorial_address = deploy("Tutorial", array![owner, account_address.into(), lobby]);
         let daily_address = deploy(
             "Daily", array![owner, account_address.into(), token_address.into(), lobby],
@@ -249,13 +252,18 @@ pub mod setup {
             tutorial: ITutorialDispatcher { contract_address: tutorial_address },
             daily: IDailyDispatcher { contract_address: daily_address },
             economy: IEconomyDispatcher { contract_address: economy_address },
+            collection: ICollectionDispatcher { contract_address: collection_address },
         };
         start_cheat_caller_address(economy_address, OWNER());
         systems.economy.set_game(daily_address);
         stop_cheat_caller_address(economy_address);
         start_cheat_caller_address(account_address, OWNER());
         systems.account.set_economy(economy_address);
+        systems.account.set_collection(collection_address);
         stop_cheat_caller_address(account_address);
+        start_cheat_caller_address(collection_address, OWNER());
+        systems.collection.set_minters(daily_address, tutorial_address);
+        stop_cheat_caller_address(collection_address);
 
         // [Setup] Context
         let token = IERC20Dispatcher { contract_address: token_address };

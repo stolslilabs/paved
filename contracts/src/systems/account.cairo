@@ -12,6 +12,10 @@ pub trait IAccount<TContractState> {
     /// The `Economy` of the paid Daily games (zero until set): `Lobby` reads it at spawn and at
     /// game over.
     fn economy(self: @TContractState) -> ContractAddress;
+    /// Sets the `Collection` that `Lobby` mints the games to, once. The owner only.
+    fn set_collection(ref self: TContractState, collection: ContractAddress);
+    /// The `Collection` of the game NFTs (zero until set): `Lobby` reads it at spawn.
+    fn collection(self: @TContractState) -> ContractAddress;
 }
 
 #[starknet::contract]
@@ -39,6 +43,8 @@ pub mod Account {
     pub mod errors {
         pub const ECONOMY_SET: felt252 = 'Account: economy already set';
         pub const ZERO_ECONOMY: felt252 = 'Account: economy is zero';
+        pub const COLLECTION_SET: felt252 = 'Account: collection already set';
+        pub const ZERO_COLLECTION: felt252 = 'Account: collection is zero';
     }
 
     // Components
@@ -60,6 +66,8 @@ pub mod Account {
         ownable: OwnableComponent::Storage,
         /// The `Economy` of the paid Daily games; written once by the owner.
         economy: ContractAddress,
+        /// The `Collection` of the game NFTs; written once by the owner.
+        collection: ContractAddress,
     }
 
     // Events
@@ -74,11 +82,17 @@ pub mod Account {
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         EconomySet: EconomySet,
+        CollectionSet: CollectionSet,
     }
 
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct EconomySet {
         pub economy: ContractAddress,
+    }
+
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct CollectionSet {
+        pub collection: ContractAddress,
     }
 
     // Constructor
@@ -115,6 +129,20 @@ pub mod Account {
 
         fn economy(self: @ContractState) -> ContractAddress {
             self.economy.read()
+        }
+
+        fn set_collection(ref self: ContractState, collection: ContractAddress) {
+            // [Check] The owner, once, a real address
+            self.ownable.assert_only_owner();
+            assert(self.collection.read().is_zero(), errors::COLLECTION_SET);
+            assert(collection.is_non_zero(), errors::ZERO_COLLECTION);
+            // [Effect] Set it for good
+            self.collection.write(collection);
+            self.emit(CollectionSet { collection });
+        }
+
+        fn collection(self: @ContractState) -> ContractAddress {
+            self.collection.read()
         }
     }
 }

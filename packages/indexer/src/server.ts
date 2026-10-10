@@ -360,7 +360,13 @@ export function cacheOf(indexer: Indexer): AnswerCache {
 export type HeadInfo = {
   chainId: string;
   fromBlock: number;
-  contracts: { daily: string; tutorial: string; account: string; economy: string };
+  contracts: {
+    daily: string;
+    tutorial: string;
+    account: string;
+    economy: string;
+    collection: string;
+  };
   checks?: CrossCheck;
 };
 

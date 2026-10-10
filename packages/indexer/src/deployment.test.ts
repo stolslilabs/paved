@@ -16,17 +16,23 @@ const FILE = {
     Daily: { address: "0x1" },
     Tutorial: { address: "0x2" },
     Economy: { address: "0x4" },
+    Collection: { address: "0x6" },
     PavedToken: { address: "0x5" },
   },
 };
 
 describe("the deployment file", () => {
-  test("the committed devnet.json gives the four addresses, the start block and the chain", () => {
+  test("the committed devnet.json gives the five addresses, the start block and the chain", () => {
     const file = JSON.parse(readFileSync(committed, "utf8"));
     // The file is regenerated from main once E3 has merged (scripts/deploy.sh deploys main-equivalent sources only):
     // until then it predates Economy, and the indexer refuses it.
     if (file.contracts?.Economy === undefined) {
       expect(() => readDeployment(committed)).toThrow("the deployment file has no address for Economy");
+      return;
+    }
+    // The file is regenerated from main once E5b has merged: until then it has no Collection.
+    if (file.contracts?.Collection === undefined) {
+      expect(() => readDeployment(committed)).toThrow("the deployment file has no address for Collection");
       return;
     }
     const deployment = readDeployment(committed);
@@ -39,8 +45,9 @@ describe("the deployment file", () => {
       tutorial: of("Tutorial"),
       account: of("Account"),
       economy: of("Economy"),
+      collection: of("Collection"),
     });
-    expect(new Set([deployment.daily, deployment.tutorial, deployment.account, deployment.economy]).size).toBe(4);
+    expect(new Set([deployment.daily, deployment.tutorial, deployment.account, deployment.economy, deployment.collection]).size).toBe(5);
     expect(defaultRpcUrl(deployment)).toBe("http://127.0.0.1:5050");
   });
 
@@ -54,6 +61,7 @@ describe("the deployment file", () => {
       tutorial: "0x2",
       account: "0x3",
       economy: "0x4",
+      collection: "0x6",
     });
   });
 
@@ -68,6 +76,9 @@ describe("the deployment file", () => {
     const { Economy: _economy, ...before } = ok.contracts;
     expect(() => parseDeployment({ ...ok, contracts: before })).toThrow(/Economy/);
     expect(() => parseDeployment({ ...ok, contracts: { ...ok.contracts, Economy: { address: "0x0" } } })).toThrow(/Economy/);
+    // Required since E5b: without its Collection the game tokens would be missing from every game.
+    const { Collection: _collection, ...without } = ok.contracts;
+    expect(() => parseDeployment({ ...ok, contracts: without })).toThrow(/Collection/);
     expect(() => readDeployment("/nonexistent/devnet.json")).toThrow(/cannot read/);
   });
 

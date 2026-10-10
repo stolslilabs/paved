@@ -41,6 +41,7 @@ export type Config = {
   tutorial: string;
   account: string;
   economy: string;
+  collection: string;
   /** The first block indexed (the contracts' deployment block). */
   from: number;
   /** The chain id of the deployment file, as a canonical felt. */
@@ -50,15 +51,15 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "4";
+export const SCHEMA_VERSION = "5";
 
-/** The sha256 of the four addresses (canonical, in a fixed order): the identity of a deployment. */
+/** The sha256 of the five addresses (canonical, in a fixed order): the identity of a deployment. */
 export function deploymentHash(
-  config: Pick<Config, "daily" | "tutorial" | "account" | "economy">,
+  config: Pick<Config, "daily" | "tutorial" | "account" | "economy" | "collection">,
 ): string {
   return createHash("sha256")
     .update(
-      [config.daily, config.tutorial, config.account, config.economy]
+      [config.daily, config.tutorial, config.account, config.economy, config.collection]
         .map((address) => canonical(address))
         .join(","),
     )
@@ -92,6 +93,8 @@ const SCHEMA = `
     over INTEGER NOT NULL DEFAULT 0,
     score INTEGER, tournament_id INTEGER,
     end_time INTEGER, over_block INTEGER, over_tx INTEGER, over_idx INTEGER,
+    -- The id of the game's token (the mint of Collection, in the block of the spawn); NULL until minted.
+    token_id INTEGER,
     PRIMARY KEY (contract, game_id)
   );
   CREATE INDEX IF NOT EXISTS games_player ON games (player_id, start_time DESC, contract DESC, game_id DESC);
@@ -179,6 +182,7 @@ function normalize(config: Config): Config {
     tutorial: canonical(config.tutorial),
     account: canonical(config.account),
     economy: canonical(config.economy),
+    collection: canonical(config.collection),
     from: config.from,
     chainId: canonical(config.chainId),
   };
@@ -195,6 +199,7 @@ function metaOf(config: Config): Record<string, string> {
       tutorial: config.tutorial,
       account: config.account,
       economy: config.economy,
+      collection: config.collection,
     }),
   };
 }
@@ -347,7 +352,9 @@ export class Store {
   }
 
   /** The configuration the database was opened with (the addresses as stored). */
-  contracts(): { daily: string; tutorial: string; account: string; economy: string } | undefined {
+  contracts():
+    | { daily: string; tutorial: string; account: string; economy: string; collection: string }
+    | undefined {
     const text = this.meta("addresses");
     return text === undefined ? undefined : JSON.parse(text);
   }
@@ -459,6 +466,20 @@ export class Store {
               over_tx: raw.transactionIndex,
               over_idx: raw.eventIndex,
             });
+            break;
+          }
+          case "Transfer": {
+            // The mint of a game's token: it follows the game's own spawn in the same transaction (Lobby.spawn), mints
+            // to its player, and happens once. Anything else is not the chain this indexer was built for.
+            const what = `Transfer of token ${event.tokenId} ${where}`;
+            const game = this.sql.game.get(event.contract, event.gameId) as Row | undefined;
+            if (!game) throw new Halt(`${what}: no ${event.contract} game ${event.gameId}`);
+            if (game.token_id !== null) throw new Halt(`${what}: the game already has a token`);
+            if (game.spawned_block !== at) throw new Halt(`${what}: minted outside the block of the spawn`);
+            if (game.player_id !== padded(event.to)) {
+              throw new Halt(`${what}: another player than the one that spawned the game`);
+            }
+            this.sql.mintGame.run({ contract: event.contract, game_id: event.gameId, token_id: event.tokenId });
             break;
           }
           case "QuestDefined": {
@@ -800,11 +821,14 @@ function statements(db: DatabaseSync) {
       "INSERT INTO events (block, tx, idx, source, name, keys, data) VALUES (?, ?, ?, ?, ?, ?, ?)",
     ),
     game: db.prepare(
-      "SELECT player_id, over FROM games WHERE contract = ? AND game_id = ?",
+      "SELECT player_id, over, spawned_block, token_id FROM games WHERE contract = ? AND game_id = ?",
     ),
     insertGame: db.prepare(
       `INSERT INTO games (contract, game_id, player_id, mode, spawn_tournament, start_time, price, spawned_block)
        VALUES (:contract, :game_id, :player_id, :mode, :spawn_tournament, :start_time, :price, :spawned_block)`,
+    ),
+    mintGame: db.prepare(
+      "UPDATE games SET token_id = :token_id WHERE contract = :contract AND game_id = :game_id",
     ),
     finishGame: db.prepare(
       `UPDATE games SET over = 1, score = :score, tournament_id = :tournament_id, end_time = :end_time,

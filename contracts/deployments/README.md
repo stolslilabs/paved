@@ -38,7 +38,7 @@ exists; a public network is the owner's decision and `scripts/deploy.sh` refuses
 | `deployed_at` | `git merge-base HEAD origin/main`, the main commit whose contract sources were deployed, when `git diff --quiet <that> -- contracts/src contracts/Scarb.toml contracts/Scarb.lock` holds (the working tree, which is what the build compiles) and `contracts/src` has no untracked file. Otherwise the script refuses (deploy from main-equivalent sources) |
 | `deployed_block` | Block number of the first deploy transaction (`MockUSDC`). Start indexing events here; the declares are in earlier blocks |
 | `token` | The ERC20 `Daily` charges: USDC (`MockUSDC` on devnet, repeated under `contracts`). `decimals` is read from the deployed token by call (6); `symbol` is `USDC` |
-| `contracts.<Name>` | Address and class hash. `Economy`, `PavedToken` and `Vault` are the economy (P8, `docs/architecture/economy.md`). On devnet, `MockUSDC` and `MockRouter` stand in for USDC and the Ekubo router; off devnet the real USDC goes under `USDC` and no mock is deployed (the script refuses `MockUSDC`, `MockRouter` and `Token` by name there). `Token` is the old mock ERC20 (test and devnet only), no longer charged by `Daily`, kept while the client still reads it |
+| `contracts.<Name>` | Address and class hash. `Economy`, `PavedToken` and `Vault` are the economy (P8, `docs/architecture/economy.md`). `Collection` (P8 E5b) is the soulbound ERC721 of the games: every spawn mints the game to its player; the indexer reads its mints. On devnet, `MockUSDC` and `MockRouter` stand in for USDC and the Ekubo router; off devnet the real USDC goes under `USDC` and no mock is deployed (the script refuses `MockUSDC`, `MockRouter` and `Token` by name there). `Token` is the old mock ERC20 (test and devnet only), no longer charged by `Daily`, kept while the client still reads it |
 | `classes.<Name>` | Class hash of a class that is declared and never deployed, so it has no address. `Lobby` runs `spawn`, `claim`, `sponsor`, `discard` and `surrender` of `Daily` and `Tutorial` by library call (`docs/architecture/native-storage.md`, "Classes"); the client never calls it and has no ABI for it |
 
 Hex strings are `0x`-prefixed and 64 digits for addresses and class hashes, as printed by sncast. ABIs are in
@@ -57,6 +57,7 @@ sncast declares), declares the ten classes (`Lobby` last, never deployed), deplo
 with salt 1 (the order and every argument are in the header of `scripts/deploy.sh`; `docs/architecture/economy.md`, "As
 built: E3"), writes the file, then runs a smoke check and exits non-zero on any failure:
 
+- `Account.set_collection` and `Collection.set_minters(Daily, Tutorial)` checked by read back (E5b), then `owner_of` and the decoded `token_uri` of a finished Daily and a running Tutorial game;
 - `Account.create`, `Daily.entry_price()` read (MockUSDC, 2 USDC per stake unit);
 - a paid Daily game at stake 1 (`min_out` from `Economy.quote_swap`, less 1 %): exactly 2 USDC leave the player and
   `Economy` holds nothing after; the game is surrendered and `Economy` records it;

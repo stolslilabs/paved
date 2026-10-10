@@ -14,12 +14,18 @@ import { hash } from "starknet";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
 
 /**
- * The four contracts whose events are read: `daily` and `tutorial` play, `account` registers players, `economy` holds the
- * terms, the scores and the settlements of the paid Daily games (docs/architecture/economy.md, "Events").
+ * The five contracts whose events are read: `daily` and `tutorial` play, `account` registers players, `economy` holds the
+ * terms, the scores and the settlements of the paid Daily games (docs/architecture/economy.md, "Events"), and `collection`
+ * mints the game NFTs (economy.md, section 9).
  */
-export type Source = "daily" | "tutorial" | "account" | "economy";
+export type Source = "daily" | "tutorial" | "account" | "economy" | "collection";
 
-export const SOURCES: readonly Source[] = ["daily", "tutorial", "account", "economy"];
+export const SOURCES: readonly Source[] = ["daily", "tutorial", "account", "economy", "collection"];
+
+/** A Tutorial game's token id is `TUTORIAL_OFFSET + game id`; a Daily game's is its game id (`Collection`). */
+export const TUTORIAL_OFFSET = 2n ** 32n;
+/** The first token id that belongs to no game contract. */
+export const TOKEN_LIMIT = 2n ** 33n;
 
 export class DecodeError extends Error {}
 
@@ -98,6 +104,17 @@ export type Decoded =
       /** `R`, PAVED base units (u128). */
       reference: bigint;
     }
+  | {
+      /** The mint of a game's token (`Collection` emits no other transfer: it is soulbound). */
+      name: "Transfer";
+      /** The player the token was minted to. */
+      to: bigint;
+      /** Below 2^33, so exact as a JSON number. */
+      tokenId: number;
+      /** The game contract the token id belongs to, and the game id in it. */
+      contract: "daily" | "tutorial";
+      gameId: number;
+    }
   | { name: "Recorded"; gameId: number; score: number; expired: boolean }
   | {
       name: "DayClosed";
@@ -145,6 +162,7 @@ export const EMITTERS: Record<EventName, readonly Source[]> = {
   Recorded: ["economy"],
   DayClosed: ["economy"],
   Settled: ["economy"],
+  Transfer: ["collection"],
 };
 
 /** Events of the contracts' ABIs that are not indexed in v1 (indexer.md, "Not indexed"). */
@@ -168,6 +186,7 @@ export const IGNORED = [
   "PoolSet",
   "GameSet",
   "EconomySet",
+  "CollectionSet",
   // A sponsor's reclaim of a day's unclaimable prize (P-37): declared by the Lobby class, emitted from Daily's address.
   "Reclaimed",
 ] as const;
@@ -186,6 +205,7 @@ const INDEXED: readonly EventName[] = [
   "Recorded",
   "DayClosed",
   "Settled",
+  "Transfer",
 ];
 
 /** Selector (a lowercase 0x hex without leading zeros) of every event name of the contracts. */
@@ -464,6 +484,27 @@ export function decode(
         factor: small(data[15], 32, "factor"),
         reference: uint(data[16], 128, "reference"),
       };
+    case "Transfer": {
+      // keys from, to, token_id (u256: low, high); no data. Only the mint (from 0) exists on this contract.
+      shape(name, keys, data, 4, 0);
+      if (felt(keys[1]) !== 0n) {
+        throw new DecodeError(`${name}: a transfer from ${keys[1]}, the collection only mints`);
+      }
+      const tokenId = u256(keys, 3, "token_id");
+      if (tokenId >= TOKEN_LIMIT) {
+        throw new DecodeError(`${name}: token id ${tokenId} belongs to no game contract`);
+      }
+      const tutorial = tokenId >= TUTORIAL_OFFSET;
+      const gameId = tutorial ? tokenId - TUTORIAL_OFFSET : tokenId;
+      if (gameId === 0n) throw new DecodeError(`${name}: token id ${tokenId} is the game id 0`);
+      return {
+        name,
+        to: felt(keys[2]),
+        tokenId: Number(tokenId),
+        contract: tutorial ? "tutorial" : "daily",
+        gameId: Number(gameId),
+      };
+    }
     case "Recorded":
       shape(name, keys, data, 1, 2);
       return {

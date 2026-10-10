@@ -1,5 +1,5 @@
 // Copied from Grim World, indexer/src/chain.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
-// Apache-2.0. Adapted for Paved: four addresses (daily, tutorial, account, economy) instead of hub and market, the `Source` type
+// Apache-2.0. Adapted for Paved: five addresses (daily, tutorial, account, economy, collection) instead of hub and market, the `Source` type
 // of events.ts, a smaller `getEvents` page, and two read calls added (`chainId`, `call`, for the chain id check and the
 // cross-check against the `tournament` view). URL redaction, block header and commitments, call counters unchanged. This
 // copy is maintained by the Paved repository.
@@ -160,6 +160,7 @@ export class Chain {
       tutorial: canonical(addresses.tutorial),
       account: canonical(addresses.account),
       economy: canonical(addresses.economy),
+      collection: canonical(addresses.collection),
     };
   }
 

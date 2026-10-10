@@ -167,7 +167,7 @@ fn test_views_game_closed_by_last_tile() {
 }
 
 #[test]
-#[available_gas(l2_gas: 77135586)]
+#[available_gas(l2_gas: 78358000)]
 fn test_views_game_tutorial() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
@@ -188,7 +188,7 @@ fn test_views_game_tutorial() {
 }
 
 #[test]
-#[available_gas(l2_gas: 66409381)]
+#[available_gas(l2_gas: 68143000)]
 fn test_views_game_tutorial_same_second_game_over() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
@@ -432,7 +432,7 @@ fn test_views_tournament_lifecycle() {
 }
 
 #[test]
-#[available_gas(l2_gas: 57013732)]
+#[available_gas(l2_gas: 57473000)]
 fn test_views_tournament_empty_day() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (_, systems, _) = setup::spawn_game(Mode::None);
@@ -445,7 +445,7 @@ fn test_views_tournament_empty_day() {
 }
 
 #[test]
-#[available_gas(l2_gas: 57571545)]
+#[available_gas(l2_gas: 58004000)]
 fn test_views_tournament_id_bounds() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (_, systems, _) = setup::spawn_game(Mode::None);

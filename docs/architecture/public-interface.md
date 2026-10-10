@@ -243,4 +243,16 @@ working.
     in. `Daily.claim(tournament_id, 0)` (rank 0) is a sponsor's reclaim, once, after the day is over; on a day with
     a ranked game it reverts, since rank 1 takes the shares of the empty ranks as before (the ranks' rewards are
     unchanged). New event, emitted from `Daily`'s address and declared in `contracts/abis/Lobby.json`: `Reclaimed`
-    (keys `tournament_id`, `sponsor`; data `amount: u256`). The ABI of `Daily` is unchanged.
+    (keys `tournament_id`, `sponsor`; data `amount: u256`). The ABI of `Daily` is unchanged. The prize of a reclaimed
+    day stays its historical total (`tournament(day).prize` does not go down); the `Reclaimed` events give what went
+    back to each sponsor.
+- **P8 E5b, the game NFT minted at spawn** (`docs/architecture/economy.md`, "As built: E5b").
+  - `Account` gains `set_collection(collection)` (owner, once, non-zero), the view `collection() -> ContractAddress`
+    and the event `CollectionSet { collection }`, as `set_economy`. `contracts/abis/Account.json` is regenerated.
+  - `Daily.spawn(...)` and `Tutorial.spawn()` keep their signatures. Each now mints the game's token in `Collection`
+    to the caller, in the same transaction: id `game_id` for Daily and `2^32 + game_id` for Tutorial, a plain mint
+    with no receiver callback (the `Transfer` event with `from = 0`). While the `Account` has no collection the spawn
+    reverts with `'Lobby: collection not set'` and leaves no game.
+  - No entry point of `Daily`, `Tutorial` or `Lobby` takes a token id, and none calls `Collection.mint` on a caller's
+    behalf.
+  - `contracts/deployments/<network>.json` gains `contracts.Collection`.

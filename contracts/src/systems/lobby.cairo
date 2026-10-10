@@ -73,6 +73,9 @@ pub mod Lobby {
     use paved::quests::{achievement_entries, decode, quest_entries};
     use paved::store::{PavedStorage, StoreImpl, StoreTrait};
     use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
+    use paved::systems::collection::{
+        ICollectionDispatcher, ICollectionDispatcherTrait, TUTORIAL_OFFSET,
+    };
     use paved::types::mode::Mode;
     use quiver_achievement::component::AchievementComponent;
     use quiver_quest::component::QuestComponent;
@@ -89,6 +92,7 @@ pub mod Lobby {
     pub mod errors {
         pub const NOT_DEPLOYABLE: felt252 = 'Lobby: declared only';
         pub const NO_ECONOMY: felt252 = 'Lobby: economy not set';
+        pub const NO_COLLECTION: felt252 = 'Lobby: collection not set';
         pub const PAY_FAILED: felt252 = 'ERC20: pay failed';
         pub const MISALIGNED_QUEST: felt252 = 'Daily: quest not on UTC day';
         pub const TASK_TOTAL_ZERO: felt252 = 'Daily: task total is zero';
@@ -233,6 +237,8 @@ pub mod Lobby {
             if mode == Mode::Daily {
                 self.purchase(game_id, unit, stake, referrer, min_out);
             }
+            // [Interaction] The game is minted to its player, under its own id and no other
+            self.mint(mode, game_id);
             // [Return] Game ID
             game_id
         }
@@ -369,8 +375,32 @@ pub mod Lobby {
         IEconomyDispatcher { contract_address: economy }
     }
 
+    /// The `Collection` of the game NFTs, from the `Account` registry: set once, never zero after
+    /// that.
+    fn collection() -> ICollectionDispatcher {
+        let base: StorageBase<PavedStorage> = StorageBase { __base_address__: selector!("paved") };
+        let account = IAccountDispatcher { contract_address: base.as_path().account.read() };
+        let collection = account.collection();
+        assert(collection.is_non_zero(), errors::NO_COLLECTION);
+        ICollectionDispatcher { contract_address: collection }
+    }
+
     #[generate_trait]
     impl InternalImpl of InternalTrait {
+        /// A game is a token (economy.md section 9): its id for a Daily game, `TUTORIAL_OFFSET`
+        /// plus its id for a Tutorial game, minted to the caller, who is the player (`spawn` checks
+        /// that they are registered). `Collection` accepts it from `Daily` or `Tutorial` only, a
+        /// plain mint with no receiver callback. The id is never an input: it is the id the
+        /// spawn just drew, so no entry point lets a caller mint another one.
+        fn mint(ref self: ContractState, mode: Mode, game_id: u32) {
+            let token_id: u256 = if mode == Mode::Tutorial {
+                TUTORIAL_OFFSET + game_id.into()
+            } else {
+                game_id.into()
+            };
+            collection().mint(get_caller_address(), token_id);
+        }
+
         /// The purchase of a Daily game (economy.md section 1, P-31): `stake x unit` USDC go
         /// from the player straight to `Economy`, then `Economy.purchase` splits them, in the same
         /// call, for this game's own id. `Economy` checks the stake (1 to 10) and the price. A

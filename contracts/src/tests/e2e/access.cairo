@@ -32,7 +32,7 @@ fn ownables(systems: @setup::Systems) -> Array<IOwnableDispatcher> {
 }
 
 #[test]
-#[available_gas(l2_gas: 56658089)]
+#[available_gas(l2_gas: 57134000)]
 fn test_access_owner_is_set_at_deployment() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -53,7 +53,7 @@ fn accept(ownable: IOwnableDispatcher, caller: ContractAddress) {
 }
 
 #[test]
-#[available_gas(l2_gas: 61652708)]
+#[available_gas(l2_gas: 61891000)]
 fn test_access_transfer_ownership_only_proposes() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -71,7 +71,7 @@ fn test_access_transfer_ownership_only_proposes() {
 }
 
 #[test]
-#[available_gas(l2_gas: 63289374)]
+#[available_gas(l2_gas: 63449000)]
 fn test_access_pending_owner_accepts_ownership() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -88,7 +88,7 @@ fn test_access_pending_owner_accepts_ownership() {
 }
 
 #[test]
-#[available_gas(l2_gas: 59521974)]
+#[available_gas(l2_gas: 59861000)]
 fn test_access_new_owner_holds_the_power() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -159,7 +159,7 @@ fn test_access_new_proposal_overwrites_the_pending_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 59099874)]
+#[available_gas(l2_gas: 59459000)]
 fn test_access_overwriting_proposal_lets_the_second_candidate_accept() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -196,7 +196,7 @@ fn test_access_upgrade_reverts_on_zero_class_hash() {
 }
 
 #[test]
-#[available_gas(l2_gas: 57449631)]
+#[available_gas(l2_gas: 57888000)]
 fn test_access_owner_upgrades_and_state_is_kept() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -220,7 +220,7 @@ fn test_access_account_creates_once_per_address() {
 }
 
 #[test]
-#[available_gas(l2_gas: 56720396)]
+#[available_gas(l2_gas: 57193000)]
 fn test_access_account_player_view() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let player = systems.account.player(context.player_id);
@@ -292,7 +292,7 @@ fn test_access_tutorial_surrender_reverts_on_another_players_game() {
 }
 
 #[test]
-#[available_gas(l2_gas: 124396827)]
+#[available_gas(l2_gas: 124682000)]
 fn test_access_game_ids_are_counted_per_contract() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     assert(context.game_id == 1, 'Access: first tutorial id');
@@ -527,6 +527,58 @@ fn test_access_account_set_economy_emits_economy_set() {
                     account.contract_address,
                     paved::systems::account::Account::Event::EconomySet(
                         paved::systems::account::Account::EconomySet { economy: ECONOMY() },
+                    ),
+                ),
+            ],
+        );
+}
+
+fn COLLECTION() -> ContractAddress {
+    'COLLECTION'.try_into().unwrap()
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller is not owner')]
+fn test_access_account_set_collection_reverts_for_non_owner() {
+    let account = fresh_account();
+    start_cheat_caller_address(account.contract_address, ANYONE());
+    account.set_collection(COLLECTION());
+}
+
+#[test]
+#[should_panic(expected: 'Account: collection already set')]
+fn test_access_account_set_collection_reverts_twice() {
+    let account = fresh_account();
+    start_cheat_caller_address(account.contract_address, OWNER());
+    account.set_collection(COLLECTION());
+    account.set_collection(ANYONE());
+}
+
+#[test]
+#[should_panic(expected: 'Account: collection is zero')]
+fn test_access_account_set_collection_reverts_on_zero() {
+    let account = fresh_account();
+    start_cheat_caller_address(account.contract_address, OWNER());
+    account.set_collection(core::num::traits::Zero::zero());
+}
+
+#[test]
+fn test_access_account_set_collection_emits_collection_set() {
+    let account = fresh_account();
+    assert(account.collection() == core::num::traits::Zero::zero(), 'Account: collection before');
+    let mut spy = spy_events();
+    start_cheat_caller_address(account.contract_address, OWNER());
+    account.set_collection(COLLECTION());
+    assert(account.collection() == COLLECTION(), 'Account: collection after');
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    account.contract_address,
+                    paved::systems::account::Account::Event::CollectionSet(
+                        paved::systems::account::Account::CollectionSet {
+                            collection: COLLECTION(),
+                        },
                     ),
                 ),
             ],

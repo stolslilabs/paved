@@ -278,6 +278,15 @@ fn test_collection_set_minters_twice() {
 }
 
 #[test]
+#[should_panic(expected: 'Collection: same minter')]
+fn test_collection_set_minters_refuses_one_address_for_both() {
+    let world = deploy();
+    start_cheat_caller_address(world.collection, OWNER());
+    ICollectionDispatcher { contract_address: world.collection }
+        .set_minters(world.daily, world.daily);
+}
+
+#[test]
 #[should_panic(expected: 'Collection: not owner')]
 fn test_collection_set_minters_by_anyone() {
     let world = deploy();
@@ -329,6 +338,7 @@ fn assert_all_revert(world: @World, caller: ContractAddress, token_id: u256) {
         camel.transferFrom(from, to, token_id).unwrap_err(),
         camel.safeTransferFrom(from, to, token_id, empty).unwrap_err(),
         camel.setApprovalForAll(to, true).unwrap_err(),
+        camel.setApprovalForAll(to, false).unwrap_err(),
     ];
     stop_cheat_caller_address(collection);
     for reason in reasons {

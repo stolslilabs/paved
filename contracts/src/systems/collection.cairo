@@ -221,6 +221,7 @@ pub mod Collection {
         pub const NOT_OWNER: felt252 = 'Collection: not owner';
         pub const MINTERS_SET: felt252 = 'Collection: minters set';
         pub const ZERO_MINTER: felt252 = 'Collection: zero minter';
+        pub const SAME_MINTER: felt252 = 'Collection: same minter';
         pub const NOT_MINTER: felt252 = 'Collection: not minter';
         pub const INVALID_TOKEN: felt252 = 'Collection: invalid token';
         pub const ALREADY_MINTED: felt252 = 'Collection: already minted';
@@ -303,6 +304,8 @@ pub mod Collection {
             assert(get_caller_address() == self.owner.read(), errors::NOT_OWNER);
             assert(self.daily.read().is_zero(), errors::MINTERS_SET);
             assert(daily.is_non_zero() && tutorial.is_non_zero(), errors::ZERO_MINTER);
+            // [Check] Two contracts: one address minting both ranges would defeat the split
+            assert(daily != tutorial, errors::SAME_MINTER);
             self.daily.write(daily);
             self.tutorial.write(tutorial);
         }

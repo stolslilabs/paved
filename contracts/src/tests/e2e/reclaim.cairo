@@ -10,7 +10,9 @@ use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, SOMEONE, TestStoreTrait,
 };
+use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
 use paved::types::mode::Mode;
+use paved::views::{ITournamentViewDispatcher, ITournamentViewDispatcherTrait};
 use snforge_std::{
     EventSpyAssertionsTrait, spy_events, start_cheat_block_timestamp_global,
     start_cheat_caller_address,
@@ -165,4 +167,57 @@ fn test_reclaim_with_every_rank_held_reverts() {
     sponsor(@systems, ANYONE(), 6_000_000);
     end_day();
     take(@systems, @context, ANYONE(), 0);
+}
+
+/// A game spawned on day D and sponsored, its day ended and reclaimed (rank 0), then ended on day
+/// D+1: it ranks nothing in D and no rank can claim there. The prize of D stays the historical
+/// total (`Reclaimed` gives what went back).
+#[test]
+fn test_reclaim_then_late_game_over_ranks_nothing() {
+    let (store, systems, context) = start();
+    let game_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
+    sponsor(@systems, PLAYER(), 2_000_000);
+    end_day();
+    assert(take(@systems, @context, PLAYER(), 0) == 2_000_000, 'Reclaim: whole prize');
+    // [Effect] The game ends on D+1
+    start_cheat_block_timestamp_global((D + 1) * DAY + 3600);
+    start_cheat_caller_address(systems.daily.contract_address, PLAYER());
+    systems.daily.surrender(game_id);
+    assert(store.game(game_id).over, 'Reclaim: game over');
+    let tournaments = ITournamentViewDispatcher { contract_address: systems.daily.contract_address };
+    let day = tournaments.tournament(D);
+    assert(day.top1_player_id == 0 && day.top1_score == 0, 'Reclaim: D ranked');
+    assert(day.top2_player_id == 0 && day.top3_player_id == 0, 'Reclaim: D ranked 2');
+    assert(day.prize == 2_000_000, 'Reclaim: prize history');
+    assert(tournaments.tournament(D + 1).top1_player_id == 0, 'Reclaim: D+1 ranked');
+    // [Check] No rank claims, and the reclaim is spent
+    let daily = IDailySafeDispatcher { contract_address: systems.daily.contract_address };
+    assert(daily.claim(D, 1).is_err(), 'Reclaim: rank 1 claimed');
+    assert(daily.claim(D, 2).is_err(), 'Reclaim: rank 2 claimed');
+    assert(daily.claim(D, 3).is_err(), 'Reclaim: rank 3 claimed');
+    assert(daily.claim(D, 0).is_err(), 'Reclaim: reclaimed twice');
+    assert(context.token.balance_of(systems.daily.contract_address) == 0, 'Reclaim: left in Daily');
+}
+
+/// Two sponsorships of one sponsor on one day (1,000,000 then 500,000) come back together.
+#[test]
+fn test_reclaim_sums_two_sponsorships_of_one_sponsor() {
+    let (_, systems, context) = start();
+    sponsor(@systems, ANYONE(), 1_000_000);
+    sponsor(@systems, ANYONE(), 500_000);
+    end_day();
+    assert(take(@systems, @context, ANYONE(), 0) == 1_500_000, 'Reclaim: sum');
+    assert(context.token.balance_of(systems.daily.contract_address) == 0, 'Reclaim: left in Daily');
+}
+
+/// A sponsorship after the day lands in day D+1's prize, not D's.
+#[test]
+fn test_sponsorship_after_the_day_lands_in_the_next_one() {
+    let (_, systems, _) = start();
+    sponsor(@systems, ANYONE(), 1_000_000);
+    end_day();
+    sponsor(@systems, ANYONE(), 700_000);
+    let tournaments = ITournamentViewDispatcher { contract_address: systems.daily.contract_address };
+    assert(tournaments.tournament(D).prize == 1_000_000, 'Sponsor: day D');
+    assert(tournaments.tournament(D + 1).prize == 700_000, 'Sponsor: day D+1');
 }

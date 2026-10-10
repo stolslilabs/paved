@@ -577,3 +577,20 @@ The package follows this design. What differs, or was decided while building (Pa
   `rewards` against the PAVED the settlement minted (`total_supply`, and a player's balance), not only against
   `Economy.terms`. `Reclaimed` (P-37, from `Daily`'s address) is ignored.
   `PAVED_DEPLOY_UNMERGED=1` deploys a pull request's sources (`--unmerged`). It passed (7 of 7) against #275.
+
+## As built (P8 E5b, the game token)
+
+- **Source**: `Collection` is the fifth contract read (`contracts.Collection` of the deployment file, required: a file
+  without it is refused). Its only event is the mint `Transfer` (keys `from`, `to`, `token_id` as `u256` low and high; no
+  data). The decoder accepts `from = 0` only: a transfer from anyone else, a token id from `2^33` up, or the game id 0
+  is a `DecodeError` and the indexer halts (the contract is soulbound, so none can exist). Account's `CollectionSet` is
+  known and skipped.
+- **Token id**: below `2^32` it is a Daily game id, from `2^32` up it is a Tutorial game id plus `2^32`. Both fit a safe
+  integer (P-19), so the field is a JSON number.
+- **Storage**: `games.token_id` (schema version 5, `rebuild` on an older database). The mint must follow the game's own
+  `GameSpawned` in the same block, go to that game's player, and happen once; the indexer halts on a mint with no
+  game, a second mint, a mint in another block than the spawn's, or a mint to another player. A game spawned before the
+  collection existed keeps `token_id` null.
+- **API fields** (appended to v1): `GameRow.token_id`, `number | null`; `GET /v1/head`: `contracts.collection`.
+- **Devnet**: `scripts/deploy.sh` deploys `Collection`, wires it (`Account.set_collection`, `Collection.set_minters`)
+  and its smoke reads `owner_of` and the decoded `token_uri` of a Daily and a Tutorial game.

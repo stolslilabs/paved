@@ -548,7 +548,7 @@ fn test_quests_tutorial_game_over_on_the_last_discard_credits_task_10() {
 
 /// P-28: a Tutorial surrender credits nothing, however early or late, but the game is over.
 #[test]
-#[available_gas(l2_gas: 66573401)]
+#[available_gas(l2_gas: 68299000)]
 fn test_quests_tutorial_surrender_credits_no_task_10() {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let tutorial = systems.tutorial.contract_address;
