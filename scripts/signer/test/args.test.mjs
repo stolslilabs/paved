@@ -89,3 +89,17 @@ test('validates multicall entries', () => {
   refused(() => parseCalls([{ contract: '0x1' }]));
   refused(() => parseCalls([{ contract: '0x1', function: 'f', calldata: 'x' }]));
 });
+
+test('every felt argument is below the field prime', () => {
+  const prime = 2n ** 251n + 17n * 2n ** 192n + 1n;
+  const top = prime - 1n;
+  assert.deepEqual(parseArgs(['call', '--contract', `0x${top.toString(16)}`, '--function', 'f', '--calldata', top.toString(10)]).options.calldata, [top.toString(10)]);
+  for (const value of [`0x${prime.toString(16)}`, prime.toString(10), `0x${'f'.repeat(64)}`, '9'.repeat(78)]) {
+    refused(() => parseArgs(['deploy', '--class-hash', value]), value);
+    refused(() => parseArgs(['deploy', '--class-hash', '0x1', '--salt', value]), value);
+    refused(() => parseArgs(['invoke', '--contract', value, '--function', 'f']), value);
+    refused(() => parseArgs(['call', '--contract', '0x1', '--function', 'f', '--calldata', '1', value]), value);
+    refused(() => parseCalls([{ contract: '0x1', function: 'f', calldata: [value] }]), value);
+    refused(() => parseCalls([{ contract: value, function: 'f' }]), value);
+  }
+});

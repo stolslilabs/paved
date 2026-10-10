@@ -1,5 +1,8 @@
 // Reads the signer's account, node and network from the environment, and only from there.
 
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 export const ENV_NAMES = Object.freeze({
   address: 'STARKNET_ACCOUNT_ADDRESS',
   privateKey: 'STARKNET_PRIVATE_KEY',
@@ -25,6 +28,9 @@ export const NETWORKS = Object.freeze({
 
 const FELT_HEX_RE = /^0x[0-9a-fA-F]{1,64}$/;
 
+// The field prime of Starknet: a felt is below it (64 hex digits alone reach 2^256 - 1).
+export const FELT_PRIME = 2n ** 251n + 17n * 2n ** 192n + 1n;
+
 /**
  * Returns `{ address, privateKey, rpcUrl, network, chainId }`. Refuses, naming the variable and never
  * its value, when one is missing, empty or malformed.
@@ -42,11 +48,11 @@ export function readEnv(env = process.env) {
   if (!Object.hasOwn(NETWORKS, network)) {
     throw new UsageError(`${ENV_NAMES.network} must be one of: ${Object.keys(NETWORKS).join(', ')} (mainnet is refused)`);
   }
-  if (!FELT_HEX_RE.test(address)) {
-    throw new UsageError(`${ENV_NAMES.address} is not a 0x-prefixed hex felt`);
+  if (!FELT_HEX_RE.test(address) || BigInt(address) >= FELT_PRIME) {
+    throw new UsageError(`${ENV_NAMES.address} is not a 0x-prefixed hex felt (below the field prime)`);
   }
-  if (!FELT_HEX_RE.test(privateKey) || BigInt(privateKey) === 0n) {
-    throw new UsageError(`${ENV_NAMES.privateKey} is not a non-zero 0x-prefixed hex felt`);
+  if (!FELT_HEX_RE.test(privateKey) || BigInt(privateKey) === 0n || BigInt(privateKey) >= FELT_PRIME) {
+    throw new UsageError(`${ENV_NAMES.privateKey} is not a non-zero 0x-prefixed hex felt (below the field prime)`);
   }
   let url;
   try {
@@ -83,13 +89,23 @@ export function assertChain(nodeChainId, network) {
   }
 }
 
-// Node options that would print or expose the process's memory, requests or arguments around
-// the sanitiser: debug logs (the request path holds a provider API key), reports, the inspector.
-const UNSAFE_OPTION_RE = /(^|\s)--(report-[a-z-]+|inspect(-brk|-port|-wait|-publish-uid)?)(=|\s|$)/;
+// Node options, as an allowlist. NODE_OPTIONS is inherited, unseen, by every child of a shell, so it
+// may hold one option only: `--max-old-space-size=<n>` (the heap cap of the VPS rule). Anything else
+// is refused: debug logs (the request path holds a provider API key), reports, heap snapshots, the
+// inspector, a preload (`--require`, `--import`) that could print around the sanitiser, a quoted
+// option. node's own options (its command line, set by whoever starts it) may also hold
+// `--disable-sigusr1` (deploy.sh starts the signer with it: README, "What does not hold") and the
+// tests' preloads, an `--import` of a file of this folder's test/fixtures/ only.
+const HEAP_RE = /^--max-old-space-size=[0-9]{1,7}$/;
+const FIXTURES = fileURLToPath(new URL('../test/fixtures/', import.meta.url));
+
+function isFixture(path) {
+  return typeof path === 'string' && path.endsWith('.mjs') && resolve(path).startsWith(FIXTURES);
+}
 
 /**
- * Refuses to run under NODE_DEBUG, or with --report-* / --inspect in NODE_OPTIONS or in node's own
- * options. Names the variable, never its value.
+ * Refuses to run under NODE_DEBUG, with any NODE_OPTIONS other than `--max-old-space-size=<n>`, or with
+ * a node option outside the allowlist above. Names the variable, never its value.
  * @param {Record<string, string | undefined>} env
  * @param {string[]} execArgv
  */
@@ -97,10 +113,18 @@ export function assertSafeRuntime(env = process.env, execArgv = process.execArgv
   if (env.NODE_DEBUG !== undefined && env.NODE_DEBUG !== '') {
     throw new UsageError('NODE_DEBUG is set: its logs bypass the sanitiser; unset it');
   }
-  if (env.NODE_OPTIONS && UNSAFE_OPTION_RE.test(env.NODE_OPTIONS)) {
-    throw new UsageError('NODE_OPTIONS holds --report-* or --inspect; remove it');
+  const options = (env.NODE_OPTIONS ?? '').split(/\s+/).filter(Boolean);
+  if (!options.every((option) => HEAP_RE.test(option))) {
+    throw new UsageError('NODE_OPTIONS holds an option other than --max-old-space-size=<n>; remove it');
   }
-  if (execArgv.some((option) => UNSAFE_OPTION_RE.test(option))) {
-    throw new UsageError('node was started with --report-* or --inspect; start it without');
+  for (let i = 0; i < execArgv.length; i += 1) {
+    const option = execArgv[i];
+    if (HEAP_RE.test(option) || option === '--disable-sigusr1') continue;
+    if (option.startsWith('--import=') && isFixture(option.slice('--import='.length))) continue;
+    if (option === '--import' && isFixture(execArgv[i + 1])) {
+      i += 1;
+      continue;
+    }
+    throw new UsageError('node was started with an option other than --max-old-space-size=<n> or --disable-sigusr1; start it without');
   }
 }

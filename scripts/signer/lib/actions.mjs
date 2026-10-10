@@ -5,13 +5,15 @@ import { basename } from 'node:path';
 import { Account, RpcProvider, config, json, stark } from 'starknet';
 
 import { parseCalls } from './args.mjs';
-import { assertChain } from './env.mjs';
+import { UsageError, assertChain } from './env.mjs';
 
 // starknet.js logs warnings (an RPC version mismatch, a fee retry) with the node's details: silence it.
 config.set('logLevel', 'OFF');
 
 /**
- * Checks the node's chain before anything is signed, then builds the provider with that chain id
+ * Checks the node's chain before anything is signed (on devnet, also that the node answers a
+ * devnet-only method: a tunnel from a local port to Sepolia passes the URL and chain id checks, and
+ * does not answer it), then builds the provider with that chain id
  * fixed, so starknet.js never takes it from the node unchecked (the account signs with the
  * provider's chain id).
  * @param {{ address: string, privateKey: string, rpcUrl: string, network: string, chainId: string }} env
@@ -19,9 +21,22 @@ config.set('logLevel', 'OFF');
 export async function connect({ address, privateKey, rpcUrl, network, chainId }) {
   const probe = new RpcProvider({ nodeUrl: rpcUrl });
   assertChain(await probe.channel.fetchEndpoint('starknet_chainId'), network);
+  if (network === 'devnet') await assertDevnet(probe);
   const provider = new RpcProvider({ nodeUrl: rpcUrl, chainId });
   const account = new Account({ provider, address, signer: privateKey });
   return { provider, account };
+}
+
+async function assertDevnet(probe) {
+  let config;
+  try {
+    config = await probe.channel.fetchEndpoint('devnet_getConfig');
+  } catch {
+    config = undefined;
+  }
+  if (typeof config !== 'object' || config === null || Array.isArray(config)) {
+    throw new UsageError('SIGNER_NETWORK=devnet but the node does not answer devnet_getConfig (not a starknet-devnet); nothing was signed');
+  }
 }
 
 // One line per call on stderr, before it is signed: what the account is about to touch.

@@ -1,7 +1,7 @@
 // Parses the signer's argv. Only the options listed per subcommand exist: there is no option for a
 // key, an account or a node, so no secret can come from argv. No error message repeats a value.
 
-import { UsageError } from './env.mjs';
+import { FELT_PRIME, UsageError } from './env.mjs';
 
 const FELT_RE = /^(0x[0-9a-fA-F]{1,64}|[0-9]{1,78})$/;
 const ENTRYPOINT_RE = /^[A-Za-z_][A-Za-z0-9_]{0,250}$/;
@@ -9,7 +9,10 @@ const FLAG_RE = /^--[a-z][a-z-]{0,39}$/;
 
 const kinds = {
   felt: (value, flag) => {
-    if (!FELT_RE.test(value)) throw new UsageError(`${flag} expects a felt (0x-hex or decimal)`);
+    // The pattern bounds the digits; the value must also be below the field prime.
+    if (!FELT_RE.test(value) || BigInt(value) >= FELT_PRIME) {
+      throw new UsageError(`${flag} expects a felt (0x-hex or decimal, below the field prime)`);
+    }
     return value;
   },
   entrypoint: (value, flag) => {
