@@ -38,7 +38,7 @@ describe("endpoints", () => {
     const { data } = await client.playerGames(FIXTURE_ADA);
     expect(data.games.length).toBeGreaterThan(0);
     expect(data.games[0]).toMatchObject({ gameId: fixture.games[0].game_id });
-    expect(data.games[0]).not.toHaveProperty("token_id");
+    expect(data.games.map((g) => g.tokenId)).toEqual([7, null]);
     fixture.state.rawBody = {
       text: JSON.stringify({ version: 1, status: "ok", head: FIXTURE_HEAD, behind: 0, state: "ok", chain_id: "0x1", from_block: 3, contracts: { daily: "0x2", collection: "0x5" } }),
       httpStatus: 200,
@@ -136,7 +136,7 @@ describe("endpoints", () => {
     const all = await client.playerGames(FIXTURE_ADA, { limit: 1 });
     expect(all.data.games).toHaveLength(1);
     expect(all.data.games[0]).toEqual({
-      contract: "daily", gameId: 912, mode: 1, startTime: 1791869000, tournamentId: 20733, over: true, score: 187, countedTournamentId: 20733, endTime: 1791871203,
+      contract: "daily", gameId: 912, mode: 1, startTime: 1791869000, tournamentId: 20733, over: true, score: 187, countedTournamentId: 20733, endTime: 1791871203, tokenId: 912,
     });
     expect(all.data.next).toBe("1791869000:daily:912");
     const rest = await client.playerGames(FIXTURE_ADA, { limit: 1, before: all.data.next! });
