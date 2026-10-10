@@ -29,6 +29,7 @@ writeFileSync(
       Daily: { address: "0x1" },
       Tutorial: { address: "0x2" },
       Economy: { address: "0x4" },
+      Collection: { address: "0x5" },
     },
   }),
 );
