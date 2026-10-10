@@ -7,7 +7,7 @@ contract side is `economy.md` (ruled by the PM: P-31); the data layer and its pa
 
 **Nothing is deployed beyond devnet** (economy.md). A deployment file without the economy's addresses leaves the client's
 economy **not configured**, and the screens say so; nothing is read or sent. The committed `contracts/deployments/devnet.json`
-on #275 is still the pre-E3 one: `scripts/deploy.sh` writes `contracts.{Economy, PavedToken, Vault, MockUSDC}` when it runs.
+since #276 holds the economy: `contracts.{Economy, PavedToken, Vault, MockUSDC, MockRouter}` (written by `scripts/deploy.sh`).
 
 ## What E3 made real (P8, #275)
 
@@ -18,7 +18,7 @@ panel no longer prints that purchases are not possible.
 |---|---|
 | `Economy`, `PavedToken`, `Vault` | `contracts/abis/{Economy,PavedToken,Vault}.json` (E1, E2) |
 | `Daily.spawn(stake, referrer, min_out)` | `contracts/abis/Daily.json` (E3), encoded by the `Daily` codec of `ECONOMY_ABIS` |
-| USDC (`approve`, `balance_of`, `allowance`) | The ERC20 interface of `contracts/abis/Token.json`. **E3 commits no `MockUSDC.json`** (nine ABIs: Account, Collection, Daily, Economy, Lobby, PavedToken, Token, Tutorial, Vault); the mock and the real USDC both expose the OpenZeppelin ERC20 the client calls, and a test checks the three entries are there. A `MockUSDC.json` would replace it |
+| USDC (`approve`, `balance_of`, `allowance`, and the devnet faucet `mint`) | `contracts/abis/MockUSDC.json` (#276 committed it): the ERC20 interface the real USDC exposes too, plus the mock's `mint(recipient, amount)`. `ECONOMY_ABIS.USDC` is this ABI, no longer `Token.json`'s |
 | Addresses | `contracts.{Economy, PavedToken, Vault}` and `contracts.USDC` or `contracts.MockUSDC` of `contracts/deployments/<network>.json`; or the env |
 | Reads in unit tests | `FakeEconomy`, `FakePoolQuoter`, `fakeTerms`: **tests only**, exported from `@paved/chain/testing` |
 
@@ -82,12 +82,42 @@ a value out of range counts as no referrer, as does a malformed one. The writer 
 The purchase waits for the referrer's registration read, and a referrer who is not a registered player is shown as
 ignored and not sent.
 
+## The devnet faucet and the entry token
+
+- `PavedWriter.mint()` and `createPlayer(name, { mintTestToken: true })` send `MockUSDC.mint(self, FAUCET_USDC_AMOUNT)` (100 USDC,
+  6 decimals) at `deployment.mockUsdc`, which is `contracts.MockUSDC` of the deployments file (or `VITE_MOCK_USDC_ADDRESS`). It
+  replaces the old `Token.mint()`. A deployment without that address has no faucet: both throw `No faucet` and send nothing, and
+  nothing else in `Deployment` changes (`configured` does not need it). The faucet is not a session policy of the Cartridge
+  controller: the burner signs it on devnet, and `controller.test.ts` drives both writes and asserts that neither is in the session.
+- `Landing` compares `Daily.entry_price().token` with the **USDC address** (`economy.deployment.addresses.USDC`), no longer with
+  `addresses.Token`: a different entry token, or no USDC address known, is "Unknown token".
+
+## Claim reverts, and a sponsor's reclaim (P-37)
+
+| Revert text | Where | Clear state |
+|---|---|---|
+| `Tournament: not found` | a top-3 `claim` on a day nobody sponsored (no tournament) | `NoPrizeDayError`: "This day has no prize: nobody sponsored it, so there is nothing to claim." |
+| `Tournament: nothing to reclaim` | `claim(day, 0)` on a ranked day, from a non-sponsor, or a second time | `NothingToReclaimError`: nothing moved |
+
+Both match as text and as the hex of the short string the node may return. Any other revert stays as it is.
+
+**The reclaim line.** Rank rewards are unchanged (rank 1 absorbs the empty ranks). A sponsor takes back their part of a prize
+nobody ranked for, an empty top 3 or every score 0 (the view shows no first place), with `PavedWriter.reclaim(day,
+{ confirmedAmount })` = `Daily.claim(day, 0)` sent by the sponsor. The part is not in any view, and `tournament(day).prize` keeps
+the historical total after a reclaim, so it comes from events: `EventReader.sponsorship(day, sponsor)` is their `Sponsored` events
+(Daily) less their `Reclaimed { tournament_id, sponsor, amount }` events (declared in `Lobby.json`, emitted from Daily's address,
+read with `LOBBY_ABI`); `reclaimedTotal(day)` is what went back to all sponsors; `sponsoredDays(sponsor)` lists the days (the node
+cannot filter on `sponsor`, which is event data). `reclaim` reads the day and the part again at send and refuses, sending nothing:
+a day not over, a ranked day, nothing sponsored or already taken back (`NothingToReclaimError`), and a part that is not the one
+confirmed (`ReclaimAmountChangedError`). The Landing prize panel lists "Prizes nobody ranked for" with the part, what already went back,
+a confirm showing the amount, and the re-check at send.
+
 ## Deployment
 
 `resolveEconomyDeployment({ base, file, env })` (`economy/deployment.ts`) takes the four contracts' `Deployment` and
 adds the economy's addresses, the env first. It is `configured` only when the base is configured and `Economy`,
 `PavedToken`, `Vault` and USDC are all known; otherwise `missing` lists what is not. `createEconomyClient` gives null
-then. `deployment.ts` is not changed: a deployment without the economy keeps working as before.
+then. `Deployment` gains only `mockUsdc` (the faucet's address, `""` where there is none): a deployment without the economy keeps working as before.
 
 ## Amounts
 
@@ -201,7 +231,7 @@ the history state to the game page, which sends it, as from the Landing.
 - A devnet run of a purchase with MockUSDC, a settlement on a later day and the Vault (`PAVED_E2E`): the unit tests here
   build the multicall from the ABI, and the recorded receipts of `test/fixtures/devnet.json` predate E3 (no devnet runs on
   the machine that did this step; the paid spawn is not re-recorded).
-- The old `Token` (the mock ERC20, no longer charged) is still in the base deployment while the client reads its
-  codec; the entry token is read from `Daily.entry_price`.
+- The old `Token` (the mock ERC20, no longer charged) is still in the base deployment (`PavedClient.balance` and a sponsor's approve use
+  its codec, the same ERC20); the entry token is read from `Daily.entry_price`.
 - The list of games to settle could come from the indexer's `unsettled` list (indexer.md) instead of events.
 - If a batch settle is ever added, it skips expired games.
