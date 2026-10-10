@@ -31,10 +31,10 @@ export PATH="$SCARB_BIN_DIR:$SNFORGE_BIN_DIR:$HOME/.local/bin:$PATH"
 # largest process of the run, rounded up to a whole GiB, within [8, 16] GiB. Measured on the VPS on 2026-10-10
 # (RAYON_NUM_THREADS=1, under a 16 GiB cap; see AGENTS.md): `snforge test paved::types::` VmPeak 10,374,784 kB
 # (9.89 GiB; VmHWM 6,269,668 kB), the largest of any snforge run (its scarb test-build child), so the cap is
-# 15 GiB for every snforge run here (`gas` and `coverage` included; a coverage-profile build of the whole crate is
-# unmeasured, expected above 8 GB RSS: measure on the Mac or in CI). `coverage-split` has an RSS of 9.34 GB, above
+# 15 GiB for every snforge run here (a cold test build after `scarb clean` peaked at 9,326,232 kB, 14 GiB).
+# `coverage` and `all` are unmeasured (expected above 8 GB RSS): refused on Linux, measure on the Mac or in CI. `coverage-split` has an RSS of 9.34 GB, above
 # the Mac threshold, and its VmPeak is unmeasured on Linux: it runs on the Mac (P-33, no cap) or in CI, and is
-# refused on Linux unless ALLOW_COVERAGE_SPLIT_ON_LINUX=1 (then 16 GiB, the maximum). MEM_CAP_BYTES overrides.
+# refused on Linux unless ALLOW_COVERAGE_SPLIT_ON_LINUX=1 (then 16 GiB, the maximum); `coverage` and `all` (unmeasured) too. MEM_CAP_BYTES overrides.
 # A capped run with no progress for 15 minutes is stopped and moved, never left waiting.
 MEM_CAP_DEFAULT_BYTES=16106127360
 MEM_CAP_COVERAGE_SPLIT_BYTES=17179869184
@@ -42,9 +42,11 @@ MEM_CAP_COVERAGE_SPLIT_BYTES=17179869184
 export RAYON_NUM_THREADS=1
 
 mode="${1:-all}"
-if [ "$mode" = coverage-split ] && [ "$(uname -s)" != Darwin ] && [ "${ALLOW_COVERAGE_SPLIT_ON_LINUX:-}" != 1 ]; then
-  echo "coverage-split peaks at 9.34 GB RSS: run it on the Mac or in CI (set ALLOW_COVERAGE_SPLIT_ON_LINUX=1 to override)"
-  exit 2
+if [ "$(uname -s)" != Darwin ] && [ "${ALLOW_COVERAGE_SPLIT_ON_LINUX:-}" != 1 ]; then
+  case "$mode" in
+    coverage-split) echo "coverage-split peaks at 9.34 GB RSS: run it on the Mac or in CI (set ALLOW_COVERAGE_SPLIT_ON_LINUX=1 to override)"; exit 2 ;;
+    coverage|all) echo "$mode is unmeasured, expected above 8 GB RSS: run on the Mac or in CI (set ALLOW_COVERAGE_SPLIT_ON_LINUX=1 to override)"; exit 2 ;;
+  esac
 fi
 
 case "$mode" in
