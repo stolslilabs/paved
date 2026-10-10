@@ -2,7 +2,7 @@
 
 Dated 2026-10-10. Decision D-16 (public test deployment of Paved on Starknet Sepolia, for playtests). This is what
 `packages/indexer` needs to serve the public client. It is a description, not a deployment: nothing here is running, and
-**where it runs is the owner's choice** (section 5). Options and rules of the process: `packages/indexer/README.md`; design:
+**where it runs is the owner's choice** (section 5; the exact procedure for this VPS is "Runbook: this VPS (Sepolia)" below). Options and rules of the process: `packages/indexer/README.md`; design:
 `docs/architecture/indexer.md`.
 
 The indexer is display only. It holds no key, sends no transaction, and its database can be deleted at any time (`rebuild`
@@ -245,6 +245,423 @@ the prizes and the Vault read the contracts through the RPC node. One exception,
 `VITE_COLLECTION_ADDRESS` nor a deployment file with `contracts.Collection`: the client then asks `/v1/head` for the Collection's
 address, and shows no NFT while the indexer is out. The deployment file of the build has it, so this does not occur on a normal
 build.
+
+## Runbook: this VPS (Sepolia)
+
+Dated 2026-10-10. Decisions D-16 and P-41. This is the owner's exact procedure to serve the Sepolia client **and** its indexer
+from this VPS. **Nothing here is done or running**: the agents prepared it and ran no root act. It replaces, for this VPS,
+the nginx block of section 3 and the unit of section 6 (the files below are the unit and the proxy of record). Files:
+`deploy/indexer/` (`paved-indexer.service`, `Caddyfile`, `watch.sh`, `paved-indexer-watch.{service,timer}`,
+`publish.sh`, `switch.sh`).
+
+**The indexer unit starts only once `contracts/deployments/sepolia.json` is merged** (CORE, task S-1): the indexer reads its
+addresses and `deployed_block`, and the client build reads the same file. Everything before step 8 can be done earlier.
+
+### What runs where
+
+| What | Name | Where |
+|---|---|---|
+| Client (static build) | `https://paved.bal7hazar.com` | Caddy reads `/var/www/paved/current`, written by the deploy user `paved-deploy` |
+| API | `https://api.paved.bal7hazar.com` | Caddy → `127.0.0.1:8787`, `/v1/*`, GET only |
+| Indexer | `paved-indexer.service` | user `paved-indexer`, code `/opt/paved-indexer/current` (root-owned), db `/var/lib/paved-indexer/sepolia.db` |
+| RPC | `https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` | spec 0.10.2, `SN_SEPOLIA`, `l1_accepted` and `getEvents` answer (checked by the PM). It carries no key: plain `Environment=` in the unit, no secret file. |
+
+DNS is **done** (owner, 2026-10-10): both names resolve to this VPS, `31.97.36.234`. Caddy gets each certificate (Let's Encrypt,
+HTTP-01 on port 80) when it first serves the name, so 80 and 443 must be reachable first (step 6 before step 7).
+
+### What this VPS has today (read-only checks, 2026-10-10, no root)
+
+| Question | Answer |
+|---|---|
+| Who listens on 80 and 443 | `*:80` and `*:443` (IPv4 and IPv6), both **already taken** by a process whose name `ss -ltnp` does not show: without root `ss` names only the caller's own processes. It is almost certainly the existing **Caddy** (see next row), which serves other sites of the team. Nothing listens on **8787**. |
+| Proxy installed | **Caddy 2.11.4** (`/usr/bin/caddy`, the apt package), with a live `/etc/caddy/Caddyfile` (root:caddy 0640, unreadable here) and seven dated backups. No nginx. `systemctl is-active` was refused in this session, so "running" is inferred from the listeners. |
+| OS | Ubuntu 24.04.4 LTS, systemd 255 (255.4-1ubuntu8.17) |
+| Runtime | `/usr/bin/node` v24.21.0, the `nodesource` apt package `24.21.0-1nodesource1`: **system-wide, nothing to install**. bun is **not** system-wide (`/usr/local/bin` holds only `asdf`): step 2 installs it. `jq`, `curl`, `logger` are in `/usr/bin`. |
+| Firewall | `ufw status`, `nft`, `iptables`: all need root ("You need to be root"). Unknown. Step 6 reads it first. |
+
+**Consequence: Caddy is shared.** The runbook adds two site blocks through an `import` and reloads; it never replaces the main
+Caddyfile, and it does not start a second Caddy (it could not bind 80/443).
+
+### Rate limiting (P-43)
+
+Caddy's core has no rate limiter, and a firewall limit on 80/443 would hit every other site on this VPS (and is a machine
+security setting, the owner's). So the limit lives **in the indexer**: a per-address token bucket, flags `--rate <req/s>` and
+`--burst <n>` (`--rate 0` disables), added by a parallel PR. **The unit's `ExecStart` leaves both flags out, so the indexer's
+defaults apply**; add `--rate` and `--burst` to it only to change them.
+
+The indexer sees only Caddy's loopback address, so it takes the client address from `X-Forwarded-For`, and **trusts that header
+only when the connection comes from 127.0.0.1**. Caddy must therefore pass the client address. Checked on this VPS's Caddy
+(v2.11.4), with a throwaway `reverse_proxy` to a header-echoing backend on loopback: the backend received
+`x-forwarded-for: 127.0.0.1` (the connecting address, here a local curl) and `x-forwarded-proto: http`, and a request carrying a
+forged `X-Forwarded-For: 1.2.3.4` still arrived with `127.0.0.1`: Caddy replaces a header from an untrusted client, so a caller
+cannot pick its own bucket. `deploy/indexer/Caddyfile` sets no `trusted_proxies`, which keeps it so; do not add one without
+rereading this. Step 9 checks it on the real site.
+
+What Caddy still caps before the indexer: `/v1/*` only, GET only (405 otherwise; the client sends simple GETs with no preflight, and the indexer would answer an OPTIONS with 405 anyway), a 1 KB request body, 2 s dial and 15 s
+response timeouts. The main Caddyfile's global `servers { timeouts }` belong to the shared global block, which this runbook does not
+touch; set them there if wanted.
+
+### What each hardening directive costs the indexer
+
+The process reads its checkout, writes the database and its `-wal`/`-shm` files, opens outbound HTTPS to the RPC, and listens on
+`127.0.0.1:8787` (`main.ts`, `store.ts`). Nothing else.
+
+| Directive | Why it does not break it |
+|---|---|
+| `User=paved-indexer`, `CapabilityBoundingSet=` (empty), `NoNewPrivileges` | Port 8787 is above 1024; no capability is used. |
+| `ProtectSystem=strict`, `ReadWritePaths=/var/lib/paved-indexer` | The whole file system is read-only except the state dir, where SQLite creates `sepolia.db-wal` and `-shm` (the directory must be writable, not only the file). The checkout under `/opt` is read. |
+| `ProtectHome`, `PrivateTmp`, `PrivateDevices`, `ProtectKernel*`, `ProtectControlGroups`, `RestrictSUIDSGID`, `LockPersonality` | The process uses no home, no `/tmp` file, `/dev/null` and `/dev/urandom` only (both kept by `PrivateDevices`). |
+| `MemoryMax=512M` with `--max-old-space-size=384` | Heap capped below the limit; measured peak 217 MB (section 2). |
+| `RestartPreventExitStatus=2` | Exit 2 is a configuration error; restarting cannot fix it. |
+| **Not set**: `MemoryDenyWriteExecute`, `RestrictAddressFamilies`, `SystemCallFilter` | V8 needs executable memory; the resolver may need netlink/unix sockets; not tested on this host, and an untested filter can fail a start. |
+| `halted` | The process stays up and answers 503 `halted` (`main.ts` waits for a signal): systemd never sees an exit. The watch timer (step 8) logs it. |
+
+### `/v1/head` watch
+
+`watch.sh`, run every minute by `paved-indexer-watch.timer` as root (it may restart the indexer). Fields, from `server.ts`/`api.ts`:
+a **200** is `{"status":"ok","state":"ok","head":{"number":N,"hash":…,"timestamp":…},"behind":B,"checks":{"last_mismatch":null|{…}},…}`;
+a **503** is `{"status":"loading"|"rewinding"|"halted","reason":…,"head":…|null}` (the key is `status`; `state` is only on the 200).
+
+| Condition | Action | Why |
+|---|---|---|
+| `status` = `halted` | **Logs at `err`, every minute; no restart** | A restart replays the same blocks and halts again (decode failure, or a database contradicting the chain). It needs a person: `journalctl -u paved-indexer`, then rebuild. |
+| No answer (process up but not serving, curl fails) for 3 minutes | Restart | A hung start or dead listener. A stopped or failed unit is left to systemd. |
+| `status` = `ok` and `head.number` unchanged for 5 minutes | Restart | A stalled RPC connection. |
+| `status` = `error` (an HTTP 500: a bug in the indexer, not a state) | Counts as **no usable answer**: logged at `warning`, restart after 3 minutes in a row | The state is unknown and the process may be wedged; the cooldown still applies. |
+| `checks.last_mismatch` not null | Logs at `err` | The replayed prize slots differ from the contract's view. |
+| `loading`, `rewinding` | Logs at `info` | Catch-up and rewind are normal. |
+
+At most one restart per 10 minutes, so a provider outage is not a restart loop. Read it with `journalctl -t paved-indexer-watch`.
+
+### The client side
+
+`VITE_INDEXER_URL=https://api.paved.bal7hazar.com` **at build time**. `createIndexerClient` (`packages/chain/src/indexer.ts`) trims
+the value and strips trailing slashes, then calls `${base}/v1/...` with `fetch`; a blank value means "no indexer" (screens say
+"unavailable"). Here the API has its own name, so it is a cross-origin call from `https://paved.bal7hazar.com` and CORS applies:
+the indexer answers `access-control-allow-origin: https://paved.bal7hazar.com` because of `--allow-origin`, and Caddy adds no
+CORS header of its own. The client's plain `GET` with an `Accept` header is not preflighted.
+
+The Sepolia build env, from what `packages/app-web` reads today (`src/utils/network.ts`, `economy-network.ts`, `main.tsx`):
+
+| Variable | Value | Note |
+|---|---|---|
+| `VITE_NETWORK` | `sepolia` | Picks `contracts/deployments/sepolia.json`, read at build time by `import.meta.glob` (addresses, `chain_id`, `deployed_block`, `contracts.Collection`, the economy's addresses). Without that file the build is "not connected" (`missing` lists it in the console). |
+| `VITE_INDEXER_URL` | `https://api.paved.bal7hazar.com` | Above. |
+| `VITE_RPC_URL` | `https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` | Overrides the file's `rpc_url`; same value the indexer uses. No key, so it may sit in a public bundle. |
+| not set | `VITE_PLAYER_*` | Devnet only (a key in a bundle is public); other networks ignore them. |
+| not set | `VITE_*_ADDRESS` | The file supplies them; an override is for an operator patch only. |
+| not set | `VITE_SUPPORTS_TOKEN_MINT` | Unset means the faucet is offered on devnet only, and `resolveDeployment` resolves a MockUSDC for `devnet` only. A Sepolia test-USDC faucet is a later client task (D-16, P-39), not this runbook. |
+
+### Cartridge controller: does it need this origin registered?
+
+**Finding: no registration, allow-list or redirect entry is required to connect the controller with the client's own
+policies from `https://paved.bal7hazar.com` on Sepolia; nothing in the package or the docs asks for one.** What is not
+obtained that way is *verification*: the approval screen shows the policies as unverified. Evidence:
+
+- The client builds the controller with `chains: [{ rpcUrl }]`, `defaultChainId`, **`policies`** and no `preset`
+  (`packages/chain/src/auth/controller.ts`). `@cartridge/controller` 0.13.16, `src/controller.ts:542`, accepts either
+  `policies` or `preset` ("Either `policies` or `preset` must be provided"), and `policies.ts:30` (`parsePolicies`) marks
+  policies given directly `verified: false`. The package has no origin allow-list: its `origin` references are `revoke(origin)`,
+  the keychain's own `origin` option, and the toast's message checks. The keychain it loads is `https://x.cartridge.gg`
+  (`constants.ts`), which sees the embedding page's origin; what that server does with it is not in the package.
+- Docs, https://docs.cartridge.gg/controller/sessions: "Both verified and unverified policies follow the same approval flow,
+  with verified policies providing enhanced trust indicators"; verified configs are committed to the `configs` folder of
+  `@cartridge/presets`, with Cartridge's review. Unverified policies list each token on the spending-limit screen
+  instead of a compact summary. Nothing there mentions an origin to register for web use.
+- Docs, https://docs.cartridge.gg/controller/presets: a preset's `origin` field "specifies which origins are authorized to use
+  your preset" (a string or an array, e.g. production and staging). That scopes **a preset**, which this client does not use.
+  `redirectUrl`/`disconnectRedirectUrl` belong to the native/redirect flow, not the iframe flow of a web page.
+- Requirement met by the plan: a secure context (HTTPS, for WebAuthn). The proxy sends no CSP or Permissions-Policy that could
+  block the iframe.
+
+Not proven: no browser ran (this task has none), and the keychain's server side is not readable. **The headless run of the real
+controller on Sepolia (D-16, CLIENT, after `sepolia.json` merges) is the test.** If it were refused for this origin, the error
+would come from `x.cartridge.gg`; the owner's route would then be Cartridge's channel for adding the origin. **Decision (P-43): no preset now.** Unverified policies are acceptable for playtests; revisit before mainnet. (What it would be, for
+then: a nicer approval screen, not needed to play: a PR to `cartridge-gg/presets` adding a config under `configs/` with
+`"origin": "https://paved.bal7hazar.com"` and the Sepolia contracts and methods of `CONTROLLER_ENTRY_POINTS`, then passing `preset`
+to the controller; it needs Cartridge's review.)
+
+### Commands for the owner (root), in order
+
+Run as root on this VPS (`sudo -i`). `<commit>` is a full 40-character commit of `main` that contains `deploy/indexer/` (this PR) and
+`contracts/deployments/sepolia.json` (S-1). Each step ends with its check; stop at the first one that does not match.
+
+**1. Users and directories**
+
+```bash
+useradd --system --user-group --no-create-home --home-dir /var/lib/paved-indexer --shell /usr/sbin/nologin paved-indexer
+useradd --system --user-group --create-home --home-dir /var/lib/paved-deploy --shell /bin/bash paved-deploy
+install -d -o paved-indexer -g paved-indexer -m 0750 /var/lib/paved-indexer
+install -d -o root -g root -m 0755 /opt/paved-indexer /opt/paved-indexer/releases
+install -d -o paved-deploy -g paved-deploy -m 0755 /var/www/paved /var/www/paved/releases
+```
+
+Verify: `id paved-indexer paved-deploy` (two different uids, no shared group); `ls -ld /var/lib/paved-indexer /opt/paved-indexer /var/www/paved`
+(owners `paved-indexer`, `root`, `paved-deploy`); `getent passwd paved-indexer` ends in `/usr/sbin/nologin`.
+
+**2. Runtime**
+
+```bash
+node --version        # must print v24.x; on this VPS v24.21.0 (/usr/bin/node, apt nodejs 24.21.0-1nodesource1): nothing to install
+# If node were absent: apt-get install -y nodejs=24.21.0-1nodesource1   (needs the NodeSource repository already configured)
+# bun 1.4.2 (the repository's packageManager): installer of the checkout and builder of the client, not run by the service.
+d=$(mktemp -d) && cd "$d"
+curl -fsSLO https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/bun-linux-x64.zip
+curl -fsSLO https://github.com/oven-sh/bun/releases/download/bun-v1.4.2/SHASUMS256.txt
+grep ' bun-linux-x64.zip$' SHASUMS256.txt | sha256sum -c -
+unzip -q bun-linux-x64.zip && install -m 0755 bun-linux-x64/bun /usr/local/bin/bun
+cd / && rm -rf "$d"
+```
+
+Verify: `node --version`, `/usr/local/bin/bun --version` prints `1.4.2`, and `sha256sum -c` printed `OK`. (The release URL pattern is bun's;
+it was not downloaded in this session. If `unzip` is missing: `apt-get install -y unzip`.)
+
+**3. The code: a checkout of `<commit>`, root-owned**
+
+```bash
+COMMIT=<commit>
+git clone --no-checkout https://github.com/stolslilabs/paved.git /opt/paved-indexer/releases/$COMMIT
+git -C /opt/paved-indexer/releases/$COMMIT checkout --detach $COMMIT
+cd /opt/paved-indexer/releases/$COMMIT
+bun install --frozen-lockfile --ignore-scripts --filter @paved/indexer
+chmod -R go-w .
+ln -sfnT releases/$COMMIT /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
+```
+
+Verify: `git -C /opt/paved-indexer/current rev-parse HEAD` equals `<commit>`; `ls /opt/paved-indexer/current/deploy/indexer`
+lists the files; `cd /opt/paved-indexer/current/packages/indexer && node --input-type=module -e "await import('starknet'); console.log('starknet ok')"`;
+`ls -l /opt/paved-indexer/current/contracts/deployments/sepolia.json` (needed from step 8; if the repository is private, clone with
+the owner's credentials).
+
+**4. Install the units and the Caddy site (nothing started)**
+
+```bash
+D=/opt/paved-indexer/current/deploy/indexer
+install -m 0644 $D/paved-indexer.service $D/paved-indexer-watch.service $D/paved-indexer-watch.timer /etc/systemd/system/
+install -m 0644 -o root -g caddy $D/Caddyfile /etc/caddy/paved.caddy
+install -d -m 0755 /usr/local/lib/paved && install -m 0755 $D/publish.sh $D/switch.sh /usr/local/lib/paved/
+systemctl daemon-reload
+```
+
+Verify: `systemd-analyze verify /etc/systemd/system/paved-indexer.service /etc/systemd/system/paved-indexer-watch.service /etc/systemd/system/paved-indexer-watch.timer`
+prints nothing; `grep -n 'allow-origin\|INDEXER_RPC_URL' /etc/systemd/system/paved-indexer.service` shows
+`https://paved.bal7hazar.com` and the Cartridge Sepolia URL.
+
+**5. Caddy: already installed, add the two sites**
+
+```bash
+systemctl is-active caddy                      # must print "active"; if not, stop: the shared Caddy is another unit (caddy-api?) or down
+caddy version                                  # v2.11.4 here (apt). Already installed: skip the install below.
+# Only if absent (official repository, pinned):
+#   apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg
+#   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/gpg.key | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+#   curl -1sLf https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt > /etc/apt/sources.list.d/caddy-stable.list
+#   apt-get update && apt-get install -y caddy=2.11.4
+grep -n 'paved\|^import\|admin' /etc/caddy/Caddyfile   # read it: other imports, an `admin off`, any block or import for these names
+BAK=/etc/caddy/Caddyfile.bak-$(date +%Y%m%d-%H%M%S)-paved
+# One branch does all three, and only while the import is absent: back up (never overwriting), note the backup, append the import.
+grep -qxF 'import /etc/caddy/paved.caddy' /etc/caddy/Caddyfile || { cp -an /etc/caddy/Caddyfile "$BAK" && echo "$BAK" > /root/paved-caddy-backup && printf '\nimport /etc/caddy/paved.caddy\n' >> /etc/caddy/Caddyfile; }
+runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+```
+
+Verify: `systemctl is-active caddy` printed `active`, the last command ends with `Valid configuration`, and
+`grep -c '^import /etc/caddy/paved.caddy$' /etc/caddy/Caddyfile` prints `1`. An "ambiguous site definition" has two possible
+causes: check the import count first (a double import gives it; the line is added only once by the command above, so a second one
+means it was added by hand or by an earlier run: delete the extra line), and only then look for a block in the main file for one
+of the two names (remove that block; the backup keeps it). Nothing is loaded yet: the running Caddy still has its old config.
+
+**Revert, if validate failed or a reload is rejected and you stop here** (the running config never changed, so no reload is needed).
+It takes the one import line out of the main file and then removes the site file, so it does not depend on which backup is recorded
+(a re-run of step 5 while the import is there makes no new backup and does not move the note):
+
+```bash
+sed -i '\#^import /etc/caddy/paved.caddy$#d' /etc/caddy/Caddyfile      # that exact line only; first, so the file never imports a missing file
+rm -f /etc/caddy/paved.caddy
+runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile     # Valid configuration: back to how it was
+```
+
+Never restore a backup and then delete `paved.caddy` without this `sed`: if the backup holds the import line, the main file would
+import a missing file (`File to import not found`) and the next restart or reboot would take every site down. The backup named in
+`/root/paved-caddy-backup` is for reference only (`diff` it against the main file). A block you removed from the main file *after* the
+first run exists only in the first backup, and only `cp -a` of that one brings it back. Same commands, simulated on scratch copies
+(one imported site file and one main file; `validate` replaced by "every import exists"), what the disk holds:
+
+| Sequence | Import lines in main | `paved.caddy` | Backups | Note points at | Main file imports a missing file? |
+|---|---|---|---|---|---|
+| Step 5 once, then revert | 1, then 0 | yes, then no | 1 (the original) | that backup | no |
+| Step 5 twice, then revert | 1 after both (the second run does nothing), then 0 | yes, then no | 1 (no second backup) | the first backup | no |
+| Validation fails; fix the main file (keep the import line); step 5 again; validate | 1 | yes | 1 (made by the first run, holds the pre-fix file) | that backup | no |
+| Revert twice | 0 | no | unchanged | unchanged | no (the second revert changes nothing) |
+
+**6. Firewall: 80 and 443 open, 8787 not exposed**
+
+```bash
+ufw status verbose                                  # if "Status: inactive", do not enable it here: the ports are already reachable
+# only if the status is active:
+ufw allow 80/tcp && ufw allow 443/tcp && ufw deny 8787/tcp
+```
+
+Note, for each rule, whether ufw printed `Rule added` or `Skipping adding existing rule`: the removal deletes only the rules this step added.
+
+Verify: `ufw status | grep -E '80|443|8787'` (if active); `ss -ltn 'sport = :8787'` prints nothing yet (the indexer listens on
+loopback only, never on `0.0.0.0`, once started). From another machine: `curl -sI http://paved.bal7hazar.com` answers (Caddy already
+holds port 80). No rate limit is set at the firewall (P-43).
+
+**7. Caddy: load the sites (certificates)**
+
+Branch on what step 5's `grep -n admin /etc/caddy/Caddyfile` printed. **Never run a restart because a reload failed**: a rejected
+reload leaves every site on its old, working config, while a restart would load the rejected config and take all of them down.
+
+- **No `admin off`** (the admin endpoint is on): reload only.
+
+  ```bash
+  systemctl reload caddy
+  ```
+
+  If it fails, stop. The old configuration is still serving; read why with `journalctl -u caddy -n 50 --no-pager`, fix the file, run
+  the `caddy validate` of step 5 again, and reload again. Do not restart.
+
+- **`admin off`** (the dated backup names in `/etc/caddy` suggest one was set once): `reload` cannot work, and only a restart applies
+  the change. **A restart briefly interrupts every other site this VPS serves through Caddy**, so the owner chooses the moment. Two
+  separate commands, the second only if the first printed `Valid configuration`:
+
+  ```bash
+  runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+  systemctl restart caddy
+  ```
+
+Verify: `dig +short paved.bal7hazar.com` and `dig +short api.paved.bal7hazar.com` both print `31.97.36.234`;
+`journalctl -u caddy -n 40 --no-pager | grep -i 'certificate obtained'` shows both names;
+`curl -s -o /dev/null -w '%{http_code}\n' https://api.paved.bal7hazar.com/v1/head` answers over TLS (`502` until step 8, because nothing listens on 8787 yet; use GET, not `curl -I`: a HEAD request is a `405` at the proxy);
+`curl -sI https://paved.bal7hazar.com/` answers `404` until the deploy user publishes the first release (list B).
+
+**8. Start the indexer (only once `sepolia.json` is merged and in the checkout) and the watch**
+
+```bash
+F=/opt/paved-indexer/current/contracts/deployments/sepolia.json
+if [ -f "$F" ]; then
+  jq '{network, chain_id, deployed_block}' "$F"          # chain_id 0x534e5f5345504f4c4941
+  systemctl enable --now paved-indexer.service
+  sleep 10
+  systemctl enable --now paved-indexer-watch.timer
+else
+  echo "sepolia.json is not in this commit: do not start the indexer"
+fi
+```
+
+Verify: `systemctl status paved-indexer --no-pager` (active, running); `journalctl -u paved-indexer -n 20 --no-pager` ends with
+`serving on http://127.0.0.1:8787, following <hash> from block …` (the log shows an 8-hex hash of the RPC URL, never the URL);
+`ss -ltn 'sport = :8787'` shows `127.0.0.1:8787` only; `curl -fsS http://127.0.0.1:8787/v1/head | jq '{status, head, behind}'` is
+`loading` while it catches up (503, so `-f` fails: read it without `-f`), then `ok` with `behind` a few blocks.
+`systemctl list-timers paved-indexer-watch.timer` shows the next run; `journalctl -t paved-indexer-watch -n 5 --no-pager`.
+Exit 2 in the journal is a configuration error (wrong chain id, refused database); it does not retry.
+
+**9. End to end**
+
+```bash
+curl -fsS https://api.paved.bal7hazar.com/v1/head | jq '{status, behind}'                                   # status "ok"
+curl -si -H 'Origin: https://paved.bal7hazar.com' https://api.paved.bal7hazar.com/v1/head | grep -i '^access-control-allow-origin'
+curl -si -H 'Origin: https://example.org' https://api.paved.bal7hazar.com/v1/head | grep -ci '^access-control-allow-origin'   # 0
+curl -si -X POST https://api.paved.bal7hazar.com/v1/head | head -1                                          # 405
+curl -si https://api.paved.bal7hazar.com/anything | head -1                                                 # 404
+```
+
+The indexer's token bucket keys on the address Caddy forwards in `X-Forwarded-For` (see "Rate limiting"). Once a build with
+`--rate` is deployed, a quick loop shows it: `for i in $(seq 60); do curl -s -o /dev/null -w '%{http_code} ' https://api.paved.bal7hazar.com/v1/head; done`
+ends in `429`s when the defaults are low enough to trip, and the same loop with `-H 'X-Forwarded-For: 1.2.3.4'` must not get a fresh bucket.
+
+### Commands for the deploy user (no root), to publish a client build
+
+The deploy user is `paved-deploy`; the owner gives it access once (`sudo -iu paved-deploy`, or an `authorized_keys` line for
+`ssh paved-deploy@…`; its home is `/var/lib/paved-deploy`). It never needs root: it writes only `/var/www/paved` and its home.
+Caddy only reads `/var/www/paved`. A release is a directory; `current` is a symlink swapped in one atomic rename.
+
+```bash
+# First time: the source
+git clone https://github.com/stolslilabs/paved.git ~/paved
+# Every release: <commit> contains sepolia.json (S-1)
+cd ~/paved && git fetch --all --prune && git checkout --detach <commit>
+bun install --frozen-lockfile
+VITE_NETWORK=sepolia \
+VITE_INDEXER_URL=https://api.paved.bal7hazar.com \
+VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10 \
+  bun run build --filter @paved/app-web
+grep -rl 'api.paved.bal7hazar.com' packages/app-web/dist/assets | head -1       # must print a file: the URL is in the bundle
+/usr/local/lib/paved/publish.sh packages/app-web/dist "$(date +%Y%m%d-%H%M)-$(git rev-parse --short HEAD)"
+```
+
+- The `grep` guards against turbo dropping the `VITE_*` variables (strict env mode); if it prints nothing, rebuild with
+  `bun x turbo build --filter @paved/app-web --env-mode=loose` and the same variables.
+- **Build memory is not measured** (`app-web` tests peak at 1.0 GB; a `tsc -b` plus `vite build` of the workspace is not
+  figured). Measure the first build with `NODE_OPTIONS=--max-old-space-size=3072 /usr/bin/time -v bun run build …` and record the
+  peak; do not build on this VPS while agents are working there if it passes about 8 GB, build on the Mac or in CI and copy
+  `packages/app-web/dist` to the deploy user (`scp -r dist paved-deploy@…:~/dist`), then run `publish.sh ~/dist <name>`.
+- `publish.sh <dist> <name>` copies to `/var/www/paved/releases/<name>`, swaps `current`, keeps the newest 5 releases.
+- Rollback: `/usr/local/lib/paved/switch.sh --list`, then `/usr/local/lib/paved/switch.sh <older-release>`. No Caddy reload is
+  needed: `index.html` is `no-cache`, and the assets are named by hash.
+- Check: `curl -sI https://paved.bal7hazar.com/ | head -1` is `200`; `readlink /var/www/paved/current` is the new release.
+
+### Upgrade the indexer, rebuild, roll back, remove
+
+Schema 6 (#290): a database of another schema is refused at start (exit 2, `SchemaMismatch`); so is one built for other contracts
+or another start block. A rebuild makes the same tables from the chain (a Sepolia catch-up: section 1 has the call estimate).
+
+```bash
+# Upgrade to <new-commit> (root)
+NEW=<new-commit>
+git clone --no-checkout https://github.com/stolslilabs/paved.git /opt/paved-indexer/releases/$NEW
+git -C /opt/paved-indexer/releases/$NEW checkout --detach $NEW
+(cd /opt/paved-indexer/releases/$NEW && bun install --frozen-lockfile --ignore-scripts --filter @paved/indexer && chmod -R go-w .)
+systemctl stop paved-indexer
+ln -sfnT releases/$NEW /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
+D=/opt/paved-indexer/current/deploy/indexer          # unit files changed? install them again and `systemctl daemon-reload`
+# Only for a schema change, or new contracts in sepolia.json: empty the database (the same as `rebuild`, supervised):
+rm -f /var/lib/paved-indexer/sepolia.db /var/lib/paved-indexer/sepolia.db-wal /var/lib/paved-indexer/sepolia.db-shm
+systemctl start paved-indexer
+```
+
+Verify as in step 8; after an emptied database `/v1/head` is 503 `loading` until `behind` is a few blocks.
+
+A `rebuild` as a command (what the hosting text calls the same arguments with `rebuild` instead of `run`), with the unit stopped:
+
+```bash
+systemctl stop paved-indexer
+cd /opt/paved-indexer/current && runuser -u paved-indexer -- env \
+  INDEXER_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10 NODE_OPTIONS=--max-old-space-size=384 \
+  /usr/bin/node packages/indexer/src/main.ts rebuild \
+  --deployment /opt/paved-indexer/current/contracts/deployments/sepolia.json \
+  --db /var/lib/paved-indexer/sepolia.db \
+  --host 127.0.0.1 --port 8787 \
+  --allow-origin https://paved.bal7hazar.com \
+  --depth l1 --poll 3000 --recheck 5 --recheck-every 60000
+# in a second shell: curl -s http://127.0.0.1:8787/v1/head | jq '{status, behind}'
+# press Ctrl-C once it says "ok" and behind 0, then:
+systemctl start paved-indexer
+```
+
+(If the unit's flags change, change them here too: they are the unit's `ExecStart`, with `rebuild` for `run`.)
+
+```bash
+# Roll back the code (root): the previous release directory is still there
+systemctl stop paved-indexer
+ln -sfnT releases/<previous-commit> /opt/paved-indexer/current.new && mv -T /opt/paved-indexer/current.new /opt/paved-indexer/current
+systemctl start paved-indexer          # if the schema had changed, empty the database first (rm line above)
+
+# Remove everything (root); the chain is untouched, the database can always be rebuilt
+systemctl disable --now paved-indexer-watch.timer paved-indexer.service
+rm -f /etc/systemd/system/paved-indexer.service /etc/systemd/system/paved-indexer-watch.service /etc/systemd/system/paved-indexer-watch.timer
+systemctl daemon-reload
+sed -i '\#^import /etc/caddy/paved.caddy$#d' /etc/caddy/Caddyfile && rm -f /etc/caddy/paved.caddy
+runuser -u caddy -- caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+systemctl reload caddy          # with `admin off`: restart instead, at a moment the owner chooses (step 7); never restart after a failed reload
+rm -rf /opt/paved-indexer /var/lib/paved-indexer /var/www/paved /usr/local/lib/paved
+rm -f /usr/local/bin/bun                                  # installed in step 2; skip if something else on this VPS uses it
+userdel paved-indexer; userdel -r paved-deploy
+# ufw: delete a rule only if step 6 printed "Rule added" for it ("Skipping adding existing rule" means it was there before):
+# ufw delete allow 80/tcp ; ufw delete allow 443/tcp ; ufw delete deny 8787/tcp
+```
+
+(Never delete the 80/443 rules if Caddy still serves anything else: they would close the other sites' ports too.)
 
 ## Appendix: how the figures were made
 
