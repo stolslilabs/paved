@@ -220,7 +220,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
         <TokenPanel
           networkLabel={deployment.network}
           balanceLabel={tokenLabel(balance.data ?? 0n, deployment.tokenDecimals)}
-          supportsMint={supportsMint && status === "ready"}
+          supportsMint={supportsMint && !!deployment.mockUsdc && status === "ready"}
           isMinting={writing}
           error={writeError}
           onMint={handleMint}

@@ -228,9 +228,14 @@ the history state to the game page, which sends it, as from the Landing.
 
 ## What waits
 
-- A devnet run of a purchase with MockUSDC, a settlement on a later day and the Vault (`PAVED_E2E`): the unit tests here
-  build the multicall from the ABI, and the recorded receipts of `test/fixtures/devnet.json` predate E3 (no devnet runs on
-  the machine that did this step; the paid spawn is not re-recorded).
+- The devnet run of the economy (`PAVED_E2E=1`, `bun run test:e2e` in `packages/chain`, t-0073 PR b) passes on a fresh
+  `starknet-devnet --seed 42` after `scripts/deploy.sh devnet`, with the indexer on 127.0.0.1:8787: faucet, a paid purchase with a
+  referrer (price = burn + referral + margin against the balances), play to game over (recorded in the Economy), the prizes, the
+  settlement, the Vault, a sponsor's reclaim and an expired game. Limit: the three games of that run all score 1,257 points, under
+  the threshold the prior keeps near 3.3k, so every reward is 0; the Settled event, `terms` and the balance agree on 0, but no
+  positive reward was exercised (a better player than the e2e's naive one is needed). The Vault step takes its PAVED from the
+  deployer's own Vault stake for that reason. The recorded receipts of `test/fixtures/devnet.json` still predate E3 (the harness that
+  records them, `test/devnet.test.ts`, deploys the old four contracts): the paid spawn is not re-recorded.
 - The old `Token` (the mock ERC20, no longer charged) is still in the base deployment (`PavedClient.balance` and a sponsor's approve use
   its codec, the same ERC20); the entry token is read from `Daily.entry_price`.
 - The list of games to settle could come from the indexer's `unsettled` list (indexer.md) instead of events.

@@ -26,9 +26,14 @@ vi.mock("@paved/ui", () => ({
   ),
   ModeDetailDialog: ({ children }: any) => <div role="dialog">{children}</div>,
   ModeDetailDialogStat: ({ children }: any) => <div>{children}</div>,
-  TokenPanel: ({ error, balanceLabel }: any) => (
+  TokenPanel: ({ error, balanceLabel, supportsMint, onMint }: any) => (
     <div>
       <span>{`balance ${balanceLabel}`}</span>
+      {supportsMint && (
+        <button type="button" onClick={onMint}>
+          Mint
+        </button>
+      )}
       {error && <div role="alert">{error}</div>}
     </div>
   ),
@@ -161,6 +166,19 @@ describe("The faucet at account creation", () => {
     fireEvent.change(await screen.findByLabelText("Player name"), { target: { value: "Zed" } });
     await create();
     await waitFor(() => expect(createPlayer).toHaveBeenCalledWith("Zed", { mintTestToken: false }));
+  });
+});
+
+describe("The faucet button", () => {
+  it("is offered with a MockUSDC and calls mint; without one it is not offered", async () => {
+    const mint = vi.fn(async () => result);
+    renderPage({ page: <LandingPage supportsMint />, path: "/", deployment: { ...(configured as object), mockUsdc: "0x77" } as unknown as Deployment, writer: { mint } });
+    fireEvent.click(await screen.findByText("Mint"));
+    await waitFor(() => expect(mint).toHaveBeenCalledTimes(1));
+    cleanup();
+    renderPage({ page: <LandingPage supportsMint />, path: "/", deployment: { ...(configured as object), mockUsdc: "" } as unknown as Deployment, writer: { mint } });
+    await screen.findByText(/balance /);
+    expect(screen.queryByText("Mint")).toBeNull();
   });
 });
 
