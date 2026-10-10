@@ -150,13 +150,21 @@ describe("amounts: BigInt base units, never floats", () => {
   });
 });
 
-describe("deployment: the economy is not configured until CORE deploys it", () => {
-  test("today's devnet.json has no economy address", () => {
-    const fromFile = resolveDeployment({ network: "devnet", file: devnetFile as DeploymentFile });
-    const economy = resolveEconomyDeployment({ base: fromFile, file: devnetFile as DeploymentFile });
-    expect(economy.configured).toBe(false);
-    expect(economy.missing).toEqual(["Economy address", "PavedToken address", "Vault address", "USDC address"]);
-    expect(createEconomyClient(economy, new PavedClient(fromFile, {} as PavedRpc))).toBeNull();
+describe("deployment: the economy is configured from the E3 devnet.json", () => {
+  test("today's devnet.json has the four economy addresses (USDC is MockUSDC on devnet)", () => {
+    const file = devnetFile as DeploymentFile & { contracts: Record<string, { address: string }> };
+    const fromFile = resolveDeployment({ network: "devnet", file });
+    const economy = resolveEconomyDeployment({ base: fromFile, file });
+    expect(economy.configured).toBe(true);
+    expect(economy.missing).toEqual([]);
+    expect(economy.addresses).toEqual({
+      Economy: file.contracts.Economy.address,
+      PavedToken: file.contracts.PavedToken.address,
+      Vault: file.contracts.Vault.address,
+      USDC: file.contracts.MockUSDC.address,
+    });
+    for (const address of Object.values(economy.addresses)) expect(BigInt(address)).not.toBe(0n);
+    expect(createEconomyClient(economy, new PavedClient(fromFile, {} as PavedRpc))).not.toBeNull();
   });
 
   test("the file's E3 keys (MockUSDC on devnet) and the env, the env first", () => {

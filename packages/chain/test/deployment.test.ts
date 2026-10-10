@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
+import { USDC_LABEL } from "../src/economy";
 
 const FILE: DeploymentFile = {
   chain_id: "0x534e5f5345504f4c4941",
@@ -87,12 +88,14 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     expect(d.rpcUrl).toBe(real.rpc_url);
     expect(d.chainId).toBe(real.chain_id);
     expect(d.deployedBlock).toBe(real.deployed_block);
-    expect(d.tokenDecimals).toBe(18);
+    expect(real.token!.decimals).toBe(6); // the entry token is USDC since E3 (MockUSDC on devnet)
+    expect(d.tokenDecimals).toBe(real.token!.decimals);
     for (const name of ["Account", "Daily", "Tutorial", "Token"] as const) {
       expect(d.addresses[name]).toBe(real.contracts![name]!.address);
     }
-    // The token is listed twice in the file (top level and under contracts): the same address.
-    expect(BigInt(real.token!.address!)).toBe(BigInt(real.contracts!.Token!.address!));
+    // The top-level token is the entry token, USDC: MockUSDC on devnet (not contracts.Token, the old mock).
+    const contracts = real.contracts as Record<string, { address?: string }>;
+    expect(BigInt(real.token!.address!)).toBe(BigInt(contracts.MockUSDC.address!));
   });
 
   test("the env still overrides it", () => {
@@ -108,18 +111,21 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
   });
 
   test("a `classes` key (P-26: classes.Lobby, a declared class with no address) changes nothing", () => {
-    const withClasses = { ...real, classes: { Lobby: "0x123" } } as DeploymentFile;
+    const withClasses = { ...real, classes: { Lobby: "0x123", Other: "0x456" } } as DeploymentFile;
     const env = { addresses: { Tutorial: "0x77" } };
     expect(resolveDeployment({ network: "devnet", file: withClasses })).toEqual(resolveDeployment({ network: "devnet", file: real }));
     expect(resolveDeployment({ network: "devnet", file: withClasses, env })).toEqual(resolveDeployment({ network: "devnet", file: real, env }));
     const d = resolveDeployment({ network: "devnet", file: withClasses });
     expect(d.configured).toBe(true);
-    expect(d.tokenDecimals).toBe(18);
+    expect(d.tokenDecimals).toBe(real.token!.decimals);
     expect(Object.keys(d.addresses).sort()).toEqual(["Account", "Daily", "Token", "Tutorial"]);
   });
 
-  test("the symbol is never read for display: the label stays PAVED (D-10)", () => {
-    expect(real.token?.symbol).toBe("LORDS");
+  test("the symbol is never read for display: the label is the client's USDC constant (E3)", () => {
+    expect(USDC_LABEL).toBe("USDC");
     expect(Object.keys(resolveDeployment({ network: "devnet", file: real }))).not.toContain("tokenSymbol");
+    // Whatever symbol the file carries, the resolved deployment is the same: it is not read.
+    const renamed = { ...real, token: { ...real.token, symbol: "LORDS" } } as DeploymentFile;
+    expect(resolveDeployment({ network: "devnet", file: renamed })).toEqual(resolveDeployment({ network: "devnet", file: real }));
   });
 });
