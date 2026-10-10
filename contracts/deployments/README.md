@@ -117,40 +117,28 @@ stays the owner's act). It runs the devnet economy path (P-39, PM, 2026-10-10: E
 
 It refuses to start when one is missing, naming it. The procedure is in `docs/programme/OPERATIONS.md`, "Sepolia".
 
-`scripts/deploy.sh sepolia --rehearse` runs the same flow on a fresh local `starknet-devnet` (started as in
-"Regenerate"), with the node's first predeployed account, the working tree's sources, and the file written to a
-temporary path. Its smoke also settles the paid game.
+`scripts/deploy.sh sepolia --rehearse` runs the same flow, signer included, on a fresh local `starknet-devnet`
+(started as in "Regenerate"), with the node's first predeployed account, the working tree's sources, and the file
+written to a temporary path. It unsets the funded account's variables first. Its smoke also settles the paid game.
 
-### Signing on Sepolia (open: S-1 escalation)
+### Signing on Sepolia (settled: P-40)
 
-The key must not be written to a file, keystore or accounts file. What was checked, with `--help` and the
-Starknet Foundry book only (no transaction sent), on 2026-10-10:
+sncast 0.64.0 signs only from an accounts file, a keystore or a Ledger, and the key must not be written to a file
+(S-1). On `sepolia` and `--rehearse`, every transaction (declare, deploy, invoke, multicall) and every view call of
+`deploy.sh` goes through the starknet.js signer in `scripts/signer/` (P-40, option 2 of the S-1 escalation),
+installed there with `npm ci`; its README says what it checks and what its sanitiser covers. devnet keeps sncast.
 
-- **sncast 0.64.0 cannot sign from the environment alone.** Its signing commands (`declare`, `deploy`, `invoke`,
-  `multicall`) take the account from `--accounts-file` with `--account` (a JSON file holding the plain key), from
-  `--keystore` (an encrypted key file and a starkli account file), or from a Ledger. They have no `--private-key`
-  flag and read no key variable. `sncast account import --private-key` writes the key into the accounts file
-  (`--private-key-file` reads it from a file; the book warns that `--private-key` shows in the process list).
-- **Other tools.** `starkli` is not installed on the VPS. `starknet.js` (`^8.1.2`, a dependency of
-  `packages/chain` and `packages/app-web`) signs in memory: `new Account(provider, address, privateKey)` with the
-  key from `process.env`.
-
-So `scripts/deploy.sh sepolia` stops before building or sending anything (exit 3) until one option is chosen:
-
-1. **sncast, with the accounts file through a pipe**: `--accounts-file <(printf ... "$STARKNET_PRIVATE_KEY")`. Bash's
-   builtin `printf` puts the key in no process's arguments, and the JSON lives in a kernel pipe, never on a
-   filesystem. It is still an accounts file in sncast's sense, and it is unverified that sncast 0.64.0 reads a
-   pipe (it must read it once per command): one rehearsal with a devnet key settles that. Smallest change: one
-   function of the script.
-2. **starknet.js for the transactions**: a small script signs in memory with the key from `process.env`; scarb
-   still builds and the script declares the compiled classes. New code, and a Node toolchain on the deploy path.
-3. A Ledger (`sncast ledger`): no device on the VPS.
-4. An encrypted keystore (`--keystore`) or an accounts file on disk, even a temporary one removed on exit: both
-   write the key to a file, which the rule excludes.
-
-Either way, `sncast --url` puts the RPC URL in sncast's arguments (visible to the VPS's other users in the process
-list); sncast 0.64.0 reads it otherwise only from `snfoundry.toml`, a file. `deploy.sh`'s own `curl` calls take it
-on stdin instead.
+- The three variables are copied into unexported shell variables at the top of `deploy.sh` and unset, so no
+  child but the signer has them: the signer gets them in its own environment (bash's `VAR=value command`, not
+  argv), with `NODE_OPTIONS` reduced to its heap cap, `NODE_DEBUG` empty and `--disable-sigusr1`.
+- The RPC URL is in no process's arguments: the signer takes it from its environment, `curl` from its config on
+  stdin. `deploy.sh` prints and writes it as `$STARKNET_RPC_URL`.
+- The declared classes are the release build's files (`contracts/target/release/`); each class hash the signer
+  declares is checked against `sncast utils class-hash` (no network) for the same contract.
+- The pool's approvals and `add_liquidity` are one multicall, the stake's approval and `stake` another.
+- `--rehearse` is this path on a local starknet-devnet: `SIGNER_NETWORK=devnet` and the node's first predeployed
+  account (public dev key, in the signer's environment only). The signer then also requires the node to answer
+  `devnet_getConfig`, so a tunnel to Sepolia on a local port is refused.
 
 ## Settlement keeper
 
