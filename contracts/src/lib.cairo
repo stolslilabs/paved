@@ -106,6 +106,7 @@ pub mod structure {
 }
 
 pub mod mocks {
+    pub mod reentrant_token;
     pub mod router;
     pub mod token;
     pub mod usdc;

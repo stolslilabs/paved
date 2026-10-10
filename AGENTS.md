@@ -50,7 +50,8 @@ Memory figures and the VPS/Mac rule:
 - The `snforge test` build of `contracts/` peaked at about 8.0 GB RSS (7.99 GB measured on main 144521b,
   with OpenZeppelin) before the code-location debug info left the dev profile; it now peaks at about
   5.6 GB (5.56 GB, 5.57 GB on `snforge test paved::types::`). A plain `scarb build` peaks at about 5.0 GB
-  (4.96 GB). The cap for a snforge run is `prlimit --as=12884901888` (12 GiB).
+  (4.96 GB); 1.5x is 7.44 GB, under the 8 GiB floor, so its cap is `prlimit --as=8589934592` (8 GiB). The cap for a
+  snforge run is `prlimit --as=12884901888` (12 GiB).
 - Coverage runs use `snforge test -P coverage` (`scripts/measure.sh coverage*`), which keeps the
   code-location flag and its cost. The `types` group of `coverage-split` peaked at 9,123,164 kB from
   `time -v` (KiB: 9.34 GB, 8.70 GiB; VPS, 2026-10-10), so above about 8 GB it runs on the Mac or in CI,
@@ -60,7 +61,7 @@ Memory figures and the VPS/Mac rule:
   have no measured peak, expected above 8 GB, and keep the 8 GiB default: measure them first on the Mac
   (P-33, `/usr/bin/time -l`, no cap) or in CI before giving them a cap.
 - A Cairo run whose measured peak RSS is under about 8 GB may run on the VPS under `--as` = 1.5x its
-  measured peak, rounded up, at most 16 GiB. A peak above about 8 GB goes to the Mac. Every peak is
+  measured peak, rounded up, at most 16 GiB and never below 8 GiB. A peak above about 8 GB goes to the Mac. Every peak is
   measured first.
 
 On the Mac (P-33, organisation rule set by the Overseer on 2026-10-09 from the PM's ruling for Paved):

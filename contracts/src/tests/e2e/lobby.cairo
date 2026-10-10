@@ -243,8 +243,16 @@ fn stored_lobby_class(contract: ContractAddress) -> felt252 {
 /// `Daily` paid in the spy token into the spy `Economy`, with PLAYER registered and calling
 /// `Daily`.
 pub fn spied_daily() -> (IDailyDispatcher, ISpyTokenDispatcher, ISpyEconomyDispatcher) {
+    let (daily, token, economy) = daily_paid_in("SpyToken");
+    (daily, ISpyTokenDispatcher { contract_address: token }, economy)
+}
+
+/// The same `Daily`, paid in the token contract called `token_name` (no constructor arguments).
+pub fn daily_paid_in(
+    token_name: ByteArray,
+) -> (IDailyDispatcher, ContractAddress, ISpyEconomyDispatcher) {
     let owner: felt252 = OWNER().into();
-    let token = deploy("SpyToken", array![]);
+    let token = deploy(token_name, array![]);
     let economy = deploy("SpyEconomy", array![]);
     let account = deploy("Account", array![owner]);
     let daily = deploy("Daily", array![owner, account.into(), token.into(), lobby_class()]);
@@ -263,7 +271,7 @@ pub fn spied_daily() -> (IDailyDispatcher, ISpyTokenDispatcher, ISpyEconomyDispa
     start_cheat_caller_address(daily, PLAYER());
     (
         IDailyDispatcher { contract_address: daily },
-        ISpyTokenDispatcher { contract_address: token },
+        token,
         ISpyEconomyDispatcher { contract_address: economy },
     )
 }
