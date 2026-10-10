@@ -75,7 +75,8 @@ export function resolveDeployment(input: {
   const envBlock = env.deployedBlock === undefined || env.deployedBlock === "" ? NaN : Number(env.deployedBlock);
   const deployedBlock = Number.isInteger(envBlock) && envBlock >= 0 ? envBlock : (file.deployed_block ?? 0);
 
-  const mockUsdc = env.mockUsdc || file.contracts?.MockUSDC?.address;
+  // The faucet is devnet-only in code: no other network resolves a MockUSDC, whatever its file or env holds.
+  const mockUsdc = input.network === "devnet" ? env.mockUsdc || file.contracts?.MockUSDC?.address : undefined;
 
   return {
     network: input.network,

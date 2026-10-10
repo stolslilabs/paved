@@ -562,6 +562,18 @@ describe("errors of the Economy as clear states", () => {
     expect((error as Error).message).toBe("This day cannot be settled yet: try again after the next day ends.");
   });
 
+  test("the node refusing at fee estimation, before anything is sent, maps the same way (no hash, not reverted)", async () => {
+    const refuse = (reason: string) => setup({ execute: async () => { throw new Error(`Account validation failed: ${reason}`); } });
+    const bought = await refuse("Economy: swap below min_out").econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+    expect(bought).toBeInstanceOf(SwapBelowMinOutError);
+    expect(bought).toMatchObject({ transactionHash: undefined, reverted: false });
+    const s = refuse("Economy: day cannot close yet");
+    s.economy.terms_.set(7, fakeTerms({ stake: 1, day: DAY }));
+    const settled = await s.econWriter.settle([7]).catch((e: unknown) => e);
+    expect(settled).toBeInstanceOf(SettleTooEarlyError);
+    expect(settled).toMatchObject({ transactionHash: undefined, reverted: false });
+  });
+
   test("any other revert keeps its own message", async () => {
     const error = await reverted("Economy: wrong price").econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
     expect(error).not.toBeInstanceOf(SwapBelowMinOutError);
