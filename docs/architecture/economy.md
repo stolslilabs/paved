@@ -1111,11 +1111,15 @@ economy changed.
 - **The devnet economy path** (P-39). `MockUSDC` and `MockRouter` (800,000 PAVED and 10,000 USDC, 5 % fee, launch rate
   7.6e31, `sqrt_ratio_limit` 0), so `Economy.quote_swap` is the quote path on Sepolia as on devnet. No Ekubo wiring.
   `deploy.sh` refuses `MockUSDC` and `MockRouter` by name on mainnet only, and the old mock `Token` off devnet.
-- **The bounded faucet.** `MockUSDC.mint` mints at most 10,000 USDC per call (`MINT_CAP_PER_CALL`) and 20,000 USDC per
-  recipient over its life (`MINT_CAP_PER_ADDRESS`, counted in `minted(account)`, transfers out do not reopen it).
-  The deployer funds the pool's 10,000 USDC in one call within both caps. The per-call cap is the pool's 10,000 USDC
-  rather than a smaller figure: the existing tests mint 10,000 USDC in one call (`deploy_economy`, the router and
-  economy setups), and they stay unchanged.
+- **The bounded faucet.** `MockUSDC.mint` mints at most 10,000 USDC per call (`MINT_CAP_PER_CALL`), and never past a
+  balance of 20,000 USDC for its recipient (`MINT_CAP_PER_ADDRESS`). The address cap is on the balance, not a lifetime
+  count: a count costs a storage write per mint. USDC sent away makes room again, which is accepted for test USDC (the
+  caps bound each holding, not the supply). `mint` reads the balance once and writes it itself (OpenZeppelin's
+  `update` from zero; the hooks are empty). The checks still cost about 8k l2 gas per mint. The e2e budgets are exact
+  figures, so 23 e2e tests (five setup mints each) rise by 24k to 41k. Nothing else moves: no move, golden or game
+  contract. The deployer funds the pool's 10,000 USDC in one call within both caps. The per-call cap is the pool's
+  10,000 USDC rather than a smaller figure, because the existing tests mint 10,000 USDC in one call (`deploy_economy`,
+  the router and economy setups).
 - **Wiring and stake** as on devnet: the owner's 200,000 PAVED staked before `Economy.set_game`, then
   `set_minter(Economy)`, `minter() == Economy` and `admin() == 0` checked. P-38's test PAVED is devnet only, so the
   stake is the whole 200,000. The seed is unchanged (D-13).
