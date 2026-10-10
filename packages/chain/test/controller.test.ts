@@ -17,7 +17,8 @@ import { FakeGameViews, type TournamentView } from "../src/views";
 
 const deployment = resolveDeployment({
   network: "sepolia",
-  env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" } },
+  // `mockUsdc` is set here only so that the faucet writes send something to check: no real network has one.
+  env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
 });
 const policies = controllerPolicies(deployment);
 /** The economy of the same deployment (E3): the Daily entry is paid in USDC. */
@@ -63,6 +64,9 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   const move = { orientation: 1, x: 2, y: 3, role: 0, spot: 0 };
   const writes: Record<string, () => Promise<unknown>> = {
     "create player": () => writer.createPlayer("ada"),
+    // The devnet faucet (MockUSDC.mint): the burner signs it, the controller's session never holds it (review of #265).
+    "faucet mint": () => writer.mint(),
+    "create player with faucet": () => writer.createPlayer("ada", { mintTestToken: true }),
     "daily spawn (sends nothing since E3)": () => writer.spawn("daily"),
     "tutorial spawn": () => writer.spawn("tutorial"),
     "daily build": () => writer.build({ mode: "daily", gameId: 1 }, move),
@@ -128,7 +132,24 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(new Set(session.map((p) => key(p.target, p.method)))).toEqual(keys);
     // Without the entry's approve, the session is the same minus approve.
     expect(new Set(policies.map((p) => key(p.target, p.method)))).toEqual(new Set([...keys].filter((k) => !k.endsWith(":approve"))));
-    expect(Object.values(sent).flat().map((c) => c.entrypoint)).not.toContain("mint");
+    // The writes of the session (the faucet's own are checked below) hold no mint.
+    expect(GAME_AND_PURCHASE.flatMap((label) => sent[label]).map((c) => c.entrypoint)).not.toContain("mint");
+  });
+
+  test("the faucet is never in the session: mint() and createPlayer(mintTestToken) send a mint, and no policy holds it", async () => {
+    const sent = await sentByEveryWrite();
+    expect(sent["faucet mint"].map((c) => c.entrypoint)).toEqual(["mint"]);
+    expect(sent["create player with faucet"].map((c) => c.entrypoint)).toEqual(["mint", "create"]);
+    const [mint] = sent["faucet mint"];
+    expect(BigInt(mint.contractAddress)).toBe(BigInt("0x14"));
+    for (const call of [...sent["faucet mint"], sent["create player with faucet"][0]]) {
+      expect(inSession(call, session), "mint with an approve cap").toBe(false);
+      expect(inSession(call, policies), "mint without").toBe(false);
+    }
+    // And the plain create player of the session is signed in it, as before.
+    expect(sent["create player"].map((c) => c.entrypoint)).toEqual(["create"]);
+    expect(inSession(sent["create player"][0], session)).toBe(true);
+    expect(session.map((p) => p.method)).not.toContain("mint");
   });
 
   test("the purchase approves USDC to Daily for stake x unit; at stake 10 that is exactly the cap", async () => {
