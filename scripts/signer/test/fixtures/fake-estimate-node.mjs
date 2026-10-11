@@ -6,8 +6,18 @@
 // FAKE_ESTIMATE_HTML an HTTP 413 page with no JSON. FAKE_FLAKY=<method>:<n> answers the first n calls of
 // that method -32601 with HTTP 400, as dRPC did at random (S-1c). starknet_call answers a u256 of
 // FAKE_STRK_BALANCE (base units, decimal; default 1,000 STRK): the deployer's STRK balance for deploy.sh.
+// A lost answer (S-1d): FAKE_ADD_LOST=timeout answers every starknet_add* with dRPC's `30: Request timeout on the free
+// plan` (HTTP 200), FAKE_ADD_LOST=drop fails it as a dropped connection, both after taking it. FAKE_RECEIPT=succeeded
+// gives every transaction a SUCCEEDED receipt, FAKE_RECEIPT=none none (error 29); otherwise it reverts at once.
+// FAKE_ADD_LOG=<file> appends each starknet_add* request body to the file. FAKE_FAST_CLOCK=1 makes every timer fire at
+// once, so a 5-minute wait takes no time.
 const [flakyMethod, flakyCount] = (process.env.FAKE_FLAKY ?? ':0').split(':');
 let flakyLeft = Number(flakyCount);
+if (process.env.FAKE_FAST_CLOCK) {
+  const realSetTimeout = globalThis.setTimeout;
+  globalThis.setTimeout = (callback, _ms, ...args) => realSetTimeout(callback, 0, ...args);
+}
+const { appendFileSync } = await import('node:fs');
 const BLOCK = {
   status: 'ACCEPTED_ON_L2',
   block_hash: '0x1',
@@ -44,6 +54,19 @@ globalThis.fetch = async (_url, init) => {
     const error = { code: -32601, message: `the method ${method} does not exist/is not available` };
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error }), { status: 400 });
   }
+  if (method.startsWith('starknet_add') && process.env.FAKE_ADD_LOG) appendFileSync(process.env.FAKE_ADD_LOG, `${init.body}\n`);
+  if (method.startsWith('starknet_add') && process.env.FAKE_ADD_LOST === 'timeout') {
+    const error = { code: 30, message: 'Request timeout on the free plan, please upgrade to paid plan' };
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id, error }));
+  }
+  if (method.startsWith('starknet_add') && process.env.FAKE_ADD_LOST === 'drop') {
+    throw new TypeError('fetch failed', { cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }) });
+  }
+  const notFound = { code: 29, message: 'Transaction hash not found' };
+  if (/^starknet_getTransaction(Receipt|Status)$/.test(method) && process.env.FAKE_RECEIPT === 'none') {
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: notFound }));
+  }
+  const execution = process.env.FAKE_RECEIPT === 'succeeded' ? 'SUCCEEDED' : 'REVERTED';
   if (method === 'starknet_estimateFee' && process.env.FAKE_ESTIMATE_HTML) {
     return new Response('<html><body>413 Request Entity Too Large</body></html>', { status: 413, headers: { 'content-type': 'text/html' } });
   }
@@ -65,15 +88,15 @@ globalThis.fetch = async (_url, init) => {
     starknet_addDeclareTransaction: { transaction_hash: '0xadd', class_hash: '0x1' },
     starknet_addInvokeTransaction: { transaction_hash: '0xadd' },
     starknet_addDeployAccountTransaction: { transaction_hash: '0xadd', contract_address: '0x1' },
-    // A sent transaction reverts at once, so a sending command ends instead of waiting.
-    starknet_getTransactionStatus: { finality_status: 'ACCEPTED_ON_L2', execution_status: 'REVERTED' },
+    // A sent transaction reverts at once (unless FAKE_RECEIPT says otherwise), so a sending command ends instead of waiting.
+    starknet_getTransactionStatus: { finality_status: 'ACCEPTED_ON_L2', execution_status: execution },
     starknet_getTransactionReceipt: {
       type: 'INVOKE',
       transaction_hash: '0xadd',
       actual_fee: { amount: '0x0', unit: 'FRI' },
-      execution_status: 'REVERTED',
+      execution_status: execution,
       finality_status: 'ACCEPTED_ON_L2',
-      revert_reason: 'fake node',
+      ...(execution === 'REVERTED' ? { revert_reason: 'fake node' } : {}),
       block_hash: '0x1',
       block_number: 1,
       messages_sent: [],
