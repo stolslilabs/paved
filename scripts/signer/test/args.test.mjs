@@ -147,3 +147,18 @@ test('refuses a malformed estimate, without echoing values', () => {
   }
   refused(() => parseArgs(['estimate', 'invoke', '--contract', '0x1', '--function', 'f', '--validate', '--validate']));
 });
+
+test('--tip takes a u64 or node, on every command that sends and on estimate', () => {
+  for (const argv of [
+    ['declare', '--sierra', 'a', '--casm', 'b'],
+    ['deploy', '--class-hash', '0x1'],
+    ['invoke', '--contract', '0x1', '--function', 'f'],
+    ['multicall', '--calls', 'c.json'],
+    ['estimate', 'invoke', '--contract', '0x1', '--function', 'f'],
+  ]) {
+    assert.equal(parseArgs([...argv, '--tip', '0x5f5e100']).options.tip, 0x5f5e100n);
+    assert.equal(parseArgs([...argv, '--tip', 'node']).options.tip, 'node');
+    for (const bad of [`${2n ** 64n}`, '-1', 'auto', KEY]) refused(() => parseArgs([...argv, '--tip', bad]), KEY);
+  }
+  refused(() => parseArgs(['call', '--contract', '0x1', '--function', 'f', '--tip', '1']));
+});

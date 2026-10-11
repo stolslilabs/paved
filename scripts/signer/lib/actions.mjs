@@ -10,6 +10,27 @@ import { UsageError, assertChain } from './env.mjs';
 // starknet.js logs warnings (an RPC version mismatch, a fee retry) with the node's details: silence it.
 config.set('logLevel', 'OFF');
 
+// The tip on Sepolia unless --tip says otherwise: 0x5f5e100 (100,000,000 FRI per L2 gas unit), what starknet.js's
+// recommendedTip gave on Sepolia in S-1b. starknet.js's estimate of a tip reads the latest blocks
+// (starknet_getBlockWithTxs), which a Sepolia endpoint answered -32601 at random (dRPC, S-1c): a fixed tip reads none.
+export const FIXED_TIP = 0x5f5e100n;
+// The Starknet version starknet.js assumes on Sepolia instead of reading it from the latest block
+// (starknet_getBlockWithTxHashes) at each declare: Sepolia's, read on 2026-10-11 (block 16,413,363). It only picks the
+// compiled class hash algorithm (Blake from 0.14.1, Poseidon before): a wrong one fails at the node, which refuses a
+// declare whose compiled class hash is not its own, and nothing is declared.
+export const SEPOLIA_STARKNET_VERSION = '0.14.4';
+
+/**
+ * The tip a command uses: its --tip, else FIXED_TIP on sepolia and the node's estimate on devnet.
+ * Returns a bigint, or undefined for starknet.js's estimate.
+ * @param {bigint | 'node' | undefined} option
+ * @param {string} network
+ */
+export function chooseTip(option, network) {
+  const tip = option ?? (network === 'sepolia' ? FIXED_TIP : 'node');
+  return tip === 'node' ? undefined : tip;
+}
+
 /**
  * Checks the node's chain before anything is signed (on devnet, also that the node answers a
  * devnet-only method: a tunnel from a local port to Sepolia passes the URL and chain id checks, and
@@ -26,8 +47,10 @@ export async function connect({ address, privateKey, rpcUrl, network, chainId },
   assertChain(await probe.channel.fetchEndpoint('starknet_chainId'), network);
   if (network === 'devnet') await assertDevnet(probe);
   const provider = new RpcProvider({ nodeUrl: rpcUrl, chainId, baseFetch });
+  // Sepolia: no block is read for the Starknet version (SEPOLIA_STARKNET_VERSION).
+  if (network === 'sepolia') provider.channel.getStarknetVersion = async () => SEPOLIA_STARKNET_VERSION;
   const account = new Account({ provider, address, signer: privateKey });
-  return { provider, account, rpcUrl, fetch: baseFetch ?? globalThis.fetch };
+  return { provider, account, rpcUrl, network, fetch: baseFetch ?? globalThis.fetch };
 }
 
 /**
@@ -83,16 +106,22 @@ async function readJson(path) {
   return json.parse(await readFile(path, 'utf8'));
 }
 
-export async function declare({ account }, { sierra, casm }) {
+// The transaction details that fix the tip (chooseTip), or none for starknet.js's estimate of it.
+function tipDetails(tip, network) {
+  const chosen = chooseTip(tip, network);
+  return chosen === undefined ? {} : { tip: chosen };
+}
+
+export async function declare({ account, network }, { sierra, casm, tip }) {
   const contract = await readJson(sierra);
   const compiled = await readJson(casm);
   announce('declare', basename(sierra));
-  const { class_hash, transaction_hash } = await account.declareIfNot({ contract, casm: compiled });
+  const { class_hash, transaction_hash } = await account.declareIfNot({ contract, casm: compiled }, tipDetails(tip, network));
   if (transaction_hash) await confirm(account.provider, transaction_hash);
   return { class_hash, transaction_hash: transaction_hash || null, already_declared: !transaction_hash };
 }
 
-export async function deploy({ account }, { classHash, salt, calldata }) {
+export async function deploy({ account, network }, { classHash, salt, calldata, tip }) {
   const chosenSalt = salt ?? stark.randomAddress();
   announce('deploy class', classHash, 'through the universal deployer');
   // deployContract waits for the receipt and reads the address from the deployer's event.
@@ -101,7 +130,7 @@ export async function deploy({ account }, { classHash, salt, calldata }) {
     salt: chosenSalt,
     unique: true,
     constructorCalldata: calldata,
-  });
+  }, tipDetails(tip, network));
   return {
     contract_address: result.contract_address,
     transaction_hash: result.transaction_hash,
@@ -110,20 +139,20 @@ export async function deploy({ account }, { classHash, salt, calldata }) {
   };
 }
 
-async function execute(account, calls) {
+async function execute(account, calls, details) {
   for (const { contractAddress, entrypoint } of calls) announce('invoke', contractAddress, entrypoint);
-  const { transaction_hash } = await account.execute(calls);
+  const { transaction_hash } = await account.execute(calls, details);
   await confirm(account.provider, transaction_hash);
   return { transaction_hash };
 }
 
-export async function invoke({ account }, { contract, entrypoint, calldata }) {
-  return execute(account, [{ contractAddress: contract, entrypoint, calldata }]);
+export async function invoke({ account, network }, { contract, entrypoint, calldata, tip }) {
+  return execute(account, [{ contractAddress: contract, entrypoint, calldata }], tipDetails(tip, network));
 }
 
-export async function multicall({ account }, { calls }) {
+export async function multicall({ account, network }, { calls, tip }) {
   const parsed = parseCalls(await readJson(calls));
-  return execute(account, parsed.map((call) => ({ ...call, calldata: resolveAccount(call.calldata, account.address) })));
+  return execute(account, parsed.map((call) => ({ ...call, calldata: resolveAccount(call.calldata, account.address) })), tipDetails(tip, network));
 }
 
 export async function call({ provider }, { contract, entrypoint, calldata }) {
@@ -142,7 +171,7 @@ const BODY_LIMIT = 4000;
  * JSON-RPC error object (code, message, data), or the HTTP status and body when there is no JSON.
  * Returns `{ ok, ... }`: `ok: false` is the node's refusal, printed as the JSON line too.
  */
-export async function estimate({ account, provider, rpcUrl, fetch }, options) {
+export async function estimate({ account, provider, rpcUrl, network, fetch }, options) {
   const { kind, bounds, validate = false, blockId = 'latest' } = options;
   let invocation;
   let label;
@@ -160,7 +189,7 @@ export async function estimate({ account, provider, rpcUrl, fetch }, options) {
     label = `${options.contract} ${options.entrypoint}`;
   }
   announce('estimate', kind, label, '(nothing is sent)');
-  const { tip } = await account.resolveDetailsWithTip({});
+  const { tip } = await account.resolveDetailsWithTip(tipDetails(options.tip, network));
   const [built] = await account.accountInvocationsFactory([invocation], {
     tip,
     ...(bounds ? { resourceBounds: bounds } : {}),

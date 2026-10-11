@@ -240,3 +240,37 @@ test('the other commands still send: the fake node is asked starknet_add* by inv
   const result = run(INVOKE, { ...SEPOLIA, FAKE_ESTIMATE_ERROR: '' }, ['--import', ESTIMATE_NODE]);
   assert.match(result.stderr, /fake-node: asked starknet_addInvokeTransaction\n/);
 });
+
+// The tip on Sepolia (S-1c): a Sepolia endpoint answered -32601 at random to the block reads of starknet.js's tip
+// estimate. On sepolia the signer's default tip is fixed and its Starknet version pinned, so declare, deploy and
+// invoke reach the node's estimate and the add* method without reading a block.
+const SENDS = [
+  ['declare', '--sierra', TINY_SIERRA, '--casm', TINY_CASM],
+  ['deploy', '--class-hash', '0x12', '--calldata', '1'],
+  INVOKE,
+];
+const BLOCK_READ = /fake-node: asked starknet_getBlockWith/;
+
+test('sepolia: declare, deploy, invoke and estimate read no block (fixed tip 0x5f5e100, pinned version)', () => {
+  for (const args of [...SENDS, ...ESTIMATES]) {
+    const result = run(args, SEPOLIA, ['--import', ESTIMATE_NODE]);
+    assert.match(result.stderr, /fake-node: asked starknet_estimateFee\n/, result.stderr);
+    if (args[0] !== 'estimate') assert.match(result.stderr, /fake-node: asked starknet_add(Declare|Invoke)Transaction\n/, result.stderr);
+    assert.doesNotMatch(result.stderr, BLOCK_READ, `${args[0]} read a block`);
+    if (args[0] === 'estimate') assert.equal(estimateLine(result).request.tip, '0x5f5e100');
+    assertNoSecret(result, SEPOLIA.STARKNET_RPC_URL);
+  }
+});
+
+test('--tip sets the tip; --tip node reads the latest blocks for it (the control)', () => {
+  const fixed = run([...ESTIMATES[2], '--tip', '7'], SEPOLIA, ['--import', ESTIMATE_NODE]);
+  assert.equal(estimateLine(fixed).request.tip, '0x7');
+  assert.doesNotMatch(fixed.stderr, BLOCK_READ);
+  for (const args of [[...SENDS[2], '--tip', 'node'], [...ESTIMATES[2], '--tip', 'node']]) {
+    const result = run(args, SEPOLIA, ['--import', ESTIMATE_NODE]);
+    assert.match(result.stderr, /fake-node: asked starknet_getBlockWithTxs\n/);
+  }
+  // devnet keeps starknet.js's estimate by default.
+  const devnet = run(ESTIMATES[2], { ...ENV, ...DEVNET_NODE }, ['--import', ESTIMATE_NODE]);
+  assert.match(devnet.stderr, /fake-node: asked starknet_getBlockWithTxs\n/);
+});

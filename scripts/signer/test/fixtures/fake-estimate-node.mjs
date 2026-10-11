@@ -1,8 +1,9 @@
 // Preloaded by test/cli.test.mjs and scripts/test-deploy-url.sh: a Sepolia node that answers what an
 // estimate asks (the chain, a block, the account's nonce and class, the fee estimate) and, to catch a
 // signer that would send, also accepts every starknet_add* transaction. It reports each method it is
-// asked on stderr. FAKE_ESTIMATE_ERROR (when the environment reaches it) makes the estimate answer
-// the -32603 error Cartridge gave (no `data`); FAKE_ESTIMATE_HTML an HTTP 413 page with no JSON.
+// asked on stderr. No class is declared (starknet_getClass answers an error). FAKE_ESTIMATE_ERROR (when
+// the environment reaches it) makes the estimate answer the -32603 error Cartridge gave (no `data`);
+// FAKE_ESTIMATE_HTML an HTTP 413 page with no JSON.
 const BLOCK = {
   status: 'ACCEPTED_ON_L2',
   block_hash: '0x1',
@@ -50,7 +51,6 @@ globalThis.fetch = async (_url, init) => {
     starknet_getNonce: '0x0',
     starknet_getClassHashAt: '0x1',
     starknet_getClassAt: ACCOUNT_CLASS,
-    starknet_getClass: ACCOUNT_CLASS,
     starknet_estimateFee: [ESTIMATE],
     starknet_addDeclareTransaction: { transaction_hash: '0xadd', class_hash: '0x1' },
     starknet_addInvokeTransaction: { transaction_hash: '0xadd' },

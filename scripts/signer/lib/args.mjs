@@ -43,6 +43,12 @@ const kinds = {
       l2_gas: { max_amount: l2, max_price_per_unit: l2Price },
     };
   },
+  // A tip: a u64 (the transaction's tip field), or `node` (starknet.js's estimate from the latest blocks).
+  tip: (value, flag) => {
+    if (value === 'node') return value;
+    if (!NUMBER_RE.test(value) || BigInt(value) >= 2n ** 64n) throw new UsageError(`${flag} expects a u64 (0x-hex or decimal) or 'node'`);
+    return BigInt(value);
+  },
   // The block tags of spec 0.9 and 0.10 for starknet_estimateFee (`pending` left the spec in 0.9).
   blockTag: (value, flag) => {
     if (!BLOCK_TAGS.includes(value)) throw new UsageError(`${flag} expects one of: ${BLOCK_TAGS.join(', ')}`);
@@ -53,19 +59,23 @@ const kinds = {
 export const BLOCK_TAGS = Object.freeze(['latest', 'pre_confirmed']);
 
 // Per subcommand: flag -> [field, kind, required]. `--calldata` takes every following felt.
+// `--tip` (every command that sends, and estimate): see FIXED_TIP in actions.mjs.
+const TIP = { '--tip': ['tip', 'tip', false] };
 export const COMMANDS = Object.freeze({
-  declare: { '--sierra': ['sierra', 'path', true], '--casm': ['casm', 'path', true] },
+  declare: { '--sierra': ['sierra', 'path', true], '--casm': ['casm', 'path', true], ...TIP },
   deploy: {
     '--class-hash': ['classHash', 'felt', true],
     '--salt': ['salt', 'felt', false],
     '--calldata': ['calldata', 'felt', false],
+    ...TIP,
   },
   invoke: {
     '--contract': ['contract', 'felt', true],
     '--function': ['entrypoint', 'entrypoint', true],
     '--calldata': ['calldata', 'felt', false],
+    ...TIP,
   },
-  multicall: { '--calls': ['calls', 'path', true] },
+  multicall: { '--calls': ['calls', 'path', true], ...TIP },
   call: {
     '--contract': ['contract', 'felt', true],
     '--function': ['entrypoint', 'entrypoint', true],
@@ -93,6 +103,8 @@ export const USAGE = `usage: signer.mjs <command> [options]
             asks the node for a fee estimate only (starknet_estimateFee): nothing is sent. The three
             options are diagnostic: explicit resource bounds instead of zero, validation instead of
             SKIP_VALIDATE, a block tag (latest, pre_confirmed) instead of latest.
+declare, deploy, invoke, multicall and estimate take --tip <u64|node>: the transaction's tip. Default on
+sepolia, a fixed tip (0x5f5e100), with no block read; on devnet, node (starknet.js reads the latest blocks).
 A calldata word may be @account: the account's address, read from the environment.
 The account, the node and the network come from STARKNET_ACCOUNT_ADDRESS, STARKNET_PRIVATE_KEY,
 STARKNET_RPC_URL and SIGNER_NETWORK (sepolia or devnet; mainnet is refused).`;
