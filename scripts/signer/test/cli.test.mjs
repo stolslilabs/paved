@@ -163,3 +163,146 @@ test('refuses a felt at or above the field prime, before reading the node', () =
     assert.equal(result.stderr, 'signer: --calldata expects a felt (0x-hex or decimal, below the field prime)\n');
   }
 });
+
+// estimate (S-1c): a node that answers every step of an estimate and accepts any transaction. The
+// estimate asks starknet_estimateFee and never a starknet_add* method.
+const ESTIMATE_NODE = fileURLToPath(new URL('./fixtures/fake-estimate-node.mjs', import.meta.url));
+const TINY_SIERRA = fileURLToPath(new URL('./fixtures/tiny.contract_class.json', import.meta.url));
+const TINY_CASM = fileURLToPath(new URL('./fixtures/tiny.compiled_contract_class.json', import.meta.url));
+const SEPOLIA = { ...ENV, SIGNER_NETWORK: 'sepolia', STARKNET_RPC_URL: `https://rpc.example.io/rpc/${API_KEY}` };
+const ESTIMATES = [
+  ['estimate', 'declare', '--sierra', TINY_SIERRA, '--casm', TINY_CASM],
+  ['estimate', 'deploy', '--class-hash', '0x12', '--calldata', '@account', '1'],
+  ['estimate', 'invoke', '--contract', '0x1', '--function', 'mint', '--calldata', '0x2', '1', '0'],
+];
+
+function estimateLine(result) {
+  const lines = result.stdout.trim().split('\n');
+  assert.equal(lines.length, 1, result.stdout);
+  return JSON.parse(lines[0]);
+}
+
+test('estimate asks starknet_estimateFee for declare, deploy and invoke, and no starknet_add* method', () => {
+  for (const args of ESTIMATES) {
+    const result = run(args, SEPOLIA, ['--import', ESTIMATE_NODE]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /fake-node: asked starknet_estimateFee\n/);
+    assert.doesNotMatch(result.stderr, /fake-node: asked starknet_add/);
+    assert.match(result.stderr, new RegExp(`signer: estimate ${args[1]} .*\\(nothing is sent\\)\n`));
+    const line = estimateLine(result);
+    assert.equal(line.ok, true);
+    assert.equal(line.estimate.overall_fee, '0x2540be480');
+    // starknet.js's own request: zero bounds, SKIP_VALIDATE, latest, the query version.
+    assert.deepEqual(line.request.simulation_flags, ['SKIP_VALIDATE']);
+    assert.equal(line.request.block_id, 'latest');
+    assert.equal(line.request.version, '0x100000000000000000000000000000003');
+    for (const bound of Object.values(line.request.resource_bounds)) assert.deepEqual(bound, { max_amount: '0x0', max_price_per_unit: '0x0' });
+    assertNoSecret(result, SEPOLIA.STARKNET_RPC_URL);
+  }
+});
+
+test('estimate diagnostics: explicit bounds, validation, a block tag', () => {
+  const args = [...ESTIMATES[0], '--bounds', '1,2,3,4,0x5,6', '--validate', '--block-id', 'pre_confirmed'];
+  const result = run(args, SEPOLIA, ['--import', ESTIMATE_NODE]);
+  assert.equal(result.status, 0, result.stderr);
+  const { request } = estimateLine(result);
+  assert.deepEqual(request.simulation_flags, []);
+  assert.equal(request.block_id, 'pre_confirmed');
+  assert.deepEqual(request.resource_bounds, {
+    l1_gas: { max_amount: '0x1', max_price_per_unit: '0x2' },
+    l1_data_gas: { max_amount: '0x3', max_price_per_unit: '0x4' },
+    l2_gas: { max_amount: '0x5', max_price_per_unit: '0x6' },
+  });
+  assert.doesNotMatch(result.stderr, /fake-node: asked starknet_add/);
+});
+
+test('a refused estimate prints the node\'s whole error, or its HTTP status and body, and exits 3', () => {
+  for (const [extra, check] of [
+    [{ FAKE_ESTIMATE_ERROR: '1' }, (line) => assert.deepEqual(line.error, { code: -32603, message: 'Internal error' })],
+    [{ FAKE_ESTIMATE_HTML: '1' }, (line) => {
+      assert.equal(line.http_status, 413);
+      assert.match(line.body, /413 Request Entity Too Large/);
+    }],
+  ]) {
+    const result = run(ESTIMATES[0], { ...SEPOLIA, ...extra }, ['--import', ESTIMATE_NODE]);
+    assert.equal(result.status, 3, result.stderr);
+    const line = estimateLine(result);
+    assert.equal(line.ok, false);
+    assert.ok(line.request.request_bytes > 0);
+    check(line);
+    assert.doesNotMatch(result.stderr, /fake-node: asked starknet_add/);
+    assertNoSecret(result, SEPOLIA.STARKNET_RPC_URL);
+  }
+});
+
+test('the other commands still send: the fake node is asked starknet_add* by invoke', () => {
+  // The control for the tests above: the same node, a sending command, and the add* method shows in the log.
+  const result = run(INVOKE, { ...SEPOLIA, FAKE_ESTIMATE_ERROR: '' }, ['--import', ESTIMATE_NODE]);
+  assert.match(result.stderr, /fake-node: asked starknet_addInvokeTransaction\n/);
+});
+
+// The tip on Sepolia (S-1c): a Sepolia endpoint answered -32601 at random to the block reads of starknet.js's tip
+// estimate. On sepolia the signer's default tip is fixed and its Starknet version pinned, so declare, deploy and
+// invoke reach the node's estimate and the add* method without reading a block.
+const SENDS = [
+  ['declare', '--sierra', TINY_SIERRA, '--casm', TINY_CASM],
+  ['deploy', '--class-hash', '0x12', '--calldata', '1'],
+  INVOKE,
+];
+const BLOCK_READ = /fake-node: asked starknet_getBlockWith/;
+
+test('sepolia: declare, deploy, invoke and estimate read no block and no account class (fixed tip, pinned versions)', () => {
+  for (const args of [...SENDS, ...ESTIMATES]) {
+    const result = run(args, SEPOLIA, ['--import', ESTIMATE_NODE]);
+    assert.match(result.stderr, /fake-node: asked starknet_estimateFee\n/, result.stderr);
+    if (args[0] !== 'estimate') assert.match(result.stderr, /fake-node: asked starknet_add(Declare|Invoke)Transaction\n/, result.stderr);
+    assert.doesNotMatch(result.stderr, BLOCK_READ, `${args[0]} read a block`);
+    // The account's Cairo version is pinned on sepolia: its class is never read.
+    assert.doesNotMatch(result.stderr, /fake-node: asked starknet_getClassAt\n/, `${args[0]} read the account's class`);
+    if (args[0] === 'estimate') assert.equal(estimateLine(result).request.tip, '0x5f5e100');
+    assertNoSecret(result, SEPOLIA.STARKNET_RPC_URL);
+  }
+});
+
+test('--tip sets the tip; --tip node reads the latest blocks for it (the control)', () => {
+  const fixed = run([...ESTIMATES[2], '--tip', '7'], SEPOLIA, ['--import', ESTIMATE_NODE]);
+  assert.equal(estimateLine(fixed).request.tip, '0x7');
+  assert.doesNotMatch(fixed.stderr, BLOCK_READ);
+  for (const args of [[...SENDS[2], '--tip', 'node'], [...ESTIMATES[2], '--tip', 'node']]) {
+    const result = run(args, SEPOLIA, ['--import', ESTIMATE_NODE]);
+    assert.match(result.stderr, /fake-node: asked starknet_getBlockWithTxs\n/);
+  }
+  // devnet keeps starknet.js's estimate by default.
+  const devnet = run(ESTIMATES[2], { ...ENV, ...DEVNET_NODE }, ['--import', ESTIMATE_NODE]);
+  assert.match(devnet.stderr, /fake-node: asked starknet_getBlockWithTxs\n/);
+});
+
+// The retry (S-1c): read methods only, at most 5 attempts (waits 1, 2, 4, 8 s); never a starknet_add* method.
+const asked = (stderr, method) => stderr.split('\n').filter((line) => line === `fake-node: asked ${method}`).length;
+
+test('a read answered -32601 is retried and the command goes on; the account class is read on devnet (control)', () => {
+  const result = run(ESTIMATES[2], { ...SEPOLIA, FAKE_FLAKY: 'starknet_getNonce:1' }, ['--import', ESTIMATE_NODE]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(asked(result.stderr, 'starknet_getNonce'), 2);
+  assert.match(result.stderr, /signer: starknet_getNonce failed \(HTTP 400\), attempt 1 of 5; retrying\n/);
+  assert.equal(estimateLine(result).ok, true);
+  const devnet = run(ESTIMATES[2], { ...ENV, ...DEVNET_NODE }, ['--import', ESTIMATE_NODE]);
+  assert.match(devnet.stderr, /fake-node: asked starknet_getClassAt\n/);
+});
+
+test('a starknet_add* method answered -32601 is never retried: the command stops', () => {
+  const result = run(INVOKE, { ...SEPOLIA, FAKE_FLAKY: 'starknet_addInvokeTransaction:5' }, ['--import', ESTIMATE_NODE]);
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(asked(result.stderr, 'starknet_addInvokeTransaction'), 1);
+  assert.doesNotMatch(result.stderr, /addInvokeTransaction failed .* retrying/);
+  assert.match(result.stderr, /-32601/);
+});
+
+test('a nonce that cannot be read after 5 attempts fails the command; nonce 0 is never used', () => {
+  const result = run(INVOKE, { ...SEPOLIA, FAKE_FLAKY: 'starknet_getNonce:5' }, ['--import', ESTIMATE_NODE]);
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(asked(result.stderr, 'starknet_getNonce'), 5);
+  assert.match(result.stderr, /signer: .*starknet_getNonce.*-32601/s);
+  assert.equal(asked(result.stderr, 'starknet_estimateFee'), 0);
+  assert.equal(asked(result.stderr, 'starknet_addInvokeTransaction'), 0);
+});

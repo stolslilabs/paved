@@ -99,7 +99,9 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
   t.diagnostic(`declare: ${declared.line}`);
   assert.match(declared.json.class_hash, /^0x[0-9a-f]+$/);
   assert.match(declared.json.transaction_hash, /^0x[0-9a-f]+$/);
-  assert.equal(declared.stderr, 'signer: declare paved_MockUSDC.contract_class.json\n');
+  // The hash printed before sending (S-1d) is the node's: no mismatch warning follows it.
+  const sending = (method, hash) => `signer: sending starknet_add${method}Transaction, transaction ${hash}\n`;
+  assert.equal(declared.stderr, `signer: declare paved_MockUSDC.contract_class.json\n${sending('Declare', declared.json.transaction_hash)}`);
 
   const again = signer('declare', '--sierra', SIERRA, '--casm', CASM);
   t.diagnostic(`declare again: ${again.line}`);
@@ -126,7 +128,7 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
   const minted = signer('invoke', '--contract', usdc, '--function', 'mint', '--calldata', '@account', '1000000', '0');
   t.diagnostic(`invoke mint: ${minted.line}`);
   assert.match(minted.json.transaction_hash, /^0x[0-9a-f]+$/);
-  assert.equal(minted.stderr, `signer: invoke ${usdc} mint\n`);
+  assert.equal(minted.stderr, `signer: invoke ${usdc} mint\n${sending('Invoke', minted.json.transaction_hash)}`);
 
   assert.equal(balanceOf() - premint, 1_000_000n);
 
@@ -137,7 +139,7 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
   ]));
   const multi = signer('multicall', '--calls', calls);
   t.diagnostic(`multicall mint + transfer: ${multi.line}`);
-  assert.equal(multi.stderr, `signer: invoke ${usdc} mint\nsigner: invoke ${usdc} transfer\n`);
+  assert.equal(multi.stderr, `signer: invoke ${usdc} mint\nsigner: invoke ${usdc} transfer\n${sending('Invoke', multi.json.transaction_hash)}`);
   assert.equal(balanceOf() - premint, 2_500_000n); // 1 + 2 - 0.5 = 2.5 USDC
 });
 
@@ -158,4 +160,24 @@ test('a devnet started as mainnet is refused and nothing is signed', { skip }, a
   }
   assert.equal(await rpc(devnet.url, 'starknet_getNonce', { block_id: 'latest', contract_address: devnet.account.address }), nonceBefore);
   assert.equal(await rpc(devnet.url, 'starknet_blockNumber'), blockBefore);
+});
+
+test('estimate declare MockUSDC on devnet: a fee estimate, and nothing sent', { skip }, async (t) => {
+  const devnet = await startDevnet();
+  const nonce = () => rpc(devnet.url, 'starknet_getNonce', { block_id: 'latest', contract_address: devnet.account.address });
+  const nonceBefore = await nonce();
+  const blockBefore = await rpc(devnet.url, 'starknet_blockNumber');
+  for (const extra of [[], ['--validate'], ['--block-id', 'pre_confirmed']]) {
+    const result = runSigner(devnet, ['estimate', 'declare', '--sierra', SIERRA, '--casm', CASM, ...extra]);
+    t.diagnostic(`estimate declare ${extra.join(' ')}: exit ${result.status}, ${result.stdout.trim().slice(0, 400)}`);
+    assert.equal(result.status, 0, result.stderr);
+    const line = JSON.parse(result.stdout.trim());
+    assert.equal(line.ok, true);
+    assert.match(line.estimate.overall_fee, /^0x[0-9a-f]+$/);
+  }
+  assert.equal(await nonce(), nonceBefore);
+  assert.equal(await rpc(devnet.url, 'starknet_blockNumber'), blockBefore);
+  // The class is still undeclared: estimate declared nothing.
+  const declared = runSigner(devnet, ['declare', '--sierra', SIERRA, '--casm', CASM]);
+  assert.equal(JSON.parse(declared.stdout.trim()).already_declared, false);
 });

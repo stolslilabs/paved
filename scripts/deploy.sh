@@ -3,7 +3,7 @@
 # client, then runs a smoke check.
 #
 # Usage: scripts/deploy.sh devnet [--unmerged]
-#        scripts/deploy.sh sepolia [--rehearse]
+#        scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]]
 #
 # Networks: `devnet` (a local node, D-8) and `sepolia` (Starknet Sepolia, public playtests, D-16). Every other value
 # is refused: mainnet is the owner's act. Sepolia runs the devnet economy path (P-39): MockUSDC (a bounded faucet,
@@ -41,6 +41,15 @@
 # environment only, with SIGNER_NETWORK=devnet), the working tree's sources, and the file written to a temporary
 # path. The funded account's variables are unset first, so a shell that holds them never hands them to the rehearsal.
 # Its smoke also settles the paid game, as devnet's does.
+#
+# --estimate-only (sepolia, and its rehearsal; S-1c): every check above, the signer's install and the build, then a fee
+# estimate of each declare in deploy order (`signer estimate declare`, which runs on a fetch that refuses every
+# starknet_add* method), and nothing is sent. One line per class: the node's starknet_specVersion, the Sierra file's
+# bytes, the CASM bytecode's felts, the request's bytes, whether the class is declared already, then the estimate or
+# the node's whole error (JSON-RPC code, message and data, or HTTP status and body), redacted. Exit 1 when one fails.
+# The next three options are diagnostic only, for the -32603 of S-1b (docs/briefs/s1c-estimate.md), passed to the
+# signer: --bounds l1_amount,l1_price,l1_data_amount,l1_data_price,l2_amount,l2_price (explicit resource bounds instead
+# of zero), --validate (no SKIP_VALIDATE), --block-id pre_confirmed (instead of latest; `pending` left the spec in 0.9).
 #
 # devnet keeps sncast (salt 1 and no `--unique`: the signer always deploys unique, which would tie the addresses of
 # contracts/deployments/devnet.json to the deployer and the salt of each run).
@@ -116,12 +125,33 @@ sys.exit(0 if ok else 1)
 ' 2>/dev/null
 }
 
-USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse]"
+USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]]"
 NETWORK="${1:-}"
 UNMERGED=0
 REHEARSE=0
 CHECK_SEND=0
-if [[ "${2:-}" == "--check-class-answer" ]]; then
+ESTIMATE_ONLY=0
+ESTIMATE_ARGS=()
+if [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--estimate-only" || ( "${2:-}" == "--rehearse" && "${3:-}" == "--estimate-only" ) ) ]]; then
+  # sepolia [--rehearse] --estimate-only [diagnostics]: the diagnostics reach the signer as its own options, which it
+  # checks again (six integers in range, a block tag of the spec).
+  [[ "$2" == "--rehearse" ]] && { REHEARSE=1; shift; }
+  ESTIMATE_ONLY=1
+  shift 2
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --validate) ESTIMATE_ARGS+=(--validate); shift ;;
+      --bounds)
+        [[ "${2:-}" =~ ^[0-9xa-fA-F,]{11,400}$ ]] || { echo "deploy.sh: --bounds expects six comma-separated integers" >&2; exit 2; }
+        ESTIMATE_ARGS+=(--bounds "$2"); shift 2 ;;
+      --block-id)
+        [[ "${2:-}" == latest || "${2:-}" == pre_confirmed ]] || { echo "deploy.sh: --block-id expects latest or pre_confirmed" >&2; exit 2; }
+        ESTIMATE_ARGS+=(--block-id "$2"); shift 2 ;;
+      *) echo "deploy.sh: unknown option '$1' for 'sepolia --estimate-only'" >&2; echo "$USAGE" >&2; exit 2 ;;
+    esac
+  done
+  set -- sepolia
+elif [[ "${2:-}" == "--check-class-answer" ]]; then
   # Test hook (scripts/test-deploy-url.sh): the verdict of class_declared on stdin, nothing else runs.
   class_declared
   exit $?
@@ -131,12 +161,12 @@ elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--check-send-failure" ]]; then
   # PATH, which fails. With real variables and the real signer it is one read-only call to 0x1 on that node:
   # nothing is built, signed or sent.
   CHECK_SEND=1
-elif [[ "$NETWORK" == "devnet" && "${2:-}" == "--unmerged" ]]; then
+elif [[ "$NETWORK" == "devnet" && "${2:-}" == "--unmerged" && -z "${3:-}" ]]; then
   UNMERGED=1
-elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--rehearse" ]]; then
+elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--rehearse" && -z "${3:-}" ]]; then
   REHEARSE=1
-elif [[ -n "${2:-}" ]]; then
-  echo "deploy.sh: unknown option '${2}' for '${NETWORK}'" >&2
+elif [[ -n "${2:-}" || -n "${3:-}" ]]; then
+  echo "deploy.sh: unknown option '${3:-$2}' for '${NETWORK}${3:+ $2}'" >&2
   echo "$USAGE" >&2
   exit 2
 fi
@@ -245,13 +275,34 @@ die() { echo "deploy.sh: $*" >&2; exit 1; }
 # The URL and the request go to curl through its config on stdin, not its arguments: a public URL may carry an API
 # key, and the params may hold the deployer's address. `-q` (first) keeps curl from reading a ~/.curlrc. In the
 # config's quoted strings, backslashes, double quotes and line breaks are escaped (the URL holds none: checked above).
+#
+# A read method of RPC_RETRIED (the signer's list, S-1c) is retried while the node answers HTTP 5xx or the JSON-RPC error
+# -32601 (a Sepolia endpoint did, at random, with HTTP 200 or 400): at most 5 attempts, waits 1, 2, 4, 8 s. Any other
+# method goes once (deploy.sh sends no transaction through curl; a starknet_add* method would never be retried). A
+# node that does not answer at all is not retried. Fails unless the last answer is HTTP 2xx.
+RPC_RETRIED=" starknet_specVersion starknet_chainId starknet_getClassHashAt starknet_getClass starknet_getTransactionReceipt "
+RPC_DELAYS=(1 2 4 8)
 rpc() {
-  local body="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}"
+  local body="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}" answer code attempt=1
   body="${body//\\/\\\\}"
   body="${body//$'\n'/\\n}"
   body="${body//$'\r'/\\r}"
-  printf 'url = "%s"\ndata = "%s"\n' "$RPC_URL" "${body//\"/\\\"}" |
-    curl -q -sf -K - -X POST -H 'content-type: application/json'
+  while true; do
+    answer="$(printf 'url = "%s"\ndata = "%s"\n' "$RPC_URL" "${body//\"/\\\"}" |
+      curl -q -s -K - -X POST -H 'content-type: application/json' -w '\n%{http_code}')" || answer=$'\n000'
+    code="${answer##*$'\n'}"
+    answer="${answer%$'\n'*}"
+    if [[ "$RPC_RETRIED" == *" $1 "* && "$attempt" -le "${#RPC_DELAYS[@]}" ]] &&
+        [[ "$code" == 5?? || "$answer" =~ \"code\"[[:space:]]*:[[:space:]]*-32601 ]]; then
+      echo "deploy.sh: $1 failed (HTTP $code), attempt $attempt of $(( ${#RPC_DELAYS[@]} + 1 )); retrying" >&2
+      sleep "${RPC_DELAYS[$((attempt - 1))]}"
+      attempt=$((attempt + 1))
+      continue
+    fi
+    [[ "$code" == 2?? ]] || return 1
+    printf '%s\n' "$answer"
+    return 0
+  done
 }
 
 # jq-less JSON helpers. `pyj <expr>` reads JSON on stdin and prints the python expression on `d`.
@@ -310,23 +361,17 @@ sys.stdout.write(text)'
 # NODE_DEBUG or proxy variable). The signer refuses other node options, but only once node runs, after an inspector
 # from NODE_OPTIONS would already listen. SIGUSR1 cannot open the inspector (--disable-sigusr1). Its stdout and stderr
 # are held in a variable, never a file: on success the last line is the JSON line, on failure the run dies with its
-# tail, redacted (`redact`). In calldata, `@account` stands for the deployer: the signer reads its address from its
+# tail, redacted (`redact`) and cut by whole lines (`failure_tail`). The line naming each transaction before it is sent
+# is shown as it comes (`stream_sending`, S-1d), and only then: the tail leaves it out (S-1e). In calldata, `@account` stands for the deployer: the signer reads its address from its
 # environment, so the address is in no argv either.
 send() {
   local res status=0
-  res="$(
-    while read -r name; do
-      [[ "$name" == PATH || "$name" == HOME ]] || unset "$name" 2>/dev/null || true
-    done < <(compgen -e)
-    export STARKNET_ACCOUNT_ADDRESS="$SEND_ADDRESS" STARKNET_PRIVATE_KEY="$SEND_KEY" STARKNET_RPC_URL="$RPC_URL" \
-      SIGNER_NETWORK="$SEND_NETWORK" NODE_OPTIONS="$SIGNER_HEAP"
-    exec "$NODE_BIN" --disable-sigusr1 "$SIGNER_JS" "$@" 2>&1
-  )" || status=$?
+  res="$(run_signer "$@" | stream_sending; exit "${PIPESTATUS[0]}")" || status=$?
   if [[ "$status" != 0 ]]; then
-    # Redacted whole, then cut: a value across the cut is still replaced.
-    res="$(printf '%s\n%s\n%s\n%s' "$SEND_ADDRESS" "$SEND_KEY" "$RPC_URL" "$res" | redact)"
-    (( ${#res} <= 800 )) || res="${res: -800}"
-    die "signer $1 failed: $res"
+    # The lines already shown left out, then redacted whole, then cut: a value across the cut is still replaced.
+    res="$(while IFS= read -r line || [[ -n "$line" ]]; do sending_line "$line" || printf '%s\n' "$line"; done <<<"$res")"
+    die "signer $1 failed:
+$(failure_tail "$(redact_text "$res")")"
   fi
   # The JSON line: the last line that starts with `{` (stderr shares the stream).
   local line result=""
@@ -335,6 +380,59 @@ send() {
   done <<<"$res"
   [[ -n "$result" ]] || die "signer $1 printed no JSON line"
   printf '%s\n' "$result"
+}
+
+# stream_sending: copies the signer's output (stdout and stderr, one stream) to stdout for `send`, and shows on the
+# terminal (stderr), as it comes, each line by which the signer names a transaction before it sends it (S-1d): a run
+# killed or stopped afterwards still leaves the hash on screen. Only a line made of the method and a hex hash is shown,
+# redacted (`redact_text`).
+stream_sending() {
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    printf '%s\n' "$line"
+    if sending_line "$line"; then
+      printf '   %s\n' "$(redact_text "$line")" >&2
+    fi
+  done
+}
+
+# sending_line <line>: whether it is the signer's line naming a transaction before it is sent (`stream_sending`).
+sending_line() { [[ "$1" =~ ^signer:\ sending\ starknet_add[A-Za-z]+,\ transaction\ 0x[0-9a-f]+$ ]]; }
+
+# failure_tail <text>: at most 800 characters, all counted (the 3-space indents, the line breaks, the count line): the
+# whole text, indented, when it fits; else a line counting the lines left out (40 characters kept for it), then the
+# last whole lines that fit, indented (S-1e: a cut inside a line printed `failed: .json`). A last line too long alone
+# keeps its end, after `...`.
+failure_tail() {
+  local line i size=0 first budget=800
+  local -a lines=()
+  while IFS= read -r line || [[ -n "$line" ]]; do lines+=("$line"); size=$((size + ${#line} + 4)); done <<<"$1"
+  (( size <= budget )) || budget=760
+  i=${#lines[@]} size=0
+  while (( i > 0 )) && (( size + ${#lines[i - 1]} + 4 <= budget || i == ${#lines[@]} )); do
+    size=$((size + ${#lines[i - 1]} + 4)); i=$((i - 1))
+  done
+  (( i == 0 )) || printf '   (%s earlier line(s) not shown)\n' "$i"
+  first="${lines[i]:-}"
+  (( ${#first} + 4 <= budget )) || first="...${first: -$((budget - 7))}"
+  printf '   %s\n' "$first"
+  for (( i = i + 1; i < ${#lines[@]}; i++ )); do printf '   %s\n' "${lines[i]}"; done
+}
+
+# redact_text <text>: the text with the three values replaced by their names (`redact`, all on stdin).
+redact_text() { printf '%s\n%s\n%s\n%s' "$SEND_ADDRESS" "$SEND_KEY" "$RPC_URL" "$1" | redact; }
+
+# run_signer <signer command> [options...]: the signer in send's allowlisted environment; prints its stdout and stderr
+# (one stream), unredacted, and returns its exit status. Its output is redacted by the caller before it is printed.
+run_signer() {
+  (
+    while read -r name; do
+      [[ "$name" == PATH || "$name" == HOME ]] || unset "$name" 2>/dev/null || true
+    done < <(compgen -e)
+    export STARKNET_ACCOUNT_ADDRESS="$SEND_ADDRESS" STARKNET_PRIVATE_KEY="$SEND_KEY" STARKNET_RPC_URL="$RPC_URL" \
+      SIGNER_NETWORK="$SEND_NETWORK" NODE_OPTIONS="$SIGNER_HEAP"
+    exec "$NODE_BIN" --disable-sigusr1 "$SIGNER_JS" "$@" 2>&1
+  )
 }
 
 if [[ "$CHECK_SEND" == 1 ]]; then
@@ -452,8 +550,10 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   pyj 'd["contract_address"]' <<<"$out"
 }
 
-echo "== node $RPC_LABEL"
-rpc starknet_specVersion '[]' >/dev/null || die "no node answers at $RPC_LABEL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
+SPEC_VERSION="$(rpc starknet_specVersion '[]')" || die "no node answers at $RPC_LABEL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
+# The spec version, not the URL, tells runs on different endpoints apart (printed on every estimate line too).
+SPEC_VERSION="$(pyj 'd["result"] if isinstance(d.get("result"), str) and len(d["result"]) < 40 else "unknown"' <<<"$SPEC_VERSION" 2>/dev/null || echo unknown)"
+echo "== node $RPC_LABEL, spec $SPEC_VERSION"
 CHAIN_ID="$(rpc starknet_chainId '[]' | pyj 'd["result"]')"
 # Sepolia's chain id is SN_SEPOLIA (starknet-devnet answers the same, so the rehearsal passes this check too).
 [[ "$NETWORK" != "sepolia" || "$CHAIN_ID" == "0x534e5f5345504f4c4941" ]] || die "the node's chain id $CHAIN_ID is not SN_SEPOLIA"
@@ -498,7 +598,11 @@ echo "   chain id $CHAIN_ID, deployer $DEPLOYER_LABEL"
 # sources, with no untracked source file either.
 if [[ "$UNMERGED" == 1 || "$REHEARSE" == 1 ]]; then
   DEPLOYED_AT="unmerged-$(git -C "$ROOT" rev-parse HEAD)"
-  echo "== unmerged$( ((REHEARSE)) && echo ', sepolia rehearsal on a local node'): the working tree is deployed, the file goes to $OUT"
+  if ((ESTIMATE_ONLY)); then
+    echo "== unmerged, sepolia rehearsal on a local node: the working tree's classes are estimated, nothing is deployed"
+  else
+    echo "== unmerged$( ((REHEARSE)) && echo ', sepolia rehearsal on a local node'): the working tree is deployed, the file goes to $OUT"
+  fi
 else
   DEPLOYED_AT="$(git -C "$ROOT" merge-base HEAD origin/main)" || die "no merge base of HEAD with origin/main (git fetch origin main)"
   git -C "$ROOT" diff --quiet "$DEPLOYED_AT" -- contracts/src contracts/Scarb.toml contracts/Scarb.lock ||
@@ -519,6 +623,135 @@ fi
 echo "== build"
 cd "$ROOT/contracts"
 RAYON_NUM_THREADS=1 scarb --release build >/dev/null
+
+# Funding (S-1c, S-1d), sepolia and its rehearsal: the deployer's STRK balance, a public read (balance_of of `@account`,
+# so the address stays out of argv and output), printed as an amount only. Before its first declare, a real run
+# estimates the declare of each class the node does not have yet (`signer estimate declare`, read-only, as in
+# --estimate-only) and needs a balance of at least 1.25 x the sum of those estimates + FUNDING_MARGIN_STRK, the
+# deploys, invokes and smoke that follow (see below). A rerun after a partial deploy then needs only what is left. When
+# an estimate cannot be had (the signer's retries spent, or the node's error), the need falls back to
+# FUNDING_FLOOR_STRK: 200 STRK, about 1.4 x the 142.6 STRK that Sepolia's estimates of the nine undeclared classes
+# added up to on 2026-10-11 (Daily alone 38.8). Below the need, the run stops before it sends anything. --estimate-only
+# prints the same need and balance and sends nothing either way.
+# Each declare is also sent with resource bounds above its estimate: starknet.js 10.8 adds 50% to the amount and 50% to
+# the price of each resource (2.25 x the estimate), and the tip is paid on the bounded L2 gas (about 1% more on Sepolia
+# in S-1c), so the node wants up to MAX_FEE_FACTOR = 2.3 x the estimate in the balance when it is sent. The need is
+# raised to the largest of those moments when one is above the rule (a rerun left with Tutorial and Lobby only: 1.25 x
+# their 69.4 STRK + 20 is 106.8 STRK, but Lobby's bounds want 76.1 STRK after Tutorial's 36.3).
+# FUNDING_MARGIN_STRK, the deploys, invokes and smoke after the declares: the --rehearse run of S-1d on starknet-devnet
+# 0.10.0 sent 24 of them for 137,224,560 L2 gas and 12,384 L1 data gas in all, about 1.1 STRK at the 8.2 x 10^9 FRI per
+# L2 gas of Sepolia's declare estimates on 2026-10-11 (Tutorial: 36.32 STRK for 4,430,587,392 L2 gas). 20 STRK leaves
+# room for a gas price about 18 times higher.
+STRK_TOKEN=0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
+FUNDING_FLOOR_STRK=200
+FUNDING_MARGIN_STRK=20
+# Test hook (scripts/test-deploy-url.sh), --estimate-only alone: the class files come from ESTIMATE_RELEASE_DIR. It
+# changes what is estimated, never what is sent: nothing is sent in that mode. A real run estimates and declares the
+# files of RELEASE_DIR, whatever the environment says.
+ESTIMATE_DIR="$RELEASE_DIR"
+if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
+if ((USE_SIGNER)); then
+  read -r BAL_LOW BAL_HIGH <<<"$(call "$STRK_TOKEN" balance_of "$DEPLOYER_ARG")"
+  STRK_BALANCE="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$BAL_LOW" "$BAL_HIGH")"
+  echo "== funding: deployer STRK balance $(python3 -I -c 'import sys;print(f"{int(sys.argv[1])/1e18:.2f}")' "$STRK_BALANCE") STRK"
+  : >"$WORK_DIR/fees"
+  if ((ESTIMATE_ONLY)); then
+    echo "== estimate only (nothing is sent): each declare in deploy order, spec $SPEC_VERSION${ESTIMATE_ARGS[*]:+, diagnostic: ${ESTIMATE_ARGS[*]}}"
+  else
+    echo "== funding: estimating each declare still to send, in deploy order (read-only, nothing is sent)"
+  fi
+  failed=0
+  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection; do
+    sierra="$ESTIMATE_DIR/paved_$name.contract_class.json"
+    casm="$ESTIMATE_DIR/paved_$name.compiled_contract_class.json"
+    [[ -f "$sierra" && -f "$casm" ]] || die "no release class files for $name in ${ESTIMATE_DIR#"$ROOT/"}"
+    sizes="sierra $(wc -c <"$sierra" | tr -d ' ') B, casm $(pyj 'len(d["bytecode"])' <"$casm") felts"
+    # The class hash sncast computes, to ask the node whether it has the class (unknown when sncast gives none).
+    class_hash="$( { sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]'; } 2>/dev/null || true)"
+    declared=unknown
+    if [[ "$class_hash" =~ ^0x[0-9a-fA-F]+$ ]]; then
+      if rpc starknet_getClass "[\"latest\",\"$class_hash\"]" | class_declared; then declared=yes; else declared=no; fi
+    fi
+    # A real run skips a class the node has: declareIfNot will not send it.
+    if [[ "$ESTIMATE_ONLY" == 0 && "$declared" == yes ]]; then
+      echo "   estimate $name: declared already, nothing to send"
+      continue
+    fi
+    status=0
+    out="$(run_signer estimate declare --sierra "$sierra" --casm "$casm" ${ESTIMATE_ARGS[@]+"${ESTIMATE_ARGS[@]}"})" || status=$?
+    out="$(redact_text "$out")"
+    line=""
+    while IFS= read -r l; do [[ "$l" == "{"* ]] && line="$l"; done <<<"$out"
+    if [[ -z "$line" ]]; then
+      (( ${#out} <= 800 )) || out="${out: -800}"
+      echo "   estimate $name: spec $SPEC_VERSION, $sizes, declared $declared: signer failed (exit $status): ${out//$'\n'/ | }"
+      failed=$((failed + 1))
+      continue
+    fi
+    python3 -I - "$name" "$SPEC_VERSION" "$sizes" "$declared" "$line" "$WORK_DIR/fees" <<'PY' || failed=$((failed + 1))
+import json, sys
+name, spec, sizes, declared, raw, fees = sys.argv[1:]
+d = json.loads(raw)
+r = d.get("request", {})
+head = f"   estimate {name}: spec {spec}, {sizes}, request {r.get('request_bytes', '?')} B, declared {declared}"
+if d.get("ok"):
+    e = d["estimate"]
+    n = lambda k: int(e.get(k, "0x0"), 16)
+    print(f"{head}: ok, overall_fee {n('overall_fee')} {e.get('unit', '?')} (l1_gas {n('l1_gas_consumed')}, "
+          f"l1_data_gas {n('l1_data_gas_consumed')}, l2_gas {n('l2_gas_consumed')})")
+    # Only a class still to declare counts toward the need.
+    if declared != "yes":
+        with open(fees, "a") as f:
+            f.write(f"{n('overall_fee')}\n")
+    sys.exit(0)
+answer = {k: d[k] for k in ("http_status", "error", "body", "body_bytes", "transport") if k in d}
+# A class the node has already: nothing to declare, and a real run skips it (declareIfNot). Not a failure.
+if "is already declared" in json.dumps(answer.get("error", {})):
+    print(f"{head}: already declared on the node (a real run skips it): {json.dumps(answer)[:300]}")
+    sys.exit(0)
+print(f"{head}: error {json.dumps(answer)[:1500]}")
+sys.exit(1)
+PY
+  done
+  # The need: 1.25 x the estimates of the classes still to declare + the margin, or the floor when an estimate failed.
+  # Integers in FRI (1 STRK = 10^18); exit 1 when the balance is below the need.
+  funded=0
+  python3 -I - "$WORK_DIR/fees" "$STRK_BALANCE" "$FUNDING_FLOOR_STRK" "$FUNDING_MARGIN_STRK" "$failed" <<'PY' || funded=$?
+import sys
+fees = [int(x) for x in open(sys.argv[1]).read().split()]
+balance, floor, margin, failed = int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
+strk = lambda fri: f"{fri / 10**18:.2f} STRK"
+total = sum(fees)
+if failed:
+    need = floor * 10**18
+    print(f"== funding: {failed} estimate(s) could not be had: the need falls back to the {floor} STRK floor")
+else:
+    need = -(-total * 5 // 4) + margin * 10**18
+    print(f"== funding: {len(fees)} class(es) to declare, estimated at {strk(total)}; "
+          f"need 1.25 x {strk(total)} + {margin} STRK margin = {strk(need)}")
+    # The peak: when each declare is sent, what is left (the balance less 1.25 x the declares before it) must cover
+    # its bounds, 2.3 x its estimate (MAX_FEE_FACTOR above), with the margin still kept for what follows.
+    peak, before = 0, 0
+    for fee in fees:
+        peak = max(peak, -(-before * 5 // 4) + -(-fee * 23 // 10))
+        before += fee
+    peak += margin * 10**18
+    if peak > need:
+        print(f"   the bounds of one declare need more: 2.3 x its estimate, after 1.25 x the declares before it, + the margin = {strk(peak)}")
+        need = peak
+print(f"   deployer STRK balance {strk(balance)}: {'covers' if balance >= need else 'BELOW'} the need of {strk(need)}")
+sys.exit(0 if balance >= need else 1)
+PY
+  if ((ESTIMATE_ONLY)); then
+    if [[ "$failed" != 0 ]]; then
+      echo "== estimate only: $failed of 10 classes failed (neither an estimate nor already declared); nothing was sent"
+      exit 1
+    fi
+    echo "== estimate only: each of the 10 classes estimated or already declared; nothing was sent"
+    exit 0
+  fi
+  [[ "$funded" == 0 ]] || die "the deployer's STRK balance is below the need above: fund it before deploying; nothing was sent"
+fi
 
 echo "== declare"
 TOKEN_CLASS=""

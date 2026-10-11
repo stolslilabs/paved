@@ -80,6 +80,7 @@ deployer`, `signer: invoke <contract> <entry point>`.
 | `invoke` | `--contract <felt> --function <name> [--calldata <felt>...]` | `{"transaction_hash"}` |
 | `multicall` | `--calls <file>` | `{"transaction_hash"}` |
 | `call` | `--contract <felt> --function <name> [--calldata <felt>...]` | `{"result":[felt...]}` |
+| `estimate` | `<declare\|deploy\|invoke> <its options> [--bounds <6 integers>] [--validate] [--block-id <tag>]` | `{"ok","request",...}`: the estimate, or the node's whole answer (below) |
 
 - `deploy` goes through the Universal Deployer with `unique: true` (the address depends on the
   deployer account) and a random salt unless `--salt` is given; the salt used is printed.
@@ -92,6 +93,127 @@ deployer`, `signer: invoke <contract> <entry point>`.
   does this for the deployer on Sepolia). It stands for a calldata word only, never for `--contract`.
 - The `--calls` file is a JSON array of `{"contract": <felt>, "function": <name>, "calldata": [<felt>...]}`,
   sent as one transaction.
+
+- `declare`, `deploy`, `invoke`, `multicall` and `estimate` take `--tip <u64|node>`, the transaction's
+  tip (S-1c). Default on `sepolia`: **0x5f5e100** (100,000,000 FRI per L2 gas unit, what starknet.js's
+  `recommendedTip` gave on Sepolia in S-1b), fixed, so no block is read for it. starknet.js's own estimate
+  (`node`, the default on `devnet`) reads the latest blocks (`starknet_getBlockWithTxs`), which a Sepolia
+  endpoint (dRPC) answered `-32601` at random. On `sepolia` the Starknet version is also pinned
+  (`SEPOLIA_STARKNET_VERSION` in `lib/actions.mjs`, 0.14.4) instead of read from the latest block at each
+  declare: it only picks the compiled class hash algorithm (Blake from 0.14.1), and a wrong one is refused
+  by the node, never declared. So on Sepolia, declare, deploy and invoke read no block
+  (`test/cli.test.mjs`).
+
+### Retries, nonce and Cairo version (S-1c)
+
+A Sepolia endpoint (dRPC, spec 0.10.3) answered `-32601 method does not exist` at random, on any method,
+with HTTP 200 or 400. So:
+
+- **Read methods are retried**: `starknet_getNonce`, `estimateFee`, `getClassAt`, `getClassHashAt`,
+  `getClass`, `call`, `getTransactionReceipt`, `getTransactionStatus`, `chainId`, `specVersion`
+  (`RETRIED_METHODS`). The retry applies on HTTP 5xx or the JSON-RPC error -32601: at most 5 attempts,
+  with waits of 1, 2, 4 and 8 s, each retry announced on stderr. A **`starknet_add*` method is never
+  retried**: if its answer is lost, the transaction may or may not be in (see the next section). Once a
+  transaction is sent, a status that cannot be read stops the command with its hash (`transaction <hash>
+  was sent, but its status could not be read`).
+- **The nonce is read once and passed explicitly.** starknet.js would fall back to nonce 0 when the read
+  fails (`getNonceSafe`). A nonce that cannot be read after the retries fails the command before
+  anything is signed.
+- **On `sepolia`, the account's Cairo version is pinned to 1** (the `Account` constructor's
+  `cairoVersion`), so its class (`starknet_getClassAt`) is not read at each transaction.
+- `deploy` sends through `account.deploy`, which gives the address from the deployer, the salt, the class
+  and the calldata. It then waits for the receipt itself.
+
+The tests show each of these on a fake node (`test/cli.test.mjs`, `test/retry.test.mjs`).
+
+### A send whose answer is lost (S-1d)
+
+dRPC's free plan answered the add* of a declare that went in (Daily, block 16,415,030) with `30: Request
+timeout on the free plan, please upgrade to paid plan`. So every `starknet_add*` request goes through
+`sendingFetch` (`lib/actions.mjs`):
+
+- **The hash comes first.** From the signed request, the signer computes the V3 transaction hash (and a
+  declare's class hash) with starknet.js's own hash functions (`transactionHash`), and prints
+  `signer: sending <method>, transaction <hash>` on stderr before the request leaves. The hash is no secret.
+  A request whose hash cannot be computed (not V3, an unknown method or data availability mode) is refused,
+  unsent. A node that answers with a hash other than the computed one stops the command: `node returned
+  <h1>, signed <h2>; check both before any rerun` (`node returned no transaction hash, …` when it gives
+  none). A node-supplied hash is printed only when it is a felt in 0x-hex form, `<not a felt>` otherwise.
+- **A refusal stays a refusal.** The node's JSON-RPC errors of `REFUSAL_CODES` (-32700, -32600, -32601,
+  -32602, and the write API's 51 to 58, 60 to 62: class already declared, invalid nonce, insufficient
+  resources or balance, validation failure, and the like) are returned as they came: the command fails.
+  The exception is `CHECKED_REFUSALS`: -32601 (a proxy's random answer), 51 and 52 (the same transaction
+  reaching the node another way). For those, the computed hash's receipt is first read for
+  `CHECK_DEADLINE_MS` = 30 s, `CHECK_INTERVAL_MS` = 15 s apart (3 reads). A receipt found is handled as
+  below. Otherwise the signer reads what would show the transaction landed (S-1e), in the pre-confirmed
+  state: the sender's nonce, and the class a declare creates (`starknet_getClass`) or the contract a deploy
+  creates (`starknet_getClassHashAt`, the address starknet.js computes before sending). The command fails
+  in every case, each message ending `check it before any rerun`. If any status read of the hash was
+  answered (RECEIVED, CANDIDATE, PRE_CONFIRMED, ACCEPTED_ON_L2 or L1, any finality or execution status),
+  the node has the transaction: `refused (<code>); no receipt for <hash> after 30 s; seen by the node with
+  status <s>`, and nothing more is read. Only when none was answered, the nonce is still the signed one and
+  the class or contract is absent: `not landed (nonce unchanged at <n>, class <hash> absent)`. Otherwise
+  what was read (`nonce now <n> (signed at <m>)`, `declared`, `deployed`, `unreadable`).
+- **Any other failed answer is lost, not refused**: another error code (dRPC's 30, -32603, 63), HTTP 5xx
+  with or without a JSON body, a result under HTTP 5xx, a body that is not JSON (an HTML 413 page), or a
+  network error. The request is **not sent again**. The signer reads `starknet_getTransactionReceipt` for
+  that hash (a read: retried as above), `RECOVERY_INTERVAL_MS` = 5 s apart, until `RECOVERY_DEADLINE_MS` =
+  300 s after the first read by the clock, so a slow or flapping node shortens the reads, not the wait. Each
+  read is aborted after `READ_TIMEOUT_MS` = 30 s, or at the deadline when that comes first, so a node that
+  never answers cannot hold it either. It also reads `starknet_getTransactionStatus` while there is no receipt. A receipt whose `transaction_hash`
+  is not the computed hash is ignored. The outcomes:
+  - SUCCEEDED: the command succeeds with the output of a normal success (the node's answer is rebuilt from
+    the hash, and the class hash for a declare; the receipt is then awaited as for any send);
+  - REVERTED: it fails with that status and the revert reason, as for any send;
+  - no receipt in time: it fails with `sent, status unknown: <hash>; check it before any rerun`, and
+    `deploy.sh` stops there.
+- **REJECTED is not in spec 0.10** (`TXN_STATUS` is RECEIVED, CANDIDATE, PRE_CONFIRMED, ACCEPTED_ON_L2,
+  ACCEPTED_ON_L1). On starknet-devnet 0.10.0, a transaction that fails validation is refused at the add*
+  (55) and not kept: its hash then answers 29 (not found) to the status and the receipt. A rejected
+  transaction whose answer was lost therefore ends as "status unknown". A node outside the spec that
+  answers `finality_status: REJECTED` makes the command fail with that status.
+
+The tests (`test/recover.test.mjs`, 17 tests):
+- recovery from a receipt: the add* is lost by timeout (error 30), a dropped connection, HTTP 502 with JSON,
+  an HTML 502 or 413 page, or a result under HTTP 500. With the receipt there, declare, deploy, invoke and
+  multicall succeed with add* asked exactly once.
+- the deadline: with no receipt, the failure names the hash after 61 reads on a fake clock. A slow node
+  (100 s a read) is read 3 times; a flapping node (every read -32601) is read 16 times × 5 attempts; a node
+  that never answers a receipt read is read 9 times, each read cut at 30 s and the last one at the deadline.
+- REVERTED fails with that status; REJECTED fails with that status, through the CLI and in unit.
+- the checked refusals (-32601, 51, 52): found gives a success, not found gives the refusal naming the hash
+  after 3 reads.
+- a receipt naming another hash gives "status unknown"; an add* answered with another hash stops the
+  command, for declare, deploy, invoke and multicall.
+- the printed hash is the one the account signed: the request's signature verifies against it with the
+  account's public key.
+
+On starknet-devnet 0.10.0, the rehearsal test checks that the node answered each declare, invoke and
+multicall with the hash printed before sending.
+
+### estimate (S-1c)
+
+`estimate <declare|deploy|invoke> ...` asks the node for a fee estimate of what that command would send,
+and **sends nothing**: it runs on a fetch (`readOnlyFetch`) that refuses every `starknet_add*` method, and
+any request whose method it cannot read, before it leaves the process. It builds the request as
+starknet.js builds its own (the account's nonce, the tip above, the query version `0x1...03`, zero
+resource bounds, `SKIP_VALIDATE`, block `latest`) and posts it with a plain fetch, so the node's answer is
+kept whole: the JSON-RPC error object (`code`, `message`, `data`), or the HTTP status and body (cut at
+4,000 characters) when there is no JSON. starknet.js prints a missing `data` as `undefined`, which is what
+the `-32603: Internal error: undefined` of S-1b was.
+
+The JSON line: `ok`, `request` (`kind`, `block_id`, `simulation_flags`, `resource_bounds`, `tip`,
+`version`, `request_bytes`), `http_status`, then `estimate` (the node's fee estimate) when `ok`, else
+`error`, `body` and `body_bytes`, or `transport` (a network failure). Exit 0 when `ok`, **3** when the
+node refused the estimate (the line says why), 1 or 2 as above when the signer failed before asking.
+
+Diagnostic options only, to compare with the default request:
+
+- `--bounds l1_amount,l1_price,l1_data_amount,l1_data_price,l2_amount,l2_price`: explicit resource
+  bounds instead of zero (amounts u64, prices u128, decimal or 0x-hex);
+- `--validate`: no `SKIP_VALIDATE` (the transaction is signed, so the account's `__validate__` runs);
+- `--block-id pre_confirmed`: instead of `latest` (`pending` left the spec in 0.9; spec 0.10 has `latest`
+  and `pre_confirmed` for `starknet_estimateFee`).
 
 ```bash
 SIGNER_NETWORK=devnet node scripts/signer/signer.mjs declare \
@@ -168,7 +290,7 @@ history.
 cd scripts/signer && npm ci && npm test
 ```
 
-`node --test`, no other runner, 38 tests:
+`node --test`, no other runner, 74 tests (S-1d):
 - the sanitiser's spellings;
 - the variables: refusal of a missing or empty one (`SIGNER_NETWORK` included), mainnet refused as a
   value, the URL bound to the network;
@@ -187,6 +309,8 @@ cd scripts/signer && npm ci && npm test
   `balance_of` through the signer, with a predeployed devnet account (public test keys).
 - a devnet started as mainnet (`--chain-id MAINNET`): declare and invoke are refused, and the
   account's nonce and the block number are unchanged.
+- a send whose answer is lost (`test/recover.test.mjs`, above); in the devnet rehearsal, the hash
+  printed before each declare, invoke and multicall is the one the node answers.
 
 The rehearsal needs `contracts/target/dev/paved_MockUSDC.*` (`scarb build` in `contracts/`) and the
 devnet binary (`~/.asdf/installs/starknet-devnet/0.10.0/bin/starknet-devnet`); it is skipped when

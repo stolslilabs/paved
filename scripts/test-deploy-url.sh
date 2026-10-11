@@ -93,13 +93,33 @@ cat >"$shims/curl" <<'SH'
 config="$(cat)"
 [[ "$config" == *MARKER* ]] && echo 'curl: the URL came on stdin' >>"$SHIM_LOG"
 [[ "$config" == *"$(cat "${0%/*}/addr_mark")"* ]] && echo 'curl: the address came on stdin' >>"$SHIM_LOG"
+# deploy.sh asks for the HTTP status after the body (`-w`): 200 unless a case says otherwise.
+status=200
+# flaky: the first two starknet_specVersion calls answer -32601 with HTTP 400 (S-1c), counted in a file beside the shim.
+if [[ "$FAKE_NODE" == flaky && "$config" == *starknet_specVersion* ]]; then
+  count="$(cat "${0%/*}/flaky.count" 2>/dev/null || echo 0)"
+  echo $((count + 1)) >"${0%/*}/flaky.count"
+  if (( count < 2 )); then
+    printf '%s\n400' '{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"the method starknet_specVersion does not exist/is not available"}}'
+    exit 0
+  fi
+fi
 case "$FAKE_NODE:$config" in
   down:*) exit 7 ;;
-  *starknet_specVersion*) echo '{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
-  mainnet:*starknet_chainId*) echo '{"jsonrpc":"2.0","id":1,"result":"0x534e5f4d41494e"}' ;;
-  *starknet_chainId*) echo '{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
-  *) echo '{"jsonrpc":"2.0","id":1,"error":{"code":20,"message":"Contract not found"}}' ;;
+  *starknet_specVersion*) body='{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
+  mainnet:*starknet_chainId* | flaky:*starknet_chainId*) body='{"jsonrpc":"2.0","id":1,"result":"0x534e5f4d41494e"}' ;;
+  estimate:*starknet_getClassHashAt*) body='{"jsonrpc":"2.0","id":1,"result":"0x1"}' ;;
+  # The classes the node has (S-1d): their hashes are listed in a file beside the shim.
+  estimate:*'starknet_getClass\"'*)
+    body='{"jsonrpc":"2.0","id":1,"error":{"code":28,"message":"Class hash not found"}}'
+    while read -r h; do
+      [[ -n "$h" && "$config" == *"$h"* ]] && body='{"jsonrpc":"2.0","id":1,"result":{"sierra_program":[]}}'
+    done < <(cat "${0%/*}/declared" 2>/dev/null)
+    ;;
+  *starknet_chainId*) body='{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
+  *) body='{"jsonrpc":"2.0","id":1,"error":{"code":20,"message":"Contract not found"}}' ;;
 esac
+printf '%s\n%s' "$body" "$status"
 SH
 # A fake signer for `--check-send-failure`: it logs its argv and environment, then prints the three values (the address
 # padded to 64 digits, the key in upper case) on both streams and fails, as a signer whose sanitiser missed them would.
@@ -137,6 +157,14 @@ at_node() { # <FAKE_NODE mode> <expected fragment>
 }
 at_node down "no node answers at \$STARKNET_RPC_URL"
 at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA"
+# flaky (S-1c): deploy.sh retries a read answered -32601 (HTTP 400) and goes on; this node then reports mainnet.
+rm -f "$shims/flaky.count"
+at_node flaky "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA"
+if [[ "$(cat "$shims/flaky.count")" != 3 ]]; then
+  echo "FAIL: deploy.sh asked starknet_specVersion $(cat "$shims/flaky.count") times, expected 3 (two retries)"; fail=1
+else
+  echo "ok: deploy.sh retried starknet_specVersion twice after -32601 (HTTP 400), then went on"
+fi
 at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL"
 
 # `send` (review of #299): a signer that fails while printing the three values leaks none of them through deploy.sh,
@@ -172,6 +200,210 @@ if [[ $rc -ne 1 || "$out" != *"signer call failed"* || "$out" == *"${ADDR_MARK: 
 else
   echo "ok: a long failing signer output is redacted before its cut (no fragment of the address)"
 fi
+
+# sepolia --estimate-only (S-1c): past every check (a fake node over curl that has the deployer, the source check, a
+# no-op npm and scarb), the real signer estimates each class, under a node shim that preloads the signer's fake node
+# (test/fixtures/fake-estimate-node.mjs: it answers an estimate and would accept any transaction, and logs each
+# method). Nothing may reach a starknet_add* method, no block is read (the fixed tip, S-1c), each class gets a line
+# with the spec version, and no value leaks. Needs Node 24 and scripts/signer's node_modules (npm ci there): skipped
+# without them, as in CI's build job, which has neither.
+real_node="$(command -v node || true)"
+if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d "$here/signer/node_modules/starknet" ]]; then
+  est="$shims/estimate"
+  # The real signer refuses a key that is not a felt: a hex marker, checked for leaks below as well.
+  KEY_MARK=fedcba9876543210fedcba98
+  mkdir -p "$est/bin" "$est/classes"
+  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection; do
+    cp "$here/signer/test/fixtures/tiny.contract_class.json" "$est/classes/paved_$name.contract_class.json"
+    cp "$here/signer/test/fixtures/tiny.compiled_contract_class.json" "$est/classes/paved_$name.compiled_contract_class.json"
+  done
+  printf '#!/usr/bin/env bash\nexit 0\n' >"$est/bin/npm"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"$est/bin/scarb"
+  # sncast: when a `hashes` file is beside it, `utils class-hash` answers a class hash per contract name (its name in
+  # hex); otherwise it fails (the class hash is then unknown).
+  cat >"$est/bin/sncast" <<'SH'
+#!/usr/bin/env bash
+[[ -f "${0%/*}/hashes" && "$*" == *"utils class-hash --contract-name "* ]] || exit 1
+args="$*"; name="${args##*--contract-name }"; name="${name%% *}"
+printf '{"command":"utils class-hash","class_hash":"0x%s"}\n' "$(printf '%s' "$name" | od -An -tx1 | tr -d ' \n')"
+SH
+  # The node shim: its own version for deploy.sh's check, else the real node with the fake node preloaded; the
+  # signer's stderr (the methods asked) goes to a log beside it (send's allowlist drops every other variable). The STRK
+  # balance the fake node reports comes from a file beside it too, when there is one.
+  # A file `estimate_error` beside it makes every estimate fail (FAKE_ESTIMATE_ERROR); a file `fee` sets every
+  # estimate's overall fee (FAKE_ESTIMATE_FEE); a file `add_lost` makes every add* time out with no receipt ever, on a
+  # fast clock (S-1d); a file `add_refused` replays t-0182's declare on dRPC (S-1e): the nonce read, the receipt read
+  # and the status read each answered -32601 once, the add* refused -32601, no receipt ever. The signer's stderr goes
+  # to the log and on to deploy.sh as well (tee).
+  printf '#!/usr/bin/env bash\n[[ "$1" == --version ]] && exec %q --version\n[[ -f %q ]] && export FAKE_STRK_BALANCE="$(cat %q)"\n[[ -f %q ]] && export FAKE_ESTIMATE_ERROR=1\n[[ -f %q ]] && export FAKE_ESTIMATE_FEE="$(cat %q)"\n[[ -f %q ]] && export FAKE_ADD_LOST=timeout FAKE_RECEIPT=none FAKE_FAST_CLOCK=1\n[[ -f %q ]] && export FAKE_ADD_LOST=refused:-32601 FAKE_RECEIPT=none FAKE_FAST_CLOCK=1 FAKE_FLAKY=starknet_getNonce:1,starknet_getTransactionReceipt:1,starknet_getTransactionStatus:1\nexec %q --import %q "$@" 2> >(tee -a %q >&2)\n' \
+    "$real_node" "$est/strk" "$est/strk" "$est/estimate_error" "$est/fee" "$est/fee" "$est/add_lost" "$est/add_refused" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
+  cp "$shims/curl" "$shims/addr_mark" "$est/bin/"
+  chmod +x "$est/bin/"*
+  # deploy.sh runs from a copy in a scratch root: a real run reads its classes from its own release build only
+  # (ESTIMATE_RELEASE_DIR is for --estimate-only), and the source check needs an origin/main, which CI's checkout has
+  # not. The root is a git repository whose origin/main is its HEAD (the source check
+  # passes), the tiny classes as contracts/target/release, and scripts/signer linked to the real signer. A real run is
+  # given an ESTIMATE_RELEASE_DIR with no class: honoured, it would stop the run.
+  root="$est/root"
+  mkdir -p "$root/scripts" "$root/contracts/target" "$est/empty"
+  cp "$here/deploy.sh" "$root/scripts/"
+  ln -s "$here/signer" "$root/scripts/signer"
+  cp -r "$est/classes" "$root/contracts/target/release"
+  printf 'target/\n' >"$root/contracts/.gitignore"
+  git -C "$root" init -q
+  git -C "$root" add -A
+  git -C "$root" -c user.name=test -c user.email=test@example.com -c core.hooksPath=/dev/null commit -qm root
+  git -C "$root" update-ref refs/remotes/origin/main HEAD
+  : >"$est/node.log"
+  log="$shims/estimate.log"
+  : >"$log"
+  out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
+    FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/classes" \
+    "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$root/scripts/deploy.sh" sepolia --estimate-only 2>&1)"
+  rc=$?
+  lines="$(grep -c '^   estimate [A-Za-z]*: spec 0.10.2, sierra .* declared unknown: ok, overall_fee 10000000128 FRI' <<<"$out")"
+  if [[ $rc -ne 0 || "$lines" != 10 || "$out" != *"== estimate only: each of the 10 classes estimated or already declared; nothing was sent"* ||
+      "$out" != *"== funding: deployer STRK balance 1000.00 STRK"* ||
+      "$out" != *"== funding: 10 class(es) to declare, estimated at 0.00 STRK; need 1.25 x 0.00 STRK + 20 STRK margin = 20.00 STRK"* ||
+      "$out" != *"   deployer STRK balance 1000.00 STRK: covers the need of 20.00 STRK"* ]] ||
+      leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia --estimate-only: expected exit 0 and 10 estimate lines, no value, got $rc and $lines:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
+  elif [[ "$(grep -c '^fake-node: asked starknet_estimateFee$' "$est/node.log")" != 10 ]] ||
+      grep -q '^fake-node: asked starknet_add' "$est/node.log" || grep -q '^fake-node: asked starknet_getBlockWith' "$est/node.log"; then
+    echo "FAIL: sepolia --estimate-only: not 10 estimates, or an add* method or a block read was asked:"
+    grep '^fake-node: asked' "$est/node.log" | sort | uniq -c; fail=1
+  elif leaks -q "$log" "$est/node.log" || grep -qi "$KEY_MARK" "$log" "$est/node.log"; then
+    echo "FAIL: sepolia --estimate-only: a value reached a child's argv or environment"; fail=1
+  else
+    echo "ok: sepolia --estimate-only estimates 10 classes (spec on each line), asks no starknet_add* method, reads no block"
+  fi
+  # Funding (S-1c, S-1d): a real sepolia run estimates the classes the node does not have and needs 1.25 x their
+  # estimates + the 20 STRK margin, or the 200 STRK floor when an estimate fails. Each case gives the deployer a balance
+  # (FAKE_STRK_BALANCE), the classes the node has (`declared`) and maybe a failing estimate (`estimate_error`).
+  real_run() { # <STRK balance, base units> -> output; the signer's log in $est/node.log
+    printf '%s' "$1" >"$est/strk"
+    : >"$est/node.log"
+    env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
+      FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/empty" \
+      "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$root/scripts/deploy.sh" sepolia 2>&1
+  }
+  hexname() { printf '0x%s\n' "$(printf '%s' "$1" | od -An -tx1 | tr -d ' \n')"; }
+  touch "$est/bin/hashes"
+  # 1. Seven of ten classes declared, 150 STRK (below the old 200 STRK floor): three estimates, need 20.00 STRK, passes
+  #    and goes on to declare.
+  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault; do hexname "$name"; done >"$est/bin/declared"
+  out="$(real_run 150000000000000000000)"; rc=$?
+  if [[ $rc -ne 1 || "$out" != *"== funding: 3 class(es) to declare, estimated at 0.00 STRK; need 1.25 x 0.00 STRK + 20 STRK margin = 20.00 STRK"* ||
+      "$out" != *"   deployer STRK balance 150.00 STRK: covers the need of 20.00 STRK"* || "$out" != *"== declare"* ||
+      "$(grep -c '^   estimate [A-Za-z]*: declared already, nothing to send$' <<<"$out")" != 7 ||
+      "$(grep -c '^fake-node: asked starknet_estimateFee$' "$est/node.log")" -lt 3 ]] ||
+      leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia with 7 of 10 classes declared and 150 STRK: expected the funding check to pass and the declares to start, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia with 7 of 10 classes declared passes with 150 STRK (need 20.00 STRK: 3 estimates + margin)"
+  fi
+  # 2. Nothing declared, 10 STRK: short of the 20.00 STRK need, the run stops before its first declare; nothing sent.
+  : >"$est/bin/declared"
+  out="$(real_run 10000000000000000000)"; rc=$?
+  if [[ $rc -ne 1 || "$out" != *"   deployer STRK balance 10.00 STRK: BELOW the need of 20.00 STRK"* ||
+      "$out" != *"below the need above: fund it before deploying; nothing was sent"* || "$out" == *"== declare"* ]] ||
+      grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia short of the need: expected exit 1 before any declare and no add*, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia with 10 STRK, short of the 20.00 STRK need, stops before its first declare; nothing sent"
+  fi
+  # 2b. Two classes left at 30 STRK each, 110 STRK: the rule asks 1.25 x 60 + 20 = 95 STRK, but the second declare's
+  #     bounds (2.3 x 30 after 1.25 x 30) + the margin ask 126.50 STRK: the run stops before sending.
+  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy; do hexname "$name"; done >"$est/bin/declared"
+  printf '%s' 30000000000000000000 >"$est/fee"
+  out="$(real_run 110000000000000000000)"; rc=$?
+  rm -f "$est/fee"
+  if [[ $rc -ne 1 || "$out" != *"need 1.25 x 60.00 STRK + 20 STRK margin = 95.00 STRK"* ||
+      "$out" != *"after 1.25 x the declares before it, + the margin = 126.50 STRK"* ||
+      "$out" != *"   deployer STRK balance 110.00 STRK: BELOW the need of 126.50 STRK"* || "$out" == *"== declare"* ]] ||
+      grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia with two 30 STRK declares left and 110 STRK: expected the bounds' 126.50 STRK need and a stop, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia with two 30 STRK declares left needs 126.50 STRK for their bounds (not 95); 110 STRK stops before sending"
+  fi
+  : >"$est/bin/declared"
+  # 2c. A declare whose answer is lost and whose receipt never comes (S-1d): deploy.sh shows the signer's `sending` line
+  #     with the hash as it comes, the signer fails with "status unknown" after one add*, and deploy.sh stops there.
+  touch "$est/add_lost"
+  out="$(real_run 150000000000000000000)"; rc=$?
+  rm -f "$est/add_lost"
+  if [[ $rc -ne 1 || "$out" != *"deploy.sh: declare Account failed"* || "$out" == *"declare Daily"* ||
+      "$out" != *"signer: sent, status unknown: 0x"*"; check it before any rerun"* ]] ||
+      ! grep -q '^   signer: sending starknet_addDeclareTransaction, transaction 0x[0-9a-f]*$' <<<"$out" ||
+      [[ "$(grep -c '^fake-node: asked starknet_addDeclareTransaction$' "$est/node.log")" != 1 ]] ||
+      leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia with a lost declare answer: expected the streamed hash, 'status unknown', one add* and a stop, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out" | grep -v '^fake-node'; fail=1
+  else
+    echo "ok: sepolia with a lost declare answer shows the hash as it is sent, then stops after one add* ('status unknown')"
+  fi
+  # 2d. t-0182's refused declare (S-1e): the node gets one add*; the `sending` line shows once (streamed, not again in
+  #     the failure), the failure tail is whole lines (no `failed: .json`) and ends with what the signer read.
+  touch "$est/add_refused"
+  out="$(real_run 150000000000000000000)"; rc=$?
+  rm -f "$est/add_refused"
+  if [[ $rc -ne 1 || "$out" != *"deploy.sh: declare Account failed"* || "$out" == *"declare Daily"* ]] ||
+      [[ "$(grep -c 'signer: sending starknet_add' <<<"$out")" != 1 ]] ||
+      ! grep -q '^   signer: sending starknet_addDeclareTransaction, transaction 0x[0-9a-f]*$' <<<"$out" ||
+      ! grep -q '^deploy.sh: signer declare failed:$' <<<"$out" ||
+      ! grep -q '^   signer: refused (-32601); no receipt for 0x[0-9a-f]* after 30 s; not landed (nonce unchanged at 0x0, class 0x[0-9a-f]* absent); check it before any rerun$' <<<"$out" ||
+      [[ "$(grep -c '^fake-node: asked starknet_addDeclareTransaction$' "$est/node.log")" != 1 ]] ||
+      leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia with a refused declare: expected one add*, one sending line, whole failure lines and 'not landed', got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia with a refused declare: one add*, its sending line shown once, the failure in whole lines ending 'not landed'"
+  fi
+  # 3. The estimates fail: the need falls back to the 200 STRK floor, and 150 STRK stops the run before sending.
+  touch "$est/estimate_error"
+  out="$(real_run 150000000000000000000)"; rc=$?
+  rm -f "$est/estimate_error" "$est/strk" "$est/bin/hashes" "$est/bin/declared"
+  if [[ $rc -ne 1 || "$out" != *"== funding: 10 estimate(s) could not be had: the need falls back to the 200 STRK floor"* ||
+      "$out" != *"   deployer STRK balance 150.00 STRK: BELOW the need of 200.00 STRK"* || "$out" == *"== declare"* ]] ||
+      grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia with failing estimates and 150 STRK: expected the 200 STRK floor and a stop before sending, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia whose estimates fail falls back to the 200 STRK floor; 150 STRK stops before its first declare"
+  fi
+  # A diagnostic option is checked by deploy.sh before anything runs, and only with --estimate-only.
+  for bad in "--block-id pending" "--bounds x" "--frobnicate"; do
+    # shellcheck disable=SC2086
+    out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL "$here/deploy.sh" sepolia --estimate-only $bad 2>&1)"
+    if [[ $? -ne 2 ]]; then echo "FAIL: sepolia --estimate-only $bad was not refused: $out"; fail=1
+    else echo "ok: sepolia --estimate-only $bad refused"; fi
+  done
+  refuse 2 "unknown option '--validate' for 'sepolia'" sepolia --validate
+  refuse 2 "unknown option '--unmerged' for 'sepolia --rehearse'" sepolia --rehearse --unmerged --estimate-only
+else
+  echo "skip: sepolia --estimate-only (needs Node 24 and npm ci in scripts/signer)"
+fi
+
+# failure_tail (S-1e, review of #302): at most 800 characters, indents, line breaks and the count line included; whole
+# lines only, but for a last line too long alone.
+eval "$(sed -n '/^failure_tail() {$/,/^}$/p' "$here/deploy.sh")"
+tail_case() { # <label> <text> <expected first line, a pattern>
+  local got
+  got="$(failure_tail "$2")"
+  if (( ${#got} + 1 > 800 )) || [[ "$(head -n1 <<<"$got")" != $3 ]]; then
+    echo "FAIL: failure_tail $1: $(( ${#got} + 1 )) characters, first line '$(head -n1 <<<"$got")'"; fail=1
+  else
+    echo "ok: failure_tail $1 -> $(( ${#got} + 1 )) characters, whole lines"
+  fi
+}
+tail_case "short text, all shown" "$(printf 'line %s\n' 1 2 3)" "   line 1"
+tail_case "200 lines of 9" "$(for i in $(seq 1 200); do printf 'line %04d\n' "$i"; done)" "   (*earlier line(s) not shown)"
+tail_case "two lines of 399, cut to one" "$(printf 'a%.0s' {1..399}; echo; printf 'b%.0s' {1..399})" "   (1 earlier line(s) not shown)"
+tail_case "one line of 2000" "$(printf 'c%.0s' {1..2000})" "   ...c*"
 
 # The getClass predicate of deploy.sh counts a class as declared only for a JSON object, with no `error`
 # field, whose `result` is an object.
