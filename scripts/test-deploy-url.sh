@@ -93,14 +93,26 @@ cat >"$shims/curl" <<'SH'
 config="$(cat)"
 [[ "$config" == *MARKER* ]] && echo 'curl: the URL came on stdin' >>"$SHIM_LOG"
 [[ "$config" == *"$(cat "${0%/*}/addr_mark")"* ]] && echo 'curl: the address came on stdin' >>"$SHIM_LOG"
+# deploy.sh asks for the HTTP status after the body (`-w`): 200 unless a case says otherwise.
+status=200
+# flaky: the first two starknet_specVersion calls answer -32601 with HTTP 400 (S-1c), counted in a file beside the shim.
+if [[ "$FAKE_NODE" == flaky && "$config" == *starknet_specVersion* ]]; then
+  count="$(cat "${0%/*}/flaky.count" 2>/dev/null || echo 0)"
+  echo $((count + 1)) >"${0%/*}/flaky.count"
+  if (( count < 2 )); then
+    printf '%s\n400' '{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"the method starknet_specVersion does not exist/is not available"}}'
+    exit 0
+  fi
+fi
 case "$FAKE_NODE:$config" in
   down:*) exit 7 ;;
-  *starknet_specVersion*) echo '{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
-  mainnet:*starknet_chainId*) echo '{"jsonrpc":"2.0","id":1,"result":"0x534e5f4d41494e"}' ;;
-  estimate:*starknet_getClassHashAt*) echo '{"jsonrpc":"2.0","id":1,"result":"0x1"}' ;;
-  *starknet_chainId*) echo '{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
-  *) echo '{"jsonrpc":"2.0","id":1,"error":{"code":20,"message":"Contract not found"}}' ;;
+  *starknet_specVersion*) body='{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
+  mainnet:*starknet_chainId* | flaky:*starknet_chainId*) body='{"jsonrpc":"2.0","id":1,"result":"0x534e5f4d41494e"}' ;;
+  estimate:*starknet_getClassHashAt*) body='{"jsonrpc":"2.0","id":1,"result":"0x1"}' ;;
+  *starknet_chainId*) body='{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
+  *) body='{"jsonrpc":"2.0","id":1,"error":{"code":20,"message":"Contract not found"}}' ;;
 esac
+printf '%s\n%s' "$body" "$status"
 SH
 # A fake signer for `--check-send-failure`: it logs its argv and environment, then prints the three values (the address
 # padded to 64 digits, the key in upper case) on both streams and fails, as a signer whose sanitiser missed them would.
@@ -138,6 +150,14 @@ at_node() { # <FAKE_NODE mode> <expected fragment>
 }
 at_node down "no node answers at \$STARKNET_RPC_URL"
 at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA"
+# flaky (S-1c): deploy.sh retries a read answered -32601 (HTTP 400) and goes on; this node then reports mainnet.
+rm -f "$shims/flaky.count"
+at_node flaky "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA"
+if [[ "$(cat "$shims/flaky.count")" != 3 ]]; then
+  echo "FAIL: deploy.sh asked starknet_specVersion $(cat "$shims/flaky.count") times, expected 3 (two retries)"; fail=1
+else
+  echo "ok: deploy.sh retried starknet_specVersion twice after -32601 (HTTP 400), then went on"
+fi
 at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL"
 
 # `send` (review of #299): a signer that fails while printing the three values leaks none of them through deploy.sh,

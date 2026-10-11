@@ -278,13 +278,34 @@ die() { echo "deploy.sh: $*" >&2; exit 1; }
 # The URL and the request go to curl through its config on stdin, not its arguments: a public URL may carry an API
 # key, and the params may hold the deployer's address. `-q` (first) keeps curl from reading a ~/.curlrc. In the
 # config's quoted strings, backslashes, double quotes and line breaks are escaped (the URL holds none: checked above).
+#
+# A read method of RPC_RETRIED (the signer's list, S-1c) is retried while the node answers HTTP 5xx or the JSON-RPC error
+# -32601 (a Sepolia endpoint did, at random, with HTTP 200 or 400): at most 5 attempts, waits 1, 2, 4, 8 s. Any other
+# method goes once (deploy.sh sends no transaction through curl; a starknet_add* method would never be retried). A
+# node that does not answer at all is not retried. Fails unless the last answer is HTTP 2xx.
+RPC_RETRIED=" starknet_specVersion starknet_chainId starknet_getClassHashAt starknet_getClass starknet_getTransactionReceipt "
+RPC_DELAYS=(1 2 4 8)
 rpc() {
-  local body="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}"
+  local body="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":$2}" answer code attempt=1
   body="${body//\\/\\\\}"
   body="${body//$'\n'/\\n}"
   body="${body//$'\r'/\\r}"
-  printf 'url = "%s"\ndata = "%s"\n' "$RPC_URL" "${body//\"/\\\"}" |
-    curl -q -sf -K - -X POST -H 'content-type: application/json'
+  while true; do
+    answer="$(printf 'url = "%s"\ndata = "%s"\n' "$RPC_URL" "${body//\"/\\\"}" |
+      curl -q -s -K - -X POST -H 'content-type: application/json' -w '\n%{http_code}')" || answer=$'\n000'
+    code="${answer##*$'\n'}"
+    answer="${answer%$'\n'*}"
+    if [[ "$RPC_RETRIED" == *" $1 "* && "$attempt" -le "${#RPC_DELAYS[@]}" ]] &&
+        [[ "$code" == 5?? || "$answer" =~ \"code\"[[:space:]]*:[[:space:]]*-32601 ]]; then
+      echo "deploy.sh: $1 failed (HTTP $code), attempt $attempt of $(( ${#RPC_DELAYS[@]} + 1 )); retrying" >&2
+      sleep "${RPC_DELAYS[$((attempt - 1))]}"
+      attempt=$((attempt + 1))
+      continue
+    fi
+    [[ "$code" == 2?? ]] || return 1
+    printf '%s\n' "$answer"
+    return 0
+  done
 }
 
 # jq-less JSON helpers. `pyj <expr>` reads JSON on stdin and prints the python expression on `d`.
