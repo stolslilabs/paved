@@ -109,6 +109,13 @@ case "$FAKE_NODE:$config" in
   *starknet_specVersion*) body='{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
   mainnet:*starknet_chainId* | flaky:*starknet_chainId*) body='{"jsonrpc":"2.0","id":1,"result":"0x534e5f4d41494e"}' ;;
   estimate:*starknet_getClassHashAt*) body='{"jsonrpc":"2.0","id":1,"result":"0x1"}' ;;
+  # The classes the node has (S-1d): their hashes are listed in a file beside the shim.
+  estimate:*'starknet_getClass\"'*)
+    body='{"jsonrpc":"2.0","id":1,"error":{"code":28,"message":"Class hash not found"}}'
+    while read -r h; do
+      [[ -n "$h" && "$config" == *"$h"* ]] && body='{"jsonrpc":"2.0","id":1,"result":{"sierra_program":[]}}'
+    done < <(cat "${0%/*}/declared" 2>/dev/null)
+    ;;
   *starknet_chainId*) body='{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
   *) body='{"jsonrpc":"2.0","id":1,"error":{"code":20,"message":"Contract not found"}}' ;;
 esac
@@ -212,12 +219,20 @@ if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d 
   done
   printf '#!/usr/bin/env bash\nexit 0\n' >"$est/bin/npm"
   printf '#!/usr/bin/env bash\nexit 0\n' >"$est/bin/scarb"
-  printf '#!/usr/bin/env bash\nexit 1\n' >"$est/bin/sncast"
+  # sncast: when a `hashes` file is beside it, `utils class-hash` answers a class hash per contract name (its name in
+  # hex); otherwise it fails (the class hash is then unknown).
+  cat >"$est/bin/sncast" <<'SH'
+#!/usr/bin/env bash
+[[ -f "${0%/*}/hashes" && "$*" == *"utils class-hash --contract-name "* ]] || exit 1
+args="$*"; name="${args##*--contract-name }"; name="${name%% *}"
+printf '{"command":"utils class-hash","class_hash":"0x%s"}\n' "$(printf '%s' "$name" | od -An -tx1 | tr -d ' \n')"
+SH
   # The node shim: its own version for deploy.sh's check, else the real node with the fake node preloaded; the
   # signer's stderr (the methods asked) goes to a log beside it (send's allowlist drops every other variable). The STRK
   # balance the fake node reports comes from a file beside it too, when there is one.
-  printf '#!/usr/bin/env bash\n[[ "$1" == --version ]] && exec %q --version\n[[ -f %q ]] && export FAKE_STRK_BALANCE="$(cat %q)"\nexec %q --import %q "$@" 2>>%q\n' \
-    "$real_node" "$est/strk" "$est/strk" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
+  # A file `estimate_error` beside it makes every estimate fail (FAKE_ESTIMATE_ERROR).
+  printf '#!/usr/bin/env bash\n[[ "$1" == --version ]] && exec %q --version\n[[ -f %q ]] && export FAKE_STRK_BALANCE="$(cat %q)"\n[[ -f %q ]] && export FAKE_ESTIMATE_ERROR=1\nexec %q --import %q "$@" 2>>%q\n' \
+    "$real_node" "$est/strk" "$est/strk" "$est/estimate_error" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
   cp "$shims/curl" "$shims/addr_mark" "$est/bin/"
   chmod +x "$est/bin/"*
   : >"$est/node.log"
@@ -230,7 +245,8 @@ if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d 
   lines="$(grep -c '^   estimate [A-Za-z]*: spec 0.10.2, sierra .* declared unknown: ok, overall_fee 10000000128 FRI' <<<"$out")"
   if [[ $rc -ne 0 || "$lines" != 10 || "$out" != *"== estimate only: each of the 10 classes estimated or already declared; nothing was sent"* ||
       "$out" != *"== funding: deployer STRK balance 1000.00 STRK"* ||
-      "$out" != *"   deployer STRK balance 1000.00 STRK: covers 1.25 x the estimates, at or above the floor"* ]] ||
+      "$out" != *"== funding: 10 class(es) to declare, estimated at 0.00 STRK; need 1.25 x 0.00 STRK + 20 STRK margin = 20.00 STRK"* ||
+      "$out" != *"   deployer STRK balance 1000.00 STRK: covers the need of 20.00 STRK"* ]] ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
     echo "FAIL: sepolia --estimate-only: expected exit 0 and 10 estimate lines, no value, got $rc and $lines:"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
@@ -243,22 +259,54 @@ if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d 
   else
     echo "ok: sepolia --estimate-only estimates 10 classes (spec on each line), asks no starknet_add* method, reads no block"
   fi
-  # Funding (S-1c): a real sepolia run whose deployer holds less than the 200 STRK floor stops before its first
-  # declare; nothing is sent (the fake node would accept it).
-  printf '%s' 150000000000000000000 >"$est/strk"
-  : >"$est/node.log"
-  out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
-    FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" \
-    "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$here/deploy.sh" sepolia 2>&1)"
-  rc=$?
-  rm -f "$est/strk"
-  if [[ $rc -ne 1 || "$out" != *"== funding: deployer STRK balance 150.00 STRK"* ||
-      "$out" != *"holds less than the 200 STRK floor: fund it before deploying; nothing was sent"* || "$out" == *"== declare"* ]] ||
-      leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out" || grep -q '^fake-node: asked starknet_add' "$est/node.log"; then
-    echo "FAIL: sepolia below the funding floor: expected exit 1 before any declare, got $rc:"
+  # Funding (S-1c, S-1d): a real sepolia run estimates the classes the node does not have and needs 1.25 x their
+  # estimates + the 20 STRK margin, or the 200 STRK floor when an estimate fails. Each case gives the deployer a balance
+  # (FAKE_STRK_BALANCE), the classes the node has (`declared`) and maybe a failing estimate (`estimate_error`).
+  real_run() { # <STRK balance, base units> -> output; the signer's log in $est/node.log
+    printf '%s' "$1" >"$est/strk"
+    : >"$est/node.log"
+    env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
+      FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/classes" \
+      "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$here/deploy.sh" sepolia 2>&1
+  }
+  hexname() { printf '0x%s\n' "$(printf '%s' "$1" | od -An -tx1 | tr -d ' \n')"; }
+  touch "$est/bin/hashes"
+  # 1. Seven of ten classes declared, 150 STRK (below the old 200 STRK floor): three estimates, need 20.00 STRK, passes
+  #    and goes on to declare.
+  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault; do hexname "$name"; done >"$est/bin/declared"
+  out="$(real_run 150000000000000000000)"; rc=$?
+  if [[ $rc -ne 1 || "$out" != *"== funding: 3 class(es) to declare, estimated at 0.00 STRK; need 1.25 x 0.00 STRK + 20 STRK margin = 20.00 STRK"* ||
+      "$out" != *"   deployer STRK balance 150.00 STRK: covers the need of 20.00 STRK"* || "$out" != *"== declare"* ||
+      "$(grep -c '^   estimate [A-Za-z]*: declared already, nothing to send$' <<<"$out")" != 7 ||
+      "$(grep -c '^fake-node: asked starknet_estimateFee$' "$est/node.log")" -lt 3 ]] ||
+      leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia with 7 of 10 classes declared and 150 STRK: expected the funding check to pass and the declares to start, got $rc:"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
   else
-    echo "ok: sepolia with 150 STRK stops at the 200 STRK floor before its first declare; nothing sent, no value printed"
+    echo "ok: sepolia with 7 of 10 classes declared passes with 150 STRK (need 20.00 STRK: 3 estimates + margin)"
+  fi
+  # 2. Nothing declared, 10 STRK: short of the 20.00 STRK need, the run stops before its first declare; nothing sent.
+  : >"$est/bin/declared"
+  out="$(real_run 10000000000000000000)"; rc=$?
+  if [[ $rc -ne 1 || "$out" != *"   deployer STRK balance 10.00 STRK: BELOW the need of 20.00 STRK"* ||
+      "$out" != *"below the need above: fund it before deploying; nothing was sent"* || "$out" == *"== declare"* ]] ||
+      grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia short of the need: expected exit 1 before any declare and no add*, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia with 10 STRK, short of the 20.00 STRK need, stops before its first declare; nothing sent"
+  fi
+  # 3. The estimates fail: the need falls back to the 200 STRK floor, and 150 STRK stops the run before sending.
+  touch "$est/estimate_error"
+  out="$(real_run 150000000000000000000)"; rc=$?
+  rm -f "$est/estimate_error" "$est/strk" "$est/bin/hashes" "$est/bin/declared"
+  if [[ $rc -ne 1 || "$out" != *"== funding: 10 estimate(s) could not be had: the need falls back to the 200 STRK floor"* ||
+      "$out" != *"   deployer STRK balance 150.00 STRK: BELOW the need of 200.00 STRK"* || "$out" == *"== declare"* ]] ||
+      grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia with failing estimates and 150 STRK: expected the 200 STRK floor and a stop before sending, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia whose estimates fail falls back to the 200 STRK floor; 150 STRK stops before its first declare"
   fi
   # A diagnostic option is checked by deploy.sh before anything runs, and only with --estimate-only.
   for bad in "--block-id pending" "--bounds x" "--frobnicate"; do
