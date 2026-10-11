@@ -7,17 +7,19 @@ registered or logged into, and none will be until the owner's exact sentence all
 ## Method
 
 - VPS only, headless Chromium only (`headless: true`, no window flags): `scripts/e2e-sepolia/part-a.mjs`, Playwright
-  (`playwright-core` 1.49.1, installed apart in `scripts/e2e-sepolia/`, like `scripts/bench`), browser
+  (`playwright-core` 1.63.0, installed apart in `scripts/e2e-sepolia/`, like `scripts/bench`), browser
   `chromium_headless_shell-1243`.
 - Run: `NODE_OPTIONS=--max-old-space-size=384 /usr/bin/time -v bun scripts/e2e-sepolia/part-a.mjs --out docs/client/sepolia-controller-run --connect`.
 - **Peak RSS of the run (`/usr/bin/time -v`, largest process): 115,244 kB (112.5 MiB)**, 19.9 s wall, heap cap 384 MB.
 - The driver clicks Connect and reads the keychain iframe's text; it never types into or clicks inside the keychain.
-- Browser install (once; the pinned `playwright-core` does not fetch it): `bunx playwright-core@1.49.1 install chromium-headless-shell`
-  (the run used `chromium_headless_shell-1243` under `~/.cache/ms-playwright/`; pass `--chromium <path>` for another).
+- Browser install (once; the pinned `playwright-core` does not fetch it): `bunx playwright-core@1.63.0 install chromium-headless-shell`.
+  `playwright-core` is pinned to 1.63.0 because its `browsers.json` gives `chromium-headless-shell` revision 1243, the one the driver
+  uses by default (`~/.cache/ms-playwright/chromium_headless_shell-1243/`) and the run used; 1.49.1 would install revision 1148. The run itself
+  was made with the earlier pin 1.49.1 driving that same 1243 binary through `executablePath`; the driver code is unchanged by the re-pin. `--chromium <path>` names another binary.
 - The `indexer-*.json` files are not made by the driver; they are plain GETs, taken right after the run:
   `for p in head 'tournaments?limit=1' tournaments/20737 'tournaments/20737/leaderboard?limit=20'; do curl -s "https://api.paved.bal7hazar.com/v1/$p" | jq . > docs/client/sepolia-controller-run/indexer-$(echo $p | tr '/?=' '___').json; done`
 - Frame URLs are written without their query by the driver (`redact`), so `frames.json` and `run.json` agree. The committed
-  files of this run were made before that change and had the keychain's connect id removed from them by hand (`sed`, same result).
+  `run.json` and `frames.json` of this run were made before that change; the keychain's query strings (connect id, iframe options) were stripped from their `frames` by hand, with the same result.
 - Evidence is in `docs/client/sepolia-controller-run/`: `01-loaded.jpg`, `02-leaderboard.jpg`, `03-after-connect.jpg`,
   `run.json` (console, requests, failures), `page-text.txt`, `leaderboard-text.txt`, `keychain-text.txt`, `frames.json`,
   and the raw `indexer-*.json` answers. No secret, session key or private key appears in them (nothing was signed).
@@ -110,7 +112,7 @@ or recovery phrase.
    Note whether it prompted for a signature (`Account.create` and `MockUSDC.mint` are session policies). This is the brief's one mint of 100 USDC.
 4. **Faucet (optional extra).** On the Token card, Mint adds 100 more USDC (balance 100 to 200). Skip it unless a second
    purchase needs the funds. **Capture** the balance and the transaction hash; it should not prompt, as `MockUSDC.mint` is a session policy.
-5. **Buy one Daily game.** Start the Daily (price in USDC, paid by one `approve` then the entry). **Capture** the price shown,
+5. **Buy one Daily game.** On the home page open the Daily card ("Daily Challenge"), pick a stake, press "Buy for ...", and confirm (the client approves USDC, then buys). **Capture** the price shown,
    whether a prompt appeared for the `approve` (it should not: it is within the session cap), and the tx hash(es).
 6. **Play a few moves.** Place about five tiles. **Capture** one screenshot of the board and the tx hash of at least one move;
    note whether any move prompted. Then end with "Surrender" (a finished game counts in the leaderboard) or leave it open.
@@ -128,4 +130,4 @@ or recovery phrase.
 
    Compare with the UI: "Leaderboard" on the home page must show the same rank, score and games.
 8. **Send back**: the screenshots of steps 2 to 6, the copied keychain text about the origin and unverified policies, the tx
-   hashes of Create Account, purchase and one move, and the JSON answers of step 6.
+   hashes of Create Account, purchase and one move, and the JSON answers of step 7.

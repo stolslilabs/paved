@@ -66,7 +66,7 @@
     {
       "method": "GET",
       "host": "x.cartridge.gg",
-      "path": "/?…"
+      "path": "/?\u2026"
     },
     {
       "method": "GET",
@@ -126,7 +126,7 @@
     {
       "method": "GET",
       "host": "fonts.googleapis.com",
-      "path": "/css2?…"
+      "path": "/css2?\u2026"
     },
     {
       "method": "GET",
@@ -141,7 +141,7 @@
     {
       "method": "POST",
       "host": "x.cartridge.gg",
-      "path": "/ingest/decide/?…"
+      "path": "/ingest/decide/?\u2026"
     },
     {
       "method": "GET",
@@ -206,7 +206,7 @@
     {
       "method": "POST",
       "host": "x.cartridge.gg",
-      "path": "/ingest/decide/?…"
+      "path": "/ingest/decide/?\u2026"
     },
     {
       "method": "GET",
@@ -236,7 +236,7 @@
     {
       "method": "GET",
       "host": "api.paved.bal7hazar.com",
-      "path": "/v1/tournaments?…"
+      "path": "/v1/tournaments?\u2026"
     },
     {
       "method": "POST",
@@ -246,7 +246,7 @@
     {
       "method": "GET",
       "host": "api.paved.bal7hazar.com",
-      "path": "/v1/tournaments/20737/leaderboard?…"
+      "path": "/v1/tournaments/20737/leaderboard?\u2026"
     },
     {
       "method": "POST",
@@ -268,8 +268,8 @@
   "frames": [
     "https://paved.bal7hazar.com/",
     "https://paved.bal7hazar.com/",
-    "https://x.cartridge.gg/?v=0.13.16&rpc_url=https%253A%252F%252Fapi.cartridge.gg%252Fx%252Fstarknet%252Fsepolia%252Frpc%252Fv0_10&chains=%255B%257B%2522rpcUrl%2522%253A%2522https%253A%252F%252Fapi.cartr",
-    "https://x.cartridge.gg/?v=0.13.16&rpc_url=https%253A%252F%252Fapi.cartridge.gg%252Fx%252Fstarknet%252Fsepolia%252Frpc%252Fv0_10&chains=%255B%257B%2522rpcUrl%2522%253A%2522https%253A%252F%252Fapi.cartr",
+    "https://x.cartridge.gg/",
+    "https://x.cartridge.gg/",
     "https://auth.turnkey.com/",
     "https://paved.bal7hazar.com/leaderboard",
     "https://x.cartridge.gg/connect"
