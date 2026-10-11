@@ -17,8 +17,12 @@ import { FakeGameViews, type TournamentView } from "../src/views";
 
 const deployment = resolveDeployment({
   network: "sepolia",
-  // Sepolia has no MockUSDC (devnet-only in code, even if an env gives one).
+  // Sepolia has a MockUSDC (D-16, P-39): the faucet's `mint` is a session policy there.
   env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
+});
+const mainnet = resolveDeployment({
+  network: "mainnet",
+  env: { rpcUrl: "http://m/rpc", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
 });
 const policies = controllerPolicies(deployment);
 /** The economy of the same deployment (E3): the Daily entry is paid in USDC. */
@@ -55,8 +59,8 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   gameViews.tournaments.set(3, TOURNAMENT);
   const client = new PavedClient(deployment, rpc, createCodecs(), gameViews);
   const writer = client.writer(account);
-  // The faucet writes run on the devnet deployment, the only one with a MockUSDC.
-  const devnetWriter = new PavedClient({ ...deployment, network: "devnet", mockUsdc: "0x14" }, rpc, createCodecs(), gameViews).writer(account);
+  // Mainnet never resolves a MockUSDC, whatever the env says: its writer has no faucet.
+  const mainnetWriter = new PavedClient(mainnet, rpc, createCodecs(), gameViews).writer(account);
   const economy = new FakeEconomy();
   economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY }));
   economy.setBalance("paved", PLAYER, 5n * P);
@@ -66,10 +70,10 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   const move = { orientation: 1, x: 2, y: 3, role: 0, spot: 0 };
   const writes: Record<string, () => Promise<unknown>> = {
     "create player": () => writer.createPlayer("ada"),
-    // The devnet faucet (MockUSDC.mint): the burner signs it, the controller's session never holds it (review of #265).
-    "faucet mint": () => devnetWriter.mint(),
-    "create player with faucet": () => devnetWriter.createPlayer("ada", { mintTestToken: true }),
-    "faucet on sepolia": () => writer.mint(),
+    // The faucet (MockUSDC.mint): signed in the controller's session on Sepolia, where the deployment has a MockUSDC.
+    "faucet mint": () => writer.mint(),
+    "create player with faucet": () => writer.createPlayer("ada", { mintTestToken: true }),
+    "faucet on mainnet": () => mainnetWriter.mint(),
     "daily spawn (sends nothing since E3)": () => writer.spawn("daily"),
     "tutorial spawn": () => writer.spawn("tutorial"),
     "daily build": () => writer.build({ mode: "daily", gameId: 1 }, move),
@@ -129,33 +133,45 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(sent["daily spawn (sends nothing since E3)"]).toEqual([]);
   });
 
-  test("the policies hold exactly those calls, nothing else; no faucet", async () => {
+  test("the policies hold exactly those calls and the faucet's mint, nothing else", async () => {
     const sent = await sentByEveryWrite();
+    const faucet = key("0x14", "mint");
     const keys = new Set(GAME_AND_PURCHASE.flatMap((label) => sent[label].map((c) => key(c.contractAddress, c.entrypoint))));
-    expect(new Set(session.map((p) => key(p.target, p.method)))).toEqual(keys);
+    const withFaucet = new Set([...keys, faucet]);
+    expect(new Set(session.map((p) => key(p.target, p.method)))).toEqual(withFaucet);
     // Without the entry's approve, the session is the same minus approve.
-    expect(new Set(policies.map((p) => key(p.target, p.method)))).toEqual(new Set([...keys].filter((k) => !k.endsWith(":approve"))));
-    // The writes of the session (the faucet's own are checked below) hold no mint.
+    expect(new Set(policies.map((p) => key(p.target, p.method)))).toEqual(new Set([...withFaucet].filter((k) => !k.endsWith(":approve"))));
+    // The game's and the purchase's writes hold no mint (the faucet's own are checked below).
     expect(GAME_AND_PURCHASE.flatMap((label) => sent[label]).map((c) => c.entrypoint)).not.toContain("mint");
   });
 
-  test("the faucet is never in the session: mint() and createPlayer(mintTestToken) send a mint, and no policy holds it", async () => {
+  test("the faucet is in the session on Sepolia: mint() and createPlayer(mintTestToken) send a mint, and a policy holds it", async () => {
     const sent = await sentByEveryWrite();
     expect(sent["faucet mint"].map((c) => c.entrypoint)).toEqual(["mint"]);
     expect(sent["create player with faucet"].map((c) => c.entrypoint)).toEqual(["mint", "create"]);
     const [mint] = sent["faucet mint"];
     expect(BigInt(mint.contractAddress)).toBe(BigInt("0x14"));
-    for (const call of [...sent["faucet mint"], sent["create player with faucet"][0]]) {
-      expect(inSession(call, session), "mint with an approve cap").toBe(false);
-      expect(inSession(call, policies), "mint without").toBe(false);
+    for (const call of [...sent["faucet mint"], ...sent["create player with faucet"]]) {
+      expect(inSession(call, session), `${call.entrypoint} with an approve cap`).toBe(true);
+      expect(inSession(call, policies), `${call.entrypoint} without`).toBe(true);
     }
-    // On sepolia the faucet is not there at all, whatever the env says: nothing is sent.
-    expect(deployment.mockUsdc).toBe("");
-    expect(sent["faucet on sepolia"]).toEqual([]);
+    expect(session.filter((p) => p.method === "mint")).toEqual([{ target: "0x14", method: "mint", description: "Test USDC faucet" }]);
     // And the plain create player of the session is signed in it, as before.
     expect(sent["create player"].map((c) => c.entrypoint)).toEqual(["create"]);
     expect(inSession(sent["create player"][0], session)).toBe(true);
-    expect(session.map((p) => p.method)).not.toContain("mint");
+  });
+
+  test("on mainnet there is no MockUSDC, no faucet write and no mint policy, whatever the env says", async () => {
+    const sent = await sentByEveryWrite();
+    expect(mainnet.mockUsdc).toBe("");
+    expect(sent["faucet on mainnet"]).toEqual([]);
+    const onMainnet = controllerPolicies(mainnet, { approve: USDC_APPROVE });
+    expect(onMainnet.map((p) => p.method)).not.toContain("mint");
+    expect(onMainnet.some((p) => BigInt(p.target) === BigInt("0x14"))).toBe(false);
+    expect(toControllerSessionPolicies(onMainnet).contracts[getChecksumAddress("0x14")]).toBeUndefined();
+    // A deployment with no MockUSDC at all (a Sepolia file without one) has none either.
+    const none = resolveDeployment({ network: "sepolia", env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" } } });
+    expect(controllerPolicies(none).map((p) => p.method)).not.toContain("mint");
   });
 
   test("the purchase approves USDC to Daily for stake x unit; at stake 10 that is exactly the cap", async () => {

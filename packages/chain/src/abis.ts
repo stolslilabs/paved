@@ -60,10 +60,14 @@ export function createEconomyCodecs(abis: Record<EconomyContractName, Abi> = ECO
   };
 }
 
-/** `MockUSDC.json`: the devnet faucet's `mint(recipient, amount)` is in it (`PavedWriter.mint`). */
+/** `MockUSDC.json`: the faucet's (devnet, Sepolia) `mint(recipient, amount)` is in it (`PavedWriter.mint`). */
 export const MOCK_USDC_ABI = mockUsdcAbi as Abi;
 
-/** What one faucet call mints on devnet: 100 USDC (6 decimals), enough for every stake of a day's games. */
+/**
+ * What one faucet call mints: 100 USDC (6 decimals), enough for every stake of a day's games. Far under the contract's
+ * caps (10,000 USDC a call, 20,000 USDC an address in total, `contracts/src/mocks/usdc.cairo`), which still end the
+ * faucet for an address after 200 calls: `FaucetCapError`.
+ */
 export const FAUCET_USDC_AMOUNT = 100_000_000n;
 
 /**

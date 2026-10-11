@@ -16,12 +16,12 @@ The env variables of `packages/app-web` (`src/utils/network.ts`), each one set o
 
 | Variable | Overrides |
 |---|---|
-| `VITE_RPC_URL` | `rpc_url` |
+| `VITE_RPC_URL` | `rpc_url` (a public network's file holds the placeholder `$STARKNET_RPC_URL`, which is never used as a URL: without this variable a Sepolia build is "not connected", `missing: ["RPC URL"]`) |
 | `VITE_DEPLOYED_BLOCK` | `deployed_block` |
 | `VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`, `VITE_TUTORIAL_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player) |
-| `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` only |
+| `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` and `sepolia`, off elsewhere (it still needs a MockUSDC: mainnet resolves none) |
 | `VITE_COLLECTION_ADDRESS` | the game NFT's Collection (overrides `contracts.Collection` and the indexer's head, all optional; see "Game NFT") |
-| `VITE_MOCK_USDC_ADDRESS` | the devnet MockUSDC the faucet mints (overrides `contracts.MockUSDC`) |
+| `VITE_MOCK_USDC_ADDRESS` | the MockUSDC the faucet mints, devnet and Sepolia only (overrides `contracts.MockUSDC`; ignored on any other network) |
 
 The app reads every `contracts/deployments/*.json` at build time (`import.meta.glob`, which
 tolerates a missing folder) and picks `<network>.json`.
@@ -37,6 +37,27 @@ class `Lobby` of P-26, which has no address), is ignored.
 The token is labelled `PAVED` whatever its on-chain symbol (D-10, which replaces D-2's old label; reading the symbol waits for P8's token); `decimals` comes from the file
 (no default: when the file does not say, `tokenDecimals` is `null` and the app shows no
 amount and offers no Daily confirm, claim or sponsor, rather than assume 18).
+
+### Sepolia (D-16, P-39)
+
+A build with `VITE_NETWORK=sepolia`, `VITE_RPC_URL=https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` and
+`VITE_INDEXER_URL=https://api.paved.bal7hazar.com` plays on CORE's deployment (`contracts/deployments/sepolia.json`, S-1). What
+differs from devnet:
+
+- **Addresses**: all from the file. It has no `contracts.Token` (the old mock was never deployed there), so `Token`, the entry
+  token, is the file's top-level `token`, which is the MockUSDC. Where `contracts.Token` exists (devnet) it still wins.
+  `Economy`, `PavedToken`, `Vault` and `MockUSDC` give the economy, whose USDC is the MockUSDC.
+- **RPC**: the file's `rpc_url` is the placeholder `$STARKNET_RPC_URL`. `resolveDeployment` takes an `rpc_url` only when it is
+  an `http(s)` URL without a `$`, so the placeholder is never called; without `VITE_RPC_URL` the build says "Not connected to
+  sepolia: RPC URL missing" (`configured: false`). The RPC is Cartridge's, not Zan's (which rate-limits reads with -32011).
+- **Signer**: the Cartridge controller, as on mainnet (the env's burner key is devnet only). Writes pass no tip: starknet.js's own
+  estimate (only devnet passes 0).
+- **Faucet**: `MockUSDC` is resolved on `devnet` and `sepolia` (`MOCK_USDC_NETWORKS`) and nowhere else; `mint` is a session
+  policy where it is (see "Signing"). The faucet button and `createPlayer`'s mint are offered on Sepolia
+  (`supportsMint`), and never on mainnet.
+- **Pool quote**: `Economy.quote_swap` on the MockRouter (`EconomyPoolQuoter`), as on devnet: Ekubo serves no Sepolia. Mainnet keeps
+  Ekubo's quoter; its route guard (a single hop through `Economy.pool()`) is a separate mainnet gate, not done here.
+- **Block time**: 1.72 s, measured on 2026-10-11 (see "Sponsored days"; the bounded scan reads 350,000 blocks for a week).
 
 ## Clients
 
@@ -59,7 +80,8 @@ Writes go through a starknet.js `Account` (`client.writer(account, { tip })`, a 
 `mint` (test token). The seven roles (Woodsman 6 and Herdsman 7 since P4) are listed in the role picker, with their art from `packages/app-web/public/assets` (real files of the package, kept to the ones the packages load; `__tests__/public-assets.test.ts` fails when a path used in code is missing). Each write waits for its own receipt and returns its decoded events: the one
 request repeated while a transaction is pending, every 250 ms (`RECEIPT_POLL_MS`; starknet.js waits
 5 s by default), and only until that receipt arrives. The writer takes an explicit `tip` (0 on
-devnet: starknet.js 8.9's tip estimate wants 10 V3 transactions per block and stalls a fresh node).
+devnet: starknet.js 8.9's tip estimate wants 10 V3 transactions per block and stalls a fresh node). Sepolia, like every
+other network, passes no tip: the account takes starknet.js's own estimate (`AppNetwork.tip` is `undefined`).
 A rejected write (fee estimation, a contract assert found by the simulation, a reverted receipt)
 is a `WriteError` with the reason. Writes are serialised in `PavedWriter`: while one is pending, a
 second is refused, so a double click on "confirm" never sends two transactions; `GameSession` also
@@ -169,7 +191,9 @@ Landing lists the days where the account may take back its part of a prize nobod
 - **Otherwise** (no indexer, an error of any kind, an indexer older than schema 6 that answers not-found, or one behind
   the node) a bounded scan: `Daily.Sponsored` from `max(deployed_block, latest - SPONSORED_FALLBACK_BLOCKS)` to the latest
   block, paged by the RPC's continuation token (`chunk_size` 100), filtered on the sponsor in the client (the sponsor is
-  event data, not a key). `SPONSORED_FALLBACK_BLOCKS` is 100,000 blocks, about a week at a 6 s block time. A provider
+  event data, not a key). `SPONSORED_FALLBACK_BLOCKS` is 350,000 blocks, about a week at Sepolia's block time of 1.72 s
+  (measured on 2026-10-11: 1,000 blocks took 1,720 s at block 16421969 and 1,714 s 50,000 blocks earlier, so 350,000 blocks
+  are 6.97 days; it was 100,000 blocks at an assumed 6 s, which is 2 days on Sepolia). A provider
   that cannot give the latest block is refused: the scan is never left unbounded.
 - **What the scan can miss**: a sponsoring older than the range, which Landing then does not list (only the days read
   are shown). The part is still on the chain and is offered again as soon as the indexer answers. The indexer path has
@@ -352,6 +376,12 @@ runs in Cartridge's iframe. The connector is configured as follows:
   `toControllerSessionPolicies`. The package's own `toSessionPolicies` is not used, because it drops
   an approve's `spender` and `amount`, and the controller turns an approve without both into a
   policy on any spender and any amount. The policies hold:
+  - `MockUSDC.mint` (the test faucet: `PavedWriter.mint` and `createPlayer`'s `mintTestToken`) **when, and only when,
+    the deployment resolves a MockUSDC** (`deployment.mockUsdc`): Sepolia. Mainnet resolves none, so it has no such policy,
+    and neither has a deployment whose file lacks the mock. The faucet mints 100 USDC a call, under the contract's caps
+    (10,000 USDC a call, 20,000 USDC an address in all, `contracts/src/mocks/usdc.cairo`); an address that has used its total
+    gets `MockUSDC: over the address cap`, which the writer turns into `FaucetCapError` ("The test USDC faucet is empty for
+    this account...") and the call cap into its own words, never a raw revert;
   - one policy per call the client sends outside devnet (`CONTROLLER_ENTRY_POINTS`): `Account.create`,
     Daily `spawn`/`build`/`discard`/`surrender`/`claim`/`sponsor`, and Tutorial
     `spawn`/`build`/`discard`/`surrender`. Since E3 the Daily `spawn` is the paid purchase's

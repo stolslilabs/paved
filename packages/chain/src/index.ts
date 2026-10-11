@@ -5,7 +5,7 @@ export { ABIS, FAUCET_USDC_AMOUNT, createCodecs } from "./abis";
 export type { ContractName, Codecs } from "./abis";
 export { AbiCodec, sameAddress } from "./codec";
 export type { Abi, DecodedEvent, RawEvent } from "./codec";
-export { resolveDeployment } from "./deployment";
+export { MOCK_USDC_NETWORKS, resolveDeployment } from "./deployment";
 export type { Deployment, DeploymentEnv, DeploymentFile } from "./deployment";
 export {
   MAX_PAGE,
@@ -57,6 +57,7 @@ export type { Rank } from "./prize";
 export {
   RECEIPT_POLL_MS,
   PavedWriter,
+  FaucetCapError,
   NoPrizeDayError,
   NothingToReclaimError,
   ReclaimAmountChangedError,

@@ -2,7 +2,7 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, createIndexerClient, NoPrizeDayError, NothingToReclaimError, ReclaimAmountChangedError, RewardChangedError, emptyTournament } from "@paved/chain";
+import { FakeGameViews, FaucetCapError, createIndexerClient, NoPrizeDayError, NothingToReclaimError, ReclaimAmountChangedError, RewardChangedError, emptyTournament } from "@paved/chain";
 import { resolveEconomyDeployment, type Deployment } from "@paved/chain";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { LandingPage } from "../src/pages/Landing";
@@ -179,6 +179,23 @@ describe("The faucet button", () => {
     renderPage({ page: <LandingPage supportsMint />, path: "/", deployment: { ...(configured as object), mockUsdc: "" } as unknown as Deployment, writer: { mint } });
     await screen.findByText(/balance /);
     expect(screen.queryByText("Mint")).toBeNull();
+  });
+});
+
+describe("The faucet's caps (MockUSDC, Sepolia)", () => {
+  const dep = { ...(configured as object), mockUsdc: "0x77" } as unknown as Deployment;
+
+  it.each([
+    ["address", /received everything the faucet gives/],
+    ["call", /over what one request may mint/],
+  ] as const)("a cap error on the %s is shown in words, not as a raw revert", async (cap, words) => {
+    const mint = vi.fn(async () => {
+      throw new FaucetCapError(cap, "0x1");
+    });
+    renderPage({ page: <LandingPage supportsMint />, path: "/", deployment: dep, writer: { mint } });
+    fireEvent.click(await screen.findByText("Mint"));
+    const shown = await screen.findByText(words);
+    expect(shown.textContent).not.toMatch(/MockUSDC|0x/);
   });
 });
 

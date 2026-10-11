@@ -26,7 +26,7 @@ What a purchase sends (`EconomyWriter.purchase`), in one multicall:
 
 1. `USDC.approve(Daily, price)`, `price = stake x Daily.entry_price().amount` (2,000,000 per stake unit, 6 decimals);
 2. `Daily.spawn(stake, referrer, min_out)`, `min_out` = the network's pool quote of `Economy.quote(stake).burn_quote`
-   (`Economy.quote_swap` on devnet, Ekubo's quoter on sepolia and mainnet: "Quoter per network" below) less the player's
+   (`Economy.quote_swap` on devnet and sepolia, Ekubo's quoter on mainnet: "Quoter per network" below) less the player's
    slippage (1 % by default, at most 5 %, rounded down).
 
 The rules around it are unchanged and keep their tests: the confirm, the consent in history state only, the re-check of
@@ -87,7 +87,7 @@ ignored and not sent.
 
 - `PavedWriter.mint()` and `createPlayer(name, { mintTestToken: true })` send `MockUSDC.mint(self, FAUCET_USDC_AMOUNT)` (100 USDC,
   6 decimals) at `deployment.mockUsdc`, which is `contracts.MockUSDC` of the deployments file (or `VITE_MOCK_USDC_ADDRESS`). It
-  replaces the old `Token.mint()`. `mockUsdc` resolves on `network === "devnet"` only (any other network gets `""`, whatever its file or env holds), and the Landing asks for `mintTestToken` only with `supportsMint && !!deployment.mockUsdc`, so a missing MockUSDC never blocks account creation. A deployment without that address has no faucet: both throw `No faucet` and send nothing, and
+  replaces the old `Token.mint()`. `mockUsdc` resolves on `devnet` and `sepolia` only (`MOCK_USDC_NETWORKS`; any other network, mainnet above all, gets `""`, whatever its file or env holds; on Sepolia the controller signs it, with `mint` in its session policies), and the Landing asks for `mintTestToken` only with `supportsMint && !!deployment.mockUsdc`, so a missing MockUSDC never blocks account creation. A deployment without that address has no faucet: both throw `No faucet` and send nothing, and
   nothing else in `Deployment` changes (`configured` does not need it). The faucet is not a session policy of the Cartridge
   controller: the burner signs it on devnet, and `controller.test.ts` drives both writes and asserts that neither is in the session.
 - `Landing` compares `Daily.entry_price().token` with the **USDC address** (`economy.deployment.addresses.USDC`), no longer with
@@ -129,12 +129,13 @@ low exposes the swap; a quote too high only makes it revert. `poolQuoterFor(depl
 | Network | Quoter | Source |
 |---|---|---|
 | `devnet` | `EconomyPoolQuoter` | `Economy.quote_swap(usdc_in) -> paved_out`, forwarded to the `MockRouter` (P-35) |
+| `sepolia` | `EconomyPoolQuoter` | the same call on the Sepolia `Economy` (P-39: Sepolia runs the devnet economy path, MockUSDC and MockRouter) |
 | `mainnet` | `EkuboPoolQuoter` | Ekubo's public quoter, `https://prod-api-quoter.ekubo.org/23448594291968334/...` (`SN_MAIN` in decimal) |
-| `sepolia` | `EkuboPoolQuoter` | the same host, `/393402133025997798000961/...` (`SN_SEPOLIA`). **On 2026-10-10 it answers 404 `route_not_found`**: Ekubo removed its testnets, so every Sepolia purchase is refused until it answers again |
 | any other | none | every purchase is refused, and the purchase screen says "No pool quote: purchase unavailable" |
 
-No network but devnet calls `Economy.quote_swap`: elsewhere it would reach Ekubo's router, whose `quote_swap` has
-another shape (economy.md section 5).
+Only devnet and sepolia call `Economy.quote_swap` (the MockRouter): on mainnet it would reach Ekubo's router, whose `quote_swap` has
+another shape (economy.md section 5). Ekubo's quoter has no Sepolia entry: on 2026-10-10 it answers 404 `route_not_found` for
+`SN_SEPOLIA` (Ekubo removed its testnets). Reversed by: Ekubo serving Sepolia again.
 
 `EkuboPoolQuoter` (`economy/ekubo.ts`) asks for an exact-input quote, `GET <host>/<chain id>/<usdc_in>/<USDC>/<PAVED>`
 (OpenAPI 3.1 at `https://prod-api-quoter.ekubo.org/openapi.json`, version 3.4.10 on 2026-10-10), and returns

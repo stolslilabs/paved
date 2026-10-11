@@ -1,4 +1,7 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { resolveEconomyNetwork } from "../src/utils/economy-network";
 import { resolveAppNetwork, resolvePlayerAccount, signerOf } from "../src/utils/network";
 
 const DEVNET = {
@@ -26,7 +29,9 @@ describe("resolveAppNetwork", () => {
     const { deployment, supportsMint, tip } = resolveAppNetwork({ VITE_NETWORK: "sepolia" }, FILES);
     expect(deployment.configured).toBe(false);
     expect(deployment.missing).toContain("Daily address");
-    expect(supportsMint).toBe(false);
+    // The faucet is a property of the network; it still needs a MockUSDC (none without a file).
+    expect(supportsMint).toBe(true);
+    expect(deployment.mockUsdc).toBe("");
     expect(tip).toBeUndefined();
   });
 
@@ -36,6 +41,72 @@ describe("resolveAppNetwork", () => {
       {},
     );
     expect(deployment.configured).toBe(true);
+  });
+});
+
+const SEPOLIA = JSON.parse(readFileSync(resolve(__dirname, "../../../contracts/deployments/sepolia.json"), "utf8")) as { contracts: Record<string, { address: string }> };
+const SEPOLIA_FILES = { "../../../contracts/deployments/sepolia.json": { default: SEPOLIA }, ...FILES };
+const SEPOLIA_RPC = "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10";
+
+describe("the Sepolia build (VITE_NETWORK=sepolia, D-16)", () => {
+  const env = { VITE_NETWORK: "sepolia", VITE_RPC_URL: SEPOLIA_RPC, VITE_INDEXER_URL: "https://api.paved.bal7hazar.com" };
+
+  it("resolves every address from sepolia.json and is connected, with the economy", () => {
+    const { deployment, indexer } = resolveAppNetwork(env, SEPOLIA_FILES);
+    expect(deployment).toMatchObject({ network: "sepolia", configured: true, missing: [], rpcUrl: SEPOLIA_RPC, deployedBlock: 16421420 });
+    expect(deployment.addresses).toMatchObject({
+      Account: SEPOLIA.contracts.Account.address,
+      Daily: SEPOLIA.contracts.Daily.address,
+      Tutorial: SEPOLIA.contracts.Tutorial.address,
+    });
+    expect(indexer).not.toBeNull();
+    const economy = resolveEconomyNetwork(deployment, {}, SEPOLIA_FILES);
+    expect(economy.configured).toBe(true);
+    expect(economy.missing).toEqual([]);
+    expect(economy.addresses.Economy).toBe(SEPOLIA.contracts.Economy.address);
+    expect(economy.addresses.USDC).toBe(SEPOLIA.contracts.MockUSDC.address);
+  });
+
+  it("without VITE_RPC_URL it is not connected and says it plainly: the file's placeholder is not a URL", () => {
+    const { deployment, supportsMint } = resolveAppNetwork({ VITE_NETWORK: "sepolia" }, SEPOLIA_FILES);
+    expect(deployment.configured).toBe(false);
+    expect(deployment.rpcUrl).toBe("");
+    expect(deployment.missing).toEqual(["RPC URL"]);
+    expect(signerOf(deployment)).toBe("none");
+    expect(supportsMint).toBe(true);
+  });
+
+  it("offers the faucet, with the MockUSDC of the file; the controller signs, with starknet.js's own tip", () => {
+    const { deployment, supportsMint, tip } = resolveAppNetwork(env, SEPOLIA_FILES);
+    expect(deployment.mockUsdc).toBe(SEPOLIA.contracts.MockUSDC.address);
+    expect(supportsMint).toBe(true);
+    expect(tip).toBeUndefined();
+    expect(signerOf(deployment)).toBe("controller");
+  });
+
+  it("the faucet can be turned off by VITE_SUPPORTS_TOKEN_MINT=false", () => {
+    expect(resolveAppNetwork({ ...env, VITE_SUPPORTS_TOKEN_MINT: "false" }, SEPOLIA_FILES).supportsMint).toBe(false);
+  });
+});
+
+describe("mainnet never has the faucet", () => {
+  const MAINNET = { rpc_url: "http://m/rpc", contracts: { ...DEVNET.contracts, MockUSDC: { address: "0x9" } } };
+  const files = { "x/mainnet.json": { default: MAINNET } };
+
+  it("resolves no MockUSDC from its file or from VITE_MOCK_USDC_ADDRESS, and does not offer the faucet", () => {
+    for (const env of [{}, { VITE_MOCK_USDC_ADDRESS: "0xa" }]) {
+      const { deployment, supportsMint, tip } = resolveAppNetwork({ VITE_NETWORK: "mainnet", ...env }, files);
+      expect(deployment.configured).toBe(true);
+      expect(deployment.mockUsdc).toBe("");
+      expect(supportsMint).toBe(false);
+      expect(tip).toBeUndefined();
+    }
+  });
+
+  it("even with VITE_SUPPORTS_TOKEN_MINT=true there is no MockUSDC, so the Landing (supportsMint && mockUsdc) offers none", () => {
+    const { deployment, supportsMint } = resolveAppNetwork({ VITE_NETWORK: "mainnet", VITE_SUPPORTS_TOKEN_MINT: "true", VITE_MOCK_USDC_ADDRESS: "0xa" }, files);
+    expect(supportsMint).toBe(true);
+    expect(deployment.mockUsdc).toBe("");
   });
 });
 

@@ -9,13 +9,12 @@ import type { PoolQuoter } from "./pool";
 export const EKUBO_QUOTER_URL = "https://prod-api-quoter.ekubo.org";
 
 /**
- * The quoter per network (`Deployment.network`), chain ids in decimal: `SN_MAIN` and `SN_SEPOLIA`. On 2026-10-10 the
- * quoter answers 404 `route_not_found` for Starknet Sepolia (Ekubo removed its testnets): a Sepolia purchase is
- * refused until it answers again.
+ * The quoter per network (`Deployment.network`), chain id in decimal: `SN_MAIN`. Mainnet only: on 2026-10-10 the quoter
+ * answers 404 `route_not_found` for Starknet Sepolia (Ekubo removed its testnets), so Sepolia runs the devnet economy
+ * path (`Economy.quote_swap` on the MockRouter, P-39) and has no entry here.
  */
 export const EKUBO_NETWORKS: Readonly<Record<string, { baseUrl: string; chainId: string }>> = {
   mainnet: { baseUrl: EKUBO_QUOTER_URL, chainId: "23448594291968334" },
-  sepolia: { baseUrl: EKUBO_QUOTER_URL, chainId: "393402133025997798000961" },
 };
 
 /** How long a quote may take, the body included, before it is no quote. */

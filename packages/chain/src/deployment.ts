@@ -16,7 +16,7 @@ export interface DeploymentEnv {
   rpcUrl?: string;
   deployedBlock?: string | number;
   addresses?: Partial<Record<ContractName, string>>;
-  /** The devnet's `MockUSDC` (the faucet's token). */
+  /** The `MockUSDC` of devnet or Sepolia (the faucet's token). */
   mockUsdc?: string;
   /** The game NFT's Collection (E5b), optional. */
   collection?: string;
@@ -32,7 +32,7 @@ export interface Deployment {
   tokenDecimals: number | null;
   /** Addresses of the four contracts; an empty string when unknown. */
   addresses: Record<ContractName, string>;
-  /** The devnet's `MockUSDC`, the faucet's token; an empty string where there is none (every other network). Not part of `configured`. */
+  /** The `MockUSDC`, the faucet's token, on devnet and Sepolia; an empty string where there is none (mainnet, any other network). Not part of `configured`. */
   mockUsdc: string;
   /** The game NFT's Collection (E5b), from `contracts.Collection` of the file or the env; an empty string when unknown. Not part of `configured`: a deployment before E5b has none. */
   collection: string;
@@ -43,6 +43,17 @@ export interface Deployment {
 }
 
 const NAMES: ContractName[] = ["Account", "Daily", "Tutorial", "Token"];
+
+/**
+ * The networks that resolve a `MockUSDC` (the faucet's token): devnet, and Sepolia (D-16, P-39: the devnet economy path,
+ * with the bounded faucet of `contracts/src/mocks/usdc.cairo`). Mainnet and any other network never do.
+ */
+export const MOCK_USDC_NETWORKS: readonly string[] = ["devnet", "sepolia"];
+
+/** An RPC URL a client can call: the file of a public network keeps a `$STARKNET_RPC_URL` placeholder, which is not one. */
+function isRpcUrl(value: string | undefined): value is string {
+  return !!value && /^https?:\/\/[^\s$]+$/i.test(value);
+}
 
 function isAddress(value: string | undefined): value is string {
   if (!value) return false;
@@ -68,19 +79,24 @@ export function resolveDeployment(input: {
   const missing: string[] = [];
 
   for (const name of NAMES) {
-    const value = env.addresses?.[name] || file.contracts?.[name]?.address;
+    // `Token` is the entry token: `contracts.Token` where the old mock was deployed (devnet), else the file's top-level
+    // `token` (Sepolia has no old Token: its entry token is the MockUSDC, which `token` names).
+    const value = env.addresses?.[name] || file.contracts?.[name]?.address || (name === "Token" ? file.token?.address : undefined);
     addresses[name] = isAddress(value) ? value : "";
     if (!addresses[name]) missing.push(`${name} address`);
   }
 
-  const rpcUrl = env.rpcUrl || file.rpc_url || "";
+  // The file's `rpc_url` is used only when it is a URL: the Sepolia file holds the placeholder `$STARKNET_RPC_URL`, never
+  // called. Without `VITE_RPC_URL` the deployment is then not connected, and says so.
+  const rpcUrl = [env.rpcUrl?.trim(), file.rpc_url].find(isRpcUrl) ?? "";
   if (!rpcUrl) missing.push("RPC URL");
 
   const envBlock = env.deployedBlock === undefined || env.deployedBlock === "" ? NaN : Number(env.deployedBlock);
   const deployedBlock = Number.isInteger(envBlock) && envBlock >= 0 ? envBlock : (file.deployed_block ?? 0);
 
-  // The faucet is devnet-only in code: no other network resolves a MockUSDC, whatever its file or env holds.
-  const mockUsdc = input.network === "devnet" ? env.mockUsdc || file.contracts?.MockUSDC?.address : undefined;
+  // The faucet exists on the networks of `MOCK_USDC_NETWORKS` only: no other one (mainnet) resolves a MockUSDC, whatever
+  // its file or env holds.
+  const mockUsdc = MOCK_USDC_NETWORKS.includes(input.network) ? env.mockUsdc || file.contracts?.MockUSDC?.address : undefined;
 
   return {
     network: input.network,
