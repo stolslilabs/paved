@@ -180,27 +180,40 @@ describe("the pool quoter per network", () => {
   const codec = createEconomyCodecs().Economy;
   const provider = { callContract: vi.fn() };
 
-  test("devnet keeps Economy.quote_swap; sepolia and mainnet ask Ekubo with that network's chain id", async () => {
-    expect(poolQuoterFor(economyOn("devnet"), provider, codec)).toBeInstanceOf(EconomyPoolQuoter);
-    for (const [network, chainId] of [["mainnet", "23448594291968334"], ["sepolia", "393402133025997798000961"]]) {
+  test("devnet and sepolia ask Economy.quote_swap (P-39: Ekubo serves no Sepolia); mainnet asks Ekubo with its chain id", async () => {
+    for (const network of ["devnet", "sepolia"]) {
       const fetch = fakeFetch(direct());
-      const q = poolQuoterFor(economyOn(network), provider, codec, { fetch });
-      expect(q).toBeInstanceOf(EkuboPoolQuoter);
-      expect(await q!.quoteSwap(IN)).toBe(OUT);
-      expect(fetch.mock.calls[0][0]).toBe(`${EKUBO_QUOTER_URL}/${chainId}/1400000/${USDC}/${PAVED}`);
+      expect(poolQuoterFor(economyOn(network), provider, codec, { fetch }), network).toBeInstanceOf(EconomyPoolQuoter);
+      expect(fetch).not.toHaveBeenCalled();
     }
+    const fetch = fakeFetch(direct());
+    const q = poolQuoterFor(economyOn("mainnet"), provider, codec, { fetch });
+    expect(q).toBeInstanceOf(EkuboPoolQuoter);
+    expect(await q!.quoteSwap(IN)).toBe(OUT);
+    expect(fetch.mock.calls[0][0]).toBe(`${EKUBO_QUOTER_URL}/23448594291968334/1400000/${USDC}/${PAVED}`);
     expect(provider.callContract).not.toHaveBeenCalled();
+  });
+
+  test("sepolia's quote is Economy.quote_swap of the deployed Economy, never a request to Ekubo", async () => {
+    const calls: Array<{ contractAddress: string; entrypoint: string }> = [];
+    const onChain = { callContract: vi.fn(async (call: { contractAddress: string; entrypoint: string }) => (calls.push(call), ["0x7", "0x0"])) };
+    const fetch = fakeFetch(direct());
+    const q = poolQuoterFor(economyOn("sepolia"), onChain, codec, { fetch })!;
+    expect(await q.quoteSwap(IN)).toBe(7n);
+    expect(calls).toHaveLength(1);
+    expect([BigInt(calls[0].contractAddress), calls[0].entrypoint]).toEqual([BigInt(ECON.economy), "quote_swap"]);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   test("an unknown network has no quoter (fail closed)", () => {
     for (const network of ["", "goerli", "katana", "constructor", "toString", "Mainnet"]) expect(poolQuoterFor(economyOn(network), provider, codec)).toBeNull();
   });
 
-  test("the client picks it: no network but devnet calls Economy.quote_swap", () => {
+  test("the client picks it: devnet and sepolia call Economy.quote_swap, mainnet Ekubo", () => {
     const client = (network: string) => createEconomyClient(economyOn(network), new PavedClient(economyOn(network).base, {} as PavedRpc), new FakeEconomy())!;
     expect(client("devnet").poolQuoter).toBeInstanceOf(EconomyPoolQuoter);
     expect(client("mainnet").poolQuoter).toBeInstanceOf(EkuboPoolQuoter);
-    expect(client("sepolia").poolQuoter).toBeInstanceOf(EkuboPoolQuoter);
+    expect(client("sepolia").poolQuoter).toBeInstanceOf(EconomyPoolQuoter);
     expect(client("katana").poolQuoter).toBeNull();
   });
 });

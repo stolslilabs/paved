@@ -347,10 +347,10 @@ The Sepolia build env, from what `packages/app-web` reads today (`src/utils/netw
 |---|---|---|
 | `VITE_NETWORK` | `sepolia` | Picks `contracts/deployments/sepolia.json`, read at build time by `import.meta.glob` (addresses, `chain_id`, `deployed_block`, `contracts.Collection`, the economy's addresses). Without that file the build is "not connected" (`missing` lists it in the console). |
 | `VITE_INDEXER_URL` | `https://api.paved.bal7hazar.com` | Above. |
-| `VITE_RPC_URL` | `https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` | Overrides the file's `rpc_url`; same value the indexer uses. No key, so it may sit in a public bundle. |
+| `VITE_RPC_URL` | `https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10` | Overrides the file's `rpc_url`, which on Sepolia is the placeholder `$STARKNET_RPC_URL` and is never called: **without this variable the build is "not connected"**. Same value the indexer uses. No key, so it may sit in a public bundle. |
 | not set | `VITE_PLAYER_*` | Devnet only (a key in a bundle is public); other networks ignore them. |
 | not set | `VITE_*_ADDRESS` | The file supplies them; an override is for an operator patch only. |
-| not set | `VITE_SUPPORTS_TOKEN_MINT` | Unset means the faucet is offered on devnet only, and `resolveDeployment` resolves a MockUSDC for `devnet` only. A Sepolia test-USDC faucet is a later client task (D-16, P-39), not this runbook. |
+| not set | `VITE_SUPPORTS_TOKEN_MINT` | Unset means the faucet is offered on devnet and Sepolia (the test-USDC faucet, D-16, P-39), and `resolveDeployment` resolves a MockUSDC for those two networks only, never mainnet. The controller's session holds `MockUSDC.mint` on Sepolia. |
 
 ### Cartridge controller: does it need this origin registered?
 
@@ -378,7 +378,7 @@ Not proven: no browser ran (this task has none), and the keychain's server side 
 controller on Sepolia (D-16, CLIENT, after `sepolia.json` merges) is the test.** If it were refused for this origin, the error
 would come from `x.cartridge.gg`; the owner's route would then be Cartridge's channel for adding the origin. **Decision (P-43): no preset now.** Unverified policies are acceptable for playtests; revisit before mainnet. (What it would be, for
 then: a nicer approval screen, not needed to play: a PR to `cartridge-gg/presets` adding a config under `configs/` with
-`"origin": "https://paved.bal7hazar.com"` and the Sepolia contracts and methods of `CONTROLLER_ENTRY_POINTS`, then passing `preset`
+`"origin": "https://paved.bal7hazar.com"` and the Sepolia contracts and methods of `CONTROLLER_ENTRY_POINTS` (and the faucet's `MockUSDC.mint`), then passing `preset`
 to the controller; it needs Cartridge's review.)
 
 ### Commands for the owner (root), in order

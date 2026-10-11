@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import { resolveDeployment, type DeploymentFile } from "../src/deployment";
-import { USDC_LABEL } from "../src/economy";
+import { USDC_LABEL, resolveEconomyDeployment } from "../src/economy";
 
 const FILE: DeploymentFile = {
   chain_id: "0x534e5f5345504f4c4941",
@@ -127,5 +127,92 @@ describe("CORE's real contracts/deployments/devnet.json (O-19, #206)", () => {
     // Whatever symbol the file carries, the resolved deployment is the same: it is not read.
     const renamed = { ...real, token: { ...real.token, symbol: "LORDS" } } as DeploymentFile;
     expect(resolveDeployment({ network: "devnet", file: renamed })).toEqual(resolveDeployment({ network: "devnet", file: real }));
+  });
+});
+
+describe("CORE's real contracts/deployments/sepolia.json (S-1, D-16)", () => {
+  const real = JSON.parse(readFileSync(resolve(__dirname, "../../../contracts/deployments/sepolia.json"), "utf8")) as DeploymentFile;
+  const RPC = "https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10";
+  const contracts = real.contracts as Record<string, { address: string }>;
+
+  test("the file's rpc_url is a placeholder, which is the premise of the tests below", () => {
+    expect(real.rpc_url).toBe("$STARKNET_RPC_URL");
+  });
+
+  test("with VITE_RPC_URL: every address comes from the file, and the deployment is connected", () => {
+    const d = resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC } });
+    expect(d.configured).toBe(true);
+    expect(d.missing).toEqual([]);
+    expect(d.rpcUrl).toBe(RPC);
+    expect(d.chainId).toBe("0x534e5f5345504f4c4941");
+    expect(d.deployedBlock).toBe(real.deployed_block);
+    expect(d.tokenDecimals).toBe(6);
+    for (const name of ["Account", "Daily", "Tutorial"] as const) expect(d.addresses[name]).toBe(contracts[name].address);
+    // The file has no contracts.Token (the old mock was never deployed there): Token is the entry token, the top-level `token`.
+    expect(contracts.Token).toBeUndefined();
+    expect(d.addresses.Token).toBe(real.token!.address);
+    expect(d.collection).toBe(contracts.Collection.address);
+  });
+
+  test("the entry token of the file is the MockUSDC, which is the faucet's token", () => {
+    const d = resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC } });
+    expect(BigInt(real.token!.address!)).toBe(BigInt(contracts.MockUSDC.address));
+    expect(d.mockUsdc).toBe(contracts.MockUSDC.address);
+  });
+
+  test("the economy is configured from the same file, on the MockUSDC", () => {
+    const base = resolveDeployment({ network: "sepolia", file: real, env: { rpcUrl: RPC } });
+    const economy = resolveEconomyDeployment({ base, file: real });
+    expect(economy.configured).toBe(true);
+    expect(economy.missing).toEqual([]);
+    expect(economy.addresses).toEqual({
+      Economy: contracts.Economy.address,
+      PavedToken: contracts.PavedToken.address,
+      Vault: contracts.Vault.address,
+      USDC: contracts.MockUSDC.address,
+    });
+  });
+
+  test("without VITE_RPC_URL the placeholder is never used as a URL: not connected, and it says so", () => {
+    for (const env of [undefined, {}, { rpcUrl: "" }, { rpcUrl: "   " }]) {
+      const d = resolveDeployment({ network: "sepolia", file: real, env });
+      expect(d.rpcUrl).toBe("");
+      expect(d.configured).toBe(false);
+      expect(d.missing).toEqual(["RPC URL"]);
+    }
+  });
+
+  test("an unusable rpc_url is skipped for the next source; a URL in the file is used", () => {
+    const base = { network: "sepolia", env: { addresses: { Account: "0x1" } } };
+    for (const rpc_url of ["$STARKNET_RPC_URL", "${RPC}", "https://x/$KEY", "not a url", "ftp://x", " "]) {
+      expect(resolveDeployment({ ...base, file: { ...real, rpc_url } }).rpcUrl, rpc_url).toBe("");
+      expect(resolveDeployment({ ...base, file: { ...real, rpc_url }, env: { ...base.env, rpcUrl: RPC } }).rpcUrl, rpc_url).toBe(RPC);
+    }
+    expect(resolveDeployment({ ...base, file: { ...real, rpc_url: "http://127.0.0.1:5050/rpc" } }).rpcUrl).toBe("http://127.0.0.1:5050/rpc");
+  });
+
+  test("mainnet never resolves a MockUSDC, even from this very file", () => {
+    const d = resolveDeployment({ network: "mainnet", file: real, env: { rpcUrl: RPC, mockUsdc: contracts.MockUSDC.address } });
+    expect(d.mockUsdc).toBe("");
+  });
+});
+
+describe("the Token address", () => {
+  const base = { network: "devnet", env: { rpcUrl: "http://x", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3" } } };
+  const token = { address: "0x7", decimals: 6 };
+
+  test("contracts.Token wins over the top-level token, and the env over both", () => {
+    const file = { token, contracts: { Token: { address: "0x4" } } };
+    expect(resolveDeployment({ ...base, file }).addresses.Token).toBe("0x4");
+    expect(resolveDeployment({ ...base, file, env: { ...base.env, addresses: { ...base.env.addresses, Token: "0x5" } } }).addresses.Token).toBe("0x5");
+  });
+
+  test("without contracts.Token the entry token is the top-level token; without either, not connected", () => {
+    const d = resolveDeployment({ ...base, file: { token } });
+    expect(d.addresses.Token).toBe("0x7");
+    expect(d.configured).toBe(true);
+    const none = resolveDeployment({ ...base, file: { token: { decimals: 6 } } });
+    expect(none.configured).toBe(false);
+    expect(none.missing).toEqual(["Token address"]);
   });
 });

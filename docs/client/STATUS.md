@@ -134,3 +134,5 @@ change in P2 and a fixture is deterministic. Latency from move to display is the
 baseline; it needs a live node.
 
 The controller notice (D-15) is shown at body size (1rem), in normal flow below the app area (AppShell), on an opaque bar, text and link at 16.06:1 and 19.80:1 on `#0a0a0a`, in the Tab order (D-16).
+
+2026-10-11, Sepolia network config (t-0099, D-16, P-39): `VITE_NETWORK=sepolia` plays on `contracts/deployments/sepolia.json`: its placeholder `rpc_url` is never called (set `VITE_RPC_URL`), `Token` falls back to the file's top-level `token`, the pool quote is `Economy.quote_swap` (Ekubo has no Sepolia), and the MockUSDC faucet works (`MockUSDC.mint` in the controller's session, only where a MockUSDC exists, never on mainnet; the faucet's caps are told in words). `SPONSORED_FALLBACK_BLOCKS` is 350,000 (Sepolia's block time is 1.72 s). Details: `docs/architecture/client-data-layer.md`, section "Sepolia".

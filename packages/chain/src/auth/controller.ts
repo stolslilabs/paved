@@ -24,8 +24,8 @@ export interface ControllerConfig {
 /**
  * The client's writes, by contract: what `PavedWriter` sends outside devnet. `approve` is not
  * here: it is a session policy only on the entry token, with its spender and a cap (`controllerPolicies`). `MockUSDC.mint`
- * (the faucet, `PavedWriter.mint` and `createPlayer`'s `mintTestToken`) is left out: it exists on the devnet mock only,
- * where the burner signs.
+ * (the faucet, `PavedWriter.mint` and `createPlayer`'s `mintTestToken`) is left out too: it is a policy only where the
+ * deployment has a MockUSDC (Sepolia; `controllerPolicies`), never on mainnet.
  */
 export const CONTROLLER_ENTRY_POINTS = {
   Account: ["create"],
@@ -38,7 +38,8 @@ export const CONTROLLER_ENTRY_POINTS = {
  * above 0), an approve to the Daily contract on that token (the one `Daily.entry_price` names: the
  * deployment's Token before E3, USDC after) up to the cap is signed in the session, whether a
  * purchase's or a sponsor's; above the cap, or on another token or spender, it prompts. Without
- * `approve`, every approve prompts.
+ * `approve`, every approve prompts. `MockUSDC.mint` is a policy when, and only when, the deployment resolves a MockUSDC
+ * (`deployment.mockUsdc`: Sepolia, where the player signs with the controller; never mainnet).
  */
 export function controllerPolicies(
   deployment: Deployment,
@@ -49,6 +50,9 @@ export function controllerPolicies(
   const policies: ControllerPolicy[] = (Object.keys(CONTROLLER_ENTRY_POINTS) as Array<keyof typeof CONTROLLER_ENTRY_POINTS>).flatMap(
     (contract) => CONTROLLER_ENTRY_POINTS[contract].map((method) => ({ target: deployment.addresses[contract], method })),
   );
+  if (isAddress(deployment.mockUsdc)) {
+    policies.push({ target: deployment.mockUsdc, method: "mint", description: "Test USDC faucet" });
+  }
   const approve = options.approve;
   if (approve && approve.cap > 0n && isAddress(approve.token)) {
     policies.push({ target: approve.token, method: "approve", spender: deployment.addresses.Daily, amount: approve.cap });

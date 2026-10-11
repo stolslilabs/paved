@@ -21,11 +21,11 @@ export interface EventProvider {
 export const SPONSORED_DAYS_LIMIT = 30;
 
 /**
- * How far back, in blocks from the latest one, the scan without an indexer reads `Daily.Sponsored`: about a week at a
- * 6 s block time. The scan never starts at `deployed_block` (that grows without bound on a long-lived network), only at
+ * How far back, in blocks from the latest one, the scan without an indexer reads `Daily.Sponsored`: about a week at
+ * Sepolia's 1.72 s block time (measured 2026-10-11, docs/architecture/client-data-layer.md). The scan never starts at `deployed_block` (that grows without bound on a long-lived network), only at
  * `max(deployed_block, latest - SPONSORED_FALLBACK_BLOCKS)`.
  */
-export const SPONSORED_FALLBACK_BLOCKS = 100_000;
+export const SPONSORED_FALLBACK_BLOCKS = 350_000;
 
 /** What `sponsoredDays` reads from the indexer (`IndexerClient.sponsorDays`). */
 export interface SponsoredDaysIndexer {

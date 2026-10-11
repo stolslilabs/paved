@@ -110,6 +110,34 @@ function claimRevert(error: unknown): unknown {
   return error;
 }
 
+const OVER_CALL_CAP = "MockUSDC: over the call cap";
+const OVER_ADDRESS_CAP = "MockUSDC: over the address cap";
+
+/**
+ * The faucet's contract refused a mint (`MockUSDC`'s caps, D-16): `call` is the cap of one call, `address` the total an
+ * address may receive from the faucet. Nothing moved; the message is for the player.
+ */
+export class FaucetCapError extends WriteError {
+  constructor(readonly cap: "call" | "address", transactionHash?: string) {
+    super(
+      cap === "address"
+        ? "The test USDC faucet is empty for this account: it has received everything the faucet gives to one address."
+        : "The test USDC faucet refused this amount: it is over what one request may mint.",
+      transactionHash,
+      transactionHash !== undefined,
+    );
+    this.name = "FaucetCapError";
+  }
+}
+
+/** A known revert of `MockUSDC.mint` as its clear state; any other error unchanged. */
+function faucetRevert(error: unknown): unknown {
+  if (!(error instanceof WriteError)) return error;
+  if (revertNames(error.message, OVER_ADDRESS_CAP)) return new FaucetCapError("address", error.transactionHash);
+  if (revertNames(error.message, OVER_CALL_CAP)) return new FaucetCapError("call", error.transactionHash);
+  return error;
+}
+
 interface Receipt {
   execution_status?: string;
   revert_reason?: string;
@@ -136,7 +164,7 @@ export class PavedWriter {
       provider: ReceiptProvider;
       deployment: Deployment;
       codecs: Codecs;
-      /** Tip per transaction; 0 on devnet, where starknet.js's tip estimate stalls. */
+      /** Tip per transaction; 0 on devnet, where starknet.js's tip estimate stalls. Unset elsewhere (Sepolia included): the account's own estimate. */
       tip?: bigint;
       /** Interval between two receipt requests while a write is pending. */
       receiptPollMs?: number;
@@ -162,11 +190,16 @@ export class PavedWriter {
     return this.options.account.address;
   }
 
-  /** Registers the account as a player; on devnet, mints its faucet USDC first (`mint`). */
+  /** Registers the account as a player; with `mintTestToken` (devnet, Sepolia), mints its faucet USDC first (`mint`). */
   async createPlayer(name: string, options: { mintTestToken?: boolean } = {}): Promise<WriteResult> {
     const calls = [this.call("Account", "create", [feltOfName(name), this.address])];
-    if (options.mintTestToken) calls.unshift(this.faucetCall());
-    return this.send("Account", calls);
+    if (!options.mintTestToken) return this.send("Account", calls);
+    calls.unshift(this.faucetCall());
+    try {
+      return await this.send("Account", calls);
+    } catch (error) {
+      throw faucetRevert(error);
+    }
   }
 
   /**
@@ -287,13 +320,18 @@ export class PavedWriter {
   }
 
   /**
-   * The devnet faucet: `MockUSDC.mint(self, FAUCET_USDC_AMOUNT)` at `deployment.mockUsdc` (the mock is never deployed
-   * elsewhere). Without that address nothing is sent. Never in the controller's session: the burner signs it.
+   * The faucet: `MockUSDC.mint(self, FAUCET_USDC_AMOUNT)` at `deployment.mockUsdc` (devnet and Sepolia; the mock is never
+   * resolved on mainnet). Without that address nothing is sent. On devnet the burner signs it; on Sepolia the controller
+   * does, with `mint` in its session policies. A cap the contract enforces is a `FaucetCapError`.
    */
   mint(): Promise<WriteResult> {
     return this.serialised(async () => {
       const call = this.faucetCall();
-      return this.sendNow({ codec: new Codec(MOCK_USDC_ABI), address: call.contractAddress }, [call]);
+      try {
+        return await this.sendNow({ codec: new Codec(MOCK_USDC_ABI), address: call.contractAddress }, [call]);
+      } catch (error) {
+        throw faucetRevert(error);
+      }
     });
   }
 
