@@ -113,9 +113,9 @@ with HTTP 200 or 400. So:
   `getClass`, `call`, `getTransactionReceipt`, `getTransactionStatus`, `chainId`, `specVersion`
   (`RETRIED_METHODS`). The retry applies on HTTP 5xx or the JSON-RPC error -32601: at most 5 attempts,
   with waits of 1, 2, 4 and 8 s, each retry announced on stderr. A **`starknet_add*` method is never
-  retried**: if one fails, the transaction may or may not be in, and the command stops with the node's
-  error. Once a transaction is sent, a status that cannot be read stops the command with its hash
-  (`transaction <hash> was sent, but its status could not be read`).
+  retried**: if its answer is lost, the transaction may or may not be in (see the next section). Once a
+  transaction is sent, a status that cannot be read stops the command with its hash (`transaction <hash>
+  was sent, but its status could not be read`).
 - **The nonce is read once and passed explicitly.** starknet.js would fall back to nonce 0 when the read
   fails (`getNonceSafe`). A nonce that cannot be read after the retries fails the command before
   anything is signed.
@@ -125,6 +125,38 @@ with HTTP 200 or 400. So:
   and the calldata. It then waits for the receipt itself.
 
 The tests show each of these on a fake node (`test/cli.test.mjs`, `test/retry.test.mjs`).
+
+### A send whose answer is lost (S-1d)
+
+dRPC's free plan answered the add* of a declare that went in (Daily, block 16,415,030) with `30: Request
+timeout on the free plan, please upgrade to paid plan`. So every `starknet_add*` request goes through
+`sendingFetch` (`lib/actions.mjs`):
+
+- **The hash comes first.** From the signed request, the signer computes the V3 transaction hash (and a
+  declare's class hash) with starknet.js's own hash functions (`transactionHash`), and prints
+  `signer: sending <method>, transaction <hash>` on stderr before the request leaves. The hash is no secret.
+  A request whose hash cannot be computed (not V3, an unknown method or data availability mode) is refused,
+  unsent. When the node answers, a hash other than the computed one prints a warning.
+- **A refusal stays a refusal.** The node's JSON-RPC errors of `REFUSAL_CODES` (-32700, -32600, -32601,
+  -32602, and the write API's 51 to 58, 60 to 62: class already declared, invalid nonce, insufficient
+  resources or balance, validation failure, and the like) are returned as they came: the command fails.
+- **Any other failed answer is lost, not refused**: another error code (dRPC's 30, -32603, 63), HTTP 5xx, a
+  body that is not JSON, a network error. The request is **not sent again**. The signer reads
+  `starknet_getTransactionReceipt` for that hash (a read: retried as above) `RECOVERY_POLLS` = 60 times,
+  `RECOVERY_INTERVAL_MS` = 5 s apart (5 minutes), and `starknet_getTransactionStatus` when no receipt is
+  there yet:
+  - SUCCEEDED: the command succeeds with the output of a normal success (the node's answer is rebuilt from
+    the hash, and the class hash for a declare; the receipt is then awaited as for any send);
+  - REVERTED: it fails with that status and the revert reason, as for any send; REJECTED fails with that status;
+  - no receipt in time: it fails with `sent, status unknown: <hash>; check it before any rerun`, and
+    `deploy.sh` stops there.
+
+The tests (`test/recover.test.mjs`): a fake node that times out the add* (dRPC's error 30, or a dropped
+connection) but has the receipt gives a success for declare, deploy, invoke and multicall with add* asked
+exactly once; a fake node with no receipt gives the failure naming the hash, add* asked once and 60 receipt
+reads (on a fast clock); a REVERTED receipt fails with that status; the printed hash is the one the account
+signed (the request's signature verifies against it with the account's public key). On starknet-devnet
+0.10.0 (S-1d), an invoke and a declare got back from the node the hash printed before sending.
 
 ### estimate (S-1c)
 

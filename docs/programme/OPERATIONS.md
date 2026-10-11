@@ -85,16 +85,36 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    `$STARKNET_RPC_URL` and `$STARKNET_ACCOUNT_ADDRESS` instead, `curl` reads the URL and the request from its
    config on stdin, the signer gets them in an allowlisted environment and names the deployer `@account` in
    calldata, and a failing signer's output is redacted before it is printed (the signer sanitises it first).
-   **Funding (S-1c):** after the build and before the first declare, `deploy.sh` reads the deployer's STRK balance
-   (`balance_of` of `@account` on the STRK token, a public read) and prints the amount only. A real run stops,
-   having sent nothing, below the **200 STRK** floor (`FUNDING_FLOOR_STRK`). That is about 1.4 x the 142.6 to
-   143.9 STRK that Sepolia's estimates of the nine undeclared classes added up to on 2026-10-11. `--estimate-only`
-   compares the balance with 1.25 x the sum of its own estimates, and with the floor.
+   **Funding (S-1c, S-1d):** after the build and before the first declare, `deploy.sh` reads the deployer's STRK
+   balance (`balance_of` of `@account` on the STRK token, a public read) and prints the amount only. It then
+   estimates, read-only as `--estimate-only` does, the declare of each class the node does not have yet (a class it
+   has is skipped), and needs at least 1.25 x the sum of those estimates + a **20 STRK** margin
+   (`FUNDING_MARGIN_STRK`, for the deploys, invokes and smoke: about 1.1 STRK at Sepolia's gas price of 2026-10-11,
+   measured from the S-1d rehearsal). The need is raised when one declare's resource bounds want more when it is
+   sent: 2.3 x its estimate (starknet.js adds 50% to the amount and to the price, plus the tip) after 1.25 x the
+   declares before it, + the margin. When an estimate cannot be had (the retries spent, or the node's error), the
+   need falls back to the **200 STRK** floor (`FUNDING_FLOOR_STRK`). It prints the need and the balance; below the
+   need, the run stops having sent nothing. A rerun after a partial deploy thus needs only what is left.
+   `--estimate-only` prints the same need and balance lines and sends nothing either way.
 
    **Retries (S-1c):** read calls, those of `deploy.sh` (curl) and those of the signer, are retried on HTTP 5xx or
-   `-32601`: at most 5 attempts, with waits of 1, 2, 4 and 8 s. A transaction (`starknet_add*`) is never retried; if
-   one fails, the run stops, and a transaction whose status cannot be read is named by its hash: check it before any
-   rerun.
+   `-32601`: at most 5 attempts, with waits of 1, 2, 4 and 8 s. A transaction (`starknet_add*`) is never retried.
+
+   **A send whose answer is lost (S-1d):** for every transaction (declare, deploy, invoke, multicall), the signer
+   computes its hash from the signed request and prints it on stderr (`signer: sending <method>, transaction
+   <hash>`) before sending it once. A refusal of the write API (invalid nonce, insufficient balance, validation
+   failure, class already declared, and the like) stops the run as before. Any other failed answer (a timeout such
+   as dRPC's `30: Request timeout on the free plan`, HTTP 5xx, a network error) is not sent again: the signer reads
+   that hash's receipt (`starknet_getTransactionReceipt`, with the read retry) every 5 s for up to 5 minutes.
+   SUCCEEDED goes on as a normal success, with the same output; REVERTED or REJECTED fail with that status; no
+   receipt in time fails with `sent, status unknown: <hash>; check it before any rerun`, and `deploy.sh` stops.
+
+   **Rerunning after a partial deploy:** first look up the hash the run named (an explorer, or
+   `starknet_getTransactionReceipt`) and wait until it is final or known lost. A rerun is safe for declares: each
+   goes through `declareIfNot`, so a class the node has is skipped, and the funding check counts only the classes
+   left. It is **not** safe once a deploy has been sent: every deploy uses a fresh random salt, so a rerun deploys
+   a second set of contracts at new addresses. After a deploy, never rerun without checking what is on chain; finish
+   the wiring by hand from the addresses the run printed instead, or decide to redeploy everything on purpose.
 
    **Estimate only (S-1c), before a deployment or to diagnose one:** `scripts/deploy.sh sepolia --estimate-only`
    runs every check above, the signer's install and the build, then estimates each declare in deploy order
