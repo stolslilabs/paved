@@ -40,7 +40,8 @@ const ESTIMATE = {
   l2_gas_price: '0x1',
   l1_data_gas_consumed: '0x80',
   l1_data_gas_price: '0x1',
-  overall_fee: '0x2540be480',
+  // FAKE_ESTIMATE_FEE: another overall fee, in FRI (decimal).
+  overall_fee: process.env.FAKE_ESTIMATE_FEE ? `0x${BigInt(process.env.FAKE_ESTIMATE_FEE).toString(16)}` : '0x2540be480',
   unit: 'FRI',
 };
 // The account's class: a Cairo 1 contract (it has a sierra_program), so invoke calldata is Cairo 1.

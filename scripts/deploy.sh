@@ -595,7 +595,15 @@ RAYON_NUM_THREADS=1 scarb --release build >/dev/null
 # FUNDING_FLOOR_STRK: 200 STRK, about 1.4 x the 142.6 STRK that Sepolia's estimates of the nine undeclared classes
 # added up to on 2026-10-11 (Daily alone 38.8). Below the need, the run stops before it sends anything. --estimate-only
 # prints the same need and balance and sends nothing either way.
-# FUNDING_MARGIN_STRK: FUNDING_MARGIN_NOTE.
+# Each declare is also sent with resource bounds above its estimate: starknet.js 10.8 adds 50% to the amount and 50% to
+# the price of each resource (2.25 x the estimate), and the tip is paid on the bounded L2 gas (about 1% more on Sepolia
+# in S-1c), so the node wants up to MAX_FEE_FACTOR = 2.3 x the estimate in the balance when it is sent. The need is
+# raised to the largest of those moments when one is above the rule (a rerun left with Tutorial and Lobby only: 1.25 x
+# their 69.4 STRK + 20 is 106.8 STRK, but Lobby's bounds want 76.1 STRK after Tutorial's 36.3).
+# FUNDING_MARGIN_STRK, the deploys, invokes and smoke after the declares: the --rehearse run of S-1d on starknet-devnet
+# 0.10.0 sent 24 of them for 137,224,560 L2 gas and 12,384 L1 data gas in all, about 1.1 STRK at the 8.2 x 10^9 FRI per
+# L2 gas of Sepolia's declare estimates on 2026-10-11 (Tutorial: 36.32 STRK for 4,430,587,392 L2 gas). 20 STRK leaves
+# room for a gas price about 18 times higher.
 STRK_TOKEN=0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
 FUNDING_FLOOR_STRK=200
 FUNDING_MARGIN_STRK=20
@@ -681,6 +689,16 @@ else:
     need = -(-total * 5 // 4) + margin * 10**18
     print(f"== funding: {len(fees)} class(es) to declare, estimated at {strk(total)}; "
           f"need 1.25 x {strk(total)} + {margin} STRK margin = {strk(need)}")
+    # The peak: when each declare is sent, what is left (the balance less 1.25 x the declares before it) must cover
+    # its bounds, 2.3 x its estimate (MAX_FEE_FACTOR above), with the margin still kept for what follows.
+    peak, before = 0, 0
+    for fee in fees:
+        peak = max(peak, -(-before * 5 // 4) + -(-fee * 23 // 10))
+        before += fee
+    peak += margin * 10**18
+    if peak > need:
+        print(f"   the bounds of one declare need more: 2.3 x its estimate, after 1.25 x the declares before it, + the margin = {strk(peak)}")
+        need = peak
 print(f"   deployer STRK balance {strk(balance)}: {'covers' if balance >= need else 'BELOW'} the need of {strk(need)}")
 sys.exit(0 if balance >= need else 1)
 PY

@@ -230,9 +230,10 @@ SH
   # The node shim: its own version for deploy.sh's check, else the real node with the fake node preloaded; the
   # signer's stderr (the methods asked) goes to a log beside it (send's allowlist drops every other variable). The STRK
   # balance the fake node reports comes from a file beside it too, when there is one.
-  # A file `estimate_error` beside it makes every estimate fail (FAKE_ESTIMATE_ERROR).
-  printf '#!/usr/bin/env bash\n[[ "$1" == --version ]] && exec %q --version\n[[ -f %q ]] && export FAKE_STRK_BALANCE="$(cat %q)"\n[[ -f %q ]] && export FAKE_ESTIMATE_ERROR=1\nexec %q --import %q "$@" 2>>%q\n' \
-    "$real_node" "$est/strk" "$est/strk" "$est/estimate_error" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
+  # A file `estimate_error` beside it makes every estimate fail (FAKE_ESTIMATE_ERROR); a file `fee` sets every
+  # estimate's overall fee (FAKE_ESTIMATE_FEE).
+  printf '#!/usr/bin/env bash\n[[ "$1" == --version ]] && exec %q --version\n[[ -f %q ]] && export FAKE_STRK_BALANCE="$(cat %q)"\n[[ -f %q ]] && export FAKE_ESTIMATE_ERROR=1\n[[ -f %q ]] && export FAKE_ESTIMATE_FEE="$(cat %q)"\nexec %q --import %q "$@" 2>>%q\n' \
+    "$real_node" "$est/strk" "$est/strk" "$est/estimate_error" "$est/fee" "$est/fee" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
   cp "$shims/curl" "$shims/addr_mark" "$est/bin/"
   chmod +x "$est/bin/"*
   : >"$est/node.log"
@@ -296,6 +297,22 @@ SH
   else
     echo "ok: sepolia with 10 STRK, short of the 20.00 STRK need, stops before its first declare; nothing sent"
   fi
+  # 2b. Two classes left at 30 STRK each, 110 STRK: the rule asks 1.25 x 60 + 20 = 95 STRK, but the second declare's
+  #     bounds (2.3 x 30 after 1.25 x 30) + the margin ask 126.50 STRK: the run stops before sending.
+  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy; do hexname "$name"; done >"$est/bin/declared"
+  printf '%s' 30000000000000000000 >"$est/fee"
+  out="$(real_run 110000000000000000000)"; rc=$?
+  rm -f "$est/fee"
+  if [[ $rc -ne 1 || "$out" != *"need 1.25 x 60.00 STRK + 20 STRK margin = 95.00 STRK"* ||
+      "$out" != *"after 1.25 x the declares before it, + the margin = 126.50 STRK"* ||
+      "$out" != *"   deployer STRK balance 110.00 STRK: BELOW the need of 126.50 STRK"* || "$out" == *"== declare"* ]] ||
+      grep -q '^fake-node: asked starknet_add' "$est/node.log" || leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia with two 30 STRK declares left and 110 STRK: expected the bounds' 126.50 STRK need and a stop, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia with two 30 STRK declares left needs 126.50 STRK for their bounds (not 95); 110 STRK stops before sending"
+  fi
+  : >"$est/bin/declared"
   # 3. The estimates fail: the need falls back to the 200 STRK floor, and 150 STRK stops the run before sending.
   touch "$est/estimate_error"
   out="$(real_run 150000000000000000000)"; rc=$?
