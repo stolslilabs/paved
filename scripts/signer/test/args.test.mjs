@@ -113,3 +113,37 @@ test('@account stands for the account address in calldata, and only there', () =
   refused(() => parseArgs(['call', '--contract', '0x1', '--function', 'f', '--calldata', '@other']));
   refused(() => parseCalls([{ contract: '@account', function: 'f' }]));
 });
+
+test('parses estimate with each estimated command and the diagnostic options', () => {
+  assert.deepEqual(parseArgs(['estimate', 'declare', '--sierra', 'a.json', '--casm', 'b.json']), {
+    command: 'estimate',
+    options: { kind: 'declare', sierra: 'a.json', casm: 'b.json' },
+  });
+  assert.deepEqual(parseArgs(['estimate', 'invoke', '--contract', '0x1', '--function', 'f', '--validate']).options, {
+    kind: 'invoke', contract: '0x1', entrypoint: 'f', calldata: [], validate: true,
+  });
+  const { options } = parseArgs(['estimate', 'deploy', '--class-hash', '0x1', '--bounds', '1,2,3,4,5,0x6', '--block-id', 'pre_confirmed']);
+  assert.equal(options.blockId, 'pre_confirmed');
+  assert.deepEqual(options.bounds, {
+    l1_gas: { max_amount: 1n, max_price_per_unit: 2n },
+    l1_data_gas: { max_amount: 3n, max_price_per_unit: 4n },
+    l2_gas: { max_amount: 5n, max_price_per_unit: 6n },
+  });
+});
+
+test('refuses a malformed estimate, without echoing values', () => {
+  refused(() => parseArgs(['estimate']));
+  refused(() => parseArgs(['estimate', 'multicall', '--calls', 'c.json']));
+  refused(() => parseArgs(['estimate', 'call', '--contract', '0x1', '--function', 'f']));
+  refused(() => parseArgs(['estimate', 'declare', '--sierra', 'a']));
+  // Only estimate takes the diagnostic options.
+  refused(() => parseArgs(['declare', '--sierra', 'a', '--casm', 'b', '--validate']));
+  refused(() => parseArgs(['invoke', '--contract', '0x1', '--function', 'f', '--bounds', '1,2,3,4,5,6']));
+  for (const bounds of ['1,2,3,4,5', '1,2,3,4,5,6,7', `${2n ** 64n},1,1,1,1,1`, `1,${2n ** 128n},1,1,1,1`, 'a,b,c,d,e,f', '', KEY]) {
+    refused(() => parseArgs(['estimate', 'invoke', '--contract', '0x1', '--function', 'f', '--bounds', bounds]), KEY);
+  }
+  for (const tag of ['pending', 'l1_accepted', '0x1', KEY]) {
+    refused(() => parseArgs(['estimate', 'invoke', '--contract', '0x1', '--function', 'f', '--block-id', tag]), KEY);
+  }
+  refused(() => parseArgs(['estimate', 'invoke', '--contract', '0x1', '--function', 'f', '--validate', '--validate']));
+});

@@ -55,6 +55,21 @@ globalThis.fetch = async (_url, init) => {
     starknet_addDeclareTransaction: { transaction_hash: '0xadd', class_hash: '0x1' },
     starknet_addInvokeTransaction: { transaction_hash: '0xadd' },
     starknet_addDeployAccountTransaction: { transaction_hash: '0xadd', contract_address: '0x1' },
+    // A sent transaction reverts at once, so a sending command ends instead of waiting.
+    starknet_getTransactionStatus: { finality_status: 'ACCEPTED_ON_L2', execution_status: 'REVERTED' },
+    starknet_getTransactionReceipt: {
+      type: 'INVOKE',
+      transaction_hash: '0xadd',
+      actual_fee: { amount: '0x0', unit: 'FRI' },
+      execution_status: 'REVERTED',
+      finality_status: 'ACCEPTED_ON_L2',
+      revert_reason: 'fake node',
+      block_hash: '0x1',
+      block_number: 1,
+      messages_sent: [],
+      events: [],
+      execution_resources: { l1_gas: 0, l1_data_gas: 0, l2_gas: 0 },
+    },
   };
   if (!Object.hasOwn(answers, method)) {
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -1, message: 'fake node' } }));
