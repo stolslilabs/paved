@@ -94,6 +94,17 @@ jobs:
       - name: Class sizes (Starknet limits)
         run: scripts/class-sizes.sh
         shell: bash
+      # Node 24 and the signer's packages, so test-deploy-url.sh runs its cases through the real signer (sepolia
+      # --estimate-only, the funding check, a lost declare) instead of skipping them (S-1d). No key, no node: the signer
+      # talks to the fake node the test preloads.
+      # actions/setup-node v7.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+      - name: Install the signer
+        working-directory: scripts/signer
+        run: npm ci --ignore-scripts --no-audit --no-fund
+        shell: bash
       - name: Deploy script checks (getClass answer, no Mode in the ABIs)
         run: scripts/test-deploy-url.sh
         shell: bash

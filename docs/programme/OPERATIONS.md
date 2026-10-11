@@ -112,8 +112,11 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    - Any other failed answer is not sent again: a timeout such as dRPC's `30: Request timeout on the free plan`,
      HTTP 5xx with or without JSON, a result under HTTP 5xx, a page that is not JSON, or a network error. The signer
      reads that hash's receipt (`starknet_getTransactionReceipt`, with the read retry) every 5 s until 5 minutes
-     after the first read, by the clock, so a slow or flapping node does not stretch the wait. A receipt that names
-     another hash is ignored.
+     after the first read, by the clock, so a slow or flapping node does not stretch the wait. Each read is aborted
+     after 30 s, or at the deadline, so a node that never answers cannot hold it either. A receipt that names another
+     hash is ignored.
+   - An add* answered with another hash than the signed one stops the run: `node returned <h1>, signed <h2>; check
+     both before any rerun`.
    - What the receipt shows decides the outcome:
      - SUCCEEDED: the command goes on as a normal success, with the same output.
      - REVERTED: it fails with that status.

@@ -136,7 +136,8 @@ timeout on the free plan, please upgrade to paid plan`. So every `starknet_add*`
   declare's class hash) with starknet.js's own hash functions (`transactionHash`), and prints
   `signer: sending <method>, transaction <hash>` on stderr before the request leaves. The hash is no secret.
   A request whose hash cannot be computed (not V3, an unknown method or data availability mode) is refused,
-  unsent. When the node answers, a hash other than the computed one prints a warning.
+  unsent. A node that answers with a hash other than the computed one stops the command: `node returned
+  <h1>, signed <h2>; check both before any rerun`.
 - **A refusal stays a refusal.** The node's JSON-RPC errors of `REFUSAL_CODES` (-32700, -32600, -32601,
   -32602, and the write API's 51 to 58, 60 to 62: class already declared, invalid nonce, insufficient
   resources or balance, validation failure, and the like) are returned as they came: the command fails.
@@ -149,8 +150,9 @@ timeout on the free plan, please upgrade to paid plan`. So every `starknet_add*`
   with or without a JSON body, a result under HTTP 5xx, a body that is not JSON (an HTML 413 page), or a
   network error. The request is **not sent again**. The signer reads `starknet_getTransactionReceipt` for
   that hash (a read: retried as above), `RECOVERY_INTERVAL_MS` = 5 s apart, until `RECOVERY_DEADLINE_MS` =
-  300 s after the first read by the clock, so a slow or flapping node shortens the reads, not the wait. It
-  also reads `starknet_getTransactionStatus` while there is no receipt. A receipt whose `transaction_hash`
+  300 s after the first read by the clock, so a slow or flapping node shortens the reads, not the wait. Each
+  read is aborted after `READ_TIMEOUT_MS` = 30 s, or at the deadline when that comes first, so a node that
+  never answers cannot hold it either. It also reads `starknet_getTransactionStatus` while there is no receipt. A receipt whose `transaction_hash`
   is not the computed hash is ignored. The outcomes:
   - SUCCEEDED: the command succeeds with the output of a normal success (the node's answer is rebuilt from
     the hash, and the class hash for a declare; the receipt is then awaited as for any send);
@@ -163,16 +165,18 @@ timeout on the free plan, please upgrade to paid plan`. So every `starknet_add*`
   transaction whose answer was lost therefore ends as "status unknown". A node outside the spec that
   answers `finality_status: REJECTED` makes the command fail with that status.
 
-The tests (`test/recover.test.mjs`, 14 tests):
+The tests (`test/recover.test.mjs`, 16 tests):
 - recovery from a receipt: the add* is lost by timeout (error 30), a dropped connection, HTTP 502 with JSON,
   an HTML 502 or 413 page, or a result under HTTP 500. With the receipt there, declare, deploy, invoke and
   multicall succeed with add* asked exactly once.
 - the deadline: with no receipt, the failure names the hash after 61 reads on a fake clock. A slow node
-  (100 s a read) is read 3 times; a flapping node (every read -32601) is read 16 times × 5 attempts.
+  (100 s a read) is read 3 times; a flapping node (every read -32601) is read 16 times × 5 attempts; a node
+  that never answers a receipt read is read 9 times, each read cut at 30 s and the last one at the deadline.
 - REVERTED fails with that status; REJECTED fails with that status, through the CLI and in unit.
 - the checked refusals (-32601, 51, 52): found gives a success, not found gives the refusal naming the hash
   after 3 reads.
-- a receipt naming another hash gives "status unknown".
+- a receipt naming another hash gives "status unknown"; an add* answered with another hash stops the
+  command, for declare, deploy, invoke and multicall.
 - the printed hash is the one the account signed: the request's signature verifies against it with the
   account's public key.
 
@@ -278,7 +282,7 @@ history.
 cd scripts/signer && npm ci && npm test
 ```
 
-`node --test`, no other runner, 71 tests (S-1d):
+`node --test`, no other runner, 73 tests (S-1d):
 - the sanitiser's spellings;
 - the variables: refusal of a missing or empty one (`SIGNER_NETWORK` included), mainnet refused as a
   value, the URL bound to the network;

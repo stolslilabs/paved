@@ -141,6 +141,27 @@ test('a lost answer by HTTP 5xx (JSON or not), an HTML 413 page, or a result und
   }
 });
 
+test('a receipt read that never answers is aborted: the 300 s deadline holds', () => {
+  // Each receipt read is cut at 30 s (the status answers at once), then 5 s apart: reads at 0, 35, ..., 280 s; the
+  // last one is cut at the deadline (20 s), not at 30.
+  const result = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: 'timeout', FAKE_RECEIPT: 'hang' });
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(asked(result.stderr, 'starknet_getTransactionReceipt'), 9);
+  assert.match(result.stderr, /signer: sent, status unknown: 0x[0-9a-f]+; check it before any rerun\n$/);
+});
+
+test('a node that answers the add* with another hash than the one signed stops the command', () => {
+  for (const [name, args] of Object.entries(SENDS)) {
+    const result = run(args, { ...SEPOLIA, FAKE_RECEIPT: 'succeeded', FAKE_ADD_HASH: '0xbad' });
+    assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.stdout, '');
+    assert.equal(asked(result.stderr, ADD[name]), 1);
+    const printed = sentHash(result.stderr, ADD[name]);
+    assert.match(result.stderr, new RegExp(`signer: node returned 0xbad, signed ${printed}; check both before any rerun\n$`));
+    assert.equal(asked(result.stderr, 'starknet_getTransactionReceipt'), 0);
+  }
+});
+
 test('add* times out and the receipt shows REVERTED: failure with that status, add* asked once', () => {
   const result = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: 'timeout' });
   assert.equal(result.status, 1, result.stderr);

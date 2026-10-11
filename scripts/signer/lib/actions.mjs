@@ -138,6 +138,9 @@ export const REFUSAL_CODES = Object.freeze(new Set([-32700, -32600, -32601, -326
 export const CHECKED_REFUSALS = Object.freeze(new Set([-32601, 51, 52]));
 export const CHECK_DEADLINE_MS = 30_000;
 export const CHECK_INTERVAL_MS = 15_000;
+// Each receipt or status read gives up after READ_TIMEOUT_MS, or at the deadline when that comes first: a node that never
+// answers cannot hold the wait past it.
+export const READ_TIMEOUT_MS = 30_000;
 
 const DA_MODES = Object.freeze({ L1: 0, L2: 1 });
 
@@ -209,13 +212,23 @@ function sameFelt(a, b) {
   }
 }
 
-// One JSON-RPC read through `fetch` (the retrying one): its answer, or undefined when none could be read.
-async function readRpc(fetch, url, method, params) {
+// One JSON-RPC read through `fetch` (the retrying one): its answer, or undefined when none could be read within
+// `timeoutMs` (the request is then aborted).
+async function readRpc(fetch, url, method, params, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error(`${method}: no answer in ${timeoutMs / 1000} s`)), timeoutMs);
   try {
-    const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      signal: controller.signal,
+    });
     return parseJson(await response.text());
   } catch {
     return undefined;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -224,17 +237,18 @@ async function readRpc(fetch, url, method, params) {
  * is returned (confirm then judges it as for any send), REJECTED (a node outside spec 0.10, which has no such status)
  * throws, and the end of the wait returns undefined. A receipt for another hash than the one asked is ignored.
  */
-async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, intervalMs, sleep, now }) {
+async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, intervalMs, sleep, now, readTimeoutMs }) {
   const end = now() + deadlineMs;
+  const timeout = () => Math.max(1, Math.min(readTimeoutMs, end - now()));
   for (;;) {
-    const receipt = (await readRpc(fetch, url, 'starknet_getTransactionReceipt', { transaction_hash: transactionHash }))?.result;
+    const receipt = (await readRpc(fetch, url, 'starknet_getTransactionReceipt', { transaction_hash: transactionHash }, timeout()))?.result;
     if (receipt && !sameFelt(receipt.transaction_hash, transactionHash)) {
       process.stderr.write(`signer: the receipt read for ${transactionHash} names transaction ${receipt.transaction_hash}; ignored\n`);
     } else {
       const execution = receipt?.execution_status;
       if (execution === 'SUCCEEDED' || execution === 'REVERTED') return execution;
       const finality = receipt?.finality_status
-        ?? (await readRpc(fetch, url, 'starknet_getTransactionStatus', { transaction_hash: transactionHash }))?.result?.finality_status;
+        ?? (await readRpc(fetch, url, 'starknet_getTransactionStatus', { transaction_hash: transactionHash }, timeout()))?.result?.finality_status;
       if (finality === 'REJECTED') throw new Error(`transaction ${transactionHash} was REJECTED by the node`);
     }
     const left = end - now();
@@ -245,7 +259,8 @@ async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, interva
 
 /**
  * A fetch that, for a starknet_add* method, computes the transaction's hash from the signed request and prints it on
- * stderr before sending, then sends it once. A result under HTTP 5xx is not trusted. A refusal of REFUSAL_CODES is
+ * stderr before sending, then sends it once. A result under HTTP 5xx is not trusted; a result naming another hash than
+ * the computed one stops the command. A refusal of REFUSAL_CODES is
  * returned as it came, but one of CHECKED_REFUSALS only once the computed hash has no receipt after CHECK_DEADLINE_MS
  * (the command then fails naming the code and the hash). Any other answer (another error, HTTP 5xx, no JSON, a network
  * failure) is a lost answer: the request is not sent again, and the receipt is read until RECOVERY_DEADLINE_MS. Once a
@@ -253,7 +268,7 @@ async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, interva
  * after a normal send. Other methods go through untouched. A request whose hash cannot be computed is refused, unsent.
  * @param {typeof fetch} inner
  * @param {{ chainId: string, deadlineMs?: number, intervalMs?: number, checkDeadlineMs?: number,
- *   checkIntervalMs?: number, sleep?: (ms: number) => Promise<void>, now?: () => number }} options
+ *   checkIntervalMs?: number, readTimeoutMs?: number, sleep?: (ms: number) => Promise<void>, now?: () => number }} options
  */
 export function sendingFetch(inner, {
   chainId,
@@ -261,6 +276,7 @@ export function sendingFetch(inner, {
   intervalMs = RECOVERY_INTERVAL_MS,
   checkDeadlineMs = CHECK_DEADLINE_MS,
   checkIntervalMs = CHECK_INTERVAL_MS,
+  readTimeoutMs = READ_TIMEOUT_MS,
   sleep = (ms) => new Promise((done) => setTimeout(done, ms)),
   now = () => Date.now(),
 }) {
@@ -283,6 +299,7 @@ export function sendingFetch(inner, {
     process.stderr.write(`signer: sending ${method}, transaction ${txHash}\n`);
     let lost;
     let refused;
+    let other;
     try {
       const response = await inner(url, init);
       const text = await response.text();
@@ -290,10 +307,12 @@ export function sendingFetch(inner, {
       const ok = answer && typeof answer === 'object' && 'result' in answer && !('error' in answer);
       const code = answer?.error?.code;
       if ((ok && response.status < 500) || (REFUSAL_CODES.has(code) && !CHECKED_REFUSALS.has(code))) {
+        // A node that names another transaction than the one signed: neither can be trusted to be the one sent.
         if (ok && !sameFelt(answer.result?.transaction_hash, txHash)) {
-          process.stderr.write(`signer: warning: the node answered transaction ${answer.result?.transaction_hash}, computed ${txHash}\n`);
+          other = { hash: answer.result?.transaction_hash };
+        } else {
+          return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
         }
-        return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
       }
       if (CHECKED_REFUSALS.has(code)) refused = code;
       lost = answer?.error
@@ -302,10 +321,11 @@ export function sendingFetch(inner, {
     } catch (error) {
       lost = describeCause(error);
     }
+    if (other) throw new Error(`node returned ${other.hash}, signed ${txHash}; check both before any rerun`);
     const wait = refused === undefined ? { deadlineMs, intervalMs } : { deadlineMs: checkDeadlineMs, intervalMs: checkIntervalMs };
     process.stderr.write(`signer: ${refused === undefined ? 'no answer to' : 'refused'} ${method} (${lost}); not sending it again: `
       + `reading the receipt of ${txHash} for ${wait.deadlineMs / 1000} s, every ${wait.intervalMs / 1000} s\n`);
-    const status = await recoverReceipt(inner, url, txHash, { ...wait, sleep, now });
+    const status = await recoverReceipt(inner, url, txHash, { ...wait, sleep, now, readTimeoutMs });
     if (status === undefined) {
       throw new Error(refused === undefined
         ? `sent, status unknown: ${txHash}; check it before any rerun`
