@@ -87,9 +87,11 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    `starknet_specVersion` `0.10.3`, 2026-10-11) did not carry a deploy either: during the declare of Daily, the
    signer's (starknet.js 10.8.0) `starknet_getBlockWithTxHashes` (`latest`), which comes before the declare is sent,
    returned `-32601: the method starknet_getBlockWithTxHashes does not exist/is not available`, so `deploy.sh` stopped;
-   the same request answered a moment later. The refusal is intermittent, which suggests a public pool of upstream
-   nodes that do not all serve the method. No transaction was sent (Daily's class hash is still not found on
-   Sepolia). A third check is therefore needed: the read methods the signer uses (`starknet_getBlockWithTxHashes`,
+   the same request answered a moment later. Two retries the same day failed the same way, before sending: one on
+   `starknet_getBlockWithTxs` (`latest`, in the signer's tip statistics), one on `starknet_getBlockWithTxHashes`
+   again. The refusal is intermittent, which suggests a public pool of upstream nodes that do not all serve these
+   methods. None of the three runs sent a transaction (the deployer's nonce stayed `0x18f1`, and Daily's class hash
+   is still not found on Sepolia). A third check is therefore needed: the read methods the signer uses (`starknet_getBlockWithTxHashes`,
    `starknet_getNonce`, `starknet_estimateFee`) answer on every request, from a single upstream node.
 
    What is checked before anything is sent, in order:
