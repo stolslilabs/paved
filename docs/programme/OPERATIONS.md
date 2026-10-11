@@ -77,9 +77,12 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    owner sets `STARKNET_RPC_URL` in the VPS environment to an endpoint that passes both checks (it may hold an API
    key, so it is never written anywhere), and `scripts/deploy.sh sepolia` runs in that plain environment, with no
    override.
-   The Cartridge Sepolia endpoint `https://api.cartridge.gg/x/starknet/sepolia` passes both checks (PM, 2026-10-11)
-   and is the one the owner set; it serves RPC spec 0.9.0, and the signer (starknet.js 10.8.0) sends the same
-   request bodies for the deploy methods on 0.9 and 0.10.
+   The Cartridge Sepolia endpoint passes both checks (PM, 2026-10-11) but has not yet carried a deploy. Its base URL
+   `https://api.cartridge.gg/x/starknet/sepolia` (spec 0.9.0), then `https://api.cartridge.gg/x/starknet/sepolia/rpc/v0_10`
+   (`starknet_chainId` `SN_SEPOLIA`, `starknet_specVersion` `0.10.2`, 2026-10-11), both returned `-32603: Internal
+   error` to the signer's `starknet_estimateFee` (`SKIP_VALIDATE`) for the declare of Daily (2.0 MB class file,
+   32,712 Sierra felts, 72,947 CASM felts), so `deploy.sh` stopped before sending it; `Account` was already declared.
+   No transaction was sent by either run.
 
    What is checked before anything is sent, in order:
    - the network is `sepolia` (mainnet refused by name, any other value refused);
