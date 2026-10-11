@@ -83,6 +83,14 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    error` to the signer's `starknet_estimateFee` (`SKIP_VALIDATE`) for the declare of Daily (2.0 MB class file,
    32,712 Sierra felts, 72,947 CASM felts), so `deploy.sh` stopped before sending it; `Account` was already declared.
    No transaction was sent by either run.
+   The public dRPC endpoint `https://starknet-sepolia.drpc.org` (keyless; `starknet_chainId` `SN_SEPOLIA`,
+   `starknet_specVersion` `0.10.3`, 2026-10-11) did not carry a deploy either: during the declare of Daily, the
+   signer's (starknet.js 10.8.0) `starknet_getBlockWithTxHashes` (`latest`), which comes before the declare is sent,
+   returned `-32601: the method starknet_getBlockWithTxHashes does not exist/is not available`, so `deploy.sh` stopped;
+   the same request answered a moment later. The refusal is intermittent, which suggests a public pool of upstream
+   nodes that do not all serve the method. No transaction was sent (Daily's class hash is still not found on
+   Sepolia). A third check is therefore needed: the read methods the signer uses (`starknet_getBlockWithTxHashes`,
+   `starknet_getNonce`, `starknet_estimateFee`) answer on every request, from a single upstream node.
 
    What is checked before anything is sent, in order:
    - the network is `sepolia` (mainnet refused by name, any other value refused);
