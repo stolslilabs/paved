@@ -1,0 +1,54 @@
+{
+  "network": "sepolia",
+  "chain_id": "0x534e5f5345504f4c4941",
+  "rpc_url": "$STARKNET_RPC_URL",
+  "deployed_at": "009bb3c0810c8005d0b2d052e68174c4b00b1406",
+  "deployed_block": 16421420,
+  "token": {
+    "address": "0x02a683a8af83d4a08bea5f6231e3034f9930220d1f6cadf301e57a1475b8def8",
+    "class_hash": "0x00eea3e1b7dc1b70c703b2ac5af9ace016e16715d6ef2e9ca15b34f5e47afa03",
+    "decimals": 6,
+    "symbol": "USDC"
+  },
+  "contracts": {
+    "Account": {
+      "address": "0x02687f967832ff3b2da711c4a93efd561118223749ee095a677c19fb25b30007",
+      "class_hash": "0x06ebe06aea650249adc3091c05125c9ad0ca3f2ee791c5f52c3d0d2088ec6a94"
+    },
+    "Daily": {
+      "address": "0x06a92fc80dc5378aa64124c7d29d2953d73d68b2fb95cd6bfe3677c601f45ac8",
+      "class_hash": "0x02ba6398cc96b94232aa59473f627fcbd6302249537eefe9db97cd380a69f9f9"
+    },
+    "Tutorial": {
+      "address": "0x06f4ab4320cc625e6ef65a953075acca46e95879488e33df50a8893c81960b9a",
+      "class_hash": "0x00189ebf3c31270e867595aee5d624f389a26b068ae5fc5b23d21a2aa82c29aa"
+    },
+    "Collection": {
+      "address": "0x005f481cd5eddf2da45dafb43036c6401b3ab07d87b072932779a56d959b73e8",
+      "class_hash": "0x06e2ce9c7e01741e65d9fef5d62e681fede934cc03bb69da727aa9aa77607087"
+    },
+    "Economy": {
+      "address": "0x005aab18aeea5f617ce1c94737c30bc79cdb87e58f59b980ae041e3b3036a18b",
+      "class_hash": "0x00193f3e086e17c964b275721f9a5e12f8e84991fbcda87becb0e56627c95d90"
+    },
+    "PavedToken": {
+      "address": "0x024d7c989496fcd2db3a0e50c3cb702b553fd295a0949fe6aea4887e762c4f6d",
+      "class_hash": "0x012cdbc4de283aef70bd1e056b4310da595ae072d332b9274566d7609eabfdcb"
+    },
+    "Vault": {
+      "address": "0x02d34ee3e758cc53d70a9903409c31286fd8dd7f07d91682149653f12ca6e610",
+      "class_hash": "0x0520ae02d3b73b4f4fcb0637a82c04927688bd32fcb479562111982a4f256b02"
+    },
+    "MockUSDC": {
+      "address": "0x02a683a8af83d4a08bea5f6231e3034f9930220d1f6cadf301e57a1475b8def8",
+      "class_hash": "0x00eea3e1b7dc1b70c703b2ac5af9ace016e16715d6ef2e9ca15b34f5e47afa03"
+    },
+    "MockRouter": {
+      "address": "0x02aa4d0174da1673405722b3134c8b42d0b6b3c78cfd302f94b0cf170a5758f0",
+      "class_hash": "0x01ac7204d74dfb7e7dddfa564261c32f89d4dddf5ef0d66f478c8e8741a5ac07"
+    }
+  },
+  "classes": {
+    "Lobby": "0x05bd429dc632b4c0612147bceafded0fdf5eba2ef820fb2689f1682117f09972"
+  }
+}
