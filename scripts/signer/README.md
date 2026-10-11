@@ -104,6 +104,28 @@ deployer`, `signer: invoke <contract> <entry point>`.
   by the node, never declared. So on Sepolia, declare, deploy and invoke read no block
   (`test/cli.test.mjs`).
 
+### Retries, nonce and Cairo version (S-1c)
+
+A Sepolia endpoint (dRPC, spec 0.10.3) answered `-32601 method does not exist` at random, on any method,
+with HTTP 200 or 400. So:
+
+- **Read methods are retried**: `starknet_getNonce`, `estimateFee`, `getClassAt`, `getClassHashAt`,
+  `getClass`, `call`, `getTransactionReceipt`, `getTransactionStatus`, `chainId`, `specVersion`
+  (`RETRIED_METHODS`). The retry applies on HTTP 5xx or the JSON-RPC error -32601: at most 5 attempts,
+  with waits of 1, 2, 4 and 8 s, each retry announced on stderr. A **`starknet_add*` method is never
+  retried**: if one fails, the transaction may or may not be in, and the command stops with the node's
+  error. Once a transaction is sent, a status that cannot be read stops the command with its hash
+  (`transaction <hash> was sent, but its status could not be read`).
+- **The nonce is read once and passed explicitly.** starknet.js would fall back to nonce 0 when the read
+  fails (`getNonceSafe`). A nonce that cannot be read after the retries fails the command before
+  anything is signed.
+- **On `sepolia`, the account's Cairo version is pinned to 1** (the `Account` constructor's
+  `cairoVersion`), so its class (`starknet_getClassAt`) is not read at each transaction.
+- `deploy` sends through `account.deploy`, which gives the address from the deployer, the salt, the class
+  and the calldata. It then waits for the receipt itself.
+
+The tests show each of these on a fake node (`test/cli.test.mjs`, `test/retry.test.mjs`).
+
 ### estimate (S-1c)
 
 `estimate <declare|deploy|invoke> ...` asks the node for a fee estimate of what that command would send,

@@ -85,6 +85,17 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    `$STARKNET_RPC_URL` and `$STARKNET_ACCOUNT_ADDRESS` instead, `curl` reads the URL and the request from its
    config on stdin, the signer gets them in an allowlisted environment and names the deployer `@account` in
    calldata, and a failing signer's output is redacted before it is printed (the signer sanitises it first).
+   **Funding (S-1c):** after the build and before the first declare, `deploy.sh` reads the deployer's STRK balance
+   (`balance_of` of `@account` on the STRK token, a public read) and prints the amount only. A real run stops,
+   having sent nothing, below the **200 STRK** floor (`FUNDING_FLOOR_STRK`). That is about 1.4 x the 142.6 to
+   143.9 STRK that Sepolia's estimates of the nine undeclared classes added up to on 2026-10-11. `--estimate-only`
+   compares the balance with 1.25 x the sum of its own estimates, and with the floor.
+
+   **Retries (S-1c):** read calls, those of `deploy.sh` (curl) and those of the signer, are retried on HTTP 5xx or
+   `-32601`: at most 5 attempts, with waits of 1, 2, 4 and 8 s. A transaction (`starknet_add*`) is never retried; if
+   one fails, the run stops, and a transaction whose status cannot be read is named by its hash: check it before any
+   rerun.
+
    **Estimate only (S-1c), before a deployment or to diagnose one:** `scripts/deploy.sh sepolia --estimate-only`
    runs every check above, the signer's install and the build, then estimates each declare in deploy order
    (`signer estimate declare`, which refuses every `starknet_add*` method) and sends nothing. It prints the node's
