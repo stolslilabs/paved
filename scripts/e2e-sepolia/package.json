@@ -1,0 +1,9 @@
+{
+  "name": "paved-e2e-sepolia",
+  "private": true,
+  "type": "module",
+  "description": "Headless driver against the public Sepolia client (D-16). Its own dependency is installed apart, like scripts/bench. Headless only, never a window.",
+  "dependencies": {
+    "playwright-core": "1.63.0"
+  }
+}

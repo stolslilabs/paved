@@ -45,6 +45,8 @@ Node test peaks (VPS, 2026-10-10, bun 1.4.2, Node v24.21.0, vitest; after `bun i
 Example: `NODE_OPTIONS=--max-old-space-size=1536 bun run test --filter @paved/app-web`. Re-measure when a
 package's tests change a lot.
 
+Client production build (Sepolia, VPS, 2026-10-11, commit 1235607): peak RSS 1.06 GB, 8 s; measured by the owner.
+
 Memory figures and the VPS/Mac rule:
 
 - **Cairo caps come from VmPeak (D-251).** `prlimit --as` caps address space, so the figure that sizes a
