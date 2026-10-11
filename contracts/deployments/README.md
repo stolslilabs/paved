@@ -1,7 +1,7 @@
 # Deployments
 
 `<network>.json` records one deployment of the native contracts for the client. `devnet.json` exists;
-`sepolia.json` (Starknet Sepolia, public playtests, D-16) is written by phase 2 of S-1 (see "Sepolia" below). Mainnet is
+`sepolia.json` (Starknet Sepolia, public playtests, D-16) was written by phase 2 of S-1 at 009bb3c (see "Sepolia" below). Mainnet is
 the owner's act and `scripts/deploy.sh` refuses it.
 
 ## Shape

@@ -67,6 +67,28 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    (`RAYON_NUM_THREADS=1 prlimit --as=12884901888 scarb --release build` in `contracts/`), so the script's own build
    is a no-op; the signer's heap is capped by `deploy.sh` (`--max-old-space-size=640`).
 
+   The node behind `STARKNET_RPC_URL` must (a) accept request bodies of at least about 2 MB, since the declare
+   bodies are about 1.8 MB for Daily, 1.67 MB for Tutorial and 1.51 MB for Lobby, and (b) serve
+   `starknet_addDeclareTransaction`. Both are checked read-only, with the URL passed to curl through its config on
+   stdin, never in argv: a `starknet_chainId` request padded to about 2.5 MB returns HTTP 200, and
+   `starknet_addDeclareTransaction` with empty params returns -32602 (invalid params: the method exists), not
+   -32601 (method not found). The owner sets `STARKNET_RPC_URL` in the VPS environment to an endpoint that passes
+   both checks (it may hold an API key, so it is never written anywhere), and `scripts/deploy.sh sepolia` runs in
+   that plain environment, with no override.
+   **Zan carried the deploy** (2026-10-11, thread t-0197, main 009bb3c): the public endpoint
+   `https://api.zan.top/public/starknet-sepolia/rpc/v0_10` (`starknet_chainId` `SN_SEPOLIA`, `starknet_specVersion`
+   `0.10.3-rc.0`) took the 8 declares, the deploys, the wiring and the smoke, 31 transactions with no lost answer and
+   `== smoke ok`. It rate-limits: one read during the funding estimates got `-32011: cu limit exceeded; Request too
+   fast per second`, which is not retried, so the need fell back to the 200 STRK floor; no send was refused.
+   The earlier endpoints, each of which failed (2026-10-10 and 2026-10-11):
+   - the first provider: HTTP 503 "Request body size limit reached" at 2.5 MB (`Account` declared, then stopped);
+   - Infura Sepolia: `-32601` for `starknet_addDeclareTransaction` (no declare);
+   - Cartridge (`/x/starknet/sepolia`, spec 0.9.0, and `/rpc/v0_10`, spec 0.10.2): `-32603: Internal error` on the
+     `starknet_estimateFee` of Daily's declare, nothing sent;
+   - dRPC public (`https://starknet-sepolia.drpc.org`, spec 0.10.3): intermittent `-32601` on reads
+     (`starknet_getBlockWithTxHashes`, `starknet_getBlockWithTxs`) and on sends, and a timeout on a send; a Tutorial declare it
+     refused did not land. Daily had been declared by then (t-0182), so the Zan run skipped Account and Daily.
+
    What is checked before anything is sent, in order:
    - the network is `sepolia` (mainnet refused by name, any other value refused);
    - the three variables are set and not empty (each missing one named), the address is 0x-hex, the URL is
