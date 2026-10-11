@@ -121,9 +121,9 @@ export function retryingFetch(inner, { delays = RETRY_DELAYS_MS, sleep = (ms) =>
 
 // A send whose answer is lost (S-1d): dRPC's free plan answered a declare that went in with `30: Request timeout on the
 // free plan`. A starknet_add* method is never sent twice; the signer computes the transaction's hash before sending it,
-// and when the answer is lost it reads that hash's receipt instead, RECOVERY_POLLS times RECOVERY_INTERVAL_MS apart
-// (5 minutes).
-export const RECOVERY_POLLS = 60;
+// and when the answer is lost it reads that hash's receipt instead, RECOVERY_INTERVAL_MS apart, until
+// RECOVERY_DEADLINE_MS after the first read, by the clock (a slow or flapping node does not stretch the wait).
+export const RECOVERY_DEADLINE_MS = 300_000;
 export const RECOVERY_INTERVAL_MS = 5000;
 // The JSON-RPC errors by which a node refuses a transaction it did not take: the JSON-RPC protocol's own (parse error,
 // invalid request, method not found, invalid params) and the Starknet write API's (51 class already declared, 52
@@ -132,6 +132,12 @@ export const RECOVERY_INTERVAL_MS = 5000;
 // answer that is not a result (another error code, such as dRPC's 30 or -32603, an HTTP 5xx, a body that is not JSON,
 // a network error) leaves the transaction's fate unknown: it is recovered, not refused.
 export const REFUSAL_CODES = Object.freeze(new Set([-32700, -32600, -32601, -32602, 51, 52, 53, 54, 55, 56, 57, 58, 60, 61, 62]));
+// Refusals that can also be the echo of a transaction that went in (a proxy's random -32601; 51 or 52 when the same
+// transaction reached the node by another way): the receipt of the computed hash is read briefly, CHECK_INTERVAL_MS
+// apart for CHECK_DEADLINE_MS (3 reads over 30 s), before the refusal is reported.
+export const CHECKED_REFUSALS = Object.freeze(new Set([-32601, 51, 52]));
+export const CHECK_DEADLINE_MS = 30_000;
+export const CHECK_INTERVAL_MS = 15_000;
 
 const DA_MODES = Object.freeze({ L1: 0, L2: 1 });
 
@@ -214,37 +220,49 @@ async function readRpc(fetch, url, method, params) {
 }
 
 /**
- * Waits for the receipt of a transaction whose send got no answer: SUCCEEDED or REVERTED is returned (confirm then
- * judges it as for any send), REJECTED and the end of the wait throw, naming the hash.
+ * Reads the receipt of a sent transaction until `deadlineMs` after the first read, by `now()`: SUCCEEDED or REVERTED
+ * is returned (confirm then judges it as for any send), REJECTED (a node outside spec 0.10, which has no such status)
+ * throws, and the end of the wait returns undefined. A receipt for another hash than the one asked is ignored.
  */
-async function recoverReceipt(fetch, url, transactionHash, { polls, intervalMs, sleep }) {
-  for (let poll = 1; poll <= polls; poll += 1) {
+async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, intervalMs, sleep, now }) {
+  const end = now() + deadlineMs;
+  for (;;) {
     const receipt = (await readRpc(fetch, url, 'starknet_getTransactionReceipt', { transaction_hash: transactionHash }))?.result;
-    const execution = receipt?.execution_status;
-    if (execution === 'SUCCEEDED' || execution === 'REVERTED') return execution;
-    const finality = receipt?.finality_status
-      ?? (await readRpc(fetch, url, 'starknet_getTransactionStatus', { transaction_hash: transactionHash }))?.result?.finality_status;
-    if (finality === 'REJECTED') throw new Error(`transaction ${transactionHash} was REJECTED by the node`);
-    if (poll < polls) await sleep(intervalMs);
+    if (receipt && !sameFelt(receipt.transaction_hash, transactionHash)) {
+      process.stderr.write(`signer: the receipt read for ${transactionHash} names transaction ${receipt.transaction_hash}; ignored\n`);
+    } else {
+      const execution = receipt?.execution_status;
+      if (execution === 'SUCCEEDED' || execution === 'REVERTED') return execution;
+      const finality = receipt?.finality_status
+        ?? (await readRpc(fetch, url, 'starknet_getTransactionStatus', { transaction_hash: transactionHash }))?.result?.finality_status;
+      if (finality === 'REJECTED') throw new Error(`transaction ${transactionHash} was REJECTED by the node`);
+    }
+    const left = end - now();
+    if (left <= 0) return undefined;
+    await sleep(Math.min(intervalMs, left));
   }
-  throw new Error(`sent, status unknown: ${transactionHash}; check it before any rerun`);
 }
 
 /**
  * A fetch that, for a starknet_add* method, computes the transaction's hash from the signed request and prints it on
- * stderr before sending, then sends it once. A result, or a refusal of REFUSAL_CODES, is returned as it came. Any
- * other answer (an error, HTTP 5xx, no JSON, a network failure) is a lost answer: the request is not sent again; the
- * transaction's receipt is read (recoverReceipt) and, once it shows SUCCEEDED or REVERTED, the answer the node would
- * have given is returned, so the command goes on as after a normal send. Other methods go through untouched.
- * A request whose hash cannot be computed is refused, unsent.
+ * stderr before sending, then sends it once. A result under HTTP 5xx is not trusted. A refusal of REFUSAL_CODES is
+ * returned as it came, but one of CHECKED_REFUSALS only once the computed hash has no receipt after CHECK_DEADLINE_MS
+ * (the command then fails naming the code and the hash). Any other answer (another error, HTTP 5xx, no JSON, a network
+ * failure) is a lost answer: the request is not sent again, and the receipt is read until RECOVERY_DEADLINE_MS. Once a
+ * receipt shows SUCCEEDED or REVERTED, the answer the node would have given is returned, so the command goes on as
+ * after a normal send. Other methods go through untouched. A request whose hash cannot be computed is refused, unsent.
  * @param {typeof fetch} inner
- * @param {{ chainId: string, polls?: number, intervalMs?: number, sleep?: (ms: number) => Promise<void> }} options
+ * @param {{ chainId: string, deadlineMs?: number, intervalMs?: number, checkDeadlineMs?: number,
+ *   checkIntervalMs?: number, sleep?: (ms: number) => Promise<void>, now?: () => number }} options
  */
 export function sendingFetch(inner, {
   chainId,
-  polls = RECOVERY_POLLS,
+  deadlineMs = RECOVERY_DEADLINE_MS,
   intervalMs = RECOVERY_INTERVAL_MS,
+  checkDeadlineMs = CHECK_DEADLINE_MS,
+  checkIntervalMs = CHECK_INTERVAL_MS,
   sleep = (ms) => new Promise((done) => setTimeout(done, ms)),
+  now = () => Date.now(),
 }) {
   return async (url, init) => {
     const request = parseJson(String(init?.body));
@@ -264,26 +282,35 @@ export function sendingFetch(inner, {
     const { transactionHash: txHash, classHash } = computed;
     process.stderr.write(`signer: sending ${method}, transaction ${txHash}\n`);
     let lost;
+    let refused;
     try {
       const response = await inner(url, init);
       const text = await response.text();
       const answer = parseJson(text);
       const ok = answer && typeof answer === 'object' && 'result' in answer && !('error' in answer);
-      if ((ok && response.status < 500) || (answer?.error && REFUSAL_CODES.has(answer.error.code))) {
+      const code = answer?.error?.code;
+      if ((ok && response.status < 500) || (REFUSAL_CODES.has(code) && !CHECKED_REFUSALS.has(code))) {
         if (ok && !sameFelt(answer.result?.transaction_hash, txHash)) {
           process.stderr.write(`signer: warning: the node answered transaction ${answer.result?.transaction_hash}, computed ${txHash}\n`);
         }
         return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
       }
+      if (CHECKED_REFUSALS.has(code)) refused = code;
       lost = answer?.error
-        ? `HTTP ${response.status}, JSON-RPC error ${answer.error.code}: ${String(answer.error.message).slice(0, 200)}`
+        ? `HTTP ${response.status}, JSON-RPC error ${code}: ${String(answer.error.message).slice(0, 200)}`
         : `HTTP ${response.status}${answer ? '' : ', no JSON'}`;
     } catch (error) {
       lost = describeCause(error);
     }
-    process.stderr.write(`signer: no answer to ${method} (${lost}); not sending it again: reading the receipt of ${txHash} `
-      + `(${polls} reads, ${intervalMs / 1000} s apart)\n`);
-    const status = await recoverReceipt(inner, url, txHash, { polls, intervalMs, sleep });
+    const wait = refused === undefined ? { deadlineMs, intervalMs } : { deadlineMs: checkDeadlineMs, intervalMs: checkIntervalMs };
+    process.stderr.write(`signer: ${refused === undefined ? 'no answer to' : 'refused'} ${method} (${lost}); not sending it again: `
+      + `reading the receipt of ${txHash} for ${wait.deadlineMs / 1000} s, every ${wait.intervalMs / 1000} s\n`);
+    const status = await recoverReceipt(inner, url, txHash, { ...wait, sleep, now });
+    if (status === undefined) {
+      throw new Error(refused === undefined
+        ? `sent, status unknown: ${txHash}; check it before any rerun`
+        : `refused (${refused}); no receipt for ${txHash} after ${checkDeadlineMs / 1000} s; check it before any rerun`);
+    }
     process.stderr.write(`signer: transaction ${txHash} is on the node (${status})\n`);
     const result = classHash ? { transaction_hash: txHash, class_hash: classHash } : { transaction_hash: txHash };
     return new Response(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }), { status: 200, headers: { 'content-type': 'application/json' } });

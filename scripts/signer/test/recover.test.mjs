@@ -10,7 +10,7 @@ import { test } from 'node:test';
 
 import { ec, hash, json } from 'starknet';
 
-import { RECOVERY_POLLS, REFUSAL_CODES, sendingFetch } from '../lib/actions.mjs';
+import { CHECKED_REFUSALS, REFUSAL_CODES, sendingFetch } from '../lib/actions.mjs';
 
 const SIGNER = fileURLToPath(new URL('../signer.mjs', import.meta.url));
 const NODE = fileURLToPath(new URL('./fixtures/fake-estimate-node.mjs', import.meta.url));
@@ -103,16 +103,41 @@ test('add* times out but the node has the receipt: success with the same output,
   }
 });
 
-test('add* times out and no receipt arrives: failure naming the hash, add* asked once, 60 receipt reads', () => {
+test('add* times out and no receipt arrives: failure naming the hash after 300 s by the clock, add* asked once', () => {
   for (const [name, args] of Object.entries(SENDS)) {
     const result = run(args, { ...SEPOLIA, FAKE_ADD_LOST: 'timeout', FAKE_RECEIPT: 'none' });
     assert.equal(result.status, 1, result.stderr);
     assert.equal(result.stdout, '');
     assert.equal(asked(result.stderr, ADD[name]), 1);
-    assert.equal(asked(result.stderr, 'starknet_getTransactionReceipt'), RECOVERY_POLLS);
+    // An instant node: reads at 0, 5, ..., 300 s of the fake clock.
+    assert.equal(asked(result.stderr, 'starknet_getTransactionReceipt'), 61);
     const printed = sentHash(result.stderr, ADD[name]);
     assert.match(result.stderr, new RegExp(`signer: sent, status unknown: ${printed}; check it before any rerun\n$`));
     assertNoSecret(result);
+  }
+});
+
+test('the 300 s are a deadline: a slow node or a flapping one is not read 60 times over', () => {
+  // 100 s per receipt read: reads at 0, 105 and 210 s, then the deadline.
+  const slow = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: 'timeout', FAKE_RECEIPT: 'none', FAKE_SLOW_RECEIPT_MS: '100000' });
+  assert.equal(slow.status, 1, slow.stderr);
+  assert.equal(asked(slow.stderr, 'starknet_getTransactionReceipt'), 3);
+  assert.match(slow.stderr, /signer: sent, status unknown: 0x[0-9a-f]+; check it before any rerun\n$/);
+  // Every receipt read answered -32601: 5 attempts (15 s of retry waits) + 5 s apart is 20 s a read, 16 reads in 300 s.
+  const flapping = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: 'timeout', FAKE_RECEIPT: 'none', FAKE_FLAKY: 'starknet_getTransactionReceipt:100000' });
+  assert.equal(flapping.status, 1, flapping.stderr);
+  assert.equal(asked(flapping.stderr, 'starknet_getTransactionReceipt'), 16 * 5);
+  assert.match(flapping.stderr, /signer: sent, status unknown: 0x[0-9a-f]+; check it before any rerun\n$/);
+});
+
+test('a lost answer by HTTP 5xx (JSON or not), an HTML 413 page, or a result under HTTP 500: recovered from the receipt', () => {
+  for (const [lost, why] of [['502json', /HTTP 502, JSON-RPC error -32603: Bad gateway/], ['502html', /HTTP 502, no JSON/],
+    ['413html', /HTTP 413, no JSON/], ['ok500', /HTTP 500\)/]]) {
+    const result = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: lost, FAKE_RECEIPT: 'succeeded' });
+    assert.equal(result.status, 0, `${lost}: ${result.stderr}`);
+    assert.equal(asked(result.stderr, 'starknet_addInvokeTransaction'), 1);
+    assert.match(result.stderr, new RegExp(`signer: no answer to starknet_addInvokeTransaction \\(${why.source}`));
+    assert.equal(JSON.parse(result.stdout).transaction_hash, sentHash(result.stderr, 'starknet_addInvokeTransaction'));
   }
 });
 
@@ -123,7 +148,40 @@ test('add* times out and the receipt shows REVERTED: failure with that status, a
   assert.match(result.stderr, /did not succeed \(REVERTED\) fake node/);
 });
 
-// sendingFetch alone, on a scripted node.
+test('add* times out and the node says REJECTED (outside spec 0.10): failure with that status, add* asked once', () => {
+  const result = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: 'timeout', FAKE_RECEIPT: 'rejected' });
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(asked(result.stderr, 'starknet_addInvokeTransaction'), 1);
+  const printed = sentHash(result.stderr, 'starknet_addInvokeTransaction');
+  assert.match(result.stderr, new RegExp(`signer: transaction ${printed} was REJECTED by the node\n$`));
+});
+
+test('-32601, 51 or 52 to an add*: the receipt is read for 30 s; found, it is a success; not found, a refusal naming the hash', () => {
+  for (const code of [-32601, 51, 52]) {
+    assert.ok(CHECKED_REFUSALS.has(code));
+    const found = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: `refused:${code}`, FAKE_RECEIPT: 'succeeded' });
+    assert.equal(found.status, 0, found.stderr);
+    assert.equal(asked(found.stderr, 'starknet_addInvokeTransaction'), 1);
+    assert.match(found.stderr, new RegExp(`signer: refused starknet_addInvokeTransaction \\(HTTP 200, JSON-RPC error ${code}: `));
+    const missing = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: `refused:${code}`, FAKE_RECEIPT: 'none' });
+    assert.equal(missing.status, 1, missing.stderr);
+    assert.equal(asked(missing.stderr, 'starknet_addInvokeTransaction'), 1);
+    // Reads at 0, 15 and 30 s.
+    assert.equal(asked(missing.stderr, 'starknet_getTransactionReceipt'), 3);
+    const printed = sentHash(missing.stderr, 'starknet_addInvokeTransaction');
+    assert.match(missing.stderr, new RegExp(`signer: refused \\(${code}\\); no receipt for ${printed} after 30 s; check it before any rerun\n$`));
+  }
+});
+
+test('a receipt that names another hash is not the transaction: status unknown', () => {
+  const result = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: 'timeout', FAKE_RECEIPT: 'succeeded', FAKE_RECEIPT_HASH: '0xbad' });
+  assert.equal(result.status, 1, result.stderr);
+  const printed = sentHash(result.stderr, 'starknet_addInvokeTransaction');
+  assert.match(result.stderr, new RegExp(`signer: the receipt read for ${printed} names transaction 0xbad; ignored\n`));
+  assert.match(result.stderr, new RegExp(`signer: sent, status unknown: ${printed}; check it before any rerun\n$`));
+});
+
+// sendingFetch alone, on a scripted node and a fake clock.
 const CHAIN = '0x534e5f5345504f4c4941';
 function invokeBody() {
   const resource = { max_amount: '0x0', max_price_per_unit: '0x0' };
@@ -141,21 +199,23 @@ function invokeBody() {
   });
 }
 
+// `answers[method]`: an Error to throw, or a function of the request's params giving the JSON-RPC fields.
 function scripted(answers) {
   const methods = [];
+  let clock = 0;
   const fetch = sendingFetch(async (_url, init) => {
-    const { method } = JSON.parse(init.body);
+    const { method, params } = JSON.parse(init.body);
     methods.push(method);
     const answer = answers[method];
     if (answer instanceof Error) throw answer;
-    return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, ...answer }));
-  }, { chainId: CHAIN, polls: 3, intervalMs: 1, sleep: async () => {} });
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, ...(typeof answer === 'function' ? answer(params) : answer) }));
+  }, { chainId: CHAIN, sleep: async (ms) => { clock += ms; }, now: () => clock });
   return { fetch, methods };
 }
 
-test('a refusal of the write API is returned as it came: no receipt is read', async () => {
-  for (const code of [52, 54, 55, -32601]) {
-    assert.ok(REFUSAL_CODES.has(code));
+test('a refusal of the write API (other than -32601, 51, 52) is returned as it came: no receipt is read', async () => {
+  for (const code of [53, 54, 55, -32602]) {
+    assert.ok(REFUSAL_CODES.has(code) && !CHECKED_REFUSALS.has(code));
     const { fetch, methods } = scripted({ starknet_addInvokeTransaction: { error: { code, message: 'refused' } } });
     const answer = await (await fetch('http://node', { body: invokeBody() })).json();
     assert.equal(answer.error.code, code);
@@ -176,11 +236,21 @@ test('a lost answer whose transaction the node REJECTED fails with that status',
 test('a lost answer, then a receipt: the answer the node would have given, under the request id', async () => {
   const { fetch } = scripted({
     starknet_addInvokeTransaction: new TypeError('fetch failed'),
-    starknet_getTransactionReceipt: { result: { execution_status: 'SUCCEEDED', finality_status: 'ACCEPTED_ON_L2' } },
+    starknet_getTransactionReceipt: ({ transaction_hash }) => ({ result: { transaction_hash, execution_status: 'SUCCEEDED', finality_status: 'ACCEPTED_ON_L2' } }),
   });
   const answer = await (await fetch('http://node', { body: invokeBody() })).json();
   assert.equal(answer.id, 7);
   assert.match(answer.result.transaction_hash, /^0x[0-9a-f]+$/);
+});
+
+test('the deadline is the clock\'s: 300 s after the first read, whatever the reads cost', async () => {
+  const { fetch, methods } = scripted({
+    starknet_addInvokeTransaction: new TypeError('fetch failed'),
+    starknet_getTransactionReceipt: { error: { code: 29, message: 'not found' } },
+    starknet_getTransactionStatus: { error: { code: 29, message: 'not found' } },
+  });
+  await assert.rejects(fetch('http://node', { body: invokeBody() }), /^Error: sent, status unknown: 0x[0-9a-f]+; check it before any rerun$/);
+  assert.equal(methods.filter((method) => method === 'starknet_getTransactionReceipt').length, 61);
 });
 
 test('a request whose hash cannot be computed is refused, unsent; other methods pass untouched', async () => {

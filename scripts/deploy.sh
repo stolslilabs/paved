@@ -361,11 +361,12 @@ sys.stdout.write(text)'
 # NODE_DEBUG or proxy variable). The signer refuses other node options, but only once node runs, after an inspector
 # from NODE_OPTIONS would already listen. SIGUSR1 cannot open the inspector (--disable-sigusr1). Its stdout and stderr
 # are held in a variable, never a file: on success the last line is the JSON line, on failure the run dies with its
-# tail, redacted (`redact`). In calldata, `@account` stands for the deployer: the signer reads its address from its
+# tail, redacted (`redact`). The line naming each transaction before it is sent is also shown as it comes
+# (`stream_sending`, S-1d). In calldata, `@account` stands for the deployer: the signer reads its address from its
 # environment, so the address is in no argv either.
 send() {
   local res status=0
-  res="$(run_signer "$@")" || status=$?
+  res="$(run_signer "$@" | stream_sending; exit "${PIPESTATUS[0]}")" || status=$?
   if [[ "$status" != 0 ]]; then
     # Redacted whole, then cut: a value across the cut is still replaced.
     res="$(redact_text "$res")"
@@ -379,6 +380,20 @@ send() {
   done <<<"$res"
   [[ -n "$result" ]] || die "signer $1 printed no JSON line"
   printf '%s\n' "$result"
+}
+
+# stream_sending: copies the signer's output (stdout and stderr, one stream) to stdout for `send`, and shows on the
+# terminal (stderr), as it comes, each line by which the signer names a transaction before it sends it (S-1d): a run
+# killed or stopped afterwards still leaves the hash on screen. Only a line made of the method and a hex hash is shown,
+# redacted (`redact_text`).
+stream_sending() {
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    printf '%s\n' "$line"
+    if [[ "$line" =~ ^signer:\ sending\ starknet_add[A-Za-z]+,\ transaction\ 0x[0-9a-f]+$ ]]; then
+      printf '   %s\n' "$(redact_text "$line")" >&2
+    fi
+  done
 }
 
 # redact_text <text>: the text with the three values replaced by their names (`redact`, all on stdin).
@@ -607,9 +622,11 @@ RAYON_NUM_THREADS=1 scarb --release build >/dev/null
 STRK_TOKEN=0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
 FUNDING_FLOOR_STRK=200
 FUNDING_MARGIN_STRK=20
-# Test hook (scripts/test-deploy-url.sh): the class files estimated come from ESTIMATE_RELEASE_DIR. It changes what is
-# estimated, never what is sent: a real run declares the files of RELEASE_DIR.
-ESTIMATE_DIR="${ESTIMATE_RELEASE_DIR:-$RELEASE_DIR}"
+# Test hook (scripts/test-deploy-url.sh), --estimate-only alone: the class files come from ESTIMATE_RELEASE_DIR. It
+# changes what is estimated, never what is sent: nothing is sent in that mode. A real run estimates and declares the
+# files of RELEASE_DIR, whatever the environment says.
+ESTIMATE_DIR="$RELEASE_DIR"
+if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
 if ((USE_SIGNER)); then
   read -r BAL_LOW BAL_HIGH <<<"$(call "$STRK_TOKEN" balance_of "$DEPLOYER_ARG")"
   STRK_BALANCE="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$BAL_LOW" "$BAL_HIGH")"

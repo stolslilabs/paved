@@ -6,16 +6,26 @@
 // FAKE_ESTIMATE_HTML an HTTP 413 page with no JSON. FAKE_FLAKY=<method>:<n> answers the first n calls of
 // that method -32601 with HTTP 400, as dRPC did at random (S-1c). starknet_call answers a u256 of
 // FAKE_STRK_BALANCE (base units, decimal; default 1,000 STRK): the deployer's STRK balance for deploy.sh.
-// A lost answer (S-1d): FAKE_ADD_LOST=timeout answers every starknet_add* with dRPC's `30: Request timeout on the free
-// plan` (HTTP 200), FAKE_ADD_LOST=drop fails it as a dropped connection, both after taking it. FAKE_RECEIPT=succeeded
-// gives every transaction a SUCCEEDED receipt, FAKE_RECEIPT=none none (error 29); otherwise it reverts at once.
-// FAKE_ADD_LOG=<file> appends each starknet_add* request body to the file. FAKE_FAST_CLOCK=1 makes every timer fire at
-// once, so a 5-minute wait takes no time.
+// A lost answer (S-1d): FAKE_ADD_LOST says how every starknet_add* is answered after the node took it: `timeout`
+// (dRPC's `30: Request timeout on the free plan`, HTTP 200), `drop` (a dropped connection), `502json` (HTTP 502 with a
+// JSON-RPC error), `502html` (HTTP 502, an HTML page), `413html` (HTTP 413, an HTML page), `ok500` (a result under
+// HTTP 500) or `refused:<code>` (that JSON-RPC error, HTTP 200). FAKE_RECEIPT=succeeded gives every transaction a
+// SUCCEEDED receipt, `none` none (error 29), `rejected` none but a REJECTED status (outside spec 0.10); otherwise it
+// reverts at once. A receipt names the hash it was asked for, or FAKE_RECEIPT_HASH. FAKE_ADD_LOG=<file> appends each
+// starknet_add* request body to the file. FAKE_FAST_CLOCK=1 runs a fake clock: every timer fires at once and moves
+// Date.now by its delay, so a 5-minute wait takes no time; FAKE_SLOW_RECEIPT_MS then also moves it by that much per
+// receipt read (a slow node).
 const [flakyMethod, flakyCount] = (process.env.FAKE_FLAKY ?? ':0').split(':');
 let flakyLeft = Number(flakyCount);
+let clockOffset = 0;
 if (process.env.FAKE_FAST_CLOCK) {
   const realSetTimeout = globalThis.setTimeout;
-  globalThis.setTimeout = (callback, _ms, ...args) => realSetTimeout(callback, 0, ...args);
+  const realNow = Date.now;
+  globalThis.setTimeout = (callback, ms, ...args) => {
+    clockOffset += Number(ms) || 0;
+    return realSetTimeout(callback, 0, ...args);
+  };
+  Date.now = () => realNow() + clockOffset;
 }
 const { appendFileSync } = await import('node:fs');
 const BLOCK = {
@@ -56,15 +66,29 @@ globalThis.fetch = async (_url, init) => {
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error }), { status: 400 });
   }
   if (method.startsWith('starknet_add') && process.env.FAKE_ADD_LOG) appendFileSync(process.env.FAKE_ADD_LOG, `${init.body}\n`);
-  if (method.startsWith('starknet_add') && process.env.FAKE_ADD_LOST === 'timeout') {
+  const lost = method.startsWith('starknet_add') ? process.env.FAKE_ADD_LOST : undefined;
+  const html = (status) => new Response(`<html><body>${status}</body></html>`, { status, headers: { 'content-type': 'text/html' } });
+  if (lost === 'timeout') {
     const error = { code: 30, message: 'Request timeout on the free plan, please upgrade to paid plan' };
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error }));
   }
-  if (method.startsWith('starknet_add') && process.env.FAKE_ADD_LOST === 'drop') {
+  if (lost === 'drop') {
     throw new TypeError('fetch failed', { cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }) });
   }
+  if (lost === '502json') return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { code: -32603, message: 'Bad gateway' } }), { status: 502 });
+  if (lost === '502html') return html(502);
+  if (lost === '413html') return html(413);
+  if (lost === 'ok500') return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { transaction_hash: '0xadd' } }), { status: 500 });
+  if (lost?.startsWith('refused:')) {
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { code: Number(lost.slice(8)), message: 'refused by the fake node' } }));
+  }
+  const asked = JSON.parse(init.body).params?.transaction_hash;
+  if (method === 'starknet_getTransactionReceipt' && process.env.FAKE_SLOW_RECEIPT_MS) clockOffset += Number(process.env.FAKE_SLOW_RECEIPT_MS);
   const notFound = { code: 29, message: 'Transaction hash not found' };
-  if (/^starknet_getTransaction(Receipt|Status)$/.test(method) && process.env.FAKE_RECEIPT === 'none') {
+  if (method === 'starknet_getTransactionStatus' && process.env.FAKE_RECEIPT === 'rejected') {
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { finality_status: 'REJECTED', failure_reason: 'fake node' } }));
+  }
+  if (/^starknet_getTransaction(Receipt|Status)$/.test(method) && /^(none|rejected)$/.test(process.env.FAKE_RECEIPT ?? '')) {
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: notFound }));
   }
   const execution = process.env.FAKE_RECEIPT === 'succeeded' ? 'SUCCEEDED' : 'REVERTED';
@@ -93,7 +117,7 @@ globalThis.fetch = async (_url, init) => {
     starknet_getTransactionStatus: { finality_status: 'ACCEPTED_ON_L2', execution_status: execution },
     starknet_getTransactionReceipt: {
       type: 'INVOKE',
-      transaction_hash: '0xadd',
+      transaction_hash: process.env.FAKE_RECEIPT_HASH ?? asked ?? '0xadd',
       actual_fee: { amount: '0x0', unit: 'FRI' },
       execution_status: execution,
       finality_status: 'ACCEPTED_ON_L2',

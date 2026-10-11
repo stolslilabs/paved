@@ -102,12 +102,27 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
 
    **A send whose answer is lost (S-1d):** for every transaction (declare, deploy, invoke, multicall), the signer
    computes its hash from the signed request and prints it on stderr (`signer: sending <method>, transaction
-   <hash>`) before sending it once. A refusal of the write API (invalid nonce, insufficient balance, validation
-   failure, class already declared, and the like) stops the run as before. Any other failed answer (a timeout such
-   as dRPC's `30: Request timeout on the free plan`, HTTP 5xx, a network error) is not sent again: the signer reads
-   that hash's receipt (`starknet_getTransactionReceipt`, with the read retry) every 5 s for up to 5 minutes.
-   SUCCEEDED goes on as a normal success, with the same output; REVERTED or REJECTED fail with that status; no
-   receipt in time fails with `sent, status unknown: <hash>; check it before any rerun`, and `deploy.sh` stops.
+   <hash>`) before sending it once. `deploy.sh` shows that line on the terminal as it comes (redacted), so a run
+   killed afterwards still leaves the hash on screen.
+   - A refusal of the write API (insufficient resources or balance, validation failure, and the like) stops the run
+     as before.
+   - `-32601`, `51` (class already declared) and `52` (invalid nonce) can also echo a transaction that went in, so
+     the signer first reads the hash's receipt for 30 s (3 reads). If it finds one, it goes on as below; otherwise it
+     fails with `refused (<code>); no receipt for <hash> after 30 s; check it before any rerun`.
+   - Any other failed answer is not sent again: a timeout such as dRPC's `30: Request timeout on the free plan`,
+     HTTP 5xx with or without JSON, a result under HTTP 5xx, a page that is not JSON, or a network error. The signer
+     reads that hash's receipt (`starknet_getTransactionReceipt`, with the read retry) every 5 s until 5 minutes
+     after the first read, by the clock, so a slow or flapping node does not stretch the wait. A receipt that names
+     another hash is ignored.
+   - What the receipt shows decides the outcome:
+     - SUCCEEDED: the command goes on as a normal success, with the same output.
+     - REVERTED: it fails with that status.
+     - No receipt in time: it fails with `sent, status unknown: <hash>; check it before any rerun`, and `deploy.sh`
+       stops.
+   - Spec 0.10 has no REJECTED status. starknet-devnet 0.10.0 refuses an invalid transaction at the add* (`55`) and
+     keeps nothing: its hash then answers `29` (not found) to both the status and the receipt. A rejected
+     transaction whose answer was lost thus ends as "status unknown". A node outside the spec that answers REJECTED
+     fails with that status.
 
    **Rerunning after a partial deploy:** first look up the hash the run named (an explorer, or
    `starknet_getTransactionReceipt`) and wait until it is final or known lost. A rerun is safe for declares: each
