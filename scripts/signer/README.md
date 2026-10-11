@@ -80,6 +80,7 @@ deployer`, `signer: invoke <contract> <entry point>`.
 | `invoke` | `--contract <felt> --function <name> [--calldata <felt>...]` | `{"transaction_hash"}` |
 | `multicall` | `--calls <file>` | `{"transaction_hash"}` |
 | `call` | `--contract <felt> --function <name> [--calldata <felt>...]` | `{"result":[felt...]}` |
+| `estimate` | `<declare\|deploy\|invoke> <its options> [--bounds <6 integers>] [--validate] [--block-id <tag>]` | `{"ok","request",...}`: the estimate, or the node's whole answer (below) |
 
 - `deploy` goes through the Universal Deployer with `unique: true` (the address depends on the
   deployer account) and a random salt unless `--salt` is given; the salt used is printed.
@@ -92,6 +93,62 @@ deployer`, `signer: invoke <contract> <entry point>`.
   does this for the deployer on Sepolia). It stands for a calldata word only, never for `--contract`.
 - The `--calls` file is a JSON array of `{"contract": <felt>, "function": <name>, "calldata": [<felt>...]}`,
   sent as one transaction.
+
+- `declare`, `deploy`, `invoke`, `multicall` and `estimate` take `--tip <u64|node>`, the transaction's
+  tip (S-1c). Default on `sepolia`: **0x5f5e100** (100,000,000 FRI per L2 gas unit, what starknet.js's
+  `recommendedTip` gave on Sepolia in S-1b), fixed, so no block is read for it. starknet.js's own estimate
+  (`node`, the default on `devnet`) reads the latest blocks (`starknet_getBlockWithTxs`), which a Sepolia
+  endpoint (dRPC) answered `-32601` at random. On `sepolia` the Starknet version is also pinned
+  (`SEPOLIA_STARKNET_VERSION` in `lib/actions.mjs`, 0.14.4) instead of read from the latest block at each
+  declare: it only picks the compiled class hash algorithm (Blake from 0.14.1), and a wrong one is refused
+  by the node, never declared. So on Sepolia, declare, deploy and invoke read no block
+  (`test/cli.test.mjs`).
+
+### Retries, nonce and Cairo version (S-1c)
+
+A Sepolia endpoint (dRPC, spec 0.10.3) answered `-32601 method does not exist` at random, on any method,
+with HTTP 200 or 400. So:
+
+- **Read methods are retried**: `starknet_getNonce`, `estimateFee`, `getClassAt`, `getClassHashAt`,
+  `getClass`, `call`, `getTransactionReceipt`, `getTransactionStatus`, `chainId`, `specVersion`
+  (`RETRIED_METHODS`). The retry applies on HTTP 5xx or the JSON-RPC error -32601: at most 5 attempts,
+  with waits of 1, 2, 4 and 8 s, each retry announced on stderr. A **`starknet_add*` method is never
+  retried**: if one fails, the transaction may or may not be in, and the command stops with the node's
+  error. Once a transaction is sent, a status that cannot be read stops the command with its hash
+  (`transaction <hash> was sent, but its status could not be read`).
+- **The nonce is read once and passed explicitly.** starknet.js would fall back to nonce 0 when the read
+  fails (`getNonceSafe`). A nonce that cannot be read after the retries fails the command before
+  anything is signed.
+- **On `sepolia`, the account's Cairo version is pinned to 1** (the `Account` constructor's
+  `cairoVersion`), so its class (`starknet_getClassAt`) is not read at each transaction.
+- `deploy` sends through `account.deploy`, which gives the address from the deployer, the salt, the class
+  and the calldata. It then waits for the receipt itself.
+
+The tests show each of these on a fake node (`test/cli.test.mjs`, `test/retry.test.mjs`).
+
+### estimate (S-1c)
+
+`estimate <declare|deploy|invoke> ...` asks the node for a fee estimate of what that command would send,
+and **sends nothing**: it runs on a fetch (`readOnlyFetch`) that refuses every `starknet_add*` method, and
+any request whose method it cannot read, before it leaves the process. It builds the request as
+starknet.js builds its own (the account's nonce, the tip above, the query version `0x1...03`, zero
+resource bounds, `SKIP_VALIDATE`, block `latest`) and posts it with a plain fetch, so the node's answer is
+kept whole: the JSON-RPC error object (`code`, `message`, `data`), or the HTTP status and body (cut at
+4,000 characters) when there is no JSON. starknet.js prints a missing `data` as `undefined`, which is what
+the `-32603: Internal error: undefined` of S-1b was.
+
+The JSON line: `ok`, `request` (`kind`, `block_id`, `simulation_flags`, `resource_bounds`, `tip`,
+`version`, `request_bytes`), `http_status`, then `estimate` (the node's fee estimate) when `ok`, else
+`error`, `body` and `body_bytes`, or `transport` (a network failure). Exit 0 when `ok`, **3** when the
+node refused the estimate (the line says why), 1 or 2 as above when the signer failed before asking.
+
+Diagnostic options only, to compare with the default request:
+
+- `--bounds l1_amount,l1_price,l1_data_amount,l1_data_price,l2_amount,l2_price`: explicit resource
+  bounds instead of zero (amounts u64, prices u128, decimal or 0x-hex);
+- `--validate`: no `SKIP_VALIDATE` (the transaction is signed, so the account's `__validate__` runs);
+- `--block-id pre_confirmed`: instead of `latest` (`pending` left the spec in 0.9; spec 0.10 has `latest`
+  and `pre_confirmed` for `starknet_estimateFee`).
 
 ```bash
 SIGNER_NETWORK=devnet node scripts/signer/signer.mjs declare \
