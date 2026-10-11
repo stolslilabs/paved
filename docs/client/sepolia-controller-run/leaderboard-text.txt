@@ -1,0 +1,15 @@
+Read only: connect to play. Connect
+Back
+Leaderboard
+Day
+2026-10-11 (today)
+Updated 4261 blocks behind: scores may be late (block 16421719)
+Rank	Player	Best score	Games	Prize slots
+1	smoke	0	1	–
+Previous
+1–1 of 1
+Next
+
+Ranked by player. The contract ranks games, so one player can hold several prize slots. Prizes and claims are read from the contract, on the home page.
+
+Uses Cartridge Controller, © Cartridge Gaming Company · Third-party notices

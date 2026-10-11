@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "status": "ok",
+  "head": {
+    "number": 16421819,
+    "hash": "0x74ac9e4c5e564321ac6ed66fd4544d60a90175200672ff2a4a4ff08d9a21f1d",
+    "timestamp": 1791720348
+  },
+  "behind": 4205,
+  "state": "ok",
+  "chain_id": "0x534e5f5345504f4c4941",
+  "from_block": 16421420,
+  "contracts": {
+    "daily": "0x6a92fc80dc5378aa64124c7d29d2953d73d68b2fb95cd6bfe3677c601f45ac8",
+    "tutorial": "0x6f4ab4320cc625e6ef65a953075acca46e95879488e33df50a8893c81960b9a",
+    "account": "0x2687f967832ff3b2da711c4a93efd561118223749ee095a677c19fb25b30007",
+    "economy": "0x5aab18aeea5f617ce1c94737c30bc79cdb87e58f59b980ae041e3b3036a18b",
+    "collection": "0x5f481cd5eddf2da45dafb43036c6401b3ab07d87b072932779a56d959b73e8"
+  },
+  "checks": {
+    "tournaments_checked": 0,
+    "last_mismatch": null,
+    "definitions_excluded": 0
+  }
+}

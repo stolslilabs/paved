@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "status": "ok",
+  "head": {
+    "number": 16421819,
+    "hash": "0x74ac9e4c5e564321ac6ed66fd4544d60a90175200672ff2a4a4ff08d9a21f1d",
+    "timestamp": 1791720348
+  },
+  "behind": 4205,
+  "tournaments": [
+    {
+      "id": 20737,
+      "start_time": 1791676800,
+      "end_time": 1791763200,
+      "games_spawned": 1,
+      "players": 1,
+      "best_score": 0
+    }
+  ],
+  "next": null
+}
