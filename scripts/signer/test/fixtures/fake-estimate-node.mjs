@@ -4,7 +4,8 @@
 // asked on stderr. No class is declared (starknet_getClass answers an error). FAKE_ESTIMATE_ERROR (when
 // the environment reaches it) makes the estimate answer the -32603 error Cartridge gave (no `data`);
 // FAKE_ESTIMATE_HTML an HTTP 413 page with no JSON. FAKE_FLAKY=<method>:<n> answers the first n calls of
-// that method -32601 with HTTP 400, as dRPC did at random (S-1c).
+// that method -32601 with HTTP 400, as dRPC did at random (S-1c). starknet_call answers a u256 of
+// FAKE_STRK_BALANCE (base units, decimal; default 1,000 STRK): the deployer's STRK balance for deploy.sh.
 const [flakyMethod, flakyCount] = (process.env.FAKE_FLAKY ?? ':0').split(':');
 let flakyLeft = Number(flakyCount);
 const BLOCK = {
@@ -60,6 +61,7 @@ globalThis.fetch = async (_url, init) => {
     starknet_getClassHashAt: '0x1',
     starknet_getClassAt: ACCOUNT_CLASS,
     starknet_estimateFee: [ESTIMATE],
+    starknet_call: [`0x${BigInt(process.env.FAKE_STRK_BALANCE ?? 1000n * 10n ** 18n).toString(16)}`, '0x0'],
     starknet_addDeclareTransaction: { transaction_hash: '0xadd', class_hash: '0x1' },
     starknet_addInvokeTransaction: { transaction_hash: '0xadd' },
     starknet_addDeployAccountTransaction: { transaction_hash: '0xadd', contract_address: '0x1' },

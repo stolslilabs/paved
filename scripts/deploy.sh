@@ -568,7 +568,27 @@ echo "== build"
 cd "$ROOT/contracts"
 RAYON_NUM_THREADS=1 scarb --release build >/dev/null
 
+# Funding (S-1c), sepolia and its rehearsal: the deployer's STRK balance, a public read (balance_of of `@account`, so the
+# address stays out of argv and output), printed as an amount only. A real run stops before its first declare below
+# FUNDING_FLOOR_STRK: 200 STRK, about 1.4 x the 142.6 STRK that Sepolia's estimates of the nine undeclared classes
+# added up to on 2026-10-11 (Daily alone 38.8), with no estimate at hand in that run. --estimate-only compares it with
+# 1.25 x the sum of its own estimates instead, and with the floor, and sends nothing either way.
+STRK_TOKEN=0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
+FUNDING_FLOOR_STRK=200
+STRK_BALANCE=""
+if ((USE_SIGNER)); then
+  read -r BAL_LOW BAL_HIGH <<<"$(call "$STRK_TOKEN" balance_of "$DEPLOYER_ARG")"
+  STRK_BALANCE="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$BAL_LOW" "$BAL_HIGH")"
+  echo "== funding: deployer STRK balance $(python3 -I -c 'import sys;print(f"{int(sys.argv[1])/1e18:.2f}")' "$STRK_BALANCE") STRK"
+  if [[ "$ESTIMATE_ONLY" == 0 ]]; then
+    python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1]) >= int(sys.argv[2]) * 10**18 else 1)' "$STRK_BALANCE" "$FUNDING_FLOOR_STRK" ||
+      die "the deployer holds less than the ${FUNDING_FLOOR_STRK} STRK floor: fund it before deploying; nothing was sent"
+    echo "   at or above the ${FUNDING_FLOOR_STRK} STRK floor"
+  fi
+fi
+
 if [[ "$ESTIMATE_ONLY" == 1 ]]; then
+  : >"$WORK_DIR/fees"
   echo "== estimate only (nothing is sent): each declare in deploy order, spec $SPEC_VERSION${ESTIMATE_ARGS[*]:+, diagnostic: ${ESTIMATE_ARGS[*]}}"
   failed=0
   for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection; do
@@ -593,9 +613,9 @@ if [[ "$ESTIMATE_ONLY" == 1 ]]; then
       failed=$((failed + 1))
       continue
     fi
-    python3 -I - "$name" "$SPEC_VERSION" "$sizes" "$declared" "$line" <<'PY' || failed=$((failed + 1))
+    python3 -I - "$name" "$SPEC_VERSION" "$sizes" "$declared" "$line" "$WORK_DIR/fees" <<'PY' || failed=$((failed + 1))
 import json, sys
-name, spec, sizes, declared, raw = sys.argv[1:]
+name, spec, sizes, declared, raw, fees = sys.argv[1:]
 d = json.loads(raw)
 r = d.get("request", {})
 head = f"   estimate {name}: spec {spec}, {sizes}, request {r.get('request_bytes', '?')} B, declared {declared}"
@@ -604,12 +624,27 @@ if d.get("ok"):
     n = lambda k: int(e.get(k, "0x0"), 16)
     print(f"{head}: ok, overall_fee {n('overall_fee')} {e.get('unit', '?')} (l1_gas {n('l1_gas_consumed')}, "
           f"l1_data_gas {n('l1_data_gas_consumed')}, l2_gas {n('l2_gas_consumed')})")
+    with open(fees, "a") as f:
+        f.write(f"{n('overall_fee')}\n")
     sys.exit(0)
 answer = {k: d[k] for k in ("http_status", "error", "body", "body_bytes", "transport") if k in d}
 print(f"{head}: error {json.dumps(answer)[:1500]}")
 sys.exit(1)
 PY
   done
+  # The funding against the estimates that came back: 1.25 x their sum, and the real run's floor.
+  python3 -I - "$WORK_DIR/fees" "$STRK_BALANCE" "$FUNDING_FLOOR_STRK" <<'PY'
+import sys
+fees = [int(x) for x in open(sys.argv[1]).read().split()]
+balance, floor = sys.argv[2], int(sys.argv[3])
+total = sum(fees) / 1e18
+need = 1.25 * total
+print(f"== funding: {len(fees)} estimates total {total:.2f} STRK; 1.25 x that is {need:.2f} STRK; the real run's floor {floor} STRK")
+if balance:
+    b = int(balance) / 1e18
+    print(f"   deployer STRK balance {b:.2f} STRK: {'covers' if b >= need else 'BELOW'} 1.25 x the estimates, "
+          f"{'at or above' if b >= floor else 'BELOW'} the floor")
+PY
   if [[ "$failed" != 0 ]]; then
     echo "== estimate only: $failed of 10 estimates failed; nothing was sent"
     exit 1

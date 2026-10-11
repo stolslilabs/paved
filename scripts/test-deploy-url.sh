@@ -194,9 +194,10 @@ if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d 
   printf '#!/usr/bin/env bash\nexit 0\n' >"$est/bin/scarb"
   printf '#!/usr/bin/env bash\nexit 1\n' >"$est/bin/sncast"
   # The node shim: its own version for deploy.sh's check, else the real node with the fake node preloaded; the
-  # signer's stderr (the methods asked) goes to a log beside it (send's allowlist drops every other variable).
-  printf '#!/usr/bin/env bash\n[[ "$1" == --version ]] && exec %q --version\nexec %q --import %q "$@" 2>>%q\n' \
-    "$real_node" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
+  # signer's stderr (the methods asked) goes to a log beside it (send's allowlist drops every other variable). The STRK
+  # balance the fake node reports comes from a file beside it too, when there is one.
+  printf '#!/usr/bin/env bash\n[[ "$1" == --version ]] && exec %q --version\n[[ -f %q ]] && export FAKE_STRK_BALANCE="$(cat %q)"\nexec %q --import %q "$@" 2>>%q\n' \
+    "$real_node" "$est/strk" "$est/strk" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
   cp "$shims/curl" "$shims/addr_mark" "$est/bin/"
   chmod +x "$est/bin/"*
   : >"$est/node.log"
@@ -207,7 +208,9 @@ if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d 
     "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$here/deploy.sh" sepolia --estimate-only 2>&1)"
   rc=$?
   lines="$(grep -c '^   estimate [A-Za-z]*: spec 0.10.2, sierra .* declared unknown: ok, overall_fee 10000000128 FRI' <<<"$out")"
-  if [[ $rc -ne 0 || "$lines" != 10 || "$out" != *"== estimate only: 10 of 10 estimated; nothing was sent"* ]] ||
+  if [[ $rc -ne 0 || "$lines" != 10 || "$out" != *"== estimate only: 10 of 10 estimated; nothing was sent"* ||
+      "$out" != *"== funding: deployer STRK balance 1000.00 STRK"* ||
+      "$out" != *"   deployer STRK balance 1000.00 STRK: covers 1.25 x the estimates, at or above the floor"* ]] ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
     echo "FAIL: sepolia --estimate-only: expected exit 0 and 10 estimate lines, no value, got $rc and $lines:"
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
@@ -219,6 +222,23 @@ if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d 
     echo "FAIL: sepolia --estimate-only: a value reached a child's argv or environment"; fail=1
   else
     echo "ok: sepolia --estimate-only estimates 10 classes (spec on each line), asks no starknet_add* method, reads no block"
+  fi
+  # Funding (S-1c): a real sepolia run whose deployer holds less than the 200 STRK floor stops before its first
+  # declare; nothing is sent (the fake node would accept it).
+  printf '%s' 150000000000000000000 >"$est/strk"
+  : >"$est/node.log"
+  out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
+    FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" \
+    "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$here/deploy.sh" sepolia 2>&1)"
+  rc=$?
+  rm -f "$est/strk"
+  if [[ $rc -ne 1 || "$out" != *"== funding: deployer STRK balance 150.00 STRK"* ||
+      "$out" != *"holds less than the 200 STRK floor: fund it before deploying; nothing was sent"* || "$out" == *"== declare"* ]] ||
+      leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out" || grep -q '^fake-node: asked starknet_add' "$est/node.log"; then
+    echo "FAIL: sepolia below the funding floor: expected exit 1 before any declare, got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia with 150 STRK stops at the 200 STRK floor before its first declare; nothing sent, no value printed"
   fi
   # A diagnostic option is checked by deploy.sh before anything runs, and only with --estimate-only.
   for bad in "--block-id pending" "--bounds x" "--frobnicate"; do
