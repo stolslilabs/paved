@@ -576,7 +576,8 @@ if [[ "$ESTIMATE_ONLY" == 1 ]]; then
     casm="$RELEASE_DIR/paved_$name.compiled_contract_class.json"
     [[ -f "$sierra" && -f "$casm" ]] || die "no release class files for $name in ${RELEASE_DIR#"$ROOT/"}"
     sizes="sierra $(wc -c <"$sierra" | tr -d ' ') B, casm $(pyj 'len(d["bytecode"])' <"$casm") felts"
-    class_hash="$(sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]' 2>/dev/null || true)"
+    # The class hash sncast computes, for the "declared" column only (unknown when sncast gives none).
+    class_hash="$( { sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]'; } 2>/dev/null || true)"
     declared=unknown
     if [[ "$class_hash" =~ ^0x[0-9a-fA-F]+$ ]]; then
       if rpc starknet_getClass "[\"latest\",\"$class_hash\"]" | class_declared; then declared=yes; else declared=no; fi

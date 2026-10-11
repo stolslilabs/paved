@@ -97,6 +97,7 @@ case "$FAKE_NODE:$config" in
   down:*) exit 7 ;;
   *starknet_specVersion*) echo '{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
   mainnet:*starknet_chainId*) echo '{"jsonrpc":"2.0","id":1,"result":"0x534e5f4d41494e"}' ;;
+  estimate:*starknet_getClassHashAt*) echo '{"jsonrpc":"2.0","id":1,"result":"0x1"}' ;;
   *starknet_chainId*) echo '{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
   *) echo '{"jsonrpc":"2.0","id":1,"error":{"code":20,"message":"Contract not found"}}' ;;
 esac
@@ -171,6 +172,65 @@ if [[ $rc -ne 1 || "$out" != *"signer call failed"* || "$out" == *"${ADDR_MARK: 
   sed "s/MARKER/<marker>/gI; s/${ADDR_MARK: -7}/<address fragment>/gI" <<<"$out"; fail=1
 else
   echo "ok: a long failing signer output is redacted before its cut (no fragment of the address)"
+fi
+
+# sepolia --estimate-only (S-1c): past every check (a fake node over curl that has the deployer, the source check, a
+# no-op npm and scarb), the real signer estimates each class, under a node shim that preloads the signer's fake node
+# (test/fixtures/fake-estimate-node.mjs: it answers an estimate and would accept any transaction, and logs each
+# method). Nothing may reach a starknet_add* method, no block is read (the fixed tip, S-1c), each class gets a line
+# with the spec version, and no value leaks. Needs Node 24 and scripts/signer's node_modules (npm ci there): skipped
+# without them, as in CI's build job, which has neither.
+real_node="$(command -v node || true)"
+if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d "$here/signer/node_modules/starknet" ]]; then
+  est="$shims/estimate"
+  # The real signer refuses a key that is not a felt: a hex marker, checked for leaks below as well.
+  KEY_MARK=fedcba9876543210fedcba98
+  mkdir -p "$est/bin" "$est/classes"
+  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection; do
+    cp "$here/signer/test/fixtures/tiny.contract_class.json" "$est/classes/paved_$name.contract_class.json"
+    cp "$here/signer/test/fixtures/tiny.compiled_contract_class.json" "$est/classes/paved_$name.compiled_contract_class.json"
+  done
+  printf '#!/usr/bin/env bash\nexit 0\n' >"$est/bin/npm"
+  printf '#!/usr/bin/env bash\nexit 0\n' >"$est/bin/scarb"
+  printf '#!/usr/bin/env bash\nexit 1\n' >"$est/bin/sncast"
+  # The node shim: its own version for deploy.sh's check, else the real node with the fake node preloaded; the
+  # signer's stderr (the methods asked) goes to a log beside it (send's allowlist drops every other variable).
+  printf '#!/usr/bin/env bash\n[[ "$1" == --version ]] && exec %q --version\nexec %q --import %q "$@" 2>>%q\n' \
+    "$real_node" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
+  cp "$shims/curl" "$shims/addr_mark" "$est/bin/"
+  chmod +x "$est/bin/"*
+  : >"$est/node.log"
+  log="$shims/estimate.log"
+  : >"$log"
+  out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
+    FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/classes" \
+    "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$here/deploy.sh" sepolia --estimate-only 2>&1)"
+  rc=$?
+  lines="$(grep -c '^   estimate [A-Za-z]*: spec 0.10.2, sierra .* declared unknown: ok, overall_fee 10000000128 FRI' <<<"$out")"
+  if [[ $rc -ne 0 || "$lines" != 10 || "$out" != *"== estimate only: 10 of 10 estimated; nothing was sent"* ]] ||
+      leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia --estimate-only: expected exit 0 and 10 estimate lines, no value, got $rc and $lines:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$out"; fail=1
+  elif [[ "$(grep -c '^fake-node: asked starknet_estimateFee$' "$est/node.log")" != 10 ]] ||
+      grep -q '^fake-node: asked starknet_add' "$est/node.log" || grep -q '^fake-node: asked starknet_getBlockWith' "$est/node.log"; then
+    echo "FAIL: sepolia --estimate-only: not 10 estimates, or an add* method or a block read was asked:"
+    grep '^fake-node: asked' "$est/node.log" | sort | uniq -c; fail=1
+  elif leaks -q "$log" "$est/node.log" || grep -qi "$KEY_MARK" "$log" "$est/node.log"; then
+    echo "FAIL: sepolia --estimate-only: a value reached a child's argv or environment"; fail=1
+  else
+    echo "ok: sepolia --estimate-only estimates 10 classes (spec on each line), asks no starknet_add* method, reads no block"
+  fi
+  # A diagnostic option is checked by deploy.sh before anything runs, and only with --estimate-only.
+  for bad in "--block-id pending" "--bounds x" "--frobnicate"; do
+    # shellcheck disable=SC2086
+    out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL "$here/deploy.sh" sepolia --estimate-only $bad 2>&1)"
+    if [[ $? -ne 2 ]]; then echo "FAIL: sepolia --estimate-only $bad was not refused: $out"; fail=1
+    else echo "ok: sepolia --estimate-only $bad refused"; fi
+  done
+  refuse 2 "unknown option '--validate' for 'sepolia'" sepolia --validate
+  refuse 2 "unknown option '--unmerged' for 'sepolia --rehearse'" sepolia --rehearse --unmerged --estimate-only
+else
+  echo "skip: sepolia --estimate-only (needs Node 24 and npm ci in scripts/signer)"
 fi
 
 # The getClass predicate of deploy.sh counts a class as declared only for a JSON object, with no `error`
