@@ -257,7 +257,7 @@ history.
 cd scripts/signer && npm ci && npm test
 ```
 
-`node --test`, no other runner, 38 tests:
+`node --test`, no other runner, 65 tests (S-1d):
 - the sanitiser's spellings;
 - the variables: refusal of a missing or empty one (`SIGNER_NETWORK` included), mainnet refused as a
   value, the URL bound to the network;
@@ -276,6 +276,8 @@ cd scripts/signer && npm ci && npm test
   `balance_of` through the signer, with a predeployed devnet account (public test keys).
 - a devnet started as mainnet (`--chain-id MAINNET`): declare and invoke are refused, and the
   account's nonce and the block number are unchanged.
+- a send whose answer is lost (`test/recover.test.mjs`, above); in the devnet rehearsal, the hash
+  printed before each declare, invoke and multicall is the one the node answers.
 
 The rehearsal needs `contracts/target/dev/paved_MockUSDC.*` (`scarb build` in `contracts/`) and the
 devnet binary (`~/.asdf/installs/starknet-devnet/0.10.0/bin/starknet-devnet`); it is skipped when
