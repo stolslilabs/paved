@@ -77,6 +77,9 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    owner sets `STARKNET_RPC_URL` in the VPS environment to an endpoint that passes both checks (it may hold an API
    key, so it is never written anywhere), and `scripts/deploy.sh sepolia` runs in that plain environment, with no
    override.
+   The Cartridge Sepolia endpoint `https://api.cartridge.gg/x/starknet/sepolia` passes both checks (PM, 2026-10-11)
+   and is the one the owner set; it serves RPC spec 0.9.0, and the signer (starknet.js 10.8.0) sends the same
+   request bodies for the deploy methods on 0.9 and 0.10.
 
    What is checked before anything is sent, in order:
    - the network is `sepolia` (mainnet refused by name, any other value refused);
