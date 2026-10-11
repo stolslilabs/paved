@@ -3,7 +3,10 @@
 // signer that would send, also accepts every starknet_add* transaction. It reports each method it is
 // asked on stderr. No class is declared (starknet_getClass answers an error). FAKE_ESTIMATE_ERROR (when
 // the environment reaches it) makes the estimate answer the -32603 error Cartridge gave (no `data`);
-// FAKE_ESTIMATE_HTML an HTTP 413 page with no JSON.
+// FAKE_ESTIMATE_HTML an HTTP 413 page with no JSON. FAKE_FLAKY=<method>:<n> answers the first n calls of
+// that method -32601 with HTTP 400, as dRPC did at random (S-1c).
+const [flakyMethod, flakyCount] = (process.env.FAKE_FLAKY ?? ':0').split(':');
+let flakyLeft = Number(flakyCount);
 const BLOCK = {
   status: 'ACCEPTED_ON_L2',
   block_hash: '0x1',
@@ -35,6 +38,11 @@ const ACCOUNT_CLASS = { sierra_program: ['0x1'], contract_class_version: '0.1.0'
 globalThis.fetch = async (_url, init) => {
   const { id, method } = JSON.parse(init.body);
   process.stderr.write(`fake-node: asked ${method}\n`);
+  if (method === flakyMethod && flakyLeft > 0) {
+    flakyLeft -= 1;
+    const error = { code: -32601, message: `the method ${method} does not exist/is not available` };
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id, error }), { status: 400 });
+  }
   if (method === 'starknet_estimateFee' && process.env.FAKE_ESTIMATE_HTML) {
     return new Response('<html><body>413 Request Entity Too Large</body></html>', { status: 413, headers: { 'content-type': 'text/html' } });
   }

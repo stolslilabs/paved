@@ -251,12 +251,14 @@ const SENDS = [
 ];
 const BLOCK_READ = /fake-node: asked starknet_getBlockWith/;
 
-test('sepolia: declare, deploy, invoke and estimate read no block (fixed tip 0x5f5e100, pinned version)', () => {
+test('sepolia: declare, deploy, invoke and estimate read no block and no account class (fixed tip, pinned versions)', () => {
   for (const args of [...SENDS, ...ESTIMATES]) {
     const result = run(args, SEPOLIA, ['--import', ESTIMATE_NODE]);
     assert.match(result.stderr, /fake-node: asked starknet_estimateFee\n/, result.stderr);
     if (args[0] !== 'estimate') assert.match(result.stderr, /fake-node: asked starknet_add(Declare|Invoke)Transaction\n/, result.stderr);
     assert.doesNotMatch(result.stderr, BLOCK_READ, `${args[0]} read a block`);
+    // The account's Cairo version is pinned on sepolia: its class is never read.
+    assert.doesNotMatch(result.stderr, /fake-node: asked starknet_getClassAt\n/, `${args[0]} read the account's class`);
     if (args[0] === 'estimate') assert.equal(estimateLine(result).request.tip, '0x5f5e100');
     assertNoSecret(result, SEPOLIA.STARKNET_RPC_URL);
   }
@@ -273,4 +275,34 @@ test('--tip sets the tip; --tip node reads the latest blocks for it (the control
   // devnet keeps starknet.js's estimate by default.
   const devnet = run(ESTIMATES[2], { ...ENV, ...DEVNET_NODE }, ['--import', ESTIMATE_NODE]);
   assert.match(devnet.stderr, /fake-node: asked starknet_getBlockWithTxs\n/);
+});
+
+// The retry (S-1c): read methods only, at most 5 attempts (waits 1, 2, 4, 8 s); never a starknet_add* method.
+const asked = (stderr, method) => stderr.split('\n').filter((line) => line === `fake-node: asked ${method}`).length;
+
+test('a read answered -32601 is retried and the command goes on; the account class is read on devnet (control)', () => {
+  const result = run(ESTIMATES[2], { ...SEPOLIA, FAKE_FLAKY: 'starknet_getNonce:1' }, ['--import', ESTIMATE_NODE]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(asked(result.stderr, 'starknet_getNonce'), 2);
+  assert.match(result.stderr, /signer: starknet_getNonce failed \(HTTP 400\), attempt 1 of 5; retrying\n/);
+  assert.equal(estimateLine(result).ok, true);
+  const devnet = run(ESTIMATES[2], { ...ENV, ...DEVNET_NODE }, ['--import', ESTIMATE_NODE]);
+  assert.match(devnet.stderr, /fake-node: asked starknet_getClassAt\n/);
+});
+
+test('a starknet_add* method answered -32601 is never retried: the command stops', () => {
+  const result = run(INVOKE, { ...SEPOLIA, FAKE_FLAKY: 'starknet_addInvokeTransaction:5' }, ['--import', ESTIMATE_NODE]);
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(asked(result.stderr, 'starknet_addInvokeTransaction'), 1);
+  assert.doesNotMatch(result.stderr, /addInvokeTransaction failed .* retrying/);
+  assert.match(result.stderr, /-32601/);
+});
+
+test('a nonce that cannot be read after 5 attempts fails the command; nonce 0 is never used', () => {
+  const result = run(INVOKE, { ...SEPOLIA, FAKE_FLAKY: 'starknet_getNonce:5' }, ['--import', ESTIMATE_NODE]);
+  assert.equal(result.status, 1, result.stderr);
+  assert.equal(asked(result.stderr, 'starknet_getNonce'), 5);
+  assert.match(result.stderr, /signer: .*starknet_getNonce.*-32601/s);
+  assert.equal(asked(result.stderr, 'starknet_estimateFee'), 0);
+  assert.equal(asked(result.stderr, 'starknet_addInvokeTransaction'), 0);
 });
