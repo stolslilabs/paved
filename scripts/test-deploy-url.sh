@@ -237,12 +237,27 @@ SH
     "$real_node" "$est/strk" "$est/strk" "$est/estimate_error" "$est/fee" "$est/fee" "$est/add_lost" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
   cp "$shims/curl" "$shims/addr_mark" "$est/bin/"
   chmod +x "$est/bin/"*
+  # deploy.sh runs from a copy in a scratch root: a real run reads its classes from its own release build only
+  # (ESTIMATE_RELEASE_DIR is for --estimate-only), and the source check needs an origin/main, which CI's checkout has
+  # not. The root is a git repository whose origin/main is its HEAD (the source check
+  # passes), the tiny classes as contracts/target/release, and scripts/signer linked to the real signer. A real run is
+  # given an ESTIMATE_RELEASE_DIR with no class: honoured, it would stop the run.
+  root="$est/root"
+  mkdir -p "$root/scripts" "$root/contracts/target" "$est/empty"
+  cp "$here/deploy.sh" "$root/scripts/"
+  ln -s "$here/signer" "$root/scripts/signer"
+  cp -r "$est/classes" "$root/contracts/target/release"
+  printf 'target/\n' >"$root/contracts/.gitignore"
+  git -C "$root" init -q
+  git -C "$root" add -A
+  git -C "$root" -c user.name=test -c user.email=test@example.com -c core.hooksPath=/dev/null commit -qm root
+  git -C "$root" update-ref refs/remotes/origin/main HEAD
   : >"$est/node.log"
   log="$shims/estimate.log"
   : >"$log"
   out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$est/bin:$PATH" SHIM_LOG="$log" \
     FAKE_NODE=estimate SCARB_BIN_DIR="$est/bin" SNCAST_BIN_DIR="$est/bin" ESTIMATE_RELEASE_DIR="$est/classes" \
-    "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$here/deploy.sh" sepolia --estimate-only 2>&1)"
+    "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$root/scripts/deploy.sh" sepolia --estimate-only 2>&1)"
   rc=$?
   lines="$(grep -c '^   estimate [A-Za-z]*: spec 0.10.2, sierra .* declared unknown: ok, overall_fee 10000000128 FRI' <<<"$out")"
   if [[ $rc -ne 0 || "$lines" != 10 || "$out" != *"== estimate only: each of the 10 classes estimated or already declared; nothing was sent"* ||
@@ -264,20 +279,6 @@ SH
   # Funding (S-1c, S-1d): a real sepolia run estimates the classes the node does not have and needs 1.25 x their
   # estimates + the 20 STRK margin, or the 200 STRK floor when an estimate fails. Each case gives the deployer a balance
   # (FAKE_STRK_BALANCE), the classes the node has (`declared`) and maybe a failing estimate (`estimate_error`).
-  # A real run reads its classes from its own release build only (ESTIMATE_RELEASE_DIR is for --estimate-only), so it
-  # runs from a copy of deploy.sh in a scratch root: a git repository whose origin/main is its HEAD (the source check
-  # passes), the tiny classes as contracts/target/release, and scripts/signer linked to the real signer. The
-  # ESTIMATE_RELEASE_DIR it is given names a directory with no class: honoured, it would stop the run.
-  root="$est/root"
-  mkdir -p "$root/scripts" "$root/contracts/target" "$est/empty"
-  cp "$here/deploy.sh" "$root/scripts/"
-  ln -s "$here/signer" "$root/scripts/signer"
-  cp -r "$est/classes" "$root/contracts/target/release"
-  printf 'target/\n' >"$root/contracts/.gitignore"
-  git -C "$root" init -q
-  git -C "$root" add -A
-  git -C "$root" -c user.name=test -c user.email=test@example.com -c core.hooksPath=/dev/null commit -qm root
-  git -C "$root" update-ref refs/remotes/origin/main HEAD
   real_run() { # <STRK balance, base units> -> output; the signer's log in $est/node.log
     printf '%s' "$1" >"$est/strk"
     : >"$est/node.log"
