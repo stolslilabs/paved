@@ -31,7 +31,9 @@ page.on("request", (r) => {
   else log.requests.push({ method: r.method(), host: u.host, path: u.pathname });
 });
 page.on("requestfailed", (r) => log.failures.push({ url: r.url().slice(0, 200), error: r.failure()?.errorText }));
-page.on("framenavigated", (f) => log.frames.push(f.url().slice(0, 200)));
+// Frame URLs are written without their query (the keychain's connect id is a channel id, kept out of the evidence).
+const redact = (u) => u.replace(/\?.*$/, "");
+page.on("framenavigated", (f) => log.frames.push(redact(f.url()).slice(0, 200)));
 
 await page.goto(url, { waitUntil: "networkidle", timeout: 60000 }).catch((e) => log.console.push({ type: "goto", text: String(e) }));
 await page.waitForTimeout(3000);
@@ -53,7 +55,7 @@ if (arg("connect", false)) {
   await connect.click({ timeout: 15000 }).catch((e) => log.console.push({ type: "connect-click", text: String(e).slice(0, 300) }));
   await page.waitForTimeout(8000);
   await page.screenshot({ path: join(out, "03-after-connect.jpg"), type: "jpeg", quality: 70 });
-  const frames = page.frames().map((f) => f.url());
+  const frames = page.frames().map((f) => redact(f.url()));
   writeFileSync(join(out, "frames.json"), JSON.stringify(frames, null, 2));
   for (const f of page.frames()) {
     if (!/cartridge\.gg/.test(f.url())) continue;

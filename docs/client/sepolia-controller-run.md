@@ -12,6 +12,12 @@ registered or logged into, and none will be until the owner's exact sentence all
 - Run: `NODE_OPTIONS=--max-old-space-size=384 /usr/bin/time -v bun scripts/e2e-sepolia/part-a.mjs --out docs/client/sepolia-controller-run --connect`.
 - **Peak RSS of the run (`/usr/bin/time -v`, largest process): 115,244 kB (112.5 MiB)**, 19.9 s wall, heap cap 384 MB.
 - The driver clicks Connect and reads the keychain iframe's text; it never types into or clicks inside the keychain.
+- Browser install (once; the pinned `playwright-core` does not fetch it): `bunx playwright-core@1.49.1 install chromium-headless-shell`
+  (the run used `chromium_headless_shell-1243` under `~/.cache/ms-playwright/`; pass `--chromium <path>` for another).
+- The `indexer-*.json` files are not made by the driver; they are plain GETs, taken right after the run:
+  `for p in head 'tournaments?limit=1' tournaments/20737 'tournaments/20737/leaderboard?limit=20'; do curl -s "https://api.paved.bal7hazar.com/v1/$p" | jq . > docs/client/sepolia-controller-run/indexer-$(echo $p | tr '/?=' '___').json; done`
+- Frame URLs are written without their query by the driver (`redact`), so `frames.json` and `run.json` agree. The committed
+  files of this run were made before that change and had the keychain's connect id removed from them by hand (`sed`, same result).
 - Evidence is in `docs/client/sepolia-controller-run/`: `01-loaded.jpg`, `02-leaderboard.jpg`, `03-after-connect.jpg`,
   `run.json` (console, requests, failures), `page-text.txt`, `leaderboard-text.txt`, `keychain-text.txt`, `frames.json`,
   and the raw `indexer-*.json` answers. No secret, session key or private key appears in them (nothing was signed).
@@ -50,7 +56,7 @@ Opening "Leaderboard" in the UI makes exactly two requests: `GET /v1/tournaments
 |---|---|---|
 | Day | 2026-10-11 (today) | tournament 20737, `start_time` 1791676800 |
 | Entries | rank 1, player `smoke`, best score 0, 1 game, no prize slot | `total` 1; rank 1, `name` "smoke", `best_score` 0, `games_played` 1, `prize_ranks` [] |
-| Freshness | "Updated 4261 blocks behind: scores may be late (block 16421719)" | `behind` 4261, head 16421719 |
+| Freshness | "Updated 4261 blocks behind: scores may be late (block 16421719)" | `behind` 4205, head 16421819 (the GETs were taken shortly after the UI read, about 100 blocks later) |
 
 Today's Daily from `GET /v1/tournaments/20737`: `games_spawned` 1, `games_finished` 1, `players` 1, `best_score` 0;
 economy `games_purchased` 1, `games_settled` 0, `closed` false. The single game belongs to the previous smoke test
@@ -98,24 +104,28 @@ or recovery phrase.
      entry token with a spender and a cap) and the spending-limit text;
    - any refusal or error line, copied word for word.
    Approve the session. The top bar should now stop saying "Read only".
-3. **Faucet.** On the Token card press Mint once (100 USDC). **Capture** the balance (0 to 100 USDC) and the transaction hash
-   (Voyager or Starkscan link, or the controller's toast). It should not prompt for a signature, as `MockUSDC.mint` is a session policy; note
-   if it does. One mint only.
-4. **Buy one Daily game.** Start the Daily (price in USDC, paid by one `approve` then the entry). **Capture** the price shown,
+3. **Create Account (the client's own step).** After Connect the app offers "Create Account" with a player name. Enter a
+   player name and approve. On Sepolia this one transaction already mints 100 USDC (`MockUSDC.mint` then `Account.create`). **Capture**
+   the transaction hash (Voyager or Starkscan link, or the controller's toast) and the Token card's balance, which becomes 100 USDC.
+   Note whether it prompted for a signature (`Account.create` and `MockUSDC.mint` are session policies). This is the brief's one mint of 100 USDC.
+4. **Faucet (optional extra).** On the Token card, Mint adds 100 more USDC (balance 100 to 200). Skip it unless a second
+   purchase needs the funds. **Capture** the balance and the transaction hash; it should not prompt, as `MockUSDC.mint` is a session policy.
+5. **Buy one Daily game.** Start the Daily (price in USDC, paid by one `approve` then the entry). **Capture** the price shown,
    whether a prompt appeared for the `approve` (it should not: it is within the session cap), and the tx hash(es).
-5. **Play a few moves.** Place about five tiles. **Capture** one screenshot of the board and the tx hash of at least one move;
+6. **Play a few moves.** Place about five tiles. **Capture** one screenshot of the board and the tx hash of at least one move;
    note whether any move prompted. Then end with "Surrender" (a finished game counts in the leaderboard) or leave it open.
-6. **Afterwards, check the indexer.** The indexer is behind: wait until `GET https://api.paved.bal7hazar.com/v1/head` shows
-   `"behind"` close to 0 (it was 4261 on 2026-10-11 and falls with time). Then, with the player id from step 2 (the account
-   address, shown by the controller) and the game's contract and id:
+7. **Afterwards, check the indexer.** The indexer is behind: wait until `GET https://api.paved.bal7hazar.com/v1/head` shows
+   `"behind"` close to 0 (it was 4261 on 2026-10-11 and falls with time). Then, with the player id (the account
+   address, shown by the controller; it must be `0x` plus all 64 hex digits, a shortened or unpadded address answers 400)
+   and the game's id:
    - head and lag: `GET https://api.paved.bal7hazar.com/v1/head`
    - today's day: `GET https://api.paved.bal7hazar.com/v1/tournaments?limit=1` (the first `id`, 20737 for 2026-10-11 UTC, is `<day>`)
    - the day's summary: `GET https://api.paved.bal7hazar.com/v1/tournaments/<day>`
    - the leaderboard: `GET https://api.paved.bal7hazar.com/v1/tournaments/<day>/leaderboard?limit=20`
-     (your username should appear with `games_played` of at least 1, and `best_score` rising once you finish a game)
+     (your player name from step 3, not the Cartridge username, should appear with `games_played` of at least 1, and `best_score` rising once you finish a game)
    - your player: `GET https://api.paved.bal7hazar.com/v1/players/<player_id>` and `GET https://api.paved.bal7hazar.com/v1/players/<player_id>/games`
-   - the game: `GET https://api.paved.bal7hazar.com/v1/games/<contract>/<game_id>` (`<contract>` from `contracts.daily` of `/v1/head`)
+   - the game: `GET https://api.paved.bal7hazar.com/v1/games/daily/<game_id>` (the contract is the name `daily`, not an address)
 
    Compare with the UI: "Leaderboard" on the home page must show the same rank, score and games.
-7. **Send back**: the screenshots of steps 2 to 5, the copied keychain text about the origin and unverified policies, the tx
-   hashes of mint, purchase and one move, and the JSON answers of step 6.
+8. **Send back**: the screenshots of steps 2 to 6, the copied keychain text about the origin and unverified policies, the tx
+   hashes of Create Account, purchase and one move, and the JSON answers of step 6.
