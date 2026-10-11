@@ -44,7 +44,9 @@ export function chooseTip(option, network) {
 export async function connect({ address, privateKey, rpcUrl, network, chainId }, { readOnly = false } = {}) {
   // Every request: the read-only guard first (estimate), then the hash and recovery of a send (sendingFetch), then the
   // bounded retry of read methods.
-  const sending = sendingFetch(retryingFetch(globalThis.fetch), { chainId });
+  // What a send is expected to create besides its class (a deploy's contract address), for the reads after a refusal.
+  const expected = {};
+  const sending = sendingFetch(retryingFetch(globalThis.fetch), { chainId, expected });
   const baseFetch = readOnly ? readOnlyFetch(sending) : sending;
   const probe = new RpcProvider({ nodeUrl: rpcUrl, baseFetch });
   assertChain(await probe.channel.fetchEndpoint('starknet_chainId'), network);
@@ -55,7 +57,7 @@ export async function connect({ address, privateKey, rpcUrl, network, chainId },
   // Sepolia: the account is a Cairo 1 contract (cairoVersion 1), so starknet.js does not read its class
   // (starknet_getClassAt) at each transaction to find out.
   const account = new Account({ provider, address, signer: privateKey, ...(network === 'sepolia' ? { cairoVersion: '1' } : {}) });
-  return { provider, account, rpcUrl, network, fetch: baseFetch };
+  return { provider, account, rpcUrl, network, fetch: baseFetch, expected };
 }
 
 // The read methods retried on a transient failure (S-1c: a Sepolia endpoint answered -32601 "method does not exist"
@@ -162,7 +164,7 @@ function resourceBounds(bounds) {
  * @returns {{ transactionHash: string, classHash?: string }}
  */
 export function transactionHash(method, params, chainId) {
-  const transaction = params?.invoke_transaction ?? params?.declare_transaction ?? (Array.isArray(params) ? params[0] : undefined);
+  const transaction = signedTransaction(params);
   if (!transaction || transaction.version !== '0x3') throw new Error('not a V3 transaction');
   const common = {
     senderAddress: transaction.sender_address,
@@ -194,6 +196,11 @@ export function transactionHash(method, params, chainId) {
     };
   }
   throw new Error(`no hash for ${method}`);
+}
+
+// The transaction of a starknet_add* request's params, by name or by position.
+function signedTransaction(params) {
+  return params?.invoke_transaction ?? params?.declare_transaction ?? (Array.isArray(params) ? params[0] : undefined);
 }
 
 function parseJson(text) {
@@ -267,6 +274,37 @@ async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, interva
   }
 }
 
+// The state read after a refusal: pre-confirmed, the newest a node has.
+const LANDING_BLOCK = 'pre_confirmed';
+
+/**
+ * After a refusal whose receipt never came (S-1e), reads what would show the transaction landed: the sender's nonce,
+ * and the class (a declare) or the contract (a deploy) it creates. Returns the verdict as text: `not landed (...)` when
+ * the nonce is still the signed one and each object is absent, else what was read and `check it before any rerun`.
+ */
+async function readLanding(fetch, url, transaction, { classHash, contractAddress, timeoutMs }) {
+  const signed = transaction.nonce;
+  const nonce = await readRpc(fetch, url, 'starknet_getNonce', { block_id: LANDING_BLOCK, contract_address: transaction.sender_address }, timeoutMs);
+  const now = typeof nonce?.result === 'string' ? shownHash(nonce.result) : undefined;
+  const parts = [!now || now === '<not a felt>' ? 'nonce unreadable'
+    : sameFelt(now, signed) ? `nonce unchanged at ${signed}` : `nonce now ${now} (signed at ${signed})`];
+  // Anything but an unchanged nonce and absent objects leaves the transaction's fate open.
+  let open = !sameFelt(now, signed);
+  // An object answered is there; the node's not-found code, absent; anything else, unreadable.
+  const objects = [];
+  if (classHash) objects.push(['class', classHash, 'starknet_getClass', { block_id: LANDING_BLOCK, class_hash: classHash }, 28, 'declared']);
+  if (contractAddress) {
+    objects.push(['contract', contractAddress, 'starknet_getClassHashAt', { block_id: LANDING_BLOCK, contract_address: contractAddress }, 20, 'deployed']);
+  }
+  for (const [kind, id, method, params, notFound, there] of objects) {
+    const answer = await readRpc(fetch, url, method, params, timeoutMs);
+    const state = typeof answer === 'object' && answer !== null && 'result' in answer && !('error' in answer) ? there : answer?.error?.code === notFound ? 'absent' : 'unreadable';
+    parts.push(`${kind} ${id} ${state}`);
+    open ||= state !== 'absent';
+  }
+  return open ? `read: ${parts.join(', ')}; check it before any rerun` : `not landed (${parts.join(', ')})`;
+}
+
 /**
  * A fetch that, for a starknet_add* method, computes the transaction's hash from the signed request and prints it on
  * stderr before sending, then sends it once. A result under HTTP 5xx is not trusted; a result naming another hash than
@@ -275,13 +313,16 @@ async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, interva
  * (the command then fails naming the code and the hash). Any other answer (another error, HTTP 5xx, no JSON, a network
  * failure) is a lost answer: the request is not sent again, and the receipt is read until RECOVERY_DEADLINE_MS. Once a
  * receipt shows SUCCEEDED or REVERTED, the answer the node would have given is returned, so the command goes on as
- * after a normal send. Other methods go through untouched. A request whose hash cannot be computed is refused, unsent.
+ * after a normal send. A checked refusal with no receipt also reads whether the transaction landed (`readLanding`):
+ * `expected.contractAddress`, when set, is the contract it would deploy. Other methods go through untouched. A request
+ * whose hash cannot be computed is refused, unsent.
  * @param {typeof fetch} inner
- * @param {{ chainId: string, deadlineMs?: number, intervalMs?: number, checkDeadlineMs?: number,
+ * @param {{ chainId: string, expected?: { contractAddress?: string }, deadlineMs?: number, intervalMs?: number, checkDeadlineMs?: number,
  *   checkIntervalMs?: number, readTimeoutMs?: number, sleep?: (ms: number) => Promise<void>, now?: () => number }} options
  */
 export function sendingFetch(inner, {
   chainId,
+  expected = {},
   deadlineMs = RECOVERY_DEADLINE_MS,
   intervalMs = RECOVERY_INTERVAL_MS,
   checkDeadlineMs = CHECK_DEADLINE_MS,
@@ -338,10 +379,12 @@ export function sendingFetch(inner, {
     process.stderr.write(`signer: ${refused === undefined ? 'no answer to' : 'refused'} ${method} (${lost}); not sending it again: `
       + `reading the receipt of ${txHash} for ${wait.deadlineMs / 1000} s, every ${wait.intervalMs / 1000} s\n`);
     const status = await recoverReceipt(inner, url, txHash, { ...wait, sleep, now, readTimeoutMs });
+    if (status === undefined && refused === undefined) throw new Error(`sent, status unknown: ${txHash}; check it before any rerun`);
     if (status === undefined) {
-      throw new Error(refused === undefined
-        ? `sent, status unknown: ${txHash}; check it before any rerun`
-        : `refused (${refused}); no receipt for ${txHash} after ${checkDeadlineMs / 1000} s; check it before any rerun`);
+      const landing = await readLanding(inner, url, signedTransaction(request.params), {
+        classHash, contractAddress: expected.contractAddress, timeoutMs: readTimeoutMs,
+      });
+      throw new Error(`refused (${refused}); no receipt for ${txHash} after ${checkDeadlineMs / 1000} s; ${landing}`);
     }
     process.stderr.write(`signer: transaction ${txHash} is on the node (${status})\n`);
     const result = classHash ? { transaction_hash: txHash, class_hash: classHash } : { transaction_hash: txHash };
@@ -436,9 +479,13 @@ export async function declare({ account, network }, { sierra, casm, tip }) {
   return { class_hash, transaction_hash: transaction_hash || null, already_declared: !transaction_hash };
 }
 
-export async function deploy({ account, network }, { classHash, salt, calldata, tip }) {
+export async function deploy({ account, network, expected }, { classHash, salt, calldata, tip }) {
   const chosenSalt = salt ?? stark.randomAddress();
   announce('deploy class', classHash, 'through the universal deployer');
+  // The address it will have, for the reads after a refusal (sendingFetch): starknet.js computes it the same way.
+  if (expected) {
+    [expected.contractAddress] = account.deployer.buildDeployerCall({ classHash, salt: chosenSalt, unique: true, constructorCalldata: calldata }, account.address).addresses;
+  }
   // The address is computed from the deployer, the salt, the class and the calldata (unique); the receipt is waited
   // for by confirm, which names the transaction if its status cannot be read.
   const { transaction_hash, contract_address: [contractAddress] } = await account.deploy({

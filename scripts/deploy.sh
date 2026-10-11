@@ -361,17 +361,17 @@ sys.stdout.write(text)'
 # NODE_DEBUG or proxy variable). The signer refuses other node options, but only once node runs, after an inspector
 # from NODE_OPTIONS would already listen. SIGUSR1 cannot open the inspector (--disable-sigusr1). Its stdout and stderr
 # are held in a variable, never a file: on success the last line is the JSON line, on failure the run dies with its
-# tail, redacted (`redact`). The line naming each transaction before it is sent is also shown as it comes
-# (`stream_sending`, S-1d). In calldata, `@account` stands for the deployer: the signer reads its address from its
+# tail, redacted (`redact`) and cut by whole lines (`failure_tail`). The line naming each transaction before it is sent
+# is shown as it comes (`stream_sending`, S-1d), and only then: the tail leaves it out (S-1e). In calldata, `@account` stands for the deployer: the signer reads its address from its
 # environment, so the address is in no argv either.
 send() {
   local res status=0
   res="$(run_signer "$@" | stream_sending; exit "${PIPESTATUS[0]}")" || status=$?
   if [[ "$status" != 0 ]]; then
-    # Redacted whole, then cut: a value across the cut is still replaced.
-    res="$(redact_text "$res")"
-    (( ${#res} <= 800 )) || res="${res: -800}"
-    die "signer $1 failed: $res"
+    # The lines already shown left out, then redacted whole, then cut: a value across the cut is still replaced.
+    res="$(while IFS= read -r line || [[ -n "$line" ]]; do sending_line "$line" || printf '%s\n' "$line"; done <<<"$res")"
+    die "signer $1 failed:
+$(failure_tail "$(redact_text "$res")")"
   fi
   # The JSON line: the last line that starts with `{` (stderr shares the stream).
   local line result=""
@@ -390,10 +390,31 @@ stream_sending() {
   local line
   while IFS= read -r line || [[ -n "$line" ]]; do
     printf '%s\n' "$line"
-    if [[ "$line" =~ ^signer:\ sending\ starknet_add[A-Za-z]+,\ transaction\ 0x[0-9a-f]+$ ]]; then
+    if sending_line "$line"; then
       printf '   %s\n' "$(redact_text "$line")" >&2
     fi
   done
+}
+
+# sending_line <line>: whether it is the signer's line naming a transaction before it is sent (`stream_sending`).
+sending_line() { [[ "$1" =~ ^signer:\ sending\ starknet_add[A-Za-z]+,\ transaction\ 0x[0-9a-f]+$ ]]; }
+
+# failure_tail <text>: its last whole lines within 800 characters, each indented, after a line counting those left out
+# (S-1e: a cut inside a line printed `failed: .json`). A last line longer than that alone keeps its last 800
+# characters, after `...`.
+failure_tail() {
+  local line i size=0 first
+  local -a lines=()
+  while IFS= read -r line || [[ -n "$line" ]]; do lines+=("$line"); done <<<"$1"
+  i=${#lines[@]}
+  while (( i > 0 )) && (( size + ${#lines[i - 1]} + 1 <= 800 || i == ${#lines[@]} )); do
+    size=$((size + ${#lines[i - 1]} + 1)); i=$((i - 1))
+  done
+  (( i == 0 )) || printf '   (%s earlier line(s) not shown)\n' "$i"
+  first="${lines[i]:-}"
+  (( ${#first} <= 800 )) || first="...${first: -800}"
+  printf '   %s\n' "$first"
+  for (( i = i + 1; i < ${#lines[@]}; i++ )); do printf '   %s\n' "${lines[i]}"; done
 }
 
 # redact_text <text>: the text with the three values replaced by their names (`redact`, all on stdin).

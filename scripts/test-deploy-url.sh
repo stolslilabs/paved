@@ -232,9 +232,11 @@ SH
   # balance the fake node reports comes from a file beside it too, when there is one.
   # A file `estimate_error` beside it makes every estimate fail (FAKE_ESTIMATE_ERROR); a file `fee` sets every
   # estimate's overall fee (FAKE_ESTIMATE_FEE); a file `add_lost` makes every add* time out with no receipt ever, on a
-  # fast clock (S-1d). The signer's stderr goes to the log and on to deploy.sh as well (tee).
-  printf '#!/usr/bin/env bash\n[[ "$1" == --version ]] && exec %q --version\n[[ -f %q ]] && export FAKE_STRK_BALANCE="$(cat %q)"\n[[ -f %q ]] && export FAKE_ESTIMATE_ERROR=1\n[[ -f %q ]] && export FAKE_ESTIMATE_FEE="$(cat %q)"\n[[ -f %q ]] && export FAKE_ADD_LOST=timeout FAKE_RECEIPT=none FAKE_FAST_CLOCK=1\nexec %q --import %q "$@" 2> >(tee -a %q >&2)\n' \
-    "$real_node" "$est/strk" "$est/strk" "$est/estimate_error" "$est/fee" "$est/fee" "$est/add_lost" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
+  # fast clock (S-1d); a file `add_refused` replays t-0182's declare on dRPC (S-1e): the nonce read, the receipt read
+  # and the status read each answered -32601 once, the add* refused -32601, no receipt ever. The signer's stderr goes
+  # to the log and on to deploy.sh as well (tee).
+  printf '#!/usr/bin/env bash\n[[ "$1" == --version ]] && exec %q --version\n[[ -f %q ]] && export FAKE_STRK_BALANCE="$(cat %q)"\n[[ -f %q ]] && export FAKE_ESTIMATE_ERROR=1\n[[ -f %q ]] && export FAKE_ESTIMATE_FEE="$(cat %q)"\n[[ -f %q ]] && export FAKE_ADD_LOST=timeout FAKE_RECEIPT=none FAKE_FAST_CLOCK=1\n[[ -f %q ]] && export FAKE_ADD_LOST=refused:-32601 FAKE_RECEIPT=none FAKE_FAST_CLOCK=1 FAKE_FLAKY=starknet_getNonce:1,starknet_getTransactionReceipt:1,starknet_getTransactionStatus:1\nexec %q --import %q "$@" 2> >(tee -a %q >&2)\n' \
+    "$real_node" "$est/strk" "$est/strk" "$est/estimate_error" "$est/fee" "$est/fee" "$est/add_lost" "$est/add_refused" "$real_node" "$here/signer/test/fixtures/fake-estimate-node.mjs" "$est/node.log" >"$est/bin/node"
   cp "$shims/curl" "$shims/addr_mark" "$est/bin/"
   chmod +x "$est/bin/"*
   # deploy.sh runs from a copy in a scratch root: a real run reads its classes from its own release build only
@@ -343,6 +345,23 @@ SH
     sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out" | grep -v '^fake-node'; fail=1
   else
     echo "ok: sepolia with a lost declare answer shows the hash as it is sent, then stops after one add* ('status unknown')"
+  fi
+  # 2d. t-0182's refused declare (S-1e): the node gets one add*; the `sending` line shows once (streamed, not again in
+  #     the failure), the failure tail is whole lines (no `failed: .json`) and ends with what the signer read.
+  touch "$est/add_refused"
+  out="$(real_run 150000000000000000000)"; rc=$?
+  rm -f "$est/add_refused"
+  if [[ $rc -ne 1 || "$out" != *"deploy.sh: declare Account failed"* || "$out" == *"declare Daily"* ]] ||
+      [[ "$(grep -c 'signer: sending starknet_add' <<<"$out")" != 1 ]] ||
+      ! grep -q '^   signer: sending starknet_addDeclareTransaction, transaction 0x[0-9a-f]*$' <<<"$out" ||
+      ! grep -q '^deploy.sh: signer declare failed:$' <<<"$out" ||
+      ! grep -q '^   signer: refused (-32601); no receipt for 0x[0-9a-f]* after 30 s; not landed (nonce unchanged at 0x0, class 0x[0-9a-f]* absent)$' <<<"$out" ||
+      [[ "$(grep -c '^fake-node: asked starknet_addDeclareTransaction$' "$est/node.log")" != 1 ]] ||
+      leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
+    echo "FAIL: sepolia with a refused declare: expected one add*, one sending line, whole failure lines and 'not landed', got $rc:"
+    sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI; s/$KEY_MARK/<key>/gI" <<<"$out"; fail=1
+  else
+    echo "ok: sepolia with a refused declare: one add*, its sending line shown once, the failure in whole lines ending 'not landed'"
   fi
   # 3. The estimates fail: the need falls back to the 200 STRK floor, and 150 STRK stops the run before sending.
   touch "$est/estimate_error"
