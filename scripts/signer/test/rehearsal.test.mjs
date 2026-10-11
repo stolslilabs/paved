@@ -99,7 +99,9 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
   t.diagnostic(`declare: ${declared.line}`);
   assert.match(declared.json.class_hash, /^0x[0-9a-f]+$/);
   assert.match(declared.json.transaction_hash, /^0x[0-9a-f]+$/);
-  assert.equal(declared.stderr, 'signer: declare paved_MockUSDC.contract_class.json\n');
+  // The hash printed before sending (S-1d) is the node's: no mismatch warning follows it.
+  const sending = (method, hash) => `signer: sending starknet_add${method}Transaction, transaction ${hash}\n`;
+  assert.equal(declared.stderr, `signer: declare paved_MockUSDC.contract_class.json\n${sending('Declare', declared.json.transaction_hash)}`);
 
   const again = signer('declare', '--sierra', SIERRA, '--casm', CASM);
   t.diagnostic(`declare again: ${again.line}`);
@@ -126,7 +128,7 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
   const minted = signer('invoke', '--contract', usdc, '--function', 'mint', '--calldata', '@account', '1000000', '0');
   t.diagnostic(`invoke mint: ${minted.line}`);
   assert.match(minted.json.transaction_hash, /^0x[0-9a-f]+$/);
-  assert.equal(minted.stderr, `signer: invoke ${usdc} mint\n`);
+  assert.equal(minted.stderr, `signer: invoke ${usdc} mint\n${sending('Invoke', minted.json.transaction_hash)}`);
 
   assert.equal(balanceOf() - premint, 1_000_000n);
 
@@ -137,7 +139,7 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
   ]));
   const multi = signer('multicall', '--calls', calls);
   t.diagnostic(`multicall mint + transfer: ${multi.line}`);
-  assert.equal(multi.stderr, `signer: invoke ${usdc} mint\nsigner: invoke ${usdc} transfer\n`);
+  assert.equal(multi.stderr, `signer: invoke ${usdc} mint\nsigner: invoke ${usdc} transfer\n${sending('Invoke', multi.json.transaction_hash)}`);
   assert.equal(balanceOf() - premint, 2_500_000n); // 1 + 2 - 0.5 = 2.5 USDC
 });
 

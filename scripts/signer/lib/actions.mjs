@@ -2,7 +2,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
-import { Account, ETransactionVersion3, RpcProvider, TransactionType, config, json, stark } from 'starknet';
+import { Account, ETransactionVersion3, RpcProvider, TransactionType, config, hash, json, stark } from 'starknet';
 
 import { parseCalls, resolveAccount } from './args.mjs';
 import { UsageError, assertChain } from './env.mjs';
@@ -42,9 +42,10 @@ export function chooseTip(option, network) {
  * @param {{ readOnly?: boolean }} [mode]
  */
 export async function connect({ address, privateKey, rpcUrl, network, chainId }, { readOnly = false } = {}) {
-  // Every request: the read-only guard first (estimate), then the bounded retry of read methods.
-  const retried = retryingFetch(globalThis.fetch);
-  const baseFetch = readOnly ? readOnlyFetch(retried) : retried;
+  // Every request: the read-only guard first (estimate), then the hash and recovery of a send (sendingFetch), then the
+  // bounded retry of read methods.
+  const sending = sendingFetch(retryingFetch(globalThis.fetch), { chainId });
+  const baseFetch = readOnly ? readOnlyFetch(sending) : sending;
   const probe = new RpcProvider({ nodeUrl: rpcUrl, baseFetch });
   assertChain(await probe.channel.fetchEndpoint('starknet_chainId'), network);
   if (network === 'devnet') await assertDevnet(probe);
@@ -115,6 +116,236 @@ export function retryingFetch(inner, { delays = RETRY_DELAYS_MS, sleep = (ms) =>
       process.stderr.write(`signer: ${method} failed (HTTP ${response.status}), attempt ${attempt} of ${delays.length + 1}; retrying\n`);
       await sleep(delays[attempt - 1]);
     }
+  };
+}
+
+// A send whose answer is lost (S-1d): dRPC's free plan answered a declare that went in with `30: Request timeout on the
+// free plan`. A starknet_add* method is never sent twice; the signer computes the transaction's hash before sending it,
+// and when the answer is lost it reads that hash's receipt instead, RECOVERY_INTERVAL_MS apart, until
+// RECOVERY_DEADLINE_MS after the first read, by the clock (a slow or flapping node does not stretch the wait).
+export const RECOVERY_DEADLINE_MS = 300_000;
+export const RECOVERY_INTERVAL_MS = 5000;
+// The JSON-RPC errors by which a node refuses a transaction it did not take: the JSON-RPC protocol's own (parse error,
+// invalid request, method not found, invalid params) and the Starknet write API's (51 class already declared, 52
+// invalid nonce, 53 insufficient resources, 54 insufficient balance, 55 validation failure, 56 compilation failed, 57
+// class too large, 58 not an account, 60 compiled class hash mismatch, 61 and 62 unsupported versions). Any other
+// answer that is not a result (another error code, such as dRPC's 30 or -32603, an HTTP 5xx, a body that is not JSON,
+// a network error) leaves the transaction's fate unknown: it is recovered, not refused.
+export const REFUSAL_CODES = Object.freeze(new Set([-32700, -32600, -32601, -32602, 51, 52, 53, 54, 55, 56, 57, 58, 60, 61, 62]));
+// Refusals that can also be the echo of a transaction that went in (a proxy's random -32601; 51 or 52 when the same
+// transaction reached the node by another way): the receipt of the computed hash is read briefly, CHECK_INTERVAL_MS
+// apart for CHECK_DEADLINE_MS (3 reads over 30 s), before the refusal is reported.
+export const CHECKED_REFUSALS = Object.freeze(new Set([-32601, 51, 52]));
+export const CHECK_DEADLINE_MS = 30_000;
+export const CHECK_INTERVAL_MS = 15_000;
+// Each receipt or status read gives up after READ_TIMEOUT_MS, or at the deadline when that comes first: a node that never
+// answers cannot hold the wait past it.
+export const READ_TIMEOUT_MS = 30_000;
+
+const DA_MODES = Object.freeze({ L1: 0, L2: 1 });
+
+function resourceBounds(bounds) {
+  const out = {};
+  for (const name of ['l1_gas', 'l2_gas', 'l1_data_gas']) {
+    out[name] = { max_amount: BigInt(bounds[name].max_amount), max_price_per_unit: BigInt(bounds[name].max_price_per_unit) };
+  }
+  return out;
+}
+
+/**
+ * The hash of a V3 transaction as a starknet_add* request carries it, signed: what the node will answer, computed
+ * before it is sent. For a declare, also the class hash (the node's answer carries it). Throws on any other method
+ * or version.
+ * @param {string} method
+ * @param {Record<string, any>} params
+ * @param {string} chainId
+ * @returns {{ transactionHash: string, classHash?: string }}
+ */
+export function transactionHash(method, params, chainId) {
+  const transaction = params?.invoke_transaction ?? params?.declare_transaction ?? (Array.isArray(params) ? params[0] : undefined);
+  if (!transaction || transaction.version !== '0x3') throw new Error('not a V3 transaction');
+  const common = {
+    senderAddress: transaction.sender_address,
+    version: transaction.version,
+    chainId,
+    nonce: transaction.nonce,
+    accountDeploymentData: transaction.account_deployment_data,
+    nonceDataAvailabilityMode: DA_MODES[transaction.nonce_data_availability_mode],
+    feeDataAvailabilityMode: DA_MODES[transaction.fee_data_availability_mode],
+    resourceBounds: resourceBounds(transaction.resource_bounds),
+    tip: transaction.tip,
+    paymasterData: transaction.paymaster_data,
+  };
+  if (common.nonceDataAvailabilityMode === undefined || common.feeDataAvailabilityMode === undefined) {
+    throw new Error('unknown data availability mode');
+  }
+  if (method === 'starknet_addInvokeTransaction' && transaction.type === 'INVOKE') {
+    return {
+      transactionHash: hash.calculateInvokeTransactionHash({ ...common, compiledCalldata: transaction.calldata, proofFacts: transaction.proof_facts }),
+    };
+  }
+  if (method === 'starknet_addDeclareTransaction' && transaction.type === 'DECLARE') {
+    // The request carries the ABI as a string; the class hash hashes it as starknet.js formats it.
+    const { contract_class: sierra } = transaction;
+    const classHash = hash.computeSierraContractClassHash({ ...sierra, abi: typeof sierra.abi === 'string' ? JSON.parse(sierra.abi) : sierra.abi });
+    return {
+      transactionHash: hash.calculateDeclareTransactionHash({ ...common, classHash, compiledClassHash: transaction.compiled_class_hash }),
+      classHash,
+    };
+  }
+  throw new Error(`no hash for ${method}`);
+}
+
+function parseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+const FIELD_PRIME = 2n ** 251n + 17n * 2n ** 192n + 1n;
+
+// A node-supplied hash as it may be printed: a felt in 0x-hex form, `<not a felt>` for anything else, undefined when
+// there is none. A node's text never reaches an error or a status line as it came.
+function shownHash(value) {
+  if (value === undefined || value === null) return undefined;
+  return typeof value === 'string' && /^0x[0-9a-fA-F]{1,64}$/.test(value) && BigInt(value) < FIELD_PRIME ? value : '<not a felt>';
+}
+
+function sameFelt(a, b) {
+  try {
+    return BigInt(a) === BigInt(b);
+  } catch {
+    return false;
+  }
+}
+
+// One JSON-RPC read through `fetch` (the retrying one): its answer, or undefined when none could be read within
+// `timeoutMs` (the request is then aborted).
+async function readRpc(fetch, url, method, params, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error(`${method}: no answer in ${timeoutMs / 1000} s`)), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+      signal: controller.signal,
+    });
+    return parseJson(await response.text());
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Reads the receipt of a sent transaction until `deadlineMs` after the first read, by `now()`: SUCCEEDED or REVERTED
+ * is returned (confirm then judges it as for any send), REJECTED (a node outside spec 0.10, which has no such status)
+ * throws, and the end of the wait returns undefined. A receipt for another hash than the one asked is ignored.
+ */
+async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, intervalMs, sleep, now, readTimeoutMs }) {
+  const end = now() + deadlineMs;
+  const timeout = () => Math.max(1, Math.min(readTimeoutMs, end - now()));
+  for (;;) {
+    const receipt = (await readRpc(fetch, url, 'starknet_getTransactionReceipt', { transaction_hash: transactionHash }, timeout()))?.result;
+    if (receipt && !sameFelt(receipt.transaction_hash, transactionHash)) {
+      const named = shownHash(receipt.transaction_hash);
+      process.stderr.write(`signer: the receipt read for ${transactionHash} ${named ? `names transaction ${named}` : 'names no transaction hash'}; ignored\n`);
+    } else {
+      const execution = receipt?.execution_status;
+      if (execution === 'SUCCEEDED' || execution === 'REVERTED') return execution;
+      const finality = receipt?.finality_status
+        ?? (await readRpc(fetch, url, 'starknet_getTransactionStatus', { transaction_hash: transactionHash }, timeout()))?.result?.finality_status;
+      if (finality === 'REJECTED') throw new Error(`transaction ${transactionHash} was REJECTED by the node`);
+    }
+    const left = end - now();
+    if (left <= 0) return undefined;
+    await sleep(Math.min(intervalMs, left));
+  }
+}
+
+/**
+ * A fetch that, for a starknet_add* method, computes the transaction's hash from the signed request and prints it on
+ * stderr before sending, then sends it once. A result under HTTP 5xx is not trusted; a result naming another hash than
+ * the computed one stops the command. A refusal of REFUSAL_CODES is
+ * returned as it came, but one of CHECKED_REFUSALS only once the computed hash has no receipt after CHECK_DEADLINE_MS
+ * (the command then fails naming the code and the hash). Any other answer (another error, HTTP 5xx, no JSON, a network
+ * failure) is a lost answer: the request is not sent again, and the receipt is read until RECOVERY_DEADLINE_MS. Once a
+ * receipt shows SUCCEEDED or REVERTED, the answer the node would have given is returned, so the command goes on as
+ * after a normal send. Other methods go through untouched. A request whose hash cannot be computed is refused, unsent.
+ * @param {typeof fetch} inner
+ * @param {{ chainId: string, deadlineMs?: number, intervalMs?: number, checkDeadlineMs?: number,
+ *   checkIntervalMs?: number, readTimeoutMs?: number, sleep?: (ms: number) => Promise<void>, now?: () => number }} options
+ */
+export function sendingFetch(inner, {
+  chainId,
+  deadlineMs = RECOVERY_DEADLINE_MS,
+  intervalMs = RECOVERY_INTERVAL_MS,
+  checkDeadlineMs = CHECK_DEADLINE_MS,
+  checkIntervalMs = CHECK_INTERVAL_MS,
+  readTimeoutMs = READ_TIMEOUT_MS,
+  sleep = (ms) => new Promise((done) => setTimeout(done, ms)),
+  now = () => Date.now(),
+}) {
+  return async (url, init) => {
+    const request = parseJson(String(init?.body));
+    const method = request && !Array.isArray(request) ? request.method : undefined;
+    if (typeof method !== 'string' || !method.startsWith('starknet_add')) {
+      if (Array.isArray(request) && request.some((entry) => String(entry?.method).startsWith('starknet_add'))) {
+        throw new Error('refused a batch holding a starknet_add* method; nothing was sent');
+      }
+      return inner(url, init);
+    }
+    let computed;
+    try {
+      computed = transactionHash(method, request.params, chainId);
+    } catch (error) {
+      throw new Error(`${method}: the transaction hash cannot be computed before sending (${error.message}); nothing was sent`);
+    }
+    const { transactionHash: txHash, classHash } = computed;
+    process.stderr.write(`signer: sending ${method}, transaction ${txHash}\n`);
+    let lost;
+    let refused;
+    let other;
+    try {
+      const response = await inner(url, init);
+      const text = await response.text();
+      const answer = parseJson(text);
+      const ok = answer && typeof answer === 'object' && 'result' in answer && !('error' in answer);
+      const code = answer?.error?.code;
+      if ((ok && response.status < 500) || (REFUSAL_CODES.has(code) && !CHECKED_REFUSALS.has(code))) {
+        // A node that names another transaction than the one signed: neither can be trusted to be the one sent.
+        if (ok && !sameFelt(answer.result?.transaction_hash, txHash)) {
+          other = { hash: shownHash(answer.result?.transaction_hash) };
+        } else {
+          return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
+        }
+      }
+      if (CHECKED_REFUSALS.has(code)) refused = code;
+      lost = answer?.error
+        ? `HTTP ${response.status}, JSON-RPC error ${code}: ${String(answer.error.message).slice(0, 200)}`
+        : `HTTP ${response.status}${answer ? '' : ', no JSON'}`;
+    } catch (error) {
+      lost = describeCause(error);
+    }
+    if (other) {
+      throw new Error(`${other.hash ? `node returned ${other.hash}` : 'node returned no transaction hash'}, signed ${txHash}; check both before any rerun`);
+    }
+    const wait = refused === undefined ? { deadlineMs, intervalMs } : { deadlineMs: checkDeadlineMs, intervalMs: checkIntervalMs };
+    process.stderr.write(`signer: ${refused === undefined ? 'no answer to' : 'refused'} ${method} (${lost}); not sending it again: `
+      + `reading the receipt of ${txHash} for ${wait.deadlineMs / 1000} s, every ${wait.intervalMs / 1000} s\n`);
+    const status = await recoverReceipt(inner, url, txHash, { ...wait, sleep, now, readTimeoutMs });
+    if (status === undefined) {
+      throw new Error(refused === undefined
+        ? `sent, status unknown: ${txHash}; check it before any rerun`
+        : `refused (${refused}); no receipt for ${txHash} after ${checkDeadlineMs / 1000} s; check it before any rerun`);
+    }
+    process.stderr.write(`signer: transaction ${txHash} is on the node (${status})\n`);
+    const result = classHash ? { transaction_hash: txHash, class_hash: classHash } : { transaction_hash: txHash };
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }), { status: 200, headers: { 'content-type': 'application/json' } });
   };
 }
 

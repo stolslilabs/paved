@@ -269,9 +269,6 @@ SIGNER_JS="$ROOT/scripts/signer/signer.mjs"
 # The signer's heap cap: 1.5x its measured peak (405,544 kB RSS, declare Daily, VPS 2026-10-10), rounded up to 64 MB.
 SIGNER_HEAP="--max-old-space-size=640"
 RELEASE_DIR="$ROOT/contracts/target/release"
-# Test hook (scripts/test-deploy-url.sh), --estimate-only alone: the class files come from ESTIMATE_RELEASE_DIR. It
-# changes what is estimated, never what is sent: nothing is sent in that mode.
-if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then RELEASE_DIR="$ESTIMATE_RELEASE_DIR"; fi
 
 die() { echo "deploy.sh: $*" >&2; exit 1; }
 
@@ -364,11 +361,12 @@ sys.stdout.write(text)'
 # NODE_DEBUG or proxy variable). The signer refuses other node options, but only once node runs, after an inspector
 # from NODE_OPTIONS would already listen. SIGUSR1 cannot open the inspector (--disable-sigusr1). Its stdout and stderr
 # are held in a variable, never a file: on success the last line is the JSON line, on failure the run dies with its
-# tail, redacted (`redact`). In calldata, `@account` stands for the deployer: the signer reads its address from its
+# tail, redacted (`redact`). The line naming each transaction before it is sent is also shown as it comes
+# (`stream_sending`, S-1d). In calldata, `@account` stands for the deployer: the signer reads its address from its
 # environment, so the address is in no argv either.
 send() {
   local res status=0
-  res="$(run_signer "$@")" || status=$?
+  res="$(run_signer "$@" | stream_sending; exit "${PIPESTATUS[0]}")" || status=$?
   if [[ "$status" != 0 ]]; then
     # Redacted whole, then cut: a value across the cut is still replaced.
     res="$(redact_text "$res")"
@@ -382,6 +380,20 @@ send() {
   done <<<"$res"
   [[ -n "$result" ]] || die "signer $1 printed no JSON line"
   printf '%s\n' "$result"
+}
+
+# stream_sending: copies the signer's output (stdout and stderr, one stream) to stdout for `send`, and shows on the
+# terminal (stderr), as it comes, each line by which the signer names a transaction before it sends it (S-1d): a run
+# killed or stopped afterwards still leaves the hash on screen. Only a line made of the method and a hex hash is shown,
+# redacted (`redact_text`).
+stream_sending() {
+  local line
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    printf '%s\n' "$line"
+    if [[ "$line" =~ ^signer:\ sending\ starknet_add[A-Za-z]+,\ transaction\ 0x[0-9a-f]+$ ]]; then
+      printf '   %s\n' "$(redact_text "$line")" >&2
+    fi
+  done
 }
 
 # redact_text <text>: the text with the three values replaced by their names (`redact`, all on stdin).
@@ -589,39 +601,58 @@ echo "== build"
 cd "$ROOT/contracts"
 RAYON_NUM_THREADS=1 scarb --release build >/dev/null
 
-# Funding (S-1c), sepolia and its rehearsal: the deployer's STRK balance, a public read (balance_of of `@account`, so the
-# address stays out of argv and output), printed as an amount only. A real run stops before its first declare below
+# Funding (S-1c, S-1d), sepolia and its rehearsal: the deployer's STRK balance, a public read (balance_of of `@account`,
+# so the address stays out of argv and output), printed as an amount only. Before its first declare, a real run
+# estimates the declare of each class the node does not have yet (`signer estimate declare`, read-only, as in
+# --estimate-only) and needs a balance of at least 1.25 x the sum of those estimates + FUNDING_MARGIN_STRK, the
+# deploys, invokes and smoke that follow (see below). A rerun after a partial deploy then needs only what is left. When
+# an estimate cannot be had (the signer's retries spent, or the node's error), the need falls back to
 # FUNDING_FLOOR_STRK: 200 STRK, about 1.4 x the 142.6 STRK that Sepolia's estimates of the nine undeclared classes
-# added up to on 2026-10-11 (Daily alone 38.8), with no estimate at hand in that run. --estimate-only compares it with
-# 1.25 x the sum of its own estimates instead, and with the floor, and sends nothing either way.
+# added up to on 2026-10-11 (Daily alone 38.8). Below the need, the run stops before it sends anything. --estimate-only
+# prints the same need and balance and sends nothing either way.
+# Each declare is also sent with resource bounds above its estimate: starknet.js 10.8 adds 50% to the amount and 50% to
+# the price of each resource (2.25 x the estimate), and the tip is paid on the bounded L2 gas (about 1% more on Sepolia
+# in S-1c), so the node wants up to MAX_FEE_FACTOR = 2.3 x the estimate in the balance when it is sent. The need is
+# raised to the largest of those moments when one is above the rule (a rerun left with Tutorial and Lobby only: 1.25 x
+# their 69.4 STRK + 20 is 106.8 STRK, but Lobby's bounds want 76.1 STRK after Tutorial's 36.3).
+# FUNDING_MARGIN_STRK, the deploys, invokes and smoke after the declares: the --rehearse run of S-1d on starknet-devnet
+# 0.10.0 sent 24 of them for 137,224,560 L2 gas and 12,384 L1 data gas in all, about 1.1 STRK at the 8.2 x 10^9 FRI per
+# L2 gas of Sepolia's declare estimates on 2026-10-11 (Tutorial: 36.32 STRK for 4,430,587,392 L2 gas). 20 STRK leaves
+# room for a gas price about 18 times higher.
 STRK_TOKEN=0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d
 FUNDING_FLOOR_STRK=200
-STRK_BALANCE=""
+FUNDING_MARGIN_STRK=20
+# Test hook (scripts/test-deploy-url.sh), --estimate-only alone: the class files come from ESTIMATE_RELEASE_DIR. It
+# changes what is estimated, never what is sent: nothing is sent in that mode. A real run estimates and declares the
+# files of RELEASE_DIR, whatever the environment says.
+ESTIMATE_DIR="$RELEASE_DIR"
+if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
 if ((USE_SIGNER)); then
   read -r BAL_LOW BAL_HIGH <<<"$(call "$STRK_TOKEN" balance_of "$DEPLOYER_ARG")"
   STRK_BALANCE="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$BAL_LOW" "$BAL_HIGH")"
   echo "== funding: deployer STRK balance $(python3 -I -c 'import sys;print(f"{int(sys.argv[1])/1e18:.2f}")' "$STRK_BALANCE") STRK"
-  if [[ "$ESTIMATE_ONLY" == 0 ]]; then
-    python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1]) >= int(sys.argv[2]) * 10**18 else 1)' "$STRK_BALANCE" "$FUNDING_FLOOR_STRK" ||
-      die "the deployer holds less than the ${FUNDING_FLOOR_STRK} STRK floor: fund it before deploying; nothing was sent"
-    echo "   at or above the ${FUNDING_FLOOR_STRK} STRK floor"
-  fi
-fi
-
-if [[ "$ESTIMATE_ONLY" == 1 ]]; then
   : >"$WORK_DIR/fees"
-  echo "== estimate only (nothing is sent): each declare in deploy order, spec $SPEC_VERSION${ESTIMATE_ARGS[*]:+, diagnostic: ${ESTIMATE_ARGS[*]}}"
+  if ((ESTIMATE_ONLY)); then
+    echo "== estimate only (nothing is sent): each declare in deploy order, spec $SPEC_VERSION${ESTIMATE_ARGS[*]:+, diagnostic: ${ESTIMATE_ARGS[*]}}"
+  else
+    echo "== funding: estimating each declare still to send, in deploy order (read-only, nothing is sent)"
+  fi
   failed=0
   for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection; do
-    sierra="$RELEASE_DIR/paved_$name.contract_class.json"
-    casm="$RELEASE_DIR/paved_$name.compiled_contract_class.json"
-    [[ -f "$sierra" && -f "$casm" ]] || die "no release class files for $name in ${RELEASE_DIR#"$ROOT/"}"
+    sierra="$ESTIMATE_DIR/paved_$name.contract_class.json"
+    casm="$ESTIMATE_DIR/paved_$name.compiled_contract_class.json"
+    [[ -f "$sierra" && -f "$casm" ]] || die "no release class files for $name in ${ESTIMATE_DIR#"$ROOT/"}"
     sizes="sierra $(wc -c <"$sierra" | tr -d ' ') B, casm $(pyj 'len(d["bytecode"])' <"$casm") felts"
-    # The class hash sncast computes, for the "declared" column only (unknown when sncast gives none).
+    # The class hash sncast computes, to ask the node whether it has the class (unknown when sncast gives none).
     class_hash="$( { sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]'; } 2>/dev/null || true)"
     declared=unknown
     if [[ "$class_hash" =~ ^0x[0-9a-fA-F]+$ ]]; then
       if rpc starknet_getClass "[\"latest\",\"$class_hash\"]" | class_declared; then declared=yes; else declared=no; fi
+    fi
+    # A real run skips a class the node has: declareIfNot will not send it.
+    if [[ "$ESTIMATE_ONLY" == 0 && "$declared" == yes ]]; then
+      echo "   estimate $name: declared already, nothing to send"
+      continue
     fi
     status=0
     out="$(run_signer estimate declare --sierra "$sierra" --casm "$casm" ${ESTIMATE_ARGS[@]+"${ESTIMATE_ARGS[@]}"})" || status=$?
@@ -645,8 +676,10 @@ if d.get("ok"):
     n = lambda k: int(e.get(k, "0x0"), 16)
     print(f"{head}: ok, overall_fee {n('overall_fee')} {e.get('unit', '?')} (l1_gas {n('l1_gas_consumed')}, "
           f"l1_data_gas {n('l1_data_gas_consumed')}, l2_gas {n('l2_gas_consumed')})")
-    with open(fees, "a") as f:
-        f.write(f"{n('overall_fee')}\n")
+    # Only a class still to declare counts toward the need.
+    if declared != "yes":
+        with open(fees, "a") as f:
+            f.write(f"{n('overall_fee')}\n")
     sys.exit(0)
 answer = {k: d[k] for k in ("http_status", "error", "body", "body_bytes", "transport") if k in d}
 # A class the node has already: nothing to declare, and a real run skips it (declareIfNot). Not a failure.
@@ -657,25 +690,44 @@ print(f"{head}: error {json.dumps(answer)[:1500]}")
 sys.exit(1)
 PY
   done
-  # The funding against the estimates that came back: 1.25 x their sum, and the real run's floor.
-  python3 -I - "$WORK_DIR/fees" "$STRK_BALANCE" "$FUNDING_FLOOR_STRK" <<'PY'
+  # The need: 1.25 x the estimates of the classes still to declare + the margin, or the floor when an estimate failed.
+  # Integers in FRI (1 STRK = 10^18); exit 1 when the balance is below the need.
+  funded=0
+  python3 -I - "$WORK_DIR/fees" "$STRK_BALANCE" "$FUNDING_FLOOR_STRK" "$FUNDING_MARGIN_STRK" "$failed" <<'PY' || funded=$?
 import sys
 fees = [int(x) for x in open(sys.argv[1]).read().split()]
-balance, floor = sys.argv[2], int(sys.argv[3])
-total = sum(fees) / 1e18
-need = 1.25 * total
-print(f"== funding: {len(fees)} estimates total {total:.2f} STRK; 1.25 x that is {need:.2f} STRK; the real run's floor {floor} STRK")
-if balance:
-    b = int(balance) / 1e18
-    print(f"   deployer STRK balance {b:.2f} STRK: {'covers' if b >= need else 'BELOW'} 1.25 x the estimates, "
-          f"{'at or above' if b >= floor else 'BELOW'} the floor")
+balance, floor, margin, failed = int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])
+strk = lambda fri: f"{fri / 10**18:.2f} STRK"
+total = sum(fees)
+if failed:
+    need = floor * 10**18
+    print(f"== funding: {failed} estimate(s) could not be had: the need falls back to the {floor} STRK floor")
+else:
+    need = -(-total * 5 // 4) + margin * 10**18
+    print(f"== funding: {len(fees)} class(es) to declare, estimated at {strk(total)}; "
+          f"need 1.25 x {strk(total)} + {margin} STRK margin = {strk(need)}")
+    # The peak: when each declare is sent, what is left (the balance less 1.25 x the declares before it) must cover
+    # its bounds, 2.3 x its estimate (MAX_FEE_FACTOR above), with the margin still kept for what follows.
+    peak, before = 0, 0
+    for fee in fees:
+        peak = max(peak, -(-before * 5 // 4) + -(-fee * 23 // 10))
+        before += fee
+    peak += margin * 10**18
+    if peak > need:
+        print(f"   the bounds of one declare need more: 2.3 x its estimate, after 1.25 x the declares before it, + the margin = {strk(peak)}")
+        need = peak
+print(f"   deployer STRK balance {strk(balance)}: {'covers' if balance >= need else 'BELOW'} the need of {strk(need)}")
+sys.exit(0 if balance >= need else 1)
 PY
-  if [[ "$failed" != 0 ]]; then
-    echo "== estimate only: $failed of 10 classes failed (neither an estimate nor already declared); nothing was sent"
-    exit 1
+  if ((ESTIMATE_ONLY)); then
+    if [[ "$failed" != 0 ]]; then
+      echo "== estimate only: $failed of 10 classes failed (neither an estimate nor already declared); nothing was sent"
+      exit 1
+    fi
+    echo "== estimate only: each of the 10 classes estimated or already declared; nothing was sent"
+    exit 0
   fi
-  echo "== estimate only: each of the 10 classes estimated or already declared; nothing was sent"
-  exit 0
+  [[ "$funded" == 0 ]] || die "the deployer's STRK balance is below the need above: fund it before deploying; nothing was sent"
 fi
 
 echo "== declare"
