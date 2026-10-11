@@ -204,6 +204,15 @@ function parseJson(text) {
   }
 }
 
+const FIELD_PRIME = 2n ** 251n + 17n * 2n ** 192n + 1n;
+
+// A node-supplied hash as it may be printed: a felt in 0x-hex form, `<not a felt>` for anything else, undefined when
+// there is none. A node's text never reaches an error or a status line as it came.
+function shownHash(value) {
+  if (value === undefined || value === null) return undefined;
+  return typeof value === 'string' && /^0x[0-9a-fA-F]{1,64}$/.test(value) && BigInt(value) < FIELD_PRIME ? value : '<not a felt>';
+}
+
 function sameFelt(a, b) {
   try {
     return BigInt(a) === BigInt(b);
@@ -243,7 +252,8 @@ async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, interva
   for (;;) {
     const receipt = (await readRpc(fetch, url, 'starknet_getTransactionReceipt', { transaction_hash: transactionHash }, timeout()))?.result;
     if (receipt && !sameFelt(receipt.transaction_hash, transactionHash)) {
-      process.stderr.write(`signer: the receipt read for ${transactionHash} names transaction ${receipt.transaction_hash}; ignored\n`);
+      const named = shownHash(receipt.transaction_hash);
+      process.stderr.write(`signer: the receipt read for ${transactionHash} ${named ? `names transaction ${named}` : 'names no transaction hash'}; ignored\n`);
     } else {
       const execution = receipt?.execution_status;
       if (execution === 'SUCCEEDED' || execution === 'REVERTED') return execution;
@@ -309,7 +319,7 @@ export function sendingFetch(inner, {
       if ((ok && response.status < 500) || (REFUSAL_CODES.has(code) && !CHECKED_REFUSALS.has(code))) {
         // A node that names another transaction than the one signed: neither can be trusted to be the one sent.
         if (ok && !sameFelt(answer.result?.transaction_hash, txHash)) {
-          other = { hash: answer.result?.transaction_hash };
+          other = { hash: shownHash(answer.result?.transaction_hash) };
         } else {
           return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
         }
@@ -321,7 +331,9 @@ export function sendingFetch(inner, {
     } catch (error) {
       lost = describeCause(error);
     }
-    if (other) throw new Error(`node returned ${other.hash}, signed ${txHash}; check both before any rerun`);
+    if (other) {
+      throw new Error(`${other.hash ? `node returned ${other.hash}` : 'node returned no transaction hash'}, signed ${txHash}; check both before any rerun`);
+    }
     const wait = refused === undefined ? { deadlineMs, intervalMs } : { deadlineMs: checkDeadlineMs, intervalMs: checkIntervalMs };
     process.stderr.write(`signer: ${refused === undefined ? 'no answer to' : 'refused'} ${method} (${lost}); not sending it again: `
       + `reading the receipt of ${txHash} for ${wait.deadlineMs / 1000} s, every ${wait.intervalMs / 1000} s\n`);

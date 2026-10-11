@@ -12,7 +12,7 @@
 // HTTP 500) or `refused:<code>` (that JSON-RPC error, HTTP 200). FAKE_RECEIPT=succeeded gives every transaction a
 // SUCCEEDED receipt, `none` none (error 29), `rejected` none but a REJECTED status (outside spec 0.10), `hang` never
 // answers a receipt read (until it is aborted); otherwise it reverts at once. A receipt names the hash it was asked for,
-// or FAKE_RECEIPT_HASH. An add* that is answered names the transaction's hash, or FAKE_ADD_HASH. FAKE_ADD_LOG=<file> appends each
+// or FAKE_RECEIPT_HASH. An add* that is answered names the transaction's hash, or FAKE_ADD_HASH (`none`: no hash). FAKE_ADD_LOG=<file> appends each
 // starknet_add* request body to the file. FAKE_FAST_CLOCK=1 runs a fake clock: every timer fires at once and moves
 // Date.now by its delay, so a 5-minute wait takes no time; FAKE_SLOW_RECEIPT_MS then also moves it by that much per
 // receipt read (a slow node).
@@ -109,7 +109,7 @@ globalThis.fetch = async (_url, init) => {
   if (method.startsWith('starknet_add')) {
     const { transactionHash } = await import('../../lib/actions.mjs');
     const computed = transactionHash(method, JSON.parse(init.body).params, '0x534e5f5345504f4c4941');
-    sentHash = process.env.FAKE_ADD_HASH ?? computed.transactionHash;
+    sentHash = process.env.FAKE_ADD_HASH === 'none' ? undefined : process.env.FAKE_ADD_HASH ?? computed.transactionHash;
     sentClass = computed.classHash ?? sentClass;
   }
   if (method === 'starknet_getTransactionReceipt' && process.env.FAKE_SLOW_RECEIPT_MS) clockOffset += Number(process.env.FAKE_SLOW_RECEIPT_MS);
@@ -146,7 +146,7 @@ globalThis.fetch = async (_url, init) => {
     starknet_getTransactionStatus: { finality_status: 'ACCEPTED_ON_L2', execution_status: execution },
     starknet_getTransactionReceipt: {
       type: 'INVOKE',
-      transaction_hash: process.env.FAKE_RECEIPT_HASH ?? asked ?? '0xadd',
+      transaction_hash: process.env.FAKE_RECEIPT_HASH === 'none' ? undefined : process.env.FAKE_RECEIPT_HASH ?? asked ?? '0xadd',
       actual_fee: { amount: '0x0', unit: 'FRI' },
       execution_status: execution,
       finality_status: 'ACCEPTED_ON_L2',

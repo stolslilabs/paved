@@ -137,7 +137,8 @@ timeout on the free plan, please upgrade to paid plan`. So every `starknet_add*`
   `signer: sending <method>, transaction <hash>` on stderr before the request leaves. The hash is no secret.
   A request whose hash cannot be computed (not V3, an unknown method or data availability mode) is refused,
   unsent. A node that answers with a hash other than the computed one stops the command: `node returned
-  <h1>, signed <h2>; check both before any rerun`.
+  <h1>, signed <h2>; check both before any rerun` (`node returned no transaction hash, …` when it gives
+  none). A node-supplied hash is printed only when it is a felt in 0x-hex form, `<not a felt>` otherwise.
 - **A refusal stays a refusal.** The node's JSON-RPC errors of `REFUSAL_CODES` (-32700, -32600, -32601,
   -32602, and the write API's 51 to 58, 60 to 62: class already declared, invalid nonce, insufficient
   resources or balance, validation failure, and the like) are returned as they came: the command fails.
@@ -165,7 +166,7 @@ timeout on the free plan, please upgrade to paid plan`. So every `starknet_add*`
   transaction whose answer was lost therefore ends as "status unknown". A node outside the spec that
   answers `finality_status: REJECTED` makes the command fail with that status.
 
-The tests (`test/recover.test.mjs`, 16 tests):
+The tests (`test/recover.test.mjs`, 17 tests):
 - recovery from a receipt: the add* is lost by timeout (error 30), a dropped connection, HTTP 502 with JSON,
   an HTML 502 or 413 page, or a result under HTTP 500. With the receipt there, declare, deploy, invoke and
   multicall succeed with add* asked exactly once.
@@ -282,7 +283,7 @@ history.
 cd scripts/signer && npm ci && npm test
 ```
 
-`node --test`, no other runner, 73 tests (S-1d):
+`node --test`, no other runner, 74 tests (S-1d):
 - the sanitiser's spellings;
 - the variables: refusal of a missing or empty one (`SIGNER_NETWORK` included), mainnet refused as a
   value, the URL bound to the network;

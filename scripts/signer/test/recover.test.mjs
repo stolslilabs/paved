@@ -162,6 +162,26 @@ test('a node that answers the add* with another hash than the one signed stops t
   }
 });
 
+test('a node-supplied hash is printed only as a 0x-hex felt: <not a felt> otherwise, and a missing one is named', () => {
+  const prime = `0x${(2n ** 251n + 17n * 2n ** 192n + 1n).toString(16)}`;
+  for (const [given, shown] of [['not a hash; rm -rf /', 'node returned <not a felt>'], [prime, 'node returned <not a felt>'],
+    ['none', 'node returned no transaction hash']]) {
+    const result = run(SENDS.invoke, { ...SEPOLIA, FAKE_RECEIPT: 'succeeded', FAKE_ADD_HASH: given });
+    assert.equal(result.status, 1, result.stderr);
+    const printed = sentHash(result.stderr, 'starknet_addInvokeTransaction');
+    assert.ok(result.stderr.endsWith(`signer: ${shown}, signed ${printed}; check both before any rerun\n`), result.stderr);
+    assert.ok(!result.stderr.includes('rm -rf'));
+  }
+  for (const [given, shown] of [['0xzz<script>', 'names transaction <not a felt>'], ['none', 'names no transaction hash']]) {
+    const result = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: 'timeout', FAKE_RECEIPT: 'succeeded', FAKE_RECEIPT_HASH: given });
+    assert.equal(result.status, 1, result.stderr);
+    const printed = sentHash(result.stderr, 'starknet_addInvokeTransaction');
+    assert.ok(result.stderr.includes(`signer: the receipt read for ${printed} ${shown}; ignored\n`), result.stderr);
+    assert.ok(!result.stderr.includes('<script>'));
+    assert.match(result.stderr, new RegExp(`signer: sent, status unknown: ${printed}; check it before any rerun\n$`));
+  }
+});
+
 test('add* times out and the receipt shows REVERTED: failure with that status, add* asked once', () => {
   const result = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: 'timeout' });
   assert.equal(result.status, 1, result.stderr);

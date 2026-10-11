@@ -35,6 +35,7 @@ jobs:
               - 'scripts/class-sizes.sh'
               - 'scripts/deploy.sh'
               - 'scripts/test-deploy-url.sh'
+              - 'scripts/signer/**'
               - '.tool-versions'
               - '.github/workflows/**'
               - '.github/actions/**'
