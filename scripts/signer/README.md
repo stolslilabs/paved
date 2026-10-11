@@ -145,8 +145,15 @@ timeout on the free plan, please upgrade to paid plan`. So every `starknet_add*`
   The exception is `CHECKED_REFUSALS`: -32601 (a proxy's random answer), 51 and 52 (the same transaction
   reaching the node another way). For those, the computed hash's receipt is first read for
   `CHECK_DEADLINE_MS` = 30 s, `CHECK_INTERVAL_MS` = 15 s apart (3 reads). A receipt found is handled as
-  below. Otherwise the command fails with `refused (<code>); no receipt for <hash> after 30 s; check it
-  before any rerun`.
+  below. Otherwise the signer reads what would show the transaction landed (S-1e), in the pre-confirmed
+  state: the sender's nonce, and the class a declare creates (`starknet_getClass`) or the contract a deploy
+  creates (`starknet_getClassHashAt`, the address starknet.js computes before sending). The command fails
+  in every case, each message ending `check it before any rerun`. If any status read of the hash was
+  answered (RECEIVED, CANDIDATE, PRE_CONFIRMED, ACCEPTED_ON_L2 or L1, any finality or execution status),
+  the node has the transaction: `refused (<code>); no receipt for <hash> after 30 s; seen by the node with
+  status <s>`, and nothing more is read. Only when none was answered, the nonce is still the signed one and
+  the class or contract is absent: `not landed (nonce unchanged at <n>, class <hash> absent)`. Otherwise
+  what was read (`nonce now <n> (signed at <m>)`, `declared`, `deployed`, `unreadable`).
 - **Any other failed answer is lost, not refused**: another error code (dRPC's 30, -32603, 63), HTTP 5xx
   with or without a JSON body, a result under HTTP 5xx, a body that is not JSON (an HTML 413 page), or a
   network error. The request is **not sent again**. The signer reads `starknet_getTransactionReceipt` for

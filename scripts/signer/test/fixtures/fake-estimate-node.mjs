@@ -1,10 +1,10 @@
 // Preloaded by test/cli.test.mjs and scripts/test-deploy-url.sh: a Sepolia node that answers what an
 // estimate asks (the chain, a block, the account's nonce and class, the fee estimate) and, to catch a
 // signer that would send, also accepts every starknet_add* transaction. It reports each method it is
-// asked on stderr. No class is declared (starknet_getClass answers an error). FAKE_ESTIMATE_ERROR (when
+// asked on stderr. FAKE_ESTIMATE_ERROR (when
 // the environment reaches it) makes the estimate answer the -32603 error Cartridge gave (no `data`);
-// FAKE_ESTIMATE_HTML an HTTP 413 page with no JSON. FAKE_FLAKY=<method>:<n> answers the first n calls of
-// that method -32601 with HTTP 400, as dRPC did at random (S-1c). starknet_call answers a u256 of
+// FAKE_ESTIMATE_HTML an HTTP 413 page with no JSON. FAKE_FLAKY=<method>:<n>[,<method>:<n>...] answers the first n
+// calls of each method -32601 with HTTP 400, as dRPC did at random (S-1c). starknet_call answers a u256 of
 // FAKE_STRK_BALANCE (base units, decimal; default 1,000 STRK): the deployer's STRK balance for deploy.sh.
 // A lost answer (S-1d): FAKE_ADD_LOST says how every starknet_add* is answered after the node took it: `timeout`
 // (dRPC's `30: Request timeout on the free plan`, HTTP 200), `drop` (a dropped connection), `502json` (HTTP 502 with a
@@ -15,9 +15,16 @@
 // or FAKE_RECEIPT_HASH. An add* that is answered names the transaction's hash, or FAKE_ADD_HASH (`none`: no hash). FAKE_ADD_LOG=<file> appends each
 // starknet_add* request body to the file. FAKE_FAST_CLOCK=1 runs a fake clock: every timer fires at once and moves
 // Date.now by its delay, so a 5-minute wait takes no time; FAKE_SLOW_RECEIPT_MS then also moves it by that much per
-// receipt read (a slow node).
-const [flakyMethod, flakyCount] = (process.env.FAKE_FLAKY ?? ':0').split(':');
-let flakyLeft = Number(flakyCount);
+// receipt read (a slow node). No class is declared (starknet_getClass answers error 28) and no contract but the
+// account 0x1 is deployed (starknet_getClassHashAt answers error 20); FAKE_LANDED=nonce|class|contract shows a sent
+// transaction as landed, once an add* was asked: the nonce reads 0x1, or the class or the contract is there (S-1e).
+// FAKE_LATEST_LANDED=1 shows all three landed to a read at any block but pre_confirmed, once an add* was asked.
+// FAKE_RECEIPT=status:<S> answers no receipt, and <S> as the finality status of every status read.
+const flakyLeft = new Map((process.env.FAKE_FLAKY ?? '').split(',').filter(Boolean).map((entry) => {
+  const [method, count] = entry.split(':');
+  return [method, Number(count)];
+}));
+let added = false;
 let clockOffset = 0;
 if (process.env.FAKE_FAST_CLOCK) {
   // A virtual clock: each timer set is queued with its due time; every real tick fires the earliest one and moves
@@ -77,10 +84,20 @@ const ACCOUNT_CLASS = { sierra_program: ['0x1'], contract_class_version: '0.1.0'
 globalThis.fetch = async (_url, init) => {
   const { id, method } = JSON.parse(init.body);
   process.stderr.write(`fake-node: asked ${method}\n`);
-  if (method === flakyMethod && flakyLeft > 0) {
-    flakyLeft -= 1;
+  if (flakyLeft.get(method) > 0) {
+    flakyLeft.set(method, flakyLeft.get(method) - 1);
     const error = { code: -32601, message: `the method ${method} does not exist/is not available` };
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error }), { status: 400 });
+  }
+  if (method.startsWith('starknet_add')) added = true;
+  const blockId = JSON.parse(init.body).params?.block_id;
+  const landed = !added ? undefined
+    : process.env.FAKE_LATEST_LANDED && blockId !== undefined && blockId !== 'pre_confirmed' ? 'all' : process.env.FAKE_LANDED;
+  if (method === 'starknet_getClass' && landed !== 'class' && landed !== 'all') {
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { code: 28, message: 'Class hash not found' } }));
+  }
+  if (method === 'starknet_getClassHashAt' && landed !== 'contract' && landed !== 'all' && BigInt(JSON.parse(init.body).params.contract_address) !== 1n) {
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { code: 20, message: 'Contract not found' } }));
   }
   if (method.startsWith('starknet_add') && process.env.FAKE_ADD_LOG) appendFileSync(process.env.FAKE_ADD_LOG, `${init.body}\n`);
   const lost = method.startsWith('starknet_add') ? process.env.FAKE_ADD_LOST : undefined;
@@ -114,6 +131,11 @@ globalThis.fetch = async (_url, init) => {
   }
   if (method === 'starknet_getTransactionReceipt' && process.env.FAKE_SLOW_RECEIPT_MS) clockOffset += Number(process.env.FAKE_SLOW_RECEIPT_MS);
   const notFound = { code: 29, message: 'Transaction hash not found' };
+  const onlyStatus = process.env.FAKE_RECEIPT?.startsWith('status:') ? process.env.FAKE_RECEIPT.slice(7) : undefined;
+  if (onlyStatus !== undefined && /^starknet_getTransaction(Receipt|Status)$/.test(method)) {
+    return new Response(JSON.stringify(method === 'starknet_getTransactionStatus'
+      ? { jsonrpc: '2.0', id, result: { finality_status: onlyStatus } } : { jsonrpc: '2.0', id, error: notFound }));
+  }
   if (method === 'starknet_getTransactionStatus' && process.env.FAKE_RECEIPT === 'rejected') {
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { finality_status: 'REJECTED', failure_reason: 'fake node' } }));
   }
@@ -134,7 +156,8 @@ globalThis.fetch = async (_url, init) => {
     starknet_blockNumber: 1,
     starknet_getBlockWithTxHashes: BLOCK,
     starknet_getBlockWithTxs: BLOCK,
-    starknet_getNonce: '0x0',
+    starknet_getNonce: landed === 'nonce' || landed === 'all' ? '0x1' : '0x0',
+    starknet_getClass: ACCOUNT_CLASS,
     starknet_getClassHashAt: '0x1',
     starknet_getClassAt: ACCOUNT_CLASS,
     starknet_estimateFee: [ESTIMATE],
