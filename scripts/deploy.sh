@@ -3,7 +3,7 @@
 # client, then runs a smoke check.
 #
 # Usage: scripts/deploy.sh devnet [--unmerged]
-#        scripts/deploy.sh sepolia [--rehearse]
+#        scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]]
 #
 # Networks: `devnet` (a local node, D-8) and `sepolia` (Starknet Sepolia, public playtests, D-16). Every other value
 # is refused: mainnet is the owner's act. Sepolia runs the devnet economy path (P-39): MockUSDC (a bounded faucet,
@@ -41,6 +41,15 @@
 # environment only, with SIGNER_NETWORK=devnet), the working tree's sources, and the file written to a temporary
 # path. The funded account's variables are unset first, so a shell that holds them never hands them to the rehearsal.
 # Its smoke also settles the paid game, as devnet's does.
+#
+# --estimate-only (sepolia, and its rehearsal; S-1c): every check above, the signer's install and the build, then a fee
+# estimate of each declare in deploy order (`signer estimate declare`, which runs on a fetch that refuses every
+# starknet_add* method), and nothing is sent. One line per class: the node's starknet_specVersion, the Sierra file's
+# bytes, the CASM bytecode's felts, the request's bytes, whether the class is declared already, then the estimate or
+# the node's whole error (JSON-RPC code, message and data, or HTTP status and body), redacted. Exit 1 when one fails.
+# The next three options are diagnostic only, for the -32603 of S-1b (docs/briefs/s1c-estimate.md), passed to the
+# signer: --bounds l1_amount,l1_price,l1_data_amount,l1_data_price,l2_amount,l2_price (explicit resource bounds instead
+# of zero), --validate (no SKIP_VALIDATE), --block-id pre_confirmed (instead of latest; `pending` left the spec in 0.9).
 #
 # devnet keeps sncast (salt 1 and no `--unique`: the signer always deploys unique, which would tie the addresses of
 # contracts/deployments/devnet.json to the deployer and the salt of each run).
@@ -116,12 +125,33 @@ sys.exit(0 if ok else 1)
 ' 2>/dev/null
 }
 
-USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse]"
+USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]]"
 NETWORK="${1:-}"
 UNMERGED=0
 REHEARSE=0
 CHECK_SEND=0
-if [[ "${2:-}" == "--check-class-answer" ]]; then
+ESTIMATE_ONLY=0
+ESTIMATE_ARGS=()
+if [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--estimate-only" || ( "${2:-}" == "--rehearse" && "${3:-}" == "--estimate-only" ) ) ]]; then
+  # sepolia [--rehearse] --estimate-only [diagnostics]: the diagnostics reach the signer as its own options, which it
+  # checks again (six integers in range, a block tag of the spec).
+  [[ "$2" == "--rehearse" ]] && { REHEARSE=1; shift; }
+  ESTIMATE_ONLY=1
+  shift 2
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --validate) ESTIMATE_ARGS+=(--validate); shift ;;
+      --bounds)
+        [[ "${2:-}" =~ ^[0-9xa-fA-F,]{11,400}$ ]] || { echo "deploy.sh: --bounds expects six comma-separated integers" >&2; exit 2; }
+        ESTIMATE_ARGS+=(--bounds "$2"); shift 2 ;;
+      --block-id)
+        [[ "${2:-}" == latest || "${2:-}" == pre_confirmed ]] || { echo "deploy.sh: --block-id expects latest or pre_confirmed" >&2; exit 2; }
+        ESTIMATE_ARGS+=(--block-id "$2"); shift 2 ;;
+      *) echo "deploy.sh: unknown option '$1' for 'sepolia --estimate-only'" >&2; echo "$USAGE" >&2; exit 2 ;;
+    esac
+  done
+  set -- sepolia
+elif [[ "${2:-}" == "--check-class-answer" ]]; then
   # Test hook (scripts/test-deploy-url.sh): the verdict of class_declared on stdin, nothing else runs.
   class_declared
   exit $?
@@ -131,12 +161,12 @@ elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--check-send-failure" ]]; then
   # PATH, which fails. With real variables and the real signer it is one read-only call to 0x1 on that node:
   # nothing is built, signed or sent.
   CHECK_SEND=1
-elif [[ "$NETWORK" == "devnet" && "${2:-}" == "--unmerged" ]]; then
+elif [[ "$NETWORK" == "devnet" && "${2:-}" == "--unmerged" && -z "${3:-}" ]]; then
   UNMERGED=1
-elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--rehearse" ]]; then
+elif [[ "$NETWORK" == "sepolia" && "${2:-}" == "--rehearse" && -z "${3:-}" ]]; then
   REHEARSE=1
-elif [[ -n "${2:-}" ]]; then
-  echo "deploy.sh: unknown option '${2}' for '${NETWORK}'" >&2
+elif [[ -n "${2:-}" || -n "${3:-}" ]]; then
+  echo "deploy.sh: unknown option '${3:-$2}' for '${NETWORK}${3:+ $2}'" >&2
   echo "$USAGE" >&2
   exit 2
 fi
@@ -239,6 +269,9 @@ SIGNER_JS="$ROOT/scripts/signer/signer.mjs"
 # The signer's heap cap: 1.5x its measured peak (405,544 kB RSS, declare Daily, VPS 2026-10-10), rounded up to 64 MB.
 SIGNER_HEAP="--max-old-space-size=640"
 RELEASE_DIR="$ROOT/contracts/target/release"
+# Test hook (scripts/test-deploy-url.sh), --estimate-only alone: the class files come from ESTIMATE_RELEASE_DIR. It
+# changes what is estimated, never what is sent: nothing is sent in that mode.
+if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then RELEASE_DIR="$ESTIMATE_RELEASE_DIR"; fi
 
 die() { echo "deploy.sh: $*" >&2; exit 1; }
 
@@ -314,17 +347,10 @@ sys.stdout.write(text)'
 # environment, so the address is in no argv either.
 send() {
   local res status=0
-  res="$(
-    while read -r name; do
-      [[ "$name" == PATH || "$name" == HOME ]] || unset "$name" 2>/dev/null || true
-    done < <(compgen -e)
-    export STARKNET_ACCOUNT_ADDRESS="$SEND_ADDRESS" STARKNET_PRIVATE_KEY="$SEND_KEY" STARKNET_RPC_URL="$RPC_URL" \
-      SIGNER_NETWORK="$SEND_NETWORK" NODE_OPTIONS="$SIGNER_HEAP"
-    exec "$NODE_BIN" --disable-sigusr1 "$SIGNER_JS" "$@" 2>&1
-  )" || status=$?
+  res="$(run_signer "$@")" || status=$?
   if [[ "$status" != 0 ]]; then
     # Redacted whole, then cut: a value across the cut is still replaced.
-    res="$(printf '%s\n%s\n%s\n%s' "$SEND_ADDRESS" "$SEND_KEY" "$RPC_URL" "$res" | redact)"
+    res="$(redact_text "$res")"
     (( ${#res} <= 800 )) || res="${res: -800}"
     die "signer $1 failed: $res"
   fi
@@ -335,6 +361,22 @@ send() {
   done <<<"$res"
   [[ -n "$result" ]] || die "signer $1 printed no JSON line"
   printf '%s\n' "$result"
+}
+
+# redact_text <text>: the text with the three values replaced by their names (`redact`, all on stdin).
+redact_text() { printf '%s\n%s\n%s\n%s' "$SEND_ADDRESS" "$SEND_KEY" "$RPC_URL" "$1" | redact; }
+
+# run_signer <signer command> [options...]: the signer in send's allowlisted environment; prints its stdout and stderr
+# (one stream), unredacted, and returns its exit status. Its output is redacted by the caller before it is printed.
+run_signer() {
+  (
+    while read -r name; do
+      [[ "$name" == PATH || "$name" == HOME ]] || unset "$name" 2>/dev/null || true
+    done < <(compgen -e)
+    export STARKNET_ACCOUNT_ADDRESS="$SEND_ADDRESS" STARKNET_PRIVATE_KEY="$SEND_KEY" STARKNET_RPC_URL="$RPC_URL" \
+      SIGNER_NETWORK="$SEND_NETWORK" NODE_OPTIONS="$SIGNER_HEAP"
+    exec "$NODE_BIN" --disable-sigusr1 "$SIGNER_JS" "$@" 2>&1
+  )
 }
 
 if [[ "$CHECK_SEND" == 1 ]]; then
@@ -452,8 +494,10 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   pyj 'd["contract_address"]' <<<"$out"
 }
 
-echo "== node $RPC_LABEL"
-rpc starknet_specVersion '[]' >/dev/null || die "no node answers at $RPC_LABEL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
+SPEC_VERSION="$(rpc starknet_specVersion '[]')" || die "no node answers at $RPC_LABEL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
+# The spec version, not the URL, tells runs on different endpoints apart (printed on every estimate line too).
+SPEC_VERSION="$(pyj 'd["result"] if isinstance(d.get("result"), str) and len(d["result"]) < 40 else "unknown"' <<<"$SPEC_VERSION" 2>/dev/null || echo unknown)"
+echo "== node $RPC_LABEL, spec $SPEC_VERSION"
 CHAIN_ID="$(rpc starknet_chainId '[]' | pyj 'd["result"]')"
 # Sepolia's chain id is SN_SEPOLIA (starknet-devnet answers the same, so the rehearsal passes this check too).
 [[ "$NETWORK" != "sepolia" || "$CHAIN_ID" == "0x534e5f5345504f4c4941" ]] || die "the node's chain id $CHAIN_ID is not SN_SEPOLIA"
@@ -498,7 +542,11 @@ echo "   chain id $CHAIN_ID, deployer $DEPLOYER_LABEL"
 # sources, with no untracked source file either.
 if [[ "$UNMERGED" == 1 || "$REHEARSE" == 1 ]]; then
   DEPLOYED_AT="unmerged-$(git -C "$ROOT" rev-parse HEAD)"
-  echo "== unmerged$( ((REHEARSE)) && echo ', sepolia rehearsal on a local node'): the working tree is deployed, the file goes to $OUT"
+  if ((ESTIMATE_ONLY)); then
+    echo "== unmerged, sepolia rehearsal on a local node: the working tree's classes are estimated, nothing is deployed"
+  else
+    echo "== unmerged$( ((REHEARSE)) && echo ', sepolia rehearsal on a local node'): the working tree is deployed, the file goes to $OUT"
+  fi
 else
   DEPLOYED_AT="$(git -C "$ROOT" merge-base HEAD origin/main)" || die "no merge base of HEAD with origin/main (git fetch origin main)"
   git -C "$ROOT" diff --quiet "$DEPLOYED_AT" -- contracts/src contracts/Scarb.toml contracts/Scarb.lock ||
@@ -519,6 +567,55 @@ fi
 echo "== build"
 cd "$ROOT/contracts"
 RAYON_NUM_THREADS=1 scarb --release build >/dev/null
+
+if [[ "$ESTIMATE_ONLY" == 1 ]]; then
+  echo "== estimate only (nothing is sent): each declare in deploy order, spec $SPEC_VERSION${ESTIMATE_ARGS[*]:+, diagnostic: ${ESTIMATE_ARGS[*]}}"
+  failed=0
+  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection; do
+    sierra="$RELEASE_DIR/paved_$name.contract_class.json"
+    casm="$RELEASE_DIR/paved_$name.compiled_contract_class.json"
+    [[ -f "$sierra" && -f "$casm" ]] || die "no release class files for $name in ${RELEASE_DIR#"$ROOT/"}"
+    sizes="sierra $(wc -c <"$sierra" | tr -d ' ') B, casm $(pyj 'len(d["bytecode"])' <"$casm") felts"
+    class_hash="$(sc sncast utils class-hash --contract-name "$name" | pyj 'd["class_hash"]' 2>/dev/null || true)"
+    declared=unknown
+    if [[ "$class_hash" =~ ^0x[0-9a-fA-F]+$ ]]; then
+      if rpc starknet_getClass "[\"latest\",\"$class_hash\"]" | class_declared; then declared=yes; else declared=no; fi
+    fi
+    status=0
+    out="$(run_signer estimate declare --sierra "$sierra" --casm "$casm" ${ESTIMATE_ARGS[@]+"${ESTIMATE_ARGS[@]}"})" || status=$?
+    out="$(redact_text "$out")"
+    line=""
+    while IFS= read -r l; do [[ "$l" == "{"* ]] && line="$l"; done <<<"$out"
+    if [[ -z "$line" ]]; then
+      (( ${#out} <= 800 )) || out="${out: -800}"
+      echo "   estimate $name: spec $SPEC_VERSION, $sizes, declared $declared: signer failed (exit $status): ${out//$'\n'/ | }"
+      failed=$((failed + 1))
+      continue
+    fi
+    python3 -I - "$name" "$SPEC_VERSION" "$sizes" "$declared" "$line" <<'PY' || failed=$((failed + 1))
+import json, sys
+name, spec, sizes, declared, raw = sys.argv[1:]
+d = json.loads(raw)
+r = d.get("request", {})
+head = f"   estimate {name}: spec {spec}, {sizes}, request {r.get('request_bytes', '?')} B, declared {declared}"
+if d.get("ok"):
+    e = d["estimate"]
+    n = lambda k: int(e.get(k, "0x0"), 16)
+    print(f"{head}: ok, overall_fee {n('overall_fee')} {e.get('unit', '?')} (l1_gas {n('l1_gas_consumed')}, "
+          f"l1_data_gas {n('l1_data_gas_consumed')}, l2_gas {n('l2_gas_consumed')})")
+    sys.exit(0)
+answer = {k: d[k] for k in ("http_status", "error", "body", "body_bytes", "transport") if k in d}
+print(f"{head}: error {json.dumps(answer)[:1500]}")
+sys.exit(1)
+PY
+  done
+  if [[ "$failed" != 0 ]]; then
+    echo "== estimate only: $failed of 10 estimates failed; nothing was sent"
+    exit 1
+  fi
+  echo "== estimate only: 10 of 10 estimated; nothing was sent"
+  exit 0
+fi
 
 echo "== declare"
 TOKEN_CLASS=""
