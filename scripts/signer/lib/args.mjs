@@ -6,6 +6,7 @@ import { FELT_PRIME, UsageError } from './env.mjs';
 const FELT_RE = /^(0x[0-9a-fA-F]{1,64}|[0-9]{1,78})$/;
 const ENTRYPOINT_RE = /^[A-Za-z_][A-Za-z0-9_]{0,250}$/;
 const FLAG_RE = /^--[a-z][a-z-]{0,39}$/;
+const NUMBER_RE = /^(0x[0-9a-fA-F]{1,32}|[0-9]{1,39})$/;
 
 // A calldata word that stands for the account's own address (STARKNET_ACCOUNT_ADDRESS), so a caller
 // never has to put that value in argv or in a calls file.
@@ -27,7 +28,29 @@ const kinds = {
     if (value === '' || value.includes('://')) throw new UsageError(`${flag} expects a file path`);
     return value;
   },
+  // Six integers, comma separated: the max amount and the max price per unit of L1 gas, L1 data gas and
+  // L2 gas, in that order. An amount is a u64, a price a u128 (the transaction's resource bounds).
+  bounds: (value, flag) => {
+    const words = value.split(',');
+    const fits = (word, index) => NUMBER_RE.test(word) && BigInt(word) < 2n ** (index % 2 === 0 ? 64n : 128n);
+    if (words.length !== 6 || !words.every(fits)) {
+      throw new UsageError(`${flag} expects six integers: l1_amount,l1_price,l1_data_amount,l1_data_price,l2_amount,l2_price (amounts u64, prices u128)`);
+    }
+    const [l1, l1Price, l1Data, l1DataPrice, l2, l2Price] = words.map(BigInt);
+    return {
+      l1_gas: { max_amount: l1, max_price_per_unit: l1Price },
+      l1_data_gas: { max_amount: l1Data, max_price_per_unit: l1DataPrice },
+      l2_gas: { max_amount: l2, max_price_per_unit: l2Price },
+    };
+  },
+  // The block tags of spec 0.9 and 0.10 for starknet_estimateFee (`pending` left the spec in 0.9).
+  blockTag: (value, flag) => {
+    if (!BLOCK_TAGS.includes(value)) throw new UsageError(`${flag} expects one of: ${BLOCK_TAGS.join(', ')}`);
+    return value;
+  },
 };
+
+export const BLOCK_TAGS = Object.freeze(['latest', 'pre_confirmed']);
 
 // Per subcommand: flag -> [field, kind, required]. `--calldata` takes every following felt.
 export const COMMANDS = Object.freeze({
@@ -50,12 +73,26 @@ export const COMMANDS = Object.freeze({
   },
 });
 
+// `estimate <declare|deploy|invoke> ...` takes that command's options, plus these. They are diagnostic
+// only (S-1c): the default estimate is starknet.js's own request (zero resource bounds, SKIP_VALIDATE,
+// block latest). `--validate` takes no value.
+export const ESTIMATED = Object.freeze(['declare', 'deploy', 'invoke']);
+export const ESTIMATE_OPTIONS = Object.freeze({
+  '--bounds': ['bounds', 'bounds', false],
+  '--validate': ['validate', 'flag', false],
+  '--block-id': ['blockId', 'blockTag', false],
+});
+
 export const USAGE = `usage: signer.mjs <command> [options]
   declare   --sierra <file> --casm <file>
   deploy    --class-hash <felt> [--salt <felt>] [--calldata <felt>...]
   invoke    --contract <felt> --function <name> [--calldata <felt>...]
   multicall --calls <file>   (a JSON array of {"contract", "function", "calldata"})
   call      --contract <felt> --function <name> [--calldata <felt>...]
+  estimate  <declare|deploy|invoke> <its options> [--bounds <6 integers>] [--validate] [--block-id <tag>]
+            asks the node for a fee estimate only (starknet_estimateFee): nothing is sent. The three
+            options are diagnostic: explicit resource bounds instead of zero, validation instead of
+            SKIP_VALIDATE, a block tag (latest, pre_confirmed) instead of latest.
 A calldata word may be @account: the account's address, read from the environment.
 The account, the node and the network come from STARKNET_ACCOUNT_ADDRESS, STARKNET_PRIVATE_KEY,
 STARKNET_RPC_URL and SIGNER_NETWORK (sepolia or devnet; mainnet is refused).`;
@@ -69,22 +106,37 @@ function describe(token) {
  * @returns {{ command: string, options: Record<string, string | string[]> }}
  */
 export function parseArgs(argv) {
-  const [command, ...rest] = argv;
-  if (!command || !Object.hasOwn(COMMANDS, command)) {
-    const known = 'declare, deploy, invoke, multicall, call';
+  const [command, ...tail] = argv;
+  if (!command || (!Object.hasOwn(COMMANDS, command) && command !== 'estimate')) {
+    const known = 'declare, deploy, invoke, multicall, call, estimate';
     throw new UsageError(command && /^[a-z]{1,20}$/.test(command)
       ? `unknown command '${command}' (${known})`
       : `a command is required (${known})`);
   }
-  const spec = COMMANDS[command];
+  let spec = COMMANDS[command];
+  let rest = tail;
+  let name = command;
   const options = {};
+  if (command === 'estimate') {
+    const [kind, ...others] = tail;
+    if (!ESTIMATED.includes(kind)) throw new UsageError(`estimate needs one of: ${ESTIMATED.join(', ')}`);
+    spec = { ...COMMANDS[kind], ...ESTIMATE_OPTIONS };
+    rest = others;
+    name = `estimate ${kind}`;
+    options.kind = kind;
+  }
+  const offset = argv.length - rest.length + 1;
   for (let i = 0; i < rest.length; i += 1) {
     const token = rest[i];
     if (!Object.hasOwn(spec, token)) {
-      throw new UsageError(`${describe(token)} at position ${i + 2} is not an option of '${command}'; secrets come from the environment only`);
+      throw new UsageError(`${describe(token)} at position ${i + offset} is not an option of '${name}'; secrets come from the environment only`);
     }
     const [field, kind] = spec[token];
     if (Object.hasOwn(options, field)) throw new UsageError(`${token} is given twice`);
+    if (kind === 'flag') {
+      options[field] = true;
+      continue;
+    }
     if (field === 'calldata') {
       const values = [];
       while (i + 1 < rest.length && !rest[i + 1].startsWith('--')) {
@@ -99,7 +151,7 @@ export function parseArgs(argv) {
     options[field] = kinds[kind](rest[i], token);
   }
   for (const [flag, [field, , required]] of Object.entries(spec)) {
-    if (required && !Object.hasOwn(options, field)) throw new UsageError(`${command} needs ${flag}`);
+    if (required && !Object.hasOwn(options, field)) throw new UsageError(`${name} needs ${flag}`);
   }
   if (Object.hasOwn(spec, '--calldata') && !options.calldata) options.calldata = [];
   return { command, options };

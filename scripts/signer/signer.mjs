@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Paved's starknet.js signer (P-40): declares, deploys, invokes and calls with an account whose
-// address, key and node come from the environment only. Prints one JSON line on stdout; every
-// other output (errors, library logs) goes to stderr through the sanitiser. See README.md.
+// address, key and node come from the environment only, and estimates what they would send without
+// sending it. Prints one JSON line on stdout; every other output (errors, library logs) goes to stderr
+// through the sanitiser. See README.md.
 
 import { format } from 'node:util';
 
@@ -47,8 +48,11 @@ async function main(argv) {
   if (options.calldata) options.calldata = resolveAccount(options.calldata, env.address);
   // Imported late: a usage error never loads starknet.js.
   const actions = await import('./lib/actions.mjs');
-  const result = await actions[command](await actions.connect(env), options);
-  process.stdout.write(`${JSON.stringify(result)}\n`);
+  // estimate runs on a fetch that refuses every starknet_add* method: it cannot send.
+  const result = await actions[command](await actions.connect(env, { readOnly: command === 'estimate' }), options);
+  process.stdout.write(`${JSON.stringify(result, (_, value) => (typeof value === 'bigint' ? `0x${value.toString(16)}` : value))}\n`);
+  // The node refused the estimate: its answer is the JSON line, and the exit status says so.
+  if (command === 'estimate' && !result.ok) process.exitCode = 3;
 }
 
 main(process.argv.slice(2)).catch(fail);
