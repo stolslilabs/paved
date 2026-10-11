@@ -228,7 +228,7 @@ if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d 
     "$ADDR" "STARKNET_PRIVATE_KEY=0x$KEY_MARK" "$URL" "$here/deploy.sh" sepolia --estimate-only 2>&1)"
   rc=$?
   lines="$(grep -c '^   estimate [A-Za-z]*: spec 0.10.2, sierra .* declared unknown: ok, overall_fee 10000000128 FRI' <<<"$out")"
-  if [[ $rc -ne 0 || "$lines" != 10 || "$out" != *"== estimate only: 10 of 10 estimated; nothing was sent"* ||
+  if [[ $rc -ne 0 || "$lines" != 10 || "$out" != *"== estimate only: each of the 10 classes estimated or already declared; nothing was sent"* ||
       "$out" != *"== funding: deployer STRK balance 1000.00 STRK"* ||
       "$out" != *"   deployer STRK balance 1000.00 STRK: covers 1.25 x the estimates, at or above the floor"* ]] ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then

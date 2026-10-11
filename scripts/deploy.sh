@@ -649,6 +649,10 @@ if d.get("ok"):
         f.write(f"{n('overall_fee')}\n")
     sys.exit(0)
 answer = {k: d[k] for k in ("http_status", "error", "body", "body_bytes", "transport") if k in d}
+# A class the node has already: nothing to declare, and a real run skips it (declareIfNot). Not a failure.
+if "is already declared" in json.dumps(answer.get("error", {})):
+    print(f"{head}: already declared on the node (a real run skips it): {json.dumps(answer)[:300]}")
+    sys.exit(0)
 print(f"{head}: error {json.dumps(answer)[:1500]}")
 sys.exit(1)
 PY
@@ -667,10 +671,10 @@ if balance:
           f"{'at or above' if b >= floor else 'BELOW'} the floor")
 PY
   if [[ "$failed" != 0 ]]; then
-    echo "== estimate only: $failed of 10 estimates failed; nothing was sent"
+    echo "== estimate only: $failed of 10 classes failed (neither an estimate nor already declared); nothing was sent"
     exit 1
   fi
-  echo "== estimate only: 10 of 10 estimated; nothing was sent"
+  echo "== estimate only: each of the 10 classes estimated or already declared; nothing was sent"
   exit 0
 fi
 
