@@ -210,7 +210,7 @@ test('-32601, 51 or 52 to an add*: the receipt is read for 30 s; found, it is a 
     // Reads at 0, 15 and 30 s.
     assert.equal(asked(missing.stderr, 'starknet_getTransactionReceipt'), 3);
     const printed = sentHash(missing.stderr, 'starknet_addInvokeTransaction');
-    assert.match(missing.stderr, new RegExp(`signer: refused \\(${code}\\); no receipt for ${printed} after 30 s; not landed \\(nonce unchanged at 0x0\\)\n$`));
+    assert.match(missing.stderr, new RegExp(`signer: refused \\(${code}\\); no receipt for ${printed} after 30 s; not landed \\(nonce unchanged at 0x0\\); check it before any rerun\n$`));
   }
 });
 
@@ -235,7 +235,7 @@ test('a declare refused -32601 among flaky reads: one add* asked, one sending li
   assert.ok(at.every((index, i) => index >= 0 && (i === 0 || index > at[i - 1])), result.stderr);
   const classHash = hash.computeSierraContractClassHash(json.parse(readFileSync(TINY_SIERRA, 'utf8')));
   assert.ok(result.stderr.endsWith(`signer: refused (-32601); no receipt for ${printed} after 30 s; `
-    + `not landed (nonce unchanged at 0x0, class ${classHash} absent)\n`), result.stderr);
+    + `not landed (nonce unchanged at 0x0, class ${classHash} absent); check it before any rerun\n`), result.stderr);
   assertNoSecret(result);
 });
 
@@ -245,7 +245,31 @@ test('a refusal with no receipt names the contract a deploy would create, absent
   assert.equal(asked(result.stderr, 'starknet_addInvokeTransaction'), 1);
   // The address named is the one the deploy returns when it goes in.
   const { contract_address: address } = JSON.parse(run(SENDS.deploy, { ...SEPOLIA, FAKE_RECEIPT: 'succeeded' }).stdout);
-  assert.match(result.stderr, new RegExp(`; not landed \\(nonce unchanged at 0x0, contract ${address} absent\\)\n$`));
+  assert.match(result.stderr, new RegExp(`; not landed \\(nonce unchanged at 0x0, contract ${address} absent\\); check it before any rerun\n$`));
+});
+
+test('a refusal with no receipt whose status the node answered is never "not landed": the status is named', () => {
+  for (const status of ['RECEIVED', 'CANDIDATE', 'PRE_CONFIRMED', 'ACCEPTED_ON_L2', 'ACCEPTED_ON_L1']) {
+    for (const name of ['declare', 'deploy']) {
+      const result = run(SENDS[name], { ...SEPOLIA, FAKE_ADD_LOST: 'refused:-32601', FAKE_RECEIPT: `status:${status}` });
+      assert.equal(result.status, 1, result.stderr);
+      assert.equal(asked(result.stderr, ADD[name]), 1);
+      const printed = sentHash(result.stderr, ADD[name]);
+      assert.ok(result.stderr.endsWith(`signer: refused (-32601); no receipt for ${printed} after 30 s; `
+        + `seen by the node with status ${status}; check it before any rerun\n`), `${name} ${status}: ${result.stderr}`);
+      assert.ok(!result.stderr.includes('not landed'));
+    }
+  }
+  // A status that is not upper-case words is not printed as it came.
+  const odd = run(SENDS.invoke, { ...SEPOLIA, FAKE_ADD_LOST: 'refused:-32601', FAKE_RECEIPT: 'status:<b>x</b>' });
+  assert.match(odd.stderr, /; seen by the node with status <not a status>; check it before any rerun\n$/);
+  assert.ok(!odd.stderr.includes('<b>'));
+});
+
+test('the landing reads are at block pre_confirmed: a node whose latest block shows the transaction does not sway them', () => {
+  const result = run(SENDS.declare, { ...SEPOLIA, FAKE_ADD_LOST: 'refused:-32601', FAKE_RECEIPT: 'none', FAKE_LATEST_LANDED: '1' });
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /; not landed \(nonce unchanged at 0x0, class 0x[0-9a-f]+ absent\); check it before any rerun\n$/);
 });
 
 test('a refusal with no receipt whose nonce moved, or whose class or contract is there: what was read, check before a rerun', () => {
@@ -350,6 +374,19 @@ test('after a refusal with no receipt, a read the node does not answer is unread
     /^Error: refused \(52\); no receipt for 0x[0-9a-f]+ after 30 s; read: nonce unreadable; check it before any rerun$/);
   assert.equal(methods.filter((method) => method === 'starknet_addInvokeTransaction').length, 1);
   assert.equal(methods.at(-1), 'starknet_getNonce');
+});
+
+test('a status answered once among unanswered reads still counts: seen, never "not landed"', async () => {
+  let reads = 0;
+  const { fetch, methods } = scripted({
+    starknet_addInvokeTransaction: { error: { code: -32601, message: 'method not found' } },
+    starknet_getTransactionReceipt: { error: { code: 29, message: 'not found' } },
+    starknet_getTransactionStatus: () => (++reads === 1 ? { result: { finality_status: 'RECEIVED' } } : { error: { code: 29, message: 'not found' } }),
+  });
+  await assert.rejects(fetch('http://node', { body: invokeBody() }),
+    /^Error: refused \(-32601\); no receipt for 0x[0-9a-f]+ after 30 s; seen by the node with status RECEIVED; check it before any rerun$/);
+  assert.equal(reads, 3);
+  assert.ok(!methods.includes('starknet_getNonce'));
 });
 
 test('a request whose hash cannot be computed is refused, unsent; other methods pass untouched', async () => {

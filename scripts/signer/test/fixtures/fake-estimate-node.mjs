@@ -18,6 +18,8 @@
 // receipt read (a slow node). No class is declared (starknet_getClass answers error 28) and no contract but the
 // account 0x1 is deployed (starknet_getClassHashAt answers error 20); FAKE_LANDED=nonce|class|contract shows a sent
 // transaction as landed, once an add* was asked: the nonce reads 0x1, or the class or the contract is there (S-1e).
+// FAKE_LATEST_LANDED=1 shows all three landed to a read at any block but pre_confirmed, once an add* was asked.
+// FAKE_RECEIPT=status:<S> answers no receipt, and <S> as the finality status of every status read.
 const flakyLeft = new Map((process.env.FAKE_FLAKY ?? '').split(',').filter(Boolean).map((entry) => {
   const [method, count] = entry.split(':');
   return [method, Number(count)];
@@ -88,11 +90,13 @@ globalThis.fetch = async (_url, init) => {
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error }), { status: 400 });
   }
   if (method.startsWith('starknet_add')) added = true;
-  const landed = added ? process.env.FAKE_LANDED : undefined;
-  if (method === 'starknet_getClass' && landed !== 'class') {
+  const blockId = JSON.parse(init.body).params?.block_id;
+  const landed = !added ? undefined
+    : process.env.FAKE_LATEST_LANDED && blockId !== undefined && blockId !== 'pre_confirmed' ? 'all' : process.env.FAKE_LANDED;
+  if (method === 'starknet_getClass' && landed !== 'class' && landed !== 'all') {
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { code: 28, message: 'Class hash not found' } }));
   }
-  if (method === 'starknet_getClassHashAt' && landed !== 'contract' && BigInt(JSON.parse(init.body).params.contract_address) !== 1n) {
+  if (method === 'starknet_getClassHashAt' && landed !== 'contract' && landed !== 'all' && BigInt(JSON.parse(init.body).params.contract_address) !== 1n) {
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, error: { code: 20, message: 'Contract not found' } }));
   }
   if (method.startsWith('starknet_add') && process.env.FAKE_ADD_LOG) appendFileSync(process.env.FAKE_ADD_LOG, `${init.body}\n`);
@@ -127,6 +131,11 @@ globalThis.fetch = async (_url, init) => {
   }
   if (method === 'starknet_getTransactionReceipt' && process.env.FAKE_SLOW_RECEIPT_MS) clockOffset += Number(process.env.FAKE_SLOW_RECEIPT_MS);
   const notFound = { code: 29, message: 'Transaction hash not found' };
+  const onlyStatus = process.env.FAKE_RECEIPT?.startsWith('status:') ? process.env.FAKE_RECEIPT.slice(7) : undefined;
+  if (onlyStatus !== undefined && /^starknet_getTransaction(Receipt|Status)$/.test(method)) {
+    return new Response(JSON.stringify(method === 'starknet_getTransactionStatus'
+      ? { jsonrpc: '2.0', id, result: { finality_status: onlyStatus } } : { jsonrpc: '2.0', id, error: notFound }));
+  }
   if (method === 'starknet_getTransactionStatus' && process.env.FAKE_RECEIPT === 'rejected') {
     return new Response(JSON.stringify({ jsonrpc: '2.0', id, result: { finality_status: 'REJECTED', failure_reason: 'fake node' } }));
   }
@@ -147,7 +156,7 @@ globalThis.fetch = async (_url, init) => {
     starknet_blockNumber: 1,
     starknet_getBlockWithTxHashes: BLOCK,
     starknet_getBlockWithTxs: BLOCK,
-    starknet_getNonce: landed === 'nonce' ? '0x1' : '0x0',
+    starknet_getNonce: landed === 'nonce' || landed === 'all' ? '0x1' : '0x0',
     starknet_getClass: ACCOUNT_CLASS,
     starknet_getClassHashAt: '0x1',
     starknet_getClassAt: ACCOUNT_CLASS,

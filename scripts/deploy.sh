@@ -399,20 +399,22 @@ stream_sending() {
 # sending_line <line>: whether it is the signer's line naming a transaction before it is sent (`stream_sending`).
 sending_line() { [[ "$1" =~ ^signer:\ sending\ starknet_add[A-Za-z]+,\ transaction\ 0x[0-9a-f]+$ ]]; }
 
-# failure_tail <text>: its last whole lines within 800 characters, each indented, after a line counting those left out
-# (S-1e: a cut inside a line printed `failed: .json`). A last line longer than that alone keeps its last 800
-# characters, after `...`.
+# failure_tail <text>: at most 800 characters, all counted (the 3-space indents, the line breaks, the count line): the
+# whole text, indented, when it fits; else a line counting the lines left out (40 characters kept for it), then the
+# last whole lines that fit, indented (S-1e: a cut inside a line printed `failed: .json`). A last line too long alone
+# keeps its end, after `...`.
 failure_tail() {
-  local line i size=0 first
+  local line i size=0 first budget=800
   local -a lines=()
-  while IFS= read -r line || [[ -n "$line" ]]; do lines+=("$line"); done <<<"$1"
-  i=${#lines[@]}
-  while (( i > 0 )) && (( size + ${#lines[i - 1]} + 1 <= 800 || i == ${#lines[@]} )); do
-    size=$((size + ${#lines[i - 1]} + 1)); i=$((i - 1))
+  while IFS= read -r line || [[ -n "$line" ]]; do lines+=("$line"); size=$((size + ${#line} + 4)); done <<<"$1"
+  (( size <= budget )) || budget=760
+  i=${#lines[@]} size=0
+  while (( i > 0 )) && (( size + ${#lines[i - 1]} + 4 <= budget || i == ${#lines[@]} )); do
+    size=$((size + ${#lines[i - 1]} + 4)); i=$((i - 1))
   done
   (( i == 0 )) || printf '   (%s earlier line(s) not shown)\n' "$i"
   first="${lines[i]:-}"
-  (( ${#first} <= 800 )) || first="...${first: -800}"
+  (( ${#first} + 4 <= budget )) || first="...${first: -$((budget - 7))}"
   printf '   %s\n' "$first"
   for (( i = i + 1; i < ${#lines[@]}; i++ )); do printf '   %s\n' "${lines[i]}"; done
 }

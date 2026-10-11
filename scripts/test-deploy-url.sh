@@ -355,7 +355,7 @@ SH
       [[ "$(grep -c 'signer: sending starknet_add' <<<"$out")" != 1 ]] ||
       ! grep -q '^   signer: sending starknet_addDeclareTransaction, transaction 0x[0-9a-f]*$' <<<"$out" ||
       ! grep -q '^deploy.sh: signer declare failed:$' <<<"$out" ||
-      ! grep -q '^   signer: refused (-32601); no receipt for 0x[0-9a-f]* after 30 s; not landed (nonce unchanged at 0x0, class 0x[0-9a-f]* absent)$' <<<"$out" ||
+      ! grep -q '^   signer: refused (-32601); no receipt for 0x[0-9a-f]* after 30 s; not landed (nonce unchanged at 0x0, class 0x[0-9a-f]* absent); check it before any rerun$' <<<"$out" ||
       [[ "$(grep -c '^fake-node: asked starknet_addDeclareTransaction$' "$est/node.log")" != 1 ]] ||
       leaks -q <<<"$out" || grep -qi "$KEY_MARK" <<<"$out"; then
     echo "FAIL: sepolia with a refused declare: expected one add*, one sending line, whole failure lines and 'not landed', got $rc:"
@@ -387,6 +387,23 @@ SH
 else
   echo "skip: sepolia --estimate-only (needs Node 24 and npm ci in scripts/signer)"
 fi
+
+# failure_tail (S-1e, review of #302): at most 800 characters, indents, line breaks and the count line included; whole
+# lines only, but for a last line too long alone.
+eval "$(sed -n '/^failure_tail() {$/,/^}$/p' "$here/deploy.sh")"
+tail_case() { # <label> <text> <expected first line, a pattern>
+  local got
+  got="$(failure_tail "$2")"
+  if (( ${#got} + 1 > 800 )) || [[ "$(head -n1 <<<"$got")" != $3 ]]; then
+    echo "FAIL: failure_tail $1: $(( ${#got} + 1 )) characters, first line '$(head -n1 <<<"$got")'"; fail=1
+  else
+    echo "ok: failure_tail $1 -> $(( ${#got} + 1 )) characters, whole lines"
+  fi
+}
+tail_case "short text, all shown" "$(printf 'line %s\n' 1 2 3)" "   line 1"
+tail_case "200 lines of 9" "$(for i in $(seq 1 200); do printf 'line %04d\n' "$i"; done)" "   (*earlier line(s) not shown)"
+tail_case "two lines of 399, cut to one" "$(printf 'a%.0s' {1..399}; echo; printf 'b%.0s' {1..399})" "   (1 earlier line(s) not shown)"
+tail_case "one line of 2000" "$(printf 'c%.0s' {1..2000})" "   ...c*"
 
 # The getClass predicate of deploy.sh counts a class as declared only for a JSON object, with no `error`
 # field, whose `result` is an object.

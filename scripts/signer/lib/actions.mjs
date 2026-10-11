@@ -248,12 +248,26 @@ async function readRpc(fetch, url, method, params, timeoutMs) {
   }
 }
 
+// A node-supplied status as it may be printed: upper-case words (digits after the first letter, as in ACCEPTED_ON_L2),
+// `<not a status>` for anything else.
+function shownStatus(value) {
+  return typeof value === 'string' && /^[A-Z][A-Z0-9_]{0,31}$/.test(value) ? value : '<not a status>';
+}
+
+// The status a receipt or a status read gives, `finality/execution` or one of them; undefined when it gives none.
+function answeredStatus(answer) {
+  const statuses = [answer?.finality_status, answer?.execution_status].filter((value) => value !== undefined && value !== null);
+  return statuses.length ? statuses.map(shownStatus).join('/') : undefined;
+}
+
 /**
  * Reads the receipt of a sent transaction until `deadlineMs` after the first read, by `now()`: SUCCEEDED or REVERTED
  * is returned (confirm then judges it as for any send), REJECTED (a node outside spec 0.10, which has no such status)
- * throws, and the end of the wait returns undefined. A receipt for another hash than the one asked is ignored.
+ * throws, and the end of the wait returns undefined. A receipt for another hash than the one asked is ignored. Every
+ * status the node answers for the hash (RECEIVED, CANDIDATE, PRE_CONFIRMED, ...) is kept in `seen.status`, the last one
+ * answered: the node has acknowledged the transaction (S-1e).
  */
-async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, intervalMs, sleep, now, readTimeoutMs }) {
+async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, intervalMs, sleep, now, readTimeoutMs, seen = {} }) {
   const end = now() + deadlineMs;
   const timeout = () => Math.max(1, Math.min(readTimeoutMs, end - now()));
   for (;;) {
@@ -262,10 +276,15 @@ async function recoverReceipt(fetch, url, transactionHash, { deadlineMs, interva
       const named = shownHash(receipt.transaction_hash);
       process.stderr.write(`signer: the receipt read for ${transactionHash} ${named ? `names transaction ${named}` : 'names no transaction hash'}; ignored\n`);
     } else {
+      seen.status = answeredStatus(receipt) ?? seen.status;
       const execution = receipt?.execution_status;
       if (execution === 'SUCCEEDED' || execution === 'REVERTED') return execution;
-      const finality = receipt?.finality_status
-        ?? (await readRpc(fetch, url, 'starknet_getTransactionStatus', { transaction_hash: transactionHash }, timeout()))?.result?.finality_status;
+      let finality = receipt?.finality_status;
+      if (finality === undefined) {
+        const status = (await readRpc(fetch, url, 'starknet_getTransactionStatus', { transaction_hash: transactionHash }, timeout()))?.result;
+        seen.status = answeredStatus(status) ?? seen.status;
+        finality = status?.finality_status;
+      }
       if (finality === 'REJECTED') throw new Error(`transaction ${transactionHash} was REJECTED by the node`);
     }
     const left = end - now();
@@ -280,7 +299,8 @@ const LANDING_BLOCK = 'pre_confirmed';
 /**
  * After a refusal whose receipt never came (S-1e), reads what would show the transaction landed: the sender's nonce,
  * and the class (a declare) or the contract (a deploy) it creates. Returns the verdict as text: `not landed (...)` when
- * the nonce is still the signed one and each object is absent, else what was read and `check it before any rerun`.
+ * the nonce is still the signed one and each object is absent, else what was read; `check it before any rerun` after
+ * either. Only called when no read of the hash's status was ever answered (sendingFetch).
  */
 async function readLanding(fetch, url, transaction, { classHash, contractAddress, timeoutMs }) {
   const signed = transaction.nonce;
@@ -302,7 +322,7 @@ async function readLanding(fetch, url, transaction, { classHash, contractAddress
     parts.push(`${kind} ${id} ${state}`);
     open ||= state !== 'absent';
   }
-  return open ? `read: ${parts.join(', ')}; check it before any rerun` : `not landed (${parts.join(', ')})`;
+  return `${open ? `read: ${parts.join(', ')}` : `not landed (${parts.join(', ')})`}; check it before any rerun`;
 }
 
 /**
@@ -313,7 +333,8 @@ async function readLanding(fetch, url, transaction, { classHash, contractAddress
  * (the command then fails naming the code and the hash). Any other answer (another error, HTTP 5xx, no JSON, a network
  * failure) is a lost answer: the request is not sent again, and the receipt is read until RECOVERY_DEADLINE_MS. Once a
  * receipt shows SUCCEEDED or REVERTED, the answer the node would have given is returned, so the command goes on as
- * after a normal send. A checked refusal with no receipt also reads whether the transaction landed (`readLanding`):
+ * after a normal send. A checked refusal with no receipt names the status the node answered for the hash, if any;
+ * when it answered none, it reads whether the transaction landed (`readLanding`):
  * `expected.contractAddress`, when set, is the contract it would deploy. Other methods go through untouched. A request
  * whose hash cannot be computed is refused, unsent.
  * @param {typeof fetch} inner
@@ -378,8 +399,14 @@ export function sendingFetch(inner, {
     const wait = refused === undefined ? { deadlineMs, intervalMs } : { deadlineMs: checkDeadlineMs, intervalMs: checkIntervalMs };
     process.stderr.write(`signer: ${refused === undefined ? 'no answer to' : 'refused'} ${method} (${lost}); not sending it again: `
       + `reading the receipt of ${txHash} for ${wait.deadlineMs / 1000} s, every ${wait.intervalMs / 1000} s\n`);
-    const status = await recoverReceipt(inner, url, txHash, { ...wait, sleep, now, readTimeoutMs });
+    const seen = {};
+    const status = await recoverReceipt(inner, url, txHash, { ...wait, sleep, now, readTimeoutMs, seen });
     if (status === undefined && refused === undefined) throw new Error(`sent, status unknown: ${txHash}; check it before any rerun`);
+    // A status answered for the hash: the node has the transaction, whatever the nonce says.
+    if (status === undefined && seen.status !== undefined) {
+      throw new Error(`refused (${refused}); no receipt for ${txHash} after ${checkDeadlineMs / 1000} s; `
+        + `seen by the node with status ${seen.status}; check it before any rerun`);
+    }
     if (status === undefined) {
       const landing = await readLanding(inner, url, signedTransaction(request.params), {
         classHash, contractAddress: expected.contractAddress, timeoutMs: readTimeoutMs,
