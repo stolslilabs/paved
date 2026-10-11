@@ -85,6 +85,17 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    `$STARKNET_RPC_URL` and `$STARKNET_ACCOUNT_ADDRESS` instead, `curl` reads the URL and the request from its
    config on stdin, the signer gets them in an allowlisted environment and names the deployer `@account` in
    calldata, and a failing signer's output is redacted before it is printed (the signer sanitises it first).
+   **Estimate only (S-1c), before a deployment or to diagnose one:** `scripts/deploy.sh sepolia --estimate-only`
+   runs every check above, the signer's install and the build, then estimates each declare in deploy order
+   (`signer estimate declare`, which refuses every `starknet_add*` method) and sends nothing. It prints the node's
+   `starknet_specVersion` in its header and on every line, so runs on different endpoints compare without the URL,
+   then per class: the Sierra file's bytes, the CASM felts, the request's bytes, whether the class is declared, and
+   the estimate or the node's whole error (redacted). It exits 1 when one estimate fails. Rehearse it first on a
+   fresh devnet with `scripts/deploy.sh sepolia --rehearse --estimate-only`. Diagnostic options only, after
+   `--estimate-only`: `--bounds <l1_amount,l1_price,l1_data_amount,l1_data_price,l2_amount,l2_price>`,
+   `--validate`, `--block-id pre_confirmed`. Before its output is pasted anywhere, check the log for the three
+   values, by variable, never printing them. On Sepolia the signer uses a fixed tip (0x5f5e100) and reads no block
+   (`scripts/signer/README.md`).
 3. `sepolia.json` is committed in a follow-up PR, with the run's output (addresses, transactions, the smoke).
 4. The smoke's test-sized traces are listed in the README; its paid game is settled by the keeper from
    `(D + 2) x 86400`.
