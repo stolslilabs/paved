@@ -245,10 +245,19 @@ A closing move that ranks costs 14.3 % less (1,440,588 to 1,234,989), one that d
 
 ## Results of L-1: `quiver_leaderboard` 0.1.0 against the native leaderboard (measured)
 
+**Decision (CORE, 2026-10-12): not adopted.** Daily +328 felts past the P-44 cap and gas worse on g and j. The
+measured swap is commit `3cc0516` on branch `hp/paved-core/t-0199-l-1-quiver-leaderboard-comparison`.
+
+What would reopen it:
+
+- a package release with one hashed address per tournament (the four slots under one base, as the native
+  `Slots4`), measured again with the same tests and `scripts/class-sizes.sh`; or
+- a change of the P-44 cap of `Daily` by the PM, together with gas not worse than the native leaderboard.
+
 Brief: `docs/briefs/l1-quiver-leaderboard.md`. The package was read as resolved by Scarb from scarbs.xyz
 (`quiver_leaderboard = "=0.1.0"`, checksum `f8900c60…981e770e` in `Scarb.lock`, the one the brief gives; its
-`VCS.json` names commit `3f091250` of `bal7hazar/quiver`, `packages/leaderboard`). The swap (stage B) is on the
-branch of PR "feat: L-1 quiver_leaderboard 0.1.0 vs native leaderboard (draft, by numbers)": `LeaderboardImpl`
+`VCS.json` names commit `3f091250` of `bal7hazar/quiver`, `packages/leaderboard`). The swap (stage B) is commit
+`3cc0516` (not merged): `LeaderboardImpl`
 calls the package's `LeaderboardStorage` node, rooted at `selector!("leaderboard")` in the storage of the contract
 that runs the code, as `PavedStorage` is at `selector!("paved")`. Only `leaderboard.cairo`, `Scarb.toml` and
 `Scarb.lock` changed; Paved's `Submission`, `Ranked` and `Top3` stay, converted field by field.
@@ -259,7 +268,7 @@ more. The package keeps the rule exactly. The extra gas comes from its storage l
 
 ### Gas (snforge L2 gas of one call, `contracts/tests/gas.cairo`, the same file on both sides)
 
-Test g0 is new in this PR (a closing move into an empty tournament); it was run on main before the swap. Before:
+Test g0 (a closing move into an empty tournament) was added at `3cc0516` and run on main before the swap; it is not merged. Before:
 main `30b3226` plus that test. After: the swap.
 
 | Scenario | Before (native) | After (package) | Change |
@@ -340,7 +349,7 @@ gas budget each have a `_structures_agree` twin that replays the same moves, ass
   keeps sharing `Daily`'s layout (P-26). `Tutorial` never calls the leaderboard.
 - **Existing tournaments are not kept readable.** The rankings written before the upgrade stay in
   `PavedStorage.rankings`, untouched, and the package does not read them
-  (`contracts/src/tests/leaderboard_storage.cairo`). After a plain upgrade under D-17, `top` and `ranked` answer
+  (`contracts/src/tests/leaderboard_storage.cairo` at `3cc0516`, not merged). After a plain upgrade under D-17, `top` and `ranked` answer
   empty for every earlier tournament: the `tournament` view shows no ranks, a claim of an earlier day fails the
   rank check, and the day open at the upgrade loses the ranks it had.
 - **Answer: an upgrade, not a redeploy, but only with the cutover of "Deployed data: the cutover"**: the native
