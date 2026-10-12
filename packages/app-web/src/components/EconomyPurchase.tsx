@@ -64,8 +64,9 @@ export function EconomyPurchase({
   const entry = useAsyncRead(() => client.base.views.entryPrice(), [client], { onVisible: true });
   const quote = useAsyncRead(() => client.views.quote(stake), [client, stake], { onVisible: true });
   // The router pin and the guard's rate, read with the quote (the send reads both again in its own prepare).
-  // The RPC must be on the deployment's chain (checked once per client); nothing else is read for a purchase before.
-  const chain = useAsyncRead(() => client.checkChain(), [client]);
+  // The RPC must be on the deployment's chain; nothing else is read for a purchase before. A match is kept by the client, a
+  // failed read is tried again when the page is shown again, a mismatch stays refused.
+  const chain = useAsyncRead(() => client.checkChain(), [client], { onVisible: true });
   const chainOk = chain.loaded && chain.error === null;
   const chainProblem = chain.error !== null ? chain.error.replace(/ Nothing was sent\.$/, "") : null;
   const gate = useAsyncRead(chainOk ? () => Promise.all([client.views.router(), client.views.guardRate()]) : null, [client, stake, chainOk], {
@@ -121,9 +122,10 @@ export function EconomyPurchase({
     rate !== null &&
     minPaved !== null &&
     minPaved > 0n;
-  // An acceptance is for the quote it was given on: a quote read again, or no longer low, needs a fresh tick.
+  // An acceptance is for the figures it was given next to: a quote read again, a guard rate that moved (the implied figure),
+  // or a quote no longer low, needs a fresh tick.
   const shownQuote = poolQuote.data;
-  useEffect(() => setAcceptLow(false), [shownQuote, lowQuote]);
+  useEffect(() => setAcceptLow(false), [shownQuote, implied, lowQuote]);
   // The burn share of the price, at today's `burn_bps`: an owner act may change it before the transaction.
   const burnShare = price !== null && burn !== null ? `${usdc(burn)} of the price (${formatUnits((burn * BPS) / price, 2)} %), at today's terms` : null;
 

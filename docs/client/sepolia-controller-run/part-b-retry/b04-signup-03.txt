@@ -1,0 +1,8 @@
+Connect Controller
+
+d16-20261012-6446
+
+Create New
+
+rpc error: code = Internal desc = internal server error [the rest of the text is removed: it may carry the keychain's echoed registration request]
+[lines seen after the cut: Authentication failed. Please try again. | Please try connecting again]

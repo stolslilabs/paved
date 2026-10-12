@@ -130,28 +130,34 @@ export class EventReader {
    * The days `sponsor` put something into, newest first, at most `SPONSORED_DAYS_LIMIT` of them. A day may hold a part
    * to reclaim.
    *
-   * With an `indexer` that answers and is not behind, one bounded page of its route. Otherwise (no indexer, an answer
-   * that is an error, an indexer older than the route, or one behind the node) a bounded scan: the sponsor is event
-   * data, not a key, so the node cannot filter on it and every `Sponsored` event of the range is read, paged with the
-   * RPC's continuation token, from `max(deployed_block, latest - SPONSORED_FALLBACK_BLOCKS)`, never from
-   * `deployed_block`. That scan MISSES a sponsoring older than the range (on a long-lived network, anything more than
-   * about a week old) and the Landing shows only the days read here: a part left in such a day is still there on the
-   * chain, but it is not offered until the indexer answers.
+   * With an `indexer` that answers and is not behind, one bounded page of its route, and no scan. With no indexer, or
+   * an answer that is an error (or an indexer older than the route), a bounded scan alone: the sponsor is event data,
+   * not a key, so the node cannot filter on it and every `Sponsored` event of the range is read, paged with the RPC's
+   * continuation token, from `max(deployed_block, latest - SPONSORED_FALLBACK_BLOCKS)`, never from `deployed_block`.
+   * That scan MISSES a sponsoring older than the range (on a long-lived network, anything more than about a week old).
+   *
+   * When the indexer answers but is `behind` the node, its days are right up to its head, so they are kept and merged
+   * with the scan: the union, deduplicated by day, so an old day the scan does not reach is not dropped for a lag of a
+   * few blocks. A day in both is the scan's record: it is the fresher read of the chain.
    */
   async sponsoredDays(sponsor: string, indexer?: SponsoredDaysIndexer | null): Promise<number[]> {
+    let indexed: number[] = [];
     if (indexer) {
       try {
         const answer = await indexer.sponsorDays(sponsor, { limit: SPONSORED_DAYS_LIMIT });
         if (answer.freshness.kind === "ok") return answer.data.days.slice(0, SPONSORED_DAYS_LIMIT);
+        indexed = answer.data.days;
       } catch {
-        // Unreachable, loading, halted, rewinding or without the route: the bounded scan below.
+        // Unreachable, loading, halted, rewinding or without the route: the bounded scan alone.
       }
     }
     if (!this.provider.getBlockNumber) throw new Error("Cannot bound the Sponsored scan: the node provider has no getBlockNumber");
     const latest = await this.provider.getBlockNumber();
     const from = Math.max(this.deployment.deployedBlock, latest - SPONSORED_FALLBACK_BLOCKS);
     const events = await this.readAt(this.deployment.addresses.Daily, this.codecs.Daily, "Sponsored", [], from);
-    const days = new Set(events.filter((e) => BigInt(e.fields.sponsor as string) === BigInt(sponsor)).map((e) => Number(e.fields.tournamentId)));
+    const scanned = events.filter((e) => BigInt(e.fields.sponsor as string) === BigInt(sponsor)).map((e) => Number(e.fields.tournamentId));
+    // The scan comes first: where a day is in both, the scan's record is kept (the fresher read of the chain).
+    const days = new Set([...scanned, ...indexed]);
     return [...days].sort((a, b) => b - a).slice(0, SPONSORED_DAYS_LIMIT);
   }
 

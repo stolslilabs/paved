@@ -2,7 +2,7 @@
 
 Run of 2026-10-11 against https://paved.bal7hazar.com (release of 1235607, #304) and https://api.paved.bal7hazar.com.
 Part A (no Cartridge account) is done. Part B (account needed) was tried headless on 2026-10-12 with the owner's go for one
-throwaway account (section "Part B (automated)"): **sign-up failed twice on Cartridge's side, no account exists**. The fallback
+throwaway account (section "Part B (automated)"): **sign-up failed three times (two launches plus a retry) on Cartridge's side, no account exists**. The fallback
 is the owner's by-hand run below.
 
 ## Method
@@ -154,11 +154,13 @@ Texts and screenshots only; no request body, header, cookie, storage, credential
 
 - The two failed launches (attempts 2 and 3) ran with a first version of the redaction: it removed the keychain's echoed request with a pattern, and
   a hand edit finished the job. The saved texts there stop with "[request echo removed: ...]". Both folders were then checked (see the PR) and are clean.
-- The driver now: cuts the text at the **earliest of the first echo marker (`{"response"` or `"request":`), the end of its failure pattern (`internal server error`, `authentication failed`) and the end of the first `rpc error:` line**, so the cut does not depend on what the error says (tested with `code = Unavailable`), and applies it to console messages too (a console record keeps the script URL in `stack`, as the stack line is cut); takes **no screenshot while the failure
+- The driver now: cuts the text at the **earliest of the first echo marker (`{"response"` or `"request":`, also with escaped quotes, `\"response\"` and `\"request\":`), the end of its failure pattern (`internal server error`, `authentication failed`) and the end of the first `rpc error:` line**, so the cut does not depend on what the error says (tested with `code = Unavailable`), and applies it to console messages too (a console record keeps the script URL in `stack`, as the stack line is cut); takes **no screenshot while the failure
   text is on screen** (and deletes one taken in that instant), writing the screen as text with its time; reads the operation name from the raw text
   before the cut and keeps only the name; and checks every file it wrote for `rawId`, `attestationObject`, `clientDataJSON`, `credentials` and
   `"request"`, exiting 5 on a hit; the main flow runs in `try`/`finally`, so the file check and the context close always run. `scrub.mjs` holds these; `bun test scripts/e2e-sepolia/scrub.test.mjs` tests them on a synthetic echo.
-  `bun scripts/e2e-sepolia/scrub.mjs <dir>...` runs the same file check by hand. The new driver has not run live yet.
+  `bun scripts/e2e-sepolia/scrub.mjs <dir>...` runs the same file check by hand. The new driver ran live once, in the retry at 12:32 UTC (see "Retry"): it detected the failure, took no screenshot of it and passed its own file check. The file check also flags an escaped `\"request\"`. A failure is detected by the failure pattern, an echo marker or `rpc error:`, whatever the wording.
+- Peak RSS figures are the "Maximum resident set size" of `/usr/bin/time -v` (largest process). **Exit code 4 is the driver's code for a detected registration failure** (3: the name was not "Create New"; 5: the evidence check found a forbidden word; 2: it stopped on an unexpected screen).
+- For anyone who reuses the driver: it signs up with a real keychain and no live run is planned any more, so check the keychain's screens by hand first, and never run it for a second account.
 - The failure screenshots of attempts 2 and 3 (`b04-signup-03.jpg`) were taken before that rule: they show only the first lines of the error, no credential.
 
 What each folder holds:
@@ -168,14 +170,28 @@ What each folder holds:
 | `part-b-attempt1-long-name/` | The 23-character name. Files of two launches: `b04-signup-02.*` is from the first (08:10:52 UTC), the rest from the second (08:13). Complete `part-b-run.json` of the second launch. |
 | `part-b-attempt2-finalize-failed/` | The launch at about 08:19 (files 08:18:56 to 08:20:17). **Its `part-b-run.json` is partial**: only `console`, `notes`, `stage` and `txs` remain; its `requests`, `failures`, `frames` and `screens` were lost when the echo was cut by hand, and the original was not kept. Its last console entry is a splice of the console error and the failure screen. `b04-signup-04.*` is **not** from this launch: it is left from the earlier click-timeout launch (08:16:51), the name accepted and `SIGN UP` enabled. |
 | `part-b-attempt3-finalize-failed/` | The 08:23 launch. Complete `part-b-run.json` (console, requests by host and path, failures, frames, screens, notes). |
+| `part-b-retry/` | The 12:32 UTC retry on the new driver. Complete `part-b-run.json` (console, requests by host and path, failures, frames, screens with their times, notes, `registrationFailed`). **No screenshot of the failure screen** (`b04-signup-03.txt` only, with its time); `b01` to `b04-signup-02` have a jpg and a txt. |
 
 Each folder also holds `bNN-*.jpg` and `bNN-*.txt` per keychain screen. `b04-signup-03.jpg` of attempts 2 and 3 are byte-identical (same SHA-256): not a copy, each was written by its own launch (file times 08:19:35 and 08:23:03); the render was identical, the same screen at the same size and JPEG quality.
 
-Fallback: the owner's by-hand run below. **One more automated attempt is planned**, in the same confirmed scope: the same name
-`d16-20261012-6446`, passkey only (never SMS), at most one account, not before 12:23 UTC on 2026-10-12, started only on the PM's
-prompt. If `finalizeRegistration` fails the same way, the automated attempts stop for good and that is recorded; no other variant
-(another origin, another authenticator) is tried. If the owner's by-hand run comes first it supersedes that attempt. Its results go in a
-follow-up PR.
+### Retry (2026-10-12, 12:32 UTC): failed the same way; automated attempts stop here
+
+The one planned retry ran on 2026-10-12 from 12:32 UTC (PM's prompt after 12:23), in the same scope: name `d16-20261012-6446`, headless on the
+VPS, `scripts/e2e-sepolia/part-b.mjs --confirmed` after the detection and scrub fixes of this PR (failure detection by failure pattern, echo
+marker or `rpc error:`; escaped-quote markers; 10 scrub tests pass).
+
+- The keychain offered "Create New" for the name (not registered), `SIGN UP` worked, the driver chose **PASSKEY** (never SMS or Other options).
+- **2026-10-12T12:32:36.693Z** (driver log): the registration failed again. Operation **`finalizeRegistration`** (read from the raw text before the cut).
+  Error text kept: `rpc error: code = Internal desc = internal server error`; the rest was cut by the scrub. Lines seen under it: "Authentication failed.
+  Please try again." and "Please try connecting again". Driver exit 4, context closed, nothing kept; peak RSS 113,536 kB.
+- No screenshot was taken of the failure screen (by design): `part-b-retry/b04-signup-03.txt` is its text with the time, and its `part-b-run.json` is complete.
+- No account exists; nothing was signed or sent to Sepolia. Steps 3 to 8 (Create Account, Daily purchase, moves, indexer, origin and "unverified"
+  policies text) were not reached, and the question of #295 stays open.
+- Three failures of the same call (08:19, 08:23, 12:32 UTC, over about four hours) from a headless Chromium with a virtual authenticator point
+  at Cartridge's side or at virtual authenticators; it does not separate the two. **No other variant is tried** (another origin, authenticator or name).
+  Evidence: `docs/client/sepolia-controller-run/part-b-retry/`.
+
+Fallback: the owner's by-hand run below, with a real passkey.
 
 ## Part B (needs a Cartridge account): not run
 
