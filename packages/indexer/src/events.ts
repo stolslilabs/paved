@@ -206,6 +206,8 @@ export const IGNORED = [
   "EconomyConfigured",
   "PoolSet",
   "GameSet",
+  // The owner's repoint of the router (E-9, set_router).
+  "RouterSet",
   // A sponsor's reclaim of a day's unclaimable prize (P-37): declared by the Lobby class, emitted from Daily's address.
   "Reclaimed",
   // The owner's change of the Lobby class of Daily or Tutorial (P-42, set_lobby_class).

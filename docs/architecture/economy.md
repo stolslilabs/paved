@@ -1233,8 +1233,9 @@ on mainnet".
   `RouterSet { previous, router }`. The view `router()` reads it, as `addresses().router` does. It adds no trust:
   the owner can already replace the class (`upgrade`). The new router serves the stored pool key and limit, so a
   router with another key needs a `set_pool` after it. **The indexer must ignore `RouterSet`** before any
-  `set_router` on a network it follows, since it refuses an unknown event (`packages/indexer/src/events.ts`,
-  `IGNORED`; not in this PR's allowlist, escalated).
+  `set_router` on a network it follows, since it refuses an unknown event. E-9 adds it to `IGNORED`
+  (`packages/indexer/src/events.ts`), so the indexer that follows a network must run that version before any
+  `set_router` there.
 
 **Sepolia (an operator procedure for a later step; nothing is sent by E-9).** Sepolia runs `Economy` with a
 `MockRouter` that has `quote` and no `quote_swap` (`contracts/deployments/sepolia.json`). `MockRouter` is not
@@ -1245,8 +1246,10 @@ entry point. The path that keeps the playtest data (the games, the days, the EMA
 2. Declare the new `Economy` and `MockRouter` classes.
 3. Deploy a new `MockRouter(PAVED, USDC)` and seed it with `add_liquidity`. The old mock's reserves (800,000 PAVED,
    10,000 USDC at the launch) stay locked in it: nobody can remove liquidity. On Sepolia all 1,000,000 PAVED went to
-   that pool and the owner's 200,000 stake, so the new pool's PAVED comes from an unstake in the Vault (the owner's
-   account). Seed at the old pool's current ratio (`reserves()`) so that the guard's rate still matches the pool.
+   that pool and the deployer's 200,000 stake, so the new pool's PAVED comes from an unstake of the deployer's Vault
+   stake. These are test tokens on the test network, so this is CORE's step, not an owner's act (CORE, 2026-10-12).
+   **Sepolia only; on mainnet the pool is Ekubo's and none of this applies.** Seed at the old pool's current ratio
+   (`reserves()`) so that the guard's rate still matches the pool.
 4. In **one multicall** of the owner's account: `Economy.upgrade(new class hash)`, then `Economy.set_router(new mock)`,
    then `Economy.set_pool(new mock's pool_key(), 0)`. The class replaced by `upgrade` serves the calls that follow it
    in the same transaction, so no block sees the new class with the old mock. The new mock's key is the old one

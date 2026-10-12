@@ -176,10 +176,12 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
 through the router's `quote_swap`, which Sepolia's current `MockRouter` lacks, so an `Economy` upgrade alone breaks
 Sepolia's quote. The path keeps the playtest data; its detail is in `docs/architecture/economy.md`, "As built: E-9":
 
-1. The indexer that follows Sepolia ignores `RouterSet` (`packages/indexer/src/events.ts`, `IGNORED`) before step 4.
+1. The indexer that follows Sepolia runs a version that ignores `RouterSet` (E-9's `IGNORED`) before step 4.
 2. Declare the E-9 `Economy` and `MockRouter` classes.
 3. Deploy the new `MockRouter(PAVED, USDC)` and seed it (`add_liquidity`) at the old pool's current ratio; its PAVED
-   comes from an unstake of the owner's Vault stake (the old pool's reserves cannot be withdrawn).
+   comes from an unstake of the deployer's Vault stake (the old pool's reserves cannot be withdrawn). Test tokens on
+   the test network: CORE's step, not an owner's act. **Sepolia only; on mainnet the pool is Ekubo's and none of
+   this applies.**
 4. One multicall of the owner's account: `Economy.upgrade(<E-9 class hash>)`, `Economy.set_router(<new MockRouter>)`,
    `Economy.set_pool(<its pool_key()>, 0)`.
 5. Commit the new `MockRouter` and class hashes in `sepolia.json`, and check `Economy.router()`,
