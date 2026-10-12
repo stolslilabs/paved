@@ -50,12 +50,12 @@ function fakeBaseWriter() {
   return { address: PLAYER, sendCalls, sent };
 }
 
-function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; rpcChainId?: string; playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null> } = {}) {
+function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; rpcChainId?: string; rpcChain?: () => string; playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null> } = {}) {
   const economy = opts.economy ?? new FakeEconomy();
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: FAKE_UNIT };
   const writer = fakeBaseWriter();
-  const utils = renderPage({
+  const renderOpts = {
     page: <LandingPage />,
     path: "/",
     search: opts.search,
@@ -68,7 +68,10 @@ function land(opts: { search?: string; economy?: FakeEconomy; deployment?: Econo
     wrap: (routes) => (
       <EconomyProvider value={{ deployment: opts.deployment ?? economyDeployment, views: economy, poolQuoter: opts.pool === "network" ? undefined : opts.pool === undefined ? new FakePoolQuoter() : opts.pool, now: () => opts.now ?? settlesAfter(DAY) }}>{routes}</EconomyProvider>
     ),
-  });
+  };
+  // A chain id read at every call of the fake RPC, which may throw (a transient RPC error).
+  if (opts.rpcChain) Object.defineProperty(renderOpts, "rpcChainId", { get: opts.rpcChain });
+  const utils = renderPage(renderOpts);
   return { ...utils, economy, writer };
 }
 
@@ -300,6 +303,26 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     visibility.mockRestore();
   });
 
+  it("the acceptance of a low quote is for the figures it was given next to: a guard rate that moved needs a fresh tick", async () => {
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 70n * 10n ** 18n, usdc: 1_000_000n };
+    const economy = new FakeEconomy();
+    land({ pool, economy });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    fireEvent.click(screen.getByRole("checkbox"));
+    const confirm = screen.getByText("Confirm purchase") as HTMLButtonElement;
+    expect(confirm.disabled).toBe(false);
+    // The guard rate moves up; the pool's quote is the same and still low.
+    economy.guardRate_ = economy.guardRate_ * 2n;
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(await screen.findAllByText(new RegExp(`the ${paved(224n * P).replace(".", "\\.")} the guard rate implies`))).toBeTruthy();
+    await waitFor(() => expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false));
+    expect(confirm.disabled).toBe(true);
+    visibility.mockRestore();
+  });
+
   it("an RPC on another chain than the deployment's: the plain message, nothing quoted, no purchase offered", async () => {
     const pool = new FakePoolQuoter();
     const economy = new FakeEconomy();
@@ -309,6 +332,39 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect((screen.getByText("Purchases are off", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
     expect(pool.calls).toHaveLength(0);
     expect(economy.calls).not.toContain("router");
+  });
+
+  it("a failed chain read at page open is read again when the page is shown again: Buy is offered", async () => {
+    let down = true;
+    land({
+      rpcChain: () => {
+        if (down) throw new Error("rpc down");
+        return FAKE_CHAIN_ID;
+      },
+    });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText(/Cannot read the network: rpc down/)).toBeTruthy();
+    expect((screen.getByText("Purchases are off", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+    down = false;
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await enabled("Buy for 2 USDC");
+    expect(screen.queryByText(/Cannot read the network/)).toBeNull();
+    visibility.mockRestore();
+  });
+
+  it("a chain mismatch stays refused when the page is shown again", async () => {
+    const pool = new FakePoolQuoter();
+    land({ pool, rpcChainId: "0x534e5f4d41494e" });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText(CHAIN_MISMATCH)).toBeTruthy();
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByText(CHAIN_MISMATCH)).toBeTruthy();
+    expect((screen.getByText("Purchases are off", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(pool.calls).toHaveLength(0);
+    visibility.mockRestore();
   });
 
   it("mainnet, rate 0 (unexpected): refused, nothing quoted, no purchase offered", async () => {
