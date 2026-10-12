@@ -13,8 +13,8 @@
 //! - `settle` (anyone, after the day): the day's mean is fixed on its first settlement (option B)
 //!   and pushed once into the EMA; each recorded game is paid `R x h(score / mean)`, minted to its
 //!   player, once.
-//! - `configure`, `set_pool` (the owner, bounded and evented), `set_game` (the owner, once). The
-//!   mean has no setter.
+//! - `configure`, `set_pool`, `set_router` (the owner, bounded and evented), `set_game` (the
+//!   owner, once). The mean has no setter.
 //! - `upgrade` (the owner): replaces the class, keeping the storage (P-42,
 //!   `docs/architecture/upgrades.md`). The owner is two-step (`OwnableComponent`).
 //!
@@ -176,6 +176,9 @@ pub trait IEconomy<TContractState> {
     fn set_pool(ref self: TContractState, pool_key: PoolKey, sqrt_ratio_limit: u256);
     /// Sets the game allowed to purchase and record, once. The owner only.
     fn set_game(ref self: TContractState, game: ContractAddress);
+    /// Repoints every swap and quote at another router (E-9; a real address). The owner only, who
+    /// can already replace the class.
+    fn set_router(ref self: TContractState, router: ContractAddress);
     fn quote(self: @TContractState, stake: u8) -> Quote;
     /// The PAVED the swap of `purchase` pays now for `usdc_in`, its fee included: the router's
     /// `quote_swap` through the same route (the stored pool key and price limit, one hop). The
@@ -190,6 +193,7 @@ pub trait IEconomy<TContractState> {
     /// per block.
     fn rate(self: @TContractState) -> u256;
     fn pool(self: @TContractState) -> (PoolKey, u256);
+    fn router(self: @TContractState) -> ContractAddress;
     fn addresses(self: @TContractState) -> Addresses;
 }
 
@@ -454,6 +458,7 @@ pub mod Economy {
         EconomyConfigured: EconomyConfigured,
         PoolSet: PoolSet,
         GameSet: GameSet,
+        RouterSet: RouterSet,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         #[flat]
@@ -527,6 +532,12 @@ pub mod Economy {
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct GameSet {
         pub game: ContractAddress,
+    }
+
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct RouterSet {
+        pub previous: ContractAddress,
+        pub router: ContractAddress,
     }
 
     // Constructor
@@ -774,6 +785,16 @@ pub mod Economy {
             self.emit(GameSet { game });
         }
 
+        fn set_router(ref self: ContractState, router: ContractAddress) {
+            // [Check] The owner, a real address
+            self.ownable.assert_only_owner();
+            assert(router.is_non_zero(), errors::ZERO_ADDRESS);
+            // [Effect] The next swaps and quotes go through it
+            let previous = self.router.read();
+            self.router.write(router);
+            self.emit(RouterSet { previous, router });
+        }
+
         fn quote(self: @ContractState, stake: u8) -> Quote {
             assert(stake >= 1 && stake <= MAX_STAKE, errors::WRONG_STAKE);
             let config = self.config.read();
@@ -855,6 +876,10 @@ pub mod Economy {
 
         fn pool(self: @ContractState) -> (PoolKey, u256) {
             (self.pool_key(), self.sqrt_ratio_limit.read())
+        }
+
+        fn router(self: @ContractState) -> ContractAddress {
+            self.router.read()
         }
 
         fn addresses(self: @ContractState) -> Addresses {

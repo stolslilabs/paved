@@ -172,6 +172,21 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    `(D + 2) x 86400`.
 5. The report gives the addresses of `sepolia.json` (contracts, class hashes, `deployed_block`) to the PM.
 
+**Repointing Sepolia's `Economy` at a new `MockRouter` (E-9; a later step, not done yet).** The E-9 class quotes
+through the router's `quote_swap`, which Sepolia's current `MockRouter` lacks, so an `Economy` upgrade alone breaks
+Sepolia's quote. The path keeps the playtest data; its detail is in `docs/architecture/economy.md`, "As built: E-9":
+
+1. The indexer that follows Sepolia ignores `RouterSet` (`packages/indexer/src/events.ts`, `IGNORED`) before step 4.
+2. Declare the E-9 `Economy` and `MockRouter` classes.
+3. Deploy the new `MockRouter(PAVED, USDC)` and seed it (`add_liquidity`) at the old pool's current ratio; its PAVED
+   comes from an unstake of the owner's Vault stake (the old pool's reserves cannot be withdrawn).
+4. One multicall of the owner's account: `Economy.upgrade(<E-9 class hash>)`, `Economy.set_router(<new MockRouter>)`,
+   `Economy.set_pool(<its pool_key()>, 0)`.
+5. Commit the new `MockRouter` and class hashes in `sepolia.json`, and check `Economy.router()`,
+   `Economy.quote_swap(1400000)` and one paid spawn.
+
+The same rules as phase 2 hold: the funded account by variable name only, nothing printed, from merged main.
+
 ## Checks that gate a merge
 
 - CI build

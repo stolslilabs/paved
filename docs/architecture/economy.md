@@ -563,8 +563,8 @@ O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, ow
       `quote_swap(RouteNode, TokenAmount) -> Delta`, and a contract (`Economy`) can call it: the caught revert works.
     - **The router Nums uses (`0x04505a9f06f2bd639b6601f37a4dc0908bb70e8e0e0c34b1220827d64f4fc066`) has no
       `quote_swap`**. Its class has only an older external `quote(Array<Swap>)`. So `Economy`'s router on mainnet must be
-      `0x0199…737e` (or a later router with `quote_swap`), never Nums' address. `Economy` has no router setter: the
-      router is fixed at construction.
+      `0x0199…737e` (or a later router with `quote_swap`), never Nums' address. Since E-9 the owner can repoint
+      the router with `set_router` ("As built: E-9").
     - The quote equals the swap through the same node, exactly, for every amount tried.
   - `Economy.quote_swap` now uses that interface (E-9). The client drops Ekubo's API on mainnet (CLIENT's change,
     "As built: E-9").
@@ -918,6 +918,14 @@ D-13 lifts the seed gate. These gates stay:
   and moving the ownership there (two steps) are the owner's acts. `PavedToken` and `Vault` stay non-upgradable.
   `set_lobby_class` on `Daily` and `Tutorial` is as strong as `upgrade`: a `Lobby` class runs by library call on
   their storage, so it can move the prize pools, rewrite `owner`, or replace the class. This gate covers both.
+- **`Economy`'s router and limit** (E-9), inputs for the owner's mainnet deploy:
+  - the router is `0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e` (or a later Ekubo router with
+    `quote_swap`), **never Nums' `0x04505a9f06f2bd639b6601f37a4dc0908bb70e8e0e0c34b1220827d64f4fc066`**, which
+    has no `quote_swap`;
+  - `sqrt_ratio_limit` is 0 or the extreme of USDC in's direction: `MIN_SQRT_RATIO` when USDC is token0,
+    `MAX_SQRT_RATIO` when it is token1. A limit on the wrong side reverts every quote and purchase
+    (`LIMIT_DIRECTION`), and **`set_pool` does not check the side**;
+  - re-run the fork test (`paved::tests::economy::fork`) at a recent block before the go.
 - **The mock-router gate** (from E1's audit), a mainnet gate: the mainnet price limit and partial fills are untested
   until a fork test against the mainnet router covers them (see "As built: E2" below). **Covered by E-9's fork test**
   (2026-10-12, "As built: E-9"): the limit `Economy` passes for its direction, a swap that reaches it, and a partial
@@ -1210,32 +1218,46 @@ What the partial fill confirms, and one effect the text above did not name:
 
 - As the gate paragraph of E2 says: the unswapped USDC goes back through `clear(USDC)` to the Vault as margin, the
   burn falls below 70 %, and `R` follows the PAVED bought against the whole burn quote, so it is smaller.
-- **The guard's rate also reads a partial fill as a bad price.** `next_rate(rate, bought, quote)` divides the PAVED
-  bought by the whole quote. The observation then falls below `rate x 10/11` and is clamped there, and the rate steps
-  down by about 0.28 % (once per block). Every partial fill therefore lowers the guard by one clamped step. No code
-  change: a partial fill needs a drained pool or a near limit, both the owner's acts.
+- **Known effect: the guard's rate reads a partial fill as a bad price** (CORE's decision, 2026-10-12: no code
+  change in E-9, since the fix would touch `purchase`'s path and its tight gas budgets; on E4's calibration backlog).
+  `next_rate(rate, bought, quote)` divides the PAVED bought by the whole quote. The observation of a partial fill
+  falls below `rate x 10/11` and is clamped there, so the rate steps down by **about 0.28 %** (once per block).
+  Every partial fill lowers the guard by one clamped step. A partial fill needs the pool driven to the limit: a
+  drained pool at `Economy`'s extreme limit, or a near limit set by `set_pool`.
 
-**Before the owner's mainnet go (a reserved act; nothing here is deployed):**
+The mainnet inputs (the router, the limit, `set_pool` not checking the side) are in "Gates before a real-money game
+on mainnet".
 
-- `Economy`'s router is `0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e` (or a later Ekubo router
-  with `quote_swap`), never Nums' `0x04505a…c066`. The router has no setter.
-- Its `sqrt_ratio_limit` is 0 or the extreme of USDC in's direction: `MIN_SQRT_RATIO` when USDC is token0,
-  `MAX_SQRT_RATIO` when it is token1. A limit on the wrong side reverts every purchase; `set_pool` does not check it.
-- Re-run the fork test at a recent block.
+- **`set_router(router)`** (CORE's decision, 2026-10-12, for the Sepolia path). The owner only; it refuses the zero
+  address (`'Economy: zero address'`). It writes the router used by every later swap and quote, and emits
+  `RouterSet { previous, router }`. The view `router()` reads it, as `addresses().router` does. It adds no trust:
+  the owner can already replace the class (`upgrade`). The new router serves the stored pool key and limit, so a
+  router with another key needs a `set_pool` after it. **The indexer must ignore `RouterSet`** before any
+  `set_router` on a network it follows, since it refuses an unknown event (`packages/indexer/src/events.ts`,
+  `IGNORED`; not in this PR's allowlist, escalated).
 
-**Sepolia (analysis only, nothing sent).** Sepolia runs `Economy` with a `MockRouter` that has `quote` and no
-`quote_swap` (`contracts/deployments/sepolia.json`).
+**Sepolia (an operator procedure for a later step; nothing is sent by E-9).** Sepolia runs `Economy` with a
+`MockRouter` that has `quote` and no `quote_swap` (`contracts/deployments/sepolia.json`). `MockRouter` is not
+upgradable, and an `Economy` upgrade alone breaks Sepolia's quote: the new `quote_swap` calls the old mock's missing
+entry point. The path that keeps the playtest data (the games, the days, the EMA, the guard, the Vault's stakes):
 
-- **An `Economy` upgrade alone breaks Sepolia's quote.** The new class's `quote_swap` calls the old mock's missing
-  `quote_swap`. Purchases still swap, but the client's `min_out` source fails.
-- **A new `MockRouter` cannot be wired into the deployed `Economy`.** `MockRouter` is not upgradable. The router
-  address is set only at construction: `set_pool` changes the pool key and the limit, not the router.
-- So the update is a **fresh `scripts/deploy.sh sepolia`** with both new classes: a new `PavedToken`, since its
-  minter is set once. The alternative is an `Economy` change first, a router setter by the owner, which needs its
-  own review and audit.
-- `deploy.sh` needs no change. `MockRouter`'s constructor, `Economy`'s constructor and the address flow are
-  unchanged, and the smoke already calls `Economy.quote_swap`.
-- Until then, Sepolia keeps its current classes, which stay consistent with each other.
+1. Before anything, the indexer that follows Sepolia ignores `RouterSet` (above).
+2. Declare the new `Economy` and `MockRouter` classes.
+3. Deploy a new `MockRouter(PAVED, USDC)` and seed it with `add_liquidity`. The old mock's reserves (800,000 PAVED,
+   10,000 USDC at the launch) stay locked in it: nobody can remove liquidity. On Sepolia all 1,000,000 PAVED went to
+   that pool and the owner's 200,000 stake, so the new pool's PAVED comes from an unstake in the Vault (the owner's
+   account). Seed at the old pool's current ratio (`reserves()`) so that the guard's rate still matches the pool.
+4. In **one multicall** of the owner's account: `Economy.upgrade(new class hash)`, then `Economy.set_router(new mock)`,
+   then `Economy.set_pool(new mock's pool_key(), 0)`. The class replaced by `upgrade` serves the calls that follow it
+   in the same transaction, so no block sees the new class with the old mock. The new mock's key is the old one
+   (same tokens, same constants), and `set_pool` re-states it.
+5. Update `contracts/deployments/sepolia.json` (the new `MockRouter` address and the class hashes), then check:
+   `Economy.router()` is the new mock, `Economy.quote_swap(1400000)` answers the new mock's `quote_swap`, and one
+   paid spawn passes with `min_out` from it.
+
+`scripts/deploy.sh` needs no change for fresh devnet and Sepolia deploys: the constructors and the address flow are
+unchanged, and its smoke already calls `Economy.quote_swap`. The procedure above is not scripted (OPERATIONS,
+"Sepolia").
 
 **For CLIENT** (`client-economy.md` is CLIENT's; the notes are in the PR):
 

@@ -15,7 +15,7 @@ use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::economy::curve::{RATE_SCALE, guarded, next_rate, reference, split, supply_factor};
 use paved::economy::economy::Economy::{
-    DayClosed, EconomyConfigured, Event, GameSet, Purchased, Recorded, Settled,
+    DayClosed, EconomyConfigured, Event, GameSet, Purchased, Recorded, RouterSet, Settled,
 };
 use paved::economy::economy::{
     BASE_PRICE, Config, DAY, IEconomyDispatcher, IEconomyDispatcherTrait, IEconomySafeDispatcher,
@@ -138,10 +138,15 @@ fn setup() -> Setup {
 /// The PAVED that the router's own `quote_swap` answers for `usdc_in`, through `Economy`'s pool
 /// and limit.
 fn router_quote(s: Setup, usdc_in: u128) -> u256 {
+    router_quote_at(s, s.router, usdc_in)
+}
+
+/// As `router_quote`, from the router at `router`.
+fn router_quote_at(s: Setup, router: ContractAddress, usdc_in: u128) -> u256 {
     let (pool_key, sqrt_ratio_limit) = s.economy.pool();
     let node = RouteNode { pool_key, sqrt_ratio_limit, skip_ahead: 0 };
     let amount = i129 { mag: usdc_in, sign: false };
-    let delta = IRouterDispatcher { contract_address: s.router }
+    let delta = IRouterDispatcher { contract_address: router }
         .quote_swap(node, TokenAmount { token: s.usdc.contract_address, amount });
     let out = if s.paved.contract_address < s.usdc.contract_address {
         delta.amount0
@@ -848,6 +853,97 @@ fn test_set_pool_by_anyone_else_reverts() {
     let (pool_key, _) = s.economy.pool();
     start_cheat_caller_address(s.economy.contract_address, SOMEONE());
     s.economy.set_pool(pool_key, 0);
+}
+
+// set_router (E-9)
+
+/// A second `MockRouter` on the same pair, seeded from the recipient at the launch price.
+fn deploy_router(s: Setup, paved_amount: u256, usdc_amount: u256) -> ContractAddress {
+    let router = deploy(
+        "MockRouter", array![s.paved.contract_address.into(), s.usdc.contract_address.into()],
+    );
+    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+        .mint(RECIPIENT(), usdc_amount);
+    start_cheat_caller_address(s.paved.contract_address, RECIPIENT());
+    s.paved.approve(router, paved_amount);
+    stop_cheat_caller_address(s.paved.contract_address);
+    start_cheat_caller_address(s.usdc.contract_address, RECIPIENT());
+    s.usdc.approve(router, usdc_amount);
+    stop_cheat_caller_address(s.usdc.contract_address);
+    let (amount0, amount1) = if s.paved.contract_address < s.usdc.contract_address {
+        (paved_amount, usdc_amount)
+    } else {
+        (usdc_amount, paved_amount)
+    };
+    start_cheat_caller_address(router, RECIPIENT());
+    IMockRouterDispatcher { contract_address: router }.add_liquidity(amount0, amount1);
+    stop_cheat_caller_address(router);
+    router
+}
+
+#[test]
+#[should_panic(expected: 'Ownable: caller is not owner')]
+fn test_set_router_by_anyone_else_reverts() {
+    let s = setup();
+    start_cheat_caller_address(s.economy.contract_address, SOMEONE());
+    s.economy.set_router(SOMEONE());
+}
+
+#[test]
+#[should_panic(expected: 'Economy: zero address')]
+fn test_set_router_to_zero_reverts() {
+    let s = setup();
+    start_cheat_caller_address(s.economy.contract_address, OWNER());
+    s.economy.set_router(Zero::zero());
+}
+
+#[test]
+fn test_set_router_emits_the_previous_and_the_new_router() {
+    let s = setup();
+    assert_eq!(s.economy.router(), s.router);
+    let mut spy = spy_events();
+    start_cheat_caller_address(s.economy.contract_address, OWNER());
+    s.economy.set_router(SOMEONE());
+    stop_cheat_caller_address(s.economy.contract_address);
+    let event = RouterSet { previous: s.router, router: SOMEONE() };
+    spy.assert_emitted(@array![(s.economy.contract_address, Event::RouterSet(event))]);
+    assert_eq!(s.economy.router(), SOMEONE());
+    assert_eq!(s.economy.addresses().router, SOMEONE());
+}
+
+#[test]
+fn test_set_router_moves_quotes_and_purchases_to_the_new_router() {
+    let s = setup();
+    // A thinner pool at the same price: its quote is lower
+    let other = deploy_router(s, 100_000 * ONE_PAVED, 1_250 * USDC);
+    let before = s.economy.quote_swap(14_000_000);
+    start_cheat_caller_address(s.economy.contract_address, OWNER());
+    s.economy.set_router(other);
+    stop_cheat_caller_address(s.economy.contract_address);
+    let quoted = s.economy.quote_swap(14_000_000);
+    assert!(quoted < before);
+    assert_eq!(quoted, router_quote_at(s, other, 14_000_000));
+    // The purchase swaps through the new router only
+    let old_reserves = IMockRouterDispatcher { contract_address: s.router }.reserves();
+    let (new0, new1) = IMockRouterDispatcher { contract_address: other }.reserves();
+    let supply = s.paved.total_supply();
+    buy(s, 1, PLAYER(), 10, Zero::zero());
+    assert_eq!(supply - s.paved.total_supply(), quoted);
+    assert_eq!(IMockRouterDispatcher { contract_address: s.router }.reserves(), old_reserves);
+    let (paved_in, usdc_in) = if s.paved.contract_address < s.usdc.contract_address {
+        (new0 - quoted, new1 + 14 * USDC)
+    } else {
+        (new1 - quoted, new0 + 14 * USDC)
+    };
+    let (after0, after1) = IMockRouterDispatcher { contract_address: other }.reserves();
+    let (paved_after, usdc_after) = if s.paved.contract_address < s.usdc.contract_address {
+        (after0, after1)
+    } else {
+        (after1, after0)
+    };
+    assert_eq!((paved_after, usdc_after), (paved_in, usdc_in));
+    assert_eq!(s.usdc.balance_of(s.economy.contract_address), 0);
+    assert_eq!(s.paved.balance_of(other), paved_after);
 }
 
 // Views
