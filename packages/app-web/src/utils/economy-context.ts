@@ -7,10 +7,7 @@ interface EconomyOverride {
   deployment: EconomyDeployment;
   /** Views to use instead of the contracts' (tests: `FakeEconomy`). */
   views?: EconomyViews;
-  /**
-   * The pool quoter instead of the network's (`poolQuoterFor`: `Economy.quote_swap` on devnet, Ekubo's quoter on sepolia
-   * and mainnet, none elsewhere); tests: `FakePoolQuoter`.
-   */
+  /** The pool quoter instead of the deployment's (`poolQuoterFor`: `Economy.quote_swap` on every network); tests: `FakePoolQuoter`. */
   poolQuoter?: PoolQuoter | null;
   now?: () => number;
 }

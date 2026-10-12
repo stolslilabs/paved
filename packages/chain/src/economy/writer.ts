@@ -3,7 +3,7 @@ import { sameAddress, toHex, type Encodable } from "../codec";
 import type { GameViews, PriceView } from "../views";
 import { WriteError, revertNames, type Call, type PavedWriter, type WriteResult } from "../writer";
 import { ADDRESS_BOUND, DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, expiresAt, isStake, minOutFor, priceOf, settlesAfter } from "./amounts";
-import type { PoolQuoter } from "./pool";
+import { POOL_CANNOT_FILL, type PoolQuoter } from "./pool";
 import type { EconomyDeployment } from "./deployment";
 import type { EconomyViews, QuoteView, TermsView } from "./views";
 
@@ -57,6 +57,18 @@ function economyRevert(error: unknown): unknown {
   if (revertNames(error.message, BELOW_MIN_OUT)) return new SwapBelowMinOutError(error.transactionHash);
   if (revertNames(error.message, TOO_EARLY)) return new SettleTooEarlyError(error.transactionHash);
   return error;
+}
+
+/**
+ * `Economy.quote_swap` gave no usable quote for the purchase's burn: it reverted (`'Economy: partial fill'`, any other
+ * revert of the router), the call failed, or it quoted 0. No quote is no slippage protection: nothing was sent (E-9).
+ * `detail` keeps the cause for the logs; the player reads only `POOL_CANNOT_FILL`.
+ */
+export class PoolCannotFillError extends WriteError {
+  constructor(readonly detail: string) {
+    super(`${POOL_CANNOT_FILL} Nothing was sent.`);
+    this.name = "PoolCannotFillError";
+  }
 }
 
 /** A Vault amount at send is not the one the player confirmed: nothing was sent. */
@@ -163,15 +175,19 @@ export class EconomyWriter {
     const slippage = request.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
     if (typeof slippage !== "bigint" || slippage < 0n || slippage > MAX_SLIPPAGE_BPS) throw new WriteError(`Slippage is 0 to ${MAX_SLIPPAGE_BPS} bps`);
     if (!this.options.poolQuoter) throw new WriteError("No pool quote: nothing was sent");
+    // The burn part of the price is what `purchase` swaps; a quote of it outside (0, price] is not this purchase's.
+    if (quote.burnQuote <= 0n || quote.burnQuote > price) throw new WriteError("The quote's burn part is not within the price: nothing was sent");
+    // A fresh quote at every send, taken here just before the account executes: never one shown earlier, nor cached.
     let poolOut: bigint;
     try {
+      // The quote is for exactly the USDC the purchase swaps: `burn_quote`, the burn part of the price (economy.md).
       poolOut = await this.options.poolQuoter.quoteSwap(quote.burnQuote);
     } catch (error) {
-      // A failed, timed-out or refused quote (Ekubo's checks) is no quote: no slippage protection, nothing is sent.
-      throw new WriteError(`No pool quote: nothing was sent (${message(error)})`);
+      // A revert (`'Economy: partial fill'`, any router revert) or a failed call is no quote: nothing is sent.
+      throw new PoolCannotFillError(message(error));
     }
     const minOut = minOutFor(poolOut, slippage);
-    if (minOut === 0n) throw new WriteError("No pool quote: nothing was sent");
+    if (minOut === 0n) throw new PoolCannotFillError(`the quote leaves a min_out of 0 (quote ${poolOut})`);
     const calls = [
       this.call("USDC", "approve", [deployment.base.addresses.Daily, price]),
       this.call("Daily", "spawn", [request.stake, referrer, minOut]),

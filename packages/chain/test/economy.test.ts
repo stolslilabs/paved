@@ -19,7 +19,9 @@ import {
   createEconomyClient,
   DEFAULT_SLIPPAGE_BPS,
   MAX_SLIPPAGE_BPS,
+  POOL_CANNOT_FILL,
   POOL_QUOTE_CONFIRMED,
+  PoolCannotFillError,
   EconomyPoolQuoter,
   SettleTooEarlyError,
   SwapBelowMinOutError,
@@ -213,17 +215,17 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("no pool quoter, a zero quote or a failed one: nothing sent", async () => {
+  test("no pool quoter, a zero quote or a failed one: nothing sent (a min_out of 0 is refused)", async () => {
     const request = { stake: 1, confirmedPrice: 2_000_000n, referrer: null };
     expect(POOL_QUOTE_CONFIRMED).toBe(true);
     const none = setup({ pool: null });
     await expect(none.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent");
     const zero = setup();
     zero.pool!.zero = true;
-    await expect(zero.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent");
+    await expect(zero.econWriter.purchase(request)).rejects.toBeInstanceOf(PoolCannotFillError);
     const failed = setup();
     failed.pool!.fail = "down";
-    await expect(failed.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent (down)");
+    await expect(failed.econWriter.purchase(request)).rejects.toThrow(`${POOL_CANNOT_FILL} Nothing was sent.`);
     for (const s of [none, zero, failed]) expect(s.execute).not.toHaveBeenCalled();
     // A real client has the Economy's quoter (E2's `quote_swap`).
     expect(createEconomyClient(economyDeployment, new PavedClient(base, {} as PavedRpc), new FakeEconomy())!.poolQuoter).toBeInstanceOf(EconomyPoolQuoter);
@@ -500,9 +502,10 @@ describe("quote_swap (P-35): the real ABI's u256 in and out", () => {
     const ok = quoted(["0x2710", "0x0"]); // 10,000
     expect((await ok.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).minOut).toBe(9_900n);
     const zero = quoted(["0x0", "0x0"]);
-    await expect(zero.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow("No pool quote: nothing was sent");
+    await expect(zero.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toBeInstanceOf(PoolCannotFillError);
     const down = quoted(new Error("node down"));
-    await expect(down.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow("No pool quote: nothing was sent (node down)");
+    await expect(down.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow(POOL_CANNOT_FILL);
+    await expect(down.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toMatchObject({ detail: "node down" });
     for (const s of [zero, down]) expect(s.execute).not.toHaveBeenCalled();
   });
 

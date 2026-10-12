@@ -1,13 +1,11 @@
 // The economy client (P8): `docs/architecture/client-economy.md`. The fake (`fake.ts`) is left out on purpose.
 export * from "./amounts";
-export { EconomyPoolQuoter, POOL_QUOTE_CONFIRMED, poolQuoterFor } from "./pool";
-export { EKUBO_NETWORKS, EKUBO_QUOTER_URL, EKUBO_TIMEOUT_MS, EkuboPoolQuoter, EkuboQuoteError } from "./ekubo";
-export type { EkuboPoolQuoterOptions } from "./ekubo";
+export { EconomyPoolQuoter, POOL_CANNOT_FILL, POOL_QUOTE_CONFIRMED, poolQuoterFor } from "./pool";
 export type { PoolQuoter } from "./pool";
 export { resolveEconomyDeployment } from "./deployment";
 export type { EconomyDeployment, EconomyDeploymentFile, EconomyEnv } from "./deployment";
 export { ECONOMY_VIEW_FIELDS, RpcEconomyViews } from "./views";
 export type { DayView, EconomyViews, QuoteView, TermsView, VaultPosition } from "./views";
-export { EconomyWriter, PurchaseOutcomeUnknownError, PurchasePriceChangedError, SettleTooEarlyError, SwapBelowMinOutError, VaultAmountChangedError } from "./writer";
+export { EconomyWriter, PoolCannotFillError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, SettleTooEarlyError, SwapBelowMinOutError, VaultAmountChangedError } from "./writer";
 export type { PurchasePlan, PurchaseRequest } from "./writer";
 export { EconomyClient, createEconomyClient } from "./client";
