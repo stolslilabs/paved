@@ -5,22 +5,36 @@ import { join } from "node:path";
 /** URLs lose their query AND fragment (the keychain's connect id and options travel there). */
 export const redact = (u) => u.replace(/[?#].*$/, "");
 
-const ECHO = "internal server error";
-export const ECHO_CUT = "[the rest of the text is removed: the keychain echoes its registration request after this point]";
+/** The driver's failure pattern: a keychain screen or console line that matches it is a registration failure. */
+export const FAILURE = /internal server error|authentication failed/i;
+/** Where the keychain's echoed GraphQL response or request starts, whatever the error text before it says. */
+const ECHO_MARKERS = /\{\s*"response"|"request"\s*:/;
+export const ECHO_CUT = "[the rest of the text is removed: it may carry the keychain's echoed registration request]";
 
 /** The name of a GraphQL operation in a raw error text, read before `scrub`; only the name is kept. */
 export const operationName = (raw) =>
   (String(raw).match(/"path"\s*:\s*\[\s*"([A-Za-z_][A-Za-z0-9_]*)"/) || String(raw).match(/\bmutation\s+([A-Za-z_][A-Za-z0-9_]*)/) || [])[1] ?? null;
 
 /**
- * Text that may reach a file. Everything after the first "internal server error" is cut: the keychain prints its GraphQL request
- * there, which carries the passkey registration, and its extent is not something to guess with a pattern. Then URLs lose query and
+ * Text that may reach a file. The cut does not depend on what the error says: the text is cut at the earliest of
+ * (1) the first echo marker, `{"response"` or `"request":`, (2) the end of the match of the failure pattern (`internal server error`,
+ * `authentication failed`), (3) the end of the first `rpc error:` line. The keychain prints its GraphQL request after its error, and
+ * that request carries the passkey registration; its extent is not something to guess with a pattern. Then URLs lose query and
  * fragment, long hex becomes `0x…`, and long token-like strings become `<token>`.
  */
 export const scrub = (t) => {
   let s = String(t);
-  const at = s.search(new RegExp(ECHO, "i"));
-  if (at >= 0) s = `${s.slice(0, at + ECHO.length)} ${ECHO_CUT}`;
+  let cut = s.length;
+  const marker = ECHO_MARKERS.exec(s);
+  if (marker) cut = Math.min(cut, marker.index);
+  const failure = FAILURE.exec(s);
+  if (failure) cut = Math.min(cut, failure.index + failure[0].length);
+  const rpc = s.search(/rpc error:/i);
+  if (rpc >= 0) {
+    const eol = s.indexOf("\n", rpc);
+    cut = Math.min(cut, eol < 0 ? s.length : eol);
+  }
+  if (cut < s.length) s = `${s.slice(0, cut).trimEnd()} ${ECHO_CUT}`;
   return s
     .replace(/https?:\/\/[^\s"')]+/g, (u) => redact(u))
     .replace(/0x[0-9a-fA-F]{20,}/g, "0x…")

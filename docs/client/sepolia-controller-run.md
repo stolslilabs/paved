@@ -119,8 +119,8 @@ In the username field's error line, both times:
 
 followed by the keychain's echo of its own GraphQL request and response, which is **removed from the evidence** (it carried the passkey
 registration). The operation, `"path":["finalizeRegistration"]` (the mutation `finalizeRegistration`, `network: "SN_SEPOLIA"`), is read from the
-truncated line of the failure screenshots of both launches; the saved texts no longer carry it (the driver of those launches scrubbed it away and logged
-"operation unknown"; the driver now reads the name from the raw text before the cut). The echo showed HTTP 200, `data: null`, `errors[0].message` equal to the text above. Dialog text under it: "Authentication failed. Please try again." and
+truncated line of the failure screenshots of both launches; the saved texts no longer carry it. Only attempt 3's driver detected the failure and logged "operation unknown" (it scrubbed the name away); attempt 2's driver
+paused on the failure screen without detecting it ("no known button on this keychain screen"), so it logged no operation. The driver now reads the name from the raw text before the cut. The echo showed HTTP 200, `data: null`, `errors[0].message` equal to the text above. Dialog text under it: "Authentication failed. Please try again." and
 "Please try connecting again".
 
 ### Keychain screens reached (text)
@@ -154,10 +154,10 @@ Texts and screenshots only; no request body, header, cookie, storage, credential
 
 - The two failed launches (attempts 2 and 3) ran with a first version of the redaction: it removed the keychain's echoed request with a pattern, and
   a hand edit finished the job. The saved texts there stop with "[request echo removed: ...]". Both folders were then checked (see the PR) and are clean.
-- The driver now: cuts **everything after the first `internal server error`** instead of matching the echo; takes **no screenshot while the failure
+- The driver now: cuts the text at the **earliest of the first echo marker (`{"response"` or `"request":`), the end of its failure pattern (`internal server error`, `authentication failed`) and the end of the first `rpc error:` line**, so the cut does not depend on what the error says (tested with `code = Unavailable`), and applies it to console messages too (a console record keeps the script URL in `stack`, as the stack line is cut); takes **no screenshot while the failure
   text is on screen** (and deletes one taken in that instant), writing the screen as text with its time; reads the operation name from the raw text
   before the cut and keeps only the name; and checks every file it wrote for `rawId`, `attestationObject`, `clientDataJSON`, `credentials` and
-  `"request"`, exiting 5 on a hit. `scrub.mjs` holds these; `bun test scripts/e2e-sepolia/scrub.test.mjs` tests them on a synthetic echo.
+  `"request"`, exiting 5 on a hit; the main flow runs in `try`/`finally`, so the file check and the context close always run. `scrub.mjs` holds these; `bun test scripts/e2e-sepolia/scrub.test.mjs` tests them on a synthetic echo.
   `bun scripts/e2e-sepolia/scrub.mjs <dir>...` runs the same file check by hand. The new driver has not run live yet.
 - The failure screenshots of attempts 2 and 3 (`b04-signup-03.jpg`) were taken before that rule: they show only the first lines of the error, no credential.
 
@@ -166,10 +166,10 @@ What each folder holds:
 | Folder | Content |
 |---|---|
 | `part-b-attempt1-long-name/` | The 23-character name. Files of two launches: `b04-signup-02.*` is from the first (08:10:52 UTC), the rest from the second (08:13). Complete `part-b-run.json` of the second launch. |
-| `part-b-attempt2-finalize-failed/` | The launch at about 08:19 (files 08:18:56 to 08:20:17). **Its `part-b-run.json` is partial**: only `console`, `notes`, `stage` and `txs` remain; its `requests`, `failures`, `frames` and `screens` were lost when the echo was cut by hand, and the original was not kept. `b04-signup-04.*` is **not** from this launch: it is left from the earlier click-timeout launch (08:16:51), the name accepted and `SIGN UP` enabled. |
+| `part-b-attempt2-finalize-failed/` | The launch at about 08:19 (files 08:18:56 to 08:20:17). **Its `part-b-run.json` is partial**: only `console`, `notes`, `stage` and `txs` remain; its `requests`, `failures`, `frames` and `screens` were lost when the echo was cut by hand, and the original was not kept. Its last console entry is a splice of the console error and the failure screen. `b04-signup-04.*` is **not** from this launch: it is left from the earlier click-timeout launch (08:16:51), the name accepted and `SIGN UP` enabled. |
 | `part-b-attempt3-finalize-failed/` | The 08:23 launch. Complete `part-b-run.json` (console, requests by host and path, failures, frames, screens, notes). |
 
-Each folder also holds `bNN-*.jpg` and `bNN-*.txt` per keychain screen.
+Each folder also holds `bNN-*.jpg` and `bNN-*.txt` per keychain screen. `b04-signup-03.jpg` of attempts 2 and 3 are byte-identical (same SHA-256): not a copy, each was written by its own launch (file times 08:19:35 and 08:23:03); the render was identical, the same screen at the same size and JPEG quality.
 
 Fallback: the owner's by-hand run below. **One more automated attempt is planned**, in the same confirmed scope: the same name
 `d16-20261012-6446`, passkey only (never SMS), at most one account, not before 12:23 UTC on 2026-10-12, started only on the PM's

@@ -10,7 +10,7 @@ import { chromium } from "playwright-core";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { checkEvidence, operationName, redact, scrub } from "./scrub.mjs";
+import { FAILURE, checkEvidence, operationName, redact, scrub } from "./scrub.mjs";
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -63,7 +63,8 @@ const closeAll = async () => {
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => closeAll().finally(() => process.exit(130)));
 
 page.on("console", (m) => {
-  if (["error", "warning"].includes(m.type())) log.console.push({ stage: log.stage, type: m.type(), text: scrub(m.text()).slice(0, 400), from: redact(m.location().url || "").slice(0, 120) });
+  // `stack` is the first script URL of the message (its stack line is cut with the rest of an rpc error line by `scrub`), without query.
+  if (["error", "warning"].includes(m.type())) log.console.push({ stage: log.stage, type: m.type(), text: scrub(m.text()).slice(0, 400), from: redact(m.location().url || "").slice(0, 120), stack: redact((m.text().match(/\bat (https?:\/\/[^\s)]+)/) || [])[1] || "").replace(/:\d+(:\d+)?$/, "").slice(0, 160) });
 });
 page.on("pageerror", (e) => log.console.push({ stage: log.stage, type: "pageerror", text: scrub(e.message).slice(0, 400) }));
 page.on("request", (r) => {
@@ -91,7 +92,6 @@ const keychainOpen = async () => {
   const iframe = page.locator('iframe[src*="x.cartridge.gg"]').first();
   return (await iframe.count()) > 0 && (await iframe.isVisible().catch(() => false));
 };
-const FAILURE = /internal server error|authentication failed/i;
 async function keychainScreen(name) {
   const f = keychainFrame();
   const read = async () => (f ? await bodyText(f) : "(no keychain frame)");
@@ -223,198 +223,203 @@ const tiles = async () => {
   return m ? Number(m[1]) : null;
 };
 
-// ---- 0. load
-stage("load");
-await page.goto(url, { waitUntil: "networkidle", timeout: 60000 }).catch((e) => note(`goto: ${e}`));
-await sleep(3000);
-await shot("b01-loaded");
-writeFileSync(join(out, "b01-page-text.txt"), scrub(await bodyText()));
-note(`keychain visible before Connect: ${await keychainOpen()}`);
+// The main flow runs in try/finally: whatever happens, the evidence is saved and checked and the context is closed.
+try {
+  // ---- 0. load
+  stage("load");
+  await page.goto(url, { waitUntil: "networkidle", timeout: 60000 }).catch((e) => note(`goto: ${e}`));
+  await sleep(3000);
+  await shot("b01-loaded");
+  writeFileSync(join(out, "b01-page-text.txt"), scrub(await bodyText()));
+  note(`keychain visible before Connect: ${await keychainOpen()}`);
 
-// ---- 1. Connect: the keychain's first screen
-stage("connect");
-await page.getByRole("button", { name: /connect/i }).first().click({ timeout: 15000 });
-await sleep(8000);
-const first = await keychainScreen("b02-keychain-username");
-note(`keychain visible after Connect: ${await keychainOpen()}; controls: ${JSON.stringify(first.controls.map((c) => [c.tag, c.type, c.name, c.placeholder, c.text]))}`);
-
-if (!confirmed) {
-  note("dry run: stopped at the username screen, nothing typed, no authenticator added");
-  await closeAll();
-  console.log(JSON.stringify({ out, dryRun: true, console: log.console.length, screens: log.screens.length }, null, 1));
-  process.exit(0);
-}
-
-// ---- 2. Sign up with the virtual authenticator (confirmed only)
-stage("signup");
-cdp = await context.newCDPSession(page);
-await cdp.send("WebAuthn.enable");
-({ authenticatorId } = await cdp.send("WebAuthn.addVirtualAuthenticator", {
-  options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
-}));
-const kc = keychainFrame();
-await kc.locator("input").first().fill(username, { timeout: 15000 });
-await sleep(2500); // the keychain looks the name up
-// The name is offered as a "Create New" suggestion; SIGN UP stays disabled until it is chosen (found on the first live attempt).
-await kc.getByText("Create New").first().click({ timeout: 15000 }).catch((e) => note(`create-new row: ${e}`));
-await kc.locator('button[type="submit"]:not([disabled])').first().waitFor({ timeout: 15000 }).catch((e) => note(`sign up still disabled: ${e}`));
-await sleep(500);
-const afterName = await keychainScreen("b03-keychain-after-username");
-note(`after the username: buttons ${JSON.stringify(afterName.controls.filter((c) => c.tag === "button").map((c) => c.text))}`);
-// The name must be new: "Create New". An existing account (no such line) stops the run, never another name.
-if (!/create new/i.test(afterName.text)) {
-  note("the keychain does not offer Create New for this name: stopping, no account created by this run");
-  await closeAll();
-  process.exit(3);
-}
-const walked = await walkKeychain("b04-signup");
-if (walked === "failed") {
-  await closeAll();
-  process.exit(4);
-}
-if (!walked) {
-  await closeAll();
-  process.exit(2);
-}
-await sleep(3000);
-await shot("b05-after-signup");
-writeFileSync(join(out, "b05-page-text.txt"), scrub(await bodyText()));
-
-// ---- 3. Create Account
-stage("create-account");
-const nameBox = page.getByLabel("Player name");
-await nameBox.waitFor({ timeout: 60000 });
-await nameBox.fill(playerName);
-await page.getByRole("button", { name: /^create account$/i }).first().click({ timeout: 15000 });
-const created = await walkKeychain("b06-create");
-if (!created || created === "failed") {
-  await closeAll();
-  process.exit(2);
-}
-await page.getByText(/welcome,/i).first().waitFor({ timeout: 180000 }).catch((e) => note(`welcome not seen: ${e}`));
-await sleep(3000);
-await shot("b07-account-created");
-const afterCreate = scrub(await bodyText());
-writeFileSync(join(out, "b07-page-text.txt"), afterCreate);
-note(`balance line: ${(afterCreate.match(/[^\n]*USDC[^\n]*/g) || []).slice(0, 4).join(" | ")}`);
-
-// ---- 4. Optional extra mint
-if (arg("extra-mint", false) === true) {
-  stage("extra-mint");
-  await page.getByRole("button", { name: /^mint/i }).first().click({ timeout: 15000 });
-  await walkKeychain("b08-mint");
+  // ---- 1. Connect: the keychain's first screen
+  stage("connect");
+  await page.getByRole("button", { name: /connect/i }).first().click({ timeout: 15000 });
   await sleep(8000);
-  await shot("b08-after-mint");
-}
+  const first = await keychainScreen("b02-keychain-username");
+  note(`keychain visible after Connect: ${await keychainOpen()}; controls: ${JSON.stringify(first.controls.map((c) => [c.tag, c.type, c.name, c.placeholder, c.text]))}`);
 
-// ---- 5. Buy one Daily game, lowest stake
-stage("buy-daily");
-await page.getByText("Daily Challenge", { exact: false }).first().click({ timeout: 20000 });
-await sleep(2500);
-await page.getByRole("radio", { name: "1", exact: true }).click({ timeout: 15000 });
-await sleep(2500);
-await shot("b09-daily-dialog");
-writeFileSync(join(out, "b09-daily-dialog.txt"), scrub(await bodyText()));
-await page.getByRole("button", { name: /^buy for/i }).click({ timeout: 15000 });
-await page.getByRole("button", { name: /^confirm purchase$/i }).click({ timeout: 15000 });
-await walkKeychain("b10-buy", { maxScreens: 4 });
-await page.waitForURL(/\/game\?.*id=\d+/, { timeout: 240000 }).catch((e) => note(`no game url: ${e}`));
-const gameId = new URL(page.url()).searchParams.get("id");
-note(`game id ${gameId}`);
-await sleep(6000);
-await shot("b11-game");
+  if (!confirmed) {
+    note("dry run: stopped at the username screen, nothing typed, no authenticator added");
+    await closeAll();
+    console.log(JSON.stringify({ out, dryRun: true, console: log.console.length, screens: log.screens.length }, null, 1));
+    process.exit(0);
+  }
 
-// ---- 6. Moves: hover the board and press C (the client's own hotkey), rotating with R, until the tile counter rises
-stage("moves");
-const canvas = page.locator("canvas").first();
-const box = await canvas.boundingBox();
-const moves = [];
-const points = [];
-for (let r = 0; r <= 360; r += 45) for (let a = 0; a < 360; a += r === 0 ? 360 : r < 120 ? 60 : 30) points.push([box.x + box.width / 2 + r * Math.cos((a * Math.PI) / 180), box.y + box.height / 2 + r * Math.sin((a * Math.PI) / 180) * 0.7]);
-for (let k = 0; k < wantMoves; k++) {
-  const before = await tiles();
-  let placed = false;
-  const txBefore = log.txs.length;
-  scan: for (const [x, y] of points) {
-    await page.mouse.move(x, y);
-    await sleep(120);
-    for (let rot = 0; rot < 4; rot++) {
-      await page.keyboard.press("c");
-      await sleep(350);
-      if ((await bodyText()).includes("Working...")) {
-        placed = true;
-        break scan;
+  // ---- 2. Sign up with the virtual authenticator (confirmed only)
+  stage("signup");
+  cdp = await context.newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  ({ authenticatorId } = await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: { protocol: "ctap2", transport: "internal", hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+  }));
+  const kc = keychainFrame();
+  await kc.locator("input").first().fill(username, { timeout: 15000 });
+  await sleep(2500); // the keychain looks the name up
+  // The name is offered as a "Create New" suggestion; SIGN UP stays disabled until it is chosen (found on the first live attempt).
+  await kc.getByText("Create New").first().click({ timeout: 15000 }).catch((e) => note(`create-new row: ${e}`));
+  await kc.locator('button[type="submit"]:not([disabled])').first().waitFor({ timeout: 15000 }).catch((e) => note(`sign up still disabled: ${e}`));
+  await sleep(500);
+  const afterName = await keychainScreen("b03-keychain-after-username");
+  note(`after the username: buttons ${JSON.stringify(afterName.controls.filter((c) => c.tag === "button").map((c) => c.text))}`);
+  // The name must be new: "Create New". An existing account (no such line) stops the run, never another name.
+  if (!/create new/i.test(afterName.text)) {
+    note("the keychain does not offer Create New for this name: stopping, no account created by this run");
+    await closeAll();
+    process.exit(3);
+  }
+  const walked = await walkKeychain("b04-signup");
+  if (walked === "failed") {
+    await closeAll();
+    process.exit(4);
+  }
+  if (!walked) {
+    await closeAll();
+    process.exit(2);
+  }
+  await sleep(3000);
+  await shot("b05-after-signup");
+  writeFileSync(join(out, "b05-page-text.txt"), scrub(await bodyText()));
+
+  // ---- 3. Create Account
+  stage("create-account");
+  const nameBox = page.getByLabel("Player name");
+  await nameBox.waitFor({ timeout: 60000 });
+  await nameBox.fill(playerName);
+  await page.getByRole("button", { name: /^create account$/i }).first().click({ timeout: 15000 });
+  const created = await walkKeychain("b06-create");
+  if (!created || created === "failed") {
+    await closeAll();
+    process.exit(2);
+  }
+  await page.getByText(/welcome,/i).first().waitFor({ timeout: 180000 }).catch((e) => note(`welcome not seen: ${e}`));
+  await sleep(3000);
+  await shot("b07-account-created");
+  const afterCreate = scrub(await bodyText());
+  writeFileSync(join(out, "b07-page-text.txt"), afterCreate);
+  note(`balance line: ${(afterCreate.match(/[^\n]*USDC[^\n]*/g) || []).slice(0, 4).join(" | ")}`);
+
+  // ---- 4. Optional extra mint
+  if (arg("extra-mint", false) === true) {
+    stage("extra-mint");
+    await page.getByRole("button", { name: /^mint/i }).first().click({ timeout: 15000 });
+    await walkKeychain("b08-mint");
+    await sleep(8000);
+    await shot("b08-after-mint");
+  }
+
+  // ---- 5. Buy one Daily game, lowest stake
+  stage("buy-daily");
+  await page.getByText("Daily Challenge", { exact: false }).first().click({ timeout: 20000 });
+  await sleep(2500);
+  await page.getByRole("radio", { name: "1", exact: true }).click({ timeout: 15000 });
+  await sleep(2500);
+  await shot("b09-daily-dialog");
+  writeFileSync(join(out, "b09-daily-dialog.txt"), scrub(await bodyText()));
+  await page.getByRole("button", { name: /^buy for/i }).click({ timeout: 15000 });
+  await page.getByRole("button", { name: /^confirm purchase$/i }).click({ timeout: 15000 });
+  await walkKeychain("b10-buy", { maxScreens: 4 });
+  await page.waitForURL(/\/game\?.*id=\d+/, { timeout: 240000 }).catch((e) => note(`no game url: ${e}`));
+  const gameId = new URL(page.url()).searchParams.get("id");
+  note(`game id ${gameId}`);
+  await sleep(6000);
+  await shot("b11-game");
+
+  // ---- 6. Moves: hover the board and press C (the client's own hotkey), rotating with R, until the tile counter rises
+  stage("moves");
+  const canvas = page.locator("canvas").first();
+  const box = await canvas.boundingBox();
+  const moves = [];
+  const points = [];
+  for (let r = 0; r <= 360; r += 45) for (let a = 0; a < 360; a += r === 0 ? 360 : r < 120 ? 60 : 30) points.push([box.x + box.width / 2 + r * Math.cos((a * Math.PI) / 180), box.y + box.height / 2 + r * Math.sin((a * Math.PI) / 180) * 0.7]);
+  for (let k = 0; k < wantMoves; k++) {
+    const before = await tiles();
+    let placed = false;
+    const txBefore = log.txs.length;
+    scan: for (const [x, y] of points) {
+      await page.mouse.move(x, y);
+      await sleep(120);
+      for (let rot = 0; rot < 4; rot++) {
+        await page.keyboard.press("c");
+        await sleep(350);
+        if ((await bodyText()).includes("Working...")) {
+          placed = true;
+          break scan;
+        }
+        await page.keyboard.press("r");
+        await sleep(80);
       }
-      await page.keyboard.press("r");
-      await sleep(80);
     }
+    if (!placed) {
+      note(`move ${k + 1}: no valid slot found by the scan`);
+      await shot(`b12-move-${k + 1}-noslot`);
+      break;
+    }
+    await page.waitForFunction(() => !document.body.innerText.includes("Working..."), null, { timeout: 180000 }).catch((e) => note(`move ${k + 1} still working: ${e}`));
+    await walkKeychain(`b12-move-${k + 1}-keychain`, { maxScreens: 2 });
+    await sleep(4000);
+    const after = await tiles();
+    moves.push({ n: k + 1, tilesBefore: before, tilesAfter: after, txs: log.txs.slice(txBefore).map((t) => t.hash) });
+    note(`move ${k + 1}: tiles ${before} -> ${after}; txs ${log.txs.slice(txBefore).map((t) => t.hash).join(",")}`);
+    await shot(`b13-move-${k + 1}`);
   }
-  if (!placed) {
-    note(`move ${k + 1}: no valid slot found by the scan`);
-    await shot(`b12-move-${k + 1}-noslot`);
-    break;
+  log.moves = moves;
+
+  if (arg("surrender", false) === true) {
+    stage("surrender");
+    await page.getByRole("button", { name: /^surrender$/i }).first().click({ timeout: 15000 });
+    await page.getByRole("button", { name: /^(yes|confirm|surrender)/i }).last().click({ timeout: 15000 });
+    await walkKeychain("b14-surrender", { maxScreens: 2 });
+    await sleep(8000);
+    await shot("b14-surrendered");
   }
-  await page.waitForFunction(() => !document.body.innerText.includes("Working..."), null, { timeout: 180000 }).catch((e) => note(`move ${k + 1} still working: ${e}`));
-  await walkKeychain(`b12-move-${k + 1}-keychain`, { maxScreens: 2 });
-  await sleep(4000);
-  const after = await tiles();
-  moves.push({ n: k + 1, tilesBefore: before, tilesAfter: after, txs: log.txs.slice(txBefore).map((t) => t.hash) });
-  note(`move ${k + 1}: tiles ${before} -> ${after}; txs ${log.txs.slice(txBefore).map((t) => t.hash).join(",")}`);
-  await shot(`b13-move-${k + 1}`);
-}
-log.moves = moves;
+  writeFileSync(join(out, "b13-game-text.txt"), scrub(await bodyText()));
 
-if (arg("surrender", false) === true) {
-  stage("surrender");
-  await page.getByRole("button", { name: /^surrender$/i }).first().click({ timeout: 15000 });
-  await page.getByRole("button", { name: /^(yes|confirm|surrender)/i }).last().click({ timeout: 15000 });
-  await walkKeychain("b14-surrender", { maxScreens: 2 });
-  await sleep(8000);
-  await shot("b14-surrendered");
-}
-writeFileSync(join(out, "b13-game-text.txt"), scrub(await bodyText()));
-
-// ---- 7. Indexer: poll /v1/head until it has the game, bounded at 30 minutes
-stage("indexer");
-const get = async (p) => (await fetch(`${api}/v1/${p}`)).json();
-let game = null;
-const until = Date.now() + 30 * 60 * 1000;
-while (Date.now() < until) {
-  const head = await get("head").catch(() => null);
-  const g = await get(`games/daily/${gameId}`).catch(() => null);
-  note(`behind ${head?.behind}; game ${g?.game ? "indexed" : g?.status ?? "?"}`);
-  if (g?.game) {
-    game = g.game;
-    // wait until the moves are in too: the game's score row is current once `behind` is small
-    if ((head?.behind ?? 1e9) < 20) break;
+  // ---- 7. Indexer: poll /v1/head until it has the game, bounded at 30 minutes
+  stage("indexer");
+  const get = async (p) => (await fetch(`${api}/v1/${p}`)).json();
+  let game = null;
+  const until = Date.now() + 30 * 60 * 1000;
+  while (Date.now() < until) {
+    const head = await get("head").catch(() => null);
+    const g = await get(`games/daily/${gameId}`).catch(() => null);
+    note(`behind ${head?.behind}; game ${g?.game ? "indexed" : g?.status ?? "?"}`);
+    if (g?.game) {
+      game = g.game;
+      // wait until the moves are in too: the game's score row is current once `behind` is small
+      if ((head?.behind ?? 1e9) < 20) break;
+    }
+    await sleep(30000);
   }
-  await sleep(30000);
-}
-const keep = (name, v) => writeFileSync(join(out, `b-indexer-${name}.json`), JSON.stringify(v, null, 2));
-keep("head", await get("head"));
-if (game) {
-  keep("game", await get(`games/daily/${gameId}`));
-  const pid = game.player_id;
-  keep("player", await get(`players/${pid}`));
-  keep("player-games", await get(`players/${pid}/games`));
-  const day = game.tournament_id;
-  keep("tournament", await get(`tournaments/${day}`));
-  keep("leaderboard", await get(`tournaments/${day}/leaderboard?limit=20`));
-  log.player_id = pid;
-  log.game = { id: gameId, day };
-}
-// the UI's leaderboard, to compare
-await page.goto(`${url}/leaderboard`, { waitUntil: "networkidle", timeout: 60000 }).catch((e) => note(`leaderboard: ${e}`));
-await sleep(6000);
-await shot("b15-leaderboard");
-writeFileSync(join(out, "b15-leaderboard-text.txt"), scrub(await bodyText()));
+  const keep = (name, v) => writeFileSync(join(out, `b-indexer-${name}.json`), JSON.stringify(v, null, 2));
+  keep("head", await get("head"));
+  if (game) {
+    keep("game", await get(`games/daily/${gameId}`));
+    const pid = game.player_id;
+    keep("player", await get(`players/${pid}`));
+    keep("player-games", await get(`players/${pid}/games`));
+    const day = game.tournament_id;
+    keep("tournament", await get(`tournaments/${day}`));
+    keep("leaderboard", await get(`tournaments/${day}/leaderboard?limit=20`));
+    log.player_id = pid;
+    log.game = { id: gameId, day };
+  }
+  // the UI's leaderboard, to compare
+  await page.goto(`${url}/leaderboard`, { waitUntil: "networkidle", timeout: 60000 }).catch((e) => note(`leaderboard: ${e}`));
+  await sleep(6000);
+  await shot("b15-leaderboard");
+  writeFileSync(join(out, "b15-leaderboard-text.txt"), scrub(await bodyText()));
 
-// ---- 8. The two `Unauthenticated ... access denied` errors, now that a session exists
-stage("console-recheck");
-const denied = log.console.filter((c) => /Unauthenticated|access denied/i.test(c.text));
-note(`access-denied errors: ${denied.length} (by stage: ${JSON.stringify(denied.reduce((a, c) => ((a[c.stage] = (a[c.stage] || 0) + 1), a), {}))})`);
+  // ---- 8. The two `Unauthenticated ... access denied` errors, now that a session exists
+  stage("console-recheck");
+  const denied = log.console.filter((c) => /Unauthenticated|access denied/i.test(c.text));
+  note(`access-denied errors: ${denied.length} (by stage: ${JSON.stringify(denied.reduce((a, c) => ((a[c.stage] = (a[c.stage] || 0) + 1), a), {}))})`);
 
-// ---- 9. Close: the context holds the only copy of the credential and the session
-stage("close");
-await closeAll();
-console.log(JSON.stringify({ out, console: log.console.length, txs: log.txs.length, moves: moves.length, gameId }, null, 1));
+  // ---- 9. Close: the context holds the only copy of the credential and the session
+  stage("close");
+  await closeAll();
+  console.log(JSON.stringify({ out, console: log.console.length, txs: log.txs.length, moves: moves.length, gameId }, null, 1));
+} finally {
+  await closeAll();
+}

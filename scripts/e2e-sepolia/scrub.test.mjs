@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ECHO_CUT, checkEvidence, operationName, redact, scrub } from "./scrub.mjs";
+import { ECHO_CUT, FAILURE, checkEvidence, operationName, redact, scrub } from "./scrub.mjs";
 
 // A made-up echo shaped like the keychain's: the error line, then a multi-line request with fake credential fields.
 const ECHO_TEXT = [
@@ -25,6 +25,29 @@ test("scrub cuts everything after `internal server error`", () => {
   expect(out).toContain("Connect Controller");
   expect(out).toContain("internal server error");
   expect(out.endsWith(ECHO_CUT)).toBe(true);
+});
+
+test("scrub cuts an echo whose error is not `internal server error`, e.g. code = Unavailable", () => {
+  const raw = [
+    "Connect Controller",
+    'rpc error: code = Unavailable desc = upstream connect error: {"response":{"errors":[{"message":"x","path":["fakeOperation"]}],"data":null},"request":{"query":"mutation FakeOperation($credentials: String!) { a }","variables":{"credentials":"{\\"rawId\\":\\"FAKE-RAW\\"}"}}}',
+    "By continuing you are agreeing",
+  ].join("\n");
+  const out = scrub(raw);
+  for (const word of ["rawId", "credentials", "FAKE-", '"request"', "mutation", "By continuing"]) expect(out).not.toContain(word);
+  expect(out).toContain("code = Unavailable");
+  expect(out.endsWith(ECHO_CUT)).toBe(true);
+  expect(FAILURE.test(raw)).toBe(false); // the driver's pattern would miss it; the cut must not depend on it
+});
+
+test("scrub cuts a multi-line echo that has no marker, at the end of the rpc error line", () => {
+  const out = scrub("Connect Controller\nrpc error: code = Unavailable desc = down\n mutation Fake($credentials: String!) {\n  FAKE-SECRET\n}\nBy continuing");
+  for (const word of ["credentials", "FAKE-SECRET", "mutation", "By continuing"]) expect(out).not.toContain(word);
+  expect(out).toContain("code = Unavailable desc = down");
+});
+
+test("scrub keeps a benign rpc error line whole, on its own", () => {
+  expect(scrub("Error: rpc error: code = Unauthenticated desc = access denied")).toBe("Error: rpc error: code = Unauthenticated desc = access denied");
 });
 
 test("scrub cuts a one-line echo too, and leaves other text alone", () => {
