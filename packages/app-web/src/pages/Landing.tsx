@@ -342,9 +342,9 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
                   address={address}
                   ready={status === "ready" && economy.writer !== null}
                   referrer={referrer}
-                  onConfirm={(stake, confirmedPrice, ref, confirmedMinOut) => {
+                  onConfirm={(stake, confirmedPrice, ref, confirmedMinOut, acceptedLowQuote) => {
                     // The consent to pay is this click's history state, never the link's URL.
-                    navigate(buildGameRoute({ mode: "daily" }), { state: purchaseIntent(stake, confirmedPrice, ref, confirmedMinOut) });
+                    navigate(buildGameRoute({ mode: "daily" }), { state: purchaseIntent(stake, confirmedPrice, ref, confirmedMinOut, acceptedLowQuote) });
                     setSelected(null);
                   }}
                 />

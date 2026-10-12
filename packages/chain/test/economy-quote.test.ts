@@ -22,14 +22,14 @@ import {
   resolveEconomyDeployment,
   type PoolQuoter,
 } from "../src/economy";
-import { FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "../src/testing";
+import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "../src/testing";
 
 const ADDR = { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const PLAYER = "0x5";
 const DAY = 20_000;
 
-const economyOn = (network: string) => resolveEconomyDeployment({ base: resolveDeployment({ network, env: { rpcUrl: "http://x", addresses: ADDR } }), env: ECON });
+const economyOn = (network: string) => resolveEconomyDeployment({ base: resolveDeployment({ network, file: FAKE_ROUTER_FILE, env: { rpcUrl: "http://x", addresses: ADDR } }), file: FAKE_ROUTER_FILE, env: ECON });
 
 type ContractCall = { contractAddress: string; entrypoint: string; calldata: string[] };
 
@@ -55,6 +55,7 @@ function setup(pool: PoolQuoter) {
   const spawned = { from_address: ADDR.Daily, keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x9"], data: ["0x1", `0x${DAY.toString(16)}`, "0x1", "0x0"] };
   const rpc = {
     callContract: async () => [],
+    getChainId: async () => FAKE_CHAIN_ID,
     getEvents: async () => ({ events: [] }),
     waitForTransaction: async () => ({ execution_status: "SUCCEEDED", events: [spawned] }),
   } as unknown as PavedRpc;
@@ -199,7 +200,8 @@ describe("min_out from a fresh quote of the purchase's own amount", () => {
     expect(minOutFor(101n)).toBe(99n); // 99.99
     expect(minOutFor(10_099n, 500n)).toBe(9_594n); // 9,594.05
     for (const [poolOut, expected] of [[10_001n, 9_900n], [101n, 99n], [3n, 2n]] as const) {
-      const { econWriter, minOutSent } = setup(realQuoter(() => poolOut).quoter);
+      const { economy, econWriter, minOutSent } = setup(realQuoter(() => poolOut).quoter);
+      economy.guardRate_ = 0n; // arbitrary quotes: no guard rate to warn against
       await econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null });
       expect(minOutSent()).toBe(expected);
     }
@@ -241,14 +243,15 @@ describe("min_out from a fresh quote of the purchase's own amount", () => {
     const { burnQuote } = await economy.quote(2);
     const shown = minOutFor(await pool.quoteSwap(burnQuote)); // what the purchase screen displayed
     pool.rate = { paved: 40n * 10n ** 18n, usdc: 1_000_000n }; // the pool moved: half the PAVED per USDC
-    await econWriter.purchase({ stake: 2, confirmedPrice: 2n * FAKE_UNIT, confirmedMinOut: 1n, referrer: null });
+    // Half the guard-rate value is below the sanity floor: the player accepted the warning at the confirm.
+    await econWriter.purchase({ stake: 2, confirmedPrice: 2n * FAKE_UNIT, confirmedMinOut: 1n, referrer: null, acceptedLowQuote: true });
     expect(pool.calls).toEqual([burnQuote, burnQuote]); // the display's quote, then the send's own
     const moved = new FakePoolQuoter();
     moved.rate = pool.rate;
     expect(minOutSent()).toBe(minOutFor(await moved.quoteSwap(burnQuote)));
     expect(minOutSent()).toBeLessThan(shown);
     // Each send quotes again: nothing is cached between purchases.
-    await econWriter.purchase({ stake: 2, confirmedPrice: 2n * FAKE_UNIT, confirmedMinOut: 1n, referrer: null });
+    await econWriter.purchase({ stake: 2, confirmedPrice: 2n * FAKE_UNIT, confirmedMinOut: 1n, referrer: null, acceptedLowQuote: true });
     expect(pool.calls).toHaveLength(3);
   });
 });

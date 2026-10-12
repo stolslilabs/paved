@@ -1,5 +1,5 @@
 import type { EconomyCodecs, EconomyContractName } from "../abis";
-import type { Encodable } from "../codec";
+import { toHex, type Encodable } from "../codec";
 import { ViewError, toViewError, type CallProvider } from "../views";
 import type { EconomyDeployment } from "./deployment";
 
@@ -87,6 +87,10 @@ export const ECONOMY_VIEW_FIELDS = {
 /** The economy's reads. `RpcEconomyViews` calls the contracts; `FakeEconomy` (`economy/fake.ts`) is for unit tests. */
 export interface EconomyViews {
   quote(stake: number): Promise<QuoteView>;
+  /** `Economy.rate()`: the guard's swap rate, PAVED base units per USDC base unit x `RATE_SCALE`; 0 before any purchase. */
+  guardRate(): Promise<bigint>;
+  /** `Economy.router()`, as 0x-hex: the router the purchase swaps through (checked against the pin, E-9b). */
+  router(): Promise<string>;
   day(day: number): Promise<DayView>;
   terms(gameId: number): Promise<TermsView>;
   vault(account: string): Promise<VaultPosition>;
@@ -103,6 +107,14 @@ export class RpcEconomyViews implements EconomyViews {
 
   async quote(stake: number): Promise<QuoteView> {
     return (await this.call("Economy", "quote", [stake])) as QuoteView;
+  }
+
+  async guardRate(): Promise<bigint> {
+    return (await this.call("Economy", "rate", [])) as bigint;
+  }
+
+  async router(): Promise<string> {
+    return toHex(BigInt((await this.call("Economy", "router", [])) as string | bigint));
   }
 
   async day(day: number): Promise<DayView> {

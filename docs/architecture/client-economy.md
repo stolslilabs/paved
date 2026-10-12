@@ -180,6 +180,79 @@ checks, and its test): no code path fetches `prod-api-quoter.ekubo.org`. Also dr
 backlog item to refuse any Ekubo route that is not the single hop through `Economy.pool()`. Its reason, "the quoted route
 is not the route the contract swaps", is gone: the on-chain quote is the purchase's own route.
 
+## The mainnet gates on the purchase quote (E-9b)
+
+CORE's rulings of E-9b (#311; `docs/architecture/economy.md`, "For CLIENT", rulings 1 and 2, and the mainnet gates
+list). Both are checked in `EconomyWriter.planPurchase`, the purchase's own `prepare`, with the quote: the entry price,
+`Economy.quote(stake)`, `Economy.rate()` and `Economy.router()` are read together, fresh at every send.
+
+**The router pin (ruling 2).** `Economy.router()` must be the deployment's `expectedRouter` (`economy/deployment.ts`):
+
+- mainnet (the network named `mainnet`, or any network whose file's `chain_id` is `SN_MAIN`): `MAINNET_ROUTER`,
+  `0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e`, Ekubo's "Router V3.0.13". Never Nums' Router
+  V3.0.3, which has no `quote_swap`;
+- devnet and Sepolia: the file's `contracts.MockRouter`, never the env (the router is not a build setting);
+- a devnet or Sepolia file without `MockRouter`, or any other network: no router is known, and every purchase is
+  refused ("Purchases are off: no known swap router on this network."). An unknown router is never accepted.
+
+Another router throws `RouterNotPinnedError` ("Purchases are off: the economy swaps through an unexpected router.
+Nothing was sent."): the pool is not even quoted. A router that cannot be read refuses like any failed read. The purchase
+screen reads `router()` too: it shows the same message, quotes nothing and offers no purchase. There is **no on-chain
+pin** (economy.md gives the reasons): when Ekubo publishes a new router, CORE re-runs its fork test and the client
+updates `MAINNET_ROUTER` in the same release.
+
+**The sanity floor (ruling 1), a warning and never a refusal.** `implied = burn_quote x rate / RATE_SCALE`
+(`impliedPaved`, `economy/amounts.ts`), where `rate` is `Economy.rate()`, the guard's rate that `min_out_hint` and
+`curve::guarded` use (PAVED base units per USDC base unit, x `RATE_SCALE` = 1e18, `curve.cairo`). The quote is below the
+floor when `quote_swap(burn_quote) < 90 % x implied`. `SANITY_FLOOR_BPS` (9,000) holds the 90 %; E4, or a measured
+false-warning rate on mainnet, may move it.
+
+- Arithmetic: bigint only. The comparison is exact, cross-multiplied (`quote x 10,000 x RATE_SCALE < burn_quote x rate x
+  9,000`), so neither side is rounded: exactly 90 % is not below. The `implied` figure shown is rounded down.
+- At or above 90 %, and above `implied`: nothing changes (the on-chain guard caps `R` at `quote x rate x 1.10`).
+- A rate of 0 (the constructor refuses it, so only a mock or an unexpected upgrade has one): no `implied`, no warning; the
+  contract has no guard then either (`guarded` counts the whole purchase). On mainnet it refuses instead (below). A rate that cannot be read: no purchase (screen and send), as any failed read.
+- Below 90 %: the purchase screen shows both figures ("The pool quotes X PAVED for the burn, below 90 % of the Y PAVED the
+  guard rate implies: the pool may have been pushed."); the confirm repeats them next to a checkbox ("I understand and
+  buy anyway"), and "Confirm purchase" stays disabled until it is ticked. The acceptance rides in the purchase intent as
+  `acceptedLowQuote` (only `true` counts).
+- The send cannot skip it: a send-time quote below 90 % without the acceptance throws `PoolQuoteBelowFloorError` ("The
+  pool quote is far below the guard rate: confirm again") and sends nothing, so the player sees the warning. The
+  acceptance never lowers `confirmedMinOut`: `PoolPriceMovedError` still applies.
+
+**Mainnet, rate 0 (unexpected): refused** (E-9c, CORE's ruling 3, `docs/architecture/economy.md` at 7d9f803, #314). The
+guard rate is never 0 on a deployment: `Economy`'s constructor refuses 0 (`'Economy: zero rate'`) and stores the rate it
+is given (the deploy passes the launch rate, 7.6e31), so no purchase "seeds" it. On mainnet a rate of 0 can therefore only
+come from an unexpected upgrade, and the client then refuses every purchase with "Price rate unavailable; purchases are
+paused" (`RateUnavailableError`, `rateProblem`): checked on screen and at send, in the same prepare as the router and the
+quote, with the router pin's mainnet test; the pool is not quoted and nothing is sent. Devnet and Sepolia are unchanged:
+a rate of 0 there means no warning, and the purchase proceeds.
+
+**The chain check** (value audit t-0116, note 1). Once per client, before anything is read for a purchase,
+`EconomyClient.checkChain` compares the RPC's `getChainId()` with the deployment file's `chain_id`. It fails closed: a
+deployment without `chain_id`, or a provider that cannot tell its chain, refuses with "Purchases are off: the network
+cannot be confirmed."; another chain with "Purchases are off: the RPC is on another network than this deployment."
+(`ChainMismatchError`); nothing is sent, and the screen shows the same and offers no purchase. A match is kept for the
+client's life; a failed read is tried again at the next purchase.
+
+**Confirm again.** After `PoolPriceMovedError`, `PoolQuoteBelowFloorError` or `PurchasePriceChangedError`, the game
+page shows a "Back to purchase" button to `/economy` beside Back (review #310, note 2), with `?ref=<referrer>` when the
+purchase had one, so the referral survives the retry (review t-0115). Nothing was sent in each case. An acceptance of a
+low quote is for the quote it was given on: when the quote shown changes, or stops being low, the checkbox is cleared.
+
+**The burn share is "at today's terms"** (CORE's ruling, 2026-10-12). The purchase screen and the confirm show the part of
+the price swapped and burned with that label, and the confirmation is unchanged: no check of `burn_bps` and no
+`max_burn`. The player's USDC is fixed on chain (`price = stake x BASE_PRICE`, 2 USDC, asserted by `purchase`, and the
+approve is exactly that), and `burn_bps`, which an owner act may change between the confirm and the transaction, only
+splits that price between the swap and the Vault's margin (5,000 to 9,000 bps): lowered, the swap falls below `min_out`
+and reverts, costing only the network fee; raised, the player gets more PAVED than confirmed.
+
+**Sepolia today** (read only, Cartridge `rpc/v0_10`, 2026-10-12, Economy `0x005aab18…6a18b`): `rate()` =
+75,997,157,987,455,519,998,088,182,721,818 (75.997 PAVED per USDC), `burn_quote` of stake 1 = 1.4 USDC, `implied` =
+106.396021182437727997 PAVED, `quote_swap` = 106.298780403549364740 PAVED: **99.90 %** of `implied`, no warning.
+`router()` **does not exist** there: Sepolia runs the pre-E-9 class ("Requested entrypoint does not exist"), so purchases
+on Sepolia are refused until CORE's repoint upgrades it. The file's `MockRouter` is `0x02aa4d01…58f0`.
+
 ## Amounts
 
 Every amount is a `bigint` in base units: USDC 6 decimals, PAVED 18 (D-10, economy.md "Units"). `parseUnits` and
@@ -286,6 +359,15 @@ The payment rules of `client-data-layer.md` hold for each paying action:
   plain message.
 - `economy-screens.test.tsx` (E-9): the least PAVED shown from the quote, a revert shows the plain message with no figure
   and no purchase, and no stale quote (another stake that reverts, or a read again that fails, drops the figure).
+- `packages/chain/test/economy-gates.test.ts` (E-9b): `RATE_SCALE` and the 90 % floor; 89.99 %, exactly 90 %, one base
+  unit below, a quote above `implied`, a rate of 0, an unreadable rate; the floor at send with and without the
+  acceptance, a send-time drop after a confirm with no warning, a guard rate that rose; the router pin on mainnet (the
+  pinned router, Nums', a mock, zero; by chain id), devnet and Sepolia (the file's `MockRouter`, another one, a file
+  without one), the committed files, a router read at every send, an unreadable router; `rate()` and `router()` decoding.
+- `economy-screens.test.tsx` and `economy-game-start.test.tsx` (E-9b): the burn share "at today's terms" at the picker and
+  the confirm; no warning at 95 %; below 90 % both figures and a disabled Confirm until the checkbox, the acceptance in
+  the intent; an unpinned router (message, nothing quoted); at send, the floor without and with the acceptance, the
+  router refused, and "Back to purchase" after "confirm again".
 
 No browser run (jsdom only). Nothing has run against a live economy from the client yet.
 

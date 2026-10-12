@@ -1,12 +1,22 @@
 // FOR UNIT TESTS ONLY. Not exported from `@paved/chain`: tests import it from `@paved/chain/testing`, the entry for
 // test doubles. No app code may import it.
 import { ViewError } from "../views";
-import { BPS, isStake, minOutFor, priceOf, referralOf } from "./amounts";
+import { BPS, RATE_SCALE, isStake, minOutFor, priceOf, referralOf } from "./amounts";
 import type { PoolQuoter } from "./pool";
 import type { DayView, EconomyViews, QuoteView, TermsView, VaultPosition } from "./views";
 
 /** USDC's base units of 2 USDC: the `Mode::Daily` unit price of economy.md. */
 export const FAKE_UNIT = 2_000_000n;
+
+/** The fake `Economy.router()`: tests put it in the deployment file as `MockRouter` (`FAKE_ROUTER_FILE`). */
+export const FAKE_ROUTER = "0xd3de";
+/** The chain id of the fake deployments (`SN_SEPOLIA`): a test RPC answers it to `getChainId`. */
+export const FAKE_CHAIN_ID = "0x534e5f5345504f4c4941";
+/**
+ * A deployments file that names `FAKE_ROUTER` as the mock router and `FAKE_CHAIN_ID` as its chain: the purchase's router
+ * pin and chain check then accept the fakes.
+ */
+export const FAKE_ROUTER_FILE = { chain_id: FAKE_CHAIN_ID, contracts: { MockRouter: { address: FAKE_ROUTER } } };
 
 /** What `terms` answers for a game that was not bought (E2). */
 const notBought: TermsView = {
@@ -25,6 +35,10 @@ export class FakeEconomy implements EconomyViews {
   unit = FAKE_UNIT;
   /** PAVED per USDC base unit the fake router quotes, as a ratio. */
   rate = { paved: 80n * 10n ** 18n, usdc: 1_000_000n };
+  /** `Economy.rate()`, x `RATE_SCALE`: by default the same ratio as `rate`, so `FakePoolQuoter` quotes 95 % of implied. */
+  guardRate_ = (80n * 10n ** 18n * RATE_SCALE) / 1_000_000n;
+  /** `Economy.router()`. */
+  router_ = FAKE_ROUTER;
   threshold = 3_353_000;
   mean = 3_353_000;
   readonly days = new Map<number, DayView>();
@@ -55,6 +69,16 @@ export class FakeEconomy implements EconomyViews {
       slope: 18_130,
       cap: 5,
     };
+  }
+
+  async guardRate(): Promise<bigint> {
+    this.check("rate");
+    return this.guardRate_;
+  }
+
+  async router(): Promise<string> {
+    this.check("router");
+    return this.router_;
   }
 
   async day(day: number): Promise<DayView> {

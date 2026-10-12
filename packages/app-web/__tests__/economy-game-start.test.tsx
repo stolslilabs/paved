@@ -2,14 +2,15 @@
 // The game page buys a paid Daily (P8) only from the purchase confirm's history state.
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { FakeGameViews, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
+import { CHAIN_MISMATCH, FakeGameViews, MAINNET_ROUTER, RATE_UNAVAILABLE, POOL_CANNOT_FILL, ROUTER_NOT_PINNED, POOL_QUOTE_UNAVAILABLE, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
 import type { PavedClient } from "@paved/chain";
-import { FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "@paved/chain/testing";
+import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "@paved/chain/testing";
 import { GamePage } from "../src/pages/Game";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { purchaseIntent } from "../src/utils/economy-start";
+import { referrerFromSearch } from "../src/utils/economy-view";
 import { Where } from "./helpers/page-fixtures";
 
 vi.mock("@paved/renderer/react", () => ({ GameCanvas: () => null }));
@@ -25,14 +26,17 @@ afterEach(cleanup);
 
 const ADDR = { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
-const base = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } });
+const base = { ...resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } }), chainId: FAKE_CHAIN_ID };
+const SN_MAIN = "0x534e5f4d41494e";
 const account = { address: "0x5", execute: async () => ({ transaction_hash: "0x0" }) };
 
-function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSpawned?: boolean; sendError?: WriteError; pool?: FakePoolQuoter }) {
+function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSpawned?: boolean; sendError?: WriteError; pool?: FakePoolQuoter; router?: string; rate?: bigint; network?: string; rpcChainId?: string }) {
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: opts.unit ?? FAKE_UNIT };
   const economy = new FakeEconomy();
   economy.unit = opts.unit ?? FAKE_UNIT;
+  if (opts.router) economy.router_ = opts.router;
+  if (opts.rate !== undefined) economy.guardRate_ = opts.rate;
   const sent: Array<Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>> = [];
   const sendCalls = vi.fn(async (prepare: () => Promise<{ calls: (typeof sent)[number] }>) => {
     const { calls } = await prepare();
@@ -41,12 +45,12 @@ function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSp
     return { transactionHash: "0x1", events: opts.noGameSpawned ? [] : [{ name: "GameSpawned", fields: { gameId: 9 }, fromAddress: ADDR.Daily }] };
   });
   const spawn = vi.fn(async () => ({ gameId: 1 }));
-  const client = { views, events: { playerGames: vi.fn(async () => []) }, writer: () => ({ address: account.address, sendCalls, spawn }) } as unknown as PavedClient;
+  const client = { views, events: { playerGames: vi.fn(async () => []) }, writer: () => ({ address: account.address, sendCalls, spawn }), provider: { getChainId: async () => opts.rpcChainId ?? FAKE_CHAIN_ID } } as unknown as PavedClient;
   render(
     <PavedProvider deployment={base} account={account} client={client}>
       <MemoryRouter initialEntries={[{ pathname: "/game", search: opts.search ?? "?mode=daily", state: opts.state }]}>
         <Where />
-        <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base, env: ECON }), views: economy, poolQuoter: opts.pool ?? new FakePoolQuoter() }}>
+        <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base: opts.network ? { ...base, network: opts.network, chainId: SN_MAIN } : base, file: FAKE_ROUTER_FILE, env: ECON }), views: economy, poolQuoter: opts.pool ?? new FakePoolQuoter() }}>
           <Routes>
             <Route path="/game" element={<GamePage />} />
           </Routes>
@@ -128,6 +132,73 @@ describe("GamePage purchase", () => {
     expect(pool.calls).toHaveLength(1);
     expect(sent).toHaveLength(0);
     expect(screen.getByTestId("where").textContent).toMatch(/\|null$/);
+  });
+
+  it("a 'confirm again' refusal offers the way straight back to the purchase screen", async () => {
+    const confirmed = await new FakeEconomy().expectedMinOut(2);
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 79n * 10n ** 18n, usdc: 1_000_000n };
+    setup({ state: purchaseIntent(2, 4_000_000n, null, confirmed), pool });
+    fireEvent.click(await screen.findByText("Back to purchase"));
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/^\/economy\|/));
+  });
+
+  it("a quote below 90 % of the guard-rate value at send, not accepted at the confirm: nothing sent, confirm again", async () => {
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 70n * 10n ** 18n, usdc: 1_000_000n };
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), pool });
+    expect(await screen.findByText("Cannot start a game: The pool quote is far below the guard rate: confirm again")).toBeTruthy();
+    expect(screen.getByText("Back to purchase")).toBeTruthy();
+    expect(sent).toHaveLength(0);
+  });
+
+  it("the same quote, accepted at the confirm: sent", async () => {
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 70n * 10n ** 18n, usdc: 1_000_000n };
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n, true), pool });
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/id=9/));
+    expect(sent).toHaveLength(1);
+  });
+
+  it("a router that is not the pinned one at send: the plain message, nothing sent, no way back to buy", async () => {
+    const pool = new FakePoolQuoter();
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), pool, router: MAINNET_ROUTER });
+    expect(await screen.findByText(`Cannot start a game: ${ROUTER_NOT_PINNED} Nothing was sent.`)).toBeTruthy();
+    expect(screen.queryByText("Back to purchase")).toBeNull();
+    expect(pool.calls).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("'Back to purchase' keeps the purchase's referrer: /economy?ref=<referrer>", async () => {
+    const confirmed = await new FakeEconomy().expectedMinOut(2);
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 79n * 10n ** 18n, usdc: 1_000_000n };
+    setup({ state: purchaseIntent(2, 4_000_000n, "0x77", confirmed), pool });
+    fireEvent.click(await screen.findByText("Back to purchase"));
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/^\/economy\?ref=0x77\|/));
+    expect(referrerFromSearch(new URLSearchParams("?ref=0x77"))).toBe("0x77");
+  });
+
+  it("an RPC on another chain than the deployment's at send: the plain message, nothing sent", async () => {
+    const pool = new FakePoolQuoter();
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), pool, rpcChainId: SN_MAIN });
+    expect(await screen.findByText(`Cannot start a game: ${CHAIN_MISMATCH} Nothing was sent.`)).toBeTruthy();
+    expect(pool.calls).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("mainnet, rate 0 (unexpected), at send: refused, the pool not quoted, nothing sent", async () => {
+    const pool = new FakePoolQuoter();
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), pool, router: MAINNET_ROUTER, rate: 0n, network: "mainnet", rpcChainId: SN_MAIN });
+    expect(await screen.findByText(`Cannot start a game: ${RATE_UNAVAILABLE}. Nothing was sent.`)).toBeTruthy();
+    expect(pool.calls).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+  });
+
+  it("mainnet at a rate above 0 at send: sent as before", async () => {
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), router: MAINNET_ROUTER, network: "mainnet", rpcChainId: SN_MAIN });
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/id=9/));
+    expect(sent).toHaveLength(1);
   });
 
   it("an equal or higher fresh quote sends, with min_out at least the confirmed one", async () => {
