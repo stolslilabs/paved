@@ -14,6 +14,7 @@ import { buildGameRoute } from "../utils/mode-routing";
 import { readStartIntent, startGame } from "../utils/start-game";
 import { useEconomy } from "../utils/economy-context";
 import { readPurchaseIntent, spawnForIntent, type ReadPurchase } from "../utils/economy-start";
+import { REFERRAL_PARAM } from "../utils/economy-view";
 
 /** How long a start consent waits for a ready writer before it is dropped. */
 const START_CONSENT_MS = 30_000;
@@ -86,6 +87,11 @@ const screenStyle = {
 };
 const screenText = { color: "#f59e0b", fontFamily: "RubikMonoOne", fontSize: 24 };
 
+/** The purchase screen, with the referral link's `?ref=` when the purchase had a referrer (read by `referrerFromSearch`). */
+function purchaseRoute(referrer: string | null): string {
+  return referrer ? `/economy?${new URLSearchParams({ [REFERRAL_PARAM]: referrer })}` : "/economy";
+}
+
 function Screen({ text, onBack, backDisabled, action }: { text: string; onBack?: () => void; backDisabled?: boolean; action?: { label: string; onClick: () => void } }) {
   return (
     <div style={screenStyle}>
@@ -129,7 +135,8 @@ export function GamePage() {
   // A purchase sent whose receipt named no game: not a failure, and no invitation to buy again.
   const [unknownOutcome, setUnknownOutcome] = useState<string | null>(null);
   // A purchase refused before sending because what the player confirmed changed (price, pool, sanity floor): confirm again.
-  const [confirmAgain, setConfirmAgain] = useState(false);
+  // Carries the purchase's referrer, so that the retry keeps the referral (review t-0115, 1).
+  const [confirmAgain, setConfirmAgain] = useState<{ referrer: string | null } | null>(null);
   // A consent was found at mount and is waiting for a writer, or its start is in flight.
   const [wantsStart, setWantsStart] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -189,7 +196,8 @@ export function GamePage() {
       // Before any WriteError test: PurchaseOutcomeUnknownError extends WriteError, and must keep its no-retry screen.
       if (error instanceof PurchaseOutcomeUnknownError) setUnknownOutcome(error.message);
       else setSpawnError(error instanceof Error ? error.message : String(error));
-      setConfirmAgain(error instanceof PoolPriceMovedError || error instanceof PoolQuoteBelowFloorError || error instanceof PurchasePriceChangedError);
+      const retry = error instanceof PoolPriceMovedError || error instanceof PoolQuoteBelowFloorError || error instanceof PurchasePriceChangedError;
+      setConfirmAgain(retry && intent.purchase ? { referrer: intent.purchase.referrer } : null);
       setStarting(false);
     });
   }, [wantsStart, client, writer, address, gameParams.mode, navigate, economy.writer]);
@@ -206,7 +214,7 @@ export function GamePage() {
     if (unknownOutcome) return <Screen text={unknownOutcome} onBack={() => navigate("/")} />;
     if (spawnError) {
       // Nothing was sent: the way straight back to the purchase screen, where the player sees the new figures.
-      const action = confirmAgain ? { label: "Back to purchase", onClick: () => navigate("/economy") } : undefined;
+      const action = confirmAgain ? { label: "Back to purchase", onClick: () => navigate(purchaseRoute(confirmAgain.referrer)) } : undefined;
       return <Screen text={`Cannot start a game: ${spawnError}`} onBack={() => navigate("/")} action={action} />;
     }
     // A paid start in flight: the consent is already cleared, so say what is happening, not "No game selected".

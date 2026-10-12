@@ -3,9 +3,9 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, MAINNET_ROUTER, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, ROUTER_NOT_PINNED, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
+import { CHAIN_MISMATCH, FakeGameViews, MAINNET_ROUTER, NOT_LAUNCHED, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, ROUTER_NOT_PINNED, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
 import type { Deployment, EconomyDeployment } from "@paved/chain";
-import { FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/testing";
+import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/testing";
 import { EconomyPage } from "../src/pages/Economy";
 import { LandingPage } from "../src/pages/Landing";
 import { EconomyProvider } from "../src/utils/economy-context";
@@ -36,7 +36,7 @@ const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" 
 const REFERRER = "0x77";
 const DAY = 20_000;
 const P = 10n ** 18n;
-const base = { ...resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } }), tokenDecimals: 18 } as Deployment;
+const base = { ...resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } }), tokenDecimals: 18, chainId: FAKE_CHAIN_ID } as Deployment;
 const economyDeployment = resolveEconomyDeployment({ base, file: FAKE_ROUTER_FILE, env: ECON });
 
 /** A base writer that runs the economy's `prepare` (its reads and checks) and records the calls it would send. */
@@ -50,7 +50,7 @@ function fakeBaseWriter() {
   return { address: PLAYER, sendCalls, sent };
 }
 
-function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null> } = {}) {
+function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; rpcChainId?: string; playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null> } = {}) {
   const economy = opts.economy ?? new FakeEconomy();
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: FAKE_UNIT };
@@ -63,6 +63,7 @@ function land(opts: { search?: string; economy?: FakeEconomy; deployment?: Econo
     views,
     games: opts.games,
     playerFor: opts.playerFor,
+    rpcChainId: opts.rpcChainId,
     writer: writer as never,
     wrap: (routes) => (
       <EconomyProvider value={{ deployment: opts.deployment ?? economyDeployment, views: economy, poolQuoter: opts.pool === "network" ? undefined : opts.pool === undefined ? new FakePoolQuoter() : opts.pool, now: () => opts.now ?? settlesAfter(DAY) }}>{routes}</EconomyProvider>
@@ -278,6 +279,73 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect((screen.getByText("Purchases are off", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByText(/PAVED bought and burned/)).toBeNull();
     expect(pool.calls).toHaveLength(0);
+  });
+
+  it("the acceptance of a low quote is for that quote: a quote read again needs a fresh tick", async () => {
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 70n * 10n ** 18n, usdc: 1_000_000n };
+    land({ pool });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    fireEvent.click(screen.getByRole("checkbox"));
+    const confirm = screen.getByText("Confirm purchase") as HTMLButtonElement;
+    expect(confirm.disabled).toBe(false);
+    // The page is shown again and the quote is read again, lower still.
+    pool.rate = { paved: 60n * 10n ** 18n, usdc: 1_000_000n };
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(await screen.findAllByText(new RegExp(`The pool quotes ${paved(await pool.quoteSwap(1_400_000n)).replace(".", "\\.")}`))).toBeTruthy();
+    await waitFor(() => expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false));
+    expect(confirm.disabled).toBe(true);
+    visibility.mockRestore();
+  });
+
+  it("an RPC on another chain than the deployment's: the plain message, nothing quoted, no purchase offered", async () => {
+    const pool = new FakePoolQuoter();
+    const economy = new FakeEconomy();
+    land({ pool, economy, rpcChainId: "0x534e5f4d41494e" });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText(CHAIN_MISMATCH)).toBeTruthy();
+    expect((screen.getByText("Purchases are off", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(pool.calls).toHaveLength(0);
+    expect(economy.calls).not.toContain("router");
+  });
+
+  it("mainnet at a guard rate of 0: 'not launched', nothing quoted, no purchase offered", async () => {
+    const SN_MAIN = "0x534e5f4d41494e";
+    const pool = new FakePoolQuoter();
+    const economy = new FakeEconomy();
+    economy.router_ = MAINNET_ROUTER;
+    economy.guardRate_ = 0n;
+    const deployment = resolveEconomyDeployment({ base: { ...base, network: "mainnet", chainId: SN_MAIN }, env: ECON });
+    land({ pool, economy, deployment, rpcChainId: SN_MAIN });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText(NOT_LAUNCHED)).toBeTruthy();
+    expect((screen.getByText("Not launched", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(pool.calls).toHaveLength(0);
+  });
+
+  it("mainnet at a rate above 0: offered as before", async () => {
+    const SN_MAIN = "0x534e5f4d41494e";
+    const economy = new FakeEconomy();
+    economy.router_ = MAINNET_ROUTER;
+    const deployment = resolveEconomyDeployment({ base: { ...base, network: "mainnet", chainId: SN_MAIN }, env: ECON });
+    land({ economy, deployment, rpcChainId: SN_MAIN });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    await enabled("Buy for 2 USDC");
+    expect(screen.queryByText(NOT_LAUNCHED)).toBeNull();
+  });
+
+  it("Sepolia at a guard rate of 0: no warning, the purchase is offered", async () => {
+    const economy = new FakeEconomy();
+    economy.guardRate_ = 0n;
+    const deployment = resolveEconomyDeployment({ base: { ...base, network: "sepolia" }, file: FAKE_ROUTER_FILE, env: ECON });
+    land({ economy, deployment });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    expect(screen.queryByText(NOT_LAUNCHED)).toBeNull();
+    expect(screen.queryByText(/the guard rate implies/)).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("a quote_swap that reverts (the pool cannot fill): the plain message, no quote shown, no purchase offered", async () => {

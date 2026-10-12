@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BPS,
   DEFAULT_SLIPPAGE_BPS,
@@ -13,6 +13,7 @@ import {
   formatUnits,
   impliedPaved,
   isQuoteRevert,
+  launchProblem,
   minOutFor,
   priceOf,
   quoteBelowFloor,
@@ -63,9 +64,17 @@ export function EconomyPurchase({
   const entry = useAsyncRead(() => client.base.views.entryPrice(), [client], { onVisible: true });
   const quote = useAsyncRead(() => client.views.quote(stake), [client, stake], { onVisible: true });
   // The router pin and the guard's rate, read with the quote (the send reads both again in its own prepare).
-  const gate = useAsyncRead(() => Promise.all([client.views.router(), client.views.guardRate()]), [client, stake], { onVisible: true });
+  // The RPC must be on the deployment's chain (checked once per client); nothing else is read for a purchase before.
+  const chain = useAsyncRead(() => client.checkChain(), [client]);
+  const chainOk = chain.loaded && chain.error === null;
+  const chainProblem = chain.error !== null ? chain.error.replace(/ Nothing was sent\.$/, "") : null;
+  const gate = useAsyncRead(chainOk ? () => Promise.all([client.views.router(), client.views.guardRate()]) : null, [client, stake, chainOk], {
+    onVisible: true,
+  });
   const routerRefusal = gate.data ? routerProblem(client.deployment, gate.data[0]) : null;
   const rate = gate.data && gate.error === null ? gate.data[1] : null;
+  // Mainnet at a rate of 0: not launched yet (E-9c); nothing is quoted nor offered.
+  const launchRefusal = rate !== null && routerRefusal === null ? launchProblem(client.deployment, rate) : null;
   const self = referrer !== null && address !== null && sameAddress(referrer, address);
   // A referrer must be a registered player: one that is not is shown and not sent.
   const referrerPlayer = useAsyncRead(referrer && !self ? () => client.base.player(referrer) : null, [client, referrer, self]);
@@ -88,7 +97,7 @@ export function EconomyPurchase({
   // The quote of the exact USDC the purchase swaps (the burn part), for the price shown only.
   const burn = price !== null && quote.data ? quote.data.burnQuote : null;
   // No quote through a router that is not the pinned one (ruling 2): it is not read at all.
-  const quotable = client.poolQuoter !== null && burn !== null && gate.data !== null && routerRefusal === null;
+  const quotable = client.poolQuoter !== null && burn !== null && gate.data !== null && routerRefusal === null && launchRefusal === null;
   const poolQuote = useAsyncRead(quotable ? () => client.poolQuoter!.quoteSwap(burn!) : null, [client, stake, burn, quotable], {
     onVisible: true,
   });
@@ -101,7 +110,20 @@ export function EconomyPurchase({
   const implied = burn !== null && rate !== null ? impliedPaved(burn, rate) : null;
   const lowQuote = minPaved !== null && burn !== null && rate !== null && quoteBelowFloor(poolQuote.data!, burn, rate);
   const canBuy =
-    ready && price !== null && !referrerLoading && priceProblem === null && !noPool && routerRefusal === null && rate !== null && minPaved !== null && minPaved > 0n;
+    ready &&
+    chainOk &&
+    price !== null &&
+    !referrerLoading &&
+    priceProblem === null &&
+    !noPool &&
+    routerRefusal === null &&
+    launchRefusal === null &&
+    rate !== null &&
+    minPaved !== null &&
+    minPaved > 0n;
+  // An acceptance is for the quote it was given on: a quote read again, or no longer low, needs a fresh tick.
+  const shownQuote = poolQuote.data;
+  useEffect(() => setAcceptLow(false), [shownQuote, lowQuote]);
   // The burn share of the price, at today's `burn_bps`: an owner act may change it before the transaction.
   const burnShare = price !== null && burn !== null ? `${usdc(burn)} of the price (${formatUnits((burn * BPS) / price, 2)} %), at today's terms` : null;
 
@@ -148,7 +170,9 @@ export function EconomyPurchase({
       <span style={warning}>{CLIFF_TEXT}</span>
       {priceProblem && <span role="alert" style={alert}>{priceProblem}</span>}
       {noPool && <span role="alert" style={alert}>No pool quote: purchase unavailable</span>}
+      {chainProblem && <span role="alert" style={alert}>{chainProblem}</span>}
       {routerRefusal && <span role="alert" style={alert}>{routerRefusal}</span>}
+      {launchRefusal && <span role="alert" style={alert}>{launchRefusal}</span>}
       {!noPool && cannotFill && <span role="alert" style={alert}>{POOL_CANNOT_FILL}</span>}
       {!noPool && unreadable && <span role="alert" style={alert}>{POOL_QUOTE_UNAVAILABLE}</span>}
       {!asking ? (
@@ -161,7 +185,7 @@ export function EconomyPurchase({
             setAsking(true);
           }}
         >
-          {!ready ? "Not connected" : noPool ? "No pool quote" : routerRefusal ? "Purchases are off" : cannotFill ? "Pool cannot fill" : unreadable ? "Pool quote unavailable" : price !== null ? `Buy for ${usdc(price)}` : "Price unavailable"}
+          {!ready ? "Not connected" : noPool ? "No pool quote" : chainProblem || routerRefusal ? "Purchases are off" : launchRefusal ? "Not launched" : cannotFill ? "Pool cannot fill" : unreadable ? "Pool quote unavailable" : price !== null ? `Buy for ${usdc(price)}` : "Price unavailable"}
         </button>
       ) : (
         price !== null && (
