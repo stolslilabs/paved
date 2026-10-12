@@ -10,6 +10,7 @@ import { chromium } from "playwright-core";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { checkEvidence, operationName, redact, scrub } from "./scrub.mjs";
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -32,15 +33,8 @@ const executablePath = arg(
 if (confirmed && !/^[a-z0-9-]{3,19}$/.test(username)) throw new Error("--confirmed needs --username (a throwaway name: a-z, 0-9, -, at most 19 characters: the keychain refuses longer)");
 mkdirSync(out, { recursive: true });
 
-// Redaction. URLs lose their query AND fragment (the keychain's connect id and options travel there). Texts lose long hex and long
-// token-like strings; the public hashes and addresses the run records are kept apart, in `txs`.
-const redact = (u) => u.replace(/[?#].*$/, "");
-const scrub = (t) =>
-  String(t)
-    .replace(/\{\s*"response"\s*:[\s\S]*?"request"\s*:[\s\S]*?\}\s*\}\s*\}/g, "[request echo removed: it carried the passkey registration]")
-    .replace(/https?:\/\/[^\s"')]+/g, (u) => redact(u))
-    .replace(/0x[0-9a-fA-F]{20,}/g, "0x…")
-    .replace(/[A-Za-z0-9_-]{40,}/g, "<token>");
+// Redaction (see scrub.mjs): URLs lose query and fragment; the keychain's echoed registration request is cut; long hex and tokens are scrubbed.
+// The public hashes and addresses the run records are kept apart, in `txs`.
 
 const log = { stage: "start", console: [], requests: [], failures: [], frames: [], screens: [], txs: [], notes: [] };
 const stage = (s) => (log.stage = s);
@@ -61,6 +55,10 @@ const closeAll = async () => {
   await context.close().catch(() => {});
   await browser.close().catch(() => {});
   rmSync(cmdFile, { force: true });
+  // The written files must not carry the registration: a hit stops everything with exit 5, and the files are not to be committed.
+  const hits = checkEvidence(out);
+  for (const h of hits) console.error(`EVIDENCE CHECK FAILED: ${h.word} in ${h.file}`);
+  if (hits.length) process.exit(5);
 };
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => closeAll().finally(() => process.exit(130)));
 
@@ -93,9 +91,11 @@ const keychainOpen = async () => {
   const iframe = page.locator('iframe[src*="x.cartridge.gg"]').first();
   return (await iframe.count()) > 0 && (await iframe.isVisible().catch(() => false));
 };
+const FAILURE = /internal server error|authentication failed/i;
 async function keychainScreen(name) {
   const f = keychainFrame();
-  const text = f ? scrub(await bodyText(f)) : "(no keychain frame)";
+  const read = async () => (f ? await bodyText(f) : "(no keychain frame)");
+  let raw = await read();
   // Form controls: kind and label only, never a value.
   const controls = f
     ? await f
@@ -110,10 +110,23 @@ async function keychainScreen(name) {
         })))
         .catch(() => [])
     : [];
-  await shot(name);
+  // No screenshot while the failure text is on screen: the keychain prints its registration request there. The text is read again
+  // after the picture in case the failure appeared meanwhile, and a picture taken then is deleted.
+  let failed = FAILURE.test(raw);
+  if (!failed) {
+    await shot(name);
+    raw = await read();
+    failed = FAILURE.test(raw);
+    if (failed) rmSync(join(out, `${name}.jpg`), { force: true });
+  }
+  const at = new Date().toISOString();
+  // On a failure the operation name is read from the raw text, before scrub, and only the name is kept.
+  const operation = failed ? operationName(raw) : null;
+  const seen = failed ? ["Authentication failed. Please try again.", "Please try connecting again"].filter((p) => raw.includes(p)) : [];
+  const text = scrub(raw) + (seen.length ? `\n[lines seen after the cut: ${seen.join(" | ")}]` : "");
   writeFileSync(join(out, `${name}.txt`), text);
-  log.screens.push({ name, text, controls });
-  return { text, controls };
+  log.screens.push({ name, at, text, controls, failed, operation, screenshot: !failed });
+  return { text, controls, failed, operation, at };
 }
 
 // STOP: anything the owner's gate did not allow. The driver pauses and reports instead of clicking.
@@ -173,13 +186,11 @@ async function walkKeychain(label, { maxScreens = 12 } = {}) {
   for (let n = 1; n <= maxScreens; n++) {
     await sleep(2500);
     if (!(await keychainOpen())) return true;
-    const { text, controls } = await keychainScreen(`${label}-${String(n).padStart(2, "0")}`);
+    const { text, controls, failed, operation, at } = await keychainScreen(`${label}-${String(n).padStart(2, "0")}`);
     // Registration failed on Cartridge's side: stop, never retry in this run. The operation name and time are what the report needs.
-    const failed = text.match(/rpc error:[^\n]*?(?=\s*\[request echo|\n|$)/i);
-    if (/authentication failed|finalizeRegistration|internal server error/i.test(text)) {
-      const op = (text.match(/finalizeRegistration|[A-Za-z]+Registration|beginRegistration|\bsignup\b/i) || ["unknown"])[0];
-      note(`REGISTRATION FAILED at ${new Date().toISOString()}: operation ${op}; text: ${failed ? failed[0] : text.split("\n").filter((l) => /fail|error/i.test(l)).join(" | ")}`);
-      log.registrationFailed = { at: new Date().toISOString(), operation: op };
+    if (failed) {
+      note(`REGISTRATION FAILED at ${at}: operation ${operation ?? "unknown"}; text: ${text.split("\n").filter((l) => /error/i.test(l)).join(" | ")}`);
+      log.registrationFailed = { at, operation: operation ?? "unknown" };
       return "failed";
     }
     // The method chooser: PASSKEY only, never SMS or Other options.
