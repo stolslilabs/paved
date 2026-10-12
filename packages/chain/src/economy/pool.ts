@@ -45,16 +45,16 @@ export function routerProblem(deployment: Pick<EconomyDeployment, "expectedRoute
   }
 }
 
-/** What the player reads on mainnet while `Economy.rate()` is 0 (CORE's E-9c ruling): the launch has not seeded it. */
-export const NOT_LAUNCHED = "Purchases are not open yet (not launched)";
+/** What the player reads on mainnet if `Economy.rate()` is 0, which only an unexpected upgrade can cause (E-9c, ruling 3). */
+export const RATE_UNAVAILABLE = "Price rate unavailable; purchases are paused";
 
 /**
- * The launch gate (CORE's E-9c ruling): on mainnet only, a guard rate of 0 refuses every purchase, since the owner's launch
- * multicall seeds the rate before the client opens. Devnet and Sepolia proceed at a rate of 0 (no warning). Null when a
- * purchase may proceed.
+ * A guard against an unexpected upgrade (E-9c, ruling 3): the constructor refuses a rate of 0 (`'Economy: zero rate'`), so
+ * on mainnet a 0 can only come from an odd upgrade, and every purchase is refused then. Devnet and Sepolia proceed at a rate
+ * of 0 (no warning). Null when a purchase may proceed.
  */
-export function launchProblem(deployment: Pick<EconomyDeployment, "mainnet">, rate: bigint): string | null {
-  return deployment.mainnet && rate === 0n ? NOT_LAUNCHED : null;
+export function rateProblem(deployment: Pick<EconomyDeployment, "mainnet">, rate: bigint): string | null {
+  return deployment.mainnet && rate === 0n ? RATE_UNAVAILABLE : null;
 }
 
 /** The Economy's own refusals of `quote_swap` (E-9: F1, F2, the `u128` bound). */

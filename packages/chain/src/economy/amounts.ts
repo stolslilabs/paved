@@ -69,8 +69,8 @@ export const SANITY_FLOOR_BPS = 9_000n;
 
 /**
  * The PAVED the burn would buy at the guard's rate: `burn_quote x rate / RATE_SCALE`, rounded down (the figure shown).
- * Null at a rate of 0: no purchase yet, no guard on chain either (`curve::guarded` counts the whole purchase), so there
- * is nothing to compare with.
+ * Null at a rate of 0, which the constructor refuses (only a mock or an unexpected upgrade has one): no guard on chain either
+ * (`curve::guarded` counts the whole purchase), so there is nothing to compare with.
  */
 export function impliedPaved(burnQuote: bigint, rate: bigint): bigint | null {
   if (burnQuote < 0n || rate < 0n) throw new RangeError("A burn quote and a rate are not negative");

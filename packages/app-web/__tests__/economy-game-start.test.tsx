@@ -4,7 +4,7 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { CHAIN_MISMATCH, FakeGameViews, MAINNET_ROUTER, NOT_LAUNCHED, POOL_CANNOT_FILL, ROUTER_NOT_PINNED, POOL_QUOTE_UNAVAILABLE, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
+import { CHAIN_MISMATCH, FakeGameViews, MAINNET_ROUTER, RATE_UNAVAILABLE, POOL_CANNOT_FILL, ROUTER_NOT_PINNED, POOL_QUOTE_UNAVAILABLE, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
 import type { PavedClient } from "@paved/chain";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "@paved/chain/testing";
 import { GamePage } from "../src/pages/Game";
@@ -187,10 +187,10 @@ describe("GamePage purchase", () => {
     expect(sent).toHaveLength(0);
   });
 
-  it("mainnet at a guard rate of 0 at send: 'not launched', the pool not quoted, nothing sent", async () => {
+  it("mainnet, rate 0 (unexpected), at send: refused, the pool not quoted, nothing sent", async () => {
     const pool = new FakePoolQuoter();
     const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), pool, router: MAINNET_ROUTER, rate: 0n, network: "mainnet", rpcChainId: SN_MAIN });
-    expect(await screen.findByText(`Cannot start a game: ${NOT_LAUNCHED}. Nothing was sent.`)).toBeTruthy();
+    expect(await screen.findByText(`Cannot start a game: ${RATE_UNAVAILABLE}. Nothing was sent.`)).toBeTruthy();
     expect(pool.calls).toHaveLength(0);
     expect(sent).toHaveLength(0);
   });

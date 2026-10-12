@@ -3,7 +3,7 @@ import { sameAddress, toHex, type Encodable } from "../codec";
 import type { GameViews, PriceView } from "../views";
 import { WriteError, revertNames, type Call, type PavedWriter, type WriteResult } from "../writer";
 import { ADDRESS_BOUND, DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, expiresAt, impliedPaved, isStake, minOutFor, priceOf, quoteBelowFloor, settlesAfter } from "./amounts";
-import { POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, isQuoteRevert, launchProblem, routerProblem, type PoolQuoter } from "./pool";
+import { POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, isQuoteRevert, rateProblem, routerProblem, type PoolQuoter } from "./pool";
 import type { EconomyDeployment } from "./deployment";
 import type { EconomyViews, QuoteView, TermsView } from "./views";
 
@@ -101,11 +101,11 @@ export class RouterNotPinnedError extends WriteError {
   }
 }
 
-/** On mainnet, `Economy.rate()` is 0: not launched yet (CORE's E-9c ruling). Nothing was sent, the pool not quoted. */
-export class NotLaunchedError extends WriteError {
+/** On mainnet, `Economy.rate()` is 0, which only an unexpected upgrade can cause (E-9c): nothing sent, the pool not quoted. */
+export class RateUnavailableError extends WriteError {
   constructor(text: string) {
     super(`${text}. Nothing was sent.`);
-    this.name = "NotLaunchedError";
+    this.name = "RateUnavailableError";
   }
 }
 
@@ -238,9 +238,9 @@ export class EconomyWriter {
     // The router pin (E-9b, ruling 2) before anything else: an unexpected router is not quoted, and nothing is sent.
     const routerRefusal = routerProblem(deployment, router);
     if (routerRefusal) throw new RouterNotPinnedError(router, deployment.expectedRouter, routerRefusal);
-    // The launch gate (E-9c): on mainnet, a rate of 0 is "not launched yet"; the pool is not quoted.
-    const launchRefusal = launchProblem(deployment, rate);
-    if (launchRefusal) throw new NotLaunchedError(launchRefusal);
+    // On mainnet a rate of 0 is unexpected (the constructor refuses it, E-9c): purchases are paused, the pool not quoted.
+    const rateRefusal = rateProblem(deployment, rate);
+    if (rateRefusal) throw new RateUnavailableError(rateRefusal);
     if (!sameAddress(entry.token, deployment.addresses.USDC)) throw new WriteError("Unknown entry token: the Daily entry is not paid in USDC");
     const price = priceOf(entry.amount, request.stake);
     if (price === 0n) throw new WriteError("The Daily entry has no price: nothing to buy");

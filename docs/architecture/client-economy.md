@@ -210,8 +210,8 @@ false-warning rate on mainnet, may move it.
 - Arithmetic: bigint only. The comparison is exact, cross-multiplied (`quote x 10,000 x RATE_SCALE < burn_quote x rate x
   9,000`), so neither side is rounded: exactly 90 % is not below. The `implied` figure shown is rounded down.
 - At or above 90 %, and above `implied`: nothing changes (the on-chain guard caps `R` at `quote x rate x 1.10`).
-- A rate of 0 (no purchase yet): no `implied`, no warning. The contract has no guard then either (`guarded` counts the
-  whole purchase). A rate that cannot be read: no purchase (screen and send), as any failed read.
+- A rate of 0 (the constructor refuses it, so only a mock or an unexpected upgrade has one): no `implied`, no warning; the
+  contract has no guard then either (`guarded` counts the whole purchase). On mainnet it refuses instead (below). A rate that cannot be read: no purchase (screen and send), as any failed read.
 - Below 90 %: the purchase screen shows both figures ("The pool quotes X PAVED for the burn, below 90 % of the Y PAVED the
   guard rate implies: the pool may have been pushed."); the confirm repeats them next to a checkbox ("I understand and
   buy anyway"), and "Confirm purchase" stays disabled until it is ticked. The acceptance rides in the purchase intent as
@@ -220,13 +220,13 @@ false-warning rate on mainnet, may move it.
   pool quote is far below the guard rate: confirm again") and sends nothing, so the player sees the warning. The
   acceptance never lowers `confirmedMinOut`: `PoolPriceMovedError` still applies.
 
-**The launch gate** (CORE's E-9c ruling, 2026-10-12; economy.md "For CLIENT" once CORE's E-9c docs land). On mainnet
-only (the same test as the router pin: the network's name, or `SN_MAIN`), while `Economy.rate()` is 0 every purchase is
-refused with "Purchases are not open yet (not launched)" (`NotLaunchedError`, `launchProblem`): checked on screen and at
-send, in the same prepare as the router and the quote; the pool is not quoted and nothing is sent. The reason: the
-mainnet launch is one owner multicall (the pool, the launch LP, then a paid stake-1 spawn), which seeds the rate before
-the client opens to players, so a rate of 0 on mainnet means not launched. Devnet and Sepolia are unchanged: a rate of 0
-there means no warning, and the purchase proceeds.
+**Mainnet, rate 0 (unexpected): refused** (E-9c, CORE's ruling 3, `docs/architecture/economy.md` at 7d9f803, #314). The
+guard rate is never 0 on a deployment: `Economy`'s constructor refuses 0 (`'Economy: zero rate'`) and stores the rate it
+is given (the deploy passes the launch rate, 7.6e31), so no purchase "seeds" it. On mainnet a rate of 0 can therefore only
+come from an unexpected upgrade, and the client then refuses every purchase with "Price rate unavailable; purchases are
+paused" (`RateUnavailableError`, `rateProblem`): checked on screen and at send, in the same prepare as the router and the
+quote, with the router pin's mainnet test; the pool is not quoted and nothing is sent. Devnet and Sepolia are unchanged:
+a rate of 0 there means no warning, and the purchase proceeds.
 
 **The chain check** (value audit t-0116, note 1). Once per client, before anything is read for a purchase,
 `EconomyClient.checkChain` compares the RPC's `getChainId()` with the deployment file's `chain_id`. It fails closed: a

@@ -32,7 +32,7 @@ export interface EconomyDeployment {
   expectedRouter: string;
   /**
    * Mainnet, by name or by `chain_id` (`SN_MAIN`), the same test as the router pin's: a guard rate of 0 then refuses
-   * every purchase (not launched yet, CORE's E-9c ruling).
+   * every purchase (unexpected, the constructor refuses it: E-9c, ruling 3).
    */
   mainnet: boolean;
 }

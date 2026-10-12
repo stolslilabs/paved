@@ -3,7 +3,7 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { CHAIN_MISMATCH, FakeGameViews, MAINNET_ROUTER, NOT_LAUNCHED, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, ROUTER_NOT_PINNED, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
+import { CHAIN_MISMATCH, FakeGameViews, MAINNET_ROUTER, RATE_UNAVAILABLE, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, ROUTER_NOT_PINNED, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
 import type { Deployment, EconomyDeployment } from "@paved/chain";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/testing";
 import { EconomyPage } from "../src/pages/Economy";
@@ -311,7 +311,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(economy.calls).not.toContain("router");
   });
 
-  it("mainnet at a guard rate of 0: 'not launched', nothing quoted, no purchase offered", async () => {
+  it("mainnet, rate 0 (unexpected): refused, nothing quoted, no purchase offered", async () => {
     const SN_MAIN = "0x534e5f4d41494e";
     const pool = new FakePoolQuoter();
     const economy = new FakeEconomy();
@@ -320,8 +320,8 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     const deployment = resolveEconomyDeployment({ base: { ...base, network: "mainnet", chainId: SN_MAIN }, env: ECON });
     land({ pool, economy, deployment, rpcChainId: SN_MAIN });
     fireEvent.click(await screen.findByText(/mode daily/));
-    expect(await screen.findByText(NOT_LAUNCHED)).toBeTruthy();
-    expect((screen.getByText("Not launched", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(await screen.findByText(RATE_UNAVAILABLE)).toBeTruthy();
+    expect((screen.getByText("Purchases paused", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
     expect(pool.calls).toHaveLength(0);
   });
 
@@ -333,7 +333,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     land({ economy, deployment, rpcChainId: SN_MAIN });
     fireEvent.click(await screen.findByText(/mode daily/));
     await enabled("Buy for 2 USDC");
-    expect(screen.queryByText(NOT_LAUNCHED)).toBeNull();
+    expect(screen.queryByText(RATE_UNAVAILABLE)).toBeNull();
   });
 
   it("Sepolia at a guard rate of 0: no warning, the purchase is offered", async () => {
@@ -343,7 +343,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     land({ economy, deployment });
     fireEvent.click(await screen.findByText(/mode daily/));
     fireEvent.click(await enabled("Buy for 2 USDC"));
-    expect(screen.queryByText(NOT_LAUNCHED)).toBeNull();
+    expect(screen.queryByText(RATE_UNAVAILABLE)).toBeNull();
     expect(screen.queryByText(/the guard rate implies/)).toBeNull();
     expect(screen.queryByRole("checkbox")).toBeNull();
   });

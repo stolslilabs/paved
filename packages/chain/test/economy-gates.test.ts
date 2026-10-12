@@ -15,9 +15,9 @@ import {
   CHAIN_UNKNOWN,
   ChainMismatchError,
   MAINNET_ROUTER,
-  NOT_LAUNCHED,
-  NotLaunchedError,
-  launchProblem,
+  RATE_UNAVAILABLE,
+  RateUnavailableError,
+  rateProblem,
   PoolQuoteBelowFloorError,
   RATE_SCALE,
   ROUTER_NOT_PINNED,
@@ -119,7 +119,7 @@ describe("the sanity floor: implied = burn_quote x rate / RATE_SCALE, a warning 
     expect(quoteBelowFloor(IMPLIED * 3n, BURN, RATE)).toBe(false);
   });
 
-  test("a rate of 0 (no purchase yet, no guard on chain): no implied figure, no warning", () => {
+  test("a rate of 0 (no guard on chain): no implied figure, no warning", () => {
     expect(impliedPaved(BURN, 0n)).toBeNull();
     expect(quoteBelowFloor(1n, BURN, 0n)).toBe(false);
   });
@@ -367,22 +367,22 @@ function setupChain(getChainId: (() => Promise<string>) | null, chainId: string)
   return { economy, econWriter, execute, pool };
 }
 
-describe("the launch gate: on mainnet only, a guard rate of 0 refuses every purchase (CORE's E-9c ruling)", () => {
+describe("mainnet, rate 0 (unexpected): refused; devnet and Sepolia unchanged (E-9c, ruling 3)", () => {
   const mainnet = { network: "mainnet", file: { chain_id: SN_MAIN }, router: MAINNET_ROUTER, rpcChain: SN_MAIN };
 
-  test("mainnet at a rate of 0: 'not launched', the pool not quoted, nothing sent", async () => {
+  test("mainnet, rate 0 (unexpected): refused, the pool not quoted, nothing sent", async () => {
     const { econWriter, execute, pool } = setup({ ...mainnet, rate: 0n });
     const error = await econWriter.purchase(buy()).catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(NotLaunchedError);
-    expect((error as Error).message).toBe("Purchases are not open yet (not launched). Nothing was sent.");
-    expect(NOT_LAUNCHED).toBe("Purchases are not open yet (not launched)");
+    expect(error).toBeInstanceOf(RateUnavailableError);
+    expect((error as Error).message).toBe("Price rate unavailable; purchases are paused. Nothing was sent.");
+    expect(RATE_UNAVAILABLE).toBe("Price rate unavailable; purchases are paused");
     expect(pool.calls).toHaveLength(0);
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("mainnet by chain id under another name: the same gate", async () => {
+  test("mainnet by chain id under another name, rate 0 (unexpected): refused", async () => {
     const { econWriter, execute } = setup({ ...mainnet, network: "production", file: { ...FAKE_ROUTER_FILE, chain_id: SN_MAIN }, rate: 0n });
-    await expect(econWriter.purchase(buy())).rejects.toBeInstanceOf(NotLaunchedError);
+    await expect(econWriter.purchase(buy())).rejects.toBeInstanceOf(RateUnavailableError);
     expect(execute).not.toHaveBeenCalled();
   });
 
@@ -399,9 +399,9 @@ describe("the launch gate: on mainnet only, a guard rate of 0 refuses every purc
     expect(execute).toHaveBeenCalledTimes(1);
   });
 
-  test("launchProblem: mainnet and 0 only", () => {
-    expect(launchProblem({ mainnet: true }, 0n)).toBe(NOT_LAUNCHED);
-    expect(launchProblem({ mainnet: true }, 1n)).toBeNull();
-    expect(launchProblem({ mainnet: false }, 0n)).toBeNull();
+  test("rateProblem: mainnet and 0 only", () => {
+    expect(rateProblem({ mainnet: true }, 0n)).toBe(RATE_UNAVAILABLE);
+    expect(rateProblem({ mainnet: true }, 1n)).toBeNull();
+    expect(rateProblem({ mainnet: false }, 0n)).toBeNull();
   });
 });
