@@ -564,7 +564,7 @@ O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, ow
       `quote_swap(RouteNode, TokenAmount) -> Delta`, and a contract (`Economy`) can call it: the caught revert works.
     - **The router Nums uses (`0x04505a9f06f2bd639b6601f37a4dc0908bb70e8e0e0c34b1220827d64f4fc066`) has no
       `quote_swap`**. Its class has only an older external `quote(Array<Swap>)`. So `Economy`'s router on mainnet must be
-      `0x0199…737e` (or a later router with `quote_swap`), never Nums' address. Since E-9 the owner can repoint
+      `0x0199…737e` (E-9b pins it for the client; a newer Ekubo router needs a fork re-run first, see the gates), never Nums' address. Since E-9 the owner can repoint
       the router with `set_router` ("As built: E-9").
     - The quote equals the swap through the same node, exactly, for every amount tried.
   - `Economy.quote_swap` now uses that interface (E-9). The client drops Ekubo's API on mainnet (CLIENT's change,
@@ -920,13 +920,21 @@ D-13 lifts the seed gate. These gates stay:
   `set_lobby_class` on `Daily` and `Tutorial` is as strong as `upgrade`: a `Lobby` class runs by library call on
   their storage, so it can move the prize pools, rewrite `owner`, or replace the class. This gate covers both.
 - **`Economy`'s router and limit** (E-9), inputs for the owner's mainnet deploy:
-  - the router is `0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e` (or a later Ekubo router with
-    `quote_swap`), **never Nums' `0x04505a9f06f2bd639b6601f37a4dc0908bb70e8e0e0c34b1220827d64f4fc066`**, which
+  - the router is `0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e` (Ekubo's "Router V3.0.13", E-9b's
+    pin), **never Nums' `0x04505a9f06f2bd639b6601f37a4dc0908bb70e8e0e0c34b1220827d64f4fc066`**, which
     has no `quote_swap`;
   - `sqrt_ratio_limit` is 0 or the extreme of USDC in's direction: `MIN_SQRT_RATIO` when USDC is token0,
     `MAX_SQRT_RATIO` when it is token1. A limit on the wrong side reverts every quote and purchase
     (`LIMIT_DIRECTION`), and **`set_pool` does not check the side**;
-  - re-run the fork test (`paved::tests::economy::fork`) at a recent block before the go.
+  - re-run the fork test (`paved::tests::economy::fork`) at a recent block before the go;
+- **The router pin** (E-9b, CORE's ruling, 2026-10-12; CLIENT's audit of #310, note 3), a mainnet gate:
+  - the owner's deploy sets `0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e` as `Economy`'s router;
+  - the fork tests are re-run, before the go, at a recent block **against the router `Economy.router()` will
+    return**;
+  - if Ekubo publishes a newer router, CORE re-runs the fork against it before any `set_router`, and CLIENT updates
+    the pin in the same release.
+- **The client's sanity floor** (E-9b, CORE's ruling, 2026-10-12; audit note 2), a mainnet gate: the client implements
+  the check in "For CLIENT" before any mainnet paid game.
 - **The mock-router gate** (from E1's audit), a mainnet gate: the mainnet price limit and partial fills are untested
   until a fork test against the mainnet router covers them (see "As built: E2" below). **Covered by E-9's fork test**
   (2026-10-12, "As built: E-9"): the limit `Economy` passes for its direction, a swap that reaches it, and a partial
@@ -1281,6 +1289,51 @@ unchanged, and its smoke already calls `Economy.quote_swap`. The procedure above
 - **A revert of `Economy.quote_swap` means "the pool cannot fill this purchase now"** (`'Economy: partial fill'`, or
   any revert of the router). The client shows it to the player and sends nothing: no purchase without a quote, and
   never a `min_out` of 0.
+
+**Ruling 1: a sanity floor against the guard rate** (E-9b, CORE, 2026-10-12; CLIENT's audit of #310, note 2).
+
+- **Why.** The client's `min_out` comes from `Economy.quote_swap`, a spot quote. A pool pushed before the player
+  quotes (someone buys PAVED first) is accepted as it is, and the player's slippage does not catch it: the player's
+  burn buys fewer PAVED and their `R` falls.
+- **The check.** Let `implied = burn_quote x rate / RATE_SCALE`, where `rate` is the contract's guard rate (the EMA of
+  PAVED per USDC that `purchase` uses). Compare the quote with it:
+  - `quote_swap(burn_quote) >= 90 % of implied`: no warning;
+  - below 90 %: the client **warns and asks for an explicit confirmation**, showing both figures. It does not refuse
+    on its own.
+- **Why a warning and not a refusal.** The guard rate moves only with purchases: at most about 0.31 % up and 0.28 %
+  down per block, weight 1/32. After a genuine rise of the PAVED price with few purchases, the spot quote sits
+  honestly below `implied`. A hard refusal would then block every purchase, and since only purchases move the rate,
+  the client would never recover by itself.
+- **The other direction.** A quote above `implied` (PAVED cheaper, the self-sandwich direction) needs no client check:
+  on chain, the guard already caps `R` at `quote x rate x 1.10`.
+- **Interaction with the partial-fill effect (E4 backlog).** None that matters:
+  - since E-9's fix loop, `quote_swap` reverts on a partial fill, so the client never sends a purchase the pool can
+    only partly fill;
+  - a partial fill can still happen if the pool moves between the quote and the transaction, but `min_out`, taken
+    from a full-fill quote, then makes the purchase revert;
+  - each partial fill that does land moves the rate down by one clamped step (about 0.28 %). That lowers `implied`,
+    which loosens the floor and never tightens it.
+- **Reversal.** E4's calibration, or a measured false-warning rate on mainnet, may move the 90 %. A refusal would need
+  an on-chain way to move the rate other than purchases.
+
+**Ruling 2: the router pin** (E-9b, CORE, 2026-10-12; audit note 3).
+
+- **The address to pin on mainnet:** `0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e`.
+  - It is Ekubo's "Router V3.0.13", the newest router in Ekubo's published Starknet contract list
+    (`EkuboProtocol/docs`, `src/content/docs/reference/contracts/starknet.md`).
+  - E-9's fork test proved it at block 16,265,000: it has `quote_swap`, callable from a contract.
+  - Router V3.0.3 (`0x04505a9f06f2bd639b6601f37a4dc0908bb70e8e0e0c34b1220827d64f4fc066`, Nums' router) has no
+    `quote_swap` and must not be used.
+- **The client check.** On mainnet, the client reads `Economy.router()` and refuses to quote or send unless it is that
+  address. On devnet and Sepolia it is the mock of the deployment file.
+- **No on-chain pin.** Neither a constant in `Economy` nor a `set_router` restricted on mainnet. The reasons:
+  - the owner can already `upgrade` Economy, so an on-chain pin binds nobody who could misuse `set_router`;
+  - a constant would break devnet and Sepolia, which run on the mocks, or it would need a network flag and more code
+    in `Economy`;
+  - a future Ekubo router migration would then need an upgrade instead of a `set_router` and a client release.
+- **Mainnet gates:** the owner's deploy sets this router; the fork tests are re-run against it before the go; a newer
+  router means a fork re-run by CORE before any `set_router`, and CLIENT updates the pin in the same release (see the
+  gates list).
 
 ## 9. Games as NFTs (D-11, amended D-11b)
 
