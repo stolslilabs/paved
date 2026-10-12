@@ -11,7 +11,13 @@ import { resolveDeployment } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { FakeGameViews } from "../src/views";
 import {
+  CHAIN_MISMATCH,
+  CHAIN_UNKNOWN,
+  ChainMismatchError,
   MAINNET_ROUTER,
+  NOT_LAUNCHED,
+  NotLaunchedError,
+  launchProblem,
   PoolQuoteBelowFloorError,
   RATE_SCALE,
   ROUTER_NOT_PINNED,
@@ -27,7 +33,7 @@ import {
   routerProblem,
   type EconomyDeploymentFile,
 } from "../src/economy";
-import { FAKE_ROUTER, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "../src/testing";
+import { FAKE_CHAIN_ID, FAKE_ROUTER, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "../src/testing";
 
 const ADDR = { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
@@ -56,7 +62,7 @@ class FixedPool extends FakePoolQuoter {
   }
 }
 
-function setup(options: { network?: string; file?: EconomyDeploymentFile; router?: string; rate?: bigint; pool?: FakePoolQuoter } = {}) {
+function setup(options: { network?: string; file?: EconomyDeploymentFile; router?: string; rate?: bigint; pool?: FakePoolQuoter; rpcChain?: string } = {}) {
   const economy = new FakeEconomy();
   economy.router_ = options.router ?? FAKE_ROUTER;
   economy.guardRate_ = options.rate ?? RATE;
@@ -65,6 +71,7 @@ function setup(options: { network?: string; file?: EconomyDeploymentFile; router
   const spawned = { from_address: ADDR.Daily, keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x9"], data: ["0x1", "0x4e20", "0x1", "0x0"] };
   const rpc = {
     callContract: async () => [],
+    getChainId: async () => options.rpcChain ?? FAKE_CHAIN_ID,
     getEvents: async () => ({ events: [] }),
     waitForTransaction: async () => ({ execution_status: "SUCCEEDED", events: [spawned] }),
   } as unknown as PavedRpc;
@@ -196,7 +203,7 @@ describe("the router pin: Economy.router() checked in the purchase's own prepare
   });
 
   test("mainnet with the pinned router: the purchase is sent", async () => {
-    const { econWriter, execute, deployment } = setup({ network: "mainnet", file: undefined, router: MAINNET_ROUTER });
+    const { econWriter, execute, deployment } = setup({ network: "mainnet", file: { chain_id: SN_MAIN }, router: MAINNET_ROUTER, rpcChain: SN_MAIN });
     expect(deployment.expectedRouter).toBe(MAINNET_ROUTER);
     expect((await econWriter.planPurchase(buy())).router).toBe(MAINNET_ROUTER);
     await econWriter.purchase(buy());
@@ -204,7 +211,7 @@ describe("the router pin: Economy.router() checked in the purchase's own prepare
   });
 
   test("the pinned router whatever its padding: still the same address", async () => {
-    const { econWriter, execute } = setup({ network: "mainnet", file: undefined, router: "0x199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e" });
+    const { econWriter, execute } = setup({ network: "mainnet", file: { chain_id: SN_MAIN }, router: "0x199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e", rpcChain: SN_MAIN });
     await econWriter.purchase(buy());
     expect(execute).toHaveBeenCalledTimes(1);
   });
@@ -223,7 +230,7 @@ describe("the router pin: Economy.router() checked in the purchase's own prepare
   });
 
   test("mainnet by its chain id, whatever the network's name: the pin applies", () => {
-    const deployment = economyOn("production", { chain_id: SN_MAIN, ...FAKE_ROUTER_FILE });
+    const deployment = economyOn("production", { ...FAKE_ROUTER_FILE, chain_id: SN_MAIN });
     expect(deployment.expectedRouter).toBe(MAINNET_ROUTER);
   });
 
@@ -239,7 +246,7 @@ describe("the router pin: Economy.router() checked in the purchase's own prepare
   });
 
   test("a mock network whose file has no MockRouter: no router is known, every purchase refused", async () => {
-    const { econWriter, execute, deployment } = setup({ network: "sepolia", file: undefined });
+    const { econWriter, execute, deployment } = setup({ network: "sepolia", file: { chain_id: FAKE_CHAIN_ID } });
     expect(deployment.expectedRouter).toBe("");
     await expect(econWriter.purchase(buy())).rejects.toThrow(`${ROUTER_UNKNOWN} Nothing was sent.`);
     expect(execute).not.toHaveBeenCalled();
@@ -288,5 +295,113 @@ describe("RpcEconomyViews: Economy.rate() and Economy.router() from the committe
     expect(await views.guardRate()).toBe(75_997_157_987_455_519_998_088_182_721_818n);
     expect(BigInt(await views.router())).toBe(BigInt(MAINNET_ROUTER));
     expect(callContract).toHaveBeenCalledWith({ contractAddress: ECON.economy, entrypoint: "router", calldata: [] });
+  });
+});
+
+describe("the chain check: the RPC's chain id is the deployment's, once, before any purchase (audit t-0116, note 1)", () => {
+  test("a match: checked once, then every purchase sends", async () => {
+    const getChainId = vi.fn(async () => FAKE_CHAIN_ID);
+    const { econWriter, execute } = setupChain(getChainId, FAKE_CHAIN_ID);
+    await econWriter.purchase(buy());
+    await econWriter.purchase(buy());
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(getChainId).toHaveBeenCalledTimes(1);
+  });
+
+  test("another chain: refused with the plain message, nothing read for the purchase, nothing sent, and it stays refused", async () => {
+    const getChainId = vi.fn(async () => SN_MAIN);
+    const { econWriter, execute, economy, pool } = setupChain(getChainId, FAKE_CHAIN_ID);
+    const error = await econWriter.purchase(buy()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ChainMismatchError);
+    expect((error as Error).message).toBe(`${CHAIN_MISMATCH} Nothing was sent.`);
+    await expect(econWriter.purchase(buy())).rejects.toBeInstanceOf(ChainMismatchError);
+    expect(getChainId).toHaveBeenCalledTimes(1);
+    expect(economy.calls).toHaveLength(0);
+    expect(pool.calls).toHaveLength(0);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("the same chain written another way (padding, case): a match", async () => {
+    const { econWriter, execute } = setupChain(async () => "0x0534E5F5345504F4C4941", FAKE_CHAIN_ID);
+    await econWriter.purchase(buy());
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  test("fails closed: a deployment without chain_id, or an RPC without getChainId, refuses every purchase", async () => {
+    const noId = setupChain(async () => FAKE_CHAIN_ID, "");
+    await expect(noId.econWriter.purchase(buy())).rejects.toThrow(`${CHAIN_UNKNOWN} Nothing was sent.`);
+    const noReader = setupChain(null, FAKE_CHAIN_ID);
+    await expect(noReader.econWriter.purchase(buy())).rejects.toThrow(`${CHAIN_UNKNOWN} Nothing was sent.`);
+    expect(noId.execute).not.toHaveBeenCalled();
+    expect(noReader.execute).not.toHaveBeenCalled();
+  });
+
+  test("an RPC that fails to answer: refused now, asked again at the next purchase", async () => {
+    const getChainId = vi.fn().mockRejectedValueOnce(new Error("fetch failed")).mockResolvedValue(FAKE_CHAIN_ID);
+    const { econWriter, execute } = setupChain(getChainId, FAKE_CHAIN_ID);
+    await expect(econWriter.purchase(buy())).rejects.toThrow("Cannot read the network: fetch failed");
+    expect(execute).not.toHaveBeenCalled();
+    await econWriter.purchase(buy());
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+});
+
+/** A devnet economy whose deployment names `chainId` and whose RPC answers `getChainId` (none when null). */
+function setupChain(getChainId: (() => Promise<string>) | null, chainId: string) {
+  const economy = new FakeEconomy();
+  economy.guardRate_ = RATE;
+  const gameViews = new FakeGameViews();
+  gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
+  const spawned = { from_address: ADDR.Daily, keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x9"], data: ["0x1", "0x4e20", "0x1", "0x0"] };
+  const rpc = {
+    callContract: async () => [],
+    ...(getChainId ? { getChainId } : {}),
+    getEvents: async () => ({ events: [] }),
+    waitForTransaction: async () => ({ execution_status: "SUCCEEDED", events: [spawned] }),
+  } as unknown as PavedRpc;
+  const deployment = economyOn("devnet", { ...FAKE_ROUTER_FILE, chain_id: chainId });
+  const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+  const client = new PavedClient(deployment.base, rpc, createCodecs(), gameViews);
+  const pool = new FixedPool(IMPLIED);
+  const econWriter = createEconomyClient(deployment, client, economy, pool)!.writer(client.writer({ address: PLAYER, execute }));
+  return { economy, econWriter, execute, pool };
+}
+
+describe("the launch gate: on mainnet only, a guard rate of 0 refuses every purchase (CORE's E-9c ruling)", () => {
+  const mainnet = { network: "mainnet", file: { chain_id: SN_MAIN }, router: MAINNET_ROUTER, rpcChain: SN_MAIN };
+
+  test("mainnet at a rate of 0: 'not launched', the pool not quoted, nothing sent", async () => {
+    const { econWriter, execute, pool } = setup({ ...mainnet, rate: 0n });
+    const error = await econWriter.purchase(buy()).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(NotLaunchedError);
+    expect((error as Error).message).toBe("Purchases are not open yet (not launched). Nothing was sent.");
+    expect(NOT_LAUNCHED).toBe("Purchases are not open yet (not launched)");
+    expect(pool.calls).toHaveLength(0);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("mainnet by chain id under another name: the same gate", async () => {
+    const { econWriter, execute } = setup({ ...mainnet, network: "production", file: { ...FAKE_ROUTER_FILE, chain_id: SN_MAIN }, rate: 0n });
+    await expect(econWriter.purchase(buy())).rejects.toBeInstanceOf(NotLaunchedError);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("mainnet at a rate above 0: as before", async () => {
+    const { econWriter, execute } = setup({ ...mainnet, rate: 1n });
+    await econWriter.purchase(buy());
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(["devnet", "sepolia"])("%s at a rate of 0: no warning, the purchase proceeds", async (network) => {
+    const { econWriter, execute } = setup({ network, rate: 0n, pool: new FixedPool(1_000n) });
+    expect((await econWriter.planPurchase(buy())).implied).toBeNull();
+    await econWriter.purchase(buy());
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  test("launchProblem: mainnet and 0 only", () => {
+    expect(launchProblem({ mainnet: true }, 0n)).toBe(NOT_LAUNCHED);
+    expect(launchProblem({ mainnet: true }, 1n)).toBeNull();
+    expect(launchProblem({ mainnet: false }, 0n)).toBeNull();
   });
 });

@@ -22,14 +22,14 @@ import {
   resolveEconomyDeployment,
   type PoolQuoter,
 } from "../src/economy";
-import { FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "../src/testing";
+import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "../src/testing";
 
 const ADDR = { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const PLAYER = "0x5";
 const DAY = 20_000;
 
-const economyOn = (network: string) => resolveEconomyDeployment({ base: resolveDeployment({ network, env: { rpcUrl: "http://x", addresses: ADDR } }), file: FAKE_ROUTER_FILE, env: ECON });
+const economyOn = (network: string) => resolveEconomyDeployment({ base: resolveDeployment({ network, file: FAKE_ROUTER_FILE, env: { rpcUrl: "http://x", addresses: ADDR } }), file: FAKE_ROUTER_FILE, env: ECON });
 
 type ContractCall = { contractAddress: string; entrypoint: string; calldata: string[] };
 
@@ -55,6 +55,7 @@ function setup(pool: PoolQuoter) {
   const spawned = { from_address: ADDR.Daily, keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x9"], data: ["0x1", `0x${DAY.toString(16)}`, "0x1", "0x0"] };
   const rpc = {
     callContract: async () => [],
+    getChainId: async () => FAKE_CHAIN_ID,
     getEvents: async () => ({ events: [] }),
     waitForTransaction: async () => ({ execution_status: "SUCCEEDED", events: [spawned] }),
   } as unknown as PavedRpc;

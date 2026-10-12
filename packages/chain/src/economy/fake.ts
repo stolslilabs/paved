@@ -10,8 +10,13 @@ export const FAKE_UNIT = 2_000_000n;
 
 /** The fake `Economy.router()`: tests put it in the deployment file as `MockRouter` (`FAKE_ROUTER_FILE`). */
 export const FAKE_ROUTER = "0xd3de";
-/** A deployments file that names `FAKE_ROUTER` as the mock router: the purchase's router pin then accepts the fake. */
-export const FAKE_ROUTER_FILE = { contracts: { MockRouter: { address: FAKE_ROUTER } } };
+/** The chain id of the fake deployments (`SN_SEPOLIA`): a test RPC answers it to `getChainId`. */
+export const FAKE_CHAIN_ID = "0x534e5f5345504f4c4941";
+/**
+ * A deployments file that names `FAKE_ROUTER` as the mock router and `FAKE_CHAIN_ID` as its chain: the purchase's router
+ * pin and chain check then accept the fakes.
+ */
+export const FAKE_ROUTER_FILE = { chain_id: FAKE_CHAIN_ID, contracts: { MockRouter: { address: FAKE_ROUTER } } };
 
 /** What `terms` answers for a game that was not bought (E2). */
 const notBought: TermsView = {

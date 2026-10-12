@@ -45,6 +45,18 @@ export function routerProblem(deployment: Pick<EconomyDeployment, "expectedRoute
   }
 }
 
+/** What the player reads on mainnet while `Economy.rate()` is 0 (CORE's E-9c ruling): the launch has not seeded it. */
+export const NOT_LAUNCHED = "Purchases are not open yet (not launched)";
+
+/**
+ * The launch gate (CORE's E-9c ruling): on mainnet only, a guard rate of 0 refuses every purchase, since the owner's launch
+ * multicall seeds the rate before the client opens. Devnet and Sepolia proceed at a rate of 0 (no warning). Null when a
+ * purchase may proceed.
+ */
+export function launchProblem(deployment: Pick<EconomyDeployment, "mainnet">, rate: bigint): string | null {
+  return deployment.mainnet && rate === 0n ? NOT_LAUNCHED : null;
+}
+
 /** The Economy's own refusals of `quote_swap` (E-9: F1, F2, the `u128` bound). */
 const QUOTE_REVERTS = ["Economy: partial fill", "Economy: wrong delta", "Economy: amount too large"];
 

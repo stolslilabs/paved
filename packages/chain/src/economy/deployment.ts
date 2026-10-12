@@ -30,6 +30,11 @@ export interface EconomyDeployment {
    * Not part of `configured`: the screens still read.
    */
   expectedRouter: string;
+  /**
+   * Mainnet, by name or by `chain_id` (`SN_MAIN`), the same test as the router pin's: a guard rate of 0 then refuses
+   * every purchase (not launched yet, CORE's E-9c ruling).
+   */
+  mainnet: boolean;
 }
 
 /**
@@ -71,7 +76,7 @@ export function resolveEconomyDeployment(input: { base: Deployment; file?: Econo
       .filter(([, address]) => !address)
       .map(([name]) => `${name} address`),
   ];
-  return { base: input.base, addresses, configured: missing.length === 0, missing, expectedRouter: expectedRouterOf(input.base, contracts.MockRouter?.address) };
+  return { base: input.base, addresses, configured: missing.length === 0, missing, expectedRouter: expectedRouterOf(input.base, contracts.MockRouter?.address), mainnet: isMainnet(input.base) };
 }
 
 /**
@@ -80,9 +85,14 @@ export function resolveEconomyDeployment(input: { base: Deployment; file?: Econo
  * network whose file has no `MockRouter`, has none, and refuses every purchase: an unknown router is never accepted.
  */
 function expectedRouterOf(base: Deployment, mockRouter: string | undefined): string {
-  if (base.network === "mainnet" || isMainnetChain(base.chainId)) return MAINNET_ROUTER;
+  if (isMainnet(base)) return MAINNET_ROUTER;
   if (MOCK_USDC_NETWORKS.includes(base.network) && isAddress(mockRouter)) return mockRouter;
   return "";
+}
+
+/** Mainnet by its name, or by its chain id (`SN_MAIN`) whatever the name. */
+function isMainnet(base: Deployment): boolean {
+  return base.network === "mainnet" || isMainnetChain(base.chainId);
 }
 
 function isMainnetChain(chainId: string): boolean {

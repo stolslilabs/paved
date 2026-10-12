@@ -3,7 +3,7 @@ import { sameAddress, toHex, type Encodable } from "../codec";
 import type { GameViews, PriceView } from "../views";
 import { WriteError, revertNames, type Call, type PavedWriter, type WriteResult } from "../writer";
 import { ADDRESS_BOUND, DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, expiresAt, impliedPaved, isStake, minOutFor, priceOf, quoteBelowFloor, settlesAfter } from "./amounts";
-import { POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, isQuoteRevert, routerProblem, type PoolQuoter } from "./pool";
+import { POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, isQuoteRevert, launchProblem, routerProblem, type PoolQuoter } from "./pool";
 import type { EconomyDeployment } from "./deployment";
 import type { EconomyViews, QuoteView, TermsView } from "./views";
 
@@ -101,6 +101,14 @@ export class RouterNotPinnedError extends WriteError {
   }
 }
 
+/** On mainnet, `Economy.rate()` is 0: not launched yet (CORE's E-9c ruling). Nothing was sent, the pool not quoted. */
+export class NotLaunchedError extends WriteError {
+  constructor(text: string) {
+    super(`${text}. Nothing was sent.`);
+    this.name = "NotLaunchedError";
+  }
+}
+
 /**
  * The fresh pool quote at send is below 90 % of the guard-rate value (E-9b, ruling 1) and the player did not accept such a
  * quote at the confirm: nothing was sent. The player confirms again and sees the warning with both figures.
@@ -178,6 +186,8 @@ export class EconomyWriter {
        * client gives one (`EconomyClient.writer`), the device clock otherwise.
        */
       now?: () => number | Promise<number>;
+      /** The chain check before any purchase (`EconomyClient.checkChain`); without it every purchase is refused. */
+      checkChain?: () => Promise<void>;
     },
   ) {
     if (!options.deployment.configured) throw new WriteError(`Economy not deployed: ${options.deployment.missing.join(", ")} missing`);
@@ -212,6 +222,9 @@ export class EconomyWriter {
   async planPurchase(request: PurchaseRequest): Promise<PurchasePlan> {
     const { deployment, views, gameViews } = this.options;
     if (!isStake(request.stake)) throw new WriteError(`A stake is 1 to 10, got ${String(request.stake)}`);
+    // The RPC's chain must be the deployment's before anything is read for a purchase (fails closed).
+    if (!this.options.checkChain) throw new WriteError("Purchases are off: the network cannot be confirmed. Nothing was sent.");
+    await this.options.checkChain();
     let entry: PriceView;
     let quote: QuoteView;
     let rate: bigint;
@@ -225,6 +238,9 @@ export class EconomyWriter {
     // The router pin (E-9b, ruling 2) before anything else: an unexpected router is not quoted, and nothing is sent.
     const routerRefusal = routerProblem(deployment, router);
     if (routerRefusal) throw new RouterNotPinnedError(router, deployment.expectedRouter, routerRefusal);
+    // The launch gate (E-9c): on mainnet, a rate of 0 is "not launched yet"; the pool is not quoted.
+    const launchRefusal = launchProblem(deployment, rate);
+    if (launchRefusal) throw new NotLaunchedError(launchRefusal);
     if (!sameAddress(entry.token, deployment.addresses.USDC)) throw new WriteError("Unknown entry token: the Daily entry is not paid in USDC");
     const price = priceOf(entry.amount, request.stake);
     if (price === 0n) throw new WriteError("The Daily entry has no price: nothing to buy");
