@@ -894,6 +894,55 @@ The two questions recorded by P-31 are answered (2026-10-09):
   implementation.
 - **Ekubo's interfaces are public (D-14).** Declaring them locally in `economy/ekubo.cairo` is fine.
 
+**Ruling 3: the launch seeds the guard rate** (E-9c, CORE, 2026-10-12; CLIENT's audit of #312, note 4). A mainnet gate.
+
+- **What the code says, against the audit's premise.** The guard rate is **not 0 on a fresh deployment**. The
+  constructor refuses 0 (`'Economy: zero rate'`, `economy.cairo:570`) and stores the `rate` it is given
+  (`economy.cairo:581`); the deploy passes the launch rate after the pool's fee (7.6e31 for 800,000 PAVED against
+  10,000 USDC). So no first purchase "seeds" the rate: `curve::next_rate` returns the unclamped observation only when
+  `rate == 0` (`curve.cairo:74-76`), a state the constructor makes unreachable. The first purchase moves the rate
+  like any other, by the clamped EMA step (observation clamped to `rate` x 10/11 .. x 11/10, then 1/32 of the gap:
+  `curve.cairo:77-86`). The client's sanity floor (ruling 1) therefore always has a rate to compare with.
+- **The issue, restated.** The rate is whatever the owner passes at deploy, and the clamp makes it slow to correct: it
+  follows the swaps by at most about 0.31 % up and 0.28 % down per block. A launch rate that does not match the
+  pool actually created (a different LP ratio or fee, or a pool pushed between its creation and the first
+  purchases) leaves the guard, and the client's floor built on it, wrong for a long time. The player is still bounded
+  by their own `min_out`.
+- **The launch procedure** (the owner's act, part of the mainnet deploy, with real money):
+  1. fix the launch LP and the pool fee first, then compute the launch rate from them: PAVED base units per USDC base
+     unit x 1e18, **after the pool's fee**, and pass it as `Economy`'s constructor `rate`;
+  2. in one multicall of the owner's account: create the Ekubo PAVED/USDC pool, add the launch LP, then a stake-1 paid
+     `Daily.spawn` by the same account (1.4 USDC burn quote). Nothing can move the pool between the LP and that
+     purchase, so it observes the LP's own ratio (less the fee and the impact of 1.4 USDC) and nudges the rate
+     toward it by one clamped step;
+  3. after it, read `Economy.rate()` and check it against the LP ratio (less the fee). The client is opened to players
+     only after that check.
+- **The client.** On mainnet the client reads `Economy.rate()` and **refuses every purchase ("not launched")** while
+  it is 0, rather than skipping the warning. With the constructor's check this never happens on a correct deployment;
+  it guards a deployment that was upgraded or replaced oddly. On devnet and Sepolia it keeps today's behaviour. There
+  is no deadlock: the launch rate is set at deploy.
+- **Not chosen: a new seed rate argument or setter** of `Economy` (one is already the constructor's `rate`); a
+  setter would need a code change, a review, an audit and a new owner input.
+- **Reversal.** If the launch cannot be one multicall (Ekubo's pool creation or the LP call cannot be batched with
+  the spawn), the order of step 2 is reconsidered, and a setter for the rate after the LP is weighed against that.
+
+**Ruling 4: no `max_burn` on spawn** (E-9c, CORE, 2026-10-12; CLIENT's audit of #310 notes). Not a mainnet gate.
+
+- **The player's USDC is already bound.** The price is `stake x BASE_PRICE`, a constant 2 USDC
+  (`economy.cairo:35`), checked on chain (`purchase` asserts it, `'Economy: wrong price'`, `economy.cairo:601`), and
+  the player approves exactly that.
+- **`burn_bps`** (bounded 5,000 to 9,000: `MIN_BURN_BPS`, `MAX_BURN_BPS`, `economy.cairo:43-44`, checked at
+  `economy.cairo:77`) only splits that fixed price between the swap and the Vault margin:
+  - lowered between the client's read and inclusion: the swap buys less, falls below `min_out` and reverts. The
+    player loses only the network fee;
+  - raised: more PAVED is bought and `R` rises (the guard's cap grows with the quote). The player gets more than
+    they confirmed, not less. The cost falls on the stakers' margin, which is the owner's act.
+- **Cost of a `max_burn`:** it would change `Daily`'s published ABI, and `Daily` is at its P-44 cap (72,947 felts, no
+  headroom).
+- **For CLIENT:** show the burn share as "at today's terms".
+- **Reversal:** if the price stops being a constant (a configurable `BASE_PRICE` or entry price), a maximum price on
+  spawn becomes a mainnet gate.
+
 ### Gates before a real-money game on mainnet
 
 (Called "Gates before a paid game leaves devnet" until S-1. D-16 opens Sepolia to paid games with test USDC; the gates
@@ -935,6 +984,10 @@ D-13 lifts the seed gate. These gates stay:
     the pin in the same release.
 - **The client's sanity floor** (E-9b, CORE's ruling, 2026-10-12; audit note 2), a mainnet gate: the client implements
   the check in "For CLIENT" before any mainnet paid game.
+- **The launch seed of the guard rate** (E-9c, CORE's ruling, 2026-10-12; audit of #312, note 4), a mainnet gate: the
+  owner's deploy passes a launch rate computed from the launch LP, after the pool's fee; the launch is the multicall of
+  "For CLIENT" (pool, LP, a stake-1 paid spawn); `Economy.rate()` is read and checked against the LP ratio before the
+  client is opened; and the client refuses mainnet purchases while the rate is 0.
 - **The mock-router gate** (from E1's audit), a mainnet gate: the mainnet price limit and partial fills are untested
   until a fork test against the mainnet router covers them (see "As built: E2" below). **Covered by E-9's fork test**
   (2026-10-12, "As built: E-9"): the limit `Economy` passes for its direction, a swap that reaches it, and a partial
