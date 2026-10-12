@@ -188,16 +188,20 @@ Landing lists the days where the account may take back its part of a prize nobod
 
 - **With the indexer** (`VITE_INDEXER_URL`), one page of `GET /v1/sponsors/{sponsor_id}/days?limit=30`
   (`IndexerClient.sponsorDays`), newest first. Used when the answer is valid and not `behind`.
-- **Otherwise** (no indexer, an error of any kind, an indexer older than schema 6 that answers not-found, or one behind
-  the node) a bounded scan: `Daily.Sponsored` from `max(deployed_block, latest - SPONSORED_FALLBACK_BLOCKS)` to the latest
+- **Behind** (the answer is valid but more than `maxLag` blocks behind the node): the indexer's days are kept and merged
+  with the bounded scan below. The union is deduplicated by day, a day in both is the scan's record (the fresher read of
+  the chain), and the result is sorted newest first and cut to `SPONSORED_DAYS_LIMIT`. A lag of a few blocks therefore
+  no longer drops the days older than the scan's range. Display only: the sponsor's part stays on chain.
+- **Otherwise** (no indexer, an error of any kind, or an indexer older than schema 6 that answers not-found) a bounded
+  scan alone: `Daily.Sponsored` from `max(deployed_block, latest - SPONSORED_FALLBACK_BLOCKS)` to the latest
   block, paged by the RPC's continuation token (`chunk_size` 100), filtered on the sponsor in the client (the sponsor is
   event data, not a key). `SPONSORED_FALLBACK_BLOCKS` is 350,000 blocks, about a week at Sepolia's block time of 1.72 s
   (measured on 2026-10-11: 1,000 blocks took 1,720 s at block 16421969 and 1,714 s 50,000 blocks earlier, so 350,000 blocks
   are 6.97 days; it was 100,000 blocks at an assumed 6 s, which is 2 days on Sepolia). A provider
   that cannot give the latest block is refused: the scan is never left unbounded.
-- **What the scan can miss**: a sponsoring older than the range, which Landing then does not list (only the days read
-  are shown). The part is still on the chain and is offered again as soon as the indexer answers. The indexer path has
-  no such gap.
+- **What the scan can miss**: a sponsoring older than the range, which Landing then does not list when the scan is
+  alone (only the days read are shown). The part is still on the chain and is offered again as soon as the indexer
+  answers. The indexer path, and the merge when it is behind, have no such gap.
 - Both paths return at most `SPONSORED_DAYS_LIMIT` (30) days. Landing then reads one `tournament` view, the day's
   `Sponsored` and `Reclaimed` events (keyed by the day) and the total returned, for each of them. Its flow is unchanged:
   `claim(day, 0)` with the amount re-checked when it is sent.

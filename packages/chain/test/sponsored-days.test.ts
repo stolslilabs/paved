@@ -118,19 +118,52 @@ describe("EventReader.sponsoredDays", () => {
     expect(await new EventReader(provider, deployment, codecs).sponsoredDays(SPONSOR, { sponsorDays })).toEqual(long.slice(0, SPONSORED_DAYS_LIMIT));
   });
 
-  test("falls back to the bounded scan on an indexer error, an indexer behind, or no indexer", async () => {
+  test("falls back to the bounded scan alone on an indexer error or no indexer", async () => {
     const latest = DEPLOYED + SPONSORED_FALLBACK_BLOCKS + 500;
     const failing = async () => {
       throw new IndexerError("unavailable", "Indexer is halted");
     };
-    const behind = async () => ({ data: { days: [1] }, freshness: { kind: "behind" as const } });
-    for (const indexer of [{ sponsorDays: failing }, { sponsorDays: behind }, null, undefined]) {
+    for (const indexer of [{ sponsorDays: failing }, null, undefined]) {
       const { provider, filters } = node([sponsored(3, SPONSOR), sponsored(5, OTHER), sponsored(4, SPONSOR), sponsored(3, SPONSOR)], latest);
       const days = await new EventReader(provider, deployment, codecs).sponsoredDays(SPONSOR, indexer);
       expect(days).toEqual([4, 3]);
       expect(filters.length).toBeGreaterThan(0);
       for (const f of filters) expect(f.from_block.block_number).toBe(latest - SPONSORED_FALLBACK_BLOCKS);
     }
+  });
+
+  describe("an indexer that is behind", () => {
+    const latest = DEPLOYED + SPONSORED_FALLBACK_BLOCKS + 500;
+    const behindWith = (days: number[]) => ({ sponsorDays: async () => ({ data: { days }, freshness: { kind: "behind" as const } }) });
+
+    test("keeps an old day the scan does not reach", async () => {
+      const { provider, filters } = node([sponsored(30, SPONSOR), sponsored(5, OTHER)], latest);
+      const days = await new EventReader(provider, deployment, codecs).sponsoredDays(SPONSOR, behindWith([12, 2]));
+      expect(days).toEqual([30, 12, 2]);
+      expect(filters.length).toBeGreaterThan(0);
+    });
+
+    test("a day in both is one entry", async () => {
+      const { provider } = node([sponsored(4, SPONSOR), sponsored(4, SPONSOR), sponsored(6, SPONSOR)], latest);
+      const days = await new EventReader(provider, deployment, codecs).sponsoredDays(SPONSOR, behindWith([6, 4, 1]));
+      expect(days).toEqual([6, 4, 1]);
+    });
+
+    test("is still limited to SPONSORED_DAYS_LIMIT, newest first", async () => {
+      const old = Array.from({ length: SPONSORED_DAYS_LIMIT }, (_, i) => SPONSORED_DAYS_LIMIT - i);
+      const { provider } = node([sponsored(100, SPONSOR)], latest);
+      const days = await new EventReader(provider, deployment, codecs).sponsoredDays(SPONSOR, behindWith(old));
+      expect(days).toEqual([100, ...old.slice(0, SPONSORED_DAYS_LIMIT - 1)]);
+    });
+  });
+
+  test("an indexer that is not behind is used alone: the scan is not called", async () => {
+    const getBlockNumber = vi.fn(async () => 1_000_000);
+    const getEvents = vi.fn(async () => ({ events: [] }));
+    const sponsorDays = async () => ({ data: { days: [3] }, freshness: { kind: "ok" as const } });
+    expect(await new EventReader({ getBlockNumber, getEvents }, deployment, codecs).sponsoredDays(SPONSOR, { sponsorDays })).toEqual([3]);
+    expect(getBlockNumber).not.toHaveBeenCalled();
+    expect(getEvents).not.toHaveBeenCalled();
   });
 
   test("the scan never starts below head - range, and never before deployed_block", async () => {
