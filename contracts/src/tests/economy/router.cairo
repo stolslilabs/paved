@@ -1,12 +1,13 @@
 //! `MockRouter` and `MockUSDC` (P8 E1): the constant product with Ekubo's 5 % fee, the calling
-//! pattern `Economy` uses (transfer, `swap`, `clear_minimum`, `clear`), and the faucet.
+//! pattern `Economy` uses (transfer, `swap`, `clear_minimum`, `clear`), its `quote_swap`, and the
+//! faucet.
 
 use openzeppelin_interfaces::erc20::{
     IERC20Dispatcher, IERC20DispatcherTrait, IERC20MixinDispatcher, IERC20MixinDispatcherTrait,
 };
 use paved::economy::ekubo::{
-    IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait, RouteNode,
-    TokenAmount, i129,
+    Delta, IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait,
+    RouteNode, TokenAmount, i129,
 };
 use paved::mocks::router::{FEE, IMockRouterDispatcher, IMockRouterDispatcherTrait, TWO_POW_128};
 use paved::mocks::usdc::{IMockUSDCDispatcher, IMockUSDCDispatcherTrait};
@@ -175,13 +176,95 @@ fn test_mock_router_product_grows_by_the_fee() {
     assert!(p2 * u2 > p1 * u1, "k fell");
 }
 
+/// The router's `quote_swap` of an exact input of `amount` of `token_in`.
+fn quote(s: Setup, token_in: IERC20Dispatcher, amount: u128) -> Delta {
+    let amount = i129 { mag: amount, sign: false };
+    IRouterDispatcher { contract_address: s.router }
+        .quote_swap(node(s), TokenAmount { token: token_in.contract_address, amount })
+}
+
+/// The output leg of a `Delta` for the input `token_in`.
+fn out_leg(s: Setup, token_in: IERC20Dispatcher, delta: Delta) -> i129 {
+    let token_out = if token_in.contract_address == s.usdc.contract_address {
+        s.paved
+    } else {
+        s.usdc
+    };
+    if token_in.contract_address < token_out.contract_address {
+        delta.amount1
+    } else {
+        delta.amount0
+    }
+}
+
 #[test]
-fn test_mock_router_quote_is_the_swap_output() {
+fn test_mock_router_quote_swap_is_the_swap_delta() {
     let s = setup();
     fund_trader(s);
-    let quote = IMockRouterDispatcher { contract_address: s.router }
-        .quote(s.usdc.contract_address, 2_000_000);
-    assert_eq!(swap(s, s.usdc, s.paved, 2_000_000, 0), quote.into());
+    // Both directions, twice each: the quote is the swap's delta at the reserves of the moment
+    let quoted = quote(s, s.usdc, 2_000_000);
+    start_cheat_caller_address(s.usdc.contract_address, TRADER());
+    s.usdc.transfer(s.router, 2_000_000);
+    stop_cheat_caller_address(s.usdc.contract_address);
+    let amount = i129 { mag: 2_000_000, sign: false };
+    let swapped = IRouterDispatcher { contract_address: s.router }
+        .swap(node(s), TokenAmount { token: s.usdc.contract_address, amount });
+    assert_eq!(quoted, swapped);
+    IClearDispatcher { contract_address: s.router }.clear(s.paved.contract_address);
+    let quoted = quote(s, s.usdc, 14_000_000);
+    let leg = out_leg(s, s.usdc, quoted);
+    assert!(leg.sign);
+    assert_eq!(swap(s, s.usdc, s.paved, 14_000_000, 0), leg.mag.into());
+    let quoted = quote(s, s.paved, 3_000_000_000_000_000_000);
+    let leg = out_leg(s, s.paved, quoted);
+    assert_eq!(swap(s, s.paved, s.usdc, 3_000_000_000_000_000_000, 0), leg.mag.into());
+}
+
+#[test]
+fn test_mock_router_quote_swap_is_the_formula_and_changes_nothing() {
+    let s = setup();
+    let (paved_reserve, usdc_reserve) = reserves(s);
+    let leg = out_leg(s, s.usdc, quote(s, s.usdc, 1_400_000));
+    assert_eq!(leg.mag.into(), expected(usdc_reserve, paved_reserve, 1_400_000));
+    assert_eq!(leg, i129 { mag: 106_385_850_681_859_312_711, sign: true });
+    assert_eq!(reserves(s), (paved_reserve, usdc_reserve));
+}
+
+#[test]
+fn test_mock_router_quote_swap_of_a_zero_output_is_zero() {
+    let s = setup();
+    // 1 base unit of USDC: the fee takes it all; `swap` would revert, the quote answers 0
+    let leg = out_leg(s, s.usdc, quote(s, s.usdc, 1));
+    assert_eq!(leg.mag, 0);
+}
+
+#[test]
+#[should_panic(expected: 'MockRouter: wrong pool')]
+fn test_mock_router_quote_swap_refuses_another_pool() {
+    let s = setup();
+    let mut route = node(s);
+    route.pool_key.fee = 0;
+    let amount = i129 { mag: 1_400_000, sign: false };
+    IRouterDispatcher { contract_address: s.router }
+        .quote_swap(route, TokenAmount { token: s.usdc.contract_address, amount });
+}
+
+#[test]
+#[should_panic(expected: 'MockRouter: exact input only')]
+fn test_mock_router_quote_swap_refuses_an_exact_output() {
+    let s = setup();
+    let amount = i129 { mag: 1_400_000, sign: true };
+    IRouterDispatcher { contract_address: s.router }
+        .quote_swap(node(s), TokenAmount { token: s.usdc.contract_address, amount });
+}
+
+#[test]
+#[should_panic(expected: 'MockRouter: wrong token')]
+fn test_mock_router_quote_swap_refuses_another_token() {
+    let s = setup();
+    let amount = i129 { mag: 1_400_000, sign: false };
+    IRouterDispatcher { contract_address: s.router }
+        .quote_swap(node(s), TokenAmount { token: TRADER(), amount });
 }
 
 #[test]

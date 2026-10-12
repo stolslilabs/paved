@@ -149,15 +149,6 @@ pub struct Addresses {
     pub game: ContractAddress,
 }
 
-/// The quote `MockRouter` serves on devnet and Sepolia (P-39; `quote(token_in, amount_in) ->
-/// amount_out`, the pool's fee included). Ekubo's router has another shape (`quote_swap(RouteNode,
-/// TokenAmount) -> Delta`), so `Economy.quote_swap` serves the mock only, not Ekubo's router
-/// (`docs/architecture/economy.md`, section 5).
-#[starknet::interface]
-pub trait IQuote<TContractState> {
-    fn quote(self: @TContractState, token_in: ContractAddress, amount_in: u128) -> u128;
-}
-
 #[starknet::interface]
 pub trait IEconomy<TContractState> {
     /// Splits the price already on `Economy`, swaps and burns, pays the referrer and the Vault,
@@ -186,8 +177,9 @@ pub trait IEconomy<TContractState> {
     /// Sets the game allowed to purchase and record, once. The owner only.
     fn set_game(ref self: TContractState, game: ContractAddress);
     fn quote(self: @TContractState, stake: u8) -> Quote;
-    /// The PAVED the pool pays now for `usdc_in`, its fee included, from the router's quote
-    /// (devnet: `MockRouter.quote`). The client takes `min_out` from it.
+    /// The PAVED the swap of `purchase` pays now for `usdc_in`, its fee included: the router's
+    /// `quote_swap` through the same route (the stored pool key and price limit, one hop). The
+    /// client takes `min_out` from it. A partial fill quotes the PAVED of the part filled.
     fn quote_swap(self: @TContractState, usdc_in: u256) -> u256;
     fn day(self: @TContractState, day: u64) -> DayView;
     fn terms(self: @TContractState, game_id: u32) -> TermsView;
@@ -218,8 +210,8 @@ pub mod Economy {
 
     use paved::economy::curve;
     use paved::economy::ekubo::{
-        IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait, PoolKey,
-        RouteNode, TokenAmount, i129,
+        Delta, IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait,
+        PoolKey, RouteNode, TokenAmount, i129,
     };
     use paved::economy::mean::{Day, DayTrait, Ema, EmaTrait};
     use paved::economy::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
@@ -237,8 +229,8 @@ pub mod Economy {
     // Local imports
 
     use super::{
-        Addresses, BASE_PRICE, Config, DAY, DayView, IEconomy, IQuoteDispatcher,
-        IQuoteDispatcherTrait, MAX_STAKE, Quote, TermsView, validate,
+        Addresses, BASE_PRICE, Config, DAY, DayView, IEconomy, MAX_STAKE, Quote, TermsView,
+        validate,
     };
 
     // Errors
@@ -811,9 +803,12 @@ pub mod Economy {
 
         fn quote_swap(self: @ContractState, usdc_in: u256) -> u256 {
             let amount: u128 = usdc_in.try_into().expect(errors::AMOUNT_TOO_LARGE);
-            IQuoteDispatcher { contract_address: self.router.read() }
-                .quote(self.usdc.read(), amount)
-                .into()
+            let token_amount = TokenAmount {
+                token: self.usdc.read(), amount: i129 { mag: amount, sign: false },
+            };
+            let delta = IRouterDispatcher { contract_address: self.router.read() }
+                .quote_swap(self.node(), token_amount);
+            self.paved_leg(delta).mag.into()
         }
 
         fn day(self: @ContractState, day: u64) -> DayView {
@@ -938,6 +933,24 @@ pub mod Economy {
             self.emit(PoolSet { pool_key, sqrt_ratio_limit });
         }
 
+        /// The one hop of every swap and quote: the stored pool key and price limit.
+        fn node(self: @ContractState) -> RouteNode {
+            RouteNode {
+                pool_key: self.pool_key(),
+                sqrt_ratio_limit: self.sqrt_ratio_limit.read(),
+                skip_ahead: 0,
+            }
+        }
+
+        /// The PAVED leg of a swap's `Delta`: what the pool paid out.
+        fn paved_leg(self: @ContractState, delta: Delta) -> i129 {
+            if self.paved.read() < self.usdc.read() {
+                delta.amount0
+            } else {
+                delta.amount1
+            }
+        }
+
         /// Ekubo's pattern in one call: the quote to the router, `swap`, the PAVED back (at least
         /// `min_out`), the unswapped USDC back. Returns the PAVED the swap paid out, from its
         /// delta: the router's balance may hold more, sent there by anyone.
@@ -946,20 +959,11 @@ pub mod Economy {
         ) -> u256 {
             let router = self.router.read();
             assert(usdc.transfer(router, quote), errors::TRANSFER_FAILED);
-            let node = RouteNode {
-                pool_key: self.pool_key(),
-                sqrt_ratio_limit: self.sqrt_ratio_limit.read(),
-                skip_ahead: 0,
-            };
             let amount = i129 { mag: quote.try_into().unwrap(), sign: false };
             let delta = IRouterDispatcher { contract_address: router }
-                .swap(node, TokenAmount { token: usdc.contract_address, amount });
+                .swap(self.node(), TokenAmount { token: usdc.contract_address, amount });
+            let out = self.paved_leg(delta);
             let paved = self.paved.read();
-            let out = if paved < usdc.contract_address {
-                delta.amount0
-            } else {
-                delta.amount1
-            };
             // [Check] The swap itself paid at least `min_out`: the router's balance may hold more
             assert(out.mag.into() >= min_out, errors::BELOW_MIN_OUT);
             let clear = IClearDispatcher { contract_address: router };

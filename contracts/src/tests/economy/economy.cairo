@@ -18,7 +18,8 @@ use paved::economy::economy::Economy::{
     DayClosed, EconomyConfigured, Event, GameSet, Purchased, Recorded, Settled,
 };
 use paved::economy::economy::{
-    BASE_PRICE, Config, DAY, IEconomyDispatcher, IEconomyDispatcherTrait, PAVED, decided,
+    BASE_PRICE, Config, DAY, IEconomyDispatcher, IEconomyDispatcherTrait, IEconomySafeDispatcher,
+    IEconomySafeDispatcherTrait, PAVED, decided,
 };
 use paved::economy::ekubo::{
     IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait, PoolKey,
@@ -132,6 +133,23 @@ fn setup_with(rate: u256) -> Setup {
 
 fn setup() -> Setup {
     setup_with(POOL_RATE)
+}
+
+/// The PAVED that the router's own `quote_swap` answers for `usdc_in`, through `Economy`'s pool
+/// and limit.
+fn router_quote(s: Setup, usdc_in: u128) -> u256 {
+    let (pool_key, sqrt_ratio_limit) = s.economy.pool();
+    let node = RouteNode { pool_key, sqrt_ratio_limit, skip_ahead: 0 };
+    let amount = i129 { mag: usdc_in, sign: false };
+    let delta = IRouterDispatcher { contract_address: s.router }
+        .quote_swap(node, TokenAmount { token: s.usdc.contract_address, amount });
+    let out = if s.paved.contract_address < s.usdc.contract_address {
+        delta.amount0
+    } else {
+        delta.amount1
+    };
+    assert!(out.sign);
+    out.mag.into()
 }
 
 fn today() -> u64 {
@@ -395,8 +413,7 @@ fn test_purchase_below_min_out_reverts() {
 #[test]
 fn test_purchase_at_min_out_passes() {
     let s = setup();
-    let out = IMockRouterDispatcher { contract_address: s.router }
-        .quote(s.usdc.contract_address, 1_400_000);
+    let out = router_quote(s, 1_400_000);
     IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
@@ -861,9 +878,7 @@ fn test_paved_on_the_router_before_a_purchase_does_not_count_in_r() {
     let s = setup();
     send_paved(s, s.router, 50 * ONE_PAVED);
     let quote: u256 = 14 * USDC;
-    let swap_out: u256 = IMockRouterDispatcher { contract_address: s.router }
-        .quote(s.usdc.contract_address, 14_000_000)
-        .into();
+    let swap_out = router_quote(s, 14_000_000);
     let supply = s.paved.total_supply();
     let mut spy = spy_events();
     let r = buy(s, 1, PLAYER(), 10, Zero::zero());
@@ -953,9 +968,8 @@ fn test_quote_min_out_hint_is_not_above_the_swap_output_at_launch() {
     let mut stake: u8 = 1;
     while stake <= 10 {
         let quote = s.economy.quote(stake);
-        let out = IMockRouterDispatcher { contract_address: s.router }
-            .quote(s.usdc.contract_address, quote.burn_quote.try_into().unwrap());
-        assert!(quote.min_out_hint <= out.into());
+        let out = router_quote(s, quote.burn_quote.try_into().unwrap());
+        assert!(quote.min_out_hint <= out);
         stake += 1;
     }
 }
@@ -963,13 +977,37 @@ fn test_quote_min_out_hint_is_not_above_the_swap_output_at_launch() {
 #[test]
 fn test_quote_swap_is_the_router_quote() {
     let s = setup();
-    let router = IMockRouterDispatcher { contract_address: s.router };
-    assert_eq!(
-        s.economy.quote_swap(1_400_000), router.quote(s.usdc.contract_address, 1_400_000).into(),
-    );
-    assert_eq!(
-        s.economy.quote_swap(14_000_000), router.quote(s.usdc.contract_address, 14_000_000).into(),
-    );
+    assert_eq!(s.economy.quote_swap(1_400_000), router_quote(s, 1_400_000));
+    assert_eq!(s.economy.quote_swap(14_000_000), router_quote(s, 14_000_000));
+    // The launch pool's figure, unchanged from the mock's former `quote` (MockRouter tests)
+    assert_eq!(s.economy.quote_swap(1_400_000), 106_385_850_681_859_312_711);
+}
+
+#[test]
+fn test_quote_swap_is_the_paved_bought() {
+    let s = setup();
+    let out = s.economy.quote_swap(14_000_000);
+    let supply = s.paved.total_supply();
+    buy(s, 1, PLAYER(), 10, Zero::zero());
+    assert_eq!(supply - s.paved.total_supply(), out);
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_quote_swap_follows_set_pool() {
+    let s = setup();
+    let (pool_key, _) = s.economy.pool();
+    let mut other = pool_key;
+    other.fee = 0;
+    start_cheat_caller_address(s.economy.contract_address, OWNER());
+    s.economy.set_pool(other, 0);
+    stop_cheat_caller_address(s.economy.contract_address);
+    // The mock serves one pool: the quote goes through the stored key, so it is refused
+    let safe = IEconomySafeDispatcher { contract_address: s.economy.contract_address };
+    match safe.quote_swap(1_400_000) {
+        Result::Ok(_) => panic!("a quote through another pool was served"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'MockRouter: wrong pool'),
+    }
 }
 
 #[test]
