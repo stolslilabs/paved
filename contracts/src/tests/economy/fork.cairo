@@ -14,6 +14,9 @@
 //!   with a real `PavedToken` and a thin position, so that a purchase drains it: the partial fill
 //!   that `economy.md` describes, at `Economy`'s extreme price limit, with the real burn.
 //!
+//! `Economy.quote_swap` refuses a partial fill ('Economy: partial fill', E-9's audit F1): the
+//! partial-fill tests take the router's own quote and send the purchase with an explicit min_out.
+//!
 //! USDC is Circle's native USDC (a FiatToken): the tests mint it as Circle's own flow does, the
 //! on-chain master minter naming a controller, which configures a minter.
 
@@ -250,6 +253,16 @@ fn buy(economy: IEconomyDispatcher, min_out: u256) -> u128 {
     r
 }
 
+/// `Economy.quote_swap(usdc_in)` reverts with 'Economy: partial fill'.
+#[feature("safe_dispatcher")]
+fn assert_partial_fill_refused(economy: IEconomyDispatcher, usdc_in: u256) {
+    let safe = IEconomySafeDispatcher { contract_address: economy.contract_address };
+    match safe.quote_swap(usdc_in) {
+        Result::Ok(_) => panic!("a partial fill was quoted"),
+        Result::Err(data) => assert_eq!(*data.at(0), 'Economy: partial fill'),
+    }
+}
+
 fn contains(data: Span<felt252>, value: felt252) -> bool {
     for item in data {
         if *item == value {
@@ -315,15 +328,16 @@ fn test_fork_economys_limit_for_usdc_in_is_the_minimum() {
 #[ignore]
 #[fork("MAINNET")]
 fn test_fork_quote_of_a_draining_amount_is_the_partial_swap() {
-    // 2^127 USDC base units: more than the pool can take before the extreme limit. The quote does
-    // not revert: it answers the partial fill, which the swap then does exactly, down to the limit
+    // 2^127 USDC base units: more than the pool can take before the extreme limit. The router's
+    // quote does not revert: it answers the partial fill, which the swap then does exactly, down to
+    // the limit. `Economy.quote_swap` refuses it (E-9's audit, F1)
     let economy = deploy_economy(STRK(), USDC_STRK(), MIN_SQRT_RATIO, STRK_RATE);
     let amount: u128 = 0x80000000000000000000000000000000;
     let router = IRouterDispatcher { contract_address: ROUTER() };
     let delta = router.quote_swap(node(economy), usdc_in(amount));
     let (usdc_leg, strk_leg) = legs(USDC_STRK(), delta);
-    assert!(!usdc_leg.sign && usdc_leg.mag < amount);
-    assert_eq!(economy.quote_swap(amount.into()), strk_leg.mag.into());
+    assert!(!usdc_leg.sign && usdc_leg.mag < amount && strk_leg.sign);
+    assert_partial_fill_refused(economy, amount.into());
     println!("E-9 fork: 2^127 USDC in quotes {:?}", delta);
     // The swap: the router holds what the pool takes (plus one USDC); the rest is never asked for
     give_usdc(ROUTER(), usdc_leg.mag.into() + USDC_UNIT);
@@ -376,9 +390,11 @@ fn test_fork_purchase_fills_part_of_the_input_at_a_near_limit() {
     let (usdc_leg, strk_leg) = legs(USDC_STRK(), delta);
     let filled: u256 = usdc_leg.mag.into();
     assert!(filled > 0 && filled < quote);
-    let out = economy.quote_swap(quote);
-    assert_eq!(out, strk_leg.mag.into());
-    // The purchase, at the client's min_out (the quote less 1 %); STRK's burn is mocked
+    let out: u256 = strk_leg.mag.into();
+    // `Economy.quote_swap` refuses this state: the client sends nothing (E-9's audit, F1)
+    assert_partial_fill_refused(economy, quote);
+    // A purchase sent anyway, with an explicit min_out (the router's partial quote less 1 %), is
+    // filled in part; STRK's burn is mocked
     mock_call(STRK(), selector!("burn"), (), 1);
     let supply = IERC20Dispatcher { contract_address: STRK() }.total_supply();
     let mut spy = spy_events();
@@ -500,9 +516,10 @@ fn test_fork_purchase_drains_a_thin_pool_to_economys_limit() {
     let (usdc_leg, paved_leg) = legs(pool_key, delta);
     let filled: u256 = usdc_leg.mag.into();
     assert!(filled > 0 && filled < quote);
-    let out = economy.quote_swap(quote);
-    assert_eq!(out, paved_leg.mag.into());
-    // The purchase at the client's min_out: the real burn
+    let out: u256 = paved_leg.mag.into();
+    // `Economy.quote_swap` refuses this state (F1); a purchase sent anyway, with an explicit
+    // min_out (the router's partial quote less 1 %), is filled in part, with the real burn
+    assert_partial_fill_refused(economy, quote);
     let supply = paved.total_supply();
     let r = buy(economy, out * 99 / 100);
     // The pool is drained: the price went to the limit; the rest of the quote is margin

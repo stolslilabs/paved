@@ -182,7 +182,8 @@ pub trait IEconomy<TContractState> {
     fn quote(self: @TContractState, stake: u8) -> Quote;
     /// The PAVED the swap of `purchase` pays now for `usdc_in`, its fee included: the router's
     /// `quote_swap` through the same route (the stored pool key and price limit, one hop). The
-    /// client takes `min_out` from it. A partial fill quotes the PAVED of the part filled.
+    /// client takes `min_out` from it. Reverts ('Economy: partial fill') when the pool cannot take
+    /// the whole input now. A spot quote, not an oracle: no contract should use it as a price.
     fn quote_swap(self: @TContractState, usdc_in: u256) -> u256;
     fn day(self: @TContractState, day: u64) -> DayView;
     fn terms(self: @TContractState, game_id: u32) -> TermsView;
@@ -256,6 +257,8 @@ pub mod Economy {
         pub const ZERO_RATE: felt252 = 'Economy: zero rate';
         pub const RATE_OVERFLOW: felt252 = 'Economy: rate overflow';
         pub const AMOUNT_TOO_LARGE: felt252 = 'Economy: amount too large';
+        pub const PARTIAL_FILL: felt252 = 'Economy: partial fill';
+        pub const WRONG_DELTA: felt252 = 'Economy: wrong delta';
         pub const BELOW_MIN_OUT: felt252 = 'Economy: swap below min_out';
         pub const TRANSFER_FAILED: felt252 = 'Economy: transfer failed';
     }
@@ -829,7 +832,13 @@ pub mod Economy {
             };
             let delta = IRouterDispatcher { contract_address: self.router.read() }
                 .quote_swap(self.node(), token_amount);
-            self.paved_leg(delta).mag.into()
+            let (usdc_leg, paved_leg) = self.legs(delta);
+            // [Check] The whole input fills: a min_out taken from a partial fill's PAVED would let
+            // a purchase pass with most of its burn sent to the Vault (E-9's audit, F1)
+            assert(!usdc_leg.sign && usdc_leg.mag >= amount, errors::PARTIAL_FILL);
+            // [Check] The PAVED is paid out, before its magnitude is read (F2; `swap` defers it)
+            assert(paved_leg.sign || paved_leg.mag == 0, errors::WRONG_DELTA);
+            paved_leg.mag.into()
         }
 
         fn day(self: @ContractState, day: u64) -> DayView {
@@ -968,12 +977,12 @@ pub mod Economy {
             }
         }
 
-        /// The PAVED leg of a swap's `Delta`: what the pool paid out.
-        fn paved_leg(self: @ContractState, delta: Delta) -> i129 {
+        /// The (USDC, PAVED) legs of a swap's `Delta`.
+        fn legs(self: @ContractState, delta: Delta) -> (i129, i129) {
             if self.paved.read() < self.usdc.read() {
-                delta.amount0
+                (delta.amount1, delta.amount0)
             } else {
-                delta.amount1
+                (delta.amount0, delta.amount1)
             }
         }
 

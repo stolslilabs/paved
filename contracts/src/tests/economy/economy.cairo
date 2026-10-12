@@ -22,15 +22,15 @@ use paved::economy::economy::{
     IEconomySafeDispatcherTrait, PAVED, decided,
 };
 use paved::economy::ekubo::{
-    IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait, PoolKey,
-    RouteNode, TokenAmount, i129,
+    Delta, IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait,
+    PoolKey, RouteNode, TokenAmount, i129,
 };
 use paved::economy::mean::Ema;
 use paved::economy::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
 use paved::mocks::router::{IMockRouterDispatcher, IMockRouterDispatcherTrait};
 use paved::mocks::usdc::{IMockUSDCDispatcher, IMockUSDCDispatcherTrait};
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, spy_events,
+    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, mock_call, spy_events,
     start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
@@ -1104,6 +1104,53 @@ fn test_quote_swap_follows_set_pool() {
         Result::Ok(_) => panic!("a quote through another pool was served"),
         Result::Err(data) => assert_eq!(*data.at(0), 'MockRouter: wrong pool'),
     }
+}
+
+/// The router's next `quote_swap` answers these legs (a test double of a router that fills part
+/// of the input, or reports a wrong sign).
+fn mock_quote(s: Setup, usdc_leg: i129, paved_leg: i129) {
+    let delta = if s.paved.contract_address < s.usdc.contract_address {
+        Delta { amount0: paved_leg, amount1: usdc_leg }
+    } else {
+        Delta { amount0: usdc_leg, amount1: paved_leg }
+    };
+    mock_call(s.router, selector!("quote_swap"), delta, 1);
+}
+
+#[test]
+#[should_panic(expected: 'Economy: partial fill')]
+fn test_quote_swap_refuses_a_partial_fill() {
+    let s = setup();
+    let usdc_leg = i129 { mag: 1_399_999, sign: false };
+    mock_quote(s, usdc_leg, i129 { mag: 100 * ONE_PAVED.low, sign: true });
+    s.economy.quote_swap(1_400_000);
+}
+
+#[test]
+#[should_panic(expected: 'Economy: partial fill')]
+fn test_quote_swap_refuses_a_usdc_leg_paid_out() {
+    let s = setup();
+    let usdc_leg = i129 { mag: 1_400_000, sign: true };
+    mock_quote(s, usdc_leg, i129 { mag: 100 * ONE_PAVED.low, sign: true });
+    s.economy.quote_swap(1_400_000);
+}
+
+#[test]
+#[should_panic(expected: 'Economy: wrong delta')]
+fn test_quote_swap_refuses_a_paved_leg_paid_in() {
+    let s = setup();
+    let usdc_leg = i129 { mag: 1_400_000, sign: false };
+    mock_quote(s, usdc_leg, i129 { mag: 100 * ONE_PAVED.low, sign: false });
+    s.economy.quote_swap(1_400_000);
+}
+
+#[test]
+fn test_quote_swap_of_a_full_fill_is_unchanged_through_the_mock() {
+    let s = setup();
+    // A full fill quotes the PAVED out; a zero output (1 base unit, all fee) quotes 0, no revert
+    assert_eq!(s.economy.quote_swap(1_400_000), 106_385_850_681_859_312_711);
+    assert_eq!(s.economy.quote_swap(1), 0);
+    assert_eq!(s.economy.quote_swap(0), 0);
 }
 
 #[test]
