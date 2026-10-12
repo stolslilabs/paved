@@ -1,0 +1,27 @@
+Read only: connect to play. Connect
+Token
+sepolia
+Balance
+0 USDC
+Mint Unavailable
+Mint disabled for this network
+Vault
+Connect to stake.
+Stake
+Unstake
+Claim dividends
+After the day
+Below the shifted mean the stake is lost.
+The reward is computed by the contract at settlement, from the day's mean: no figure is shown before.
+Current reference: mean 3353 points, threshold 3353 points; the day's own mean is known only at settlement.
+Referral link
+Connect to get your link.
+A player who buys through your link pays the same price; you get 5 % of it, out of the stakers' margin.
+Open the economy page
+PAVED
+A Carcassonne-style on-chain tile game
+Connect your wallet to begin
+Leaderboard
+Open leaderboard
+Quests and achievements
+Uses Cartridge Controller, © Cartridge Gaming Company · Third-party notices
