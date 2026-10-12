@@ -1176,6 +1176,9 @@ merge").
   `skip_ahead: 0`), calls the router's `quote_swap(node, TokenAmount { USDC, +usdc_in })`, and returns the
   magnitude of the PAVED leg of the `Delta`. On a partial fill that is the PAVED of the part filled. The answer does
   not say that the fill is partial: the USDC leg is not returned.
+- **`purchase`'s swap is unchanged**, byte for byte in `Economy.swap` and `MockRouter.swap`. A first version shared
+  helpers with the quote and cost 1,223 more L2 gas per paid spawn, which broke 58 gas budgets, the goldens' among them.
+  No gas budget changed.
 - **`IRouter`** (`ekubo.cairo`) declares `quote_swap` next to `swap`, ABI-compatible with mainnet's router.
 - **`MockRouter`** implements `quote_swap` with the answer of its former `quote`: the `Delta` that `swap` would
   return at the current reserves (input positive, output negative), the same pool and exact-input checks. Unlike
