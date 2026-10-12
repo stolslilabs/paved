@@ -206,11 +206,13 @@ nothing and writing nothing.
    `Economy.router()`, `Economy.quote_swap(1400000)` (above 0), `owner()` on the five upgradable contracts, and one
    paid Daily spawn at stake 1, surrendered after. Part B commits the file in a follow-up PR with the run's output.
 
-The run is resumable. Each transaction's hash is recorded in `sepolia.json` before the signer sends it, and each step
+The run is resumable. Each transaction's hash is recorded in `sepolia.json` as the signer sends it, and each step
 reads what landed before it sends anything: rerun after a stop, the tool sends only what is left, and a complete
 repoint sends nothing and needs no funding margin. A recorded deploy, seed, repoint multicall, smoke spawn or surrender
 is awaited first, up to 300 s: landed, it is not sent again; reverted, it may be; with no receipt the run stops
-(check the hash before any rerun). So a seed still in flight is never sent twice, and no second `MockRouter` is deployed
+(check the hash before any rerun). A send the node refuses, which the signer then finds `not landed` (no status of the
+hash answered, the nonce still the signed one, the class or contract absent), has its hash cleared, so a rerun sends it
+again; any other failure keeps the hash and its wait. A hash that cannot be recorded stops the run, the hash shown. So a seed still in flight is never sent twice, and no second `MockRouter` is deployed
 while one is recorded; the salt is recorded first as well, so a repeated deploy could only collide with the first. A
 view, quote or receipt that fails stops the run before anything else is sent, and `--check-only` then exits non-zero. Rehearse it on a fresh starknet-devnet (seed 42) on the
 009bb3c state, which that commit's own `scripts/deploy.sh sepolia --rehearse` deploys:

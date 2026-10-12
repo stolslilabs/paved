@@ -74,10 +74,11 @@
 #   6. the smoke: Economy.router() is the new MockRouter, quote_swap(1400000) > 0, owner() on the five upgradable
 #      contracts, a paid Daily spawn at stake 1 through the new pool, then its surrender (sent once each).
 # Every step is recorded under the file's `repoint` key as it lands (the previous MockRouter and Economy class, the
-# salt, the seed, each transaction hash, written before the signer sends it), every other field kept, the file replaced
+# salt, the seed, each transaction hash, recorded as the signer sends it), every other field kept, the file replaced
 # through a rename. So a rerun after a stop reads what landed and sends only the rest, and a complete one sends nothing.
 # A recorded deploy, seed, repoint multicall, spawn or surrender is awaited first (its receipt, up to 300 s): landed, it
-# is not sent again; reverted, it may be; with no receipt the run stops, the hash named. No second MockRouter is deployed
+# is not sent again; reverted, it may be; with no receipt the run stops, the hash named. A send the signer finds `not
+# landed` (no status answered, the nonce unchanged, the object absent) has its hash cleared, so a rerun sends it again. No second MockRouter is deployed
 # while one is recorded. A view, quote or receipt that fails stops the run before anything else is sent. A rerun with
 # nothing left to send needs no funding margin. --check-only: the checks, the funding check, the seed plan and the new
 # router's quote; nothing is sent and the file is not written; a failed check exits non-zero. The file's `deployed_block` and addresses (but the MockRouter's) do not change: the indexer
@@ -423,9 +424,27 @@ sys.stdout.write(text)'
 # is shown as it comes (`stream_sending`, S-1d), and only then: the tail leaves it out (S-1e). In calldata, `@account` stands for the deployer: the signer reads its address from its
 # environment, so the address is in no argv either.
 send() {
-  local res status=0
-  res="$(run_signer "$@" | stream_sending; exit "${PIPESTATUS[0]}")" || status=$?
+  local res status=0 recorded
+  # Exit 97: stream_sending could not record a hash (--repoint); otherwise the signer's own status.
+  res="$(run_signer "$@" | stream_sending; s=("${PIPESTATUS[@]}"); [[ "${s[1]}" == 0 ]] || exit 97; exit "${s[0]}")" || status=$?
+  if [[ "$status" == 97 ]]; then
+    die "signer $1: a transaction was sent but its hash (shown above) could not be recorded under repoint.$RECORD_SENDING in
+$REPOINT_FILE: record it there, or check it, before any rerun"
+  fi
   if [[ "$status" != 0 ]]; then
+    # --repoint (review of #313, loop 2): the hash recorded as the signer sent it is cleared only on the signer's own
+    # verdict that it did not land (`not landed`: no status of the hash answered, the nonce still the signed one at
+    # pre_confirmed, the class or contract absent; scripts/signer/README.md), and only when it names that hash. So a rerun
+    # sends the step again instead of waiting for a receipt that will never come. Any other failure (a lost answer,
+    # `sent, status unknown`, a hash the node has seen) keeps the key, and the rerun waits for its receipt.
+    if [[ -n "${RECORD_SENDING:-}" && -n "$REPOINT_FILE" ]]; then
+      recorded="$(rp_get "$RECORD_SENDING")"
+      if [[ "$recorded" =~ ^0x[0-9a-f]+$ ]] &&
+          grep -qE "no receipt for $recorded after [0-9]+ s; not landed \(" <<<"$res"; then
+        rp_set "$RECORD_SENDING=" &&
+          echo "deploy.sh: the signer found $recorded not landed: repoint.$RECORD_SENDING cleared, so a rerun sends it again" >&2
+      fi
+    fi
     # The lines already shown left out, then redacted whole, then cut: a value across the cut is still replaced.
     res="$(while IFS= read -r line || [[ -n "$line" ]]; do sending_line "$line" || printf '%s\n' "$line"; done <<<"$res")"
     die "signer $1 failed:
@@ -445,16 +464,22 @@ $(failure_tail "$(redact_text "$res")")"
 # killed or stopped afterwards still leaves the hash on screen. Only a line made of the method and a hex hash is shown,
 # redacted (`redact_text`).
 stream_sending() {
-  local line
+  local line unrecorded=0
   while IFS= read -r line || [[ -n "$line" ]]; do
     printf '%s\n' "$line"
     if sending_line "$line"; then
       printf '   %s\n' "$(redact_text "$line")" >&2
-      # --repoint: the hash is recorded in the deployment file before the signer sends it, so a run killed meanwhile
-      # leaves it there for the rerun (RECORD_SENDING names its key under `repoint`).
-      if [[ -n "${RECORD_SENDING:-}" ]]; then rp_set "$RECORD_SENDING=${line##* }"; fi
+      # --repoint: the hash is recorded in the deployment file as the signer sends it, so a run killed meanwhile leaves
+      # it there for the rerun (RECORD_SENDING names its key under `repoint`). A failed record does not cut the signer
+      # short (it may have sent already): the output is still copied, and stream_sending fails at its end, which stops
+      # the run (`send`, exit 97).
+      if [[ -n "${RECORD_SENDING:-}" ]] && ! rp_set "$RECORD_SENDING=${line##* }"; then
+        printf '   deploy.sh: could not record %s under repoint.%s\n' "${line##* }" "$RECORD_SENDING" >&2
+        unrecorded=1
+      fi
     fi
   done
+  return "$unrecorded"
 }
 
 # sending_line <line>: whether it is the signer's line naming a transaction before it is sent (`stream_sending`).
@@ -678,7 +703,9 @@ repoint_tx_status() {
 # for at most REPOINT_WAIT_S, 300 s by default, as the signer's recovery waits): SUCCEEDED returns 0; REVERTED clears the
 # key and returns 1, so the step may be sent again; no receipt by then stops the run, the hash named, and nothing is
 # sent again while it might still land.
-REPOINT_WAIT_S=300
+# The test of the wait (scripts/test-deploy-url.sh) lowers it; anything but a whole number of seconds is refused.
+REPOINT_WAIT_S="${REPOINT_WAIT_S:-300}"
+[[ "$REPOINT_WAIT_S" =~ ^[0-9]{1,5}$ ]] || { echo "deploy.sh: REPOINT_WAIT_S must be a whole number of seconds" >&2; exit 2; }
 repoint_settled() {
   local tx status waited=0
   tx="$(rp_get "$1")"
@@ -705,8 +732,15 @@ gt() { python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1]) > int(sys.argv[2
 felt_eq() { [[ -n "$1" && -n "$2" && "$(hex_int "$1")" == "$(hex_int "$2")" ]]; }
 # u256_of <low> <high>: the integer, decimal.
 u256_of() { python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$1" "$2"; }
-# class_at <address>: the class hash deployed there, or nothing.
+# class_at <address>: the class hash deployed there, or nothing. class_of <address>: the same, but fails when the node
+# does not answer one (through `v`, a failed read stops the run instead of reading as another class).
 class_at() { rpc starknet_getClassHashAt "[\"latest\",\"$1\"]" | pyj 'd.get("result","")' 2>/dev/null || true; }
+class_of() {
+  local answer
+  answer="$(rpc starknet_getClassHashAt "[\"latest\",\"$1\"]")" || return 1
+  class_hash_answer <<<"$answer" || return 1
+  pyj 'd["result"]' <<<"$answer"
+}
 
 # repoint_state: reads the deployment file and the chain, checks what must hold before anything is sent, and sets
 # what has landed already (RP_* variables). Read-only: nothing is estimated, signed or sent here.
@@ -1030,7 +1064,8 @@ repoint_run() {
   v raw call "$NEW_ROUTER" pool_key; read -r -a k <<<"$raw"
   v raw call "$ECONOMY" pool; read -r -a pool <<<"$raw"
   need=()
-  felt_eq "$(class_at "$ECONOMY")" "$NEW_ECONOMY_CLASS" || need+=("$ECONOMY upgrade $NEW_ECONOMY_CLASS")
+  v raw class_of "$ECONOMY"
+  felt_eq "$raw" "$NEW_ECONOMY_CLASS" || need+=("$ECONOMY upgrade $NEW_ECONOMY_CLASS")
   v raw call "$ECONOMY" addresses; read -r -a p <<<"$raw"
   # set_router, then set_pool with the new router's key and the limit 0 (OPERATIONS, step 4: a router serves the stored
   # key, so its own goes after it). set_pool goes alone only when a repointed Economy's stored pool is not that.
@@ -1052,7 +1087,8 @@ PY
     RECORD_SENDING=""
     rp_set "multicall_tx=$LAST_TX"
   fi
-  felt_eq "$(class_at "$ECONOMY")" "$NEW_ECONOMY_CLASS" || die "Economy's class is not the E-9 class after the multicall"
+  v raw class_of "$ECONOMY"
+  felt_eq "$raw" "$NEW_ECONOMY_CLASS" || die "Economy's class is not the E-9 class after the multicall"
   v raw call "$ECONOMY" router
   felt_eq "$raw" "$NEW_ROUTER" || die "Economy.router() is not the new MockRouter after the multicall"
   v raw call "$ECONOMY" pool; read -r -a pool <<<"$raw"
@@ -1283,7 +1319,8 @@ if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_
 FUNDING_CLASSES=(Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection)
 ((REPOINT)) && FUNDING_CLASSES=(MockRouter Economy)
 if ((USE_SIGNER)); then
-  read -r BAL_LOW BAL_HIGH <<<"$(call "$STRK_TOKEN" balance_of "$DEPLOYER_ARG")"
+  v STRK_RAW call "$STRK_TOKEN" balance_of "$DEPLOYER_ARG"
+  read -r BAL_LOW BAL_HIGH <<<"$STRK_RAW"
   STRK_BALANCE="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$BAL_LOW" "$BAL_HIGH")"
   echo "== funding: deployer STRK balance $(python3 -I -c 'import sys;print(f"{int(sys.argv[1])/1e18:.2f}")' "$STRK_BALANCE") STRK"
   : >"$WORK_DIR/fees"
