@@ -36,3 +36,10 @@ inherits = "dev"
 
 [profile.coverage.cairo]
 unstable-add-statements-code-locations-debug-info = true
+
+# The mainnet fork of the E-9 tests (`src/tests/economy/fork.cairo`, opt-in: `snforge test
+# paved::tests::economy::fork --ignored`). A public RPC that needs no key; the block is pinned.
+[[tool.snforge.fork]]
+name = "MAINNET"
+url = "https://api.cartridge.gg/x/starknet/mainnet/rpc/v0_10"
+block_id.number = "16265000"

@@ -2,7 +2,7 @@
 // anyone's liquidity and it ignores price limits.
 
 //! A stand-in for Ekubo's router on devnet and in tests (P8, `docs/architecture/economy.md`
-//! section 5). It implements the three entry points `Economy` calls (`swap`, `clear`,
+//! section 5). It implements the four entry points `Economy` calls (`swap`, `quote_swap`, `clear`,
 //! `clear_minimum`, declared in `paved::economy::ekubo`) over its own constant-product reserves of
 //! one pair, with Ekubo's 5 % fee:
 //!
@@ -11,15 +11,13 @@
 //!
 //! As on Ekubo, the input must already be on the router, and the output stays there until cleared.
 //! Exact input only; the pool key must be `pool_key()`; `sqrt_ratio_limit` and `skip_ahead` are
-//! ignored.
+//! ignored, so the mock always fills the whole input. `quote_swap` returns the `Delta` that `swap`
+//! would return at the current reserves; unlike `swap`, it answers a zero output instead of
+//! reverting.
 
 // Internal imports
 
 use paved::economy::ekubo::PoolKey;
-
-// Starknet imports
-
-use starknet::ContractAddress;
 
 // Constants
 
@@ -34,8 +32,6 @@ pub trait IMockRouter<TContractState> {
     /// Pulls `amount0` of token0 and `amount1` of token1 from the caller (approve first) into the
     /// reserves. Anyone may add; nobody can remove.
     fn add_liquidity(ref self: TContractState, amount0: u256, amount1: u256);
-    /// The output of an exact-input swap of `amount_in` of `token_in`, at the current reserves.
-    fn quote(self: @TContractState, token_in: ContractAddress, amount_in: u128) -> u128;
     fn reserves(self: @TContractState) -> (u256, u256);
     /// The key of the one pool, as `swap` expects it.
     fn pool_key(self: @TContractState) -> PoolKey;
@@ -136,7 +132,7 @@ pub mod MockRouter {
             let balance = token.balance_of(get_contract_address());
             assert(balance >= reserve_in + amount_in.into(), errors::INPUT_NOT_PAID);
             // [Effect] Move the reserves; the output stays on the router until cleared
-            let amount_out = self.quote(token_amount.token, amount_in);
+            let amount_out = self.output(token_amount.token, amount_in);
             assert(amount_out.is_non_zero(), errors::ZERO_OUTPUT);
             let reserve_in = reserve_in + amount_in.into();
             let reserve_out = reserve_out - amount_out.into();
@@ -150,6 +146,22 @@ pub mod MockRouter {
             } else {
                 self.reserve1.write(reserve_in);
                 self.reserve0.write(reserve_out);
+                Delta { amount0: received, amount1: paid }
+            }
+        }
+
+        fn quote_swap(self: @ContractState, node: RouteNode, token_amount: TokenAmount) -> Delta {
+            // [Check] The pool and an exact input, as `swap`
+            assert(node.pool_key == self.pool_key(), errors::WRONG_POOL);
+            assert(!token_amount.amount.sign, errors::EXACT_INPUT_ONLY);
+            let amount_in = token_amount.amount.mag;
+            let zero_for_one = self.direction(token_amount.token);
+            let amount_out = self.output(token_amount.token, amount_in);
+            let paid = i129 { mag: amount_in, sign: false };
+            let received = i129 { mag: amount_out, sign: true };
+            if zero_for_one {
+                Delta { amount0: paid, amount1: received }
+            } else {
                 Delta { amount0: received, amount1: paid }
             }
         }
@@ -191,17 +203,6 @@ pub mod MockRouter {
             assert(token1.transfer_from(caller, this, amount1), errors::TRANSFER_FAILED);
         }
 
-        fn quote(self: @ContractState, token_in: ContractAddress, amount_in: u128) -> u128 {
-            let (reserve_in, reserve_out) = self.ordered(self.direction(token_in));
-            assert(reserve_in.is_non_zero() && reserve_out.is_non_zero(), errors::NO_LIQUIDITY);
-            // [Compute] Ekubo's fee, rounded up, then the constant product, rounded down
-            let product: u256 = amount_in.into() * FEE.into();
-            let fee = (product + TWO_POW_128 - 1) / TWO_POW_128;
-            let net = amount_in.into() - fee;
-            let out = reserve_out * net / (reserve_in + net);
-            out.try_into().unwrap()
-        }
-
         fn reserves(self: @ContractState) -> (u256, u256) {
             (self.reserve0.read(), self.reserve1.read())
         }
@@ -219,6 +220,19 @@ pub mod MockRouter {
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {
+        /// The output of an exact-input swap of `amount_in` of `token_in`, at the current reserves
+        /// (the former entry point `quote`, now internal: `swap` keeps its gas).
+        fn output(self: @ContractState, token_in: ContractAddress, amount_in: u128) -> u128 {
+            let (reserve_in, reserve_out) = self.ordered(self.direction(token_in));
+            assert(reserve_in.is_non_zero() && reserve_out.is_non_zero(), errors::NO_LIQUIDITY);
+            // [Compute] Ekubo's fee, rounded up, then the constant product, rounded down
+            let product: u256 = amount_in.into() * FEE.into();
+            let fee = (product + TWO_POW_128 - 1) / TWO_POW_128;
+            let net = amount_in.into() - fee;
+            let out = reserve_out * net / (reserve_in + net);
+            out.try_into().unwrap()
+        }
+
         /// `true` when `token_in` is token0.
         fn direction(self: @ContractState, token_in: ContractAddress) -> bool {
             if token_in == self.token0.read() {

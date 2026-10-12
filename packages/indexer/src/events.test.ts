@@ -309,7 +309,7 @@ describe("Economy's events", () => {
       expect(variant.type.split("::").at(-1)).toBe(variant.name);
     }
     expect(own.map((v) => v.name).sort()).toEqual(
-      ["DayClosed", "EconomyConfigured", "GameSet", "PoolSet", "Purchased", "Recorded", "Settled"],
+      ["DayClosed", "EconomyConfigured", "GameSet", "PoolSet", "Purchased", "Recorded", "RouterSet", "Settled"],
     );
     for (const name of ["Purchased", "Recorded", "DayClosed", "Settled"] as const) expect(EMITTERS[name]).toEqual(["economy"]);
     // The components (P-42): flat, so their events keep their own names as selectors, and every one is ignored.
@@ -394,7 +394,7 @@ describe("Economy's events", () => {
   });
 
   test("the owner events of Economy are known and skipped", () => {
-    for (const name of ["EconomyConfigured", "PoolSet", "GameSet"] as const) {
+    for (const name of ["EconomyConfigured", "PoolSet", "GameSet", "RouterSet"] as const) {
       expect(decode("economy", [SELECTORS[name]], ["0x1", "0x2"]), name).toBeNull();
     }
   });

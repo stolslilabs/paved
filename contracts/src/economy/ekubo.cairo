@@ -4,8 +4,9 @@
 //! Declared here instead of depending on Ekubo: only the types and entry points `Economy` uses,
 //! with the same field order and types as Ekubo's deployed router, so that they serialize the same
 //! way (the same ABI). Calling pattern: transfer the input to the router, `swap`, then
-//! `clear_minimum` the output and `clear` the input's leftover. `MockRouter` implements the same
-//! entry points on devnet.
+//! `clear_minimum` the output and `clear` the input's leftover. `quote_swap` answers what that
+//! `swap` would return now, through the same route. `MockRouter` implements the same entry points
+//! on devnet.
 
 // Starknet imports
 
@@ -55,6 +56,9 @@ pub struct Delta {
 pub trait IRouter<TContractState> {
     /// Swaps with the tokens the router holds; the output stays on the router until cleared.
     fn swap(ref self: TContractState, node: RouteNode, token_amount: TokenAmount) -> Delta;
+    /// The `Delta` that `swap` would return now, without swapping: Ekubo runs the swap inside
+    /// core's `lock` and reverts it on purpose, then decodes the `Delta` from the revert data.
+    fn quote_swap(self: @TContractState, node: RouteNode, token_amount: TokenAmount) -> Delta;
 }
 
 #[starknet::interface]

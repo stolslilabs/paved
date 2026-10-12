@@ -172,6 +172,23 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    `(D + 2) x 86400`.
 5. The report gives the addresses of `sepolia.json` (contracts, class hashes, `deployed_block`) to the PM.
 
+**Repointing Sepolia's `Economy` at a new `MockRouter` (E-9; a later step, not done yet).** The E-9 class quotes
+through the router's `quote_swap`, which Sepolia's current `MockRouter` lacks, so an `Economy` upgrade alone breaks
+Sepolia's quote. The path keeps the playtest data; its detail is in `docs/architecture/economy.md`, "As built: E-9":
+
+1. The indexer that follows Sepolia runs a version that ignores `RouterSet` (E-9's `IGNORED`) before step 4.
+2. Declare the E-9 `Economy` and `MockRouter` classes.
+3. Deploy the new `MockRouter(PAVED, USDC)` and seed it (`add_liquidity`) at the old pool's current ratio; its PAVED
+   comes from an unstake of the deployer's Vault stake (the old pool's reserves cannot be withdrawn). Test tokens on
+   the test network: CORE's step, not an owner's act. **Sepolia only; on mainnet the pool is Ekubo's and none of
+   this applies.**
+4. One multicall of the owner's account: `Economy.upgrade(<E-9 class hash>)`, `Economy.set_router(<new MockRouter>)`,
+   `Economy.set_pool(<its pool_key()>, 0)`.
+5. Commit the new `MockRouter` and class hashes in `sepolia.json`, and check `Economy.router()`,
+   `Economy.quote_swap(1400000)` and one paid spawn.
+
+The same rules as phase 2 hold: the funded account by variable name only, nothing printed, from merged main.
+
 ## Checks that gate a merge
 
 - CI build
@@ -180,6 +197,14 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
 - Client build and tests
 - Signer tests (`scripts/signer/`: `npm ci && npm test`, Node 24; its devnet rehearsal tests are skipped in CI,
   which has no build or node for them)
+
+Not in `ci`: **the mainnet fork test (E-9)**, `contracts/src/tests/economy/fork.cairo`. It checks Ekubo's router
+`quote_swap`, the price limit and a partial fill on a fork of Starknet mainnet. Its tests are `#[ignore]`, so the
+plain `snforge test` of `ci` skips them; they read the network through a public RPC that needs no key (`MAINNET` in
+`contracts/Scarb.toml`, block pinned). Run it on demand, and before the owner's mainnet go, from `contracts/`:
+`RAYON_NUM_THREADS=1 prlimit --as=16106127360 -- snforge test paved::tests::economy::fork --ignored --max-threads 2`.
+It sends nothing to any network. Its unit-test side (the mock's `quote_swap`, `Economy.quote_swap` on devnet) runs in
+`ci`.
 
 A change of `scripts/deploy.sh` or `scripts/signer/` that touches the Sepolia path also needs, from its reviewer,
 `scripts/deploy.sh sepolia --rehearse` on a fresh local starknet-devnet (seed 42), end to end with its smoke

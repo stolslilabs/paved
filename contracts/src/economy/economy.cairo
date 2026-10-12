@@ -13,8 +13,8 @@
 //! - `settle` (anyone, after the day): the day's mean is fixed on its first settlement (option B)
 //!   and pushed once into the EMA; each recorded game is paid `R x h(score / mean)`, minted to its
 //!   player, once.
-//! - `configure`, `set_pool` (the owner, bounded and evented), `set_game` (the owner, once). The
-//!   mean has no setter.
+//! - `configure`, `set_pool`, `set_router` (the owner, bounded and evented), `set_game` (the
+//!   owner, once). The mean has no setter.
 //! - `upgrade` (the owner): replaces the class, keeping the storage (P-42,
 //!   `docs/architecture/upgrades.md`). The owner is two-step (`OwnableComponent`).
 //!
@@ -149,15 +149,6 @@ pub struct Addresses {
     pub game: ContractAddress,
 }
 
-/// The quote `MockRouter` serves on devnet and Sepolia (P-39; `quote(token_in, amount_in) ->
-/// amount_out`, the pool's fee included). Ekubo's router has another shape (`quote_swap(RouteNode,
-/// TokenAmount) -> Delta`), so `Economy.quote_swap` serves the mock only, not Ekubo's router
-/// (`docs/architecture/economy.md`, section 5).
-#[starknet::interface]
-pub trait IQuote<TContractState> {
-    fn quote(self: @TContractState, token_in: ContractAddress, amount_in: u128) -> u128;
-}
-
 #[starknet::interface]
 pub trait IEconomy<TContractState> {
     /// Splits the price already on `Economy`, swaps and burns, pays the referrer and the Vault,
@@ -185,9 +176,14 @@ pub trait IEconomy<TContractState> {
     fn set_pool(ref self: TContractState, pool_key: PoolKey, sqrt_ratio_limit: u256);
     /// Sets the game allowed to purchase and record, once. The owner only.
     fn set_game(ref self: TContractState, game: ContractAddress);
+    /// Repoints every swap and quote at another router (E-9; a real address). The owner only, who
+    /// can already replace the class.
+    fn set_router(ref self: TContractState, router: ContractAddress);
     fn quote(self: @TContractState, stake: u8) -> Quote;
-    /// The PAVED the pool pays now for `usdc_in`, its fee included, from the router's quote
-    /// (devnet: `MockRouter.quote`). The client takes `min_out` from it.
+    /// The PAVED the swap of `purchase` pays now for `usdc_in`, its fee included: the router's
+    /// `quote_swap` through the same route (the stored pool key and price limit, one hop). The
+    /// client takes `min_out` from it. Reverts ('Economy: partial fill') when the pool cannot take
+    /// the whole input now. A spot quote, not an oracle: no contract should use it as a price.
     fn quote_swap(self: @TContractState, usdc_in: u256) -> u256;
     fn day(self: @TContractState, day: u64) -> DayView;
     fn terms(self: @TContractState, game_id: u32) -> TermsView;
@@ -198,6 +194,7 @@ pub trait IEconomy<TContractState> {
     /// per block.
     fn rate(self: @TContractState) -> u256;
     fn pool(self: @TContractState) -> (PoolKey, u256);
+    fn router(self: @TContractState) -> ContractAddress;
     fn addresses(self: @TContractState) -> Addresses;
 }
 
@@ -218,8 +215,8 @@ pub mod Economy {
 
     use paved::economy::curve;
     use paved::economy::ekubo::{
-        IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait, PoolKey,
-        RouteNode, TokenAmount, i129,
+        Delta, IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait,
+        PoolKey, RouteNode, TokenAmount, i129,
     };
     use paved::economy::mean::{Day, DayTrait, Ema, EmaTrait};
     use paved::economy::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
@@ -237,8 +234,8 @@ pub mod Economy {
     // Local imports
 
     use super::{
-        Addresses, BASE_PRICE, Config, DAY, DayView, IEconomy, IQuoteDispatcher,
-        IQuoteDispatcherTrait, MAX_STAKE, Quote, TermsView, validate,
+        Addresses, BASE_PRICE, Config, DAY, DayView, IEconomy, MAX_STAKE, Quote, TermsView,
+        validate,
     };
 
     // Errors
@@ -260,6 +257,8 @@ pub mod Economy {
         pub const ZERO_RATE: felt252 = 'Economy: zero rate';
         pub const RATE_OVERFLOW: felt252 = 'Economy: rate overflow';
         pub const AMOUNT_TOO_LARGE: felt252 = 'Economy: amount too large';
+        pub const PARTIAL_FILL: felt252 = 'Economy: partial fill';
+        pub const WRONG_DELTA: felt252 = 'Economy: wrong delta';
         pub const BELOW_MIN_OUT: felt252 = 'Economy: swap below min_out';
         pub const TRANSFER_FAILED: felt252 = 'Economy: transfer failed';
     }
@@ -462,6 +461,7 @@ pub mod Economy {
         EconomyConfigured: EconomyConfigured,
         PoolSet: PoolSet,
         GameSet: GameSet,
+        RouterSet: RouterSet,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         #[flat]
@@ -535,6 +535,12 @@ pub mod Economy {
     #[derive(Drop, Debug, PartialEq, starknet::Event)]
     pub struct GameSet {
         pub game: ContractAddress,
+    }
+
+    #[derive(Drop, Debug, PartialEq, starknet::Event)]
+    pub struct RouterSet {
+        pub previous: ContractAddress,
+        pub router: ContractAddress,
     }
 
     // Constructor
@@ -782,6 +788,16 @@ pub mod Economy {
             self.emit(GameSet { game });
         }
 
+        fn set_router(ref self: ContractState, router: ContractAddress) {
+            // [Check] The owner, a real address
+            self.ownable.assert_only_owner();
+            assert(router.is_non_zero(), errors::ZERO_ADDRESS);
+            // [Effect] The next swaps and quotes go through it
+            let previous = self.router.read();
+            self.router.write(router);
+            self.emit(RouterSet { previous, router });
+        }
+
         fn quote(self: @ContractState, stake: u8) -> Quote {
             assert(stake >= 1 && stake <= MAX_STAKE, errors::WRONG_STAKE);
             let config = self.config.read();
@@ -811,9 +827,18 @@ pub mod Economy {
 
         fn quote_swap(self: @ContractState, usdc_in: u256) -> u256 {
             let amount: u128 = usdc_in.try_into().expect(errors::AMOUNT_TOO_LARGE);
-            IQuoteDispatcher { contract_address: self.router.read() }
-                .quote(self.usdc.read(), amount)
-                .into()
+            let token_amount = TokenAmount {
+                token: self.usdc.read(), amount: i129 { mag: amount, sign: false },
+            };
+            let delta = IRouterDispatcher { contract_address: self.router.read() }
+                .quote_swap(self.node(), token_amount);
+            let (usdc_leg, paved_leg) = self.legs(delta);
+            // [Check] The whole input fills: a min_out taken from a partial fill's PAVED would let
+            // a purchase pass with most of its burn sent to the Vault (E-9's audit, F1)
+            assert(!usdc_leg.sign && usdc_leg.mag >= amount, errors::PARTIAL_FILL);
+            // [Check] The PAVED is paid out, before its magnitude is read (F2; `swap` defers it)
+            assert(paved_leg.sign || paved_leg.mag == 0, errors::WRONG_DELTA);
+            paved_leg.mag.into()
         }
 
         fn day(self: @ContractState, day: u64) -> DayView {
@@ -860,6 +885,10 @@ pub mod Economy {
 
         fn pool(self: @ContractState) -> (PoolKey, u256) {
             (self.pool_key(), self.sqrt_ratio_limit.read())
+        }
+
+        fn router(self: @ContractState) -> ContractAddress {
+            self.router.read()
         }
 
         fn addresses(self: @ContractState) -> Addresses {
@@ -936,6 +965,25 @@ pub mod Economy {
             self.extension.write(pool_key.extension);
             self.sqrt_ratio_limit.write(sqrt_ratio_limit);
             self.emit(PoolSet { pool_key, sqrt_ratio_limit });
+        }
+
+        /// The one hop of `swap` (which builds it inline, its gas unchanged) and of `quote_swap`:
+        /// the stored pool key and price limit.
+        fn node(self: @ContractState) -> RouteNode {
+            RouteNode {
+                pool_key: self.pool_key(),
+                sqrt_ratio_limit: self.sqrt_ratio_limit.read(),
+                skip_ahead: 0,
+            }
+        }
+
+        /// The (USDC, PAVED) legs of a swap's `Delta`.
+        fn legs(self: @ContractState, delta: Delta) -> (i129, i129) {
+            if self.paved.read() < self.usdc.read() {
+                (delta.amount1, delta.amount0)
+            } else {
+                (delta.amount0, delta.amount1)
+            }
         }
 
         /// Ekubo's pattern in one call: the quote to the router, `swap`, the PAVED back (at least
