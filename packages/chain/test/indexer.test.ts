@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_HEAD, FIXTURE_NAMELESS, FIXTURE_TOURNAMENT, FixtureIndexer, RUNNING_GAME } from "../src/testing";
-import { IndexerClient, IndexerError, MAX_TOURNAMENT_ID, createIndexerClient, indexerPlayerId } from "../src/indexer";
+import { IndexerClient, IndexerError, MAX_RETRY_AFTER_SECONDS, MAX_TOURNAMENT_ID, createIndexerClient, indexerPlayerId } from "../src/indexer";
 
 let fixture: FixtureIndexer;
 let client: IndexerClient;
@@ -337,5 +337,85 @@ describe("construction", () => {
     expect(indexerPlayerId("0xABC")).toBe(`0x${"abc".padStart(64, "0")}`);
     expect(indexerPlayerId(FIXTURE_ADA)).toBe(FIXTURE_ADA);
     expect(() => indexerPlayerId(`0x${"f".repeat(64)}`)).toThrow(IndexerError);
+  });
+});
+
+describe("429: the indexer is busy (Retry-After)", () => {
+  const busy = (headers: Record<string, string> = {}) =>
+    new Response(JSON.stringify({ version: 1, status: "error", error: "too many requests" }), { status: 429, headers });
+  // A fetch that answers `first` in order, then the fixture; counts its calls.
+  const scripted = (...first: Response[]) => {
+    const calls = { n: 0 };
+    const f = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.n += 1;
+      return first.shift() ?? (fixture.fetch as typeof fetch)(input, init);
+    }) as typeof fetch;
+    return { calls, client: new IndexerClient({ url: "http://indexer.test/", fetch: f }) };
+  };
+
+  test("Retry-After: 2 waits about 2 s on the clock, then retries once and succeeds", async () => {
+    vi.useFakeTimers();
+    try {
+      const { calls, client: c } = scripted(busy({ "retry-after": "2" }));
+      const pending = c.head();
+      await vi.advanceTimersByTimeAsync(1900);
+      expect(calls.n).toBe(1);
+      await vi.advanceTimersByTimeAsync(200);
+      expect((await pending).head).toEqual(FIXTURE_HEAD);
+      expect(calls.n).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("two 429s fall back as an error, after one wait and two requests only", async () => {
+    vi.useFakeTimers();
+    try {
+      const { calls, client: c } = scripted(busy({ "retry-after": "1" }), busy({ "retry-after": "1" }));
+      const outcome = c.head().then(() => "none", (e: IndexerError) => e);
+      await vi.advanceTimersByTimeAsync(60_000);
+      const error = (await outcome) as IndexerError;
+      expect(error).toBeInstanceOf(IndexerError);
+      expect(error.kind).toBe("rejected");
+      expect(error.detail.httpStatus).toBe(429);
+      expect(calls.n).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("a 429 without Retry-After (or with one that is not seconds) falls back at once, no retry", async () => {
+    for (const headers of [{}, { "retry-after": "soon" }, { "retry-after": "-3" }, { "retry-after": "Wed, 21 Oct 2026 07:28:00 GMT" }]) {
+      const { calls, client: c } = scripted(busy(headers));
+      expect(await kindOf(c.head())).toBe("rejected");
+      expect(calls.n).toBe(1);
+    }
+  });
+
+  test("a huge Retry-After is capped", async () => {
+    vi.useFakeTimers();
+    try {
+      const { calls, client: c } = scripted(busy({ "retry-after": "86400" }));
+      const pending = c.head();
+      await vi.advanceTimersByTimeAsync(MAX_RETRY_AFTER_SECONDS * 1000 - 100);
+      expect(calls.n).toBe(1);
+      await vi.advanceTimersByTimeAsync(200);
+      expect((await pending).head).toEqual(FIXTURE_HEAD);
+      expect(calls.n).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("other statuses are unchanged: no wait, no retry", async () => {
+    const answer = (status: number, headers: Record<string, string> = {}) => new Response("{}", { status, headers });
+    for (const [status, kind] of [[400, "rejected"], [404, "not-found"], [500, "unreachable"], [502, "unreachable"]] as const) {
+      const { calls, client: c } = scripted(answer(status, { "retry-after": "2" }));
+      expect(await kindOf(c.head())).toBe(kind);
+      expect(calls.n).toBe(1);
+    }
+    const { calls, client: c } = scripted();
+    expect((await c.head()).head).toEqual(FIXTURE_HEAD);
+    expect(calls.n).toBe(1);
   });
 });

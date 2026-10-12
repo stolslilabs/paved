@@ -91,7 +91,7 @@ user. It is never committed, never pasted in a PR, a log or a chat.
 ## 3. Exposure
 
 The API listens on `127.0.0.1:8787`. A reverse proxy on the same host terminates TLS and forwards to it. The indexer has no
-authentication, no rate limit and no TLS of its own, and its routes are GET-only and read-only (anything else is `405`); the data
+authentication and no TLS of its own (it rate-limits per address itself, see the first bullet below), and its routes are GET-only and read-only (anything else is `405`); the data
 is public chain data. What the proxy adds:
 
 - **TLS** (HTTPS only; redirect or refuse port 80), with a certificate for the API's name.
@@ -99,9 +99,20 @@ is public chain data. What the proxy adds:
   and `Vary: Origin`. The client sends a plain `GET` with an `Accept` header, which is not preflighted. The proxy must pass the
   `Origin` header through and **must not add CORS headers of its own** (two `allow-origin` values make the browser refuse).
   CORS does not stop `curl`; it only says which web pages may read the answers.
-- **Rate limiting** per client address, so a script cannot keep the single Node thread busy. One page view of the client makes a
-  handful of requests and the client has no polling timer (it reads on page load, on a manual refresh and when the tab becomes
-  visible again), so 10 requests per second per address with a burst of 20 is generous. Measured capacity is in section 4.
+- **Rate limiting is the indexer's own, per client address**, so a script cannot keep the single Node thread busy (ruling P-43).
+  There is **no limit at the proxy or at the firewall**: the indexer holds a token bucket per address, `--rate` 10 requests per
+  second refilled and `--burst` 20 by default (`--rate 0` turns it off); every request takes a token, whatever its method. Over
+  it the answer is `429` with `Retry-After` (whole seconds) and CORS headers, and the client waits that long, once, before it
+  falls back (section 7). One page view of the client makes a handful of requests and the client has no polling timer (it reads
+  on page load, on a manual refresh and when the tab becomes visible again), so the defaults are generous. Measured capacity
+  is in section 4.
+- **The proxy must set `X-Forwarded-For`.** Behind the proxy the indexer sees only the proxy's address, so it reads the client
+  from the **right-most `X-Forwarded-For` entry**, the one the proxy appended, and **only when the connection comes from
+  `127.0.0.1`, `::1` or `::ffff:127.0.0.1`** (not any other `127.x` address: the proxy must dial `127.0.0.1` or `::1`); from any
+  other peer the header is ignored. **Without `X-Forwarded-For` from a local proxy, every client counts as the proxy's one
+  address and they all share one bucket**: ten playtesters would then be limited together. Caddy's `reverse_proxy` sets it by
+  default (and replaces one sent by an untrusted client; see "Rate limiting (P-43)" in the runbook). nginx needs the line in the
+  block below. Do not add a second limiter at the proxy: it would count the same traffic twice.
 - **Only `/v1/` and only GET** are forwarded; anything else is `404` at the proxy.
 - **Pass the indexer's answers through**, errors included: the client reads the JSON envelope of a `503` (`loading`, `rewinding`,
   `halted`) and shows a precise message. When the process is down the proxy's own `502` page is also handled (the client treats a
@@ -112,8 +123,6 @@ is public chain data. What the proxy adds:
 An nginx server block (the certificate lines are those `certbot --nginx` writes):
 
 ```nginx
-limit_req_zone $binary_remote_addr zone=indexer:10m rate=10r/s;
-
 server {
   listen 443 ssl;
   server_name indexer.example.org;                 # the owner's name
@@ -122,12 +131,11 @@ server {
 
   location /v1/ {
     limit_except GET { deny all; }
-    limit_req zone=indexer burst=20 nodelay;
-    limit_req_status 429;
     proxy_pass http://127.0.0.1:8787;
     proxy_http_version 1.1;
     proxy_set_header Connection "";
     proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;   # the indexer's rate limit keys on this (right-most entry)
     proxy_read_timeout 15s;                        # the client gives up after 10 s
   }
   location / { return 404; }
@@ -155,7 +163,7 @@ scenario (head at block 160, 3 players, 9 games, 3 days), the indexer under `--m
 Read these as an upper bound, not a promise: the rows of an answer are kept per served block, so after the first request of a
 block nearly every one of these is a cache hit (the cache miss, a SQLite read, was not timed separately); the database is tiny;
 there is no TLS and no proxy in the path. They say that a handful of playtesters will not load the process, and that the
-proxy's rate limit, not the indexer, is the limit to set. A Sepolia database with many players was not measured.
+indexer's own per-address limit (section 3), not a proxy limit, is the one to set. A Sepolia database with many players was not measured.
 
 ## 5. Where it can run (the owner's choice)
 
@@ -236,6 +244,10 @@ build-time variable: it is baked into the bundle, so changing the indexer's addr
 Unset or blank, the client has no indexer and the screens say "unavailable" without asking anything. Use an `https://` URL: a
 page served over HTTPS cannot call `http://`. The origin the page is served from is the one `--allow-origin` names.
 
+When the indexer answers `429` (its per-address rate limit, section 3) the client waits the `Retry-After` seconds, at most 10 s, and
+asks once more; a second `429`, or a `429` without a numeric `Retry-After`, is handled as an indexer failure below (the bounded RPC
+scans where the screen has them). It never loops.
+
 When the indexer is out of reach (the process down, the host down, a `5xx` page, no answer within the client's 10 s timeout, a
 CORS refusal), the screens that use it say so (the leaderboard and the player page with a Retry button): the leaderboard "Leaderboard unavailable: the indexer cannot be
 reached", the quests and the player page the same with their name. While it is `loading`, `rewinding` or `halted` they say it is
@@ -286,7 +298,7 @@ Caddyfile, and it does not start a second Caddy (it could not bind 80/443).
 
 Caddy's core has no rate limiter, and a firewall limit on 80/443 would hit every other site on this VPS (and is a machine
 security setting, the owner's). So the limit lives **in the indexer**: a per-address token bucket, flags `--rate <req/s>` and
-`--burst <n>` (`--rate 0` disables), added by a parallel PR. **The unit's `ExecStart` leaves both flags out, so the indexer's
+`--burst <n>` (`--rate 0` disables; defaults 10 and 20; over it `429` with `Retry-After`). **The unit's `ExecStart` leaves both flags out, so the indexer's
 defaults apply**; add `--rate` and `--burst` to it only to change them.
 
 The indexer sees only Caddy's loopback address, so it takes the client address from `X-Forwarded-For`, and **trusts that header

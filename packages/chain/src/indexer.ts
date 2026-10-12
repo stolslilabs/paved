@@ -344,7 +344,20 @@ export interface IndexerOptions {
   timeoutMs?: number;
 }
 
+/** Longest wait on a 429's `Retry-After`, in seconds: a page view is not held longer than this for a busy indexer. */
+export const MAX_RETRY_AFTER_SECONDS = 10;
+
+/** `Retry-After` as whole seconds (the indexer sends delta-seconds); null when absent or not a plain non-negative integer. */
+function retryAfterSeconds(response: Response): number | null {
+  const raw = response.headers?.get("retry-after")?.trim();
+  return raw && /^\d{1,9}$/.test(raw) ? Number(raw) : null;
+}
+
 type Obj = Record<string, unknown>;
+
+function busy(httpStatus: number, why: string): IndexerError {
+  return new IndexerError("rejected", `Indexer is busy (429): ${why}`, { httpStatus });
+}
 
 function failedByStatus(httpStatus: number): IndexerError {
   if (httpStatus === 404) return new IndexerError("not-found", "Not found", { httpStatus });
@@ -760,6 +773,19 @@ export class IndexerClient {
     }));
   }
 
+  private async fetchText(url: string): Promise<{ response: Response; text: string }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await this.doFetch(url, { headers: { accept: "application/json" }, signal: controller.signal });
+      return { response, text: await response.text() };
+    } catch (error) {
+      throw new IndexerError("unreachable", `Indexer unreachable: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   private async get<T>(path: string, params: Record<string, string | number | undefined>, parse: (body: Obj) => T): Promise<IndexerAnswer<T>> {
     const query = Object.entries(params)
       .filter(([, v]) => v !== undefined)
@@ -767,17 +793,15 @@ export class IndexerClient {
       .join("&");
     const url = `${this.base}${path}${query ? `?${query}` : ""}`;
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-    let response: Response;
-    let text: string;
-    try {
-      response = await this.doFetch(url, { headers: { accept: "application/json" }, signal: controller.signal });
-      text = await response.text();
-    } catch (error) {
-      throw new IndexerError("unreachable", `Indexer unreachable: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      clearTimeout(timer);
+    let { response, text } = await this.fetchText(url);
+    if (response.status === 429) {
+      // The indexer's per-address rate limit: busy, not broken. Wait what it asks (capped) and ask once more; a second 429, or
+      // no usable Retry-After, is a failure like any other (the caller falls back), never a loop.
+      const seconds = retryAfterSeconds(response);
+      if (seconds === null) throw busy(response.status, "no Retry-After");
+      await new Promise((resolve) => setTimeout(resolve, Math.min(seconds, MAX_RETRY_AFTER_SECONDS) * 1000));
+      ({ response, text } = await this.fetchText(url));
+      if (response.status === 429) throw busy(response.status, "still busy after one retry");
     }
 
     let body: unknown;
