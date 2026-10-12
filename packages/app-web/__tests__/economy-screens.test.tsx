@@ -3,7 +3,7 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, POOL_CANNOT_FILL, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
+import { FakeGameViews, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
 import type { Deployment, EconomyDeployment } from "@paved/chain";
 import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/testing";
 import { EconomyPage } from "../src/pages/Economy";
@@ -73,6 +73,9 @@ function land(opts: { search?: string; economy?: FakeEconomy; deployment?: Econo
 
 const where = () => screen.getByTestId("where").textContent ?? "";
 
+/** The `min_out` the confirm shows for `stake` with the default fakes: the floor the intent carries. */
+const floor = (stake: number) => new FakeEconomy().expectedMinOut(stake);
+
 /** A purchase button once it is offered: the price, the referrer and the pool's quote are all in. */
 async function enabled(text: string): Promise<HTMLButtonElement> {
   const button = (await screen.findByText(text, { selector: "button" })) as HTMLButtonElement;
@@ -97,7 +100,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
     // The consent is the history state; the URL carries only the mode.
     expect(where().split("|")[0]).toBe("/game?mode=daily");
-    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 7, confirmedPrice: 14_000_000n, referrer: null });
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 7, confirmedPrice: 14_000_000n, referrer: null, confirmedMinOut: await floor(7) });
     expect(writer.sendCalls).not.toHaveBeenCalled();
   });
 
@@ -122,7 +125,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(dialog).toContain("gets 1 USDC out of the stakers' margin: you pay the same 20 USDC");
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
-    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 10, confirmedPrice: 20_000_000n, referrer: REFERRER });
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 10, confirmedPrice: 20_000_000n, referrer: REFERRER, confirmedMinOut: await floor(10) });
   });
 
   it("a malformed referrer in the link (?ref=abc) is ignored: no referrer shown or sent", async () => {
@@ -194,11 +197,11 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     const on = (network: string) => resolveEconomyDeployment({ base: { ...base, network }, env: ECON });
     for (const network of ["mainnet", "sepolia"]) {
-      // The page fixture's client has no RPC: the on-chain quote fails, so the purchase is not offered.
+      // The page fixture's client has no RPC: the on-chain quote cannot be read (not a revert), so nothing is offered.
       land({ pool: "network", deployment: on(network) });
       fireEvent.click(await screen.findByText(/mode daily/));
-      expect(await screen.findByText(POOL_CANNOT_FILL)).toBeTruthy();
-      expect((screen.getByText("Pool cannot fill", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+      expect(await screen.findByText(POOL_QUOTE_UNAVAILABLE)).toBeTruthy();
+      expect((screen.getByText("Pool quote unavailable", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
       cleanup();
     }
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -214,7 +217,11 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(await screen.findByText(`PAVED bought and burned: at least ${paved(least)} (quoted again when sent)`)).toBeTruthy();
     expect(pool.calls).toContain((await economy.quote(1)).burnQuote);
     fireEvent.click(await enabled("Buy for 2 USDC"));
-    expect(screen.getByText(`At least ${paved(least)} bought and burned, or the purchase reverts.`)).toBeTruthy();
+    expect(screen.getByText(`At least ${paved(least)} bought and burned: if the pool moved down by the time it is sent, nothing is sent and you confirm again.`)).toBeTruthy();
+    fireEvent.click(screen.getByText("Confirm purchase"));
+    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
+    // The floor the player confirmed rides in the intent.
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.confirmedMinOut).toBe(least);
   });
 
   it("a quote_swap that reverts (the pool cannot fill): the plain message, no quote shown, no purchase offered", async () => {
@@ -226,6 +233,17 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(screen.queryByText(/PAVED bought and burned/)).toBeNull();
     expect(screen.queryByText(/partial fill/)).toBeNull();
     expect((screen.getByText("Pool cannot fill", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("a quote that cannot be read (RPC, rate limit, timeout) is not a revert: 'cannot read the pool quote', no figure, no purchase", async () => {
+    const pool = new FakePoolQuoter();
+    pool.fail = "Too many requests (429)";
+    land({ pool });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText(POOL_QUOTE_UNAVAILABLE)).toBeTruthy();
+    expect(screen.queryByText(POOL_CANNOT_FILL)).toBeNull();
+    expect(screen.queryByText(/PAVED bought and burned/)).toBeNull();
+    expect((screen.getByText("Pool quote unavailable", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("no stale quote: a stake the pool cannot fill hides the previous stake's figure", async () => {
@@ -437,7 +455,7 @@ describe("the economy page (/economy)", () => {
     fireEvent.click(await enabled("Buy for 2 USDC"));
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
-    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 1, confirmedPrice: 2_000_000n, referrer: REFERRER });
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 1, confirmedPrice: 2_000_000n, referrer: REFERRER, confirmedMinOut: await floor(1) });
     expect(writer.sendCalls).not.toHaveBeenCalled();
   });
 
@@ -456,7 +474,7 @@ describe("the economy page (/economy)", () => {
 describe("helpers", () => {
   it("a purchase never falls back to the plain spawn: without the economy writer it throws and sends nothing", async () => {
     const plain = vi.fn(async () => ({ gameId: 1 }));
-    const purchase = { stake: 2, confirmedPrice: 4_000_000n, referrer: null };
+    const purchase = { stake: 2, confirmedPrice: 4_000_000n, referrer: null, confirmedMinOut: 5n };
     await expect(spawnForIntent(purchase, null, plain)).rejects.toThrow("The economy is not available: nothing was sent");
     expect(plain).not.toHaveBeenCalled();
     const bought = vi.fn(async () => ({ gameId: 9 }));
@@ -468,13 +486,18 @@ describe("helpers", () => {
   });
 
   it("a purchase intent comes only from state, well formed; a URL alone buys nothing", () => {
-    expect(readPurchaseIntent(purchaseIntent(3, 6_000_000n, null))).toEqual({ stake: 3, confirmedPrice: 6_000_000n, referrer: null });
+    expect(readPurchaseIntent(purchaseIntent(3, 6_000_000n, null, 7n))).toEqual({ stake: 3, confirmedPrice: 6_000_000n, referrer: null, confirmedMinOut: 7n });
     expect(readPurchaseIntent(null)).toBeNull();
     expect(readPurchaseIntent({ start: true, confirmedAmount: "10" })).toBeNull();
     expect(readPurchaseIntent({ start: true, purchase: { stake: 11, confirmedPrice: "1", referrer: null } })).toBeNull();
     expect(readPurchaseIntent({ start: true, purchase: { stake: 1, confirmedPrice: "0", referrer: null } })).toBeNull();
     expect(readPurchaseIntent({ start: true, purchase: { stake: 1, confirmedPrice: 2_000_000, referrer: null } })).toBeNull();
-    expect(readPurchaseIntent({ start: true, purchase: { stake: 1, confirmedPrice: "2000000", referrer: "bob" } })).toBeNull();
+    expect(readPurchaseIntent({ start: true, purchase: { stake: 1, confirmedPrice: "2000000", referrer: "bob", confirmedMinOut: "1" } })).toBeNull();
+    // The confirmed floor (min_out), as strict as the price: missing, 0, a number, a sign, a fraction or hex buys nothing.
+    const withFloor = (confirmedMinOut: unknown) => ({ start: true, purchase: { stake: 1, confirmedPrice: "2000000", referrer: null, confirmedMinOut } });
+    expect(readPurchaseIntent({ start: true, purchase: { stake: 1, confirmedPrice: "2000000", referrer: null } })).toBeNull();
+    for (const bad of [undefined, null, "", "0", "-1", "01", "1.5", "0x10", " 1", 10, 10n]) expect(readPurchaseIntent(withFloor(bad))).toBeNull();
+    expect(readPurchaseIntent(withFloor("1"))?.confirmedMinOut).toBe(1n);
   });
 
   it("referrer and link", () => {

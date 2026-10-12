@@ -137,22 +137,35 @@ when the economy is not deployed; `EconomyClient` takes it unless a test passes 
 `poolOut = await this.options.poolQuoter.quoteSwap(quote.burnQuote)` in `economy/writer.ts`. A `burn_quote` outside
 `(0, price]` is refused before any quote.
 
-**Fresh at every send.** The quote is taken inside the writer's `prepare`, right before the account executes, at every
-purchase: nothing is cached, and the quote the purchase screen shows is never the one sent. A pool that moves between the
-display and the send gives the send its own quote (tested). There is no age bound to state: the send never uses an older
-quote. Between that quote and the block, the slippage and `'Economy: swap below min_out'` (`SwapBelowMinOutError`) apply.
+**Fresh at every send, never below what the player confirmed.** The quote is taken inside the writer's `prepare`, right
+before the account executes, at every purchase: nothing is cached, and the quote the purchase screen shows is never the
+one sent. There is no age bound to state: the send never uses an older quote. The confirm shows "At least X bought and
+burned", and X (the confirm's `min_out`, at the default slippage) rides in the purchase intent as `confirmedMinOut`, a
+decimal string parsed as strictly as `confirmedPrice` (an intent without it, or with a malformed one, buys nothing).
+`PurchaseRequest.confirmedMinOut` must be a bigint above 0. At send, a fresh `min_out` below it is refused with
+`PoolPriceMovedError` ("The pool price moved: confirm again") and nothing is sent; an equal or higher one sends its own,
+higher-or-equal `min_out`. So the `min_out` sent is never below what the player confirmed (value audit t-0111, finding
+1). Between the send's quote and the block, `'Economy: swap below min_out'` (`SwapBelowMinOutError`) applies.
 
 **A revert is "the pool cannot fill this purchase now".** `quote_swap` reverts with `'Economy: partial fill'` when the
 pool cannot take the whole input now (E-9's F1), `'Economy: wrong delta'` (F2), `'Economy: amount too large'` above
 `u128`, or with the router's or core's own reason (`LIMIT_DIRECTION`). Each of these, a failed RPC call, and a quote
 whose `min_out` rounds to 0 is no slippage protection: the writer throws `PoolCannotFillError` and sends nothing. Its
 message is `POOL_CANNOT_FILL` plus "Nothing was sent.": "The pool cannot fill this purchase right now. Try a smaller stake
-or later. Nothing was sent." The cause stays on `detail`, never in the message. The game page shows it as "Cannot start a
+or later. Nothing was sent." The cause stays on `detail`, never in the message.
+
+**A quote that cannot be read is not a revert** (t-0111, note 4). `isQuoteRevert` (`economy/pool.ts`) tells them apart:
+a node reports a revert of a view as `CONTRACT_ERROR` (JSON-RPC code 40, a `revert_error`), or the text names one of the
+Economy's reasons. Anything else (a transport error, a rate limit -32011 or 429, a timeout) throws
+`PoolQuoteUnavailableError`: "Cannot read the pool quote right now; try again. Nothing was sent." Nothing is sent in
+either case. Checked against Sepolia on 2026-10-12: the real revert of `quote_swap(2^128)` is a revert, an unreachable
+node is not. The game page shows it as "Cannot start a
 game: ..." (the purchase's consent is already cleared, so nothing is retried).
 
 The purchase screen reads the same quote for the stake shown and displays "PAVED bought and burned: at least <min_out>
 (quoted again when sent)", and the same figure in the confirm. When the read reverts or fails it shows only
-`POOL_CANNOT_FILL` and a disabled "Pool cannot fill" button. **No stale quote**: the figure is shown only from an answer
+`POOL_CANNOT_FILL` and a disabled "Pool cannot fill" button; a read that failed without a revert shows
+`POOL_QUOTE_UNAVAILABLE` and a disabled "Pool quote unavailable". **No stale quote**: the figure is shown only from an answer
 for the current stake that is not being read again and has no error (`useAsyncRead` keeps an old answer next to a new
 error; the screen does not show it). The quote is read again when the page becomes visible.
 

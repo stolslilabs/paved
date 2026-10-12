@@ -7,11 +7,15 @@ import { hash, shortString } from "starknet";
 import { createCodecs, createEconomyCodecs } from "../src/abis";
 import { resolveDeployment } from "../src/deployment";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
-import { FakeGameViews } from "../src/views";
+import { FakeGameViews, ViewError } from "../src/views";
 import {
   EconomyPoolQuoter,
   POOL_CANNOT_FILL,
+  POOL_QUOTE_UNAVAILABLE,
   PoolCannotFillError,
+  PoolPriceMovedError,
+  PoolQuoteUnavailableError,
+  isQuoteRevert,
   createEconomyClient,
   minOutFor,
   poolQuoterFor,
@@ -93,14 +97,14 @@ describe("one quoter, Economy.quote_swap, on every network (E-9)", () => {
   });
 });
 
-describe("a quote_swap that reverts or fails: the player reads that the pool cannot fill, nothing is sent", () => {
-  const request = { stake: 10, confirmedPrice: 10n * FAKE_UNIT, referrer: null };
+describe("a quote_swap that reverts: the player reads that the pool cannot fill, nothing is sent", () => {
+  const request = { stake: 10, confirmedPrice: 10n * FAKE_UNIT, confirmedMinOut: 1n, referrer: null };
 
   test.each([
     ["'Economy: partial fill'", revert("Economy: partial fill")],
     ["another router revert", revert("LIMIT_DIRECTION")],
     ["'Economy: wrong delta'", revert("Economy: wrong delta")],
-    ["an RPC error", new Error("fetch failed: ECONNRESET")],
+    ["a CONTRACT_ERROR (code 40) whose text names no reason", Object.assign(new Error("RPC: starknet_call with params {}"), { code: 40 })],
   ])("%s", async (_name, error) => {
     const { quoter, callContract } = realQuoter(() => error);
     const { econWriter, execute } = setup(quoter);
@@ -117,6 +121,78 @@ describe("a quote_swap that reverts or fails: the player reads that the pool can
   });
 });
 
+describe("a quote that cannot be read (transport, not a revert): 'cannot read the pool quote', nothing is sent", () => {
+  const request = { stake: 10, confirmedPrice: 10n * FAKE_UNIT, confirmedMinOut: 1n, referrer: null };
+
+  test.each([
+    ["an RPC transport error", new Error("fetch failed: ECONNRESET")],
+    ["a rate limit (-32011)", Object.assign(new Error("RPC: starknet_call with params {}\n -32011: Too many requests"), { code: -32011 })],
+    ["an HTTP 429", new Error("Too Many Requests (429)")],
+    ["a timeout", new Error("The operation was aborted due to timeout")],
+  ])("%s", async (_name, error) => {
+    const { quoter, callContract } = realQuoter(() => error);
+    const { econWriter, execute } = setup(quoter);
+    const refused = await econWriter.purchase(request).then(() => null, (e: unknown) => e);
+    expect(refused).toBeInstanceOf(PoolQuoteUnavailableError);
+    expect(refused).not.toBeInstanceOf(PoolCannotFillError);
+    expect((refused as Error).message).toBe(`${POOL_QUOTE_UNAVAILABLE} Nothing was sent.`);
+    expect(callContract).toHaveBeenCalledTimes(1);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("isQuoteRevert: the contract's refusals only, through the ViewError's cause", () => {
+    expect(isQuoteRevert(revert("Economy: partial fill"))).toBe(true);
+    expect(isQuoteRevert(new ViewError("rpc", "RPC failed", Object.assign(new Error("x"), { code: 40 })))).toBe(true);
+    expect(isQuoteRevert(new ViewError("rpc", "fetch failed"))).toBe(false);
+    expect(isQuoteRevert(Object.assign(new Error("rate limited"), { code: 429 }))).toBe(false);
+  });
+});
+
+describe("the min_out the player confirmed is a floor: never sent below it", () => {
+  const moved = (paved: bigint) => {
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved, usdc: 1_000_000n };
+    return pool;
+  };
+
+  test("a send-time quote lower than the confirmed one: PoolPriceMovedError, nothing sent", async () => {
+    const shown = new FakePoolQuoter();
+    const { economy } = setup(shown);
+    const confirmedMinOut = minOutFor(await shown.quoteSwap((await economy.quote(3)).burnQuote));
+    const { econWriter, execute } = setup(moved(79n * 10n ** 18n)); // the pool moved down
+    const refused = await econWriter.purchase({ stake: 3, confirmedPrice: 3n * FAKE_UNIT, confirmedMinOut, referrer: null }).then(() => null, (e: unknown) => e);
+    expect(refused).toBeInstanceOf(PoolPriceMovedError);
+    expect((refused as Error).message).toBe("The pool price moved: confirm again");
+    expect((refused as PoolPriceMovedError).confirmed).toBe(confirmedMinOut);
+    expect((refused as PoolPriceMovedError).current).toBeLessThan(confirmedMinOut);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  test("an equal or higher one sends, with min_out at least the confirmed one", async () => {
+    const shown = new FakePoolQuoter();
+    const { economy } = setup(shown);
+    const confirmedMinOut = minOutFor(await shown.quoteSwap((await economy.quote(3)).burnQuote));
+    for (const pool of [new FakePoolQuoter(), moved(81n * 10n ** 18n)]) {
+      const { econWriter, minOutSent } = setup(pool);
+      await econWriter.purchase({ stake: 3, confirmedPrice: 3n * FAKE_UNIT, confirmedMinOut, referrer: null });
+      expect(minOutSent()).toBeGreaterThanOrEqual(confirmedMinOut);
+    }
+  });
+
+  test.each([
+    ["missing", undefined],
+    ["0", 0n],
+    ["negative", -1n],
+    ["not a bigint", 5 as unknown as bigint],
+  ])("a confirmed floor that is %s: refused before any quote, nothing sent", async (_name, confirmedMinOut) => {
+    const pool = new FakePoolQuoter();
+    const { econWriter, execute } = setup(pool);
+    await expect(econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: confirmedMinOut as bigint, referrer: null })).rejects.toThrow("No confirmed minimum PAVED: confirm again");
+    expect(pool.calls).toEqual([]);
+    expect(execute).not.toHaveBeenCalled();
+  });
+});
+
 describe("min_out from a fresh quote of the purchase's own amount", () => {
   test("rounding: the quote less the slippage, rounded down, never up", async () => {
     expect(minOutFor(10_001n)).toBe(9_900n); // 9,900.99
@@ -124,21 +200,21 @@ describe("min_out from a fresh quote of the purchase's own amount", () => {
     expect(minOutFor(10_099n, 500n)).toBe(9_594n); // 9,594.05
     for (const [poolOut, expected] of [[10_001n, 9_900n], [101n, 99n], [3n, 2n]] as const) {
       const { econWriter, minOutSent } = setup(realQuoter(() => poolOut).quoter);
-      await econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, referrer: null });
+      await econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null });
       expect(minOutSent()).toBe(expected);
     }
   });
 
   test("a quote whose min_out rounds to 0 (a quote of 1) is refused, nothing sent", async () => {
     const { econWriter, execute } = setup(realQuoter(() => 1n).quoter);
-    await expect(econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, referrer: null })).rejects.toBeInstanceOf(PoolCannotFillError);
+    await expect(econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null })).rejects.toBeInstanceOf(PoolCannotFillError);
     expect(execute).not.toHaveBeenCalled();
   });
 
   test.each([1, 4, 10])("stake %i: the quote is for exactly the burn part the purchase swaps (Economy.quote's burn_quote)", async (stake) => {
     const pool = new FakePoolQuoter();
     const { economy, econWriter, minOutSent } = setup(pool);
-    await econWriter.purchase({ stake, confirmedPrice: BigInt(stake) * FAKE_UNIT, referrer: null });
+    await econWriter.purchase({ stake, confirmedPrice: BigInt(stake) * FAKE_UNIT, confirmedMinOut: 1n, referrer: null });
     const { burnQuote } = await economy.quote(stake);
     expect(pool.calls).toEqual([burnQuote]);
     expect(minOutSent()).toBe(minOutFor(await new FakePoolQuoter().quoteSwap(burnQuote)));
@@ -149,12 +225,12 @@ describe("min_out from a fresh quote of the purchase's own amount", () => {
     const { economy, econWriter, execute } = setup(pool);
     const real = economy.quote.bind(economy);
     economy.quote = async (stake) => ({ ...(await real(stake)), burnQuote: 0n });
-    await expect(econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, referrer: null })).rejects.toThrow(/burn part/);
+    await expect(econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(/burn part/);
     economy.quote = async (stake) => {
       const q = await real(stake);
       return { ...q, burnQuote: q.price + 1n };
     };
-    await expect(econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, referrer: null })).rejects.toThrow(/burn part/);
+    await expect(econWriter.purchase({ stake: 1, confirmedPrice: FAKE_UNIT, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(/burn part/);
     expect(pool.calls).toEqual([]);
     expect(execute).not.toHaveBeenCalled();
   });
@@ -165,14 +241,14 @@ describe("min_out from a fresh quote of the purchase's own amount", () => {
     const { burnQuote } = await economy.quote(2);
     const shown = minOutFor(await pool.quoteSwap(burnQuote)); // what the purchase screen displayed
     pool.rate = { paved: 40n * 10n ** 18n, usdc: 1_000_000n }; // the pool moved: half the PAVED per USDC
-    await econWriter.purchase({ stake: 2, confirmedPrice: 2n * FAKE_UNIT, referrer: null });
+    await econWriter.purchase({ stake: 2, confirmedPrice: 2n * FAKE_UNIT, confirmedMinOut: 1n, referrer: null });
     expect(pool.calls).toEqual([burnQuote, burnQuote]); // the display's quote, then the send's own
     const moved = new FakePoolQuoter();
     moved.rate = pool.rate;
     expect(minOutSent()).toBe(minOutFor(await moved.quoteSwap(burnQuote)));
     expect(minOutSent()).toBeLessThan(shown);
     // Each send quotes again: nothing is cached between purchases.
-    await econWriter.purchase({ stake: 2, confirmedPrice: 2n * FAKE_UNIT, referrer: null });
+    await econWriter.purchase({ stake: 2, confirmedPrice: 2n * FAKE_UNIT, confirmedMinOut: 1n, referrer: null });
     expect(pool.calls).toHaveLength(3);
   });
 });

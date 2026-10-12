@@ -22,6 +22,29 @@ export const POOL_QUOTE_CONFIRMED = true;
  */
 export const POOL_CANNOT_FILL = "The pool cannot fill this purchase right now. Try a smaller stake or later.";
 
+/** What the player reads when the quote could not be read at all (an RPC error, a rate limit, a timeout): not a revert. */
+export const POOL_QUOTE_UNAVAILABLE = "Cannot read the pool quote right now; try again.";
+
+/** The Economy's own refusals of `quote_swap` (E-9: F1, F2, the `u128` bound). */
+const QUOTE_REVERTS = ["Economy: partial fill", "Economy: wrong delta", "Economy: amount too large"];
+
+/**
+ * Whether a failed quote is the contract's answer (a revert of `quote_swap`, the Economy's or its router's) rather than a
+ * failure to reach it. A node reports a revert of a view as `CONTRACT_ERROR` (JSON-RPC code 40) with a `revert_error`;
+ * anything else (a transport error, a rate limit -32011 or 429, a timeout, a malformed answer) is not one.
+ */
+export function isQuoteRevert(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  for (let e: unknown = error; e && !seen.has(e); e = (e as { cause?: unknown }).cause) {
+    seen.add(e);
+    if ((e as { code?: unknown }).code === 40) return true;
+    const text = e instanceof Error ? e.message : String(e);
+    if (/revert_error|Contract error|ENTRYPOINT_FAILED|execution reverted/i.test(text)) return true;
+    if (QUOTE_REVERTS.some((reason) => text.includes(reason))) return true;
+  }
+  return false;
+}
+
 /**
  * `Economy.quote_swap(usdc_in) -> paved_out` on every network (E-9): the Economy asks its router's own `quote_swap`
  * through the node `purchase` swaps through (its pool key and price limit, one hop), so the quote is the purchase's

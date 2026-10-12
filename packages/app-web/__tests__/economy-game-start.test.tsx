@@ -4,7 +4,7 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { FakeGameViews, POOL_CANNOT_FILL, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
+import { FakeGameViews, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
 import type { PavedClient } from "@paved/chain";
 import { FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "@paved/chain/testing";
 import { GamePage } from "../src/pages/Game";
@@ -59,7 +59,7 @@ function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSp
 
 describe("GamePage purchase", () => {
   it("clears the consent, then sends approve USDC + spawn(stake, referrer, min_out) of the confirmed price, and opens the game", async () => {
-    const { sent, spawn, economy } = setup({ state: purchaseIntent(4, 8_000_000n, "0x77") });
+    const { sent, spawn, economy } = setup({ state: purchaseIntent(4, 8_000_000n, "0x77", await new FakeEconomy().expectedMinOut(4)) });
     await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/id=9/));
     expect(sent).toHaveLength(1);
     expect(sent[0].map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.usdc, "approve"], [ADDR.Daily, "spawn"]]);
@@ -70,14 +70,14 @@ describe("GamePage purchase", () => {
   });
 
   it("a price changed since the confirm sends nothing and says so", async () => {
-    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null), unit: 3_000_000n });
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), unit: 3_000_000n });
     expect(await screen.findByText("Cannot start a game: The price changed: confirm again")).toBeTruthy();
     expect(sent).toHaveLength(0);
     expect(screen.getByTestId("where").textContent).toMatch(/\|null$/);
   });
 
   it("a receipt without GameSpawned: 'sent, outcome unknown' with the hash, no retry, never 'Cannot start'", async () => {
-    const { sendCalls } = setup({ state: purchaseIntent(1, 2_000_000n, null), noGameSpawned: true });
+    const { sendCalls } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), noGameSpawned: true });
     expect(await screen.findByText("Purchase sent (0x1), outcome unknown: check your games before buying again")).toBeTruthy();
     expect(screen.queryByText(/Cannot start a game/)).toBeNull();
     expect(screen.queryByText(/buy|retry/i, { selector: "button" })).toBeNull();
@@ -87,7 +87,7 @@ describe("GamePage purchase", () => {
   });
 
   it("sent, then the receipt could not be read: 'sent, outcome unknown', like the empty receipt", async () => {
-    const { sendCalls } = setup({ state: purchaseIntent(1, 2_000_000n, null), sendError: new WriteError("socket hang up", "0xab") });
+    const { sendCalls } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), sendError: new WriteError("socket hang up", "0xab") });
     expect(await screen.findByText("Purchase sent (0xab), outcome unknown: check your games before buying again")).toBeTruthy();
     expect(screen.queryByText(/Cannot start a game/)).toBeNull();
     expect(sendCalls).toHaveBeenCalledTimes(1);
@@ -97,13 +97,13 @@ describe("GamePage purchase", () => {
     // PurchaseOutcomeUnknownError extends WriteError: the page tests it first.
     const unknown = new PurchaseOutcomeUnknownError("0xcd");
     expect(unknown).toBeInstanceOf(WriteError);
-    setup({ state: purchaseIntent(1, 2_000_000n, null), sendError: unknown });
+    setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), sendError: unknown });
     expect(await screen.findByText("Purchase sent (0xcd), outcome unknown: check your games before buying again")).toBeTruthy();
     expect(screen.queryByText(/Cannot start a game/)).toBeNull();
   });
 
   it("a reverted purchase is a known failure: 'Cannot start a game' with its reason", async () => {
-    setup({ state: purchaseIntent(1, 2_000_000n, null), sendError: new WriteError("Economy: slippage", "0xab", true) });
+    setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), sendError: new WriteError("Economy: slippage", "0xab", true) });
     expect(await screen.findByText("Cannot start a game: Economy: slippage")).toBeTruthy();
     expect(screen.queryByText(/outcome unknown/)).toBeNull();
   });
@@ -111,12 +111,47 @@ describe("GamePage purchase", () => {
   it("a quote_swap that reverts at send (the pool cannot fill): the plain message, nothing sent", async () => {
     const pool = new FakePoolQuoter();
     pool.fail = "Economy: partial fill";
-    const { sent } = setup({ state: purchaseIntent(10, 20_000_000n, null), pool });
+    const { sent } = setup({ state: purchaseIntent(10, 20_000_000n, null, 1n), pool });
     expect(await screen.findByText(`Cannot start a game: ${POOL_CANNOT_FILL} Nothing was sent.`)).toBeTruthy();
     expect(screen.queryByText(/partial fill/)).toBeNull();
     expect(pool.calls).toHaveLength(1);
     expect(sent).toHaveLength(0);
     expect(screen.getByTestId("where").textContent).toMatch(/\|null$/);
+  });
+
+  it("a pool that moved down since the confirm (a fresh min_out below the confirmed one): nothing sent, confirm again", async () => {
+    const confirmed = await new FakeEconomy().expectedMinOut(2);
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 79n * 10n ** 18n, usdc: 1_000_000n };
+    const { sent } = setup({ state: purchaseIntent(2, 4_000_000n, null, confirmed), pool });
+    expect(await screen.findByText("Cannot start a game: The pool price moved: confirm again")).toBeTruthy();
+    expect(pool.calls).toHaveLength(1);
+    expect(sent).toHaveLength(0);
+    expect(screen.getByTestId("where").textContent).toMatch(/\|null$/);
+  });
+
+  it("an equal or higher fresh quote sends, with min_out at least the confirmed one", async () => {
+    const confirmed = await new FakeEconomy().expectedMinOut(2);
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 81n * 10n ** 18n, usdc: 1_000_000n };
+    const { sent } = setup({ state: purchaseIntent(2, 4_000_000n, null, confirmed), pool });
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/id=9/));
+    expect(BigInt(sent[0][1].calldata[2])).toBeGreaterThanOrEqual(confirmed);
+  });
+
+  it("a quote that cannot be read at send (not a revert): 'cannot read the pool quote', nothing sent", async () => {
+    const pool = new FakePoolQuoter();
+    pool.fail = "fetch failed";
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), pool });
+    expect(await screen.findByText(`Cannot start a game: ${POOL_QUOTE_UNAVAILABLE} Nothing was sent.`)).toBeTruthy();
+    expect(sent).toHaveLength(0);
+  });
+
+  it("an intent without a confirmed floor buys nothing", async () => {
+    const { sendCalls, spawn } = setup({ state: { start: true, purchase: { stake: 1, confirmedPrice: "2000000", referrer: null } } });
+    expect(screen.getByText("No game selected")).toBeTruthy();
+    expect(sendCalls).not.toHaveBeenCalled();
+    expect(spawn).not.toHaveBeenCalled();
   });
 
   it("a URL alone buys nothing", async () => {
