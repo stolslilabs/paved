@@ -24,6 +24,14 @@ interface ModeInfo {
   paid: boolean;
 }
 
+/**
+ * The right panel stays above the notice footer: 16 px top margin and 64 px for the footer (one line is about 33 px, two
+ * wrapped lines about 57 px, so 64 covers a narrow screen). `100vh` includes the area under a mobile browser's address
+ * bar, so `100dvh` is the height, with `100vh` first for browsers without it (an inline style cannot carry both).
+ */
+export const PANEL_MAX_HEIGHT_CSS =
+  ".landing-right-panel{max-height:calc(100vh - 16px - 64px);max-height:calc(100dvh - 16px - 64px)}";
+
 /** The two modes the contracts have since P1 (Weekly and configurable games are gone). */
 const MODES: ModeInfo[] = [
   { mode: "daily", title: "Daily Challenge", tiles: 38, duration: "24 hours", paid: true },
@@ -222,7 +230,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
 
   return (
     <>
-      <div style={{ position: "fixed", right: 16, top: 16, zIndex: 30, width: 320, maxHeight: "calc(100vh - 16px - 64px)", overflowY: "auto" }}>
+      <style>{PANEL_MAX_HEIGHT_CSS}</style>
+      <div className="landing-right-panel" style={{ position: "fixed", right: 16, top: 16, zIndex: 30, width: 320, overflowY: "auto" }}>
         <TokenPanel
           networkLabel={deployment.network}
           balanceLabel={tokenLabel(balance.data ?? 0n, deployment.tokenDecimals)}
