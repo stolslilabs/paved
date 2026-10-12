@@ -253,6 +253,10 @@ view, never from here.
   after 10 s, or a 5xx without an envelope), `wrong-version` (envelope `version` is not 1, checked first), `unavailable`
   (503: `status` is `loading`, `rewinding` or `halted`), `not-found` (404), `rejected` (400, or an id refused
   before sending) and `bad-response` (the shape is not the doc's: nothing is guessed).
+- A `429` is the indexer's own per-address rate limit (P-43): it is busy, not broken. The client waits the `Retry-After`
+  seconds (capped at `MAX_RETRY_AFTER_SECONDS`, 10 s) and asks once more. A second `429`, or a `429` with no `Retry-After`
+  in whole seconds, ends as a `rejected` error with `httpStatus` 429, the same fall-back as any indexer error (the bounded RPC
+  scans where they exist). One retry at most, never a loop; every other status is read as before.
 - The base URL is `VITE_INDEXER_URL`; the deployments file is not touched. With none, `createIndexerClient` gives
   `null` and the screens say "Leaderboard unavailable": no request, no placeholder rows.
 - `IndexerProvider`, `useIndexer` and `useIndexerRead` follow the rules of `useRead`: a read on its inputs, on
