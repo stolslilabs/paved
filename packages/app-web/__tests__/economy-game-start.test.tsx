@@ -4,7 +4,7 @@ import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { FakeGameViews, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
+import { FakeGameViews, POOL_CANNOT_FILL, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
 import type { PavedClient } from "@paved/chain";
 import { FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "@paved/chain/testing";
 import { GamePage } from "../src/pages/Game";
@@ -28,7 +28,7 @@ const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" 
 const base = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } });
 const account = { address: "0x5", execute: async () => ({ transaction_hash: "0x0" }) };
 
-function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSpawned?: boolean; sendError?: WriteError }) {
+function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSpawned?: boolean; sendError?: WriteError; pool?: FakePoolQuoter }) {
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: opts.unit ?? FAKE_UNIT };
   const economy = new FakeEconomy();
@@ -46,7 +46,7 @@ function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSp
     <PavedProvider deployment={base} account={account} client={client}>
       <MemoryRouter initialEntries={[{ pathname: "/game", search: opts.search ?? "?mode=daily", state: opts.state }]}>
         <Where />
-        <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base, env: ECON }), views: economy, poolQuoter: new FakePoolQuoter() }}>
+        <EconomyProvider value={{ deployment: resolveEconomyDeployment({ base, env: ECON }), views: economy, poolQuoter: opts.pool ?? new FakePoolQuoter() }}>
           <Routes>
             <Route path="/game" element={<GamePage />} />
           </Routes>
@@ -106,6 +106,17 @@ describe("GamePage purchase", () => {
     setup({ state: purchaseIntent(1, 2_000_000n, null), sendError: new WriteError("Economy: slippage", "0xab", true) });
     expect(await screen.findByText("Cannot start a game: Economy: slippage")).toBeTruthy();
     expect(screen.queryByText(/outcome unknown/)).toBeNull();
+  });
+
+  it("a quote_swap that reverts at send (the pool cannot fill): the plain message, nothing sent", async () => {
+    const pool = new FakePoolQuoter();
+    pool.fail = "Economy: partial fill";
+    const { sent } = setup({ state: purchaseIntent(10, 20_000_000n, null), pool });
+    expect(await screen.findByText(`Cannot start a game: ${POOL_CANNOT_FILL} Nothing was sent.`)).toBeTruthy();
+    expect(screen.queryByText(/partial fill/)).toBeNull();
+    expect(pool.calls).toHaveLength(1);
+    expect(sent).toHaveLength(0);
+    expect(screen.getByTestId("where").textContent).toMatch(/\|null$/);
   });
 
   it("a URL alone buys nothing", async () => {

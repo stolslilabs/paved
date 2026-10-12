@@ -100,16 +100,7 @@ export function EconomyPurchase({
       {noPool && <span role="alert" style={alert}>No pool quote: purchase unavailable</span>}
       {!noPool && cannotFill && <span role="alert" style={alert}>{POOL_CANNOT_FILL}</span>}
       {!asking ? (
-        <button
-          type="button"
-          style={confirmButton}
-          disabled={!canBuy}
-          onClick={() => {
-            // The confirm shows the pool as it is now.
-            poolQuote.refresh();
-            setAsking(true);
-          }}
-        >
+        <button type="button" style={confirmButton} disabled={!canBuy} onClick={() => setAsking(true)}>
           {!ready ? "Not connected" : noPool ? "No pool quote" : cannotFill ? "Pool cannot fill" : price !== null ? `Buy for ${usdc(price)}` : "Price unavailable"}
         </button>
       ) : (
