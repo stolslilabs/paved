@@ -61,6 +61,7 @@ dependencies = [
  "openzeppelin_token",
  "openzeppelin_upgrades",
  "quiver_achievement",
+ "quiver_leaderboard",
  "quiver_quest",
  "snforge_scarb_plugin",
  "snforge_std",
@@ -71,6 +72,12 @@ name = "quiver_achievement"
 version = "0.2.0"
 source = "registry+https://scarbs.xyz/"
 checksum = "sha256:a66de3292e925cdcb2b4c669763d1d75f4aab4edcbe523a2043fb1320449e3db"
+
+[[package]]
+name = "quiver_leaderboard"
+version = "0.1.0"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:f8900c602c983acbbc39513a964eefacdbcb861902b2501d9e50b891981e770e"
 
 [[package]]
 name = "quiver_quest"

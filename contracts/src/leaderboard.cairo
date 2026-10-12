@@ -3,8 +3,9 @@
 //!
 //! The game flow submits a finished game with `submit` and reads the three prize ranks with `top`
 //! or `ranked`; it knows nothing else of how the ranking is kept. The implementation here is the
-//! native one: the logic that was `Tournament::score`, over four slots of `PavedStorage` (`Store`).
-//! A published package can replace it by changing this module alone.
+//! published package `quiver_leaderboard` 0.1.0 (L-1, stage B), on its own storage node; the
+//! native one (the logic that was `Tournament::score`, over four slots of `PavedStorage`) is in
+//! the history of this module.
 //!
 //! The rule, which every implementation keeps:
 //! - a score at or below the score of rank 3 does not rank, so equal scores keep the earlier
@@ -13,19 +14,13 @@
 //! - games are ranked, not players: one player can hold two or three ranks;
 //! - the order is the order of the calls: `game_id` and `time` take no part.
 
-use paved::store::{Slots4, Store, StoreImpl, StoreTrait};
-
-// Constants
-
-const TWO_POW_32: u128 = 0x100000000;
-const TWO_POW_64: u128 = 0x10000000000000000;
-const MASK_32: u128 = 0xffffffff;
-
-/// Slots of a ranking (`Slots4`): the packed scores, then the players of ranks 1, 2 and 3.
-const SCORES: u8 = 0;
-const FIRST: u8 = 1;
-const SECOND: u8 = 2;
-const THIRD: u8 = 3;
+use quiver_leaderboard::leaderboard::{
+    LeaderboardTrait as PackageTrait, LeaderboardViewTrait as PackageViewTrait,
+};
+use quiver_leaderboard::store::LeaderboardStorage;
+use quiver_leaderboard::types::ranked::Ranked as PackageRanked;
+use quiver_leaderboard::types::submission::Submission as PackageSubmission;
+use starknet::storage::{Mutable, StorageAsPath, StorageBase, StoragePath};
 
 // Types
 
@@ -86,18 +81,22 @@ pub impl Top3Impl of Top3Trait {
     }
 }
 
-// Native implementation
+// Implementation: `quiver_leaderboard` 0.1.0
 
-/// The three scores of the word `scores` of the ranking, rank 1 first.
-#[inline]
-fn unpack(scores: felt252) -> (u128, u128, u128) {
-    let word: u256 = scores.into();
-    (word.low & MASK_32, (word.low / TWO_POW_32) & MASK_32, (word.low / TWO_POW_64) & MASK_32)
+/// The package's node, rooted at its own address in the storage of the contract that runs the
+/// code, as `PavedStorage` is at `selector!("paved")`: two maps, `scores` and `players` (four
+/// slots per tournament).
+#[inline(always)]
+fn board() -> StoragePath<Mutable<LeaderboardStorage>> {
+    let base: StorageBase<Mutable<LeaderboardStorage>> = StorageBase {
+        __base_address__: selector!("leaderboard"),
+    };
+    base.as_path()
 }
 
-#[inline]
-fn pack(first: u128, second: u128, third: u128) -> felt252 {
-    (first + second * TWO_POW_32 + third * TWO_POW_64).into()
+#[inline(always)]
+fn ranked_of(value: PackageRanked) -> Ranked {
+    Ranked { player_id: value.player_id, score: value.score }
 }
 
 pub impl LeaderboardImpl of LeaderboardTrait {
@@ -107,71 +106,18 @@ pub impl LeaderboardImpl of LeaderboardTrait {
     }
 
     fn submit(self: Leaderboard, tournament_id: u64, submission: Submission) -> u8 {
-        // [Check] A score of 0 never ranks, and a player of 0 is an empty rank: it cannot be ranked
-        if submission.score == 0 || submission.player_id == 0 {
-            return 0;
-        }
-        let store: Store = StoreImpl::new();
-        let base = store.ranking_base(tournament_id);
-        let (first, second, third) = unpack(store.ranking_read(base, SCORES));
-        let score: u128 = submission.score.into();
-        let player = submission.player_id;
-
-        // [Check] At or below rank 3, or score 0 (an empty rank has score 0): not placed
-        if score <= third {
-            return 0;
-        }
-
-        // [Effect] Rank 3, 2 or 1: the lower ranks move down, the last one leaves. Only the slots
-        // that change are written.
-        if score <= second {
-            store.ranking_write(base, SCORES, pack(first, second, score));
-            store.ranking_write(base, THIRD, player);
-            3
-        } else if score <= first {
-            let moved = store.ranking_read(base, SECOND);
-            store.ranking_write(base, SCORES, pack(first, score, second));
-            store.ranking_write(base, SECOND, player);
-            store.ranking_write(base, THIRD, moved);
-            2
-        } else {
-            let moved_first = store.ranking_read(base, FIRST);
-            let moved_second = store.ranking_read(base, SECOND);
-            store.ranking_write(base, SCORES, pack(score, first, second));
-            store.ranking_write(base, FIRST, player);
-            store.ranking_write(base, SECOND, moved_first);
-            store.ranking_write(base, THIRD, moved_second);
-            1
-        }
+        let Submission { player_id, game_id, score, time } = submission;
+        board().submit(tournament_id, PackageSubmission { player_id, game_id, score, time })
     }
 
     fn ranked(self: Leaderboard, tournament_id: u64, rank: u8) -> Ranked {
-        if rank == 0 || rank > 3 {
-            return Ranked { player_id: 0, score: 0 };
-        }
-        // Two slots: the scores, and the player of the rank
-        let store: Store = StoreImpl::new();
-        let base = store.ranking_base(tournament_id);
-        let (first, second, third) = unpack(store.ranking_read(base, SCORES));
-        let score = match rank {
-            1 => first,
-            2 => second,
-            _ => third,
-        };
-        // An empty rank has score 0 and no player
-        if score == 0 {
-            return Ranked { player_id: 0, score: 0 };
-        }
-        Ranked { player_id: store.ranking_read(base, rank), score: score.try_into().unwrap() }
+        ranked_of(board().ranked(tournament_id, rank))
     }
 
     fn top(self: Leaderboard, tournament_id: u64) -> Top3 {
-        let ranking = StoreImpl::new().ranking(tournament_id);
-        let (first, second, third) = unpack(ranking.a);
+        let top = board().top(tournament_id);
         Top3 {
-            first: Ranked { player_id: ranking.b, score: first.try_into().unwrap() },
-            second: Ranked { player_id: ranking.c, score: second.try_into().unwrap() },
-            third: Ranked { player_id: ranking.d, score: third.try_into().unwrap() },
+            first: ranked_of(top.first), second: ranked_of(top.second), third: ranked_of(top.third),
         }
     }
 }
