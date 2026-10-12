@@ -60,7 +60,7 @@ export async function connect({ address, privateKey, rpcUrl, network, chainId },
   return { provider, account, rpcUrl, network, fetch: baseFetch, expected };
 }
 
-// The read methods retried on a transient failure (S-1c: a Sepolia endpoint answered -32601 "method does not exist"
+// The read methods retried on a transient failure (S-1c, S-1f: a Sepolia endpoint answered -32601 "method does not exist"
 // at random, with HTTP 200 or 400). A starknet_add* method is never retried: if one fails, the transaction may or may
 // not be in, and the run stops there.
 export const RETRIED_METHODS = Object.freeze(new Set([
@@ -87,20 +87,41 @@ function requestMethod(init) {
   }
 }
 
-// Transient: HTTP 5xx, or a JSON-RPC error -32601 (whatever the HTTP status).
+// The longest wait a Retry-After header can ask for; a larger one is ignored (the scheduled delay is used).
+export const RETRY_AFTER_MAX_MS = 30_000;
+
+// Transient: HTTP 5xx, HTTP 429 (rate limit), or a JSON-RPC error -32601 (whatever the HTTP status) or -32011 (rate
+// limit, as the public Sepolia endpoint answers under load).
 function transient(status, text) {
-  if (status >= 500) return true;
+  if (status >= 500 || status === 429) return true;
   try {
-    return JSON.parse(text)?.error?.code === -32601;
+    const code = JSON.parse(text)?.error?.code;
+    return code === -32601 || code === -32011;
   } catch {
     return false;
   }
 }
 
+// The Retry-After header in seconds (delta-seconds form), as milliseconds; undefined when absent, not a whole number of
+// seconds, or over RETRY_AFTER_MAX_MS.
+function retryAfterMs(headers) {
+  const value = headers?.get('retry-after')?.trim();
+  if (!value || !/^\d{1,9}$/.test(value)) return undefined;
+  const ms = Number(value) * 1000;
+  return ms <= RETRY_AFTER_MAX_MS ? ms : undefined;
+}
+
+// The cause of a transient answer as the stderr line names it: the HTTP status, and the JSON-RPC code of a rate limit
+// (HTTP 200 would otherwise name no cause).
+function describeTransient(status, text) {
+  return parseJson(text)?.error?.code === -32011 ? `HTTP ${status}, JSON-RPC error -32011` : `HTTP ${status}`;
+}
+
 /**
  * A fetch that retries a read method of RETRIED_METHODS, up to 5 attempts with the waits of RETRY_DELAYS_MS, while
- * the node answers HTTP 5xx or the JSON-RPC error -32601. Any other method (every starknet_add* among them) goes
- * through once, untouched. Each retry is announced on stderr. The last answer is returned as it came.
+ * the node answers HTTP 5xx, HTTP 429, or the JSON-RPC errors -32601 or -32011 (rate limit). A Retry-After header of
+ * at most 30 s replaces the scheduled wait; a longer one is ignored. Any other method (every starknet_add* among
+ * them) goes through once, untouched. Each retry is announced on stderr. The last answer is returned as it came.
  * @param {typeof fetch} inner
  * @param {{ delays?: readonly number[], sleep?: (ms: number) => Promise<void> }} [options]
  */
@@ -115,8 +136,10 @@ export function retryingFetch(inner, { delays = RETRY_DELAYS_MS, sleep = (ms) =>
       if (last || !transient(response.status, text)) {
         return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
       }
-      process.stderr.write(`signer: ${method} failed (HTTP ${response.status}), attempt ${attempt} of ${delays.length + 1}; retrying\n`);
-      await sleep(delays[attempt - 1]);
+      const asked = retryAfterMs(response.headers);
+      const wait = asked ?? delays[attempt - 1];
+      process.stderr.write(`signer: ${method} failed (${describeTransient(response.status, text)}), attempt ${attempt} of ${delays.length + 1}; retrying${asked === undefined ? '' : ` after ${asked / 1000} s (Retry-After)`}\n`);
+      await sleep(wait);
     }
   };
 }

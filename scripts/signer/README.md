@@ -111,9 +111,16 @@ with HTTP 200 or 400. So:
 
 - **Read methods are retried**: `starknet_getNonce`, `estimateFee`, `getClassAt`, `getClassHashAt`,
   `getClass`, `call`, `getTransactionReceipt`, `getTransactionStatus`, `chainId`, `specVersion`
-  (`RETRIED_METHODS`). The retry applies on HTTP 5xx or the JSON-RPC error -32601: at most 5 attempts,
-  with waits of 1, 2, 4 and 8 s, each retry announced on stderr. A **`starknet_add*` method is never
-  retried**: if its answer is lost, the transaction may or may not be in (see the next section). Once a
+  (`RETRIED_METHODS`). The retry applies on HTTP 5xx, HTTP 429, or the JSON-RPC errors -32601 and -32011
+  (rate limit, S-1f: the public Sepolia endpoint answers it under load): at most 5 attempts,
+  with waits of 1, 2, 4 and 8 s, each retry announced on stderr with its cause. A `Retry-After` header (in
+  seconds) of at most 30 s replaces the scheduled wait; a longer one, or one that is not a whole number of
+  seconds, is ignored and the scheduled wait applies (`RETRY_AFTER_MAX_MS` = 30 s, so no wait is longer than
+  30 s on its account). A **`starknet_add*` method is never
+  retried**, rate limit or not: if its answer is lost, the transaction may or may not be in (see the next
+  section; an add* answered -32011 or 429 is a lost answer there, so its receipt is read for 300 s and it
+  ends with the receipt's outcome or `sent, status unknown: <hash>; check it before any rerun`, never
+  `not landed`; -32011 is not in `CHECKED_REFUSALS`). Once a
   transaction is sent, a status that cannot be read stops the command with its hash (`transaction <hash>
   was sent, but its status could not be read`).
 - **The nonce is read once and passed explicitly.** starknet.js would fall back to nonce 0 when the read

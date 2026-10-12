@@ -333,6 +333,36 @@ test('a refusal of the write API (other than -32601, 51, 52) is returned as it c
   }
 });
 
+// S-1f: a rate-limited add* (-32011, HTTP 429) is not in REFUSAL_CODES, so it is a lost answer, not a refusal: never sent
+// again, the receipt of the computed hash is read (a read, retried on rate limits), and the command ends with the
+// receipt's outcome or "sent, status unknown: <hash>; check it before any rerun". It is never reported "not landed".
+test('an add* answered -32011 or HTTP 429 is sent once, then recovered from the receipt, never reported not landed', async () => {
+  assert.ok(!REFUSAL_CODES.has(-32011) && !CHECKED_REFUSALS.has(-32011));
+  const limited = () => new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, error: { code: -32011, message: 'rate limit' } }), { status: 200 });
+  const tooMany = () => new Response('Too Many Requests', { status: 429, headers: { 'retry-after': '2' } });
+  for (const [answer, receipt] of [[limited, true], [tooMany, true], [limited, false], [tooMany, false]]) {
+    const methods = [];
+    let clock = 0;
+    const fetch = sendingFetch(async (_url, init) => {
+      const { method, params } = JSON.parse(init.body);
+      methods.push(method);
+      if (method === 'starknet_addInvokeTransaction') return answer();
+      if (method === 'starknet_getTransactionReceipt' && receipt) {
+        return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: { transaction_hash: params.transaction_hash, execution_status: 'SUCCEEDED', finality_status: 'ACCEPTED_ON_L2' } }));
+      }
+      return new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, error: { code: 29, message: 'not found' } }));
+    }, { chainId: CHAIN, sleep: async (ms) => { clock += ms; }, now: () => clock });
+    if (receipt) {
+      const result = await (await fetch('http://node', { body: invokeBody() })).json();
+      assert.match(result.result.transaction_hash, /^0x[0-9a-f]+$/);
+    } else {
+      await assert.rejects(fetch('http://node', { body: invokeBody() }), (error) => /^sent, status unknown: 0x[0-9a-f]+; check it before any rerun$/.test(error.message));
+    }
+    assert.equal(methods.filter((method) => method === 'starknet_addInvokeTransaction').length, 1);
+    assert.ok(methods.includes('starknet_getTransactionReceipt'));
+  }
+});
+
 test('a lost answer whose transaction the node REJECTED fails with that status', async () => {
   const { fetch, methods } = scripted({
     starknet_addInvokeTransaction: { error: { code: -32603, message: 'Internal error' } },
