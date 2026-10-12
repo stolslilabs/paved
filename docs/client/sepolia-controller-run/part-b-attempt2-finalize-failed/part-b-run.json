@@ -1,0 +1,123 @@
+{
+  "stage": "signup",
+  "console": [
+    {
+      "stage": "load",
+      "type": "warning",
+      "text": "Setting overlaysContent is only supported from the top level browsing context",
+      "from": "https://x.cartridge.gg/init-virtual-keyboard.js"
+    },
+    {
+      "stage": "load",
+      "type": "error",
+      "text": "{code: NOT_CONNECTED}",
+      "from": "https://paved.bal7hazar.com/assets/dist-C8RzaKS5.js"
+    },
+    {
+      "stage": "connect",
+      "type": "error",
+      "text": "Error: rpc error: code = Unauthenticated desc = access denied\n    at https://x.cartridge.gg/assets/index-BxwnhcPx.js:1132:7094",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js"
+    },
+    {
+      "stage": "connect",
+      "type": "error",
+      "text": "Error: rpc error: code = Unauthenticated desc = access denied\n    at https://x.cartridge.gg/assets/index-BxwnhcPx.js:1:4774",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js"
+    },
+    {
+      "stage": "signup",
+      "type": "warning",
+      "text": "Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js"
+    },
+    {
+      "stage": "signup",
+      "type": "error",
+      "text": "Error: rpc error: code = Unauthenticated desc = access denied\n    at https://x.cartridge.gg/assets/index-BxwnhcPx.js:1:4774",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js"
+    },
+    {
+      "stage": "signup",
+      "type": "error",
+      "text": "Error: rpc error: code = Unauthenticated desc = access denied\n    at https://x.cartridge.gg/assets/index-BxwnhcPx.js:1132:7094",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js"
+    },
+    {
+      "stage": "signup",
+      "type": "warning",
+      "text": "Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js"
+    },
+    {
+      "stage": "signup",
+      "type": "error",
+      "text": "Login error: rpc error: code = Internal desc = internal server error: [request echo removed: it carried the passkey registration]\nBy continuing you are agreeing to Cartridge's Terms of Service and Privacy Policy\nSIGN UP\nby\nSign Up with Passkey\nAuthentication failed. Please try again.\nPlease try connecting again",
+      "controls": [
+        {
+          "tag": "button",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Terms of Service",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Privacy Policy",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "SIGN UP",
+          "disabled": true
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "by",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "",
+          "disabled": false
+        }
+      ]
+    }
+  ],
+  "txs": [],
+  "notes": [
+    "load: keychain visible before Connect: false",
+    "connect: keychain visible after Connect: true; controls: [[\"button\",null,null,null,\"\"],[\"input\",null,null,\"Username\",\"\"],[\"a\",null,null,null,\"Terms of Service\"],[\"a\",null,null,null,\"Privacy Policy\"],[\"button\",\"submit\",null,null,\"LOG IN\"],[\"a\",null,null,null,\"by\"]]",
+    "signup: after the username: buttons [\"\",\"SIGN UP\"]",
+    "signup: click \"SIGN UP\"",
+    "signup: PAUSED: the keychain shows text that was not expected (SMS)",
+    "signup: PAUSED: no known button on this keychain screen"
+  ]
+}

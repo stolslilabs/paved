@@ -30,8 +30,8 @@ page.on("request", (r) => {
     log.requests.push({ method: r.method(), host: u.host, path: u.pathname + (u.search ? "?…" : "") });
   else log.requests.push({ method: r.method(), host: u.host, path: u.pathname });
 });
-// Frame and failed-request URLs are written without their query (the keychain's connect id is a channel id, kept out of the evidence).
-const redact = (u) => u.replace(/\?.*$/, "");
+// Frame and failed-request URLs are written without their query or fragment (the keychain's connect id is a channel id, kept out of the evidence).
+const redact = (u) => u.replace(/[?#].*$/, "");
 page.on("requestfailed", (r) => log.failures.push({ url: redact(r.url()).slice(0, 200), error: r.failure()?.errorText }));
 page.on("framenavigated", (f) => log.frames.push(redact(f.url()).slice(0, 200)));
 
