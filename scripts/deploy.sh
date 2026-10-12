@@ -4,6 +4,8 @@
 #
 # Usage: scripts/deploy.sh devnet [--unmerged]
 #        scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]]
+#        scripts/deploy.sh sepolia --repoint [--check-only]
+#        scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only]
 #
 # Networks: `devnet` (a local node, D-8) and `sepolia` (Starknet Sepolia, public playtests, D-16). Every other value
 # is refused: mainnet is the owner's act. Sepolia runs the devnet economy path (P-39): MockUSDC (a bounded faucet,
@@ -50,6 +52,34 @@
 # The next three options are diagnostic only, for the -32603 of S-1b (docs/briefs/s1c-estimate.md), passed to the
 # signer: --bounds l1_amount,l1_price,l1_data_amount,l1_data_price,l2_amount,l2_price (explicit resource bounds instead
 # of zero), --validate (no SKIP_VALIDATE), --block-id pre_confirmed (instead of latest; `pending` left the spec in 0.9).
+#
+# --repoint (sepolia, and its rehearsal; R-1, E-9): repoints the deployed Economy at a new MockRouter, which E-9's
+# Economy.quote_swap needs (the old one has no `quote_swap`). It deploys nothing else and keeps every address but the
+# MockRouter's. It runs the same checks, signer and build as above (from main-equivalent sources on Sepolia), then reads
+# contracts/deployments/sepolia.json (the rehearsal: the file `--deployment` names) and checks, before anything is
+# estimated or sent: the file is a sepolia one for the node's chain; Economy.owner() is the deployer; Economy's class is
+# the file's or the E-9 one; its stored router (`addresses()`, which both classes have) is the file's old MockRouter or
+# the new one the file records; the old MockRouter is of the file's class; a recorded new one is of the E-9 class over
+# PAVED and USDC. The funding check then estimates the declares of MockRouter and Economy still to send. In order, each
+# step skipped when what it would send has landed:
+#   1. declare MockRouter and Economy (declareIfNot);
+#   2. deploy MockRouter(PAVED, USDC), salt recorded first;
+#   3. seed it, one multicall: Vault.unstake and MockUSDC.mint of what the deployer lacks, both approvals,
+#      add_liquidity. The amounts: the old pool's ratio (its reserves); its depth as far as the deployer's PAVED allows,
+#      its balance plus an unstake that keeps 10 % of its stake staked (E-7); the USDC at that ratio from its balance,
+#      then the faucet (10,000 per call, 20,000 per address), less PAVED when the faucet falls short;
+#   4. once the new router answers quote_swap(1.4 USDC) at its pool key and the limit 0 with a whole fill, one multicall
+#      of Economy.upgrade(E-9 class), set_router(new MockRouter), set_pool(its pool_key(), 0) (only what is missing);
+#   5. contracts.MockRouter and contracts.Economy.class_hash in the file;
+#   6. the smoke: Economy.router() is the new MockRouter, quote_swap(1400000) > 0, owner() on the five upgradable
+#      contracts, a paid Daily spawn at stake 1 through the new pool, then its surrender (sent once each).
+# Every step is recorded under the file's `repoint` key as it lands (the previous MockRouter and Economy class, the
+# salt, the seed, each transaction hash, written before the signer sends it), every other field kept, the file replaced
+# through a rename. So a rerun after a stop reads what landed and sends only the rest, and a complete one sends nothing.
+# A deploy recorded without its address is read from its receipt; with no receipt the run stops. No second MockRouter
+# is deployed while one is recorded. --check-only: the checks, the funding check and the seed plan; nothing is sent and
+# the file is not written. The file's `deployed_block` and addresses (but the MockRouter's) do not change: the indexer
+# and the client read nothing that the repoint changes (docs/programme/OPERATIONS.md).
 #
 # devnet keeps sncast (salt 1 and no `--unique`: the signer always deploys unique, which would tie the addresses of
 # contracts/deployments/devnet.json to the deployer and the salt of each run).

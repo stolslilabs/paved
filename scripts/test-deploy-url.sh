@@ -2,7 +2,8 @@
 # The RPC_URL guard of deploy.sh names what it could not parse (it runs before anything else, so no
 # node and no toolchain are needed), its network and sepolia variable checks refuse before anything is built or sent
 # (S-1), a sepolia run failing at the node leaks no value to an output, an argv or a child's environment (P-40), and
-# its getClass predicate rejects a malformed answer. Usage: scripts/test-deploy-url.sh
+# its getClass predicate rejects a malformed answer. The same holds on the --repoint path (R-1). Usage:
+# scripts/test-deploy-url.sh
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fail=0
@@ -39,6 +40,21 @@ refuse 2 "unsupported network ''"
 refuse 2 "unknown option '--rehearse' for 'devnet'" devnet --rehearse
 refuse 2 "unknown option '--unmerged' for 'sepolia'" sepolia --unmerged
 refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia
+# --repoint (R-1): sepolia and its rehearsal only; the rehearsal names its own deployment file, Sepolia never does.
+repoint_file="$(mktemp)"
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --repoint
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --repoint --check-only
+refuse 2 "unknown option '--repoint' for 'devnet'" devnet --repoint
+refuse 2 "--deployment is for the rehearsal only" sepolia --repoint --deployment "$repoint_file"
+refuse 2 "sepolia --rehearse --repoint needs --deployment <file>" sepolia --rehearse --repoint
+refuse 2 "--deployment expects an existing deployment file" sepolia --rehearse --repoint --deployment "$repoint_file.missing"
+refuse 2 "unknown option '--frobnicate' for 'sepolia --repoint'" sepolia --repoint --frobnicate
+refuse 2 "unknown option '--estimate-only' for 'sepolia --repoint'" sepolia --repoint --estimate-only
+out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse --repoint --deployment "$repoint_file" 2>&1 >/dev/null)"
+if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
+  echo "ok: deploy.sh sepolia --rehearse --repoint refuses a remote node, its key unprinted"
+else echo "FAIL: deploy.sh sepolia --rehearse --repoint with a remote RPC_URL: $out"; fail=1; fi
+rm -f "$repoint_file"
 out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse 2>&1 >/dev/null)"
 if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
   echo "ok: deploy.sh sepolia --rehearse refuses a remote node, its key unprinted"
@@ -139,20 +155,22 @@ exit 1
 SH
 chmod +x "$shims/curl" "$shims/node" "$shims/npm" "$shims/signer/node"
 leaks() { grep -i -e MARKER -e "$ADDR_MARK" "$@"; }
-at_node() { # <FAKE_NODE mode> <expected fragment>
-  local out rc log="$shims/$1.log"
+at_node() { # <FAKE_NODE mode> <expected fragment> [deploy.sh options after sepolia...]
+  local out rc log="$shims/$1.log" mode="$1" frag="$2"
+  shift 2
   : >"$log"
   out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$shims:$PATH" SHIM_LOG="$log" \
-    FAKE_NODE="$1" "$ADDR" "$KEY" "$URL" "$here/deploy.sh" sepolia 2>&1)"
+    FAKE_NODE="$mode" "$ADDR" "$KEY" "$URL" "$here/deploy.sh" sepolia "$@" 2>&1)"
   rc=$?
+  set -- "$mode" "$frag" "$@"
   if [[ $rc -ne 1 || "$out" != *"$2"* ]] || leaks -q <<<"$out"; then
-    echo "FAIL: sepolia at a $1 node expected exit 1 and '$2', no value, got $rc: $out"; fail=1
+    echo "FAIL: sepolia ${*:3} at a $1 node expected exit 1 and '$2', no value, got $rc: $out"; fail=1
   elif leaks -q "$log" || ! grep -q '^curl: the URL came on stdin$' "$log" || grep -q '^\(node\|npm\) argv' "$log" ||
       { [[ "$1" == sepolia ]] && ! grep -q '^curl: the address came on stdin$' "$log"; }; then
-    echo "FAIL: sepolia at a $1 node: a value reached a child's argv or environment, or something was signed:"
+    echo "FAIL: sepolia ${*:3} at a $1 node: a value reached a child's argv or environment, or something was signed:"
     leaks -n "$log" | sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI"; grep -n '^[a-z]* argv\|^curl: ' "$log"; fail=1
   else
-    echo "ok: sepolia at a $1 node -> $2; no value in any output, argv or child environment"
+    echo "ok: sepolia ${*:3} at a $1 node -> $2; no value in any output, argv or child environment"
   fi
 }
 at_node down "no node answers at \$STARKNET_RPC_URL"
@@ -166,6 +184,12 @@ else
   echo "ok: deploy.sh retried starknet_specVersion twice after -32601 (HTTP 400), then went on"
 fi
 at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL"
+# The --repoint path (R-1) shares those checks: the marker URL and address stay out of every output, argv and child
+# environment there too, and nothing is signed (no node or npm call).
+at_node down "no node answers at \$STARKNET_RPC_URL" --repoint
+at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA" --repoint
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --repoint
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --repoint --check-only
 
 # `send` (review of #299): a signer that fails while printing the three values leaks none of them through deploy.sh,
 # gets no value in its argv, and starts with the allowlisted environment only (no NODE_TLS_REJECT_UNAUTHORIZED, no

@@ -172,20 +172,54 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
    `(D + 2) x 86400`.
 5. The report gives the addresses of `sepolia.json` (contracts, class hashes, `deployed_block`) to the PM.
 
-**Repointing Sepolia's `Economy` at a new `MockRouter` (E-9; a later step, not done yet).** The E-9 class quotes
-through the router's `quote_swap`, which Sepolia's current `MockRouter` lacks, so an `Economy` upgrade alone breaks
-Sepolia's quote. The path keeps the playtest data; its detail is in `docs/architecture/economy.md`, "As built: E-9":
+**Repointing Sepolia's `Economy` at a new `MockRouter` (E-9, R-1; the tool is rehearsed, the Sepolia run is part B).**
+The E-9 class quotes through the router's `quote_swap`, which Sepolia's current `MockRouter` lacks, so an `Economy`
+upgrade alone breaks Sepolia's quote. The path keeps the playtest data; its detail is in
+`docs/architecture/economy.md`, "As built: E-9". The tool is `scripts/deploy.sh sepolia --repoint`, with the three
+variables of phase 2, from merged main; `--check-only` first runs every check below and prints the seed, sending
+nothing and writing nothing.
 
-1. The indexer that follows Sepolia runs a version that ignores `RouterSet` (E-9's `IGNORED`) before step 4.
-2. Declare the E-9 `Economy` and `MockRouter` classes.
-3. Deploy the new `MockRouter(PAVED, USDC)` and seed it (`add_liquidity`) at the old pool's current ratio; its PAVED
-   comes from an unstake of the deployer's Vault stake (the old pool's reserves cannot be withdrawn). Test tokens on
-   the test network: CORE's step, not an owner's act. **Sepolia only; on mainnet the pool is Ekubo's and none of
-   this applies.**
-4. One multicall of the owner's account: `Economy.upgrade(<E-9 class hash>)`, `Economy.set_router(<new MockRouter>)`,
-   `Economy.set_pool(<its pool_key()>, 0)`.
-5. Commit the new `MockRouter` and class hashes in `sepolia.json`, and check `Economy.router()`,
-   `Economy.quote_swap(1400000)` and one paid spawn.
+1. The indexer that follows Sepolia runs a version that ignores `RouterSet` (E-9's `IGNORED`, 55a5969 or later)
+   before step 4. The tool cannot check it: the PM confirms it before the run.
+2. Before anything is estimated or sent, the tool checks: the node's chain id is `SN_SEPOLIA` and the signer checks it
+   again (`SN_MAIN` is always refused); the deployer is deployed and is `Economy.owner()`; `Economy`'s class is the one
+   of `sepolia.json` or the E-9 one; its stored router (`Economy.addresses().router`, which both classes have) is the
+   old `MockRouter` of `sepolia.json`, or the new one a stopped run recorded; the deployer's STRK covers the estimates
+   of the declares still to send (the funding check of phase 2, on `MockRouter` and `Economy`).
+3. Declare the E-9 `Economy` and `MockRouter` classes (skipped when declared).
+4. Deploy the new `MockRouter(PAVED, USDC)` and seed it (`add_liquidity`) at the old pool's current ratio, in one
+   multicall with the unstake and the faucet mints. The amounts: the ratio of the old pool's reserves; the depth as
+   close to the old pool's as the deployer's PAVED allows, its balance plus an unstake that keeps 10 % of its Vault
+   stake staked (E-7: USDC that reaches a Vault nobody stakes in goes to the first staker); the USDC at that ratio,
+   from its balance, then the MockUSDC faucet (10,000 USDC per call, 20,000 per address), with less PAVED when the
+   faucet falls short. The old pool's reserves cannot be withdrawn. Test tokens on the test network: CORE's step, not
+   an owner's act. **Sepolia only; on mainnet the pool is Ekubo's and none of this applies.** On the 009bb3c state
+   (rehearsal, 200,000 PAVED staked, the old pool at 799,893.6 PAVED and 10,001.4 USDC) the seed was 179,999.999928
+   PAVED and 2,250.614291 USDC, 79.978164 PAVED per USDC as in the old pool, 22.5 % of its depth.
+5. Before `Economy` points at it, the new router must answer `quote_swap` for 1.4 USDC at its own pool key and the
+   limit 0, whole fill, PAVED out. Then one multicall of the owner's account: `Economy.upgrade(<E-9 class hash>)`,
+   `Economy.set_router(<new MockRouter>)`, `Economy.set_pool(<its pool_key()>, 0)` (only the calls still missing).
+6. The tool writes the new `MockRouter` and class hashes in `sepolia.json`, and records the run under its `repoint`
+   key (the previous `MockRouter` and `Economy` class, the salt, the seed, every transaction hash), keeping every
+   other field: `deployed_block` and every address but the `MockRouter`'s are unchanged. The smoke checks
+   `Economy.router()`, `Economy.quote_swap(1400000)` (above 0), `owner()` on the five upgradable contracts, and one
+   paid Daily spawn at stake 1, surrendered after. Part B commits the file in a follow-up PR with the run's output.
+
+The run is resumable. Each transaction's hash is recorded in `sepolia.json` before the signer sends it, and each step
+reads what landed before it sends anything: rerun after a stop, the tool sends only what is left, and a complete
+repoint sends nothing. It never deploys a second `MockRouter` while one is recorded: a deploy recorded without its
+address is read from its receipt (with no receipt it stops: check the hash before any rerun), and the salt is recorded
+first, so a repeated deploy could only collide with the first. Rehearse it on a fresh starknet-devnet (seed 42) on the
+009bb3c state, which that commit's own `scripts/deploy.sh sepolia --rehearse` deploys:
+`scripts/deploy.sh sepolia --rehearse --repoint --deployment <that run's file> [--check-only]`. R-1's rehearsal (PR
+body) ran it end to end, killed it after the `MockRouter` deploy, reran it to completion, then reran it again with no
+transaction sent.
+
+Neither the indexer nor the client needs a rebuild for the repoint. The indexer reads from `sepolia.json` the
+addresses of `Daily`, `Tutorial`, `Account`, `Economy` and `Collection`, `deployed_block` and `chain_id`, and checks
+its database against a hash of those five addresses; none of them changes (`Economy` is upgraded in place). The
+client reads the same addresses, `PavedToken`, `Vault`, `MockUSDC` and `token`; it never reads the `MockRouter`, and
+`Economy.quote_swap(u256) -> u256` keeps its ABI.
 
 The same rules as phase 2 hold: the funded account by variable name only, nothing printed, from merged main.
 
