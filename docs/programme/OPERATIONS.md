@@ -191,11 +191,12 @@ nothing and writing nothing.
    multicall with the unstake and the faucet mints. The amounts: the ratio of the old pool's reserves; the depth as
    close to the old pool's as the deployer's PAVED allows, its balance plus an unstake that keeps 10 % of its Vault
    stake staked (E-7: USDC that reaches a Vault nobody stakes in goes to the first staker); the USDC at that ratio,
-   from its balance, then the MockUSDC faucet (10,000 USDC per call, 20,000 per address), with less PAVED when the
-   faucet falls short. The old pool's reserves cannot be withdrawn. Test tokens on the test network: CORE's step, not
+   from its balance, then the MockUSDC faucet (10,000 USDC per call, 20,000 per address), keeping the 2 USDC of the
+   smoke's paid spawn, with less PAVED when that falls short. The old pool's reserves cannot be withdrawn. Test tokens on the test network: CORE's step, not
    an owner's act. **Sepolia only; on mainnet the pool is Ekubo's and none of this applies.** On the 009bb3c state
    (rehearsal, 200,000 PAVED staked, the old pool at 799,893.6 PAVED and 10,001.4 USDC) the seed was 179,999.999928
-   PAVED and 2,250.614291 USDC, 79.978164 PAVED per USDC as in the old pool, 22.5 % of its depth.
+   PAVED and 2,250.614291 USDC, 79.978164 PAVED per USDC as in the old pool, 22.5 % of its depth. That depth is accepted
+   for Sepolia, which moves test tokens only (review of #313); part B's `--check-only` prints Sepolia's own figure.
 5. Before `Economy` points at it, the new router must answer `quote_swap` for 1.4 USDC at its own pool key and the
    limit 0, whole fill, PAVED out. Then one multicall of the owner's account: `Economy.upgrade(<E-9 class hash>)`,
    `Economy.set_router(<new MockRouter>)`, `Economy.set_pool(<its pool_key()>, 0)` (only the calls still missing).
@@ -207,13 +208,15 @@ nothing and writing nothing.
 
 The run is resumable. Each transaction's hash is recorded in `sepolia.json` before the signer sends it, and each step
 reads what landed before it sends anything: rerun after a stop, the tool sends only what is left, and a complete
-repoint sends nothing. It never deploys a second `MockRouter` while one is recorded: a deploy recorded without its
-address is read from its receipt (with no receipt it stops: check the hash before any rerun), and the salt is recorded
-first, so a repeated deploy could only collide with the first. Rehearse it on a fresh starknet-devnet (seed 42) on the
+repoint sends nothing and needs no funding margin. A recorded deploy, seed, repoint multicall, smoke spawn or surrender
+is awaited first, up to 300 s: landed, it is not sent again; reverted, it may be; with no receipt the run stops
+(check the hash before any rerun). So a seed still in flight is never sent twice, and no second `MockRouter` is deployed
+while one is recorded; the salt is recorded first as well, so a repeated deploy could only collide with the first. A
+view, quote or receipt that fails stops the run before anything else is sent, and `--check-only` then exits non-zero. Rehearse it on a fresh starknet-devnet (seed 42) on the
 009bb3c state, which that commit's own `scripts/deploy.sh sepolia --rehearse` deploys:
 `scripts/deploy.sh sepolia --rehearse --repoint --deployment <that run's file> [--check-only]`. R-1's rehearsal (PR
-body) ran it end to end, killed it after the `MockRouter` deploy, reran it to completion, then reran it again with no
-transaction sent.
+body) ran it end to end, killed it after the `MockRouter` deploy, killed the rerun right after it sent the seed, reran
+it at once to completion (one seed, one unstake), then reran it again with no transaction sent.
 
 Neither the indexer nor the client needs a rebuild for the repoint. The indexer reads from `sepolia.json` the
 addresses of `Daily`, `Tutorial`, `Account`, `Economy` and `Collection`, `deployed_block` and `chain_id`, and checks

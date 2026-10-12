@@ -67,7 +67,7 @@
 #   3. seed it, one multicall: Vault.unstake and MockUSDC.mint of what the deployer lacks, both approvals,
 #      add_liquidity. The amounts: the old pool's ratio (its reserves); its depth as far as the deployer's PAVED allows,
 #      its balance plus an unstake that keeps 10 % of its stake staked (E-7); the USDC at that ratio from its balance,
-#      then the faucet (10,000 per call, 20,000 per address), less PAVED when the faucet falls short;
+#      then the faucet (10,000 per call, 20,000 per address), less the smoke's 2 USDC, less PAVED when that falls short;
 #   4. once the new router answers quote_swap(1.4 USDC) at its pool key and the limit 0 with a whole fill, one multicall
 #      of Economy.upgrade(E-9 class), set_router(new MockRouter), set_pool(its pool_key(), 0) (only what is missing);
 #   5. contracts.MockRouter and contracts.Economy.class_hash in the file;
@@ -76,9 +76,11 @@
 # Every step is recorded under the file's `repoint` key as it lands (the previous MockRouter and Economy class, the
 # salt, the seed, each transaction hash, written before the signer sends it), every other field kept, the file replaced
 # through a rename. So a rerun after a stop reads what landed and sends only the rest, and a complete one sends nothing.
-# A deploy recorded without its address is read from its receipt; with no receipt the run stops. No second MockRouter
-# is deployed while one is recorded. --check-only: the checks, the funding check and the seed plan; nothing is sent and
-# the file is not written. The file's `deployed_block` and addresses (but the MockRouter's) do not change: the indexer
+# A recorded deploy, seed, repoint multicall, spawn or surrender is awaited first (its receipt, up to 300 s): landed, it
+# is not sent again; reverted, it may be; with no receipt the run stops, the hash named. No second MockRouter is deployed
+# while one is recorded. A view, quote or receipt that fails stops the run before anything else is sent. A rerun with
+# nothing left to send needs no funding margin. --check-only: the checks, the funding check, the seed plan and the new
+# router's quote; nothing is sent and the file is not written; a failed check exits non-zero. The file's `deployed_block` and addresses (but the MockRouter's) do not change: the indexer
 # and the client read nothing that the repoint changes (docs/programme/OPERATIONS.md).
 #
 # devnet keeps sncast (salt 1 and no `--unique`: the signer always deploys unique, which would tie the addresses of
