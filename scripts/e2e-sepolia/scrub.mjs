@@ -44,7 +44,7 @@ export const scrub = (t) => {
 };
 
 /** Words that must not appear in a written evidence file. `"request"` is the echoed GraphQL request, not the driver's `"requests"` list. */
-export const FORBIDDEN = ["rawId", "attestationObject", "clientDataJSON", "credentials", '"request"'];
+export const FORBIDDEN = ["rawId", "attestationObject", "clientDataJSON", "credentials", '"request"', '\\"request\\"'];
 
 /** Text and JSON files under `dir` (a directory, searched recursively, or one file) that contain a forbidden word: `[{ file, word }]`. */
 export function checkEvidence(dir) {

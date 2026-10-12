@@ -95,3 +95,15 @@ test("isFailureText does not depend on the error wording", () => {
   expect(isFailureText("Authentication failed. Please try again.")).toBe(true);
   expect(isFailureText("Create Controller\nSMS\nPASSKEY")).toBe(false);
 });
+
+test("checkEvidence flags an escaped request marker too", () => {
+  const dir = mkdtempSync(join(tmpdir(), "scrub-test-"));
+  try {
+    writeFileSync(join(dir, "esc.json"), JSON.stringify({ text: 'x {"request":{"a":1}}' }));
+    expect(checkEvidence(dir).length).toBeGreaterThan(0);
+    writeFileSync(join(dir, "esc.json"), 'x \\"request\\": 1');
+    expect(checkEvidence(dir).length).toBeGreaterThan(0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
