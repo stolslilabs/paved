@@ -1,8 +1,9 @@
 # Sepolia run against the real Cartridge controller (D-16)
 
 Run of 2026-10-11 against https://paved.bal7hazar.com (release of 1235607, #304) and https://api.paved.bal7hazar.com.
-Part A (no Cartridge account) is done. Part B (account needed) is **blocked**: no Cartridge account has been created,
-registered or logged into, and none will be until the owner's exact sentence allowing it is relayed.
+Part A (no Cartridge account) is done. Part B (account needed) was tried headless on 2026-10-12 with the owner's go for one
+throwaway account (section "Part B (automated)"): **sign-up failed twice on Cartridge's side, no account exists**. The fallback
+is the owner's by-hand run below.
 
 ## Method
 
@@ -78,7 +79,90 @@ Pressing Connect opens `https://x.cartridge.gg/connect?id=<uuid>` in an iframe (
   (is the origin refused?) is **not answered** by Part A; the only signal so far is that the keychain loads for this origin and
   shows its login screen with no refusal.
 
-## Part B (needs a Cartridge account): blocked
+## Part B (automated): sign-up failed on Cartridge's side, no account exists
+
+Run of 2026-10-12, headless on the VPS, `scripts/e2e-sepolia/part-b.mjs` (same Playwright 1.63.0 and chromium headless shell 1243
+as part A), with the Overseer's relay of the owner's go: **one** throwaway Cartridge controller account on Sepolia, created with a
+virtual WebAuthn authenticator (CDP `WebAuthn.enable`, `addVirtualAuthenticator`: ctap2, internal, resident key, user verification),
+for this run only, nothing kept. The authenticator is added to the browser context only after the go (`--confirmed`); without that
+flag the driver stops at the username screen, as part A did. Peak RSS of each run 112 to 116 MB (`/usr/bin/time -v`, heap cap
+384 MB, about 15 s to 2 min wall).
+
+**Result: no account was created. Steps 3 to 8 of part B (Create Account, Daily purchase, moves, indexer comparison, the origin
+and "unverified" policies text) were not reached.**
+
+### Usernames
+
+| Name | Characters | Result |
+|---|---|---|
+| `paved-d16-20261012-6446` | 23 | **Rejected by the keychain**: "Username cannot exceed 19 characters"; `SIGN UP` stayed disabled. Nothing submitted. |
+| `d16-20261012-6446` | 17 | Accepted: "Welcome! Let's create a new Controller", `SIGN UP` enabled. The name offered "Create New" before every attempt, so it was never registered. |
+
+**The keychain refuses a username longer than 19 characters.** Use at most 19 (the driver now checks it). The name is also the player name for Create Account (not reached).
+
+### What happened, in order (UTC, 2026-10-12)
+
+1. Name of 23 characters (two launches): `SIGN UP` disabled with the error above. Evidence: `docs/client/sepolia-controller-run/part-b-attempt1-long-name/`.
+2. Name of 17 characters: the name was accepted but the driver's click on `SIGN UP` timed out four times (a selector by accessible name; fixed
+   to select by visible text with a mouse-click fallback). Nothing submitted; no evidence kept for this run.
+3. About 08:19: the click worked. The keychain showed a method chooser, **"Create Controller": SMS / PASSKEY / OTHER OPTIONS**. PASSKEY was
+   chosen (by command; SMS and Other options were never chosen and nothing was typed into any other field). The keychain then showed
+   "Sign Up with Passkey / Authentication failed. Please try again. / Please try connecting again". Evidence: `part-b-attempt2-finalize-failed/`.
+4. **08:23:03**: same run, with the driver now choosing PASSKEY itself on that screen (never SMS or Other options): the same failure.
+   Evidence: `part-b-attempt3-finalize-failed/`.
+
+### The failure, verbatim
+
+In the username field's error line, both times:
+
+> rpc error: code = Internal desc = internal server error
+
+followed by the keychain's echo of its own GraphQL request and response, which is **removed from the evidence** (it carried the passkey
+registration). The echo showed the operation, `"path":["finalizeRegistration"]` (the mutation `finalizeRegistration`, `network: "SN_SEPOLIA"`),
+with HTTP 200, `data: null`, `errors[0].message` equal to the text above. Dialog text under it: "Authentication failed. Please try again." and
+"Please try connecting again".
+
+### Keychain screens reached (text)
+
+- Connect (`b02`): "Connect Controller · Enter a Username · By continuing you are agreeing to Cartridge's Terms of Service and Privacy Policy · LOG IN".
+- After a new name: the name, "Create New", "Welcome! Let's create a new Controller", `SIGN UP`.
+- After `SIGN UP`: "Create Controller": `SMS`, `PASSKEY`, `OTHER OPTIONS` (a screen the by-hand steps below do not mention: choose the passkey method).
+- After `PASSKEY`: the failure above.
+- Never reached: any text about the origin (`paved.bal7hazar.com`), the "unverified" marking of the session policies, the spending-limit screen.
+  The question of #295 (is the origin refused?) is therefore **still open**: no refusal text about the origin was seen, and none of the
+  screens before the failure mentions it.
+
+### The two `Unauthenticated ... access denied` console errors
+
+Still present, and now placed: they are raised by `x.cartridge.gg/assets/index-*.js` as soon as the keychain iframe opens after
+Connect (not at page load as part A suggested, where Connect was already pressed), before any sign-up. They are not caused by an
+account, a session or the client's policies. They stayed through the failed sign-ups. Whether they disappear once connected could not be checked.
+
+### What this shows and does not show
+
+- Shows: the client reaches the keychain; the keychain accepts the origin up to sign-up; the headless browser with a virtual authenticator
+  produces a passkey credential and the keychain sends the registration; Cartridge's `finalizeRegistration` then fails with an internal server error, twice, 4 minutes apart.
+- Does not show: whether the cause is this origin, the virtual authenticator's attestation (a software authenticator), or a Cartridge outage on Sepolia.
+  Only one name and one browser were tried; no other origin or network was (outside the gate). It says nothing about the client's code or
+  policies, which were never reached. A retry later may pass; by hand with a real passkey is the way to tell the causes apart.
+- No account exists. The credential lived only in the closed browser context. Nothing was signed or sent to Sepolia.
+
+### Evidence handling
+
+Texts and screenshots only; no request body, header, cookie, storage, credential id, key or signature is written. URLs lose their query and
+fragment; long hex and token-like strings are scrubbed; the keychain's echoed request is removed (the driver now does it, and it was removed
+by hand from the two files that kept it before that change: `part-b-attempt2-finalize-failed/` and `part-b-attempt3-finalize-failed/`).
+Each folder holds `part-b-run.json` (console, requests by host and path, frames, screens), `bNN-*.jpg`, `bNN-*.txt`.
+
+Fallback: the owner's by-hand run below. **One more automated attempt is planned**, in the same confirmed scope: the same name
+`d16-20261012-6446`, passkey only (never SMS), at most one account, not before 12:23 UTC on 2026-10-12, started only on the PM's
+prompt. If `finalizeRegistration` fails the same way, the automated attempts stop for good and that is recorded; no other variant
+(another origin, another authenticator) is tried. If the owner's by-hand run comes first it supersedes that attempt. Its results go in a
+follow-up PR.
+
+## Part B (needs a Cartridge account): not run
+
+This section is kept as it was written; its steps were not reached by the automated run above.
 
 Steps 4 to 8 (connect with a WebAuthn method, faucet mint of 100 USDC, buy one Daily game, play a few moves, check the
 indexer once `behind` has dropped) are **blocked**: no account may be created until the owner's exact sentence is relayed.
@@ -98,7 +182,9 @@ or recovery phrase.
    Token card reading "Mint Unavailable". Open the browser's console (Develop menu or F12) and keep it open; note any red error
    besides `{code: NOT_CONNECTED}` and the two `Unauthenticated ... access denied` lines already known.
 2. **Connect.** Press "Connect". A "Connect Controller" modal appears (iframe from `x.cartridge.gg`). Enter a username and
-   create the account (passkey), or log in to an existing one. **Capture** the screens that follow, in particular:
+   create the account, or log in to an existing one. **The username must be at most 19 characters**: the keychain refuses a longer
+   one ("Username cannot exceed 19 characters") and keeps `SIGN UP` disabled. After `SIGN UP` a "Create Controller" screen offers
+   `SMS`, `PASSKEY` and `OTHER OPTIONS`: choose **PASSKEY** (never SMS). **Capture** the screens that follow, in particular:
    - any text naming the origin (`paved.bal7hazar.com`), such as "wants to connect" or a warning about an unknown or
      unverified site;
    - the session approval screen: whether the policies are marked unverified, the list of contracts and methods

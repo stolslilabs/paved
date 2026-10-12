@@ -29,7 +29,7 @@ const executablePath = arg(
   "chromium",
   join(homedir(), ".cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell"),
 );
-if (confirmed && !/^[a-z0-9-]{3,31}$/.test(username)) throw new Error("--confirmed needs --username (a throwaway name: a-z, 0-9, -)");
+if (confirmed && !/^[a-z0-9-]{3,19}$/.test(username)) throw new Error("--confirmed needs --username (a throwaway name: a-z, 0-9, -, at most 19 characters: the keychain refuses longer)");
 mkdirSync(out, { recursive: true });
 
 // Redaction. URLs lose their query AND fragment (the keychain's connect id and options travel there). Texts lose long hex and long
@@ -37,6 +37,7 @@ mkdirSync(out, { recursive: true });
 const redact = (u) => u.replace(/[?#].*$/, "");
 const scrub = (t) =>
   String(t)
+    .replace(/\{\s*"response"\s*:[\s\S]*?"request"\s*:[\s\S]*?\}\s*\}\s*\}/g, "[request echo removed: it carried the passkey registration]")
     .replace(/https?:\/\/[^\s"')]+/g, (u) => redact(u))
     .replace(/0x[0-9a-fA-F]{20,}/g, "0x…")
     .replace(/[A-Za-z0-9_-]{40,}/g, "<token>");
@@ -142,27 +143,66 @@ async function pause(reason) {
   return { do: "quit" };
 }
 
+// A real (trusted) click on a keychain button found by its visible text, not its accessible name: the first live attempt found
+// `getByRole("button", { name })` timing out on an enabled SIGN UP. Falls back to a mouse click at the button's position, which
+// keeps the user activation WebAuthn needs in a cross-origin iframe.
+async function clickButton(text) {
+  const f = keychainFrame();
+  if (!f) return;
+  const button = f.locator("button", { hasText: new RegExp(`^\\s*${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`, "i") }).first();
+  try {
+    await button.click({ timeout: 8000 });
+  } catch (e) {
+    note(`click failed (${String(e).split("\n")[0]}); trying a mouse click`);
+    const box = await button.boundingBox().catch(() => null);
+    if (box) await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  }
+}
+
+// Commands from the command file while paused: click a button or any text in the keychain, or press a key. Nothing else.
+async function runCmd(cmd) {
+  const f = keychainFrame();
+  if (!f) return;
+  if (cmd.do === "click") await f.getByRole("button", { name: cmd.text }).first().click({ timeout: 10000 }).catch((e) => note(`click failed: ${e}`));
+  else if (cmd.do === "clicktext") await f.getByText(cmd.text).first().click({ timeout: 10000 }).catch((e) => note(`clicktext failed: ${e}`));
+  else if (cmd.do === "key") await page.keyboard.press(cmd.key);
+}
+
 // Walks the keychain screens (sign-up, session approval, a prompt) until it closes. Stops on a STOP word or an unknown screen.
 async function walkKeychain(label, { maxScreens = 12 } = {}) {
   for (let n = 1; n <= maxScreens; n++) {
     await sleep(2500);
     if (!(await keychainOpen())) return true;
     const { text, controls } = await keychainScreen(`${label}-${String(n).padStart(2, "0")}`);
+    // Registration failed on Cartridge's side: stop, never retry in this run. The operation name and time are what the report needs.
+    const failed = text.match(/rpc error:[^\n]*?(?=\s*\[request echo|\n|$)/i);
+    if (/authentication failed|finalizeRegistration|internal server error/i.test(text)) {
+      const op = (text.match(/finalizeRegistration|[A-Za-z]+Registration|beginRegistration|\bsignup\b/i) || ["unknown"])[0];
+      note(`REGISTRATION FAILED at ${new Date().toISOString()}: operation ${op}; text: ${failed ? failed[0] : text.split("\n").filter((l) => /fail|error/i.test(l)).join(" | ")}`);
+      log.registrationFailed = { at: new Date().toISOString(), operation: op };
+      return "failed";
+    }
+    // The method chooser: PASSKEY only, never SMS or Other options.
+    if (/Create Controller/i.test(text) && controls.some((c) => c.tag === "button" && /^\s*passkey\s*$/i.test(c.text))) {
+      note('method chooser: choosing "PASSKEY" (never SMS or Other options)');
+      await clickButton("PASSKEY");
+      continue;
+    }
     if (STOP.test(text)) {
       const cmd = await pause(`the keychain shows text that was not expected (${(text.match(STOP) || [])[0]})`);
       if (cmd.do === "quit") return false;
-      if (cmd.do === "click") await keychainFrame()?.getByRole("button", { name: cmd.text }).first().click({ timeout: 10000 }).catch((e) => note(`click failed: ${e}`));
+      await runCmd(cmd);
       continue;
     }
     const buttons = controls.filter((c) => (c.tag === "button" || c.tag === "a") && !c.disabled && SAFE_BUTTON.test(c.text.replace(/\s+/g, " ")));
     if (!buttons.length) {
       const cmd = await pause("no known button on this keychain screen");
       if (cmd.do === "quit") return false;
-      if (cmd.do === "click") await keychainFrame()?.getByRole("button", { name: cmd.text }).first().click({ timeout: 10000 }).catch((e) => note(`click failed: ${e}`));
+      await runCmd(cmd);
       continue;
     }
     note(`click "${buttons[0].text}"`);
-    await keychainFrame().getByRole("button", { name: buttons[0].text, exact: true }).first().click({ timeout: 10000 }).catch((e) => note(`click failed: ${e}`));
+    await clickButton(buttons[0].text);
   }
   return !(await keychainOpen());
 }
@@ -204,9 +244,24 @@ await cdp.send("WebAuthn.enable");
 const kc = keychainFrame();
 await kc.locator("input").first().fill(username, { timeout: 15000 });
 await sleep(2500); // the keychain looks the name up
+// The name is offered as a "Create New" suggestion; SIGN UP stays disabled until it is chosen (found on the first live attempt).
+await kc.getByText("Create New").first().click({ timeout: 15000 }).catch((e) => note(`create-new row: ${e}`));
+await kc.locator('button[type="submit"]:not([disabled])').first().waitFor({ timeout: 15000 }).catch((e) => note(`sign up still disabled: ${e}`));
+await sleep(500);
 const afterName = await keychainScreen("b03-keychain-after-username");
 note(`after the username: buttons ${JSON.stringify(afterName.controls.filter((c) => c.tag === "button").map((c) => c.text))}`);
-if (!(await walkKeychain("b04-signup"))) {
+// The name must be new: "Create New". An existing account (no such line) stops the run, never another name.
+if (!/create new/i.test(afterName.text)) {
+  note("the keychain does not offer Create New for this name: stopping, no account created by this run");
+  await closeAll();
+  process.exit(3);
+}
+const walked = await walkKeychain("b04-signup");
+if (walked === "failed") {
+  await closeAll();
+  process.exit(4);
+}
+if (!walked) {
   await closeAll();
   process.exit(2);
 }
@@ -220,7 +275,8 @@ const nameBox = page.getByLabel("Player name");
 await nameBox.waitFor({ timeout: 60000 });
 await nameBox.fill(playerName);
 await page.getByRole("button", { name: /^create account$/i }).first().click({ timeout: 15000 });
-if (!(await walkKeychain("b06-create"))) {
+const created = await walkKeychain("b06-create");
+if (!created || created === "failed") {
   await closeAll();
   process.exit(2);
 }
