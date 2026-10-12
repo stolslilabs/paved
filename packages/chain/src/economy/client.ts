@@ -12,7 +12,7 @@ import { EconomyWriter } from "./writer";
  */
 export class EconomyClient {
   readonly views: EconomyViews;
-  /** The network's (`poolQuoterFor`); null on a network without one, or when a test passes none: purchases are refused then. */
+  /** `Economy.quote_swap` on every network (`poolQuoterFor`); null when a test passes none: purchases are refused then. */
   readonly poolQuoter: PoolQuoter | null;
 
   constructor(

@@ -60,7 +60,7 @@ export function EconomyPage() {
               address={address}
               ready={status === "ready" && writer !== null}
               referrer={referrer}
-              onConfirm={(stake, confirmedPrice, ref) => navigate(buildGameRoute({ mode: "daily" }), { state: purchaseIntent(stake, confirmedPrice, ref) })}
+              onConfirm={(stake, confirmedPrice, ref, confirmedMinOut) => navigate(buildGameRoute({ mode: "daily" }), { state: purchaseIntent(stake, confirmedPrice, ref, confirmedMinOut) })}
             />
           </div>
           {writeError && <span role="alert" style={alert}>{writeError}</span>}

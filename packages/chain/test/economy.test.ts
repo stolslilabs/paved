@@ -19,7 +19,10 @@ import {
   createEconomyClient,
   DEFAULT_SLIPPAGE_BPS,
   MAX_SLIPPAGE_BPS,
+  POOL_CANNOT_FILL,
+  POOL_QUOTE_UNAVAILABLE,
   POOL_QUOTE_CONFIRMED,
+  PoolCannotFillError,
   EconomyPoolQuoter,
   SettleTooEarlyError,
   SwapBelowMinOutError,
@@ -178,7 +181,7 @@ describe("deployment: the economy is configured from the E3 devnet.json", () => 
 describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in one multicall", () => {
   test("approves exactly the price to Daily; min_out is the pool quote less 1 %, never the hint", async () => {
     const { economy, econWriter, sent } = setup();
-    const result = await econWriter.purchase({ stake: 3, confirmedPrice: 6_000_000n, referrer: null });
+    const result = await econWriter.purchase({ stake: 3, confirmedPrice: 6_000_000n, confirmedMinOut: 1n, referrer: null });
     expect(result.gameId).toBe(9);
     const [calls] = sent();
     expect(calls.map((c) => [c.contractAddress, c.entrypoint])).toEqual([[ECON.usdc, "approve"], [ADDR.Daily, "spawn"]]);
@@ -194,36 +197,36 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
   });
 
   test("the referral changes no amount the player pays", async () => {
-    const without = await setup().econWriter.planPurchase({ stake: 10, confirmedPrice: 20_000_000n, referrer: null });
-    const withRef = await setup().econWriter.planPurchase({ stake: 10, confirmedPrice: 20_000_000n, referrer: REFERRER });
+    const without = await setup().econWriter.planPurchase({ stake: 10, confirmedPrice: 20_000_000n, confirmedMinOut: 1n, referrer: null });
+    const withRef = await setup().econWriter.planPurchase({ stake: 10, confirmedPrice: 20_000_000n, confirmedMinOut: 1n, referrer: REFERRER });
     expect(withRef.price).toBe(without.price);
     expect(withRef.calls[0]).toEqual(without.calls[0]); // the same approve
     expect(withRef.minOut).toBe(without.minOut);
     expect(withRef.calls[1].calldata[1]).toBe(REFERRER);
     expect(without.calls[1].calldata[1]).toBe("0x0");
     // A self-referral is sent as none.
-    expect((await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: PLAYER })).referrer).toBe("0x0");
+    expect((await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: PLAYER })).referrer).toBe("0x0");
   });
 
   test("a changed price sends nothing", async () => {
     const { economy, gameViews, econWriter, execute } = setup();
     gameViews.price = { token: ECON.usdc, amount: 3_000_000n };
     economy.unit = 3_000_000n;
-    await expect(econWriter.purchase({ stake: 2, confirmedPrice: 4_000_000n, referrer: null })).rejects.toBeInstanceOf(PurchasePriceChangedError);
+    await expect(econWriter.purchase({ stake: 2, confirmedPrice: 4_000_000n, confirmedMinOut: 1n, referrer: null })).rejects.toBeInstanceOf(PurchasePriceChangedError);
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("no pool quoter, a zero quote or a failed one: nothing sent", async () => {
-    const request = { stake: 1, confirmedPrice: 2_000_000n, referrer: null };
+  test("no pool quoter, a zero quote or a failed one: nothing sent (a min_out of 0 is refused)", async () => {
+    const request = { stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null };
     expect(POOL_QUOTE_CONFIRMED).toBe(true);
     const none = setup({ pool: null });
     await expect(none.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent");
     const zero = setup();
     zero.pool!.zero = true;
-    await expect(zero.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent");
+    await expect(zero.econWriter.purchase(request)).rejects.toBeInstanceOf(PoolCannotFillError);
     const failed = setup();
     failed.pool!.fail = "down";
-    await expect(failed.econWriter.purchase(request)).rejects.toThrow("No pool quote: nothing was sent (down)");
+    await expect(failed.econWriter.purchase(request)).rejects.toThrow(`${POOL_QUOTE_UNAVAILABLE} Nothing was sent.`);
     for (const s of [none, zero, failed]) expect(s.execute).not.toHaveBeenCalled();
     // A real client has the Economy's quoter (E2's `quote_swap`).
     expect(createEconomyClient(economyDeployment, new PavedClient(base, {} as PavedRpc), new FakeEconomy())!.poolQuoter).toBeInstanceOf(EconomyPoolQuoter);
@@ -231,16 +234,16 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
 
   test("slippage: shown in bps, at most 5 %", async () => {
     const s = setup();
-    const at5 = await s.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null, slippageBps: 500n });
+    const at5 = await s.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null, slippageBps: 500n });
     expect(at5.minOut).toBe((at5.poolOut * 9_500n) / 10_000n);
-    await expect(s.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null, slippageBps: 600n })).rejects.toThrow(/Slippage is 0 to 500 bps/);
+    await expect(s.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null, slippageBps: 600n })).rejects.toThrow(/Slippage is 0 to 500 bps/);
   });
 
   test("a slippage that is not a bigint (NaN from a bad field) is a WriteError, never a raw TypeError, and sends nothing", async () => {
     const { econWriter, execute } = setup();
     // NaN and a number both pass the two comparisons with a bigint; only the type check refuses them.
     for (const bad of [Number.NaN, 100, "100"] as unknown[]) {
-      const error = await econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null, slippageBps: bad as bigint }).catch((e) => e);
+      const error = await econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null, slippageBps: bad as bigint }).catch((e) => e);
       expect(error).toBeInstanceOf(WriteError);
       expect(error.message).toMatch(/Slippage is 0 to 500 bps/);
     }
@@ -250,7 +253,7 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
   test("a malformed referrer is a WriteError, never a raw SyntaxError, and sends nothing", async () => {
     const { econWriter, execute } = setup();
     for (const referrer of ["abc", "0xzz", `0x${"f".repeat(64)}`]) {
-      const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer }).catch((e: unknown) => e);
+      const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer }).catch((e: unknown) => e);
       expect(error).toBeInstanceOf(WriteError);
       expect((error as Error).message).toMatch(/Not a referrer address/);
     }
@@ -259,7 +262,7 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
 
   test("a receipt without GameSpawned is 'sent, outcome unknown' with its hash, not a failure", async () => {
     const { econWriter, execute } = setup({ receiptEvents: [] });
-    const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+    const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(PurchaseOutcomeUnknownError);
     expect((error as PurchaseOutcomeUnknownError).transactionHash).toBe("0x1");
     expect((error as Error).message).toBe("Purchase sent (0x1), outcome unknown: check your games before buying again");
@@ -268,12 +271,12 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
 
   test("sent, then the receipt wait throws (timeout, RPC drop): outcome unknown with the hash; a revert stays a failure", async () => {
     const dropped = setup({ wait: async () => Promise.reject(new Error("socket hang up")) });
-    const error = await dropped.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+    const error = await dropped.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(PurchaseOutcomeUnknownError);
     expect((error as PurchaseOutcomeUnknownError).transactionHash).toBe("0x1");
 
     const reverted = setup({ wait: async () => ({ execution_status: "REVERTED", revert_reason: "Economy: slippage" }) });
-    const revert = await reverted.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+    const revert = await reverted.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
     expect(revert).toBeInstanceOf(WriteError);
     expect(revert).not.toBeInstanceOf(PurchaseOutcomeUnknownError);
     expect((revert as WriteError).reverted).toBe(true);
@@ -283,29 +286,29 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
   test("a failed read sends nothing", async () => {
     const { economy, econWriter, execute } = setup();
     economy.fail = "node down";
-    await expect(econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow(/Cannot read the price: node down/);
+    await expect(econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(/Cannot read the price: node down/);
     expect(execute).not.toHaveBeenCalled();
   });
 
   test("another entry token, a quote that disagrees, a bad stake, a free entry: nothing sent", async () => {
     const a = setup();
     a.gameViews.price = { token: "0x4", amount: FAKE_UNIT };
-    await expect(a.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow(/not paid in USDC/);
+    await expect(a.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(/not paid in USDC/);
     const b = setup();
     b.economy.unit = 1n;
-    await expect(b.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow(/quote disagrees/);
+    await expect(b.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(/quote disagrees/);
     const c = setup();
-    await expect(c.econWriter.purchase({ stake: 11, confirmedPrice: 22_000_000n, referrer: null })).rejects.toThrow(WriteError);
+    await expect(c.econWriter.purchase({ stake: 11, confirmedPrice: 22_000_000n, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(WriteError);
     const d = setup();
     d.gameViews.price = { token: ECON.usdc, amount: 0n };
-    await expect(d.econWriter.purchase({ stake: 1, confirmedPrice: 0n, referrer: null })).rejects.toThrow(/no price/);
+    await expect(d.econWriter.purchase({ stake: 1, confirmedPrice: 0n, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(/no price/);
     for (const s of [a, b, c, d]) expect(s.execute).not.toHaveBeenCalled();
   });
 
   test("serialised with the game's writes: a second write while one is pending is refused", async () => {
     let release!: () => void;
     const { econWriter, writer, execute } = setup({ execute: () => new Promise((r) => (release = () => r({ transaction_hash: "0x1" }))) });
-    const first = econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null });
+    const first = econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null });
     await vi.waitFor(() => expect(execute).toHaveBeenCalledTimes(1));
     await expect(writer.discard({ mode: "daily", gameId: 1 })).rejects.toThrow(/Another write is pending/);
     await expect(econWriter.claimDividends({ confirmedAmount: 1n })).rejects.toThrow(/Another write is pending/);
@@ -498,11 +501,12 @@ describe("quote_swap (P-35): the real ABI's u256 in and out", () => {
       return s;
     };
     const ok = quoted(["0x2710", "0x0"]); // 10,000
-    expect((await ok.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).minOut).toBe(9_900n);
+    expect((await ok.econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null })).minOut).toBe(9_900n);
     const zero = quoted(["0x0", "0x0"]);
-    await expect(zero.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow("No pool quote: nothing was sent");
+    await expect(zero.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null })).rejects.toBeInstanceOf(PoolCannotFillError);
     const down = quoted(new Error("node down"));
-    await expect(down.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null })).rejects.toThrow("No pool quote: nothing was sent (node down)");
+    await expect(down.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null })).rejects.toThrow(POOL_QUOTE_UNAVAILABLE);
+    await expect(down.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null })).rejects.toMatchObject({ detail: "node down" });
     for (const s of [zero, down]) expect(s.execute).not.toHaveBeenCalled();
   });
 
@@ -538,7 +542,7 @@ describe("errors of the Economy as clear states", () => {
 
   test("purchase: 'swap below min_out' is 'the price moved, your USDC was not spent', with the hash", async () => {
     for (const reason of ["Economy: swap below min_out", `Failure reason: ${shortString.encodeShortString("Economy: swap below min_out")} ('Economy: swap below min_out')`, shortString.encodeShortString("Economy: swap below min_out")]) {
-      const error = await reverted(reason).econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+      const error = await reverted(reason).econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
       expect(error).toBeInstanceOf(SwapBelowMinOutError);
       expect(error).toBeInstanceOf(WriteError);
       expect((error as SwapBelowMinOutError).reverted).toBe(true);
@@ -549,7 +553,7 @@ describe("errors of the Economy as clear states", () => {
 
   test("a revert moves no funds: the approve and the spawn are one transaction, so the failed one has no other call", async () => {
     const s = reverted("Economy: swap below min_out");
-    await s.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch(() => undefined);
+    await s.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch(() => undefined);
     expect(s.sent()).toHaveLength(1); // one multicall, which the revert undoes whole
     expect(s.sent()[0].map((c) => c.entrypoint)).toEqual(["approve", "spawn"]);
   });
@@ -564,7 +568,7 @@ describe("errors of the Economy as clear states", () => {
 
   test("the node refusing at fee estimation, before anything is sent, maps the same way (no hash, not reverted)", async () => {
     const refuse = (reason: string) => setup({ execute: async () => { throw new Error(`Account validation failed: ${reason}`); } });
-    const bought = await refuse("Economy: swap below min_out").econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+    const bought = await refuse("Economy: swap below min_out").econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
     expect(bought).toBeInstanceOf(SwapBelowMinOutError);
     expect(bought).toMatchObject({ transactionHash: undefined, reverted: false });
     const s = refuse("Economy: day cannot close yet");
@@ -575,7 +579,7 @@ describe("errors of the Economy as clear states", () => {
   });
 
   test("any other revert keeps its own message", async () => {
-    const error = await reverted("Economy: wrong price").econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: null }).catch((e: unknown) => e);
+    const error = await reverted("Economy: wrong price").econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: null }).catch((e: unknown) => e);
     expect(error).not.toBeInstanceOf(SwapBelowMinOutError);
     expect((error as Error).message).toBe("Economy: wrong price");
   });
@@ -584,11 +588,11 @@ describe("errors of the Economy as clear states", () => {
 describe("referrer bound: 2^251 - 256", () => {
   test("below it is sent; at or above it is a WriteError and nothing is sent", async () => {
     const bound = (1n << 251n) - 256n;
-    const ok = await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: `0x${(bound - 1n).toString(16)}` });
+    const ok = await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: `0x${(bound - 1n).toString(16)}` });
     expect(ok.referrer).toBe(`0x${(bound - 1n).toString(16)}`);
     for (const value of [bound, bound + 1n, 1n << 251n]) {
       const s = setup();
-      await expect(s.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, referrer: `0x${value.toString(16)}` })).rejects.toThrow(/Not a referrer address/);
+      await expect(s.econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: `0x${value.toString(16)}` })).rejects.toThrow(/Not a referrer address/);
       expect(s.execute).not.toHaveBeenCalled();
     }
   });

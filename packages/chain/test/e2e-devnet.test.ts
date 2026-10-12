@@ -314,8 +314,9 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
         vault: await usdc(vaultAddress),
         supply: await pavedSupply(),
       };
-      const planned = await p.econ.planPurchase({ stake: k, confirmedPrice: quote.price, referrer: refAddress });
-      const bought = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, referrer: refAddress });
+      const planned = await p.econ.planPurchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: refAddress });
+      // The floor the player confirmed: the plan's own min_out, as the purchase screen carries it.
+      const bought = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: refAddress });
       dailyGames.set(p.name, bought.gameId);
       stakes.set(p.name, k);
       expect(bought.events.find((e) => e.name === "GameSpawned")?.fields.tournamentId).toBe(tournamentId);
@@ -587,7 +588,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     // A later purchase (bob, stake 1, no referrer: its whole margin goes to the Vault) earns dividends.
     // It is bob's second game: bought on the day D+2, never played (the expired game below).
     const quote = await economy.views.quote(1);
-    const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, referrer: null });
+    const purchase = await bob.econ.purchase({ stake: 1, confirmedPrice: quote.price, confirmedMinOut: 1n, referrer: null });
     bobSecondGame = purchase.gameId;
     const margin = BigInt(((await economyEvents(purchase.transactionHash)).find((e) => e.name === "Purchased")!.fields as { margin: bigint }).margin);
     const earned = await economy.views.vault(carol.address);

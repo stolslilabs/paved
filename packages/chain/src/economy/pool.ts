@@ -1,7 +1,6 @@
 import type { AbiCodec } from "../codec";
 import { toViewError, ViewError, type CallProvider } from "../views";
 import type { EconomyDeployment } from "./deployment";
-import { EKUBO_NETWORKS, EkuboPoolQuoter } from "./ekubo";
 
 /**
  * The pool's quote for the burn swap: PAVED out for `usdcIn` USDC in, the pool fee included. `min_out` is computed
@@ -13,14 +12,44 @@ export interface PoolQuoter {
 
 /**
  * `Economy.quote_swap` is in the committed ABI (E2, #262): the client has a pool quoter, and the paid `Daily.spawn`
- * (E3) takes its `min_out`. A missing, failed or zero quote refuses
- * the purchase with "No pool quote: nothing was sent".
+ * (E3) takes its `min_out`. A missing quoter refuses the purchase with "No pool quote: nothing was sent".
  */
 export const POOL_QUOTE_CONFIRMED = true;
 
 /**
- * `Economy.quote_swap(usdc_in) -> paved_out` (P-35; routed to the MockRouter on devnet and on Sepolia, P-39). Not for
- * mainnet: there the call would reach Ekubo's router, whose `quote_swap` has another shape (economy.md section 5).
+ * What the player reads when `Economy.quote_swap` gives no usable quote: it reverted (`'Economy: partial fill'`, or
+ * any revert of the router), the call failed, or it quoted 0. Nothing is sent then (E-9).
+ */
+export const POOL_CANNOT_FILL = "The pool cannot fill this purchase right now. Try a smaller stake or later.";
+
+/** What the player reads when the quote could not be read at all (an RPC error, a rate limit, a timeout): not a revert. */
+export const POOL_QUOTE_UNAVAILABLE = "Cannot read the pool quote right now; try again.";
+
+/** The Economy's own refusals of `quote_swap` (E-9: F1, F2, the `u128` bound). */
+const QUOTE_REVERTS = ["Economy: partial fill", "Economy: wrong delta", "Economy: amount too large"];
+
+/**
+ * Whether a failed quote is the contract's answer (a revert of `quote_swap`, the Economy's or its router's) rather than a
+ * failure to reach it. A node reports a revert of a view as `CONTRACT_ERROR` (JSON-RPC code 40) with a `revert_error`;
+ * anything else (a transport error, a rate limit -32011 or 429, a timeout, a malformed answer) is not one.
+ */
+export function isQuoteRevert(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  for (let e: unknown = error; e && !seen.has(e); e = (e as { cause?: unknown }).cause) {
+    seen.add(e);
+    if ((e as { code?: unknown }).code === 40) return true;
+    const text = e instanceof Error ? e.message : String(e);
+    if (/revert_error|Contract error|ENTRYPOINT_FAILED|execution reverted/i.test(text)) return true;
+    if (QUOTE_REVERTS.some((reason) => text.includes(reason))) return true;
+  }
+  return false;
+}
+
+/**
+ * `Economy.quote_swap(usdc_in) -> paved_out` on every network (E-9): the Economy asks its router's own `quote_swap`
+ * through the node `purchase` swaps through (its pool key and price limit, one hop), so the quote is the purchase's
+ * own route. Ekubo's router on mainnet, the MockRouter on devnet and Sepolia. The client never calls a router, nor
+ * any quoter API, itself.
  */
 export class EconomyPoolQuoter implements PoolQuoter {
   constructor(
@@ -44,23 +73,10 @@ export class EconomyPoolQuoter implements PoolQuoter {
   }
 }
 
-/** The networks whose economy runs on the MockRouter, so whose quote is `Economy.quote_swap` (P-39). */
-const ECONOMY_QUOTE_NETWORKS: readonly string[] = ["devnet", "sepolia"];
-
 /**
- * The pool quoter of a network: devnet and sepolia ask `Economy.quote_swap` (the MockRouter; Ekubo serves no Sepolia),
- * mainnet asks Ekubo's quoter (`EKUBO_NETWORKS`) for the deployment's USDC and PAVED. Any other network has none: every
- * purchase is refused.
+ * The pool quoter of a deployment: `Economy.quote_swap` on every network (devnet, sepolia, mainnet), or null when the
+ * economy is not deployed (every purchase is refused then).
  */
-export function poolQuoterFor(
-  deployment: EconomyDeployment,
-  provider: CallProvider,
-  codec: AbiCodec,
-  options: { fetch?: typeof fetch; timeoutMs?: number } = {},
-): PoolQuoter | null {
-  const network = deployment.base.network;
-  if (ECONOMY_QUOTE_NETWORKS.includes(network)) return new EconomyPoolQuoter(provider, deployment, codec);
-  if (!Object.hasOwn(EKUBO_NETWORKS, network)) return null;
-  const { USDC, PavedToken } = deployment.addresses;
-  return new EkuboPoolQuoter({ ...EKUBO_NETWORKS[network], usdc: USDC, paved: PavedToken, ...options });
+export function poolQuoterFor(deployment: EconomyDeployment, provider: CallProvider, codec: AbiCodec): PoolQuoter | null {
+  return deployment.configured ? new EconomyPoolQuoter(provider, deployment, codec) : null;
 }
