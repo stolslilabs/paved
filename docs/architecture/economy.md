@@ -542,7 +542,8 @@ O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, ow
   - **The pool quote.** On every network it is `Economy.quote_swap(usdc_in) -> PAVED out` (pool fee included). Since
     E-9 it calls the router's own `quote_swap(RouteNode, TokenAmount) -> Delta` through the node `purchase` swaps
     through (the stored pool key and `sqrt_ratio_limit`, one hop, `skip_ahead` 0) and returns the PAVED leg. The
-    quote is therefore the exact route of the purchase. On devnet and Sepolia the router is `MockRouter`, which
+    quote is therefore the exact route of the purchase. It reverts (`'Economy: partial fill'`) when the pool cannot
+    take the whole input now. It is a spot quote, not an oracle: no contract should use it as a price. On devnet and Sepolia the router is `MockRouter`, which
     implements the same `quote_swap`. The client never calls the router itself. On mainnet, see "Quoting on
     mainnet" below.
   - **`Quote.min_out_hint` is never sent as `min_out`.** It is only an estimate, 99 % of the burn quote at the
@@ -1182,8 +1183,18 @@ merge").
 - **`Economy.quote_swap(usdc_in: u256) -> u256`** keeps its signature and its refusal above `u128` (`'Economy:
   amount too large'`). It builds the same `RouteNode` as `purchase` (the stored pool key, `sqrt_ratio_limit`,
   `skip_ahead: 0`), calls the router's `quote_swap(node, TokenAmount { USDC, +usdc_in })`, and returns the
-  magnitude of the PAVED leg of the `Delta`. On a partial fill that is the PAVED of the part filled. The answer does
-  not say that the fill is partial: the USDC leg is not returned.
+  magnitude of the PAVED leg of the `Delta`.
+  - **It refuses a partial fill** (E-9's audit, F1). When the USDC leg is below `usdc_in`, it reverts with
+    `'Economy: partial fill'`, rather than returning the PAVED of the part filled. A `min_out` taken from that PAVED
+    would let a partly filled purchase pass: the player pays the full price, most of the burn share goes to the
+    Vault, and `R` collapses. It does not return 0 either, since a `min_out` of 0 accepts any fill. A full fill
+    quotes as before; `MockRouter` always fills the whole input, so devnet and Sepolia are unaffected. A zero output
+    of a full fill (1 base unit, all fee) still quotes 0.
+  - **It checks that the PAVED leg is paid out** (negative or zero) before reading its magnitude (F2;
+    `'Economy: wrong delta'`). `swap` keeps reading the magnitude unchecked: the same check there would touch the
+    purchase path and its gas budgets, so it is deferred.
+  - **A spot quote, not an oracle** (F4): it reads the pool's state of the moment, which anyone can move within a
+    block. No contract should use it as a price.
 - **`purchase`'s swap is unchanged**, byte for byte in `Economy.swap` and `MockRouter.swap`. A first version shared
   helpers with the quote and cost 1,223 more L2 gas per paid spawn, which broke 58 gas budgets, the goldens' among them.
   No gas budget changed.
@@ -1209,9 +1220,9 @@ merge").
 |---|---|
 | Quote equals swap (`Economy.quote_swap`, the router's `quote_swap`, then a real `swap` through the same node; each swap moves the pool before the next) | **Exact** for every amount: 1.4 USDC: 13.766895061051357059 STRK; 14 USDC: 137.668396505738371527; 1,000 USDC: 9,830.436030943356895424; 100,000 USDC: 953,844.733858368601391341. Full fills |
 | `Economy`'s limit for USDC in | USDC is token0 here, so USDC in lowers the price: the extreme is `MIN_SQRT_RATIO` (18,446,748,437,148,339,061). A limit of 0 quotes 14 USDC the same as that extreme (observed, not read in the router's source; `deploy.sh` passes 0). A limit on the wrong side (`MAX_SQRT_RATIO`) makes every quote and every purchase revert in core (`'LIMIT_DIRECTION'`) |
-| A swap that reaches the extreme limit | 2^127 USDC base units quotes a partial fill: the pool takes 3,424,624.581210 USDC and pays 5,659,986.089174472338777871 STRK. The swap does exactly that, and core's price ends at `MIN_SQRT_RATIO`. It does not revert |
-| Partial fill through `purchase`, USDC/STRK, a limit set 1e-6 below the price by `set_pool` | Stake 10 (14 USDC burn quote): the pool takes 3.298987 USDC and pays 32.440569955451756808 STRK, equal to `Economy.quote_swap(14 USDC)`; the price ends at the limit. `clear(USDC)` returns 10.701013 USDC; the Vault gets 16.701013 USDC (the 6 USDC margin plus the rest). `Purchased.burned_quote` stays 14 USDC. `R` = `reference(guarded(out, 14 USDC, rate), 10, factor)`; here `R` is 0, since STRK's supply is far above the target |
-| Partial fill through `purchase`, thin PAVED/USDC at `Economy`'s extreme limit | Stake 10: the pool takes 1.257015 USDC and pays 74.384152412515867182 PAVED, equal to the quote; the drained pool's price ends at the limit (here `MAX_SQRT_RATIO`, USDC being token1). The burn is 6.3 % of the price instead of 70 %; the Vault gets 18.742985 USDC; the PAVED bought is burned; `Economy` and the router hold no PAVED after. `R` = 81.822567653767453900 PAVED |
+| A swap that reaches the extreme limit | 2^127 USDC base units: the router quotes a partial fill (`Economy.quote_swap` refuses it, F1): the pool takes 3,424,624.581210 USDC and pays 5,659,986.089174472338777871 STRK. The swap does exactly that, and core's price ends at `MIN_SQRT_RATIO`. It does not revert |
+| Partial fill through `purchase`, USDC/STRK, a limit set 1e-6 below the price by `set_pool` | `Economy.quote_swap(14 USDC)` reverts (`'Economy: partial fill'`, F1). A purchase sent anyway with an explicit `min_out` (the router's own partial quote less 1 %), stake 10 (14 USDC burn quote): the pool takes 3.298987 USDC and pays 32.440569955451756808 STRK, equal to the router's quote; the price ends at the limit. `clear(USDC)` returns 10.701013 USDC; the Vault gets 16.701013 USDC (the 6 USDC margin plus the rest). `Purchased.burned_quote` stays 14 USDC. `R` = `reference(guarded(out, 14 USDC, rate), 10, factor)`; here `R` is 0, since STRK's supply is far above the target |
+| Partial fill through `purchase`, thin PAVED/USDC at `Economy`'s extreme limit | `Economy.quote_swap` reverts (F1). A purchase sent anyway with an explicit `min_out`, stake 10: the pool takes 1.257015 USDC and pays 74.384152412515867182 PAVED, equal to the router's quote; the drained pool's price ends at the limit (here `MAX_SQRT_RATIO`, USDC being token1). The burn is 6.3 % of the price instead of 70 %; the Vault gets 18.742985 USDC; the PAVED bought is burned; `Economy` and the router hold no PAVED after. `R` = 81.822567653767453900 PAVED |
 | The quote of a swap that would revert | `quote_swap` needs no funds: 1,000,000 USDC unpaid on the router quotes normally, while the same `swap` reverts in USDC's transfer (`'Transfer amount exceeds balance'`). Where core itself reverts (`'LIMIT_DIRECTION'`), the quote reverts with core's reason. An input of 0 quotes 0 |
 
 What the partial fill confirms, and one effect the text above did not name:
@@ -1267,8 +1278,9 @@ unchanged, and its smoke already calls `Economy.quote_swap`. The procedure above
 - On mainnet, take `min_out` from `Economy.quote_swap(burn_quote)` minus the slippage, as on devnet and Sepolia.
 - Drop Ekubo's quoter API, and drop guard (i), the single-hop route check. The on-chain quote is the purchase's
   own route.
-- `Economy.quote_swap` cannot show a partial fill. A client that wants to warn about one can compare the quote with
-  `Quote.min_out_hint`: a partial fill falls far below it.
+- **A revert of `Economy.quote_swap` means "the pool cannot fill this purchase now"** (`'Economy: partial fill'`, or
+  any revert of the router). The client shows it to the player and sends nothing: no purchase without a quote, and
+  never a `min_out` of 0.
 
 ## 9. Games as NFTs (D-11, amended D-11b)
 
