@@ -56,6 +56,15 @@ const unknownUsdc = (deployment: Deployment) => (routes: React.ReactElement) => 
 const result = { transactionHash: "0x1", events: [] };
 
 describe("Landing states", () => {
+  it("the right panel is capped at the dynamic viewport height, with the vh fallback first", async () => {
+    const { container } = land({ deployment: notConfigured, account: null });
+    const panel = container.querySelector(".landing-right-panel") as HTMLElement;
+    expect(panel.style.overflowY).toBe("auto");
+    const css = container.querySelector("style")?.textContent ?? "";
+    expect(css.indexOf("100vh")).toBeGreaterThan(-1);
+    expect(css.indexOf("100dvh")).toBeGreaterThan(css.indexOf("100vh"));
+  });
+
   it("not connected: no write is offered", async () => {
     land({ deployment: notConfigured, account: null });
     expect(screen.getByText("not connected")).toBeTruthy();

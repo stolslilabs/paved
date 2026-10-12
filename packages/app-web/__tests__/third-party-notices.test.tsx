@@ -7,7 +7,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import { AppTree } from "../src/AppTree";
-import { AppShell, NOTICES_PATH, NOTICE_BACKGROUND, NOTICE_LINK, NOTICE_TEXT, WalletNotice } from "../src/components/WalletNotice";
+import { NOTICES_PATH, NOTICE_BACKGROUND, NOTICE_LINK, NOTICE_TEXT, WalletNotice } from "../src/components/WalletNotice";
 
 // The notices Cartridge's licence asks of every copy of the client (D-15). `vite build` copies public/ to dist; CI
 // builds before it tests, so there dist must hold the file. Locally dist is checked when a build exists.
