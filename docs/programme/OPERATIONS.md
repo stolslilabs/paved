@@ -219,7 +219,9 @@ Neither the indexer nor the client needs a rebuild for the repoint. The indexer 
 addresses of `Daily`, `Tutorial`, `Account`, `Economy` and `Collection`, `deployed_block` and `chain_id`, and checks
 its database against a hash of those five addresses; none of them changes (`Economy` is upgraded in place). The
 client reads the same addresses, `PavedToken`, `Vault`, `MockUSDC` and `token`; it never reads the `MockRouter`, and
-`Economy.quote_swap(u256) -> u256` keeps its ABI.
+`Economy.quote_swap(u256) -> u256` keeps its ABI. The router pin E-9b rules (`docs/briefs/e9b-client-quote-rulings.md`,
+not built yet) would compare `Economy.router()` with the `MockRouter` of the deployment file on Sepolia: a client
+release with it must be built after part B's `sepolia.json` merges, or it refuses Sepolia's quote.
 
 The same rules as phase 2 hold: the funded account by variable name only, nothing printed, from merged main.
 
