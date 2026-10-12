@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import { IngameStatus, GameCompleteDialog, ActionBar, SpotSelector, useGameStore } from "@paved/ui";
 import type { GameScene, TileRenderData, CameraMode } from "@paved/renderer";
-import { PurchaseOutcomeUnknownError, nftOf, useGameSession, usePaved } from "@paved/chain";
+import { PoolPriceMovedError, PoolQuoteBelowFloorError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, nftOf, useGameSession, usePaved } from "@paved/chain";
 import type { GameKey } from "@paved/chain";
 import { Layout, Plan, Orientation, Direction, DirectionType, getIndexFromCharacter } from "@paved/game-core";
 import { GameNft, useCollection } from "../components/GameNft";
@@ -86,10 +86,15 @@ const screenStyle = {
 };
 const screenText = { color: "#f59e0b", fontFamily: "RubikMonoOne", fontSize: 24 };
 
-function Screen({ text, onBack, backDisabled }: { text: string; onBack?: () => void; backDisabled?: boolean }) {
+function Screen({ text, onBack, backDisabled, action }: { text: string; onBack?: () => void; backDisabled?: boolean; action?: { label: string; onClick: () => void } }) {
   return (
     <div style={screenStyle}>
       <span style={screenText}>{text}</span>
+      {action && (
+        <button type="button" onClick={action.onClick} style={{ background: "#f59e0b", border: "none", color: "#0a0a0a", padding: "8px 16px", borderRadius: 8, cursor: "pointer" }}>
+          {action.label}
+        </button>
+      )}
       {onBack && (
         <button
           type="button"
@@ -123,6 +128,8 @@ export function GamePage() {
   const [spawnError, setSpawnError] = useState<string | null>(null);
   // A purchase sent whose receipt named no game: not a failure, and no invitation to buy again.
   const [unknownOutcome, setUnknownOutcome] = useState<string | null>(null);
+  // A purchase refused before sending because what the player confirmed changed (price, pool, sanity floor): confirm again.
+  const [confirmAgain, setConfirmAgain] = useState(false);
   // A consent was found at mount and is waiting for a writer, or its start is in flight.
   const [wantsStart, setWantsStart] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -182,6 +189,7 @@ export function GamePage() {
       // Before any WriteError test: PurchaseOutcomeUnknownError extends WriteError, and must keep its no-retry screen.
       if (error instanceof PurchaseOutcomeUnknownError) setUnknownOutcome(error.message);
       else setSpawnError(error instanceof Error ? error.message : String(error));
+      setConfirmAgain(error instanceof PoolPriceMovedError || error instanceof PoolQuoteBelowFloorError || error instanceof PurchasePriceChangedError);
       setStarting(false);
     });
   }, [wantsStart, client, writer, address, gameParams.mode, navigate, economy.writer]);
@@ -196,7 +204,11 @@ export function GamePage() {
   if (!key) {
     // The error of a refused or failed start stays on screen after the consent is cleared.
     if (unknownOutcome) return <Screen text={unknownOutcome} onBack={() => navigate("/")} />;
-    if (spawnError) return <Screen text={`Cannot start a game: ${spawnError}`} onBack={() => navigate("/")} />;
+    if (spawnError) {
+      // Nothing was sent: the way straight back to the purchase screen, where the player sees the new figures.
+      const action = confirmAgain ? { label: "Back to purchase", onClick: () => navigate("/economy") } : undefined;
+      return <Screen text={`Cannot start a game: ${spawnError}`} onBack={() => navigate("/")} action={action} />;
+    }
     // A paid start in flight: the consent is already cleared, so say what is happening, not "No game selected".
     if (starting) return <Screen text="Spawning game..." onBack={() => navigate("/")} backDisabled />;
     if (expired) return <Screen text="Not connected: confirm again on the landing page" onBack={() => navigate("/")} />;
