@@ -2,7 +2,8 @@
 # The RPC_URL guard of deploy.sh names what it could not parse (it runs before anything else, so no
 # node and no toolchain are needed), its network and sepolia variable checks refuse before anything is built or sent
 # (S-1), a sepolia run failing at the node leaks no value to an output, an argv or a child's environment (P-40), and
-# its getClass predicate rejects a malformed answer. Usage: scripts/test-deploy-url.sh
+# its getClass predicate rejects a malformed answer. The same holds on the --repoint path (R-1). Usage:
+# scripts/test-deploy-url.sh
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fail=0
@@ -39,6 +40,21 @@ refuse 2 "unsupported network ''"
 refuse 2 "unknown option '--rehearse' for 'devnet'" devnet --rehearse
 refuse 2 "unknown option '--unmerged' for 'sepolia'" sepolia --unmerged
 refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia
+# --repoint (R-1): sepolia and its rehearsal only; the rehearsal names its own deployment file, Sepolia never does.
+repoint_file="$(mktemp)"
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --repoint
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --repoint --check-only
+refuse 2 "unknown option '--repoint' for 'devnet'" devnet --repoint
+refuse 2 "--deployment is for the rehearsal only" sepolia --repoint --deployment "$repoint_file"
+refuse 2 "sepolia --rehearse --repoint needs --deployment <file>" sepolia --rehearse --repoint
+refuse 2 "--deployment expects an existing deployment file" sepolia --rehearse --repoint --deployment "$repoint_file.missing"
+refuse 2 "unknown option '--frobnicate' for 'sepolia --repoint'" sepolia --repoint --frobnicate
+refuse 2 "unknown option '--estimate-only' for 'sepolia --repoint'" sepolia --repoint --estimate-only
+out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse --repoint --deployment "$repoint_file" 2>&1 >/dev/null)"
+if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
+  echo "ok: deploy.sh sepolia --rehearse --repoint refuses a remote node, its key unprinted"
+else echo "FAIL: deploy.sh sepolia --rehearse --repoint with a remote RPC_URL: $out"; fail=1; fi
+rm -f "$repoint_file"
 out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse 2>&1 >/dev/null)"
 if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
   echo "ok: deploy.sh sepolia --rehearse refuses a remote node, its key unprinted"
@@ -139,20 +155,22 @@ exit 1
 SH
 chmod +x "$shims/curl" "$shims/node" "$shims/npm" "$shims/signer/node"
 leaks() { grep -i -e MARKER -e "$ADDR_MARK" "$@"; }
-at_node() { # <FAKE_NODE mode> <expected fragment>
-  local out rc log="$shims/$1.log"
+at_node() { # <FAKE_NODE mode> <expected fragment> [deploy.sh options after sepolia...]
+  local out rc log="$shims/$1.log" mode="$1" frag="$2"
+  shift 2
   : >"$log"
   out="$(env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$shims:$PATH" SHIM_LOG="$log" \
-    FAKE_NODE="$1" "$ADDR" "$KEY" "$URL" "$here/deploy.sh" sepolia 2>&1)"
+    FAKE_NODE="$mode" "$ADDR" "$KEY" "$URL" "$here/deploy.sh" sepolia "$@" 2>&1)"
   rc=$?
+  set -- "$mode" "$frag" "$@"
   if [[ $rc -ne 1 || "$out" != *"$2"* ]] || leaks -q <<<"$out"; then
-    echo "FAIL: sepolia at a $1 node expected exit 1 and '$2', no value, got $rc: $out"; fail=1
+    echo "FAIL: sepolia ${*:3} at a $1 node expected exit 1 and '$2', no value, got $rc: $out"; fail=1
   elif leaks -q "$log" || ! grep -q '^curl: the URL came on stdin$' "$log" || grep -q '^\(node\|npm\) argv' "$log" ||
       { [[ "$1" == sepolia ]] && ! grep -q '^curl: the address came on stdin$' "$log"; }; then
-    echo "FAIL: sepolia at a $1 node: a value reached a child's argv or environment, or something was signed:"
+    echo "FAIL: sepolia ${*:3} at a $1 node: a value reached a child's argv or environment, or something was signed:"
     leaks -n "$log" | sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI"; grep -n '^[a-z]* argv\|^curl: ' "$log"; fail=1
   else
-    echo "ok: sepolia at a $1 node -> $2; no value in any output, argv or child environment"
+    echo "ok: sepolia ${*:3} at a $1 node -> $2; no value in any output, argv or child environment"
   fi
 }
 at_node down "no node answers at \$STARKNET_RPC_URL"
@@ -166,6 +184,12 @@ else
   echo "ok: deploy.sh retried starknet_specVersion twice after -32601 (HTTP 400), then went on"
 fi
 at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL"
+# The --repoint path (R-1) shares those checks: the marker URL and address stay out of every output, argv and child
+# environment there too, and nothing is signed (no node or npm call).
+at_node down "no node answers at \$STARKNET_RPC_URL" --repoint
+at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA" --repoint
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --repoint
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --repoint --check-only
 
 # `send` (review of #299): a signer that fails while printing the three values leaks none of them through deploy.sh,
 # gets no value in its argv, and starts with the allowlisted environment only (no NODE_TLS_REJECT_UNAUTHORIZED, no
@@ -199,6 +223,310 @@ if [[ $rc -ne 1 || "$out" != *"signer call failed"* || "$out" == *"${ADDR_MARK: 
   sed "s/MARKER/<marker>/gI; s/${ADDR_MARK: -7}/<address fragment>/gI" <<<"$out"; fail=1
 else
   echo "ok: a long failing signer output is redacted before its cut (no fragment of the address)"
+fi
+
+# --repoint past the node checks (R-1, review of #313): a fake node over curl (the repoint's contracts, classes and
+# receipts, in files beside it) and a fake signer as `node`, which answers views by entry point, logs its argv and
+# environment, and logs each multicall it accepts or refuses. Each case is set by files beside the signer:
+#   leak:          the first send (Economy.owner) fails while printing the three values: none reaches an output, the
+#                  signer's argv holds none, its environment is the allowlist (loop 1, finding 3);
+#   quote_fails:   the new MockRouter's quote_swap fails: --check-only and a full run exit non-zero, print no pass and
+#                  send nothing (loop 1, finding 1);
+#   send_refused:  the seed multicall is refused and the signer's verdict is `not landed`: the recorded hash is
+#                  cleared, and the rerun sends the seed again (loop 2, finding 1);
+#   a recorded seed hash with no receipt stops the run (REPOINT_WAIT_S=0), the hash kept; a REVERTED one is cleared and
+#   the seed sent again; a complete repoint with no STRK passes the funding check and sends nothing (loop 2).
+rp="$shims/repoint"
+mkdir -p "$rp/bin" "$rp/root/scripts" "$rp/root/contracts/target/release" "$rp/root/contracts/deployments"
+hexname() { printf '0x%s\n' "$(printf '%s' "$1" | od -An -tx1 | tr -d ' \n')"; }
+rp_classes() { # [Economy's class on the node]; each address short and padded to 64 digits (the record pads them, O-19)
+  local a c
+  while read -r a c; do printf '%s %s\n0x%064x %s\n' "$a" "$c" "$a" "$c"; done >"$rp/bin/classes" \
+    <<<"0xe0 ${1:-0xec0}
+0x80 0xc80
+0x90 $(hexname MockRouter)"
+}
+for name in MockRouter Economy; do hexname "$name"; done >"$rp/bin/declared"
+cat >"$rp/bin/curl" <<'SH'
+#!/usr/bin/env bash
+{ printf 'curl argv:'; printf ' %s' "$@"; echo; echo 'curl env:'; env; } >>"$SHIM_LOG"
+config="$(cat)"
+[[ "$config" == *MARKER* ]] && echo 'curl: the URL came on stdin' >>"$SHIM_LOG"
+dir="${0%/*}"
+body='{"jsonrpc":"2.0","id":1,"error":{"code":29,"message":"Transaction hash not found"}}'
+case "$config" in
+  *starknet_specVersion*) body='{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
+  *starknet_chainId*) body='{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
+  *starknet_getClassHashAt*)
+    class=0x1
+    while read -r a c; do [[ "$config" == *"\\\"$a\\\""* ]] && class="$c"; done <"$dir/classes"
+    body="{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"$class\"}" ;;
+  *'starknet_getClass\"'*)
+    body='{"jsonrpc":"2.0","id":1,"error":{"code":28,"message":"Class hash not found"}}'
+    while read -r h; do [[ "$config" == *"$h"* ]] && body='{"jsonrpc":"2.0","id":1,"result":{"sierra_program":[]}}'; done <"$dir/declared" ;;
+  *starknet_getTransactionReceipt*|*starknet_getTransactionStatus*)
+    # The receipts the node has: `<hash> <execution status>` per line.
+    while read -r h st; do
+      [[ -n "$h" && "$config" == *"\\\"$h\\\""* ]] || continue
+      if [[ "$config" == *starknet_getTransactionReceipt* ]]; then
+        body="{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"transaction_hash\":\"$h\",\"execution_status\":\"$st\",\"finality_status\":\"ACCEPTED_ON_L2\",\"events\":[]}}"
+      else
+        body="{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"finality_status\":\"ACCEPTED_ON_L2\",\"execution_status\":\"$st\"}}"
+      fi
+    done < <(cat "$dir/receipts" 2>/dev/null) ;;
+esac
+printf '%s\n200' "$body"
+SH
+cat >"$rp/bin/node" <<'SH'
+#!/usr/bin/env bash
+[[ "$1" == --version ]] && { echo v24.0.0; exit 0; }
+dir="${0%/*}"
+{ printf 'node argv:'; printf ' %s' "$@"; echo; echo 'node env:'; env; } >>"$dir/signer.log"
+shift 2
+cmd="$1"; shift
+if [[ -e "$dir/leak" ]]; then
+  echo "out ${STARKNET_ACCOUNT_ADDRESS} at ${STARKNET_RPC_URL}"
+  echo "err key ${STARKNET_PRIVATE_KEY^^} ${STARKNET_PRIVATE_KEY}" >&2
+  exit 1
+fi
+fn="" sierra="" contract="" calls="" cd=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --function) fn="$2"; shift ;; --sierra) sierra="$2"; shift ;; --contract) contract="$2"; shift ;;
+    --calls) calls="$2"; shift ;; --calldata) shift; cd=("$@"); break ;;
+  esac
+  shift
+done
+big='["0xffffffffffffffffffffffff","0x0"]'
+# Addresses compared without their padding (the record pads them, O-19).
+contract="0x$(sed 's/^0x0*//' <<<"$contract")"
+case "$cmd:$fn" in
+  call:owner) r="[\"$STARKNET_ACCOUNT_ADDRESS\"]" ;;
+  call:addresses) r="[\"0x10\",\"0x20\",\"0x30\",\"$([[ -e "$dir/repointed" ]] && echo 0x90 || echo 0x80)\",\"0x50\"]" ;;
+  call:router) [[ -e "$dir/repointed" ]] || { echo "signer: call failed: ENTRYPOINT_NOT_FOUND" >&2; exit 1; }; r='["0x90"]' ;;
+  call:pool_key) r='["0x10","0x20","0x1","0x1","0x0"]' ;;
+  call:pool) r='["0x10","0x20","0x1","0x1","0x0","0x0","0x0"]' ;;
+  call:reserves)
+    # PAVED (0x10) is token0: 800,000 PAVED and 10,000 USDC, the old pool's size.
+    r='["0xa968163f0a57b400000","0x0","0x2540be400","0x0"]'
+    if [[ "$contract" == 0x90 && -e "$dir/seeded" ]]; then r="$(cat "$dir/seeded")"
+    elif [[ "$contract" == 0x90 && -e "$dir/unseeded" ]]; then r='["0x0","0x0","0x0","0x0"]'; fi ;;
+  call:balance_of) r="$big"; [[ "$contract" == 0x4718f5a* && -e "$dir/poor" ]] && r='["0x0","0x0"]' ;;
+  call:staked) r='["0x2a5a058fc295ed000000","0x0"]' ;;
+  call:minted) r='["0x0","0x0"]' ;;
+  call:terms) r="[\"$STARKNET_ACCOUNT_ADDRESS\",\"0x0\",\"0x0\",\"0x1\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x0\",\"0x1\",\"0x0\",\"0x0\",\"0x0\"]" ;;
+  call:quote_swap)
+    if [[ -e "$dir/quote_fails" ]]; then echo "signer: call failed: Contract error: ENTRYPOINT_NOT_FOUND" >&2; exit 1; fi
+    # PAVED out, the whole USDC input (the next-to-last calldata word) in.
+    r="[\"0x5\",\"0x1\",\"$(printf '0x%x' "${cd[${#cd[@]}-2]}")\",\"0x0\"]" ;;
+  declare:)
+    name="${sierra##*/paved_}"; name="${name%%.*}"
+    echo "{\"class_hash\":\"0x$(printf '%s' "$name" | od -An -tx1 | tr -d ' \n')\",\"transaction_hash\":null,\"already_declared\":true}"
+    exit 0 ;;
+  multicall:)
+    n="$(($(cat "$dir/count" 2>/dev/null || echo 0) + 1))"; echo "$n" >"$dir/count"
+    hash="$(printf '0x5eed%04x' "$n")"
+    # lock_dir: the deployment's directory turns read-only as the transaction goes out, so its hash cannot be recorded.
+    [[ -e "$dir/lock_dir" ]] && chmod a-w "$(cat "$dir/lock_dir")"
+    echo "signer: sending starknet_addInvokeTransaction, transaction $hash" >&2
+    fns="$(python3 -I -c 'import json,sys;print(" ".join(c["function"] for c in json.load(open(sys.argv[1]))))' "$calls")"
+    if [[ -e "$dir/send_refused" ]]; then
+      # The verdict the signer ends with: `not landed` (empty file) or, to keep the hash, another one.
+      echo "multicall $fns $hash" >>"$dir/refused.log"
+      case "$(cat "$dir/send_refused")" in
+        seen) echo "signer: refused (-32601); no receipt for $hash after 30 s; seen by the node with status RECEIVED; check it before any rerun" >&2 ;;
+        unknown) echo "signer: sent, status unknown: $hash; check it before any rerun" >&2 ;;
+        other) echo "signer: refused (-32601); no receipt for 0x0be5 after 30 s; not landed (nonce unchanged at 0x5); check it before any rerun" >&2 ;;
+        quoted) echo "signer: refused (55): node message: no receipt for $hash after 30 s; not landed (x); check it before any rerun" >&2 ;;
+        *) echo "signer: refused (-32601); no receipt for $hash after 30 s; not landed (nonce unchanged at 0x5); check it before any rerun" >&2 ;;
+      esac
+      exit 1
+    fi
+    echo "multicall $fns $hash" >>"$dir/sent.log"
+    echo "$hash SUCCEEDED" >>"$dir/receipts"
+    # The new pool's reserves after an add_liquidity: its calldata.
+    python3 -I -c '
+import json, sys
+for c in json.load(open(sys.argv[1])):
+    if c["function"] == "add_liquidity":
+        open(sys.argv[2], "w").write(json.dumps(["0x%x" % int(x) for x in c["calldata"]]))' "$calls" "$dir/seeded"
+    echo "{\"transaction_hash\":\"$hash\"}"
+    exit 0 ;;
+  *) echo "$cmd $fn" >>"$dir/sent.log"; echo "signer: the test sends nothing" >&2; exit 1 ;;
+esac
+echo "{\"result\":$r}"
+SH
+printf '#!/usr/bin/env bash\nexit 0\n' >"$rp/bin/npm"
+printf '#!/usr/bin/env bash\nexit 0\n' >"$rp/bin/scarb"
+cat >"$rp/bin/sncast" <<'SH'
+#!/usr/bin/env bash
+[[ "$*" == *"utils class-hash --contract-name "* ]] || exit 1
+args="$*"; name="${args##*--contract-name }"; name="${name%% *}"
+printf '{"command":"utils class-hash","class_hash":"0x%s"}\n' "$(printf '%s' "$name" | od -An -tx1 | tr -d ' \n')"
+SH
+chmod +x "$rp/bin/"*
+cp "$here/deploy.sh" "$rp/root/scripts/"
+mkdir -p "$rp/root/scripts/signer"
+for name in MockRouter Economy; do
+  cp "$here/signer/test/fixtures/tiny.contract_class.json" "$rp/root/contracts/target/release/paved_$name.contract_class.json"
+  cp "$here/signer/test/fixtures/tiny.compiled_contract_class.json" "$rp/root/contracts/target/release/paved_$name.compiled_contract_class.json"
+done
+printf 'target/\n' >"$rp/root/contracts/.gitignore"
+git -C "$rp/root" init -q
+git -C "$rp/root" add -A
+git -C "$rp/root" -c user.name=test -c user.email=test@example.com -c core.hooksPath=/dev/null commit -qm root
+git -C "$rp/root" update-ref refs/remotes/origin/main HEAD
+rp_json="$rp/root/contracts/deployments/sepolia.json"
+# The deployment (written after the commit: the source check reads contracts/src, Scarb.toml and Scarb.lock only), with
+# an optional `repoint` record, as JSON. Each case starts from clean signer and node files.
+rp_case() { # [repoint record]
+  rm -f "$rp/bin/"{leak,quote_fails,send_refused,unseeded,seeded,repointed,poor,receipts,count,refused.log,lock_dir}
+  rp_classes
+  python3 -I - "$rp_json" "${1:-}" <<'PY'
+import json, sys
+c = lambda a, h: {"address": a, "class_hash": h}
+d = {"network": "sepolia", "chain_id": "0x534e5f5345504f4c4941", "rpc_url": "$STARKNET_RPC_URL", "deployed_block": 1,
+     "contracts": {"Account": c("0x40", "0xa"), "Daily": c("0x50", "0xd"), "Tutorial": c("0x60", "0xb"),
+                   "Collection": c("0x70", "0xc"), "Economy": c("0xe0", "0xec0"), "PavedToken": c("0x10", "0xf"),
+                   "Vault": c("0x30", "0xe"), "MockUSDC": c("0x20", "0x2"), "MockRouter": c("0x80", "0xc80")}}
+if sys.argv[2]:
+    d["repoint"] = json.loads(sys.argv[2])
+json.dump(d, open(sys.argv[1], "w"), indent=2)
+PY
+}
+rp_get_test() { python3 -I -c 'import json,sys;n=json.load(open(sys.argv[1])).get("repoint",{})
+for k in sys.argv[2].split("."): n=n.get(k,{}) if isinstance(n,dict) else {}
+print(n if isinstance(n,str) else "")' "$rp_json" "$1"; }
+rp_run() { # <deploy.sh options after sepolia...>
+  : >"$rp/bin/signer.log"; : >"$rp/bin/sent.log"
+  env -u STARKNET_ACCOUNT_ADDRESS -u STARKNET_PRIVATE_KEY -u STARKNET_RPC_URL PATH="$rp/bin:$PATH" SHIM_LOG="$rp/curl.log" \
+    SCARB_BIN_DIR="$rp/bin" SNCAST_BIN_DIR="$rp/bin" "$ADDR" "$KEY" "$URL" "$rp/root/scripts/deploy.sh" sepolia "$@" 2>&1
+}
+rp_fail() { # <label> <output>
+  echo "FAIL: sepolia --repoint, $1:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$2"
+  echo "sent: $(cat "$rp/bin/sent.log")"; fail=1
+}
+: >"$rp/curl.log"
+recorded_router='{"MockRouter": {"address": "0x90"}}'
+
+# leak: the first send of repoint_state fails, printing the three values.
+rp_case
+touch "$rp/bin/leak"
+out="$(rp_run --repoint)"; rc=$?
+names="$(sed -n '/^node env:$/,/^node argv/p' "$rp/bin/signer.log" | sed '1d;/^node argv/d' | cut -d= -f1 | grep -v '^_$\|^PWD$\|^SHLVL$\|^OLDPWD$' | sort -u | tr '\n' ' ')"
+if [[ $rc -ne 1 || "$out" != *"== repoint: state (read-only)"* || "$out" != *"signer call failed"* ]] || leaks -q <<<"$out"; then
+  rp_fail "a failing send in repoint_state: expected exit 1, 'signer call failed', no value, got $rc" "$out"
+elif grep '^node argv' "$rp/bin/signer.log" | leaks -q || leaks -q "$rp/curl.log" || ! grep -q '^curl: the URL came on stdin$' "$rp/curl.log"; then
+  echo "FAIL: sepolia --repoint: a value reached the signer's argv or curl's argv or environment"; fail=1
+elif [[ "$names" != "$want" ]]; then
+  echo "FAIL: sepolia --repoint: the signer's environment is not the allowlist: $names"; fail=1
+else
+  echo "ok: sepolia --repoint reaches repoint_state; a failing send there leaks no value; the signer's argv holds none; its environment is: $names"
+fi
+
+# quote_fails: a recorded, seeded new MockRouter that does not answer quote_swap.
+for mode in --check-only ""; do
+  rp_case "$recorded_router"
+  touch "$rp/bin/quote_fails"
+  # shellcheck disable=SC2086
+  out="$(rp_run --repoint $mode)"; rc=$?
+  if [[ $rc -eq 0 || "$out" == *"every check passed"* || "$out" == *"== repoint: smoke"* ||
+      "$out" != *"repoint_quote failed: stopping before anything else is sent"* || -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+    rp_fail "${mode:-full run} with a router whose quote_swap fails: expected a non-zero exit, no pass and nothing sent, got $rc" "$out"
+  else
+    echo "ok: sepolia --repoint ${mode:-(full run)} stops when the new MockRouter's quote_swap fails (exit $rc), no pass printed, nothing sent"
+  fi
+done
+
+# send_refused: the seed is refused and the signer's verdict is `not landed`: its hash is cleared; the rerun seeds again
+# (each run then stops at the quote, so only the seed is at stake).
+rp_case "$recorded_router"
+touch "$rp/bin/unseeded" "$rp/bin/send_refused" "$rp/bin/quote_fails"
+out="$(rp_run --repoint)"; rc=$?
+refused="$(cut -d' ' -f2- "$rp/bin/refused.log" 2>/dev/null)"
+if [[ $rc -ne 1 || "$out" != *"not landed: repoint.seed.tx cleared, so a rerun sends it again"* || -n "$(rp_get_test seed.tx)" ||
+    "$refused" != "approve approve add_liquidity 0x5eed0001" || -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+  rp_fail "a seed refused 'not landed': expected exit 1, its hash cleared, nothing sent, got $rc (refused: $refused)" "$out"
+else
+  echo "ok: sepolia --repoint: a seed the signer finds 'not landed' has its hash cleared (exit $rc)"
+fi
+rm -f "$rp/bin/send_refused"
+out="$(rp_run --repoint)"; rc=$?
+if [[ $rc -ne 1 || "$out" != *"   seeded: "* || "$(cat "$rp/bin/sent.log")" != "multicall approve approve add_liquidity 0x5eed0002" ||
+    "$(rp_get_test seed.tx)" != 0x5eed0002 || "$out" != *"repoint_quote failed"* ]] || leaks -q <<<"$out"; then
+  rp_fail "the rerun after a 'not landed' seed: expected the seed sent once (0x5eed0002) and recorded, got $rc" "$out"
+else
+  echo "ok: sepolia --repoint: the rerun after a 'not landed' seed sends it once and records 0x5eed0002"
+fi
+
+# The keeping side (loop 3): a failed seed whose verdict is not the signer's own `not landed` for that hash keeps its
+# hash recorded: the node saw it, its status is unknown, the verdict names another hash, or the words come quoted
+# inside another message.
+for verdict in seen unknown other quoted; do
+  rp_case "$recorded_router"
+  touch "$rp/bin/unseeded" "$rp/bin/quote_fails"
+  printf '%s' "$verdict" >"$rp/bin/send_refused"
+  out="$(rp_run --repoint)"; rc=$?
+  if [[ $rc -ne 1 || "$(rp_get_test seed.tx)" != 0x5eed0001 || "$out" == *"cleared, so a rerun sends it again"* ||
+      -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+    rp_fail "a seed that failed with the verdict '$verdict': expected exit 1 and its hash kept, got $rc (seed.tx '$(rp_get_test seed.tx)')" "$out"
+  else
+    echo "ok: sepolia --repoint: a seed that failed with the verdict '$verdict' keeps its hash recorded (0x5eed0001)"
+  fi
+done
+
+# A recorded seed with no receipt: the wait (REPOINT_WAIT_S=0 here) ends the run, the hash kept, nothing sent.
+rp_case "{\"MockRouter\": {\"address\": \"0x90\"}, \"seed\": {\"tx\": \"0xdead1\"}}"
+touch "$rp/bin/unseeded"
+out="$(REPOINT_WAIT_S=0 rp_run --repoint)"; rc=$?
+if [[ $rc -ne 1 || "$out" != *"seed.tx 0xdead1 (recorded) has no receipt after 0 s (node: UNKNOWN): check it before any rerun"* ||
+    "$(rp_get_test seed.tx)" != 0xdead1 || -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+  rp_fail "a recorded seed with no receipt: expected exit 1, the hash kept, nothing sent, got $rc" "$out"
+else
+  echo "ok: sepolia --repoint: a recorded seed with no receipt stops the run (exit $rc), its hash kept, nothing sent"
+fi
+
+# A recorded seed whose receipt is REVERTED: cleared, and the seed sent again.
+rp_case "{\"MockRouter\": {\"address\": \"0x90\"}, \"seed\": {\"tx\": \"0xbad1\"}}"
+touch "$rp/bin/unseeded" "$rp/bin/quote_fails"
+echo "0xbad1 REVERTED" >"$rp/bin/receipts"
+out="$(rp_run --repoint)"; rc=$?
+if [[ "$out" != *"seed.tx 0xbad1 (recorded): reverted, so it may be sent again"* ||
+    "$(cat "$rp/bin/sent.log")" != "multicall approve approve add_liquidity 0x5eed0001" || "$(rp_get_test seed.tx)" != 0x5eed0001 ]] ||
+    leaks -q <<<"$out"; then
+  rp_fail "a recorded seed that reverted: expected it cleared and the seed sent once, got $rc" "$out"
+else
+  echo "ok: sepolia --repoint: a recorded seed that reverted is cleared and the seed sent once (0x5eed0001)"
+fi
+
+# A hash that cannot be recorded (the deployment's directory read-only as the seed goes out): the signer is not cut
+# short, but the run stops after it, naming the hash; nothing else is sent.
+rp_case "$recorded_router"
+touch "$rp/bin/unseeded"
+dirname "$rp_json" >"$rp/bin/lock_dir"
+out="$(rp_run --repoint)"; rc=$?
+chmod u+w "$(dirname "$rp_json")"
+if [[ $rc -ne 1 || "$out" != *"deploy.sh: could not record 0x5eed0001 under repoint.seed.tx"* ||
+    "$out" != *"a transaction was sent but its hash (shown above) could not be recorded under repoint.seed.tx"* ||
+    "$(cat "$rp/bin/sent.log")" != "multicall approve approve add_liquidity 0x5eed0001" || "$out" == *"== repoint: Economy"* ]] ||
+    leaks -q <<<"$out"; then
+  rp_fail "a seed hash that cannot be recorded: expected exit 1 after the seed, the hash named, nothing more sent, got $rc" "$out"
+else
+  echo "ok: sepolia --repoint: a hash that cannot be recorded stops the run after its send, the hash named, nothing more sent"
+fi
+
+# A complete repoint and no STRK: the funding check does not refuse, the smoke reads back, nothing is sent (exit 0).
+rp_case "{\"MockRouter\": {\"address\": \"0x90\"}, \"smoke\": {\"game_id\": \"7\"}}"
+rp_classes "$(hexname Economy)"
+touch "$rp/bin/repointed" "$rp/bin/poor"
+out="$(rp_run --repoint)"; rc=$?
+if [[ $rc -ne 0 || "$out" != *"complete: upgraded, repointed, seeded, smoke recorded; nothing is left to send"* ||
+    "$out" != *"deployer STRK balance 0.00 STRK: BELOW the need of 20.00 STRK"* ||
+    "$out" != *"--repoint: nothing is left to send, so the need does not apply"* || "$out" != *"== repoint: smoke ok"* ||
+    -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+  rp_fail "a complete repoint with no STRK: expected exit 0, the funding need waived, nothing sent, got $rc" "$out"
+else
+  echo "ok: sepolia --repoint: a complete repoint with 0 STRK passes the funding check (nothing left to send), smoke ok, nothing sent"
 fi
 
 # sepolia --estimate-only (S-1c): past every check (a fake node over curl that has the deployer, the source check, a
