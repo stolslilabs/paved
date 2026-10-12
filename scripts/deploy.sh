@@ -620,6 +620,10 @@ print(node if isinstance(node, str) else "")
 PY
 }
 
+# felt64 <felt>: 0x and 64 hex digits (O-19), in python: bash's printf saturates above 2^63.
+felt64() { printf '%s' "$1" | python3 -I -c 'import sys;print("0x%064x" % int(sys.stdin.read(), 16))'; }
+# gt <a> <b>: a > b, decimal integers of any size (bash arithmetic stops at 2^63).
+gt() { python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1]) > int(sys.argv[2]) else 1)' "$1" "$2"; }
 # felt_eq <a> <b>: the same felt, whatever the padding.
 felt_eq() { [[ -n "$1" && -n "$2" && "$(hex_int "$1")" == "$(hex_int "$2")" ]]; }
 # u256_of <low> <high>: the integer, decimal.
@@ -843,16 +847,16 @@ repoint_run() {
   fi
   # The previous router and Economy class and the commit of the run, once, before anything is sent.
   if [[ -z "$(rp_get previous.MockRouter.address)" ]]; then
-    rp_set "previous.MockRouter.address=0x$(printf '%064x' "$(hex_int "$OLD_ROUTER")")" \
-      "previous.MockRouter.class_hash=0x$(printf '%064x' "$(hex_int "$OLD_ROUTER_CLASS")")" \
-      "previous.Economy.class_hash=0x$(printf '%064x' "$(hex_int "$OLD_ECONOMY_CLASS")")" "at=$DEPLOYED_AT"
+    rp_set "previous.MockRouter.address=$(felt64 "$OLD_ROUTER")" \
+      "previous.MockRouter.class_hash=$(felt64 "$OLD_ROUTER_CLASS")" \
+      "previous.Economy.class_hash=$(felt64 "$OLD_ECONOMY_CLASS")" "at=$DEPLOYED_AT"
   fi
 
   echo "== repoint: declare"
   declare_class MockRouter >/dev/null
   declare_class Economy >/dev/null
-  rp_set "MockRouter.class_hash=0x$(printf '%064x' "$(hex_int "$NEW_ROUTER_CLASS")")" \
-    "Economy.class_hash=0x$(printf '%064x' "$(hex_int "$NEW_ECONOMY_CLASS")")"
+  rp_set "MockRouter.class_hash=$(felt64 "$NEW_ROUTER_CLASS")" \
+    "Economy.class_hash=$(felt64 "$NEW_ECONOMY_CLASS")"
 
   echo "== repoint: new MockRouter"
   if [[ -z "$NEW_ROUTER" && -n "$(rp_get MockRouter.deploy_tx)" ]]; then
@@ -877,13 +881,13 @@ repoint_run() {
     tx="$(send deploy --class-hash "$NEW_ROUTER_CLASS" --salt "$(rp_get MockRouter.salt)" --calldata "$PAVED" "$USDC")" ||
       die "deploy MockRouter failed"
     RECORD_SENDING=""
-    NEW_ROUTER="0x$(printf '%064x' "$(hex_int "$(pyj 'd["contract_address"]' <<<"$tx")")")"
+    NEW_ROUTER="$(felt64 "$(pyj 'd["contract_address"]' <<<"$tx")")"
     rp_set "MockRouter.deploy_tx=$(pyj 'd["transaction_hash"]' <<<"$tx")"
     echo "   deploy MockRouter $NEW_ROUTER tx $(pyj 'd["transaction_hash"]' <<<"$tx")"
   else
     echo "   MockRouter $NEW_ROUTER deployed already"
   fi
-  rp_set "MockRouter.address=0x$(printf '%064x' "$(hex_int "$NEW_ROUTER")")"
+  rp_set "MockRouter.address=$(felt64 "$NEW_ROUTER")"
   felt_eq "$(class_at "$NEW_ROUTER")" "$NEW_ROUTER_CLASS" || die "the new MockRouter $NEW_ROUTER is not of class $NEW_ROUTER_CLASS"
   repoint_check_router_tokens "$NEW_ROUTER"
 
@@ -915,13 +919,18 @@ repoint_run() {
   need=()
   felt_eq "$(class_at "$ECONOMY")" "$NEW_ECONOMY_CLASS" || need+=("$ECONOMY upgrade $NEW_ECONOMY_CLASS")
   read -r -a p <<<"$(call "$ECONOMY" addresses)"
-  felt_eq "${p[3]}" "$NEW_ROUTER" || need+=("$ECONOMY set_router $NEW_ROUTER")
-  # The stored pool: the new router's key and the limit 0, as the deploy set them for the old one.
-  python3 -I - "${pool[@]}" "${k[@]}" <<'PY' || need+=("$ECONOMY set_pool ${k[*]} 0 0")
+  # set_router, then set_pool with the new router's key and the limit 0 (OPERATIONS, step 4: a router serves the stored
+  # key, so its own goes after it). set_pool goes alone only when a repointed Economy's stored pool is not that.
+  if ! felt_eq "${p[3]}" "$NEW_ROUTER"; then
+    need+=("$ECONOMY set_router $NEW_ROUTER" "$ECONOMY set_pool ${k[*]} 0 0")
+  elif ! python3 -I - "${pool[@]}" "${k[@]}" <<'PY'
 import sys
 v = [int(x, 16) for x in sys.argv[1:]]
 sys.exit(0 if len(v) == 12 and v[:5] == v[7:] and v[5:7] == [0, 0] else 1)
 PY
+  then
+    need+=("$ECONOMY set_pool ${k[*]} 0 0")
+  fi
   if [[ "${#need[@]}" == 0 ]]; then
     echo "   upgraded, repointed and on the new pool already$( [[ -n "$(rp_get multicall_tx)" ]] && echo ", tx $(rp_get multicall_tx)")"
   else
@@ -932,6 +941,13 @@ PY
   fi
   felt_eq "$(class_at "$ECONOMY")" "$NEW_ECONOMY_CLASS" || die "Economy's class is not the E-9 class after the multicall"
   felt_eq "$(call "$ECONOMY" router)" "$NEW_ROUTER" || die "Economy.router() is not the new MockRouter after the multicall"
+  read -r -a pool <<<"$(call "$ECONOMY" pool)"
+  python3 -I - "${pool[@]}" "${k[@]}" <<'PY' || die "Economy.pool() is not the new MockRouter's key and the limit 0 after the multicall"
+import sys
+v = [int(x, 16) for x in sys.argv[1:]]
+sys.exit(0 if len(v) == 12 and v[:5] == v[7:] and v[5:7] == [0, 0] else 1)
+PY
+  echo "   Economy: E-9 class, router the new MockRouter, pool its key with the limit 0"
 
   # The deployment file: the new MockRouter and Economy's class where the client and the indexer read them (they read
   # addresses only, which do not change but the MockRouter's), every other field kept.
@@ -965,16 +981,33 @@ ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) 
 print(ids[0])' "$DAILY" 2>/dev/null
 }
 
+# repoint_surrender <game id>: surrenders the smoke's game unless Economy has recorded it (TermsView's `recorded`).
+repoint_surrender() {
+  local t
+  read -r -a t <<<"$(call "$ECONOMY" terms "$1")"
+  if [[ "$(hex_int "${t[9]}")" == 1 ]]; then
+    echo "   game $1 recorded by Economy already$( [[ -n "$(rp_get smoke.surrender_tx)" ]] && echo ", surrendered in tx $(rp_get smoke.surrender_tx)")"
+    return
+  fi
+  RECORD_SENDING=smoke.surrender_tx
+  invoke "$DAILY" surrender "$1" >/dev/null
+  RECORD_SENDING=""
+  read -r -a t <<<"$(call "$ECONOMY" terms "$1")"
+  [[ "$(hex_int "${t[9]}")" == 1 ]] || die "the surrender of game $1 was not recorded by Economy"
+  echo "   daily game $1 surrendered (score 0), recorded"
+}
+
 # repoint_smoke: Economy.router() is the new MockRouter, Economy.quote_swap(1.4 USDC) answers above 0, owner() reads
-# back on the five upgradable contracts, and a paid Daily spawn at stake 1 succeeds. The spawn is sent once: its
-# transaction is recorded, and a rerun cites it instead of buying another game.
+# back on the five upgradable contracts, and a paid Daily spawn at stake 1 succeeds, then is surrendered as deploy.sh's
+# smoke does (score 0: no trace in the day's figures, P-24). Each is sent once: the spawn is recorded and a rerun cites
+# it instead of buying another game, and the surrender goes only while Economy has not recorded the game.
 repoint_smoke() {
   local swap entry quote held min_out usdc_before usdc_after spawn_tx game_id="" player
   echo "== repoint: smoke"
   felt_eq "$(call "$ECONOMY" router)" "$NEW_ROUTER" || die "Economy.router() is not the new MockRouter"
   echo "   Economy.router() is the new MockRouter $NEW_ROUTER"
   read -r swap _ <<<"$(call "$ECONOMY" quote_swap 1400000 0)"
-  [[ "$(hex_int "$swap")" -gt 0 ]] || die "Economy.quote_swap(1400000) is 0"
+  gt "$(hex_int "$swap")" 0 || die "Economy.quote_swap(1400000) is 0"
   echo "   Economy.quote_swap(1400000) = $(hex_int "$swap") PAVED base units"
   for entry in "Economy=$ECONOMY" "Account=$ACCOUNT" "Daily=$DAILY" "Tutorial=$TUTORIAL" "Collection=$COLLECTION"; do
     [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
@@ -995,6 +1028,7 @@ repoint_smoke() {
   fi
   if [[ -n "$(rp_get smoke.game_id)" ]]; then
     echo "   paid Daily spawn done already: game $(rp_get smoke.game_id), tx $(rp_get smoke.spawn_tx); not sent again"
+    repoint_surrender "$(rp_get smoke.game_id)"
     echo "== repoint: smoke ok"
     return
   fi
@@ -1002,7 +1036,7 @@ repoint_smoke() {
   read -r player _ <<<"$(call "$ACCOUNT" player "$DEPLOYER_ARG")"
   [[ "$(hex_int "$player")" != 0 ]] || invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER_ARG" >/dev/null
   read -r held _ <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
-  [[ "$(hex_int "$held")" -ge 2000000 ]] || invoke "$USDC" mint "$DEPLOYER_ARG" 2000000 0 >/dev/null
+  gt "$(hex_int "$held")" 1999999 || invoke "$USDC" mint "$DEPLOYER_ARG" 2000000 0 >/dev/null
   invoke "$USDC" approve "$DAILY" 2000000 0 >/dev/null
   read -r -a quote <<<"$(call "$ECONOMY" quote 1)"
   read -r swap _ <<<"$(call "$ECONOMY" quote_swap "${quote[2]}" "${quote[3]}")"
@@ -1021,6 +1055,7 @@ repoint_smoke() {
   read -r player _ <<<"$(call "$ECONOMY" terms "$game_id")"
   [[ "$(hex_int "$player")" == "$DEPLOYER_INT" ]] || die "Economy.terms($game_id) is not the player's"
   echo "   paid Daily game $game_id at stake 1 (min_out $min_out) through the new MockRouter, tx $spawn_tx; Economy holds nothing"
+  repoint_surrender "$game_id"
   echo "== repoint: smoke ok"
 }
 
