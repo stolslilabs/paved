@@ -233,12 +233,16 @@ a rate of 0 there means no warning, and the purchase proceeds.
 deployment without `chain_id`, or a provider that cannot tell its chain, refuses with "Purchases are off: the network
 cannot be confirmed."; another chain with "Purchases are off: the RPC is on another network than this deployment."
 (`ChainMismatchError`); nothing is sent, and the screen shows the same and offers no purchase. A match is kept for the
-client's life; a failed read is tried again at the next purchase.
+client's life; a failed read is tried again at the next purchase, and the purchase screen reads it again when the page is
+shown again, so a transient RPC error at page open does not leave purchases off until a reload (a mismatch stays refused).
+The check compares the read RPC's chain id with the deployment's `chain_id`. It cannot see the chain of the wallet that
+signs, so a wallet on another chain is outside this check.
 
 **Confirm again.** After `PoolPriceMovedError`, `PoolQuoteBelowFloorError` or `PurchasePriceChangedError`, the game
 page shows a "Back to purchase" button to `/economy` beside Back (review #310, note 2), with `?ref=<referrer>` when the
 purchase had one, so the referral survives the retry (review t-0115). Nothing was sent in each case. An acceptance of a
-low quote is for the quote it was given on: when the quote shown changes, or stops being low, the checkbox is cleared.
+low quote is for the quote it was given on: when the quote shown changes, when the implied figure changes (the guard rate moved), or when it stops being low, the
+checkbox is cleared.
 
 **The burn share is "at today's terms"** (CORE's ruling, 2026-10-12). The purchase screen and the confirm show the part of
 the price swapped and burned with that label, and the confirmation is unchanged: no check of `burn_bps` and no
