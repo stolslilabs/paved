@@ -141,6 +141,26 @@
           }
         ],
         "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "quote_swap",
+        "inputs": [
+          {
+            "name": "node",
+            "type": "paved::economy::ekubo::RouteNode"
+          },
+          {
+            "name": "token_amount",
+            "type": "paved::economy::ekubo::TokenAmount"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "paved::economy::ekubo::Delta"
+          }
+        ],
+        "state_mutability": "view"
       }
     ]
   },
@@ -215,26 +235,6 @@
         ],
         "outputs": [],
         "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "quote",
-        "inputs": [
-          {
-            "name": "token_in",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "amount_in",
-            "type": "core::integer::u128"
-          }
-        ],
-        "outputs": [
-          {
-            "type": "core::integer::u128"
-          }
-        ],
-        "state_mutability": "view"
       },
       {
         "type": "function",
