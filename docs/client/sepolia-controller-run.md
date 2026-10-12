@@ -2,7 +2,7 @@
 
 Run of 2026-10-11 against https://paved.bal7hazar.com (release of 1235607, #304) and https://api.paved.bal7hazar.com.
 Part A (no Cartridge account) is done. Part B (account needed) was tried headless on 2026-10-12 with the owner's go for one
-throwaway account (section "Part B (automated)"): **sign-up failed twice on Cartridge's side, no account exists**. The fallback
+throwaway account (section "Part B (automated)"): **sign-up failed three times (two launches plus a retry) on Cartridge's side, no account exists**. The fallback
 is the owner's by-hand run below.
 
 ## Method
@@ -171,11 +171,24 @@ What each folder holds:
 
 Each folder also holds `bNN-*.jpg` and `bNN-*.txt` per keychain screen. `b04-signup-03.jpg` of attempts 2 and 3 are byte-identical (same SHA-256): not a copy, each was written by its own launch (file times 08:19:35 and 08:23:03); the render was identical, the same screen at the same size and JPEG quality.
 
-Fallback: the owner's by-hand run below. **One more automated attempt is planned**, in the same confirmed scope: the same name
-`d16-20261012-6446`, passkey only (never SMS), at most one account, not before 12:23 UTC on 2026-10-12, started only on the PM's
-prompt. If `finalizeRegistration` fails the same way, the automated attempts stop for good and that is recorded; no other variant
-(another origin, another authenticator) is tried. If the owner's by-hand run comes first it supersedes that attempt. Its results go in a
-follow-up PR.
+### Retry (2026-10-12, 12:32 UTC): failed the same way; automated attempts stop here
+
+The one planned retry ran on 2026-10-12 from 12:32 UTC (PM's prompt after 12:23), in the same scope: name `d16-20261012-6446`, headless on the
+VPS, `scripts/e2e-sepolia/part-b.mjs --confirmed` after the detection and scrub fixes of this PR (failure detection by failure pattern, echo
+marker or `rpc error:`; escaped-quote markers; 10 scrub tests pass).
+
+- The keychain offered "Create New" for the name (not registered), `SIGN UP` worked, the driver chose **PASSKEY** (never SMS or Other options).
+- **2026-10-12T12:32:36.693Z** (driver log): the registration failed again. Operation **`finalizeRegistration`** (read from the raw text before the cut).
+  Error text kept: `rpc error: code = Internal desc = internal server error`; the rest was cut by the scrub. Lines seen under it: "Authentication failed.
+  Please try again." and "Please try connecting again". Driver exit 4, context closed, nothing kept; peak RSS 113,536 kB.
+- No screenshot was taken of the failure screen (by design): `part-b-retry/b04-signup-03.txt` is its text with the time, and its `part-b-run.json` is complete.
+- No account exists; nothing was signed or sent to Sepolia. Steps 3 to 8 (Create Account, Daily purchase, moves, indexer, origin and "unverified"
+  policies text) were not reached, and the question of #295 stays open.
+- Three failures of the same call (08:19, 08:23, 12:32 UTC, over about four hours) from a headless Chromium with a virtual authenticator point
+  at Cartridge's side or at virtual authenticators; it does not separate the two. **No other variant is tried** (another origin, authenticator or name).
+  Evidence: `docs/client/sepolia-controller-run/part-b-retry/`.
+
+Fallback: the owner's by-hand run below, with a real passkey.
 
 ## Part B (needs a Cartridge account): not run
 

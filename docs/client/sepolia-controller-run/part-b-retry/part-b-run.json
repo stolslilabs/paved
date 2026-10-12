@@ -1,0 +1,789 @@
+{
+  "stage": "signup",
+  "console": [
+    {
+      "stage": "load",
+      "type": "warning",
+      "text": "Setting overlaysContent is only supported from the top level browsing context",
+      "from": "https://x.cartridge.gg/init-virtual-keyboard.js",
+      "stack": ""
+    },
+    {
+      "stage": "load",
+      "type": "error",
+      "text": "{code: NOT_CONNECTED}",
+      "from": "https://paved.bal7hazar.com/assets/dist-C8RzaKS5.js",
+      "stack": ""
+    },
+    {
+      "stage": "connect",
+      "type": "error",
+      "text": "Error: rpc error: code = Unauthenticated desc = access denied [the rest of the text is removed: it may carry the keychain's echoed registration request]",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js",
+      "stack": "https://x.cartridge.gg/assets/index-BxwnhcPx.js"
+    },
+    {
+      "stage": "connect",
+      "type": "error",
+      "text": "Error: rpc error: code = Unauthenticated desc = access denied [the rest of the text is removed: it may carry the keychain's echoed registration request]",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js",
+      "stack": "https://x.cartridge.gg/assets/index-BxwnhcPx.js"
+    },
+    {
+      "stage": "signup",
+      "type": "warning",
+      "text": "Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js",
+      "stack": ""
+    },
+    {
+      "stage": "signup",
+      "type": "error",
+      "text": "Error: rpc error: code = Unauthenticated desc = access denied [the rest of the text is removed: it may carry the keychain's echoed registration request]",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js",
+      "stack": "https://x.cartridge.gg/assets/index-BxwnhcPx.js"
+    },
+    {
+      "stage": "signup",
+      "type": "error",
+      "text": "Error: rpc error: code = Unauthenticated desc = access denied [the rest of the text is removed: it may carry the keychain's echoed registration request]",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js",
+      "stack": "https://x.cartridge.gg/assets/index-BxwnhcPx.js"
+    },
+    {
+      "stage": "signup",
+      "type": "warning",
+      "text": "Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.",
+      "from": "https://x.cartridge.gg/assets/react-vendor-DQusW2co.js",
+      "stack": ""
+    },
+    {
+      "stage": "signup",
+      "type": "error",
+      "text": "Login error: rpc error: code = Internal desc = internal server error [the rest of the text is removed: it may carry the keychain's echoed registration request]",
+      "from": "https://x.cartridge.gg/assets/index-BxwnhcPx.js",
+      "stack": ""
+    }
+  ],
+  "requests": [
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "paved.bal7hazar.com",
+      "path": "/"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "paved.bal7hazar.com",
+      "path": "/assets/index-DDJ9QdIV.js"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/x/starknet/sepolia/rpc/v0_10"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/x/starknet/sepolia/rpc/v0_10"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/x/starknet/sepolia/rpc/v0_10"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/x/starknet/sepolia/rpc/v0_10"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/x/starknet/sepolia/rpc/v0_10"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/x/starknet/sepolia/rpc/v0_10"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "paved.bal7hazar.com",
+      "path": "/assets/dist-C8RzaKS5.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/noflash.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/init-virtual-keyboard.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/disable-multitouch-zoom.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/assets/index-BxwnhcPx.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/assets/commonjs-gnU0ypJ3.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/assets/vendor-V4OsYDT1.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/assets/react-vendor-DQusW2co.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/assets/index-Cf7BzEvc.css"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/fontawesome/js/fontawesome.min.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/fontawesome/js/solid.min.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/fontawesome/js/thin.min.js"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "fonts.googleapis.com",
+      "path": "/css2"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/assets/account_wasm_bg-US1Qx0JC.wasm"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/assets/dojo_wasm_bg-5_Mxwn4H.wasm"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "x.cartridge.gg",
+      "path": "/ingest/decide/"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/api/geo"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "auth.turnkey.com",
+      "path": "/"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/x/starknet/sepolia/rpc/v0_10"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "fonts.gstatic.com",
+      "path": "/s/inter/v20/UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "fonts.gstatic.com",
+      "path": "/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n1i8q1w.woff2"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "x.cartridge.gg",
+      "path": "/fonts/LD-Mono/LD_Mono-Bold.otf"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "static.cartridge.gg",
+      "path": "/presets/cartridge/icon.svg"
+    },
+    {
+      "stage": "load",
+      "method": "POST",
+      "host": "x.cartridge.gg",
+      "path": "/ingest/decide/"
+    },
+    {
+      "stage": "load",
+      "method": "GET",
+      "host": "auth.turnkey.com",
+      "path": "/hpke-core.js"
+    },
+    {
+      "stage": "connect",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "connect",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "connect",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "connect",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "connect",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "connect",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "x.cartridge.gg",
+      "path": "/ingest/batch/"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    },
+    {
+      "stage": "signup",
+      "method": "POST",
+      "host": "api.cartridge.gg",
+      "path": "/query"
+    }
+  ],
+  "failures": [],
+  "frames": [
+    {
+      "stage": "load",
+      "url": "https://paved.bal7hazar.com/"
+    },
+    {
+      "stage": "load",
+      "url": "https://paved.bal7hazar.com/"
+    },
+    {
+      "stage": "load",
+      "url": "https://x.cartridge.gg/"
+    },
+    {
+      "stage": "load",
+      "url": "https://x.cartridge.gg/"
+    },
+    {
+      "stage": "load",
+      "url": "https://auth.turnkey.com/"
+    },
+    {
+      "stage": "connect",
+      "url": "https://x.cartridge.gg/connect"
+    }
+  ],
+  "screens": [
+    {
+      "name": "b02-keychain-username",
+      "at": "2026-10-12T12:32:25.264Z",
+      "text": "Connect Controller\nEnter a Username\nBy continuing you are agreeing to Cartridge's Terms of Service and Privacy Policy\nLOG IN\nby",
+      "controls": [
+        {
+          "tag": "button",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "",
+          "disabled": false
+        },
+        {
+          "tag": "input",
+          "type": null,
+          "name": null,
+          "placeholder": "Username",
+          "autocomplete": "off",
+          "text": "",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Terms of Service",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Privacy Policy",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "LOG IN",
+          "disabled": true
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "by",
+          "disabled": false
+        }
+      ],
+      "failed": false,
+      "operation": null,
+      "screenshot": true
+    },
+    {
+      "name": "b03-keychain-after-username",
+      "at": "2026-10-12T12:32:28.605Z",
+      "text": "Connect Controller\n\nd16-20261012-6446\n\nCreate New\n\nWelcome! Let's create a new Controller\nBy continuing you are agreeing to Cartridge's Terms of Service and Privacy Policy\nSIGN UP\nby",
+      "controls": [
+        {
+          "tag": "button",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Terms of Service",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Privacy Policy",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "SIGN UP",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "by",
+          "disabled": false
+        }
+      ],
+      "failed": false,
+      "operation": null,
+      "screenshot": true
+    },
+    {
+      "name": "b04-signup-01",
+      "at": "2026-10-12T12:32:31.194Z",
+      "text": "Connect Controller\n\nd16-20261012-6446\n\nCreate New\n\nWelcome! Let's create a new Controller\nBy continuing you are agreeing to Cartridge's Terms of Service and Privacy Policy\nSIGN UP\nby",
+      "controls": [
+        {
+          "tag": "button",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Terms of Service",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Privacy Policy",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "SIGN UP",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "by",
+          "disabled": false
+        }
+      ],
+      "failed": false,
+      "operation": null,
+      "screenshot": true
+    },
+    {
+      "name": "b04-signup-02",
+      "at": "2026-10-12T12:32:33.954Z",
+      "text": "Connect Controller\n\nd16-20261012-6446\n\nCreate New\n\nWelcome! Let's create a new Controller\nBy continuing you are agreeing to Cartridge's Terms of Service and Privacy Policy\nSIGN UP\nby\nCreate Controller\nSMS\nPASSKEY\nOTHER OPTIONS",
+      "controls": [
+        {
+          "tag": "button",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Terms of Service",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Privacy Policy",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "SIGN UP",
+          "disabled": true
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "by",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "SMS",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "PASSKEY",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "OTHER OPTIONS",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "",
+          "disabled": false
+        }
+      ],
+      "failed": false,
+      "operation": null,
+      "screenshot": true
+    },
+    {
+      "name": "b04-signup-03",
+      "at": "2026-10-12T12:32:36.693Z",
+      "text": "Connect Controller\n\nd16-20261012-6446\n\nCreate New\n\nrpc error: code = Internal desc = internal server error [the rest of the text is removed: it may carry the keychain's echoed registration request]\n[lines seen after the cut: Authentication failed. Please try again. | Please try connecting again]",
+      "controls": [
+        {
+          "tag": "button",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Terms of Service",
+          "disabled": false
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "Privacy Policy",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "SIGN UP",
+          "disabled": true
+        },
+        {
+          "tag": "a",
+          "type": null,
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "by",
+          "disabled": false
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": null,
+          "placeholder": null,
+          "autocomplete": null,
+          "text": "",
+          "disabled": false
+        }
+      ],
+      "failed": true,
+      "operation": "finalizeRegistration",
+      "screenshot": false
+    }
+  ],
+  "txs": [],
+  "notes": [
+    "load: keychain visible before Connect: false",
+    "connect: keychain visible after Connect: true; controls: [[\"button\",null,null,null,\"\"],[\"input\",null,null,\"Username\",\"\"],[\"a\",null,null,null,\"Terms of Service\"],[\"a\",null,null,null,\"Privacy Policy\"],[\"button\",\"submit\",null,null,\"LOG IN\"],[\"a\",null,null,null,\"by\"]]",
+    "signup: after the username: buttons [\"\",\"SIGN UP\"]",
+    "signup: click \"SIGN UP\"",
+    "signup: method chooser: choosing \"PASSKEY\" (never SMS or Other options)",
+    "signup: REGISTRATION FAILED at 2026-10-12T12:32:36.693Z: operation finalizeRegistration; text: rpc error: code = Internal desc = internal server error [the rest of the text is removed: it may carry the keychain's echoed registration request]"
+  ],
+  "registrationFailed": {
+    "at": "2026-10-12T12:32:36.693Z",
+    "operation": "finalizeRegistration"
+  }
+}
