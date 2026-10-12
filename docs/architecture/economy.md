@@ -539,8 +539,11 @@ O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, ow
   `b`.
   - **The client's slippage (P-35, approved by the PM):** 1 % by default, shown to the player, and capped at 5 %.
     The client sends `min_out = pool quote x (1 - slippage)`.
-  - **The pool quote.** On devnet it is `Economy.quote_swap(usdc_in) -> PAVED out` (pool fee included), which
-    forwards to `MockRouter.quote`. The client never calls the router itself. On mainnet, see "Quoting on
+  - **The pool quote.** On every network it is `Economy.quote_swap(usdc_in) -> PAVED out` (pool fee included). Since
+    E-9 it calls the router's own `quote_swap(RouteNode, TokenAmount) -> Delta` through the node `purchase` swaps
+    through (the stored pool key and `sqrt_ratio_limit`, one hop, `skip_ahead` 0) and returns the PAVED leg. The
+    quote is therefore the exact route of the purchase. On devnet and Sepolia the router is `MockRouter`, which
+    implements the same `quote_swap`. The client never calls the router itself. On mainnet, see "Quoting on
     mainnet" below.
   - **`Quote.min_out_hint` is never sent as `min_out`.** It is only an estimate, 99 % of the burn quote at the
     guard's rate, and it lags the pool.
@@ -554,10 +557,17 @@ O-1. Ekubo's interfaces are public, and declaring them locally is fine (D-14, ow
   - Nums' client quotes through Ekubo's public quoter API instead (`https://prod-api-quoter.ekubo.org/<chain
     id>/<amount>/<token>/<quote token>`, in `client/src/api/ekubo.ts` and `client/src/config.ts` of Nums at
     `4f8f405`).
-  - **Unverified:** whether the router deployed at the mainnet address has `quote_swap`, and whether a contract
-    can call it on chain (the result rides on a caught revert). On mainnet the client uses Ekubo's public quote API
-    until a fork test (E-9) shows the router's `quote_swap` works. `Economy.quote_swap` can then move to that
-    interface, with the mock implementing it too.
+  - **Verified by E-9 (2026-10-12)** on a fork of mainnet at block 16,265,000 (`contracts/src/tests/economy/fork.cairo`;
+    figures in "As built: E-9"):
+    - Ekubo's router at `0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e` has the view
+      `quote_swap(RouteNode, TokenAmount) -> Delta`, and a contract (`Economy`) can call it: the caught revert works.
+    - **The router Nums uses (`0x04505a9f06f2bd639b6601f37a4dc0908bb70e8e0e0c34b1220827d64f4fc066`) has no
+      `quote_swap`**. Its class has only an older external `quote(Array<Swap>)`. So `Economy`'s router on mainnet must be
+      `0x0199…737e` (or a later router with `quote_swap`), never Nums' address. `Economy` has no router setter: the
+      router is fixed at construction.
+    - The quote equals the swap through the same node, exactly, for every amount tried.
+  - `Economy.quote_swap` now uses that interface (E-9). The client drops Ekubo's API on mainnet (CLIENT's change,
+    "As built: E-9").
 - **Price guard (self-sandwich).** A player can push the PAVED price down before their own purchase, by selling
   PAVED into the pool. Their burn then buys more PAVED, so their `R` and their reward grow. They buy back
   afterwards. Their cost is the pool fee on both legs.
@@ -679,7 +689,7 @@ lot as the contract**, per O-39's lesson.
 |---|---|
 | Entry | the player approves **`Daily`** on **USDC** for `k x entry_price().amount`, then `Daily.spawn(stake, referrer, min_out)`. The approval target is unchanged; the token is USDC (6 decimals) instead of the test token |
 | `entry_price()` | same view, `token` = USDC, `amount` = the price of **one stake unit** (2,000,000). A meaning change for `amount` ("per stake unit"), written under "Changes since publication" in `public-interface.md` |
-| Quote | `Economy.quote(stake) -> Quote { price, burn_quote, referral, margin, min_out_hint, factor, mean, threshold, slope, cap }` (a view on `Economy`, not `Daily`). `min_out_hint` is an estimate and is never sent as `min_out`. `min_out` comes from `Economy.quote_swap(burn_quote)` on devnet, or Ekubo's quote API on mainnet, minus the slippage (1 % by default, shown, at most 5 %; P-35) |
+| Quote | `Economy.quote(stake) -> Quote { price, burn_quote, referral, margin, min_out_hint, factor, mean, threshold, slope, cap }` (a view on `Economy`, not `Daily`). `min_out_hint` is an estimate and is never sent as `min_out`. `min_out` comes from `Economy.quote_swap(burn_quote)` (on every network since E-9; Ekubo's quote API on mainnet before it) minus the slippage (1 % by default, shown, at most 5 %; P-35) |
 | Running day | `Economy.day(day) -> DayView { prior, sum, weight, mean, closed }`: sum, weight and mean are 0 until the day closes (P-34) |
 | A game's terms | `Economy.terms(game_id) -> TermsView { stake, reference, day, score, settled, reward }` |
 | Settlement | `Economy.settle(game_ids)`, from the end of the day after the purchase day (P-34); the client offers it then, and the indexer lists the unsettled games. A game recorded 24 h or more after its purchase is expired and earns nothing |
@@ -718,7 +728,7 @@ economy at all.
 | E-6 | Self-referral through a second address takes 5 % from the stakers | Accepted with the margin option; the burn option removes it (section 1) |
 | E-7 | USDC that arrives while nobody stakes goes to the first staker | The owner stakes at launch |
 | E-8 | New dependency: an OpenZeppelin ERC20 (`openzeppelin_token`) | DECIDED (P-31): OpenZeppelin for `PavedToken`, a published version that builds with Scarb 2.20.1, pinned exactly (`=x.y.z`) in E1 |
-| E-9 | Ekubo interface drift | Local ABI-compatible declarations; a fork test against the mainnet router before the owner's mainnet go. It covers the price limit, a partial fill, and the router's `quote_swap` (P-35, section 5) |
+| E-9 | Ekubo interface drift | Local ABI-compatible declarations; a fork test against the mainnet router (`paved::tests::economy::fork`, opt-in, OPERATIONS). It covers the price limit, a partial fill, and the router's `quote_swap` (P-35, section 5), and passed on 2026-10-12 at block 16,265,000 against router `0x0199…737e` ("As built: E-9"). Re-run it before the owner's mainnet go, at a recent block. Nums' router has no `quote_swap` and is not usable |
 | E-11 | A wallet or indexer does not show the games, or shows a transfer button that then fails | Standard ERC721 surface with SRC5 ids, the camelCase twins and the `Transfer` event at mint; no Starknet standard for "soulbound" exists (section 9) |
 | E-10 | A paid game of skill with token rewards may be regulated in places | Out of this track's scope; for the owner |
 
@@ -909,12 +919,17 @@ D-13 lifts the seed gate. These gates stay:
   `set_lobby_class` on `Daily` and `Tutorial` is as strong as `upgrade`: a `Lobby` class runs by library call on
   their storage, so it can move the prize pools, rewrite `owner`, or replace the class. This gate covers both.
 - **The mock-router gate** (from E1's audit), a mainnet gate: the mainnet price limit and partial fills are untested
-  until a fork test against the mainnet router covers them (see "As built: E2" below).
+  until a fork test against the mainnet router covers them (see "As built: E2" below). **Covered by E-9's fork test**
+  (2026-10-12, "As built: E-9"): the limit `Economy` passes for its direction, a swap that reaches it, and a partial
+  fill through `purchase`, on mainnet's Ekubo.
 - **The route gap** (P-39, two mainnet gates). `MockRouter`'s quote is `Economy.quote_swap`; on mainnet the client
   quotes through Ekubo's API, which may answer with a route other than the pool `Economy` swaps through:
   - (i) the interim guard: the client refuses any route that is not the single hop through `Economy.pool()`. It is
     in place before any mainnet paid game;
-  - (ii) the target: an on-chain quote through the router, by CORE after the E-9 fork test.
+  - (ii) the target: an on-chain quote through the router, by CORE after the E-9 fork test. **Done by E-9**
+    (2026-10-12): `Economy.quote_swap` is the router's `quote_swap` through `Economy`'s own node, tested on the
+    mainnet fork. Gate (ii) closes once CLIENT calls `Economy.quote_swap` on mainnet too. Guard (i) and the API
+    quote can then go ("As built: E-9", "For CLIENT").
 - **The dump/withhold gate** (P-34b, PM, 2026-10-09). Every input of the open day's mean is public, so a player
   may dump a low score or withhold a game to move the day's mean. E4 measures that strategy in `sim.py` at
   realistic volumes, including a thin day. If it pays, a floor goes in before any real-money game on mainnet: a score
@@ -933,7 +948,8 @@ differs from the text above, or the text left the choice open, it is written her
   - `configure(config)` and `set_pool(pool_key, sqrt_ratio_limit)`: the owner. `set_pool` lets the owner point the
     swaps at any PAVED/USDC pool, which is accepted trust (section 6; no code change).
   - Views:
-    - `quote`, and `quote_swap` (P-35, served by `MockRouter` on devnet and Sepolia (P-39), not by Ekubo's router; section 5);
+    - `quote`, and `quote_swap` (P-35; since E-9, the router's `quote_swap` through `Economy`'s node, on `MockRouter`
+      and on Ekubo's router alike; section 5);
     - `day`: hides only the aggregate (sum, weight and mean are 0 until the day closes). Every input of the open
       day's mean is public (`Purchased`, `Recorded`, `terms`), so the mean can be computed before the close
       (P-34b);
@@ -1005,7 +1021,8 @@ fills only part of its input. `clear(USDC)` then returns the rest to `Economy`, 
 margin. The burn of that purchase then falls below 70 %, and its `R`, which follows the PAVED bought, is smaller.
 `Economy` passes the constructor's `sqrt_ratio_limit` (meant as the extreme bound of the swap direction), so a
 partial fill needs a drained pool. Before the owner's go for a non-local paid game, a fork test against the
-mainnet router must cover the chosen limit and a partial fill (E-9). The mock was left unchanged.
+mainnet router must cover the chosen limit and a partial fill (E-9). The mock was left unchanged. **Covered by E-9**
+(2026-10-12). The text above holds on mainnet's Ekubo, with the figures in "As built: E-9".
 
 **Gap: the mock's fee stays in its reserves.** `MockRouter` adds the whole input to its reserve, fee included,
 as Uniswap v2 does. Ekubo and `sim.py` keep the fee out of the price curve. E4 recalibrates from real games'
@@ -1147,6 +1164,83 @@ economy changed.
 - **The smoke** leaves test-sized traces on Sepolia (`contracts/deployments/README.md`, "Sepolia"); the day's figures
   are untouched (P-24). Its paid game is settled by the keeper, since Sepolia's time cannot move.
 - **Phase 2** (the deployment and `sepolia.json`) waits for the signing choice (README, "Signing on Sepolia").
+
+### As built: E-9 (on-chain quote through the router, mainnet fork test)
+
+`contracts/src/economy/{economy,ekubo}.cairo`, `contracts/src/mocks/router.cairo`, and the fork test
+`contracts/src/tests/economy/fork.cairo` (opt-in, out of `ci`: `docs/programme/OPERATIONS.md`, "Checks that gate a
+merge").
+
+- **`Economy.quote_swap(usdc_in: u256) -> u256`** keeps its signature and its refusal above `u128` (`'Economy:
+  amount too large'`). It builds the same `RouteNode` as `purchase` (the stored pool key, `sqrt_ratio_limit`,
+  `skip_ahead: 0`), calls the router's `quote_swap(node, TokenAmount { USDC, +usdc_in })`, and returns the
+  magnitude of the PAVED leg of the `Delta`. On a partial fill that is the PAVED of the part filled. The answer does
+  not say that the fill is partial: the USDC leg is not returned.
+- **`IRouter`** (`ekubo.cairo`) declares `quote_swap` next to `swap`, ABI-compatible with mainnet's router.
+- **`MockRouter`** implements `quote_swap` with the answer of its former `quote`: the `Delta` that `swap` would
+  return at the current reserves (input positive, output negative), the same pool and exact-input checks. Unlike
+  `swap`, it answers a zero output instead of reverting. **`quote(token_in, amount_in)` is removed**: only the
+  contract tests used it, never the client, `deploy.sh` or the indexer. The devnet goldens and fixtures are
+  unchanged (`test_quote_swap_is_the_router_quote` keeps the launch pool's 1.4 USDC figure,
+  106,385,850,681,859,312,711 base units).
+- **The fork test** reads mainnet at block **16,265,000** through `https://api.cartridge.gg/x/starknet/mainnet/rpc/v0_10`
+  (public, no key; `MAINNET` in `contracts/Scarb.toml`). Ekubo's core `0x00000005dd3d…325b4b`, positions
+  `0x02e0af29…184067`, router `0x0199741822…737e`. USDC is Circle's native USDC `0x033068f6…b35fb` (FiatToken). The
+  test mints it through the on-chain master minter, a controller and a minter. Two pools:
+  - **USDC/STRK** at 0.05 % (`fee` `0x20c49ba5e353f80000000000000000`, tick spacing 1,000, no extension; USDC is
+    token0). `Economy` is deployed on the fork with STRK in PAVED's place. STRK cannot be burned by `Economy`, so its
+    `burn` is mocked.
+  - **PAVED/USDC at Paved's own key** (5 %, tick spacing `0x56a4c`, no extension), created on the fork with a real
+    `PavedToken`. It has one thin position (1 USDC and 100 PAVED offered, across two tick spacings around ~74 PAVED
+    per USDC) and the real burn.
+
+| Fork test | Result |
+|---|---|
+| Quote equals swap (`Economy.quote_swap`, the router's `quote_swap`, then a real `swap` through the same node; each swap moves the pool before the next) | **Exact** for every amount: 1.4 USDC: 13.766895061051357059 STRK; 14 USDC: 137.668396505738371527; 1,000 USDC: 9,830.436030943356895424; 100,000 USDC: 953,844.733858368601391341. Full fills |
+| `Economy`'s limit for USDC in | USDC is token0 here, so USDC in lowers the price: the extreme is `MIN_SQRT_RATIO` (18,446,748,437,148,339,061). A limit of 0 quotes 14 USDC the same as that extreme (observed, not read in the router's source; `deploy.sh` passes 0). A limit on the wrong side (`MAX_SQRT_RATIO`) makes every quote and every purchase revert in core (`'LIMIT_DIRECTION'`) |
+| A swap that reaches the extreme limit | 2^127 USDC base units quotes a partial fill: the pool takes 3,424,624.581210 USDC and pays 5,659,986.089174472338777871 STRK. The swap does exactly that, and core's price ends at `MIN_SQRT_RATIO`. It does not revert |
+| Partial fill through `purchase`, USDC/STRK, a limit set 1e-6 below the price by `set_pool` | Stake 10 (14 USDC burn quote): the pool takes 3.298987 USDC and pays 32.440569955451756808 STRK, equal to `Economy.quote_swap(14 USDC)`; the price ends at the limit. `clear(USDC)` returns 10.701013 USDC; the Vault gets 16.701013 USDC (the 6 USDC margin plus the rest). `Purchased.burned_quote` stays 14 USDC. `R` = `reference(guarded(out, 14 USDC, rate), 10, factor)`; here `R` is 0, since STRK's supply is far above the target |
+| Partial fill through `purchase`, thin PAVED/USDC at `Economy`'s extreme limit | Stake 10: the pool takes 1.257015 USDC and pays 74.384152412515867182 PAVED, equal to the quote; the drained pool's price ends at the limit (here `MAX_SQRT_RATIO`, USDC being token1). The burn is 6.3 % of the price instead of 70 %; the Vault gets 18.742985 USDC; the PAVED bought is burned; `Economy` and the router hold no PAVED after. `R` = 81.822567653767453900 PAVED |
+| The quote of a swap that would revert | `quote_swap` needs no funds: 1,000,000 USDC unpaid on the router quotes normally, while the same `swap` reverts in USDC's transfer (`'Transfer amount exceeds balance'`). Where core itself reverts (`'LIMIT_DIRECTION'`), the quote reverts with core's reason. An input of 0 quotes 0 |
+
+What the partial fill confirms, and one effect the text above did not name:
+
+- As the gate paragraph of E2 says: the unswapped USDC goes back through `clear(USDC)` to the Vault as margin, the
+  burn falls below 70 %, and `R` follows the PAVED bought against the whole burn quote, so it is smaller.
+- **The guard's rate also reads a partial fill as a bad price.** `next_rate(rate, bought, quote)` divides the PAVED
+  bought by the whole quote. The observation then falls below `rate x 10/11` and is clamped there, and the rate steps
+  down by about 0.28 % (once per block). Every partial fill therefore lowers the guard by one clamped step. No code
+  change: a partial fill needs a drained pool or a near limit, both the owner's acts.
+
+**Before the owner's mainnet go (a reserved act; nothing here is deployed):**
+
+- `Economy`'s router is `0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e` (or a later Ekubo router
+  with `quote_swap`), never Nums' `0x04505a…c066`. The router has no setter.
+- Its `sqrt_ratio_limit` is 0 or the extreme of USDC in's direction: `MIN_SQRT_RATIO` when USDC is token0,
+  `MAX_SQRT_RATIO` when it is token1. A limit on the wrong side reverts every purchase; `set_pool` does not check it.
+- Re-run the fork test at a recent block.
+
+**Sepolia (analysis only, nothing sent).** Sepolia runs `Economy` with a `MockRouter` that has `quote` and no
+`quote_swap` (`contracts/deployments/sepolia.json`).
+
+- **An `Economy` upgrade alone breaks Sepolia's quote.** The new class's `quote_swap` calls the old mock's missing
+  `quote_swap`. Purchases still swap, but the client's `min_out` source fails.
+- **A new `MockRouter` cannot be wired into the deployed `Economy`.** `MockRouter` is not upgradable. The router
+  address is set only at construction: `set_pool` changes the pool key and the limit, not the router.
+- So the update is a **fresh `scripts/deploy.sh sepolia`** with both new classes: a new `PavedToken`, since its
+  minter is set once. The alternative is an `Economy` change first, a router setter by the owner, which needs its
+  own review and audit.
+- `deploy.sh` needs no change. `MockRouter`'s constructor, `Economy`'s constructor and the address flow are
+  unchanged, and the smoke already calls `Economy.quote_swap`.
+- Until then, Sepolia keeps its current classes, which stay consistent with each other.
+
+**For CLIENT** (`client-economy.md` is CLIENT's; the notes are in the PR):
+
+- On mainnet, take `min_out` from `Economy.quote_swap(burn_quote)` minus the slippage, as on devnet and Sepolia.
+- Drop Ekubo's quoter API, and drop guard (i), the single-hop route check. The on-chain quote is the purchase's
+  own route.
+- `Economy.quote_swap` cannot show a partial fill. A client that wants to warn about one can compare the quote with
+  `Quote.min_out_hint`: a partial fill falls far below it.
 
 ## 9. Games as NFTs (D-11, amended D-11b)
 

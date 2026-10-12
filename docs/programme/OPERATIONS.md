@@ -181,6 +181,14 @@ Phase 1 (the code, the docs and the devnet tests) merges first. Phase 2 deploys:
 - Signer tests (`scripts/signer/`: `npm ci && npm test`, Node 24; its devnet rehearsal tests are skipped in CI,
   which has no build or node for them)
 
+Not in `ci`: **the mainnet fork test (E-9)**, `contracts/src/tests/economy/fork.cairo`. It checks Ekubo's router
+`quote_swap`, the price limit and a partial fill on a fork of Starknet mainnet. Its tests are `#[ignore]`, so the
+plain `snforge test` of `ci` skips them; they read the network through a public RPC that needs no key (`MAINNET` in
+`contracts/Scarb.toml`, block pinned). Run it on demand, and before the owner's mainnet go, from `contracts/`:
+`RAYON_NUM_THREADS=1 prlimit --as=16106127360 -- snforge test paved::tests::economy::fork --ignored --max-threads 2`.
+It sends nothing to any network. Its unit-test side (the mock's `quote_swap`, `Economy.quote_swap` on devnet) runs in
+`ci`.
+
 A change of `scripts/deploy.sh` or `scripts/signer/` that touches the Sepolia path also needs, from its reviewer,
 `scripts/deploy.sh sepolia --rehearse` on a fresh local starknet-devnet (seed 42), end to end with its smoke
 (`== smoke ok`), and `npm test` in `scripts/signer/` with `contracts/target/dev/` built, so the signer's own
