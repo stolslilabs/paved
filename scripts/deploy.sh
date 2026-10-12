@@ -436,11 +436,13 @@ $REPOINT_FILE: record it there, or check it, before any rerun"
     # verdict that it did not land (`not landed`: no status of the hash answered, the nonce still the signed one at
     # pre_confirmed, the class or contract absent; scripts/signer/README.md), and only when it names that hash. So a rerun
     # sends the step again instead of waiting for a receipt that will never come. Any other failure (a lost answer,
-    # `sent, status unknown`, a hash the node has seen) keeps the key, and the rerun waits for its receipt.
+    # `sent, status unknown`, a hash the node has seen) keeps the key, and the rerun waits for its receipt. The verdict is
+    # matched as the whole line the signer prints for its error (`signer: refused (<code>); …`), so a node's message
+    # quoted elsewhere in the output cannot clear the key (review of #313, loop 3).
     if [[ -n "${RECORD_SENDING:-}" && -n "$REPOINT_FILE" ]]; then
       recorded="$(rp_get "$RECORD_SENDING")"
       if [[ "$recorded" =~ ^0x[0-9a-f]+$ ]] &&
-          grep -qE "no receipt for $recorded after [0-9]+ s; not landed \(" <<<"$res"; then
+          grep -qE "^signer: refused \(-?[0-9]+\); no receipt for $recorded after [0-9]+ s; not landed \([^)]*\); check it before any rerun\$" <<<"$res"; then
         rp_set "$RECORD_SENDING=" &&
           echo "deploy.sh: the signer found $recorded not landed: repoint.$RECORD_SENDING cleared, so a rerun sends it again" >&2
       fi

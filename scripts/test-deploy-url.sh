@@ -331,8 +331,15 @@ case "$cmd:$fn" in
     echo "signer: sending starknet_addInvokeTransaction, transaction $hash" >&2
     fns="$(python3 -I -c 'import json,sys;print(" ".join(c["function"] for c in json.load(open(sys.argv[1]))))' "$calls")"
     if [[ -e "$dir/send_refused" ]]; then
+      # The verdict the signer ends with: `not landed` (empty file) or, to keep the hash, another one.
       echo "multicall $fns $hash" >>"$dir/refused.log"
-      echo "signer: refused (-32601); no receipt for $hash after 30 s; not landed (nonce unchanged at 0x5); check it before any rerun" >&2
+      case "$(cat "$dir/send_refused")" in
+        seen) echo "signer: refused (-32601); no receipt for $hash after 30 s; seen by the node with status RECEIVED; check it before any rerun" >&2 ;;
+        unknown) echo "signer: sent, status unknown: $hash; check it before any rerun" >&2 ;;
+        other) echo "signer: refused (-32601); no receipt for 0x0be5 after 30 s; not landed (nonce unchanged at 0x5); check it before any rerun" >&2 ;;
+        quoted) echo "signer: refused (55): node message: no receipt for $hash after 30 s; not landed (x); check it before any rerun" >&2 ;;
+        *) echo "signer: refused (-32601); no receipt for $hash after 30 s; not landed (nonce unchanged at 0x5); check it before any rerun" >&2 ;;
+      esac
       exit 1
     fi
     echo "multicall $fns $hash" >>"$dir/sent.log"
@@ -451,6 +458,22 @@ if [[ $rc -ne 1 || "$out" != *"   seeded: "* || "$(cat "$rp/bin/sent.log")" != "
 else
   echo "ok: sepolia --repoint: the rerun after a 'not landed' seed sends it once and records 0x5eed0002"
 fi
+
+# The keeping side (loop 3): a failed seed whose verdict is not the signer's own `not landed` for that hash keeps its
+# hash recorded: the node saw it, its status is unknown, the verdict names another hash, or the words come quoted
+# inside another message.
+for verdict in seen unknown other quoted; do
+  rp_case "$recorded_router"
+  touch "$rp/bin/unseeded" "$rp/bin/quote_fails"
+  printf '%s' "$verdict" >"$rp/bin/send_refused"
+  out="$(rp_run --repoint)"; rc=$?
+  if [[ $rc -ne 1 || "$(rp_get_test seed.tx)" != 0x5eed0001 || "$out" == *"cleared, so a rerun sends it again"* ||
+      -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+    rp_fail "a seed that failed with the verdict '$verdict': expected exit 1 and its hash kept, got $rc (seed.tx '$(rp_get_test seed.tx)')" "$out"
+  else
+    echo "ok: sepolia --repoint: a seed that failed with the verdict '$verdict' keeps its hash recorded (0x5eed0001)"
+  fi
+done
 
 # A recorded seed with no receipt: the wait (REPOINT_WAIT_S=0 here) ends the run, the hash kept, nothing sent.
 rp_case "{\"MockRouter\": {\"address\": \"0x90\"}, \"seed\": {\"tx\": \"0xdead1\"}}"
