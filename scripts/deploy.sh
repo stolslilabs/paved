@@ -125,13 +125,16 @@ sys.exit(0 if ok else 1)
 ' 2>/dev/null
 }
 
-USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]]"
+USAGE="Usage: scripts/deploy.sh devnet [--unmerged] | scripts/deploy.sh sepolia [--rehearse] [--estimate-only [--bounds <6 integers>] [--validate] [--block-id <tag>]] | scripts/deploy.sh sepolia --repoint [--check-only] | scripts/deploy.sh sepolia --rehearse --repoint --deployment <file> [--check-only]"
 NETWORK="${1:-}"
 UNMERGED=0
 REHEARSE=0
 CHECK_SEND=0
 ESTIMATE_ONLY=0
 ESTIMATE_ARGS=()
+REPOINT=0
+REPOINT_CHECK_ONLY=0
+REPOINT_FILE=""
 if [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--estimate-only" || ( "${2:-}" == "--rehearse" && "${3:-}" == "--estimate-only" ) ) ]]; then
   # sepolia [--rehearse] --estimate-only [diagnostics]: the diagnostics reach the signer as its own options, which it
   # checks again (six integers in range, a block tag of the spec).
@@ -150,6 +153,27 @@ if [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--estimate-only" || ( "${2:-}" =
       *) echo "deploy.sh: unknown option '$1' for 'sepolia --estimate-only'" >&2; echo "$USAGE" >&2; exit 2 ;;
     esac
   done
+  set -- sepolia
+elif [[ "$NETWORK" == "sepolia" && ( "${2:-}" == "--repoint" || ( "${2:-}" == "--rehearse" && "${3:-}" == "--repoint" ) ) ]]; then
+  # sepolia [--rehearse] --repoint (R-1): repoints the deployed Economy at a new MockRouter (see "--repoint" above).
+  [[ "$2" == "--rehearse" ]] && { REHEARSE=1; shift; }
+  REPOINT=1
+  shift 2
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --check-only) REPOINT_CHECK_ONLY=1; shift ;;
+      --deployment)
+        ((REHEARSE)) || { echo "deploy.sh: --deployment is for the rehearsal only: sepolia --repoint reads contracts/deployments/sepolia.json" >&2; exit 2; }
+        [[ -n "${2:-}" && -f "$2" ]] || { echo "deploy.sh: --deployment expects an existing deployment file" >&2; exit 2; }
+        REPOINT_FILE="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
+        shift 2 ;;
+      *) echo "deploy.sh: unknown option '$1' for 'sepolia --repoint'" >&2; echo "$USAGE" >&2; exit 2 ;;
+    esac
+  done
+  if [[ "$REHEARSE" == 1 && -z "$REPOINT_FILE" ]]; then
+    echo "deploy.sh: sepolia --rehearse --repoint needs --deployment <file>, the rehearsal's own deployment file" >&2
+    exit 2
+  fi
   set -- sepolia
 elif [[ "${2:-}" == "--check-class-answer" ]]; then
   # Test hook (scripts/test-deploy-url.sh): the verdict of class_declared on stdin, nothing else runs.
@@ -269,6 +293,8 @@ SIGNER_JS="$ROOT/scripts/signer/signer.mjs"
 # The signer's heap cap: 1.5x its measured peak (405,544 kB RSS, declare Daily, VPS 2026-10-10), rounded up to 64 MB.
 SIGNER_HEAP="--max-old-space-size=640"
 RELEASE_DIR="$ROOT/contracts/target/release"
+# --repoint: the deployment it reads and updates; sepolia's committed file unless the rehearsal names its own.
+[[ "$REPOINT" == 1 && -z "$REPOINT_FILE" ]] && REPOINT_FILE="$ROOT/contracts/deployments/sepolia.json"
 
 die() { echo "deploy.sh: $*" >&2; exit 1; }
 
@@ -392,6 +418,9 @@ stream_sending() {
     printf '%s\n' "$line"
     if sending_line "$line"; then
       printf '   %s\n' "$(redact_text "$line")" >&2
+      # --repoint: the hash is recorded in the deployment file before the signer sends it, so a run killed meanwhile
+      # leaves it there for the rerun (RECORD_SENDING names its key under `repoint`).
+      if [[ -n "${RECORD_SENDING:-}" ]]; then rp_set "$RECORD_SENDING=${line##* }"; fi
     fi
   done
 }
@@ -442,6 +471,8 @@ fi
 
 # On stdin, not argv: the values compared include the deployer's address.
 hex_int() { printf '%s' "$1" | python3 -I -c 'import sys;print(int(sys.stdin.read(),16))'; }
+# u256 calldata: low and high halves, decimal.
+u256() { python3 -I -c 'import sys;v=int(sys.argv[1]);print(v%2**128, v>>128)' "$1"; }
 felt_str() { python3 -I -c 'import sys;print(int(sys.argv[1],16).to_bytes(31,"big").lstrip(b"\0").decode())' "$1"; }
 
 # Calls a view and prints the response felts, space separated.
@@ -475,7 +506,7 @@ invoke() { # <address> <function> [calldata...]
 }
 
 # Invokes several calls as the deployer, each argument "<address> <function> [calldata...]": through the signer in one
-# multicall transaction, on devnet one invoke each. Prints nothing on stdout.
+# multicall transaction (its hash then in LAST_TX), on devnet one invoke each. Prints nothing on stdout.
 invoke_all() {
   local spec tx
   if ((USE_SIGNER)); then
@@ -489,6 +520,7 @@ with open(sys.argv[1], "w") as f:
     json.dump(calls, f)
 ' "$WORK_DIR/calls.json" "$@" || die "invalid multicall"
     tx="$(send multicall --calls "$WORK_DIR/calls.json" | pyj 'd["transaction_hash"]')" || die "multicall failed"
+    LAST_TX="$tx"
     echo "   multicall$(for spec in "$@"; do printf ' %s' "$(cut -d' ' -f2 <<<"$spec")"; done) tx $tx" >&2
   else
     for spec in "$@"; do
@@ -550,6 +582,448 @@ deploy() { # <Contract> <class hash> [constructor calldata...] -> address
   pyj 'd["contract_address"]' <<<"$out"
 }
 
+# --repoint (R-1, E-9): the deployment file's `repoint` record. rp_set <key=value>...: sets each dotted key under
+# `repoint` (an empty value removes it) and rewrites the file through a temporary file in its directory, renamed over it,
+# so a kill leaves the old file or the new one, never half of it. Every other field is kept. rp_get <key>: the value, or
+# nothing.
+rp_set() {
+  python3 -I - "$REPOINT_FILE" "$@" <<'PY'
+import json, os, sys, tempfile
+path, *pairs = sys.argv[1:]
+d = json.load(open(path))
+record = d.setdefault("repoint", {})
+for pair in pairs:
+    key, _, value = pair.partition("=")
+    *parents, leaf = key.split(".")
+    node = record
+    for p in parents:
+        node = node.setdefault(p, {})
+    if value:
+        node[leaf] = value
+    else:
+        node.pop(leaf, None)
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
+os.chmod(tmp, os.stat(path).st_mode & 0o777)
+with os.fdopen(fd, "w") as f:
+    json.dump(d, f, indent=2)
+    f.write("\n")
+os.replace(tmp, path)
+PY
+}
+rp_get() {
+  python3 -I - "$REPOINT_FILE" "$1" <<'PY'
+import json, sys
+node = json.load(open(sys.argv[1])).get("repoint", {})
+for p in sys.argv[2].split("."):
+    node = node.get(p, {}) if isinstance(node, dict) else {}
+print(node if isinstance(node, str) else "")
+PY
+}
+
+# felt_eq <a> <b>: the same felt, whatever the padding.
+felt_eq() { [[ -n "$1" && -n "$2" && "$(hex_int "$1")" == "$(hex_int "$2")" ]]; }
+# u256_of <low> <high>: the integer, decimal.
+u256_of() { python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$1" "$2"; }
+# class_at <address>: the class hash deployed there, or nothing.
+class_at() { rpc starknet_getClassHashAt "[\"latest\",\"$1\"]" | pyj 'd.get("result","")' 2>/dev/null || true; }
+
+# repoint_state: reads the deployment file and the chain, checks what must hold before anything is sent, and sets
+# what has landed already (RP_* variables). Read-only: nothing is estimated, signed or sent here.
+repoint_state() {
+  echo "== repoint: state (read-only)"
+  [[ -f "$REPOINT_FILE" ]] || die "no deployment file $REPOINT_FILE"
+  local fields
+  fields="$(python3 -I - "$REPOINT_FILE" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+c, r = d.get("contracts", {}), d.get("repoint", {})
+prev = r.get("previous", {})
+def addr(name):
+    return c.get(name, {}).get("address", "")
+print(d.get("network", ""), d.get("chain_id", ""), addr("Economy"), addr("PavedToken"), addr("MockUSDC"), addr("Vault"),
+      addr("Account"), addr("Daily"), addr("Tutorial"), addr("Collection"),
+      # Before the repoint completes, the old router and Economy class are the file's; after, the record keeps them.
+      prev.get("MockRouter", {}).get("address", addr("MockRouter")),
+      prev.get("MockRouter", {}).get("class_hash", c.get("MockRouter", {}).get("class_hash", "")),
+      prev.get("Economy", {}).get("class_hash", c.get("Economy", {}).get("class_hash", "")))
+PY
+)" || die "$REPOINT_FILE is not a deployment file"
+  read -r RP_NETWORK RP_CHAIN ECONOMY PAVED USDC VAULT ACCOUNT DAILY TUTORIAL COLLECTION OLD_ROUTER OLD_ROUTER_CLASS \
+    OLD_ECONOMY_CLASS <<<"$fields"
+  [[ "$RP_NETWORK" == sepolia ]] || die "$REPOINT_FILE is a '$RP_NETWORK' deployment, not sepolia"
+  [[ -n "$OLD_ECONOMY_CLASS" ]] || die "$REPOINT_FILE lacks an address or class hash the repoint needs"
+  felt_eq "$RP_CHAIN" "$CHAIN_ID" || die "$REPOINT_FILE is for chain $RP_CHAIN, the node is $CHAIN_ID"
+  # The E-9 classes, from the release build (the hashes sncast computes, as declare_class checks the signer's).
+  NEW_ECONOMY_CLASS="$(sc sncast utils class-hash --contract-name Economy | pyj 'd["class_hash"]')" || die "class-hash Economy failed"
+  NEW_ROUTER_CLASS="$(sc sncast utils class-hash --contract-name MockRouter | pyj 'd["class_hash"]')" || die "class-hash MockRouter failed"
+  ! felt_eq "$NEW_ECONOMY_CLASS" "$OLD_ECONOMY_CLASS" || [[ -n "$(rp_get previous.Economy.class_hash)" ]] ||
+    die "the built Economy class is the deployed one ($OLD_ECONOMY_CLASS): nothing to upgrade to"
+  echo "   file ${REPOINT_FILE#"$ROOT/"}: Economy $ECONOMY, old MockRouter $OLD_ROUTER"
+  echo "   E-9 classes: Economy $NEW_ECONOMY_CLASS, MockRouter $NEW_ROUTER_CLASS"
+
+  # The deployer owns Economy (its upgrade, set_router and set_pool are the owner's).
+  [[ "$(hex_int "$(call "$ECONOMY" owner)")" == "$DEPLOYER_INT" ]] || die "the deployer $DEPLOYER_LABEL is not Economy.owner()"
+  echo "   Economy.owner() is the deployer"
+  # Economy's class: the deployed one or the E-9 one, nothing else.
+  RP_ECONOMY_CLASS="$(class_at "$ECONOMY")"
+  if felt_eq "$RP_ECONOMY_CLASS" "$NEW_ECONOMY_CLASS"; then RP_UPGRADED=1
+  elif felt_eq "$RP_ECONOMY_CLASS" "$OLD_ECONOMY_CLASS"; then RP_UPGRADED=0
+  else die "Economy's class on the node is $RP_ECONOMY_CLASS: neither the file's $OLD_ECONOMY_CLASS nor the E-9 class"; fi
+  # Its stored router, through addresses() (both classes have it; router() is E-9's): the old MockRouter, or the new
+  # one this record names. Its tokens and Vault must be the file's.
+  local a
+  read -r -a a <<<"$(call "$ECONOMY" addresses)"
+  felt_eq "${a[0]}" "$PAVED" && felt_eq "${a[1]}" "$USDC" && felt_eq "${a[2]}" "$VAULT" ||
+    die "Economy.addresses() does not name the file's PavedToken, MockUSDC and Vault"
+  NEW_ROUTER="$(rp_get MockRouter.address)"
+  if felt_eq "${a[3]}" "$OLD_ROUTER"; then RP_REPOINTED=0
+  elif felt_eq "${a[3]}" "$NEW_ROUTER"; then RP_REPOINTED=1
+  else die "Economy's router is ${a[3]}: neither the old MockRouter of the file nor a new one it records"; fi
+  felt_eq "$(class_at "$OLD_ROUTER")" "$OLD_ROUTER_CLASS" || die "the old MockRouter $OLD_ROUTER is not of class $OLD_ROUTER_CLASS"
+  echo "   Economy: class $( ((RP_UPGRADED)) && echo "E-9 (upgraded)" || echo "$OLD_ECONOMY_CLASS (not upgraded)"), router $( ((RP_REPOINTED)) && echo "the new MockRouter $NEW_ROUTER" || echo "the old MockRouter")"
+  # A new MockRouter this record names: of the E-9 class, over PAVED and USDC.
+  if [[ -n "$NEW_ROUTER" ]]; then
+    felt_eq "$(class_at "$NEW_ROUTER")" "$NEW_ROUTER_CLASS" || die "the recorded MockRouter $NEW_ROUTER is not of class $NEW_ROUTER_CLASS on the node"
+    repoint_check_router_tokens "$NEW_ROUTER"
+    echo "   new MockRouter $NEW_ROUTER (recorded): deployed, E-9 class"
+  elif [[ -n "$(rp_get MockRouter.deploy_tx)" ]]; then
+    echo "   new MockRouter: a deploy was sent ($(rp_get MockRouter.deploy_tx)), its address not recorded: read from its receipt below"
+  fi
+}
+
+# repoint_check_router_tokens <router>: its pool is PAVED and USDC, in the address order.
+repoint_check_router_tokens() {
+  local k
+  read -r -a k <<<"$(call "$1" pool_key)"
+  [[ "${#k[@]}" == 5 ]] || die "MockRouter($1).pool_key returned ${#k[@]} felts, expected 5"
+  if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)<int(sys.argv[2],16) else 1)' "$PAVED" "$USDC"; then
+    felt_eq "${k[0]}" "$PAVED" && felt_eq "${k[1]}" "$USDC" || die "MockRouter($1) is not over PAVED and USDC"
+  else
+    felt_eq "${k[0]}" "$USDC" && felt_eq "${k[1]}" "$PAVED" || die "MockRouter($1) is not over PAVED and USDC"
+  fi
+}
+
+# repoint_reserves <router>: its reserves as `paved usdc`, decimal.
+repoint_reserves() {
+  local r
+  read -r -a r <<<"$(call "$1" reserves)"
+  [[ "${#r[@]}" == 4 ]] || die "MockRouter($1).reserves returned ${#r[@]} felts, expected 4"
+  if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)<int(sys.argv[2],16) else 1)' "$PAVED" "$USDC"; then
+    echo "$(u256_of "${r[0]}" "${r[1]}") $(u256_of "${r[2]}" "${r[3]}")"
+  else
+    echo "$(u256_of "${r[2]}" "${r[3]}") $(u256_of "${r[0]}" "${r[1]}")"
+  fi
+}
+
+# repoint_quote <router> <usdc in>: the router's own quote_swap at its pool key and Economy's limit (0), one hop; prints
+# the PAVED out, and dies unless the whole input fills and the PAVED leg is paid out (Economy.quote_swap's checks).
+repoint_quote() {
+  local k d
+  read -r -a k <<<"$(call "$1" pool_key)"
+  read -r -a d <<<"$(call "$1" quote_swap "${k[@]}" 0 0 0 "$USDC" "$2" 0)"
+  [[ "${#d[@]}" == 4 ]] || die "MockRouter($1).quote_swap returned ${#d[@]} felts, expected 4"
+  python3 -I - "$PAVED" "$USDC" "$2" "${d[@]}" <<'PY' || die "MockRouter($1).quote_swap($2) does not fill the whole input with PAVED out"
+import sys
+paved, usdc, amount, m0, s0, m1, s1 = sys.argv[1:]
+legs = [(int(m0, 16), int(s0, 16)), (int(m1, 16), int(s1, 16))]
+usdc_leg, paved_leg = (legs[1], legs[0]) if int(paved, 16) < int(usdc, 16) else (legs[0], legs[1])
+ok = usdc_leg == (int(amount), 0) and paved_leg[1] == 1 and paved_leg[0] > 0
+print(paved_leg[0])
+sys.exit(0 if ok else 1)
+PY
+}
+
+# repoint_seed_plan: the seed of the new pool (R-1), unless one is recorded: the old pool's ratio, read from its
+# reserves; its depth as far as the deployer's PAVED allows, which is its balance plus an unstake that leaves 10 % of
+# its Vault stake staked (E-7: USDC that reaches a Vault nobody stakes in goes to the first staker); the USDC at that
+# ratio, from the deployer's balance and then the MockUSDC faucet (10,000 USDC per call, 20,000 per address), less
+# PAVED when the faucet cannot cover it. Recorded before anything is sent, so a rerun seeds the same amounts (not with
+# --check-only, which writes nothing).
+repoint_seed_plan() {
+  if [[ -n "$(rp_get seed.paved)" ]]; then
+    SEED_PAVED="$(rp_get seed.paved)"
+    SEED_USDC="$(rp_get seed.usdc)"
+    echo "   seed (recorded): $SEED_PAVED PAVED and $SEED_USDC USDC base units"
+    return
+  fi
+  local old stake bal_paved bal_usdc minted plan
+  read -r -a old <<<"$(repoint_reserves "$OLD_ROUTER")"
+  stake="$(u256_of $(call "$VAULT" staked "$DEPLOYER_ARG"))"
+  bal_paved="$(u256_of $(call "$PAVED" balance_of "$DEPLOYER_ARG"))"
+  bal_usdc="$(u256_of $(call "$USDC" balance_of "$DEPLOYER_ARG"))"
+  minted="$(u256_of $(call "$USDC" minted "$DEPLOYER_ARG"))"
+  plan="$(python3 -I - "${old[0]}" "${old[1]}" "$stake" "$bal_paved" "$bal_usdc" "$minted" <<'PY'
+import sys
+r_paved, r_usdc, stake, bal_paved, bal_usdc, minted = map(int, sys.argv[1:])
+if r_paved == 0 or r_usdc == 0:
+    sys.exit("the old pool is empty")
+keep = -(-stake // 10)
+paved = min(r_paved, bal_paved + stake - keep)
+usdc = paved * r_usdc // r_paved
+room = bal_usdc + max(0, 20_000 * 10**6 - minted)
+if usdc > room:
+    usdc = room
+paved = usdc * r_paved // r_usdc
+if usdc < 10**6 or paved == 0:
+    sys.exit(f"the seed would be {paved} PAVED for {usdc} USDC base units: below 1 USDC")
+print(paved, usdc, keep)
+PY
+)" || die "no seed for the new pool: $plan"
+  read -r SEED_PAVED SEED_USDC _ <<<"$plan"
+  python3 -I - "${old[@]}" "$stake" "$bal_paved" "$bal_usdc" "$minted" $plan <<'PY'
+import sys
+r_paved, r_usdc, stake, bal_paved, bal_usdc, minted, paved, usdc, keep = map(int, sys.argv[1:])
+P, U = 10**18, 10**6
+print(f"   old pool: {r_paved / P:,.6f} PAVED and {r_usdc / U:,.6f} USDC, {r_paved / P / (r_usdc / U):,.6f} PAVED per USDC")
+print(f"   deployer: {bal_paved / P:,.6f} PAVED held, {stake / P:,.6f} staked (10 % kept: {keep / P:,.6f}), "
+      f"{bal_usdc / U:,.6f} USDC held, {minted / U:,.6f} from the faucet so far")
+print(f"   seed: {paved / P:,.6f} PAVED and {usdc / U:,.6f} USDC, {paved / P / (usdc / U):,.6f} PAVED per USDC, "
+      f"{100 * usdc / r_usdc:.1f} % of the old pool's depth")
+PY
+  ((REPOINT_CHECK_ONLY)) ||
+    rp_set "seed.paved=$SEED_PAVED" "seed.usdc=$SEED_USDC" "seed.old_reserve_paved=${old[0]}" "seed.old_reserve_usdc=${old[1]}"
+}
+
+# repoint_seed_calls: the seed multicall's calls (one spec per line), from the deployer's balances now: the unstake of
+# the PAVED it lacks, the faucet mints of the USDC it lacks (10,000 USDC at most per call), both approvals and
+# add_liquidity, in the router's token order. One transaction: it lands whole or not at all.
+repoint_seed_calls() {
+  local stake bal_paved bal_usdc unstake mint chunk
+  stake="$(u256_of $(call "$VAULT" staked "$DEPLOYER_ARG"))"
+  bal_paved="$(u256_of $(call "$PAVED" balance_of "$DEPLOYER_ARG"))"
+  bal_usdc="$(u256_of $(call "$USDC" balance_of "$DEPLOYER_ARG"))"
+  read -r unstake mint <<<"$(python3 -I -c 'import sys;p,u,s,bp,bu=map(int,sys.argv[1:]);print(max(0,p-bp),max(0,u-bu))' \
+    "$SEED_PAVED" "$SEED_USDC" "$stake" "$bal_paved" "$bal_usdc")"
+  python3 -I -c 'import sys;n,s=map(int,sys.argv[1:]);sys.exit(0 if n<=s-(-(-s//10)) else 1)' "$unstake" "$stake" ||
+    die "the seed needs an unstake of $unstake PAVED base units, more than 90 % of the deployer's stake ($stake)"
+  [[ "$unstake" == 0 ]] || echo "$VAULT unstake $(u256 "$unstake")"
+  while [[ "$mint" != 0 ]]; do
+    chunk="$(python3 -I -c 'import sys;print(min(int(sys.argv[1]),10_000*10**6))' "$mint")"
+    echo "$USDC mint $DEPLOYER_ARG $(u256 "$chunk")"
+    mint="$(python3 -I -c 'import sys;print(int(sys.argv[1])-int(sys.argv[2]))' "$mint" "$chunk")"
+  done
+  echo "$PAVED approve $NEW_ROUTER $(u256 "$SEED_PAVED")"
+  echo "$USDC approve $NEW_ROUTER $(u256 "$SEED_USDC")"
+  if python3 -I -c 'import sys;sys.exit(0 if int(sys.argv[1],16)<int(sys.argv[2],16) else 1)' "$PAVED" "$USDC"; then
+    echo "$NEW_ROUTER add_liquidity $(u256 "$SEED_PAVED") $(u256 "$SEED_USDC")"
+  else
+    echo "$NEW_ROUTER add_liquidity $(u256 "$SEED_USDC") $(u256 "$SEED_PAVED")"
+  fi
+}
+
+# repoint_deployed_address <tx>: the new MockRouter a deploy transaction created, from its receipt (the first event
+# datum that is a contract of the E-9 MockRouter class); nothing when it did not succeed or names none.
+repoint_deployed_address() {
+  local receipt candidate
+  receipt="$(rpc starknet_getTransactionReceipt "[\"$1\"]")" || return 0
+  [[ "$(pyj 'd.get("result",{}).get("execution_status","")' <<<"$receipt" 2>/dev/null)" == SUCCEEDED ]] || return 0
+  while read -r candidate; do
+    if [[ -n "$candidate" ]] && felt_eq "$(class_at "$candidate")" "$NEW_ROUTER_CLASS"; then
+      echo "$candidate"
+      return 0
+    fi
+  done < <(pyj '"\n".join(e["data"][0] for e in d["result"]["events"] if e.get("data"))' <<<"$receipt")
+}
+
+# repoint_run: declares, deploys and seeds the new MockRouter, repoints Economy (upgrade, set_router, set_pool in one
+# multicall), records each step in the deployment file as it lands, then smokes. Each step reads what already landed
+# first and is skipped when done, so a rerun sends only what is left; a complete one sends nothing.
+repoint_run() {
+  local tx k p pool calls=() spec need=()
+  if ((REPOINT_CHECK_ONLY)); then
+    echo "== repoint: check only (nothing is sent, the file is not written)"
+    if [[ -z "$NEW_ROUTER" ]]; then
+      repoint_seed_plan
+      echo "== repoint: check only: every check passed; a run would declare, deploy and seed a MockRouter, then repoint Economy"
+    else
+      echo "   new MockRouter quotes 1.4 USDC: $(repoint_quote "$NEW_ROUTER" 1400000) PAVED base units"
+      echo "== repoint: check only: every check passed; nothing was sent"
+    fi
+    exit 0
+  fi
+  # The previous router and Economy class and the commit of the run, once, before anything is sent.
+  if [[ -z "$(rp_get previous.MockRouter.address)" ]]; then
+    rp_set "previous.MockRouter.address=0x$(printf '%064x' "$(hex_int "$OLD_ROUTER")")" \
+      "previous.MockRouter.class_hash=0x$(printf '%064x' "$(hex_int "$OLD_ROUTER_CLASS")")" \
+      "previous.Economy.class_hash=0x$(printf '%064x' "$(hex_int "$OLD_ECONOMY_CLASS")")" "at=$DEPLOYED_AT"
+  fi
+
+  echo "== repoint: declare"
+  declare_class MockRouter >/dev/null
+  declare_class Economy >/dev/null
+  rp_set "MockRouter.class_hash=0x$(printf '%064x' "$(hex_int "$NEW_ROUTER_CLASS")")" \
+    "Economy.class_hash=0x$(printf '%064x' "$(hex_int "$NEW_ECONOMY_CLASS")")"
+
+  echo "== repoint: new MockRouter"
+  if [[ -z "$NEW_ROUTER" && -n "$(rp_get MockRouter.deploy_tx)" ]]; then
+    # A deploy sent by a run stopped before it recorded the address: the receipt tells, and no second deploy goes out
+    # while it might have landed.
+    tx="$(rp_get MockRouter.deploy_tx)"
+    NEW_ROUTER="$(repoint_deployed_address "$tx")"
+    if [[ -n "$NEW_ROUTER" ]]; then
+      echo "   deploy $tx (recorded) created $NEW_ROUTER"
+    else
+      [[ "$(rpc starknet_getTransactionReceipt "[\"$tx\"]" | pyj 'd.get("result",{}).get("execution_status","")' 2>/dev/null)" == REVERTED ]] ||
+        die "the recorded MockRouter deploy $tx has no receipt on the node: check it before any rerun"
+      echo "   deploy $tx (recorded) reverted: deploying again"
+      rp_set "MockRouter.deploy_tx="
+    fi
+  fi
+  if [[ -z "$NEW_ROUTER" ]]; then
+    # The salt is recorded before the deploy: a rerun deploys with the same one, so a second MockRouter could only land
+    # at the same address, where the deployer's first one would make it revert.
+    [[ -n "$(rp_get MockRouter.salt)" ]] || rp_set "MockRouter.salt=$SALT"
+    RECORD_SENDING=MockRouter.deploy_tx
+    tx="$(send deploy --class-hash "$NEW_ROUTER_CLASS" --salt "$(rp_get MockRouter.salt)" --calldata "$PAVED" "$USDC")" ||
+      die "deploy MockRouter failed"
+    RECORD_SENDING=""
+    NEW_ROUTER="0x$(printf '%064x' "$(hex_int "$(pyj 'd["contract_address"]' <<<"$tx")")")"
+    rp_set "MockRouter.deploy_tx=$(pyj 'd["transaction_hash"]' <<<"$tx")"
+    echo "   deploy MockRouter $NEW_ROUTER tx $(pyj 'd["transaction_hash"]' <<<"$tx")"
+  else
+    echo "   MockRouter $NEW_ROUTER deployed already"
+  fi
+  rp_set "MockRouter.address=0x$(printf '%064x' "$(hex_int "$NEW_ROUTER")")"
+  felt_eq "$(class_at "$NEW_ROUTER")" "$NEW_ROUTER_CLASS" || die "the new MockRouter $NEW_ROUTER is not of class $NEW_ROUTER_CLASS"
+  repoint_check_router_tokens "$NEW_ROUTER"
+
+  echo "== repoint: seed"
+  read -r -a p <<<"$(repoint_reserves "$NEW_ROUTER")"
+  if [[ "${p[0]}" != 0 && "${p[1]}" != 0 ]]; then
+    echo "   seeded already: ${p[0]} PAVED and ${p[1]} USDC base units$( [[ -n "$(rp_get seed.tx)" ]] && echo ", tx $(rp_get seed.tx)")"
+  elif [[ "${p[0]}" != 0 || "${p[1]}" != 0 ]]; then
+    die "the new MockRouter holds one token only (${p[0]} PAVED, ${p[1]} USDC base units): not seeded by this tool; check it"
+  else
+    repoint_seed_plan
+    calls=()
+    while IFS= read -r spec; do calls+=("$spec"); done < <(repoint_seed_calls)
+    RECORD_SENDING=seed.tx
+    invoke_all "${calls[@]}"
+    RECORD_SENDING=""
+    rp_set "seed.tx=$LAST_TX"
+    read -r -a p <<<"$(repoint_reserves "$NEW_ROUTER")"
+    [[ "${p[0]}" == "$SEED_PAVED" && "${p[1]}" == "$SEED_USDC" ]] || die "the new pool holds ${p[0]} PAVED and ${p[1]} USDC base units, not the seed"
+    echo "   seeded: ${p[0]} PAVED and ${p[1]} USDC base units"
+  fi
+
+  echo "== repoint: Economy"
+  # Before Economy points at it: the new router answers the quote Economy.quote_swap will ask (1.4 USDC, its pool key,
+  # the limit 0 that set_pool stores), whole fill, PAVED out.
+  echo "   new MockRouter quotes 1.4 USDC: $(repoint_quote "$NEW_ROUTER" 1400000) PAVED base units"
+  read -r -a k <<<"$(call "$NEW_ROUTER" pool_key)"
+  read -r -a pool <<<"$(call "$ECONOMY" pool)"
+  need=()
+  felt_eq "$(class_at "$ECONOMY")" "$NEW_ECONOMY_CLASS" || need+=("$ECONOMY upgrade $NEW_ECONOMY_CLASS")
+  read -r -a p <<<"$(call "$ECONOMY" addresses)"
+  felt_eq "${p[3]}" "$NEW_ROUTER" || need+=("$ECONOMY set_router $NEW_ROUTER")
+  # The stored pool: the new router's key and the limit 0, as the deploy set them for the old one.
+  python3 -I - "${pool[@]}" "${k[@]}" <<'PY' || need+=("$ECONOMY set_pool ${k[*]} 0 0")
+import sys
+v = [int(x, 16) for x in sys.argv[1:]]
+sys.exit(0 if len(v) == 12 and v[:5] == v[7:] and v[5:7] == [0, 0] else 1)
+PY
+  if [[ "${#need[@]}" == 0 ]]; then
+    echo "   upgraded, repointed and on the new pool already$( [[ -n "$(rp_get multicall_tx)" ]] && echo ", tx $(rp_get multicall_tx)")"
+  else
+    RECORD_SENDING=multicall_tx
+    invoke_all "${need[@]}"
+    RECORD_SENDING=""
+    rp_set "multicall_tx=$LAST_TX"
+  fi
+  felt_eq "$(class_at "$ECONOMY")" "$NEW_ECONOMY_CLASS" || die "Economy's class is not the E-9 class after the multicall"
+  felt_eq "$(call "$ECONOMY" router)" "$NEW_ROUTER" || die "Economy.router() is not the new MockRouter after the multicall"
+
+  # The deployment file: the new MockRouter and Economy's class where the client and the indexer read them (they read
+  # addresses only, which do not change but the MockRouter's), every other field kept.
+  python3 -I - "$REPOINT_FILE" "$NEW_ROUTER" "$NEW_ROUTER_CLASS" "$NEW_ECONOMY_CLASS" <<'PY'
+import json, os, sys, tempfile
+path, router, router_class, economy_class = sys.argv[1:]
+d = json.load(open(path))
+h = lambda x: "0x%064x" % int(x, 16)
+d["contracts"]["MockRouter"] = {"address": h(router), "class_hash": h(router_class)}
+d["contracts"]["Economy"]["class_hash"] = h(economy_class)
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
+os.chmod(tmp, os.stat(path).st_mode & 0o777)
+with os.fdopen(fd, "w") as f:
+    json.dump(d, f, indent=2)
+    f.write("\n")
+os.replace(tmp, path)
+PY
+  echo "== repoint: wrote ${REPOINT_FILE#"$ROOT/"}"
+  repoint_smoke
+}
+
+# repoint_spawned_game: the game id of the GameSpawned event of Daily in a receipt read on stdin; fails when the
+# transaction did not succeed or spawned nothing.
+repoint_spawned_game() {
+  python3 -I -c '
+import sys, json
+d = json.load(sys.stdin)["result"]
+assert d["execution_status"] == "SUCCEEDED"
+daily = int(sys.argv[1], 16)
+ids = [int(e["keys"][1], 16) for e in d["events"] if int(e["from_address"], 16) == daily and len(e["keys"]) == 3]
+print(ids[0])' "$DAILY" 2>/dev/null
+}
+
+# repoint_smoke: Economy.router() is the new MockRouter, Economy.quote_swap(1.4 USDC) answers above 0, owner() reads
+# back on the five upgradable contracts, and a paid Daily spawn at stake 1 succeeds. The spawn is sent once: its
+# transaction is recorded, and a rerun cites it instead of buying another game.
+repoint_smoke() {
+  local swap entry quote held min_out usdc_before usdc_after spawn_tx game_id="" player
+  echo "== repoint: smoke"
+  felt_eq "$(call "$ECONOMY" router)" "$NEW_ROUTER" || die "Economy.router() is not the new MockRouter"
+  echo "   Economy.router() is the new MockRouter $NEW_ROUTER"
+  read -r swap _ <<<"$(call "$ECONOMY" quote_swap 1400000 0)"
+  [[ "$(hex_int "$swap")" -gt 0 ]] || die "Economy.quote_swap(1400000) is 0"
+  echo "   Economy.quote_swap(1400000) = $(hex_int "$swap") PAVED base units"
+  for entry in "Economy=$ECONOMY" "Account=$ACCOUNT" "Daily=$DAILY" "Tutorial=$TUTORIAL" "Collection=$COLLECTION"; do
+    [[ "$(hex_int "$(call "${entry#*=}" owner)")" == "$DEPLOYER_INT" ]] || die "${entry%%=*}.owner() is not the deployer"
+  done
+  echo "   owner() of Economy, Account, Daily, Tutorial and Collection: the deployer"
+  spawn_tx="$(rp_get smoke.spawn_tx)"
+  if [[ -n "$spawn_tx" && -z "$(rp_get smoke.game_id)" ]]; then
+    # Sent by a run stopped before it recorded the game: the receipt tells whether it landed.
+    game_id="$(rpc starknet_getTransactionReceipt "[\"$spawn_tx\"]" | repoint_spawned_game)" || game_id=""
+    if [[ -n "$game_id" ]]; then
+      rp_set "smoke.game_id=$game_id"
+    else
+      [[ "$(rpc starknet_getTransactionReceipt "[\"$spawn_tx\"]" | pyj 'd.get("result",{}).get("execution_status","")' 2>/dev/null)" == REVERTED ]] ||
+        die "the recorded smoke spawn $spawn_tx has no receipt on the node: check it before any rerun"
+      echo "   smoke spawn $spawn_tx (recorded) reverted: spawning again"
+      rp_set "smoke.spawn_tx="
+    fi
+  fi
+  if [[ -n "$(rp_get smoke.game_id)" ]]; then
+    echo "   paid Daily spawn done already: game $(rp_get smoke.game_id), tx $(rp_get smoke.spawn_tx); not sent again"
+    echo "== repoint: smoke ok"
+    return
+  fi
+  # The player: the deployer's account, created by the deploy's smoke; created here if not.
+  read -r player _ <<<"$(call "$ACCOUNT" player "$DEPLOYER_ARG")"
+  [[ "$(hex_int "$player")" != 0 ]] || invoke "$ACCOUNT" create "$(python3 -I -c 'print(hex(int.from_bytes(b"smoke","big")))')" "$DEPLOYER_ARG" >/dev/null
+  read -r held _ <<<"$(call "$USDC" balance_of "$DEPLOYER_ARG")"
+  [[ "$(hex_int "$held")" -ge 2000000 ]] || invoke "$USDC" mint "$DEPLOYER_ARG" 2000000 0 >/dev/null
+  invoke "$USDC" approve "$DAILY" 2000000 0 >/dev/null
+  read -r -a quote <<<"$(call "$ECONOMY" quote 1)"
+  read -r swap _ <<<"$(call "$ECONOMY" quote_swap "${quote[2]}" "${quote[3]}")"
+  min_out="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)*99//100)' "$swap")"
+  usdc_before="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
+  RECORD_SENDING=smoke.spawn_tx
+  spawn_tx="$(invoke "$DAILY" spawn 1 0 $(u256 "$min_out"))"
+  RECORD_SENDING=""
+  game_id="$(rpc starknet_getTransactionReceipt "[\"$spawn_tx\"]" | repoint_spawned_game)" ||
+    die "no GameSpawned event in the Daily spawn receipt"
+  rp_set "smoke.spawn_tx=$spawn_tx" "smoke.game_id=$game_id"
+  usdc_after="$(hex_int "$(call "$USDC" balance_of "$DEPLOYER_ARG" | cut -d' ' -f1)")"
+  [[ $((usdc_before - usdc_after)) == 2000000 ]] || die "the spawn moved $((usdc_before - usdc_after)) USDC base units, expected 2000000"
+  [[ "$(hex_int "$(call "$USDC" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds USDC after the purchase"
+  [[ "$(hex_int "$(call "$PAVED" balance_of "$ECONOMY" | cut -d' ' -f1)")" == 0 ]] || die "Economy holds PAVED after the purchase"
+  read -r player _ <<<"$(call "$ECONOMY" terms "$game_id")"
+  [[ "$(hex_int "$player")" == "$DEPLOYER_INT" ]] || die "Economy.terms($game_id) is not the player's"
+  echo "   paid Daily game $game_id at stake 1 (min_out $min_out) through the new MockRouter, tx $spawn_tx; Economy holds nothing"
+  echo "== repoint: smoke ok"
+}
+
 SPEC_VERSION="$(rpc starknet_specVersion '[]')" || die "no node answers at $RPC_LABEL; start: starknet-devnet --host 127.0.0.1 --port 5050 --seed 42"
 # The spec version, not the URL, tells runs on different endpoints apart (printed on every estimate line too).
 SPEC_VERSION="$(pyj 'd["result"] if isinstance(d.get("result"), str) and len(d["result"]) < 40 else "unknown"' <<<"$SPEC_VERSION" 2>/dev/null || echo unknown)"
@@ -600,6 +1074,8 @@ if [[ "$UNMERGED" == 1 || "$REHEARSE" == 1 ]]; then
   DEPLOYED_AT="unmerged-$(git -C "$ROOT" rev-parse HEAD)"
   if ((ESTIMATE_ONLY)); then
     echo "== unmerged, sepolia rehearsal on a local node: the working tree's classes are estimated, nothing is deployed"
+  elif ((REPOINT)); then
+    echo "== unmerged, sepolia rehearsal on a local node: the working tree's classes repoint the deployment of $REPOINT_FILE"
   else
     echo "== unmerged$( ((REHEARSE)) && echo ', sepolia rehearsal on a local node'): the working tree is deployed, the file goes to $OUT"
   fi
@@ -623,6 +1099,8 @@ fi
 echo "== build"
 cd "$ROOT/contracts"
 RAYON_NUM_THREADS=1 scarb --release build >/dev/null
+# --repoint: what is deployed and what already landed, read before anything is estimated or sent.
+((REPOINT)) && repoint_state
 
 # Funding (S-1c, S-1d), sepolia and its rehearsal: the deployer's STRK balance, a public read (balance_of of `@account`,
 # so the address stays out of argv and output), printed as an amount only. Before its first declare, a real run
@@ -650,6 +1128,9 @@ FUNDING_MARGIN_STRK=20
 # files of RELEASE_DIR, whatever the environment says.
 ESTIMATE_DIR="$RELEASE_DIR"
 if [[ "$ESTIMATE_ONLY" == 1 && -n "${ESTIMATE_RELEASE_DIR:-}" ]]; then ESTIMATE_DIR="$ESTIMATE_RELEASE_DIR"; fi
+# The classes a run declares, in deploy order; --repoint declares the E-9 MockRouter and Economy only.
+FUNDING_CLASSES=(Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection)
+((REPOINT)) && FUNDING_CLASSES=(MockRouter Economy)
 if ((USE_SIGNER)); then
   read -r BAL_LOW BAL_HIGH <<<"$(call "$STRK_TOKEN" balance_of "$DEPLOYER_ARG")"
   STRK_BALANCE="$(python3 -I -c 'import sys;print(int(sys.argv[1],16)+(int(sys.argv[2],16)<<128))' "$BAL_LOW" "$BAL_HIGH")"
@@ -661,7 +1142,7 @@ if ((USE_SIGNER)); then
     echo "== funding: estimating each declare still to send, in deploy order (read-only, nothing is sent)"
   fi
   failed=0
-  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection; do
+  for name in "${FUNDING_CLASSES[@]}"; do
     sierra="$ESTIMATE_DIR/paved_$name.contract_class.json"
     casm="$ESTIMATE_DIR/paved_$name.compiled_contract_class.json"
     [[ -f "$sierra" && -f "$casm" ]] || die "no release class files for $name in ${ESTIMATE_DIR#"$ROOT/"}"
@@ -752,6 +1233,10 @@ PY
   fi
   [[ "$funded" == 0 ]] || die "the deployer's STRK balance is below the need above: fund it before deploying; nothing was sent"
 fi
+if ((REPOINT)); then
+  repoint_run
+  exit 0
+fi
 
 echo "== declare"
 TOKEN_CLASS=""
@@ -773,8 +1258,6 @@ COLLECTION_CLASS="$(declare_class Collection)"
 rpc starknet_getClass "[\"latest\",\"$LOBBY_CLASS\"]" | class_declared ||
   die "Lobby class $LOBBY_CLASS is not declared on $RPC_LABEL: refusing to deploy Daily and Tutorial"
 
-# u256 calldata: low and high halves, decimal.
-u256() { python3 -I -c 'import sys;v=int(sys.argv[1]);print(v%2**128, v>>128)' "$1"; }
 USDC_UNIT=1000000
 PAVED_UNIT=1000000000000000000
 POOL_USDC=$((10000 * USDC_UNIT))
