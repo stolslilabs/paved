@@ -3,6 +3,7 @@ import { vi } from "vitest";
 import { render } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { IndexerProvider, PavedProvider, FakeGameViews } from "@paved/chain";
+import { FAKE_CHAIN_ID } from "@paved/chain/testing";
 import type { Deployment, FakeGame, GameKey, IndexerClient, PavedClient } from "@paved/chain";
 
 export const PLAYER = "0xabc";
@@ -62,6 +63,8 @@ export function renderPage(opts: {
   games?: unknown[];
   /** The events the account's sponsorships come from (P-37); none by default. */
   sponsorship?: { days: number[]; reclaimable: (id: number) => bigint; returned?: (id: number) => bigint };
+  /** The chain id the fake RPC answers; `FAKE_CHAIN_ID` by default. */
+  rpcChainId?: string;
   /** The indexer client the screens read; none by default. */
   indexer?: IndexerClient | null;
   /** Wraps the routes (an `EconomyProvider`). */
@@ -83,6 +86,8 @@ export function renderPage(opts: {
     player: vi.fn(async (address: string) => opts.playerFor ? opts.playerFor(address) : (opts.player === undefined ? { id: PLAYER, name: "Zed", master: PLAYER } : opts.player)),
     balance: vi.fn(async () => 5n * 10n ** 18n),
     writer: () => opts.writer ?? {},
+    // The RPC's chain: the fake deployments' (`FAKE_CHAIN_ID`), checked before any purchase.
+    provider: { getChainId: async () => opts.rpcChainId ?? FAKE_CHAIN_ID },
   } as unknown as PavedClient;
   const utils = render(
     <PavedProvider deployment={opts.deployment ?? configured} account={opts.account === undefined ? account : opts.account} client={client}>

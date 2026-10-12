@@ -3,9 +3,9 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
+import { CHAIN_MISMATCH, FakeGameViews, MAINNET_ROUTER, RATE_UNAVAILABLE, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, ROUTER_NOT_PINNED, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
 import type { Deployment, EconomyDeployment } from "@paved/chain";
-import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/testing";
+import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/testing";
 import { EconomyPage } from "../src/pages/Economy";
 import { LandingPage } from "../src/pages/Landing";
 import { EconomyProvider } from "../src/utils/economy-context";
@@ -36,8 +36,8 @@ const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" 
 const REFERRER = "0x77";
 const DAY = 20_000;
 const P = 10n ** 18n;
-const base = { ...resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } }), tokenDecimals: 18 } as Deployment;
-const economyDeployment = resolveEconomyDeployment({ base, env: ECON });
+const base = { ...resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } }), tokenDecimals: 18, chainId: FAKE_CHAIN_ID } as Deployment;
+const economyDeployment = resolveEconomyDeployment({ base, file: FAKE_ROUTER_FILE, env: ECON });
 
 /** A base writer that runs the economy's `prepare` (its reads and checks) and records the calls it would send. */
 function fakeBaseWriter() {
@@ -50,7 +50,7 @@ function fakeBaseWriter() {
   return { address: PLAYER, sendCalls, sent };
 }
 
-function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null> } = {}) {
+function land(opts: { search?: string; economy?: FakeEconomy; deployment?: EconomyDeployment; games?: unknown[]; now?: number; pool?: FakePoolQuoter | null | "network"; rpcChainId?: string; playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null> } = {}) {
   const economy = opts.economy ?? new FakeEconomy();
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: FAKE_UNIT };
@@ -63,6 +63,7 @@ function land(opts: { search?: string; economy?: FakeEconomy; deployment?: Econo
     views,
     games: opts.games,
     playerFor: opts.playerFor,
+    rpcChainId: opts.rpcChainId,
     writer: writer as never,
     wrap: (routes) => (
       <EconomyProvider value={{ deployment: opts.deployment ?? economyDeployment, views: economy, poolQuoter: opts.pool === "network" ? undefined : opts.pool === undefined ? new FakePoolQuoter() : opts.pool, now: () => opts.now ?? settlesAfter(DAY) }}>{routes}</EconomyProvider>
@@ -100,7 +101,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
     // The consent is the history state; the URL carries only the mode.
     expect(where().split("|")[0]).toBe("/game?mode=daily");
-    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 7, confirmedPrice: 14_000_000n, referrer: null, confirmedMinOut: await floor(7) });
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 7, confirmedPrice: 14_000_000n, referrer: null, confirmedMinOut: await floor(7), acceptedLowQuote: false });
     expect(writer.sendCalls).not.toHaveBeenCalled();
   });
 
@@ -125,7 +126,7 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     expect(dialog).toContain("gets 1 USDC out of the stakers' margin: you pay the same 20 USDC");
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
-    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 10, confirmedPrice: 20_000_000n, referrer: REFERRER, confirmedMinOut: await floor(10) });
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 10, confirmedPrice: 20_000_000n, referrer: REFERRER, confirmedMinOut: await floor(10), acceptedLowQuote: false });
   });
 
   it("a malformed referrer in the link (?ref=abc) is ignored: no referrer shown or sent", async () => {
@@ -195,10 +196,13 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
 
   it("the deployment's quoter (none overridden) on mainnet and sepolia is Economy.quote_swap: no request to any quoter API", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
-    const on = (network: string) => resolveEconomyDeployment({ base: { ...base, network }, env: ECON });
+    const on = (network: string) => resolveEconomyDeployment({ base: { ...base, network }, file: FAKE_ROUTER_FILE, env: ECON });
     for (const network of ["mainnet", "sepolia"]) {
+      // Each network's own router, so that the pin lets the quote be read.
+      const economy = new FakeEconomy();
+      economy.router_ = on(network).expectedRouter;
       // The page fixture's client has no RPC: the on-chain quote cannot be read (not a revert), so nothing is offered.
-      land({ pool: "network", deployment: on(network) });
+      land({ pool: "network", deployment: on(network), economy });
       fireEvent.click(await screen.findByText(/mode daily/));
       expect(await screen.findByText(POOL_QUOTE_UNAVAILABLE)).toBeTruthy();
       expect((screen.getByText("Pool quote unavailable", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
@@ -222,6 +226,126 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
     // The floor the player confirmed rides in the intent.
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.confirmedMinOut).toBe(least);
+  });
+
+  it("labels the burn share 'at today's terms' at the picker and at the confirm (burn_bps may change before the transaction)", async () => {
+    land();
+    fireEvent.click(await screen.findByText(/mode daily/));
+    // Stake 1: 2 USDC, of which the fake's burn_bps (70 %) is swapped and burned.
+    expect(await screen.findByText("Swapped for PAVED and burned: 1.4 USDC of the price (70 %), at today's terms")).toBeTruthy();
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    const dialog = screen.getByRole("dialog", { name: "Confirm purchase" });
+    expect(dialog.textContent).toContain("Swapped for PAVED and burned: 1.4 USDC of the price (70 %), at today's terms.");
+  });
+
+  it("a pool quote at 95 % of the guard-rate value: no warning, no extra confirmation", async () => {
+    land();
+    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    expect(screen.queryByText(/the guard rate implies/)).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    fireEvent.click(screen.getByText("Confirm purchase"));
+    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.acceptedLowQuote).toBe(false);
+  });
+
+  it("a pool quote below 90 % of the guard-rate value: both figures, and Confirm needs the explicit acceptance", async () => {
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 70n * 10n ** 18n, usdc: 1_000_000n }; // 95 % of 70/80: 83.1 % of the guard-rate value
+    land({ pool });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    const quote = await pool.quoteSwap(1_400_000n);
+    const text = `The pool quotes ${paved(quote)} for the burn, below 90 % of the ${paved(112n * P)} the guard rate implies: the pool may have been pushed.`;
+    expect(await screen.findByText(text)).toBeTruthy();
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    const confirm = screen.getByText("Confirm purchase") as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(where()).toMatch(/^\/\|/);
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toMatchObject({ stake: 1, acceptedLowQuote: true, confirmedMinOut: (quote * 99n) / 100n });
+  });
+
+  it("a router that is not the pinned one: the plain message, no quote read, no purchase offered", async () => {
+    const pool = new FakePoolQuoter();
+    const economy = new FakeEconomy();
+    economy.router_ = MAINNET_ROUTER; // not this devnet's MockRouter
+    land({ pool, economy });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText(ROUTER_NOT_PINNED)).toBeTruthy();
+    expect((screen.getByText("Purchases are off", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText(/PAVED bought and burned/)).toBeNull();
+    expect(pool.calls).toHaveLength(0);
+  });
+
+  it("the acceptance of a low quote is for that quote: a quote read again needs a fresh tick", async () => {
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 70n * 10n ** 18n, usdc: 1_000_000n };
+    land({ pool });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    fireEvent.click(screen.getByRole("checkbox"));
+    const confirm = screen.getByText("Confirm purchase") as HTMLButtonElement;
+    expect(confirm.disabled).toBe(false);
+    // The page is shown again and the quote is read again, lower still.
+    pool.rate = { paved: 60n * 10n ** 18n, usdc: 1_000_000n };
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(await screen.findAllByText(new RegExp(`The pool quotes ${paved(await pool.quoteSwap(1_400_000n)).replace(".", "\\.")}`))).toBeTruthy();
+    await waitFor(() => expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false));
+    expect(confirm.disabled).toBe(true);
+    visibility.mockRestore();
+  });
+
+  it("an RPC on another chain than the deployment's: the plain message, nothing quoted, no purchase offered", async () => {
+    const pool = new FakePoolQuoter();
+    const economy = new FakeEconomy();
+    land({ pool, economy, rpcChainId: "0x534e5f4d41494e" });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText(CHAIN_MISMATCH)).toBeTruthy();
+    expect((screen.getByText("Purchases are off", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(pool.calls).toHaveLength(0);
+    expect(economy.calls).not.toContain("router");
+  });
+
+  it("mainnet, rate 0 (unexpected): refused, nothing quoted, no purchase offered", async () => {
+    const SN_MAIN = "0x534e5f4d41494e";
+    const pool = new FakePoolQuoter();
+    const economy = new FakeEconomy();
+    economy.router_ = MAINNET_ROUTER;
+    economy.guardRate_ = 0n;
+    const deployment = resolveEconomyDeployment({ base: { ...base, network: "mainnet", chainId: SN_MAIN }, env: ECON });
+    land({ pool, economy, deployment, rpcChainId: SN_MAIN });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText(RATE_UNAVAILABLE)).toBeTruthy();
+    expect((screen.getByText("Purchases paused", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(pool.calls).toHaveLength(0);
+  });
+
+  it("mainnet at a rate above 0: offered as before", async () => {
+    const SN_MAIN = "0x534e5f4d41494e";
+    const economy = new FakeEconomy();
+    economy.router_ = MAINNET_ROUTER;
+    const deployment = resolveEconomyDeployment({ base: { ...base, network: "mainnet", chainId: SN_MAIN }, env: ECON });
+    land({ economy, deployment, rpcChainId: SN_MAIN });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    await enabled("Buy for 2 USDC");
+    expect(screen.queryByText(RATE_UNAVAILABLE)).toBeNull();
+  });
+
+  it("Sepolia at a guard rate of 0: no warning, the purchase is offered", async () => {
+    const economy = new FakeEconomy();
+    economy.guardRate_ = 0n;
+    const deployment = resolveEconomyDeployment({ base: { ...base, network: "sepolia" }, file: FAKE_ROUTER_FILE, env: ECON });
+    land({ economy, deployment });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    expect(screen.queryByText(RATE_UNAVAILABLE)).toBeNull();
+    expect(screen.queryByText(/the guard rate implies/)).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("a quote_swap that reverts (the pool cannot fill): the plain message, no quote shown, no purchase offered", async () => {
@@ -455,7 +579,7 @@ describe("the economy page (/economy)", () => {
     fireEvent.click(await enabled("Buy for 2 USDC"));
     fireEvent.click(screen.getByText("Confirm purchase"));
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
-    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 1, confirmedPrice: 2_000_000n, referrer: REFERRER, confirmedMinOut: await floor(1) });
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toEqual({ stake: 1, confirmedPrice: 2_000_000n, referrer: REFERRER, confirmedMinOut: await floor(1), acceptedLowQuote: false });
     expect(writer.sendCalls).not.toHaveBeenCalled();
   });
 
@@ -486,7 +610,7 @@ describe("helpers", () => {
   });
 
   it("a purchase intent comes only from state, well formed; a URL alone buys nothing", () => {
-    expect(readPurchaseIntent(purchaseIntent(3, 6_000_000n, null, 7n))).toEqual({ stake: 3, confirmedPrice: 6_000_000n, referrer: null, confirmedMinOut: 7n });
+    expect(readPurchaseIntent(purchaseIntent(3, 6_000_000n, null, 7n))).toEqual({ stake: 3, confirmedPrice: 6_000_000n, referrer: null, confirmedMinOut: 7n, acceptedLowQuote: false });
     expect(readPurchaseIntent(null)).toBeNull();
     expect(readPurchaseIntent({ start: true, confirmedAmount: "10" })).toBeNull();
     expect(readPurchaseIntent({ start: true, purchase: { stake: 11, confirmedPrice: "1", referrer: null } })).toBeNull();

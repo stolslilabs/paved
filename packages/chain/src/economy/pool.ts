@@ -1,4 +1,4 @@
-import type { AbiCodec } from "../codec";
+import { sameAddress, type AbiCodec } from "../codec";
 import { toViewError, ViewError, type CallProvider } from "../views";
 import type { EconomyDeployment } from "./deployment";
 
@@ -24,6 +24,38 @@ export const POOL_CANNOT_FILL = "The pool cannot fill this purchase right now. T
 
 /** What the player reads when the quote could not be read at all (an RPC error, a rate limit, a timeout): not a revert. */
 export const POOL_QUOTE_UNAVAILABLE = "Cannot read the pool quote right now; try again.";
+
+/** What the player reads when the network has no known router to pin (a mock network whose file has no `MockRouter`). */
+export const ROUTER_UNKNOWN = "Purchases are off: no known swap router on this network.";
+
+/** What the player reads when `Economy.router()` is not the pinned one (E-9b, CORE's ruling 2). */
+export const ROUTER_NOT_PINNED = "Purchases are off: the economy swaps through an unexpected router.";
+
+/**
+ * The router pin (E-9b, ruling 2): null when `Economy.router()` is the deployment's `expectedRouter` (`MAINNET_ROUTER` on
+ * mainnet, the file's `MockRouter` on devnet and Sepolia), else what the player reads. No quote is shown and nothing is
+ * sent otherwise.
+ */
+export function routerProblem(deployment: Pick<EconomyDeployment, "expectedRouter">, router: string): string | null {
+  if (!deployment.expectedRouter) return ROUTER_UNKNOWN;
+  try {
+    return sameAddress(router, deployment.expectedRouter) ? null : ROUTER_NOT_PINNED;
+  } catch {
+    return ROUTER_NOT_PINNED;
+  }
+}
+
+/** What the player reads on mainnet if `Economy.rate()` is 0, which only an unexpected upgrade can cause (E-9c, ruling 3). */
+export const RATE_UNAVAILABLE = "Price rate unavailable; purchases are paused";
+
+/**
+ * A guard against an unexpected upgrade (E-9c, ruling 3): the constructor refuses a rate of 0 (`'Economy: zero rate'`), so
+ * on mainnet a 0 can only come from an odd upgrade, and every purchase is refused then. Devnet and Sepolia proceed at a rate
+ * of 0 (no warning). Null when a purchase may proceed.
+ */
+export function rateProblem(deployment: Pick<EconomyDeployment, "mainnet">, rate: bigint): string | null {
+  return deployment.mainnet && rate === 0n ? RATE_UNAVAILABLE : null;
+}
 
 /** The Economy's own refusals of `quote_swap` (E-9: F1, F2, the `u128` bound). */
 const QUOTE_REVERTS = ["Economy: partial fill", "Economy: wrong delta", "Economy: amount too large"];
