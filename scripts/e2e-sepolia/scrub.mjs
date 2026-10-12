@@ -8,7 +8,9 @@ export const redact = (u) => u.replace(/[?#].*$/, "");
 /** The driver's failure pattern: a keychain screen or console line that matches it is a registration failure. */
 export const FAILURE = /internal server error|authentication failed/i;
 /** Where the keychain's echoed GraphQL response or request starts, whatever the error text before it says. */
-const ECHO_MARKERS = /\{\s*"response"|"request"\s*:/;
+const ECHO_MARKERS = /\{\s*\\*"response\\*"|\\*"request\\*"\s*:/;
+/** A keychain screen is a failure if it matches the failure pattern, an echo marker or `rpc error:`: not tied to the error wording. */
+export const isFailureText = (t) => FAILURE.test(t) || ECHO_MARKERS.test(t) || /rpc error:/i.test(t);
 export const ECHO_CUT = "[the rest of the text is removed: it may carry the keychain's echoed registration request]";
 
 /** The name of a GraphQL operation in a raw error text, read before `scrub`; only the name is kept. */

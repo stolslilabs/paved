@@ -10,7 +10,7 @@ import { chromium } from "playwright-core";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { FAILURE, checkEvidence, operationName, redact, scrub } from "./scrub.mjs";
+import { checkEvidence, isFailureText, operationName, redact, scrub } from "./scrub.mjs";
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -112,11 +112,11 @@ async function keychainScreen(name) {
     : [];
   // No screenshot while the failure text is on screen: the keychain prints its registration request there. The text is read again
   // after the picture in case the failure appeared meanwhile, and a picture taken then is deleted.
-  let failed = FAILURE.test(raw);
+  let failed = isFailureText(raw);
   if (!failed) {
     await shot(name);
     raw = await read();
-    failed = FAILURE.test(raw);
+    failed = isFailureText(raw);
     if (failed) rmSync(join(out, `${name}.jpg`), { force: true });
   }
   const at = new Date().toISOString();

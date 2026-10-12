@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ECHO_CUT, FAILURE, checkEvidence, operationName, redact, scrub } from "./scrub.mjs";
+import { ECHO_CUT, FAILURE, checkEvidence, isFailureText, operationName, redact, scrub } from "./scrub.mjs";
 
 // A made-up echo shaped like the keychain's: the error line, then a multi-line request with fake credential fields.
 const ECHO_TEXT = [
@@ -80,4 +80,18 @@ test("checkEvidence flags forbidden words and passes clean files", () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("scrub cuts an echo whose quotes are escaped", () => {
+  const raw = 'rpc error: code = Unavailable desc = x: {\\"response\\":{\\"data\\":null},\\"request\\":{\\"variables\\":{\\"rawId\\":\\"FAKE\\"}}} tail';
+  const out = scrub(raw);
+  for (const w of ["rawId", "FAKE", "tail", "variables", "data"]) expect(out).not.toContain(w);
+});
+
+test("isFailureText does not depend on the error wording", () => {
+  expect(isFailureText("rpc error: code = Unavailable desc = down")).toBe(true);
+  expect(isFailureText('x {"response":{}}')).toBe(true);
+  expect(isFailureText('x \\"request\\": 1')).toBe(true);
+  expect(isFailureText("Authentication failed. Please try again.")).toBe(true);
+  expect(isFailureText("Create Controller\nSMS\nPASSKEY")).toBe(false);
 });
