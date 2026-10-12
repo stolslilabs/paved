@@ -122,31 +122,48 @@ pub mod MockRouter {
     impl RouterImpl of IRouter<ContractState> {
         fn swap(ref self: ContractState, node: RouteNode, token_amount: TokenAmount) -> Delta {
             // [Check] The pool and an exact input
-            let (zero_for_one, amount_in) = self.checked(node, token_amount);
+            assert(node.pool_key == self.pool_key(), errors::WRONG_POOL);
+            assert(!token_amount.amount.sign, errors::EXACT_INPUT_ONLY);
+            let amount_in = token_amount.amount.mag;
+            let zero_for_one = self.direction(token_amount.token);
             let (reserve_in, reserve_out) = self.ordered(zero_for_one);
             // [Check] The input is on the router, beyond the reserves
             let token = IERC20Dispatcher { contract_address: token_amount.token };
             let balance = token.balance_of(get_contract_address());
             assert(balance >= reserve_in + amount_in.into(), errors::INPUT_NOT_PAID);
             // [Effect] Move the reserves; the output stays on the router until cleared
-            let amount_out = self.output(zero_for_one, amount_in);
+            let amount_out = self.output(token_amount.token, amount_in);
             assert(amount_out.is_non_zero(), errors::ZERO_OUTPUT);
             let reserve_in = reserve_in + amount_in.into();
             let reserve_out = reserve_out - amount_out.into();
+            let paid = i129 { mag: amount_in, sign: false };
+            let received = i129 { mag: amount_out, sign: true };
             self.emit(Swapped { token_in: token_amount.token, amount_in, amount_out });
             if zero_for_one {
                 self.reserve0.write(reserve_in);
                 self.reserve1.write(reserve_out);
+                Delta { amount0: paid, amount1: received }
             } else {
                 self.reserve1.write(reserve_in);
                 self.reserve0.write(reserve_out);
+                Delta { amount0: received, amount1: paid }
             }
-            delta(zero_for_one, amount_in, amount_out)
         }
 
         fn quote_swap(self: @ContractState, node: RouteNode, token_amount: TokenAmount) -> Delta {
-            let (zero_for_one, amount_in) = self.checked(node, token_amount);
-            delta(zero_for_one, amount_in, self.output(zero_for_one, amount_in))
+            // [Check] The pool and an exact input, as `swap`
+            assert(node.pool_key == self.pool_key(), errors::WRONG_POOL);
+            assert(!token_amount.amount.sign, errors::EXACT_INPUT_ONLY);
+            let amount_in = token_amount.amount.mag;
+            let zero_for_one = self.direction(token_amount.token);
+            let amount_out = self.output(token_amount.token, amount_in);
+            let paid = i129 { mag: amount_in, sign: false };
+            let received = i129 { mag: amount_out, sign: true };
+            if zero_for_one {
+                Delta { amount0: paid, amount1: received }
+            } else {
+                Delta { amount0: received, amount1: paid }
+            }
         }
     }
 
@@ -201,31 +218,12 @@ pub mod MockRouter {
         }
     }
 
-    /// The pool's change for an exact input: it receives `amount_in` and pays `amount_out`.
-    fn delta(zero_for_one: bool, amount_in: u128, amount_out: u128) -> Delta {
-        let paid = i129 { mag: amount_in, sign: false };
-        let received = i129 { mag: amount_out, sign: true };
-        if zero_for_one {
-            Delta { amount0: paid, amount1: received }
-        } else {
-            Delta { amount0: received, amount1: paid }
-        }
-    }
-
     #[generate_trait]
     impl InternalImpl of InternalTrait {
-        /// The pool and an exact input: (`true` when the input is token0, the input).
-        fn checked(
-            self: @ContractState, node: RouteNode, token_amount: TokenAmount,
-        ) -> (bool, u128) {
-            assert(node.pool_key == self.pool_key(), errors::WRONG_POOL);
-            assert(!token_amount.amount.sign, errors::EXACT_INPUT_ONLY);
-            (self.direction(token_amount.token), token_amount.amount.mag)
-        }
-
-        /// The output of an exact-input swap of `amount_in`, at the current reserves.
-        fn output(self: @ContractState, zero_for_one: bool, amount_in: u128) -> u128 {
-            let (reserve_in, reserve_out) = self.ordered(zero_for_one);
+        /// The output of an exact-input swap of `amount_in` of `token_in`, at the current reserves
+        /// (the former entry point `quote`, now internal: `swap` keeps its gas).
+        fn output(self: @ContractState, token_in: ContractAddress, amount_in: u128) -> u128 {
+            let (reserve_in, reserve_out) = self.ordered(self.direction(token_in));
             assert(reserve_in.is_non_zero() && reserve_out.is_non_zero(), errors::NO_LIQUIDITY);
             // [Compute] Ekubo's fee, rounded up, then the constant product, rounded down
             let product: u256 = amount_in.into() * FEE.into();

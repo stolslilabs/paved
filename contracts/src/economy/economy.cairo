@@ -933,7 +933,8 @@ pub mod Economy {
             self.emit(PoolSet { pool_key, sqrt_ratio_limit });
         }
 
-        /// The one hop of every swap and quote: the stored pool key and price limit.
+        /// The one hop of `swap` (which builds it inline, its gas unchanged) and of `quote_swap`:
+        /// the stored pool key and price limit.
         fn node(self: @ContractState) -> RouteNode {
             RouteNode {
                 pool_key: self.pool_key(),
@@ -959,11 +960,20 @@ pub mod Economy {
         ) -> u256 {
             let router = self.router.read();
             assert(usdc.transfer(router, quote), errors::TRANSFER_FAILED);
+            let node = RouteNode {
+                pool_key: self.pool_key(),
+                sqrt_ratio_limit: self.sqrt_ratio_limit.read(),
+                skip_ahead: 0,
+            };
             let amount = i129 { mag: quote.try_into().unwrap(), sign: false };
             let delta = IRouterDispatcher { contract_address: router }
-                .swap(self.node(), TokenAmount { token: usdc.contract_address, amount });
-            let out = self.paved_leg(delta);
+                .swap(node, TokenAmount { token: usdc.contract_address, amount });
             let paved = self.paved.read();
+            let out = if paved < usdc.contract_address {
+                delta.amount0
+            } else {
+                delta.amount1
+            };
             // [Check] The swap itself paid at least `min_out`: the router's balance may hold more
             assert(out.mag.into() >= min_out, errors::BELOW_MIN_OUT);
             let clear = IClearDispatcher { contract_address: router };
