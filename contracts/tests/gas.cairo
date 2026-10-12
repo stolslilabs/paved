@@ -52,6 +52,7 @@ pub const CEILING_FOREST_WORST: u128 = 19956685;
 // `Economy.record` add about 1.46M (1.11M on i).
 pub const CEILING_CLOSING_PLACES: u128 = 3700987;
 pub const CEILING_CLOSING_NOT_PLACED: u128 = 3277673;
+pub const CEILING_CLOSING_EMPTY_BOARD: u128 = 3701092;
 pub const CEILING_CLOSING_AFTER: u128 = 2718591;
 pub const CEILING_VIEW: u128 = 388740;
 pub const CEILING_CLOSING_FULL_REPORT: u128 = 4046311;
@@ -344,6 +345,27 @@ fn test_gas_h_closing_move_not_placed() {
     let top = interact_with_state(s.store.contract, || LeaderboardImpl::new().top(id));
     assert(top.first.score == 2000 && top.third.score == 1800, 'Gas: placed');
     report("h_closing_move_not_placed", gas, CEILING_CLOSING_NOT_PLACED);
+}
+
+/// g0. Closing move that ranks at rank 1 in an empty tournament (L-1): the first submission of the
+/// day, which creates the ranking's slots.
+#[test]
+fn test_gas_g0_closing_move_empty_board() {
+    let s = empty_board_game();
+    let gas = surrender(@s);
+    let id = tournament_id(@s);
+    let top = interact_with_state(s.store.contract, || LeaderboardImpl::new().top(id));
+    assert(top.first.score == 1379 && top.second.score == 0, 'Gas: not placed');
+    report("g0_closing_move_empty_board", gas, CEILING_CLOSING_EMPTY_BOARD);
+}
+
+/// The game of `scored_game`, its tournament checked empty before the move.
+fn empty_board_game() -> Scenario {
+    let s = scored_game();
+    let id = tournament_id(@s);
+    let top = interact_with_state(s.store.contract, || LeaderboardImpl::new().top(id));
+    assert(top.first.score == 0 && top.first.player_id == 0, 'Gas: board not empty');
+    s
 }
 
 /// i. Game over after its tournament closed: it ranks in nothing, the leaderboard is not called.
