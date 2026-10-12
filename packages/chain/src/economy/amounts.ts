@@ -57,6 +57,36 @@ export function minOutFor(poolOut: bigint, slippageBps: bigint = DEFAULT_SLIPPAG
   return (poolOut * (BPS - slippageBps)) / BPS;
 }
 
+/** The scale of `Economy.rate()`, the guard's swap rate: PAVED base units per USDC base unit, x 1e18 (`curve::RATE_SCALE`). */
+export const RATE_SCALE = 10n ** 18n;
+
+/**
+ * The sanity floor (E-9b, CORE's ruling 1): a pool quote below this share of the guard-rate value is warned about and
+ * needs the player's explicit confirmation, never refused. E4's calibration, or a measured false-warning rate on
+ * mainnet, may move it.
+ */
+export const SANITY_FLOOR_BPS = 9_000n;
+
+/**
+ * The PAVED the burn would buy at the guard's rate: `burn_quote x rate / RATE_SCALE`, rounded down (the figure shown).
+ * Null at a rate of 0: no purchase yet, no guard on chain either (`curve::guarded` counts the whole purchase), so there
+ * is nothing to compare with.
+ */
+export function impliedPaved(burnQuote: bigint, rate: bigint): bigint | null {
+  if (burnQuote < 0n || rate < 0n) throw new RangeError("A burn quote and a rate are not negative");
+  return rate === 0n ? null : (burnQuote * rate) / RATE_SCALE;
+}
+
+/**
+ * Whether the pool's quote of the burn (`Economy.quote_swap(burn_quote)`) is below 90 % of the guard-rate value. Exact:
+ * `pool_out x 10,000 x RATE_SCALE < burn_quote x rate x 9,000`, cross-multiplied, so no rounding either way. At or above
+ * 90 %, false; above the implied value too (the on-chain guard caps `R` then). False at a rate of 0 (`impliedPaved`).
+ */
+export function quoteBelowFloor(poolOut: bigint, burnQuote: bigint, rate: bigint): boolean {
+  if (impliedPaved(burnQuote, rate) === null) return false;
+  return poolOut * BPS * RATE_SCALE < burnQuote * rate * SANITY_FLOOR_BPS;
+}
+
 /** The economy's day of a Unix time (the Daily tournament id). */
 export function dayOf(unixSeconds: number): number {
   return Math.floor(unixSeconds / SECONDS_PER_DAY);

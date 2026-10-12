@@ -36,7 +36,7 @@ import {
   referralOf,
   resolveEconomyDeployment,
 } from "../src/economy";
-import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
+import { FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
 import economyAbi from "../../../contracts/abis/Economy.json";
 
 const ADDR = { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" };
@@ -44,7 +44,7 @@ const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" 
 const PLAYER = "0x5";
 const REFERRER = "0x77";
 const base = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } });
-const economyDeployment = resolveEconomyDeployment({ base, env: ECON });
+const economyDeployment = resolveEconomyDeployment({ base, file: FAKE_ROUTER_FILE, env: ECON });
 const DAY = 20_000;
 
 const spawnedEvent = (gameId: number) => ({
@@ -498,6 +498,7 @@ describe("quote_swap (P-35): the real ABI's u256 in and out", () => {
     const quoted = (felts: string[] | Error) => {
       const { quoter } = pool(felts);
       const s = setup({ pool: quoter as unknown as FakePoolQuoter });
+      s.economy.guardRate_ = 0n; // arbitrary quotes: no guard rate to warn against
       return s;
     };
     const ok = quoted(["0x2710", "0x0"]); // 10,000

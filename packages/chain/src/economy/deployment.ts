@@ -1,9 +1,9 @@
 import type { EconomyContractName } from "../abis";
-import type { Deployment, DeploymentFile } from "../deployment";
+import { MOCK_USDC_NETWORKS, type Deployment, type DeploymentFile } from "../deployment";
 
 /** The deployments file as E3 extends it (economy.md section 6): the economy's contracts under `contracts`. */
 export interface EconomyDeploymentFile extends DeploymentFile {
-  contracts?: DeploymentFile["contracts"] & Partial<Record<"Economy" | "PavedToken" | "Vault" | "MockUSDC" | "USDC", { address?: string }>>;
+  contracts?: DeploymentFile["contracts"] & Partial<Record<"Economy" | "PavedToken" | "Vault" | "MockUSDC" | "USDC" | "MockRouter", { address?: string }>>;
 }
 
 export interface EconomyEnv {
@@ -24,7 +24,23 @@ export interface EconomyDeployment {
    */
   configured: boolean;
   missing: string[];
+  /**
+   * The only router `Economy.router()` may name for a purchase to be sent (E-9b, ruling 2): `MAINNET_ROUTER` on mainnet,
+   * the file's `MockRouter` on devnet and Sepolia, an empty string where none is known (every purchase is refused then).
+   * Not part of `configured`: the screens still read.
+   */
+  expectedRouter: string;
 }
+
+/**
+ * Ekubo's "Router V3.0.13", the router `Economy` must swap through on mainnet (E-9b, CORE's ruling 2, economy.md "For
+ * CLIENT"). Never Nums' Router V3.0.3 (`0x04505a…c066`), which has no `quote_swap`. No on-chain pin: when Ekubo
+ * publishes a new router, CORE re-runs its fork test and the client updates this constant in the same release.
+ */
+export const MAINNET_ROUTER = "0x0199741822c2dc722f6f605204f35e56dbc23bceed54818168c4c49e4fb8737e";
+
+/** Starknet mainnet's chain id, `SN_MAIN` as a short string. */
+const SN_MAIN = 0x534e5f4d41494en;
 
 function isAddress(value: string | undefined): value is string {
   if (!value) return false;
@@ -55,5 +71,24 @@ export function resolveEconomyDeployment(input: { base: Deployment; file?: Econo
       .filter(([, address]) => !address)
       .map(([name]) => `${name} address`),
   ];
-  return { base: input.base, addresses, configured: missing.length === 0, missing };
+  return { base: input.base, addresses, configured: missing.length === 0, missing, expectedRouter: expectedRouterOf(input.base, contracts.MockRouter?.address) };
+}
+
+/**
+ * Mainnet (by name, or by its chain id whatever the name) pins `MAINNET_ROUTER`. Devnet and Sepolia run on the mocks:
+ * the file's `MockRouter`, never the env (a router is not a setting the build may change). Any other network, or a mock
+ * network whose file has no `MockRouter`, has none, and refuses every purchase: an unknown router is never accepted.
+ */
+function expectedRouterOf(base: Deployment, mockRouter: string | undefined): string {
+  if (base.network === "mainnet" || isMainnetChain(base.chainId)) return MAINNET_ROUTER;
+  if (MOCK_USDC_NETWORKS.includes(base.network) && isAddress(mockRouter)) return mockRouter;
+  return "";
+}
+
+function isMainnetChain(chainId: string): boolean {
+  try {
+    return chainId !== "" && BigInt(chainId) === SN_MAIN;
+  } catch {
+    return false;
+  }
 }

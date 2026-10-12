@@ -2,8 +2,8 @@ import type { EconomyCodecs, EconomyContractName } from "../abis";
 import { sameAddress, toHex, type Encodable } from "../codec";
 import type { GameViews, PriceView } from "../views";
 import { WriteError, revertNames, type Call, type PavedWriter, type WriteResult } from "../writer";
-import { ADDRESS_BOUND, DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, expiresAt, isStake, minOutFor, priceOf, settlesAfter } from "./amounts";
-import { POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, isQuoteRevert, type PoolQuoter } from "./pool";
+import { ADDRESS_BOUND, DEFAULT_SLIPPAGE_BPS, MAX_SLIPPAGE_BPS, expiresAt, impliedPaved, isStake, minOutFor, priceOf, quoteBelowFloor, settlesAfter } from "./amounts";
+import { POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, isQuoteRevert, routerProblem, type PoolQuoter } from "./pool";
 import type { EconomyDeployment } from "./deployment";
 import type { EconomyViews, QuoteView, TermsView } from "./views";
 
@@ -90,6 +90,28 @@ export class PoolPriceMovedError extends Error {
   }
 }
 
+/**
+ * `Economy.router()` is not the pinned router (E-9b, ruling 2), or the network has none: purchases are off. Nothing was
+ * sent and the pool was not quoted.
+ */
+export class RouterNotPinnedError extends WriteError {
+  constructor(readonly router: string, readonly expected: string, text: string) {
+    super(`${text} Nothing was sent.`);
+    this.name = "RouterNotPinnedError";
+  }
+}
+
+/**
+ * The fresh pool quote at send is below 90 % of the guard-rate value (E-9b, ruling 1) and the player did not accept such a
+ * quote at the confirm: nothing was sent. The player confirms again and sees the warning with both figures.
+ */
+export class PoolQuoteBelowFloorError extends Error {
+  constructor(readonly quote: bigint, readonly implied: bigint) {
+    super("The pool quote is far below the guard rate: confirm again");
+    this.name = "PoolQuoteBelowFloorError";
+  }
+}
+
 /** A Vault amount at send is not the one the player confirmed: nothing was sent. */
 export class VaultAmountChangedError extends Error {
   constructor(readonly confirmed: bigint, readonly current: bigint) {
@@ -112,6 +134,11 @@ export interface PurchaseRequest {
   referrer: string | null;
   /** Taken off the pool quote for `min_out`: 1 % by default, at most 5 % (P-35). */
   slippageBps?: bigint;
+  /**
+   * The player saw the sanity warning (a pool quote below 90 % of the guard-rate value) and confirmed anyway. Without it, a
+   * quote below the floor at send sends nothing (`PoolQuoteBelowFloorError`). It never lowers `confirmedMinOut`.
+   */
+  acceptedLowQuote?: boolean;
 }
 
 /** A purchase's calls and the figures they were built from, before anything is sent (for the tests and the docs). */
@@ -121,6 +148,10 @@ export interface PurchasePlan {
   minOut: bigint;
   /** The pool's PAVED for the burn quote, fee included, before the slippage. */
   poolOut: bigint;
+  /** The burn quote's PAVED at the guard's rate (`impliedPaved`), null at a rate of 0. */
+  implied: bigint | null;
+  /** `Economy.router()`, read in this prepare and checked against the pin. */
+  router: string;
   referrer: string;
   quote: QuoteView;
 }
@@ -183,11 +214,17 @@ export class EconomyWriter {
     if (!isStake(request.stake)) throw new WriteError(`A stake is 1 to 10, got ${String(request.stake)}`);
     let entry: PriceView;
     let quote: QuoteView;
+    let rate: bigint;
+    let router: string;
     try {
-      [entry, quote] = await Promise.all([gameViews.entryPrice(), views.quote(request.stake)]);
+      // The router and the guard's rate in the same prepare as the quote: fresh at every send, never the confirm's.
+      [entry, quote, rate, router] = await Promise.all([gameViews.entryPrice(), views.quote(request.stake), views.guardRate(), views.router()]);
     } catch (error) {
       throw new WriteError(`Cannot read the price: ${message(error)}`);
     }
+    // The router pin (E-9b, ruling 2) before anything else: an unexpected router is not quoted, and nothing is sent.
+    const routerRefusal = routerProblem(deployment, router);
+    if (routerRefusal) throw new RouterNotPinnedError(router, deployment.expectedRouter, routerRefusal);
     if (!sameAddress(entry.token, deployment.addresses.USDC)) throw new WriteError("Unknown entry token: the Daily entry is not paid in USDC");
     const price = priceOf(entry.amount, request.stake);
     if (price === 0n) throw new WriteError("The Daily entry has no price: nothing to buy");
@@ -217,11 +254,17 @@ export class EconomyWriter {
     if (minOut === 0n) throw new PoolCannotFillError(`the quote leaves a min_out of 0 (quote ${poolOut})`);
     // Never a `min_out` below what the player confirmed: a pool that moved down since the confirm sends nothing.
     if (minOut < request.confirmedMinOut) throw new PoolPriceMovedError(request.confirmedMinOut, minOut);
+    // The sanity floor (E-9b, ruling 1): a quote below 90 % of the guard-rate value is a warning the player must have
+    // accepted at the confirm; never a refusal on its own. A confirm without the warning sends nothing if it appears now.
+    const implied = impliedPaved(quote.burnQuote, rate);
+    if (implied !== null && quoteBelowFloor(poolOut, quote.burnQuote, rate) && request.acceptedLowQuote !== true) {
+      throw new PoolQuoteBelowFloorError(poolOut, implied);
+    }
     const calls = [
       this.call("USDC", "approve", [deployment.base.addresses.Daily, price]),
       this.call("Daily", "spawn", [request.stake, referrer, minOut]),
     ];
-    return { calls, price, minOut, poolOut, referrer, quote };
+    return { calls, price, minOut, poolOut, implied, router, referrer, quote };
   }
 
   /**

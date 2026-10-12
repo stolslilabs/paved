@@ -12,7 +12,7 @@ import { resolveDeployment } from "../src/deployment";
 import { MAX_STAKE, createEconomyClient, priceOf, resolveEconomyDeployment, settlesAfter } from "../src/economy";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { rewardOf } from "../src/prize";
-import { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
+import { FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
 import { FakeGameViews, type TournamentView } from "../src/views";
 
 const deployment = resolveDeployment({
@@ -65,7 +65,7 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   economy.terms_.set(7, fakeTerms({ stake: 2, day: DAY }));
   economy.setBalance("paved", PLAYER, 5n * P);
   economy.vaults.set(BigInt(PLAYER).toString(16), { staked: 2n * P, pending: 3n, totalStaked: 2n * P });
-  const econ = createEconomyClient(resolveEconomyDeployment({ base: deployment, env: ECON }), client, economy, new FakePoolQuoter())!;
+  const econ = createEconomyClient(resolveEconomyDeployment({ base: deployment, file: FAKE_ROUTER_FILE, env: ECON }), client, economy, new FakePoolQuoter())!;
   const econWriter = econ.writer(writer, { now: () => settlesAfter(DAY) });
   const move = { orientation: 1, x: 2, y: 3, role: 0, spot: 0 };
   const writes: Record<string, () => Promise<unknown>> = {

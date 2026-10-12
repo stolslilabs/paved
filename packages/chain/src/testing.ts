@@ -3,4 +3,4 @@
 export { FIXTURE_ADA, FIXTURE_BO, FIXTURE_HEAD, FIXTURE_NAMELESS, FIXTURE_TOURNAMENT, FixtureIndexer, RUNNING_GAME } from "./indexer-fixture";
 export type { FixtureState } from "./indexer-fixture";
 // The economy's doubles (P8): in-memory views and a pool quoter.
-export { FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "./economy/fake";
+export { FAKE_ROUTER, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "./economy/fake";
