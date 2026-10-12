@@ -3,7 +3,7 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
+import { FakeGameViews, MAINNET_ROUTER, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, ROUTER_NOT_PINNED, resolveDeployment, resolveEconomyDeployment, settlesAfter } from "@paved/chain";
 import type { Deployment, EconomyDeployment } from "@paved/chain";
 import { FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "@paved/chain/testing";
 import { EconomyPage } from "../src/pages/Economy";
@@ -225,6 +225,59 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
     await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
     // The floor the player confirmed rides in the intent.
     expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.confirmedMinOut).toBe(least);
+  });
+
+  it("labels the burn share 'at today's terms' at the picker and at the confirm (burn_bps may change before the transaction)", async () => {
+    land();
+    fireEvent.click(await screen.findByText(/mode daily/));
+    // Stake 1: 2 USDC, of which the fake's burn_bps (70 %) is swapped and burned.
+    expect(await screen.findByText("Swapped for PAVED and burned: 1.4 USDC of the price (70 %), at today's terms")).toBeTruthy();
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    const dialog = screen.getByRole("dialog", { name: "Confirm purchase" });
+    expect(dialog.textContent).toContain("Swapped for PAVED and burned: 1.4 USDC of the price (70 %), at today's terms.");
+  });
+
+  it("a pool quote at 95 % of the guard-rate value: no warning, no extra confirmation", async () => {
+    land();
+    fireEvent.click(await screen.findByText(/mode daily/));
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    expect(screen.queryByText(/the guard rate implies/)).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    fireEvent.click(screen.getByText("Confirm purchase"));
+    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))?.acceptedLowQuote).toBe(false);
+  });
+
+  it("a pool quote below 90 % of the guard-rate value: both figures, and Confirm needs the explicit acceptance", async () => {
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 70n * 10n ** 18n, usdc: 1_000_000n }; // 95 % of 70/80: 83.1 % of the guard-rate value
+    land({ pool });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    const quote = await pool.quoteSwap(1_400_000n);
+    const text = `The pool quotes ${paved(quote)} for the burn, below 90 % of the ${paved(112n * P)} the guard rate implies: the pool may have been pushed.`;
+    expect(await screen.findByText(text)).toBeTruthy();
+    fireEvent.click(await enabled("Buy for 2 USDC"));
+    const confirm = screen.getByText("Confirm purchase") as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(where()).toMatch(/^\/\|/);
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(where()).toContain("/game?mode=daily|"));
+    expect(readPurchaseIntent(JSON.parse(where().split("|")[1]))).toMatchObject({ stake: 1, acceptedLowQuote: true, confirmedMinOut: (quote * 99n) / 100n });
+  });
+
+  it("a router that is not the pinned one: the plain message, no quote read, no purchase offered", async () => {
+    const pool = new FakePoolQuoter();
+    const economy = new FakeEconomy();
+    economy.router_ = MAINNET_ROUTER; // not this devnet's MockRouter
+    land({ pool, economy });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect(await screen.findByText(ROUTER_NOT_PINNED)).toBeTruthy();
+    expect((screen.getByText("Purchases are off", { selector: "button" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText(/PAVED bought and burned/)).toBeNull();
+    expect(pool.calls).toHaveLength(0);
   });
 
   it("a quote_swap that reverts (the pool cannot fill): the plain message, no quote shown, no purchase offered", async () => {

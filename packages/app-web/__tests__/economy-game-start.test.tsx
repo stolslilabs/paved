@@ -2,9 +2,9 @@
 // The game page buys a paid Daily (P8) only from the purchase confirm's history state.
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { FakeGameViews, POOL_CANNOT_FILL, POOL_QUOTE_UNAVAILABLE, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
+import { FakeGameViews, MAINNET_ROUTER, POOL_CANNOT_FILL, ROUTER_NOT_PINNED, POOL_QUOTE_UNAVAILABLE, PavedProvider, PurchaseOutcomeUnknownError, WriteError, resolveDeployment, resolveEconomyDeployment } from "@paved/chain";
 import type { PavedClient } from "@paved/chain";
 import { FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "@paved/chain/testing";
 import { GamePage } from "../src/pages/Game";
@@ -28,11 +28,12 @@ const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" 
 const base = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: ADDR } });
 const account = { address: "0x5", execute: async () => ({ transaction_hash: "0x0" }) };
 
-function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSpawned?: boolean; sendError?: WriteError; pool?: FakePoolQuoter }) {
+function setup(opts: { state?: unknown; search?: string; unit?: bigint; noGameSpawned?: boolean; sendError?: WriteError; pool?: FakePoolQuoter; router?: string }) {
   const views = new FakeGameViews();
   views.price = { token: ECON.usdc, amount: opts.unit ?? FAKE_UNIT };
   const economy = new FakeEconomy();
   economy.unit = opts.unit ?? FAKE_UNIT;
+  if (opts.router) economy.router_ = opts.router;
   const sent: Array<Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>> = [];
   const sendCalls = vi.fn(async (prepare: () => Promise<{ calls: (typeof sent)[number] }>) => {
     const { calls } = await prepare();
@@ -128,6 +129,41 @@ describe("GamePage purchase", () => {
     expect(pool.calls).toHaveLength(1);
     expect(sent).toHaveLength(0);
     expect(screen.getByTestId("where").textContent).toMatch(/\|null$/);
+  });
+
+  it("a 'confirm again' refusal offers the way straight back to the purchase screen", async () => {
+    const confirmed = await new FakeEconomy().expectedMinOut(2);
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 79n * 10n ** 18n, usdc: 1_000_000n };
+    setup({ state: purchaseIntent(2, 4_000_000n, null, confirmed), pool });
+    fireEvent.click(await screen.findByText("Back to purchase"));
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/^\/economy\|/));
+  });
+
+  it("a quote below 90 % of the guard-rate value at send, not accepted at the confirm: nothing sent, confirm again", async () => {
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 70n * 10n ** 18n, usdc: 1_000_000n };
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), pool });
+    expect(await screen.findByText("Cannot start a game: The pool quote is far below the guard rate: confirm again")).toBeTruthy();
+    expect(screen.getByText("Back to purchase")).toBeTruthy();
+    expect(sent).toHaveLength(0);
+  });
+
+  it("the same quote, accepted at the confirm: sent", async () => {
+    const pool = new FakePoolQuoter();
+    pool.rate = { paved: 70n * 10n ** 18n, usdc: 1_000_000n };
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n, true), pool });
+    await waitFor(() => expect(screen.getByTestId("where").textContent).toMatch(/id=9/));
+    expect(sent).toHaveLength(1);
+  });
+
+  it("a router that is not the pinned one at send: the plain message, nothing sent, no way back to buy", async () => {
+    const pool = new FakePoolQuoter();
+    const { sent } = setup({ state: purchaseIntent(1, 2_000_000n, null, 1n), pool, router: MAINNET_ROUTER });
+    expect(await screen.findByText(`Cannot start a game: ${ROUTER_NOT_PINNED} Nothing was sent.`)).toBeTruthy();
+    expect(screen.queryByText("Back to purchase")).toBeNull();
+    expect(pool.calls).toHaveLength(0);
+    expect(sent).toHaveLength(0);
   });
 
   it("an equal or higher fresh quote sends, with min_out at least the confirmed one", async () => {
