@@ -243,6 +243,138 @@ A closing move that ranks costs 14.3 % less (1,440,588 to 1,234,989), one that d
 - **Events from the package** would appear on the `Daily` address and the indexer halts on what it cannot decode;
   part 2 forbids them by default.
 
+## Results of L-1: `quiver_leaderboard` 0.1.0 against the native leaderboard (measured)
+
+**Decision (CORE, 2026-10-12): not adopted.** Daily +328 felts past the P-44 cap and gas worse on g and j. The
+measured swap is commit `3cc0516` on branch `hp/paved-core/t-0199-l-1-quiver-leaderboard-comparison`.
+
+What would reopen it:
+
+- a package release with one hashed address per tournament (the four slots under one base, as the native
+  `Slots4`), measured again with the same tests and `scripts/class-sizes.sh`; or
+- a change of the P-44 cap of `Daily` by the PM, together with gas not worse than the native leaderboard.
+
+Brief: `docs/briefs/l1-quiver-leaderboard.md`. The package was read as resolved by Scarb from scarbs.xyz
+(`quiver_leaderboard = "=0.1.0"`, checksum `f8900c60…981e770e` in `Scarb.lock`, the one the brief gives; its
+`VCS.json` names commit `3f091250` of `bal7hazar/quiver`, `packages/leaderboard`). The swap (stage B) is commit
+`3cc0516` (not merged): `LeaderboardImpl`
+calls the package's `LeaderboardStorage` node, rooted at `selector!("leaderboard")` in the storage of the contract
+that runs the code, as `PavedStorage` is at `selector!("paved")`. Only `leaderboard.cairo`, `Scarb.toml` and
+`Scarb.lock` changed; Paved's `Submission`, `Ranked` and `Top3` stay, converted field by field.
+
+**Recommendation: do not adopt 0.1.0.** Both criteria of the brief fail: `Daily` grows by 328 CASM felts, past
+the P-44 cap, and the closing move that ranks into a full board costs 4.1 % more, the `tournament` view 18.4 %
+more. The package keeps the rule exactly. The extra gas comes from its storage layout, not from the adapter.
+
+### Gas (snforge L2 gas of one call, `contracts/tests/gas.cairo`, the same file on both sides)
+
+Test g0 (a closing move into an empty tournament) was added at `3cc0516` and run on main before the swap; it is not merged. Before:
+main `30b3226` plus that test. After: the swap.
+
+| Scenario | Before (native) | After (package) | Change |
+|---|---|---|---|
+| g0, closing move, empty board (ranks 1st, first submission of the day) | 3,524,849 | 3,382,490 | −142,359 (−4.0 %) |
+| g, closing move that ranks 1st into a full board (two shifts) | 3,524,849 | 3,669,920 | **+145,071 (+4.1 %)** |
+| h, closing move that does not rank (full board above it) | 3,121,693 | 3,129,884 | +8,191 (+0.3 %) |
+| k, g with the largest report | 3,853,729 | 3,998,800 | +145,071 (+3.8 %) |
+| l, game over on the last `build`, empty board | 7,582,195 | 7,439,836 | −142,359 (−1.9 %) |
+| j, `tournament` view (full board) | 370,828 | 439,069 | **+68,241 (+18.4 %), above `CEILING_VIEW` 388,740** |
+| i, game over after its tournament (no leaderboard call) | 2,589,504 | 2,597,234 | +7,730 |
+| a0, a, b, c, d, e, f (moves that never reach the leaderboard) | | | +7,820 each |
+| q claim / r reclaim | 1,940,878 / 1,535,068 | 1,902,559 / 1,443,419 | −38,319 / −91,649 |
+| m, n, o spawns, p sponsor | | | 0 |
+
+Why, read from the code (not measured apart): the native ranking is a `Slots4` under one hashed address per
+tournament, reached by offset; the package keeps `scores: Map<u64, Scores>` and `players: Map<(u64, u8), felt252>`,
+so every player slot is a separate map entry with its own hash of a tuple key. A rank-1 placement into a full board
+reads two players and writes three (five such hashes), the view reads three. On an empty board the package reads
+no player slot and skips the empty ones, hence the gain on g0 and l. The +7,820 on every `Daily` move that does not
+reach the leaderboard is measured, its cause not established (the moves run the same code; the class is larger).
+
+Whole suite after the swap (`snforge test --max-threads 2`): 708 passed, 35 failed. Each failure is gas, none is a
+behaviour assertion: 34 tests exceed their `#[available_gas]` budget (those are set about 1,000 L2 gas above the
+measured cost, so the +7,820 per move goes over them), and `test_gas_j_view_tournament` is above its ceiling.
+
+### Class sizes (`scripts/class-sizes.sh`, release profile, CASM felts of 81,920)
+
+| Class | Before | After | Change |
+|---|---|---|---|
+| `Daily` | 72,947 (89.0 %) | **73,275 (89.4 %)** | **+328, above the P-44 cap of 72,947** |
+| `Lobby` | 61,301 (74.8 %) | 61,613 (75.2 %) | +312 |
+| every other class (`Tutorial` 67,044 included) | | | 0 |
+
+No class passes 90 % (73,728). Per the brief nothing was trimmed. Levers, not applied:
+
+- Raise the P-44 cap of `Daily` by at least 328 felts: 73,275 is 453 felts under 90 %. The PM's call.
+- Move the code that reaches the leaderboard out of `Daily` into the `Lobby` library (20,307 felts of margin at
+  90 % after the swap). The share of the 328 felts that would leave `Daily` is not measured.
+- A package whose four slots per tournament sit under one hashed address (as the native `Slots4`): this targets
+  the gas of g, k and j; its effect on size and gas is not measured. It is a change of the package's storage
+  layout, a breaking release for Grim World.
+
+### The rule, kept by the package?
+
+| Point | Package 0.1.0 | Adapter needed |
+|---|---|---|
+| `<=` the third score does not rank; ties keep the earlier submission | yes (`rank`: strictly greater) | no |
+| a score of 0 never ranks; a player of 0 does not rank | yes (returns 0, nothing read or written) | no |
+| games are ranked, not players | yes (no de-duplication) | no |
+| the order is the order of the calls (`game_id`, `time` never compared, no block timestamp) | yes | no |
+| the prize top 3 on chain, the full board in the indexer (P-18) | yes: N = 3, no event, no entry point | no |
+| `ranked` outside 1..=3 answers empty; any `u64` id (0 and `MAX_TOURNAMENT_ID` included) | yes | no |
+| never reverts on a valid game end | yes | no |
+
+The conformance suite `contracts/src/tests/leaderboard.cairo` (15 tests, the reference model included) passes
+unchanged on the package. The golden outcomes are unchanged: 14 goldens pass, and the 7 that fail only on their
+gas budget each have a `_structures_agree` twin that replays the same moves, asserts the same outcome, and passes.
+
+### What the indexer reads (`docs/architecture/indexer.md`)
+
+| Point | Same after the swap? |
+|---|---|
+| ABI of every class (`scripts/abis.sh`, `contracts/abis/*.json`) | yes, byte-identical |
+| `GameOver` keys and data, `tournament_id` included (0 after the tournament) | yes (`playable.cairo` untouched, events tests fail only on gas) |
+| No new event on the `Daily` address | yes (the package emits nothing) |
+| `tournament` view: fields and values for a tournament ranked after the swap | yes |
+| `tournament` view of a tournament ranked before an upgrade of a deployed `Daily` | **no**, see below |
+
+### Storage on the deployed Sepolia `Daily` and `Tutorial`
+
+- **What the package adds.** Two maps of a storage node, `scores` and `players`, under the root
+  `selector!("leaderboard")`: the root is the adapter's choice, the package forces none. It is not a member of any
+  `#[storage]`, so no substorage is added and no layout changes: nothing is renamed or retyped. No name clash with
+  the top-level names of `Daily`, `Tutorial` or `Lobby` (`hostable`, `ownable`, `payable`, `playable`,
+  `tutoriable`, the `Quest_*` and `Achievement_*` members of the quiver components, `upgradeable`, `lobby_class`)
+  or with `PavedStorage` at `selector!("paved")`. `Lobby` reaches the same root through the same function, so it
+  keeps sharing `Daily`'s layout (P-26). `Tutorial` never calls the leaderboard.
+- **Existing tournaments are not kept readable.** The rankings written before the upgrade stay in
+  `PavedStorage.rankings`, untouched, and the package does not read them
+  (`contracts/src/tests/leaderboard_storage.cairo` at `3cc0516`, not merged). After a plain upgrade under D-17, `top` and `ranked` answer
+  empty for every earlier tournament: the `tournament` view shows no ranks, a claim of an earlier day fails the
+  rank check, and the day open at the upgrade loses the ranks it had.
+- **Answer: an upgrade, not a redeploy, but only with the cutover of "Deployed data: the cutover"**: the native
+  code kept to read (and, for the day of the upgrade, to rank) the tournaments before a cutover id. No migration
+  and no redeploy, but more code in `Daily`, which is already over its cap with the plain swap; that variant was not
+  built or measured. Otherwise, a migration (an owner entry point that copies the rankings: an ABI change) or a
+  redeploy.
+
+### Licence
+
+MIT, declared in the package manifest (`license = "MIT"`); the archive has no licence file. Compatible with
+Apache-2.0. The README says it is written from Paved's specification with no Arcade code, so no ported headers are
+due.
+
+### Peaks (VPS, `/usr/bin/time -v`, largest process, under the caps of the brief)
+
+| Run | Before | After |
+|---|---|---|
+| `snforge test test_gas_ --max-threads 2` | 6,317,340 kB, 2:37 | 5,288,572 kB, 2:01 |
+| `snforge test paved::tests::leaderboard` | 3,445,368 kB | 3,510,160 kB (5,338,156 kB with the new storage tests, after a rebuild) |
+| `snforge test paved::tests::golden` | 3,445,092 kB | 3,510,480 kB |
+| `scripts/class-sizes.sh` | 3,739,768 kB, 1:01 | 2,732,300 kB, 0:32 |
+| `scripts/abis.sh` | | 3,635,420 kB |
+| `snforge test --max-threads 2` (whole suite, once) | | 4,333,112 kB, 3:38 |
+
 ## What Paved needs from a leaderboard package
 
 This is the request that decision O-1 sends to the Overseer, for Grim World's track ARC (never a PR of ours). It describes what Paved's `Daily` contract calls today, so that the package published from the port of cartridge-gg/arcade's leaderboard can replace it without a change to the game flow, the public views or the events. Paved decides on the swap by measured numbers once a version is published; the numbers it will compare are in "Limits".
