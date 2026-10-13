@@ -532,7 +532,7 @@ events and `u256`. The test mock `ReentrantToken` loses its prize actions (CASM 
 classes are unchanged. **`Lobby`'s class changes**; no D-20 upgrade runs on Sepolia: the fresh
 deployment of P-53 starts with these classes (`upgrades.md`, "D-20 on Sepolia").
 
-## Planned: D-21 to D-24 (projection, not measured)
+## Planned: D-21 to D-24 (projection; measured in "After D-21 and D-24" below)
 
 - **The tutorial claim's host (D-21, P-49 (2)).** Superseded by D-24 (P-51 (3)): the claim lives in the quest
   system, Setup, not in `Daily` or `Account`. For the record, `Daily` would have been the cheaper host (one wrapper of
@@ -544,3 +544,26 @@ deployment of P-53 starts with these classes (`upgrades.md`, "D-20 on Sepolia").
   measures with `scripts/class-sizes.sh`.
 - **`Lobby`** (59,957 felts after D-18) ends with D-24; `Tutorial` (47,823 after D-18) leaves the repository with
   D-21.
+
+## After D-21 and D-24 (step D: the tutorial leaves, the cold paths return, Setup)
+
+Measured with `scripts/class-sizes.sh` (scarb 2.20.1, VPS, 2026-10-13, under `prlimit --as=12884901888`): before on
+main 36b8d9de plus the brief (38f1c959), after on the step D branch (61d8f18c and the docs after it; the contracts are
+those of c3ce333a).
+
+| Class | Sierra before | CASM before | Sierra after | CASM after | Change (CASM) | Share of the Starknet cap after |
+|---|---:|---:|---:|---:|---:|---:|
+| `Daily` (Challenge) | 25,048 | 56,374 | 27,419 | 60,560 | +4,186 | 73.9 % |
+| `Setup` | | | 6,856 | 13,449 | new | 16.4 % |
+| `Collection` | 5,859 | 14,622 | 5,809 | 14,485 | -137 | 17.7 % |
+| `Lobby` | 25,295 | 54,368 | | | deleted | |
+| `Tutorial` | 24,007 | 53,742 | | | deleted | |
+
+**`Daily` stays under the P-44 cap (72,947 CASM felts) with 12,387 felts of headroom (17.0 % of the cap)**, against
+16,573 after D-20; the fallback of P-51 (1) (a library under another name for `spawn` and the purchase) is not needed.
+The projection of `leaderboard.md` ("about 61,000 to 64,000") held: 60,560. `Daily` gains `spawn` with the purchase and
+the mint, `discard`, `surrender`, the game-over finish (the external call to `Setup` and `Economy.record`) and
+`set_setup`, and loses the library-call wrappers, `set_lobby_class`, the four definition wrappers and the quiver
+event declarations. `Setup` is under the 12,000 to 16,000 estimated. `Collection` loses its `tutorial` view. The other
+classes are unchanged to the felt.
+

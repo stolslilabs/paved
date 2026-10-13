@@ -514,13 +514,26 @@ on `'Dead: rankings name'`); and sentinels written at every slot survive a whole
 - `tests::legacy::store` (the frozen pre-D-18 copy) read the `Tournament` model; its `tournament` and
   `set_tournament` went with it.
 
-## D-21: the tutorial leaves the contracts (planned)
+## As built: D-21, the tutorial leaves the contracts
 
 D-21, D-22 and P-49 (`docs/programme/DECISIONS.md`, 2026-10-13): the tutorial goes fully off-chain, the game engine
 is reproduced off-chain for a free Training mode (CLIENT's), and on chain only a claim of the tutorial achievement
-stays, unverified by design. Not built yet; read from main at `7d04872d`, paths under `contracts/src/`. Since D-24
-(below) the claim lives in the quest system, not in `Daily` or `Account`. The parity fixture (P-49 ruling 3) is in
-`parity-fixture.md`.
+stays, unverified by design. **Built by step D** (brief `docs/briefs/d-setup-quests.md`, with D-24 in one PR). The
+inventory below was read from main at `7d04872d` (its line numbers are of that commit); every row was carried out as
+it says, but for the differences under "Spec corrections (D-21 and D-24)" at the end of D-24. Since D-24 (below) the
+claim lives in `Setup`, not in `Daily` or `Account`. The parity fixture (P-49 ruling 3) is in `parity-fixture.md`;
+CLIENT keeps the tutorial game frozen from 38f1c95.
+
+**As built, in short.** Gone: `systems/tutorial.cairo`, `components/tutoriable.cairo`, `elements/decks/tutorial.cairo`,
+`Deck::Tutorial`, `Mode::Tutorial` and the felt `TUTORIAL`, the scripted branch of `Game::draw_plan` (the `else`
+branch kept as it was), the Tutorial branch of `HostableComponent::spawn_with`, the tutorial paths of `Lobby` (with the
+class, D-24), `Collection.tutorial()` (the view; the `tutorial` slot stays, read by `uri` for the Sepolia tokens),
+`tests/golden/tutorial.cairo`, `tests/e2e/tutorial.cairo`, `tests/e2e/tutorial_advanced.cairo`,
+`test_differential_tutorial_full_sequence`, `play_tutorial`, the tutorial cases of the e2e files, `build_tutorial`
+of the frozen pre-D-18 class (`tests/legacy.cairo`) and the scripted branch of its `draw_plan`. **Codes reserved**:
+`Mode` 2 and 3 and `Deck` 1 and 3 read as `None` (the `_` arm of `IntoU8Mode` and `IntoDeck`), each named in a comment
+where the codes are listed, and `test_reserved_u8_into_mode` pins `Mode` 2 and 3; token ids from `TUTORIAL_OFFSET` up
+have no minter on a new deployment (`Collection.set_minters(daily, 0)` is now accepted).
 
 ### What goes
 
@@ -673,12 +686,32 @@ the fallback goes.
   compute the next game's deck and buy only good ones: the selective buyer's edge, measured by the separate
   simulation task (P-50 ruling 4).
 
-## D-24: Lobby's cold paths and a quest system (planned)
+## As built: D-24, Lobby's cold paths and a quest system
 
 D-24 and P-51 (`docs/programme/DECISIONS.md`, 2026-10-13): the `Lobby` library class stops existing as such, its cold
 paths go back into Challenge, the quests and achievements move to a separate system that mode contracts report to,
 and the name Lobby is kept for the multiplayer mode (no Lobby contract before that mode is planned; the D-19 seat
-stays). Not built yet; read from main at `7d04872d`, paths under `contracts/src/`.
+stays). **Built by step D**, as `Setup` (D-25's name). The inventory and the design below were read from main at
+`7d04872d`; the built code follows them, but for "Spec corrections (D-21 and D-24)" at the end.
+
+**As built, in short.**
+
+- `Daily` runs `spawn` (with the purchase and the mint), `discard`, `surrender` and `build` in its own code; the
+  game-over finish (`Daily::InternalImpl::finish`, `systems/daily.cairo`) makes one external call,
+  `Setup.report(player_id, quest_entries(tally), achievement_entries(tally))`, then `Economy.record(game_id, score)`.
+  `player_id` is `get_caller_address()`, the caller of the move that ended the game, who is the game's player:
+  `PlayableComponent::discard`, `surrender` and `build` (`components/playable.cairo`) take `builder_of(caller)` and
+  `assert_exists` it before any effect, `'Builder: does not exist'` otherwise.
+- The constructor is `(owner, account_address, token_address, setup_address)` (`setup_address` non-zero, `'Daily:
+  setup is zero'`). `Daily` keeps `Setup`'s address in a new storage field, `setup`, and the owner may change it with
+  `set_setup(setup)` (`IDailySetup`, never zero, emits `SetupSet { setup }`; `setup()` reads it). Step E's single
+  registry can keep that field as the one address `Daily` reads its wiring from, replacing the `Account` reads of the
+  economy and the collection.
+- `set_lobby_class`, `ILobbyClass`, `LobbyClassSet`, the library-call wrappers and `IDailyQuests` are gone;
+  `systems/lobby.cairo` is deleted. `lobby_class` and the flat `quest` and `achievement` substorage stay declared in
+  `Daily`, dead, pinned by name (`upgrades.md`, "Dead slots since D-21 and D-24").
+- `Setup` (`systems/setup.cairo`): `quests.md`, "As built: D-21 and D-24". Its CASM is 13,449 felts; `Daily`'s is
+  60,560, 12,387 under the P-44 cap (`class-headroom.md`, "After D-21 and D-24"): no fallback library was needed.
 
 ### Every path of today's `Lobby`, and where it goes
 
@@ -818,6 +851,25 @@ CLIENT's W1 (ruling 5).
 The later upgrade (ruling 5, with D-19 to D-23): deploy `Setup` (deployer account), set Challenge as its reporter,
 define the quests and achievements there again (the definition script runs against `Setup`), upgrade `Daily` to the
 Challenge class. No migration of past progress. `Tutorial` and the declared `Lobby` class are left alone.
+
+### Spec corrections (D-21 and D-24)
+
+- `Mode::Tutorial` and `Deck::Tutorial` went as planned, but the codes are kept by the `_` arms, not by an explicit
+  `3 => None` arm; `Deck` 1 (Base) is reserved the same way. The comments say so.
+- `Collection.tutorial()` goes too (PM's addendum to step D: it is the Tutorial NFT path); the plan kept it. Its slot
+  stays, read by `uri` for Sepolia's Tutorial tokens.
+- `contracts/abis/Tutorial.json` is removed with `Lobby.json` (the brief), not kept frozen as `public-interface.md`
+  planned; it stays in git history (38f1c959).
+- `Daily` keeps the `quest` and `achievement` storage as substorage without declaring the components, so the quiver
+  events leave its ABI (the plan left that open).
+- The definition errors are `Setup`'s: `'Setup: quest not on UTC day'`, `'Setup: task total is zero'`, `'Setup: task
+  id repeated'` (were `'Daily: ...'`). The cold paths' errors are `'Daily: economy not set'` and `'Daily: collection
+  not set'` (were `'Lobby: ...'`); `'ERC20: pay failed'` is unchanged.
+- `Setup.report` checks one allowlist, the quests' (the plan said quiver's `assert_reporter`, which is per component):
+  `set_reporter` writes both together, and the second read cost 50,530 L2 gas on every game over.
+- The game over costs more than "the same order" the plan expected: +171,000 to +287,000 L2 gas (`baseline.md`,
+  "After D-21/24"), and scenario i passes its ceiling (escalated).
+- No script defined the quests or achievements against `Daily` (they were defined by hand): nothing to move.
 
 ## What Paved needs from a leaderboard package
 
