@@ -64,9 +64,11 @@ export interface HeadAnswer extends Envelope {
   from_block: number;
   contracts: {
     daily: string;
-    /** Setup (D-24): the quests, the achievements and the tutorial claim. Replaces `tutorial` in schema 8. */
+    /**
+     * Setup (D-24): the quests, the achievements and the tutorial claim; the wiring since D-25 (E). Replaces `tutorial` in
+     * schema 8. `account` left in schema 9 (D-25 (E)).
+     */
     setup: string;
-    account: string;
     economy: string;
     /** null for a deployment without a Collection (before E5b). Appended in E5b. */
     collection: string | null;
@@ -131,7 +133,6 @@ export interface TournamentAnswer extends Envelope {
 export interface LeaderboardEntry {
   rank: number;
   player_id: string;
-  name: string | null;
   best_score: number;
   best_game_id: number;
   /** Games of the player spawned in this tournament, finished or not: entries. */
@@ -152,10 +153,10 @@ export interface LeaderboardAnswer extends Envelope {
   next_offset: number | null;
 }
 
+/** A player is a wallet address (D-25 (E)): no name on chain, the client resolves it off-chain. `name` left in schema 9. */
 export interface PlayerInfo {
   player_id: string;
-  name: string | null;
-  /** Time of the block that created the player (seconds). */
+  /** Time of the block of the player's first event: GameSpawned, Purchased or a quest or achievement progress (seconds). */
   created: number;
 }
 

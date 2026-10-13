@@ -80,14 +80,18 @@ its purchase); `settle` refuses it before sending.
 
 Referrers: a `?ref=` must be a non-zero hex address below `2^251 - 256` (`ADDRESS_BOUND`, itself below the felt prime);
 a value out of range counts as no referrer, as does a malformed one. The writer applies the same bound to what it sends.
-The purchase waits for the referrer's registration read, and a referrer who is not a registered player is shown as
-ignored and not sent.
+Since D-25 (E) a referrer is **any non-zero address other than the payer** (the contract's rule, CORE's step E), with no
+registration: there is no `Account` to ask, so no read holds the purchase back. Before E the referrer had to be a
+registered player other than the payer (the client read `Account.player` and dropped an unregistered one). The payer's
+own address is refused by the writer with `SelfReferralError` ("Your own address cannot be your referrer. Nothing was
+sent."), in any spelling (padded or not); the landing page shows a link to one's own address as "Referral link: your own
+address cannot be your referrer, so no referrer is sent" and sends none. A zero referrer is no referrer (`0x0`).
 
 ## The devnet faucet and the entry token
 
-- `PavedWriter.mint()` and `createPlayer(name, { mintTestToken: true })` send `MockUSDC.mint(self, FAUCET_USDC_AMOUNT)` (100 USDC,
+- `PavedWriter.mint()` sends `MockUSDC.mint(self, FAUCET_USDC_AMOUNT)` (100 USDC,
   6 decimals) at `deployment.mockUsdc`, which is `contracts.MockUSDC` of the deployments file (or `VITE_MOCK_USDC_ADDRESS`). It
-  replaces the old `Token.mint()`. `mockUsdc` resolves on `devnet` and `sepolia` only (`MOCK_USDC_NETWORKS`; any other network, mainnet above all, gets `""`, whatever its file or env holds; on Sepolia the controller signs it, with `mint` in its session policies), and the Landing asks for `mintTestToken` only with `supportsMint && !!deployment.mockUsdc`, so a missing MockUSDC never blocks account creation. A deployment without that address has no faucet: both throw `No faucet` and send nothing, and
+  replaces the old `Token.mint()`. `mockUsdc` resolves on `devnet` and `sepolia` only (`MOCK_USDC_NETWORKS`; any other network, mainnet above all, gets `""`, whatever its file or env holds; on Sepolia the controller signs it, with `mint` in its session policies). The Landing offers the faucet button only with `supportsMint && !!deployment.mockUsdc` (`createPlayer` and its `mintTestToken` left with D-25 (E): there is no account to create). A deployment without that address has no faucet: `mint` throws `No faucet` and sends nothing, and
   nothing else in `Deployment` changes (`configured` does not need it). The faucet is not a session policy of the Cartridge
   controller: the burner signs it on devnet, and `controller.test.ts` drives both writes and asserts that neither is in the session.
 - `Landing` compares `Daily.entry_price().token` with the **USDC address** (`economy.deployment.addresses.USDC`), no longer with
@@ -268,7 +272,7 @@ read or refused check sends nothing (`WriteError`, or the typed errors).
 
 | Write | Calls (one multicall) | Read and refused at send |
 |---|---|---|
-| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Daily, P)`, `Daily.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10; no pool quoter (the economy not deployed: "No pool quote: nothing was sent"); a `burn_quote` outside `(0, P]`; a `quote_swap` that reverts or fails, or a min_out rounding to 0 (`PoolCannotFillError`, "The pool cannot fill this purchase right now. Try a smaller stake or later. Nothing was sent.": no slippage protection); a slippage above 5 %; a referrer that does not parse as an address (a `WriteError`, never a raw parse error). A self-referral is sent as `0x0` |
+| `purchase({ stake, confirmedPrice, referrer })` | `USDC.approve(Daily, P)`, `Daily.spawn(stake, referrer, min_out)` | `entry_price` and `quote(stake)`; the entry token is not USDC; `P` is 0; the quote's price is not `k x unit`; `P` is not `confirmedPrice` (`PurchasePriceChangedError`); a stake outside 1..10; no pool quoter (the economy not deployed: "No pool quote: nothing was sent"); a `burn_quote` outside `(0, P]`; a `quote_swap` that reverts or fails, or a min_out rounding to 0 (`PoolCannotFillError`, "The pool cannot fill this purchase right now. Try a smaller stake or later. Nothing was sent.": no slippage protection); a slippage above 5 %; a referrer that does not parse as an address (a `WriteError`, never a raw parse error); the payer as the referrer (`SelfReferralError`, D-25 (E)). A zero referrer is sent as `0x0` |
 | `settle(gameIds)` (the player's claim of PAVED) | `Economy.settle(game_ids)` | the ids de-duplicated; `terms` of each: not bought (stake 0), not recorded (not over, or expired: no reward), already settled, or its day not yet settleable (`now < settlesAfter(day)`, the end of the next day, `now` the latest block's timestamp when the provider reads blocks, the device clock otherwise); a failed block read sends nothing |
 | `stake(amount, { confirmedAmount })` | `PavedToken.approve(Vault, amount)`, `Vault.stake(amount)` | the amount is 0 or not the confirmed one (`VaultAmountChangedError`); the PAVED balance is short |
 | `unstake(amount, { confirmedAmount })` | `Vault.unstake(amount)` | the amount is 0 or not the confirmed one; more than staked. The dividends earned so far are credited, not paid: they stay claimable (E1's Vault) |
@@ -320,8 +324,8 @@ The payment rules of `client-data-layer.md` hold for each paying action:
   `readPurchaseIntent` refuses any malformed state (a stake outside 1..10, a price that is not a positive integer string,
   a referrer that is not hex). A malformed `?ref=` (`?ref=abc`) is ignored on the landing page: no referrer is shown or sent.
 - **The referrer comes from a link; the consent never does.** `?ref=0x...` on the landing page names a referrer, shown at
-  the confirm with its 5 % "out of the stakers' margin: you pay the same"; one's own address, or an address that is not a
-  registered player (`Account.player`), is ignored and said so. A failed read of the referrer disables the purchase.
+  the confirm with its 5 % "out of the stakers' margin: you pay the same"; one's own address is refused and said so,
+  and no referrer is sent (D-25 (E): any other non-zero address is a referrer, with no registration read).
 - **Cleared before sending.** The game page reads the purchase at mount, clears the history state (replace, state
   null) before anything is sent, and keeps the intent in a ref, exactly as the Daily start; the 30 s expiry without a
   ready writer applies too. An active Daily game is resumed instead of buying another.
@@ -346,7 +350,7 @@ The payment rules of `client-data-layer.md` hold for each paying action:
   down; a quote rounding to 0 refused; the quote for exactly `burn_quote` at stakes 1, 4 and 10; a `burn_quote` outside
   `(0, price]` refused; a pool that moves between display and send (the send quotes again, nothing cached).
 - `packages/chain/test/codec.test.ts`: signed integers.
-- `packages/app-web/__tests__/economy-screens.test.tsx` also covers the `/economy` page, the expired state, a non-registered and a loading referrer, the `?ref=` bound and `spawnForIntent`.
+- `packages/app-web/__tests__/economy-screens.test.tsx` also covers the `/economy` page, the expired state, an unregistered referrer sent at once (D-25 (E)), the `?ref=` bound and `spawnForIntent`.
 - `packages/app-web/__tests__/economy-game-start.test.tsx`: the game page buys from the state only, after clearing it;
   a changed price, a URL alone, a malformed state and a `quote_swap` revert at send send nothing; the revert shows the
   plain message.

@@ -87,12 +87,6 @@ interface Receipt {
   events?: RawEvent[];
 }
 
-/** A player name as a Cairo short string: at most 31 ASCII characters. */
-function feltOfName(name: string): string {
-  if (!/^[\x20-\x7e]{1,31}$/.test(name)) throw new WriteError("A name is 1 to 31 ASCII characters");
-  return shortString.encodeShortString(name);
-}
-
 /**
  * The writes of the game's contracts. Each one waits for its receipt and returns its decoded events.
  * Writes are serialised: while one is pending, another is refused (`WriteError`), so a double click
@@ -122,18 +116,6 @@ export class PavedWriter {
 
   get address(): string {
     return this.options.account.address;
-  }
-
-  /** Registers the account as a player; with `mintTestToken` (devnet, Sepolia), mints its faucet USDC first (`mint`). */
-  async createPlayer(name: string, options: { mintTestToken?: boolean } = {}): Promise<WriteResult> {
-    const calls = [this.call("Account", "create", [feltOfName(name), this.address])];
-    if (!options.mintTestToken) return this.send("Account", calls);
-    calls.unshift(this.faucetCall());
-    try {
-      return await this.send("Account", calls);
-    } catch (error) {
-      throw faucetRevert(error);
-    }
   }
 
   /**

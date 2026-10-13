@@ -1,28 +1,29 @@
 // Copied from Grim World, indexer/src/events.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
 // Apache-2.0. Adapted for Paved: `canonical`, `felt`, the selector table builder and `DecodeError` are kept; the nine
-// Grim World decoders and the market key decoder are replaced by the three Paved decoders (GameSpawned, GameOver,
-// PlayerCreated) and the list of the events of the contracts that are known and not indexed. This copy is maintained by
+// Grim World decoders and the market key decoder are replaced by the Paved decoders (the games, the quests and
+// achievements, Setup's wiring, Economy and Collection) and the list of the events of the contracts that are known and not
+// indexed. This copy is maintained by
 // the Paved repository.
 //
 // The events of the indexer (docs/architecture/indexer.md, contracts/abis/*.json): the first key is the selector of
 // the event's name (Economy's own `Event` variants are not flat: they are named as their structs, so the selector is the
 // struct's name too; its ownable and upgradeable components are flat, their events keep their own names); then the declared keys, then the data, in the declared order. Decoding is strict: a selector of no
 // list, a count of keys or data that differs, or a value wider than its type is a DecodeError, and the indexer halts on
-// it (it never guesses). The events of the contracts that are not indexed (the board events, the past prize events, ownership) are
-// known by name and skipped; any other selector is a contract change the indexer was not told about.
+// it (it never guesses). The events of the contracts that are not indexed (the board events, the past prize events, the past
+// player registry of Account, ownership) are known by name and skipped; any other selector is a contract change the indexer was not told about.
 import { hash } from "starknet";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
 
 /**
- * The five contracts whose events are read: `daily` plays, `setup` holds the quests and the achievements (D-24: the
- * definitions, Challenge's reports at game over, and the player's tutorial claim, D-21), `account` registers players,
- * `economy` holds the terms, the scores and the settlements of the paid Daily games (docs/architecture/economy.md,
- * "Events"), and `collection` mints the game NFTs (economy.md, section 9). The on-chain Tutorial left with D-21: its
- * address is no longer read.
+ * The four contracts whose events are read: `daily` plays, `setup` holds the quests and the achievements (D-24: the
+ * definitions, Challenge's reports at game over, and the player's tutorial claim, D-21) and the wiring (D-25 (E):
+ * `EconomySet`, `CollectionSet`), `economy` holds the terms, the scores and the settlements of the paid Daily games
+ * (docs/architecture/economy.md, "Events"), and `collection` mints the game NFTs (economy.md, section 9). The on-chain
+ * Tutorial left with D-21 and Account with D-25 (E): their addresses are no longer read. A player is a wallet address.
  */
-export type Source = "daily" | "setup" | "account" | "economy" | "collection";
+export type Source = "daily" | "setup" | "economy" | "collection";
 
-export const SOURCES: readonly Source[] = ["daily", "setup", "account", "economy", "collection"];
+export const SOURCES: readonly Source[] = ["daily", "setup", "economy", "collection"];
 
 /**
  * A past Tutorial game's token id was `TUTORIAL_OFFSET + game id`; a Daily game's is its game id (`Collection`). The
@@ -62,12 +63,6 @@ export type Decoded =
       score: number;
       startTime: bigint;
       endTime: bigint;
-    }
-  | {
-      name: "PlayerCreated";
-      playerId: bigint;
-      displayName: bigint;
-      master: bigint;
     }
   | {
       name: "QuestDefined";
@@ -124,12 +119,12 @@ export type Decoded =
       gameId: number;
     }
   | {
-      /** Account's one-shot registry of the Economy address (`Account.set_economy`). */
+      /** Setup's registry of the Economy address (`Setup.set_economy`, D-25 (E); Account's before). */
       name: "EconomySet";
       economy: bigint;
     }
   | {
-      /** Account's one-shot registry of the Collection address (`Account.set_collection`). */
+      /** Setup's registry of the Collection address (`Setup.set_collection`, D-25 (E); Account's before). */
       name: "CollectionSet";
       collection: bigint;
     }
@@ -168,10 +163,10 @@ export type EventName = Decoded["name"];
 export const EMITTERS: Record<EventName, readonly Source[]> = {
   GameSpawned: ["daily"],
   GameOver: ["daily"],
-  PlayerCreated: ["account"],
-  // Account's one-shot wiring: the store compares it with the deployment file (store.ts).
-  EconomySet: ["account"],
-  CollectionSet: ["account"],
+  // Setup's wiring (D-25 (E)): the store compares it with the deployment file (store.ts). Account emitted it before; its
+  // address is no longer read, so its past wiring events are never seen.
+  EconomySet: ["setup"],
+  CollectionSet: ["setup"],
   // Quests and achievements come from Setup only (D-24): its definitions, Challenge's reports and the tutorial claim.
   // From Daily they are past events, skipped (`PAST_FROM`).
   QuestDefined: ["setup"],
@@ -219,6 +214,10 @@ export const IGNORED = [
   // The owner's wiring of Daily to Setup (D-24, `Daily.set_setup`): where Daily reports; the indexer reads Setup's address
   // from the deployment file.
   "SetupSet",
+  // Account's player registry (D-25 (E) removed Account: a player is the wallet address, names are off-chain). Past events
+  // only. Account's address is no longer read; Daily's ABI declared it too (the shared game events), so a history that
+  // holds one from a source still read skips it by name and never halts.
+  "PlayerCreated",
 ] as const;
 
 /**
@@ -240,7 +239,6 @@ const PAST_FROM: Partial<Record<Source, readonly EventName[]>> = {
 const INDEXED: readonly EventName[] = [
   "GameSpawned",
   "GameOver",
-  "PlayerCreated",
   "EconomySet",
   "CollectionSet",
   "QuestDefined",
@@ -289,22 +287,6 @@ export function canonical(value: string | bigint): string {
 /** A felt as the API and the tables write it: lowercase 0x hex, zero-padded to 66 characters. */
 export function padded(value: string | bigint): string {
   return `0x${BigInt(value).toString(16).padStart(64, "0")}`;
-}
-
-/**
- * A short string felt (31 bytes at most) as text: null when it is empty, is not UTF-8 or holds a control character.
- */
-export function shortString(value: bigint): string | null {
-  if (value === 0n) return null;
-  const hex = value.toString(16);
-  const bytes = Buffer.from(hex.length % 2 ? `0${hex}` : hex, "hex");
-  try {
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    // eslint-disable-next-line no-control-regex
-    return /[\u0000-\u001f\u007f]/.test(text) ? null : text;
-  } catch {
-    return null;
-  }
 }
 
 function uint(value: string | undefined, bits: number, field: string): bigint {
@@ -448,14 +430,6 @@ export function decode(
         score: small(data[1], 32, "score"),
         startTime: safe(uint(data[2], 64, "start_time"), "start_time"),
         endTime: safe(uint(data[3], 64, "end_time"), "end_time"),
-      };
-    case "PlayerCreated":
-      shape(name, keys, data, 1, 2);
-      return {
-        name,
-        playerId: felt(keys[1]),
-        displayName: felt(data[0]),
-        master: felt(data[1]),
       };
     case "EconomySet":
       // The address is the only member, and not a key.

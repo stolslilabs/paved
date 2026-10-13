@@ -23,7 +23,6 @@ const url = arg("url", "https://paved.bal7hazar.com");
 const api = arg("api", "https://api.paved.bal7hazar.com");
 const confirmed = arg("confirmed", false) === true;
 const username = String(arg("username", ""));
-const playerName = String(arg("player", username));
 const wantMoves = Number(arg("moves", 3));
 const cmdFile = String(arg("cmd", join(out, "cmd.json")));
 const executablePath = arg(
@@ -282,18 +281,10 @@ try {
   await shot("b05-after-signup");
   writeFileSync(join(out, "b05-page-text.txt"), scrub(await bodyText()));
 
-  // ---- 3. Create Account
-  stage("create-account");
-  const nameBox = page.getByLabel("Player name");
-  await nameBox.waitFor({ timeout: 60000 });
-  await nameBox.fill(playerName);
-  await page.getByRole("button", { name: /^create account$/i }).first().click({ timeout: 15000 });
-  const created = await walkKeychain("b06-create");
-  if (!created || created === "failed") {
-    await closeAll();
-    process.exit(2);
-  }
-  await page.getByText(/welcome,/i).first().waitFor({ timeout: 180000 }).catch((e) => note(`welcome not seen: ${e}`));
+  // ---- 3. The player is the connected wallet (D-25 (E)): no account to create, no name to type. The landing page
+  // welcomes the Controller username.
+  stage("connected-player");
+  await page.getByText(new RegExp(`welcome, ${username}`, "i")).first().waitFor({ timeout: 180000 }).catch((e) => note(`welcome not seen: ${e}`));
   await sleep(3000);
   await shot("b07-account-created");
   const afterCreate = scrub(await bodyText());

@@ -1,8 +1,8 @@
 # @paved/indexer
 
-Paved's indexer: one Node process that follows a Starknet node over JSON-RPC, keeps the games and the players of `Daily`
-and `Account`, the quests and achievements of `Setup`, and the paid games' terms and settlements of `Economy`, in SQLite, and serves the daily
-leaderboard over a read-only HTTP API. It is display only: it
+Paved's indexer: one Node process that follows a Starknet node over JSON-RPC, keeps the games and the players of `Daily`,
+the quests, achievements and wiring of `Setup`, the paid games' terms and settlements of `Economy`, and the game NFTs of
+`Collection`, in SQLite, and serves the daily leaderboard over a read-only HTTP API. It is display only: it
 holds no key, sends nothing, and its database can be deleted at any time (`rebuild` makes the same tables from the
 chain). Design: `docs/architecture/indexer.md` (with an "As built" section at its end).
 
@@ -34,7 +34,7 @@ curl -s http://127.0.0.1:8787/v1/head
 
 | Option | Meaning |
 |---|---|
-| `--deployment <file>` | `contracts/deployments/<network>.json`: the addresses of `Daily`, `Setup`, `Account` and `Economy` (all required) and of `Collection` (optional), `deployed_block`, `chain_id` |
+| `--deployment <file>` | `contracts/deployments/<network>.json`: the addresses of `Daily`, `Setup` and `Economy` (all required) and of `Collection` (optional), `deployed_block`, `chain_id`. An `Account` key (a file from before D-25 (E)) is ignored |
 | `--db <file>` | SQLite file (WAL). A database built for another deployment, start or chain is refused: `rebuild` it |
 | `--rpc <url>` or `INDEXER_RPC_URL` | The node. Default: the file's `rpc_url`, only for `network: devnet` and only at localhost. Never logged (a short hash is) |
 | `--port`, `--host` | The API, default `127.0.0.1` and port `8787`; `--port 0` picks a free port (the log line says which) |
@@ -87,8 +87,21 @@ progress, not carried over, P-51 ruling 5), `LobbyClassSet` and the mint of a pa
 game id`) are skipped; the Tutorial's address is not read. Daily's `SetupSet` (its owner's `set_setup`) is known and
 skipped: the indexer takes Setup's address from the deployment file.
 
-Schema 8 (D-21, D-24: Setup's address replaces Tutorial's in the deployment the database is built for): a database of
-schema 7 or older is refused at start with a message naming `rebuild`; rebuild it from the chain.
+Since D-25 (E) `Account` is gone and a player is the wallet address. Names are off-chain (the Cartridge Controller
+username, resolved by the client) and leave every answer: no `name` in a leaderboard entry or in `/v1/players/{id}`'s
+`player`, which keeps `player_id` and `created`. A player row is created by the first event that names the address,
+`GameSpawned`, `Purchased` (the buyer; its referrer is not a player) or a `QuestProgressed` or `AchievementProgressed` from
+Setup (the tutorial claim too), with that event's block and time as `created`; a later event changes nothing. A player id
+is stored and served as `0x` and 64 lowercase hex digits. Setup emits the wiring, `EconomySet` and `CollectionSet` (the
+address in the data, as Account did): they are read from Setup only and compared with the deployment file, and a
+mismatch halts. Gone with D-25 (E): the `account` source, the `Account` key of the deployment file (its address no longer
+counts in the deployment hash, which covers Daily, Setup, Economy and Collection), `contracts.account` of `/v1/head`, and
+the `name` and `master` columns of `players`. A replay of an older history never halts: `PlayerCreated` is known by name
+and skipped from any source still read (Daily's ABI declared it), and Account's own events, `PlayerCreated`,
+`EconomySet` and `CollectionSet` included, are never seen, since its address is not read.
+
+Schema 9 (D-25 (E): Account leaves the deployment the database is built for, players come from their first event): a
+database of schema 8 or older is refused at start with a message naming `rebuild`; rebuild it from the chain.
 
 ## Tests
 

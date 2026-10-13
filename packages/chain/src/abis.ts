@@ -1,4 +1,3 @@
-import accountAbi from "../../../contracts/abis/Account.json";
 import dailyAbi from "../../../contracts/abis/Daily.json";
 import setupAbi from "../../../contracts/abis/Setup.json";
 import tokenAbi from "../../../contracts/abis/Token.json";
@@ -10,12 +9,12 @@ import { AbiCodec, type Abi } from "./codec";
 
 /**
  * The native contracts the writer and the views call, as named in `contracts/abis/` and in the deployments file. `Setup`
- * (D-24, D-25) holds the quests, the achievements and the tutorial claim; it is optional in a deployment (`deployment.ts`).
+ * (D-24, D-25) holds the quests, the achievements, the tutorial claim and the wiring; it is optional in a deployment
+ * (`deployment.ts`). `Account` left with D-25 (E): a player is the wallet address, with no registration.
  */
-export type ContractName = "Account" | "Daily" | "Setup" | "Token";
+export type ContractName = "Daily" | "Setup" | "Token";
 
 export const ABIS: Record<ContractName, Abi> = {
-  Account: accountAbi as Abi,
   Daily: dailyAbi as Abi,
   Setup: setupAbi as Abi,
   Token: tokenAbi as Abi,
@@ -25,14 +24,13 @@ export type Codecs = Record<ContractName, AbiCodec>;
 
 export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
   return {
-    Account: new AbiCodec(abis.Account),
     Daily: new AbiCodec(abis.Daily),
     Setup: new AbiCodec(abis.Setup),
     Token: new AbiCodec(abis.Token),
   };
 }
 
-// The economy's contracts (P8, `docs/architecture/economy.md`), apart from the four above: their addresses are
+// The economy's contracts (P8, `docs/architecture/economy.md`), apart from the three above: their addresses are
 // optional until CORE deploys them, so a deployment without them keeps working (`economy/deployment.ts`).
 
 /**

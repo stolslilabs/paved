@@ -13,7 +13,7 @@ const PA = padded(A);
 
 async function served() {
   const node = new FakeNode();
-  node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]);
+  node.mine([], []);
   node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })], [ev.spawned("daily", 3, A, { day: DAY + 1 })]);
   node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })]);
   node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
@@ -47,14 +47,16 @@ describe("routes", () => {
       state: "ok",
       chain_id: "0x534e5f5345504f4c4941",
       from_block: 1,
-      contracts: { daily: "0x1111", setup: "0x2222", account: "0x3333", economy: "0x4444", collection: "0x5555" },
+      contracts: { daily: "0x1111", setup: "0x2222", economy: "0x4444", collection: "0x5555" },
       checks: { definitions_excluded: 0 },
     });
+    // Account left with D-25 (E).
+    expect(Object.keys(answer.body.contracts as object).sort()).toEqual(["collection", "daily", "economy", "setup"]);
   });
 
   test("GET /v1/head: without a Collection (before E5b) contracts.collection is null and a game has no token_id", async () => {
     const node = new FakeNode();
-    node.mine([ev.created(A, 0x416461)]);
+    node.mine([]);
     node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })]);
     const indexer = indexerWithoutCollection(node);
     await settle(indexer);
@@ -76,7 +78,6 @@ describe("routes", () => {
         {
           rank: 1,
           player_id: PA,
-          name: "Ada",
           best_score: 50,
           best_game_id: 1,
           games_played: 1,
@@ -85,18 +86,24 @@ describe("routes", () => {
         },
       ],
     });
+    // No name since D-25 (E): the client resolves the address off-chain.
+    expect(Object.keys((answer.body.entries as object[])[0]!).sort()).toEqual(
+      ["best_game_id", "best_score", "finished_at", "games_finished", "games_played", "player_id", "rank"],
+    );
     const last = get(indexer, "/v1/tournaments/100/leaderboard?limit=1&offset=1");
     expect((last.body as { next_offset: number | null }).next_offset).toBeNull();
     expect((last.body.entries as { rank: number }[])[0]!.rank).toBe(2);
   });
 
   test("the tournaments list, the player, its games, its entry and one game", async () => {
-    const { indexer } = await served();
+    const { indexer, node } = await served();
     expect(get(indexer, "/v1/tournaments?limit=5").body).toMatchObject({ tournaments: [{ id: DAY + 1 }, { id: DAY }], next: null });
     expect(get(indexer, `/v1/players/${PA}`).body).toMatchObject({
-      player: { player_id: PA, name: "Ada" },
+      player: { player_id: PA, created: node.blocks[2]!.timestamp },
       stats: { daily_games: 2, daily_finished: 1, best_score: 50 },
     });
+    // The player is the address, created at its first GameSpawned (block 2), with no name (D-25 (E)).
+    expect(Object.keys(get(indexer, `/v1/players/${PA}`).body.player as object).sort()).toEqual(["created", "player_id"]);
     expect(get(indexer, `/v1/players/${padded(0xeeen)}`)).toMatchObject({ code: 200, body: { player: null, stats: null } });
     const games = get(indexer, `/v1/players/${PA}/games?contract=daily`).body.games as { game_id: number }[];
     expect(games.map((g) => g.game_id)).toEqual([3, 1]);
@@ -134,7 +141,7 @@ describe("Economy's fields (appended in E3)", () => {
   const REWARD = 2n ** 90n;
   async function paid() {
     const node = new FakeNode();
-    node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]);
+    node.mine([], []);
     node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY, stake: 2, referrer: B, referral: 200_000n })]);
     node.mine([ev.spawned("daily", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY })]);
     node.mine([ev.over("daily", 1, A, 5000, { day: DAY }), ev.recorded(1, 5000)]);
@@ -205,7 +212,7 @@ describe("Economy's fields (appended in E3)", () => {
 describe("the game token (appended in E5b)", () => {
   test("token_id is the game id, null before the mint; a past Tutorial token is skipped (D-21)", async () => {
     const node = new FakeNode();
-    node.mine([ev.created(A, 0x416461)]);
+    node.mine([]);
     node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY }), ev.minted(A, 1)]);
     node.mine([ev.minted(A, 2 ** 32 + 1)]);
     node.mine([ev.spawned("daily", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY })]);
@@ -329,7 +336,7 @@ describe("D-20: the prize leaves", () => {
   const S = 0x5501n;
   // The same games, with and without the past prize events of Daily (public-interface.md, "Past events") in between.
   const history = (node: FakeNode, prize: boolean) => {
-    node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]);
+    node.mine([], []);
     node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })]);
     node.mine(prize ? [ev.sponsored(DAY, S)] : []);
     node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })], ...(prize ? [[ev.claimed(DAY - 1, A, 1)]] : []));

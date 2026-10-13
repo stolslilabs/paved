@@ -12,6 +12,8 @@ import {
   ECONOMY_VIEW_FIELDS,
   PurchaseOutcomeUnknownError,
   PurchasePriceChangedError,
+  SelfReferralError,
+  referrerOf,
   RpcEconomyViews,
   STAKES,
   VaultAmountChangedError,
@@ -39,7 +41,7 @@ import {
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
 import economyAbi from "../../../contracts/abis/Economy.json";
 
-const ADDR = { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" };
+const ADDR = { Daily: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const PLAYER = "0x5";
 const REFERRER = "0x77";
@@ -205,8 +207,29 @@ describe("purchase: approve USDC, then Daily.spawn(stake, referrer, min_out), in
     expect(withRef.minOut).toBe(without.minOut);
     expect(withRef.calls[1].calldata[1]).toBe(REFERRER);
     expect(without.calls[1].calldata[1]).toBe("0x0");
-    // A self-referral is sent as none.
-    expect((await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: PLAYER })).referrer).toBe("0x0");
+  });
+
+  // D-25 (E): a referrer is any non-zero address other than the payer, registered or not.
+  test("the referrer rule: none or zero is sent as 0x0; any other address is sent; the payer's own is refused, nothing sent", async () => {
+    for (const none of [null, "", "0x0", "0x000"]) {
+      expect((await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: none })).referrer).toBe("0x0");
+    }
+    // An address nobody registered (there is no registration any more) is a referrer.
+    const unregistered = "0x0123456789abcdef";
+    expect((await setup().econWriter.planPurchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: unregistered })).referrer).toBe(
+      "0x123456789abcdef",
+    );
+    // The payer, in any spelling (padded, upper case): refused with a clear message, and nothing is executed.
+    for (const self of [PLAYER, `0x${"0".repeat(63)}5`, "0X5"]) {
+      const { econWriter, execute } = setup();
+      const error = await econWriter.purchase({ stake: 1, confirmedPrice: 2_000_000n, confirmedMinOut: 1n, referrer: self }).catch((e: unknown) => e);
+      expect(error, self).toBeInstanceOf(SelfReferralError);
+      expect(error).toBeInstanceOf(WriteError);
+      expect((error as Error).message).toBe("Your own address cannot be your referrer. Nothing was sent.");
+      expect(execute).not.toHaveBeenCalled();
+    }
+    expect(referrerOf(REFERRER, PLAYER)).toBe(REFERRER);
+    expect(() => referrerOf(PLAYER, PLAYER)).toThrow(SelfReferralError);
   });
 
   test("a changed price sends nothing", async () => {

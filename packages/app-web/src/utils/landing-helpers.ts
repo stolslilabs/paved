@@ -1,12 +1,4 @@
-import type { ConnectionStatus, PlayerRecord, PriceView, ReadState } from "@paved/chain";
-
-/**
- * "Create Account" is offered only once a read has answered that the address has no player: with
- * the read in flight or failed (RPC down), a registered player would be offered a create that reverts.
- */
-export function canOfferCreate(status: ConnectionStatus, player: Pick<ReadState<PlayerRecord | null>, "data" | "error" | "loading" | "loaded">): boolean {
-  return status === "ready" && player.loaded && !player.loading && !player.error && player.data === null;
-}
+import type { PriceView, ReadState } from "@paved/chain";
 
 /** The label of the token Daily charges: USDC since E3 (PAVED is the reward, shown by the economy screens). */
 export const TOKEN_LABEL = "USDC";
@@ -42,12 +34,6 @@ export function formatTokenAmount(value: bigint | number | string, decimals = 18
 /** An amount with the token label, or "—" when the deployment does not say the token's decimals. */
 export function tokenLabel(value: bigint, decimals: number | null): string {
   return decimals === null ? "—" : `${formatTokenAmount(value, decimals)} ${TOKEN_LABEL}`;
-}
-
-/** A player name is 1 to 31 printable ASCII characters (a Cairo short string), not only spaces. */
-export function playerNameError(name: string): string | null {
-  if (!/^[\x20-\x7e]{1,31}$/.test(name) || name.trim() === "") return "A name is 1 to 31 ASCII characters";
-  return null;
 }
 
 export function shortAddress(address: string): string {

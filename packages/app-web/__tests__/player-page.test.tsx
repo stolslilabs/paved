@@ -7,6 +7,7 @@ import { FakeGameViews, IndexerClient } from "@paved/chain";
 import { FIXTURE_ADA, FIXTURE_BO, FIXTURE_TOURNAMENT, FixtureIndexer } from "@paved/chain/testing";
 import { PlayerPage } from "../src/pages/Player";
 import { renderPage } from "./helpers/page-fixtures";
+import { shortId } from "../src/utils/indexer-view";
 
 // A cold CI run is slow on the first render: the library's 1 s default is too tight.
 configure({ asyncUtilTimeout: 5000 });
@@ -30,10 +31,11 @@ describe("Player page", () => {
     expect(fixture.requests).toEqual([]);
   });
 
-  it("loading, then name, stats, tournaments and games", async () => {
+  // D-25 (E): the heading is the short address; another player's name is not looked up, and the indexer has none.
+  it("loading, then the short address, stats, tournaments and games", async () => {
     player(FIXTURE_ADA);
     expect(screen.getByText("Loading player…")).toBeTruthy();
-    await screen.findByRole("heading", { name: "Ada" });
+    await screen.findByRole("heading", { name: shortId(FIXTURE_ADA) });
     expect(screen.getByText("Best score", { selector: "dt" }).nextElementSibling!.textContent).toBe("187");
     // The on-chain Tutorial left (D-21): no Tutorial count, no Tutorial row (the old games are dropped).
     expect(screen.queryByText("Tutorial games")).toBeNull();
@@ -67,7 +69,7 @@ describe("Player page", () => {
   it("shows the indexer's lag", async () => {
     fixture.state.behind = 4;
     player(FIXTURE_ADA);
-    await screen.findByRole("heading", { name: "Ada" });
+    await screen.findByRole("heading", { name: shortId(FIXTURE_ADA) });
     expect(screen.getByTestId("lag").textContent).toContain("Updated 4 blocks behind");
   });
 
@@ -153,7 +155,7 @@ describe("Player page", () => {
 
     it("quests unavailable do not hide the player: the profile still shows, the quests say why with Retry", async () => {
       withViews();
-      await screen.findByRole("heading", { name: "Ada" });
+      await screen.findByRole("heading", { name: shortId(FIXTURE_ADA) });
       await screen.findByRole("list", { name: "Daily quests" });
       cleanup();
       fixture.state.status = "loading";

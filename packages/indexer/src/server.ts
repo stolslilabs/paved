@@ -364,7 +364,6 @@ export type HeadInfo = {
   contracts: {
     daily: string;
     setup: string;
-    account: string;
     economy: string;
     collection: string | null;
   };

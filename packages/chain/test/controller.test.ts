@@ -2,6 +2,7 @@ import { getChecksumAddress, type Call } from "starknet";
 import { describe, expect, test, vi } from "vitest";
 import { createCodecs } from "../src/abis";
 import {
+  CONTROLLER_ENTRY_POINTS,
   controllerPolicies,
   createControllerConnector,
   toControllerSessionPolicies,
@@ -17,11 +18,11 @@ import { FakeGameViews } from "../src/views";
 const deployment = resolveDeployment({
   network: "sepolia",
   // Sepolia has a MockUSDC (D-16, P-39): the faucet's `mint` is a session policy there.
-  env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
+  env: { rpcUrl: "http://s/rpc", addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
 });
 const mainnet = resolveDeployment({
   network: "mainnet",
-  env: { rpcUrl: "http://m/rpc", addresses: { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
+  env: { rpcUrl: "http://m/rpc", addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
 });
 const policies = controllerPolicies(deployment);
 /** The economy of the same deployment (E3): the Daily entry is paid in USDC. */
@@ -61,10 +62,8 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   const econWriter = econ.writer(writer, { now: () => settlesAfter(DAY) });
   const move = { orientation: 1, x: 2, y: 3 };
   const writes: Record<string, () => Promise<unknown>> = {
-    "create player": () => writer.createPlayer("ada"),
     // The faucet (MockUSDC.mint): signed in the controller's session on Sepolia, where the deployment has a MockUSDC.
     "faucet mint": () => writer.mint(),
-    "create player with faucet": () => writer.createPlayer("ada", { mintTestToken: true }),
     "faucet on mainnet": () => mainnetWriter.mint(),
     // The tutorial claim (D-21): `Setup.claim_tutorial()`, signed in the session where the deployment has a Setup.
     "tutorial claim": () => writer.claimTutorial(),
@@ -104,7 +103,7 @@ function inSession(call: Call, ps: ControllerPolicy[]): boolean {
 }
 
 const GAME_AND_PURCHASE = [
-  "create player", "tutorial claim", "daily build", "daily discard", "daily surrender", "purchase, stake 1",
+  "tutorial claim", "daily build", "daily discard", "daily surrender", "purchase, stake 1",
   "purchase, stake 10",
 ];
 const PROMPTED = ["settle", "vault stake", "vault unstake", "vault claim"];
@@ -127,24 +126,23 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(new Set(session.map((p) => key(p.target, p.method)))).toEqual(withFaucet);
     // Without the entry's approve, the session is the same minus approve.
     expect(new Set(policies.map((p) => key(p.target, p.method)))).toEqual(new Set([...withFaucet].filter((k) => !k.endsWith(":approve"))));
+    // No registration since D-25 (E): no `Account.create`, nor any policy on the old Account address.
+    expect(session.map((p) => p.method)).not.toContain("create");
+    expect(Object.keys(CONTROLLER_ENTRY_POINTS)).not.toContain("Account");
     // The game's and the purchase's writes hold no mint (the faucet's own are checked below).
     expect(GAME_AND_PURCHASE.flatMap((label) => sent[label]).map((c) => c.entrypoint)).not.toContain("mint");
   });
 
-  test("the faucet is in the session on Sepolia: mint() and createPlayer(mintTestToken) send a mint, and a policy holds it", async () => {
+  test("the faucet is in the session on Sepolia: mint() sends a mint, and a policy holds it", async () => {
     const sent = await sentByEveryWrite();
     expect(sent["faucet mint"].map((c) => c.entrypoint)).toEqual(["mint"]);
-    expect(sent["create player with faucet"].map((c) => c.entrypoint)).toEqual(["mint", "create"]);
     const [mint] = sent["faucet mint"];
     expect(BigInt(mint.contractAddress)).toBe(BigInt("0x14"));
-    for (const call of [...sent["faucet mint"], ...sent["create player with faucet"]]) {
+    for (const call of sent["faucet mint"]) {
       expect(inSession(call, session), `${call.entrypoint} with an approve cap`).toBe(true);
       expect(inSession(call, policies), `${call.entrypoint} without`).toBe(true);
     }
     expect(session.filter((p) => p.method === "mint")).toEqual([{ target: "0x14", method: "mint", description: "Test USDC faucet" }]);
-    // And the plain create player of the session is signed in it, as before.
-    expect(sent["create player"].map((c) => c.entrypoint)).toEqual(["create"]);
-    expect(inSession(sent["create player"][0], session)).toBe(true);
   });
 
   test("on mainnet there is no MockUSDC, no faucet write and no mint policy, whatever the env says", async () => {
@@ -156,7 +154,7 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(onMainnet.some((p) => BigInt(p.target) === BigInt("0x14"))).toBe(false);
     expect(toControllerSessionPolicies(onMainnet).contracts[getChecksumAddress("0x14")]).toBeUndefined();
     // A deployment with no MockUSDC at all (a Sepolia file without one) has none either.
-    const none = resolveDeployment({ network: "sepolia", env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Token: "0x4" } } });
+    const none = resolveDeployment({ network: "sepolia", env: { rpcUrl: "http://s/rpc", addresses: { Daily: "0x2", Token: "0x4" } } });
     expect(controllerPolicies(none).map((p) => p.method)).not.toContain("mint");
     // Nor a Setup (a deployment from before step D): it stays configured, with no claim policy on an empty target.
     expect(none.configured).toBe(true);
@@ -232,7 +230,7 @@ describe("toControllerSessionPolicies", () => {
   });
 });
 
-function fakeModule(options: { connects?: boolean } = {}) {
+function fakeModule(options: { connects?: boolean; username?: () => Promise<string> | undefined } = {}) {
   const account = options.connects === false ? undefined : { address: "0xc" };
   const built: Array<Record<string, unknown>> = [];
   const disconnect = vi.fn(async () => {});
@@ -244,6 +242,7 @@ function fakeModule(options: { connects?: boolean } = {}) {
       probe = async () => undefined;
       connect = async () => account;
       disconnect = disconnect;
+      username = options.username ?? (() => (account ? Promise.resolve("ada") : undefined));
     },
   } as unknown as ControllerModule;
   return { module, built, disconnect };
@@ -327,5 +326,20 @@ describe("createControllerConnector", () => {
     await connector.connect();
     await connector.disconnect();
     expect(disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  // D-25 (E): the name is the Controller's username, off chain; no registration.
+  test("username: the connected player's Controller username, or null before a connect, when none, or when it fails", async () => {
+    const make = (username?: () => Promise<string> | undefined) =>
+      createControllerConnector({ rpc: "http://s/rpc", chainId: SEPOLIA, policies }, { load: async () => fakeModule({ username }).module, chainId: async () => SEPOLIA });
+    const connector = make();
+    expect(await connector.username()).toBeNull(); // nothing loaded yet: no controller is asked
+    await connector.connect();
+    expect(await connector.username()).toBe("ada");
+    for (const username of [() => undefined, () => Promise.resolve(""), () => Promise.reject(new Error("keychain down"))]) {
+      const other = make(username);
+      await other.connect();
+      expect(await other.username()).toBeNull();
+    }
   });
 });

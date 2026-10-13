@@ -13,9 +13,9 @@ export interface EconomyEnv {
   usdc?: string;
 }
 
-/** The addresses the economy client calls, apart from `Deployment`'s four (which it also needs: `Daily`, `Account`). */
+/** The addresses the economy client calls, apart from `Deployment`'s (which it also needs: `Daily`). */
 export interface EconomyDeployment {
-  /** The four contracts' deployment: `Daily` takes the purchase, `Account` registers referrers. */
+  /** The game's deployment: `Daily` takes the purchase. */
   base: Deployment;
   addresses: Record<Exclude<EconomyContractName, "Daily">, string>;
   /**

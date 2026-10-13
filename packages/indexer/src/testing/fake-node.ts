@@ -1,5 +1,5 @@
 // Copied from Grim World, indexer/src/testing/fake-node.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
-// Apache-2.0. Adapted for Paved: five contracts (daily, setup, account, economy, collection) and Paved's event builders, and
+// Apache-2.0. Adapted for Paved: four contracts (daily, setup, economy, collection) and Paved's event builders, and
 // `starknet_chainId`. This copy is maintained by the Paved repository.
 //
 // A fake Starknet node for the unit tests: no network. It answers the read methods the indexer
@@ -12,14 +12,12 @@ import { SELECTORS, type Source } from "../events.ts";
 
 export const DAILY = "0x1111";
 export const SETUP = "0x2222";
-export const ACCOUNT = "0x3333";
 export const ECONOMY = "0x4444";
 export const COLLECTION = "0x5555";
 export const CHAIN_ID = "0x534e5f5345504f4c4941";
 const ADDRESS: Record<Source, string> = {
   daily: DAILY,
   setup: SETUP,
-  account: ACCOUNT,
   economy: ECONOMY,
   collection: COLLECTION,
 };
@@ -102,12 +100,16 @@ export const ev = {
         options.end ?? 1_000_500,
       ],
     ),
-  created: (player: bigint | number, name: bigint | number, master: bigint | number = 0xabc) =>
-    raw("account", "PlayerCreated", [player], [name, master]),
-  /** Account's `EconomySet` and `CollectionSet`: the address is the only member, in the data. */
-  economySet: (economy: bigint | number = BigInt(ECONOMY)) => raw("account", "EconomySet", [], [economy]),
+  /**
+   * A past `PlayerCreated` (Account's registry, before D-25 (E)): key the player, data the name and the master. Only a
+   * source still read can carry one (Daily's ABI declared it); it is known by name and skipped.
+   */
+  pastCreated: (source: Source, player: bigint | number, name: bigint | number, master: bigint | number = 0xabc) =>
+    raw(source, "PlayerCreated", [player], [name, master]),
+  /** Setup's `EconomySet` and `CollectionSet` (D-25 (E)): the address is the only member, in the data. */
+  economySet: (economy: bigint | number = BigInt(ECONOMY)) => raw("setup", "EconomySet", [], [economy]),
   collectionSet: (collection: bigint | number = BigInt(COLLECTION)) =>
-    raw("account", "CollectionSet", [], [collection]),
+    raw("setup", "CollectionSet", [], [collection]),
   /** `QuestDefined`: key quest_id; data schedule (start, end, duration, interval), tasks span, conditions span. */
   questDefined: (
     questId: number,

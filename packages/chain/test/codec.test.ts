@@ -20,8 +20,15 @@ describe("view types follow the ABIs of contracts/abis", () => {
     }
   });
 
+  test("Account left (D-25 (E)): no Account ABI, no player view, no registration", () => {
+    expect(Object.keys(ABIS)).not.toContain("Account");
+    for (const codec of Object.values(codecs)) {
+      for (const fn of ["create", "player"]) expect(codec.hasFunction(fn), fn).toBe(false);
+    }
+  });
+
   test("the on-chain Tutorial left (D-21): no Tutorial or Lobby ABI, Setup holds the claim", () => {
-    expect(Object.keys(ABIS).sort()).toEqual(["Account", "Daily", "Setup", "Token"]);
+    expect(Object.keys(ABIS).sort()).toEqual(["Daily", "Setup", "Token"]);
     expect(codecs.Setup.hasFunction("claim_tutorial")).toBe(true);
     expect(codecs.Setup.encodeCall("claim_tutorial", [])).toEqual([]);
     // The claim's state is a view of Setup (step D): read before any write.
@@ -46,7 +53,7 @@ describe("view types follow the ABIs of contracts/abis", () => {
   });
 
   test("the prize left (D-20): no claim, sponsor or tournament view, no TournamentView, no prize event", () => {
-    for (const codec of [codecs.Daily, codecs.Setup, codecs.Account]) {
+    for (const codec of [codecs.Daily, codecs.Setup]) {
       for (const fn of ["claim", "sponsor", "tournament", "current_tournament_id"]) expect(codec.hasFunction(fn), fn).toBe(false);
       expect(JSON.stringify(codec.abi)).not.toMatch(/TournamentView|ITournamentView|tournament_id|::Sponsored|::Claimed|::Reclaimed/);
     }
@@ -55,7 +62,7 @@ describe("view types follow the ABIs of contracts/abis", () => {
 
   test("the day id is day_id in GameSpawned, GameOver and GameView", () => {
     expect(codecs.Daily.structFields("paved::views::GameView").at(-1)).toBe("dayId");
-    for (const codec of [codecs.Daily, codecs.Account]) {
+    for (const codec of [codecs.Daily]) {
       const events = (codec.abi as Array<{ type: string; name: string; members?: Array<{ name: string }> }>).filter(
         (item) => item.type === "event" && /::(GameSpawned|GameOver)$/.test(item.name),
       );

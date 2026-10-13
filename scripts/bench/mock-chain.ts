@@ -3,7 +3,7 @@
 //
 // It plays the native contracts (packages/chain, docs/architecture/client-data-layer.md) on the
 // 72-tile board fixture: `starknet_call` answers the views (`game`, `tiles`, `builder`, and
-// `IDailyView`'s `current_day` and `entry_price`) and the reads (`player`, `balance_of`)
+// `IDailyView`'s `current_day` and `entry_price`) and the read `balance_of`
 // with felts laid out as the ABIs of contracts/abis/ say; `starknet_getEvents` answers with no
 // event (one game, opened by id). An invoke of `build` that carries the next placement of the
 // fixed sequence applies it, and its receipt holds the events the client shows the move from
@@ -37,7 +37,6 @@ interface TileRow {
 
 /** The chain of the page (BENCH_ADDRESSES, one source): the contracts and the playing account. */
 export const BENCH = {
-  Account: BigInt(BENCH_ADDRESSES.VITE_ACCOUNT_ADDRESS),
   Daily: BigInt(BENCH_ADDRESSES.VITE_DAILY_ADDRESS),
   Token: BigInt(BENCH_ADDRESSES.VITE_TOKEN_ADDRESS),
   player: BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS),
@@ -90,7 +89,7 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
   const t0 = Date.parse("2026-10-06T08:00:00Z") / 1000;
 
   const SEL = Object.fromEntries(
-    ["game", "tiles", "builder", "current_day", "entry_price", "player", "balance_of", "build", "Built", "Scored", "GameOver"].map(
+    ["game", "tiles", "builder", "current_day", "entry_price", "balance_of", "build", "Built", "Scored", "GameOver"].map(
       (name) => [name, BigInt(selector(name))],
     ),
   );
@@ -134,7 +133,6 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     if (daily && entry === SEL.builder && args[1] !== BENCH.player) {
       violate("other-player", `${what}, the player is ${hex(BENCH.player)}`);
     }
-    if (to === BENCH.Account && entry === SEL.player && args[0] !== BENCH.player) violate("other-player", `player(${hex(args[0])})`);
     if (to === BENCH.Token && entry === SEL.balance_of && args[0] !== BENCH.player) violate("other-player", `balance_of(${hex(args[0])})`);
 
     if (daily && entry === SEL.game) return gameView();
@@ -142,7 +140,6 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     if (daily && entry === SEL.builder) return builderView();
     if (daily && entry === SEL.current_day) return [Math.floor(t0 / 86400)];
     if (daily && entry === SEL.entry_price) return [BENCH.Token, 10n ** 18n, 0]; // token, u256 amount
-    if (to === BENCH.Account && entry === SEL.player) return [args[0], 0x5061766564, args[0]]; // 'Paved'
     if (to === BENCH.Token && entry === SEL.balance_of) return [10n ** 21n, 0];
     const message = `no view ${hex(entry)} on ${hex(to)}`;
     violate("unknown-view", message);

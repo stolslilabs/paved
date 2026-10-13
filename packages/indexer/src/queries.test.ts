@@ -21,8 +21,12 @@ async function open(build: (node: FakeNode) => void) {
   return { node, queries: new Queries(indexer.store), head: node.tip, indexer };
 }
 
+/**
+ * The block that registered the four players before D-25 (E), kept empty so that the blocks of the scenarios keep their
+ * numbers: a player is now the address, from its first event.
+ */
 const players = (node: FakeNode) =>
-  node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)], [ev.created(C, 0xffff)], [ev.created(D, 0x44)]);
+  node.mine([], [], [], []);
 
 describe("the leaderboard", () => {
   const scenario = (node: FakeNode) => {
@@ -51,8 +55,9 @@ describe("the leaderboard", () => {
       [2, id(C), 70, 5],
       [3, id(A), 70, 2],
     ]);
-    expect(entries[2]).toMatchObject({ name: "Ada", games_played: 3, games_finished: 3, finished_at: 14 });
-    expect(entries[1]!.name).toBeNull(); // 0xffff is not UTF-8
+    expect(entries[2]).toMatchObject({ games_played: 3, games_finished: 3, finished_at: 14 });
+    // No name since D-25 (E): the client resolves the address off-chain.
+    for (const entry of entries) expect(entry).not.toHaveProperty("name");
   });
 
   test("games_played counts entries (a running game too), games_finished the ones that counted", async () => {
@@ -164,7 +169,7 @@ describe("players and games", () => {
   test("a player's stats, and null for a player the indexer does not know", async () => {
     const { queries, head } = await open(build);
     expect(queries.player(head, id(A))).toEqual({
-      player: { player_id: id(A), name: "Ada", created: expect.any(Number) },
+      player: { player_id: id(A), created: expect.any(Number) },
       stats: {
         daily_games: 4,
         daily_finished: 1,
@@ -179,7 +184,8 @@ describe("players and games", () => {
     expect(queries.player(head, id(B))!.stats).toEqual({
       daily_games: 1,
       daily_finished: 0,
-      best_score: null,
+      // No finished game is 0 (the client reads a count): a player known from a spawn that still runs.
+      best_score: 0,
       paid_games: 0,
       settled_games: 0,
       rewards: "0",
@@ -352,7 +358,9 @@ describe("the unsettled list is bounded (UNSETTLED_PAGE)", () => {
     [UNSETTLED_PAGE + 30, UNSETTLED_PAGE],
   ])("%i unsettled games: a player and a day list %i, the count is the whole", async (count, listed) => {
     const { queries, head } = await open(unsettledGames(count));
-    const player = queries.player(head, id(A))!;
+    // With no game, A has no event: not a player (D-25 (E)), and the day lists nothing.
+    const player = queries.player(head, id(A)) ?? { unsettled: [], unsettled_count: 0 };
+    if (count === 0) expect(queries.player(head, id(A))).toBeNull();
     const oldest = Array.from({ length: listed }, (_, i) => i + 1);
     expect(player.unsettled.map((game) => game.game_id)).toEqual(oldest);
     expect(player.unsettled_count).toBe(count);

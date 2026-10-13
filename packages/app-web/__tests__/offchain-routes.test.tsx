@@ -69,7 +69,7 @@ afterEach(cleanup);
  * A chain side on a configured controller network (Sepolia with a complete deployment): on a chain route the wallet provider
  * builds the paved client and the controller connector and runs its `probe()`, and the indexer client is built too.
  */
-const CONTRACTS = { Account: { address: "0x1" }, Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } };
+const CONTRACTS = { Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } };
 const FILES = { "x/sepolia.json": { default: { rpc_url: "http://sepolia/rpc", chain_id: "0x534e5f5345504f4c4941", contracts: CONTRACTS } } };
 const ENV = { VITE_NETWORK: "sepolia" };
 const ALL = ["createPavedClient", "createControllerConnector", "createIndexerClient"];

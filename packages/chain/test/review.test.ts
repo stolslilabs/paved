@@ -13,7 +13,7 @@ import { WriteError, type WriteAccount } from "../src/writer";
 const codecs = createCodecs();
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://x", addresses: { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" } },
+  env: { rpcUrl: "http://x", addresses: { Daily: "0x2", Setup: "0x3", Token: "0x4" } },
 });
 const off = resolveDeployment({ network: "devnet" });
 
@@ -111,12 +111,6 @@ describe("writer", () => {
     // Free again once the receipt is in.
     await expect(writer.discard({ mode: "daily", gameId: 1 })).resolves.toBeTruthy();
   });
-
-  test("a name is 1 to 31 ASCII characters", async () => {
-    const writer = client().writer({ address: "0x5", execute: async () => ({ transaction_hash: "0x1" }) });
-    await expect(writer.createPlayer("x".repeat(32))).rejects.toThrow(WriteError);
-    await expect(writer.createPlayer("")).rejects.toThrow(WriteError);
-  });
 });
 
 describe("the tutorial claim (D-21): one call to Setup.claim_tutorial()", () => {
@@ -147,7 +141,7 @@ describe("the tutorial claim (D-21): one call to Setup.claim_tutorial()", () => 
 
   test("a deployment without Setup sends nothing", async () => {
     const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
-    const before = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: { Account: "0x1", Daily: "0x2", Token: "0x4" } } });
+    const before = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: { Daily: "0x2", Token: "0x4" } } });
     const writer = new PavedClient(before, rpc, codecs, new FakeGameViews()).writer({ address: "0x5", execute });
     await expect(writer.claimTutorial()).rejects.toThrow(/No Setup contract/);
     expect(execute).not.toHaveBeenCalled();

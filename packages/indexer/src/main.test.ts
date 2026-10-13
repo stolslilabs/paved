@@ -25,6 +25,7 @@ writeFileSync(
     rpc_url: "http://127.0.0.1:5050",
     deployed_block: 5,
     contracts: {
+      // A file written before D-25 (E) still names Account: not read.
       Account: { address: "0x3" },
       Daily: { address: "0x1" },
       Setup: { address: "0x2" },

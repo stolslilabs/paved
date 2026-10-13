@@ -39,7 +39,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
   let work: string;
   let committed: string;
   let deployment: {
-    contracts: Record<"Account" | "Daily" | "Setup" | "Economy" | "MockUSDC" | "PavedToken", { address: string }>;
+    contracts: Record<"Daily" | "Setup" | "Economy" | "MockUSDC" | "PavedToken", { address: string }>;
   };
   let file: string;
   let alice: Player;
@@ -93,10 +93,8 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     p.send({ contractAddress: address, entrypoint, calldata });
   /** USDC from the devnet faucet (`MockUSDC.mint`): 100 USDC, enough for every stake the scenario buys. */
   const fund = (p: Player) => send(p, deployment.contracts.MockUSDC.address, "mint", [p.address, 100_000_000n, 0]);
-  const register = async (p: Player, name: string) => {
-    await fund(p);
-    await send(p, deployment.contracts.Account.address, "create", [`0x${Buffer.from(name).toString("hex")}`, p.address]);
-  };
+  /** No registry since D-25 (E): a player is the wallet address, seen by the indexer from its first event. */
+  const register = (p: Player) => fund(p);
   const u256 = (low: bigint, high: bigint) => low + (high << 128n);
   /** An ERC20 balance (`balance_of`, a u256). */
   const balance = async (p: Player, token: string) => {
@@ -218,7 +216,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     });
     expect(chain).toMatchObject({ stake: 1, recorded: true, settled: true });
     const player = await get<PlayerAnswer>(`/v1/players/${me}`);
-    expect(player.player?.name).toBe("smoke");
+    expect(player.player).not.toHaveProperty("name");
     expect(player.stats).toMatchObject({ paid_games: 1, settled_games: 1, rewards: chain.reward });
     expect(player.unsettled).toEqual([]);
     // The settlement closed the smoke's day: the indexer's close is the contract's.
@@ -243,8 +241,8 @@ describe.skipIf(!enabled)("devnet scenario", () => {
   const played: { id: number; player: Player }[] = [];
 
   test("complete games of two players are ranked by the leaderboard rule", async () => {
-    await register(bo, "Bo");
-    await register(cy, "Cy");
+    await register(bo);
+    await register(cy);
     await fund(alice);
     // Bo's first game is bought at stake 10, referred by Cy: Cy gets 5 % of 20 USDC from the margin.
     const games: [Player, number, number, bigint][] = [
@@ -281,7 +279,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     expect(board.entries.map((e) => e.rank)).toEqual(board.entries.map((_, i) => i + 1));
     expect(board.entries.map((e) => e.best_score)).toEqual([...board.entries.map((e) => e.best_score)].sort((x, y) => y - x));
     const bos = board.entries.find((e) => e.player_id === padded(bo.address))!;
-    expect(bos).toMatchObject({ games_played: 2, games_finished: 2, name: "Bo" });
+    expect(bos).toMatchObject({ games_played: 2, games_finished: 2 });
     const cys = board.entries.find((e) => e.player_id === padded(cy.address));
     expect(cys).toMatchObject({ games_played: 3, games_finished: 2 }); // the running one counts as an entry only
   });

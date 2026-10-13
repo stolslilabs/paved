@@ -109,6 +109,14 @@ export class RateUnavailableError extends WriteError {
   }
 }
 
+/** The payer named themselves as the referrer (D-25 (E): a referrer is any non-zero address other than the payer). Nothing was sent. */
+export class SelfReferralError extends WriteError {
+  constructor() {
+    super("Your own address cannot be your referrer. Nothing was sent.");
+    this.name = "SelfReferralError";
+  }
+}
+
 /**
  * The fresh pool quote at send is below 90 % of the guard-rate value (E-9b, ruling 1) and the player did not accept such a
  * quote at the confirm: nothing was sent. The player confirms again and sees the warning with both figures.
@@ -200,8 +208,8 @@ export class EconomyWriter {
   /**
    * Buys a Daily game of stake `k`: approves `Daily` on USDC for exactly the price, then
    * `Daily.spawn(stake, referrer, min_out)`, in one multicall. The entry unit and the quote are read again first;
-   * the price must be `k x entry_price().amount` and the one the player confirmed. A self-referral is sent as no
-   * referrer (the contract pays none either).
+   * the price must be `k x entry_price().amount` and the one the player confirmed. The payer's own address as the
+   * referrer is refused (`SelfReferralError`): the contract would not pay it.
    */
   async purchase(request: PurchaseRequest): Promise<WriteResult & { gameId: number }> {
     let result: WriteResult;
@@ -394,8 +402,12 @@ export class EconomyWriter {
   }
 }
 
-/** The referrer to send: "0x0" for none or oneself; a malformed one is a `WriteError`, never a raw parse error. */
-function referrerOf(referrer: string | null, self: string): string {
+/**
+ * The referrer to send: "0x0" for none (null or the zero address). Since D-25 (E) a referrer is any non-zero address other
+ * than the payer, with no registration: the payer's own address is refused with `SelfReferralError`, and nothing is sent.
+ * A malformed one is a `WriteError`, never a raw parse error.
+ */
+export function referrerOf(referrer: string | null, self: string): string {
   if (!referrer) return "0x0";
   let value: bigint;
   try {
@@ -404,7 +416,9 @@ function referrerOf(referrer: string | null, self: string): string {
     throw new WriteError(`Not a referrer address: ${referrer}`);
   }
   if (value < 0n || value >= ADDRESS_BOUND) throw new WriteError(`Not a referrer address: ${referrer}`);
-  return value === 0n || sameAddress(value, self) ? "0x0" : toHex(value);
+  if (value === 0n) return "0x0";
+  if (sameAddress(value, self)) throw new SelfReferralError();
+  return toHex(value);
 }
 
 function message(error: unknown): string {

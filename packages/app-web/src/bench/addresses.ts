@@ -5,7 +5,6 @@
  * values, no dependency: safe to load from the browser bundle and from the driver.
  */
 export const BENCH_ADDRESSES = {
-  VITE_ACCOUNT_ADDRESS: "0x1a",
   VITE_DAILY_ADDRESS: "0x2a",
   VITE_TOKEN_ADDRESS: "0x4a",
   VITE_PLAYER_ADDRESS: "0x5a",

@@ -25,7 +25,7 @@ function setup(options?: MockOptions) {
   let id = 0;
   const rpc = (method: string, params: unknown) => mock.rpc({ id: ++id, method, params }) as any;
   /** `starknet_call` of a view, decoded with the ABI of its contract. */
-  const view = (contract: "Daily" | "Account" | "Token", to: bigint, name: string, args: Array<string | number | bigint | boolean> = []) => {
+  const view = (contract: "Daily" | "Token", to: bigint, name: string, args: Array<string | number | bigint | boolean> = []) => {
     const out = rpc("starknet_call", {
       request: { contract_address: hex(to), entry_point_selector: selector(name), calldata: codecs[contract].encodeCall(name, args) },
       block_id: "latest",
@@ -53,7 +53,8 @@ function setup(options?: MockOptions) {
 
 describe("addresses", () => {
   it("are the ones of the page, one source", () => {
-    expect(BENCH.Account).toBe(BigInt(BENCH_ADDRESSES.VITE_ACCOUNT_ADDRESS));
+    // D-25 (E): no Account: the bench reads no player registration.
+    expect(BENCH).not.toHaveProperty("Account");
     expect(BENCH.Daily).toBe(BigInt(BENCH_ADDRESSES.VITE_DAILY_ADDRESS));
     expect(BENCH.Token).toBe(BigInt(BENCH_ADDRESSES.VITE_TOKEN_ADDRESS));
     expect(BENCH.player).toBe(BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS));
@@ -94,7 +95,6 @@ describe("views, decoded with the real ABIs", () => {
     const price = daily("entry_price");
     expect(BigInt(price.token)).toBe(BENCH.Token);
     expect(BigInt(price.amount)).toBeGreaterThan(0n);
-    expect(BigInt(view("Account", BENCH.Account, "player", [BENCH.player]).address ?? BENCH.player)).toBe(BENCH.player);
     expect(BigInt(view("Token", BENCH.Token, "balance_of", [BENCH.player]))).toBeGreaterThan(0n);
   });
 

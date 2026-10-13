@@ -29,6 +29,7 @@ import {
   createEconomyClient,
   expiresAt,
   resolveEconomyDeployment,
+  SelfReferralError,
   settlesAfter,
   type EconomyClient,
   type EconomyDeploymentFile,
@@ -236,26 +237,25 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(head.data.fromBlock).toBe(client.deployment.deployedBlock);
     expect(BigInt(head.data.contracts.daily)).toBe(BigInt(client.deployment.addresses.Daily));
     expect(BigInt(head.data.contracts.setup)).toBe(BigInt(client.deployment.addresses.Setup));
-    expect(BigInt(head.data.contracts.account)).toBe(BigInt(client.deployment.addresses.Account));
+    // D-25 (E): no Account in the deployment nor in the indexer's sources.
+    expect(head.data.contracts).not.toHaveProperty("account");
     pass("deployment, node and indexer agree", `chain ${head.data.chainId}, from_block ${head.data.fromBlock}, indexer head ${head.head.number}`);
   });
 
-  test("creates three players", async () => {
+  // D-25 (E): no registration. Three fresh wallets take the faucet's USDC and nothing else before they buy and play.
+  test("three wallets take the faucet's USDC, with no registration", async () => {
     const hashes: string[] = [];
     for (const p of players) {
-      expect(await client.player(p.address)).toBeNull();
       expect(await usdc(p.address)).toBe(0n);
-      const result = await p.writer.createPlayer(p.name, { mintTestToken: true });
-      expect(result.events.map((e) => e.name)).toEqual(["PlayerCreated"]);
-      // The faucet is MockUSDC.mint(self, N): the entry token, not the old Token.
+      const result = await p.writer.mint();
+      // The faucet mints the entry token (USDC), not the old Token.
       expect(await usdc(p.address)).toBe(FAUCET_USDC_AMOUNT);
       expect(await client.balance(p.address)).toBe(FAUCET_USDC_AMOUNT);
-      expect((await client.player(p.address))?.name).toBe(p.name);
       hashes.push(`${p.name} ${short(result.transactionHash)}`);
     }
     price = (await client.views.entryPrice()).amount;
     expect(price).toBeGreaterThan(0n);
-    pass("faucet: MockUSDC.mint(self, N) through createPlayer", `${FAUCET_USDC_AMOUNT} base units each; ${hashes.join(", ")}`);
+    pass("faucet: mint(self, N), no registration", `${FAUCET_USDC_AMOUNT} base units each; ${hashes.join(", ")}`);
   }, 60_000);
 
   test("claims the tutorial on Setup (D-21): task 10 once, then nothing", async () => {
@@ -272,6 +272,10 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   test("buys three Daily games with stake k and a referrer, and the price, burn, referral and margin match the balances", async () => {
     dayId = await client.views.currentDay();
     const [alice, bob, carol] = players;
+    // D-25 (E): a referrer is any non-zero address other than the payer. The payer's own is refused here, nothing sent.
+    const self = await alice.econ.purchase({ stake: 1, confirmedPrice: price, confirmedMinOut: 1n, referrer: alice.address }).catch((e: unknown) => e);
+    expect(self).toBeInstanceOf(SelfReferralError);
+    expect(await usdc(alice.address)).toBe(FAUCET_USDC_AMOUNT);
     const plan: Array<[Player, number, Player | null]> = [[alice, 3, bob], [bob, 2, null], [carol, 1, alice]];
     const vaultAddress = economy.deployment.addresses.Vault;
     const evidence: string[] = [];
@@ -385,7 +389,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(await client.views.currentDay()).toBe(dayId);
     const detail = await indexer.tournament(dayId);
     expect(detail.data).toMatchObject({ id: dayId, startTime: dayId * DAY, endTime: (dayId + 1) * DAY, gamesSpawned: players.length, gamesFinished: 3, players: 3 });
-    pass("indexer vs views, open day", `leaderboard ${board.data.entries.map((e) => `#${e.rank} ${e.name} ${e.bestScore}`).join(", ")}; behind ${board.behind}`);
+    pass("indexer vs views, open day", `leaderboard ${board.data.entries.map((e) => `#${e.rank} ${short(e.playerId)} ${e.bestScore}`).join(", ")}; behind ${board.behind}`);
   }, 60_000);
 
   test("ends the day with devnet time travel", async () => {
@@ -409,7 +413,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]);
     expect(board.data.entries.map((e) => e.bestScore)).toEqual(ranked.map(([, score]) => score));
     expect(board.data.entries.map((e) => e.rank)).toEqual(board.data.entries.map((_, i) => i + 1));
-    pass("indexer leaderboard, closed day", board.data.entries.map((e) => `#${e.rank} ${e.name} ${e.bestScore}`).join(", "));
+    pass("indexer leaderboard, closed day", board.data.entries.map((e) => `#${e.rank} ${short(e.playerId)} ${e.bestScore}`).join(", "));
   }, 60_000);
 
   test("the indexer's players and games match the views and the events", async () => {
@@ -417,7 +421,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     const lines: string[] = [];
     for (const p of players) {
       const profile = await indexer.player(p.address);
-      expect(profile.data.player?.name).toBe(p.name);
+      // Known from the first event that names the address (its purchase), with no name (D-25 (E)).
+      expect(profile.data.player?.playerId).toBe(indexerPlayerId(p.address));
       expect(profile.data.stats).toMatchObject({ dailyGames: 1, dailyFinished: 1, bestScore: scores.get(p.name) });
       const row = await indexer.playerTournament(p.address, dayId);
       expect(row.data).not.toBeNull();

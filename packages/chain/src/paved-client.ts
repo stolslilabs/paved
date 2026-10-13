@@ -1,4 +1,4 @@
-import { RpcProvider, shortString } from "starknet";
+import { RpcProvider } from "starknet";
 import { createCodecs, type Codecs } from "./abis";
 import type { Deployment } from "./deployment";
 import { EventReader, type EventProvider } from "./events";
@@ -6,12 +6,6 @@ import { RpcGameViews, ViewError, toViewError, type CallProvider, type GameViews
 import { PavedWriter, type ReceiptProvider, type WriteAccount } from "./writer";
 
 export type PavedRpc = CallProvider & EventProvider & ReceiptProvider;
-
-export interface PlayerRecord {
-  id: string;
-  name: string;
-  master: string;
-}
 
 /** Reads and writes of the native contracts for one deployment. */
 export class PavedClient {
@@ -26,13 +20,6 @@ export class PavedClient {
   ) {
     this.views = views ?? new RpcGameViews(provider, deployment, codecs);
     this.events = new EventReader(provider, deployment, codecs);
-  }
-
-  /** The player registered for an address, or null when it has not called `Account.create`. */
-  async player(address: string): Promise<PlayerRecord | null> {
-    const raw = (await this.read("Account", "player", [address])) as { id: string; name: string; master: string };
-    if (BigInt(raw.name) === 0n) return null;
-    return { id: raw.id, name: shortString.decodeShortString(raw.name), master: raw.master };
   }
 
   /** Balance of the entry token (USDC since E3), in its base unit: the token `Daily.entry_price` names. */
@@ -52,7 +39,7 @@ export class PavedClient {
     });
   }
 
-  private async read(contract: "Account" | "Token", entrypoint: string, args: string[], at?: string): Promise<unknown> {
+  private async read(contract: "Token", entrypoint: string, args: string[], at?: string): Promise<unknown> {
     const contractAddress = at ?? this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
     const codec = this.codecs[contract];

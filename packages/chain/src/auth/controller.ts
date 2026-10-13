@@ -24,11 +24,10 @@ export interface ControllerConfig {
 /**
  * The client's writes, by contract: what `PavedWriter` sends outside devnet. `approve` is not
  * here: it is a session policy only on the entry token, with its spender and a cap (`controllerPolicies`). `MockUSDC.mint`
- * (the faucet, `PavedWriter.mint` and `createPlayer`'s `mintTestToken`) is left out too: it is a policy only where the
+ * (the faucet, `PavedWriter.mint`) is left out too: it is a policy only where the
  * deployment has a MockUSDC (Sepolia; `controllerPolicies`), never on mainnet.
  */
 export const CONTROLLER_ENTRY_POINTS = {
-  Account: ["create"],
   Daily: ["spawn", "build", "discard", "surrender"],
   // The tutorial claim (D-21): a policy only where the deployment has a Setup (`controllerPolicies`).
   Setup: ["claim_tutorial"],
@@ -102,6 +101,8 @@ export interface ControllerModule {
     probe(): Promise<WriteAccount | undefined>;
     connect(): Promise<WriteAccount | undefined>;
     disconnect(): Promise<void>;
+    /** The connected account's Cartridge username; undefined when none is connected. */
+    username(): Promise<string> | undefined;
   };
 }
 
@@ -114,6 +115,11 @@ export interface ControllerConnector {
   /** Opens the controller; rejects when the player closes it without connecting. */
   connect(): Promise<WriteAccount>;
   disconnect(): Promise<void>;
+  /**
+   * The connected player's Controller username (D-25 (E): names are off chain), or null when none is connected or it cannot
+   * be read. Only the connected player's: other players' names are not looked up (that would be a new external service).
+   */
+  username(): Promise<string | null>;
 }
 
 async function rpcChainId(rpc: string): Promise<string> {
@@ -194,6 +200,15 @@ export function createControllerConnector(
     },
     async disconnect() {
       if (controller) await (await controller).disconnect();
+    },
+    async username() {
+      if (!controller) return null;
+      try {
+        const name = await (await controller).username();
+        return name ? name : null;
+      } catch {
+        return null;
+      }
     },
   };
 }
