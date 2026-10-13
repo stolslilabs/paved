@@ -8,13 +8,16 @@ import type { ChainBoundary } from "../src/AppTree";
 import { ChainProviders } from "../src/components/WalletProvider";
 
 // W2a: the chain factories throw, and the off-chain routes must still work.
-const { built, boom, chainRoute } = vi.hoisted(() => {
+const { built, boom, chainRoute, probes } = vi.hoisted(() => {
   const built: string[] = [];
+  // `probe()` of the controller connector: it runs when the wallet provider is mounted with a controller network.
+  const probes = { count: 0 };
   // On a chain route the factories are the real ones; they are only watched.
   const chainRoute = { on: false };
   return {
     built,
     chainRoute,
+    probes,
     boom: (name: string, real?: (...args: unknown[]) => unknown) => (...args: unknown[]) => {
       built.push(name);
       if (chainRoute.on && real) return real(...args);
@@ -27,7 +30,13 @@ vi.mock("@paved/chain", async (importOriginal) => {
   return {
     ...actual,
     createPavedClient: boom("createPavedClient", actual.createPavedClient as never),
-    createControllerConnector: boom("createControllerConnector", actual.createControllerConnector as never),
+    createControllerConnector: boom("createControllerConnector", (() => ({
+      probe: async () => (probes.count++, undefined),
+      connect: async () => {
+        throw new Error("not used");
+      },
+      disconnect: async () => {},
+    })) as never),
     createIndexerClient: boom("createIndexerClient", actual.createIndexerClient as never),
   };
 });
@@ -50,14 +59,22 @@ vi.mock("../src/pages/Economy", () => ({ EconomyPage: () => <main>economy</main>
 
 beforeEach(() => {
   built.length = 0;
+  probes.count = 0;
   chainRoute.on = false;
   localStorage.clear();
 });
 afterEach(cleanup);
 
-/** A chain side on no deployment files: nothing configured, so a chain route builds no client but mounts its providers. */
+/**
+ * A chain side on a configured controller network (Sepolia with a complete deployment): on a chain route the wallet provider
+ * builds the paved client and the controller connector and runs its `probe()`, and the indexer client is built too.
+ */
+const CONTRACTS = { Account: { address: "0x1" }, Daily: { address: "0x2" }, Tutorial: { address: "0x3" }, Token: { address: "0x4" } };
+const FILES = { "x/sepolia.json": { default: { rpc_url: "http://sepolia/rpc", chain_id: "0x534e5f5345504f4c4941", contracts: CONTRACTS } } };
+const ENV = { VITE_NETWORK: "sepolia" };
+const ALL = ["createPavedClient", "createControllerConnector", "createIndexerClient"];
 const Chain: ChainBoundary = ({ children }) => (
-  <ChainProviders env={{}} files={{}}>
+  <ChainProviders env={ENV} files={FILES}>
     {children}
   </ChainProviders>
 );
@@ -77,13 +94,15 @@ describe("off-chain routes build no chain client (W2a)", () => {
     render(<AppTree Router={at("/tutorial")} Chain={Chain} />);
     expect(screen.getByRole("heading", { name: /Tutorial: step 1 of/ })).toBeTruthy();
     expect(built).toEqual([]);
-    expect(screen.queryByText(/Not connected to devnet/)).toBeNull(); // no connection banner off chain
+    expect(probes.count).toBe(0);
+    expect(screen.queryByText(/Read only/)).toBeNull(); // no connection banner off chain
   });
 
   it("/game?mode=training works with the chain factories throwing", () => {
     render(<AppTree Router={at("/game?mode=training")} Chain={Chain} />);
     expect(screen.getByTestId("status")).toBeTruthy();
     expect(built).toEqual([]);
+    expect(probes.count).toBe(0);
   });
 
   it("the Cartridge notice stays on an off-chain route", () => {
@@ -95,9 +114,10 @@ describe("off-chain routes build no chain client (W2a)", () => {
     chainRoute.on = true;
     render(<AppTree Router={at("/")} Chain={Chain} />);
     expect(screen.getByText("landing")).toBeTruthy();
-    // devnet with no deployment file: not configured, and the banner says so
-    expect(screen.getByText(/Not connected to devnet/)).toBeTruthy();
-    expect(built).toContain("createIndexerClient"); // the chain side is built here, and only here
+    expect(screen.getByText(/Read only: connect to play/)).toBeTruthy(); // the banner, with the controller's Connect
+    // the positive control: the same setup builds all three clients and probes here
+    for (const name of ALL) expect(built).toContain(name);
+    expect(probes.count).toBeGreaterThan(0);
   });
 
   it("leaving the Tutorial for a chain route mounts the providers then, and the banner shows", () => {
@@ -116,12 +136,14 @@ describe("off-chain routes build no chain client (W2a)", () => {
         Chain={Chain}
       />,
     );
-    expect(screen.queryByText(/Not connected to devnet/)).toBeNull();
+    expect(screen.queryByText(/Read only/)).toBeNull();
     expect(built).toEqual([]);
+    expect(probes.count).toBe(0);
     chainRoute.on = true;
     fireEvent.click(screen.getByText("go"));
     expect(screen.getByText("leaderboard")).toBeTruthy();
-    expect(screen.getByText(/Not connected to devnet/)).toBeTruthy();
-    expect(built).toContain("createIndexerClient");
+    expect(screen.getByText(/Read only: connect to play/)).toBeTruthy();
+    for (const name of ALL) expect(built).toContain(name);
+    expect(probes.count).toBeGreaterThan(0);
   });
 });
