@@ -47,9 +47,14 @@ It is taken stationary, as `sim.py`'s calibration takes it.
 **Two cases for the mean:**
 
 - **Held.** A lone selective buyer among normal buyers. The others hold the mean at 3,980.
-- **Fed.** The buyer's purchases enter the mean. At a share `s` of all purchases, the mean is `chain_mean` of
-  the population sample weighted `1 - s`, plus the buyer's bought scores weighted `s` (equal stakes). The note
-  shows `s` = 10 %, 50 % and 100 %. At 100 %, the buyer is the only buyer: zero traffic.
+- **Fed.** The buyer's purchases enter the mean. `s` is the buyer's share of the purchases, counted in
+  purchases. In the mean, each purchase weighs its stake, as on chain:
+  - the buyer stakes 10 on every deck it buys (1 or 10 in the skipping strategy below);
+  - the other buyers stake 3.41 on average, under `sim.py`'s base stake mix (`inverse`).
+  So at `s` = 10 %, the buyer holds about 25 % of the weight of the mean. The mean is `chain_mean` of the
+  population sample, weighted `(1 - s) x 3.41`, plus the buyer's scores, each weighted `s x stake / n`. The same
+  function gives the mean of both the threshold buyer and the skipping strategy. The note shows `s` = 10 %,
+  50 % and 100 %. At 100 %, the buyer is the only buyer: zero traffic.
 
 The edge is `E[h | bought] - 0.9`, and the ratio is `E[h | bought] / 0.9`. **Selection** is `E[h | bought]`
 minus the same bot's E[h] on every id, in the same mean case. It isolates what knowing the deck adds to what
@@ -72,9 +77,14 @@ the bot's skill alone earns.
 - **Why 410 is enough.**
   - At p90, the bought set is 42 decks. The 95 % interval on `E[h | bought]` (mean held) is ±0.10 around 2.59.
   - At p99, the bought set is 5 decks. The interval widens to [2.84, 3.25] and is reported as such.
-  - Every conclusion below holds at the ends of its intervals.
+  - Every conclusion below holds at the ends of its intervals, with one exception: at zero traffic, p99. There
+    the interval of the selection, [-0.53, +0.27], spans 0, so the 5 decks leave the sign undetermined. At zero
+    traffic, the conclusion "selection does not pay" holds from p50 to p95.
 - **Intervals.** A bootstrap: the 410 decks are resampled with replacement 2,000 times (fixed seed 23), and
   each threshold is recomputed on each resample. The intervals are the 2.5 and 97.5 percentiles.
+  - They are conditional on the P-46 calibration: the mean 3,980, `c` 1.222 and the population sample are held
+    fixed.
+  - So they leave out the uncertainty of the 50-deck calibration that sets `c`.
 - **The runs.** VPS, scarb 2.20.1 and snforge 0.64.0, under
   `RAYON_NUM_THREADS=1 prlimit --as=16106127360 -- /usr/bin/time -v snforge test --ignored test_sampler
   --max-n-steps 200000000 --max-threads 2`, one game per run, one run at a time.
@@ -115,23 +125,23 @@ are the same in every mean case:
 
 | Threshold | Mean | E[h \| bought] | Edge vs 0.9 | Ratio | Selection |
 |---|---:|---:|---:|---:|---:|
-| all ids | 4,133 | 1.393 [1.319, 1.460] | +0.493 [+0.419, +0.560] | 1.55 [1.47, 1.62] | 0 |
-| p50 | 4,265 | 1.957 [1.908, 2.002] | +1.057 [+1.008, +1.102] | 2.17 [2.12, 2.22] | +0.564 [+0.509, +0.618] |
-| p75 | 4,347 | 2.151 [2.094, 2.202] | +1.251 [+1.194, +1.302] | 2.39 [2.33, 2.45] | +0.758 [+0.692, +0.822] |
-| p90 | 4,427 | 2.332 [2.261, 2.402] | +1.432 [+1.361, +1.502] | 2.59 [2.51, 2.67] | +0.939 [+0.856, +1.020] |
-| p95 | 4,479 | 2.447 [2.350, 2.550] | +1.547 [+1.450, +1.650] | 2.72 [2.61, 2.83] | +1.054 [+0.944, +1.163] |
-| p99 | 4,601 | 2.706 [2.510, 2.786] | +1.806 [+1.610, +1.886] | 3.01 [2.79, 3.10] | +1.313 [+1.119, +1.409] |
+| all ids | 4,355 | 1.270 [1.207, 1.324] | +0.370 [+0.307, +0.424] | 1.41 [1.34, 1.47] | 0 |
+| p50 | 4,679 | 1.783 [1.749, 1.815] | +0.883 [+0.849, +0.915] | 1.98 [1.94, 2.02] | +0.514 [+0.465, +0.563] |
+| p75 | 4,881 | 1.916 [1.878, 1.949] | +1.016 [+0.978, +1.049] | 2.13 [2.09, 2.17] | +0.646 [+0.590, +0.701] |
+| p90 | 5,076 | 2.033 [1.988, 2.078] | +1.133 [+1.088, +1.178] | 2.26 [2.21, 2.31] | +0.763 [+0.696, +0.826] |
+| p95 | 5,205 | 2.106 [2.045, 2.169] | +1.206 [+1.145, +1.269] | 2.34 [2.27, 2.41] | +0.836 [+0.755, +0.913] |
+| p99 | 5,504 | 2.262 [2.145, 2.309] | +1.362 [+1.245, +1.409] | 2.51 [2.38, 2.57] | +0.992 [+0.871, +1.058] |
 
 **Mean fed by the buyer, at 50 % of the purchases.**
 
 | Threshold | Mean | E[h \| bought] | Edge vs 0.9 | Ratio | Selection |
 |---|---:|---:|---:|---:|---:|
-| all ids | 4,743 | 1.075 [1.028, 1.128] | +0.175 [+0.128, +0.228] | 1.19 [1.14, 1.25] | 0 |
-| p50 | 5,404 | 1.544 [1.479, 1.560] | +0.644 [+0.579, +0.660] | 1.72 [1.64, 1.73] | +0.470 [+0.418, +0.502] |
-| p75 | 5,815 | 1.608 [1.590, 1.624] | +0.708 [+0.690, +0.724] | 1.79 [1.77, 1.80] | +0.533 [+0.483, +0.577] |
-| p90 | 6,212 | 1.661 [1.641, 1.681] | +0.761 [+0.741, +0.781] | 1.85 [1.82, 1.87] | +0.587 [+0.533, +0.633] |
-| p95 | 6,474 | 1.693 [1.667, 1.720] | +0.793 [+0.767, +0.820] | 1.88 [1.85, 1.91] | +0.619 [+0.563, +0.668] |
-| p99 | 7,082 | 1.758 [1.710, 1.776] | +0.858 [+0.810, +0.876] | 1.95 [1.90, 1.97] | +0.683 [+0.617, +0.729] |
+| all ids | 5,118 | 0.924 [0.883, 0.960] | +0.024 [-0.017, +0.060] | 1.03 [0.98, 1.07] | 0 |
+| p50 | 6,103 | 1.039 [0.969, 1.096] | +0.139 [+0.069, +0.196] | 1.15 [1.08, 1.22] | +0.115 [+0.048, +0.174] |
+| p75 | 6,715 | 1.345 [1.194, 1.395] | +0.445 [+0.294, +0.495] | 1.49 [1.33, 1.55] | +0.421 [+0.276, +0.490] |
+| p90 | 7,307 | 1.412 [1.405, 1.420] | +0.512 [+0.505, +0.520] | 1.57 [1.56, 1.58] | +0.488 [+0.452, +0.530] |
+| p95 | 7,699 | 1.424 [1.414, 1.433] | +0.524 [+0.514, +0.533] | 1.58 [1.57, 1.59] | +0.500 [+0.463, +0.543] |
+| p99 | 8,605 | 1.447 [1.430, 1.453] | +0.547 [+0.530, +0.553] | 1.61 [1.59, 1.61] | +0.523 [+0.483, +0.562] |
 
 **Mean fed by the buyer, at 100 % of the purchases (the buyer alone).**
 
@@ -142,7 +152,7 @@ are the same in every mean case:
 | p75 | 7,649 | 0.574 [0.494, 0.654] | -0.326 [-0.406, -0.246] | 0.64 [0.55, 0.73] | -0.179 [-0.259, -0.084] |
 | p90 | 8,443 | 0.479 [0.330, 0.581] | -0.421 [-0.570, -0.319] | 0.53 [0.37, 0.65] | -0.273 [-0.425, -0.155] |
 | p95 | 8,968 | 0.452 [0.327, 0.695] | -0.448 [-0.573, -0.205] | 0.50 [0.36, 0.77] | -0.300 [-0.428, -0.039] |
-| p99 | 10,184 | 0.507 [0.215, 0.991] | -0.393 [-0.685, +0.091] | 0.56 [0.24, 1.10] | -0.245 [-0.533, +0.263] |
+| p99 | 10,184 | 0.507 [0.216, 0.994] | -0.393 [-0.684, +0.094] | 0.56 [0.24, 1.10] | -0.245 [-0.529, +0.266] |
 
 **The profit-maximising threshold (mean held).** Profit is in USDC per USDC paid, at stake 10. The value
 of `h` comes from `sim.py`'s constants: the 70 % burn, the 5 % pool fee on the way in and the way out, and
@@ -159,43 +169,57 @@ even at `h` 1.44, a score of 4,686.
 then takes every id: stake 10 at or above `t`, stake 1 below. The table gives USDC back per USDC paid
 (`selective.md`, last table):
 
-| Threshold | Buyer alone: mean | Return | Mean held: return |
-|---|---:|---:|---:|
-| all ids, stake 10 | 5,506 | 0.523 | 1.043 |
-| p50 | 6,588 | 0.471 | 1.377 |
-| p75 | 6,992 | 0.555 | 1.436 |
-| p90 | 6,915 | 0.596 | 1.371 |
-| p99 | 5,969 | 0.465 | 1.080 |
+| Threshold | Score t | Mean held | Fed 10 % | Fed 50 % | Buyer alone |
+|---|---:|---:|---:|---:|---:|
+| all ids, stake 10 | 1,518 | 1.043 (3,980) | 0.882 (4,355) | 0.642 (5,118) | 0.523 (5,506) |
+| p50 | 5,479 | 1.377 (3,980) | 1.239 (4,378) | 0.869 (5,592) | 0.471 (6,588) |
+| p75 | 6,668 | 1.436 (3,980) | 1.321 (4,269) | 0.986 (5,452) | 0.555 (6,992) |
+| p90 | 7,743 | 1.371 (3,980) | 1.294 (4,153) | 1.005 (5,037) | 0.596 (6,915) |
+| p95 | 8,143 | 1.265 (3,980) | 1.214 (4,099) | 0.972 (4,765) | 0.531 (6,599) |
+| p99 | 9,899 | 1.080 (3,980) | 1.048 (4,050) | 0.886 (4,468) | 0.465 (5,969) |
 
 ## 4. What it means
 
-**The baseline, first.** E[h] = 0.9 is the average over a population that is one quarter novice. The greedy
-bot is better than that population, so it earns 1.50 on any deck with no selection at all. That skill edge is
-the game working as designed, and a VRF does not change it. Knowing the deck adds the **selection** column on
-top of it.
+**The baseline, first.** E[h] = 0.9 is the average over the calibration population: 25 % greedy, 50 % noisy
+(mean 4,670) and 25 % novice (mean 1,405). The greedy bot plays better than that mix, so it earns more than 0.9
+on any deck with no selection at all:
+
+- On the 50 calibration decks of `scores.csv` (mean score 5,176), the blind bot's E[h] is 1.37.
+- On the 410 decks (mean score 5,506), it is 1.50.
+
+So about 0.13 of the 0.60 is the difference between the two samples: the 360 new decks score higher on
+average. The other 0.47 is skill. Either way, this edge is the game working as designed, and a VRF does not
+change it. Knowing the deck adds the **selection** column on top of it.
 
 **Normal traffic** (the buyer is a small share of the purchases; the mean is held or barely moved).
 
 - Buying only the decks at or above the bot's median adds +0.60 to `h` (2.10 against 1.50).
 - Buying the top 10 % adds +1.09 (2.59).
-- At 10 % of the traffic, the buyer's own scores raise the mean by 4 to 16 %, and these figures drop by
-  7 to 13 %. They stay large.
+- At 10 % of the purchases (about 25 % of the stake-weighted mean), the buyer's own scores raise the mean by
+  9 to 38 %. `E[h | bought]` then drops by 15 to 28 %, to 1.78 at p50 and 2.03 at p90. The selection is
+  +0.51 to +0.99.
 - The id is consumed by others quickly, so the buyer sees a fresh deck after every purchase by anyone else.
 - In money, mean held, at stake 10: buying every deck the bot scores at 4,688 or more returns +0.37 per USDC,
   against +0.04 for the same bot buying blind. Nothing reaches the cap of `h`.
 
-**Low traffic** (others buy rarely, the mean is mostly theirs).
+**Low traffic** (others buy rarely, so the buyer makes a large share of the purchases).
 
-- The buyer waits for someone else to take a bad id, or buys it at stake 1 to move on.
-- Skipping at stake 1 while the others still hold the mean returns 1.38 to 1.44 per USDC at the p50 to p75
-  thresholds, against 1.04 for blind stake-10 play.
-- Waiting costs only time, and the buyer's take is bounded by how many ids the others consume.
+- The buyer waits for someone else to take a bad id, or buys it at stake 1 to move on. The skipping table
+  gives the second.
+- At 10 % of the purchases, skipping at stake 1 returns 1.21 to 1.32 per USDC (p50 to p95), against 0.88 for
+  blind stake-10 play.
+- At 50 % of the purchases, it returns 0.87 to 1.01, against 0.64 blind. It still beats blind play, but it is
+  near break-even.
+- Mean held, 1.38 to 1.44 (p50 to p75) is the upper bound: the case where others hold the whole mean.
+- Waiting is not measured. Its take is bounded by how many ids the others consume.
 
 **Zero traffic** (the buyer is alone and feeds the whole mean).
 
-- Selection does not pay. The mean becomes the buyer's own average, so many of the decks it buys score below it.
-- E[h | bought] falls to 0.45 to 0.60, below the 0.75 of buying every id, and skipping at stake 1 returns
-  0.47 to 0.60 per USDC.
+- From p50 to p95, selection does not pay. The mean becomes the buyer's own average, so many of the decks it
+  buys score below it.
+  - E[h | bought] falls to 0.45 to 0.60, below the 0.75 of buying every id.
+  - Skipping at stake 1 returns 0.47 to 0.60 per USDC.
+- At p99 (5 decks) the sign is undetermined.
 - The edge exists only when other players hold the mean. It is taken from them through the curve, and from
   the house through a mint above 0.9 of the burn.
 

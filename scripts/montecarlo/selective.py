@@ -30,6 +30,8 @@ PERCENTILES = (0.0, 0.50, 0.75, 0.90, 0.95, 0.99)  # 0: every id, the bot withou
 SHARES = (0.1, 0.5, 1.0)  # the selective buyer's share of the purchases, when its scores feed the mean
 BOOTSTRAP = 2000
 STAKE = 10  # the selective buyer stakes the most on the decks it buys
+# The other buyers' mean stake, under sim.py's base stake mix ("inverse"): the chain mean weights a score by its stake
+POP_STAKE = sum(k * w for k, w in zip(sim.STAKES, sim.stake_weights("inverse")))
 
 
 def value_per_price(stake):
@@ -57,11 +59,12 @@ def threshold(sorted_scores, q):
     return sorted_scores[max(math.ceil(q * len(sorted_scores)) - 1, 0)]
 
 
-def fed_mean(population, bought, share):
-    """The chain mean when a share of the purchases are the buyer's (its bought scores, equally weighted)."""
+def fed_mean(population, buyer, share):
+    """The chain mean when a share of the purchases are the buyer's. `buyer` holds its (score, stake) purchases.
+    Each score weighs its stake, as on chain: the others' purchases weigh POP_STAKE each on average."""
     total = sum(w for _, w in population)
-    sample = [(s, w * (1 - share) / total) for s, w in population]
-    sample += [(s, share / len(bought)) for s in bought]
+    sample = [(s, w / total * (1 - share) * POP_STAKE) for s, w in population]
+    sample += [(s, share * k / len(buyer)) for s, k in buyer]
     return sim.chain_mean(sample, MIN_SCORE)
 
 
@@ -73,7 +76,7 @@ def stats(scores, q, population, mean0, slope):
     taken = len(bought) / len(ordered)
     out = {"t": t, "taken": taken}
     for case, share in [("held", 0.0)] + [(f"fed {s:g}", s) for s in SHARES]:
-        mean = mean0 if share == 0 else fed_mean(population, bought, share)
+        mean = mean0 if share == 0 else fed_mean(population, [(s, STAKE) for s in bought], share)
         hs = [sim.payout_factor(s / mean, SIGMA, slope, CAP) for s in bought]
         out[case] = (sum(hs) / len(hs), sum(1 for h in hs if h >= CAP) / len(hs), mean)
     return out
@@ -83,12 +86,11 @@ def label(q):
     return "all ids" if q == 0 else f"p{round(q * 100)}"
 
 
-def sized(scores, t, mean, slope):
+def sized(scores, t, share, population, mean0, slope):
     """USDC back per USDC paid by a buyer who takes every id, at stake 10 when the bot's score is at or above t
-    and at stake 1 otherwise; `mean` None: the mean is the buyer's own, weighted by stake as the contract does."""
+    and at stake 1 otherwise, holding `share` of the purchases (0: the mean held at mean0; 1: the buyer alone)."""
     stakes = [STAKE if s >= t else 1 for s in scores]
-    if mean is None:
-        mean = sim.chain_mean(list(zip(scores, stakes)), MIN_SCORE)
+    mean = mean0 if share == 0 else fed_mean(population, list(zip(scores, stakes)), share)
     paid = sum(sim.BASE_PRICE * k for k in stakes)
     back = sum(sim.BASE_PRICE * k * value_per_price(k) * sim.payout_factor(s / mean, SIGMA, slope, CAP)
                for s, k in zip(scores, stakes))
@@ -123,12 +125,20 @@ def main():
     print(f"Population 25 % greedy, 50 % noisy, 25 % novice: chain mean {mean0:,.0f}, slope c {slope:.3f}, "
           f"E[h] {e_h:.3f}, cap {CAP}; h reaches the cap at a score of {CAP / slope * mean0:,.0f}.")
     print()
+    print(f"The other buyers' mean stake (sim.py's stake mix): {POP_STAKE:.2f}; the selective buyer stakes {STAKE}. "
+          f"A share of the purchases is a share of their count; in the mean each weighs its stake.")
+    print()
     print("## The bot's decks")
     print()
     print(f"{n} distinct decks (days {min(decks)} to {max(decks)}, seed Poseidon(0, 1000 + day)), greedy bot. "
           f"Scores: mean {sum(scores) / n:,.0f}, min {ordered[0]:,}, max {ordered[-1]:,}; "
           + ", ".join(f"{label(q)} {threshold(ordered, q):,}" for q in PERCENTILES[1:]) + ".")
     base = [sim.payout_factor(s / mean0, SIGMA, slope, CAP) for s in scores]
+    calib = [decks[d] for d in sorted(days) if d in decks]
+    calib_h = [sim.payout_factor(s / mean0, SIGMA, slope, CAP) for s in calib]
+    print(f"\nThe bot buying blind, mean held: E[h] {sum(base) / n:.3f} on the {n} decks (mean score {sum(scores) / n:,.0f}), "
+          f"{sum(calib_h) / len(calib):.3f} on the {len(calib)} calibration decks of scores.csv "
+          f"(mean score {sum(calib) / len(calib):,.0f}).")
     print()
 
     # The point estimates and their bootstrap: decks resampled with replacement, thresholds recomputed
@@ -197,15 +207,18 @@ def main():
     print()
     print(f"## Skipping by buying at stake 1 (every id taken: stake {STAKE} at or above t, stake 1 below)")
     print()
-    print("USDC back per USDC paid; the buyer alone (its own mean) and among others (mean held).")
+    print("USDC back per USDC paid (the mean in brackets), at each share of the purchases held by the buyer.")
     print()
-    print("| Threshold | Score t | Buyer alone: mean | Return | Mean held: return |")
-    print("|---|---:|---:|---:|---:|")
+    print("| Threshold | Score t | Mean held | " + " | ".join(
+        "Buyer alone" if s == 1 else f"Fed {s:.0%}" for s in SHARES) + " |")
+    print("|---|---:|---:|" + "---:|" * len(SHARES))
     for q in PERCENTILES:
         t = threshold(ordered, q)
-        alone, mean = sized(scores, t, None, slope)
-        held, _ = sized(scores, t, mean0, slope)
-        print(f"| {label(q)} | {t:,} | {mean:,.0f} | {alone:.3f} | {held:.3f} |")
+        cells = []
+        for share in (0.0,) + SHARES:
+            ret, mean = sized(scores, t, share, population, mean0, slope)
+            cells.append(f"{ret:.3f} ({mean:,.0f})")
+        print(f"| {label(q)} | {t:,} | " + " | ".join(cells) + " |")
 
 
 if __name__ == "__main__":
