@@ -26,6 +26,7 @@ Planned client tasks, not started:
 | Task | When | Status |
 |---|---|---|
 | Wire the Cartridge controller (signing outside devnet; today a private key is taken on devnet only, P-10) | Before the first non-local deployment: the MVP and the tests run on local nodes (D-5), and a mainnet trial happens only at the owner's go | planned |
+| Calibration against competent play | Before mainnet: `c` and `rho` give E[h] below 1 for the best known bot buying blind (PM, 2026-10-13). E4 does it with Sepolia playtest data | planned |
 
 ## Tracks
 
