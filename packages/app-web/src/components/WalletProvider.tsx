@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { MAX_STAKE, PavedProvider, controllerPolicies, createControllerConnector, createPavedClient } from "@paved/chain";
+import { IndexerProvider, MAX_STAKE, PavedProvider, controllerPolicies, createControllerConnector, createPavedClient } from "@paved/chain";
 import type { ControllerConfig, PavedClient, WriteAccount } from "@paved/chain";
-import { resolvePlayerAccount, signerOf, type AppNetwork, type NetworkEnv, type Signer } from "../utils/network";
+import { resolveAppNetwork, resolvePlayerAccount, signerOf, type AppNetwork, type NetworkEnv, type Signer } from "../utils/network";
 
 type Connector = ReturnType<typeof createControllerConnector>;
 
@@ -135,5 +135,33 @@ export function WalletProvider({
         {children}
       </PavedProvider>
     </WalletContext.Provider>
+  );
+}
+
+/**
+ * The chain side of the app: resolves the network, then mounts the wallet, the paved client and the indexer client under
+ * it. Mounted only on the routes that read the chain (`AppTree`), so the off-chain pages (the Tutorial, Training) build no
+ * client, no controller connector and run no `probe()`. `children` gets `supportsMint` of the resolved network.
+ */
+export function ChainProviders({
+  env,
+  files,
+  createConnector,
+  children,
+}: {
+  env: NetworkEnv;
+  /** The deployments files, keyed by path (`import.meta.glob`), as `resolveAppNetwork` takes them. */
+  files: Record<string, unknown>;
+  createConnector?: (config: ControllerConfig) => Connector;
+  children: (supportsMint: boolean) => React.ReactNode;
+}) {
+  const network = useMemo(() => resolveAppNetwork(env, files), [env, files]);
+  useEffect(() => {
+    if (!network.deployment.configured) console.error(`Paved: not connected, ${network.deployment.missing.join(", ")} missing.`);
+  }, [network]);
+  return (
+    <WalletProvider env={env} network={network} createConnector={createConnector}>
+      <IndexerProvider client={network.indexer}>{children(network.supportsMint)}</IndexerProvider>
+    </WalletProvider>
   );
 }

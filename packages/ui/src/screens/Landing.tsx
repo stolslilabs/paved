@@ -80,7 +80,8 @@ export function LandingScreen({
         </Stack>
 
         {/* Game Modes */}
-        {hasPlayer && gameModes.length > 0 ? (
+        {/* The off-chain modes (Training, Tutorial) need no wallet, so the cards show for everyone; a Daily start keeps its own gate. */}
+        {gameModes.length > 0 ? (
           <Stack gap="$4">
             <Text
               fontSize="$6"

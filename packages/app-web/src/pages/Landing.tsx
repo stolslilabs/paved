@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { GameModeCardView, LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
+import { useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
-import { indexerPlayerId, usePaved, useRead } from "@paved/chain";
-import type { GameMode, GameView, PavedClient, PlayerGame } from "@paved/chain";
+import { indexerPlayerId, useIndexerRead, usePaved, useRead } from "@paved/chain";
+import type { GameMode, LeaderboardEntry, GameView, PavedClient, PlayerGame } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
 import { savedTrainingStatus } from "../training/use-training";
@@ -12,6 +12,7 @@ import { EconomyPurchase } from "../components/EconomyPurchase";
 import { useEconomy } from "../utils/economy-context";
 import { purchaseIntent } from "../utils/economy-start";
 import { referrerFromSearch } from "../utils/economy-view";
+import { playerLabel } from "../utils/indexer-view";
 import { canOfferCreate, entryFee, formatTimeRemaining, playerNameError, tokenLabel } from "../utils/landing-helpers";
 
 interface ModeInfo {
@@ -49,6 +50,41 @@ async function listGames(client: PavedClient, address: string): Promise<ListedGa
   const games = await client.events.playerGames(address);
   const shown = [...games.filter((g) => !g.over), ...games.filter((g) => g.over).slice(0, COMPLETED_SHOWN)];
   return Promise.all(shown.map(async (g) => ({ ...g, view: await client.views.game({ mode: g.mode, gameId: g.gameId }) })));
+}
+
+/** Rows of today's leaderboard shown on the Daily card. */
+export const TOP_SHOWN = 3;
+
+/**
+ * The top 3 of today on the Daily card, from the indexer. Nothing while it loads, when the indexer is not configured or
+ * fails (the card's other content stays, no error), and one line when nobody has finished a game today.
+ */
+export function DailyTop({ day }: { day: number | null | undefined }) {
+  const board = useIndexerRead(day === null || day === undefined ? null : (c) => c.leaderboard(day, { limit: TOP_SHOWN }), [day], { onVisible: true });
+  const entries: LeaderboardEntry[] = board.data?.data.entries.slice(0, TOP_SHOWN) ?? [];
+  if (!board.data) return null;
+  return (
+    <div data-testid="daily-top" style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
+      {entries.length === 0 ? (
+        <span role="status">No games finished today yet.</span>
+      ) : (
+        <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 2 }}>
+          {entries.map((e) => (
+            <li key={e.playerId}>
+              {`${e.rank}. `}
+              <Link to={`/player/${e.playerId}`} style={{ color: "#f5f5f5" }}>
+                {playerLabel(e.name, e.playerId)}
+              </Link>
+              {` - ${e.bestScore}`}
+            </li>
+          ))}
+        </ol>
+      )}
+      <Link to="/leaderboard" style={{ color: "#f59e0b" }}>
+        See the leaderboard
+      </Link>
+    </div>
+  );
 }
 
 export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }) {
@@ -131,7 +167,24 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
             ? "Unavailable"
             : "…";
 
-  const gameModes: GameModeCardProps[] = MODES.map((m) => ({
+  // Training is free and off chain: its card does not wait for a wallet, a player or any read. The saved game is replayed
+  // once per mount, not on every render.
+  const saved = useMemo(() => savedTrainingStatus(), []);
+  const training: GameModeCardProps = {
+    mode: "training",
+    title: "Training",
+    description: "Free, no wallet, no rewards",
+    tileCount: 38,
+    duration: "No limit",
+    entryFee: "Free",
+    free: true,
+    hasActiveGame: saved === "playing",
+    // A finished game is not resumed: the card opens its result.
+    actionLabel: saved === "over" ? "View result" : undefined,
+    onPress: () => navigate(buildGameRoute({ mode: "training" })),
+  };
+
+  const modeCards: GameModeCardProps[] = MODES.map((m) => ({
     mode: m.mode,
     title: m.title,
     description: `${m.tiles} tiles`,
@@ -142,8 +195,11 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     timeRemaining: m.mode === "daily" && dayEnd !== null ? formatTimeRemaining(dayEnd) : undefined,
     hasActiveGame: active.some((g) => g.mode === m.mode),
     // The Tutorial is a page of its own on the engine (U1): no dialog, no start.
+    extra: m.mode === "daily" ? <DailyTop day={day.data} /> : undefined,
     onPress: () => (m.mode === "tutorial" ? navigate("/tutorial") : setSelected(m.mode)),
   }));
+  // The Daily, then the off-chain modes: Training and the Tutorial are free for anyone, the Daily's start keeps its gate.
+  const gameModes: GameModeCardProps[] = [modeCards[0], training, ...modeCards.slice(1)];
 
   const toItem = (readonly: boolean) => (g: ListedGame): GameListItemProps => ({
     gameId: g.gameId,
@@ -173,28 +229,9 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   // A new Daily game is bought with the stake picker (E3: `Daily.spawn` takes USDC and a swap floor); this dialog only resumes one.
   const confirmAllowed = selected !== "daily" || active.some((g) => g.mode === "daily");
 
-  // Training is free and off chain: its card does not wait for a wallet, a player or any read.
-  const saved = savedTrainingStatus();
-  const training: GameModeCardProps = {
-    mode: "training",
-    title: "Training",
-    description: "Free, no wallet, no rewards",
-    tileCount: 38,
-    duration: "No limit",
-    entryFee: "Free",
-    free: true,
-    hasActiveGame: saved === "playing",
-    // A finished game is not resumed: the card opens its result.
-    actionLabel: saved === "over" ? "View result" : undefined,
-    onPress: () => navigate(buildGameRoute({ mode: "training" })),
-  };
-
   return (
     <>
       <style>{PANEL_MAX_HEIGHT_CSS}</style>
-      <section aria-label="Training" data-testid="training-card" style={{ maxWidth: 960, width: "100%", margin: "0 auto", padding: "16px 24px 0", boxSizing: "border-box" }}>
-        <GameModeCardView {...training} />
-      </section>
       <div className="landing-right-panel" style={{ position: "fixed", right: 16, top: 16, zIndex: 30, width: 320, overflowY: "auto" }}>
         <TokenPanel
           networkLabel={deployment.network}

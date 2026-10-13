@@ -863,7 +863,7 @@ function statements(db: DatabaseSync) {
          SELECT day_id, player_id, score, over_block, over_tx, over_idx,
            ROW_NUMBER() OVER (PARTITION BY day_id, player_id ORDER BY score DESC, over_block, over_tx, over_idx) AS pr
          FROM games
-         WHERE over = 1 AND day_id > 0 AND (day_id + 1) * ${DAY_SECONDS} > :prev AND (day_id + 1) * ${DAY_SECONDS} <= :time
+         WHERE over = 1 AND over_block < :block AND day_id > 0 AND (day_id + 1) * ${DAY_SECONDS} > :prev AND (day_id + 1) * ${DAY_SECONDS} <= :time
        ),
        ranked AS (
          SELECT day_id, player_id,

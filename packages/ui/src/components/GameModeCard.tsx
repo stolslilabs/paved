@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { styled } from "tamagui";
 import { Text, XStack, YStack } from "tamagui";
 import { Badge, BadgeText } from "./Badge";
@@ -19,6 +20,8 @@ export interface GameModeCardProps {
   free?: boolean;
   /** The button's label; "Resume" or "Play" by default. */
   actionLabel?: string;
+  /** Content under the stats (the Daily's top 3, with links). Pressing inside it does not press the card. */
+  extra?: ReactNode;
   onPress: () => void;
 }
 
@@ -73,6 +76,7 @@ export function GameModeCardView({
   hasActiveGame,
   free,
   actionLabel,
+  extra,
   onPress,
 }: GameModeCardProps) {
   const fee = free ? "Free" : entryFee;
@@ -110,6 +114,7 @@ export function GameModeCardView({
           ))}
         </Stack>
       ) : null}
+      {extra ? <div onClick={(e) => e.stopPropagation()}>{extra}</div> : null}
       <Button onPress={onPress}>
         <ButtonText>{actionLabel ?? (hasActiveGame ? "Resume" : "Play")}</ButtonText>
       </Button>
