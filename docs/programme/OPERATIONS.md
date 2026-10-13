@@ -232,6 +232,66 @@ part B's `sepolia.json` merges, or later.
 
 The same rules as phase 2 hold: the funded account by variable name only, nothing printed, from merged main.
 
+**Upgrading Sepolia to D-18 (characters leave the game; D-18c; the tool is rehearsed, the Sepolia run is part B).**
+D-18 (#324) changes the classes of `Daily`, `Tutorial`, `Account` (it embeds the `Built` event) and `Lobby`, and P-46
+sets the slope to 12,220 bps. The upgrade keeps every address and the playtest data. The tool is
+`scripts/deploy.sh sepolia --d18`, with the three variables of phase 2, from merged main; `--check-only` first runs every
+check below and prints what a run would send, sending nothing and writing nothing.
+
+1. **Order: after R-1's repoint.** The tool refuses unless the `repoint` key of `sepolia.json` records the repoint's
+   multicall and a new `MockRouter` that is `contracts.MockRouter`, and `Economy.router()` answers that address (an
+   `Economy` before E-9 has no `router()`). So D-18c part B runs right after R-1 part B, once the PM has given the word on
+   the indexer.
+2. Before anything is estimated or sent, the tool checks: the node's chain id is `SN_SEPOLIA` and the signer checks it
+   again (`SN_MAIN` is always refused); the deployer is deployed and is `owner()` of `Daily`, `Tutorial`, `Account` and
+   `Economy`; the classes of `Daily`, `Tutorial` and `Account` are those of `sepolia.json`, or the D-18 ones on a rerun;
+   the `Lobby` class `Daily` and `Tutorial` run is the file's or the D-18 one (no view reads it: the tool reads their
+   `lobby_class` storage, `sn_keccak("lobby_class")`, with `starknet_getStorageAt`); `Economy.config()` is read and
+   printed, and the new config is the same with `slope_bps` 12,220 (the initial mean is left to converge: no setter);
+   the deployer holds the smoke's 2 USDC or the faucet can still mint them; the deployer's STRK covers the estimates of
+   the declares still to send (the funding check of phase 2, on `Account`, `Daily`, `Tutorial` and `Lobby`).
+3. Declare the D-18 `Account`, `Daily`, `Tutorial` and `Lobby` classes (each skipped when declared).
+4. One multicall of the owner's account: `Daily.upgrade`, `Tutorial.upgrade`, `Account.upgrade`,
+   `Daily.set_lobby_class`, `Tutorial.set_lobby_class` (the D-18 `Lobby`), `Economy.configure` (the config read, slope
+   12,220), only the calls still missing. The classes before D-18 already have `set_lobby_class` (P-42), so the order
+   inside the multicall does not matter; it lands whole or not at all.
+5. The tool writes the new class hashes in `sepolia.json` (`contracts.<Daily|Tutorial|Account>.class_hash`,
+   `classes.Lobby`) and records the run under its `d18` key (the previous classes and config, each declare and the
+   multicall's hash, the smoke's), keeping every other field: addresses and `deployed_block` do not change.
+6. The smoke checks the three classes, the `Lobby` class of `Daily` and `Tutorial` (storage), the config (slope 12,220,
+   the rest unchanged), `owner()` on the five upgradable contracts, then one paid Daily spawn at stake 1, one D-18
+   `build(game_id, orientation, x, y)` next to the starter (the first of the 16 placements whose fee estimate the node
+   accepts, read-only), the four fields of `builder()`, and the surrender. Part B commits the file in a follow-up PR
+   with the run's output.
+
+The run resumes as the repoint does: each hash is recorded in `sepolia.json` as the signer sends it, a recorded
+transaction is awaited first (up to 300 s, `REPOINT_WAIT_S`), a send the signer finds `not landed` has its hash cleared,
+a view or receipt that fails stops the run before anything else is sent, and a rerun sends only what is left. A complete
+upgrade sends nothing and needs no funding margin. Rehearse it on a fresh starknet-devnet (seed 42): the 009bb3c state
+from that commit's own `scripts/deploy.sh sepolia --rehearse`, then the repoint
+(`scripts/deploy.sh sepolia --rehearse --repoint --deployment <file>`), then
+`scripts/deploy.sh sepolia --rehearse --d18 --deployment <file> [--check-only]`. D-18c's rehearsal (PR body) opened a
+paid Daily game and a Tutorial game with characters on open structures before the repoint, killed the tool after its
+declares, reran it to completion, reran it again with no transaction sent, finished both games under the D-18 classes,
+and showed the refusal before the repoint.
+
+**Open games.** A game open across the upgrade is scored under the D-18 rules from the upgrade on and keeps what it
+scored before (`src/tests/e2e/upgrade_d18.cairo`): every structure that closes after the upgrade scores once by the D-18
+formula, the characters left on the board are ignored, and no spot is blocked by one. **A downgrade after a D-18 move
+is unsupported for open games**: the D-18 classes no longer keep the characters' state (the first D-18 move writes the
+game's roles bits as 0, and a structure closes without returning its character), so the old classes would find it
+inconsistent.
+
+**Indexer and client.** The indexer reads from `sepolia.json` the addresses of `Daily`, `Tutorial`, `Account`, `Economy`
+and `Collection`, `deployed_block` and `chain_id`; its `deploymentHash` is over those five addresses, which D-18c does not
+change, so the indexer at 55a5969 or later takes the new file without a rebuild or a reindex. The one event whose layout
+D-18 changes is `Built` (no `role`, no `spot`), which it ignores, as it ignores `Discarded`, `Scored` and the events of
+the multicall (`Upgraded`, `LobbyClassSet`, `EconomyConfigured`). The client reads addresses only, but its `build` call
+changed with the ABI: from 7cb515f (#324) it sends `build(game_id, orientation, x, y)`, which the classes before D-18
+refuse, and before it the six-argument call, which the D-18 classes refuse. So the Sepolia client release switches with
+the upgrade: it is built from the commit where part B's `sepolia.json` merges, or later (it holds #324, the cleanup
+#325 and R-1 part B's `MockRouter`), and released right after part B.
+
 ## Checks that gate a merge
 
 - CI build
