@@ -60,7 +60,7 @@ const ONE_PAVED: u256 = 1_000_000_000_000_000_000;
 const USDC: u256 = 1_000_000;
 /// The day of the tests, and an hour into it.
 const DAY0: u64 = 20_000;
-const MEAN0: u64 = 3_353_000;
+const MEAN0: u64 = 3_980_000;
 /// The launch pool's rate after its 5 % fee (800,000 PAVED for 10,000 USDC, x 0.95), in base
 /// units per base unit x 1e18: what the deploy passes.
 const POOL_RATE: u256 = 76_000_000_000_000 * RATE_SCALE;
@@ -291,7 +291,7 @@ fn test_purchase_freezes_r_from_the_supply_after_the_burn() {
     let terms = s.economy.terms(1);
     assert_eq!(terms.player, PLAYER());
     assert_eq!((terms.day, terms.stake, terms.reference), (DAY0, 4, r));
-    assert_eq!((terms.sigma_bps, terms.slope_bps, terms.cap), (0, 18_130, 5));
+    assert_eq!((terms.sigma_bps, terms.slope_bps, terms.cap), (0, 12_220, 5));
     assert!(!terms.recorded && !terms.settled);
     // The event
     let event = Purchased {
@@ -621,7 +621,7 @@ fn test_settle_after_the_day_mints_once_to_the_player() {
     // The day's mean: (100 x prior + 2 x 6,000,000) / 102
     let mean: u64 = (100 * MEAN0 + 12_000_000) / 102;
     assert_eq!(s.economy.day(DAY0).mean, mean);
-    let reward: u128 = (r.into() * 18_130_u256 * 6_000_000 / (mean.into() * 10_000))
+    let reward: u128 = (r.into() * 12_220_u256 * 6_000_000 / (mean.into() * 10_000))
         .try_into()
         .unwrap();
     assert_eq!(minted, reward.into());
@@ -695,7 +695,7 @@ fn test_settle_at_the_end_of_the_next_day_passes() {
     start_cheat_block_timestamp_global((DAY0 + 2) * DAY);
     s.economy.settle(array![1].span());
     let mean = (100 * MEAN0 + 7_000_000) / 101;
-    let reward = r.into() * 18_130_u256 * 7_000_000 / (mean.into() * 10_000);
+    let reward = r.into() * 12_220_u256 * 7_000_000 / (mean.into() * 10_000);
     assert_eq!(s.paved.balance_of(PLAYER()), reward);
 }
 
@@ -711,14 +711,14 @@ fn test_days_can_close_out_of_order() {
     at(DAY0 + 3, 0);
     s.economy.settle(array![2].span());
     s.economy.settle(array![1].span());
-    // Day 1: (100 x 3,353,000 + 3 x 1,000,000) / 103; day 0: (100 x 3,353,000 + 2 x 6,000,000) /
+    // Day 1: (100 x 3,980,000 + 3 x 1,000,000) / 103; day 0: (100 x 3,980,000 + 2 x 6,000,000) /
     // 102
-    assert_eq!(s.economy.day(DAY0 + 1).mean, 3_284_466);
-    assert_eq!(s.economy.day(DAY0).mean, 3_404_901);
+    assert_eq!(s.economy.day(DAY0 + 1).mean, 3_893_203);
+    assert_eq!(s.economy.day(DAY0).mean, 4_019_607);
     // The EMA took day 1's average first, then day 0's
     let (ema, mean) = s.economy.ema();
     assert_eq!(ema, Ema { sum: 100 * MEAN0.into() + 3 * 1_000_000 + 2 * 6_000_000, weight: 105 });
-    assert_eq!(mean, 3_336_190);
+    assert_eq!(mean, 3_933_333);
 }
 
 #[test]
@@ -773,7 +773,7 @@ fn test_configure_applies_to_the_next_purchases_only() {
     assert_eq!(s.usdc.balance_of(s.vault), 600_000 + 200_000);
     // Game 1 keeps its curve, game 2 has the new one
     let first = s.economy.terms(1);
-    assert_eq!((first.sigma_bps, first.slope_bps, first.cap, first.reference), (0, 18_130, 5, r));
+    assert_eq!((first.sigma_bps, first.slope_bps, first.cap, first.reference), (0, 12_220, 5, r));
     let second = s.economy.terms(2);
     assert_eq!((second.sigma_bps, second.slope_bps, second.cap), (-3_000, 1_000, 1));
     // At a supply far above the new target, the factor is 0
@@ -957,7 +957,7 @@ fn test_quote_shows_the_split_and_the_curve() {
     assert_eq!(quote.min_out_hint, 7 * USDC * POOL_RATE * 99 / (100 * RATE_SCALE));
     // The pool's 800,000 PAVED count in the supply: 1,000,000, the target
     assert_eq!(quote.factor, 10_000);
-    assert_eq!((quote.mean, quote.threshold, quote.slope, quote.cap), (MEAN0, MEAN0, 18_130, 5));
+    assert_eq!((quote.mean, quote.threshold, quote.slope, quote.cap), (MEAN0, MEAN0, 12_220, 5));
 }
 
 // The router: what the swap paid, the rate's clamp, the quotes
@@ -1179,15 +1179,15 @@ fn games() -> Array<(u32, u64, u8, bool, u32)> {
 /// From the script (sim.py's formulas): (PAVED bought, R, payout), base units.
 fn expected() -> Array<(u256, u256, u256)> {
     array![
-        (106385850681859293184, 107461140317395435520, 231073754630391332864),
+        (106385850681859293184, 107461140317395435520, 134186324544322027520),
         (318985618797046267904, 328694945363810254848, 0),
-        (1061428156729374932992, 1169306916487651786752, 5846534582438258016256),
+        (1061428156729374932992, 1169306916487651786752, 4380327537683868418048),
         (529621023063031218176, 557223409921734868992, 0),
-        (211644360707862626304, 216358236464565485568, 400102311512568627200),
-        (422946200207570436096, 438180820709595611136, 1086506419453083648000),
-        (739057146347848859648, 788349466403804020736, 2932168806360728207360),
-        (105462621834060398592, 106199594480732110848, 0),
-        (632185385858679701504, 668541739044175216640, 0),
+        (211644360707862626304, 216358236464565485568, 0),
+        (422946200207570436096, 439044360395485216768, 648862198807568187392),
+        (739057146347848859648, 789901945041470357504, 1751090182915559260160),
+        (105462621834060398592, 106408708799799754752, 0),
+        (632185385858679701504, 669857309621146091520, 0),
     ]
 }
 
@@ -1262,8 +1262,8 @@ fn test_fixture_matches_sim() {
     println!("fixture: worst gap {} ppm", worst);
     // The day means and the EMA (sim: 4,215.689655, 4,387.025132; EMA after 4,366.567164); the
     // second day's mean is 1 milli-point under sim's, as its prior is the EMA rounded down
-    assert_eq!(s.economy.day(DAY0).mean, 4_215_689);
+    assert_eq!(s.economy.day(DAY0).mean, 4_893_103);
     assert_eq!(s.economy.day(DAY0 + 2).mean, 4_387_024);
     let (_, mean) = s.economy.ema();
-    assert_eq!(mean, 4_366_567);
+    assert_eq!(mean, 4_952_985);
 }

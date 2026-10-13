@@ -1462,10 +1462,11 @@ TEST_PAVED="$(python3 -I -c "print(1000 * $PAVED_UNIT)")"
 (( 1000 * ${#TEST_ACCOUNTS[@]} < 200000 )) ||
   die "${#TEST_ACCOUNTS[@]} predeployed accounts would take 1,000 PAVED each, the owner's whole 200,000 stake: use fewer than 200"
 STAKE_PAVED="$(python3 -I -c "print((200000 - 1000 * ${#TEST_ACCOUNTS[@]}) * $PAVED_UNIT)")"
-# Economy: the decided configuration (burn 7,000 bps, sigma 0, slope 18,130 bps, cap 5, target 1,000,000
-# PAVED), the initial mean (3,353 points x 1,000) and the launch rate after the pool's fee (economy.md section 5).
-CONFIG=(7000 0 18130 5 "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")")
-MEAN0=3353000
+# Economy: the decided configuration (burn 7,000 bps, sigma 0, slope 12,220 bps, cap 5, target 1,000,000
+# PAVED; P-46), the initial mean (3,980 points x 1,000) and the launch rate after the pool's fee (economy.md
+# section 5).
+CONFIG=(7000 0 12220 5 "$(python3 -I -c "print(1000000 * $PAVED_UNIT)")")
+MEAN0=3980000
 LAUNCH_RATE=76000000000000000000000000000000
 
 echo "== deploy"

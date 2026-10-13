@@ -1128,7 +1128,7 @@ purchases of the fixture, `sim.py`'s pool gives an `R` up to 230 ppm away from t
 
 **Fixture against `sim.py`** (`test_fixture_matches_sim`). The inputs:
 - the launch pool: 800,000 PAVED and 10,000 USDC, with the 1,000,000 initial supply;
-- the decided configuration, the initial mean 3,353, and the guard's launch rate after the fee (7.6e31);
+- the decided configuration, the initial mean 3,980, and the guard's launch rate after the fee (7.6e31);
 - two days of games, two days apart (P-34): the first is settled before the second's purchases, as `sim.py` does,
   and players keep their rewards (`sell = 0`).
 
@@ -1192,7 +1192,7 @@ text left the choice open, it is written here.
 - **Deploy.** `scripts/deploy.sh devnet` deploys `MockUSDC`, `Token` (the old mock, kept while CLIENT still reads
   it), `PavedToken(deployer, deployer)`, `MockRouter` seeded with 800,000 PAVED and 10,000 MockUSDC, `Vault` with
   the owner's 200,000 PAVED (devnet: 200,000 - 1,000 x N) staked, `Economy` (the router's pool key, `sqrt_ratio_limit` 0 since the mock ignores
-  it, the decided configuration, initial mean 3,353 points, launch rate 7.6e31), `set_minter(Economy)` (then
+  it, the decided configuration, initial mean 3,980 points, launch rate 7.6e31), `set_minter(Economy)` (then
   `minter() == Economy` and `admin() == 0` are checked), `Account`, `Daily` with MockUSDC as its token,
   `Tutorial`, `Economy.set_game(Daily)` and `Account.set_economy(Economy)`. It refuses `MockUSDC`, `MockRouter`
   and `Token` by name off devnet. The smoke buys a paid game at stake 1 with the client's `min_out` (99 % of

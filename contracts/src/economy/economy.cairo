@@ -66,9 +66,9 @@ pub struct Config {
     pub target: u128,
 }
 
-/// The decided configuration (P-31): 70 % burned, sigma 0, c 1.813, H 5, T 1,000,000 PAVED.
+/// The decided configuration (P-31, P-46): 70 % burned, sigma 0, c 1.222, H 5, T 1,000,000 PAVED.
 pub fn decided() -> Config {
-    Config { burn_bps: 7_000, sigma_bps: 0, slope_bps: 18_130, cap: 5, target: 1_000_000 * PAVED }
+    Config { burn_bps: 7_000, sigma_bps: 0, slope_bps: 12_220, cap: 5, target: 1_000_000 * PAVED }
 }
 
 /// Reverts unless every parameter is within the bounds of section 6.
