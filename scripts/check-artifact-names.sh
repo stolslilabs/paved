@@ -26,8 +26,11 @@
 # arrays and the functions repoint_* and d18_*) are listed. A name that exists at 06c024d and not on main is
 # accepted only if it is in PINNED_06C024D below AND the load is in those pinned places; the same name in the
 # fresh path (declare_class in the main sequence, the unflagged FUNDING_CLASSES) or anywhere else fails.
-# A declare_class or --contract-name argument must be a Name, or $var / ${var} resolved as above; any other
-# shape (`$(...)`, `${x:-y}`) fails instead of being skipped.
+# A declare_class or --contract-name argument must be a Name, a "Name", or $var / ${var} resolved as above;
+# any other non-empty argument (`$(...)`, `${x:-y}`, `name`) fails instead of being skipped. Only the guards
+# ((REPOINT)) and ((D18)), the flags those two modes set, make an array pinned; a one-line pinned function
+# closes its range on its own line. Strings and comments are removed from the Cairo sources before the mod
+# walk, so a brace inside a string cannot unbalance it.
 set -euo pipefail
 
 root="$(cd "${1:-$(dirname "${BASH_SOURCE[0]}")/..}" && pwd)"
@@ -49,7 +52,7 @@ def read(path):
 
 # The artifact names main builds: the `#[starknet::contract] mod <Name>` reachable from lib.cairo.
 built = set()
-MOD = re.compile(r"((?:#\[[^\]]*\]\s*)*)(?:pub\s+)?mod\s+(\w+)\s*([;{])")
+MOD = re.compile(r"((?:#\[[^\]]*\]\s*)*)(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*([;{])")
 
 def block_end(text, start):
     """The index after the `}` that closes the `{` at text[start]."""
@@ -64,7 +67,9 @@ def block_end(text, start):
     sys.exit("check-artifact-names.sh: unbalanced braces in contracts/src")
 
 def scan(text, directory, origin):
-    text = re.sub(r"//[^\n]*", "", text)
+    # Strings and comments out first, in one pass (the leftmost wins), so a brace or `//` inside a string, or an
+    # apostrophe in a comment, cannot unbalance block_end.
+    text = re.sub(r"\"(?:[^\"\\]|\\.)*\"|'[^']*'|//[^\n]*", "", text)
     position = 0
     while True:
         m = MOD.search(text, position)
@@ -105,13 +110,14 @@ arrays = {}  # array -> [(name, flagged)]: flagged when behind ((REPOINT)) / ((D
 for number, line in enumerate(lines, 1):
     m = re.match(r"\s*(\(\(\w+\)\)\s*&&\s*)?([A-Z_]+)=\(([^)]*)\)", line)
     if m and all(re.fullmatch(r"[A-Z]\w*", w) for w in m.group(3).split()):
-        arrays.setdefault(m.group(2), []).extend((w, bool(m.group(1))) for w in m.group(3).split())
+        flagged = bool(m.group(1)) and re.fullmatch(r"\(\((?:REPOINT|D18)\)\)\s*&&\s*", m.group(1)) is not None
+        arrays.setdefault(m.group(2), []).extend((w, flagged) for w in m.group(3).split())
 
 # The functions of the pinned modes: repoint_* and d18_* (from `name() {` to the `}` at column 0).
 pinned_lines = set()
 for number, line in enumerate(lines):
     if re.match(r"(?:repoint|d18)_\w+\(\)\s*\{", line):
-        end = next((j for j in range(number, len(lines)) if lines[j] == "}"), number)
+        end = number if re.search(r"\}\s*$", line) else next((j for j in range(number, len(lines)) if lines[j] == "}"), number)
         pinned_lines.update(range(number, end + 1))
 
 # Loops: header line, indent, end (the `done` at the same indent).
@@ -138,18 +144,19 @@ def resolve(var, number):
 body = next((n for n, l in enumerate(lines) if l.startswith("declare_class()")), None)
 body_end = next((j for j in range(body, len(lines)) if lines[j] == "}"), body) if body is not None else None
 
-ARG = re.compile(r"(?:declare_class|--contract-name)\s+(\"?\$[^\s;|&)]*|[A-Z]\w*)")
+ARG = re.compile(r"(?:declare_class|--contract-name)\s+([^\s;|&)]+)")
 for number, line in enumerate(lines):
     where = f"scripts/deploy.sh:{number + 1}"
     code = re.sub(r"\s#\s.*$", "", line) if re.match(r"\s*#", line) is None else ""
     in_pinned = number in pinned_lines
     for arg in ARG.findall(code):
-        if not arg.startswith(('"$', "$")):
-            add(arg, where, in_pinned)
+        literal_name = re.fullmatch(r'"?([A-Z]\w*)"?', arg)
+        if literal_name:
+            add(literal_name.group(1), where, in_pinned)
             continue
         m = re.fullmatch(r'"?\$\{?(\w+)\}?"?', arg)
         if m is None:
-            errors.append(f"{where}: the argument {arg} is not a Name, $var or ${{var}}: cannot be resolved")
+            errors.append(f"{where}: the argument {arg} is not a Name, a quoted Name, $var or ${{var}}: cannot be resolved")
             continue
         if body is not None and body <= number <= body_end:
             continue
