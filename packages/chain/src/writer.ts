@@ -3,7 +3,7 @@ import { FAUCET_USDC_AMOUNT, MOCK_USDC_ABI, type Codecs, type ContractName } fro
 import { AbiCodec as Codec, sameAddress, type AbiCodec, type DecodedEvent, type Encodable, type RawEvent } from "./codec";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
-import { gameContract, type GameKey, type GameMode } from "./views";
+import { gameContract, type GameKey } from "./views";
 
 export interface Call {
   contractAddress: string;
@@ -94,7 +94,7 @@ function feltOfName(name: string): string {
 }
 
 /**
- * The writes of the four contracts. Each one waits for its receipt and returns its decoded events.
+ * The writes of the game's contracts. Each one waits for its receipt and returns its decoded events.
  * Writes are serialised: while one is pending, another is refused (`WriteError`), so a double click
  * never sends two transactions from the account.
  */
@@ -137,26 +137,21 @@ export class PavedWriter {
   }
 
   /**
-   * Spawns a free Tutorial game. A Daily game is bought, not spawned here: `Daily.spawn(stake, referrer, min_out)` takes
-   * USDC and a swap floor (E3), which only `EconomyWriter.purchase` builds, after the player's confirm. Asked for a
-   * Daily game this sends nothing.
+   * The tutorial claim (D-21, P-49): one call to `Setup.claim_tutorial()`, which credits First Stone (task 10) to the
+   * caller. It is idempotent and unchecked on chain: a second call has no effect, no revert and no event, so the receipt
+   * cannot tell "claimed" from "already claimed". Without a Setup address (a deployment from before step D) nothing is sent.
    */
-  async spawn(mode: GameMode): Promise<WriteResult & { gameId: number }> {
-    if (mode === "daily") throw new WriteError("A Daily game is bought with the economy writer: nothing was sent");
-    const result = await this.send("Tutorial", [this.call("Tutorial", "spawn", [])]);
-    const spawned = result.events.find((e) => e.name === "GameSpawned");
-    if (!spawned) throw new WriteError("No GameSpawned event in the receipt", result.transactionHash);
-    return { ...result, gameId: Number(spawned.fields.gameId) };
+  claimTutorial(): Promise<WriteResult> {
+    if (!this.options.deployment.addresses.Setup) {
+      return Promise.reject(new WriteError("No Setup contract in this deployment: the tutorial cannot be claimed"));
+    }
+    return this.send("Setup", [this.call("Setup", "claim_tutorial", [])]);
   }
 
-  /** Places the tile in hand. Tutorial games take the move from their script: only the game id. */
+  /** Places the tile in hand. A Daily game is bought, not spawned here: `EconomyWriter.purchase` sends `Daily.spawn`. */
   build(key: GameKey, move: BuildMove): Promise<WriteResult> {
     const contract = gameContract(key.mode);
-    const args: Encodable[] =
-      key.mode === "tutorial"
-        ? [key.gameId]
-        : [key.gameId, move.orientation, move.x, move.y];
-    return this.send(contract, [this.call(contract, "build", args)]);
+    return this.send(contract, [this.call(contract, "build", [key.gameId, move.orientation, move.x, move.y])]);
   }
 
   discard(key: GameKey): Promise<WriteResult> {
@@ -211,7 +206,7 @@ export class PavedWriter {
    * Sends calls built by another client of this account (the economy's, `economy/writer.ts`) in the same
    * serialisation as this writer's own: one write at a time across both. `prepare` runs inside it, so the reads
    * that check an amount happen after any earlier write has landed; it returns the calls and where the receipt's
-   * events come from: one of the four contracts, or another contract's codec and address.
+   * events come from: one of the contracts of `ContractName`, or another contract's codec and address.
    */
   sendCalls(prepare: () => Promise<{ calls: Call[]; events: ContractName | { codec: AbiCodec; address: string } }>): Promise<WriteResult> {
     return this.serialised(async () => {

@@ -36,7 +36,6 @@ export {
   NftMetadataError,
   RpcCollectionViews,
   TOKEN_LIMIT,
-  TUTORIAL_TOKEN_OFFSET,
   collectionAddress,
   nftLabel,
   nftOf,

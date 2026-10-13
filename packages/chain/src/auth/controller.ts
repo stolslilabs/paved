@@ -30,7 +30,8 @@ export interface ControllerConfig {
 export const CONTROLLER_ENTRY_POINTS = {
   Account: ["create"],
   Daily: ["spawn", "build", "discard", "surrender"],
-  Tutorial: ["spawn", "build", "discard", "surrender"],
+  // The tutorial claim (D-21): a policy only where the deployment has a Setup (`controllerPolicies`).
+  Setup: ["claim_tutorial"],
 } as const;
 
 /**
@@ -38,7 +39,7 @@ export const CONTROLLER_ENTRY_POINTS = {
  * above 0), an approve to the Daily contract on that token (the one `Daily.entry_price` names: the
  * deployment's Token before E3, USDC after) up to the cap is signed in the session for a
  * purchase; above the cap, or on another token or spender, it prompts. Without
- * `approve`, every approve prompts. `MockUSDC.mint` is a policy when, and only when, the deployment resolves a MockUSDC
+ * `approve`, every approve prompts. `Setup.claim_tutorial` is a policy when the deployment has a Setup. `MockUSDC.mint` is a policy when, and only when, the deployment resolves a MockUSDC
  * (`deployment.mockUsdc`: Sepolia, where the player signs with the controller; never mainnet).
  */
 export function controllerPolicies(
@@ -47,9 +48,9 @@ export function controllerPolicies(
 ): ControllerPolicy[] {
   // No policy on an empty target: the deployment must be complete.
   if (!deployment.configured) throw new Error(`Not connected: ${deployment.missing.join(", ")} missing`);
-  const policies: ControllerPolicy[] = (Object.keys(CONTROLLER_ENTRY_POINTS) as Array<keyof typeof CONTROLLER_ENTRY_POINTS>).flatMap(
-    (contract) => CONTROLLER_ENTRY_POINTS[contract].map((method) => ({ target: deployment.addresses[contract], method })),
-  );
+  const policies: ControllerPolicy[] = (Object.keys(CONTROLLER_ENTRY_POINTS) as Array<keyof typeof CONTROLLER_ENTRY_POINTS>)
+    .filter((contract) => isAddress(deployment.addresses[contract]))
+    .flatMap((contract) => CONTROLLER_ENTRY_POINTS[contract].map((method) => ({ target: deployment.addresses[contract], method })));
   if (isAddress(deployment.mockUsdc)) {
     policies.push({ target: deployment.mockUsdc, method: "mint", description: "Test USDC faucet" });
   }

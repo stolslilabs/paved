@@ -17,11 +17,11 @@ import { FakeGameViews } from "../src/views";
 const deployment = resolveDeployment({
   network: "sepolia",
   // Sepolia has a MockUSDC (D-16, P-39): the faucet's `mint` is a session policy there.
-  env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
+  env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
 });
 const mainnet = resolveDeployment({
   network: "mainnet",
-  env: { rpcUrl: "http://m/rpc", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
+  env: { rpcUrl: "http://m/rpc", addresses: { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" }, mockUsdc: "0x14" },
 });
 const policies = controllerPolicies(deployment);
 /** The economy of the same deployment (E3): the Daily entry is paid in USDC. */
@@ -66,14 +66,11 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
     "faucet mint": () => writer.mint(),
     "create player with faucet": () => writer.createPlayer("ada", { mintTestToken: true }),
     "faucet on mainnet": () => mainnetWriter.mint(),
-    "daily spawn (sends nothing since E3)": () => writer.spawn("daily"),
-    "tutorial spawn": () => writer.spawn("tutorial"),
+    // The tutorial claim (D-21): `Setup.claim_tutorial()`, signed in the session where the deployment has a Setup.
+    "tutorial claim": () => writer.claimTutorial(),
     "daily build": () => writer.build({ mode: "daily", gameId: 1 }, move),
-    "tutorial build": () => writer.build({ mode: "tutorial", gameId: 1 }, move),
     "daily discard": () => writer.discard({ mode: "daily", gameId: 1 }),
-    "tutorial discard": () => writer.discard({ mode: "tutorial", gameId: 1 }),
     "daily surrender": () => writer.surrender({ mode: "daily", gameId: 1 }),
-    "tutorial surrender": () => writer.surrender({ mode: "tutorial", gameId: 1 }),
     "purchase, stake 1": () => econWriter.purchase({ stake: 1, confirmedPrice: priceOf(FAKE_UNIT, 1), confirmedMinOut: 1n, referrer: null }),
     "purchase, stake 10": () => econWriter.purchase({ stake: MAX_STAKE, confirmedPrice: priceOf(FAKE_UNIT, MAX_STAKE), confirmedMinOut: 1n, referrer: null }),
     settle: () => econWriter.settle([7]),
@@ -107,8 +104,8 @@ function inSession(call: Call, ps: ControllerPolicy[]): boolean {
 }
 
 const GAME_AND_PURCHASE = [
-  "create player", "tutorial spawn", "daily build", "tutorial build", "daily discard", "tutorial discard",
-  "daily surrender", "tutorial surrender", "purchase, stake 1", "purchase, stake 10",
+  "create player", "tutorial claim", "daily build", "daily discard", "daily surrender", "purchase, stake 1",
+  "purchase, stake 10",
 ];
 const PROMPTED = ["settle", "vault stake", "vault unstake", "vault claim"];
 
@@ -119,7 +116,7 @@ describe("controllerPolicies against what the writers send (E3)", () => {
       expect(sent[label].length, label).toBeGreaterThan(0);
       for (const call of sent[label]) expect(inSession(call, session), `${label}: ${call.entrypoint}`).toBe(true);
     }
-    expect(sent["daily spawn (sends nothing since E3)"]).toEqual([]);
+    expect(sent["tutorial claim"].map((c) => [BigInt(c.contractAddress), c.entrypoint, c.calldata])).toEqual([[3n, "claim_tutorial", []]]);
   });
 
   test("the policies hold exactly those calls and the faucet's mint, nothing else", async () => {
@@ -159,8 +156,11 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     expect(onMainnet.some((p) => BigInt(p.target) === BigInt("0x14"))).toBe(false);
     expect(toControllerSessionPolicies(onMainnet).contracts[getChecksumAddress("0x14")]).toBeUndefined();
     // A deployment with no MockUSDC at all (a Sepolia file without one) has none either.
-    const none = resolveDeployment({ network: "sepolia", env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" } } });
+    const none = resolveDeployment({ network: "sepolia", env: { rpcUrl: "http://s/rpc", addresses: { Account: "0x1", Daily: "0x2", Token: "0x4" } } });
     expect(controllerPolicies(none).map((p) => p.method)).not.toContain("mint");
+    // Nor a Setup (a deployment from before step D): it stays configured, with no claim policy on an empty target.
+    expect(none.configured).toBe(true);
+    expect(controllerPolicies(none).map((p) => p.method)).not.toContain("claim_tutorial");
   });
 
   test("the purchase approves USDC to Daily for stake x unit; at stake 10 that is exactly the cap", async () => {
@@ -222,7 +222,8 @@ describe("toControllerSessionPolicies", () => {
     const session = toControllerSessionPolicies(controllerPolicies(deployment, { approve: { token: "0x4", cap: 25n } }));
     const token = session.contracts[getChecksumAddress("0x4")];
     expect(token.methods).toEqual([{ entrypoint: "approve", spender: getChecksumAddress("0x2"), amount: "0x19" }]);
-    expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "build", "discard", "surrender"]);
+    expect(session.contracts[getChecksumAddress("0x2")].methods.map((m) => m.entrypoint)).toEqual(["spawn", "build", "discard", "surrender"]);
+    expect(session.contracts[getChecksumAddress("0x3")].methods.map((m) => m.entrypoint)).toEqual(["claim_tutorial"]);
   });
 
   test("refuses an approve without a spender or a cap", () => {

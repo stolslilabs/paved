@@ -13,7 +13,7 @@ import { WriteError, type WriteAccount } from "../src/writer";
 const codecs = createCodecs();
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://x", addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" } },
+  env: { rpcUrl: "http://x", addresses: { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" } },
 });
 const off = resolveDeployment({ network: "devnet" });
 
@@ -119,30 +119,43 @@ describe("writer", () => {
   });
 });
 
-describe("spawn after E3: a Daily game is bought, only the free Tutorial spawns here", () => {
+describe("the tutorial claim (D-21): one call to Setup.claim_tutorial()", () => {
   const rpc = {
     callContract: async () => [],
     getEvents: async () => ({ events: [] }),
     waitForTransaction: async () => ({
       execution_status: "SUCCEEDED",
-      events: [{ from_address: "0x3", keys: [hash.getSelectorFromName("GameSpawned"), "0x9", "0x5"], data: ["0x1", "0x0", "0x1", "0x5"] }],
+      events: [{ from_address: "0x3", keys: [hash.getSelectorFromName("AchievementProgressed"), "0x5", "0xa"], data: ["0x1"] }],
     }),
   } as unknown as PavedRpc;
 
-  test("a Daily spawn through the plain writer sends nothing: the paid spawn is the economy writer's", async () => {
+  test("sends `claim_tutorial()` alone, on Setup, and returns Setup's events of the receipt", async () => {
     const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
     const writer = new PavedClient(deployment, rpc, codecs, new FakeGameViews()).writer({ address: "0x5", execute });
-    await expect(writer.spawn("daily")).rejects.toThrow(/bought with the economy writer/);
+    const result = await writer.claimTutorial();
+    const calls = (execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>])[0];
+    expect(calls.map((c) => [c.contractAddress, c.entrypoint, c.calldata])).toEqual([["0x3", "claim_tutorial", []]]);
+    expect(result.events.map((e) => [e.name, e.fields])).toEqual([["AchievementProgressed", { playerId: "0x5", taskId: 10, count: 1 }]]);
+  });
+
+  test("a second claim is the same call, and a receipt with no event is a success (idempotent, no event)", async () => {
+    const execute = vi.fn(async () => ({ transaction_hash: "0x2" }));
+    const quiet = { ...rpc, waitForTransaction: async () => ({ execution_status: "SUCCEEDED", events: [] }) } as unknown as PavedRpc;
+    const writer = new PavedClient(deployment, quiet, codecs, new FakeGameViews()).writer({ address: "0x5", execute });
+    await expect(writer.claimTutorial()).resolves.toMatchObject({ transactionHash: "0x2", events: [] });
+  });
+
+  test("a deployment without Setup sends nothing", async () => {
+    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
+    const before = resolveDeployment({ network: "devnet", env: { rpcUrl: "http://x", addresses: { Account: "0x1", Daily: "0x2", Token: "0x4" } } });
+    const writer = new PavedClient(before, rpc, codecs, new FakeGameViews()).writer({ address: "0x5", execute });
+    await expect(writer.claimTutorial()).rejects.toThrow(/No Setup contract/);
     expect(execute).not.toHaveBeenCalled();
   });
 
-  test("a Tutorial spawn is the free `spawn()` alone: no approve, on the Tutorial", async () => {
-    const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
-    const writer = new PavedClient(deployment, rpc, codecs, new FakeGameViews()).writer({ address: "0x5", execute });
-    const result = await writer.spawn("tutorial");
-    expect(result.gameId).toBe(9);
-    const calls = (execute.mock.calls[0] as unknown as [Array<{ contractAddress: string; entrypoint: string; calldata: string[] }>])[0];
-    expect(calls.map((c) => [c.contractAddress, c.entrypoint, c.calldata])).toEqual([["0x3", "spawn", []]]);
+  test("the plain writer has no spawn: a Daily game is bought with the economy writer (E3)", () => {
+    const writer = new PavedClient(deployment, rpc, codecs, new FakeGameViews()).writer({ address: "0x5", execute: async () => ({ transaction_hash: "0x1" }) });
+    expect("spawn" in writer).toBe(false);
   });
 });
 

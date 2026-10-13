@@ -3,25 +3,26 @@ import type { Codecs, ContractName } from "./abis";
 import { AbiMismatchError, type Encodable } from "./codec";
 import type { Deployment } from "./deployment";
 
-/** The two game contracts. Game ids are counted per contract, so a game is (mode, id). */
-export type GameMode = "daily" | "tutorial";
+/**
+ * The game contract the client plays: Daily (Challenge, D-23). The on-chain Tutorial left the contracts (D-21): the
+ * tutorial is off chain (`/tutorial`). A game is still keyed (mode, id).
+ */
+export type GameMode = "daily";
 
 export interface GameKey {
   mode: GameMode;
   gameId: number;
 }
 
-/** `mode` codes of the contracts (`public-interface.md`); 2 was Weekly and is never given again. */
-export const MODE_CODE: Record<GameMode, number> = { daily: 1, tutorial: 3 };
+/** `mode` codes of the contracts (`public-interface.md`); 2 was Weekly and 3 the Tutorial, never given again. */
+export const MODE_CODE: Record<GameMode, number> = { daily: 1 };
 
 export function modeFromCode(code: number): GameMode | null {
-  if (code === 1) return "daily";
-  if (code === 3) return "tutorial";
-  return null;
+  return code === 1 ? "daily" : null;
 }
 
-export function gameContract(mode: GameMode): ContractName {
-  return mode === "daily" ? "Daily" : "Tutorial";
+export function gameContract(_mode: GameMode): ContractName {
+  return "Daily";
 }
 
 /** Field types and meanings: `docs/architecture/public-interface.md`. Felts are 0x-hex strings. */
