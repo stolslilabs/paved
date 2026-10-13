@@ -25,6 +25,7 @@ the end. Where the sections before it mention characters (`role`, `spot`, `chara
 - **Exception, D-18:** the promise above is broken once, by "Breaking change D-18" below. It is
   accepted for Sepolia because mainnet is not launched. The promise holds again from the D-18
   release on.
+- **Exception, D-20 (planned):** broken once more by "Breaking change D-20" below, for the same reason.
 
 A client that decodes by ABI (starknet.js, starknet.py) keeps working when fields are appended, as
 long as it reads the ABI of the deployed class.
@@ -400,3 +401,91 @@ What the multiplayer mode would add (each one decided with that mode, not by D-1
   player, or a new event. A new field appended to a struct is an addition; changing what `score` means would be a
   break.
 - The players of a game (`GameView.player_id` is one player) and whose turn it is: new views or appended fields.
+
+## Breaking change D-20
+
+D-20 and P-48 (`docs/programme/DECISIONS.md`): tournaments leave the code. The daily prize goes (sponsoring,
+claiming, reclaiming, the `tournament` view); the daily seed, the day id, the economy settlement and the daily
+leaderboard (served by the indexer) stay. **Not built yet**: the lists below are read from the ABIs on main
+(`contracts/abis/Daily.json`, `Tutorial.json`, `Lobby.json`, `Account.json`) and the code; part B regenerates them
+with `scripts/abis.sh`. The inventory and what becomes of the on-chain ranking are in `leaderboard.md`, "D-20:
+tournaments leave the code (planned)". D-20 ships to Sepolia in the same upgrade as D-19.
+
+**Stability promise.** D-20 is a stated exception, as D-18 was: a view, two entry points, a struct and three events
+leave the interface, which the promise above does not allow. It is accepted for the same reason (mainnet is not
+launched; Sepolia only). The promise holds again from the D-20 release on.
+
+### `Daily`: entry points and views
+
+| Item | Before (main) | After |
+|---|---|---|
+| `claim(tournament_id: u64, rank: u8)` (`IDaily`, `systems/daily.cairo:17`) | rank 1 to 3: the reward; rank 0: a sponsor's reclaim of a day nobody ranked in (P-37b) | **removed** |
+| `sponsor(amount: felt252)` (`IDaily`, `daily.cairo:18`) | adds to the current day's prize | **removed** |
+| `tournament(id: u64) -> TournamentView` (`ITournamentView`, `views.cairo:110`) | see "Views of `Daily` only" | **removed** |
+| `TournamentView` (struct, `views.cairo:72-88`) | `id` u64, `start_time` u64, `end_time` u64, `over` bool, `prize` u256, `top1_player_id` felt252, `top1_score` u32, `top1_claimed` bool, `top2_player_id` felt252, `top2_score` u32, `top2_claimed` bool, `top3_player_id` felt252, `top3_score` u32, `top3_claimed` bool | **removed** from the ABI with the view |
+| `current_tournament_id() -> u64` (`ITournamentView`, `views.cairo:111`) | `block_timestamp / 86400` | **unchanged** (proposed): the day id, ruling 2 |
+| `entry_price() -> PriceView` (`ITournamentView`, `views.cairo:112`) | | **unchanged** |
+| `spawn`, `discard`, `surrender`, `build`, `IDailyQuests`, `IGameView`, `IOwnable`, `upgrade`, `set_lobby_class` | | unchanged |
+
+The errors of the prize leave with it: `Tournament: not found`, `not over`, `already claimed`, `invalid player`,
+`nothing to claim`, `prize overflow`, `nothing to reclaim`, and `ERC20: refund failed` (`PayableComponent::refund`).
+`ERC20: pay failed` stays (`Lobby`'s purchase, `lobby.cairo:110`).
+
+### `Tutorial`
+
+No entry point or view changes (it never had `claim`, `sponsor` or `tournament`). Its ABI loses the events
+`Sponsored` and `Claimed`, which it declares through `paved::events::Event` and never emits. `Account`'s ABI loses
+them for the same reason.
+
+### `Lobby` (declared class, never deployed)
+
+| Item | Before (main) | After |
+|---|---|---|
+| `ILobby.claim(tournament_id: u64, rank: u8)` (`lobby.cairo:30`) | | **removed** |
+| `ILobby.sponsor(amount: felt252)` (`lobby.cairo:31`) | | **removed** |
+| event `Reclaimed` (`Lobby::Event`, `lobby.cairo:215`, `:218-227`) | | **removed** |
+| the other `ILobby` functions, `ILobbyClass` | | unchanged |
+
+A new `Lobby` class is declared and set on `Daily` and `Tutorial` with `set_lobby_class` (`LobbyClassSet` emitted).
+
+### Events
+
+| Event | Emitted by | Before (main) | After |
+|---|---|---|---|
+| `Sponsored` (`events.cairo:88-94`) | `Daily` | keys `tournament_id`; data `sponsor, amount` | **removed** from the ABIs of `Daily`, `Tutorial` and `Account`; a past event (below) |
+| `Claimed` (`events.cairo:96-103`) | `Daily` | keys `tournament_id`; data `player_id, rank, reward` | **removed**, as `Sponsored`; a past event |
+| `Reclaimed` (`lobby.cairo:218-227`) | `Daily`'s address (declared by `Lobby` only, so it is in `Lobby.json`, not in `Daily.json`) | keys `tournament_id, sponsor`; data `amount` | **removed** from `Lobby.json`; a past event |
+| `GameSpawned` | `Daily`, `Tutorial` | keys `game_id, player_id`; data `mode, tournament_id, start_time, price` | **unchanged**: layout, names and values |
+| `GameOver` | `Daily`, `Tutorial` | keys `game_id, player_id, tournament_id`; data `mode, score, start_time, end_time` | **unchanged**: layout, names and values |
+| `PlayerCreated`, `Built`, `Discarded`, `Scored`, `LobbyClassSet`, the quest and achievement events | | | unchanged |
+
+`Vault`'s own `Claimed { account, amount }` (`economy/vault.cairo:118`, the stakers' USDC) is another event of
+another contract and stays. Its selector is the same as `paved::events::Claimed`'s (the hash of the name): a reader
+tells them apart by the emitting address.
+
+### Past events: what an indexer replaying history must know
+
+Emitted before the D-20 upgrade, from `Daily`'s address only, and never after it. An indexer that replays history
+strictly (ruling 7) keeps knowing them and skips them. Their layouts, in felts (selector = `sn_keccak` of the name,
+`u256` as two felts, low then high):
+
+| Event | `keys` | `data` | Emitted by (main) |
+|---|---|---|---|
+| `Sponsored` | `[selector("Sponsored"), tournament_id: u64]` | `[sponsor: ContractAddress, amount: felt252]` | `Daily.sponsor` (`hostable.cairo:163-168`) |
+| `Claimed` | `[selector("Claimed"), tournament_id: u64]` | `[player_id: felt252, rank: u8, reward.low, reward.high]` | `Daily.claim`, rank 1 to 3 (`hostable.cairo:136-141`) |
+| `Reclaimed` | `[selector("Reclaimed"), tournament_id: u64, sponsor: ContractAddress]` | `[amount.low, amount.high]` | `Daily.claim`, rank 0 (`lobby.cairo:266`) |
+
+### The day id in `GameSpawned` and `GameOver`
+
+Both keep the day id, in the field they carry today, **`tournament_id: u64`**, with the same layout and the same
+values: the day id is `timestamp / 86400` (`TournamentImpl::compute_id`, which stays under another home).
+
+- `GameSpawned.tournament_id` (data, 2nd field): the day of the spawn for a Daily game, `0` for a Tutorial game
+  (`hostable.cairo:84-107`).
+- `GameOver.tournament_id` (3rd key): the day the game counted for, set when the game ends in the day it started;
+  `0` for a game that ended after its day and for every Tutorial game (`playable.cairo:36-52`, `events.cairo:105-117`).
+- `GameView.tournament_id` (16th field) and `current_tournament_id()` keep it too.
+
+The daily leaderboard groups on these keys (`indexer.md`, "What is derived") and keeps working unchanged. The
+field keeps its name: a rename to `day` would keep every selector and layout but break decoders by name, so it is not
+proposed (`leaderboard.md`, "Open for the PM").
