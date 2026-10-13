@@ -70,6 +70,8 @@ JSON, one game per entry. Every number that a `u32` or a `u8` holds is a JSON nu
   `daily_full_deck` (38 tiles, real deck), and `tutorial_full`. The 10 non-tutorial games are replayed by the
   contract and kept current; `tutorial_full` is exported once, before D-21 removes its deck, with `"source":
   "tutorial"`, and is not replayed by the contract afterwards (its deck lives in the client from then on).
+  **As built (D-21):** the tutorial game is no longer in CORE's fixture; CLIENT keeps it frozen, `tutorial_full`
+  (2,794) and its scripted placements, as a game-core fixture taken from 38f1c95.
 - **The differential games** (`contracts/src/tests/differential.cairo`): the gas scenarios a0, a, b (one board), c,
   d, e, f, `two_areas_of_one_tile_join_one_structure` and `wonder_ring`, each a Daily board with the plan written over
   the tile in hand (`forced: true`). Their tutorial board goes with D-21.
