@@ -14,8 +14,9 @@
 //! The deploy of the class of 07aab8a is emulated: snforge declares only this package's classes,
 //! so the game contract is deployed with the D-18 class, spawns the game (a spawn writes the same
 //! storage under both classes: no character exists yet), and is then given the frozen build of
-//! 07aab8a with `replace_bytecode` before any build. From there on, the moves before the upgrade
-//! run the code of 07aab8a, and the upgrade is the owner's `upgrade` of that class.
+//! 07aab8a by its owner's `upgrade`, before any build. From there on, the moves before the upgrade
+//! run the code of 07aab8a, and the upgrade to D-18 is the owner's `upgrade` of that class (two
+//! real `replace_class`, no cheat).
 //!
 //! The checks, after the upgrade: each build scores exactly what the oracle's walks give for it
 //! (`oracle::check::assert_move_scored`: nothing double-scores, no closed structure is left
@@ -40,18 +41,22 @@ use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use paved::types::spot::Spot;
 use paved::views::{BuilderView, IGameViewDispatcher, IGameViewDispatcherTrait};
+use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, get_class_hash,
-    interact_with_state, replace_bytecode, spy_events, start_cheat_caller_address,
-    stop_cheat_caller_address,
+    DeclareResultTrait, EventSpyAssertionsTrait, declare, get_class_hash, interact_with_state,
+    spy_events, start_cheat_caller_address,
 };
 use starknet::{ClassHash, ContractAddress};
 
-/// Gives `contract` the frozen class of 07aab8a; returns the class it had (the D-18 class).
+/// Gives `contract` the frozen class of 07aab8a, by its owner's `upgrade`; returns the class it
+/// had (the D-18 class).
 fn install_before_d18(contract: ContractAddress) -> ClassHash {
     let current = get_class_hash(contract);
     let frozen = *declare("DailyBeforeD18").unwrap().contract_class().class_hash;
-    replace_bytecode(contract, frozen).unwrap();
+    start_cheat_caller_address(contract, OWNER());
+    IUpgradeableDispatcher { contract_address: contract }.upgrade(frozen);
+    start_cheat_caller_address(contract, PLAYER());
+    assert_eq!(get_class_hash(contract), frozen);
     current
 }
 
