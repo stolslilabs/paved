@@ -1,8 +1,8 @@
 [
   {
     "type": "impl",
-    "name": "MockUSDCImpl",
-    "interface_name": "paved::mocks::usdc::IMockUSDC"
+    "name": "FaucetImpl",
+    "interface_name": "paved::systems::faucet::IFaucet"
   },
   {
     "type": "struct",
@@ -20,7 +20,7 @@
   },
   {
     "type": "interface",
-    "name": "paved::mocks::usdc::IMockUSDC",
+    "name": "paved::systems::faucet::IFaucet",
     "items": [
       {
         "type": "function",
@@ -362,7 +362,7 @@
   },
   {
     "type": "event",
-    "name": "paved::mocks::usdc::MockUSDC::Event",
+    "name": "paved::systems::faucet::Faucet::Event",
     "kind": "enum",
     "variants": [
       {

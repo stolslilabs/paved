@@ -2,7 +2,7 @@
   {
     "type": "impl",
     "name": "VaultImpl",
-    "interface_name": "paved::economy::vault::IVault"
+    "interface_name": "paved::systems::vault::IVault"
   },
   {
     "type": "struct",
@@ -20,7 +20,7 @@
   },
   {
     "type": "interface",
-    "name": "paved::economy::vault::IVault",
+    "name": "paved::systems::vault::IVault",
     "items": [
       {
         "type": "function",
@@ -151,7 +151,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::vault::Vault::Staked",
+    "name": "paved::systems::vault::Vault::Staked",
     "kind": "struct",
     "members": [
       {
@@ -173,7 +173,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::vault::Vault::Unstaked",
+    "name": "paved::systems::vault::Vault::Unstaked",
     "kind": "struct",
     "members": [
       {
@@ -195,7 +195,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::vault::Vault::Claimed",
+    "name": "paved::systems::vault::Vault::Claimed",
     "kind": "struct",
     "members": [
       {
@@ -212,7 +212,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::vault::Vault::Distributed",
+    "name": "paved::systems::vault::Vault::Distributed",
     "kind": "struct",
     "members": [
       {
@@ -234,27 +234,27 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::vault::Vault::Event",
+    "name": "paved::systems::vault::Vault::Event",
     "kind": "enum",
     "variants": [
       {
         "name": "Staked",
-        "type": "paved::economy::vault::Vault::Staked",
+        "type": "paved::systems::vault::Vault::Staked",
         "kind": "nested"
       },
       {
         "name": "Unstaked",
-        "type": "paved::economy::vault::Vault::Unstaked",
+        "type": "paved::systems::vault::Vault::Unstaked",
         "kind": "nested"
       },
       {
         "name": "Claimed",
-        "type": "paved::economy::vault::Vault::Claimed",
+        "type": "paved::systems::vault::Vault::Claimed",
         "kind": "nested"
       },
       {
         "name": "Distributed",
-        "type": "paved::economy::vault::Vault::Distributed",
+        "type": "paved::systems::vault::Vault::Distributed",
         "kind": "nested"
       }
     ]

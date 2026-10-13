@@ -2,7 +2,7 @@
   {
     "type": "impl",
     "name": "EconomyImpl",
-    "interface_name": "paved::economy::economy::IEconomy"
+    "interface_name": "paved::systems::economy::IEconomy"
   },
   {
     "type": "struct",
@@ -30,7 +30,7 @@
   },
   {
     "type": "struct",
-    "name": "paved::economy::economy::Config",
+    "name": "paved::systems::economy::Config",
     "members": [
       {
         "name": "burn_bps",
@@ -82,7 +82,7 @@
   },
   {
     "type": "struct",
-    "name": "paved::economy::economy::Quote",
+    "name": "paved::systems::economy::Quote",
     "members": [
       {
         "name": "price",
@@ -142,7 +142,7 @@
   },
   {
     "type": "struct",
-    "name": "paved::economy::economy::DayView",
+    "name": "paved::systems::economy::DayView",
     "members": [
       {
         "name": "prior",
@@ -168,7 +168,7 @@
   },
   {
     "type": "struct",
-    "name": "paved::economy::economy::TermsView",
+    "name": "paved::systems::economy::TermsView",
     "members": [
       {
         "name": "player",
@@ -240,7 +240,7 @@
   },
   {
     "type": "struct",
-    "name": "paved::economy::economy::Addresses",
+    "name": "paved::systems::economy::Addresses",
     "members": [
       {
         "name": "paved",
@@ -266,7 +266,7 @@
   },
   {
     "type": "interface",
-    "name": "paved::economy::economy::IEconomy",
+    "name": "paved::systems::economy::IEconomy",
     "items": [
       {
         "type": "function",
@@ -346,7 +346,7 @@
         "inputs": [
           {
             "name": "config",
-            "type": "paved::economy::economy::Config"
+            "type": "paved::systems::economy::Config"
           }
         ],
         "outputs": [],
@@ -403,7 +403,7 @@
         ],
         "outputs": [
           {
-            "type": "paved::economy::economy::Quote"
+            "type": "paved::systems::economy::Quote"
           }
         ],
         "state_mutability": "view"
@@ -435,7 +435,7 @@
         ],
         "outputs": [
           {
-            "type": "paved::economy::economy::DayView"
+            "type": "paved::systems::economy::DayView"
           }
         ],
         "state_mutability": "view"
@@ -451,7 +451,7 @@
         ],
         "outputs": [
           {
-            "type": "paved::economy::economy::TermsView"
+            "type": "paved::systems::economy::TermsView"
           }
         ],
         "state_mutability": "view"
@@ -462,7 +462,7 @@
         "inputs": [],
         "outputs": [
           {
-            "type": "paved::economy::economy::Config"
+            "type": "paved::systems::economy::Config"
           }
         ],
         "state_mutability": "view"
@@ -517,7 +517,7 @@
         "inputs": [],
         "outputs": [
           {
-            "type": "paved::economy::economy::Addresses"
+            "type": "paved::systems::economy::Addresses"
           }
         ],
         "state_mutability": "view"
@@ -633,7 +633,7 @@
       },
       {
         "name": "config",
-        "type": "paved::economy::economy::Config"
+        "type": "paved::systems::economy::Config"
       },
       {
         "name": "mean",
@@ -647,7 +647,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::economy::Economy::Purchased",
+    "name": "paved::systems::economy::Economy::Purchased",
     "kind": "struct",
     "members": [
       {
@@ -719,7 +719,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::economy::Economy::Recorded",
+    "name": "paved::systems::economy::Economy::Recorded",
     "kind": "struct",
     "members": [
       {
@@ -741,7 +741,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::economy::Economy::DayClosed",
+    "name": "paved::systems::economy::Economy::DayClosed",
     "kind": "struct",
     "members": [
       {
@@ -773,7 +773,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::economy::Economy::Settled",
+    "name": "paved::systems::economy::Economy::Settled",
     "kind": "struct",
     "members": [
       {
@@ -810,7 +810,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::economy::Economy::EconomyConfigured",
+    "name": "paved::systems::economy::Economy::EconomyConfigured",
     "kind": "struct",
     "members": [
       {
@@ -842,7 +842,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::economy::Economy::PoolSet",
+    "name": "paved::systems::economy::Economy::PoolSet",
     "kind": "struct",
     "members": [
       {
@@ -859,7 +859,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::economy::Economy::GameSet",
+    "name": "paved::systems::economy::Economy::GameSet",
     "kind": "struct",
     "members": [
       {
@@ -871,7 +871,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::economy::Economy::RouterSet",
+    "name": "paved::systems::economy::Economy::RouterSet",
     "kind": "struct",
     "members": [
       {
@@ -963,47 +963,47 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::economy::Economy::Event",
+    "name": "paved::systems::economy::Economy::Event",
     "kind": "enum",
     "variants": [
       {
         "name": "Purchased",
-        "type": "paved::economy::economy::Economy::Purchased",
+        "type": "paved::systems::economy::Economy::Purchased",
         "kind": "nested"
       },
       {
         "name": "Recorded",
-        "type": "paved::economy::economy::Economy::Recorded",
+        "type": "paved::systems::economy::Economy::Recorded",
         "kind": "nested"
       },
       {
         "name": "DayClosed",
-        "type": "paved::economy::economy::Economy::DayClosed",
+        "type": "paved::systems::economy::Economy::DayClosed",
         "kind": "nested"
       },
       {
         "name": "Settled",
-        "type": "paved::economy::economy::Economy::Settled",
+        "type": "paved::systems::economy::Economy::Settled",
         "kind": "nested"
       },
       {
         "name": "EconomyConfigured",
-        "type": "paved::economy::economy::Economy::EconomyConfigured",
+        "type": "paved::systems::economy::Economy::EconomyConfigured",
         "kind": "nested"
       },
       {
         "name": "PoolSet",
-        "type": "paved::economy::economy::Economy::PoolSet",
+        "type": "paved::systems::economy::Economy::PoolSet",
         "kind": "nested"
       },
       {
         "name": "GameSet",
-        "type": "paved::economy::economy::Economy::GameSet",
+        "type": "paved::systems::economy::Economy::GameSet",
         "kind": "nested"
       },
       {
         "name": "RouterSet",
-        "type": "paved::economy::economy::Economy::RouterSet",
+        "type": "paved::systems::economy::Economy::RouterSet",
         "kind": "nested"
       },
       {
