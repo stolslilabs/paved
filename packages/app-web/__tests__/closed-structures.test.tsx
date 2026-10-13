@@ -28,7 +28,7 @@ describe("ClosedStructures", () => {
     render(<ClosedStructures closures={[{ category: 2, size: 3, points: 6 }, { category: 1, size: 4, points: 12 }]} />);
     const region = screen.getByRole("status");
     expect(region.getAttribute("aria-live")).toBe("polite");
-    expect(region.style.display).toBe("flex");
+    expect(region.style.padding).toBe("6px 10px");
     expect([...region.querySelectorAll("span")].map((s) => s.textContent)).toEqual([
       "Road closed: size 3, +6 points",
       "Forest closed: size 4, +12 points",
@@ -44,7 +44,10 @@ describe("ClosedStructures", () => {
     const { rerender } = render(<ClosedStructures closures={[]} />);
     const region = screen.getByTestId("closures");
     expect(region.textContent).toBe("");
-    expect(region.style.display).toBe("none");
+    // Collapsed, not hidden: the region stays in the accessibility tree for the next closure.
+    expect(region.style.display).not.toBe("none");
+    expect(region.style.padding).toBe("0px");
+    expect(screen.getByRole("status")).toBe(region);
     rerender(<ClosedStructures closures={null} />);
     expect(screen.getByTestId("closures").textContent).toBe("");
   });

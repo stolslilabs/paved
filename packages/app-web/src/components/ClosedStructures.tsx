@@ -15,25 +15,26 @@ export function closureLine({ category, size, points }: Closure): string {
 }
 
 /**
- * What the last move closed, to sit next to the score. Not wired yet: it takes the session's
- * `lastScored` (PR 1, D-18) in the D-18 cleanup. The live region is always there, so that a screen
- * reader hears each new line; it is empty when the move closed nothing.
+ * What the last move closed, next to the score. The live region stays mounted and in the
+ * accessibility tree, so that a screen reader hears each new line; when the move closed nothing it
+ * is empty and collapsed (no padding, border or background).
  */
 export function ClosedStructures({ closures }: { closures: readonly Closure[] | null }) {
   const lines = closures ?? [];
+  const shown = lines.length > 0;
   return (
     <div
       role="status"
       aria-live="polite"
       data-testid="closures"
       style={{
-        display: lines.length > 0 ? "flex" : "none",
+        display: "flex",
         flexDirection: "column",
         gap: 2,
-        background: "rgba(0,0,0,0.75)",
-        border: "1px solid rgba(245,158,11,0.6)",
+        background: shown ? "rgba(0,0,0,0.75)" : "transparent",
+        border: shown ? "1px solid rgba(245,158,11,0.6)" : "none",
         borderRadius: 8,
-        padding: "6px 10px",
+        padding: shown ? "6px 10px" : 0,
         color: "#fde68a",
         fontSize: 13,
       }}

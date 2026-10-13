@@ -34,6 +34,10 @@ vi.mock("@paved/ui", async () => {
 
 afterEach(cleanup);
 
+const scored = (category: number, size: number, points: number, gameId = 4n) => ({
+  name: "Scored",
+  fields: { gameId, playerId: 0xabcn, category: BigInt(category), size: BigInt(size), points: BigInt(points) },
+});
 const built = { name: "Built", fields: { gameId: 4n, playerId: 0xabcn, tileId: 2n, plan: 7n, orientation: 1n, x: 0n, y: 0n } };
 
 async function confirmWith(events: unknown[]) {
@@ -41,8 +45,11 @@ async function confirmWith(events: unknown[]) {
   views.setGame(gameKey, fakeGame());
   const build = vi.fn(async () => ({ transactionHash: "0x1", events }));
   renderPage({ page: <GamePage />, path: "/game", search: "?mode=daily&id=4", views, writer: { build } });
-  fireEvent.click(await screen.findByText("Slot"));
+  const slot = await screen.findByText("Slot");
   const confirm = screen.getByText("Confirm move") as HTMLButtonElement;
+  // Nothing to confirm before a valid slot is picked.
+  expect(confirm.disabled).toBe(true);
+  fireEvent.click(slot);
   // No spot step (D-18): the move is confirm-able as soon as the tile is on a valid slot.
   await waitFor(() => expect(confirm.disabled).toBe(false));
   fireEvent.click(confirm);
@@ -54,5 +61,24 @@ describe("Confirming a move (D-18)", () => {
   it("sends the move once the tile is on a valid slot, with no spot step", async () => {
     const build = await confirmWith([built]);
     expect(build.mock.calls[0][0]).toEqual(gameKey);
+    expect(build.mock.calls[0][1]).toMatchObject({ role: 0, spot: 0 });
+  });
+});
+
+describe("Points on closing (D-18)", () => {
+  it("shows each structure the move closed, with its points", async () => {
+    await confirmWith([built, scored(2, 3, 6), scored(1, 4, 0)]);
+    await waitFor(() =>
+      expect([...screen.getByTestId("closures").querySelectorAll("span")].map((l) => l.textContent)).toEqual([
+        "Road closed: size 3, +6 points",
+        "Forest closed: size 4, 0 points",
+      ]),
+    );
+  });
+
+  it("shows nothing for a move that closes nothing, nor for another game's closures", async () => {
+    await confirmWith([built, scored(2, 3, 6, 5n)]);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByTestId("closures").textContent).toBe("");
   });
 });
