@@ -724,8 +724,8 @@ and the differential tests do:
   (or a test-only class whose `build` takes the owner). Cases: a clear majority; a tie of two and of three owners
   (no points, the event above); ruling 1 with the 7-node, 6-tile city ring and the stop's 5-node, 4-tile road loop, owned so that
   counting nodes and counting tiles give different winners; ruling 2 with a forest whose adjacent roads and cities
-  belong to another owner; ruling 3 with a wonder whose 8 neighbours give a majority and a tie (4 against 4 plus the
-  wonder's owner deciding); a zero owner read as the game's player.
+  belong to another owner; ruling 3 with a wonder whose own tile decides (4 against 4 among its neighbours) and a
+  three-way tie (3, 3, 3); a zero owner read as the game's player.
 - **The oracle**: `tests/oracle.cairo` gains a count of distinct tiles per owner from its walks (`GenericCount`,
   `ForestCount`, the 8 positions of `WonderCount`), and `oracle::check` compares it with the walker after every
   checked build, owners spread over two or three players by tile id.
