@@ -1,5 +1,4 @@
 import type { ConnectionStatus, PlayerRecord, PriceView, ReadState } from "@paved/chain";
-import type { TournamentView } from "@paved/chain";
 
 /**
  * "Create Account" is offered only once a read has answered that the address has no player: with
@@ -9,7 +8,7 @@ export function canOfferCreate(status: ConnectionStatus, player: Pick<ReadState<
   return status === "ready" && player.loaded && !player.loading && !player.error && player.data === null;
 }
 
-/** The label of the token Daily charges and its prize is paid in: USDC since E3 (PAVED is the reward, shown by the economy screens). */
+/** The label of the token Daily charges: USDC since E3 (PAVED is the reward, shown by the economy screens). */
 export const TOKEN_LABEL = "USDC";
 
 export function formatTimeRemaining(endTimeUnix: number, nowUnix = Math.floor(Date.now() / 1000)): string {
@@ -45,20 +44,6 @@ export function tokenLabel(value: bigint, decimals: number | null): string {
   return decimals === null ? "—" : `${formatTokenAmount(value, decimals)} ${TOKEN_LABEL}`;
 }
 
-/**
- * A decimal amount typed by the player as the token's base unit, or null when it is not a positive
- * amount with at most `decimals` fraction digits (or the decimals are unknown).
- */
-export function parseTokenAmount(text: string, decimals: number | null): bigint | null {
-  if (decimals === null) return null;
-  const m = /^(\d{1,40})(?:\.(\d{1,40}))?$/.exec(text.trim());
-  if (!m) return null;
-  const fraction = m[2] ?? "";
-  if (fraction.length > decimals) return null;
-  const amount = BigInt(m[1]) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, "0") || "0");
-  return amount > 0n ? amount : null;
-}
-
 /** A player name is 1 to 31 printable ASCII characters (a Cairo short string), not only spaces. */
 export function playerNameError(name: string): string | null {
   if (!/^[\x20-\x7e]{1,31}$/.test(name) || name.trim() === "") return "A name is 1 to 31 ASCII characters";
@@ -68,17 +53,6 @@ export function playerNameError(name: string): string | null {
 export function shortAddress(address: string): string {
   const hex = BigInt(address).toString(16);
   return hex.length <= 10 ? `0x${hex}` : `0x${hex.slice(0, 4)}…${hex.slice(-4)}`;
-}
-
-/** The top three of a tournament, empty places left out. Names wait for the indexer: the address stands in. */
-export function podium(t: TournamentView): { name: string; score: number }[] {
-  return [
-    [t.top1PlayerId, t.top1Score],
-    [t.top2PlayerId, t.top2Score],
-    [t.top3PlayerId, t.top3Score],
-  ]
-    .filter(([id]) => BigInt(id as string) !== 0n)
-    .map(([id, score]) => ({ name: shortAddress(id as string), score: score as number }));
 }
 
 /** What the Daily entry card can say: one state, used for the fee shown and for the confirm. */

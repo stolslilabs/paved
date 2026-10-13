@@ -30,7 +30,7 @@ const holdRequests = (match: RegExp) => {
 
 const board = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => {
   const views = new FakeGameViews();
-  views.currentTournament = FIXTURE_TOURNAMENT;
+  views.today = FIXTURE_TOURNAMENT;
   return renderPage({ page: <LeaderboardPage />, path: "/leaderboard", route: "/leaderboard/:tournamentId?", indexer, views, ...opts });
 };
 
@@ -42,7 +42,7 @@ describe("Leaderboard page", () => {
     expect(fixture.requests).toEqual([]);
   });
 
-  it("loading, then today's board with rank, name, best score, games and prize slots", async () => {
+  it("loading, then today's board with rank, name, best score and games", async () => {
     board();
     expect(screen.getByText("Loading leaderboard…")).toBeTruthy();
     await screen.findByText("Ada");
@@ -58,19 +58,18 @@ describe("Leaderboard page", () => {
     expect(screen.getByText("1–20 of 41")).toBeTruthy();
   });
 
-  it("one player holding several prize slots shows both, another shows one, another none; no amount anywhere", async () => {
+  it("D-20: no prize slots, no amount and no claim anywhere; one row per player", async () => {
     board();
     await screen.findByText("Ada");
-    expect(screen.getByText("1st and 3rd (2 slots)")).toBeTruthy();
-    expect(screen.getByText("2nd")).toBeTruthy();
-    const bo = screen.getByText("Bo").closest("tr")!;
-    expect(within(bo).getByText("–")).toBeTruthy();
+    expect(screen.queryByText("Prize slots")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/prize|slot/i);
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Rank", "Player", "Best score", "Games"]);
     // a player without a name shows a short id and links to their page
     const nameless = screen.getByText(/^0x000000…22ac$/);
     expect(nameless.getAttribute("href")).toMatch(/^\/player\/0x0{59}722ac$/);
     expect(screen.queryByText(/PAVED/)).toBeNull();
     expect(document.body.textContent).not.toMatch(/claim(?!s)/i);
-    expect(screen.getByText(/Prizes and claims are read from the contract/)).toBeTruthy();
+    expect(screen.getByText(/Ranked by player/)).toBeTruthy();
   });
 
   it("pages with limit and offset", async () => {
@@ -238,7 +237,7 @@ describe("Leaderboard page", () => {
 
   it("no day to show and the list of days failed: the failure with a Retry, not a loading text", async () => {
     const views = new FakeGameViews();
-    views.currentTournamentId = () => Promise.reject(new Error("rpc down"));
+    views.currentDay = () => Promise.reject(new Error("rpc down"));
     fixture.state.down = true;
     board({ views });
     expect(await screen.findByText(/the indexer cannot be reached/)).toBeTruthy();
@@ -250,7 +249,7 @@ describe("Leaderboard page", () => {
 
   it("no day to show and the list of days is empty: No tournament yet", async () => {
     const views = new FakeGameViews();
-    views.currentTournamentId = () => Promise.reject(new Error("rpc down"));
+    views.currentDay = () => Promise.reject(new Error("rpc down"));
     fixture.tournaments = [];
     board({ views });
     expect(await screen.findByText("No tournament yet")).toBeTruthy();
@@ -260,7 +259,7 @@ describe("Leaderboard page", () => {
 
   it("the node down: today is the newest day the indexer lists", async () => {
     const views = new FakeGameViews();
-    views.currentTournamentId = () => Promise.reject(new Error("rpc down"));
+    views.currentDay = () => Promise.reject(new Error("rpc down"));
     board({ views });
     await screen.findByText("Ada");
     expect(fixture.requests.some((r) => r.startsWith(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard`))).toBe(true);

@@ -16,7 +16,7 @@ export function fakeGame(playerId = PLAYER, over = false): FakeGame {
   return {
     game: {
       id: 4, playerId, mode: 1, seed: "0x1", score: 12, over, tileCount: 2, placedCount: 1,
-      discardedCount: 0, tileId: over ? 0 : 2, plan: 7, remainingCount: 36, deckSize: 38, startTime: 1, endTime: 0, tournamentId: 0,
+      discardedCount: 0, tileId: over ? 0 : 2, plan: 7, remainingCount: 36, deckSize: 38, startTime: 1, endTime: 0, dayId: 0,
     },
     tiles: [
       { id: 1, status: 1, plan: 4, orientation: 1, x: C, y: C },
@@ -39,9 +39,6 @@ export interface FakeWriter {
   surrender?: ReturnType<typeof vi.fn>;
   build?: ReturnType<typeof vi.fn>;
   createPlayer?: ReturnType<typeof vi.fn>;
-  claim?: ReturnType<typeof vi.fn>;
-  reclaim?: ReturnType<typeof vi.fn>;
-  sponsor?: ReturnType<typeof vi.fn>;
   mint?: ReturnType<typeof vi.fn>;
 }
 
@@ -60,8 +57,6 @@ export function renderPage(opts: {
   /** Answers `player(address)` per address, instead of `player` for all of them (e.g. a referrer still loading). */
   playerFor?: (address: string) => Promise<{ id: string; name: string; master: string } | null>;
   games?: unknown[];
-  /** The events the account's sponsorships come from (P-37); none by default. */
-  sponsorship?: { days: number[]; reclaimable: (id: number) => bigint; returned?: (id: number) => bigint };
   /** The chain id the fake RPC answers; `FAKE_CHAIN_ID` by default. */
   rpcChainId?: string;
   /** The indexer client the screens read; none by default. */
@@ -75,12 +70,6 @@ export function renderPage(opts: {
     views,
     events: {
       playerGames,
-      sponsoredDays: vi.fn(async () => opts.sponsorship?.days ?? []),
-      sponsorship: vi.fn(async (id: number) => {
-        const reclaimable = opts.sponsorship?.reclaimable(id) ?? 0n;
-        return { sponsored: reclaimable, reclaimed: 0n, reclaimable };
-      }),
-      reclaimedTotal: vi.fn(async (id: number) => opts.sponsorship?.returned?.(id) ?? 0n),
     },
     player: vi.fn(async (address: string) => opts.playerFor ? opts.playerFor(address) : (opts.player === undefined ? { id: PLAYER, name: "Zed", master: PLAYER } : opts.player)),
     balance: vi.fn(async () => 5n * 10n ** 18n),

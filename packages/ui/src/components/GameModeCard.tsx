@@ -12,9 +12,6 @@ export interface GameModeCardProps {
   tileCount: number;
   duration: string;
   entryFee: string;
-  prizePool?: string;
-  /** The entry token's label, shown after the prize amount. */
-  tokenLabel: string;
   topPlayers?: { name: string; score: number }[];
   timeRemaining?: string;
   hasActiveGame?: boolean;
@@ -67,8 +64,6 @@ export function GameModeCardView({
   tileCount,
   duration,
   entryFee,
-  prizePool,
-  tokenLabel,
   topPlayers,
   timeRemaining,
   hasActiveGame,
@@ -92,11 +87,6 @@ export function GameModeCardView({
           <BadgeText>{entryFee}</BadgeText>
         </Badge>
       </GameModeCardStats>
-      {prizePool ? (
-        <Text color="$muted" fontSize="$2">
-          {`Prize: ${prizePool} ${tokenLabel}`}
-        </Text>
-      ) : null}
       {timeRemaining ? (
         <Text color="$muted" fontSize="$1">
           {`Time: ${timeRemaining}`}

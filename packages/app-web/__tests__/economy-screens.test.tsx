@@ -562,7 +562,7 @@ describe("dividends that change between the confirm and the send", () => {
 
 describe("after the day: settle with the cliff stated", () => {
   const NOW = settlesAfter(DAY);
-  const game = (gameId: number, over: boolean, startTime = DAY * 86400) => ({ mode: "daily", gameId, startTime, tournamentId: DAY, over, score: over ? 4000 : null, countedTournamentId: over ? DAY : null });
+  const game = (gameId: number, over: boolean, startTime = DAY * 86400) => ({ mode: "daily", gameId, startTime, dayId: DAY, over, score: over ? 4000 : null, countedDayId: over ? DAY : null });
 
   it("lists bought games by state; settle only after a confirm; the reward shown is the chain's", async () => {
     const economy = new FakeEconomy();

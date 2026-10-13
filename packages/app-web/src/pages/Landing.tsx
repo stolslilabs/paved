@@ -2,18 +2,16 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { LandingScreen, ModeDetailDialog, ModeDetailDialogStat, TokenPanel } from "@paved/ui";
 import type { GameModeCardProps, GameListItemProps } from "@paved/ui";
-import { claimableRanks, countedTournamentIds, indexerPlayerId, reclaimableAmount, useIndexer, usePaved, useRead } from "@paved/chain";
-import type { GameMode, GameView, IndexerClient, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
+import { indexerPlayerId, usePaved, useRead } from "@paved/chain";
+import type { GameMode, GameView, PavedClient, PlayerGame } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
-import { PrizePanel } from "../components/PrizePanel";
 import { EconomyPanel } from "../components/EconomyPanel";
 import { EconomyPurchase } from "../components/EconomyPurchase";
 import { useEconomy } from "../utils/economy-context";
 import { purchaseIntent } from "../utils/economy-start";
 import { referrerFromSearch } from "../utils/economy-view";
-import type { Claimable, Reclaimable } from "../components/PrizePanel";
-import { canOfferCreate, entryFee, formatTimeRemaining, formatTokenAmount, playerNameError, podium, TOKEN_LABEL, tokenLabel } from "../utils/landing-helpers";
+import { canOfferCreate, entryFee, formatTimeRemaining, playerNameError, tokenLabel } from "../utils/landing-helpers";
 
 interface ModeInfo {
   mode: GameMode;
@@ -52,36 +50,6 @@ async function listGames(client: PavedClient, address: string): Promise<ListedGa
   return Promise.all(shown.map(async (g) => ({ ...g, view: await client.views.game({ mode: g.mode, gameId: g.gameId }) })));
 }
 
-/** Tournaments read for prizes: the newest ones the player's finished games counted for. */
-const CLAIM_TOURNAMENTS_READ = 30;
-
-/** What the player may claim, from their counted tournaments (events) and one `tournament` view each. */
-async function listClaimables(client: PavedClient, address: string, playerId: string): Promise<Claimable[]> {
-  const ids = countedTournamentIds(await client.events.playerGames(address, ["daily"])).slice(0, CLAIM_TOURNAMENTS_READ);
-  const tournaments = await Promise.all(ids.map((id) => client.views.tournament(id)));
-  return tournaments.flatMap((t) => claimableRanks(t, playerId).map(({ rank, reward }) => ({ tournamentId: t.id, rank, reward })));
-}
-
-/** Days the account sponsored, read for a part to take back: the newest ones (`SPONSORED_DAYS_LIMIT` in the chain package is the reader's own bound). */
-const RECLAIM_DAYS_READ = 30;
-
-/**
- * The days nobody ranked in where the account may take its part back: events for the part, one `tournament` view each for
- * the day. The days come from the indexer's bounded route, else from a bounded scan of the latest blocks
- * (`EventReader.sponsoredDays`): only the days read there are shown, and a sponsoring older than the scan's range shows
- * nothing until the indexer answers. Never a read of every `Sponsored` event since `deployed_block`.
- */
-async function listReclaimables(client: PavedClient, address: string, indexer: IndexerClient | null): Promise<Reclaimable[]> {
-  const ids = (await client.events.sponsoredDays(address, indexer)).slice(0, RECLAIM_DAYS_READ);
-  const days = await Promise.all(
-    ids.map(async (id) => {
-      const [t, mine, returned] = await Promise.all([client.views.tournament(id), client.events.sponsorship(id, address), client.events.reclaimedTotal(id)]);
-      return { tournamentId: id, amount: reclaimableAmount(t, mine.reclaimable), returned };
-    }),
-  );
-  return days.filter((d) => d.amount > 0n);
-}
-
 export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }) {
   const navigate = useNavigate();
   const { status, writer, address, deployment } = usePaved();
@@ -101,21 +69,10 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const games = useRead((c) => (address ? listGames(c, address) : Promise.resolve([])), [address], { onVisible: true });
   // What a Daily spawn pulls (O-23): the same source the contract's `spawn` uses.
   const price = useRead((c) => c.views.entryPrice(), [], { onVisible: true });
-  const tournament = useRead<TournamentView>(
-    async (c) => c.views.tournament(await c.views.currentTournamentId()),
-    [],
-    { onVisible: true },
-  );
+  // The current day (`Daily.current_day`), for the time left in it.
+  const day = useRead((c) => c.views.currentDay(), [], { onVisible: true });
 
   const playerId = player.data?.id ?? null;
-  const claimables = useRead(
-    (c) => (address && playerId ? listClaimables(c, address, playerId) : Promise.resolve([])),
-    [address, playerId],
-    { onVisible: true },
-  );
-
-  const indexer = useIndexer();
-  const reclaimables = useRead((c) => (address ? listReclaimables(c, address, indexer) : Promise.resolve([])), [address, indexer], { onVisible: true });
 
   // `after` refreshes run when the write went through; `settled` ones run whatever the outcome.
   const write = async (fn: () => Promise<unknown>, after: Array<() => void>, settled: Array<() => void> = []) => {
@@ -144,24 +101,13 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     if (invalid) return;
     return write(() => writer.createPlayer(name, { mintTestToken: supportsMint && !!deployment.mockUsdc }), [player.refresh, balance.refresh]);
   };
-  // Both pay or receive tokens: the panel asks for a confirm and hands over what the player confirmed.
-  const handleClaim = (c: Claimable, confirmedReward: bigint) =>
-    // A refused claim (the reward changed, or the rank was claimed meanwhile) must not leave its stale row.
-    writer && write(() => writer.claim(c.tournamentId, c.rank, { confirmedReward }), [balance.refresh, tournament.refresh], [claimables.refresh]);
-  // A refused reclaim (the part changed, or it was taken back meanwhile) must not leave its stale row.
-  const handleReclaim = (r: Reclaimable, confirmedAmount: bigint) =>
-    writer && write(() => writer.reclaim(r.tournamentId, { confirmedAmount }), [balance.refresh, tournament.refresh], [reclaimables.refresh]);
-  const handleSponsor = (amount: bigint, confirmedAmount: bigint) =>
-    writer && write(() => writer.sponsor(amount, { confirmedAmount }), [balance.refresh, tournament.refresh]);
   const readErrors = (
     [
       ["player", player.error],
       ["balance", balance.error],
       ["games", games.error],
-      ["tournament", tournament.error],
+      ["day", day.error],
       ["entry price", price.error],
-      ["prizes", claimables.error],
-      ["reclaims", reclaimables.error],
     ] as const
   ).filter(([, error]) => error);
   const handleMint = () => writer && write(() => writer.mint(), [balance.refresh]);
@@ -169,7 +115,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const allGames: ListedGame[] = games.data ?? [];
   const active = allGames.filter((g) => !g.over);
   const completed = allGames.filter((g) => g.over);
-  const daily = tournament.data;
+  const dayEnd = day.data === null || day.data === undefined ? null : (day.data + 1) * 86400;
 
   // The Daily entry is paid in USDC since E3 (`contracts.USDC`, the devnet's MockUSDC), not in the old Token.
   const fee = entryFee(price, economy.deployment.addresses.USDC, deployment.tokenDecimals);
@@ -192,10 +138,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     duration: m.duration,
     // With the economy deployed the Daily is bought in USDC by stake (P8); the price shows in the stake picker.
     entryFee: !m.paid ? "Free" : economy.client ? "USDC, by stake" : feeLabel,
-    tokenLabel: TOKEN_LABEL,
-    prizePool: m.mode === "daily" && daily && deployment.tokenDecimals !== null ? formatTokenAmount(daily.prize, deployment.tokenDecimals) : undefined,
-    topPlayers: m.mode === "daily" && daily ? podium(daily) : undefined,
-    timeRemaining: m.mode === "daily" && daily ? formatTimeRemaining(daily.endTime) : undefined,
+    timeRemaining: m.mode === "daily" && dayEnd !== null ? formatTimeRemaining(dayEnd) : undefined,
     hasActiveGame: active.some((g) => g.mode === m.mode),
     onPress: () => setSelected(m.mode),
   }));
@@ -259,20 +202,6 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
         <div style={{ marginTop: 8 }}>
           <EconomyPanel economy={economy} address={address} origin={window.location.origin} write={write} busy={writing} />
         </div>
-        {status === "ready" && player.data && (
-          <div style={{ marginTop: 8 }}>
-            <PrizePanel
-              decimals={deployment.tokenDecimals}
-              claimables={claimables.data ?? []}
-              reclaimables={reclaimables.data ?? []}
-              busy={writing}
-              error={null /* write errors show in the token panel above */}
-              onClaim={handleClaim}
-              onReclaim={handleReclaim}
-              onSponsor={handleSponsor}
-            />
-          </div>
-        )}
       </div>
       {readErrors.length > 0 && (
         <div role="alert" style={{ background: "#7f1d1d", color: "#fff", padding: "8px 12px", fontSize: 14 }}>
@@ -280,7 +209,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
           {readErrors.map(([what, error]) => `${what} (${error})`).join("; ")}
           <button
             type="button"
-            onClick={() => [player, balance, games, tournament, price, claimables, reclaimables].forEach((r) => r.refresh())}
+            onClick={() => [player, balance, games, day, price].forEach((r) => r.refresh())}
             style={{ marginLeft: 12, background: "transparent", border: "1px solid #fff", color: "#fff", borderRadius: 6, cursor: "pointer" }}
           >
             Retry
@@ -295,7 +224,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
         gameModes={gameModes}
         activeGames={active.map(toItem(false))}
         completedGames={completed.map(toItem(true))}
-        isLoading={games.loading || tournament.loading}
+        isLoading={games.loading || day.loading}
         onModeSelect={(mode: string) => setSelected(mode as GameMode)}
         onLeaderboard={() => navigate("/leaderboard")}
         onQuests={() => navigate("/quests")}
@@ -329,12 +258,6 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
                 <span style={{ color: "#999" }}>Entry Fee</span>
                 <span style={{ color: "#f5f5f5" }}>{selectedCard.entryFee}</span>
               </ModeDetailDialogStat>
-              {selectedCard.prizePool && (
-                <ModeDetailDialogStat>
-                  <span style={{ color: "#999" }}>Prize Pool</span>
-                  <span style={{ color: "#f5f5f5" }}>{`${selectedCard.prizePool} ${TOKEN_LABEL}`}</span>
-                </ModeDetailDialogStat>
-              )}
               {selectedCard.topPlayers && selectedCard.topPlayers.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   <span style={{ color: "#999", fontSize: 12 }}>Top Players</span>

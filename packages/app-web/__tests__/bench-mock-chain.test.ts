@@ -84,15 +84,14 @@ describe("views, decoded with the real ABIs", () => {
     expect(page.every((t: any) => t.status === 1)).toBe(true);
   });
 
-  it("builder, tournament, entry_price, player and balance_of", () => {
+  it("builder, current_day, entry_price, player and balance_of", () => {
     const { daily, view, gameId, mock } = setup();
     const b = daily("builder", [gameId, BENCH.player]);
     expect(Number(b.gameId)).toBe(gameId);
     expect(Number(b.tileId)).toBe(mock.next()!.id);
     expect(Number(b.plan)).toBe(mock.next()!.plan);
     expect(Object.keys(b)).toEqual(["gameId", "playerId", "tileId", "plan"]);
-    const id = daily("current_tournament_id");
-    expect(Number(daily("tournament", [id]).id)).toBe(Number(id));
+    expect(Number(daily("current_day"))).toBe(Math.floor(Date.parse("2026-10-06T08:00:00Z") / 1000 / 86400));
     const price = daily("entry_price");
     expect(BigInt(price.token)).toBe(BENCH.Token);
     expect(BigInt(price.amount)).toBeGreaterThan(0n);
@@ -130,7 +129,7 @@ describe("a build of the next placement", () => {
     while (mock.next()) last = invoke([build()]).receipt;
     expect(mock.violations).toEqual([]);
     const out = placementOutcome(events(last), gameId);
-    expect(out.over).toMatchObject({ tournamentId: 0 });
+    expect(out.over).toMatchObject({ dayId: 0 });
     expect(out.over!.score).toBeGreaterThan(0);
     const names = events(last).map((e) => e.name);
     expect(names).toEqual(["Built", "Scored", "GameOver"]);

@@ -2,7 +2,7 @@
 import React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, FaucetCapError, createIndexerClient, NoPrizeDayError, NothingToReclaimError, ReclaimAmountChangedError, RewardChangedError, emptyTournament } from "@paved/chain";
+import { FakeGameViews, FaucetCapError } from "@paved/chain";
 import { resolveEconomyDeployment, type Deployment } from "@paved/chain";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { LandingPage } from "../src/pages/Landing";
@@ -208,200 +208,15 @@ describe("The faucet's caps (MockUSDC, Sepolia)", () => {
   });
 });
 
-describe("Claiming a prize", () => {
-  const finished = { mode: "daily", gameId: 1, startTime: 1, tournamentId: 5, over: true, score: 9, countedTournamentId: 5 };
-  const setup = (tournament = {}, claim = vi.fn(async () => result)) => {
+describe("D-20: the prize leaves the landing", () => {
+  it("no prize, sponsor, claim or reclaim is offered, and the day is read from current_day, not a tournament view", async () => {
     const views = new FakeGameViews();
-    views.tournaments.set(5, { ...emptyTournament(5), over: true, prize: 600n, top1PlayerId: PLAYER, top1Score: 9, top2PlayerId: "0x0", top3PlayerId: "0x0", ...tournament });
-    views.setGame({ mode: "daily", gameId: 1 }, {
-      game: { id: 1, playerId: PLAYER, mode: 1, seed: "0x1", score: 9, over: true, tileCount: 3, placedCount: 3, discardedCount: 0, tileId: 0, plan: 0, remainingCount: 0, deckSize: 38, startTime: 1, endTime: 2, tournamentId: 5 },
-      tiles: [], builder: { gameId: 1, playerId: PLAYER, tileId: 0, plan: 0 },
-    });
-    land({ views, games: [finished], writer: { claim } });
-    return { claim, views };
-  };
-
-  it("lists the claimable rank with its reward; one click only asks, Confirm sends the confirmed reward", async () => {
-    const { claim } = setup();
-    await screen.findByText(/Tournament 5, rank 1: /);
-    const claimButton = await screen.findByText("Claim");
-    fireEvent.click(claimButton);
-    expect(claim).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog", { name: "Confirm" })).toBeTruthy();
-    fireEvent.click(screen.getByText("Confirm claim"));
-    await waitFor(() => expect(claim).toHaveBeenCalledTimes(1));
-    expect(claim).toHaveBeenCalledWith(5, 1, { confirmedReward: 600n });
-  });
-
-  it("a refused claim re-reads the prizes: a rank claimed meanwhile leaves no stale row", async () => {
-    const refused = vi.fn(async () => {
-      views.tournaments.set(5, { ...views.tournaments.get(5)!, top1Claimed: true }); // claimed elsewhere
-      throw new RewardChangedError(600n, 700n);
-    });
-    const { views } = setup({}, refused);
-    fireEvent.click(await screen.findByText("Claim"));
-    fireEvent.click(screen.getByText("Confirm claim"));
-    await waitFor(() => expect(refused).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.queryByText(/Tournament 5, rank 1: /)).toBeNull());
-  });
-
-  it("nothing to claim when the rank is already claimed", async () => {
-    setup({ top1Claimed: true });
-    await screen.findByText("balance 5 USDC");
-    await new Promise((r) => setTimeout(r, 30));
-    expect(screen.queryByText("Claim")).toBeNull();
-  });
-});
-
-describe("Reclaiming a prize nobody ranked for (P-37)", () => {
-  const unranked = { ...emptyTournament(5), over: true, prize: 3_000_000_000_000_000_000n };
-  const setup = (options: { tournament?: object; part?: bigint; returned?: bigint; reclaim?: ReturnType<typeof vi.fn> } = {}) => {
-    const reclaim = options.reclaim ?? vi.fn(async () => result);
-    const views = new FakeGameViews();
-    views.tournaments.set(5, { ...unranked, ...options.tournament });
-    const part = options.part ?? 2n * 10n ** 18n;
-    const { client } = land({ views, writer: { reclaim }, sponsorship: { days: [5], reclaimable: () => part, returned: () => options.returned ?? 0n } });
-    return { reclaim, views, client };
-  };
-
-  it("lists the sponsor's part; one click only asks with the amount, Confirm sends the confirmed amount", async () => {
-    const { reclaim } = setup();
-    await screen.findByText("Tournament 5: your part, 2 USDC");
-    fireEvent.click(screen.getByText("Reclaim"));
-    expect(reclaim).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Take back 2 USDC, your part of tournament 5's prize? Nobody ranked in that day.");
-    fireEvent.click(screen.getByText("Confirm reclaim"));
-    await waitFor(() => expect(reclaim).toHaveBeenCalledTimes(1));
-    expect(reclaim).toHaveBeenCalledWith(5, { confirmedAmount: 2n * 10n ** 18n });
-  });
-
-  it("passes the indexer to the days read, and reads at most 30 days (one tournament view each)", async () => {
-    const indexer = createIndexerClient("http://indexer.test")!;
-    const views = new FakeGameViews();
-    const days = Array.from({ length: 40 }, (_, i) => 100 - i);
-    for (const day of days) views.tournaments.set(day, { ...unranked, id: day });
-    const read = vi.spyOn(views, "tournament");
-    const { client } = land({ views, indexer, sponsorship: { days, reclaimable: () => 2n * 10n ** 18n } });
-    await screen.findByText("Tournament 100: your part, 2 USDC");
-    expect(client.events.sponsoredDays).toHaveBeenCalledWith(expect.any(String), indexer);
-    expect(read.mock.calls.filter(([id]) => days.includes(id as number))).toHaveLength(30);
-    expect(screen.queryByText(/Tournament 70:/)).toBeNull();
-  });
-
-  it("without an indexer the reader gets none and the same days are listed", async () => {
-    const { client } = setup();
-    await screen.findByText("Tournament 5: your part, 2 USDC");
-    expect(client.events.sponsoredDays).toHaveBeenCalledWith(expect.any(String), null);
-  });
-
-  it("what already went back comes from the Reclaimed events, beside the part left", async () => {
-    setup({ returned: 10n ** 18n });
-    await screen.findByText(/Tournament 5: your part, 2 USDC \(1 USDC already went back to sponsors\)/);
-  });
-
-  it("a ranked day offers no reclaim: its prize is the ranks'", async () => {
-    setup({ tournament: { top1PlayerId: "0xa1", top1Score: 9 } });
-    await screen.findByText("balance 5 USDC");
-    await new Promise((r) => setTimeout(r, 30));
-    expect(screen.queryByText("Reclaim")).toBeNull();
-  });
-
-  it("a day not over, or a part already taken back, offers no reclaim", async () => {
-    setup({ tournament: { over: false } });
-    await screen.findByText("balance 5 USDC");
-    await new Promise((r) => setTimeout(r, 30));
-    expect(screen.queryByText("Reclaim")).toBeNull();
-    cleanup();
-    setup({ part: 0n });
-    await screen.findByText("balance 5 USDC");
-    await new Promise((r) => setTimeout(r, 30));
-    expect(screen.queryByText("Reclaim")).toBeNull();
-  });
-
-  it("a refused reclaim shows its reason and re-reads: a part taken back meanwhile leaves no stale row", async () => {
-    let part = 2n * 10n ** 18n;
-    const refused = vi.fn(async () => {
-      part = 0n;
-      throw new ReclaimAmountChangedError(2n * 10n ** 18n, 0n);
-    });
-    const views = new FakeGameViews();
-    views.tournaments.set(5, unranked);
-    land({ views, writer: { reclaim: refused }, sponsorship: { days: [5], reclaimable: () => part } });
-    fireEvent.click(await screen.findByText("Reclaim"));
-    fireEvent.click(screen.getByText("Confirm reclaim"));
-    expect((await screen.findByText("The amount to reclaim changed: confirm again")).getAttribute("role")).toBe("alert");
-    await waitFor(() => expect(screen.queryByText(/Tournament 5: your part/)).toBeNull());
-  });
-});
-
-describe("Claim reverts are clear states", () => {
-  it("a top-3 claim on a day with no sponsor says there is no prize, not a raw revert", async () => {
-    const claim = vi.fn(async () => {
-      throw new NoPrizeDayError("0x1");
-    });
-    const views = new FakeGameViews();
-    views.tournaments.set(5, { ...emptyTournament(5), over: true, prize: 600n, top1PlayerId: PLAYER, top1Score: 9, top2PlayerId: "0x0", top3PlayerId: "0x0" });
-    views.setGame({ mode: "daily", gameId: 1 }, {
-      game: { id: 1, playerId: PLAYER, mode: 1, seed: "0x1", score: 9, over: true, tileCount: 3, placedCount: 3, discardedCount: 0, tileId: 0, plan: 0, remainingCount: 0, deckSize: 38, startTime: 1, endTime: 2, tournamentId: 5 },
-      tiles: [], builder: { gameId: 1, playerId: PLAYER, tileId: 0, plan: 0 },
-    });
-    land({ views, games: [{ mode: "daily", gameId: 1, startTime: 1, tournamentId: 5, over: true, score: 9, countedTournamentId: 5 }], writer: { claim } });
-    fireEvent.click(await screen.findByText("Claim"));
-    fireEvent.click(screen.getByText("Confirm claim"));
-    expect((await screen.findByText("This day has no prize: nobody sponsored it, so there is nothing to claim.")).getAttribute("role")).toBe("alert");
-  });
-
-  it("a reclaim on a ranked day says there is nothing to reclaim", async () => {
-    const reclaim = vi.fn(async () => {
-      throw new NothingToReclaimError("This day was ranked: its prize goes to the ranks, so there is nothing to reclaim.");
-    });
-    const views = new FakeGameViews();
-    views.tournaments.set(5, { ...emptyTournament(5), over: true, prize: 600n });
-    land({ views, writer: { reclaim }, sponsorship: { days: [5], reclaimable: () => 600n } });
-    fireEvent.click(await screen.findByText("Reclaim"));
-    fireEvent.click(screen.getByText("Confirm reclaim"));
-    expect((await screen.findByText(/This day was ranked.*nothing to reclaim/)).getAttribute("role")).toBe("alert");
-  });
-});
-
-describe("Sponsoring", () => {
-  const setup = () => {
-    const sponsor = vi.fn(async () => result);
-    land({ writer: { sponsor } });
-    return sponsor;
-  };
-
-  it("an invalid amount cannot be submitted", async () => {
-    const sponsor = setup();
-    const input = await screen.findByLabelText("Sponsor amount");
-    for (const bad of ["", "0", "-1", "1.0000000000000000001", "abc"]) {
-      fireEvent.change(input, { target: { value: bad } });
-      expect((screen.getByText("Sponsor") as HTMLButtonElement).disabled).toBe(true);
-    }
-    expect(sponsor).not.toHaveBeenCalled();
-  });
-
-  it("the amount is shown, nothing is sent before Confirm, and the amount is the one confirmed", async () => {
-    const sponsor = setup();
-    fireEvent.change(await screen.findByLabelText("Sponsor amount"), { target: { value: "1.5" } });
-    fireEvent.click(screen.getByText("Sponsor"));
-    expect(sponsor).not.toHaveBeenCalled();
-    expect(screen.getByRole("dialog", { name: "Confirm" }).textContent).toContain("Pay 1.5 USDC into today's prize?");
-    fireEvent.click(screen.getByText("Confirm sponsor"));
-    await waitFor(() => expect(sponsor).toHaveBeenCalledTimes(1));
-    expect(sponsor).toHaveBeenCalledWith(15n * 10n ** 17n, { confirmedAmount: 15n * 10n ** 17n });
-  });
-
-  it("an edit after the ask is passed as a different amount for the writer to refuse; Cancel sends nothing", async () => {
-    const sponsor = setup();
-    const input = await screen.findByLabelText("Sponsor amount");
-    fireEvent.change(input, { target: { value: "1" } });
-    fireEvent.click(screen.getByText("Sponsor"));
-    fireEvent.change(input, { target: { value: "2" } });
-    fireEvent.click(screen.getByText("Confirm sponsor"));
-    await waitFor(() => expect(sponsor).toHaveBeenCalledWith(2n * 10n ** 18n, { confirmedAmount: 10n ** 18n }));
-    fireEvent.click(screen.getByText("Sponsor"));
-    fireEvent.click(screen.getByText("Cancel"));
-    expect(sponsor).toHaveBeenCalledTimes(1);
+    views.today = 20_000;
+    land({ views, deployment: { ...configured, mockUsdc: undefined } as Deployment, wrap: noEconomy(configured) });
+    await screen.findByText("connected:Zed");
+    await waitFor(() => expect(views.calls).toContain("current_day"));
+    expect(views.calls.some((c) => c.startsWith("tournament"))).toBe(false);
+    expect(document.body.textContent).not.toMatch(/prize|sponsor|claim/i);
+    expect(screen.queryByLabelText("Sponsor amount")).toBeNull();
   });
 });

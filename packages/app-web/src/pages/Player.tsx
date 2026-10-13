@@ -7,7 +7,7 @@ import { IndexerFailure, IndexerLag } from "../components/IndexerLag";
 import { GameNft, useCollection, type Collection } from "../components/GameNft";
 import { ProgressSections } from "../components/Progress";
 import { useDays } from "../utils/use-days";
-import { GAMES_PAGE, PLAYER_TOURNAMENTS_SHOWN, dayLabel, playerLabel, slotsLabel } from "../utils/indexer-view";
+import { GAMES_PAGE, PLAYER_TOURNAMENTS_SHOWN, dayLabel, playerLabel } from "../utils/indexer-view";
 
 const page = { minHeight: "100%", background: "#0a0a0a", color: "#f5f5f5", padding: 24, display: "flex", flexDirection: "column", gap: 12, maxWidth: 960, margin: "0 auto", boxSizing: "border-box" } as const;
 const cell = { padding: "6px 10px", textAlign: "left" } as const;
@@ -51,7 +51,7 @@ export function PlayerPage() {
   const player = profile.data?.data.player ?? null;
   const stats = profile.data?.data.stats ?? null;
   const first = games.data?.data.games ?? [];
-  const tournamentIds = [...new Set(first.map((g) => g.countedTournamentId).filter((t) => t > 0))].slice(0, PLAYER_TOURNAMENTS_SHOWN);
+  const tournamentIds = [...new Set(first.map((g) => g.countedDayId).filter((t) => t > 0))].slice(0, PLAYER_TOURNAMENTS_SHOWN);
 
   return (
     <div style={page}>
@@ -95,7 +95,6 @@ export function PlayerPage() {
               <th style={cell}>Rank</th>
               <th style={cell}>Best score</th>
               <th style={cell}>Games</th>
-              <th style={cell}>Prize slots</th>
             </tr>
           </thead>
           <tbody>
@@ -119,7 +118,7 @@ export function PlayerPage() {
       )}
       {games.data && games.cause !== null && <IndexerFailure error={games.cause} onRetry={games.refresh} />}
       <p style={{ color: "#999", fontSize: 12, margin: 0 }}>
-        From the indexer, for display. Prize slots are the contract's top 3 replayed; prizes and claims are read from the contract, on the home page.
+        From the indexer, for display.
       </p>
     </div>
   );
@@ -158,7 +157,7 @@ function GamesTable({ games, collection }: { games: IndexedGame[]; collection: C
             <td style={cell}>{dayLabel(g.startTime)}</td>
             <td style={cell}>{g.over ? g.score : "In progress"}</td>
             <td style={cell}>
-              {g.countedTournamentId > 0 ? <Link to={`/leaderboard/${g.countedTournamentId}`} style={{ color: "#f5f5f5" }}>{g.countedTournamentId}</Link> : "–"}
+              {g.countedDayId > 0 ? <Link to={`/leaderboard/${g.countedDayId}`} style={{ color: "#f5f5f5" }}>{g.countedDayId}</Link> : "–"}
             </td>
             {nft && (
               <td style={cell}>
@@ -191,7 +190,6 @@ function MoreGames({ playerId, before, last, collection, onMore }: { playerId: s
 function TournamentRow({ playerId, tournamentId }: { playerId: string; tournamentId: number }) {
   const entry = useIndexerRead((c) => c.playerTournament(playerId, tournamentId), [playerId, tournamentId]);
   const row = entry.data?.data ?? null;
-  const slots = row ? slotsLabel(row.prizeRanks) : null;
   const text = (v: string | number) => (entry.data ? v : entry.error ? "?" : "…");
   return (
     <tr>
@@ -200,9 +198,8 @@ function TournamentRow({ playerId, tournamentId }: { playerId: string; tournamen
       </td>
       <td style={cell}>{text(row ? row.rank : "–")}</td>
       <td style={cell}>{text(row ? row.bestScore : "–")}</td>
-      <td style={cell}>{text(row ? row.gamesPlayed : "–")}</td>
       <td style={cell}>
-        {text(row ? (slots ? `${slots}${row.prizeRanks.length > 1 ? ` (${row.prizeRanks.length} slots)` : ""}` : "–") : "–")}
+        {text(row ? row.gamesPlayed : "–")}
         {entry.error && !entry.data && entry.cause instanceof IndexerError ? ` (${entry.cause.kind})` : ""}
       </td>
     </tr>
