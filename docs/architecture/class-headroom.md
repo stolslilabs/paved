@@ -484,3 +484,22 @@ D-18b removes the characters from the build path (placement, idle check, recover
 other classes (`Economy`, `Vault`, the mocks) are unchanged. `Lobby`'s class changes too (it runs `spawn`,
 `discard` and `surrender` over the same `Game`, `Builder` and `Store`), so its class hash changes: see the PR of
 D-18b for `lobby_class` on Sepolia.
+
+## After D-19 (tile owners and majority scoring, D-19b)
+
+D-19b adds the walker shared with the forest scan (`structure/walk.cairo`), the tally and the winner
+(`structure/owners.cairo`), the single-player skip and the `tile_owners` map. Measured with `scripts/class-sizes.sh`
+(scarb 2.20.1, VPS, 2026-10-13), the branch's first commit (b7e2bb57, main 7d04872 plus the brief), then the D-19b
+branch (adbdfde6):
+
+| Class | Sierra before | CASM before | Sierra after | CASM after | Change | Share of the Starknet cap after |
+|---|---:|---:|---:|---:|---:|---:|
+| `Daily` | 23,625 | 53,418 | 25,839 | 58,320 | +4,902 | 71.2 % |
+| `Tutorial` | 21,581 | 47,823 | 23,787 | 52,725 | +4,902 | 64.4 % |
+| `Lobby` | 27,637 | 59,957 | 27,637 | 59,957 | 0 | 73.2 % |
+
+`Daily` stays under the P-44 cap (72,947 CASM felts) with **14,627 felts of headroom (20.1 % of the cap)**, against
+19,529 after D-18. `Lobby` does not change: its class hash is
+`0x0005889493894707cc6c406c0840ad1f8884ea0283c41de8b167145c63d745e3` on main and on the branch (`sncast utils
+class-hash` on the release class), so D-19's Sepolia upgrade needs no `set_lobby_class`. The other classes are
+unchanged.

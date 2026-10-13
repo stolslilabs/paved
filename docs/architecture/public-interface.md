@@ -373,9 +373,11 @@ what they scored before (`structure-state.md`, "As built: D-18"). Their `Built` 
 ## Planned change D-19
 
 D-19 and P-47 (`docs/programme/DECISIONS.md`): a tile's owner is the player who places it, and a closed structure
-scores for the owner with the most tiles in it (nobody on a tie). Not built yet; the design is in
-`structure-state.md`, "D-19: tile owners and majority scoring (planned)". Read from the ABIs on main
-(`contracts/abis/Daily.json`, `Tutorial.json`) and the code.
+scores for the owner with the most tiles in it (nobody on a tie). Built in D-19b; the design as built is in
+`structure-state.md`, "As built: D-19". Read from the ABIs on main (`contracts/abis/Daily.json`, `Tutorial.json`)
+and the code, and confirmed by D-19b: `scripts/abis.sh` shows no diff, `TileView` has no `owner` field, `Built` and
+`Scored` keep their layouts, and `Lobby`'s class does not change (its class hash is the same before and after
+D-19b).
 
 **D-19 itself needs no ABI change.** In single player (Daily, Tutorial: the only modes) every tile is the game's
 player's, so the winner of every structure is that player, and every view and event already says so:
@@ -393,8 +395,9 @@ What the multiplayer mode would add (each one decided with that mode, not by D-1
 - `TileView.owner: felt252`, appended after `y` (an addition): the client cannot otherwise colour a tile by its
   owner. A tile written before D-19, and the starter tile, read owner 0, which means the game's player in single
   player; a multiplayer mode needs its own value for a starter tile owned by nobody.
-- `Scored` on a tie: proposed `player_id` 0 and `points` 0, still emitted so that an indexer sees the closure.
-  Same layout, a new meaning of `player_id` 0: META's indexer must not credit it to a player.
+- `Scored` on a tie: `player_id` 0 and `points` 0, still emitted so that an indexer sees the closure (built by
+  D-19b, unreachable in single player; the multiplayer mode confirms it). Same layout, a new meaning of `player_id`
+  0: META's indexer must not credit it to a player.
 - Per-player scores: `GameView.score` and `GameOver.score` are the game's one score (`GameState.score`). A
   multiplayer game needs a score per player: a new view (or fields appended to `GameView`) and a `GameOver` per
   player, or a new event. A new field appended to a struct is an addition; changing what `score` means would be a

@@ -85,7 +85,11 @@ map). So, for every upgradable contract and for `Lobby`:
 - **Pins.** `tests::e2e::lobby_audit::test_lobby_and_daily_pin_every_shared_storage_variable_by_name` (the variables
   `Lobby` shares with `Daily`) and `tests::e2e::upgrades::test_upgrade_layout_pins_account_and_economy_by_name` (the
   wiring of `Account`, the addresses, pool, packed records and purchase maps of `Economy`) read each variable at the
-  raw address of its name. Whoever adds a variable adds it there.
+  raw address of its name. Whoever adds a variable adds it there. D-19 appends `tile_owners: Map<(u32, u32),
+  felt252>` (keyed `(game_id, tile_id)`, the player id as value, 0 for the game's player) to the `paved` storage node
+  that `Daily`, `Tutorial` and `Lobby` share; a member of a storage node sits at the Pedersen hash of the node's base
+  (`selector!("paved")`) and its name, so appending it moves no other member. Its pin is
+  `tests::e2e::upgrade_d19::test_upgrade_d19_pins_tile_owners_by_name`.
 - **Before an upgrade on a public network:** the new class is built from a commit that passes those pins, the storage
   of the old class is diffed against the new one by name and type (the `#[storage]` structs and the components), and
   the upgrade is rehearsed on devnet from the deployed state (`--rehearse`).

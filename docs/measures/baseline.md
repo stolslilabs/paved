@@ -666,3 +666,64 @@ move and keep theirs).
 - **Scores the scenarios assert.** e scores 767 (the loop of road 438, the forest 329) and f 5,618: the oracle's
   walks give both (`src/tests/differential.cairo`, `test_differential_gas_scenario_e`, `_f`), `gas.cairo` asserts
   them (`SCORE_E`, `SCORE_F`).
+
+## After D-19 (tile owners and majority scoring, D-19b)
+
+D-19 (P-47) gives each closed structure to the owner of the most of its tiles; D-19b counts them by a walk on the
+move that closes the structure, **skipped in a game with one player** (`Mode::solo`: Daily and Tutorial), so a
+single-player move walks nothing and reads no owner (`docs/architecture/structure-state.md`, "As built: D-19").
+Measured on the VPS, 2026-10-13, scarb 2.20.1, snforge 0.64.0,
+`RAYON_NUM_THREADS=1 prlimit --as=16106127360 -- /usr/bin/time -v snforge test test_gas_ --max-threads 2`, "before"
+on the tree of the branch's first commit (b7e2bb57, main 7d04872 plus the brief: the figures of "After D-18", to the
+unit), "after" on the D-19b branch (adbdfde6). Peak RSS of the run 5,549,652 kB before, 5,776,524 kB after.
+
+| | Scenario | Before (D-18) | After D-19 | Change | Ceiling (unchanged) | Margin used |
+|---|---|---:|---:|---:|---:|---:|
+| e | closes a forest of 4 tiles | 8,535,523 | 8,653,883 | +118,360 | 8,962,300 | 96.6 % |
+| f | closes a forest of 16 nodes, the worst scan | 18,022,090 | 18,222,770 | +200,680 | 18,923,195 | 96.3 % |
+| a0 | open simple move | 5,437,937 | 5,475,737 | +37,800 | 5,709,834 | 95.9 % |
+| a | closes a 2-tile city | 5,062,076 | 5,109,156 | +47,080 | 5,315,180 | 96.1 % |
+| c | closes a 6-tile city | 5,136,594 | 5,182,824 | +46,230 | 5,393,424 | 96.1 % |
+| d | closes a 12-tile city tree | 5,392,451 | 5,440,281 | +47,830 | 5,662,074 | 96.1 % |
+| g | closing move, rank 1, two shifts | 3,498,006 | 3,502,806 | +4,800 | 3,672,907 | 95.4 % |
+| h | closing move, not ranked | 3,094,850 | 3,099,650 | +4,800 | 3,249,593 | 95.4 % |
+| i | game over after its tournament | 2,562,751 | 2,566,111 | +3,360 | 2,690,889 | 95.4 % |
+| j | `tournament` view | 370,828 | 372,428 | +1,600 | 388,740 | 95.8 % |
+| k | closing move, largest report | 3,826,886 | 3,831,686 | +4,800 | 4,018,231 | 95.4 % |
+| l | game over on the last `build` | 7,403,897 | 7,443,137 | +39,240 | 7,774,092 | 95.7 % |
+| m | Daily spawn, stake 1 | 50,231,646 | 50,250,206 | +18,560 | 52,743,229 | 95.3 % |
+| n | Daily spawn, stake 10, referred | 51,257,756 | 51,278,636 | +20,880 | 53,820,644 | 95.3 % |
+| o | Tutorial spawn | 5,108,102 | 5,125,942 | +17,840 | 5,363,508 | 95.6 % |
+| p | sponsor | 1,863,109 | 1,864,709 | +1,600 | 1,956,265 | 95.3 % |
+| q | claim | 1,936,878 | 1,941,758 | +4,880 | 2,033,722 | 95.5 % |
+| r | reclaim | 1,535,068 | 1,536,668 | +1,600 | 1,611,612 | 95.3 % |
+
+- **Single-player moves: D-18's cost plus the skip.** No ceiling moves: the largest share of a ceiling used is
+  96.6 %. A move that closes no forest pays 1,600 to 47,830 more: the mode test
+  (`Game::solo`), the owner test of the build (`Store::set_tile_owner`, which writes nothing when the builder is the
+  game's player) and the `assess` wrapper. The forest scenarios pay more, +118,360 (e, 1.39 %) and +200,680 (f,
+  1.11 %): the scan now runs on the shared walker (`structure/walk.cairo`) and is given a tally that is off (two
+  empty dictionaries, and a test per node). A first build without the inlining of the tally's test and of the
+  walker's `expand` measured +143,520 and +301,440; inlining both took a third of it back.
+- **The count with the skip off** (for the multiplayer mode; it changes no ceiling). Measured once on the full-deck
+  golden game (`src/tests/walk_cost.cairo`, `snforge test --ignored test_walk_cost_full_deck`, peak RSS 4,045,068
+  kB): each of its 37 moves built by `Daily` (skip on), then the count that the move would run with the skip off,
+  run in the contract's storage and measured alone, the forest's as the scan with its tally on less the scan with
+  it off. The board's largest closures and their counts:
+
+  | Closure | Move | Nodes | Count (L2 gas) |
+  |---|---:|---:|---:|
+  | road | 8 (and 22) | 4 (4 tiles) | 1,862,248 |
+  | city | 5 (and 11, 20) | 2 | 750,230 |
+  | forest | 22 | 4 | 403,910 (the tally's share of the scan) |
+  | wonder | 11 (and 21) | its tile and 8 | 1,674,030 |
+
+  About 0.45M per road or city tile (a tile read, an owner read, the sets), 0.19M per wonder tile (a position read
+  and an owner read), 0.1M per forest tile on top of the scan (derived). **The most expensive closing move with the skip off
+  is move 22**: 10,527,473 with the skip on (the D-18 move plus the skip, as above) and 12,792,181 with it off
+  (+2,264,708, +21.5 %: a road of 4 tiles and a forest of 4). The most expensive move of the game is move 35,
+  26,991,627, which closes no structure (the bench counts nothing there), so the skip off costs it nothing more; why
+  that move is expensive is not analysed here. The per-move figures of the game on D-18 were not measured: "skip on"
+  stands for them, D-18's cost plus the overhead of the table above. The skip-off figures are estimates of a
+  multiplayer move: the count runs here beside the call, with the same reads. The per-tile costs above are the
+  table's figures divided by the tiles, not separate measures.
