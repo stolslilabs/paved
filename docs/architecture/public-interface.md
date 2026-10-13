@@ -8,6 +8,9 @@ This is a published interface. Its types (`contracts/src/views.cairo`) are plain
 the client, not the storage structs: the storage will change in phase P5 (persistent structure
 state, packing) and these views will not.
 
+**D-18 breaks this interface once** (characters leave the game): see "Breaking change D-18" at the end.
+Until D-18b is merged, the text below describes the contracts on main.
+
 ## Stability promise
 
 - A view keeps its name, its arguments and the meaning of every field.
@@ -18,6 +21,9 @@ state, packing) and these views will not.
 - The paging cap (`MAX_PAGE`) may only grow.
 - A view never writes state and costs nothing to the write path: no storage is added or read by
   the write entry points for the views.
+- **Exception, D-18:** the promise above is broken once, by "Breaking change D-18" below. It is
+  accepted for Sepolia because mainnet is not launched. The promise holds again from the D-18
+  release on.
 
 A client that decodes by ABI (starknet.js, starknet.py) keeps working when fields are appended, as
 long as it reads the ABI of the deployed class.
@@ -33,8 +39,8 @@ long as it reads the ABI of the deployed class.
 | `mode` | `u8` | `1` Daily, `3` Tutorial (`2` was Weekly and is never given again) |
 | `plan` | `u8` | `Plan` code (`types/plan.cairo`); `0` means none |
 | `orientation` | `u8` | `0` none (not placed), `1` north, `2` east, `3` south, `4` west |
-| `role` | `u8` | `1` Lord, `2` Lady, `3` Adventurer, `4` Paladin, `5` Pilgrim, `6` Woodsman, `7` Herdsman (the last two since P4) |
-| `spot` | `u8` | `0` none, `1` center, `2` north-west, `3` north, `4` north-east, `5` east, `6` south-east, `7` south, `8` south-west, `9` west |
+| `role` | `u8` | `1` Lord, `2` Lady, `3` Adventurer, `4` Paladin, `5` Pilgrim, `6` Woodsman, `7` Herdsman (the last two since P4) Removed by D-18 |
+| `spot` | `u8` | `0` none, `1` center, `2` north-west, `3` north, `4` north-east, `5` east, `6` south-east, `7` south, `8` south-west, `9` west Removed by D-18 |
 | score, points | `u32` | Game points, no decimals |
 | time | `u64` | Block timestamp, seconds |
 | prize | `u256` | Amount of the entry token, in its base unit (18 decimals for the test token) |
@@ -270,3 +276,48 @@ working.
     `LobbyClassSet { class_hash }`. The constructors are unchanged.
   - A client that reads the views and sends the player calls keeps working. An indexer that refuses unknown
     selectors must know `LobbyClassSet` before the owner first calls `set_lobby_class`.
+
+## Breaking change D-18
+
+D-18 (`docs/programme/DECISIONS.md`) removes characters from the game; P-45 gives the details. The change
+is **planned** (code: D-18b), and read from the ABIs on main (`contracts/abis/Daily.json`,
+`Tutorial.json`) and the code. A client that follows the stability promise does not keep working: it
+must follow this list. The other contracts' ABIs do not mention roles, spots or characters.
+
+### `Daily` and `Tutorial`: functions
+
+| Item | Before | After |
+|---|---|---|
+| `Daily.build` | `build(game_id: u32, orientation: Orientation, x: u32, y: u32, role: Role, spot: Spot)` (`systems/daily.cairo:223`) | `build(game_id: u32, orientation: Orientation, x: u32, y: u32)` |
+| `Tutorial.build` | `build(game_id: u32)` (`systems/tutorial.cairo:142`) | unchanged; the scripted role and spot of each Tutorial move go (`Mode::parameters`, `types/mode.cairo:80`) |
+| `characters(game_id, player_id) -> Array<CharacterView>` (both) | seven entries, one per role | **removed** |
+| `builder(game_id, player_id) -> BuilderView` (both) | `BuilderView { game_id, player_id, tile_id, plan, placed_count: u8, available_count: u8 }` | `BuilderView { game_id, player_id, tile_id, plan }`; the two counters go, so the decoded layout changes |
+
+Types that leave the ABI of `Daily`: the enums `Role` (`None`, `Lord`, `Lady`, `Adventurer`, `Paladin`,
+`Pilgrim`, `Woodsman`, `Herdsman`) and `Spot` (`None`, `Center`, `NorthWest`, `North`, `NorthEast`,
+`East`, `SouthEast`, `South`, `SouthWest`, `West`), and the struct `CharacterView { role, placed, tile_id,
+x, y, spot }`. `GameView` and `TileView` do not mention characters and are unchanged. The character checks of `build` go with the arguments: `Builder: already placed`, the structure-idle check
+(`Game: structure not idle`) and the role and category compatibility check. The other errors of `build` are
+unchanged.
+
+### Events
+
+| Event | Before | After |
+|---|---|---|
+| `Built` | keys `game_id`; data `player_id, tile_id, plan, orientation, x, y, role, spot` (`events.cairo:126-137`) | data `player_id, tile_id, plan, orientation, x, y`: **`role` and `spot` go** (they are the only character placement; there is no other event) |
+| `Scored` | keys `game_id`; data `player_id, category, size, points` | **layout unchanged**; no field names a role, a spot or a character. The meaning changes: one `Scored` per closed structure, whether or not a character stood on it; a forest gives one event (no longer one per Woodsman and Herdsman), with `category` FOREST, and its points are the roads plus the cities |
+| `Discarded`, `GameSpawned`, `GameOver`, `PlayerCreated`, `Sponsored`, `Claimed` | | unchanged |
+
+`Built` is emitted by `Daily` and `Tutorial` from the same struct, so both lose the two fields. The event
+selector is the name's hash and does not change. Tile positions are not affected; `Tile.occupied_spot`
+stays in storage as a dead field (`structure-state.md`, "D-18").
+
+### Scoring seen from a client
+
+Points no longer depend on the player's choices: a road, a city, a forest and a wonder score when they
+close (`structure-state.md`, "D-18: scoring without characters"). A structure still open at game over
+scores nothing. A client has no role picker, no `characters` call and no available-character counter.
+
+Games open when the upgrade is installed (Sepolia) are settled as the implementation states it
+(`structure-state.md`, "D-18"). Their `Built` events from before the upgrade keep `role` and `spot`: an
+indexer decodes `Built` by the shape of its data.
