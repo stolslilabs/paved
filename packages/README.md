@@ -98,6 +98,18 @@ node packages/indexer/src/main.ts run --deployment contracts/deployments/devnet.
 NODE_OPTIONS=--max-old-space-size=2048 bun run --cwd packages/chain test:e2e
 ```
 
+Two options matter where the defaults do not fit. `DEVNET_BIN=<path>` names the `starknet-devnet` binary the shell
+starts when `starknet-devnet` on the PATH is an asdf shim that does not run from there (e.g.
+`DEVNET_BIN=$HOME/.asdf/installs/starknet-devnet/0.10.0/bin/starknet-devnet`; the shell command above is then
+`"$DEVNET_BIN" --host 127.0.0.1 --port 5050 --seed 42`). `scripts/deploy.sh devnet --unmerged` deploys the working tree of
+a pull request (the source check is skipped) and writes the deployment file to a temporary path it prints, never to
+`contracts/deployments/`; pass that path as `E2E_DEPLOYMENT`. The deploy needs a fresh node and about 3.6 GB.
+
+`packages/chain/test/devnet.test.ts` (`bun run test:devnet`, `PAVED_DEVNET=1`) is the smaller check on the same stack: it
+reads the same deployment file (`E2E_DEPLOYMENT`), starts nothing, and on a fresh node (its own, not the one of the
+end-to-end run) uses accounts 1 and 2: it creates a player with the faucet, claims the tutorial, buys a Daily game with
+`EconomyWriter.purchase`, discards and surrenders it, and reads the games and the typed errors back.
+
 `E2E_DEPLOYMENT` (default `contracts/deployments/devnet.json`), `E2E_INDEXER_URL` (default `http://127.0.0.1:8787`),
 `E2E_TABLE=<file>` (writes the steps and their evidence as a markdown table) and `E2E_VERBOSE=<file>` (one line per
 Daily placement) are optional. The players are the predeployed accounts 1 to 3; account 0 is the deployer, whose smoke

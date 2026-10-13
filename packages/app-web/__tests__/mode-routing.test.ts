@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildGameRoute, isTrainingParam, modeFromParam } from "../src/utils/mode-routing";
+import { buildGameRoute, isTrainingParam, isTutorialParam, modeFromParam } from "../src/utils/mode-routing";
 
 describe("mode-routing", () => {
   it("routes to a game by mode and id", () => {
@@ -30,5 +30,11 @@ describe("mode-routing", () => {
     expect(isTrainingParam(null)).toBe(false);
     // The chain's modes are still two: a training param is not one of them.
     expect(modeFromParam("training")).toBe("daily");
+  });
+
+  it("recognises the old tutorial link", () => {
+    expect(isTutorialParam("tutorial")).toBe(true);
+    expect(isTutorialParam("daily")).toBe(false);
+    expect(isTutorialParam(null)).toBe(false);
   });
 });

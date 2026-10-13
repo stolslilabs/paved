@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import { IngameStatus, GameCompleteDialog, ActionBar, useGameStore } from "@paved/ui";
 import type { GameScene, TileRenderData, CameraMode } from "@paved/renderer";
@@ -11,7 +11,7 @@ import { GameNft, useCollection } from "../components/GameNft";
 import { CENTER, toRenderBoard } from "../utils/game-helpers";
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { parseGameParams } from "../utils/game-params";
-import { buildGameRoute, isTrainingParam } from "../utils/mode-routing";
+import { buildGameRoute, isTrainingParam, isTutorialParam } from "../utils/mode-routing";
 import type { MoveSenders, PageSession, PageState } from "../training/page-session";
 import { useTrainingSession } from "../training/use-training";
 import { readStartIntent, startGame } from "../utils/start-game";
@@ -129,6 +129,8 @@ function Screen({ text, onBack, backDisabled, action }: { text: string; onBack?:
  */
 export function GamePage() {
   const [searchParams] = useSearchParams();
+  // An old tutorial link (with or without an id) lands on the off-chain tutorial page.
+  if (isTutorialParam(searchParams.get("mode"))) return <Navigate to="/tutorial" replace />;
   // Training is a mode of this route; it never reads the chain providers.
   return isTrainingParam(searchParams.get("mode")) ? <TrainingBoard /> : <ChainGamePage />;
 }

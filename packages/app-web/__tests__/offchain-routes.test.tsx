@@ -115,6 +115,15 @@ describe("off-chain routes build no chain client (W2a)", () => {
     expect(probes.count).toBe(0);
   });
 
+  it("an old tutorial link, with or without an id, lands on /tutorial", () => {
+    chainRoute.on = true; // the link is still a chain route until the page redirects: the real factories may run
+    for (const route of ["/game?mode=tutorial", "/game?mode=tutorial&id=3"]) {
+      cleanup();
+      render(<AppTree Router={at(route)} Chain={Chain} />);
+      expect(screen.getByRole("heading", { name: /Tutorial: step 1 of/ })).toBeTruthy();
+    }
+  });
+
   it("the Cartridge notice stays on an off-chain route", () => {
     render(<AppTree Router={at("/tutorial")} Chain={Chain} />);
     expect(screen.getAllByRole("link", { name: "Third-party notices" })).toHaveLength(1);
