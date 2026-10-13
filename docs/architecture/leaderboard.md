@@ -445,14 +445,16 @@ that now assert no `WIN`.
 | `Vault` (untouched) | stakers' deposits, withdrawals and `claim` of their USDC (its own `Claimed { account, amount }`) | `economy/vault.cairo` | the Vault |
 
 Nothing reads the prize storage: no code reads `tournaments`, `sponsorships` or `rankings` (`git grep` on
-`contracts/src` finds them only where they stay declared, in the `lobby_audit` pin below, and in the frozen pre-D-18
+`contracts/src` finds them only where they stay declared, in the `lobby_audit` pin below (addresses and sentinels only), and in the frozen pre-D-18
 copy `tests::legacy::store`, whose `ranking*` functions no test calls). The settlement never
 did: `Economy.record` and `settle` keep their own `days` and `means`, keyed by `get_block_timestamp() / DAY`.
 
 **Sepolia's prize funds (ruling 4)**, read-only on 2026-10-13 at block 16,538,960: `balanceOf(Daily)` on MockUSDC is
 0, and `Daily` (`0x06a9...5ac8`) never emitted `Sponsored`, `Claimed` or `Reclaimed` (`starknet_getEvents` from block
 0; the same query finds its 3 `GameSpawned`). Nothing was ever sponsored, so nothing is stuck: the funds question of
-"Open for the PM" (4) has no object.
+"Open for the PM" (4) has no object for this deployment. Earlier Sepolia deployments (another `Daily` address or
+another token) are out of scope: the fresh deployment of P-53 replaces them, and no D-20 upgrade runs on Sepolia
+(`upgrades.md`, "D-20 on Sepolia").
 
 ### Storage under P-42: what is dead
 
@@ -466,13 +468,18 @@ Each stays declared, is never written or read again, and is never reused; a comm
 
 Kept live: `PavedStorage.game_ends` (`end_time`, `day_id`), `payable.token_address`, every other field. On Sepolia
 the dead maps keep whatever they hold (`rankings` of the days played there; `tournaments` and `sponsorships` are
-empty, above). `tests::e2e::lobby_audit` now pins `sponsorships` as never written: a whole game of the day, spawned and
-ended through `Lobby`, leaves the player's slot at 0.
+empty, above). `tests::e2e::lobby_audit::test_lobby_and_daily_pin_the_dead_fields_by_name` pins all three by name: the
+entry address the code resolves through each field (`sponsorships` in `HostableComponent` as `Daily` and as `Lobby`
+embed it, through a test-only accessor; `tournaments` and `rankings` through `PavedStorage`) equals the address
+computed from the literal name, so a rename or a removal fails it (checked once by renaming `rankings`: the test fails
+on `'Dead: rankings name'`); and sentinels written at every slot survive a whole game (spawn, build, surrender) through
+`Daily` and its `Lobby`, so a reuse fails it.
 
 ### What `Lobby` and `Tutorial` lost
 
-- `Lobby`'s class: `ILobby.claim`, `ILobby.sponsor` and the event `Reclaimed`. A new class is declared and set on
-  `Daily` and on `Tutorial` with `set_lobby_class` (P-42; `upgrades.md`, "D-20 on Sepolia").
+- `Lobby`'s class: `ILobby.claim`, `ILobby.sponsor` and the event `Reclaimed`. On an existing deployment a new class
+  would be declared and set on `Daily` and `Tutorial` with `set_lobby_class` (P-42); on Sepolia the fresh deployment of
+  P-53 starts with it (`upgrades.md`, "D-20 on Sepolia").
 - `Tutorial` loses no entry point and no view; its ABI loses `Sponsored` and `Claimed` (declared, never emitted), and
   so does `Account`'s. Both ABIs also lose the `core::integer::u256` struct, which only `Claimed` used there.
 

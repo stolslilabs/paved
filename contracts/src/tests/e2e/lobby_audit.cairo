@@ -3,18 +3,27 @@
 //! the mode `Lobby.spawn` is given.
 
 use core::num::traits::Zero;
+use paved::components::hostable::HostableComponent;
+use paved::components::hostable::HostableComponent::DeadFieldsTrait;
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::constants;
 use paved::day::day_id;
 use paved::mocks::reentrant_token::{
     IReentrantTokenDispatcher, IReentrantTokenDispatcherTrait, SPAWN,
 };
-use paved::systems::daily::{IDailyDispatcher, IDailyQuestsDispatcher, IDailyQuestsDispatcherTrait};
+use paved::models::tile::CENTER;
+use paved::store::PavedStorage;
+use paved::systems::daily::{
+    Daily, IDailyDispatcher, IDailyQuestsDispatcher, IDailyQuestsDispatcherTrait,
+};
+use paved::systems::lobby::Lobby;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::e2e::lobby::{ISpyEconomyDispatcher, ISpyEconomyDispatcherTrait, daily_paid_in};
 use paved::tests::setup::setup;
-use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER};
+use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
+use paved::types::orientation::Orientation;
+use paved::types::plan::Plan;
 use paved::views::{IGameViewDispatcher, IGameViewDispatcherTrait};
 use quiver_achievement::types::task::AchievementTask;
 use quiver_achievement::types::window::AchievementWindow;
@@ -22,9 +31,11 @@ use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use snforge_std::{
     load, map_entry_address, start_cheat_block_timestamp_global, start_cheat_caller_address,
-    stop_cheat_caller_address,
+    stop_cheat_caller_address, store as write_raw,
 };
 use starknet::ContractAddress;
+use starknet::storage::{StorageAsPath, StorageAsPointer, StorageBase, StoragePathEntry};
+use starknet::storage_access::storage_address_from_base;
 
 const DAY: u32 = 86400;
 
@@ -41,8 +52,7 @@ fn raw_entry(contract: ContractAddress, map: felt252, key: Array<felt252>) -> fe
 }
 
 /// Pins, by name, every storage variable that `Lobby` shares with `Daily`: `owner` and
-/// `pending_owner` (ownable), `token_address` (payable), `sponsorships` (hostable, dead since D-20
-/// under P-42: a whole game of the day leaves its slot at zero, never written) and the
+/// `pending_owner` (ownable), `token_address` (payable), and the
 /// quiver ones a definition writes (`Quest_definitions`, `Quest_tasks`, `Quest_conditions`,
 /// `Achievement_definitions`, `Achievement_extra_tasks`). `Quest_progress`, `Quest_records`,
 /// `Quest_held` and the two `*_reporters` maps are not written by `Lobby` or `Daily`: the game over
@@ -55,7 +65,10 @@ fn raw_entry(contract: ContractAddress, map: felt252, key: Array<felt252>) -> fe
 /// through the other) is not possible in snforge: a contract class lists no storage variables
 /// (the ABI holds none) and `Lobby` cannot be deployed, so it has no address to read. Whoever adds
 /// a variable to `OwnableComponent`, `PayableComponent`, `HostableComponent`, `QuestComponent` or
-/// `AchievementComponent` adds it here. `lobby_class` is `Daily`'s alone (`Lobby` never reads it;
+/// `AchievementComponent` adds it here. The fields dead since D-20 (`sponsorships` of hostable,
+/// `tournaments` and `rankings` of the `paved` node) are pinned by
+/// `test_lobby_and_daily_pin_the_dead_fields_by_name`. `lobby_class` is `Daily`'s alone (`Lobby`
+/// never reads it;
 /// `Daily`'s owner sets it, P-42). `UpgradeableComponent` has no storage.
 #[test]
 #[available_gas(l2_gas: 400000000)]
@@ -106,17 +119,6 @@ fn test_lobby_and_daily_pin_every_shared_storage_variable_by_name() {
             10,
         );
     stop_cheat_caller_address(daily);
-    // [Dead since D-20] `sponsorships` (P-42): a whole game of the day, spawned and ended through
-    // `Lobby`, leaves the slot of its player at zero
-    start_cheat_caller_address(daily, PLAYER());
-    let game_id = systems.daily.spawn(1, Zero::zero(), 0);
-    systems.daily.surrender(game_id);
-    stop_cheat_caller_address(daily);
-    let day = day_id(10 * 86400, constants::DAILY_DURATION);
-    assert(
-        raw_entry(daily, selector!("sponsorships"), array![day.into(), PLAYER().into()]) == 0,
-        'Pin: sponsorships written',
-    );
     assert(
         raw_entry(daily, selector!("Quest_definitions"), array![1]) != 0, 'Pin: Quest_definitions',
     );
@@ -132,6 +134,91 @@ fn test_lobby_and_daily_pin_every_shared_storage_variable_by_name() {
         raw_entry(daily, selector!("Achievement_extra_tasks"), array![3]) != 0,
         'Pin: Achievement_extra_tasks',
     );
+}
+
+// Dead since D-20 (P-42): declared, never written or read, never reused
+
+/// The `Slots` of a map entry of the `paved` node, computed from the names alone: a member of a
+/// storage node sits at `pedersen(node, selector!(name))`, a map entry at `pedersen(map, key)`.
+fn paved_entry(member: felt252, key: felt252) -> felt252 {
+    core::pedersen::pedersen(core::pedersen::pedersen(selector!("paved"), member), key)
+}
+
+/// The address the code resolves for a storage path, as a felt.
+fn address_of<T, +Drop<T>, +StorageAsPointer<T>>(path: T) -> felt252 {
+    storage_address_from_base(path.as_ptr().__storage_pointer_address__).into()
+}
+
+/// Pins `sponsorships` (hostable), `tournaments` and `rankings` (the `paved` node) by name, two
+/// ways.
+/// 1. **Name**: the entry address the code resolves through the field, in `HostableComponent` as
+///    `Daily` and as `Lobby` embed it and in `PavedStorage`, equals the address computed from the
+///    literal name. A rename or a removal fails to compile here, or, with this test updated to the
+///    new member, moves the address away from the literal: the assert fails. A retype of the key
+///    moves it too.
+/// 2. **Reuse**: a sentinel written at each raw address (every slot of `Slots2` and `Slots4`)
+///    survives a whole game of that day, spawned, built and ended through `Daily` and its `Lobby`.
+///    A field that a new code path writes again, or that another variable reuses, overwrites it.
+#[test]
+#[available_gas(l2_gas: 200000000)]
+fn test_lobby_and_daily_pin_the_dead_fields_by_name() {
+    start_cheat_block_timestamp_global(10 * 86400);
+    let (store, systems, context) = setup::spawn_game(Mode::None);
+    let daily = systems.daily.contract_address;
+    let day: u64 = day_id(10 * 86400, constants::DAILY_DURATION);
+    let player: ContractAddress = PLAYER();
+
+    // [Name] `sponsorships`, flat in the substorage of `Daily` and of `Lobby`
+    let sponsorship = map_entry_address(
+        selector!("sponsorships"), array![day.into(), player.into()].span(),
+    );
+    let on_daily: HostableComponent::ComponentState<Daily::ContractState> =
+        HostableComponent::component_state_for_testing();
+    let on_lobby: HostableComponent::ComponentState<Lobby::ContractState> =
+        HostableComponent::component_state_for_testing();
+    assert(on_daily.sponsorship_address(day, player) == sponsorship, 'Dead: sponsorships daily');
+    assert(on_lobby.sponsorship_address(day, player) == sponsorship, 'Dead: sponsorships lobby');
+    // [Name] `tournaments` and `rankings`, members of the `paved` node of both
+    let node: StorageBase<PavedStorage> = StorageBase { __base_address__: selector!("paved") };
+    let tournament = paved_entry(selector!("tournaments"), day.into());
+    let ranking = paved_entry(selector!("rankings"), day.into());
+    assert(
+        address_of(node.as_path().tournaments.entry(day)) == tournament, 'Dead: tournaments name',
+    );
+    assert(address_of(node.as_path().rankings.entry(day)) == ranking, 'Dead: rankings name');
+
+    // [Reuse] Sentinels at every slot of the three entries
+    let slots: Array<felt252> = array![
+        sponsorship, tournament, tournament + 1, ranking, ranking + 1, ranking + 2, ranking + 3,
+    ];
+    let sentinel = 'D-20 dead';
+    let mut i = 0;
+    while i < slots.len() {
+        write_raw(daily, *slots.at(i), array![sentinel + *slots.at(i)].span());
+        i += 1;
+    }
+
+    // [Effect] A whole game of that day through `Daily` and its `Lobby`: spawn, build, surrender
+    start_cheat_caller_address(daily, player);
+    let game_id = systems.daily.spawn(1, Zero::zero(), 0);
+    let game = store.game(game_id);
+    let builder = store.builder(game, context.player_id);
+    let mut tile = store.tile(game, builder.tile_id);
+    tile.plan = Plan::FFCFFFCFF.into();
+    store.set_tile(tile);
+    systems.daily.build(game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.daily.surrender(game_id);
+    stop_cheat_caller_address(daily);
+    assert(store.game(game_id).day_id == day, 'Dead: game not in the day');
+
+    // [Assert] Every sentinel intact
+    let mut i = 0;
+    while i < slots.len() {
+        assert(
+            *load(daily, *slots.at(i), 1).at(0) == sentinel + *slots.at(i), 'Dead: field written',
+        );
+        i += 1;
+    }
 }
 
 // Re-entry: a token that calls back into `Daily` during a `Lobby` library call

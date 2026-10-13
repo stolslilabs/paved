@@ -19,6 +19,8 @@ pub mod HostableComponent {
     use paved::store::{Store, StoreImpl};
     use paved::types::mode::{Mode, ModeTrait};
     use starknet::storage::Map;
+    #[cfg(test)]
+    use starknet::storage::{StorageAsPointer, StoragePathEntry};
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
 
     // Storage
@@ -33,6 +35,25 @@ pub mod HostableComponent {
     #[event]
     #[derive(Drop, starknet::Event)]
     pub enum Event {}
+
+    /// Test only: the address of a `sponsorships` entry, resolved through the field's name, for the
+    /// pin of the dead fields
+    /// (`tests::e2e::lobby_audit::test_lobby_and_daily_pin_the_dead_fields_by_name`).
+    #[cfg(test)]
+    #[generate_trait]
+    pub impl DeadFieldsImpl<
+        TContractState, +HasComponent<TContractState>,
+    > of DeadFieldsTrait<TContractState> {
+        fn sponsorship_address(
+            self: @ComponentState<TContractState>, day: u64, sponsor: ContractAddress,
+        ) -> felt252 {
+            let path = self.sponsorships.entry((day, sponsor));
+            starknet::storage_access::storage_address_from_base(
+                path.as_ptr().__storage_pointer_address__,
+            )
+                .into()
+        }
+    }
 
     #[generate_trait]
     pub impl InternalImpl<
