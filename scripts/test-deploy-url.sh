@@ -2,7 +2,8 @@
 # The RPC_URL guard of deploy.sh names what it could not parse (it runs before anything else, so no
 # node and no toolchain are needed), its network and sepolia variable checks refuse before anything is built or sent
 # (S-1), a sepolia run failing at the node leaks no value to an output, an argv or a child's environment (P-40), and
-# its getClass predicate rejects a malformed answer. The same holds on the --repoint path (R-1). Usage:
+# its getClass predicate rejects a malformed answer. The same holds on the --repoint path (R-1) and the --d18 path
+# (D-18c). Usage:
 # scripts/test-deploy-url.sh
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -54,6 +55,19 @@ out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehear
 if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
   echo "ok: deploy.sh sepolia --rehearse --repoint refuses a remote node, its key unprinted"
 else echo "FAIL: deploy.sh sepolia --rehearse --repoint with a remote RPC_URL: $out"; fail=1; fi
+# --d18 (D-18c): the same options as --repoint.
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --d18
+refuse 2 "STARKNET_ACCOUNT_ADDRESS STARKNET_PRIVATE_KEY STARKNET_RPC_URL" sepolia --d18 --check-only
+refuse 2 "unknown option '--d18' for 'devnet'" devnet --d18
+refuse 2 "--deployment is for the rehearsal only: sepolia --d18 reads" sepolia --d18 --deployment "$repoint_file"
+refuse 2 "sepolia --rehearse --d18 needs --deployment <file>" sepolia --rehearse --d18
+refuse 2 "--deployment expects an existing deployment file" sepolia --rehearse --d18 --deployment "$repoint_file.missing"
+refuse 2 "unknown option '--frobnicate' for 'sepolia --d18'" sepolia --d18 --frobnicate
+refuse 2 "unknown option '--repoint' for 'sepolia --d18'" sepolia --d18 --repoint
+out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse --d18 --deployment "$repoint_file" 2>&1 >/dev/null)"
+if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
+  echo "ok: deploy.sh sepolia --rehearse --d18 refuses a remote node, its key unprinted"
+else echo "FAIL: deploy.sh sepolia --rehearse --d18 with a remote RPC_URL: $out"; fail=1; fi
 rm -f "$repoint_file"
 out="$(RPC_URL=https://rpc.example.com/v1/KEY "$here/deploy.sh" sepolia --rehearse 2>&1 >/dev/null)"
 if [[ $? -eq 2 && "$out" == *"host 'rpc.example.com'"* && "$out" != *KEY* ]]; then
@@ -190,6 +204,11 @@ at_node down "no node answers at \$STARKNET_RPC_URL" --repoint
 at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA" --repoint
 at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --repoint
 at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --repoint --check-only
+# The --d18 path (D-18c) too.
+at_node down "no node answers at \$STARKNET_RPC_URL" --d18
+at_node mainnet "the node's chain id 0x534e5f4d41494e is not SN_SEPOLIA" --d18
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --d18
+at_node sepolia "the deployer account \$STARKNET_ACCOUNT_ADDRESS is not deployed on \$STARKNET_RPC_URL" --d18 --check-only
 
 # `send` (review of #299): a signer that fails while printing the three values leaks none of them through deploy.sh,
 # gets no value in its argv, and starts with the allowlisted environment only (no NODE_TLS_REJECT_UNAUTHORIZED, no
@@ -257,6 +276,9 @@ body='{"jsonrpc":"2.0","id":1,"error":{"code":29,"message":"Transaction hash not
 case "$config" in
   *starknet_specVersion*) body='{"jsonrpc":"2.0","id":1,"result":"0.10.2"}' ;;
   *starknet_chainId*) body='{"jsonrpc":"2.0","id":1,"result":"0x534e5f5345504f4c4941"}' ;;
+  # --d18: the Lobby class Daily and Tutorial store (named params only, as deploy.sh sends them).
+  *starknet_getStorageAt*'\"contract_address\"'*)
+    body="{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":\"$(cat "$dir/lobby" 2>/dev/null || echo 0x1b)\"}" ;;
   *starknet_getClassHashAt*)
     class=0x1
     while read -r a c; do [[ "$config" == *"\\\"$a\\\""* ]] && class="$c"; done <"$dir/classes"
@@ -305,6 +327,7 @@ case "$cmd:$fn" in
   call:addresses) r="[\"0x10\",\"0x20\",\"0x30\",\"$([[ -e "$dir/repointed" ]] && echo 0x90 || echo 0x80)\",\"0x50\"]" ;;
   call:router) [[ -e "$dir/repointed" ]] || { echo "signer: call failed: ENTRYPOINT_NOT_FOUND" >&2; exit 1; }; r='["0x90"]' ;;
   call:pool_key) r='["0x10","0x20","0x1","0x1","0x0"]' ;;
+  call:config) r='["0x1b58","0x0","0x46d2","0x5","0xd3c21bcecceda1000000"]' ;;
   call:pool) r='["0x10","0x20","0x1","0x1","0x0","0x0","0x0"]' ;;
   call:reserves)
     # PAVED (0x10) is token0: 800,000 PAVED and 10,000 USDC, the old pool's size.
@@ -367,7 +390,8 @@ SH
 chmod +x "$rp/bin/"*
 cp "$here/deploy.sh" "$rp/root/scripts/"
 mkdir -p "$rp/root/scripts/signer"
-for name in MockRouter Economy; do
+# MockRouter and Economy for --repoint; Account, Daily, Tutorial and Lobby for --d18.
+for name in MockRouter Economy Account Daily Tutorial Lobby; do
   cp "$here/signer/test/fixtures/tiny.contract_class.json" "$rp/root/contracts/target/release/paved_$name.contract_class.json"
   cp "$here/signer/test/fixtures/tiny.compiled_contract_class.json" "$rp/root/contracts/target/release/paved_$name.compiled_contract_class.json"
 done
@@ -380,7 +404,7 @@ rp_json="$rp/root/contracts/deployments/sepolia.json"
 # The deployment (written after the commit: the source check reads contracts/src, Scarb.toml and Scarb.lock only), with
 # an optional `repoint` record, as JSON. Each case starts from clean signer and node files.
 rp_case() { # [repoint record]
-  rm -f "$rp/bin/"{leak,quote_fails,send_refused,unseeded,seeded,repointed,poor,receipts,count,refused.log,lock_dir}
+  rm -f "$rp/bin/"{leak,quote_fails,send_refused,unseeded,seeded,repointed,poor,receipts,count,refused.log,lock_dir,lobby}
   rp_classes
   python3 -I - "$rp_json" "${1:-}" <<'PY'
 import json, sys
@@ -527,6 +551,98 @@ if [[ $rc -ne 0 || "$out" != *"complete: upgraded, repointed, seeded, smoke reco
   rp_fail "a complete repoint with no STRK: expected exit 0, the funding need waived, nothing sent, got $rc" "$out"
 else
   echo "ok: sepolia --repoint: a complete repoint with 0 STRK passes the funding check (nothing left to send), smoke ok, nothing sent"
+fi
+
+# --d18 past the node checks (D-18c), on the same fake node and signer. The deployment is repointed (its MockRouter 0x90
+# is the one its `repoint` key records) unless a case says otherwise; Daily (0x50), Tutorial (0x60) and Account (0x40)
+# are of the file's classes, they run the file's Lobby (0x1b), and the D-18 classes (their names in hex, as the sncast
+# shim computes them) are declared on the node.
+d18_repointed='{"MockRouter": {"address": "0x90"}, "multicall_tx": "0x7e90"}'
+d18_case() { # [repoint record, default $d18_repointed; empty for none]
+  if [[ $# -gt 0 ]]; then rp_case "$1"; else rp_case "$d18_repointed"; fi
+  python3 -I - "$rp_json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["contracts"]["MockRouter"]["address"] = "0x90"
+d["classes"] = {"Lobby": "0x1b"}
+json.dump(d, open(sys.argv[1], "w"), indent=2)
+PY
+  printf '0x40 0xa\n0x50 0xd\n0x60 0xb\n' >>"$rp/bin/classes"
+  for name in Daily Tutorial Account Lobby; do hexname "$name"; done >>"$rp/bin/declared"
+  touch "$rp/bin/repointed"
+}
+d18_fail() { # <label> <output>
+  echo "FAIL: sepolia --d18, $1:"; sed "s/MARKER/<marker>/gI; s/$ADDR_MARK/<address>/gI" <<<"$2"
+  echo "sent: $(cat "$rp/bin/sent.log")"; fail=1
+}
+d18_get_test() { python3 -I -c 'import json,sys;n=json.load(open(sys.argv[1])).get("d18",{})
+for k in sys.argv[2].split("."): n=n.get(k,{}) if isinstance(n,dict) else {}
+print(n if isinstance(n,str) else "")' "$rp_json" "$1"; }
+
+# leak: the first send of d18_state fails, printing the three values.
+d18_case
+touch "$rp/bin/leak"
+out="$(rp_run --d18)"; rc=$?
+names="$(sed -n '/^node env:$/,/^node argv/p' "$rp/bin/signer.log" | sed '1d;/^node argv/d' | cut -d= -f1 | grep -v '^_$\|^PWD$\|^SHLVL$\|^OLDPWD$' | sort -u | tr '\n' ' ')"
+if [[ $rc -ne 1 || "$out" != *"== d18: state (read-only)"* ]] || leaks -q <<<"$out"; then
+  d18_fail "a failing send in d18_state: expected exit 1 in d18_state, no value, got $rc" "$out"
+elif grep '^node argv' "$rp/bin/signer.log" | leaks -q || leaks -q "$rp/curl.log" || ! grep -q '^curl: the URL came on stdin$' "$rp/curl.log"; then
+  echo "FAIL: sepolia --d18: a value reached the signer's argv or curl's argv or environment"; fail=1
+elif [[ "$names" != "$want" ]]; then
+  echo "FAIL: sepolia --d18: the signer's environment is not the allowlist: $names"; fail=1
+else
+  echo "ok: sepolia --d18 reaches d18_state; a failing send there leaks no value; the signer's argv holds none; its environment is: $names"
+fi
+
+# The order: before R-1's repoint (no `repoint` record), or with a record whose Economy has no router() yet, the tool
+# refuses before anything is estimated or sent, --check-only included, and writes nothing.
+for mode in --check-only ""; do
+  for record in '' "$d18_repointed"; do
+    d18_case "$record"
+    [[ -n "$record" ]] && rm -f "$rp/bin/repointed"
+    before="$(cat "$rp_json")"
+    # shellcheck disable=SC2086
+    out="$(rp_run --d18 $mode)"; rc=$?
+    if [[ -z "$record" ]]; then want_msg="R-1's repoint is not complete"; else want_msg="Economy.router() does not answer"; fi
+    if [[ $rc -ne 1 || "$out" != *"$want_msg"*"D-18c runs after R-1 part B; nothing was sent"* || "$out" == *"every check passed"* ||
+        "$out" == *"== funding"* || -s "$rp/bin/sent.log" || "$(cat "$rp_json")" != "$before" ]] || leaks -q <<<"$out"; then
+      d18_fail "${mode:-full run} ${record:+with a repoint record but no router() }before the repoint: expected a refusal, nothing sent, got $rc" "$out"
+    else
+      echo "ok: sepolia --d18 ${mode:-(full run)} refuses before the repoint (${want_msg}), nothing sent, the file unchanged"
+    fi
+  done
+done
+
+# --check-only past every check: the classes, the Lobby class (named-params storage read), the config; it lists the six
+# calls of the multicall and ends "every check passed; nothing was sent", nothing sent, the file unchanged.
+d18_case
+before="$(cat "$rp_json")"
+out="$(rp_run --d18 --check-only)"; rc=$?
+if [[ $rc -ne 0 || "$out" != *"== d18: check only: every check passed; nothing was sent" ||
+    "$out" != *"   daily: runs the Lobby 0x1b (not set)"* ||
+    "$out" != *"Economy.config(): burn_bps 7000, sigma_bps 0, slope_bps 18130, cap 5, target 1000000000000000000000000"* ||
+    "$(grep -c '^     \(Daily\|Tutorial\|Account\)\.upgrade \|^     \(Daily\|Tutorial\)\.set_lobby_class \|^     Economy\.configure 0x1b58 0x0 12220 0x5 ' <<<"$out")" != 6 ||
+    -s "$rp/bin/sent.log" || "$(cat "$rp_json")" != "$before" ]] || leaks -q <<<"$out"; then
+  d18_fail "--check-only: expected exit 0, the six calls listed, nothing sent, the file unchanged, got $rc" "$out"
+else
+  echo "ok: sepolia --d18 --check-only passes every check, lists the six calls of the multicall, sends nothing, writes nothing"
+fi
+
+# A full run whose multicall the signer finds `not landed`: the previous classes and config are recorded first, the hash
+# under d18.multicall_tx (not repoint.*) as it is sent, then cleared; the repoint record is untouched.
+d18_case
+touch "$rp/bin/send_refused"
+out="$(rp_run --d18)"; rc=$?
+refused="$(cut -d' ' -f2- "$rp/bin/refused.log" 2>/dev/null)"
+repoint_after="$(python3 -I -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1]))["repoint"],sort_keys=True))' "$rp_json")"
+if [[ $rc -ne 1 || "$out" != *"not landed: d18.multicall_tx cleared, so a rerun sends it again"* || -n "$(d18_get_test multicall_tx)" ||
+    "$refused" != "upgrade upgrade upgrade set_lobby_class set_lobby_class configure 0x5eed0001" ||
+    "$(d18_get_test previous.Daily.class_hash)" != "0x$(printf '%064x' 0xd)" || "$(d18_get_test previous.Lobby.class_hash)" != "0x$(printf '%064x' 0x1b)" ||
+    "$(d18_get_test previous.config)" != "0x1b58 0x0 0x46d2 0x5 0xd3c21bcecceda1000000" ||
+    "$repoint_after" != '{"MockRouter": {"address": "0x90"}, "multicall_tx": "0x7e90"}' || -s "$rp/bin/sent.log" ]] || leaks -q <<<"$out"; then
+  d18_fail "a multicall refused 'not landed': expected exit 1, d18.multicall_tx cleared, the previous state recorded, got $rc (refused: $refused)" "$out"
+else
+  echo "ok: sepolia --d18: one multicall of the six calls; refused 'not landed', its d18.multicall_tx is cleared; the previous classes and config are recorded; repoint untouched"
 fi
 
 # sepolia --estimate-only (S-1c): past every check (a fake node over curl that has the deployer, the source check, a
