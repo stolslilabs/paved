@@ -45,90 +45,6 @@
     ]
   },
   {
-    "type": "enum",
-    "name": "paved::types::role::Role",
-    "variants": [
-      {
-        "name": "None",
-        "type": "()"
-      },
-      {
-        "name": "Lord",
-        "type": "()"
-      },
-      {
-        "name": "Lady",
-        "type": "()"
-      },
-      {
-        "name": "Adventurer",
-        "type": "()"
-      },
-      {
-        "name": "Paladin",
-        "type": "()"
-      },
-      {
-        "name": "Pilgrim",
-        "type": "()"
-      },
-      {
-        "name": "Woodsman",
-        "type": "()"
-      },
-      {
-        "name": "Herdsman",
-        "type": "()"
-      }
-    ]
-  },
-  {
-    "type": "enum",
-    "name": "paved::types::spot::Spot",
-    "variants": [
-      {
-        "name": "None",
-        "type": "()"
-      },
-      {
-        "name": "Center",
-        "type": "()"
-      },
-      {
-        "name": "NorthWest",
-        "type": "()"
-      },
-      {
-        "name": "North",
-        "type": "()"
-      },
-      {
-        "name": "NorthEast",
-        "type": "()"
-      },
-      {
-        "name": "East",
-        "type": "()"
-      },
-      {
-        "name": "SouthEast",
-        "type": "()"
-      },
-      {
-        "name": "South",
-        "type": "()"
-      },
-      {
-        "name": "SouthWest",
-        "type": "()"
-      },
-      {
-        "name": "West",
-        "type": "()"
-      }
-    ]
-  },
-  {
     "type": "interface",
     "name": "paved::systems::daily::IDaily",
     "items": [
@@ -227,14 +143,6 @@
           {
             "name": "y",
             "type": "core::integer::u32"
-          },
-          {
-            "name": "role",
-            "type": "paved::types::role::Role"
-          },
-          {
-            "name": "spot",
-            "type": "paved::types::spot::Spot"
           }
         ],
         "outputs": [],
@@ -603,44 +511,6 @@
       {
         "name": "plan",
         "type": "core::integer::u8"
-      },
-      {
-        "name": "placed_count",
-        "type": "core::integer::u8"
-      },
-      {
-        "name": "available_count",
-        "type": "core::integer::u8"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "paved::views::CharacterView",
-    "members": [
-      {
-        "name": "role",
-        "type": "core::integer::u8"
-      },
-      {
-        "name": "placed",
-        "type": "core::bool"
-      },
-      {
-        "name": "tile_id",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "x",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "y",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "spot",
-        "type": "core::integer::u8"
       }
     ]
   },
@@ -704,26 +574,6 @@
         "outputs": [
           {
             "type": "paved::views::BuilderView"
-          }
-        ],
-        "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "characters",
-        "inputs": [
-          {
-            "name": "game_id",
-            "type": "core::integer::u32"
-          },
-          {
-            "name": "player_id",
-            "type": "core::felt252"
-          }
-        ],
-        "outputs": [
-          {
-            "type": "core::array::Array::<paved::views::CharacterView>"
           }
         ],
         "state_mutability": "view"
@@ -1026,16 +876,6 @@
       {
         "name": "y",
         "type": "core::integer::u32",
-        "kind": "data"
-      },
-      {
-        "name": "role",
-        "type": "core::integer::u8",
-        "kind": "data"
-      },
-      {
-        "name": "spot",
-        "type": "core::integer::u8",
         "kind": "data"
       }
     ]
