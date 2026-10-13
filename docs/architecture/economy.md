@@ -1138,20 +1138,20 @@ does not model (E4 adds it there). The pool keeps its fee in its reserves, as th
 `sim.py`'s pool instead, and measures the 230 ppm gap. The test's `expected()` table is the script's output. The
 guard does not bind on this pool. The PAVED bought matches
 to the base unit. `R` and the payout are within 120 ppm; the worst gap measured is 86 ppm. The gap comes from
-`F`, which is in whole basis points: 1 bp of 1x is 100 ppm. The day means are 4,215.689 and 4,387.024 points
-(sim: 4,215.690 and 4,387.025). The EMA after both days is 4,366.567 points.
+`F`, which is in whole basis points: 1 bp of 1x is 100 ppm. The day means are 4,893.103 and 4,961.104 points
+(sim: 4,893.103 and 4,961.105). The EMA after both days is 4,952.984 points (sim: 4,952.985).
 
 | Game | Day | Stake | Referred | Score | `R`, sim (PAVED) | `R` gap | Payout, sim (PAVED) | Payout gap |
 |---:|---:|---:|---|---:|---:|---:|---:|---:|
-| 1 | 0 | 1 | no | 5,000 | 107.4611 | 6 ppm | 231.0738 | 6 ppm |
+| 1 | 0 | 1 | no | 5,000 | 107.4611 | 6 ppm | 134.1863 | 6 ppm |
 | 2 | 0 | 3 | yes | 2,000 | 328.6949 | 25 ppm | 0 | exact |
-| 3 | 0 | 10 | no | 15,000 | 1,169.3069 | 86 ppm | 5,846.5346 (cap) | 86 ppm |
+| 3 | 0 | 10 | no | 15,000 | 1,169.3069 | 86 ppm | 4,380.3275 | 86 ppm |
 | 4 | 0 | 5 | yes | 50 | 557.2234 | 16 ppm | 0 | exact |
-| 5 | 0 | 2 | no | 4,300 | 216.3582 | 28 ppm | 400.1023 | 27 ppm |
-| 6 | 1 | 4 | no | 6,000 | 438.1808 | 73 ppm | 1,086.5064 | 73 ppm |
-| 7 | 1 | 7 | yes | 9,000 | 788.3495 | 12 ppm | 2,932.1688 | 12 ppm |
-| 8 | 1 | 1 | no | 4,300 | 106.1996 | 17 ppm | 0 | exact |
-| 9 | 1 | 6 | no | 800 | 668.5417 | 50 ppm | 0 | exact |
+| 5 | 0 | 2 | no | 4,300 | 216.3582 | 28 ppm | 0 | exact |
+| 6 | 1 | 4 | no | 6,000 | 439.0444 | 36 ppm | 648.8622 | 36 ppm |
+| 7 | 1 | 7 | yes | 9,000 | 789.9019 | 75 ppm | 1,751.0902 | 75 ppm |
+| 8 | 1 | 1 | no | 4,300 | 106.4087 | 81 ppm | 0 | exact |
+| 9 | 1 | 6 | no | 800 | 669.8573 | 13 ppm | 0 | exact |
 
 ### As built: E3 (wiring)
 
