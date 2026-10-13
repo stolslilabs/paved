@@ -14,6 +14,10 @@ Sources read for this design: `contracts/src/models/tournament.cairo`, `models/i
 the tests under `contracts/src/tests/` and `contracts/tests/`, `docs/measures/baseline.md`,
 `docs/measures/golden-games.md`, `docs/architecture/indexer.md`, `docs/programme/DECISIONS.md`.
 
+**D-20 to D-24 (planned)**: tournaments and the prize leave the code, the tutorial leaves the contracts, `Daily`
+becomes Challenge, and `Lobby`'s cold paths and the quests are reorganised; see the sections "D-20" to "D-24" before
+part 2 for the inventories and what happens to the ranking.
+
 The document has two parts: part 1, the interface and how the swap is made and tested; part 2, "What Paved needs
 from a leaderboard package", the request for the package, written to be forwarded as it is.
 
@@ -374,6 +378,498 @@ due.
 | `scripts/class-sizes.sh` | 3,739,768 kB, 1:01 | 2,732,300 kB, 0:32 |
 | `scripts/abis.sh` | | 3,635,420 kB |
 | `snforge test --max-threads 2` (whole suite, once) | | 4,333,112 kB, 3:38 |
+
+## D-20: tournaments leave the code (planned)
+
+D-20 and P-48 (`docs/programme/DECISIONS.md`, owner via the PM and PM, 2026-10-13): the daily prize goes; the daily
+seed, the day id, the economy settlement and the daily leaderboard stay. Not built yet: this is the inventory that
+part B (the implementation) follows, read from main's code (paths under `contracts/src/`, lines of main at
+`7d04872d`). The interface side is `public-interface.md`, "Breaking change D-20".
+
+**Why here.** The prize was designed in `economy.md` (P-31, P-37, P-37b, "As built: E3"), but the question D-20
+leaves open is the ranking: who reads the on-chain top 3 besides the prize, and whether it stays. This note owns
+the ranking (`leaderboard.cairo`) and the cutover of its storage, so the inventory lives here; `economy.md`,
+`class-headroom.md`, `native-storage.md` and `quests.md` point to it.
+
+### The prize path: everything that goes
+
+| Kind | Item | Where (main) | Note |
+|---|---|---|---|
+| Entry point | `Daily.claim(tournament_id: u64, rank: u8)` | `systems/daily.cairo:17`, `:190-194` | a library call to `Lobby.claim`. Rank 0 is the sponsor's reclaim (P-37b): there is no separate `reclaim` entry point anywhere |
+| Entry point | `Daily.sponsor(amount: felt252)` | `systems/daily.cairo:18`, `:196-199` | a library call to `Lobby.sponsor` |
+| Entry point | `Lobby.claim` (rank 1 to 3: reward; rank 0: reclaim) | `systems/lobby.cairo:30`, `:260-273` | pays with `payable.refund` |
+| Entry point | `Lobby.sponsor` | `systems/lobby.cairo:31`, `:275-280` | pulls with `payable.pay` |
+| Entry point | `Tutorial` | `systems/tutorial.cairo` | none: `Tutorial` has no claim or sponsor wrapper |
+| Component | `HostableComponent::claim`, `sponsor`, `reclaim`, the error `NOTHING_TO_RECLAIM` | `components/hostable.cairo:114-145`, `:147-172`, `:174-200`, `:27-29` | **`HostableComponent` itself stays**: its `spawn` and `spawn_with` (`:48-112`) are the spawn of both modes (`Lobby.spawn`, `systems/lobby.cairo:249`). Only the prize functions and the `sponsorships` map (below) go |
+| Component | `PayableComponent::pay` and `refund`, and their errors | `components/payable.cairo:56-69`, `:71-83`, `:29-32` | called only from `Lobby.sponsor` (`lobby.cairo:279`) and `Lobby.claim` (`lobby.cairo:272`). `token_address` (`payable.cairo:38`) **stays**: the purchase reads it (`lobby.cairo:442`) and so does `entry_price` (`daily.cairo:303`) |
+| Model | `Tournament` (`id`, `prize`, `top1..3_claimed`) | `models/index.cairo:61-68` | the whole struct |
+| Model | `TournamentImpl::player`, `reward`, `buyin`, `claim`; `TournamentAssert`; `ZeroableTournament`; the errors; the unit tests | `models/tournament.cairo:32-98`, `:100-124`, `:126-144`, `:16-23`, `:146-274` | **`TournamentImpl::compute_id` (`:27-30`) stays** under another home (the day id, below) |
+| Model | `Game.tournament_id` | `models/index.cairo:21` | **stays**: the day a game counted for (below) |
+| Store | `Store::tournament`, `Store::set_tournament` | `store.cairo:212-222`, `:429-442` | |
+| Storage | `PavedStorage.tournaments: Map<u64, Slots2>` | `store.cairo:98-99` | dead (P-42, below) |
+| Storage | `HostableComponent.sponsorships: Map<(u64, ContractAddress), felt252>` | `components/hostable.cairo:33-38` | dead (P-42, below) |
+| Event | `Sponsored { #[key] tournament_id: u64, sponsor: ContractAddress, amount: felt252 }` | `events.cairo:18`, `:88-94`; emitted at `hostable.cairo:163-168` | past event (ruling 7, `public-interface.md`) |
+| Event | `Claimed { #[key] tournament_id: u64, player_id: felt252, rank: u8, reward: u256 }` | `events.cairo:19`, `:96-103`; emitted at `hostable.cairo:136-141` | past event. Not `Vault`'s own `Claimed { account, amount }` (`economy/vault.cairo:97`, `:118`), which stays |
+| Event | `Reclaimed { #[key] tournament_id: u64, #[key] sponsor: ContractAddress, amount: u256 }` | `systems/lobby.cairo:215`, `:218-227`; emitted at `:266` | declared by `Lobby`, emitted from `Daily`'s address; past event |
+| View | `tournament(id: u64) -> TournamentView`, the struct `TournamentView`, `MAX_TOURNAMENT_ID` | `views.cairo:110`, `:72-88`, `:206-246`, `:21-22`; `Daily`'s impl `daily.cairo:294-296` | the view is the prize's (prize, claimed flags) and the ranking's |
+| View | `current_tournament_id() -> u64`, `entry_price() -> PriceView` | `views.cairo:111-112`, `:248-255`; `daily.cairo:298-304` | **stay** (proposed, see "Open for the PM"): the day id and the purchase's price |
+| Constants | `DAILY_TOURNAMENT_PRICE`, `DAILY_TOURNAMENT_DURATION` | `constants.cairo:10-14` | **stay**: the price of one stake unit (`Mode::price`, `types/mode.cairo:38`) and the length of a day (`Mode::duration`, `:47`). Only their names say "tournament"; a rename is part B's choice |
+| Constants | `TASK_PODIUM` (8), `TASK_WIN` (9) | `constants.cairo:36-38` | stay: task ids are opaque to quiver and 8 stays defined for On the Podium (`quests.md`) |
+
+**The tokens.** The prize is held by **`Daily`**, in its entry token (`payable.token_address`, USDC; MockUSDC on
+Sepolia, P-39). `sponsor` pulls `transferFrom(sponsor, Daily, amount)` (`payable.cairo:63-65`: under the library call
+`get_contract_address()` is `Daily`), and `claim` pays `transfer(caller, reward)` out of `Daily`'s balance
+(`payable.cairo:78-79`). The `Vault` (`economy/vault.cairo:1-10`) holds none of it: its income is the purchases'
+margin. Since E3 the entries no longer feed the prize (P-31, `hostable.cairo:83`): a purchase sends the player's
+USDC straight to `Economy` (`lobby.cairo:443`). So **`Daily`'s USDC balance is exactly the prize money not yet paid
+out**: the sum of the `Sponsored` amounts, less the `Claimed` rewards and the `Reclaimed` amounts.
+
+### Top3 and the on-chain ranking
+
+The ranking is `leaderboard.cairo` (`LeaderboardImpl::submit`, `ranked`, `top`, `:103-177`) over
+`PavedStorage.rankings: Map<u64, Slots4>` (`store.cairo:100-103`, `:444-466`). **One writer**: `end_in_tournament`
+(`components/playable.cairo:32-52`), at every Daily game over (`:115-130`, `:159-173`, `:262-277`), when the game
+ends in the day it started. `Tutorial` never ranks (`tutoriable.cairo` emits `GameOver` with no submission,
+`:101`, `:137`, `:230`).
+
+| Reader | Where | Needs the ranking? |
+|---|---|---|
+| The prize: `claim` and `reclaim` | `hostable.cairo:130`, `:188` | goes with the prize |
+| The `tournament` view | `views.cairo:227` | goes with the view |
+| The economy: mean, settlement | `economy/economy.cairo:691-707` (`record`), `:711-760` (`settle`), `economy/mean.cairo` | **no**. `record` adds the score to the purchase day's own state (`days`, `means`, keyed by `terms.time / DAY`); `settle` closes the day's mean (`close`, `:1021`). Neither calls `leaderboard` |
+| The keeper | `contracts/deployments/README.md:150-152`; `Economy.settle(game_ids)` | **no**: it settles the indexer's `unsettled` list (`docs/architecture/indexer.md:574`) |
+| `GameOver` | `events.cairo:105-117` | **no**: it carries `game.tournament_id`, which `end_in_tournament` sets from the day comparison (`playable.cairo:38-46`), not from the ranking |
+| The quests: On the Podium (task 8) | `quests.md`, "On the Podium" | not on chain: the indexer reads the `tournament` view today; from D-20 its own daily leaderboard (ruling 6) |
+| **The achievements: `WIN` (task 9)** | `quests.cairo:98-100`, from the rank `submit` returns (`playable.cairo:43`, `encode`, `quests.cairo:37`) | **yes**: rank 1 *at the game over*. See below |
+| The golden harness (tests) | `tests/golden/harness.cairo:52-53`, `:85-91` | test only: it checks the top score of the game's day |
+
+**`WIN` is the one kept reader.** A Daily game over reports task 9 when its submission took rank 1 at that
+moment (a provisional rank: a later game of the day can take it). No achievement uses task 9: Champion (`WIN` 5) was
+left out (`quests.md`, "Achievements (9)"), and the task is reported only so that it could be added without a
+contract change. Ruling 1 removes the Top3 "if only prizes use it": it is not only the prize's, so this is under
+"Open for the PM" with the proposal.
+
+**What stays (proposed): no ranking on chain.** The daily leaderboard is the indexer's (P-18 already kept the full
+leaderboard there); `Leaderboard`, `Top3`, `Ranked`, `Submission` and `rankings` go, the closing move stops
+ranking, and `encode` gets rank 0 (or loses the field: part B's choice, the tally's layout is internal to `Daily` and
+`Lobby`). `WIN` is then never reported by the contract; a Champion achievement, if the owner wants one, is credited
+by the indexer from its leaderboard of a closed day, as On the Podium is. If the PM keeps `WIN` on chain instead,
+the ranking stays exactly as it is (`leaderboard.cairo` and `rankings`, no view) and only the prize goes. Either way
+the scores do not move: ranking is after scoring.
+
+Gas, for the record (estimates from "Effect on gas" above, not measured for D-20): the ranking update is about
+516,000 L2 gas on a closing move that ranks at rank 1 and about 178,500 on one that does not, both including the
+`GameEnd` write that stays. Part B measures the closing moves g to j of `contracts/tests/gas.cairo:243-321`.
+
+### The daily seed, the day id and the settlement do not depend on what goes
+
+As D-20 found them. D-23 (below) then replaces the day's shared seed with a seed per token id; the day id stays.
+
+- **Day id**: `TournamentImpl::compute_id(time, duration) = time / duration` (`models/tournament.cairo:27-30`). It is
+  used by the seed (`types/mode.cairo:57`), the spawn (`hostable.cairo:84`), the game over (`playable.cairo:38-39`)
+  and `current_tournament_id` (`views.cairo:249`). It reads no storage; part B moves it out of
+  `models/tournament.cairo` (or keeps that module for it alone) before the model goes.
+- **Daily seed**: `Mode::seed` = Poseidon(salt, day id) (`types/mode.cairo:52-62`), through `DailySeed`
+  (`seed.cairo:15-24`). No prize or ranking input.
+- **Day of `GameSpawned` and `GameOver`**: `hostable.cairo:84-107` (0 for a Tutorial game) and `game.tournament_id`
+  from `end_in_tournament` (0 for a game that ended after its day). Both stay; `end_in_tournament` keeps setting
+  `tournament_id` and `end_time` (`store.set_game_end`, `playable.cairo:46-48`) with or without a ranking.
+- **Settlement**: `Economy` keeps its own day, `get_block_timestamp() / DAY` (`economy/economy.cairo:37`, the
+  purchase checks it at `:602`, `Lobby` passes it at `lobby.cairo:446`), its own `days` and `means`, and
+  `settle` (`:711-760`). It reads no `Tournament`, no ranking, no sponsorship.
+- **`Collection` metadata**: its `day` is `game.start_time / 86400` (`systems/collection.cairo:310`): untouched.
+
+### Storage under P-42: what becomes dead
+
+Each stays declared, is never written or read again, and is never reused for anything else:
+
+| Field | Declared in | Contracts whose storage holds it | Written today by |
+|---|---|---|---|
+| `PavedStorage.tournaments: Map<u64, Slots2>` (prize, claimed flags) | `store.cairo:98-99` | every contract with the `paved` node; written only in `Daily` | `set_tournament` (`claim`, `sponsor`) |
+| `HostableComponent.sponsorships: Map<(u64, ContractAddress), felt252>` | `components/hostable.cairo:37` | `Daily`, `Tutorial` (flat substorage, root name `sponsorships`; `Lobby` writes `Daily`'s under the library call) | `sponsor`, `reclaim` |
+| `PavedStorage.rankings: Map<u64, Slots4>` (if the ranking goes, as proposed) | `store.cairo:100-103` | the `paved` node | `LeaderboardImpl::submit` |
+
+Kept live: `PavedStorage.game_ends` (`end_time`, `tournament_id`), `payable.token_address`, every other field. On
+Sepolia the dead maps keep their values (past prizes, sponsorships, rankings): nothing clears them, and nothing reads
+them. `tests::e2e::lobby_audit` pins `sponsorships` by name (`lobby_audit.cairo:112-119`); part B turns that pin into
+"never written".
+
+### What `Lobby` and `Tutorial` lose
+
+Superseded in part: with D-21 `Tutorial` is no longer used, and with D-24 the `Lobby` class ends (below). Read this
+list as what D-20 alone removes.
+
+- **`Lobby`'s class changes**: `ILobby.claim` and `ILobby.sponsor` (`lobby.cairo:30-31`, `:260-280`) and the event
+  `Reclaimed` (`:215-227`) go, and its header (`:1-2`) stops citing them. A new class is declared and set on
+  `Daily` and on `Tutorial` with `set_lobby_class` (P-42). `Tutorial` only needs it to keep one `Lobby` class for
+  both: it never calls `claim` or `sponsor`.
+- **`Tutorial` loses no entry point and no view.** Its ABI loses the events `Sponsored` and `Claimed`, which it
+  declares through `paved::events::Event` and never emits (`public-interface.md`, "Breaking change D-20"); so does
+  `Account`'s.
+
+### The tokens: what can be stuck, and what the Sepolia upgrade does first
+
+- **Once `claim` and the rank-0 reclaim go, every unit of USDC `Daily` holds is stuck**: nothing else transfers
+  out of `Daily`. That is (a) sponsored prizes of past ranked days whose ranks were not all claimed, (b) the whole
+  prize of past days nobody ranked in whose sponsors did not reclaim, and (c) whatever was sponsored for the day
+  open at the upgrade, or for a later one (`sponsor` funds the current day only, `hostable.cairo:152-153`).
+  On mainnet nothing is deployed, so this is Sepolia only (test funds, MockUSDC).
+- **What the Sepolia upgrade must do first** (ruling 4; read from the code only, nothing was read on chain here):
+  report the amount, then decide with the PM what becomes of it before the class that removes the claim path is
+  installed. The amount is `token.balanceOf(Daily)` (the paragraph "The tokens" above explains why that balance is
+  exactly the unpaid prize money). Options, for the PM: leave it dead (test funds); let the holders claim and
+  reclaim during a stated window before the upgrade; or move it once through a temporary class (an owner-only sweep
+  installed and replaced in the same rollout, which adds an audited path for one transaction).
+- **How part B reads and reports them** (proposed): one read-only script step, before the upgrade, that prints for
+  `Daily` on Sepolia: `balanceOf(Daily)` at a stated block; and, from the events (the indexer, or `starknet_getEvents`
+  on `Daily`'s address from its deployed block), per day: the sum of `Sponsored.amount`, the sum of
+  `Claimed.reward`, the sum of `Reclaimed.amount`, the ranks still claimable (the `tournament` view's
+  `top*_claimed` and holders, read while the view still exists) and the sponsors who could still reclaim. The two
+  totals must agree (balance = sponsored - claimed - reclaimed); a difference is reported, not explained away. The
+  figures go in the PR of part B and in `contracts/deployments/README.md`.
+
+### Mocks, tests and goldens
+
+- `mocks/reentrant_token.cairo` **stays**: its `SPAWN` re-entry is not the prize's
+  (`tests/e2e/lobby_audit.cairo:165`). Its `CLAIM`, `RECLAIM` and `SPONSOR` actions (`reentrant_token.cairo:11-16`)
+  and the tests that arm them go: `lobby_audit.cairo:198`, `:218`, `:237`, `:261`.
+- Tests that go: `tests/e2e/reclaim.cairo` (the whole file); `tests/e2e/daily_advanced.cairo:33`, `:56`, `:90`,
+  `:143`; `tests/e2e/access.cairo:377`, `:388`, `:398`, `:417`; `tests/e2e/events.cairo:182`;
+  `tests/e2e/views.cairo:344`, `:385`, `:398`; `tests/e2e/lobby.cairo:506`, and the sponsor half of `:471`; the
+  prize assertion of `tests/e2e/daily.cairo:38-47`; the unit tests of `models/tournament.cairo:146-274`; the
+  `tournament` and `set_tournament` helpers of `tests/setup.cairo:128-140`.
+- If the ranking goes: `tests/leaderboard.cairo`, the gas cases g, h and j of `contracts/tests/gas.cairo` (and
+  their ceilings), and `tests/e2e/quests.cairo:349` (`..._reports_without_win`) change or go.
+- **Goldens: no expected score changes**, and none must. Scoring does not read the prize or the ranking. Only the
+  harness's `top1_score` check (`tests/golden/harness.cairo:52-53`, `:85-91`, and the `top1_score` of each case) goes
+  with the ranking; the final scores, the built and discarded counts and the tile counts stay asserted.
+
+### Open for the PM
+
+1. **The ranking has a reader besides the prize: `WIN` (task 9)** (`quests.cairo:98-100`, `playable.cairo:43`).
+   Proposed: the on-chain ranking goes all the same, since no achievement uses task 9; a later Champion is credited
+   by the indexer. Otherwise the ranking stays as it is, with no view.
+2. **`current_tournament_id()` stays** on `Daily` (the day id, ruling 2), with `entry_price()`; `tournament(id)`
+   goes. An entry point's selector is its name alone, so renaming the interface `ITournamentView` changes no call;
+   it only renames an ABI entry. Proposed: keep the name in part B, and rename with any later breaking change.
+3. **The day id keeps the name `tournament_id`** in `GameSpawned`, `GameOver`, `GameView` and `GameEnd`: same layout,
+   same values. A rename (`day`) changes no selector of the events but breaks every decoder by name; proposed: no.
+4. **The Sepolia prize funds**: which of the three options of "The tokens" above, once part B has the figure.
+
+### For D-20b: what `structure-state.md` and `upgrades.md` must add
+
+These two notes are held by the D-19b PR, so this PR does not touch them. D-20b adds:
+
+- `upgrades.md`: the D-20 rollout on Sepolia (ruling 8: with D-19, together with the indexer's rebuild, schema 7,
+  right after CLIENT's PR 1), the funds report first (ruling 4), the new `Lobby` class set on `Daily` and `Tutorial`,
+  and the dead fields of the table above under P-42.
+- `structure-state.md`: nothing expected (D-20 touches no structure state); a line saying so if D-19b's section
+  lists the storage of `Daily`.
+
+## D-21: the tutorial leaves the contracts (planned)
+
+D-21, D-22 and P-49 (`docs/programme/DECISIONS.md`, 2026-10-13): the tutorial goes fully off-chain, the game engine
+is reproduced off-chain for a free Training mode (CLIENT's), and on chain only a claim of the tutorial achievement
+stays, unverified by design. Not built yet; read from main at `7d04872d`, paths under `contracts/src/`. Since D-24
+(below) the claim lives in the quest system, not in `Daily` or `Account`. The parity fixture (P-49 ruling 3) is in
+`parity-fixture.md`.
+
+### What goes
+
+| Item | Where (main) | What happens |
+|---|---|---|
+| The `Tutorial` contract: `ITutorial` (`spawn`, `discard`, `surrender`, `build`), its constructor, `set_lobby_class`, `IGameView`, `upgrade` | `systems/tutorial.cairo:1-186` (`ITutorial` `:3-9`) | the source goes. The Sepolia `Tutorial` stays deployed and unused (ruling 1); D-18c still upgrades it |
+| `TutoriableComponent` (`discard`, `surrender`, `build` of the scripted game) | `components/tutoriable.cairo:1-238` | goes. It calls the shared engine (`placement` `:13`, `StructuresTrait` `:14`, `place_structures` `:201`, `assess` `:221`, `Store`), it does not change it |
+| The tutorial deck and script | `elements/decks/tutorial.cairo:1-125` | goes |
+| `Deck::Tutorial` | `types/deck.cairo:6`, `:26`, `:35`, `:46` (code 3), `:58`, `:71`, `:80`, `:89`, `:98`, `:107` | the variant goes; its code 3 stays dead (comment at `:19-20`), never reused (P-42, ruling 4) |
+| The size-10 draw test | `helpers/random_deck.cairo:428-436` | stays as a draw test (it tests `draw_from_bitmap` on 10 cards, nothing of the tutorial); only its name and comment change |
+| `Mode::Tutorial` and the felt `TUTORIAL` | `types/mode.cairo:22`, `:24`, `:30`, `:39`, `:48`, `:63`, `:72`, `:90`, `:101`, `:113`, tests `:125-157` | the variant goes; the u8 code 3 (persisted in `Game.mode`) maps to `Mode::None` and is never reused (ruling 4); the comment at `:24` says so |
+| `Game::draw_plan`'s scripted branch | `models/game.cairo:278-286` | goes: the draw of the scripted deck (in order, no seed). The `else` branch (`:287-296`), the only one a Daily game takes, is unchanged |
+| `HostableComponent::spawn`'s Tutorial branch | `components/hostable.cairo:89-94` (`tournament_id` 0), comment `:109` | goes |
+| `Lobby`'s tutorial paths | `systems/lobby.cairo`: `ILobby.tutorial_discard`, `tutorial_surrender`, `tutorial_report` (`:34-35`, `:38-39`, `:294-312`), `TutoriableComponent` (`:83`, `:126-127`, `:189`, `:210`), `finish_tutorial` (`:464-470`), the Tutorial mint (`:404-416`), the comments (`:1-10`, `:21`, `:60`, `:68`, `:250`) | go (24 lines cite the tutorial). With D-24 the whole class ends (below) |
+| `Collection`'s Tutorial range | `systems/collection.cairo:8-11`, `:23-24` (`TUTORIAL_OFFSET`), `:31`, `:35`, `:254`, `:303-306`, `:321-328`, `:333-336`, `:351-352` | stays readable (see "What `Collection` keeps") |
+| Comments | `views.cairo:99`, `seed.cairo:15`, `lib.cairo:27`, `:85`, `:93` (modules) | follow |
+| `TASK_TUTORIAL_FINISHED` (10) | `constants.cairo:39`, test `quests.cairo:238` | **stays**: the task the claim reports |
+| Tests that run the tutorial | `tests/e2e/tutorial.cairo`, `tests/e2e/tutorial_advanced.cairo`, `tests/golden/tutorial.cairo`, `test_differential_tutorial_full_sequence` (`tests/differential.cairo`), `play_tutorial` of `tests/golden/harness.cairo`, and the tutorial cases of `tests/collection.cairo`, `e2e/access.cairo`, `e2e/events.cairo`, `e2e/lobby.cairo`, `e2e/lobby_audit.cairo`, `e2e/mint.cairo`, `e2e/quests.cairo`, `e2e/economy.cairo`, `e2e/upgrade_d18.cairo`, `e2e/upgrades.cairo`, `e2e/views.cairo`, `tests/seed.cairo`, `tests/setup.cairo`, `tests/legacy.cairo`, `tests/legacy/game.cairo` | go or lose their tutorial cases. The golden `tutorial_full` (2,794) is exported once to the parity fixture before its deck goes (`parity-fixture.md`) |
+
+`scripts/deploy.sh` declares and deploys `Tutorial` (`:1886`, `:1979`, `:2003`), checks it (`:1200`, `:1573`, `:2076`) and upgrades it in `--d18` (`:1342`, `:1458`):
+part B stops deploying it on a fresh network and leaves the Sepolia one alone.
+
+### Does the removal touch the shared structure-state code? No
+
+`structure/**` has no reference to the tutorial (`git grep -i tutorial contracts/src/structure` is empty), and
+neither has `store.cairo`. In `models/game.cairo` the removal touches only `draw_plan`'s scripted branch
+(`:278-286`), the draw, not `assess` (`:327`) or `place_structures` (`:313`). `TutoriableComponent` is a caller of
+the engine; removing a caller leaves the engine as it is. So **ruling 5's audit is not needed**, on one condition
+that part B keeps: the `else` branch of `draw_plan` stays byte for byte, which the real-deck goldens
+(`daily_real_deck_discards`, `daily_full_deck`) pin.
+
+### What `Lobby` and `Collection` lose, and their classes
+
+- **`Lobby`** loses the three `tutorial_*` entry points, `finish_tutorial`, the Tutorial branch of `spawn` and
+  `mint`, and `TutoriableComponent` (whose storage is empty, `tutoriable.cairo` `struct Storage {}`, so no address
+  of the shared `PavedStorage` moves). Its class would change; with D-24 it ends.
+- **`Collection`** keeps working on Sepolia unchanged: the `tutorial` minter is already set, and `uri` of a Tutorial
+  token reads the `game` view of the still-deployed `Tutorial` (`collection.cairo:303-310`). No Tutorial token is
+  minted after the upgrade. But a fresh deploy cannot call `set_minters` without a Tutorial: it refuses a zero
+  `tutorial` and `daily == tutorial` (`:324-326`). Part B changes `Collection` to accept a zero `tutorial`; with
+  D-23's rename (`daily()` becomes `challenge()`) its class changes anyway.
+
+### Storage left dead
+
+- `Tutorial`'s own storage, at its own address: everything stays as it is, unused (games, tiles, achievement
+  storage, `lobby_class`, `owner`).
+- In `Daily` (Challenge): nothing; the tutoriable substorage is empty.
+- `Collection.tutorial` (`collection.cairo:254`): still read for the Tutorial tokens of Sepolia, never written again.
+- Codes never reused: `Mode` 3, `Deck` 3, and the token ids from `TUTORIAL_OFFSET` up.
+
+### The claim (ruling 2)
+
+Superseded by D-24 (P-51 ruling 3): the claim lives in the quest system, so the `Daily`-or-`Account` comparison of
+the first addendum is dropped. Its design is in "D-24" below: `claim_tutorial()`, called by the player, one flag per
+player, emits `AchievementProgressed { player_id, task_id: 10, count: 1 }`, which credits First Stone
+(`quests.md`, achievement 1, `TUTORIAL_FINISHED` 1).
+
+## D-23: Daily becomes Challenge (planned)
+
+D-23 and P-50 (`docs/programme/DECISIONS.md`, 2026-10-13): `Daily` is renamed `Challenge`, and the shared daily
+seed is dropped: each game's seed comes from its token id, so every Challenge game is different. The indexer still
+ranks Challenge scores per UTC day. Not built yet; read from main at `7d04872d`, paths under `contracts/src/`. The
+interface table is in `public-interface.md`, "Breaking change D-23".
+
+### External names that change
+
+| Old | New (proposed) | Where (main) |
+|---|---|---|
+| contract `Daily`, module `paved::systems::daily` | `Challenge`, `paved::systems::challenge` (`systems/challenge.cairo`) | `systems/daily.cairo:49`, `lib.cairo:91` |
+| ABI file `contracts/abis/Daily.json` | `Challenge.json` | `scripts/abis.sh` |
+| `IDaily` | `IChallenge` | `systems/daily.cairo:10`, `:80`, `:181` |
+| `IDailyQuests` | leaves for the quest system (D-24) | `systems/daily.cairo:29`, `:222` |
+| ABI impl names `DailyImpl`, `DailyQuestsImpl` | `ChallengeImpl` (the quests impl leaves, D-24) | `systems/daily.cairo:181`, `:222` |
+| ABI event enum `paved::systems::daily::Daily::Event` | `paved::systems::challenge::Challenge::Event` | `systems/daily.cairo:136` |
+| `Mode::Daily` | `Mode::Challenge`: **code 1 unchanged** (`types/mode.cairo:100`, `:112`), Serde index 1 unchanged in `Lobby.json` | `types/mode.cairo:29`, and every `Mode::Daily` (`daily.cairo:187`, `lobby.cairo:251`, `views.cairo:254`, `models/game.cairo:467`) |
+| felt `DAILY = 'DAILY'` (`Mode` into `felt252`) | `CHALLENGE = 'CHALLENGE'` | `types/mode.cairo:21`, `:89`; stored nowhere (below) |
+| `DailySeed`, `DailySeedImpl` | replaced by `TokenSeed` (below) | `seed.cairo:15-24`, `components/hostable.cairo:19`, `:49` |
+| `DAILY_TOURNAMENT_PRICE`, `DAILY_TOURNAMENT_DURATION` | `CHALLENGE_PRICE`, `DAY` (proposed; D-20 drops "tournament") | `constants.cairo:10-14` |
+| errors `'Daily: account is zero'`, `'Daily: token is zero'`, `'Daily: lobby class is zero'` | `'Challenge: ...'` (the third goes with `lobby_class`, D-24) | `systems/daily.cairo:85-87` |
+| errors `'Daily: quest not on UTC day'`, `'Daily: task total is zero'`, `'Daily: task id repeated'` | move to the quest system with the definitions (D-24), renamed there | `systems/lobby.cairo:111-113` |
+| `Collection.daily()` view; `set_minters(daily, tutorial)` argument | `challenge()`; `set_minters(challenge, ...)` (an argument's name is not in a selector) | `systems/collection.cairo:31`, `:34`, `:321`, `:347` |
+| `scripts/deploy.sh`: no mode is named after `Daily` (`--repoint`, `--d18`, `--estimate-only`, `--rehearse`); the names are `addr("Daily")`, `declare_class Daily`, `deploy Daily`, `DAILY*` variables and messages, and the record keys `declare.Daily`, `previous.Daily.class_hash`, `Daily.class_hash` | `Challenge` everywhere | `scripts/deploy.sh:794`, `:1303-1311`, `:1331-1338`, `:1409`, `:1468-1484`, `:1510-1515`, `:1885`, `:1978`, `:2003`, `:2016`, `:2099-2150` (89 lines name it) |
+| `contracts/deployments/sepolia.json`, `devnet.json`: `contracts.Daily` | `contracts.Challenge` | `sepolia.json:18`, `devnet.json:18` |
+| test-only: `IDailySafeDispatcher` of the re-entrant mock, the test helpers | follow | `mocks/reentrant_token.cairo:39`, `tests/**` |
+
+No event, view or struct of `paved::events` or `paved::views` holds "Daily" in its name. The economy's names (`Economy`,
+`Purchased`, `Settled`, ...) do not either; its comments say "Daily" (`economy/economy.cairo:1-4`) and follow.
+
+### Storage: no address moves (ruling 1)
+
+| Checked | Depends on a name that changes? |
+|---|---|
+| Substorage names of `Daily` (`hostable`, `ownable`, `payable`, `playable`, `quest`, `achievement`, `upgradeable`; `systems/daily.cairo:113-130`) and the field `lobby_class` (`:127`) | no: none holds "daily". With `#[substorage(v0)]` (flat) the component fields hash by their own names (`sponsorships`, `token_address`, `owner`, `Quest_*`, ...), not by the contract's |
+| The storage node `PavedStorage`, rooted at `selector!("paved")` | no: `store.cairo:112`, `lobby.cairo:385`, `:395`. These are the only `selector!` of the contracts outside the tests, and no `sn_keccak` of a contract name exists |
+| `Collection`'s field `daily: ContractAddress` | **its address is `sn_keccak("daily")`** (`collection.cairo:253`): it stays only if the field keeps its name, which P-42 requires. The view is renamed, the field is not. Flagged for part B, not for the PM: no move if the rule is kept |
+| `Economy`'s `game` field (the address of `Daily`, `set_game`) | no: the address of the upgraded contract does not change |
+| The `Mode` code stored in each game (`Game.mode`, a `u8`, packed by `store.cairo:320`) | no: `Mode::Challenge` keeps code 1. The felt `'DAILY'` is never stored or hashed |
+| Event keys | no: an event's selector is its variant name (`GameSpawned`, ...), not the module path; the ABI's enum name changes, the keys do not |
+| The contract's address on Sepolia | no: `Daily` is upgraded in place to the class named `Challenge` (P-42); the address and the storage stay |
+
+So nothing goes under "For the PM" from storage.
+
+### Who reads `contracts.Daily` and the ABI name
+
+- `scripts/deploy.sh` (`--repoint` `:1303-1311`, `--d18` `:1331-1515`, the deploy and smoke `:1885-2150`).
+- META, the indexer: `packages/indexer/src/deployment.ts:53` (`address("Daily")`), and the comments that name
+  `Daily.json` (`crosscheck.ts:20`).
+- CLIENT: `packages/chain/src/abis.ts:2` (imports `contracts/abis/Daily.json`), `:13`, `:41` (`ContractName`),
+  `deployment.ts:45`, `views.ts:24`, `:185-193`, `economy/writer.ts:281`, `:390`, `writer.ts:256-317` (the prize calls
+  go with D-20), `packages/app-web/src/pages/Player.tsx:156` (the label "Daily").
+
+**When the key changes.** With the code that reads it: the later Sepolia upgrade that installs D-19 to D-24
+(ruling 5) rewrites `contracts.Daily` to `contracts.Challenge` in `sepolia.json`, in the same PR as `deploy.sh` and the
+renamed ABI. META and CLIENT must read the new key from that release on. Proposed, to avoid a lockstep: before the
+upgrade, META's `deployment.ts` and CLIENT's `chain` package accept `Challenge` and fall back to `Daily`; after it,
+the fallback goes.
+
+### The seed (ruling 2)
+
+- **Today.** `HostableComponent::spawn` calls `spawn_with(mode, @DailySeed {})` (`components/hostable.cairo:48-50`);
+  `spawn_with` takes the game id from `store.uuid()` (`:64`, `store.cairo:135-139`, the counter
+  `PavedStorage.game_count`), then asks the source for the seed with `source.seed(mode, time, game.id, game.seed)`
+  (`:69`). `DailySeed` (`seed.cairo:15-24`) answers `Mode::seed` (`types/mode.cairo:52-62`):
+  Poseidon(salt, day id) for a Daily game, 0 for the Tutorial. The salt is `game.seed`, which `Game::new` sets to 0
+  (`models/game.cairo:95`): **every Daily game of a day has the same seed**, Poseidon(0, day id).
+- **Where the token id comes from.** `Collection` has **no counter**: its storage is `daily`, `tutorial`, `owners`,
+  `balances` (`collection.cairo:247-256`). A Daily game's token id is its game id (`lobby.cairo:409-416`), and the
+  game id is `Daily`'s own counter, drawn by `store.uuid()` before the seed. The order at spawn is: game id
+  (`hostable.cairo:64`), seed (`:69`), game written (`:87`), `GameSpawned` (`:95-107`), then the purchase
+  (`lobby.cairo:252`) and last `Collection.mint` (`lobby.cairo:255`, `:415`), which `Daily` calls. So the seed needs
+  **no call to `Collection`**: the token id is known in `spawn_with`, and `SeedSource::seed` already receives it
+  (`game_id`, `seed.cairo:11`). With D-21 there is no `TUTORIAL_OFFSET` range to add.
+- **The new source.** `TokenSeed`, `impl TokenSeedImpl of SeedSource<TokenSeed>`: Poseidon(salt, token id), with
+  the token id the game id. `SeedSource` stays (`seed.cairo:10-13`), so a VRF can replace `TokenSeed` without
+  touching the game. `Mode::seed` stops reading the day.
+- **The day id stays**, without the seed: `compute_id(time, 86400)` still gives `GameSpawned.tournament_id`,
+  `GameOver.tournament_id` and `GameView.tournament_id` (D-20), which the indexer's per-day leaderboard groups on
+  (ruling 3), and `Economy` keeps its own day (`economy/economy.cairo:37`, `:602`). Neither depends on the seed.
+- **The goldens.** Their draws come from the day seed (the real-deck cases `daily_real_deck_discards` and
+  `daily_full_deck`, and the `drawn` plan of every forced move). Proposed: the harness spawns through `spawn_with` with
+  a test source that gives the old day seed (the pattern of `tests/seed.cairo:8-16`), so every expected value stays
+  identical, and a new test pins `TokenSeed` itself. Otherwise the goldens are regenerated, which P0 forbids without a
+  rule change.
+- **E-1 goes.** E-1 is the replay of the shared day deck (`economy.md`, risk E-1, `:751`): the "replayer" strategy of
+  the Monte-Carlo, `scripts/montecarlo/sim.py:52-55` (`draw_score` takes the day's best known line), `:87`, `:196`
+  (always stake 10), `:377-378`, `:407-408`, and its rows in `scripts/montecarlo/output.md:55-56`, `:84-85`. No Cairo
+  test exercises it (`tests/seed.cairo:31-52` tests the source, not a replay). With a seed per token id there is no
+  day deck to replay; the simulation task (ruling 4) removes the strategy.
+- **The new risk.** The next token id is `game_count + 1`, public before a purchase, and the salt is 0, so anyone can
+  compute the next game's deck and buy only good ones: the selective buyer's edge, measured by the separate
+  simulation task (P-50 ruling 4).
+
+## D-24: Lobby's cold paths and a quest system (planned)
+
+D-24 and P-51 (`docs/programme/DECISIONS.md`, 2026-10-13): the `Lobby` library class stops existing as such, its cold
+paths go back into Challenge, the quests and achievements move to a separate system that mode contracts report to,
+and the name Lobby is kept for the multiplayer mode (no Lobby contract before that mode is planned; the D-19 seat
+stays). Not built yet; read from main at `7d04872d`, paths under `contracts/src/`.
+
+### Every path of today's `Lobby`, and where it goes
+
+| Entry point or path (`systems/lobby.cairo`) | Lines | Goes |
+|---|---|---|
+| `spawn(mode, stake, referrer, min_out)`: `hostable.spawn`, then `purchase` and `mint` | `:23-29`, `:241-258` | **back to Challenge** (its Daily branch; the Tutorial branch goes with D-21) |
+| `purchase` (USDC to `Economy`, `Economy.purchase`), `mint` (`Collection.mint`), `economy()`, `collection()` | `:423-448`, `:409-416`, `:384-390`, `:394-400` | **back to Challenge** |
+| `discard(game_id)`, `surrender(game_id)` (`PlayableComponent`), then `finish` | `:32-33`, `:282-292` | **back to Challenge** |
+| `report(game_id, over)` (the game over of a `build`), `finish`: the quest and achievement progress, then `Economy.record` | `:36-37`, `:306-308`, `:454-462` | split: the progress becomes **one call to the quest system**; `Economy.record` (`:460`) **stays in Challenge** |
+| `claim(tournament_id, rank)` (rank 0: reclaim), `sponsor(amount)`, event `Reclaimed` | `:30-31`, `:260-280`, `:215-227` | **gone** (D-20) |
+| `tutorial_discard`, `tutorial_surrender`, `tutorial_report`, `finish_tutorial`, `TutoriableComponent` | `:34-39`, `:294-312`, `:464-470`, `:126-127` | **gone** (D-21); the task 10 progress becomes the tutorial claim of the quest system |
+| `define_quest` (owner, UTC-day alignment, `assert_tasks`), `retire_quest`, `define_achievement`, `retire_achievement`, `assert_tasks` | `:42-57`, `:314-362`, `:367-380` | **to the quest system** |
+| `QuestHooks`, `AchievementHooks` (`authorize_admin` false: the external layer is not embedded) | `:139-174` | **to the quest system**, with `authorize_admin` = its owner |
+| errors | `:106-114` | split: `NO_ECONOMY`, `NO_COLLECTION`, `PAY_FAILED` to Challenge; the three quest errors to the quest system; `NOT_DEPLOYABLE` gone |
+| the reverting constructor | `:231-235` | gone with the class |
+| `ILobbyClass.set_lobby_class`, event `LobbyClassSet` | `:62-72` | gone (below) |
+
+### How `Daily` and `Tutorial` reach `Lobby`, and what stays dead
+
+Each cold entry point of `Daily` is a wrapper, `ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }`,
+that is a `library_call_syscall` of the class in `lobby_class` (`systems/daily.cairo:186-187`, `:192-193`, `:198`,
+`:203`, `:208`, `:216-217`, `:231-252`); `build` itself runs in `Daily` and calls `report` only when the game ends
+(`:211-219`). The class hash is the storage field `lobby_class` (`:126-127`), written by the constructor (`:164`,
+`:169`, `:173`) and by the owner's `set_lobby_class` (`:265-275`, P-42), which emits `LobbyClassSet` (`:153`).
+`Tutorial` has the same (`systems/tutorial.cairo:75-76`, `:108-115`, `:124-147`, `:162-171`).
+
+Once the cold paths are Challenge's own code: the wrappers become the code, `set_lobby_class`, `ILobbyClass` and
+`LobbyClassSet` leave the ABI, and the constructor loses its `lobby_class` argument (new deploys only). **The
+`lobby_class` slot stays declared, never read or written again, never reused** (P-42); so do the substorage members
+`Lobby` used that leave (the dead `sponsorships` of D-20, the empty `tutoriable`). `Tutorial`'s `lobby_class` stays
+as it is, in a contract nobody uses.
+
+### Challenge's CASM after the move back: a projection
+
+Not measured; the implementation measures (ruling 4). From `class-headroom.md`:
+
+- **Start**: `Daily` 53,418 after D-18, about 58,300 with D-19b.
+- **Comes back** (estimates from the per-module and per-function figures of main before the split, P7 and
+  pre-D-18, which are upper bounds since D-18 shrank the engine): `HostableComponent::spawn` 1,590, the purchase,
+  the mint and the two registry reads (no figure; of the order of 1,000 to 2,000), `PlayableComponent::discard` 3,972
+  (it inlines the draw and the game over), `surrender` 517, the game-over finish with `Economy.record` and the call
+  to the quest system (of the order of 1,000). About **7,000 to 9,000**.
+- **Leaves `Daily`**: with D-20, `models::tournament` 1,131, `leaderboard` 1,410 (if the ranking goes), the
+  `tournament` view and the `claim` and `sponsor` wrappers; with D-24, the `IDailyQuests` wrappers and the quest
+  declarations (part of the +1,577 of report wrappers measured in P7), `set_lobby_class` 325 and the library-call
+  wrappers. About **4,000 to 5,000**. D-21 removes nothing from `Daily` (the tutorial is `Tutorial`'s and `Lobby`'s).
+- **Projection: about 61,000 to 64,000 CASM felts**, against the P-44 cap of 72,947: some 9,000 to 12,000 of margin.
+- **Cross-check**: before the split, main's `Daily` with everything in it (P7) was 91,570; D-18 removed 19,529 from
+  `Daily`, so "everything in `Daily`" after D-18 is about 72,000; D-19b adds about 4,900, and D-20 and D-24 remove the
+  prize (about 3,000 to 4,500 with the ranking) and quiver (6,491 measured in P7) with the definitions. That gives
+  about 64,000 to 66,000: the same answer from the other side.
+
+So **`spawn`, `discard` and `surrender` are likely to fit in Challenge**, with no library under another name. If the
+measurement passes the cap, the fallback is ruling 1's: a library class under another name for `spawn` and the
+purchase (the biggest piece that is not on the move path), with the same flat-storage rules as `Lobby` had.
+
+### The quest and achievement code today
+
+- **Components.** `Daily` declares quiver's `QuestComponent` and `AchievementComponent` (`systems/daily.cairo:107-108`,
+  storage `quest` and `achievement` `:122-125`, events `:147-150`) and runs them in `Lobby`
+  (`lobby.cairo:131-136`): the internal layer only, event mode, `TrackAll`, no view. `Tutorial` declares the
+  achievement component to report task 10 (`systems/tutorial.cairo:61`). Their storage is the flat `Quest_*` and
+  `Achievement_*` members (listed in `tests/e2e/lobby_audit.cairo:48-51` and pinned at `:121-135`: `Quest_definitions`,
+  `Quest_tasks`, `Quest_conditions`, `Achievement_definitions`, `Achievement_extra_tasks`).
+- **Definitions.** `IDailyQuests` (`systems/daily.cairo:28-46`, `:221-254`): `define_quest`, `retire_quest`,
+  `define_achievement`, `retire_achievement`, owner-only, checked in `Lobby` (`lobby.cairo:314-362`).
+- **Events.** `QuestDefined`, `QuestProgressed`, `QuestRetired`, `AchievementDefined`, `AchievementProgressed`,
+  `AchievementRetired` emitted; `QuestCompleted`, `QuestClaimed`, `QuestReporterSet`, `AchievementReporterSet`
+  declared, never emitted (`Daily.json`; `indexer.md`).
+- **Where the progress is computed.** Not by a call on every move. A move updates the four game counters
+  (`GameImpl::count_structure`, `count_forest`, `count_wonder`, `models/game.cairo:216-241`), packed in
+  `GameState` with the game. Only a move that ends the game returns a non-zero tally (`quests::encode`,
+  `quests.cairo:37-46`; `playable.cairo:115-130`, `:159-173`, `:262-277`), and `Daily.build` then makes **one**
+  library call, `Lobby.report(game_id, over)` (`systems/daily.cairo:211-219`); `discard` and `surrender` already run
+  in `Lobby` and finish there. `finish` decodes the tally (`quests::decode`) and makes two internal calls,
+  `quest.progress_many` (tasks 1 to 4, at most 4 entries) and `achievement.progress_many` (tasks 1, 4 to 7 and 9, at
+  most 6 entries), then `Economy.record` (`lobby.cairo:454-462`). So: **zero calls on a move that does not end the
+  game, one at game over.**
+
+### The quest system's design (recommended)
+
+- **One system, not two.** One contract, **`Setup`** (the D-24 system, named Setup by D-25, which also gives it the configuration and the
+  wiring; the rest of D-25 is planned in `glitchbomb-gap.md`), holding both quiver components. Clarity: one
+  address for the indexer, one owner, one reporter allowlist, one place for the tutorial claim. CASM: quiver's two
+  internal layers measured 6,491 felts together in `Daily` (P7), plus the external definitions, `Ownable`,
+  `Upgradeable`, the allowlist and the claim: an estimate of 12,000 to 16,000, far under any cap, so CASM does not
+  push for a split. Two systems would duplicate the owner, the upgrade and the allowlist, and double the calls of a
+  game over.
+- **The reporting interface.** `report(player_id: felt252, quests: Span<TaskProgress>, achievements:
+  Span<TaskProgress>)`, with quiver's `TaskProgress { task_id: u32, count: u32 }`: one call per game over, which runs
+  `progress_many` on each component (quests in `Mode::Event`). It emits quiver's own events, `QuestProgressed
+  { #[key] player_id, #[key] task_id, count }` and `AchievementProgressed { #[key] player_id, #[key] task_id, count }`,
+  one per entry. The tally's encoding (which counters make which task) stays in Challenge (`quests.cairo`): the system
+  knows tasks, not games, so a multiplayer mode later reports its own entries through the same call.
+- **The allowlist.** `set_reporter(reporter: ContractAddress, allowed: bool)`, owner-only. It sets the reporter in
+  both components (quiver's `set_reporter`, which emits `QuestReporterSet` and `AchievementReporterSet`), and
+  `report` reverts for a caller that is not a reporter (quiver's `assert_reporter`, `'Quest: not reporter'`).
+- **Who may report for whom (the audit's question, ruling 6).** The system **cannot** know a game's player: it
+  would have to call back the reporter's `game` view for a game id, which costs a call per game over and ties the
+  system to one mode's views. So it **trusts the reporter for whom**: an allowlisted contract may report for any
+  player. The guarantee is Challenge's code: it reports only for the caller of the move that ended the game
+  (`player_id = get_caller_address()`, `lobby.cairo:456`), and that caller must be the game's player, or the move
+  reverts (`builder_of(player_id)` then `assert_exists`, the "not the player" checks of `PlayableComponent`). The
+  audit checks that path, the owner-only allowlist, and that no other path of a reporter calls `report`. The
+  exposure of a wrong report is bounded by P-22: progress carries no reward in v1.
+- **The tutorial claim.** `claim_tutorial()`, called by the player (`player_id` = the caller), no argument. It reads
+  `tutorial_claims[player_id]`; when set it returns without effect (idempotent, no revert, no event); otherwise it
+  sets it and runs `achievement.progress(player_id, TASK_TUTORIAL_FINISHED = 10, 1)`, which emits
+  `AchievementProgressed { player_id, task_id: 10, count: 1 }` and credits First Stone (achievement 1). No check of
+  the tutorial (by design), no registration check, no token or value. The flag is `tutorial_claims: Map<felt252,
+  bool>` in the new contract's own storage (one slot per player).
+- **The definitions.** `define_quest`, `retire_quest`, `define_achievement`, `retire_achievement`, owner-only, with
+  today's checks (a recurring quest starts at 00:00 UTC, every task total positive, no task id twice).
+- **The cost on a Challenge move.** Batched at game end, as today: **no call on a move that does not end the game**;
+  one external call at game over, carrying the player and at most 10 entries, instead of today's library call to
+  `Lobby` (about 118,650 L2 gas in release for the call itself, `class-headroom.md`). An external call costs the same
+  order. A call per move is refused: every move would pay it, for nothing the game over cannot carry.
+- **Training reports nothing**: it is off chain (D-22) and no contract of it is a reporter.
+- **Storage.** Fresh in `Setup`. `Daily`'s (Challenge's) `Quest_*` and `Achievement_*` members are left dead, never
+  read or written, never reused (P-42); `Tutorial`'s achievement storage stays in the unused contract. Past progress
+  is not migrated (ruling 5).
+- **Events the indexer follows.**
+
+| Event | Before: emitter | After: emitter | Layout |
+|---|---|---|---|
+| `QuestDefined`, `QuestRetired`, `QuestProgressed` | `Daily` | `Setup` | unchanged (quiver 0.2.0) |
+| `AchievementDefined`, `AchievementRetired` | `Daily` | `Setup` | unchanged |
+| `AchievementProgressed` | `Daily` (tasks 1 to 9), `Tutorial` (task 10) | `Setup` (task 10 from `claim_tutorial`) | unchanged: keys `player_id`, `task_id`; data `count` |
+| `QuestReporterSet`, `AchievementReporterSet` | declared, never emitted | `Setup`, at each `set_reporter` | keys `reporter`; data `allowed` |
+| `QuestCompleted`, `QuestClaimed` | declared, never emitted | declared, never emitted (event mode) | unchanged |
+
+Past events from `Daily` and `Tutorial` stay in history; the indexer follows `Setup` from its deployment block in
+CLIENT's W1 (ruling 5).
+
+### Sepolia
+
+The later upgrade (ruling 5, with D-19 to D-23): deploy `Setup` (deployer account), set Challenge as its reporter,
+define the quests and achievements there again (the definition script runs against `Setup`), upgrade `Daily` to the
+Challenge class. No migration of past progress. `Tutorial` and the declared `Lobby` class are left alone.
 
 ## What Paved needs from a leaderboard package
 

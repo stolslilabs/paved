@@ -504,3 +504,20 @@ the brief), then the D-19b branch (b5a15f76):
 `0x0005889493894707cc6c406c0840ad1f8884ea0283c41de8b167145c63d745e3` (main) to
 `0x075abca83cf2ccb5b1afce18899d954fa06b1c4c9affa5acd9ba901eed0bdfa2` (`sncast utils class-hash` on the release class),
 so D-19's Sepolia upgrade needs a `set_lobby_class` on `Daily` and `Tutorial`. The other classes are unchanged.
+
+The D-24 projection below (from `leaderboard.md`) starts `Daily` at "about 58,300 with D-19b", the figure of D-19b's
+first version (a separate owner map, 58,320); the seat in the tile's slot measures 59,289, about 1,000 more, which
+moves that projection to about 62,000 to 65,000, still under the cap.
+
+## Planned: D-20 to D-24 (projection, not measured)
+
+- **The tutorial claim's host (D-21, P-49 (2)).** Superseded by D-24 (P-51 (3)): the claim lives in the quest
+  system, Setup, not in `Daily` or `Account`. For the record, `Daily` would have been the cheaper host (one wrapper of
+  the order of `set_lobby_class`'s +325, with the progress code already in `Lobby`), against `Account` (2,879 felts),
+  which would have needed quiver's achievement layer (part of the 6,491 felts quiver measured in `Daily`, P7).
+- **Challenge after `Lobby`'s cold paths come back (D-24).** About 61,000 to 64,000 CASM felts against the P-44 cap of
+  72,947, from the figures of this note; the projection and its two derivations are in `leaderboard.md`, "D-24:
+  Lobby's cold paths and a quest system (planned)", "Challenge's CASM after the move back". The implementation
+  measures with `scripts/class-sizes.sh`.
+- **`Lobby`** (59,957 felts after D-18) ends with D-24; `Tutorial` (47,823 after D-18) leaves the repository with
+  D-21.
