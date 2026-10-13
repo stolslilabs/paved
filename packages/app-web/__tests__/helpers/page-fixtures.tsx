@@ -7,8 +7,8 @@ import { FAKE_CHAIN_ID } from "@paved/chain/testing";
 import type { Deployment, FakeGame, GameKey, IndexerClient, PavedClient } from "@paved/chain";
 
 export const PLAYER = "0xabc";
-export const configured = { configured: true, network: "devnet", tokenDecimals: 18, addresses: { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" } } as unknown as Deployment;
-export const notConfigured = { configured: false, network: "devnet", tokenDecimals: 18, addresses: { Account: "", Daily: "", Tutorial: "", Token: "" }, missing: ["RPC URL"] } as unknown as Deployment;
+export const configured = { configured: true, network: "devnet", tokenDecimals: 18, addresses: { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" } } as unknown as Deployment;
+export const notConfigured = { configured: false, network: "devnet", tokenDecimals: 18, addresses: { Account: "", Daily: "", Setup: "", Token: "" }, missing: ["RPC URL"] } as unknown as Deployment;
 export const account = { address: PLAYER, execute: async () => ({ transaction_hash: "0x0" }) };
 
 const C = 0x7fffffff;
@@ -40,6 +40,7 @@ export interface FakeWriter {
   build?: ReturnType<typeof vi.fn>;
   createPlayer?: ReturnType<typeof vi.fn>;
   mint?: ReturnType<typeof vi.fn>;
+  claimTutorial?: ReturnType<typeof vi.fn>;
 }
 
 export function renderPage(opts: {

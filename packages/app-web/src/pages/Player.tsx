@@ -73,8 +73,6 @@ export function PlayerPage() {
             <dd style={{ margin: 0 }}>{stats.bestScore}</dd>
             <dt style={{ color: "#999" }}>Daily games</dt>
             <dd style={{ margin: 0 }}>{`${stats.dailyGames} (${stats.dailyFinished} finished)`}</dd>
-            <dt style={{ color: "#999" }}>Tutorial games</dt>
-            <dd style={{ margin: 0 }}>{stats.tutorialGames}</dd>
           </dl>
         )
       )}
@@ -152,7 +150,8 @@ function GamesTable({ games, collection }: { games: IndexedGame[]; collection: C
       <tbody>
         {games.map((g) => (
           <tr key={`${g.contract}:${g.gameId}`}>
-            <td style={cell}>{g.contract === "daily" ? "Daily" : "Tutorial"}</td>
+            {/* Daily is the one on-chain mode since D-21: the old Tutorial games are dropped (PM's ruling). */}
+            <td style={cell}>Daily</td>
             <td style={cell}>{`#${g.gameId}`}</td>
             <td style={cell}>{dayLabel(g.startTime)}</td>
             <td style={cell}>{g.over ? g.score : "In progress"}</td>

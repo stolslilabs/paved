@@ -20,7 +20,7 @@ interface ModeInfo {
   title: string;
   tiles: number;
   duration: string;
-  /** Daily's entry is read from `Daily.entry_price`; Tutorial is free. */
+  /** Daily's entry is read from `Daily.entry_price`. */
   paid: boolean;
 }
 
@@ -32,11 +32,8 @@ interface ModeInfo {
 export const PANEL_MAX_HEIGHT_CSS =
   ".landing-right-panel{max-height:calc(100vh - 16px - 64px);max-height:calc(100dvh - 16px - 64px)}";
 
-/** The two modes the contracts have since P1 (Weekly and configurable games are gone). */
-const MODES: ModeInfo[] = [
-  { mode: "daily", title: "Daily Challenge", tiles: 38, duration: "24 hours", paid: true },
-  { mode: "tutorial", title: "Tutorial", tiles: 10, duration: "Practice", paid: false },
-];
+/** The one mode the contracts have since D-21 (Weekly, configurable games and the on-chain Tutorial are gone). */
+const MODES: ModeInfo[] = [{ mode: "daily", title: "Daily Challenge", tiles: 38, duration: "24 hours", paid: true }];
 
 /** Finished games listed on the landing page, newest first. */
 const COMPLETED_SHOWN = 10;
@@ -194,12 +191,22 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     entryFee: !m.paid ? "Free" : economy.client ? "USDC, by stake" : feeLabel,
     timeRemaining: m.mode === "daily" && dayEnd !== null ? formatTimeRemaining(dayEnd) : undefined,
     hasActiveGame: active.some((g) => g.mode === m.mode),
-    // The Tutorial is a page of its own on the engine (U1): no dialog, no start.
     extra: m.mode === "daily" ? <DailyTop day={day.data} /> : undefined,
-    onPress: () => (m.mode === "tutorial" ? navigate("/tutorial") : setSelected(m.mode)),
+    onPress: () => setSelected(m.mode),
   }));
+  // The Tutorial is a page of its own on the engine (U1), off chain since D-21: no dialog, no start, no wallet.
+  const tutorial: GameModeCardProps = {
+    mode: "tutorial",
+    title: "Tutorial",
+    description: "10 tiles",
+    tileCount: 10,
+    duration: "Practice",
+    entryFee: "Free",
+    hasActiveGame: false,
+    onPress: () => navigate("/tutorial"),
+  };
   // The Daily, then the off-chain modes: Training and the Tutorial are free for anyone, the Daily's start keeps its gate.
-  const gameModes: GameModeCardProps[] = [modeCards[0], training, ...modeCards.slice(1)];
+  const gameModes: GameModeCardProps[] = [...modeCards, training, tutorial];
 
   const toItem = (readonly: boolean) => (g: ListedGame): GameListItemProps => ({
     gameId: g.gameId,
@@ -225,7 +232,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   };
 
   const selectedCard = selected ? gameModes.find((m) => m.mode === selected) : null;
-  // A Daily start needs a known entry fee; resuming a game, and the free Tutorial, do not.
+  // A Daily start needs a known entry fee; resuming a game does not.
   // A new Daily game is bought with the stake picker (E3: `Daily.spawn` takes USDC and a swap floor); this dialog only resumes one.
   const confirmAllowed = selected !== "daily" || active.some((g) => g.mode === "daily");
 

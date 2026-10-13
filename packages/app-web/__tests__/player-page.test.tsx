@@ -35,15 +35,17 @@ describe("Player page", () => {
     expect(screen.getByText("Loading player…")).toBeTruthy();
     await screen.findByRole("heading", { name: "Ada" });
     expect(screen.getByText("Best score", { selector: "dt" }).nextElementSibling!.textContent).toBe("187");
-    expect(screen.getByText("Tutorial games").nextElementSibling!.textContent).toBe("1");
-    // games: the Daily one with its day, the Tutorial one without
+    // The on-chain Tutorial left (D-21): no Tutorial count, no Tutorial row (the old games are dropped).
+    expect(screen.queryByText("Tutorial games")).toBeNull();
+    // games: two Daily ones, each with its day
     const games = (await screen.findAllByRole("table"))[1];
     const rows = within(games).getAllByRole("row");
     expect(rows).toHaveLength(3);
     expect(within(rows[1]).getByText("Daily")).toBeTruthy();
     expect(within(rows[1]).getByText("#912")).toBeTruthy();
-    expect(within(rows[2]).getByText("Tutorial")).toBeTruthy();
-    expect(within(rows[2]).getByText("–")).toBeTruthy();
+    expect(within(rows[2]).getByText("Daily")).toBeTruthy();
+    expect(within(rows[2]).getByText("#55")).toBeTruthy();
+    expect(within(games).queryByText("Tutorial")).toBeNull();
   });
 
   it("their tournaments: rank, score and games, linking to the day; no prize slots (D-20)", async () => {
@@ -173,8 +175,9 @@ describe("Player page", () => {
     it("no reward, prize or claim is shown with the quests", async () => {
       withViews();
       await screen.findByRole("list", { name: "Achievements list" });
-      expect(region("Daily quests").queryByText(/reward|prize|claim/i)).toBeNull();
-      expect(region("Achievements").queryByText(/reward|prize|claim/i)).toBeNull();
+      // The one claim is the tutorial's (First Stone, D-21: "Finish the tutorial and claim it", "tutorial claimed").
+      expect(region("Daily quests").queryByText(/reward|prize|(?<!tutorial (and )?)claim/i)).toBeNull();
+      expect(region("Achievements").queryByText(/reward|prize|(?<!tutorial (and )?)claim/i)).toBeNull();
     });
   });
 });

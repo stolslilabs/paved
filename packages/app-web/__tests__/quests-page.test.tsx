@@ -129,7 +129,8 @@ describe("Quests page", () => {
     quests();
     await screen.findByText("What counts");
     await achieve();
-    expect(document.body.textContent).not.toMatch(/reward|prize|claim|\$TILE|PAVED|free (game|entry)/i);
+    // The one claim is the tutorial's (First Stone, D-21: "Finish the tutorial and claim it", "tutorial claimed").
+    expect(document.body.textContent).not.toMatch(/reward|prize|(?<!tutorial (and )?)claim|\$TILE|PAVED|free (game|entry)/i);
   });
 
   it("a day with no quest says so; a day with progress elsewhere shows no other day's rows", async () => {

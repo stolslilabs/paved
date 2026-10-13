@@ -53,11 +53,11 @@ const player = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) =>
   });
 
 describe("Player page: the games' NFTs", () => {
-  it("the indexer's Collection and the rows' token ids: one NFT line per game, Tutorial ids past 2^32", async () => {
+  it("the indexer's Collection and the rows' token ids: one NFT line per game", async () => {
     fixture.state.collection = COLLECTION;
     player();
     const lines = await screen.findAllByTestId("game-nft");
-    expect(lines.map((l) => l.textContent)).toEqual([`NFT: ${SHORT} #912Metadata`, `NFT: ${SHORT} #4294967351Metadata`]);
+    expect(lines.map((l) => l.textContent)).toEqual([`NFT: ${SHORT} #912Metadata`, `NFT: ${SHORT} #55Metadata`]);
     expect(screen.getByRole("columnheader", { name: "NFT" })).toBeTruthy();
   });
 
@@ -83,7 +83,7 @@ describe("Player page: the games' NFTs", () => {
     await screen.findByText("#912");
     await screen.findByRole("columnheader", { name: "NFT" });
     expect(screen.queryByTestId("game-nft")).toBeNull();
-    expect(screen.queryByText(/#4294967351/)).toBeNull();
+    expect(screen.queryByText(/NFT: /)).toBeNull();
   });
 
   it("the Metadata toggle reads token_uri once opened and shows name, description and attributes as text", async () => {
@@ -194,7 +194,6 @@ describe("Game page: the game's NFT", () => {
   const open = (search: string, opts: Partial<Parameters<typeof renderPage>[0]> = {}) => {
     const views = new FakeGameViews();
     views.setGame(gameKey, fakeGame());
-    views.setGame({ mode: "tutorial", gameId: 4 }, fakeGame());
     return renderPage({
       page: <GamePage />,
       path: "/game",
@@ -215,9 +214,9 @@ describe("Game page: the game's NFT", () => {
     expect(collection.calls).toEqual(["owner_of 4", "token_uri 4"]);
   });
 
-  it("a Tutorial game: 2^32 + the game id", async () => {
+  it("an old on-chain Tutorial link (D-21) opens the Daily game of that id, never a 2^32 + id token", async () => {
     open("?mode=tutorial&id=4");
-    expect((await screen.findByTestId("game-nft")).textContent).toBe("NFT: 0x0777…7777 #4294967300Metadata");
+    expect((await screen.findByTestId("game-nft")).textContent).toBe("NFT: 0x0777…7777 #4Metadata");
   });
 
   it("the indexer's Collection is used when the deployment has none", async () => {

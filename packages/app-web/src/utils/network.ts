@@ -9,7 +9,8 @@ export interface NetworkEnv {
   VITE_DEPLOYED_BLOCK?: string;
   VITE_ACCOUNT_ADDRESS?: string;
   VITE_DAILY_ADDRESS?: string;
-  VITE_TUTORIAL_ADDRESS?: string;
+  /** Setup (D-24): the quests and the tutorial claim. Optional: without it only the claim is unavailable. */
+  VITE_SETUP_ADDRESS?: string;
   VITE_TOKEN_ADDRESS?: string;
   /** The game NFT's Collection (E5b), optional, and first of the sources (an operator override); then the deployments file's `contracts.Collection`, then the indexer's head. */
   VITE_COLLECTION_ADDRESS?: string;
@@ -51,7 +52,7 @@ export function resolveAppNetwork(env: NetworkEnv, files: Record<string, unknown
       addresses: {
         Account: env.VITE_ACCOUNT_ADDRESS,
         Daily: env.VITE_DAILY_ADDRESS,
-        Tutorial: env.VITE_TUTORIAL_ADDRESS,
+        Setup: env.VITE_SETUP_ADDRESS,
         Token: env.VITE_TOKEN_ADDRESS,
       },
     },

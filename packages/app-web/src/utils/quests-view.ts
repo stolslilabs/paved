@@ -12,7 +12,7 @@ export const QUEST_TEXT: Record<number, { title: string; description: string }> 
 };
 
 export const ACHIEVEMENT_TEXT: Record<number, { title: string; description: string }> = {
-  1: { title: "First Stone", description: "Finish the Tutorial." },
+  1: { title: "First Stone", description: "Finish the tutorial and claim it." },
   2: { title: "Settler I", description: "Finish a Daily game." },
   3: { title: "Settler II", description: "Finish Daily games: the second tier." },
   4: { title: "Settler III", description: "Finish Daily games: the third tier." },
@@ -34,7 +34,8 @@ const TASK_UNIT: Record<number, string> = {
   7: "high-score games",
   8: "podium places",
   9: "wins",
-  10: "Tutorial games finished",
+  // TUTORIAL_FINISHED: credited by the player's claim, `Setup.claim_tutorial()`, unchecked on chain (D-21, P-49).
+  10: "tutorial claimed",
 };
 
 export const questTitle = (id: number): string => QUEST_TEXT[id]?.title ?? `Quest #${id}`;

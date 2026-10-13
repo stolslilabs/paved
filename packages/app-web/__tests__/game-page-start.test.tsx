@@ -6,6 +6,12 @@ import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-rou
 import { PavedProvider } from "@paved/chain";
 import type { Deployment, PavedClient } from "@paved/chain";
 import { GamePage } from "../src/pages/Game";
+import { purchaseIntent } from "../src/utils/economy-start";
+
+// A game starts by a purchase only (E3; the on-chain Tutorial's free spawn left in D-21): the economy's writer is the
+// spawn of each test.
+const economyWriter = vi.hoisted(() => ({ purchase: (async () => ({ gameId: 0 })) as (...args: unknown[]) => Promise<{ gameId: number }> }));
+vi.mock("../src/utils/economy-context", () => ({ useEconomy: () => ({ writer: economyWriter }) }));
 
 // The page's start path needs neither the scene nor the overlays.
 vi.mock("@paved/renderer/react", () => ({ GameCanvas: () => null }));
@@ -35,11 +41,12 @@ function GoHome() {
 
 function setup(opts: { state?: unknown; url?: string; spawn?: () => Promise<{ gameId: number }>; account?: typeof account | null; strict?: boolean }) {
   const spawn = vi.fn(opts.spawn ?? (async () => ({ gameId: 9 })));
+  economyWriter.purchase = spawn;
   const playerGames = vi.fn(async () => []);
   const client = {
     views: {},
     events: { playerGames },
-    writer: () => ({ spawn }),
+    writer: () => ({}),
   } as unknown as PavedClient;
   const tree = (acc: typeof account | null) => {
     const inner = (
@@ -60,7 +67,7 @@ function setup(opts: { state?: unknown; url?: string; spawn?: () => Promise<{ ga
   return { spawn, playerGames, rerenderWith: (acc: typeof account | null) => utils.rerender(tree(acc)) };
 }
 
-const consent = { start: true, confirmedAmount: "10" };
+const consent = purchaseIntent(1, 10n, null, 1n);
 afterEach(() => {
   cleanup();
   vi.useRealTimers();

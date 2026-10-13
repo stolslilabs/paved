@@ -28,13 +28,13 @@ describe("startIntent / readStartIntent (the consent is the history state)", () 
   it("the landing page's confirm builds a state the game page reads", () => {
     expect(readStartIntent(startIntent("daily", 10n ** 18n), "daily")).toEqual({ confirmedAmount: 10n ** 18n });
     expect(readStartIntent(startIntent("daily", 0n), "daily")).toEqual({ confirmedAmount: 0n });
-    expect(readStartIntent(startIntent("tutorial", null), "tutorial")).toEqual({ confirmedAmount: undefined });
+    // No confirmed amount is no Daily consent: no free on-chain start is left (D-21).
+    expect(readStartIntent(startIntent("daily", null), "daily")).toBeNull();
   });
 
   it("no state (a link, a reload after the clear, Back) is no consent", () => {
     for (const state of [null, undefined, {}, "start", { start: false }, { start: 1 }]) {
       expect(readStartIntent(state, "daily")).toBeNull();
-      expect(readStartIntent(state, "tutorial")).toBeNull();
     }
   });
 

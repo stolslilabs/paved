@@ -69,7 +69,7 @@ afterEach(cleanup);
  * A chain side on a configured controller network (Sepolia with a complete deployment): on a chain route the wallet provider
  * builds the paved client and the controller connector and runs its `probe()`, and the indexer client is built too.
  */
-const CONTRACTS = { Account: { address: "0x1" }, Daily: { address: "0x2" }, Tutorial: { address: "0x3" }, Token: { address: "0x4" } };
+const CONTRACTS = { Account: { address: "0x1" }, Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } };
 const FILES = { "x/sepolia.json": { default: { rpc_url: "http://sepolia/rpc", chain_id: "0x534e5f5345504f4c4941", contracts: CONTRACTS } } };
 const ENV = { VITE_NETWORK: "sepolia" };
 const ALL = ["createPavedClient", "createControllerConnector", "createIndexerClient"];
@@ -88,6 +88,16 @@ describe("off-chain routes build no chain client (W2a)", () => {
     expect(isOffChainRoute({ pathname: "/game", search: "" })).toBe(false);
     expect(isOffChainRoute({ pathname: "/", search: "" })).toBe(false);
     expect(isOffChainRoute({ pathname: "/leaderboard", search: "" })).toBe(false);
+    // The tutorial's claim (U2) writes to Setup: a chain route, unlike the tutorial itself.
+    expect(isOffChainRoute({ pathname: "/tutorial/claim", search: "" })).toBe(false);
+  });
+
+  it("/tutorial/claim is a chain route: it mounts the providers, with the connection banner", () => {
+    chainRoute.on = true;
+    render(<AppTree Router={at("/tutorial/claim")} Chain={Chain} />);
+    expect(screen.getByRole("heading", { name: "Claim your achievement" })).toBeTruthy();
+    expect(screen.getByText(/Read only: connect to play/)).toBeTruthy();
+    for (const name of ALL) expect(built).toContain(name);
   });
 
   it("/tutorial works with the chain factories throwing", () => {
