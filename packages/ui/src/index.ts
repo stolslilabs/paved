@@ -41,19 +41,15 @@ export type { LandingScreenProps } from "./screens";
 // Overlays
 export {
   IngameStatus,
-  CharacterMenu,
   HandPanel,
   GameCompleteDialog,
-  SpotSelector,
   TilePreview,
   ActionBar,
 } from "./overlays";
 export type {
   IngameStatusProps,
-  CharacterMenuProps,
   HandPanelProps,
   GameCompleteDialogProps,
-  SpotSelectorProps,
   TilePreviewProps,
   ActionBarProps,
 } from "./overlays";

@@ -17,9 +17,6 @@ describe("ActionBar", () => {
       onDiscard: () => {},
       confirmDisabled: false,
       discardDisabled: false,
-      packedCharacters: 0,
-      selectedCharacter: 0,
-      onSelectCharacter: () => {},
     });
     // TilePreview is a child React element with type === TilePreview function
     const children = result?.props?.children;
@@ -40,9 +37,6 @@ describe("ActionBar", () => {
       onDiscard: () => {},
       confirmDisabled: false,
       discardDisabled: false,
-      packedCharacters: 0,
-      selectedCharacter: 0,
-      onSelectCharacter: () => {},
     });
     // TilePreview child exists but will return null when tilePlan=0
     const children = result?.props?.children;
@@ -64,9 +58,6 @@ describe("ActionBar", () => {
       onDiscard: () => {},
       confirmDisabled: false,
       discardDisabled: false,
-      packedCharacters: 0,
-      selectedCharacter: 0,
-      onSelectCharacter: () => {},
     });
     const json = JSON.stringify(result);
     expect(json).toContain("Rotate");
@@ -82,9 +73,6 @@ describe("ActionBar", () => {
       onDiscard: () => {},
       confirmDisabled: false,
       discardDisabled: false,
-      packedCharacters: 0,
-      selectedCharacter: 0,
-      onSelectCharacter: () => {},
     });
     const json = JSON.stringify(result);
     expect(json).toContain("Confirm");
@@ -100,9 +88,6 @@ describe("ActionBar", () => {
       onDiscard: () => {},
       confirmDisabled: false,
       discardDisabled: false,
-      packedCharacters: 0,
-      selectedCharacter: 0,
-      onSelectCharacter: () => {},
     });
     const json = JSON.stringify(result);
     expect(json).toContain("Discard");
@@ -118,32 +103,9 @@ describe("ActionBar", () => {
       onDiscard: () => {},
       confirmDisabled: false,
       discardDisabled: false,
-      packedCharacters: 0,
-      selectedCharacter: 0,
-      onSelectCharacter: () => {},
     });
     expect(result?.props?.backgroundColor).toBeTruthy();
     expect(result?.props?.backgroundColor).toContain("rgba");
-  });
-
-  it("renders character buttons when packedCharacters > 0", async () => {
-    const mod = await import("../src/overlays/ActionBar");
-    // packedCharacters=31 means all 5 characters available (binary 11111)
-    const result = mod.ActionBar({
-      tilePlan: 11,
-      orientation: 1,
-      onRotate: () => {},
-      onConfirm: () => {},
-      onDiscard: () => {},
-      confirmDisabled: false,
-      discardDisabled: false,
-      packedCharacters: 31,
-      selectedCharacter: 0,
-      onSelectCharacter: () => {},
-    });
-    const json = JSON.stringify(result);
-    // Should contain character names from getAvailableCharacters
-    expect(json).toContain("Lord");
   });
 
   it("is re-exported from overlays index", async () => {
@@ -156,37 +118,5 @@ describe("ActionBar", () => {
     const mod = await import("../src/index");
     expect((mod as any).ActionBar).toBeDefined();
     expect(typeof (mod as any).ActionBar).toBe("function");
-  });
-});
-
-describe("ActionBar lists the seven roles (P4)", () => {
-  function images(node: any, out: Array<{ src: string; alt: string }> = []) {
-    if (!node || typeof node !== "object") return out;
-    if (Array.isArray(node)) {
-      node.forEach((n) => images(n, out));
-      return out;
-    }
-    if (node.type === "img") out.push({ src: node.props.src, alt: node.props.alt });
-    images(node.props?.children, out);
-    return out;
-  }
-
-  it("shows Woodsman and Herdsman after Pilgrim, with their art", async () => {
-    const mod = await import("../src/overlays/ActionBar");
-    const result = mod.ActionBar({
-      tilePlan: 11,
-      orientation: 1,
-      onRotate: () => {},
-      onConfirm: () => {},
-      onDiscard: () => {},
-      confirmDisabled: false,
-      discardDisabled: false,
-      packedCharacters: 0,
-      selectedCharacter: 0,
-      onSelectCharacter: () => {},
-    });
-    const roles = images(result);
-    expect(roles.map((r) => r.alt)).toEqual(["Lord", "Lady", "Adventurer", "Paladin", "Pilgrim", "Woodsman", "Herdsman"]);
-    expect(roles.slice(5).map((r) => r.src)).toEqual(["/assets/characters/woodsman.png", "/assets/characters/herdsman.png"]);
   });
 });
