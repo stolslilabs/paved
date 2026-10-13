@@ -75,11 +75,11 @@ export interface VaultPosition {
 
 /** Field lists in ABI order; a test checks them against `contracts/abis/Economy.json`. */
 export const ECONOMY_VIEW_FIELDS = {
-  "paved::economy::economy::Quote": [
+  "paved::systems::economy::Quote": [
     "price", "burnQuote", "referral", "margin", "minOutHint", "factor", "mean", "threshold", "slope", "cap",
   ] satisfies (keyof QuoteView)[],
-  "paved::economy::economy::DayView": ["prior", "sum", "weight", "mean", "closed"] satisfies (keyof DayView)[],
-  "paved::economy::economy::TermsView": [
+  "paved::systems::economy::DayView": ["prior", "sum", "weight", "mean", "closed"] satisfies (keyof DayView)[],
+  "paved::systems::economy::TermsView": [
     "player", "time", "day", "stake", "reference", "sigmaBps", "slopeBps", "cap", "score", "recorded", "expired", "settled", "reward",
   ] satisfies (keyof TermsView)[],
 };

@@ -2,8 +2,8 @@
 //! action, the first staker, and the rounding bounds.
 
 use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
-use paved::economy::vault::{ACC_SCALE, IVaultDispatcher, IVaultDispatcherTrait};
-use paved::mocks::usdc::{IMockUSDCDispatcher, IMockUSDCDispatcherTrait};
+use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
+use paved::systems::vault::{ACC_SCALE, IVaultDispatcher, IVaultDispatcherTrait};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
     stop_cheat_caller_address,
@@ -44,7 +44,7 @@ fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
 /// receive 1,000 PAVED each.
 fn setup() -> Setup {
     let paved_address = deploy_token(RECIPIENT());
-    let usdc_address = deploy("MockUSDC", array![]);
+    let usdc_address = deploy("Faucet", array![]);
     let vault_address = deploy("Vault", array![paved_address.into(), usdc_address.into()]);
     let paved = IERC20Dispatcher { contract_address: paved_address };
     start_cheat_caller_address(paved_address, RECIPIENT());
@@ -83,7 +83,7 @@ fn claim(s: Setup, account: ContractAddress) -> u256 {
 
 /// USDC reaching the Vault by a plain transfer, as `Economy` sends the margin.
 fn income(s: Setup, amount: u256) {
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.vault.contract_address, amount);
 }
 

@@ -1,4 +1,4 @@
-//! `MockRouter` and `MockUSDC` (P8 E1): the constant product with Ekubo's 5 % fee, the calling
+//! `MockRouter` and `Faucet` (P8 E1): the constant product with Ekubo's 5 % fee, the calling
 //! pattern `Economy` uses (transfer, `swap`, `clear_minimum`, `clear`), its `quote_swap`, and the
 //! faucet.
 
@@ -10,7 +10,7 @@ use paved::economy::ekubo::{
     RouteNode, TokenAmount, i129,
 };
 use paved::mocks::router::{FEE, IMockRouterDispatcher, IMockRouterDispatcherTrait, TWO_POW_128};
-use paved::mocks::usdc::{IMockUSDCDispatcher, IMockUSDCDispatcherTrait};
+use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
     stop_cheat_caller_address,
@@ -41,14 +41,14 @@ fn deploy(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
 /// The pool `scripts/deploy.sh devnet` seeds: 800,000 PAVED and 10,000 USDC.
 fn setup() -> Setup {
     let paved_address = deploy_token(RECIPIENT());
-    let usdc_address = deploy("MockUSDC", array![]);
+    let usdc_address = deploy("Faucet", array![]);
     let router = deploy("MockRouter", array![paved_address.into(), usdc_address.into()]);
     let s = Setup {
         router,
         paved: IERC20Dispatcher { contract_address: paved_address },
         usdc: IERC20Dispatcher { contract_address: usdc_address },
     };
-    IMockUSDCDispatcher { contract_address: usdc_address }.mint(RECIPIENT(), 10_000 * USDC);
+    IFaucetDispatcher { contract_address: usdc_address }.mint(RECIPIENT(), 10_000 * USDC);
     start_cheat_caller_address(paved_address, RECIPIENT());
     s.paved.approve(router, 800_000 * PAVED);
     stop_cheat_caller_address(paved_address);
@@ -108,7 +108,7 @@ fn swap(
 }
 
 fn fund_trader(s: Setup) {
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }.mint(TRADER(), 100 * USDC);
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }.mint(TRADER(), 100 * USDC);
     start_cheat_caller_address(s.paved.contract_address, RECIPIENT());
     s.paved.transfer(TRADER(), 10_000 * PAVED);
     stop_cheat_caller_address(s.paved.contract_address);
@@ -116,13 +116,13 @@ fn fund_trader(s: Setup) {
 
 #[test]
 fn test_mock_usdc_metadata_and_faucet() {
-    let address = deploy("MockUSDC", array![]);
+    let address = deploy("Faucet", array![]);
     let usdc = IERC20MixinDispatcher { contract_address: address };
     assert_eq!(usdc.symbol(), "USDC");
     assert_eq!(usdc.decimals(), 6);
     assert_eq!(usdc.total_supply(), 0);
     start_cheat_caller_address(address, TRADER());
-    IMockUSDCDispatcher { contract_address: address }.mint(TRADER(), 2 * USDC);
+    IFaucetDispatcher { contract_address: address }.mint(TRADER(), 2 * USDC);
     assert_eq!(usdc.balance_of(TRADER()), 2_000_000);
     assert_eq!(usdc.total_supply(), 2_000_000);
 }

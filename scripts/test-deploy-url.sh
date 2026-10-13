@@ -36,6 +36,13 @@ refuse() { # <expected exit> <expected fragment> <deploy.sh args...>
   fi
 }
 refuse 2 "refusing mainnet" mainnet
+# D-25 B: the Faucet is refused on mainnet by name, in the message and in `deploy` (the contract's constructor refuses SN_MAIN too).
+refuse 2 "the Faucet is refused there by name" mainnet
+if grep -q '^    Faucet|MockRouter) \[\[ "\$NETWORK" == "devnet" || "\$NETWORK" == "sepolia" \]\]' "$here/deploy.sh"; then
+  echo "ok: deploy.sh deploy() refuses the Faucet off devnet and sepolia, by name"
+else
+  echo "FAIL: deploy.sh deploy() does not refuse the Faucet by name off devnet and sepolia"; fail=1
+fi
 refuse 2 "unsupported network 'katana'" katana
 refuse 2 "unsupported network ''"
 refuse 2 "unknown option '--rehearse' for 'devnet'" devnet --rehearse
@@ -765,7 +772,7 @@ if [[ -n "$real_node" && "$("$real_node" --version 2>/dev/null)" == v24.* && -d 
   # The real signer refuses a key that is not a felt: a hex marker, checked for leaks below as well.
   KEY_MARK=fedcba9876543210fedcba98
   mkdir -p "$est/bin" "$est/classes"
-  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy Lobby Collection; do
+  for name in Account Daily Tutorial Faucet PavedToken MockRouter Vault Economy Lobby Collection; do
     cp "$here/signer/test/fixtures/tiny.contract_class.json" "$est/classes/paved_$name.contract_class.json"
     cp "$here/signer/test/fixtures/tiny.compiled_contract_class.json" "$est/classes/paved_$name.compiled_contract_class.json"
   done
@@ -844,7 +851,7 @@ SH
   touch "$est/bin/hashes"
   # 1. Seven of ten classes declared, 150 STRK (below the old 200 STRK floor): three estimates, need 20.00 STRK, passes
   #    and goes on to declare.
-  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault; do hexname "$name"; done >"$est/bin/declared"
+  for name in Account Daily Tutorial Faucet PavedToken MockRouter Vault; do hexname "$name"; done >"$est/bin/declared"
   out="$(real_run 150000000000000000000)"; rc=$?
   if [[ $rc -ne 1 || "$out" != *"== funding: 3 class(es) to declare, estimated at 0.00 STRK; need 1.25 x 0.00 STRK + 20 STRK margin = 20.00 STRK"* ||
       "$out" != *"   deployer STRK balance 150.00 STRK: covers the need of 20.00 STRK"* || "$out" != *"== declare"* ||
@@ -869,7 +876,7 @@ SH
   fi
   # 2b. Two classes left at 30 STRK each, 110 STRK: the rule asks 1.25 x 60 + 20 = 95 STRK, but the second declare's
   #     bounds (2.3 x 30 after 1.25 x 30) + the margin ask 126.50 STRK: the run stops before sending.
-  for name in Account Daily Tutorial MockUSDC PavedToken MockRouter Vault Economy; do hexname "$name"; done >"$est/bin/declared"
+  for name in Account Daily Tutorial Faucet PavedToken MockRouter Vault Economy; do hexname "$name"; done >"$est/bin/declared"
   printf '%s' 30000000000000000000 >"$est/fee"
   out="$(real_run 110000000000000000000)"; rc=$?
   rm -f "$est/fee"

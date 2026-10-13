@@ -1,4 +1,4 @@
-//! `Economy` (P8 E2) against `MockRouter`, `MockUSDC`, `PavedToken` and `Vault`. The test double
+//! `Economy` (P8 E2) against `MockRouter`, `Faucet`, `PavedToken` and `Vault`. The test double
 //! for `Daily` is the address `DAILY`: like `Daily` in E3, it puts the price on `Economy` (here by
 //! the USDC faucet, as `transferFrom(player, Economy, P)` would) and then calls `purchase` and
 //! `record`.
@@ -14,21 +14,21 @@ use core::num::traits::Zero;
 use openzeppelin_interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::economy::curve::{RATE_SCALE, guarded, next_rate, reference, split, supply_factor};
-use paved::economy::economy::Economy::{
-    DayClosed, EconomyConfigured, Event, GameSet, Purchased, Recorded, RouterSet, Settled,
-};
-use paved::economy::economy::{
-    BASE_PRICE, Config, DAY, IEconomyDispatcher, IEconomyDispatcherTrait, IEconomySafeDispatcher,
-    IEconomySafeDispatcherTrait, PAVED, decided,
-};
 use paved::economy::ekubo::{
     Delta, IClearDispatcher, IClearDispatcherTrait, IRouterDispatcher, IRouterDispatcherTrait,
     PoolKey, RouteNode, TokenAmount, i129,
 };
 use paved::economy::mean::Ema;
-use paved::economy::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
 use paved::mocks::router::{IMockRouterDispatcher, IMockRouterDispatcherTrait};
-use paved::mocks::usdc::{IMockUSDCDispatcher, IMockUSDCDispatcherTrait};
+use paved::systems::economy::Economy::{
+    DayClosed, EconomyConfigured, Event, GameSet, Purchased, Recorded, RouterSet, Settled,
+};
+use paved::systems::economy::{
+    BASE_PRICE, Config, DAY, IEconomyDispatcher, IEconomyDispatcherTrait, IEconomySafeDispatcher,
+    IEconomySafeDispatcherTrait, PAVED, decided,
+};
+use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
+use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait, declare, mock_call, spy_events,
     start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
@@ -90,13 +90,13 @@ fn at(day: u64, seconds: u64) {
 fn setup_with(rate: u256) -> Setup {
     at(DAY0, 3600);
     let paved_address = deploy_token(RECIPIENT());
-    let usdc_address = deploy("MockUSDC", array![]);
+    let usdc_address = deploy("Faucet", array![]);
     let router = deploy("MockRouter", array![paved_address.into(), usdc_address.into()]);
     let vault = deploy("Vault", array![paved_address.into(), usdc_address.into()]);
     let paved = IERC20Dispatcher { contract_address: paved_address };
     let usdc = IERC20Dispatcher { contract_address: usdc_address };
     // [Setup] The pool
-    IMockUSDCDispatcher { contract_address: usdc_address }.mint(RECIPIENT(), 10_000 * USDC);
+    IFaucetDispatcher { contract_address: usdc_address }.mint(RECIPIENT(), 10_000 * USDC);
     start_cheat_caller_address(paved_address, RECIPIENT());
     paved.approve(router, 800_000 * ONE_PAVED);
     stop_cheat_caller_address(paved_address);
@@ -166,7 +166,7 @@ fn buy(
     s: Setup, game_id: u32, player: ContractAddress, stake: u8, referrer: ContractAddress,
 ) -> u128 {
     let price = stake.into() * BASE_PRICE;
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, price);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
     let r = s.economy.purchase(game_id, player, today(), stake, price, referrer, 0);
@@ -264,7 +264,7 @@ fn test_each_purchase_pays_the_vault_at_once() {
 fn test_donations_to_economy_go_to_the_vault_and_the_burn() {
     let s = setup();
     // USDC and PAVED sent to Economy by anyone leave with the next purchase
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, 5 * USDC);
     start_cheat_caller_address(s.paved.contract_address, RECIPIENT());
     s.paved.transfer(s.economy.contract_address, 7 * ONE_PAVED);
@@ -409,7 +409,7 @@ fn test_quote_swap_refuses_an_amount_above_u128() {
 #[should_panic(expected: 'Economy: swap below min_out')]
 fn test_purchase_below_min_out_reverts() {
     let s = setup();
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
     s.economy.purchase(1, PLAYER(), DAY0, 1, BASE_PRICE, Zero::zero(), 200 * ONE_PAVED);
@@ -419,7 +419,7 @@ fn test_purchase_below_min_out_reverts() {
 fn test_purchase_at_min_out_passes() {
     let s = setup();
     let out = router_quote(s, 1_400_000);
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
     s.economy.purchase(1, PLAYER(), DAY0, 1, BASE_PRICE, Zero::zero(), out.into());
@@ -429,7 +429,7 @@ fn test_purchase_at_min_out_passes() {
 #[should_panic(expected: 'Economy: not the game')]
 fn test_purchase_by_anyone_else_reverts() {
     let s = setup();
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, SOMEONE());
     s.economy.purchase(1, PLAYER(), DAY0, 1, BASE_PRICE, Zero::zero(), 0);
@@ -455,7 +455,7 @@ fn test_purchase_of_stake_11_reverts() {
 #[should_panic(expected: 'Economy: wrong price')]
 fn test_purchase_at_another_price_reverts() {
     let s = setup();
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
     s.economy.purchase(1, PLAYER(), DAY0, 2, BASE_PRICE, Zero::zero(), 0);
@@ -465,7 +465,7 @@ fn test_purchase_at_another_price_reverts() {
 #[should_panic(expected: 'Economy: wrong day')]
 fn test_purchase_for_another_day_reverts() {
     let s = setup();
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
     s.economy.purchase(1, PLAYER(), DAY0 - 1, 1, BASE_PRICE, Zero::zero(), 0);
@@ -475,7 +475,7 @@ fn test_purchase_for_another_day_reverts() {
 #[should_panic(expected: 'Economy: price not paid')]
 fn test_purchase_without_the_price_on_economy_reverts() {
     let s = setup();
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, BASE_PRICE - 1);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
     s.economy.purchase(1, PLAYER(), DAY0, 1, BASE_PRICE, Zero::zero(), 0);
@@ -862,8 +862,7 @@ fn deploy_router(s: Setup, paved_amount: u256, usdc_amount: u256) -> ContractAdd
     let router = deploy(
         "MockRouter", array![s.paved.contract_address.into(), s.usdc.contract_address.into()],
     );
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
-        .mint(RECIPIENT(), usdc_amount);
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }.mint(RECIPIENT(), usdc_amount);
     start_cheat_caller_address(s.paved.contract_address, RECIPIENT());
     s.paved.approve(router, paved_amount);
     stop_cheat_caller_address(s.paved.contract_address);
@@ -1008,7 +1007,7 @@ fn test_paved_on_the_router_before_a_purchase_does_not_count_in_r() {
 fn test_one_purchase_moves_the_rate_down_by_at_most_the_clamp() {
     let s = setup();
     // Someone buys 5,000 USDC of PAVED: PAVED gets much dearer, a purchase gets far less
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }.mint(s.router, 5_000 * USDC);
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }.mint(s.router, 5_000 * USDC);
     let pool_key = IMockRouterDispatcher { contract_address: s.router }.pool_key();
     start_cheat_caller_address(s.router, RECIPIENT());
     IRouterDispatcher { contract_address: s.router }
@@ -1034,7 +1033,7 @@ fn test_paved_on_the_router_does_not_let_a_swap_below_min_out_pass() {
     // The router's balance covers min_out, the swap alone does not
     send_paved(s, s.router, 1_000 * ONE_PAVED);
     let min_out = s.economy.quote_swap(1_400_000) + 1;
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
     s.economy.purchase(1, PLAYER(), DAY0, 1, BASE_PRICE, Zero::zero(), min_out);
@@ -1157,7 +1156,7 @@ fn test_quote_swap_of_a_full_fill_is_unchanged_through_the_mock() {
 fn test_purchase_at_99_percent_of_quote_swap_passes() {
     let s = setup();
     let min_out = s.economy.quote_swap(14_000_000) * 99 / 100;
-    IMockUSDCDispatcher { contract_address: s.usdc.contract_address }
+    IFaucetDispatcher { contract_address: s.usdc.contract_address }
         .mint(s.economy.contract_address, 10 * BASE_PRICE);
     start_cheat_caller_address(s.economy.contract_address, DAILY());
     s.economy.purchase(1, PLAYER(), DAY0, 10, 10 * BASE_PRICE, Zero::zero(), min_out);

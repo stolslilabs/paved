@@ -1,7 +1,7 @@
 //! `PavedToken` (P8 E1): metadata, the initial supply, the one minter set once, burn.
 
 use openzeppelin_interfaces::erc20::{IERC20MixinDispatcher, IERC20MixinDispatcherTrait};
-use paved::economy::token::{INITIAL_SUPPLY, IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
+use paved::systems::token::{INITIAL_SUPPLY, IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
 use snforge_std::{
     ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
     stop_cheat_caller_address,

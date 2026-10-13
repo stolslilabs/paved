@@ -2,7 +2,7 @@
   {
     "type": "impl",
     "name": "PavedTokenImpl",
-    "interface_name": "paved::economy::token::IPavedToken"
+    "interface_name": "paved::systems::token::IPavedToken"
   },
   {
     "type": "struct",
@@ -20,7 +20,7 @@
   },
   {
     "type": "interface",
-    "name": "paved::economy::token::IPavedToken",
+    "name": "paved::systems::token::IPavedToken",
     "items": [
       {
         "type": "function",
@@ -401,7 +401,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::token::PavedToken::MinterSet",
+    "name": "paved::systems::token::PavedToken::MinterSet",
     "kind": "struct",
     "members": [
       {
@@ -413,7 +413,7 @@
   },
   {
     "type": "event",
-    "name": "paved::economy::token::PavedToken::Event",
+    "name": "paved::systems::token::PavedToken::Event",
     "kind": "enum",
     "variants": [
       {
@@ -423,7 +423,7 @@
       },
       {
         "name": "MinterSet",
-        "type": "paved::economy::token::PavedToken::MinterSet",
+        "type": "paved::systems::token::PavedToken::MinterSet",
         "kind": "nested"
       }
     ]

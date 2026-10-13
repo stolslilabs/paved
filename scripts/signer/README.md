@@ -224,8 +224,8 @@ Diagnostic options only, to compare with the default request:
 
 ```bash
 SIGNER_NETWORK=devnet node scripts/signer/signer.mjs declare \
-  --sierra contracts/target/dev/paved_MockUSDC.contract_class.json \
-  --casm contracts/target/dev/paved_MockUSDC.compiled_contract_class.json
+  --sierra contracts/target/dev/paved_Faucet.contract_class.json \
+  --casm contracts/target/dev/paved_Faucet.compiled_contract_class.json
 ```
 
 ## Secrets
@@ -312,14 +312,14 @@ cd scripts/signer && npm ci && npm test
   throws them (neither is printed);
 - an unreachable node;
 - a rehearsal against a local starknet-devnet 0.10.0 (free port, seed 42, `PATH` as its only
-  variable, stopped by its PID). It declares MockUSDC, deploys it, mints, multicalls and reads
+  variable, stopped by its PID). It declares the Faucet (MockUSDC before D-25 B), deploys it, mints, multicalls and reads
   `balance_of` through the signer, with a predeployed devnet account (public test keys).
 - a devnet started as mainnet (`--chain-id MAINNET`): declare and invoke are refused, and the
   account's nonce and the block number are unchanged.
 - a send whose answer is lost (`test/recover.test.mjs`, above); in the devnet rehearsal, the hash
   printed before each declare, invoke and multicall is the one the node answers.
 
-The rehearsal needs `contracts/target/dev/paved_MockUSDC.*` (`scarb build` in `contracts/`) and the
+The rehearsal needs `contracts/target/dev/paved_Faucet.*` (`scarb build` in `contracts/`) and the
 devnet binary (`~/.asdf/installs/starknet-devnet/0.10.0/bin/starknet-devnet`); it is skipped when
 either is missing. Overrides: `DEVNET_BIN`, `SIGNER_SIERRA`, `SIGNER_CASM`.
 

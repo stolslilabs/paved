@@ -10,8 +10,8 @@ use openzeppelin_interfaces::upgrades::{
 };
 use openzeppelin_upgrades::UpgradeableComponent;
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
-use paved::economy::economy::IEconomyDispatcherTrait;
 use paved::systems::daily::Daily;
+use paved::systems::economy::IEconomyDispatcherTrait;
 use paved::systems::lobby::{
     ILobbyClassDispatcher, ILobbyClassDispatcherTrait, ILobbyClassSafeDispatcher,
     ILobbyClassSafeDispatcherTrait, LobbyClassSet,

@@ -5,11 +5,11 @@
 
 use core::num::traits::Zero;
 use paved::constants;
-use paved::economy::economy::{BASE_PRICE, IEconomyDispatcherTrait};
 use paved::mocks::token::IERC20Dispatcher;
-use paved::mocks::usdc::{IMockUSDCDispatcher, IMockUSDCDispatcherTrait};
 use paved::models::tile::CENTER;
 use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
+use paved::systems::economy::{BASE_PRICE, IEconomyDispatcherTrait};
+use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::e2e::quests::almost_over_daily;
 use paved::tests::setup::setup;
@@ -72,7 +72,7 @@ fn test_economy_spawn_moves_exactly_the_price_of_its_stake() {
 #[available_gas(l2_gas: 121439000)]
 fn test_economy_spawn_with_a_donation_still_pulls_the_full_price() {
     let (store, systems, context) = setup::spawn_game(Mode::None);
-    IMockUSDCDispatcher { contract_address: context.token.contract_address }
+    IFaucetDispatcher { contract_address: context.token.contract_address }
         .mint(systems.economy.contract_address, 5 * BASE_PRICE);
     assert_paid_spawn(store, @systems, @context, 2);
 }
@@ -191,7 +191,7 @@ fn test_economy_tutorial_calls_neither_purchase_nor_record() {
 #[feature("safe_dispatcher")]
 fn test_economy_spawn_reverts_before_set_economy() {
     let owner: felt252 = setup::OWNER().into();
-    let usdc = snforge_std::declare("MockUSDC").unwrap();
+    let usdc = snforge_std::declare("Faucet").unwrap();
     let (usdc, _) = snforge_std::ContractClassTrait::deploy(
         snforge_std::DeclareResultTrait::contract_class(@usdc), @array![],
     )

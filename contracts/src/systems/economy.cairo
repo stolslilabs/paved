@@ -219,7 +219,7 @@ pub mod Economy {
         PoolKey, RouteNode, TokenAmount, i129,
     };
     use paved::economy::mean::{Day, DayTrait, Ema, EmaTrait};
-    use paved::economy::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
+    use paved::systems::token::{IPavedTokenDispatcher, IPavedTokenDispatcherTrait};
 
     // Starknet imports
 

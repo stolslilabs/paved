@@ -1,4 +1,4 @@
-// Rehearsal against a local starknet-devnet: declare MockUSDC, deploy it, mint, read the balance,
+// Rehearsal against a local starknet-devnet: declare the Faucet, deploy it, mint, read the balance,
 // all through the signer with a predeployed devnet account (public test keys) in the environment;
 // then a devnet started as mainnet (`--chain-id MAINNET`), which the signer refuses without signing.
 // Skipped when the node binary or the built classes are missing (build with `scarb build` in
@@ -16,8 +16,8 @@ import { after, test } from 'node:test';
 const SIGNER = fileURLToPath(new URL('../signer.mjs', import.meta.url));
 const TARGET = fileURLToPath(new URL('../../../contracts/target/dev/', import.meta.url));
 const DEVNET_BIN = process.env.DEVNET_BIN ?? join(homedir(), '.asdf/installs/starknet-devnet/0.10.0/bin/starknet-devnet');
-const SIERRA = process.env.SIGNER_SIERRA ?? join(TARGET, 'paved_MockUSDC.contract_class.json');
-const CASM = process.env.SIGNER_CASM ?? join(TARGET, 'paved_MockUSDC.compiled_contract_class.json');
+const SIERRA = process.env.SIGNER_SIERRA ?? join(TARGET, 'paved_Faucet.contract_class.json');
+const CASM = process.env.SIGNER_CASM ?? join(TARGET, 'paved_Faucet.compiled_contract_class.json');
 
 const missing = [DEVNET_BIN, SIERRA, CASM].filter((path) => !existsSync(path));
 const skip = missing.length > 0 ? `missing: ${missing.join(', ')}` : false;
@@ -83,7 +83,7 @@ function runSigner({ url, account }, args) {
   return result;
 }
 
-test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip }, async (t) => {
+test('declare, deploy, invoke, multicall and call the Faucet on devnet', { skip }, async (t) => {
   const devnet = await startDevnet();
   const { account } = devnet;
   const signer = (...args) => {
@@ -101,7 +101,7 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
   assert.match(declared.json.transaction_hash, /^0x[0-9a-f]+$/);
   // The hash printed before sending (S-1d) is the node's: no mismatch warning follows it.
   const sending = (method, hash) => `signer: sending starknet_add${method}Transaction, transaction ${hash}\n`;
-  assert.equal(declared.stderr, `signer: declare paved_MockUSDC.contract_class.json\n${sending('Declare', declared.json.transaction_hash)}`);
+  assert.equal(declared.stderr, `signer: declare paved_Faucet.contract_class.json\n${sending('Declare', declared.json.transaction_hash)}`);
 
   const again = signer('declare', '--sierra', SIERRA, '--casm', CASM);
   t.diagnostic(`declare again: ${again.line}`);
@@ -112,7 +112,7 @@ test('declare, deploy, invoke, multicall and call MockUSDC on devnet', { skip },
   const usdc = deployed.json.contract_address;
   assert.match(usdc, /^0x[0-9a-f]+$/);
 
-  // MockUSDC's constructor premints 10,000 USDC to the deployer (S-1): the balances below are read as
+  // the Faucet constructor premints 10,000 USDC to the deployer (S-1): the balances below are read as
   // changes from it. A u256 balance is two felts, low then high.
   const balanceOf = () => {
     // @account: the signer reads the account's address from its environment.
@@ -162,7 +162,7 @@ test('a devnet started as mainnet is refused and nothing is signed', { skip }, a
   assert.equal(await rpc(devnet.url, 'starknet_blockNumber'), blockBefore);
 });
 
-test('estimate declare MockUSDC on devnet: a fee estimate, and nothing sent', { skip }, async (t) => {
+test('estimate declare the Faucet on devnet: a fee estimate, and nothing sent', { skip }, async (t) => {
   const devnet = await startDevnet();
   const nonce = () => rpc(devnet.url, 'starknet_getNonce', { block_id: 'latest', contract_address: devnet.account.address });
   const nonceBefore = await nonce();

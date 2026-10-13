@@ -5,7 +5,7 @@ use paved::economy::curve::{
     MAX_FACTOR_BPS, RATE_SCALE, guarded, next_rate, payout, reference, split, supply_factor,
     threshold,
 };
-use paved::economy::economy::{Config, PAVED, decided, validate};
+use paved::systems::economy::{Config, PAVED, decided, validate};
 
 const USDC: u256 = 1_000_000;
 
