@@ -96,6 +96,9 @@ describe("the devnet faucet is MockUSDC.mint(self, N)", () => {
     const asHex = (reason: string) => `Error in the called contract: ${shortString.encodeShortString(reason)}`;
 
     test.each([
+      ["Faucet: over the address cap", "address", /received everything the faucet gives/],
+      ["Faucet: over the call cap", "call", /over what one request may mint/],
+      // The MockUSDC still deployed on Sepolia until the fresh deployment (P-53).
       ["MockUSDC: over the address cap", "address", /received everything the faucet gives/],
       ["MockUSDC: over the call cap", "call", /over what one request may mint/],
     ] as const)("%s", async (reason, cap, words) => {
@@ -107,7 +110,7 @@ describe("the devnet faucet is MockUSDC.mint(self, N)", () => {
           expect(error).toBeInstanceOf(WriteError);
           expect(error.cap).toBe(cap);
           expect(error.message).toMatch(words);
-          expect(error.message).not.toMatch(/MockUSDC|0x/);
+          expect(error.message).not.toMatch(/MockUSDC|Faucet:|0x/);
           expect(error.reverted).toBe(true);
         }
       }

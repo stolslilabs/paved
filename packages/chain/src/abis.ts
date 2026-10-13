@@ -2,7 +2,7 @@ import accountAbi from "../../../contracts/abis/Account.json";
 import dailyAbi from "../../../contracts/abis/Daily.json";
 import tutorialAbi from "../../../contracts/abis/Tutorial.json";
 import tokenAbi from "../../../contracts/abis/Token.json";
-import mockUsdcAbi from "../../../contracts/abis/MockUSDC.json";
+import mockUsdcAbi from "../../../contracts/abis/Faucet.json";
 import pavedTokenAbi from "../../../contracts/abis/PavedToken.json";
 import economyAbi from "../../../contracts/abis/Economy.json";
 import vaultAbi from "../../../contracts/abis/Vault.json";
@@ -34,7 +34,7 @@ export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
 
 /**
  * All of them are CORE's committed ABIs: `PavedToken` and `Vault` (E1), `Economy` (E2), and `Daily` with the paid
- * `spawn(stake, referrer, min_out)` (E3). `USDC` is `MockUSDC.json`: the ERC20 interface (`approve`, `balance_of`,
+ * `spawn(stake, referrer, min_out)` (E3). `USDC` is `Faucet.json`: the ERC20 interface (`approve`, `balance_of`,
  * `allowance`) the real USDC exposes too, plus the mock's faucet `mint`.
  */
 export type EconomyContractName = "Economy" | "PavedToken" | "Vault" | "USDC" | "Daily";
@@ -59,7 +59,7 @@ export function createEconomyCodecs(abis: Record<EconomyContractName, Abi> = ECO
   };
 }
 
-/** `MockUSDC.json`: the faucet's (devnet, Sepolia) `mint(recipient, amount)` is in it (`PavedWriter.mint`). */
+/** `Faucet.json`: the faucet's (devnet, Sepolia) `mint(recipient, amount)` is in it (`PavedWriter.mint`). */
 export const MOCK_USDC_ABI = mockUsdcAbi as Abi;
 
 /**

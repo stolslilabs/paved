@@ -52,11 +52,12 @@ export function revertNames(revert: string, reason: string): boolean {
   return revert.includes(reason) || revert.toLowerCase().includes(shortString.encodeShortString(reason).toLowerCase());
 }
 
-const OVER_CALL_CAP = "MockUSDC: over the call cap";
-const OVER_ADDRESS_CAP = "MockUSDC: over the address cap";
+// The Faucet's reasons, and the old MockUSDC's, which stays deployed on Sepolia until the fresh deployment (P-53).
+const OVER_CALL_CAPS = ["Faucet: over the call cap", "MockUSDC: over the call cap"];
+const OVER_ADDRESS_CAPS = ["Faucet: over the address cap", "MockUSDC: over the address cap"];
 
 /**
- * The faucet's contract refused a mint (`MockUSDC`'s caps, D-16): `call` is the cap of one call, `address` the total an
+ * The faucet's contract refused a mint (the Faucet's caps, D-16): `call` is the cap of one call, `address` the total an
  * address may receive from the faucet. Nothing moved; the message is for the player.
  */
 export class FaucetCapError extends WriteError {
@@ -72,11 +73,11 @@ export class FaucetCapError extends WriteError {
   }
 }
 
-/** A known revert of `MockUSDC.mint` as its clear state; any other error unchanged. */
+/** A known revert of `Faucet.mint` as its clear state; any other error unchanged. */
 function faucetRevert(error: unknown): unknown {
   if (!(error instanceof WriteError)) return error;
-  if (revertNames(error.message, OVER_ADDRESS_CAP)) return new FaucetCapError("address", error.transactionHash);
-  if (revertNames(error.message, OVER_CALL_CAP)) return new FaucetCapError("call", error.transactionHash);
+  if (OVER_ADDRESS_CAPS.some((reason) => revertNames(error.message, reason))) return new FaucetCapError("address", error.transactionHash);
+  if (OVER_CALL_CAPS.some((reason) => revertNames(error.message, reason))) return new FaucetCapError("call", error.transactionHash);
   return error;
 }
 
