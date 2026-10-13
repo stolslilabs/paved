@@ -1,10 +1,9 @@
 import { shortString } from "starknet";
-import { FAUCET_USDC_AMOUNT, LOBBY_ABI, MOCK_USDC_ABI, type Codecs, type ContractName } from "./abis";
+import { FAUCET_USDC_AMOUNT, MOCK_USDC_ABI, type Codecs, type ContractName } from "./abis";
 import { AbiCodec as Codec, sameAddress, type AbiCodec, type DecodedEvent, type Encodable, type RawEvent } from "./codec";
 import type { Deployment } from "./deployment";
 import { receiptEvents } from "./events";
-import { reclaimableAmount, rewardOf, type Rank } from "./prize";
-import { gameContract, type GameKey, type GameMode, type PriceView, type TournamentView } from "./views";
+import { gameContract, type GameKey, type GameMode } from "./views";
 
 export interface Call {
   contractAddress: string;
@@ -37,22 +36,6 @@ export interface BuildMove {
   y: number;
 }
 
-/** The reward at send is not what the player confirmed: nothing was sent. */
-export class RewardChangedError extends Error {
-  constructor(readonly confirmed: bigint, readonly current: bigint) {
-    super("The reward changed: confirm again");
-    this.name = "RewardChangedError";
-  }
-}
-
-/** The sponsored amount at send is not the one the player confirmed: nothing was sent. */
-export class SponsorAmountChangedError extends Error {
-  constructor(readonly confirmed: bigint, readonly current: bigint) {
-    super("The sponsored amount changed: confirm again");
-    this.name = "SponsorAmountChangedError";
-  }
-}
-
 /**
  * A write that the chain refused; the message is the revert reason. With a `transactionHash` the write was sent:
  * `reverted` says the receipt is a known revert; otherwise its receipt could not be read (timeout, RPC drop).
@@ -67,45 +50,6 @@ export class WriteError extends Error {
 /** True when a revert reason names `reason`: as text, or as the hex of the short string the node may return. */
 export function revertNames(revert: string, reason: string): boolean {
   return revert.includes(reason) || revert.toLowerCase().includes(shortString.encodeShortString(reason).toLowerCase());
-}
-
-const NOT_FOUND = "Tournament: not found";
-const NOTHING_TO_RECLAIM = "Tournament: nothing to reclaim";
-
-/** A claim on a day that has no tournament: nobody sponsored it, so there is no prize and nothing to claim. */
-export class NoPrizeDayError extends WriteError {
-  constructor(transactionHash?: string) {
-    super("This day has no prize: nobody sponsored it, so there is nothing to claim.", transactionHash, transactionHash !== undefined);
-    this.name = "NoPrizeDayError";
-  }
-}
-
-/**
- * A reclaim the contract refuses: the day was ranked (its prize goes to the ranks), the account sponsored nothing in
- * it, or it already took its part back. Nothing moved.
- */
-export class NothingToReclaimError extends WriteError {
-  constructor(message = "Nothing to reclaim: this day was ranked, or you sponsored nothing in it, or you already took it back.", transactionHash?: string) {
-    super(message, transactionHash, transactionHash !== undefined);
-    this.name = "NothingToReclaimError";
-  }
-}
-
-/** The part a sponsor can reclaim at send is not the one they confirmed: nothing was sent. */
-export class ReclaimAmountChangedError extends Error {
-  constructor(readonly confirmed: bigint, readonly current: bigint) {
-    super("The amount to reclaim changed: confirm again");
-    this.name = "ReclaimAmountChangedError";
-  }
-}
-
-/** A known revert of `Daily.claim` as its clear state; any other error unchanged. */
-function claimRevert(error: unknown): unknown {
-  // A revert of the receipt, or the node refusing at fee estimation before anything is sent: both name the reason.
-  if (!(error instanceof WriteError)) return error;
-  if (revertNames(error.message, NOT_FOUND)) return new NoPrizeDayError(error.transactionHash);
-  if (revertNames(error.message, NOTHING_TO_RECLAIM)) return new NothingToReclaimError(undefined, error.transactionHash);
-  return error;
 }
 
 const OVER_CALL_CAP = "MockUSDC: over the call cap";
@@ -166,15 +110,6 @@ export class PavedWriter {
       tip?: bigint;
       /** Interval between two receipt requests while a write is pending. */
       receiptPollMs?: number;
-      /** The Daily entry (`Daily.entry_price`): its token is the one a sponsorship is paid in. */
-      entryPrice?: () => Promise<PriceView>;
-      /** `Daily.tournament`, read before each claim. */
-      tournament?: (id: number) => Promise<TournamentView>;
-      /**
-       * What the account can still reclaim of a day's prize: its `Sponsored` events less its `Reclaimed` ones
-       * (`EventReader.sponsorship`), read before each reclaim.
-       */
-      reclaimable?: (id: number, sponsor: string) => Promise<bigint>;
       /** Called with the decoded events of every successful write (the event reader keeps them). */
       onEvents?: (contract: ContractName, events: DecodedEvent[]) => void;
     },
@@ -231,90 +166,6 @@ export class PavedWriter {
   surrender(key: GameKey): Promise<WriteResult> {
     const contract = gameContract(key.mode);
     return this.send(contract, [this.call(contract, "surrender", [key.gameId])]);
-  }
-
-  /**
-   * Claims a rank of a closed tournament; the contract pays the reward out of the prize pool. The
-   * tournament is read first: `confirmedReward` is what the player saw and confirmed, and a
-   * different reward, a rank already claimed or a tournament not over sends nothing.
-   */
-  async claim(tournamentId: number, rank: Rank, options: { confirmedReward: bigint }): Promise<WriteResult> {
-    if (!this.options.tournament) throw new WriteError("No tournament reader: cannot check the reward");
-    let tournament: TournamentView;
-    try {
-      tournament = await this.options.tournament(tournamentId);
-    } catch (error) {
-      throw new WriteError(`Cannot read the tournament: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    if (!tournament.over) throw new WriteError("The tournament is not over");
-    if ([tournament.top1Claimed, tournament.top2Claimed, tournament.top3Claimed][rank - 1]) {
-      throw new WriteError("This reward was already claimed");
-    }
-    const reward = rewardOf(tournament, rank);
-    if (reward !== options.confirmedReward) throw new RewardChangedError(options.confirmedReward, reward);
-    try {
-      return await this.send("Daily", [this.call("Daily", "claim", [tournamentId, rank])]);
-    } catch (error) {
-      throw claimRevert(error);
-    }
-  }
-
-  /**
-   * A sponsor's reclaim (P-37): `claim(day, 0)`, sent by the sponsor, pays back their part of a prize nobody ranked for
-   * (an empty top 3, or every score 0); rank rewards are not touched, and a ranked day has nothing to reclaim.
-   * `confirmedAmount` is what the player saw and confirmed. Both the day and the amount are read again here, so a
-   * ranked day, an amount that changed, a part already taken back, or a day not over sends nothing. The Reclaimed event
-   * of the receipt (declared in Lobby's ABI, emitted from Daily) is in the result.
-   */
-  async reclaim(tournamentId: number, options: { confirmedAmount: bigint }): Promise<WriteResult> {
-    const { tournament: readTournament, reclaimable: readReclaimable } = this.options;
-    if (!readTournament || !readReclaimable) throw new WriteError("No tournament or sponsorship reader: cannot check the reclaim");
-    let tournament: TournamentView;
-    let amount: bigint;
-    try {
-      [tournament, amount] = await Promise.all([readTournament(tournamentId), readReclaimable(tournamentId, this.address)]);
-    } catch (error) {
-      throw new WriteError(`Cannot read the tournament: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    if (!tournament.over) throw new WriteError("The tournament is not over");
-    if (BigInt(tournament.top1PlayerId) !== 0n) {
-      throw new NothingToReclaimError("This day was ranked: its prize goes to the ranks, so there is nothing to reclaim.");
-    }
-    amount = reclaimableAmount(tournament, amount);
-    if (amount === 0n) throw new NothingToReclaimError("You sponsored nothing in this day, or already took it back.");
-    if (amount !== options.confirmedAmount) throw new ReclaimAmountChangedError(options.confirmedAmount, amount);
-    const call = this.call("Daily", "claim", [tournamentId, 0]);
-    try {
-      return await this.serialised(() => this.sendNow({ codec: new Codec(LOBBY_ABI), address: call.contractAddress }, [call]));
-    } catch (error) {
-      throw claimRevert(error);
-    }
-  }
-
-  /**
-   * Adds `amount` to the current tournament's prize; approves exactly it in the same transaction.
-   * `confirmedAmount` is what the player saw and confirmed: another amount sends nothing. An amount
-   * of 0 is refused.
-   */
-  sponsor(amount: bigint, options: { confirmedAmount: bigint }): Promise<WriteResult> {
-    if (amount <= 0n) return Promise.reject(new WriteError("A sponsored amount must be above 0"));
-    if (options.confirmedAmount !== amount) {
-      return Promise.reject(new SponsorAmountChangedError(options.confirmedAmount, amount));
-    }
-    return this.sendSponsor(amount);
-  }
-
-  private async sendSponsor(amount: bigint): Promise<WriteResult> {
-    // The sponsorship is paid in the token Daily charges (USDC since E3), read from Daily, not assumed.
-    if (!this.options.entryPrice) throw new WriteError("No entry price reader: cannot approve the sponsorship");
-    let price: PriceView;
-    try {
-      price = await this.options.entryPrice();
-    } catch (error) {
-      throw new WriteError(`Cannot read the Daily entry token: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    const approve = this.call("Token", "approve", [this.options.deployment.addresses.Daily, amount]);
-    return this.send("Daily", [{ ...approve, contractAddress: price.token }, this.call("Daily", "sponsor", [amount])]);
   }
 
   /**

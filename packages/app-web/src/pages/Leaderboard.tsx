@@ -4,7 +4,7 @@ import { MAX_TOURNAMENT_ID, indexerPlayerId, useIndexer, useIndexerRead, usePave
 import type { LeaderboardEntry } from "@paved/chain";
 import { DayPicker } from "../components/DayPicker";
 import { IndexerFailure, IndexerLag } from "../components/IndexerLag";
-import { BOARD_PAGE, playerLabel, slotsLabel } from "../utils/indexer-view";
+import { BOARD_PAGE, playerLabel } from "../utils/indexer-view";
 import { useDays } from "../utils/use-days";
 
 const page = { minHeight: "100%", background: "#0a0a0a", color: "#f5f5f5", padding: 24, display: "flex", flexDirection: "column", gap: 12, maxWidth: 960, margin: "0 auto", boxSizing: "border-box" } as const;
@@ -16,11 +16,7 @@ function routeId(text: string | undefined): number | null {
   return text !== undefined && /^\d+$/.test(text) && Number(text) <= MAX_TOURNAMENT_ID ? Number(text) : null;
 }
 
-/**
- * The leaderboard of one day (today's by default) from the indexer, for display only. The prize slots
- * are the indexer's replay of the contract's top 3; the prize amounts and the claims are on the home
- * page, read from the contract.
- */
+/** The leaderboard of one day (today's by default) from the indexer, for display only. */
 export function LeaderboardPage() {
   const params = useParams();
   const navigate = useNavigate();
@@ -86,7 +82,6 @@ export function LeaderboardPage() {
                 <th style={cell}>Player</th>
                 <th style={cell}>Best score</th>
                 <th style={cell}>Games</th>
-                <th style={cell}>Prize slots</th>
               </tr>
             </thead>
             <tbody>
@@ -109,9 +104,7 @@ export function LeaderboardPage() {
               Next
             </button>
           </div>
-          <p style={{ color: "#999", fontSize: 12, margin: 0 }}>
-            Ranked by player. The contract ranks games, so one player can hold several prize slots. Prizes and claims are read from the contract, on the home page.
-          </p>
+          <p style={{ color: "#999", fontSize: 12, margin: 0 }}>Ranked by player: each player's best game of the day.</p>
         </>
       )}
     </div>
@@ -119,7 +112,6 @@ export function LeaderboardPage() {
 }
 
 function Row({ entry, mine }: { entry: LeaderboardEntry; mine: boolean }) {
-  const slots = slotsLabel(entry.prizeRanks);
   return (
     <tr style={{ background: mine ? "rgba(245,158,11,0.15)" : undefined }}>
       <td style={cell}>{entry.rank}</td>
@@ -129,9 +121,6 @@ function Row({ entry, mine }: { entry: LeaderboardEntry; mine: boolean }) {
       </td>
       <td style={cell}>{entry.bestScore}</td>
       <td style={cell}>{entry.gamesPlayed}</td>
-      <td style={cell}>
-        {slots ? `${slots}${entry.prizeRanks.length > 1 ? ` (${entry.prizeRanks.length} slots)` : ""}` : "–"}
-      </td>
     </tr>
   );
 }

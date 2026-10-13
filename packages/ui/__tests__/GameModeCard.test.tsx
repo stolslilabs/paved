@@ -25,7 +25,6 @@ describe("GameModeCard", () => {
       tileCount: 72,
       duration: "24h",
       entryFee: "Free",
-      tokenLabel: "PAVED",
       onPress: vi.fn(),
     };
 
@@ -49,7 +48,7 @@ describe("GameModeCard", () => {
     expect(mod.GameModeCardStats).toBeDefined();
   });
 
-  it("renders a free card: Free badge, no prize, time or podium line, its own action label", async () => {
+  it("renders a free card: Free badge, no time or podium line, its own action label", async () => {
     const { GameModeCardView } = await import("../src/components/GameModeCard");
     const { collectText } = await import("./helpers/collect-text");
     const text = collectText(
@@ -61,10 +60,8 @@ describe("GameModeCard", () => {
         duration: "No limit",
         entryFee: "50",
         free: true,
-        prizePool: "100",
         topPlayers: [{ name: "Zed", score: 9 }],
         timeRemaining: "3h",
-        tokenLabel: "TILE",
         onPress: vi.fn(),
       }),
     );

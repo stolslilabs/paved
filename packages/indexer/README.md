@@ -14,7 +14,7 @@ Copied from Grim World's `indexer/` (https://github.com/bal7hazar/grimworld, com
 `e405340684e4202440a97a4073fcd2bc43ca49d7`, Apache-2.0, like this repository). Each copied file says so in a block at its
 top, with what was changed; this copy is maintained here. Copied and adapted: `chain.ts`, `indexer.ts`, `store.ts`,
 `main.ts`, `server.ts`, `events.ts`, `testing/fake-node.ts`, `testing/setup.ts`. New: `api.ts`, `queries.ts`,
-`crosscheck.ts`, `deployment.ts` and the tests. Not copied: subscriptions (no push in v1), the market queries, the client
+`deployment.ts` and the tests (`crosscheck.ts`, the cross-check against the `tournament` view, left with D-20). Not copied: subscriptions (no push in v1), the market queries, the client
 library, the emitter contract.
 
 ## Run
@@ -64,9 +64,19 @@ the indexer is `loading`, `rewinding` or `halted` every route answers `503` with
 /v1/games/{contract}/{game_id}
 ```
 
-`prize_ranks` of a leaderboard row are the contract's three prize slots, replayed from the events with the rule of
-`Tournament.score`; the indexer compares them with the `tournament` view of every closed day and reports a difference in
-`/v1/head` (`checks.last_mismatch`). It never decides a prize: the client reads prizes from the contract.
+Since D-20 the contracts keep no prize and no ranking: the daily leaderboard is the indexer's own (one row per player,
+best score descending, ties by the chain order of the `GameOver`). The route names stay (`tournaments`,
+`tournaments/{id}`); a game row's day fields follow the events: `day_id` (`GameSpawned.day_id`) and `counted_day_id`
+(`GameOver.day_id`), `tournament_id` and `counted_tournament_id` before. Gone with D-20: `prize_ranks` of a leaderboard
+row, `checks.tournaments_checked` and `checks.last_mismatch` of `/v1/head` (no view is read any more), the
+`/v1/sponsors/{id}/days` route and its `sponsorships` table.
+
+On the Podium (achievement task 8, `docs/architecture/quests.md`) is credited from that leaderboard: when a block closes a
+day (`day_closes`), ranks 1 to 3 of that day go to the `podium` table, three different players at most, credited at the
+closing block. The past prize events of `Daily` (`Sponsored`, `Claimed`, `Reclaimed`, emitted before D-20) are known by
+name and skipped, so a replay of a history holding them never halts.
+
+Schema 7 (D-20): a database of schema 6 is refused at start with a message naming `rebuild`; rebuild it from the chain.
 
 ## Tests
 

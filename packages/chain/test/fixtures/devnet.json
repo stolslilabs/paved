@@ -407,34 +407,10 @@
     },
     {
       "contractAddress": "0x2ee466e54ec162758f2decbb07c115dcd959ba87ae044e0bdbbdf5d459e6eb9",
-      "entrypoint": "current_tournament_id",
+      "entrypoint": "current_day",
       "calldata": [],
       "result": [
         "0x50fd"
-      ]
-    },
-    {
-      "contractAddress": "0x2ee466e54ec162758f2decbb07c115dcd959ba87ae044e0bdbbdf5d459e6eb9",
-      "entrypoint": "tournament",
-      "calldata": [
-        "0x50fd"
-      ],
-      "result": [
-        "0x50fd",
-        "0x6ac58b80",
-        "0x6ac6dd00",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0"
       ]
     },
     {
@@ -454,30 +430,6 @@
       "result": [
         "0x1c86221e09e4a65abef3ef46b6f9320333ff01cac10ce69c5f701996ac028c8",
         "0xde0b6b3a7640000",
-        "0x0"
-      ]
-    },
-    {
-      "contractAddress": "0x2ee466e54ec162758f2decbb07c115dcd959ba87ae044e0bdbbdf5d459e6eb9",
-      "entrypoint": "tournament",
-      "calldata": [
-        "0x50fd"
-      ],
-      "result": [
-        "0x50fd",
-        "0x6ac58b80",
-        "0x6ac6dd00",
-        "0x0",
-        "0xde0b6b3a7640000",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
         "0x0"
       ]
     },
@@ -529,30 +481,6 @@
         "0x6ac6d1b0",
         "0x6ac6d1b1",
         "0x50fd"
-      ]
-    },
-    {
-      "contractAddress": "0x2ee466e54ec162758f2decbb07c115dcd959ba87ae044e0bdbbdf5d459e6eb9",
-      "entrypoint": "tournament",
-      "calldata": [
-        "0xc22e45067289"
-      ],
-      "result": [
-        "0xc22e45067289",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0",
-        "0x0"
       ]
     }
   ],

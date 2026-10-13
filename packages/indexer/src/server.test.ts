@@ -14,9 +14,9 @@ const PA = padded(A);
 async function served() {
   const node = new FakeNode();
   node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]);
-  node.mine([ev.spawned("daily", 1, A, { tournament: DAY })], [ev.spawned("daily", 2, B, { tournament: DAY })], [ev.spawned("tutorial", 1, A)]);
-  node.mine([ev.over("daily", 1, A, 50, { tournament: DAY, end: 77 })]);
-  node.mine([ev.over("daily", 2, B, 40, { tournament: DAY, end: 78 })]);
+  node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })], [ev.spawned("tutorial", 1, A)]);
+  node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })]);
+  node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
   const indexer = indexerOf(node);
   await settle(indexer);
   return { node, indexer };
@@ -48,14 +48,14 @@ describe("routes", () => {
       chain_id: "0x534e5f5345504f4c4941",
       from_block: 1,
       contracts: { daily: "0x1111", tutorial: "0x2222", account: "0x3333", economy: "0x4444", collection: "0x5555" },
-      checks: { tournaments_checked: 0, last_mismatch: null, definitions_excluded: 0 },
+      checks: { definitions_excluded: 0 },
     });
   });
 
   test("GET /v1/head: without a Collection (before E5b) contracts.collection is null and a game has no token_id", async () => {
     const node = new FakeNode();
     node.mine([ev.created(A, 0x416461)]);
-    node.mine([ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY })]);
+    node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })]);
     const indexer = indexerWithoutCollection(node);
     await settle(indexer);
     expect(get(indexer, "/v1/head").body).toMatchObject({ contracts: { economy: "0x4444", collection: null } });
@@ -82,7 +82,6 @@ describe("routes", () => {
           games_played: 1,
           games_finished: 1,
           finished_at: 77,
-          prize_ranks: [1],
         },
       ],
     });
@@ -136,10 +135,10 @@ describe("Economy's fields (appended in E3)", () => {
   async function paid() {
     const node = new FakeNode();
     node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]);
-    node.mine([ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY, stake: 2, referrer: B, referral: 200_000n })]);
-    node.mine([ev.spawned("daily", 2, A, { tournament: DAY }), ev.purchased(2, A, { day: DAY })]);
-    node.mine([ev.over("daily", 1, A, 5000, { tournament: DAY }), ev.recorded(1, 5000)]);
-    node.mine([ev.over("daily", 2, A, 300, { tournament: DAY }), ev.recorded(2, 300)]);
+    node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY, stake: 2, referrer: B, referral: 200_000n })]);
+    node.mine([ev.spawned("daily", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY })]);
+    node.mine([ev.over("daily", 1, A, 5000, { day: DAY }), ev.recorded(1, 5000)]);
+    node.mine([ev.over("daily", 2, A, 300, { day: DAY }), ev.recorded(2, 300)]);
     node.mine([ev.dayClosed(DAY), ev.settled(1, A, { day: DAY, score: 5000, threshold: 4_215_689, reward: REWARD })]);
     const indexer = indexerOf(node);
     await settle(indexer);
@@ -207,9 +206,9 @@ describe("the game token (appended in E5b)", () => {
   test("token_id is the game id for Daily, 2^32 + the id for Tutorial, null before the mint; always a safe integer", async () => {
     const node = new FakeNode();
     node.mine([ev.created(A, 0x416461)]);
-    node.mine([ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY }), ev.minted(A, 1)]);
+    node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY }), ev.minted(A, 1)]);
     node.mine([ev.spawned("tutorial", 1, A), ev.minted(A, 2 ** 32 + 1)]);
-    node.mine([ev.spawned("daily", 2, A, { tournament: DAY }), ev.purchased(2, A, { day: DAY })]);
+    node.mine([ev.spawned("daily", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY })]);
     const indexer = indexerOf(node);
     await settle(indexer);
     const token = (target: string) => (get(indexer, target).body.game as { token_id: number | null }).token_id;
@@ -291,7 +290,7 @@ describe("states", () => {
     get(indexer, "/v1/tournaments/100");
     get(indexer, "/v1/tournaments/100");
     expect(cacheOf(indexer).hits).toBe(1);
-    node.reorg(1, [[[ev.over("daily", 2, B, 99, { tournament: DAY })]]]);
+    node.reorg(1, [[[ev.over("daily", 2, B, 99, { day: DAY })]]]);
     await settle(indexer);
     expect(get(indexer, "/v1/tournaments/100").body).toMatchObject({ tournament: { best_score: 99 } });
   });
@@ -323,137 +322,38 @@ describe("the HTTP server", () => {
   });
 });
 
-describe("GET /v1/sponsors/{sponsor_id}/days", () => {
-  const S1 = 0x5501n;
-  const S2 = 0x5502n;
-  const days = (indexer: Awaited<ReturnType<typeof served>>["indexer"], target: string) => get(indexer, `/v1/sponsors/${target}`);
+describe("D-20: the prize leaves", () => {
+  const S = 0x5501n;
+  // The same games, with and without the past prize events of Daily (public-interface.md, "Past events") in between.
+  const history = (node: FakeNode, prize: boolean) => {
+    node.mine([ev.created(A, 0x416461)], [ev.created(B, 0x426f)]);
+    node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, B, { day: DAY })]);
+    node.mine(prize ? [ev.sponsored(DAY, S)] : []);
+    node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 77 })], ...(prize ? [[ev.claimed(DAY - 1, A, 1)]] : []));
+    node.mine([ev.over("daily", 2, B, 40, { day: DAY, end: 78 })]);
+    node.mine(prize ? [ev.reclaimed(DAY - 2, S), ev.claimed(DAY - 1, B, 2)] : []);
+  };
 
-  async function sponsors() {
+  test("a history holding Sponsored, Claimed and Reclaimed replays: they are skipped, never a halt", async () => {
     const node = new FakeNode();
-    node.mine([ev.created(A, 0x416461)]);
-    // S1 sponsors days 9, 7 (twice) and 8; S2 only day 9. Mined out of day order on purpose.
-    node.mine([ev.sponsored(7, S1), ev.sponsored(9, S1), ev.sponsored(9, S2)]);
-    node.mine([ev.sponsored(8, S1), ev.sponsored(7, S1, 5)]);
+    history(node, true);
     const indexer = indexerOf(node);
-    await settle(indexer);
-    return { node, indexer };
-  }
-
-  test("the sponsor's days, newest first, each once, with the envelope", async () => {
-    const { indexer, node } = await sponsors();
-    const answer = days(indexer, `${padded(S1)}/days`);
-    expect(answer.code).toBe(200);
-    expect(answer.body).toMatchObject({
-      version: 1,
-      status: "ok",
-      head: { number: node.tip },
-      sponsor_id: padded(S1),
-      days: [9, 8, 7],
-      next: null,
-    });
-    expect(days(indexer, `${padded(S2)}/days`).body).toMatchObject({ sponsor_id: padded(S2), days: [9], next: null });
-  });
-
-  test("the id is read as a felt: a mixed-case id is the same sponsor", async () => {
-    const { indexer } = await sponsors();
-    const upper = padded(S1).replace(/[a-f]/g, (c) => c.toUpperCase());
-    expect(days(indexer, `${upper}/days`).body).toMatchObject({ sponsor_id: padded(S1), days: [9, 8, 7] });
-  });
-
-  test("an unknown sponsor has no days (200), not an error", async () => {
-    const { indexer } = await sponsors();
-    expect(days(indexer, `${padded(0x9999n)}/days`)).toMatchObject({ code: 200, body: { days: [], next: null } });
-  });
-
-  test("limit pages with `next` as `before`; the cap is 100 and the default 20", async () => {
-    const { indexer } = await sponsors();
-    const first = days(indexer, `${padded(S1)}/days?limit=2`);
-    expect(first.body).toMatchObject({ days: [9, 8], next: 8 });
-    const second = days(indexer, `${padded(S1)}/days?limit=2&before=8`);
-    expect(second.body).toMatchObject({ days: [7], next: null });
-    expect(days(indexer, `${padded(S1)}/days?before=7`).body).toMatchObject({ days: [], next: null });
-    expect(days(indexer, `${padded(S1)}/days?limit=100`).code).toBe(200);
-    expect(days(indexer, `${padded(S1)}/days?limit=101`).code).toBe(400);
-    expect(days(indexer, `${padded(S1)}/days?limit=0`).code).toBe(400);
-  });
-
-  test("the default page is 20 days and `next` leads to the rest", async () => {
-    const node = new FakeNode();
-    node.mine([ev.sponsored(1, S1)]);
-    for (let day = 2; day <= 25; day++) node.mine([ev.sponsored(day, S1)]);
-    const indexer = indexerOf(node);
-    await settle(indexer);
-    const first = days(indexer, `${padded(S1)}/days`).body as { days: number[]; next: number | null };
-    expect(first.days).toHaveLength(20);
-    expect(first.days[0]).toBe(25);
-    expect(first.next).toBe(6);
-    const rest = days(indexer, `${padded(S1)}/days?before=6`).body as { days: number[]; next: number | null };
-    expect(rest).toMatchObject({ days: [5, 4, 3, 2, 1], next: null });
-  });
-
-  test("a malformed id, an unknown or repeated parameter and a bad bound are 400; other paths are 404", async () => {
-    const { indexer } = await sponsors();
-    for (const target of [
-      "0x1/days",
-      `${padded(S1).slice(2)}/days`,
-      `${padded(S1)}/days?x=1`,
-      `${padded(S1)}/days?limit=1&limit=2`,
-      `${padded(S1)}/days?before=-1`,
-      `${padded(S1)}/days?before=${MAX_TOURNAMENT_ID + 1}`,
-      `0x${"f".repeat(64)}/days`,
-    ]) {
-      expect(days(indexer, target).code, target).toBe(400);
-    }
-    expect(days(indexer, `${padded(S1)}/days?before=${MAX_TOURNAMENT_ID}`).code).toBe(200);
-    for (const target of ["", "/", `${padded(S1)}`, `${padded(S1)}/games`, `${padded(S1)}/days/1`]) {
-      expect(get(indexer, `/v1/sponsors${target.startsWith("/") || target === "" ? target : `/${target}`}`).code, target).toBe(404);
-    }
-  });
-
-  test("loading, rewinding and halted: 503 with the state, never rows", async () => {
-    const target = `/v1/sponsors/${padded(S1)}/days`;
-    const loading = indexerOf(new FakeNode());
-    expect(get(loading, target)).toMatchObject({ code: 503, body: { status: "loading", head: null } });
-    expect(get(loading, `${target}?limit=0`).code).toBe(400); // parameters are still checked first
-
-    const { indexer } = await sponsors();
-    expect(get(indexer, target).code).toBe(200);
-    (indexer as unknown as { status: string }).status = "rewinding";
-    const rewinding = get(indexer, target);
-    expect(rewinding).toMatchObject({ code: 503, body: { status: "rewinding" } });
-    expect(rewinding.body).not.toHaveProperty("days");
-
-    const node = new FakeNode();
-    node.mine([ev.sponsored(9, S1)], [ev.over("daily", 1, A, 5)]);
-    const halted = indexerOf(node);
-    await settle(halted);
-    expect(get(halted, target)).toMatchObject({ code: 503, body: { status: "halted", reason: expect.stringMatching(/no GameSpawned/) } });
-    expect(get(halted, target).body).not.toHaveProperty("days");
-  });
-
-  test("a reorg takes the sponsorings of the replaced blocks, and equals a fresh build", async () => {
-    const node = new FakeNode();
-    node.mine([ev.created(A, 0x416461)]);
-    node.mine([ev.sponsored(7, S1)]);
-    node.mine([ev.sponsored(9, S1)]);
-    node.mine([ev.sponsored(8, S1)]);
-    const indexer = indexerOf(node);
-    await settle(indexer);
-    expect(days(indexer, `${padded(S1)}/days`).body).toMatchObject({ days: [9, 8, 7] });
-    node.reorg(2, [[[ev.sponsored(5, S1)]], []]);
     await settle(indexer);
     expect(indexer.status).toBe("ok");
-    expect(days(indexer, `${padded(S1)}/days`).body).toMatchObject({ days: [7, 5] });
-    const fresh = indexerOf(node);
-    await settle(fresh);
-    expect(indexer.store.dump()).toEqual(fresh.store.dump());
+    expect(indexer.served?.number).toBe(node.tip);
+    const plain = new FakeNode();
+    history(plain, false);
+    const reference = indexerOf(plain);
+    await settle(reference);
+    const { blocks: _b, ...tables } = indexer.store.dump();
+    const { blocks: _r, ...expected } = reference.store.dump();
+    expect(tables).toEqual(expected);
+    expect(tables.events.map((e) => e.name)).not.toEqual(expect.arrayContaining(["Sponsored"]));
+    expect(get(indexer, "/v1/tournaments/100/leaderboard").body).toMatchObject({ total: 2 });
   });
 
-  test("the answer is read as of the served block", async () => {
-    const { indexer, node } = await sponsors();
-    const queries = cacheOf(indexer).queries;
-    expect(queries.sponsorDays(2, padded(S1), 20, undefined).days).toEqual([9, 7]); // block 3 (day 8) is after block 2
-    expect(queries.sponsorDays(node.tip, padded(S1), 20, undefined).days).toEqual([9, 8, 7]);
-    expect(queries.sponsorDays(1, padded(S1), 20, undefined).days).toEqual([]);
+  test("the sponsor route is gone: 404", async () => {
+    const { indexer } = await served();
+    expect(get(indexer, `/v1/sponsors/${padded(S)}/days`).code).toBe(404);
   });
 });

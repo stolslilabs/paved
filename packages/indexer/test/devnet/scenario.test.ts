@@ -4,8 +4,8 @@
  * paid game two days later), three accounts buy and play complete Daily games over two days and a keeper settles the first
  * day from the API's unsettled list, the indexer
  * (the real process, `src/main.ts`) follows live, is stopped and restarted mid-run, sees a replaced block, and a second
- * indexer rebuilt from the chain answers the same. The API is compared with the contracts' own views, and the cross-check
- * against the `tournament` view must report no mismatch.
+ * indexer rebuilt from the chain answers the same. The API is compared with the contracts' own views (D-20: the leaderboard
+ * is the indexer's own; no `tournament` view remains to compare it with).
  *
  * Runs only with PAVED_DEVNET=1 (`bun run test:devnet`): CI has no devnet. Needs `starknet-devnet` 0.10 (DEVNET_BIN, else the
  * asdf install), the toolchain of `scripts/deploy.sh`, and a built `contracts/` (the script builds it). Every process it
@@ -142,7 +142,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
   };
   const view = async (p: Player, id: number) => {
     const g = await p.call(deployment.contracts.Daily.address, "game", [id]);
-    return { score: Number(g[4]), over: g[5] === 1n, startTime: Number(g[13]), endTime: Number(g[14]), tournamentId: Number(g[15]) };
+    return { score: Number(g[4]), over: g[5] === 1n, startTime: Number(g[13]), endTime: Number(g[14]), dayId: Number(g[15]) };
   };
   /**
    * Plays `moves` turns (a placement, or a discard when the tile fits nowhere), then gives up; `Infinity` plays the deck to its end. Since D-18 a structure scores when it
@@ -243,7 +243,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
   let late: Game;
   const played: { id: number; player: Player }[] = [];
 
-  test("complete games of two players are ranked as the contract ranks them", async () => {
+  test("complete games of two players are ranked by the leaderboard rule", async () => {
     await register(bo, "Bo");
     await register(cy, "Cy");
     await fund(alice);
@@ -268,9 +268,9 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     for (const { id, player } of played) {
       const chain = await view(player, id);
       expect(chain.over).toBe(true);
-      expect(chain.tournamentId).toBe(day0);
-      const api_ = await get<{ game: { score: number; end_time: number; counted_tournament_id: number } }>(`/v1/games/daily/${id}`);
-      expect(api_.game).toMatchObject({ score: chain.score, end_time: chain.endTime, counted_tournament_id: day0 });
+      expect(chain.dayId).toBe(day0);
+      const api_ = await get<{ game: { score: number; end_time: number; counted_day_id: number } }>(`/v1/games/daily/${id}`);
+      expect(api_.game).toMatchObject({ score: chain.score, end_time: chain.endTime, counted_day_id: day0 });
     }
     const referred = await get<GameAnswer>(`/v1/games/daily/${played[0]!.id}`);
     expect(referred.game.economy).toMatchObject({ stake: 10, price: "20000000", referrer: padded(cy.address), referral: "1000000" });
@@ -278,17 +278,6 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     // one), plus the referral.
     expect(cyBefore - (await balance(cy, deployment.contracts.MockUSDC.address))).toBe(6_000_000n - 1_000_000n);
     const board = await get<LeaderboardAnswer>(`/v1/tournaments/${day0}/leaderboard`);
-    const view_ = await alice.call(deployment.contracts.Daily.address, "tournament", [day0]);
-    // TournamentView: id, start, end, over, prize (2), then player, score, claimed per rank.
-    const slots = [0, 1, 2].map((rank) => ({ player: padded(view_[6 + rank * 3]!), score: Number(view_[7 + rank * 3]!) }));
-    const chainSlots = slots.filter((slot) => slot.score > 0);
-    expect(chainSlots.length).toBeGreaterThan(0);
-    chainSlots.forEach((slot, index) => {
-      const entry = board.entries.find((e) => e.player_id === slot.player);
-      expect(entry?.prize_ranks, `slot ${index + 1}`).toContain(index + 1);
-    });
-    const claimed = board.entries.flatMap((e) => e.prize_ranks).sort();
-    expect(claimed).toEqual(chainSlots.map((_, index) => index + 1));
     // One row per player, best game; ranks are 1..n in score order.
     expect(board.entries.map((e) => e.rank)).toEqual(board.entries.map((_, i) => i + 1));
     expect(board.entries.map((e) => e.best_score)).toEqual([...board.entries.map((e) => e.best_score)].sort((x, y) => y - x));
@@ -306,7 +295,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
       (e) => BigInt(e.from_address) === BigInt(deployment.contracts.Daily.address) && e.keys.length === 4,
     );
     expect(lateOver).toHaveLength(1);
-    expect(BigInt(lateOver[0]!.keys[3]!)).toBe(0n); // tournament_id 0: it did not count
+    expect(BigInt(lateOver[0]!.keys[3]!)).toBe(0n); // day_id 0: it did not count
     const next = await spawn_(alice);
     await play(next, 4, alice);
     played.push({ id: next.id, player: alice });
@@ -314,9 +303,8 @@ describe.skipIf(!enabled)("devnet scenario", () => {
 
     startIndexer("run", API[0]!, join(work, "a.db"));
     const head = await caught(API[0]!);
-    expect(head.checks.last_mismatch).toBeNull();
-    const lateGame = await get<{ game: { counted_tournament_id: number; score: number } }>(`/v1/games/daily/${late.id}`);
-    expect(lateGame.game.counted_tournament_id).toBe(0);
+    const lateGame = await get<{ game: { counted_day_id: number; score: number } }>(`/v1/games/daily/${late.id}`);
+    expect(lateGame.game.counted_day_id).toBe(0);
     const board = await get<LeaderboardAnswer>(`/v1/tournaments/${day0}/leaderboard`);
     expect(board.entries.find((e) => e.player_id === padded(cy.address))).toMatchObject({ games_played: 3, games_finished: 2 });
     const day1 = Math.floor(Number((await view(alice, next.id)).startTime) / DAY);
@@ -324,17 +312,6 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     expect((await get<LeaderboardAnswer>(`/v1/tournaments/${day1}/leaderboard`)).entries).toMatchObject([
       { player_id: padded(alice.address), games_played: 1, games_finished: 1 },
     ]);
-  });
-
-  test("the cross-check against the tournament view ran for the closed day, with no mismatch", async () => {
-    const deadline = Date.now() + 30_000;
-    let head = await get<HeadAnswer>("/v1/head");
-    while (head.checks.tournaments_checked < 1 && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      head = await get<HeadAnswer>("/v1/head");
-    }
-    expect(head.checks.tournaments_checked).toBeGreaterThanOrEqual(1);
-    expect(head.checks.last_mismatch).toBeNull();
   });
 
   test("a keeper settles the first day from the API's unsettled list; the rewards are the contract's", async () => {
@@ -398,7 +375,6 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     expect(head.head.number).toBeGreaterThanOrEqual(before.head.number);
     const mine = await get<PlayerGamesAnswer>(`/v1/players/${padded(bo.address)}/games?contract=daily&limit=1`);
     expect(mine.games[0]).toMatchObject({ game_id: g.id, over: false });
-    expect(head.checks.last_mismatch).toBeNull();
   });
 
   test("an indexer rebuilt from the chain answers what the one that followed it answers", async () => {

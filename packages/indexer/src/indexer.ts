@@ -1,8 +1,8 @@
 // Copied from Grim World, indexer/src/indexer.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
 // Apache-2.0. Adapted for Paved: the follow loop, the reorg rewind, the kept depth, the recheck and the halt rules are
 // unchanged; the apply step calls Paved's store (events of the contracts that are known and not indexed are skipped), the
-// subscription listeners are reduced to `served` and `rewound` (the answer cache and nothing else), and a hook runs after a
-// block is served (the cross-check against the `tournament` view). This copy is maintained by the Paved repository.
+// subscription listeners are reduced to `served` and `rewound` (the answer cache and nothing else), and a hook may run after a
+// block is served (none since D-20 removed the cross-check against the `tournament` view). This copy is maintained by the Paved repository.
 //
 // The follow loop (D-130; SPK-11 §4, rules R1 and R6). Each step:
 // 1. reads the node's tip, then checks the stored tip against the node's block at that height, by

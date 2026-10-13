@@ -13,14 +13,33 @@ describe("view types follow the ABIs of contracts/abis", () => {
     });
   }
 
-  test("Daily and Tutorial expose the game views; only Daily the tournament views", () => {
+  test("Daily and Tutorial expose the game views; only Daily the day views (IDailyView)", () => {
     for (const fn of ["game", "tiles", "builder"]) {
       expect(codecs.Daily.hasFunction(fn)).toBe(true);
       expect(codecs.Tutorial.hasFunction(fn)).toBe(true);
     }
-    expect(codecs.Daily.hasFunction("tournament")).toBe(true);
-    expect(codecs.Daily.hasFunction("current_tournament_id")).toBe(true);
-    expect(codecs.Tutorial.hasFunction("tournament")).toBe(false);
+    expect(codecs.Daily.hasFunction("current_day")).toBe(true);
+    expect(codecs.Daily.hasFunction("entry_price")).toBe(true);
+    expect(codecs.Tutorial.hasFunction("current_day")).toBe(false);
+  });
+
+  test("the prize left (D-20): no claim, sponsor or tournament view, no TournamentView, no prize event", () => {
+    for (const codec of [codecs.Daily, codecs.Tutorial, codecs.Account]) {
+      for (const fn of ["claim", "sponsor", "tournament", "current_tournament_id"]) expect(codec.hasFunction(fn), fn).toBe(false);
+      expect(JSON.stringify(codec.abi)).not.toMatch(/TournamentView|ITournamentView|tournament_id|::Sponsored|::Claimed|::Reclaimed/);
+    }
+    expect(JSON.stringify(codecs.Daily.abi)).toMatch(/paved::views::IDailyView/);
+  });
+
+  test("the day id is day_id in GameSpawned, GameOver and GameView", () => {
+    expect(codecs.Daily.structFields("paved::views::GameView").at(-1)).toBe("dayId");
+    for (const codec of [codecs.Daily, codecs.Tutorial, codecs.Account]) {
+      const events = (codec.abi as Array<{ type: string; name: string; members?: Array<{ name: string }> }>).filter(
+        (item) => item.type === "event" && /::(GameSpawned|GameOver)$/.test(item.name),
+      );
+      expect(events).toHaveLength(2);
+      for (const event of events) expect(event.members!.map((m) => m.name)).toContain("day_id");
+    }
   });
 
   test("characters left the game (D-18): no view, no role or spot type in either ABI", () => {
@@ -64,13 +83,15 @@ describe("AbiCodec", () => {
     ]);
   });
 
-  test("decodes u256, bool and felts in a struct", () => {
-    const felts = [
-      "0x5", "0x69780", "0x6ae00", "0x1", "0xde0b6b3a7640000", "0x0",
-      "0xabc", "0x3", "0x0", "0x0", "0x0", "0x0", "0x0", "0x0", "0x0",
-    ];
-    const t = codecs.Daily.decodeResult("tournament", felts) as Record<string, unknown>;
-    expect(t).toMatchObject({ id: 5, over: true, prize: 10n ** 18n, top1PlayerId: "0xabc", top1Score: 3, top1Claimed: false });
+  test("decodes u256 and felts in a struct", () => {
+    const price = codecs.Daily.decodeResult("entry_price", ["0xabc", "0xde0b6b3a7640000", "0x0"]) as Record<string, unknown>;
+    expect(price).toEqual({ token: "0xabc", amount: 10n ** 18n });
+  });
+
+  test("decodes bools and the day id of a game view", () => {
+    const felts = ["0x5", "0xabc", "0x1", "0x9", "0x3", "0x1", "0x2", "0x1", "0x1", "0x0", "0x0", "0x0", "0x26", "0x100", "0x200", "0x4e20"];
+    const g = codecs.Daily.decodeResult("game", felts) as Record<string, unknown>;
+    expect(g).toMatchObject({ id: 5, playerId: "0xabc", over: true, score: 3, endTime: 0x200, dayId: 0x4e20 });
   });
 
   test("fails loudly on a short result", () => {
@@ -87,7 +108,7 @@ describe("AbiCodec", () => {
     });
     expect(event).toEqual({
       name: "GameOver",
-      fields: { gameId: 3, playerId: "0xabc", tournamentId: 0x4e20, mode: 1, score: 42, startTime: 0x100, endTime: 0x200 },
+      fields: { gameId: 3, playerId: "0xabc", dayId: 0x4e20, mode: 1, score: 42, startTime: 0x100, endTime: 0x200 },
       fromAddress: "0x1",
       blockNumber: undefined,
       transactionHash: undefined,

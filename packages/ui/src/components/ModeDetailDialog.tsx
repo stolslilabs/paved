@@ -12,9 +12,6 @@ export interface ModeDetailDialogProps {
   tileCount: number;
   entryFee: string;
   duration: string;
-  prizePool?: string;
-  /** The entry token's label, shown after the prize amount. */
-  tokenLabel: string;
   topPlayers?: { name: string; score: number }[];
   hasActiveGame?: boolean;
   onConfirm: () => void;
@@ -48,8 +45,6 @@ export function ModeDetailDialogView({
   tileCount,
   entryFee,
   duration,
-  prizePool,
-  tokenLabel,
   topPlayers,
   hasActiveGame,
   onConfirm,
@@ -72,12 +67,6 @@ export function ModeDetailDialogView({
           <Text color="$muted">{"Entry Fee"}</Text>
           <Text color="$color">{entryFee}</Text>
         </ModeDetailDialogStat>
-        {prizePool ? (
-          <ModeDetailDialogStat>
-            <Text color="$muted">{"Prize Pool"}</Text>
-            <Text color="$color">{`${prizePool} ${tokenLabel}`}</Text>
-          </ModeDetailDialogStat>
-        ) : null}
         {topPlayers && topPlayers.length > 0 ? (
           topPlayers.slice(0, 3).map((p: { name: string; score: number }, i: number) => (
             <Text key={i} color="$muted" fontSize="$1">

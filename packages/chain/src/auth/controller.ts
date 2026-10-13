@@ -29,15 +29,15 @@ export interface ControllerConfig {
  */
 export const CONTROLLER_ENTRY_POINTS = {
   Account: ["create"],
-  Daily: ["spawn", "build", "discard", "surrender", "claim", "sponsor"],
+  Daily: ["spawn", "build", "discard", "surrender"],
   Tutorial: ["spawn", "build", "discard", "surrender"],
 } as const;
 
 /**
  * Session policies for the game's writes, on the deployment's addresses. With `approve` (a cap
  * above 0), an approve to the Daily contract on that token (the one `Daily.entry_price` names: the
- * deployment's Token before E3, USDC after) up to the cap is signed in the session, whether a
- * purchase's or a sponsor's; above the cap, or on another token or spender, it prompts. Without
+ * deployment's Token before E3, USDC after) up to the cap is signed in the session for a
+ * purchase; above the cap, or on another token or spender, it prompts. Without
  * `approve`, every approve prompts. `MockUSDC.mint` is a policy when, and only when, the deployment resolves a MockUSDC
  * (`deployment.mockUsdc`: Sepolia, where the player signs with the controller; never mainnet).
  */

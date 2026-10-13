@@ -88,15 +88,6 @@ describe("the reader", () => {
     await expect(chain.events(block)).rejects.toBeInstanceOf(BadAnswer);
   });
 
-  test("a view call is read at a block hash, and an RPC error carries its code only", async () => {
-    const node = new FakeNode(2);
-    const chain = chainOf(node);
-    await expect(chain.view("daily", "0x1", [], (await chain.header(1))!.hash)).rejects.toBeInstanceOf(RpcError);
-    node.views = (address, selector, calldata, blockHash) => [address, selector, ...calldata, blockHash];
-    const hash = (await chain.header(1))!.hash;
-    expect(await chain.view("daily", "0x2", ["0x3"], hash)).toEqual([BigInt(DAILY), 2n, 3n, BigInt(hash)]);
-  });
-
   test("two blocks of one hash differ by their commitments", async () => {
     const node = new FakeNode(2);
     const chain = chainOf(node);

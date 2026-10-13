@@ -3,7 +3,7 @@
 // way the doc says the API does (a missing, unknown, repeated or malformed one is 400, an unknown
 // route 404), so a client bug shows here.
 
-/** Ada holds slots 1 and 3, as in the doc's leaderboard example. */
+/** Ada leads the doc's leaderboard example. */
 export const FIXTURE_ADA = "0x04d1328dbe2c9441a5b7f1fca8da91e94bfd7de2bdc7550dbd989f7af72f99ef";
 export const FIXTURE_NAMELESS = "0x00000000000000000000000000000000000000000000000000000000000722ac";
 export const FIXTURE_BO = "0x0000000000000000000000000000000000000000000000000000000000035810";
@@ -25,8 +25,6 @@ export interface FixtureState {
   version: number;
   /** Replaces the body of the next answer (and only that one) with this text, served with `httpStatus`. */
   rawBody?: { text: string; httpStatus: number };
-  /** `checks.last_mismatch` of `/v1/head`: null or `{ tournament_id, head_number, view, indexed }`. */
-  lastMismatch?: Row | null;
   /** `contracts.collection` of `/v1/head` (E5b): an address, or null for an indexer with no Collection. */
   collection?: string | null;
 }
@@ -43,9 +41,9 @@ const tournament = (id: number, over: Partial<Row> = {}): Row => ({
 });
 
 const ENTRIES: Row[] = [
-  { rank: 1, player_id: FIXTURE_ADA, name: "Ada", best_score: 187, best_game_id: 912, games_played: 3, games_finished: 2, finished_at: 1791871203, prize_ranks: [1, 3] },
-  { rank: 2, player_id: FIXTURE_NAMELESS, name: null, best_score: 181, best_game_id: 877, games_played: 1, games_finished: 1, finished_at: 1791866650, prize_ranks: [2] },
-  { rank: 3, player_id: FIXTURE_BO, name: "Bo", best_score: 176, best_game_id: 903, games_played: 2, games_finished: 2, finished_at: 1791870011, prize_ranks: [] },
+  { rank: 1, player_id: FIXTURE_ADA, name: "Ada", best_score: 187, best_game_id: 912, games_played: 3, games_finished: 2, finished_at: 1791871203 },
+  { rank: 2, player_id: FIXTURE_NAMELESS, name: null, best_score: 181, best_game_id: 877, games_played: 1, games_finished: 1, finished_at: 1791866650 },
+  { rank: 3, player_id: FIXTURE_BO, name: "Bo", best_score: 176, best_game_id: 903, games_played: 2, games_finished: 2, finished_at: 1791870011 },
   // The rest of the 41 players of the example's `total`.
   ...Array.from({ length: 38 }, (_, i): Row => ({
     rank: i + 4,
@@ -56,18 +54,17 @@ const ENTRIES: Row[] = [
     games_played: 1,
     games_finished: 1,
     finished_at: 1791860000 + i,
-    prize_ranks: [],
   })),
 ];
 
 const GAMES: Row[] = [
-  // As built, a game row also carries `player_id`; a game that runs has `score`, `counted_tournament_id` and `end_time` null (`RUNNING_GAME`).
-  { contract: "daily", game_id: 912, player_id: FIXTURE_ADA, mode: 1, start_time: 1791869000, tournament_id: 20733, over: true, score: 187, counted_tournament_id: 20733, end_time: 1791871203, token_id: 912 },
-  { contract: "tutorial", game_id: 55, player_id: FIXTURE_ADA, mode: 3, start_time: 1791860000, tournament_id: 0, over: true, score: 64, counted_tournament_id: 0, end_time: 0, token_id: 4294967351 },
+  // As built, a game row also carries `player_id`; a game that runs has `score`, `counted_day_id` and `end_time` null (`RUNNING_GAME`).
+  { contract: "daily", game_id: 912, player_id: FIXTURE_ADA, mode: 1, start_time: 1791869000, day_id: 20733, over: true, score: 187, counted_day_id: 20733, end_time: 1791871203, token_id: 912 },
+  { contract: "tutorial", game_id: 55, player_id: FIXTURE_ADA, mode: 3, start_time: 1791860000, day_id: 0, over: true, score: 64, counted_day_id: 0, end_time: 0, token_id: 4294967351 },
 ];
 
 /** A game that has not ended, as the real indexer writes it. */
-export const RUNNING_GAME: Row = { contract: "daily", game_id: 913, player_id: FIXTURE_ADA, mode: 1, start_time: 1791875000, tournament_id: 20733, over: false, score: null, counted_tournament_id: null, end_time: null };
+export const RUNNING_GAME: Row = { contract: "daily", game_id: 913, player_id: FIXTURE_ADA, mode: 1, start_time: 1791875000, day_id: 20733, over: false, score: null, counted_day_id: null, end_time: null };
 
 const DEFINED_AT = 1791000000;
 
@@ -157,7 +154,7 @@ export class FixtureIndexer {
     if (a === "head" && !b) {
       const e = allowed();
       if (e) return fail(400, e);
-      return ok({ state: "ok", chain_id: "0x534e5f5345504f4c4941", from_block: 12, contracts: { account: "0x1", daily: "0x2", tutorial: "0x3", ...(this.state.collection === undefined ? {} : { collection: this.state.collection }) }, checks: { tournaments_checked: 2, last_mismatch: this.state.lastMismatch ?? null } });
+      return ok({ state: "ok", chain_id: "0x534e5f5345504f4c4941", from_block: 12, contracts: { account: "0x1", daily: "0x2", tutorial: "0x3", ...(this.state.collection === undefined ? {} : { collection: this.state.collection }) }, checks: { definitions_excluded: 0 } });
     }
     if (a === "tournaments" && !b) {
       const e = allowed("limit", "before");

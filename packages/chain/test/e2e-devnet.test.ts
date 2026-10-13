@@ -1,7 +1,7 @@
 /**
  * End-to-end check of the client on a local devnet, through the client's own code (PavedClient,
  * PavedWriter, EconomyWriter, GameViews, EventReader, IndexerClient), no browser. It covers the economy (P8): the faucet,
- * a paid purchase with a referrer, play, the prizes, the settlement, the Vault, a sponsor's reclaim and an expired game. On demand only: `PAVED_E2E=1`
+ * a paid purchase with a referrer, play, the settlement, the Vault and an expired game. On demand only: `PAVED_E2E=1`
  * (`bun run test:e2e`). CI has no devnet.
  *
  * alice plays her Daily game with the search player of `daily-player.ts` and must score above the day's threshold, so
@@ -37,9 +37,8 @@ import {
 import { IndexerClient, indexerPlayerId, type IndexedGame, type LeaderboardEntry } from "../src/indexer";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
 import { placementOutcome } from "../src/placement";
-import { claimableRanks, rewardOf, type Rank } from "../src/prize";
-import { TILE_STATUS, type GameKey, type TournamentView } from "../src/views";
-import { NoPrizeDayError, NothingToReclaimError, type BuildMove, type PavedWriter } from "../src/writer";
+import { TILE_STATUS, type GameKey } from "../src/views";
+import { type BuildMove, type PavedWriter } from "../src/writer";
 import { DailyPlayer } from "./daily-player";
 import { dayMean, payout, threshold } from "./economy-curve";
 
@@ -68,7 +67,6 @@ async function rpc(url: string, method: string, params: unknown = {}): Promise<a
   return body.result;
 }
 
-const hex = (v: string | bigint | number) => `0x${BigInt(v).toString(16).padStart(64, "0")}`;
 const short = (h: string) => `${h.slice(0, 10)}…${h.slice(-4)}`;
 
 describe.skipIf(!enabled)("client end-to-end on devnet", () => {
@@ -78,17 +76,13 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   let indexer: IndexerClient;
   let players: Player[];
   let price: bigint;
-  let tournamentId: number;
+  let dayId: number;
   const dailyGames = new Map<string, number>(); // player name -> daily game id
   const tutorialGames = new Map<string, number>();
   const scores = new Map<string, number>(); // player name -> final Daily score
-  const tournamentAfter: { view?: TournamentView } = {};
-  let prizeAtStart = 0n;
   let economy: EconomyClient;
-  let sponsored = 0n;
   const stakes = new Map<string, number>(); // player name -> stake k
   const settledReward = new Map<string, bigint>();
-  let dayX = 0; // the day with a sponsor and no ranked player
   let prior = 0; // the day's prior, points x 1,000
   let cliff = 0n; // the threshold the settlement will use, points x 1,000
   let bobSecondGame = 0;
@@ -244,7 +238,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(BigInt(head.data.contracts.daily)).toBe(BigInt(client.deployment.addresses.Daily));
     expect(BigInt(head.data.contracts.tutorial)).toBe(BigInt(client.deployment.addresses.Tutorial));
     expect(BigInt(head.data.contracts.account)).toBe(BigInt(client.deployment.addresses.Account));
-    pass("deployment, node and indexer agree", `chain ${head.data.chainId}, from_block ${head.data.fromBlock}, indexer head ${head.head.number}, lastMismatch ${head.data.lastMismatch}`);
+    pass("deployment, node and indexer agree", `chain ${head.data.chainId}, from_block ${head.data.fromBlock}, indexer head ${head.head.number}`);
   });
 
   test("creates three players", async () => {
@@ -282,13 +276,12 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     }
     const game = await client.views.game(key);
     expect(game.over).toBe(true);
-    expect(game.tournamentId).toBe(0);
+    expect(game.dayId).toBe(0);
     pass("Tutorial: spawn and play to game over", `game ${key.gameId}, ${moves} moves, score ${game.score}, spawn ${short(spawned.transactionHash)}, last ${short(hash)}`);
   }, 120_000);
 
   test("buys three Daily games with stake k and a referrer, and the price, burn, referral and margin match the balances", async () => {
-    tournamentId = await client.views.currentTournamentId();
-    prizeAtStart = (await client.views.tournament(tournamentId)).prize; // sponsor-only since P-31: 0 until someone sponsors
+    dayId = await client.views.currentDay();
     const [alice, bob, carol] = players;
     const plan: Array<[Player, number, Player | null]> = [[alice, 3, bob], [bob, 2, null], [carol, 1, alice]];
     const vaultAddress = economy.deployment.addresses.Vault;
@@ -308,7 +301,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const bought = await p.econ.purchase({ stake: k, confirmedPrice: quote.price, confirmedMinOut: planned.minOut, referrer: refAddress });
       dailyGames.set(p.name, bought.gameId);
       stakes.set(p.name, k);
-      expect(bought.events.find((e) => e.name === "GameSpawned")?.fields.tournamentId).toBe(tournamentId);
+      expect(bought.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(dayId);
       const purchased = (await economyEvents(bought.transactionHash)).find((e) => e.name === "Purchased")!;
       expect(purchased, "Economy.Purchased in the receipt").toBeDefined();
       const f = purchased.fields as Record<string, bigint | number | string>;
@@ -337,23 +330,13 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       expect(BigInt(terms.player)).toBe(BigInt(p.address));
       evidence.push(`${p.name} k=${k} game ${bought.gameId} price ${quote.price} = burn ${burnedQuote} (-> ${burned} PAVED burned, min_out ${planned.minOut}) + referral ${referral} + margin ${margin}, ${short(bought.transactionHash)}`);
     }
-    pass("buy: approve + spawn with stake k and referrer; price, burn, referral, margin vs balances", `tournament ${tournamentId}: ${evidence.join("; ")}`);
+    pass("buy: approve + spawn with stake k and referrer; price, burn, referral, margin vs balances", `day ${dayId}: ${evidence.join("; ")}`);
   }, 120_000);
-
-  test("a sponsor adds to the day's prize (sponsor-only since P-31)", async () => {
-    const [alice] = players;
-    sponsored = 4_000_000n;
-    const before = await usdc(alice.address);
-    const result = await alice.writer.sponsor(sponsored, { confirmedAmount: sponsored });
-    expect(before - (await usdc(alice.address))).toBe(sponsored);
-    expect((await client.views.tournament(tournamentId)).prize).toBe(prizeAtStart + sponsored);
-    pass("sponsor the open day", `alice ${sponsored} -> prize ${prizeAtStart + sponsored}, ${short(result.transactionHash)}`);
-  }, 60_000);
 
   test("the threshold the settlement will use: the day's prior and the formula", async () => {
     // Option B (economy.md section 2): the day's mean blends its prior (the EMA at its first purchase, weight 100)
     // with its games (stake x min(score, 4 x prior)); the threshold is that mean shifted by sigma.
-    const day = await economy.views.day(tournamentId);
+    const day = await economy.views.day(dayId);
     const quote = await economy.views.quote(1);
     const terms = await economy.views.terms(dailyGames.get(players[0].name)!);
     prior = day.prior;
@@ -361,7 +344,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(prior).toBeGreaterThan(0);
     // Before any game of the day is in, the threshold is the prior's (the quote shows the same reference).
     expect(threshold(dayMean(prior, []), terms.sigmaBps)).toBe(BigInt(quote.threshold));
-    pass("threshold before play", `day ${tournamentId}: prior ${prior / 1000} points, sigma ${terms.sigmaBps} bps, c ${terms.slopeBps} bps, H ${terms.cap}: threshold now ${quote.threshold / 1000} points (Quote.threshold), and the day's games move it by stake x min(score, 4 x prior) at weight 100 + sum k`);
+    pass("threshold before play", `day ${dayId}: prior ${prior / 1000} points, sigma ${terms.sigmaBps} bps, c ${terms.slopeBps} bps, H ${terms.cap}: threshold now ${quote.threshold / 1000} points (Quote.threshold), and the day's games move it by stake x min(score, 4 x prior) at weight 100 + sum k`);
   }, 30_000);
 
   test("plays the Daily games to game over: alice with the search player, bob and carol naively", async () => {
@@ -399,7 +382,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
 
   test("the indexer matches the contract views while the day is open", async () => {
     await caughtUp();
-    const board = await indexer.leaderboard(tournamentId);
+    const board = await indexer.leaderboard(dayId);
     const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]);
     expect(board.data.total).toBe(players.length);
     expect(board.data.entries.map((e) => e.bestScore)).toEqual(ranked.map(([, s]) => s));
@@ -410,22 +393,17 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       expect(e.bestGameId).toBe(dailyGames.get(p.name));
       expect(e.gamesFinished).toBe(1);
     }
-    const view = await client.views.tournament(tournamentId);
-    expect(view.over).toBe(false);
-    expect(view.prize).toBe(prizeAtStart + sponsored);
-    const detail = await indexer.tournament(tournamentId);
-    expect(detail.data).toMatchObject({ id: tournamentId, startTime: view.startTime, endTime: view.endTime, gamesSpawned: players.length, gamesFinished: 3, players: 3 });
-    pass("indexer vs views, open day", `leaderboard ${board.data.entries.map((e) => `#${e.rank} ${e.name} ${e.bestScore} slots [${e.prizeRanks}]`).join(", ")}; prize ${view.prize}; behind ${board.behind}`);
+    expect(await client.views.currentDay()).toBe(dayId);
+    const detail = await indexer.tournament(dayId);
+    expect(detail.data).toMatchObject({ id: dayId, startTime: dayId * DAY, endTime: (dayId + 1) * DAY, gamesSpawned: players.length, gamesFinished: 3, players: 3 });
+    pass("indexer vs views, open day", `leaderboard ${board.data.entries.map((e) => `#${e.rank} ${e.name} ${e.bestScore}`).join(", ")}; behind ${board.behind}`);
   }, 60_000);
 
   test("ends the day with devnet time travel", async () => {
     const t = await chainTime();
     await rpc(rpcUrl, "devnet_increaseTime", { time: DAY - (t % DAY) + 5 });
-    const next = await client.views.currentTournamentId();
-    expect(next).toBe(tournamentId + 1);
-    const view = await client.views.tournament(tournamentId);
-    expect(view.over).toBe(true);
-    tournamentAfter.view = view;
+    const next = await client.views.currentDay();
+    expect(next).toBe(dayId + 1);
     // A bought game settles after the end of the NEXT day (P-34): now, one day too early, the writer sends nothing.
     const [alice] = players;
     const blockBefore = (await provider.getBlockNumber()) as number;
@@ -433,47 +411,16 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(String((early as Error).message)).toMatch(/settles after/);
     expect((await provider.getBlockNumber()) as number).toBe(blockBefore);
     expect((await economy.views.terms(dailyGames.get(alice.name)!)).settled).toBe(false);
-    pass("end the day (devnet_increaseTime)", `chain time ${t} -> ${await chainTime()}, current tournament ${tournamentId} -> ${next}, over ${view.over}`);
+    pass("end the day (devnet_increaseTime)", `chain time ${t} -> ${await chainTime()}, current day ${dayId} -> ${next}`);
   }, 30_000);
 
-  test("claims the prizes through the contract view", async () => {
-    const view = tournamentAfter.view!;
-    const evidence: string[] = [];
-    let paid = 0n;
-    for (const p of players) {
-      for (const { rank, reward } of claimableRanks(view, p.address)) {
-        const before = await client.balance(p.address);
-        const result = await p.writer.claim(tournamentId, rank, { confirmedReward: reward });
-        expect(await client.balance(p.address)).toBe(before + reward);
-        paid += reward;
-        evidence.push(`${p.name} rank ${rank} reward ${reward} ${short(result.transactionHash)}`);
-      }
-    }
-    const after = await client.views.tournament(tournamentId);
-    for (const rank of [1, 2, 3] as Rank[]) {
-      const holder = [after.top1PlayerId, after.top2PlayerId, after.top3PlayerId][rank - 1];
-      if (BigInt(holder) !== 0n) expect([after.top1Claimed, after.top2Claimed, after.top3Claimed][rank - 1]).toBe(true);
-    }
-    expect(paid).toBe(rewardOf(view, 1) + rewardOf(view, 2) + rewardOf(view, 3));
-    expect(paid).toBe(view.prize);
-    pass("claim prizes", `prize ${view.prize}, paid ${paid}: ${evidence.join(", ")}`);
-  }, 60_000);
-
-  test("the indexer matches the contract views once the day is closed", async () => {
+  test("the indexer's leaderboard of the closed day: one row per player, ranked by best score", async () => {
     await caughtUp();
-    const view = (await client.views.tournament(tournamentId));
-    const board = await indexer.leaderboard(tournamentId);
-    const slots = new Map<string, number[]>();
-    [view.top1PlayerId, view.top2PlayerId, view.top3PlayerId].forEach((id, i) => {
-      if (BigInt(id) !== 0n) slots.set(hex(id), [...(slots.get(hex(id)) ?? []), i + 1]);
-    });
-    for (const e of board.data.entries) expect(e.prizeRanks, `prize_ranks of ${e.name}`).toEqual(slots.get(hex(e.playerId)) ?? []);
-    const top = [view.top1Score, view.top2Score, view.top3Score];
-    board.data.entries.slice(0, 3).forEach((e, i) => expect(e.bestScore).toBe(top[i]));
+    const board = await indexer.leaderboard(dayId);
+    const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]);
+    expect(board.data.entries.map((e) => e.bestScore)).toEqual(ranked.map(([, score]) => score));
     expect(board.data.entries.map((e) => e.rank)).toEqual(board.data.entries.map((_, i) => i + 1));
-    const head = await indexer.head();
-    expect(head.data.lastMismatch).toBeNull();
-    pass("indexer vs views, closed day", `prize_ranks ${board.data.entries.map((e) => `${e.name}:[${e.prizeRanks}]`).join(" ")}; view tops ${[view.top1PlayerId, view.top2PlayerId, view.top3PlayerId].map(short).join(",")} scores ${top}; tournaments_checked ${head.data.tournamentsChecked}, last_mismatch ${head.data.lastMismatch}`);
+    pass("indexer leaderboard, closed day", board.data.entries.map((e) => `#${e.rank} ${e.name} ${e.bestScore}`).join(", "));
   }, 60_000);
 
   test("the indexer's players and games match the views and the events", async () => {
@@ -483,7 +430,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       const profile = await indexer.player(p.address);
       expect(profile.data.player?.name).toBe(p.name);
       expect(profile.data.stats).toMatchObject({ dailyGames: 1, dailyFinished: 1, bestScore: scores.get(p.name), tutorialGames: tutorialGames.has(p.name) ? 1 : 0 });
-      const row = await indexer.playerTournament(p.address, tournamentId);
+      const row = await indexer.playerTournament(p.address, dayId);
       expect(row.data).not.toBeNull();
       expect((row.data as LeaderboardEntry).bestScore).toBe(scores.get(p.name));
 
@@ -496,8 +443,8 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
       for (const g of indexed as IndexedGame[]) {
         const view = await client.views.game({ mode: g.contract, gameId: g.gameId });
         expect(BigInt(view.playerId)).toBe(BigInt(p.address));
-        expect(g).toMatchObject({ mode: view.mode, over: view.over, score: view.score, startTime: view.startTime, tournamentId: view.tournamentId });
-        if (g.contract === "daily") expect(g.countedTournamentId).toBe(tournamentId);
+        expect(g).toMatchObject({ mode: view.mode, over: view.over, score: view.score, startTime: view.startTime, dayId: view.dayId });
+        if (g.contract === "daily") expect(g.countedDayId).toBe(dayId);
         const one = (await indexer.game(g.contract, g.gameId)).data;
         // Daily and Tutorial both number their games from 1: the contract is part of the key.
         expect(one.gameId).toBe(g.gameId);
@@ -521,7 +468,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     expect(smoke).toMatchObject({ stake: 1, recorded: true, settled: true });
     const games = (await indexer.playerGames(deployer, { contract: "tutorial" })).data.games;
     expect(games).toHaveLength(1);
-    expect(games[0]).toMatchObject({ contract: "tutorial", countedTournamentId: 0, tournamentId: 0 });
+    expect(games[0]).toMatchObject({ contract: "tutorial", countedDayId: 0, dayId: 0 });
     const view = await client.views.game({ mode: "tutorial", gameId: games[0].gameId });
     expect(BigInt(view.playerId)).toBe(BigInt(deployer));
     pass("deployer's smoke games seen by the indexer", `Daily game ${daily[0].gameId} (stake 1, settled, reward ${smoke.reward}), Tutorial game ${games[0].gameId} over ${view.over}`);
@@ -593,42 +540,11 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
     pass("Vault: a test account stakes its own PAVED, dividends from a later purchase, claim", `carol staked her ${amount} test PAVED ${short(staked.transactionHash)}; bob's purchase margin ${margin} USDC -> carol's pending ${earned.pending} = ${amount} x (margin x 1e36 / ${earned.totalStaked}) / 1e36; claimed ${short(claimed.transactionHash)}, USDC +${earned.pending} = pending`);
   }, 120_000);
 
-  test("a sponsor reclaims a day nobody ranked in", async () => {
-    const [, bob] = players;
-    dayX = await client.views.currentTournamentId();
-    // Nobody plays on this day: bob's second game stays unplayed.
-    const amount = 2_000_000n;
-    await bob.writer.sponsor(amount, { confirmedAmount: amount });
-    const sponsorship = await client.events.sponsorship(dayX, bob.address);
-    expect(sponsorship).toEqual({ sponsored: amount, reclaimed: 0n, reclaimable: amount });
-    // Before the day ends, the writer refuses and sends nothing.
-    await expect(bob.writer.reclaim(dayX, { confirmedAmount: amount })).rejects.toThrow(/not over/);
-
+  test("a day nobody plays passes: the current day moves on", async () => {
+    const before = await client.views.currentDay();
     await toNextDay(3600); // past the end of the day, and past 24 h after bob's purchase on it
-    const view = await client.views.tournament(dayX);
-    expect(view).toMatchObject({ over: true, prize: amount });
-    expect(BigInt(view.top1PlayerId)).toBe(0n);
-    const before = await usdc(bob.address);
-    const result = await bob.writer.reclaim(dayX, { confirmedAmount: amount });
-    expect((await usdc(bob.address)) - before).toBe(amount);
-    const event = result.events.find((e) => e.name === "Reclaimed");
-    expect(event?.fields).toMatchObject({ tournamentId: dayX, amount });
-    expect(BigInt(event!.fields.sponsor as string)).toBe(BigInt(bob.address));
-    // What went back comes from the events: the day's prize keeps the historical total.
-    expect(await client.events.reclaimedTotal(dayX)).toBe(amount);
-    expect((await client.views.tournament(dayX)).prize).toBe(amount);
-    expect((await client.events.sponsorship(dayX, bob.address)).reclaimable).toBe(0n);
-    // A second reclaim sends nothing.
-    const blockBefore = (await provider.getBlockNumber()) as number;
-    await expect(bob.writer.reclaim(dayX, { confirmedAmount: amount })).rejects.toBeInstanceOf(NothingToReclaimError);
-    expect((await provider.getBlockNumber()) as number).toBe(blockBefore);
-
-    // A top-3 claim on a day nobody sponsored: the node refuses 'Tournament: not found', mapped to its clear state.
-    const nobodyDay = dayX - 1;
-    expect((await client.views.tournament(nobodyDay)).prize).toBe(0n);
-    const refused = await bob.writer.claim(nobodyDay, 1, { confirmedReward: 0n }).catch((e: unknown) => e);
-    expect(refused).toBeInstanceOf(NoPrizeDayError);
-    pass("sponsor a day nobody ranked in, then reclaim", `day ${dayX}: sponsored ${amount}, reclaim before the end refused, after: bob +${amount}, Reclaimed event, reclaimedTotal ${amount}, prize view still ${amount}, second reclaim refused; day ${nobodyDay} (no sponsor) claim -> "${(refused as Error).message}"`);
+    expect(await client.views.currentDay()).toBe(before + 1);
+    pass("a day nobody plays", `current day ${before} -> ${before + 1}`);
   }, 120_000);
 
   test("a game bought and not played within 24 h is expired: no reward, no settle", async () => {
@@ -650,7 +566,7 @@ describe.skipIf(!enabled)("client end-to-end on devnet", () => {
   test("the indexer ends in agreement with the chain", async () => {
     await caughtUp();
     const head = await indexer.head();
-    expect(head.data.lastMismatch).toBeNull();
-    pass("indexer after the economy steps", `head ${head.head.number}, tournaments_checked ${head.data.tournamentsChecked}, last_mismatch ${head.data.lastMismatch}`);
+    expect(head.data.state).toBe("ok");
+    pass("indexer after the economy steps", `head ${head.head.number}, state ${head.data.state}`);
   }, 60_000);
 });

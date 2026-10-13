@@ -7,7 +7,7 @@ export interface PlacementOutcome {
   scored: Array<{ category: number; size: number; points: number }>;
   /** Sum of the `Scored` points of this transaction. */
   scoredPoints: number;
-  over: { score: number; tournamentId: number; endTime: number } | null;
+  over: { score: number; dayId: number; endTime: number } | null;
 }
 
 /** Reads the `Built`, `Discarded`, `Scored` and `GameOver` events of one game from a receipt. */
@@ -30,7 +30,7 @@ export function placementOutcome(events: DecodedEvent[], gameId: number): Placem
       outcome.scored.push(score);
       outcome.scoredPoints += score.points;
     } else if (name === "GameOver") {
-      outcome.over = { score: Number(f.score), tournamentId: Number(f.tournamentId), endTime: Number(f.endTime) };
+      outcome.over = { score: Number(f.score), dayId: Number(f.dayId), endTime: Number(f.endTime) };
     }
   }
   return outcome;

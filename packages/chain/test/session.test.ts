@@ -11,7 +11,7 @@ function fakeGame(): FakeGame {
   return {
     game: {
       id: 4, playerId: PLAYER, mode: 1, seed: "0x1", score: 0, over: false, tileCount: 2, placedCount: 1,
-      discardedCount: 0, tileId: 2, plan: 7, remainingCount: 36, deckSize: 38, startTime: 1, endTime: 0, tournamentId: 0,
+      discardedCount: 0, tileId: 2, plan: 7, remainingCount: 36, deckSize: 38, startTime: 1, endTime: 0, dayId: 0,
     },
     tiles: [
       { id: 1, status: 1, plan: 4, orientation: 1, x: C, y: C },
@@ -110,7 +110,7 @@ describe("GameSession", () => {
       const over = fakeGame();
       over.game = { ...over.game, over: true, score: 0, tileId: 0, plan: 0 };
       views.setGame(key, over);
-      return { transactionHash: "0x2", events: [event("GameOver", { playerId: PLAYER, tournamentId: 0, mode: 1, score: 0, startTime: 1, endTime: 0 })] };
+      return { transactionHash: "0x2", events: [event("GameOver", { playerId: PLAYER, dayId: 0, mode: 1, score: 0, startTime: 1, endTime: 0 })] };
     });
     expect(session.state).toMatchObject({ hand: null, game: { over: true } });
   });

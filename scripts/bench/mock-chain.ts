@@ -2,8 +2,8 @@
 // No network: the driver serves it from the same local server as the page.
 //
 // It plays the native contracts (packages/chain, docs/architecture/client-data-layer.md) on the
-// 72-tile board fixture: `starknet_call` answers the views (`game`, `tiles`, `builder`,
-// `tournament`, `current_tournament_id`, `entry_price`) and the reads (`player`, `balance_of`)
+// 72-tile board fixture: `starknet_call` answers the views (`game`, `tiles`, `builder`, and
+// `IDailyView`'s `current_day` and `entry_price`) and the reads (`player`, `balance_of`)
 // with felts laid out as the ABIs of contracts/abis/ say; `starknet_getEvents` answers with no
 // event (one game, opened by id). An invoke of `build` that carries the next placement of the
 // fixed sequence applies it, and its receipt holds the events the client shows the move from
@@ -91,14 +91,14 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
   const t0 = Date.parse("2026-10-06T08:00:00Z") / 1000;
 
   const SEL = Object.fromEntries(
-    ["game", "tiles", "builder", "tournament", "current_tournament_id", "entry_price", "player", "balance_of", "build", "Built", "Scored", "GameOver"].map(
+    ["game", "tiles", "builder", "current_day", "entry_price", "player", "balance_of", "build", "Built", "Scored", "GameOver"].map(
       (name) => [name, BigInt(selector(name))],
     ),
   );
 
   const onBoard = (): TileRow[] => [...board.tiles, ...sequence.slice(0, placed)];
   const inHand = (): TileRow | null => sequence[placed] ?? null;
-  /** The game ends with the last placement of the sequence (a tournament_id of 0: it does not count). */
+  /** The game ends with the last placement of the sequence (a day_id of 0: it does not count). */
   const isOver = () => placed >= sequence.length;
 
   // ---- Views, encoded as the ABIs lay them out (structs flat, arrays length-prefixed) ----
@@ -107,7 +107,7 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     const hand = inHand();
     const count = onBoard().length;
     // id, player_id, mode, seed, score, over, tile_count, placed_count, discarded_count, tile_id,
-    // plan, remaining_count, deck_size, start_time, end_time, tournament_id
+    // plan, remaining_count, deck_size, start_time, end_time, day_id
     return [gameId, BENCH.player, 1, 0x5eed, 3 * count, isOver() ? 1 : 0, count + (hand ? 1 : 0), count, 0, hand?.id ?? 0, hand?.plan ?? 0, DECK - count - 1, DECK, t0, isOver() ? t0 + placed : 0, 0];
   };
 
@@ -141,11 +141,7 @@ export function createMockChain(fixtures: string, size = 72, options: MockOption
     if (daily && entry === SEL.game) return gameView();
     if (daily && entry === SEL.tiles) return tilesView(Number(args[1]), Number(args[2]));
     if (daily && entry === SEL.builder) return builderView();
-    if (daily && entry === SEL.current_tournament_id) return [Math.floor(t0 / 86400)];
-    if (daily && entry === SEL.tournament) {
-      const id = Number(args[0]);
-      return [id, id * 86400, (id + 1) * 86400, 0, 10n ** 18n, 0, BENCH.player, 3 * onBoard().length, 0, 0, 0, 0, 0, 0, 0];
-    }
+    if (daily && entry === SEL.current_day) return [Math.floor(t0 / 86400)];
     if (daily && entry === SEL.entry_price) return [BENCH.Token, 10n ** 18n, 0]; // token, u256 amount
     if (to === BENCH.Account && entry === SEL.player) return [args[0], 0x5061766564, args[0]]; // 'Paved'
     if (to === BENCH.Token && entry === SEL.balance_of) return [10n ** 21n, 0];

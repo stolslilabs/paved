@@ -9,7 +9,7 @@ import { DAYS_LISTED } from "./indexer-view";
 export function useDays(requested: number | null | undefined) {
   const { client } = usePaved();
   const days = useIndexerRead((c) => c.tournaments({ limit: DAYS_LISTED }), [], { onVisible: true });
-  const current = useRead((c) => c.views.currentTournamentId(), []);
+  const current = useRead((c) => c.views.currentDay(), []);
   const waitingForToday = requested === undefined && client !== null && !current.loaded && !current.error;
   const newest = days.data?.data.tournaments[0]?.id ?? null;
   const id = requested === undefined ? (current.loaded ? current.data : newest) : requested;

@@ -11,9 +11,8 @@ import {
 import { resolveDeployment } from "../src/deployment";
 import { MAX_STAKE, createEconomyClient, priceOf, resolveEconomyDeployment, settlesAfter } from "../src/economy";
 import { PavedClient, type PavedRpc } from "../src/paved-client";
-import { rewardOf } from "../src/prize";
 import { FAKE_CHAIN_ID, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter, fakeTerms } from "../src/testing";
-import { FakeGameViews, type TournamentView } from "../src/views";
+import { FakeGameViews } from "../src/views";
 
 const deployment = resolveDeployment({
   network: "sepolia",
@@ -34,13 +33,6 @@ const PLAYER = "0xc";
 const DAY = 20_000;
 const P = 10n ** 18n;
 
-const TOURNAMENT: TournamentView = {
-  id: 3, startTime: 0, endTime: 1, over: true, prize: 600n,
-  top1PlayerId: "0x9", top1Score: 10, top1Claimed: false,
-  top2PlayerId: "0x8", top2Score: 9, top2Claimed: false,
-  top3PlayerId: "0x7", top3Score: 8, top3Claimed: false,
-};
-
 /**
  * Every write of the client outside devnet, the game's (`PavedWriter`) and the economy's (`EconomyWriter`, on E3's
  * committed ABIs), each against an account that records what it is asked to sign. Writes that throw after sending
@@ -57,7 +49,6 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
   } as unknown as PavedRpc;
   const gameViews = new FakeGameViews();
   gameViews.price = { token: ECON.usdc, amount: FAKE_UNIT };
-  gameViews.tournaments.set(3, TOURNAMENT);
   const client = new PavedClient(deployment, rpc, createCodecs(), gameViews);
   const writer = client.writer(account);
   // Mainnet never resolves a MockUSDC, whatever the env says: its writer has no faucet.
@@ -83,9 +74,6 @@ async function sentByEveryWrite(): Promise<Record<string, Call[]>> {
     "tutorial discard": () => writer.discard({ mode: "tutorial", gameId: 1 }),
     "daily surrender": () => writer.surrender({ mode: "daily", gameId: 1 }),
     "tutorial surrender": () => writer.surrender({ mode: "tutorial", gameId: 1 }),
-    claim: () => writer.claim(3, 1, { confirmedReward: rewardOf(TOURNAMENT, 1) }),
-    "sponsor within the cap": () => writer.sponsor(FAKE_UNIT, { confirmedAmount: FAKE_UNIT }),
-    "sponsor above the cap": () => writer.sponsor(USDC_APPROVE.cap + 1n, { confirmedAmount: USDC_APPROVE.cap + 1n }),
     "purchase, stake 1": () => econWriter.purchase({ stake: 1, confirmedPrice: priceOf(FAKE_UNIT, 1), confirmedMinOut: 1n, referrer: null }),
     "purchase, stake 10": () => econWriter.purchase({ stake: MAX_STAKE, confirmedPrice: priceOf(FAKE_UNIT, MAX_STAKE), confirmedMinOut: 1n, referrer: null }),
     settle: () => econWriter.settle([7]),
@@ -120,7 +108,7 @@ function inSession(call: Call, ps: ControllerPolicy[]): boolean {
 
 const GAME_AND_PURCHASE = [
   "create player", "tutorial spawn", "daily build", "tutorial build", "daily discard", "tutorial discard",
-  "daily surrender", "tutorial surrender", "claim", "sponsor within the cap", "purchase, stake 1", "purchase, stake 10",
+  "daily surrender", "tutorial surrender", "purchase, stake 1", "purchase, stake 10",
 ];
 const PROMPTED = ["settle", "vault stake", "vault unstake", "vault claim"];
 
@@ -197,13 +185,6 @@ describe("controllerPolicies against what the writers send (E3)", () => {
     }
   });
 
-  test("a sponsor above the cap: its approve prompts, its sponsor call is in the session", async () => {
-    const [approve, sponsor] = (await sentByEveryWrite())["sponsor above the cap"];
-    expect(approve.entrypoint).toBe("approve");
-    expect(inSession(approve, session)).toBe(false);
-    expect(inSession(sponsor, session)).toBe(true);
-  });
-
   test("with no approve in the session (entry unreadable), the purchase's approve prompts", async () => {
     const [approve, spawn] = (await sentByEveryWrite())["purchase, stake 1"];
     expect(inSession(approve, policies)).toBe(false);
@@ -212,6 +193,12 @@ describe("controllerPolicies against what the writers send (E3)", () => {
 });
 
 describe("controllerPolicies", () => {
+  test("D-20: no session policy for claim or sponsor (the reclaim was a claim of rank 0)", () => {
+    for (const ps of [policies, session]) {
+      expect(ps.filter((p) => p.method === "claim" || p.method === "sponsor")).toEqual([]);
+    }
+  });
+
   test("after E3 the entry is paid in USDC: the approve targets the token entry_price names, capped at 10 stakes", () => {
     const usdc = "0x5";
     const unit = 2_000_000n; // 2 USDC, 6 decimals

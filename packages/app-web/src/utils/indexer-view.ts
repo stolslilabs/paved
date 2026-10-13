@@ -13,15 +13,6 @@ export const PLAYER_TOURNAMENTS_SHOWN = 8;
 /** Days offered in the leaderboard's day picker. */
 export const DAYS_LISTED = 30;
 
-const ORDINAL: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd" };
-
-/** The contract's prize slots a player holds, from `prize_ranks`: "1st and 3rd". Empty list: null. */
-export function slotsLabel(ranks: number[]): string | null {
-  const names = ranks.map((r) => ORDINAL[r] ?? String(r));
-  if (names.length === 0) return null;
-  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
-
 /** What the indexer's lag means to the reader; null when there is nothing to say. */
 export function lagLabel(behind: number): string {
   return behind === 0 ? "Up to date" : `Updated ${behind} ${behind === 1 ? "block" : "blocks"} behind`;

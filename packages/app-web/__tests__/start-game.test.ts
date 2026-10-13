@@ -6,10 +6,10 @@ const game = (over: boolean, gameId = 1): PlayerGame => ({
   mode: "daily",
   gameId,
   startTime: 1,
-  tournamentId: 0,
+  dayId: 0,
   over,
   score: over ? 5 : null,
-  countedTournamentId: over ? 0 : null,
+  countedDayId: over ? 0 : null,
 });
 
 function deps(overrides: Partial<StartDeps> = {}) {

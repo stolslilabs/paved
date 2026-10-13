@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { padded } from "./events.ts";
 import { UNSETTLED_PAGE } from "./api.ts";
-import { Queries, replaySlots } from "./queries.ts";
+import { Queries } from "./queries.ts";
 import { FakeNode, ev } from "./testing/fake-node.ts";
 import { indexerOf, settle } from "./testing/setup.ts";
 
@@ -28,18 +28,18 @@ describe("the leaderboard", () => {
   const scenario = (node: FakeNode) => {
     players(node);
     node.mine(
-      [ev.spawned("daily", 1, A, { tournament: DAY })],
-      [ev.spawned("daily", 2, A, { tournament: DAY })],
-      [ev.spawned("daily", 3, A, { tournament: DAY })],
-      [ev.spawned("daily", 4, B, { tournament: DAY })],
-      [ev.spawned("daily", 5, C, { tournament: DAY })],
-      [ev.spawned("daily", 6, D, { tournament: DAY })],
+      [ev.spawned("daily", 1, A, { day: DAY })],
+      [ev.spawned("daily", 2, A, { day: DAY })],
+      [ev.spawned("daily", 3, A, { day: DAY })],
+      [ev.spawned("daily", 4, B, { day: DAY })],
+      [ev.spawned("daily", 5, C, { day: DAY })],
+      [ev.spawned("daily", 6, D, { day: DAY })],
     );
-    node.mine([ev.over("daily", 1, A, 50, { tournament: DAY, end: 11 })]);
-    node.mine([ev.over("daily", 4, B, 70, { tournament: DAY, end: 12 })]);
-    node.mine([ev.over("daily", 5, C, 70, { tournament: DAY, end: 13 })]);
+    node.mine([ev.over("daily", 1, A, 50, { day: DAY, end: 11 })]);
+    node.mine([ev.over("daily", 4, B, 70, { day: DAY, end: 12 })]);
+    node.mine([ev.over("daily", 5, C, 70, { day: DAY, end: 13 })]);
     // Two games of A in one block: the earlier transaction first.
-    node.mine([ev.over("daily", 2, A, 70, { tournament: DAY, end: 14 })], [ev.over("daily", 3, A, 20, { tournament: DAY, end: 14 })]);
+    node.mine([ev.over("daily", 2, A, 70, { day: DAY, end: 14 })], [ev.over("daily", 3, A, 20, { day: DAY, end: 14 })]);
   };
 
   test("one row per player, best game, ties by the chain order of the GameOver", async () => {
@@ -73,54 +73,28 @@ describe("the leaderboard", () => {
   test("the best game of equal scores is the earliest by chain order, not the lowest id", async () => {
     const { queries, head } = await open((node) => {
       players(node);
-      node.mine([ev.spawned("daily", 1, A, { tournament: DAY })], [ev.spawned("daily", 2, A, { tournament: DAY })]);
-      node.mine([ev.over("daily", 2, A, 40, { tournament: DAY })]);
-      node.mine([ev.over("daily", 1, A, 40, { tournament: DAY })]);
+      node.mine([ev.spawned("daily", 1, A, { day: DAY })], [ev.spawned("daily", 2, A, { day: DAY })]);
+      node.mine([ev.over("daily", 2, A, 40, { day: DAY })]);
+      node.mine([ev.over("daily", 1, A, 40, { day: DAY })]);
     });
     expect(queries.leaderboard(head, DAY, 20, 0).entries[0]).toMatchObject({ best_game_id: 2, games_finished: 2 });
-  });
-
-  test("prize ranks are the contract's slots: a player may hold two, the leaderboard has one row", async () => {
-    const { queries, head } = await open((node) => {
-      players(node);
-      node.mine(
-        [ev.spawned("daily", 1, A, { tournament: DAY })],
-        [ev.spawned("daily", 2, B, { tournament: DAY })],
-        [ev.spawned("daily", 3, A, { tournament: DAY })],
-      );
-      node.mine([ev.over("daily", 1, A, 100, { tournament: DAY })]);
-      node.mine([ev.over("daily", 2, B, 90, { tournament: DAY })]);
-      node.mine([ev.over("daily", 3, A, 80, { tournament: DAY })]);
-    });
-    const { total, entries } = queries.leaderboard(head, DAY, 20, 0);
-    expect(total).toBe(2);
-    expect(entries.map((e) => [e.player_id, e.best_score, e.prize_ranks])).toEqual([
-      [id(A), 100, [1, 3]],
-      [id(B), 90, [2]],
-    ]);
-  });
-
-  test("prize ranks of the scenario follow the slots, not the leaderboard", async () => {
-    const { queries, head } = await open(scenario);
-    expect(queries.leaderboard(head, DAY, 20, 0).entries.map((e) => e.prize_ranks)).toEqual([[1], [2], [3]]);
   });
 
   test("a game that ended after its day ranks in no tournament, and shows in its player's list", async () => {
     const { queries, head } = await open((node) => {
       players(node);
-      node.mine([ev.spawned("daily", 1, A, { tournament: DAY })]);
-      node.mine([ev.over("daily", 1, A, 99, { tournament: 0, end: 0 })]);
+      node.mine([ev.spawned("daily", 1, A, { day: DAY })]);
+      node.mine([ev.over("daily", 1, A, 99, { day: 0, end: 0 })]);
     });
     expect(queries.leaderboard(head, DAY, 20, 0)).toEqual({ total: 0, entries: [] });
     expect(queries.tournament(head, DAY)).toMatchObject({ games_spawned: 1, games_finished: 0, players: 0, best_score: 0 });
     expect(queries.games(head, id(A), undefined, 20, undefined).games[0]).toMatchObject({
       over: true,
       score: 99,
-      tournament_id: DAY,
-      counted_tournament_id: 0,
+      day_id: DAY,
+      counted_day_id: 0,
       end_time: 0,
     });
-    expect(queries.slots(head, DAY)).toEqual([null, null, null]);
   });
 
   test("pagination bounds: offset, limit, an empty day, tournament 0", async () => {
@@ -146,7 +120,7 @@ describe("the leaderboard", () => {
       [id(A), 50],
     ]);
     expect(queries.tournament(1, DAY)).toMatchObject({ games_spawned: 0 });
-    expect(queries.game(2, "daily", 1)).toMatchObject({ over: false, score: null, counted_tournament_id: null, end_time: null });
+    expect(queries.game(2, "daily", 1)).toMatchObject({ over: false, score: null, counted_day_id: null, end_time: null });
     expect(queries.game(3, "daily", 1)).toMatchObject({ over: true, score: 50 });
     expect(queries.game(1, "daily", 1)).toBeNull();
   });
@@ -157,13 +131,13 @@ describe("tournaments", () => {
     const { queries, head } = await open((node) => {
       players(node);
       node.mine(
-        [ev.spawned("daily", 1, A, { tournament: 98 })],
-        [ev.spawned("daily", 2, B, { tournament: 99 })],
-        [ev.spawned("daily", 3, A, { tournament: 100 })],
-        [ev.spawned("daily", 4, B, { tournament: 100 })],
+        [ev.spawned("daily", 1, A, { day: 98 })],
+        [ev.spawned("daily", 2, B, { day: 99 })],
+        [ev.spawned("daily", 3, A, { day: 100 })],
+        [ev.spawned("daily", 4, B, { day: 100 })],
         [ev.spawned("tutorial", 1, A)],
       );
-      node.mine([ev.over("daily", 3, A, 5, { tournament: 100 })]);
+      node.mine([ev.over("daily", 3, A, 5, { day: 100 })]);
     });
     const page = queries.tournaments(head, 2, undefined);
     expect(page.tournaments.map((t) => [t.id, t.games_spawned, t.players, t.best_score])).toEqual([
@@ -177,8 +151,6 @@ describe("tournaments", () => {
     expect(Object.keys(page.tournaments[0]!).sort()).toEqual(
       ["best_score", "end_time", "games_spawned", "id", "players", "start_time"],
     );
-    expect(queries.closedTournaments(head, 100 * 86400 + 1)).toEqual([98, 99]);
-    expect(queries.closedTournaments(head, 101 * 86400)).toEqual([98, 99, 100]);
   });
 });
 
@@ -228,7 +200,7 @@ describe("players and games", () => {
       ["daily", 1],
     ]);
     expect(all.next).toBeNull();
-    expect(all.games[3]).toMatchObject({ over: true, score: 30, counted_tournament_id: 100, mode: 1, player_id: id(A) });
+    expect(all.games[3]).toMatchObject({ over: true, score: 30, counted_day_id: 100, mode: 1, player_id: id(A) });
     expect(all.games[1]).toMatchObject({ over: false, score: null, end_time: null });
 
     const first = queries.games(head, id(A), undefined, 3, undefined);
@@ -244,55 +216,8 @@ describe("players and games", () => {
 
   test("a game by contract and id", async () => {
     const { queries, head } = await open(build);
-    expect(queries.game(head, "tutorial", 2)).toMatchObject({ contract: "tutorial", game_id: 2, mode: 3, tournament_id: 0 });
+    expect(queries.game(head, "tutorial", 2)).toMatchObject({ contract: "tutorial", game_id: 2, mode: 3, day_id: 0 });
     expect(queries.game(head, "daily", 99)).toBeNull();
-  });
-});
-
-// The rule of `Tournament.score` (contracts/src/models/tournament.cairo): a game takes a slot only above the third slot's
-// score (a tie never displaces an earlier game). It is the stable top 3 by score of the games with a score above 0.
-const oracle = (games: { playerId: string; score: number; gameId: number }[]) =>
-  [...games]
-    .filter((g) => g.score > 0)
-    .map((g, order) => ({ g, order }))
-    .sort((x, y) => y.g.score - x.g.score || x.order - y.order)
-    .slice(0, 3)
-    .map(({ g }) => g);
-
-const sequence = (scores: number[], players = ["p1", "p2", "p3", "p4"]) =>
-  scores.map((score, index) => ({ playerId: players[index % players.length]!, score, gameId: index + 1 }));
-
-describe("the prize slot replay", () => {
-  // The table of the Cairo tests of `Tournament` (test_score, test_claim_*) and the cases of the design: ties, one player in
-  // several slots, equal scores.
-  const table: { scores: number[]; players?: string[]; expected: [string, number][] }[] = [
-    { scores: [10, 20, 15, 5, 25], players: ["1", "2", "3", "4", "5"], expected: [["5", 25], ["2", 20], ["3", 15]] },
-    { scores: [20, 15], players: ["2", "3"], expected: [["2", 20], ["3", 15]] },
-    { scores: [20], players: ["2"], expected: [["2", 20]] },
-    { scores: [], expected: [] },
-    { scores: [0, 0], players: ["a", "b"], expected: [] },
-    { scores: [7, 7, 7, 7], players: ["a", "b", "c", "d"], expected: [["a", 7], ["b", 7], ["c", 7]] },
-    { scores: [5, 9, 9, 9], players: ["a", "b", "c", "d"], expected: [["b", 9], ["c", 9], ["d", 9]] },
-    { scores: [100, 90, 80], players: ["a", "b", "a"], expected: [["a", 100], ["b", 90], ["a", 80]] },
-    { scores: [50, 50, 60, 50], players: ["a", "b", "c", "d"], expected: [["c", 60], ["a", 50], ["b", 50]] },
-    { scores: [3, 2, 1, 4, 4, 5, 5], players: ["a", "b", "c", "d", "e", "f", "g"], expected: [["f", 5], ["g", 5], ["d", 4]] },
-  ];
-
-  test.each(table.map((row) => [JSON.stringify(row.scores), row] as const))("the table row %s", (_name, row) => {
-    const games = sequence(row.scores, row.players);
-    const slots = replaySlots(games).filter((slot) => slot !== null);
-    expect(slots.map((slot) => [slot!.playerId, slot!.score])).toEqual(row.expected);
-    expect(slots).toEqual(oracle(games));
-  });
-
-  test("equals the stable top 3 on pseudo-random sequences, ties included", () => {
-    let seed = 12345;
-    const next = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff);
-    for (let round = 0; round < 500; round++) {
-      const length = next() % 12;
-      const games = sequence(Array.from({ length }, () => next() % 6)); // few values: many ties, and zeros
-      expect(replaySlots(games).filter((slot) => slot !== null)).toEqual(oracle(games));
-    }
   });
 });
 
@@ -303,16 +228,16 @@ describe("Economy", () => {
   const build = (node: FakeNode) => {
     players(node);
     node.mine(
-      [ev.spawned("daily", 1, A, { tournament: DAY }), ev.purchased(1, A, { day: DAY })],
-      [ev.spawned("daily", 2, A, { tournament: DAY }), ev.purchased(2, A, { day: DAY, stake: 3, referrer: B, referral: 300_000n })],
-      [ev.spawned("daily", 3, B, { tournament: DAY }), ev.purchased(3, B, { day: DAY, reference: BIG })],
+      [ev.spawned("daily", 1, A, { day: DAY }), ev.purchased(1, A, { day: DAY })],
+      [ev.spawned("daily", 2, A, { day: DAY }), ev.purchased(2, A, { day: DAY, stake: 3, referrer: B, referral: 300_000n })],
+      [ev.spawned("daily", 3, B, { day: DAY }), ev.purchased(3, B, { day: DAY, reference: BIG })],
       [ev.spawned("tutorial", 1, A)],
-      [ev.spawned("daily", 5, A, { tournament: DAY })], // not bought
+      [ev.spawned("daily", 5, A, { day: DAY })], // not bought
     );
-    node.mine([ev.over("daily", 1, A, 5000, { tournament: DAY }), ev.recorded(1, 5000)]);
-    node.mine([ev.over("daily", 2, A, 4000, { tournament: 0 }), ev.recorded(2, 4000, true)]);
-    node.mine([ev.spawned("daily", 4, A, { tournament: DAY + 1 }), ev.purchased(4, A, { day: DAY + 1 })]);
-    node.mine([ev.over("daily", 4, A, 100, { tournament: DAY + 1 }), ev.recorded(4, 100)]);
+    node.mine([ev.over("daily", 1, A, 5000, { day: DAY }), ev.recorded(1, 5000)]);
+    node.mine([ev.over("daily", 2, A, 4000, { day: 0 }), ev.recorded(2, 4000, true)]);
+    node.mine([ev.spawned("daily", 4, A, { day: DAY + 1 }), ev.purchased(4, A, { day: DAY + 1 })]);
+    node.mine([ev.over("daily", 4, A, 100, { day: DAY + 1 }), ev.recorded(4, 100)]);
     node.mine([ev.dayClosed(DAY, { mean: 4_215_689, weight: 4, prior: 3_353_000, emaAfter: 3_400_000 }), ev.settled(1, A, { day: DAY, score: 5000, threshold: 4_215_689, reward: BIG })]);
   };
 
@@ -417,7 +342,7 @@ describe("the unsettled list is bounded (UNSETTLED_PAGE)", () => {
     for (let first = 1; first <= count; first += 50) {
       const ids = Array.from({ length: Math.min(50, count - first + 1) }, (_, i) => first + i);
       node.mine(
-        ...ids.map((game) => [ev.spawned("daily", game, A, { tournament: DAY }), ev.purchased(game, A, { day: DAY })]),
+        ...ids.map((game) => [ev.spawned("daily", game, A, { day: DAY }), ev.purchased(game, A, { day: DAY })]),
       );
       node.mine(...ids.map((game) => [ev.recorded(game, 100)]));
     }
