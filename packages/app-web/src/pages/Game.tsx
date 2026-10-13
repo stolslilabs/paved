@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
-import { IngameStatus, GameCompleteDialog, ActionBar, SpotSelector, useGameStore } from "@paved/ui";
+import { IngameStatus, GameCompleteDialog, ActionBar, useGameStore } from "@paved/ui";
 import type { GameScene, TileRenderData, CameraMode } from "@paved/renderer";
-import { PoolPriceMovedError, PoolQuoteBelowFloorError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, nftOf, useGameSession, usePaved } from "@paved/chain";
+import { PoolPriceMovedError, PoolQuoteBelowFloorError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, nftOf, placementOutcome, useGameSession, usePaved } from "@paved/chain";
 import type { GameKey } from "@paved/chain";
-import { Layout, Plan, Orientation, Direction, DirectionType, getIndexFromCharacter } from "@paved/game-core";
+import { Layout, Plan, Orientation, Direction, DirectionType } from "@paved/game-core";
+import { ClosedStructures, type Closure } from "../components/ClosedStructures";
 import { GameNft, useCollection } from "../components/GameNft";
-import { CENTER, shouldShowSpotSelector, spotKeyToNumber, toRenderBoard } from "../utils/game-helpers";
+import { CENTER, toRenderBoard } from "../utils/game-helpers";
 import { getCameraHotkeyAction, toggleCameraMode } from "../utils/camera-helpers";
 import { parseGameParams } from "../utils/game-params";
 import { buildGameRoute } from "../utils/mode-routing";
@@ -18,6 +19,8 @@ import { REFERRAL_PARAM } from "../utils/economy-view";
 
 /** How long a start consent waits for a ready writer before it is dropped. */
 const START_CONSENT_MS = 30_000;
+/** How long the structures a move closed stay on screen. */
+const CLOSURES_MS = 6_000;
 
 let _debugOnce = true;
 
@@ -247,8 +250,6 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
   const orientation = useGameStore((s) => s.orientation);
   const setOrientation = useGameStore((s) => s.setOrientation);
   const strategyMode = useGameStore((s) => s.strategyMode);
-  const character = useGameStore((s) => s.character);
-  const spot = useGameStore((s) => s.spot);
   const x = useGameStore((s) => s.x);
   const y = useGameStore((s) => s.y);
   const selectedTile = useGameStore((s) => s.selectedTile);
@@ -260,10 +261,18 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
   const hand = state?.hand ?? null;
   const game = state?.game ?? null;
 
-  const { tiles, characters } = useMemo(
-    () => (state ? toRenderBoard(state, game?.playerId ?? "0x0") : { tiles: [] as TileRenderData[], characters: [] }),
+  const tiles = useMemo(
+    () => (state ? toRenderBoard(state, game?.playerId ?? "0x0") : ([] as TileRenderData[])),
     [state, game?.playerId],
   );
+
+  // The structures the last move closed (its `Scored` events), shown for a while next to the score.
+  const [closures, setClosures] = useState<Closure[] | null>(null);
+  useEffect(() => {
+    if (!closures) return;
+    const timer = setTimeout(() => setClosures(null), CLOSURES_MS);
+    return () => clearTimeout(timer);
+  }, [closures]);
 
   const handleReady = useCallback((s: GameScene) => {
     setScene(s);
@@ -274,7 +283,6 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
     store.setX(gridX + CENTER);
     store.setY(CENTER - gridY);
     store.setSelectedTile({ col: gridX, row: gridY });
-    store.setSpot(0);
   }, []);
 
   const handleTileHover = useCallback((gridX: number, gridY: number) => {
@@ -340,25 +348,26 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
     }
   }, [hoverGrid, selectedTile, hand, orientation, tiles, availableSlots]);
 
-  const showSpotSelector = shouldShowSpotSelector(character, selectedTile, hoverState?.valid ?? false);
-
   const handleRotate = useCallback(() => {
     setOrientation(orientation + 1);
-    useGameStore.getState().setSpot(0); // spot positions change with rotation
   }, [orientation, setOrientation]);
 
   // The tile is drawn at once (pending); the receipt's events confirm it; one read reconciles.
   const handleConfirm = useCallback(async () => {
     if (!session || !writer || readonly) return;
-    const move = { orientation, x, y, role: spot > 0 ? character : 0, spot: character > 0 ? spot : 0 };
-    const store = useGameStore.getState();
-    store.setSelectedTile(null);
-    store.setCharacter(0);
-    store.setSpot(0);
+    // D-18: no character; the fields leave with the chain change (PR 1)
+    const move = { orientation, x, y, role: 0, spot: 0 };
+    useGameStore.getState().setSelectedTile(null);
+    setClosures(null);
     // Keep hoverGrid so the ghost stays visible with the next tile
-    const placed = await session.place(move, () => writer.build(gameKey, move));
+    const placed = await session.place(move, async () => {
+      const result = await writer.build(gameKey, move);
+      const { scored } = placementOutcome(result.events, gameKey.gameId);
+      if (scored.length > 0) setClosures(scored);
+      return result;
+    });
     if (placed) setOrientation(1); // reset rotation for the new tile
-  }, [session, writer, readonly, orientation, x, y, character, spot, gameKey, setOrientation]);
+  }, [session, writer, readonly, orientation, x, y, gameKey, setOrientation]);
 
   const handleDiscard = useCallback(async () => {
     if (!session || !writer || readonly) return;
@@ -385,8 +394,6 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
     hand,
     game,
     hoverState,
-    character,
-    selectedTile,
   });
   useEffect(() => {
     hotkeys.current = {
@@ -399,8 +406,6 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
       hand,
       game,
       hoverState,
-      character,
-      selectedTile,
     };
   });
 
@@ -429,13 +434,6 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
           // The button's own condition: nothing to discard on a finished game or with an empty hand.
           if (!h.loading && h.hand) h.handleDiscard();
           break;
-        default: {
-          const spotNum = spotKeyToNumber(e.key);
-          if (spotNum !== null && h.character > 0 && h.selectedTile && h.hoverState?.valid) {
-            useGameStore.getState().setSpot(spotNum);
-          }
-          break;
-        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -482,7 +480,6 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
       <GameCanvas
         basePath=""
         tiles={tiles}
-        characters={characters}
         hover={readonly ? null : hoverState}
         availableSlots={readonly ? [] : availableSlots}
         strategyMode={strategyMode}
@@ -516,6 +513,7 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
             totalTiles={game?.deckSize ?? 0}
             discarded={game?.discardedCount ?? 0}
           />
+          <ClosedStructures closures={closures} />
           <GameNft tokenId={tokenId} collection={collection} verify />
         </div>
 
@@ -580,19 +578,6 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
           </div>
         </div>
 
-        {!readonly && showSpotSelector && hand && (
-          <div style={{ pointerEvents: "auto", gridColumn: 1, gridRow: 2, alignSelf: "center" }}>
-            <SpotSelector
-              tilePlan={hand.plan}
-              orientation={orientation}
-              roleIndex={getIndexFromCharacter(character)}
-              selectedSpot={spot}
-              onSelectSpot={(s) => useGameStore.getState().setSpot(s)}
-              visible={true}
-            />
-          </div>
-        )}
-
         {!readonly && (
           <div style={{ pointerEvents: "auto", gridColumn: "1 / -1", gridRow: 3, alignSelf: "end" }}>
             <ActionBar
@@ -601,11 +586,8 @@ function GameBoard({ gameKey, forceReadonly }: { gameKey: GameKey; forceReadonly
               onRotate={handleRotate}
               onConfirm={handleConfirm}
               onDiscard={handleDiscard}
-              confirmDisabled={loading || !hand || !hoverState?.valid || (character > 0 && spot === 0)}
+              confirmDisabled={loading || !hand || !hoverState?.valid}
               discardDisabled={loading || !hand}
-              packedCharacters={state.packedCharacters}
-              selectedCharacter={character}
-              onSelectCharacter={(c) => useGameStore.getState().setCharacter(c)}
             />
           </div>
         )}

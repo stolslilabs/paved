@@ -1,8 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { GameCanvas } from "@paved/renderer/react";
 import type { GameScene, TileRenderData } from "@paved/renderer";
-import { toRenderCharacters } from "../utils/char-helpers";
 import { loadBoard } from "./board";
 import type { BenchBoard } from "./board";
 import { ClickBench } from "./click-bench";
@@ -42,11 +41,6 @@ function Bench({ board, durationMs }: { board: BenchBoard; durationMs: number })
   const [tiles, setTiles] = useState<TileRenderData[]>([]);
   const click = useRef<ClickBench | null>(null);
 
-  const characters = useMemo(() => {
-    const byId = new Map(board.tiles.map((t) => [t.id, { worldX: t.worldX, worldZ: t.worldZ }]));
-    return tiles.length > 0 ? toRenderCharacters(board.characters, byId) : [];
-  }, [tiles, board]);
-
   // Like the game, the board arrives after the scene is ready.
   const onReady = useCallback((scene: GameScene) => {
     setTiles(board.tiles);
@@ -73,7 +67,6 @@ function Bench({ board, durationMs }: { board: BenchBoard; durationMs: number })
     <GameCanvas
       basePath=""
       tiles={tiles}
-      characters={characters}
       cameraMode="play"
       onReady={onReady}
       onTileClick={mode === "click" ? onTileClick : undefined}

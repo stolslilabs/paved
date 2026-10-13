@@ -18,7 +18,6 @@ vi.mock("@paved/ui", async () => {
     ...makeUiMock(),
     IngameStatus: () => null,
     GameCompleteDialog: () => null,
-    SpotSelector: () => null,
     ActionBar: () => null,
   };
 });
