@@ -16,6 +16,27 @@ Sources read: `contracts/src/components/playable.cairo`, `tutoriable.cairo`, `ho
 as Scarb downloaded them): the two READMEs, `CHANGELOG.md`, `GAS.md`, `Scarb.toml`; Nums and Glitchbomb (read only,
 `contracts/src/elements/{quests,achievements,tasks}`, `components/playable.cairo`).
 
+## Planned: D-20 to D-25
+
+The design below is as built for P7. Five decisions of 2026-10-13 change where it runs and who reports
+(`docs/programme/DECISIONS.md`; inventories in `leaderboard.md`, "D-20" to "D-24"); the rules of the quests and the
+achievements, their tasks and their targets do not change:
+
+- **D-20**: On the Podium is credited from the indexer's daily leaderboard, no longer from the `tournament` view
+  (below, "On the Podium"). Task 9 (`WIN`) loses its on-chain source if the ranking goes (`leaderboard.md`, "Open for
+  the PM").
+- **D-21**: the tutorial leaves the contracts. First Stone (achievement 1, task 10) is credited by a claim the player
+  calls, `claim_tutorial()`, idempotent, with **no on-chain check** that the tutorial was played (P-49 (2)). Every
+  wording below where `Tutorial` or `TutoriableComponent` reports task 10 at its game over is obsolete from D-21 on.
+- **D-23**: `Daily` becomes Challenge. The quests stay daily (they reset each UTC day) and keep their rules; "Daily
+  game" in their descriptions reads "Challenge game", and a title that names the mode follows it (Daily Run). Titles
+  and descriptions are not on chain (`define_quest` takes ids, tasks and a schedule).
+- **D-24, D-25**: the quests and achievements live in a separate contract, **Setup** (the D-24 system, named by
+  D-25), with the quiver components and the owner-only definitions; this is the "separate `Quests` contract"
+  alternative of "How Paved integrates quiver" below, now chosen. **Challenge reports**, once per game over, as an
+  allowlisted reporter (`report(player_id, quests, achievements)`); **Training never reports** (it is off chain, D-22);
+  the tutorial claim is on Setup. Design: `leaderboard.md`, "D-24".
+
 ## What Nums and Glitchbomb do
 
 Both are Dojo games using the Arcade `quest` and `achievement` components, with the same shape.
@@ -52,9 +73,9 @@ A task id is a non-zero `u32` that the package treats as opaque. The game owns t
 | 5 | `WONDER_SCORED` | A `Scored` event of a wonder: one per structure, on the move that closes it |
 | 6 | `BIG_STRUCTURE` | A road or a city scored with size of at least `BIG_SIZE` (8, to calibrate) |
 | 7 | `HIGH_SCORE` | A finished Daily game with a score of at least `HIGH_SCORE` (4,000, to calibrate) |
-| 8 | `PODIUM` | A place in the top 3 of a closed day's tournament. **Not reported by the contract** (see "On the Podium" below) |
+| 8 | `PODIUM` | A place in the top 3 of a closed day's tournament (from D-20: of the indexer's daily leaderboard). **Not reported by the contract** (see "On the Podium" below) |
 | 9 | `WIN` | A finished Daily game that took rank 1 |
-| 10 | `TUTORIAL_FINISHED` | A Tutorial game over |
+| 10 | `TUTORIAL_FINISHED` | A Tutorial game over (obsolete from D-21: the player's `claim_tutorial()`, unchecked) |
 
 Tutorial games count for task 10 only: the tutorial is free, so it must not feed dailies, which are tied to the paid
 Daily.
@@ -83,7 +104,7 @@ task, as the package intends.
 
 | Id | Title | Description | Condition (task, target) | Points |
 |---|---|---|---|---|
-| 1 | First Stone | Finish the Tutorial. | `TUTORIAL_FINISHED` 1 | 10 |
+| 1 | First Stone | Finish the Tutorial (from D-21: claimed, not checked on chain). | `TUTORIAL_FINISHED` 1 | 10 |
 | 2 | Settler I | Finish a Daily game. | `GAME_FINISHED` 1 | 10 |
 | 3 | Settler II | Finish 10 Daily games. | `GAME_FINISHED` 10 | 20 |
 | 4 | Settler III | Finish 50 Daily games. | `GAME_FINISHED` 50 | 40 |
@@ -97,6 +118,17 @@ A tenth, `Champion` (`WIN` 5), is left out to keep the list at nine; task 9 is d
 costs nothing (below) and lets the ruling add it without a contract change.
 
 ### On the Podium (orchestrator's choice under P-22)
+
+**From D-20 (P-48 (6), planned).** The `tournament` view goes with the prize, so the indexer credits On the Podium
+from **its own daily leaderboard**: after a day closes, the players of ranks 1 to 3 of that day's leaderboard, by
+its existing ranking rule, D-P6-1 (`docs/architecture/indexer.md`, "What is derived" and "Decided here"): one row per
+player, by best score descending, ties broken by the chain order of the `GameOver` event `(over_block, over_tx,
+over_idx)`, earliest first, over the games whose `GameOver.tournament_id` is that day. One difference with the
+contract's ranking: the leaderboard ranks players, the contract ranked games, so a player can no longer hold two
+podium places; the three places go to three different players. **What the contract still does for this quest:
+nothing on chain.** It never reported task 8 (`constants.cairo:36-37`); it keeps emitting `GameOver` with the day in
+`tournament_id`, which the leaderboard groups on. The paragraph below is the design as built before D-20.
+
 
 The contract cannot know a final rank before the day ends: a later game can push a player out of the top 3. So
 `PODIUM` is **reported by the indexer**, not by the game-over report: after the day ends, the indexer reads the
@@ -158,7 +190,7 @@ the internal layer from its own entrypoints, after its own checks"):
 - `Daily` embeds `QuestComponent` and `AchievementComponent` (`#[flat]` events, like its other components),
   `AchievementViewImpl` and `QuestViewImpl` (views only), and the **internal impls**. It does **not** embed the
   external `QuestImpl` / `AchievementImpl`: no `progress` entrypoint exists for a client or another contract.
-- `Tutorial` embeds the two components too, but only to emit task 10. Progress reads no definition (the achievement
+- (Obsolete from D-21.) `Tutorial` embeds the two components too, but only to emit task 10. Progress reads no definition (the achievement
   package says so: "reads no definition there"), so the definitions live in `Daily` only and `Tutorial` stores
   nothing for this.
 - Tracking: `TrackAll` for both, because the indexer reads definitions from `AchievementDefined` / `QuestDefined`.
@@ -229,7 +261,7 @@ reports once, when the game is over**:
 | `build` game over | `components/playable.cairo` | tasks 1 to 7 and 9 from the game and the rank |
 | `discard` game over | `components/playable.cairo` | same |
 | `surrender` game over | `components/playable.cairo` | same |
-| Tutorial game over (last build, last discard; never surrender, P-28) | `components/tutoriable.cairo` | task 10 |
+| Tutorial game over (last build, last discard; never surrender, P-28); obsolete from D-21: `claim_tutorial()` on Setup | `components/tutoriable.cairo` | task 10 |
 
 A game that is never finished reports nothing: that is by design (a daily is "finish today's game" first), and a
 player who wants their partial scoring to count can `surrender`.
