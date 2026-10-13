@@ -89,8 +89,8 @@ describe("Tutorial deck", () => {
       expect(params).toHaveProperty("orientation");
       expect(params).toHaveProperty("x");
       expect(params).toHaveProperty("y");
-      expect(params).toHaveProperty("role");
-      expect(params).toHaveProperty("spot");
+      expect(params).not.toHaveProperty("role");
+      expect(params).not.toHaveProperty("spot");
     }
   });
 

@@ -7,7 +7,7 @@ import type { AchievementDefinition, QuestDefinition, TaskTarget } from "@paved/
 export const QUEST_TEXT: Record<number, { title: string; description: string }> = {
   1: { title: "Daily Run", description: "Finish today's Daily." },
   2: { title: "Master Builder", description: "Score roads and cities in a day." },
-  3: { title: "Into the Woods", description: "Score a forest with your Woodsman or Herdsman." },
+  3: { title: "Into the Woods", description: "Close a forest: it scores its closed roads and cities." },
   4: { title: "Point Chaser", description: "Collect points in a day: the sum of the scores of the day's finished Daily games, not a single game." },
 };
 
