@@ -6,17 +6,17 @@
 //! stored, and values are packed into whole felts (see `docs/architecture/native-storage.md`).
 
 use core::num::traits::Zero;
-use paved::tests::legacy::events::Event;
+use paved::models::player::Player;
+use paved::models::tournament::Tournament;
+use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
 use paved::tests::legacy::builder::Builder;
 use paved::tests::legacy::character::Char;
+use paved::tests::legacy::events::Event;
 use paved::tests::legacy::game::Game;
-use paved::models::player::Player;
-use paved::tests::legacy::tile::{Tile, TileIntoPosition, TilePosition, ZeroableTile};
-use paved::models::tournament::Tournament;
 use paved::tests::legacy::placement;
-use paved::systems::account::{IAccountDispatcher, IAccountDispatcherTrait};
-use paved::types::orientation::Orientation;
 use paved::tests::legacy::role::Role;
+use paved::tests::legacy::tile::{Tile, TileIntoPosition, TilePosition, ZeroableTile};
+use paved::types::orientation::Orientation;
 use paved::types::spot::Spot;
 use starknet::storage::{
     Map, Mutable, StorageAsPath, StorageAsPointer, StorageBase, StoragePath, StoragePathEntry,

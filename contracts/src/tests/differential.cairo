@@ -91,9 +91,7 @@ fn test_differential_gas_scenario_d() {
     board.step(Plan::FFFFCCCFF, Orientation::South, CENTER + 1, CENTER + 3);
     board.step(Plan::FFFFCCCFF, Orientation::North, CENTER + 1, CENTER + 4);
     board.step(Plan::FFFFCCCFF, Orientation::East, CENTER + 2, CENTER + 4);
-    board
-        .build(
-            Plan::FFFFFFCFF, Orientation::South, CENTER + 2, CENTER + 3);
+    board.build(Plan::FFFFFFCFF, Orientation::South, CENTER + 2, CENTER + 3);
     let game = board.store.game(board.game_id);
     assert(game.score > 0, 'Differential: tree not scored');
 }
@@ -220,9 +218,7 @@ fn test_differential_tutorial_full_sequence() {
 #[available_gas(l2_gas: 363925000)]
 fn test_differential_wonder_ring() {
     let board = BoardTrait::new();
-    board
-        .build(
-            Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER);
+    board.build(Plan::WFFFFFFFR, Orientation::North, CENTER + 1, CENTER);
     let mut id = 100;
     for (x, y) in array![
         (CENTER + 1, CENTER + 1), (CENTER + 2, CENTER + 1), (CENTER + 2, CENTER),

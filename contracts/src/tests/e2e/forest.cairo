@@ -76,7 +76,9 @@ fn put(
 
 /// Writes a placed tile into storage, without a build (`Store::set_tile` places it on the
 /// structure state; nothing scores).
-fn write(store: TestStore, game_id: u32, id: u32, plan: Plan, orientation: Orientation, x: u32, y: u32) {
+fn write(
+    store: TestStore, game_id: u32, id: u32, plan: Plan, orientation: Orientation, x: u32, y: u32,
+) {
     store.set_tile(Tile { game_id, id, plan: plan.into(), orientation: orientation.into(), x, y });
 }
 

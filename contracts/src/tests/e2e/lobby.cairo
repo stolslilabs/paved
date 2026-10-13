@@ -314,9 +314,7 @@ fn test_lobby_class_is_never_written_after_construction() {
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::FFCFFFCFF.into();
     store.set_tile(tile);
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
     assert(stored_lobby_class(daily) == lobby, 'Lobby: written by build');
     systems.daily.discard(context.game_id);
     assert(stored_lobby_class(daily) == lobby, 'Lobby: written by discard');

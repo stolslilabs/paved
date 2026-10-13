@@ -6,13 +6,13 @@
 //! 7 south-west, 8 west; 0 unused), the zero tile where a position is empty. The tables read on
 //! this path are the oriented rows (`oriented.cairo`): no rotation is computed.
 
-use paved::tests::legacy::tile::{Tile, TileImpl, ZeroableTile};
-use paved::tests::legacy::store::{Store, StoreImpl};
+use paved::structure::{oriented, tables};
 use paved::tests::legacy::record::{
     add_ref, chars_of, close_one, founded, ref_of, sid, with_chars, with_ref,
 };
 use paved::tests::legacy::state::{Structures, StructuresTrait};
-use paved::structure::{oriented, tables};
+use paved::tests::legacy::store::{Store, StoreImpl};
+use paved::tests::legacy::tile::{Tile, TileImpl, ZeroableTile};
 
 pub mod errors {
     pub const TILE_NO_NEIGHBORS: felt252 = 'Tile: no neighbors';

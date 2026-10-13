@@ -7,14 +7,14 @@
 //! role allowed on a road or a city weighs at least 1 there, so `GenericCount::solve` always found
 //! a winner.
 
-use paved::tests::legacy::events::{Event, Scored};
 use paved::helpers::multiplier::compute_multiplier;
 use paved::tests::legacy::builder::BuilderImpl;
+use paved::tests::legacy::events::{Event, Scored};
 use paved::tests::legacy::game::{Game, GameImpl};
-use paved::tests::legacy::store::{Store, StoreImpl};
 use paved::tests::legacy::placement::role_bit;
 use paved::tests::legacy::record::{chars_of, open_of, size_of, without_chars};
 use paved::tests::legacy::state::{Structures, StructuresTrait};
+use paved::tests::legacy::store::{Store, StoreImpl};
 use paved::types::category::{Category, CategoryImpl};
 
 /// The roles a `chars` bitmap can hold today.

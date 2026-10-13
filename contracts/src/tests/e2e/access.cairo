@@ -221,9 +221,7 @@ fn test_access_tutorial_spawn_reverts_for_unregistered_caller() {
 fn test_access_daily_build_reverts_on_another_players_game() {
     let (_, systems, context) = setup::spawn_game(Mode::Daily);
     start_cheat_caller_address(systems.daily.contract_address, NOONE());
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 }
 
 #[test]

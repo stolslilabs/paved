@@ -14,19 +14,19 @@
 //!   could count an open city that a forest touched twice).
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
-use paved::tests::legacy::events::{Event, Scored};
 use paved::helpers::multiplier::compute_multiplier;
-use paved::tests::legacy::builder::BuilderImpl;
-use paved::tests::legacy::game::{Game, GameImpl};
-use paved::tests::legacy::tile::Tile;
-use paved::tests::legacy::store::{Store, StoreImpl};
+use paved::structure::{oriented, tables};
 use paved::tests::legacy::assessment::recover;
+use paved::tests::legacy::builder::BuilderImpl;
+use paved::tests::legacy::events::{Event, Scored};
+use paved::tests::legacy::game::{Game, GameImpl};
 use paved::tests::legacy::placement::role_bit;
 use paved::tests::legacy::record::{chars_of, open_of, ref_of, size_of, without_chars};
-use paved::tests::legacy::state::{Structures, StructuresTrait};
-use paved::structure::{oriented, tables};
-use paved::types::category::{Category, CategoryImpl};
 use paved::tests::legacy::role::Role;
+use paved::tests::legacy::state::{Structures, StructuresTrait};
+use paved::tests::legacy::store::{Store, StoreImpl};
+use paved::tests::legacy::tile::Tile;
+use paved::types::category::{Category, CategoryImpl};
 
 /// Scores the forest of `area` of the built `tile` (of refs `refs`) if it is closed and holds a
 /// Woodsman or a Herdsman: one `Scored` per character (the Woodsman first), even with 0 points, and

@@ -24,6 +24,7 @@
 //! grow by exactly the points the game gained (`score::board_points`, before and after: what was
 //! closed before the upgrade is not scored again).
 
+use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use paved::events::{Event as PavedEvent, Scored};
 use paved::models::game::GameTrait;
 use paved::models::tile::CENTER;
@@ -41,7 +42,6 @@ use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use paved::types::spot::Spot;
 use paved::views::{BuilderView, IGameViewDispatcher, IGameViewDispatcherTrait};
-use openzeppelin_interfaces::upgrades::{IUpgradeableDispatcher, IUpgradeableDispatcherTrait};
 use snforge_std::{
     DeclareResultTrait, EventSpyAssertionsTrait, declare, get_class_hash, interact_with_state,
     spy_events, start_cheat_caller_address,
@@ -138,9 +138,7 @@ fn standing(store: TestStore, game_id: u32, role: Role) -> (u32, u8) {
 fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Daily::Event {
     Daily::Event::PavedEvent(
         PavedEvent::Scored(
-            Scored {
-                game_id, player_id: PLAYER().into(), category: category.into(), size, points,
-            },
+            Scored { game_id, player_id: PLAYER().into(), category: category.into(), size, points },
         ),
     )
 }
@@ -207,8 +205,26 @@ fn test_upgrade_d18_daily_game_open_across_the_upgrade() {
         Role::Woodsman,
         Spot::SouthEast,
     );
-    old(store, g, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1, Role::None, Spot::None);
-    old(store, g, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, Role::None, Spot::None);
+    old(
+        store,
+        g,
+        Plan::RFRFFFFFR,
+        Orientation::West,
+        CENTER + 1,
+        CENTER - 1,
+        Role::None,
+        Spot::None,
+    );
+    old(
+        store,
+        g,
+        Plan::RFRFFFFFR,
+        Orientation::North,
+        CENTER + 1,
+        CENTER - 2,
+        Role::None,
+        Spot::None,
+    );
     old(
         store,
         g,
@@ -344,8 +360,26 @@ fn gas_e_before_d18(woodsman: bool) -> u128 {
         (Role::None, Spot::None)
     };
     old(store, g, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, role, spot);
-    old(store, g, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1, Role::None, Spot::None);
-    old(store, g, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, Role::None, Spot::None);
+    old(
+        store,
+        g,
+        Plan::RFRFFFFFR,
+        Orientation::West,
+        CENTER + 1,
+        CENTER - 1,
+        Role::None,
+        Spot::None,
+    );
+    old(
+        store,
+        g,
+        Plan::RFRFFFFFR,
+        Orientation::North,
+        CENTER + 1,
+        CENTER - 2,
+        Role::None,
+        Spot::None,
+    );
     force(store, g, Plan::RFRFFFFFR);
     let frozen = IDailyBeforeD18Dispatcher { contract_address: store.contract };
     let before = core::testing::get_available_gas();

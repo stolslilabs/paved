@@ -13,7 +13,8 @@ use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::tile::{Tile, ZeroableTile};
 use paved::store::{Store, StoreImpl};
 use paved::structure::record::{
-    Record, RecordTrait, child_of, grow, open_of, pack_slot, parent_of, root_of, size_of, unpack_slot,
+    Record, RecordTrait, child_of, grow, open_of, pack_slot, parent_of, root_of, size_of,
+    unpack_slot,
 };
 
 // Constants

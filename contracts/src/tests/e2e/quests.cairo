@@ -471,9 +471,7 @@ fn test_quests_daily_game_over_on_the_last_build() {
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::RFFFRFFFR.into();
     store.set_tile(tile);
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER + 1, CENTER);
+    systems.daily.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: not over');
     assert_daily_report(systems.daily.contract_address, spy, context.player_id, game.score);

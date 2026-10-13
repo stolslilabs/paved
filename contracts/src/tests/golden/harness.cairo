@@ -11,12 +11,12 @@
 //! checked replays (`*_structures_agree`) assert, on every build, that the move scored exactly what
 //! the walks give, and at the end that the board's finished structures all scored.
 
+use paved::constants::DISCARD_POINTS;
 use paved::models::game::{Game, GameTrait};
 use paved::models::tile::Tile;
 use paved::models::tournament::TournamentTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::leaderboard;
-use paved::constants::DISCARD_POINTS;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, TestStore, TestStoreTrait};

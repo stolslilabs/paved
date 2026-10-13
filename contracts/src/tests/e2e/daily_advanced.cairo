@@ -167,9 +167,7 @@ fn test_daily_e2e_build_then_discard_tracks_both_actions() {
     tile.plan = Plan::FFCFFFCFF.into();
     store.set_tile(tile);
 
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
     systems.daily.discard(context.game_id);
 
     let game = store.game(context.game_id);

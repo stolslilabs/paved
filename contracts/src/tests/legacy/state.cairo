@@ -14,12 +14,12 @@
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::tests::legacy::character::Char;
-use paved::tests::legacy::tile::{Tile, ZeroableTile};
-use paved::tests::legacy::store::{Store, StoreImpl};
 use paved::tests::legacy::record::{
     Record, RecordTrait, chars_of, child_of, grow, open_of, pack_slot, parent_of, root_of, size_of,
     unpack_slot,
 };
+use paved::tests::legacy::store::{Store, StoreImpl};
+use paved::tests::legacy::tile::{Tile, ZeroableTile};
 
 // Constants
 

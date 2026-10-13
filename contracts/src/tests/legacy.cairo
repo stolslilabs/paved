@@ -25,7 +25,6 @@ pub mod role;
 pub mod state;
 pub mod store;
 pub mod tile;
-
 use paved::tests::legacy::role::Role;
 use paved::types::orientation::Orientation;
 use paved::types::spot::Spot;
@@ -69,6 +68,7 @@ pub fn tutorial_parameters(index: u32) -> (Orientation, u32, u32, Role, Spot) {
 pub mod DailyBeforeD18 {
     use openzeppelin_upgrades::UpgradeableComponent;
     use paved::components::ownable::OwnableComponent;
+    use paved::helpers::bitmap::Bitmap;
     use paved::tests::legacy::builder::{BuilderAssert, BuilderImpl};
     use paved::tests::legacy::events::{Built, Event as PavedEvent};
     use paved::tests::legacy::game::{GameAssert, GameImpl};
@@ -76,7 +76,6 @@ pub mod DailyBeforeD18 {
     use paved::tests::legacy::role::Role;
     use paved::tests::legacy::state::StructuresTrait;
     use paved::tests::legacy::store::{Store, StoreImpl};
-    use paved::helpers::bitmap::Bitmap;
     use paved::tests::legacy::tile::{TileAssert, TilePositionAssert};
     use paved::types::orientation::{Orientation, OrientationAssert};
     use paved::types::spot::Spot;
@@ -140,112 +139,106 @@ pub mod DailyBeforeD18 {
     /// The body shared by the two builds of 07aab8a; `daily` stirs the seed with the position
     /// before the draw, as `Daily` did (the Tutorial did not).
     fn build_before_d18(
-        game_id: u32,
-        orientation: Orientation,
-        x: u32,
-        y: u32,
-        role: Role,
-        spot: Spot,
-        daily: bool,
+        game_id: u32, orientation: Orientation, x: u32, y: u32, role: Role, spot: Spot, daily: bool,
     ) {
-            // [Setup] Datastore
-            let mut store: Store = StoreImpl::new();
+        // [Setup] Datastore
+        let mut store: Store = StoreImpl::new();
 
-            // [Check] Game exists
-            let mut game = store.live_game(game_id);
-            game.assert_exists();
+        // [Check] Game exists
+        let mut game = store.live_game(game_id);
+        game.assert_exists();
 
-            // [Check] Game has started
-            game.assert_started();
+        // [Check] Game has started
+        game.assert_started();
 
-            // [Check] Game is not over
-            game.assert_not_over();
+        // [Check] Game is not over
+        game.assert_not_over();
 
-            // [Check] The caller is the player of the game: the game has one builder, its
-            // player's, and anyone else has none
-            let player_id: felt252 = get_caller_address().into();
-            let mut builder = game.builder_of(player_id);
-            builder.assert_exists();
+        // [Check] The caller is the player of the game: the game has one builder, its
+        // player's, and anyone else has none
+        let player_id: felt252 = get_caller_address().into();
+        let mut builder = game.builder_of(player_id);
+        builder.assert_exists();
 
-            // [Check] Tile exists
-            let mut tile = store.tile(game, builder.tile_id);
-            tile.assert_exists();
+        // [Check] Tile exists
+        let mut tile = store.tile(game, builder.tile_id);
+        tile.assert_exists();
 
-            // [Check] Position not already taken
-            let tile_position = store.tile_position(game, x, y);
-            tile_position.assert_not_exists();
+        // [Check] Position not already taken
+        let tile_position = store.tile_position(game, x, y);
+        tile_position.assert_not_exists();
 
-            // [Effect] Build tile
-            let around = NeighborhoodTrait::read(game_id, x, y);
-            builder.build(ref tile, orientation, x, y);
+        // [Effect] Build tile
+        let around = NeighborhoodTrait::read(game_id, x, y);
+        builder.build(ref tile, orientation, x, y);
 
-            // [Check] The tile fits its neighbours
-            placement::assert_fits(tile, @around);
+        // [Check] The tile fits its neighbours
+        placement::assert_fits(tile, @around);
 
-            // [Event] Tile built
-            store
-                .emit(
-                    PavedEvent::Built(
-                        Built {
-                            game_id,
-                            player_id: player_id,
-                            tile_id: tile.id,
-                            plan: tile.plan,
-                            orientation: orientation.into(),
-                            x,
-                            y,
-                            role: role.into(),
-                            spot: spot.into(),
-                        },
-                    ),
-                );
+        // [Event] Tile built
+        store
+            .emit(
+                PavedEvent::Built(
+                    Built {
+                        game_id,
+                        player_id: player_id,
+                        tile_id: tile.id,
+                        plan: tile.plan,
+                        orientation: orientation.into(),
+                        x,
+                        y,
+                        role: role.into(),
+                        spot: spot.into(),
+                    },
+                ),
+            );
 
-            // [Check] Character to place: its structure is idle
-            let mut structures = StructuresTrait::new(game_id);
-            let placing = role != Role::None && spot != Spot::None;
-            if placing {
-                game.assert_structure_idle(tile, spot, @around, ref structures);
-            }
+        // [Check] Character to place: its structure is idle
+        let mut structures = StructuresTrait::new(game_id);
+        let placing = role != Role::None && spot != Spot::None;
+        if placing {
+            game.assert_structure_idle(tile, spot, @around, ref structures);
+        }
 
-            // [Effect] Place the tile on the structure state
-            let refs = game.place_structures(tile, @around, ref structures);
+        // [Effect] Place the tile on the structure state
+        let refs = game.place_structures(tile, @around, ref structures);
 
-            if placing {
-                // [Effect] Place character
-                let character = builder.place(role, ref tile, spot);
-                game.occupy_structure(tile, refs, spot, role, ref structures);
+        if placing {
+            // [Effect] Place character
+            let character = builder.place(role, ref tile, spot);
+            game.occupy_structure(tile, refs, spot, role, ref structures);
 
-                // [Effect] Update character (written with the structure state, at the end)
-                structures.put_character(character);
-            }
+            // [Effect] Update character (written with the structure state, at the end)
+            structures.put_character(character);
+        }
 
-            // [Effect] Update tile (written with its position by `flush`, after the assessment)
-            structures.track(tile, refs);
+        // [Effect] Update tile (written with its position by `flush`, after the assessment)
+        structures.track(tile, refs);
 
-            // [Effect] Assess game over
-            game.assess_over();
-            // [Info] The test ends its games under the new class
-            assert(!game.is_over(), 'Legacy: game over');
+        // [Effect] Assess game over
+        game.assess_over();
+        // [Info] The test ends its games under the new class
+        assert(!game.is_over(), 'Legacy: game over');
 
-            // [Effect] Draw a new tile
-            if daily {
-                game.reseed(tile);
-            }
-            let (tile_id, plan) = game.draw_plan();
-            let new_tile = builder.reveal(tile_id, plan);
-            store.set_tile(new_tile);
+        // [Effect] Draw a new tile
+        if daily {
+            game.reseed(tile);
+        }
+        let (tile_id, plan) = game.draw_plan();
+        let new_tile = builder.reveal(tile_id, plan);
+        store.set_tile(new_tile);
 
-            // [Effect] Update builder: the tile in hand and the roles placed are part of the game
-            // state, which the assessment recovers characters into
-            game.set_builder(builder);
+        // [Effect] Update builder: the tile in hand and the roles placed are part of the game
+        // state, which the assessment recovers characters into
+        game.set_builder(builder);
 
-            // [Effect] Assessment, then what the move changed outside the game state: the record
-            // pages, the `Characters` word and the built tile
-            game.assess(tile, refs, @around, ref structures, ref store);
-            structures.flush(store);
+        // [Effect] Assessment, then what the move changed outside the game state: the record
+        // pages, the `Characters` word and the built tile
+        game.assess(tile, refs, @around, ref structures, ref store);
+        structures.flush(store);
 
-            // [Effect] Update game
-            game.built += 1;
-            store.set_game_state(game);
+        // [Effect] Update game
+        game.built += 1;
+        store.set_game_state(game);
     }
 }

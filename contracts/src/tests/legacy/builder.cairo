@@ -4,18 +4,18 @@
 
 use paved::constants;
 use paved::helpers::bitmap::Bitmap;
+use paved::models::player::{Player, PlayerImpl};
 use paved::tests::legacy::character::{Char, CharImpl};
 use paved::tests::legacy::game::{Game, GameImpl};
 pub use paved::tests::legacy::index::Builder;
-use paved::models::player::{Player, PlayerImpl};
-use paved::tests::legacy::tile::{Tile, TileImpl, TileIntoLayout};
-use paved::tests::legacy::store::{Store, StoreImpl};
 use paved::tests::legacy::placement::role_bit;
+use paved::tests::legacy::role::{Role, RoleAssert, RoleImpl};
+use paved::tests::legacy::store::{Store, StoreImpl};
+use paved::tests::legacy::tile::{Tile, TileImpl, TileIntoLayout};
 use paved::types::category::Category;
 use paved::types::layout::{Layout, LayoutImpl};
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::tests::legacy::role::{Role, RoleAssert, RoleImpl};
 use paved::types::spot::Spot;
 
 pub mod errors {

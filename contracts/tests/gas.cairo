@@ -37,28 +37,28 @@ use crate::setup::setup;
 use crate::setup::setup::{ANYONE, IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
 
 // Ceilings: measured figure + 5 %, rounded up (see docs/measures/baseline.md).
-pub const CEILING_OPEN: u128 = 5869212;
-pub const CEILING_SIMPLE: u128 = 5329081;
-pub const CEILING_CLOSE_LARGE: u128 = 6392332;
-pub const CEILING_WORST_CASE: u128 = 7325796;
-pub const CEILING_FOREST: u128 = 9756082;
-pub const CEILING_FOREST_WORST: u128 = 19956685;
+pub const CEILING_OPEN: u128 = 5709834;
+pub const CEILING_SIMPLE: u128 = 5315180;
+pub const CEILING_CLOSE_LARGE: u128 = 5393424;
+pub const CEILING_WORST_CASE: u128 = 5662074;
+pub const CEILING_FOREST: u128 = 8962300;
+pub const CEILING_FOREST_WORST: u128 = 18923195;
 // g, h, i: a surrender runs in the `Lobby` class, one library call (+146,730 in this profile, S1).
 // g to l: a Daily game over records its score in `Economy` (P8 E3): the `Account.economy` read and
 // `Economy.record` add about 1.46M (1.11M on i).
-pub const CEILING_CLOSING_PLACES: u128 = 3700987;
-pub const CEILING_CLOSING_NOT_PLACED: u128 = 3277673;
-pub const CEILING_CLOSING_AFTER: u128 = 2718591;
+pub const CEILING_CLOSING_PLACES: u128 = 3672907;
+pub const CEILING_CLOSING_NOT_PLACED: u128 = 3249593;
+pub const CEILING_CLOSING_AFTER: u128 = 2690889;
 pub const CEILING_VIEW: u128 = 388740;
-pub const CEILING_CLOSING_FULL_REPORT: u128 = 4046311;
-pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7961200;
+pub const CEILING_CLOSING_FULL_REPORT: u128 = 4018231;
+pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7774092;
 // m, n, o: spawns (P8 E3). A Daily spawn pays `Economy.purchase` (swap, burn, Vault).
-pub const CEILING_SPAWN_DAILY: u128 = 52732319;
-pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 53809525;
-pub const CEILING_SPAWN_TUTORIAL: u128 = 5440053;
+pub const CEILING_SPAWN_DAILY: u128 = 52743229;
+pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 53820644;
+pub const CEILING_SPAWN_TUTORIAL: u128 = 5363508;
 // p, q, r: the prize (P-31, P-37). A sponsor records its share; a claim and a reclaim pay out.
-pub const CEILING_SPONSOR: u128 = 1960255;
-pub const CEILING_CLAIM: u128 = 2037502;
+pub const CEILING_SPONSOR: u128 = 1956265;
+pub const CEILING_CLAIM: u128 = 2033722;
 pub const CEILING_RECLAIM: u128 = 1611612;
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
 // `src/tests/differential.cairo` (D-18b).
@@ -110,8 +110,7 @@ fn report(name: ByteArray, gas: u128, ceiling: u128) {
 #[test]
 fn test_gas_a0_open_simple_move() {
     let s = ScenarioTrait::new();
-    let gas = s
-        .build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
+    let gas = s.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
     report("a0_open_simple_move", gas, CEILING_OPEN);
 }
 
@@ -120,8 +119,7 @@ fn test_gas_a0_open_simple_move() {
 #[test]
 fn test_gas_a_simple_move() {
     let s = ScenarioTrait::new();
-    let gas = s
-        .build(Plan::FFCFFFCFF, Orientation::North, CENTER, CENTER + 1);
+    let gas = s.build(Plan::FFCFFFCFF, Orientation::North, CENTER, CENTER + 1);
     report("a_simple_move", gas, CEILING_SIMPLE);
 }
 
@@ -136,8 +134,7 @@ fn test_gas_c_close_large_city() {
     s.step(Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 3);
     s.step(Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 4);
     // The cap closes the city: it scores.
-    let gas = s
-        .build(Plan::FFFFFFCFF, Orientation::East, CENTER + 1, CENTER + 4);
+    let gas = s.build(Plan::FFFFFFCFF, Orientation::East, CENTER + 1, CENTER + 4);
     let game = s.store.game(s.game_id);
     assert(game.score > 0, 'Gas: city not scored');
     report("c_close_large_city", gas, CEILING_CLOSE_LARGE);
@@ -179,8 +176,8 @@ fn test_gas_d_worst_case() {
 /// are one forest. The fourth curve closes the loop of road and the forest: the golden
 /// `daily_forest_woodsman_ring` (its expected score comes from the oracle). Before D-18 a Woodsman
 /// waited on the first curve; the same move without it is scenario e0 of `baseline.md`, whose
-/// figure before D-18 is measured on the frozen class (`src/tests/e2e/upgrade_d18.cairo`): without a
-/// forest character nothing was scanned. Since D-18 every forest closure is scanned, so e is the
+/// figure before D-18 is measured on the frozen class (`src/tests/e2e/upgrade_d18.cairo`): without
+/// a forest character nothing was scanned. Since D-18 every forest closure is scanned, so e is the
 /// figure of both.
 #[test]
 fn test_gas_e_close_forest() {
@@ -188,8 +185,7 @@ fn test_gas_e_close_forest() {
     s.step(Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1);
     s.step(Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1);
     s.step(Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2);
-    let gas = s
-        .build(Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
+    let gas = s.build(Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2);
     let game = s.store.game(s.game_id);
     assert(game.score == SCORE_E, 'Gas: forest not scored');
     report("e_close_forest", gas, CEILING_FOREST);
@@ -334,8 +330,7 @@ fn test_gas_l_game_over_on_build() {
     let mut game = s.store.game(s.game_id);
     game.tile_limit = game.tile_count.try_into().unwrap();
     s.store.set_game(game);
-    let gas = s
-        .build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
+    let gas = s.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
     assert(s.store.game(s.game_id).is_over(), 'Gas: not over');
     report("l_game_over_on_build", gas, CEILING_GAME_OVER_ON_BUILD);
 }

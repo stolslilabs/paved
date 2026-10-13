@@ -142,9 +142,7 @@ fn test_economy_records_a_game_over_on_build() {
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::RFFFRFFFR.into();
     store.set_tile(tile);
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER + 1, CENTER);
+    systems.daily.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
     assert_recorded(store, @systems, context.game_id);
 }
 

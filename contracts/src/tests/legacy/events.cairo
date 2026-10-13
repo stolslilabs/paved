@@ -1,7 +1,8 @@
 //! Events definition.
 //!
-//! Every contract declares `#[flat] PavedEvent: paved::tests::legacy::events::Event` in its own event enum, so
-//! these events are in its ABI; `Store::emit` writes them with the same keys and data.
+//! Every contract declares `#[flat] PavedEvent: paved::tests::legacy::events::Event` in its own
+//! event enum, so these events are in its ABI; `Store::emit` writes them with the same keys and
+//! data.
 //! Reference: `docs/architecture/native-storage.md`.
 
 use paved::tests::legacy::game::Game;

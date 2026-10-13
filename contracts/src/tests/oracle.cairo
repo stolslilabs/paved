@@ -298,8 +298,8 @@ pub mod forest {
     /// The walk counts the distinct closed roads adjacent to the forest (what the Woodsman scored)
     /// and the distinct closed cities adjacent to it (what the Herdsman scored); an open adjacent
     /// city is not counted and does not keep the forest open. D-18 (P-45): the forest scores both,
-    /// with no character (`score::points_at`). The size of the forest only enters the points through
-    /// the bonus curve.
+    /// with no character (`score::points_at`). The size of the forest only enters the points
+    /// through the bonus curve.
     ///
     /// P-15 (P5-5): a city counts only when it is closed as a whole, each city once.
     /// The 2024 walk could count an open city that the forest touched at two places; this oracle
@@ -512,8 +512,8 @@ pub mod open_count {
 
 /// The points of the rules of D-18 (P-45), from the walks alone: what the structure state must
 /// score. A structure scores once, when it is finished: a road or a city `count x base x
-/// bonus(count)`, a wonder `base` when its 8 neighbours are placed, a forest `(distinct closed roads
-/// + distinct closed cities) x base x bonus(count)` once its edges and its roads are closed.
+/// bonus(count)`, a wonder `base` when its 8 neighbours are placed, a forest `(distinct closed
+/// roads + distinct closed cities) x base x bonus(count)` once its edges and its roads are closed.
 pub mod score {
     use core::dict::{Felt252Dict, Felt252DictTrait};
     use paved::helpers::multiplier::compute_multiplier;
@@ -598,8 +598,7 @@ pub mod score {
         while let Option::Some(start) = starts.pop_front() {
             let at = start.rotate(tile.orientation.into());
             let category = category_at(tile, at);
-            if category == Category::Wonder {
-                // [Info] One wonder per tile: nothing to share with another spot
+            if category == Category::Wonder { // [Info] One wonder per tile: nothing to share with another spot
             } else if !first_visit(game, tile, at, ref seen, ref store) {
                 continue;
             }
@@ -943,11 +942,10 @@ pub mod tests {
     use paved::types::plan::Plan;
     use paved::types::spot::Spot;
     use snforge_std::interact_with_state;
-    use super::check;
     use super::forest::ForestCount as OracleForestCount;
     use super::generic::GenericCount as OracleGenericCount;
-    use super::score;
     use super::simple::SimpleCount as OracleSimpleCount;
+    use super::{check, score};
 
     /// Two road crossings `SFRFRFRFR` side by side: the east road of the first tile and the west
     /// road of the second one are one closed road of two nodes. The walks answer on a closed

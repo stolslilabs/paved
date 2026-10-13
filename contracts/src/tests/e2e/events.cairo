@@ -275,9 +275,7 @@ fn test_events_daily_last_build_emits_game_over() {
     store.set_game(game);
 
     let mut spy = spy_events();
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 
     let game = store.game(context.game_id);
     assert(game.over, 'Events: game over');
@@ -392,9 +390,7 @@ fn test_events_daily_wonder_emits_scored() {
     let score_before = game.score;
 
     let mut spy = spy_events();
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1);
+    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 
     let game = store.game(context.game_id);
     assert(game.score > score_before, 'Events: wonder scored');

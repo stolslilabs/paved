@@ -28,38 +28,10 @@ use paved::types::plan::Plan;
 /// once), 1 x 300 x 10972 / 10000 = 329. 438 + 329 = 767. (P4: the Woodsman alone, 329.)
 fn woodsman_ring_moves() -> Array<GoldenMove> {
     array![
-        forced(
-            Plan::FFCFFFCFF,
-            Plan::RFRFFFFFR,
-            Orientation::South,
-            CENTER,
-            CENTER - 1,
-            0,
-        ),
-        forced(
-            Plan::SFRFRFFFR,
-            Plan::RFRFFFFFR,
-            Orientation::West,
-            CENTER + 1,
-            CENTER - 1,
-            0,
-        ),
-        forced(
-            Plan::CFFFCFFFC,
-            Plan::RFRFFFFFR,
-            Orientation::North,
-            CENTER + 1,
-            CENTER - 2,
-            0,
-        ),
-        forced(
-            Plan::SFRFRFRFR,
-            Plan::RFRFFFFFR,
-            Orientation::East,
-            CENTER,
-            CENTER - 2,
-            767,
-        ),
+        forced(Plan::FFCFFFCFF, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
+        forced(Plan::SFRFRFFFR, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1, 0),
+        forced(Plan::CFFFCFFFC, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, 0),
+        forced(Plan::SFRFRFRFR, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, 767),
     ]
 }
 
@@ -70,46 +42,11 @@ fn woodsman_ring_moves() -> Array<GoldenMove> {
 /// 2 x 300 x 10475 / 10000 = 628 (628.5 rounded down). (P4: the Herdsman alone, 628.)
 fn herdsman_caps_moves() -> Array<GoldenMove> {
     array![
-        forced(
-            Plan::RFFFRFFFR,
-            Plan::CFFFCFFFC,
-            Orientation::East,
-            CENTER,
-            CENTER + 1,
-            0,
-        ),
-        forced(
-            Plan::FFCFFFCFF,
-            Plan::FFFFFFCFF,
-            Orientation::North,
-            CENTER,
-            CENTER + 2,
-            643,
-        ),
-        forced(
-            Plan::FFFFFFCFF,
-            Plan::FFFFFFCFF,
-            Orientation::North,
-            CENTER + 1,
-            CENTER + 2,
-            643,
-        ),
-        forced(
-            Plan::RFRFFFFFR,
-            Plan::RFFFRFCFR,
-            Orientation::South,
-            CENTER + 1,
-            CENTER,
-            643,
-        ),
-        forced(
-            Plan::RFRFCCCFR,
-            Plan::CFFFCFFFC,
-            Orientation::East,
-            CENTER + 1,
-            CENTER + 1,
-            1914,
-        ),
+        forced(Plan::RFFFRFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
+        forced(Plan::FFCFFFCFF, Plan::FFFFFFCFF, Orientation::North, CENTER, CENTER + 2, 643),
+        forced(Plan::FFFFFFCFF, Plan::FFFFFFCFF, Orientation::North, CENTER + 1, CENTER + 2, 643),
+        forced(Plan::RFRFFFFFR, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 643),
+        forced(Plan::RFRFCCCFR, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 1914),
     ]
 }
 
@@ -120,78 +57,15 @@ fn herdsman_caps_moves() -> Array<GoldenMove> {
 /// Herdsman and the Woodsman alone, 643.)
 fn both_roles_moves() -> Array<GoldenMove> {
     array![
-        forced(
-            Plan::SFRFRFCFR,
-            Plan::RFRFFFFFR,
-            Orientation::South,
-            CENTER,
-            CENTER - 1,
-            0,
-        ),
-        forced(
-            Plan::FFFFCCCFF,
-            Plan::RFRFFFFFR,
-            Orientation::West,
-            CENTER + 1,
-            CENTER - 1,
-            0,
-        ),
-        forced(
-            Plan::RFRFRFCFF,
-            Plan::RFRFFFFFR,
-            Orientation::North,
-            CENTER + 1,
-            CENTER - 2,
-            0,
-        ),
-        forced(
-            Plan::RFRFCCCFR,
-            Plan::CFFFCFFFC,
-            Orientation::East,
-            CENTER,
-            CENTER + 1,
-            0,
-        ),
-        forced(
-            Plan::RFRFFFFFR,
-            Plan::FFFFCCCFF,
-            Orientation::North,
-            CENTER,
-            CENTER + 2,
-            0,
-        ),
-        forced(
-            Plan::CCCCCFFFC,
-            Plan::FFFFCCCFF,
-            Orientation::East,
-            CENTER + 1,
-            CENTER + 2,
-            0,
-        ),
-        forced(
-            Plan::RFFFRFFFR,
-            Plan::RFFFRFCFR,
-            Orientation::South,
-            CENTER + 1,
-            CENTER,
-            0,
-        ),
-        forced(
-            Plan::WFFFFFFFF,
-            Plan::CFFFCFFFC,
-            Orientation::East,
-            CENTER + 1,
-            CENTER + 1,
-            1693,
-        ),
-        forced(
-            Plan::RFFFRFFFR,
-            Plan::RFRFFFFFR,
-            Orientation::East,
-            CENTER,
-            CENTER - 2,
-            2460,
-        ),
+        forced(Plan::SFRFRFCFR, Plan::RFRFFFFFR, Orientation::South, CENTER, CENTER - 1, 0),
+        forced(Plan::FFFFCCCFF, Plan::RFRFFFFFR, Orientation::West, CENTER + 1, CENTER - 1, 0),
+        forced(Plan::RFRFRFCFF, Plan::RFRFFFFFR, Orientation::North, CENTER + 1, CENTER - 2, 0),
+        forced(Plan::RFRFCCCFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
+        forced(Plan::RFRFFFFFR, Plan::FFFFCCCFF, Orientation::North, CENTER, CENTER + 2, 0),
+        forced(Plan::CCCCCFFFC, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2, 0),
+        forced(Plan::RFFFRFFFR, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 0),
+        forced(Plan::WFFFFFFFF, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 1693),
+        forced(Plan::RFFFRFFFR, Plan::RFRFFFFFR, Orientation::East, CENTER, CENTER - 2, 2460),
     ]
 }
 
@@ -212,46 +86,11 @@ fn both_roles_moves() -> Array<GoldenMove> {
 /// `Scored` of 0 points (D-18b, ruling 3).
 fn herdsman_open_city_moves() -> Array<GoldenMove> {
     array![
-        forced(
-            Plan::FFFFFFCFF,
-            Plan::RFFFRFCFR,
-            Orientation::South,
-            CENTER + 1,
-            CENTER,
-            0,
-        ),
-        forced(
-            Plan::RFRFRFCFF,
-            Plan::CFFFCFFFC,
-            Orientation::East,
-            CENTER + 1,
-            CENTER + 1,
-            0,
-        ),
-        forced(
-            Plan::RFRFRFCFF,
-            Plan::FFFFCCCFF,
-            Orientation::East,
-            CENTER + 1,
-            CENTER + 2,
-            0,
-        ),
-        forced(
-            Plan::RFRFFFFFR,
-            Plan::CCCCCFFFC,
-            Orientation::South,
-            CENTER,
-            CENTER + 2,
-            0,
-        ),
-        forced(
-            Plan::RFFFRFFFR,
-            Plan::CFFFCFFFC,
-            Orientation::East,
-            CENTER,
-            CENTER + 1,
-            0,
-        ),
+        forced(Plan::FFFFFFCFF, Plan::RFFFRFCFR, Orientation::South, CENTER + 1, CENTER, 0),
+        forced(Plan::RFRFRFCFF, Plan::CFFFCFFFC, Orientation::East, CENTER + 1, CENTER + 1, 0),
+        forced(Plan::RFRFRFCFF, Plan::FFFFCCCFF, Orientation::East, CENTER + 1, CENTER + 2, 0),
+        forced(Plan::RFRFFFFFR, Plan::CCCCCFFFC, Orientation::South, CENTER, CENTER + 2, 0),
+        forced(Plan::RFFFRFFFR, Plan::CFFFCFFFC, Orientation::East, CENTER, CENTER + 1, 0),
     ]
 }
 
@@ -267,12 +106,7 @@ fn test_golden_daily_forest_woodsman_ring() {
         0,
         moves.span(),
         GoldenOutcome {
-            score: 767,
-            built: 4,
-            discarded: 0,
-            tile_count: 6,
-            over: false,
-            top1_score: 0,
+            score: 767, built: 4, discarded: 0, tile_count: 6, over: false, top1_score: 0,
         },
     );
 }
@@ -289,12 +123,7 @@ fn test_golden_daily_forest_herdsman_caps() {
         0,
         moves.span(),
         GoldenOutcome {
-            score: 1914,
-            built: 5,
-            discarded: 0,
-            tile_count: 7,
-            over: false,
-            top1_score: 0,
+            score: 1914, built: 5, discarded: 0, tile_count: 7, over: false, top1_score: 0,
         },
     );
 }
@@ -311,12 +140,7 @@ fn test_golden_daily_forest_both_roles() {
         0,
         moves.span(),
         GoldenOutcome {
-            score: 2460,
-            built: 9,
-            discarded: 0,
-            tile_count: 11,
-            over: false,
-            top1_score: 0,
+            score: 2460, built: 9, discarded: 0, tile_count: 11, over: false, top1_score: 0,
         },
     );
 }
@@ -335,12 +159,7 @@ fn test_golden_daily_forest_herdsman_open_city() {
         0,
         moves.span(),
         GoldenOutcome {
-            score: 0,
-            built: 5,
-            discarded: 0,
-            tile_count: 7,
-            over: false,
-            top1_score: 0,
+            score: 0, built: 5, discarded: 0, tile_count: 7, over: false, top1_score: 0,
         },
     );
 }
@@ -359,12 +178,7 @@ fn test_golden_daily_forest_woodsman_ring_structures_agree() {
         0,
         woodsman_ring_moves().span(),
         GoldenOutcome {
-            score: 767,
-            built: 4,
-            discarded: 0,
-            tile_count: 6,
-            over: false,
-            top1_score: 0,
+            score: 767, built: 4, discarded: 0, tile_count: 6, over: false, top1_score: 0,
         },
     );
 }
@@ -380,12 +194,7 @@ fn test_golden_daily_forest_herdsman_caps_structures_agree() {
         0,
         herdsman_caps_moves().span(),
         GoldenOutcome {
-            score: 1914,
-            built: 5,
-            discarded: 0,
-            tile_count: 7,
-            over: false,
-            top1_score: 0,
+            score: 1914, built: 5, discarded: 0, tile_count: 7, over: false, top1_score: 0,
         },
     );
 }
@@ -401,12 +210,7 @@ fn test_golden_daily_forest_both_roles_structures_agree() {
         0,
         both_roles_moves().span(),
         GoldenOutcome {
-            score: 2460,
-            built: 9,
-            discarded: 0,
-            tile_count: 11,
-            over: false,
-            top1_score: 0,
+            score: 2460, built: 9, discarded: 0, tile_count: 11, over: false, top1_score: 0,
         },
     );
 }
@@ -422,12 +226,7 @@ fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
         0,
         herdsman_open_city_moves().span(),
         GoldenOutcome {
-            score: 0,
-            built: 5,
-            discarded: 0,
-            tile_count: 7,
-            over: false,
-            top1_score: 0,
+            score: 0, built: 5, discarded: 0, tile_count: 7, over: false, top1_score: 0,
         },
     );
 }
@@ -448,12 +247,7 @@ fn test_golden_daily_forest_woodsman_ring_last_tile_structures_agree() {
         5,
         woodsman_ring_moves().span(),
         GoldenOutcome {
-            score: 767,
-            built: 4,
-            discarded: 0,
-            tile_count: 5,
-            over: true,
-            top1_score: 767,
+            score: 767, built: 4, discarded: 0, tile_count: 5, over: true, top1_score: 767,
         },
     );
 }
