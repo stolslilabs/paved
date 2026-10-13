@@ -458,13 +458,13 @@ describe("purchase: the stake picker, then an explicit confirm", () => {
 
   it("shows the slippage, the 24 h expiry and the current reference, never a day mean or projected reward", async () => {
     const economy = new FakeEconomy();
-    economy.days.set(DAY, { prior: 3_353_000, sum: 0n, weight: 0, mean: 0, closed: false });
+    economy.days.set(DAY, { prior: 3_980_000, sum: 0n, weight: 0, mean: 0, closed: false });
     land({ economy });
     fireEvent.click(await screen.findByText(/mode daily/));
     expect(await screen.findByText("Slippage on the burn swap: 1 % (at most 5 %)")).toBeTruthy();
     expect(screen.getByText("A paid game expires 24 h after its purchase; an expired game gets no reward.")).toBeTruthy();
     expect(
-      screen.getAllByText("Current reference: mean 3353 points, threshold 3353 points; the day's own mean is known only at settlement.").length,
+      screen.getAllByText("Current reference: mean 3980 points, threshold 3980 points; the day's own mean is known only at settlement.").length,
     ).toBeGreaterThan(0);
     expect(screen.queryByText(/mean 0 points/)).toBeNull();
     expect(screen.queryByText(/projected|estimated|expected reward/i)).toBeNull();

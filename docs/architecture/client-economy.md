@@ -393,6 +393,7 @@ the history state to the game page, which sends it, as from the Landing.
   stakes her own 1,000 test PAVED in the Vault; bob's later purchase gives her 3,125 USDC base units pending, which she claims.
   The recorded receipts of `test/fixtures/devnet.json` still predate E3 (the harness that records them, `test/devnet.test.ts`,
   deploys the old four contracts): the paid spawn is not re-recorded.
+  These figures were measured before D-18 with prior 3,353 and slope 18,130; new deploys use slope 12,220 and a mean of 3,980 (P-46), and the client's fakes follow.
 - The old `Token` (the mock ERC20, no longer charged) is still in the base deployment (`PavedClient.balance` and a sponsor's approve use
   its codec, the same ERC20); the entry token is read from `Daily.entry_price`.
 - The list of games to settle could come from the indexer's `unsettled` list (indexer.md) instead of events.

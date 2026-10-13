@@ -216,7 +216,7 @@ export const ev = {
       "economy",
       "DayClosed",
       [day],
-      [options.mean ?? 4_215_689, options.weight ?? 21, options.prior ?? 3_353_000, options.emaAfter ?? 3_500_000],
+      [options.mean ?? 4_215_689, options.weight ?? 21, options.prior ?? 3_980_000, options.emaAfter ?? 3_500_000],
     ),
   settled: (
     gameId: number,
