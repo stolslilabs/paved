@@ -6,17 +6,17 @@
       "scored": []
     },
     "daily_road6": {
-      "source": "contracts/src/tests/golden/daily.cairo:71 (test_golden_daily_road6)",
+      "source": "contracts/src/tests/golden/daily.cairo:69 (test_golden_daily_road6)",
       "seed": "Poseidon(0, 1001): Mode::seed of day(1) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": []
     },
     "daily_mixed": {
-      "source": "contracts/src/tests/golden/daily.cairo:88 (test_golden_daily_mixed_roles)",
+      "source": "contracts/src/tests/golden/daily.cairo:84 (test_golden_daily_mixed_roles)",
       "seed": "Poseidon(0, 1002): Mode::seed of day(2) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": []
     },
     "daily_deck": {
-      "source": "contracts/src/tests/golden/daily.cairo:106 (test_golden_daily_real_deck_discards_to_game_over)",
+      "source": "contracts/src/tests/golden/daily.cairo:100 (test_golden_daily_real_deck_discards_to_game_over)",
       "seed": "Poseidon(0, 1003): Mode::seed of day(3) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": []
     },
@@ -31,7 +31,7 @@
       ]
     },
     "forest_caps": {
-      "source": "contracts/src/tests/golden/forest.cairo:114 (test_golden_daily_forest_herdsman_caps)",
+      "source": "contracts/src/tests/golden/forest.cairo:112 (test_golden_daily_forest_herdsman_caps)",
       "seed": "Poseidon(0, 1005): Mode::seed of day(5) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": [
         {
@@ -45,7 +45,7 @@
       ]
     },
     "forest_both": {
-      "source": "contracts/src/tests/golden/forest.cairo:131 (test_golden_daily_forest_both_roles)",
+      "source": "contracts/src/tests/golden/forest.cairo:127 (test_golden_daily_forest_both_roles)",
       "seed": "Poseidon(0, 1006): Mode::seed of day(6) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": [
         {
@@ -55,7 +55,7 @@
       ]
     },
     "forest_open": {
-      "source": "contracts/src/tests/golden/forest.cairo:150 (test_golden_daily_forest_herdsman_open_city)",
+      "source": "contracts/src/tests/golden/forest.cairo:144 (test_golden_daily_forest_herdsman_open_city)",
       "seed": "Poseidon(0, 1007): Mode::seed of day(7) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": [
         {
@@ -65,7 +65,7 @@
       ]
     },
     "forest_last": {
-      "source": "contracts/src/tests/golden/forest.cairo:239 (test_golden_daily_forest_woodsman_ring_last_tile_structures_agree)",
+      "source": "contracts/src/tests/golden/forest.cairo:223 (test_golden_daily_forest_woodsman_ring_last_tile_structures_agree)",
       "seed": "Poseidon(0, 1004): Mode::seed of day(4) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": [
         {
@@ -75,7 +75,7 @@
       ]
     },
     "daily_full_deck": {
-      "source": "contracts/src/tests/golden/full_deck.cairo:143 (test_golden_daily_full_deck)",
+      "source": "contracts/src/tests/golden/full_deck.cairo:141 (test_golden_daily_full_deck)",
       "seed": "Poseidon(0, 1010): Mode::seed of day(10) (golden/harness.cairo), salt 0 (hostable.cairo)",
       "scored": []
     },
