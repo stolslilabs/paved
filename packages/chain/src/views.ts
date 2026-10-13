@@ -214,13 +214,7 @@ export class RpcGameViews implements GameViews {
 export interface FakeGame {
   game: GameView;
   tiles: TileView[];
-  /**
-   * `placedCount` and `availableCount` are ignored (the ABI no longer has them).
-   * @deprecated D-18, removed once app-web's fixtures stop passing them
-   */
-  builder: BuilderView & { placedCount?: number; availableCount?: number };
-  /** Ignored: the `characters` view is gone. @deprecated D-18, removed once app-web's fixtures stop passing it */
-  characters?: unknown[];
+  builder: BuilderView;
 }
 
 function gameKeyId(key: GameKey): string {

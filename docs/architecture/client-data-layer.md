@@ -71,7 +71,7 @@ client does not follow fails the tests. A result with felts left over, or too fe
 integers are range-checked before they are encoded; an event with a field type the codec does not
 know is skipped and logged, so ABI growth cannot break a receipt or an event page. A unit enum
 decodes to its variant index, and an index the bundled ABI does not list (a variant added by a later
-contract version, e.g. a plan or a mode added later) decodes to a **bare number**, only for an enum whose listed variants are all unit variants (an
+contract version, e.g. an orientation code added by a later contract version) decodes to a **bare number**, only for an enum whose listed variants are all unit variants (an
 unknown variant of an enum with a payload variant could carry felts of unknown length: the codec
 throws); the consumer must handle a code it does not know (treat it as "unknown"), as `public-interface.md` says.
 

@@ -35,10 +35,6 @@ export interface BuildMove {
   orientation: number;
   x: number;
   y: number;
-  /** Ignored, never sent. @deprecated D-18, removed once app-web stops passing it */
-  role?: number;
-  /** Ignored, never sent. @deprecated D-18, removed once app-web stops passing it */
-  spot?: number;
 }
 
 /** The reward at send is not what the player confirmed: nothing was sent. */

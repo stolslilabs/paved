@@ -66,7 +66,9 @@ describe("Confirming a move (D-18)", () => {
   it("sends the move once the tile is on a valid slot, with no spot step", async () => {
     const build = await confirmWith([built]);
     expect(build.mock.calls[0][0]).toEqual(gameKey);
-    expect(build.mock.calls[0][1]).toMatchObject({ role: 0, spot: 0 });
+    const move = build.mock.calls[0][1] as Record<string, unknown>;
+    expect(Object.keys(move).sort()).toEqual(["orientation", "x", "y"]);
+    expect(move).toEqual({ orientation: expect.any(Number), x: expect.any(Number), y: expect.any(Number) });
   });
 });
 

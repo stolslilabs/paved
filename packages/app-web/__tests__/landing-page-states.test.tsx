@@ -215,7 +215,7 @@ describe("Claiming a prize", () => {
     views.tournaments.set(5, { ...emptyTournament(5), over: true, prize: 600n, top1PlayerId: PLAYER, top1Score: 9, top2PlayerId: "0x0", top3PlayerId: "0x0", ...tournament });
     views.setGame({ mode: "daily", gameId: 1 }, {
       game: { id: 1, playerId: PLAYER, mode: 1, seed: "0x1", score: 9, over: true, tileCount: 3, placedCount: 3, discardedCount: 0, tileId: 0, plan: 0, remainingCount: 0, deckSize: 38, startTime: 1, endTime: 2, tournamentId: 5 },
-      tiles: [], builder: { gameId: 1, playerId: PLAYER, tileId: 0, plan: 0, placedCount: 0, availableCount: 7 }, characters: [],
+      tiles: [], builder: { gameId: 1, playerId: PLAYER, tileId: 0, plan: 0 },
     });
     land({ views, games: [finished], writer: { claim } });
     return { claim, views };
@@ -343,7 +343,7 @@ describe("Claim reverts are clear states", () => {
     views.tournaments.set(5, { ...emptyTournament(5), over: true, prize: 600n, top1PlayerId: PLAYER, top1Score: 9, top2PlayerId: "0x0", top3PlayerId: "0x0" });
     views.setGame({ mode: "daily", gameId: 1 }, {
       game: { id: 1, playerId: PLAYER, mode: 1, seed: "0x1", score: 9, over: true, tileCount: 3, placedCount: 3, discardedCount: 0, tileId: 0, plan: 0, remainingCount: 0, deckSize: 38, startTime: 1, endTime: 2, tournamentId: 5 },
-      tiles: [], builder: { gameId: 1, playerId: PLAYER, tileId: 0, plan: 0, placedCount: 0, availableCount: 7 }, characters: [],
+      tiles: [], builder: { gameId: 1, playerId: PLAYER, tileId: 0, plan: 0 },
     });
     land({ views, games: [{ mode: "daily", gameId: 1, startTime: 1, tournamentId: 5, over: true, score: 9, countedTournamentId: 5 }], writer: { claim } });
     fireEvent.click(await screen.findByText("Claim"));

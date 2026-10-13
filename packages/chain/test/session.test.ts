@@ -80,7 +80,7 @@ describe("GameSession", () => {
 
     release();
     expect(await placing).toBe(true);
-    expect(session.state).toMatchObject({ pending: false, hand: { tileId: 3, plan: 9 }, characters: [], packedCharacters: 0 });
+    expect(session.state).toMatchObject({ pending: false, hand: { tileId: 3, plan: 9 } });
     expect(session.state.game?.score).toBe(4);
     expect(session.state.tiles.map((t) => [t.id, t.pending ?? false])).toEqual([[1, false], [2, false]]);
     expect(views.calls).toEqual(["game daily:4"]);
@@ -181,17 +181,14 @@ describe("GameSession", () => {
 
     test("a failed write leaves it empty", async () => {
       const session = await loaded();
-      await session.place({ orientation: 2, x: C + 1, y: C }, async () => {
+      await session.place({ orientation: 2, x: C + 1, y: C }, async () => ({ transactionHash: "0x1", events: [built, scored(2, 3, 6)] }));
+      expect(session.state.lastScored).toHaveLength(1);
+      await session.place({ orientation: 2, x: C + 2, y: C }, async () => {
         throw new Error("Tile: not compatible");
       });
       expect(session.state.lastScored).toEqual([]);
     });
 
-    test("role and spot of an old caller are ignored: no character on the state", async () => {
-      const session = await loaded();
-      await session.place({ orientation: 2, x: C + 1, y: C, role: 3, spot: 5 }, async () => ({ transactionHash: "0x1", events: [built] }));
-      expect(session.state).toMatchObject({ characters: [], packedCharacters: 0 });
-    });
   });
 
   test("no write in read-only mode", async () => {

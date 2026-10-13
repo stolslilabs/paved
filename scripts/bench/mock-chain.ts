@@ -33,7 +33,6 @@ interface TileRow {
   orientation: number;
   x: number;
   y: number;
-  occupied_spot: number;
 }
 
 /** The chain of the page (BENCH_ADDRESSES, one source): the four contracts and the playing account. */
