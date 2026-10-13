@@ -62,54 +62,15 @@ describe.skipIf(!enabled)("devnet integration", () => {
     expect(await client.balance(player)).toBeGreaterThan(price.amount);
   });
 
-  test("plays a tutorial game to its end from receipts and views", async () => {
-    const spawned = await writer.spawn("tutorial");
-    record.receipts.spawnTutorial = spawned.transactionHash;
-    expect(spawned.gameId).toBe(1);
-    // Tutorial belongs to no day: 0 in its events and its view (#205).
-    expect(spawned.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(0);
-    const key: GameKey = { mode: "tutorial", gameId: spawned.gameId };
-
-    let game = await client.views.game(key);
-    expect(game).toMatchObject({ id: 1, mode: 3, over: false, placedCount: 1, deckSize: 10 });
-    expect(BigInt(game.playerId)).toBe(BigInt(player));
-    const tiles = await client.views.tiles(key);
-    expect(tiles.map((t) => t.id)).toEqual([1, 2]);
-    expect(tiles[0]).toMatchObject({ status: 1, x: 0x7fffffff, y: 0x7fffffff });
-    expect(tiles[1]).toMatchObject({ status: 3, id: game.tileId, plan: game.plan });
-    expect(await client.views.builder(key, player)).toEqual({ gameId: key.gameId, playerId: expect.any(String), tileId: game.tileId, plan: game.plan });
-
-    // The tutorial is scripted (contracts/src/elements/decks/tutorial.cairo): every drawn plan has
-    // its move, except one that must be discarded; `build` refuses it with 'Orientation: not valid'.
-    let moves = 0;
-    let scored = 0;
-    while (!game.over && moves < 20) {
-      const held = game.tileId;
-      let discard = false;
-      const result = await writer.build(key, { orientation: 0, x: 0, y: 0 }).catch((error) => {
-        if (!String(error?.message).includes("Orientation: not valid")) throw error;
-        discard = true;
-        return writer.discard(key);
-      });
-      if (moves === 0) record.receipts.buildTutorial = result.transactionHash;
-      const outcome = placementOutcome(result.events, key.gameId);
-      if (discard) expect(outcome.discarded?.tileId).toBe(held);
-      else expect(outcome.built?.tileId).toBe(held);
-      scored += outcome.scoredPoints;
-      moves++;
-      game = await client.views.game(key);
-      if (outcome.over) {
-        record.receipts.lastBuildTutorial = result.transactionHash;
-        expect(outcome.over.score).toBe(game.score);
-      }
-    }
-    expect(game).toMatchObject({ over: true, placedCount: 9, discardedCount: 1, tileId: 0, dayId: 0, endTime: 0 });
-    expect(moves).toBe(9);
-    expect(scored).toBeGreaterThan(0);
-    const statuses = (await client.views.tiles(key)).map((t) => t.status);
-    expect(statuses.filter((st) => st === 2)).toHaveLength(1);
-    expect(statuses.filter((st) => st === 1)).toHaveLength(9);
-  }, 120_000);
+  test("claims the tutorial (D-21): the first claim credits task 10, a second one changes nothing", async () => {
+    expect(await client.views.tutorialClaimed(player)).toBe(false);
+    const first = await writer.claimTutorial();
+    expect(first.events.map((e) => [e.name, e.fields.taskId, e.fields.count])).toEqual([["AchievementProgressed", 10, 1]]);
+    expect(await client.views.tutorialClaimed(player)).toBe(true);
+    const second = await writer.claimTutorial();
+    expect(second.events).toEqual([]);
+    expect(await client.views.tutorialClaimed(devnet.accounts[1].address)).toBe(false);
+  }, 60_000);
 
   test("spawns, discards and surrenders a Daily game, paying the entry price", async () => {
     expect(await client.views.currentDay()).toBeGreaterThan(0);
@@ -134,11 +95,10 @@ describe.skipIf(!enabled)("devnet integration", () => {
     const games = await client.events.playerGames(player);
     expect(games.map((g) => [g.mode, g.gameId, g.over])).toEqual(
       expect.arrayContaining([
-        ["tutorial", 1, true],
         ["daily", 1, true],
       ]),
     );
-    expect(games).toHaveLength(2);
+    expect(games).toHaveLength(1);
     expect(await client.events.playerGames(devnet.accounts[1].address)).toEqual([]);
   });
 
@@ -148,7 +108,7 @@ describe.skipIf(!enabled)("devnet integration", () => {
     expect(missing.kind).toBe("game-not-found");
     record.errors.gameNotFound = String(missing.cause?.message ?? missing.message);
 
-    const notMine = await other.views.builder({ mode: "tutorial", gameId: 1 }, devnet.accounts[1].address).catch((e) => e);
+    const notMine = await other.views.builder({ mode: "daily", gameId: 1 }, devnet.accounts[1].address).catch((e) => e);
     expect(notMine.kind).toBe("not-player");
     record.errors.notPlayer = String(notMine.cause?.message ?? notMine.message);
   });

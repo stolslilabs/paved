@@ -15,7 +15,7 @@ describe("endpoints", () => {
   test("/v1/head", async () => {
     const { data, head } = await client.head();
     expect(head).toEqual(FIXTURE_HEAD);
-    expect(data).toEqual({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 12, contracts: { account: "0x1", daily: "0x2", tutorial: "0x3" } });
+    expect(data).toEqual({ state: "ok", chainId: "0x534e5f5345504f4c4941", fromBlock: 12, contracts: { account: "0x1", daily: "0x2", setup: "0x3" } });
     expect(data.contracts.daily).toBe("0x2");
     expect(fixture.requests).toEqual(["/v1/head"]);
   });
@@ -106,7 +106,9 @@ describe("endpoints", () => {
   test("/v1/players/{id}: a known player, and an unknown one as null", async () => {
     const ada = await client.player(FIXTURE_ADA);
     expect(ada.data.player).toEqual({ playerId: FIXTURE_ADA, name: "Ada", created: 1791000000 });
-    expect(ada.data.stats).toMatchObject({ bestScore: 187, tutorialGames: 1 });
+    expect(ada.data.stats).toMatchObject({ bestScore: 187, dailyGames: 2 });
+    // The on-chain Tutorial left (D-21): no tutorial count is read.
+    expect(ada.data.stats).not.toHaveProperty("tutorialGames");
     const nobody = await client.player(0x123n);
     expect(nobody.data).toEqual({ player: null, stats: null });
     expect(fixture.requests[1]).toBe(`/v1/players/0x${"123".padStart(64, "0")}`);
@@ -120,10 +122,10 @@ describe("endpoints", () => {
     });
     expect(all.data.next).toBe("1791869000:daily:912");
     const rest = await client.playerGames(FIXTURE_ADA, { limit: 1, before: all.data.next! });
-    expect(rest.data.games.map((g) => g.contract)).toEqual(["tutorial"]);
+    expect(rest.data.games.map((g) => [g.contract, g.gameId])).toEqual([["daily", 55]]);
     expect(rest.data.next).toBeNull();
-    const tutorial = await client.playerGames(FIXTURE_ADA, { contract: "tutorial" });
-    expect(tutorial.data.games).toHaveLength(1);
+    const daily = await client.playerGames(FIXTURE_ADA, { contract: "daily" });
+    expect(daily.data.games).toHaveLength(2);
     expect((await client.playerGames(FIXTURE_BO)).data.games).toEqual([]);
   });
 
@@ -135,7 +137,7 @@ describe("endpoints", () => {
   });
 
   test("/v1/games/{contract}/{id}: one game, or not-found", async () => {
-    expect((await client.game("tutorial", 55)).data).toMatchObject({ contract: "tutorial", gameId: 55, score: 64, countedDayId: 0 });
+    expect((await client.game("daily", 55)).data).toMatchObject({ contract: "daily", gameId: 55, score: 64, countedDayId: 20731 });
     expect(await kindOf(client.game("daily", 31337))).toBe("not-found");
   });
 });

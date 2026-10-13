@@ -35,7 +35,7 @@ import {
 } from "../src/economy";
 import { FAKE_CHAIN_ID, FAKE_ROUTER, FAKE_ROUTER_FILE, FAKE_UNIT, FakeEconomy, FakePoolQuoter } from "../src/testing";
 
-const ADDR = { Account: "0x1", Daily: "0x2", Tutorial: "0x3", Token: "0x4" };
+const ADDR = { Account: "0x1", Daily: "0x2", Setup: "0x3", Token: "0x4" };
 const ECON = { economy: "0x10", pavedToken: "0x11", vault: "0x12", usdc: "0x13" };
 const PLAYER = "0x5";
 /** Nums' Router V3.0.3: no `quote_swap`, never to be used (economy.md). */

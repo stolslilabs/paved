@@ -102,7 +102,7 @@ const depth: Depth =
     : integer(values.depth, "depth", undefined, 1);
 const config = {
   daily: deployment.daily,
-  tutorial: deployment.tutorial,
+  setup: deployment.setup,
   account: deployment.account,
   economy: deployment.economy,
   collection: deployment.collection,
@@ -196,7 +196,7 @@ const server = serve(indexer, {
     fromBlock: config.from,
     contracts: {
       daily: config.daily,
-      tutorial: config.tutorial,
+      setup: config.setup,
       account: config.account,
       economy: config.economy,
       collection: config.collection ?? null,

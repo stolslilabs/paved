@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { hash } from "starknet";
 import { describe, expect, test } from "vitest";
@@ -22,10 +22,16 @@ type AbiItem = {
   members?: { name: string; type: string; kind: string }[];
 };
 
-const abi = (name: string): AbiItem[] =>
-  JSON.parse(
-    readFileSync(resolve(import.meta.dirname, `../../../contracts/abis/${name}.json`), "utf8"),
-  );
+const abiPath = (name: string) => resolve(import.meta.dirname, `../../../contracts/abis/${name}.json`);
+const abi = (name: string): AbiItem[] => JSON.parse(readFileSync(abiPath(name), "utf8"));
+
+/**
+ * The contract whose ABI declares the quest and achievement events: `Setup` from CORE's step D (D-24), `Daily` before its
+ * ABIs land on the branch (the events are quiver's, the same structs in either).
+ */
+const QUESTS = existsSync(abiPath("Setup")) ? "Setup" : "Daily";
+/** The contracts of today, then the past ones (D-21, D-24) while their ABIs are still in the tree: every event of each is known. */
+const CONTRACTS = ["Daily", "Setup", "Account", "Economy", "Collection", "Tutorial", "Lobby"].filter((name) => existsSync(abiPath(name)));
 
 /** The event structs of a contract's ABI that `paved::events` declares (the ones the indexer may meet). */
 const pavedEvents = (name: string) =>
@@ -37,8 +43,9 @@ const shortOf = (item: AbiItem) => item.name.split("::").at(-1)!;
 
 describe("the ABIs", () => {
   test("every event of every contract is indexed or ignored, with the selector of its name", () => {
-    // Lobby runs inside Daily and Tutorial by library call: its events come from their addresses.
-    for (const contract of ["Daily", "Tutorial", "Account", "Economy", "Lobby", "Collection"]) {
+    // Lobby ran inside Daily and Tutorial by library call: its events came from their addresses. A past contract's events
+    // stay known, so that a replay of an old history never halts.
+    for (const contract of CONTRACTS) {
       const items = abi(contract).filter((item) => item.type === "event" && item.kind === "struct");
       expect(items.length).toBeGreaterThan(0);
       for (const item of items) {
@@ -56,7 +63,7 @@ describe("the ABIs", () => {
       GameOver: { keys: ["game_id", "player_id", "day_id"], data: ["mode", "score", "start_time", "end_time"] },
       PlayerCreated: { keys: ["player_id"], data: ["name", "master"] },
     };
-    for (const contract of ["Daily", "Tutorial", "Account"]) {
+    for (const contract of ["Daily", "Account"]) {
       for (const item of pavedEvents(contract)) {
         const shape = shapes[shortOf(item) as keyof typeof shapes];
         if (!shape) continue;
@@ -66,12 +73,14 @@ describe("the ABIs", () => {
     }
   });
 
-  test("Daily and Tutorial declare the game events, Account the player event", () => {
+  test("Daily declares the game events, Account the player event", () => {
     const names = (contract: string) => pavedEvents(contract).map(shortOf);
-    for (const contract of ["Daily", "Tutorial", "Account"]) {
+    for (const contract of ["Daily", "Account"]) {
       expect(names(contract)).toEqual(expect.arrayContaining(["GameSpawned", "GameOver", "PlayerCreated"]));
     }
     expect(EMITTERS.PlayerCreated).toEqual(["account"]);
+    expect(EMITTERS.GameSpawned).toEqual(["daily"]);
+    expect(EMITTERS.GameOver).toEqual(["daily"]);
   });
 });
 
@@ -82,25 +91,25 @@ describe("the quest and achievement events (quiver 0.2.0)", () => {
     quiver(contract, name).members!.filter((m) => m.kind === kind).map((m) => `${m.name}: ${m.type.split("::").at(-1)}`);
 
   test("their keys and data are the ABI's, in the order the decoder reads them", () => {
-    expect(members("Daily", "QuestDefined", "key")).toEqual(["quest_id: u32"]);
+    expect(members(QUESTS, "QuestDefined", "key")).toEqual(["quest_id: u32"]);
     // schedule (start, end, duration, interval), then the tasks span, then the conditions span
-    expect(members("Daily", "QuestDefined", "data")).toEqual([
+    expect(members(QUESTS, "QuestDefined", "data")).toEqual([
       "schedule: QuestSchedule",
       "tasks: QuestTask>",
       "conditions: u32>",
     ]);
-    expect(members("Daily", "QuestProgressed", "key")).toEqual(["player_id: felt252", "task_id: u32"]);
-    expect(members("Daily", "QuestProgressed", "data")).toEqual(["count: u32"]);
-    expect(members("Daily", "QuestRetired", "key")).toEqual(["quest_id: u32"]);
-    expect(members("Daily", "AchievementDefined", "key")).toEqual(["achievement_id: u32"]);
-    expect(members("Daily", "AchievementDefined", "data").map((m) => m.split(":")[0])).toEqual(["window", "tasks", "points"]);
-    expect(members("Daily", "AchievementDefined", "data").at(-1)).toBe("points: u16");
-    expect(members("Daily", "AchievementProgressed", "key")).toEqual(["player_id: felt252", "task_id: u32"]);
-    expect(members("Daily", "AchievementProgressed", "data")).toEqual(["count: u32"]);
-    expect(members("Daily", "AchievementRetired", "key")).toEqual(["achievement_id: u32"]);
+    expect(members(QUESTS, "QuestProgressed", "key")).toEqual(["player_id: felt252", "task_id: u32"]);
+    expect(members(QUESTS, "QuestProgressed", "data")).toEqual(["count: u32"]);
+    expect(members(QUESTS, "QuestRetired", "key")).toEqual(["quest_id: u32"]);
+    expect(members(QUESTS, "AchievementDefined", "key")).toEqual(["achievement_id: u32"]);
+    expect(members(QUESTS, "AchievementDefined", "data").map((m) => m.split(":")[0])).toEqual(["window", "tasks", "points"]);
+    expect(members(QUESTS, "AchievementDefined", "data").at(-1)).toBe("points: u16");
+    expect(members(QUESTS, "AchievementProgressed", "key")).toEqual(["player_id: felt252", "task_id: u32"]);
+    expect(members(QUESTS, "AchievementProgressed", "data")).toEqual(["count: u32"]);
+    expect(members(QUESTS, "AchievementRetired", "key")).toEqual(["achievement_id: u32"]);
     // the structs the decoder flattens: schedule, window, task
     const structs = Object.fromEntries(
-      abi("Daily")
+      abi(QUESTS)
         .filter((item) => item.type === "struct")
         .map((item) => [item.name.split("::").at(-1), item.members!.map((m) => `${m.name}: ${m.type.split("::").at(-1)}`)]),
     );
@@ -110,20 +119,21 @@ describe("the quest and achievement events (quiver 0.2.0)", () => {
     expect(structs.AchievementTask).toEqual(["task_id: u32", "total: u32"]);
   });
 
-  test("Daily declares all six, Tutorial the achievement ones it can emit", () => {
-    for (const name of ["QuestDefined", "QuestProgressed", "QuestRetired", "AchievementDefined", "AchievementProgressed", "AchievementRetired"]) {
-      expect(quiver("Daily", name), name).toBeDefined();
-      expect(name in EMITTERS, name).toBe(true);
+  test("Setup declares all six and is their only emitter (D-24)", () => {
+    for (const name of ["QuestDefined", "QuestProgressed", "QuestRetired", "AchievementDefined", "AchievementProgressed", "AchievementRetired"] as const) {
+      expect(quiver(QUESTS, name), name).toBeDefined();
+      expect(EMITTERS[name], name).toEqual(["setup"]);
       expect((IGNORED as readonly string[]).includes(name), name).toBe(false);
     }
-    expect(EMITTERS.AchievementProgressed).toEqual(["daily", "tutorial"]);
-    expect(EMITTERS.QuestProgressed).toEqual(["daily"]);
-    expect(abi("Tutorial").some((item) => item.type === "event" && shortOf(item) === "AchievementProgressed")).toBe(true);
+    // set_reporter emits both reporter events: known, not indexed.
+    for (const name of ["QuestReporterSet", "AchievementReporterSet"]) {
+      expect((IGNORED as readonly string[]).includes(name), name).toBe(true);
+    }
   });
 
   test("QuestDefined", () => {
     const e = ev.questDefined(4, { start: 172800, end: 0, duration: 86400, interval: 86400, tasks: [[3, 3000]], conditions: [1, 2] });
-    expect(decode("daily", e.keys, e.data)).toEqual({
+    expect(decode("setup", e.keys, e.data)).toEqual({
       name: "QuestDefined",
       questId: 4,
       start: 172800n,
@@ -134,21 +144,37 @@ describe("the quest and achievement events (quiver 0.2.0)", () => {
       conditions: [1, 2],
     });
     const three = ev.questDefined(1, { tasks: [[1, 1], [2, 2], [3, 3]] });
-    expect(decode("daily", three.keys, three.data)).toMatchObject({ tasks: [{ taskId: 1 }, { taskId: 2 }, { taskId: 3 }] });
+    expect(decode("setup", three.keys, three.data)).toMatchObject({ tasks: [{ taskId: 1 }, { taskId: 2 }, { taskId: 3 }] });
   });
 
   test("progress events", () => {
     const quest = ev.questProgressed(0x1234, 3, 1450);
-    expect(decode("daily", quest.keys, quest.data)).toEqual({ name: "QuestProgressed", playerId: 0x1234n, taskId: 3, count: 1450 });
-    for (const source of ["daily", "tutorial"] as const) {
-      const e = ev.achievementProgressed(source, 0x1234, 10, 1);
-      expect(decode(source, e.keys, e.data)).toEqual({ name: "AchievementProgressed", playerId: 0x1234n, taskId: 10, count: 1 });
+    expect(decode("setup", quest.keys, quest.data)).toEqual({ name: "QuestProgressed", playerId: 0x1234n, taskId: 3, count: 1450 });
+    const e = ev.achievementProgressed(0x1234, 5, 2);
+    expect(decode("setup", e.keys, e.data)).toEqual({ name: "AchievementProgressed", playerId: 0x1234n, taskId: 5, count: 2 });
+  });
+
+  test("the tutorial claim is Setup's AchievementProgressed of task 10, count 1 (D-21)", () => {
+    const claim = ev.tutorialClaimed(0x1234);
+    expect(decode("setup", claim.keys, claim.data)).toEqual({ name: "AchievementProgressed", playerId: 0x1234n, taskId: 10, count: 1 });
+  });
+
+  test("from Daily's address the six are past events: skipped, never a halt (P-51 ruling 5)", () => {
+    for (const e of [
+      ev.questDefined(1, { source: "daily" }),
+      ev.questProgressed(0x1234, 3, 1, "daily"),
+      ev.questRetired(1, "daily"),
+      ev.achievementDefined(1, { source: "daily" }),
+      ev.achievementProgressed(0x1234, 10, 1, "daily"),
+      ev.achievementRetired(1, "daily"),
+    ]) {
+      expect(decode("daily", e.keys, e.data)).toBeNull();
     }
   });
 
   test("AchievementDefined and the retirements", () => {
     const e = ev.achievementDefined(9, { start: 0, end: 0, tasks: [[8, 1]], points: 50 });
-    expect(decode("daily", e.keys, e.data)).toEqual({
+    expect(decode("setup", e.keys, e.data)).toEqual({
       name: "AchievementDefined",
       achievementId: 9,
       start: 0n,
@@ -157,39 +183,39 @@ describe("the quest and achievement events (quiver 0.2.0)", () => {
       points: 50,
     });
     const quest = ev.questRetired(2);
-    expect(decode("daily", quest.keys, quest.data)).toEqual({ name: "QuestRetired", questId: 2 });
+    expect(decode("setup", quest.keys, quest.data)).toEqual({ name: "QuestRetired", questId: 2 });
     const achievement = ev.achievementRetired(3);
-    expect(decode("daily", achievement.keys, achievement.data)).toEqual({ name: "AchievementRetired", achievementId: 3 });
+    expect(decode("setup", achievement.keys, achievement.data)).toEqual({ name: "AchievementRetired", achievementId: 3 });
   });
 
   test("a wrong emitter, shape, span length or width is a DecodeError", () => {
     const defined = ev.questDefined(1);
-    expect(() => decode("tutorial", defined.keys, defined.data)).toThrow(DecodeError); // Tutorial defines nothing
+    expect(() => decode("account", defined.keys, defined.data)).toThrow(DecodeError); // Account defines nothing
     const quest = ev.questProgressed(1, 1, 1);
-    expect(() => decode("tutorial", quest.keys, quest.data)).toThrow(DecodeError); // no quest component in Tutorial
+    expect(() => decode("economy", quest.keys, quest.data)).toThrow(DecodeError);
     expect(() => decode("account", quest.keys, quest.data)).toThrow(DecodeError);
-    expect(() => decode("daily", quest.keys, [...quest.data, "0x1"])).toThrow(DecodeError);
-    expect(() => decode("daily", quest.keys.slice(0, 2), quest.data)).toThrow(DecodeError);
-    expect(() => decode("daily", [quest.keys[0]!, quest.keys[1]!, "0x0"], quest.data)).toThrow(DecodeError); // task id 0
+    expect(() => decode("setup", quest.keys, [...quest.data, "0x1"])).toThrow(DecodeError);
+    expect(() => decode("setup", quest.keys.slice(0, 2), quest.data)).toThrow(DecodeError);
+    expect(() => decode("setup", [quest.keys[0]!, quest.keys[1]!, "0x0"], quest.data)).toThrow(DecodeError); // task id 0
     const wide = ev.questProgressed(1, 1, 2 ** 32);
-    expect(() => decode("daily", wide.keys, wide.data)).toThrow(DecodeError);
+    expect(() => decode("setup", wide.keys, wide.data)).toThrow(DecodeError);
     // spans: a length that does not match the data, no task, too many tasks or conditions
-    expect(() => decode("daily", defined.keys, [...defined.data, "0x1"])).toThrow(DecodeError);
-    expect(() => decode("daily", defined.keys, defined.data.slice(0, -1))).toThrow(DecodeError);
+    expect(() => decode("setup", defined.keys, [...defined.data, "0x1"])).toThrow(DecodeError);
+    expect(() => decode("setup", defined.keys, defined.data.slice(0, -1))).toThrow(DecodeError);
     const none = ev.questDefined(1, { tasks: [] });
-    expect(() => decode("daily", none.keys, none.data)).toThrow(DecodeError);
+    expect(() => decode("setup", none.keys, none.data)).toThrow(DecodeError);
     const four = ev.questDefined(1, { tasks: [[1, 1], [2, 1], [3, 1], [4, 1]] });
-    expect(() => decode("daily", four.keys, four.data)).toThrow(DecodeError);
+    expect(() => decode("setup", four.keys, four.data)).toThrow(DecodeError);
     const eight = ev.questDefined(1, { conditions: [1, 2, 3, 4, 5, 6, 7, 8] });
-    expect(() => decode("daily", eight.keys, eight.data)).toThrow(DecodeError);
+    expect(() => decode("setup", eight.keys, eight.data)).toThrow(DecodeError);
     const zero = ev.questDefined(1, { tasks: [[0, 1]] });
-    expect(() => decode("daily", zero.keys, zero.data)).toThrow(DecodeError);
+    expect(() => decode("setup", zero.keys, zero.data)).toThrow(DecodeError);
     const points = ev.achievementDefined(1, { points: 65536 });
-    expect(() => decode("daily", points.keys, points.data)).toThrow(DecodeError); // u16
+    expect(() => decode("setup", points.keys, points.data)).toThrow(DecodeError); // u16
     const above = ev.questDefined(1, { start: 2 ** 60 });
-    expect(() => decode("daily", above.keys, above.data)).toThrow(DecodeError); // above 2^53
+    expect(() => decode("setup", above.keys, above.data)).toThrow(DecodeError); // above 2^53
     const retired = ev.questRetired(1);
-    expect(() => decode("daily", retired.keys, ["0x1"])).toThrow(DecodeError);
+    expect(() => decode("setup", retired.keys, ["0x1"])).toThrow(DecodeError);
   });
 });
 
@@ -207,18 +233,20 @@ describe("decode", () => {
     });
   });
 
-  test("GameOver, a Tutorial one with day 0", () => {
-    const e = ev.over("tutorial", 55, 0x1234, 64);
-    expect(decode("tutorial", e.keys, e.data)).toEqual({
+  test("GameOver", () => {
+    const e = ev.over("daily", 55, 0x1234, 64);
+    expect(decode("daily", e.keys, e.data)).toEqual({
       name: "GameOver",
       gameId: 55,
       playerId: 0x1234n,
-      dayId: 0n,
-      mode: 3,
+      dayId: 100n,
+      mode: 1,
       score: 64,
       startTime: 1000000n,
-      endTime: 0n,
+      endTime: 1000500n,
     });
+    // Only Daily plays: a game event from Setup is a contract change the indexer was not told about.
+    expect(() => decode("setup", e.keys, e.data)).toThrow(DecodeError);
   });
 
   test("PlayerCreated", () => {
@@ -385,7 +413,7 @@ describe("Economy's events", () => {
     for (const name of ["Sponsored", "Claimed", "Reclaimed"] as const) {
       expect(name in EMITTERS, name).toBe(false);
       expect((IGNORED as readonly string[]).includes(name), name).toBe(true);
-      for (const contract of ["Daily", "Tutorial", "Account", "Lobby"]) {
+      for (const contract of CONTRACTS) {
         const declared = abi(contract).filter((item) => item.type === "event" && item.kind === "struct").map(shortOf);
         expect(declared, `${contract}.${name}`).not.toContain(name);
       }
@@ -427,7 +455,7 @@ describe("Economy's events", () => {
     const closed = ev.dayClosed(1, { mean: 2 ** 60 });
     expect(() => decode("economy", closed.keys, closed.data)).toThrow(/above 2\^53/);
     const settled = ev.settled(1, 1);
-    expect(() => decode("tutorial", settled.keys, settled.data)).toThrow(DecodeError);
+    expect(() => decode("setup", settled.keys, settled.data)).toThrow(DecodeError);
     expect(() => decode("economy", settled.keys, [...settled.data, "0x0"])).toThrow(DecodeError);
   });
 });
@@ -442,7 +470,7 @@ describe("Collection's mint", () => {
     ]);
   });
 
-  test("a Daily token is the game id, a Tutorial token is 2^32 + the game id", () => {
+  test("a Daily token is the game id; a past Tutorial token (2^32 + the game id) is skipped (D-21)", () => {
     const daily = ev.minted(0x41, 7);
     expect(decode("collection", daily.keys, daily.data)).toEqual({
       name: "Transfer",
@@ -452,16 +480,12 @@ describe("Collection's mint", () => {
       gameId: 7,
     });
     const tutorial = ev.minted(0x41, 2 ** 32 + 7);
-    expect(decode("collection", tutorial.keys, tutorial.data)).toEqual({
-      name: "Transfer",
-      to: 0x41n,
-      tokenId: 2 ** 32 + 7,
-      contract: "tutorial",
-      gameId: 7,
-    });
-    // The largest id stays a safe integer.
+    expect(decode("collection", tutorial.keys, tutorial.data)).toBeNull();
     const last = ev.minted(0x41, 2 ** 33 - 1);
-    expect(decode("collection", last.keys, last.data)).toMatchObject({ contract: "tutorial", gameId: 2 ** 32 - 1 });
+    expect(decode("collection", last.keys, last.data)).toBeNull();
+    // The largest Daily id stays a safe integer.
+    const top = ev.minted(0x41, 2 ** 32 - 1);
+    expect(decode("collection", top.keys, top.data)).toMatchObject({ contract: "daily", gameId: 2 ** 32 - 1 });
   });
 
   test("Account's CollectionSet carries the address in its data", () => {

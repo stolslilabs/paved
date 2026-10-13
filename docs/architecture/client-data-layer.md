@@ -8,7 +8,7 @@ Dojo, no polling. The contract side is `native-storage.md` (events, access) and
 
 | What | From | Override |
 |---|---|---|
-| ABIs of `Account`, `Daily`, `Tutorial`, `Token` | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
+| ABIs of `Account`, `Daily`, `Setup`, `Token` (the `Tutorial` and `Lobby` ABIs left with D-21 and D-24) | `contracts/abis/<Contract>.json` (committed by CORE, imported at build time) | none |
 | RPC URL, chain id, addresses, `deployed_block`, token decimals and symbol | `contracts/deployments/<network>.json` (O-19, written by CORE's deploy script); `<network>` is `VITE_NETWORK`, default `devnet` | env, see below |
 | The playing account | env, **devnet only**: `VITE_PLAYER_ADDRESS` and `VITE_PLAYER_PRIVATE_KEY` (a devnet predeployed account); ignored on any other network, since a key in a built bundle is public | none; without both the app is read-only |
 
@@ -18,7 +18,7 @@ The env variables of `packages/app-web` (`src/utils/network.ts`), each one set o
 |---|---|
 | `VITE_RPC_URL` | `rpc_url` (a public network's file holds the placeholder `$STARKNET_RPC_URL`, which is never used as a URL: without this variable a Sepolia build is "not connected", `missing: ["RPC URL"]`) |
 | `VITE_DEPLOYED_BLOCK` | `deployed_block` |
-| `VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`, `VITE_TUTORIAL_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player) |
+| `VITE_ACCOUNT_ADDRESS`, `VITE_DAILY_ADDRESS`, `VITE_SETUP_ADDRESS`, `VITE_TOKEN_ADDRESS` | `contracts.<Contract>.address` (the contracts, not the player); `Setup` is optional (see below) |
 | `VITE_SUPPORTS_TOKEN_MINT` | the test token's faucet; default on for `devnet` and `sepolia`, off elsewhere (it still needs a MockUSDC: mainnet resolves none) |
 | `VITE_COLLECTION_ADDRESS` | the game NFT's Collection (overrides `contracts.Collection` and the indexer's head, all optional; see "Game NFT") |
 | `VITE_MOCK_USDC_ADDRESS` | the MockUSDC the faucet mints, devnet and Sepolia only (overrides `contracts.MockUSDC`; ignored on any other network) |
@@ -28,11 +28,14 @@ tolerates a missing folder) and picks `<network>.json`.
 
 `resolveDeployment` (`packages/chain/src/deployment.ts`) merges the file and the env, env first. A
 missing address, or a missing file with no env, gives a deployment with `configured: false`.
-`configured` is computed there once, from the four addresses and the RPC URL. The app shows a "not
-connected" state and no write button while it is false.
+`configured` is computed there once, from the three required addresses (Account, Daily, Token) and the RPC URL. The app
+shows a "not connected" state and no write button while it is false. `Setup` (D-24, D-25: the quests, the achievements
+and the tutorial claim) is resolved from `contracts.Setup` (the key of step D's deploy script) but is not part of
+`configured`: a deployment from before step D (Sepolia until the fresh deployment, P-53) has none and stays connected,
+and only the tutorial claim is unavailable. An old file's `contracts.Tutorial` is not read.
 
 Only the keys above are read: any other key of the file, such as `classes` (the declared library
-class `Lobby` of P-26, which has no address), is ignored.
+class `Lobby` of P-26, which has no address; the class left with D-24), is ignored.
 
 The token is labelled `PAVED` whatever its on-chain symbol (D-10, which replaces D-2's old label; reading the symbol waits for P8's token); `decimals` comes from the file
 (no default: when the file does not say, `tokenDecimals` is `null` and the app shows no
@@ -95,7 +98,7 @@ client pays a Daily entry only for an amount the player saw and confirmed with a
 
 - The fee is read on connect, when the page becomes visible and after each write. The Daily confirm
   is disabled while the read is loading or failed ("Entry price unavailable"); resuming a game
-  and the free Tutorial need no fee.
+  needs no fee.
 - The amount is formatted with the decimals of the deployment's token only. If `entry_price().token`
   is another token, the card says "Unknown token" and the confirm is refused (and `spawn` refuses it
   too).
@@ -142,12 +145,13 @@ the Dojo burner manager (`@dojoengine/create-burner`).
 ## Views
 
 The views sit behind one interface, `GameViews` (`views.ts`): `game`, `tiles` (pages of 64 until a
-short page), `builder`, `currentDay` (`Daily.current_day`, `IDailyView`; `current_tournament_id` before D-20), `entryPrice`.
+short page), `builder`, `currentDay` (`Daily.current_day`, `IDailyView`; `current_tournament_id` before D-20), `entryPrice`,
+and `tutorialClaimed(player)` (`Setup.tutorial_claimed`, D-21).
 The `tournament` view and its `TournamentView` left with D-20. `RpcGameViews` calls the
 contracts; `FakeGameViews` holds games in memory for unit tests of the app.
 
-Every game read names its contract: game ids are counted per contract, so the client's game key is
-`(mode, game_id)` (`mode` 1 = Daily, 3 = Tutorial).
+Every game read names its contract: the client's game key is `(mode, game_id)`, and since D-21 the one mode is Daily
+(`mode` 1; 2 was Weekly and 3 the on-chain Tutorial, never given again).
 
 Reverts are mapped to typed errors (`ViewError`), from the message as text or as the hex of its
 short string (devnet 0.10 gives only the hex): `Game: does not exist` gives `game-not-found`,
@@ -160,10 +164,8 @@ found" and "not your game: read only" for the first two.
 (continuation token), and decodes the events from the ABIs. Lists use the keys, so the node does the
 filtering:
 
-- "My games": `GameSpawned` with keys `[[selector], [], [player]]` on `Daily` and on `Tutorial`.
+- "My games": `GameSpawned` with keys `[[selector], [], [player]]` on `Daily`.
 - "My finished games": `GameOver` with the same filter. A spawned game with no `GameOver` is active.
-  Tutorial belongs to no day: its `GameSpawned`, `GameOver` and `game` give `day_id` 0 (`tournament_id` before D-20) and
-  `end_time` 0 (#205), read as they are.
 - The receipt of a write: its events from the contract written to.
 
 ## Who reads what, and when
@@ -271,15 +273,31 @@ display only. Since D-20 the contracts keep no prize and no ranking: the daily l
 - Unit tests (`packages/chain/test/*.test.ts`) replay RPC answers recorded from devnet
   (`test/fixtures/devnet.json`) and check the TS view types against the ABIs.
 - `bun run test:devnet` in `packages/chain` (needs `scarb build` in `contracts/`, `starknet-devnet`
-  0.10 and `universal-sierra-compiler`): starts a devnet, declares and deploys the four contracts in
-  the test setup only, plays a Tutorial game to its end and a Daily game (spawn, discard,
-  surrender), lists the games from events and checks the error mapping. `PAVED_RECORD=1` rewrites
+  0.10 and `universal-sierra-compiler`): starts a devnet, declares and deploys Token, Account, Setup and Daily in
+  the test setup only (Daily an allowed reporter of Setup), claims the tutorial twice, plays a Daily game (spawn,
+  discard, surrender), lists the games from events and checks the error mapping. Its Daily spawn predates E3 (a Daily
+  game is bought by the economy writer since), so that step waits for a port. `PAVED_RECORD=1` rewrites
   the fixtures. CI does not run it (no devnet there).
+
+## The tutorial claim (U2, D-21, P-49)
+
+The tutorial is off chain (`/tutorial`, no chain client). Its achievement, First Stone (achievement 1, task 10
+`TUTORIAL_FINISHED`), is claimed on chain from a chain route, `/tutorial/claim`, which the tutorial's end links to:
+
+1. No Setup in the deployment: the page says the claim is unavailable. No wallet: it says so, with the controller's
+   Connect where there is one.
+2. It reads `Setup.tutorial_claimed(address)`. True: "Already claimed", and nothing is sent.
+3. Otherwise one press sends one `Setup.claim_tutorial()` (`PavedWriter.claimTutorial`, a session policy of the
+   controller). The call is idempotent and unchecked on chain: the first one emits `AchievementProgressed { task 10,
+   count 1 }` from Setup ("Claimed"); a later one has no effect, no revert and no event ("Already claimed": the receipt
+   tells them apart). A refused call shows its reason and may be tried again.
+
+The indexer credits the claim as any achievement progress from Setup (`packages/indexer/README.md`).
 
 ## Game NFT
 
 CORE's E5b mints one soulbound token per game at spawn (`contracts/src/systems/collection.cairo`). A game's NFT is
-(Collection address, token id): a Daily game's token id is its game id, a Tutorial game's is `2^32 + game id`
+(Collection address, token id): a game's token id is its game id (the Tutorial's `2^32 + game id` left with D-21)
 (`nftOf(mode, gameId)` in `packages/chain/src/nft.ts`, BigInt, a game id outside the u32 range is refused). The
 Collection address comes from `VITE_COLLECTION_ADDRESS` (an operator override), else `contracts.Collection` of the
 deployments file, else the indexer's `/v1/head` `contracts.collection` (`collectionAddress`; the head is read only when
@@ -350,10 +368,9 @@ runs in Cartridge's iframe. The connector is configured as follows:
     gets `MockUSDC: over the address cap`, which the writer turns into `FaucetCapError` ("The test USDC faucet is empty for
     this account...") and the call cap into its own words, never a raw revert;
   - one policy per call the client sends outside devnet (`CONTROLLER_ENTRY_POINTS`): `Account.create`,
-    Daily `spawn`/`build`/`discard`/`surrender` (D-20 removed `claim` and `sponsor`), and Tutorial
-    `spawn`/`build`/`discard`/`surrender`. Since E3 the Daily `spawn` is the paid purchase's
-    (`EconomyWriter.purchase`: `Daily.spawn(stake, referrer, min_out)`); `PavedWriter` spawns
-    Tutorial games only;
+    Daily `spawn`/`build`/`discard`/`surrender` (D-20 removed `claim` and `sponsor`), and `Setup.claim_tutorial` where
+    the deployment has a Setup (D-21; the Tutorial's policies left with it). Since E3 the Daily `spawn` is the paid
+    purchase's (`EconomyWriter.purchase`: `Daily.spawn(stake, referrer, min_out)`); `PavedWriter` spawns nothing;
   - `approve` only as the controller's approval policy, on the token that `Daily.entry_price` names,
     read when the controller is first used. That token is the deployment's Token before E3 and USDC
     after it, so no code change is needed. The spender is pinned to the Daily contract, and the cap is

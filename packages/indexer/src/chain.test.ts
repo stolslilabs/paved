@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { BadAnswer, CHUNK_SIZE, Chain, RpcError, parseRpcUrl, redact, sameBlock } from "./chain.ts";
-import { ACCOUNT, COLLECTION, ECONOMY, DAILY, FakeNode, TUTORIAL, ev } from "./testing/fake-node.ts";
+import { ACCOUNT, COLLECTION, ECONOMY, DAILY, FakeNode, SETUP, ev } from "./testing/fake-node.ts";
 
-const chainOf = (node: FakeNode) => new Chain(node.rpc, { daily: DAILY, tutorial: TUTORIAL, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION });
+const chainOf = (node: FakeNode) => new Chain(node.rpc, { daily: DAILY, setup: SETUP, account: ACCOUNT, economy: ECONOMY, collection: COLLECTION });
 
 describe("the URL", () => {
   test("only http(s) is accepted, and a log never holds any part of it", () => {
@@ -50,7 +50,7 @@ describe("the reader", () => {
     node.mine(
       many,
       [ev.created(1, 2)],
-      [ev.spawned("tutorial", 1, 1), ev.built("tutorial", 1)],
+      [ev.questProgressed(1, 3, 1), ev.tutorialClaimed(1)],
       [ev.spawned("daily", 999, 1), ev.purchased(999, 1), ev.minted(1, 999)],
     );
     const chain = chainOf(node);
@@ -58,8 +58,8 @@ describe("the reader", () => {
     expect(events).toHaveLength(CHUNK_SIZE + 5 + 1 + 2 + 3);
     expect(events.slice(CHUNK_SIZE + 5).map((e) => [e.source, e.transactionIndex, e.eventIndex])).toEqual([
       ["account", 1, 0],
-      ["tutorial", 2, 0],
-      ["tutorial", 2, 1],
+      ["setup", 2, 0],
+      ["setup", 2, 1],
       ["daily", 3, 0],
       ["economy", 3, 1],
       ["collection", 3, 2],

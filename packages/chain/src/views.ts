@@ -3,25 +3,26 @@ import type { Codecs, ContractName } from "./abis";
 import { AbiMismatchError, type Encodable } from "./codec";
 import type { Deployment } from "./deployment";
 
-/** The two game contracts. Game ids are counted per contract, so a game is (mode, id). */
-export type GameMode = "daily" | "tutorial";
+/**
+ * The game contract the client plays: Daily (Challenge, D-23). The on-chain Tutorial left the contracts (D-21): the
+ * tutorial is off chain (`/tutorial`). A game is still keyed (mode, id).
+ */
+export type GameMode = "daily";
 
 export interface GameKey {
   mode: GameMode;
   gameId: number;
 }
 
-/** `mode` codes of the contracts (`public-interface.md`); 2 was Weekly and is never given again. */
-export const MODE_CODE: Record<GameMode, number> = { daily: 1, tutorial: 3 };
+/** `mode` codes of the contracts (`public-interface.md`); 2 was Weekly and 3 the Tutorial, never given again. */
+export const MODE_CODE: Record<GameMode, number> = { daily: 1 };
 
 export function modeFromCode(code: number): GameMode | null {
-  if (code === 1) return "daily";
-  if (code === 3) return "tutorial";
-  return null;
+  return code === 1 ? "daily" : null;
 }
 
-export function gameContract(mode: GameMode): ContractName {
-  return mode === "daily" ? "Daily" : "Tutorial";
+export function gameContract(_mode: GameMode): ContractName {
+  return "Daily";
 }
 
 /** Field types and meanings: `docs/architecture/public-interface.md`. Felts are 0x-hex strings. */
@@ -123,6 +124,8 @@ export interface GameViews {
   currentDay(): Promise<number>;
   /** The Daily entry: token and amount, from the same source `spawn` uses. */
   entryPrice(): Promise<PriceView>;
+  /** `Setup.tutorial_claimed(player_id)`: the player's tutorial claim is made (D-21). A `not-configured` ViewError without Setup. */
+  tutorialClaimed(playerId: string): Promise<boolean>;
 }
 
 /** What the views need from starknet.js's `RpcProvider`. */
@@ -164,6 +167,10 @@ export class RpcGameViews implements GameViews {
     return (await this.call("Daily", "entry_price", [])) as PriceView;
   }
 
+  async tutorialClaimed(playerId: string): Promise<boolean> {
+    return (await this.call("Setup", "tutorial_claimed", [playerId])) as boolean;
+  }
+
   private async call(contract: ContractName, entrypoint: string, args: Encodable[]): Promise<unknown> {
     const contractAddress = this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
@@ -197,6 +204,8 @@ export class FakeGameViews implements GameViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
+  /** The players whose tutorial claim is made (`tutorial_claimed`), as BigInt. */
+  readonly tutorialClaims = new Set<bigint>();
   calls: string[] = [];
 
   setGame(key: GameKey, game: FakeGame): void {
@@ -227,6 +236,11 @@ export class FakeGameViews implements GameViews {
   async entryPrice(): Promise<PriceView> {
     this.calls.push("entry_price");
     return { ...this.price };
+  }
+
+  async tutorialClaimed(playerId: string): Promise<boolean> {
+    this.calls.push("tutorial_claimed");
+    return this.tutorialClaims.has(BigInt(playerId));
   }
 
   private get(key: GameKey): FakeGame {

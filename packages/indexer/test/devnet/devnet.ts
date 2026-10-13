@@ -143,7 +143,8 @@ export async function players(url: string, count: number): Promise<Player[]> {
 export interface Contracts {
   Account: string;
   Daily: string;
-  Tutorial: string;
+  /** Setup (D-24): the quests, the achievements and the tutorial claim. */
+  Setup: string;
   Token: string;
 }
 

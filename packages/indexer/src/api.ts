@@ -29,7 +29,8 @@ export interface ApiHead {
 
 export type IndexerState = "loading" | "ok" | "rewinding" | "halted";
 
-export type GameContract = "daily" | "tutorial";
+/** The contract of a game: Daily only since D-21 (the on-chain Tutorial's games are dropped). */
+export type GameContract = "daily";
 
 /** Every 200 answer carries these, then the rows of its route. */
 export interface Envelope {
@@ -63,7 +64,8 @@ export interface HeadAnswer extends Envelope {
   from_block: number;
   contracts: {
     daily: string;
-    tutorial: string;
+    /** Setup (D-24): the quests, the achievements and the tutorial claim. Replaces `tutorial` in schema 8. */
+    setup: string;
     account: string;
     economy: string;
     /** null for a deployment without a Collection (before E5b). Appended in E5b. */
@@ -162,7 +164,6 @@ export interface PlayerStats {
   daily_finished: number;
   /** Best score of a finished Daily game, null when none finished. */
   best_score: number | null;
-  tutorial_games: number;
   /** Daily games the player bought (`Purchased`). Appended in E3. */
   paid_games: number;
   /** Of them, the games settled. */
@@ -196,19 +197,19 @@ export interface GameRow {
   player_id: string;
   mode: number;
   start_time: number;
-  /** The day of the spawn, `GameSpawned.day_id` (0 for Tutorial). */
+  /** The day of the spawn, `GameSpawned.day_id`. */
   day_id: number;
   over: boolean;
   /** null while the game is running. */
   score: number | null;
-  /** The day the game counted for, `GameOver.day_id` (0 when it ended after its day, and for Tutorial); null while running. */
+  /** The day the game counted for, `GameOver.day_id` (0 when it ended after its day); null while running. */
   counted_day_id: number | null;
   /** 0 when the game did not count; null while running. */
   end_time: number | null;
-  /** The terms and the settlement of a Daily game bought through Economy; null for a Tutorial game and a game not bought. Appended in E3. */
+  /** The terms and the settlement of a Daily game bought through Economy; null for a game not bought. Appended in E3. */
   economy: GameEconomy | null;
   /**
-   * The id of the game's token in `Collection` (the game id for Daily, 2^32 + the game id for Tutorial), from its mint, a
+   * The id of the game's token in `Collection` (the game id), from its mint, a
    * safe integer; null for a game spawned before the collection existed. Appended in E5b.
    */
   token_id: number | null;

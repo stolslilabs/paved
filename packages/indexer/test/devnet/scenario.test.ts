@@ -1,6 +1,6 @@
 /**
  * The whole path on a local starknet-devnet 0.10 (docs/architecture/indexer.md, "Devnet run and tests"): `scripts/deploy.sh
- * devnet` deploys the contracts on a seeded fresh node (its smoke buys a paid Daily game, plays the Tutorial and settles the
+ * devnet` deploys the contracts on a seeded fresh node (its smoke buys a paid Daily game and settles the
  * paid game two days later), three accounts buy and play complete Daily games over two days and a keeper settles the first
  * day from the API's unsettled list, the indexer
  * (the real process, `src/main.ts`) follows live, is stopped and restarted mid-run, sees a replaced block, and a second
@@ -39,7 +39,7 @@ describe.skipIf(!enabled)("devnet scenario", () => {
   let work: string;
   let committed: string;
   let deployment: {
-    contracts: Record<"Account" | "Daily" | "Tutorial" | "Economy" | "MockUSDC" | "PavedToken", { address: string }>;
+    contracts: Record<"Account" | "Daily" | "Setup" | "Economy" | "MockUSDC" | "PavedToken", { address: string }>;
   };
   let file: string;
   let alice: Player;
@@ -191,13 +191,14 @@ describe.skipIf(!enabled)("devnet scenario", () => {
     if (work) rmSync(work, { recursive: true, force: true });
   });
 
-  test("the indexer follows the deployment: the smoke's paid game, its settlement and its Tutorial are in the API", async () => {
+  test("the indexer follows the deployment: the smoke's paid game, and its settlement are in the API", async () => {
     startIndexer("run", API[0]!, join(work, "a.db"));
     const head = await caught(API[0]!);
     expect(head.from_block).toBeGreaterThan(0);
     expect(head.chain_id).toBe("0x534e5f5345504f4c4941");
     expect(BigInt(head.contracts.daily)).toBe(BigInt(deployment.contracts.Daily.address));
     expect(BigInt(head.contracts.economy)).toBe(BigInt(deployment.contracts.Economy.address));
+    expect(BigInt(head.contracts.setup)).toBe(BigInt(deployment.contracts.Setup.address));
     const me = padded(alice.address);
     const smoke = await get<PlayerGamesAnswer>(`/v1/players/${me}/games?contract=daily`);
     expect(smoke.games).toHaveLength(1);
@@ -216,8 +217,6 @@ describe.skipIf(!enabled)("devnet scenario", () => {
       reward: chain.reward,
     });
     expect(chain).toMatchObject({ stake: 1, recorded: true, settled: true });
-    const tutorial = await get<PlayerGamesAnswer>(`/v1/players/${me}/games?contract=tutorial`);
-    expect(tutorial.games).toMatchObject([{ contract: "tutorial", economy: null }]);
     const player = await get<PlayerAnswer>(`/v1/players/${me}`);
     expect(player.player?.name).toBe("smoke");
     expect(player.stats).toMatchObject({ paid_games: 1, settled_games: 1, rewards: chain.reward });

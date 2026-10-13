@@ -7,16 +7,16 @@ describe("mode-routing", () => {
   });
 
   it("adds readonly for a finished game", () => {
-    expect(buildGameRoute({ gameId: 7, mode: "tutorial", readonly: true })).toBe("/game?mode=tutorial&id=7&readonly=true");
+    expect(buildGameRoute({ gameId: 7, mode: "daily", readonly: true })).toBe("/game?mode=daily&id=7&readonly=true");
   });
 
   it("a route never carries a consent to start a game", () => {
-    expect(buildGameRoute({ mode: "tutorial" })).toBe("/game?mode=tutorial");
+    expect(buildGameRoute({ mode: "daily" })).toBe("/game?mode=daily");
     expect(buildGameRoute({ mode: "daily", gameId: 4 })).toBe("/game?mode=daily&id=4");
   });
 
-  it("maps params to the two modes", () => {
-    expect(modeFromParam("tutorial")).toBe("tutorial");
+  it("maps every param to Daily: the on-chain Tutorial left (D-21), the tutorial is the /tutorial page", () => {
+    expect(modeFromParam("tutorial")).toBe("daily");
     expect(modeFromParam("daily")).toBe("daily");
     expect(modeFromParam("weekly")).toBe("daily");
     expect(modeFromParam(null)).toBe("daily");

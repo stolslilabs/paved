@@ -7,6 +7,7 @@ import { PlayerPage } from "./pages/Player";
 import { QuestsPage } from "./pages/Quests";
 import { EconomyPage } from "./pages/Economy";
 import { TutorialPage } from "./pages/Tutorial";
+import { TutorialClaimPage } from "./tutorial/TutorialClaim";
 
 export function App({ supportsMint = false }: { supportsMint?: boolean }) {
   const loading = useUIStore((s) => s.loading);
@@ -17,6 +18,8 @@ export function App({ supportsMint = false }: { supportsMint?: boolean }) {
         <Route path="/" element={<LandingPage supportsMint={supportsMint} />} />
         <Route path="/game" element={<GamePage />} />
         <Route path="/tutorial" element={<TutorialPage />} />
+        {/* The claim reads the chain: a route of the `Chain` boundary, unlike `/tutorial` (`isOffChainRoute`). */}
+        <Route path="/tutorial/claim" element={<TutorialClaimPage />} />
         <Route path="/leaderboard/:tournamentId?" element={<LeaderboardPage />} />
         <Route path="/economy" element={<EconomyPage />} />
         <Route path="/quests/:day?" element={<QuestsPage />} />

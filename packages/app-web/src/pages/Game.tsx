@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { GameCanvas } from "@paved/renderer/react";
 import { IngameStatus, GameCompleteDialog, ActionBar, useGameStore } from "@paved/ui";
 import type { GameScene, TileRenderData, CameraMode } from "@paved/renderer";
-import { PoolPriceMovedError, PoolQuoteBelowFloorError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, nftOf, useGameSession, usePaved } from "@paved/chain";
+import { PoolPriceMovedError, PoolQuoteBelowFloorError, PurchaseOutcomeUnknownError, PurchasePriceChangedError, WriteError, nftOf, useGameSession, usePaved } from "@paved/chain";
 import type { GameKey, PlaceMove } from "@paved/chain";
 import { Layout, Plan, Orientation, Direction, DirectionType } from "@paved/game-core";
 import { ClosedStructures } from "../components/ClosedStructures";
@@ -198,7 +198,8 @@ function ChainGamePage() {
     setStarting(true);
     startGame(intent, {
       listGames: () => client.events.playerGames(address, [gameParams.mode]),
-      spawn: () => spawnForIntent(intent.purchase, economy.writer, () => writer.spawn(gameParams.mode)),
+      // A Daily game is bought (E3), and no other on-chain mode spawns since D-21: without a purchase nothing is sent.
+      spawn: () => spawnForIntent(intent.purchase, economy.writer, () => Promise.reject(new WriteError("A Daily game is bought with the economy writer: nothing was sent"))),
       clearIntent: () => {}, // already cleared at mount
       open: (gameId) => alive.current && navigate(buildGameRoute({ gameId, mode: gameParams.mode }), { replace: true }),
     }).catch((error) => {

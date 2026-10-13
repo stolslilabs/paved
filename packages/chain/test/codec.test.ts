@@ -13,18 +13,40 @@ describe("view types follow the ABIs of contracts/abis", () => {
     });
   }
 
-  test("Daily and Tutorial expose the game views; only Daily the day views (IDailyView)", () => {
-    for (const fn of ["game", "tiles", "builder"]) {
+  test("Daily exposes the game views and the day views (IDailyView); Setup none of them", () => {
+    for (const fn of ["game", "tiles", "builder", "current_day", "entry_price"]) {
       expect(codecs.Daily.hasFunction(fn)).toBe(true);
-      expect(codecs.Tutorial.hasFunction(fn)).toBe(true);
+      expect(codecs.Setup.hasFunction(fn)).toBe(false);
     }
-    expect(codecs.Daily.hasFunction("current_day")).toBe(true);
-    expect(codecs.Daily.hasFunction("entry_price")).toBe(true);
-    expect(codecs.Tutorial.hasFunction("current_day")).toBe(false);
+  });
+
+  test("the on-chain Tutorial left (D-21): no Tutorial or Lobby ABI, Setup holds the claim", () => {
+    expect(Object.keys(ABIS).sort()).toEqual(["Account", "Daily", "Setup", "Token"]);
+    expect(codecs.Setup.hasFunction("claim_tutorial")).toBe(true);
+    expect(codecs.Setup.encodeCall("claim_tutorial", [])).toEqual([]);
+    // The claim's state is a view of Setup (step D): read before any write.
+    expect(codecs.Setup.encodeCall("tutorial_claimed", ["0xabc"])).toEqual(["0xabc"]);
+    expect(codecs.Setup.decodeResult("tutorial_claimed", ["0x1"])).toBe(true);
+    // The quests and achievements moved from Daily to Setup (D-24).
+    for (const fn of ["define_quest", "define_achievement", "set_reporter", "report"]) {
+      expect(codecs.Setup.hasFunction(fn), fn).toBe(true);
+      expect(codecs.Daily.hasFunction(fn), fn).toBe(false);
+    }
+    for (const codec of Object.values(codecs)) {
+      expect(JSON.stringify(codec.abi)).not.toMatch(/systems::tutorial|systems::lobby|ILobbyClass|tutoriable/i);
+    }
+  });
+
+  test("Setup emits the achievement progress of the claim: player and task as keys, count as data", () => {
+    const selector = hash.getSelectorFromName("AchievementProgressed");
+    expect(codecs.Setup.eventSelector("AchievementProgressed")).toBe(selector);
+    const event = codecs.Setup.decodeEvent({ keys: [selector, "0xabc", "0xa"], data: ["0x1"], from_address: "0x5" });
+    expect(event?.name).toBe("AchievementProgressed");
+    expect(event?.fields).toEqual({ playerId: "0xabc", taskId: 10, count: 1 });
   });
 
   test("the prize left (D-20): no claim, sponsor or tournament view, no TournamentView, no prize event", () => {
-    for (const codec of [codecs.Daily, codecs.Tutorial, codecs.Account]) {
+    for (const codec of [codecs.Daily, codecs.Setup, codecs.Account]) {
       for (const fn of ["claim", "sponsor", "tournament", "current_tournament_id"]) expect(codec.hasFunction(fn), fn).toBe(false);
       expect(JSON.stringify(codec.abi)).not.toMatch(/TournamentView|ITournamentView|tournament_id|::Sponsored|::Claimed|::Reclaimed/);
     }
@@ -33,7 +55,7 @@ describe("view types follow the ABIs of contracts/abis", () => {
 
   test("the day id is day_id in GameSpawned, GameOver and GameView", () => {
     expect(codecs.Daily.structFields("paved::views::GameView").at(-1)).toBe("dayId");
-    for (const codec of [codecs.Daily, codecs.Tutorial, codecs.Account]) {
+    for (const codec of [codecs.Daily, codecs.Account]) {
       const events = (codec.abi as Array<{ type: string; name: string; members?: Array<{ name: string }> }>).filter(
         (item) => item.type === "event" && /::(GameSpawned|GameOver)$/.test(item.name),
       );
@@ -42,8 +64,8 @@ describe("view types follow the ABIs of contracts/abis", () => {
     }
   });
 
-  test("characters left the game (D-18): no view, no role or spot type in either ABI", () => {
-    for (const codec of [codecs.Daily, codecs.Tutorial]) {
+  test("characters left the game (D-18): no view, no role or spot type in the ABIs", () => {
+    for (const codec of [codecs.Daily, codecs.Setup]) {
       expect(codec.hasFunction("characters")).toBe(false);
       expect(JSON.stringify(codec.abi)).not.toMatch(/CharacterView|types::role|types::spot/);
     }
@@ -59,7 +81,6 @@ describe("AbiCodec", () => {
     expect(codecs.Daily.encodeCall("build", [7, 2, 0x7fffffff, 0x80000000])).toEqual([
       "0x7", "0x2", "0x7fffffff", "0x80000000",
     ]);
-    expect(codecs.Tutorial.encodeCall("build", [7])).toEqual(["0x7"]);
   });
 
   test("refuses an enum code the ABI does not have", () => {
@@ -118,7 +139,7 @@ describe("AbiCodec", () => {
   test("Built has six data fields (D-18); one from before the upgrade (role and spot, eight) still decodes to them", () => {
     const keys = [hash.getSelectorFromName("Built"), "0x3"];
     const fields = { gameId: 3, playerId: "0xabc", tileId: 2, plan: 7, orientation: 2, x: 0x80000000, y: 0x7fffffff };
-    for (const codec of [codecs.Daily, codecs.Tutorial]) {
+    for (const codec of [codecs.Daily]) {
       const six = codec.decodeEvent({ keys, data: ["0xabc", "0x2", "0x7", "0x2", "0x80000000", "0x7fffffff"] });
       expect(six?.fields).toEqual(fields);
       // The two trailing felts are role and spot of the old layout: left unread, nothing else shifts.

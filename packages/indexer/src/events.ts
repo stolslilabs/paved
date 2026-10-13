@@ -14,25 +14,33 @@ import { hash } from "starknet";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
 
 /**
- * The five contracts whose events are read: `daily` and `tutorial` play, `account` registers players, `economy` holds the
- * terms, the scores and the settlements of the paid Daily games (docs/architecture/economy.md, "Events"), and `collection`
- * mints the game NFTs (economy.md, section 9).
+ * The five contracts whose events are read: `daily` plays, `setup` holds the quests and the achievements (D-24: the
+ * definitions, Challenge's reports at game over, and the player's tutorial claim, D-21), `account` registers players,
+ * `economy` holds the terms, the scores and the settlements of the paid Daily games (docs/architecture/economy.md,
+ * "Events"), and `collection` mints the game NFTs (economy.md, section 9). The on-chain Tutorial left with D-21: its
+ * address is no longer read.
  */
-export type Source = "daily" | "tutorial" | "account" | "economy" | "collection";
+export type Source = "daily" | "setup" | "account" | "economy" | "collection";
 
-export const SOURCES: readonly Source[] = ["daily", "tutorial", "account", "economy", "collection"];
+export const SOURCES: readonly Source[] = ["daily", "setup", "account", "economy", "collection"];
 
-/** A Tutorial game's token id is `TUTORIAL_OFFSET + game id`; a Daily game's is its game id (`Collection`). */
+/**
+ * A past Tutorial game's token id was `TUTORIAL_OFFSET + game id`; a Daily game's is its game id (`Collection`). The
+ * Tutorial's games are dropped (D-21): a mint of a token id from here on is skipped, so that a replay of an older
+ * history never halts.
+ */
 export const TUTORIAL_OFFSET = 2n ** 32n;
-/** The first token id that belongs to no game contract. */
+/** The first token id that belongs to no game contract, past or present. */
 export const TOKEN_LIMIT = 2n ** 33n;
 
 export class DecodeError extends Error {}
 
-/** The `mode` of each game contract (`public-interface.md`). 2 was Weekly and is never given again. */
-export const MODE: Record<"daily" | "tutorial", number> = {
+/**
+ * The `mode` of each game contract (`public-interface.md`). 2 was Weekly and 3 the on-chain Tutorial (D-21): never given
+ * again.
+ */
+export const MODE: Record<"daily", number> = {
   daily: 1,
-  tutorial: 3,
 };
 
 export type Decoded =
@@ -112,7 +120,7 @@ export type Decoded =
       /** Below 2^33, so exact as a JSON number. */
       tokenId: number;
       /** The game contract the token id belongs to, and the game id in it. */
-      contract: "daily" | "tutorial";
+      contract: "daily";
       gameId: number;
     }
   | {
@@ -158,19 +166,20 @@ export type EventName = Decoded["name"];
 
 /** Which contract emits each indexed event. */
 export const EMITTERS: Record<EventName, readonly Source[]> = {
-  GameSpawned: ["daily", "tutorial"],
-  GameOver: ["daily", "tutorial"],
+  GameSpawned: ["daily"],
+  GameOver: ["daily"],
   PlayerCreated: ["account"],
   // Account's one-shot wiring: the store compares it with the deployment file (store.ts).
   EconomySet: ["account"],
   CollectionSet: ["account"],
-  // Definitions and quest progress come from Daily only (Tutorial declares the achievement component, to report task 10).
-  QuestDefined: ["daily"],
-  QuestProgressed: ["daily"],
-  QuestRetired: ["daily"],
-  AchievementDefined: ["daily"],
-  AchievementProgressed: ["daily", "tutorial"],
-  AchievementRetired: ["daily"],
+  // Quests and achievements come from Setup only (D-24): its definitions, Challenge's reports and the tutorial claim.
+  // From Daily they are past events, skipped (`PAST_FROM`).
+  QuestDefined: ["setup"],
+  QuestProgressed: ["setup"],
+  QuestRetired: ["setup"],
+  AchievementDefined: ["setup"],
+  AchievementProgressed: ["setup"],
+  AchievementRetired: ["setup"],
   Purchased: ["economy"],
   Recorded: ["economy"],
   DayClosed: ["economy"],
@@ -186,10 +195,10 @@ export const IGNORED = [
   "OwnershipTransferStarted",
   "OwnershipTransferred",
   "Upgraded",
-  // Quests and achievements of quiver 0.2.0 that Paved never emits: quests are in event mode (no completion, no claim),
-  // and the reporters are not used (the game flow calls the internal layer).
+  // Quests and achievements of quiver 0.2.0 that Paved never emits: quests are in event mode (no completion, no claim).
   "QuestCompleted",
   "QuestClaimed",
+  // Setup's owner allowlists a reporter (`set_reporter`, D-24: Challenge): it sets both components.
   "QuestReporterSet",
   "AchievementReporterSet",
   // Economy's owner events (its constructor emits EconomyConfigured and PoolSet).
@@ -204,9 +213,29 @@ export const IGNORED = [
   "Sponsored",
   "Claimed",
   "Reclaimed",
-  // The owner's change of the Lobby class of Daily or Tutorial (P-42, set_lobby_class).
+  // The owner's change of the Lobby class of Daily or Tutorial (P-42, set_lobby_class). Past events only: D-24 removed
+  // the Lobby class and its setter.
   "LobbyClassSet",
+  // The owner's wiring of Daily to Setup (D-24, `Daily.set_setup`): where Daily reports; the indexer reads Setup's address
+  // from the deployment file.
+  "SetupSet",
 ] as const;
+
+/**
+ * Indexed events that a source emitted before D-21 and D-24 and no longer does: Daily's own quests and achievements
+ * (before Setup). A replay of such a history skips them (Sepolia's past progress is not carried over, P-51 ruling 5).
+ * The Tutorial's address is not read at all.
+ */
+const PAST_FROM: Partial<Record<Source, readonly EventName[]>> = {
+  daily: [
+    "QuestDefined",
+    "QuestProgressed",
+    "QuestRetired",
+    "AchievementDefined",
+    "AchievementProgressed",
+    "AchievementRetired",
+  ],
+};
 
 const INDEXED: readonly EventName[] = [
   "GameSpawned",
@@ -392,6 +421,7 @@ export function decode(
       `unknown event of ${source}: selector ${selector ?? "(none)"}`,
     );
   }
+  if (PAST_FROM[source]?.includes(name)) return null;
   if (!EMITTERS[name].includes(source)) {
     throw new DecodeError(`${name} emitted by ${source}, which does not emit it`);
   }
@@ -520,15 +550,15 @@ export function decode(
       if (tokenId >= TOKEN_LIMIT) {
         throw new DecodeError(`${name}: token id ${tokenId} belongs to no game contract`);
       }
-      const tutorial = tokenId >= TUTORIAL_OFFSET;
-      const gameId = tutorial ? tokenId - TUTORIAL_OFFSET : tokenId;
-      if (gameId === 0n) throw new DecodeError(`${name}: token id ${tokenId} is the game id 0`);
+      // A past Tutorial game's token (D-21 dropped those games): skipped.
+      if (tokenId >= TUTORIAL_OFFSET) return null;
+      if (tokenId === 0n) throw new DecodeError(`${name}: token id ${tokenId} is the game id 0`);
       return {
         name,
         to: felt(keys[2]),
         tokenId: Number(tokenId),
-        contract: tutorial ? "tutorial" : "daily",
-        gameId: Number(gameId),
+        contract: "daily",
+        gameId: Number(tokenId),
       };
     }
     case "Recorded":

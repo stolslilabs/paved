@@ -1,5 +1,5 @@
 // Copied from Grim World, indexer/src/testing/fake-node.ts (https://github.com/bal7hazar/grimworld, commit e405340684e4202440a97a4073fcd2bc43ca49d7),
-// Apache-2.0. Adapted for Paved: four contracts (daily, tutorial, account, economy) and Paved's event builders, and
+// Apache-2.0. Adapted for Paved: five contracts (daily, setup, account, economy, collection) and Paved's event builders, and
 // `starknet_chainId`. This copy is maintained by the Paved repository.
 //
 // A fake Starknet node for the unit tests: no network. It answers the read methods the indexer
@@ -11,14 +11,14 @@ import { RpcError, type Rpc } from "../chain.ts";
 import { SELECTORS, type Source } from "../events.ts";
 
 export const DAILY = "0x1111";
-export const TUTORIAL = "0x2222";
+export const SETUP = "0x2222";
 export const ACCOUNT = "0x3333";
 export const ECONOMY = "0x4444";
 export const COLLECTION = "0x5555";
 export const CHAIN_ID = "0x534e5f5345504f4c4941";
 const ADDRESS: Record<Source, string> = {
   daily: DAILY,
-  tutorial: TUTORIAL,
+  setup: SETUP,
   account: ACCOUNT,
   economy: ECONOMY,
   collection: COLLECTION,
@@ -53,11 +53,12 @@ export function raw(
   };
 }
 
-const MODE = { daily: 1, tutorial: 3 } as const;
+/** Where the quest and achievement builders emit: Setup (D-24), or Daily for a past history (skipped). */
+type QuestSource = "setup" | "daily";
 
 export const ev = {
   spawned: (
-    source: "daily" | "tutorial",
+    source: "daily",
     gameId: number,
     player: bigint | number,
     options: {
@@ -72,14 +73,14 @@ export const ev = {
       "GameSpawned",
       [gameId, player],
       [
-        options.mode ?? MODE[source],
-        options.day ?? (source === "daily" ? 100 : 0),
+        options.mode ?? 1,
+        options.day ?? 100,
         options.start ?? 1_000_000,
         options.price ?? 5,
       ],
     ),
   over: (
-    source: "daily" | "tutorial",
+    source: "daily",
     gameId: number,
     player: bigint | number,
     score: number,
@@ -93,12 +94,12 @@ export const ev = {
     raw(
       source,
       "GameOver",
-      [gameId, player, options.day ?? (source === "daily" ? 100 : 0)],
+      [gameId, player, options.day ?? 100],
       [
-        options.mode ?? MODE[source],
+        options.mode ?? 1,
         score,
         options.start ?? 1_000_000,
-        options.end ?? (source === "daily" ? 1_000_500 : 0),
+        options.end ?? 1_000_500,
       ],
     ),
   created: (player: bigint | number, name: bigint | number, master: bigint | number = 0xabc) =>
@@ -117,12 +118,13 @@ export const ev = {
       interval?: number;
       tasks?: [number, number][];
       conditions?: number[];
+      source?: QuestSource;
     } = {},
   ) => {
     const tasks = options.tasks ?? [[1, 1]];
     const conditions = options.conditions ?? [];
     return raw(
-      "daily",
+      options.source ?? "setup",
       "QuestDefined",
       [questId],
       [
@@ -137,30 +139,32 @@ export const ev = {
       ],
     );
   },
-  questProgressed: (player: bigint | number, task: number, count: number) =>
-    raw("daily", "QuestProgressed", [player, task], [count]),
-  questRetired: (questId: number) => raw("daily", "QuestRetired", [questId], []),
+  questProgressed: (player: bigint | number, task: number, count: number, source: QuestSource = "setup") =>
+    raw(source, "QuestProgressed", [player, task], [count]),
+  questRetired: (questId: number, source: QuestSource = "setup") => raw(source, "QuestRetired", [questId], []),
   /** `AchievementDefined`: key achievement_id; data window (start, end), tasks span, points. */
   achievementDefined: (
     achievementId: number,
-    options: { start?: number; end?: number; tasks?: [number, number][]; points?: number } = {},
+    options: { start?: number; end?: number; tasks?: [number, number][]; points?: number; source?: QuestSource } = {},
   ) => {
     const tasks = options.tasks ?? [[1, 1]];
     return raw(
-      "daily",
+      options.source ?? "setup",
       "AchievementDefined",
       [achievementId],
       [options.start ?? 0, options.end ?? 0, tasks.length, ...tasks.flat(), options.points ?? 10],
     );
   },
   achievementProgressed: (
-    source: "daily" | "tutorial",
     player: bigint | number,
     task: number,
     count: number,
+    source: QuestSource = "setup",
   ) => raw(source, "AchievementProgressed", [player, task], [count]),
-  achievementRetired: (achievementId: number) =>
-    raw("daily", "AchievementRetired", [achievementId], []),
+  /** `Setup.claim_tutorial()` the first time: `AchievementProgressed { task 10, count 1 }` (D-21). */
+  tutorialClaimed: (player: bigint | number) => raw("setup", "AchievementProgressed", [player, 10], [1]),
+  achievementRetired: (achievementId: number, source: QuestSource = "setup") =>
+    raw(source, "AchievementRetired", [achievementId], []),
   /**
    * Economy's `Purchased`: keys game_id, player_id; data day, stake, price (u256: low, high), referrer, referral,
    * burned_quote, burned, margin, supply (u256 each), factor, reference (u128). Defaults: a stake-1 purchase, no referrer.

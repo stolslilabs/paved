@@ -13,8 +13,8 @@ export const MAX_INDEXER_PAGE = 100;
 /** Largest tournament id the API serves: its end time stays a safe JSON integer (indexer doc, P-19). */
 export const MAX_TOURNAMENT_ID = Math.floor(Number.MAX_SAFE_INTEGER / 86400) - 1; // 104249991373 (P-19)
 
-/** `daily` or `tutorial`: the contract that emitted a game's events. */
-export type IndexerContract = "daily" | "tutorial";
+/** The contract that emitted a game's events: `daily` only since D-21 (the on-chain Tutorial left; its games are dropped). */
+export type IndexerContract = "daily";
 
 /** Non-ok statuses of the envelope: the indexer answers 503 with one of them. */
 export type IndexerStatus = "loading" | "rewinding" | "halted";
@@ -156,7 +156,6 @@ export interface PlayerStats {
   dailyGames: number;
   dailyFinished: number;
   bestScore: number;
-  tutorialGames: number;
   /** E3 (appended to v1); undefined from an indexer that predates it. */
   paidGames?: number;
   settledGames?: number;
@@ -175,18 +174,18 @@ export interface IndexedGame {
   gameId: number;
   mode: number;
   startTime: number;
-  /** Day of the spawn (`GameSpawned.day_id`); 0 for Tutorial. */
+  /** Day of the spawn (`GameSpawned.day_id`). */
   dayId: number;
   over: boolean;
   /** 0 while the game runs: the indexer answers null then, and the screens show "In progress". */
   score: number;
-  /** The day the game counted for (`GameOver.day_id`); 0 when it ranks in no day (Tutorial, or over after its day closed, or still running). */
+  /** The day the game counted for (`GameOver.day_id`); 0 when it ranks in no day (over after its day closed, or still running). */
   countedDayId: number;
   /** 0 while the game runs (`over` is false). */
   endTime: number;
   /** The game's NFT id in the Collection (E5b, schema 5); null when it has none (minted before the Collection existed), undefined from an indexer that predates it: no NFT is shown then. */
   tokenId?: number | null;
-  /** The terms of a bought game (E3); null for a Tutorial game or a game not bought, undefined from an indexer that predates E3. */
+  /** The terms of a bought game (E3); null for a game not bought, undefined from an indexer that predates E3. */
   economy?: GameEconomy | null;
 }
 
@@ -441,7 +440,7 @@ function parseEntry(v: unknown, what: string): LeaderboardEntry {
 function parseGame(v: unknown, what: string): IndexedGame {
   const o = obj(v, what);
   const contract = str(o, "contract", what);
-  if (contract !== "daily" && contract !== "tutorial") bad(`${what}.contract is ${contract}`);
+  if (contract !== "daily") bad(`${what}.contract is ${contract}`);
   const over = bool(o, "over", what);
   // "As built": a running game answers null for these three, read as 0; `over` says which.
   const game: IndexedGame = {
@@ -631,7 +630,6 @@ export class IndexerClient {
           dailyGames: num(stats, "daily_games", "stats"),
           dailyFinished: num(stats, "daily_finished", "stats"),
           bestScore: num(stats, "best_score", "stats"),
-          tutorialGames: num(stats, "tutorial_games", "stats"),
           ...(present(stats, "paid_games") ? { paidGames: num(stats, "paid_games", "stats") } : {}),
           ...(present(stats, "settled_games") ? { settledGames: num(stats, "settled_games", "stats") } : {}),
           ...(present(stats, "rewards") ? { rewards: amount(stats, "rewards", "stats") } : {}),
