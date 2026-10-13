@@ -484,7 +484,7 @@ is 0 again from `sigma` +0.1 (54 % and 52 % lost).
 - **The supply factor is the regulator.** `rho` moves the supply after a year (854k at 0.8, 1,248k at 1.2), not
   the edge. Its value is a choice of where the supply sits, and 0.9 keeps it a little under the initial million.
 - **`sigma` chooses who loses.** From -0.2 to +0.2, the share of games lost goes from 30 % to 61 % and the p99
-  return from 1.39 to 2.24; the edge stays at 36.6 to 36.9 %. D-10 asks for a cliff at the profitability-shifted
+  return from 1.39 to 2.24; the edge stays at 36.3 to 36.9 %. D-10 asks for a cliff at the profitability-shifted
   mean; 0 puts it at the mean. A negative shift is gentler on the median player at no cost to the house.
 - **Skill pays, as it should.** The greedy bot gets back 1.01 per USDC (option B), the noisy bot 0.76, the novice
   nothing. With half the population novices, the greedy bot earns 1.35: a skilled player gains from weaker ones.
