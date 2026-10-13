@@ -12,7 +12,6 @@ function makeTile(overrides: Partial<TileRenderData> = {}): TileRenderData {
     orientation: 1,
     x: 0,
     y: 0,
-    occupied_spot: 0,
     worldX: 0,
     worldZ: 0,
     ...overrides,

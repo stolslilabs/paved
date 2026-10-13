@@ -15,7 +15,6 @@ function makeTileData(overrides: Partial<TileData> = {}): TileData {
     orientation: 1, // North
     x: 0,
     y: 0,
-    occupied_spot: 0, // None
     ...overrides,
   };
 }
@@ -43,16 +42,6 @@ describe("Tile", () => {
     it("sets orientation from index", () => {
       const tile = new Tile(makeTileData({ orientation: 1 }));
       expect(tile.orientation.value).toBe(OrientationType.North);
-    });
-
-    it("sets occupied spot from index", () => {
-      const tile = new Tile(makeTileData({ occupied_spot: 0 }));
-      expect(tile.occupiedSpot.value).toBe(SpotType.None);
-    });
-
-    it("sets occupied spot Center (index 1)", () => {
-      const tile = new Tile(makeTileData({ occupied_spot: 1 }));
-      expect(tile.occupiedSpot.value).toBe(SpotType.Center);
     });
   });
 
@@ -125,23 +114,6 @@ describe("Tile", () => {
       const from = new Spot(SpotType.Center);
       const to = new Spot(SpotType.South);
       expect(tile.areConnected(from, to)).toBe(false);
-    });
-  });
-
-  describe("isEmpty()", () => {
-    it("returns true when occupiedSpot is None", () => {
-      const tile = new Tile(makeTileData({ occupied_spot: 0 }));
-      expect(tile.isEmpty()).toBe(true);
-    });
-
-    it("returns false when occupiedSpot is Center", () => {
-      const tile = new Tile(makeTileData({ occupied_spot: 1 }));
-      expect(tile.isEmpty()).toBe(false);
-    });
-
-    it("returns false when occupiedSpot is North", () => {
-      const tile = new Tile(makeTileData({ occupied_spot: 3 }));
-      expect(tile.isEmpty()).toBe(false);
     });
   });
 

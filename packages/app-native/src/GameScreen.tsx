@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import {
   type TileRenderData,
-  type CharacterRenderData,
   type HoverState,
   type CameraMode,
   type RenderSurfaceAdapter,
@@ -14,7 +13,6 @@ import { GameCanvasNative } from "@paved/renderer/react-native";
 export interface GameScreenProps {
   surface: RenderSurfaceAdapter;
   tiles?: TileRenderData[];
-  characters?: CharacterRenderData[];
   hover?: HoverState | null;
   availableSlots?: Array<{ x: number; y: number }>;
   strategyMode?: boolean;
@@ -31,7 +29,6 @@ export interface GameScreenProps {
 export function GameScreen({
   surface,
   tiles = [],
-  characters = [],
   hover = null,
   availableSlots = [],
   strategyMode = false,
@@ -59,7 +56,6 @@ export function GameScreen({
     <GameCanvasNative
       surface={surface}
       tiles={tiles}
-      characters={characters}
       hover={hover}
       availableSlots={availableSlots}
       strategyMode={strategyMode}

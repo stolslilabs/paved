@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { GameScene, type GameSceneDependencies } from "../core/GameScene";
 import type {
   TileRenderData,
-  CharacterRenderData,
   HoverState,
   CameraMode,
   RenderSurfaceAdapter,
@@ -12,7 +11,6 @@ import type {
 export interface GameCanvasNativeProps {
   surface: RenderSurfaceAdapter;
   tiles?: TileRenderData[];
-  characters?: CharacterRenderData[];
   hover?: HoverState | null;
   availableSlots?: Array<{ x: number; y: number }>;
   strategyMode?: boolean;
@@ -31,7 +29,6 @@ export interface GameCanvasNativeProps {
 export function GameCanvasNative({
   surface,
   tiles = [],
-  characters = [],
   hover = null,
   availableSlots = [],
   strategyMode = false,
@@ -77,10 +74,6 @@ export function GameCanvasNative({
   useEffect(() => {
     sceneRef.current?.updateTiles(tiles);
   }, [tiles]);
-
-  useEffect(() => {
-    sceneRef.current?.updateCharacters(characters);
-  }, [characters]);
 
   useEffect(() => {
     sceneRef.current?.setHoveredTile(hover);

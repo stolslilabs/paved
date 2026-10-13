@@ -3,14 +3,12 @@ import { GameScene } from "../core/GameScene";
 import { createWebSurfaceAdapter } from "../core/WebSurfaceAdapter";
 import type {
   TileRenderData,
-  CharacterRenderData,
   HoverState,
   CameraMode,
 } from "../core/types";
 
 export interface GameCanvasProps {
   tiles?: TileRenderData[];
-  characters?: CharacterRenderData[];
   hover?: HoverState | null;
   availableSlots?: Array<{ x: number; y: number }>;
   strategyMode?: boolean;
@@ -27,7 +25,6 @@ export interface GameCanvasProps {
 
 export function GameCanvas({
   tiles = [],
-  characters = [],
   hover = null,
   availableSlots = [],
   strategyMode = false,
@@ -76,10 +73,6 @@ export function GameCanvas({
   useEffect(() => {
     sceneRef.current?.updateTiles(tiles);
   }, [tiles]);
-
-  useEffect(() => {
-    sceneRef.current?.updateCharacters(characters);
-  }, [characters]);
 
   useEffect(() => {
     sceneRef.current?.setHoveredTile(hover);

@@ -1,4 +1,4 @@
-import type { TileData, CharacterData } from "@paved/game-core";
+import type { TileData } from "@paved/game-core";
 
 /** World units per grid cell — single source of truth */
 export const TILE_SIZE = 3;
@@ -61,20 +61,6 @@ export interface TileRenderData extends TileData {
   worldZ: number;
   // True for optimistic tiles awaiting tx confirmation
   pending?: boolean;
-}
-
-export interface CharacterRenderData {
-  gameId: number;
-  playerId: string;
-  index: number;
-  tileId: number;
-  spot: number;
-  weight: number;
-  power: number;
-  color: string;
-  name?: string;
-  worldX: number;
-  worldZ: number;
 }
 
 export interface HoverState {

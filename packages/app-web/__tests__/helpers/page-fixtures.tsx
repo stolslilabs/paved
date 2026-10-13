@@ -109,8 +109,8 @@ export function renderPage(opts: {
 /** A store with the shape the pages read, for `vi.mock("@paved/ui")`. */
 export function makeUiMock() {
   const state: Record<string, unknown> = {
-    orientation: 1, strategyMode: false, character: 0, spot: 0, x: 0, y: 0, selectedTile: null,
-    setOrientation: vi.fn(), setSelectedTile: vi.fn(), setCharacter: vi.fn(), setSpot: vi.fn(), setX: vi.fn(), setY: vi.fn(),
+    orientation: 1, strategyMode: false, x: 0, y: 0, selectedTile: null,
+    setOrientation: vi.fn(), setSelectedTile: vi.fn(), setX: vi.fn(), setY: vi.fn(),
   };
   const useGameStore = Object.assign((selector: (s: typeof state) => unknown) => selector(state), { getState: () => state });
   return { useGameStore };

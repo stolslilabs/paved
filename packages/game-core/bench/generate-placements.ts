@@ -69,7 +69,7 @@ export function generatePlacements(
     for (const [x, y] of ordered) {
       const o = ORIENTATIONS.find((o) => canPlace(byPos, x, y, plan, o));
       if (o === undefined) continue;
-      placed = { ...template, id: board.size + placements.length + 1, plan, orientation: o, x, y, occupied_spot: 0 };
+      placed = { ...template, id: board.size + placements.length + 1, plan, orientation: o, x, y };
       break;
     }
     if (!placed) continue;

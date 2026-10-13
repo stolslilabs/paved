@@ -5,7 +5,6 @@ export { DirectionType, Direction } from "./types/direction";
 export { SpotType, Spot } from "./types/spot";
 export { Move } from "./types/move";
 export { CategoryType, Category } from "./types/category";
-export { RoleType, Role } from "./types/role";
 export { ModeType, Mode } from "./types/mode";
 export type { FeltLike, GameConfigInput, GameCreateOptions } from "./types/game-config";
 export { validateGameConfigInput } from "./types/game-config";
@@ -14,10 +13,6 @@ export { Layout } from "./types/layout";
 export { TutorialStage, TUTORIAL_STAGES } from "./types/tutorial-stage";
 
 // Models
-export { Builder } from "./models/builder";
-export type { BuilderData } from "./models/builder";
-export { Character } from "./models/character";
-export type { CharacterData } from "./models/character";
 export { Game } from "./models/game";
 export type { GameData } from "./models/game";
 export { Player } from "./models/player";
@@ -52,9 +47,6 @@ export { Configuration as WfffffffrLayout } from "./layouts/wfffffffr";
 export { Base } from "./elements/decks/base";
 export { Tutorial } from "./elements/decks/tutorial";
 
-// Helpers
-export { Conflict } from "./helpers/conflict";
-
 // Game logic
 export { Store } from "./store";
 export type { Tiles } from "./store";
@@ -70,35 +62,10 @@ export {
 } from "./constants";
 
 // Utilities
-export {
-  CHARACTER_COUNT,
-  ORDER_COUNT,
-  Characters,
-  getSpotFromIndex,
-  getIndexFromSpot,
-  getCharacters,
-  getAvailableCharacters,
-  getRole,
-  getBoost,
-  getRoleAllowedSpots,
-  getCharacterFromIndex,
-  getIndexFromCharacter,
-  getColorFromCharacter,
-  getColor,
-  offset,
-  other_offset,
-  getSpotOffset,
-  categoryToChar,
-  getValidSpotsForRole,
-} from "./utils";
+export { getColor, offset, other_offset } from "./utils";
 
 // Asset key helpers
-export {
-  getPlanKey,
-  getTilePath,
-  getCharacterKey,
-  getCharacterPath,
-} from "./asset-keys";
+export { getPlanKey, getTilePath } from "./asset-keys";
 
 // Economy helpers
 export {

@@ -1,7 +1,7 @@
 import { existsSync, lstatSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { PlanType, getCharacterPath, getPlanKey, getTilePath } from "@paved/game-core";
+import { PlanType, getPlanKey, getTilePath } from "@paved/game-core";
 
 // Every static path the packages build from a key must exist under public/, which is what the app
 // serves and what `vite build` copies to dist (the bench build copies it too, same base config).
@@ -25,11 +25,6 @@ describe("public assets", () => {
 
   it("hold the tile preview image of every plan, the empty one included (ui TilePreview)", () => {
     const missing = [PlanType.None, ...planTypes].map((plan) => getTilePath(plan)).filter((p) => !existsSync(publicFile(p)));
-    expect(missing).toEqual([]);
-  });
-
-  it("hold the portrait of every character (ui ActionBar)", () => {
-    const missing = [1, 2, 3, 4, 5, 6, 7].map((i) => getCharacterPath(i)).filter((p) => !existsSync(publicFile(p)));
     expect(missing).toEqual([]);
   });
 });

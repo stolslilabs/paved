@@ -13,7 +13,6 @@ vi.mock("@paved/ui", async () => {
     ...makeUiMock(),
     IngameStatus: () => null,
     GameCompleteDialog: ({ visible }: { visible: boolean }) => (visible ? <div>Game complete</div> : null),
-    SpotSelector: () => null,
     ActionBar: ({ onDiscard, discardDisabled }: { onDiscard: () => void; discardDisabled: boolean }) => (
       <button type="button" disabled={discardDisabled} onClick={onDiscard}>
         Discard tile
