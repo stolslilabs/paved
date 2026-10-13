@@ -9,8 +9,6 @@ use paved::tests::setup::setup::{
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 
 #[test]
 #[available_gas(l2_gas: 118214000)]
@@ -62,7 +60,7 @@ fn test_daily_e2e_build_increments_counter() {
 
     systems
         .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
+        .build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 
     let game = store.game(context.game_id);
     assert(game.built == 1, 'Daily: build count');

@@ -19,8 +19,6 @@ use paved::tests::setup::setup::{
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use snforge_std::{EventSpyTrait, spy_events, start_cheat_caller_address, stop_cheat_caller_address};
 use starknet::ContractAddress;
 
@@ -146,7 +144,7 @@ fn test_economy_records_a_game_over_on_build() {
     store.set_tile(tile);
     systems
         .daily
-        .build(context.game_id, Orientation::North, CENTER + 1, CENTER, Role::None, Spot::None);
+        .build(context.game_id, Orientation::North, CENTER + 1, CENTER);
     assert_recorded(store, @systems, context.game_id);
 }
 

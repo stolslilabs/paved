@@ -4,20 +4,25 @@
 //! does with it, and the game score expected once the move is played. The harness replays the list
 //! against the real systems and checks every step, so any change of a rule, of the deck draw or of
 //! the scoring shows up at the first move that diverges.
+//!
+//! D-18b: the expected scores come from the oracle's walks (`oracle::score`), not from the
+//! structure state. A record run (`RECORD`) prints, step by step, the score the oracle gives: the
+//! score before plus `score::move_points` for a build, minus the discard penalty for a discard. The
+//! checked replays (`*_structures_agree`) assert, on every build, that the move scored exactly what
+//! the walks give, and at the end that the board's finished structures all scored.
 
 use paved::models::game::{Game, GameTrait};
 use paved::models::tile::Tile;
 use paved::models::tournament::TournamentTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::leaderboard;
+use paved::constants::DISCARD_POINTS;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{IDailyDispatcherTrait, TestStore, TestStoreTrait};
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use starknet::ContractAddress;
 
 /// One step of a golden game.
@@ -31,8 +36,6 @@ pub struct GoldenMove {
     pub orientation: Orientation,
     pub x: u32,
     pub y: u32,
-    pub role: Role,
-    pub spot: Spot,
     /// Game score once the move is played.
     pub score: u32,
 }
@@ -46,8 +49,6 @@ pub struct GoldenOutcome {
     /// Tile count, the starter tile included.
     pub tile_count: u32,
     pub over: bool,
-    /// Characters bitmap of the builder at the end (bit set = still placed).
-    pub characters: u8,
     /// Top score written to the tournament of the game (0 if the game is not over).
     pub top1_score: u32,
 }
@@ -58,37 +59,19 @@ pub fn day(index: u64) -> u64 {
 }
 
 /// A move on a tile of the real deck.
-pub fn mv(
-    plan: Plan, orientation: Orientation, x: u32, y: u32, role: Role, spot: Spot, score: u32,
-) -> GoldenMove {
-    GoldenMove { drawn: plan, plan, orientation, x, y, role, spot, score }
+pub fn mv(plan: Plan, orientation: Orientation, x: u32, y: u32, score: u32) -> GoldenMove {
+    GoldenMove { drawn: plan, plan, orientation, x, y, score }
 }
 
 /// A move on a forced tile: `drawn` is what the deck gives, `plan` what is played instead.
 pub fn forced(
-    drawn: Plan,
-    plan: Plan,
-    orientation: Orientation,
-    x: u32,
-    y: u32,
-    role: Role,
-    spot: Spot,
-    score: u32,
+    drawn: Plan, plan: Plan, orientation: Orientation, x: u32, y: u32, score: u32,
 ) -> GoldenMove {
-    GoldenMove { drawn, plan, orientation, x, y, role, spot, score }
+    GoldenMove { drawn, plan, orientation, x, y, score }
 }
 
 pub fn discard(plan: Plan, score: u32) -> GoldenMove {
-    GoldenMove {
-        drawn: plan,
-        plan,
-        orientation: Orientation::None,
-        x: 0,
-        y: 0,
-        role: Role::None,
-        spot: Spot::None,
-        score,
-    }
+    GoldenMove { drawn: plan, plan, orientation: Orientation::None, x: 0, y: 0, score }
 }
 
 pub fn assert_outcome(
@@ -99,10 +82,6 @@ pub fn assert_outcome(
     assert_eq!(game.discarded, outcome.discarded, "Golden {}: discard count", name);
     assert_eq!(game.tile_count, outcome.tile_count, "Golden {}: tile count", name);
     assert_eq!(game.is_over(), outcome.over, "Golden {}: game over", name);
-    let builder = store.builder(game, player_id);
-    assert_eq!(
-        builder.characters, outcome.characters.into(), "Golden {}: builder characters", name,
-    );
     let first = leaderboard::ranked(
         store.contract, TournamentTrait::compute_id(game.start_time, game.duration()), 1,
     );
@@ -112,7 +91,8 @@ pub fn assert_outcome(
     }
 }
 
-/// Set to true to print the observed values instead of asserting them (used to record a new case).
+/// Set to true to print the scores the oracle gives instead of asserting them (to record the
+/// expected values of a case: run its `*_structures_agree` test, which has the oracle).
 const RECORD: bool = false;
 
 /// Spawns a Daily game for `caller` at `timestamp` and replays `moves` on it.
@@ -201,8 +181,12 @@ fn replay_daily(
     }
 
     let mut step: u32 = 0;
+    // [Info] The score the oracle gives, and what the discards took from it
+    let mut oracle: u32 = 0;
+    let mut penalties: u32 = 0;
     for golden in moves {
         let game = store.game(game_id);
+        let score_before = game.score;
         let builder = store.builder(game, caller.into());
         let mut tile: Tile = store.tile(game, builder.tile_id);
         let before: u8 = tile.plan;
@@ -218,14 +202,20 @@ fn replay_daily(
         }
         if *golden.orientation == Orientation::None {
             systems.daily.discard(game_id);
+            let taken = if oracle < DISCARD_POINTS {
+                oracle
+            } else {
+                DISCARD_POINTS
+            };
+            oracle -= taken;
+            penalties += score_before - store.game(game_id).score;
         } else {
-            systems
-                .daily
-                .build(
-                    game_id, *golden.orientation, *golden.x, *golden.y, *golden.role, *golden.spot,
-                );
+            systems.daily.build(game_id, *golden.orientation, *golden.x, *golden.y);
             if checked != Check::None {
                 run_check(store, game_id, builder.tile_id, checked);
+                let (points, _) = check::move_points(store, game_id, builder.tile_id);
+                oracle += points;
+                check::assert_move_scored(store, game_id, builder.tile_id, score_before);
             }
         }
         let game = store.game(game_id);
@@ -234,7 +224,7 @@ fn replay_daily(
                 .tile(game, store.builder(game, caller.into()).tile_id)
                 .plan
                 .into();
-            println!("GOLDEN {} step={} score={} next_plan={}", name, step, game.score, drawn);
+            println!("GOLDEN {} step={} oracle={} next_plan={}", name, step, oracle, drawn);
         } else {
             assert_eq!(game.score, *golden.score, "Golden {}: score at step {}", name, step);
         }
@@ -242,22 +232,19 @@ fn replay_daily(
     }
 
     let game = store.game(game_id);
+    if checked != Check::None {
+        // Every finished structure of the board scored, once
+        check::assert_board_scored(store, game_id, penalties);
+    }
     if RECORD {
         println!(
-            "GOLDEN {} end score={} built={} discarded={} tile_count={} over={}",
+            "GOLDEN {} end oracle={} built={} discarded={} tile_count={} over={}",
             name,
-            game.score,
+            oracle,
             game.built,
             game.discarded,
             game.tile_count,
             game.is_over(),
-        );
-        let builder = store.builder(game, caller.into());
-        let first = leaderboard::ranked(
-            store.contract, TournamentTrait::compute_id(game.start_time, game.duration()), 1,
-        );
-        println!(
-            "GOLDEN {} end characters={} top1_score={}", name, builder.characters, first.score,
         );
         assert(false, 'Golden: record run');
     } else {
@@ -277,14 +264,18 @@ pub struct TutorialStep {
     pub score: u32,
 }
 
-/// Spawns a Tutorial game and replays `steps` on it. Returns the final game.
+/// Spawns a Tutorial game and replays `steps` on it, with the oracle's checks (the game is 10
+/// tiles). Returns the final game.
 pub fn play_tutorial(name: felt252, steps: Span<TutorialStep>, outcome: GoldenOutcome) -> Game {
     let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
     let game_id = context.game_id;
 
     let mut step: u32 = 0;
+    let mut oracle: u32 = 0;
+    let mut penalties: u32 = 0;
     for golden in steps {
         let game = store.game(game_id);
+        let score_before = game.score;
         let builder = store.builder(game, context.player_id);
         let tile: Tile = store.tile(game, builder.tile_id);
         let before: u8 = tile.plan;
@@ -296,12 +287,23 @@ pub fn play_tutorial(name: felt252, steps: Span<TutorialStep>, outcome: GoldenOu
         }
         if *golden.discard {
             systems.tutorial.discard(game_id);
+            let taken = if oracle < DISCARD_POINTS {
+                oracle
+            } else {
+                DISCARD_POINTS
+            };
+            oracle -= taken;
+            penalties += score_before - store.game(game_id).score;
         } else {
             systems.tutorial.build(game_id);
+            check::assert_tile_agrees(store, game_id, builder.tile_id);
+            let (points, _) = check::move_points(store, game_id, builder.tile_id);
+            oracle += points;
+            check::assert_move_scored(store, game_id, builder.tile_id, score_before);
         }
         let game = store.game(game_id);
         if RECORD {
-            println!("GOLDEN {} step={} score={}", name, step, game.score);
+            println!("GOLDEN {} step={} oracle={}", name, step, oracle);
         } else {
             assert_eq!(game.score, *golden.score, "Golden {}: score at step {}", name, step);
         }
@@ -309,22 +311,16 @@ pub fn play_tutorial(name: felt252, steps: Span<TutorialStep>, outcome: GoldenOu
     }
 
     let game = store.game(game_id);
+    check::assert_board_scored(store, game_id, penalties);
     if RECORD {
         println!(
-            "GOLDEN {} end score={} built={} discarded={} tile_count={} over={}",
+            "GOLDEN {} end oracle={} built={} discarded={} tile_count={} over={}",
             name,
-            game.score,
+            oracle,
             game.built,
             game.discarded,
             game.tile_count,
             game.is_over(),
-        );
-        let builder = store.builder(game, context.player_id);
-        let first = leaderboard::ranked(
-            store.contract, TournamentTrait::compute_id(game.start_time, game.duration()), 1,
-        );
-        println!(
-            "GOLDEN {} end characters={} top1_score={}", name, builder.characters, first.score,
         );
         assert(false, 'Golden: record run');
     } else {

@@ -2,8 +2,10 @@
 //!
 //! The tutorial places every tile by itself (`Deck::Tutorial` parameters), so the data is the plan
 //! held before each step, whether the step builds or discards, and the score expected after it.
-//! The expected values were recorded by running the code of the commit that introduced this file;
-//! the final score matches the one pinned by `test_tutorial_e2e_scripted_run_is_deterministic`.
+//! D-18b: the script lost its roles and spots (D-18), and the expected scores were derived from
+//! the oracle's walks (`oracle::score`, a record run), not from the structure state; the replay
+//! checks every build against the walks. The final score matches the one pinned by
+//! `test_tutorial_e2e_scripted_run_is_deterministic`.
 
 use paved::tests::golden::harness::{GoldenOutcome, TutorialStep, play_tutorial};
 use paved::types::plan::Plan;
@@ -31,7 +33,6 @@ fn test_golden_tutorial_full_sequence() {
             discarded: 1,
             tile_count: 10,
             over: true,
-            characters: 0,
             top1_score: 0,
         },
     );

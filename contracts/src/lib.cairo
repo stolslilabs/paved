@@ -124,6 +124,7 @@ pub mod tests {
     pub mod economy;
     pub mod golden;
     pub mod leaderboard;
+    pub mod legacy;
     pub mod oracle;
     pub mod seed;
     pub mod setup;

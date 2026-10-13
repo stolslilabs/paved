@@ -1,309 +1,39 @@
-//! Walk oracle (phase P5, PR P5-1).
+//! Walk oracle (phase P5, PR P5-1; D-18b).
 //!
-//! The recursive walks of `helpers/{generic,conflict,wonder,forest,simple}.cairo`, copied unchanged
-//! into a test-only module: they define the scores the structure state of P5-4 must reproduce. The
-//! runtime no longer uses `generic`, `conflict` and `wonder` (P5-4 removed them from `helpers/`);
-//! this copy stays, and `check` compares the stored structures with the walks after every move of
-//! the goldens, the gas scenarios and the e2e boards.
+//! The recursive walks of `helpers/{generic,wonder,forest,simple}.cairo`, kept in a test-only
+//! module: they define the scores the structure state of P5-4 must reproduce. The runtime no longer
+//! uses them; `check` compares the stored structures with the walks after every move of the
+//! goldens, the gas scenarios and the e2e boards.
 //!
-//! The copies differ from the originals in two import paths only: `forest` and `simple` reach
-//! `simple` and `generic` of this module instead of `paved::helpers`, so that the oracle does not
-//! depend on the runtime walks it will outlive. The code is the same, `scarb fmt` aside (order of
-//! the `use` lines, trailing commas).
+//! D-18b rewrote them to the rules without characters (D-18, P-45): the walks no longer collect
+//! characters (and `Conflict`, which only looked for one, is gone), and `score` gives the points of
+//! a closed structure from the walks alone: a road or city `count x base x bonus(count)`, a wonder
+//! `base`, a forest `(distinct closed roads + distinct closed cities) x base x bonus(count)`. The
+//! expected scores of the goldens are derived from `score`, never from the structure state.
+//!
+//! The walks themselves are those of 2024: the same moves, the same short-circuit at an empty
+//! position, P-15 for the cities around a forest.
 
 pub mod generic {
-    // Core imports
-
-    // Internal imports
-
-    use paved::constants;
-    use paved::events::{Event, Scored};
-    use paved::helpers::multiplier::compute_multiplier;
-    use paved::models::builder::{Builder, BuilderImpl};
-    use paved::models::character::Char;
-    use paved::models::game::{Game, GameImpl};
+    use paved::models::game::Game;
     use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
     use paved::store::{Store, StoreImpl};
     use paved::types::area::Area;
-    use paved::types::category::Category;
     use paved::types::move::{Move, MoveImpl};
     use paved::types::spot::Spot;
 
     #[generate_trait]
     pub impl GenericCount of GenericCountTrait {
+        /// The nodes of the road or city of `tile` at `at`: 0 when it is not finished (a node has
+        /// a move towards an empty position).
         #[inline]
-        fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Array<Char>) {
-            // [Compute] Setup recursion
-            let mut characters: Array<Char> = ArrayTrait::new();
-            let mut visited: Felt252Dict<bool> = Default::default();
-            // [Compute] Recursively count the points
-            let mut count = 0;
-            Self::iter(game, tile, at, ref count, ref visited, ref characters, ref store);
-            (count, characters)
-        }
-
-        fn iter(
-            game: Game,
-            tile: Tile,
-            at: Spot,
-            ref count: u32,
-            ref visited: Felt252Dict<bool>,
-            ref characters: Array<Char>,
-            ref store: Store,
-        ) {
-            // [Check] The tile area is already visited, then pass
-            let area: Area = tile.area(at);
-            let visited_key = tile.get_key(area);
-            if visited.get(visited_key) {
-                return;
-            }
-            visited.insert(visited_key, true);
-            count += 1;
-
-            // [Check] The tile handles a character
-            let spot: Spot = tile.occupied_spot.into();
-            if 0_u8 != spot.into() && tile.are_connected(at, spot) {
-                let character = store.character_at(game, tile, spot.into());
-                characters.append(character);
-            }
-
-            // [Compute] Process next tiles if exist
-            let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
-            loop {
-                match north_oriented_moves.pop_front() {
-                    // [Compute] Process the current move
-                    Option::Some(north_oriented_move) => {
-                        let mut move = north_oriented_move.rotate(tile.orientation.into());
-
-                        // [Check] A tile exists at this position, otherwise the structure is not
-                        // finished
-                        let (x, y) = tile.proxy_coordinates(move.direction);
-                        let tile_position: TilePosition = store.tile_position(game, x, y);
-                        if tile_position.is_zero() {
-                            count = 0;
-                            break;
-                        }
-
-                        // [Check] If the points are zero, the structure is not finished
-                        let neighbor = store.tile(game, tile_position.tile_id);
-                        Self::iter(
-                            game,
-                            neighbor,
-                            move.spot,
-                            ref count,
-                            ref visited,
-                            ref characters,
-                            ref store,
-                        );
-                        if 0 == count.into() {
-                            break;
-                        };
-                    },
-                    // [Check] Otherwise returns the points
-                    Option::None => { break; },
-                }
-            }
-        }
-
-        fn solve(
-            ref game: Game,
-            category: Category,
-            count: u32,
-            base_points: u32,
-            ref characters: Array<Char>,
-            ref store: Store,
-        ) {
-            // [Compute] Find the winner
-            let mut winner_weight: u32 = 0;
-            let mut winner: felt252 = 0;
-            let mut solved: bool = false;
-            let mut counter: Felt252Dict<u32> = Default::default();
-            let mut powers: Felt252Dict<u32> = Default::default();
-            loop {
-                match characters.pop_front() {
-                    Option::Some(mut character) => {
-                        // [Compute] Update builder counter
-                        let weight: u32 = character.weight.into();
-                        let builder_weight = counter.get(character.player_id) + weight;
-                        counter.insert(character.player_id, builder_weight);
-
-                        // [Compute] Update builder power
-                        let power: u32 = character.power.into();
-                        let builder_power = powers.get(character.player_id);
-                        if power > builder_power {
-                            powers.insert(character.player_id, power);
-                        }
-
-                        // [Effect] Collect the character's builder
-                        let mut tile = store.tile(game, character.tile_id);
-                        let mut builder = store.builder(game, character.player_id);
-                        builder.recover(ref character, ref tile);
-
-                        // [Effect] Update the character
-                        store.set_character(character);
-
-                        // [Effect] Update the tile
-                        store.set_tile(tile);
-
-                        // [Effect] Update the builder
-                        store.set_builder(builder);
-
-                        // [Compute] Update winner if needed
-                        if builder_weight > winner_weight {
-                            winner = builder.player_id;
-                            winner_weight = builder_weight;
-                            solved = true;
-                        } else if builder_weight == winner_weight {
-                            solved = false;
-                        };
-                    },
-                    Option::None => { break; },
-                };
-            }
-
-            if solved {
-                // [Compute] Update the scores if a winner is determined
-                // [Info] The winner is a builder of the game, so no player read is needed.
-                let mut builder = store.builder(game, winner);
-                let power = powers.get(winner);
-                let (num, den) = compute_multiplier(count);
-                let points = count * base_points * power * num / den;
-
-                game.add_score(points);
-
-                // [Event] Structure scored
-                store
-                    .emit(
-                        Event::Scored(
-                            Scored {
-                                game_id: game.id,
-                                player_id: winner,
-                                category: category.into(),
-                                size: count,
-                                points,
-                            },
-                        ),
-                    );
-
-                // [Effect] Update the builder
-                store.set_builder(builder);
-            };
-        }
-    }
-}
-
-pub mod conflict {
-    // Core imports
-
-    // Internal imports
-
-    use paved::models::game::Game;
-    use paved::models::tile::{Tile, TilePosition, TileTrait, ZeroableTilePosition};
-    use paved::store::{Store, StoreImpl};
-    use paved::types::area::Area;
-    use paved::types::move::{Move, MoveImpl};
-    use paved::types::plan::Plan;
-    use paved::types::spot::Spot;
-
-    #[generate_trait]
-    pub impl Conflict of ConflictTrait {
-        #[inline]
-        fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> bool {
+        fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> u32 {
             // [Compute] Setup recursion
             let mut visited: Felt252Dict<bool> = Default::default();
-            // [Compute] Recursively check characters
-            let mut status = false;
-            Self::iter(game, tile, at, ref status, ref visited, ref store);
-            status
-        }
-
-        fn iter(
-            game: Game,
-            tile: Tile,
-            at: Spot,
-            ref status: bool,
-            ref visited: Felt252Dict<bool>,
-            ref store: Store,
-        ) {
-            // [Check] The tile area is already visited, then pass
-            let area: Area = tile.area(at);
-            let visited_key = tile.get_key(area);
-            if visited.get(visited_key) {
-                return;
-            }
-            visited.insert(visited_key, true);
-
-            // [Check] The tile handles a character
-            let spot: Spot = tile.occupied_spot.into();
-            if 0_u8 != spot.into() && tile.are_connected(at, spot) {
-                status = true;
-                return;
-            }
-
-            // [Compute] Process next tiles if exist
-            let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
-            loop {
-                match north_oriented_moves.pop_front() {
-                    // [Compute] Process the current move
-                    Option::Some(north_oriented_move) => {
-                        let mut move = north_oriented_move.rotate(tile.orientation.into());
-
-                        // [Check] A tile exists at this position, otherwise the structure is not
-                        // finished
-                        let (x, y) = tile.proxy_coordinates(move.direction);
-                        let tile_position: TilePosition = store.tile_position(game, x, y);
-                        if tile_position.is_zero() {
-                            continue;
-                        }
-
-                        // [Check] If a character has been met, then stop the recursion
-                        let neighbor = store.tile(game, tile_position.tile_id);
-                        Self::iter(game, neighbor, move.spot, ref status, ref visited, ref store);
-                        if status {
-                            break;
-                        };
-                    },
-                    // [Check] Otherwise returns the points
-                    Option::None => { break; },
-                }
-            }
-        }
-    }
-}
-
-pub mod wonder {
-    // Core imports
-
-    // Internal imports
-
-    use paved::events::{Event, Scored};
-    use paved::models::builder::{Builder, BuilderImpl};
-    use paved::models::character::{Char, ZeroableChar};
-    use paved::models::game::{Game, GameImpl};
-    use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
-    use paved::store::{Store, StoreImpl};
-    use paved::types::area::Area;
-    use paved::types::category::Category;
-    use paved::types::move::{Move, MoveImpl};
-    use paved::types::spot::Spot;
-
-    #[generate_trait]
-    pub impl WonderCount of WonderCountTrait {
-        #[inline]
-        fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, Char) {
-            // [Compute] Setup recursion
-            let mut visited: Felt252Dict<bool> = Default::default();
-            // [Check] Starting spot is occupied, otherwise no need to process further
-            let spot: Spot = tile.occupied_spot.into();
-            if spot != at {
-                return (0, ZeroableChar::zero());
-            }
-            // [Compute] Extract the character
-            let character = store.character_at(game, tile, spot.into());
             // [Compute] Recursively count the points
             let mut count = 0;
             Self::iter(game, tile, at, ref count, ref visited, ref store);
-            (count, character)
+            count
         }
 
         fn iter(
@@ -352,38 +82,75 @@ pub mod wonder {
                 }
             }
         }
+    }
+}
 
-        fn solve(ref game: Game, base_points: u32, ref character: Char, ref store: Store) {
-            // [Effect] Collect the character's builder
-            let mut tile = store.tile(game, character.tile_id);
-            let mut builder = store.builder(game, character.player_id);
-            let power: u32 = character.power.into();
-            let points = base_points * power;
-            game.add_score(points);
+pub mod wonder {
+    use paved::models::game::Game;
+    use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
+    use paved::store::{Store, StoreImpl};
+    use paved::types::area::Area;
+    use paved::types::move::{Move, MoveImpl};
+    use paved::types::spot::Spot;
 
-            // [Event] Wonder scored (a wonder has no size)
-            store
-                .emit(
-                    Event::Scored(
-                        Scored {
-                            game_id: game.id,
-                            player_id: character.player_id,
-                            category: Category::Wonder.into(),
-                            size: 0,
-                            points,
-                        },
-                    ),
-                );
-            builder.recover(ref character, ref tile);
+    #[generate_trait]
+    pub impl WonderCount of WonderCountTrait {
+        /// Not 0 when the 8 positions around the wonder of `tile` at `at` are taken.
+        #[inline]
+        fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> u32 {
+            // [Compute] Setup recursion
+            let mut visited: Felt252Dict<bool> = Default::default();
+            // [Compute] Recursively count the points
+            let mut count = 0;
+            Self::iter(game, tile, at, ref count, ref visited, ref store);
+            count
+        }
 
-            // [Effect] Update the character
-            store.set_character(character);
+        fn iter(
+            game: Game,
+            tile: Tile,
+            at: Spot,
+            ref count: u32,
+            ref visited: Felt252Dict<bool>,
+            ref store: Store,
+        ) {
+            // [Check] The tile area is already visited, then pass
+            let area: Area = tile.area(at);
+            let visited_key = tile.get_key(area);
+            if visited.get(visited_key) {
+                return;
+            }
+            visited.insert(visited_key, true);
+            count += 1;
 
-            // [Effect] Update the tile
-            store.set_tile(tile);
+            // [Compute] Process next tiles if exist
+            let mut north_oriented_moves: Array<Move> = tile.north_oriented_moves(at);
+            loop {
+                match north_oriented_moves.pop_front() {
+                    // [Compute] Process the current move
+                    Option::Some(north_oriented_move) => {
+                        let mut move = north_oriented_move.rotate(tile.orientation.into());
 
-            // [Effect] Update the builder
-            store.set_builder(builder);
+                        // [Check] A tile exists at this position, otherwise the structure is not
+                        // finished
+                        let (x, y) = tile.proxy_coordinates(move.direction);
+                        let tile_position: TilePosition = store.tile_position(game, x, y);
+                        if tile_position.is_zero() {
+                            count = 0;
+                            break;
+                        }
+
+                        // [Check] If the points are zero, the structure is not finished
+                        let neighbor = store.tile(game, tile_position.tile_id);
+                        Self::iter(game, neighbor, move.spot, ref count, ref visited, ref store);
+                        if 0 == count.into() {
+                            break;
+                        };
+                    },
+                    // [Check] Otherwise returns the points
+                    Option::None => { break; },
+                }
+            }
         }
     }
 }
@@ -514,17 +281,11 @@ pub mod forest {
 
     // Internal imports
 
-    use paved::events::{Event, Scored};
-    use paved::helpers::multiplier::compute_multiplier;
-    use paved::models::builder::BuilderImpl;
-    use paved::models::character::Char;
-    use paved::models::game::{Game, GameImpl};
+    use paved::models::game::Game;
     use paved::models::tile::{Tile, TileImpl, TilePosition, ZeroableTilePosition};
     use paved::store::{Store, StoreImpl};
     use paved::types::area::Area;
-    use paved::types::category::Category;
     use paved::types::move::{Move, MoveImpl};
-    use paved::types::role::Role;
     use paved::types::spot::{Spot, SpotImpl};
     use super::simple::SimpleCount;
 
@@ -534,23 +295,21 @@ pub mod forest {
     /// - every tile around it exists (as for any structure), and
     /// - every road adjacent to it is closed (an open adjacent road keeps the forest open).
     ///
-    /// The Woodsman scores the number of distinct closed roads adjacent to the forest, the Herdsman
-    /// the number of distinct closed cities adjacent to it; an open adjacent city is not counted
-    /// and does not keep the forest open. The size of the forest only enters the points through the
-    /// bonus curve.
+    /// The walk counts the distinct closed roads adjacent to the forest (what the Woodsman scored)
+    /// and the distinct closed cities adjacent to it (what the Herdsman scored); an open adjacent
+    /// city is not counted and does not keep the forest open. D-18 (P-45): the forest scores both,
+    /// with no character (`score::points_at`). The size of the forest only enters the points through
+    /// the bonus curve.
     ///
-    /// P-15 (P5-5): the Herdsman counts a city only when it is closed as a whole, each city once.
+    /// P-15 (P5-5): a city counts only when it is closed as a whole, each city once.
     /// The 2024 walk could count an open city that the forest touched at two places; this oracle
     /// follows the corrected rule, as the structure state does.
     #[generate_trait]
     pub impl ForestCount of ForestCountTrait {
         #[inline]
-        fn start(
-            game: Game, tile: Tile, at: Spot, ref store: Store,
-        ) -> (u32, u32, u32, Array<Char>, Array<Char>) {
+        /// `(count, roads, cities)`: `count` 0 when the forest is not finished.
+        fn start(game: Game, tile: Tile, at: Spot, ref store: Store) -> (u32, u32, u32) {
             // [Compute] Setup recursion
-            let mut woodsmen: Array<Char> = ArrayTrait::new();
-            let mut herdsmen: Array<Char> = ArrayTrait::new();
             let mut visited: Felt252Dict<bool> = Default::default();
             // [Compute] Recursively count the points
             // [Info] Scores start at 1 so that a stop on an open road does not read as a zero score
@@ -564,14 +323,12 @@ pub mod forest {
                 ref count,
                 ref woodsman_score,
                 ref herdsman_score,
-                ref woodsmen,
-                ref herdsmen,
                 ref visited,
                 ref store,
             );
             woodsman_score -= 1;
             herdsman_score -= 1;
-            (count, woodsman_score, herdsman_score, woodsmen, herdsmen)
+            (count, woodsman_score, herdsman_score)
         }
 
         fn iter(
@@ -581,8 +338,6 @@ pub mod forest {
             ref count: u32,
             ref woodsman_score: u32,
             ref herdsman_score: u32,
-            ref woodsmen: Array<Char>,
-            ref herdsmen: Array<Char>,
             ref visited: Felt252Dict<bool>,
             ref store: Store,
         ) {
@@ -594,19 +349,6 @@ pub mod forest {
             }
             visited.insert(visited_key, true);
             count += 1;
-
-            // [Check] The tile handles a character
-            let spot: Spot = tile.occupied_spot.into();
-            if 0_u8 != spot.into() && tile.are_connected(at, spot) {
-                let character = store.character_at(game, tile, spot.into());
-                let woodsman: u8 = Role::Woodsman.into();
-                let herdsman: u8 = Role::Herdsman.into();
-                if character.index == woodsman {
-                    woodsmen.append(character);
-                } else if character.index == herdsman {
-                    herdsmen.append(character);
-                }
-            }
 
             // [Compute] Process adjacent roads if not already visited
             let mut north_oriented_spots: Array<Spot> = tile.north_oriented_adjacent_roads(at);
@@ -696,8 +438,6 @@ pub mod forest {
                             ref count,
                             ref woodsman_score,
                             ref herdsman_score,
-                            ref woodsmen,
-                            ref herdsmen,
                             ref visited,
                             ref store,
                         );
@@ -710,57 +450,9 @@ pub mod forest {
                 }
             }
         }
-
-        fn solve(
-            ref game: Game,
-            count: u32,
-            score: u32,
-            base_points: u32,
-            ref characters: Array<Char>,
-            ref store: Store,
-        ) {
-            // [Compute] The points of the forest are shared between its characters of the role
-            let (num, den) = compute_multiplier(count);
-            let length = characters.len();
-            loop {
-                match characters.pop_front() {
-                    Option::Some(mut character) => {
-                        // [Effect] Collect the character's builder
-                        let mut tile = store.tile(game, character.tile_id);
-                        let mut builder = store.builder(game, character.player_id);
-                        let points = score * base_points * num / den / length;
-                        builder.recover(ref character, ref tile);
-                        game.add_score(points);
-
-                        // [Event] Forest scored
-                        store
-                            .emit(
-                                Event::Scored(
-                                    Scored {
-                                        game_id: game.id,
-                                        player_id: character.player_id,
-                                        category: Category::Forest.into(),
-                                        size: count,
-                                        points,
-                                    },
-                                ),
-                            );
-
-                        // [Effect] Update the character
-                        store.set_character(character);
-
-                        // [Effect] Update the tile
-                        store.set_tile(tile);
-
-                        // [Effect] Update the builder
-                        store.set_builder(builder);
-                    },
-                    Option::None => { break; },
-                };
-            }
-        }
     }
 }
+
 
 /// The walk that counts the half-edges of a structure that look at an empty position, and its
 /// nodes (P5-7). Added to the oracle, not copied from `helpers/`: the walks above stop at the
@@ -818,6 +510,181 @@ pub mod open_count {
     }
 }
 
+/// The points of the rules of D-18 (P-45), from the walks alone: what the structure state must
+/// score. A structure scores once, when it is finished: a road or a city `count x base x
+/// bonus(count)`, a wonder `base` when its 8 neighbours are placed, a forest `(distinct closed roads
+/// + distinct closed cities) x base x bonus(count)` once its edges and its roads are closed.
+pub mod score {
+    use core::dict::{Felt252Dict, Felt252DictTrait};
+    use paved::helpers::multiplier::compute_multiplier;
+    use paved::models::game::Game;
+    use paved::models::tile::{Tile, TileImpl, TileIntoLayout, TilePosition, ZeroableTilePosition};
+    use paved::store::{Store, StoreImpl, StoreTrait};
+    use paved::types::category::{Category, CategoryImpl};
+    use paved::types::layout::{Layout, LayoutImpl};
+    use paved::types::spot::{Spot, SpotImpl};
+    use super::forest::ForestCount;
+    use super::generic::GenericCount;
+    use super::simple::SimpleCount;
+    use super::wonder::WonderCount;
+
+    /// The category of the area of the placed `tile` at `at` (board frame), from its layout.
+    pub fn category_at(tile: Tile, at: Spot) -> Category {
+        let layout: Layout = tile.into();
+        layout.get_category(at)
+    }
+
+    /// Whether the structure of `tile` at `at` is finished, and the points it is worth then (0
+    /// otherwise).
+    pub fn points_at(game: Game, tile: Tile, at: Spot, ref store: Store) -> (bool, u32) {
+        let category = category_at(tile, at);
+        match category {
+            Category::Road |
+            Category::City => {
+                let count = GenericCount::start(game, tile, at, ref store);
+                if count == 0 {
+                    return (false, 0);
+                }
+                let (num, den) = compute_multiplier(count);
+                (true, count * category.base_points() * num / den)
+            },
+            Category::Wonder => {
+                let count = WonderCount::start(game, tile, at, ref store);
+                if count == 0 {
+                    return (false, 0);
+                }
+                (true, Category::Wonder.base_points())
+            },
+            Category::Forest => {
+                let (count, roads, cities) = ForestCount::start(game, tile, at, ref store);
+                if count == 0 {
+                    return (false, 0);
+                }
+                let (num, den) = compute_multiplier(count);
+                (true, (roads + cities) * Category::Forest.base_points() * num / den)
+            },
+            _ => (false, 0),
+        }
+    }
+
+    /// Marks the nodes of the structure of `tile` at `at` in `seen` (a road, a city or a forest:
+    /// its moves stay in its category). Returns false when its node was there already: the
+    /// structure was met from another spot.
+    fn first_visit(
+        game: Game, tile: Tile, at: Spot, ref seen: Felt252Dict<bool>, ref store: Store,
+    ) -> bool {
+        if seen.get(tile.get_key(tile.area(at))) {
+            return false;
+        }
+        let mut count = 0;
+        let mut closed = true;
+        SimpleCount::explore(game, tile, at, ref count, ref closed, ref seen, ref store);
+        true
+    }
+
+    /// The points that the build of `tile_id` scores: the finished structures of its start
+    /// spots, each once, then the finished wonders around it. A structure finished by a move
+    /// holds the built tile (a structure that was finished before has no half-edge towards the
+    /// position, so the tile does not join it) or is a wonder next to it; one that is not
+    /// finished scores nothing. Returns the points and the number of structures that score.
+    pub fn move_points(game_id: u32, tile_id: u32) -> (u32, u32) {
+        let mut store = StoreImpl::new();
+        let game = store.game(game_id);
+        let tile = store.tile(game, tile_id);
+        let mut seen: Felt252Dict<bool> = Default::default();
+        let mut points: u32 = 0;
+        let mut scored: u32 = 0;
+        let mut starts = tile.north_oriented_starts();
+        while let Option::Some(start) = starts.pop_front() {
+            let at = start.rotate(tile.orientation.into());
+            let category = category_at(tile, at);
+            if category == Category::Wonder {
+                // [Info] One wonder per tile: nothing to share with another spot
+            } else if !first_visit(game, tile, at, ref seen, ref store) {
+                continue;
+            }
+            let (closed, value) = points_at(game, tile, at, ref store);
+            if closed {
+                points += value;
+                scored += 1;
+            }
+        }
+        let mut dx: u32 = 0;
+        while dx < 3 {
+            let mut dy: u32 = 0;
+            while dy < 3 {
+                if dx != 1 || dy != 1 {
+                    let (finished, value) = wonder_at(
+                        game, tile.x + dx - 1, tile.y + dy - 1, ref store,
+                    );
+                    if finished {
+                        points += value;
+                        scored += 1;
+                    }
+                }
+                dy += 1;
+            }
+            dx += 1;
+        }
+        (points, scored)
+    }
+
+    /// Whether the tile at `(x, y)` holds a finished wonder, and its points.
+    fn wonder_at(game: Game, x: u32, y: u32, ref store: Store) -> (bool, u32) {
+        let position: TilePosition = store.tile_position(game, x, y);
+        if position.is_zero() {
+            return (false, 0);
+        }
+        let neighbor = store.tile(game, position.tile_id);
+        let wonder = neighbor.north_oriented_wonder();
+        if wonder == Spot::None {
+            return (false, 0);
+        }
+        points_at(game, neighbor, wonder.rotate(neighbor.orientation.into()), ref store)
+    }
+
+    /// The points of every finished structure of the board, each once: what a game has scored
+    /// once every closed structure scored once (discards aside).
+    pub fn board_points(game_id: u32) -> u32 {
+        let mut store = StoreImpl::new();
+        let game = store.game(game_id);
+        let mut seen: Felt252Dict<bool> = Default::default();
+        let mut points: u32 = 0;
+        let mut tile_id: u32 = 1;
+        while tile_id <= game.tile_count {
+            let tile = store.tile(game, tile_id);
+            tile_id += 1;
+            if tile.orientation == 0 {
+                continue;
+            }
+            let mut code: u8 = 1;
+            while code <= 9 {
+                let at: Spot = code.into();
+                code += 1;
+                let category = category_at(tile, at);
+                let first = match category {
+                    Category::Road | Category::City |
+                    Category::Forest => first_visit(game, tile, at, ref seen, ref store),
+                    Category::Wonder => {
+                        let key = tile.get_key(tile.area(at));
+                        let first = !seen.get(key);
+                        seen.insert(key, true);
+                        first
+                    },
+                    _ => false,
+                };
+                if first {
+                    let (closed, value) = points_at(game, tile, at, ref store);
+                    if closed {
+                        points += value;
+                    }
+                }
+            }
+        }
+        points
+    }
+}
+
 /// The differential check of P5-4: after a move, the structure state of a tile agrees with the
 /// walks of this oracle on the board as it is.
 ///
@@ -826,26 +693,28 @@ pub mod open_count {
 ///   finished (a count that is not 0);
 /// - size: when closed, the root's `size` is the walk's count (a wonder is not compared: its walk
 ///   counts the 8 tiles around it, the record counts its one node);
-/// - characters: the root's `chars` is not 0 iff `Conflict` meets a character on the structure, and
-///   when closed it is exactly the roles that `GenericCount` collects.
+/// - a closed forest: the scan of the structure state finds the roads and cities the walk finds.
+///
+/// D-18b: and the move scored what `score` gives (`assert_move_scored`, "closed structure left
+/// unscored", every category), and a finished game scored every finished structure of its board
+/// (`assert_board_scored`).
 pub mod check {
     use paved::models::game::Game;
     use paved::models::tile::{Tile, ZeroableTile};
     use paved::store::{Store, StoreImpl, StoreTrait};
     use paved::structure::forest::scan;
-    use paved::structure::placement::{NeighborhoodTrait, role_bit};
+    use paved::structure::placement::NeighborhoodTrait;
     use paved::structure::record::{RecordTrait, ref_of};
     use paved::structure::state::{Structures, StructuresTrait};
     use paved::structure::tables;
-    use paved::tests::setup::setup::TestStore;
+    use paved::tests::setup::setup::{TestStore, TestStoreTrait};
     use paved::types::category::Category;
-    use paved::types::role::Role;
     use paved::types::spot::Spot;
     use snforge_std::interact_with_state;
-    use super::conflict::Conflict;
     use super::forest::ForestCount;
     use super::generic::GenericCount;
     use super::open_count::OpenCount;
+    use super::score;
 
     /// Runs the check on the tile `tile_id` of the game, in the contract of `store`.
     pub fn assert_tile_agrees(store: TestStore, game_id: u32, tile_id: u32) {
@@ -873,6 +742,47 @@ pub mod check {
         );
     }
 
+    /// The points the oracle gives the build of `tile_id` (`score::move_points`) and the number of
+    /// structures that score with it.
+    pub fn move_points(store: TestStore, game_id: u32, tile_id: u32) -> (u32, u32) {
+        interact_with_state(store.contract, || score::move_points(game_id, tile_id))
+    }
+
+    /// The points of every finished structure of the board (`score::board_points`).
+    pub fn board_points(store: TestStore, game_id: u32) -> u32 {
+        interact_with_state(store.contract, || score::board_points(game_id))
+    }
+
+    /// "Closed structure left unscored" (every category): the build of `tile_id` raised the score
+    /// from `before` by exactly the points of the structures it finished, as the walks give them.
+    /// Less: a closed structure was left unscored; more: one scored twice, or an open one scored.
+    pub fn assert_move_scored(store: TestStore, game_id: u32, tile_id: u32, before: u32) {
+        let (expected, _) = move_points(store, game_id, tile_id);
+        let game = store.game(game_id);
+        let gained = game.score - before;
+        if gained != expected {
+            println!("Check: tile {}: scored {}, the walks give {}", tile_id, gained, expected);
+        }
+        assert(gained >= expected, 'Check: closed left unscored');
+        assert(gained <= expected, 'Check: scored beyond the walks');
+    }
+
+    /// Every finished structure of the board scored once: the walks' points of the whole board
+    /// are the score plus what the discards took from it (`penalties`).
+    pub fn assert_board_scored(store: TestStore, game_id: u32, penalties: u32) {
+        let expected = board_points(store, game_id);
+        let game = store.game(game_id);
+        if game.score + penalties != expected {
+            println!(
+                "Check: board: score {} + penalties {}, the walks give {}",
+                game.score,
+                penalties,
+                expected,
+            );
+        }
+        assert(game.score + penalties == expected, 'Check: board points differ');
+    }
+
     /// The check of one tile, from inside the contract: nothing for a tile that is not placed.
     pub fn check_tile(game_id: u32, tile_id: u32) {
         check_tile_with(game_id, tile_id, true);
@@ -883,7 +793,6 @@ pub mod check {
         if tile.orientation == 0 {
             return;
         }
-        check_forest_characters(game_id);
         let mut structures = StructuresTrait::new(game_id);
         let mut area: u8 = 1;
         while area <= tables::AREA_COUNT {
@@ -910,56 +819,6 @@ pub mod check {
         }
     }
 
-    /// P-16 (PR P5-8) as an invariant of the board: after a move, no Woodsman or Herdsman stands on
-    /// a forest that the walk finds finished (closed, every adjacent road closed). The ruling asked
-    /// a road or a city that closes away from a forest to assess it again, so that its character
-    /// scores and returns. No board that a placement accepts keeps such a forest waiting (a forest
-    /// closes only when the tiles around it, which hold every road next to it, are all placed: see
-    /// the report of P5-8), so the runtime has no such step; this check proves it holds on every
-    /// checked game, and fails the day a tile makes it reachable.
-    fn check_forest_characters(game_id: u32) {
-        let word = StoreImpl::characters_word(game_id);
-        if word == 0 {
-            return;
-        }
-        let mut s = StoreImpl::new();
-        let game = s.game(game_id);
-        let mut roles: Array<Role> = array![Role::Woodsman, Role::Herdsman];
-        while let Option::Some(role) = roles.pop_front() {
-            let character = StoreImpl::unpack_character(game_id, game.player_id, role.into(), word);
-            if character.tile_id == 0 {
-                continue;
-            }
-            let (tile, refs) = StoreImpl::tile_with_refs(game_id, character.tile_id);
-            // A forest that still has an open half-edge is not finished: the walk is only for a
-            // forest the structure state calls closed
-            let mut structures = StructuresTrait::new(game_id);
-            let area = tables::area_at(tile.plan, character.spot, tile.orientation);
-            let (_, record) = structures.find(ref_of(refs, area));
-            if !record_closed(record) {
-                continue;
-            }
-            // Directly, from the structure state: a forest whose adjacent roads are all closed is
-            // finished and holds no character (the walk below says the same from the board)
-            let (open_road, _, _) = scan(game_id, tile, refs, area, ref structures);
-            assert(open_road, 'Check: char on finished forest');
-            let at: Spot = character.spot.into();
-            let (count, _, _, _, _) = ForestCount::start(game, tile, at, ref s);
-            if count != 0 {
-                println!(
-                    "Check: tile {} spot {}: forest finished, character stays",
-                    tile.id,
-                    character.spot,
-                );
-            }
-            assert(count == 0, 'Check: forest left unscored');
-        }
-    }
-
-    fn record_closed(record: u64) -> bool {
-        paved::structure::record::open_of(record) == 0
-    }
-
     fn check_node(ref structures: Structures, tile: Tile, area: u8, sid: u32, exact: bool) {
         let mut s = StoreImpl::new();
         let game = s.game(tile.game_id);
@@ -969,7 +828,7 @@ pub mod check {
         let category = tables::category(tile.plan, area);
         let is_wonder = category == Category::Wonder.into();
 
-        let (count, characters) = GenericCount::start(game, tile, at, ref s);
+        let count = GenericCount::start(game, tile, at, ref s);
         let closed = count != 0;
         if closed != record.is_closed() {
             println!(
@@ -1008,20 +867,6 @@ pub mod check {
             }
             assert(count == record.size.into(), 'Check: size differs');
         }
-        let met = Conflict::start(game, tile, at, ref s);
-        if met != (record.chars != 0) {
-            println!(
-                "Check: tile {} area {}: walk met {}, chars {}", tile.id, area, met, record.chars,
-            );
-        }
-        assert(met == (record.chars != 0), 'Check: characters differ');
-        if closed && !is_wonder {
-            let mut chars: u16 = 0;
-            for character in characters {
-                chars = chars | role_bit(character.index);
-            }
-            assert(chars == record.chars, 'Check: roles differ');
-        }
         if closed && category == Category::Forest.into() {
             check_forest(ref structures, ref s, game, tile, area, at, record.size.into());
         }
@@ -1030,9 +875,8 @@ pub mod check {
     /// A closed forest (no half-edge of its own towards an empty position): the scan of the
     /// structure state agrees with the walk, which also looks at the roads around it. The walk
     /// finds the forest finished (a count that is not 0) iff no adjacent road is open; then its
-    /// size is the root's, its Woodsman score is the distinct closed roads and its Herdsman score
-    /// the distinct closed cities (P-15: the walk of this oracle counts a city only when it is
-    /// closed as a whole).
+    /// size is the root's, and its distinct closed roads and cities are the scan's (P-15: the walk
+    /// of this oracle counts a city only when it is closed as a whole).
     fn check_forest(
         ref structures: Structures,
         ref s: Store,
@@ -1044,7 +888,7 @@ pub mod check {
     ) {
         let (_, refs) = StoreImpl::tile_with_refs(tile.game_id, tile.id);
         let (open_road, roads, cities) = scan(tile.game_id, tile, refs, area, ref structures);
-        let (count, woodsman, herdsman, _, _) = ForestCount::start(game, tile, at, ref s);
+        let (count, walk_roads, walk_cities) = ForestCount::start(game, tile, at, ref s);
         if (count != 0) == open_road {
             println!(
                 "Check: tile {} forest {}: walk count {}, scan open road {}",
@@ -1057,19 +901,19 @@ pub mod check {
         assert((count != 0) != open_road, 'Check: forest closed differs');
         if !open_road {
             assert(count == size, 'Check: forest size differs');
-            if woodsman != roads || herdsman != cities {
+            if walk_roads != roads || walk_cities != cities {
                 println!(
                     "Check: tile {} forest {}: walk {} roads {} cities, scan {} roads {} cities",
                     tile.id,
                     area,
-                    woodsman,
-                    herdsman,
+                    walk_roads,
+                    walk_cities,
                     roads,
                     cities,
                 );
             }
-            assert(woodsman == roads, 'Check: forest roads differ');
-            assert(herdsman == cities, 'Check: forest cities differ');
+            assert(walk_roads == roads, 'Check: forest roads differ');
+            assert(walk_cities == cities, 'Check: forest cities differ');
         }
     }
 
@@ -1087,47 +931,45 @@ pub mod check {
 pub mod tests {
     // Local imports
 
-    use paved::models::index::{Char, Tile};
+    use paved::models::index::Tile;
     use paved::models::tile::CENTER;
     use paved::store::{StoreImpl, StoreTrait};
     use paved::structure::record::ref_of;
     use paved::structure::state::StructuresTrait;
-    use paved::structure::{placement, tables};
+    use paved::structure::tables;
     use paved::tests::setup::setup;
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
     use paved::types::plan::Plan;
-    use paved::types::role::Role;
     use paved::types::spot::Spot;
     use snforge_std::interact_with_state;
     use super::check;
-    use super::conflict::Conflict as OracleConflict;
     use super::forest::ForestCount as OracleForestCount;
     use super::generic::GenericCount as OracleGenericCount;
+    use super::score;
     use super::simple::SimpleCount as OracleSimpleCount;
 
-    /// Two road crossings `SFRFRFRFR` side by side, a Lord on the east road of the first one: the
-    /// east road of the first tile and the west road of the second one are one closed road of two
-    /// nodes. The walks answer on a closed structure and on open ones, and the structure state
-    /// written for the two tiles agrees with them (`check`).
+    /// Two road crossings `SFRFRFRFR` side by side: the east road of the first tile and the west
+    /// road of the second one are one closed road of two nodes. The walks answer on a closed
+    /// structure and on open ones, `score` gives the closed road its points (2 x 100 x bonus(2) =
+    /// 2 x 100 x 10475 / 10000 = 209), and the structure state written for the two tiles agrees
+    /// with them (`check`).
     #[test]
     fn test_oracle_walks_agree_with_the_structure_state() {
         let (store, _, context) = setup::spawn_game(Mode::Daily);
         let game_id = context.game_id;
-        let player_id = context.player_id;
         interact_with_state(
             store.contract,
             || {
                 let mut s = StoreImpl::new();
                 let game = s.game(game_id);
-                let mut first = Tile {
+                let first = Tile {
                     game_id,
                     id: 90,
                     plan: Plan::SFRFRFRFR.into(),
                     orientation: Orientation::North.into(),
                     x: CENTER + 10,
                     y: CENTER + 10,
-                    occupied_spot: Spot::None.into(),
                 };
                 let second = Tile {
                     game_id,
@@ -1136,62 +978,34 @@ pub mod tests {
                     orientation: Orientation::North.into(),
                     x: CENTER + 11,
                     y: CENTER + 10,
-                    occupied_spot: Spot::None.into(),
                 };
                 // Written without a build: `set_tile` places them on the structure state
                 s.set_tile(first);
                 s.set_tile(second);
-                s
-                    .set_character(
-                        Char {
-                            game_id,
-                            player_id,
-                            index: Role::Lord.into(),
-                            tile_id: first.id,
-                            spot: Spot::East.into(),
-                            weight: 1,
-                            power: 1,
-                        },
-                    );
-                // The Lord joins its road through `occupy`, then stands on the tile (a tile written
-                // alone holds no character)
                 let (_, refs) = StoreImpl::tile_with_refs(game_id, first.id);
-                let mut structures = StructuresTrait::new(game_id);
-                placement::occupy(
-                    ref structures, first, refs, Spot::East.into(), Role::Lord.into(),
-                );
-                structures.flush(s);
-                first.occupied_spot = Spot::East.into();
-                StoreImpl::write_tile(first, refs);
 
-                // The closed road: 2 nodes, one character, the character is met.
-                let (count, characters) = OracleGenericCount::start(game, first, Spot::East, ref s);
-                assert_eq!(count, 2);
-                assert_eq!(characters.len(), 1);
+                // The closed road: 2 nodes, worth 209 points
+                assert_eq!(OracleGenericCount::start(game, first, Spot::East, ref s), 2);
                 assert_eq!(OracleSimpleCount::start(game, second, Spot::West, ref s), 2);
-                assert!(OracleConflict::start(game, second, Spot::West, ref s));
+                assert_eq!(score::points_at(game, first, Spot::East, ref s), (true, 209));
                 let road = tables::area_at(first.plan, Spot::East.into(), first.orientation);
                 let mut structures = StructuresTrait::new(game_id);
                 let (root, _) = structures.find(ref_of(refs, road));
                 let record = structures.unpacked(root);
                 assert_eq!(record.size, 2);
                 assert_eq!(record.open, 0);
-                assert_eq!(record.chars, placement::role_bit(Role::Lord.into()));
 
                 // An open road (its north end looks at an empty position): not finished.
-                let (count, _) = OracleGenericCount::start(game, first, Spot::North, ref s);
-                assert_eq!(count, 0);
-                assert!(!OracleConflict::start(game, second, Spot::North, ref s));
+                assert_eq!(OracleGenericCount::start(game, first, Spot::North, ref s), 0);
+                assert_eq!(score::points_at(game, first, Spot::North, ref s), (false, 0));
 
                 // The forest in the north-west corner is bounded by open roads: not finished.
-                let (count, woodsman, herdsman, woodsmen, herdsmen) = OracleForestCount::start(
+                let (count, roads, cities) = OracleForestCount::start(
                     game, first, Spot::NorthWest, ref s,
                 );
                 assert_eq!(count, 0);
-                assert_eq!(woodsman, 0);
-                assert_eq!(herdsman, 0);
-                assert_eq!(woodsmen.len(), 0);
-                assert_eq!(herdsmen.len(), 0);
+                assert_eq!(roads, 0);
+                assert_eq!(cities, 0);
 
                 check::check_tile(game_id, first.id);
                 check::check_tile(game_id, second.id);

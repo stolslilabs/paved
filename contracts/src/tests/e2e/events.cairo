@@ -17,12 +17,10 @@ use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     IDailyDispatcherTrait, IERC20DispatcherTrait, PLAYER, TestStoreTrait,
 };
-use paved::types::category::Category;
+use paved::types::category::{Category, CategoryImpl};
 use paved::types::mode::{Mode, ModeTrait};
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use snforge_std::{
     EventSpyAssertionsTrait, spy_events, start_cheat_block_timestamp_global,
     start_cheat_caller_address,
@@ -86,10 +84,8 @@ fn test_events_daily_build_emits_built_and_scored() {
     store.set_tile(tile);
 
     let mut spy = spy_events();
-    // Closes a 2-tile city (new tile's S cap on the starter's N cap) with a Lord on it: it scores.
-    systems
-        .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::Lord, Spot::South);
+    // Closes a 2-tile city (new tile's S cap on the starter's N cap): it scores, with no character.
+    systems.daily.build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 
     let game = store.game(context.game_id);
     assert(game.score > 0, 'Events: city scored');
@@ -103,8 +99,6 @@ fn test_events_daily_build_emits_built_and_scored() {
                 orientation: Orientation::North.into(),
                 x: CENTER,
                 y: CENTER + 1,
-                role: Role::Lord.into(),
-                spot: Spot::South.into(),
             },
         ),
     );
@@ -283,7 +277,7 @@ fn test_events_daily_last_build_emits_game_over() {
     let mut spy = spy_events();
     systems
         .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
+        .build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 
     let game = store.game(context.game_id);
     assert(game.over, 'Events: game over');
@@ -297,8 +291,6 @@ fn test_events_daily_last_build_emits_game_over() {
                 orientation: Orientation::North.into(),
                 x: CENTER,
                 y: CENTER + 1,
-                role: Role::None.into(),
-                spot: Spot::None.into(),
             },
         ),
     );
@@ -363,18 +355,14 @@ fn test_events_daily_wonder_emits_scored() {
     let game = store.game(context.game_id);
     let builder = store.builder(game, context.player_id);
 
-    // A wonder with a pilgrim on it, east of the starter tile.
+    // A wonder east of the starter tile.
     let mut tile = store.tile(game, builder.tile_id);
     tile.plan = Plan::WFFFFFFFR.into();
     store.set_tile(tile);
-    systems
-        .daily
-        .build(
-            context.game_id, Orientation::North, CENTER + 1, CENTER, Role::Pilgrim, Spot::Center,
-        );
+    systems.daily.build(context.game_id, Orientation::North, CENTER + 1, CENTER);
 
-    // Seven more neighbors of the wonder: six are written directly (field tiles with no
-    // character), the starter is already there, and the last one is built through the contract.
+    // Seven more neighbors of the wonder: six are written directly (field tiles), the starter is
+    // already there, and the last one is built through the contract.
     let mut id = 100;
     for (x, y) in array![
         (CENTER + 1, CENTER + 1), (CENTER + 2, CENTER + 1), (CENTER + 2, CENTER),
@@ -389,13 +377,13 @@ fn test_events_daily_wonder_emits_scored() {
                     orientation: Orientation::North.into(),
                     x,
                     y,
-                    occupied_spot: 0,
                 },
             );
         id += 1;
     }
 
-    // The eighth neighbor closes the wonder.
+    // The eighth neighbor closes the wonder (and, since D-18, the 2-tile city it makes with the
+    // starter's north cap, which scores too).
     let game = store.game(context.game_id);
     let builder = store.builder(game, context.player_id);
     let mut tile = store.tile(game, builder.tile_id);
@@ -406,7 +394,7 @@ fn test_events_daily_wonder_emits_scored() {
     let mut spy = spy_events();
     systems
         .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
+        .build(context.game_id, Orientation::North, CENTER, CENTER + 1);
 
     let game = store.game(context.game_id);
     assert(game.score > score_before, 'Events: wonder scored');
@@ -417,7 +405,7 @@ fn test_events_daily_wonder_emits_scored() {
                 player_id: context.player_id,
                 category: Category::Wonder.into(),
                 size: 0,
-                points: game.score - score_before,
+                points: Category::Wonder.base_points(),
             },
         ),
     );
@@ -431,7 +419,7 @@ fn tutorial_build(
     let game = store.game(game_id);
     let builder = store.builder(game, player_id);
     let tile = store.tile(game, builder.tile_id);
-    let (orientation, x, y, role, spot) = Mode::Tutorial.parameters(game.tiles);
+    let (orientation, x, y) = Mode::Tutorial.parameters(game.tiles);
     systems.tutorial.build(game_id);
     let built = Tutorial::Event::PavedEvent(
         PavedEvent::Built(
@@ -443,8 +431,6 @@ fn tutorial_build(
                 orientation: orientation.into(),
                 x,
                 y,
-                role: role.into(),
-                spot: spot.into(),
             },
         ),
     );

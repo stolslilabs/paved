@@ -1,8 +1,11 @@
 //! Golden games of the Daily mode.
 //!
-//! Every expected value was recorded by running the code of the commit that introduced this file
-//! (characterisation test, see `docs/measures/golden-games.md`): the score after each move, and the
-//! final counters. Moves are data, so that later phases replay them unchanged.
+//! The moves are data, replayed unchanged since P0; D-18b took their characters out (D-18). The
+//! expected scores after each move were derived from the oracle's walks under the rules without
+//! characters (`oracle::score`, record runs of the `*_structures_agree` tests), not from the
+//! structure state; the other final counters do not depend on scoring
+//! (`docs/measures/golden-games.md`). `mixed_roles` keeps its name of P0, when it placed several
+//! roles.
 //! Coordinates are relative to `CENTER`, where the starter tile `RFFFRFCFR` (oriented South: city
 //! to the north, road from west to east) lies.
 
@@ -13,8 +16,6 @@ use paved::tests::golden::harness::{
 use paved::tests::setup::setup::{ANYONE, PLAYER, SOMEONE};
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 
 /// City of 5 tiles closed on the last move, deck cut at 5 tiles so that the game is over.
 /// Starter (city cap) + three vertical city corridors + a city cap.
@@ -26,8 +27,6 @@ fn city5_moves() -> Array<GoldenMove> {
             Orientation::East,
             CENTER,
             CENTER + 1,
-            Role::Paladin,
-            Spot::Center,
             0,
         ),
         forced(
@@ -36,8 +35,6 @@ fn city5_moves() -> Array<GoldenMove> {
             Orientation::East,
             CENTER,
             CENTER + 2,
-            Role::None,
-            Spot::None,
             0,
         ),
         forced(
@@ -46,8 +43,6 @@ fn city5_moves() -> Array<GoldenMove> {
             Orientation::East,
             CENTER,
             CENTER + 3,
-            Role::None,
-            Spot::None,
             0,
         ),
         forced(
@@ -56,8 +51,6 @@ fn city5_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER,
             CENTER + 4,
-            Role::None,
-            Spot::None,
             2245,
         ),
     ]
@@ -72,8 +65,6 @@ fn road6_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER + 1,
             CENTER,
-            Role::Adventurer,
-            Spot::East,
             0,
         ),
         forced(
@@ -82,8 +73,6 @@ fn road6_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER + 2,
             CENTER,
-            Role::None,
-            Spot::None,
             0,
         ),
         forced(
@@ -92,8 +81,6 @@ fn road6_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER + 3,
             CENTER,
-            Role::None,
-            Spot::None,
             0,
         ),
         forced(
@@ -102,8 +89,6 @@ fn road6_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER + 4,
             CENTER,
-            Role::None,
-            Spot::None,
             0,
         ),
         forced(
@@ -112,8 +97,6 @@ fn road6_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER - 1,
             CENTER,
-            Role::None,
-            Spot::None,
             1379,
         ),
     ]
@@ -130,8 +113,6 @@ fn mixed_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER + 1,
             CENTER,
-            Role::Pilgrim,
-            Spot::Center,
             0,
         ),
         forced(
@@ -140,8 +121,6 @@ fn mixed_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER,
             CENTER + 1,
-            Role::Paladin,
-            Spot::South,
             838,
         ),
         forced(
@@ -150,8 +129,6 @@ fn mixed_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER - 1,
             CENTER,
-            Role::Adventurer,
-            Spot::East,
             838,
         ),
         forced(
@@ -160,8 +137,6 @@ fn mixed_moves() -> Array<GoldenMove> {
             Orientation::North,
             CENTER - 2,
             CENTER,
-            Role::None,
-            Spot::None,
             1715,
         ),
     ]
@@ -184,7 +159,6 @@ fn test_golden_daily_city5_game_over() {
             discarded: 0,
             tile_count: 5,
             over: true,
-            characters: 0,
             top1_score: 2245,
         },
     );
@@ -207,7 +181,6 @@ fn test_golden_daily_road6() {
             discarded: 0,
             tile_count: 7,
             over: false,
-            characters: 0,
             top1_score: 0,
         },
     );
@@ -230,7 +203,6 @@ fn test_golden_daily_mixed_roles() {
             discarded: 0,
             tile_count: 6,
             over: false,
-            characters: 32,
             top1_score: 0,
         },
     );
@@ -258,7 +230,6 @@ fn test_golden_daily_real_deck_discards_to_game_over() {
             discarded: 7,
             tile_count: 8,
             over: true,
-            characters: 0,
             top1_score: 0,
         },
     );
@@ -283,7 +254,6 @@ fn test_golden_daily_city5_structures_agree() {
             discarded: 0,
             tile_count: 5,
             over: true,
-            characters: 0,
             top1_score: 2245,
         },
     );
@@ -305,7 +275,6 @@ fn test_golden_daily_road6_structures_agree() {
             discarded: 0,
             tile_count: 7,
             over: false,
-            characters: 0,
             top1_score: 0,
         },
     );
@@ -327,7 +296,6 @@ fn test_golden_daily_mixed_roles_structures_agree() {
             discarded: 0,
             tile_count: 6,
             over: false,
-            characters: 32,
             top1_score: 0,
         },
     );
@@ -354,7 +322,6 @@ fn test_golden_daily_real_deck_discards_to_game_over_structures_agree() {
             discarded: 7,
             tile_count: 8,
             over: true,
-            characters: 0,
             top1_score: 0,
         },
     );

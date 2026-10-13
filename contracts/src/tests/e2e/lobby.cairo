@@ -22,8 +22,6 @@ use paved::tests::setup::setup::{
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use paved::views::{
     IGameViewDispatcher, IGameViewDispatcherTrait, ITournamentViewDispatcher,
     ITournamentViewDispatcherTrait,
@@ -318,7 +316,7 @@ fn test_lobby_class_is_never_written_after_construction() {
     store.set_tile(tile);
     systems
         .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
+        .build(context.game_id, Orientation::North, CENTER, CENTER + 1);
     assert(stored_lobby_class(daily) == lobby, 'Lobby: written by build');
     systems.daily.discard(context.game_id);
     assert(stored_lobby_class(daily) == lobby, 'Lobby: written by discard');
@@ -407,7 +405,7 @@ fn test_lobby_and_daily_share_the_storage_layout() {
     let mut tile = store.tile(store.game(game_id), builder.tile_id);
     tile.plan = Plan::FFCFFFCFF.into();
     store.set_tile(tile);
-    systems.daily.build(game_id, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
+    systems.daily.build(game_id, Orientation::North, CENTER, CENTER + 1);
     let built = views.game(game_id);
     systems.daily.discard(game_id);
     let discarded = views.game(game_id);

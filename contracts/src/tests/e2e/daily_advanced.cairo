@@ -13,8 +13,6 @@ use paved::tests::setup::setup::{
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use snforge_std::{
     start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
 };
@@ -171,7 +169,7 @@ fn test_daily_e2e_build_then_discard_tracks_both_actions() {
 
     systems
         .daily
-        .build(context.game_id, Orientation::North, CENTER, CENTER + 1, Role::None, Spot::None);
+        .build(context.game_id, Orientation::North, CENTER, CENTER + 1);
     systems.daily.discard(context.game_id);
 
     let game = store.game(context.game_id);

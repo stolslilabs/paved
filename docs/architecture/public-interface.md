@@ -332,7 +332,7 @@ Yes, `Tutorial` changes, through the code it shares with `Daily`; its own functi
 
 ### 2. The builder view and the views that remain
 
-`builder` **stays**, with fewer fields (to confirm in D-18b): it still answers the tile in hand and the
+`builder` **stays**, with fewer fields (built in D-18b): it still answers the tile in hand and the
 "not the player of the game" revert, and a `characters` view cannot be kept without characters. Recommendation:
 the counters simply go (`placed_count` and `available_count` would be a constant 0 and 7), so the struct is
 shorter, not padded. Every view that remains on `Daily` and `Tutorial` after D-18, fields in order:
@@ -354,8 +354,8 @@ The Daily quests count `Scored` events through the tally of a finished game (`qu
 one event, every character of the structure recovered) and **per character** for forests (`forest.cairo:182-193`,
 one `solve` per Woodsman or Herdsman, `count_forest` each time). After D-18 a forest gives one event and one
 `count_forest` per closure, so task 4 (`FOREST_SCORED`) counts forest closures. Whether a forest with 0
-points still emits: yes, as today (`forest.cairo:32-33`), because the unit is the closure (to confirm in
-D-18b). `docs/architecture/quests.md`, tasks 2, 4 and 5, say so. Tasks 2, 5 and 6 keep their definitions but count more, since a structure no longer needs a character to score; tasks 7 to 10 are unchanged.
+points still emits: yes (D-18b, `structure/forest.cairo` `assess_forest`): `Scored` with category FOREST and
+points 0, and one `count_forest`, because the unit is the closure. `docs/architecture/quests.md`, tasks 2, 4 and 5, say so. Tasks 2, 5 and 6 keep their definitions but count more, since a structure no longer needs a character to score; tasks 7 to 10 are unchanged.
 
 ### Scoring seen from a client
 
