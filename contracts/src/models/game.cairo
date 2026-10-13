@@ -17,6 +17,7 @@ use paved::models::tile::{Tile, TileIntoLayout, TileTrait, ZeroableTile};
 use paved::store::{Store, StoreImpl};
 use paved::structure::assessment::{score_generic, score_wonder};
 use paved::structure::forest::assess_forest;
+use paved::structure::owners::{TallyTrait, structure_tally, wonder_tally};
 use paved::structure::placement::{Neighborhood, NeighborhoodTrait};
 use paved::structure::record::{open_of, ref_of};
 use paved::structure::state::{Structures, StructuresTrait};
@@ -188,6 +189,15 @@ pub impl GameImpl of GameTrait {
         self.seed = state.finalize();
     }
 
+    /// Whether the game has one player (D-19): every tile is then that player's, so every
+    /// structure scores for it and its tiles are not counted. The condition is the mode's
+    /// (`Mode::solo`).
+    #[inline]
+    fn solo(self: Game) -> bool {
+        let mode: Mode = self.mode.into();
+        mode.solo()
+    }
+
     #[inline]
     fn assess_over(ref self: Game) {
         self.over = self.tile_count >= self.tile_limit.into();
@@ -324,8 +334,28 @@ pub impl GameImpl of GameTrait {
     /// A structure scores once per move: a root reached from two start spots is assessed at the
     /// first one only. Only the move that closes a structure reaches it with `open == 0`: a closed
     /// structure has no half-edge left towards an empty position, so no later tile joins it.
+    ///
+    /// D-19: a structure scores for its winner, the owner of the most of its tiles
+    /// (`structure/owners.cairo`), counted by a walk on the move that closes it. In a game with one
+    /// player (`solo`) the winner is that player and nothing is walked.
+    #[inline]
     fn assess(
         ref self: Game,
+        tile: Tile,
+        refs: u128,
+        around: @Neighborhood,
+        ref structures: Structures,
+        ref store: Store,
+    ) {
+        let solo = self.solo();
+        self.assess_with(solo, tile, refs, around, ref structures, ref store);
+    }
+
+    /// `assess`, with the single-player skip given: `solo` false counts the tiles of every
+    /// structure that closes (the tests force it off to reach the majority and the tie).
+    fn assess_with(
+        ref self: Game,
+        solo: bool,
         tile: Tile,
         refs: u128,
         around: @Neighborhood,
@@ -358,11 +388,25 @@ pub impl GameImpl of GameTrait {
             }
             done.append(root);
             match category {
-                Category::Wonder => score_wonder(ref self, ref store),
+                Category::Wonder => {
+                    let winner = if solo {
+                        self.player_id
+                    } else {
+                        wonder_tally(self.player_id, tile, ref structures).winner()
+                    };
+                    score_wonder(ref self, ref store, winner);
+                },
                 Category::Forest => assess_forest(
-                    ref self, tile, refs, area, record, ref structures, ref store,
+                    ref self, tile, refs, area, record, solo, ref structures, ref store,
                 ),
-                _ => score_generic(ref self, ref store, record, category),
+                _ => {
+                    let winner = if solo {
+                        self.player_id
+                    } else {
+                        structure_tally(self.player_id, tile, refs, area, ref structures).winner()
+                    };
+                    score_generic(ref self, ref store, record, category, winner);
+                },
             }
         }
 
@@ -378,7 +422,13 @@ pub impl GameImpl of GameTrait {
                 let (root, record) = structures.find(around.reference(*direction, wonder));
                 if open_of(record) == 0 && !placement::contains(done.span(), root) {
                     done.append(root);
-                    score_wonder(ref self, ref store);
+                    let winner = if solo {
+                        self.player_id
+                    } else {
+                        wonder_tally(self.player_id, around.tile(*direction), ref structures)
+                            .winner()
+                    };
+                    score_wonder(ref self, ref store, winner);
                 }
             }
         }

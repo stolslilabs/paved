@@ -65,6 +65,18 @@ pub impl ModeImpl of ModeTrait {
         }
     }
 
+    /// Whether a game of the mode has one player (D-19): its structures score for that player
+    /// with no count of their tiles' owners. Daily and Tutorial do; a multiplayer mode answers
+    /// false here, which turns the majority count on.
+    #[inline]
+    fn solo(self: Mode) -> bool {
+        match self {
+            Mode::Daily => true,
+            Mode::Tutorial => true,
+            _ => false,
+        }
+    }
+
     #[inline]
     fn deck(self: Mode) -> Deck {
         match self {

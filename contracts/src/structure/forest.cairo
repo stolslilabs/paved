@@ -5,14 +5,19 @@
 //! the set of distinct roads and cities adjacent to the forest: it is computed by a scan, on the
 //! move that closes the forest's own half-edges (`open == 0`).
 //!
-//! The scan walks the nodes of the forest (one tile read per node, every position is taken since
-//! `open == 0`) and, for each adjacent road or city area of a node, takes the root of its record:
+//! The scan walks the nodes of the forest (the walker of `walk.cairo`: one tile read per node,
+//! every position is taken since `open == 0`) and, for each adjacent road or city area of a node,
+//! takes the root of its record:
 //! - an adjacent road whose root still has open half-edges keeps the forest open (2024 rule):
 //!   nothing scores;
 //! - otherwise the forest scores the distinct closed road roots plus the distinct closed city
 //!   roots (D-18, P-45: what a Woodsman and a Herdsman scored, together). A city whose root is open
 //!   is not counted (P-15, the correction of the 2024 walk, which could count an open city that a
 //!   forest touched twice).
+//!
+//! D-19: the scan also counts the forest's own tiles per owner as it walks them (ruling 2: not the
+//! tiles of the roads and cities around it), and the forest's points go to the owner of the most
+//! tiles (`owners.cairo`). In a game with one player the tally is off and the winner is the player.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::events::{Event, Scored};
@@ -20,34 +25,50 @@ use paved::helpers::multiplier::compute_multiplier;
 use paved::models::game::{Game, GameImpl};
 use paved::models::tile::Tile;
 use paved::store::{Store, StoreImpl};
+use paved::structure::owners::{Tally, TallyTrait};
 use paved::structure::record::{open_of, ref_of, size_of};
 use paved::structure::state::{Structures, StructuresTrait};
-use paved::structure::{oriented, tables};
+use paved::structure::tables;
+use paved::structure::walk::WalkerTrait;
 use paved::types::category::{Category, CategoryImpl};
 
 /// Scores the forest of `area` of the built `tile` (of refs `refs`), whose root `record` is closed,
-/// unless an adjacent road is open: points `(roads + cities) x base x bonus(size)`, one `Scored`,
-/// even with 0 points (the unit of the quests is the forest closure).
+/// unless an adjacent road is open: points `(roads + cities) x base x bonus(size)` to the owner of
+/// the most forest tiles, one `Scored`, even with 0 points (the unit of the quests is the forest
+/// closure). On a tie nobody scores: no points, `Scored` with player 0 and points 0, and the
+/// forest still counts. `solo`: the game has one player, whose forest it is; nothing is counted.
 pub fn assess_forest(
     ref game: Game,
     tile: Tile,
     refs: u128,
     area: u8,
     record: u64,
+    solo: bool,
     ref structures: Structures,
     ref store: Store,
 ) {
-    // [Compute] The roads and cities around the forest
-    let (open_road, roads, cities) = scan(game.id, tile, refs, area, ref structures);
+    // [Compute] The roads and cities around the forest, and its tiles per owner
+    let mut tally = if solo {
+        TallyTrait::off(game.id, game.player_id)
+    } else {
+        TallyTrait::new(game.id, game.player_id)
+    };
+    let (open_road, roads, cities) = scan(tile, refs, area, ref structures, ref tally);
     if open_road {
         return;
     }
 
-    // [Effect] Score the forest
+    // [Effect] Score the forest for its winner
+    let winner = tally.winner();
     let size: u32 = size_of(record).into();
-    let (num, den) = compute_multiplier(size);
-    let points = (roads + cities) * Category::Forest.base_points() * num / den;
-    game.add_score(points);
+    let points = if winner == 0 {
+        0
+    } else {
+        let (num, den) = compute_multiplier(size);
+        let points = (roads + cities) * Category::Forest.base_points() * num / den;
+        game.add_score(points);
+        points
+    };
     game.count_forest();
 
     // [Event] Forest scored
@@ -56,7 +77,7 @@ pub fn assess_forest(
             Event::Scored(
                 Scored {
                     game_id: game.id,
-                    player_id: game.player_id,
+                    player_id: winner,
                     category: Category::Forest.into(),
                     size,
                     points,
@@ -66,31 +87,19 @@ pub fn assess_forest(
 }
 
 /// Walks the forest of `area` of `tile` and returns whether an adjacent road is still open, the
-/// number of distinct closed roads and the number of distinct closed cities adjacent to it. The
-/// forest must be closed (`open == 0` on its root), so that every position it needs is taken.
+/// number of distinct closed roads and the number of distinct closed cities adjacent to it; it
+/// counts the forest's tiles in `tally` (nothing when the tally is off). The forest must be closed
+/// (`open == 0` on its root), so that every position it needs is taken.
 pub fn scan(
-    game_id: u32, tile: Tile, refs: u128, area: u8, ref structures: Structures,
+    tile: Tile, refs: u128, area: u8, ref structures: Structures, ref tally: Tally,
 ) -> (bool, u32, u32) {
-    let mut visited: Felt252Dict<bool> = Default::default();
-    // [Info] The slots of the tiles read, by position: a tile next to several nodes is read once
-    let mut slots: Felt252Dict<felt252> = Default::default();
-    // [Info] The built tile is not in storage yet (`flush` writes it): the scan takes it from here
-    if structures.built.id != 0 {
-        let built = structures.built;
-        slots
-            .insert(
-                built.x.into() * 0x100000000 + built.y.into(),
-                StoreImpl::tile_slot(built, structures.built_refs),
-            );
-    }
+    let mut walker = WalkerTrait::new(tile, refs, area, ref structures);
     let mut road_roots: Felt252Dict<bool> = Default::default();
     let mut city_roots: Felt252Dict<bool> = Default::default();
     let mut roads: u32 = 0;
     let mut cities: u32 = 0;
     let mut open_road = false;
-    let mut nodes: Array<(Tile, u128, u8)> = array![(tile, refs, area)];
-    visited.insert(node_key(tile.id, area), true);
-    while let Option::Some((node, node_refs, node_area)) = nodes.pop_front() {
+    while let Option::Some((node, node_refs, node_area)) = walker.pop() {
         // [Compute] The roads around the node: each must be closed, and counts once
         let north = tables::area_row(node.plan, node_area);
         let mut adjacent = tables::row_adjacent_roads(north);
@@ -129,56 +138,9 @@ pub fn scan(
             other += 1;
         }
 
-        // [Compute] The next nodes of the forest
-        let row = oriented::area_row(node.plan, node.orientation, node_area);
-        let mut moves = tables::row_moves(row);
-        let mut count = tables::row_move_count(row);
-        while count > 0 {
-            let (direction, at, rest) = oriented::next_move(moves);
-            moves = rest;
-            count -= 1;
-            if at == 0 {
-                continue;
-            }
-            let (x, y) = toward(node.x, node.y, direction);
-            let key: felt252 = x.into() * 0x100000000 + y.into();
-            let mut slot = slots.get(key);
-            if slot == 0 {
-                slot = StoreImpl::tile_slot_at(game_id, x, y);
-                // [Check] The gate guarantees that every position the forest needs is taken
-                assert(slot != 0, 'Forest scan: open forest');
-                slots.insert(key, slot);
-            }
-            let (next, next_refs) = StoreImpl::tile_of_slot(game_id, slot);
-            let landing = oriented::area_of(oriented::plan_row(next.plan, next.orientation), at);
-            let key = node_key(next.id, landing);
-            if !visited.get(key) {
-                visited.insert(key, true);
-                nodes.append((next, next_refs, landing));
-            }
-        }
+        // [Compute] The node's tile for its owner, then the next nodes of the forest
+        tally.add(node.id);
+        walker.expand(node, node_area);
     }
     (open_road, roads, cities)
-}
-
-/// The key of a node (an area of a tile) in the sets of a scan.
-#[inline(always)]
-fn node_key(tile_id: u32, area: u8) -> felt252 {
-    (tile_id * 16 + area.into()).into()
-}
-
-/// The position next to `(x, y)` in `direction` (1 north-west, 2 north, 3 north-east, 4 east,
-/// 5 south-east, 6 south, 7 south-west, 8 west).
-#[inline(always)]
-fn toward(x: u32, y: u32, direction: u8) -> (u32, u32) {
-    match direction {
-        1 => (x - 1, y + 1),
-        2 => (x, y + 1),
-        3 => (x + 1, y + 1),
-        4 => (x + 1, y),
-        5 => (x + 1, y - 1),
-        6 => (x, y - 1),
-        7 => (x - 1, y - 1),
-        _ => (x - 1, y),
-    }
 }

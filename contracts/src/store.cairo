@@ -104,6 +104,10 @@ pub struct PavedStorage {
     /// `Structures`: the record pages, one or two slots per placed tile (`slot` 0 or 1), four
     /// records of 48 bits per slot (see `structure/record.cairo`).
     pub structures: Map<(u32, u32, u8), felt252>,
+    /// The owner of a tile (D-19): the player who placed it, written only when it is not the
+    /// game's player. 0, which no build of the game's player writes, means the game's player: a
+    /// tile written before D-19 and the starter tile read 0.
+    pub tile_owners: Map<(u32, u32), felt252>,
 }
 
 #[inline(always)]
@@ -280,6 +284,24 @@ pub impl StoreImpl of StoreTrait {
         let word: u256 = slot.into();
         let tile_id: u32 = ((word.low / TWO_POW_88) & MASK_8).try_into().unwrap();
         Self::decode_tile(game_id, tile_id, word)
+    }
+
+    /// The id of the tile at a position, 0 when the position is empty.
+    fn tile_id_at(game_id: u32, x: u32, y: u32) -> u32 {
+        storage().tile_positions.entry((game_id, x, y)).read() % POSITION_WONDER
+    }
+
+    /// The owner of a tile as stored: 0 for the game's player.
+    fn tile_owner(game_id: u32, tile_id: u32) -> felt252 {
+        storage().tile_owners.entry((game_id, tile_id)).read()
+    }
+
+    /// Records `owner` as the owner of the tile `tile_id` of `game`, unless it is the game's
+    /// player (0 means the game's player): a single-player game never writes it.
+    fn set_tile_owner(self: Store, game: Game, tile_id: u32, owner: felt252) {
+        if owner != game.player_id {
+            storage().tile_owners.entry((game.id, tile_id)).write(owner);
+        }
     }
 
     /// Whether a position is taken and, if its tile holds a wonder, the tile and its refs (the

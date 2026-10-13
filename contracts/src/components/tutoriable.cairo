@@ -196,6 +196,10 @@ pub mod TutoriableComponent {
                     ),
                 );
 
+            // [Effect] The tile's owner (D-19), written only when it is not the game's player:
+            // never in a single-player game, where only that player builds
+            store.set_tile_owner(game, tile.id, player_id);
+
             // [Effect] Place the tile on the structure state
             let mut structures = StructuresTrait::new(game_id);
             let refs = game.place_structures(tile, @around, ref structures);
