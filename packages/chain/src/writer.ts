@@ -35,8 +35,10 @@ export interface BuildMove {
   orientation: number;
   x: number;
   y: number;
-  role: number;
-  spot: number;
+  /** Ignored, never sent. @deprecated D-18, removed once app-web stops passing it */
+  role?: number;
+  /** Ignored, never sent. @deprecated D-18, removed once app-web stops passing it */
+  spot?: number;
 }
 
 /** The reward at send is not what the player confirmed: nothing was sent. */
@@ -221,7 +223,7 @@ export class PavedWriter {
     const args: Encodable[] =
       key.mode === "tutorial"
         ? [key.gameId]
-        : [key.gameId, move.orientation, move.x, move.y, move.role, move.spot];
+        : [key.gameId, move.orientation, move.x, move.y];
     return this.send(contract, [this.call(contract, "build", args)]);
   }
 

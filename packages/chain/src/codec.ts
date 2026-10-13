@@ -269,7 +269,7 @@ export class AbiCodec {
     }
     const variants = this.enums.get(type);
     if (variants) {
-      // Unit enums only (Orientation, Role, Spot): the calldata is the variant index.
+      // Unit enums only (Orientation): the calldata is the variant index.
       const index = Number(value);
       if (!Number.isInteger(index) || index < 0 || index >= variants.length) {
         throw new Error(`${type} has no variant ${String(value)}`);
@@ -323,8 +323,8 @@ export class AbiCodec {
     if (variants) {
       const index = Number(next());
       const variant = variants[index];
-      // A code this ABI does not list (a variant added by a later contract version, e.g. a new role
-      // in P4): kept as its number, which the interface says to treat as "unknown", but only for an
+      // A code this ABI does not list (a variant added by a later contract version, e.g. a new orientation
+      // code): kept as its number, which the interface says to treat as "unknown", but only for an
       // enum whose listed variants all are unit variants. Otherwise the unknown variant may carry a
       // payload of unknown length, and the felts that follow would be misread: refuse.
       if (!variant) {

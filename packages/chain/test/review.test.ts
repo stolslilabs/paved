@@ -53,24 +53,14 @@ describe("encodeCall checks integer ranges", () => {
   });
 });
 
-describe("role codes added later (P4) do not break decoding", () => {
-  // CharacterView: role, placed, tile_id, x, y, spot; four roles added after Pilgrim.
-  const character = (role: number) => [role, 1, 7, 0x7fffffff, 0x7fffffff, 3].map((n) => `0x${n.toString(16)}`);
-
-  test("a character with an unknown role code decodes as its number", () => {
-    const felts = ["0x2", ...character(5), ...character(9)];
-    const out = codecs.Daily.decodeResult("characters", felts) as Array<{ role: number; placed: boolean }>;
-    expect(out.map((c) => c.role)).toEqual([5, 9]);
-    expect(out[1].placed).toBe(true);
-  });
-
+describe("enum codes added later do not break decoding", () => {
   test("an enum code the ABI does not list is kept as its number, not thrown", () => {
     const grown = new AbiCodec([
       ...ABIS.Daily,
-      { type: "function", name: "which_role", inputs: [], outputs: [{ type: "paved::types::role::Role" }] },
+      { type: "function", name: "which_orientation", inputs: [], outputs: [{ type: "paved::types::orientation::Orientation" }] },
     ]);
-    expect(grown.decodeResult("which_role", ["0x3"])).toBe(3);
-    expect(grown.decodeResult("which_role", ["0x63"])).toBe(99);
+    expect(grown.decodeResult("which_orientation", ["0x3"])).toBe(3);
+    expect(grown.decodeResult("which_orientation", ["0x63"])).toBe(99);
   });
 });
 
@@ -111,8 +101,8 @@ describe("writer", () => {
     const receipt = new Promise((r) => (release = () => r({ execution_status: "SUCCEEDED", events: [] })));
     const execute = vi.fn(async () => ({ transaction_hash: "0x1" }));
     const writer = client(() => receipt).writer({ address: "0x5", execute });
-    const first = writer.build({ mode: "daily", gameId: 1 }, { orientation: 1, x: 1, y: 1, role: 0, spot: 0 });
-    await expect(writer.build({ mode: "daily", gameId: 1 }, { orientation: 1, x: 1, y: 1, role: 0, spot: 0 })).rejects.toThrow(
+    const first = writer.build({ mode: "daily", gameId: 1 }, { orientation: 1, x: 1, y: 1 });
+    await expect(writer.build({ mode: "daily", gameId: 1 }, { orientation: 1, x: 1, y: 1 })).rejects.toThrow(
       "Another write is pending",
     );
     release();
@@ -185,22 +175,5 @@ describe("nothing is built on a deployment that is not configured", () => {
     expect(() => createPavedClient(off)).toThrow(/Not connected/);
     expect(() => controllerPolicies(off)).toThrow(/Not connected/);
     expect(createPavedClient(deployment)).toBeInstanceOf(PavedClient);
-  });
-});
-
-describe("Woodsman (6) and Herdsman (7) of P4 are listed by the ABI", () => {
-  const character = (role: number, placed = 0) => [role, placed, placed ? 7 : 0, placed ? 3 : 0, placed ? 3 : 0, placed ? 1 : 0].map((n) => `0x${n.toString(16)}`);
-
-  test("seven characters decode, roles 6 and 7 as their codes", () => {
-    const felts = ["0x7", ...[1, 2, 3, 4, 5].flatMap((r) => character(r)), ...character(6, 1), ...character(7)];
-    const out = codecs.Daily.decodeResult("characters", felts) as Array<{ role: number; placed: boolean }>;
-    expect(out.map((c) => c.role)).toEqual([1, 2, 3, 4, 5, 6, 7]);
-    expect(out[5].placed).toBe(true);
-  });
-
-  test("a build with either role encodes its code", () => {
-    // game_id, orientation, x, y, role, spot
-    expect(codecs.Daily.encodeCall("build", [1, 1, 5, 5, 6, 3])[4]).toBe("0x6");
-    expect(codecs.Daily.encodeCall("build", [1, 1, 5, 5, 7, 3])[4]).toBe("0x7");
   });
 });

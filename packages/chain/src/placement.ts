@@ -2,7 +2,7 @@ import type { DecodedEvent } from "./codec";
 
 /** What a `build` or `discard` receipt says, read from its events without re-reading the board. */
 export interface PlacementOutcome {
-  built: { tileId: number; plan: number; orientation: number; x: number; y: number; role: number; spot: number } | null;
+  built: { tileId: number; plan: number; orientation: number; x: number; y: number } | null;
   discarded: { tileId: number; plan: number; points: number } | null;
   scored: Array<{ category: number; size: number; points: number }>;
   /** Sum of the `Scored` points of this transaction. */
@@ -22,8 +22,6 @@ export function placementOutcome(events: DecodedEvent[], gameId: number): Placem
         orientation: Number(f.orientation),
         x: Number(f.x),
         y: Number(f.y),
-        role: Number(f.role),
-        spot: Number(f.spot),
       };
     } else if (name === "Discarded") {
       outcome.discarded = { tileId: Number(f.tileId), plan: Number(f.plan), points: Number(f.points) };

@@ -60,12 +60,9 @@ describe("views on recorded answers", () => {
     expect(tiles.map((t) => t.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
-  test("builder and characters of the player", async () => {
+  test("builder of the player", async () => {
     const { client: c } = client();
-    expect(await c.views.builder(tutorial, player)).toMatchObject({ gameId: 1, placedCount: 0, availableCount: 7 });
-    const characters = await c.views.characters(tutorial, player);
-    expect(characters.map((ch) => ch.role)).toEqual([1, 2, 3, 4, 5, 6, 7]);
-    expect(characters.every((ch) => !ch.placed && ch.tileId === 0)).toBe(true);
+    expect(await c.views.builder(tutorial, player)).toMatchObject({ gameId: 1, tileId: expect.any(Number), plan: expect.any(Number) });
   });
 
   test("the current tournament holds the Daily entry price", async () => {
@@ -134,12 +131,12 @@ describe("writer on recorded receipts", () => {
   test("a tutorial build: Built, then the last one ends the game with GameOver", async () => {
     const { client: c } = client();
     const writer = c.writer(account([record.receipts.buildTutorial, record.receipts.lastBuildTutorial]));
-    const first = placementOutcome((await writer.build(tutorial, { orientation: 0, x: 0, y: 0, role: 0, spot: 0 })).events, 1);
+    const first = placementOutcome((await writer.build(tutorial, { orientation: 0, x: 0, y: 0 })).events, 1);
     expect(first.built).toMatchObject({ tileId: 2 });
     expect(first.built!.orientation).toBeGreaterThan(0);
     expect(first.over).toBeNull();
 
-    const last = placementOutcome((await writer.build(tutorial, { orientation: 0, x: 0, y: 0, role: 0, spot: 0 })).events, 1);
+    const last = placementOutcome((await writer.build(tutorial, { orientation: 0, x: 0, y: 0 })).events, 1);
     expect(last.built).toMatchObject({ tileId: 10 });
     expect(last.over?.score).toBe((await c.views.game(tutorial)).score);
     expect(last.over?.tournamentId).toBe(0);
@@ -156,10 +153,11 @@ describe("writer on recorded receipts", () => {
     const { client: c } = client();
     const acc = account([record.receipts.buildTutorial, record.receipts.buildTutorial]);
     const writer = c.writer(acc);
+    // The deprecated role and spot (app-web still passes them) are ignored, never sent.
     await writer.build(tutorial, { orientation: 1, x: 2, y: 3, role: 4, spot: 5 });
     await writer.build(daily, { orientation: 1, x: 2, y: 3, role: 4, spot: 5 });
     expect(acc.sent[0][0].calldata).toEqual(["0x1"]);
-    expect(acc.sent[1][0].calldata).toEqual(["0x1", "0x1", "0x2", "0x3", "0x4", "0x5"]);
+    expect(acc.sent[1][0].calldata).toEqual(["0x1", "0x1", "0x2", "0x3"]);
   });
 
   test("a reverted receipt is a WriteError with its reason", async () => {
