@@ -14,8 +14,6 @@ use paved::models::tournament::TournamentTrait;
 use paved::types::deck::{Deck, DeckImpl, DeckTrait};
 use paved::types::orientation::Orientation;
 use paved::types::plan::PlanImpl;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 
 // Constants
 
@@ -77,7 +75,7 @@ pub impl ModeImpl of ModeTrait {
     }
 
     #[inline]
-    fn parameters(self: Mode, tiles: u128) -> (Orientation, u32, u32, Role, Spot) {
+    fn parameters(self: Mode, tiles: u128) -> (Orientation, u32, u32) {
         let deck: Deck = self.deck();
         let index = Bitmap::most_significant_bit(tiles).unwrap();
         deck.parameters(index.into())

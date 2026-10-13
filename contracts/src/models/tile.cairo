@@ -29,8 +29,6 @@ pub mod errors {
     pub const TILE_DOES_NOT_EXIST: felt252 = 'Tile: does not exist';
     pub const TILE_ALREADY_EXISTS: felt252 = 'Tile: already exists';
     pub const INVALID_ORIENTATION: felt252 = 'Tile: invalid orientation';
-    pub const INVALID_SPOT: felt252 = 'Tile: invalid spot';
-    pub const TILE_ALREADY_EMPTY: felt252 = 'Tile: already empty';
 }
 
 #[generate_trait]
@@ -44,7 +42,6 @@ pub impl TileImpl of TileTrait {
             orientation: Orientation::None.into(),
             x: CENTER,
             y: CENTER,
-            occupied_spot: Spot::None.into(),
         }
     }
 
@@ -61,23 +58,6 @@ pub impl TileImpl of TileTrait {
         let to: Spot = to.antirotate(orientation);
         let plan: Plan = self.plan.into();
         plan.area(from) == plan.area(to)
-    }
-
-    #[inline]
-    fn is_empty(self: Tile) -> bool {
-        self.occupied_spot == Spot::None.into()
-    }
-
-    #[inline]
-    fn occupe(ref self: Tile, spot: Spot) {
-        assert(spot != Spot::None, errors::INVALID_SPOT);
-        self.occupied_spot = spot.into();
-    }
-
-    #[inline]
-    fn leave(ref self: Tile) {
-        assert(!self.is_empty(), errors::TILE_ALREADY_EMPTY);
-        self.occupied_spot = Spot::None.into();
     }
 
     fn can_place(self: Tile, ref neighbors: Array<Tile>) -> bool {
@@ -280,7 +260,7 @@ pub impl InternalImpl of InternalTrait {
 pub impl ZeroableTile of ZeroableTileTrait {
     #[inline]
     fn zero() -> Tile {
-        Tile { game_id: 0, id: 0, plan: 0, orientation: 0, x: 0, y: 0, occupied_spot: 0 }
+        Tile { game_id: 0, id: 0, plan: 0, orientation: 0, x: 0, y: 0 }
     }
 
     #[inline]
@@ -336,7 +316,6 @@ pub mod tests {
                 orientation: orientation.into(),
                 x: x,
                 y: y,
-                occupied_spot: 0,
             }
         }
     }

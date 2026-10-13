@@ -1,8 +1,6 @@
 // Starknet imports
 
 use paved::types::orientation::Orientation;
-use paved::types::role::Role;
-use paved::types::spot::Spot;
 use quiver_achievement::types::task::AchievementTask;
 use quiver_achievement::types::window::AchievementWindow;
 use quiver_quest::types::schedule::QuestSchedule;
@@ -26,8 +24,6 @@ pub trait IDaily<TContractState> {
         orientation: Orientation,
         x: u32,
         y: u32,
-        role: Role,
-        spot: Spot,
     );
 }
 
@@ -76,10 +72,8 @@ pub mod Daily {
     };
     use paved::types::mode::Mode;
     use paved::types::orientation::Orientation;
-    use paved::types::role::Role;
-    use paved::types::spot::Spot;
     use paved::views::{
-        BuilderView, CharacterView, GameView, IGameView, ITournamentView, PriceView, TileView,
+        BuilderView, GameView, IGameView, ITournamentView, PriceView, TileView,
         TournamentView, ViewsImpl,
     };
     use quiver_achievement::component::AchievementComponent;
@@ -226,11 +220,9 @@ pub mod Daily {
             orientation: Orientation,
             x: u32,
             y: u32,
-            role: Role,
-            spot: Spot,
         ) {
             // [Effect] Build a tile
-            let over = self.playable.build(game_id, orientation, x, y, role, spot);
+            let over = self.playable.build(game_id, orientation, x, y);
             // [Effect] A game that ends reports to the quests, in the lobby class (one call)
             if over != 0 {
                 ILobbyLibraryDispatcher { class_hash: self.lobby_class.read() }
@@ -306,12 +298,6 @@ pub mod Daily {
 
         fn builder(self: @ContractState, game_id: u32, player_id: felt252) -> BuilderView {
             ViewsImpl::builder(StoreImpl::new(), game_id, player_id)
-        }
-
-        fn characters(
-            self: @ContractState, game_id: u32, player_id: felt252,
-        ) -> Array<CharacterView> {
-            ViewsImpl::characters(StoreImpl::new(), game_id, player_id)
         }
     }
 

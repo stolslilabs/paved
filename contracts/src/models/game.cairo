@@ -11,15 +11,14 @@ use paved::constants;
 use paved::helpers::bitmap::Bitmap;
 use paved::helpers::random_deck::draw_from_bitmap;
 use paved::models::builder::{Builder, BuilderTrait};
-use paved::models::character::{Char, CharAssert, CharTrait};
 pub use paved::models::index::Game;
 use paved::models::player::{Player, PlayerTrait};
 use paved::models::tile::{Tile, TileIntoLayout, TileTrait, ZeroableTile};
 use paved::store::{Store, StoreImpl};
-use paved::structure::assessment::{assess_generic, assess_wonder};
+use paved::structure::assessment::{score_generic, score_wonder};
 use paved::structure::forest::assess_forest;
 use paved::structure::placement::{Neighborhood, NeighborhoodTrait};
-use paved::structure::record::ref_of;
+use paved::structure::record::{open_of, ref_of};
 use paved::structure::state::{Structures, StructuresTrait};
 use paved::structure::{oriented, placement, tables};
 use paved::types::area::Area;
@@ -31,8 +30,6 @@ use paved::types::mode::{Mode, ModeTrait};
 use paved::types::move::{Move, MoveImpl};
 use paved::types::orientation::{IntoOrientationU8, IntoU8Orientation, Orientation};
 use paved::types::plan::Plan;
-use paved::types::role::Role;
-use paved::types::spot::{Spot, SpotImpl};
 
 pub mod errors {
     pub const INVALID_NAME: felt252 = 'Game: invalid name';
@@ -45,7 +42,6 @@ pub mod errors {
     pub const GAME_NOT_EXISTS: felt252 = 'Game: does not exist';
     pub const GAME_ALREADY_STARTED: felt252 = 'Game: already started';
     pub const GAME_NOT_STARTED: felt252 = 'Game: not yet started';
-    pub const STRUCTURE_NOT_IDLE: felt252 = 'Game: structure not idle';
     pub const GAME_IS_OVER: felt252 = 'Game: is over';
     pub const GAME_NOT_OVER: felt252 = 'Game: not over';
     pub const BUILDERS_NOT_READY: felt252 = 'Game: builders not ready';
@@ -88,7 +84,6 @@ pub impl GameImpl of GameTrait {
             id,
             player_id,
             held_tile: 0,
-            characters: 0,
             over: false,
             discarded: 0,
             built: 0,
@@ -110,19 +105,16 @@ pub impl GameImpl of GameTrait {
     #[inline]
     fn builder_of(self: Game, player_id: felt252) -> Builder {
         if player_id != 0 && player_id == self.player_id {
-            Builder {
-                game_id: self.id, player_id, tile_id: self.held_tile, characters: self.characters,
-            }
+            Builder { game_id: self.id, player_id, tile_id: self.held_tile }
         } else {
-            Builder { game_id: self.id, player_id, tile_id: 0, characters: 0 }
+            Builder { game_id: self.id, player_id, tile_id: 0 }
         }
     }
 
-    /// Takes the tile in hand and the roles placed back from the builder.
+    /// Takes the tile in hand back from the builder.
     #[inline]
     fn set_builder(ref self: Game, builder: Builder) {
         self.held_tile = builder.tile_id;
-        self.characters = builder.characters;
     }
 
     #[inline]
@@ -230,7 +222,7 @@ pub impl GameImpl of GameTrait {
         }
     }
 
-    /// A forest scored (one `Scored` per character, even with 0 points).
+    /// A forest scored (one `Scored` per forest, even with 0 points).
     #[inline]
     fn count_forest(ref self: Game) {
         if (self.counts / FOREST_UNIT) & 0x3f != 0x3f {
@@ -324,19 +316,14 @@ pub impl GameImpl of GameTrait {
         placement::place(ref structures, tile, around)
     }
 
-    /// The character placed on `spot` of the built tile joins the structure of that area (step 3).
-    #[inline]
-    fn occupy_structure(
-        self: Game, tile: Tile, refs: u128, spot: Spot, role: Role, ref structures: Structures,
-    ) {
-        placement::occupy(ref structures, tile, refs, spot.into(), role.into());
-    }
-
     /// Assesses the structures of the built tile (step 4), in the order of the walks: each start
     /// spot of the tile in `starts()` order, then the wonder of each neighbour, N, E, S, W, NW, NE,
-    /// SE, SW. Every structure is read from its root; a forest is scanned only when it is closed
-    /// and holds a Woodsman or a Herdsman (`structure/forest.cairo`). Returns whether a structure
-    /// scored (and characters were recovered).
+    /// SE, SW. Every structure is read from its root and scores when it is closed (D-18: no
+    /// character is needed); a forest is scanned when it is closed (`structure/forest.cairo`).
+    ///
+    /// A structure scores once per move: a root reached from two start spots is assessed at the
+    /// first one only. Only the move that closes a structure reaches it with `open == 0`: a closed
+    /// structure has no half-edge left towards an empty position, so no later tile joins it.
     fn assess(
         ref self: Game,
         tile: Tile,
@@ -344,9 +331,11 @@ pub impl GameImpl of GameTrait {
         around: @Neighborhood,
         ref structures: Structures,
         ref store: Store,
-    ) -> bool {
+    ) {
+        // [Info] The roots assessed by this move
+        let mut done: Array<u32> = array![];
+
         // [Compute] The start spots of the tile
-        let mut scored = false;
         let row = oriented::plan_row(tile.plan, tile.orientation);
         let mut count = oriented::start_count(row);
         let mut starts = oriented::starts(row);
@@ -356,26 +345,24 @@ pub impl GameImpl of GameTrait {
             count -= 1;
             let area_row = oriented::area_row(tile.plan, tile.orientation, area);
             let category: Category = tables::row_category(area_row).into();
+            let scorable = match category {
+                Category::Road | Category::City | Category::Wonder | Category::Forest => true,
+                _ => false,
+            };
+            if !scorable {
+                continue;
+            }
+            let (root, record) = structures.find(ref_of(refs, area));
+            if open_of(record) != 0 || placement::contains(done.span(), root) {
+                continue;
+            }
+            done.append(root);
             match category {
-                Category::Road |
-                Category::City => {
-                    let sid = ref_of(refs, area);
-                    if assess_generic(ref self, ref structures, ref store, sid, category) {
-                        scored = true;
-                    }
-                },
-                Category::Wonder => {
-                    let sid = ref_of(refs, area);
-                    if assess_wonder(ref self, ref structures, ref store, sid) {
-                        scored = true;
-                    }
-                },
-                Category::Forest => {
-                    if assess_forest(ref self, tile, refs, area, ref structures, ref store) {
-                        scored = true;
-                    }
-                },
-                _ => {},
+                Category::Wonder => score_wonder(ref self, ref store),
+                Category::Forest => assess_forest(
+                    ref self, tile, refs, area, record, ref structures, ref store,
+                ),
+                _ => score_generic(ref self, ref store, record, category),
             }
         }
 
@@ -386,15 +373,15 @@ pub impl GameImpl of GameTrait {
         ]
             .span();
         while let Option::Some(direction) = directions.pop_front() {
-            if *around.wonders & placement::role_bit(*direction) != 0 {
+            if *around.wonders & placement::bit(*direction) != 0 {
                 let wonder = oriented::wonder_area(around.tile(*direction).plan);
-                let sid = around.reference(*direction, wonder);
-                if assess_wonder(ref self, ref structures, ref store, sid) {
-                    scored = true;
+                let (root, record) = structures.find(around.reference(*direction, wonder));
+                if open_of(record) == 0 && !placement::contains(done.span(), root) {
+                    done.append(root);
+                    score_wonder(ref self, ref store);
                 }
             }
         }
-        scored
     }
 }
 
@@ -406,7 +393,6 @@ pub impl ZeroableGame of ZeroableGameTrait {
             id: 0,
             player_id: 0,
             held_tile: 0,
-            characters: 0,
             over: false,
             discarded: 0,
             built: 0,
@@ -449,16 +435,6 @@ pub impl GameAssert of AssertTrait {
     #[inline]
     fn assert_started(self: Game) {
         assert(0 != self.tile_count.into(), errors::GAME_NOT_STARTED);
-    }
-
-    /// No structure that the area of `at` of the built tile touches holds a character (read from
-    /// the roots, before the tile joins them: see `placement::is_idle`).
-    #[inline]
-    fn assert_structure_idle(
-        self: Game, tile: Tile, at: Spot, around: @Neighborhood, ref structures: Structures,
-    ) {
-        let idle = placement::is_idle(ref structures, tile, at.into(), around);
-        assert(idle, errors::STRUCTURE_NOT_IDLE);
     }
 
     #[inline]

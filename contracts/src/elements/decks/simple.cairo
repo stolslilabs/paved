@@ -22,7 +22,7 @@
 // Internal imports
 
 use paved::elements::decks::base::DeckImpl as BaseDeck;
-use paved::elements::decks::interface::{DeckTrait, Orientation, Plan, Role, Spot};
+use paved::elements::decks::interface::{DeckTrait, Orientation, Plan};
 
 pub impl DeckImpl of DeckTrait {
     #[inline]
@@ -46,7 +46,7 @@ pub impl DeckImpl of DeckTrait {
     }
 
     #[inline]
-    fn parameters(index: u32) -> (Orientation, u32, u32, Role, Spot) {
+    fn parameters(index: u32) -> (Orientation, u32, u32) {
         BaseDeck::parameters(index)
     }
 }

@@ -1,5 +1,5 @@
-//! Placement of a tile on the structure state (phase P5, PR P5-4): steps 1 to 3 of the update
-//! algorithm of `docs/architecture/structure-state.md`.
+//! Placement of a tile on the structure state (phase P5, PR P5-4): steps 1 and 2 of the update
+//! algorithm of `docs/architecture/structure-state.md` (step 3, the character, left with D-18).
 //!
 //! The neighbourhood of a position is read once per move: the 8 tiles around it and their refs,
 //! indexed by direction code (1 north-west, 2 north, 3 north-east, 4 east, 5 south-east, 6 south,
@@ -8,9 +8,7 @@
 
 use paved::models::tile::{Tile, TileImpl, ZeroableTile};
 use paved::store::{Store, StoreImpl};
-use paved::structure::record::{
-    add_ref, chars_of, close_one, founded, ref_of, sid, with_chars, with_ref,
-};
+use paved::structure::record::{add_ref, close_one, founded, ref_of, sid, with_ref};
 use paved::structure::state::{Structures, StructuresTrait};
 use paved::structure::{oriented, tables};
 
@@ -18,9 +16,7 @@ pub mod errors {
     pub const TILE_NO_NEIGHBORS: felt252 = 'Tile: no neighbors';
     pub const TILE_NOT_PLACED: felt252 = 'Tile: not placed';
     pub const TILE_CANNOT_PLACE: felt252 = 'Tile: cannot place';
-    pub const NO_STRUCTURE: felt252 = 'Structure: no area';
-    pub const INVALID_ROLE: felt252 = 'Structure: invalid role';
-    pub const OCCUPIED: felt252 = 'Structure: tile occupied';
+    pub const INVALID_BIT: felt252 = 'Structure: invalid bit';
 }
 
 /// The tiles around a position, their refs and, for the sides, their oriented plan rows, by
@@ -163,52 +159,17 @@ fn side_row(tile: Tile) -> u128 {
 /// Places a tile written without a build (the starter tile at spawn, a board written by a test) on
 /// the structure state, with the neighbours that are there, and writes the pages. Returns its refs
 /// (0 for a plan without areas).
-///
-/// The tile must hold no character: a character joins its structure at a build (`occupy`), which a
-/// tile written alone never goes through, so the record's `chars` would not know it. A board that
-/// needs one writes the tile first and the character after, through `occupy`.
 pub fn place_alone(tile: Tile) -> u128 {
-    // [Info] A plan without areas has no structure to hold a character: the storage round trips of
-    // `e2e/store.cairo` write such a tile at the maximum values
+    // [Info] A plan without areas has no structure: the storage round trips of `e2e/store.cairo`
+    // write such a tile at the maximum values
     if oriented::record_areas(tile.plan) == 0 {
         return 0;
     }
-    assert(tile.occupied_spot == 0, errors::OCCUPIED);
     let around = NeighborhoodTrait::read(tile.game_id, tile.x, tile.y);
     let mut structures = StructuresTrait::new(tile.game_id);
     let refs = place(ref structures, tile, @around);
     structures.flush(StoreImpl::new());
     refs
-}
-
-/// Returns whether no structure that the area of `spot` of the new tile touches holds a
-/// character, as `Conflict` answers for it: the structures as they were before the tile, reached
-/// through the moves of that area only. The other areas of the new tile may join more structures
-/// into it during the placement; the walk did not see those, so neither does this check.
-pub fn is_idle(ref structures: Structures, tile: Tile, spot: u8, around: @Neighborhood) -> bool {
-    let area = oriented::area_of(oriented::plan_row(tile.plan, tile.orientation), spot);
-    let row = oriented::area_row(tile.plan, tile.orientation, area);
-    let mut moves = tables::row_moves(row);
-    let mut count = tables::row_move_count(row);
-    let mut idle = true;
-    while count > 0 {
-        let (direction, at, rest) = oriented::next_move(moves);
-        moves = rest;
-        count -= 1;
-        if at == 0 {
-            continue;
-        }
-        let landing = around.landing(direction, at);
-        if landing == 0 {
-            continue;
-        }
-        let (_, record) = structures.find(around.reference(direction, landing));
-        if chars_of(record) != 0 {
-            idle = false;
-            break;
-        }
-    }
-    idle
 }
 
 /// Places the nodes of `tile` (placed, orientation and position set) on the structure state and
@@ -221,7 +182,7 @@ pub fn place(ref structures: Structures, tile: Tile, around: @Neighborhood) -> u
     if *around.wonders != 0 {
         let mut direction: u8 = 1;
         while direction <= 8 {
-            if *around.wonders & role_bit(direction) != 0 {
+            if *around.wonders & bit(direction) != 0 {
                 let wonder = oriented::wonder_area(around.tile(direction).plan);
                 let (root, record) = structures.find(around.reference(direction, wonder));
                 structures.set(root, close_one(record));
@@ -252,7 +213,7 @@ pub fn place(ref structures: Structures, tile: Tile, around: @Neighborhood) -> u
             count -= 1;
             if at == 0 {
                 // A wonder's half-edge: it asks only for the tile
-                if *around.taken & role_bit(direction) == 0 {
+                if *around.taken & bit(direction) == 0 {
                     open += 1;
                 }
                 continue;
@@ -303,20 +264,10 @@ pub fn place(ref structures: Structures, tile: Tile, around: @Neighborhood) -> u
     refs
 }
 
-/// Step 3: the character placed on `spot` of the tile (of refs `refs`) joins the structure of that
-/// area.
-pub fn occupy(ref structures: Structures, tile: Tile, refs: u128, spot: u8, role: u8) {
-    let area = oriented::area_of(oriented::plan_row(tile.plan, tile.orientation), spot);
-    let reference = ref_of(refs, area);
-    assert(reference != 0, errors::NO_STRUCTURE);
-    let (root, record) = structures.find(reference);
-    structures.set(root, with_chars(record, role_bit(role)));
-}
-
-/// The bit of a role in a `chars` bitmap (roles 1..=15).
+/// The bit `index` of a 16-bit set (of directions, of areas; 0..=15).
 #[inline(always)]
-pub fn role_bit(role: u8) -> u16 {
-    match role {
+pub fn bit(index: u8) -> u16 {
+    match index {
         0 => 0x1,
         1 => 0x2,
         2 => 0x4,
@@ -334,7 +285,7 @@ pub fn role_bit(role: u8) -> u16 {
         14 => 0x4000,
         15 => 0x8000,
         _ => {
-            assert(false, errors::INVALID_ROLE);
+            assert(false, errors::INVALID_BIT);
             0
         },
     }
@@ -342,11 +293,12 @@ pub fn role_bit(role: u8) -> u16 {
 
 #[inline(always)]
 fn area_bit(area: u8) -> u128 {
-    role_bit(area).into()
+    bit(area).into()
 }
 
+/// Whether `roots` holds `root`.
 #[inline(always)]
-fn contains(roots: Span<u32>, root: u32) -> bool {
+pub fn contains(roots: Span<u32>, root: u32) -> bool {
     let mut found = false;
     for candidate in roots {
         if *candidate == root {
@@ -396,31 +348,7 @@ mod tests {
         }
     }
 
-    /// A board written straight into storage with a character on a tile cannot give the record its
-    /// `chars`: it fails loudly.
-    #[test]
-    #[should_panic(expected: 'Structure: tile occupied')]
-    fn test_placement_a_tile_written_alone_holds_no_character() {
-        let (store, _, context) = setup::spawn_game(Mode::Daily);
-        let game_id = context.game_id;
-        interact_with_state(
-            store.contract,
-            || {
-                let tile = Tile {
-                    game_id,
-                    id: 90,
-                    plan: Plan::SFRFRFRFR.into(),
-                    orientation: Orientation::North.into(),
-                    x: CENTER + 10,
-                    y: CENTER + 10,
-                    occupied_spot: Spot::East.into(),
-                };
-                StoreImpl::new().set_tile(tile);
-            },
-        );
-    }
-
-    /// The same tile written without a character is placed, and written again as it is.
+    /// A tile written alone is placed, and written again as it is.
     #[test]
     fn test_placement_a_tile_written_alone_is_placed_and_kept() {
         let (store, _, context) = setup::spawn_game(Mode::Daily);
@@ -435,16 +363,15 @@ mod tests {
                     orientation: Orientation::North.into(),
                     x: CENTER + 10,
                     y: CENTER + 10,
-                    occupied_spot: Spot::None.into(),
                 };
                 let s = StoreImpl::new();
                 s.set_tile(tile);
                 let (_, refs) = StoreImpl::tile_with_refs(game_id, tile.id);
                 assert!(refs != 0);
-                // A tile that holds a character now (a build, a test) is written with its refs
-                s.set_tile(Tile { occupied_spot: Spot::East.into(), ..tile });
+                // Written again, it keeps its refs
+                s.set_tile(tile);
                 let (kept, kept_refs) = StoreImpl::tile_with_refs(game_id, tile.id);
-                assert_eq!(kept.occupied_spot, Spot::East.into());
+                assert_eq!(kept, tile);
                 assert_eq!(kept_refs, refs);
             },
         );

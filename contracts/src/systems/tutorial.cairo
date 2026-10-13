@@ -27,7 +27,7 @@ pub mod Tutorial {
         ILobbyClass, ILobbyDispatcherTrait, ILobbyLibraryDispatcher, LobbyClassSet,
     };
     use paved::types::mode::Mode;
-    use paved::views::{BuilderView, CharacterView, GameView, IGameView, TileView, ViewsImpl};
+    use paved::views::{BuilderView, GameView, IGameView, TileView, ViewsImpl};
     use quiver_achievement::component::AchievementComponent;
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use starknet::{ClassHash, ContractAddress};
@@ -181,12 +181,6 @@ pub mod Tutorial {
 
         fn builder(self: @ContractState, game_id: u32, player_id: felt252) -> BuilderView {
             ViewsImpl::builder(StoreImpl::new(), game_id, player_id)
-        }
-
-        fn characters(
-            self: @ContractState, game_id: u32, player_id: felt252,
-        ) -> Array<CharacterView> {
-            ViewsImpl::characters(StoreImpl::new(), game_id, player_id)
         }
     }
 }

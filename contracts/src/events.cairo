@@ -49,8 +49,6 @@ pub struct Built {
     pub orientation: u8,
     pub x: u32,
     pub y: u32,
-    pub role: u8,
-    pub spot: u8,
 }
 
 #[derive(Copy, Drop, Debug, PartialEq, Serde, starknet::Event)]
