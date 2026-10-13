@@ -369,3 +369,34 @@ scores nothing. A client has no role picker, no `characters` call and no availab
 Games open when the upgrade is installed (Sepolia) are scored under the new rules from the upgrade on, and keep
 what they scored before (`structure-state.md`, "As built: D-18"). Their `Built` events from before the upgrade keep
 `role` and `spot`: an indexer decodes `Built` by the shape of its data.
+
+## Planned change D-19
+
+D-19 and P-47 (`docs/programme/DECISIONS.md`): a tile's owner is the player who places it, and a closed structure
+scores for the owner with the most tiles in it (nobody on a tie). Not built yet; the design is in
+`structure-state.md`, "D-19: tile owners and majority scoring (planned)". Read from the ABIs on main
+(`contracts/abis/Daily.json`, `Tutorial.json`) and the code.
+
+**D-19 itself needs no ABI change.** In single player (Daily, Tutorial: the only modes) every tile is the game's
+player's, so the winner of every structure is that player, and every view and event already says so:
+
+| Item | Today | What D-19 does to it | Kind |
+|---|---|---|---|
+| `TileView` (`views.cairo:55-62`; `tiles`, `daily.cairo:283`, `tutorial.cairo:178`) | `id, status, plan, orientation, x, y` | nothing required: the owner of every tile is `GameView.player_id`. An `owner: felt252` field appended after `y` is optional | addition (new field at the end), not a break |
+| `Built` (`events.cairo:43-52`) | keys `game_id`; data `player_id, tile_id, plan, orientation, x, y` | unchanged: `player_id` is the caller who builds, which is the tile's owner | none |
+| `Scored` (`events.cairo:65-72`) | keys `game_id`; data `player_id, category, size, points` | unchanged in layout. `player_id` becomes the structure's winner, which is the game's player in single player; `size` stays the node count of the formula, not the majority's tile count | none |
+| `GameView`, `BuilderView`, `GameOver`, the other events | | unchanged | none |
+| `Lobby` (`Lobby.json`) | | unchanged: `Lobby` does not score, and with a zero owner meaning the game's player it does not write owners | none |
+
+What the multiplayer mode would add (each one decided with that mode, not by D-19):
+
+- `TileView.owner: felt252`, appended after `y` (an addition): the client cannot otherwise colour a tile by its
+  owner. A tile written before D-19, and the starter tile, read owner 0, which means the game's player in single
+  player; a multiplayer mode needs its own value for a starter tile owned by nobody.
+- `Scored` on a tie: proposed `player_id` 0 and `points` 0, still emitted so that an indexer sees the closure.
+  Same layout, a new meaning of `player_id` 0: META's indexer must not credit it to a player.
+- Per-player scores: `GameView.score` and `GameOver.score` are the game's one score (`GameState.score`). A
+  multiplayer game needs a score per player: a new view (or fields appended to `GameView`) and a `GameOver` per
+  player, or a new event. A new field appended to a struct is an addition; changing what `score` means would be a
+  break.
+- The players of a game (`GameView.player_id` is one player) and whose turn it is: new views or appended fields.
