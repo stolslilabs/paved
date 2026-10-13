@@ -162,7 +162,7 @@ const NOT_COVERED = [
     test: "test_differential_wonder_ring",
     source: `${DIFFERENTIAL_FILE}`,
     reason:
-      "six of its tiles are written with Store::set_tile, without a build; the engine places tiles only by building them, and the test asserts only that the score grows",
+      "six of its tiles are written with Store::set_tile, without a build, and it asserts only that the score grows: replayed in __tests__/engine.test.ts with EngineGame.write instead",
   },
   {
     test: "test_differential_tutorial_full_sequence",

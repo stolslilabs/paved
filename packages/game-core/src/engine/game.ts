@@ -4,7 +4,7 @@
 // with the scoring of `structure/assessment.cairo` and `structure/forest.cairo` (D-18) and the
 // tile owners of D-19 (`docs/architecture/structure-state.md`, "D-19").
 //
-// Pure: no I/O, no clock, no `Math.random`. Everything follows from the seed, the deck and the
+// Pure: no I/O, no clock, no random source. Everything follows from the seed, the deck and the
 // moves. Coordinates are relative to the starter tile (the contracts' `CENTER`).
 
 import { CategoryType } from "../types/category";
@@ -272,6 +272,25 @@ export class EngineGame {
   force(plan: PlanType): void {
     if (!this.held) throw new EngineError("Builder: does not exist");
     this.held.plan = planCode(plan);
+  }
+
+  /**
+   * Writes a placed tile on the board without a move, as `Store::set_tile` does in the Cairo tests
+   * (`placement::place_alone`): the tile joins the structure state, nothing is checked, assessed or
+   * drawn, and the counters do not move. For tests and scripted boards; `id` must be unused.
+   */
+  write(tile: { id: number; plan: PlanType } & Placement, owner?: bigint): void {
+    if (this.board.byId.has(tile.id) || this.held?.id === tile.id || this.board.at(tile.x, tile.y)) {
+      throw new EngineError("Tile: already exists");
+    }
+    this.board.place({
+      id: tile.id,
+      plan: planCode(tile.plan),
+      orientation: orientationCode(tile.orientation),
+      x: tile.x,
+      y: tile.y,
+      owner: owner ?? this.player,
+    });
   }
 
   /** The scripted placement of the tile in hand (Tutorial), `null` when it must be discarded. */
