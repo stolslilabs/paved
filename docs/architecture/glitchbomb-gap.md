@@ -445,6 +445,23 @@ profile).
 
   **What reverses it:** a gas measurement of spawn after D-24 that shows the view matters against the targets.
 
+**As built (E).** Step E (t-0260) built the wiring on Setup as recommended, the one registry read per call:
+
+- `Setup.set_economy(economy)` and `Setup.set_collection(collection)`: owner only, once each, never zero (as
+  `Account`'s were), emitting `EconomySet { economy }` and `CollectionSet { collection }` with `Account`'s names and
+  fields. One view, `Setup.wiring() -> Wiring { economy, collection }`.
+- `spawn` reads `wiring()` once, before the game is created, and uses both addresses (purchase, then mint): one call on
+  Setup instead of three or four on `Account`. A game over reads `wiring()` for the economy, then calls `Setup.report`
+  and `Economy.record`: three calls, as before (`Account.economy`, `report`, `record`).
+- A zero `setup` slot (only possible on an in-place upgrade before `set_setup`) reverts both: a spawn leaves no game, and
+  a closing move leaves the game live (`'Daily: setup is zero'`). Step D's guard (end and record, skip the report) no
+  longer holds, since the economy's address is Setup's.
+- Measured (`tests/gas.cairo`, VPS, scarb 2.20.1, snforge 0.64.0): spawn m 49,988,176 to 49,482,886 L2 gas
+  (**-505,290**); n (stake 10, a referrer) 51,014,286 to 50,189,546 (**-824,740**: the referrer's registration read is
+  gone too). The estimate was -200,000 to -300,000; the extra saving is the registration check of the caller and the
+  second `Account` view. Game overs move by +360 to +1,260 (the wiring view against `Account.economy`); moves that end
+  nothing by -280. Every scenario is under its ceiling; f (the tightest) is 18,554,596 against 18,923,195.
+
 ## 5. Faucet
 
 | | Glitchbomb `Faucet` | Paved `MockUSDC` |
@@ -569,6 +586,27 @@ migration of past progress on Sepolia (P-51 (5)).
 - If Sepolia is upgraded in place, `Account` stays deployed there, unused, and the mock serves the rehearsal.
 
 This is flagged under "For the PM": "Account to the mocks" has a consumer only on the chained path.
+
+**As built (E).** Step E (t-0260):
+
+- **Identity.** No registration: `HostableComponent::spawn_with` takes the caller's address as the player id and checks
+  nothing more. `Store.player`, `Store.initialize`, `Store.set_player`, `PlayerAssert` in the spawn path and
+  `PlayerCreated` are gone; `models/player.cairo` stays for the game models that still name `Player`.
+- **Storage.** No key and no event layout changed. `PavedStorage.account` and `PavedStorage.players` stay declared and
+  dead in Challenge's layout (P-42), pinned by name and against reuse in
+  `tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name` (`upgrades.md`, "Dead slots since D-25 E").
+  `Daily`'s constructor is `(owner, token_address, setup_address)`.
+- **Behaviour.** Spawn by an address that never registered works
+  (`tests::e2e::access::test_access_daily_spawn_by_an_unregistered_address`). The referrer is "a non-zero address other
+  than the payer"; zero and the payer are ignored as before (`economy.md`, section 1).
+- **`Account` and `manageable`** are deleted. **No mock `Account`**: no test needs one after the layout pin moved to
+  Setup and the frozen D-18 class's unused `Store.player` went; Sepolia is redeployed fresh (P-53), so the chained path
+  that would have needed it is not taken. `Account.json` leaves `contracts/abis/`.
+- **Events.** `PlayerCreated` is a past event (`public-interface.md`, "Breaking change D-25 (E)"); `EconomySet` and
+  `CollectionSet` are emitted by Setup.
+- **Deploy.** `deploy.sh`'s fresh path deploys no `Account`, sets the economy and the collection on Setup (owner calls,
+  checked through `wiring()`), and no longer writes `contracts.Account`; `--repoint` and `--d18` are untouched.
+- **Indexer and client** follow in META and CLIENT, as listed above (the deployment hash no longer covers `Account`).
 
 ## 7. The mapping, and an order
 
