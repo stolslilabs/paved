@@ -27,7 +27,7 @@ const notBought: TermsView = {
 export function fakeTerms(fields: Partial<TermsView>): TermsView {
   // `time` is the purchase's block time: the start of its `day` unless given (as the contract: `day = time / 86400`).
   const day = fields.day ?? 0;
-  return { ...notBought, time: day * 86_400, stake: 1, reference: 10n ** 18n, slopeBps: 18_130, cap: 5, recorded: true, ...fields };
+  return { ...notBought, time: day * 86_400, stake: 1, reference: 10n ** 18n, slopeBps: 12_220, cap: 5, recorded: true, ...fields };
 }
 
 /** In-memory economy views with E2's shapes. `fail` makes every read throw, as an RPC down. */
@@ -39,8 +39,8 @@ export class FakeEconomy implements EconomyViews {
   guardRate_ = (80n * 10n ** 18n * RATE_SCALE) / 1_000_000n;
   /** `Economy.router()`. */
   router_ = FAKE_ROUTER;
-  threshold = 3_353_000;
-  mean = 3_353_000;
+  threshold = 3_980_000;
+  mean = 3_980_000;
   readonly days = new Map<number, DayView>();
   readonly terms_ = new Map<number, TermsView>();
   readonly vaults = new Map<string, VaultPosition>();
@@ -66,7 +66,7 @@ export class FakeEconomy implements EconomyViews {
       factor: 10_000,
       mean: this.mean,
       threshold: this.threshold,
-      slope: 18_130,
+      slope: 12_220,
       cap: 5,
     };
   }

@@ -173,7 +173,7 @@ describe("Economy", () => {
         reward: String(2n ** 70n),
       },
     ]);
-    expect(dump.economy_days).toMatchObject([{ day: 100, mean: 4_215_689, weight: 21, prior: 3_353_000, ema_after: 3_500_000 }]);
+    expect(dump.economy_days).toMatchObject([{ day: 100, mean: 4_215_689, weight: 21, prior: 3_980_000, ema_after: 3_500_000 }]);
     expect(dump.events.map((e) => [e.source, e.name])).toContainEqual(["economy", "Settled"]);
   });
 
