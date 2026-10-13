@@ -187,7 +187,7 @@
         "type": "core::integer::u64"
       },
       {
-        "name": "tournament_id",
+        "name": "day_id",
         "type": "core::integer::u64"
       }
     ]
@@ -423,7 +423,7 @@
         "kind": "data"
       },
       {
-        "name": "tournament_id",
+        "name": "day_id",
         "type": "core::integer::u64",
         "kind": "data"
       },
@@ -561,7 +561,7 @@
         "kind": "key"
       },
       {
-        "name": "tournament_id",
+        "name": "day_id",
         "type": "core::integer::u64",
         "kind": "key"
       },
@@ -583,69 +583,6 @@
       {
         "name": "end_time",
         "type": "core::integer::u64",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::events::Sponsored",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "tournament_id",
-        "type": "core::integer::u64",
-        "kind": "key"
-      },
-      {
-        "name": "sponsor",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "data"
-      },
-      {
-        "name": "amount",
-        "type": "core::felt252",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "core::integer::u256",
-    "members": [
-      {
-        "name": "low",
-        "type": "core::integer::u128"
-      },
-      {
-        "name": "high",
-        "type": "core::integer::u128"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::events::Claimed",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "tournament_id",
-        "type": "core::integer::u64",
-        "kind": "key"
-      },
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "rank",
-        "type": "core::integer::u8",
-        "kind": "data"
-      },
-      {
-        "name": "reward",
-        "type": "core::integer::u256",
         "kind": "data"
       }
     ]
@@ -683,16 +620,6 @@
       {
         "name": "GameOver",
         "type": "paved::events::GameOver",
-        "kind": "nested"
-      },
-      {
-        "name": "Sponsored",
-        "type": "paved::events::Sponsored",
-        "kind": "nested"
-      },
-      {
-        "name": "Claimed",
-        "type": "paved::events::Claimed",
         "kind": "nested"
       }
     ]

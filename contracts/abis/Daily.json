@@ -74,34 +74,6 @@
       },
       {
         "type": "function",
-        "name": "claim",
-        "inputs": [
-          {
-            "name": "tournament_id",
-            "type": "core::integer::u64"
-          },
-          {
-            "name": "rank",
-            "type": "core::integer::u8"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "sponsor",
-        "inputs": [
-          {
-            "name": "amount",
-            "type": "core::felt252"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
         "name": "discard",
         "inputs": [
           {
@@ -457,7 +429,7 @@
         "type": "core::integer::u64"
       },
       {
-        "name": "tournament_id",
+        "name": "day_id",
         "type": "core::integer::u64"
       }
     ]
@@ -582,70 +554,8 @@
   },
   {
     "type": "impl",
-    "name": "TournamentViewImpl",
-    "interface_name": "paved::views::ITournamentView"
-  },
-  {
-    "type": "struct",
-    "name": "paved::views::TournamentView",
-    "members": [
-      {
-        "name": "id",
-        "type": "core::integer::u64"
-      },
-      {
-        "name": "start_time",
-        "type": "core::integer::u64"
-      },
-      {
-        "name": "end_time",
-        "type": "core::integer::u64"
-      },
-      {
-        "name": "over",
-        "type": "core::bool"
-      },
-      {
-        "name": "prize",
-        "type": "core::integer::u256"
-      },
-      {
-        "name": "top1_player_id",
-        "type": "core::felt252"
-      },
-      {
-        "name": "top1_score",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "top1_claimed",
-        "type": "core::bool"
-      },
-      {
-        "name": "top2_player_id",
-        "type": "core::felt252"
-      },
-      {
-        "name": "top2_score",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "top2_claimed",
-        "type": "core::bool"
-      },
-      {
-        "name": "top3_player_id",
-        "type": "core::felt252"
-      },
-      {
-        "name": "top3_score",
-        "type": "core::integer::u32"
-      },
-      {
-        "name": "top3_claimed",
-        "type": "core::bool"
-      }
-    ]
+    "name": "DailyViewImpl",
+    "interface_name": "paved::views::IDailyView"
   },
   {
     "type": "struct",
@@ -663,27 +573,11 @@
   },
   {
     "type": "interface",
-    "name": "paved::views::ITournamentView",
+    "name": "paved::views::IDailyView",
     "items": [
       {
         "type": "function",
-        "name": "tournament",
-        "inputs": [
-          {
-            "name": "id",
-            "type": "core::integer::u64"
-          }
-        ],
-        "outputs": [
-          {
-            "type": "paved::views::TournamentView"
-          }
-        ],
-        "state_mutability": "view"
-      },
-      {
-        "type": "function",
-        "name": "current_tournament_id",
+        "name": "current_day",
         "inputs": [],
         "outputs": [
           {
@@ -822,7 +716,7 @@
         "kind": "data"
       },
       {
-        "name": "tournament_id",
+        "name": "day_id",
         "type": "core::integer::u64",
         "kind": "data"
       },
@@ -960,7 +854,7 @@
         "kind": "key"
       },
       {
-        "name": "tournament_id",
+        "name": "day_id",
         "type": "core::integer::u64",
         "kind": "key"
       },
@@ -982,55 +876,6 @@
       {
         "name": "end_time",
         "type": "core::integer::u64",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::events::Sponsored",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "tournament_id",
-        "type": "core::integer::u64",
-        "kind": "key"
-      },
-      {
-        "name": "sponsor",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "data"
-      },
-      {
-        "name": "amount",
-        "type": "core::felt252",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "paved::events::Claimed",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "tournament_id",
-        "type": "core::integer::u64",
-        "kind": "key"
-      },
-      {
-        "name": "player_id",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "rank",
-        "type": "core::integer::u8",
-        "kind": "data"
-      },
-      {
-        "name": "reward",
-        "type": "core::integer::u256",
         "kind": "data"
       }
     ]
@@ -1068,16 +913,6 @@
       {
         "name": "GameOver",
         "type": "paved::events::GameOver",
-        "kind": "nested"
-      },
-      {
-        "name": "Sponsored",
-        "type": "paved::events::Sponsored",
-        "kind": "nested"
-      },
-      {
-        "name": "Claimed",
-        "type": "paved::events::Claimed",
         "kind": "nested"
       }
     ]
