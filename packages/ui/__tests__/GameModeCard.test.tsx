@@ -71,4 +71,26 @@ describe("GameModeCard", () => {
     expect(text).not.toMatch(/Prize|Time:|Zed/);
     expect(text).toContain("Play");
   });
+
+  it("renders its extra content (the Daily's top 3) and keeps it out of the card's press", async () => {
+    const { GameModeCardView } = await import("../src/components/GameModeCard");
+    const { collectText } = await import("./helpers/collect-text");
+    const card = GameModeCardView({
+      mode: "daily",
+      title: "Daily",
+      description: "38 tiles",
+      tileCount: 38,
+      duration: "24 hours",
+      entryFee: "1 USDC",
+      extra: "1. Ada 187",
+      onPress: vi.fn(),
+    }) as any;
+    expect(collectText(card)).toContain("1. Ada 187");
+    const wrapper = (card.props.children as any[]).find((c) => c && c.type === "div");
+    const stop = vi.fn();
+    wrapper.props.onClick({ stopPropagation: stop });
+    expect(stop).toHaveBeenCalled();
+    const none = GameModeCardView({ mode: "daily", title: "D", description: "", tileCount: 1, duration: "", entryFee: "", onPress: vi.fn() }) as any;
+    expect((none.props.children as any[]).some((c) => c && c.type === "div")).toBe(false);
+  });
 });

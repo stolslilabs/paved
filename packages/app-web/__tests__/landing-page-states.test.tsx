@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import React from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { FakeGameViews, FaucetCapError } from "@paved/chain";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { FakeGameViews, FaucetCapError, IndexerClient } from "@paved/chain";
+import { FIXTURE_TOURNAMENT, FixtureIndexer } from "@paved/chain/testing";
 import { resolveEconomyDeployment, type Deployment } from "@paved/chain";
 import { EconomyProvider } from "../src/utils/economy-context";
 import { LandingPage } from "../src/pages/Landing";
@@ -18,16 +19,19 @@ vi.mock("@paved/ui", () => ({
         </button>
       )}
       {gameModes.map((m: any) => (
-        <button key={m.mode} type="button" onClick={m.onPress}>
-          {`mode ${m.mode}: ${m.entryFee}`}
-        </button>
+        <div key={m.mode} data-testid={`card-${m.mode}`}>
+          <button type="button" onClick={m.onPress}>
+            {`mode ${m.mode}: ${m.entryFee}`}
+          </button>
+          {m.mode === "training" && (
+            <button type="button" data-mode={m.mode} data-free={m.free ? "true" : "false"} onClick={m.onPress}>
+              {`${m.title}: ${m.description}: ${m.actionLabel ?? (m.hasActiveGame ? "Resume" : "Play")}`}
+            </button>
+          )}
+          {m.extra}
+        </div>
       ))}
     </div>
-  ),
-  GameModeCardView: ({ mode, title, description, free, actionLabel, hasActiveGame, onPress }: any) => (
-    <button type="button" data-mode={mode} data-free={free ? "true" : "false"} onClick={onPress}>
-      {`${title}: ${description}: ${actionLabel ?? (hasActiveGame ? "Resume" : "Play")}`}
-    </button>
   ),
   ModeDetailDialog: ({ children }: any) => <div role="dialog">{children}</div>,
   ModeDetailDialogStat: ({ children }: any) => <div>{children}</div>,
@@ -107,6 +111,119 @@ describe("Training card, finished game", () => {
     } finally {
       localStorage.clear();
     }
+  });
+});
+
+describe("Training card, unreadable save", () => {
+  it("says Play for a save that is not even JSON", async () => {
+    localStorage.setItem("paved:training:v1", "{");
+    try {
+      land({ deployment: notConfigured, account: null });
+      expect(await screen.findByText("Training: Free, no wallet, no rewards: Play")).toBeTruthy();
+    } finally {
+      localStorage.clear();
+    }
+  });
+
+  it("reads the saved game once, not on every render", async () => {
+    localStorage.setItem("paved:training:v1", JSON.stringify({ v: 1, seed: "0x5", moves: [] }));
+    const reads = vi.spyOn(Storage.prototype, "getItem");
+    try {
+      land({ deployment: notConfigured, account: null });
+      await screen.findByText("Training: Free, no wallet, no rewards: Resume");
+      const first = reads.mock.calls.filter(([key]) => key === "paved:training:v1").length;
+      expect(first).toBeGreaterThan(0);
+      // opening the Daily dialog re-renders the page (and so does every read that lands)
+      fireEvent.click(screen.getByText(/mode daily/));
+      fireEvent.click(screen.getByText("Cancel"));
+      expect(reads.mock.calls.filter(([key]) => key === "paved:training:v1").length).toBe(first);
+    } finally {
+      reads.mockRestore();
+      localStorage.clear();
+    }
+  });
+});
+
+describe("Mode cards with no wallet", () => {
+  it("Training and the Tutorial sit among the mode cards with no wallet, no account and an unconfigured chain", async () => {
+    land({ deployment: notConfigured, account: null });
+    expect(await screen.findByTestId("card-daily")).toBeTruthy();
+    expect(screen.getByTestId("card-training")).toBeTruthy();
+    expect(screen.getByTestId("card-tutorial")).toBeTruthy();
+    expect(screen.queryByTestId("training-card")).toBeNull(); // no longer a section above the screen
+  });
+
+  it("the Daily start keeps its gate on the action: with no account the confirm says Not connected", async () => {
+    land({ deployment: notConfigured, account: null });
+    fireEvent.click(await screen.findByText(/mode daily/));
+    expect((screen.getByText("Not connected") as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("Daily card, top 3", () => {
+  let fixture: FixtureIndexer;
+  let indexer: IndexerClient;
+  beforeEach(() => {
+    fixture = new FixtureIndexer();
+    indexer = new IndexerClient({ url: "http://indexer.test", fetch: fixture.fetch as typeof fetch });
+  });
+  const daily = (opts: Partial<Parameters<typeof renderPage>[0]> = {}) => {
+    const views = new FakeGameViews();
+    views.today = FIXTURE_TOURNAMENT;
+    return land({ views, indexer, ...opts });
+  };
+  const top = () => within(screen.getByTestId("card-daily"));
+
+  it("shows the first three rows with rank, name and score, each linking to the player, and the leaderboard link", async () => {
+    daily();
+    const list = await screen.findByTestId("daily-top");
+    expect(fixture.requests).toContain(`/v1/tournaments/${FIXTURE_TOURNAMENT}/leaderboard?limit=3`);
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows).toHaveLength(3);
+    const ada = within(rows[0]);
+    expect(rows[0].textContent).toBe("1. Ada - 187");
+    expect(ada.getByRole("link", { name: "Ada" }).getAttribute("href")).toMatch(/^\/player\/0x[0-9a-f]{64}$/);
+    expect(rows[1].textContent).toMatch(/^2\. .+ - \d+$/);
+    expect(rows[2].textContent).toMatch(/^3\. .+ - \d+$/);
+    const see = top().getByRole("link", { name: "See the leaderboard" });
+    expect(see.getAttribute("href")).toBe("/leaderboard");
+    fireEvent.click(see);
+    expect(screen.getByTestId("where").textContent).toBe("/leaderboard|null");
+  });
+
+  it("fewer than three rows: shows those rows only", async () => {
+    fixture.entries.set(FIXTURE_TOURNAMENT, fixture.entries.get(FIXTURE_TOURNAMENT)!.slice(0, 2));
+    daily();
+    const list = await screen.findByTestId("daily-top");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+  });
+
+  it("no games today: one short line, and the leaderboard link stays", async () => {
+    fixture.entries.set(FIXTURE_TOURNAMENT, []);
+    daily();
+    const list = await screen.findByTestId("daily-top");
+    expect(within(list).queryAllByRole("listitem")).toHaveLength(0);
+    expect(within(list).getByText("No games finished today yet.")).toBeTruthy();
+    expect(within(list).getByRole("link", { name: "See the leaderboard" })).toBeTruthy();
+  });
+
+  it("the indexer failing: no top 3 and no error, the card's other content stays", async () => {
+    fixture.state.down = true;
+    daily();
+    await waitFor(() => expect(fixture.requests.length).toBeGreaterThan(0));
+    await screen.findByText(/mode daily/);
+    expect(screen.queryByTestId("daily-top")).toBeNull();
+    expect(screen.queryByText(/leaderboard/i)).toBeNull();
+    expect(screen.queryByText(/Cannot read from/)).toBeNull();
+    expect(top().getByText(/mode daily/)).toBeTruthy();
+  });
+
+  it("no indexer configured: no top 3, no request and no error", async () => {
+    daily({ indexer: null });
+    await screen.findByText(/mode daily/);
+    expect(screen.queryByTestId("daily-top")).toBeNull();
+    expect(fixture.requests).toEqual([]);
+    expect(screen.queryByText(/Cannot read from/)).toBeNull();
   });
 });
 
