@@ -73,17 +73,18 @@ game over; the node's clock is moved past the day's end (`devnet_increaseTime`);
 contract view; the leaderboard, the players and the games read from the indexer are compared with the contract
 views and the events (scores, ranks, `prize_ranks`, `checks.last_mismatch`); the games are settled, the Vault, a
 sponsor's reclaim and an expired game follow. It runs only with `PAVED_E2E=1` (CI does not). On the VPS
-(2026-10-10) it took 12 min 41 s and peaked at 240,104 kB (`/usr/bin/time -v`, largest process).
+(2026-10-10), before D-18, it took 12 min 41 s and peaked at 240,104 kB (`/usr/bin/time -v`, largest process); the D-18 figures are below.
 
 alice plays with the search player of `packages/chain/test/daily-player.ts`: for every candidate placement (each empty
 position next to the board, each orientation) it asks the node with `starknet_simulateTransactions` (nothing is sent)
 whether it is legal and how many points it scores, plays the one that scores most at once, and otherwise keeps the board
 compact (a wonder goes near the centre). Characters left the game with D-18, so a structure scores when it closes and
 there is nothing else to choose. It is deterministic and looks one move ahead. It must score above the day's threshold
-(`R x h(score / mean)` pays more than 0); bob and carol play naively and stay under it. The run time, the number of
-simulations and the score above (12 min 41 s; 657 s and 13,724 simulations for alice's game; 9,084 on day 20738) were
-measured with the earlier player that also placed characters, before D-18: they are **stale** until the e2e is run again
-on the D-18 contracts. The Daily deck depends on the day, so the score does too. The Vault step stakes carol's
+(`R x h(score / mean)` pays more than 0); bob and carol play naively and stay under it. On the D-18 contracts (CORE
+9768cb91, Mac, 2026-10-13, `/usr/bin/time -l`) the whole run took 110 s and alice's game 55 s with 2,440 simulations
+(12 min 41 s, 657 s and 13,724 simulations with the earlier player that placed characters, on the VPS on 2026-10-10); on
+day 20741 she scored 4,869 against a threshold of 3,381.547 (bob 3,269, carol 1,999). The Daily deck depends on the day,
+so the score does too. The peak was 241,418,240 bytes ("maximum resident set size", Mac). The Vault step stakes carol's
 own 1,000 test PAVED (`deploy.sh`, P-38).
 
 It starts nothing: the node must be **fresh** (the test moves its clock one day forward) and `scripts/deploy.sh devnet`
