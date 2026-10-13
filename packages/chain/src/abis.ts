@@ -2,7 +2,6 @@ import accountAbi from "../../../contracts/abis/Account.json";
 import dailyAbi from "../../../contracts/abis/Daily.json";
 import tutorialAbi from "../../../contracts/abis/Tutorial.json";
 import tokenAbi from "../../../contracts/abis/Token.json";
-import lobbyAbi from "../../../contracts/abis/Lobby.json";
 import mockUsdcAbi from "../../../contracts/abis/MockUSDC.json";
 import pavedTokenAbi from "../../../contracts/abis/PavedToken.json";
 import economyAbi from "../../../contracts/abis/Economy.json";
@@ -69,9 +68,3 @@ export const MOCK_USDC_ABI = mockUsdcAbi as Abi;
  * faucet for an address after 200 calls: `FaucetCapError`.
  */
 export const FAUCET_USDC_AMOUNT = 100_000_000n;
-
-/**
- * `Lobby.json`: Daily runs `Lobby` by library call, so its events (`Reclaimed { tournament_id, sponsor, amount }`) are
- * emitted from Daily's address but are declared in this ABI, not in `Daily.json`.
- */
-export const LOBBY_ABI = lobbyAbi as Abi;

@@ -41,7 +41,7 @@ export interface GameView {
   deckSize: number;
   startTime: number;
   endTime: number;
-  tournamentId: number;
+  dayId: number;
 }
 
 /** `TileView.status` codes. */
@@ -63,23 +63,6 @@ export interface BuilderView {
   plan: number;
 }
 
-export interface TournamentView {
-  id: number;
-  startTime: number;
-  endTime: number;
-  over: boolean;
-  prize: bigint;
-  top1PlayerId: string;
-  top1Score: number;
-  top1Claimed: boolean;
-  top2PlayerId: string;
-  top2Score: number;
-  top2Claimed: boolean;
-  top3PlayerId: string;
-  top3Score: number;
-  top3Claimed: boolean;
-}
-
 /** What a Daily `spawn` pulls from the player: the ERC20 and the amount (`Daily.entry_price`). */
 export interface PriceView {
   token: string;
@@ -90,16 +73,10 @@ export interface PriceView {
 export const VIEW_FIELDS = {
   "paved::views::GameView": [
     "id", "playerId", "mode", "seed", "score", "over", "tileCount", "placedCount", "discardedCount",
-    "tileId", "plan", "remainingCount", "deckSize", "startTime", "endTime", "tournamentId",
+    "tileId", "plan", "remainingCount", "deckSize", "startTime", "endTime", "dayId",
   ] satisfies (keyof GameView)[],
   "paved::views::TileView": ["id", "status", "plan", "orientation", "x", "y"] satisfies (keyof TileView)[],
   "paved::views::BuilderView": ["gameId", "playerId", "tileId", "plan"] satisfies (keyof BuilderView)[],
-  "paved::views::TournamentView": [
-    "id", "startTime", "endTime", "over", "prize",
-    "top1PlayerId", "top1Score", "top1Claimed",
-    "top2PlayerId", "top2Score", "top2Claimed",
-    "top3PlayerId", "top3Score", "top3Claimed",
-  ] satisfies (keyof TournamentView)[],
   "paved::views::PriceView": ["token", "amount"] satisfies (keyof PriceView)[],
 };
 
@@ -143,8 +120,7 @@ export interface GameViews {
   /** Every tile of the game, in id order (pages of `MAX_PAGE` until a short page). */
   tiles(key: GameKey): Promise<TileView[]>;
   builder(key: GameKey, playerId: string): Promise<BuilderView>;
-  currentTournamentId(): Promise<number>;
-  tournament(id: number): Promise<TournamentView>;
+  currentDay(): Promise<number>;
   /** The Daily entry: token and amount, from the same source `spawn` uses. */
   entryPrice(): Promise<PriceView>;
 }
@@ -180,13 +156,8 @@ export class RpcGameViews implements GameViews {
     return (await this.call(gameContract(key.mode), "builder", [key.gameId, playerId])) as BuilderView;
   }
 
-
-  async currentTournamentId(): Promise<number> {
-    return Number(await this.call("Daily", "current_tournament_id", []));
-  }
-
-  async tournament(id: number): Promise<TournamentView> {
-    return (await this.call("Daily", "tournament", [id])) as TournamentView;
+  async currentDay(): Promise<number> {
+    return Number(await this.call("Daily", "current_day", []));
   }
 
   async entryPrice(): Promise<PriceView> {
@@ -224,8 +195,7 @@ function gameKeyId(key: GameKey): string {
 /** In-memory views with the contracts' error rules, for unit tests of the app. */
 export class FakeGameViews implements GameViews {
   readonly games = new Map<string, FakeGame>();
-  readonly tournaments = new Map<number, TournamentView>();
-  currentTournament = 0;
+  today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
   calls: string[] = [];
 
@@ -249,19 +219,14 @@ export class FakeGameViews implements GameViews {
     return { gameId, playerId: player, tileId, plan };
   }
 
-  async currentTournamentId(): Promise<number> {
-    this.calls.push("current_tournament_id");
-    return this.currentTournament;
+  async currentDay(): Promise<number> {
+    this.calls.push("current_day");
+    return this.today;
   }
 
   async entryPrice(): Promise<PriceView> {
     this.calls.push("entry_price");
     return { ...this.price };
-  }
-
-  async tournament(id: number): Promise<TournamentView> {
-    this.calls.push(`tournament ${id}`);
-    return { ...(this.tournaments.get(id) ?? emptyTournament(id)) };
   }
 
   private get(key: GameKey): FakeGame {
@@ -277,24 +242,4 @@ export class FakeGameViews implements GameViews {
     }
     return game;
   }
-}
-
-/** A tournament with no entry (what `tournament` returns for a day nobody played). */
-export function emptyTournament(id: number): TournamentView {
-  return {
-    id,
-    startTime: id * 86400,
-    endTime: (id + 1) * 86400,
-    over: false,
-    prize: 0n,
-    top1PlayerId: "0x0",
-    top1Score: 0,
-    top1Claimed: false,
-    top2PlayerId: "0x0",
-    top2Score: 0,
-    top2Claimed: false,
-    top3PlayerId: "0x0",
-    top3Score: 0,
-    top3Claimed: false,
-  };
 }

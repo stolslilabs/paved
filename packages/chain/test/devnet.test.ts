@@ -16,7 +16,6 @@ import { startDevnet, type Devnet } from "./devnet/devnet";
 import { recording, type Recording } from "./recorder";
 
 const enabled = process.env.PAVED_DEVNET === "1";
-const MAX_TOURNAMENT_ID = 213503982334600;
 
 describe.skipIf(!enabled)("devnet integration", () => {
   let devnet: Devnet;
@@ -67,8 +66,8 @@ describe.skipIf(!enabled)("devnet integration", () => {
     const spawned = await writer.spawn("tutorial");
     record.receipts.spawnTutorial = spawned.transactionHash;
     expect(spawned.gameId).toBe(1);
-    // Tutorial has no tournament: 0 in its events and its view (#205).
-    expect(spawned.events.find((e) => e.name === "GameSpawned")?.fields.tournamentId).toBe(0);
+    // Tutorial belongs to no day: 0 in its events and its view (#205).
+    expect(spawned.events.find((e) => e.name === "GameSpawned")?.fields.dayId).toBe(0);
     const key: GameKey = { mode: "tutorial", gameId: spawned.gameId };
 
     let game = await client.views.game(key);
@@ -104,7 +103,7 @@ describe.skipIf(!enabled)("devnet integration", () => {
         expect(outcome.over.score).toBe(game.score);
       }
     }
-    expect(game).toMatchObject({ over: true, placedCount: 9, discardedCount: 1, tileId: 0, tournamentId: 0, endTime: 0 });
+    expect(game).toMatchObject({ over: true, placedCount: 9, discardedCount: 1, tileId: 0, dayId: 0, endTime: 0 });
     expect(moves).toBe(9);
     expect(scored).toBeGreaterThan(0);
     const statuses = (await client.views.tiles(key)).map((t) => t.status);
@@ -113,14 +112,11 @@ describe.skipIf(!enabled)("devnet integration", () => {
   }, 120_000);
 
   test("spawns, discards and surrenders a Daily game, paying the entry price", async () => {
-    const tournamentId = await client.views.currentTournamentId();
-    const before = await client.views.tournament(tournamentId);
+    expect(await client.views.currentDay()).toBeGreaterThan(0);
     const spawned = await writer.spawn("daily");
     record.receipts.spawnDaily = spawned.transactionHash;
     expect(spawned.gameId).toBe(1);
     const key: GameKey = { mode: "daily", gameId: 1 };
-    const price = await client.views.entryPrice();
-    expect((await client.views.tournament(tournamentId)).prize).toBe(before.prize + price.amount);
 
     const held = (await client.views.game(key)).tileId;
     const discarded = await writer.discard(key);
@@ -155,10 +151,5 @@ describe.skipIf(!enabled)("devnet integration", () => {
     const notMine = await other.views.builder({ mode: "tutorial", gameId: 1 }, devnet.accounts[1].address).catch((e) => e);
     expect(notMine.kind).toBe("not-player");
     record.errors.notPlayer = String(notMine.cause?.message ?? notMine.message);
-  });
-
-  test("reads a zeroed tournament above MAX_TOURNAMENT_ID", async () => {
-    const t = await client.views.tournament(MAX_TOURNAMENT_ID + 1);
-    expect(t).toMatchObject({ id: MAX_TOURNAMENT_ID + 1, startTime: 0, endTime: 0, prize: 0n });
   });
 });
