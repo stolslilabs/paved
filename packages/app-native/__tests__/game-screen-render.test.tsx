@@ -23,10 +23,9 @@ function makeSurface(): RenderSurfaceAdapter {
 }
 
 describe("GameScreen render wiring", () => {
-  it("forwards tile and character state updates to GameCanvasNative", () => {
+  it("forwards tile state updates to GameCanvasNative", () => {
     const surface = makeSurface();
-    const initialTiles = [{ game_id: 1, id: 1, player_id: "0x1", plan: 1, orientation: 1, x: 0, y: 0, occupied_spot: 0, worldX: 0, worldZ: 0 }];
-    const initialCharacters = [{ gameId: 1, playerId: "0x1", index: 0, tileId: 1, spot: 1, weight: 1, power: 1, color: "#fff", worldX: 0, worldZ: 0 }];
+    const initialTiles = [{ game_id: 1, id: 1, player_id: "0x1", plan: 1, orientation: 1, x: 0, y: 0, worldX: 0, worldZ: 0 }];
 
     let tree: ReturnType<typeof create>;
     act(() => {
@@ -34,7 +33,6 @@ describe("GameScreen render wiring", () => {
         <GameScreen
           surface={surface}
           tiles={initialTiles as any}
-          characters={initialCharacters as any}
           cameraMode="play"
         />
       );
@@ -42,7 +40,6 @@ describe("GameScreen render wiring", () => {
 
     const firstProps = mockGameCanvasNative.mock.lastCall?.[0] as any;
     expect(firstProps.tiles).toEqual(initialTiles);
-    expect(firstProps.characters).toEqual(initialCharacters);
     expect(firstProps.cameraMode).toBe("play");
 
     const nextTiles = [...initialTiles, { ...initialTiles[0], id: 2, worldX: 1 }];
@@ -51,7 +48,6 @@ describe("GameScreen render wiring", () => {
         <GameScreen
           surface={surface}
           tiles={nextTiles as any}
-          characters={initialCharacters as any}
           cameraMode="showcase"
         />
       );
