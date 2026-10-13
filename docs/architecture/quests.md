@@ -46,10 +46,10 @@ A task id is a non-zero `u32` that the package treats as opaque. The game owns t
 | Id | Task | One unit is |
 |---|---|---|
 | 1 | `GAME_FINISHED` | A Daily game over (any, ranked in its tournament or not) |
-| 2 | `STRUCTURE_SCORED` | A `Scored` event of a road or a city |
+| 2 | `STRUCTURE_SCORED` | A `Scored` event of a road or a city: one per structure, on the move that closes it |
 | 3 | `POINTS` | A point of a finished game's score (reported once, the game's final score) |
-| 4 | `FOREST_SCORED` | A `Scored` event of a forest, that is a Woodsman or a Herdsman scoring (the event is emitted per character, even with 0 points) |
-| 5 | `WONDER_SCORED` | A `Scored` event of a wonder |
+| 4 | `FOREST_SCORED` | A `Scored` event of a forest: one per forest, on the move that closes it (D-18: no longer one per character), emitted even with 0 points (to confirm in D-18b) |
+| 5 | `WONDER_SCORED` | A `Scored` event of a wonder: one per structure, on the move that closes it |
 | 6 | `BIG_STRUCTURE` | A road or a city scored with size of at least `BIG_SIZE` (8, to calibrate) |
 | 7 | `HIGH_SCORE` | A finished Daily game with a score of at least `HIGH_SCORE` (4,000, to calibrate) |
 | 8 | `PODIUM` | A place in the top 3 of a closed day's tournament. **Not reported by the contract** (see "On the Podium" below) |
