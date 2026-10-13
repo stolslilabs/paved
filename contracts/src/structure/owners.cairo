@@ -71,11 +71,17 @@ pub impl TallyImpl of TallyTrait {
         }
     }
 
-    /// Counts the tile `tile_id` for its owner, once.
+    /// Counts the tile `tile_id` for its owner, once; nothing when the tally is off (inlined, so
+    /// that the single-player scan pays only the test).
+    #[inline(always)]
     fn add(ref self: Tally, tile_id: u32) {
-        if !self.on {
-            return;
+        if self.on {
+            self.count_tile(tile_id);
         }
+    }
+
+    /// Counts the tile `tile_id` for its owner, once (the tally is on).
+    fn count_tile(ref self: Tally, tile_id: u32) {
         let key: felt252 = tile_id.into();
         if self.tiles.get(key) {
             return;

@@ -55,7 +55,9 @@ pub impl WalkerImpl of WalkerTrait {
         self.nodes.pop_front()
     }
 
-    /// Adds the nodes that the moves of `area` of `tile` land on, those not visited yet.
+    /// Adds the nodes that the moves of `area` of `tile` land on, those not visited yet. Inlined
+    /// in its two callers, as the forest scan's loop was before the walker.
+    #[inline(always)]
     fn expand(ref self: Walker, tile: Tile, area: u8) {
         let row = oriented::area_row(tile.plan, tile.orientation, area);
         let mut moves = tables::row_moves(row);
