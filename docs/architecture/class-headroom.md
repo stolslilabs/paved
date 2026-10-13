@@ -529,8 +529,8 @@ closing `build`; `Lobby` loses `claim`, `sponsor`, the reclaim and the ranking f
 `Tutorial` grows by 48 CASM felts although it loses two events it never emitted: not analysed (it shares
 `Store`, `events.cairo` and the day id module with the others; an estimate would be a guess). `Account` loses the two
 events and `u256`. The test mock `ReentrantToken` loses its prize actions (CASM 2,872 to 2,314). The other
-classes are unchanged. **`Lobby`'s class changes**: D-20's Sepolia upgrade sets the new
-class on `Daily` and `Tutorial` (`upgrades.md`, "D-20 on Sepolia").
+classes are unchanged. **`Lobby`'s class changes**; no D-20 upgrade runs on Sepolia: the fresh
+deployment of P-53 starts with these classes (`upgrades.md`, "D-20 on Sepolia").
 
 ## Planned: D-21 to D-24 (projection, not measured)
 

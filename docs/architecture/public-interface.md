@@ -396,7 +396,7 @@ daily prize goes (sponsoring, claiming, reclaiming, the `tournament` view), the 
 longer reported), and the day id is renamed `day_id`; the daily seed, the economy settlement and the daily leaderboard
 (served by the indexer) stay. **Built by D-20b**: the lists below are the diff of `contracts/abis/*.json` regenerated
 with `scripts/abis.sh` on the D-20b branch against main. The inventory is in `leaderboard.md`, "As built: D-20". D-20
-ships to Sepolia in the same upgrade as D-19 (`upgrades.md`, "D-20 on Sepolia").
+reaches Sepolia with the fresh deployment of P-53, not as an upgrade (`upgrades.md`, "D-20 on Sepolia").
 
 **Stability promise.** D-20 is a stated exception, as D-18 was: a view, two entry points, a struct and three events
 leave the interface, and the day id's names change, which the promise above does not allow. It is accepted for the
@@ -450,7 +450,8 @@ does `Tutorial`'s `GameView`.
 | event `Reclaimed` (`Lobby::Event`) | | **removed** |
 | the other `ILobby` functions, `ILobbyClass` | | unchanged |
 
-A new `Lobby` class is declared and set on `Daily` and `Tutorial` with `set_lobby_class` (`LobbyClassSet` emitted).
+On an existing deployment a new `Lobby` class is declared and set on `Daily` and `Tutorial` with `set_lobby_class`
+(`LobbyClassSet` emitted); Sepolia gets it with the fresh deployment of P-53.
 Superseded by D-24: the `Lobby` class ends and its cold paths go back into Challenge.
 
 ### Events
