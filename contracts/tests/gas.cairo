@@ -24,15 +24,12 @@
 
 use core::testing::get_available_gas;
 use paved::constants::{self, CENTER};
-use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait, Submission};
 use paved::models::game::{GameImpl, GameTrait};
-use paved::models::tournament::TournamentTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
-use paved::views::{ITournamentViewDispatcher, ITournamentViewDispatcherTrait};
-use snforge_std::{interact_with_state, start_cheat_block_timestamp_global};
+use snforge_std::start_cheat_block_timestamp_global;
 use crate::setup::setup;
 use crate::setup::setup::{ANYONE, IDailyDispatcherTrait, Systems, TestStore, TestStoreTrait};
 
@@ -43,23 +40,20 @@ pub const CEILING_CLOSE_LARGE: u128 = 5393424;
 pub const CEILING_WORST_CASE: u128 = 5662074;
 pub const CEILING_FOREST: u128 = 8962300;
 pub const CEILING_FOREST_WORST: u128 = 18923195;
-// g, h, i: a surrender runs in the `Lobby` class, one library call (+146,730 in this profile, S1).
+// g, i: a surrender runs in the `Lobby` class, one library call (+146,730 in this profile, S1).
 // g to l: a Daily game over records its score in `Economy` (P8 E3): the `Account.economy` read and
-// `Economy.record` add about 1.46M (1.11M on i).
-pub const CEILING_CLOSING_PLACES: u128 = 3672907;
-pub const CEILING_CLOSING_NOT_PLACED: u128 = 3249593;
+// `Economy.record` add about 1.46M (1.11M on i). D-20 took the ranking out of g, k and l, and h
+// (the closing move that did not rank) and j (the `tournament` view) out with it; the ceilings are
+// those set when the ranking was there (`docs/measures/baseline.md`, "After D-20").
+pub const CEILING_CLOSING_IN_DAY: u128 = 3672907;
 pub const CEILING_CLOSING_AFTER: u128 = 2690889;
-pub const CEILING_VIEW: u128 = 388740;
 pub const CEILING_CLOSING_FULL_REPORT: u128 = 4018231;
 pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7774092;
 // m, n, o: spawns (P8 E3). A Daily spawn pays `Economy.purchase` (swap, burn, Vault).
 pub const CEILING_SPAWN_DAILY: u128 = 52743229;
 pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 53820644;
 pub const CEILING_SPAWN_TUTORIAL: u128 = 5363508;
-// p, q, r: the prize (P-31, P-37). A sponsor records its share; a claim and a reclaim pay out.
-pub const CEILING_SPONSOR: u128 = 1956265;
-pub const CEILING_CLAIM: u128 = 2033722;
-pub const CEILING_RECLAIM: u128 = 1611612;
+// p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
 // `src/tests/differential.cairo` (D-18b).
 pub const SCORE_E: u32 = 767;
@@ -239,35 +233,11 @@ fn test_gas_f_worst_forest_scan() {
     report("f_worst_forest_scan", gas, CEILING_FOREST_WORST);
 }
 
-/// Leaderboard (P6). A closing move (`surrender` of a game of score 1379, a 6-tile city closed)
-/// ends the game in its tournament, which ranks it. Each figure is the L2 gas of one external call,
-/// read right before and right after it; the call is the same on the code before the leaderboard
-/// interface, where the closing moves (g, h) cost 1,440,588 whether they ranked or not, the move
-/// after the tournament (i) 726,130 and the view (j) 384,638 (`docs/measures/baseline.md`).
-///
-/// The tournament holds three ranks before the move: `scores` in rank order (101, 102, 103).
-fn prefill(s: @Scenario, scores: Span<u32>) {
-    let id = tournament_id(s);
-    interact_with_state(
-        *s.store.contract,
-        || {
-            let mut i = 0;
-            while i < 3 {
-                let submission = Submission {
-                    player_id: 101 + i.into(), game_id: 1, score: *scores[i], time: 0,
-                };
-                LeaderboardImpl::new().submit(id, submission);
-                i += 1;
-            }
-        },
-    );
-}
-
-fn tournament_id(s: @Scenario) -> u64 {
-    let game = s.store.game(*s.game_id);
-    TournamentTrait::compute_id(game.start_time, constants::DAILY_TOURNAMENT_DURATION)
-}
-
+/// The closing moves (P6, then D-20). A closing move (`surrender` of a game of score 1379, a 6-tile
+/// city closed) ends the game in its day, which writes its `GameEnd`. Each figure is the L2 gas of
+/// one external call, read right before and right after it. Until D-20 the closing move also
+/// ranked the game on chain (g: rank 1, h: not placed); since D-20 nothing ranks, so g is the one
+/// closing move in its day and h, the same move, is gone.
 /// The game of scenario c, one tile later: a 6-tile city closed and scored, the game not over.
 fn scored_game() -> Scenario {
     let s = ScenarioTrait::new();
@@ -286,44 +256,31 @@ fn surrender(s: @Scenario) -> u128 {
     before - after
 }
 
-/// g. Closing move that ranks at rank 1 and shifts the two other ranks (the worst case).
+/// g. Closing move in its day: the game gets its day id and end time (rank 1 before D-20).
 #[test]
-fn test_gas_g_closing_move_places() {
+fn test_gas_g_closing_move_in_its_day() {
     let s = scored_game();
-    prefill(@s, array![30, 20, 10].span());
     let gas = surrender(@s);
-    let id = tournament_id(@s);
-    let top = interact_with_state(s.store.contract, || LeaderboardImpl::new().top(id));
-    assert(top.first.score == 1379 && top.second.score == 30, 'Gas: not placed');
-    report("g_closing_move_places", gas, CEILING_CLOSING_PLACES);
+    let game = s.store.game(s.game_id);
+    // [Info] The scenario runs on day 0 (time 0), so its day id is 0 here too
+    assert(game.is_over() && game.score == 1379, 'Gas: not over');
+    report("g_closing_move_in_its_day", gas, CEILING_CLOSING_IN_DAY);
 }
 
-/// h. Closing move that does not rank (the score is below the three ranks).
+/// i. Game over after its day closed: it gets no day id and no `GameEnd`.
 #[test]
-fn test_gas_h_closing_move_not_placed() {
-    let s = scored_game();
-    prefill(@s, array![2000, 1900, 1800].span());
-    let gas = surrender(@s);
-    let id = tournament_id(@s);
-    let top = interact_with_state(s.store.contract, || LeaderboardImpl::new().top(id));
-    assert(top.first.score == 2000 && top.third.score == 1800, 'Gas: placed');
-    report("h_closing_move_not_placed", gas, CEILING_CLOSING_NOT_PLACED);
-}
-
-/// i. Game over after its tournament closed: it ranks in nothing, the leaderboard is not called.
-#[test]
-fn test_gas_i_closing_move_after_tournament() {
+fn test_gas_i_closing_move_after_its_day() {
     let s = scored_game();
     let game = s.store.game(s.game_id);
-    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_TOURNAMENT_DURATION + 1);
+    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
     let gas = surrender(@s);
-    assert(s.store.game(s.game_id).tournament_id == 0, 'Gas: ranked');
-    report("i_closing_move_after_tournament", gas, CEILING_CLOSING_AFTER);
+    assert(s.store.game(s.game_id).day_id == 0, 'Gas: in a day');
+    report("i_closing_move_after_its_day", gas, CEILING_CLOSING_AFTER);
 }
 
 /// l. Game over on the last `build`: the game of scenario c with its tile limit cut to the tiles
-/// drawn, then an open road east of the starter tile (the move of a0). The game ends and ranks
-/// in its empty tournament, inside `Daily`, then one library call to `Lobby.report` (P7).
+/// drawn, then an open road east of the starter tile (the move of a0). The game ends in its day,
+/// inside `Daily`, then one library call to `Lobby.report` (P7).
 #[test]
 fn test_gas_l_game_over_on_build() {
     let s = scored_game();
@@ -335,34 +292,18 @@ fn test_gas_l_game_over_on_build() {
     report("l_game_over_on_build", gas, CEILING_GAME_OVER_ON_BUILD);
 }
 
-/// k. Closing move with the largest report (P7): rank 1, a high score and every counter non-zero,
-/// so 4 entries go to the quests and 6 to the achievements.
+/// k. Closing move with the largest report (P7): a high score and every counter non-zero, so 4
+/// entries go to the quests and 5 to the achievements (6 before D-20, with task 9 for rank 1).
 #[test]
 fn test_gas_k_closing_move_full_report() {
     let s = scored_game();
-    prefill(@s, array![30, 20, 10].span());
     let mut game = s.store.game(s.game_id);
     game.score = 4500;
     game.counts = GameImpl::counts_of(20, 5, 3, 4);
     s.store.set_game(game);
     let gas = surrender(@s);
-    let id = tournament_id(@s);
-    let top = interact_with_state(s.store.contract, || LeaderboardImpl::new().top(id));
-    assert(top.first.score == 4500, 'Gas: not first');
+    assert(s.store.game(s.game_id).score == 4500, 'Gas: score');
     report("k_closing_move_full_report", gas, CEILING_CLOSING_FULL_REPORT);
-}
-
-/// j. The `tournament` view: the prize record and the three ranks.
-#[test]
-fn test_gas_j_view_tournament() {
-    let s = scored_game();
-    prefill(@s, array![30, 20, 10].span());
-    let views = ITournamentViewDispatcher { contract_address: s.store.contract };
-    let before = get_available_gas();
-    let view = views.tournament(tournament_id(@s));
-    let after = get_available_gas();
-    assert(view.top3_score == 10, 'Gas: wrong view');
-    report("j_view_tournament", before - after, CEILING_VIEW);
 }
 
 /// m. A Daily spawn at stake 1, no referrer: the game, then the price from the player to
@@ -396,56 +337,4 @@ fn test_gas_o_spawn_tutorial() {
     systems.tutorial.spawn();
     let after = get_available_gas();
     report("o_spawn_tutorial", before - after, CEILING_SPAWN_TUTORIAL);
-}
-
-/// The day of p, q and r, an hour into it.
-const PRIZE_DAY: u64 = 3;
-
-fn prize_day() -> (Systems, TestStore) {
-    start_cheat_block_timestamp_global(PRIZE_DAY * constants::DAILY_TOURNAMENT_DURATION + 3600);
-    let (store, systems, _) = setup::spawn_game(Mode::None);
-    (systems, store)
-}
-
-/// p. The first sponsor of a day: the prize and the sponsor's share (P-37), then the transfer.
-#[test]
-fn test_gas_p_sponsor() {
-    let (systems, _) = prize_day();
-    let before = get_available_gas();
-    systems.daily.sponsor(2_000_000);
-    let after = get_available_gas();
-    report("p_sponsor", before - after, CEILING_SPONSOR);
-}
-
-/// q. Rank 1 claims a sponsored day, the other ranks empty: it takes the whole prize.
-#[test]
-fn test_gas_q_claim() {
-    let (systems, store) = prize_day();
-    systems.daily.sponsor(2_000_000);
-    interact_with_state(
-        store.contract,
-        || {
-            let submission = Submission {
-                player_id: crate::setup::setup::PLAYER().into(), game_id: 1, score: 100, time: 0,
-            };
-            LeaderboardImpl::new().submit(PRIZE_DAY, submission);
-        },
-    );
-    start_cheat_block_timestamp_global((PRIZE_DAY + 1) * constants::DAILY_TOURNAMENT_DURATION);
-    let before = get_available_gas();
-    systems.daily.claim(PRIZE_DAY, 1);
-    let after = get_available_gas();
-    report("q_claim", before - after, CEILING_CLAIM);
-}
-
-/// r. The sponsor's reclaim of a day nobody ranked in (`claim(day, 0)`, P-37).
-#[test]
-fn test_gas_r_reclaim() {
-    let (systems, _) = prize_day();
-    systems.daily.sponsor(2_000_000);
-    start_cheat_block_timestamp_global((PRIZE_DAY + 1) * constants::DAILY_TOURNAMENT_DURATION);
-    let before = get_available_gas();
-    systems.daily.claim(PRIZE_DAY, 0);
-    let after = get_available_gas();
-    report("r_reclaim", before - after, CEILING_RECLAIM);
 }

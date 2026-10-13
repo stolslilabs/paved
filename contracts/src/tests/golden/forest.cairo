@@ -105,9 +105,7 @@ fn test_golden_daily_forest_woodsman_ring() {
         true,
         0,
         moves.span(),
-        GoldenOutcome {
-            score: 767, built: 4, discarded: 0, tile_count: 6, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 767, built: 4, discarded: 0, tile_count: 6, over: false },
     );
 }
 
@@ -122,9 +120,7 @@ fn test_golden_daily_forest_herdsman_caps() {
         true,
         0,
         moves.span(),
-        GoldenOutcome {
-            score: 1914, built: 5, discarded: 0, tile_count: 7, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 1914, built: 5, discarded: 0, tile_count: 7, over: false },
     );
 }
 
@@ -139,9 +135,7 @@ fn test_golden_daily_forest_both_roles() {
         true,
         0,
         moves.span(),
-        GoldenOutcome {
-            score: 2460, built: 9, discarded: 0, tile_count: 11, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 2460, built: 9, discarded: 0, tile_count: 11, over: false },
     );
 }
 
@@ -158,9 +152,7 @@ fn test_golden_daily_forest_herdsman_open_city() {
         true,
         0,
         moves.span(),
-        GoldenOutcome {
-            score: 0, built: 5, discarded: 0, tile_count: 7, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 0, built: 5, discarded: 0, tile_count: 7, over: false },
     );
 }
 
@@ -177,9 +169,7 @@ fn test_golden_daily_forest_woodsman_ring_structures_agree() {
         true,
         0,
         woodsman_ring_moves().span(),
-        GoldenOutcome {
-            score: 767, built: 4, discarded: 0, tile_count: 6, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 767, built: 4, discarded: 0, tile_count: 6, over: false },
     );
 }
 
@@ -193,9 +183,7 @@ fn test_golden_daily_forest_herdsman_caps_structures_agree() {
         true,
         0,
         herdsman_caps_moves().span(),
-        GoldenOutcome {
-            score: 1914, built: 5, discarded: 0, tile_count: 7, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 1914, built: 5, discarded: 0, tile_count: 7, over: false },
     );
 }
 
@@ -209,9 +197,7 @@ fn test_golden_daily_forest_both_roles_structures_agree() {
         true,
         0,
         both_roles_moves().span(),
-        GoldenOutcome {
-            score: 2460, built: 9, discarded: 0, tile_count: 11, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 2460, built: 9, discarded: 0, tile_count: 11, over: false },
     );
 }
 
@@ -225,16 +211,14 @@ fn test_golden_daily_forest_herdsman_open_city_structures_agree() {
         true,
         0,
         herdsman_open_city_moves().span(),
-        GoldenOutcome {
-            score: 0, built: 5, discarded: 0, tile_count: 7, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 0, built: 5, discarded: 0, tile_count: 7, over: false },
     );
 }
 
 /// Checked board C (P5-5 audit): the ring of `woodsman_ring_moves` with a tile limit of 5, so that
 /// the fourth curve is the last tile. It closes the loop and the forest (767, as in the ring), and
-/// the game is over (`tile_count 5 >= tile_limit 5`); the score is the top score of the
-/// tournament. (Board A of the audit, the ring with a Lord on the road, is the ring itself since
+/// the game is over (`tile_count 5 >= tile_limit 5`); the score is the final score of the
+/// game. (Board A of the audit, the ring with a Lord on the road, is the ring itself since
 /// D-18: it left with its Lord.)
 #[test]
 #[available_gas(l2_gas: 445519000)]
@@ -246,8 +230,6 @@ fn test_golden_daily_forest_woodsman_ring_last_tile_structures_agree() {
         true,
         5,
         woodsman_ring_moves().span(),
-        GoldenOutcome {
-            score: 767, built: 4, discarded: 0, tile_count: 5, over: true, top1_score: 767,
-        },
+        GoldenOutcome { score: 767, built: 4, discarded: 0, tile_count: 5, over: true },
     );
 }

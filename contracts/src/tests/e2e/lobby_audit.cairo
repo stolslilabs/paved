@@ -5,21 +5,17 @@
 use core::num::traits::Zero;
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::constants;
+use paved::day::day_id;
 use paved::mocks::reentrant_token::{
-    CLAIM, IReentrantTokenDispatcher, IReentrantTokenDispatcherTrait, RECLAIM, SPAWN, SPONSOR,
+    IReentrantTokenDispatcher, IReentrantTokenDispatcherTrait, SPAWN,
 };
-use paved::models::tournament::TournamentTrait;
 use paved::systems::daily::{IDailyDispatcher, IDailyQuestsDispatcher, IDailyQuestsDispatcherTrait};
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::e2e::lobby::{ISpyEconomyDispatcher, ISpyEconomyDispatcherTrait, daily_paid_in};
-use paved::tests::leaderboard;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER};
 use paved::types::mode::Mode;
-use paved::views::{
-    IGameViewDispatcher, IGameViewDispatcherTrait, ITournamentViewDispatcher,
-    ITournamentViewDispatcherTrait,
-};
+use paved::views::{IGameViewDispatcher, IGameViewDispatcherTrait};
 use quiver_achievement::types::task::AchievementTask;
 use quiver_achievement::types::window::AchievementWindow;
 use quiver_quest::types::schedule::QuestSchedule;
@@ -45,7 +41,8 @@ fn raw_entry(contract: ContractAddress, map: felt252, key: Array<felt252>) -> fe
 }
 
 /// Pins, by name, every storage variable that `Lobby` shares with `Daily`: `owner` and
-/// `pending_owner` (ownable), `token_address` (payable), `sponsorships` (hostable) and the
+/// `pending_owner` (ownable), `token_address` (payable), `sponsorships` (hostable, dead since D-20
+/// under P-42: a whole game of the day leaves its slot at zero, never written) and the
 /// quiver ones a definition writes (`Quest_definitions`, `Quest_tasks`, `Quest_conditions`,
 /// `Achievement_definitions`, `Achievement_extra_tasks`). `Quest_progress`, `Quest_records`,
 /// `Quest_held` and the two `*_reporters` maps are not written by `Lobby` or `Daily`: the game over
@@ -109,14 +106,16 @@ fn test_lobby_and_daily_pin_every_shared_storage_variable_by_name() {
             10,
         );
     stop_cheat_caller_address(daily);
-    // [Lobby writes] a sponsorship, at the raw address of `Daily`'s own map
+    // [Dead since D-20] `sponsorships` (P-42): a whole game of the day, spawned and ended through
+    // `Lobby`, leaves the slot of its player at zero
     start_cheat_caller_address(daily, PLAYER());
-    systems.daily.sponsor(1000);
+    let game_id = systems.daily.spawn(1, Zero::zero(), 0);
+    systems.daily.surrender(game_id);
     stop_cheat_caller_address(daily);
-    let day = TournamentTrait::compute_id(10 * 86400, constants::DAILY_DURATION);
+    let day = day_id(10 * 86400, constants::DAILY_DURATION);
     assert(
-        raw_entry(daily, selector!("sponsorships"), array![day.into(), PLAYER().into()]) == 1000,
-        'Pin: sponsorships',
+        raw_entry(daily, selector!("sponsorships"), array![day.into(), PLAYER().into()]) == 0,
+        'Pin: sponsorships written',
     );
     assert(
         raw_entry(daily, selector!("Quest_definitions"), array![1]) != 0, 'Pin: Quest_definitions',
@@ -137,23 +136,12 @@ fn test_lobby_and_daily_pin_every_shared_storage_variable_by_name() {
 
 // Re-entry: a token that calls back into `Daily` during a `Lobby` library call
 
-/// `Daily` paid in the re-entrant token, with PLAYER registered and calling `Daily`. The cheat on
-/// the caller of `Daily` also makes the token's call come from PLAYER: the worst case.
-fn reentrant() -> (IDailyDispatcher, IReentrantTokenDispatcher) {
-    let (daily, token, _) = reentrant_with_economy();
-    (daily, token)
-}
-
 fn reentrant_with_economy() -> (
     IDailyDispatcher, IReentrantTokenDispatcher, ISpyEconomyDispatcher,
 ) {
     start_cheat_block_timestamp_global(100);
     let (daily, token, economy) = daily_paid_in("ReentrantToken");
     (daily, IReentrantTokenDispatcher { contract_address: token }, economy)
-}
-
-fn day_one() -> u64 {
-    TournamentTrait::compute_id(100, constants::DAILY_DURATION)
 }
 
 /// A spawn pays by `transferFrom` after the game is stored; the token calls `spawn` again from
@@ -164,7 +152,7 @@ fn day_one() -> u64 {
 #[available_gas(l2_gas: 140000000)]
 fn test_lobby_reentry_during_spawn_cannot_change_the_game_written() {
     let (daily, token, economy) = reentrant_with_economy();
-    token.arm(daily.contract_address, SPAWN, 0, 0);
+    token.arm(daily.contract_address, SPAWN);
     let views = IGameViewDispatcher { contract_address: daily.contract_address };
     let price: u256 = constants::DAILY_PRICE.into();
     let first = daily.spawn(1, Zero::zero(), 0);
@@ -189,88 +177,6 @@ fn test_lobby_reentry_during_spawn_cannot_change_the_game_written() {
     let (paid, recipient) = token.paid();
     assert(paid == 2 * price, 'Reentry: paid twice');
     assert(recipient == economy.contract_address, 'Reentry: paid to economy');
-}
-
-/// A claim marks the rank claimed before it pays; the token claims the same rank again from
-/// inside the payment: it reverts, and the rank stays claimed.
-#[test]
-#[available_gas(l2_gas: 140000000)]
-fn test_lobby_reentry_during_claim_reverts() {
-    let (daily, token) = reentrant();
-    let day_id = day_one();
-    let game_id = daily.spawn(1, Zero::zero(), 0);
-    daily.sponsor(1000);
-    daily.surrender(game_id);
-    leaderboard::submit(daily.contract_address, day_id, PLAYER().into(), 1);
-    start_cheat_block_timestamp_global(100 + constants::DAILY_DURATION);
-    let tournaments = ITournamentViewDispatcher { contract_address: daily.contract_address };
-    token.arm(daily.contract_address, CLAIM, day_id, 1);
-    daily.claim(day_id, 1);
-    let (attempts, reverted) = token.outcome();
-    assert(attempts == 1 && reverted == 1, 'Reentry: claim not refused');
-    assert(token.error() == 'Tournament: already claimed', 'Reentry: claim reason');
-    assert(tournaments.tournament(day_id).top1_claimed, 'Reentry: claim lost');
-}
-
-/// The reclaim of a prize with a ranked player is refused too (it is claimed by rank).
-#[test]
-#[available_gas(l2_gas: 140000000)]
-fn test_lobby_reentry_during_claim_cannot_reclaim() {
-    let (daily, token) = reentrant();
-    let day_id = day_one();
-    let game_id = daily.spawn(1, Zero::zero(), 0);
-    daily.sponsor(1000);
-    daily.surrender(game_id);
-    leaderboard::submit(daily.contract_address, day_id, PLAYER().into(), 1);
-    start_cheat_block_timestamp_global(100 + constants::DAILY_DURATION);
-    token.arm(daily.contract_address, RECLAIM, day_id, 0);
-    daily.claim(day_id, 1);
-    let (attempts, reverted) = token.outcome();
-    assert(attempts == 1 && reverted == 1, 'Reentry: reclaim not refused');
-    assert(token.error() == 'Tournament: nothing to reclaim', 'Reentry: reclaim reason');
-}
-
-/// A sponsor's reclaim zeroes the sponsor's slot before it pays; the token reclaims again from
-/// inside the payment: it reverts, and the slot stays zero.
-#[test]
-#[available_gas(l2_gas: 100000000)]
-fn test_lobby_reentry_during_reclaim_reverts() {
-    let (daily, token) = reentrant();
-    let day_id = day_one();
-    daily.sponsor(1000);
-    start_cheat_block_timestamp_global(100 + constants::DAILY_DURATION);
-    token.arm(daily.contract_address, RECLAIM, day_id, 0);
-    daily.claim(day_id, 0);
-    let (attempts, reverted) = token.outcome();
-    assert(attempts == 1 && reverted == 1, 'Reentry: reclaim twice');
-    assert(token.error() == 'Tournament: nothing to reclaim', 'Reentry: reclaim reason');
-    assert(
-        raw_entry(
-            daily.contract_address,
-            selector!("sponsorships"),
-            array![day_id.into(), PLAYER().into()],
-        ) == 0,
-        'Reentry: slot not zero',
-    );
-}
-
-/// A sponsor pays by `transferFrom` after the prize grows; the token sponsors again from inside the
-/// payment. Both amounts are written once and the first is not lost: the prize is their sum.
-#[test]
-#[available_gas(l2_gas: 100000000)]
-fn test_lobby_reentry_during_sponsor_keeps_the_amount_written() {
-    let (daily, token) = reentrant();
-    let day_id = day_one();
-    token.arm(daily.contract_address, SPONSOR, 0, 0);
-    daily.sponsor(1000);
-    let (attempts, reverted) = token.outcome();
-    assert(attempts == 1 && reverted == 0, 'Reentry: sponsor');
-    let tournaments = ITournamentViewDispatcher { contract_address: daily.contract_address };
-    assert(tournaments.tournament(day_id).prize == 2000, 'Reentry: prize');
-    let slot = raw_entry(
-        daily.contract_address, selector!("sponsorships"), array![day_id.into(), PLAYER().into()],
-    );
-    assert(slot == 2000, 'Reentry: sponsor slot');
 }
 
 // Mode: `Lobby.spawn` takes a mode, no entry point of the game contracts does

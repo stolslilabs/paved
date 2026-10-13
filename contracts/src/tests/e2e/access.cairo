@@ -4,10 +4,8 @@
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait, OwnableComponent};
 use paved::constants;
 use paved::models::tile::CENTER;
-use paved::models::tournament::TournamentTrait;
 use paved::systems::account::IAccountDispatcherTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
-use paved::tests::leaderboard;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, NOONE, OWNER, PLAYER, PLAYER_NAME,
@@ -357,50 +355,6 @@ fn test_access_constructors_revert_on_zero_owner() {
     );
 }
 
-/// Forces PLAYER first of the tournament of the game, sponsors its prize (entries no longer feed
-/// it, P-31), then moves past the end of the tournament.
-fn close_tournament(
-    store: setup::TestStore, systems: @setup::Systems, game_id: u32, player_id: felt252,
-) -> u64 {
-    let game = store.game(game_id);
-    let day_id = TournamentTrait::compute_id(game.start_time, constants::DAILY_DURATION);
-    leaderboard::submit(store.contract, day_id, player_id, 1);
-    systems.daily.sponsor(2_000_000);
-    start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
-    day_id
-}
-
-#[test]
-#[should_panic(expected: 'Tournament: invalid player')]
-fn test_access_claim_reverts_for_registered_non_holder() {
-    start_cheat_block_timestamp_global(100);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let day_id = close_tournament(store, @systems, context.game_id, context.player_id);
-    // ANYONE is registered but is not at rank 1.
-    start_cheat_caller_address(systems.daily.contract_address, ANYONE());
-    systems.daily.claim(day_id, 1);
-}
-
-#[test]
-#[should_panic(expected: 'Tournament: invalid player')]
-fn test_access_claim_reverts_on_an_empty_rank() {
-    start_cheat_block_timestamp_global(100);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let day_id = close_tournament(store, @systems, context.game_id, context.player_id);
-    // Nobody holds rank 2 (id 0), and no registered player has id 0.
-    systems.daily.claim(day_id, 2);
-}
-
-#[test]
-#[should_panic(expected: 'Tournament: already claimed')]
-fn test_access_claim_reverts_on_a_second_claim_of_the_same_rank() {
-    start_cheat_block_timestamp_global(100);
-    let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let day_id = close_tournament(store, @systems, context.game_id, context.player_id);
-    systems.daily.claim(day_id, 1);
-    systems.daily.claim(day_id, 1);
-}
-
 #[test]
 #[should_panic(expected: 'Builder: does not exist')]
 fn test_access_tutorial_discard_reverts_on_another_players_game() {
@@ -409,21 +363,8 @@ fn test_access_tutorial_discard_reverts_on_another_players_game() {
     systems.tutorial.discard(context.game_id);
 }
 
-/// The prize is sponsor-only (P-31): `sponsor` funds the current day even when no game was
-/// spawned in it.
-#[test]
-fn test_access_sponsor_funds_a_day_without_entries() {
-    let (store, systems, context) = setup::spawn_game(Mode::None);
-    let before = context.token.balance_of(PLAYER());
-    systems.daily.sponsor(1000);
-    let day_id = TournamentTrait::compute_id(0, constants::DAILY_DURATION);
-    assert(store.tournament(day_id).prize == 1000, 'Sponsor: prize');
-    assert(before - context.token.balance_of(PLAYER()) == 1000, 'Sponsor: debit');
-}
-
 /// A game whose player is 0 can never be acted on: `builder_of` gives player 0 no builder, so
-/// `surrender`, `discard` and `build` revert before `end_in_tournament`, and player 0 is never
-/// submitted to the leaderboard (`docs/architecture/leaderboard.md`). The game is forced, since the
+/// `surrender`, `discard` and `build` revert before `end_in_day`. The game is forced, since the
 /// token refuses the zero address before a game of player 0 can be paid for (`ERC20: mint to 0`).
 #[test]
 #[should_panic(expected: 'Builder: does not exist')]

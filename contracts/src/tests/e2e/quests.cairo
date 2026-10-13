@@ -1,10 +1,9 @@
 //! Quests and achievements (P7, `docs/architecture/quests.md`): the owner-only definitions, the
-//! accepted list, and the report a game over makes, with the ranking and the `GameOver` it must
-//! never prevent.
+//! accepted list, and the report a game over makes, with the `GameOver` it must never prevent.
+//! Since D-20 nothing is ranked on chain and task 9 (`WIN`) is never reported.
 
 use paved::constants;
 use paved::events::game_over;
-use paved::leaderboard::{LeaderboardImpl, LeaderboardTrait};
 use paved::models::game::{GameImpl, GameTrait};
 use paved::models::tile::CENTER;
 use paved::systems::daily::{Daily, IDailyQuestsDispatcher, IDailyQuestsDispatcherTrait};
@@ -23,9 +22,8 @@ use quiver_quest::events::index::{QuestDefined, QuestProgressed};
 use quiver_quest::types::schedule::QuestSchedule;
 use quiver_quest::types::task::QuestTask;
 use snforge_std::{
-    EventSpyAssertionsTrait, EventSpyTrait, interact_with_state, load, map_entry_address,
-    spy_events, start_cheat_block_timestamp_global, start_cheat_caller_address,
-    stop_cheat_caller_address,
+    EventSpyAssertionsTrait, EventSpyTrait, load, map_entry_address, spy_events,
+    start_cheat_block_timestamp_global, start_cheat_caller_address, stop_cheat_caller_address,
 };
 use starknet::ContractAddress;
 
@@ -204,7 +202,7 @@ fn test_quests_owner_retires() {
 }
 
 /// A recurring quest rolls over at 00:00 UTC only when its start is a multiple of a day (Q-6), the
-/// hour where `TournamentImpl::compute_id` rolls over.
+/// hour where the day id (`day::day_id`) rolls over.
 #[test]
 #[available_gas(l2_gas: 57364781)]
 #[should_panic(expected: 'Daily: quest not on UTC day')]
@@ -234,8 +232,7 @@ fn test_quests_define_twice() {
     admin.define_quest(1, schedule, tasks.span(), array![].span());
 }
 
-/// A game over with nothing scored reports the finished game only: the ranking (a score of 0
-/// never ranks) and `GameOver` happen.
+/// A game over with nothing scored reports the finished game only, after `GameOver`.
 #[test]
 #[available_gas(l2_gas: 142058000)]
 fn test_quests_game_over_every_count_zero() {
@@ -262,13 +259,13 @@ fn test_quests_game_over_every_count_zero() {
         );
 }
 
-/// A game over with every counter at the maximum of its width, a score above the high score and
-/// the first rank: the largest lists (4 and 6 entries), and the game over, the ranking and
-/// `GameOver` all happen.
+/// A game over with every counter at the maximum of its width and a score above the high score,
+/// the first game of its day (rank 1 before D-20): the largest lists (4 and 5 entries), after
+/// `GameOver`, and no task 9.
 #[test]
 #[available_gas(l2_gas: 152789000)]
 fn test_quests_game_over_every_counter_at_maximum() {
-    // [Setup] Not day 0, whose tournament id is the unset id 0
+    // [Setup] Not day 0, whose day id is the unset id 0
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
@@ -288,13 +285,10 @@ fn test_quests_game_over_every_counter_at_maximum() {
     let mut spy = spy_events();
     systems.daily.surrender(context.game_id);
 
-    // [Assert] Game over, ranked first in its tournament
+    // [Assert] Game over, in its day
     let game = store.game(context.game_id);
     assert(game.is_over(), 'Quests: game over');
-    assert(game.day_id != 0, 'Quests: ranked');
-    let id = game.day_id;
-    let top = interact_with_state(daily, || LeaderboardImpl::new().top(id));
-    assert(top.first.score == 0xffffffff, 'Quests: first rank');
+    assert(game.day_id != 0, 'Quests: day set');
     let over = Daily::Event::PavedEvent(game_over(game, context.player_id));
     // [Assert] Order: `GameOver` before the first quiver event, the quests before the achievements
     let events = spy.get_events().events;
@@ -322,9 +316,9 @@ fn test_quests_game_over_every_counter_at_maximum() {
         }
         k += 1;
     }
-    assert(positions.len() == 1 + 4 + 6 && sorted, 'Quests: event order');
-    // [Assert] The report: tasks 1 to 4 to the quests, 1, 4 to 7 and 9 to the achievements, after
-    // `GameOver`
+    assert(positions.len() == 1 + 4 + 5 && sorted, 'Quests: event order');
+    // [Assert] The report: tasks 1 to 4 to the quests, 1 and 4 to 7 to the achievements, after
+    // `GameOver`; no task 9 (D-20)
     let p = context.player_id;
     spy
         .assert_emitted(
@@ -338,15 +332,15 @@ fn test_quests_game_over_every_counter_at_maximum() {
                 (daily, achievement_progressed(p, constants::TASK_WONDER_SCORED, 15)),
                 (daily, achievement_progressed(p, constants::TASK_BIG_STRUCTURE, 63)),
                 (daily, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
-                (daily, achievement_progressed(p, constants::TASK_WIN, 1)),
             ],
         );
+    spy.assert_not_emitted(@array![(daily, achievement_progressed(p, constants::TASK_WIN, 1))]);
 }
 
-/// A game over after its tournament closed ranks in nothing but still reports (Q-6): no WIN.
+/// A game over after its day closed gets no day id but still reports (Q-6): no WIN.
 #[test]
 #[available_gas(l2_gas: 124794000)]
-fn test_quests_game_over_after_tournament_reports_without_win() {
+fn test_quests_game_over_after_its_day_reports_without_win() {
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
     let daily = systems.daily.contract_address;
     let mut game = store.game(context.game_id);
@@ -355,12 +349,43 @@ fn test_quests_game_over_after_tournament_reports_without_win() {
     start_cheat_block_timestamp_global(game.start_time + constants::DAILY_DURATION + 1);
     let mut spy = spy_events();
     systems.daily.surrender(context.game_id);
-    assert(store.game(context.game_id).day_id == 0, 'Quests: ranked');
+    assert(store.game(context.game_id).day_id == 0, 'Quests: day set');
     let p = context.player_id;
     spy
         .assert_emitted(
             @array![
                 (daily, quest_progressed(p, constants::TASK_POINTS, 5000)),
+                (daily, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
+            ],
+        );
+    spy.assert_not_emitted(@array![(daily, achievement_progressed(p, constants::TASK_WIN, 1))]);
+}
+
+/// D-20: a game over no longer reports task 9. The first game of an empty day, with a score
+/// (rank 1 before D-20, which reported `WIN`), surrenders: `GameOver`, then exactly the entries
+/// it reported before less task 9 (quests 1 and 3, achievements 1 and 7), and no `WIN`.
+#[test]
+#[available_gas(l2_gas: 134612090)]
+fn test_quests_game_over_first_of_its_day_reports_no_task_9() {
+    start_cheat_block_timestamp_global(10 * 86400);
+    let (store, systems, context) = setup::spawn_game(Mode::Daily);
+    let daily = systems.daily.contract_address;
+    let mut game = store.game(context.game_id);
+    game.score = 5000;
+    store.set_game(game);
+    let mut spy = spy_events();
+    systems.daily.surrender(context.game_id);
+    let game = store.game(context.game_id);
+    assert(game.is_over() && game.day_id == 10, 'Quests: over in its day');
+    let p = context.player_id;
+    assert_order(kinds(@spy.get_events().events, daily), 2, 2);
+    spy
+        .assert_emitted(
+            @array![
+                (daily, Daily::Event::PavedEvent(game_over(game, p))),
+                (daily, quest_progressed(p, constants::TASK_GAME_FINISHED, 1)),
+                (daily, quest_progressed(p, constants::TASK_POINTS, 5000)),
+                (daily, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
                 (daily, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
             ],
         );
@@ -427,7 +452,8 @@ fn assert_order(kinds: Array<u8>, quests: u32, achievements: u32) {
 }
 
 /// A Daily game of score 4,500, 2 structures and a forest, with its tile limit cut to the tiles
-/// drawn, so that the next `build` or `discard` ends it. The tournament is empty: it ranks first.
+/// drawn, so that the next `build` or `discard` ends it. Its day is empty: it ranked first before
+/// D-20.
 pub fn almost_over_daily() -> (setup::TestStore, setup::Systems, setup::Context) {
     start_cheat_block_timestamp_global(10 * 86400);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
@@ -440,11 +466,12 @@ pub fn almost_over_daily() -> (setup::TestStore, setup::Systems, setup::Context)
 }
 
 /// The report a Daily game over makes, from the game as it ended: 4 quest entries and the
-/// achievement entries of a first-ranked high score with a forest.
+/// achievement entries of a high score with a forest (3); no task 9, though the game is the first
+/// of its day (D-20: before, a fourth entry, task 9).
 fn assert_daily_report(
     daily: ContractAddress, mut spy: snforge_std::EventSpy, p: felt252, score: u32,
 ) {
-    assert_order(kinds(@spy.get_events().events, daily), 4, 4);
+    assert_order(kinds(@spy.get_events().events, daily), 4, 3);
     spy
         .assert_emitted(
             @array![
@@ -455,9 +482,9 @@ fn assert_daily_report(
                 (daily, achievement_progressed(p, constants::TASK_GAME_FINISHED, 1)),
                 (daily, achievement_progressed(p, constants::TASK_FOREST_SCORED, 1)),
                 (daily, achievement_progressed(p, constants::TASK_HIGH_SCORE, 1)),
-                (daily, achievement_progressed(p, constants::TASK_WIN, 1)),
             ],
         );
+    spy.assert_not_emitted(@array![(daily, achievement_progressed(p, constants::TASK_WIN, 1))]);
 }
 
 /// A Daily game over on the last `build` (the one library call from `Daily`) reports.

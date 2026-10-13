@@ -117,8 +117,6 @@ pub mod mocks {
 
 #[cfg(test)]
 pub mod tests {
-    pub mod bench;
-    pub mod bench_backend;
     pub mod collection;
     pub mod differential;
     pub mod e2e;

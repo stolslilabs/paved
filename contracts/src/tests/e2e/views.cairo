@@ -3,7 +3,6 @@
 
 use paved::constants;
 use paved::models::tile::CENTER;
-use paved::models::tournament::TournamentTrait;
 use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
@@ -15,9 +14,8 @@ use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use paved::views::{
-    BuilderView, IGameViewDispatcher, IGameViewDispatcherTrait, ITournamentViewDispatcher,
-    ITournamentViewDispatcherTrait, MAX_PAGE, MAX_TOURNAMENT_ID, TILE_DISCARDED, TILE_HELD,
-    TILE_PLACED,
+    BuilderView, IDailyViewDispatcher, IDailyViewDispatcherTrait, IGameViewDispatcher,
+    IGameViewDispatcherTrait, MAX_PAGE, TILE_DISCARDED, TILE_HELD, TILE_PLACED,
 };
 use snforge_std::{EventSpyTrait, spy_events, start_cheat_block_timestamp_global};
 
@@ -79,7 +77,7 @@ fn test_views_game_after_spawn() {
     assert(view.remaining_count == 36, 'Views: remaining');
     assert(view.start_time == 3 * DAY + 100, 'Views: start time');
     assert(view.end_time == 0, 'Views: end time');
-    assert(view.day_id == 0, 'Views: tournament');
+    assert(view.day_id == 0, 'Views: day');
 }
 
 #[test]
@@ -131,7 +129,7 @@ fn test_views_game_closed_by_surrender() {
     assert(view.remaining_count == 0, 'Views: no remaining');
     assert(view.tile_count == 4, 'Views: tile count');
     assert(view.placed_count == 3, 'Views: placed count');
-    assert(view.day_id == 3, 'Views: tournament');
+    assert(view.day_id == 3, 'Views: day');
     assert(view.end_time == 3 * DAY + 100, 'Views: end time');
 
     // The tile in hand at the surrender is held, neither placed nor discarded.
@@ -174,7 +172,7 @@ fn test_views_game_tutorial() {
     assert(view.player_id == context.player_id, 'Views: player');
     assert(view.mode == Mode::Tutorial.into(), 'Views: mode');
     assert(view.deck_size == 10, 'Views: deck size');
-    assert(view.day_id == 0, 'Views: no tournament');
+    assert(view.day_id == 0, 'Views: no day');
     assert(view.placed_count == 2, 'Views: placed count');
     assert(view.tile_count == 3, 'Views: tile count');
     let tiles = views.tiles(context.game_id, 0, MAX_PAGE);
@@ -193,7 +191,7 @@ fn test_views_game_tutorial_same_second_game_over() {
 
     assert(view.over, 'Views: over');
     assert(view.start_time == 3 * DAY + 100, 'Views: start time');
-    assert(view.day_id == 0, 'Views: no tournament');
+    assert(view.day_id == 0, 'Views: no day');
     assert(view.end_time == 0, 'Views: no end time');
 }
 
@@ -337,94 +335,32 @@ fn test_views_builder_other_player() {
     daily_views(@systems).builder(context.game_id, SOMEONE().into());
 }
 
-// Tournament
+// The day (D-20: `current_day`, `GameView.day_id`; the `tournament` view is gone)
 
 #[test]
 #[available_gas(l2_gas: 197263000)]
-fn test_views_tournament_lifecycle() {
+fn test_views_current_day_and_the_day_of_a_game() {
     start_cheat_block_timestamp_global(3 * DAY + 100);
     let (store, systems, context) = setup::spawn_game(Mode::Daily);
-    let tournaments = ITournamentViewDispatcher {
-        contract_address: systems.daily.contract_address,
-    };
-    assert(tournaments.current_day() == 3, 'Views: current id');
-
-    // The prize is sponsor-only (P-31): the entry adds nothing, a sponsor does
-    assert(tournaments.tournament(3).prize == 0, 'Views: no entry in prize');
-    systems.daily.sponsor(2_000_000);
-    let view = tournaments.tournament(3);
-    let price: u256 = 2_000_000;
-    assert(view.id == 3, 'Views: id');
-    assert(view.start_time == 3 * DAY, 'Views: start');
-    assert(view.end_time == 4 * DAY, 'Views: end');
-    assert(!view.over, 'Views: running');
-    assert(view.prize == price, 'Views: prize');
-    assert(view.top1_player_id == 0, 'Views: no leader');
+    let days = IDailyViewDispatcher { contract_address: systems.daily.contract_address };
+    assert(days.current_day() == 3, 'Views: current day');
+    assert(daily_views(@systems).game(context.game_id).day_id == 0, 'Views: no day before end');
 
     build_two(store, @systems, context.game_id, context.player_id);
     systems.daily.surrender(context.game_id);
-    let score = store.game(context.game_id).score;
-    let view = tournaments.tournament(3);
-    assert(view.top1_player_id == context.player_id, 'Views: leader');
-    assert(view.top1_score == score, 'Views: leader score');
-    assert(!view.top1_claimed, 'Views: not claimed');
-    assert(view.top2_player_id == 0 && view.top2_score == 0, 'Views: no second');
-    assert(view.top3_player_id == 0 && view.top3_score == 0, 'Views: no third');
+    assert(daily_views(@systems).game(context.game_id).day_id == 3, 'Views: day of the game');
 
     start_cheat_block_timestamp_global(4 * DAY);
-    assert(tournaments.current_day() == 4, 'Views: next id');
-    assert(tournaments.tournament(3).over, 'Views: over');
-    systems.daily.claim(3, 1);
-    let view = tournaments.tournament(3);
-    assert(view.top1_claimed, 'Views: claimed');
-    assert(view.prize == price, 'Views: prize kept');
-}
-
-#[test]
-#[available_gas(l2_gas: 61081000)]
-fn test_views_tournament_empty_day() {
-    start_cheat_block_timestamp_global(3 * DAY + 100);
-    let (_, systems, _) = setup::spawn_game(Mode::None);
-    let view = ITournamentViewDispatcher { contract_address: systems.daily.contract_address }
-        .tournament(10);
-    assert(view.id == 10, 'Views: id');
-    assert(view.start_time == 10 * DAY && view.end_time == 11 * DAY, 'Views: window');
-    assert(!view.over, 'Views: future');
-    assert(view.prize == 0 && view.top1_player_id == 0, 'Views: empty');
-}
-
-#[test]
-#[available_gas(l2_gas: 61613000)]
-fn test_views_day_id_bounds() {
-    start_cheat_block_timestamp_global(3 * DAY + 100);
-    let (_, systems, _) = setup::spawn_game(Mode::None);
-    let tournaments = ITournamentViewDispatcher {
-        contract_address: systems.daily.contract_address,
-    };
-    // The last id: its end time is the last whole day that fits in a u64.
-    let view = tournaments.tournament(MAX_TOURNAMENT_ID);
-    assert(view.id == MAX_TOURNAMENT_ID, 'Views: max id');
-    assert(view.start_time == MAX_TOURNAMENT_ID * DAY, 'Views: max start');
-    assert(view.end_time == (MAX_TOURNAMENT_ID + 1) * DAY, 'Views: max end');
-    let max: u64 = 0xffffffffffffffff;
-    assert(max - view.end_time < DAY, 'Views: max is the last day');
-    // Beyond it: a zeroed view, no revert.
-    let view = tournaments.tournament(MAX_TOURNAMENT_ID + 1);
-    assert(view.id == MAX_TOURNAMENT_ID + 1, 'Views: beyond id');
-    assert(view.start_time == 0 && view.end_time == 0, 'Views: beyond window');
-    assert(!view.over && view.prize == 0, 'Views: beyond empty');
-    let view = tournaments.tournament(max);
-    assert(view.id == max && view.end_time == 0, 'Views: u64 max');
+    assert(days.current_day() == 4, 'Views: next day');
+    assert(daily_views(@systems).game(context.game_id).day_id == 3, 'Views: day kept');
 }
 
 #[test]
 #[available_gas(l2_gas: 117998000)]
 fn test_views_entry_price_equals_the_spawn_debit() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
-    let tournaments = ITournamentViewDispatcher {
-        contract_address: systems.daily.contract_address,
-    };
-    let price = tournaments.entry_price();
+    let days = IDailyViewDispatcher { contract_address: systems.daily.contract_address };
+    let price = days.entry_price();
     assert(price.token == context.token.contract_address, 'Views: price token');
     assert(price.amount > 0, 'Views: price amount');
 
@@ -467,7 +403,7 @@ fn test_views_events_keys_carry_the_player() {
             assert(keys.len() == 4, 'Views: over keys');
             assert(*keys.at(1) == game_id.into(), 'Views: over game key');
             assert(*keys.at(2) == player, 'Views: over player key');
-            assert(*keys.at(3) == 3, 'Views: over tournament key');
+            assert(*keys.at(3) == 3, 'Views: over day key');
             // Data: mode, score, start_time, end_time.
             let data = event.data.span();
             assert(data.len() == 4, 'Views: over data');

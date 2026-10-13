@@ -62,9 +62,7 @@ fn test_golden_daily_city5_game_over() {
         true,
         5,
         moves.span(),
-        GoldenOutcome {
-            score: 1122, built: 4, discarded: 0, tile_count: 5, over: true, top1_score: 1122,
-        },
+        GoldenOutcome { score: 1122, built: 4, discarded: 0, tile_count: 5, over: true },
     );
 }
 
@@ -79,9 +77,7 @@ fn test_golden_daily_road6() {
         true,
         0,
         moves.span(),
-        GoldenOutcome {
-            score: 689, built: 5, discarded: 0, tile_count: 7, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 689, built: 5, discarded: 0, tile_count: 7, over: false },
     );
 }
 
@@ -96,13 +92,11 @@ fn test_golden_daily_mixed_roles() {
         true,
         0,
         moves.span(),
-        GoldenOutcome {
-            score: 857, built: 4, discarded: 0, tile_count: 6, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 857, built: 4, discarded: 0, tile_count: 6, over: false },
     );
 }
 
-/// Real deck, no forced plan: pins the draw order of the seed (tournament day 3) through discards.
+/// Real deck, no forced plan: pins the draw order of the seed (day 3) through discards.
 #[test]
 #[available_gas(l2_gas: 186283000)]
 fn test_golden_daily_real_deck_discards_to_game_over() {
@@ -118,9 +112,7 @@ fn test_golden_daily_real_deck_discards_to_game_over() {
         false,
         8,
         moves.span(),
-        GoldenOutcome {
-            score: 0, built: 0, discarded: 7, tile_count: 8, over: true, top1_score: 0,
-        },
+        GoldenOutcome { score: 0, built: 0, discarded: 7, tile_count: 8, over: true },
     );
 }
 
@@ -137,9 +129,7 @@ fn test_golden_daily_city5_structures_agree() {
         true,
         5,
         city5_moves().span(),
-        GoldenOutcome {
-            score: 1122, built: 4, discarded: 0, tile_count: 5, over: true, top1_score: 1122,
-        },
+        GoldenOutcome { score: 1122, built: 4, discarded: 0, tile_count: 5, over: true },
     );
 }
 
@@ -153,9 +143,7 @@ fn test_golden_daily_road6_structures_agree() {
         true,
         0,
         road6_moves().span(),
-        GoldenOutcome {
-            score: 689, built: 5, discarded: 0, tile_count: 7, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 689, built: 5, discarded: 0, tile_count: 7, over: false },
     );
 }
 
@@ -169,9 +157,7 @@ fn test_golden_daily_mixed_roles_structures_agree() {
         true,
         0,
         mixed_moves().span(),
-        GoldenOutcome {
-            score: 857, built: 4, discarded: 0, tile_count: 6, over: false, top1_score: 0,
-        },
+        GoldenOutcome { score: 857, built: 4, discarded: 0, tile_count: 6, over: false },
     );
 }
 
@@ -190,8 +176,6 @@ fn test_golden_daily_real_deck_discards_to_game_over_structures_agree() {
         false,
         8,
         moves.span(),
-        GoldenOutcome {
-            score: 0, built: 0, discarded: 7, tile_count: 8, over: true, top1_score: 0,
-        },
+        GoldenOutcome { score: 0, built: 0, discarded: 7, tile_count: 8, over: true },
     );
 }
