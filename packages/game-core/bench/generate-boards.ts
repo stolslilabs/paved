@@ -35,6 +35,11 @@ export interface BoardFixture {
   /** Contract coordinates: x = offset + worldX, y = offset - worldZ. */
   center: number;
   tiles: TileData[];
+  /**
+   * Always empty (D-18): scripts/bench/mock-chain.ts still reads it for its `characters` view,
+   * until the chain change (PR 1) drops that view.
+   */
+  characters: never[];
 }
 
 function mulberry32(seed: number): () => number {
@@ -134,7 +139,7 @@ export function generateBoard(size: number, seed = BOARD_SEED): BoardFixture {
     push(plan, o, x, y);
   }
 
-  return { seed, size, center: offset, tiles };
+  return { seed, size, center: offset, tiles, characters: [] };
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
