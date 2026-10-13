@@ -124,6 +124,8 @@ export interface GameViews {
   currentDay(): Promise<number>;
   /** The Daily entry: token and amount, from the same source `spawn` uses. */
   entryPrice(): Promise<PriceView>;
+  /** `Setup.tutorial_claimed(player_id)`: the player's tutorial claim is made (D-21). A `not-configured` ViewError without Setup. */
+  tutorialClaimed(playerId: string): Promise<boolean>;
 }
 
 /** What the views need from starknet.js's `RpcProvider`. */
@@ -165,6 +167,10 @@ export class RpcGameViews implements GameViews {
     return (await this.call("Daily", "entry_price", [])) as PriceView;
   }
 
+  async tutorialClaimed(playerId: string): Promise<boolean> {
+    return (await this.call("Setup", "tutorial_claimed", [playerId])) as boolean;
+  }
+
   private async call(contract: ContractName, entrypoint: string, args: Encodable[]): Promise<unknown> {
     const contractAddress = this.deployment.addresses[contract];
     if (!contractAddress) throw new ViewError("not-configured", `${contract} address is not configured`);
@@ -198,6 +204,8 @@ export class FakeGameViews implements GameViews {
   readonly games = new Map<string, FakeGame>();
   today = 0;
   price: PriceView = { token: "0x4", amount: 10n ** 18n };
+  /** The players whose tutorial claim is made (`tutorial_claimed`), as BigInt. */
+  readonly tutorialClaims = new Set<bigint>();
   calls: string[] = [];
 
   setGame(key: GameKey, game: FakeGame): void {
@@ -228,6 +236,11 @@ export class FakeGameViews implements GameViews {
   async entryPrice(): Promise<PriceView> {
     this.calls.push("entry_price");
     return { ...this.price };
+  }
+
+  async tutorialClaimed(playerId: string): Promise<boolean> {
+    this.calls.push("tutorial_claimed");
+    return this.tutorialClaims.has(BigInt(playerId));
   }
 
   private get(key: GameKey): FakeGame {

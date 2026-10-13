@@ -24,6 +24,14 @@ describe("view types follow the ABIs of contracts/abis", () => {
     expect(Object.keys(ABIS).sort()).toEqual(["Account", "Daily", "Setup", "Token"]);
     expect(codecs.Setup.hasFunction("claim_tutorial")).toBe(true);
     expect(codecs.Setup.encodeCall("claim_tutorial", [])).toEqual([]);
+    // The claim's state is a view of Setup (step D): read before any write.
+    expect(codecs.Setup.encodeCall("tutorial_claimed", ["0xabc"])).toEqual(["0xabc"]);
+    expect(codecs.Setup.decodeResult("tutorial_claimed", ["0x1"])).toBe(true);
+    // The quests and achievements moved from Daily to Setup (D-24).
+    for (const fn of ["define_quest", "define_achievement", "set_reporter", "report"]) {
+      expect(codecs.Setup.hasFunction(fn), fn).toBe(true);
+      expect(codecs.Daily.hasFunction(fn), fn).toBe(false);
+    }
     for (const codec of Object.values(codecs)) {
       expect(JSON.stringify(codec.abi)).not.toMatch(/systems::tutorial|systems::lobby|ILobbyClass|tutoriable/i);
     }

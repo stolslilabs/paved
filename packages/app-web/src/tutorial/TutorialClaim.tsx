@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { usePaved, type WriteResult } from "@paved/chain";
+import { usePaved, useRead, type WriteResult } from "@paved/chain";
 import { useWallet } from "../components/WalletProvider";
 
 /** The task the claim credits: `TUTORIAL_FINISHED` (quests.md), which completes First Stone (achievement 1). */
@@ -9,7 +9,8 @@ export const TUTORIAL_TASK = 10;
 /**
  * The outcome of one `Setup.claim_tutorial()`. The call is idempotent (D-21, P-49): the first one emits
  * `AchievementProgressed { task 10, count 1 }` from Setup; a later one has no effect, no revert and no event. So the
- * receipt tells them apart: the event is a claim, its absence a claim made before.
+ * receipt tells them apart: the event is a claim, its absence a claim made before. The page reads
+ * `Setup.tutorial_claimed` first, so a claim made before is said without a transaction.
  */
 export function claimOutcome(result: WriteResult): "claimed" | "already-claimed" {
   const credited = result.events.some((e) => e.name === "AchievementProgressed" && Number(e.fields.taskId) === TUTORIAL_TASK);
@@ -31,10 +32,13 @@ const linkStyle = { color: "#f5f5f5" };
  * that the tutorial was played (P-49 (2)): the claim is the player's word.
  */
 export function TutorialClaimPage() {
-  const { status, writer, deployment } = usePaved();
+  const { status, writer, deployment, address } = usePaved();
   const wallet = useWallet();
   const [state, setState] = useState<ClaimState>({ kind: "idle" });
   const sent = useRef(false);
+  const hasSetup = status !== "not-configured" && !!deployment.addresses.Setup;
+  // Read before any write: a claim made before needs no transaction. Unreadable, the claim is still offered.
+  const claimed = useRead(hasSetup && address ? (client) => client.views.tutorialClaimed(address) : null, [hasSetup, address]);
 
   const claim = () => {
     if (!writer || sent.current) return;
@@ -51,7 +55,7 @@ export function TutorialClaimPage() {
   };
 
   let body: ReactNode;
-  if (status === "not-configured" || !deployment.addresses.Setup) {
+  if (!hasSetup) {
     body = (
       <p role="status" data-testid="claim-unavailable">
         The claim is not available on this network: it has no Setup contract.
@@ -80,12 +84,14 @@ export function TutorialClaimPage() {
         Claimed: First Stone is yours.
       </p>
     );
-  } else if (state.kind === "already-claimed") {
+  } else if (state.kind === "already-claimed" || (state.kind === "idle" && claimed.data === true)) {
     body = (
       <p role="status" data-testid="claim-already">
         Already claimed: this account had First Stone before. A claim counts once, so this one changed nothing.
       </p>
     );
+  } else if (state.kind === "idle" && !claimed.loaded && !claimed.error) {
+    body = <p role="status">Checking your claim...</p>;
   } else {
     body = (
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

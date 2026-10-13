@@ -4,10 +4,10 @@
 // claimed (no event: the call is idempotent).
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
-import { WriteError } from "@paved/chain";
+import { FakeGameViews, ViewError, WriteError } from "@paved/chain";
 import type { Deployment, WriteResult } from "@paved/chain";
 import { TutorialClaimPage, claimOutcome } from "../src/tutorial/TutorialClaim";
-import { configured, notConfigured, renderPage } from "./helpers/page-fixtures";
+import { PLAYER, configured, notConfigured, renderPage } from "./helpers/page-fixtures";
 
 const wallet = vi.hoisted(() => ({ current: null as null | { signer: string; connecting: boolean; error: string | null; connect: () => void } }));
 vi.mock("../src/components/WalletProvider", () => ({ useWallet: () => wallet.current }));
@@ -23,10 +23,11 @@ const CLAIMED: WriteResult = {
 };
 const ALREADY: WriteResult = { transactionHash: "0xc2", events: [] };
 
-function claimPage(opts: { claimTutorial?: ReturnType<typeof vi.fn>; account?: null; deployment?: Deployment } = {}) {
+function claimPage(opts: { claimTutorial?: ReturnType<typeof vi.fn>; account?: null; deployment?: Deployment; views?: FakeGameViews } = {}) {
   const claimTutorial = opts.claimTutorial ?? vi.fn(async () => CLAIMED);
-  renderPage({ page: <TutorialClaimPage />, path: "/tutorial/claim", writer: { claimTutorial }, account: opts.account, deployment: opts.deployment });
-  return { claimTutorial };
+  const views = opts.views ?? new FakeGameViews();
+  renderPage({ page: <TutorialClaimPage />, path: "/tutorial/claim", writer: { claimTutorial }, account: opts.account, deployment: opts.deployment, views });
+  return { claimTutorial, views };
 }
 
 describe("claimOutcome: the receipt tells a claim from a repeat", () => {
@@ -40,17 +41,27 @@ describe("claimOutcome: the receipt tells a claim from a repeat", () => {
 
 describe("Tutorial claim page", () => {
   it("claimed: one claim_tutorial() on the press, then First Stone is the player's", async () => {
-    const { claimTutorial } = claimPage();
+    const { claimTutorial, views } = claimPage();
     expect(claimTutorial).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByTestId("claim-button"));
+    fireEvent.click(await screen.findByTestId("claim-button"));
+    expect(views.calls).toEqual(["tutorial_claimed"]);
     expect((await screen.findByTestId("claim-claimed")).textContent).toBe("Claimed: First Stone is yours.");
     expect(claimTutorial).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId("claim-button")).toBeNull();
   });
 
-  it("already claimed: said plainly, the call is idempotent and changed nothing", async () => {
+  it("already claimed, read from Setup.tutorial_claimed: said plainly, and nothing is sent", async () => {
+    const views = new FakeGameViews();
+    views.tutorialClaims.add(BigInt(PLAYER));
+    const { claimTutorial } = claimPage({ views });
+    expect((await screen.findByTestId("claim-already")).textContent).toMatch(/^Already claimed/);
+    expect(screen.queryByTestId("claim-button")).toBeNull();
+    expect(claimTutorial).not.toHaveBeenCalled();
+  });
+
+  it("already claimed, found by the receipt (no event: the call is idempotent and changed nothing)", async () => {
     claimPage({ claimTutorial: vi.fn(async () => ALREADY) });
-    fireEvent.click(screen.getByTestId("claim-button"));
+    fireEvent.click(await screen.findByTestId("claim-button"));
     const text = (await screen.findByTestId("claim-already")).textContent!;
     expect(text).toMatch(/^Already claimed/);
     expect(text).toMatch(/counts once, so this one changed nothing/);
@@ -59,7 +70,7 @@ describe("Tutorial claim page", () => {
   it("a double press while the claim is in flight sends one call", async () => {
     let finish!: (r: WriteResult) => void;
     const { claimTutorial } = claimPage({ claimTutorial: vi.fn(() => new Promise<WriteResult>((r) => (finish = r))) });
-    const button = screen.getByTestId("claim-button");
+    const button = await screen.findByTestId("claim-button");
     fireEvent.click(button);
     fireEvent.click(button);
     expect(screen.getByTestId("claim-button").textContent).toBe("Claiming...");
@@ -72,11 +83,22 @@ describe("Tutorial claim page", () => {
   it("refused: the reason, and the claim may be tried again", async () => {
     const claimTutorial = vi.fn().mockRejectedValueOnce(new WriteError("Transaction reverted", "0xbad", true)).mockResolvedValueOnce(CLAIMED);
     claimPage({ claimTutorial });
-    fireEvent.click(screen.getByTestId("claim-button"));
+    fireEvent.click(await screen.findByTestId("claim-button"));
     expect((await screen.findByTestId("claim-refused")).textContent).toBe("The claim was refused: Transaction reverted");
     fireEvent.click(screen.getByTestId("claim-button"));
     await screen.findByTestId("claim-claimed");
     expect(claimTutorial).toHaveBeenCalledTimes(2);
+  });
+
+  it("an unreadable claim state still offers the claim", async () => {
+    const views = new FakeGameViews();
+    views.tutorialClaimed = async () => {
+      throw new ViewError("rpc", "node down");
+    };
+    const { claimTutorial } = claimPage({ views });
+    fireEvent.click(await screen.findByTestId("claim-button"));
+    await screen.findByTestId("claim-claimed");
+    expect(claimTutorial).toHaveBeenCalledTimes(1);
   });
 
   it("no wallet: says so, sends nothing, and offers the controller's Connect", async () => {

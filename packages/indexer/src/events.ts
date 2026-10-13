@@ -216,6 +216,9 @@ export const IGNORED = [
   // The owner's change of the Lobby class of Daily or Tutorial (P-42, set_lobby_class). Past events only: D-24 removed
   // the Lobby class and its setter.
   "LobbyClassSet",
+  // The owner's wiring of Daily to Setup (D-24, `Daily.set_setup`): where Daily reports; the indexer reads Setup's address
+  // from the deployment file.
+  "SetupSet",
 ] as const;
 
 /**
