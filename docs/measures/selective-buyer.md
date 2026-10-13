@@ -191,6 +191,10 @@ So about 0.13 of the 0.60 is the difference between the two samples: the 360 new
 average. The other 0.47 is skill. Either way, this edge is the game working as designed, and a VRF does not
 change it. Knowing the deck adds the **selection** column on top of it.
 
+Model estimates (PM request, 2026-10-13): the `c` that brings the blind greedy bot to E[h] 0.9 is 0.804
+(`slope_bps` 8,037) on the 50 calibration decks, or 0.733 (7,329) on the 410. The mix then falls to 0.59 or
+0.54.
+
 **Normal traffic** (the buyer is a small share of the purchases; the mean is held or barely moved).
 
 - Buying only the decks at or above the bot's median adds +0.60 to `h` (2.10 against 1.50).
