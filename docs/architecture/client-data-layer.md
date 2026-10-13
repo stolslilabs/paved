@@ -71,13 +71,13 @@ client does not follow fails the tests. A result with felts left over, or too fe
 integers are range-checked before they are encoded; an event with a field type the codec does not
 know is skipped and logged, so ABI growth cannot break a receipt or an event page. A unit enum
 decodes to its variant index, and an index the bundled ABI does not list (a variant added by a later
-contract version, e.g. a role in P4) decodes to a **bare number**, only for an enum whose listed variants are all unit variants (an
+contract version, e.g. a plan or a mode added later) decodes to a **bare number**, only for an enum whose listed variants are all unit variants (an
 unknown variant of an enum with a payload variant could carry felts of unknown length: the codec
 throws); the consumer must handle a code it does not know (treat it as "unknown"), as `public-interface.md` says.
 
 Writes go through a starknet.js `Account` (`client.writer(account, { tip })`, a `PavedWriter`): `create`, `spawn`
 (Daily: `approve` + `spawn` in one multicall), `build`, `discard`, `surrender`, `claim`, `sponsor`,
-`mint` (test token). The seven roles (Woodsman 6 and Herdsman 7 since P4) are listed in the role picker, with their art from `packages/app-web/public/assets` (real files of the package, kept to the ones the packages load; `__tests__/public-assets.test.ts` fails when a path used in code is missing). Each write waits for its own receipt and returns its decoded events: the one
+`mint` (test token). After D-18 (characters leave the game) `build` takes a tile, an orientation and a position, with no role and no spot, and there is no role picker; the chain and UI changes land in D-18 PR 1 (chain) and PR 2 (UI, renderer, app-web). Art from `packages/app-web/public/assets` stays limited to real files of the package, kept to the ones the packages load (`__tests__/public-assets.test.ts` fails when a path used in code is missing). Each write waits for its own receipt and returns its decoded events: the one
 request repeated while a transaction is pending, every 250 ms (`RECEIPT_POLL_MS`; starknet.js waits
 5 s by default), and only until that receipt arrives. The writer takes an explicit `tip` (0 on
 devnet: starknet.js 8.9's tip estimate wants 10 V3 transactions per block and stalls a fresh node). Sepolia, like every
@@ -158,7 +158,7 @@ the Dojo burner manager (`@dojoengine/create-burner`).
 ## Views
 
 The views sit behind one interface, `GameViews` (`views.ts`): `game`, `tiles` (pages of 64 until a
-short page), `builder`, `characters`, `tournament`, `currentTournamentId`. `RpcGameViews` calls the
+short page), `builder`, `tournament`, `currentTournamentId`. `RpcGameViews` calls the
 contracts; `FakeGameViews` holds games in memory for unit tests of the app.
 
 Every game read names its contract: game ids are counted per contract, so the client's game key is
@@ -223,14 +223,13 @@ Landing lists the days where the account may take back its part of a prize nobod
 | Player screen: quests and achievements | indexer `playerQuests`, `playerAchievements` (not `definitions`), same day rules | on open, when the page becomes visible, on a day change |
 | Game: board | `tiles(game_id, 0, 64)` | on open |
 | Game: tile in hand, score, counts, over | `game(game_id)` | on open, after each write (reconcile) |
-| Game: characters | `builder` + `characters(game_id, player)` | on open, after each write (reconcile) |
+| Game: tile in hand (builder) | `builder(game_id, player)`: `game_id`, `player_id`, `tile_id`, `plan` (four fields; the two counters and the `characters` view are gone with D-18) | on open, after each write (reconcile) |
 | Game: placement shown | receipt events `Built`, `Scored`, `Discarded`, `GameOver` | when the receipt arrives |
 
 A placement is shown in three stages: the tile is drawn at once as pending (local state); when the
-receipt arrives, its `Built` event confirms the tile (plan, orientation, position, character),
+receipt arrives, its `Built` event confirms the tile (plan, orientation, position: a move is a tile, an orientation and a position),
 `Scored` adds points and `GameOver` ends the game, without re-reading the board; then one
-`game` + `builder` + `characters` read reconciles the score, the next tile and the characters
-(a solved structure gives its characters back, which no event lists). The board is not read again.
+`game` + `builder` read reconciles the score and the next tile. The points a move scored show from its receipt's `Scored` events (one per closed structure, even at 0 points; a forest gives one, with its closed roads plus its closed cities). The board is not read again.
 
 Why no polling: a game is single-player and only its player can write it (`native-storage.md`,
 access control), so its state changes only through the client's own transactions, whose receipts
@@ -460,8 +459,7 @@ against a real controller or network.
 `PavedProvider` (`react.tsx`) gives the client, the writer and a status computed once from
 `configured` and the account: `not-configured`, `read-only` (no account) or `ready`. `useRead` runs
 one read on its inputs, on `refresh` and, when asked, when the page becomes visible. The game page
-uses `GameSession` (`session.ts`) through `useGameSession`: it loads `game` + `tiles` (+ `builder` and
-`characters` for the game's player), and moves only on this client's writes, as above. The scene draws the last tiles and characters it was given once its models are loaded, so the
+uses `GameSession` (`session.ts`) through `useGameSession`: it loads `game` + `tiles` (+ `builder` for the game's player), and moves only on this client's writes, as above. The scene draws the last tiles it was given once its models are loaded, so the
 game page no longer re-sends the board on scene ready. A read that
 fails after a successful write is a `readError` ("Move applied; refresh failed"), not a write error.
 

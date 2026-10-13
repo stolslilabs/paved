@@ -40,7 +40,7 @@ figures of the new layer wait for the Mac.
 2026-10-07, game flows (t-0028): the game page says "Spawning game..." (Back disabled) while a paid start
 is in flight (#211); surrender with a confirm, claiming a Daily prize and sponsoring (each with an
 explicit confirm and the amount re-checked at send), a player-name field, the `D` hotkey following the
-discard button, Woodsman and Herdsman (P4) in the role picker, and the scene redrawing its last board
+discard button, the role picker (since D-18 it is gone: characters leave the game, in three PRs: PR 1 chain, PR 2 UI, renderer and app-web, PR 3 tutorial, quest 3 and these docs), and the scene redrawing its last board
 after init (the app's workaround is gone). Page-level tests of the Game and Landing states.
 
 2026-10-07, D-7: client performance work is dropped and the CLIENT targets (P-7b) are frozen at #195's figures
@@ -122,7 +122,7 @@ older answer parses as no NFT). The codec decodes `ByteArray`. jsdom tests only;
 
 2026-10-10, economy end to end with a positive reward (t-0081): the devnet e2e (`PAVED_E2E=1`) passes 18 of 18 on a fresh node (VPS,
 12 min 41 s, peak 240,104 kB). alice plays with a search player (`packages/chain/test/daily-player.ts`: every candidate run with
-`starknet_simulateTransactions`, a character only on the move that closes its structure) and scores 9,084 on day 20738, above the
+`starknet_simulateTransactions`, a character only on the move that closes its structure: character strategy, before D-18; re-measured after PR 1) and scores 9,084 on day 20738, above the
 threshold of 3,455.877: her settlement mints 1,566.39 PAVED, equal in the `Settled` event, `terms.reward`, her balance and
 `R x h(score / mean)`; the naive games (1,257) get 0. The Vault step stakes a test account's own 1,000 PAVED and claims the dividends
 of a later purchase (3,125 USDC base units, equal to `pending`). Details: `docs/architecture/client-economy.md`.

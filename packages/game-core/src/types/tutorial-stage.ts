@@ -7,8 +7,6 @@ type MarkedTileTextPosition = { x: number; y: number };
 
 type PresetTransaction = {
   orientation?: number;
-  role?: number;
-  spot?: number;
   tile_id: number;
   x: number;
   y: number;
@@ -65,19 +63,15 @@ export const TUTORIAL_STAGES = [
     { x: -3, y: 0 },
     {
       orientation: 1,
-      role: 3,
-      spot: 5,
       tile_id: 2,
       x: 2147483646,
       y: 2147483647,
     },
     new Map([
       ["tile-ingame", "Click the highlighted square to place the tile"],
-      ["adventurer-button", "Select the Adventurer"],
-      ["tile-preview", "Place the Adventurer on the road east"],
       ["confirm-button", "Click the Confirm button to pave the tile"],
     ]),
-    "FADED TILE AND HIGHLIGHTED AREAS FOR TUTORIAL PURPOSES ONLY. PLEASE FOLLOW INSTRUCTIONS TO MOVE TO THE NEXT STEPS.",
+    "FADED TILE AND HIGHLIGHTED AREAS FOR TUTORIAL PURPOSES ONLY. PLEASE FOLLOW INSTRUCTIONS TO MOVE TO THE NEXT STEPS. EVERY ROAD, CITY, FOREST AND WONDER SCORES WHEN IT CLOSES.",
     1,
     { x: -0.85, y: 0 },
   ),
@@ -85,19 +79,15 @@ export const TUTORIAL_STAGES = [
     { x: -3, y: -3 },
     {
       orientation: 2,
-      role: 4,
-      spot: 1,
       tile_id: 3,
       x: 2147483646,
       y: 2147483646,
     },
     new Map([
       ["tile-ingame", "Click the highlighted square to place the tile"],
-      ["paladin-button", "Select the Paladin"],
-      ["tile-preview", "Place the Paladin within the center of the city"],
       ["confirm-button", "Click the Confirm button to pave the tile"],
     ]),
-    "CERTAIN CHARACTERS SCORE BONUSES FOR CERTAIN STRUCTURES, CHOOSE WISELY TO MAXIMISE YOUR SCORE.",
+    "A STRUCTURE IS CLOSED WHEN NOTHING AROUND IT IS LEFT OPEN. LONGER STRUCTURES SCORE MORE WHEN THEY CLOSE.",
     2,
     { x: -0.85, y: 0 },
   ),
@@ -105,8 +95,6 @@ export const TUTORIAL_STAGES = [
     { x: -3, y: -6 },
     {
       orientation: 2,
-      role: 0,
-      spot: 0,
       tile_id: 4,
       x: 2147483646,
       y: 2147483645,
@@ -116,10 +104,10 @@ export const TUTORIAL_STAGES = [
       ["rotate-button", "Rotate the tile to match example placement"],
       [
         "confirm-button",
-        "Confirm tile placement to close the structure and score your Paladin's points",
+        "Confirm tile placement to close the city and score it",
       ],
     ]),
-    "CHARACTERS WILL BE GREYED OUT WHEN IN USE AND A MARKER IS DISPLAYED ON THE GAME BOARD.",
+    "THIS TILE CLOSES THE CITY: IT SCORES AS SOON AS YOU CONFIRM.",
     3,
     { x: -0.85, y: 0 },
   ),
@@ -127,19 +115,15 @@ export const TUTORIAL_STAGES = [
     { x: 0, y: -3 },
     {
       orientation: 4,
-      role: 5,
-      spot: 1,
       tile_id: 5,
       x: 2147483647,
       y: 2147483646,
     },
     new Map([
       ["tile-ingame", "Click the highlighted square to place the tile"],
-      ["pilgrim-button", "Select the Pilgrim"],
-      ["tile-preview", "Place the Pilgrim within the wonder"],
       ["confirm-button", "Click the Confirm button to pave the tile"],
     ]),
-    "BE SURE TO USE YOUR CHARACTERS WISELY, YOU MAY FIND YOU PLAY THEM TOO EARLY AND MISS OUT ON UPCOMING STRUCTURES.",
+    "A WONDER SCORES WHEN ALL EIGHT TILES AROUND IT ARE PLACED.",
     4,
     { x: 0.85, y: 0 },
   ),
@@ -147,8 +131,6 @@ export const TUTORIAL_STAGES = [
     { x: 0, y: -6 },
     {
       orientation: 2,
-      role: 4,
-      spot: 9,
       tile_id: 6,
       x: 2147483647,
       y: 2147483645,
@@ -156,11 +138,9 @@ export const TUTORIAL_STAGES = [
     new Map([
       ["tile-ingame", "Click the highlighted square to place the tile"],
       ["rotate-button", "Rotate the tile to match example placement"],
-      ["paladin-button", "Select the Paladin"],
-      ["tile-preview", "Place the Paladin on the road to the west"],
       ["confirm-button", "Click the Confirm button to pave the tile"],
     ]),
-    "",
+    "A ROAD SCORES WHEN BOTH ITS ENDS ARE CLOSED.",
     1,
     { x: 0.85, y: 0 },
   ),
@@ -168,19 +148,15 @@ export const TUTORIAL_STAGES = [
     { x: 3, y: -6 },
     {
       orientation: 1,
-      role: 2,
-      spot: 3,
       tile_id: 7,
       x: 2147483648,
       y: 2147483645,
     },
     new Map([
       ["tile-ingame", "Click the highlighted square to place the tile"],
-      ["lady-button", "Select the Lady"],
-      ["tile-preview", "Place the Lady on the road north"],
       ["confirm-button", "Click the Confirm button to pave the tile"],
     ]),
-    "",
+    "A FOREST SCORES WHEN IT CLOSES: ITS CLOSED ROADS AND CLOSED CITIES COUNT.",
     1,
     { x: 0.85, y: 0 },
   ),
@@ -188,8 +164,6 @@ export const TUTORIAL_STAGES = [
     { x: 3, y: -3 },
     {
       orientation: 2,
-      role: 0,
-      spot: 0,
       tile_id: 8,
       x: 2147483648,
       y: 2147483646,
@@ -207,8 +181,6 @@ export const TUTORIAL_STAGES = [
     { x: 3, y: 0 },
     {
       orientation: 4,
-      role: 0,
-      spot: 0,
       tile_id: 9,
       x: 2147483648,
       y: 2147483647,
