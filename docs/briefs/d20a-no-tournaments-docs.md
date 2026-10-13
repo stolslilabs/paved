@@ -299,3 +299,90 @@ PR body additions:
 - "For META" and "For CLIENT": the renames, and the `sepolia.json` keys.
 
 Everything else in the brief holds. Plain pushes, never rebase. Do not merge.
+
+## Addendum: D-24
+
+Third addendum to this task, from the PM, 2026-10-13. Fold one more owner decision into this same docs PR. Retitle
+it `docs: D-20 to D-24, tournaments and the on-chain tutorial leave, Challenge, a quest system (decisions, inventory,
+ABI diff)`.
+
+### The decision (owner, via the PM, 2026-10-13)
+
+**D-24.**
+- The system is renamed Challenge too. That was already in D-23, P-50 ruling 1.
+- Lobby is scoped exclusively to creating a lobby and to multiplayer play.
+- Quests and achievements become one or more separate systems, transverse to the game modes.
+
+**P-51, the PM's rulings:**
+1. **Today's `Lobby` library class** (the cold paths of `Daily` and `Tutorial`) stops being "Lobby":
+   - `spawn`, `discard` and `surrender` go back into Challenge, or into a library under another name if Challenge's
+     CASM needs it;
+   - `claim` and `sponsor` go (D-20), and `tutorial_*` goes (D-21);
+   - `report` and the quest and achievement definitions move to the new system or systems.
+2. **The name Lobby is reserved for multiplayer:** creating a lobby and playing multiplayer games. No Lobby contract
+   is built before the multiplayer mode is planned. The D-19 seat stays as it is.
+3. **Quests and achievements:** one or two systems, CORE's call by CASM and clarity.
+   - Authorized mode contracts (Challenge now, multiplayer later) report progress to them through an owner-set
+     allowlist.
+   - The player calls the D-21 tutorial claim there directly. **This replaces the D-21 "claim host" question** of the
+     first addendum: the claim lives in the new system. Drop the Daily-or-Account comparison, or keep it in one line
+     as superseded.
+   - The owner-only definitions live there.
+   - Training reports nothing.
+   - The quiver components move with them.
+4. Challenge stays under the P-44 cap, measured after the code moves back.
+5. **Sepolia:** the new system or systems are deployed in the same later upgrade (test network, deployer account).
+   Past progress is not migrated: it is test data. The indexer follows the new contract's events in CLIENT's W1.
+6. **An audit with a security lens** on the access control of the progress reports: who may report for whom.
+
+### What to add
+
+1. **DECISIONS.md:** rows D-24 (who: "owner, via the PM"; reversed by "The owner merges quests back into the modes or
+   widens Lobby") and P-51 (rulings 1 to 6, condensed; who: "PM"; reversed by "A measurement of Challenge's CASM, or
+   a contract fact"). Mark the rows that created the Lobby library split (P-42, class-headroom option (e), and the
+   others found) "(scope changed by D-24)" where it applies. Delete none.
+2. **The Lobby inventory**, in a section "D-24: Lobby's cold paths and a quest system (planned)" of the note. Cite
+   each item to file:line.
+   - **Every entry point and internal path of today's `Lobby` class** (`systems/lobby.cairo`), and where each one
+     goes: back to Challenge; gone with D-20 or D-21; to the quest system.
+   - **How `Daily` and `Tutorial` reach `Lobby` today:** `library_call_syscall`, `lobby_class`, `set_lobby_class`.
+     What goes with it once the cold paths return, and what stays dead under P-42: the `lobby_class` slot.
+   - **Challenge's CASM after the move back: a projection only**, from `class-headroom.md`'s figures and today's
+     sizes (Daily 53,418 after D-18 and about 58,300 with D-19b; `Lobby`'s own size). Subtract what D-20 and D-21
+     remove. Say whether `spawn`, `discard` and `surrender` are likely to fit under 72,947, or whether a library
+     under another name is likely needed. The implementation measures.
+   - **The quest and achievement code today:** the quiver `QuestComponent` and `AchievementComponent`, the `report`
+     path, the owner-only definitions (`IDailyQuests`), their storage and their events. Also say where the progress
+     is computed during a move: Daily's build path calls something on every move. The new system receives a call
+     from a mode contract: what does that call carry, and how often per move?
+3. **The quest system's design (ruling 3), recommended:**
+   - **One system or two** (quests and achievements). Recommend by CASM and clarity.
+   - **The reporting interface:** what a mode contract calls, its arguments (player, quest or task id, amount), and
+     the event emitted.
+   - **The allowlist:** the owner sets which contracts may report. A reporter may report only for its own game's
+     player. Say how the system knows that, or whether it trusts the reporter for whom (the audit's question,
+     ruling 6).
+   - **The tutorial claim:** the player calls it, it is idempotent with one flag per player, and it emits the
+     achievement's progress.
+   - **The definitions:** owner-only.
+   - **The cost on a Challenge move:** an extra external call per move, or batched at game end? The cost per move
+     matters, since every move pays it. Recommend.
+   - **Storage:** fresh in the new contract; Daily's quest storage is left dead (P-42).
+   - **Events** the indexer will follow: names and layouts, old against new.
+4. **public-interface.md, "Breaking change D-24":**
+   - the entry points and views that leave `Daily` for the quest system, or leave `Lobby`;
+   - the quest system's planned ABI;
+   - the `Lobby` class's end: no Lobby contract until multiplayer.
+   Keep the earlier sections.
+5. **quests.md:** the quests and achievements live in the new system. Name who reports: Challenge, never Training.
+   The tutorial claim is there.
+
+PR body additions:
+- "D-24 inventory";
+- "Quest system: one or two, and the reporting interface";
+- "Challenge's CASM after the move back (projection)";
+- "Who may report for whom" (the audit's question);
+- "For META": the new contract's events;
+- "For CLIENT": the claim and the views that move.
+
+Everything else in the brief holds. Plain pushes, never rebase. Do not merge.
