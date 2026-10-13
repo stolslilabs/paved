@@ -14,6 +14,7 @@ import {
   toSources,
   transcribe,
 } from "../scripts/transcribe-goldens";
+import { FROZEN_TUTORIAL_GAME } from "../scripts/tutorial-golden.frozen";
 import { PARITY_FIXTURE, loadParityFixture, replayParityGame } from "./parity-fixture";
 
 const fixture = loadParityFixture(PARITY_FIXTURE);
@@ -35,6 +36,25 @@ describe("engine parity fixture", () => {
       expect(names).toContain(name);
     }
     expect(fixture.games.filter((game) => game.source === "differential").length).toBeGreaterThan(0);
+  });
+});
+
+describe("the frozen Tutorial golden (D-21: its Cairo sources left at 38f1c95)", () => {
+  const score = FROZEN_TUTORIAL_GAME.outcome.score;
+
+  it("is the fixture's tutorial_full and replays on the engine to its exact score", () => {
+    expect(score).toBe(2794);
+    const game = fixture.games.find((entry) => entry.name === "tutorial_full");
+    expect(game?.source).toBe("tutorial");
+    expect(game?.final).toEqual({ score, built: 8, discarded: 1, tile_count: 10, over: true });
+    const { engine } = replayParityGame(game!);
+    expect(engine.score).toBe(score);
+    expect(engine.over).toBe(true);
+  });
+
+  it("is the score U1's off-chain /tutorial page test ends on", () => {
+    const page = readRepository("packages/app-web/__tests__/tutorial-page.test.tsx");
+    expect(page).toContain(`toBe("Final score: ${score}")`);
   });
 });
 

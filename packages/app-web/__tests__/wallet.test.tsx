@@ -11,7 +11,7 @@ import { resolveAppNetwork } from "../src/utils/network";
 
 const SEPOLIA = "0x534e5f5345504f4c4941";
 const ENTRY = 25n;
-const CONTRACTS = { Account: { address: "0x1" }, Daily: { address: "0x2" }, Tutorial: { address: "0x3" }, Token: { address: "0x4" } };
+const CONTRACTS = { Account: { address: "0x1" }, Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } };
 const FILES = {
   "x/devnet.json": { default: { rpc_url: "http://devnet/rpc", contracts: CONTRACTS } },
   "x/sepolia.json": { default: { rpc_url: "http://sepolia/rpc", chain_id: SEPOLIA, contracts: CONTRACTS } },

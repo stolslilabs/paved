@@ -1,6 +1,6 @@
 import type { GameMode } from "@paved/chain";
 
-/** The chain's modes, and Training: the free off-chain mode of the same route (it has no game id, no wallet, no chain). */
+/** The chain's mode (Daily), and Training: the free off-chain mode of the same route (it has no game id, no wallet, no chain). */
 export type RouteMode = GameMode | "training";
 
 /** `/game?mode=..&id=..` shows a game. Starting one is not a URL: see `start-game.ts`. `/game?mode=training` plays Training. */
@@ -11,8 +11,9 @@ export function buildGameRoute(params: { gameId?: number; mode: RouteMode; reado
   return `/game?${search.toString()}`;
 }
 
-export function modeFromParam(mode: string | null | undefined): GameMode {
-  return mode === "tutorial" ? "tutorial" : "daily";
+/** Daily, whatever the param says: the on-chain Tutorial left (D-21), and the tutorial is the off-chain `/tutorial` page. */
+export function modeFromParam(_mode: string | null | undefined): GameMode {
+  return "daily";
 }
 
 /** True for `?mode=training`: the page plays the off-chain engine and reads nothing from the chain. */

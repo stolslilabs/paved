@@ -18,10 +18,9 @@ import { replay } from "./replay";
 const record = recordJson as unknown as Recording;
 const deployment = resolveDeployment({
   network: "devnet",
-  env: { rpcUrl: "http://replay", addresses: record.addresses as Record<"Account" | "Daily" | "Tutorial" | "Token", string> },
+  env: { rpcUrl: "http://replay", addresses: record.addresses as Record<"Account" | "Daily" | "Token", string> },
 });
 const player = record.player!;
-const tutorial: GameKey = { mode: "tutorial", gameId: 1 };
 const daily: GameKey = { mode: "daily", gameId: 1 };
 
 function client() {
@@ -45,24 +44,12 @@ function account(hashes: string[]): WriteAccount & { sent: Call[][] } {
 }
 
 describe("views on recorded answers", () => {
-  test("game of a finished tutorial", async () => {
-    const game = await client().client.views.game(tutorial);
-    expect(game).toMatchObject({ id: 1, mode: 3, over: true, tileCount: 10, placedCount: 9, discardedCount: 1, tileId: 0, plan: 0, deckSize: 10 });
+  // The recording's views of a game were of the on-chain Tutorial, which left (D-21); a Daily game's view is read below.
+  test("game of a Daily game", async () => {
+    const game = await client().client.views.game(daily);
+    expect(game).toMatchObject({ id: 1, mode: 1 });
     expect(BigInt(game.playerId)).toBe(BigInt(player));
-    expect(game.score).toBeGreaterThan(0);
-  });
-
-  test("tiles of a fresh tutorial game: the starter tile and the tile in hand", async () => {
-    const tiles = await client().client.views.tiles(tutorial);
-    // The recording holds the last `tiles` answer: the finished game, one page.
-    expect(tiles).toHaveLength(10);
-    expect(tiles[0]).toMatchObject({ id: 1, status: 1, x: 0x7fffffff, y: 0x7fffffff });
-    expect(tiles.map((t) => t.id)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-  });
-
-  test("builder of the player", async () => {
-    const { client: c } = client();
-    expect(await c.views.builder(tutorial, player)).toMatchObject({ gameId: 1, tileId: expect.any(Number), plan: expect.any(Number) });
+    expect(game.dayId).toBeGreaterThan(20000);
   });
 
   test("the current day (`current_day`, recorded as `current_tournament_id` before D-20: same value)", async () => {
@@ -89,14 +76,12 @@ describe("event reader on recorded events", () => {
     const games = await c.events.playerGames(player);
     expect(games).toEqual(
       expect.arrayContaining([
-        // Tutorial's GameSpawned gives day_id 0 since #205 (no client workaround).
-        expect.objectContaining({ mode: "tutorial", gameId: 1, over: true, dayId: 0, countedDayId: 0 }),
         expect.objectContaining({ mode: "daily", gameId: 1, over: true }),
       ]),
     );
-    expect(games).toHaveLength(2);
-    // Four reads: GameSpawned and GameOver on each game contract.
-    expect(provider.asked.filter((a) => a === "getEvents")).toHaveLength(4);
+    expect(games).toHaveLength(1);
+    // Two reads: GameSpawned and GameOver on Daily, the one game contract (the on-chain Tutorial left, D-21).
+    expect(provider.asked.filter((a) => a === "getEvents")).toHaveLength(2);
   });
 
   test("the filter puts the player in the second key of GameSpawned", () => {
@@ -108,37 +93,8 @@ describe("event reader on recorded events", () => {
 
 describe("writer on recorded receipts", () => {
   // The receipts were recorded from a pre-E3 devnet and cannot be re-recorded here (no devnet runs on this machine). The
-  // Tutorial is unchanged by E3, so its recorded spawn is still the real shape; the paid Daily spawn is built from the
-  // committed ABI in `economy.test.ts` ("purchase": approve + spawn(stake, referrer, min_out) in one multicall).
-  test("the Tutorial spawn returns the game id from GameSpawned and sends the free spawn alone", async () => {
-    const { client: c } = client();
-    const acc = account([record.receipts.spawnTutorial]);
-    const result = await c.writer(acc).spawn("tutorial");
-    expect(result.gameId).toBe(1);
-    expect(acc.sent[0].map((call) => [BigInt(call.contractAddress), call.entrypoint, call.calldata])).toEqual([[BigInt(deployment.addresses.Tutorial), "spawn", []]]);
-  });
-
-  test("a Daily game is not spawned by the plain writer: nothing is sent", async () => {
-    const { client: c } = client();
-    const acc = account([record.receipts.spawnDaily]);
-    await expect(c.writer(acc).spawn("daily")).rejects.toThrow(/economy writer/);
-    expect(acc.sent).toHaveLength(0);
-  });
-
-  test("a tutorial build: Built, then the last one ends the game with GameOver", async () => {
-    const { client: c } = client();
-    const writer = c.writer(account([record.receipts.buildTutorial, record.receipts.lastBuildTutorial]));
-    const first = placementOutcome((await writer.build(tutorial, { orientation: 0, x: 0, y: 0 })).events, 1);
-    expect(first.built).toMatchObject({ tileId: 2 });
-    expect(first.built!.orientation).toBeGreaterThan(0);
-    expect(first.over).toBeNull();
-
-    const last = placementOutcome((await writer.build(tutorial, { orientation: 0, x: 0, y: 0 })).events, 1);
-    expect(last.built).toMatchObject({ tileId: 10 });
-    expect(last.over?.score).toBe((await c.views.game(tutorial)).score);
-    expect(last.over?.dayId).toBe(0);
-  });
-
+  // paid Daily spawn is built from the committed ABI in `economy.test.ts` ("purchase": approve + spawn(stake, referrer,
+  // min_out) in one multicall); the recorded Tutorial receipts left with the Tutorial (D-21).
   test("discard and surrender of a Daily game", async () => {
     const { client: c } = client();
     const writer = c.writer(account([record.receipts.discardDaily, record.receipts.surrenderDaily]));
@@ -146,14 +102,11 @@ describe("writer on recorded receipts", () => {
     expect(placementOutcome((await writer.surrender(daily)).events, 1).over).not.toBeNull();
   });
 
-  test("Tutorial build sends the game id only; Daily build sends the move", async () => {
+  test("a Daily build sends the game id and the move", async () => {
     const { client: c } = client();
-    const acc = account([record.receipts.buildTutorial, record.receipts.buildTutorial]);
-    const writer = c.writer(acc);
-    await writer.build(tutorial, { orientation: 1, x: 2, y: 3 });
-    await writer.build(daily, { orientation: 1, x: 2, y: 3 });
-    expect(acc.sent[0][0].calldata).toEqual(["0x1"]);
-    expect(acc.sent[1][0].calldata).toEqual(["0x1", "0x1", "0x2", "0x3"]);
+    const acc = account([record.receipts.discardDaily]);
+    await c.writer(acc).build(daily, { orientation: 1, x: 2, y: 3 });
+    expect(acc.sent[0][0].calldata).toEqual(["0x1", "0x1", "0x2", "0x3"]);
   });
 
   test("a reverted receipt is a WriteError with its reason", async () => {

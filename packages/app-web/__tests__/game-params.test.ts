@@ -6,8 +6,8 @@ const parse = (q: string) => parseGameParams(new URLSearchParams(q));
 
 describe("parseGameParams", () => {
   it("reads mode, id and readonly", () => {
-    expect(parse("mode=tutorial&id=42&readonly=true")).toEqual({
-      mode: "tutorial",
+    expect(parse("mode=daily&id=42&readonly=true")).toEqual({
+      mode: "daily",
       gameId: 42,
       invalidId: false,
       readonly: true,
@@ -31,11 +31,12 @@ describe("parseGameParams", () => {
     }
   });
 
-  it("reads weekly, gone since P1, as daily", () => {
+  it("reads weekly, gone since P1, and the on-chain tutorial, gone since D-21, as daily", () => {
     expect(parse("mode=weekly").mode).toBe("daily");
+    expect(parse("mode=tutorial&id=4").mode).toBe("daily");
   });
 
   it("round-trips the routes of the landing page", () => {
-    expect(parseGameParams(new URLSearchParams(buildGameRoute({ mode: "tutorial", gameId: 9 }).split("?")[1]))).toMatchObject({ gameId: 9 });
+    expect(parseGameParams(new URLSearchParams(buildGameRoute({ mode: "daily", gameId: 9 }).split("?")[1]))).toMatchObject({ gameId: 9 });
   });
 });

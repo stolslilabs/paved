@@ -24,7 +24,6 @@ pub mod elements {
         pub mod base;
         pub mod interface;
         pub mod simple;
-        pub mod tutorial;
     }
 
     pub mod layouts {
@@ -78,7 +77,6 @@ pub mod components {
     pub mod ownable;
     pub mod payable;
     pub mod playable;
-    pub mod tutoriable;
 }
 
 pub mod systems {
@@ -87,9 +85,8 @@ pub mod systems {
     pub mod daily;
     pub mod economy;
     pub mod faucet;
-    pub mod lobby;
+    pub mod setup;
     pub mod token;
-    pub mod tutorial;
     pub mod vault;
 }
 

@@ -425,8 +425,8 @@ mod tests {
     }
 
     #[test]
-    fn test_draw_from_bitmap_exhaustive_tutorial_size() {
-        // The Tutorial deck has 10 cards: every bitmap but the full one
+    fn test_draw_from_bitmap_exhaustive_size_10() {
+        // A deck of 10 cards: every bitmap but the full one
         let mut bitmap: u128 = 0;
         while bitmap < 0x3ff {
             assert_same(bitmap.into(), 10, bitmap);

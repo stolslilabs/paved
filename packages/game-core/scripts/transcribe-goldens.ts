@@ -1,5 +1,6 @@
-// Transcribes CORE's golden games (`contracts/src/tests/golden/{daily,forest,full_deck,tutorial}.cairo`)
-// and the differential boards (`contracts/src/tests/differential.cairo`) into
+// Transcribes CORE's golden games (`contracts/src/tests/golden/{daily,forest,full_deck}.cairo`)
+// and the differential boards (`contracts/src/tests/differential.cairo`), with the frozen Tutorial golden
+// (`tutorial-golden.frozen.ts`: its Cairo sources left the contracts with D-21), into
 // `__tests__/fixtures/parity.json`, which `__tests__/engine-parity.test.ts` replays on the engine.
 // Run `bun run generate:parity` in `packages/game-core`; `engine-parity.test.ts` fails while the
 // fixture is out of date. The file has the format of CORE's parity fixture
@@ -15,12 +16,12 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { poseidonHashMany } from "@scure/starknet";
+import { FROZEN_TUTORIAL_GAME } from "./tutorial-golden.frozen";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "../../..");
 export const PARITY_TARGET = resolve(HERE, "../__tests__/fixtures/parity.json");
 export const SOURCES_TARGET = resolve(HERE, "../__tests__/fixtures/parity-sources.json");
-const TUTORIAL_DECK_FILE = "contracts/src/elements/decks/tutorial.cairo";
 /** The contracts' `CENTER`: the fixture's coordinates are the contract's. */
 const CENTER = 0x7fffffff;
 const PLAN_CODES = [
@@ -31,7 +32,7 @@ const PLAN_CODES = [
 const ORIENTATION_CODES = ["None", "North", "East", "South", "West"];
 const CATEGORY_CODES = ["None", "Forest", "Road", "City", "Stop", "Wonder"];
 const DECK_COUNTS = { simple: 38, tutorial: 10 };
-const GOLDEN_FILES = ["daily", "forest", "full_deck", "tutorial"].map(
+const GOLDEN_FILES = ["daily", "forest", "full_deck"].map(
   (name) => `contracts/src/tests/golden/${name}.cairo`,
 );
 const DIFFERENTIAL_FILE = "contracts/src/tests/differential.cairo";
@@ -290,20 +291,6 @@ function parseGoldens(file: string, source: string): ParityGame[] {
     const name = test[1];
     const body = test[2];
     const line = lineOf(source, test.index ?? 0);
-    const tutorial = body.match(/let steps = array!\[([\s\S]*?)\];\s*play_tutorial\(\s*'(\w+)'[\s\S]*?GoldenOutcome \{([\s\S]*?)\}/);
-    if (tutorial) {
-      games.push({
-        name: tutorial[2],
-        source: `${file}:${line} (${name})`,
-        deck: "tutorial",
-        seed: "0x0",
-        seedSource: "contracts/src/types/mode.cairo, Mode::seed: 0 for the Tutorial",
-        tileLimit: null,
-        moves: parseMoves(tutorial[1]),
-        outcome: parseOutcome(tutorial[3]),
-      });
-      continue;
-    }
     const call = body.match(/play_daily(?:_checked(?:_lite)?)?\(\s*'(\w+)',\s*day\((\d+)\),\s*\w+\(\),\s*(true|false),\s*(\d+),\s*([\w.()]+)/);
     if (!call) throw new Error(`goldens: ${name} has no play_daily call`);
     let moves: ParityMove[];
@@ -392,31 +379,15 @@ export function transcribe(read: (path: string) => string): Transcription {
       games.push(game);
     }
   }
+  // The Tutorial golden, after the Cairo goldens as when it was read from `golden/tutorial.cairo` (frozen at 38f1c95, D-21)
+  games.push(structuredClone(FROZEN_TUTORIAL_GAME));
   for (const game of games) {
     for (const extra of EXTRAS[game.name] ?? []) {
       game.moves[extra.move] = { ...game.moves[extra.move], scored: extra.scored, scoredSource: extra.source };
     }
   }
   games.push(...parseDifferential(read(DIFFERENTIAL_FILE)));
-  // [Info] The Tutorial's placements are its deck's (`parameters(index)`): step `i` holds index `i + 1`
-  const placements = parseTutorialPlacements(read(TUTORIAL_DECK_FILE));
-  for (const game of games.filter((entry) => entry.deck === "tutorial")) {
-    game.moves = game.moves.map((move, step) =>
-      move.action === "discard" ? move : { ...move, ...placements.get(step + 1) },
-    );
-  }
   return { games, notCovered: NOT_COVERED };
-}
-
-/** The scripted placements of `elements/decks/tutorial.cairo`, by deck index. */
-function parseTutorialPlacements(source: string): Map<number, { orientation: string; x: number; y: number }> {
-  const placements = new Map<number, { orientation: string; x: number; y: number }>();
-  const body = source.match(/fn parameters\(index: u32\)[\s\S]*?match index \{([\s\S]*?)\n\s*\}/);
-  if (!body) throw new Error("tutorial.cairo: parameters not found");
-  for (const row of body[1].matchAll(/(\d+) => \((Orientation::\w+), (CENTER[^,]*), (CENTER[^)]*)\)/g)) {
-    placements.set(Number(row[1]), { orientation: orientation(row[2]), x: coordinate(row[3]), y: coordinate(row[4]) });
-  }
-  return placements;
 }
 
 // The format of CORE's parity fixture (`docs/architecture/parity-fixture.md`)

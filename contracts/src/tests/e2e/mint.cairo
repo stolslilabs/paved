@@ -1,8 +1,8 @@
-//! P8 E5b: `Lobby.spawn` mints the game's token to its player (`docs/architecture/economy.md`,
-//! section 9), through the real `Daily`, `Tutorial`, `Account` and `Collection`: the id is the
-//! game id for Daily and `2^32 + game id` for Tutorial, the player owns it right after the spawn,
-//! no entry point lets a caller choose an id, and a spawn without a collection reverts and leaves
-//! no game.
+//! P8 E5b: `Daily.spawn` mints the game's token to its player (`docs/architecture/economy.md`,
+//! section 9), through the real `Daily`, `Account` and `Collection`: the id is the game id, the
+//! player owns it right after the spawn, no entry point lets a caller choose an id, and a spawn
+//! without a collection reverts and leaves no game. Since D-21 no Tutorial token is minted: the
+//! Tutorial minter of a new deployment is zero, so its range (`2^32 + game id`) has no minter.
 
 use core::byte_array::ByteArrayTrait;
 use core::num::traits::Zero;
@@ -14,9 +14,6 @@ use paved::systems::collection::{
     IERC721SoulboundSafeDispatcherTrait, TUTORIAL_OFFSET, metadata,
 };
 use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
-use paved::systems::tutorial::{
-    ITutorialDispatcherTrait, ITutorialSafeDispatcher, ITutorialSafeDispatcherTrait,
-};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{ANYONE, IDailyDispatcherTrait, OWNER, PLAYER, TestStoreTrait};
 use paved::types::mode::Mode;
@@ -51,31 +48,6 @@ fn test_mint_a_daily_spawn_mints_the_game_to_the_player() {
     assert(context.game_id == 1, 'Mint: first game id');
     assert(erc721.owner_of(context.game_id.into()) == PLAYER(), 'Mint: owner');
     assert(erc721.balance_of(PLAYER()) == 1, 'Mint: balance');
-}
-
-#[test]
-fn test_mint_a_tutorial_spawn_mints_2_pow_32_plus_the_game_id() {
-    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
-    let erc721 = erc721(@systems);
-    assert(erc721.owner_of(tutorial_token(context.game_id)) == PLAYER(), 'Mint: owner');
-    assert(erc721.balance_of(PLAYER()) == 1, 'Mint: balance');
-    // [Check] The Daily range is untouched
-    let safe = IERC721SoulboundSafeDispatcher {
-        contract_address: systems.collection.contract_address,
-    };
-    assert(safe.owner_of(context.game_id.into()).is_err(), 'Mint: daily id minted');
-}
-
-/// The same game id exists in both contracts: two tokens, told apart by the range.
-#[test]
-fn test_mint_the_same_game_id_of_both_modes_is_two_tokens() {
-    let (_, systems, _) = setup::spawn_game(Mode::Daily);
-    let tutorial = systems.tutorial.spawn();
-    let erc721 = erc721(@systems);
-    assert(tutorial == 1, 'Mint: tutorial game id');
-    assert(erc721.owner_of(1) == PLAYER(), 'Mint: daily token');
-    assert(erc721.owner_of(tutorial_token(1)) == PLAYER(), 'Mint: tutorial token');
-    assert(erc721.balance_of(PLAYER()) == 2, 'Mint: balance');
 }
 
 /// A spawn always mints exactly the new game's own id: after three spawns the tokens are 1 to 3
@@ -113,19 +85,17 @@ fn test_mint_a_spawn_mints_exactly_the_new_game_id() {
     assert(safe.owner_of(tutorial_token(1)).is_err(), 'Mint: tutorial id minted');
 }
 
-/// No public path lets a caller choose a token id: `Daily`, `Tutorial` and the `Lobby` class they
-/// run have no `mint`, and `Collection.mint` itself refuses everyone but the two minters, each
-/// for its own range. Pre-minting a future game id would make its spawn revert.
+/// No public path lets a caller choose a token id: `Daily` has no `mint`, and `Collection.mint`
+/// itself refuses everyone but `Daily`, in its own range; the Tutorial range has no minter (D-21).
+/// Pre-minting a future game id would make its spawn revert.
 #[test]
 fn test_mint_no_public_path_reaches_mint_with_a_chosen_id() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let future: u256 = 5;
     // [Check] The entry points of the game contracts
-    for contract in array![systems.daily.contract_address, systems.tutorial.contract_address] {
-        let safe = ICollectionSafeDispatcher { contract_address: contract };
-        let reason = *safe.mint(PLAYER(), future).unwrap_err().at(0);
-        assert(reason == 'ENTRYPOINT_NOT_FOUND', 'Mint: a game contract mints');
-    }
+    let safe = ICollectionSafeDispatcher { contract_address: systems.daily.contract_address };
+    let reason = *safe.mint(PLAYER(), future).unwrap_err().at(0);
+    assert(reason == 'ENTRYPOINT_NOT_FOUND', 'Mint: a game contract mints');
     // [Check] The collection, for a player, the owner, and a minter outside its own range
     let collection = ICollectionSafeDispatcher {
         contract_address: systems.collection.contract_address,
@@ -138,11 +108,9 @@ fn test_mint_no_public_path_reaches_mint_with_a_chosen_id() {
     start_cheat_caller_address(systems.collection.contract_address, systems.daily.contract_address);
     let reason = *collection.mint(PLAYER(), tutorial_token(5)).unwrap_err().at(0);
     assert(reason == 'Collection: not minter', 'Mint: daily mints tutorial');
-    start_cheat_caller_address(
-        systems.collection.contract_address, systems.tutorial.contract_address,
-    );
-    let reason = *collection.mint(PLAYER(), future).unwrap_err().at(0);
-    assert(reason == 'Collection: not minter', 'Mint: tutorial mints daily');
+    start_cheat_caller_address(systems.collection.contract_address, Zero::zero());
+    let reason = *collection.mint(PLAYER(), tutorial_token(5)).unwrap_err().at(0);
+    assert(reason == 'Collection: not minter', 'Mint: zero mints tutorial');
     stop_cheat_caller_address(systems.collection.contract_address);
     // [Check] Nothing was minted, and the next spawn still gets its own id
     let erc721 = erc721(@systems);
@@ -162,9 +130,10 @@ fn test_mint_a_spawn_reverts_without_a_collection_and_leaves_no_game() {
     let owner: felt252 = OWNER().into();
     let (economy, usdc) = setup::deploy_economy();
     let account = deploy_one("Account", array![owner]);
-    let lobby: felt252 = (*declare("Lobby").unwrap().contract_class().class_hash).into();
-    let daily = deploy_one("Daily", array![owner, account.into(), usdc.into(), lobby]);
-    let tutorial = deploy_one("Tutorial", array![owner, account.into(), lobby]);
+    let setup_address = deploy_one("Setup", array![owner]);
+    let daily = deploy_one(
+        "Daily", array![owner, account.into(), usdc.into(), setup_address.into()],
+    );
     start_cheat_caller_address(account, OWNER());
     IAccountDispatcher { contract_address: account }.set_economy(economy);
     stop_cheat_caller_address(account);
@@ -187,16 +156,12 @@ fn test_mint_a_spawn_reverts_without_a_collection_and_leaves_no_game() {
     stop_cheat_caller_address(economy);
 
     start_cheat_caller_address(daily, PLAYER());
-    start_cheat_caller_address(tutorial, PLAYER());
     let reason = *IDailySafeDispatcher { contract_address: daily }
         .spawn(1, Zero::zero(), 0)
         .unwrap_err()
         .at(0);
-    assert(reason == 'Lobby: collection not set', 'Mint: daily reason');
+    assert(reason == 'Daily: collection not set', 'Mint: daily reason');
     assert(TestStoreTrait::new(daily).game(1).player_id == 0, 'Mint: a daily game left');
-    let reason = *ITutorialSafeDispatcher { contract_address: tutorial }.spawn().unwrap_err().at(0);
-    assert(reason == 'Lobby: collection not set', 'Mint: tutorial reason');
-    assert(TestStoreTrait::new(tutorial).game(1).player_id == 0, 'Mint: a tutorial game left');
 }
 
 fn deploy_one(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
@@ -205,18 +170,15 @@ fn deploy_one(name: ByteArray, calldata: Array<felt252>) -> ContractAddress {
     address
 }
 
-/// `token_uri` through the real contracts: section 9's JSON of a running and of a finished game,
-/// Daily and Tutorial.
+/// `token_uri` through the real contracts: section 9's JSON of a running and of a finished game.
 #[test]
 fn test_mint_token_uri_of_running_and_finished_games() {
     start_cheat_block_timestamp_global(5 * 86400 + 3600);
     let (_, systems, _) = setup::spawn_game(Mode::Daily);
-    let tutorial = systems.tutorial.spawn();
     let uri = IERC721MetadataSoulboundDispatcher {
         contract_address: systems.collection.contract_address,
     };
     let daily_address = systems.daily.contract_address;
-    let tutorial_address = systems.tutorial.contract_address;
 
     // [Literal] section 9's exact text for Daily game 1 on day 5, running with score 0, pinned
     // apart from the contract's own builder: the JSON, then its base64 in the URI
@@ -232,28 +194,12 @@ fn test_mint_token_uri_of_running_and_finished_games() {
     assert(daily_uri == expected_uri(daily_address, 1, 1), 'Mint: daily running uri');
     let running = IGameViewDispatcher { contract_address: daily_address }.game(1);
     assert(!running.over, 'Mint: daily is running');
-    let tutorial_uri = uri.token_uri(tutorial_token(tutorial));
-    assert(
-        tutorial_uri == expected_uri(tutorial_address, tutorial_token(tutorial), tutorial),
-        'Mint: tutorial running uri',
-    );
-    assert(
-        !IGameViewDispatcher { contract_address: tutorial_address }.game(tutorial).over, 'T run',
-    );
 
     // [Finished]
     systems.daily.surrender(1);
-    start_cheat_caller_address(tutorial_address, PLAYER());
-    systems.tutorial.surrender(tutorial);
     let finished_daily = uri.token_uri(1);
     assert(finished_daily == expected_uri(daily_address, 1, 1), 'Mint: daily finished uri');
     assert(finished_daily != daily_uri, 'Mint: daily uri unchanged');
-    let finished_tutorial = uri.token_uri(tutorial_token(tutorial));
-    assert(
-        finished_tutorial == expected_uri(tutorial_address, tutorial_token(tutorial), tutorial),
-        'Mint: tutorial finished uri',
-    );
-    assert(finished_tutorial != tutorial_uri, 'Mint: tutorial uri unchanged');
 }
 
 /// The collection is set in `Account` but `set_minters` was never called: no one may mint, so the
@@ -265,9 +211,10 @@ fn test_mint_a_spawn_reverts_when_the_minters_were_never_set() {
     let (economy, usdc) = setup::deploy_economy();
     let account = deploy_one("Account", array![owner]);
     let collection = deploy_one("Collection", array![owner]);
-    let lobby: felt252 = (*declare("Lobby").unwrap().contract_class().class_hash).into();
-    let daily = deploy_one("Daily", array![owner, account.into(), usdc.into(), lobby]);
-    let tutorial = deploy_one("Tutorial", array![owner, account.into(), lobby]);
+    let setup_address = deploy_one("Setup", array![owner]);
+    let daily = deploy_one(
+        "Daily", array![owner, account.into(), usdc.into(), setup_address.into()],
+    );
     start_cheat_caller_address(account, OWNER());
     IAccountDispatcher { contract_address: account }.set_economy(economy);
     IAccountDispatcher { contract_address: account }.set_collection(collection);
@@ -290,14 +237,10 @@ fn test_mint_a_spawn_reverts_when_the_minters_were_never_set() {
     stop_cheat_caller_address(economy);
 
     start_cheat_caller_address(daily, PLAYER());
-    start_cheat_caller_address(tutorial, PLAYER());
     let reason = *IDailySafeDispatcher { contract_address: daily }
         .spawn(1, Zero::zero(), 0)
         .unwrap_err()
         .at(0);
     assert(reason == 'Collection: not minter', 'Mint: daily reason');
     assert(TestStoreTrait::new(daily).game(1).player_id == 0, 'Mint: a daily game left');
-    let reason = *ITutorialSafeDispatcher { contract_address: tutorial }.spawn().unwrap_err().at(0);
-    assert(reason == 'Collection: not minter', 'Mint: tutorial reason');
-    assert(TestStoreTrait::new(tutorial).game(1).player_id == 0, 'Mint: a tutorial game left');
 }

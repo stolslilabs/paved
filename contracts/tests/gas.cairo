@@ -25,7 +25,6 @@
 use core::testing::get_available_gas;
 use paved::constants::{self, CENTER};
 use paved::models::game::{GameImpl, GameTrait};
-use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
@@ -40,19 +39,25 @@ pub const CEILING_CLOSE_LARGE: u128 = 5393424;
 pub const CEILING_WORST_CASE: u128 = 5662074;
 pub const CEILING_FOREST: u128 = 8962300;
 pub const CEILING_FOREST_WORST: u128 = 18923195;
-// g, i: a surrender runs in the `Lobby` class, one library call (+146,730 in this profile, S1).
+// g, i, k: a surrender runs in `Daily` since D-24 (no library call); every game over makes one
+// external call to `Setup.report` (D-24, `docs/measures/baseline.md`, "After D-21/24").
 // g to l: a Daily game over records its score in `Economy` (P8 E3): the `Account.economy` read and
 // `Economy.record` add about 1.46M (1.11M on i). D-20 took the ranking out of g, k and l, and h
 // (the closing move that did not rank) and j (the `tournament` view) out with it; the ceilings are
 // those set when the ranking was there (`docs/measures/baseline.md`, "After D-20").
 pub const CEILING_CLOSING_IN_DAY: u128 = 3672907;
-pub const CEILING_CLOSING_AFTER: u128 = 2690889;
+// i: raised at D-24 to measured + 5 % (2,712,368; CORE's decision, reversed if the PM asks for
+// savings): the external `Setup.report` call at game over that D-24 chose costs +181,280 over D-20
+// (2,531,088).
+pub const CEILING_CLOSING_AFTER: u128 = 2847987;
 pub const CEILING_CLOSING_FULL_REPORT: u128 = 4018231;
 pub const CEILING_GAME_OVER_ON_BUILD: u128 = 7774092;
-// m, n, o: spawns (P8 E3). A Daily spawn pays `Economy.purchase` (swap, burn, Vault).
+// s: the game over on the last `discard` (D-24: measured 3,360,103 + 5 %; no figure before D-24).
+pub const CEILING_GAME_OVER_ON_DISCARD: u128 = 3528109;
+// m, n: spawns (P8 E3); o (the Tutorial spawn) left with the Tutorial (D-21). A Daily spawn pays
+// `Economy.purchase` (swap, burn, Vault).
 pub const CEILING_SPAWN_DAILY: u128 = 52743229;
 pub const CEILING_SPAWN_DAILY_REFERRED: u128 = 53820644;
-pub const CEILING_SPAWN_TUTORIAL: u128 = 5363508;
 // p, q, r (sponsor, claim, reclaim) left with the prize (D-20).
 // The scores of the forest scenarios after their last move, checked against the oracle's walks by
 // `src/tests/differential.cairo` (D-18b).
@@ -280,7 +285,7 @@ fn test_gas_i_closing_move_after_its_day() {
 
 /// l. Game over on the last `build`: the game of scenario c with its tile limit cut to the tiles
 /// drawn, then an open road east of the starter tile (the move of a0). The game ends in its day,
-/// inside `Daily`, then one library call to `Lobby.report` (P7).
+/// inside `Daily`, then one external call to `Setup.report` (D-24).
 #[test]
 fn test_gas_l_game_over_on_build() {
     let s = scored_game();
@@ -290,6 +295,21 @@ fn test_gas_l_game_over_on_build() {
     let gas = s.build(Plan::RFFFRFFFR, Orientation::North, CENTER + 1, CENTER);
     assert(s.store.game(s.game_id).is_over(), 'Gas: not over');
     report("l_game_over_on_build", gas, CEILING_GAME_OVER_ON_BUILD);
+}
+
+/// s. Game over on the last `discard`: the game of scenario c with its tile limit cut to the tiles
+/// drawn, then a discard of the tile in hand. The game ends in its day and reports.
+#[test]
+fn test_gas_s_game_over_on_discard() {
+    let s = scored_game();
+    let mut game = s.store.game(s.game_id);
+    game.tile_limit = game.tile_count.try_into().unwrap();
+    s.store.set_game(game);
+    let before = get_available_gas();
+    s.systems.daily.discard(s.game_id);
+    let after = get_available_gas();
+    assert(s.store.game(s.game_id).is_over(), 'Gas: not over');
+    report("s_game_over_on_discard", before - after, CEILING_GAME_OVER_ON_DISCARD);
 }
 
 /// k. Closing move with the largest report (P7): a high score and every counter non-zero, so 4
@@ -327,14 +347,4 @@ fn test_gas_n_spawn_daily_referred() {
     systems.daily.spawn(10, ANYONE(), 0);
     let after = get_available_gas();
     report("n_spawn_daily_referred", before - after, CEILING_SPAWN_DAILY_REFERRED);
-}
-
-/// o. A Tutorial spawn: free, no call to `Economy`.
-#[test]
-fn test_gas_o_spawn_tutorial() {
-    let (_, systems, _) = setup::spawn_game(Mode::Tutorial);
-    let before = get_available_gas();
-    systems.tutorial.spawn();
-    let after = get_available_gas();
-    report("o_spawn_tutorial", before - after, CEILING_SPAWN_TUTORIAL);
 }

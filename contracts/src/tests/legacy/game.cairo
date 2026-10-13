@@ -284,16 +284,8 @@ pub impl GameImpl of GameTrait {
     #[inline]
     fn draw_plan(ref self: Game) -> (u32, Plan) {
         let deck: Deck = self.deck();
-        let (plan, tiles) = if deck == Deck::Tutorial {
-            if self.tiles == 0 {
-                (deck.plan(0), 1)
-            } else {
-                let index: u8 = 1 + Bitmap::most_significant_bit(self.tiles).unwrap();
-                let plan: Plan = deck.plan(index.into());
-                let tiles = self.tiles | bit(index);
-                (plan, tiles)
-            }
-        } else {
+        // [Info] The scripted branch of the Tutorial deck went with the deck (D-21)
+        let (plan, tiles) = {
             let number: u32 = deck.total_count().into();
             let (plan_id, remaining) = draw_from_bitmap(self.seed, number, self.tiles);
             let tiles = if remaining == 0 {

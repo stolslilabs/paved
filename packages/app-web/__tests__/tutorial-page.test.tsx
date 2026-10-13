@@ -79,6 +79,8 @@ describe("Tutorial page", () => {
     expect(screen.getByText("THE TUTORIAL IS COMPLETE.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Training" }).getAttribute("href")).toBe("/game?mode=training");
     expect(screen.getByRole("link", { name: "Landing" }).getAttribute("href")).toBe("/");
+    // U2: the claim is a link to its chain route; this page itself still touches no chain.
+    expect(screen.getByRole("link", { name: "Claim your achievement" }).getAttribute("href")).toBe("/tutorial/claim");
     expect(chainTouched.count).toBe(0);
   });
 

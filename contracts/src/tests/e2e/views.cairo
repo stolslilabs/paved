@@ -3,7 +3,6 @@
 
 use paved::constants;
 use paved::models::tile::CENTER;
-use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::oracle::check;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
@@ -23,10 +22,6 @@ const DAY: u64 = constants::DAILY_DURATION;
 
 fn daily_views(systems: @Systems) -> IGameViewDispatcher {
     IGameViewDispatcher { contract_address: *systems.daily.contract_address }
-}
-
-fn tutorial_views(systems: @Systems) -> IGameViewDispatcher {
-    IGameViewDispatcher { contract_address: *systems.tutorial.contract_address }
 }
 
 /// Sets the plan of the tile in hand, so the next build is known.
@@ -161,41 +156,6 @@ fn test_views_game_closed_by_last_tile() {
 }
 
 #[test]
-#[available_gas(l2_gas: 81967000)]
-fn test_views_game_tutorial() {
-    start_cheat_block_timestamp_global(3 * DAY + 100);
-    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
-    systems.tutorial.build(context.game_id);
-    let views = tutorial_views(@systems);
-    let view = views.game(context.game_id);
-
-    assert(view.player_id == context.player_id, 'Views: player');
-    assert(view.mode == Mode::Tutorial.into(), 'Views: mode');
-    assert(view.deck_size == 10, 'Views: deck size');
-    assert(view.day_id == 0, 'Views: no day');
-    assert(view.placed_count == 2, 'Views: placed count');
-    assert(view.tile_count == 3, 'Views: tile count');
-    let tiles = views.tiles(context.game_id, 0, MAX_PAGE);
-    assert(tiles.len() == 3, 'Views: tiles');
-    assert(*tiles.at(1).status == TILE_PLACED, 'Views: placed');
-    assert(*tiles.at(2).status == TILE_HELD, 'Views: held');
-}
-
-#[test]
-#[available_gas(l2_gas: 71750000)]
-fn test_views_game_tutorial_same_second_game_over() {
-    start_cheat_block_timestamp_global(3 * DAY + 100);
-    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
-    systems.tutorial.surrender(context.game_id);
-    let view = tutorial_views(@systems).game(context.game_id);
-
-    assert(view.over, 'Views: over');
-    assert(view.start_time == 3 * DAY + 100, 'Views: start time');
-    assert(view.day_id == 0, 'Views: no day');
-    assert(view.end_time == 0, 'Views: no end time');
-}
-
-#[test]
 #[should_panic(expected: 'Game: does not exist')]
 fn test_views_game_missing() {
     let (_, systems, context) = setup::spawn_game(Mode::Daily);
@@ -207,14 +167,6 @@ fn test_views_game_missing() {
 fn test_views_game_zero() {
     let (_, systems, _) = setup::spawn_game(Mode::Daily);
     daily_views(@systems).game(0);
-}
-
-#[test]
-#[should_panic(expected: 'Game: does not exist')]
-fn test_views_game_missing_on_tutorial() {
-    // Ids are per contract: Daily game 1 is not a Tutorial game.
-    let (_, systems, context) = setup::spawn_game(Mode::Daily);
-    tutorial_views(@systems).game(context.game_id);
 }
 
 // Tiles

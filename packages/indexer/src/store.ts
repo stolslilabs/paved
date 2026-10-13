@@ -27,7 +27,6 @@ import {
 } from "node:sqlite";
 import type { Header, RawEvent } from "./chain.ts";
 import { canonical, MODE, padded, type Decoded, type Source } from "./events.ts";
-import { TUTORIAL_TASK } from "./quests.ts";
 
 /** An invariant failed: the indexer stops following and answers `halted`, with this reason. */
 export class Halt extends Error {}
@@ -38,7 +37,7 @@ export class SchemaMismatch extends Error {}
 /** What a database was built for; a database is never reused for another configuration. */
 export type Config = {
   daily: string;
-  tutorial: string;
+  setup: string;
   account: string;
   economy: string;
   /** Undefined for a deployment before E5b: no mint is read and no game has a token id. */
@@ -52,15 +51,15 @@ export type Config = {
 export type Applied = { raw: RawEvent; event: Decoded };
 
 /** The layout of the tables. A database of another version is refused when it is opened: the indexer is rebuilt from the chain, never migrated. */
-export const SCHEMA_VERSION = "7";
+export const SCHEMA_VERSION = "8";
 
 /** The sha256 of the five addresses (canonical, in a fixed order): the identity of a deployment. */
 export function deploymentHash(
-  config: Pick<Config, "daily" | "tutorial" | "account" | "economy" | "collection">,
+  config: Pick<Config, "daily" | "setup" | "account" | "economy" | "collection">,
 ): string {
   return createHash("sha256")
     .update(
-      [config.daily, config.tutorial, config.account, config.economy, config.collection]
+      [config.daily, config.setup, config.account, config.economy, config.collection]
         .filter((address): address is string => address !== undefined)
         .map((address) => canonical(address))
         .join(","),
@@ -181,7 +180,7 @@ function schemaOf(db: DatabaseSync): string | undefined {
 function normalize(config: Config): Config {
   return {
     daily: canonical(config.daily),
-    tutorial: canonical(config.tutorial),
+    setup: canonical(config.setup),
     account: canonical(config.account),
     economy: canonical(config.economy),
     collection: config.collection === undefined ? undefined : canonical(config.collection),
@@ -198,7 +197,7 @@ function metaOf(config: Config): Record<string, string> {
     from_block: String(config.from),
     addresses: JSON.stringify({
       daily: config.daily,
-      tutorial: config.tutorial,
+      setup: config.setup,
       account: config.account,
       economy: config.economy,
       collection: config.collection ?? null,
@@ -355,7 +354,7 @@ export class Store {
 
   /** The configuration the database was opened with (the addresses as stored). */
   contracts():
-    | { daily: string; tutorial: string; account: string; economy: string; collection: string | null }
+    | { daily: string; setup: string; account: string; economy: string; collection: string | null }
     | undefined {
     const text = this.meta("addresses");
     return text === undefined ? undefined : JSON.parse(text);
@@ -544,11 +543,6 @@ export class Store {
           }
           case "QuestProgressed":
           case "AchievementProgressed": {
-            if (event.name === "AchievementProgressed" && raw.source === "tutorial" && event.taskId !== TUTORIAL_TASK) {
-              throw new Halt(
-                `AchievementProgressed of task ${event.taskId} from tutorial ${where}: Tutorial reports task ${TUTORIAL_TASK} only`,
-              );
-            }
             this.sql.insertProgress.run({
               block: at,
               tx: raw.transactionIndex,
@@ -773,8 +767,8 @@ function gameContract(
   source: Source,
   name: string,
   where: string,
-): "daily" | "tutorial" {
-  if (source !== "daily" && source !== "tutorial") {
+): "daily" {
+  if (source !== "daily") {
     throw new Halt(`${name} from ${source} ${where}`);
   }
   return source;

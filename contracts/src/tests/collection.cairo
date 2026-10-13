@@ -6,11 +6,12 @@ use openzeppelin_interfaces::introspection::ISRC5_ID;
 use openzeppelin_interfaces::token::erc721::{IERC721_ID, IERC721_METADATA_ID};
 use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use paved::systems::collection::{
-    Collection, ICollectionDispatcher, ICollectionDispatcherTrait,
-    IERC721MetadataSoulboundDispatcher, IERC721MetadataSoulboundDispatcherTrait,
-    IERC721SoulboundCamelDispatcher, IERC721SoulboundCamelDispatcherTrait,
-    IERC721SoulboundCamelSafeDispatcher, IERC721SoulboundCamelSafeDispatcherTrait,
-    IERC721SoulboundDispatcher, IERC721SoulboundDispatcherTrait, IERC721SoulboundSafeDispatcher,
+    Collection, ICollectionDispatcher, ICollectionDispatcherTrait, ICollectionSafeDispatcher,
+    ICollectionSafeDispatcherTrait, IERC721MetadataSoulboundDispatcher,
+    IERC721MetadataSoulboundDispatcherTrait, IERC721SoulboundCamelDispatcher,
+    IERC721SoulboundCamelDispatcherTrait, IERC721SoulboundCamelSafeDispatcher,
+    IERC721SoulboundCamelSafeDispatcherTrait, IERC721SoulboundDispatcher,
+    IERC721SoulboundDispatcherTrait, IERC721SoulboundSafeDispatcher,
     IERC721SoulboundSafeDispatcherTrait, ISRC5SoulboundDispatcher, ISRC5SoulboundDispatcherTrait,
     TUTORIAL_OFFSET, metadata,
 };
@@ -262,7 +263,6 @@ fn test_collection_minters_are_read() {
     let collection = ICollectionDispatcher { contract_address: world.collection };
     assert_eq!(IOwnableDispatcher { contract_address: world.collection }.owner(), OWNER());
     assert_eq!(collection.daily(), world.daily);
-    assert_eq!(collection.tutorial(), world.tutorial);
 }
 
 #[test]
@@ -288,13 +288,27 @@ fn test_collection_set_minters_by_anyone() {
     set_minters(@world, OTHER());
 }
 
+/// D-21: a network deployed after the tutorial left has no Tutorial minter. A zero `tutorial` is
+/// accepted, and then nobody mints the Tutorial range, `Daily` included.
 #[test]
-#[should_panic(expected: 'Collection: zero minter')]
-fn test_collection_set_minters_zero() {
+#[feature("safe_dispatcher")]
+fn test_collection_set_minters_zero_tutorial() {
     let world = deploy();
     start_cheat_caller_address(world.collection, OWNER());
     ICollectionDispatcher { contract_address: world.collection }
         .set_minters(world.daily, Zero::zero());
+    stop_cheat_caller_address(world.collection);
+    let collection = ICollectionDispatcher { contract_address: world.collection };
+    assert_eq!(collection.daily(), world.daily);
+    let safe = ICollectionSafeDispatcher { contract_address: world.collection };
+    for caller in array![world.daily, world.tutorial, Zero::zero()] {
+        start_cheat_caller_address(world.collection, caller);
+        let error = safe.mint(PLAYER(), TUTORIAL_ID).unwrap_err();
+        assert_eq!(*error.at(0), 'Collection: not minter');
+    }
+    stop_cheat_caller_address(world.collection);
+    // [Daily] still mints its own range
+    mint(@world, world.daily, PLAYER(), DAILY_ID);
 }
 
 #[test]

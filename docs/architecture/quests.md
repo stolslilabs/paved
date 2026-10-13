@@ -26,13 +26,13 @@ achievements, their tasks and their targets do not change:
   view (below, "On the Podium"). The on-chain ranking is gone (PM's ruling 1, 2026-10-13): the contract no longer
   reports task 9 (`WIN`); a Champion, if wanted, is credited by the indexer (below, task 9; `leaderboard.md`, "As built:
   D-20").
-- **D-21**: the tutorial leaves the contracts. First Stone (achievement 1, task 10) is credited by a claim the player
+- **D-21 (built, below "As built: D-21 and D-24")**: the tutorial leaves the contracts. First Stone (achievement 1, task 10) is credited by a claim the player
   calls, `claim_tutorial()`, idempotent, with **no on-chain check** that the tutorial was played (P-49 (2)). Every
   wording below where `Tutorial` or `TutoriableComponent` reports task 10 at its game over is obsolete from D-21 on.
 - **D-23**: `Daily` becomes Challenge. The quests stay daily (they reset each UTC day) and keep their rules; "Daily
   game" in their descriptions reads "Challenge game", and a title that names the mode follows it (Daily Run). Titles
   and descriptions are not on chain (`define_quest` takes ids, tasks and a schedule).
-- **D-24, D-25**: the quests and achievements live in a separate contract, **Setup** (the D-24 system, named by
+- **D-24, D-25 (built, below "As built: D-21 and D-24")**: the quests and achievements live in a separate contract, **Setup** (the D-24 system, named by
   D-25), with the quiver components and the owner-only definitions; this is the "separate `Quests` contract"
   alternative of "How Paved integrates quiver" below, now chosen. **Challenge reports**, once per game over, as an
   allowlisted reporter (`report(player_id, quests, achievements)`); **Training never reports** (it is off chain, D-22);
@@ -205,6 +205,10 @@ the internal layer from its own entrypoints, after its own checks"):
   Recommendation: embedded, because it is the cheapest and cannot fail on a registry (see "Risks").
 
 ### Access control
+
+The table is P7's; since D-24 the definitions are `Setup`'s owner's and `progress_many` runs in `Setup`, from an
+allowlisted reporter's `report` (below, "As built: D-21 and D-24").
+
 
 | Action | Who | How |
 |---|---|---|
@@ -452,3 +456,38 @@ decodes the six events, applies the schedule, window, retirement and saturation 
 (Point Chaser is the sum of the day's `POINTS` reports), credits On the Podium from the `tournament` view once the day has
 closed (from D-20: from its own daily leaderboard, "On the Podium" above), and serves `GET /v1/definitions`, `GET /v1/players/{player_id}/quests?day=` and
 `GET /v1/players/{player_id}/achievements`. Prerequisites (`conditions`) are served and not applied.
+
+## As built: D-21 and D-24
+
+Built by step D (brief `docs/briefs/d-setup-quests.md`), paths under `contracts/src/`. The rules, the tasks, the
+accepted list and the tally's encoding (`quests.cairo`) are unchanged; what moved is where they run.
+
+- **`Setup`** (`systems/setup.cairo`) holds quiver's `QuestComponent` and `AchievementComponent`: the internal layer
+  only, event mode, `TrackAll`; `authorize_admin` is `Setup`'s owner (the external layers are not embedded, so it gates
+  nothing today). `Ownable` and `Upgradeable` like the other systems (D-17).
+- **Definitions**: `define_quest`, `retire_quest`, `define_achievement`, `retire_achievement` on `Setup`, owner-only,
+  with the checks of P7 and P-30 (a recurring quest starts at 00:00 UTC, every task total positive, no task id twice).
+  Their messages are now `'Setup: quest not on UTC day'`, `'Setup: task total is zero'` and `'Setup: task id
+  repeated'` (were `'Daily: ...'`). No script of the repository defines the list: it is run by `Setup`'s owner (it was
+  run against `Daily` by hand before).
+- **Reporters**: `set_reporter(reporter, allowed)`, owner-only, writes both components' allowlists (quiver's
+  `set_reporter`, which emits `QuestReporterSet` and `AchievementReporterSet`). `is_reporter(reporter)` reads it.
+- **The report**: `report(player_id, quests, achievements)` reverts `'Quest: not reporter'` for any other caller, then
+  runs `progress_many` on each component: one `QuestProgressed` and one `AchievementProgressed` per (merged) entry.
+  `Setup` reads one allowlist, the quests' (`set_reporter` is the only writer of both and writes them together), to save
+  a storage read on every game over.
+- **Who reports for whom**: `Daily` only, at each game over (build, discard or surrender), one external call, for the
+  caller of the move, who must be the game's player (`PlayableComponent`: `builder_of(caller)` then `assert_exists`,
+  `'Builder: does not exist'` otherwise), with the entries of `quest_entries` and `achievement_entries` of the tally
+  (at most 4 and 5). A move that does not end the game reports nothing. `Economy.record` follows, in `Daily`, as before.
+- **The tutorial claim**: `claim_tutorial()`, by the player for itself: the first call sets
+  `tutorial_claims[player]` and emits `AchievementProgressed { player_id, task_id: 10, count: 1 }` (First Stone); any
+  later call returns with no effect, no revert and no event. `tutorial_claimed(player_id)` reads the flag. No check of
+  the tutorial, no registration check, no value (P-49 (2)).
+- **Events**: every quiver event is `Setup`'s from its deployment on; `Daily`'s ABI declares none of them any more (the
+  components are no longer declared in `Daily`; their storage stays, dead, `upgrades.md`). Past events from `Daily` and
+  `Tutorial` stay history (P-51 (5)).
+- **Tests**: `tests::e2e::setup_system` (`Setup` alone), `tests::e2e::quests` (the definitions on `Setup`, the reports
+  of a game over through the real contracts, the claim against the accepted list), `tests::e2e::cold_paths` (one report
+  per game over, by build, discard and surrender, none otherwise, and a move by another player reverts before any).
+

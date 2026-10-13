@@ -20,7 +20,7 @@ export interface PlayerGame {
   mode: GameMode;
   gameId: number;
   startTime: number;
-  /** Day of the spawn (Daily); 0 for Tutorial (#205). */
+  /** Day of the spawn. */
   dayId: number;
   over: boolean;
   /** Final score; null while the game is active. */
@@ -90,8 +90,8 @@ export class EventReader {
     return [...read, ...own];
   }
 
-  /** The games of a player on one or both game contracts, newest first. */
-  async playerGames(playerId: string, modes: GameMode[] = ["daily", "tutorial"]): Promise<PlayerGame[]> {
+  /** The games of a player, newest first. */
+  async playerGames(playerId: string, modes: GameMode[] = ["daily"]): Promise<PlayerGame[]> {
     const lists = await Promise.all(
       modes.map(async (mode) => {
         const contract = gameContract(mode);
@@ -109,7 +109,6 @@ export class EventReader {
             mode: gameMode,
             gameId,
             startTime: Number(e.fields.startTime),
-            // 0 for Tutorial, which belongs to no day (#205).
             dayId: Number(e.fields.dayId),
             over: Boolean(end),
             score: end ? Number(end.fields.score) : null,

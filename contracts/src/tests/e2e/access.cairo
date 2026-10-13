@@ -5,7 +5,7 @@ use paved::components::ownable::{IOwnableDispatcher, IOwnableDispatcherTrait, Ow
 use paved::constants;
 use paved::models::tile::CENTER;
 use paved::systems::account::IAccountDispatcherTrait;
-use paved::systems::tutorial::ITutorialDispatcherTrait;
+use paved::systems::daily::{IDailySetupDispatcher, IDailySetupDispatcherTrait};
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
     ANYONE, IDailyDispatcherTrait, IERC20DispatcherTrait, NOONE, OWNER, PLAYER, PLAYER_NAME,
@@ -22,15 +22,15 @@ use starknet::ContractAddress;
 fn ownables(systems: @setup::Systems) -> Array<IOwnableDispatcher> {
     array![
         IOwnableDispatcher { contract_address: *systems.account.contract_address },
-        IOwnableDispatcher { contract_address: *systems.tutorial.contract_address },
         IOwnableDispatcher { contract_address: *systems.daily.contract_address },
+        IOwnableDispatcher { contract_address: *systems.setup.contract_address },
         IOwnableDispatcher { contract_address: *systems.economy.contract_address },
         IOwnableDispatcher { contract_address: *systems.collection.contract_address },
     ]
 }
 
 #[test]
-#[available_gas(l2_gas: 61057000)]
+#[available_gas(l2_gas: 64186000)]
 fn test_access_owner_is_set_at_deployment() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -51,7 +51,7 @@ fn accept(ownable: IOwnableDispatcher, caller: ContractAddress) {
 }
 
 #[test]
-#[available_gas(l2_gas: 69010000)]
+#[available_gas(l2_gas: 72538000)]
 fn test_access_transfer_ownership_only_proposes() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -69,7 +69,7 @@ fn test_access_transfer_ownership_only_proposes() {
 }
 
 #[test]
-#[available_gas(l2_gas: 71633000)]
+#[available_gas(l2_gas: 75295000)]
 fn test_access_pending_owner_accepts_ownership() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     for ownable in ownables(@systems) {
@@ -86,7 +86,7 @@ fn test_access_pending_owner_accepts_ownership() {
 }
 
 #[test]
-#[available_gas(l2_gas: 63471000)]
+#[available_gas(l2_gas: 66707000)]
 fn test_access_new_owner_holds_the_power() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -129,7 +129,7 @@ fn test_access_accept_ownership_reverts_for_the_owner_itself() {
 #[should_panic(expected: 'Ownable: caller not pending')]
 fn test_access_accept_ownership_reverts_without_proposal() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
-    let ownable = IOwnableDispatcher { contract_address: systems.tutorial.contract_address };
+    let ownable = IOwnableDispatcher { contract_address: systems.setup.contract_address };
     accept(ownable, ANYONE());
 }
 
@@ -157,7 +157,7 @@ fn test_access_new_proposal_overwrites_the_pending_owner() {
 }
 
 #[test]
-#[available_gas(l2_gas: 63069000)]
+#[available_gas(l2_gas: 66285000)]
 fn test_access_overwriting_proposal_lets_the_second_candidate_accept() {
     let (_, systems, _) = setup::spawn_game(Mode::None);
     let ownable = IOwnableDispatcher { contract_address: systems.account.contract_address };
@@ -185,7 +185,7 @@ fn test_access_account_creates_once_per_address() {
 }
 
 #[test]
-#[available_gas(l2_gas: 60802000)]
+#[available_gas(l2_gas: 63919000)]
 fn test_access_account_player_view() {
     let (_, systems, context) = setup::spawn_game(Mode::None);
     let player = systems.account.player(context.player_id);
@@ -205,14 +205,6 @@ fn test_access_daily_spawn_reverts_for_unregistered_caller() {
     systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
 }
 
-#[test]
-#[should_panic(expected: 'Player: Does not exist')]
-fn test_access_tutorial_spawn_reverts_for_unregistered_caller() {
-    let (_, systems, _) = setup::spawn_game(Mode::None);
-    let stranger: ContractAddress = 'STRANGER'.try_into().unwrap();
-    start_cheat_caller_address(systems.tutorial.contract_address, stranger);
-    systems.tutorial.spawn();
-}
 
 #[test]
 #[should_panic(expected: 'Builder: does not exist')]
@@ -238,37 +230,9 @@ fn test_access_daily_surrender_reverts_on_another_players_game() {
     systems.daily.surrender(context.game_id);
 }
 
-#[test]
-#[should_panic(expected: 'Builder: does not exist')]
-fn test_access_tutorial_build_reverts_on_another_players_game() {
-    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
-    start_cheat_caller_address(systems.tutorial.contract_address, NOONE());
-    systems.tutorial.build(context.game_id);
-}
 
-#[test]
-#[should_panic(expected: 'Builder: does not exist')]
-fn test_access_tutorial_surrender_reverts_on_another_players_game() {
-    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
-    start_cheat_caller_address(systems.tutorial.contract_address, NOONE());
-    systems.tutorial.surrender(context.game_id);
-}
-
-#[test]
-#[available_gas(l2_gas: 128374000)]
-fn test_access_game_ids_are_counted_per_contract() {
-    let (store, systems, context) = setup::spawn_game(Mode::Tutorial);
-    assert(context.game_id == 1, 'Access: first tutorial id');
-    let daily_id = systems.daily.spawn(1, core::num::traits::Zero::zero(), 0);
-    assert(daily_id == 1, 'Access: first daily id');
-    // The two games live in two storages.
-    let tutorial_game = store.game(1);
-    let daily_game = setup::TestStoreTrait::new(systems.daily.contract_address).game(1);
-    assert(tutorial_game.mode != daily_game.mode, 'Access: separate games');
-}
-
-/// A non-zero class hash for the constructor checks, which do not call the lobby.
-const LOBBY: felt252 = 'lobby';
+/// A non-zero address for the constructor checks, which do not call `Setup`.
+const SETUP: felt252 = 'setup';
 
 /// The first felt of the panic raised by the constructor of `name` deployed with `calldata`.
 fn constructor_panic(name: ByteArray, calldata: Array<felt252>) -> felt252 {
@@ -283,7 +247,7 @@ fn test_access_daily_constructor_reverts_on_zero_account() {
     let owner: felt252 = OWNER().into();
     let token: felt252 = SOMEONE().into();
     assert(
-        constructor_panic("Daily", array![owner, 0, token, LOBBY]) == 'Daily: account is zero',
+        constructor_panic("Daily", array![owner, 0, token, SETUP]) == 'Daily: account is zero',
         'Access: account',
     );
 }
@@ -294,45 +258,67 @@ fn test_access_daily_constructor_reverts_on_zero_token() {
     let owner: felt252 = OWNER().into();
     let account: felt252 = SOMEONE().into();
     assert(
-        constructor_panic("Daily", array![owner, account, 0, LOBBY]) == 'Daily: token is zero',
+        constructor_panic("Daily", array![owner, account, 0, SETUP]) == 'Daily: token is zero',
         'Access: token',
     );
 }
 
 #[test]
 #[available_gas(l2_gas: 554978)]
-fn test_access_daily_constructor_reverts_on_zero_lobby_class() {
+fn test_access_daily_constructor_reverts_on_zero_setup() {
     let owner: felt252 = OWNER().into();
     let account: felt252 = SOMEONE().into();
     let token: felt252 = ANYONE().into();
     assert(
-        constructor_panic(
-            "Daily", array![owner, account, token, 0],
-        ) == 'Daily: lobby class is zero',
-        'Access: daily lobby',
+        constructor_panic("Daily", array![owner, account, token, 0]) == 'Daily: setup is zero',
+        'Access: daily setup',
     );
 }
 
+/// `Daily`'s `Setup` is the owner's to set (an upgrade in place does not run the constructor):
+/// never zero, and it emits `SetupSet`.
 #[test]
-#[available_gas(l2_gas: 507087)]
-fn test_access_tutorial_constructor_reverts_on_zero_lobby_class() {
-    let owner: felt252 = OWNER().into();
-    let account: felt252 = SOMEONE().into();
-    assert(
-        constructor_panic("Tutorial", array![owner, account, 0]) == 'Tutorial: lobby class is zero',
-        'Access: tutorial lobby',
-    );
+fn test_access_daily_owner_sets_the_setup() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let daily = systems.daily.contract_address;
+    let admin = IDailySetupDispatcher { contract_address: daily };
+    assert(admin.setup() == systems.setup.contract_address, 'Access: setup at deploy');
+    let mut spy = spy_events();
+    start_cheat_caller_address(daily, OWNER());
+    admin.set_setup(SOMEONE());
+    stop_cheat_caller_address(daily);
+    assert(admin.setup() == SOMEONE(), 'Access: setup set');
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    daily,
+                    paved::systems::daily::Daily::Event::SetupSet(
+                        paved::systems::daily::SetupSet { setup: SOMEONE() },
+                    ),
+                ),
+            ],
+        );
 }
 
 #[test]
-#[available_gas(l2_gas: 506457)]
-fn test_access_tutorial_constructor_reverts_on_zero_account() {
-    let owner: felt252 = OWNER().into();
-    assert(
-        constructor_panic("Tutorial", array![owner, 0, LOBBY]) == 'Tutorial: account is zero',
-        'Access: tutorial account',
-    );
+#[should_panic(expected: 'Ownable: caller is not owner')]
+fn test_access_daily_set_setup_reverts_for_a_player() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let daily = systems.daily.contract_address;
+    start_cheat_caller_address(daily, PLAYER());
+    IDailySetupDispatcher { contract_address: daily }.set_setup(SOMEONE());
 }
+
+#[test]
+#[should_panic(expected: 'Daily: setup is zero')]
+fn test_access_daily_set_setup_reverts_on_zero() {
+    let (_, systems, _) = setup::spawn_game(Mode::None);
+    let daily = systems.daily.contract_address;
+    start_cheat_caller_address(daily, OWNER());
+    IDailySetupDispatcher { contract_address: daily }.set_setup(core::num::traits::Zero::zero());
+}
+
 
 #[test]
 #[available_gas(l2_gas: 1415736)]
@@ -344,24 +330,17 @@ fn test_access_constructors_revert_on_zero_owner() {
         'Access: account owner',
     );
     assert(
-        constructor_panic("Tutorial", array![0, account, LOBBY]) == 'Ownable: new owner is zero',
-        'Access: tutorial owner',
+        constructor_panic("Setup", array![0]) == 'Ownable: new owner is zero',
+        'Access: setup owner',
     );
     assert(
         constructor_panic(
-            "Daily", array![0, account, token, LOBBY],
+            "Daily", array![0, account, token, SETUP],
         ) == 'Ownable: new owner is zero',
         'Access: daily owner',
     );
 }
 
-#[test]
-#[should_panic(expected: 'Builder: does not exist')]
-fn test_access_tutorial_discard_reverts_on_another_players_game() {
-    let (_, systems, context) = setup::spawn_game(Mode::Tutorial);
-    start_cheat_caller_address(systems.tutorial.contract_address, NOONE());
-    systems.tutorial.discard(context.game_id);
-}
 
 /// A game whose player is 0 can never be acted on: `builder_of` gives player 0 no builder, so
 /// `surrender`, `discard` and `build` revert before `end_in_day`. The game is forced, since the

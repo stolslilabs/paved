@@ -1,6 +1,6 @@
 import accountAbi from "../../../contracts/abis/Account.json";
 import dailyAbi from "../../../contracts/abis/Daily.json";
-import tutorialAbi from "../../../contracts/abis/Tutorial.json";
+import setupAbi from "../../../contracts/abis/Setup.json";
 import tokenAbi from "../../../contracts/abis/Token.json";
 import mockUsdcAbi from "../../../contracts/abis/Faucet.json";
 import pavedTokenAbi from "../../../contracts/abis/PavedToken.json";
@@ -8,13 +8,16 @@ import economyAbi from "../../../contracts/abis/Economy.json";
 import vaultAbi from "../../../contracts/abis/Vault.json";
 import { AbiCodec, type Abi } from "./codec";
 
-/** The four native contracts, as named in `contracts/abis/` and in the deployments file. */
-export type ContractName = "Account" | "Daily" | "Tutorial" | "Token";
+/**
+ * The native contracts the writer and the views call, as named in `contracts/abis/` and in the deployments file. `Setup`
+ * (D-24, D-25) holds the quests, the achievements and the tutorial claim; it is optional in a deployment (`deployment.ts`).
+ */
+export type ContractName = "Account" | "Daily" | "Setup" | "Token";
 
 export const ABIS: Record<ContractName, Abi> = {
   Account: accountAbi as Abi,
   Daily: dailyAbi as Abi,
-  Tutorial: tutorialAbi as Abi,
+  Setup: setupAbi as Abi,
   Token: tokenAbi as Abi,
 };
 
@@ -24,7 +27,7 @@ export function createCodecs(abis: Record<ContractName, Abi> = ABIS): Codecs {
   return {
     Account: new AbiCodec(abis.Account),
     Daily: new AbiCodec(abis.Daily),
-    Tutorial: new AbiCodec(abis.Tutorial),
+    Setup: new AbiCodec(abis.Setup),
     Token: new AbiCodec(abis.Token),
   };
 }

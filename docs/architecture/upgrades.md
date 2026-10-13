@@ -38,7 +38,13 @@ day one and the playtest data survives fixes.
   `owner()` back on each. On mainnet the owner is the owner's account, later a multisig or a timelock (an owner's act,
   `economy.md`, "Gates before a real-money game on mainnet").
 
-## The Lobby path
+## The Lobby path (ended with D-24)
+
+**Since D-24 this path is history**: `Daily` runs its cold paths itself, `set_lobby_class`, `ILobbyClass` and
+`LobbyClassSet` are gone, and the `Lobby` class is deleted (the name is kept for multiplayer, P-51 (2)). `lobby_class`
+stays declared in `Daily`, dead (below, "Dead slots since D-21 and D-24"). Sepolia is not upgraded to these classes:
+P-53 decided one fresh deployment, where `Daily`'s constructor sets `setup`. The old Sepolia `Daily` and `Tutorial` keep
+their `Lobby`. What follows is the path as it was.
 
 `Daily` and `Tutorial` run `spawn`, `claim`, `sponsor`, `discard`, `surrender`, the reports and the quest definitions in
 the `Lobby` class by library call (P-26). P-26 made its class hash, `lobby_class`, immutable. P-42 reverses that:
@@ -82,8 +88,9 @@ map). So, for every upgradable contract and for `Lobby`:
 - **`Lobby` and `Daily`/`Tutorial` share one layout (P-26).** `Lobby`'s code runs on the game contract's storage. A
   new class of either side keeps the other's names; a new `Lobby` class set by `set_lobby_class` is held to the
   same rule as an upgrade.
-- **Pins.** `tests::e2e::lobby_audit::test_lobby_and_daily_pin_every_shared_storage_variable_by_name` (the variables
-  `Lobby` shares with `Daily`) and `tests::e2e::upgrades::test_upgrade_layout_pins_account_and_economy_by_name` (the
+- **Pins.** `tests::e2e::cold_paths_audit::test_daily_pins_its_storage_variables_by_name` (`owner`,
+  `pending_owner`, `token_address` and `setup` of `Daily`; it replaced the pin of the variables `Lobby` shared with
+  `Daily`, `test_lobby_and_daily_pin_every_shared_storage_variable_by_name`, at D-24) and `tests::e2e::upgrades::test_upgrade_layout_pins_account_and_economy_by_name` (the
   wiring of `Account`, the addresses, pool, packed records and purchase maps of `Economy`) read each variable at the
   raw address of its name. Whoever adds a variable adds it there.
 - **Packed slots keep their bits.** A field added to a packed slot takes bits that are free in every slot written
@@ -113,6 +120,38 @@ map). So, for every upgradable contract and for `Lobby`:
   points (`owner`, `transfer_ownership`, `accept_ownership`) and, for `Daily` and `Tutorial`, `set_lobby_class`, and
   it is never the `Lobby` class. Only class hash 0 is refused: a class without these entry points freezes the contract
   for good, with no owner able to upgrade it again.
+
+## Dead slots since D-21 and D-24 (P-42)
+
+Declared, never written or read again, never reused; a comment says so where each is declared.
+
+| Slot | Declared in | Was written by |
+|---|---|---|
+| `lobby_class: ClassHash` | `Daily` (`systems/daily.cairo`) | the constructor and `set_lobby_class` (gone) |
+| `Quest_definitions`, `Quest_tasks`, `Quest_conditions`, `Quest_progress`, `Quest_records`, `Quest_held`, `Quest_reporters` (the flat `quest` substorage) | `Daily` | the definitions and the reports run in `Lobby` (now `Setup`'s, in `Setup`'s own storage) |
+| `Achievement_definitions`, `Achievement_extra_tasks`, `Achievement_reporters` (the flat `achievement` substorage) | `Daily` | the same |
+| `tutoriable` (empty substorage) | was `Lobby`'s and `Tutorial`'s | nothing: its storage was empty, so `Daily` holds no slot of it |
+
+`Daily` keeps the `quest` and `achievement` members as `#[substorage(v0)]` of quiver's component storages without
+declaring the components, so the slots keep their names and the quiver events leave `Daily`'s ABI. On Sepolia the dead
+slots keep what they hold (the definitions of the accepted list, `lobby_class`); `Setup`'s storage is fresh, and past
+progress is not migrated (P-51 (5)). `Tutorial`'s whole storage stays as it is, in a contract nobody uses after the
+upgrade.
+
+**Pins.** `tests::e2e::cold_paths_audit::test_daily_pins_the_dead_fields_by_name` pins the D-24 slots with D-20's:
+the address `Daily` resolves through each member's name (a test-only accessor, `Daily::DeadFieldsTrait::dead_addresses`,
+for `lobby_class` and the ten quiver members; `HostableComponent::DeadFieldsTrait` for `sponsorships`; `PavedStorage`
+for `tournaments` and `rankings`) equals the address computed from the literal name, and sentinels written at every one
+survive a whole game (the accepted list defined on `Setup`, then spawn, build, discard and surrender, each game over
+reported to `Setup`).
+
+**New live slot**: `Daily.setup: ContractAddress`, written by the constructor and by the owner's `set_setup` (P-42).
+Step E's single registry can keep it as the one address `Daily` reads its wiring from.
+
+**Rule for any future in-place upgrade of a `Daily` without `setup`** (D-17; mainnet later; not Sepolia, P-53): deploy
+`Setup` and call `Setup.set_reporter(Daily, true)` first, then send `Daily.upgrade` and `Daily.set_setup(Setup)` in one
+owner multicall, and read `Daily.setup()` back. If `setup` is still zero, a game over still ends and is recorded
+(`finish` skips the report when the slot is zero), but that game's progress is lost.
 
 ## D-20 on Sepolia (superseded by P-53: fresh deployment)
 

@@ -55,7 +55,6 @@ describe("addresses", () => {
   it("are the ones of the page, one source", () => {
     expect(BENCH.Account).toBe(BigInt(BENCH_ADDRESSES.VITE_ACCOUNT_ADDRESS));
     expect(BENCH.Daily).toBe(BigInt(BENCH_ADDRESSES.VITE_DAILY_ADDRESS));
-    expect(BENCH.Tutorial).toBe(BigInt(BENCH_ADDRESSES.VITE_TUTORIAL_ADDRESS));
     expect(BENCH.Token).toBe(BigInt(BENCH_ADDRESSES.VITE_TOKEN_ADDRESS));
     expect(BENCH.player).toBe(BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS));
   });

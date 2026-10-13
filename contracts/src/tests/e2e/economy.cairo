@@ -1,7 +1,7 @@
 //! `Daily` wired to `Economy` (P8 E3, `docs/architecture/economy.md` section 1): the trust that
 //! `Economy.purchase` and `Economy.record` place in their caller (E2's audit). `Economy` trusts
 //! `Daily` for the game id, the player, the stake and the price, and only checks that its USDC
-//! covers the price; these tests pin what `Lobby` passes.
+//! covers the price; these tests pin what `Daily` passes.
 
 use core::num::traits::Zero;
 use paved::constants;
@@ -10,7 +10,6 @@ use paved::models::tile::CENTER;
 use paved::systems::daily::{IDailySafeDispatcher, IDailySafeDispatcherTrait};
 use paved::systems::economy::{BASE_PRICE, IEconomyDispatcherTrait};
 use paved::systems::faucet::{IFaucetDispatcher, IFaucetDispatcherTrait};
-use paved::systems::tutorial::ITutorialDispatcherTrait;
 use paved::tests::e2e::quests::almost_over_daily;
 use paved::tests::setup::setup;
 use paved::tests::setup::setup::{
@@ -162,29 +161,6 @@ fn test_economy_records_a_game_over_on_surrender() {
     assert_recorded(store, @systems, context.game_id);
 }
 
-/// A Tutorial game is free: neither its spawn nor its end reaches `Economy`.
-#[test]
-#[available_gas(l2_gas: 72193000)]
-fn test_economy_tutorial_calls_neither_purchase_nor_record() {
-    let (store, systems, context) = setup::spawn_game(Mode::None);
-    let mut spy = spy_events();
-    let before = context.token.balance_of(PLAYER());
-    let game_id = systems.tutorial.spawn();
-    systems.tutorial.surrender(game_id);
-    let _ = store;
-    assert(context.token.balance_of(PLAYER()) == before, 'Economy: tutorial paid');
-    assert(systems.economy.terms(game_id).player.is_zero(), 'Economy: tutorial terms');
-    let economy = systems.economy.contract_address;
-    let events = spy.get_events().events;
-    let mut from_economy = 0;
-    for (from, _) in events.span() {
-        if *from == economy {
-            from_economy += 1;
-        }
-    }
-    assert(from_economy == 0, 'Economy: tutorial reached it');
-}
-
 /// A `Daily` whose `Account` has no economy yet: a spawn reverts and leaves no game.
 #[test]
 #[available_gas(l2_gas: 50926209)]
@@ -201,15 +177,12 @@ fn test_economy_spawn_reverts_before_set_economy() {
         snforge_std::DeclareResultTrait::contract_class(@account), @array![owner],
     )
         .unwrap();
-    let lobby: felt252 = (*snforge_std::DeclareResultTrait::contract_class(
-        @snforge_std::declare("Lobby").unwrap(),
-    )
-        .class_hash)
-        .into();
+    // [Info] `Setup` is not reached: the spawn reverts first
+    let setup_address: felt252 = 'setup';
     let daily = snforge_std::declare("Daily").unwrap();
     let (daily, _) = snforge_std::ContractClassTrait::deploy(
         snforge_std::DeclareResultTrait::contract_class(@daily),
-        @array![owner, account.into(), usdc.into(), lobby],
+        @array![owner, account.into(), usdc.into(), setup_address],
     )
         .unwrap();
     start_cheat_caller_address(account, PLAYER());
@@ -224,7 +197,7 @@ fn test_economy_spawn_reverts_before_set_economy() {
         .spawn(1, Zero::zero(), 0)
         .unwrap_err()
         .at(0);
-    assert(reason == 'Lobby: economy not set', 'Economy: reason');
+    assert(reason == 'Daily: economy not set', 'Economy: reason');
     assert(TestStoreTrait::new(daily).game(1).player_id == 0, 'Economy: a game was left');
 }
 

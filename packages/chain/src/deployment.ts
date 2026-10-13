@@ -30,19 +30,19 @@ export interface Deployment {
   deployedBlock: number;
   /** From the deployment file only; null when it is missing or not an integer 0..77: amounts are then not shown. */
   tokenDecimals: number | null;
-  /** Addresses of the four contracts; an empty string when unknown. */
+  /** Addresses of the contracts; an empty string when unknown. `Setup` is optional: not part of `configured`. */
   addresses: Record<ContractName, string>;
   /** The `MockUSDC`, the faucet's token, on devnet and Sepolia; an empty string where there is none (mainnet, any other network). Not part of `configured`. */
   mockUsdc: string;
   /** The game NFT's Collection (E5b), from `contracts.Collection` of the file or the env; an empty string when unknown. Not part of `configured`: a deployment before E5b has none. */
   collection: string;
-  /** True when the RPC URL and the four addresses are known: the only case where writes are offered. */
+  /** True when the RPC URL and the three required addresses (Account, Daily, Token) are known: the only case where writes are offered. */
   configured: boolean;
   /** What is missing when not configured, for the "not connected" state. */
   missing: string[];
 }
 
-const NAMES: ContractName[] = ["Account", "Daily", "Tutorial", "Token"];
+const NAMES: ContractName[] = ["Account", "Daily", "Token"];
 
 /**
  * The networks that resolve a `MockUSDC` (the faucet's token): devnet, and Sepolia (D-16, P-39: the devnet economy path,
@@ -85,6 +85,11 @@ export function resolveDeployment(input: {
     addresses[name] = isAddress(value) ? value : "";
     if (!addresses[name]) missing.push(`${name} address`);
   }
+
+  // `Setup` (D-24) holds the quests and the tutorial claim. A deployment from before step D has none: it stays configured,
+  // and only the claim is refused (`PavedWriter.claimTutorial`).
+  const setup = env.addresses?.Setup || file.contracts?.Setup?.address;
+  addresses.Setup = isAddress(setup) ? setup : "";
 
   // The file's `rpc_url` is used only when it is a URL: the Sepolia file holds the placeholder `$STARKNET_RPC_URL`, never
   // called. Without `VITE_RPC_URL` the deployment is then not connected, and says so.

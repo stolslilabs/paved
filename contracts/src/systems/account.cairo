@@ -9,12 +9,12 @@ pub trait IAccount<TContractState> {
     fn player(self: @TContractState, id: felt252) -> Player;
     /// Sets the `Economy` that `Daily` pays into, once. The owner only.
     fn set_economy(ref self: TContractState, economy: ContractAddress);
-    /// The `Economy` of the paid Daily games (zero until set): `Lobby` reads it at spawn and at
+    /// The `Economy` of the paid Daily games (zero until set): `Daily` reads it at spawn and at
     /// game over.
     fn economy(self: @TContractState) -> ContractAddress;
-    /// Sets the `Collection` that `Lobby` mints the games to, once. The owner only.
+    /// Sets the `Collection` that `Daily` mints the games to, once. The owner only.
     fn set_collection(ref self: TContractState, collection: ContractAddress);
-    /// The `Collection` of the game NFTs (zero until set): `Lobby` reads it at spawn.
+    /// The `Collection` of the game NFTs (zero until set): `Daily` reads it at spawn.
     fn collection(self: @TContractState) -> ContractAddress;
 }
 

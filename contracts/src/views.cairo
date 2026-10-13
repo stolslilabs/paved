@@ -76,7 +76,7 @@ pub struct PriceView {
 
 // Interfaces
 
-/// Views of a game, on `Daily` and `Tutorial`.
+/// Views of a game, on `Daily`.
 #[starknet::interface]
 pub trait IGameView<TContractState> {
     fn game(self: @TContractState, game_id: u32) -> GameView;

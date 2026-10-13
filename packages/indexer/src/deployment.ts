@@ -1,5 +1,5 @@
 // Reads `contracts/deployments/<network>.json` (contracts/deployments/README.md): the five addresses the indexer
-// filters on (Daily, Tutorial, Account and Economy are required: every deployment has an Economy since E3, and a file
+// filters on (Daily, Setup, Account and Economy are required: Setup since D-24 holds the quests and achievements; every deployment has an Economy since E3, and a file
 // without one is refused, since its paid games would be half indexed; Collection, since E5b, is optional: without it the
 // mints are not read and no game has a token id), the block it starts from, the chain id, and the node's URL. Nothing else of the file is used.
 import { readFileSync } from "node:fs";
@@ -12,7 +12,8 @@ export type Deployment = {
   /** The first block indexed: the block of the first deploy transaction. */
   deployedBlock: number;
   daily: string;
-  tutorial: string;
+  /** Setup (D-24): the quests, the achievements and the tutorial claim. */
+  setup: string;
   account: string;
   economy: string;
   /** Optional: a deployment before E5b has none, and its games carry no token id. */
@@ -51,7 +52,7 @@ export function parseDeployment(file: unknown): Deployment {
     rpcUrl: typeof doc.rpc_url === "string" ? doc.rpc_url : undefined,
     deployedBlock: block,
     daily: address("Daily"),
-    tutorial: address("Tutorial"),
+    setup: address("Setup"),
     account: address("Account"),
     economy: address("Economy"),
     collection: contracts.Collection === undefined ? undefined : address("Collection"),

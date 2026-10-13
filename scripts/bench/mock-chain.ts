@@ -35,11 +35,10 @@ interface TileRow {
   y: number;
 }
 
-/** The chain of the page (BENCH_ADDRESSES, one source): the four contracts and the playing account. */
+/** The chain of the page (BENCH_ADDRESSES, one source): the contracts and the playing account. */
 export const BENCH = {
   Account: BigInt(BENCH_ADDRESSES.VITE_ACCOUNT_ADDRESS),
   Daily: BigInt(BENCH_ADDRESSES.VITE_DAILY_ADDRESS),
-  Tutorial: BigInt(BENCH_ADDRESSES.VITE_TUTORIAL_ADDRESS),
   Token: BigInt(BENCH_ADDRESSES.VITE_TOKEN_ADDRESS),
   player: BigInt(BENCH_ADDRESSES.VITE_PLAYER_ADDRESS),
 };

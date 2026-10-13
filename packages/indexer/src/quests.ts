@@ -16,7 +16,7 @@ import type { TaskTarget } from "./events.ts";
 /** The task the game never reports and the indexer credits from the `tournament` view (quests.md, "On the Podium"). */
 export const PODIUM_TASK = 8;
 
-/** The only task Tutorial reports (quests.md, TUTORIAL_FINISHED). */
+/** The task of the tutorial claim, `Setup.claim_tutorial()` (D-21; quests.md, TUTORIAL_FINISHED): First Stone. */
 export const TUTORIAL_TASK = 10;
 
 /**

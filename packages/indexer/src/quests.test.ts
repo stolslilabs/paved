@@ -2,9 +2,9 @@ import { describe, expect, test } from "vitest";
 import { MAX_TOURNAMENT_ID } from "./api.ts";
 import { padded } from "./events.ts";
 import { Queries } from "./queries.ts";
-import { PODIUM_TASK, consistent, firstActive, intervalId, intervalSpan, replay, type Schedule } from "./quests.ts";
+import { PODIUM_TASK, TUTORIAL_TASK, consistent, firstActive, intervalId, intervalSpan, replay, type Schedule } from "./quests.ts";
 import { respond } from "./server.ts";
-import { FakeNode, ev } from "./testing/fake-node.ts";
+import { FakeNode, ev, raw } from "./testing/fake-node.ts";
 import { indexerOf, settle } from "./testing/setup.ts";
 
 const A = 0xa1n;
@@ -97,7 +97,7 @@ const defineList = (node: FakeNode) =>
 const finished = (player: bigint, score: number) => [
   ev.questProgressed(player, 1, 1),
   ev.questProgressed(player, 3, score),
-  ev.achievementProgressed("daily", player, 1, 1),
+  ev.achievementProgressed(player, 1, 1),
 ];
 
 describe("quests", () => {
@@ -192,15 +192,20 @@ describe("quests", () => {
     });
   });
 
-  test("Tutorial reports no quest progress: its achievement task counts for achievements only", async () => {
+  test("the tutorial claim credits First Stone: Setup's task 10, an achievement only, never a quest (D-21)", async () => {
     const { queries, head } = await open((node) => {
-      node.mine([ev.achievementDefined(1, { tasks: [[10, 1]], points: 10 })]);
-      node.mine([ev.achievementProgressed("tutorial", A, 10, 1)]);
+      defineList(node);
+      node.mine([ev.achievementDefined(1, { tasks: [[TUTORIAL_TASK, 1]], points: 10 })]);
+      node.mine([ev.tutorialClaimed(A)]);
     });
-    expect(queries.playerAchievements(head, padded(A))).toMatchObject({
-      points: 10,
-      achievements: [{ achievement_id: 1, completed: true }],
+    expect(queries.playerAchievements(head, padded(A)).achievements.find((a) => a.achievement_id === 1)).toMatchObject({
+      completed: true,
+      tasks: [{ task_id: TUTORIAL_TASK, count: 1 }],
     });
+    expect(queries.playerAchievements(head, padded(A)).points).toBe(10);
+    expect(queries.playerQuests(head, padded(A), DAY).every((q) => q.tasks.every((t) => t.count === 0))).toBe(true);
+    // Another player who never claimed has not got it.
+    expect(queries.playerAchievements(head, padded(B)).achievements.find((a) => a.achievement_id === 1)).toMatchObject({ completed: false });
   });
 
   test("an unknown player has zero progress (200, not 404), and the head limits what is read", async () => {
@@ -245,13 +250,13 @@ describe("achievements", () => {
         [ev.achievementDefined(2, { tasks: [[5, 4]] })],
       );
       node.time = T0 + 150;
-      node.mine([ev.achievementProgressed("daily", A, 5, 1)]); // before the window of 1
+      node.mine([ev.achievementProgressed(A, 5, 1)]); // before the window of 1
       node.time = T0 + 250;
-      node.mine([ev.achievementProgressed("daily", A, 5, 1)]); // in the window
+      node.mine([ev.achievementProgressed(A, 5, 1)]); // in the window
       // one transaction: a report, the retirement of 2, then a report
-      node.mine([ev.achievementProgressed("daily", A, 5, 1), ev.achievementRetired(2), ev.achievementProgressed("daily", A, 5, 1)]);
+      node.mine([ev.achievementProgressed(A, 5, 1), ev.achievementRetired(2), ev.achievementProgressed(A, 5, 1)]);
       node.time = T0 + 300;
-      node.mine([ev.achievementProgressed("daily", A, 5, 1)]); // end is exclusive
+      node.mine([ev.achievementProgressed(A, 5, 1)]); // end is exclusive
     });
     const [windowed, retired] = queries.playerAchievements(head, padded(A)).achievements;
     // 1: the reports at 250 (1) and 251 (2); not 150, not 300
@@ -263,7 +268,7 @@ describe("achievements", () => {
   test("a retirement keeps what was reached and ignores what comes after", async () => {
     const { queries, head } = await open((node) => {
       node.mine([ev.achievementDefined(1, { tasks: [[5, 10]] })]);
-      node.mine([ev.achievementProgressed("daily", A, 5, 4), ev.achievementRetired(1), ev.achievementProgressed("daily", A, 5, 4)]);
+      node.mine([ev.achievementProgressed(A, 5, 4), ev.achievementRetired(1), ev.achievementProgressed(A, 5, 4)]);
     });
     expect(queries.playerAchievements(head, padded(A)).achievements[0]).toMatchObject({
       retired: true,
@@ -504,18 +509,55 @@ describe("the podium credit is ordered at the day's close", () => {
   test("a reported task 8 is not a podium: only the indexer's leaderboard credits On the Podium", async () => {
     const { queries, head } = await open((node) => {
       node.mine([ev.achievementDefined(9, { tasks: [[PODIUM_TASK, 1]] })]);
-      node.mine([ev.achievementProgressed("daily", A, PODIUM_TASK, 1)]);
+      node.mine([ev.achievementProgressed(A, PODIUM_TASK, 1)]);
     });
     expect(queries.playerAchievements(head, padded(A)).achievements[0]).toMatchObject({ completed: false, tasks: [{ count: 0 }] });
   });
 
-  test("Tutorial reporting a task other than 10 halts the indexer", async () => {
-    const node = new FakeNode();
-    node.mine([ev.achievementProgressed("tutorial", A, 1, 1)]);
-    const indexer = indexerOf(node);
-    await settle(indexer);
-    expect(indexer.status).toBe("halted");
-    expect(indexer.reason).toMatch(/Tutorial reports task 10 only/);
+  test("the definitions and the progress come from Setup's address (D-24)", async () => {
+    const { indexer, queries, head } = await open((node) => {
+      defineList(node);
+      node.mine(finished(A, 1200));
+    });
+    const sources = indexer.store.dump().events.map((e) => [String(e.name), String(e.source)]);
+    expect(sources.length).toBeGreaterThan(0);
+    expect(sources.filter(([name]) => /^(Quest|Achievement)/.test(name!)).every(([, source]) => source === "setup")).toBe(true);
+    expect(queries.definitions(head).quests.map((q) => q.quest_id)).toEqual([1, 4]);
+    expect(queries.playerQuests(head, padded(A), DAY).find((q) => q.quest_id === 4)).toMatchObject({ tasks: [{ count: 1200 }] });
+    expect(queries.playerAchievements(head, padded(A)).achievements.find((a) => a.achievement_id === 2)).toMatchObject({ completed: true });
+  });
+
+  test("the same events from Daily's address are not indexed: skipped, no halt (P-51 ruling 5)", async () => {
+    const { indexer, queries, head } = await open((node) => {
+      node.mine([ev.questDefined(1, { tasks: [[DAILY_RUN, 1]], source: "daily" })]);
+      node.mine([ev.achievementDefined(2, { tasks: [[1, 1]], points: 10, source: "daily" })]);
+      node.mine([ev.questProgressed(A, 1, 1, "daily"), ev.achievementProgressed(A, 1, 1, "daily")]);
+      node.mine([ev.questRetired(1, "daily"), ev.achievementRetired(2, "daily")]);
+    });
+    expect(queries.definitions(head)).toEqual({ quests: [], achievements: [] });
+    expect(queries.playerAchievements(head, padded(A))).toEqual({ points: 0, achievements: [] });
+    expect(indexer.store.dump().events).toEqual([]);
+  });
+
+  test("a replay of a history from before D-21 and D-24 never halts, and keeps only what Setup says", async () => {
+    const { indexer, queries, head } = await open((node) => {
+      node.mine([ev.created(A, 0x416461)]);
+      // Daily's own quests and a Tutorial-era claim credited by Daily, the owner's Lobby class, a past prize, the mint of a
+      // Tutorial game's token: all past, all skipped.
+      node.mine([ev.questDefined(7, { source: "daily" }), ev.achievementDefined(1, { tasks: [[TUTORIAL_TASK, 1]], source: "daily" })]);
+      node.mine([raw("daily", "LobbyClassSet", [], [0x1234]), ev.sponsored(DAY, 0xabc)]);
+      node.mine([ev.achievementProgressed(A, TUTORIAL_TASK, 1, "daily"), ev.minted(A, 2 ** 32 + 1)]);
+      // A Daily game goes on as before.
+      node.mine([ev.spawned("daily", 1, A, { day: DAY }), ev.minted(A, 1)]);
+      // Then Setup: First Stone defined, and A claims.
+      node.mine([ev.achievementDefined(1, { tasks: [[TUTORIAL_TASK, 1]], points: 10 })]);
+      node.mine([ev.tutorialClaimed(A)]);
+    });
+    expect(indexer.status).toBe("ok");
+    const dump = indexer.store.dump();
+    expect(dump.games.map((g) => [g.contract, g.game_id, g.token_id])).toEqual([["daily", 1, 1]]);
+    expect(queries.definitions(head).quests).toEqual([]);
+    expect(queries.playerAchievements(head, padded(A))).toMatchObject({ points: 10, achievements: [{ achievement_id: 1, completed: true }] });
   });
 });
 

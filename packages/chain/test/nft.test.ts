@@ -10,7 +10,6 @@ import {
   NftMetadataError,
   RpcCollectionViews,
   TOKEN_LIMIT,
-  TUTORIAL_TOKEN_OFFSET,
   collectionAddress,
   nftLabel,
   nftOf,
@@ -40,21 +39,12 @@ describe("nftOf", () => {
     expect(nftOf("daily", 0xffffffff)).toBe(0xffffffffn);
   });
 
-  test("a Tutorial token id is 2^32 + the game id, in BigInt", () => {
-    expect(TUTORIAL_TOKEN_OFFSET).toBe(2n ** 32n);
-    expect(nftOf("tutorial", 1)).toBe(4294967297n);
-    expect(nftOf("tutorial", 55)).toBe(4294967351n);
-    expect(nftOf("tutorial", 0xffffffff)).toBe(2n ** 33n - 1n);
-    expect(nftOf("tutorial", 0xffffffff)).toBeLessThan(TOKEN_LIMIT);
-    expect(nftOf("tutorial", 7n)).toBe(2n ** 32n + 7n);
-  });
-
   test("an id that is not a u32 game id is refused, not rounded", () => {
     expect(() => nftOf("daily", -1)).toThrow(RangeError);
     expect(() => nftOf("daily", 1.5)).toThrow(RangeError);
     expect(() => nftOf("daily", 2 ** 32)).toThrow(RangeError);
-    expect(() => nftOf("tutorial", Number.MAX_SAFE_INTEGER + 2)).toThrow(RangeError);
-    expect(() => nftOf("tutorial", NaN)).toThrow(RangeError);
+    expect(() => nftOf("daily", Number.MAX_SAFE_INTEGER + 2)).toThrow(RangeError);
+    expect(() => nftOf("daily", NaN)).toThrow(RangeError);
   });
 
   test("tokenIdOf reads an indexer token id only if it is a safe non-negative integer", () => {
@@ -72,7 +62,7 @@ describe("nftOf", () => {
 });
 
 describe("the Collection's address", () => {
-  const FILE = { rpc_url: "http://x", contracts: { Account: { address: "0x1" }, Daily: { address: "0x2" }, Tutorial: { address: "0x3" }, Token: { address: "0x4" } } };
+  const FILE = { rpc_url: "http://x", contracts: { Account: { address: "0x1" }, Daily: { address: "0x2" }, Setup: { address: "0x3" }, Token: { address: "0x4" } } };
 
   test("from the deployments file when it has one; none without, and the deployment stays configured", () => {
     const without = resolveDeployment({ network: "devnet", file: FILE });
@@ -107,7 +97,7 @@ describe("the indexer's token_id and contracts.collection", () => {
     const fixture = new FixtureIndexer();
     const client = new IndexerClient({ url: "http://indexer.test", fetch: fixture.fetch as typeof fetch });
     const { data } = await client.playerGames(FIXTURE_ADA);
-    expect(data.games.map((g) => g.tokenId)).toEqual([912, 4294967351]);
+    expect(data.games.map((g) => g.tokenId)).toEqual([912, 55]);
 
     fixture.games = fixture.games.map((g, i) => (i === 0 ? { ...g, token_id: null } : (({ token_id: _t, ...rest }) => rest)(g)));
     expect((await client.playerGames(FIXTURE_ADA)).data.games.map((g) => g.tokenId)).toEqual([null, undefined]);

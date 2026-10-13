@@ -45,7 +45,7 @@ which stay as they are for the UI.
 | Part | Engine | Cairo (`contracts/src/`) |
 |---|---|---|
 | The draw | `draw.ts` | `helpers/random_deck.cairo` (`draw_from_bitmap`), `types/deck.cairo` (`tiles`), `models/game.cairo` (`draw_plan`, `reseed`) |
-| Decks | `decks.ts` | `elements/decks/{base,simple,tutorial}.cairo` (through game-core's `elements/decks`) |
+| Decks | `decks.ts` | `elements/decks/{base,simple}.cairo` (through game-core's `elements/decks`); the tutorial deck's Cairo source left with D-21 (last at 38f1c95), and `decks.ts` keeps its values |
 | Tables | `tables.ts` (generated), `geometry.ts` | `structure/tables.cairo`, `structure/oriented.cairo` |
 | Board, structures, forest scan | `structures.ts` | `structure/placement.cairo`, `state.cairo`, `record.cairo`, `forest.cairo` |
 | Game, legality, scoring | `game.ts` | `models/game.cairo`, `components/playable.cairo`, `components/tutoriable.cairo`, `structure/assessment.cairo`, `helpers/multiplier.cairo` |
@@ -77,7 +77,9 @@ cd packages/game-core && bun run generate:tables
 `version`, `rules`, `games`; each game `name`, `source` (`golden`, `tutorial`, `differential`), `seed` (hex
 felt), `tile_limit`, `forced`, `moves` (`drawn`, `plan`, `orientation` 0 to 4 with 0 a discard at `x, y` 0,
 absolute `x, y`, `scored` as `{ category, size, points }` codes, `score` after the move) and `final`
-(`score`, `built`, `discarded`, `tile_count`, `over`). E1's file is transcribed from the Cairo tests by a script:
+(`score`, `built`, `discarded`, `tile_count`, `over`). E1's file is transcribed from the Cairo tests by a script,
+except `tutorial_full`: its Cairo sources (`golden/tutorial.cairo`, `elements/decks/tutorial.cairo`) left the contracts
+with D-21, so the script reads it from `scripts/tutorial-golden.frozen.ts`, transcribed once at 38f1c95:
 
 ```sh
 cd packages/game-core && bun run generate:parity

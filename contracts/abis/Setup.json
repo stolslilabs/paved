@@ -1,40 +1,8 @@
 [
   {
     "type": "impl",
-    "name": "LobbyImpl",
-    "interface_name": "paved::systems::lobby::ILobby"
-  },
-  {
-    "type": "enum",
-    "name": "paved::types::mode::Mode",
-    "variants": [
-      {
-        "name": "None",
-        "type": "()"
-      },
-      {
-        "name": "Daily",
-        "type": "()"
-      },
-      {
-        "name": "Tutorial",
-        "type": "()"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "core::integer::u256",
-    "members": [
-      {
-        "name": "low",
-        "type": "core::integer::u128"
-      },
-      {
-        "name": "high",
-        "type": "core::integer::u128"
-      }
-    ]
+    "name": "SetupImpl",
+    "interface_name": "paved::systems::setup::ISetup"
   },
   {
     "type": "struct",
@@ -131,108 +99,71 @@
     ]
   },
   {
+    "type": "enum",
+    "name": "core::bool",
+    "variants": [
+      {
+        "name": "False",
+        "type": "()"
+      },
+      {
+        "name": "True",
+        "type": "()"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "quiver_quest::types::batch::TaskProgress",
+    "members": [
+      {
+        "name": "task_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "count",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "core::array::Span::<quiver_quest::types::batch::TaskProgress>",
+    "members": [
+      {
+        "name": "snapshot",
+        "type": "@core::array::Array::<quiver_quest::types::batch::TaskProgress>"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "quiver_achievement::types::batch::TaskProgress",
+    "members": [
+      {
+        "name": "task_id",
+        "type": "core::integer::u32"
+      },
+      {
+        "name": "count",
+        "type": "core::integer::u32"
+      }
+    ]
+  },
+  {
+    "type": "struct",
+    "name": "core::array::Span::<quiver_achievement::types::batch::TaskProgress>",
+    "members": [
+      {
+        "name": "snapshot",
+        "type": "@core::array::Array::<quiver_achievement::types::batch::TaskProgress>"
+      }
+    ]
+  },
+  {
     "type": "interface",
-    "name": "paved::systems::lobby::ILobby",
+    "name": "paved::systems::setup::ISetup",
     "items": [
-      {
-        "type": "function",
-        "name": "spawn",
-        "inputs": [
-          {
-            "name": "mode",
-            "type": "paved::types::mode::Mode"
-          },
-          {
-            "name": "stake",
-            "type": "core::integer::u8"
-          },
-          {
-            "name": "referrer",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
-            "name": "min_out",
-            "type": "core::integer::u256"
-          }
-        ],
-        "outputs": [
-          {
-            "type": "core::integer::u32"
-          }
-        ],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "discard",
-        "inputs": [
-          {
-            "name": "game_id",
-            "type": "core::integer::u32"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "surrender",
-        "inputs": [
-          {
-            "name": "game_id",
-            "type": "core::integer::u32"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "tutorial_discard",
-        "inputs": [
-          {
-            "name": "game_id",
-            "type": "core::integer::u32"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "tutorial_surrender",
-        "inputs": [
-          {
-            "name": "game_id",
-            "type": "core::integer::u32"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "report",
-        "inputs": [
-          {
-            "name": "game_id",
-            "type": "core::integer::u32"
-          },
-          {
-            "name": "over",
-            "type": "core::integer::u128"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "tutorial_report",
-        "inputs": [],
-        "outputs": [],
-        "state_mutability": "external"
-      },
       {
         "type": "function",
         "name": "define_quest",
@@ -304,19 +235,168 @@
         ],
         "outputs": [],
         "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "set_reporter",
+        "inputs": [
+          {
+            "name": "reporter",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "allowed",
+            "type": "core::bool"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "report",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "quests",
+            "type": "core::array::Span::<quiver_quest::types::batch::TaskProgress>"
+          },
+          {
+            "name": "achievements",
+            "type": "core::array::Span::<quiver_achievement::types::batch::TaskProgress>"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "claim_tutorial",
+        "inputs": [],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "is_reporter",
+        "inputs": [
+          {
+            "name": "reporter",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::bool"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "tutorial_claimed",
+        "inputs": [
+          {
+            "name": "player_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::bool"
+          }
+        ],
+        "state_mutability": "view"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "UpgradeableImpl",
+    "interface_name": "openzeppelin_interfaces::upgrades::IUpgradeable"
+  },
+  {
+    "type": "interface",
+    "name": "openzeppelin_interfaces::upgrades::IUpgradeable",
+    "items": [
+      {
+        "type": "function",
+        "name": "upgrade",
+        "inputs": [
+          {
+            "name": "new_class_hash",
+            "type": "core::starknet::class_hash::ClassHash"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      }
+    ]
+  },
+  {
+    "type": "impl",
+    "name": "OwnableImpl",
+    "interface_name": "paved::components::ownable::IOwnable"
+  },
+  {
+    "type": "interface",
+    "name": "paved::components::ownable::IOwnable",
+    "items": [
+      {
+        "type": "function",
+        "name": "owner",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "pending_owner",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "transfer_ownership",
+        "inputs": [
+          {
+            "name": "new_owner",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "accept_ownership",
+        "inputs": [],
+        "outputs": [],
+        "state_mutability": "external"
       }
     ]
   },
   {
     "type": "constructor",
     "name": "constructor",
-    "inputs": []
-  },
-  {
-    "type": "event",
-    "name": "paved::components::hostable::HostableComponent::Event",
-    "kind": "enum",
-    "variants": []
+    "inputs": [
+      {
+        "name": "owner",
+        "type": "core::starknet::contract_address::ContractAddress"
+      }
+    ]
   },
   {
     "type": "event",
@@ -371,21 +451,27 @@
   },
   {
     "type": "event",
-    "name": "paved::components::payable::PayableComponent::Event",
-    "kind": "enum",
-    "variants": []
+    "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "class_hash",
+        "type": "core::starknet::class_hash::ClassHash",
+        "kind": "data"
+      }
+    ]
   },
   {
     "type": "event",
-    "name": "paved::components::playable::PlayableComponent::Event",
+    "name": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
     "kind": "enum",
-    "variants": []
-  },
-  {
-    "type": "event",
-    "name": "paved::components::tutoriable::TutoriableComponent::Event",
-    "kind": "enum",
-    "variants": []
+    "variants": [
+      {
+        "name": "Upgraded",
+        "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Upgraded",
+        "kind": "nested"
+      }
+    ]
   },
   {
     "type": "event",
@@ -489,20 +575,6 @@
         "name": "quest_id",
         "type": "core::integer::u32",
         "kind": "key"
-      }
-    ]
-  },
-  {
-    "type": "enum",
-    "name": "core::bool",
-    "variants": [
-      {
-        "name": "False",
-        "type": "()"
-      },
-      {
-        "name": "True",
-        "type": "()"
       }
     ]
   },
@@ -667,32 +739,17 @@
   },
   {
     "type": "event",
-    "name": "paved::systems::lobby::Lobby::Event",
+    "name": "paved::systems::setup::Setup::Event",
     "kind": "enum",
     "variants": [
-      {
-        "name": "HostableEvent",
-        "type": "paved::components::hostable::HostableComponent::Event",
-        "kind": "flat"
-      },
       {
         "name": "OwnableEvent",
         "type": "paved::components::ownable::OwnableComponent::Event",
         "kind": "flat"
       },
       {
-        "name": "PayableEvent",
-        "type": "paved::components::payable::PayableComponent::Event",
-        "kind": "flat"
-      },
-      {
-        "name": "PlayableEvent",
-        "type": "paved::components::playable::PlayableComponent::Event",
-        "kind": "flat"
-      },
-      {
-        "name": "TutoriableEvent",
-        "type": "paved::components::tutoriable::TutoriableComponent::Event",
+        "name": "UpgradeableEvent",
+        "type": "openzeppelin_upgrades::upgradeable::UpgradeableComponent::Event",
         "kind": "flat"
       },
       {

@@ -26,7 +26,6 @@ export interface Devnet {
   accounts: DevAccount[];
   addresses: Record<ContractName, string>;
   /** Class hash of the declared Lobby library class. */
-  lobbyClass: string;
   /** Block of the last deployment. */
   deployedBlock: number;
   stop(): void;
@@ -102,24 +101,21 @@ export async function startDevnet(port: number): Promise<Devnet> {
       return result.deploy.contract_address;
     };
 
-    // Lobby (P-26) is declared and never deployed: Daily and Tutorial store its class hash and run it
-    // through library calls. Declared before them, as scripts/deploy.sh does.
-    const declared = await deployer.declare(compile("Lobby"), { tip: 0n });
-    await provider.waitForTransaction(declared.transaction_hash, { retryInterval: 200 });
-    const lobbyClass = declared.class_hash;
-
+    // Step D (D-21, D-24): no Tutorial and no Lobby; Setup holds the quests and the tutorial claim, and Daily reports
+    // to it at game over, as an allowed reporter.
     const Token = await deploy("Token", []);
     const AccountAddress = await deploy("Account", [owner]);
-    const Tutorial = await deploy("Tutorial", [owner, AccountAddress, lobbyClass]);
-    const Daily = await deploy("Daily", [owner, AccountAddress, Token, lobbyClass]);
+    const Setup = await deploy("Setup", [owner]);
+    const Daily = await deploy("Daily", [owner, AccountAddress, Token, Setup]);
+    const allowed = await deployer.execute([{ contractAddress: Setup, entrypoint: "set_reporter", calldata: [Daily, "1"] }], { tip: 0n });
+    await provider.waitForTransaction(allowed.transaction_hash, { retryInterval: 200 });
     const deployedBlock = (await provider.getBlockNumber()) as number;
 
     return {
       rpcUrl,
       provider,
       accounts,
-      addresses: { Account: AccountAddress, Daily, Tutorial, Token },
-      lobbyClass,
+      addresses: { Account: AccountAddress, Daily, Setup, Token },
       deployedBlock,
       stop,
     };

@@ -14,7 +14,9 @@ const FILE = {
   contracts: {
     Account: { address: "0x0003" },
     Daily: { address: "0x1" },
-    Tutorial: { address: "0x2" },
+    Setup: { address: "0x2" },
+    // A past contract (D-21): not read.
+    Tutorial: { address: "0x7" },
     Economy: { address: "0x4" },
     Collection: { address: "0x6" },
     PavedToken: { address: "0x5" },
@@ -30,6 +32,11 @@ describe("the deployment file", () => {
       expect(() => readDeployment(committed)).toThrow("the deployment file has no address for Economy");
       return;
     }
+    // The file is regenerated once CORE's step D (D-24) has merged: until then it has no Setup, and the indexer refuses it.
+    if (file.contracts?.Setup === undefined) {
+      expect(() => readDeployment(committed)).toThrow("the deployment file has no address for Setup");
+      return;
+    }
     // The file is regenerated from main once E5b has merged: until then it has no Collection, which is optional.
     if (file.contracts?.Collection === undefined) {
       expect(readDeployment(committed).collection).toBeUndefined();
@@ -42,12 +49,12 @@ describe("the deployment file", () => {
       chainId: "0x534e5f5345504f4c4941",
       deployedBlock: file.deployed_block,
       daily: of("Daily"),
-      tutorial: of("Tutorial"),
+      setup: of("Setup"),
       account: of("Account"),
       economy: of("Economy"),
       collection: of("Collection"),
     });
-    expect(new Set([deployment.daily, deployment.tutorial, deployment.account, deployment.economy, deployment.collection]).size).toBe(5);
+    expect(new Set([deployment.daily, deployment.setup, deployment.account, deployment.economy, deployment.collection]).size).toBe(5);
     expect(defaultRpcUrl(deployment)).toBe("http://127.0.0.1:5050");
   });
 
@@ -58,7 +65,7 @@ describe("the deployment file", () => {
       rpcUrl: "http://127.0.0.1:5050",
       deployedBlock: 6,
       daily: "0x1",
-      tutorial: "0x2",
+      setup: "0x2",
       account: "0x3",
       economy: "0x4",
       collection: "0x6",
@@ -73,6 +80,9 @@ describe("the deployment file", () => {
     expect(() => parseDeployment({ ...ok, contracts: { ...ok.contracts, Daily: {} } })).toThrow(/Daily/);
     expect(() => parseDeployment({ ...ok, contracts: { ...ok.contracts, Account: { address: "0x0" } } })).toThrow(/Account/);
     // Required since E3: a deployment without its Economy would index half of each paid game.
+    // Required since D-24: the quests and achievements are Setup's.
+    const { Setup: _setup, ...noSetup } = ok.contracts;
+    expect(() => parseDeployment({ ...ok, contracts: noSetup })).toThrow(/Setup/);
     const { Economy: _economy, ...before } = ok.contracts;
     expect(() => parseDeployment({ ...ok, contracts: before })).toThrow(/Economy/);
     expect(() => parseDeployment({ ...ok, contracts: { ...ok.contracts, Economy: { address: "0x0" } } })).toThrow(/Economy/);

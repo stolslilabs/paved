@@ -258,8 +258,11 @@ export function TutorialPage() {
             </h2>
             <p data-testid="final-score" style={{ margin: 0 }}>Final score: {game.score}</p>
             <p style={{ margin: 0 }}>You know how roads, cities, forests and wonders score. Now play for real.</p>
-            {/* U2: the claim button of the tutorial achievement goes here, once CORE's Setup system lands (D-24, D-25). */}
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+              {/* U2: the claim is a chain route; this page stays off chain and builds no client (`isOffChainRoute`). */}
+              <Link to="/tutorial/claim" style={linkStyle} data-testid="tutorial-claim-link">
+                Claim your achievement
+              </Link>
               <Link to={buildGameRoute({ mode: "training" })} style={linkStyle}>
                 Training
               </Link>

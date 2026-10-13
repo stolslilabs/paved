@@ -1,5 +1,6 @@
 // A game's NFT: (Collection address, token id). The Collection (E5b, `contracts/src/systems/collection.cairo`) mints one
-// soulbound token per game at spawn: a Daily game's token id is its game id, a Tutorial game's is 2^32 + its game id.
+// soulbound token per game at spawn: a game's token id is its game id
+// (the Tutorial's ids, 2^32 + its game id, left with it in D-21).
 // `token_uri` returns `data:application/json;base64,` + the JSON of the game; the client reads it as data and never
 // as markup.
 
@@ -8,8 +9,8 @@ import { AbiCodec, type Abi } from "./codec";
 import type { Deployment } from "./deployment";
 import { toViewError, ViewError, type CallProvider, type GameMode } from "./views";
 
-/** `TUTORIAL_OFFSET` of the Collection: Tutorial token ids start here (2^32), Daily ids are the game ids below it. */
-export const TUTORIAL_TOKEN_OFFSET = 0x100000000n;
+/** Game ids are u32 on chain: a token id is below 2^32. */
+const GAME_ID_LIMIT = 0x100000000n;
 
 /** `TOKEN_LIMIT` of the Collection: the first token id no game owns (2^33). */
 export const TOKEN_LIMIT = 0x200000000n;
@@ -18,14 +19,14 @@ export const TOKEN_LIMIT = 0x200000000n;
 export const COLLECTION_ABI = collectionAbi as Abi;
 
 /**
- * The token id of a game, in BigInt (a Tutorial id passes 2^32 and the ids are u256 on chain). A game id is a u32 on
- * chain; anything else is refused rather than rounded.
+ * The token id of a game, in BigInt (the ids are u256 on chain). A game id is a u32 on chain; anything else is refused
+ * rather than rounded.
  */
-export function nftOf(mode: GameMode, gameId: number | bigint): bigint {
+export function nftOf(_mode: GameMode, gameId: number | bigint): bigint {
   if (typeof gameId === "number" && !Number.isSafeInteger(gameId)) throw new RangeError(`${gameId} is not a game id`);
   const id = BigInt(gameId);
-  if (id < 0n || id >= TUTORIAL_TOKEN_OFFSET) throw new RangeError(`${id.toString()} is not a game id`);
-  return mode === "tutorial" ? TUTORIAL_TOKEN_OFFSET + id : id;
+  if (id < 0n || id >= GAME_ID_LIMIT) throw new RangeError(`${id.toString()} is not a game id`);
+  return id;
 }
 
 /** The token id an indexer row carries (`GameRow.token_id`): a safe integer, read as BigInt. */

@@ -775,3 +775,50 @@ the tree of the branch's first commit (main 6552ae21 plus the brief: the figures
   is unchanged up to the game over, so the cause is outside the move (an estimate would be a guess: `Daily`'s entry
   point dispatch lost two entry points and a view).
 - **The spawns m, n, o: unchanged to the unit.** The spawn path is untouched (only the day id's function moved).
+
+## After D-21/24 (the tutorial leaves, the cold paths return, Setup; step D)
+
+D-21 and D-24 (`leaderboard.md`, "D-21" and "D-24"): `spawn`, `discard` and `surrender` run in `Daily`'s own code (no
+library call to `Lobby`), and a game over makes **one external call**, `Setup.report`, instead of the library call
+`Lobby.report` (`build`) or the internal quiver calls inside `Lobby` (`discard`, `surrender`). Measured on the VPS,
+2026-10-13, scarb 2.20.1, snforge 0.64.0,
+`RAYON_NUM_THREADS=1 prlimit --as=16106127360 -- /usr/bin/time -v snforge test test_gas_ --max-threads 2`, on the step
+D branch (the contracts of c3ce333a, the gas file of 61d8f18c); peak RSS of the run 3,524,932 kB. **"Before" is the
+"After D-20" column above** (the D-20b branch), not a run on this branch's base (main 36b8d9de): #342 (D-25 A+B, the
+Faucet) came between and was not measured on its own, and the export of the base for a run of its own was refused on
+the VPS. Scenario o (the Tutorial spawn) left with the Tutorial; s (the game over on the last `discard`) is new, with
+no figure before.
+
+| | Scenario | Before (D-20) | After D-21/24 | Change | Ceiling | Share of the ceiling |
+|---|---|---:|---:|---:|---:|---:|
+| l | game over on the last `build` | 6,957,515 | 7,128,685 | +171,170 (+2.46 %) | 7,774,092 | 91.7 % |
+| s | game over on the last `discard` (new) | not measured | 3,360,103 | not measured before | 3,528,109 | 95.2 % |
+| g | closing move in its day (surrender) | 2,988,628 | 3,169,908 | +181,280 (+6.07 %) | 3,672,907 | 86.3 % |
+| i | game over after its day (surrender) | 2,531,088 | 2,712,368 | +181,280 (+7.16 %) | **2,847,987** (was 2,690,889) | 95.2 % |
+| k | closing move, largest report (surrender) | 3,317,508 | 3,604,088 | +286,580 (+8.64 %) | 4,018,231 | 89.7 % |
+| m | Daily spawn, stake 1 | 50,271,386 | 49,988,176 | -283,210 (-0.56 %) | 52,743,229 | 94.8 % |
+| n | Daily spawn, stake 10, referred | 51,297,496 | 51,014,286 | -283,210 (-0.55 %) | 53,820,644 | 94.8 % |
+| a0 | open simple move | 5,506,003 | 5,499,903 | -6,100 (-0.11 %) | 5,709,834 | 96.3 % |
+| a | closes a 2-tile city | 5,135,672 | 5,129,572 | -6,100 (-0.12 %) | 5,315,180 | 96.5 % |
+| c | closes a 6-tile city | 5,208,170 | 5,202,070 | -6,100 (-0.12 %) | 5,393,424 | 96.5 % |
+| d | closes a 12-tile city tree | 5,471,580 | 5,465,480 | -6,100 (-0.11 %) | 5,662,074 | 96.5 % |
+| e | closes a forest of 4 tiles | 8,726,746 | 8,720,646 | -6,100 (-0.07 %) | 8,962,300 | 97.3 % |
+| f | closes a forest of 16 nodes, the worst scan | 18,560,976 | 18,554,876 | -6,100 (-0.03 %) | 18,923,195 | 98.1 % |
+
+- **i's ceiling is raised to measured + 5 %, 2,847,987 (was 2,690,889).** It measured 2,712,368, 100.8 % of the old
+  ceiling: the external `Setup.report` call at game over that D-24 chose costs +181,280 over D-20. CORE's decision
+  (2026-10-13, after the step D escalation), the rule the other ceilings follow; it reverses if the PM asks for savings
+  instead. Every other ceiling is unchanged and none is passed; the largest share of a ceiling is f's, 98.05 %.
+- **The game overs, g, i, k, l: +170,000 to +287,000.** g and i +181,280 each, l +171,170, k +286,580 (k's report has 9
+  entries, against 3 for g and i and 7 for l). The external call (`call_contract_syscall`, the calldata of the player and of up
+  to 9 entries, `Setup`'s dispatch, its reporter read) costs more than the library call of `build` (about 118,650 L2
+  gas, `class-headroom.md`) and the internal quiver calls of `discard` and `surrender`. A first build, which checked the
+  allowlist of both components, cost 50,530 more on each (i 2,762,898): `Setup` now reads one, the quests', since
+  `set_reporter` is the only writer of both and writes them together.
+- **Fix loop 1 (review #346): the zero-`setup` guard in `finish` costs +3,100 on each game over** (g 3,173,008, i
+  2,715,468, k 3,607,188, l 7,131,685, s 3,363,203; the other scenarios unchanged to the unit). `setup` was read
+  before as well; the guard adds the zero check and its branch, not a read. Every scenario stays under its ceiling
+  (i: 95.3 % of 2,847,987).
+- **The spawns m, n: -283,210 each.** The library call to `Lobby` is gone (and #342's Faucet is inside this figure).
+- **The building moves a0 to f: -6,100 each.** Not analysed (the move's own code is unchanged; `Daily`'s dispatch
+  changed: an estimate would be a guess).
