@@ -21,3 +21,11 @@ export function useTrainingSession(): { session: LocalSession; state: PageState;
   const newGame = useCallback(() => setSession(LocalSession.start(randomSeed(), browserStore)), []);
   return { session, state, newGame };
 }
+
+/** What the landing card says of the saved game: none (or one that does not replay), in progress, or finished. */
+export function savedTrainingStatus(store: () => KeyValueStore | null = browserStore): "none" | "playing" | "over" {
+  const saved = loadGame(store);
+  const session = saved && LocalSession.resume(saved, store);
+  if (!session) return "none";
+  return session.state.game?.over ? "over" : "playing";
+}

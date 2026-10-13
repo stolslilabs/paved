@@ -6,7 +6,7 @@ import { claimableRanks, countedTournamentIds, indexerPlayerId, reclaimableAmoun
 import type { GameMode, GameView, IndexerClient, PavedClient, PlayerGame, TournamentView } from "@paved/chain";
 import { buildGameRoute } from "../utils/mode-routing";
 import { startIntent } from "../utils/start-game";
-import { hasSavedTraining } from "../training/storage";
+import { savedTrainingStatus } from "../training/use-training";
 import { PrizePanel } from "../components/PrizePanel";
 import { EconomyPanel } from "../components/EconomyPanel";
 import { EconomyPurchase } from "../components/EconomyPurchase";
@@ -198,7 +198,8 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     topPlayers: m.mode === "daily" && daily ? podium(daily) : undefined,
     timeRemaining: m.mode === "daily" && daily ? formatTimeRemaining(daily.endTime) : undefined,
     hasActiveGame: active.some((g) => g.mode === m.mode),
-    onPress: () => setSelected(m.mode),
+    // The Tutorial is a page of its own on the engine (U1): no dialog, no start.
+    onPress: () => (m.mode === "tutorial" ? navigate("/tutorial") : setSelected(m.mode)),
   }));
 
   const toItem = (readonly: boolean) => (g: ListedGame): GameListItemProps => ({
@@ -230,6 +231,7 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
   const confirmAllowed = selected !== "daily" || active.some((g) => g.mode === "daily");
 
   // Training is free and off chain: its card does not wait for a wallet, a player or any read.
+  const saved = savedTrainingStatus();
   const training: GameModeCardProps = {
     mode: "training",
     title: "Training",
@@ -239,7 +241,9 @@ export function LandingPage({ supportsMint = false }: { supportsMint?: boolean }
     entryFee: "Free",
     free: true,
     tokenLabel: TOKEN_LABEL,
-    hasActiveGame: hasSavedTraining(),
+    hasActiveGame: saved === "playing",
+    // A finished game is not resumed: the card opens its result.
+    actionLabel: saved === "over" ? "View result" : undefined,
     onPress: () => navigate(buildGameRoute({ mode: "training" })),
   };
 

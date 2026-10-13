@@ -64,8 +64,3 @@ export function clearGame(store: () => KeyValueStore | null = browserStore): voi
     // Nothing to clear if storage is unavailable.
   }
 }
-
-/** True when a game is saved here (the landing card then says "Resume"). */
-export function hasSavedTraining(store: () => KeyValueStore | null = browserStore): boolean {
-  return loadGame(store) !== null;
-}

@@ -79,6 +79,37 @@ describe("Training card", () => {
   });
 });
 
+describe("Tutorial card", () => {
+  it("opens the off-chain /tutorial page, with no dialog", async () => {
+    land({ deployment: notConfigured, account: null });
+    fireEvent.click(await screen.findByText(/mode tutorial/));
+    expect(screen.getByTestId("where").textContent).toBe("/tutorial|null");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("Training card, finished game", () => {
+  it("says View result, not Resume, when the saved game replays to over", async () => {
+    localStorage.setItem("paved:training:v1", JSON.stringify({ v: 1, seed: "0x5", moves: [{ k: "s" }] }));
+    try {
+      land({ deployment: notConfigured, account: null });
+      expect(await screen.findByText("Training: Free, no wallet, no rewards: View result")).toBeTruthy();
+    } finally {
+      localStorage.clear();
+    }
+  });
+
+  it("says Play for a save that does not replay", async () => {
+    localStorage.setItem("paved:training:v1", JSON.stringify({ v: 1, seed: "0x5", moves: [{ k: "b", o: 1, x: 40, y: 40 }] }));
+    try {
+      land({ deployment: notConfigured, account: null });
+      expect(await screen.findByText("Training: Free, no wallet, no rewards: Play")).toBeTruthy();
+    } finally {
+      localStorage.clear();
+    }
+  });
+});
+
 describe("Landing states", () => {
   it("the right panel is capped at the dynamic viewport height, with the vh fallback first", async () => {
     const { container } = land({ deployment: notConfigured, account: null });
