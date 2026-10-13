@@ -10,8 +10,7 @@
    "plan": 14,
    "orientation": 1,
    "x": 2147483647,
-   "y": 2147483647,
-   "occupied_spot": 0
+   "y": 2147483647
   },
   {
    "game_id": 1,
@@ -20,8 +19,7 @@
    "plan": 13,
    "orientation": 4,
    "x": 2147483647,
-   "y": 2147483648,
-   "occupied_spot": 0
+   "y": 2147483648
   },
   {
    "game_id": 1,
@@ -30,8 +28,7 @@
    "plan": 9,
    "orientation": 3,
    "x": 2147483647,
-   "y": 2147483649,
-   "occupied_spot": 0
+   "y": 2147483649
   },
   {
    "game_id": 1,
@@ -40,8 +37,7 @@
    "plan": 9,
    "orientation": 2,
    "x": 2147483646,
-   "y": 2147483647,
-   "occupied_spot": 0
+   "y": 2147483647
   },
   {
    "game_id": 1,
@@ -50,8 +46,7 @@
    "plan": 7,
    "orientation": 1,
    "x": 2147483648,
-   "y": 2147483648,
-   "occupied_spot": 0
+   "y": 2147483648
   },
   {
    "game_id": 1,
@@ -60,8 +55,7 @@
    "plan": 16,
    "orientation": 2,
    "x": 2147483646,
-   "y": 2147483648,
-   "occupied_spot": 0
+   "y": 2147483648
   },
   {
    "game_id": 1,
@@ -70,8 +64,7 @@
    "plan": 6,
    "orientation": 3,
    "x": 2147483647,
-   "y": 2147483650,
-   "occupied_spot": 0
+   "y": 2147483650
   },
   {
    "game_id": 1,
@@ -80,8 +73,7 @@
    "plan": 17,
    "orientation": 3,
    "x": 2147483646,
-   "y": 2147483646,
-   "occupied_spot": 0
+   "y": 2147483646
   },
   {
    "game_id": 1,
@@ -90,8 +82,7 @@
    "plan": 11,
    "orientation": 2,
    "x": 2147483649,
-   "y": 2147483648,
-   "occupied_spot": 0
+   "y": 2147483648
   },
   {
    "game_id": 1,
@@ -100,8 +91,7 @@
    "plan": 7,
    "orientation": 4,
    "x": 2147483649,
-   "y": 2147483647,
-   "occupied_spot": 0
+   "y": 2147483647
   },
   {
    "game_id": 1,
@@ -110,8 +100,7 @@
    "plan": 14,
    "orientation": 3,
    "x": 2147483650,
-   "y": 2147483648,
-   "occupied_spot": 0
+   "y": 2147483648
   },
   {
    "game_id": 1,
@@ -120,8 +109,7 @@
    "plan": 15,
    "orientation": 4,
    "x": 2147483646,
-   "y": 2147483645,
-   "occupied_spot": 7
+   "y": 2147483645
   },
   {
    "game_id": 1,
@@ -130,8 +118,7 @@
    "plan": 13,
    "orientation": 3,
    "x": 2147483651,
-   "y": 2147483648,
-   "occupied_spot": 1
+   "y": 2147483648
   },
   {
    "game_id": 1,
@@ -140,8 +127,7 @@
    "plan": 10,
    "orientation": 4,
    "x": 2147483651,
-   "y": 2147483647,
-   "occupied_spot": 0
+   "y": 2147483647
   },
   {
    "game_id": 1,
@@ -150,8 +136,7 @@
    "plan": 18,
    "orientation": 2,
    "x": 2147483652,
-   "y": 2147483647,
-   "occupied_spot": 0
+   "y": 2147483647
   },
   {
    "game_id": 1,
@@ -160,8 +145,7 @@
    "plan": 19,
    "orientation": 1,
    "x": 2147483646,
-   "y": 2147483650,
-   "occupied_spot": 0
+   "y": 2147483650
   },
   {
    "game_id": 1,
@@ -170,8 +154,7 @@
    "plan": 13,
    "orientation": 3,
    "x": 2147483645,
-   "y": 2147483646,
-   "occupied_spot": 1
+   "y": 2147483646
   },
   {
    "game_id": 1,
@@ -180,8 +163,7 @@
    "plan": 3,
    "orientation": 3,
    "x": 2147483651,
-   "y": 2147483646,
-   "occupied_spot": 0
+   "y": 2147483646
   },
   {
    "game_id": 1,
@@ -190,8 +172,7 @@
    "plan": 18,
    "orientation": 3,
    "x": 2147483644,
-   "y": 2147483646,
-   "occupied_spot": 0
+   "y": 2147483646
   },
   {
    "game_id": 1,
@@ -200,8 +181,7 @@
    "plan": 18,
    "orientation": 2,
    "x": 2147483651,
-   "y": 2147483649,
-   "occupied_spot": 0
+   "y": 2147483649
   },
   {
    "game_id": 1,
@@ -210,8 +190,7 @@
    "plan": 3,
    "orientation": 3,
    "x": 2147483648,
-   "y": 2147483650,
-   "occupied_spot": 0
+   "y": 2147483650
   },
   {
    "game_id": 1,
@@ -220,8 +199,7 @@
    "plan": 12,
    "orientation": 2,
    "x": 2147483645,
-   "y": 2147483650,
-   "occupied_spot": 0
+   "y": 2147483650
   },
   {
    "game_id": 1,
@@ -230,8 +208,7 @@
    "plan": 11,
    "orientation": 4,
    "x": 2147483647,
-   "y": 2147483646,
-   "occupied_spot": 0
+   "y": 2147483646
   },
   {
    "game_id": 1,
@@ -240,8 +217,7 @@
    "plan": 16,
    "orientation": 2,
    "x": 2147483645,
-   "y": 2147483651,
-   "occupied_spot": 0
+   "y": 2147483651
   },
   {
    "game_id": 1,
@@ -250,8 +226,7 @@
    "plan": 16,
    "orientation": 1,
    "x": 2147483647,
-   "y": 2147483651,
-   "occupied_spot": 0
+   "y": 2147483651
   },
   {
    "game_id": 1,
@@ -260,8 +235,7 @@
    "plan": 10,
    "orientation": 1,
    "x": 2147483649,
-   "y": 2147483646,
-   "occupied_spot": 0
+   "y": 2147483646
   },
   {
    "game_id": 1,
@@ -270,8 +244,7 @@
    "plan": 11,
    "orientation": 3,
    "x": 2147483651,
-   "y": 2147483645,
-   "occupied_spot": 2
+   "y": 2147483645
   },
   {
    "game_id": 1,
@@ -280,8 +253,7 @@
    "plan": 19,
    "orientation": 1,
    "x": 2147483649,
-   "y": 2147483645,
-   "occupied_spot": 0
+   "y": 2147483645
   },
   {
    "game_id": 1,
@@ -290,8 +262,7 @@
    "plan": 10,
    "orientation": 4,
    "x": 2147483653,
-   "y": 2147483647,
-   "occupied_spot": 0
+   "y": 2147483647
   },
   {
    "game_id": 1,
@@ -300,8 +271,7 @@
    "plan": 15,
    "orientation": 3,
    "x": 2147483653,
-   "y": 2147483648,
-   "occupied_spot": 0
+   "y": 2147483648
   },
   {
    "game_id": 1,
@@ -310,8 +280,7 @@
    "plan": 12,
    "orientation": 2,
    "x": 2147483646,
-   "y": 2147483644,
-   "occupied_spot": 0
+   "y": 2147483644
   },
   {
    "game_id": 1,
@@ -320,8 +289,7 @@
    "plan": 13,
    "orientation": 1,
    "x": 2147483643,
-   "y": 2147483646,
-   "occupied_spot": 0
+   "y": 2147483646
   },
   {
    "game_id": 1,
@@ -330,8 +298,7 @@
    "plan": 10,
    "orientation": 1,
    "x": 2147483654,
-   "y": 2147483648,
-   "occupied_spot": 3
+   "y": 2147483648
   },
   {
    "game_id": 1,
@@ -340,8 +307,7 @@
    "plan": 10,
    "orientation": 3,
    "x": 2147483645,
-   "y": 2147483649,
-   "occupied_spot": 0
+   "y": 2147483649
   },
   {
    "game_id": 1,
@@ -350,8 +316,7 @@
    "plan": 1,
    "orientation": 2,
    "x": 2147483645,
-   "y": 2147483644,
-   "occupied_spot": 0
+   "y": 2147483644
   },
   {
    "game_id": 1,
@@ -360,8 +325,7 @@
    "plan": 8,
    "orientation": 4,
    "x": 2147483645,
-   "y": 2147483647,
-   "occupied_spot": 0
+   "y": 2147483647
   },
   {
    "game_id": 1,
@@ -370,8 +334,7 @@
    "plan": 7,
    "orientation": 4,
    "x": 2147483654,
-   "y": 2147483649,
-   "occupied_spot": 5
+   "y": 2147483649
   },
   {
    "game_id": 1,
@@ -380,64 +343,7 @@
    "plan": 16,
    "orientation": 3,
    "x": 2147483646,
-   "y": 2147483649,
-   "occupied_spot": 0
-  }
- ],
- "characters": [
-  {
-   "game_id": 1,
-   "player_id": "0x1234",
-   "index": 1,
-   "tile_id": 12,
-   "spot": 7,
-   "weight": 1,
-   "power": 1
-  },
-  {
-   "game_id": 1,
-   "player_id": "0x1234",
-   "index": 2,
-   "tile_id": 27,
-   "spot": 2,
-   "weight": 1,
-   "power": 1
-  },
-  {
-   "game_id": 1,
-   "player_id": "0x1234",
-   "index": 3,
-   "tile_id": 13,
-   "spot": 1,
-   "weight": 1,
-   "power": 1
-  },
-  {
-   "game_id": 1,
-   "player_id": "0x1234",
-   "index": 4,
-   "tile_id": 37,
-   "spot": 5,
-   "weight": 1,
-   "power": 1
-  },
-  {
-   "game_id": 1,
-   "player_id": "0x1234",
-   "index": 5,
-   "tile_id": 17,
-   "spot": 1,
-   "weight": 1,
-   "power": 1
-  },
-  {
-   "game_id": 1,
-   "player_id": "0x1234",
-   "index": 6,
-   "tile_id": 33,
-   "spot": 3,
-   "weight": 1,
-   "power": 1
+   "y": 2147483649
   }
  ]
 }

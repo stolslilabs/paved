@@ -7,7 +7,7 @@
 // (shuffled with a fixed seed), each is put on a free slot next to the board with an
 // orientation whose touching edges all match (Layout.isCompatible, as Game.tsx does).
 // A tile that fits nowhere is discarded and the next one is drawn; the deck is
-// cycled when it runs out. A few characters are then put on legal spots.
+// cycled when it runs out.
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,16 +18,14 @@ import {
   Layout,
   Orientation,
   Plan,
-  getValidSpotsForRole,
   offset,
 } from "../src/index";
-import type { CharacterData, TileData } from "../src/index";
+import type { TileData } from "../src/index";
 
 export const BOARD_SEED = 0xc0ffee;
 export const BOARD_SIZES = [38, 72] as const;
 const GAME_ID = 1;
 const PLAYER_ID = "0x1234";
-const CHARACTERS_PER_BOARD = 6;
 /** Orientations North..West as contract values (Orientation.from(1..4)). */
 const ORIENTATIONS = [1, 2, 3, 4];
 
@@ -37,7 +35,6 @@ export interface BoardFixture {
   /** Contract coordinates: x = offset + worldX, y = offset - worldZ. */
   center: number;
   tiles: TileData[];
-  characters: CharacterData[];
 }
 
 function mulberry32(seed: number): () => number {
@@ -106,7 +103,6 @@ export function generateBoard(size: number, seed = BOARD_SEED): BoardFixture {
       orientation,
       x,
       y,
-      occupied_spot: 0,
     };
     tiles.push(t);
     byPos.set(`${x},${y}`, t);
@@ -138,30 +134,7 @@ export function generateBoard(size: number, seed = BOARD_SEED): BoardFixture {
     push(plan, o, x, y);
   }
 
-  // Characters: one per role index, on a legal spot of a random distinct tile.
-  const characters: CharacterData[] = [];
-  const free = shuffle(tiles.slice(), rnd);
-  for (let index = 1; index <= CHARACTERS_PER_BOARD && free.length > 0; index++) {
-    for (let i = 0; i < free.length; i++) {
-      const tile = free[i];
-      const spots = getValidSpotsForRole(index - 1, tile.plan, tile.orientation);
-      if (spots.length === 0) continue;
-      const spot = spots[Math.floor(rnd() * spots.length)];
-      tile.occupied_spot = spot;
-      characters.push({
-        game_id: GAME_ID,
-        player_id: PLAYER_ID,
-        index,
-        tile_id: tile.id,
-        spot,
-        weight: 1,
-        power: 1,
-      });
-      free.splice(i, 1);
-      break;
-    }
-  }
-  return { seed, size, center: offset, tiles, characters };
+  return { seed, size, center: offset, tiles };
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
@@ -170,6 +143,6 @@ if (isMain) {
   for (const size of BOARD_SIZES) {
     const board = generateBoard(size);
     writeFileSync(join(dir, `board-${size}.json`), JSON.stringify(board, null, 1) + "\n");
-    console.log(`board-${size}.json: ${board.tiles.length} tiles, ${board.characters.length} characters`);
+    console.log(`board-${size}.json: ${board.tiles.length} tiles`);
   }
 }

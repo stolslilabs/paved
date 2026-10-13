@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getPlanKey, getCharacterKey, getTilePath, getCharacterPath } from "../src/asset-keys";
+import { getPlanKey, getTilePath } from "../src/asset-keys";
 import { PlanType } from "../src/types/plan";
 
 describe("getPlanKey()", () => {
@@ -44,43 +44,6 @@ describe("getPlanKey()", () => {
   });
 });
 
-describe("getCharacterKey()", () => {
-  it("index 1 returns 'lord'", () => {
-    expect(getCharacterKey(1)).toBe("lord");
-  });
-
-  it("index 2 returns 'lady'", () => {
-    expect(getCharacterKey(2)).toBe("lady");
-  });
-
-  it("index 3 returns 'adventurer'", () => {
-    expect(getCharacterKey(3)).toBe("adventurer");
-  });
-
-  it("index 4 returns 'paladin'", () => {
-    expect(getCharacterKey(4)).toBe("paladin");
-  });
-
-  it("index 5 returns 'pilgrim'", () => {
-    expect(getCharacterKey(5)).toBe("pilgrim");
-  });
-
-  it("index 0 returns '00' (out of range)", () => {
-    expect(getCharacterKey(0)).toBe("00");
-  });
-
-  it("indexes 6 and 7 return the P4 roles", () => {
-    expect(getCharacterKey(6)).toBe("woodsman");
-    expect(getCharacterKey(7)).toBe("herdsman");
-    expect(getCharacterPath(6)).toBe("/assets/characters/woodsman.png");
-    expect(getCharacterPath(7)).toBe("/assets/characters/herdsman.png");
-  });
-
-  it("index 8 returns '00' (out of range)", () => {
-    expect(getCharacterKey(8)).toBe("00");
-  });
-});
-
 describe("getTilePath()", () => {
   it("returns correct path for a plan type", () => {
     expect(getTilePath(PlanType.CCCCCCCCC)).toBe("/assets/tiles/ccccccccc.png");
@@ -92,19 +55,5 @@ describe("getTilePath()", () => {
 
   it("returns 00 path for None plan", () => {
     expect(getTilePath(PlanType.None)).toBe("/assets/tiles/00.png");
-  });
-});
-
-describe("getCharacterPath()", () => {
-  it("returns correct path for valid index", () => {
-    expect(getCharacterPath(1)).toBe("/assets/characters/lord.png");
-  });
-
-  it("returns 00 path for invalid index", () => {
-    expect(getCharacterPath(0)).toBe("/assets/characters/00.png");
-  });
-
-  it("uses custom basePath", () => {
-    expect(getCharacterPath(1, "/custom")).toBe("/custom/lord.png");
   });
 });

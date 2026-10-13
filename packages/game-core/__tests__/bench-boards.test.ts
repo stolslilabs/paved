@@ -38,13 +38,8 @@ describe("bench board fixtures", () => {
         expect(pairs).toBeGreaterThanOrEqual(size - 1);
       });
 
-      it("has a mix of plans and a few characters on their tiles", () => {
+      it("has a mix of plans", () => {
         expect(new Set(board.tiles.map((t) => t.plan)).size).toBeGreaterThanOrEqual(8);
-        expect(board.characters.length).toBeGreaterThanOrEqual(3);
-        for (const c of board.characters) {
-          const tile = board.tiles.find((t) => t.id === c.tile_id);
-          expect(tile?.occupied_spot).toBe(c.spot);
-        }
       });
 
       it("matches what the generator produces from the fixed seed", () => {

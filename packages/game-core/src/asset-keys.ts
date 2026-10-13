@@ -30,14 +30,3 @@ export function getPlanKey(plan: PlanType): string {
 export function getTilePath(plan: PlanType, basePath = "/assets/tiles"): string {
   return `${basePath}/${getPlanKey(plan)}.png`;
 }
-
-const CHARACTER_KEYS = ["lord", "lady", "adventurer", "paladin", "pilgrim", "woodsman", "herdsman"] as const;
-
-export function getCharacterKey(index: number): string {
-  return CHARACTER_KEYS[index - 1] ?? "00";
-}
-
-export function getCharacterPath(index: number, basePath = "/assets/characters"): string {
-  const key = getCharacterKey(index);
-  return key === "00" ? `${basePath}/00.png` : `${basePath}/${key}.png`;
-}

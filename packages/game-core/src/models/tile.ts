@@ -14,7 +14,6 @@ export interface TileData {
   orientation: number;
   x: number;
   y: number;
-  occupied_spot: number;
 }
 
 export class Tile {
@@ -25,7 +24,6 @@ export class Tile {
   public orientation: Orientation;
   public x: number;
   public y: number;
-  public occupiedSpot: Spot;
 
   constructor(tile: TileData) {
     this.gameId = tile.game_id;
@@ -35,7 +33,6 @@ export class Tile {
     this.orientation = Orientation.from(tile.orientation);
     this.x = tile.x;
     this.y = tile.y;
-    this.occupiedSpot = Spot.from(tile.occupied_spot);
   }
 
   public getKey(area: Area): string {
@@ -72,10 +69,6 @@ export class Tile {
     const noFrom: Spot = from.antirotate(this.orientation.value);
     const noTo = to.antirotate(this.orientation.value);
     return this.plan.area(noFrom.value) === this.plan.area(noTo.value);
-  }
-
-  public isEmpty(): boolean {
-    return this.occupiedSpot.value === SpotType.None;
   }
 
   public canPlace(neighbors: Array<Tile>): boolean {

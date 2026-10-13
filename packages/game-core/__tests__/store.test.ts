@@ -11,7 +11,6 @@ function makeTileData(overrides: Partial<TileData> = {}): TileData {
     orientation: 1,
     x: 0,
     y: 0,
-    occupied_spot: 0,
     ...overrides,
   };
 }
