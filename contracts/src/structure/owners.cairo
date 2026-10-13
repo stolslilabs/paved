@@ -1,8 +1,10 @@
 //! Tile owners and majority scoring (D-19, P-47; D-19b): the winner of a closed structure.
 //!
-//! A tile's owner is the player who placed it (`Store::tile_owner`; 0, the game's player, for a
-//! tile no build of another player placed). A closed structure's points go to the owner with the
-//! most distinct tiles in it, and to nobody on a tie (`Tally::winner` is then 0):
+//! A tile's owner is the seat of the player who placed it, kept in the tile itself (`Tile.owner`,
+//! bits 96 to 104 of its slot, `Store::tile_with_refs`). Seat 0 is the game's player: the only seat
+//! until a multiplayer mode, and what the starter tile and every tile written before D-19 read. A
+//! closed structure's points go to the seat with the most distinct tiles in it, and to nobody on a
+//! tie (`Tally::winner` is then `None`):
 //! - a road or a city: the tiles of its nodes, each tile once even when two of its areas are nodes
 //!   of the structure (ruling 1), counted by a walk of the nodes (`structure_tally`);
 //! - a forest: the tiles of its own nodes only (ruling 2), counted by the forest scan as it walks
@@ -10,9 +12,11 @@
 //! - a wonder: the wonder tile and the 8 tiles around it (ruling 3), which are not nodes of its
 //!   structure but are all placed when it closes (`wonder_tally`).
 //!
-//! The count runs only on the move that closes the structure, in memory: it writes nothing. In a
-//! game with one player every tile is that player's, so the winner is the player and the count is
-//! skipped (`Game::assess`, on `Mode::solo`): Daily and Tutorial score as they did before D-19.
+//! The walks read the seat from the tile slots they read anyway, so the count adds no storage read
+//! to a road, a city or a forest, and writes nothing. A winning seat becomes a player id in one
+//! place, `player_of_seat`. In a game with one player every tile is seat 0, so the winner is the
+//! player and the count is skipped (`Game::assess`, on `Mode::solo`): Daily and Tutorial score as
+//! they did before D-19.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::models::tile::Tile;
@@ -22,153 +26,125 @@ use paved::structure::walk::{WalkerTrait, toward};
 
 pub mod errors {
     pub const WONDER_OPEN: felt252 = 'Owners: wonder not closed';
+    pub const SEAT_WITHOUT_PLAYER: felt252 = 'Owners: seat without player';
 }
 
-/// The distinct tiles of a structure per owner.
+/// The player of `seat` in a game whose player is `player_id`: the one place where a seat becomes a
+/// player id. Seat 0 is the game's player. No other seat has a player before a multiplayer mode,
+/// which gives the seats of a game their players here; until then a build only ever places seat 0
+/// (only the game's player builds, `Game::builder_of`), so no live path reaches another seat and
+/// one reverts.
+///
+/// A game's `player_id` is never 0: it is the caller of `spawn`, and `builder_of` accepts no
+/// player 0. So a winner is never confused with the 0 of a tie in `Scored`.
+pub fn player_of_seat(player_id: felt252, seat: u8) -> felt252 {
+    assert(seat == 0, errors::SEAT_WITHOUT_PLAYER);
+    player_id
+}
+
+/// The player who wins with `winner` (a seat, or `None` on a tie, which gives 0: nobody).
+pub fn player_of(player_id: felt252, winner: Option<u8>) -> felt252 {
+    match winner {
+        Option::Some(seat) => player_of_seat(player_id, seat),
+        Option::None => 0,
+    }
+}
+
+/// The distinct tiles of a structure per seat.
 #[derive(Destruct)]
 pub struct Tally {
-    game_id: u32,
-    /// The game's player: the owner of a tile whose stored owner is 0.
-    player_id: felt252,
-    /// Whether the tiles are counted: a tally that is off counts nothing and its winner is the
-    /// game's player (the single-player skip).
-    on: bool,
     /// The tiles counted, by id.
     tiles: Felt252Dict<bool>,
-    /// The tiles of each owner.
+    /// The tiles of each seat.
     counts: Felt252Dict<u32>,
-    /// The owners met, in the order they were met.
-    owners: Array<felt252>,
+    /// The seats met, in the order they were met.
+    seats: Array<u8>,
     /// The distinct tiles counted.
     pub total: u32,
 }
 
 #[generate_trait]
 pub impl TallyImpl of TallyTrait {
-    /// A tally of the tiles of a structure of game `game_id`, whose player is `player_id`.
-    fn new(game_id: u32, player_id: felt252) -> Tally {
-        Tally {
-            game_id,
-            player_id,
-            on: true,
-            tiles: Default::default(),
-            counts: Default::default(),
-            owners: array![],
-            total: 0,
-        }
+    fn new() -> Tally {
+        Tally { tiles: Default::default(), counts: Default::default(), seats: array![], total: 0 }
     }
 
-    /// A tally that counts nothing: its winner is `player_id`.
-    fn off(game_id: u32, player_id: felt252) -> Tally {
-        Tally {
-            game_id,
-            player_id,
-            on: false,
-            tiles: Default::default(),
-            counts: Default::default(),
-            owners: array![],
-            total: 0,
-        }
-    }
-
-    /// Counts the tile `tile_id` for its owner, once; nothing when the tally is off (inlined, so
-    /// that the single-player scan pays only the test).
-    #[inline(always)]
-    fn add(ref self: Tally, tile_id: u32) {
-        if self.on {
-            self.count_tile(tile_id);
-        }
-    }
-
-    /// Counts the tile `tile_id` for its owner, once (the tally is on).
-    fn count_tile(ref self: Tally, tile_id: u32) {
-        let key: felt252 = tile_id.into();
+    /// Counts `tile` for its seat, once.
+    fn add(ref self: Tally, tile: Tile) {
+        let key: felt252 = tile.id.into();
         if self.tiles.get(key) {
             return;
         }
         self.tiles.insert(key, true);
         self.total += 1;
-        let mut owner = StoreImpl::tile_owner(self.game_id, tile_id);
-        if owner == 0 {
-            owner = self.player_id;
-        }
-        let count = self.counts.get(owner);
+        let seat: felt252 = tile.owner.into();
+        let count = self.counts.get(seat);
         if count == 0 {
-            self.owners.append(owner);
+            self.seats.append(tile.owner);
         }
-        self.counts.insert(owner, count + 1);
+        self.counts.insert(seat, count + 1);
     }
 
-    /// The tiles counted for `owner` (the game's player for 0).
-    fn count(ref self: Tally, owner: felt252) -> u32 {
-        let owner = if owner == 0 {
-            self.player_id
-        } else {
-            owner
-        };
-        self.counts.get(owner)
+    /// The tiles counted for `seat`.
+    fn count(ref self: Tally, seat: u8) -> u32 {
+        self.counts.get(seat.into())
     }
 
-    /// The owner with the most tiles, 0 when two or more share the most (nobody scores). The game's
-    /// player when the tally is off.
-    fn winner(ref self: Tally) -> felt252 {
-        if !self.on {
-            return self.player_id;
-        }
-        let mut best: felt252 = 0;
+    /// The seat with the most tiles, `None` when two or more share the most (nobody scores).
+    fn winner(ref self: Tally) -> Option<u8> {
+        let mut best: u8 = 0;
         let mut most: u32 = 0;
         let mut tie = false;
-        let mut owners = self.owners.span();
-        while let Option::Some(owner) = owners.pop_front() {
-            let count = self.counts.get(*owner);
+        let mut seats = self.seats.span();
+        while let Option::Some(seat) = seats.pop_front() {
+            let count = self.counts.get((*seat).into());
             if count > most {
-                best = *owner;
+                best = *seat;
                 most = count;
                 tie = false;
             } else if count == most {
                 tie = true;
             }
         }
-        if tie {
-            0
+        if tie || most == 0 {
+            Option::None
         } else {
-            best
+            Option::Some(best)
         }
     }
 }
 
-/// The tiles of the closed road or city of `area` of `tile` (of refs `refs`), per owner: a walk of
+/// The tiles of the closed road or city of `area` of `tile` (of refs `refs`), per seat: a walk of
 /// its nodes, one tile counted once.
-pub fn structure_tally(
-    player_id: felt252, tile: Tile, refs: u128, area: u8, ref structures: Structures,
-) -> Tally {
-    let mut tally = TallyTrait::new(structures.game_id, player_id);
+pub fn structure_tally(tile: Tile, refs: u128, area: u8, ref structures: Structures) -> Tally {
+    let mut tally = TallyTrait::new();
     let mut walker = WalkerTrait::new(tile, refs, area, ref structures);
     while let Option::Some((node, _, node_area)) = walker.pop() {
-        tally.add(node.id);
+        tally.add(node);
         walker.expand(node, node_area);
     }
     tally
 }
 
-/// The tiles of the closed wonder of `wonder` per owner: the wonder tile and the 8 tiles around
-/// it. The tile the move builds is not in storage yet: it is taken from `structures`.
-pub fn wonder_tally(player_id: felt252, wonder: Tile, ref structures: Structures) -> Tally {
+/// The tiles of the closed wonder of `wonder` per seat: the wonder tile and the 8 tiles around it.
+/// The tile the move builds is not in storage yet: it is taken from `structures`.
+pub fn wonder_tally(wonder: Tile, ref structures: Structures) -> Tally {
     let game_id = structures.game_id;
     let built = structures.built;
-    let mut tally = TallyTrait::new(game_id, player_id);
-    tally.add(wonder.id);
+    let mut tally = TallyTrait::new();
+    tally.add(wonder);
     let mut direction: u8 = 1;
     while direction <= 8 {
         let (x, y) = toward(wonder.x, wonder.y, direction);
-        let tile_id = if built.id != 0 && built.x == x && built.y == y {
-            built.id
+        let tile = if built.id != 0 && built.x == x && built.y == y {
+            built
         } else {
-            StoreImpl::tile_id_at(game_id, x, y)
+            let (tile, _) = StoreImpl::tile_at(game_id, x, y);
+            tile
         };
         // [Check] A closed wonder has its 8 positions taken
-        assert(tile_id != 0, errors::WONDER_OPEN);
-        tally.add(tile_id);
+        assert(tile.id != 0, errors::WONDER_OPEN);
+        tally.add(tile);
         direction += 1;
     }
     tally

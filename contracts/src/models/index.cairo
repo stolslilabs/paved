@@ -48,6 +48,9 @@ pub struct Tile {
     pub orientation: u8,
     pub x: u32,
     pub y: u32,
+    /// The seat of the player who placed the tile (D-19): 0 is the game's player, the only seat
+    /// until a multiplayer mode (the starter tile and the tiles written before D-19 read 0).
+    pub owner: u8,
 }
 
 #[derive(Copy, Drop, Serde, Debug, PartialEq)]

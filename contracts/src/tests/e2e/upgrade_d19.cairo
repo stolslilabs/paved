@@ -4,9 +4,10 @@
 //! `DailyBeforeD19`), leaving a road, a city, a forest and a wonder open; the contract is
 //! upgraded to the D-19 class (`upgrade`, owner only) and the game is finished. A twin game, in a
 //! second deployment, plays the same moves on the D-18 class all along. The answer: the upgraded
-//! game scores exactly as its twin, move by move and event by event, and its tiles read owner 0
-//! (the game's player): those placed before the upgrade, which have no entry in `tile_owners`, and
-//! those placed after, since a single-player build writes no owner.
+//! game scores exactly as its twin (the same `Scored` events, in the same order, and the same score
+//! and counters), and its tiles read seat 0 (the game's player): those placed before the upgrade,
+//! whose slots D-18 wrote with bits 96 to 104 at 0, and those placed after, since only the game's
+//! player builds.
 //!
 //! The deploy of the D-18 class is emulated as `upgrade_d18.cairo` does: the game contract is
 //! deployed with the D-19 class, spawns the game (a spawn writes the same storage under both
@@ -26,8 +27,8 @@ use paved::types::mode::Mode;
 use paved::types::orientation::Orientation;
 use paved::types::plan::Plan;
 use snforge_std::{
-    DeclareResultTrait, EventSpyAssertionsTrait, declare, get_class_hash, interact_with_state, load,
-    map_entry_address, spy_events, start_cheat_caller_address,
+    DeclareResultTrait, EventSpy, EventSpyAssertionsTrait, EventSpyTrait, declare, get_class_hash,
+    interact_with_state, spy_events, start_cheat_caller_address,
 };
 use starknet::{ClassHash, ContractAddress};
 
@@ -134,27 +135,33 @@ fn start() -> (TestStore, IDailyDispatcher, u32, ClassHash) {
     (store, systems.daily, g, class_d19)
 }
 
-/// The owner of each placed tile of the game, as stored.
-fn owners(store: TestStore, game_id: u32) -> Array<felt252> {
+/// Every placed tile of the game reads seat 0 (`Tile.owner`, from its slot).
+fn assert_seat_zero(store: TestStore, game_id: u32) {
     interact_with_state(
         store.contract,
         || {
             let game = StoreImpl::new().game(game_id);
-            let mut owners: Array<felt252> = array![];
             let mut tile_id: u32 = 1;
             while tile_id <= game.tile_count {
-                owners.append(StoreImpl::tile_owner(game_id, tile_id));
+                let (tile, _) = StoreImpl::tile_with_refs(game_id, tile_id);
+                assert_eq!(tile.owner, 0);
                 tile_id += 1;
             }
-            owners
         },
-    )
+    );
 }
 
-fn assert_no_owner(store: TestStore, game_id: u32) {
-    for owner in owners(store, game_id) {
-        assert_eq!(owner, 0);
+/// The `Scored` events `contract` emitted, keys and data, in order.
+fn scored_events(
+    ref spy: EventSpy, contract: ContractAddress,
+) -> Array<(Span<felt252>, Span<felt252>)> {
+    let mut found: Array<(Span<felt252>, Span<felt252>)> = array![];
+    for (from, event) in spy.get_events().events {
+        if from == contract && *event.keys.at(0) == selector!("Scored") {
+            found.append((event.keys.span(), event.data.span()));
+        }
     }
+    found
 }
 
 fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Daily::Event {
@@ -166,9 +173,10 @@ fn scored(game_id: u32, category: Category, size: u32, points: u32) -> Daily::Ev
 }
 
 /// The game is played with a road, a city, a forest and a wonder open, upgraded to the D-19 class
-/// and finished; its twin stays on the D-18 class. Both score the same, with the same events
-/// (by hand, as `upgrade_d18.cairo` gives them: the loop of road 438, the forest 329, the road of
-/// the stub 438, the city 643, the wonder 900), and every tile of the upgraded game reads owner 0.
+/// and finished; its twin stays on the D-18 class. Both score the same, with the same `Scored`
+/// events in the same order (by hand, as `upgrade_d18.cairo` gives them: the loop of road 438, the
+/// forest 329, the road of the stub 438, the city 643, the wonder 900), and every tile of the
+/// upgraded game reads seat 0.
 #[test]
 #[available_gas(l2_gas: 4000000000)]
 fn test_upgrade_d19_daily_game_open_across_the_upgrade() {
@@ -181,9 +189,9 @@ fn test_upgrade_d19_daily_game_open_across_the_upgrade() {
     assert_eq!(store.game(g).score, 419);
     assert_eq!(twin.game(tg).score, 419);
 
-    // [Upgrade] the old tiles have no owner entry: they read 0, the game's player
+    // [Upgrade] the old tiles read seat 0, the game's player
     upgrade(store.contract, class_d19);
-    assert_no_owner(store, g);
+    assert_seat_zero(store, g);
     let board_before = check::board_points(store, g);
 
     // [After the upgrade] the D-19 class finishes the game; the twin plays on with the D-18 class
@@ -199,6 +207,11 @@ fn test_upgrade_d19_daily_game_open_across_the_upgrade() {
         both.append((contract, scored(game_id, Category::Wonder, 0, 900)));
     }
     spy.assert_emitted(@both);
+    // The twin's `Scored` events, in order, are the upgraded game's (the two games have id 1)
+    assert_eq!(g, tg);
+    let upgraded = scored_events(ref spy, store.contract);
+    assert_eq!(upgraded.len(), 5);
+    assert_eq!(upgraded, scored_events(ref spy, twin.contract));
 
     // The same score and the same counters as the twin
     let game = store.game(g);
@@ -209,28 +222,6 @@ fn test_upgrade_d19_daily_game_open_across_the_upgrade() {
     // Nothing closed before the upgrade scored again, nothing that closed after was left out
     let board_after = check::board_points(store, g);
     assert_eq!(board_after - board_before, game.score - 419);
-    // No build of the single player wrote an owner: every tile still reads 0
-    assert_no_owner(store, g);
-}
-
-/// The layout pin of `tile_owners` (D-19, `docs/architecture/upgrades.md`): the map is a member of
-/// the `paved` storage node, so its entry for `(game_id, tile_id)` sits at the Pedersen chain of
-/// `selector!("paved")`, `selector!("tile_owners")`, then the keys. An owner written through the
-/// store is read there; a rename or a move of the map fails here.
-#[test]
-fn test_upgrade_d19_pins_tile_owners_by_name() {
-    let (store, _, context) = setup::spawn_game(Mode::Daily);
-    let g = context.game_id;
-    interact_with_state(
-        store.contract, || {
-            let s = StoreImpl::new();
-            s.set_tile_owner(s.game(g), 7, 'ALICE');
-        },
-    );
-    let map = core::pedersen::pedersen(selector!("paved"), selector!("tile_owners"));
-    let address = map_entry_address(map, array![g.into(), 7].span());
-    assert_eq!(*load(store.contract, address, 1).at(0), 'ALICE');
-    // The game's player is not written: its tiles read 0
-    let address = map_entry_address(map, array![g.into(), 8].span());
-    assert_eq!(*load(store.contract, address, 1).at(0), 0);
+    // Every tile of the single player reads seat 0
+    assert_seat_zero(store, g);
 }

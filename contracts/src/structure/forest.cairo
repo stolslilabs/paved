@@ -15,9 +15,10 @@
 //!   is not counted (P-15, the correction of the 2024 walk, which could count an open city that a
 //!   forest touched twice).
 //!
-//! D-19: the scan also counts the forest's own tiles per owner as it walks them (ruling 2: not the
-//! tiles of the roads and cities around it), and the forest's points go to the owner of the most
-//! tiles (`owners.cairo`). In a game with one player the tally is off and the winner is the player.
+//! D-19: the scan also counts the forest's own tiles per seat as it walks them (ruling 2: not the
+//! tiles of the roads and cities around it), and the forest's points go to the seat of the most
+//! tiles (`owners.cairo`). In a game with one player the scan is given no tally (`None`): it counts
+//! nothing, builds no set, and the winner is the player.
 
 use core::dict::{Felt252Dict, Felt252DictTrait};
 use paved::events::{Event, Scored};
@@ -25,7 +26,7 @@ use paved::helpers::multiplier::compute_multiplier;
 use paved::models::game::{Game, GameImpl};
 use paved::models::tile::Tile;
 use paved::store::{Store, StoreImpl};
-use paved::structure::owners::{Tally, TallyTrait};
+use paved::structure::owners::{Tally, TallyTrait, player_of};
 use paved::structure::record::{open_of, ref_of, size_of};
 use paved::structure::state::{Structures, StructuresTrait};
 use paved::structure::tables;
@@ -47,19 +48,22 @@ pub fn assess_forest(
     ref structures: Structures,
     ref store: Store,
 ) {
-    // [Compute] The roads and cities around the forest, and its tiles per owner
-    let mut tally = if solo {
-        TallyTrait::off(game.id, game.player_id)
+    // [Compute] The roads and cities around the forest, and its tiles per seat
+    let mut tally: Option<Tally> = if solo {
+        Option::None
     } else {
-        TallyTrait::new(game.id, game.player_id)
+        Option::Some(TallyTrait::new())
     };
     let (open_road, roads, cities) = scan(tile, refs, area, ref structures, ref tally);
     if open_road {
         return;
     }
 
-    // [Effect] Score the forest for its winner
-    let winner = tally.winner();
+    // [Effect] Score the forest for its winner (the game's player in a game with one player)
+    let winner = match tally {
+        Option::Some(mut counted) => player_of(game.player_id, counted.winner()),
+        Option::None => game.player_id,
+    };
     let size: u32 = size_of(record).into();
     let points = if winner == 0 {
         0
@@ -88,10 +92,10 @@ pub fn assess_forest(
 
 /// Walks the forest of `area` of `tile` and returns whether an adjacent road is still open, the
 /// number of distinct closed roads and the number of distinct closed cities adjacent to it; it
-/// counts the forest's tiles in `tally` (nothing when the tally is off). The forest must be closed
+/// counts the forest's tiles in `tally` (nothing for `None`). The forest must be closed
 /// (`open == 0` on its root), so that every position it needs is taken.
 pub fn scan(
-    tile: Tile, refs: u128, area: u8, ref structures: Structures, ref tally: Tally,
+    tile: Tile, refs: u128, area: u8, ref structures: Structures, ref tally: Option<Tally>,
 ) -> (bool, u32, u32) {
     let mut walker = WalkerTrait::new(tile, refs, area, ref structures);
     let mut road_roots: Felt252Dict<bool> = Default::default();
@@ -138,8 +142,14 @@ pub fn scan(
             other += 1;
         }
 
-        // [Compute] The node's tile for its owner, then the next nodes of the forest
-        tally.add(node.id);
+        // [Compute] The node's tile for its seat, then the next nodes of the forest
+        tally = match tally {
+            Option::Some(mut counted) => {
+                counted.add(node);
+                Option::Some(counted)
+            },
+            Option::None => Option::None,
+        };
         walker.expand(node, node_area);
     }
     (open_road, roads, cities)

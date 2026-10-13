@@ -6,7 +6,8 @@
 //! the code that D-19b changed, copied from 7d04872 (`Game::assess`, `structure/assessment.cairo`,
 //! the forest scan of `structure/forest.cairo`, `PlayableComponent::build`), with its `paved::`
 //! paths kept. The modules D-19b left alone (the store's existing maps, placement, the record
-//! pages, the tables) are shared: D-19b only appends the `tile_owners` map to `PavedStorage`.
+//! pages, the tables) are shared: D-19b only adds the owner's seat to the tile's slot (bits 96 to
+//! 104), which a seat-0 tile, the only kind a single-player game places, writes as 0, as D-18 did.
 //! `DailyBeforeD19` runs `build` as `PlayableComponent::build` of 7d04872 did, on the same storage
 //! node (`selector!("paved")`), and upgrades as `Daily` does (owner only). Its game-over tail
 //! (tournament, quests) is left out: the test does not end its games.

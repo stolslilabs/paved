@@ -17,7 +17,7 @@ use paved::models::tile::{Tile, TileIntoLayout, TileTrait, ZeroableTile};
 use paved::store::{Store, StoreImpl};
 use paved::structure::assessment::{score_generic, score_wonder};
 use paved::structure::forest::assess_forest;
-use paved::structure::owners::{TallyTrait, structure_tally, wonder_tally};
+use paved::structure::owners::{TallyTrait, player_of, structure_tally, wonder_tally};
 use paved::structure::placement::{Neighborhood, NeighborhoodTrait};
 use paved::structure::record::{open_of, ref_of};
 use paved::structure::state::{Structures, StructuresTrait};
@@ -335,9 +335,10 @@ pub impl GameImpl of GameTrait {
     /// first one only. Only the move that closes a structure reaches it with `open == 0`: a closed
     /// structure has no half-edge left towards an empty position, so no later tile joins it.
     ///
-    /// D-19: a structure scores for its winner, the owner of the most of its tiles
+    /// D-19: a structure scores for its winner, the seat of the most of its tiles
     /// (`structure/owners.cairo`), counted by a walk on the move that closes it. In a game with one
-    /// player (`solo`) the winner is that player and nothing is walked.
+    /// player (`solo`) the winner is that player (never 0: a game's player is the caller of its
+    /// spawn) and nothing is walked.
     #[inline]
     fn assess(
         ref self: Game,
@@ -392,7 +393,8 @@ pub impl GameImpl of GameTrait {
                     let winner = if solo {
                         self.player_id
                     } else {
-                        wonder_tally(self.player_id, tile, ref structures).winner()
+                        let mut tally = wonder_tally(tile, ref structures);
+                        player_of(self.player_id, tally.winner())
                     };
                     score_wonder(ref self, ref store, winner);
                 },
@@ -403,7 +405,8 @@ pub impl GameImpl of GameTrait {
                     let winner = if solo {
                         self.player_id
                     } else {
-                        structure_tally(self.player_id, tile, refs, area, ref structures).winner()
+                        let mut tally = structure_tally(tile, refs, area, ref structures);
+                        player_of(self.player_id, tally.winner())
                     };
                     score_generic(ref self, ref store, record, category, winner);
                 },
@@ -425,8 +428,8 @@ pub impl GameImpl of GameTrait {
                     let winner = if solo {
                         self.player_id
                     } else {
-                        wonder_tally(self.player_id, around.tile(*direction), ref structures)
-                            .winner()
+                        let mut tally = wonder_tally(around.tile(*direction), ref structures);
+                        player_of(self.player_id, tally.winner())
                     };
                     score_wonder(ref self, ref store, winner);
                 }

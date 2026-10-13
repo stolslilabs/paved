@@ -363,6 +363,7 @@ mod tests {
                     orientation: Orientation::North.into(),
                     x: CENTER + 10,
                     y: CENTER + 10,
+                    owner: 0,
                 };
                 let s = StoreImpl::new();
                 s.set_tile(tile);

@@ -5,15 +5,14 @@
 //! Each move is built by `Daily` as in the golden game (the skip on: the cost of D-18), with its
 //! L2 gas read around the call. Then, in the contract's storage, the count that the move would run
 //! with the skip off is run and measured alone: `structure_tally` for each road or city it closes,
-//! the forest scan with its tally on less the same scan with it off for each forest, and
+//! the forest scan with a tally less the same scan without one (`None`) for each forest, and
 //! `wonder_tally` for each wonder. The two figures added are the move with the skip off (an
 //! estimate: the count runs here outside the call, with the same reads). Run by hand:
 //! `snforge test --ignored test_walk_cost_full_deck`.
 
 use core::testing::get_available_gas;
-use paved::models::game::GameTrait;
 use paved::models::tile::{CENTER, Tile};
-use paved::store::{StoreImpl, StoreTrait};
+use paved::store::StoreImpl;
 use paved::structure::forest::scan;
 use paved::structure::owners::{TallyTrait, structure_tally, wonder_tally};
 use paved::structure::placement::{self, NeighborhoodTrait};
@@ -90,32 +89,35 @@ fn closed_wonders(game_id: u32, x: u32, y: u32) -> u16 {
     closed
 }
 
-fn tally_road_or_city(player_id: felt252, tile: Tile, refs: u128, area: u8) -> felt252 {
+fn tally_road_or_city(tile: Tile, refs: u128, area: u8) -> Option<u8> {
     let mut structures = StructuresTrait::new(tile.game_id);
-    structure_tally(player_id, tile, refs, area, ref structures).winner()
+    let mut tally = structure_tally(tile, refs, area, ref structures);
+    tally.winner()
 }
 
-fn tally_wonder(player_id: felt252, wonder: Tile) -> felt252 {
+fn tally_wonder(wonder: Tile) -> Option<u8> {
     let mut structures = StructuresTrait::new(wonder.game_id);
-    wonder_tally(player_id, wonder, ref structures).winner()
+    let mut tally = wonder_tally(wonder, ref structures);
+    tally.winner()
 }
 
-fn scan_forest(player_id: felt252, tile: Tile, refs: u128, area: u8, on: bool) -> felt252 {
+fn scan_forest(tile: Tile, refs: u128, area: u8, on: bool) -> Option<u8> {
     let mut structures = StructuresTrait::new(tile.game_id);
     let mut tally = if on {
-        TallyTrait::new(tile.game_id, player_id)
+        Option::Some(TallyTrait::new())
     } else {
-        TallyTrait::off(tile.game_id, player_id)
+        Option::None
     };
     scan(tile, refs, area, ref structures, ref tally);
-    tally.winner()
+    match tally {
+        Option::Some(mut counted) => counted.winner(),
+        Option::None => Option::None,
+    }
 }
 
 /// The L2 gas of the count the move that built `tile_id` would run with the skip off, the
 /// closures it measured printed. `before`: the wonders around that were closed before the move.
 fn walk_cost(game_id: u32, tile_id: u32, before: u16, step: u32) -> u128 {
-    let s = StoreImpl::new();
-    let game = s.game(game_id);
     let (tile, refs) = StoreImpl::tile_with_refs(game_id, tile_id);
     let mut structures = StructuresTrait::new(game_id);
     let mut done: Array<u32> = array![];
@@ -146,21 +148,21 @@ fn walk_cost(game_id: u32, tile_id: u32, before: u16, step: u32) -> u128 {
         let (spent, label) = match category {
             Category::Wonder => {
                 let start = get_available_gas();
-                tally_wonder(game.player_id, tile);
+                let _ = tally_wonder(tile);
                 (start - get_available_gas(), "wonder")
             },
             Category::Forest => {
                 let start = get_available_gas();
-                scan_forest(game.player_id, tile, refs, area, false);
+                let _ = scan_forest(tile, refs, area, false);
                 let off = start - get_available_gas();
                 let start = get_available_gas();
-                scan_forest(game.player_id, tile, refs, area, true);
+                let _ = scan_forest(tile, refs, area, true);
                 let on = start - get_available_gas();
                 (on - off, "forest")
             },
             _ => {
                 let start = get_available_gas();
-                tally_road_or_city(game.player_id, tile, refs, area);
+                let _ = tally_road_or_city(tile, refs, area);
                 let label: ByteArray = if category == Category::Road {
                     "road"
                 } else {
@@ -179,7 +181,7 @@ fn walk_cost(game_id: u32, tile_id: u32, before: u16, step: u32) -> u128 {
         let bit = placement::bit(direction);
         if after & bit != 0 && before & bit == 0 {
             let start = get_available_gas();
-            tally_wonder(game.player_id, around.tile(direction));
+            let _ = tally_wonder(around.tile(direction));
             let spent = start - get_available_gas();
             println!("WALK step={} wonder nodes=9 gas={}", step, spent);
             cost += spent;

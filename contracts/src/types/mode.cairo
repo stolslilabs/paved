@@ -65,15 +65,16 @@ pub impl ModeImpl of ModeTrait {
         }
     }
 
-    /// Whether a game of the mode has one player (D-19): its structures score for that player
-    /// with no count of their tiles' owners. Daily and Tutorial do; a multiplayer mode answers
-    /// false here, which turns the majority count on.
+    /// Whether a game of the mode has one player (D-19): every tile is seat 0, the game's player,
+    /// so its structures score for that player with no count of their tiles' seats. Daily and
+    /// Tutorial do. Every mode is named, with no fallthrough: a multiplayer mode adds its own arm,
+    /// false, which turns the majority count on. `None` is no game (`Game::new` refuses it): false.
     #[inline]
     fn solo(self: Mode) -> bool {
         match self {
+            Mode::None => false,
             Mode::Daily => true,
             Mode::Tutorial => true,
-            _ => false,
         }
     }
 
